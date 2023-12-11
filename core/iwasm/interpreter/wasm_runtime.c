@@ -905,8 +905,8 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
                 break;
             }
 #if WASM_ENABLE_GC != 0
-            case INIT_EXPR_TYPE_STRUCT_NEW_CANON:
-            case INIT_EXPR_TYPE_STRUCT_NEW_CANON_DEFAULT:
+            case INIT_EXPR_TYPE_STRUCT_NEW:
+            case INIT_EXPR_TYPE_STRUCT_NEW_DEFAULT:
             {
                 WASMRttType *rtt_type;
                 WASMStructObjectRef struct_obj;
@@ -914,7 +914,7 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
                 WASMStructNewInitValues *init_values = NULL;
                 uint32 type_idx;
 
-                if (flag == INIT_EXPR_TYPE_STRUCT_NEW_CANON) {
+                if (flag == INIT_EXPR_TYPE_STRUCT_NEW) {
                     init_values = (WASMStructNewInitValues *)init_expr->u.data;
                     type_idx = init_values->type_idx;
                 }
@@ -939,7 +939,7 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
                     goto fail;
                 }
 
-                if (flag == INIT_EXPR_TYPE_STRUCT_NEW_CANON) {
+                if (flag == INIT_EXPR_TYPE_STRUCT_NEW) {
                     uint32 field_idx;
 
                     bh_assert(init_values->count == struct_type->field_count);
@@ -955,9 +955,9 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
                 global->initial_value.gc_obj = (void *)struct_obj;
                 break;
             }
-            case INIT_EXPR_TYPE_ARRAY_NEW_CANON:
-            case INIT_EXPR_TYPE_ARRAY_NEW_CANON_DEFAULT:
-            case INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED:
+            case INIT_EXPR_TYPE_ARRAY_NEW:
+            case INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT:
+            case INIT_EXPR_TYPE_ARRAY_NEW_FIXED:
             {
                 WASMRttType *rtt_type;
                 WASMArrayObjectRef array_obj;
@@ -966,9 +966,9 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
                 WASMValue *arr_init_val = NULL, empty_val = { 0 };
                 uint32 type_idx, len;
 
-                if (flag == INIT_EXPR_TYPE_ARRAY_NEW_CANON_DEFAULT) {
-                    type_idx = init_expr->u.array_new_canon_fixed.type_index;
-                    len = init_expr->u.array_new_canon_fixed.N;
+                if (flag == INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT) {
+                    type_idx = init_expr->u.array_new_default.type_index;
+                    len = init_expr->u.array_new_default.N;
                     arr_init_val = &empty_val;
                 }
                 else {
@@ -976,7 +976,7 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
                     type_idx = init_values->type_idx;
                     len = init_values->length;
 
-                    if (flag == INIT_EXPR_TYPE_ARRAY_NEW_CANON) {
+                    if (flag == INIT_EXPR_TYPE_ARRAY_NEW) {
                         arr_init_val = init_values->elem_data;
                     }
                 }
@@ -999,7 +999,7 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
                     goto fail;
                 }
 
-                if (flag == INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED) {
+                if (flag == INIT_EXPR_TYPE_ARRAY_NEW_FIXED) {
                     uint32 elem_idx;
 
                     bh_assert(init_values);
@@ -2461,7 +2461,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
             bh_assert((flag == INIT_EXPR_TYPE_GET_GLOBAL)
                       || (flag == INIT_EXPR_TYPE_REFNULL_CONST)
                       || ((flag >= INIT_EXPR_TYPE_FUNCREF_CONST)
-                          && (flag <= INIT_EXPR_TYPE_EXTERN_EXTERNALIZE)));
+                          && (flag <= INIT_EXPR_TYPE_EXTERN_CONVERT_ANY)));
 
             switch (flag) {
                 case INIT_EXPR_TYPE_REFNULL_CONST:
@@ -2502,8 +2502,8 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                         globals[init_expr->u.global_index].initial_value.gc_obj;
                     break;
                 }
-                case INIT_EXPR_TYPE_STRUCT_NEW_CANON:
-                case INIT_EXPR_TYPE_STRUCT_NEW_CANON_DEFAULT:
+                case INIT_EXPR_TYPE_STRUCT_NEW:
+                case INIT_EXPR_TYPE_STRUCT_NEW_DEFAULT:
                 {
                     WASMRttType *rtt_type;
                     WASMStructObjectRef struct_obj;
@@ -2511,7 +2511,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                     WASMStructNewInitValues *init_values = NULL;
                     uint32 type_idx;
 
-                    if (flag == INIT_EXPR_TYPE_STRUCT_NEW_CANON) {
+                    if (flag == INIT_EXPR_TYPE_STRUCT_NEW) {
                         init_values =
                             (WASMStructNewInitValues *)init_expr->u.data;
                         type_idx = init_values->type_idx;
@@ -2539,7 +2539,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                         goto fail;
                     }
 
-                    if (flag == INIT_EXPR_TYPE_STRUCT_NEW_CANON) {
+                    if (flag == INIT_EXPR_TYPE_STRUCT_NEW) {
                         uint32 field_idx;
 
                         bh_assert(init_values->count
@@ -2556,9 +2556,9 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                     ref = struct_obj;
                     break;
                 }
-                case INIT_EXPR_TYPE_ARRAY_NEW_CANON:
-                case INIT_EXPR_TYPE_ARRAY_NEW_CANON_DEFAULT:
-                case INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED:
+                case INIT_EXPR_TYPE_ARRAY_NEW:
+                case INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT:
+                case INIT_EXPR_TYPE_ARRAY_NEW_FIXED:
                 {
                     WASMRttType *rtt_type;
                     WASMArrayObjectRef array_obj;
@@ -2567,10 +2567,9 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                     WASMValue *arr_init_val = NULL, empty_val = { 0 };
                     uint32 type_idx, len;
 
-                    if (flag == INIT_EXPR_TYPE_ARRAY_NEW_CANON_DEFAULT) {
-                        type_idx =
-                            init_expr->u.array_new_canon_fixed.type_index;
-                        len = init_expr->u.array_new_canon_fixed.N;
+                    if (flag == INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT) {
+                        type_idx = init_expr->u.array_new_default.type_index;
+                        len = init_expr->u.array_new_default.N;
                         arr_init_val = &empty_val;
                     }
                     else {
@@ -2579,7 +2578,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                         type_idx = init_values->type_idx;
                         len = init_values->length;
 
-                        if (flag == INIT_EXPR_TYPE_ARRAY_NEW_CANON_DEFAULT) {
+                        if (flag == INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT) {
                             arr_init_val = init_values->elem_data;
                         }
                     }
@@ -2603,7 +2602,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                         goto fail;
                     }
 
-                    if (flag == INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED) {
+                    if (flag == INIT_EXPR_TYPE_ARRAY_NEW_FIXED) {
                         uint32 elem_idx;
 
                         bh_assert(init_values);

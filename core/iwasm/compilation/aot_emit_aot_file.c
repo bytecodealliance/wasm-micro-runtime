@@ -295,7 +295,7 @@ get_init_expr_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data,
             /* type_index */
             size += sizeof(uint32);
             break;
-        case INIT_EXPR_TYPE_STRUCT_NEW_CANON:
+        case INIT_EXPR_TYPE_STRUCT_NEW:
         {
             uint32 i;
             WASMStructNewInitValues *struct_new_init_values =
@@ -319,19 +319,19 @@ get_init_expr_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data,
             }
             break;
         }
-        case INIT_EXPR_TYPE_STRUCT_NEW_CANON_DEFAULT:
+        case INIT_EXPR_TYPE_STRUCT_NEW_DEFAULT:
             /* type_index */
             size += sizeof(uint32);
             break;
-        case INIT_EXPR_TYPE_ARRAY_NEW_CANON:
+        case INIT_EXPR_TYPE_ARRAY_NEW:
             /* type_index + len + elem */
             size += sizeof(uint32) * 2 + sizeof(WASMValue);
             break;
-        case INIT_EXPR_TYPE_ARRAY_NEW_CANON_DEFAULT:
+        case INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT:
             /* type_index + len */
             size += sizeof(uint32) * 2;
             break;
-        case INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED:
+        case INIT_EXPR_TYPE_ARRAY_NEW_FIXED:
         {
             WASMArrayNewInitValues *array_new_init_values =
                 (WASMArrayNewInitValues *)expr->u.data;
@@ -1840,7 +1840,7 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         case INIT_EXPR_TYPE_I31_NEW:
             EMIT_U32(expr->u.i32);
             break;
-        case INIT_EXPR_TYPE_STRUCT_NEW_CANON:
+        case INIT_EXPR_TYPE_STRUCT_NEW:
         {
             uint32 i;
             WASMStructNewInitValues *init_values =
@@ -1874,12 +1874,12 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
             break;
         }
-        case INIT_EXPR_TYPE_STRUCT_NEW_CANON_DEFAULT:
+        case INIT_EXPR_TYPE_STRUCT_NEW_DEFAULT:
             EMIT_U32(expr->u.type_index);
             break;
-        case INIT_EXPR_TYPE_ARRAY_NEW_CANON:
-        case INIT_EXPR_TYPE_ARRAY_NEW_CANON_DEFAULT:
-        case INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED:
+        case INIT_EXPR_TYPE_ARRAY_NEW:
+        case INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT:
+        case INIT_EXPR_TYPE_ARRAY_NEW_FIXED:
         {
             uint32 i;
             WASMArrayNewInitValues *init_values =
@@ -1895,8 +1895,7 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
             bh_assert(array_type);
 
-            if (expr->init_expr_type
-                != INIT_EXPR_TYPE_ARRAY_NEW_CANON_DEFAULT) {
+            if (expr->init_expr_type != INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT) {
                 uint32 field_size = wasm_value_type_size_internal(
                     array_type->elem_type, comp_ctx->pointer_size);
                 for (i = 0; i < init_values->length; i++) {

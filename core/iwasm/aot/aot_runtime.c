@@ -169,8 +169,8 @@ init_global_data(uint8 *global_data, uint8 type, WASMValue *initial_value)
                     && type <= (uint8)REF_TYPE_STRINGVIEWWTF16)
 #endif
             ) {
-                bh_memcpy_s(global_data, sizeof(V128), &initial_value->gc_obj,
-                            sizeof(wasm_obj_t));
+                bh_memcpy_s(global_data, sizeof(wasm_obj_t),
+                            &initial_value->gc_obj, sizeof(wasm_obj_t));
                 break;
             }
 #endif /* end of WASM_ENABLE_GC */
@@ -187,7 +187,7 @@ assign_table_init_value(AOTModuleInstance *module_inst, AOTModule *module,
     uint8 flag = init_expr->init_expr_type;
 
     bh_assert(flag >= INIT_EXPR_TYPE_GET_GLOBAL
-              && flag <= INIT_EXPR_TYPE_EXTERN_EXTERNALIZE);
+              && flag <= INIT_EXPR_TYPE_EXTERN_CONVERT_ANY);
 
     switch (flag) {
         case INIT_EXPR_TYPE_GET_GLOBAL:
@@ -238,8 +238,8 @@ assign_table_init_value(AOTModuleInstance *module_inst, AOTModule *module,
             PUT_REF_TO_ADDR(addr, i31_obj);
             break;
         }
-        case INIT_EXPR_TYPE_STRUCT_NEW_CANON:
-        case INIT_EXPR_TYPE_STRUCT_NEW_CANON_DEFAULT:
+        case INIT_EXPR_TYPE_STRUCT_NEW:
+        case INIT_EXPR_TYPE_STRUCT_NEW_DEFAULT:
         {
             WASMRttType *rtt_type;
             WASMStructObjectRef struct_obj;
@@ -247,7 +247,7 @@ assign_table_init_value(AOTModuleInstance *module_inst, AOTModule *module,
             WASMStructNewInitValues *init_values = NULL;
             uint32 type_idx;
 
-            if (flag == INIT_EXPR_TYPE_STRUCT_NEW_CANON) {
+            if (flag == INIT_EXPR_TYPE_STRUCT_NEW) {
                 init_values = (WASMStructNewInitValues *)init_expr->u.data;
                 type_idx = init_values->type_idx;
             }
@@ -274,7 +274,7 @@ assign_table_init_value(AOTModuleInstance *module_inst, AOTModule *module,
                 return false;
             }
 
-            if (flag == INIT_EXPR_TYPE_STRUCT_NEW_CANON) {
+            if (flag == INIT_EXPR_TYPE_STRUCT_NEW) {
                 uint32 field_idx;
 
                 bh_assert(init_values->count == struct_type->field_count);
@@ -289,9 +289,9 @@ assign_table_init_value(AOTModuleInstance *module_inst, AOTModule *module,
             PUT_REF_TO_ADDR(addr, struct_obj);
             break;
         }
-        case INIT_EXPR_TYPE_ARRAY_NEW_CANON:
-        case INIT_EXPR_TYPE_ARRAY_NEW_CANON_DEFAULT:
-        case INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED:
+        case INIT_EXPR_TYPE_ARRAY_NEW:
+        case INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT:
+        case INIT_EXPR_TYPE_ARRAY_NEW_FIXED:
         {
             WASMRttType *rtt_type;
             WASMArrayObjectRef array_obj;
@@ -300,9 +300,9 @@ assign_table_init_value(AOTModuleInstance *module_inst, AOTModule *module,
             WASMValue *arr_init_val = NULL, empty_val = { 0 };
             uint32 type_idx, len;
 
-            if (flag == INIT_EXPR_TYPE_ARRAY_NEW_CANON_DEFAULT) {
-                type_idx = init_expr->u.array_new_canon_fixed.type_index;
-                len = init_expr->u.array_new_canon_fixed.N;
+            if (flag == INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT) {
+                type_idx = init_expr->u.array_new_default.type_index;
+                len = init_expr->u.array_new_default.N;
                 arr_init_val = &empty_val;
             }
             else {
@@ -310,7 +310,7 @@ assign_table_init_value(AOTModuleInstance *module_inst, AOTModule *module,
                 type_idx = init_values->type_idx;
                 len = init_values->length;
 
-                if (flag == INIT_EXPR_TYPE_ARRAY_NEW_CANON) {
+                if (flag == INIT_EXPR_TYPE_ARRAY_NEW) {
                     arr_init_val = init_values->elem_data;
                 }
             }
@@ -333,7 +333,7 @@ assign_table_init_value(AOTModuleInstance *module_inst, AOTModule *module,
                 return false;
             }
 
-            if (flag == INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED) {
+            if (flag == INIT_EXPR_TYPE_ARRAY_NEW_FIXED) {
                 uint32 elem_idx;
 
                 bh_assert(init_values);
@@ -447,8 +447,8 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                 PUT_REF_TO_ADDR(p, i31_obj);
                 break;
             }
-            case INIT_EXPR_TYPE_STRUCT_NEW_CANON:
-            case INIT_EXPR_TYPE_STRUCT_NEW_CANON_DEFAULT:
+            case INIT_EXPR_TYPE_STRUCT_NEW:
+            case INIT_EXPR_TYPE_STRUCT_NEW_DEFAULT:
             {
                 WASMRttType *rtt_type;
                 WASMStructObjectRef struct_obj;
@@ -456,7 +456,7 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                 WASMStructNewInitValues *init_values = NULL;
                 uint32 type_idx;
 
-                if (flag == INIT_EXPR_TYPE_STRUCT_NEW_CANON) {
+                if (flag == INIT_EXPR_TYPE_STRUCT_NEW) {
                     init_values = (WASMStructNewInitValues *)init_expr->u.data;
                     type_idx = init_values->type_idx;
                 }
@@ -483,7 +483,7 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                     return false;
                 }
 
-                if (flag == INIT_EXPR_TYPE_STRUCT_NEW_CANON) {
+                if (flag == INIT_EXPR_TYPE_STRUCT_NEW) {
                     uint32 field_idx;
 
                     bh_assert(init_values->count == struct_type->field_count);
@@ -499,9 +499,9 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                 PUT_REF_TO_ADDR(p, struct_obj);
                 break;
             }
-            case INIT_EXPR_TYPE_ARRAY_NEW_CANON:
-            case INIT_EXPR_TYPE_ARRAY_NEW_CANON_DEFAULT:
-            case INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED:
+            case INIT_EXPR_TYPE_ARRAY_NEW:
+            case INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT:
+            case INIT_EXPR_TYPE_ARRAY_NEW_FIXED:
             {
                 WASMRttType *rtt_type;
                 WASMArrayObjectRef array_obj;
@@ -510,9 +510,9 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                 WASMValue *arr_init_val = NULL, empty_val = { 0 };
                 uint32 type_idx, len;
 
-                if (flag == INIT_EXPR_TYPE_ARRAY_NEW_CANON_DEFAULT) {
-                    type_idx = init_expr->u.array_new_canon_fixed.type_index;
-                    len = init_expr->u.array_new_canon_fixed.N;
+                if (flag == INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT) {
+                    type_idx = init_expr->u.array_new_default.type_index;
+                    len = init_expr->u.array_new_default.N;
                     arr_init_val = &empty_val;
                 }
                 else {
@@ -520,7 +520,7 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                     type_idx = init_values->type_idx;
                     len = init_values->length;
 
-                    if (flag == INIT_EXPR_TYPE_ARRAY_NEW_CANON) {
+                    if (flag == INIT_EXPR_TYPE_ARRAY_NEW) {
                         arr_init_val = init_values->elem_data;
                     }
                 }
@@ -543,7 +543,7 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                     return false;
                 }
 
-                if (flag == INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED) {
+                if (flag == INIT_EXPR_TYPE_ARRAY_NEW_FIXED) {
                     uint32 elem_idx;
 
                     bh_assert(init_values);

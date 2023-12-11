@@ -695,9 +695,9 @@ destroy_const_expr_stack(ConstExprContext *ctx)
 static void
 destroy_init_expr(InitializerExpression *expr)
 {
-    if (expr->init_expr_type == INIT_EXPR_TYPE_STRUCT_NEW_CANON
-        || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_CANON
-        || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED) {
+    if (expr->init_expr_type == INIT_EXPR_TYPE_STRUCT_NEW
+        || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW
+        || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_FIXED) {
         wasm_runtime_free(expr->u.data);
     }
 }
@@ -1193,9 +1193,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                             }
                             len = len_val.i32;
 
-                            cur_value.array_new_canon_fixed.type_index =
-                                type_idx;
-                            cur_value.array_new_canon_fixed.N = len;
+                            cur_value.array_new_default.type_index = type_idx;
+                            cur_value.array_new_default.N = len;
                         }
 
                         wasm_set_refheaptype_typeidx(
@@ -1290,22 +1289,19 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
     if (init_expr->init_expr_type == WASM_OP_GC_PREFIX) {
         switch (opcode1) {
             case WASM_OP_STRUCT_NEW:
-                init_expr->init_expr_type = INIT_EXPR_TYPE_STRUCT_NEW_CANON;
+                init_expr->init_expr_type = INIT_EXPR_TYPE_STRUCT_NEW;
                 break;
             case WASM_OP_STRUCT_NEW_DEFAULT:
-                init_expr->init_expr_type =
-                    INIT_EXPR_TYPE_STRUCT_NEW_CANON_DEFAULT;
+                init_expr->init_expr_type = INIT_EXPR_TYPE_STRUCT_NEW_DEFAULT;
                 break;
             case WASM_OP_ARRAY_NEW:
-                init_expr->init_expr_type = INIT_EXPR_TYPE_ARRAY_NEW_CANON;
+                init_expr->init_expr_type = INIT_EXPR_TYPE_ARRAY_NEW;
                 break;
             case WASM_OP_ARRAY_NEW_DEFAULT:
-                init_expr->init_expr_type =
-                    INIT_EXPR_TYPE_ARRAY_NEW_CANON_DEFAULT;
+                init_expr->init_expr_type = INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT;
                 break;
             case WASM_OP_ARRAY_NEW_FIXED:
-                init_expr->init_expr_type =
-                    INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED;
+                init_expr->init_expr_type = INIT_EXPR_TYPE_ARRAY_NEW_FIXED;
                 break;
             case WASM_OP_REF_I31:
                 init_expr->init_expr_type = INIT_EXPR_TYPE_I31_NEW;
@@ -3594,10 +3590,9 @@ load_table_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                                     table->elem_type, table->elem_ref_type,
                                     error_buf, error_buf_size))
                     return false;
-                if (table->init_expr.init_expr_type
-                        >= INIT_EXPR_TYPE_STRUCT_NEW_CANON
-                    || table->init_expr.init_expr_type
-                           >= INIT_EXPR_TYPE_EXTERN_EXTERNALIZE) {
+                if (table->init_expr.init_expr_type >= INIT_EXPR_TYPE_STRUCT_NEW
+                    && table->init_expr.init_expr_type
+                           <= INIT_EXPR_TYPE_ARRAY_NEW_FIXED) {
                     set_error_buf(
                         error_buf, error_buf_size,
                         "unsupported initializer expression for table");
@@ -4091,7 +4086,7 @@ load_init_expr_vec(const uint8 **p_buf, const uint8 *buf_end,
                   || (init_expr->init_expr_type == INIT_EXPR_TYPE_REFNULL_CONST)
                   || (init_expr->init_expr_type >= INIT_EXPR_TYPE_FUNCREF_CONST
                       && init_expr->init_expr_type
-                             <= INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED));
+                             <= INIT_EXPR_TYPE_ARRAY_NEW_FIXED));
     }
 
     *p_buf = p;

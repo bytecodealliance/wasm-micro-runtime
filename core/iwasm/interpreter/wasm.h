@@ -111,17 +111,14 @@ typedef void *table_elem_type_t;
 #define INIT_EXPR_TYPE_GET_GLOBAL 0x23
 #define INIT_EXPR_TYPE_REFNULL_CONST 0xD0
 #define INIT_EXPR_TYPE_FUNCREF_CONST 0xD2
-#define INIT_EXPR_TYPE_STRUCT_NEW_CANON 0xD3
-#define INIT_EXPR_TYPE_STRUCT_NEW_CANON_DEFAULT 0xD4
-#define INIT_EXPR_TYPE_ARRAY_NEW_CANON 0xD5
-#define INIT_EXPR_TYPE_ARRAY_NEW_CANON_DEFAULT 0xD6
-#define INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED 0xD7
+#define INIT_EXPR_TYPE_STRUCT_NEW 0xD3
+#define INIT_EXPR_TYPE_STRUCT_NEW_DEFAULT 0xD4
+#define INIT_EXPR_TYPE_ARRAY_NEW 0xD5
+#define INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT 0xD6
+#define INIT_EXPR_TYPE_ARRAY_NEW_FIXED 0xD7
 #define INIT_EXPR_TYPE_I31_NEW 0xD8
-#define INIT_EXPR_TYPE_EXTERN_INTERNALIZE 0xD9
-#define INIT_EXPR_TYPE_EXTERN_EXTERNALIZE 0xDA
-
-/* TODO: const initial expression of struct/array new */
-#define INIT_EXPR_TYPE_ERROR 0xff
+#define INIT_EXPR_TYPE_ANY_CONVERT_EXTERN 0xD9
+#define INIT_EXPR_TYPE_EXTERN_CONVERT_ANY 0xDA
 
 #define WASM_MAGIC_NUMBER 0x6d736100
 #define WASM_CURRENT_VERSION 1
@@ -210,7 +207,7 @@ typedef union WASMValue {
     struct {
         uint32 type_index;
         uint32 N;
-    } array_new_canon_fixed;
+    } array_new_default;
 #endif
 } WASMValue;
 #endif /* end of WASM_VALUE_DEFINED */

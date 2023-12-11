@@ -86,7 +86,7 @@ typedef union WASMValue {
     struct {
         uint32_t type_index;
         uint32_t N;
-    } array_new_canon_fixed;
+    } array_new_default;
     /* pointer to a memory space holding more data, current usage:
      *  struct.new init value: WASMStructNewInitValues *
      *  array.new init value: WASMArrayNewInitValues *

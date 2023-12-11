@@ -1593,10 +1593,10 @@ load_init_expr_vec(const uint8 **p_buf, const uint8 *buf_end,
                             error_buf_size))
             return false;
 
-        bh_assert((init_expr->init_expr_type == INIT_EXPR_TYPE_REFNULL_CONST)
-                  || (init_expr->init_expr_type >= INIT_EXPR_TYPE_FUNCREF_CONST
-                      && init_expr->init_expr_type
-                             <= INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED));
+        bh_assert(
+            (init_expr->init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL)
+            || (init_expr->init_expr_type == INIT_EXPR_TYPE_REFNULL_CONST)
+            || (init_expr->init_expr_type == INIT_EXPR_TYPE_FUNCREF_CONST));
     }
 
     *p_buf = p;

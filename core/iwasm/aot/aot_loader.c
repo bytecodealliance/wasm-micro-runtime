@@ -1106,9 +1106,9 @@ fail:
 static void
 destroy_init_expr(InitializerExpression *expr)
 {
-    if (expr->init_expr_type == INIT_EXPR_TYPE_STRUCT_NEW_CANON
-        || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_CANON
-        || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED) {
+    if (expr->init_expr_type == INIT_EXPR_TYPE_STRUCT_NEW
+        || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW
+        || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_FIXED) {
         wasm_runtime_free(expr->u.data);
     }
 }
@@ -1183,7 +1183,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         case INIT_EXPR_TYPE_I31_NEW:
             read_uint32(buf, buf_end, expr->u.i32);
             break;
-        case INIT_EXPR_TYPE_STRUCT_NEW_CANON:
+        case INIT_EXPR_TYPE_STRUCT_NEW:
         {
             uint64 size;
             uint32 type_idx, field_count;
@@ -1237,12 +1237,12 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
             break;
         }
-        case INIT_EXPR_TYPE_STRUCT_NEW_CANON_DEFAULT:
+        case INIT_EXPR_TYPE_STRUCT_NEW_DEFAULT:
             read_uint32(buf, buf_end, expr->u.type_index);
             break;
-        case INIT_EXPR_TYPE_ARRAY_NEW_CANON:
-        case INIT_EXPR_TYPE_ARRAY_NEW_CANON_DEFAULT:
-        case INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED:
+        case INIT_EXPR_TYPE_ARRAY_NEW:
+        case INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT:
+        case INIT_EXPR_TYPE_ARRAY_NEW_FIXED:
         {
             uint32 type_idx, length;
             AOTArrayType *array_type = NULL;
@@ -1258,9 +1258,9 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
             array_type = (AOTArrayType *)module->types[type_idx];
 
-            if (init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_CANON_DEFAULT) {
-                expr->u.array_new_canon_fixed.type_index = type_idx;
-                expr->u.array_new_canon_fixed.N = length;
+            if (init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT) {
+                expr->u.array_new_default.type_index = type_idx;
+                expr->u.array_new_default.N = length;
             }
             else {
 
@@ -1420,9 +1420,9 @@ load_table_list(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                             error_buf_size))
             return false;
 
-        if (table->init_expr.init_expr_type >= INIT_EXPR_TYPE_STRUCT_NEW_CANON
-            || table->init_expr.init_expr_type
-                   >= INIT_EXPR_TYPE_EXTERN_EXTERNALIZE) {
+        if (table->init_expr.init_expr_type >= INIT_EXPR_TYPE_STRUCT_NEW
+            && table->init_expr.init_expr_type
+                   <= INIT_EXPR_TYPE_EXTERN_CONVERT_ANY) {
             set_error_buf(error_buf, error_buf_size,
                           "unsupported initializer expression for table");
             return false;
