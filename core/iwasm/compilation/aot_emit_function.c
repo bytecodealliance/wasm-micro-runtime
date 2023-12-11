@@ -365,7 +365,7 @@ alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef wasm_stack_top_max, wasm_stack_top_new, offset, cmp;
     LLVMValueRef cur_frame, new_frame, prev_frame_ptr;
     LLVMValueRef cur_frame_ptr = func_ctx->cur_frame_ptr;
-    LLVMValueRef frame_ref, frame_ref_ptr;
+    LLVMValueRef frame_sp, frame_sp_ptr, frame_ref, frame_ref_ptr;
     LLVMValueRef func_idx_ptr, func_idx_val, func_inst_ptr, func_inst;
     LLVMTypeRef int8_ptr_type;
     LLVMBasicBlockRef check_wasm_stack_succ;
@@ -484,6 +484,45 @@ alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                         wasm_stack_top_ptr)) {
         aot_set_last_error("llvm build store failed");
         return false;
+    }
+
+    if (func_idx < import_func_count) {
+        /* Only need to initialize new_frame->sp when it's import function
+           otherwise they will be committed in AOT code if needed */
+
+        /* new_frame->sp = new_frame->lp + max_local_cell_num */
+        if (!comp_ctx->is_jit_mode)
+            offset = I32_CONST(comp_ctx->pointer_size * 5);
+        else
+            offset = I32_CONST(offsetof(WASMInterpFrame, sp));
+        CHECK_LLVM_CONST(offset);
+        if (!(frame_sp_ptr =
+                  LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, new_frame,
+                                        &offset, 1, "frame_sp_addr"))
+            || !(frame_sp_ptr =
+                     LLVMBuildBitCast(comp_ctx->builder, frame_sp_ptr,
+                                      int8_ptr_type, "frame_sp_ptr"))) {
+            aot_set_last_error("llvm get frame_sp_ptr failed");
+            return false;
+        }
+
+        if (!comp_ctx->is_jit_mode)
+            offset = I32_CONST(comp_ctx->pointer_size * aot_frame_ptr_num
+                               + max_local_cell_num * sizeof(uint32));
+        else
+            offset = I32_CONST(offsetof(WASMInterpFrame, lp)
+                               + max_local_cell_num * sizeof(uint32));
+        CHECK_LLVM_CONST(offset);
+        if (!(frame_sp =
+                  LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, new_frame,
+                                        &offset, 1, "frame_sp"))) {
+            aot_set_last_error("llvm build in bounds gep failed");
+            return false;
+        }
+        if (!LLVMBuildStore(comp_ctx->builder, frame_sp, frame_sp_ptr)) {
+            aot_set_last_error("llvm build store failed");
+            return false;
+        }
     }
 
 #if WASM_ENABLE_GC != 0
