@@ -272,7 +272,9 @@ func (self *Instance) CallFuncV(funcName string,
     for i = 0; i < result_count; i++ {
         switch result_types[i] {
             case C.WASM_I32:
+                fallthrough
             case C.WASM_FUNCREF:
+                fallthrough
             case C.WASM_ANYREF:
                 i32 := (int32)(argv[argc])
                 results[i] = i32

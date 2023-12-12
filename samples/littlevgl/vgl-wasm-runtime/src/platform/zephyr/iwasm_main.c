@@ -16,7 +16,12 @@
 #include "connection_native_api.h"
 #include "display_indev.h"
 
+#if KERNEL_VERSION_NUMBER < 0x030200 /* version 3.2.0 */
 #include <zephyr.h>
+#else
+#include <zephyr/kernel.h>
+#endif
+
 #include <drivers/uart.h>
 #include <device.h>
 

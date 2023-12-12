@@ -118,7 +118,7 @@ typedef union MemAllocOption {
         void *realloc_func;
         void *free_func;
         /* allocator user data, only used when
-            WASM_MEM_ALLOC_WITH_USER_DATA is defined */
+           WASM_MEM_ALLOC_WITH_USER_DATA is defined */
         void *user_data;
     } allocator;
 } MemAllocOption;
@@ -149,7 +149,7 @@ typedef struct RuntimeInitArgs {
     uint32_t n_native_symbols;
 
     /* maximum thread number, only used when
-        WASM_ENABLE_THREAD_MGR is defined */
+       WASM_ENABLE_THREAD_MGR is defined */
     uint32_t max_thread_num;
 
     /* Debug settings, only used when
@@ -169,6 +169,15 @@ typedef struct RuntimeInitArgs {
     uint32_t llvm_jit_size_level;
     /* Segue optimization flags for LLVM JIT */
     uint32_t segue_flags;
+    /**
+     * If enabled
+     * - llvm-jit will output a jitdump file for `perf inject`
+     * - aot. TBD
+     * - fast-jit. TBD
+     * - multi-tier-jit. TBD
+     * - interpreter. TBD
+     */
+    bool linux_perf_support;
 } RuntimeInitArgs;
 
 #ifndef WASM_VALKIND_T_DEFINED
@@ -311,7 +320,8 @@ wasm_runtime_is_xip_file(const uint8_t *buf, uint32_t size);
 /**
  * Callback to load a module file into a buffer in multi-module feature
  */
-typedef bool (*module_reader)(package_type_t module_type,const char *module_name,
+typedef bool (*module_reader)(package_type_t module_type,
+                              const char *module_name,
                               uint8_t **p_buffer, uint32_t *p_size);
 
 /**
@@ -423,6 +433,7 @@ wasm_runtime_get_module_hash(wasm_module_t module);
  * @param dir_list      The list of directories to preopen. (real path)
  * @param dir_count     The number of elements in dir_list.
  * @param map_dir_list  The list of directories to preopen. (mapped path)
+ *                      Format for each map entry: <guest-path>::<host-path>
  * @param map_dir_count The number of elements in map_dir_list.
  *                      If map_dir_count is smaller than dir_count,
  *                      mapped path is assumed to be same as the
@@ -431,26 +442,31 @@ wasm_runtime_get_module_hash(wasm_module_t module);
  * @param env_count     The number of elements in env.
  * @param argv          The list of command line arguments.
  * @param argc          The number of elements in argv.
- * @param stdinfd       The host file descriptor to back WASI STDIN_FILENO.
- *                      If -1 is specified, STDIN_FILENO is used.
- * @param stdoutfd      The host file descriptor to back WASI STDOUT_FILENO.
- *                      If -1 is specified, STDOUT_FILENO is used.
- * @param stderrfd      The host file descriptor to back WASI STDERR_FILENO.
- *                      If -1 is specified, STDERR_FILENO is used.
+ * @param stdin_handle  The raw host handle to back WASI STDIN_FILENO.
+ *                      If an invalid handle is specified (e.g. -1 on POSIX,
+ *                      INVALID_HANDLE_VALUE on Windows), the platform default
+ *                      for STDIN is used.
+ * @param stdoutfd      The raw host handle to back WASI STDOUT_FILENO.
+ *                      If an invalid handle is specified (e.g. -1 on POSIX,
+ *                      INVALID_HANDLE_VALUE on Windows), the platform default
+ *                      for STDOUT is used.
+ * @param stderrfd      The raw host handle to back WASI STDERR_FILENO.
+ *                      If an invalid handle is specified (e.g. -1 on POSIX,
+ *                      INVALID_HANDLE_VALUE on Windows), the platform default
+ *                      for STDERR is used.
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_wasi_args_ex(wasm_module_t module,
                            const char *dir_list[], uint32_t dir_count,
                            const char *map_dir_list[], uint32_t map_dir_count,
                            const char *env[], uint32_t env_count,
-                           char *argv[], int argc,
-                           int stdinfd, int stdoutfd, int stderrfd);
+                           char *argv[], int argc, int64_t stdinfd,
+                           int64_t stdoutfd, int64_t stderrfd);
 
 /**
  * Set WASI parameters.
  *
- * Same as wasm_runtime_set_wasi_args_ex with stdinfd = -1, stdoutfd = -1,
- * stderrfd = -1.
+ * Same as wasm_runtime_set_wasi_args_ex but with default stdio handles
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_wasi_args(wasm_module_t module,
@@ -865,6 +881,7 @@ wasm_application_execute_main(wasm_module_inst_t module_inst,
 WASM_RUNTIME_API_EXTERN bool
 wasm_application_execute_func(wasm_module_inst_t module_inst,
                               const char *name, int32_t argc, char *argv[]);
+
 /**
  * Get exception info of the WASM module instance.
  *
@@ -927,6 +944,7 @@ wasm_runtime_terminate(wasm_module_inst_t module_inst);
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_custom_data(wasm_module_inst_t module_inst,
                              void *custom_data);
+
 /**
  * Get the custom data within a WASM module instance.
  *
@@ -939,23 +957,24 @@ wasm_runtime_get_custom_data(wasm_module_inst_t module_inst);
 
 /**
  * Set the memory bounds checks flag of a WASM module instance.
- * 
+ *
  * @param module_inst the WASM module instance
  * @param enable the flag to enable/disable the memory bounds checks
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_bounds_checks(wasm_module_inst_t module_inst,
                                bool enable);
+
 /**
  * Check if the memory bounds checks flag is enabled for a WASM module instance.
- * 
- * @param module_inst the WASM module instance
  *
+ * @param module_inst the WASM module instance
  * @return true if the memory bounds checks flag is enabled, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_bounds_checks_enabled(
     wasm_module_inst_t module_inst);
+
 /**
  * Allocate memory from the heap of WASM module instance
  *
@@ -1330,7 +1349,8 @@ wasm_externref_objdel(wasm_module_inst_t module_inst, void *extern_obj);
  *
  * @param module_inst the WASM module instance that the extern object
  *        belongs to
- * @param extern_obj the external object to which to set the `extern_obj_cleanup` cleanup callback.
+ * @param extern_obj the external object to which to set the
+ *        `extern_obj_cleanup` cleanup callback.
  * @param extern_obj_cleanup a callback to release `extern_obj`
  *
  * @return true if success, false otherwise
@@ -1538,11 +1558,11 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_context_key(void *key);
 
 WASM_RUNTIME_API_EXTERN void
-wasm_runtime_set_context(wasm_module_inst_t inst, void *key,
-                                         void *ctx);
+wasm_runtime_set_context(wasm_module_inst_t inst, void *key, void *ctx);
+
 WASM_RUNTIME_API_EXTERN void
-wasm_runtime_set_context_spread(wasm_module_inst_t inst, void *key,
-                                         void *ctx);
+wasm_runtime_set_context_spread(wasm_module_inst_t inst, void *key, void *ctx);
+
 WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_get_context(wasm_module_inst_t inst, void *key);
 

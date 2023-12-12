@@ -9,7 +9,6 @@ if (NOT WAMR_BUILD_PLATFORM STREQUAL "windows")
   project (basic)
 else()
   project (basic C ASM)
-  enable_language (ASM_MASM)
 endif()
 
 ################  runtime settings  ################

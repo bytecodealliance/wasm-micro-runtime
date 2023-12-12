@@ -42,21 +42,23 @@
 #include <net/net_ip.h>
 #include <net/net_core.h>
 #include <net/net_context.h>
-
-#ifdef CONFIG_ARM_MPU
-#include <arch/arm/aarch32/cortex_m/cmsis.h>
-#endif
 #else /* else of KERNEL_VERSION_NUMBER < 0x030200 */
 #include <zephyr/net/net_pkt.h>
 #include <zephyr/net/net_if.h>
 #include <zephyr/net/net_ip.h>
 #include <zephyr/net/net_core.h>
 #include <zephyr/net/net_context.h>
+#endif /* end of KERNEL_VERSION_NUMBER < 0x030200 */
 
 #ifdef CONFIG_ARM_MPU
+#if KERNEL_VERSION_NUMBER < 0x030200 /* version 3.2.0 */
+#include <arch/arm/aarch32/cortex_m/cmsis.h>
+#elif KERNEL_VERSION_NUMBER < 0x030400 /* version 3.4.0 */
 #include <zephyr/arch/arm/aarch32/cortex_m/cmsis.h>
+#else /* > 3.4.0 */
+#include <cmsis_core.h>
 #endif
-#endif /* end of KERNEL_VERSION_NUMBER < 0x030200 */
+#endif
 
 #ifndef BH_PLATFORM_ZEPHYR
 #define BH_PLATFORM_ZEPHYR
@@ -71,6 +73,12 @@ typedef struct k_thread korp_thread;
 typedef korp_thread *korp_tid;
 typedef struct k_mutex korp_mutex;
 typedef unsigned int korp_sem;
+
+/* korp_rwlock is used in platform_api_extension.h,
+   we just define the type to make the compiler happy */
+typedef struct {
+    int dummy;
+} korp_rwlock;
 
 struct os_thread_wait_node;
 typedef struct os_thread_wait_node *os_thread_wait_list;
@@ -123,7 +131,7 @@ float strtof(const char *nptr, char **endptr);
 #endif
 
 /**
- * @brief Allocate executable memroy
+ * @brief Allocate executable memory
  *
  * @param size size of the memory to be allocated
  *
@@ -132,7 +140,7 @@ float strtof(const char *nptr, char **endptr);
 typedef void *(*exec_mem_alloc_func_t)(unsigned int size);
 
 /**
- * @brief Release executable memroy
+ * @brief Release executable memory
  *
  * @param the address of the executable memory to be released
  */
@@ -145,5 +153,17 @@ typedef void (*exec_mem_free_func_t)(void *addr);
 void
 set_exec_mem_alloc_func(exec_mem_alloc_func_t alloc_func,
                         exec_mem_free_func_t free_func);
+
+/* The below types are used in platform_api_extension.h,
+   we just define them to make the compiler happy */
+typedef int os_file_handle;
+typedef void *os_dir_stream;
+typedef int os_raw_file_handle;
+
+static inline os_file_handle
+os_get_invalid_handle()
+{
+    return -1;
+}
 
 #endif
