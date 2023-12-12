@@ -227,7 +227,7 @@ jit_compile_op_f32_compare(JitCompContext *cc, FloatCond cond)
     POP_F32(rhs);
     POP_F32(lhs);
 
-    if (jit_reg_is_const_val(lhs) && jit_reg_is_const_val(rhs)) {
+    if (jit_reg_is_const(lhs) && jit_reg_is_const(rhs)) {
         float32 lvalue = jit_cc_get_const_F32(cc, lhs);
         float32 rvalue = jit_cc_get_const_F32(cc, rhs);
 
@@ -290,7 +290,7 @@ jit_compile_op_f64_compare(JitCompContext *cc, FloatCond cond)
     POP_F64(rhs);
     POP_F64(lhs);
 
-    if (jit_reg_is_const_val(lhs) && jit_reg_is_const_val(rhs)) {
+    if (jit_reg_is_const(lhs) && jit_reg_is_const(rhs)) {
         float64 lvalue = jit_cc_get_const_F64(cc, lhs);
         float64 rvalue = jit_cc_get_const_F64(cc, rhs);
 

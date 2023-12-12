@@ -158,7 +158,7 @@ static JitCompOptions jit_options = { 0 };
 #endif
 
 #if WASM_ENABLE_JIT != 0
-static LLVMJITOptions llvm_jit_options = { 3, 3, 0 };
+static LLVMJITOptions llvm_jit_options = { 3, 3, 0, false };
 #endif
 
 static RunningMode runtime_running_mode = Mode_Default;
@@ -662,9 +662,14 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
 #endif
 
 #if WASM_ENABLE_JIT != 0
+    LOG_DEBUG("Start LLVM_JIT, opt_sz=%u, opt_lvl=%u, segue=%s, linux_perf=%s",
+              init_args->llvm_jit_size_level, init_args->llvm_jit_opt_level,
+              init_args->segue_flags ? "Yes" : "No",
+              init_args->linux_perf_support ? "Yes" : "No");
     llvm_jit_options.size_level = init_args->llvm_jit_size_level;
     llvm_jit_options.opt_level = init_args->llvm_jit_opt_level;
     llvm_jit_options.segue_flags = init_args->segue_flags;
+    llvm_jit_options.linux_perf_support = init_args->linux_perf_support;
 #endif
 
     if (!wasm_runtime_env_init()) {
@@ -2616,7 +2621,7 @@ wasm_runtime_get_custom_data(WASMModuleInstanceCommon *module_inst_comm)
     return module_inst->custom_data;
 }
 
-#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+#if WASM_CONFIGURABLE_BOUNDS_CHECKS != 0
 void
 wasm_runtime_set_bounds_checks(WASMModuleInstanceCommon *module_inst,
                                bool enable)
@@ -2813,7 +2818,7 @@ wasm_runtime_set_wasi_args_ex(WASMModuleCommon *module, const char *dir_list[],
                               uint32 dir_count, const char *map_dir_list[],
                               uint32 map_dir_count, const char *env_list[],
                               uint32 env_count, char *argv[], int argc,
-                              int stdinfd, int stdoutfd, int stderrfd)
+                              int64 stdinfd, int64 stdoutfd, int64 stderrfd)
 {
     WASIArguments *wasi_args = get_wasi_args_from_module(module);
 
@@ -2827,9 +2832,9 @@ wasm_runtime_set_wasi_args_ex(WASMModuleCommon *module, const char *dir_list[],
     wasi_args->env_count = env_count;
     wasi_args->argv = argv;
     wasi_args->argc = (uint32)argc;
-    wasi_args->stdio[0] = stdinfd;
-    wasi_args->stdio[1] = stdoutfd;
-    wasi_args->stdio[2] = stderrfd;
+    wasi_args->stdio[0] = (os_raw_file_handle)stdinfd;
+    wasi_args->stdio[1] = (os_raw_file_handle)stdoutfd;
+    wasi_args->stdio[2] = (os_raw_file_handle)stderrfd;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
 #if WASM_ENABLE_INTERP != 0
@@ -2924,8 +2929,9 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                        const char *env[], uint32 env_count,
                        const char *addr_pool[], uint32 addr_pool_size,
                        const char *ns_lookup_pool[], uint32 ns_lookup_pool_size,
-                       char *argv[], uint32 argc, int stdinfd, int stdoutfd,
-                       int stderrfd, char *error_buf, uint32 error_buf_size)
+                       char *argv[], uint32 argc, os_raw_file_handle stdinfd,
+                       os_raw_file_handle stdoutfd, os_raw_file_handle stderrfd,
+                       char *error_buf, uint32 error_buf_size)
 {
     WASIContext *wasi_ctx;
     char *argv_buf = NULL;
@@ -2943,7 +2949,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     bool argv_environ_inited = false;
     bool addr_pool_inited = false;
     __wasi_fd_t wasm_fd = 3;
-    int32 raw_fd;
+    os_file_handle file_handle;
     char *path, resolved_path[PATH_MAX];
     uint32 i;
 
@@ -3013,15 +3019,19 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     }
     addr_pool_inited = true;
 
-    /* Prepopulate curfds with stdin, stdout, and stderr file descriptors.
-     *
-     * If -1 is given, use STDIN_FILENO (0), STDOUT_FILENO (1),
-     * STDERR_FILENO (2) respectively.
-     */
-    if (!fd_table_insert_existing(curfds, 0, (stdinfd != -1) ? stdinfd : 0)
-        || !fd_table_insert_existing(curfds, 1, (stdoutfd != -1) ? stdoutfd : 1)
-        || !fd_table_insert_existing(curfds, 2,
-                                     (stderrfd != -1) ? stderrfd : 2)) {
+    os_file_handle stdin_file_handle = os_convert_stdin_handle(stdinfd);
+    os_file_handle stdout_file_handle = os_convert_stdout_handle(stdoutfd);
+    os_file_handle stderr_file_handle = os_convert_stderr_handle(stderrfd);
+
+    if (!os_is_handle_valid(&stdin_file_handle)
+        || !os_is_handle_valid(&stdout_file_handle)
+        || !os_is_handle_valid(&stderr_file_handle))
+        goto fail;
+
+    /* Prepopulate curfds with stdin, stdout, and stderr file descriptors. */
+    if (!fd_table_insert_existing(curfds, 0, stdin_file_handle, true)
+        || !fd_table_insert_existing(curfds, 1, stdout_file_handle, true)
+        || !fd_table_insert_existing(curfds, 2, stderr_file_handle, true)) {
         set_error_buf(error_buf, error_buf_size,
                       "Init wasi environment failed: init fd table failed");
         goto fail;
@@ -3029,7 +3039,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
 
     wasm_fd = 3;
     for (i = 0; i < dir_count; i++, wasm_fd++) {
-        path = realpath(dir_list[i], resolved_path);
+        path = os_realpath(dir_list[i], resolved_path);
         if (!path) {
             if (error_buf)
                 snprintf(error_buf, error_buf_size,
@@ -3038,17 +3048,101 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
             goto fail;
         }
 
-        raw_fd = open(path, O_RDONLY | O_DIRECTORY, 0);
-        if (raw_fd == -1) {
+        __wasi_errno_t error = os_open_preopendir(path, &file_handle);
+
+        if (error != __WASI_ESUCCESS) {
             if (error_buf)
                 snprintf(error_buf, error_buf_size,
                          "error while pre-opening directory %s: %d\n",
-                         dir_list[i], errno);
+                         dir_list[i], error);
             goto fail;
         }
 
-        fd_table_insert_existing(curfds, wasm_fd, raw_fd);
-        fd_prestats_insert(prestats, dir_list[i], wasm_fd);
+        if (!fd_table_insert_existing(curfds, wasm_fd, file_handle, false)) {
+            if (error_buf)
+                snprintf(error_buf, error_buf_size,
+                         "error inserting preopen fd %u (directory %s) into fd "
+                         "table",
+                         (unsigned int)wasm_fd, dir_list[i]);
+            goto fail;
+        }
+
+        if (!fd_prestats_insert(prestats, dir_list[i], wasm_fd)) {
+            if (error_buf)
+                snprintf(error_buf, error_buf_size,
+                         "error inserting preopen fd %u (directory %s) into "
+                         "prestats table",
+                         (unsigned int)wasm_fd, dir_list[i]);
+            goto fail;
+        }
+    }
+
+    for (i = 0; i < map_dir_count; i++, wasm_fd++) {
+        char mapping_copy_buf[256];
+        char *mapping_copy = mapping_copy_buf;
+        char *map_mapped = NULL, *map_host = NULL;
+        const unsigned long max_len = strlen(map_dir_list[i]) * 2 + 3;
+
+        /* Allocation limit for runtime environments with reduced stack size */
+        if (max_len > 256) {
+            if (!(mapping_copy = wasm_runtime_malloc(max_len))) {
+                snprintf(error_buf, error_buf_size,
+                         "error while allocating for directory mapping\n");
+                goto fail;
+            }
+        }
+
+        bh_memcpy_s(mapping_copy, max_len, map_dir_list[i],
+                    (uint32)(strlen(map_dir_list[i]) + 1));
+        map_mapped = strtok(mapping_copy, "::");
+        map_host = strtok(NULL, "::");
+
+        if (!map_mapped || !map_host) {
+            if (error_buf)
+                snprintf(error_buf, error_buf_size,
+                         "error while pre-opening mapped directory: "
+                         "invalid map\n");
+            if (mapping_copy != mapping_copy_buf)
+                wasm_runtime_free(mapping_copy);
+            goto fail;
+        }
+
+        path = os_realpath(map_host, resolved_path);
+        if (!path) {
+            if (error_buf)
+                snprintf(error_buf, error_buf_size,
+                         "error while pre-opening mapped directory %s: %d\n",
+                         map_host, errno);
+            if (mapping_copy != mapping_copy_buf)
+                wasm_runtime_free(mapping_copy);
+            goto fail;
+        }
+
+        __wasi_errno_t error = os_open_preopendir(path, &file_handle);
+        if (error != __WASI_ESUCCESS) {
+            if (error_buf)
+                snprintf(error_buf, error_buf_size,
+                         "error while pre-opening mapped directory %s: %d\n",
+                         map_host, errno);
+            if (mapping_copy != mapping_copy_buf)
+                wasm_runtime_free(mapping_copy);
+            goto fail;
+        }
+
+        if (!fd_table_insert_existing(curfds, wasm_fd, file_handle, false)
+            || !fd_prestats_insert(prestats, map_mapped, wasm_fd)) {
+            if (error_buf)
+                snprintf(error_buf, error_buf_size,
+                         "error while pre-opening mapped directory %s: "
+                         "insertion failed\n",
+                         dir_list[i]);
+            if (mapping_copy != mapping_copy_buf)
+                wasm_runtime_free(mapping_copy);
+            goto fail;
+        }
+
+        if (mapping_copy != mapping_copy_buf)
+            wasm_runtime_free(mapping_copy);
     }
 
     /* addr_pool(textual) -> apool */
@@ -3176,8 +3270,9 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                        const char *env[], uint32 env_count,
                        const char *addr_pool[], uint32 addr_pool_size,
                        const char *ns_lookup_pool[], uint32 ns_lookup_pool_size,
-                       char *argv[], uint32 argc, int stdinfd, int stdoutfd,
-                       int stderrfd, char *error_buf, uint32 error_buf_size)
+                       char *argv[], uint32 argc, os_raw_file_handle stdinfd,
+                       os_raw_file_handle stdoutfd, os_raw_file_handle stderrfd,
+                       char *error_buf, uint32 error_buf_size)
 {
     WASIContext *ctx;
     uvwasi_t *uvwasi;
@@ -3963,16 +4058,14 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                     if (n_stacks & 1)
                         n_stacks++;
                     if (func_type->types[i] == VALUE_TYPE_F32) {
-                        *(float32 *)&stacks[n_stacks] = *(float32 *)argv_src++;
-                        /* NaN boxing, the upper bits of a valid NaN-boxed
-                          value must be all 1s. */
-                        stacks[n_stacks + 1] = 0xFFFFFFFF;
+                        *(float32 *)&stacks[n_stacks++] =
+                            *(float32 *)argv_src++;
                     }
                     else {
                         *(float64 *)&stacks[n_stacks] = *(float64 *)argv_src;
                         argv_src += 2;
+                        n_stacks += 2;
                     }
-                    n_stacks += 2;
                 }
                 break;
             }
@@ -4374,10 +4467,12 @@ static V128FuncPtr invokeNative_V128 = (V128FuncPtr)(uintptr_t)invokeNative;
           || defined(BUILD_TARGET_RISCV64_LP64) */
 #endif /* end of defined(_WIN32) || defined(_WIN32_) */
 
-/* ASAN is not designed to work with custom stack unwind or other low-level \
- things. > Ignore a function that does some low-level magic. (e.g. walking \
- through the thread's stack bypassing the frame boundaries) */
-#if defined(__GNUC__)
+/*
+ * ASAN is not designed to work with custom stack unwind or other low-level
+ * things. Ignore a function that does some low-level magic. (e.g. walking
+ * through the thread's stack bypassing the frame boundaries)
+ */
+#if defined(__GNUC__) || defined(__clang__)
 __attribute__((no_sanitize_address))
 #endif
 bool
@@ -5811,7 +5906,7 @@ wasm_runtime_register_sub_module(const WASMModuleCommon *parent_module,
 {
     /* register sub_module into its parent sub module list */
     WASMRegisteredModule *node = NULL;
-    bh_list_status ret;
+    bh_list_status ret = BH_LIST_ERROR;
 
     if (wasm_runtime_search_sub_module(parent_module, sub_module_name)) {
         LOG_DEBUG("%s has been registered in its parent", sub_module_name);

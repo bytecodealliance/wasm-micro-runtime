@@ -18,7 +18,7 @@
  * - If you care performance, it's better to make the interpreters
  *   use atomic ops.
  */
-static korp_mutex _shared_memory_lock;
+korp_mutex g_shared_memory_lock;
 
 /* clang-format off */
 enum {
@@ -55,13 +55,13 @@ destroy_wait_info(void *wait_info);
 bool
 wasm_shared_memory_init()
 {
-    if (os_mutex_init(&_shared_memory_lock) != 0)
+    if (os_mutex_init(&g_shared_memory_lock) != 0)
         return false;
     /* wait map not exists, create new map */
     if (!(wait_map = bh_hash_map_create(32, true, (HashFunc)wait_address_hash,
                                         (KeyEqualFunc)wait_address_equal, NULL,
                                         destroy_wait_info))) {
-        os_mutex_destroy(&_shared_memory_lock);
+        os_mutex_destroy(&g_shared_memory_lock);
         return false;
     }
     return true;
@@ -71,79 +71,47 @@ void
 wasm_shared_memory_destroy()
 {
     bh_hash_map_destroy(wait_map);
-    os_mutex_destroy(&_shared_memory_lock);
+    os_mutex_destroy(&g_shared_memory_lock);
 }
 
-uint32
+uint16
 shared_memory_inc_reference(WASMMemoryInstance *memory)
 {
     bh_assert(shared_memory_is_shared(memory));
-    uint32 old;
-#if BH_ATOMIC_32_IS_ATOMIC == 0
-    os_mutex_lock(&_shared_memory_lock);
+    uint16 old;
+#if BH_ATOMIC_16_IS_ATOMIC == 0
+    os_mutex_lock(&g_shared_memory_lock);
 #endif
-    old = BH_ATOMIC_32_FETCH_ADD(memory->ref_count, 1);
-#if BH_ATOMIC_32_IS_ATOMIC == 0
-    os_mutex_unlock(&_shared_memory_lock);
+    old = BH_ATOMIC_16_FETCH_ADD(memory->ref_count, 1);
+#if BH_ATOMIC_16_IS_ATOMIC == 0
+    os_mutex_unlock(&g_shared_memory_lock);
 #endif
     bh_assert(old >= 1);
-    bh_assert(old < UINT32_MAX);
+    bh_assert(old < UINT16_MAX);
     return old + 1;
 }
 
-uint32
+uint16
 shared_memory_dec_reference(WASMMemoryInstance *memory)
 {
     bh_assert(shared_memory_is_shared(memory));
-    uint32 old;
-#if BH_ATOMIC_32_IS_ATOMIC == 0
-    os_mutex_lock(&_shared_memory_lock);
+    uint16 old;
+#if BH_ATOMIC_16_IS_ATOMIC == 0
+    os_mutex_lock(&g_shared_memory_lock);
 #endif
-    old = BH_ATOMIC_32_FETCH_SUB(memory->ref_count, 1);
-#if BH_ATOMIC_32_IS_ATOMIC == 0
-    os_mutex_unlock(&_shared_memory_lock);
+    old = BH_ATOMIC_16_FETCH_SUB(memory->ref_count, 1);
+#if BH_ATOMIC_16_IS_ATOMIC == 0
+    os_mutex_unlock(&g_shared_memory_lock);
 #endif
     bh_assert(old > 0);
     return old - 1;
-}
-
-bool
-shared_memory_is_shared(WASMMemoryInstance *memory)
-{
-    uint32 old;
-#if BH_ATOMIC_32_IS_ATOMIC == 0
-    os_mutex_lock(&_shared_memory_lock);
-#endif
-    old = BH_ATOMIC_32_LOAD(memory->ref_count);
-#if BH_ATOMIC_32_IS_ATOMIC == 0
-    os_mutex_unlock(&_shared_memory_lock);
-#endif
-    return old > 0;
 }
 
 static korp_mutex *
 shared_memory_get_lock_pointer(WASMMemoryInstance *memory)
 {
     bh_assert(memory != NULL);
-    return &_shared_memory_lock;
-}
-
-void
-shared_memory_lock(WASMMemoryInstance *memory)
-{
-    /*
-     * Note: exception logic is currently abusing this lock.
-     * cf. https://github.com/bytecodealliance/wasm-micro-runtime/issues/2407
-     */
-    bh_assert(memory != NULL);
-    os_mutex_lock(&_shared_memory_lock);
-}
-
-void
-shared_memory_unlock(WASMMemoryInstance *memory)
-{
-    bh_assert(memory != NULL);
-    os_mutex_unlock(&_shared_memory_lock);
+    return &g_shared_memory_lock;
 }
 
 /* Atomics wait && notify APIs */
@@ -301,12 +269,15 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
         return -1;
     }
 
+    shared_memory_lock(module_inst->memories[0]);
     if ((uint8 *)address < module_inst->memories[0]->memory_data
         || (uint8 *)address + (wait64 ? 8 : 4)
                > module_inst->memories[0]->memory_data_end) {
+        shared_memory_unlock(module_inst->memories[0]);
         wasm_runtime_set_exception(module, "out of bounds memory access");
         return -1;
     }
+    shared_memory_unlock(module_inst->memories[0]);
 
 #if WASM_ENABLE_THREAD_MGR != 0
     exec_env =
@@ -423,9 +394,11 @@ wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
     bh_assert(module->module_type == Wasm_Module_Bytecode
               || module->module_type == Wasm_Module_AoT);
 
+    shared_memory_lock(module_inst->memories[0]);
     out_of_bounds =
         ((uint8 *)address < module_inst->memories[0]->memory_data
          || (uint8 *)address + 4 > module_inst->memories[0]->memory_data_end);
+    shared_memory_unlock(module_inst->memories[0]);
 
     if (out_of_bounds) {
         wasm_runtime_set_exception(module, "out of bounds memory access");

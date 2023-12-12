@@ -41,6 +41,9 @@ librats_parse_evidence(const char *evidence_json, uint32_t json_size,
                            evidence_json ? strlen(evidence_json) + 1 : 0, \
                            evidence, sizeof(rats_sgx_evidence_t))
 
+void
+librats_dispose_evidence_json(char *evidence_json);
+
 #ifdef __cplusplus
 }
 #endif

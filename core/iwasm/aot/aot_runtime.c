@@ -7,6 +7,7 @@
 #include "bh_log.h"
 #include "mem_alloc.h"
 #include "../common/wasm_runtime_common.h"
+#include "../common/wasm_memory.h"
 #include "../interpreter/wasm_runtime.h"
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
@@ -382,7 +383,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     uint32 inc_page_count, aux_heap_base, global_idx;
     uint32 bytes_of_last_page, bytes_to_page_end;
     uint32 heap_offset = num_bytes_per_page * init_page_count;
-    uint64 total_size;
+    uint64 memory_data_size, max_memory_data_size;
     uint8 *p = NULL, *global_addr;
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     uint8 *mapped_mem;
@@ -488,6 +489,12 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         if (max_page_count > DEFAULT_MAX_PAGES)
             max_page_count = DEFAULT_MAX_PAGES;
     }
+    else { /* heap_size == 0 */
+        if (init_page_count == DEFAULT_MAX_PAGES) {
+            num_bytes_per_page = UINT32_MAX;
+            init_page_count = max_page_count = 1;
+        }
+    }
 
     LOG_VERBOSE("Memory instantiate:");
     LOG_VERBOSE("  page bytes: %u, init pages: %u, max pages: %u",
@@ -496,67 +503,80 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
                 module->aux_stack_size);
     LOG_VERBOSE("  heap offset: %u, heap size: %d\n", heap_offset, heap_size);
 
-    total_size = (uint64)num_bytes_per_page * init_page_count;
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (is_shared_memory) {
-        /* Allocate max page for shared memory */
-        total_size = (uint64)num_bytes_per_page * max_page_count;
-    }
-#endif
-    bh_assert(total_size <= UINT32_MAX);
+    memory_data_size = (uint64)num_bytes_per_page * init_page_count;
+    max_memory_data_size = (uint64)num_bytes_per_page * max_page_count;
+    bh_assert(memory_data_size <= UINT32_MAX);
+    bh_assert(max_memory_data_size <= 4 * (uint64)BH_GB);
+    (void)max_memory_data_size;
 
 #ifndef OS_ENABLE_HW_BOUND_CHECK
-    /* Allocate memory */
-    if (total_size > 0
-        && !(p = runtime_malloc(total_size, error_buf, error_buf_size))) {
-        return NULL;
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (is_shared_memory) {
+        /* Allocate maximum memory size when memory is shared */
+        if (max_memory_data_size > 0
+            && !(p = runtime_malloc(max_memory_data_size, error_buf,
+                                    error_buf_size))) {
+            return NULL;
+        }
     }
-#else
-    total_size = (total_size + page_size - 1) & ~(page_size - 1);
+    else
+#endif
+    {
+        /* Allocate initial memory size when memory is not shared */
+        if (memory_data_size > 0
+            && !(p = runtime_malloc(memory_data_size, error_buf,
+                                    error_buf_size))) {
+            return NULL;
+        }
+    }
+#else /* else of OS_ENABLE_HW_BOUND_CHECK */
+    memory_data_size = (memory_data_size + page_size - 1) & ~(page_size - 1);
 
     /* Totally 8G is mapped, the opcode load/store address range is 0 to 8G:
      *   ea = i + memarg.offset
      * both i and memarg.offset are u32 in range 0 to 4G
      * so the range of ea is 0 to 8G
      */
-    if (!(p = mapped_mem =
-              os_mmap(NULL, map_size, MMAP_PROT_NONE, MMAP_MAP_NONE))) {
+    if (!(p = mapped_mem = os_mmap(NULL, map_size, MMAP_PROT_NONE,
+                                   MMAP_MAP_NONE, os_get_invalid_handle()))) {
         set_error_buf(error_buf, error_buf_size, "mmap memory failed");
         return NULL;
     }
 
 #ifdef BH_PLATFORM_WINDOWS
-    if (!os_mem_commit(p, total_size, MMAP_PROT_READ | MMAP_PROT_WRITE)) {
+    if (!os_mem_commit(p, memory_data_size, MMAP_PROT_READ | MMAP_PROT_WRITE)) {
         set_error_buf(error_buf, error_buf_size, "commit memory failed");
         os_munmap(mapped_mem, map_size);
         return NULL;
     }
 #endif
 
-    if (os_mprotect(p, total_size, MMAP_PROT_READ | MMAP_PROT_WRITE) != 0) {
+    if (os_mprotect(p, memory_data_size, MMAP_PROT_READ | MMAP_PROT_WRITE)
+        != 0) {
         set_error_buf(error_buf, error_buf_size, "mprotect memory failed");
 #ifdef BH_PLATFORM_WINDOWS
-        os_mem_decommit(p, total_size);
+        os_mem_decommit(p, memory_data_size);
 #endif
         os_munmap(mapped_mem, map_size);
         return NULL;
     }
+
     /* Newly allocated pages are filled with zero by the OS, we don't fill it
      * again here */
-#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
-    if (total_size > UINT32_MAX)
-        total_size = UINT32_MAX;
+    if (memory_data_size > UINT32_MAX)
+        memory_data_size = UINT32_MAX;
+#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
     memory_inst->module_type = Wasm_Module_AoT;
     memory_inst->num_bytes_per_page = num_bytes_per_page;
     memory_inst->cur_page_count = init_page_count;
     memory_inst->max_page_count = max_page_count;
-    memory_inst->memory_data_size = (uint32)total_size;
+    memory_inst->memory_data_size = (uint32)memory_data_size;
 
     /* Init memory info */
     memory_inst->memory_data = p;
-    memory_inst->memory_data_end = p + (uint32)total_size;
+    memory_inst->memory_data_end = p + (uint32)memory_data_size;
 
     /* Initialize heap info */
     memory_inst->heap_data = p + heap_offset;
@@ -579,24 +599,13 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         }
     }
 
-    if (total_size > 0) {
-#if UINTPTR_MAX == UINT64_MAX
-        memory_inst->mem_bound_check_1byte.u64 = total_size - 1;
-        memory_inst->mem_bound_check_2bytes.u64 = total_size - 2;
-        memory_inst->mem_bound_check_4bytes.u64 = total_size - 4;
-        memory_inst->mem_bound_check_8bytes.u64 = total_size - 8;
-        memory_inst->mem_bound_check_16bytes.u64 = total_size - 16;
-#else
-        memory_inst->mem_bound_check_1byte.u32[0] = (uint32)total_size - 1;
-        memory_inst->mem_bound_check_2bytes.u32[0] = (uint32)total_size - 2;
-        memory_inst->mem_bound_check_4bytes.u32[0] = (uint32)total_size - 4;
-        memory_inst->mem_bound_check_8bytes.u32[0] = (uint32)total_size - 8;
-        memory_inst->mem_bound_check_16bytes.u32[0] = (uint32)total_size - 16;
-#endif
+    if (memory_data_size > 0) {
+        wasm_runtime_set_mem_bound_check_bytes(memory_inst, memory_data_size);
     }
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (is_shared_memory) {
+        memory_inst->is_shared_memory = 1;
         memory_inst->ref_count = 1;
     }
 #endif
@@ -613,7 +622,7 @@ fail1:
 #else
 #ifdef BH_PLATFORM_WINDOWS
     if (memory_inst->memory_data)
-        os_mem_decommit(p, total_size);
+        os_mem_decommit(p, memory_data_size);
 #endif
     os_munmap(mapped_mem, map_size);
 #endif
@@ -673,6 +682,10 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         if (data_seg->is_passive)
             continue;
 #endif
+        if (parent != NULL)
+            /* Ignore setting memory init data if the memory has been
+               initialized */
+            continue;
 
         bh_assert(data_seg->offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
                   || data_seg->offset.init_expr_type
@@ -969,7 +982,8 @@ execute_post_instantiate_functions(AOTModuleInstance *module_inst,
            wasm functions, and ensure that the exec_env's module inst
            is the correct one. */
         module_inst_main = exec_env_main->module_inst;
-        exec_env->module_inst = (WASMModuleInstanceCommon *)module_inst;
+        wasm_exec_env_set_module_inst(exec_env,
+                                      (WASMModuleInstanceCommon *)module_inst);
     }
     else {
         /* Try using the existing exec_env */
@@ -994,7 +1008,8 @@ execute_post_instantiate_functions(AOTModuleInstance *module_inst,
                module inst to ensure that the exec_env's module inst
                is the correct one. */
             module_inst_main = exec_env->module_inst;
-            exec_env->module_inst = (WASMModuleInstanceCommon *)module_inst;
+            wasm_exec_env_set_module_inst(
+                exec_env, (WASMModuleInstanceCommon *)module_inst);
         }
     }
 
@@ -1044,12 +1059,12 @@ execute_post_instantiate_functions(AOTModuleInstance *module_inst,
 fail:
     if (is_sub_inst) {
         /* Restore the parent exec_env's module inst */
-        exec_env_main->module_inst = module_inst_main;
+        wasm_exec_env_restore_module_inst(exec_env_main, module_inst_main);
     }
     else {
         if (module_inst_main)
             /* Restore the existing exec_env's module inst */
-            exec_env->module_inst = module_inst_main;
+            wasm_exec_env_restore_module_inst(exec_env, module_inst_main);
         if (exec_env_created)
             wasm_exec_env_destroy(exec_env_created);
     }
@@ -1083,6 +1098,9 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
                 char *error_buf, uint32 error_buf_size)
 {
     AOTModuleInstance *module_inst;
+#if WASM_ENABLE_BULK_MEMORY != 0 || WASM_ENABLE_REF_TYPES != 0
+    WASMModuleInstanceExtraCommon *common;
+#endif
     const uint32 module_inst_struct_size =
         offsetof(AOTModuleInstance, global_table_data.bytes);
     const uint64 module_inst_mem_inst_size =
@@ -1146,6 +1164,32 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     if (!ret) {
         LOG_DEBUG("build a sub module list failed");
         goto fail;
+    }
+#endif
+
+#if WASM_ENABLE_BULK_MEMORY != 0 || WASM_ENABLE_REF_TYPES != 0
+    common = &((AOTModuleInstanceExtra *)module_inst->e)->common;
+#endif
+#if WASM_ENABLE_BULK_MEMORY != 0
+    if (module->mem_init_data_count > 0) {
+        common->data_dropped = bh_bitmap_new(0, module->mem_init_data_count);
+        if (common->data_dropped == NULL) {
+            LOG_DEBUG("failed to allocate bitmaps");
+            set_error_buf(error_buf, error_buf_size,
+                          "failed to allocate bitmaps");
+            goto fail;
+        }
+    }
+#endif
+#if WASM_ENABLE_REF_TYPES != 0
+    if (module->table_init_data_count > 0) {
+        common->elem_dropped = bh_bitmap_new(0, module->table_init_data_count);
+        if (common->elem_dropped == NULL) {
+            LOG_DEBUG("failed to allocate bitmaps");
+            set_error_buf(error_buf, error_buf_size,
+                          "failed to allocate bitmaps");
+            goto fail;
+        }
     }
 #endif
 
@@ -1249,6 +1293,8 @@ fail:
 void
 aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 {
+    WASMModuleInstanceExtraCommon *common =
+        &((AOTModuleInstanceExtra *)module_inst->e)->common;
     if (module_inst->exec_env_singleton) {
         /* wasm_exec_env_destroy will call
            wasm_cluster_wait_for_all_except_self to wait for other
@@ -1291,7 +1337,7 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
     if (module_inst->func_type_indexes)
         wasm_runtime_free(module_inst->func_type_indexes);
 
-    if (((AOTModuleInstanceExtra *)module_inst->e)->common.c_api_func_imports)
+    if (common->c_api_func_imports)
         wasm_runtime_free(((AOTModuleInstanceExtra *)module_inst->e)
                               ->common.c_api_func_imports);
 
@@ -1301,6 +1347,13 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 #endif
         wasm_native_call_context_dtors((WASMModuleInstanceCommon *)module_inst);
     }
+
+#if WASM_ENABLE_BULK_MEMORY != 0
+    bh_bitmap_delete(common->data_dropped);
+#endif
+#if WASM_ENABLE_REF_TYPES != 0
+    bh_bitmap_delete(common->elem_dropped);
+#endif
 
     wasm_runtime_free(module_inst);
 }
@@ -1700,7 +1753,8 @@ execute_malloc_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
                module inst to ensure that the exec_env's module inst
                is the correct one. */
             module_inst_old = exec_env->module_inst;
-            exec_env->module_inst = (WASMModuleInstanceCommon *)module_inst;
+            wasm_exec_env_set_module_inst(
+                exec_env, (WASMModuleInstanceCommon *)module_inst);
         }
     }
 
@@ -1711,7 +1765,7 @@ execute_malloc_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
 
     if (module_inst_old)
         /* Restore the existing exec_env's module inst */
-        exec_env->module_inst = module_inst_old;
+        wasm_exec_env_restore_module_inst(exec_env, module_inst_old);
 
     if (exec_env_created)
         wasm_exec_env_destroy(exec_env_created);
@@ -1767,7 +1821,8 @@ execute_free_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
                module inst to ensure that the exec_env's module inst
                is the correct one. */
             module_inst_old = exec_env->module_inst;
-            exec_env->module_inst = (WASMModuleInstanceCommon *)module_inst;
+            wasm_exec_env_set_module_inst(
+                exec_env, (WASMModuleInstanceCommon *)module_inst);
         }
     }
 
@@ -1775,7 +1830,7 @@ execute_free_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
 
     if (module_inst_old)
         /* Restore the existing exec_env's module inst */
-        exec_env->module_inst = module_inst_old;
+        wasm_exec_env_restore_module_inst(exec_env, module_inst_old);
 
     if (exec_env_created)
         wasm_exec_env_destroy(exec_env_created);
@@ -1897,6 +1952,13 @@ aot_module_free_internal(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
 
     if (ptr) {
         uint8 *addr = memory_inst->memory_data + ptr;
+        uint8 *memory_data_end;
+
+        /* memory->memory_data_end may be changed in memory grow */
+        SHARED_MEMORY_LOCK(memory_inst);
+        memory_data_end = memory_inst->memory_data_end;
+        SHARED_MEMORY_UNLOCK(memory_inst);
+
         if (memory_inst->heap_handle && memory_inst->heap_data < addr
             && addr < memory_inst->heap_data_end) {
             mem_allocator_free(memory_inst->heap_handle, addr);
@@ -1904,7 +1966,7 @@ aot_module_free_internal(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
         else if (module->malloc_func_index != (uint32)-1
                  && module->free_func_index != (uint32)-1
                  && memory_inst->memory_data <= addr
-                 && addr < memory_inst->memory_data_end) {
+                 && addr < memory_data_end) {
             AOTFunctionInstance *free_func;
             char *free_func_name;
 
@@ -2278,13 +2340,21 @@ aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index, uint32 offset,
 {
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
     AOTModule *aot_module;
-    uint8 *data = NULL;
+    uint8 *data;
     uint8 *maddr;
-    uint64 seg_len = 0;
+    uint64 seg_len;
 
-    aot_module = (AOTModule *)module_inst->module;
-    seg_len = aot_module->mem_init_data_list[seg_index]->byte_count;
-    data = aot_module->mem_init_data_list[seg_index]->bytes;
+    if (bh_bitmap_get_bit(
+            ((AOTModuleInstanceExtra *)module_inst->e)->common.data_dropped,
+            seg_index)) {
+        seg_len = 0;
+        data = NULL;
+    }
+    else {
+        aot_module = (AOTModule *)module_inst->module;
+        seg_len = aot_module->mem_init_data_list[seg_index]->byte_count;
+        data = aot_module->mem_init_data_list[seg_index]->bytes;
+    }
 
     if (!wasm_runtime_validate_app_addr((WASMModuleInstanceCommon *)module_inst,
                                         dst, len))
@@ -2298,16 +2368,18 @@ aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index, uint32 offset,
     maddr = wasm_runtime_addr_app_to_native(
         (WASMModuleInstanceCommon *)module_inst, dst);
 
+    SHARED_MEMORY_LOCK(memory_inst);
     bh_memcpy_s(maddr, memory_inst->memory_data_size - dst, data + offset, len);
+    SHARED_MEMORY_UNLOCK(memory_inst);
     return true;
 }
 
 bool
 aot_data_drop(AOTModuleInstance *module_inst, uint32 seg_index)
 {
-    AOTModule *aot_module = (AOTModule *)module_inst->module;
-
-    aot_module->mem_init_data_list[seg_index]->byte_count = 0;
+    bh_bitmap_set_bit(
+        ((AOTModuleInstanceExtra *)module_inst->e)->common.data_dropped,
+        seg_index);
     /* Currently we can't free the dropped data segment
        as the mem_init_data_count is a continuous array */
     return true;
@@ -2520,9 +2592,9 @@ aot_get_module_inst_mem_consumption(const AOTModuleInstance *module_inst,
 void
 aot_drop_table_seg(AOTModuleInstance *module_inst, uint32 tbl_seg_idx)
 {
-    AOTModule *module = (AOTModule *)module_inst->module;
-    AOTTableInitData *tbl_seg = module->table_init_data_list[tbl_seg_idx];
-    tbl_seg->is_dropped = true;
+    bh_bitmap_set_bit(
+        ((AOTModuleInstanceExtra *)module_inst->e)->common.elem_dropped,
+        tbl_seg_idx);
 }
 
 void
@@ -2550,7 +2622,9 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
         return;
     }
 
-    if (tbl_seg->is_dropped) {
+    if (bh_bitmap_get_bit(
+            ((AOTModuleInstanceExtra *)module_inst->e)->common.elem_dropped,
+            tbl_seg_idx)) {
         aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
     }
@@ -2891,13 +2965,15 @@ aot_dump_perf_profiling(const AOTModuleInstance *module_inst)
         func_name = get_func_name_from_index(module_inst, i);
 
         if (func_name)
-            os_printf("  func %s, execution time: %.3f ms, execution count: %d "
-                      "times\n",
-                      func_name, perf_prof->total_exec_time / 1000.0f,
-                      perf_prof->total_exec_cnt);
+            os_printf(
+                "  func %s, execution time: %.3f ms, execution count: %" PRIu32
+                " times\n",
+                func_name, perf_prof->total_exec_time / 1000.0f,
+                perf_prof->total_exec_cnt);
         else
-            os_printf("  func %d, execution time: %.3f ms, execution count: %d "
-                      "times\n",
+            os_printf("  func %" PRIu32
+                      ", execution time: %.3f ms, execution count: %" PRIu32
+                      " times\n",
                       i, perf_prof->total_exec_time / 1000.0f,
                       perf_prof->total_exec_cnt);
     }

@@ -11,6 +11,9 @@ on:
       arch:
         required: true
         type: string
+      container_image:
+        required: false
+        type: string
     outputs:
       cache_key:
         description: "A cached key of LLVM libraries"
@@ -19,6 +22,10 @@ on:
 jobs:
   build_llvm_libraries:
     runs-on: ${{ inputs.os }}
+    # Using given container image if it is specified.
+    # Otherwise, it will be ignored by the runner.
+    container:
+      image: ${{ inputs.container_image }}
     outputs:
       key: ${{ steps.create_lib_cache_key.outputs.key}}
 
@@ -71,8 +78,9 @@ jobs:
             0-ccache-${{ inputs.os }}
         if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true' && inputs.os == 'ubuntu-22.04'
 
+      # Don't install dependencies if the cache is hit or running in docker container
       - run: sudo apt install -y ccache ninja-build
-        if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true' && startsWith(inputs.os, 'ubuntu')
+        if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true' && startsWith(inputs.os, 'ubuntu') && inputs.container_image == ''
 
       - uses: actions/cache@v3
         with:

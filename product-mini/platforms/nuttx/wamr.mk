@@ -13,6 +13,8 @@ else ifeq ($(CONFIG_ARCH_ARMV7M),y)
 WAMR_BUILD_TARGET := THUMBV7EM
 else ifeq ($(CONFIG_ARCH_ARMV8M),y)
 WAMR_BUILD_TARGET := THUMBV8M
+else ifeq ($(CONFIG_ARCH_ARM64),y)
+WAMR_BUILD_TARGET := AARCH64
 else ifeq ($(CONFIG_ARCH_X86),y)
 WAMR_BUILD_TARGET := X86_32
 else ifeq ($(CONFIG_ARCH_X86_64),y)
@@ -236,18 +238,22 @@ else
 CFLAGS += -DWASM_ENABLE_LIBC_BUILTIN=0
 endif
 
-ifeq ($(CONFIG_INTERPRETERS_WAMR_CONFIGUABLE_BOUNDS_CHECKS),y)
-CFLAGS += -DWASM_CONFIGUABLE_BOUNDS_CHECKS=1
+ifeq ($(CONFIG_INTERPRETERS_WAMR_CONFIGURABLE_BOUNDS_CHECKS),y)
+CFLAGS += -DWASM_CONFIGURABLE_BOUNDS_CHECKS=1
 else
-CFLAGS += -DWASM_CONFIGUABLE_BOUNDS_CHECKS=0
+CFLAGS += -DWASM_CONFIGURABLE_BOUNDS_CHECKS=0
 endif
 
 ifeq ($(CONFIG_INTERPRETERS_WAMR_LIBC_WASI),y)
 CFLAGS += -DWASM_ENABLE_LIBC_WASI=1
 CFLAGS += -I$(IWASM_ROOT)/libraries/libc-wasi/sandboxed-system-primitives/src
 CFLAGS += -I$(IWASM_ROOT)/libraries/libc-wasi/sandboxed-system-primitives/include
+CFLAGS += -I${SHARED_ROOT}/platform/common/libc-util
 CSRCS += blocking_op.c
 CSRCS += posix_socket.c
+CSRCS += posix_file.c
+CSRCS += posix_clock.c
+CSRCS += libc_errno.c
 CSRCS += libc_wasi_wrapper.c
 VPATH += $(IWASM_ROOT)/libraries/libc-wasi
 CSRCS += posix.c
@@ -313,6 +319,12 @@ endif
 # REVISIT: is this worth to have a Kconfig?
 CFLAGS += -DWASM_DISABLE_WAKEUP_BLOCKING_OP=0
 
+ifeq ($(CONFIG_INTERPRETERS_WAMR_LOAD_CUSTOM_SECTIONS),y)
+CFLAGS += -DWASM_ENABLE_LOAD_CUSTOM_SECTION=1
+else
+CFLAGS += -DWASM_ENABLE_LOAD_CUSTOM_SECTION=0
+endif
+
 ifeq ($(CONFIG_INTERPRETERS_WAMR_CUSTOM_NAME_SECTIONS),y)
 CFLAGS += -DWASM_ENABLE_CUSTOM_NAME_SECTION=1
 else
@@ -367,6 +379,7 @@ CSRCS += nuttx_platform.c \
          ems_alloc.c \
          ems_hmu.c \
          bh_assert.c \
+         bh_bitmap.c \
          bh_common.c \
          bh_hashmap.c \
          bh_list.c \
@@ -387,6 +400,7 @@ ASRCS += $(INVOKE_NATIVE)
 
 VPATH += $(SHARED_ROOT)/platform/nuttx
 VPATH += $(SHARED_ROOT)/platform/common/posix
+VPATH += $(SHARED_ROOT)/platform/common/libc-util
 VPATH += $(SHARED_ROOT)/mem-alloc
 VPATH += $(SHARED_ROOT)/mem-alloc/ems
 VPATH += $(SHARED_ROOT)/utils

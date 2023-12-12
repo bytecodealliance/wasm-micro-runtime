@@ -311,7 +311,6 @@ typedef struct WASMTableSeg {
     uint32 mode;
     /* funcref or externref, elemkind will be considered as funcref */
     uint32 elem_type;
-    bool is_dropped;
     /* optional, only for active */
     uint32 table_index;
     InitializerExpression base_offset;
@@ -350,7 +349,7 @@ typedef struct WASIArguments {
     uint32 ns_lookup_count;
     char **argv;
     uint32 argc;
-    int stdio[3];
+    os_raw_file_handle stdio[3];
 } WASIArguments;
 #endif
 

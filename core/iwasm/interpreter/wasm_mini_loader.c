@@ -1877,6 +1877,7 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
     option.opt_level = llvm_jit_options.opt_level;
     option.size_level = llvm_jit_options.size_level;
     option.segue_flags = llvm_jit_options.segue_flags;
+    option.linux_perf_support = llvm_jit_options.linux_perf_support;
 
 #if WASM_ENABLE_BULK_MEMORY != 0
     option.enable_bulk_memory = true;
@@ -4009,21 +4010,27 @@ wasm_loader_pop_frame_csp(WASMLoaderContext *ctx, char *error_buf,
         LOG_OP("\ndelete last op\n");                           \
     } while (0)
 #else /* else of WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS */
+#if UINTPTR_MAX == UINT64_MAX
 #define emit_label(opcode)                                                     \
     do {                                                                       \
         int32 offset =                                                         \
             (int32)((uint8 *)handle_table[opcode] - (uint8 *)handle_table[0]); \
-        if (!(offset >= INT16_MIN && offset < INT16_MAX)) {                    \
-            set_error_buf(error_buf, error_buf_size,                           \
-                          "pre-compiled label offset out of range");           \
-            goto fail;                                                         \
-        }                                                                      \
-        wasm_loader_emit_int16(loader_ctx, offset);                            \
+        /* emit int32 relative offset in 64-bit target */                      \
+        wasm_loader_emit_uint32(loader_ctx, offset);                           \
         LOG_OP("\nemit_op [%02x]\t", opcode);                                  \
     } while (0)
+#else
+#define emit_label(opcode)                                           \
+    do {                                                             \
+        uint32 label_addr = (uint32)(uintptr_t)handle_table[opcode]; \
+        /* emit uint32 label address in 32-bit target */             \
+        wasm_loader_emit_uint32(loader_ctx, label_addr);             \
+        LOG_OP("\nemit_op [%02x]\t", opcode);                        \
+    } while (0)
+#endif
 #define skip_label()                                           \
     do {                                                       \
-        wasm_loader_emit_backspace(loader_ctx, sizeof(int16)); \
+        wasm_loader_emit_backspace(loader_ctx, sizeof(int32)); \
         LOG_OP("\ndelete last op\n");                          \
     } while (0)
 #endif /* end of WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS */
@@ -4351,13 +4358,6 @@ preserve_referenced_local(WASMLoaderContext *loader_ctx, uint8 opcode,
     }
 
     return true;
-
-#if WASM_ENABLE_LABELS_AS_VALUES != 0
-#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
-fail:
-    return false;
-#endif
-#endif
 }
 
 static bool
@@ -5627,10 +5627,7 @@ re_scan:
                 }
 
 #if WASM_ENABLE_FAST_INTERP != 0
-                if (opcode == WASM_OP_BLOCK) {
-                    skip_label();
-                }
-                else if (opcode == WASM_OP_LOOP) {
+                if (opcode == WASM_OP_BLOCK || opcode == WASM_OP_LOOP) {
                     skip_label();
                     if (BLOCK_HAS_PARAM(block_type)) {
                         /* Make sure params are in dynamic space */
@@ -5638,8 +5635,10 @@ re_scan:
                                 loader_ctx, false, error_buf, error_buf_size))
                             goto fail;
                     }
-                    (loader_ctx->frame_csp - 1)->code_compiled =
-                        loader_ctx->p_code_compiled;
+                    if (opcode == WASM_OP_LOOP) {
+                        (loader_ctx->frame_csp - 1)->code_compiled =
+                            loader_ctx->p_code_compiled;
+                    }
                 }
                 else if (opcode == WASM_OP_IF) {
                     /* If block has parameters, we should make sure they are in
@@ -6100,7 +6099,8 @@ re_scan:
                             && !cur_block->is_stack_polymorphic));
 
                 if (available_stack_cell > 0) {
-                    if (is_32bit_type(*(loader_ctx->frame_ref - 1))) {
+                    if (is_32bit_type(*(loader_ctx->frame_ref - 1))
+                        || *(loader_ctx->frame_ref - 1) == VALUE_TYPE_ANY) {
                         loader_ctx->frame_ref--;
                         loader_ctx->stack_cell_num--;
 #if WASM_ENABLE_FAST_INTERP != 0
@@ -6146,6 +6146,9 @@ re_scan:
                 uint8 ref_type;
                 BranchBlock *cur_block = loader_ctx->frame_csp - 1;
                 int32 available_stack_cell;
+#if WASM_ENABLE_FAST_INTERP != 0
+                uint8 *p_code_compiled_tmp = loader_ctx->p_code_compiled;
+#endif
 
                 POP_I32();
 
@@ -6168,26 +6171,26 @@ re_scan:
 #if WASM_ENABLE_FAST_INTERP != 0
                             if (loader_ctx->p_code_compiled) {
                                 uint8 opcode_tmp = WASM_OP_SELECT_64;
-                                uint8 *p_code_compiled_tmp =
-                                    loader_ctx->p_code_compiled - 2;
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
                                 *(void **)(p_code_compiled_tmp
                                            - sizeof(void *)) =
                                     handle_table[opcode_tmp];
 #else
+#if UINTPTR_MAX == UINT64_MAX
+                                /* emit int32 relative offset in 64-bit target
+                                 */
                                 int32 offset =
                                     (int32)((uint8 *)handle_table[opcode_tmp]
                                             - (uint8 *)handle_table[0]);
-                                if (!(offset >= INT16_MIN
-                                      && offset < INT16_MAX)) {
-                                    set_error_buf(error_buf, error_buf_size,
-                                                  "pre-compiled label offset "
-                                                  "out of range");
-                                    goto fail;
-                                }
-                                *(int16 *)(p_code_compiled_tmp
-                                           - sizeof(int16)) = (int16)offset;
+                                *(int32 *)(p_code_compiled_tmp
+                                           - sizeof(int32)) = offset;
+#else
+                                /* emit uint32 label address in 32-bit target */
+                                *(uint32 *)(p_code_compiled_tmp
+                                            - sizeof(uint32)) =
+                                    (uint32)(uintptr_t)handle_table[opcode_tmp];
+#endif
 #endif /* end of WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS */
 #else  /* else of WASM_ENABLE_LABELS_AS_VALUES */
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
@@ -6263,15 +6266,16 @@ re_scan:
                     *(void **)(p_code_compiled_tmp - sizeof(void *)) =
                         handle_table[opcode_tmp];
 #else
+#if UINTPTR_MAX == UINT64_MAX
+                    /* emit int32 relative offset in 64-bit target */
                     int32 offset = (int32)((uint8 *)handle_table[opcode_tmp]
                                            - (uint8 *)handle_table[0]);
-                    if (!(offset >= INT16_MIN && offset < INT16_MAX)) {
-                        set_error_buf(error_buf, error_buf_size,
-                                      "pre-compiled label offset out of range");
-                        goto fail;
-                    }
-                    *(int16 *)(p_code_compiled_tmp - sizeof(int16)) =
-                        (int16)offset;
+                    *(int32 *)(p_code_compiled_tmp - sizeof(int32)) = offset;
+#else
+                    /* emit uint32 label address in 32-bit target */
+                    *(uint32 *)(p_code_compiled_tmp - sizeof(uint32)) =
+                        (uint32)(uintptr_t)handle_table[opcode_tmp];
+#endif
 #endif /* end of WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS */
 #else  /* else of WASM_ENABLE_LABELS_AS_VALUES */
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0

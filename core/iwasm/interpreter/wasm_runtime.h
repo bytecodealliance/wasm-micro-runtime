@@ -8,6 +8,7 @@
 
 #include "wasm.h"
 #include "bh_atomic.h"
+#include "bh_bitmap.h"
 #include "bh_hashmap.h"
 #include "../common/wasm_runtime_common.h"
 #include "../common/wasm_exec_env.h"
@@ -79,8 +80,16 @@ typedef union {
 struct WASMMemoryInstance {
     /* Module type */
     uint32 module_type;
-    /* Shared memory flag */
-    bh_atomic_32_t ref_count; /* 0: non-shared, > 0: reference count */
+
+    /* Whether the memory is shared */
+    uint8 is_shared_memory;
+
+    /* One byte padding */
+    uint8 __padding__;
+
+    /* Reference count of the memory instance:
+         0: non-shared memory, > 0: shared memory */
+    bh_atomic_16_t ref_count;
 
     /* Number bytes per page */
     uint32 num_bytes_per_page;
@@ -216,9 +225,15 @@ typedef struct WASMModuleInstanceExtraCommon {
     CApiFuncImport *c_api_func_imports;
     /* pointer to the exec env currently used */
     WASMExecEnv *cur_exec_env;
-#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+#if WASM_CONFIGURABLE_BOUNDS_CHECKS != 0
     /* Disable bounds checks or not */
     bool disable_bounds_checks;
+#endif
+#if WASM_ENABLE_BULK_MEMORY != 0
+    bh_bitmap *data_dropped;
+#endif
+#if WASM_ENABLE_REF_TYPES != 0
+    bh_bitmap *elem_dropped;
 #endif
 } WASMModuleInstanceExtraCommon;
 

@@ -83,7 +83,9 @@ hmu_verify(void *vheap, hmu_t *hmu)
             os_printf("Invalid padding for object created at %s:%d\n",
                       (prefix->file_name ? prefix->file_name : ""),
                       prefix->line_no);
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
             heap->is_heap_corrupted = true;
+#endif
         }
     }
 }

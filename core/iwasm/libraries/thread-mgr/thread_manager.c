@@ -798,10 +798,25 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
         return NULL;
     }
 
+    if (!(new_module_inst = wasm_runtime_instantiate_internal(
+              module, module_inst, exec_env, stack_size, 0, NULL, 0))) {
+        return NULL;
+    }
+
+    /* Set custom_data to new module instance */
+    wasm_runtime_set_custom_data_internal(
+        new_module_inst, wasm_runtime_get_custom_data(module_inst));
+
+    wasm_native_inherit_contexts(new_module_inst, module_inst);
+
+    if (!(wasm_cluster_dup_c_api_imports(new_module_inst, module_inst))) {
+        goto fail1;
+    }
+
     cluster_lock_thread_list(cluster, exec_env);
 
     if (cluster->has_exception || cluster->processing) {
-        goto fail1;
+        goto fail2;
     }
 
 #if WASM_ENABLE_INTERP != 0
@@ -818,21 +833,11 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
     }
 #endif
 
-    if (!(new_module_inst = wasm_runtime_instantiate_internal(
-              module, module_inst, exec_env, stack_size, 0, NULL, 0))) {
-        goto fail1;
-    }
-
-    /* Set custom_data to new module instance */
-    wasm_runtime_set_custom_data_internal(
-        new_module_inst, wasm_runtime_get_custom_data(module_inst));
-
-    wasm_native_inherit_contexts(new_module_inst, module_inst);
-
     new_exec_env = wasm_exec_env_create_internal(new_module_inst,
                                                  exec_env->wasm_stack_size);
-    if (!new_exec_env)
+    if (!new_exec_env) {
         goto fail2;
+    }
 
     if (!allocate_aux_stack(exec_env, &aux_stack_start, &aux_stack_size)) {
         LOG_ERROR("thread manager error: "
@@ -850,8 +855,9 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
        thread_state_lock as the thread list has been locked */
     new_exec_env->suspend_flags.flags = exec_env->suspend_flags.flags;
 
-    if (!wasm_cluster_add_exec_env(cluster, new_exec_env))
+    if (!wasm_cluster_add_exec_env(cluster, new_exec_env)) {
         goto fail4;
+    }
 
     cluster_unlock_thread_list(cluster);
 
@@ -863,9 +869,9 @@ fail4:
 fail3:
     wasm_exec_env_destroy_internal(new_exec_env);
 fail2:
-    wasm_runtime_deinstantiate_internal(new_module_inst, true);
-fail1:
     cluster_unlock_thread_list(cluster);
+fail1:
+    wasm_runtime_deinstantiate_internal(new_module_inst, true);
 
     return NULL;
 }
@@ -1800,4 +1806,20 @@ void
 exception_unlock(WASMModuleInstance *module_inst)
 {
     os_mutex_unlock(&_exception_lock);
+}
+
+void
+wasm_cluster_traverse_lock(WASMExecEnv *exec_env)
+{
+    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    bh_assert(cluster);
+    cluster_lock_thread_list(cluster, exec_env);
+}
+
+void
+wasm_cluster_traverse_unlock(WASMExecEnv *exec_env)
+{
+    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    bh_assert(cluster);
+    cluster_unlock_thread_list(cluster);
 }
