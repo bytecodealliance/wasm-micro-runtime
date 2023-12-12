@@ -1401,12 +1401,12 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 opcode = (uint8)opcode1;
 
                 switch (opcode) {
-                    case WASM_OP_STRUCT_NEW_CANON:
-                    case WASM_OP_STRUCT_NEW_CANON_DEFAULT:
+                    case WASM_OP_STRUCT_NEW:
+                    case WASM_OP_STRUCT_NEW_DEFAULT:
                         read_leb_uint32(frame_ip, frame_ip_end, type_index);
                         if (!aot_compile_op_struct_new(
                                 comp_ctx, func_ctx, type_index,
-                                opcode == WASM_OP_STRUCT_NEW_CANON_DEFAULT,
+                                opcode == WASM_OP_STRUCT_NEW_DEFAULT,
                                 frame_ip_org))
                             return false;
                         break;
@@ -1430,23 +1430,23 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                             return false;
                         break;
 
-                    case WASM_OP_ARRAY_NEW_CANON:
-                    case WASM_OP_ARRAY_NEW_CANON_DEFAULT:
-                    case WASM_OP_ARRAY_NEW_CANON_FIXED:
+                    case WASM_OP_ARRAY_NEW:
+                    case WASM_OP_ARRAY_NEW_DEFAULT:
+                    case WASM_OP_ARRAY_NEW_FIXED:
                         read_leb_uint32(frame_ip, frame_ip_end, type_index);
-                        if (opcode == WASM_OP_ARRAY_NEW_CANON_FIXED)
+                        if (opcode == WASM_OP_ARRAY_NEW_FIXED)
                             read_leb_uint32(frame_ip, frame_ip_end, array_len);
                         else
                             array_len = 0;
                         if (!aot_compile_op_array_new(
                                 comp_ctx, func_ctx, type_index,
-                                opcode == WASM_OP_ARRAY_NEW_CANON_DEFAULT,
-                                opcode == WASM_OP_ARRAY_NEW_CANON_FIXED,
-                                array_len, frame_ip_org))
+                                opcode == WASM_OP_ARRAY_NEW_DEFAULT,
+                                opcode == WASM_OP_ARRAY_NEW_FIXED, array_len,
+                                frame_ip_org))
                             return false;
                         break;
 
-                    case WASM_OP_ARRAY_NEW_CANON_DATA:
+                    case WASM_OP_ARRAY_NEW_DATA:
                         read_leb_uint32(frame_ip, frame_ip_end, type_index);
                         read_leb_uint32(frame_ip, frame_ip_end, data_seg_idx);
                         if (!aot_compile_op_array_new_data(
@@ -1455,7 +1455,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                             return false;
                         break;
 
-                    case WASM_OP_ARRAY_NEW_CANON_ELEM:
+                    case WASM_OP_ARRAY_NEW_ELEM:
                         /* TODO */
                         aot_set_last_error("unsupported opcode");
                         return false;
@@ -1477,7 +1477,13 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                             return false;
                         break;
 
-#if WASM_ENABLE_GC_BINARYEN != 0
+                    case WASM_OP_ARRAY_FILL:
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                        if (!aot_compile_op_array_fill(comp_ctx, func_ctx,
+                                                       type_index))
+                            return false;
+                        break;
+
                     case WASM_OP_ARRAY_COPY:
                     {
                         uint32 src_type_index;
@@ -1489,14 +1495,13 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                             return false;
                         break;
                     }
-#endif
 
                     case WASM_OP_ARRAY_LEN:
                         if (!aot_compile_op_array_len(comp_ctx, func_ctx))
                             return false;
                         break;
 
-                    case WASM_OP_I31_NEW:
+                    case WASM_OP_REF_I31:
                         if (!aot_compile_op_i31_new(comp_ctx, func_ctx))
                             return false;
                         break;
@@ -1539,34 +1544,43 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
                     case WASM_OP_BR_ON_CAST:
                     case WASM_OP_BR_ON_CAST_FAIL:
-                    case WASM_OP_BR_ON_CAST_NULLABLE:
-                    case WASM_OP_BR_ON_CAST_FAIL_NULLABLE:
                     {
-                        int32 heap_type;
+                        uint8 castflags;
+                        int32 heap_type, dst_heap_type;
 
+                        CHECK_BUF(frame_ip, frame_ip_end, 1);
+                        castflags = *frame_ip++;
                         read_leb_uint32(frame_ip, frame_ip_end, br_depth);
                         read_leb_int32(frame_ip, frame_ip_end, heap_type);
+                        read_leb_int32(frame_ip, frame_ip_end, dst_heap_type);
 
+                        /*
+                         * castflags should be 0~3:
+                         *  0: (non-null, non-null)
+                         *  1: (null, non-null)
+                         *  2: (non-null, null)
+                         *  3: (null, null)
+                         * The nullability of source type has been checked in
+                         * wasm loader, here we just need the dst nullability
+                         */
                         if (!aot_compile_op_br_on_cast(
-                                comp_ctx, func_ctx, heap_type,
-                                opcode == WASM_OP_BR_ON_CAST_NULLABLE
-                                    || opcode
-                                           == WASM_OP_BR_ON_CAST_FAIL_NULLABLE,
-                                opcode == WASM_OP_BR_ON_CAST_FAIL
-                                    || opcode
-                                           == WASM_OP_BR_ON_CAST_FAIL_NULLABLE,
-                                br_depth, frame_ip_org, &frame_ip))
+                                comp_ctx, func_ctx, dst_heap_type,
+                                castflags & 0x02,
+                                opcode == WASM_OP_BR_ON_CAST_FAIL, br_depth,
+                                frame_ip_org, &frame_ip))
                             return false;
+
+                        (void)heap_type;
                         break;
                     }
 
-                    case WASM_OP_EXTERN_INTERNALIZE:
+                    case WASM_OP_ANY_CONVERT_EXTERN:
                         if (!aot_compile_op_extern_internalize(comp_ctx,
                                                                func_ctx))
                             return false;
                         break;
 
-                    case WASM_OP_EXTERN_EXTERNALIZE:
+                    case WASM_OP_EXTERN_CONVERT_ANY:
                         if (!aot_compile_op_extern_externalize(
                                 comp_ctx, func_ctx, frame_ip_org))
                             return false;

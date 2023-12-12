@@ -2500,7 +2500,7 @@ static const char *exception_msgs[] = {
     /* GC related exceptions */
     "null function object",           /* EXCE_NULL_FUNC_OBJ */
     "null structure object",          /* EXCE_NULL_STRUCT_OBJ */
-    "null array object",              /* EXCE_NULL_ARRAY_OBJ */
+    "null array reference",              /* EXCE_NULL_ARRAY_OBJ */
     "null i31 reference",             /* EXCE_NULL_I31_OBJ */
     "null reference",                 /* EXCE_NULL_REFERENCE */
     "create rtt type failed",         /* EXCE_FAILED_TO_CREATE_RTT_TYPE */
@@ -2508,7 +2508,7 @@ static const char *exception_msgs[] = {
     "create array object failed",     /* EXCE_FAILED_TO_CREATE_ARRAY_OBJ */
     "create externref object failed", /* EXCE_FAILED_TO_CREATE_EXTERNREF_OBJ */
     "cast failure",                   /* EXCE_CAST_FAILURE */
-    "array index out of bounds",      /* EXCE_ARRAY_IDX_OOB */
+    "out of bounds array access",      /* EXCE_ARRAY_IDX_OOB */
     /* stringref related exceptions */
     "create string object failed",    /* EXCE_FAILED_TO_CREATE_STRING */
     "create stringref failed",        /* EXCE_FAILED_TO_CREATE_STRINGREF */

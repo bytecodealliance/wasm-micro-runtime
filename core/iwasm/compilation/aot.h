@@ -143,6 +143,8 @@ typedef struct AOTTable {
     uint32 table_max_size;
 #if WASM_ENABLE_GC != 0
     WASMRefType *elem_ref_type;
+    /* init expr for the whole table */
+    InitializerExpression init_expr;
 #endif
 } AOTTable;
 
@@ -162,9 +164,9 @@ typedef struct AOTTableInitData {
     /* Start address of init data */
     AOTInitExpr offset;
     /* Function index count */
-    uint32 func_index_count;
+    uint32 value_count;
     /* Function index array */
-    uintptr_t func_indexes[1];
+    InitializerExpression init_values[1];
 } AOTTableInitData;
 
 /**

@@ -96,10 +96,11 @@ wasm_init_table(WASMModuleInstance *inst, uint32 tbl_idx, uint32 elem_idx,
     WASMTableInstance *tbl;
     uint32 tbl_sz;
     WASMTableSeg *elem;
-    uint32 elem_len;
+    uint32 elem_len, i;
+    table_elem_type_t *addr;
 
     elem = inst->module->table_segments + elem_idx;
-    elem_len = elem->function_count;
+    elem_len = elem->value_count;
     if (offset_len_out_of_bounds(src_offset, len, elem_len))
         goto out_of_bounds;
 
@@ -114,12 +115,14 @@ wasm_init_table(WASMModuleInstance *inst, uint32 tbl_idx, uint32 elem_idx,
     if (bh_bitmap_get_bit(inst->e->common.elem_dropped, elem_idx))
         goto out_of_bounds;
 
-    bh_memcpy_s((uint8 *)tbl + offsetof(WASMTableInstance, elems)
-                    + dst_offset * sizeof(table_elem_type_t),
-                (uint32)((tbl_sz - dst_offset) * sizeof(table_elem_type_t)),
-                elem->func_indexes + src_offset,
-                (uint32)(len * sizeof(table_elem_type_t)));
-
+    addr =
+        (table_elem_type_t *)((uint8 *)tbl + offsetof(WASMTableInstance, elems)
+                              + dst_offset * sizeof(table_elem_type_t));
+    for (i = 0; i < len; i++) {
+        addr[i] =
+            (table_elem_type_t)(uintptr_t)elem->init_values[src_offset + i]
+                .u.ref_index;
+    }
     return 0;
 out_of_bounds:
     wasm_set_exception(inst, "out of bounds table access");

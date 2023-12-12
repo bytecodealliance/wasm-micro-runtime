@@ -20,22 +20,24 @@ typedef enum wasm_value_type_enum {
     VALUE_TYPE_F32 = 0x7D,
     VALUE_TYPE_F64 = 0x7C,
     VALUE_TYPE_V128 = 0x7B,
-    VALUE_TYPE_I8 = 0x7A,
-    VALUE_TYPE_I16 = 0x79,
+    /* GC Types */
+    VALUE_TYPE_I8 = 0x78,
+    VALUE_TYPE_I16 = 0x77,
+    VALUE_TYPE_NULLFUNCREF = 0x73,
+    VALUE_TYPE_NULLEXTERNREF = 0x72,
+    VALUE_TYPE_NULLREF = 0x71,
     VALUE_TYPE_FUNCREF = 0x70,
     VALUE_TYPE_EXTERNREF = 0x6F,
     VALUE_TYPE_ANYREF = 0x6E,
     VALUE_TYPE_EQREF = 0x6D,
-    VALUE_TYPE_HT_NULLABLE_REF = 0x6C,
-    VALUE_TYPE_HT_NON_NULLABLE_REF = 0x6B,
-    VALUE_TYPE_I31REF = 0x6A,
-    VALUE_TYPE_NULLFUNCREF = 0x69,
-    VALUE_TYPE_NULLEXTERNREF = 0x68,
-    VALUE_TYPE_STRUCTREF = 0x67,
-    VALUE_TYPE_ARRAYREF = 0x66,
-    VALUE_TYPE_NULLREF = 0x65,
-    VALUE_TYPE_STRINGREF = 0X64,
-    VALUE_TYPE_STRINGVIEWWTF8 = 0x63,
+    VALUE_TYPE_I31REF = 0x6C,
+    VALUE_TYPE_STRUCTREF = 0x6B,
+    VALUE_TYPE_ARRAYREF = 0x6A,
+    VALUE_TYPE_HT_NON_NULLABLE_REF = 0x64,
+    VALUE_TYPE_HT_NULLABLE_REF = 0x63,
+    /* Stringref Types */
+    VALUE_TYPE_STRINGREF = 0X67,
+    VALUE_TYPE_STRINGVIEWWTF8 = 0x66,
     VALUE_TYPE_STRINGVIEWWTF16 = 0x62,
     VALUE_TYPE_STRINGVIEWITER = 0x61
 } wasm_value_type_enum;
@@ -84,7 +86,12 @@ typedef union WASMValue {
     struct {
         uint32_t type_index;
         uint32_t N;
-    } array_new_canon_fixed;
+    } array_new_default;
+    /* pointer to a memory space holding more data, current usage:
+     *  struct.new init value: WASMStructNewInitValues *
+     *  array.new init value: WASMArrayNewInitValues *
+     */
+    void *data;
 } WASMValue;
 #endif /* end of WASM_VALUE_DEFINED */
 

@@ -142,7 +142,7 @@ elseif (WAMR_BUILD_SANITIZER STREQUAL "asan")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -fno-omit-frame-pointer -fsanitize=address -fno-sanitize-recover=all" )
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
   endif()
-elseif (WAMR_BUILD_SANITIZER STREQUAL "tsan") 
+elseif (WAMR_BUILD_SANITIZER STREQUAL "tsan")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -fno-omit-frame-pointer -fsanitize=thread -fno-sanitize-recover=all" )
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=thread")
 elseif (NOT (WAMR_BUILD_SANITIZER STREQUAL "") )
@@ -337,10 +337,6 @@ if (WAMR_BUILD_GC EQUAL 1 AND WAMR_BUILD_GC_PERF_PROFILING EQUAL 1)
 else ()
   message ("     GC performance profiling disabled")
 endif ()
-if (WAMR_BUILD_GC_BINARYEN EQUAL 1)
-  add_definitions (-DWASM_ENABLE_GC_BINARYEN=1)
-  message ("     GC binaryen compatible mode on")
-endif ()
 if (WAMR_BUILD_STRINGREF EQUAL 1)
   message ("     Stringref enabled")
   if (NOT DEFINED WAMR_STRINGREF_IMPL_SOURCE)
@@ -351,9 +347,9 @@ if (WAMR_BUILD_STRINGREF EQUAL 1)
 endif ()
 if (WAMR_BUILD_PERF_PROFILING EQUAL 1 OR
     WAMR_BUILD_DUMP_CALL_STACK EQUAL 1 OR
-    WAMR_BUILD_GC EQUAL 1 OR WAMR_BUILD_GC_BINARYEN EQUAL 1)
-  # Enable AOT/JIT stack frame when perf-profiling, dump-call-stack,
-  # gc or gc-binaryen is enabled
+    WAMR_BUILD_GC EQUAL 1)
+  # Enable AOT/JIT stack frame when perf-profiling, dump-call-stack
+  # or GC is enabled
   if (WAMR_BUILD_AOT EQUAL 1)
     add_definitions (-DWASM_ENABLE_AOT_STACK_FRAME=1)
   endif ()

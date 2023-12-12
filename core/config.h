@@ -472,9 +472,12 @@
 #define WASM_ENABLE_GC 0
 #endif
 
-/* GC binaryen compatible mode */
-#ifndef WASM_ENABLE_GC_BINARYEN
-#define WASM_ENABLE_GC_BINARYEN 0
+#ifndef WASM_CONST_EXPR_STACK_SIZE
+#if WASM_ENABLE_GC != 0
+#define WASM_CONST_EXPR_STACK_SIZE 8
+#else
+#define WASM_CONST_EXPR_STACK_SIZE 4
+#endif
 #endif
 
 #ifndef WASM_ENABLE_STRINGREF

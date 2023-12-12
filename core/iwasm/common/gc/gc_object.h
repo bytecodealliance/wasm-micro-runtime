@@ -158,6 +158,10 @@ wasm_struct_obj_get_field(const WASMStructObjectRef struct_obj,
                           uint32 field_idx, bool sign_extend, WASMValue *value);
 
 WASMArrayObjectRef
+wasm_array_obj_new_internal(void *heap_handle, WASMRttTypeRef rtt_type,
+                            uint32 length, WASMValue *init_value);
+
+WASMArrayObjectRef
 wasm_array_obj_new(struct WASMExecEnv *exec_env, WASMRttTypeRef rtt_type,
                    uint32 length, WASMValue *init_value);
 
@@ -168,6 +172,10 @@ wasm_array_obj_set_elem(WASMArrayObjectRef array_obj, uint32 elem_idx,
 void
 wasm_array_obj_get_elem(const WASMArrayObjectRef array_obj, uint32 elem_idx,
                         bool sign_extend, WASMValue *value);
+
+void
+wasm_array_obj_fill(const WASMArrayObjectRef array_obj, uint32 elem_idx,
+                    uint32 len, WASMValue *value);
 
 void
 wasm_array_obj_copy(WASMArrayObjectRef dst_obj, uint32 dst_idx,
