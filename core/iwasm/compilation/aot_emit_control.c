@@ -933,9 +933,13 @@ aot_compile_op_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return false;
 
         if (block_dst->label_type == LABEL_TYPE_LOOP) {
-            if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame,
-                                      comp_ctx->aot_frame->sp, frame_ip_br))
-                return false;
+#if WASM_ENABLE_THREAD_MGR != 0
+            if (comp_ctx->enable_thread_mgr) {
+                if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame,
+                                          comp_ctx->aot_frame->sp, frame_ip_br))
+                    return false;
+            }
+#endif
         }
         else {
             if (comp_ctx->aot_frame->sp > block_dst->frame_sp_max_reached)
@@ -1013,9 +1017,14 @@ aot_compile_conditional_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return false;
 
         if (block_dst->label_type == LABEL_TYPE_LOOP) {
-            if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame,
-                                      comp_ctx->aot_frame->sp, frame_ip_br_if))
-                return false;
+#if WASM_ENABLE_THREAD_MGR != 0
+            if (comp_ctx->enable_thread_mgr) {
+                if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame,
+                                          comp_ctx->aot_frame->sp,
+                                          frame_ip_br_if))
+                    return false;
+            }
+#endif
         }
         else {
             if (comp_ctx->aot_frame->sp > block_dst->frame_sp_max_reached)
@@ -1193,10 +1202,14 @@ aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             if (!aot_gen_commit_values(comp_ctx->aot_frame))
                 return false;
 
-            if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame,
-                                      comp_ctx->aot_frame->sp,
-                                      frame_ip_br_table))
-                return false;
+#if WASM_ENABLE_THREAD_MGR != 0
+            if (comp_ctx->enable_thread_mgr) {
+                if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame,
+                                          comp_ctx->aot_frame->sp,
+                                          frame_ip_br_table))
+                    return false;
+            }
+#endif
 
             for (i = 0; i <= br_count; i++) {
                 target_block = get_target_block(func_ctx, br_depths[i]);
@@ -1433,9 +1446,14 @@ commit_gc_and_check_suspend_flags(AOTCompContext *comp_ctx,
             return false;
 
         if (block_dst->label_type == LABEL_TYPE_LOOP) {
-            if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame,
-                                      comp_ctx->aot_frame->sp, frame_ip_br_on))
-                return false;
+#if WASM_ENABLE_THREAD_MGR != 0
+            if (comp_ctx->enable_thread_mgr) {
+                if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame,
+                                          comp_ctx->aot_frame->sp,
+                                          frame_ip_br_on))
+                    return false;
+            }
+#endif
         }
         else {
             if (comp_ctx->aot_frame->sp > block_dst->frame_sp_max_reached)

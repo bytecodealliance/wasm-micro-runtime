@@ -544,6 +544,9 @@ aot_gen_commit_sp_ip(AOTCompFrame *frame, const AOTValueSlot *sp,
     LLVMTypeRef int8_ptr_ptr_type;
     uint32 offset_ip, offset_sp, n;
     bool is_64bit = (comp_ctx->pointer_size == sizeof(uint64)) ? true : false;
+    /* TODO: only commit sp currently, will add more options to
+       control whether to commit sp/ip in the future */
+    bool commit_sp = true, commit_ip = false;
 
     if (!comp_ctx->is_jit_mode) {
         offset_ip = frame->comp_ctx->pointer_size * 4;
@@ -554,96 +557,95 @@ aot_gen_commit_sp_ip(AOTCompFrame *frame, const AOTValueSlot *sp,
         offset_sp = offsetof(WASMInterpFrame, sp);
     }
 
-    /* commit ip */
+    if (commit_ip) {
+        if (!(value_offset = I32_CONST(offset_ip))) {
+            aot_set_last_error("llvm build const failed");
+            return false;
+        }
 
-    if (!(value_offset = I32_CONST(offset_ip))) {
-        aot_set_last_error("llvm build const failed");
-        return false;
+        if (!(value_addr =
+                  LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, cur_frame,
+                                        &value_offset, 1, "ip_addr"))) {
+            aot_set_last_error("llvm build in bounds gep failed");
+            return false;
+        }
+
+        if (!(value_ptr = LLVMBuildBitCast(
+                  comp_ctx->builder, value_addr,
+                  is_64bit ? INT64_PTR_TYPE : INT32_PTR_TYPE, "ip_ptr"))) {
+            aot_set_last_error("llvm build bit cast failed");
+            return false;
+        }
+
+        if (!comp_ctx->is_jit_mode) {
+            if (is_64bit)
+                value = I64_CONST(
+                    (uint64)(uintptr_t)(ip - func_ctx->aot_func->code));
+            else
+                value = I32_CONST(
+                    (uint32)(uintptr_t)(ip - func_ctx->aot_func->code));
+        }
+        else {
+            if (is_64bit)
+                value = I64_CONST((uint64)(uintptr_t)ip);
+            else
+                value = I32_CONST((uint32)(uintptr_t)ip);
+        }
+
+        if (!value) {
+            aot_set_last_error("llvm build const failed");
+            return false;
+        }
+
+        if (!LLVMBuildStore(comp_ctx->builder, value, value_ptr)) {
+            aot_set_last_error("llvm build store failed");
+            return false;
+        }
     }
 
-    if (!(value_addr =
-              LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, cur_frame,
-                                    &value_offset, 1, "ip_addr"))) {
-        aot_set_last_error("llvm build in bounds gep failed");
-        return false;
+    if (commit_sp) {
+        n = sp - frame->lp;
+        value = I32_CONST(offset_of_local(comp_ctx, n));
+        if (!value) {
+            aot_set_last_error("llvm build const failed");
+            return false;
+        }
+
+        if (!(value = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
+                                            cur_frame, &value, 1, "sp"))) {
+            aot_set_last_error("llvm build in bounds gep failed");
+            return false;
+        }
+
+        if (!(value_offset = I32_CONST(offset_sp))) {
+            aot_set_last_error("llvm build const failed");
+            return false;
+        }
+
+        if (!(value_addr =
+                  LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, cur_frame,
+                                        &value_offset, 1, "sp_addr"))) {
+            aot_set_last_error("llvm build in bounds gep failed");
+            return false;
+        }
+
+        if (!(int8_ptr_ptr_type = LLVMPointerType(INT8_PTR_TYPE, 0))) {
+            aot_set_last_error("llvm build pointer type failed");
+            return false;
+        }
+
+        if (!(value_ptr = LLVMBuildBitCast(comp_ctx->builder, value_addr,
+                                           int8_ptr_ptr_type, "sp_ptr"))) {
+            aot_set_last_error("llvm build bit cast failed");
+            return false;
+        }
+
+        if (!LLVMBuildStore(comp_ctx->builder, value, value_ptr)) {
+            aot_set_last_error("llvm build store failed");
+            return false;
+        }
     }
 
-    if (!(value_ptr = LLVMBuildBitCast(
-              comp_ctx->builder, value_addr,
-              is_64bit ? INT64_PTR_TYPE : INT32_PTR_TYPE, "ip_ptr"))) {
-        aot_set_last_error("llvm build bit cast failed");
-        return false;
-    }
-
-    if (!comp_ctx->is_jit_mode) {
-        if (is_64bit)
-            value =
-                I64_CONST((uint64)(uintptr_t)(ip - func_ctx->aot_func->code));
-        else
-            value =
-                I32_CONST((uint32)(uintptr_t)(ip - func_ctx->aot_func->code));
-    }
-    else {
-        if (is_64bit)
-            value = I64_CONST((uint64)(uintptr_t)ip);
-        else
-            value = I32_CONST((uint32)(uintptr_t)ip);
-    }
-
-    if (!value) {
-        aot_set_last_error("llvm build const failed");
-        return false;
-    }
-
-    if (!LLVMBuildStore(comp_ctx->builder, value, value_ptr)) {
-        aot_set_last_error("llvm build store failed");
-        return false;
-    }
-
-    /* commit sp */
-
-    n = sp - frame->lp;
-    value = I32_CONST(offset_of_local(comp_ctx, n));
-    if (!value) {
-        aot_set_last_error("llvm build const failed");
-        return false;
-    }
-
-    if (!(value = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, cur_frame,
-                                        &value, 1, "sp"))) {
-        aot_set_last_error("llvm build in bounds gep failed");
-        return false;
-    }
-
-    if (!(value_offset = I32_CONST(offset_sp))) {
-        aot_set_last_error("llvm build const failed");
-        return false;
-    }
-
-    if (!(value_addr =
-              LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, cur_frame,
-                                    &value_offset, 1, "sp_addr"))) {
-        aot_set_last_error("llvm build in bounds gep failed");
-        return false;
-    }
-
-    if (!(int8_ptr_ptr_type = LLVMPointerType(INT8_PTR_TYPE, 0))) {
-        aot_set_last_error("llvm build pointer type failed");
-        return false;
-    }
-
-    if (!(value_ptr = LLVMBuildBitCast(comp_ctx->builder, value_addr,
-                                       int8_ptr_ptr_type, "sp_ptr"))) {
-        aot_set_last_error("llvm build bit cast failed");
-        return false;
-    }
-
-    if (!LLVMBuildStore(comp_ctx->builder, value, value_ptr)) {
-        aot_set_last_error("llvm build store failed");
-        return false;
-    }
-
-    /* commit sp */
     return true;
 }
 
