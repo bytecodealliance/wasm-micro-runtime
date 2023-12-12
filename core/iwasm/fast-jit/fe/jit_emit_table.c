@@ -10,21 +10,22 @@
 #include "../jit_frontend.h"
 
 #if WASM_ENABLE_REF_TYPES != 0
+static void
+wasm_elem_drop(WASMModuleInstance *inst, uint32 tbl_seg_idx)
+{
+    bh_bitmap_set_bit(inst->e->common.elem_dropped, tbl_seg_idx);
+}
+
 bool
 jit_compile_op_elem_drop(JitCompContext *cc, uint32 tbl_seg_idx)
 {
-    JitReg module, tbl_segs;
+    JitReg args[2] = { 0 };
 
-    module = get_module_reg(cc->jit_frame);
+    args[0] = get_module_inst_reg(cc->jit_frame);
+    args[1] = NEW_CONST(I32, tbl_seg_idx);
 
-    tbl_segs = jit_cc_new_reg_ptr(cc);
-    GEN_INSN(LDPTR, tbl_segs, module,
-             NEW_CONST(I32, offsetof(WASMModule, table_segments)));
-
-    GEN_INSN(STI32, NEW_CONST(I32, true), tbl_segs,
-             NEW_CONST(I32, tbl_seg_idx * sizeof(WASMTableSeg)
-                                + offsetof(WASMTableSeg, is_dropped)));
-    return true;
+    return jit_emit_callnative(cc, wasm_elem_drop, 0, args,
+                               sizeof(args) / sizeof(args[0]));
 }
 
 bool
@@ -103,6 +104,12 @@ wasm_init_table(WASMModuleInstance *inst, uint32 tbl_idx, uint32 elem_idx,
     tbl = inst->tables[tbl_idx];
     tbl_sz = tbl->cur_size;
     if (offset_len_out_of_bounds(dst_offset, len, tbl_sz))
+        goto out_of_bounds;
+
+    if (!len)
+        return 0;
+
+    if (bh_bitmap_get_bit(inst->e->common.elem_dropped, elem_idx))
         goto out_of_bounds;
 
     bh_memcpy_s((uint8 *)tbl + offsetof(WASMTableInstance, elems)

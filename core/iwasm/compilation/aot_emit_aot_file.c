@@ -269,7 +269,7 @@ static uint32
 get_table_init_data_size(AOTTableInitData *table_init_data)
 {
     /*
-     * mode (4 bytes), elem_type (4 bytes), do not need is_dropped field
+     * mode (4 bytes), elem_type (4 bytes)
      *
      * table_index(4 bytes) + init expr type (4 bytes) + init expr value (8
      * bytes)

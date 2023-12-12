@@ -47,30 +47,27 @@ IWASM_CMD = get_iwasm_cmd(PLATFORM_NAME)
 IWASM_SGX_CMD = "../../../product-mini/platforms/linux-sgx/enclave-sample/iwasm"
 IWASM_QEMU_CMD = "iwasm"
 SPEC_TEST_DIR = "spec/test/core"
+EXCE_HANDLING_DIR = "exception-handling/test/core"
 WAST2WASM_CMD = exe_file_path("./wabt/out/gcc/Release/wat2wasm")
 SPEC_INTERPRETER_CMD = "spec/interpreter/wasm"
 WAMRC_CMD = "../../../wamr-compiler/build/wamrc"
-EXCE_HANDLING_DIR = "exception-handling/test/core"
-
-
-class TargetAction(argparse.Action):
-    TARGET_MAP = {
-        "ARMV7_VFP": "armv7",
-        "RISCV32": "riscv32_ilp32",
-        "RISCV32_ILP32": "riscv32_ilp32",
-        "RISCV32_ILP32D": "riscv32_ilp32d",
-        "RISCV64": "riscv64_lp64",
-        "RISCV64_LP64": "riscv64_lp64",
-        "RISCV64_LP64D": "riscv64_lp64",
-        "THUMBV7_VFP": "thumbv7",
-        "X86_32": "i386",
-        "X86_64": "x86_64",
-        "AARCH64": "arm64"
-    }
-
-    def __call__(self, parser, namespace, values, option_string=None):
-        setattr(namespace, self.dest, self.TARGET_MAP.get(values, "x86_64"))
-
+AVAILABLE_TARGETS = [
+    "I386",
+    "X86_32",
+    "X86_64",
+    "AARCH64",
+    "AARCH64_VFP",
+    "ARMV7",
+    "ARMV7_VFP",
+    "RISCV32",
+    "RISCV32_ILP32F",
+    "RISCV32_ILP32D",
+    "RISCV64",
+    "RISCV64_LP64F",
+    "RISCV64_LP64D",
+    "THUMBV7",
+    "THUMBV7_VFP",
+]
 
 def ignore_the_case(
     case_name,
@@ -428,8 +425,7 @@ def main():
     )
     parser.add_argument(
         "-m",
-        action=TargetAction,
-        choices=list(TargetAction.TARGET_MAP.keys()),
+        choices=AVAILABLE_TARGETS,
         type=str,
         dest="target",
         default="X86_64",
@@ -537,6 +533,12 @@ def main():
 
     options = parser.parse_args()
 
+    # Convert target to lower case for internal use, e.g. X86_64 -> x86_64
+    # target is always exist, so no need to check it
+    options.target = options.target.lower()
+
+    if options.target == "x86_32":
+        options.target = "i386"
 
     if not preflight_check(options.aot_flag, options.eh_flag):
         return False

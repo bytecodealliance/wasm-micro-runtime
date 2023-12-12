@@ -58,6 +58,7 @@ print_help()
 #if WASM_ENABLE_JIT != 0
     printf("  --llvm-jit-size-level=n  Set LLVM JIT size level, default is 3\n");
     printf("  --llvm-jit-opt-level=n   Set LLVM JIT optimization level, default is 3\n");
+    printf("  --perf-profile           Enable linux perf support. For now, it only works in llvm-jit.\n");
 #if defined(os_writegsbase)
     printf("  --enable-segue[=<flags>] Enable using segment register GS as the base address of\n");
     printf("                           linear memory, which may improve performance, flags can be:\n");
@@ -69,7 +70,7 @@ print_help()
 #endif
     printf("  --repl                   Start a very simple REPL (read-eval-print-loop) mode\n"
            "                           that runs commands in the form of \"FUNC ARG...\"\n");
-#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+#if WASM_CONFIGURABLE_BOUNDS_CHECKS != 0
     printf("  --disable-bounds-checks  Disable bounds checks for memory accesses\n");
 #endif
 #if WASM_ENABLE_LIBC_WASI != 0
@@ -560,6 +561,7 @@ main(int argc, char *argv[])
     uint32 llvm_jit_size_level = 3;
     uint32 llvm_jit_opt_level = 3;
     uint32 segue_flags = 0;
+    bool enable_linux_perf_support = false;
 #endif
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
@@ -571,7 +573,7 @@ main(int argc, char *argv[])
 #endif
     bool is_repl_mode = false;
     bool is_xip_file = false;
-#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+#if WASM_CONFIGURABLE_BOUNDS_CHECKS != 0
     bool disable_bounds_checks = false;
 #endif
 #if WASM_ENABLE_LIBC_WASI != 0
@@ -638,7 +640,7 @@ main(int argc, char *argv[])
         else if (!strcmp(argv[0], "--repl")) {
             is_repl_mode = true;
         }
-#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+#if WASM_CONFIGURABLE_BOUNDS_CHECKS != 0
         else if (!strcmp(argv[0], "--disable-bounds-checks")) {
             disable_bounds_checks = true;
         }
@@ -699,6 +701,9 @@ main(int argc, char *argv[])
             segue_flags = resolve_segue_flags(argv[0] + 15);
             if (segue_flags == (uint32)-1)
                 return print_help();
+        }
+        else if (!strncmp(argv[0], "--perf-profile", 14)) {
+            enable_linux_perf_support = true;
         }
 #endif /* end of WASM_ENABLE_JIT != 0 */
 #if BH_HAS_DLFCN
@@ -814,6 +819,7 @@ main(int argc, char *argv[])
     init_args.llvm_jit_size_level = llvm_jit_size_level;
     init_args.llvm_jit_opt_level = llvm_jit_opt_level;
     init_args.segue_flags = segue_flags;
+    init_args.linux_perf_support = enable_linux_perf_support;
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
@@ -886,7 +892,7 @@ main(int argc, char *argv[])
         goto fail3;
     }
 
-#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+#if WASM_CONFIGURABLE_BOUNDS_CHECKS != 0
     if (disable_bounds_checks) {
         wasm_runtime_set_bounds_checks(wasm_module_inst, false);
     }

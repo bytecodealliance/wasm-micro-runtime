@@ -7,7 +7,12 @@
 #define ZEPHYR_DRIVERS_DISPLAY_DISPLAY_ILI9340_H_
 #include "board_config.h"
 #include <autoconf.h>
+
+#if KERNEL_VERSION_NUMBER < 0x030200 /* version 3.2.0 */
 #include <zephyr.h>
+#else
+#include <zephyr/kernel.h>
+#endif
 
 #define ILI9340_CMD_ENTER_SLEEP 0x10
 #define ILI9340_CMD_EXIT_SLEEP 0x11

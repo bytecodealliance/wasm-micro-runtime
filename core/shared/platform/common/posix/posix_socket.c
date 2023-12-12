@@ -5,6 +5,7 @@
 
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
+#include "libc_errno.h"
 
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -308,11 +309,13 @@ os_socket_close(bh_socket_t socket)
     return BHT_OK;
 }
 
-int
+__wasi_errno_t
 os_socket_shutdown(bh_socket_t socket)
 {
-    shutdown(socket, O_RDWR);
-    return BHT_OK;
+    if (shutdown(socket, O_RDWR) != 0) {
+        return convert_errno(errno);
+    }
+    return __WASI_ESUCCESS;
 }
 
 int

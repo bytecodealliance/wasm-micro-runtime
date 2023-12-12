@@ -95,7 +95,7 @@ wasm_memory_init_with_allocator(void *_malloc_func, void *_realloc_func,
 static inline bool
 is_bounds_checks_enabled(WASMModuleInstanceCommon *module_inst)
 {
-#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+#if WASM_CONFIGURABLE_BOUNDS_CHECKS != 0
     return wasm_runtime_is_bounds_checks_enabled(module_inst);
 #else
     return true;
@@ -686,7 +686,7 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
         memory->num_bytes_per_page = num_bytes_per_page;
         memory->cur_page_count = total_page_count;
         memory->max_page_count = max_page_count;
-        memory->memory_data_size = (uint32)total_size_new;
+        SET_LINEAR_MEMORY_SIZE(memory, (uint32)total_size_new);
         memory->memory_data_end = memory->memory_data + (uint32)total_size_new;
 
         wasm_runtime_set_mem_bound_check_bytes(memory, total_size_new);
@@ -844,7 +844,7 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
     memory->num_bytes_per_page = num_bytes_per_page;
     memory->cur_page_count = total_page_count;
     memory->max_page_count = max_page_count;
-    memory->memory_data_size = (uint32)total_size_new;
+    SET_LINEAR_MEMORY_SIZE(memory, (uint32)total_size_new);
     memory->memory_data_end = memory->memory_data + (uint32)total_size_new;
 
     wasm_runtime_set_mem_bound_check_bytes(memory, total_size_new);

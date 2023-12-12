@@ -31,7 +31,12 @@ xpt2046_init(void);
 extern void
 wgl_init();
 
+#if KERNEL_VERSION_NUMBER < 0x030200 /* version 3.2.0 */
 #include <zephyr.h>
+#else
+#include <zephyr/kernel.h>
+#endif
+
 #include <drivers/uart.h>
 #include <device.h>
 

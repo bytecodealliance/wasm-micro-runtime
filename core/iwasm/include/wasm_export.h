@@ -118,7 +118,7 @@ typedef union MemAllocOption {
         void *realloc_func;
         void *free_func;
         /* allocator user data, only used when
-            WASM_MEM_ALLOC_WITH_USER_DATA is defined */
+           WASM_MEM_ALLOC_WITH_USER_DATA is defined */
         void *user_data;
     } allocator;
 } MemAllocOption;
@@ -149,7 +149,7 @@ typedef struct RuntimeInitArgs {
     uint32_t n_native_symbols;
 
     /* maximum thread number, only used when
-        WASM_ENABLE_THREAD_MGR is defined */
+       WASM_ENABLE_THREAD_MGR is defined */
     uint32_t max_thread_num;
 
     /* Debug settings, only used when
@@ -169,6 +169,15 @@ typedef struct RuntimeInitArgs {
     uint32_t llvm_jit_size_level;
     /* Segue optimization flags for LLVM JIT */
     uint32_t segue_flags;
+    /**
+     * If enabled
+     * - llvm-jit will output a jitdump file for `perf inject`
+     * - aot. TBD
+     * - fast-jit. TBD
+     * - multi-tier-jit. TBD
+     * - interpreter. TBD
+     */
+    bool linux_perf_support;
 } RuntimeInitArgs;
 
 #ifndef WASM_VALKIND_T_DEFINED
@@ -311,7 +320,8 @@ wasm_runtime_is_xip_file(const uint8_t *buf, uint32_t size);
 /**
  * Callback to load a module file into a buffer in multi-module feature
  */
-typedef bool (*module_reader)(package_type_t module_type,const char *module_name,
+typedef bool (*module_reader)(package_type_t module_type,
+                              const char *module_name,
                               uint8_t **p_buffer, uint32_t *p_size);
 
 /**
@@ -871,6 +881,7 @@ wasm_application_execute_main(wasm_module_inst_t module_inst,
 WASM_RUNTIME_API_EXTERN bool
 wasm_application_execute_func(wasm_module_inst_t module_inst,
                               const char *name, int32_t argc, char *argv[]);
+
 /**
  * Get exception info of the WASM module instance.
  *
@@ -933,6 +944,7 @@ wasm_runtime_terminate(wasm_module_inst_t module_inst);
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_custom_data(wasm_module_inst_t module_inst,
                              void *custom_data);
+
 /**
  * Get the custom data within a WASM module instance.
  *
@@ -945,23 +957,24 @@ wasm_runtime_get_custom_data(wasm_module_inst_t module_inst);
 
 /**
  * Set the memory bounds checks flag of a WASM module instance.
- * 
+ *
  * @param module_inst the WASM module instance
  * @param enable the flag to enable/disable the memory bounds checks
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_bounds_checks(wasm_module_inst_t module_inst,
                                bool enable);
+
 /**
  * Check if the memory bounds checks flag is enabled for a WASM module instance.
- * 
- * @param module_inst the WASM module instance
  *
+ * @param module_inst the WASM module instance
  * @return true if the memory bounds checks flag is enabled, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_bounds_checks_enabled(
     wasm_module_inst_t module_inst);
+
 /**
  * Allocate memory from the heap of WASM module instance
  *
@@ -1336,7 +1349,8 @@ wasm_externref_objdel(wasm_module_inst_t module_inst, void *extern_obj);
  *
  * @param module_inst the WASM module instance that the extern object
  *        belongs to
- * @param extern_obj the external object to which to set the `extern_obj_cleanup` cleanup callback.
+ * @param extern_obj the external object to which to set the
+ *        `extern_obj_cleanup` cleanup callback.
  * @param extern_obj_cleanup a callback to release `extern_obj`
  *
  * @return true if success, false otherwise
@@ -1544,11 +1558,11 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_context_key(void *key);
 
 WASM_RUNTIME_API_EXTERN void
-wasm_runtime_set_context(wasm_module_inst_t inst, void *key,
-                                         void *ctx);
+wasm_runtime_set_context(wasm_module_inst_t inst, void *key, void *ctx);
+
 WASM_RUNTIME_API_EXTERN void
-wasm_runtime_set_context_spread(wasm_module_inst_t inst, void *key,
-                                         void *ctx);
+wasm_runtime_set_context_spread(wasm_module_inst_t inst, void *key, void *ctx);
+
 WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_get_context(wasm_module_inst_t inst, void *key);
 

@@ -54,6 +54,12 @@ STORE_U16(void *addr, uint16_t value)
 {
     *(uint16_t *)(addr) = (uint16_t)(value);
 }
+static inline void
+STORE_U8(void *addr, uint8_t value)
+{
+    *(uint8 *)addr = value;
+}
+
 /* For LOAD opcodes */
 #define LOAD_I64(addr) (*(int64 *)(addr))
 #define LOAD_F64(addr) (*(float64 *)(addr))
@@ -173,6 +179,13 @@ STORE_U32(void *addr, uint32_t value)
         }
     }
 }
+
+static inline void
+STORE_U8(void *addr, uint8_t value)
+{
+    *(uint8 *)addr = value;
+}
+
 static inline void
 STORE_U16(void *addr, uint16_t value)
 {
@@ -430,6 +443,7 @@ typedef struct LLVMJITOptions {
     uint32 opt_level;
     uint32 size_level;
     uint32 segue_flags;
+    bool linux_perf_support;
 } LLVMJITOptions;
 #endif
 
@@ -603,7 +617,7 @@ wasm_runtime_set_user_data(WASMExecEnv *exec_env, void *user_data);
 WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_get_user_data(WASMExecEnv *exec_env);
 
-#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+#if WASM_CONFIGURABLE_BOUNDS_CHECKS != 0
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_bounds_checks(WASMModuleInstanceCommon *module_inst,

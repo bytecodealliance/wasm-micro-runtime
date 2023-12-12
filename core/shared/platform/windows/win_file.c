@@ -46,50 +46,6 @@
         CHECK_VALID_FILE_HANDLE((win_dir_stream)->handle); \
     } while (0)
 
-static __wasi_errno_t
-convert_winsock_error_code(int error_code)
-{
-    switch (error_code) {
-        case WSASYSNOTREADY:
-        case WSAEWOULDBLOCK:
-            return __WASI_EAGAIN;
-        case WSAVERNOTSUPPORTED:
-            return __WASI_ENOTSUP;
-        case WSAEINPROGRESS:
-            return __WASI_EINPROGRESS;
-        case WSAEPROCLIM:
-            return __WASI_EBUSY;
-        case WSAEFAULT:
-            return __WASI_EFAULT;
-        case WSAENETDOWN:
-            return __WASI_ENETDOWN;
-        case WSAENOTSOCK:
-            return __WASI_ENOTSOCK;
-        case WSAEINTR:
-            return __WASI_EINTR;
-        case WSAEAFNOSUPPORT:
-            return __WASI_EAFNOSUPPORT;
-        case WSAEMFILE:
-            return __WASI_ENFILE;
-        case WSAEINVAL:
-            return __WASI_EINVAL;
-        case WSAENOBUFS:
-            return __WASI_ENOBUFS;
-        case WSAEPROTONOSUPPORT:
-            return __WASI_EPROTONOSUPPORT;
-        case WSAEPROTOTYPE:
-            return __WASI_EPROTOTYPE;
-        case WSAESOCKTNOSUPPORT:
-            return __WASI_ENOTSUP;
-        case WSAEINVALIDPROCTABLE:
-        case WSAEINVALIDPROVIDER:
-        case WSAEPROVIDERFAILEDINIT:
-        case WSANOTINITIALISED:
-        default:
-            return __WASI_EINVAL;
-    }
-}
-
 static __wasi_filetype_t
 get_disk_filetype(DWORD attribute)
 {

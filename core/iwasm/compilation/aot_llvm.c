@@ -653,6 +653,20 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
                                 attr_no_jump_tables);
     }
 
+    /* spread fp.all to every function */
+    if (comp_ctx->emit_frame_pointer) {
+        const char *key = "frame-pointer";
+        const char *val = "all";
+        LLVMAttributeRef no_omit_fp = LLVMCreateStringAttribute(
+            comp_ctx->context, key, (unsigned)strlen(key), val,
+            (unsigned)strlen(val));
+        if (!no_omit_fp) {
+            aot_set_last_error("create LLVM attribute (frame-pointer) failed.");
+            goto fail;
+        }
+        LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex, no_omit_fp);
+    }
+
     if (need_precheck) {
         if (!comp_ctx->is_jit_mode)
             LLVMSetLinkage(func, LLVMInternalLinkage);
@@ -1938,13 +1952,33 @@ static void
 print_supported_targets()
 {
     uint32 i;
+    const char *target_name;
+
     os_printf("Supported targets:\n");
-    for (i = 0; i < sizeof(valid_archs) / sizeof(ArchItem); i++) {
-        os_printf("%s ", valid_archs[i].arch);
-        if (valid_archs[i].support_eb)
-            os_printf("%seb ", valid_archs[i].arch);
+    /* over the list of all available targets */
+    for (LLVMTargetRef target = LLVMGetFirstTarget(); target != NULL;
+         target = LLVMGetNextTarget(target)) {
+        target_name = LLVMGetTargetName(target);
+        /* Skip mipsel, aarch64_be since prefix mips, aarch64 will cover them */
+        if (strcmp(target_name, "mipsel") == 0)
+            continue;
+        else if (strcmp(target_name, "aarch64_be") == 0)
+            continue;
+
+        if (strcmp(target_name, "x86-64") == 0)
+            os_printf("  x86_64\n");
+        else if (strcmp(target_name, "x86") == 0)
+            os_printf("  i386\n");
+        else {
+            for (i = 0; i < sizeof(valid_archs) / sizeof(ArchItem); i++) {
+                /* If target_name is prefix for valid_archs[i].arch */
+                if ((strncmp(target_name, valid_archs[i].arch,
+                             strlen(target_name))
+                     == 0))
+                    os_printf("  %s\n", valid_archs[i].arch);
+            }
+        }
     }
-    os_printf("\n");
 }
 
 static void
@@ -2140,7 +2174,7 @@ jit_stack_size_callback(void *user_data, const char *name, size_t namelen,
 }
 
 static bool
-orc_jit_create(AOTCompContext *comp_ctx)
+orc_jit_create(AOTCompContext *comp_ctx, bool linux_perf_support)
 {
     LLVMErrorRef err;
     LLVMOrcLLLazyJITRef orc_jit = NULL;
@@ -2179,6 +2213,14 @@ orc_jit_create(AOTCompContext *comp_ctx)
     }
     /* Ownership transfer: LLVMOrcLLJITBuilderRef -> LLVMOrcLLJITRef */
     builder = NULL;
+
+    if (linux_perf_support) {
+        LOG_DEBUG("Enable linux perf support");
+        LLVMOrcObjectLayerRef obj_linking_layer =
+            (LLVMOrcObjectLayerRef)LLVMOrcLLLazyJITGetObjLinkingLayer(orc_jit);
+        LLVMOrcRTDyldObjectLinkingLayerRegisterJITEventListener(
+            obj_linking_layer, LLVMCreatePerfJITEventListener());
+    }
 
     /* Ownership transfer: local -> AOTCompContext */
     comp_ctx->orc_jit = orc_jit;
@@ -2276,6 +2318,17 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
               "WASM Module", comp_ctx->context))) {
         aot_set_last_error("create LLVM module failed.");
         goto fail;
+    }
+
+    if (option->linux_perf_support) {
+        /* FramePointerKind.All */
+        LLVMMetadataRef val =
+            LLVMValueAsMetadata(LLVMConstInt(LLVMInt32Type(), 2, false));
+        const char *key = "frame-pointer";
+        LLVMAddModuleFlag(comp_ctx->module, LLVMModuleFlagBehaviorWarning, key,
+                          strlen(key), val);
+
+        comp_ctx->emit_frame_pointer = true;
     }
 
     if (BH_LIST_ERROR == bh_list_init(&comp_ctx->native_symbols)) {
@@ -2381,7 +2434,7 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
             goto fail;
 
         /* Create LLJIT Instance */
-        if (!orc_jit_create(comp_ctx))
+        if (!orc_jit_create(comp_ctx, option->linux_perf_support))
             goto fail;
     }
     else {
@@ -2656,13 +2709,14 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
                               meta_target_abi);
 
             if (!strcmp(abi, "lp64d") || !strcmp(abi, "ilp32d")) {
-                if (features) {
+                if (features && !strstr(features, "+d")) {
                     snprintf(features_buf, sizeof(features_buf), "%s%s",
                              features, ",+d");
                     features = features_buf;
                 }
-                else
+                else if (!features) {
                     features = "+d";
+                }
             }
         }
 

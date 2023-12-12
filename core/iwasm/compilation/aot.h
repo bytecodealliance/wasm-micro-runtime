@@ -143,7 +143,6 @@ typedef struct AOTTableInitData {
     uint32 mode;
     /* funcref or externref, elemkind will be considered as funcref */
     uint32 elem_type;
-    bool is_dropped;
     /* optional, only for active */
     uint32 table_index;
     /* Start address of init data */
