@@ -12,9 +12,9 @@ libsodium_CASES="aead_aes256gcm2 aead_aes256gcm aead_chacha20poly13052 aead_chac
                  pwhash_scrypt_ll pwhash_scrypt randombytes scalarmult2 scalarmult5 \
                  scalarmult6 scalarmult7 scalarmult8 scalarmult_ed25519 scalarmult_ristretto255 \
                  scalarmult secretbox2 secretbox7 secretbox8 secretbox_easy2 secretbox_easy \
-                 secretbox secretstream shorthash sign siphashx24 sodium_core sodium_utils2 \
-                 sodium_utils3 sodium_utils sodium_version stream2 stream3 stream4 stream verify1 \
-                 xchacha20"
+                 secretbox secretstream_xchacha20poly1305 shorthash sign siphashx24 sodium_core \
+                 sodium_utils2 sodium_utils3 sodium_utils sodium_version stream2 stream3 stream4 \
+                 stream verify1 xchacha20"
 
 PLATFORM=$(uname -s | tr A-Z a-z)
 
@@ -22,16 +22,19 @@ readonly WAMRC_CMD=$PWD/../../../wamr-compiler/build/wamrc
 readonly OUT_DIR=$PWD/libsodium/zig-out/bin
 
 if [ ! -d libsodium ]; then
-    git clone -b stable https://github.com/jedisct1/libsodium.git
+    git clone https://github.com/jedisct1/libsodium.git
+    cd libsodium
+    git checkout 1.0.19
+    cd ..
 fi
 
 cd libsodium
 
 echo "Build libsodium native"
-zig build -Drelease-fast -Denable_benchmarks=true
+zig build -Doptimize=ReleaseFast -Denable_benchmarks=true
 
 echo "Build libsodium wasm32-wasi"
-zig build -Drelease-fast -Denable_benchmarks=true -Dtarget=wasm32-wasi
+zig build -Doptimize=ReleaseFast -Denable_benchmarks=true -Dtarget=wasm32-wasi
 
 for case in ${libsodium_CASES}
 do

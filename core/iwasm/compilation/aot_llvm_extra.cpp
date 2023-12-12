@@ -36,6 +36,7 @@
 #include <llvm/Support/ErrorHandling.h>
 #if LLVM_VERSION_MAJOR >= 17
 #include <llvm/Support/PGOOptions.h>
+#include <llvm/Support/VirtualFileSystem.h>
 #endif
 #include <llvm/Target/CodeGenCWrappers.h>
 #include <llvm/Target/TargetMachine.h>
@@ -203,19 +204,27 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
     Optional<PGOOptions> PGO = llvm::None;
 #endif
 
-// TODO
-#if LLVM_VERSION_MAJOR < 17
     if (comp_ctx->enable_llvm_pgo) {
         /* Disable static counter allocation for value profiler,
            it will be allocated by runtime */
         const char *argv[] = { "", "-vp-static-alloc=false" };
         cl::ParseCommandLineOptions(2, argv);
+#if LLVM_VERSION_MAJOR < 17
         PGO = PGOOptions("", "", "", PGOOptions::IRInstr);
+#else
+        auto FS = vfs::getRealFileSystem();
+        PGO = PGOOptions("", "", "", "", FS, PGOOptions::IRInstr);
+#endif
     }
     else if (comp_ctx->use_prof_file) {
+#if LLVM_VERSION_MAJOR < 17
         PGO = PGOOptions(comp_ctx->use_prof_file, "", "", PGOOptions::IRUse);
-    }
+#else
+        auto FS = vfs::getRealFileSystem();
+        PGO = PGOOptions(comp_ctx->use_prof_file, "", "", "", FS,
+                         PGOOptions::IRUse);
 #endif
+    }
 
 #ifdef DEBUG_PASS
     PassInstrumentationCallbacks PIC;
@@ -343,7 +352,13 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
             ExitOnErr(PB.parsePassPipeline(MPM, comp_ctx->llvm_passes));
         }
 
-        if (OptimizationLevel::O0 == OL) {
+        if (
+#if LLVM_VERSION_MAJOR <= 13
+            PassBuilder::OptimizationLevel::O0 == OL
+#else
+            OptimizationLevel::O0 == OL
+#endif
+        ) {
             MPM.addPass(PB.buildO0DefaultPipeline(OL));
         }
         else {

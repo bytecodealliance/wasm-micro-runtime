@@ -9,12 +9,12 @@ $ mkdir build
 $ cd build
 $ cmake ..
 $ make
-$ # It will build multi-module runtime and 
+$ # It will build multi_module runtime and 
 $ # wasm file under the ./build .
 $ # If you have built wamrc,
 $ # aot file will also genrate.
-$ ./multi-module mC.wasm
+$ ./multi_module mC.wasm
 $ ...
-$ ./multi-module mC.aot
+$ ./multi_module mC.aot
 $ ...
 

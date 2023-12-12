@@ -9,7 +9,6 @@ if (NOT WAMR_BUILD_PLATFORM STREQUAL "windows")
   project(c-api)
 else()
   project (c-api C ASM)
-  enable_language (ASM_MASM)
 endif()
 
 if(NOT CMAKE_BUILD_TYPE)

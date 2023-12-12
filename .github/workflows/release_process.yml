@@ -56,21 +56,21 @@ jobs:
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
       os: "ubuntu-20.04"
-      arch: "X86"
+      arch: "AArch64 ARM Mips RISCV X86"
 
   build_llvm_libraries_on_ubuntu_2204:
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
       os: "ubuntu-22.04"
-      arch: "X86"
+      arch: "AArch64 ARM Mips RISCV X86"
 
   build_llvm_libraries_on_macos:
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
       os: "macos-latest"
-      arch: "X86"
+      arch: "AArch64 ARM Mips RISCV X86"
 
   #
   # WAMRC

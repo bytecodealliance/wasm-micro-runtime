@@ -58,7 +58,7 @@ float_to_string(float n, char *res, int res_size, int afterpoint)
         // is needed to handle cases like 233.007
         fpart = fpart * get_pow(10, afterpoint);
 
-        intToStr((int)fpart, res + i + 1, sizeof(res + i + 1), afterpoint);
+        intToStr((int)fpart, res + i + 1, res_size - i - 1, afterpoint);
     }
 }
 

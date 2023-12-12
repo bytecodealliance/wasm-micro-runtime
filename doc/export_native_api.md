@@ -155,7 +155,7 @@ As function parameters are always passed in 32 bits numbers, you can also use 'i
 //
 // If the function signature used i32 data type ("i")
 // for buffer address or string parameters, here
-// is how to do address conversation and boundary check manually
+// is how to do address conversion and boundary check manually
 //
 void foo2(wasm_exec_env_t exec_env, 
           uint32 msg_offset, 

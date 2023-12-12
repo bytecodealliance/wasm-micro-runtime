@@ -1095,7 +1095,6 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
 
         data_list[i]->mode = mode;
         data_list[i]->elem_type = elem_type;
-        data_list[i]->is_dropped = false;
         data_list[i]->table_index = table_index;
         data_list[i]->offset.init_expr_type = (uint8)init_expr_type;
         data_list[i]->offset.u.i64 = (int64)init_expr_value;
@@ -1574,8 +1573,9 @@ load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
 
         /* Allocate memory for data */
         if (data_sections[i].size > 0
-            && !(data_sections[i].data = os_mmap(NULL, data_sections[i].size,
-                                                 map_prot, map_flags))) {
+            && !(data_sections[i].data =
+                     os_mmap(NULL, data_sections[i].size, map_prot, map_flags,
+                             os_get_invalid_handle()))) {
             set_error_buf(error_buf, error_buf_size, "allocate memory failed");
             return false;
         }
@@ -2470,7 +2470,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 
         if (size > UINT32_MAX
             || !(module->extra_plt_data =
-                     os_mmap(NULL, (uint32)size, map_prot, map_flags))) {
+                     os_mmap(NULL, (uint32)size, map_prot, map_flags,
+                             os_get_invalid_handle()))) {
             set_error_buf(error_buf, error_buf_size, "mmap memory failed");
             goto fail;
         }
@@ -2593,7 +2594,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
         size = (uint64)sizeof(void *) * got_item_count;
         if (size > UINT32_MAX
             || !(module->got_func_ptrs =
-                     os_mmap(NULL, (uint32)size, map_prot, map_flags))) {
+                     os_mmap(NULL, (uint32)size, map_prot, map_flags,
+                             os_get_invalid_handle()))) {
             set_error_buf(error_buf, error_buf_size, "mmap memory failed");
             goto fail;
         }
@@ -3106,8 +3108,9 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
                         (uint64)section_size + aot_get_plt_table_size();
                     total_size = (total_size + 3) & ~((uint64)3);
                     if (total_size >= UINT32_MAX
-                        || !(aot_text = os_mmap(NULL, (uint32)total_size,
-                                                map_prot, map_flags))) {
+                        || !(aot_text =
+                                 os_mmap(NULL, (uint32)total_size, map_prot,
+                                         map_flags, os_get_invalid_handle()))) {
                         wasm_runtime_free(section);
                         set_error_buf(error_buf, error_buf_size,
                                       "mmap memory failed");
