@@ -731,6 +731,9 @@ llvm_jit_alloc_frame(WASMExecEnv *exec_env, uint32 func_index);
 
 void
 llvm_jit_free_frame(WASMExecEnv *exec_env);
+
+void
+llvm_jit_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame);
 #endif
 
 #if WASM_ENABLE_GC != 0

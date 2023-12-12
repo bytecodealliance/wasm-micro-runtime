@@ -6196,7 +6196,7 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     frame->sp = frame->lp + 0;
 
     if ((uint8 *)(outs_area->lp + function->param_cell_num)
-        > exec_env->wasm_stack.s.top_boundary) {
+        > exec_env->wasm_stack.top_boundary) {
         wasm_set_exception(module_inst, "wasm operand stack overflow");
         return;
     }

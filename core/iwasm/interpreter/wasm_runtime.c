@@ -2930,7 +2930,7 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
     uint32 page_size = os_getpagesize();
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
     WASMRuntimeFrame *prev_frame = wasm_exec_env_get_cur_frame(exec_env);
-    uint8 *prev_top = exec_env->wasm_stack.s.top;
+    uint8 *prev_top = exec_env->wasm_stack.top;
 #ifdef BH_PLATFORM_WINDOWS
     int result;
     bool has_exception;
@@ -2998,7 +2998,7 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
 #endif
         /* Restore operand frames */
         wasm_exec_env_set_cur_frame(exec_env, prev_frame);
-        exec_env->wasm_stack.s.top = prev_top;
+        exec_env->wasm_stack.top = prev_top;
     }
 
     jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
@@ -4208,6 +4208,34 @@ llvm_jit_free_frame(WASMExecEnv *exec_env)
 #endif
     wasm_exec_env_free_wasm_frame(exec_env, frame);
     wasm_exec_env_set_cur_frame(exec_env, prev_frame);
+}
+
+void
+llvm_jit_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame)
+{
+#if WASM_ENABLE_PERF_PROFILING != 0
+    WASMInterpFrame *cur_frame = exec_env->cur_frame;
+
+    if (alloc_frame) {
+        cur_frame->time_started = (uintptr_t)os_time_get_boot_microsecond();
+    }
+    else {
+        if (cur_frame->function) {
+            cur_frame->function->total_exec_time +=
+                os_time_get_boot_microsecond() - cur_frame->time_started;
+            cur_frame->function->total_exec_cnt++;
+        }
+    }
+#endif
+
+#if WASM_ENABLE_MEMORY_PROFILING != 0
+    if (alloc_frame) {
+        uint32 wasm_stack_used =
+            exec_env->wasm_stack.top - exec_env->wasm_stack.bottom;
+        if (wasm_stack_used > exec_env->max_wasm_stack_used)
+            exec_env->max_wasm_stack_used = wasm_stack_used;
+    }
+#endif
 }
 #endif /* end of WASM_ENABLE_DUMP_CALL_STACK != 0 \
           || WASM_ENABLE_PERF_PROFILING != 0      \

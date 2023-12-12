@@ -34,6 +34,12 @@ bh_static_assert(offsetof(WASMExecEnv, aux_stack_bottom)
 bh_static_assert(offsetof(WASMExecEnv, native_symbol) == 8 * sizeof(uintptr_t));
 bh_static_assert(offsetof(WASMExecEnv, native_stack_top_min)
                  == 9 * sizeof(uintptr_t));
+bh_static_assert(offsetof(WASMExecEnv, wasm_stack.top_boundary)
+                 == 10 * sizeof(uintptr_t));
+bh_static_assert(offsetof(WASMExecEnv, wasm_stack.top)
+                 == 11 * sizeof(uintptr_t));
+bh_static_assert(offsetof(WASMExecEnv, wasm_stack.bottom)
+                 == 12 * sizeof(uintptr_t));
 
 bh_static_assert(offsetof(AOTModuleInstance, memories) == 1 * sizeof(uint64));
 bh_static_assert(offsetof(AOTModuleInstance, func_ptrs) == 5 * sizeof(uint64));
@@ -49,6 +55,11 @@ bh_static_assert(offsetof(AOTTableInstance, elems) == 24);
 
 bh_static_assert(offsetof(AOTModuleInstanceExtra, stack_sizes) == 0);
 
+bh_static_assert(offsetof(AOTFrame, prev_frame) == sizeof(uintptr_t) * 0);
+bh_static_assert(offsetof(AOTFrame, func_index) == sizeof(uintptr_t) * 1);
+bh_static_assert(offsetof(AOTFrame, time_started) == sizeof(uintptr_t) * 2);
+bh_static_assert(offsetof(AOTFrame, func_perf_prof_info)
+                 == sizeof(uintptr_t) * 3);
 bh_static_assert(offsetof(AOTFrame, ip_offset) == sizeof(uintptr_t) * 4);
 bh_static_assert(offsetof(AOTFrame, sp) == sizeof(uintptr_t) * 5);
 bh_static_assert(offsetof(AOTFrame, frame_ref) == sizeof(uintptr_t) * 6);
@@ -3553,6 +3564,36 @@ aot_free_frame(WASMExecEnv *exec_env)
 
     wasm_exec_env_free_wasm_frame(exec_env, cur_frame);
     exec_env->cur_frame = (struct WASMInterpFrame *)prev_frame;
+}
+
+void
+aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame)
+{
+#if WASM_ENABLE_PERF_PROFILING != 0
+    AOTFrame *cur_frame = (AOTFrame *)exec_env->cur_frame;
+    AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
+    AOTFuncPerfProfInfo *func_perf_prof =
+        module_inst->func_perf_profilings + cur_frame->func_index;
+
+    if (alloc_frame) {
+        cur_frame->time_started = (uintptr_t)os_time_get_boot_microsecond();
+        cur_frame->func_perf_prof_info = func_perf_prof;
+    }
+    else {
+        cur_frame->func_perf_prof_info->total_exec_time +=
+            (uintptr_t)os_time_get_boot_microsecond() - cur_frame->time_started;
+        cur_frame->func_perf_prof_info->total_exec_cnt++;
+    }
+#endif
+
+#if WASM_ENABLE_MEMORY_PROFILING != 0
+    if (alloc_frame) {
+        uint32 wasm_stack_used =
+            exec_env->wasm_stack.top - exec_env->wasm_stack.bottom;
+        if (wasm_stack_used > exec_env->max_wasm_stack_used)
+            exec_env->max_wasm_stack_used = wasm_stack_used;
+    }
+#endif
 }
 #endif /* end of WASM_ENABLE_AOT_STACK_FRAME != 0 */
 

@@ -48,7 +48,9 @@ hmu_init_prefix_and_suffix(hmu_t *hmu, gc_size_t tot_size,
 void
 hmu_verify(void *vheap, hmu_t *hmu)
 {
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     gc_heap_t *heap = (gc_heap_t *)vheap;
+#endif
     gc_object_prefix_t *prefix = NULL;
     gc_object_suffix_t *suffix = NULL;
     gc_uint32 i = 0;
