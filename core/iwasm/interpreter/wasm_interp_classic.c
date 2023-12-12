@@ -43,7 +43,7 @@ typedef float64 CellType_F64;
  * multi-threading mode since it may be changed by other
  * threads in memory.grow
  */
-#define get_linear_mem_size() memory->memory_data_size
+#define get_linear_mem_size() GET_LINEAR_MEMORY_SIZE(memory)
 #endif
 
 #if !defined(OS_ENABLE_HW_BOUND_CHECK) \
@@ -1346,7 +1346,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if !defined(OS_ENABLE_HW_BOUND_CHECK)              \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
     || WASM_ENABLE_BULK_MEMORY != 0
-    uint32 linear_mem_size = memory ? memory->memory_data_size : 0;
+    uint32 linear_mem_size = 0;
+    if (memory)
+#if WASM_ENABLE_THREAD_MGR == 0
+        linear_mem_size = memory->memory_data_size;
+#else
+        linear_mem_size = GET_LINEAR_MEMORY_SIZE(memory);
+#endif
 #endif
     WASMFuncType **wasm_types = (WASMFuncType **)module->module->types;
     WASMGlobalInstance *globals = module->e->globals, *global;
@@ -3993,7 +3999,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if !defined(OS_ENABLE_HW_BOUND_CHECK)              \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
     || WASM_ENABLE_BULK_MEMORY != 0
+#if WASM_ENABLE_THREAD_MGR == 0
                     linear_mem_size = memory->memory_data_size;
+#else
+                    linear_mem_size = GET_LINEAR_MEMORY_SIZE(memory);
+#endif
 #endif
                 }
 
@@ -4998,7 +5008,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         addr = (uint32)POP_I32();
 
 #if WASM_ENABLE_THREAD_MGR != 0
-                        linear_mem_size = memory->memory_data_size;
+                        linear_mem_size = get_linear_mem_size();
 #endif
 
 #ifndef OS_ENABLE_HW_BOUND_CHECK
@@ -5049,7 +5059,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         dst = POP_I32();
 
 #if WASM_ENABLE_THREAD_MGR != 0
-                        linear_mem_size = memory->memory_data_size;
+                        linear_mem_size = get_linear_mem_size();
 #endif
 
 #ifndef OS_ENABLE_HW_BOUND_CHECK
@@ -5080,7 +5090,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         dst = POP_I32();
 
 #if WASM_ENABLE_THREAD_MGR != 0
-                        linear_mem_size = memory->memory_data_size;
+                        linear_mem_size = get_linear_mem_size();
 #endif
 
 #ifndef OS_ENABLE_HW_BOUND_CHECK
@@ -5795,7 +5805,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
     || WASM_ENABLE_BULK_MEMORY != 0
             if (memory)
-                linear_mem_size = memory->memory_data_size;
+                linear_mem_size = get_linear_mem_size();
 #endif
             if (wasm_copy_exception(module, NULL))
                 goto got_exception;

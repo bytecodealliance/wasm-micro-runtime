@@ -376,7 +376,13 @@ check_utf8_str(const uint8 *str, uint32 len)
 
     while (p < p_end) {
         chr = *p;
-        if (chr < 0x80) {
+
+        if (chr == 0) {
+            LOG_WARNING(
+                "LIMITATION: a string which contains '\\00' is unsupported");
+            return false;
+        }
+        else if (chr < 0x80) {
             p++;
         }
         else if (chr >= 0xC2 && chr <= 0xDF && p + 1 < p_end) {
@@ -2691,23 +2697,31 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
             (WASMModuleCommon *)parent_module, sub_module_name, error_buf,
             error_buf_size);
         if (!sub_module) {
+#if WASM_ENABLE_LIB_WASI_THREADS != 0
+            /* Avoid memory import failure when wasi-threads is enabled
+               and the memory is shared */
+            if (!(declare_max_page_count_flag & 2))
+                return false;
+#else
             return false;
+#endif /* WASM_ENABLE_LIB_WASI_THREADS */
         }
+        else {
+            linked_memory = wasm_loader_resolve_memory(
+                sub_module_name, memory_name, declare_init_page_count,
+                declare_max_page_count, error_buf, error_buf_size);
+            if (!linked_memory) {
+                return false;
+            }
 
-        linked_memory = wasm_loader_resolve_memory(
-            sub_module_name, memory_name, declare_init_page_count,
-            declare_max_page_count, error_buf, error_buf_size);
-        if (!linked_memory) {
-            return false;
+            /**
+             * reset with linked memory limit
+             */
+            memory->import_module = sub_module;
+            memory->import_memory_linked = linked_memory;
+            declare_init_page_count = linked_memory->init_page_count;
+            declare_max_page_count = linked_memory->max_page_count;
         }
-
-        /**
-         * reset with linked memory limit
-         */
-        memory->import_module = sub_module;
-        memory->import_memory_linked = linked_memory;
-        declare_init_page_count = linked_memory->init_page_count;
-        declare_max_page_count = linked_memory->max_page_count;
     }
 #endif
 
@@ -4653,7 +4667,7 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 
     read_leb_uint32(p, p_end, name_len);
 
-    if (name_len == 0 || p + name_len > p_end) {
+    if (p + name_len > p_end) {
         set_error_buf(error_buf, error_buf_size, "unexpected end");
         return false;
     }
@@ -5992,19 +6006,23 @@ check_wasi_abi_compatibility(const WASMModule *module,
             return false;
         }
     }
-
-    /* (func (export "_initialize") (...) */
-    initialize = wasm_loader_find_export(
-        module, "", "_initialize", EXPORT_KIND_FUNC, error_buf, error_buf_size);
-    if (initialize) {
-        WASMFuncType *func_type =
-            module->functions[initialize->index - module->import_function_count]
-                ->func_type;
-        if (func_type->param_count || func_type->result_count) {
-            set_error_buf(
-                error_buf, error_buf_size,
-                "the signature of builtin _initialize function is wrong");
-            return false;
+    else {
+        /* (func (export "_initialize") (...) */
+        initialize =
+            wasm_loader_find_export(module, "", "_initialize", EXPORT_KIND_FUNC,
+                                    error_buf, error_buf_size);
+        if (initialize) {
+            WASMFuncType *func_type =
+                module
+                    ->functions[initialize->index
+                                - module->import_function_count]
+                    ->func_type;
+            if (func_type->param_count || func_type->result_count) {
+                set_error_buf(
+                    error_buf, error_buf_size,
+                    "the signature of builtin _initialize function is wrong");
+                return false;
+            }
         }
     }
 
@@ -10183,10 +10201,7 @@ re_scan:
                 }
 
 #if WASM_ENABLE_FAST_INTERP != 0
-                if (opcode == WASM_OP_BLOCK) {
-                    skip_label();
-                }
-                else if (opcode == WASM_OP_LOOP) {
+                if (opcode == WASM_OP_BLOCK || opcode == WASM_OP_LOOP) {
                     skip_label();
                     if (BLOCK_HAS_PARAM(block_type)) {
                         /* Make sure params are in dynamic space */
@@ -10194,8 +10209,10 @@ re_scan:
                                 loader_ctx, false, error_buf, error_buf_size))
                             goto fail;
                     }
-                    (loader_ctx->frame_csp - 1)->code_compiled =
-                        loader_ctx->p_code_compiled;
+                    if (opcode == WASM_OP_LOOP) {
+                        (loader_ctx->frame_csp - 1)->code_compiled =
+                            loader_ctx->p_code_compiled;
+                    }
                 }
                 else if (opcode == WASM_OP_IF) {
                     /* If block has parameters, we should make sure they are in
@@ -10873,7 +10890,8 @@ re_scan:
                         loader_ctx->reftype_map_num--;
                     }
 #endif
-                    if (is_32bit_type(*(loader_ctx->frame_ref - 1))) {
+                    if (is_32bit_type(*(loader_ctx->frame_ref - 1))
+                        || *(loader_ctx->frame_ref - 1) == VALUE_TYPE_ANY) {
                         loader_ctx->frame_ref--;
                         loader_ctx->stack_cell_num--;
 #if WASM_ENABLE_FAST_INTERP != 0

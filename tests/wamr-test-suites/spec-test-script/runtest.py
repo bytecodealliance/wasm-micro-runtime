@@ -1075,6 +1075,17 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
     # exception isn't thrown in several cases
     cmd.append("--disable-llvm-lto")
 
+    # Bounds checks is disabled by default for 64-bit targets, to
+    # use the hardware based bounds checks. But it is not supported
+    # in QEMU with NuttX.
+    # Enable bounds checks explicitly for all targets if running in QEMU.
+    if opts.qemu:
+        cmd.append("--bounds-checks=1")
+
+    # RISCV64 requires -mcmodel=medany, which can be set by --size-level=1
+    if test_target.startswith("riscv64"):
+        cmd.append("--size-level=1")
+
     cmd += ["-o", aot_tempfile, wasm_tempfile]
 
     log("Running: %s" % " ".join(cmd))
@@ -1103,13 +1114,13 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
             cmd = "qemu-system-aarch64 -cpu cortex-a53 -nographic -machine virt,virtualization=on,gic-version=3 -net none -chardev stdio,id=con,mux=on -serial chardev:con -mon chardev=con,mode=readline -kernel".split()
             cmd.append(opts.qemu_firmware)
         elif opts.target.startswith("thumbv7"):
-            cmd = "qemu-system-arm -semihosting -M sabrelite -m 1024 -smp 4 -nographic -kernel".split()
+            cmd = "qemu-system-arm -semihosting -M sabrelite -m 1024 -smp 1 -nographic -kernel".split()
             cmd.append(opts.qemu_firmware)
         elif opts.target.startswith("riscv32"):
-            cmd = "qemu-system-riscv32 -semihosting -M virt,aclint=on -cpu rv32 -smp 8 -nographic -bios none -kernel".split()
+            cmd = "qemu-system-riscv32 -semihosting -M virt,aclint=on -cpu rv32 -smp 1 -nographic -bios none -kernel".split()
             cmd.append(opts.qemu_firmware)
         elif opts.target.startswith("riscv64"):
-            cmd = "qemu-system-riscv64 -semihosting -M virt,aclint=on -cpu rv64 -smp 8 -nographic -bios none -kernel".split()
+            cmd = "qemu-system-riscv64 -semihosting -M virt,aclint=on -cpu rv64 -smp 1 -nographic -bios none -kernel".split()
             cmd.append(opts.qemu_firmware)
         else:
             raise Exception("Unknwon target for QEMU: %s" % opts.target)

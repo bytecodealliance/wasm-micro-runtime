@@ -727,7 +727,8 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
         const char *key = "frame-pointer";
         const char *val = "all";
         LLVMAttributeRef no_omit_fp = LLVMCreateStringAttribute(
-            comp_ctx->context, key, strlen(key), val, strlen(val));
+            comp_ctx->context, key, (unsigned)strlen(key), val,
+            (unsigned)strlen(val));
         if (!no_omit_fp) {
             aot_set_last_error("create LLVM attribute (frame-pointer) failed.");
             goto fail;
@@ -2890,13 +2891,14 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
                               meta_target_abi);
 
             if (!strcmp(abi, "lp64d") || !strcmp(abi, "ilp32d")) {
-                if (features) {
+                if (features && !strstr(features, "+d")) {
                     snprintf(features_buf, sizeof(features_buf), "%s%s",
                              features, ",+d");
                     features = features_buf;
                 }
-                else
+                else if (!features) {
                     features = "+d";
+                }
             }
         }
 

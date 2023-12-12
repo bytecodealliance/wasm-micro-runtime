@@ -866,6 +866,8 @@ typedef struct JitValueSlot {
 typedef struct JitMemRegs {
     /* The following registers should be re-loaded after
        memory.grow, callbc and callnative */
+    JitReg memory_inst;
+    JitReg cur_page_count;
     JitReg memory_data;
     JitReg memory_data_end;
     JitReg mem_bound_check_1byte;

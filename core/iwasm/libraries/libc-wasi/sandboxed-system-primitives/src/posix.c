@@ -1155,6 +1155,11 @@ wasmtime_ssp_fd_advise(wasm_exec_env_t exec_env, struct fd_table *curfds,
     if (error != 0)
         return error;
 
+    if (fo->type == __WASI_FILETYPE_DIRECTORY) {
+        fd_object_release(exec_env, fo);
+        return __WASI_EBADF;
+    }
+
     error = os_fadvise(fo->file_handle, offset, len, advice);
 
     fd_object_release(exec_env, fo);
@@ -1886,7 +1891,13 @@ wasmtime_ssp_fd_filestat_set_times(wasm_exec_env_t exec_env,
     if ((fstflags
          & ~(__WASI_FILESTAT_SET_ATIM | __WASI_FILESTAT_SET_ATIM_NOW
              | __WASI_FILESTAT_SET_MTIM | __WASI_FILESTAT_SET_MTIM_NOW))
-        != 0)
+            != 0
+        || (fstflags
+            & (__WASI_FILESTAT_SET_ATIM | __WASI_FILESTAT_SET_ATIM_NOW))
+               == (__WASI_FILESTAT_SET_ATIM | __WASI_FILESTAT_SET_ATIM_NOW)
+        || (fstflags
+            & (__WASI_FILESTAT_SET_MTIM | __WASI_FILESTAT_SET_MTIM_NOW))
+               == (__WASI_FILESTAT_SET_MTIM | __WASI_FILESTAT_SET_MTIM_NOW))
         return __WASI_EINVAL;
 
     struct fd_object *fo;

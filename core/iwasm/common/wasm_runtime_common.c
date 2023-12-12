@@ -4170,16 +4170,14 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                     if (n_stacks & 1)
                         n_stacks++;
                     if (func_type->types[i] == VALUE_TYPE_F32) {
-                        *(float32 *)&stacks[n_stacks] = *(float32 *)argv_src++;
-                        /* NaN boxing, the upper bits of a valid NaN-boxed
-                          value must be all 1s. */
-                        stacks[n_stacks + 1] = 0xFFFFFFFF;
+                        *(float32 *)&stacks[n_stacks++] =
+                            *(float32 *)argv_src++;
                     }
                     else {
                         *(float64 *)&stacks[n_stacks] = *(float64 *)argv_src;
                         argv_src += 2;
+                        n_stacks += 2;
                     }
-                    n_stacks += 2;
                 }
                 break;
             }
@@ -6143,7 +6141,7 @@ wasm_runtime_register_sub_module(const WASMModuleCommon *parent_module,
 {
     /* register sub_module into its parent sub module list */
     WASMRegisteredModule *node = NULL;
-    bh_list_status ret;
+    bh_list_status ret = BH_LIST_ERROR;
 
     if (wasm_runtime_search_sub_module(parent_module, sub_module_name)) {
         LOG_DEBUG("%s has been registered in its parent", sub_module_name);

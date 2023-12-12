@@ -5851,10 +5851,7 @@ re_scan:
                 }
 
 #if WASM_ENABLE_FAST_INTERP != 0
-                if (opcode == WASM_OP_BLOCK) {
-                    skip_label();
-                }
-                else if (opcode == WASM_OP_LOOP) {
+                if (opcode == WASM_OP_BLOCK || opcode == WASM_OP_LOOP) {
                     skip_label();
                     if (BLOCK_HAS_PARAM(block_type)) {
                         /* Make sure params are in dynamic space */
@@ -5862,8 +5859,10 @@ re_scan:
                                 loader_ctx, false, error_buf, error_buf_size))
                             goto fail;
                     }
-                    (loader_ctx->frame_csp - 1)->code_compiled =
-                        loader_ctx->p_code_compiled;
+                    if (opcode == WASM_OP_LOOP) {
+                        (loader_ctx->frame_csp - 1)->code_compiled =
+                            loader_ctx->p_code_compiled;
+                    }
                 }
                 else if (opcode == WASM_OP_IF) {
                     /* If block has parameters, we should make sure they are in
@@ -6317,7 +6316,8 @@ re_scan:
                             && !cur_block->is_stack_polymorphic));
 
                 if (available_stack_cell > 0) {
-                    if (is_32bit_type(*(loader_ctx->frame_ref - 1))) {
+                    if (is_32bit_type(*(loader_ctx->frame_ref - 1))
+                        || *(loader_ctx->frame_ref - 1) == VALUE_TYPE_ANY) {
                         loader_ctx->frame_ref--;
                         loader_ctx->stack_cell_num--;
 #if WASM_ENABLE_FAST_INTERP != 0
