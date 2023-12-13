@@ -798,7 +798,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                     }
 #endif
                     else if (wasm_obj_is_externref_obj(gc_obj)) {
-#if WASM_ENABLE_SPEC == 0
+#if WASM_ENABLE_SPEC_TEST != 0
                         WASMObjectRef obj = wasm_externref_obj_to_internal_obj(
                             (WASMExternrefObjectRef)gc_obj);
                         if (wasm_obj_is_anyref_obj(obj))
