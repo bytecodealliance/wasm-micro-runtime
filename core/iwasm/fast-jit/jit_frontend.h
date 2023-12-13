@@ -193,6 +193,12 @@ JitReg
 get_aux_stack_bottom_reg(JitFrame *frame);
 
 JitReg
+get_memory_inst_reg(JitFrame *frame, uint32 mem_idx);
+
+JitReg
+get_cur_page_count_reg(JitFrame *frame, uint32 mem_idx);
+
+JitReg
 get_memory_data_reg(JitFrame *frame, uint32 mem_idx);
 
 JitReg

@@ -292,13 +292,46 @@ WASM_DEFINE_VEC_OWN(valtype, wasm_valtype_delete)
 own wasm_config_t *
 wasm_config_new(void)
 {
-    return NULL;
+    /* since wasm_runtime_malloc is not ready */
+    wasm_config_t *config = os_malloc(sizeof(wasm_config_t));
+    if (!config)
+        return NULL;
+
+    memset(config, 0, sizeof(wasm_config_t));
+    config->mem_alloc_type = Alloc_With_System_Allocator;
+    return config;
 }
 
 void
 wasm_config_delete(own wasm_config_t *config)
 {
-    (void)config;
+    if (config)
+        os_free(config);
+}
+
+wasm_config_t *
+wasm_config_set_mem_alloc_opt(wasm_config_t *config,
+                              mem_alloc_type_t mem_alloc_type,
+                              MemAllocOption *mem_alloc_option)
+{
+    if (!config)
+        return NULL;
+
+    config->mem_alloc_type = mem_alloc_type;
+    if (mem_alloc_option)
+        memcpy(&config->mem_alloc_option, mem_alloc_option,
+               sizeof(MemAllocOption));
+    return config;
+}
+
+wasm_config_t *
+wasm_config_set_linux_perf_opt(wasm_config_t *config, bool enable)
+{
+    if (!config)
+        return NULL;
+
+    config->linux_perf_support = enable;
+    return config;
 }
 
 static void
@@ -329,12 +362,11 @@ wasm_engine_delete_internal(wasm_engine_t *engine)
 }
 
 static wasm_engine_t *
-wasm_engine_new_internal(mem_alloc_type_t type, const MemAllocOption *opts)
+wasm_engine_new_internal(wasm_config_t *config)
 {
     wasm_engine_t *engine = NULL;
     /* init runtime */
     RuntimeInitArgs init_args = { 0 };
-    init_args.mem_alloc_type = type;
 
 #ifndef NDEBUG
     bh_log_set_verbose_level(BH_LOG_LEVEL_VERBOSE);
@@ -344,34 +376,11 @@ wasm_engine_new_internal(mem_alloc_type_t type, const MemAllocOption *opts)
 
     WASM_C_DUMP_PROC_MEM();
 
-    if (type == Alloc_With_Pool) {
-        if (!opts) {
-            return NULL;
-        }
-
-        init_args.mem_alloc_option.pool.heap_buf = opts->pool.heap_buf;
-        init_args.mem_alloc_option.pool.heap_size = opts->pool.heap_size;
-    }
-    else if (type == Alloc_With_Allocator) {
-        if (!opts) {
-            return NULL;
-        }
-
-        init_args.mem_alloc_option.allocator.malloc_func =
-            opts->allocator.malloc_func;
-        init_args.mem_alloc_option.allocator.free_func =
-            opts->allocator.free_func;
-        init_args.mem_alloc_option.allocator.realloc_func =
-            opts->allocator.realloc_func;
-#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
-        init_args.mem_alloc_option.allocator.user_data =
-            opts->allocator.user_data;
-#endif
-    }
-    else {
-        init_args.mem_alloc_option.pool.heap_buf = NULL;
-        init_args.mem_alloc_option.pool.heap_size = 0;
-    }
+    /* wasm_config_t->MemAllocOption -> RuntimeInitArgs->MemAllocOption */
+    init_args.mem_alloc_type = config->mem_alloc_type;
+    memcpy(&init_args.mem_alloc_option, &config->mem_alloc_option,
+           sizeof(MemAllocOption));
+    init_args.linux_perf_support = config->linux_perf_support;
 
     if (!wasm_runtime_full_init(&init_args)) {
         LOG_DEBUG("wasm_runtime_full_init failed");
@@ -418,14 +427,23 @@ static korp_mutex engine_lock = OS_THREAD_MUTEX_INITIALIZER;
 #endif
 
 own wasm_engine_t *
-wasm_engine_new_with_args(mem_alloc_type_t type, const MemAllocOption *opts)
+wasm_engine_new()
+{
+    wasm_config_t config = { 0 };
+    wasm_config_set_mem_alloc_opt(&config, Alloc_With_System_Allocator, NULL);
+    wasm_engine_t *engine = wasm_engine_new_with_config(&config);
+    return engine;
+}
+
+own wasm_engine_t *
+wasm_engine_new_with_config(wasm_config_t *config)
 {
 #if defined(OS_THREAD_MUTEX_INITIALIZER)
     os_mutex_lock(&engine_lock);
 #endif
 
     if (!singleton_engine)
-        singleton_engine = wasm_engine_new_internal(type, opts);
+        singleton_engine = wasm_engine_new_internal(config);
     else
         singleton_engine->ref_count++;
 
@@ -437,16 +455,12 @@ wasm_engine_new_with_args(mem_alloc_type_t type, const MemAllocOption *opts)
 }
 
 own wasm_engine_t *
-wasm_engine_new()
+wasm_engine_new_with_args(mem_alloc_type_t type, const MemAllocOption *opts)
 {
-    return wasm_engine_new_with_args(Alloc_With_System_Allocator, NULL);
-}
-
-own wasm_engine_t *
-wasm_engine_new_with_config(own wasm_config_t *config)
-{
-    (void)config;
-    return wasm_engine_new_with_args(Alloc_With_System_Allocator, NULL);
+    wasm_config_t config = { 0 };
+    config.mem_alloc_type = type;
+    memcpy(&config.mem_alloc_option, opts, sizeof(MemAllocOption));
+    return wasm_engine_new_with_config(&config);
 }
 
 void

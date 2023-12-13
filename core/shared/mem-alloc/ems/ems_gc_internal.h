@@ -271,9 +271,11 @@ typedef struct gc_heap_struct {
          size[left] <= size[cur] < size[right] */
     hmu_tree_node_t *kfc_tree_root;
 
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     /* whether heap is corrupted, e.g. the hmu nodes are modified
        by user */
     bool is_heap_corrupted;
+#endif
 
     gc_size_t init_size;
     gc_size_t highmark_size;

@@ -94,3 +94,53 @@ uwp_print_to_debugger(const char *format, va_list ap)
     return ret;
 }
 #endif
+
+__wasi_errno_t
+convert_winsock_error_code(int error_code)
+{
+    switch (error_code) {
+        case WSASYSNOTREADY:
+        case WSAEWOULDBLOCK:
+            return __WASI_EAGAIN;
+        case WSAVERNOTSUPPORTED:
+            return __WASI_ENOTSUP;
+        case WSAEINPROGRESS:
+            return __WASI_EINPROGRESS;
+        case WSAEPROCLIM:
+            return __WASI_EBUSY;
+        case WSAEFAULT:
+            return __WASI_EFAULT;
+        case WSAENETDOWN:
+            return __WASI_ENETDOWN;
+        case WSAENOTSOCK:
+            return __WASI_ENOTSOCK;
+        case WSAEINTR:
+            return __WASI_EINTR;
+        case WSAEAFNOSUPPORT:
+            return __WASI_EAFNOSUPPORT;
+        case WSAEMFILE:
+            return __WASI_ENFILE;
+        case WSAEINVAL:
+            return __WASI_EINVAL;
+        case WSAENOBUFS:
+            return __WASI_ENOBUFS;
+        case WSAEPROTONOSUPPORT:
+            return __WASI_EPROTONOSUPPORT;
+        case WSAEPROTOTYPE:
+            return __WASI_EPROTOTYPE;
+        case WSAESOCKTNOSUPPORT:
+            return __WASI_ENOTSUP;
+        case WSAECONNABORTED:
+            return __WASI_ECONNABORTED;
+        case WSAECONNRESET:
+            return __WASI_ECONNRESET;
+        case WSAENOTCONN:
+            return __WASI_ENOTCONN;
+        case WSAEINVALIDPROCTABLE:
+        case WSAEINVALIDPROVIDER:
+        case WSAEPROVIDERFAILEDINIT:
+        case WSANOTINITIALISED:
+        default:
+            return __WASI_EINVAL;
+    }
+}

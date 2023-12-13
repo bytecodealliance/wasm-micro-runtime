@@ -546,6 +546,7 @@ fd_object_release(wasm_exec_env_t env, struct fd_object *fo)
                     error = os_closedir(fo->directory.handle);
                     break;
                 }
+                // Fallthrough.
             default:
                 // The env == NULL case is for
                 // fd_table_destroy, path_get, path_put,
@@ -613,14 +614,21 @@ fd_table_insert_existing(struct fd_table *ft, __wasi_fd_t in,
 }
 
 // Picks an unused slot from the file descriptor table.
-static __wasi_fd_t
-fd_table_unused(struct fd_table *ft) REQUIRES_SHARED(ft->lock)
+static __wasi_errno_t
+fd_table_unused(struct fd_table *ft, __wasi_fd_t *out) REQUIRES_SHARED(ft->lock)
 {
     assert(ft->size > ft->used && "File descriptor table has no free slots");
     for (;;) {
-        __wasi_fd_t fd = (__wasi_fd_t)random_uniform(ft->size);
-        if (ft->entries[fd].object == NULL)
-            return fd;
+        uintmax_t random_fd = 0;
+        __wasi_errno_t error = random_uniform(ft->size, &random_fd);
+
+        if (error != __WASI_ESUCCESS)
+            return error;
+
+        if (ft->entries[(__wasi_fd_t)random_fd].object == NULL) {
+            *out = (__wasi_fd_t)random_fd;
+            return error;
+        }
     }
 }
 
@@ -640,10 +648,14 @@ fd_table_insert(wasm_exec_env_t exec_env, struct fd_table *ft,
         return convert_errno(errno);
     }
 
-    *out = fd_table_unused(ft);
+    __wasi_errno_t error = fd_table_unused(ft, out);
+
+    if (error != __WASI_ESUCCESS)
+        return error;
+
     fd_table_attach(ft, *out, fo, rights_base, rights_inheriting);
     rwlock_unlock(&ft->lock);
-    return 0;
+    return error;
 }
 
 // Inserts a numerical file descriptor into the file descriptor table.
@@ -1142,6 +1154,11 @@ wasmtime_ssp_fd_advise(wasm_exec_env_t exec_env, struct fd_table *curfds,
         fd_object_get(curfds, &fo, fd, __WASI_RIGHT_FD_ADVISE, 0);
     if (error != 0)
         return error;
+
+    if (fo->type == __WASI_FILETYPE_DIRECTORY) {
+        fd_object_release(exec_env, fo);
+        return __WASI_EBADF;
+    }
 
     error = os_fadvise(fo->file_handle, offset, len, advice);
 
@@ -1874,7 +1891,13 @@ wasmtime_ssp_fd_filestat_set_times(wasm_exec_env_t exec_env,
     if ((fstflags
          & ~(__WASI_FILESTAT_SET_ATIM | __WASI_FILESTAT_SET_ATIM_NOW
              | __WASI_FILESTAT_SET_MTIM | __WASI_FILESTAT_SET_MTIM_NOW))
-        != 0)
+            != 0
+        || (fstflags
+            & (__WASI_FILESTAT_SET_ATIM | __WASI_FILESTAT_SET_ATIM_NOW))
+               == (__WASI_FILESTAT_SET_ATIM | __WASI_FILESTAT_SET_ATIM_NOW)
+        || (fstflags
+            & (__WASI_FILESTAT_SET_MTIM | __WASI_FILESTAT_SET_MTIM_NOW))
+               == (__WASI_FILESTAT_SET_MTIM | __WASI_FILESTAT_SET_MTIM_NOW))
         return __WASI_EINVAL;
 
     struct fd_object *fo;
@@ -2281,8 +2304,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
 __wasi_errno_t
 wasmtime_ssp_random_get(void *buf, size_t nbyte)
 {
-    random_buf(buf, nbyte);
-    return 0;
+    return random_buf(buf, nbyte);
 }
 
 __wasi_errno_t
@@ -2866,18 +2888,15 @@ wasmtime_ssp_sock_shutdown(wasm_exec_env_t exec_env, struct fd_table *curfds,
 {
     struct fd_object *fo;
     __wasi_errno_t error;
-    int ret;
 
     error = fd_object_get(curfds, &fo, sock, 0, 0);
     if (error != 0)
         return error;
 
-    ret = os_socket_shutdown(fo->file_handle);
+    error = os_socket_shutdown(fo->file_handle);
     fd_object_release(exec_env, fo);
-    if (BHT_OK != ret)
-        return convert_errno(errno);
 
-    return __WASI_ESUCCESS;
+    return error;
 }
 
 __wasi_errno_t

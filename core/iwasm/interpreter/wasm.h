@@ -311,7 +311,6 @@ typedef struct WASMTableSeg {
     uint32 mode;
     /* funcref or externref, elemkind will be considered as funcref */
     uint32 elem_type;
-    bool is_dropped;
     /* optional, only for active */
     uint32 table_index;
     InitializerExpression base_offset;

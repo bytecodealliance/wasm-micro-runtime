@@ -47,7 +47,7 @@ libc_wasi_print_help()
            "--map-dir=<guest-path2::host-path2>\n");
     printf("  --addr-pool=<addrs>      Grant wasi access to the given network "
            "addresses in\n");
-    printf("                           CIRD notation to the program, seperated "
+    printf("                           CIDR notation to the program, seperated "
            "with ',',\n");
     printf("                           for example:\n");
     printf("                             --addr-pool=1.2.3.4/15,2.3.4.5/16\n");
@@ -155,6 +155,9 @@ libc_wasi_parse(char *arg, libc_wasi_parse_context_t *ctx)
             return LIBC_WASI_PARSE_RESULT_BAD_PARAM;
         }
         ctx->ns_lookup_pool[ctx->ns_lookup_pool_size++] = arg + 16;
+    }
+    else {
+        return LIBC_WASI_PARSE_RESULT_NEED_HELP;
     }
     return LIBC_WASI_PARSE_RESULT_OK;
 }

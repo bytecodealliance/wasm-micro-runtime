@@ -98,6 +98,7 @@ $(NAME)_SOURCES := ${SHARED_ROOT}/platform/alios/alios_platform.c \
                    ${SHARED_ROOT}/mem-alloc/ems/ems_alloc.c \
                    ${SHARED_ROOT}/mem-alloc/ems/ems_hmu.c \
                    ${SHARED_ROOT}/utils/bh_assert.c \
+                   ${SHARED_ROOT}/utils/bh_bitmap.c \
                    ${SHARED_ROOT}/utils/bh_common.c \
                    ${SHARED_ROOT}/utils/bh_hashmap.c \
                    ${SHARED_ROOT}/utils/bh_list.c \

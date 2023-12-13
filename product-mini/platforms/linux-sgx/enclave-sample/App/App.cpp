@@ -228,7 +228,7 @@ print_help()
     printf("                         to the program, for example:\n");
     printf("                           --dir=<dir1> --dir=<dir2>\n");
     printf("  --addr-pool=           Grant wasi access to the given network addresses in\n");
-    printf("                         CIRD notation to the program, seperated with ',',\n");
+    printf("                         CIDR notation to the program, seperated with ',',\n");
     printf("                         for example:\n");
     printf("                           --addr-pool=1.2.3.4/15,2.3.4.5/16\n");
     printf("  --max-threads=n        Set maximum thread number per cluster, default is 4\n");

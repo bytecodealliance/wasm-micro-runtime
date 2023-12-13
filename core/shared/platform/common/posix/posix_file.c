@@ -479,7 +479,7 @@ os_preadv(os_file_handle handle, const struct __wasi_iovec_t *iov, int iovcnt,
 
     // Allocate a single buffer to fit all data.
     size_t totalsize = 0;
-    for (size_t i = 0; i < iovcnt; ++i)
+    for (int i = 0; i < iovcnt; ++i)
         totalsize += iov[i].buf_len;
 
     char *buf = BH_MALLOC(totalsize);
@@ -498,7 +498,7 @@ os_preadv(os_file_handle handle, const struct __wasi_iovec_t *iov, int iovcnt,
 
     // Copy data back to vectors.
     size_t bufoff = 0;
-    for (size_t i = 0; i < iovcnt; ++i) {
+    for (int i = 0; i < iovcnt; ++i) {
         if (bufoff + iov[i].buf_len < (size_t)len) {
             memcpy(iov[i].buf, buf + bufoff, iov[i].buf_len);
             bufoff += iov[i].buf_len;
@@ -533,14 +533,14 @@ os_pwritev(os_file_handle handle, const struct __wasi_ciovec_t *iov, int iovcnt,
     else {
         // Allocate a single buffer to fit all data.
         size_t totalsize = 0;
-        for (size_t i = 0; i < iovcnt; ++i)
+        for (int i = 0; i < iovcnt; ++i)
             totalsize += iov[i].buf_len;
         char *buf = BH_MALLOC(totalsize);
         if (buf == NULL) {
             return __WASI_ENOMEM;
         }
         size_t bufoff = 0;
-        for (size_t i = 0; i < iovcnt; ++i) {
+        for (int i = 0; i < iovcnt; ++i) {
             memcpy(buf + bufoff, iov[i].buf, iov[i].buf_len);
             bufoff += iov[i].buf_len;
         }
@@ -976,12 +976,6 @@ os_closedir(os_dir_stream dir_stream)
         return convert_errno(errno);
 
     return __WASI_ESUCCESS;
-}
-
-os_file_handle
-os_get_invalid_handle()
-{
-    return -1;
 }
 
 os_dir_stream
