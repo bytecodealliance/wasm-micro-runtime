@@ -496,7 +496,7 @@ gc_show_stat(void *heap)
 void
 gc_show_fragment(void *heap_arg)
 {
-    int stats[3];
+    uint32 stats[3];
     int n = 3;
     gc_heap_t *heap = (gc_heap_t *)heap_arg;
 

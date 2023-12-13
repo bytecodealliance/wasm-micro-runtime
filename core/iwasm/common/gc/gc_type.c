@@ -86,7 +86,7 @@ wasm_dump_value_type(uint8 type, const WASMRefType *ref_type)
                 }
             }
             else if (wasm_is_refheaptype_typeidx(&ref_type->ref_ht_common)) {
-                os_printf("%d", ref_type->ref_ht_typeidx.type_idx);
+                os_printf("%" PRId32, ref_type->ref_ht_typeidx.type_idx);
             }
             else {
                 bh_assert(0);
@@ -128,7 +128,7 @@ wasm_dump_func_type(const WASMFuncType *type)
             os_printf("sub ");
         else
             os_printf("sub final ");
-        os_printf("%u ", type->base_type.parent_type_idx);
+        os_printf("%" PRIu32 " ", type->base_type.parent_type_idx);
     }
 
     os_printf("func [");
@@ -175,7 +175,7 @@ wasm_dump_struct_type(const WASMStructType *type)
             os_printf("sub ");
         else
             os_printf("sub final ");
-        os_printf("%u ", type->base_type.parent_type_idx);
+        os_printf("%" PRIu32 " ", type->base_type.parent_type_idx);
     }
 
     os_printf("struct");
@@ -208,7 +208,7 @@ wasm_dump_array_type(const WASMArrayType *type)
             os_printf("sub ");
         else
             os_printf("sub final ");
-        os_printf("%u ", type->base_type.parent_type_idx);
+        os_printf("%" PRIu32 " ", type->base_type.parent_type_idx);
     }
 
     os_printf("array ");
