@@ -1467,7 +1467,7 @@ wasm_app_module_on_install_request_byte_arrive(uint8 ch, int request_total_size,
                     if (total_size >= UINT32_MAX
                         || !(section->section_body =
                                  os_mmap(NULL, (uint32)total_size, map_prot,
-                                         map_flags))) {
+                                         map_flags, os_get_invalid_handle()))) {
                         app_manager_printf(
                             "Allocate executable memory failed!\n");
                         SEND_ERR_RESPONSE(recv_ctx.message.request_mid,

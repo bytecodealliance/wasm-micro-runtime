@@ -137,6 +137,7 @@ check_and_seek(JitCompContext *cc, JitReg addr, uint32 offset, uint32 bytes)
 {
     JitReg memory_boundary = 0, offset1;
 #ifndef OS_ENABLE_HW_BOUND_CHECK
+    JitReg cur_page_count;
     /* the default memory */
     uint32 mem_idx = 0;
 #endif
@@ -146,16 +147,10 @@ check_and_seek(JitCompContext *cc, JitReg addr, uint32 offset, uint32 bytes)
     /* 1. shortcut if the memory size is 0 */
     if (cc->cur_wasm_module->memories != NULL
         && 0 == cc->cur_wasm_module->memories[mem_idx].init_page_count) {
-        JitReg module_inst, cur_page_count;
-        uint32 cur_page_count_offset =
-            (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
-            + (uint32)offsetof(WASMMemoryInstance, cur_page_count);
+
+        cur_page_count = get_cur_page_count_reg(cc->jit_frame, mem_idx);
 
         /* if (cur_mem_page_count == 0) goto EXCEPTION */
-        module_inst = get_module_inst_reg(cc->jit_frame);
-        cur_page_count = jit_cc_new_reg_I32(cc);
-        GEN_INSN(LDI32, cur_page_count, module_inst,
-                 NEW_CONST(I32, cur_page_count_offset));
         GEN_INSN(CMP, cc->cmp_reg, cur_page_count, NEW_CONST(I32, 0));
         if (!jit_emit_exception(cc, EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS,
                                 JIT_OP_BEQ, cc->cmp_reg, NULL)) {
@@ -580,15 +575,9 @@ fail:
 bool
 jit_compile_op_memory_size(JitCompContext *cc, uint32 mem_idx)
 {
-    JitReg module_inst, cur_page_count;
-    uint32 cur_page_count_offset =
-        (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
-        + (uint32)offsetof(WASMMemoryInstance, cur_page_count);
+    JitReg cur_page_count;
 
-    module_inst = get_module_inst_reg(cc->jit_frame);
-    cur_page_count = jit_cc_new_reg_I32(cc);
-    GEN_INSN(LDI32, cur_page_count, module_inst,
-             NEW_CONST(I32, cur_page_count_offset));
+    cur_page_count = get_cur_page_count_reg(cc->jit_frame, mem_idx);
 
     PUSH_I32(cur_page_count);
 
@@ -600,18 +589,11 @@ fail:
 bool
 jit_compile_op_memory_grow(JitCompContext *cc, uint32 mem_idx)
 {
-    JitReg module_inst, grow_res, res;
+    JitReg grow_res, res;
     JitReg prev_page_count, inc_page_count, args[2];
 
-    /* Get current page count */
-    uint32 cur_page_count_offset =
-        (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
-        + (uint32)offsetof(WASMMemoryInstance, cur_page_count);
-
-    module_inst = get_module_inst_reg(cc->jit_frame);
-    prev_page_count = jit_cc_new_reg_I32(cc);
-    GEN_INSN(LDI32, prev_page_count, module_inst,
-             NEW_CONST(I32, cur_page_count_offset));
+    /* Get current page count as prev_page_count */
+    prev_page_count = get_cur_page_count_reg(cc->jit_frame, mem_idx);
 
     /* Call wasm_enlarge_memory */
     POP_I32(inc_page_count);
@@ -650,6 +632,7 @@ wasm_init_memory(WASMModuleInstance *inst, uint32 mem_idx, uint32 seg_idx,
     WASMDataSeg *data_segment;
     uint32 mem_size;
     uint8 *mem_addr, *data_addr;
+    uint32 seg_len;
 
     /* if d + n > the length of mem.data */
     mem_inst = inst->memories[mem_idx];
@@ -659,13 +642,19 @@ wasm_init_memory(WASMModuleInstance *inst, uint32 mem_idx, uint32 seg_idx,
 
     /* if s + n > the length of data.data */
     bh_assert(seg_idx < inst->module->data_seg_count);
-    data_segment = inst->module->data_segments[seg_idx];
-    if (data_segment->data_length < data_offset
-        || data_segment->data_length - data_offset < len)
+    if (bh_bitmap_get_bit(inst->e->common.data_dropped, seg_idx)) {
+        seg_len = 0;
+        data_addr = NULL;
+    }
+    else {
+        data_segment = inst->module->data_segments[seg_idx];
+        seg_len = data_segment->data_length;
+        data_addr = data_segment->data + data_offset;
+    }
+    if (seg_len < data_offset || seg_len - data_offset < len)
         goto out_of_bounds;
 
     mem_addr = mem_inst->memory_data + mem_offset;
-    data_addr = data_segment->data + data_offset;
     bh_memcpy_s(mem_addr, mem_size - mem_offset, data_addr, len);
 
     return 0;
@@ -706,21 +695,22 @@ fail:
     return false;
 }
 
+static void
+wasm_data_drop(WASMModuleInstance *inst, uint32 seg_idx)
+{
+    bh_bitmap_set_bit(inst->e->common.data_dropped, seg_idx);
+}
+
 bool
 jit_compile_op_data_drop(JitCompContext *cc, uint32 seg_idx)
 {
-    JitReg module = get_module_reg(cc->jit_frame);
-    JitReg data_segments = jit_cc_new_reg_ptr(cc);
-    JitReg data_segment = jit_cc_new_reg_ptr(cc);
+    JitReg args[2] = { 0 };
 
-    GEN_INSN(LDPTR, data_segments, module,
-             NEW_CONST(I32, offsetof(WASMModule, data_segments)));
-    GEN_INSN(LDPTR, data_segment, data_segments,
-             NEW_CONST(I32, seg_idx * sizeof(WASMDataSeg *)));
-    GEN_INSN(STI32, NEW_CONST(I32, 0), data_segment,
-             NEW_CONST(I32, offsetof(WASMDataSeg, data_length)));
+    args[0] = get_module_inst_reg(cc->jit_frame);
+    args[1] = NEW_CONST(I32, seg_idx);
 
-    return true;
+    return jit_emit_callnative(cc, wasm_data_drop, 0, args,
+                               sizeof(args) / sizeof(args[0]));
 }
 
 static int

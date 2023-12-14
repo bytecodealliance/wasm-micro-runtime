@@ -27,7 +27,9 @@ else:
     IS_PY_3 = True
 
 test_aot = False
-# "x86_64", "i386", "aarch64", "armv7", "thumbv7", "riscv32_ilp32", "riscv32_ilp32d", "riscv32_lp64", "riscv64_lp64d"
+# Available targets:
+#   "aarch64" "aarch64_vfp" "armv7" "armv7_vfp" "thumbv7" "thumbv7_vfp"
+#   "riscv32" "riscv32_ilp32f" "riscv32_ilp32d" "riscv64" "riscv64_lp64f" "riscv64_lp64d"
 test_target = "x86_64"
 
 debug_file = None
@@ -38,6 +40,25 @@ temp_file_repo = []
 
 # to save the mapping of module files in /tmp by name
 temp_module_table = {}
+
+# AOT compilation options mapping
+aot_target_options_map = {
+    "i386": ["--target=i386"],
+    "x86_32": ["--target=i386"],
+    "x86_64": ["--target=x86_64", "--cpu=skylake"],
+    "aarch64": ["--target=aarch64", "--target-abi=eabi", "--cpu=cortex-a53"],
+    "aarch64_vfp": ["--target=aarch64", "--target-abi=gnueabihf", "--cpu=cortex-a53"],
+    "armv7": ["--target=armv7", "--target-abi=eabi", "--cpu=cortex-a9", "--cpu-features=-neon"],
+    "armv7_vfp": ["--target=armv7", "--target-abi=gnueabihf", "--cpu=cortex-a9"],
+    "thumbv7": ["--target=thumbv7", "--target-abi=eabi", "--cpu=cortex-a9", "--cpu-features=-neon,-vfpv3"],
+    "thumbv7_vfp": ["--target=thumbv7", "--target-abi=gnueabihf", "--cpu=cortex-a9", "--cpu-features=-neon"],
+    "riscv32": ["--target=riscv32", "--target-abi=ilp32", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c"],
+    "riscv32_ilp32f": ["--target=riscv32", "--target-abi=ilp32f", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c,+f"],
+    "riscv32_ilp32d": ["--target=riscv32", "--target-abi=ilp32d", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c,+f,+d"],
+    "riscv64": ["--target=riscv64", "--target-abi=lp64", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c"],
+    "riscv64_lp64f": ["--target=riscv64", "--target-abi=lp64f", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c,+f"],
+    "riscv64_lp64d": ["--target=riscv64", "--target-abi=lp64d", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c,+f,+d"],
+}
 
 def debug(data):
     if debug_file:
@@ -1025,27 +1046,8 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
     log("Compiling AOT to '%s'" % aot_tempfile)
     cmd = [opts.aot_compiler]
 
-    if test_target == "x86_64":
-        cmd.append("--target=x86_64")
-        cmd.append("--cpu=skylake")
-    elif test_target == "i386":
-        cmd.append("--target=i386")
-    elif test_target == "aarch64":
-        cmd += ["--target=aarch64", "--cpu=cortex-a57"]
-    elif test_target == "armv7":
-        cmd += ["--target=armv7", "--target-abi=gnueabihf"]
-    elif test_target == "thumbv7":
-        cmd += ["--target=thumbv7", "--target-abi=gnueabihf", "--cpu=cortex-a9", "--cpu-features=-neon"]
-    elif test_target == "riscv32_ilp32":
-        cmd += ["--target=riscv32", "--target-abi=ilp32", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c"]
-    elif test_target == "riscv32_ilp32d":
-        cmd += ["--target=riscv32", "--target-abi=ilp32d", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c"]
-    elif test_target == "riscv64_lp64":
-        cmd += ["--target=riscv64", "--target-abi=lp64", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c"]
-    elif test_target == "riscv64_lp64d":
-        cmd += ["--target=riscv64", "--target-abi=lp64d", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c"]
-    else:
-        pass
+    if test_target in aot_target_options_map:
+        cmd += aot_target_options_map[test_target]
 
     if opts.sgx:
         cmd.append("-sgx")
@@ -1069,6 +1071,17 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
     # code of tail call into code of dead loop, and stack overflow
     # exception isn't thrown in several cases
     cmd.append("--disable-llvm-lto")
+
+    # Bounds checks is disabled by default for 64-bit targets, to
+    # use the hardware based bounds checks. But it is not supported
+    # in QEMU with NuttX.
+    # Enable bounds checks explicitly for all targets if running in QEMU.
+    if opts.qemu:
+        cmd.append("--bounds-checks=1")
+
+    # RISCV64 requires -mcmodel=medany, which can be set by --size-level=1
+    if test_target.startswith("riscv64"):
+        cmd.append("--size-level=1")
 
     cmd += ["-o", aot_tempfile, wasm_tempfile]
 
@@ -1094,12 +1107,20 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
         if opts.qemu_firmware == '':
             raise Exception("QEMU firmware missing")
 
-        if opts.target == "thumbv7":
-            cmd = ["qemu-system-arm", "-semihosting", "-M", "sabrelite", "-m", "1024", "-smp", "4", "-nographic", "-kernel", opts.qemu_firmware]
-        elif opts.target == "riscv32_ilp32":
-            cmd = ["qemu-system-riscv32", "-semihosting", "-M", "virt,aclint=on", "-cpu", "rv32", "-smp", "8", "-nographic", "-bios", "none", "-kernel", opts.qemu_firmware]
-        elif opts.target == "riscv64_lp64":
-            cmd = ["qemu-system-riscv64", "-semihosting", "-M", "virt,aclint=on", "-cpu", "rv64", "-smp", "8", "-nographic", "-bios", "none", "-kernel", opts.qemu_firmware]
+        if opts.target.startswith("aarch64"):
+            cmd = "qemu-system-aarch64 -cpu cortex-a53 -nographic -machine virt,virtualization=on,gic-version=3 -net none -chardev stdio,id=con,mux=on -serial chardev:con -mon chardev=con,mode=readline -kernel".split()
+            cmd.append(opts.qemu_firmware)
+        elif opts.target.startswith("thumbv7"):
+            cmd = "qemu-system-arm -semihosting -M sabrelite -m 1024 -smp 1 -nographic -kernel".split()
+            cmd.append(opts.qemu_firmware)
+        elif opts.target.startswith("riscv32"):
+            cmd = "qemu-system-riscv32 -semihosting -M virt,aclint=on -cpu rv32 -smp 1 -nographic -bios none -kernel".split()
+            cmd.append(opts.qemu_firmware)
+        elif opts.target.startswith("riscv64"):
+            cmd = "qemu-system-riscv64 -semihosting -M virt,aclint=on -cpu rv64 -smp 1 -nographic -bios none -kernel".split()
+            cmd.append(opts.qemu_firmware)
+        else:
+            raise Exception("Unknwon target for QEMU: %s" % opts.target)
 
     else:
         cmd = cmd_iwasm

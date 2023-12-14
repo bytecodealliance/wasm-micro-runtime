@@ -501,6 +501,12 @@ jobs:
           cmake ..
           cmake --build . --config Release --parallel 4
           ./iwasm wasm-apps/no_pthread.wasm
+
+      - name: Build Sample [shared-module]
+        run: |
+          cd samples/shared-module
+          ./build.sh
+          ./run.sh
   test:
     needs:
       [
@@ -660,7 +666,7 @@ jobs:
 
       - name: run tests
         timeout-minutes: 40
-        run: ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }} -T %{{matrix.sanitizer}}
+        run: ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }} -T "${{ matrix.sanitizer }}"
         working-directory: ./tests/wamr-test-suites
 
       #only install x32 support libraries when to run x86_32 cases

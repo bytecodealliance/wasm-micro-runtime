@@ -12,11 +12,13 @@
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/Optional.h"
 #endif
+#include "llvm/ExecutionEngine/JITEventListener.h"
+#include "llvm/ExecutionEngine/Orc/CompileOnDemandLayer.h"
 #include "llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h"
 #include "llvm/ExecutionEngine/Orc/LLJIT.h"
+#include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
 #include "llvm/ExecutionEngine/Orc/ObjectTransformLayer.h"
 #include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
-#include "llvm/ExecutionEngine/Orc/CompileOnDemandLayer.h"
 #include "llvm/ExecutionEngine/SectionMemoryManager.h"
 #include "llvm/Support/CBindingWrapping.h"
 
@@ -108,6 +110,7 @@ DEFINE_SIMPLE_CONVERSION_FUNCTIONS(ObjectTransformLayer,
                                    LLVMOrcObjectTransformLayerRef)
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(OrcV2CAPIHelper::PoolEntry,
                                    LLVMOrcSymbolStringPoolEntryRef)
+DEFINE_SIMPLE_CONVERSION_FUNCTIONS(ObjectLayer, LLVMOrcObjectLayerRef)
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(SymbolStringPool, LLVMOrcSymbolStringPoolRef)
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(ThreadSafeModule, LLVMOrcThreadSafeModuleRef)
 
@@ -321,4 +324,10 @@ LLVMOrcObjectTransformLayerRef
 LLVMOrcLLLazyJITGetObjTransformLayer(LLVMOrcLLLazyJITRef J)
 {
     return wrap(&unwrap(J)->getObjTransformLayer());
+}
+
+LLVMOrcObjectLayerRef
+LLVMOrcLLLazyJITGetObjLinkingLayer(LLVMOrcLLLazyJITRef J)
+{
+    return wrap(&unwrap(J)->getObjLinkingLayer());
 }

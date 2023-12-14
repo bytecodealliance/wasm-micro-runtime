@@ -58,7 +58,8 @@ wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     if (!(exec_env->exce_check_guard_page =
-              os_mmap(NULL, os_getpagesize(), MMAP_PROT_NONE, MMAP_MAP_NONE)))
+              os_mmap(NULL, os_getpagesize(), MMAP_PROT_NONE, MMAP_MAP_NONE,
+                      os_get_invalid_handle())))
         goto fail5;
 #endif
 
