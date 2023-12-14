@@ -701,6 +701,12 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
     return true;
 }
 
+void
+wasm_runtime_set_log_level(log_level_t level)
+{
+    bh_log_set_verbose_level(level);
+}
+
 bool
 wasm_runtime_is_running_mode_supported(RunningMode running_mode)
 {
