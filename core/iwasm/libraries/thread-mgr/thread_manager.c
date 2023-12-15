@@ -4,6 +4,7 @@
  */
 
 #include "thread_manager.h"
+#include "wasm_c_api.h"
 
 #if WASM_ENABLE_INTERP != 0
 #include "../interpreter/wasm_runtime.h"
@@ -344,9 +345,11 @@ wasm_cluster_destroy(WASMCluster *cluster)
 #endif
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
-    bh_vector_destroy(cluster->exception_frames);
-    wasm_runtime_free(cluster->exception_frames);
-    cluster->exception_frames = NULL;
+    if (cluster->exception_frames) {
+        bh_vector_destroy(cluster->exception_frames);
+        wasm_runtime_free(cluster->exception_frames);
+        cluster->exception_frames = NULL;
+    }
 #endif
 
     wasm_runtime_free(cluster);
@@ -1311,14 +1314,26 @@ wasm_cluster_set_exception(WASMExecEnv *exec_env, const char *exception)
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
     if (has_exception) {
         /* Save the stack trace of the crashed thread into the cluster */
-        if (wasm_interp_create_call_stack(exec_env)) {
-            wasm_interp_dump_call_stack(exec_env, true, NULL, 0);
+        WASMModuleInstance *module_inst =
+            (WASMModuleInstance *)get_module_inst(exec_env);
 
-            WASMModuleInstance *module_inst =
-                (WASMModuleInstance *)get_module_inst(exec_env);
-            cluster->exception_frames = module_inst->frames;
-            module_inst->frames = NULL;
+#if WASM_ENABLE_INTERP != 0
+        if (module_inst->module_type == Wasm_Module_Bytecode
+            && wasm_interp_create_call_stack(exec_env)) {
+            wasm_interp_dump_call_stack(exec_env, true, NULL, 0);
+            wasm_frame_vec_copy((wasm_frame_vec_t *)cluster->exception_frames,
+                                (wasm_frame_vec_t *)module_inst->frames);
         }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+        if (module_inst->module_type == Wasm_Module_AoT
+            && aot_create_call_stack(exec_env)) {
+            aot_dump_call_stack(exec_env, true, NULL, 0);
+            wasm_frame_vec_copy((wasm_frame_vec_t *)cluster->exception_frames,
+                                (wasm_frame_vec_t *)module_inst->frames);
+        }
+#endif
     }
 #endif
 
