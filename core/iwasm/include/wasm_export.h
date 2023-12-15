@@ -212,6 +212,14 @@ typedef struct wasm_val_t {
 } wasm_val_t;
 #endif
 
+typedef enum {
+    WASM_LOG_LEVEL_FATAL = 0,
+    WASM_LOG_LEVEL_ERROR = 1,
+    WASM_LOG_LEVEL_WARNING = 2,
+    WASM_LOG_LEVEL_DEBUG = 3,
+    WASM_LOG_LEVEL_VERBOSE = 4
+} log_level_t;
+
 /**
  * Initialize the WASM runtime environment, and also initialize
  * the memory allocator with system allocator, which calls os_malloc
@@ -233,6 +241,14 @@ wasm_runtime_init(void);
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_full_init(RuntimeInitArgs *init_args);
+
+/**
+ * Set the log level. To be called after the runtime is initialized. 
+ * 
+ * @param level the log level to set
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_log_level(log_level_t level);
 
 /**
  * Query whether a certain running mode is supported for the runtime
