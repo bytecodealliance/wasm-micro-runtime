@@ -1905,7 +1905,7 @@ wasm_frame_func_offset(const wasm_frame_t *frame)
 static wasm_trap_t *
 wasm_trap_new_internal(wasm_store_t *store,
                        WASMModuleInstanceCommon *inst_comm_rt,
-                       const char *error_info)
+                       const char *error_info, Vector *cluster_frames)
 {
     wasm_trap_t *trap;
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
@@ -1935,7 +1935,9 @@ wasm_trap_new_internal(wasm_store_t *store,
 
     /* fill in frames */
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
-    trap->frames = ((WASMModuleInstance *)inst_comm_rt)->frames;
+    trap->frames = cluster_frames
+                       ? cluster_frames
+                       : ((WASMModuleInstance *)inst_comm_rt)->frames;
 
     if (trap->frames) {
         /* fill in instances */
@@ -3268,6 +3270,7 @@ wasm_func_call(const wasm_func_t *func, const wasm_val_vec_t *params,
     WASMFunctionInstanceCommon *func_comm_rt = NULL;
     WASMExecEnv *exec_env = NULL;
     size_t param_count, result_count, alloc_count;
+    Vector *cluster_frames = NULL;
 
     if (!func) {
         return NULL;
@@ -3385,9 +3388,13 @@ failed:
     if (argv != argv_buf)
         wasm_runtime_free(argv);
 
+#if WASM_ENABLE_DUMP_CALL_STACK != 0 && WASM_ENABLE_THREAD_MGR != 0
+    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    cluster_frames = cluster->exception_frames;
+#endif
     return wasm_trap_new_internal(
         func->store, func->inst_comm_rt,
-        wasm_runtime_get_exception(func->inst_comm_rt));
+        wasm_runtime_get_exception(func->inst_comm_rt), cluster_frames);
 }
 
 size_t

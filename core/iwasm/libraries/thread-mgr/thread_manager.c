@@ -343,6 +343,12 @@ wasm_cluster_destroy(WASMCluster *cluster)
     wasm_debug_instance_destroy(cluster);
 #endif
 
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+    bh_vector_destroy(cluster->exception_frames);
+    wasm_runtime_free(cluster->exception_frames);
+    cluster->exception_frames = NULL;
+#endif
+
     wasm_runtime_free(cluster);
 }
 
@@ -1301,6 +1307,20 @@ wasm_cluster_set_exception(WASMExecEnv *exec_env, const char *exception)
     struct spread_exception_data data;
     data.skip = NULL;
     data.exception = exception;
+
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+    if (has_exception) {
+        /* Save the stack trace of the crashed thread into the cluster */
+        if (wasm_interp_create_call_stack(exec_env)) {
+            wasm_interp_dump_call_stack(exec_env, true, NULL, 0);
+
+            WASMModuleInstance *module_inst =
+                (WASMModuleInstance *)get_module_inst(exec_env);
+            cluster->exception_frames = module_inst->frames;
+            module_inst->frames = NULL;
+        }
+    }
+#endif
 
     os_mutex_lock(&cluster->lock);
     cluster->has_exception = has_exception;
