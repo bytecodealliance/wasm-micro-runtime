@@ -160,9 +160,9 @@ simd_integer_narrow_common(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* sat */
     if (!(vec1 = simd_saturate(comp_ctx, func_ctx, e_sat_i16x8, vec1, min, max,
-                               is_signed))
+                               true))
         || !(vec2 = simd_saturate(comp_ctx, func_ctx, e_sat_i16x8, vec2, min,
-                                  max, is_signed))) {
+                                  max, true))) {
         return false;
     }
 
