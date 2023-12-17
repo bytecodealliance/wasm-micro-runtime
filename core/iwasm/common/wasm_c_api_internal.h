@@ -238,4 +238,7 @@ wasm_memory_new_internal(wasm_store_t *store, uint16 memory_idx_rt,
 wasm_table_t *
 wasm_table_new_internal(wasm_store_t *store, uint16 table_idx_rt,
                         WASMModuleInstanceCommon *inst_comm_rt);
+
+void
+wasm_frame_vec_clone_internal(wasm_frame_vec_t *src, wasm_frame_vec_t *out);
 #endif /* _WASM_C_API_INTERNAL_H */

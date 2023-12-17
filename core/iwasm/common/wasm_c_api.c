@@ -1902,6 +1902,35 @@ wasm_frame_func_offset(const wasm_frame_t *frame)
     return frame ? frame->func_offset : 0;
 }
 
+void
+wasm_frame_vec_clone_internal(wasm_frame_vec_t *src, wasm_frame_vec_t *out)
+{
+    uint32 i;
+
+    wasm_frame_vec_new_uninitialized(out, src->num_elems);
+    if (out->size == 0 || !out->data) {
+        return;
+    }
+
+    for (i = 0; i < src->num_elems; i++) {
+        wasm_frame_t *frame = ((wasm_frame_t *)src->data) + i;
+        if (!(out->data[i] = wasm_frame_copy(frame))) {
+            goto failed;
+        }
+        out->num_elems++;
+    }
+
+    return;
+failed:
+    for (i = 0; i < out->num_elems; i++) {
+        if (out->data[i]) {
+            wasm_runtime_free(out->data[i]);
+        }
+    }
+
+    wasm_runtime_free(out->data);
+}
+
 static wasm_trap_t *
 wasm_trap_new_internal(wasm_store_t *store,
                        WASMModuleInstanceCommon *inst_comm_rt,
@@ -1952,7 +1981,7 @@ wasm_trap_new_internal(wasm_store_t *store,
         }
 
         for (i = 0; i < trap->frames->num_elems; i++) {
-            (((wasm_frame_t *)trap->frames->data) + i)->instance =
+            ((wasm_frame_vec_t *)trap->frames)->data[i]->instance =
                 frame_instance;
         }
     }
@@ -2048,10 +2077,7 @@ wasm_trap_trace(const wasm_trap_t *trap, own wasm_frame_vec_t *out)
     }
 
     for (i = 0; i < trap->frames->num_elems; i++) {
-        wasm_frame_t *frame;
-
-        frame = ((wasm_frame_t *)trap->frames->data) + i;
-
+        wasm_frame_t *frame = ((wasm_frame_vec_t *)trap->frames)->data[i];
         if (!(out->data[i] =
                   wasm_frame_new(frame->instance, frame->module_offset,
                                  frame->func_index, frame->func_offset))) {

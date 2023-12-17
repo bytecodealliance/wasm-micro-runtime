@@ -4,7 +4,7 @@
  */
 
 #include "thread_manager.h"
-#include "wasm_c_api.h"
+#include "../common/wasm_c_api_internal.h"
 
 #if WASM_ENABLE_INTERP != 0
 #include "../interpreter/wasm_runtime.h"
@@ -222,6 +222,14 @@ wasm_cluster_create(WASMExecEnv *exec_env)
     }
     memset(cluster, 0, sizeof(WASMCluster));
 
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+    if (!(cluster->exception_frames = wasm_runtime_malloc(sizeof(Vector)))) {
+        LOG_ERROR("thread manager error: failed to allocate exception frames");
+        return NULL;
+    }
+    memset(cluster->exception_frames, 0, sizeof(Vector));
+#endif
+
     exec_env->cluster = cluster;
 
     bh_list_init(&cluster->exec_env_list);
@@ -345,11 +353,9 @@ wasm_cluster_destroy(WASMCluster *cluster)
 #endif
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
-    if (cluster->exception_frames) {
-        bh_vector_destroy(cluster->exception_frames);
-        wasm_runtime_free(cluster->exception_frames);
-        cluster->exception_frames = NULL;
-    }
+    bh_vector_destroy(cluster->exception_frames);
+    wasm_runtime_free(cluster->exception_frames);
+    cluster->exception_frames = NULL;
 #endif
 
     wasm_runtime_free(cluster);
@@ -1320,9 +1326,10 @@ wasm_cluster_set_exception(WASMExecEnv *exec_env, const char *exception)
 #if WASM_ENABLE_INTERP != 0
         if (module_inst->module_type == Wasm_Module_Bytecode
             && wasm_interp_create_call_stack(exec_env)) {
-            wasm_interp_dump_call_stack(exec_env, true, NULL, 0);
-            wasm_frame_vec_copy((wasm_frame_vec_t *)cluster->exception_frames,
-                                (wasm_frame_vec_t *)module_inst->frames);
+            wasm_interp_dump_call_stack(exec_env, false, NULL, 0);
+            wasm_frame_vec_clone_internal(
+                (wasm_frame_vec_t *)module_inst->frames,
+                (wasm_frame_vec_t *)cluster->exception_frames);
         }
 #endif
 
@@ -1330,8 +1337,9 @@ wasm_cluster_set_exception(WASMExecEnv *exec_env, const char *exception)
         if (module_inst->module_type == Wasm_Module_AoT
             && aot_create_call_stack(exec_env)) {
             aot_dump_call_stack(exec_env, true, NULL, 0);
-            wasm_frame_vec_copy((wasm_frame_vec_t *)cluster->exception_frames,
-                                (wasm_frame_vec_t *)module_inst->frames);
+            wasm_frame_vec_clone_internal(
+                (wasm_frame_vec_t *)module_inst->frames,
+                (wasm_frame_vec_t *)cluster->exception_frames);
         }
 #endif
     }
