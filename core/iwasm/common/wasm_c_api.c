@@ -1981,8 +1981,13 @@ wasm_trap_new_internal(wasm_store_t *store,
         }
 
         for (i = 0; i < trap->frames->num_elems; i++) {
+#if WASM_ENABLE_THREAD_MGR != 0
             ((wasm_frame_vec_t *)trap->frames)->data[i]->instance =
                 frame_instance;
+#else
+            (((wasm_frame_t *)trap->frames->data) + i)->instance =
+                frame_instance;
+#endif
         }
     }
 #else
@@ -2077,7 +2082,11 @@ wasm_trap_trace(const wasm_trap_t *trap, own wasm_frame_vec_t *out)
     }
 
     for (i = 0; i < trap->frames->num_elems; i++) {
+#if WASM_ENABLE_THREAD_MGR != 0
         wasm_frame_t *frame = ((wasm_frame_vec_t *)trap->frames)->data[i];
+#else
+        wasm_frame_t *frame = ((wasm_frame_t *)trap->frames->data) + i;
+#endif
         if (!(out->data[i] =
                   wasm_frame_new(frame->instance, frame->module_offset,
                                  frame->func_index, frame->func_offset))) {
