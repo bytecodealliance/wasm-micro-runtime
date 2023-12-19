@@ -321,10 +321,10 @@ typedef struct AOTCompContext {
     /* Bulk memory feature */
     bool enable_bulk_memory;
 
-    /* Bounday Check */
+    /* Boundary Check */
     bool enable_bound_check;
 
-    /* Native stack bounday Check */
+    /* Native stack boundary Check */
     bool enable_stack_bound_check;
 
     /* Native stack usage estimation */
