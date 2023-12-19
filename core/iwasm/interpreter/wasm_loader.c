@@ -811,6 +811,10 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 #endif
                         &cur_value, error_buf, error_buf_size))
                     goto fail;
+#if WASM_ENABLE_WAMR_COMPILER != 0
+                /* If any init_expr is v128.const, mark SIMD used */
+                module->is_simd_used = true;
+#endif
                 break;
             }
 #endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
@@ -1471,6 +1475,11 @@ resolve_value_type(const uint8 **p_buf, const uint8 *buf_end,
         }
         ref_type->ref_type = type;
         *p_need_ref_type_map = false;
+#if WASM_ENABLE_WAMR_COMPILER != 0
+        /* If any value's type is v128, mark the module as SIMD used */
+        if (type == VALUE_TYPE_V128)
+            module->is_simd_used = true;
+#endif
     }
 
     *p_buf = p;
@@ -3376,6 +3385,11 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
                 /* 0x7F/0x7E/0x7D/0x7C */
                 type = read_uint8(p_code);
                 local_count += sub_local_count;
+#if WASM_ENABLE_WAMR_COMPILER != 0
+                /* If any value's type is v128, mark the module as SIMD used */
+                if (type == VALUE_TYPE_V128)
+                    module->is_simd_used = true;
+#endif
 #else
                 if (!resolve_value_type(&p_code, buf_code_end, module,
                                         &need_ref_type_map, &ref_type, false,
@@ -13575,6 +13589,11 @@ re_scan:
             case WASM_OP_SIMD_PREFIX:
             {
                 uint32 opcode1;
+
+#if WASM_ENABLE_WAMR_COMPILER != 0
+                /* Mark the SIMD instruction is used in this module */
+                module->is_simd_used = true;
+#endif
 
                 CHECK_BUF(p, p_end, 1);
                 opcode1 = read_uint8(p);
