@@ -1041,8 +1041,8 @@ load_mem_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
 
         read_uint32(buf, buf_end, is_passive);
         read_uint32(buf, buf_end, memory_index);
-        if (!load_init_expr(&buf, buf_end, module, &init_value,
-                            error_buf, error_buf_size)) {
+        if (!load_init_expr(&buf, buf_end, module, &init_value, error_buf,
+                            error_buf_size)) {
             return false;
         }
         read_uint32(buf, buf_end, byte_count);
@@ -1194,7 +1194,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             read_uint32(buf, buf_end, expr->u.ref_index);
 #endif
             break;
-#else /* else of WASM_ENABLE_GC == 0 */
+#else  /* else of WASM_ENABLE_GC == 0 */
         case INIT_EXPR_TYPE_FUNCREF_CONST:
             read_uint32(buf, buf_end, expr->u.ref_index);
             break;
