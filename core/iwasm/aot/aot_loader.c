@@ -1011,6 +1011,11 @@ destroy_mem_init_data_list(AOTMemInitData **data_list, uint32 count)
 }
 
 static bool
+load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
+               InitializerExpression *expr, char *error_buf,
+               uint32 error_buf_size);
+
+static bool
 load_mem_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
                         AOTModule *module, char *error_buf,
                         uint32 error_buf_size)
@@ -1029,15 +1034,17 @@ load_mem_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
 
     /* Create each memory data segment */
     for (i = 0; i < module->mem_init_data_count; i++) {
-        uint32 init_expr_type, byte_count;
-        uint64 init_expr_value;
+        uint32 byte_count;
         uint32 is_passive;
         uint32 memory_index;
+        InitializerExpression init_value;
 
         read_uint32(buf, buf_end, is_passive);
         read_uint32(buf, buf_end, memory_index);
-        read_uint32(buf, buf_end, init_expr_type);
-        read_uint64(buf, buf_end, init_expr_value);
+        if (!load_init_expr(&buf, buf_end, module, &init_value,
+                            error_buf, error_buf_size)) {
+            return false;
+        }
         read_uint32(buf, buf_end, byte_count);
         size = offsetof(AOTMemInitData, bytes) + (uint64)byte_count;
         if (!(data_list[i] = loader_malloc(size, error_buf, error_buf_size))) {
@@ -1049,8 +1056,9 @@ load_mem_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
         data_list[i]->is_passive = (bool)is_passive;
         data_list[i]->memory_index = memory_index;
 #endif
-        data_list[i]->offset.init_expr_type = (uint8)init_expr_type;
-        data_list[i]->offset.u.i64 = (int64)init_expr_value;
+        data_list[i]->offset.init_expr_type = init_value.init_expr_type;
+        /* can only be i32 or get_global for now */
+        data_list[i]->offset.u.i32 = init_value.u.i32;
         data_list[i]->byte_count = byte_count;
         read_byte_array(buf, buf_end, data_list[i]->bytes,
                         data_list[i]->byte_count);
@@ -1143,7 +1151,6 @@ destroy_table_init_data_list(AOTTableInitData **data_list, uint32 count)
     wasm_runtime_free(data_list);
 }
 
-#if WASM_ENABLE_GC != 0
 static bool
 load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                InitializerExpression *expr, char *error_buf,
@@ -1151,6 +1158,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 {
     const uint8 *buf = *p_buf;
     uint32 init_expr_type = 0;
+    uint64 *i64x2 = NULL;
     bool free_if_fail = false;
 
     buf = (uint8 *)align_ptr(buf, 4);
@@ -1169,16 +1177,29 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             read_uint64(buf, buf_end, expr->u.i64);
             break;
         case INIT_EXPR_TYPE_V128_CONST:
-            read_byte_array(buf, buf_end, &expr->u.v128, sizeof(expr->u.v128));
+            i64x2 = (uint64 *)expr->u.v128.i64x2;
+            CHECK_BUF(buf, buf_end, sizeof(uint64) * 2);
+            wasm_runtime_read_v128(buf, &i64x2[0], &i64x2[1]);
+            buf += sizeof(uint64) * 2;
             break;
         case INIT_EXPR_TYPE_GET_GLOBAL:
             read_uint32(buf, buf_end, expr->u.global_index);
             break;
+#if WASM_ENABLE_GC == 0
+        case INIT_EXPR_TYPE_FUNCREF_CONST:
         case INIT_EXPR_TYPE_REFNULL_CONST:
-            read_uint32(buf, buf_end, expr->u.type_index);
+#if UINTPTR_MAX == UINT64_MAX
+            read_uint64(buf, buf_end, expr->u.ref_index);
+#else
+            read_uint32(buf, buf_end, expr->u.ref_index);
+#endif
             break;
+#else /* else of WASM_ENABLE_GC == 0 */
         case INIT_EXPR_TYPE_FUNCREF_CONST:
             read_uint32(buf, buf_end, expr->u.ref_index);
+            break;
+        case INIT_EXPR_TYPE_REFNULL_CONST:
+            read_uint32(buf, buf_end, expr->u.type_index);
             break;
         case INIT_EXPR_TYPE_I31_NEW:
             read_uint32(buf, buf_end, expr->u.i32);
@@ -1301,6 +1322,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             }
             break;
         }
+#endif /* end of WASM_ENABLE_GC == 0 */
         default:
             set_error_buf(error_buf, error_buf_size, "invalid init expr type.");
             return false;
@@ -1311,12 +1333,15 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
     *p_buf = buf;
     return true;
 fail:
+#if WASM_ENABLE_GC != 0
     if (free_if_fail) {
         wasm_runtime_free(expr->u.data);
     }
+#else
+    (void)free_if_fail;
+#endif
     return false;
 }
-#endif /* end of WASM_ENABLE_GC != 0 */
 
 static bool
 load_import_table_list(const uint8 **p_buf, const uint8 *buf_end,
@@ -1505,20 +1530,10 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
         data_list[i]->offset.u.i64 = (int64)init_expr_value;
         data_list[i]->value_count = value_count;
         for (j = 0; j < data_list[i]->value_count; j++) {
-#if WASM_ENABLE_GC != 0
             if (!load_init_expr(&buf, buf_end, module,
                                 &data_list[i]->init_values[j], error_buf,
                                 error_buf_size))
                 return false;
-#else
-            data_list[i]->init_values[j].init_expr_type =
-                INIT_EXPR_TYPE_FUNCREF_CONST;
-#if UINTPTR_MAX == UINT64_MAX
-            read_uint64(buf, buf_end, data_list[i]->init_values[j].u.ref_index);
-#else
-            read_uint32(buf, buf_end, data_list[i]->init_values[j].u.ref_index);
-#endif
-#endif /* end of WASM_ENABLE_GC != 0 */
         }
     }
 
@@ -2119,32 +2134,14 @@ load_globals(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
     /* Create each global */
     for (i = 0; i < module->global_count; i++) {
-#if WASM_ENABLE_GC == 0
-        uint16 init_expr_type;
-#endif
-
         read_uint8(buf, buf_end, globals[i].type);
         read_uint8(buf, buf_end, globals[i].is_mutable);
+        /* Skip 2 byte for padding */
+        buf += 2;
 
-#if WASM_ENABLE_GC != 0
         if (!load_init_expr(&buf, buf_end, module, &globals[i].init_expr,
                             error_buf, error_buf_size))
             return false;
-#else
-        read_uint16(buf, buf_end, init_expr_type);
-
-        if (init_expr_type != INIT_EXPR_TYPE_V128_CONST) {
-            read_uint64(buf, buf_end, globals[i].init_expr.u.i64);
-        }
-        else {
-            uint64 *i64x2 = (uint64 *)globals[i].init_expr.u.v128.i64x2;
-            CHECK_BUF(buf, buf_end, sizeof(uint64) * 2);
-            wasm_runtime_read_v128(buf, &i64x2[0], &i64x2[1]);
-            buf += sizeof(uint64) * 2;
-        }
-
-        globals[i].init_expr.init_expr_type = (uint8)init_expr_type;
-#endif /* end of WASM_ENABLE_GC != 0 */
 
         globals[i].size = wasm_value_type_size(globals[i].type);
         globals[i].data_offset = data_offset;
