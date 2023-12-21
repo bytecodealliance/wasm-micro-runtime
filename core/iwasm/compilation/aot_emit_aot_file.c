@@ -205,13 +205,19 @@ get_target_info_section_size()
 }
 
 static uint32
-get_mem_init_data_size(AOTMemInitData *mem_init_data)
+get_init_expr_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data,
+                   InitializerExpression *expr);
+
+static uint32
+get_mem_init_data_size(AOTCompContext *comp_ctx, AOTMemInitData *mem_init_data)
 {
     /* init expr type (4 bytes)
-     * + init expr value (4 bytes, it can only be i32 or get_global for now)
+     * + init expr value (4 bytes, valid value can only be i32/get_global)
      * + byte count (4 bytes) + bytes */
-    uint32 total_size = (uint32)(sizeof(uint32) + sizeof(uint32)
-                                 + sizeof(uint32) + mem_init_data->byte_count);
+    uint32 total_size =
+        (uint32)(get_init_expr_size(comp_ctx, comp_ctx->comp_data,
+                                    &mem_init_data->offset)
+                 + sizeof(uint32) + mem_init_data->byte_count);
 
     /* bulk_memory enabled:
         is_passive (4 bytes) + memory_index (4 bytes)
@@ -224,7 +230,8 @@ get_mem_init_data_size(AOTMemInitData *mem_init_data)
 }
 
 static uint32
-get_mem_init_data_list_size(AOTMemInitData **mem_init_data_list,
+get_mem_init_data_list_size(AOTCompContext *comp_ctx,
+                            AOTMemInitData **mem_init_data_list,
                             uint32 mem_init_data_count)
 {
     AOTMemInitData **mem_init_data = mem_init_data_list;
@@ -232,7 +239,7 @@ get_mem_init_data_list_size(AOTMemInitData **mem_init_data_list,
 
     for (i = 0; i < mem_init_data_count; i++, mem_init_data++) {
         size = align_uint(size, 4);
-        size += get_mem_init_data_size(*mem_init_data);
+        size += get_mem_init_data_size(comp_ctx, *mem_init_data);
     }
     return size;
 }
@@ -254,13 +261,14 @@ get_memory_size(AOTCompData *comp_data)
 }
 
 static uint32
-get_mem_info_size(AOTCompData *comp_data)
+get_mem_info_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
 {
     /* import_memory_size + memory_size
        + init_data_count + init_data_list */
     return get_import_memory_size(comp_data) + get_memory_size(comp_data)
            + (uint32)sizeof(uint32)
-           + get_mem_init_data_list_size(comp_data->mem_init_data_list,
+           + get_mem_init_data_list_size(comp_ctx,
+                                         comp_data->mem_init_data_list,
                                          comp_data->mem_init_data_count);
 }
 
@@ -562,9 +570,11 @@ get_func_type_size(AOTCompContext *comp_ctx, AOTFuncType *func_type)
     else
 #endif
     {
-        /* type flag + is_sub_final + parent_type_idx + param count
-         * + result count + types */
-        return (uint32)sizeof(uint16) * 6 + func_type->param_count
+        /* type flag(2 bytes) + is_sub_final(2 bytes) + parent_type_idx(4 bytes)
+         * + rec_count(2 bytes) + rec_idx(2 bytes)
+         * + param count + result count + types
+         * + ref_type_map_count(2 bytes) */
+        return (uint32)sizeof(uint16) * 9 + func_type->param_count
                + func_type->result_count;
     }
 }
@@ -806,7 +816,7 @@ get_init_data_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
 {
     uint32 size = 0;
 
-    size += get_mem_info_size(comp_data);
+    size += get_mem_info_size(comp_ctx, comp_data);
 
     size = align_uint(size, 4);
     size += get_table_info_size(comp_ctx, comp_data);
@@ -1775,7 +1785,7 @@ aot_emit_mem_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         EMIT_BUF(init_datas[i]->bytes, init_datas[i]->byte_count);
     }
 
-    if (offset - *p_offset != get_mem_info_size(comp_data)) {
+    if (offset - *p_offset != get_mem_info_size(comp_ctx, comp_data)) {
         aot_set_last_error("emit memory info failed.");
         return false;
     }
@@ -1824,7 +1834,7 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                 break;
             }
 #if WASM_ENABLE_GC != 0
-            else{
+            else {
                 EMIT_U32(expr->u.ref_index);
                 break;
             }
@@ -2153,8 +2163,14 @@ aot_emit_type_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             EMIT_U16(0);
             /* Emit parent_type_index */
             EMIT_U32(0);
+            /* Emit dummy rec_count*/
+            EMIT_U16(0);
+            /* Emit dummy rec_idx */
+            EMIT_U16(0);
             EMIT_U16(func_types[i]->param_count);
             EMIT_U16(func_types[i]->result_count);
+            /* Emit dummy ref_type_map_count */
+            EMIT_U16(0);
             EMIT_BUF(func_types[i]->types,
                      func_types[i]->param_count + func_types[i]->result_count);
         }

@@ -1057,8 +1057,7 @@ load_mem_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
         data_list[i]->memory_index = memory_index;
 #endif
         data_list[i]->offset.init_expr_type = init_value.init_expr_type;
-        /* can only be i32 or get_global for now */
-        data_list[i]->offset.u.i32 = init_value.u.i32;
+        data_list[i]->offset.u = init_value.u;
         data_list[i]->byte_count = byte_count;
         read_byte_array(buf, buf_end, data_list[i]->bytes,
                         data_list[i]->byte_count);
@@ -1956,17 +1955,22 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
     /* Create each function type */
     for (i = 0; i < module->type_count; i++) {
         uint32 type_flag;
-        uint32 param_count, result_count;
+        uint32 dummy, param_count, result_count;
         uint32 param_cell_num, ret_cell_num;
         uint64 size1;
 
         buf = align_ptr(buf, 4);
         read_uint16(buf, buf_end, type_flag);
-        /* Dummy read to ignore the is_sub_final and parent_type_idx */
-        read_uint16(buf, buf_end, param_count);
-        read_uint32(buf, buf_end, param_count);
+        /* Dummy read to ignore the is_sub_final, parent_type_idx,
+         * rec_count, rec_idx */
+        read_uint16(buf, buf_end, dummy);
+        read_uint32(buf, buf_end, dummy);
+        read_uint16(buf, buf_end, dummy);
+        read_uint16(buf, buf_end, dummy);
         read_uint16(buf, buf_end, param_count);
         read_uint16(buf, buf_end, result_count);
+        /* Dummy read to ignore the ref_type_map_count */
+        read_uint16(buf, buf_end, dummy);
 
         size1 = (uint64)param_count + (uint64)result_count;
         size = offsetof(AOTFuncType, types) + size1;
