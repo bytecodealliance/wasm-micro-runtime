@@ -570,11 +570,8 @@ get_func_type_size(AOTCompContext *comp_ctx, AOTFuncType *func_type)
     else
 #endif
     {
-        /* type flag(2 bytes) + is_sub_final(2 bytes) + parent_type_idx(4 bytes)
-         * + rec_count(2 bytes) + rec_idx(2 bytes)
-         * + param count + result count + types
-         * + ref_type_map_count(2 bytes) */
-        return (uint32)sizeof(uint16) * 9 + func_type->param_count
+        /* type flag + param count + result count + types */
+        return (uint32)sizeof(uint16) * 3 + func_type->param_count
                + func_type->result_count;
     }
 }
@@ -2159,18 +2156,12 @@ aot_emit_type_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             offset = align_uint(offset, 4);
             /* If GC is disabled, only emit function type info */
             EMIT_U16(WASM_TYPE_FUNC);
-            /* Emit dummy is_sub_final */
-            EMIT_U16(0);
-            /* Emit parent_type_index */
-            EMIT_U32(0);
-            /* Emit dummy rec_count*/
-            EMIT_U16(0);
-            /* Emit dummy rec_idx */
-            EMIT_U16(0);
+            /* Omit to emit dummy padding for is_sub_final,
+             * parent_type_index, rec_count, rec_idx, 10 bytes in total */
             EMIT_U16(func_types[i]->param_count);
             EMIT_U16(func_types[i]->result_count);
-            /* Emit dummy ref_type_map_count */
-            EMIT_U16(0);
+            /* Omit to emit dummy padding for ref_type_map_count, 2 bytes in
+             * total */
             EMIT_BUF(func_types[i]->types,
                      func_types[i]->param_count + func_types[i]->result_count);
         }
