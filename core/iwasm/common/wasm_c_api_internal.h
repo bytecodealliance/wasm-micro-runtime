@@ -130,6 +130,8 @@ struct wasm_func_t {
 
     struct wasm_host_info host_info;
     wasm_functype_t *type;
+    uint16 param_count;
+    uint16 result_count;
 
     bool with_env;
     union {
