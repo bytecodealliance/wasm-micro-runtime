@@ -3163,7 +3163,7 @@ params_to_argv(const wasm_val_vec_t *params,
                 argv += 2;
                 break;
                 break;
-#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_REF_TYPES != 0
             case WASM_ANYREF:
                 *(uintptr_t *)argv = (uintptr_t)param->of.ref;
                 argv += sizeof(uintptr_t) / sizeof(uint32);
@@ -3205,7 +3205,7 @@ argv_to_results(const uint32 *argv, const wasm_valtype_vec_t *result_defs,
                 result->of.i64 = *(int64 *)argv;
                 argv += 2;
                 break;
-#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_REF_TYPES != 0
             case WASM_ANYREF:
                 result->of.ref = (struct wasm_ref_t *)(*(uintptr_t *)argv);
                 argv += sizeof(uintptr_t) / sizeof(uint32);
