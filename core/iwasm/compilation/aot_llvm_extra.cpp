@@ -45,6 +45,7 @@
 #include <llvm/Transforms/Vectorize/LoopVectorize.h>
 #include <llvm/Transforms/Vectorize/LoadStoreVectorizer.h>
 #include <llvm/Transforms/Vectorize/SLPVectorizer.h>
+#include <llvm/Transforms/Vectorize/VectorCombine.h>
 #include <llvm/Transforms/Scalar/LoopRotation.h>
 #include <llvm/Transforms/Scalar/SimpleLoopUnswitch.h>
 #include <llvm/Transforms/Scalar/LICM.h>
@@ -315,8 +316,11 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
     }
 
     ModulePassManager MPM;
+
     if (comp_ctx->is_jit_mode) {
         const char *Passes =
+            "loop-vectorize,slp-vectorizer,"
+            "load-store-vectorizer,vector-combine,"
             "mem2reg,instcombine,simplifycfg,jump-threading,indvars";
         ExitOnErr(PB.parsePassPipeline(MPM, Passes));
     }
@@ -327,6 +331,7 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
         FPM.addPass(LoopVectorizePass());
         FPM.addPass(SLPVectorizerPass());
         FPM.addPass(LoadStoreVectorizerPass());
+        FPM.addPass(VectorCombinePass());
 
         if (comp_ctx->enable_llvm_pgo || comp_ctx->use_prof_file) {
             /* LICM pass: loop invariant code motion, attempting to remove
