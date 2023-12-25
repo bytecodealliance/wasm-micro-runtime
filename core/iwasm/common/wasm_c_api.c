@@ -381,6 +381,12 @@ wasm_engine_new_internal(wasm_config_t *config)
     memcpy(&init_args.mem_alloc_option, &config->mem_alloc_option,
            sizeof(MemAllocOption));
     init_args.linux_perf_support = config->linux_perf_support;
+#if WASM_ENABLE_JIT != 0
+#if defined(os_writegsbase)
+    /* enable segue for all load/store operations */
+    init_args.segue_flags = 0x1F1F;
+#endif
+#endif
 
     if (!wasm_runtime_full_init(&init_args)) {
         LOG_DEBUG("wasm_runtime_full_init failed");
