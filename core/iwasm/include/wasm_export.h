@@ -940,9 +940,6 @@ wasm_runtime_clear_exception(wasm_module_inst_t module_inst);
  *  - Another thread has a copy of `wasm_module_inst_t` of
  *    the module instance and wants to terminate it asynchronously.
  *
- * This function is provided only when WAMR is built with threading enabled.
- * (`WASM_ENABLE_THREAD_MGR=1`)
- *
  * @param module_inst the WASM module instance
  */
 WASM_RUNTIME_API_EXTERN void
