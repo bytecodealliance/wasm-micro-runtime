@@ -438,7 +438,7 @@ typedef struct wasm_frame_t {
     const char *func_name_wp;
 } WASMCApiFrame;
 
-#ifdef WASM_ENABLE_JIT
+#if WASM_ENABLE_JIT != 0
 typedef struct LLVMJITOptions {
     uint32 opt_level;
     uint32 size_level;

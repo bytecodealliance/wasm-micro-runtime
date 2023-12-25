@@ -299,6 +299,11 @@ wasm_config_new(void)
 
     memset(config, 0, sizeof(wasm_config_t));
     config->mem_alloc_type = Alloc_With_System_Allocator;
+#if defined(os_writegsbase)
+    /* enable segue for all load/store operations */
+    config->segue_flags = 0x1F1F;
+#endif
+
     return config;
 }
 
@@ -331,6 +336,16 @@ wasm_config_set_linux_perf_opt(wasm_config_t *config, bool enable)
         return NULL;
 
     config->linux_perf_support = enable;
+    return config;
+}
+
+wasm_config_t *
+wasm_config_set_segue_flags(wasm_config_t *config, uint32 segue_flags)
+{
+    if (!config)
+        return NULL;
+
+    config->segue_flags = segue_flags;
     return config;
 }
 
@@ -381,12 +396,7 @@ wasm_engine_new_internal(wasm_config_t *config)
     memcpy(&init_args.mem_alloc_option, &config->mem_alloc_option,
            sizeof(MemAllocOption));
     init_args.linux_perf_support = config->linux_perf_support;
-#if WASM_ENABLE_JIT != 0
-#if defined(os_writegsbase)
-    /* enable segue for all load/store operations */
-    init_args.segue_flags = 0x1F1F;
-#endif
-#endif
+    init_args.segue_flags = config->segue_flags;
 
     if (!wasm_runtime_full_init(&init_args)) {
         LOG_DEBUG("wasm_runtime_full_init failed");
@@ -437,6 +447,10 @@ wasm_engine_new()
 {
     wasm_config_t config = { 0 };
     wasm_config_set_mem_alloc_opt(&config, Alloc_With_System_Allocator, NULL);
+#if defined(os_writegsbase)
+    /* enable segue for all load/store operations */
+    wasm_config_set_segue_flags(&config, 0x1F1F);
+#endif
     wasm_engine_t *engine = wasm_engine_new_with_config(&config);
     return engine;
 }
