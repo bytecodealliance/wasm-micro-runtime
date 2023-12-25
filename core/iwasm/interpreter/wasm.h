@@ -967,6 +967,10 @@ struct WASMModule {
        functions in that group */
     uint32 fast_jit_ready_groups;
 #endif
+
+#if WASM_ENABLE_WAMR_COMPILER != 0
+    bool is_simd_used;
+#endif
 };
 
 typedef struct BlockType {
