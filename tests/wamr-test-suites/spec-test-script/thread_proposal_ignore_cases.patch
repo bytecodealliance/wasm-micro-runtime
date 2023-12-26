@@ -211,6 +211,21 @@ index 1ea2b06..8eded37 100644
  (assert_return (invoke $module1 "call-8") (i32.const 69))
  (assert_return (invoke $module1 "call-9") (i32.const 70))
 +;)
+diff --git a/test/core/table.wast b/test/core/table.wast
+index 0bc43ca6..ee5209ec 100644
+--- a/test/core/table.wast
++++ b/test/core/table.wast
+@@ -8,8 +8,8 @@
+ (module (table 0 65536 funcref))
+ (module (table 0 0xffff_ffff funcref))
+ 
+-(assert_invalid (module (table 0 funcref) (table 0 funcref)) "multiple tables")
+-(assert_invalid (module (table (import "spectest" "table") 0 funcref) (table 0 funcref)) "multiple tables")
++(module (table 0 funcref) (table 0 funcref))
++(module (table (import "spectest" "table") 0 funcref) (table 0 funcref))
+ 
+ (assert_invalid (module (elem (i32.const 0))) "unknown table")
+ (assert_invalid (module (elem (i32.const 0) $f) (func $f)) "unknown table")
 diff --git a/test/core/thread.wast b/test/core/thread.wast
 index c3456a6..83fc281 100644
 --- a/test/core/thread.wast
