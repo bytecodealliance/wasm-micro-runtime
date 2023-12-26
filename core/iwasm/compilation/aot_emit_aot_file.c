@@ -304,12 +304,12 @@ get_init_expr_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data,
                 size += comp_ctx->pointer_size;
                 break;
             }
-#if WASM_ENABLE_GC != 0
             else {
                 /* type_index */
                 size += sizeof(uint32);
                 break;
             }
+#if WASM_ENABLE_GC != 0
         case INIT_EXPR_TYPE_I31_NEW:
             /* i32 */
             size += sizeof(uint32);
@@ -1830,11 +1830,11 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                 }
                 break;
             }
-#if WASM_ENABLE_GC != 0
             else {
                 EMIT_U32(expr->u.ref_index);
                 break;
             }
+#if WASM_ENABLE_GC != 0
         case INIT_EXPR_TYPE_I31_NEW:
             EMIT_U32(expr->u.i32);
             break;
@@ -2225,8 +2225,8 @@ aot_emit_global_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         offset = align_uint(offset, 4);
         EMIT_U8(global->type);
         EMIT_U8(global->is_mutable);
-        /* padding */
-        EMIT_U16(0);
+
+        offset = align_uint(offset, 4);
         if (!aot_emit_init_expr(buf, buf_end, &offset, comp_ctx,
                                 &global->init_expr))
             return false;

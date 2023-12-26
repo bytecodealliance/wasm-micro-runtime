@@ -1184,7 +1184,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         case INIT_EXPR_TYPE_GET_GLOBAL:
             read_uint32(buf, buf_end, expr->u.global_index);
             break;
-#if WASM_ENABLE_GC == 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
         case INIT_EXPR_TYPE_FUNCREF_CONST:
         case INIT_EXPR_TYPE_REFNULL_CONST:
 #if UINTPTR_MAX == UINT64_MAX
@@ -1193,7 +1193,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             read_uint32(buf, buf_end, expr->u.ref_index);
 #endif
             break;
-#else  /* else of WASM_ENABLE_GC == 0 */
+#elif WASM_ENABLE_GC != 0
         case INIT_EXPR_TYPE_FUNCREF_CONST:
             read_uint32(buf, buf_end, expr->u.ref_index);
             break;
@@ -1321,7 +1321,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             }
             break;
         }
-#endif /* end of WASM_ENABLE_GC == 0 */
+#endif /* end of WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0 */
         default:
             set_error_buf(error_buf, error_buf_size, "invalid init expr type.");
             return false;
@@ -2132,8 +2132,8 @@ load_globals(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
     for (i = 0; i < module->global_count; i++) {
         read_uint8(buf, buf_end, globals[i].type);
         read_uint8(buf, buf_end, globals[i].is_mutable);
-        /* Skip 2 byte for padding */
-        buf += 2;
+
+        buf = align_ptr(buf, 4);
 
         if (!load_init_expr(&buf, buf_end, module, &globals[i].init_expr,
                             error_buf, error_buf_size))
