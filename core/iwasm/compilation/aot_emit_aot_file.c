@@ -299,16 +299,9 @@ get_init_expr_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data,
             break;
         case INIT_EXPR_TYPE_FUNCREF_CONST:
         case INIT_EXPR_TYPE_REFNULL_CONST:
-            if (!comp_ctx->enable_gc) {
-                /* ref_index */
-                size += comp_ctx->pointer_size;
-                break;
-            }
-            else {
-                /* type_index */
-                size += sizeof(uint32);
-                break;
-            }
+            /* ref_index */
+            size += sizeof(uint32);
+            break;
 #if WASM_ENABLE_GC != 0
         case INIT_EXPR_TYPE_I31_NEW:
             /* i32 */
@@ -1821,19 +1814,8 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             break;
         case INIT_EXPR_TYPE_FUNCREF_CONST:
         case INIT_EXPR_TYPE_REFNULL_CONST:
-            if (!comp_ctx->enable_gc) {
-                if (comp_ctx->pointer_size == 4) {
-                    EMIT_U32(expr->u.ref_index);
-                }
-                else {
-                    EMIT_U64(expr->u.ref_index);
-                }
-                break;
-            }
-            else {
-                EMIT_U32(expr->u.ref_index);
-                break;
-            }
+            EMIT_U32(expr->u.ref_index);
+            break;
 #if WASM_ENABLE_GC != 0
         case INIT_EXPR_TYPE_I31_NEW:
             EMIT_U32(expr->u.i32);
