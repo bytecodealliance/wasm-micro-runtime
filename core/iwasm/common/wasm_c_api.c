@@ -2926,6 +2926,8 @@ wasm_func_new_basic(wasm_store_t *store, const wasm_functype_t *type,
     if (!(func->type = wasm_functype_copy(type))) {
         goto failed;
     }
+    func->param_count = func->type->params->num_elems;
+    func->result_count = func->type->results->num_elems;
 
     RETURN_OBJ(func, wasm_func_delete)
 }
@@ -2956,6 +2958,8 @@ wasm_func_new_with_env_basic(wasm_store_t *store, const wasm_functype_t *type,
     if (!(func->type = wasm_functype_copy(type))) {
         goto failed;
     }
+    func->param_count = func->type->params->num_elems;
+    func->result_count = func->type->results->num_elems;
 
     RETURN_OBJ(func, wasm_func_delete)
 }
@@ -3045,6 +3049,8 @@ wasm_func_new_internal(wasm_store_t *store, uint16 func_idx_rt,
     if (!func->type) {
         goto failed;
     }
+    func->param_count = func->type->params->num_elems;
+    func->result_count = func->type->results->num_elems;
 
     /* will add name information when processing "exports" */
     func->store = store;
@@ -3136,48 +3142,31 @@ params_to_argv(const wasm_val_vec_t *params,
                const wasm_valtype_vec_t *param_defs, uint32 *argv,
                uint32 *ptr_argc)
 {
-    size_t i = 0;
+    uint32 *argv_org = argv;
+    const wasm_val_t *param, *param_end;
 
-    if (!param_defs->num_elems) {
-        return true;
-    }
+    bh_assert(params && params->num_elems && params->size && params->data);
 
-    if (!params || !params->num_elems || !params->size || !params->data) {
-        LOG_ERROR("the parameter params is invalid");
-        return false;
-    }
+    param = params->data;
+    param_end = param + param_defs->num_elems;
 
-    *ptr_argc = 0;
-    for (i = 0; i < param_defs->num_elems; ++i) {
-        const wasm_val_t *param = params->data + i;
-        bh_assert((*(param_defs->data + i))->kind == param->kind);
-
+    for (; param < param_end; param++) {
         switch (param->kind) {
             case WASM_I32:
+            case WASM_F32:
                 *(int32 *)argv = param->of.i32;
                 argv += 1;
-                *ptr_argc += 1;
                 break;
             case WASM_I64:
+            case WASM_F64:
                 *(int64 *)argv = param->of.i64;
                 argv += 2;
-                *ptr_argc += 2;
                 break;
-            case WASM_F32:
-                *(float32 *)argv = param->of.f32;
-                argv += 1;
-                *ptr_argc += 1;
-                break;
-            case WASM_F64:
-                *(float64 *)argv = param->of.f64;
-                argv += 2;
-                *ptr_argc += 2;
                 break;
 #if WASM_ENABLE_REF_TYPES != 0
             case WASM_ANYREF:
                 *(uintptr_t *)argv = (uintptr_t)param->of.ref;
                 argv += sizeof(uintptr_t) / sizeof(uint32);
-                *ptr_argc += 1;
                 break;
 #endif
             default:
@@ -3186,6 +3175,7 @@ params_to_argv(const wasm_val_vec_t *params,
         }
     }
 
+    *ptr_argc = (uint32)(argv - argv_org);
     return true;
 }
 
@@ -3193,62 +3183,37 @@ static bool
 argv_to_results(const uint32 *argv, const wasm_valtype_vec_t *result_defs,
                 wasm_val_vec_t *results)
 {
-    size_t i = 0, argv_i = 0;
+    wasm_valtype_t **result_def, **result_def_end;
     wasm_val_t *result;
 
-    if (!result_defs->num_elems) {
-        return true;
-    }
+    bh_assert(results && results->size && results->data);
 
-    if (!results || !results->size || !results->data) {
-        LOG_ERROR("the parameter results is invalid");
-        return false;
-    }
+    result_def = result_defs->data;
+    result_def_end = result_def + result_defs->num_elems;
+    result = results->data;
 
-    for (i = 0, result = results->data, argv_i = 0; i < result_defs->num_elems;
-         i++, result++) {
-        switch (result_defs->data[i]->kind) {
+    for (; result_def < result_def_end; result_def++, result++) {
+        result->kind = result_def[0]->kind;
+        switch (result->kind) {
             case WASM_I32:
-            {
-                result->kind = WASM_I32;
-                result->of.i32 = *(int32 *)(argv + argv_i);
-                argv_i += 1;
-                break;
-            }
-            case WASM_I64:
-            {
-                result->kind = WASM_I64;
-                result->of.i64 = *(int64 *)(argv + argv_i);
-                argv_i += 2;
-                break;
-            }
             case WASM_F32:
-            {
-                result->kind = WASM_F32;
-                result->of.f32 = *(float32 *)(argv + argv_i);
-                argv_i += 1;
+                result->of.i32 = *(int32 *)argv;
+                argv += 1;
                 break;
-            }
+            case WASM_I64:
             case WASM_F64:
-            {
-                result->kind = WASM_F64;
-                result->of.f64 = *(float64 *)(argv + argv_i);
-                argv_i += 2;
+                result->of.i64 = *(int64 *)argv;
+                argv += 2;
                 break;
-            }
 #if WASM_ENABLE_REF_TYPES != 0
             case WASM_ANYREF:
-            {
-                result->kind = WASM_ANYREF;
-                result->of.ref =
-                    (struct wasm_ref_t *)(*(uintptr_t *)(argv + argv_i));
-                argv_i += sizeof(uintptr_t) / sizeof(uint32);
+                result->of.ref = (struct wasm_ref_t *)(*(uintptr_t *)argv);
+                argv += sizeof(uintptr_t) / sizeof(uint32);
                 break;
-            }
 #endif
             default:
                 LOG_WARNING("%s meets unsupported type: %d", __FUNCTION__,
-                            result_defs->data[i]->kind);
+                            result->kind);
                 return false;
         }
     }
@@ -3269,9 +3234,7 @@ wasm_func_call(const wasm_func_t *func, const wasm_val_vec_t *params,
     WASMExecEnv *exec_env = NULL;
     size_t param_count, result_count, alloc_count;
 
-    if (!func) {
-        return NULL;
-    }
+    bh_assert(func && func->type);
 
     if (!func->inst_comm_rt) {
         wasm_name_t message = { 0 };
@@ -3285,17 +3248,14 @@ wasm_func_call(const wasm_func_t *func, const wasm_val_vec_t *params,
         return trap;
     }
 
-    bh_assert(func->type);
-
-#if WASM_ENABLE_INTERP != 0
     if (func->inst_comm_rt->module_type == Wasm_Module_Bytecode) {
+#if WASM_ENABLE_INTERP != 0
         func_comm_rt = ((WASMModuleInstance *)func->inst_comm_rt)->e->functions
                        + func->func_idx_rt;
-    }
 #endif
-
+    }
+    else if (func->inst_comm_rt->module_type == Wasm_Module_AoT) {
 #if WASM_ENABLE_AOT != 0
-    if (func->inst_comm_rt->module_type == Wasm_Module_AoT) {
         if (!(func_comm_rt = func->func_comm_rt)) {
             AOTModuleInstance *inst_aot =
                 (AOTModuleInstance *)func->inst_comm_rt;
@@ -3316,8 +3276,8 @@ wasm_func_call(const wasm_func_t *func, const wasm_val_vec_t *params,
                 }
             }
         }
-    }
 #endif
+    }
 
     /*
      * a wrong combination of module filetype and compilation flags
@@ -3393,19 +3353,13 @@ failed:
 size_t
 wasm_func_param_arity(const wasm_func_t *func)
 {
-    if (!func || !func->type || !func->type->params) {
-        return 0;
-    }
-    return func->type->params->num_elems;
+    return func->param_count;
 }
 
 size_t
 wasm_func_result_arity(const wasm_func_t *func)
 {
-    if (!func || !func->type || !func->type->results) {
-        return 0;
-    }
-    return func->type->results->num_elems;
+    return func->result_count;
 }
 
 wasm_global_t *
