@@ -48,7 +48,12 @@ add_definitions(-DWASM_ENABLE_MODULE_INST_CONTEXT=1)
 
 if (WAMR_BUILD_LLVM_LEGACY_PM EQUAL 1)
   add_definitions(-DWASM_ENABLE_LLVM_LEGACY_PM=1)
-endif()
+endif ()
+
+if (WAMR_BUILD_LINUX_PERF EQUAL 1)
+  message ("-- Enable linux perf support")
+  add_definitions(-DWASM_ENABLE_LINUX_PERF=1)
+endif ()
 
 if (DEFINED WAMR_BUILD_AOT_FUNC_PREFIX)
   add_definitions(-DAOT_FUNC_PREFIX="${WAMR_BUILD_AOT_FUNC_PREFIX}")

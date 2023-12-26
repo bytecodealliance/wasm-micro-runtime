@@ -2174,7 +2174,7 @@ jit_stack_size_callback(void *user_data, const char *name, size_t namelen,
 }
 
 static bool
-orc_jit_create(AOTCompContext *comp_ctx, bool linux_perf_support)
+orc_jit_create(AOTCompContext *comp_ctx)
 {
     LLVMErrorRef err;
     LLVMOrcLLLazyJITRef orc_jit = NULL;
@@ -2214,13 +2214,15 @@ orc_jit_create(AOTCompContext *comp_ctx, bool linux_perf_support)
     /* Ownership transfer: LLVMOrcLLJITBuilderRef -> LLVMOrcLLJITRef */
     builder = NULL;
 
-    if (linux_perf_support) {
-        LOG_DEBUG("Enable linux perf support");
+#if WASM_ENABLE_LINUX_PERF != 0
+    if (wasm_runtime_get_linux_perf()) {
+        LOG_DEBUG("Enable linux perf support in JIT");
         LLVMOrcObjectLayerRef obj_linking_layer =
             (LLVMOrcObjectLayerRef)LLVMOrcLLLazyJITGetObjLinkingLayer(orc_jit);
         LLVMOrcRTDyldObjectLinkingLayerRegisterJITEventListener(
             obj_linking_layer, LLVMCreatePerfJITEventListener());
     }
+#endif
 
     /* Ownership transfer: local -> AOTCompContext */
     comp_ctx->orc_jit = orc_jit;
@@ -2320,7 +2322,8 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
         goto fail;
     }
 
-    if (option->linux_perf_support) {
+#if WASM_ENABLE_LINUX_PERF != 0
+    if (wasm_runtime_get_linux_perf()) {
         /* FramePointerKind.All */
         LLVMMetadataRef val =
             LLVMValueAsMetadata(LLVMConstInt(LLVMInt32Type(), 2, false));
@@ -2330,6 +2333,7 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
 
         comp_ctx->emit_frame_pointer = true;
     }
+#endif
 
     if (BH_LIST_ERROR == bh_list_init(&comp_ctx->native_symbols)) {
         goto fail;
@@ -2434,7 +2438,7 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
             goto fail;
 
         /* Create LLJIT Instance */
-        if (!orc_jit_create(comp_ctx, option->linux_perf_support))
+        if (!orc_jit_create(comp_ctx))
             goto fail;
     }
     else {

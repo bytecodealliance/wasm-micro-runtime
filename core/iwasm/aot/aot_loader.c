@@ -2764,6 +2764,57 @@ fail:
     return ret;
 }
 
+#if WASM_ENABLE_LINUX_PERF != 0
+static uintptr_t
+get_func_addr(const AOTModule *module, uint32 func_idx_adj)
+{
+    return (uintptr_t)module->func_ptrs[func_idx_adj];
+}
+
+static uint32
+get_func_size(const AOTModule *module, uint32 func_idx_adj)
+{
+    uint32 func_sz;
+    if (func_idx_adj + 1 < module->func_count) {
+        func_sz = module->func_ptrs[func_idx_adj + 1]
+                  - module->func_ptrs[func_idx_adj];
+    }
+    else {
+        func_sz = module->code_size
+                  - (module->func_ptrs[func_idx_adj] - module->code);
+    }
+
+    return func_sz;
+}
+
+static void
+create_perf_map(const AOTModule *module)
+{
+    uint32 i;
+    pid_t pid = getpid();
+    char perf_map_info[128] = { 0 };
+
+    snprintf(perf_map_info, 128, "/tmp/perf-%d.map", pid);
+    FILE *perf_map = fopen(perf_map_info, "w");
+    if (!perf_map) {
+        LOG_WARNING("can't create /tmp/perf-%d.map, because %s", pid,
+                    strerror(errno));
+        return;
+    }
+
+    for (i = 0; i < module->func_count; i++) {
+        memset(perf_map_info, 0, 128);
+        snprintf(perf_map_info, 128, "%lx  %x  aot_func#%u\n",
+                 get_func_addr(module, i), get_func_size(module, i), i);
+
+        fwrite(perf_map_info, 1, strlen(perf_map_info), perf_map);
+    }
+
+    fclose(perf_map);
+    LOG_VERBOSE("generate /tmp/perf-%d.map", pid);
+}
+#endif /* WASM_ENABLE_LINUX_PERF != 0*/
+
 static bool
 load_from_sections(AOTModule *module, AOTSection *sections,
                    bool is_load_from_file_buf, char *error_buf,
@@ -3222,6 +3273,11 @@ load(const uint8 *buf, uint32 size, AOTModule *module, char *error_buf,
             os_printf("AOT func %u, addr: %p\n", i, module->func_ptrs[i]);
         }
     }
+#endif
+
+#if WASM_ENABLE_LINUX_PERF != 0
+    if (wasm_runtime_get_linux_perf())
+        create_perf_map(module);
 #endif
 
     return ret;
