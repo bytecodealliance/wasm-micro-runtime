@@ -181,9 +181,7 @@ typedef union MemAllocOption {
 struct wasm_config_t {
     mem_alloc_type_t mem_alloc_type;
     MemAllocOption mem_alloc_option;
-#if WASM_ENABLE_LINUX_PERF != 0
     bool enable_linux_perf;
-#endif
     /*TODO: wasi args*/
 };
 
@@ -199,10 +197,8 @@ WASM_API_EXTERN own wasm_config_t* wasm_config_new(void);
 WASM_API_EXTERN own wasm_config_t*
 wasm_config_set_mem_alloc_opt(wasm_config_t *, mem_alloc_type_t, MemAllocOption *);
 
-#if WASM_ENABLE_LINUX_PERF != 0
 WASM_API_EXTERN own wasm_config_t*
 wasm_config_set_linux_perf_opt(wasm_config_t *, bool);
-#endif
 
 // Engine
 

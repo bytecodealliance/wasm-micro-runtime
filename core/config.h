@@ -491,8 +491,8 @@
 #endif
 
 /* linux perf support */
-#ifndef WASM_ENABLE_PERF_SUPPORT
-#define WASM_ENABLE_PERF_SUPPORT 0
+#ifndef WASM_ENABLE_LINUX_PERF
+#define WASM_ENABLE_LINUX_PERF 0
 #endif
 
 #endif /* end of _CONFIG_H_ */

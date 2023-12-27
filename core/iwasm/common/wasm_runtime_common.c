@@ -669,6 +669,10 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
 
 #if WASM_ENABLE_LINUX_PERF != 0
     wasm_runtime_set_linux_perf(init_args->enable_linux_perf);
+#else
+    if (init_args->enable_linux_perf)
+        LOG_WARNING("in order to enable linux perf support, need to recompile "
+                    "with -DWAMR_BUILD_LINUX_PERF=1");
 #endif
 
     if (!wasm_runtime_env_init()) {

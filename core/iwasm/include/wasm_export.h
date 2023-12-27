@@ -169,7 +169,6 @@ typedef struct RuntimeInitArgs {
     uint32_t llvm_jit_size_level;
     /* Segue optimization flags for LLVM JIT */
     uint32_t segue_flags;
-#if WASM_ENABLE_LINUX_PERF != 0
     /**
      * If enabled
      * - llvm-jit will output a jitdump file for `perf inject`
@@ -179,7 +178,6 @@ typedef struct RuntimeInitArgs {
      * - interpreter. TBD
      */
     bool enable_linux_perf;
-#endif
 } RuntimeInitArgs;
 
 #ifndef WASM_VALKIND_T_DEFINED
