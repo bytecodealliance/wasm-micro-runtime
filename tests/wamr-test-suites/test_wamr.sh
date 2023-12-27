@@ -789,6 +789,7 @@ function trigger()
     local EXTRA_COMPILE_FLAGS=""
     # default enabled features
     EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_BULK_MEMORY=1"
+    EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=1"
 
     if [[ ${ENABLE_MULTI_MODULE} == 1 ]];then
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MODULE=1"
@@ -798,9 +799,6 @@ function trigger()
 
     if [[ ${ENABLE_MULTI_THREAD} == 1 ]];then
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_LIB_PTHREAD=1"
-        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=0"
-    else
-        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=1"
     fi
 
     if [[ ${ENABLE_SIMD} == 1 ]]; then
@@ -811,7 +809,6 @@ function trigger()
 
     if [[ ${ENABLE_GC} == 1 ]]; then
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_GC=1"
-        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=1"
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_BULK_MEMORY=1"
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_TAIL_CALL=1"
     fi
