@@ -452,3 +452,20 @@ os_cond_signal(korp_cond *cond)
 
     return BHT_OK;
 }
+
+int
+os_cond_broadcast(korp_cond *cond)
+{
+    /* Signal all of the wait node of wait list */
+    xSemaphoreTake(cond->wait_list_lock, portMAX_DELAY);
+    if (cond->thread_wait_list) {
+        os_thread_wait_node *p = cond->thread_wait_list;
+        while (p) {
+            xSemaphoreGive(p->sem);
+            p = p->next;
+        }
+    }
+    xSemaphoreGive(cond->wait_list_lock);
+
+    return BHT_OK;
+}
