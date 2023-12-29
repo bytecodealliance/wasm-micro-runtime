@@ -4109,7 +4109,7 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
     uint32 result_count = func_type->result_count;
     uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     uint32 func_idx = (uint32)(function - module_inst->e->functions);
-    bool ret;
+    bool ret = false;
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
     if (!llvm_jit_alloc_frame(exec_env, function - module_inst->e->functions)) {
@@ -4137,7 +4137,8 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
             if (size > UINT32_MAX
                 || !(argv1 = wasm_runtime_malloc((uint32)size))) {
                 wasm_set_exception(module_inst, "allocate memory failed");
-                return false;
+                ret = false;
+                goto fail;
             }
         }
 
@@ -4161,7 +4162,7 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
         if (!ret) {
             if (argv1 != argv1_buf)
                 wasm_runtime_free(argv1);
-            return ret;
+            goto fail;
         }
 
         /* Get extra result values */
@@ -4195,15 +4196,24 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
 
         if (argv1 != argv1_buf)
             wasm_runtime_free(argv1);
-        return true;
+        ret = true;
     }
     else {
         ret = wasm_runtime_invoke_native(
             exec_env, module_inst->func_ptrs[func_idx], func_type, NULL, NULL,
             argv, argc, argv);
 
-        return ret && !wasm_copy_exception(module_inst, NULL) ? true : false;
+        if (ret)
+            ret = !wasm_copy_exception(module_inst, NULL);
     }
+
+fail:
+
+#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+    llvm_jit_free_frame(exec_env);
+#endif
+
+    return ret;
 }
 #endif /* end of WASM_ENABLE_JIT != 0 */
 
