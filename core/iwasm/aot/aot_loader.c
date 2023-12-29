@@ -10,7 +10,6 @@
 #include "../common/wasm_runtime_common.h"
 #include "../common/wasm_native.h"
 #include "../compilation/aot.h"
-#include <stdint.h>
 
 #if WASM_ENABLE_DEBUG_AOT != 0
 #include "debug/elf_parser.h"
@@ -2766,46 +2765,52 @@ fail:
 }
 
 #if WASM_ENABLE_LINUX_PERF != 0
-static uintptr_t
-get_func_addr(const AOTModule *module, void **sorted_func_ptrs, uint32 idx)
-{
-    return (uintptr_t)sorted_func_ptrs[idx];
-}
+struct func_info {
+    uint32 idx;
+    void *ptr;
+};
 
 static uint32
-get_func_size(const AOTModule *module, void **sorted_func_ptrs, uint32 idx)
+get_func_size(const AOTModule *module, struct func_info *sorted_func_ptrs,
+              uint32 idx)
 {
     uint32 func_sz;
 
     if (idx == module->func_count - 1)
         func_sz = (uintptr_t)module->code + module->code_size
-                  - (uintptr_t)sorted_func_ptrs[idx];
+                  - (uintptr_t)(sorted_func_ptrs[idx].ptr);
     else
-        func_sz = (uintptr_t)sorted_func_ptrs[idx + 1]
-                  - (uintptr_t)sorted_func_ptrs[idx];
+        func_sz = (uintptr_t)(sorted_func_ptrs[idx + 1].ptr)
+                  - (uintptr_t)(sorted_func_ptrs[idx].ptr);
 
     return func_sz;
 }
 
-/* do a quick sort on func_ptrs in place*/
 static int
-compare_func_ptrs(const void *fp1, const void *fp2)
+compare_func_ptrs(const void *f1, const void *f2)
 {
-    return (intptr_t)(*(void **)fp1) - (intptr_t)(*(void **)fp2);
+    return (intptr_t)((struct func_info *)f1)->ptr
+           - (intptr_t)((struct func_info *)f2)->ptr;
 }
 
-static void *
+static struct func_info *
 sort_func_ptrs(const AOTModule *module, char *error_buf, uint32 error_buf_size)
 {
-    size_t content_len = sizeof(void *) * module->func_count;
-    void *sorted_func_ptrs =
-        loader_malloc(content_len, error_buf, error_buf_size);
+    uint64 content_len;
+    struct func_info *sorted_func_ptrs;
+    unsigned i;
+
+    content_len = (uint64)sizeof(struct func_info) * module->func_count;
+    sorted_func_ptrs = loader_malloc(content_len, error_buf, error_buf_size);
     if (!sorted_func_ptrs)
         return NULL;
 
-    b_memcpy_s(sorted_func_ptrs, content_len, module->func_ptrs, content_len);
+    for (i = 0; i < module->func_count; i++) {
+        sorted_func_ptrs[i].idx = i;
+        sorted_func_ptrs[i].ptr = module->func_ptrs[i];
+    }
 
-    qsort(sorted_func_ptrs, module->func_count, sizeof(void *),
+    qsort(sorted_func_ptrs, module->func_count, sizeof(struct func_info),
           compare_func_ptrs);
 
     return sorted_func_ptrs;
@@ -2814,7 +2819,7 @@ sort_func_ptrs(const AOTModule *module, char *error_buf, uint32 error_buf_size)
 static bool
 create_perf_map(const AOTModule *module, char *error_buf, uint32 error_buf_size)
 {
-    void **sorted_func_ptrs = NULL;
+    struct func_info *sorted_func_ptrs = NULL;
     char perf_map_info[128] = { 0 };
     FILE *perf_map = NULL;
     uint32 i;
@@ -2828,7 +2833,7 @@ create_perf_map(const AOTModule *module, char *error_buf, uint32 error_buf_size)
     snprintf(perf_map_info, 128, "/tmp/perf-%d.map", pid);
     perf_map = fopen(perf_map_info, "w");
     if (!perf_map) {
-        LOG_WARNING("can't create /tmp/perf-%d.map, because %s", pid,
+        LOG_WARNING("warning: can't create /tmp/perf-%d.map, because %s", pid,
                     strerror(errno));
         goto quit;
     }
@@ -2836,8 +2841,9 @@ create_perf_map(const AOTModule *module, char *error_buf, uint32 error_buf_size)
     for (i = 0; i < module->func_count; i++) {
         memset(perf_map_info, 0, 128);
         snprintf(perf_map_info, 128, "%lx  %x  aot_func#%u\n",
-                 get_func_addr(module, sorted_func_ptrs, i),
-                 get_func_size(module, sorted_func_ptrs, i), i);
+                 (uintptr_t)sorted_func_ptrs[i].ptr,
+                 get_func_size(module, sorted_func_ptrs, i),
+                 sorted_func_ptrs[i].idx);
 
         fwrite(perf_map_info, 1, strlen(perf_map_info), perf_map);
     }

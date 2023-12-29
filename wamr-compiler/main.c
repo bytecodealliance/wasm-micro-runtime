@@ -329,7 +329,7 @@ main(int argc, char *argv[])
     uint32 native_handle_count = 0;
 #endif
 #if WASM_ENABLE_LINUX_PERF != 0
-    bool enable_enable_linux_perf = false;
+    bool enable_linux_perf = false;
 #endif
 
     option.opt_level = 3;
@@ -534,7 +534,7 @@ main(int argc, char *argv[])
 #endif
 #if WASM_ENABLE_LINUX_PERF != 0
         else if (!strncmp(argv[0], "--enable-linux-perf", 19)) {
-            enable_enable_linux_perf = true;
+            enable_linux_perf = true;
         }
 #endif
         else if (!strncmp(argv[0], "--version", 9)) {
@@ -591,7 +591,7 @@ main(int argc, char *argv[])
     init_args.mem_alloc_option.allocator.realloc_func = realloc;
     init_args.mem_alloc_option.allocator.free_func = free;
 #if WASM_ENABLE_LINUX_PERF != 0
-    init_args.enable_linux_perf = enable_enable_linux_perf;
+    init_args.enable_linux_perf = enable_linux_perf;
 #endif
 
     /* initialize runtime environment */
