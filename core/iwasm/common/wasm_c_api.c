@@ -299,10 +299,6 @@ wasm_config_new(void)
 
     memset(config, 0, sizeof(wasm_config_t));
     config->mem_alloc_type = Alloc_With_System_Allocator;
-#if defined(os_writegsbase)
-    /* enable segue for all load/store operations */
-    config->segue_flags = 0x1F1F;
-#endif
 
     return config;
 }
@@ -447,10 +443,6 @@ wasm_engine_new()
 {
     wasm_config_t config = { 0 };
     wasm_config_set_mem_alloc_opt(&config, Alloc_With_System_Allocator, NULL);
-#if defined(os_writegsbase)
-    /* enable segue for all load/store operations */
-    wasm_config_set_segue_flags(&config, 0x1F1F);
-#endif
     wasm_engine_t *engine = wasm_engine_new_with_config(&config);
     return engine;
 }
