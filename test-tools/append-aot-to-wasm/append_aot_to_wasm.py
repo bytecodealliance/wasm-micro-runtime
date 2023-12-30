@@ -13,7 +13,6 @@ $ python3 append_aot_to_wasm.py --wasm quicksort.wasm --aot quicksort.aot --outp
 
 import argparse
 from pathlib import Path
-from typing import BinaryIO
 
 
 def leb128_encode_uint(value: int) -> bytes:
@@ -55,23 +54,73 @@ def leb128_decode_uint(binary: bytes) -> (int, int):
     return i + 1, result
 
 
-def create_custom_section(section_name: str, section_content: bytes) -> bytes:
+def is_aligned(n: int, alignment: int):
+    return (n & (alignment - 1)) == 0
+
+
+def align_up(n: int, alignment: int):
+    return n + (alignment - 1) & ~(alignment - 1)
+
+
+def present_as_vector(content: bytes) -> bytes:
+    v_l = len(content)
+    v_bin = leb128_encode_uint(v_l) if v_l else b"\x00"
+    return v_bin + content
+
+
+def calc_padding(
+    alignment: int, name_bin_len: int, content_len: int, start_pos: int
+) -> bytes:
+    for padding in range(alignment * 2):
+        padding_bin = present_as_vector(b"\x00" * padding)
+        section_length = name_bin_len + len(padding_bin) + content_len
+        section_length_bin = leb128_encode_uint(section_length)
+
+        pos = start_pos + 1 + len(section_length_bin) + name_bin_len + len(padding_bin)
+        if is_aligned(pos, alignment):
+            return padding_bin
+
+
+def build_content(content: bytes, pos: int, adding: bytes) -> (int, bytes):
+    return pos + len(adding), content + adding
+
+
+def create_custom_section_aligned(
+    start_pos: int, name: str, content: bytes, alignment: int = 4
+) -> bytes:
+    """
+        be sure the section_content starts at a X alignment position
+
+          1B
+        | \x00 | length | name vec | padding vec | content |
+        ^                                        ^
+        |                                        |
+    start address                           aligned address
+    """
+
+    name_bin = present_as_vector(name.encode("ascii"))
+    padding_bin = calc_padding(alignment, len(name_bin), len(content), start_pos)
+
+    full_content_bin = b""
+    pos = start_pos
+
     # custome section id 0
-    full_content_bin = b"\x00"
+    pos, full_content_bin = build_content(full_content_bin, pos, b"\x00")
 
     # custom section length
-    # 1 for id
-    section_length = 1 + len(section_name) + len(section_content)
+    section_length = len(name_bin) + len(padding_bin) + len(content)
     section_length_bin = leb128_encode_uint(section_length)
-    full_content_bin += section_length_bin
+    pos, full_content_bin = build_content(full_content_bin, pos, section_length_bin)
 
-    full_content_bin += (len(section_name) & 0xFF).to_bytes(
-        1, byteorder="big", signed=False
-    )
+    # custom section name
+    pos, full_content_bin = build_content(full_content_bin, pos, name_bin)
 
-    full_content_bin += section_name.encode("ascii")
+    # padding
+    pos, full_content_bin = build_content(full_content_bin, pos, padding_bin)
+    assert is_aligned(pos, alignment), f"{pos} is not aligned to {alignment}"
 
-    full_content_bin += section_content
+    print(f"append .aot @ offset {pos}(0x{pos:X})")
+    _, full_content_bin = build_content(full_content_bin, pos, content)
 
     return full_content_bin
 
@@ -97,7 +146,7 @@ def main(wasm_file: str, aot_file: str, output: str) -> None:
             f_out.write(wasm_content)
             wasm_content = f_in.read(1024)
 
-        f_out.write(create_custom_section("aot", aot_content))
+        f_out.write(create_custom_section_aligned(f_out.tell(), "aot", aot_content, 4))
 
     print(f"{wasm_file.name} + {aot_file.name} ==> {output}")
 
