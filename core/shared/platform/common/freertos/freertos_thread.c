@@ -205,7 +205,6 @@ os_thread_wrapper(void *arg)
 
     thread_data->start_routine(thread_data->arg);
     os_thread_cleanup();
-    vTaskDelete(NULL);
 }
 
 int
@@ -299,6 +298,22 @@ os_thread_join(korp_tid thread, void **value_ptr)
     /* Wait the sem */
     xSemaphoreTake(curr_thread_data->wait_node.sem, portMAX_DELAY);
     return BHT_OK;
+}
+
+int
+os_thread_detach(korp_tid thread)
+{
+    /* Do nothing */
+    (void)thread;
+    return BHT_OK;
+}
+
+void
+os_thread_exit(void *retval)
+{
+    (void)retval;
+    os_thread_cleanup();
+    vTaskDelete(NULL);
 }
 
 int
@@ -468,4 +483,17 @@ os_cond_broadcast(korp_cond *cond)
     xSemaphoreGive(cond->wait_list_lock);
 
     return BHT_OK;
+}
+
+uint8 *
+os_thread_get_stack_boundary()
+{
+    /* TODO: get freertos stack boundary */
+    return NULL;
+}
+
+void
+os_thread_jit_write_protect_np(bool enabled)
+{
+    (void)enabled;
 }
