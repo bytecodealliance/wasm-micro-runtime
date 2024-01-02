@@ -4109,7 +4109,7 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
     uint32 result_count = func_type->result_count;
     uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     uint32 func_idx = (uint32)(function - module_inst->e->functions);
-    bool ret;
+    bool ret = false;
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
     if (!llvm_jit_alloc_frame(exec_env, function - module_inst->e->functions)) {
@@ -4137,7 +4137,8 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
             if (size > UINT32_MAX
                 || !(argv1 = wasm_runtime_malloc((uint32)size))) {
                 wasm_set_exception(module_inst, "allocate memory failed");
-                return false;
+                ret = false;
+                goto fail;
             }
         }
 
@@ -4161,7 +4162,7 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
         if (!ret) {
             if (argv1 != argv1_buf)
                 wasm_runtime_free(argv1);
-            return ret;
+            goto fail;
         }
 
         /* Get extra result values */
@@ -4195,15 +4196,24 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
 
         if (argv1 != argv1_buf)
             wasm_runtime_free(argv1);
-        return true;
+        ret = true;
     }
     else {
         ret = wasm_runtime_invoke_native(
             exec_env, module_inst->func_ptrs[func_idx], func_type, NULL, NULL,
             argv, argc, argv);
 
-        return ret && !wasm_copy_exception(module_inst, NULL) ? true : false;
+        if (ret)
+            ret = !wasm_copy_exception(module_inst, NULL);
     }
+
+fail:
+
+#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+    llvm_jit_free_frame(exec_env);
+#endif
+
+    return ret;
 }
 #endif /* end of WASM_ENABLE_JIT != 0 */
 
@@ -4212,16 +4222,11 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
                       WASMFunctionInstance *function, uint32 argc,
                       uint32 argv[])
 {
-    WASMRuntimeFrame *prev_frame = wasm_exec_env_get_cur_frame(exec_env);
-    WASMInterpFrame *frame, *outs_area;
+    WASMRuntimeFrame *frame = NULL, *prev_frame, *outs_area;
+    RunningMode running_mode =
+        wasm_runtime_get_running_mode((WASMModuleInstanceCommon *)module_inst);
     /* Allocate sufficient cells for all kinds of return values.  */
-    unsigned all_cell_num =
-        function->ret_cell_num > 2 ? function->ret_cell_num : 2;
-    /* This frame won't be used by JITed code, so only allocate interp
-       frame here.  */
-    unsigned frame_size = wasm_interp_interp_frame_size(all_cell_num);
-    unsigned i;
-    bool copy_argv_from_frame = true;
+    bool alloc_frame = true;
 
     if (argc < function->param_cell_num) {
         char buf[128];
@@ -4244,25 +4249,56 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     }
 #endif
 
-    if (!(frame = ALLOC_FRAME(exec_env, frame_size, prev_frame)))
-        return;
-
-    outs_area = wasm_exec_env_wasm_stack_top(exec_env);
-    frame->function = NULL;
-    frame->ip = NULL;
-    /* There is no local variable. */
-    frame->sp = frame->lp + 0;
-
-    if ((uint8 *)(outs_area->lp + function->param_cell_num)
-        > exec_env->wasm_stack.s.top_boundary) {
-        wasm_set_exception(module_inst, "wasm operand stack overflow");
-        return;
+    if (!function->is_import_func) {
+        /* No need to alloc frame when calling LLVM JIT function */
+#if WASM_ENABLE_JIT != 0
+        if (running_mode == Mode_LLVM_JIT) {
+            alloc_frame = false;
+        }
+#if WASM_ENABLE_LAZY_JIT != 0 && WASM_ENABLE_FAST_JIT != 0
+        else if (running_mode == Mode_Multi_Tier_JIT) {
+            /* Tier-up from Fast JIT to LLVM JIT, call llvm jit function
+               if it is compiled, else call fast jit function */
+            uint32 func_idx = (uint32)(function - module_inst->e->functions);
+            if (module_inst->module->func_ptrs_compiled
+                    [func_idx - module_inst->module->import_function_count]) {
+                alloc_frame = false;
+            }
+        }
+#endif
+#endif
     }
 
-    if (argc > 0)
-        word_copy(outs_area->lp, argv, argc);
+    if (alloc_frame) {
+        unsigned all_cell_num =
+            function->ret_cell_num > 2 ? function->ret_cell_num : 2;
+        unsigned frame_size;
 
-    wasm_exec_env_set_cur_frame(exec_env, frame);
+        prev_frame = wasm_exec_env_get_cur_frame(exec_env);
+        /* This frame won't be used by JITed code, so only allocate interp
+           frame here.  */
+        frame_size = wasm_interp_interp_frame_size(all_cell_num);
+
+        if (!(frame = ALLOC_FRAME(exec_env, frame_size, prev_frame)))
+            return;
+
+        outs_area = wasm_exec_env_wasm_stack_top(exec_env);
+        frame->function = NULL;
+        frame->ip = NULL;
+        /* There is no local variable. */
+        frame->sp = frame->lp + 0;
+
+        if ((uint8 *)(outs_area->lp + function->param_cell_num)
+            > exec_env->wasm_stack.s.top_boundary) {
+            wasm_set_exception(module_inst, "wasm operand stack overflow");
+            return;
+        }
+
+        if (argc > 0)
+            word_copy(outs_area->lp, argv, argc);
+
+        wasm_exec_env_set_cur_frame(exec_env, frame);
+    }
 
 #if defined(os_writegsbase)
     {
@@ -4288,9 +4324,6 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
         }
     }
     else {
-        RunningMode running_mode =
-            wasm_runtime_get_running_mode((wasm_module_inst_t)module_inst);
-
         if (running_mode == Mode_Interp) {
             wasm_interp_call_func_bytecode(module_inst, exec_env, function,
                                            frame);
@@ -4304,9 +4337,6 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
         else if (running_mode == Mode_LLVM_JIT) {
             llvm_jit_call_func_bytecode(module_inst, exec_env, function, argc,
                                         argv);
-            /* For llvm jit, the results have been stored in argv,
-               no need to copy them from stack frame again */
-            copy_argv_from_frame = false;
         }
 #endif
 #if WASM_ENABLE_LAZY_JIT != 0 && WASM_ENABLE_FAST_JIT != 0 \
@@ -4319,9 +4349,6 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
                     [func_idx - module_inst->module->import_function_count]) {
                 llvm_jit_call_func_bytecode(module_inst, exec_env, function,
                                             argc, argv);
-                /* For llvm jit, the results have been stored in argv,
-                   no need to copy them from stack frame again */
-                copy_argv_from_frame = false;
             }
             else {
                 fast_jit_call_func_bytecode(module_inst, exec_env, function,
@@ -4342,7 +4369,8 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
 
     /* Output the return value to the caller */
     if (!wasm_copy_exception(module_inst, NULL)) {
-        if (copy_argv_from_frame) {
+        if (alloc_frame) {
+            uint32 i;
             for (i = 0; i < function->ret_cell_num; i++) {
                 argv[i] = *(frame->sp + i - function->ret_cell_num);
             }
@@ -4356,6 +4384,8 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
 #endif
     }
 
-    wasm_exec_env_set_cur_frame(exec_env, prev_frame);
-    FREE_FRAME(exec_env, frame);
+    if (alloc_frame) {
+        wasm_exec_env_set_cur_frame(exec_env, prev_frame);
+        FREE_FRAME(exec_env, frame);
+    }
 }
