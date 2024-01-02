@@ -299,6 +299,7 @@ wasm_config_new(void)
 
     memset(config, 0, sizeof(wasm_config_t));
     config->mem_alloc_type = Alloc_With_System_Allocator;
+
     return config;
 }
 
@@ -331,6 +332,16 @@ wasm_config_set_linux_perf_opt(wasm_config_t *config, bool enable)
         return NULL;
 
     config->enable_linux_perf = enable;
+    return config;
+}
+
+wasm_config_t *
+wasm_config_set_segue_flags(wasm_config_t *config, uint32 segue_flags)
+{
+    if (!config)
+        return NULL;
+
+    config->segue_flags = segue_flags;
     return config;
 }
 
@@ -380,8 +391,8 @@ wasm_engine_new_internal(wasm_config_t *config)
     init_args.mem_alloc_type = config->mem_alloc_type;
     memcpy(&init_args.mem_alloc_option, &config->mem_alloc_option,
            sizeof(MemAllocOption));
-
     init_args.enable_linux_perf = config->enable_linux_perf;
+    init_args.segue_flags = config->segue_flags;
 
     if (!wasm_runtime_full_init(&init_args)) {
         LOG_DEBUG("wasm_runtime_full_init failed");
