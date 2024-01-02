@@ -65,7 +65,6 @@ typedef struct AOTCompOption {
     uint32_t bounds_checks;
     uint32_t stack_bounds_checks;
     uint32_t segue_flags;
-    bool linux_perf_support;
     char **custom_sections;
     uint32_t custom_sections_count;
     const char *stack_usage_file;

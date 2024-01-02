@@ -184,9 +184,12 @@ print_help()
     printf("                            multiple names, e.g.\n");
     printf("                                --emit-custom-sections=section1,section2,sectionN\n");
 #if BH_HAS_DLFCN
-    printf("  --native-lib=<lib>       Register native libraries to the WASM module, which\n");
-    printf("                           are shared object (.so) files, for example:\n");
-    printf("                             --native-lib=test1.so --native-lib=test2.so\n");
+    printf("  --native-lib=<lib>        Register native libraries to the WASM module, which\n");
+    printf("                            are shared object (.so) files, for example:\n");
+    printf("                              --native-lib=test1.so --native-lib=test2.so\n");
+#endif
+#if WASM_ENABLE_LINUX_PERF != 0
+    printf("  --enable-linux-perf       Enable linux perf support\n");
 #endif
     printf("  -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log\n");
     printf("  --version                 Show version information\n");
@@ -324,6 +327,9 @@ main(int argc, char *argv[])
     uint32 native_lib_count = 0;
     void *native_handle_list[8] = { NULL };
     uint32 native_handle_count = 0;
+#endif
+#if WASM_ENABLE_LINUX_PERF != 0
+    bool enable_linux_perf = false;
 #endif
 
     option.opt_level = 3;
@@ -526,6 +532,11 @@ main(int argc, char *argv[])
             native_lib_list[native_lib_count++] = argv[0] + 13;
         }
 #endif
+#if WASM_ENABLE_LINUX_PERF != 0
+        else if (!strncmp(argv[0], "--enable-linux-perf", 19)) {
+            enable_linux_perf = true;
+        }
+#endif
         else if (!strncmp(argv[0], "--version", 9)) {
             uint32 major, minor, patch;
             wasm_runtime_get_version(&major, &minor, &patch);
@@ -579,6 +590,9 @@ main(int argc, char *argv[])
     init_args.mem_alloc_option.allocator.malloc_func = malloc;
     init_args.mem_alloc_option.allocator.realloc_func = realloc;
     init_args.mem_alloc_option.allocator.free_func = free;
+#if WASM_ENABLE_LINUX_PERF != 0
+    init_args.enable_linux_perf = enable_linux_perf;
+#endif
 
     /* initialize runtime environment */
     if (!wasm_runtime_full_init(&init_args)) {
