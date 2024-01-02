@@ -8062,12 +8062,14 @@ re_scan:
             case WASM_OP_REF_IS_NULL:
             {
 #if WASM_ENABLE_FAST_INTERP != 0
-                if (!wasm_loader_pop_frame_ref_offset(loader_ctx,
-                                                      VALUE_TYPE_FUNCREF,
-                                                      error_buf, error_buf_size)
-                    && !wasm_loader_pop_frame_ref_offset(
-                        loader_ctx, VALUE_TYPE_EXTERNREF, error_buf,
-                        error_buf_size)) {
+                if (((*(loader_ctx->frame_ref - 1) == VALUE_TYPE_FUNCREF)
+                     && !wasm_loader_pop_frame_ref_offset(
+                         loader_ctx, VALUE_TYPE_FUNCREF, error_buf,
+                         error_buf_size))
+                    || ((*(loader_ctx->frame_ref - 1) == VALUE_TYPE_EXTERNREF)
+                        && !wasm_loader_pop_frame_ref_offset(
+                            loader_ctx, VALUE_TYPE_EXTERNREF, error_buf,
+                            error_buf_size))) {
                     goto fail;
                 }
 #else
