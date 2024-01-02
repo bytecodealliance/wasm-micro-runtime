@@ -206,7 +206,7 @@ wasm_config_set_linux_perf_opt(wasm_config_t *, bool);
  * which may speedup the linear memory access for LLVM AOT/JIT:
  *   bit0 to bit4 denotes i32.load, i64.load, f32.load, f64.load, v128.load
  *   bit8 to bit12 denotes i32.store, i64.store, f32.store, f64.store, v128.store
- * For example, 0x1 enables i32.load, 0x0100 enables i32.store.
+ * For example, 0x01 enables i32.load, 0x0100 enables i32.store.
  * To enable all load/store operations, use 0x1F1F
  */
 WASM_API_EXTERN wasm_config_t*
