@@ -6384,6 +6384,13 @@ re_scan:
                             goto fail;
                         }
                     }
+                    else if (*(loader_ctx->frame_ref - 1) == VALUE_TYPE_ANY) {
+                        if (!wasm_loader_pop_frame_ref_offset(
+                                loader_ctx, VALUE_TYPE_ANY, error_buf,
+                                error_buf_size)) {
+                            goto fail;
+                        }
+                    }
                     else {
                         set_error_buf(error_buf, error_buf_size,
                                       "type mismatch");
