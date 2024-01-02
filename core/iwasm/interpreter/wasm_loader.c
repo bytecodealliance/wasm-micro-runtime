@@ -8075,25 +8075,12 @@ re_scan:
                     }
                 }
                 else {
-                    if (*(loader_ctx->frame_ref - 1) == VALUE_TYPE_FUNCREF) {
+                    if (*(loader_ctx->frame_ref - 1) == VALUE_TYPE_FUNCREF
+                        || *(loader_ctx->frame_ref - 1) == VALUE_TYPE_EXTERNREF
+                        || *(loader_ctx->frame_ref - 1) == VALUE_TYPE_ANY) {
                         if (!wasm_loader_pop_frame_ref_offset(
-                                loader_ctx, VALUE_TYPE_FUNCREF, error_buf,
-                                error_buf_size)) {
-                            goto fail;
-                        }
-                    }
-                    else if (*(loader_ctx->frame_ref - 1)
-                             == VALUE_TYPE_EXTERNREF) {
-                        if (!wasm_loader_pop_frame_ref_offset(
-                                loader_ctx, VALUE_TYPE_EXTERNREF, error_buf,
-                                error_buf_size)) {
-                            goto fail;
-                        }
-                    }
-                    else if (*(loader_ctx->frame_ref - 1) == VALUE_TYPE_ANY) {
-                        if (!wasm_loader_pop_frame_ref_offset(
-                                loader_ctx, VALUE_TYPE_ANY, error_buf,
-                                error_buf_size)) {
+                                loader_ctx, *(loader_ctx->frame_ref - 1),
+                                error_buf, error_buf_size)) {
                             goto fail;
                         }
                     }
