@@ -158,7 +158,7 @@ static JitCompOptions jit_options = { 0 };
 #endif
 
 #if WASM_ENABLE_JIT != 0
-static LLVMJITOptions llvm_jit_options = { 3, 3, 0, false };
+static LLVMJITOptions llvm_jit_options = { 3, 3, 0 };
 #endif
 
 static RunningMode runtime_running_mode = Mode_Default;
@@ -662,14 +662,17 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
 #endif
 
 #if WASM_ENABLE_JIT != 0
-    LOG_DEBUG("Start LLVM_JIT, opt_sz=%u, opt_lvl=%u, segue=%s, linux_perf=%s",
-              init_args->llvm_jit_size_level, init_args->llvm_jit_opt_level,
-              init_args->segue_flags ? "Yes" : "No",
-              init_args->linux_perf_support ? "Yes" : "No");
     llvm_jit_options.size_level = init_args->llvm_jit_size_level;
     llvm_jit_options.opt_level = init_args->llvm_jit_opt_level;
     llvm_jit_options.segue_flags = init_args->segue_flags;
-    llvm_jit_options.linux_perf_support = init_args->linux_perf_support;
+#endif
+
+#if WASM_ENABLE_LINUX_PERF != 0
+    wasm_runtime_set_linux_perf(init_args->enable_linux_perf);
+#else
+    if (init_args->enable_linux_perf)
+        LOG_WARNING("warning: to enable linux perf support, please recompile "
+                    "with -DWAMR_BUILD_LINUX_PERF=1");
 #endif
 
     if (!wasm_runtime_env_init()) {
@@ -6146,3 +6149,19 @@ wasm_runtime_get_context(WASMModuleInstanceCommon *inst, void *key)
     return wasm_native_get_context(inst, key);
 }
 #endif /* WASM_ENABLE_MODULE_INST_CONTEXT != 0 */
+
+#if WASM_ENABLE_LINUX_PERF != 0
+static bool enable_linux_perf = false;
+
+bool
+wasm_runtime_get_linux_perf(void)
+{
+    return enable_linux_perf;
+}
+
+void
+wasm_runtime_set_linux_perf(bool flag)
+{
+    enable_linux_perf = flag;
+}
+#endif

@@ -330,7 +330,7 @@ wasm_config_set_linux_perf_opt(wasm_config_t *config, bool enable)
     if (!config)
         return NULL;
 
-    config->linux_perf_support = enable;
+    config->enable_linux_perf = enable;
     return config;
 }
 
@@ -380,7 +380,8 @@ wasm_engine_new_internal(wasm_config_t *config)
     init_args.mem_alloc_type = config->mem_alloc_type;
     memcpy(&init_args.mem_alloc_option, &config->mem_alloc_option,
            sizeof(MemAllocOption));
-    init_args.linux_perf_support = config->linux_perf_support;
+
+    init_args.enable_linux_perf = config->enable_linux_perf;
 
     if (!wasm_runtime_full_init(&init_args)) {
         LOG_DEBUG("wasm_runtime_full_init failed");

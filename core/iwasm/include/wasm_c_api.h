@@ -181,7 +181,7 @@ typedef union MemAllocOption {
 struct wasm_config_t {
     mem_alloc_type_t mem_alloc_type;
     MemAllocOption mem_alloc_option;
-    bool linux_perf_support;
+    bool enable_linux_perf;
     /*TODO: wasi args*/
 };
 
@@ -189,7 +189,7 @@ struct wasm_config_t {
  * by default:
  * - mem_alloc_type is Alloc_With_System_Allocator
  * - mem_alloc_option is all 0
- * - linux_perf_support is false
+ * - enable_linux_perf is false
  */
 WASM_API_EXTERN own wasm_config_t* wasm_config_new(void);
 
