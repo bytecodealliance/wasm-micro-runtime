@@ -1374,7 +1374,6 @@ aot_lookup_function(const AOTModuleInstance *module_inst, const char *name,
 }
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-
 static bool
 invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
                                   const WASMType *func_type,
@@ -1406,19 +1405,26 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
         return false;
     }
 
-    if (exec_env_tls && (exec_env_tls != exec_env)) {
-        aot_set_exception(module_inst, "invalid exec env");
-        return false;
-    }
+    if (!exec_env_tls) {
+        if (!os_thread_signal_inited()) {
+            aot_set_exception(module_inst, "thread signal env not inited");
+            return false;
+        }
 
-    if (!os_thread_signal_inited()) {
-        aot_set_exception(module_inst, "thread signal env not inited");
-        return false;
+        /* Set thread handle and stack boundary if they haven't been set */
+        wasm_exec_env_set_thread_info(exec_env);
+
+        wasm_runtime_set_exec_env_tls(exec_env);
+    }
+    else {
+        if (exec_env_tls != exec_env) {
+            aot_set_exception(module_inst, "invalid exec env");
+            return false;
+        }
     }
 
     wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
 
-    wasm_runtime_set_exec_env_tls(exec_env);
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
         /* Quick call with func_ptr if the function signature is simple */
         if (!signature && param_count == 1 && types[0] == VALUE_TYPE_I32) {
@@ -1473,7 +1479,6 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     (void)jmpbuf_node_pop;
     return ret;
 }
-
 #define invoke_native_internal invoke_native_with_hw_bound_check
 #else /* else of OS_ENABLE_HW_BOUND_CHECK */
 #define invoke_native_internal wasm_runtime_invoke_native
@@ -1543,10 +1548,16 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
 
     /* func pointer was looked up previously */
     bh_assert(func_ptr != NULL);
-    /* set thread handle and stack boundary */
-    wasm_exec_env_set_thread_info(exec_env);
 
-    /* set exec env so it can be later retrieved from instance */
+#ifndef OS_ENABLE_HW_BOUND_CHECK
+    /* Set thread handle and stack boundary */
+    wasm_exec_env_set_thread_info(exec_env);
+#else
+    /* Set thread info in invoke_native_with_hw_bound_check when
+       hw bound check is enabled */
+#endif
+
+    /* Set exec env so it can be later retrieved from instance */
     ((AOTModuleInstanceExtra *)module_inst->e)->common.cur_exec_env = exec_env;
 
     if (ext_ret_count > 0) {
