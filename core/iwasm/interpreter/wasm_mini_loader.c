@@ -6355,13 +6355,33 @@ re_scan:
             case WASM_OP_REF_IS_NULL:
             {
 #if WASM_ENABLE_FAST_INTERP != 0
-                if (!wasm_loader_pop_frame_ref_offset(loader_ctx,
-                                                      VALUE_TYPE_FUNCREF,
-                                                      error_buf, error_buf_size)
-                    && !wasm_loader_pop_frame_ref_offset(
-                        loader_ctx, VALUE_TYPE_EXTERNREF, error_buf,
-                        error_buf_size)) {
-                    goto fail;
+                BranchBlock *cur_block = loader_ctx->frame_csp - 1;
+                int32 block_stack_cell_num =
+                    (int32)(loader_ctx->stack_cell_num
+                            - cur_block->stack_cell_num);
+                if (block_stack_cell_num <= 0) {
+                    if (!cur_block->is_stack_polymorphic) {
+                        set_error_buf(
+                            error_buf, error_buf_size,
+                            "type mismatch: expect data but stack was empty");
+                        goto fail;
+                    }
+                }
+                else {
+                    if (*(loader_ctx->frame_ref - 1) == VALUE_TYPE_FUNCREF
+                        || *(loader_ctx->frame_ref - 1) == VALUE_TYPE_EXTERNREF
+                        || *(loader_ctx->frame_ref - 1) == VALUE_TYPE_ANY) {
+                        if (!wasm_loader_pop_frame_ref_offset(
+                                loader_ctx, *(loader_ctx->frame_ref - 1),
+                                error_buf, error_buf_size)) {
+                            goto fail;
+                        }
+                    }
+                    else {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "type mismatch");
+                        goto fail;
+                    }
                 }
 #else
                 if (!wasm_loader_pop_frame_ref(loader_ctx, VALUE_TYPE_FUNCREF,
