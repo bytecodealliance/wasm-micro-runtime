@@ -28,7 +28,6 @@ typedef struct AOTCompOption {
     bool enable_llvm_pgo;
     bool enable_stack_estimation;
     bool enable_gc;
-    bool linux_perf_support;
     char *use_prof_file;
     uint32_t opt_level;
     uint32_t size_level;

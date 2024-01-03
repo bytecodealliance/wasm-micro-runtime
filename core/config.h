@@ -536,6 +536,11 @@
 #define WASM_MAX_INSTANCE_CONTEXTS 8
 #endif
 
+/* linux perf support */
+#ifndef WASM_ENABLE_LINUX_PERF
+#define WASM_ENABLE_LINUX_PERF 0
+#endif
+
 #ifndef WASM_TABLE_MAX_SIZE
 #define WASM_TABLE_MAX_SIZE 1024
 #endif

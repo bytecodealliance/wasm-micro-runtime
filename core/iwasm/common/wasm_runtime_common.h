@@ -484,12 +484,11 @@ typedef struct wasm_frame_t {
     uint32 *lp;
 } WASMCApiFrame;
 
-#ifdef WASM_ENABLE_JIT
+#if WASM_ENABLE_JIT != 0
 typedef struct LLVMJITOptions {
     uint32 opt_level;
     uint32 size_level;
     uint32 segue_flags;
-    bool linux_perf_support;
 } LLVMJITOptions;
 #endif
 
@@ -1176,6 +1175,14 @@ wasm_runtime_end_blocking_op(WASMExecEnv *exec_env);
 
 void
 wasm_runtime_interrupt_blocking_op(WASMExecEnv *exec_env);
+
+#if WASM_ENABLE_LINUX_PERF != 0
+bool
+wasm_runtime_get_linux_perf(void);
+
+void
+wasm_runtime_set_linux_perf(bool flag);
+#endif
 
 #ifdef __cplusplus
 }

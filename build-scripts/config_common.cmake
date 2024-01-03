@@ -154,6 +154,13 @@ elseif (NOT (WAMR_BUILD_SANITIZER STREQUAL "") )
   message(SEND_ERROR "Unsupported sanitizer: ${WAMR_BUILD_SANITIZER}")
 endif()
 
+if (WAMR_BUILD_LINUX_PERF EQUAL 1)
+  if (NOT WAMR_BUILD_JIT AND NOT WAMR_BUILD_AOT)
+    message(WARNING "only support perf in aot and llvm-jit")
+    set(WAMR_BUILD_LINUX_PERF 0)
+  endif ()
+endif ()
+
 ########################################
 
 message ("-- Build Configurations:")
@@ -479,4 +486,8 @@ endif ()
 if (WAMR_CONFIGUABLE_BOUNDS_CHECKS EQUAL 1)
   add_definitions (-DWASM_CONFIGURABLE_BOUNDS_CHECKS=1)
   message ("     Configurable bounds checks enabled")
+endif ()
+if (WAMR_BUILD_LINUX_PERF EQUAL 1)
+  add_definitions (-DWASM_ENABLE_LINUX_PERF=1)
+  message ("     Enable linux perf support")
 endif ()

@@ -175,12 +175,12 @@ typedef struct RuntimeInitArgs {
     /**
      * If enabled
      * - llvm-jit will output a jitdump file for `perf inject`
-     * - aot. TBD
+     * - aot will output a perf-${pid}.map for `perf record`
      * - fast-jit. TBD
      * - multi-tier-jit. TBD
      * - interpreter. TBD
      */
-    bool linux_perf_support;
+    bool enable_linux_perf;
 } RuntimeInitArgs;
 
 #ifndef WASM_VALKIND_T_DEFINED
@@ -215,6 +215,14 @@ typedef struct wasm_val_t {
 } wasm_val_t;
 #endif
 
+typedef enum {
+    WASM_LOG_LEVEL_FATAL = 0,
+    WASM_LOG_LEVEL_ERROR = 1,
+    WASM_LOG_LEVEL_WARNING = 2,
+    WASM_LOG_LEVEL_DEBUG = 3,
+    WASM_LOG_LEVEL_VERBOSE = 4
+} log_level_t;
+
 /**
  * Initialize the WASM runtime environment, and also initialize
  * the memory allocator with system allocator, which calls os_malloc
@@ -236,6 +244,14 @@ wasm_runtime_init(void);
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_full_init(RuntimeInitArgs *init_args);
+
+/**
+ * Set the log level. To be called after the runtime is initialized.
+ *
+ * @param level the log level to set
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_log_level(log_level_t level);
 
 /**
  * Query whether a certain running mode is supported for the runtime
@@ -926,9 +942,6 @@ wasm_runtime_clear_exception(wasm_module_inst_t module_inst);
  *
  *  - Another thread has a copy of `wasm_module_inst_t` of
  *    the module instance and wants to terminate it asynchronously.
- *
- * This function is provided only when WAMR is built with threading enabled.
- * (`WASM_ENABLE_THREAD_MGR=1`)
  *
  * @param module_inst the WASM module instance
  */

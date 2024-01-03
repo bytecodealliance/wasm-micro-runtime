@@ -2119,7 +2119,6 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
     option.opt_level = llvm_jit_options.opt_level;
     option.size_level = llvm_jit_options.size_level;
     option.segue_flags = llvm_jit_options.segue_flags;
-    option.linux_perf_support = llvm_jit_options.linux_perf_support;
 
 #if WASM_ENABLE_BULK_MEMORY != 0
     option.enable_bulk_memory = true;
@@ -6573,13 +6572,33 @@ re_scan:
             case WASM_OP_REF_IS_NULL:
             {
 #if WASM_ENABLE_FAST_INTERP != 0
-                if (!wasm_loader_pop_frame_ref_offset(loader_ctx,
-                                                      VALUE_TYPE_FUNCREF,
-                                                      error_buf, error_buf_size)
-                    && !wasm_loader_pop_frame_ref_offset(
-                        loader_ctx, VALUE_TYPE_EXTERNREF, error_buf,
-                        error_buf_size)) {
-                    goto fail;
+                BranchBlock *cur_block = loader_ctx->frame_csp - 1;
+                int32 block_stack_cell_num =
+                    (int32)(loader_ctx->stack_cell_num
+                            - cur_block->stack_cell_num);
+                if (block_stack_cell_num <= 0) {
+                    if (!cur_block->is_stack_polymorphic) {
+                        set_error_buf(
+                            error_buf, error_buf_size,
+                            "type mismatch: expect data but stack was empty");
+                        goto fail;
+                    }
+                }
+                else {
+                    if (*(loader_ctx->frame_ref - 1) == VALUE_TYPE_FUNCREF
+                        || *(loader_ctx->frame_ref - 1) == VALUE_TYPE_EXTERNREF
+                        || *(loader_ctx->frame_ref - 1) == VALUE_TYPE_ANY) {
+                        if (!wasm_loader_pop_frame_ref_offset(
+                                loader_ctx, *(loader_ctx->frame_ref - 1),
+                                error_buf, error_buf_size)) {
+                            goto fail;
+                        }
+                    }
+                    else {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "type mismatch");
+                        goto fail;
+                    }
                 }
 #else
                 if (!wasm_loader_pop_frame_ref(loader_ctx, VALUE_TYPE_FUNCREF,
@@ -6609,10 +6628,11 @@ re_scan:
                     bool func_declared = false;
                     uint32 j;
 
-                    /* Check whether the function is declared in table segs */
+                    /* Check whether the function is declared in table segs,
+                       note that it doesn't matter whether the table seg's mode
+                       is passive, active or declarative. */
                     for (i = 0; i < module->table_seg_count; i++, table_seg++) {
-                        if (table_seg->elem_type == VALUE_TYPE_FUNCREF
-                            && wasm_elem_is_declarative(table_seg->mode)) {
+                        if (table_seg->elem_type == VALUE_TYPE_FUNCREF) {
                             for (j = 0; j < table_seg->value_count; j++) {
                                 if (table_seg->init_values[j].u.ref_index
                                     == func_idx) {

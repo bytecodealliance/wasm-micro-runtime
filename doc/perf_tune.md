@@ -134,7 +134,7 @@ $ perf report --input=perf.data
 >
 > For example, with EMCC, you can add `-g2`.
 >
-> If not able to get the context of the custom name section, WAMR will use `aot_func#N` to represent the function name. `N` is from 0. `aot_func#0` represents the first *not imported wasm function*.
+> If not able to get the context of the custom name section, WAMR will use `aot_func#N` to represent the function name. `N` is from 0. `aot_func#0` represents the first _not imported wasm function_.
 
 ### 7.1 Flamegraph
 
@@ -177,3 +177,16 @@ $ ./FlameGraph/flamegraph.pl out.folded > perf.foo.wasm.svg
 > # only jitted functions
 > $ grep "wasm_runtime_invoke_native" out.folded | ./FlameGraph/flamegraph.pl > perf.foo.wasm.only.svg
 > ```
+
+> [!TIP]
+> use [trans_wasm_func_name.py](../test-tools/trans-jitted-func-name/trans_wasm_func_name.py) to translate jitted function
+> names to its original wasm function names. It requires _wasm-objdump_ in _wabt_ and _name section_ in the .wasm file
+>
+> The input file is the output of `./FlameGraph/stackcollapse-perf.pl`.
+>
+> ```bash
+> python trans_wasm_func_name.py --wabt_home <wabt-installation> --folded out.folded <.wasm>
+> ```
+>
+> Then you will see a new file named _out.folded.translated_ which contains the translated folded stacks.
+> All wasm functions are translated to its original names with a prefix like "[Wasm]"
