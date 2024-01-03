@@ -6411,10 +6411,11 @@ re_scan:
                     bool func_declared = false;
                     uint32 j;
 
-                    /* Check whether the function is declared in table segs */
+                    /* Check whether the function is declared in table segs,
+                       note that it doesn't matter whether the table seg's mode
+                       is passive, active or declarative. */
                     for (i = 0; i < module->table_seg_count; i++, table_seg++) {
-                        if (table_seg->elem_type == VALUE_TYPE_FUNCREF
-                            && wasm_elem_is_declarative(table_seg->mode)) {
+                        if (table_seg->elem_type == VALUE_TYPE_FUNCREF) {
                             for (j = 0; j < table_seg->function_count; j++) {
                                 if (table_seg->func_indexes[j] == func_idx) {
                                     func_declared = true;
