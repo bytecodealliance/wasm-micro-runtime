@@ -159,6 +159,10 @@ jobs:
           echo "config INTERPRETERS_WAMR_AOT_STACK_FRAME" >> apps/interpreters/wamr/Kconfig
           echo "\tbool \"Enable AOT stack frame\"" >> apps/interpreters/wamr/Kconfig
           echo "\tdefault n" >> apps/interpreters/wamr/Kconfig
+          echo "\n" >> apps/interpreters/wamr/Kconfig
+          echo "config INTERPRETERS_WAMR_TAIL_CALL" >> apps/interpreters/wamr/Kconfig
+          echo "\tbool \"Enable Tail Call\"" >> apps/interpreters/wamr/Kconfig
+          echo "\tdefault y" >> apps/interpreters/wamr/Kconfig
 
       - name: Enable WAMR for NuttX
         run: |

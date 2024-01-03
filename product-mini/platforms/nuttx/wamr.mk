@@ -316,7 +316,6 @@ endif
 
 ifeq ($(CONFIG_INTERPRETERS_WAMR_GC),y)
 CFLAGS += -DWASM_ENABLE_GC=1
-CFLAGS += -DWASM_ENABLE_TAIL_CALL=1
 CSRCS += gc_common.c gc_type.c gc_object.c
 VPATH += $(IWASM_ROOT)/common/gc
 else
