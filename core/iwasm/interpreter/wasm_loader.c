@@ -6877,7 +6877,7 @@ copy_params_to_dynamic_space(WASMLoaderContext *loader_ctx, bool is_if_block,
     int16 *frame_offset = NULL;
     uint8 *cells = NULL, cell;
     int16 *src_offsets = NULL;
-    uint8 *emit_data = NULL, *p_code_compiled_orig;
+    uint8 *emit_data = NULL;
     uint32 i;
     BranchBlock *block = loader_ctx->frame_csp - 1;
     BlockType *block_type = &block->block_type;
@@ -6894,19 +6894,14 @@ copy_params_to_dynamic_space(WASMLoaderContext *loader_ctx, bool is_if_block,
 
     /* POP original parameter out */
     for (i = 0; i < param_count; i++) {
-        p_code_compiled_orig = loader_ctx->p_code_compiled;
-        POP_OFFSET_TYPE(wasm_type->types[param_count - i - 1]);
+        int32 available_stack_cell =
+            (int32)(loader_ctx->stack_cell_num - block->stack_cell_num);
 
-        /* If any of the parent block is in polymorphic state, the frame_offset
-         * stack may not have enough items to pop */
-        if (p_code_compiled_orig != NULL
-            && (loader_ctx->p_code_compiled
-                != p_code_compiled_orig + sizeof(int16))) {
+        if (available_stack_cell <= 0 && block->is_stack_polymorphic)
             break;
-        }
-        else {
-            wasm_loader_emit_backspace(loader_ctx, sizeof(int16));
-        }
+
+        POP_OFFSET_TYPE(wasm_type->types[param_count - i - 1]);
+        wasm_loader_emit_backspace(loader_ctx, sizeof(int16));
     }
     available_param_count = i;
 
@@ -7197,6 +7192,9 @@ re_scan:
             {
                 uint8 value_type;
                 BlockType block_type;
+#if WASM_ENABLE_FAST_INTERP != 0
+                uint32 available_params = 0;
+#endif
 
                 p_org = p - 1;
                 CHECK_BUF(p, p_end, 1);
@@ -7238,9 +7236,27 @@ re_scan:
                 /* Pop block parameters from stack */
                 if (BLOCK_HAS_PARAM(block_type)) {
                     WASMType *wasm_type = block_type.u.type;
-                    for (i = 0; i < block_type.u.type->param_count; i++)
+
+                    BranchBlock *cur_block = loader_ctx->frame_csp - 1;
+#if WASM_ENABLE_FAST_INTERP != 0
+                    available_params = block_type.u.type->param_count;
+#endif
+                    for (i = 0; i < block_type.u.type->param_count; i++) {
+
+                        int32 available_stack_cell =
+                            (int32)(loader_ctx->stack_cell_num
+                                    - cur_block->stack_cell_num);
+                        if (available_stack_cell <= 0
+                            && cur_block->is_stack_polymorphic) {
+#if WASM_ENABLE_FAST_INTERP != 0
+                            available_params = i;
+#endif
+                            break;
+                        }
+
                         POP_TYPE(
                             wasm_type->types[wasm_type->param_count - i - 1]);
+                    }
                 }
 
                 PUSH_CSP(LABEL_TYPE_BLOCK + (opcode - WASM_OP_BLOCK),
@@ -7248,8 +7264,14 @@ re_scan:
 
                 /* Pass parameters to block */
                 if (BLOCK_HAS_PARAM(block_type)) {
-                    for (i = 0; i < block_type.u.type->param_count; i++)
+                    for (i = 0; i < block_type.u.type->param_count; i++) {
                         PUSH_TYPE(block_type.u.type->types[i]);
+#if WASM_ENABLE_FAST_INTERP != 0
+                        if (i >= available_params) {
+                            PUSH_OFFSET_TYPE(block_type.u.type->types[i]);
+                        }
+#endif
+                    }
                 }
 
 #if WASM_ENABLE_FAST_INTERP != 0
