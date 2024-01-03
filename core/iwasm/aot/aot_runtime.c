@@ -3477,6 +3477,76 @@ get_func_name_from_index(const AOTModuleInstance *module_inst,
 #endif /* end of WASM_ENABLE_DUMP_CALL_STACK != 0 || \
           WASM_ENABLE_PERF_PROFILING != 0 */
 
+#if WASM_ENABLE_GC == 0
+bool
+aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
+{
+    AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
+#if WASM_ENABLE_PERF_PROFILING != 0
+    AOTFuncPerfProfInfo *func_perf_prof =
+        module_inst->func_perf_profilings + func_index;
+#endif
+    AOTFrame *cur_frame, *frame;
+    uint32 size = (uint32)offsetof(AOTFrame, lp);
+
+    cur_frame = (AOTFrame *)exec_env->cur_frame;
+    if (!cur_frame)
+        frame = (AOTFrame *)exec_env->wasm_stack.bottom;
+    else
+        frame = (AOTFrame *)((uint8 *)cur_frame + size);
+
+    if ((uint8 *)frame + size > exec_env->wasm_stack.top_boundary) {
+        aot_set_exception(module_inst, "wasm operand stack overflow");
+        return false;
+    }
+
+    frame->func_index = func_index;
+    /* No need to initialize ip, it will be committed in jitted code
+       when needed */
+    /* frame->ip = NULL; */
+    frame->prev_frame = (AOTFrame *)exec_env->cur_frame;
+
+#if WASM_ENABLE_PERF_PROFILING != 0
+    frame->time_started = (uintptr_t)os_time_get_boot_microsecond();
+    frame->func_perf_prof_info = func_perf_prof;
+#endif
+#if WASM_ENABLE_MEMORY_PROFILING != 0
+    {
+        uint32 wasm_stack_used =
+            (uint8 *)frame + size - exec_env->wasm_stack.bottom;
+        if (wasm_stack_used > exec_env->max_wasm_stack_used)
+            exec_env->max_wasm_stack_used = wasm_stack_used;
+    }
+#endif
+
+    exec_env->cur_frame = (struct WASMInterpFrame *)frame;
+
+    return true;
+}
+
+static inline void
+aot_free_frame_internal(WASMExecEnv *exec_env)
+{
+    AOTFrame *cur_frame = (AOTFrame *)exec_env->cur_frame;
+    AOTFrame *prev_frame = cur_frame->prev_frame;
+
+#if WASM_ENABLE_PERF_PROFILING != 0
+    cur_frame->func_perf_prof_info->total_exec_time +=
+        (uintptr_t)os_time_get_boot_microsecond() - cur_frame->time_started;
+    cur_frame->func_perf_prof_info->total_exec_cnt++;
+#endif
+
+    exec_env->cur_frame = (struct WASMInterpFrame *)prev_frame;
+}
+
+void
+aot_free_frame(WASMExecEnv *exec_env)
+{
+    aot_free_frame_internal(exec_env);
+}
+
+#else
+
 bool
 aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
 {
@@ -3512,8 +3582,7 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     frame = wasm_exec_env_alloc_wasm_frame(exec_env, frame_size);
 
     if (!frame) {
-        aot_set_exception((AOTModuleInstance *)exec_env->module_inst,
-                          "wasm operand stack overflow");
+        aot_set_exception(module_inst, "wasm operand stack overflow");
         return false;
     }
 
@@ -3521,9 +3590,9 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     frame->time_started = (uintptr_t)os_time_get_boot_microsecond();
     frame->func_perf_prof_info = func_perf_prof;
 #endif
-    frame->sp = frame->lp + max_local_cell_num;
 
 #if WASM_ENABLE_GC != 0
+    frame->sp = frame->lp + max_local_cell_num;
     frame->frame_ref = (uint8 *)(frame->sp + max_stack_cell_num);
 
     /* Initialize frame ref flags for import function */
@@ -3561,8 +3630,8 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     return true;
 }
 
-void
-aot_free_frame(WASMExecEnv *exec_env)
+static inline void
+aot_free_frame_internal(WASMExecEnv *exec_env)
 {
     AOTFrame *cur_frame = (AOTFrame *)exec_env->cur_frame;
     AOTFrame *prev_frame = cur_frame->prev_frame;
@@ -3576,6 +3645,14 @@ aot_free_frame(WASMExecEnv *exec_env)
     wasm_exec_env_free_wasm_frame(exec_env, cur_frame);
     exec_env->cur_frame = (struct WASMInterpFrame *)prev_frame;
 }
+
+void
+aot_free_frame(WASMExecEnv *exec_env)
+{
+    aot_free_frame_internal(exec_env);
+}
+
+#endif
 
 void
 aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame)
@@ -3599,8 +3676,14 @@ aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame)
 
 #if WASM_ENABLE_MEMORY_PROFILING != 0
     if (alloc_frame) {
+#if WASM_ENABLE_GC == 0
+        uint32 wasm_stack_used = (uint8 *)exec_env->cur_frame
+                                 + (uint32)offsetof(AOTFrame, lp)
+                                 - exec_env->wasm_stack.bottom;
+#else
         uint32 wasm_stack_used =
             exec_env->wasm_stack.top - exec_env->wasm_stack.bottom;
+#endif
         if (wasm_stack_used > exec_env->max_wasm_stack_used)
             exec_env->max_wasm_stack_used = wasm_stack_used;
     }
@@ -3669,9 +3752,8 @@ aot_create_call_stack(struct WASMExecEnv *exec_env)
             }
             bh_memcpy_s(frame.lp, lp_size, cur_frame->lp, lp_size);
 
-            /* Only save frame sp when fast-interpr isn't enabled */
-            frame.sp = frame.lp + (cur_frame->sp - cur_frame->lp);
 #if WASM_ENABLE_GC != 0
+            frame.sp = frame.lp + (cur_frame->sp - cur_frame->lp);
             frame.frame_ref = (uint8 *)frame.lp
                               + (cur_frame->frame_ref - (uint8 *)cur_frame->lp);
 #endif
@@ -3733,14 +3815,14 @@ aot_dump_call_stack(WASMExecEnv *exec_env, bool print, char *buf, uint32 len)
 
         /* function name not exported, print number instead */
         if (frame.func_name_wp == NULL) {
-            line_length =
-                snprintf(line_buf, sizeof(line_buf),
-                         "#%02" PRIu32 " $f%" PRIu32 "\n", n, frame.func_index);
+            line_length = snprintf(line_buf, sizeof(line_buf),
+                                   "#%02" PRIu32 " $f%" PRIu32 " (0x%04x)\n", n,
+                                   frame.func_index, frame.func_offset);
         }
         else {
-            line_length =
-                snprintf(line_buf, sizeof(line_buf), "#%02" PRIu32 " %s\n", n,
-                         frame.func_name_wp);
+            line_length = snprintf(line_buf, sizeof(line_buf),
+                                   "#%02" PRIu32 " %s (0x%04x)\n", n,
+                                   frame.func_name_wp, frame.func_offset);
         }
 
         if (line_length >= sizeof(line_buf)) {

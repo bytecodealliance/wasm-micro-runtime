@@ -3595,7 +3595,7 @@ wasm_interp_create_call_stack(struct WASMExecEnv *exec_env)
             frame.func_offset = 0;
         }
         else {
-            frame.func_offset = (uint32)(cur_frame->ip - func_code_base);
+            frame.func_offset = (uint32)(cur_frame->ip - module->load_addr);
         }
 
         /* look for the function name */
@@ -3657,13 +3657,13 @@ wasm_interp_create_call_stack(struct WASMExecEnv *exec_env)
             }
             bh_memcpy_s(frame.lp, lp_size, cur_frame->lp, lp_size);
 
+#if WASM_ENABLE_GC != 0
 #if WASM_ENABLE_FAST_INTERP == 0
             frame.sp = frame.lp + (cur_frame->sp - cur_frame->lp);
 #else
             /* for fast-interp, let frame sp point to the end of the frame */
             frame.sp = frame.lp + all_cell_num;
 #endif
-#if WASM_ENABLE_GC != 0
             frame.frame_ref = (uint8 *)frame.lp
                               + (wasm_interp_get_frame_ref(cur_frame)
                                  - (uint8 *)cur_frame->lp);
@@ -3728,15 +3728,35 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env, bool print, char *buf,
         }
 
         /* function name not exported, print number instead */
-        if (frame.func_name_wp == NULL) {
-            line_length =
-                snprintf(line_buf, sizeof(line_buf),
-                         "#%02" PRIu32 " $f%" PRIu32 "\n", n, frame.func_index);
+#if WASM_ENABLE_FAST_JIT != 0
+        if (module_inst->e->running_mode == Mode_Fast_JIT) {
+            /* Fast JIT doesn't support committing ip (instruction
+               pointer) yet */
+            if (frame.func_name_wp == NULL) {
+                line_length = snprintf(line_buf, sizeof(line_buf),
+                                       "#%02" PRIu32 " $f%" PRIu32 "\n", n,
+                                       frame.func_index);
+            }
+            else {
+                line_length =
+                    snprintf(line_buf, sizeof(line_buf), "#%02" PRIu32 " %s\n",
+                             n, frame.func_name_wp);
+            }
         }
-        else {
-            line_length =
-                snprintf(line_buf, sizeof(line_buf), "#%02" PRIu32 " %s\n", n,
-                         frame.func_name_wp);
+        else
+#endif
+        {
+            if (frame.func_name_wp == NULL) {
+                line_length =
+                    snprintf(line_buf, sizeof(line_buf),
+                             "#%02" PRIu32 " $f%" PRIu32 " (0x%04x)\n", n,
+                             frame.func_index, frame.func_offset);
+            }
+            else {
+                line_length = snprintf(line_buf, sizeof(line_buf),
+                                       "#%02" PRIu32 " %s (0x%04x)\n", n,
+                                       frame.func_name_wp, frame.func_offset);
+            }
         }
 
         if (line_length >= sizeof(line_buf)) {
@@ -4116,141 +4136,6 @@ llvm_jit_table_grow(WASMModuleInstance *module_inst, uint32 tbl_idx,
     return orig_size;
 }
 #endif /* end of WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0 */
-
-#if WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0 \
-    || WASM_ENABLE_JIT_STACK_FRAME != 0
-bool
-llvm_jit_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
-{
-    WASMModuleInstance *module_inst;
-    WASMModule *module;
-    WASMInterpFrame *frame;
-    uint32 size, max_local_cell_num, max_stack_cell_num;
-
-    bh_assert(exec_env->module_inst->module_type == Wasm_Module_Bytecode);
-
-    module_inst = (WASMModuleInstance *)exec_env->module_inst;
-    module = module_inst->module;
-
-    if (func_index >= func_index - module->import_function_count) {
-        WASMFunction *func =
-            module->functions[func_index - module->import_function_count];
-
-        max_local_cell_num = func->param_cell_num + func->local_cell_num;
-        max_stack_cell_num = func->max_stack_cell_num;
-    }
-    else {
-        WASMFunctionImport *func =
-            &((module->import_functions + func_index)->u.function);
-
-        max_local_cell_num = func->func_type->param_cell_num > 2
-                                 ? func->func_type->param_cell_num
-                                 : 2;
-        max_stack_cell_num = 0;
-    }
-
-    size =
-        wasm_interp_interp_frame_size(max_local_cell_num + max_stack_cell_num);
-
-    frame = wasm_exec_env_alloc_wasm_frame(exec_env, size);
-    if (!frame) {
-        wasm_set_exception(module_inst, "wasm operand stack overflow");
-        return false;
-    }
-
-    frame->function = module_inst->e->functions + func_index;
-    frame->ip = NULL;
-    frame->sp = frame->lp + max_local_cell_num;
-#if WASM_ENABLE_PERF_PROFILING != 0
-    frame->time_started = os_time_get_boot_microsecond();
-#endif
-    frame->prev_frame = wasm_exec_env_get_cur_frame(exec_env);
-
-#if WASM_ENABLE_GC != 0
-    /* Initialize frame ref flags for import function */
-    if (func_index < module->import_function_count) {
-        WASMFunctionImport *func =
-            &((module->import_functions + func_index)->u.function);
-        WASMFuncType *func_type = func->func_type;
-        /* native function doesn't have operand stack and label stack */
-        uint8 *frame_ref = (uint8 *)frame->sp;
-        uint32 i, j, k, value_type_cell_num;
-
-        for (i = 0, j = 0; i < func_type->param_count; i++) {
-            if (wasm_is_type_reftype(func_type->types[i])
-                && !wasm_is_reftype_i31ref(func_type->types[i])) {
-                frame_ref[j++] = 1;
-#if UINTPTR_MAX == UINT64_MAX
-                frame_ref[j++] = 1;
-#endif
-            }
-            else {
-                value_type_cell_num =
-                    wasm_value_type_cell_num(func_type->types[i]);
-                for (k = 0; k < value_type_cell_num; k++)
-                    frame_ref[j++] = 0;
-            }
-        }
-    }
-#endif
-
-    wasm_exec_env_set_cur_frame(exec_env, frame);
-
-    return true;
-}
-
-void
-llvm_jit_free_frame(WASMExecEnv *exec_env)
-{
-    WASMInterpFrame *frame;
-    WASMInterpFrame *prev_frame;
-
-    bh_assert(exec_env->module_inst->module_type == Wasm_Module_Bytecode);
-
-    frame = wasm_exec_env_get_cur_frame(exec_env);
-    prev_frame = frame->prev_frame;
-
-#if WASM_ENABLE_PERF_PROFILING != 0
-    if (frame->function) {
-        frame->function->total_exec_time +=
-            os_time_get_boot_microsecond() - frame->time_started;
-        frame->function->total_exec_cnt++;
-    }
-#endif
-    wasm_exec_env_free_wasm_frame(exec_env, frame);
-    wasm_exec_env_set_cur_frame(exec_env, prev_frame);
-}
-
-void
-llvm_jit_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame)
-{
-#if WASM_ENABLE_PERF_PROFILING != 0
-    WASMInterpFrame *cur_frame = exec_env->cur_frame;
-
-    if (alloc_frame) {
-        cur_frame->time_started = (uintptr_t)os_time_get_boot_microsecond();
-    }
-    else {
-        if (cur_frame->function) {
-            cur_frame->function->total_exec_time +=
-                os_time_get_boot_microsecond() - cur_frame->time_started;
-            cur_frame->function->total_exec_cnt++;
-        }
-    }
-#endif
-
-#if WASM_ENABLE_MEMORY_PROFILING != 0
-    if (alloc_frame) {
-        uint32 wasm_stack_used =
-            exec_env->wasm_stack.top - exec_env->wasm_stack.bottom;
-        if (wasm_stack_used > exec_env->max_wasm_stack_used)
-            exec_env->max_wasm_stack_used = wasm_stack_used;
-    }
-#endif
-}
-#endif /* end of WASM_ENABLE_DUMP_CALL_STACK != 0 \
-          || WASM_ENABLE_PERF_PROFILING != 0      \
-          || WASM_ENABLE_JIT_STACK_FRAME != 0 */
 
 #if WASM_ENABLE_GC != 0
 void *

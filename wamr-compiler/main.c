@@ -478,6 +478,7 @@ main(int argc, char *argv[])
             option.is_indirect_mode = true;
         }
         else if (!strcmp(argv[0], "--enable-gc")) {
+            option.enable_aux_stack_frame = true;
             option.enable_gc = true;
         }
         else if (!strcmp(argv[0], "--disable-llvm-intrinsics")) {

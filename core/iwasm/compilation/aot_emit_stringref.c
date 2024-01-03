@@ -371,7 +371,7 @@ fail:
 
 bool
 aot_compile_op_string_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                          uint32 encoding, const uint8 *frame_ip_stringref_new)
+                          uint32 encoding)
 {
     LLVMValueRef maddr, byte_length, offset, str_obj, stringref_obj;
     LLVMValueRef param_values[5], func, value;
@@ -381,8 +381,7 @@ aot_compile_op_string_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (!aot_gen_commit_values(comp_ctx->aot_frame))
         return false;
 
-    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
-                              frame_ip_stringref_new))
+    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, true, true))
         return false;
 
     POP_I32(byte_length);
@@ -427,7 +426,7 @@ fail:
 
 bool
 aot_compile_op_string_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                            uint32 contents, const uint8 *frame_ip_string_const)
+                            uint32 contents)
 {
     LLVMValueRef param_values[2], func, value, str_obj, stringref_obj;
     LLVMTypeRef param_types[2], ret_type, func_type, func_ptr_type;
@@ -436,8 +435,7 @@ aot_compile_op_string_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (!aot_gen_commit_values(comp_ctx->aot_frame))
         return false;
 
-    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
-                              frame_ip_string_const))
+    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, true, true))
         return false;
 
     param_types[0] = INT8_PTR_TYPE;
@@ -556,8 +554,7 @@ fail:
 }
 
 bool
-aot_compile_op_string_concat(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                             const uint8 *frame_ip_string_concat)
+aot_compile_op_string_concat(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef param_values[2], func, value, str_obj_lhs, str_obj_rhs,
         stringref_obj_lhs, stringref_obj_rhs, stringref_obj_new;
@@ -567,8 +564,7 @@ aot_compile_op_string_concat(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (!aot_gen_commit_values(comp_ctx->aot_frame))
         return false;
 
-    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
-                              frame_ip_string_concat))
+    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, true, true))
         return false;
 
     POP_GC_REF(stringref_obj_rhs);
@@ -695,8 +691,7 @@ fail:
 
 bool
 aot_compile_op_string_as_wtf8(AOTCompContext *comp_ctx,
-                              AOTFuncContext *func_ctx,
-                              const uint8 *frame_ip_string_as_wtf8)
+                              AOTFuncContext *func_ctx)
 {
     LLVMValueRef str_obj, stringref_obj, stringview_wtf8_obj;
     DEFINE_STRINGREF_CHECK_VAR();
@@ -704,8 +699,7 @@ aot_compile_op_string_as_wtf8(AOTCompContext *comp_ctx,
     if (!aot_gen_commit_values(comp_ctx->aot_frame))
         return false;
 
-    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
-                              frame_ip_string_as_wtf8))
+    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, true, true))
         return false;
 
     POP_GC_REF(stringref_obj);
@@ -830,8 +824,7 @@ fail:
 
 bool
 aot_compile_op_stringview_wtf8_slice(AOTCompContext *comp_ctx,
-                                     AOTFuncContext *func_ctx,
-                                     const uint8 *frame_ip_wtf8_slice)
+                                     AOTFuncContext *func_ctx)
 {
     LLVMValueRef stringref_obj, start, end, stringref_obj_new, value;
     DEFINE_STRINGREF_CHECK_VAR();
@@ -839,8 +832,7 @@ aot_compile_op_stringview_wtf8_slice(AOTCompContext *comp_ctx,
     if (!aot_gen_commit_values(comp_ctx->aot_frame))
         return false;
 
-    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
-                              frame_ip_wtf8_slice))
+    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, true, true))
         return false;
 
     POP_I32(start);
@@ -869,8 +861,7 @@ fail:
 
 bool
 aot_compile_op_string_as_wtf16(AOTCompContext *comp_ctx,
-                               AOTFuncContext *func_ctx,
-                               const uint8 *frame_ip_string_as_wtf16)
+                               AOTFuncContext *func_ctx)
 {
     LLVMValueRef str_obj, stringref_obj, stringview_wtf16_obj;
     DEFINE_STRINGREF_CHECK_VAR();
@@ -878,8 +869,7 @@ aot_compile_op_string_as_wtf16(AOTCompContext *comp_ctx,
     if (!aot_gen_commit_values(comp_ctx->aot_frame))
         return false;
 
-    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
-                              frame_ip_string_as_wtf16))
+    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, true, true))
         return false;
 
     POP_GC_REF(stringref_obj);
@@ -1045,8 +1035,7 @@ fail:
 
 bool
 aot_compile_op_stringview_wtf16_slice(AOTCompContext *comp_ctx,
-                                      AOTFuncContext *func_ctx,
-                                      const uint8 *frame_ip_wtf16_slice)
+                                      AOTFuncContext *func_ctx)
 {
     LLVMValueRef stringref_obj, start, end, stringref_obj_new, value;
     DEFINE_STRINGREF_CHECK_VAR();
@@ -1054,8 +1043,7 @@ aot_compile_op_stringview_wtf16_slice(AOTCompContext *comp_ctx,
     if (!aot_gen_commit_values(comp_ctx->aot_frame))
         return false;
 
-    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
-                              frame_ip_wtf16_slice))
+    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, true, true))
         return false;
 
     POP_I32(end);
@@ -1084,8 +1072,7 @@ fail:
 
 bool
 aot_compile_op_string_as_iter(AOTCompContext *comp_ctx,
-                              AOTFuncContext *func_ctx,
-                              const uint8 *frame_ip_string_as_iter)
+                              AOTFuncContext *func_ctx)
 {
     LLVMValueRef stringref_obj, stringview_iter_obj, str_obj;
     DEFINE_STRINGREF_CHECK_VAR();
@@ -1093,8 +1080,7 @@ aot_compile_op_string_as_iter(AOTCompContext *comp_ctx,
     if (!aot_gen_commit_values(comp_ctx->aot_frame))
         return false;
 
-    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
-                              frame_ip_string_as_iter))
+    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, true, true))
         return false;
 
     POP_GC_REF(stringref_obj);
@@ -1258,9 +1244,8 @@ aot_compile_op_stringview_iter_rewind(AOTCompContext *comp_ctx,
 }
 
 bool
-aot_compile_op_stringview_iter_slice(
-    AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-    const uint8 *frame_ip_stringview_iter_slice)
+aot_compile_op_stringview_iter_slice(AOTCompContext *comp_ctx,
+                                     AOTFuncContext *func_ctx)
 {
     LLVMValueRef stringview_iter_obj, start, end, stringref_obj_new, value,
         iter_pos_addr, code_points_count;
@@ -1269,8 +1254,7 @@ aot_compile_op_stringview_iter_slice(
     if (!aot_gen_commit_values(comp_ctx->aot_frame))
         return false;
 
-    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
-                              frame_ip_stringview_iter_slice))
+    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, true, true))
         return false;
 
     POP_I32(code_points_count);
@@ -1315,8 +1299,7 @@ fail:
 
 bool
 aot_compile_op_string_new_array(AOTCompContext *comp_ctx,
-                                AOTFuncContext *func_ctx, uint32 encoding,
-                                const uint8 *frame_ip_string_new_array)
+                                AOTFuncContext *func_ctx, uint32 encoding)
 {
     LLVMValueRef start, end, count, str_obj, stringref_obj, array_obj,
         elem_data_ptr;
@@ -1327,8 +1310,7 @@ aot_compile_op_string_new_array(AOTCompContext *comp_ctx,
     if (!aot_gen_commit_values(comp_ctx->aot_frame))
         return false;
 
-    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
-                              frame_ip_string_new_array))
+    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, true, true))
         return false;
 
     POP_I32(end);

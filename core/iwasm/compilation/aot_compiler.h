@@ -193,8 +193,7 @@ aot_gen_commit_values(AOTCompFrame *frame);
  * @param frame the frame information
  */
 bool
-aot_gen_commit_sp_ip(AOTCompFrame *frame, const AOTValueSlot *sp,
-                     const uint8 *ip);
+aot_gen_commit_sp_ip(AOTCompFrame *frame, bool commit_sp, bool commit_ip);
 
 bool
 aot_frame_store_value(AOTCompContext *comp_ctx, LLVMValueRef value,

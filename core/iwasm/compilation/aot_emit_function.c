@@ -292,7 +292,7 @@ call_aot_invoke_native_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     return true;
 }
 
-#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+#if WASM_ENABLE_AOT_STACK_FRAME != 0 || WASM_ENABLE_JIT_STACK_FRAME != 0
 static bool
 call_aot_alloc_frame_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                           LLVMValueRef func_idx)
@@ -307,9 +307,11 @@ call_aot_alloc_frame_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[1] = I32_TYPE;
     ret_type = INT8_TYPE;
 
+#if WASM_ENABLE_JIT_STACK_FRAME != 0
     if (comp_ctx->is_jit_mode)
         GET_AOT_FUNCTION(llvm_jit_alloc_frame, 2);
     else
+#endif
         GET_AOT_FUNCTION(aot_alloc_frame, 2);
 
     param_values[0] = func_ctx->exec_env;
@@ -362,28 +364,34 @@ alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef wasm_stack_top_bound = func_ctx->wasm_stack_top_bound;
     LLVMValueRef wasm_stack_top_ptr = func_ctx->wasm_stack_top_ptr,
                  wasm_stack_top;
-    LLVMValueRef wasm_stack_top_max, wasm_stack_top_new, offset, cmp;
+    LLVMValueRef wasm_stack_top_max, offset, cmp;
     LLVMValueRef cur_frame, new_frame, prev_frame_ptr;
     LLVMValueRef cur_frame_ptr = func_ctx->cur_frame_ptr;
-    LLVMValueRef frame_sp, frame_sp_ptr, frame_ref, frame_ref_ptr;
     LLVMValueRef func_idx_ptr, func_idx_val, func_inst_ptr, func_inst;
     LLVMTypeRef int8_ptr_type;
     LLVMBasicBlockRef check_wasm_stack_succ;
     uint32 import_func_count = comp_ctx->comp_data->import_func_count;
-    uint32 param_cell_num = 0, local_cell_num = 0, i, j, k;
+    uint32 param_cell_num = 0, local_cell_num = 0, i;
     uint32 max_local_cell_num, max_stack_cell_num;
     uint32 all_cell_num, frame_size, frame_size_with_outs_area;
     uint32 aot_frame_ptr_num = offsetof(AOTFrame, lp) / sizeof(uintptr_t);
     AOTImportFunc *import_funcs = comp_ctx->comp_data->import_funcs;
-    AOTFuncType *func_type;
+    AOTFuncType *aot_func_type;
     AOTFunc *aot_func = NULL;
+
+    /* `int8 **` type */
+    int8_ptr_type = LLVMPointerType(INT8_PTR_TYPE, 0);
+    if (!int8_ptr_type) {
+        aot_set_last_error("create llvm pointer type failed");
+        return false;
+    }
 
     /* Get param_cell_num, local_cell_num and max_stack_cell_num */
     if (func_idx < import_func_count) {
-        func_type = import_funcs[func_idx].func_type;
-        for (i = 0; i < func_type->param_count; i++)
+        aot_func_type = import_funcs[func_idx].func_type;
+        for (i = 0; i < aot_func_type->param_count; i++)
             param_cell_num += wasm_value_type_cell_num_internal(
-                func_type->types[i], comp_ctx->pointer_size);
+                aot_func_type->types[i], comp_ctx->pointer_size);
         max_local_cell_num = param_cell_num > 2 ? param_cell_num : 2;
         max_stack_cell_num = 0;
     }
@@ -402,54 +410,74 @@ alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (!comp_ctx->is_jit_mode) {
         /* Refer to aot_alloc_frame */
         if (!comp_ctx->enable_gc) {
-            frame_size =
-                comp_ctx->pointer_size * aot_frame_ptr_num + all_cell_num * 4;
+            frame_size = frame_size_with_outs_area =
+                comp_ctx->pointer_size * aot_frame_ptr_num;
         }
-        else
+        else {
             frame_size = comp_ctx->pointer_size * aot_frame_ptr_num
                          + align_uint(all_cell_num * 5, 4);
-        frame_size_with_outs_area = frame_size
-                                    + comp_ctx->pointer_size * aot_frame_ptr_num
-                                    + max_stack_cell_num * 4;
+            frame_size_with_outs_area =
+                frame_size + comp_ctx->pointer_size * aot_frame_ptr_num
+                + max_stack_cell_num * 4;
+        }
     }
     else {
         /* Refer to wasm_interp_interp_frame_size */
-        if (!comp_ctx->enable_gc)
-            frame_size = offsetof(WASMInterpFrame, lp) + all_cell_num * 4;
-        else
+        if (!comp_ctx->enable_gc) {
+            frame_size = frame_size_with_outs_area =
+                offsetof(WASMInterpFrame, lp);
+        }
+        else {
             frame_size =
                 offsetof(WASMInterpFrame, lp) + align_uint(all_cell_num * 5, 4);
-        frame_size_with_outs_area =
-            frame_size + offsetof(WASMInterpFrame, lp) + max_stack_cell_num * 4;
-    }
-
-    /* `int8 **` type */
-    int8_ptr_type = LLVMPointerType(INT8_PTR_TYPE, 0);
-    if (!int8_ptr_type) {
-        aot_set_last_error("create llvm pointer type failed");
-        return false;
-    }
-
-    /* Get exec_env->wasm_stack.top */
-    if (!(wasm_stack_top =
-              LLVMBuildLoad2(comp_ctx->builder, INT8_PTR_TYPE,
-                             wasm_stack_top_ptr, "wasm_stack_top"))) {
-        aot_set_last_error("load wasm_stack.top failed");
-        return false;
+            frame_size_with_outs_area = frame_size
+                                        + offsetof(WASMInterpFrame, lp)
+                                        + max_stack_cell_num * 4;
+        }
     }
 
     cur_frame = func_ctx->cur_frame;
-    new_frame = wasm_stack_top;
 
-    /* Check whether wasm operand stack is overflow */
-    offset = I32_CONST(frame_size_with_outs_area);
-    CHECK_LLVM_CONST(offset);
-    if (!(wasm_stack_top_max = LLVMBuildInBoundsGEP2(
-              comp_ctx->builder, INT8_TYPE, wasm_stack_top, &offset, 1,
-              "wasm_stack_top_max"))) {
-        aot_set_last_error("llvm build in bounds gep failed");
-        return false;
+    if (!comp_ctx->enable_gc) {
+        offset = I32_CONST(frame_size);
+        CHECK_LLVM_CONST(offset);
+        if (!(wasm_stack_top =
+                  LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, cur_frame,
+                                        &offset, 1, "wasm_stack_top"))) {
+            aot_set_last_error("llvm build in bounds gep failed");
+            return false;
+        }
+
+        offset = I32_CONST(frame_size * 2);
+        CHECK_LLVM_CONST(offset);
+        if (!(wasm_stack_top_max =
+                  LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, cur_frame,
+                                        &offset, 1, "wasm_stack_top_max"))) {
+            aot_set_last_error("llvm build in bounds gep failed");
+            return false;
+        }
     }
+    else {
+        /* Get exec_env->wasm_stack.top */
+        if (!(wasm_stack_top =
+                  LLVMBuildLoad2(comp_ctx->builder, INT8_PTR_TYPE,
+                                 wasm_stack_top_ptr, "wasm_stack_top"))) {
+            aot_set_last_error("load wasm_stack.top failed");
+            return false;
+        }
+
+        /* Check whether wasm operand stack is overflow */
+        offset = I32_CONST(frame_size_with_outs_area);
+        CHECK_LLVM_CONST(offset);
+        if (!(wasm_stack_top_max = LLVMBuildInBoundsGEP2(
+                  comp_ctx->builder, INT8_TYPE, wasm_stack_top, &offset, 1,
+                  "wasm_stack_top_max"))) {
+            aot_set_last_error("llvm build in bounds gep failed");
+            return false;
+        }
+    }
+
+    new_frame = wasm_stack_top;
 
     if (!(check_wasm_stack_succ = LLVMAppendBasicBlockInContext(
               comp_ctx->context, func_ctx->func, "check_wasm_stack_succ"))) {
@@ -471,62 +499,67 @@ alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
-    /* exec_env->wasm_stack.top += frame_size */
-    offset = I32_CONST(frame_size);
-    CHECK_LLVM_CONST(offset);
-    if (!(wasm_stack_top_new = LLVMBuildInBoundsGEP2(
-              comp_ctx->builder, INT8_TYPE, wasm_stack_top, &offset, 1,
-              "wasm_stack_top_new"))) {
-        aot_set_last_error("llvm build in bounds gep failed");
-        return false;
-    }
-    if (!LLVMBuildStore(comp_ctx->builder, wasm_stack_top_new,
-                        wasm_stack_top_ptr)) {
-        aot_set_last_error("llvm build store failed");
-        return false;
-    }
+#if WASM_ENABLE_GC != 0
+    if (comp_ctx->enable_gc) {
+        LLVMValueRef wasm_stack_top_new, frame_ref, frame_ref_ptr;
+        uint32 j, k;
 
-    if (func_idx < import_func_count) {
-        /* Only need to initialize new_frame->sp when it's import function
-           otherwise they will be committed in AOT code if needed */
-
-        /* new_frame->sp = new_frame->lp + max_local_cell_num */
-        if (!comp_ctx->is_jit_mode)
-            offset = I32_CONST(comp_ctx->pointer_size * 5);
-        else
-            offset = I32_CONST(offsetof(WASMInterpFrame, sp));
+        /* exec_env->wasm_stack.top += frame_size */
+        offset = I32_CONST(frame_size);
         CHECK_LLVM_CONST(offset);
-        if (!(frame_sp_ptr =
-                  LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, new_frame,
-                                        &offset, 1, "frame_sp_addr"))
-            || !(frame_sp_ptr =
-                     LLVMBuildBitCast(comp_ctx->builder, frame_sp_ptr,
-                                      int8_ptr_type, "frame_sp_ptr"))) {
-            aot_set_last_error("llvm get frame_sp_ptr failed");
-            return false;
-        }
-
-        if (!comp_ctx->is_jit_mode)
-            offset = I32_CONST(comp_ctx->pointer_size * aot_frame_ptr_num
-                               + max_local_cell_num * sizeof(uint32));
-        else
-            offset = I32_CONST(offsetof(WASMInterpFrame, lp)
-                               + max_local_cell_num * sizeof(uint32));
-        CHECK_LLVM_CONST(offset);
-        if (!(frame_sp =
-                  LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, new_frame,
-                                        &offset, 1, "frame_sp"))) {
+        if (!(wasm_stack_top_new = LLVMBuildInBoundsGEP2(
+                  comp_ctx->builder, INT8_TYPE, wasm_stack_top, &offset, 1,
+                  "wasm_stack_top_new"))) {
             aot_set_last_error("llvm build in bounds gep failed");
             return false;
         }
-        if (!LLVMBuildStore(comp_ctx->builder, frame_sp, frame_sp_ptr)) {
+        if (!LLVMBuildStore(comp_ctx->builder, wasm_stack_top_new,
+                            wasm_stack_top_ptr)) {
             aot_set_last_error("llvm build store failed");
             return false;
         }
-    }
 
-#if WASM_ENABLE_GC != 0
-    if (comp_ctx->enable_gc) {
+        if (func_idx < import_func_count) {
+            LLVMValueRef frame_sp, frame_sp_ptr;
+
+            /* Only need to initialize new_frame->sp when it's import function
+               otherwise they will be committed in AOT code if needed */
+
+            /* new_frame->sp = new_frame->lp + max_local_cell_num */
+            if (!comp_ctx->is_jit_mode)
+                offset = I32_CONST(comp_ctx->pointer_size * 5);
+            else
+                offset = I32_CONST(offsetof(WASMInterpFrame, sp));
+            CHECK_LLVM_CONST(offset);
+            if (!(frame_sp_ptr = LLVMBuildInBoundsGEP2(
+                      comp_ctx->builder, INT8_TYPE, new_frame, &offset, 1,
+                      "frame_sp_addr"))
+                || !(frame_sp_ptr =
+                         LLVMBuildBitCast(comp_ctx->builder, frame_sp_ptr,
+                                          int8_ptr_type, "frame_sp_ptr"))) {
+                aot_set_last_error("llvm get frame_sp_ptr failed");
+                return false;
+            }
+
+            if (!comp_ctx->is_jit_mode)
+                offset = I32_CONST(comp_ctx->pointer_size * aot_frame_ptr_num
+                                   + max_local_cell_num * sizeof(uint32));
+            else
+                offset = I32_CONST(offsetof(WASMInterpFrame, lp)
+                                   + max_local_cell_num * sizeof(uint32));
+            CHECK_LLVM_CONST(offset);
+            if (!(frame_sp = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
+                                                   new_frame, &offset, 1,
+                                                   "frame_sp"))) {
+                aot_set_last_error("llvm build in bounds gep failed");
+                return false;
+            }
+            if (!LLVMBuildStore(comp_ctx->builder, frame_sp, frame_sp_ptr)) {
+                aot_set_last_error("llvm build store failed");
+                return false;
+            }
+        }
+
         if (!comp_ctx->is_jit_mode) {
             /* new_frame->frame_ref = new_frame->lp + max_local_cell_num
                                       + max_stack_cell_num */
@@ -573,10 +606,10 @@ alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
         /* Initialize frame ref flags for import function */
         if (func_idx < import_func_count) {
-            func_type = import_funcs[func_idx].func_type;
-            for (i = 0, j = 0; i < func_type->param_count; i++) {
-                if (aot_is_type_gc_reftype(func_type->types[i])
-                    && !wasm_is_reftype_i31ref(func_type->types[i])) {
+            aot_func_type = import_funcs[func_idx].func_type;
+            for (i = 0, j = 0; i < aot_func_type->param_count; i++) {
+                if (aot_is_type_gc_reftype(aot_func_type->types[i])
+                    && !wasm_is_reftype_i31ref(aot_func_type->types[i])) {
                     for (k = 0; k < comp_ctx->pointer_size / sizeof(uint32);
                          k++) {
                         /* frame_ref[j++] = 1 */
@@ -596,7 +629,7 @@ alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 else {
                     uint32 value_type_cell_num =
                         wasm_value_type_cell_num_internal(
-                            func_type->types[i], comp_ctx->pointer_size);
+                            aot_func_type->types[i], comp_ctx->pointer_size);
                     for (k = 0; k < value_type_cell_num; k++) {
                         /* frame_ref[j++] = 0 */
                         offset = I32_CONST(j);
@@ -720,7 +753,7 @@ alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* No need to initialize new_frame->sp and new_frame->ip_offset
-       since they will be committed in AOT code if needed */
+       since they will be committed in AOT/JIT code if needed */
 
     /* exec_env->cur_frame = new_frame */
     if (!LLVMBuildStore(comp_ctx->builder, new_frame, cur_frame_ptr)) {
@@ -730,7 +763,7 @@ alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     if (comp_ctx->enable_perf_profiling || comp_ctx->enable_memory_profiling) {
         LLVMTypeRef param_types[2], func_type, func_ptr_type;
-        LLVMValueRef param_values[2], func, res;
+        LLVMValueRef param_values[2], func = NULL, res;
         char *func_name = "aot_frame_update_profile_info";
 
         /* Call aot_frame_update_profile_info for AOT or
@@ -750,6 +783,8 @@ alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 return false;
             }
 
+#if WASM_ENABLE_JIT != 0 \
+    && (WASM_ENABLE_PERF_PROFILING != 0 || WASM_ENABLE_MEMORY_PROFILING != 0)
             /* JIT mode, call the function directly */
             if (!(func = I64_CONST(
                       (uint64)(uintptr_t)llvm_jit_frame_update_profile_info))
@@ -757,6 +792,7 @@ alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 aot_set_last_error("create LLVM value failed.");
                 return false;
             }
+#endif
         }
         else if (comp_ctx->is_indirect_mode) {
             int32 func_index;
@@ -815,7 +851,7 @@ free_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     if (comp_ctx->enable_perf_profiling) {
         LLVMTypeRef param_types[2], func_type, func_ptr_type;
-        LLVMValueRef param_values[2], func, res;
+        LLVMValueRef param_values[2], func = NULL, res;
         char *func_name = "aot_frame_update_profile_info";
 
         /* call aot_frame_update_profile_info for AOT or
@@ -835,6 +871,8 @@ free_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
                 return false;
             }
 
+#if WASM_ENABLE_JIT != 0 \
+    && (WASM_ENABLE_PERF_PROFILING != 0 || WASM_ENABLE_MEMORY_PROFILING != 0)
             /* JIT mode, call the function directly */
             if (!(func = I64_CONST(
                       (uint64)(uintptr_t)llvm_jit_frame_update_profile_info))
@@ -842,6 +880,7 @@ free_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
                 aot_set_last_error("create LLVM value failed.");
                 return false;
             }
+#endif
         }
         else if (comp_ctx->is_indirect_mode) {
             int32 func_index;
@@ -878,17 +917,19 @@ free_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         }
     }
 
-    /* cur_frame = exec_env->cur_frame */
-    if (!(cur_frame = LLVMBuildLoad2(comp_ctx->builder, INT8_PTR_TYPE,
-                                     cur_frame_ptr, "cur_frame"))) {
-        aot_set_last_error("llvm build load failed");
-        return false;
-    }
+    if (comp_ctx->enable_gc) {
+        /* cur_frame = exec_env->cur_frame */
+        if (!(cur_frame = LLVMBuildLoad2(comp_ctx->builder, INT8_PTR_TYPE,
+                                         cur_frame_ptr, "cur_frame"))) {
+            aot_set_last_error("llvm build load failed");
+            return false;
+        }
 
-    /* exec_env->wasm_stack.top = cur_frame */
-    if (!LLVMBuildStore(comp_ctx->builder, cur_frame, wasm_stack_top_ptr)) {
-        aot_set_last_error("llvm build store failed");
-        return false;
+        /* exec_env->wasm_stack.top = cur_frame */
+        if (!LLVMBuildStore(comp_ctx->builder, cur_frame, wasm_stack_top_ptr)) {
+            aot_set_last_error("llvm build store failed");
+            return false;
+        }
     }
 
     /* exec_env->cur_frame = prev_frame */
@@ -900,8 +941,8 @@ free_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     return true;
 }
-#endif /* end of (WASM_ENABLE_DUMP_CALL_STACK != 0) \
-                 || (WASM_ENABLE_PERF_PROFILING != 0) */
+#endif /* end of WASM_ENABLE_AOT_STACK_FRAME != 0 || \
+          WASM_ENABLE_JIT_STACK_FRAME != 0 */
 
 /**
  * Check whether the app address and its buffer are inside the linear memory,
@@ -1138,7 +1179,7 @@ commit_params_to_frame_of_import_func(AOTCompContext *comp_ctx,
 
 bool
 aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                    uint32 func_idx, bool tail_call, const uint8 *frame_ip_call)
+                    uint32 func_idx, bool tail_call)
 {
     uint32 import_func_count = comp_ctx->comp_data->import_func_count;
     AOTImportFunc *import_funcs = comp_ctx->comp_data->import_funcs;
@@ -1179,28 +1220,27 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* Commit stack operands, sp and ip */
     if (comp_ctx->aot_frame) {
-        if (!aot_gen_commit_values(comp_ctx->aot_frame))
+        if (comp_ctx->enable_gc && !aot_gen_commit_values(comp_ctx->aot_frame))
             return false;
 
-        if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
-                                  frame_ip_call))
+        /* Commit sp if gc is enabled and commit ip for func call */
+        if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->enable_gc,
+                                  true))
             return false;
     }
 
-#if WASM_ENABLE_THREAD_MGR != 0
     /* Insert suspend check point */
     if (comp_ctx->enable_thread_mgr) {
         if (!check_suspend_flags(comp_ctx, func_ctx, true))
             return false;
     }
-#endif
 
-#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
     if (comp_ctx->enable_aux_stack_frame) {
+#if WASM_ENABLE_AOT_STACK_FRAME != 0 || WASM_ENABLE_JIT_STACK_FRAME != 0
         if (!alloc_frame_for_aot_func(comp_ctx, func_ctx, func_idx))
             return false;
-    }
 #endif
+    }
 
     /* Get param cell number */
     param_cell_num = func_type->param_cell_num;
@@ -1521,20 +1561,18 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
 
-#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
     if (comp_ctx->enable_aux_stack_frame) {
+#if WASM_ENABLE_AOT_STACK_FRAME != 0 || WASM_ENABLE_JIT_STACK_FRAME != 0
         if (!free_frame_for_aot_func(comp_ctx, func_ctx))
             goto fail;
-    }
 #endif
+    }
 
-#if WASM_ENABLE_THREAD_MGR != 0
     /* Insert suspend check point */
     if (comp_ctx->enable_thread_mgr) {
         if (!check_suspend_flags(comp_ctx, func_ctx, false))
             goto fail;
     }
-#endif
 
     ret = true;
 fail:
@@ -1705,8 +1743,7 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
 bool
 aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                             uint32 type_idx, uint32 tbl_idx,
-                             const uint8 *frame_ip_call_indirect)
+                             uint32 type_idx, uint32 tbl_idx)
 {
     AOTFuncType *func_type;
     LLVMValueRef tbl_idx_value, elem_idx, func_idx;
@@ -1755,21 +1792,20 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                                           func_type);
     /* Commit stack operands, sp and ip */
     if (comp_ctx->aot_frame) {
-        if (!aot_gen_commit_values(comp_ctx->aot_frame))
+        if (comp_ctx->enable_gc && !aot_gen_commit_values(comp_ctx->aot_frame))
             return false;
 
-        if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
-                                  frame_ip_call_indirect))
+        /* Commit sp if gc is enabled and always commit ip for call_indirect */
+        if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->enable_gc,
+                                  true))
             return false;
     }
 
-#if WASM_ENABLE_THREAD_MGR != 0
     /* Insert suspend check point */
     if (comp_ctx->enable_thread_mgr) {
         if (!check_suspend_flags(comp_ctx, func_ctx, true))
             return false;
     }
-#endif
 
     func_param_count = func_type->param_count;
     func_result_count = func_type->result_count;
@@ -2085,14 +2121,14 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
     if (comp_ctx->enable_aux_stack_frame) {
+#if WASM_ENABLE_AOT_STACK_FRAME != 0 || WASM_ENABLE_JIT_STACK_FRAME != 0
         /*  TODO: use current frame instead of allocating new frame
                   for WASM_OP_RETURN_CALL_INDIRECT */
         if (!call_aot_alloc_frame_func(comp_ctx, func_ctx, func_idx))
             goto fail;
-    }
 #endif
+    }
 
     /* Add basic blocks */
     block_call_import = LLVMAppendBasicBlockInContext(
@@ -2275,20 +2311,18 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         PUSH(result_phis[i], func_type->types[func_param_count + i]);
     }
 
-#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
     if (comp_ctx->enable_aux_stack_frame) {
+#if WASM_ENABLE_AOT_STACK_FRAME != 0 || WASM_ENABLE_JIT_STACK_FRAME != 0
         if (!free_frame_for_aot_func(comp_ctx, func_ctx))
             goto fail;
-    }
 #endif
+    }
 
-#if WASM_ENABLE_THREAD_MGR != 0
     /* Insert suspend check point */
     if (comp_ctx->enable_thread_mgr) {
         if (!check_suspend_flags(comp_ctx, func_ctx, false))
             goto fail;
     }
-#endif
 
     ret = true;
 
@@ -2354,7 +2388,7 @@ fail:
 
 bool
 aot_compile_op_ref_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                        uint32 func_idx, const uint8 *frame_ip_ref_func)
+                        uint32 func_idx)
 {
     LLVMValueRef ref_idx;
 #if WASM_ENABLE_GC != 0
@@ -2371,8 +2405,8 @@ aot_compile_op_ref_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         if (!aot_gen_commit_values(comp_ctx->aot_frame))
             return false;
 
-        if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
-                                  frame_ip_ref_func))
+        /* Commit sp and ip if gc is enabled */
+        if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, true, true))
             return false;
 
         if (!aot_call_aot_create_func_obj(comp_ctx, func_ctx, ref_idx,
@@ -2396,8 +2430,7 @@ fail:
 #if WASM_ENABLE_GC != 0
 bool
 aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                        uint32 type_idx, bool tail_call,
-                        const uint8 *frame_ip_call_ref)
+                        uint32 type_idx, bool tail_call)
 {
     AOTFuncType *func_type;
     LLVMValueRef func_obj, func_idx;
@@ -2431,21 +2464,20 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* Commit stack operands, sp and ip to aot frame */
     if (comp_ctx->aot_frame) {
+        /* Note that GC is enabled, no need to check it again */
         if (!aot_gen_commit_values(comp_ctx->aot_frame))
             return false;
 
-        if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
-                                  frame_ip_call_ref))
+        /* Commit sp if gc is enabled and always commit ip for call_ref */
+        if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, true, true))
             return false;
     }
 
-#if WASM_ENABLE_THREAD_MGR != 0
     /* Insert suspend check point */
     if (comp_ctx->enable_thread_mgr) {
         if (!check_suspend_flags(comp_ctx, func_ctx, true))
             return false;
     }
-#endif
 
     POP_GC_REF(func_obj);
 
@@ -2586,14 +2618,14 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
     if (comp_ctx->enable_aux_stack_frame) {
+#if WASM_ENABLE_AOT_STACK_FRAME != 0 || WASM_ENABLE_JIT_STACK_FRAME != 0
         /*  TODO: use current frame instead of allocating new frame
                   for WASM_OP_RETURN_CALL_REF */
         if (!call_aot_alloc_frame_func(comp_ctx, func_ctx, func_idx))
             goto fail;
-    }
 #endif
+    }
 
     /* Add basic blocks */
     block_call_import = LLVMAppendBasicBlockInContext(
@@ -2783,20 +2815,18 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         PUSH(result_phis[i], func_type->types[func_param_count + i]);
     }
 
-#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
     if (comp_ctx->enable_aux_stack_frame) {
+#if WASM_ENABLE_AOT_STACK_FRAME != 0 || WASM_ENABLE_JIT_STACK_FRAME != 0
         if (!free_frame_for_aot_func(comp_ctx, func_ctx))
             goto fail;
-    }
 #endif
+    }
 
-#if WASM_ENABLE_THREAD_MGR != 0
     /* Insert suspend check point */
     if (comp_ctx->enable_thread_mgr) {
         if (!check_suspend_flags(comp_ctx, func_ctx, false))
             goto fail;
     }
-#endif
 
     ret = true;
 

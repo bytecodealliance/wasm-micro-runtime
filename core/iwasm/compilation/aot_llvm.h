@@ -113,12 +113,12 @@ typedef struct AOTValueSlot {
 
 /* Frame information for translation */
 typedef struct AOTCompFrame {
-    /* The current wasm module */
-    WASMModule *cur_wasm_module;
     /* The current compilation context */
     struct AOTCompContext *comp_ctx;
     /* The current function context */
     struct AOTFuncContext *func_ctx;
+    /* The current instruction pointer which is being compiled */
+    const uint8 *frame_ip;
 
     /* Max local slot number */
     uint32 max_local_cell_num;
