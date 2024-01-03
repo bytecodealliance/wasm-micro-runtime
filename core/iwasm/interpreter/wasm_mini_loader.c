@@ -6720,8 +6720,6 @@ re_scan:
                                         - module->import_global_count]
                               .type;
 
-                POP_TYPE(global_type);
-
 #if WASM_ENABLE_FAST_INTERP == 0
                 if (is_64bit_type(global_type)) {
                     *p_org = WASM_OP_SET_GLOBAL_64;
@@ -6746,6 +6744,8 @@ re_scan:
                 emit_uint32(loader_ctx, global_idx);
                 POP_OFFSET_TYPE(global_type);
 #endif /* end of WASM_ENABLE_FAST_INTERP */
+
+                POP_TYPE(global_type);
 
                 (void)is_mutable;
                 break;

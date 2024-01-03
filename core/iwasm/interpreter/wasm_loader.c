@@ -8458,8 +8458,6 @@ re_scan:
                                         - module->import_global_count]
                               .type;
 
-                POP_TYPE(global_type);
-
 #if WASM_ENABLE_FAST_INTERP == 0
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {
@@ -8498,6 +8496,9 @@ re_scan:
                 emit_uint32(loader_ctx, global_idx);
                 POP_OFFSET_TYPE(global_type);
 #endif /* end of WASM_ENABLE_FAST_INTERP */
+
+                POP_TYPE(global_type);
+
                 break;
             }
 
