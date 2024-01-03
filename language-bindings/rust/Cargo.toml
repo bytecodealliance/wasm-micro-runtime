@@ -1,19 +1,10 @@
-# Copyright (C) 2023 Liquid Reply GmbH. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-
 [package]
-name = "wamr-sdk-rust"
+name = "wamr_rust_sdk"
 version = "0.1.0"
-edition = "2021"
-license = "Apache-2.0 WITH LLVM-exception"
-license-file = "../../LICENSE"
-authors = ["Sven Pfennig <s.pfennig@reply.de>"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+wamr-sys = {path = "crates/wamr-sys"}
 
-[build-dependencies]
-cc = "1.0"
-cmake = "0.1"
-bindgen = "0.66"
+[workspace]
+members = ["crates/wamr-sys"]
+

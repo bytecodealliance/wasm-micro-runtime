@@ -6,7 +6,6 @@ name = "wasi-hello"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0 WITH LLVM-exception"
-license-file = "../../../../LICENSE"
 authors = ["Sven Pfennig <s.pfennig@reply.de>"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

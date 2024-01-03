@@ -10,7 +10,8 @@ use cmake::Config;
 use std::{env, path::PathBuf};
 
 fn main() {
-    let dst = Config::new("../..").build();
+    let wamr_root = "../../../../";
+    let dst = Config::new(wamr_root).build();
 
     println!(
         "cargo:rustc-link-search=native={}",
@@ -18,10 +19,11 @@ fn main() {
     );
     println!("cargo:rustc-link-lib=vmlib");
 
+    let wamr_header = format!("{wamr_root}core/iwasm/include/wasm_export.h");
     let bindings = bindgen::Builder::default()
         .ctypes_prefix("::core::ffi")
         .use_core()
-        .header("../../core/iwasm/include/wasm_export.h")
+        .header(wamr_header)
         .generate()
         .expect("Unable to generate bindings");
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
