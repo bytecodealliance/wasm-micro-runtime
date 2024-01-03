@@ -1211,6 +1211,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                 return false;
             }
             free_if_fail = true;
+            init_values->count = field_count;
             expr->u.data = init_values;
 
             if (type_idx >= module->type_count) {
@@ -1255,26 +1256,21 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         case INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT:
         case INIT_EXPR_TYPE_ARRAY_NEW_FIXED:
         {
+            uint32 array_elem_type;
             uint32 type_idx, length;
-            AOTArrayType *array_type = NULL;
             WASMArrayNewInitValues *init_values = NULL;
 
+            /* Note: at this time the aot types haven't been loaded */
+            read_uint32(buf, buf_end, array_elem_type);
             read_uint32(buf, buf_end, type_idx);
             read_uint32(buf, buf_end, length);
 
-            if (type_idx >= module->type_count) {
-                set_error_buf(error_buf, error_buf_size, "unknown array type.");
-                goto fail;
-            }
-
-            array_type = (AOTArrayType *)module->types[type_idx];
-
             if (init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT) {
                 expr->u.array_new_default.type_index = type_idx;
-                expr->u.array_new_default.N = length;
+                expr->u.array_new_default.length = length;
             }
             else {
-
+                uint32 i, elem_size, elem_data_count;
                 uint64 size = offsetof(WASMArrayNewInitValues, elem_data)
                               + sizeof(WASMValue) * (uint64)length;
                 if (!(init_values =
@@ -1287,26 +1283,23 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                 init_values->type_idx = type_idx;
                 init_values->length = length;
 
-                if (length > 0) {
-                    uint32 i;
-                    uint32 elem_size =
-                        wasm_value_type_size(array_type->elem_type);
+                elem_data_count =
+                    (init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_FIXED) ? length
+                                                                       : 1;
+                elem_size = wasm_value_type_size((uint8)array_elem_type);
 
-                    for (i = 0; i < length; i++) {
-
-                        if (elem_size <= sizeof(uint32))
-                            read_uint32(buf, buf_end,
-                                        init_values->elem_data[i].u32);
-                        else if (elem_size == sizeof(uint64))
-                            read_uint64(buf, buf_end,
-                                        init_values->elem_data[i].u64);
-                        else if (elem_size == sizeof(uint64) * 2)
-                            read_byte_array(buf, buf_end,
-                                            &init_values->elem_data[i],
-                                            elem_size);
-                        else {
-                            bh_assert(0);
-                        }
+                for (i = 0; i < elem_data_count; i++) {
+                    if (elem_size <= sizeof(uint32))
+                        read_uint32(buf, buf_end,
+                                    init_values->elem_data[i].u32);
+                    else if (elem_size == sizeof(uint64))
+                        read_uint64(buf, buf_end,
+                                    init_values->elem_data[i].u64);
+                    else if (elem_size == sizeof(uint64) * 2)
+                        read_byte_array(buf, buf_end,
+                                        &init_values->elem_data[i], elem_size);
+                    else {
+                        bh_assert(0);
                     }
                 }
             }

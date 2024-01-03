@@ -278,7 +278,9 @@ get_init_expr_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data,
 {
     /* init_expr_type */
     uint32 size = sizeof(uint32);
+#if WASM_ENABLE_GC != 0
     WASMModule *module = comp_data->wasm_module;
+#endif
 
     /* + init value size */
     switch (expr->init_expr_type) {
@@ -322,12 +324,17 @@ get_init_expr_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data,
                 WASMStructType *struct_type =
                     (WASMStructType *)
                         module->types[struct_new_init_values->type_idx];
+                uint32 field_size;
+
                 bh_assert(struct_type);
                 bh_assert(struct_type->field_count
                           == struct_new_init_values->count);
 
-                size += wasm_value_type_size_internal(
+                field_size = wasm_value_type_size_internal(
                     struct_type->fields[i].field_type, comp_ctx->pointer_size);
+                if (field_size < sizeof(uint32))
+                    field_size = sizeof(uint32);
+                size += field_size;
             }
             break;
         }
@@ -335,31 +342,34 @@ get_init_expr_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data,
             /* type_index */
             size += sizeof(uint32);
             break;
-        case INIT_EXPR_TYPE_ARRAY_NEW:
-            /* type_index + len + elem */
-            size += sizeof(uint32) * 2 + sizeof(WASMValue);
-            break;
         case INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT:
-            /* type_index + len */
-            size += sizeof(uint32) * 2;
+            /* array_elem_type + type_index + len */
+            size += sizeof(uint32) * 3;
             break;
+        case INIT_EXPR_TYPE_ARRAY_NEW:
         case INIT_EXPR_TYPE_ARRAY_NEW_FIXED:
         {
             WASMArrayNewInitValues *array_new_init_values =
                 (WASMArrayNewInitValues *)expr->u.data;
             WASMArrayType *array_type = NULL;
-
-            bh_assert(array_type);
-            bh_assert(array_new_init_values->type_idx < module->type_count);
+            uint32 value_count;
 
             array_type =
                 (WASMArrayType *)module->types[array_new_init_values->type_idx];
 
-            /* type_index + len + elems */
-            size += sizeof(uint32) * 2
-                    + array_new_init_values->length
-                          * wasm_value_type_size_internal(
-                              array_type->elem_type, comp_ctx->pointer_size);
+            bh_assert(array_type);
+            bh_assert(array_new_init_values->type_idx < module->type_count);
+
+            value_count =
+                (expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_FIXED)
+                    ? array_new_init_values->length
+                    : 1;
+
+            /* array_elem_type + type_index + len + elems */
+            size += sizeof(uint32) * 3
+                    + wasm_value_type_size_internal(array_type->elem_type,
+                                                    comp_ctx->pointer_size)
+                          * value_count;
             break;
         }
 #endif /* end of WASM_ENABLE_GC != 0 */
@@ -1790,7 +1800,9 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                    AOTCompContext *comp_ctx, InitializerExpression *expr)
 {
     uint32 offset = *p_offset;
+#if WASM_ENABLE_GC != 0
     WASMModule *module = comp_ctx->comp_data->wasm_module;
+#endif
 
     *p_offset = offset = align_uint(offset, 4);
 
@@ -1857,37 +1869,53 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         case INIT_EXPR_TYPE_STRUCT_NEW_DEFAULT:
             EMIT_U32(expr->u.type_index);
             break;
-        case INIT_EXPR_TYPE_ARRAY_NEW:
         case INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT:
+        {
+            WASMArrayType *array_type = NULL;
+
+            bh_assert(expr->u.array_new_default.type_index
+                      < module->type_count);
+            array_type =
+                (WASMArrayType *)
+                    module->types[expr->u.array_new_default.type_index];
+
+            EMIT_U32(array_type->elem_type);
+            EMIT_U32(expr->u.array_new_default.type_index);
+            EMIT_U32(expr->u.array_new_default.length);
+            break;
+        }
+        case INIT_EXPR_TYPE_ARRAY_NEW:
         case INIT_EXPR_TYPE_ARRAY_NEW_FIXED:
         {
-            uint32 i;
+            uint32 value_count, i, field_size;
             WASMArrayNewInitValues *init_values =
                 (WASMArrayNewInitValues *)expr->u.data;
             WASMArrayType *array_type = NULL;
 
+            bh_assert(init_values->type_idx < module->type_count);
+            array_type = (WASMArrayType *)module->types[init_values->type_idx];
+
+            EMIT_U32(array_type->elem_type);
             EMIT_U32(init_values->type_idx);
             EMIT_U32(init_values->length);
 
-            bh_assert(init_values->type_idx < module->type_count);
+            value_count =
+                (expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_FIXED)
+                    ? init_values->length
+                    : 1;
 
-            array_type = (WASMArrayType *)module->types[init_values->type_idx];
+            field_size = wasm_value_type_size_internal(array_type->elem_type,
+                                                       comp_ctx->pointer_size);
 
-            bh_assert(array_type);
-
-            if (expr->init_expr_type != INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT) {
-                uint32 field_size = wasm_value_type_size_internal(
-                    array_type->elem_type, comp_ctx->pointer_size);
-                for (i = 0; i < init_values->length; i++) {
-                    if (field_size <= sizeof(uint32))
-                        EMIT_U32(init_values->elem_data[i].u32);
-                    else if (field_size == sizeof(uint64))
-                        EMIT_U64(init_values->elem_data[i].u64);
-                    else if (field_size == sizeof(uint64) * 2)
-                        EMIT_V128(init_values->elem_data[i].v128);
-                    else {
-                        bh_assert(0);
-                    }
+            for (i = 0; i < value_count; i++) {
+                if (field_size <= sizeof(uint32))
+                    EMIT_U32(init_values->elem_data[i].u32);
+                else if (field_size == sizeof(uint64))
+                    EMIT_U64(init_values->elem_data[i].u64);
+                else if (field_size == sizeof(uint64) * 2)
+                    EMIT_V128(init_values->elem_data[i].v128);
+                else {
+                    bh_assert(0);
                 }
             }
             break;

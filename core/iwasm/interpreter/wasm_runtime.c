@@ -968,7 +968,7 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
 
                 if (flag == INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT) {
                     type_idx = init_expr->u.array_new_default.type_index;
-                    len = init_expr->u.array_new_default.N;
+                    len = init_expr->u.array_new_default.length;
                     arr_init_val = &empty_val;
                 }
                 else {
@@ -2106,8 +2106,8 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 #endif
 #if WASM_ENABLE_GC != 0
                 case VALUE_TYPE_EXTERNREF:
-                    /* UINT32_MAX indicates that it is an null reference */
-                    bh_assert((uint32)global->initial_value.i32 == UINT32_MAX);
+                    /* the initial value should be a null reference */
+                    bh_assert(global->initial_value.gc_obj == NULL_REF);
                     STORE_PTR((void **)global_data, NULL_REF);
                     global_data += sizeof(void *);
                     break;
@@ -2143,7 +2143,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                             NULL, module_inst->module->types,
                             module_inst->module->type_count)) {
                         WASMFuncObjectRef func_obj = NULL;
-                        /* UINT32_MAX indicates that it is an null reference */
+                        /* UINT32_MAX indicates that it is a null reference */
                         if ((uint32)global->initial_value.i32 != UINT32_MAX) {
                             if (!(func_obj = wasm_create_func_obj(
                                       module_inst, global->initial_value.i32,
@@ -2474,7 +2474,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 #else
                     WASMFuncObjectRef func_obj;
                     uint32 func_idx = init_expr->u.ref_index;
-                    /* UINT32_MAX indicates that it is an null reference */
+                    /* UINT32_MAX indicates that it is a null reference */
                     if (func_idx != UINT32_MAX) {
                         if (!(func_obj = wasm_create_func_obj(
                                   module_inst, func_idx, false, error_buf,
@@ -2569,7 +2569,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
                     if (flag == INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT) {
                         type_idx = init_expr->u.array_new_default.type_index;
-                        len = init_expr->u.array_new_default.N;
+                        len = init_expr->u.array_new_default.length;
                         arr_init_val = &empty_val;
                     }
                     else {
@@ -2578,7 +2578,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                         type_idx = init_values->type_idx;
                         len = init_values->length;
 
-                        if (flag == INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT) {
+                        if (flag == INIT_EXPR_TYPE_ARRAY_NEW_FIXED) {
                             arr_init_val = init_values->elem_data;
                         }
                     }
@@ -2635,8 +2635,14 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
     if (stack_size == 0)
         stack_size = DEFAULT_WASM_STACK_SIZE;
 #if WASM_ENABLE_SPEC_TEST != 0
+#if WASM_ENABLE_TAIL_CALL == 0
     if (stack_size < 128 * 1024)
         stack_size = 128 * 1024;
+#else
+    /* Some tail-call cases require large operand stack */
+    if (stack_size < 10 * 1024 * 1024)
+        stack_size = 10 * 1024 * 1024;
+#endif
 #endif
     module_inst->default_wasm_stack_size = stack_size;
 

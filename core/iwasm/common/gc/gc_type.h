@@ -225,21 +225,21 @@ wasm_is_reftype_arrayref(uint8 type)
     return type == (uint8)REF_TYPE_ARRAYREF ? true : false;
 }
 
-/* Whether a reference type is an nullref type */
+/* Whether a reference type is a nullref type */
 inline static bool
 wasm_is_reftype_nullref(uint8 type)
 {
     return type == (uint8)REF_TYPE_NULLREF ? true : false;
 }
 
-/* Whether a reference type is an nullfuncref type */
+/* Whether a reference type is a nullfuncref type */
 inline static bool
 wasm_is_reftype_nullfuncref(uint8 type)
 {
     return type == (uint8)REF_TYPE_NULLFUNCREF ? true : false;
 }
 
-/* Whether a reference type is an nullexternref type */
+/* Whether a reference type is a nullexternref type */
 inline static bool
 wasm_is_reftype_nullexternref(uint8 type)
 {

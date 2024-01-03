@@ -313,7 +313,7 @@ assign_table_init_value(AOTModuleInstance *module_inst, AOTModule *module,
 
             if (flag == INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT) {
                 type_idx = init_expr->u.array_new_default.type_index;
-                len = init_expr->u.array_new_default.N;
+                len = init_expr->u.array_new_default.length;
                 arr_init_val = &empty_val;
             }
             else {
@@ -337,8 +337,9 @@ assign_table_init_value(AOTModuleInstance *module_inst, AOTModule *module,
             }
 
             if (!(array_obj = wasm_array_obj_new_internal(
-                      module_inst->e->common.gc_heap_handle, rtt_type, len,
-                      arr_init_val))) {
+                      ((AOTModuleInstanceExtra *)module_inst->e)
+                          ->common.gc_heap_handle,
+                      rtt_type, len, arr_init_val))) {
                 set_error_buf(error_buf, error_buf_size,
                               "create array object failed");
                 return false;
@@ -523,7 +524,7 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
                 if (flag == INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT) {
                     type_idx = init_expr->u.array_new_default.type_index;
-                    len = init_expr->u.array_new_default.N;
+                    len = init_expr->u.array_new_default.length;
                     arr_init_val = &empty_val;
                 }
                 else {
@@ -547,8 +548,9 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                 }
 
                 if (!(array_obj = wasm_array_obj_new_internal(
-                          module_inst->e->common.gc_heap_handle, rtt_type, len,
-                          arr_init_val))) {
+                          ((AOTModuleInstanceExtra *)module_inst->e)
+                              ->common.gc_heap_handle,
+                          rtt_type, len, arr_init_val))) {
                     set_error_buf(error_buf, error_buf_size,
                                   "create array object failed");
                     return false;
@@ -1684,8 +1686,14 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     if (stack_size == 0)
         stack_size = DEFAULT_WASM_STACK_SIZE;
 #if WASM_ENABLE_SPEC_TEST != 0
+#if WASM_ENABLE_TAIL_CALL == 0
     if (stack_size < 128 * 1024)
         stack_size = 128 * 1024;
+#else
+    /* Some tail-call cases require large operand stack */
+    if (stack_size < 10 * 1024 * 1024)
+        stack_size = 10 * 1024 * 1024;
+#endif
 #endif
     module_inst->default_wasm_stack_size = stack_size;
 
@@ -3512,8 +3520,7 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     frame = wasm_exec_env_alloc_wasm_frame(exec_env, frame_size);
 
     if (!frame) {
-        aot_set_exception((AOTModuleInstance *)exec_env->module_inst,
-                          "wasm operand stack overflow");
+        aot_set_exception(module_inst, "wasm operand stack overflow");
         return false;
     }
 
@@ -3669,7 +3676,6 @@ aot_create_call_stack(struct WASMExecEnv *exec_env)
             }
             bh_memcpy_s(frame.lp, lp_size, cur_frame->lp, lp_size);
 
-            /* Only save frame sp when fast-interpr isn't enabled */
             frame.sp = frame.lp + (cur_frame->sp - cur_frame->lp);
 #if WASM_ENABLE_GC != 0
             frame.frame_ref = (uint8 *)frame.lp

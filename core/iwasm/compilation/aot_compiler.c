@@ -684,7 +684,6 @@ init_comp_frame(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 uint32 func_idx)
 {
     AOTCompFrame *aot_frame;
-    WASMModule *wasm_module = comp_ctx->comp_data->wasm_module;
     AOTFunc *aot_func = func_ctx->aot_func;
     AOTFuncType *func_type = aot_func->func_type;
     AOTBlock *block = func_ctx->block_stack.block_list_end;
@@ -719,7 +718,6 @@ init_comp_frame(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
     memset(aot_frame, 0, (uint32)total_size);
 
-    aot_frame->cur_wasm_module = wasm_module;
     aot_frame->comp_ctx = comp_ctx;
     aot_frame->func_ctx = func_ctx;
 
