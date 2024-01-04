@@ -440,6 +440,12 @@ function spec_test()
         git reset --hard 0caaadc65b5e1910512d8ae228502edcf9d60390
         git apply ../../spec-test-script/gc_ignore_cases.patch
 
+        if [[ ${ENABLE_QEMU} == 1 ]]; then
+            # Decrease the recursive count for tail call cases as nuttx qemu's
+            # native stack size is much smaller
+            git apply ../../spec-test-script/gc_nuttx_tail_call.patch
+        fi
+
         echo "compile the reference intepreter"
         pushd interpreter
         make
