@@ -44,7 +44,7 @@ wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
 #endif
 
 #if WASM_ENABLE_THREAD_MGR != 0
-    if (os_mutex_init(&exec_env->wait_lock) != 0)
+    if (os_recursive_mutex_init(&exec_env->wait_lock) != 0)
         goto fail2;
 
     if (os_cond_init(&exec_env->wait_cond) != 0)
