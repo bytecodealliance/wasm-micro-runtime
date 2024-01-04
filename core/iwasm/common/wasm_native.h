@@ -104,6 +104,11 @@ wasm_native_init();
 void
 wasm_native_destroy();
 
+#if WASM_ENABLE_INVOKE_NATIVE_QUICK != 0
+void *
+wasm_native_lookup_invoke_native_quick(const WASMType *func_type);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

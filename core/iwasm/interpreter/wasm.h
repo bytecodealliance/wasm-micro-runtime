@@ -130,6 +130,11 @@ typedef struct WASMType {
        kind of function type from fast jit jitted code */
     void *call_to_llvm_jit_from_fast_jit;
 #endif
+#if WASM_ENABLE_INVOKE_NATIVE_QUICK != 0
+    /* Call wrapper to quick invoke AOT/JIT function
+       of this func type */
+    void *invoke_native_quick;
+#endif
     /* types of params and results */
     uint8 types[1];
 } WASMType;

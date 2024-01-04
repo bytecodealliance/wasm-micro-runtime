@@ -4199,12 +4199,28 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
         ret = true;
     }
     else {
-        ret = wasm_runtime_invoke_native(
-            exec_env, module_inst->func_ptrs[func_idx], func_type, NULL, NULL,
-            argv, argc, argv);
-
-        if (ret)
+#if WASM_ENABLE_INVOKE_NATIVE_QUICK != 0
+        if (func_type->invoke_native_quick) {
+            void (*invoke_native)(
+                void *func_ptr, uint8 ret_type, void *exec_env, uint32 *argv,
+                uint32 *argv_ret) = func_type->invoke_native_quick;
+            invoke_native(module_inst->func_ptrs[func_idx],
+                          func_type->result_count > 0
+                              ? func_type->types[func_type->param_count]
+                              : VALUE_TYPE_VOID,
+                          exec_env, argv, argv);
             ret = !wasm_copy_exception(module_inst, NULL);
+        }
+        else
+#endif
+        {
+            ret = wasm_runtime_invoke_native(
+                exec_env, module_inst->func_ptrs[func_idx], func_type, NULL,
+                NULL, argv, argc, argv);
+
+            if (ret)
+                ret = !wasm_copy_exception(module_inst, NULL);
+        }
     }
 
 fail:
