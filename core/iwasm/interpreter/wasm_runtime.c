@@ -2635,7 +2635,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
     if (stack_size == 0)
         stack_size = DEFAULT_WASM_STACK_SIZE;
 #if WASM_ENABLE_SPEC_TEST != 0
-#if WASM_ENABLE_GC == 0
+#if WASM_ENABLE_TAIL_CALL == 0
     if (stack_size < 128 * 1024)
         stack_size = 128 * 1024;
 #else
