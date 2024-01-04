@@ -1583,7 +1583,6 @@ static InvokeQuick invoke_quicks[] = {
 };
 /* clang-format on */
 
-
 static int
 invoke_quick_cmp(const void *invoke_quick1, const void *invoke_quick2)
 {
@@ -1595,8 +1594,8 @@ invoke_quick_cmp(const void *invoke_quick1, const void *invoke_quick2)
 static bool
 invoke_native_quick_init()
 {
-    qsort(invoke_quicks, sizeof(invoke_quicks) / sizeof(InvokeQuick), sizeof(InvokeQuick),
-          invoke_quick_cmp);
+    qsort(invoke_quicks, sizeof(invoke_quicks) / sizeof(InvokeQuick),
+          sizeof(InvokeQuick), invoke_quick_cmp);
 
     return true;
 }

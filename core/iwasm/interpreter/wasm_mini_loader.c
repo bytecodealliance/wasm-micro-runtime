@@ -419,7 +419,8 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             type->ret_cell_num = (uint16)ret_cell_num;
 
 #if WASM_ENABLE_INVOKE_NATIVE_QUICK != 0
-            type->invoke_native_quick = wasm_native_lookup_invoke_native_quick(type);
+            type->invoke_native_quick =
+                wasm_native_lookup_invoke_native_quick(type);
 #endif
 
             /* If there is already a same type created, use it instead */
