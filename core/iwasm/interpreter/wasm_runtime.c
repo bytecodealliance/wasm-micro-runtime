@@ -3735,7 +3735,8 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env, bool print, char *buf,
 
         /* function name not exported, print number instead */
 #if WASM_ENABLE_FAST_JIT != 0
-        if (module_inst->e->running_mode == Mode_Fast_JIT) {
+        if (module_inst->e->running_mode == Mode_Fast_JIT
+            || module_inst->e->running_mode == Mode_Multi_Tier_JIT) {
             /* Fast JIT doesn't support committing ip (instruction
                pointer) yet */
             if (frame.func_name_wp == NULL) {

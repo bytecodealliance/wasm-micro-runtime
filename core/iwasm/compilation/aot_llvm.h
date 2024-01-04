@@ -243,6 +243,8 @@ typedef struct AOTFuncContext {
     LLVMBasicBlockRef got_exception_block;
     LLVMBasicBlockRef func_return_block;
     LLVMValueRef exception_id_phi;
+    /* current ip when exception is thrown */
+    LLVMValueRef exception_ip_phi;
     LLVMValueRef func_type_indexes;
 #if WASM_ENABLE_DEBUG_AOT != 0
     LLVMMetadataRef debug_func;
