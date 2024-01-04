@@ -2444,7 +2444,21 @@ wasm_dump_perf_profiling(const WASMModuleInstance *module_inst)
                       module_inst->e->functions[i].total_exec_cnt);
     }
 }
-#endif
+
+double
+wasm_summarize_wasm_execute_time(const WASMModuleInstance *inst)
+{
+    double ret = 0;
+
+    unsigned i;
+    for (i = 0; i < inst->e->function_count; i++) {
+        WASMFunctionInstance *func = inst->e->functions + i;
+        ret += func->total_exec_time / 1000.0f;
+    }
+
+    return ret;
+}
+#endif /*WASM_ENABLE_PERF_PROFILING != 0*/
 
 uint32
 wasm_module_malloc_internal(WASMModuleInstance *module_inst,

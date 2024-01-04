@@ -2987,6 +2987,21 @@ aot_dump_perf_profiling(const AOTModuleInstance *module_inst)
                       perf_prof->total_exec_cnt);
     }
 }
+
+double
+aot_summarize_wasm_execute_time(const AOTModuleInstance *inst)
+{
+    double ret = 0;
+
+    unsigned i;
+    for (i = 0; i < inst->e->function_count; i++) {
+        AOTFuncPerfProfInfo *perf_prof =
+            (AOTFuncPerfProfInfo *)inst->func_perf_profilings + i;
+        ret += perf_prof->total_exec_time / 1000.0f;
+    }
+
+    return ret;
+}
 #endif /* end of WASM_ENABLE_PERF_PROFILING */
 
 #if WASM_ENABLE_STATIC_PGO != 0

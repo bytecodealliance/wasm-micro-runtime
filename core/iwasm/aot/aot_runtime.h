@@ -613,6 +613,9 @@ aot_dump_call_stack(WASMExecEnv *exec_env, bool print, char *buf, uint32 len);
 void
 aot_dump_perf_profiling(const AOTModuleInstance *module_inst);
 
+double
+aot_summarize_wasm_execute_time(const AOTModuleInstance *inst);
+
 const uint8 *
 aot_get_custom_section(const AOTModule *module, const char *name, uint32 *len);
 
