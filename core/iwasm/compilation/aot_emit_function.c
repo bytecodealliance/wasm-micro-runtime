@@ -89,7 +89,7 @@ check_exception_thrown(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         return false;
     }
 
-    /* Add check exection success block */
+    /* Add check exception success block */
     if (!(check_exce_succ = LLVMAppendBasicBlockInContext(
               comp_ctx->context, func_ctx->func, "check_exce_succ"))) {
         aot_set_last_error("llvm add basic block failed.");
@@ -129,7 +129,7 @@ check_call_return(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
-    /* Add check exection success block */
+    /* Add check exception success block */
     if (!(check_call_succ = LLVMAppendBasicBlockInContext(
               comp_ctx->context, func_ctx->func, "check_call_succ"))) {
         aot_set_last_error("llvm add basic block failed.");

@@ -73,7 +73,7 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         LLVMPositionBuilderAtEnd(comp_ctx->builder,
                                  func_ctx->got_exception_block);
 
-        /* Create exection id phi */
+        /* Create exception id phi */
         if (!(func_ctx->exception_id_phi = LLVMBuildPhi(
                   comp_ctx->builder, I32_TYPE, "exception_id_phi"))) {
             aot_set_last_error("llvm build phi failed.");
@@ -81,7 +81,7 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
 
         if (comp_ctx->aot_frame) {
-            /* Create exection ip phi */
+            /* Create exception ip phi */
             if (!(func_ctx->exception_ip_phi = LLVMBuildPhi(
                       comp_ctx->builder, is_64bit ? I64_TYPE : I32_TYPE,
                       "exception_ip_phi"))) {
