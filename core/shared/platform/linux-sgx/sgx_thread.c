@@ -82,6 +82,12 @@ os_mutex_init(korp_mutex *mutex)
 }
 
 int
+os_recursive_mutex_init(korp_mutex *mutex)
+{
+    return os_mutex_init(mutex);
+}
+
+int
 os_mutex_destroy(korp_mutex *mutex)
 {
 #ifndef SGX_DISABLE_PTHREAD
