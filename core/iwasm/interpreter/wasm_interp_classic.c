@@ -4199,11 +4199,12 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
         ret = true;
     }
     else {
-#if WASM_ENABLE_INVOKE_NATIVE_QUICK != 0
-        if (func_type->invoke_native_quick) {
+#if WASM_ENABLE_QUICK_AOT_ENTRY != 0
+        /* Quick call if the quick jit entry is registered */
+        if (func_type->quick_aot_entry) {
             void (*invoke_native)(
                 void *func_ptr, uint8 ret_type, void *exec_env, uint32 *argv,
-                uint32 *argv_ret) = func_type->invoke_native_quick;
+                uint32 *argv_ret) = func_type->quick_aot_entry;
             invoke_native(module_inst->func_ptrs[func_idx],
                           func_type->result_count > 0
                               ? func_type->types[func_type->param_count]

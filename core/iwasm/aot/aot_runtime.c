@@ -1423,12 +1423,12 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
 
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
-#if WASM_ENABLE_INVOKE_NATIVE_QUICK != 0
-        /* Quick call with func_ptr if the wrapper is registered */
-        if (!signature && func_type->invoke_native_quick) {
+#if WASM_ENABLE_QUICK_AOT_ENTRY != 0
+        /* Quick call if the quick aot entry is registered */
+        if (!signature && func_type->quick_aot_entry) {
             void (*invoke_native)(
                 void *func_ptr, uint8 ret_type, void *exec_env, uint32 *argv,
-                uint32 *argv_ret) = func_type->invoke_native_quick;
+                uint32 *argv_ret) = func_type->quick_aot_entry;
             invoke_native(func_ptr,
                           func_type->result_count > 0
                               ? func_type->types[func_type->param_count]

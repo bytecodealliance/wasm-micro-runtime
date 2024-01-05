@@ -16,19 +16,6 @@
 #include "../libraries/thread-mgr/thread_manager.h"
 #endif
 
-#if !defined(BH_PLATFORM_ZEPHYR) && !defined(BH_PLATFORM_ALIOS_THINGS) \
-    && !defined(BH_PLATFORM_OPENRTOS) && !defined(BH_PLATFORM_ESP_IDF)
-#define ENABLE_QUICKSORT 1
-#else
-#define ENABLE_QUICKSORT 0
-#endif
-
-#define ENABLE_SORT_DEBUG 0
-
-#if ENABLE_SORT_DEBUG != 0
-#include <sys/time.h>
-#endif
-
 static NativeSymbolsList g_native_symbols_list = NULL;
 
 #if WASM_ENABLE_LIBC_WASI != 0
@@ -171,93 +158,26 @@ check_symbol_signature(const WASMType *type, const char *signature)
     return true;
 }
 
-#if ENABLE_QUICKSORT == 0
-static void
-sort_symbol_ptr(NativeSymbol *native_symbols, uint32 n_native_symbols)
+static int
+native_symbol_cmp(const void *native_symbol1, const void *native_symbol2)
 {
-    uint32 i, j;
-    NativeSymbol temp;
-
-    for (i = 0; i < n_native_symbols - 1; i++) {
-        for (j = i + 1; j < n_native_symbols; j++) {
-            if (strcmp(native_symbols[i].symbol, native_symbols[j].symbol)
-                > 0) {
-                temp = native_symbols[i];
-                native_symbols[i] = native_symbols[j];
-                native_symbols[j] = temp;
-            }
-        }
-    }
+    return strcmp(((const NativeSymbol *)native_symbol1)->symbol,
+                  ((const NativeSymbol *)native_symbol2)->symbol);
 }
-#else
-static void
-swap_symbol(NativeSymbol *left, NativeSymbol *right)
-{
-    NativeSymbol temp = *left;
-    *left = *right;
-    *right = temp;
-}
-
-static void
-quick_sort_symbols(NativeSymbol *native_symbols, int left, int right)
-{
-    NativeSymbol base_symbol;
-    int pin_left = left;
-    int pin_right = right;
-
-    if (left >= right) {
-        return;
-    }
-
-    base_symbol = native_symbols[left];
-    while (left < right) {
-        while (left < right
-               && strcmp(native_symbols[right].symbol, base_symbol.symbol)
-                      > 0) {
-            right--;
-        }
-
-        if (left < right) {
-            swap_symbol(&native_symbols[left], &native_symbols[right]);
-            left++;
-        }
-
-        while (left < right
-               && strcmp(native_symbols[left].symbol, base_symbol.symbol) < 0) {
-            left++;
-        }
-
-        if (left < right) {
-            swap_symbol(&native_symbols[left], &native_symbols[right]);
-            right--;
-        }
-    }
-    native_symbols[left] = base_symbol;
-
-    quick_sort_symbols(native_symbols, pin_left, left - 1);
-    quick_sort_symbols(native_symbols, left + 1, pin_right);
-}
-#endif /* end of ENABLE_QUICKSORT */
 
 static void *
 lookup_symbol(NativeSymbol *native_symbols, uint32 n_native_symbols,
               const char *symbol, const char **p_signature, void **p_attachment)
 {
-    int low = 0, mid, ret;
-    int high = (int32)n_native_symbols - 1;
+    NativeSymbol *native_symbol, key = { 0 };
 
-    while (low <= high) {
-        mid = (low + high) / 2;
-        ret = strcmp(symbol, native_symbols[mid].symbol);
-        if (ret == 0) {
-            *p_signature = native_symbols[mid].signature;
-            *p_attachment = native_symbols[mid].attachment;
-            return native_symbols[mid].func_ptr;
-        }
-        else if (ret < 0)
-            high = mid - 1;
-        else
-            low = mid + 1;
+    key.symbol = symbol;
+
+    if ((native_symbol = bsearch(&key, native_symbols, n_native_symbols,
+                                 sizeof(NativeSymbol), native_symbol_cmp))) {
+        *p_signature = native_symbol->signature;
+        *p_attachment = native_symbol->attachment;
+        return native_symbols->func_ptr;
     }
 
     return NULL;
@@ -328,11 +248,6 @@ register_natives(const char *module_name, NativeSymbol *native_symbols,
                  uint32 n_native_symbols, bool call_conv_raw)
 {
     NativeSymbolsNode *node;
-#if ENABLE_SORT_DEBUG != 0
-    struct timeval start;
-    struct timeval end;
-    unsigned long timer;
-#endif
 
     if (!(node = wasm_runtime_malloc(sizeof(NativeSymbolsNode))))
         return false;
@@ -349,23 +264,9 @@ register_natives(const char *module_name, NativeSymbol *native_symbols,
     node->next = g_native_symbols_list;
     g_native_symbols_list = node;
 
-#if ENABLE_SORT_DEBUG != 0
-    gettimeofday(&start, NULL);
-#endif
+    qsort(native_symbols, n_native_symbols, sizeof(NativeSymbol),
+          native_symbol_cmp);
 
-#if ENABLE_QUICKSORT == 0
-    sort_symbol_ptr(native_symbols, n_native_symbols);
-#else
-    quick_sort_symbols(native_symbols, 0, (int)(n_native_symbols - 1));
-#endif
-
-#if ENABLE_SORT_DEBUG != 0
-    gettimeofday(&end, NULL);
-    timer =
-        1000000 * (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec);
-    LOG_ERROR("module_name: %s, nums: %d, sorted used: %ld us", module_name,
-              n_native_symbols, timer);
-#endif
     return true;
 }
 
@@ -555,9 +456,9 @@ wasi_context_dtor(WASMModuleInstanceCommon *inst, void *ctx)
 }
 #endif /* end of WASM_ENABLE_LIBC_WASI */
 
-#if WASM_ENABLE_INVOKE_NATIVE_QUICK != 0
+#if WASM_ENABLE_QUICK_AOT_ENTRY != 0
 static bool
-invoke_native_quick_init();
+quick_aot_entry_init();
 #endif
 
 bool
@@ -660,8 +561,8 @@ wasm_native_init()
         goto fail;
 #endif
 
-#if WASM_ENABLE_INVOKE_NATIVE_QUICK != 0
-    if (!invoke_native_quick_init()) {
+#if WASM_ENABLE_QUICK_AOT_ENTRY != 0
+    if (!quick_aot_entry_init()) {
 #if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_LIBC_BUILTIN != 0     \
     || WASM_ENABLE_BASE_LIB != 0 || WASM_ENABLE_LIBC_EMCC != 0      \
     || WASM_ENABLE_LIB_RATS != 0 || WASM_ENABLE_WASI_NN != 0        \
@@ -715,7 +616,7 @@ wasm_native_destroy()
     g_native_symbols_list = NULL;
 }
 
-#if WASM_ENABLE_INVOKE_NATIVE_QUICK != 0
+#if WASM_ENABLE_QUICK_AOT_ENTRY != 0
 static void
 invoke_no_args_v(void *func_ptr, uint8 ret_type, void *exec_env, uint32 *argv,
                  uint32 *argv_ret)
@@ -1534,13 +1435,13 @@ invoke_iiiii_I(void *func_ptr, uint8 ret_type, void *exec_env, uint32 *argv,
     PUT_I64_TO_ADDR(argv_ret, ret);
 }
 
-typedef struct InvokeQuick {
+typedef struct QuickAOTEntry {
     const char *signature;
     void *func_ptr;
-} InvokeQuick;
+} QuickAOTEntry;
 
 /* clang-format off */
-static InvokeQuick invoke_quicks[] = {
+static QuickAOTEntry quick_aot_entries[] = {
     { "()v", invoke_no_args_v },
     { "()i", invoke_no_args_i },
     { "()I", invoke_no_args_I },
@@ -1584,30 +1485,29 @@ static InvokeQuick invoke_quicks[] = {
 /* clang-format on */
 
 static int
-invoke_quick_cmp(const void *invoke_quick1, const void *invoke_quick2)
+quick_aot_entry_cmp(const void *quick_aot_entry1, const void *quick_aot_entry2)
 {
-
-    return strcmp(((const InvokeQuick *)invoke_quick1)->signature,
-                  ((const InvokeQuick *)invoke_quick2)->signature);
+    return strcmp(((const QuickAOTEntry *)quick_aot_entry1)->signature,
+                  ((const QuickAOTEntry *)quick_aot_entry2)->signature);
 }
 
 static bool
-invoke_native_quick_init()
+quick_aot_entry_init()
 {
-    qsort(invoke_quicks, sizeof(invoke_quicks) / sizeof(InvokeQuick),
-          sizeof(InvokeQuick), invoke_quick_cmp);
+    qsort(quick_aot_entries, sizeof(quick_aot_entries) / sizeof(QuickAOTEntry),
+          sizeof(QuickAOTEntry), quick_aot_entry_cmp);
 
     return true;
 }
 
 void *
-wasm_native_lookup_invoke_native_quick(const WASMType *func_type)
+wasm_native_lookup_quick_aot_entry(const WASMType *func_type)
 {
     char signature[16] = { 0 };
     uint32 param_count = func_type->param_count;
     uint32 result_count = func_type->result_count, i, j = 0;
     const uint8 *types = func_type->types;
-    int low, high, mid, ret;
+    QuickAOTEntry *quick_aot_entry, key = { 0 };
 
     if (param_count > 5 || result_count > 1)
         return NULL;
@@ -1637,21 +1537,14 @@ wasm_native_lookup_invoke_native_quick(const WASMType *func_type)
             return NULL;
     }
 
-    low = 0;
-    high = (int32)sizeof(invoke_quicks) / sizeof(InvokeQuick) - 1;
-
-    while (low <= high) {
-        mid = (low + high) / 2;
-        ret = strcmp(signature, invoke_quicks[mid].signature);
-        if (ret == 0) {
-            return invoke_quicks[mid].func_ptr;
-        }
-        else if (ret < 0)
-            high = mid - 1;
-        else
-            low = mid + 1;
+    key.signature = signature;
+    if ((quick_aot_entry =
+             bsearch(&key, quick_aot_entries,
+                     sizeof(quick_aot_entries) / sizeof(QuickAOTEntry),
+                     sizeof(QuickAOTEntry), quick_aot_entry_cmp))) {
+        return quick_aot_entry->func_ptr;
     }
 
     return NULL;
 }
-#endif /* end of WASM_ENABLE_INVOKE_NATIVE_QUICK != 0 */
+#endif /* end of WASM_ENABLE_QUICK_AOT_ENTRY != 0 */
