@@ -5677,7 +5677,7 @@ wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
     wasm_val_t *params = params_buf, *results = results_buf;
     wasm_trap_t *trap = NULL;
     bool ret = false;
-    wasm_val_vec_t params_vec, results_vec;
+    wasm_val_vec_t params_vec = { 0 }, results_vec = { 0 };
 
     if (func_type->param_count > 16) {
         if (!(params =
@@ -5705,12 +5705,10 @@ wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
     params_vec.data = params;
     params_vec.num_elems = func_type->param_count;
     params_vec.size = func_type->param_count;
-    params_vec.size_of_elem = sizeof(wasm_val_t);
 
     results_vec.data = results;
     results_vec.num_elems = 0;
     results_vec.size = func_type->result_count;
-    results_vec.size_of_elem = sizeof(wasm_val_t);
 
     if (!with_env) {
         wasm_func_callback_t callback = (wasm_func_callback_t)func_ptr;
@@ -5746,7 +5744,6 @@ wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
         wasm_runtime_set_exception(module_inst, "unsupported result type");
         goto fail;
     }
-    results_vec.num_elems = func_type->result_count;
     ret = true;
 
 fail:
@@ -5761,19 +5758,21 @@ bool
 wasm_runtime_quick_invoke_c_api_native(WASMModuleInstanceCommon *inst_comm,
                                        CApiFuncImport *c_api_import,
                                        wasm_val_t *params, uint32 param_count,
-                                       wasm_val_t *results)
+                                       wasm_val_t *results, uint32 result_count)
 {
     WASMModuleInstance *module_inst = (WASMModuleInstance *)inst_comm;
     void *func_ptr = c_api_import->func_ptr_linked;
     bool with_env_arg = c_api_import->with_env_arg, ret = true;
-    wasm_val_vec_t params_vec, results_vec;
+    wasm_val_vec_t params_vec = { 0 }, results_vec = { 0 };
     wasm_trap_t *trap = NULL;
 
     params_vec.data = params;
     params_vec.num_elems = param_count;
+    params_vec.size = param_count;
 
     results_vec.data = results;
     results_vec.num_elems = 0;
+    results_vec.size = result_count;
 
     if (!func_ptr) {
         wasm_set_exception_with_id(module_inst, EXCE_CALL_UNLINKED_IMPORT_FUNC);

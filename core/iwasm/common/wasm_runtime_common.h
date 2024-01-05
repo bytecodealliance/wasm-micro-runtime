@@ -1087,7 +1087,8 @@ bool
 wasm_runtime_quick_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
                                        struct CApiFuncImport *c_api_import,
                                        wasm_val_t *params, uint32 param_count,
-                                       wasm_val_t *results);
+                                       wasm_val_t *results,
+                                       uint32 result_count);
 
 void
 wasm_runtime_show_app_heap_corrupted_prompt();

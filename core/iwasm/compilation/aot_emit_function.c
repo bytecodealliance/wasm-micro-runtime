@@ -293,10 +293,10 @@ call_aot_invoke_c_api_native(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              uint32 import_func_idx, AOTFuncType *aot_func_type,
                              LLVMValueRef *params)
 {
-    LLVMTypeRef int8_ptr_type, param_types[5], ret_type;
+    LLVMTypeRef int8_ptr_type, param_types[6], ret_type;
     LLVMTypeRef value_ptr_type = NULL, value_type = NULL;
     LLVMTypeRef func_type, func_ptr_type;
-    LLVMValueRef param_values[5], res, func, value = NULL, offset;
+    LLVMValueRef param_values[6], res, func, value = NULL, offset;
     LLVMValueRef c_api_func_imports, c_api_func_import;
     LLVMValueRef c_api_params, c_api_results, value_ret;
     LLVMValueRef c_api_param_kind, c_api_param_value;
@@ -317,10 +317,11 @@ call_aot_invoke_c_api_native(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[2] = INT8_PTR_TYPE; /* wasm_val_t *params */
     param_types[3] = I32_TYPE;      /* uint32 param_count */
     param_types[4] = INT8_PTR_TYPE; /* wasm_val_t *results */
+    param_types[5] = I32_TYPE;      /* uint32 result_count */
 
     ret_type = INT8_TYPE;
 
-    GET_AOT_FUNCTION(wasm_runtime_quick_invoke_c_api_native, 5);
+    GET_AOT_FUNCTION(wasm_runtime_quick_invoke_c_api_native, 6);
 
     param_values[0] = func_ctx->aot_inst;
 
@@ -360,6 +361,9 @@ call_aot_invoke_c_api_native(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, func_ctx->argv_buf,
                               &offset, 1, "results");
     param_values[4] = c_api_results;
+
+    param_values[5] = I32_CONST(aot_func_type->result_count);
+    CHECK_LLVM_CONST(param_values[5]);
 
     /* Set each c api param */
     for (i = 0; i < aot_func_type->param_count; i++) {
@@ -429,7 +433,7 @@ call_aot_invoke_c_api_native(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* Call the function */
     if (!(res = LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values,
-                               5, "call"))) {
+                               6, "call"))) {
         aot_set_last_error("LLVM build call failed.");
         goto fail;
     }
