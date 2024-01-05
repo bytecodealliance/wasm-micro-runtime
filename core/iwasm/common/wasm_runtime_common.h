@@ -1080,17 +1080,14 @@ wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
                                  uint32 argc, uint32 *argv, bool with_env,
                                  void *wasm_c_api_env);
 
-#if WASM_ENABLE_JIT != 0
 struct CApiFuncImport;
-
 /* A quick version of wasm_runtime_invoke_c_api_native to directly invoke
    wasm-c-api import function from jitted code to improve performance */
 bool
-llvm_jit_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
-                             struct CApiFuncImport *c_api_import,
-                             wasm_val_t *params, uint32 param_count,
-                             wasm_val_t *results);
-#endif
+wasm_runtime_quick_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
+                                       struct CApiFuncImport *c_api_import,
+                                       wasm_val_t *params, uint32 param_count,
+                                       wasm_val_t *results);
 
 void
 wasm_runtime_show_app_heap_corrupted_prompt();

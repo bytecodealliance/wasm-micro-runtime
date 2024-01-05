@@ -5757,11 +5757,11 @@ fail:
     return ret;
 }
 
-#if WASM_ENABLE_JIT != 0
 bool
-llvm_jit_invoke_c_api_native(WASMModuleInstanceCommon *inst_comm,
-                             CApiFuncImport *c_api_import, wasm_val_t *params,
-                             uint32 param_count, wasm_val_t *results)
+wasm_runtime_quick_invoke_c_api_native(WASMModuleInstanceCommon *inst_comm,
+                                       CApiFuncImport *c_api_import,
+                                       wasm_val_t *params, uint32 param_count,
+                                       wasm_val_t *results)
 {
     WASMModuleInstance *module_inst = (WASMModuleInstance *)inst_comm;
     void *func_ptr = c_api_import->func_ptr_linked;
@@ -5819,7 +5819,6 @@ fail:
 #endif
     return ret;
 }
-#endif
 
 void
 wasm_runtime_show_app_heap_corrupted_prompt()

@@ -288,13 +288,10 @@ call_aot_invoke_native_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     return true;
 }
 
-#if WASM_ENABLE_JIT != 0
 static bool
-call_llvm_jit_invoke_c_api_native(AOTCompContext *comp_ctx,
-                                  AOTFuncContext *func_ctx,
-                                  uint32 import_func_idx,
-                                  AOTFuncType *aot_func_type,
-                                  LLVMValueRef *params)
+call_aot_invoke_c_api_native(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                             uint32 import_func_idx, AOTFuncType *aot_func_type,
+                             LLVMValueRef *params)
 {
     LLVMTypeRef int8_ptr_type, param_types[5], ret_type;
     LLVMTypeRef value_ptr_type = NULL, value_type = NULL;
@@ -323,14 +320,15 @@ call_llvm_jit_invoke_c_api_native(AOTCompContext *comp_ctx,
 
     ret_type = INT8_TYPE;
 
-    GET_AOT_FUNCTION(llvm_jit_invoke_c_api_native, 5);
+    GET_AOT_FUNCTION(wasm_runtime_quick_invoke_c_api_native, 5);
 
     param_values[0] = func_ctx->aot_inst;
 
     /* Get module_inst->e->common.c_api_func_imports */
     offset_c_api_func_imports =
         get_module_inst_extra_offset(comp_ctx)
-        + offsetof(WASMModuleInstanceExtra, common.c_api_func_imports);
+        /* offsetof(WASMModuleInstanceExtra, common.c_api_func_imports) */
+        + (comp_ctx->is_jit_mode ? 0 : sizeof(uint64));
     offset = I32_CONST(offset_c_api_func_imports);
     CHECK_LLVM_CONST(offset);
     c_api_func_imports =
@@ -343,8 +341,9 @@ call_llvm_jit_invoke_c_api_native(AOTCompContext *comp_ctx,
         LLVMBuildLoad2(comp_ctx->builder, INT8_PTR_TYPE, c_api_func_imports,
                        "c_api_func_imports");
 
-    /* Get &c_api_func_imports[func_idx] */
-    offset = I32_CONST(sizeof(CApiFuncImport) * import_func_idx);
+    /* Get &c_api_func_imports[func_idx], note size of CApiFuncImport
+       is pointer_size * 3 */
+    offset = I32_CONST((comp_ctx->pointer_size * 3) * import_func_idx);
     CHECK_LLVM_CONST(offset);
     c_api_func_import =
         LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, c_api_func_imports,
@@ -355,6 +354,7 @@ call_llvm_jit_invoke_c_api_native(AOTCompContext *comp_ctx,
     param_values[3] = I32_CONST(aot_func_type->param_count);
     CHECK_LLVM_CONST(param_values[3]);
 
+    /* Ensure sizeof(wasm_val_t) is 16 bytes */
     offset = I32_CONST(sizeof(wasm_val_t) * aot_func_type->param_count);
     c_api_results =
         LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, func_ctx->argv_buf,
@@ -363,6 +363,7 @@ call_llvm_jit_invoke_c_api_native(AOTCompContext *comp_ctx,
 
     /* Set each c api param */
     for (i = 0; i < aot_func_type->param_count; i++) {
+        /* Ensure sizeof(wasm_val_t) is 16 bytes */
         offset_param_kind = sizeof(wasm_val_t) * i;
         offset = I32_CONST(offset_param_kind);
         CHECK_LLVM_CONST(offset);
@@ -394,6 +395,7 @@ call_llvm_jit_invoke_c_api_native(AOTCompContext *comp_ctx,
 
         LLVMBuildStore(comp_ctx->builder, value, c_api_param_kind);
 
+        /* Ensure offsetof(wasm_val_t, of) is 8 bytes */
         offset_param_value = offset_param_kind + offsetof(wasm_val_t, of);
         offset = I32_CONST(offset_param_value);
         CHECK_LLVM_CONST(offset);
@@ -439,6 +441,8 @@ call_llvm_jit_invoke_c_api_native(AOTCompContext *comp_ctx,
     }
 
     for (i = 0; i < aot_func_type->result_count; i++) {
+        /* Ensure sizeof(wasm_val_t) is 16 bytes and
+           offsetof(wasm_val_t, of) is 8 bytes */
         uint32 offset_result_value =
             sizeof(wasm_val_t) * i + offsetof(wasm_val_t, of);
 
@@ -484,7 +488,6 @@ call_llvm_jit_invoke_c_api_native(AOTCompContext *comp_ctx,
 fail:
     return false;
 }
-#endif
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
 static bool
@@ -731,9 +734,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     const char *signature = NULL;
     bool ret = false;
     char buf[32];
-#if WASM_ENABLE_JIT != 0
     bool quick_invoke_c_api_import = false;
-#endif
 
 #if WASM_ENABLE_THREAD_MGR != 0
     /* Insert suspend check point */
@@ -903,8 +904,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
 
         if (!signature) {
-#if WASM_ENABLE_JIT != 0
-            if (comp_ctx->is_jit_mode && comp_ctx->quick_invoke_c_api_import) {
+            if (comp_ctx->quick_invoke_c_api_import) {
                 uint32 buf_size_needed =
                     sizeof(wasm_val_t) * (param_count + result_count);
 
@@ -923,14 +923,11 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 }
             }
             if (quick_invoke_c_api_import) {
-                if (!call_llvm_jit_invoke_c_api_native(comp_ctx, func_ctx,
-                                                       func_idx, func_type,
-                                                       param_values + 1))
+                if (!call_aot_invoke_c_api_native(comp_ctx, func_ctx, func_idx,
+                                                  func_type, param_values + 1))
                     goto fail;
             }
-            else
-#endif
-            {
+            else {
                 /* call aot_invoke_native() */
                 if (!call_aot_invoke_native_func(
                         comp_ctx, func_ctx, import_func_idx, func_type,
@@ -1100,11 +1097,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             goto fail;
     }
 
-    if (func_type->result_count > 0
-#if WASM_ENABLE_JIT != 0
-        && !quick_invoke_c_api_import
-#endif
-    ) {
+    if (func_type->result_count > 0 && !quick_invoke_c_api_import) {
         /* Push the first result to stack */
         PUSH(value_ret, func_type->types[func_type->param_count]);
         /* Load extra result from its address and push to stack */

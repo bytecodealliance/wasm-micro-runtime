@@ -189,7 +189,7 @@ print_help()
     printf("                              --native-lib=test1.so --native-lib=test2.so\n");
 #endif
     printf("  --invoke-c-api-import     Treat unknown import function as wasm-c-api import function and\n");
-    printf("                            direclty call it from AOT code\n");
+    printf("                            quick call it from AOT code\n");
 #if WASM_ENABLE_LINUX_PERF != 0
     printf("  --enable-linux-perf       Enable linux perf support\n");
 #endif
