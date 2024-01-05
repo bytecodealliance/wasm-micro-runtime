@@ -177,7 +177,7 @@ lookup_symbol(NativeSymbol *native_symbols, uint32 n_native_symbols,
                                  sizeof(NativeSymbol), native_symbol_cmp))) {
         *p_signature = native_symbol->signature;
         *p_attachment = native_symbol->attachment;
-        return native_symbols->func_ptr;
+        return native_symbol->func_ptr;
     }
 
     return NULL;
