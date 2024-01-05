@@ -357,6 +357,10 @@ typedef struct AOTCompContext {
     /* Enable LLVM PGO (Profile-Guided Optimization) */
     bool enable_llvm_pgo;
 
+    /* Treat unknown import function as wasm-c-api import function
+       and allow to directly invoke it from AOT/JIT code */
+    bool quick_invoke_c_api_import;
+
     /* Use profile file collected by LLVM PGO */
     char *use_prof_file;
 
@@ -454,6 +458,7 @@ typedef struct AOTCompOption {
     bool disable_llvm_lto;
     bool enable_llvm_pgo;
     bool enable_stack_estimation;
+    bool quick_invoke_c_api_import;
     char *use_prof_file;
     uint32 opt_level;
     uint32 size_level;
