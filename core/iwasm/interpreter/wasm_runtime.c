@@ -4,6 +4,7 @@
  */
 
 #include "wasm_runtime.h"
+#include "platform_api_vmcore.h"
 #include "wasm_loader.h"
 #include "wasm_interp.h"
 #include "bh_common.h"
@@ -2410,6 +2411,10 @@ wasm_dump_perf_profiling(const WASMModuleInstance *module_inst)
     os_printf("Performance profiler data:\n");
     for (i = 0; i < module_inst->e->function_count; i++) {
         func_inst = module_inst->e->functions + i;
+
+        if (func_inst->total_exec_cnt == 0)
+            continue;
+
         if (func_inst->is_import_func) {
             func_name = func_inst->u.func_import->field_name;
         }
@@ -2432,16 +2437,17 @@ wasm_dump_perf_profiling(const WASMModuleInstance *module_inst)
         if (func_name)
             os_printf(
                 "  func %s, execution time: %.3f ms, execution count: %" PRIu32
-                " times\n",
-                func_name,
-                module_inst->e->functions[i].total_exec_time / 1000.0f,
-                module_inst->e->functions[i].total_exec_cnt);
+                " times, children execution time: %.3f ms\n",
+                func_name, func_inst->total_exec_time / 1000.0f,
+                func_inst->total_exec_cnt,
+                func_inst->children_exec_time / 1000.0f);
         else
             os_printf("  func %" PRIu32
                       ", execution time: %.3f ms, execution count: %" PRIu32
-                      " times\n",
-                      i, module_inst->e->functions[i].total_exec_time / 1000.0f,
-                      module_inst->e->functions[i].total_exec_cnt);
+                      " times, children execution time: %.3f ms\n",
+                      i, func_inst->total_exec_time / 1000.0f,
+                      func_inst->total_exec_cnt,
+                      func_inst->children_exec_time / 1000.0f);
     }
 }
 
@@ -2453,7 +2459,7 @@ wasm_summarize_wasm_execute_time(const WASMModuleInstance *inst)
     unsigned i;
     for (i = 0; i < inst->e->function_count; i++) {
         WASMFunctionInstance *func = inst->e->functions + i;
-        ret += func->total_exec_time / 1000.0f;
+        ret += (func->total_exec_time - func->children_exec_time) / 1000.0f;
     }
 
     return ret;
@@ -3422,7 +3428,7 @@ llvm_jit_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     frame->ip = NULL;
     frame->sp = frame->lp;
 #if WASM_ENABLE_PERF_PROFILING != 0
-    frame->time_started = os_time_get_boot_microsecond();
+    frame->time_started = os_time_get_thread_specfic_cpu_time_ms();
 #endif
     frame->prev_frame = wasm_exec_env_get_cur_frame(exec_env);
     wasm_exec_env_set_cur_frame(exec_env, frame);
@@ -3444,8 +3450,13 @@ llvm_jit_free_frame(WASMExecEnv *exec_env)
 #if WASM_ENABLE_PERF_PROFILING != 0
     if (frame->function) {
         frame->function->total_exec_time +=
-            os_time_get_boot_microsecond() - frame->time_started;
+            os_time_get_thread_specfic_cpu_time_ms() - frame->time_started;
         frame->function->total_exec_cnt++;
+
+        /* parent function */
+        if (prev_frame)
+            prev_frame->function->children_exec_time =
+                frame->function->total_exec_time;
     }
 #endif
     wasm_exec_env_free_wasm_frame(exec_env, frame);

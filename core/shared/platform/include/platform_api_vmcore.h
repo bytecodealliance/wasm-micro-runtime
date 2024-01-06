@@ -67,6 +67,12 @@ uint64
 os_time_get_boot_microsecond(void);
 
 /**
+ * Get thread-specific CPU-time clock in microseconds
+ */
+uint64
+os_time_get_thread_specfic_cpu_time_ms(void);
+
+/**
  * Get current thread id.
  * Implementation optional: Used by runtime for logging only.
  */

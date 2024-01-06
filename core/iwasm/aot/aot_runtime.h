@@ -286,6 +286,8 @@ typedef struct AOTFuncPerfProfInfo {
     uint64 total_exec_time;
     /* total execution count */
     uint32 total_exec_cnt;
+    /* children execution time */
+    uint64 children_exec_time;
 } AOTFuncPerfProfInfo;
 
 /* AOT auxiliary call stack */
