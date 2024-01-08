@@ -14,12 +14,11 @@ extern "C" {
 
 bool
 aot_compile_op_string_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                          uint32 encoding, const uint8 *frame_ip_stringref_new);
+                          uint32 encoding);
 
 bool
 aot_compile_op_string_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                            uint32 contents,
-                            const uint8 *frame_ip_string_const);
+                            uint32 contents);
 
 bool
 aot_compile_op_string_measure(AOTCompContext *comp_ctx,
@@ -30,8 +29,8 @@ aot_compile_op_string_encode(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              uint32 mem_idx, uint32 encoding);
 
 bool
-aot_compile_op_string_concat(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                             const uint8 *frame_ip_string_concat);
+aot_compile_op_string_concat(AOTCompContext *comp_ctx,
+                             AOTFuncContext *func_ctx);
 
 bool
 aot_compile_op_string_eq(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
@@ -42,8 +41,7 @@ aot_compile_op_string_is_usv_sequence(AOTCompContext *comp_ctx,
 
 bool
 aot_compile_op_string_as_wtf8(AOTCompContext *comp_ctx,
-                              AOTFuncContext *func_ctx,
-                              const uint8 *frame_ip_string_as_wtf8);
+                              AOTFuncContext *func_ctx);
 
 bool
 aot_compile_op_stringview_wtf8_advance(AOTCompContext *comp_ctx,
@@ -56,13 +54,11 @@ aot_compile_op_stringview_wtf8_encode(AOTCompContext *comp_ctx,
 
 bool
 aot_compile_op_stringview_wtf8_slice(AOTCompContext *comp_ctx,
-                                     AOTFuncContext *func_ctx,
-                                     const uint8 *frame_ip_wtf8_slice);
+                                     AOTFuncContext *func_ctx);
 
 bool
 aot_compile_op_string_as_wtf16(AOTCompContext *comp_ctx,
-                               AOTFuncContext *func_ctx,
-                               const uint8 *frame_ip_string_as_wtf16);
+                               AOTFuncContext *func_ctx);
 
 bool
 aot_compile_op_stringview_wtf16_length(AOTCompContext *comp_ctx,
@@ -79,13 +75,11 @@ aot_compile_op_stringview_wtf16_encode(AOTCompContext *comp_ctx,
 
 bool
 aot_compile_op_stringview_wtf16_slice(AOTCompContext *comp_ctx,
-                                      AOTFuncContext *func_ctx,
-                                      const uint8 *frame_ip_wtf16_slice);
+                                      AOTFuncContext *func_ctx);
 
 bool
 aot_compile_op_string_as_iter(AOTCompContext *comp_ctx,
-                              AOTFuncContext *func_ctx,
-                              const uint8 *frame_ip_string_as_iter);
+                              AOTFuncContext *func_ctx);
 
 bool
 aot_compile_op_stringview_iter_next(AOTCompContext *comp_ctx,
@@ -100,14 +94,12 @@ aot_compile_op_stringview_iter_rewind(AOTCompContext *comp_ctx,
                                       AOTFuncContext *func_ctx);
 
 bool
-aot_compile_op_stringview_iter_slice(
-    AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-    const uint8 *frame_ip_stringview_iter_slice);
+aot_compile_op_stringview_iter_slice(AOTCompContext *comp_ctx,
+                                     AOTFuncContext *func_ctx);
 
 bool
 aot_compile_op_string_new_array(AOTCompContext *comp_ctx,
-                                AOTFuncContext *func_ctx, uint32 encoding,
-                                const uint8 *frame_ip_string_new_array);
+                                AOTFuncContext *func_ctx, uint32 encoding);
 
 bool
 aot_compile_op_string_encode_array(AOTCompContext *comp_ctx,

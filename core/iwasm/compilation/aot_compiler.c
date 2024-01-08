@@ -534,8 +534,7 @@ aot_gen_commit_values(AOTCompFrame *frame)
 }
 
 bool
-aot_gen_commit_sp_ip(AOTCompFrame *frame, const AOTValueSlot *sp,
-                     const uint8 *ip)
+aot_gen_commit_sp_ip(AOTCompFrame *frame, bool commit_sp, bool commit_ip)
 {
     AOTCompContext *comp_ctx = frame->comp_ctx;
     AOTFuncContext *func_ctx = frame->func_ctx;
@@ -544,9 +543,8 @@ aot_gen_commit_sp_ip(AOTCompFrame *frame, const AOTValueSlot *sp,
     LLVMTypeRef int8_ptr_ptr_type;
     uint32 offset_ip, offset_sp, n;
     bool is_64bit = (comp_ctx->pointer_size == sizeof(uint64)) ? true : false;
-    /* TODO: only commit sp currently, will add more options to
-       control whether to commit sp/ip in the future */
-    bool commit_sp = true, commit_ip = false;
+    const AOTValueSlot *sp = frame->sp;
+    const uint8 *ip = frame->frame_ip;
 
     if (!comp_ctx->is_jit_mode) {
         offset_ip = frame->comp_ctx->pointer_size * 4;
@@ -578,12 +576,11 @@ aot_gen_commit_sp_ip(AOTCompFrame *frame, const AOTValueSlot *sp,
         }
 
         if (!comp_ctx->is_jit_mode) {
+            WASMModule *module = comp_ctx->comp_data->wasm_module;
             if (is_64bit)
-                value = I64_CONST(
-                    (uint64)(uintptr_t)(ip - func_ctx->aot_func->code));
+                value = I64_CONST((uint64)(uintptr_t)(ip - module->load_addr));
             else
-                value = I32_CONST(
-                    (uint32)(uintptr_t)(ip - func_ctx->aot_func->code));
+                value = I32_CONST((uint32)(uintptr_t)(ip - module->load_addr));
         }
         else {
             if (is_64bit)
@@ -909,7 +906,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
     AOTFuncContext *func_ctx = comp_ctx->func_ctxes[func_index];
     uint8 *frame_ip = func_ctx->aot_func->code, opcode, *p_f32, *p_f64;
     uint8 *frame_ip_end = frame_ip + func_ctx->aot_func->code_size;
-    uint8 *param_types = NULL, *frame_ip_org;
+    uint8 *param_types = NULL;
     uint8 *result_types = NULL;
     uint8 value_type;
     uint16 param_count;
@@ -940,6 +937,10 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
         func_ctx->block_stack.block_list_head->llvm_entry_block);
     while (frame_ip < frame_ip_end) {
         opcode = *frame_ip++;
+
+        if (comp_ctx->aot_frame) {
+            comp_ctx->aot_frame->frame_ip = frame_ip - 1;
+        }
 
 #if WASM_ENABLE_DEBUG_AOT != 0
         location = dwarf_gen_location(
@@ -1035,30 +1036,23 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
             case WASM_OP_BR:
             {
-                frame_ip_org = frame_ip - 1;
-
                 read_leb_uint32(frame_ip, frame_ip_end, br_depth);
-                if (!aot_compile_op_br(comp_ctx, func_ctx, br_depth,
-                                       frame_ip_org, &frame_ip))
+                if (!aot_compile_op_br(comp_ctx, func_ctx, br_depth, &frame_ip))
                     return false;
                 break;
             }
 
             case WASM_OP_BR_IF:
             {
-                frame_ip_org = frame_ip - 1;
-
                 read_leb_uint32(frame_ip, frame_ip_end, br_depth);
                 if (!aot_compile_op_br_if(comp_ctx, func_ctx, br_depth,
-                                          frame_ip_org, &frame_ip))
+                                          &frame_ip))
                     return false;
                 break;
             }
 
             case WASM_OP_BR_TABLE:
             {
-                frame_ip_org = frame_ip - 1;
-
                 read_leb_uint32(frame_ip, frame_ip_end, br_count);
                 if (!(br_depths = wasm_runtime_malloc((uint32)sizeof(uint32)
                                                       * (br_count + 1)))) {
@@ -1074,8 +1068,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 #endif
 
                 if (!aot_compile_op_br_table(comp_ctx, func_ctx, br_depths,
-                                             br_count, frame_ip_org,
-                                             &frame_ip)) {
+                                             br_count, &frame_ip)) {
                     wasm_runtime_free(br_depths);
                     return false;
                 }
@@ -1090,8 +1083,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 BrTableCache *node = bh_list_first_elem(
                     comp_ctx->comp_data->wasm_module->br_table_cache_list);
                 BrTableCache *node_next;
-
-                frame_ip_org = frame_ip - 1;
+                const uint8 *frame_ip_org = frame_ip - 1;
 
                 read_leb_uint32(frame_ip, frame_ip_end, br_count);
 
@@ -1101,7 +1093,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                         br_depths = node->br_depths;
                         if (!aot_compile_op_br_table(comp_ctx, func_ctx,
                                                      br_depths, br_count,
-                                                     frame_ip_org, &frame_ip)) {
+                                                     &frame_ip)) {
                             return false;
                         }
                         break;
@@ -1121,11 +1113,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
             case WASM_OP_CALL:
             {
-                frame_ip_org = frame_ip - 1;
-
                 read_leb_uint32(frame_ip, frame_ip_end, func_idx);
-                if (!aot_compile_op_call(comp_ctx, func_ctx, func_idx, false,
-                                         frame_ip_org))
+                if (!aot_compile_op_call(comp_ctx, func_ctx, func_idx, false))
                     return false;
                 break;
             }
@@ -1133,8 +1122,6 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
             case WASM_OP_CALL_INDIRECT:
             {
                 uint32 tbl_idx;
-
-                frame_ip_org = frame_ip - 1;
 
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
 
@@ -1147,7 +1134,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 }
 
                 if (!aot_compile_op_call_indirect(comp_ctx, func_ctx, type_idx,
-                                                  tbl_idx, frame_ip_org))
+                                                  tbl_idx))
                     return false;
                 break;
             }
@@ -1160,11 +1147,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     return false;
                 }
 
-                frame_ip_org = frame_ip - 1;
-
                 read_leb_uint32(frame_ip, frame_ip_end, func_idx);
-                if (!aot_compile_op_call(comp_ctx, func_ctx, func_idx, true,
-                                         frame_ip_org))
+                if (!aot_compile_op_call(comp_ctx, func_ctx, func_idx, true))
                     return false;
                 if (!aot_compile_op_return(comp_ctx, func_ctx, &frame_ip))
                     return false;
@@ -1180,8 +1164,6 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     return false;
                 }
 
-                frame_ip_org = frame_ip - 1;
-
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
                 if (comp_ctx->enable_gc || comp_ctx->enable_ref_types) {
                     read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
@@ -1192,7 +1174,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 }
 
                 if (!aot_compile_op_call_indirect(comp_ctx, func_ctx, type_idx,
-                                                  tbl_idx, frame_ip_org))
+                                                  tbl_idx))
                     return false;
                 if (!aot_compile_op_return(comp_ctx, func_ctx, &frame_ip))
                     return false;
@@ -1306,11 +1288,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     goto unsupport_gc_and_ref_types;
                 }
 
-                frame_ip_org = frame_ip - 1;
-
                 read_leb_uint32(frame_ip, frame_ip_end, func_idx);
-                if (!aot_compile_op_ref_func(comp_ctx, func_ctx, func_idx,
-                                             frame_ip_org))
+                if (!aot_compile_op_ref_func(comp_ctx, func_ctx, func_idx))
                     return false;
                 break;
             }
@@ -1323,11 +1302,9 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     goto unsupport_gc;
                 }
 
-                frame_ip_org = frame_ip - 1;
-
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
                 if (!aot_compile_op_call_ref(comp_ctx, func_ctx, type_idx,
-                                             false, frame_ip_org))
+                                             false))
                     return false;
                 break;
             }
@@ -1338,11 +1315,9 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     goto unsupport_gc;
                 }
 
-                frame_ip_org = frame_ip - 1;
-
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
-                if (!aot_compile_op_call_ref(comp_ctx, func_ctx, type_idx, true,
-                                             frame_ip_org))
+                if (!aot_compile_op_call_ref(comp_ctx, func_ctx, type_idx,
+                                             true))
                     return false;
                 if (!aot_compile_op_return(comp_ctx, func_ctx, &frame_ip))
                     return false;
@@ -1373,11 +1348,9 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     goto unsupport_gc;
                 }
 
-                frame_ip_org = frame_ip - 1;
-
                 read_leb_uint32(frame_ip, frame_ip_end, br_depth);
                 if (!aot_compile_op_br_on_null(comp_ctx, func_ctx, br_depth,
-                                               frame_ip_org, &frame_ip))
+                                               &frame_ip))
                     return false;
                 break;
             }
@@ -1388,11 +1361,9 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     goto unsupport_gc;
                 }
 
-                frame_ip_org = frame_ip - 1;
-
                 read_leb_uint32(frame_ip, frame_ip_end, br_depth);
                 if (!aot_compile_op_br_on_non_null(comp_ctx, func_ctx, br_depth,
-                                                   frame_ip_org, &frame_ip))
+                                                   &frame_ip))
                     return false;
                 break;
             }
@@ -1405,8 +1376,6 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     goto unsupport_gc;
                 }
 
-                frame_ip_org = frame_ip - 1;
-
                 read_leb_uint32(frame_ip, frame_ip_end, opcode1);
                 opcode = (uint8)opcode1;
 
@@ -1416,8 +1385,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                         read_leb_uint32(frame_ip, frame_ip_end, type_index);
                         if (!aot_compile_op_struct_new(
                                 comp_ctx, func_ctx, type_index,
-                                opcode == WASM_OP_STRUCT_NEW_DEFAULT,
-                                frame_ip_org))
+                                opcode == WASM_OP_STRUCT_NEW_DEFAULT))
                             return false;
                         break;
 
@@ -1451,8 +1419,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                         if (!aot_compile_op_array_new(
                                 comp_ctx, func_ctx, type_index,
                                 opcode == WASM_OP_ARRAY_NEW_DEFAULT,
-                                opcode == WASM_OP_ARRAY_NEW_FIXED, array_len,
-                                frame_ip_org))
+                                opcode == WASM_OP_ARRAY_NEW_FIXED, array_len))
                             return false;
                         break;
 
@@ -1460,8 +1427,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                         read_leb_uint32(frame_ip, frame_ip_end, type_index);
                         read_leb_uint32(frame_ip, frame_ip_end, data_seg_idx);
                         if (!aot_compile_op_array_new_data(
-                                comp_ctx, func_ctx, type_index, data_seg_idx,
-                                frame_ip_org))
+                                comp_ctx, func_ctx, type_index, data_seg_idx))
                             return false;
                         break;
 
@@ -1577,7 +1543,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                                 comp_ctx, func_ctx, dst_heap_type,
                                 castflags & 0x02,
                                 opcode == WASM_OP_BR_ON_CAST_FAIL, br_depth,
-                                frame_ip_org, &frame_ip))
+                                &frame_ip))
                             return false;
 
                         (void)heap_type;
@@ -1591,8 +1557,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                         break;
 
                     case WASM_OP_EXTERN_CONVERT_ANY:
-                        if (!aot_compile_op_extern_externalize(
-                                comp_ctx, func_ctx, frame_ip_org))
+                        if (!aot_compile_op_extern_externalize(comp_ctx,
+                                                               func_ctx))
                             return false;
                         break;
 
@@ -1620,8 +1586,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                             flag = WTF8;
                         }
 
-                        if (!aot_compile_op_string_new(comp_ctx, func_ctx, flag,
-                                                       frame_ip_org))
+                        if (!aot_compile_op_string_new(comp_ctx, func_ctx,
+                                                       flag))
                             return false;
                         break;
                     }
@@ -1630,8 +1596,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                         uint32 contents;
                         read_leb_uint32(frame_ip, frame_ip_end, contents);
 
-                        if (!aot_compile_op_string_const(
-                                comp_ctx, func_ctx, contents, frame_ip_org))
+                        if (!aot_compile_op_string_const(comp_ctx, func_ctx,
+                                                         contents))
                             return false;
                         break;
                     }
@@ -1685,8 +1651,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                         break;
                     }
                     case WASM_OP_STRING_CONCAT:
-                        if (!aot_compile_op_string_concat(comp_ctx, func_ctx,
-                                                          frame_ip_org))
+                        if (!aot_compile_op_string_concat(comp_ctx, func_ctx))
                             return false;
                         break;
                     case WASM_OP_STRING_EQ:
@@ -1699,8 +1664,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                             return false;
                         break;
                     case WASM_OP_STRING_AS_WTF8:
-                        if (!aot_compile_op_string_as_wtf8(comp_ctx, func_ctx,
-                                                           frame_ip_org))
+                        if (!aot_compile_op_string_as_wtf8(comp_ctx, func_ctx))
                             return false;
                         break;
                     case WASM_OP_STRINGVIEW_WTF8_ADVANCE:
@@ -1735,13 +1699,12 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                         break;
                     }
                     case WASM_OP_STRINGVIEW_WTF8_SLICE:
-                        if (!aot_compile_op_stringview_wtf8_slice(
-                                comp_ctx, func_ctx, frame_ip_org))
+                        if (!aot_compile_op_stringview_wtf8_slice(comp_ctx,
+                                                                  func_ctx))
                             return false;
                         break;
                     case WASM_OP_STRING_AS_WTF16:
-                        if (!aot_compile_op_string_as_wtf16(comp_ctx, func_ctx,
-                                                            frame_ip_org))
+                        if (!aot_compile_op_string_as_wtf16(comp_ctx, func_ctx))
                             return false;
                         break;
                     case WASM_OP_STRINGVIEW_WTF16_LENGTH:
@@ -1765,13 +1728,12 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                         break;
                     }
                     case WASM_OP_STRINGVIEW_WTF16_SLICE:
-                        if (!aot_compile_op_stringview_wtf16_slice(
-                                comp_ctx, func_ctx, frame_ip_org))
+                        if (!aot_compile_op_stringview_wtf16_slice(comp_ctx,
+                                                                   func_ctx))
                             return false;
                         break;
                     case WASM_OP_STRING_AS_ITER:
-                        if (!aot_compile_op_string_as_iter(comp_ctx, func_ctx,
-                                                           frame_ip_org))
+                        if (!aot_compile_op_string_as_iter(comp_ctx, func_ctx))
                             return false;
                         break;
                     case WASM_OP_STRINGVIEW_ITER_NEXT:
@@ -1790,8 +1752,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                             return false;
                         break;
                     case WASM_OP_STRINGVIEW_ITER_SLICE:
-                        if (!aot_compile_op_stringview_iter_slice(
-                                comp_ctx, func_ctx, frame_ip_org))
+                        if (!aot_compile_op_stringview_iter_slice(comp_ctx,
+                                                                  func_ctx))
                             return false;
                         break;
                     case WASM_OP_STRING_NEW_UTF8_ARRAY:
@@ -1814,8 +1776,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                             flag = WTF8;
                         }
 
-                        if (!aot_compile_op_string_new_array(
-                                comp_ctx, func_ctx, flag, frame_ip_org))
+                        if (!aot_compile_op_string_new_array(comp_ctx, func_ctx,
+                                                             flag))
                             return false;
 
                         break;

@@ -28,18 +28,15 @@ aot_compile_op_end(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
 bool
 aot_compile_op_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                  uint32 br_depth, const uint8 *frame_ip_br,
-                  uint8 **p_frame_ip);
+                  uint32 br_depth, uint8 **p_frame_ip);
 
 bool
 aot_compile_op_br_if(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                     uint32 br_depth, const uint8 *frame_ip_br_if,
-                     uint8 **p_frame_ip);
+                     uint32 br_depth, uint8 **p_frame_ip);
 
 bool
 aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                        uint32 *br_depths, uint32 br_count,
-                        const uint8 *frame_ip_br_table, uint8 **p_frame_ip);
+                        uint32 *br_depths, uint32 br_count, uint8 **p_frame_ip);
 
 bool
 aot_compile_op_return(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
@@ -53,29 +50,25 @@ bool
 aot_handle_next_reachable_block(AOTCompContext *comp_ctx,
                                 AOTFuncContext *func_ctx, uint8 **p_frame_ip);
 
-#if WASM_ENABLE_THREAD_MGR != 0
 bool
 check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                     bool check_terminate_and_suspend);
-#endif
 
 #if WASM_ENABLE_GC != 0
 bool
 aot_compile_op_br_on_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                          uint32 br_depth, const uint8 *frame_ip_br_on_null,
-                          uint8 **p_frame_ip);
+                          uint32 br_depth, uint8 **p_frame_ip);
 
 bool
 aot_compile_op_br_on_non_null(AOTCompContext *comp_ctx,
                               AOTFuncContext *func_ctx, uint32 br_depth,
-                              const uint8 *frame_ip_br_on_non_null,
+
                               uint8 **p_frame_ip);
 
 bool
 aot_compile_op_br_on_cast(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                           int32 heap_type, bool nullable, bool br_on_fail,
-                          uint32 br_depth, const uint8 *frame_ip_br_on_cast,
-                          uint8 **p_frame_ip);
+                          uint32 br_depth, uint8 **p_frame_ip);
 #endif
 
 #ifdef __cplusplus
