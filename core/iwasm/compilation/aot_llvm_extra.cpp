@@ -409,7 +409,10 @@ aot_compress_aot_func_names(AOTCompContext *comp_ctx, uint32 *p_size)
         NameStrs.push_back(str);
     }
 
-    if (collectPGOFuncNameStrings(NameStrs, true, Result)) {
+#if LLVM_VERSION_MAJOR < 18
+#define collectGlobalObjectNameStrings collectPGOFuncNameStrings
+#endif
+    if (collectGlobalObjectNameStrings(NameStrs, true, Result)) {
         aot_set_last_error("collect pgo func name strings failed");
         return NULL;
     }
