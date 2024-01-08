@@ -441,7 +441,6 @@ main(int argc, char *argv[])
         else if (!strcmp(argv[0], "--enable-multi-thread")) {
             option.enable_bulk_memory = true;
             option.enable_thread_mgr = true;
-            option.enable_ref_types = false;
         }
         else if (!strcmp(argv[0], "--enable-tail-call")) {
             option.enable_tail_call = true;
@@ -635,8 +634,10 @@ main(int argc, char *argv[])
             goto fail1;
     }
 
-    if (get_package_type(wasm_file, wasm_file_size) != Wasm_Module_Bytecode) {
-        printf("Invalid file type: expected wasm file but got other\n");
+    if (wasm_file_size >= 4 /* length of MAGIC NUMBER */
+        && get_package_type(wasm_file, wasm_file_size)
+               != Wasm_Module_Bytecode) {
+        printf("Invalid wasm file: magic header not detected\n");
         goto fail2;
     }
 

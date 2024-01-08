@@ -794,8 +794,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                 uint64 high, low;
 
                 CHECK_BUF(p, p_end, 1);
-                flag = read_uint8(p);
-                (void)flag;
+                (void)read_uint8(p);
 
                 CHECK_BUF(p, p_end, 16);
                 wasm_runtime_read_v128(p, &high, &low);
@@ -1204,7 +1203,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                             len = len_val.i32;
 
                             cur_value.array_new_default.type_index = type_idx;
-                            cur_value.array_new_default.N = len;
+                            cur_value.array_new_default.length = len;
                         }
 
                         wasm_set_refheaptype_typeidx(
@@ -4163,16 +4162,22 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                 case 4:
                 {
 #if WASM_ENABLE_GC != 0
-                    WASMRefType elem_ref_type = { 0 };
-                    /* TODO: for mode 4, we may need to decide elem_type
-                     * according to init expr result */
-                    table_segment->elem_type = REF_TYPE_HT_NON_NULLABLE;
-                    wasm_set_refheaptype_common(&elem_ref_type.ref_ht_common,
-                                                false, HEAP_TYPE_FUNC);
-                    if (!(table_segment->elem_ref_type = reftype_set_insert(
-                              module->ref_type_set, &elem_ref_type, error_buf,
-                              error_buf_size)))
-                        return false;
+                    if (table_segment->mode == 0) {
+                        /* vec(funcidx), set elem type to (ref func) */
+                        WASMRefType elem_ref_type = { 0 };
+                        table_segment->elem_type = REF_TYPE_HT_NON_NULLABLE;
+                        wasm_set_refheaptype_common(
+                            &elem_ref_type.ref_ht_common, false,
+                            HEAP_TYPE_FUNC);
+                        if (!(table_segment->elem_ref_type = reftype_set_insert(
+                                  module->ref_type_set, &elem_ref_type,
+                                  error_buf, error_buf_size)))
+                            return false;
+                    }
+                    else {
+                        /* vec(expr), set elem type to funcref */
+                        table_segment->elem_type = VALUE_TYPE_FUNCREF;
+                    }
 #else
                     table_segment->elem_type = VALUE_TYPE_FUNCREF;
 #endif

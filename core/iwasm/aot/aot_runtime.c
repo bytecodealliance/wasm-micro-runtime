@@ -313,7 +313,7 @@ assign_table_init_value(AOTModuleInstance *module_inst, AOTModule *module,
 
             if (flag == INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT) {
                 type_idx = init_expr->u.array_new_default.type_index;
-                len = init_expr->u.array_new_default.N;
+                len = init_expr->u.array_new_default.length;
                 arr_init_val = &empty_val;
             }
             else {
@@ -337,8 +337,9 @@ assign_table_init_value(AOTModuleInstance *module_inst, AOTModule *module,
             }
 
             if (!(array_obj = wasm_array_obj_new_internal(
-                      module_inst->e->common.gc_heap_handle, rtt_type, len,
-                      arr_init_val))) {
+                      ((AOTModuleInstanceExtra *)module_inst->e)
+                          ->common.gc_heap_handle,
+                      rtt_type, len, arr_init_val))) {
                 set_error_buf(error_buf, error_buf_size,
                               "create array object failed");
                 return false;
@@ -523,7 +524,7 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
                 if (flag == INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT) {
                     type_idx = init_expr->u.array_new_default.type_index;
-                    len = init_expr->u.array_new_default.N;
+                    len = init_expr->u.array_new_default.length;
                     arr_init_val = &empty_val;
                 }
                 else {
@@ -547,8 +548,9 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                 }
 
                 if (!(array_obj = wasm_array_obj_new_internal(
-                          module_inst->e->common.gc_heap_handle, rtt_type, len,
-                          arr_init_val))) {
+                          ((AOTModuleInstanceExtra *)module_inst->e)
+                              ->common.gc_heap_handle,
+                          rtt_type, len, arr_init_val))) {
                     set_error_buf(error_buf, error_buf_size,
                                   "create array object failed");
                     return false;

@@ -206,7 +206,7 @@ typedef union WASMValue {
     uint32 type_index;
     struct {
         uint32 type_index;
-        uint32 N;
+        uint32 length;
     } array_new_default;
     /* pointer to a memory space holding more data, current usage:
      *  struct.new init value: WASMStructNewInitValues *
@@ -1096,6 +1096,10 @@ wasm_value_type_size_internal(uint8 value_type, uint8 pointer_size)
 #endif
     )
         return pointer_size;
+    else if (value_type == PACKED_TYPE_I8)
+        return sizeof(int8);
+    else if (value_type == PACKED_TYPE_I16)
+        return sizeof(int16);
 #endif
     else {
         bh_assert(0);

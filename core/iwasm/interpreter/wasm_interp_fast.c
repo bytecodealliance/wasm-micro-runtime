@@ -5095,7 +5095,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         SYNC_ALL_TO_FRAME();
 #endif
                         for (i = 0; i < n; i++) {
-                            /* UINT32_MAX indicates that it is an null ref */
+                            /* UINT32_MAX indicates that it is a null ref */
                             bh_assert(init_values[i].init_expr_type
                                           == INIT_EXPR_TYPE_REFNULL_CONST
                                       || init_values[i].init_expr_type

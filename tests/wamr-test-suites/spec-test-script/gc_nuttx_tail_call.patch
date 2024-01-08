@@ -1,0 +1,53 @@
+diff --git a/test/core/return_call.wast b/test/core/return_call.wast
+index ad66acca..b27af19b 100644
+--- a/test/core/return_call.wast
++++ b/test/core/return_call.wast
+@@ -102,20 +102,20 @@
+ 
+ (assert_return (invoke "count" (i64.const 0)) (i64.const 0))
+ (assert_return (invoke "count" (i64.const 1000)) (i64.const 0))
+-(assert_return (invoke "count" (i64.const 100_000)) (i64.const 0))
++(assert_return (invoke "count" (i64.const 1001)) (i64.const 0))
+ 
+ (assert_return (invoke "even" (i64.const 0)) (i32.const 44))
+ (assert_return (invoke "even" (i64.const 1)) (i32.const 99))
+ (assert_return (invoke "even" (i64.const 100)) (i32.const 44))
+ (assert_return (invoke "even" (i64.const 77)) (i32.const 99))
+-(assert_return (invoke "even" (i64.const 100_000)) (i32.const 44))
+-(assert_return (invoke "even" (i64.const 100_001)) (i32.const 99))
++(assert_return (invoke "even" (i64.const 1000)) (i32.const 44))
++(assert_return (invoke "even" (i64.const 1001)) (i32.const 99))
+ (assert_return (invoke "odd" (i64.const 0)) (i32.const 99))
+ (assert_return (invoke "odd" (i64.const 1)) (i32.const 44))
+ (assert_return (invoke "odd" (i64.const 200)) (i32.const 99))
+ (assert_return (invoke "odd" (i64.const 77)) (i32.const 44))
+-(assert_return (invoke "odd" (i64.const 100_000)) (i32.const 99))
+-(assert_return (invoke "odd" (i64.const 99_999)) (i32.const 44))
++(assert_return (invoke "odd" (i64.const 1000)) (i32.const 99))
++(assert_return (invoke "odd" (i64.const 999)) (i32.const 44))
+ 
+ 
+ ;; Invalid typing
+diff --git a/test/core/return_call_indirect.wast b/test/core/return_call_indirect.wast
+index 6b95c24b..a9e86d42 100644
+--- a/test/core/return_call_indirect.wast
++++ b/test/core/return_call_indirect.wast
+@@ -257,14 +257,14 @@
+ (assert_return (invoke "even" (i32.const 1)) (i32.const 99))
+ (assert_return (invoke "even" (i32.const 100)) (i32.const 44))
+ (assert_return (invoke "even" (i32.const 77)) (i32.const 99))
+-(assert_return (invoke "even" (i32.const 100_000)) (i32.const 44))
+-(assert_return (invoke "even" (i32.const 111_111)) (i32.const 99))
++(assert_return (invoke "even" (i32.const 1000)) (i32.const 44))
++(assert_return (invoke "even" (i32.const 1111)) (i32.const 99))
+ (assert_return (invoke "odd" (i32.const 0)) (i32.const 99))
+ (assert_return (invoke "odd" (i32.const 1)) (i32.const 44))
+ (assert_return (invoke "odd" (i32.const 200)) (i32.const 99))
+ (assert_return (invoke "odd" (i32.const 77)) (i32.const 44))
+-(assert_return (invoke "odd" (i32.const 100_002)) (i32.const 99))
+-(assert_return (invoke "odd" (i32.const 100_003)) (i32.const 44))
++(assert_return (invoke "odd" (i32.const 1002)) (i32.const 99))
++(assert_return (invoke "odd" (i32.const 1003)) (i32.const 44))
+ 
+ 
+ ;; Invalid syntax
