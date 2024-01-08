@@ -822,7 +822,9 @@ load_custom_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
         case AOT_CUSTOM_SECTION_NAME:
             if (!load_name_section(buf, buf_end, module, is_load_from_file_buf,
                                    error_buf, error_buf_size))
-                goto fail;
+                LOG_VERBOSE("Load name section failed.");
+            else
+                LOG_VERBOSE("Load name section success.");
             break;
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
         case AOT_CUSTOM_SECTION_RAW:
