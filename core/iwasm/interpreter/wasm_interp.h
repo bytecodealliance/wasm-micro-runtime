@@ -59,6 +59,8 @@ typedef struct WASMInterpFrame {
      *  lp: parameters and local variables
      *  sp_bottom to sp_boundary: wasm operand stack
      *  csp_bottom to csp_boundary: wasm label stack
+     *  frame ref flags: only available for GC
+     *    whether each cell in local and stack area is a GC obj
      *  jit spill cache: only available for fast jit
      */
     uint32 lp[1];

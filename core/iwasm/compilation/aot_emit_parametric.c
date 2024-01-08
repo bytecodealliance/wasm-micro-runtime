@@ -65,6 +65,8 @@ pop_value_from_wasm_stack(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         if (!(type == VALUE_TYPE_I64 || type == VALUE_TYPE_F64
 #if WASM_ENABLE_GC != 0
               || (comp_ctx->enable_gc && type == VALUE_TYPE_GC_REF)
+              /* may be i32 which denotes funcref/externref */
+              || (!comp_ctx->enable_gc && type == VALUE_TYPE_I32)
 #endif
                   )) {
             aot_set_last_error("invalid WASM stack data type.");
