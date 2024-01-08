@@ -54,9 +54,9 @@ struct WASMCluster {
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
     /* When an exception occurs in a thread, the stack frames of that thread are
-     * saved into the claster
+     * saved into the cluster
      */
-    Vector *exception_frames;
+    Vector exception_frames;
 #endif
 };
 

@@ -1903,32 +1903,14 @@ wasm_frame_func_offset(const wasm_frame_t *frame)
 }
 
 void
-wasm_frame_vec_clone_internal(wasm_frame_vec_t *src, wasm_frame_vec_t *out)
+wasm_frame_vec_clone_internal(Vector *src, Vector *out)
 {
-    uint32 i;
+    bh_assert(src->num_elems != 0 && src->data);
 
-    wasm_frame_vec_new_uninitialized(out, src->num_elems);
-    if (out->size == 0 || !out->data) {
-        return;
-    }
-
-    for (i = 0; i < src->num_elems; i++) {
-        wasm_frame_t *frame = ((wasm_frame_t *)src->data) + i;
-        if (!(out->data[i] = wasm_frame_copy(frame))) {
-            goto failed;
-        }
-        out->num_elems++;
-    }
-
-    return;
-failed:
-    for (i = 0; i < out->num_elems; i++) {
-        if (out->data[i]) {
-            wasm_runtime_free(out->data[i]);
-        }
-    }
-
-    wasm_runtime_free(out->data);
+    bh_vector_init(out, src->num_elems, sizeof(WASMCApiFrame), false);
+    bh_memcpy_s(out->data, src->num_elems * sizeof(WASMCApiFrame), src->data,
+                src->num_elems * sizeof(WASMCApiFrame));
+    out->num_elems = src->num_elems;
 }
 
 static wasm_trap_t *
@@ -1981,13 +1963,8 @@ wasm_trap_new_internal(wasm_store_t *store,
         }
 
         for (i = 0; i < trap->frames->num_elems; i++) {
-#if WASM_ENABLE_THREAD_MGR != 0
-            ((wasm_frame_vec_t *)trap->frames)->data[i]->instance =
-                frame_instance;
-#else
             (((wasm_frame_t *)trap->frames->data) + i)->instance =
                 frame_instance;
-#endif
         }
     }
 #else
@@ -2082,11 +2059,7 @@ wasm_trap_trace(const wasm_trap_t *trap, own wasm_frame_vec_t *out)
     }
 
     for (i = 0; i < trap->frames->num_elems; i++) {
-#if WASM_ENABLE_THREAD_MGR != 0
-        wasm_frame_t *frame = ((wasm_frame_vec_t *)trap->frames)->data[i];
-#else
         wasm_frame_t *frame = ((wasm_frame_t *)trap->frames->data) + i;
-#endif
         if (!(out->data[i] =
                   wasm_frame_new(frame->instance, frame->module_offset,
                                  frame->func_index, frame->func_offset))) {
@@ -3425,7 +3398,7 @@ failed:
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0 && WASM_ENABLE_THREAD_MGR != 0
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
-    cluster_frames = cluster->exception_frames;
+    cluster_frames = &cluster->exception_frames;
 #endif
     return wasm_trap_new_internal(
         func->store, func->inst_comm_rt,
