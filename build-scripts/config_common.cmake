@@ -451,3 +451,7 @@ if (WAMR_BUILD_LINUX_PERF EQUAL 1)
   add_definitions (-DWASM_ENABLE_LINUX_PERF=1)
   message ("     Enable linux perf support")
 endif ()
+
+if (APPLE)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-pagezero_size,0x4000")
+endif ()
