@@ -77,10 +77,8 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
         map_prot |= PROT_EXEC;
 
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-#ifndef __APPLE__
     if (flags & MMAP_MAP_32BIT)
         map_flags |= MAP_32BIT;
-#endif
 #endif
 
     if (flags & MMAP_MAP_FIXED)
