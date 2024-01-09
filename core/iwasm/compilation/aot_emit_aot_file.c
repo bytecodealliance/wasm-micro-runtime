@@ -878,12 +878,18 @@ get_func_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
     /* func_local_ref_flags */
     if (comp_ctx->enable_gc) {
         AOTFuncType *func_type;
-        uint32 i, local_ref_flags_cell_num;
+        uint32 i, j, local_ref_flags_cell_num;
 
         for (i = 0; i < comp_data->import_func_count; i++) {
             func_type = comp_data->import_funcs[i].func_type;
+            /* recalculate cell_num based on target pointer size */
+            local_ref_flags_cell_num = 0;
+            for (j = 0; j < func_type->param_count; j++) {
+                local_ref_flags_cell_num += wasm_value_type_cell_num_internal(
+                    func_type->types[j], comp_ctx->pointer_size);
+            }
             local_ref_flags_cell_num =
-                func_type->param_cell_num > 2 ? func_type->param_cell_num : 2;
+                local_ref_flags_cell_num > 2 ? local_ref_flags_cell_num : 2;
 
             size = align_uint(size, 4);
             size += (uint32)sizeof(uint32);
@@ -892,8 +898,8 @@ get_func_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
 
         for (i = 0; i < comp_data->func_count; i++) {
             func_type = comp_data->funcs[i]->func_type;
-            local_ref_flags_cell_num =
-                func_type->param_cell_num + comp_data->funcs[i]->local_cell_num;
+            local_ref_flags_cell_num = comp_data->funcs[i]->param_cell_num
+                                       + comp_data->funcs[i]->local_cell_num;
 
             size = align_uint(size, 4);
             size += (uint32)sizeof(uint32);
@@ -2535,18 +2541,16 @@ aot_emit_text_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
 #if WASM_ENABLE_GC != 0
 static bool
-aot_emit_ref_flag(uint8 *buf, uint8 *buf_end, uint32 *p_offset, bool is_local,
-                  int8 type)
+aot_emit_ref_flag(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
+                  uint8 pointer_size, int8 type)
 {
     uint32 j, offset = *p_offset;
     uint16 value_type_cell_num;
 
     if (wasm_is_type_reftype(type) && !wasm_is_reftype_i31ref(type)) {
         EMIT_U8(1);
-#if UINTPTR_MAX == UINT64_MAX
-        if (!is_local)
+        if (pointer_size == sizeof(uint64))
             EMIT_U8(1);
-#endif
     }
     else {
         value_type_cell_num = wasm_value_type_cell_num(type);
@@ -2601,13 +2605,20 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
         for (i = 0; i < comp_data->import_func_count; i++) {
             func_type = comp_data->import_funcs[i].func_type;
+            /* recalculate cell_num based on target pointer size */
+            local_ref_flags_cell_num = 0;
+            for (j = 0; j < func_type->param_count; ++j) {
+                local_ref_flags_cell_num += wasm_value_type_cell_num_internal(
+                    func_type->types[j], comp_ctx->pointer_size);
+            }
             local_ref_flags_cell_num =
-                func_type->param_cell_num > 2 ? func_type->param_cell_num : 2;
+                local_ref_flags_cell_num > 2 ? local_ref_flags_cell_num : 2;
 
             offset = align_uint(offset, 4);
             EMIT_U32(local_ref_flags_cell_num);
             for (j = 0; j < func_type->param_count; ++j) {
-                if (!aot_emit_ref_flag(buf, buf_end, &offset, false,
+                if (!aot_emit_ref_flag(buf, buf_end, &offset,
+                                       comp_ctx->pointer_size,
                                        func_type->types[j]))
                     return false;
             }
@@ -2618,19 +2629,21 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         for (i = 0; i < comp_data->func_count; i++) {
             func_type = funcs[i]->func_type;
             local_ref_flags_cell_num =
-                func_type->param_cell_num + funcs[i]->local_cell_num;
+                funcs[i]->param_cell_num + funcs[i]->local_cell_num;
 
             offset = align_uint(offset, 4);
             EMIT_U32(local_ref_flags_cell_num);
             /* emit local_ref_flag for param variables */
             for (j = 0; j < func_type->param_count; j++) {
-                if (!aot_emit_ref_flag(buf, buf_end, &offset, false,
+                if (!aot_emit_ref_flag(buf, buf_end, &offset,
+                                       comp_ctx->pointer_size,
                                        func_type->types[j]))
                     return false;
             }
             /* emit local_ref_flag for local variables */
             for (j = 0; j < funcs[i]->local_count; j++) {
-                if (!aot_emit_ref_flag(buf, buf_end, &offset, true,
+                if (!aot_emit_ref_flag(buf, buf_end, &offset,
+                                       comp_ctx->pointer_size,
                                        funcs[i]->local_types_wp[j]))
                     return false;
             }
