@@ -2535,7 +2535,8 @@ aot_emit_text_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
 #if WASM_ENABLE_GC != 0
 static bool
-aot_emit_ref_flag(uint8 *buf, uint8 *buf_end, uint32 *p_offset, int8 type)
+aot_emit_ref_flag(uint8 *buf, uint8 *buf_end, uint32 *p_offset, bool is_local,
+                  int8 type)
 {
     uint32 j, offset = *p_offset;
     uint16 value_type_cell_num;
@@ -2543,7 +2544,8 @@ aot_emit_ref_flag(uint8 *buf, uint8 *buf_end, uint32 *p_offset, int8 type)
     if (wasm_is_type_reftype(type) && !wasm_is_reftype_i31ref(type)) {
         EMIT_U8(1);
 #if UINTPTR_MAX == UINT64_MAX
-        EMIT_U8(1);
+        if (!is_local)
+            EMIT_U8(1);
 #endif
     }
     else {
@@ -2605,7 +2607,7 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             offset = align_uint(offset, 4);
             EMIT_U32(local_ref_flags_cell_num);
             for (j = 0; j < func_type->param_count; ++j) {
-                if (!aot_emit_ref_flag(buf, buf_end, &offset,
+                if (!aot_emit_ref_flag(buf, buf_end, &offset, false,
                                        func_type->types[j]))
                     return false;
             }
@@ -2622,13 +2624,13 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             EMIT_U32(local_ref_flags_cell_num);
             /* emit local_ref_flag for param variables */
             for (j = 0; j < func_type->param_count; j++) {
-                if (!aot_emit_ref_flag(buf, buf_end, &offset,
+                if (!aot_emit_ref_flag(buf, buf_end, &offset, false,
                                        func_type->types[j]))
                     return false;
             }
             /* emit local_ref_flag for local variables */
             for (j = 0; j < funcs[i]->local_count; j++) {
-                if (!aot_emit_ref_flag(buf, buf_end, &offset,
+                if (!aot_emit_ref_flag(buf, buf_end, &offset, true,
                                        funcs[i]->local_types_wp[j]))
                     return false;
             }
