@@ -375,7 +375,8 @@ typedef struct AOTFrame {
      *  stack area: wasm operand stack
      *  frame ref flags (GC only):
      *      whether each cell in local(LLVM JIT) and stack area is a GC obj
-     *      for AOT, local is only paddings, actual ref flags for local area are stored in AOT module
+     *                           paddings(AOT)
+     *                           actual ref flags for local are in AOT module
      */
     uint32 lp[1];
 } AOTFrame;
