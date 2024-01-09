@@ -1307,9 +1307,10 @@ wasm_cluster_set_exception(WASMExecEnv *exec_env, const char *exception)
     data.skip = NULL;
     data.exception = exception;
 
+    os_mutex_lock(&cluster->lock);
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
     if (has_exception) {
-        /* Save the stack trace of the crashed thread into the cluster */
+        /* Save the stack frames of the crashed thread into the cluster */
         WASMModuleInstance *module_inst =
             (WASMModuleInstance *)get_module_inst(exec_env);
 
@@ -1329,9 +1330,7 @@ wasm_cluster_set_exception(WASMExecEnv *exec_env, const char *exception)
         }
 #endif
     }
-#endif
-
-    os_mutex_lock(&cluster->lock);
+#endif /* WASM_ENABLE_DUMP_CALL_STACK != 0 */
     cluster->has_exception = has_exception;
     traverse_list(&cluster->exec_env_list, set_exception_visitor, &data);
     os_mutex_unlock(&cluster->lock);

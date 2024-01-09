@@ -1907,7 +1907,12 @@ wasm_frame_vec_clone_internal(Vector *src, Vector *out)
 {
     bh_assert(src->num_elems != 0 && src->data);
 
-    bh_vector_init(out, src->num_elems, sizeof(WASMCApiFrame), false);
+    bh_vector_destroy(out);
+    if (!bh_vector_init(out, src->num_elems, sizeof(WASMCApiFrame), false)) {
+        bh_vector_destroy(out);
+        return;
+    }
+
     bh_memcpy_s(out->data, src->num_elems * sizeof(WASMCApiFrame), src->data,
                 src->num_elems * sizeof(WASMCApiFrame));
     out->num_elems = src->num_elems;
@@ -3399,10 +3404,17 @@ failed:
 #if WASM_ENABLE_DUMP_CALL_STACK != 0 && WASM_ENABLE_THREAD_MGR != 0
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
     cluster_frames = &cluster->exception_frames;
+    wasm_cluster_traverse_lock(exec_env);
 #endif
-    return wasm_trap_new_internal(
+
+    wasm_trap_t *trap = wasm_trap_new_internal(
         func->store, func->inst_comm_rt,
         wasm_runtime_get_exception(func->inst_comm_rt), cluster_frames);
+
+#if WASM_ENABLE_DUMP_CALL_STACK != 0 && WASM_ENABLE_THREAD_MGR != 0
+    wasm_cluster_traverse_unlock(exec_env);
+#endif
+    return trap;
 }
 
 size_t
