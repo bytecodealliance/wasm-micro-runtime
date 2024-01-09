@@ -854,7 +854,8 @@ get_text_section_size(AOTObjectData *obj_data)
 }
 
 static uint32
-get_func_section_size(AOTCompData *comp_data, AOTObjectData *obj_data)
+get_func_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
+                      AOTObjectData *obj_data)
 {
     uint32 size = 0;
 
@@ -872,6 +873,35 @@ get_func_section_size(AOTCompData *comp_data, AOTObjectData *obj_data)
 
     /* max_stack_cell_nums */
     size += (uint32)sizeof(uint32) * comp_data->func_count;
+
+#if WASM_ENABLE_GC != 0
+    /* func_local_ref_flags */
+    if (comp_ctx->enable_gc) {
+        AOTFuncType *func_type;
+        uint32 i, local_ref_flags_cell_num;
+
+        for (i = 0; i < comp_data->import_func_count; i++) {
+            func_type = comp_data->import_funcs[i].func_type;
+            local_ref_flags_cell_num =
+                func_type->param_cell_num > 2 ? func_type->param_cell_num : 2;
+
+            size = align_uint(size, 4);
+            size += (uint32)sizeof(uint32);
+            size += (uint32)sizeof(uint8) * local_ref_flags_cell_num;
+        }
+
+        for (i = 0; i < comp_data->func_count; i++) {
+            func_type = comp_data->funcs[i]->func_type;
+            local_ref_flags_cell_num =
+                func_type->param_cell_num + comp_data->funcs[i]->local_cell_num;
+
+            size = align_uint(size, 4);
+            size += (uint32)sizeof(uint32);
+            size += (uint32)sizeof(uint8) * local_ref_flags_cell_num;
+        }
+    }
+#endif
+
     return size;
 }
 
@@ -1240,7 +1270,7 @@ get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
     size = align_uint(size, 4);
     /* section id + section size */
     size += (uint32)sizeof(uint32) * 2;
-    size += get_func_section_size(comp_data, obj_data);
+    size += get_func_section_size(comp_ctx, comp_data, obj_data);
 
     /* export section */
     size = align_uint(size, 4);
@@ -2503,11 +2533,36 @@ aot_emit_text_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     return true;
 }
 
+#if WASM_ENABLE_GC != 0
+static bool
+aot_emit_ref_flag(uint8 *buf, uint8 *buf_end, uint32 *p_offset, int8 type)
+{
+    uint32 j, offset = *p_offset;
+    uint16 value_type_cell_num;
+
+    if (wasm_is_type_reftype(type) && !wasm_is_reftype_i31ref(type)) {
+        EMIT_U8(1);
+#if UINTPTR_MAX == UINT64_MAX
+        EMIT_U8(1);
+#endif
+    }
+    else {
+        value_type_cell_num = wasm_value_type_cell_num(type);
+        for (j = 0; j < value_type_cell_num; j++)
+            EMIT_U8(0);
+    }
+
+    *p_offset = offset;
+    return true;
+}
+#endif
+
 static bool
 aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
-                      AOTCompData *comp_data, AOTObjectData *obj_data)
+                      AOTCompContext *comp_ctx, AOTCompData *comp_data,
+                      AOTObjectData *obj_data)
 {
-    uint32 section_size = get_func_section_size(comp_data, obj_data);
+    uint32 section_size = get_func_section_size(comp_ctx, comp_data, obj_data);
     uint32 i, offset = *p_offset;
     AOTObjectFunc *func = obj_data->funcs;
     AOTFunc **funcs = comp_data->funcs;
@@ -2535,6 +2590,51 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
     for (i = 0; i < comp_data->func_count; i++)
         EMIT_U32(funcs[i]->max_stack_cell_num);
+
+#if WASM_ENABLE_GC != 0
+    if (comp_ctx->enable_gc) {
+        /* emit func_local_ref_flag arrays for both import and AOTed funcs */
+        AOTFuncType *func_type;
+        uint32 j, local_ref_flags_cell_num;
+
+        for (i = 0; i < comp_data->import_func_count; i++) {
+            func_type = comp_data->import_funcs[i].func_type;
+            local_ref_flags_cell_num =
+                func_type->param_cell_num > 2 ? func_type->param_cell_num : 2;
+
+            offset = align_uint(offset, 4);
+            EMIT_U32(local_ref_flags_cell_num);
+            for (j = 0; j < func_type->param_count; ++j) {
+                if (!aot_emit_ref_flag(buf, buf_end, &offset,
+                                       func_type->types[j]))
+                    return false;
+            }
+            for (; j < 2; j++)
+                EMIT_U8(0);
+        }
+
+        for (i = 0; i < comp_data->func_count; i++) {
+            func_type = funcs[i]->func_type;
+            local_ref_flags_cell_num =
+                func_type->param_cell_num + funcs[i]->local_cell_num;
+
+            offset = align_uint(offset, 4);
+            EMIT_U32(local_ref_flags_cell_num);
+            /* emit local_ref_flag for param variables */
+            for (j = 0; j < func_type->param_count; j++) {
+                if (!aot_emit_ref_flag(buf, buf_end, &offset,
+                                       func_type->types[j]))
+                    return false;
+            }
+            /* emit local_ref_flag for local variables */
+            for (j = 0; j < funcs[i]->local_count; j++) {
+                if (!aot_emit_ref_flag(buf, buf_end, &offset,
+                                       funcs[i]->local_types_wp[j]))
+                    return false;
+            }
+        }
+    }
+#endif /* end of WASM_ENABLE_GC != 0 */
 
     if (offset - *p_offset != section_size + sizeof(uint32) * 2) {
         aot_set_last_error("emit function section failed.");
@@ -4315,7 +4415,8 @@ aot_emit_aot_file_buf(AOTCompContext *comp_ctx, AOTCompData *comp_data,
         || !aot_emit_init_data_section(buf, buf_end, &offset, comp_ctx,
                                        comp_data, obj_data)
         || !aot_emit_text_section(buf, buf_end, &offset, comp_data, obj_data)
-        || !aot_emit_func_section(buf, buf_end, &offset, comp_data, obj_data)
+        || !aot_emit_func_section(buf, buf_end, &offset, comp_ctx, comp_data,
+                                  obj_data)
         || !aot_emit_export_section(buf, buf_end, &offset, comp_ctx, comp_data,
                                     obj_data)
         || !aot_emit_relocation_section(buf, buf_end, &offset, comp_ctx,
