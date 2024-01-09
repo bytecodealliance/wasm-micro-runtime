@@ -3676,7 +3676,6 @@ aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame)
 bool
 aot_create_call_stack(struct WASMExecEnv *exec_env)
 {
-    /* TODO: write back ref flags in AOT module */
     AOTFrame *cur_frame = (AOTFrame *)exec_env->cur_frame,
              *first_frame = cur_frame;
     AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
@@ -3735,9 +3734,17 @@ aot_create_call_stack(struct WASMExecEnv *exec_env)
             bh_memcpy_s(frame.lp, lp_size, cur_frame->lp, lp_size);
 
 #if WASM_ENABLE_GC != 0
+            uint32 local_ref_flags_cell_num =
+                module->func_local_ref_flags[frame.func_index]
+                    .local_ref_flag_cell_num;
+            uint8 *local_ref_flags =
+                module->func_local_ref_flags[frame.func_index].local_ref_flags;
             frame.sp = frame.lp + (cur_frame->sp - cur_frame->lp);
             frame.frame_ref = (uint8 *)frame.lp
                               + (cur_frame->frame_ref - (uint8 *)cur_frame->lp);
+            /* copy local ref flags from AOT module */
+            bh_memcpy_s(frame.frame_ref, local_ref_flags_cell_num,
+                        local_ref_flags, lp_size);
 #endif
         }
 
