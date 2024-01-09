@@ -26,7 +26,7 @@ env:
   LLVM_CACHE_SUFFIX: "build-llvm_libraries_ex"
   WASI_SDK_PATH: "/opt/wasi-sdk"
   WAMR_COMMON_OPTION:
-    "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_STACKSIZE=327680\\nCONFIG_INTERPRETERS_WAMR_LOG=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\\nCONFIG_INTERPRETERS_WAMR_REF_TYPES=y\\nCONFIG_INTERPRETERS_WAMR_ENABLE_SPEC_TEST=y\\nCONFIG_INTERPRETERS_WAMR_SHARED_MEMORY=y\\nCONFIG_INTERPRETERS_WAMR_BULK_MEMORY=y\\nCONFIG_INTERPRETERS_WAMR_AOT_STACK_FRAME=y\\nCONFIG_EOL_IS_LF=y\\nCONFIG_ARM_SEMIHOSTING_HOSTFS=y\\nCONFIG_ARM_SEMIHOSTING_HOSTFS_CACHE_COHERENCE=y\\nCONFIG_RISCV_SEMIHOSTING_HOSTFS=y\\nCONFIG_FS_HOSTFS=y\\nCONFIG_LIBC_FLOATINGPOINT=y\\n"
+    "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_STACKSIZE=327680\\nCONFIG_INTERPRETERS_WAMR_LOG=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\\nCONFIG_INTERPRETERS_WAMR_REF_TYPES=y\\nCONFIG_INTERPRETERS_WAMR_ENABLE_SPEC_TEST=y\\nCONFIG_INTERPRETERS_WAMR_SHARED_MEMORY=y\\nCONFIG_INTERPRETERS_WAMR_BULK_MEMORY=y\\nCONFIG_EOL_IS_LF=y\\nCONFIG_ARM_SEMIHOSTING_HOSTFS=y\\nCONFIG_ARM_SEMIHOSTING_HOSTFS_CACHE_COHERENCE=y\\nCONFIG_RISCV_SEMIHOSTING_HOSTFS=y\\nCONFIG_FS_HOSTFS=y\\nCONFIG_LIBC_FLOATINGPOINT=y\\n"
 
 jobs:
   build_llvm_libraries:
@@ -97,8 +97,8 @@ jobs:
 
         wamr_feature_option:
           # Empty option for default
-          # - { option: "", mode: "" }
-          - { option: "CONFIG_INTERPRETERS_WAMR_GC=y\\n", mode: "-G" }
+          - { option: "", mode: "" }
+          - { option: "CONFIG_INTERPRETERS_WAMR_GC=y\\nCONFIG_INTERPRETERS_WAMR_AOT_STACK_FRAME=y\\n", mode: "-G" }
 
         exclude:
           # XIP is not fully supported yet on RISCV64, some relocations can not be resolved
@@ -154,7 +154,7 @@ jobs:
           echo "\n" >> apps/interpreters/wamr/Kconfig
           echo "config INTERPRETERS_WAMR_GC" >> apps/interpreters/wamr/Kconfig
           echo "\tbool \"Enable GC\"" >> apps/interpreters/wamr/Kconfig
-          echo "\tdefault y" >> apps/interpreters/wamr/Kconfig
+          echo "\tdefault n" >> apps/interpreters/wamr/Kconfig
           echo "\n" >> apps/interpreters/wamr/Kconfig
           echo "config INTERPRETERS_WAMR_AOT_STACK_FRAME" >> apps/interpreters/wamr/Kconfig
           echo "\tbool \"Enable AOT stack frame\"" >> apps/interpreters/wamr/Kconfig
