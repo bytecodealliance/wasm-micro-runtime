@@ -32,3 +32,10 @@ os_time_get_boot_us()
     return ++times;
 }
 #endif
+
+uint64
+os_time_thread_cputime_us(void)
+{
+    /* FIXME if u know the right api */
+    return os_time_get_boot_us();
+}

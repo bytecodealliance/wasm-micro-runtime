@@ -127,6 +127,13 @@ os_time_get_boot_us(void)
     return ret;
 }
 
+uint64
+os_time_thread_cputime_us(void)
+{
+    /* FIXME if u know the right api */
+    return os_time_get_boot_us();
+}
+
 korp_tid
 os_self_thread(void)
 {

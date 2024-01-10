@@ -41,6 +41,13 @@ os_time_get_boot_us(void)
     return (uint64)esp_timer_get_time();
 }
 
+uint64
+os_time_thread_cputime_us(void)
+{
+    /* FIXME if u know the right api */
+    return os_time_get_boot_us();
+}
+
 uint8 *
 os_thread_get_stack_boundary(void)
 {
