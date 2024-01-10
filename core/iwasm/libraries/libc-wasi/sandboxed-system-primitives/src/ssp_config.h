@@ -41,7 +41,8 @@
 #endif
 
 #if !defined(__APPLE__) && !defined(__FreeBSD__) && !defined(__EMSCRIPTEN__) \
-    && !defined(ESP_PLATFORM) && !defined(DISABLE_CLOCK_NANOSLEEP)
+    && !defined(ESP_PLATFORM) && !defined(DISABLE_CLOCK_NANOSLEEP)           \
+    && !defined(BH_PLATFORM_FREERTOS)
 #define CONFIG_HAS_CLOCK_NANOSLEEP 1
 #else
 #define CONFIG_HAS_CLOCK_NANOSLEEP 0
