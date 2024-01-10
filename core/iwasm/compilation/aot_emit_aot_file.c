@@ -2607,7 +2607,7 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             func_type = comp_data->import_funcs[i].func_type;
             /* recalculate cell_num based on target pointer size */
             local_ref_flags_cell_num = 0;
-            for (j = 0; j < func_type->param_count; ++j) {
+            for (j = 0; j < func_type->param_count; j++) {
                 local_ref_flags_cell_num += wasm_value_type_cell_num_internal(
                     func_type->types[j], comp_ctx->pointer_size);
             }
@@ -2616,7 +2616,7 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
             offset = align_uint(offset, 4);
             EMIT_U32(local_ref_flags_cell_num);
-            for (j = 0; j < func_type->param_count; ++j) {
+            for (j = 0; j < func_type->param_count; j++) {
                 if (!aot_emit_ref_flag(buf, buf_end, &offset,
                                        comp_ctx->pointer_size,
                                        func_type->types[j]))
