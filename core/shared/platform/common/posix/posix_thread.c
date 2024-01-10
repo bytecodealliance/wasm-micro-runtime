@@ -477,7 +477,7 @@ void
 os_thread_jit_write_protect_np(bool enabled)
 {
 #if (defined(__APPLE__) || defined(__MACH__)) && defined(__arm64__) \
-    && TARGET_OS_OSX
+    && defined(TARGET_OS_OSX) && TARGET_OS_OSX != 0
     pthread_jit_write_protect_np(enabled);
 #endif
 }
