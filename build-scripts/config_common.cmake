@@ -453,5 +453,7 @@ if (WAMR_BUILD_LINUX_PERF EQUAL 1)
 endif ()
 
 if (APPLE)
+  # On recent macOS versions, by default, the size of page zero is 4GB.
+  # Shrink it to make MAP_32BIT mmap can work.
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-pagezero_size,0x4000")
 endif ()
