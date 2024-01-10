@@ -451,3 +451,9 @@ if (WAMR_BUILD_LINUX_PERF EQUAL 1)
   add_definitions (-DWASM_ENABLE_LINUX_PERF=1)
   message ("     Enable linux perf support")
 endif ()
+
+if (APPLE)
+  # On recent macOS versions, by default, the size of page zero is 4GB.
+  # Shrink it to make MAP_32BIT mmap can work.
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-pagezero_size,0x4000")
+endif ()
