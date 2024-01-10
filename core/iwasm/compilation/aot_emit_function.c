@@ -328,8 +328,10 @@ call_aot_invoke_c_api_native(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Get module_inst->e->common.c_api_func_imports */
     offset_c_api_func_imports =
         get_module_inst_extra_offset(comp_ctx)
-        /* offsetof(WASMModuleInstanceExtra, common.c_api_func_imports) */
-        + (comp_ctx->is_jit_mode ? 0 : sizeof(uint64));
+        + (comp_ctx->is_jit_mode
+               ? offsetof(WASMModuleInstanceExtra, common.c_api_func_imports)
+               /* offsetof(AOTModuleInstanceExtra, common.c_api_func_imports) */
+               : sizeof(uint64));
     offset = I32_CONST(offset_c_api_func_imports);
     CHECK_LLVM_CONST(offset);
     c_api_func_imports =
