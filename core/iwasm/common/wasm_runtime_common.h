@@ -443,6 +443,7 @@ typedef struct LLVMJITOptions {
     uint32 opt_level;
     uint32 size_level;
     uint32 segue_flags;
+    bool quick_invoke_c_api_import;
 } LLVMJITOptions;
 #endif
 
@@ -476,7 +477,7 @@ wasm_runtime_get_default_running_mode(void);
 
 #if WASM_ENABLE_JIT != 0
 /* Internal API */
-LLVMJITOptions
+LLVMJITOptions *
 wasm_runtime_get_llvm_jit_options(void);
 #endif
 
@@ -1078,6 +1079,16 @@ wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
                                  void *func_ptr, WASMType *func_type,
                                  uint32 argc, uint32 *argv, bool with_env,
                                  void *wasm_c_api_env);
+
+struct CApiFuncImport;
+/* A quick version of wasm_runtime_invoke_c_api_native to directly invoke
+   wasm-c-api import function from jitted code to improve performance */
+bool
+wasm_runtime_quick_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
+                                       struct CApiFuncImport *c_api_import,
+                                       wasm_val_t *params, uint32 param_count,
+                                       wasm_val_t *results,
+                                       uint32 result_count);
 
 void
 wasm_runtime_show_app_heap_corrupted_prompt();

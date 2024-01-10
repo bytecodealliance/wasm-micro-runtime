@@ -406,7 +406,7 @@ main(int argc, char *argv[])
             ip_addr = argv[0] + 3;
         }
 #endif
-        else if (!strncmp(argv[0], "--version", 9)) {
+        else if (!strcmp(argv[0], "--version")) {
             uint32 major, minor, patch;
             wasm_runtime_get_version(&major, &minor, &patch);
             printf("iwasm %" PRIu32 ".%" PRIu32 ".%" PRIu32 "\n", major, minor,

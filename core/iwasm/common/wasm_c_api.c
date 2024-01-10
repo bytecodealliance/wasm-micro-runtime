@@ -378,6 +378,9 @@ wasm_engine_new_internal(wasm_config_t *config)
     wasm_engine_t *engine = NULL;
     /* init runtime */
     RuntimeInitArgs init_args = { 0 };
+#if WASM_ENABLE_JIT != 0
+    LLVMJITOptions *jit_options = wasm_runtime_get_llvm_jit_options();
+#endif
 
 #ifndef NDEBUG
     bh_log_set_verbose_level(BH_LOG_LEVEL_VERBOSE);
@@ -393,6 +396,10 @@ wasm_engine_new_internal(wasm_config_t *config)
            sizeof(MemAllocOption));
     init_args.enable_linux_perf = config->enable_linux_perf;
     init_args.segue_flags = config->segue_flags;
+
+#if WASM_ENABLE_JIT != 0
+    jit_options->quick_invoke_c_api_import = true;
+#endif
 
     if (!wasm_runtime_full_init(&init_args)) {
         LOG_DEBUG("wasm_runtime_full_init failed");

@@ -1878,9 +1878,11 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
     }
 
     option.is_jit_mode = true;
-    option.opt_level = llvm_jit_options.opt_level;
-    option.size_level = llvm_jit_options.size_level;
-    option.segue_flags = llvm_jit_options.segue_flags;
+    option.opt_level = llvm_jit_options->opt_level;
+    option.size_level = llvm_jit_options->size_level;
+    option.segue_flags = llvm_jit_options->segue_flags;
+    option.quick_invoke_c_api_import =
+        llvm_jit_options->quick_invoke_c_api_import;
 
 #if WASM_ENABLE_BULK_MEMORY != 0
     option.enable_bulk_memory = true;

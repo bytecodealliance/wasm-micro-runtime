@@ -2852,7 +2852,7 @@ static bool
 init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
                                uint32 error_buf_size)
 {
-    LLVMJITOptions llvm_jit_options = wasm_runtime_get_llvm_jit_options();
+    LLVMJITOptions *llvm_jit_options = wasm_runtime_get_llvm_jit_options();
     AOTCompOption option = { 0 };
     char *aot_last_error;
     uint64 size;
@@ -2892,10 +2892,11 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
 
     option.is_jit_mode = true;
 
-    llvm_jit_options = wasm_runtime_get_llvm_jit_options();
-    option.opt_level = llvm_jit_options.opt_level;
-    option.size_level = llvm_jit_options.size_level;
-    option.segue_flags = llvm_jit_options.segue_flags;
+    option.opt_level = llvm_jit_options->opt_level;
+    option.size_level = llvm_jit_options->size_level;
+    option.segue_flags = llvm_jit_options->segue_flags;
+    option.quick_invoke_c_api_import =
+        llvm_jit_options->quick_invoke_c_api_import;
 
 #if WASM_ENABLE_BULK_MEMORY != 0
     option.enable_bulk_memory = true;

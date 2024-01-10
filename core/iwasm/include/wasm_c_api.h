@@ -417,6 +417,7 @@ struct wasm_ref_t;
 
 typedef struct wasm_val_t {
   wasm_valkind_t kind;
+  uint8_t __paddings[7];
   union {
     int32_t i32;
     int64_t i64;

@@ -188,6 +188,8 @@ print_help()
     printf("                            are shared object (.so) files, for example:\n");
     printf("                              --native-lib=test1.so --native-lib=test2.so\n");
 #endif
+    printf("  --invoke-c-api-import     Treat unknown import function as wasm-c-api import function and\n");
+    printf("                            quick call it from AOT code\n");
 #if WASM_ENABLE_LINUX_PERF != 0
     printf("  --enable-linux-perf       Enable linux perf support\n");
 #endif
@@ -532,12 +534,15 @@ main(int argc, char *argv[])
             native_lib_list[native_lib_count++] = argv[0] + 13;
         }
 #endif
+        else if (!strcmp(argv[0], "--invoke-c-api-import")) {
+            option.quick_invoke_c_api_import = true;
+        }
 #if WASM_ENABLE_LINUX_PERF != 0
-        else if (!strncmp(argv[0], "--enable-linux-perf", 19)) {
+        else if (!strcmp(argv[0], "--enable-linux-perf")) {
             enable_linux_perf = true;
         }
 #endif
-        else if (!strncmp(argv[0], "--version", 9)) {
+        else if (!strcmp(argv[0], "--version")) {
             uint32 major, minor, patch;
             wasm_runtime_get_version(&major, &minor, &patch);
             printf("wamrc %u.%u.%u\n", major, minor, patch);

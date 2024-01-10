@@ -2398,6 +2398,9 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     if (option->enable_stack_estimation)
         comp_ctx->enable_stack_estimation = true;
 
+    if (option->quick_invoke_c_api_import)
+        comp_ctx->quick_invoke_c_api_import = true;
+
     if (option->llvm_passes)
         comp_ctx->llvm_passes = option->llvm_passes;
 
