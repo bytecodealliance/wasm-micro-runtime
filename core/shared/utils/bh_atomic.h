@@ -7,6 +7,7 @@
 #define _BH_ATOMIC_H
 
 #include "gnuc.h"
+#include "platform_common.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,15 +44,19 @@ extern "C" {
  *     unlock(&some_lock);
  * #endif
  */
-
+typedef uint64 bh_atomic_64_t;
 typedef uint32 bh_atomic_32_t;
 typedef uint16 bh_atomic_16_t;
 
 /* The flag can be defined by the user if the platform
- * supports atomic 32-bit operations.
+ * supports atomic 64/32/16-bit operations.
  * If left undefined, it will be automatically defined
  * according to the platform.
  */
+#ifdef WASM_UINT64_IS_ATOMIC
+#define BH_ATOMIC_64_IS_ATOMIC WASM_UINT64_IS_ATOMIC
+#endif /*WASM_UINT64_IS_ATOMIC*/
+
 #ifdef WASM_UINT32_IS_ATOMIC
 #define BH_ATOMIC_32_IS_ATOMIC WASM_UINT32_IS_ATOMIC
 #endif /* WASM_UINT32_IS_ATOMIC */
@@ -71,6 +76,9 @@ typedef uint16 bh_atomic_16_t;
 #endif
 
 #if defined(CLANG_GCC_HAS_ATOMIC_BUILTIN)
+#ifndef BH_ATOMIC_64_IS_ATOMIC
+#define BH_ATOMIC_64_IS_ATOMIC 1
+#endif
 #ifndef BH_ATOMIC_32_IS_ATOMIC
 #define BH_ATOMIC_32_IS_ATOMIC 1
 #endif
@@ -78,6 +86,9 @@ typedef uint16 bh_atomic_16_t;
 #define BH_ATOMIC_16_IS_ATOMIC 1
 #endif
 #else
+#ifndef BH_ATOMIC_64_IS_ATOMIC
+#define BH_ATOMIC_64_IS_ATOMIC 0
+#endif
 #ifndef BH_ATOMIC_32_IS_ATOMIC
 #define BH_ATOMIC_32_IS_ATOMIC 0
 #endif
@@ -100,6 +111,62 @@ typedef uint16 bh_atomic_16_t;
 #define BH_ATOMIC_16_IS_ATOMIC 0
 #endif
 #endif
+
+#if BH_ATOMIC_64_IS_ATOMIC != 0
+
+#define BH_ATOMIC_64_LOAD(v) __atomic_load_n(&(v), __ATOMIC_SEQ_CST)
+#define BH_ATOMIC_64_STORE(v, val) __atomic_store_n(&(v), val, __ATOMIC_SEQ_CST)
+#define BH_ATOMIC_64_FETCH_OR(v, val) \
+    __atomic_fetch_or(&(v), (val), __ATOMIC_SEQ_CST)
+#define BH_ATOMIC_64_FETCH_AND(v, val) \
+    __atomic_fetch_and(&(v), (val), __ATOMIC_SEQ_CST)
+#define BH_ATOMIC_64_FETCH_ADD(v, val) \
+    __atomic_fetch_add(&(v), (val), __ATOMIC_SEQ_CST)
+#define BH_ATOMIC_64_FETCH_SUB(v, val) \
+    __atomic_fetch_sub(&(v), (val), __ATOMIC_SEQ_CST)
+
+#else /* BH_ATOMIC_64_IS_ATOMIC != 0 */
+
+#define BH_ATOMIC_64_LOAD(v) (v)
+#define BH_ATOMIC_64_STORE(v, val) (v) = val
+#define BH_ATOMIC_64_FETCH_OR(v, val) nonatomic_64_fetch_or(&(v), val)
+#define BH_ATOMIC_64_FETCH_AND(v, val) nonatomic_64_fetch_and(&(v), val)
+#define BH_ATOMIC_64_FETCH_ADD(v, val) nonatomic_64_fetch_add(&(v), val)
+#define BH_ATOMIC_64_FETCH_SUB(v, val) nonatomic_64_fetch_sub(&(v), val)
+
+static inline uint64
+nonatomic_64_fetch_or(bh_atomic_64_t *p, uint64 val)
+{
+    uint64 old = *p;
+    *p |= val;
+    return old;
+}
+
+static inline uint64
+nonatomic_64_fetch_and(bh_atomic_64_t *p, uint64 val)
+{
+    uint64 old = *p;
+    *p &= val;
+    return old;
+}
+
+static inline uint64
+nonatomic_64_fetch_add(bh_atomic_64_t *p, uint64 val)
+{
+    uint64 old = *p;
+    *p += val;
+    return old;
+}
+
+static inline uint64
+nonatomic_64_fetch_sub(bh_atomic_64_t *p, uint64 val)
+{
+    uint64 old = *p;
+    *p -= val;
+    return old;
+}
+
+#endif /* BH_ATOMIC_64_IS_ATOMIC != 0 */
 
 #if BH_ATOMIC_32_IS_ATOMIC != 0
 

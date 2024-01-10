@@ -4,7 +4,6 @@
  */
 
 #include "wasm_runtime.h"
-#include "platform_api_vmcore.h"
 #include "wasm_loader.h"
 #include "wasm_interp.h"
 #include "bh_common.h"

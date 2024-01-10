@@ -4,7 +4,6 @@
  */
 
 #include "platform_api_vmcore.h"
-#include <bits/time.h>
 
 #define TRACE_FUNC() os_printf("undefined %s\n", __FUNCTION__)
 #define TRACE_OCALL_FAIL() os_printf("ocall %s failed!\n", __FUNCTION__)
