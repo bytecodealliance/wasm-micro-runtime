@@ -4886,22 +4886,22 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
         func_host = wasm_extern_as_func(in);
         /* it is a placeholder and let's skip it*/
         if (!func_host->type) {
-            func_import++;
             continue;
         }
+        if (func_host->func_idx_rt < 0)
+            continue;
 
-        func_import->with_env_arg = func_host->with_env;
+        CApiFuncImport *linkFunc = func_import + func_host->func_idx_rt;
+        linkFunc->with_env_arg = func_host->with_env;
         if (func_host->with_env) {
-            func_import->func_ptr_linked = func_host->u.cb_env.cb;
-            func_import->env_arg = func_host->u.cb_env.env;
+            linkFunc->func_ptr_linked = func_host->u.cb_env.cb;
+            linkFunc->env_arg = func_host->u.cb_env.env;
         }
         else {
-            func_import->func_ptr_linked = func_host->u.cb;
-            func_import->env_arg = NULL;
+            linkFunc->func_ptr_linked = func_host->u.cb;
+            linkFunc->env_arg = NULL;
         }
-        bh_assert(func_import->func_ptr_linked);
-
-        func_import++;
+        bh_assert(linkFunc->func_ptr_linked);
     }
 
     /* fill with inst */
