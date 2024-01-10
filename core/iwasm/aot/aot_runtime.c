@@ -1385,9 +1385,6 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     WASMJmpBuf jmpbuf_node = { 0 }, *jmpbuf_node_pop;
     uint32 page_size = os_getpagesize();
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
-    uint16 param_count = func_type->param_count;
-    uint16 result_count = func_type->result_count;
-    const uint8 *types = func_type->types;
 #ifdef BH_PLATFORM_WINDOWS
     int result;
     bool has_exception;
@@ -1426,28 +1423,22 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
 
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
-        /* Quick call with func_ptr if the function signature is simple */
-        if (!signature && param_count == 1 && types[0] == VALUE_TYPE_I32) {
-            if (result_count == 0) {
-                void (*NativeFunc)(WASMExecEnv *, uint32) =
-                    (void (*)(WASMExecEnv *, uint32))func_ptr;
-                NativeFunc(exec_env, argv[0]);
-                ret = aot_copy_exception(module_inst, NULL) ? false : true;
-            }
-            else if (result_count == 1
-                     && types[param_count] == VALUE_TYPE_I32) {
-                uint32 (*NativeFunc)(WASMExecEnv *, uint32) =
-                    (uint32(*)(WASMExecEnv *, uint32))func_ptr;
-                argv_ret[0] = NativeFunc(exec_env, argv[0]);
-                ret = aot_copy_exception(module_inst, NULL) ? false : true;
-            }
-            else {
-                ret = wasm_runtime_invoke_native(exec_env, func_ptr, func_type,
-                                                 signature, attachment, argv,
-                                                 argc, argv_ret);
-            }
+#if WASM_ENABLE_QUICK_AOT_ENTRY != 0
+        /* Quick call if the quick aot entry is registered */
+        if (!signature && func_type->quick_aot_entry) {
+            void (*invoke_native)(
+                void *func_ptr, uint8 ret_type, void *exec_env, uint32 *argv,
+                uint32 *argv_ret) = func_type->quick_aot_entry;
+            invoke_native(func_ptr,
+                          func_type->result_count > 0
+                              ? func_type->types[func_type->param_count]
+                              : VALUE_TYPE_VOID,
+                          exec_env, argv, argv_ret);
+            ret = !aot_copy_exception(module_inst, NULL);
         }
-        else {
+        else
+#endif
+        {
             ret = wasm_runtime_invoke_native(exec_env, func_ptr, func_type,
                                              signature, attachment, argv, argc,
                                              argv_ret);
