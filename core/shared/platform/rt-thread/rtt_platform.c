@@ -120,7 +120,7 @@ os_vprintf(const char *format, va_list ap)
 }
 
 uint64
-os_time_get_boot_microsecond(void)
+os_time_get_boot_us(void)
 {
     uint64 ret = rt_tick_get() * 1000;
     ret /= RT_TICK_PER_SECOND;

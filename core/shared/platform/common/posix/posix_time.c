@@ -6,7 +6,7 @@
 #include "platform_api_vmcore.h"
 
 uint64
-os_time_get_boot_microsecond()
+os_time_get_boot_us()
 {
     struct timespec ts;
     if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
@@ -17,7 +17,7 @@ os_time_get_boot_microsecond()
 }
 
 uint64
-os_time_get_thread_specfic_cpu_time_ms()
+os_time_thread_cputime_us()
 {
     struct timespec ts;
     if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts) != 0) {

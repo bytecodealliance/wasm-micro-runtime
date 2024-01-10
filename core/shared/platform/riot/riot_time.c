@@ -10,23 +10,23 @@
 
 #if IS_USED(MODULE_ZTIMER64_USEC)
 uint64
-os_time_get_boot_microsecond()
+os_time_get_boot_us()
 {
     return ztimer64_now(ZTIMER64_USEC);
 }
 #elif IS_USED(MODULE_ZTIMER64_MSEC)
 uint64
-os_time_get_boot_microsecond()
+os_time_get_boot_us()
 {
     return ztimer64_now(ZTIMER64_MSEC) * 1000;
 }
 #else
 #ifdef __GNUC__
 __attribute__((weak)) uint64
-os_time_get_boot_microsecond();
+os_time_get_boot_us();
 #endif
 uint64
-os_time_get_boot_microsecond()
+os_time_get_boot_us()
 {
     static uint64_t times;
     return ++times;

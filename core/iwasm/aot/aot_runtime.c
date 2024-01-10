@@ -2814,7 +2814,7 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     }
 
 #if WASM_ENABLE_PERF_PROFILING != 0
-    frame->time_started = os_time_get_thread_specfic_cpu_time_ms();
+    frame->time_started = os_time_thread_cputime_us();
     frame->func_perf_prof_info = func_perf_prof;
 #endif
 
@@ -2833,7 +2833,7 @@ aot_free_frame(WASMExecEnv *exec_env)
 
 #if WASM_ENABLE_PERF_PROFILING != 0
     cur_frame->func_perf_prof_info->total_exec_time +=
-        os_time_get_thread_specfic_cpu_time_ms() - cur_frame->time_started;
+        os_time_thread_cputime_us() - cur_frame->time_started;
     cur_frame->func_perf_prof_info->total_exec_cnt++;
 
     /* parent function */

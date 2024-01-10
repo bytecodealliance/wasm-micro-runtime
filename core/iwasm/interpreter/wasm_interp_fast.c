@@ -884,7 +884,7 @@ ALLOC_FRAME(WASMExecEnv *exec_env, uint32 size, WASMInterpFrame *prev_frame)
     if (frame) {
         frame->prev_frame = prev_frame;
 #if WASM_ENABLE_PERF_PROFILING != 0
-        frame->time_started = os_time_get_thread_specfic_cpu_time_ms();
+        frame->time_started = os_time_thread_cputime_us();
 #endif
     }
     else {
@@ -903,7 +903,7 @@ FREE_FRAME(WASMExecEnv *exec_env, WASMInterpFrame *frame)
         WASMInterpFrame *prev_frame = frame->prev_frame;
 
         frame->function->total_exec_time +=
-            os_time_get_thread_specfic_cpu_time_ms() - frame->time_started;
+            os_time_thread_cputime_us() - frame->time_started;
         frame->function->total_exec_cnt++;
 
         if (prev_frame && prev_frame->function)

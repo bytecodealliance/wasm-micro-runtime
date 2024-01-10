@@ -6,7 +6,7 @@
 #include "platform_api_vmcore.h"
 
 uint64
-os_time_get_boot_microsecond()
+os_time_get_boot_us()
 {
     struct timespec ts;
 #if defined(__MINGW32__)

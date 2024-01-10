@@ -64,13 +64,13 @@ os_vprintf(const char *format, va_list ap);
  * Get microseconds after boot.
  */
 uint64
-os_time_get_boot_microsecond(void);
+os_time_get_boot_us(void);
 
 /**
  * Get thread-specific CPU-time clock in microseconds
  */
 uint64
-os_time_get_thread_specfic_cpu_time_ms(void);
+os_time_thread_cputime_us(void);
 
 /**
  * Get current thread id.

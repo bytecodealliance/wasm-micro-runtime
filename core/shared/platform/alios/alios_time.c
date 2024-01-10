@@ -6,7 +6,7 @@
 #include "platform_api_vmcore.h"
 
 uint64
-os_time_get_boot_microsecond()
+os_time_get_boot_us()
 {
     return (uint64)aos_now_ms() * 1000;
 }

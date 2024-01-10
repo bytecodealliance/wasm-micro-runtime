@@ -3428,7 +3428,7 @@ llvm_jit_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     frame->ip = NULL;
     frame->sp = frame->lp;
 #if WASM_ENABLE_PERF_PROFILING != 0
-    frame->time_started = os_time_get_thread_specfic_cpu_time_ms();
+    frame->time_started = os_time_thread_cputime_us();
 #endif
     frame->prev_frame = wasm_exec_env_get_cur_frame(exec_env);
     wasm_exec_env_set_cur_frame(exec_env, frame);
@@ -3450,7 +3450,7 @@ llvm_jit_free_frame(WASMExecEnv *exec_env)
 #if WASM_ENABLE_PERF_PROFILING != 0
     if (frame->function) {
         frame->function->total_exec_time +=
-            os_time_get_thread_specfic_cpu_time_ms() - frame->time_started;
+            os_time_thread_cputime_us() - frame->time_started;
         frame->function->total_exec_cnt++;
 
         /* parent function */

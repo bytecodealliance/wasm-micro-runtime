@@ -26,7 +26,7 @@ ocall_clock_nanosleep(int *p_ret, unsigned clock_id, int flags,
                       const void *rem_buf, unsigned int rem_buf_size);
 
 uint64
-os_time_get_boot_microsecond()
+os_time_get_boot_us()
 {
 #ifndef SGX_DISABLE_WASI
     struct timespec ts;

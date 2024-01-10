@@ -36,7 +36,7 @@ os_vprintf(const char *format, va_list ap)
 }
 
 uint64
-os_time_get_boot_microsecond(void)
+os_time_get_boot_us(void)
 {
     return (uint64)esp_timer_get_time();
 }
