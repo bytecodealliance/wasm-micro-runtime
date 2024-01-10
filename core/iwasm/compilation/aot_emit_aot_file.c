@@ -1323,13 +1323,16 @@ get_custom_sections_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
 
         if (strcmp(section_name, "name") == 0) {
             /* custom name section */
+            comp_data->aot_name_section_size = get_name_section_size(comp_data);
+            if (comp_data->aot_name_section_size == 0) {
+                LOG_WARNING("Can't find custom section [name], ignore it");
+                continue;
+            }
+
             size = align_uint(size, 4);
             /* section id + section size + sub section id */
             size += (uint32)sizeof(uint32) * 3;
-            size += (comp_data->aot_name_section_size =
-                         get_name_section_size(comp_data));
-            if (comp_data->aot_name_section_size == 0)
-                LOG_WARNING("No name section emitted");
+            size += comp_data->aot_name_section_size;
             continue;
         }
 
@@ -2068,7 +2071,10 @@ aot_emit_name_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 {
     uint32 offset = *p_offset;
 
-    *p_offset = offset = align_uint(offset, 4);
+    if (comp_data->aot_name_section_size == 0)
+        return true;
+
+    offset = align_uint(offset, 4);
 
     EMIT_U32(AOT_SECTION_TYPE_CUSTOM);
     /* sub section id + name section size */
@@ -2098,7 +2104,12 @@ aot_emit_custom_sections(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         uint32 length = 0;
 
         if (strcmp(section_name, "name") == 0) {
-            aot_emit_name_section(buf, buf_end, p_offset, comp_data, comp_ctx);
+            *p_offset = offset;
+            if (!aot_emit_name_section(buf, buf_end, p_offset, comp_data,
+                                       comp_ctx))
+                return false;
+
+            offset = *p_offset;
             continue;
         }
 
