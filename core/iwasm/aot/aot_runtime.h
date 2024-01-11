@@ -618,6 +618,10 @@ aot_dump_perf_profiling(const AOTModuleInstance *module_inst);
 double
 aot_summarize_wasm_execute_time(const AOTModuleInstance *inst);
 
+double
+aot_get_wasm_func_exec_time(const AOTModuleInstance *inst,
+                            const char *func_name);
+
 const uint8 *
 aot_get_custom_section(const AOTModule *module, const char *name, uint32 *len);
 

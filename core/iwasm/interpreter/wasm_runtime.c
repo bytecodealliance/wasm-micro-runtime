@@ -2398,14 +2398,47 @@ wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
     return !wasm_copy_exception(module_inst, NULL);
 }
 
+#if WASM_ENABLE_PERF_PROFILING != 0 || WASM_ENABLE_DUMP_CALL_STACK != 0
+/* look for the function name */
+static char *
+get_func_name_from_index(const WASMModuleInstance *inst, uint32 func_index)
+{
+    char *func_name = NULL;
+    WASMFunctionInstance *func_inst = inst->e->functions + func_index;
+
+    if (func_inst->is_import_func) {
+        func_name = func_inst->u.func_import->field_name;
+    }
+    else {
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+        func_name = func_inst->u.func->field_name;
+#endif
+        /* if custom name section is not generated,
+            search symbols from export table */
+        if (!func_name) {
+            unsigned j;
+            for (j = 0; j < inst->export_func_count; j++) {
+                WASMExportFuncInstance *export_func =
+                    inst->export_functions + j;
+                if (export_func->function == func_inst) {
+                    func_name = export_func->name;
+                    break;
+                }
+            }
+        }
+    }
+
+    return func_name;
+}
+#endif /*WASM_ENABLE_PERF_PROFILING != 0 || WASM_ENABLE_DUMP_CALL_STACK != 0*/
+
 #if WASM_ENABLE_PERF_PROFILING != 0
 void
 wasm_dump_perf_profiling(const WASMModuleInstance *module_inst)
 {
-    WASMExportFuncInstance *export_func;
     WASMFunctionInstance *func_inst;
     char *func_name;
-    uint32 i, j;
+    uint32 i;
 
     os_printf("Performance profiler data:\n");
     for (i = 0; i < module_inst->e->function_count; i++) {
@@ -2414,25 +2447,7 @@ wasm_dump_perf_profiling(const WASMModuleInstance *module_inst)
         if (func_inst->total_exec_cnt == 0)
             continue;
 
-        if (func_inst->is_import_func) {
-            func_name = func_inst->u.func_import->field_name;
-        }
-#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
-        else if (func_inst->u.func->field_name) {
-            func_name = func_inst->u.func->field_name;
-        }
-#endif
-        else {
-            func_name = NULL;
-            for (j = 0; j < module_inst->export_func_count; j++) {
-                export_func = module_inst->export_functions + j;
-                if (export_func->function == func_inst) {
-                    func_name = export_func->name;
-                    break;
-                }
-            }
-        }
-
+        func_name = get_func_name_from_index(module_inst, i);
         if (func_name)
             os_printf(
                 "  func %s, execution time: %.3f ms, execution count: %" PRIu32
@@ -2462,6 +2477,22 @@ wasm_summarize_wasm_execute_time(const WASMModuleInstance *inst)
     }
 
     return ret;
+}
+
+double
+wasm_get_wasm_func_exec_time(const WASMModuleInstance *inst,
+                             const char *func_name)
+{
+    unsigned i;
+    for (i = 0; i < inst->e->function_count; i++) {
+        char *name_in_wasm = get_func_name_from_index(inst, i);
+        if (name_in_wasm && strcmp(name_in_wasm, func_name) == 0) {
+            WASMFunctionInstance *func = inst->e->functions + i;
+            return (func->total_exec_time - func->children_exec_time) / 1000.0f;
+        }
+    }
+
+    return -1.0;
 }
 #endif /*WASM_ENABLE_PERF_PROFILING != 0*/
 
@@ -2958,29 +2989,7 @@ wasm_interp_create_call_stack(struct WASMExecEnv *exec_env)
             frame.func_offset = (uint32)(cur_frame->ip - func_code_base);
         }
 
-        /* look for the function name */
-        if (func_inst->is_import_func) {
-            func_name = func_inst->u.func_import->field_name;
-        }
-        else {
-#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
-            func_name = func_inst->u.func->field_name;
-#endif
-            /* if custom name section is not generated,
-                search symbols from export table */
-            if (!func_name) {
-                uint32 i;
-                for (i = 0; i < module_inst->export_func_count; i++) {
-                    WASMExportFuncInstance *export_func =
-                        module_inst->export_functions + i;
-                    if (export_func->function == func_inst) {
-                        func_name = export_func->name;
-                        break;
-                    }
-                }
-            }
-        }
-
+        func_name = get_func_name_from_index(module_inst, frame.func_index);
         frame.func_name_wp = func_name;
 
         if (!bh_vector_append(module_inst->frames, &frame)) {

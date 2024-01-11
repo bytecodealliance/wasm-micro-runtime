@@ -1692,7 +1692,7 @@ wasm_runtime_dump_perf_profiling(WASMModuleInstanceCommon *module_inst)
 }
 
 double
-wasm_runtime_summarize_wasm_execute_time(WASMModuleInstanceCommon *inst)
+wasm_runtime_sum_wasm_exec_time(WASMModuleInstanceCommon *inst)
 {
 #if WASM_ENABLE_INTERP != 0
     if (inst->module_type == Wasm_Module_Bytecode)
@@ -1704,7 +1704,26 @@ wasm_runtime_summarize_wasm_execute_time(WASMModuleInstanceCommon *inst)
         return aot_summarize_wasm_execute_time((AOTModuleInstance *)inst);
 #endif
 
-    return 0;
+    return 0.0;
+}
+
+double
+wasm_runtime_get_wasm_func_exec_time(WASMModuleInstanceCommon *inst,
+                                     const char *func_name)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (inst->module_type == Wasm_Module_Bytecode)
+        return wasm_get_wasm_func_exec_time((WASMModuleInstance *)inst,
+                                            func_name);
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (inst->module_type == Wasm_Module_AoT)
+        return aot_get_wasm_func_exec_time((AOTModuleInstance *)inst,
+                                           func_name);
+#endif
+
+    return 0.0;
 }
 #endif /* WASM_ENABLE_PERF_PROFILING != 0 */
 

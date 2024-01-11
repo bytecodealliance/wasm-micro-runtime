@@ -3015,6 +3015,26 @@ aot_summarize_wasm_execute_time(const AOTModuleInstance *inst)
 
     return ret;
 }
+
+double
+aot_get_wasm_func_exec_time(const AOTModuleInstance *inst,
+                            const char *func_name)
+{
+    AOTModule *module = (AOTModule *)inst->module;
+    uint32 total_func_count = module->import_func_count + module->func_count, i;
+
+    for (i = 0; i < total_func_count; i++) {
+        const char *name_in_wasm = get_func_name_from_index(inst, i);
+        if (name_in_wasm && strcmp(func_name, name_in_wasm) == 0) {
+            AOTFuncPerfProfInfo *perf_prof =
+                (AOTFuncPerfProfInfo *)inst->func_perf_profilings + i;
+            return (perf_prof->total_exec_time - perf_prof->children_exec_time)
+                   / 1000.0f;
+        }
+    }
+
+    return -1.0;
+}
 #endif /* end of WASM_ENABLE_PERF_PROFILING */
 
 #if WASM_ENABLE_STATIC_PGO != 0
