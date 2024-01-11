@@ -51,6 +51,13 @@ struct WASMCluster {
 #if WASM_ENABLE_DEBUG_INTERP != 0
     WASMDebugInstance *debug_inst;
 #endif
+
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+    /* When an exception occurs in a thread, the stack frames of that thread are
+     * saved into the cluster
+     */
+    Vector exception_frames;
+#endif
 };
 
 void

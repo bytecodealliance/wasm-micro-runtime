@@ -4,6 +4,7 @@
  */
 
 #include "thread_manager.h"
+#include "../common/wasm_c_api_internal.h"
 
 #if WASM_ENABLE_INTERP != 0
 #include "../interpreter/wasm_runtime.h"
@@ -368,6 +369,10 @@ wasm_cluster_destroy(WASMCluster *cluster)
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
     wasm_debug_instance_destroy(cluster);
+#endif
+
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+    bh_vector_destroy(&cluster->exception_frames);
 #endif
 
     wasm_runtime_free(cluster);
@@ -1321,6 +1326,29 @@ wasm_cluster_set_exception(WASMExecEnv *exec_env, const char *exception)
     data.exception = exception;
 
     os_mutex_lock(&cluster->lock);
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+    if (has_exception) {
+        /* Save the stack frames of the crashed thread into the cluster */
+        WASMModuleInstance *module_inst =
+            (WASMModuleInstance *)get_module_inst(exec_env);
+
+#if WASM_ENABLE_INTERP != 0
+        if (module_inst->module_type == Wasm_Module_Bytecode
+            && wasm_interp_create_call_stack(exec_env)) {
+            wasm_frame_vec_clone_internal(module_inst->frames,
+                                          &cluster->exception_frames);
+        }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+        if (module_inst->module_type == Wasm_Module_AoT
+            && aot_create_call_stack(exec_env)) {
+            wasm_frame_vec_clone_internal(module_inst->frames,
+                                          &cluster->exception_frames);
+        }
+#endif
+    }
+#endif /* WASM_ENABLE_DUMP_CALL_STACK != 0 */
     cluster->has_exception = has_exception;
     traverse_list(&cluster->exec_env_list, set_exception_visitor, &data);
     os_mutex_unlock(&cluster->lock);

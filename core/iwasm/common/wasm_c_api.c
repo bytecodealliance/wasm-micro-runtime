@@ -1921,10 +1921,26 @@ wasm_frame_func_offset(const wasm_frame_t *frame)
     return frame ? frame->func_offset : 0;
 }
 
+void
+wasm_frame_vec_clone_internal(Vector *src, Vector *out)
+{
+    bh_assert(src->num_elems != 0 && src->data);
+
+    bh_vector_destroy(out);
+    if (!bh_vector_init(out, src->num_elems, sizeof(WASMCApiFrame), false)) {
+        bh_vector_destroy(out);
+        return;
+    }
+
+    bh_memcpy_s(out->data, src->num_elems * sizeof(WASMCApiFrame), src->data,
+                src->num_elems * sizeof(WASMCApiFrame));
+    out->num_elems = src->num_elems;
+}
+
 static wasm_trap_t *
 wasm_trap_new_internal(wasm_store_t *store,
                        WASMModuleInstanceCommon *inst_comm_rt,
-                       const char *error_info)
+                       const char *error_info, Vector *cluster_frames)
 {
     wasm_trap_t *trap;
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
@@ -1954,7 +1970,9 @@ wasm_trap_new_internal(wasm_store_t *store,
 
     /* fill in frames */
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
-    trap->frames = ((WASMModuleInstance *)inst_comm_rt)->frames;
+    trap->frames = cluster_frames
+                       ? cluster_frames
+                       : ((WASMModuleInstance *)inst_comm_rt)->frames;
 
     if (trap->frames) {
         /* fill in instances */
@@ -2065,10 +2083,7 @@ wasm_trap_trace(const wasm_trap_t *trap, own wasm_frame_vec_t *out)
     }
 
     for (i = 0; i < trap->frames->num_elems; i++) {
-        wasm_frame_t *frame;
-
-        frame = ((wasm_frame_t *)trap->frames->data) + i;
-
+        wasm_frame_t *frame = ((wasm_frame_t *)trap->frames->data) + i;
         if (!(out->data[i] =
                   wasm_frame_new(frame->instance, frame->module_offset,
                                  frame->func_index, frame->func_offset))) {
@@ -3252,6 +3267,7 @@ wasm_func_call(const wasm_func_t *func, const wasm_val_vec_t *params,
     WASMFunctionInstanceCommon *func_comm_rt = NULL;
     WASMExecEnv *exec_env = NULL;
     size_t param_count, result_count, alloc_count;
+    Vector *cluster_frames = NULL;
 
     bh_assert(func && func->type);
 
@@ -3364,9 +3380,20 @@ failed:
     if (argv != argv_buf)
         wasm_runtime_free(argv);
 
-    return wasm_trap_new_internal(
+#if WASM_ENABLE_DUMP_CALL_STACK != 0 && WASM_ENABLE_THREAD_MGR != 0
+    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    cluster_frames = &cluster->exception_frames;
+    wasm_cluster_traverse_lock(exec_env);
+#endif
+
+    wasm_trap_t *trap = wasm_trap_new_internal(
         func->store, func->inst_comm_rt,
-        wasm_runtime_get_exception(func->inst_comm_rt));
+        wasm_runtime_get_exception(func->inst_comm_rt), cluster_frames);
+
+#if WASM_ENABLE_DUMP_CALL_STACK != 0 && WASM_ENABLE_THREAD_MGR != 0
+    wasm_cluster_traverse_unlock(exec_env);
+#endif
+    return trap;
 }
 
 size_t
