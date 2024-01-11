@@ -318,8 +318,12 @@ aot_gen_commit_values(AOTCompFrame *frame)
     LLVMValueRef value;
     uint32 n;
 
-    /* First, commit reference flags, ignore local(params + locals) ref flags */
-    for (p = frame->lp + frame->max_local_cell_num; p < frame->sp; p++) {
+    /* First, commit reference flags
+     * For LLVM JIT, iterate all local and stack ref flags
+     * For AOT, ignore local(params + locals) ref flags */
+    for (p = comp_ctx->is_jit_mode ? frame->lp
+                                   : frame->lp + frame->max_local_cell_num;
+         p < frame->sp; p++) {
         if (!p->dirty)
             continue;
 
@@ -366,9 +370,7 @@ aot_gen_commit_values(AOTCompFrame *frame)
                             (p + 2)->committed_ref = (p + 3)->committed_ref =
                                 p->ref + 1;
                     }
-                    p++;
-                    p++;
-                    p++;
+                    p += 3;
                     break;
 
                 case REF_TYPE_NULLFUNCREF:

@@ -192,7 +192,7 @@ typedef struct AOTModule {
 
 #if WASM_ENABLE_GC != 0
     /* params + locals ref flags of (both import and AOTed) functions */
-    struct LocalRefFlag *func_local_ref_flags;
+    LocalRefFlag *func_local_ref_flags;
 #endif
 
     /* export info */
@@ -374,9 +374,9 @@ typedef struct AOTFrame {
      *  local area: parameters and local variables
      *  stack area: wasm operand stack
      *  frame ref flags (GC only):
-     *      whether each cell in local(LLVM JIT) and stack area is a GC obj
-     *                           paddings(AOT)
-     *                           actual ref flags for local are in AOT module
+     *      whether each cell in local and stack area is a GC obj
+     *      currently local's ref flags are stored in AOTModule,
+     *      here we only reserve the padding bytes
      */
     uint32 lp[1];
 } AOTFrame;

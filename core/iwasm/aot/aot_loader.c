@@ -2575,6 +2575,9 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
     }
 
 #if WASM_ENABLE_GC != 0
+    /* Local(params and locals) ref flags for all import and non-imported
+     * functions. The flags indicate whether each cell in the AOTFrame local
+     * area is a GC reference. */
     size = sizeof(LocalRefFlag)
            * (uint64)(module->import_func_count + module->func_count);
     if (size > 0) {
@@ -2584,7 +2587,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
         }
 
         for (i = 0; i < module->import_func_count + module->func_count; i++) {
-            uint32 j, local_ref_flag_cell_num;
+            uint32 local_ref_flag_cell_num;
 
             buf = (uint8 *)align_ptr(buf, sizeof(uint32));
             read_uint32(
@@ -2599,11 +2602,9 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
                           loader_malloc(size, error_buf, error_buf_size))) {
                     return false;
                 }
-                for (j = 0; j < local_ref_flag_cell_num; j++) {
-                    read_uint8(
-                        p, p_end,
-                        module->func_local_ref_flags[i].local_ref_flags[j]);
-                }
+                read_byte_array(p, p_end,
+                                module->func_local_ref_flags[i].local_ref_flags,
+                                local_ref_flag_cell_num);
             }
         }
     }
