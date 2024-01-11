@@ -5,8 +5,7 @@
 
 #include "platform_api_vmcore.h"
 
-#if (defined(__APPLE__) || defined(__MACH__)) && defined(__arm64__) \
-    && defined(TARGET_OS_OSX) && TARGET_OS_OSX != 0
+#if defined(__APPLE__) || defined(__MACH__)
 #include <libkern/OSCacheControl.h>
 #endif
 
@@ -265,8 +264,7 @@ os_dcache_flush(void)
 void
 os_icache_flush(void *start, size_t len)
 {
-#if (defined(__APPLE__) || defined(__MACH__)) && defined(__arm64__) \
-    && defined(TARGET_OS_OSX) && TARGET_OS_OSX != 0
+#if defined(__APPLE__) || defined(__MACH__)
     sys_icache_invalidate(start, len);
 #endif
 }
