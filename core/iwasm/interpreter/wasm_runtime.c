@@ -3601,7 +3601,11 @@ wasm_interp_create_call_stack(struct WASMExecEnv *exec_env)
             frame.func_offset = 0;
         }
         else {
+#if WASM_ENABLE_FAST_INTERP == 0
             frame.func_offset = (uint32)(cur_frame->ip - module->load_addr);
+#else
+            frame.func_offset = (uint32)(cur_frame->ip - func_code_base);
+#endif
         }
 
         /* look for the function name */
@@ -3733,12 +3737,11 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env, bool print, char *buf,
             return 0;
         }
 
-        /* function name not exported, print number instead */
 #if WASM_ENABLE_FAST_JIT != 0
+        /* Fast JIT doesn't support committing ip (instruction pointer) yet */
         if (module_inst->e->running_mode == Mode_Fast_JIT
             || module_inst->e->running_mode == Mode_Multi_Tier_JIT) {
-            /* Fast JIT doesn't support committing ip (instruction
-               pointer) yet */
+            /* function name not exported, print number instead */
             if (frame.func_name_wp == NULL) {
                 line_length = snprintf(line_buf, sizeof(line_buf),
                                        "#%02" PRIu32 " $f%" PRIu32 "\n", n,
@@ -3753,16 +3756,17 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env, bool print, char *buf,
         else
 #endif
         {
+            /* function name not exported, print number instead */
             if (frame.func_name_wp == NULL) {
                 line_length =
                     snprintf(line_buf, sizeof(line_buf),
-                             "#%02" PRIu32 " $f%" PRIu32 " (0x%04x)\n", n,
-                             frame.func_index, frame.func_offset);
+                             "#%02" PRIu32 ": 0x%04x - $f%" PRIu32 "\n", n,
+                             frame.func_offset, frame.func_index);
             }
             else {
                 line_length = snprintf(line_buf, sizeof(line_buf),
-                                       "#%02" PRIu32 " %s (0x%04x)\n", n,
-                                       frame.func_name_wp, frame.func_offset);
+                                       "#%02" PRIu32 ": 0x%04x - %s\n", n,
+                                       frame.func_offset, frame.func_name_wp);
             }
         }
 

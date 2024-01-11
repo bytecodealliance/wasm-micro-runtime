@@ -3824,13 +3824,13 @@ aot_dump_call_stack(WASMExecEnv *exec_env, bool print, char *buf, uint32 len)
         /* function name not exported, print number instead */
         if (frame.func_name_wp == NULL) {
             line_length = snprintf(line_buf, sizeof(line_buf),
-                                   "#%02" PRIu32 " $f%" PRIu32 " (0x%04x)\n", n,
-                                   frame.func_index, frame.func_offset);
+                                   "#%02" PRIu32 ": 0x%04x - $f%" PRIu32 "\n",
+                                   n, frame.func_offset, frame.func_index);
         }
         else {
             line_length = snprintf(line_buf, sizeof(line_buf),
-                                   "#%02" PRIu32 " %s (0x%04x)\n", n,
-                                   frame.func_name_wp, frame.func_offset);
+                                   "#%02" PRIu32 ": 0x%04x - %s\n", n,
+                                   frame.func_offset, frame.func_name_wp);
         }
 
         if (line_length >= sizeof(line_buf)) {
