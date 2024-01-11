@@ -5,7 +5,7 @@
 
 #include "platform_api_vmcore.h"
 
-#if (defined(__APPLE__) || defined(__MACH__)) && defined(__arm64__)
+#if defined(__APPLE__) || defined(__MACH__)
 #include <libkern/OSCacheControl.h>
 #endif
 
@@ -40,7 +40,8 @@ void *
 os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
 {
     int map_prot = PROT_NONE;
-#if (defined(__APPLE__) || defined(__MACH__)) && defined(__arm64__)
+#if (defined(__APPLE__) || defined(__MACH__)) && defined(__arm64__) \
+    && defined(TARGET_OS_OSX) && TARGET_OS_OSX != 0
     int map_flags = MAP_ANONYMOUS | MAP_PRIVATE | MAP_JIT;
 #else
     int map_flags = MAP_ANONYMOUS | MAP_PRIVATE;
@@ -275,7 +276,7 @@ os_dcache_flush(void)
 void
 os_icache_flush(void *start, size_t len)
 {
-#if (defined(__APPLE__) || defined(__MACH__)) && defined(__arm64__)
+#if defined(__APPLE__) || defined(__MACH__)
     sys_icache_invalidate(start, len);
 #endif
 }
