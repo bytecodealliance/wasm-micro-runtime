@@ -2679,8 +2679,12 @@ handle_name_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                             if (!(module->functions[func_index]->field_name =
                                       const_str_list_insert(
                                           p, func_name_len, module,
-                                          is_load_from_file_buf, error_buf,
-                                          error_buf_size))) {
+#if WASM_ENABLE_WAMR_COMPILER != 0
+                                          false,
+#else
+                                          is_load_from_file_buf,
+#endif
+                                          error_buf, error_buf_size))) {
                                 return false;
                             }
                         }
