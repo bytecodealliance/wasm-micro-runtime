@@ -79,6 +79,13 @@ struct WASMCluster {
 #if WASM_ENABLE_DEBUG_INTERP != 0
     WASMDebugInstance *debug_inst;
 #endif
+
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+    /* When an exception occurs in a thread, the stack frames of that thread are
+     * saved into the cluster
+     */
+    Vector exception_frames;
+#endif
 };
 
 void
@@ -109,7 +116,9 @@ wasm_cluster_dup_c_api_imports(WASMModuleInstanceCommon *module_inst_dst,
 
 int32
 wasm_cluster_create_thread(WASMExecEnv *exec_env,
-                           wasm_module_inst_t module_inst, bool alloc_aux_stack,
+                           wasm_module_inst_t module_inst,
+                           bool is_aux_stack_allocated, uint32 aux_stack_start,
+                           uint32 aux_stack_size,
                            void *(*thread_routine)(void *), void *arg);
 
 int32
@@ -245,6 +254,13 @@ wasm_cluster_traverse_lock(WASMExecEnv *exec_env);
 
 void
 wasm_cluster_traverse_unlock(WASMExecEnv *exec_env);
+
+bool
+wasm_cluster_allocate_aux_stack(WASMExecEnv *exec_env, uint32 *p_start,
+                                uint32 *p_size);
+
+bool
+wasm_cluster_free_aux_stack(WASMExecEnv *exec_env, uint32 start);
 
 #ifdef __cplusplus
 }

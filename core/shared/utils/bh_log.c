@@ -43,7 +43,9 @@ bh_log(LogLevel log_level, const char *file, int line, const char *fmt, ...)
              "%02" PRIu32 ":%02" PRIu32 ":%02" PRIu32 ":%03" PRIu32, h, m, s,
              mills);
 
+#ifndef BH_VPRINTF
     os_printf("[%s - %" PRIXPTR "]: ", buf, (uintptr_t)self);
+#endif
 
     if (file)
         os_printf("%s, line %d, ", file, line);

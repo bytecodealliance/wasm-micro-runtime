@@ -1,7 +1,7 @@
 
 # Build WAMR vmcore
 
-WAMR vmcore is a set of runtime libraries for loading and running Wasm modules. This document introduces how to build the WAMR vmcore.  
+WAMR vmcore is a set of runtime libraries for loading and running Wasm modules. This document introduces how to build the WAMR vmcore.
 
 References:
 - [how to build iwasm](../product-mini/README.md): building different target platforms such as Linux, Windows, Mac etc
@@ -130,7 +130,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 > Note: if it is enabled, the call stack will be dumped when exception occurs.
 
 > - For interpreter mode, the function names are firstly extracted from *custom name section*, if this section doesn't exist or the feature is not enabled, then the name will be extracted from the import/export sections
-> - For AOT/JIT mode, the function names are extracted from import/export section, please export as many functions as possible (for `wasi-sdk` you can use `-Wl,--export-all`) when compiling wasm module, and add `--enable-dump-call-stack` option to wamrc during compiling AOT module.
+> - For AOT/JIT mode, the function names are extracted from import/export section, please export as many functions as possible (for `wasi-sdk` you can use `-Wl,--export-all`) when compiling wasm module, and add `--enable-dump-call-stack --emit-custom-sections=name` option to wamrc during compiling AOT module.
 
 #### **Enable memory profiling (Experiment)**
 - **WAMR_BUILD_MEMORY_PROFILING**=1/0, default to disable if not set
@@ -201,7 +201,7 @@ Currently we only profile the memory consumption of module, module_instance and 
 
 > Note: If `WAMR_BUILD_CUSTOM_NAME_SECTION` is enabled, then the `custom name section` will be treated as a special section and consumed by the runtime, not available to the embedder.
 
-> For AoT file, must use `--emit-custom-sections` to specify which sections need to be emitted into AoT file, otherwise all custom sections (except custom name section) will be ignored.
+> For AoT file, must use `--emit-custom-sections` to specify which sections need to be emitted into AoT file, otherwise all custom sections will be ignored.
 
 ### **Stack guard size**
 - **WAMR_BUILD_STACK_GUARD_SIZE**=n, default to N/A if not set.

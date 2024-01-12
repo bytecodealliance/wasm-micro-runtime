@@ -152,7 +152,7 @@ dwarf_gen_mock_vm_info(AOTCompContext *comp_ctx)
 
     comp_unit = LLVMDIBuilderCreateCompileUnit(
       comp_ctx->debug_builder, LLVMDWARFSourceLanguageC, file_info,
-      "ant compiler", 12, 0, NULL, 0, 1, NULL, 0, LLVMDWARFEmissionFull, 0, 0,
+      "WAMR AoT compiler", 12, 0, NULL, 0, 1, NULL, 0, LLVMDWARFEmissionFull, 0, 0,
       0, "/", 1, "", 0);
 
     LLVMTypeRef ParamTys[] = {
@@ -208,8 +208,8 @@ dwarf_gen_comp_unit_info(const AOTCompContext *comp_ctx)
 
         comp_unit = LLVMDIBuilderCreateCompileUnit(
             comp_ctx->debug_builder, LLDB_TO_LLVM_LANG_TYPE(lang_type),
-            comp_ctx->debug_file, "ant compiler", 12, 0, NULL, 0, 1, NULL, 0,
-            LLVMDWARFEmissionFull, 0, 0, 0, "/", 1, "", 0);
+            comp_ctx->debug_file, "WAMR AoT compiler", 12, 0, NULL, 0, 1, NULL,
+            0, LLVMDWARFEmissionFull, 0, 0, 0, "/", 1, "", 0);
     }
     return comp_unit;
 }
