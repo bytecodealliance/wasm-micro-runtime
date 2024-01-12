@@ -604,8 +604,8 @@ alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             }
         }
 
-        /* Initialize frame ref flags for import function */
-        if (func_idx < import_func_count) {
+        /* Initialize frame ref flags for import function only in JIT mode */
+        if (func_idx < import_func_count && comp_ctx->is_jit_mode) {
             aot_func_type = import_funcs[func_idx].func_type;
             for (i = 0, j = 0; i < aot_func_type->param_count; i++) {
                 if (aot_is_type_gc_reftype(aot_func_type->types[i])

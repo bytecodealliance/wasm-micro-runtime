@@ -3602,33 +3602,6 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
 #if WASM_ENABLE_GC != 0
     frame->sp = frame->lp + max_local_cell_num;
     frame->frame_ref = (uint8 *)(frame->sp + max_stack_cell_num);
-
-    /* Initialize frame ref flags for import function */
-    if (func_index < module->import_func_count) {
-        AOTFuncType *func_type = module->import_funcs[func_index].func_type;
-        uint8 *frame_ref = frame->frame_ref;
-        uint32 i, j, k, value_type_cell_num;
-
-        for (i = 0, j = 0; i < func_type->param_count; i++) {
-            if (wasm_is_type_reftype(func_type->types[i])
-                && !wasm_is_reftype_i31ref(func_type->types[i])) {
-                frame_ref[j++] = 1;
-#if UINTPTR_MAX == UINT64_MAX
-                frame_ref[j++] = 1;
-#endif
-            }
-            else {
-                value_type_cell_num =
-                    wasm_value_type_cell_num(func_type->types[i]);
-                for (k = 0; k < value_type_cell_num; k++)
-                    frame_ref[j++] = 0;
-            }
-        }
-
-        for (j = func_type->param_cell_num; j < 2; j++) {
-            frame_ref[j] = 0;
-        }
-    }
 #endif
 
     frame->prev_frame = (AOTFrame *)exec_env->cur_frame;
@@ -3761,9 +3734,17 @@ aot_create_call_stack(struct WASMExecEnv *exec_env)
             bh_memcpy_s(frame.lp, lp_size, cur_frame->lp, lp_size);
 
 #if WASM_ENABLE_GC != 0
+            uint32 local_ref_flags_cell_num =
+                module->func_local_ref_flags[frame.func_index]
+                    .local_ref_flag_cell_num;
+            uint8 *local_ref_flags =
+                module->func_local_ref_flags[frame.func_index].local_ref_flags;
             frame.sp = frame.lp + (cur_frame->sp - cur_frame->lp);
             frame.frame_ref = (uint8 *)frame.lp
                               + (cur_frame->frame_ref - (uint8 *)cur_frame->lp);
+            /* copy local ref flags from AOT module */
+            bh_memcpy_s(frame.frame_ref, local_ref_flags_cell_num,
+                        local_ref_flags, lp_size);
 #endif
         }
 
@@ -4572,13 +4553,35 @@ static bool
 aot_frame_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap)
 {
     AOTFrame *frame;
+    AOTModule *module;
+    LocalRefFlag frame_local_flags;
     WASMObjectRef gc_obj;
-    int i;
+    uint32 i, local_ref_flag_cell_num;
 
+    module = (AOTModule *)wasm_exec_env_get_module(exec_env);
     frame = (AOTFrame *)wasm_exec_env_get_cur_frame(exec_env);
     for (; frame; frame = frame->prev_frame) {
+        /* local ref flags */
+        frame_local_flags = module->func_local_ref_flags[frame->func_index];
+        local_ref_flag_cell_num = frame_local_flags.local_ref_flag_cell_num;
+        for (i = 0; i < local_ref_flag_cell_num; i++) {
+            if (frame_local_flags.local_ref_flags[i]) {
+                gc_obj = GET_REF_FROM_ADDR(frame->lp + i);
+                if (wasm_obj_is_created_from_heap(gc_obj)) {
+                    if (mem_allocator_add_root((mem_allocator_t)heap, gc_obj)) {
+                        return false;
+                    }
+                }
+#if UINTPTR_MAX == UINT64_MAX
+                bh_assert(frame_local_flags.local_ref_flags[i + 1]);
+                i++;
+#endif
+            }
+        }
+
+        /* stack ref flags */
         uint8 *frame_ref = frame->frame_ref;
-        for (i = 0; i < frame->sp - frame->lp; i++) {
+        for (i = local_ref_flag_cell_num; i < frame->sp - frame->lp; i++) {
             if (frame_ref[i]) {
                 gc_obj = GET_REF_FROM_ADDR(frame->lp + i);
                 if (wasm_obj_is_created_from_heap(gc_obj)) {

@@ -318,11 +318,15 @@ aot_gen_commit_values(AOTCompFrame *frame)
     LLVMValueRef value;
     uint32 n;
 
-    for (p = frame->lp; p < frame->sp; p++) {
+    /* First, commit reference flags
+     * For LLVM JIT, iterate all local and stack ref flags
+     * For AOT, ignore local(params + locals) ref flags */
+    for (p = comp_ctx->is_jit_mode ? frame->lp
+                                   : frame->lp + frame->max_local_cell_num;
+         p < frame->sp; p++) {
         if (!p->dirty)
             continue;
 
-        p->dirty = 0;
         n = p - frame->lp;
 
         /* Commit reference flag */
@@ -349,6 +353,7 @@ aot_gen_commit_values(AOTCompFrame *frame)
                             return false;
                         p->committed_ref = (p + 1)->committed_ref = p->ref + 1;
                     }
+                    p++;
                     break;
 
                 case VALUE_TYPE_V128:
@@ -365,6 +370,7 @@ aot_gen_commit_values(AOTCompFrame *frame)
                             (p + 2)->committed_ref = (p + 3)->committed_ref =
                                 p->ref + 1;
                     }
+                    p += 3;
                     break;
 
                 case REF_TYPE_NULLFUNCREF:
@@ -397,6 +403,7 @@ aot_gen_commit_values(AOTCompFrame *frame)
                             p->committed_ref = (p + 1)->committed_ref =
                                 p->ref + 1;
                         }
+                        p++;
                     }
                     else {
                         if (p->ref != p->committed_ref - 1) {
@@ -414,7 +421,17 @@ aot_gen_commit_values(AOTCompFrame *frame)
                     break;
             }
         }
+    }
 
+    /* Second, commit all values */
+    for (p = frame->lp; p < frame->sp; p++) {
+        if (!p->dirty)
+            continue;
+
+        p->dirty = 0;
+        n = p - frame->lp;
+
+        /* Commit values */
         switch (p->type) {
             case VALUE_TYPE_I32:
                 if (!store_value(comp_ctx, p->value, VALUE_TYPE_I32,
@@ -895,7 +912,7 @@ init_comp_frame(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* No need to initialize aot_frame all cells' committed_ref flags
        and all stack cells' ref flags since they have been initialized
-       as 0 (uncommited and not-reference) by the memset above */
+       as 0 (uncommitted and not-reference) by the memset above */
 
     return true;
 }

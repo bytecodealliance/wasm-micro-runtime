@@ -121,6 +121,13 @@ typedef struct GOTItem {
 } GOTItem, *GOTItemList;
 #endif
 
+#if WASM_ENABLE_GC != 0
+typedef struct LocalRefFlag {
+    uint32 local_ref_flag_cell_num;
+    uint8 *local_ref_flags;
+} LocalRefFlag;
+#endif
+
 typedef struct AOTModule {
     uint32 module_type;
 
@@ -181,6 +188,11 @@ typedef struct AOTModule {
     uint32 *max_local_cell_nums;
     /* max stack cell nums of AOTed (un-imported) functions */
     uint32 *max_stack_cell_nums;
+#endif
+
+#if WASM_ENABLE_GC != 0
+    /* params + locals ref flags of (both import and AOTed) functions */
+    LocalRefFlag *func_local_ref_flags;
 #endif
 
     /* export info */
@@ -363,6 +375,8 @@ typedef struct AOTFrame {
      *  stack area: wasm operand stack
      *  frame ref flags (GC only):
      *      whether each cell in local and stack area is a GC obj
+     *      currently local's ref flags are stored in AOTModule,
+     *      here we only reserve the padding bytes
      */
     uint32 lp[1];
 } AOTFrame;

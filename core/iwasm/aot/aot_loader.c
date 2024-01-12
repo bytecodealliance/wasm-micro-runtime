@@ -2574,6 +2574,42 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
 #endif
     }
 
+#if WASM_ENABLE_GC != 0
+    /* Local(params and locals) ref flags for all import and non-imported
+     * functions. The flags indicate whether each cell in the AOTFrame local
+     * area is a GC reference. */
+    size = sizeof(LocalRefFlag)
+           * (uint64)(module->import_func_count + module->func_count);
+    if (size > 0) {
+        if (!(module->func_local_ref_flags =
+                  loader_malloc(size, error_buf, error_buf_size))) {
+            return false;
+        }
+
+        for (i = 0; i < module->import_func_count + module->func_count; i++) {
+            uint32 local_ref_flag_cell_num;
+
+            buf = (uint8 *)align_ptr(buf, sizeof(uint32));
+            read_uint32(
+                p, p_end,
+                module->func_local_ref_flags[i].local_ref_flag_cell_num);
+
+            local_ref_flag_cell_num =
+                module->func_local_ref_flags[i].local_ref_flag_cell_num;
+            size = sizeof(uint8) * (uint64)local_ref_flag_cell_num;
+            if (size > 0) {
+                if (!(module->func_local_ref_flags[i].local_ref_flags =
+                          loader_malloc(size, error_buf, error_buf_size))) {
+                    return false;
+                }
+                read_byte_array(p, p_end,
+                                module->func_local_ref_flags[i].local_ref_flags,
+                                local_ref_flag_cell_num);
+            }
+        }
+    }
+#endif /* end of WASM_ENABLE_GC != 0 */
+
     if (p != buf_end) {
         set_error_buf(error_buf, error_buf_size,
                       "invalid function section size");
@@ -4226,6 +4262,20 @@ aot_unload(AOTModule *module)
         wasm_runtime_free(module->max_local_cell_nums);
     if (module->max_stack_cell_nums)
         wasm_runtime_free(module->max_stack_cell_nums);
+#endif
+
+#if WASM_ENABLE_GC != 0
+    if (module->func_local_ref_flags) {
+        uint32 i;
+        for (i = 0; i < module->import_func_count + module->func_count; i++) {
+            if (module->func_local_ref_flags[i].local_ref_flags) {
+                wasm_runtime_free(
+                    module->func_local_ref_flags[i].local_ref_flags);
+            }
+        }
+
+        wasm_runtime_free(module->func_local_ref_flags);
+    }
 #endif
 
     if (module->func_ptrs)
