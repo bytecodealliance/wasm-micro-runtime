@@ -1047,7 +1047,7 @@ execute_interruptible_poll_oneoff(
 
         if (wasm_cluster_is_thread_terminated(exec_env)) {
             wasm_runtime_free(in_copy);
-            return EINTR;
+            return __WASI_EINTR;
         }
         else if (*nevents > 0) {
             all_outs_are_type_clock = true;

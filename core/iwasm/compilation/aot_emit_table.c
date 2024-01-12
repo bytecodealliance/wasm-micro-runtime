@@ -46,6 +46,18 @@ get_tbl_inst_offset(const AOTCompContext *comp_ctx,
     return offset;
 }
 
+uint32
+get_module_inst_extra_offset(AOTCompContext *comp_ctx)
+{
+    const AOTCompData *comp_data = comp_ctx->comp_data;
+    uint32 table_count = comp_data->import_table_count + comp_data->table_count;
+    uint64 offset = get_tbl_inst_offset(comp_ctx, NULL, table_count);
+    uint32 offset_32 = (uint32)offset;
+    bh_assert(offset <= UINT32_MAX);
+    offset_32 = align_uint(offset_32, 8);
+    return offset_32;
+}
+
 #if WASM_ENABLE_REF_TYPES != 0
 
 LLVMValueRef

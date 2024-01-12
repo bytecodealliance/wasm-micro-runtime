@@ -2271,7 +2271,6 @@ wasm_lookup_table(const WASMModuleInstance *module_inst, const char *name)
 #endif
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-
 static void
 call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
                               WASMExecEnv *exec_env,
@@ -2301,19 +2300,26 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
         return;
     }
 
-    if (exec_env_tls && (exec_env_tls != exec_env)) {
-        wasm_set_exception(module_inst, "invalid exec env");
-        return;
-    }
+    if (!exec_env_tls) {
+        if (!os_thread_signal_inited()) {
+            wasm_set_exception(module_inst, "thread signal env not inited");
+            return;
+        }
 
-    if (!os_thread_signal_inited()) {
-        wasm_set_exception(module_inst, "thread signal env not inited");
-        return;
+        /* Set thread handle and stack boundary if they haven't been set */
+        wasm_exec_env_set_thread_info(exec_env);
+
+        wasm_runtime_set_exec_env_tls(exec_env);
+    }
+    else {
+        if (exec_env_tls != exec_env) {
+            wasm_set_exception(module_inst, "invalid exec env");
+            return;
+        }
     }
 
     wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
 
-    wasm_runtime_set_exec_env_tls(exec_env);
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
 #ifndef BH_PLATFORM_WINDOWS
         wasm_interp_call_wasm(module_inst, exec_env, function, argc, argv);
@@ -2323,7 +2329,7 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
         } __except (wasm_copy_exception(module_inst, NULL)
                         ? EXCEPTION_EXECUTE_HANDLER
                         : EXCEPTION_CONTINUE_SEARCH) {
-            /* exception was thrown in wasm_exception_handler */
+            /* Exception was thrown in wasm_exception_handler */
             ret = false;
         }
         has_exception = wasm_copy_exception(module_inst, exception);
@@ -2377,10 +2383,15 @@ wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
     WASMModuleInstance *module_inst =
         (WASMModuleInstance *)exec_env->module_inst;
 
-    /* set thread handle and stack boundary */
+#ifndef OS_ENABLE_HW_BOUND_CHECK
+    /* Set thread handle and stack boundary */
     wasm_exec_env_set_thread_info(exec_env);
+#else
+    /* Set thread info in call_wasm_with_hw_bound_check when
+       hw bound check is enabled */
+#endif
 
-    /* set exec env so it can be later retrieved from instance */
+    /* Set exec env so it can be later retrieved from instance */
     module_inst->e->common.cur_exec_env = exec_env;
 
     interp_call_wasm(module_inst, exec_env, function, argc, argv);

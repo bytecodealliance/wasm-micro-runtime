@@ -372,6 +372,20 @@ Examples: wamrc -o test.aot test.wasm
           wamrc --target=i386 --format=object -o test.o test.wasm
 ```
 
+## AoT-compiled module compatibility among WAMR versions
+
+When making major ABI changes for AoT-compiled modules, we bump
+`AOT_CURRENT_VERSION` constant in `core/config.h` header.
+The runtime rejects to load a module AoT-compiled with wamrc with
+a different `AOT_CURRENT_VERSION`.
+
+We try our best to maintain our runtime ABI for AoT-compiled modules
+compatible among WAMR versions with the same `AOT_CURRENT_VERSION`
+so that combinations of older wamrc and newer runtime usually work.
+However, there might be minor incompatibilities time to time.
+For productions, we recommend to use the exactly same version of
+wamrc and the runtime.
+
 ## AoT compilation with 3rd-party toolchains
 
 `wamrc` uses LLVM to compile wasm bytecode to AoT file, this works for most of the architectures, but there may be circumstances where you want to use 3rd-party toolchains to take over some steps of the compilation pipeline, e.g.
