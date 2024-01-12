@@ -181,7 +181,8 @@ typedef union MemAllocOption {
 struct wasm_config_t {
     mem_alloc_type_t mem_alloc_type;
     MemAllocOption mem_alloc_option;
-    bool linux_perf_support;
+    uint32_t segue_flags;
+    bool enable_linux_perf;
     /*TODO: wasi args*/
 };
 
@@ -189,7 +190,7 @@ struct wasm_config_t {
  * by default:
  * - mem_alloc_type is Alloc_With_System_Allocator
  * - mem_alloc_option is all 0
- * - linux_perf_support is false
+ * - enable_linux_perf is false
  */
 WASM_API_EXTERN own wasm_config_t* wasm_config_new(void);
 
@@ -199,6 +200,17 @@ wasm_config_set_mem_alloc_opt(wasm_config_t *, mem_alloc_type_t, MemAllocOption 
 
 WASM_API_EXTERN own wasm_config_t*
 wasm_config_set_linux_perf_opt(wasm_config_t *, bool);
+
+/**
+ * Enable using GS register as the base address of linear memory in linux x86_64,
+ * which may speedup the linear memory access for LLVM AOT/JIT:
+ *   bit0 to bit4 denotes i32.load, i64.load, f32.load, f64.load, v128.load
+ *   bit8 to bit12 denotes i32.store, i64.store, f32.store, f64.store, v128.store
+ * For example, 0x01 enables i32.load, 0x0100 enables i32.store.
+ * To enable all load/store operations, use 0x1F1F
+ */
+WASM_API_EXTERN wasm_config_t*
+wasm_config_set_segue_flags(wasm_config_t *config, uint32_t segue_flags);
 
 // Engine
 
@@ -405,6 +417,7 @@ struct wasm_ref_t;
 
 typedef struct wasm_val_t {
   wasm_valkind_t kind;
+  uint8_t __paddings[7];
   union {
     int32_t i32;
     int64_t i64;

@@ -1,3 +1,73 @@
+## WAMR-1.3.1
+
+### Breaking Changes
+- In multi-threading, when an exception was thrown in wasm_func_call(),
+  the trap returned contains the stack frames of the thread where the
+  exception occurs, but not the stack frames of the main thread.
+- Disable emitting custom name section to AOT file with
+  `wamrc --enable-dump-call-stack` option, instead, use
+  `wamrc --emit-custom-sections=name` to emit it and make it clear.
+
+### New Features
+- Enable AOT linux perf support (#2930)
+
+### Bug Fixes
+- Corrects Zephyr include files for current versions of Zephyr (#2881)
+- Fix possible dead lock in wasm_cluster_spawn_exec_env (#2882)
+- Handle ambiguous fstflags on fd_filestat_set_times (#2892)
+- Fix memory size not updating after growing in interpreter (#2898)
+- fixed(freertos): Fix crash when wasm app call pthread_exit(NULL) (#2970)
+- fast-jit: Fix const shift and const i64 compare issues (#2969)
+- Fix ref.is_null processing in fast-interp loader (#2971)
+- simd-128: The input lanes of integer-to-integer narrowing ops should be interpreted as signed (#2850)
+- Fix ref.func function declared check in wasm loader (#2972)
+- Fix fast-interp polymorphic stack processing (#2974)
+- Fix potential recursive lock in pthread_create_wrapper (#2980)
+- Fix build failure on esp-idf platform (#2991)
+- Return stack frames of crashed thread when using wasm-c-api (#2908)
+- Fix compilation error on iOS due to macOS-specific API (#2995)
+- Fix a bug when emit the custom name section to aot file (#2987)
+- Fix linux-sgx build error when libc-wasi is disabled (#2997)
+
+### Enhancements
+- fix command-reactor: Look for _initialize only if _start not found (#2891)
+- Refactor reloc symbols for riscv (#2894)
+- Avoid memory import failure when wasi-threads is enabled (#2893)
+- interpreter: Simplify memory.grow a bit (#2899)
+- Avoid reporting timestamp if custom logger is used (#2905)
+- Expose API to set log level in embedder (#2907)
+- Add a script to translate jitted function names in flamegraph (#2906)
+- Refine wasm-c-api wasm_func_call (#2922)
+- Add VectorCombine pass for JIT and AOT (#2923)
+- Enable wasm_runtime_terminate for single-threading (#2924)
+- nuttx: Add CONFIG_INTERPRETERS_WAMR_DEBUG_AOT (#2929)
+- Allow to control built-in libraries for wamrc from command line options (#2928)
+- Fix a bug that appends '_precheck' to aot_func (#2936)
+- freertos: Add os_cond_broadcast for pthread wrapper (#2937)
+- Append .aot to .wasm as a custom section named "aot" (#2933)
+- fix(sgx-ra): Fix building when enclave is built without librats ahead (#2968)
+- Refine LLVM JIT function call process (#2925)
+- Refine AOT function call process (#2940)
+- Allow to set segue flags for wasm-c-api JIT (#2926)
+- freertos: Minor changes for freertos libc_wasi build adaption (#2973)
+- freertos: Change ssp_config.h due to clock_nanosleep() not supported in freertos (#2979)
+- aot compiler: Some updates for LLVM 18 (#2981)
+- Enable MAP_32BIT for macOS (#2992)
+- Register quick call entries to speedup the aot/jit func call process (#2978)
+- Refine AOT/JIT code call wasm-c-api import process (#2982)
+
+### Others
+- compilation_on_nuttx.yml: Use docker image to simplify env setup (#2878)
+- samples/spawn-thread: Disable libc and pthread (#2883)
+- Add arm64 to nuttx compilation test (#2886)
+- samples/spawn-thread: Tweak to expose a bug (#2888)
+- Fix typo in CI config and suppress STORE_U8 in TSAN (#2802)
+- Using docker image for nuttx spectest (#2887)
+- doc: Separate source_debugging.md into two files (#2932)
+- doc/build_wasm_app.md: Add a note about aot abi compatibility (#2993)
+
+---
+
 ## WAMR-1.3.0
 
 ### Breaking Changes

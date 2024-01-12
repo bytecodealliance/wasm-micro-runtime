@@ -31,7 +31,7 @@ target_link_options(send_recv PRIVATE
 if(WASM_TO_AOT)
   # wasm -> aot
   add_custom_target(send_recv_aot ALL
-    COMMAND pwd && ${WAMRC_PATH} --enable-multi-thread -o ./send_recv.aot ./send_recv.wasm
+    COMMAND pwd && ${WAMRC_PATH} --invoke-c-api-import --enable-multi-thread -o ./send_recv.aot ./send_recv.wasm
     DEPENDS send_recv
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
   )

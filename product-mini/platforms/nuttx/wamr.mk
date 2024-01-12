@@ -133,6 +133,11 @@ CSRCS += aot_loader.c \
          $(AOT_RELOC) \
          aot_intrinsic.c \
          aot_runtime.c
+ifeq ($(CONFIG_INTERPRETERS_WAMR_DEBUG_AOT),y)
+CFLAGS += -DWASM_ENABLE_DEBUG_AOT=1
+CSRCS += elf_parser.c \
+         jit_debug.c
+endif
 else
 CFLAGS += -DWASM_ENABLE_AOT=0
 endif
@@ -412,3 +417,4 @@ VPATH += $(IWASM_ROOT)/libraries/lib-pthread
 VPATH += $(IWASM_ROOT)/common/arch
 VPATH += $(IWASM_ROOT)/aot
 VPATH += $(IWASM_ROOT)/aot/arch
+VPATH += $(IWASM_ROOT)/aot/debug

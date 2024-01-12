@@ -510,7 +510,7 @@ handle_cmd_set_log_level(uint64 *args, uint32 argc)
 #endif
 }
 
-#ifndef SGX_DISABLE_WASI
+#if WASM_ENABLE_LIBC_WASI != 0
 static void
 handle_cmd_set_wasi_args(uint64 *args, int32 argc)
 {
@@ -637,7 +637,7 @@ handle_cmd_set_wasi_args(uint64 *args, int32 argc)
 {
     *args = true;
 }
-#endif /* end of SGX_DISABLE_WASI */
+#endif /* end of WASM_ENABLE_LIBC_WASI != 0 */
 
 static void
 handle_cmd_get_version(uint64 *args, uint32 argc)

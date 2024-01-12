@@ -10,6 +10,9 @@ include_directories(${PLATFORM_SHARED_DIR}/../include)
 
 file (GLOB_RECURSE source_all ${PLATFORM_SHARED_DIR}/*.c)
 
+include (${CMAKE_CURRENT_LIST_DIR}/../common/libc-util/platform_common_libc_util.cmake)
+set (source_all ${source_all} ${PLATFORM_COMMON_LIBC_UTIL_SOURCE})
+
 set (PLATFORM_SHARED_SOURCE ${source_all} ${PLATFORM_COMMON_MATH_SOURCE})
 
 # If enable PSRAM of ESP32-S3, it had better to put AOT into PSRAM, so that

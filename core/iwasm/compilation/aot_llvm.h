@@ -321,10 +321,10 @@ typedef struct AOTCompContext {
     /* Bulk memory feature */
     bool enable_bulk_memory;
 
-    /* Bounday Check */
+    /* Boundary Check */
     bool enable_bound_check;
 
-    /* Native stack bounday Check */
+    /* Native stack boundary Check */
     bool enable_stack_bound_check;
 
     /* Native stack usage estimation */
@@ -356,6 +356,10 @@ typedef struct AOTCompContext {
 
     /* Enable LLVM PGO (Profile-Guided Optimization) */
     bool enable_llvm_pgo;
+
+    /* Treat unknown import function as wasm-c-api import function
+       and allow to directly invoke it from AOT/JIT code */
+    bool quick_invoke_c_api_import;
 
     /* Use profile file collected by LLVM PGO */
     char *use_prof_file;
@@ -454,6 +458,7 @@ typedef struct AOTCompOption {
     bool disable_llvm_lto;
     bool enable_llvm_pgo;
     bool enable_stack_estimation;
+    bool quick_invoke_c_api_import;
     char *use_prof_file;
     uint32 opt_level;
     uint32 size_level;
@@ -461,7 +466,6 @@ typedef struct AOTCompOption {
     uint32 bounds_checks;
     uint32 stack_bounds_checks;
     uint32 segue_flags;
-    bool linux_perf_support;
     char **custom_sections;
     uint32 custom_sections_count;
     const char *stack_usage_file;

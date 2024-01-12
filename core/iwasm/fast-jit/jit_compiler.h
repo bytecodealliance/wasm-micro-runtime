@@ -70,7 +70,6 @@ typedef struct JitInterpSwitchInfo {
 typedef struct JitCompOptions {
     uint32 code_cache_size;
     uint32 opt_level;
-    bool linux_perf_support;
 } JitCompOptions;
 
 bool
