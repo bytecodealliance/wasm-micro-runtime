@@ -1986,6 +1986,10 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             type->param_cell_num = (uint16)param_cell_num;
             type->ret_cell_num = (uint16)ret_cell_num;
 
+#if WASM_ENABLE_QUICK_AOT_ENTRY != 0
+            type->quick_aot_entry = wasm_native_lookup_quick_aot_entry(type);
+#endif
+
             /* If there is already a same type created, use it instead */
             for (j = 0; j < i; j++) {
                 if (wasm_type_equal(type, module->types[j], module->types, i)) {
@@ -4645,8 +4649,12 @@ handle_name_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                             if (!(module->functions[func_index]->field_name =
                                       const_str_list_insert(
                                           p, func_name_len, module,
-                                          is_load_from_file_buf, error_buf,
-                                          error_buf_size))) {
+#if WASM_ENABLE_WAMR_COMPILER != 0
+                                          false,
+#else
+                                          is_load_from_file_buf,
+#endif
+                                          error_buf, error_buf_size))) {
                                 return false;
                             }
                         }
@@ -4818,7 +4826,7 @@ static bool
 init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
                                uint32 error_buf_size)
 {
-    LLVMJITOptions llvm_jit_options = wasm_runtime_get_llvm_jit_options();
+    LLVMJITOptions *llvm_jit_options = wasm_runtime_get_llvm_jit_options();
     AOTCompOption option = { 0 };
     char *aot_last_error;
     uint64 size;
@@ -4863,10 +4871,11 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
 
     option.is_jit_mode = true;
 
-    llvm_jit_options = wasm_runtime_get_llvm_jit_options();
-    option.opt_level = llvm_jit_options.opt_level;
-    option.size_level = llvm_jit_options.size_level;
-    option.segue_flags = llvm_jit_options.segue_flags;
+    option.opt_level = llvm_jit_options->opt_level;
+    option.size_level = llvm_jit_options->size_level;
+    option.segue_flags = llvm_jit_options->segue_flags;
+    option.quick_invoke_c_api_import =
+        llvm_jit_options->quick_invoke_c_api_import;
 
 #if WASM_ENABLE_BULK_MEMORY != 0
     option.enable_bulk_memory = true;
@@ -7192,6 +7201,9 @@ typedef struct BranchBlock {
     BranchBlockPatch *patch_list;
     /* This is used to save params frame_offset of of if block */
     int16 *param_frame_offsets;
+    /* This is used to store available param num for if/else branch, so the else
+     * opcode can know how many parameters should be copied to the stack */
+    uint32 available_param_num;
 #endif
 
     /* Indicate the operand stack is in polymorphic state.
@@ -9771,15 +9783,18 @@ fail:
  * 1) POP original parameter out;
  * 2) Push and copy original values to dynamic space.
  * The copy instruction format:
- *   Part a: param count
+ *   Part a: available param count
  *   Part b: all param total cell num
  *   Part c: each param's cell_num, src offset and dst offset
  *   Part d: each param's src offset
  *   Part e: each param's dst offset
+ * Note: if the stack is in polymorphic state, the actual copied parameters may
+ * be fewer than the defined number in block type
  */
 static bool
 copy_params_to_dynamic_space(WASMLoaderContext *loader_ctx, bool is_if_block,
-                             char *error_buf, uint32 error_buf_size)
+                             uint32 *p_available_param_count, char *error_buf,
+                             uint32 error_buf_size)
 {
     bool ret = false;
     int16 *frame_offset = NULL;
@@ -9791,35 +9806,47 @@ copy_params_to_dynamic_space(WASMLoaderContext *loader_ctx, bool is_if_block,
     BlockType *block_type = &block->block_type;
     WASMFuncType *wasm_type = block_type->u.type;
     uint32 param_count = block_type->u.type->param_count;
+    uint32 available_param_count = 0;
     int16 condition_offset = 0;
     bool disable_emit = false;
     int16 operand_offset = 0;
-
-    uint64 size = (uint64)param_count * (sizeof(*cells) + sizeof(*src_offsets));
-
-    /* For if block, we also need copy the condition operand offset. */
-    if (is_if_block)
-        size += sizeof(*cells) + sizeof(*src_offsets);
-
-    /* Allocate memory for the emit data */
-    if (!(emit_data = loader_malloc(size, error_buf, error_buf_size)))
-        return false;
-
-    cells = emit_data;
-    src_offsets = (int16 *)(cells + param_count);
+    uint64 size;
 
     if (is_if_block)
         condition_offset = *loader_ctx->frame_offset;
 
     /* POP original parameter out */
     for (i = 0; i < param_count; i++) {
+        int32 available_stack_cell =
+            (int32)(loader_ctx->stack_cell_num - block->stack_cell_num);
+
+        if (available_stack_cell <= 0 && block->is_stack_polymorphic)
+            break;
+
         POP_OFFSET_TYPE(wasm_type->types[param_count - i - 1]);
         wasm_loader_emit_backspace(loader_ctx, sizeof(int16));
     }
+    available_param_count = i;
+
+    size =
+        (uint64)available_param_count * (sizeof(*cells) + sizeof(*src_offsets));
+
+    /* For if block, we also need copy the condition operand offset. */
+    if (is_if_block)
+        size += sizeof(*cells) + sizeof(*src_offsets);
+
+    /* Allocate memory for the emit data */
+    if ((size > 0)
+        && !(emit_data = loader_malloc(size, error_buf, error_buf_size)))
+        return false;
+
+    cells = emit_data;
+    src_offsets = (int16 *)(cells + param_count);
+
     frame_offset = loader_ctx->frame_offset;
 
     /* Get each param's cell num and src offset */
-    for (i = 0; i < param_count; i++) {
+    for (i = 0; i < available_param_count; i++) {
         cell = (uint8)wasm_value_type_cell_num(wasm_type->types[i]);
         cells[i] = cell;
         src_offsets[i] = *frame_offset;
@@ -9829,34 +9856,41 @@ copy_params_to_dynamic_space(WASMLoaderContext *loader_ctx, bool is_if_block,
     /* emit copy instruction */
     emit_label(EXT_OP_COPY_STACK_VALUES);
     /* Part a) */
-    emit_uint32(loader_ctx, is_if_block ? param_count + 1 : param_count);
+    emit_uint32(loader_ctx, is_if_block ? available_param_count + 1
+                                        : available_param_count);
     /* Part b) */
     emit_uint32(loader_ctx, is_if_block ? wasm_type->param_cell_num + 1
                                         : wasm_type->param_cell_num);
     /* Part c) */
-    for (i = 0; i < param_count; i++)
+    for (i = 0; i < available_param_count; i++)
         emit_byte(loader_ctx, cells[i]);
     if (is_if_block)
         emit_byte(loader_ctx, 1);
 
     /* Part d) */
-    for (i = 0; i < param_count; i++)
+    for (i = 0; i < available_param_count; i++)
         emit_operand(loader_ctx, src_offsets[i]);
     if (is_if_block)
         emit_operand(loader_ctx, condition_offset);
 
     /* Part e) */
     /* Push to dynamic space. The push will emit the dst offset. */
-    for (i = 0; i < param_count; i++)
+    for (i = 0; i < available_param_count; i++)
         PUSH_OFFSET_TYPE(wasm_type->types[i]);
     if (is_if_block)
         PUSH_OFFSET_TYPE(VALUE_TYPE_I32);
+
+    if (p_available_param_count) {
+        *p_available_param_count = available_param_count;
+    }
 
     ret = true;
 
 fail:
     /* Free the emit data */
-    wasm_runtime_free(emit_data);
+    if (emit_data) {
+        wasm_runtime_free(emit_data);
+    }
 
     return ret;
 }
@@ -10024,7 +10058,7 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
     uint8 *func_const_end, *func_const = NULL;
     int16 operand_offset = 0;
     uint8 last_op = 0;
-    bool disable_emit, preserve_local = false;
+    bool disable_emit, preserve_local = false, if_condition_available = true;
     float32 f32_const;
     float64 f64_const;
 
@@ -10105,13 +10139,26 @@ re_scan:
                 break;
 
             case WASM_OP_IF:
+            {
 #if WASM_ENABLE_FAST_INTERP != 0
+                BranchBlock *parent_block = loader_ctx->frame_csp - 1;
+                int32 available_stack_cell =
+                    (int32)(loader_ctx->stack_cell_num
+                            - parent_block->stack_cell_num);
+
+                if (available_stack_cell <= 0
+                    && parent_block->is_stack_polymorphic)
+                    if_condition_available = false;
+                else
+                    if_condition_available = true;
+
                 PRESERVE_LOCAL_FOR_BLOCK();
 #endif
 #if WASM_ENABLE_GC == 0
                 POP_I32();
 #endif
                 goto handle_op_block_and_loop;
+            }
             case WASM_OP_BLOCK:
             case WASM_OP_LOOP:
 #if WASM_ENABLE_FAST_INTERP != 0
@@ -10121,6 +10168,9 @@ re_scan:
             {
                 uint8 value_type;
                 BlockType block_type;
+#if WASM_ENABLE_FAST_INTERP != 0
+                uint32 available_params = 0;
+#endif
 
                 CHECK_BUF(p, p_end, 1);
                 value_type = read_uint8(p);
@@ -10204,10 +10254,28 @@ re_scan:
 
                 /* Pop block parameters from stack */
                 if (BLOCK_HAS_PARAM(block_type)) {
-                    WASMFuncType *func_type = block_type.u.type;
-                    for (i = 0; i < block_type.u.type->param_count; i++)
+                    WASMFuncType *wasm_type = block_type.u.type;
+
+                    BranchBlock *cur_block = loader_ctx->frame_csp - 1;
+#if WASM_ENABLE_FAST_INTERP != 0
+                    available_params = block_type.u.type->param_count;
+#endif
+                    for (i = 0; i < block_type.u.type->param_count; i++) {
+
+                        int32 available_stack_cell =
+                            (int32)(loader_ctx->stack_cell_num
+                                    - cur_block->stack_cell_num);
+                        if (available_stack_cell <= 0
+                            && cur_block->is_stack_polymorphic) {
+#if WASM_ENABLE_FAST_INTERP != 0
+                            available_params = i;
+#endif
+                            break;
+                        }
+
                         POP_TYPE(
-                            func_type->types[func_type->param_count - i - 1]);
+                            wasm_type->types[wasm_type->param_count - i - 1]);
+                    }
                 }
 
                 PUSH_CSP(LABEL_TYPE_BLOCK + (opcode - WASM_OP_BLOCK),
@@ -10215,25 +10283,35 @@ re_scan:
 
                 /* Pass parameters to block */
                 if (BLOCK_HAS_PARAM(block_type)) {
-                    for (i = 0; i < block_type.u.type->param_count; i++)
+                    for (i = 0; i < block_type.u.type->param_count; i++) {
                         PUSH_TYPE(block_type.u.type->types[i]);
+#if WASM_ENABLE_FAST_INTERP != 0
+                        if (i >= available_params) {
+                            PUSH_OFFSET_TYPE(block_type.u.type->types[i]);
+                        }
+#endif
+                    }
                 }
 
 #if WASM_ENABLE_FAST_INTERP != 0
                 if (opcode == WASM_OP_BLOCK || opcode == WASM_OP_LOOP) {
                     skip_label();
+
                     if (BLOCK_HAS_PARAM(block_type)) {
                         /* Make sure params are in dynamic space */
-                        if (!copy_params_to_dynamic_space(
-                                loader_ctx, false, error_buf, error_buf_size))
+                        if (!copy_params_to_dynamic_space(loader_ctx, false,
+                                                          NULL, error_buf,
+                                                          error_buf_size))
                             goto fail;
                     }
+
                     if (opcode == WASM_OP_LOOP) {
                         (loader_ctx->frame_csp - 1)->code_compiled =
                             loader_ctx->p_code_compiled;
                     }
                 }
                 else if (opcode == WASM_OP_IF) {
+                    BranchBlock *block = loader_ctx->frame_csp - 1;
                     /* If block has parameters, we should make sure they are in
                      * dynamic space. Otherwise, when else branch is missing,
                      * the later opcode may consume incorrect operand offset.
@@ -10251,8 +10329,7 @@ re_scan:
                      * recover them before entering else branch.
                      *
                      */
-                    if (BLOCK_HAS_PARAM(block_type)) {
-                        BranchBlock *block = loader_ctx->frame_csp - 1;
+                    if (if_condition_available && BLOCK_HAS_PARAM(block_type)) {
                         uint64 size;
 
                         /* skip the if condition operand offset */
@@ -10261,7 +10338,8 @@ re_scan:
                         skip_label();
                         /* Emit a copy instruction */
                         if (!copy_params_to_dynamic_space(
-                                loader_ctx, true, error_buf, error_buf_size))
+                                loader_ctx, true, &block->available_param_num,
+                                error_buf, error_buf_size))
                             goto fail;
 
                         /* Emit the if instruction */
@@ -10282,6 +10360,9 @@ re_scan:
                                         - size / sizeof(int16),
                                     (uint32)size);
                     }
+                    else {
+                        block->available_param_num = 0;
+                    }
 
                     emit_empty_label_addr_and_frame_ip(PATCH_ELSE);
                     emit_empty_label_addr_and_frame_ip(PATCH_END);
@@ -10292,7 +10373,8 @@ re_scan:
 
             case WASM_OP_ELSE:
             {
-                BlockType block_type = (loader_ctx->frame_csp - 1)->block_type;
+                BranchBlock *block = NULL;
+                BlockType block_type;
 
                 if (loader_ctx->csp_num < 2
                     || (loader_ctx->frame_csp - 1)->label_type
@@ -10302,13 +10384,16 @@ re_scan:
                         "opcode else found without matched opcode if");
                     goto fail;
                 }
+                block = loader_ctx->frame_csp - 1;
 
                 /* check whether if branch's stack matches its result type */
-                if (!check_block_stack(loader_ctx, loader_ctx->frame_csp - 1,
-                                       error_buf, error_buf_size))
+                if (!check_block_stack(loader_ctx, block, error_buf,
+                                       error_buf_size))
                     goto fail;
 
-                (loader_ctx->frame_csp - 1)->else_addr = p - 1;
+                block->else_addr = p - 1;
+                block_type = block->block_type;
+
 #if WASM_ENABLE_GC != 0
                 if (!wasm_loader_init_local_use_masks(
                         loader_ctx, local_count, error_buf, error_buf_size)) {
@@ -10335,10 +10420,9 @@ re_scan:
 
 #if WASM_ENABLE_FAST_INTERP != 0
                 /* Recover top param_count values of frame_offset stack */
-                if (BLOCK_HAS_PARAM((block_type))) {
+                if (block->available_param_num) {
                     uint32 size;
-                    BranchBlock *block = loader_ctx->frame_csp - 1;
-                    size = sizeof(int16) * block_type.u.type->param_cell_num;
+                    size = sizeof(int16) * block->available_param_num;
                     bh_memcpy_s(loader_ctx->frame_offset, size,
                                 block->param_frame_offsets, size);
                     loader_ctx->frame_offset += (size / sizeof(int16));
@@ -11796,8 +11880,6 @@ re_scan:
                 }
 #endif
 
-                POP_TYPE(global_type);
-
 #if WASM_ENABLE_FAST_INTERP == 0
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {
@@ -11836,6 +11918,9 @@ re_scan:
                 emit_uint32(loader_ctx, global_idx);
                 POP_OFFSET_TYPE(global_type);
 #endif /* end of WASM_ENABLE_FAST_INTERP */
+
+                POP_TYPE(global_type);
+
                 break;
             }
 

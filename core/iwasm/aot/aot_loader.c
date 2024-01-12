@@ -945,7 +945,9 @@ load_custom_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
         case AOT_CUSTOM_SECTION_NAME:
             if (!load_name_section(buf, buf_end, module, is_load_from_file_buf,
                                    error_buf, error_buf_size))
-                goto fail;
+                LOG_VERBOSE("Load name section failed.");
+            else
+                LOG_VERBOSE("Load name section success.");
             break;
 #if WASM_ENABLE_STRINGREF != 0
         case AOT_CUSTOM_SECTION_STRING_LITERAL:
@@ -1969,6 +1971,11 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
         func_types[i]->param_cell_num = (uint16)param_cell_num;
         func_types[i]->ret_cell_num = (uint16)ret_cell_num;
+
+#if WASM_ENABLE_QUICK_AOT_ENTRY != 0
+        func_types[i]->quick_aot_entry =
+            wasm_native_lookup_quick_aot_entry(func_types[i]);
+#endif
     }
 
     *p_buf = buf;

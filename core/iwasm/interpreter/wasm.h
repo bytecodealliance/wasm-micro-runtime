@@ -351,6 +351,11 @@ typedef struct WASMFuncType {
     uint16 ref_count;
 #endif
 
+#if WASM_ENABLE_QUICK_AOT_ENTRY != 0
+    /* Quick AOT/JIT entry of this func type */
+    void *quick_aot_entry;
+#endif
+
     /* types of params and results, only store the first byte
      * of the type, if it cannot be described with one byte,
      * then the full type info is stored in ref_type_maps */
