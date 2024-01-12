@@ -2,7 +2,9 @@
 //!
 //! ## Overview
 //!
-//! WAMR Rust SDK provides Rust language bindings for WAMR
+//! WAMR Rust SDK provides Rust language bindings for WAMR. It is the wrapper
+//! of *wasm_export.h* but with Rust style. It is more convenient to use WAMR
+//! in Rust with this crate.
 //!
 //! This crate contains API used to interact with Wasm modules. You can compile
 //! modules, instantiate modules, call their export functions, etc.
@@ -10,28 +12,71 @@
 //! creating host-defined functions, globals (memory and table are not supported
 //! for now).
 //!
-//! WAMR Rust SDK will search for the WAMR runtime library in the *../..* path.
-//! And then uses `rust-bindgen` durning the build process.
+//! WAMR Rust SDK will search for the WAMR runtime library in the *../..* path
+//! for now since it is stored in *language-bindings/rust* in WAMR repo. And
+//! then uses `rust-bindgen` durning the build process.
 //!
 //! This crate has similar concepts to the [WebAssembly speicification](https://webassembly.github.io/spec/core/).
 //!
+//! ### Core concepts
+//!
+//! - Rutime.
+//! - Module.
+//! - Instance.
+//! - Function.
+//! - Global.
+//! - Memory.
+//! - Table.
+//!
+//! ### WASI concepts
+//!
+//! ### WAMR prviate concepts
+//!
 //! ## Examples
 //!
-//! Here is a few examples, showing how to use WAMR Rust SDK.
+//! Here are a few examples showing how to use WAMR Rust SDK.
 //!
 //! ### Example: Run a wasm function in a wasm module
 //!
-//! ```
+//! assume *test.wasm* `(func (export "run"))`
+//!
+//! ``` rust
+//! use wamr::*;
+//!
+//! fn main() -> Result<> {
+//!   let runtime = Runtime::new()?;
+//!   let module = Module::from_file(&runtime, "test.wasm")?;
+//!   let instancce = Instance::new(&module, &[])?;
+//!   let func = instance.find_export_func("run")?;
+//!   func.call(&[])?;
+//!   Ok(())
+//! }
 //! ```
 //!
-//! ### Example: Import a host function into a wasm module
+//! ### Example: Import a host function and run it in a wasm module
 //!
-//! ```
+//! assume
+//! - "test.wasm" needs to `(import "host" "host_func" (func (param i32 i32)))`
+//! - *test.wasm* has a `(func (export "run"))`
+//!
+//! ``` rust
+//! fn main() -> Reulst<> {
+//!   let runtime = Runtime::new()?;
+//!   let module = Module::from_file(&runtime, "test.wasm")?;
+//!   let host_func = Func::new_native("host_func", |p1: i32, p2: i32| {
+//!     println!("host_func called. incoming {p1:?}, {p2:?}");
+//!   });
+//!   let instancce = Instance::new(&module, &[host_func])?;
+//!   let func = instance.find_export_func("run")?;
+//!   func.call(&[])?;
+//!   Ok(())
+//! }
 //! ```
 //!
 //! ### Example: Work with WASI
 //!
-//! ```
+//! ``` rust
+//! // TODO
 //! ```
 //!
 //! ## TODO:
@@ -40,10 +85,26 @@
 //! - [ ] may support a local WAMR runtime library for convenience
 //! - [ ] shall we handle various compilation options with features?
 
-mod runtime;
-mod module;
-mod instance;
 mod func;
 mod global;
+mod instance;
 mod memory;
+mod module;
+mod runtime;
 mod table;
+
+/// A compilation error.
+pub enum CompilationError {
+    /// Some opcodes are not supported. May need to recompile the wasm module(?)
+    /// Or recompile the WAMR runtime library with different compilation options.
+    Unsupported(String),
+}
+
+/// A wasm function execution error.
+pub enum ExecutionError {}
+
+/// A runtime error.
+pub enum RuntimeError {
+    // TODO: add more error types
+    NotImplemented,
+}
