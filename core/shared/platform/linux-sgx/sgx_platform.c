@@ -119,6 +119,18 @@ strcpy(char *dest, const char *src)
     return dest;
 }
 
+#if WASM_ENABLE_LIBC_WASI == 0
+bool
+os_is_handle_valid(os_file_handle *handle)
+{
+    assert(handle != NULL);
+
+    return *handle > -1;
+}
+#else
+/* implemented in posix_file.c */
+#endif
+
 void *
 os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
 {

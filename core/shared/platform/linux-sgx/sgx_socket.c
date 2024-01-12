@@ -5,9 +5,10 @@
 
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
-#include "libc_errno.h"
 
 #ifndef SGX_DISABLE_WASI
+
+#include "libc_errno.h"
 
 #define TRACE_OCALL_FAIL() os_printf("ocall %s failed!\n", __FUNCTION__)
 
