@@ -49,6 +49,9 @@ uint64
 get_tbl_inst_offset(const AOTCompContext *comp_ctx,
                     const AOTFuncContext *func_ctx, uint32 tbl_idx);
 
+uint32
+get_module_inst_extra_offset(AOTCompContext *comp_ctx);
+
 LLVMValueRef
 aot_compile_get_tbl_inst(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 tbl_idx);

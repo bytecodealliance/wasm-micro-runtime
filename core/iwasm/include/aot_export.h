@@ -58,6 +58,7 @@ typedef struct AOTCompOption {
     bool disable_llvm_lto;
     bool enable_llvm_pgo;
     bool enable_stack_estimation;
+    bool quick_invoke_c_api_import;
     char *use_prof_file;
     uint32_t opt_level;
     uint32_t size_level;
@@ -65,7 +66,6 @@ typedef struct AOTCompOption {
     uint32_t bounds_checks;
     uint32_t stack_bounds_checks;
     uint32_t segue_flags;
-    bool linux_perf_support;
     char **custom_sections;
     uint32_t custom_sections_count;
     const char *stack_usage_file;

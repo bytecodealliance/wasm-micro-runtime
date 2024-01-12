@@ -164,3 +164,15 @@ else()
         OUTPUT_VARIABLE cmdOutput
     )
 endif()
+
+if (WAMR_BUILD_LIBC_WASI EQUAL 1)
+    execute_process(
+        COMMAND bash -c "sed -i -E 's/^WAMR_BUILD_LIBC_WASI = 0/WAMR_BUILD_LIBC_WASI = 1/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
+        OUTPUT_VARIABLE cmdOutput
+    )
+else()
+    execute_process(
+        COMMAND bash -c "sed -i -E 's/^WAMR_BUILD_LIBC_WASI = 1/WAMR_BUILD_LIBC_WASI = 0/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
+        OUTPUT_VARIABLE cmdOutput
+    )
+endif()

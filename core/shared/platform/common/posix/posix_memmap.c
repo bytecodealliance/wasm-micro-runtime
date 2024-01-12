@@ -5,7 +5,7 @@
 
 #include "platform_api_vmcore.h"
 
-#if (defined(__APPLE__) || defined(__MACH__)) && defined(__arm64__)
+#if defined(__APPLE__) || defined(__MACH__)
 #include <libkern/OSCacheControl.h>
 #endif
 
@@ -40,7 +40,8 @@ void *
 os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
 {
     int map_prot = PROT_NONE;
-#if (defined(__APPLE__) || defined(__MACH__)) && defined(__arm64__)
+#if (defined(__APPLE__) || defined(__MACH__)) && defined(__arm64__) \
+    && defined(TARGET_OS_OSX) && TARGET_OS_OSX != 0
     int map_flags = MAP_ANONYMOUS | MAP_PRIVATE | MAP_JIT;
 #else
     int map_flags = MAP_ANONYMOUS | MAP_PRIVATE;
@@ -77,14 +78,18 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
         map_prot |= PROT_EXEC;
 
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-#ifndef __APPLE__
     if (flags & MMAP_MAP_32BIT)
         map_flags |= MAP_32BIT;
-#endif
 #endif
 
     if (flags & MMAP_MAP_FIXED)
         map_flags |= MAP_FIXED;
+
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+#if defined(__APPLE__)
+retry_without_map_32bit:
+#endif
+#endif
 
 #if defined(BUILD_TARGET_RISCV64_LP64D) || defined(BUILD_TARGET_RISCV64_LP64)
     /* As AOT relocation in RISCV64 may require that the code/data mapped
@@ -143,6 +148,14 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
     }
 
     if (addr == MAP_FAILED) {
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+#if defined(__APPLE__)
+        if ((map_flags & MAP_32BIT) != 0) {
+            map_flags &= ~MAP_32BIT;
+            goto retry_without_map_32bit;
+        }
+#endif
+#endif
 #if BH_ENABLE_TRACE_MMAP != 0
         os_printf("mmap failed\n");
 #endif
@@ -263,7 +276,7 @@ os_dcache_flush(void)
 void
 os_icache_flush(void *start, size_t len)
 {
-#if (defined(__APPLE__) || defined(__MACH__)) && defined(__arm64__)
+#if defined(__APPLE__) || defined(__MACH__)
     sys_icache_invalidate(start, len);
 #endif
 }

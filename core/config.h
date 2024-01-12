@@ -498,4 +498,16 @@
 #define WASM_MAX_INSTANCE_CONTEXTS 8
 #endif
 
+/* linux perf support */
+#ifndef WASM_ENABLE_LINUX_PERF
+#define WASM_ENABLE_LINUX_PERF 0
+#endif
+
+/* Support registering quick AOT/JIT function entries of some func types
+   to speedup the calling process of invoking the AOT/JIT functions of
+   these types from the host embedder */
+#ifndef WASM_ENABLE_QUICK_AOT_ENTRY
+#define WASM_ENABLE_QUICK_AOT_ENTRY 1
+#endif
+
 #endif /* end of _CONFIG_H_ */
