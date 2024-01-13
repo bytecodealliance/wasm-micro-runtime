@@ -4046,15 +4046,6 @@ check_wasi_abi_compatibility(const WASMModule *module,
      * according to the assumption, they should be all wasi compatiable
      */
 
-    /* always can not have both at the same time  */
-    if (start && initialize) {
-        set_error_buf(
-            error_buf, error_buf_size,
-            "neither a command nor a reactor can both have _start function "
-            "and _initialize function at the same time");
-        return false;
-    }
-
 #if WASM_ENABLE_MULTI_MODULE != 0
     /* filter out commands (with `_start`) cases */
     if (start && !main_module) {
