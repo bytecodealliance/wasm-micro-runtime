@@ -31,7 +31,7 @@ impl Runtime {
     ///
     /// # Errors
     /// `RuntimeError::InitializationFailure` If a *full init* failed
-    pub fn new() -> Result<Self, RuntimeError> {
+    pub fn new() -> Result<Runtime, RuntimeError> {
         let mut init_args: RuntimeInitArgs = RuntimeInitArgs::default();
         init_args.mem_alloc_type = mem_alloc_type_t_Alloc_With_System_Allocator;
         init_args = runtime_init_args_setup_for_interp(&mut init_args);
@@ -64,5 +64,6 @@ mod tests {
     fn test_runtime() {
         let runtime = Runtime::new();
         assert_eq!(runtime.is_ok(), true);
+
     }
 }

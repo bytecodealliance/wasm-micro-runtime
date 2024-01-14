@@ -85,6 +85,8 @@
 //! - [ ] may support a local WAMR runtime library for convenience
 //! - [ ] shall we handle various compilation options with features?
 
+use std::io;
+
 mod func;
 mod global;
 mod instance;
@@ -93,20 +95,20 @@ mod module;
 mod runtime;
 mod table;
 
-/// A compilation error.
-pub enum CompilationError {
-    /// Some opcodes are not supported. May need to recompile the wasm module(?)
-    /// Or recompile the WAMR runtime library with different compilation options.
-    Unsupported(String),
-}
-
 /// A wasm function execution error.
 pub enum ExecutionError {}
 
 /// A runtime error.
+#[derive(Debug)]
 pub enum RuntimeError {
     /// If a functionality hasn't been implemented yet
     NotImplemented,
     /// Runtime initialization error
     InitializationFailure,
+    /// .wasm operation error
+    WasmFileFSError(std::io::Error),
+    /// A compilation error.
+    CompilationError(String),
 }
+
+pub const DEFAULT_ERROR_BUF_SIZE: usize = 128;
