@@ -24,6 +24,7 @@ fn main() {
         .ctypes_prefix("::core::ffi")
         .use_core()
         .header(wamr_header)
+        .derive_default(true)
         .generate()
         .expect("Unable to generate bindings");
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());

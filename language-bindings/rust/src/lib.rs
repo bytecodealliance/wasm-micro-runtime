@@ -105,6 +105,8 @@ pub enum ExecutionError {}
 
 /// A runtime error.
 pub enum RuntimeError {
-    // TODO: add more error types
+    /// If a functionality hasn't been implemented yet
     NotImplemented,
+    /// Runtime initialization error
+    InitializationFailure,
 }

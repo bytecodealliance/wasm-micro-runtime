@@ -289,19 +289,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3354b9ac3fae1ff6755cb6db53683adb661634f67557942dea4facebec0fee4b"
 
 [[package]]
+name = "wamr-rust-sdk"
+version = "0.1.0"
+dependencies = [
+ "wamr-sys",
+]
+
+[[package]]
 name = "wamr-sys"
 version = "0.1.0"
 dependencies = [
  "bindgen",
  "cc",
  "cmake",
-]
-
-[[package]]
-name = "wamr_rust_sdk"
-version = "0.1.0"
-dependencies = [
- "wamr-sys",
 ]
 
 [[package]]
