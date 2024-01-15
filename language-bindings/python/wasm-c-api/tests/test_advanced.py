@@ -188,6 +188,9 @@ class AdvancedTestSuite(unittest.TestCase):
         ffi.wasm_func_call(func, params, results)
         self.assertEqual(params.data[0].of.f32 * 2, results.data[0].of.f64)
 
+    '''
+    # invalid now, caller should ensure the params and results are
+    # correctly created, runtime doesn't check their format again
     def test_wasm_func_call_wrong_params(self):
         export_list = ffi.wasm_vec_to_list(self.exports)
         func = ffi.wasm_extern_as_func(export_list[0])
@@ -199,6 +202,7 @@ class AdvancedTestSuite(unittest.TestCase):
         trap = ffi.wasm_func_call(func, params, results)
 
         self.assertIsNotNullPointer(trap)
+    '''
 
     def test_wasm_func_call_unlinked(self):
         ft = ffi.wasm_functype_new_0_0()
@@ -453,6 +457,9 @@ class AdvancedTestSuite(unittest.TestCase):
         ffi.wasm_memory_data_size(mem)
         ffi.wasm_memory_delete(mem)
 
+    '''
+    # invalid now, caller should ensure the params and results are
+    # correctly created, runtime doesn't check their format again
     def test_wasm_trap(self):
         export_list = ffi.wasm_vec_to_list(self.exports)
         func = ffi.wasm_extern_as_func(export_list[0])
@@ -472,6 +479,7 @@ class AdvancedTestSuite(unittest.TestCase):
         # not a function internal exception
         frame = ffi.wasm_trap_origin(trap)
         self.assertIsNullPointer(frame)
+    '''
 
     @unittest.skipUnless(
         TEST_WITH_WAMR_BUILD_DUMP_CALL_STACK,
