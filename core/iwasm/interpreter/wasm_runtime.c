@@ -115,6 +115,9 @@ static void
 memories_deinstantiate(WASMModuleInstance *module_inst,
                        WASMMemoryInstance **memories, uint32 count)
 {
+#ifdef WASM_LINEAR_MEMORY_MMAP
+    uint64 map_size;
+#endif
     uint32 i;
     if (memories) {
         for (i = 0; i < count; i++) {
@@ -142,15 +145,21 @@ memories_deinstantiate(WASMModuleInstance *module_inst,
                 }
                 if (memories[i]->memory_data) {
 #ifndef OS_ENABLE_HW_BOUND_CHECK
-                    wasm_runtime_free(memories[i]->memory_data);
-#else
-#ifdef BH_PLATFORM_WINDOWS
-                    os_mem_decommit(memories[i]->memory_data,
-                                    memories[i]->num_bytes_per_page
-                                        * memories[i]->cur_page_count);
+#ifdef WASM_LINEAR_MEMORY_MMAP
+                    if (shared_memory_is_shared(memories[i])) {
+                        map_size = (uint64)memories[i]->num_bytes_per_page
+                                   * memories[i]->max_page_count;
+                        wasm_munmap_linear_memory(memories[i]->memory_data,
+                                                  map_size, map_size);
+                    }
+                    else
 #endif
-                    os_munmap((uint8 *)memories[i]->memory_data,
-                              8 * (uint64)BH_GB);
+                        wasm_runtime_free(memories[i]->memory_data);
+#else
+                    map_size = (uint64)memories[i]->num_bytes_per_page
+                               * memories[i]->cur_page_count;
+                    wasm_munmap_linear_memory(memories[i]->memory_data,
+                                              map_size, 8 * (uint64)BH_GB);
 #endif
                 }
             }
@@ -173,10 +182,9 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     uint32 inc_page_count, aux_heap_base, global_idx;
     uint32 bytes_of_last_page, bytes_to_page_end;
     uint8 *global_addr;
-#ifdef OS_ENABLE_HW_BOUND_CHECK
-    uint8 *mapped_mem;
-    uint64 map_size = 8 * (uint64)BH_GB;
-    uint64 page_size = os_getpagesize();
+#ifdef WASM_LINEAR_MEMORY_MMAP
+    uint8 *mapped_mem = NULL;
+    uint64 map_size;
 #endif
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -295,18 +303,29 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     (void)max_memory_data_size;
 
     bh_assert(memory != NULL);
+
 #ifndef OS_ENABLE_HW_BOUND_CHECK
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (is_shared_memory) {
         /* Allocate maximum memory size when memory is shared */
+#if WASM_ENABLE_SHARED_MEMORY_MMAP != 0
+        map_size = max_memory_data_size;
+        if (max_memory_data_size > 0
+            && !(memory->memory_data = mapped_mem =
+                     wasm_mmap_linear_memory(map_size, &max_memory_data_size,
+                                             error_buf, error_buf_size))) {
+            goto fail1;
+        }
+#else
         if (max_memory_data_size > 0
             && !(memory->memory_data = runtime_malloc(
                      max_memory_data_size, error_buf, error_buf_size))) {
             goto fail1;
         }
+#endif
     }
     else
-#endif
+#endif /* end of WASM_ENABLE_SHARED_MEMORY != 0 */
     {
         /* Allocate initial memory size when memory is not shared */
         if (memory_data_size > 0
@@ -315,43 +334,18 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
             goto fail1;
         }
     }
-#else /* else of OS_ENABLE_HW_BOUND_CHECK */
-    memory_data_size = (memory_data_size + page_size - 1) & ~(page_size - 1);
-
+#else  /* else of OS_ENABLE_HW_BOUND_CHECK */
     /* Totally 8G is mapped, the opcode load/store address range is 0 to 8G:
      *   ea = i + memarg.offset
      * both i and memarg.offset are u32 in range 0 to 4G
      * so the range of ea is 0 to 8G
      */
-    if (!(memory->memory_data = mapped_mem =
-              os_mmap(NULL, map_size, MMAP_PROT_NONE, MMAP_MAP_NONE,
-                      os_get_invalid_handle()))) {
+    map_size = 8 * (uint64)BH_GB;
+    if (!(memory->memory_data = mapped_mem = wasm_mmap_linear_memory(
+              map_size, &memory_data_size, error_buf, error_buf_size))) {
         set_error_buf(error_buf, error_buf_size, "mmap memory failed");
         goto fail1;
     }
-
-#ifdef BH_PLATFORM_WINDOWS
-    if (memory_data_size > 0
-        && !os_mem_commit(mapped_mem, memory_data_size,
-                          MMAP_PROT_READ | MMAP_PROT_WRITE)) {
-        set_error_buf(error_buf, error_buf_size, "commit memory failed");
-        os_munmap(mapped_mem, map_size);
-        goto fail1;
-    }
-#endif
-
-    if (os_mprotect(mapped_mem, memory_data_size,
-                    MMAP_PROT_READ | MMAP_PROT_WRITE)
-        != 0) {
-        set_error_buf(error_buf, error_buf_size, "mprotect memory failed");
-        goto fail2;
-    }
-
-    /* Newly allocated pages are filled with zero by the OS, we don't fill it
-     * again here */
-
-    if (memory_data_size > UINT32_MAX)
-        memory_data_size = UINT32_MAX;
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
     memory->module_type = Wasm_Module_Bytecode;
@@ -398,15 +392,15 @@ fail3:
     if (heap_size > 0)
         wasm_runtime_free(memory->heap_handle);
 fail2:
-#ifndef OS_ENABLE_HW_BOUND_CHECK
-    if (memory->memory_data)
-        wasm_runtime_free(memory->memory_data);
-#else
-#ifdef BH_PLATFORM_WINDOWS
-    os_mem_decommit(mapped_mem, memory_data_size);
+#ifdef WASM_LINEAR_MEMORY_MMAP
+    if (mapped_mem)
+        wasm_munmap_linear_memory(mapped_mem, memory_data_size, map_size);
+    else
 #endif
-    os_munmap(mapped_mem, map_size);
-#endif
+    {
+        if (memory->memory_data)
+            wasm_runtime_free(memory->memory_data);
+    }
 fail1:
     return NULL;
 }

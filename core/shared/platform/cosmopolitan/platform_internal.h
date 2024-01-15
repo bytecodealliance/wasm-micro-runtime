@@ -98,8 +98,6 @@ typedef jmp_buf korp_jmpbuf;
 #define os_longjmp longjmp
 #define os_alloca alloca
 
-#define os_getpagesize getpagesize
-
 typedef void (*os_signal_handler)(void *sig_addr);
 
 int
@@ -118,6 +116,8 @@ void
 os_sigreturn();
 #endif /* end of BUILD_TARGET_X86_64/AMD_64/AARCH64/RISCV64 */
 #endif /* end of WASM_DISABLE_HW_BOUND_CHECK */
+
+#define os_getpagesize getpagesize
 
 #ifdef __cplusplus
 }
