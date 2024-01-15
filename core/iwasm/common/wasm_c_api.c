@@ -1924,11 +1924,13 @@ wasm_frame_func_offset(const wasm_frame_t *frame)
 void
 wasm_frame_vec_clone_internal(Vector *src, Vector *out)
 {
-    bh_assert(src->num_elems != 0 && src->data);
-
-    bh_vector_destroy(out);
-    if (!bh_vector_init(out, src->num_elems, sizeof(WASMCApiFrame), false)) {
+    if (src->num_elems == 0) {
         bh_vector_destroy(out);
+        return;
+    }
+
+    if (!bh_vector_destroy(out)
+        || !bh_vector_init(out, src->num_elems, sizeof(WASMCApiFrame), false)) {
         return;
     }
 
