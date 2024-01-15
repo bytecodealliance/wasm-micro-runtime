@@ -133,9 +133,10 @@ dwarf_gen_file_info(const AOTCompContext *comp_ctx)
         file_name = filespec.GetFilename();
         dir_name = filespec.GetDirectory();
         if (file_name || dir_name) {
-            file_info = LLVMDIBuilderCreateFile(comp_ctx->debug_builder,
-                                                file_name, strlen(file_name),
-                                                dir_name, strlen(dir_name));
+            file_info = LLVMDIBuilderCreateFile(
+                comp_ctx->debug_builder, file_name,
+                file_name ? strlen(file_name) : 0, dir_name,
+                dir_name ? strlen(dir_name) : 0);
         }
     }
     return file_info;
@@ -321,9 +322,10 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
     const char *dir_name = file_spec.GetDirectory();
     LLVMMetadataRef file_info = NULL;
     if (file_name || dir_name) {
-        file_info = LLVMDIBuilderCreateFile(comp_ctx->debug_builder, file_name,
-                                            strlen(file_name), dir_name,
-                                            strlen(dir_name));
+        file_info =
+            LLVMDIBuilderCreateFile(comp_ctx->debug_builder, file_name,
+                                    file_name ? strlen(file_name) : 0, dir_name,
+                                    dir_name ? strlen(dir_name) : 0);
     }
     if (file_info) {
         File = file_info;
