@@ -85,8 +85,6 @@
 //! - [ ] may support a local WAMR runtime library for convenience
 //! - [ ] shall we handle various compilation options with features?
 
-use std::io;
-
 mod func;
 mod global;
 mod instance;
@@ -94,6 +92,8 @@ mod memory;
 mod module;
 mod runtime;
 mod table;
+
+mod helper;
 
 /// A wasm function execution error.
 pub enum ExecutionError {}
@@ -110,5 +110,3 @@ pub enum RuntimeError {
     /// A compilation error.
     CompilationError(String),
 }
-
-pub const DEFAULT_ERROR_BUF_SIZE: usize = 128;
