@@ -285,7 +285,7 @@ jobs:
           cd samples/file
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release --parallel 4
+          cmake --build . --config Debug --parallel 4
           ./src/iwasm -f wasm-app/file.wasm -d .
 
       - name: Build Sample [multi-thread]
@@ -293,7 +293,7 @@ jobs:
           cd samples/multi-thread
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release --parallel 4
+          cmake --build . --config Debug --parallel 4
           ./iwasm wasm-apps/test.wasm
 
       - name: Build Sample [multi-module]
@@ -301,7 +301,7 @@ jobs:
           cd samples/multi-module
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release --parallel 4
+          cmake --build . --config Debug --parallel 4
           ./multi_module mC.wasm
 
       - name: Build Sample [spawn-thread]
@@ -309,7 +309,7 @@ jobs:
           cd samples/spawn-thread
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release --parallel 4
+          cmake --build . --config Debug --parallel 4
           ./spawn_thread
 
       - name: Build Sample [ref-types]
@@ -317,7 +317,7 @@ jobs:
           cd samples/ref-types
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release --parallel 4
+          cmake --build . --config Debug --parallel 4
           ./hello
 
       - name: Build Sample [wasi-threads]
@@ -325,7 +325,7 @@ jobs:
           cd samples/wasi-threads
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release --parallel 4
+          cmake --build . --config Debug --parallel 4
           ./iwasm wasm-apps/no_pthread.wasm
 
       - name: Build Sample [shared-module]
