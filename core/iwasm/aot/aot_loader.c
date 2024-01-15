@@ -1679,7 +1679,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
 #if WASM_ENABLE_QUICK_AOT_ENTRY != 0
             func_type->quick_aot_entry =
-                wasm_native_lookup_quick_aot_entry(type);
+                wasm_native_lookup_quick_aot_entry(func_type);
 #endif
 
             LOG_VERBOSE("type %u: func, param count: %d, result count: %d, "
