@@ -1677,6 +1677,11 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             func_type->param_cell_num = param_cell_num;
             func_type->ret_cell_num = ret_cell_num;
 
+#if WASM_ENABLE_QUICK_AOT_ENTRY != 0
+            func_type->quick_aot_entry =
+                wasm_native_lookup_quick_aot_entry(type);
+#endif
+
             LOG_VERBOSE("type %u: func, param count: %d, result count: %d, "
                         "ref type map count: %d",
                         i, param_count, result_count, ref_type_map_count);
