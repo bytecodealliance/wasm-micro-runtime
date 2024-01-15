@@ -383,7 +383,9 @@ jobs:
       - name: Build Sample [wasm-c-api]
         run: |
           VERBOSE=1
-          cmake -S . -B build ${{ matrix.make_options }} -D WAMR_BUILD_SANITIZER="${{matrix.sanitizer}}"
+          cmake -S . -B build ${{ matrix.make_options }} \
+                -D WAMR_BUILD_SANITIZER="${{matrix.sanitizer}}" \
+                -D WAMR_BUILD_QUICK_AOT_ENTRY=0
           cmake --build build --config Release --parallel 4
           ctest --test-dir build --output-on-failure
         working-directory: samples/wasm-c-api
