@@ -87,6 +87,7 @@ os_dumps_proc_mem_info(char *out, unsigned int size)
 void *
 os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
 {
+    void *p;
 #if (WASM_MEM_DUAL_BUS_MIRROR != 0)
     void *i_addr, *d_addr;
 #endif
@@ -110,7 +111,21 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
         return in_ibus_ext(i_addr) ? i_addr : d_addr;
     }
 #endif
-    return malloc((uint32)size);
+    /* Note: aot_loader.c assumes that os_mmap provides large enough
+     * alignment for any data sections. Some sections like rodata.cst32
+     * actually require alignment larger than the natural alignment
+     * provided by malloc.
+     *
+     * Probably it's cleaner to add an explicit alignment argument to
+     * os_mmap. However, it only makes sense if we change our aot format
+     * to keep the necessary alignment.
+     *
+     * For now, let's assume 32 byte alignment is enough.
+     */
+    if (posix_memalign(&p, 32, size)) {
+        return NULL;
+    }
+    return p;
 }
 
 void
