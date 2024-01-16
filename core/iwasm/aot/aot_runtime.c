@@ -340,6 +340,9 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 static void
 memories_deinstantiate(AOTModuleInstance *module_inst)
 {
+#ifdef WASM_LINEAR_MEMORY_MMAP
+    uint64 map_size;
+#endif
     uint32 i;
     AOTMemoryInstance *memory_inst;
 
@@ -362,14 +365,21 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
 
             if (memory_inst->memory_data) {
 #ifndef OS_ENABLE_HW_BOUND_CHECK
-                wasm_runtime_free(memory_inst->memory_data);
-#else
-#ifdef BH_PLATFORM_WINDOWS
-                os_mem_decommit(memory_inst->memory_data,
-                                memory_inst->num_bytes_per_page
-                                    * memory_inst->cur_page_count);
+#ifdef WASM_LINEAR_MEMORY_MMAP
+                if (shared_memory_is_shared(memory_inst)) {
+                    map_size = (uint64)memory_inst->num_bytes_per_page
+                               * memory_inst->max_page_count;
+                    wasm_munmap_linear_memory(memory_inst->memory_data,
+                                              map_size, map_size);
+                }
+                else
 #endif
-                os_munmap(memory_inst->memory_data, 8 * (uint64)BH_GB);
+                    wasm_runtime_free(memory_inst->memory_data);
+#else
+                map_size = (uint64)memory_inst->num_bytes_per_page
+                           * memory_inst->cur_page_count;
+                wasm_munmap_linear_memory(memory_inst->memory_data, map_size,
+                                          8 * (uint64)BH_GB);
 #endif
             }
         }
@@ -392,10 +402,9 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     uint32 heap_offset = num_bytes_per_page * init_page_count;
     uint64 memory_data_size, max_memory_data_size;
     uint8 *p = NULL, *global_addr;
-#ifdef OS_ENABLE_HW_BOUND_CHECK
-    uint8 *mapped_mem;
-    uint64 map_size = 8 * (uint64)BH_GB;
-    uint64 page_size = os_getpagesize();
+#ifdef WASM_LINEAR_MEMORY_MMAP
+    uint8 *mapped_mem = NULL;
+    uint64 map_size;
 #endif
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -519,15 +528,25 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
 #ifndef OS_ENABLE_HW_BOUND_CHECK
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (is_shared_memory) {
+#if WASM_ENABLE_SHARED_MEMORY_MMAP != 0
+        map_size = max_memory_data_size;
+        if (max_memory_data_size > 0
+            && !(p = mapped_mem =
+                     wasm_mmap_linear_memory(map_size, &max_memory_data_size,
+                                             error_buf, error_buf_size))) {
+            return NULL;
+        }
+#else
         /* Allocate maximum memory size when memory is shared */
         if (max_memory_data_size > 0
             && !(p = runtime_malloc(max_memory_data_size, error_buf,
                                     error_buf_size))) {
             return NULL;
         }
+#endif
     }
     else
-#endif
+#endif /* end of WASM_ENABLE_SHARED_MEMORY != 0 */
     {
         /* Allocate initial memory size when memory is not shared */
         if (memory_data_size > 0
@@ -536,43 +555,18 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
             return NULL;
         }
     }
-#else /* else of OS_ENABLE_HW_BOUND_CHECK */
-    memory_data_size = (memory_data_size + page_size - 1) & ~(page_size - 1);
-
+#else  /* else of OS_ENABLE_HW_BOUND_CHECK */
     /* Totally 8G is mapped, the opcode load/store address range is 0 to 8G:
      *   ea = i + memarg.offset
      * both i and memarg.offset are u32 in range 0 to 4G
      * so the range of ea is 0 to 8G
      */
-    if (!(p = mapped_mem = os_mmap(NULL, map_size, MMAP_PROT_NONE,
-                                   MMAP_MAP_NONE, os_get_invalid_handle()))) {
+    map_size = 8 * (uint64)BH_GB;
+    if (!(p = mapped_mem = wasm_mmap_linear_memory(
+              map_size, &memory_data_size, error_buf, error_buf_size))) {
         set_error_buf(error_buf, error_buf_size, "mmap memory failed");
         return NULL;
     }
-
-#ifdef BH_PLATFORM_WINDOWS
-    if (!os_mem_commit(p, memory_data_size, MMAP_PROT_READ | MMAP_PROT_WRITE)) {
-        set_error_buf(error_buf, error_buf_size, "commit memory failed");
-        os_munmap(mapped_mem, map_size);
-        return NULL;
-    }
-#endif
-
-    if (os_mprotect(p, memory_data_size, MMAP_PROT_READ | MMAP_PROT_WRITE)
-        != 0) {
-        set_error_buf(error_buf, error_buf_size, "mprotect memory failed");
-#ifdef BH_PLATFORM_WINDOWS
-        os_mem_decommit(p, memory_data_size);
-#endif
-        os_munmap(mapped_mem, map_size);
-        return NULL;
-    }
-
-    /* Newly allocated pages are filled with zero by the OS, we don't fill it
-     * again here */
-
-    if (memory_data_size > UINT32_MAX)
-        memory_data_size = UINT32_MAX;
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
     memory_inst->module_type = Wasm_Module_AoT;
@@ -623,16 +617,15 @@ fail2:
     if (heap_size > 0)
         wasm_runtime_free(memory_inst->heap_handle);
 fail1:
-#ifndef OS_ENABLE_HW_BOUND_CHECK
-    if (memory_inst->memory_data)
-        wasm_runtime_free(memory_inst->memory_data);
-#else
-#ifdef BH_PLATFORM_WINDOWS
-    if (memory_inst->memory_data)
-        os_mem_decommit(p, memory_data_size);
+#ifdef WASM_LINEAR_MEMORY_MMAP
+    if (mapped_mem)
+        wasm_munmap_linear_memory(mapped_mem, memory_data_size, map_size);
+    else
 #endif
-    os_munmap(mapped_mem, map_size);
-#endif
+    {
+        if (memory_inst->memory_data)
+            wasm_runtime_free(memory_inst->memory_data);
+    }
     memory_inst->memory_data = NULL;
     return NULL;
 }
