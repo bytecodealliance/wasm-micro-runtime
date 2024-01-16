@@ -17,7 +17,7 @@ APP_LIB_SRC="${APP_FRAMEWORK_DIR}/base/app/*.c ${APP_FRAMEWORK_DIR}/sensor/app/*
              ${APP_FRAMEWORK_DIR}/connection/app/*.c ${NATIVE_LIBS}/*.c"
 WASM_APPS=${PWD}/wasm-apps
 CLEAN=
-CM_BUILD_TYPE="-DCMAKE_BUILD_TYPE=Release"
+CM_BUILD_TYPE="-DCMAKE_BUILD_TYPE=Debug"
 CM_TOOLCHAIN=""
 
 usage ()
