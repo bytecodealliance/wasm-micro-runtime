@@ -204,7 +204,7 @@ struct fd_prestat {
 bool
 fd_prestats_init(struct fd_prestats *pt)
 {
-    if (!rwlock_init(&pt->lock))
+    if (!rwlock_initialize(&pt->lock))
         return false;
     pt->prestats = NULL;
     pt->size = 0;
@@ -340,7 +340,7 @@ struct fd_entry {
 bool
 fd_table_init(struct fd_table *ft)
 {
-    if (!rwlock_init(&ft->lock))
+    if (!rwlock_initialize(&ft->lock))
         return false;
     ft->entries = NULL;
     ft->size = 0;
