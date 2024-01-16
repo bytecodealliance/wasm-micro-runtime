@@ -46,12 +46,15 @@ impl Module {
 
         Ok(Module { module })
     }
+
+    pub fn get_inner_module(&self) -> wasm_module_t {
+        self.module
+    }
 }
 
 impl Drop for Module {
     fn drop(&mut self) {
         unsafe {
-            println!("--> 💥 drop a module");
             wasm_runtime_unload(self.module);
         }
     }

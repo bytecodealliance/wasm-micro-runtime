@@ -109,4 +109,6 @@ pub enum RuntimeError {
     WasmFileFSError(std::io::Error),
     /// A compilation error.
     CompilationError(String),
+    /// instantiation failure
+    InstantiationFailure(String),
 }
