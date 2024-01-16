@@ -46,31 +46,23 @@
 //! fn main() -> Result<> {
 //!   let runtime = Runtime::new()?;
 //!   let module = Module::from_file(&runtime, "test.wasm")?;
-//!   let instancce = Instance::new(&module, &[])?;
+//!   let stack_size = 1024;
+//!   let heap_size = 1024;
+//!   let instance = Instance::new(&module, stack_size, heap_size)?;
 //!   let func = instance.find_export_func("run")?;
 //!   func.call(&[])?;
 //!   Ok(())
 //! }
 //! ```
 //!
-//! ### Example: Import a host function and run it in a wasm module
+//! ### Example: Import a native(host) function
 //!
 //! assume
 //! - "test.wasm" needs to `(import "host" "host_func" (func (param i32 i32)))`
 //! - *test.wasm* has a `(func (export "run"))`
 //!
 //! ``` rust
-//! fn main() -> Reulst<> {
-//!   let runtime = Runtime::new()?;
-//!   let module = Module::from_file(&runtime, "test.wasm")?;
-//!   let host_func = Func::new_native("host_func", |p1: i32, p2: i32| {
-//!     println!("host_func called. incoming {p1:?}, {p2:?}");
-//!   });
-//!   let instancce = Instance::new(&module, &[host_func])?;
-//!   let func = instance.find_export_func("run")?;
-//!   func.call(&[])?;
-//!   Ok(())
-//! }
+//! // TODO
 //! ```
 //!
 //! ### Example: Work with WASI

@@ -5,7 +5,9 @@ use ::core::ffi::c_char;
 
 use wamr_sys::{wasm_module_inst_t, wasm_runtime_deinstantiate, wasm_runtime_instantiate};
 
-use crate::{helper::DEFAULT_ERROR_BUF_SIZE, module::Module, RuntimeError};
+use crate::{
+    helper::error_buf_to_string, helper::DEFAULT_ERROR_BUF_SIZE, module::Module, RuntimeError,
+};
 
 #[derive(Debug)]
 pub struct Instance {
@@ -14,8 +16,8 @@ pub struct Instance {
 
 impl Instance {
     pub fn new(module: &Module, stack_size: u32, heap_size: u32) -> Result<Self, RuntimeError> {
+        let mut error_buf = [0 as c_char; DEFAULT_ERROR_BUF_SIZE];
         let instance = unsafe {
-            let mut error_buf = [0 as c_char; DEFAULT_ERROR_BUF_SIZE];
             wasm_runtime_instantiate(
                 module.get_inner_module(),
                 stack_size,
@@ -26,7 +28,18 @@ impl Instance {
         };
 
         if instance.is_null() {
-            return Err(RuntimeError::InstantiationFailure(String::from("")));
+            match error_buf.len() {
+                0 => {
+                    return Err(RuntimeError::CompilationError(String::from(
+                        "instantiation failed",
+                    )))
+                }
+                _ => {
+                    return Err(RuntimeError::CompilationError(error_buf_to_string(
+                        &error_buf,
+                    )))
+                }
+            }
         }
 
         Ok(Instance { instance })

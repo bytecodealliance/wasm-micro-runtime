@@ -1,7 +1,9 @@
 //! .wasm compiled, in-memory representation
 
-use crate::{runtime::Runtime, RuntimeError, helper::DEFAULT_ERROR_BUF_SIZE};
-use std::{fs, path::Path};
+use crate::{
+    helper::error_buf_to_string, helper::DEFAULT_ERROR_BUF_SIZE, runtime::Runtime, RuntimeError,
+};
+use std::{fs, path::Path, string::String};
 use wamr_sys::{wasm_module_t, wasm_runtime_load, wasm_runtime_unload};
 
 #[derive(Debug)]
@@ -33,14 +35,17 @@ impl Module {
         };
 
         if module.is_null() {
-            if !error_buf.is_empty() {
-                let error_buf = error_buf.map(|c| c as u8);
-                let error_str = match String::from_utf8(error_buf.to_vec()) {
-                    Ok(s) => s,
-                    Err(e) => return Err(RuntimeError::CompilationError(e.to_string())),
-                };
-                //TODO: remove trailing zeros
-                return Err(RuntimeError::CompilationError(error_str));
+            match error_buf.len() {
+                0 => {
+                    return Err(RuntimeError::CompilationError(String::from(
+                        "load module failed",
+                    )))
+                }
+                _ => {
+                    return Err(RuntimeError::CompilationError(error_buf_to_string(
+                        &error_buf,
+                    )))
+                }
             }
         }
 
