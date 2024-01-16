@@ -391,6 +391,7 @@ CSRCS += nuttx_platform.c \
          posix_thread.c \
          posix_time.c \
          posix_sleep.c \
+         mremap.c \
          mem_alloc.c \
          ems_kfc.c \
          ems_alloc.c \
@@ -401,6 +402,7 @@ CSRCS += nuttx_platform.c \
          bh_hashmap.c \
          bh_list.c \
          bh_log.c \
+         bh_memutils.c \
          bh_queue.c \
          bh_vector.c \
          bh_read_file.c \
@@ -416,6 +418,7 @@ CSRCS += nuttx_platform.c \
 ASRCS += $(INVOKE_NATIVE)
 
 VPATH += $(SHARED_ROOT)/platform/nuttx
+VPATH += $(SHARED_ROOT)/platform/common/memory
 VPATH += $(SHARED_ROOT)/platform/common/posix
 VPATH += $(SHARED_ROOT)/platform/common/libc-util
 VPATH += $(SHARED_ROOT)/mem-alloc

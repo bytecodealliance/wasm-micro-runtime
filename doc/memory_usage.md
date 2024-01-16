@@ -51,14 +51,9 @@ They are in the number of WASM pages, each of which is of 65536 bytes.
 The `max` is optional for non-shared memory. When omitted, it effectivily
 means unlimited.
 
-If `OS_ENABLE_HW_BOUND_CHECK` is enabled, the memory is allocated via
-`os_mmap` and `os_mem_commit`/`os_mprotect`.
-Otherwise, it's allocated from the global heap.
+The linear memory is allocated via `os_mmap` and `os_mem_commit`/`os_mprotect`.
 
-If the memory is shared and `OS_ENABLE_HW_BOUND_CHECK` is not enabled,
-the `max` size of memory is allocated on instantiation.
-
-Otherwise, the `min` size of memory is allocated on instantiation.
+The `min` size of memory is allocated on instantiation.
 It can later grow up to the `max` size via the `memory.grow` instruction.
 
 Libc heap

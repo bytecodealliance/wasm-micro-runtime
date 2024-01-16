@@ -188,6 +188,10 @@
 #define WASM_ENABLE_APP_FRAMEWORK 0
 #endif
 
+#ifndef WASM_HAVE_MREMAP
+#define WASM_HAVE_MREMAP 0
+#endif
+
 /* Bulk memory operation */
 #ifndef WASM_ENABLE_BULK_MEMORY
 #define WASM_ENABLE_BULK_MEMORY 0
@@ -519,11 +523,6 @@
    these types from the host embedder */
 #ifndef WASM_ENABLE_QUICK_AOT_ENTRY
 #define WASM_ENABLE_QUICK_AOT_ENTRY 1
-#endif
-
-/* Disable mmap based shared memory by default */
-#ifndef WASM_ENABLE_SHARED_MEMORY_MMAP
-#define WASM_ENABLE_SHARED_MEMORY_MMAP 0
 #endif
 
 #endif /* end of _CONFIG_H_ */
