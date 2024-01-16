@@ -63,7 +63,7 @@ mod tests {
 
     #[test]
     fn test_module_not_exist() {
-        let runtime = Runtime::new();
+        let runtime = Runtime::new_as_interp();
         assert_eq!(runtime.is_ok(), true);
 
         let runtime = runtime.unwrap();
@@ -87,7 +87,7 @@ mod tests {
         ];
         let mut binary = binary.map(|c| c as u8);
 
-        let runtime = Runtime::new();
+        let runtime = Runtime::new_as_interp();
         assert_eq!(runtime.is_ok(), true);
 
         let runtime = runtime.unwrap();
