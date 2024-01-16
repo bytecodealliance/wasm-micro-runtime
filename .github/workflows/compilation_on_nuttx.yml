@@ -52,7 +52,7 @@ jobs:
   build_iwasm_on_nuttx:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/apache/nuttx/apache-nuttx-ci-linux@sha256:4b4cbf0b70512e61ada9cdcb76b97e90ad478b85e4d0774d05a95fa32caa8c39
+      image: ghcr.io/apache/nuttx/apache-nuttx-ci-linux@sha256:d9261eacf6c6ebe656c571757751c803e8f04c3ae9b820320a5ea5dd57b7205a
 
     strategy:
       matrix:
@@ -116,3 +116,27 @@ jobs:
           cd nuttx
           tools/configure.sh ${{ matrix.nuttx_board_config }}
           make -j$(nproc) EXTRAFLAGS=-Werror
+
+      - name: Checkout Bloaty
+        uses: actions/checkout@v3
+        with:
+          repository: google/bloaty
+          submodules: recursive
+          path: bloaty
+      
+      - name: Build Bloaty
+        run: |
+          cmake -Bbuild bloaty
+          cmake --build build
+
+      - name: Size Report
+        run: |
+          echo "Build target: ${{ matrix.nuttx_board_config }}"
+          echo "WAMR build config: ${{ matrix.wamr_config_option }}"
+          echo "WAMR size:"
+          build/bloaty -d compileunits --source-filter wamr nuttx/nuttx
+          echo "libc-builtin size (if enabled):"
+          build/bloaty -d compileunits --source-filter libc-builtin nuttx/nuttx
+          echo "libc-wasi size (if enabled):"
+          build/bloaty -d compileunits --source-filter libc-wasi nuttx/nuttx
+  
