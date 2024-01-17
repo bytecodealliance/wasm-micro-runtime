@@ -34,13 +34,13 @@ jobs:
     with:
       os: "ubuntu-22.04"
       arch: "ARM RISCV AArch64"
-      container_image: ghcr.io/no1wudi/nuttx/apache-nuttx-ci-linux:8c4e00b607d4d6d66ba8f51c4544819a616eac69d3a2ac669e2af2150e2eb0f9
+      container_image: ghcr.io/no1wudi/nuttx/apache-nuttx-ci-linux@sha256:8c4e00b607d4d6d66ba8f51c4544819a616eac69d3a2ac669e2af2150e2eb0f9
 
   spec_test_on_qemu:
     runs-on: ubuntu-latest
     needs: [build_llvm_libraries]
     container:
-      image: ghcr.io/no1wudi/nuttx/apache-nuttx-ci-linux:8c4e00b607d4d6d66ba8f51c4544819a616eac69d3a2ac669e2af2150e2eb0f9
+      image: ghcr.io/no1wudi/nuttx/apache-nuttx-ci-linux@sha256:8c4e00b607d4d6d66ba8f51c4544819a616eac69d3a2ac669e2af2150e2eb0f9
     strategy:
       matrix:
         target_config: [
