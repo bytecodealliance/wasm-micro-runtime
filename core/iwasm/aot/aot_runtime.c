@@ -2049,14 +2049,10 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
 #if WASM_ENABLE_QUICK_AOT_ENTRY != 0
         /* Quick call if the quick aot entry is registered */
         if (!signature && func_type->quick_aot_entry) {
-            void (*invoke_native)(
-                void *func_ptr, uint8 ret_type, void *exec_env, uint32 *argv,
-                uint32 *argv_ret) = func_type->quick_aot_entry;
-            invoke_native(func_ptr,
-                          func_type->result_count > 0
-                              ? func_type->types[func_type->param_count]
-                              : VALUE_TYPE_VOID,
-                          exec_env, argv, argv_ret);
+            void (*invoke_native)(void *func_ptr, void *exec_env, uint32 *argv,
+                                  uint32 *argv_ret) =
+                func_type->quick_aot_entry;
+            invoke_native(func_ptr, exec_env, argv, argv_ret);
             ret = !aot_copy_exception(module_inst, NULL);
         }
         else
