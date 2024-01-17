@@ -6,6 +6,7 @@
 
 #include <assert.h>
 #include <string.h>
+#include <unistd.h>
 #include <pthread.h>
 
 #include "wasm_export.h"
@@ -39,6 +40,7 @@ main(int argc, char *argv_main[])
     int opt;
     char *wasm_path = NULL;
     int ret;
+    int pipe_fds[2];
 
     const unsigned int N = 4;
     wasm_module_t module = NULL;
@@ -95,6 +97,14 @@ main(int argc, char *argv_main[])
         printf("Load wasm module failed. error: %s\n", error_buf);
         goto fail;
     }
+
+    /* Ensure that fd_read on FD 0 blocks. */
+    ret = pipe(pipe_fds);
+    if (ret != 0) {
+        goto fail;
+    }
+    wasm_runtime_set_wasi_args_ex(module, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+                                  pipe_fds[0], -1, -1);
 
     for (i = 0; i < N; i++) {
         module_inst[i] = wasm_runtime_instantiate(module, stack_size, heap_size,
