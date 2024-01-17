@@ -5813,6 +5813,15 @@ re_scan:
                     bh_memcpy_s(loader_ctx->frame_offset, size,
                                 block->param_frame_offsets, size);
                     loader_ctx->frame_offset += (size / sizeof(int16));
+
+                    /* recover dynamic offset */
+                    for (i = 0; i < block->available_param_num; i++) {
+                        if (block->param_frame_offsets[i]
+                            >= loader_ctx->dynamic_offset) {
+                            loader_ctx->dynamic_offset =
+                                block->param_frame_offsets[i] + 1;
+                        }
+                    }
                 }
 #endif
 
