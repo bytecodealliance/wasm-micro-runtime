@@ -186,6 +186,8 @@ struct WASMFunctionInstance {
     uint64 total_exec_time;
     /* total execution count */
     uint32 total_exec_cnt;
+    /* children execution time */
+    uint64 children_exec_time;
 #endif
 };
 
@@ -431,6 +433,13 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
 void
 wasm_dump_perf_profiling(const WASMModuleInstance *module_inst);
+
+double
+wasm_summarize_wasm_execute_time(const WASMModuleInstance *inst);
+
+double
+wasm_get_wasm_func_exec_time(const WASMModuleInstance *inst,
+                             const char *func_name);
 
 void
 wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst);

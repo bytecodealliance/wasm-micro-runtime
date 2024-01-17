@@ -2807,7 +2807,7 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     }
 
 #if WASM_ENABLE_PERF_PROFILING != 0
-    frame->time_started = os_time_get_boot_microsecond();
+    frame->time_started = os_time_thread_cputime_us();
     frame->func_perf_prof_info = func_perf_prof;
 #endif
 
@@ -2826,8 +2826,13 @@ aot_free_frame(WASMExecEnv *exec_env)
 
 #if WASM_ENABLE_PERF_PROFILING != 0
     cur_frame->func_perf_prof_info->total_exec_time +=
-        os_time_get_boot_microsecond() - cur_frame->time_started;
+        os_time_thread_cputime_us() - cur_frame->time_started;
     cur_frame->func_perf_prof_info->total_exec_cnt++;
+
+    /* parent function */
+    if (prev_frame)
+        prev_frame->func_perf_prof_info->children_exec_time =
+            cur_frame->func_perf_prof_info->total_exec_time;
 #endif
 
     wasm_exec_env_free_wasm_frame(exec_env, cur_frame);
@@ -2964,21 +2969,64 @@ aot_dump_perf_profiling(const AOTModuleInstance *module_inst)
 
     os_printf("Performance profiler data:\n");
     for (i = 0; i < total_func_count; i++, perf_prof++) {
+        if (perf_prof->total_exec_cnt == 0)
+            continue;
+
         func_name = get_func_name_from_index(module_inst, i);
 
         if (func_name)
             os_printf(
                 "  func %s, execution time: %.3f ms, execution count: %" PRIu32
-                " times\n",
+                " times, children execution time: %.3f ms\n",
                 func_name, perf_prof->total_exec_time / 1000.0f,
-                perf_prof->total_exec_cnt);
+                perf_prof->total_exec_cnt,
+                perf_prof->children_exec_time / 1000.0f);
         else
             os_printf("  func %" PRIu32
                       ", execution time: %.3f ms, execution count: %" PRIu32
-                      " times\n",
+                      " times, children execution time: %.3f ms\n",
                       i, perf_prof->total_exec_time / 1000.0f,
-                      perf_prof->total_exec_cnt);
+                      perf_prof->total_exec_cnt,
+                      perf_prof->children_exec_time / 1000.0f);
     }
+}
+
+double
+aot_summarize_wasm_execute_time(const AOTModuleInstance *inst)
+{
+    double ret = 0;
+
+    AOTModule *module = (AOTModule *)inst->module;
+    uint32 total_func_count = module->import_func_count + module->func_count, i;
+
+    for (i = 0; i < total_func_count; i++) {
+        AOTFuncPerfProfInfo *perf_prof =
+            (AOTFuncPerfProfInfo *)inst->func_perf_profilings + i;
+        ret += (perf_prof->total_exec_time - perf_prof->children_exec_time)
+               / 1000.0f;
+    }
+
+    return ret;
+}
+
+double
+aot_get_wasm_func_exec_time(const AOTModuleInstance *inst,
+                            const char *func_name)
+{
+    AOTModule *module = (AOTModule *)inst->module;
+    uint32 total_func_count = module->import_func_count + module->func_count, i;
+
+    for (i = 0; i < total_func_count; i++) {
+        const char *name_in_wasm = get_func_name_from_index(inst, i);
+        if (name_in_wasm && strcmp(func_name, name_in_wasm) == 0) {
+            AOTFuncPerfProfInfo *perf_prof =
+                (AOTFuncPerfProfInfo *)inst->func_perf_profilings + i;
+            return (perf_prof->total_exec_time - perf_prof->children_exec_time)
+                   / 1000.0f;
+        }
+    }
+
+    return -1.0;
 }
 #endif /* end of WASM_ENABLE_PERF_PROFILING */
 

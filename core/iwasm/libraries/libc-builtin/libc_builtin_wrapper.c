@@ -927,7 +927,7 @@ clock_gettime_wrapper(wasm_exec_env_t exec_env, uint32 clk_id,
     if (!validate_native_addr(ts_app, sizeof(struct timespec_app)))
         return (uint32)-1;
 
-    time = os_time_get_boot_microsecond();
+    time = os_time_get_boot_us();
     ts_app->tv_sec = time / 1000000;
     ts_app->tv_nsec = (time % 1000000) * 1000;
 
@@ -939,7 +939,7 @@ clock_wrapper(wasm_exec_env_t exec_env)
 {
     /* Convert to nano seconds as CLOCKS_PER_SEC in wasi-sdk */
 
-    return os_time_get_boot_microsecond() * 1000;
+    return os_time_get_boot_us() * 1000;
 }
 
 #if WASM_ENABLE_SPEC_TEST != 0

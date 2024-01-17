@@ -1274,6 +1274,26 @@ wasm_runtime_dump_mem_consumption(wasm_exec_env_t exec_env);
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_dump_perf_profiling(wasm_module_inst_t module_inst);
 
+/**
+ * Return total wasm functions' execution time in ms
+ *
+ * @param module_inst the WASM module instance to profile
+ */
+WASM_RUNTIME_API_EXTERN double
+wasm_runtime_sum_wasm_exec_time(wasm_module_inst_t module_inst);
+
+/**
+ * Return execution time in ms of a given wasm funciton with
+*  func_name. If the function is not found, return 0.
+ *
+ * @param module_inst the WASM module instance to profile
+ * @param func_name could be an export name or a name in the
+ *                  name section
+ */
+WASM_RUNTIME_API_EXTERN double
+wasm_runtime_get_wasm_func_exec_time(wasm_module_inst_t inst,
+                                     const char *func_name);
+
 /* wasm thread callback function type */
 typedef void *(*wasm_thread_callback_t)(wasm_exec_env_t, void *);
 /* wasm thread type */

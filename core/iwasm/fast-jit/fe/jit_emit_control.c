@@ -396,9 +396,8 @@ handle_func_return(JitCompContext *cc, JitBlock *block)
 #endif
 
 #if WASM_ENABLE_PERF_PROFILING != 0
-    /* time_end = os_time_get_boot_microsecond() */
-    if (!jit_emit_callnative(cc, os_time_get_boot_microsecond, time_end, NULL,
-                             0)) {
+    /* time_end = os_time_get_boot_us() */
+    if (!jit_emit_callnative(cc, os_time_get_boot_us, time_end, NULL, 0)) {
         return false;
     }
     /* time_start = cur_frame->time_started */
