@@ -1976,6 +1976,12 @@ str2uint64(const char *buf, uint64 *p_res)
 #define R_X86_64_GOTPCREL 9 /* 32 bit signed PC relative offset to GOT */
 
 static bool
+is_text_section(const char *section_name)
+{
+    return !strcmp(section_name, ".text") || !strcmp(section_name, ".ltext");
+}
+
+static bool
 do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                    char *error_buf, uint32 error_buf_size)
 {
@@ -2063,7 +2069,7 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
             symbol_addr = module->func_ptrs[func_index];
         }
 #endif
-        else if (!strcmp(symbol, ".text")) {
+        else if (is_text_section(symbol)) {
             symbol_addr = module->code;
         }
         else if (!strcmp(symbol, ".data") || !strcmp(symbol, ".sdata")
@@ -2235,7 +2241,7 @@ do_data_relocation(AOTModule *module, AOTRelocationGroup *group,
 
     for (i = 0; i < group->relocation_count; i++, relocation++) {
         symbol = relocation->symbol_name;
-        if (!strcmp(symbol, ".text")) {
+        if (is_text_section(symbol)) {
             symbol_addr = module->code;
         }
 #if WASM_ENABLE_STATIC_PGO != 0
@@ -2696,6 +2702,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 
         if (!strcmp(group->section_name, ".rel.text")
             || !strcmp(group->section_name, ".rela.text")
+            || !strcmp(group->section_name, ".rel.ltext")
+            || !strcmp(group->section_name, ".rela.ltext")
             || !strcmp(group->section_name, ".rela.literal")
 #ifdef BH_PLATFORM_WINDOWS
             || !strcmp(group->section_name, ".text")

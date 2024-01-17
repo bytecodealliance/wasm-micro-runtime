@@ -654,7 +654,8 @@ get_relocations_size(AOTObjectData *obj_data,
         /* ignore the relocations to aot_func_internal#n in text section
            for windows platform since they will be applied in
            aot_emit_text_section */
-        if (!strcmp(relocation_group->section_name, ".text")
+        if ((!strcmp(relocation_group->section_name, ".text")
+             || !strcmp(relocation_group->section_name, ".ltext"))
             && !strncmp(relocation->symbol_name, AOT_FUNC_INTERNAL_PREFIX,
                         strlen(AOT_FUNC_INTERNAL_PREFIX))
             && ((!strncmp(obj_data->comp_ctx->target_arch, "x86_64", 6)
@@ -1819,7 +1820,8 @@ aot_emit_text_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         for (i = 0; i < obj_data->relocation_group_count;
              i++, relocation_group++) {
             /* relocation in text section */
-            if (!strcmp(relocation_group->section_name, ".text")) {
+            if ((!strcmp(relocation_group->section_name, ".text")
+                 || !strcmp(relocation_group->section_name, ".ltext"))) {
                 relocation = relocation_group->relocations;
                 relocation_count = relocation_group->relocation_count;
                 for (j = 0; j < relocation_count; j++) {
@@ -2380,17 +2382,19 @@ aot_resolve_text(AOTObjectData *obj_data)
         while (
             !LLVMObjectFileIsSectionIteratorAtEnd(obj_data->binary, sec_itr)) {
             if ((name = (char *)LLVMGetSectionName(sec_itr))) {
-                if (!strcmp(name, ".text")) {
+                if (!strcmp(name, ".text") || !strcmp(name, ".ltext")) {
                     obj_data->text = (char *)LLVMGetSectionContents(sec_itr);
                     obj_data->text_size = (uint32)LLVMGetSectionSize(sec_itr);
                 }
-                else if (!strcmp(name, ".text.unlikely.")) {
+                else if (!strcmp(name, ".text.unlikely.")
+                         || !strcmp(name, ".ltext.unlikely.")) {
                     obj_data->text_unlikely =
                         (char *)LLVMGetSectionContents(sec_itr);
                     obj_data->text_unlikely_size =
                         (uint32)LLVMGetSectionSize(sec_itr);
                 }
-                else if (!strcmp(name, ".text.hot.")) {
+                else if (!strcmp(name, ".text.hot.")
+                         || !strcmp(name, ".ltext.hot.")) {
                     obj_data->text_hot =
                         (char *)LLVMGetSectionContents(sec_itr);
                     obj_data->text_hot_size =
@@ -2909,11 +2913,13 @@ aot_resolve_functions(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
                     (char *)LLVMGetSectionName(contain_section);
                 LLVMDisposeSectionIterator(contain_section);
 
-                if (!strcmp(contain_section_name, ".text.unlikely.")) {
+                if (!strcmp(contain_section_name, ".text.unlikely.")
+                    || !strcmp(contain_section_name, ".ltext.unlikely.")) {
                     func->text_offset = align_uint(obj_data->text_size, 4)
                                         + LLVMGetSymbolAddress(sym_itr);
                 }
-                else if (!strcmp(contain_section_name, ".text.hot.")) {
+                else if (!strcmp(contain_section_name, ".text.hot.")
+                         || !strcmp(contain_section_name, ".ltext.hot.")) {
                     func->text_offset =
                         align_uint(obj_data->text_size, 4)
                         + align_uint(obj_data->text_unlikely_size, 4)
@@ -2945,12 +2951,14 @@ aot_resolve_functions(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
                     (char *)LLVMGetSectionName(contain_section);
                 LLVMDisposeSectionIterator(contain_section);
 
-                if (!strcmp(contain_section_name, ".text.unlikely.")) {
+                if (!strcmp(contain_section_name, ".text.unlikely.")
+                    || !strcmp(contain_section_name, ".ltext.unlikely.")) {
                     func->text_offset_of_aot_func_internal =
                         align_uint(obj_data->text_size, 4)
                         + LLVMGetSymbolAddress(sym_itr);
                 }
-                else if (!strcmp(contain_section_name, ".text.hot.")) {
+                else if (!strcmp(contain_section_name, ".text.hot.")
+                         || !strcmp(contain_section_name, ".ltext.hot.")) {
                     func->text_offset_of_aot_func_internal =
                         align_uint(obj_data->text_size, 4)
                         + align_uint(obj_data->text_unlikely_size, 4)
@@ -3211,6 +3219,12 @@ is_relocation_section_name(AOTObjectData *obj_data, char *section_name)
             || !strcmp(section_name, ".rel.text.unlikely.")
             || !strcmp(section_name, ".rela.text.hot.")
             || !strcmp(section_name, ".rel.text.hot.")
+            || !strcmp(section_name, ".rela.ltext")
+            || !strcmp(section_name, ".rel.ltext")
+            || !strcmp(section_name, ".rela.ltext.unlikely.")
+            || !strcmp(section_name, ".rel.ltext.unlikely.")
+            || !strcmp(section_name, ".rela.ltext.hot.")
+            || !strcmp(section_name, ".rel.ltext.hot.")
             || !strcmp(section_name, ".rela.literal")
             || !strcmp(section_name, ".rela.data")
             || !strcmp(section_name, ".rel.data")
@@ -3249,7 +3263,9 @@ static bool
 is_readonly_section(const char *name)
 {
     return !strcmp(name, ".rel.text") || !strcmp(name, ".rela.text")
-           || !strcmp(name, ".rela.literal") || !strcmp(name, ".text");
+           || !strcmp(name, ".rel.ltext") || !strcmp(name, ".rela.ltext")
+           || !strcmp(name, ".rela.literal") || !strcmp(name, ".text")
+           || !strcmp(name, ".ltext");
 }
 
 static bool
@@ -3343,10 +3359,22 @@ aot_resolve_object_relocation_groups(AOTObjectData *obj_data)
                 relocation_group->section_name = ".rela.text";
             }
             else if (!strcmp(relocation_group->section_name,
+                             ".rela.ltext.unlikely.")
+                     || !strcmp(relocation_group->section_name,
+                                ".rela.ltext.hot.")) {
+                relocation_group->section_name = ".rela.ltext";
+            }
+            else if (!strcmp(relocation_group->section_name,
                              ".rel.text.unlikely.")
                      || !strcmp(relocation_group->section_name,
                                 ".rel.text.hot.")) {
                 relocation_group->section_name = ".rel.text";
+            }
+            else if (!strcmp(relocation_group->section_name,
+                             ".rel.ltext.unlikely.")
+                     || !strcmp(relocation_group->section_name,
+                                ".rel.ltext.hot.")) {
+                relocation_group->section_name = ".rel.ltext";
             }
 
             /*
