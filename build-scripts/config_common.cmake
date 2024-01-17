@@ -457,7 +457,7 @@ if (WAMR_BUILD_LINUX_PERF EQUAL 1)
   add_definitions (-DWASM_ENABLE_LINUX_PERF=1)
   message ("     Linux perf support enabled")
 endif ()
-if (WAMR_BUILD_AOT EQUAL 1 OR WAMR_BUILD_AOT EQUAL 1)
+if (WAMR_BUILD_AOT EQUAL 1 OR WAMR_BUILD_JIT EQUAL 1)
   if (NOT DEFINED WAMR_BUILD_QUICK_AOT_ENTRY)
     # Enable quick aot/jit entries by default
     set (WAMR_BUILD_QUICK_AOT_ENTRY 1)
