@@ -502,4 +502,9 @@
 #define WASM_ENABLE_QUICK_AOT_ENTRY 1
 #endif
 
+/* Disable mmap based shared memory by default */
+#ifndef WASM_ENABLE_SHARED_MEMORY_MMAP
+#define WASM_ENABLE_SHARED_MEMORY_MMAP 0
+#endif
+
 #endif /* end of _CONFIG_H_ */
