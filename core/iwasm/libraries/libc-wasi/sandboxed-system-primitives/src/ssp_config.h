@@ -34,7 +34,7 @@
 #define CONFIG_HAS_GETRANDOM 0
 #endif
 
-#if defined(__CloudABI__)
+#if defined(__CloudABI__) || defined(BH_PLATFORM_FREERTOS)
 #define CONFIG_HAS_CAP_ENTER 1
 #else
 #define CONFIG_HAS_CAP_ENTER 0
