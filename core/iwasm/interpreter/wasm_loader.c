@@ -3129,13 +3129,15 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                         read_leb_uint32(p, p_end, u32);
                     module->import_table_count++;
 
-#if WASM_ENABLE_REF_TYPES == 0 && WASM_ENABLE_GC == 0
                     if (module->import_table_count > 1) {
+#if WASM_ENABLE_REF_TYPES == 0 && WASM_ENABLE_GC == 0
                         set_error_buf(error_buf, error_buf_size,
                                       "multiple tables");
                         return false;
-                    }
+#elif WASM_ENABLE_WAMR_COMPILER != 0
+                        module->is_ref_types_used = true;
 #endif
+                    }
                     break;
 
                 case IMPORT_KIND_MEMORY: /* import memory */
@@ -3614,13 +3616,15 @@ load_table_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
     WASMTable *table;
 
     read_leb_uint32(p, p_end, table_count);
-#if WASM_ENABLE_REF_TYPES == 0 && WASM_ENABLE_GC == 0
     if (module->import_table_count + table_count > 1) {
+#if WASM_ENABLE_REF_TYPES == 0 && WASM_ENABLE_GC == 0
         /* a total of one table is allowed */
         set_error_buf(error_buf, error_buf_size, "multiple tables");
         return false;
-    }
+#elif WASM_ENABLE_WAMR_COMPILER != 0
+        module->is_ref_types_used = true;
 #endif
+    }
 
     if (table_count) {
         module->table_count = table_count;
@@ -3786,6 +3790,7 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             CHECK_BUF(p, p_end, 1);
             mutable = read_uint8(p);
 #endif /* end of WASM_ENABLE_GC */
+
 #if WASM_ENABLE_WAMR_COMPILER != 0
             if (global->type == VALUE_TYPE_V128)
                 module->is_simd_used = true;
@@ -13636,6 +13641,10 @@ re_scan:
                         POP_I32();
                         POP_I32();
                         POP_I32();
+
+#if WASM_ENABLE_WAMR_COMPILER != 0
+                        module->is_ref_types_used = true;
+#endif
                         break;
                     }
                     case WASM_OP_ELEM_DROP:
