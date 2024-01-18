@@ -5,101 +5,74 @@ use std::sync::{Arc, OnceLock};
 
 use wamr_sys::{
     mem_alloc_type_t_Alloc_With_System_Allocator, wasm_runtime_destroy, wasm_runtime_full_init,
-    RunningMode_Mode_Fast_JIT, RunningMode_Mode_Interp, RunningMode_Mode_LLVM_JIT, RuntimeInitArgs,
+    wasm_runtime_init, RunningMode_Mode_Fast_JIT, RunningMode_Mode_Interp,
+    RunningMode_Mode_LLVM_JIT, RuntimeInitArgs,
 };
 
 use crate::RuntimeError;
-#[derive(Clone, Copy, Debug)]
-pub struct Runtime {}
 
-static SINGLETON_RUNTIME: OnceLock<Option<Arc<Runtime>>> = OnceLock::new();
-
-fn init_args_as_aot(init_args: &mut RuntimeInitArgs) -> RuntimeInitArgs {
-    // TODO: Add AOT support
-    *init_args
+pub struct RuntimeBuilder {
+    args: RuntimeInitArgs,
 }
 
-fn init_args_as_fast_jit(init_args: &mut RuntimeInitArgs) -> RuntimeInitArgs {
-    init_args.running_mode = RunningMode_Mode_Fast_JIT;
-    init_args.fast_jit_code_cache_size = 10 * 1024 * 1024;
-    *init_args
+impl Default for RuntimeBuilder {
+    fn default() -> Self {
+        let builder = RuntimeBuilder {
+            args: RuntimeInitArgs::default(),
+        };
+        builder
+    }
 }
 
-fn init_args_as_interp(init_args: &mut RuntimeInitArgs) -> RuntimeInitArgs {
-    init_args.running_mode = RunningMode_Mode_Interp;
-    *init_args
+pub enum MemoryAllocationType {
+    //TODO: review this two options
+    // // a host managed memory area
+    // AllocWithPool(Vec<u8>),
+    // // a set of host managed memory managed functions
+    // AllocWithAllocator,
+    AllocWithSystemAllocator,
 }
 
-fn init_args_as_llvm_jit(init_args: &mut RuntimeInitArgs) -> RuntimeInitArgs {
-    init_args.running_mode = RunningMode_Mode_LLVM_JIT;
-    init_args.llvm_jit_opt_level = 3;
-    init_args.llvm_jit_size_level = 3;
-    *init_args
+pub enum RunningMode {
+    FastJIT,
+    Interpreter,
+    LLVMJIT,
 }
 
-impl Runtime {
-    //TODO: use feature?
-    /// Create a runtime under the aot running mode
-    /// and use system provided allocations like `malloc`, `free`
-    ///
-    /// # Errors
-    /// `RuntimeError::InitializationFailure` If a *full init* failed
-    pub fn new_as_aot() -> Result<Arc<Runtime>, RuntimeError> {
-        let mut init_args: RuntimeInitArgs = RuntimeInitArgs::default();
-        init_args.mem_alloc_type = mem_alloc_type_t_Alloc_With_System_Allocator;
-        init_args = init_args_as_aot(&mut init_args);
-
-        return Self::new_with_args(&mut init_args);
+impl RuntimeBuilder {
+    pub fn use_system_allocator(mut self) -> RuntimeBuilder {
+        self.args.mem_alloc_type = mem_alloc_type_t_Alloc_With_System_Allocator;
+        self
     }
 
-    //TODO: use feature?
-    /// Create a runtime under the fast_jit running mode
-    /// and use system provided allocations like `malloc`, `free`
-    ///
-    /// # Errors
-    /// `RuntimeError::InitializationFailure` If a *full init* failed
-    pub fn new_as_fast_jit() -> Result<Arc<Runtime>, RuntimeError> {
-        let mut init_args: RuntimeInitArgs = RuntimeInitArgs::default();
-        init_args.mem_alloc_type = mem_alloc_type_t_Alloc_With_System_Allocator;
-        init_args = init_args_as_fast_jit(&mut init_args);
-
-        return Self::new_with_args(&mut init_args);
+    pub fn set_max_threads(mut self, num: u32) -> RuntimeBuilder {
+        self.args.max_thread_num = num;
+        self
     }
 
-    //TODO: use feature?
-    /// Create a runtime under the interpreter running mode
-    /// and use system provided allocations like `malloc`, `free`
-    ///
-    /// # Errors
-    /// `RuntimeError::InitializationFailure` If a *full init* failed
-    pub fn new_as_interp() -> Result<Arc<Runtime>, RuntimeError> {
-        let mut init_args: RuntimeInitArgs = RuntimeInitArgs::default();
-        init_args.mem_alloc_type = mem_alloc_type_t_Alloc_With_System_Allocator;
-        init_args = init_args_as_interp(&mut init_args);
-
-        return Self::new_with_args(&mut init_args);
+    pub fn run_as_interpreter(mut self) -> RuntimeBuilder {
+        self.args.running_mode = RunningMode_Mode_Interp;
+        self
     }
 
-    //TODO: use feature?
-    /// Create a runtime under the llvm_jit running mode
-    /// and use system provided allocations like `malloc`, `free`
-    ///
-    /// # Errors
-    /// `RuntimeError::InitializationFailure` If a *full init* failed
-    pub fn new_as_llvm_jit() -> Result<Arc<Runtime>, RuntimeError> {
-        let mut init_args: RuntimeInitArgs = RuntimeInitArgs::default();
-        init_args.mem_alloc_type = mem_alloc_type_t_Alloc_With_System_Allocator;
-        init_args = init_args_as_llvm_jit(&mut init_args);
-
-        return Self::new_with_args(&mut init_args);
+    pub fn run_as_fast_jit(mut self, code_cache_size: u32) -> RuntimeBuilder {
+        self.args.running_mode = RunningMode_Mode_Fast_JIT;
+        self.args.fast_jit_code_cache_size = code_cache_size;
+        self
     }
 
-    fn new_with_args(init_args: &mut RuntimeInitArgs) -> Result<Arc<Runtime>, RuntimeError> {
+    pub fn run_as_llvm_jit(mut self, opt_level: u32, size_level: u32) -> RuntimeBuilder {
+        self.args.running_mode = RunningMode_Mode_LLVM_JIT;
+        self.args.llvm_jit_opt_level = opt_level;
+        self.args.llvm_jit_size_level = size_level;
+        self
+    }
+
+    pub fn build(mut self) -> Result<Arc<Runtime>, RuntimeError> {
         let runtime = SINGLETON_RUNTIME.get_or_init(|| {
             let ret;
             unsafe {
-                println!("--> 🎇 call wasm_runtime_full_init");
-                ret = wasm_runtime_full_init(init_args);
+                ret = wasm_runtime_full_init(&mut self.args);
             }
 
             match ret {
@@ -115,25 +88,98 @@ impl Runtime {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct Runtime {}
+
+static SINGLETON_RUNTIME: OnceLock<Option<Arc<Runtime>>> = OnceLock::new();
+
+impl Runtime {
+    pub fn builder() -> RuntimeBuilder {
+        RuntimeBuilder::default()
+    }
+
+    // TODO: do we need it? or just use the builder?
+    pub fn new() -> Result<Arc<Self>, RuntimeError> {
+        let runtime = SINGLETON_RUNTIME.get_or_init(|| {
+            let ret;
+            unsafe {
+                ret = wasm_runtime_init();
+            }
+
+            match ret {
+                true => Some(Arc::new(Runtime {})),
+                false => None,
+            }
+        });
+
+        match runtime {
+            Some(runtime) => Ok(Arc::clone(runtime)),
+            None => Err(RuntimeError::InitializationFailure),
+        }
+    }
+}
+
+impl Drop for Runtime {
+    fn drop(&mut self) {
+        unsafe {
+            wasm_runtime_destroy();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_runtime() {
-        {
-            let runtime = Runtime::new_as_interp();
-            assert_eq!(runtime.is_ok(), true);
-        }
+    fn test_runtime_new() {
+        let runtime = Runtime::new();
+        assert_eq!(runtime.is_ok(), true);
+        drop(runtime);
 
         {
-            let runtime = Runtime::new_as_interp();
-            assert_eq!(runtime.is_ok(), true);
+            let runtime = Runtime::new();
+            let runtime = Runtime::new();
+            let runtime = Runtime::new();
+            let runtime = Runtime::new();
+            let runtime = Runtime::new();
         }
+    }
 
-        {
-            let runtime = Runtime::new_as_interp();
-            assert_eq!(runtime.is_ok(), true);
-        }
+    #[test]
+    fn test_runtime_builder_default() {
+        let runtime = Runtime::builder().use_system_allocator().build();
+        assert_eq!(runtime.is_ok(), true);
+        drop(runtime);
+    }
+
+    #[test]
+    fn test_runtime_builder_interpreter() {
+        let runtime = Runtime::builder()
+            .run_as_interpreter()
+            .use_system_allocator()
+            .build();
+        assert_eq!(runtime.is_ok(), true);
+        drop(runtime);
+    }
+
+    #[test]
+    fn test_runtime_builder_fast_jit() {
+        let runtime = Runtime::builder()
+            .run_as_fast_jit(1024)
+            .use_system_allocator()
+            .build();
+        assert_eq!(runtime.is_ok(), true);
+        drop(runtime);
+    }
+
+    #[test]
+    fn test_runtime_builder_llvm_jit() {
+        let runtime = Runtime::builder()
+            .run_as_llvm_jit(3, 3)
+            .use_system_allocator()
+            .build();
+        assert_eq!(runtime.is_ok(), true);
+        drop(runtime);
     }
 }

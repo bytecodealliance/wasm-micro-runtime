@@ -13,17 +13,17 @@ pub struct Module {
 
 impl Module {
     /// compile a module with the given wasm file path
-    pub fn from_file(runtime: &Runtime, wasm_file: &Path) -> Result<Self, RuntimeError> {
+    pub fn from_file(_runtime: &Runtime, wasm_file: &Path) -> Result<Self, RuntimeError> {
         let mut contents = match fs::read_to_string(wasm_file) {
             Ok(c) => c,
             Err(e) => return Err(RuntimeError::WasmFileFSError(e)),
         };
 
         let binary = unsafe { contents.as_bytes_mut() };
-        Self::from_buf(runtime, binary)
+        Self::from_buf(_runtime, binary)
     }
 
-    pub fn from_buf(runtime: &Runtime, buf: &mut [u8]) -> Result<Self, RuntimeError> {
+    pub fn from_buf(_runtime: &Runtime, buf: &mut [u8]) -> Result<Self, RuntimeError> {
         let mut error_buf = [0i8; DEFAULT_ERROR_BUF_SIZE];
         let module = unsafe {
             wasm_runtime_load(
@@ -71,7 +71,7 @@ mod tests {
 
     #[test]
     fn test_module_not_exist() {
-        let runtime = Runtime::new_as_interp();
+        let runtime = Runtime::new();
         assert_eq!(runtime.is_ok(), true);
 
         let runtime = runtime.unwrap();
@@ -95,7 +95,7 @@ mod tests {
         ];
         let mut binary = binary.map(|c| c as u8);
 
-        let runtime = Runtime::new_as_interp();
+        let runtime = Runtime::new();
         assert_eq!(runtime.is_ok(), true);
 
         let runtime = runtime.unwrap();

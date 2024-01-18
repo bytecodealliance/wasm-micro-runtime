@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_error_buf_empty() {
-        let mut error_buf = [0 as c_char; DEFAULT_ERROR_BUF_SIZE];
+        let error_buf = [0 as c_char; DEFAULT_ERROR_BUF_SIZE];
         let error_str = error_buf_to_string(&error_buf);
         assert_eq!(error_str.len(), 0);
         assert_eq!(error_str, "");
