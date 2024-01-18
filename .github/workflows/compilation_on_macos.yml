@@ -333,3 +333,9 @@ jobs:
           cd samples/shared-module
           ./build.sh
           ./run.sh
+
+      - name: Build Sample [terminate]
+        run: |
+          cd samples/terminate
+          ./build.sh
+          ./run.sh
