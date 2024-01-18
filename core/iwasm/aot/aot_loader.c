@@ -496,14 +496,6 @@ check_feature_flags(char *error_buf, uint32 error_buf_size,
     }
 #endif
 
-#if WASM_ENABLE_TAIL_CALL == 0
-    if (feature_flags & WASM_FEATURE_TAIL_CALL) {
-        set_error_buf(error_buf, error_buf_size,
-                      "tail call is not enabled in this build");
-        return false;
-    }
-#endif
-
 #if WASM_ENABLE_GC == 0
     if (feature_flags & WASM_FEATURE_GARBAGE_COLLECTION) {
         set_error_buf(error_buf, error_buf_size,
@@ -1186,8 +1178,12 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         case INIT_EXPR_TYPE_GET_GLOBAL:
             read_uint32(buf, buf_end, expr->u.global_index);
             break;
-#if WASM_ENABLE_GC != 0 || WASM_ENABLE_REF_TYPES != 0
+        /* INIT_EXPR_TYPE_FUNCREF_CONST can be used when
+           both reference types and GC are disabled */
         case INIT_EXPR_TYPE_FUNCREF_CONST:
+            read_uint32(buf, buf_end, expr->u.ref_index);
+            break;
+#if WASM_ENABLE_GC != 0 || WASM_ENABLE_REF_TYPES != 0
         case INIT_EXPR_TYPE_REFNULL_CONST:
             read_uint32(buf, buf_end, expr->u.ref_index);
             break;
