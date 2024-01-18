@@ -473,14 +473,3 @@ else ()
   # Disable quick aot/jit entries for interp and fast-jit
   add_definitions (-DWASM_ENABLE_QUICK_AOT_ENTRY=0)
 endif ()
-if (APPLE)
-  EXEC_PROGRAM(sw_vers ARGS -productVersion OUTPUT_VARIABLE OS_X_VERSION)
-  STRING(REGEX MATCH "([0-9]+)" OS_X_VERSION ${OS_X_VERSION})
-  if (OS_X_VERSION LESS 13)
-    set(PAGE_ZERO_SIZE_OPTION "-Wl,-pagezero_size,0x4000")
-  endif ()
-
-  # On recent macOS versions, by default, the size of page zero is 4GB.
-  # Shrink it to make MAP_32BIT mmap can work.
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${PAGE_ZERO_SIZE_OPTION}")
-endif ()

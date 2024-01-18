@@ -78,18 +78,14 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
         map_prot |= PROT_EXEC;
 
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+#ifndef __APPLE__
     if (flags & MMAP_MAP_32BIT)
         map_flags |= MAP_32BIT;
+#endif
 #endif
 
     if (flags & MMAP_MAP_FIXED)
         map_flags |= MAP_FIXED;
-
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-#if defined(__APPLE__)
-retry_without_map_32bit:
-#endif
-#endif
 
 #if defined(BUILD_TARGET_RISCV64_LP64D) || defined(BUILD_TARGET_RISCV64_LP64)
     /* As AOT relocation in RISCV64 may require that the code/data mapped
@@ -148,14 +144,6 @@ retry_without_map_32bit:
     }
 
     if (addr == MAP_FAILED) {
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-#if defined(__APPLE__)
-        if ((map_flags & MAP_32BIT) != 0) {
-            map_flags &= ~MAP_32BIT;
-            goto retry_without_map_32bit;
-        }
-#endif
-#endif
 #if BH_ENABLE_TRACE_MMAP != 0
         os_printf("mmap failed\n");
 #endif
