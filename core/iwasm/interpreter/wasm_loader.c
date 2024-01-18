@@ -1621,6 +1621,10 @@ resolve_func_type(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
     type->param_cell_num = (uint16)param_cell_num;
     type->ret_cell_num = (uint16)ret_cell_num;
 
+#if WASM_ENABLE_QUICK_AOT_ENTRY != 0
+    type->quick_aot_entry = wasm_native_lookup_quick_aot_entry(type);
+#endif
+
 #if WASM_ENABLE_WAMR_COMPILER != 0
     for (i = 0; i < type->param_count + type->result_count; i++) {
         if (type->types[i] == VALUE_TYPE_V128)
