@@ -1470,7 +1470,7 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
 #else /* else of OS_ENABLE_HW_BOUND_CHECK */
 static inline bool
 invoke_native_internal(WASMExecEnv *exec_env, void *func_ptr,
-                       const WASMFuncType *func_type, const char *signature,
+                       const WASMType *func_type, const char *signature,
                        void *attachment, uint32 *argv, uint32 argc,
                        uint32 *argv_ret)
 {
