@@ -574,7 +574,8 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
     }
 
     /* Inherit suspend_flags of parent thread */
-    new_exec_env->suspend_flags.flags = exec_env->suspend_flags.flags;
+    new_exec_env->suspend_flags.flags =
+        (exec_env->suspend_flags.flags & WASM_SUSPEND_FLAG_INHERIT_MASK);
 
     if (!wasm_cluster_add_exec_env(cluster, new_exec_env)) {
         goto fail4;
@@ -729,7 +730,8 @@ wasm_cluster_create_thread(WASMExecEnv *exec_env,
     }
 
     /* Inherit suspend_flags of parent thread */
-    new_exec_env->suspend_flags.flags = exec_env->suspend_flags.flags;
+    new_exec_env->suspend_flags.flags =
+        (exec_env->suspend_flags.flags & WASM_SUSPEND_FLAG_INHERIT_MASK);
 
     if (!wasm_cluster_add_exec_env(cluster, new_exec_env))
         goto fail2;
