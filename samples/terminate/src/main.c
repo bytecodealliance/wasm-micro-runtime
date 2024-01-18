@@ -27,6 +27,7 @@ runner(void *vp)
     bool ok = wasm_runtime_init_thread_env();
     assert(ok);
     wasm_application_execute_main(inst, 0, NULL);
+    wasm_runtime_destroy_thread_env();
     return inst;
 }
 
