@@ -1973,10 +1973,8 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         func_types[i]->ret_cell_num = (uint16)ret_cell_num;
 
 #if WASM_ENABLE_QUICK_AOT_ENTRY != 0
-        /*
         func_types[i]->quick_aot_entry =
             wasm_native_lookup_quick_aot_entry(func_types[i]);
-        */
 #endif
     }
 
