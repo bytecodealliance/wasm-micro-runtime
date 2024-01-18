@@ -21,12 +21,28 @@ print_usage(void)
 }
 
 static void *
-runner(void *vp)
+runner_with_sigleton_exec_env(void *vp)
 {
     wasm_module_inst_t inst = vp;
     bool ok = wasm_runtime_init_thread_env();
     assert(ok);
     wasm_application_execute_main(inst, 0, NULL);
+    wasm_runtime_destroy_thread_env();
+    return inst;
+}
+
+static void *
+runner_with_spawn_exec_env(void *vp)
+{
+    wasm_exec_env_t env = vp;
+    wasm_module_inst_t inst = wasm_runtime_get_module_inst(env);
+    wasm_function_inst_t func;
+    bool ok = wasm_runtime_init_thread_env();
+    assert(ok);
+    func = wasm_runtime_lookup_function(inst, "block_forever", NULL);
+    assert(func != NULL);
+    wasm_runtime_call_wasm(env, func, 0, NULL);
+    wasm_runtime_destroy_spawned_exec_env(env);
     wasm_runtime_destroy_thread_env();
     return inst;
 }
@@ -108,6 +124,9 @@ main(int argc, char *argv_main[])
                                   pipe_fds[0], -1, -1);
 
     for (i = 0; i < N; i++) {
+        bool use_wasm_runtime_spawn_exec_env = i / 2 == 0;
+        wasm_exec_env_t env;
+
         module_inst[i] = wasm_runtime_instantiate(module, stack_size, heap_size,
                                                   error_buf, sizeof(error_buf));
 
@@ -119,17 +138,33 @@ main(int argc, char *argv_main[])
         /* Note: ensure that module inst has an exec env so that
          * it can receive the termination request.
          */
-        wasm_runtime_get_exec_env_singleton(module_inst[i]);
+        env = wasm_runtime_get_exec_env_singleton(module_inst[i]);
+        assert(env != NULL);
+        if (use_wasm_runtime_spawn_exec_env) {
+            env = wasm_runtime_spawn_exec_env(env);
+            assert(env != NULL);
+        }
 
         if ((i % 2) == 0) {
             printf("terminating thread %u before starting\n", i);
             wasm_runtime_terminate(module_inst[i]);
         }
 
-        printf("starting thread %u\n", i);
-        ret = pthread_create(&th[i], NULL, runner, module_inst[i]);
-        if (ret != 0) {
-            goto fail;
+        if (use_wasm_runtime_spawn_exec_env) {
+            printf("starting thread %u (spawn_exec_env)\n", i);
+            ret = pthread_create(&th[i], NULL, runner_with_spawn_exec_env, env);
+            if (ret != 0) {
+                wasm_runtime_destroy_spawned_exec_env(env);
+                goto fail;
+            }
+        }
+        else {
+            printf("starting thread %u (singleton exec_env)\n", i);
+            ret = pthread_create(&th[i], NULL, runner_with_sigleton_exec_env,
+                                 module_inst[i]);
+            if (ret != 0) {
+                goto fail;
+            }
         }
     }
 
@@ -148,6 +183,7 @@ main(int argc, char *argv_main[])
         void *status;
         ret = pthread_join(th[i], &status);
         if (ret != 0) {
+            printf("pthread_join failed for thread %u\n", i);
             goto fail;
         }
     }
