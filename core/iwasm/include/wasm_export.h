@@ -1607,6 +1607,9 @@ wasm_runtime_get_context(wasm_module_inst_t inst, void *key);
  * host functions. It wraps an operation which possibly blocks for long
  * to prepare for async termination.
  *
+ * For simplicity, we recommend to wrap only the very minimum piece of
+ * the code with this. Ideally, just a single system call.
+ *
  * eg.
  *
  *   if (!wasm_runtime_begin_blocking_op(exec_env)) {
