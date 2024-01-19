@@ -1,4 +1,5 @@
-use ::core::ffi::c_char;
+use std::ffi::CStr;
+use std::os::raw::c_char;
 use std::string::String;
 
 pub const DEFAULT_ERROR_BUF_SIZE: usize = 128;
@@ -10,6 +11,11 @@ pub fn error_buf_to_string(&error_buf: &[c_char; DEFAULT_ERROR_BUF_SIZE]) -> Str
         .filter(|c| *c > 0)
         .collect();
     String::from_utf8(error_content).unwrap()
+}
+
+pub fn exception_to_string(raw_exception: *const c_char) -> String {
+    let exception = unsafe { CStr::from_ptr(raw_exception) };
+    String::from_utf8_lossy(exception.to_bytes()).to_string()
 }
 
 #[cfg(test)]
@@ -34,5 +40,13 @@ mod tests {
         let error_str = error_buf_to_string(&error_buf);
         assert_eq!(error_str.len(), 3);
         assert_eq!(error_str, "abc");
+    }
+
+    #[test]
+    fn test_exception_to_string() {
+        let exception = "test exception";
+        let exception_c = exception.as_ptr() as *const c_char;
+        let exception_str = exception_to_string(exception_c);
+        assert_eq!(exception_str, exception);
     }
 }

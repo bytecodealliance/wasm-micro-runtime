@@ -100,7 +100,6 @@ mod tests {
 
         let runtime = runtime.unwrap();
         let module = Module::from_buf(&runtime, &mut binary);
-        println!("{module:?}");
         assert_eq!(module.is_ok(), true);
     }
 }

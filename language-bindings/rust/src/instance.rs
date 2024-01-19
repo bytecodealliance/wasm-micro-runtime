@@ -1,5 +1,6 @@
 //! an instantiated module. The module is instantiated with the given imports.
-//!
+
+#![allow(unused_variables)]
 
 use ::core::ffi::c_char;
 
@@ -62,7 +63,7 @@ impl Drop for Instance {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runtime;
+    use crate::runtime::Runtime;
 
     #[test]
     fn test_instance_new() {
@@ -80,12 +81,11 @@ mod tests {
         ];
         let mut binary = binary.map(|c| c as u8);
 
-        let runtime = runtime::Runtime::new();
+        let runtime = Runtime::new();
         assert_eq!(runtime.is_ok(), true);
 
         let runtime = runtime.unwrap();
         let module = Module::from_buf(&runtime, &mut binary);
-        println!("{module:?}");
         assert_eq!(module.is_ok(), true);
 
         let instance = Instance::new(&module.unwrap(), 1024);

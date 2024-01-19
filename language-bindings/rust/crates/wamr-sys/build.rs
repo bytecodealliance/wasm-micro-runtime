@@ -11,7 +11,16 @@ use std::{env, path::PathBuf};
 
 fn main() {
     let wamr_root = "../../../../";
-    let dst = Config::new(wamr_root).build();
+    let llvm_dir = format!("{wamr_root}core/deps/llvm/build");
+    let dst = Config::new(wamr_root)
+        .define("LLVM_DIR", llvm_dir)
+        .define("WAMR_BUILD_INTERP", "1")
+        .define("WAMR_BUILD_FAST_INTERP", "0")
+        // .define("WAMR_BUILD_JIT", "1")
+        .define("WAMR_BUILD_BULK_MEMORY", "1")
+        .define("WAMR_BUILD_REF_TYPES", "1")
+        .define("WAMR_BUILD_SIMD", "1")
+        .build();
 
     println!(
         "cargo:rustc-link-search=native={}",

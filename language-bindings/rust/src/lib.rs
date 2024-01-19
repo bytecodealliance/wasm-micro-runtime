@@ -120,7 +120,7 @@
 //! }
 //!
 
-mod func;
+pub mod function;
 mod global;
 mod helper;
 pub mod instance;
@@ -128,6 +128,7 @@ mod memory;
 pub mod module;
 pub mod runtime;
 mod table;
+pub mod value;
 
 /// A runtime error.
 #[derive(Debug)]
@@ -144,4 +145,6 @@ pub enum RuntimeError {
     InstantiationFailure(String),
     /// Error during execute wasm functions
     ExecutionError(String),
+    FunctionNotFound,
+    InvalidResult,
 }

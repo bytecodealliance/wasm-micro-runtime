@@ -20,7 +20,7 @@ impl Default for RuntimeBuilder {
         let builder = RuntimeBuilder {
             args: RuntimeInitArgs::default(),
         };
-        builder
+        builder.use_system_allocator()
     }
 }
 
@@ -139,16 +139,21 @@ mod tests {
 
         {
             let runtime = Runtime::new();
+            assert_eq!(runtime.is_ok(), true);
             let runtime = Runtime::new();
+            assert_eq!(runtime.is_ok(), true);
             let runtime = Runtime::new();
+            assert_eq!(runtime.is_ok(), true);
             let runtime = Runtime::new();
+            assert_eq!(runtime.is_ok(), true);
             let runtime = Runtime::new();
+            assert_eq!(runtime.is_ok(), true);
         }
     }
 
     #[test]
     fn test_runtime_builder_default() {
-        let runtime = Runtime::builder().use_system_allocator().build();
+        let runtime = Runtime::builder().build();
         assert_eq!(runtime.is_ok(), true);
         drop(runtime);
     }
