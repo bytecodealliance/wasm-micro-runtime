@@ -3086,13 +3086,14 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     }
 
     /* Disable features when they are not actually used */
-
     if (!wasm_module->is_simd_used) {
         option->enable_simd = comp_ctx->enable_simd = false;
     }
-
     if (!wasm_module->is_ref_types_used) {
         option->enable_ref_types = comp_ctx->enable_ref_types = false;
+    }
+    if (!wasm_module->is_bulk_memory_used) {
+        option->enable_bulk_memory = comp_ctx->enable_bulk_memory = false;
     }
 #endif
 

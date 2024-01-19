@@ -979,6 +979,7 @@ struct WASMModule {
 #endif
 
 #if WASM_ENABLE_WAMR_COMPILER != 0
+    bool is_bulk_memory_used;
     bool is_simd_used;
     bool is_ref_types_used;
 #endif

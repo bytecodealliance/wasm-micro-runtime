@@ -481,7 +481,7 @@ check_feature_flags(char *error_buf, uint32 error_buf_size,
 #endif
 
 #if WASM_ENABLE_THREAD_MGR == 0
-    if (feature_flags & WASM_FEATURE_THREADS) {
+    if (feature_flags & WASM_FEATURE_MULTI_THREAD) {
         set_error_buf(error_buf, error_buf_size,
                       "thread is not enabled in this build");
         return false;

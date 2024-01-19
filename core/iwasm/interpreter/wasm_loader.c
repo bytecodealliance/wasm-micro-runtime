@@ -4425,6 +4425,9 @@ load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
             switch (mem_flag) {
                 case 0x01:
                     is_passive = true;
+#if WASM_ENABLE_WAMR_COMPILER != 0
+                    module->is_bulk_memory_used = true;
+#endif
                     break;
                 case 0x00:
                     /* no memory index, treat index as 0 */
@@ -4433,6 +4436,9 @@ load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
                 case 0x02:
                     /* read following memory index */
                     read_leb_uint32(p, p_end, mem_index);
+#if WASM_ENABLE_WAMR_COMPILER != 0
+                    module->is_bulk_memory_used = true;
+#endif
                 check_mem_index:
                     if (mem_index
                         >= module->import_memory_count + module->memory_count) {
@@ -4518,6 +4524,9 @@ load_datacount_section(const uint8 *buf, const uint8 *buf_end,
         return false;
     }
 
+#if WASM_ENABLE_WAMR_COMPILER != 0
+    module->is_bulk_memory_used = true;
+#endif
     LOG_VERBOSE("Load datacount section success.\n");
     return true;
 fail:
@@ -13519,6 +13528,9 @@ re_scan:
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
 #endif
+#if WASM_ENABLE_WAMR_COMPILER != 0
+                        module->is_bulk_memory_used = true;
+#endif
                         break;
                     }
                     case WASM_OP_DATA_DROP:
@@ -13539,6 +13551,9 @@ re_scan:
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
 #endif
+#if WASM_ENABLE_WAMR_COMPILER != 0
+                        module->is_bulk_memory_used = true;
+#endif
                         break;
                     }
                     case WASM_OP_MEMORY_COPY:
@@ -13558,6 +13573,9 @@ re_scan:
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
 #endif
+#if WASM_ENABLE_WAMR_COMPILER != 0
+                        module->is_bulk_memory_used = true;
+#endif
                         break;
                     }
                     case WASM_OP_MEMORY_FILL:
@@ -13575,6 +13593,9 @@ re_scan:
                         POP_I32();
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
+#endif
+#if WASM_ENABLE_WAMR_COMPILER != 0
+                        module->is_bulk_memory_used = true;
 #endif
                         break;
                     }
