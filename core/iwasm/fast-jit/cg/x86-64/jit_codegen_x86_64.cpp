@@ -4379,13 +4379,18 @@ cmp_r_r_to_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
  * @return true if success, false otherwise
  */
 static bool
-cmp_imm_imm_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 data1_src,
-                     int32 data2_src)
+cmp_imm_imm_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int64 data1_src,
+                     int64 data2_src)
 {
-    Imm imm(data1_src);
-    a.mov(regs_i64[REG_I64_FREE_IDX], imm);
-    imm.setValue(data2_src);
-    a.cmp(regs_i64[REG_I64_FREE_IDX], imm);
+    /* imm -> m64 */
+    const JitHardRegInfo *hreg_info = jit_codegen_get_hreg_info();
+    x86::Mem mem = x86::qword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
+                                  offsetof(WASMExecEnv, jit_cache));
+    Imm imm(data2_src);
+    mov_imm_to_m(a, mem, imm, 8);
+
+    a.mov(regs_i64[REG_I64_FREE_IDX], data1_src);
+    a.cmp(regs_i64[REG_I64_FREE_IDX], mem);
     (void)reg_no_dst;
     return true;
 }

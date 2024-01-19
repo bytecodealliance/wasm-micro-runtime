@@ -52,7 +52,7 @@ jobs:
   build_iwasm_on_nuttx:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/apache/nuttx/apache-nuttx-ci-linux@sha256:4b4cbf0b70512e61ada9cdcb76b97e90ad478b85e4d0774d05a95fa32caa8c39
+      image: ghcr.io/apache/nuttx/apache-nuttx-ci-linux@sha256:d9261eacf6c6ebe656c571757751c803e8f04c3ae9b820320a5ea5dd57b7205a
 
     strategy:
       matrix:
@@ -90,14 +90,14 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: apache/incubator-nuttx
-          ref: releases/12.3
+          ref: releases/12.4
           path: nuttx
 
       - name: Checkout NuttX Apps
         uses: actions/checkout@v3
         with:
           repository: apache/incubator-nuttx-apps
-          ref: releases/12.3
+          ref: releases/12.4
           path: apps
 
       - name: Checkout WAMR

@@ -397,7 +397,7 @@
 #define APP_THREAD_STACK_SIZE_DEFAULT (64 * 1024)
 #define APP_THREAD_STACK_SIZE_MIN (48 * 1024)
 #else
-#define APP_THREAD_STACK_SIZE_DEFAULT (64 * 1024)
+#define APP_THREAD_STACK_SIZE_DEFAULT (128 * 1024)
 #define APP_THREAD_STACK_SIZE_MIN (24 * 1024)
 #endif
 #endif /* end of !(defined(APP_THREAD_STACK_SIZE_DEFAULT) \
@@ -488,6 +488,23 @@
 /* The max number of module instance contexts. */
 #ifndef WASM_MAX_INSTANCE_CONTEXTS
 #define WASM_MAX_INSTANCE_CONTEXTS 8
+#endif
+
+/* linux perf support */
+#ifndef WASM_ENABLE_LINUX_PERF
+#define WASM_ENABLE_LINUX_PERF 0
+#endif
+
+/* Support registering quick AOT/JIT function entries of some func types
+   to speedup the calling process of invoking the AOT/JIT functions of
+   these types from the host embedder */
+#ifndef WASM_ENABLE_QUICK_AOT_ENTRY
+#define WASM_ENABLE_QUICK_AOT_ENTRY 1
+#endif
+
+/* Disable mmap based shared memory by default */
+#ifndef WASM_ENABLE_SHARED_MEMORY_MMAP
+#define WASM_ENABLE_SHARED_MEMORY_MMAP 0
 #endif
 
 #endif /* end of _CONFIG_H_ */

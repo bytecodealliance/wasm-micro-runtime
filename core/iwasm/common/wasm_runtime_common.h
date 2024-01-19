@@ -320,6 +320,11 @@ LOAD_I16(void *addr)
 #define SHARED_MEMORY_UNLOCK(memory) (void)0
 #endif
 
+#if defined(OS_ENABLE_HW_BOUND_CHECK) \
+    || (WASM_ENABLE_SHARED_MEMORY != 0 && WASM_ENABLE_SHARED_MEMORY_MMAP != 0)
+#define WASM_LINEAR_MEMORY_MMAP
+#endif
+
 typedef struct WASMModuleCommon {
     /* Module type, for module loaded from WASM bytecode binary,
        this field is Wasm_Module_Bytecode, and this structure should
@@ -438,12 +443,12 @@ typedef struct wasm_frame_t {
     const char *func_name_wp;
 } WASMCApiFrame;
 
-#ifdef WASM_ENABLE_JIT
+#if WASM_ENABLE_JIT != 0
 typedef struct LLVMJITOptions {
     uint32 opt_level;
     uint32 size_level;
     uint32 segue_flags;
-    bool linux_perf_support;
+    bool quick_invoke_c_api_import;
 } LLVMJITOptions;
 #endif
 
@@ -477,7 +482,7 @@ wasm_runtime_get_default_running_mode(void);
 
 #if WASM_ENABLE_JIT != 0
 /* Internal API */
-LLVMJITOptions
+LLVMJITOptions *
 wasm_runtime_get_llvm_jit_options(void);
 #endif
 
@@ -1080,8 +1085,26 @@ wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
                                  uint32 argc, uint32 *argv, bool with_env,
                                  void *wasm_c_api_env);
 
+struct CApiFuncImport;
+/* A quick version of wasm_runtime_invoke_c_api_native to directly invoke
+   wasm-c-api import function from jitted code to improve performance */
+bool
+wasm_runtime_quick_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
+                                       struct CApiFuncImport *c_api_import,
+                                       wasm_val_t *params, uint32 param_count,
+                                       wasm_val_t *results,
+                                       uint32 result_count);
+
 void
 wasm_runtime_show_app_heap_corrupted_prompt();
+
+void
+wasm_munmap_linear_memory(void *mapped_mem, uint64 commit_size,
+                          uint64 map_size);
+
+void *
+wasm_mmap_linear_memory(uint64_t map_size, uint64 *io_memory_data_size,
+                        char *error_buf, uint32 error_buf_size);
 
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
 void
@@ -1104,6 +1127,14 @@ wasm_runtime_end_blocking_op(WASMExecEnv *exec_env);
 
 void
 wasm_runtime_interrupt_blocking_op(WASMExecEnv *exec_env);
+
+#if WASM_ENABLE_LINUX_PERF != 0
+bool
+wasm_runtime_get_linux_perf(void);
+
+void
+wasm_runtime_set_linux_perf(bool flag);
+#endif
 
 #ifdef __cplusplus
 }

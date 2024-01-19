@@ -47,6 +47,13 @@ bh_static_assert(sizeof(AOTMemoryInstance) == 104);
 bh_static_assert(offsetof(AOTTableInstance, elems) == 8);
 
 bh_static_assert(offsetof(AOTModuleInstanceExtra, stack_sizes) == 0);
+bh_static_assert(offsetof(AOTModuleInstanceExtra, common.c_api_func_imports)
+                 == sizeof(uint64));
+
+bh_static_assert(sizeof(CApiFuncImport) == sizeof(uintptr_t) * 3);
+
+bh_static_assert(sizeof(wasm_val_t) == 16);
+bh_static_assert(offsetof(wasm_val_t, of) == 8);
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
@@ -333,6 +340,9 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 static void
 memories_deinstantiate(AOTModuleInstance *module_inst)
 {
+#ifdef WASM_LINEAR_MEMORY_MMAP
+    uint64 map_size;
+#endif
     uint32 i;
     AOTMemoryInstance *memory_inst;
 
@@ -355,14 +365,21 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
 
             if (memory_inst->memory_data) {
 #ifndef OS_ENABLE_HW_BOUND_CHECK
-                wasm_runtime_free(memory_inst->memory_data);
-#else
-#ifdef BH_PLATFORM_WINDOWS
-                os_mem_decommit(memory_inst->memory_data,
-                                memory_inst->num_bytes_per_page
-                                    * memory_inst->cur_page_count);
+#ifdef WASM_LINEAR_MEMORY_MMAP
+                if (shared_memory_is_shared(memory_inst)) {
+                    map_size = (uint64)memory_inst->num_bytes_per_page
+                               * memory_inst->max_page_count;
+                    wasm_munmap_linear_memory(memory_inst->memory_data,
+                                              map_size, map_size);
+                }
+                else
 #endif
-                os_munmap(memory_inst->memory_data, 8 * (uint64)BH_GB);
+                    wasm_runtime_free(memory_inst->memory_data);
+#else
+                map_size = (uint64)memory_inst->num_bytes_per_page
+                           * memory_inst->cur_page_count;
+                wasm_munmap_linear_memory(memory_inst->memory_data, map_size,
+                                          8 * (uint64)BH_GB);
 #endif
             }
         }
@@ -385,10 +402,9 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     uint32 heap_offset = num_bytes_per_page * init_page_count;
     uint64 memory_data_size, max_memory_data_size;
     uint8 *p = NULL, *global_addr;
-#ifdef OS_ENABLE_HW_BOUND_CHECK
-    uint8 *mapped_mem;
-    uint64 map_size = 8 * (uint64)BH_GB;
-    uint64 page_size = os_getpagesize();
+#ifdef WASM_LINEAR_MEMORY_MMAP
+    uint8 *mapped_mem = NULL;
+    uint64 map_size;
 #endif
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -512,15 +528,25 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
 #ifndef OS_ENABLE_HW_BOUND_CHECK
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (is_shared_memory) {
+#if WASM_ENABLE_SHARED_MEMORY_MMAP != 0
+        map_size = max_memory_data_size;
+        if (max_memory_data_size > 0
+            && !(p = mapped_mem =
+                     wasm_mmap_linear_memory(map_size, &max_memory_data_size,
+                                             error_buf, error_buf_size))) {
+            return NULL;
+        }
+#else
         /* Allocate maximum memory size when memory is shared */
         if (max_memory_data_size > 0
             && !(p = runtime_malloc(max_memory_data_size, error_buf,
                                     error_buf_size))) {
             return NULL;
         }
+#endif
     }
     else
-#endif
+#endif /* end of WASM_ENABLE_SHARED_MEMORY != 0 */
     {
         /* Allocate initial memory size when memory is not shared */
         if (memory_data_size > 0
@@ -529,43 +555,18 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
             return NULL;
         }
     }
-#else /* else of OS_ENABLE_HW_BOUND_CHECK */
-    memory_data_size = (memory_data_size + page_size - 1) & ~(page_size - 1);
-
+#else  /* else of OS_ENABLE_HW_BOUND_CHECK */
     /* Totally 8G is mapped, the opcode load/store address range is 0 to 8G:
      *   ea = i + memarg.offset
      * both i and memarg.offset are u32 in range 0 to 4G
      * so the range of ea is 0 to 8G
      */
-    if (!(p = mapped_mem = os_mmap(NULL, map_size, MMAP_PROT_NONE,
-                                   MMAP_MAP_NONE, os_get_invalid_handle()))) {
+    map_size = 8 * (uint64)BH_GB;
+    if (!(p = mapped_mem = wasm_mmap_linear_memory(
+              map_size, &memory_data_size, error_buf, error_buf_size))) {
         set_error_buf(error_buf, error_buf_size, "mmap memory failed");
         return NULL;
     }
-
-#ifdef BH_PLATFORM_WINDOWS
-    if (!os_mem_commit(p, memory_data_size, MMAP_PROT_READ | MMAP_PROT_WRITE)) {
-        set_error_buf(error_buf, error_buf_size, "commit memory failed");
-        os_munmap(mapped_mem, map_size);
-        return NULL;
-    }
-#endif
-
-    if (os_mprotect(p, memory_data_size, MMAP_PROT_READ | MMAP_PROT_WRITE)
-        != 0) {
-        set_error_buf(error_buf, error_buf_size, "mprotect memory failed");
-#ifdef BH_PLATFORM_WINDOWS
-        os_mem_decommit(p, memory_data_size);
-#endif
-        os_munmap(mapped_mem, map_size);
-        return NULL;
-    }
-
-    /* Newly allocated pages are filled with zero by the OS, we don't fill it
-     * again here */
-
-    if (memory_data_size > UINT32_MAX)
-        memory_data_size = UINT32_MAX;
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
     memory_inst->module_type = Wasm_Module_AoT;
@@ -616,16 +617,15 @@ fail2:
     if (heap_size > 0)
         wasm_runtime_free(memory_inst->heap_handle);
 fail1:
-#ifndef OS_ENABLE_HW_BOUND_CHECK
-    if (memory_inst->memory_data)
-        wasm_runtime_free(memory_inst->memory_data);
-#else
-#ifdef BH_PLATFORM_WINDOWS
-    if (memory_inst->memory_data)
-        os_mem_decommit(p, memory_data_size);
+#ifdef WASM_LINEAR_MEMORY_MMAP
+    if (mapped_mem)
+        wasm_munmap_linear_memory(mapped_mem, memory_data_size, map_size);
+    else
 #endif
-    os_munmap(mapped_mem, map_size);
-#endif
+    {
+        if (memory_inst->memory_data)
+            wasm_runtime_free(memory_inst->memory_data);
+    }
     memory_inst->memory_data = NULL;
     return NULL;
 }
@@ -1374,7 +1374,6 @@ aot_lookup_function(const AOTModuleInstance *module_inst, const char *name,
 }
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-
 static bool
 invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
                                   const WASMType *func_type,
@@ -1386,9 +1385,6 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     WASMJmpBuf jmpbuf_node = { 0 }, *jmpbuf_node_pop;
     uint32 page_size = os_getpagesize();
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
-    uint16 param_count = func_type->param_count;
-    uint16 result_count = func_type->result_count;
-    const uint8 *types = func_type->types;
 #ifdef BH_PLATFORM_WINDOWS
     int result;
     bool has_exception;
@@ -1406,42 +1402,39 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
         return false;
     }
 
-    if (exec_env_tls && (exec_env_tls != exec_env)) {
-        aot_set_exception(module_inst, "invalid exec env");
-        return false;
-    }
+    if (!exec_env_tls) {
+        if (!os_thread_signal_inited()) {
+            aot_set_exception(module_inst, "thread signal env not inited");
+            return false;
+        }
 
-    if (!os_thread_signal_inited()) {
-        aot_set_exception(module_inst, "thread signal env not inited");
-        return false;
+        /* Set thread handle and stack boundary if they haven't been set */
+        wasm_exec_env_set_thread_info(exec_env);
+
+        wasm_runtime_set_exec_env_tls(exec_env);
+    }
+    else {
+        if (exec_env_tls != exec_env) {
+            aot_set_exception(module_inst, "invalid exec env");
+            return false;
+        }
     }
 
     wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
 
-    wasm_runtime_set_exec_env_tls(exec_env);
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
-        /* Quick call with func_ptr if the function signature is simple */
-        if (!signature && param_count == 1 && types[0] == VALUE_TYPE_I32) {
-            if (result_count == 0) {
-                void (*NativeFunc)(WASMExecEnv *, uint32) =
-                    (void (*)(WASMExecEnv *, uint32))func_ptr;
-                NativeFunc(exec_env, argv[0]);
-                ret = aot_copy_exception(module_inst, NULL) ? false : true;
-            }
-            else if (result_count == 1
-                     && types[param_count] == VALUE_TYPE_I32) {
-                uint32 (*NativeFunc)(WASMExecEnv *, uint32) =
-                    (uint32(*)(WASMExecEnv *, uint32))func_ptr;
-                argv_ret[0] = NativeFunc(exec_env, argv[0]);
-                ret = aot_copy_exception(module_inst, NULL) ? false : true;
-            }
-            else {
-                ret = wasm_runtime_invoke_native(exec_env, func_ptr, func_type,
-                                                 signature, attachment, argv,
-                                                 argc, argv_ret);
-            }
+#if WASM_ENABLE_QUICK_AOT_ENTRY != 0
+        /* Quick call if the quick aot entry is registered */
+        if (!signature && func_type->quick_aot_entry) {
+            void (*invoke_native)(void *func_ptr, void *exec_env, uint32 *argv,
+                                  uint32 *argv_ret) =
+                func_type->quick_aot_entry;
+            invoke_native(func_ptr, exec_env, argv, argv_ret);
+            ret = !aot_copy_exception(module_inst, NULL);
         }
-        else {
+        else
+#endif
+        {
             ret = wasm_runtime_invoke_native(exec_env, func_ptr, func_type,
                                              signature, attachment, argv, argc,
                                              argv_ret);
@@ -1473,10 +1466,28 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     (void)jmpbuf_node_pop;
     return ret;
 }
-
 #define invoke_native_internal invoke_native_with_hw_bound_check
 #else /* else of OS_ENABLE_HW_BOUND_CHECK */
-#define invoke_native_internal wasm_runtime_invoke_native
+static inline bool
+invoke_native_internal(WASMExecEnv *exec_env, void *func_ptr,
+                       const WASMType *func_type, const char *signature,
+                       void *attachment, uint32 *argv, uint32 argc,
+                       uint32 *argv_ret)
+{
+#if WASM_ENABLE_QUICK_AOT_ENTRY != 0
+    /* Quick call if the quick aot entry is registered */
+    if (!signature && func_type->quick_aot_entry) {
+        AOTModuleInstance *module_inst =
+            (AOTModuleInstance *)exec_env->module_inst;
+        void (*invoke_native)(void *func_ptr, void *exec_env, uint32 *argv,
+                              uint32 *argv_ret) = func_type->quick_aot_entry;
+        invoke_native(func_ptr, exec_env, argv, argv_ret);
+        return !aot_copy_exception(module_inst, NULL);
+    }
+#endif
+    return wasm_runtime_invoke_native(exec_env, func_ptr, func_type, signature,
+                                      attachment, argv, argc, argv_ret);
+}
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
 bool
@@ -1543,10 +1554,16 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
 
     /* func pointer was looked up previously */
     bh_assert(func_ptr != NULL);
-    /* set thread handle and stack boundary */
-    wasm_exec_env_set_thread_info(exec_env);
 
-    /* set exec env so it can be later retrieved from instance */
+#ifndef OS_ENABLE_HW_BOUND_CHECK
+    /* Set thread handle and stack boundary */
+    wasm_exec_env_set_thread_info(exec_env);
+#else
+    /* Set thread info in invoke_native_with_hw_bound_check when
+       hw bound check is enabled */
+#endif
+
+    /* Set exec env so it can be later retrieved from instance */
     ((AOTModuleInstanceExtra *)module_inst->e)->common.cur_exec_env = exec_env;
 
     if (ext_ret_count > 0) {
@@ -2805,7 +2822,7 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     }
 
 #if WASM_ENABLE_PERF_PROFILING != 0
-    frame->time_started = os_time_get_boot_microsecond();
+    frame->time_started = os_time_thread_cputime_us();
     frame->func_perf_prof_info = func_perf_prof;
 #endif
 
@@ -2824,8 +2841,13 @@ aot_free_frame(WASMExecEnv *exec_env)
 
 #if WASM_ENABLE_PERF_PROFILING != 0
     cur_frame->func_perf_prof_info->total_exec_time +=
-        os_time_get_boot_microsecond() - cur_frame->time_started;
+        os_time_thread_cputime_us() - cur_frame->time_started;
     cur_frame->func_perf_prof_info->total_exec_cnt++;
+
+    /* parent function */
+    if (prev_frame)
+        prev_frame->func_perf_prof_info->children_exec_time =
+            cur_frame->func_perf_prof_info->total_exec_time;
 #endif
 
     wasm_exec_env_free_wasm_frame(exec_env, cur_frame);
@@ -2962,21 +2984,64 @@ aot_dump_perf_profiling(const AOTModuleInstance *module_inst)
 
     os_printf("Performance profiler data:\n");
     for (i = 0; i < total_func_count; i++, perf_prof++) {
+        if (perf_prof->total_exec_cnt == 0)
+            continue;
+
         func_name = get_func_name_from_index(module_inst, i);
 
         if (func_name)
             os_printf(
                 "  func %s, execution time: %.3f ms, execution count: %" PRIu32
-                " times\n",
+                " times, children execution time: %.3f ms\n",
                 func_name, perf_prof->total_exec_time / 1000.0f,
-                perf_prof->total_exec_cnt);
+                perf_prof->total_exec_cnt,
+                perf_prof->children_exec_time / 1000.0f);
         else
             os_printf("  func %" PRIu32
                       ", execution time: %.3f ms, execution count: %" PRIu32
-                      " times\n",
+                      " times, children execution time: %.3f ms\n",
                       i, perf_prof->total_exec_time / 1000.0f,
-                      perf_prof->total_exec_cnt);
+                      perf_prof->total_exec_cnt,
+                      perf_prof->children_exec_time / 1000.0f);
     }
+}
+
+double
+aot_summarize_wasm_execute_time(const AOTModuleInstance *inst)
+{
+    double ret = 0;
+
+    AOTModule *module = (AOTModule *)inst->module;
+    uint32 total_func_count = module->import_func_count + module->func_count, i;
+
+    for (i = 0; i < total_func_count; i++) {
+        AOTFuncPerfProfInfo *perf_prof =
+            (AOTFuncPerfProfInfo *)inst->func_perf_profilings + i;
+        ret += (perf_prof->total_exec_time - perf_prof->children_exec_time)
+               / 1000.0f;
+    }
+
+    return ret;
+}
+
+double
+aot_get_wasm_func_exec_time(const AOTModuleInstance *inst,
+                            const char *func_name)
+{
+    AOTModule *module = (AOTModule *)inst->module;
+    uint32 total_func_count = module->import_func_count + module->func_count, i;
+
+    for (i = 0; i < total_func_count; i++) {
+        const char *name_in_wasm = get_func_name_from_index(inst, i);
+        if (name_in_wasm && strcmp(func_name, name_in_wasm) == 0) {
+            AOTFuncPerfProfInfo *perf_prof =
+                (AOTFuncPerfProfInfo *)inst->func_perf_profilings + i;
+            return (perf_prof->total_exec_time - perf_prof->children_exec_time)
+                   / 1000.0f;
+        }
+    }
+
+    return -1.0;
 }
 #endif /* end of WASM_ENABLE_PERF_PROFILING */
 

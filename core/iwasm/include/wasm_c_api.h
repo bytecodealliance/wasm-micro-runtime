@@ -22,12 +22,12 @@
 #endif
 
 #if defined(__GNUC__) || defined(__clang__)
-#define DEPRECATED __attribute__((deprecated))
+#define WASM_API_DEPRECATED __attribute__((deprecated))
 #elif defined(_MSC_VER)
-#define DEPRECATED __declspec(deprecated)
+#define WASM_API_DEPRECATED __declspec(deprecated)
 #else
 #pragma message("WARNING: You need to implement DEPRECATED for this compiler")
-#define DEPRECATED
+#define WASM_API_DEPRECATED
 #endif
 
 #ifdef __cplusplus
@@ -181,7 +181,8 @@ typedef union MemAllocOption {
 struct wasm_config_t {
     mem_alloc_type_t mem_alloc_type;
     MemAllocOption mem_alloc_option;
-    bool linux_perf_support;
+    uint32_t segue_flags;
+    bool enable_linux_perf;
     /*TODO: wasi args*/
 };
 
@@ -189,7 +190,7 @@ struct wasm_config_t {
  * by default:
  * - mem_alloc_type is Alloc_With_System_Allocator
  * - mem_alloc_option is all 0
- * - linux_perf_support is false
+ * - enable_linux_perf is false
  */
 WASM_API_EXTERN own wasm_config_t* wasm_config_new(void);
 
@@ -199,6 +200,17 @@ wasm_config_set_mem_alloc_opt(wasm_config_t *, mem_alloc_type_t, MemAllocOption 
 
 WASM_API_EXTERN own wasm_config_t*
 wasm_config_set_linux_perf_opt(wasm_config_t *, bool);
+
+/**
+ * Enable using GS register as the base address of linear memory in linux x86_64,
+ * which may speedup the linear memory access for LLVM AOT/JIT:
+ *   bit0 to bit4 denotes i32.load, i64.load, f32.load, f64.load, v128.load
+ *   bit8 to bit12 denotes i32.store, i64.store, f32.store, f64.store, v128.store
+ * For example, 0x01 enables i32.load, 0x0100 enables i32.store.
+ * To enable all load/store operations, use 0x1F1F
+ */
+WASM_API_EXTERN wasm_config_t*
+wasm_config_set_segue_flags(wasm_config_t *config, uint32_t segue_flags);
 
 // Engine
 
@@ -219,7 +231,7 @@ WASM_DECLARE_OWN(engine)
  */
 WASM_API_EXTERN own wasm_engine_t* wasm_engine_new(void);
 WASM_API_EXTERN own wasm_engine_t* wasm_engine_new_with_config(wasm_config_t*);
-DEPRECATED WASM_API_EXTERN own wasm_engine_t *
+WASM_API_DEPRECATED WASM_API_EXTERN own wasm_engine_t *
 wasm_engine_new_with_args(mem_alloc_type_t type, const MemAllocOption *opts);
 
 // Store
@@ -405,6 +417,7 @@ struct wasm_ref_t;
 
 typedef struct wasm_val_t {
   wasm_valkind_t kind;
+  uint8_t __paddings[7];
   union {
     int32_t i32;
     int64_t i64;
@@ -815,12 +828,12 @@ static inline void* wasm_val_ptr(const wasm_val_t* val) {
 #endif
 }
 
-#define WASM_I32_VAL(i) {.kind = WASM_I32, .of = {.i32 = i}}
-#define WASM_I64_VAL(i) {.kind = WASM_I64, .of = {.i64 = i}}
-#define WASM_F32_VAL(z) {.kind = WASM_F32, .of = {.f32 = z}}
-#define WASM_F64_VAL(z) {.kind = WASM_F64, .of = {.f64 = z}}
-#define WASM_REF_VAL(r) {.kind = WASM_ANYREF, .of = {.ref = r}}
-#define WASM_INIT_VAL {.kind = WASM_ANYREF, .of = {.ref = NULL}}
+#define WASM_I32_VAL(i) {.kind = WASM_I32, .__paddings = {0}, .of = {.i32 = i}}
+#define WASM_I64_VAL(i) {.kind = WASM_I64, .__paddings = {0}, .of = {.i64 = i}}
+#define WASM_F32_VAL(z) {.kind = WASM_F32, .__paddings = {0}, .of = {.f32 = z}}
+#define WASM_F64_VAL(z) {.kind = WASM_F64, .__paddings = {0}, .of = {.f64 = z}}
+#define WASM_REF_VAL(r) {.kind = WASM_ANYREF, .__paddings = {0}, .of = {.ref = r}}
+#define WASM_INIT_VAL {.kind = WASM_ANYREF, .__paddings = {0}, .of = {.ref = NULL}}
 
 #define KILOBYTE(n) ((n) * 1024)
 

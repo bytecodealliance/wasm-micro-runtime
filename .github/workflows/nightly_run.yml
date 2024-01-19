@@ -26,6 +26,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions: 
+  issues: write
+
 env:
   # For BUILD
   AOT_BUILD_OPTIONS: "           -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_JIT=0 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
@@ -42,6 +45,7 @@ env:
   THREADS_TEST_OPTIONS: "-s spec -b -p -P"
   X86_32_TARGET_TEST_OPTIONS: "-m x86_32 -P"
   WASI_TEST_OPTIONS: "-s wasi_certification -w"
+  TOKEN: ${{ secrets.ABCD }}
 
 jobs:
 
@@ -51,9 +55,13 @@ jobs:
       - name: checkout
         uses: actions/checkout@v3
 
+      - name: test
+        run: ./tests/wamr-test-suites/test_wamr.sh 2> log.md
+        continue-on-error: true
       - name: test issue
+        if: ${{ failure() }}
         uses: peter-evans/create-issue-from-file@v4
         with:
-          token: ${{ secrets.TOKEN }}
+          token:  ${{ secrets.GITHUB_TOKEN }}
           title: test-issue
-          content-filepath: ".github/scripts/issue.md"
+          content-filepath: "log.md"

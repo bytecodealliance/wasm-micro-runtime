@@ -172,12 +172,12 @@ typedef struct RuntimeInitArgs {
     /**
      * If enabled
      * - llvm-jit will output a jitdump file for `perf inject`
-     * - aot. TBD
+     * - aot will output a perf-${pid}.map for `perf record`
      * - fast-jit. TBD
      * - multi-tier-jit. TBD
      * - interpreter. TBD
      */
-    bool linux_perf_support;
+    bool enable_linux_perf;
 } RuntimeInitArgs;
 
 #ifndef WASM_VALKIND_T_DEFINED
@@ -199,6 +199,7 @@ struct wasm_ref_t;
 
 typedef struct wasm_val_t {
     wasm_valkind_t kind;
+    uint8_t __paddings[7];
     union {
         /* also represent a function index */
         int32_t i32;
@@ -243,8 +244,8 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_full_init(RuntimeInitArgs *init_args);
 
 /**
- * Set the log level. To be called after the runtime is initialized. 
- * 
+ * Set the log level. To be called after the runtime is initialized.
+ *
  * @param level the log level to set
  */
 WASM_RUNTIME_API_EXTERN void
@@ -940,9 +941,6 @@ wasm_runtime_clear_exception(wasm_module_inst_t module_inst);
  *  - Another thread has a copy of `wasm_module_inst_t` of
  *    the module instance and wants to terminate it asynchronously.
  *
- * This function is provided only when WAMR is built with threading enabled.
- * (`WASM_ENABLE_THREAD_MGR=1`)
- *
  * @param module_inst the WASM module instance
  */
 WASM_RUNTIME_API_EXTERN void
@@ -1276,6 +1274,26 @@ wasm_runtime_dump_mem_consumption(wasm_exec_env_t exec_env);
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_dump_perf_profiling(wasm_module_inst_t module_inst);
 
+/**
+ * Return total wasm functions' execution time in ms
+ *
+ * @param module_inst the WASM module instance to profile
+ */
+WASM_RUNTIME_API_EXTERN double
+wasm_runtime_sum_wasm_exec_time(wasm_module_inst_t module_inst);
+
+/**
+ * Return execution time in ms of a given wasm funciton with
+*  func_name. If the function is not found, return 0.
+ *
+ * @param module_inst the WASM module instance to profile
+ * @param func_name could be an export name or a name in the
+ *                  name section
+ */
+WASM_RUNTIME_API_EXTERN double
+wasm_runtime_get_wasm_func_exec_time(wasm_module_inst_t inst,
+                                     const char *func_name);
+
 /* wasm thread callback function type */
 typedef void *(*wasm_thread_callback_t)(wasm_exec_env_t, void *);
 /* wasm thread type */
@@ -1588,6 +1606,9 @@ wasm_runtime_get_context(wasm_module_inst_t inst, void *key);
  * These APIs are intended to be used by the implementations of
  * host functions. It wraps an operation which possibly blocks for long
  * to prepare for async termination.
+ *
+ * For simplicity, we recommend to wrap only the very minimum piece of
+ * the code with this. Ideally, just a single system call.
  *
  * eg.
  *

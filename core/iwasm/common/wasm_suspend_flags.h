@@ -35,6 +35,8 @@ typedef union WASMSuspendFlags {
 #define WASM_SUSPEND_FLAGS_FETCH_AND(s_flags, val) \
     BH_ATOMIC_32_FETCH_AND(s_flags.flags, val)
 
+#define WASM_SUSPEND_FLAG_INHERIT_MASK (~WASM_SUSPEND_FLAG_BLOCKING)
+
 #if WASM_SUSPEND_FLAGS_IS_ATOMIC != 0
 #define WASM_SUSPEND_FLAGS_LOCK(lock) (void)0
 #define WASM_SUSPEND_FLAGS_UNLOCK(lock) (void)0

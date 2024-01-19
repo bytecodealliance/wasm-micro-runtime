@@ -158,6 +158,8 @@ static JitCompOptions jit_options = { 0 };
 #endif
 
 #if WASM_ENABLE_JIT != 0
+/* opt_level: 3, size_level: 3, segue-flags: 0,
+   quick_invoke_c_api_import: false */
 static LLVMJITOptions llvm_jit_options = { 3, 3, 0, false };
 #endif
 
@@ -638,10 +640,10 @@ wasm_runtime_get_default_running_mode(void)
 }
 
 #if WASM_ENABLE_JIT != 0
-LLVMJITOptions
+LLVMJITOptions *
 wasm_runtime_get_llvm_jit_options(void)
 {
-    return llvm_jit_options;
+    return &llvm_jit_options;
 }
 #endif
 
@@ -662,14 +664,17 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
 #endif
 
 #if WASM_ENABLE_JIT != 0
-    LOG_DEBUG("Start LLVM_JIT, opt_sz=%u, opt_lvl=%u, segue=%s, linux_perf=%s",
-              init_args->llvm_jit_size_level, init_args->llvm_jit_opt_level,
-              init_args->segue_flags ? "Yes" : "No",
-              init_args->linux_perf_support ? "Yes" : "No");
     llvm_jit_options.size_level = init_args->llvm_jit_size_level;
     llvm_jit_options.opt_level = init_args->llvm_jit_opt_level;
     llvm_jit_options.segue_flags = init_args->segue_flags;
-    llvm_jit_options.linux_perf_support = init_args->linux_perf_support;
+#endif
+
+#if WASM_ENABLE_LINUX_PERF != 0
+    wasm_runtime_set_linux_perf(init_args->enable_linux_perf);
+#else
+    if (init_args->enable_linux_perf)
+        LOG_WARNING("warning: to enable linux perf support, please recompile "
+                    "with -DWAMR_BUILD_LINUX_PERF=1");
 #endif
 
     if (!wasm_runtime_env_init()) {
@@ -1685,7 +1690,42 @@ wasm_runtime_dump_perf_profiling(WASMModuleInstanceCommon *module_inst)
     }
 #endif
 }
+
+double
+wasm_runtime_sum_wasm_exec_time(WASMModuleInstanceCommon *inst)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (inst->module_type == Wasm_Module_Bytecode)
+        return wasm_summarize_wasm_execute_time((WASMModuleInstance *)inst);
 #endif
+
+#if WASM_ENABLE_AOT != 0
+    if (inst->module_type == Wasm_Module_AoT)
+        return aot_summarize_wasm_execute_time((AOTModuleInstance *)inst);
+#endif
+
+    return 0.0;
+}
+
+double
+wasm_runtime_get_wasm_func_exec_time(WASMModuleInstanceCommon *inst,
+                                     const char *func_name)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (inst->module_type == Wasm_Module_Bytecode)
+        return wasm_get_wasm_func_exec_time((WASMModuleInstance *)inst,
+                                            func_name);
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (inst->module_type == Wasm_Module_AoT)
+        return aot_get_wasm_func_exec_time((AOTModuleInstance *)inst,
+                                           func_name);
+#endif
+
+    return 0.0;
+}
+#endif /* WASM_ENABLE_PERF_PROFILING != 0 */
 
 WASMModuleInstanceCommon *
 wasm_runtime_get_module_inst(WASMExecEnv *exec_env)
@@ -2548,7 +2588,6 @@ wasm_runtime_clear_exception(WASMModuleInstanceCommon *module_inst_comm)
     wasm_runtime_set_exception(module_inst_comm, NULL);
 }
 
-#if WASM_ENABLE_THREAD_MGR != 0
 void
 wasm_runtime_terminate(WASMModuleInstanceCommon *module_inst_comm)
 {
@@ -2558,7 +2597,6 @@ wasm_runtime_terminate(WASMModuleInstanceCommon *module_inst_comm)
               || module_inst_comm->module_type == Wasm_Module_AoT);
     wasm_set_exception(module_inst, "terminated by user");
 }
-#endif
 
 void
 wasm_runtime_set_custom_data_internal(
@@ -5674,7 +5712,7 @@ wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
     wasm_val_t *params = params_buf, *results = results_buf;
     wasm_trap_t *trap = NULL;
     bool ret = false;
-    wasm_val_vec_t params_vec, results_vec;
+    wasm_val_vec_t params_vec = { 0 }, results_vec = { 0 };
 
     if (func_type->param_count > 16) {
         if (!(params =
@@ -5702,12 +5740,10 @@ wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
     params_vec.data = params;
     params_vec.num_elems = func_type->param_count;
     params_vec.size = func_type->param_count;
-    params_vec.size_of_elem = sizeof(wasm_val_t);
 
     results_vec.data = results;
     results_vec.num_elems = 0;
     results_vec.size = func_type->result_count;
-    results_vec.size_of_elem = sizeof(wasm_val_t);
 
     if (!with_env) {
         wasm_func_callback_t callback = (wasm_func_callback_t)func_ptr;
@@ -5743,7 +5779,6 @@ wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
         wasm_runtime_set_exception(module_inst, "unsupported result type");
         goto fail;
     }
-    results_vec.num_elems = func_type->result_count;
     ret = true;
 
 fail:
@@ -5751,6 +5786,71 @@ fail:
         wasm_runtime_free(params);
     if (results != results_buf)
         wasm_runtime_free(results);
+    return ret;
+}
+
+bool
+wasm_runtime_quick_invoke_c_api_native(WASMModuleInstanceCommon *inst_comm,
+                                       CApiFuncImport *c_api_import,
+                                       wasm_val_t *params, uint32 param_count,
+                                       wasm_val_t *results, uint32 result_count)
+{
+    WASMModuleInstance *module_inst = (WASMModuleInstance *)inst_comm;
+    void *func_ptr = c_api_import->func_ptr_linked;
+    bool with_env_arg = c_api_import->with_env_arg, ret = true;
+    wasm_val_vec_t params_vec = { 0 }, results_vec = { 0 };
+    wasm_trap_t *trap = NULL;
+
+    params_vec.data = params;
+    params_vec.num_elems = param_count;
+    params_vec.size = param_count;
+
+    results_vec.data = results;
+    results_vec.num_elems = 0;
+    results_vec.size = result_count;
+
+    if (!func_ptr) {
+        wasm_set_exception_with_id(module_inst, EXCE_CALL_UNLINKED_IMPORT_FUNC);
+        ret = false;
+        goto fail;
+    }
+
+    if (!with_env_arg) {
+        wasm_func_callback_t callback = (wasm_func_callback_t)func_ptr;
+        trap = callback(&params_vec, &results_vec);
+    }
+    else {
+        void *wasm_c_api_env = c_api_import->env_arg;
+        wasm_func_callback_with_env_t callback =
+            (wasm_func_callback_with_env_t)func_ptr;
+        trap = callback(wasm_c_api_env, &params_vec, &results_vec);
+    }
+
+    if (trap) {
+        if (trap->message->data) {
+            /* since trap->message->data does not end with '\0' */
+            char trap_message[108] = { 0 };
+            uint32 max_size_to_copy = (uint32)sizeof(trap_message) - 1;
+            uint32 size_to_copy = (trap->message->size < max_size_to_copy)
+                                      ? (uint32)trap->message->size
+                                      : max_size_to_copy;
+            bh_memcpy_s(trap_message, (uint32)sizeof(trap_message),
+                        trap->message->data, size_to_copy);
+            wasm_set_exception(module_inst, trap_message);
+        }
+        else {
+            wasm_set_exception(module_inst,
+                               "native function throw unknown exception");
+        }
+        wasm_trap_delete(trap);
+        ret = false;
+    }
+
+fail:
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (!ret)
+        wasm_runtime_access_exce_check_guard_page();
+#endif
     return ret;
 }
 
@@ -6148,3 +6248,83 @@ wasm_runtime_get_context(WASMModuleInstanceCommon *inst, void *key)
     return wasm_native_get_context(inst, key);
 }
 #endif /* WASM_ENABLE_MODULE_INST_CONTEXT != 0 */
+
+#if WASM_ENABLE_LINUX_PERF != 0
+static bool enable_linux_perf = false;
+
+bool
+wasm_runtime_get_linux_perf(void)
+{
+    return enable_linux_perf;
+}
+
+void
+wasm_runtime_set_linux_perf(bool flag)
+{
+    enable_linux_perf = flag;
+}
+#endif
+
+#ifdef WASM_LINEAR_MEMORY_MMAP
+void
+wasm_munmap_linear_memory(void *mapped_mem, uint64 commit_size, uint64 map_size)
+{
+#ifdef BH_PLATFORM_WINDOWS
+    os_mem_decommit(mapped_mem, commit_size);
+#else
+    (void)commit_size;
+#endif
+    os_munmap(mapped_mem, map_size);
+}
+
+void *
+wasm_mmap_linear_memory(uint64_t map_size, uint64 *io_memory_data_size,
+                        char *error_buf, uint32 error_buf_size)
+{
+    uint64 page_size = os_getpagesize();
+    void *mapped_mem = NULL;
+    uint64 memory_data_size;
+
+    bh_assert(io_memory_data_size);
+
+    memory_data_size =
+        (*io_memory_data_size + page_size - 1) & ~(page_size - 1);
+
+    if (memory_data_size > UINT32_MAX)
+        memory_data_size = UINT32_MAX;
+
+    if (!(mapped_mem = os_mmap(NULL, map_size, MMAP_PROT_NONE, MMAP_MAP_NONE,
+                               os_get_invalid_handle()))) {
+        set_error_buf(error_buf, error_buf_size, "mmap memory failed");
+        goto fail1;
+    }
+
+#ifdef BH_PLATFORM_WINDOWS
+    if (memory_data_size > 0
+        && !os_mem_commit(mapped_mem, memory_data_size,
+                          MMAP_PROT_READ | MMAP_PROT_WRITE)) {
+        set_error_buf(error_buf, error_buf_size, "commit memory failed");
+        os_munmap(mapped_mem, map_size);
+        goto fail1;
+    }
+#endif
+
+    if (os_mprotect(mapped_mem, memory_data_size,
+                    MMAP_PROT_READ | MMAP_PROT_WRITE)
+        != 0) {
+        set_error_buf(error_buf, error_buf_size, "mprotect memory failed");
+        goto fail2;
+    }
+
+    /* Newly allocated pages are filled with zero by the OS, we don't fill it
+     * again here */
+
+    *io_memory_data_size = memory_data_size;
+
+    return mapped_mem;
+fail2:
+    wasm_munmap_linear_memory(mapped_mem, memory_data_size, map_size);
+fail1:
+    return NULL;
+}
+#endif

@@ -143,6 +143,13 @@ def replace_function_name(
     with folded_in.open("rt", encoding="utf-8") as f_in, folded_out.open(
         "wt", encoding="utf-8"
     ) as f_out:
+        precheck_mode = False
+        for line in f_in:
+            line = line.strip()
+            if "aot_func_internal" in line:
+                precheck_mode = True
+
+        f_in.seek(0)
         for line in f_in:
             new_line = []
             line = line.strip()
@@ -162,8 +169,15 @@ def replace_function_name(
                     wasm_func_name = (
                         f"[Wasm] function[{func_idx + import_function_count}]"
                     )
-                # aot_func_internal
-                wasm_func_name += "_precheck" if not m.groups()[0] else ""
+
+                if precheck_mode:
+                    # aot_func_internal -> xxx
+                    # aot_func --> xxx_precheck
+                    wasm_func_name += "_precheck" if not m.groups()[0] else ""
+                else:
+                    # aot_func --> xxx
+                    pass
+
                 new_line.append(wasm_func_name)
 
             line = ";".join(new_line)

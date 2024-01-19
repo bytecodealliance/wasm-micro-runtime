@@ -3,6 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 #include "llvm-c/LLJIT.h"
 #include "llvm-c/Orc.h"
 #include "llvm-c/OrcEE.h"
@@ -44,6 +48,7 @@ class InProgressLookupState;
 class OrcV2CAPIHelper
 {
   public:
+#if LLVM_VERSION_MAJOR < 18
     using PoolEntry = SymbolStringPtr::PoolEntry;
     using PoolEntryPtr = SymbolStringPtr::PoolEntryPtr;
 
@@ -86,6 +91,7 @@ class OrcV2CAPIHelper
         S.S = P;
     }
 
+#endif
     static InProgressLookupState *extractLookupState(LookupState &LS)
     {
         return LS.IPLS.release();
@@ -101,6 +107,20 @@ class OrcV2CAPIHelper
 } // namespace llvm
 
 // ORC.h
+#if LLVM_VERSION_MAJOR >= 18
+inline LLVMOrcSymbolStringPoolEntryRef
+wrap(SymbolStringPoolEntryUnsafe E)
+{
+    return reinterpret_cast<LLVMOrcSymbolStringPoolEntryRef>(E.rawPtr());
+}
+
+inline SymbolStringPoolEntryUnsafe
+unwrap(LLVMOrcSymbolStringPoolEntryRef E)
+{
+    return reinterpret_cast<SymbolStringPoolEntryUnsafe::PoolEntry *>(E);
+}
+#endif
+
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(ExecutionSession, LLVMOrcExecutionSessionRef)
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(IRTransformLayer, LLVMOrcIRTransformLayerRef)
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(JITDylib, LLVMOrcJITDylibRef)
@@ -108,8 +128,10 @@ DEFINE_SIMPLE_CONVERSION_FUNCTIONS(JITTargetMachineBuilder,
                                    LLVMOrcJITTargetMachineBuilderRef)
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(ObjectTransformLayer,
                                    LLVMOrcObjectTransformLayerRef)
+#if LLVM_VERSION_MAJOR < 18
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(OrcV2CAPIHelper::PoolEntry,
                                    LLVMOrcSymbolStringPoolEntryRef)
+#endif
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(ObjectLayer, LLVMOrcObjectLayerRef)
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(SymbolStringPool, LLVMOrcSymbolStringPoolRef)
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(ThreadSafeModule, LLVMOrcThreadSafeModuleRef)
@@ -292,8 +314,13 @@ LLVMOrcSymbolStringPoolEntryRef
 LLVMOrcLLLazyJITMangleAndIntern(LLVMOrcLLLazyJITRef J,
                                 const char *UnmangledName)
 {
+#if LLVM_VERSION_MAJOR < 18
     return wrap(OrcV2CAPIHelper::moveFromSymbolStringPtr(
         unwrap(J)->mangleAndIntern(UnmangledName)));
+#else
+    return wrap(SymbolStringPoolEntryUnsafe::take(
+        unwrap(J)->mangleAndIntern(UnmangledName)));
+#endif
 }
 
 LLVMOrcJITDylibRef
