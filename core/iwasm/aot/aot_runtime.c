@@ -1426,14 +1426,10 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
 #if WASM_ENABLE_QUICK_AOT_ENTRY != 0
         /* Quick call if the quick aot entry is registered */
         if (!signature && func_type->quick_aot_entry) {
-            void (*invoke_native)(
-                void *func_ptr, uint8 ret_type, void *exec_env, uint32 *argv,
-                uint32 *argv_ret) = func_type->quick_aot_entry;
-            invoke_native(func_ptr,
-                          func_type->result_count > 0
-                              ? func_type->types[func_type->param_count]
-                              : VALUE_TYPE_VOID,
-                          exec_env, argv, argv_ret);
+            void (*invoke_native)(void *func_ptr, void *exec_env, uint32 *argv,
+                                  uint32 *argv_ret) =
+                func_type->quick_aot_entry;
+            invoke_native(func_ptr, exec_env, argv, argv_ret);
             ret = !aot_copy_exception(module_inst, NULL);
         }
         else
@@ -1472,7 +1468,26 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
 }
 #define invoke_native_internal invoke_native_with_hw_bound_check
 #else /* else of OS_ENABLE_HW_BOUND_CHECK */
-#define invoke_native_internal wasm_runtime_invoke_native
+static inline bool
+invoke_native_internal(WASMExecEnv *exec_env, void *func_ptr,
+                       const WASMType *func_type, const char *signature,
+                       void *attachment, uint32 *argv, uint32 argc,
+                       uint32 *argv_ret)
+{
+#if WASM_ENABLE_QUICK_AOT_ENTRY != 0
+    /* Quick call if the quick aot entry is registered */
+    if (!signature && func_type->quick_aot_entry) {
+        AOTModuleInstance *module_inst =
+            (AOTModuleInstance *)exec_env->module_inst;
+        void (*invoke_native)(void *func_ptr, void *exec_env, uint32 *argv,
+                              uint32 *argv_ret) = func_type->quick_aot_entry;
+        invoke_native(func_ptr, exec_env, argv, argv_ret);
+        return !aot_copy_exception(module_inst, NULL);
+    }
+#endif
+    return wasm_runtime_invoke_native(exec_env, func_ptr, func_type, signature,
+                                      attachment, argv, argc, argv_ret);
+}
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
 bool
