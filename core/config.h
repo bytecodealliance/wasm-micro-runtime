@@ -231,6 +231,17 @@
 #define WASM_ENABLE_LOG 1
 #endif
 
+/* When this flag is set, WAMR will not automatically
+ * initialize sockets on Windows platforms. The host
+ * application is responsible for calling WSAStartup()
+ * before executing WAMR code that uses sockets, and
+ * calling WSACleanup() after.
+ * This flag passes control of socket initialization from
+ * WAMR to the host application. */
+#ifndef WASM_ENABLE_HOST_SOCKET_INIT
+#define WASM_ENABLE_HOST_SOCKET_INIT 0
+#endif
+
 #ifndef WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS
 #if defined(BUILD_TARGET_X86_32) || defined(BUILD_TARGET_X86_64) \
     || defined(BUILD_TARGET_AARCH64)
