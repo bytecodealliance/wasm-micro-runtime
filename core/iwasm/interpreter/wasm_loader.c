@@ -327,7 +327,7 @@ check_utf8_str(const uint8 *str, uint32 len)
                     return false;
                 }
             }
-            else if (chr >= 0xE1 && chr <= 0xEF) {
+            else { /* chr >= 0xE1 && chr <= 0xEF */
                 if (p[1] < 0x80 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF) {
                     return false;
                 }
@@ -341,13 +341,13 @@ check_utf8_str(const uint8 *str, uint32 len)
                     return false;
                 }
             }
-            else if (chr >= 0xF1 && chr <= 0xF3) {
+            else if (chr <= 0xF3) { /* and also chr >= 0xF1 */
                 if (p[1] < 0x80 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF
                     || p[3] < 0x80 || p[3] > 0xBF) {
                     return false;
                 }
             }
-            else if (chr == 0xF4) {
+            else { /* chr == 0xF4 */
                 if (p[1] < 0x80 || p[1] > 0x8F || p[2] < 0x80 || p[2] > 0xBF
                     || p[3] < 0x80 || p[3] > 0xBF) {
                     return false;
