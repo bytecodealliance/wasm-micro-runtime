@@ -516,6 +516,7 @@
 /* Disable mmap based shared memory by default */
 #ifndef WASM_ENABLE_SHARED_MEMORY_MMAP
 #define WASM_ENABLE_SHARED_MEMORY_MMAP 0
+#endif
 
 /* it is a trace mode for debugging */
 #ifndef WASM_TRACE_MODE

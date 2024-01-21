@@ -105,6 +105,7 @@ static const struct trace_exec_op_info simd_info[0xff + 1] = {
     [SIMD_f64x2_trunc] = { "f64x2.trunc", IMM_0_OP_v128 },
     [SIMD_i16x8_sub_sat_s] = { "i16x8.sub_sat_s", IMM_0_OP_v128_v128 },
     [SIMD_i16x8_sub_sat_u] = { "i16x8.sub_sat_u", IMM_0_OP_v128_v128 },
+    [SIMD_i16x8_max_u] = { "i16x8.max_u", IMM_0_OP_v128_v128 },
     [SIMD_i32x4_max_s] = { "i32x4.max_s", IMM_0_OP_v128_v128 },
     [SIMD_i64x2_sub] = { "i64x2.sub", IMM_0_OP_v128_v128 },
     [SIMD_f32x4_add] = { "f32x4.add", IMM_0_OP_v128_v128 },
@@ -112,6 +113,7 @@ static const struct trace_exec_op_info simd_info[0xff + 1] = {
     [SIMD_f32x4_min] = { "f32x4.min", IMM_0_OP_v128_v128 },
     [SIMD_f32x4_max] = { "f32x4.max", IMM_0_OP_v128_v128 },
     [SIMD_f64x2_min] = { "f64x2.min", IMM_0_OP_v128_v128 },
+    [SIMD_f64x2_max] = { "f64x2.max", IMM_0_OP_v128_v128 },
     [SIMD_f64x2_pmin] = { "f64x2.pmin", IMM_0_OP_v128_v128 },
 };
 
@@ -126,6 +128,8 @@ static const struct trace_exec_op_info opcode_info[0xff + 1] = {
     [WASM_OP_DROP] = { "drop", IMM_0_OP_0 },
     [WASM_OP_GET_LOCAL] = { "local.get", IMM_i32_OP_0 },
     [WASM_OP_TEE_LOCAL] = { "local.tee", IMM_i32_OP_0 },
+    [WASM_OP_I64_LOAD16_S] = { "i64.load16_s", IMM_memarg_OP_i32 },
+    [WASM_OP_F32_CONST] = { "f32.const", IMM_f32_OP_0 },
     [WASM_OP_I32_EQZ] = { "i32.eqz", IMM_0_OP_i32 },
     [WASM_OP_I32_ADD] = { "i32.add", IMM_0_OP_i32_i32 },
     [WASM_OP_I32_AND] = { "i32.and", IMM_0_OP_i32_i32 },
@@ -263,6 +267,18 @@ aot_trace_exec_assemble_imm_i32(AOTCompContext *comp_ctx, uint8 *ip,
     LLVMValueRef imm = LLVMConstInt(I32_TYPE, imm_value, false);
 
     return aot_trace_exec_assemble_imm_1(comp_ctx, TRACE_V_I32, imm,
+                                         instr_imms_ptr);
+}
+
+static bool
+aot_trace_exec_assemble_imm_f32(AOTCompContext *comp_ctx, uint8 *ip,
+                                LLVMValueRef instr_imms_ptr)
+{
+    float32 imm_value = *(float32 *)ip;
+
+    LLVMValueRef imm = LLVMConstReal(F32_TYPE, imm_value);
+
+    return aot_trace_exec_assemble_imm_1(comp_ctx, TRACE_V_F32, imm,
                                          instr_imms_ptr);
 }
 
@@ -614,6 +630,11 @@ aot_trace_exec_build_helper_func_args(AOTCompContext *comp_ctx,
             aot_trace_exec_assemble_imm_i32(comp_ctx, ip, instr_imms_ptr);
             break;
         }
+        case IMM_f32_OP_0:
+        {
+            aot_trace_exec_assemble_imm_f32(comp_ctx, ip, instr_imms_ptr);
+            break;
+        }
         case IMM_v128_OP_0:
         {
             aot_trace_exec_assemble_imm_v128(comp_ctx, ip, instr_imms_ptr);
@@ -810,6 +831,11 @@ pprint_imms(enum trace_exec_opcode_kind kind, struct trace_exec_value *imms)
             pprint_i32(imms[0].of.i32);
             break;
         }
+        case IMM_f32_OP_0:
+        {
+            pprint_f32(imms[0].of.f32);
+            break;
+        }
         case IMM_v128_OP_0:
         {
             pprint_v128(imms[0].of.v128);
@@ -874,6 +900,7 @@ pprint_opds(enum trace_exec_opcode_kind kind, struct trace_exec_value *opds)
         /* no operands */
         case IMM_0_OP_0:
         case IMM_i32_OP_0:
+        case IMM_f32_OP_0:
         case IMM_v128_OP_0:
         {
             break;
