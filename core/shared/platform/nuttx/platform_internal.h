@@ -52,7 +52,7 @@ typedef sem_t korp_sem;
 #define BH_THREAD_DEFAULT_PRIORITY 100
 
 #define os_printf printf
-#define os_vprintf vprintf
+#define os_vprintf(log_level, format, ap) vprintf(format, ap)
 
 #if defined(CONFIG_LIBC_DLFCN)
 #define BH_HAS_DLFCN 1

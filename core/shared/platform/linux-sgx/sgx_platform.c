@@ -95,7 +95,7 @@ os_printf(const char *message, ...)
 }
 
 int
-os_vprintf(const char *format, va_list arg)
+os_vprintf(LogLevel log_level, const char *format, va_list arg)
 {
     int bytes_written = 0;
 

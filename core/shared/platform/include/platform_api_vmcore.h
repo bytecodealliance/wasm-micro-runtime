@@ -8,6 +8,7 @@
 
 #include "platform_common.h"
 #include "platform_internal.h"
+#include "bh_log.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,7 +59,7 @@ int
 os_printf(const char *format, ...);
 
 int
-os_vprintf(const char *format, va_list ap);
+os_vprintf(uint32 log_level, const char *format, va_list ap);
 
 /**
  * Get microseconds after boot.

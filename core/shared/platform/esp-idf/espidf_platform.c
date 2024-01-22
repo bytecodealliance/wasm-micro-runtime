@@ -30,7 +30,7 @@ os_printf(const char *format, ...)
 }
 
 int
-os_vprintf(const char *format, va_list ap)
+os_vprintf(LogLevel log_level, const char *format, va_list ap)
 {
     return vprintf(format, ap);
 }

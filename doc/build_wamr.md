@@ -164,7 +164,7 @@ Currently we only profile the memory consumption of module, module_instance and 
 > Note: if the vprintf_callback function is provided by developer, the os_printf() and os_vprintf() in Linux, Darwin, Windows and VxWorks platforms, besides WASI Libc output will call the callback function instead of libc vprintf() function to redirect the stdout output. For example, developer can define the callback function like below outside runtime lib:
 >
 > ```C
-> int my_vprintf(const char *format, va_list ap)
+> int my_vprintf(LogLevel log_level, const char *format, va_list ap)
 > {
 >     /* output to pre-opened file stream */
 >     FILE *my_file = ...;

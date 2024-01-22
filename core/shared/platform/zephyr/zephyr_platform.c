@@ -107,7 +107,7 @@ char_out(int c, void *ctx)
 }
 
 int
-os_vprintf(const char *fmt, va_list ap)
+os_vprintf(LogLevel log_level, const char *fmt, va_list ap)
 {
 #if 0
     struct out_context ctx = { 0 };
@@ -138,12 +138,12 @@ os_printf(const char *format, ...)
 }
 
 int
-os_vprintf(const char *format, va_list ap)
+os_vprintf(LogLevel log_level, const char *format, va_list ap)
 {
 #ifndef BH_VPRINTF
     return vprintf(format, ap);
 #else
-    return BH_VPRINTF(format, ap);
+    return BH_VPRINTF(log_level, format, ap);
 #endif
 }
 

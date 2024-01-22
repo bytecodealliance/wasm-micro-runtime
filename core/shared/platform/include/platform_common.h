@@ -57,7 +57,7 @@ BH_FREE(void *ptr);
 __declspec(dllimport) int BH_VPRINTF(const char *format, va_list ap);
 #else
 int
-BH_VPRINTF(const char *format, va_list ap);
+BH_VPRINTF(LogLevel log_level, const char *format, va_list ap);
 #endif
 #endif
 
