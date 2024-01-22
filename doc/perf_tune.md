@@ -199,7 +199,7 @@ In some scenarios, there may be lots of callings between host native and wasm ap
 
 When wamrc compiles the wasm file to AOT code, it may generate LLVM IR to call the native API from an AOT function, and if it doesn't know the native API's signature, the generated LLVM IR has to call the runtime API `aot_invoke_native` to invoke the native API, which is a relatively slow way. If developer registers native APIs during execution by calling `wasm_runtime_register_natives` or by `iwasm --native-lib=<lib>`, then developer can also register native APIs with the same signatures to the AOT compiler by `wamrc --native-lib=<lib>`, so as to let the AOT compiler pre-know the native API's signature, and generate optimized LLVM IR to quickly call to the native API.
 
-The below sample register an API `int test_add(int, int)` to the AOT compiler:
+The below sample registers an API `int test_add(int, int)` to the AOT compiler:
 
 ```C
 /* test_add.c */
@@ -257,7 +257,9 @@ i32 foo(i32/i64, i32/i64), i64 foo(i32/i64, i32/i64), void(i32/i64, i32/i64)
 // three arguments, each argument is i32 or i64
 i32 foo(i32/i64, i32/i64, i32/i64), i64 foo(i32/i64, i32/i64, i32/i64), void(i32/i64, i32/i64, i32/i64)
 // four arguments, each argument is i32 or i64
-i32 foo(i32/i64, i32/i64, i32/i64, i32/i64), i64 foo(i32/i64, i32/i64, i32/i64, i32/i64), void(i32/i64, i32/i64, i32/i64, i32/i64)
+i32 foo(i32/i64, i32/i64, i32/i64, i32/i64)
+i64 foo(i32/i64, i32/i64, i32/i64, i32/i64)
+void(i32/i64, i32/i64, i32/i64, i32/i64)
 ```
 
 2. wasm function contains 5 arguments and 0 to 1 results, with the type of each argument is i32 and the type of result is i32, i64 or void. These functions are like:
