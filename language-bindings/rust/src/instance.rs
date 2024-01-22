@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2023 Liquid Reply GmbH. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
 //! an instantiated module. The module is instantiated with the given imports.
 
 #![allow(unused_variables)]
@@ -30,7 +35,7 @@ impl Instance {
             wasm_runtime_instantiate(
                 module.get_inner_module(),
                 stack_size,
-                0,
+                heap_size,
                 error_buf.as_mut_ptr(),
                 error_buf.len() as u32,
             )

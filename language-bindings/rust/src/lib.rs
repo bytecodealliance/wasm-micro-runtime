@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2023 Liquid Reply GmbH. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
 //! # WAMR Rust SDK
 //!
 //! ## Overview
@@ -126,13 +131,10 @@
 //!
 
 pub mod function;
-mod global;
 mod helper;
 pub mod instance;
-mod memory;
 pub mod module;
 pub mod runtime;
-mod table;
 pub mod value;
 
 /// A runtime error.

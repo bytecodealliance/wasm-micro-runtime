@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2023 Liquid Reply GmbH. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
 //! This is the main entry point for executing WebAssembly modules.
 
 use std::option::Option;

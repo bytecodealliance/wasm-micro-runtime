@@ -1,7 +1,13 @@
+/*
+ * Copyright (C) 2023 Liquid Reply GmbH. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
 //! a wasm value. Always used as function parameters and results
 
 #[derive(Debug, PartialEq)]
 pub enum WasmValue {
+    Void,
     I32(i32),
     I64(i64),
     F32(f32),
@@ -12,6 +18,9 @@ pub enum WasmValue {
 impl WasmValue {
     pub fn encode(&self) -> Vec<u32> {
         match *self {
+            WasmValue::Void => {
+                vec![]
+            }
             WasmValue::I32(value) => {
                 let in_u32_array = unsafe { std::mem::transmute::<i32, [u32; 1]>(value) };
                 vec![in_u32_array[0]]

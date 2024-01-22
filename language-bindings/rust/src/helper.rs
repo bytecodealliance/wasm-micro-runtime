@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2023 Liquid Reply GmbH. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::string::String;

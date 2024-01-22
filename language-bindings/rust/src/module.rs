@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2023 Liquid Reply GmbH. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
 //! .wasm compiled, in-memory representation
 
 use crate::{

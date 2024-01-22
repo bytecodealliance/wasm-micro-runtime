@@ -1,11 +1,16 @@
+/*
+ * Copyright (C) 2023 Liquid Reply GmbH. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
 //! a wasm function. only exported.
 
 use std::ffi::CString;
 use wamr_sys::{
-    wasm_exec_env_t, wasm_func_get_result_types, wasm_function_inst_t, wasm_runtime_call_wasm,
-    wasm_runtime_get_exception, wasm_runtime_get_exec_env_singleton, wasm_runtime_lookup_function,
-    wasm_valkind_enum_WASM_F32, wasm_valkind_enum_WASM_F64, wasm_valkind_enum_WASM_I32,
-    wasm_valkind_enum_WASM_I64, wasm_valkind_t,
+    wasm_exec_env_t, wasm_func_get_result_count, wasm_func_get_result_types, wasm_function_inst_t,
+    wasm_runtime_call_wasm, wasm_runtime_get_exception, wasm_runtime_get_exec_env_singleton,
+    wasm_runtime_lookup_function, wasm_valkind_enum_WASM_F32, wasm_valkind_enum_WASM_F64,
+    wasm_valkind_enum_WASM_I32, wasm_valkind_enum_WASM_I64, wasm_valkind_t,
 };
 
 use crate::{helper::exception_to_string, instance::Instance, value::WasmValue, RuntimeError};
@@ -36,6 +41,12 @@ impl Function {
         instance: &Instance,
         result: Vec<u32>,
     ) -> Result<WasmValue, RuntimeError> {
+        let result_count =
+            unsafe { wasm_func_get_result_count(self.function, instance.get_inner_instance()) };
+        if result_count == 0 {
+            return Ok(WasmValue::Void);
+        }
+
         let mut result_type: wasm_valkind_t = 0;
         unsafe {
             wasm_func_get_result_types(

@@ -1,8 +1,11 @@
+# Copyright (C) 2023 Liquid Reply GmbH. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 [package]
 name = "wamr-rust-sdk"
 version = "0.1.0"
 edition = "2021"
-license = "Apache-2.0"
+license = "Apache-2.0 WITH LLVM-exception"
 exclude = ["examples/"]
 
 [dependencies]

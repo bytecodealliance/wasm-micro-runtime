@@ -15,7 +15,7 @@ fn main() {
     let dst = Config::new(wamr_root)
         .define("LLVM_DIR", llvm_dir)
         .define("WAMR_BUILD_INTERP", "1")
-        .define("WAMR_BUILD_FAST_INTERP", "0")
+        .define("WAMR_BUILD_FAST_INTERP", "1")
         // .define("WAMR_BUILD_JIT", "1")
         .define("WAMR_BUILD_BULK_MEMORY", "1")
         .define("WAMR_BUILD_REF_TYPES", "1")
