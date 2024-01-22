@@ -163,7 +163,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                     error_buf, error_buf_size,
                     "AOT module load failed: "
                     "relocation truncated to fit R_X86_64_PC32 failed. "
-                    "Try using wamrc with --size-level=1 option.");
+                    "Try using wamrc with --size-level=1 or 0 option.");
                 return false;
             }
 
@@ -196,7 +196,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                 snprintf(buf, sizeof(buf),
                          "AOT module load failed: "
                          "relocation truncated to fit %s failed. "
-                         "Try using wamrc with --size-level=1 option.",
+                         "Try using wamrc with --size-level=1 or 0 option.",
                          reloc_type == R_X86_64_32 ? "R_X86_64_32"
                                                    : "R_X86_64_32S");
                 set_error_buf(error_buf, error_buf_size, buf);
@@ -236,15 +236,16 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             target_addr -= sizeof(int32);
 #endif
             if ((int32)target_addr != target_addr) {
-                set_error_buf(error_buf, error_buf_size,
-                              "AOT module load failed: "
-                              "relocation truncated to fit "
+                set_error_buf(
+                    error_buf, error_buf_size,
+                    "AOT module load failed: "
+                    "relocation truncated to fit "
 #if !defined(BH_PLATFORM_WINDOWS)
-                              "R_X86_64_PLT32 failed. "
+                    "R_X86_64_PLT32 failed. "
 #else
-                              "IMAGE_REL_AMD64_32 failed."
+                    "IMAGE_REL_AMD64_32 failed."
 #endif
-                              "Try using wamrc with --size-level=1 option.");
+                    "Try using wamrc with --size-level=1 or 0 option.");
                 return false;
             }
             *(int32 *)(target_section_addr + reloc_offset) = (int32)target_addr;
