@@ -3188,7 +3188,8 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
     p += 8;
     while (p < p_end) {
         read_uint32(p, p_end, section_type);
-        if (section_type < AOT_SECTION_TYPE_SIGANATURE) {
+        if (section_type < AOT_SECTION_TYPE_SIGANATURE
+            || section_type == AOT_SECTION_TYPE_CUSTOM) {
             read_uint32(p, p_end, section_size);
             CHECK_BUF(p, p_end, section_size);
 

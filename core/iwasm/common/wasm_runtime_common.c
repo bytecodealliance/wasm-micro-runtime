@@ -2908,8 +2908,7 @@ copy_string_array(const char *array[], uint32 array_size, char **buf_ptr,
         /* total_size must be larger than 0, don' check it again */
         || !(list = wasm_runtime_malloc((uint32)total_size))
         || buf_size >= UINT32_MAX
-        /* buf_size must be larger than 0, don't check it again */
-        || !(buf = wasm_runtime_malloc((uint32)buf_size))) {
+        || (buf_size > 0 && !(buf = wasm_runtime_malloc((uint32)buf_size)))) {
 
         if (buf)
             wasm_runtime_free(buf);
