@@ -423,16 +423,17 @@ if (WAMR_BUILD_STATIC_PGO EQUAL 1)
 endif ()
 if (WAMR_BUILD_TARGET STREQUAL "X86_64"
     AND WAMR_BUILD_PLATFORM STREQUAL "linux")
-  # disabled by user or in cross compilation environment
-  if (WAMR_DISABLE_WRITE_GS_BASE EQUAL 1 OR CMAKE_CROSSCOMPILING)
-    add_definitions (-DWASM_DISABLE_WRITE_GS_BASE=1)
-    message ("     Write linear memory base addr to x86 GS register disabled")
-  # enabled by user
+  if (WAMR_DISABLE_WRITE_GS_BASE EQUAL 1)
+    # disabled by user
+    set (DISABLE_WRITE_GS_BASE 1)
   elseif (WAMR_DISABLE_WRITE_GS_BASE EQUAL 0)
-    add_definitions (-DWASM_DISABLE_WRITE_GS_BASE=0)
-    message ("     Write linear memory base addr to x86 GS register enabled")
-  # auto-detected by the compiler
+    # enabled by user
+    set (DISABLE_WRITE_GS_BASE 0)
+  elseif (CMAKE_CROSSCOMPILING)
+    # disabled in cross compilation environment
+    set (DISABLE_WRITE_GS_BASE 1)
   else ()
+    # auto-detected by the compiler
     set (TEST_WRGSBASE_SOURCE "${CMAKE_BINARY_DIR}/test_wrgsbase.c")
     file (WRITE "${TEST_WRGSBASE_SOURCE}" "
     #include <stdio.h>
@@ -452,11 +453,17 @@ if (WAMR_BUILD_TARGET STREQUAL "X86_64"
     )
     #message("${TEST_WRGSBASE_COMPILED}, ${TEST_WRGSBASE_RESULT}")
     if (TEST_WRGSBASE_RESULT EQUAL 0)
-      message ("     Write linear memory base addr to x86 GS register enabled")
+      set (DISABLE_WRITE_GS_BASE 0)
     else ()
-      add_definitions (-DWASM_DISABLE_WRITE_GS_BASE=1)
-      message ("     Write linear memory base addr to x86 GS register disabled")
+      set (DISABLE_WRITE_GS_BASE 1)
     endif ()
+  endif ()
+  if (DISABLE_WRITE_GS_BASE EQUAL 1)
+    add_definitions (-DWASM_DISABLE_WRITE_GS_BASE=1)
+    message ("     Write linear memory base addr to x86 GS register disabled")
+  else ()
+    add_definitions (-DWASM_DISABLE_WRITE_GS_BASE=0)
+    message ("     Write linear memory base addr to x86 GS register enabled")
   endif ()
 endif ()
 if (WAMR_CONFIGUABLE_BOUNDS_CHECKS EQUAL 1)
