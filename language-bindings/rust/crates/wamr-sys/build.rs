@@ -14,12 +14,18 @@ fn main() {
     let llvm_dir = format!("{wamr_root}core/deps/llvm/build");
     let dst = Config::new(wamr_root)
         .define("LLVM_DIR", llvm_dir)
+        // running mode
         .define("WAMR_BUILD_INTERP", "1")
         .define("WAMR_BUILD_FAST_INTERP", "1")
         // .define("WAMR_BUILD_JIT", "1")
+        // mvp
         .define("WAMR_BUILD_BULK_MEMORY", "1")
         .define("WAMR_BUILD_REF_TYPES", "1")
         .define("WAMR_BUILD_SIMD", "1")
+        // wasi
+        .define("WAMR_BUILD_LIBC_WASI", "1")
+        // `nostdlib`
+        .define("WAMR_BUILD_LIBC_BUILTIN", "1")
         .build();
 
     println!(

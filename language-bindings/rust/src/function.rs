@@ -82,16 +82,9 @@ impl Function {
             let exec_env: wasm_exec_env_t =
                 wasm_runtime_get_exec_env_singleton(instance.get_inner_instance());
 
-            println!("🎇 b4 wasm_runtime_call_wasm");
-            println!("{:?}", argc);
-            println!("{:?}", argv);
-            println!("{:?}", argv.as_mut_ptr());
-
             call_result =
                 wasm_runtime_call_wasm(exec_env, self.function, argc as u32, argv.as_mut_ptr());
         };
-
-        println!("🎇 {call_result:?}");
 
         if !call_result {
             unsafe {
@@ -110,9 +103,10 @@ impl Function {
 mod tests {
     use super::*;
     use crate::{module::Module, runtime::Runtime};
+    use std::path::PathBuf;
 
     #[test]
-    fn test_look_up_func() {
+    fn test_func_in_wat() {
         // (module
         //   (func (export "add") (param i32 i32) (result i32)
         //     (local.get 0)
@@ -120,17 +114,17 @@ mod tests {
         //     (i32.add)
         //   )
         // )
-        let binary = [
+        let binary = vec![
             0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x07, 0x01, 0x60, 0x02, 0x7f,
             0x7f, 0x01, 0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x07, 0x01, 0x03, 0x61, 0x64, 0x64,
             0x00, 0x00, 0x0a, 0x09, 0x01, 0x07, 0x00, 0x20, 0x00, 0x20, 0x01, 0x6a, 0x0b,
         ];
-        let mut binary = binary.map(|c| c as u8);
+        let mut binary = binary.into_iter().map(|c| c as u8).collect::<Vec<u8>>();
 
         let runtime = Runtime::builder().run_as_interpreter().build();
         assert_eq!(runtime.is_ok(), true);
-
         let runtime = runtime.unwrap();
+
         let module = Module::from_buf(&runtime, &mut binary);
         assert_eq!(module.is_ok(), true);
         let module = module.unwrap();
@@ -148,8 +142,33 @@ mod tests {
         params.push(WasmValue::I32(6));
 
         let call_result = function.call(instance, &params);
-        println!("--> {call_result:?}");
         assert_eq!(call_result.is_ok(), true);
         assert_eq!(call_result.unwrap(), WasmValue::I32(9));
+    }
+
+    #[test]
+    fn test_func_in_wasm32_wasi() {
+        let runtime = Runtime::new();
+        assert_eq!(runtime.is_ok(), true);
+        let runtime = runtime.unwrap();
+
+        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        d.push("resources/test");
+        d.push("hello_wasm32-wasi.wasm");
+        let module = Module::from_file(&runtime, d.as_path());
+        assert_eq!(module.is_ok(), true);
+        let module = module.unwrap();
+
+        let instance = Instance::new(&module, 1024 * 64);
+        assert_eq!(instance.is_ok(), true);
+        let instance: &Instance = &instance.unwrap();
+
+        let function = Function::find_export_func(instance, "_start");
+        assert_eq!(function.is_ok(), true);
+        let function = function.unwrap();
+
+        let result = function.call(instance, &vec![]);
+        println!("{:?}", result);
+        assert_eq!(result.is_ok(), true);
     }
 }

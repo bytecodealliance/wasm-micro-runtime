@@ -12,7 +12,8 @@ use ::core::ffi::c_char;
 use wamr_sys::{wasm_module_inst_t, wasm_runtime_deinstantiate, wasm_runtime_instantiate};
 
 use crate::{
-    helper::error_buf_to_string, helper::DEFAULT_ERROR_BUF_SIZE, module::Module, RuntimeError,
+    helper::error_buf_to_string, helper::DEFAULT_ERROR_BUF_SIZE, module::Module, value::WasmValue,
+    RuntimeError,
 };
 
 #[derive(Debug)]
@@ -62,6 +63,14 @@ impl Instance {
     pub fn get_inner_instance(&self) -> wasm_module_inst_t {
         self.instance
     }
+
+    pub fn execute_export_func(
+        &self,
+        name: &str,
+        params: &Vec<WasmValue>,
+    ) -> Result<WasmValue, RuntimeError> {
+        unimplemented!()
+    }
 }
 
 impl Drop for Instance {
@@ -86,12 +95,12 @@ mod tests {
         //     (i32.add)
         //   )
         // )
-        let binary = [
+        let binary = vec![
             0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x07, 0x01, 0x60, 0x02, 0x7f,
             0x7f, 0x01, 0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x07, 0x01, 0x03, 0x61, 0x64, 0x64,
             0x00, 0x00, 0x0a, 0x09, 0x01, 0x07, 0x00, 0x20, 0x00, 0x20, 0x01, 0x6a, 0x0b,
         ];
-        let mut binary = binary.map(|c| c as u8);
+        let mut binary = binary.into_iter().map(|c| c as u8).collect::<Vec<u8>>();
 
         let runtime = Runtime::new();
         assert_eq!(runtime.is_ok(), true);
