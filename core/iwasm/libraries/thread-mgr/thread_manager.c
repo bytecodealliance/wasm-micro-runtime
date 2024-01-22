@@ -604,11 +604,24 @@ wasm_cluster_destroy_spawned_exec_env(WASMExecEnv *exec_env)
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
     wasm_module_inst_t module_inst = wasm_runtime_get_module_inst(exec_env);
     bh_assert(cluster != NULL);
+    WASMExecEnv *exec_env_tls = NULL;
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    /* Note: free_aux_stack can execute the module's "free" function
+     * using the specified exec_env. In case of OS_ENABLE_HW_BOUND_CHECK,
+     * it needs to match the TLS exec_env if available. (Consider a native
+     * function which calls wasm_cluster_destroy_spawned_exec_env.)
+     */
+    exec_env_tls = wasm_runtime_get_exec_env_tls();
+#endif
+    if (exec_env_tls == NULL) {
+        exec_env_tls = exec_env;
+    }
 
     os_mutex_lock(&cluster->lock);
 
     /* Free aux stack space */
-    free_aux_stack(exec_env, exec_env->aux_stack_bottom.bottom);
+    free_aux_stack(exec_env_tls, exec_env->aux_stack_bottom.bottom);
     /* Remove exec_env */
     wasm_cluster_del_exec_env_internal(cluster, exec_env, false);
     /* Destroy exec_env */
