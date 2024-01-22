@@ -98,7 +98,6 @@ impl Runtime {
         RuntimeBuilder::default()
     }
 
-    // TODO: do we need it? or just use the builder?
     pub fn new() -> Result<Arc<Self>, RuntimeError> {
         let runtime = SINGLETON_RUNTIME.get_or_init(|| {
             let ret;

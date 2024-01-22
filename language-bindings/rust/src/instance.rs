@@ -17,7 +17,14 @@ pub struct Instance {
 
 impl Instance {
     pub fn new(module: &Module, stack_size: u32) -> Result<Self, RuntimeError> {
-        // TODO: use a String?
+        Self::new_with_args(module, stack_size, 0)
+    }
+
+    pub fn new_with_args(
+        module: &Module,
+        stack_size: u32,
+        heap_size: u32,
+    ) -> Result<Self, RuntimeError> {
         let mut error_buf = [0 as c_char; DEFAULT_ERROR_BUF_SIZE];
         let instance = unsafe {
             wasm_runtime_instantiate(
@@ -88,7 +95,12 @@ mod tests {
         let module = Module::from_buf(&runtime, &mut binary);
         assert_eq!(module.is_ok(), true);
 
-        let instance = Instance::new(&module.unwrap(), 1024);
+        let module = &module.unwrap();
+
+        let instance = Instance::new_with_args(&module, 1024, 1024);
+        assert_eq!(instance.is_ok(), true);
+
+        let instance = Instance::new_with_args(&module, 1024, 0);
         assert_eq!(instance.is_ok(), true);
     }
 }

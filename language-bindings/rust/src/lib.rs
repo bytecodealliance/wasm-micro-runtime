@@ -44,9 +44,9 @@
 //!
 //! Here are a few examples showing how to use WAMR Rust SDK.
 //!
-//! ### Example: simplest
+//! ### Example: to run a wasm32-wasi .wasm
 //!
-//! Say there is a *test.wasm*
+//! Say there is a *test.wasm* in
 //!
 //! ``` wat
 //! (module
@@ -62,19 +62,26 @@
 //! use wamr_rust_sdk::*;
 //!
 //! fn main() -> Result<> {
-//!   let runtime = Runtime::default()?;
+//!   let runtime = Runtime::new()?;
 //!   let module = Module::from_file(&runtime, "test.wasm")?;
 //!   let stack_size = 1024;
 //!   let instance = Instance::new(&module, stack_size)?;
 //!   let wasm_func = instance.find_export_func("add")?;
-//!   let ret = wasm_func.call_i32(&[1, 2])?;
-//!   assert_eq!(ret , 3);
+//!   let params: Vec<WasmValue> = vec![WasmValue::I32(1), WasmValue::I32(2)];
+//!   let ret = wasm_func.call(&instance, &params)?;
+//!   assert_eq!(ret , WasmValue::I32(3));
 //!
 //!   Ok()
 //! }
 //! ```
 //!
-//! ### Example: config runtime and WASI execution environment, and bring native functions in
+//! ### Example: more configuration for runtime.
+//!
+//! with more configuration, runtime is capable to run .wasm with variant features, like
+//! - Wasm without WASI. Some .wasm are compiled with `--nostdlib` to reduce the size.
+//! - runtime under variant running modes. like LLVM_JIT.
+//! - runtime with variant memory management, like other allocators, memory pool, or heap size.
+//! - provides host-defined functions to meet import requirements.
 //!
 //! Say there is a *test.wasm*
 //!
@@ -95,11 +102,7 @@
 //! use wamr_rust_sdk::*;
 //!
 //! fn main() -> Reulst<> {
-//!   let runtime_arg = RuntimeArg::default();
-//!   runtime_arg.set_running_mode();
-//!   runtime_arg.set_llvm_jit_args();
-//!
-//!   let runtime = Runtime::new(&runtime_args);
+//!   let runtime = Runtime::builder().run_as_interpreter().use_system_allocator().build()?;
 //!
 //!   let native_functions : Vec<NativeFunction> = Vec::new();
 //!   native_functions.push(NativeFunction::new("extra", || => 10));
@@ -113,11 +116,13 @@
 //!   let stack_size = 1024;
 //!   let instance = Instance::new(&module, stack_size)?;
 //!   let wasm_func = instance.find_export_func("add")?;
-//!   let ret = wasm_func.call_i32(&[1, 2])?;
-//!   assert_eq!(ret , 13);
+//!   let params: Vec<WasmValue> = vec![WasmValue::I32(1), WasmValue::I32(2)];
+//!   let ret = wasm_func.call(&instance, &params)?;
+//!   assert_eq!(ret , WasmValue::I32(13));
 //!
 //!   Ok()
 //! }
+//! ```
 //!
 
 pub mod function;

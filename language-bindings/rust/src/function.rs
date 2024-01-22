@@ -15,7 +15,7 @@ pub struct Function {
 }
 
 impl Function {
-    pub fn look_up_func(instance: &Instance, name: &str) -> Result<Function, RuntimeError> {
+    pub fn find_export_func(instance: &Instance, name: &str) -> Result<Function, RuntimeError> {
         let name = CString::new(name).expect("CString::new failed");
         let function = unsafe {
             wasm_runtime_lookup_function(
@@ -122,19 +122,21 @@ mod tests {
         let runtime = runtime.unwrap();
         let module = Module::from_buf(&runtime, &mut binary);
         assert_eq!(module.is_ok(), true);
+        let module = module.unwrap();
 
-        let instance = Instance::new(&module.unwrap(), 1024);
+        let instance = Instance::new(&module, 1024);
         assert_eq!(instance.is_ok(), true);
-
         let instance: &Instance = &instance.unwrap();
-        let function = Function::look_up_func(instance, "add");
+
+        let function = Function::find_export_func(instance, "add");
         assert_eq!(function.is_ok(), true);
+        let function = function.unwrap();
 
         let mut params: Vec<WasmValue> = Vec::new();
         params.push(WasmValue::I32(3));
         params.push(WasmValue::I32(6));
 
-        let call_result = function.unwrap().call(instance, &params);
+        let call_result = function.call(instance, &params);
         println!("--> {call_result:?}");
         assert_eq!(call_result.is_ok(), true);
         assert_eq!(call_result.unwrap(), WasmValue::I32(9));
