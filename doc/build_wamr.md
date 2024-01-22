@@ -164,7 +164,7 @@ Currently we only profile the memory consumption of module, module_instance and 
 > Note: if the vprintf_callback function is provided by developer, the os_printf() and os_vprintf() in Linux, Darwin, Windows and VxWorks platforms, besides WASI Libc output will call the callback function instead of libc vprintf() function to redirect the stdout output. For example, developer can define the callback function like below outside runtime lib:
 >
 > ```C
-> int my_vprintf(LogLevel log_level, const char *format, va_list ap)
+> int my_vprintf(log_level_t log_level, const char *format, va_list ap)
 > {
 >     /* output to pre-opened file stream */
 >     FILE *my_file = ...;
@@ -179,7 +179,7 @@ Currently we only profile the memory consumption of module, module_instance and 
 > }
 > ```
 >
-> and then use `cmake -DWAMR_BH_VPRINTF=my_vprintf ..` to pass the callback function, or add `BH_VPRINTF=my_vprintf` macro for the compiler, e.g. add line `add_defintions(-DBH_VPRINTF=my_vprintf)` in CMakeListst.txt.
+> and then use `cmake -DWAMR_BH_VPRINTF=my_vprintf ..` to pass the callback function, or add `BH_VPRINTF=my_vprintf` macro for the compiler, e.g. add line `add_defintions(-DBH_VPRINTF=my_vprintf)` in CMakeListst.txt. See [basic sample](../samples/basic/src/main.c) for a usage example.
 
 #### **Enable reference types feature**
 - **WAMR_BUILD_REF_TYPES**=1/0, default to disable if not set

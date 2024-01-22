@@ -54,10 +54,11 @@ BH_FREE(void *ptr);
 
 #if defined(BH_VPRINTF)
 #if defined(MSVC)
-__declspec(dllimport) int BH_VPRINTF(const char *format, va_list ap);
+__declspec(dllimport) int BH_VPRINTF(uint32_t log_level, const char *format,
+                                     va_list ap);
 #else
 int
-BH_VPRINTF(LogLevel log_level, const char *format, va_list ap);
+BH_VPRINTF(uint32_t log_level, const char *format, va_list ap);
 #endif
 #endif
 

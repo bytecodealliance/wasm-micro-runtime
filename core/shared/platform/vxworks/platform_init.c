@@ -25,7 +25,7 @@ os_printf(const char *format, ...)
 #ifndef BH_VPRINTF
     ret += vprintf(format, ap);
 #else
-    ret += BH_VPRINTF(format, ap);
+    ret += BH_VPRINTF(BH_LOG_LEVEL_DEBUG, format, ap);
 #endif
     va_end(ap);
 
