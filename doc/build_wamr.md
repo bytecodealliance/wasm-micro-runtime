@@ -82,6 +82,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 #### **Enable lib-pthread**
 - **WAMR_BUILD_LIB_PTHREAD**=1/0, default to disable if not set
 > Note: The dependent feature of lib pthread such as the `shared memory` and `thread manager` will be enabled automatically.
+
 > See [WAMR pthread library](./pthread_library.md) for more details.
 
 #### **Enable lib-pthread-semaphore**
@@ -91,6 +92,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 #### **Enable lib wasi-threads**
 - **WAMR_BUILD_LIB_WASI_THREADS**=1/0, default to disable if not set
 > Note: The dependent feature of lib wasi-threads such as the `shared memory` and `thread manager` will be enabled automatically.
+
 > See [wasi-threads](pthread_impls.md#wasi-threads-new) and [Introduction to WAMR WASI threads](https://bytecodealliance.github.io/wamr.dev/blog/introduction-to-wamr-wasi-threads) for more details.
 
 #### **Enable lib wasi-nn**
@@ -140,14 +142,17 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 - **WAMR_BUILD_MEMORY_PROFILING**=1/0, default to disable if not set
 > Note: if it is enabled, developer can use API `void wasm_runtime_dump_mem_consumption(wasm_exec_env_t exec_env)` to dump the memory consumption info.
 Currently we only profile the memory consumption of module, module_instance and exec_env, the memory consumed by other components such as `wasi-ctx`, `multi-module` and `thread-manager` are not included.
+
 > Also refer to [Memory usage estimation for a module](./memory_usage.md).
 
 #### **Enable performance profiling (Experiment)**
 - **WAMR_BUILD_PERF_PROFILING**=1/0, default to disable if not set
 > Note: if it is enabled, developer can use API `void wasm_runtime_dump_perf_profiling(wasm_module_inst_t module_inst)` to dump the performance consumption info. Currently we only profile the performance consumption of each WASM function.
-> Also refer to [Tune the performance of running wasm/aot file](./perf_tune.md).
 
 > The function name searching sequence is the same with dump call stack feature.
+
+> Also refer to [Tune the performance of running wasm/aot file](./perf_tune.md).
+
 
 #### **Enable the global heap**
 - **WAMR_BUILD_GLOBAL_HEAP_POOL**=1/0, default to disable if not set for all *iwasm* applications, except for the platforms Alios and Zephyr.
@@ -216,6 +221,7 @@ Currently we only profile the memory consumption of module, module_instance and 
 ### **Disable the writing linear memory base address to x86 GS segment register**
 - **WAMR_DISABLE_WRITE_GS_BASE**=1/0, default to enable if not set and supported by platform
 > Note: by default only platform [linux x86-64](https://github.com/bytecodealliance/wasm-micro-runtime/blob/5fb5119239220b0803e7045ca49b0a29fe65e70e/core/shared/platform/linux/platform_internal.h#L67) will enable this feature, for 32-bit platforms it's automatically disabled even when the flag is set to 0. In linux x86-64, writing the linear memory base address to x86 GS segment register may be used to speedup the linear memory access for LLVM AOT/JIT, when `--enable-segue=[<flags>]` option is added for `wamrc` or `iwasm`.
+
 > See [Enable segue optimization for wamrc when generating the aot file](./perf_tune.md#3-enable-segue-optimization-for-wamrc-when-generating-the-aot-file) for more details.
 
 ### **Enable running PGO(Profile-Guided Optimization) instrumented AOT file**
