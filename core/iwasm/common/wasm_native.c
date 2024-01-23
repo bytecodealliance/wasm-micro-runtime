@@ -194,7 +194,7 @@ wasm_native_resolve_symbol(const char *module_name, const char *field_name,
 {
     NativeSymbolsNode *node, *node_next;
     const char *signature = NULL;
-    void *func_ptr = NULL, *attachment;
+    void *func_ptr = NULL, *attachment = NULL;
 
     node = g_native_symbols_list;
     while (node) {

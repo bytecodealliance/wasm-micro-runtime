@@ -2013,7 +2013,8 @@ copy_buffer_to_iovec_app(wasm_module_inst_t module_inst, uint8 *buf_begin,
         }
 
         if (buf >= buf_begin + buf_size
-            || buf + data->buf_len < buf /* integer overflow */
+            /* integer overflow */
+            || data->buf_len > UINTPTR_MAX - (uintptr_t)buf
             || buf + data->buf_len > buf_begin + buf_size
             || size_to_copy == 0) {
             break;

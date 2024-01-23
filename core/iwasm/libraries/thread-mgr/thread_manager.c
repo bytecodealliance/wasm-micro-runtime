@@ -787,7 +787,7 @@ wasm_cluster_dup_c_api_imports(WASMModuleInstanceCommon *module_inst_dst,
 {
     /* workaround about passing instantiate-linking information */
     CApiFuncImport **new_c_api_func_imports = NULL;
-    CApiFuncImport *c_api_func_imports;
+    CApiFuncImport *c_api_func_imports = NULL;
     uint32 import_func_count = 0;
     uint32 size_in_bytes = 0;
 
