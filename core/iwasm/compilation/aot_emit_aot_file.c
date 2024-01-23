@@ -4389,13 +4389,10 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
         obj_data->target_info.feature_flags |= WASM_FEATURE_BULK_MEMORY;
     }
     if (comp_ctx->enable_thread_mgr) {
-        obj_data->target_info.feature_flags |= WASM_FEATURE_THREADS;
+        obj_data->target_info.feature_flags |= WASM_FEATURE_MULTI_THREAD;
     }
     if (comp_ctx->enable_ref_types) {
         obj_data->target_info.feature_flags |= WASM_FEATURE_REF_TYPES;
-    }
-    if (comp_ctx->enable_tail_call) {
-        obj_data->target_info.feature_flags |= WASM_FEATURE_TAIL_CALL;
     }
     if (comp_ctx->enable_gc) {
         obj_data->target_info.feature_flags |= WASM_FEATURE_GARBAGE_COLLECTION;
