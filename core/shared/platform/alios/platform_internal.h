@@ -46,7 +46,7 @@ typedef struct korp_cond {
 } korp_cond;
 
 #define os_printf printf
-#define os_vprintf(log_level, format, ap) vprintf(format, ap)
+#define os_vprintf vprintf
 
 /* clang-format off */
 /* math functions which are not provided by os*/

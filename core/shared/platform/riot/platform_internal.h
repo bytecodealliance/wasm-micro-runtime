@@ -56,7 +56,7 @@ typedef struct korp_cond {
 } korp_cond;
 
 #define os_printf printf
-#define os_vprintf(log_level, format, ap) vprintf(format, ap)
+#define os_vprintf vprintf
 
 /* The below types are used in platform_api_extension.h,
    we just define them to make the compiler happy */

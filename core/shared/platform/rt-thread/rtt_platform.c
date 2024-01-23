@@ -110,7 +110,7 @@ os_printf(const char *format, ...)
 }
 
 int
-os_vprintf(LogLevel log_level, const char *format, va_list ap)
+os_vprintf(const char *format, va_list ap)
 {
     rt_size_t len =
         vsnprintf(wamr_vprint_buf, sizeof(wamr_vprint_buf) - 1, format, ap);

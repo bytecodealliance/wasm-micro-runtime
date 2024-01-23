@@ -35,7 +35,7 @@ os_printf(const char *fmt, ...)
 }
 
 int
-os_vprintf(LogLevel log_level, const char *fmt, va_list ap)
+os_vprintf(const char *fmt, va_list ap)
 {
     return __android_log_vprint(ANDROID_LOG_INFO, "wasm_runtime::", fmt, ap);
 }
