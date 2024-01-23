@@ -421,32 +421,49 @@ if (WAMR_BUILD_STATIC_PGO EQUAL 1)
   add_definitions (-DWASM_ENABLE_STATIC_PGO=1)
   message ("     AOT static PGO enabled")
 endif ()
-if (WAMR_DISABLE_WRITE_GS_BASE EQUAL 1)
-  add_definitions (-DWASM_DISABLE_WRITE_GS_BASE=1)
-  message ("     Write linear memory base addr to x86 GS register disabled")
-elseif (WAMR_BUILD_TARGET STREQUAL "X86_64"
-        AND WAMR_BUILD_PLATFORM STREQUAL "linux")
-  set (TEST_WRGSBASE_SOURCE "${CMAKE_BINARY_DIR}/test_wrgsbase.c")
-  file (WRITE "${TEST_WRGSBASE_SOURCE}" "
-  #include <stdio.h>
-  #include <stdint.h>
-  int main() {
-      uint64_t value;
-      asm volatile (\"wrgsbase %0\" : : \"r\"(value));
-      printf(\"WRGSBASE instruction is available.\\n\");
-      return 0;
-  }")
-  # Try to compile and run the test program
-  try_run (TEST_WRGSBASE_RESULT
-    TEST_WRGSBASE_COMPILED
-    ${CMAKE_BINARY_DIR}/test_wrgsbase
-    SOURCES ${TEST_WRGSBASE_SOURCE}
-    CMAKE_FLAGS -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-  )
-  #message("${TEST_WRGSBASE_COMPILED}, ${TEST_WRGSBASE_RESULT}")
-  if (NOT TEST_WRGSBASE_RESULT EQUAL 0)
+if (WAMR_BUILD_TARGET STREQUAL "X86_64"
+    AND WAMR_BUILD_PLATFORM STREQUAL "linux")
+  if (WAMR_DISABLE_WRITE_GS_BASE EQUAL 1)
+    # disabled by user
+    set (DISABLE_WRITE_GS_BASE 1)
+  elseif (WAMR_DISABLE_WRITE_GS_BASE EQUAL 0)
+    # enabled by user
+    set (DISABLE_WRITE_GS_BASE 0)
+  elseif (CMAKE_CROSSCOMPILING)
+    # disabled in cross compilation environment
+    set (DISABLE_WRITE_GS_BASE 1)
+  else ()
+    # auto-detected by the compiler
+    set (TEST_WRGSBASE_SOURCE "${CMAKE_BINARY_DIR}/test_wrgsbase.c")
+    file (WRITE "${TEST_WRGSBASE_SOURCE}" "
+    #include <stdio.h>
+    #include <stdint.h>
+    int main() {
+        uint64_t value;
+        asm volatile (\"wrgsbase %0\" : : \"r\"(value));
+        printf(\"WRGSBASE instruction is available.\\n\");
+        return 0;
+    }")
+    # Try to compile and run the test program
+    try_run (TEST_WRGSBASE_RESULT
+      TEST_WRGSBASE_COMPILED
+      ${CMAKE_BINARY_DIR}/test_wrgsbase
+      SOURCES ${TEST_WRGSBASE_SOURCE}
+      CMAKE_FLAGS -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+    )
+    #message("${TEST_WRGSBASE_COMPILED}, ${TEST_WRGSBASE_RESULT}")
+    if (TEST_WRGSBASE_RESULT EQUAL 0)
+      set (DISABLE_WRITE_GS_BASE 0)
+    else ()
+      set (DISABLE_WRITE_GS_BASE 1)
+    endif ()
+  endif ()
+  if (DISABLE_WRITE_GS_BASE EQUAL 1)
     add_definitions (-DWASM_DISABLE_WRITE_GS_BASE=1)
     message ("     Write linear memory base addr to x86 GS register disabled")
+  else ()
+    add_definitions (-DWASM_DISABLE_WRITE_GS_BASE=0)
+    message ("     Write linear memory base addr to x86 GS register enabled")
   endif ()
 endif ()
 if (WAMR_CONFIGUABLE_BOUNDS_CHECKS EQUAL 1)
