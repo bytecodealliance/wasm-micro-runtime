@@ -266,5 +266,8 @@ os_icache_flush(void *start, size_t len)
 {
 #if defined(__APPLE__) || defined(__MACH__)
     sys_icache_invalidate(start, len);
+#else
+    (void)start;
+    (void)len;
 #endif
 }

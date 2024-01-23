@@ -473,12 +473,16 @@ snprintf_wrapper(wasm_exec_env_t exec_env, char *str, uint32 size,
 static int
 puts_wrapper(wasm_exec_env_t exec_env, const char *str)
 {
+    (void)exec_env;
+
     return os_printf("%s\n", str);
 }
 
 static int
 putchar_wrapper(wasm_exec_env_t exec_env, int c)
 {
+    (void)exec_env;
+
     os_printf("%c", c);
     return 1;
 }
@@ -585,6 +589,8 @@ strchr_wrapper(wasm_exec_env_t exec_env, const char *s, int32 c)
 static int32
 strcmp_wrapper(wasm_exec_env_t exec_env, const char *s1, const char *s2)
 {
+    (void)exec_env;
+
     /* s1 and s2 have been checked by runtime */
     return strcmp(s1, s2);
 }
@@ -641,6 +647,8 @@ strncpy_wrapper(wasm_exec_env_t exec_env, char *dst, const char *src,
 static uint32
 strlen_wrapper(wasm_exec_env_t exec_env, const char *s)
 {
+    (void)exec_env;
+
     /* s has been checked by runtime */
     return (uint32)strlen(s);
 }
@@ -693,6 +701,7 @@ free_wrapper(wasm_exec_env_t exec_env, void *ptr)
 static int32
 atoi_wrapper(wasm_exec_env_t exec_env, const char *s)
 {
+    (void)exec_env;
     /* s has been checked by runtime */
     return atoi(s);
 }
@@ -757,6 +766,8 @@ static int32
 strncasecmp_wrapper(wasm_exec_env_t exec_env, const char *s1, const char *s2,
                     uint32 n)
 {
+    (void)exec_env;
+
     /* s1 and s2 have been checked by runtime */
     return strncasecmp(s1, s2, n);
 }
@@ -764,6 +775,8 @@ strncasecmp_wrapper(wasm_exec_env_t exec_env, const char *s1, const char *s2,
 static uint32
 strspn_wrapper(wasm_exec_env_t exec_env, const char *s, const char *accept)
 {
+    (void)exec_env;
+
     /* s and accept have been checked by runtime */
     return (uint32)strspn(s, accept);
 }
@@ -771,6 +784,8 @@ strspn_wrapper(wasm_exec_env_t exec_env, const char *s, const char *accept)
 static uint32
 strcspn_wrapper(wasm_exec_env_t exec_env, const char *s, const char *reject)
 {
+    (void)exec_env;
+
     /* s and reject have been checked by runtime */
     return (uint32)strcspn(s, reject);
 }
@@ -787,60 +802,80 @@ strstr_wrapper(wasm_exec_env_t exec_env, const char *s, const char *find)
 static int32
 isupper_wrapper(wasm_exec_env_t exec_env, int32 c)
 {
+    (void)exec_env;
+
     return isupper(c);
 }
 
 static int32
 isalpha_wrapper(wasm_exec_env_t exec_env, int32 c)
 {
+    (void)exec_env;
+
     return isalpha(c);
 }
 
 static int32
 isspace_wrapper(wasm_exec_env_t exec_env, int32 c)
 {
+    (void)exec_env;
+
     return isspace(c);
 }
 
 static int32
 isgraph_wrapper(wasm_exec_env_t exec_env, int32 c)
 {
+    (void)exec_env;
+
     return isgraph(c);
 }
 
 static int32
 isprint_wrapper(wasm_exec_env_t exec_env, int32 c)
 {
+    (void)exec_env;
+
     return isprint(c);
 }
 
 static int32
 isdigit_wrapper(wasm_exec_env_t exec_env, int32 c)
 {
+    (void)exec_env;
+
     return isdigit(c);
 }
 
 static int32
 isxdigit_wrapper(wasm_exec_env_t exec_env, int32 c)
 {
+    (void)exec_env;
+
     return isxdigit(c);
 }
 
 static int32
 tolower_wrapper(wasm_exec_env_t exec_env, int32 c)
 {
+    (void)exec_env;
+
     return tolower(c);
 }
 
 static int32
 toupper_wrapper(wasm_exec_env_t exec_env, int32 c)
 {
+    (void)exec_env;
+
     return toupper(c);
 }
 
 static int32
 isalnum_wrapper(wasm_exec_env_t exec_env, int32 c)
 {
+    (void)exec_env;
+
     return isalnum(c);
 }
 
@@ -899,7 +934,10 @@ __cxa_allocate_exception_wrapper(wasm_exec_env_t exec_env, uint32 thrown_size)
 
 static void
 __cxa_begin_catch_wrapper(wasm_exec_env_t exec_env, void *exception_object)
-{}
+{
+    (void)exec_env;
+    (void)exception_object;
+}
 
 static void
 __cxa_throw_wrapper(wasm_exec_env_t exec_env, void *thrown_exception,
@@ -907,6 +945,10 @@ __cxa_throw_wrapper(wasm_exec_env_t exec_env, void *thrown_exception,
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     char buf[32];
+
+    (void)thrown_exception;
+    (void)tinfo;
+    (void)table_elem_idx;
 
     snprintf(buf, sizeof(buf), "%s", "exception thrown by stdc++");
     wasm_runtime_set_exception(module_inst, buf);
@@ -924,6 +966,8 @@ clock_gettime_wrapper(wasm_exec_env_t exec_env, uint32 clk_id,
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     uint64 time;
 
+    (void)clk_id;
+
     if (!validate_native_addr(ts_app, sizeof(struct timespec_app)))
         return (uint32)-1;
 
@@ -937,6 +981,8 @@ clock_gettime_wrapper(wasm_exec_env_t exec_env, uint32 clk_id,
 static uint64
 clock_wrapper(wasm_exec_env_t exec_env)
 {
+    (void)exec_env;
+
     /* Convert to nano seconds as CLOCKS_PER_SEC in wasi-sdk */
 
     return os_time_get_boot_us() * 1000;
