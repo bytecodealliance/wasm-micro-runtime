@@ -93,7 +93,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 - **WAMR_BUILD_LIB_WASI_THREADS**=1/0, default to disable if not set
 > Note: The dependent feature of lib wasi-threads such as the `shared memory` and `thread manager` will be enabled automatically.
 
-> See [wasi-threads](pthread_impls.md#wasi-threads-new) and [Introduction to WAMR WASI threads](https://bytecodealliance.github.io/wamr.dev/blog/introduction-to-wamr-wasi-threads) for more details.
+> See [wasi-threads](./pthread_impls.md#wasi-threads-new) and [Introduction to WAMR WASI threads](https://bytecodealliance.github.io/wamr.dev/blog/introduction-to-wamr-wasi-threads) for more details.
 
 #### **Enable lib wasi-nn**
 - **WAMR_BUILD_WASI_NN**=1/0, default to disable if not set
@@ -230,7 +230,7 @@ Currently we only profile the memory consumption of module, module_instance and 
 
 ### **Enable linux perf support**
 - **WAMR_BUILD_LINUX_PERF**=1/0, enable linux perf support to generate the flamegraph to analyze the performance of a wasm application, default to disable if not set
-> Note: See [Use linux-perf](./doc/perf_tune.md#7-use-linux-perf) for more details.
+> Note: See [Use linux-perf](./perf_tune.md#7-use-linux-perf) for more details.
 
 ### **Enable module instance context APIs**
 - **WAMR_BUILD_MODULE_INST_CONTEXT**=1/0, enable module instance context APIs which can set one or more contexts created by the embedder for a wasm module instance, default to enable if not set:
