@@ -15,23 +15,6 @@ get_pow(int x, int y);
 int32_t
 calculate_native(int32_t n, int32_t func1, int32_t func2);
 
-int
-my_vprintf(log_level_t log_level, const char *format, va_list ap)
-{
-    if (log_level == WASM_LOG_LEVEL_DEBUG) {
-        /* Print in blue */
-        char buf[200];
-        snprintf(buf, 200,
-                 "\x1b[34m"
-                 "%s"
-                 "\x1b[0m",
-                 format);
-        return vprintf(buf, ap);
-    }
-
-    return vprintf(format, ap);
-}
-
 void
 print_usage(void)
 {
