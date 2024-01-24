@@ -1017,9 +1017,13 @@ wasmtime_ssp_fd_fdstat_get(wasm_exec_env_t exec_env, struct fd_table *curfds,
                            __wasi_fd_t fd, __wasi_fdstat_t *buf)
 {
     struct fd_table *ft = curfds;
-    rwlock_rdlock(&ft->lock);
     struct fd_entry *fe;
-    __wasi_errno_t error = fd_table_get_entry(ft, fd, 0, 0, &fe);
+    __wasi_errno_t error;
+
+    (void)exec_env;
+
+    rwlock_rdlock(&ft->lock);
+    error = fd_table_get_entry(ft, fd, 0, 0, &fe);
     if (error != __WASI_ESUCCESS) {
         rwlock_unlock(&ft->lock);
         return error;
@@ -1071,9 +1075,13 @@ wasmtime_ssp_fd_fdstat_set_rights(wasm_exec_env_t exec_env,
                                   __wasi_rights_t fs_rights_inheriting)
 {
     struct fd_table *ft = curfds;
-    rwlock_wrlock(&ft->lock);
     struct fd_entry *fe;
-    __wasi_errno_t error =
+    __wasi_errno_t error;
+
+    (void)exec_env;
+
+    rwlock_wrlock(&ft->lock);
+    error =
         fd_table_get_entry(ft, fd, fs_rights_base, fs_rights_inheriting, &fe);
     if (error != 0) {
         rwlock_unlock(&ft->lock);
@@ -2980,7 +2988,9 @@ argv_environ_init(struct argv_environ_values *argv_environ, char *argv_buf,
 
 void
 argv_environ_destroy(struct argv_environ_values *argv_environ)
-{}
+{
+    (void)argv_environ;
+}
 
 void
 fd_table_destroy(struct fd_table *ft)
