@@ -1179,6 +1179,10 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
                           "failed to allocate bitmaps");
             goto fail;
         }
+        for (i = 0; i < module->mem_init_data_count; i++) {
+            if (!module->mem_init_data_list[i]->is_passive)
+                bh_bitmap_set_bit(common->data_dropped, i);
+        }
     }
 #endif
 #if WASM_ENABLE_REF_TYPES != 0
@@ -1189,6 +1193,10 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
             set_error_buf(error_buf, error_buf_size,
                           "failed to allocate bitmaps");
             goto fail;
+        }
+        for (i = 0; i < module->table_init_data_count; i++) {
+            if (wasm_elem_is_active(module->table_init_data_list[i]->mode))
+                bh_bitmap_set_bit(common->elem_dropped, i);
         }
     }
 #endif
@@ -2621,6 +2629,7 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
 {
     AOTTableInstance *tbl_inst;
     AOTTableInitData *tbl_seg;
+    uint32 *tbl_seg_elems = NULL, tbl_seg_len = 0;
     const AOTModule *module = (AOTModule *)module_inst->module;
 
     tbl_inst = module_inst->tables[tbl_idx];
@@ -2629,7 +2638,15 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
     tbl_seg = module->table_init_data_list[tbl_seg_idx];
     bh_assert(tbl_seg);
 
-    if (offset_len_out_of_bounds(src_offset, length, tbl_seg->func_index_count)
+    if (!bh_bitmap_get_bit(
+            ((AOTModuleInstanceExtra *)module_inst->e)->common.elem_dropped,
+            tbl_seg_idx)) {
+        /* table segment isn't dropped */
+        tbl_seg_elems = tbl_seg->func_indexes;
+        tbl_seg_len = tbl_seg->func_index_count;
+    }
+
+    if (offset_len_out_of_bounds(src_offset, length, tbl_seg_len)
         || offset_len_out_of_bounds(dst_offset, length, tbl_inst->cur_size)) {
         aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
@@ -2639,22 +2656,10 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
         return;
     }
 
-    if (bh_bitmap_get_bit(
-            ((AOTModuleInstanceExtra *)module_inst->e)->common.elem_dropped,
-            tbl_seg_idx)) {
-        aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
-        return;
-    }
-
-    if (!wasm_elem_is_passive(tbl_seg->mode)) {
-        aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
-        return;
-    }
-
     bh_memcpy_s((uint8 *)tbl_inst + offsetof(AOTTableInstance, elems)
                     + dst_offset * sizeof(uint32),
                 (tbl_inst->cur_size - dst_offset) * sizeof(uint32),
-                tbl_seg->func_indexes + src_offset, length * sizeof(uint32));
+                tbl_seg_elems + src_offset, length * sizeof(uint32));
 }
 
 void
