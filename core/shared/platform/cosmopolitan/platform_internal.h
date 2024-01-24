@@ -55,6 +55,7 @@ typedef pthread_t korp_tid;
 typedef pthread_mutex_t korp_mutex;
 typedef pthread_cond_t korp_cond;
 typedef pthread_t korp_thread;
+typedef pthread_rwlock_t korp_rwlock;
 typedef sem_t korp_sem;
 
 #define OS_THREAD_MUTEX_INITIALIZER PTHREAD_MUTEX_INITIALIZER
@@ -66,6 +67,12 @@ typedef sem_t korp_sem;
 typedef int os_file_handle;
 typedef DIR *os_dir_stream;
 typedef int os_raw_file_handle;
+
+static inline os_file_handle
+os_get_invalid_handle()
+{
+    return -1;
+}
 
 #if WASM_DISABLE_WRITE_GS_BASE == 0
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
