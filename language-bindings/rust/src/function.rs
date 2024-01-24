@@ -61,7 +61,7 @@ impl Function {
             wasm_valkind_enum_WASM_I64 => Ok(WasmValue::decode_to_i64(result)),
             wasm_valkind_enum_WASM_F32 => Ok(WasmValue::decode_to_f32(result)),
             wasm_valkind_enum_WASM_F64 => Ok(WasmValue::decode_to_f64(result)),
-            _ => Err(RuntimeError::InvalidResult),
+            _ => Err(RuntimeError::NotImplemented),
         }
     }
 
@@ -106,7 +106,9 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-    fn test_func_in_wat() {
+    fn test_func_in_wasm32_unknown() {
+        let _ = Runtime::new().expect("runtime init failed");
+
         // (module
         //   (func (export "add") (param i32 i32) (result i32)
         //     (local.get 0)
@@ -144,12 +146,16 @@ mod tests {
 
     #[test]
     fn test_func_in_wasm32_wasi() {
+        let _ = Runtime::new().expect("runtime init failed");
+
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("resources/test");
         d.push("hello_wasm32-wasi.wasm");
         let module = Module::from_file(d.as_path());
         assert_eq!(module.is_ok(), true);
         let module = module.unwrap();
+
+        module.set_wasi_arg_pre_open_path(vec![String::from(".")], vec![]);
 
         let instance = Instance::new(&module, 1024 * 64);
         assert_eq!(instance.is_ok(), true);

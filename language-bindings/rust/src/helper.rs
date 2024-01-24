@@ -26,6 +26,7 @@ pub fn exception_to_string(raw_exception: *const c_char) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ffi::CString;
 
     #[test]
     fn test_error_buf_empty() {
@@ -49,9 +50,11 @@ mod tests {
 
     #[test]
     fn test_exception_to_string() {
-        let exception = "test exception";
-        let exception_c = exception.as_ptr() as *const c_char;
-        let exception_str = exception_to_string(exception_c);
+        let exception = "it is an exception";
+
+        let exception_cstr = CString::new(exception).expect("CString::new failed");
+        let exception_str = exception_to_string(exception_cstr.as_ptr());
+        assert_eq!(exception_str.len(), exception.len());
         assert_eq!(exception_str, exception);
     }
 }

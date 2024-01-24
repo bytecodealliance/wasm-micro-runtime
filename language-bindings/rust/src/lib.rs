@@ -26,14 +26,18 @@
 //!
 //! ### Core concepts
 //!
-//! - Runtime.
-//! - Module.
-//! - Instance.
-//! - Function.
+//! - *Runtime*. It is the environment that hosts all the wasm modules. Each process has one runtime instance.
+//! - *Module*. It is the compiled .wasm. It can be loaded into runtime and instantiated into instance.
+//! - *Instance*. It is the running instance of a module. It can be used to call export functions.
+//! - *Function*. It is the exported function.
 //!
 //! ### WASI concepts
 //!
-//! - *WASIArgs*.
+//! - *WASIArgs*. It is used to configure the WASI environment.
+//!   - *pre-open*.
+//!   - *environment variable*.
+//!   - *allowed address*.
+//!   - *allowed namespace*.
 //!
 //! ### WAMR private concepts
 //!
@@ -47,21 +51,21 @@
 //!
 //! ## Examples
 //!
-//! Here are a few examples showing how to use WAMR Rust SDK.
-//!
 //! ### Example: to run a wasm32-wasi .wasm
 //!
-//! Say there is a *test.wasm* in
+//! *wasm32-wasi* is a most common target for Wasm. It means that the .wasm is compiled with
+//! `cargo build --target wasm32-wasi` or `wasi-sdk/bin/clang --target wasm32-wasi`.
+//!
+//! Say there is a *test.wasm* includes a function named *add*.
 //!
 //! ``` wat
-//! (module
 //!   (func (export "add") (param i32 i32) (result i32)
 //!     (local.get 0)
 //!     (local.get 1)
 //!     (i32.add)
 //!   )
-//! )
 //! ```
+//! The rust code to call the *add* function is like this:
 //!
 //! ``` rust
 //! use wamr_rust_sdk::*;
@@ -70,6 +74,7 @@
 //!   let runtime = Runtime::new()?;
 //!
 //!   let module = Module::from_file(&runtime, "test.wasm")?;
+//!   module.set_wasi_arg_pre_open_path(vec![String::from(".")], vec![]);
 //!
 //!   let stack_size = 1024;
 //!   let instance = Instance::new(&module, stack_size)?;
@@ -105,6 +110,8 @@
 //! )
 //! ```
 //!
+//! The rust code to call the *add* function is like this:
+//!
 //! ``` rust
 //! use wamr_rust_sdk::*;
 //!
@@ -116,9 +123,6 @@
 //!   runtime.register_native_functions(&native_functions);
 //!
 //!   let module = Module::from_file(&runtime, "test.wasm")?;
-//!
-//!   let wasi_args = WASIArgs::default();
-//!   module.set_wasi_args(wasi_args);
 //!
 //!   let stack_size = 1024;
 //!   let instance = Instance::new(&module, stack_size)?;
@@ -139,14 +143,13 @@ pub mod module;
 pub mod runtime;
 pub mod value;
 
-/// A runtime error.
+/// all kinds of exceptions raised by WAMR
 #[derive(Debug)]
 pub enum RuntimeError {
-    /// If a functionality hasn't been implemented yet
     NotImplemented,
-    /// Runtime initialization error
+    /// Runtime initialization error.
     InitializationFailure,
-    /// .wasm operation error
+    /// file operation error. usually while loading(compilation) a .wasm
     WasmFileFSError(std::io::Error),
     /// A compilation error. usually means that the .wasm file is invalid
     CompilationError(String),
@@ -154,6 +157,6 @@ pub enum RuntimeError {
     InstantiationFailure(String),
     /// Error during execute wasm functions
     ExecutionError(String),
+    /// usually returns by `find_export_func()`
     FunctionNotFound,
-    InvalidResult,
 }

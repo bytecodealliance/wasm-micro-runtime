@@ -4,6 +4,8 @@
  */
 
 //! This is the main entry point for executing WebAssembly modules.
+//! Every process should have only one instance of this runtime by call
+//! `Runtime::new()` or `Runtime::builder().build()` once.
 
 use std::option::Option;
 use std::sync::{Arc, OnceLock};
@@ -16,11 +18,13 @@ use wamr_sys::{
 
 use crate::RuntimeError;
 
+/// The builder of `Runtime`. It is used to configure the runtime.
 pub struct RuntimeBuilder {
     args: RuntimeInitArgs,
 }
 
 impl Default for RuntimeBuilder {
+    /// Default configuration of `RuntimeBuilder` uses system allocator mode
     fn default() -> Self {
         let builder = RuntimeBuilder {
             args: RuntimeInitArgs::default(),
@@ -29,43 +33,37 @@ impl Default for RuntimeBuilder {
     }
 }
 
-pub enum MemoryAllocationType {
-    //TODO: review this two options
-    // // a host managed memory area
-    // AllocWithPool(Vec<u8>),
-    // // a set of host managed memory managed functions
-    // AllocWithAllocator,
-    AllocWithSystemAllocator,
-}
-
-pub enum RunningMode {
-    FastJIT,
-    Interpreter,
-    LLVMJIT,
-}
-
 impl RuntimeBuilder {
+    /// system allocator mode
+    /// allocate memory from system allocator for runtime consumed memory
     pub fn use_system_allocator(mut self) -> RuntimeBuilder {
         self.args.mem_alloc_type = mem_alloc_type_t_Alloc_With_System_Allocator;
         self
     }
 
+    //TODO: feature
     pub fn set_max_threads(mut self, num: u32) -> RuntimeBuilder {
         self.args.max_thread_num = num;
         self
     }
 
+    //TODO: feature
+    /// use interpreter mode
     pub fn run_as_interpreter(mut self) -> RuntimeBuilder {
         self.args.running_mode = RunningMode_Mode_Interp;
         self
     }
 
+    //TODO: feature
+    /// use fast-jit mode
     pub fn run_as_fast_jit(mut self, code_cache_size: u32) -> RuntimeBuilder {
         self.args.running_mode = RunningMode_Mode_Fast_JIT;
         self.args.fast_jit_code_cache_size = code_cache_size;
         self
     }
 
+    //TODO: feature
+    /// use llvm-jit mode
     pub fn run_as_llvm_jit(mut self, opt_level: u32, size_level: u32) -> RuntimeBuilder {
         self.args.running_mode = RunningMode_Mode_LLVM_JIT;
         self.args.llvm_jit_opt_level = opt_level;
@@ -73,6 +71,7 @@ impl RuntimeBuilder {
         self
     }
 
+    /// create a new `Runtime` instance with the configuration
     pub fn build(mut self) -> Result<Arc<Runtime>, RuntimeError> {
         let runtime = SINGLETON_RUNTIME.get_or_init(|| {
             let ret;
@@ -103,6 +102,9 @@ impl Runtime {
         RuntimeBuilder::default()
     }
 
+    /// create a new `Runtime` instance with the default configuration which includes:
+    /// - system allocator mode
+    /// - the default running mode
     pub fn new() -> Result<Arc<Self>, RuntimeError> {
         let runtime = SINGLETON_RUNTIME.get_or_init(|| {
             let ret;

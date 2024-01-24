@@ -6,8 +6,11 @@
 //! .wasm compiled, in-memory representation
 
 use crate::{helper::error_buf_to_string, helper::DEFAULT_ERROR_BUF_SIZE, RuntimeError};
-use std::{fs::File, io::Read, path::Path, string::String};
-use wamr_sys::{wasm_module_t, wasm_runtime_load, wasm_runtime_unload};
+use std::{ffi::CString, fs::File, io::Read, path::Path, ptr, string::String, vec::Vec};
+use wamr_sys::{
+    wasm_module_t, wasm_runtime_load, wasm_runtime_set_wasi_addr_pool, wasm_runtime_set_wasi_args,
+    wasm_runtime_set_wasi_ns_lookup_pool, wasm_runtime_unload,
+};
 
 #[derive(Debug)]
 pub struct Module {
@@ -61,6 +64,108 @@ impl Module {
         Ok(Module { module, content })
     }
 
+    //TODO: pay attention to ownership of strings
+    pub fn set_wasi_arg_pre_open_path(&self, real_paths: Vec<String>, mapped_paths: Vec<String>) {
+        let real_paths_ptr: *mut *const i8 = if real_paths.is_empty() {
+            ptr::null_mut()
+        } else {
+            real_paths
+                .iter()
+                .map(|s| CString::new(s.as_bytes()).unwrap())
+                .collect::<Vec<CString>>()
+                .as_ptr() as *mut *const i8
+        };
+
+        let mapped_paths_ptr: *mut *const i8 = if mapped_paths.is_empty() {
+            ptr::null_mut()
+        } else {
+            mapped_paths
+                .iter()
+                .map(|s| CString::new(s.as_bytes()).unwrap())
+                .collect::<Vec<CString>>()
+                .as_ptr() as *mut *const i8
+        };
+
+        unsafe {
+            wasm_runtime_set_wasi_args(
+                self.get_inner_module(),
+                real_paths_ptr,
+                real_paths.len() as u32,
+                mapped_paths_ptr,
+                mapped_paths.len() as u32,
+                ptr::null_mut(),
+                0,
+                ptr::null_mut(),
+                0,
+            );
+        }
+    }
+
+    pub fn set_wasi_arg_env_vars(&self, envs: Vec<String>) {
+        let envs_ptr = if envs.is_empty() {
+            ptr::null_mut()
+        } else {
+            envs.iter()
+                .map(|s| CString::new(s.as_bytes()).unwrap())
+                .collect::<Vec<CString>>()
+                .as_ptr() as *mut *const i8
+        };
+
+        unsafe {
+            wasm_runtime_set_wasi_args(
+                self.get_inner_module(),
+                ptr::null_mut(),
+                0,
+                ptr::null_mut(),
+                0,
+                envs_ptr,
+                envs.len() as u32,
+                ptr::null_mut(),
+                0,
+            );
+        }
+    }
+
+    pub fn set_wasi_arg_allowed_namespaces(&self, namespaces: Vec<String>) {
+        let ns_pool_ptr = if namespaces.is_empty() {
+            ptr::null_mut()
+        } else {
+            namespaces
+                .iter()
+                .map(|s| CString::new(s.as_bytes()).unwrap())
+                .collect::<Vec<CString>>()
+                .as_ptr() as *mut *const i8
+        };
+
+        unsafe {
+            wasm_runtime_set_wasi_ns_lookup_pool(
+                self.get_inner_module(),
+                ns_pool_ptr,
+                namespaces.len() as u32,
+            );
+        }
+    }
+
+    pub fn set_wasi_arg_allowed_address(&self, addresses: Vec<String>) {
+        let addr_pool_ptr = if addresses.is_empty() {
+            ptr::null_mut()
+        } else {
+            addresses
+                .iter()
+                .map(|s| CString::new(s.as_bytes()).unwrap())
+                .collect::<Vec<CString>>()
+                .as_ptr() as *mut *const i8
+        };
+
+        unsafe {
+            wasm_runtime_set_wasi_addr_pool(
+                self.get_inner_module(),
+                addr_pool_ptr,
+                addresses.len() as u32,
+            );
+        }
+    }
+
     pub fn get_inner_module(&self) -> wasm_module_t {
         self.module
     }
@@ -77,6 +182,7 @@ impl Drop for Module {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runtime::Runtime;
     use std::path::PathBuf;
 
     #[test]
@@ -87,6 +193,8 @@ mod tests {
 
     #[test]
     fn test_module_from_buf() {
+        let _ = Runtime::new().expect("runtime init failed");
+
         // (module
         //   (func (export "add") (param i32 i32) (result i32)
         //     (local.get 0)
@@ -107,10 +215,40 @@ mod tests {
 
     #[test]
     fn test_module_from_file() {
+        let _ = Runtime::new().expect("runtime init failed");
+
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("resources/test");
         d.push("hello_wasm32-wasi.wasm");
         let module = Module::from_file(d.as_path());
         assert_eq!(module.is_ok(), true);
+    }
+
+    #[test]
+    fn test_wasi_args() {
+        let _ = Runtime::new().expect("runtime init failed");
+
+        // (module
+        //   (func (export "add") (param i32 i32) (result i32)
+        //     (local.get 0)
+        //     (local.get 1)
+        //     (i32.add)
+        //   )
+        // )
+        let binary = vec![
+            0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x07, 0x01, 0x60, 0x02, 0x7f,
+            0x7f, 0x01, 0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x07, 0x01, 0x03, 0x61, 0x64, 0x64,
+            0x00, 0x00, 0x0a, 0x09, 0x01, 0x07, 0x00, 0x20, 0x00, 0x20, 0x01, 0x6a, 0x0b,
+        ];
+        let mut binary = binary.into_iter().map(|c| c as u8).collect::<Vec<u8>>();
+
+        let module = Module::from_buf(&mut binary);
+        assert_eq!(module.is_ok(), true);
+        let module = module.unwrap();
+
+        module.set_wasi_arg_pre_open_path(vec![String::from(".")], vec![]);
+        module.set_wasi_arg_env_vars(vec![]);
+        module.set_wasi_arg_allowed_address(vec![]);
+        module.set_wasi_arg_allowed_namespaces(vec![]);
     }
 }

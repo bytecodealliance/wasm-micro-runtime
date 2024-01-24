@@ -88,6 +88,8 @@ mod tests {
 
     #[test]
     fn test_instance_new() {
+        let _ = Runtime::new().expect("runtime init failed");
+
         // (module
         //   (func (export "add") (param i32 i32) (result i32)
         //     (local.get 0)
