@@ -62,6 +62,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 #### **Enable Multi-Module feature**
 
 - **WAMR_BUILD_MULTI_MODULE**=1/0, default to disable if not set
+> Note: See [Multiple Modules as Dependencies](./multi_module.md) for more details.
 
 #### **Enable WASM mini loader**
 
@@ -82,6 +83,8 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 - **WAMR_BUILD_LIB_PTHREAD**=1/0, default to disable if not set
 > Note: The dependent feature of lib pthread such as the `shared memory` and `thread manager` will be enabled automatically.
 
+> See [WAMR pthread library](./pthread_library.md) for more details.
+
 #### **Enable lib-pthread-semaphore**
 - **WAMR_BUILD_LIB_PTHREAD_SEMAPHORE**=1/0, default to disable if not set
 > Note: This feature depends on `lib-pthread`, it will be enabled automatically if this feature is enabled.
@@ -90,8 +93,11 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 - **WAMR_BUILD_LIB_WASI_THREADS**=1/0, default to disable if not set
 > Note: The dependent feature of lib wasi-threads such as the `shared memory` and `thread manager` will be enabled automatically.
 
+> See [wasi-threads](./pthread_impls.md#wasi-threads-new) and [Introduction to WAMR WASI threads](https://bytecodealliance.github.io/wamr.dev/blog/introduction-to-wamr-wasi-threads) for more details.
+
 #### **Enable lib wasi-nn**
 - **WAMR_BUILD_WASI_NN**=1/0, default to disable if not set
+> Note: See [WASI-NN](../core/iwasm/libraries/wasi-nn) for more details.
 
 #### **Enable lib wasi-nn GPU mode**
 - **WAMR_BUILD_WASI_NN_ENABLE_GPU**=1/0, default to disable if not set
@@ -137,11 +143,16 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 > Note: if it is enabled, developer can use API `void wasm_runtime_dump_mem_consumption(wasm_exec_env_t exec_env)` to dump the memory consumption info.
 Currently we only profile the memory consumption of module, module_instance and exec_env, the memory consumed by other components such as `wasi-ctx`, `multi-module` and `thread-manager` are not included.
 
+> Also refer to [Memory usage estimation for a module](./memory_usage.md).
+
 #### **Enable performance profiling (Experiment)**
 - **WAMR_BUILD_PERF_PROFILING**=1/0, default to disable if not set
 > Note: if it is enabled, developer can use API `void wasm_runtime_dump_perf_profiling(wasm_module_inst_t module_inst)` to dump the performance consumption info. Currently we only profile the performance consumption of each WASM function.
 
 > The function name searching sequence is the same with dump call stack feature.
+
+> Also refer to [Tune the performance of running wasm/aot file](./perf_tune.md).
+
 
 #### **Enable the global heap**
 - **WAMR_BUILD_GLOBAL_HEAP_POOL**=1/0, default to disable if not set for all *iwasm* applications, except for the platforms Alios and Zephyr.
@@ -192,7 +203,7 @@ Currently we only profile the memory consumption of module, module_instance and 
 
 #### **Enable source debugging features**
 - **WAMR_BUILD_DEBUG_INTERP**=1/0, default to 0 if not set
-> Note: There are some other setup required by source debugging, please refer to [source_debugging.md](./source_debugging.md) for more details.
+> Note: There are some other setup required by source debugging, please refer to [source_debugging.md](./source_debugging.md) and [WAMR source debugging basic](https://bytecodealliance.github.io/wamr.dev/blog/wamr-source-debugging-basic) for more details.
 
 #### **Enable load wasm custom sections**
 - **WAMR_BUILD_LOAD_CUSTOM_SECTION**=1/0, default to disable if not set
@@ -207,12 +218,34 @@ Currently we only profile the memory consumption of module, module_instance and 
 - **WAMR_BUILD_STACK_GUARD_SIZE**=n, default to N/A if not set.
 > Note: By default, the stack guard size is 1K (1024) or 24K (if uvwasi enabled).
 
-### **Disable the writing linear memory base address to x86 GS segment register
+### **Disable the writing linear memory base address to x86 GS segment register**
 - **WAMR_DISABLE_WRITE_GS_BASE**=1/0, default to enable if not set and supported by platform
 > Note: by default only platform [linux x86-64](https://github.com/bytecodealliance/wasm-micro-runtime/blob/5fb5119239220b0803e7045ca49b0a29fe65e70e/core/shared/platform/linux/platform_internal.h#L67) will enable this feature, for 32-bit platforms it's automatically disabled even when the flag is set to 0. In linux x86-64, writing the linear memory base address to x86 GS segment register may be used to speedup the linear memory access for LLVM AOT/JIT, when `--enable-segue=[<flags>]` option is added for `wamrc` or `iwasm`.
 
+> See [Enable segue optimization for wamrc when generating the aot file](./perf_tune.md#3-enable-segue-optimization-for-wamrc-when-generating-the-aot-file) for more details.
+
 ### **Enable running PGO(Profile-Guided Optimization) instrumented AOT file**
 - **WAMR_BUILD_STATIC_PGO**=1/0, default to disable if not set
+> Note: See [Use the AOT static PGO method](./perf_tune.md#5-use-the-aot-static-pgo-method) for more details.
+
+### **Enable linux perf support**
+- **WAMR_BUILD_LINUX_PERF**=1/0, enable linux perf support to generate the flamegraph to analyze the performance of a wasm application, default to disable if not set
+> Note: See [Use linux-perf](./perf_tune.md#7-use-linux-perf) for more details.
+
+### **Enable module instance context APIs**
+- **WAMR_BUILD_MODULE_INST_CONTEXT**=1/0, enable module instance context APIs which can set one or more contexts created by the embedder for a wasm module instance, default to enable if not set:
+```C
+    wasm_runtime_create_context_key
+    wasm_runtime_destroy_context_key
+    wasm_runtime_set_context
+    wasm_runtime_set_context_spread
+    wasm_runtime_get_context
+```
+> Note: See [wasm_export.h](../core/iwasm/include/wasm_export.h) for more details.
+
+### **Enable quick AOT/JTI entries**
+- **WAMR_BUILD_QUICK_AOT_ENTRY**=1/0, enable registering quick call entries to speedup the aot/jit func call process, default to enable if not set
+> Note: See [Refine callings to AOT/JIT functions from host native](./perf_tune.md#83-refine-callings-to-aotjit-functions-from-host-native) for more details.
 
 **Combination of configurations:**
 
