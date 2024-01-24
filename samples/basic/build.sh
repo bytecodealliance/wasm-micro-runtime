@@ -21,7 +21,7 @@ echo "#####################build basic project"
 cd ${CURR_DIR}
 mkdir -p cmake_build
 cd cmake_build
-cmake .. -DCMAKE_BUILD_TYPE=Debug
+cmake .. -DCMAKE_BUILD_TYPE=Debug -DWAMR_BH_VPRINTF=my_vprintf -DWAMR_BH_LOG=my_log
 make -j ${nproc}
 if [ $? != 0 ];then
     echo "BUILD_FAIL basic exit as $?\n"

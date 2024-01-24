@@ -17,6 +17,7 @@ bh_log_set_verbose_level(uint32 level)
     log_verbose_level = level;
 }
 
+#ifndef BH_LOG
 void
 bh_log(LogLevel log_level, const char *file, int line, const char *fmt, ...)
 {
@@ -56,6 +57,7 @@ bh_log(LogLevel log_level, const char *file, int line, const char *fmt, ...)
 
     os_printf("\n");
 }
+#endif
 
 static uint32 last_time_ms = 0;
 static uint32 total_time_ms = 0;

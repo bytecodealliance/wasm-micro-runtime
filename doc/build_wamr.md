@@ -190,7 +190,17 @@ Currently we only profile the memory consumption of module, module_instance and 
 > }
 > ```
 >
-> and then use `cmake -DWAMR_BH_VPRINTF=my_vprintf ..` to pass the callback function, or add `BH_VPRINTF=my_vprintf` macro for the compiler, e.g. add line `add_defintions(-DBH_VPRINTF=my_vprintf)` in CMakeListst.txt.
+> and then use `cmake -DWAMR_BH_VPRINTF=my_vprintf ..` to pass the callback function, or add `BH_VPRINTF=my_vprintf` macro for the compiler, e.g. add line `add_defintions(-DBH_VPRINTF=my_vprintf)` in CMakeListst.txt. See [basic sample](../samples/basic/src/main.c) for a usage example.
+
+#### **WAMR_BH_LOG**=<log_callback>, default to disable if not set
+> Note: if the log_callback function is provided by the developer, WAMR logs are redirected to such callback. For example:
+> ```C
+> void my_log(uint32 log_level, const char *file, int line, const char *fmt, ...)
+> {
+>     /* Usage of custom logger */
+> }
+> ```
+> See [basic sample](../samples/basic/src/main.c) for a usage example.
 
 #### **Enable reference types feature**
 - **WAMR_BUILD_REF_TYPES**=1/0, default to disable if not set
