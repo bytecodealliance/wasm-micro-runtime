@@ -447,12 +447,12 @@ make
 ## Cosmopolitan Libc
 Currently, only x86_64 architecture with interpreter modes is supported.
 
-Clone the Cosmopolitan Libc. Setup `cosmocc` as described in [Getting Started](https://github.com/jart/cosmopolitan/#getting-started) being sure to get it into `PATH`.
+Setup `cosmocc` as described in [Getting Started](https://github.com/jart/cosmopolitan/#getting-started) being sure to get its `bin` directory into `PATH`.
 
 Build iwasm
 ``` Bash
-export CC=cosmocc
-export CXX=cosmoc++
+export CC=x86_64-unknown-cosmo-cc
+export CXX=x86_64-unknown-cosmo-c++
 rm -rf build
 mkdir build
 cmake -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=1 -B build
