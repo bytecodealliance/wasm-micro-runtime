@@ -5,9 +5,7 @@
 
 //! .wasm compiled, in-memory representation
 
-use crate::{
-    helper::error_buf_to_string, helper::DEFAULT_ERROR_BUF_SIZE, runtime::Runtime, RuntimeError,
-};
+use crate::{helper::error_buf_to_string, helper::DEFAULT_ERROR_BUF_SIZE, RuntimeError};
 use std::{fs::File, io::Read, path::Path, string::String};
 use wamr_sys::{wasm_module_t, wasm_runtime_load, wasm_runtime_unload};
 
@@ -20,7 +18,7 @@ pub struct Module {
 
 impl Module {
     /// compile a module with the given wasm file path
-    pub fn from_file(_runtime: &Runtime, wasm_file: &Path) -> Result<Self, RuntimeError> {
+    pub fn from_file(wasm_file: &Path) -> Result<Self, RuntimeError> {
         let mut wasm_file = match File::open(wasm_file) {
             Ok(f) => f,
             Err(e) => return Err(RuntimeError::WasmFileFSError(e)),
@@ -28,12 +26,12 @@ impl Module {
 
         let mut binary: Vec<u8> = Vec::new();
         match wasm_file.read_to_end(&mut binary) {
-            Ok(_) => Self::from_buf(_runtime, &binary),
+            Ok(_) => Self::from_buf(&binary),
             Err(e) => Err(RuntimeError::WasmFileFSError(e)),
         }
     }
 
-    pub fn from_buf(_runtime: &Runtime, buf: &Vec<u8>) -> Result<Self, RuntimeError> {
+    pub fn from_buf(buf: &Vec<u8>) -> Result<Self, RuntimeError> {
         let mut content = buf.clone();
         let mut error_buf = [0i8; DEFAULT_ERROR_BUF_SIZE];
         let module = unsafe {
@@ -83,11 +81,7 @@ mod tests {
 
     #[test]
     fn test_module_not_exist() {
-        let runtime = Runtime::new();
-        assert_eq!(runtime.is_ok(), true);
-
-        let runtime = runtime.unwrap();
-        let module = Module::from_file(&runtime, Path::new("not_exist"));
+        let module = Module::from_file(Path::new("not_exist"));
         assert_eq!(module.is_err(), true);
     }
 
@@ -107,24 +101,16 @@ mod tests {
         ];
         let mut binary = binary.into_iter().map(|c| c as u8).collect::<Vec<u8>>();
 
-        let runtime = Runtime::new();
-        assert_eq!(runtime.is_ok(), true);
-
-        let runtime = runtime.unwrap();
-        let module = Module::from_buf(&runtime, &mut binary);
+        let module = Module::from_buf(&mut binary);
         assert_eq!(module.is_ok(), true);
     }
 
     #[test]
     fn test_module_from_file() {
-        let runtime = Runtime::new();
-        assert_eq!(runtime.is_ok(), true);
-        let runtime = runtime.unwrap();
-
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("resources/test");
         d.push("hello_wasm32-wasi.wasm");
-        let module = Module::from_file(&runtime, d.as_path());
+        let module = Module::from_file(d.as_path());
         assert_eq!(module.is_ok(), true);
     }
 }

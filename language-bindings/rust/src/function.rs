@@ -121,11 +121,7 @@ mod tests {
         ];
         let mut binary = binary.into_iter().map(|c| c as u8).collect::<Vec<u8>>();
 
-        let runtime = Runtime::builder().run_as_interpreter().build();
-        assert_eq!(runtime.is_ok(), true);
-        let runtime = runtime.unwrap();
-
-        let module = Module::from_buf(&runtime, &mut binary);
+        let module = Module::from_buf(&mut binary);
         assert_eq!(module.is_ok(), true);
         let module = module.unwrap();
 
@@ -148,14 +144,10 @@ mod tests {
 
     #[test]
     fn test_func_in_wasm32_wasi() {
-        let runtime = Runtime::new();
-        assert_eq!(runtime.is_ok(), true);
-        let runtime = runtime.unwrap();
-
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("resources/test");
         d.push("hello_wasm32-wasi.wasm");
-        let module = Module::from_file(&runtime, d.as_path());
+        let module = Module::from_file(d.as_path());
         assert_eq!(module.is_ok(), true);
         let module = module.unwrap();
 

@@ -68,7 +68,9 @@
 //!
 //! fn main() -> Result<> {
 //!   let runtime = Runtime::new()?;
+//!
 //!   let module = Module::from_file(&runtime, "test.wasm")?;
+//!
 //!   let stack_size = 1024;
 //!   let instance = Instance::new(&module, stack_size)?;
 //!   let wasm_func = instance.find_export_func("add")?;

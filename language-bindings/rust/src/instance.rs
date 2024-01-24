@@ -102,11 +102,7 @@ mod tests {
         ];
         let mut binary = binary.into_iter().map(|c| c as u8).collect::<Vec<u8>>();
 
-        let runtime = Runtime::new();
-        assert_eq!(runtime.is_ok(), true);
-
-        let runtime = runtime.unwrap();
-        let module = Module::from_buf(&runtime, &mut binary);
+        let module = Module::from_buf(&mut binary);
         assert_eq!(module.is_ok(), true);
 
         let module = &module.unwrap();
