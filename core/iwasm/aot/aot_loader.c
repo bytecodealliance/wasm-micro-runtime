@@ -66,15 +66,15 @@ exchange_uint32(uint8 *p_data)
 }
 
 static void
-exchange_uint64(uint8 *pData)
+exchange_uint64(uint8 *p_data)
 {
     uint32 value;
 
-    value = *(uint32 *)pData;
-    *(uint32 *)pData = *(uint32 *)(pData + 4);
-    *(uint32 *)(pData + 4) = value;
-    exchange_uint32(pData);
-    exchange_uint32(pData + 4);
+    value = *(uint32 *)p_data;
+    *(uint32 *)p_data = *(uint32 *)(p_data + 4);
+    *(uint32 *)(p_data + 4) = value;
+    exchange_uint32(p_data);
+    exchange_uint32(p_data + 4);
 }
 
 static union {
