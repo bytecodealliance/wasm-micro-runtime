@@ -7,6 +7,7 @@
 
 #include "ssp_config.h"
 #include "blocking_op.h"
+#include "libc_errno.h"
 
 __wasi_errno_t
 blocking_op_close(wasm_exec_env_t exec_env, os_file_handle handle,
@@ -170,3 +171,23 @@ blocking_op_openat(wasm_exec_env_t exec_env, os_file_handle handle,
     wasm_runtime_end_blocking_op(exec_env);
     return error;
 }
+
+#ifndef BH_PLATFORM_WINDOWS
+/* REVISIT: apply the os_file_handle style abstraction for pollfd? */
+__wasi_errno_t
+blocking_op_poll(wasm_exec_env_t exec_env, struct pollfd *pfds, nfds_t nfds,
+                 int timeout_ms, int *retp)
+{
+    int ret;
+    if (!wasm_runtime_begin_blocking_op(exec_env)) {
+        return __WASI_EINTR;
+    }
+    ret = poll(pfds, nfds, timeout_ms);
+    wasm_runtime_end_blocking_op(exec_env);
+    if (ret == -1) {
+        return convert_errno(errno);
+    }
+    *retp = ret;
+    return 0;
+}
+#endif

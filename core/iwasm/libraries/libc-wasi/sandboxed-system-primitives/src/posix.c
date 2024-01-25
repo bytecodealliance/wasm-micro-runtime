@@ -2230,11 +2230,10 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
         timeout = -1;
     }
 
-    int ret = poll(pfds, nsubscriptions, timeout);
-
-    __wasi_errno_t error = 0;
-    if (ret == -1) {
-        error = convert_errno(errno);
+    int ret;
+    int error = blocking_op_poll(exec_env, pfds, nsubscriptions, timeout, &ret);
+    if (error != 0) {
+        /* got an error */
     }
     else if (ret == 0 && *nevents == 0 && clock_subscription != NULL) {
         // No events triggered. Trigger the clock event.
