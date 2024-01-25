@@ -1,10 +1,8 @@
 ## WAMR-1.3.2
 
 ### Breaking Changes
--
 
 ### New Features
--
 
 ### Bug Fixes
 - Fix build errors when initializing wasm_val_t values with macros (#3007)
