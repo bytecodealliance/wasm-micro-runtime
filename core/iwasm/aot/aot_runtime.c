@@ -1474,7 +1474,7 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     (void)jmpbuf_node_pop;
     return ret;
 }
-#define invoke_native_internal invoke_native_with_hw_bound_check
+#define invoke_native_internal invoke_native_with_hw_bound_check /* NOLINT */
 #else /* else of OS_ENABLE_HW_BOUND_CHECK */
 static inline bool
 invoke_native_internal(WASMExecEnv *exec_env, void *func_ptr,
