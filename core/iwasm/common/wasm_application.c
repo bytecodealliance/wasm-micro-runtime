@@ -46,7 +46,7 @@ static union {
     char b;
 } __ue = { .a = 1 };
 
-#define is_little_endian() (__ue.b == 1)
+#define is_little_endian() (__ue.b == 1) /* NOLINT */
 
 /**
  * Implementation of wasm_application_execute_main()
