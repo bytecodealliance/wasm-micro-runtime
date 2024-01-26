@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-//! a wasm function. only exported.
+//! an exported wasm function.
 
 use std::ffi::CString;
 use wamr_sys::{

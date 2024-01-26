@@ -22,6 +22,11 @@ pub struct Instance {
 }
 
 impl Instance {
+    /// instantiate a module
+    ///
+    /// # Error
+    ///
+    /// Return `RuntimeError::CompilationError` if failed.
     pub fn new(module: &Module, stack_size: u32) -> Result<Self, RuntimeError> {
         Self::new_with_args(module, stack_size, 0)
     }

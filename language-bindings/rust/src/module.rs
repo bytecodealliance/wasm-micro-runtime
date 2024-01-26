@@ -21,6 +21,11 @@ pub struct Module {
 
 impl Module {
     /// compile a module with the given wasm file path
+    ///
+    /// # Error
+    ///
+    /// If the file does not exist or the file cannot be read, an `RuntimeError::WasmFileFSError` will be returned.
+    /// If the wasm file is not a valid wasm file, an `RuntimeError::CompilationError` will be returned.
     pub fn from_file(wasm_file: &Path) -> Result<Self, RuntimeError> {
         let mut wasm_file = match File::open(wasm_file) {
             Ok(f) => f,
@@ -34,6 +39,12 @@ impl Module {
         }
     }
 
+    /// compile a module int the given buffer
+    ///
+    /// # Error
+    ///
+    /// If the file does not exist or the file cannot be read, an `RuntimeError::WasmFileFSError` will be returned.
+    /// If the wasm file is not a valid wasm file, an `RuntimeError::CompilationError` will be returned.
     pub fn from_buf(buf: &Vec<u8>) -> Result<Self, RuntimeError> {
         let mut content = buf.clone();
         let mut error_buf = [0i8; DEFAULT_ERROR_BUF_SIZE];
@@ -65,6 +76,10 @@ impl Module {
     }
 
     //TODO: pay attention to ownership of strings
+    /// set pre-open directories and files, which are part of WASI arguments, for the module.
+    /// the format of each map entry: <guest-path>::<host-path>
+    ///
+    /// This function should be called before `Instance::new`
     pub fn set_wasi_arg_pre_open_path(&self, real_paths: Vec<String>, mapped_paths: Vec<String>) {
         let real_paths_ptr: *mut *const i8 = if real_paths.is_empty() {
             ptr::null_mut()
@@ -101,6 +116,11 @@ impl Module {
         }
     }
 
+    /// set environment variables, which are part of WASI arguments, for the module
+    ///
+    /// This function should be called before `Instance::new`
+    ///
+    /// all wasi args of a module will be spread into the environment variables of the module
     pub fn set_wasi_arg_env_vars(&self, envs: Vec<String>) {
         let envs_ptr = if envs.is_empty() {
             ptr::null_mut()
@@ -126,6 +146,11 @@ impl Module {
         }
     }
 
+    /// set allowed ns , which are part of WASI arguments, for the module
+    ///
+    /// This function should be called before `Instance::new`
+    ///
+    /// all wasi args of a module will be spread into the environment variables of the module
     pub fn set_wasi_arg_allowed_namespaces(&self, namespaces: Vec<String>) {
         let ns_pool_ptr = if namespaces.is_empty() {
             ptr::null_mut()
@@ -146,6 +171,11 @@ impl Module {
         }
     }
 
+    /// set allowed ip addresses, which are part of WASI arguments, for the module
+    ///
+    /// This function should be called before `Instance::new`
+    ///
+    /// all wasi args of a module will be spread into the environment variables of the module
     pub fn set_wasi_arg_allowed_address(&self, addresses: Vec<String>) {
         let addr_pool_ptr = if addresses.is_empty() {
             ptr::null_mut()

@@ -42,6 +42,7 @@ impl RuntimeBuilder {
     }
 
     //TODO: feature
+    /// maximum number of threads in a runtime instance(a process)
     pub fn set_max_threads(mut self, num: u32) -> RuntimeBuilder {
         self.args.max_thread_num = num;
         self
@@ -72,6 +73,10 @@ impl RuntimeBuilder {
     }
 
     /// create a new `Runtime` instance with the configuration
+    ///
+    /// # Errors
+    ///
+    /// if the runtime initialization failed, it will return `RuntimeError::InitializationFailure`
     pub fn build(mut self) -> Result<Arc<Runtime>, RuntimeError> {
         let runtime = SINGLETON_RUNTIME.get_or_init(|| {
             let ret;
@@ -105,6 +110,10 @@ impl Runtime {
     /// create a new `Runtime` instance with the default configuration which includes:
     /// - system allocator mode
     /// - the default running mode
+    ///
+    /// # Errors
+    ///
+    /// if the runtime initialization failed, it will return `RuntimeError::InitializationFailure`
     pub fn new() -> Result<Arc<Self>, RuntimeError> {
         let runtime = SINGLETON_RUNTIME.get_or_init(|| {
             let ret;

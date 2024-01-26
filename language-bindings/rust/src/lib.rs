@@ -8,18 +8,17 @@
 //! ## Overview
 //!
 //! WAMR Rust SDK provides Rust language bindings for WAMR. It is the wrapper
-//! of *wasm_export.h* but with Rust style. It is more convenient to use WAMR
-//! in Rust with this crate.
+//! of [*wasm_export.h*](../../../core/iwasm/include/wasm_export.h) but with Rust style.
+//! It is more convenient to use WAMR in Rust with this crate.
 //!
 //! This crate contains API used to interact with Wasm modules. You can compile
 //! modules, instantiate modules, call their export functions, etc.
 //! Plus, as an embedded of Wasm, you can provide Wasm module functionality by
-//! creating host-defined functions, globals (memory and table are not supported
-//! for now).
+//! creating host-defined functions.
 //!
-//! WAMR Rust SDK will search for the WAMR runtime library in the *../..* path
-//! for now since it is stored in *language-bindings/rust* in WAMR repo. And
-//! then uses `rust-bindgen` durning the build process.
+//! WAMR Rust SDK includes a [*wamr-sys*](../crates/wamr-sys). It will search for
+//! the WAMR runtime source in the path *../..*. And then uses `rust-bindgen` durning
+//! the build process to make a .so.
 //!
 //! This crate has similar concepts to the
 //! [WebAssembly specification](https://webassembly.github.io/spec/core/).
@@ -34,20 +33,23 @@
 //! ### WASI concepts
 //!
 //! - *WASIArgs*. It is used to configure the WASI environment.
-//!   - *pre-open*.
-//!   - *environment variable*.
-//!   - *allowed address*.
+//!   - *pre-open*. all the files and directories in the list will be opened before the .wasm is loaded.
+//!   - *allowed address*. all ip addresses in the *allowed address* list will be allowed to connect with a socket.
 //!   - *allowed namespace*.
 //!
 //! ### WAMR private concepts
 //!
 //! - *loading linking* instead of *instantiation linking*. *instantiation linking* is
 //! used in Wasm JS API and Wasm C API. It means that every instance has its own, maybe
-//! variant, imports. But *loading linking* means that all instances share the same.
+//! variant, imports. But *loading linking* means that all instances share the same *imports*.
 //!
-//! - *RuntimeArg*.
+//! - *RuntimeArg*. Control runtime behavior.
+//!   - *running mode*.
+//!   - *allocator*.
 //!
 //! - *NativeFunction*.
+//!
+//! - *WasmValues*.
 //!
 //! ## Examples
 //!
@@ -65,7 +67,7 @@
 //!     (i32.add)
 //!   )
 //! ```
-//! The rust code to call the *add* function is like this:
+//! The rust code to call the *add* function likes below:
 //!
 //! ``` rust
 //! use wamr_rust_sdk::*;
@@ -78,8 +80,10 @@
 //!
 //!   let stack_size = 1024;
 //!   let instance = Instance::new(&module, stack_size)?;
+//!
 //!   let wasm_func = instance.find_export_func("add")?;
 //!   let params: Vec<WasmValue> = vec![WasmValue::I32(1), WasmValue::I32(2)];
+//!
 //!   let ret = wasm_func.call(&instance, &params)?;
 //!   assert_eq!(ret , WasmValue::I32(3));
 //!
@@ -90,9 +94,9 @@
 //! ### Example: more configuration for runtime.
 //!
 //! with more configuration, runtime is capable to run .wasm with variant features, like
-//! - Wasm without WASI. Some .wasm are compiled with `--nostdlib` to reduce the size.
-//! - runtime under variant running modes. like LLVM_JIT.
-//! - runtime with variant memory management, like other allocators, memory pool, or heap size.
+//! - Wasm without WASI requirement. usually, it means that the .wasm is compiled with `-nostdlib`
+//!   or `--target wasm32-unknown-unknown`
+//! - Config runtime.
 //! - provides host-defined functions to meet import requirements.
 //!
 //! Say there is a *test.wasm*
@@ -118,6 +122,7 @@
 //! fn main() -> Reulst<> {
 //!   let runtime = Runtime::builder().run_as_interpreter().use_system_allocator().build()?;
 //!
+//!   // TODO: clarify NativeFunction and host-function
 //!   let native_functions : Vec<NativeFunction> = Vec::new();
 //!   native_functions.push(NativeFunction::new("extra", || => 10));
 //!   runtime.register_native_functions(&native_functions);
