@@ -74,7 +74,7 @@ jobs:
           "-DWAMR_BUILD_LIBC_UVWASI=0 -DWAMR_BUILD_LIBC_WASI=1"
         ]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: clone uvwasi library
         if: ${{ !contains(matrix.build_options, '-DWAMR_BUILD_LIBC_UVWASI=0') }}
@@ -108,7 +108,7 @@ jobs:
           ]
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: download and install wasi-sdk
         if: matrix.test_option == '$WASI_TEST_OPTIONS'
