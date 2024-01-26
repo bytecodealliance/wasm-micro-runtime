@@ -3262,6 +3262,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         uint32 tbl_idx, elem_idx;
                         uint32 n, s, d;
                         WASMTableInstance *tbl_inst;
+                        uint32 *tbl_seg_elems = NULL, tbl_seg_len = 0;
 
                         read_leb_uint32(frame_ip, frame_ip_end, elem_idx);
                         bh_assert(elem_idx < module->module->table_seg_count);
@@ -3275,10 +3276,18 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         s = (uint32)POP_I32();
                         d = (uint32)POP_I32();
 
-                        if (offset_len_out_of_bounds(
-                                s, n,
+                        if (!bh_bitmap_get_bit(module->e->common.elem_dropped,
+                                               elem_idx)) {
+                            /* table segment isn't dropped */
+                            tbl_seg_elems =
                                 module->module->table_segments[elem_idx]
-                                    .function_count)
+                                    .func_indexes;
+                            tbl_seg_len =
+                                module->module->table_segments[elem_idx]
+                                    .function_count;
+                        }
+
+                        if (offset_len_out_of_bounds(s, n, tbl_seg_len)
                             || offset_len_out_of_bounds(d, n,
                                                         tbl_inst->cur_size)) {
                             wasm_set_exception(module,
@@ -3290,30 +3299,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             break;
                         }
 
-                        if (bh_bitmap_get_bit(module->e->common.elem_dropped,
-                                              elem_idx)) {
-                            wasm_set_exception(module,
-                                               "out of bounds table access");
-                            goto got_exception;
-                        }
-
-                        if (!wasm_elem_is_passive(
-                                module->module->table_segments[elem_idx]
-                                    .mode)) {
-                            wasm_set_exception(module,
-                                               "out of bounds table access");
-                            goto got_exception;
-                        }
-
                         bh_memcpy_s(
                             (uint8 *)tbl_inst
                                 + offsetof(WASMTableInstance, elems)
                                 + d * sizeof(uint32),
                             (uint32)((tbl_inst->cur_size - d) * sizeof(uint32)),
-                            module->module->table_segments[elem_idx]
-                                    .func_indexes
-                                + s,
-                            (uint32)(n * sizeof(uint32)));
+                            tbl_seg_elems + s, (uint32)(n * sizeof(uint32)));
 
                         break;
                     }

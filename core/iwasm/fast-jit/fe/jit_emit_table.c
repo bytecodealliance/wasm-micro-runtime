@@ -88,17 +88,21 @@ fail:
 }
 
 static int
-wasm_init_table(WASMModuleInstance *inst, uint32 tbl_idx, uint32 elem_idx,
+wasm_init_table(WASMModuleInstance *inst, uint32 tbl_idx, uint32 seg_idx,
                 uint32 dst_offset, uint32 len, uint32 src_offset)
 {
     WASMTableInstance *tbl;
     uint32 tbl_sz;
-    WASMTableSeg *elem;
-    uint32 elem_len;
+    WASMTableSeg *tbl_seg = inst->module->table_segments + seg_idx;
+    uint32 *tbl_seg_elems = NULL, tbl_seg_len = 0;
 
-    elem = inst->module->table_segments + elem_idx;
-    elem_len = elem->function_count;
-    if (offset_len_out_of_bounds(src_offset, len, elem_len))
+    if (!bh_bitmap_get_bit(inst->e->common.elem_dropped, seg_idx)) {
+        /* table segment isn't dropped */
+        tbl_seg_elems = tbl_seg->func_indexes;
+        tbl_seg_len = tbl_seg->function_count;
+    }
+
+    if (offset_len_out_of_bounds(src_offset, len, tbl_seg_len))
         goto out_of_bounds;
 
     tbl = inst->tables[tbl_idx];
@@ -109,17 +113,10 @@ wasm_init_table(WASMModuleInstance *inst, uint32 tbl_idx, uint32 elem_idx,
     if (!len)
         return 0;
 
-    if (bh_bitmap_get_bit(inst->e->common.elem_dropped, elem_idx))
-        goto out_of_bounds;
-
-    if (!wasm_elem_is_passive(inst->module->table_segments[elem_idx].mode))
-        goto out_of_bounds;
-
     bh_memcpy_s((uint8 *)tbl + offsetof(WASMTableInstance, elems)
                     + dst_offset * sizeof(uint32),
                 (uint32)((tbl_sz - dst_offset) * sizeof(uint32)),
-                elem->func_indexes + src_offset,
-                (uint32)(len * sizeof(uint32)));
+                tbl_seg_elems + src_offset, (uint32)(len * sizeof(uint32)));
 
     return 0;
 out_of_bounds:
