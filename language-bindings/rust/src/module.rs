@@ -12,11 +12,28 @@ use wamr_sys::{
     wasm_runtime_set_wasi_ns_lookup_pool, wasm_runtime_unload,
 };
 
+#[derive(Default, Debug)]
+struct PreOpen {
+    real_paths: Vec<CString>,
+    mapped_paths: Vec<CString>,
+}
+
+// keep CString in memory. There maybe is another way to maintain
+// the right lifetime
+#[derive(Default, Debug)]
+struct WASIArg {
+    pre_open: PreOpen,
+    allowed_address: Vec<CString>,
+    allowed_dns: Vec<CString>,
+    env: Vec<CString>,
+}
+
 #[derive(Debug)]
 pub struct Module {
     module: wasm_module_t,
     // used to keep the module content in memory
     content: Vec<u8>,
+    wasi_arg: WASIArg,
 }
 
 impl Module {
@@ -72,7 +89,11 @@ impl Module {
             }
         }
 
-        Ok(Module { module, content })
+        Ok(Module {
+            module,
+            content,
+            wasi_arg: WASIArg::default(),
+        })
     }
 
     //TODO: pay attention to ownership of strings
@@ -80,25 +101,31 @@ impl Module {
     /// the format of each map entry: <guest-path>::<host-path>
     ///
     /// This function should be called before `Instance::new`
-    pub fn set_wasi_arg_pre_open_path(&self, real_paths: Vec<String>, mapped_paths: Vec<String>) {
+    pub fn set_wasi_arg_pre_open_path(
+        &mut self,
+        real_paths: Vec<String>,
+        mapped_paths: Vec<String>,
+    ) {
+        self.wasi_arg.pre_open.real_paths = real_paths
+            .iter()
+            .map(|s| CString::new(s.as_bytes()).unwrap())
+            .collect::<Vec<CString>>();
+
+        self.wasi_arg.pre_open.mapped_paths = real_paths
+            .iter()
+            .map(|s| CString::new(s.as_bytes()).unwrap())
+            .collect::<Vec<CString>>();
+
         let real_paths_ptr: *mut *const i8 = if real_paths.is_empty() {
             ptr::null_mut()
         } else {
-            real_paths
-                .iter()
-                .map(|s| CString::new(s.as_bytes()).unwrap())
-                .collect::<Vec<CString>>()
-                .as_ptr() as *mut *const i8
+            self.wasi_arg.pre_open.real_paths.as_ptr() as *mut *const i8
         };
 
         let mapped_paths_ptr: *mut *const i8 = if mapped_paths.is_empty() {
             ptr::null_mut()
         } else {
-            mapped_paths
-                .iter()
-                .map(|s| CString::new(s.as_bytes()).unwrap())
-                .collect::<Vec<CString>>()
-                .as_ptr() as *mut *const i8
+            self.wasi_arg.pre_open.mapped_paths.as_ptr() as *mut *const i8
         };
 
         unsafe {
@@ -121,14 +148,16 @@ impl Module {
     /// This function should be called before `Instance::new`
     ///
     /// all wasi args of a module will be spread into the environment variables of the module
-    pub fn set_wasi_arg_env_vars(&self, envs: Vec<String>) {
+    pub fn set_wasi_arg_env_vars(&mut self, envs: Vec<String>) {
+        self.wasi_arg.env = envs
+            .iter()
+            .map(|s| CString::new(s.as_bytes()).unwrap())
+            .collect::<Vec<CString>>();
+
         let envs_ptr = if envs.is_empty() {
             ptr::null_mut()
         } else {
-            envs.iter()
-                .map(|s| CString::new(s.as_bytes()).unwrap())
-                .collect::<Vec<CString>>()
-                .as_ptr() as *mut *const i8
+            self.wasi_arg.env.as_ptr() as *mut *const i8
         };
 
         unsafe {
@@ -151,22 +180,23 @@ impl Module {
     /// This function should be called before `Instance::new`
     ///
     /// all wasi args of a module will be spread into the environment variables of the module
-    pub fn set_wasi_arg_allowed_namespaces(&self, namespaces: Vec<String>) {
-        let ns_pool_ptr = if namespaces.is_empty() {
+    pub fn set_wasi_arg_allowed_dns(&mut self, dns: Vec<String>) {
+        self.wasi_arg.allowed_dns = dns
+            .iter()
+            .map(|s| CString::new(s.as_bytes()).unwrap())
+            .collect::<Vec<CString>>();
+
+        let ns_pool_ptr = if dns.is_empty() {
             ptr::null_mut()
         } else {
-            namespaces
-                .iter()
-                .map(|s| CString::new(s.as_bytes()).unwrap())
-                .collect::<Vec<CString>>()
-                .as_ptr() as *mut *const i8
+            self.wasi_arg.allowed_dns.as_ptr() as *mut *const i8
         };
 
         unsafe {
             wasm_runtime_set_wasi_ns_lookup_pool(
                 self.get_inner_module(),
                 ns_pool_ptr,
-                namespaces.len() as u32,
+                dns.len() as u32,
             );
         }
     }
@@ -176,15 +206,16 @@ impl Module {
     /// This function should be called before `Instance::new`
     ///
     /// all wasi args of a module will be spread into the environment variables of the module
-    pub fn set_wasi_arg_allowed_address(&self, addresses: Vec<String>) {
+    pub fn set_wasi_arg_allowed_address(&mut self, addresses: Vec<String>) {
+        self.wasi_arg.allowed_address = addresses
+            .iter()
+            .map(|s| CString::new(s.as_bytes()).unwrap())
+            .collect::<Vec<CString>>();
+
         let addr_pool_ptr = if addresses.is_empty() {
             ptr::null_mut()
         } else {
-            addresses
-                .iter()
-                .map(|s| CString::new(s.as_bytes()).unwrap())
-                .collect::<Vec<CString>>()
-                .as_ptr() as *mut *const i8
+            self.wasi_arg.allowed_address.as_ptr() as *mut *const i8
         };
 
         unsafe {
@@ -274,11 +305,11 @@ mod tests {
 
         let module = Module::from_buf(&mut binary);
         assert_eq!(module.is_ok(), true);
-        let module = module.unwrap();
+        let mut module = module.unwrap();
 
         module.set_wasi_arg_pre_open_path(vec![String::from(".")], vec![]);
         module.set_wasi_arg_env_vars(vec![]);
         module.set_wasi_arg_allowed_address(vec![]);
-        module.set_wasi_arg_allowed_namespaces(vec![]);
+        module.set_wasi_arg_allowed_dns(vec![]);
     }
 }

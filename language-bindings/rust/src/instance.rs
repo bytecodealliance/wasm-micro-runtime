@@ -9,7 +9,10 @@
 
 use ::core::ffi::c_char;
 
-use wamr_sys::{wasm_module_inst_t, wasm_runtime_deinstantiate, wasm_runtime_instantiate};
+use wamr_sys::{
+    wasm_module_inst_t, wasm_runtime_deinstantiate, wasm_runtime_init_thread_env,
+    wasm_runtime_instantiate,
+};
 
 use crate::{
     helper::error_buf_to_string, helper::DEFAULT_ERROR_BUF_SIZE, module::Module, value::WasmValue,
@@ -36,6 +39,13 @@ impl Instance {
         stack_size: u32,
         heap_size: u32,
     ) -> Result<Self, RuntimeError> {
+        let init_thd_env = unsafe { wasm_runtime_init_thread_env() };
+        if !init_thd_env {
+            return Err(RuntimeError::InstantiationFailure(String::from(
+                "thread signal env initialized failed",
+            )));
+        }
+
         let mut error_buf = [0 as c_char; DEFAULT_ERROR_BUF_SIZE];
         let instance = unsafe {
             wasm_runtime_instantiate(
@@ -50,12 +60,12 @@ impl Instance {
         if instance.is_null() {
             match error_buf.len() {
                 0 => {
-                    return Err(RuntimeError::CompilationError(String::from(
+                    return Err(RuntimeError::InstantiationFailure(String::from(
                         "instantiation failed",
                     )))
                 }
                 _ => {
-                    return Err(RuntimeError::CompilationError(error_buf_to_string(
+                    return Err(RuntimeError::InstantiationFailure(error_buf_to_string(
                         &error_buf,
                     )))
                 }

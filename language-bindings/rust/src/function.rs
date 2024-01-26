@@ -81,7 +81,6 @@ impl Function {
         unsafe {
             let exec_env: wasm_exec_env_t =
                 wasm_runtime_get_exec_env_singleton(instance.get_inner_instance());
-
             call_result =
                 wasm_runtime_call_wasm(exec_env, self.function, argc as u32, argv.as_mut_ptr());
         };
@@ -153,7 +152,7 @@ mod tests {
         d.push("hello_wasm32-wasi.wasm");
         let module = Module::from_file(d.as_path());
         assert_eq!(module.is_ok(), true);
-        let module = module.unwrap();
+        let mut module = module.unwrap();
 
         module.set_wasi_arg_pre_open_path(vec![String::from(".")], vec![]);
 

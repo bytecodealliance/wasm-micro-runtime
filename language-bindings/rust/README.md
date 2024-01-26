@@ -32,7 +32,7 @@ This crate has similar concepts to the
 - *WASIArgs*. It is used to configure the WASI environment.
   - *pre-open*. all the files and directories in the list will be opened before the .wasm is loaded.
   - *allowed address*. all ip addresses in the *allowed address* list will be allowed to connect with a socket.
-  - *allowed namespace*.
+  - *allowed DNS*.
 
 #### WAMR private concepts
 
