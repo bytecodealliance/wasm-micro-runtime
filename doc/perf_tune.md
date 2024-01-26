@@ -190,3 +190,112 @@ $ ./FlameGraph/flamegraph.pl out.folded > perf.foo.wasm.svg
 >
 > Then you will see a new file named _out.folded.translated_ which contains the translated folded stacks.
 > All wasm functions are translated to its original names with a prefix like "[Wasm]"
+
+## 8. Refine the calling processes between host native and wasm application
+
+In some scenarios, there may be lots of callings between host native and wasm application, e.g. frequent callings to AOT/JIT functions from host native or frequent callings to host native from AOT/JIT functions. It is important to refine these calling processes to speedup them, WAMR provides several methods:
+
+### 8.1 Refine callings to native APIs registered by `wasm_runtime_register_natives` from AOT code
+
+When wamrc compiles the wasm file to AOT code, it may generate LLVM IR to call the native API from an AOT function, and if it doesn't know the native API's signature, the generated LLVM IR has to call the runtime API `aot_invoke_native` to invoke the native API, which is a relatively slow way. If developer registers native APIs during execution by calling `wasm_runtime_register_natives` or by `iwasm --native-lib=<lib>`, then developer can also register native APIs with the same signatures to the AOT compiler by `wamrc --native-lib=<lib>`, so as to let the AOT compiler pre-know the native API's signature, and generate optimized LLVM IR to quickly call to the native API.
+
+The below sample registers an API `int test_add(int, int)` to the AOT compiler:
+
+```C
+/* test_add.c */
+
+#include "wasm_export.h"
+
+static int
+test_add_wrapper(wasm_exec_env_t exec_env, int x, int y) {
+    return 0; /* empty function is enough */
+}
+
+#define REG_NATIVE_FUNC(func_name, signature) \
+    { #func_name, func_name##_wrapper, signature, NULL }
+
+static NativeSymbol native_symbols[] = {
+    REG_NATIVE_FUNC(test_add, "(ii)i")
+};
+
+uint32_t
+get_native_lib(char **p_module_name, NativeSymbol **p_native_symbols)
+{
+    *p_module_name = "env";
+    *p_native_symbols = native_symbols;
+    return sizeof(native_symbols) / sizeof(NativeSymbol);
+}
+```
+```bash
+# build native lib
+gcc -O3 -fPIC -shared -I <wamr_root>/core/iwasm/include -o libtest_add.so test_add.c
+# register native lib to aot compiler
+wamrc --native-lib=./libtest_add.so -o <aot_file> <wasm_file>
+```
+
+> Note: no need to do anything for LLVM JIT since the native APIs must have been registered before execution and JIT compiler already knows the native APIs' signatures.
+
+### 8.2 Refine callings to native APIs registered by wasm-c-api `wasm_instance_new` from AOT code
+
+In wasm-c-api mode, when the native APIs are registered by `wasm_instance_new(..., imports, ...)`, developer can use `wamrc --invoke-c-api-import` option to generate the AOT file, which treats the unknown import function as wasm-c-api import function and generates optimized LLVM IR to speedup the calling process.
+
+> Note: no need to do anything for LLVM JIT since the similar flag has been set to JIT compiler in wasm-c-api `wasm_engine_new` when LLVM JIT is enabled.
+
+### 8.3 Refine callings to AOT/JIT functions from host native
+
+Currently by default WAMR runtime has registered many quick AOT/JIT entries to speedup the calling processes to call AOT/JIT functions from host native, as long as developer doesn't disable it by using `cmake -DWAMR_BUILD_QUICK_AOT_ENTRY=0` or setting the compiler macro `WASM_ENABLE_QUICK_AOT_ENTRY` to 0 in the makefile. These quick AOT/JIT entries include:
+
+1. wasm function contains 0 to 4 arguments and 0 to 1 results, with the type of each argument is i32 or i64 and the type of result is i32, i64 or void. These functions are like:
+
+```C
+// no argument
+i32 foo(), i64 foo(), void foo()
+// one argument, each argument is i32 or i64
+i32 foo(i32/i64), i64 foo(i32/i64), void(i32/i64)
+// two arguments, each argument is i32 or i64
+i32 foo(i32/i64, i32/i64), i64 foo(i32/i64, i32/i64), void(i32/i64, i32/i64)
+// three arguments, each argument is i32 or i64
+i32 foo(i32/i64, i32/i64, i32/i64), i64 foo(i32/i64, i32/i64, i32/i64), void(i32/i64, i32/i64, i32/i64)
+// four arguments, each argument is i32 or i64
+i32 foo(i32/i64, i32/i64, i32/i64, i32/i64)
+i64 foo(i32/i64, i32/i64, i32/i64, i32/i64)
+void(i32/i64, i32/i64, i32/i64, i32/i64)
+```
+
+2. wasm function contains 5 arguments and 0 to 1 results, with the type of each argument is i32 and the type of result is i32, i64 or void. These functions are like:
+
+```C
+i32 foo(i32, i32, i32, i32, i32)
+i64 foo(i32, i32, i32, i32, i32)
+void foo(i32, i32, i32, i32, i32)
+```
+
+To speedup the calling processes, developer had better ensure that the signatures of the wasm functions to expose are like above, or add some conversions to achieve it. For example, if a wasm function to call is `f32 foo(f32)`, developer can define a new function `i32 foo1(i32)` like below and export it:
+```C
+int32 foo1(int32 arg_i32)
+{
+    float arg_f32 = *(float *)&arg_i32;
+    float res_f32 = foo(f32);
+    int32 res_i32 = *(int32 *)&res_i32;
+    return res_i32;
+}
+```
+And in the host embedder:
+```
+    uint32 argv[2];
+    float arg_f32 = ...; /* argument to foo */
+    float res_f32;
+    bool ret;
+
+    argv[0] = *(uint32 *)&arg_f32;
+    func = wasm_runtime_lookup_function(module_inst, "foo1", NULL);
+    ret = wasm_runtime_call_wasm(exec_env, func, 1, argv);
+    if (!ret) {
+        /* handle exception */
+        printf("%s\n", wasm_runtime_get_exception(module_inst));
+    }
+    else {
+        /* the return value is stored in argv[0] */
+        res_f32 = *(float *)&argv[0];
+    }
+```

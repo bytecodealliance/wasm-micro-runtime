@@ -15,6 +15,7 @@ static void
 blocking_op_sighandler(int signo)
 {
     /* nothing */
+    (void)signo;
 }
 
 void

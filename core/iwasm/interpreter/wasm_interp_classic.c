@@ -1009,7 +1009,7 @@ ALLOC_FRAME(WASMExecEnv *exec_env, uint32 size, WASMInterpFrame *prev_frame)
     if (frame) {
         frame->prev_frame = prev_frame;
 #if WASM_ENABLE_PERF_PROFILING != 0
-        frame->time_started = os_time_get_boot_microsecond();
+        frame->time_started = os_time_thread_cputime_us();
 #endif
     }
     else {
@@ -1025,9 +1025,14 @@ FREE_FRAME(WASMExecEnv *exec_env, WASMInterpFrame *frame)
 {
 #if WASM_ENABLE_PERF_PROFILING != 0
     if (frame->function) {
-        frame->function->total_exec_time +=
-            os_time_get_boot_microsecond() - frame->time_started;
+        WASMInterpFrame *prev_frame = frame->prev_frame;
+        uint64 time_elapsed = os_time_thread_cputime_us() - frame->time_started;
+
+        frame->function->total_exec_time += time_elapsed;
         frame->function->total_exec_cnt++;
+
+        if (prev_frame && prev_frame->function)
+            prev_frame->function->children_exec_time += time_elapsed;
     }
 #endif
     wasm_exec_env_free_wasm_frame(exec_env, frame);
@@ -5108,7 +5113,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         uint32 n, s, d;
                         WASMTableInstance *tbl_inst;
                         table_elem_type_t *table_elems;
-                        InitializerExpression *init_values;
+                        InitializerExpression *tbl_seg_init_values = NULL,
+                                              *init_values;
+                        uint32 tbl_seg_len = 0;
 
                         read_leb_uint32(frame_ip, frame_ip_end, elem_idx);
                         bh_assert(elem_idx < module->module->table_seg_count);
@@ -5122,10 +5129,18 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         s = (uint32)POP_I32();
                         d = (uint32)POP_I32();
 
-                        if (offset_len_out_of_bounds(
-                                s, n,
+                        if (!bh_bitmap_get_bit(module->e->common.elem_dropped,
+                                               elem_idx)) {
+                            /* table segment isn't dropped */
+                            tbl_seg_init_values =
                                 module->module->table_segments[elem_idx]
-                                    .value_count)
+                                    .init_values;
+                            tbl_seg_len =
+                                module->module->table_segments[elem_idx]
+                                    .value_count;
+                        }
+
+                        if (offset_len_out_of_bounds(s, n, tbl_seg_len)
                             || offset_len_out_of_bounds(d, n,
                                                         tbl_inst->cur_size)) {
                             wasm_set_exception(module,
@@ -5137,25 +5152,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             break;
                         }
 
-                        if (bh_bitmap_get_bit(module->e->common.elem_dropped,
-                                              elem_idx)) {
-                            wasm_set_exception(module,
-                                               "out of bounds table access");
-                            goto got_exception;
-                        }
-
-                        if (!wasm_elem_is_passive(
-                                module->module->table_segments[elem_idx]
-                                    .mode)) {
-                            wasm_set_exception(module,
-                                               "out of bounds table access");
-                            goto got_exception;
-                        }
-
                         table_elems = tbl_inst->elems + d;
-                        init_values =
-                            module->module->table_segments[elem_idx].init_values
-                            + s;
+                        init_values = tbl_seg_init_values + s;
 #if WASM_ENABLE_GC != 0
                         SYNC_ALL_TO_FRAME();
 #endif
@@ -5729,6 +5727,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         HANDLE_OP(WASM_OP_BR_ON_NON_NULL)
         HANDLE_OP(WASM_OP_GC_PREFIX)
 #endif
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_SIMD != 0
+        /* SIMD isn't supported by interpreter, but when JIT is
+           enabled, `iwasm --interp <wasm_file>` may be run to
+           trigger the SIMD opcode in interpreter */
+        HANDLE_OP(WASM_OP_SIMD_PREFIX)
+#endif
         HANDLE_OP(WASM_OP_UNUSED_0x16)
         HANDLE_OP(WASM_OP_UNUSED_0x17)
         HANDLE_OP(WASM_OP_UNUSED_0x18)
@@ -6065,7 +6069,7 @@ llvm_jit_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     frame->prev_frame = cur_frame;
 
 #if WASM_ENABLE_PERF_PROFILING != 0
-    frame->time_started = os_time_get_boot_microsecond();
+    frame->time_started = os_time_thread_cputime_us();
 #endif
 #if WASM_ENABLE_MEMORY_PROFILING != 0
     {
@@ -6091,9 +6095,14 @@ llvm_jit_free_frame_internal(WASMExecEnv *exec_env)
 
 #if WASM_ENABLE_PERF_PROFILING != 0
     if (frame->function) {
-        frame->function->total_exec_time +=
-            os_time_get_boot_microsecond() - frame->time_started;
+        uint64 time_elapsed = os_time_thread_cputime_us() - frame->time_started;
+
+        frame->function->total_exec_time += time_elapsed;
         frame->function->total_exec_cnt++;
+
+        /* parent function */
+        if (prev_frame)
+            prev_frame->function->children_exec_time += time_elapsed;
     }
 #endif
     exec_env->cur_frame = prev_frame;
@@ -6148,7 +6157,7 @@ llvm_jit_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
 
     frame->function = module_inst->e->functions + func_index;
 #if WASM_ENABLE_PERF_PROFILING != 0
-    frame->time_started = os_time_get_boot_microsecond();
+    frame->time_started = os_time_thread_cputime_us();
 #endif
     frame->prev_frame = wasm_exec_env_get_cur_frame(exec_env);
 
@@ -6204,9 +6213,14 @@ llvm_jit_free_frame_internal(WASMExecEnv *exec_env)
 
 #if WASM_ENABLE_PERF_PROFILING != 0
     if (frame->function) {
-        frame->function->total_exec_time +=
-            os_time_get_boot_microsecond() - frame->time_started;
+        uint64 time_elapsed = os_time_thread_cputime_us() - frame->time_started;
+
+        frame->function->total_exec_time += time_elapsed;
         frame->function->total_exec_cnt++;
+
+        /* parent function */
+        if (prev_frame)
+            prev_frame->function->children_exec_time += time_elapsed;
     }
 #endif
     wasm_exec_env_free_wasm_frame(exec_env, frame);
@@ -6227,13 +6241,20 @@ llvm_jit_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame)
     WASMInterpFrame *cur_frame = exec_env->cur_frame;
 
     if (alloc_frame) {
-        cur_frame->time_started = (uintptr_t)os_time_get_boot_microsecond();
+        cur_frame->time_started = os_time_thread_cputime_us();
     }
     else {
         if (cur_frame->function) {
-            cur_frame->function->total_exec_time +=
-                os_time_get_boot_microsecond() - cur_frame->time_started;
+            WASMInterpFrame *prev_frame = cur_frame->prev_frame;
+            uint64 time_elapsed =
+                os_time_thread_cputime_us() - cur_frame->time_started;
+
+            cur_frame->function->total_exec_time += time_elapsed;
             cur_frame->function->total_exec_cnt++;
+
+            /* parent function */
+            if (prev_frame)
+                prev_frame->function->children_exec_time += time_elapsed;
         }
     }
 #endif

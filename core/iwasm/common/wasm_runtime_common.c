@@ -1709,7 +1709,42 @@ wasm_runtime_dump_perf_profiling(WASMModuleInstanceCommon *module_inst)
     }
 #endif
 }
+
+double
+wasm_runtime_sum_wasm_exec_time(WASMModuleInstanceCommon *inst)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (inst->module_type == Wasm_Module_Bytecode)
+        return wasm_summarize_wasm_execute_time((WASMModuleInstance *)inst);
 #endif
+
+#if WASM_ENABLE_AOT != 0
+    if (inst->module_type == Wasm_Module_AoT)
+        return aot_summarize_wasm_execute_time((AOTModuleInstance *)inst);
+#endif
+
+    return 0.0;
+}
+
+double
+wasm_runtime_get_wasm_func_exec_time(WASMModuleInstanceCommon *inst,
+                                     const char *func_name)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (inst->module_type == Wasm_Module_Bytecode)
+        return wasm_get_wasm_func_exec_time((WASMModuleInstance *)inst,
+                                            func_name);
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (inst->module_type == Wasm_Module_AoT)
+        return aot_get_wasm_func_exec_time((AOTModuleInstance *)inst,
+                                           func_name);
+#endif
+
+    return 0.0;
+}
+#endif /* WASM_ENABLE_PERF_PROFILING != 0 */
 
 WASMModuleInstanceCommon *
 wasm_runtime_get_module_inst(WASMExecEnv *exec_env)
@@ -2926,7 +2961,8 @@ copy_string_array(const char *array[], uint32 array_size, char **buf_ptr,
     /* We add +1 to generate null-terminated array of strings */
     total_size = sizeof(char *) * ((uint64)array_size + 1);
     if (total_size >= UINT32_MAX
-        || (total_size > 0 && !(list = wasm_runtime_malloc((uint32)total_size)))
+        /* total_size must be larger than 0, don' check it again */
+        || !(list = wasm_runtime_malloc((uint32)total_size))
         || buf_size >= UINT32_MAX
         || (buf_size > 0 && !(buf = wasm_runtime_malloc((uint32)buf_size)))) {
 
@@ -6497,5 +6533,69 @@ void
 wasm_runtime_set_linux_perf(bool flag)
 {
     enable_linux_perf = flag;
+}
+#endif
+
+#ifdef WASM_LINEAR_MEMORY_MMAP
+void
+wasm_munmap_linear_memory(void *mapped_mem, uint64 commit_size, uint64 map_size)
+{
+#ifdef BH_PLATFORM_WINDOWS
+    os_mem_decommit(mapped_mem, commit_size);
+#else
+    (void)commit_size;
+#endif
+    os_munmap(mapped_mem, map_size);
+}
+
+void *
+wasm_mmap_linear_memory(uint64_t map_size, uint64 *io_memory_data_size,
+                        char *error_buf, uint32 error_buf_size)
+{
+    uint64 page_size = os_getpagesize();
+    void *mapped_mem = NULL;
+    uint64 memory_data_size;
+
+    bh_assert(io_memory_data_size);
+
+    memory_data_size =
+        (*io_memory_data_size + page_size - 1) & ~(page_size - 1);
+
+    if (memory_data_size > UINT32_MAX)
+        memory_data_size = UINT32_MAX;
+
+    if (!(mapped_mem = os_mmap(NULL, map_size, MMAP_PROT_NONE, MMAP_MAP_NONE,
+                               os_get_invalid_handle()))) {
+        set_error_buf(error_buf, error_buf_size, "mmap memory failed");
+        goto fail1;
+    }
+
+#ifdef BH_PLATFORM_WINDOWS
+    if (memory_data_size > 0
+        && !os_mem_commit(mapped_mem, memory_data_size,
+                          MMAP_PROT_READ | MMAP_PROT_WRITE)) {
+        set_error_buf(error_buf, error_buf_size, "commit memory failed");
+        os_munmap(mapped_mem, map_size);
+        goto fail1;
+    }
+#endif
+
+    if (os_mprotect(mapped_mem, memory_data_size,
+                    MMAP_PROT_READ | MMAP_PROT_WRITE)
+        != 0) {
+        set_error_buf(error_buf, error_buf_size, "mprotect memory failed");
+        goto fail2;
+    }
+
+    /* Newly allocated pages are filled with zero by the OS, we don't fill it
+     * again here */
+
+    *io_memory_data_size = memory_data_size;
+
+    return mapped_mem;
+fail2:
+    wasm_munmap_linear_memory(mapped_mem, memory_data_size, map_size);
+fail1:
+    return NULL;
 }
 #endif

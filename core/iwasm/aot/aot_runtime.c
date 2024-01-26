@@ -751,6 +751,9 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 static void
 memories_deinstantiate(AOTModuleInstance *module_inst)
 {
+#ifdef WASM_LINEAR_MEMORY_MMAP
+    uint64 map_size;
+#endif
     uint32 i;
     AOTMemoryInstance *memory_inst;
 
@@ -773,14 +776,21 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
 
             if (memory_inst->memory_data) {
 #ifndef OS_ENABLE_HW_BOUND_CHECK
-                wasm_runtime_free(memory_inst->memory_data);
-#else
-#ifdef BH_PLATFORM_WINDOWS
-                os_mem_decommit(memory_inst->memory_data,
-                                memory_inst->num_bytes_per_page
-                                    * memory_inst->cur_page_count);
+#ifdef WASM_LINEAR_MEMORY_MMAP
+                if (shared_memory_is_shared(memory_inst)) {
+                    map_size = (uint64)memory_inst->num_bytes_per_page
+                               * memory_inst->max_page_count;
+                    wasm_munmap_linear_memory(memory_inst->memory_data,
+                                              map_size, map_size);
+                }
+                else
 #endif
-                os_munmap(memory_inst->memory_data, 8 * (uint64)BH_GB);
+                    wasm_runtime_free(memory_inst->memory_data);
+#else
+                map_size = (uint64)memory_inst->num_bytes_per_page
+                           * memory_inst->cur_page_count;
+                wasm_munmap_linear_memory(memory_inst->memory_data, map_size,
+                                          8 * (uint64)BH_GB);
 #endif
             }
         }
@@ -803,10 +813,9 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     uint32 heap_offset = num_bytes_per_page * init_page_count;
     uint64 memory_data_size, max_memory_data_size;
     uint8 *p = NULL, *global_addr;
-#ifdef OS_ENABLE_HW_BOUND_CHECK
-    uint8 *mapped_mem;
-    uint64 map_size = 8 * (uint64)BH_GB;
-    uint64 page_size = os_getpagesize();
+#ifdef WASM_LINEAR_MEMORY_MMAP
+    uint8 *mapped_mem = NULL;
+    uint64 map_size;
 #endif
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -930,15 +939,25 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
 #ifndef OS_ENABLE_HW_BOUND_CHECK
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (is_shared_memory) {
+#if WASM_ENABLE_SHARED_MEMORY_MMAP != 0
+        map_size = max_memory_data_size;
+        if (max_memory_data_size > 0
+            && !(p = mapped_mem =
+                     wasm_mmap_linear_memory(map_size, &max_memory_data_size,
+                                             error_buf, error_buf_size))) {
+            return NULL;
+        }
+#else
         /* Allocate maximum memory size when memory is shared */
         if (max_memory_data_size > 0
             && !(p = runtime_malloc(max_memory_data_size, error_buf,
                                     error_buf_size))) {
             return NULL;
         }
+#endif
     }
     else
-#endif
+#endif /* end of WASM_ENABLE_SHARED_MEMORY != 0 */
     {
         /* Allocate initial memory size when memory is not shared */
         if (memory_data_size > 0
@@ -947,43 +966,18 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
             return NULL;
         }
     }
-#else /* else of OS_ENABLE_HW_BOUND_CHECK */
-    memory_data_size = (memory_data_size + page_size - 1) & ~(page_size - 1);
-
+#else  /* else of OS_ENABLE_HW_BOUND_CHECK */
     /* Totally 8G is mapped, the opcode load/store address range is 0 to 8G:
      *   ea = i + memarg.offset
      * both i and memarg.offset are u32 in range 0 to 4G
      * so the range of ea is 0 to 8G
      */
-    if (!(p = mapped_mem = os_mmap(NULL, map_size, MMAP_PROT_NONE,
-                                   MMAP_MAP_NONE, os_get_invalid_handle()))) {
+    map_size = 8 * (uint64)BH_GB;
+    if (!(p = mapped_mem = wasm_mmap_linear_memory(
+              map_size, &memory_data_size, error_buf, error_buf_size))) {
         set_error_buf(error_buf, error_buf_size, "mmap memory failed");
         return NULL;
     }
-
-#ifdef BH_PLATFORM_WINDOWS
-    if (!os_mem_commit(p, memory_data_size, MMAP_PROT_READ | MMAP_PROT_WRITE)) {
-        set_error_buf(error_buf, error_buf_size, "commit memory failed");
-        os_munmap(mapped_mem, map_size);
-        return NULL;
-    }
-#endif
-
-    if (os_mprotect(p, memory_data_size, MMAP_PROT_READ | MMAP_PROT_WRITE)
-        != 0) {
-        set_error_buf(error_buf, error_buf_size, "mprotect memory failed");
-#ifdef BH_PLATFORM_WINDOWS
-        os_mem_decommit(p, memory_data_size);
-#endif
-        os_munmap(mapped_mem, map_size);
-        return NULL;
-    }
-
-    /* Newly allocated pages are filled with zero by the OS, we don't fill it
-     * again here */
-
-    if (memory_data_size > UINT32_MAX)
-        memory_data_size = UINT32_MAX;
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
     memory_inst->module_type = Wasm_Module_AoT;
@@ -1034,16 +1028,15 @@ fail2:
     if (heap_size > 0)
         wasm_runtime_free(memory_inst->heap_handle);
 fail1:
-#ifndef OS_ENABLE_HW_BOUND_CHECK
-    if (memory_inst->memory_data)
-        wasm_runtime_free(memory_inst->memory_data);
-#else
-#ifdef BH_PLATFORM_WINDOWS
-    if (memory_inst->memory_data)
-        os_mem_decommit(p, memory_data_size);
+#ifdef WASM_LINEAR_MEMORY_MMAP
+    if (mapped_mem)
+        wasm_munmap_linear_memory(mapped_mem, memory_data_size, map_size);
+    else
 #endif
-    os_munmap(mapped_mem, map_size);
-#endif
+    {
+        if (memory_inst->memory_data)
+            wasm_runtime_free(memory_inst->memory_data);
+    }
     memory_inst->memory_data = NULL;
     return NULL;
 }
@@ -1628,6 +1621,10 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
                           "failed to allocate bitmaps");
             goto fail;
         }
+        for (i = 0; i < module->mem_init_data_count; i++) {
+            if (!module->mem_init_data_list[i]->is_passive)
+                bh_bitmap_set_bit(common->data_dropped, i);
+        }
     }
 #endif
 #if WASM_ENABLE_REF_TYPES != 0
@@ -1638,6 +1635,10 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
             set_error_buf(error_buf, error_buf_size,
                           "failed to allocate bitmaps");
             goto fail;
+        }
+        for (i = 0; i < module->table_init_data_count; i++) {
+            if (wasm_elem_is_active(module->table_init_data_list[i]->mode))
+                bh_bitmap_set_bit(common->elem_dropped, i);
         }
     }
 #endif
@@ -3289,8 +3290,8 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
     AOTTableInitData *tbl_seg;
     const AOTModule *module = (AOTModule *)module_inst->module;
     table_elem_type_t *table_elems;
-    InitializerExpression *init_values;
-    uint32 i;
+    InitializerExpression *tbl_seg_init_values = NULL, *init_values;
+    uint32 i, tbl_seg_len = 0;
 #if WASM_ENABLE_GC != 0
     void *func_obj;
 #endif
@@ -3301,7 +3302,15 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
     tbl_seg = module->table_init_data_list[tbl_seg_idx];
     bh_assert(tbl_seg);
 
-    if (offset_len_out_of_bounds(src_offset, length, tbl_seg->value_count)
+    if (!bh_bitmap_get_bit(
+            ((AOTModuleInstanceExtra *)module_inst->e)->common.elem_dropped,
+            tbl_seg_idx)) {
+        /* table segment isn't dropped */
+        tbl_seg_init_values = tbl_seg->init_values;
+        tbl_seg_len = tbl_seg->value_count;
+    }
+
+    if (offset_len_out_of_bounds(src_offset, length, tbl_seg_len)
         || offset_len_out_of_bounds(dst_offset, length, tbl_inst->cur_size)) {
         aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
@@ -3311,20 +3320,8 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
         return;
     }
 
-    if (bh_bitmap_get_bit(
-            ((AOTModuleInstanceExtra *)module_inst->e)->common.elem_dropped,
-            tbl_seg_idx)) {
-        aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
-        return;
-    }
-
-    if (!wasm_elem_is_passive(tbl_seg->mode)) {
-        aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
-        return;
-    }
-
     table_elems = tbl_inst->elems + dst_offset;
-    init_values = tbl_seg->init_values + src_offset;
+    init_values = tbl_seg_init_values + src_offset;
 
     for (i = 0; i < length; i++) {
 #if WASM_ENABLE_GC != 0
@@ -3528,7 +3525,7 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     frame->prev_frame = (AOTFrame *)exec_env->cur_frame;
 
 #if WASM_ENABLE_PERF_PROFILING != 0
-    frame->time_started = (uintptr_t)os_time_get_boot_microsecond();
+    frame->time_started = (uintptr_t)os_time_thread_cputime_us();
     frame->func_perf_prof_info = func_perf_prof;
 #endif
 #if WASM_ENABLE_MEMORY_PROFILING != 0
@@ -3552,9 +3549,15 @@ aot_free_frame_internal(WASMExecEnv *exec_env)
     AOTFrame *prev_frame = cur_frame->prev_frame;
 
 #if WASM_ENABLE_PERF_PROFILING != 0
-    cur_frame->func_perf_prof_info->total_exec_time +=
-        (uintptr_t)os_time_get_boot_microsecond() - cur_frame->time_started;
+    uint64 time_elapsed =
+        (uintptr_t)os_time_thread_cputime_us() - cur_frame->time_started;
+
+    cur_frame->func_perf_prof_info->total_exec_time += time_elapsed;
     cur_frame->func_perf_prof_info->total_exec_cnt++;
+
+    /* parent function */
+    if (prev_frame)
+        prev_frame->func_perf_prof_info->children_exec_time += time_elapsed;
 #endif
 
     exec_env->cur_frame = (struct WASMInterpFrame *)prev_frame;
@@ -3566,7 +3569,7 @@ aot_free_frame(WASMExecEnv *exec_env)
     aot_free_frame_internal(exec_env);
 }
 
-#else
+#else /* else of WASM_ENABLE_GC == 0 */
 
 bool
 aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
@@ -3608,7 +3611,7 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     }
 
 #if WASM_ENABLE_PERF_PROFILING != 0
-    frame->time_started = (uintptr_t)os_time_get_boot_microsecond();
+    frame->time_started = (uintptr_t)os_time_thread_cputime_us();
     frame->func_perf_prof_info = func_perf_prof;
 #endif
 
@@ -3631,9 +3634,15 @@ aot_free_frame_internal(WASMExecEnv *exec_env)
     AOTFrame *prev_frame = cur_frame->prev_frame;
 
 #if WASM_ENABLE_PERF_PROFILING != 0
-    cur_frame->func_perf_prof_info->total_exec_time +=
-        (uintptr_t)os_time_get_boot_microsecond() - cur_frame->time_started;
+    uint64 time_elapsed =
+        (uintptr_t)os_time_thread_cputime_us() - cur_frame->time_started;
+
+    cur_frame->func_perf_prof_info->total_exec_time += time_elapsed;
     cur_frame->func_perf_prof_info->total_exec_cnt++;
+
+    /* parent function */
+    if (prev_frame)
+        prev_frame->func_perf_prof_info->children_exec_time += time_elapsed;
 #endif
 
     wasm_exec_env_free_wasm_frame(exec_env, cur_frame);
@@ -3646,7 +3655,7 @@ aot_free_frame(WASMExecEnv *exec_env)
     aot_free_frame_internal(exec_env);
 }
 
-#endif
+#endif /* end of WASM_ENABLE_GC == 0 */
 
 void
 aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame)
@@ -3658,13 +3667,20 @@ aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame)
         module_inst->func_perf_profilings + cur_frame->func_index;
 
     if (alloc_frame) {
-        cur_frame->time_started = (uintptr_t)os_time_get_boot_microsecond();
+        cur_frame->time_started = (uintptr_t)os_time_thread_cputime_us();
         cur_frame->func_perf_prof_info = func_perf_prof;
     }
     else {
-        cur_frame->func_perf_prof_info->total_exec_time +=
-            (uintptr_t)os_time_get_boot_microsecond() - cur_frame->time_started;
+        AOTFrame *prev_frame = cur_frame->prev_frame;
+        uint64 time_elapsed =
+            (uintptr_t)os_time_thread_cputime_us() - cur_frame->time_started;
+
+        cur_frame->func_perf_prof_info->total_exec_time += time_elapsed;
         cur_frame->func_perf_prof_info->total_exec_cnt++;
+
+        /* parent function */
+        if (prev_frame)
+            prev_frame->func_perf_prof_info->children_exec_time += time_elapsed;
     }
 #endif
 
@@ -3860,21 +3876,64 @@ aot_dump_perf_profiling(const AOTModuleInstance *module_inst)
 
     os_printf("Performance profiler data:\n");
     for (i = 0; i < total_func_count; i++, perf_prof++) {
+        if (perf_prof->total_exec_cnt == 0)
+            continue;
+
         func_name = get_func_name_from_index(module_inst, i);
 
         if (func_name)
             os_printf(
                 "  func %s, execution time: %.3f ms, execution count: %" PRIu32
-                " times\n",
+                " times, children execution time: %.3f ms\n",
                 func_name, perf_prof->total_exec_time / 1000.0f,
-                perf_prof->total_exec_cnt);
+                perf_prof->total_exec_cnt,
+                perf_prof->children_exec_time / 1000.0f);
         else
             os_printf("  func %" PRIu32
                       ", execution time: %.3f ms, execution count: %" PRIu32
-                      " times\n",
+                      " times, children execution time: %.3f ms\n",
                       i, perf_prof->total_exec_time / 1000.0f,
-                      perf_prof->total_exec_cnt);
+                      perf_prof->total_exec_cnt,
+                      perf_prof->children_exec_time / 1000.0f);
     }
+}
+
+double
+aot_summarize_wasm_execute_time(const AOTModuleInstance *inst)
+{
+    double ret = 0;
+
+    AOTModule *module = (AOTModule *)inst->module;
+    uint32 total_func_count = module->import_func_count + module->func_count, i;
+
+    for (i = 0; i < total_func_count; i++) {
+        AOTFuncPerfProfInfo *perf_prof =
+            (AOTFuncPerfProfInfo *)inst->func_perf_profilings + i;
+        ret += (perf_prof->total_exec_time - perf_prof->children_exec_time)
+               / 1000.0f;
+    }
+
+    return ret;
+}
+
+double
+aot_get_wasm_func_exec_time(const AOTModuleInstance *inst,
+                            const char *func_name)
+{
+    AOTModule *module = (AOTModule *)inst->module;
+    uint32 total_func_count = module->import_func_count + module->func_count, i;
+
+    for (i = 0; i < total_func_count; i++) {
+        const char *name_in_wasm = get_func_name_from_index(inst, i);
+        if (name_in_wasm && strcmp(func_name, name_in_wasm) == 0) {
+            AOTFuncPerfProfInfo *perf_prof =
+                (AOTFuncPerfProfInfo *)inst->func_perf_profilings + i;
+            return (perf_prof->total_exec_time - perf_prof->children_exec_time)
+                   / 1000.0f;
+        }
+    }
+
+    return -1.0;
 }
 #endif /* end of WASM_ENABLE_PERF_PROFILING != 0 */
 

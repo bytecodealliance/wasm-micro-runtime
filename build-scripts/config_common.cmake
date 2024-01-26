@@ -248,6 +248,12 @@ if (WAMR_BUILD_SHARED_MEMORY EQUAL 1)
 else ()
   add_definitions (-DWASM_ENABLE_SHARED_MEMORY=0)
 endif ()
+if (WAMR_ENABLE_SHARED_MEMORY_MMAP EQUAL 1)
+  add_definitions (-DWASM_ENABLE_SHARED_MEMORY_MMAP=1)
+  message ("     Shared memory allocated using mmap enabled")
+else ()
+  add_definitions (-DWASM_ENABLE_SHARED_MEMORY_MMAP=0)
+endif ()
 if (WAMR_BUILD_THREAD_MGR EQUAL 1)
   message ("     Thread manager enabled")
 endif ()
@@ -372,6 +378,9 @@ endif ()
 if (DEFINED WAMR_BH_VPRINTF)
   add_definitions (-DBH_VPRINTF=${WAMR_BH_VPRINTF})
 endif ()
+if (DEFINED WAMR_BH_LOG)
+  add_definitions (-DBH_LOG=${WAMR_BH_LOG})
+endif ()
 if (WAMR_DISABLE_APP_ENTRY EQUAL 1)
   message ("     WAMR application entry functions excluded")
 endif ()
@@ -455,32 +464,49 @@ if (WAMR_BUILD_STATIC_PGO EQUAL 1)
   add_definitions (-DWASM_ENABLE_STATIC_PGO=1)
   message ("     AOT static PGO enabled")
 endif ()
-if (WAMR_DISABLE_WRITE_GS_BASE EQUAL 1)
-  add_definitions (-DWASM_DISABLE_WRITE_GS_BASE=1)
-  message ("     Write linear memory base addr to x86 GS register disabled")
-elseif (WAMR_BUILD_TARGET STREQUAL "X86_64"
-        AND WAMR_BUILD_PLATFORM STREQUAL "linux")
-  set (TEST_WRGSBASE_SOURCE "${CMAKE_BINARY_DIR}/test_wrgsbase.c")
-  file (WRITE "${TEST_WRGSBASE_SOURCE}" "
-  #include <stdio.h>
-  #include <stdint.h>
-  int main() {
-      uint64_t value;
-      asm volatile (\"wrgsbase %0\" : : \"r\"(value));
-      printf(\"WRGSBASE instruction is available.\\n\");
-      return 0;
-  }")
-  # Try to compile and run the test program
-  try_run (TEST_WRGSBASE_RESULT
-    TEST_WRGSBASE_COMPILED
-    ${CMAKE_BINARY_DIR}/test_wrgsbase
-    SOURCES ${TEST_WRGSBASE_SOURCE}
-    CMAKE_FLAGS -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-  )
-  #message("${TEST_WRGSBASE_COMPILED}, ${TEST_WRGSBASE_RESULT}")
-  if (NOT TEST_WRGSBASE_RESULT EQUAL 0)
+if (WAMR_BUILD_TARGET STREQUAL "X86_64"
+    AND WAMR_BUILD_PLATFORM STREQUAL "linux")
+  if (WAMR_DISABLE_WRITE_GS_BASE EQUAL 1)
+    # disabled by user
+    set (DISABLE_WRITE_GS_BASE 1)
+  elseif (WAMR_DISABLE_WRITE_GS_BASE EQUAL 0)
+    # enabled by user
+    set (DISABLE_WRITE_GS_BASE 0)
+  elseif (CMAKE_CROSSCOMPILING)
+    # disabled in cross compilation environment
+    set (DISABLE_WRITE_GS_BASE 1)
+  else ()
+    # auto-detected by the compiler
+    set (TEST_WRGSBASE_SOURCE "${CMAKE_BINARY_DIR}/test_wrgsbase.c")
+    file (WRITE "${TEST_WRGSBASE_SOURCE}" "
+    #include <stdio.h>
+    #include <stdint.h>
+    int main() {
+        uint64_t value;
+        asm volatile (\"wrgsbase %0\" : : \"r\"(value));
+        printf(\"WRGSBASE instruction is available.\\n\");
+        return 0;
+    }")
+    # Try to compile and run the test program
+    try_run (TEST_WRGSBASE_RESULT
+      TEST_WRGSBASE_COMPILED
+      ${CMAKE_BINARY_DIR}/test_wrgsbase
+      SOURCES ${TEST_WRGSBASE_SOURCE}
+      CMAKE_FLAGS -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+    )
+    #message("${TEST_WRGSBASE_COMPILED}, ${TEST_WRGSBASE_RESULT}")
+    if (TEST_WRGSBASE_RESULT EQUAL 0)
+      set (DISABLE_WRITE_GS_BASE 0)
+    else ()
+      set (DISABLE_WRITE_GS_BASE 1)
+    endif ()
+  endif ()
+  if (DISABLE_WRITE_GS_BASE EQUAL 1)
     add_definitions (-DWASM_DISABLE_WRITE_GS_BASE=1)
     message ("     Write linear memory base addr to x86 GS register disabled")
+  else ()
+    add_definitions (-DWASM_DISABLE_WRITE_GS_BASE=0)
+    message ("     Write linear memory base addr to x86 GS register enabled")
   endif ()
 endif ()
 if (WAMR_CONFIGUABLE_BOUNDS_CHECKS EQUAL 1)
@@ -491,20 +517,19 @@ if (WAMR_BUILD_LINUX_PERF EQUAL 1)
   add_definitions (-DWASM_ENABLE_LINUX_PERF=1)
   message ("     Linux perf support enabled")
 endif ()
-if (NOT DEFINED WAMR_BUILD_QUICK_AOT_ENTRY)
-  # Enable quick aot/jit entries by default
-  set (WAMR_BUILD_QUICK_AOT_ENTRY 1)
-endif ()
-if (WAMR_BUILD_QUICK_AOT_ENTRY EQUAL 1)
-  add_definitions (-DWASM_ENABLE_QUICK_AOT_ENTRY=1)
-  message ("     Quick AOT/JIT entries enabled")
+if (WAMR_BUILD_AOT EQUAL 1 OR WAMR_BUILD_JIT EQUAL 1)
+  if (NOT DEFINED WAMR_BUILD_QUICK_AOT_ENTRY)
+    # Enable quick aot/jit entries by default
+    set (WAMR_BUILD_QUICK_AOT_ENTRY 1)
+  endif ()
+  if (WAMR_BUILD_QUICK_AOT_ENTRY EQUAL 1)
+    add_definitions (-DWASM_ENABLE_QUICK_AOT_ENTRY=1)
+    message ("     Quick AOT/JIT entries enabled")
+  else ()
+    add_definitions (-DWASM_ENABLE_QUICK_AOT_ENTRY=0)
+    message ("     Quick AOT/JIT entries disabled")
+  endif ()
 else ()
+  # Disable quick aot/jit entries for interp and fast-jit
   add_definitions (-DWASM_ENABLE_QUICK_AOT_ENTRY=0)
-  message ("     Quick AOT/JIT entries disabled")
-endif ()
-
-if (APPLE)
-  # On recent macOS versions, by default, the size of page zero is 4GB.
-  # Shrink it to make MAP_32BIT mmap can work.
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-pagezero_size,0x4000")
 endif ()
