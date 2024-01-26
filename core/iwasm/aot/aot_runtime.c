@@ -2845,14 +2845,13 @@ aot_free_frame(WASMExecEnv *exec_env)
     AOTFrame *prev_frame = cur_frame->prev_frame;
 
 #if WASM_ENABLE_PERF_PROFILING != 0
-    cur_frame->func_perf_prof_info->total_exec_time +=
-        os_time_thread_cputime_us() - cur_frame->time_started;
+    uint64 elapsed = os_time_thread_cputime_us() - cur_frame->time_started;
+    cur_frame->func_perf_prof_info->total_exec_time += elapsed;
     cur_frame->func_perf_prof_info->total_exec_cnt++;
 
     /* parent function */
     if (prev_frame)
-        prev_frame->func_perf_prof_info->children_exec_time =
-            cur_frame->func_perf_prof_info->total_exec_time;
+        prev_frame->func_perf_prof_info->children_exec_time += elapsed;
 #endif
 
     wasm_exec_env_free_wasm_frame(exec_env, cur_frame);
