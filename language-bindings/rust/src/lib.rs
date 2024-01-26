@@ -122,7 +122,7 @@
 //! fn main() -> Reulst<> {
 //!   let runtime = Runtime::builder().run_as_interpreter().use_system_allocator().build()?;
 //!
-//!   // TODO: clarify NativeFunction and host-function
+//!   // TODO: working on NativeFunction and host-function, may change sooner or later
 //!   let native_functions : Vec<NativeFunction> = Vec::new();
 //!   native_functions.push(NativeFunction::new("extra", || => 10));
 //!   runtime.register_native_functions(&native_functions);

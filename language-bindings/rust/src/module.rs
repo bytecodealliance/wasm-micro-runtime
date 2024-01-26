@@ -4,6 +4,7 @@
  */
 
 //! .wasm compiled, in-memory representation
+//! get one via `Module::from_file()` or `Module::from_buf()`
 
 use crate::{helper::error_buf_to_string, helper::DEFAULT_ERROR_BUF_SIZE, RuntimeError};
 use std::{ffi::CString, fs::File, io::Read, path::Path, ptr, string::String, vec::Vec};
@@ -96,7 +97,6 @@ impl Module {
         })
     }
 
-    //TODO: pay attention to ownership of strings
     /// set pre-open directories and files, which are part of WASI arguments, for the module.
     /// the format of each map entry: <guest-path>::<host-path>
     ///

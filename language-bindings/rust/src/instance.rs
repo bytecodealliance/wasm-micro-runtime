@@ -4,6 +4,7 @@
  */
 
 //! an instantiated module. The module is instantiated with the given imports.
+//! get one via `Instance::new()`
 
 #![allow(unused_variables)]
 
@@ -25,7 +26,7 @@ pub struct Instance {
 }
 
 impl Instance {
-    /// instantiate a module
+    /// instantiate a module with stack size
     ///
     /// # Error
     ///
@@ -34,6 +35,13 @@ impl Instance {
         Self::new_with_args(module, stack_size, 0)
     }
 
+    /// instantiate a module with stack size and host managed heap size
+    ///
+    /// heap_size is used for `-nostdlib` Wasm and wasm32-unknown
+    ///
+    /// # Error
+    ///
+    /// Return `RuntimeError::CompilationError` if failed.
     pub fn new_with_args(
         module: &Module,
         stack_size: u32,

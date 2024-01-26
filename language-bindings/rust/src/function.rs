@@ -4,6 +4,7 @@
  */
 
 //! an exported wasm function.
+//! get one via `Function::find_export_func()`
 
 use std::ffi::CString;
 use wamr_sys::{
@@ -20,6 +21,11 @@ pub struct Function {
 }
 
 impl Function {
+    /// find a function by name
+    ///
+    /// # Error
+    ///
+    /// Return `RuntimeError::FunctionNotFound` if failed.
     pub fn find_export_func(instance: &Instance, name: &str) -> Result<Function, RuntimeError> {
         let name = CString::new(name).expect("CString::new failed");
         let function = unsafe {
@@ -65,6 +71,12 @@ impl Function {
         }
     }
 
+    /// execute an export function.
+    /// all parameters need to be wrapped in `WasmValue`
+    ///
+    /// # Error
+    ///
+    /// Return `RuntimeError::ExecutionError` if failed.
     pub fn call(
         &self,
         instance: &Instance,

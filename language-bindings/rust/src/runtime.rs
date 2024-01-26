@@ -7,30 +7,23 @@
 //! Every process should have only one instance of this runtime by call
 //! `Runtime::new()` or `Runtime::builder().build()` once.
 
+use std::ffi::c_void;
 use std::option::Option;
 use std::sync::{Arc, OnceLock};
 
 use wamr_sys::{
-    mem_alloc_type_t_Alloc_With_System_Allocator, wasm_runtime_destroy, wasm_runtime_full_init,
-    wasm_runtime_init, RunningMode_Mode_Fast_JIT, RunningMode_Mode_Interp,
-    RunningMode_Mode_LLVM_JIT, RuntimeInitArgs,
+    mem_alloc_type_t_Alloc_With_Pool, mem_alloc_type_t_Alloc_With_System_Allocator,
+    wasm_runtime_destroy, wasm_runtime_full_init, wasm_runtime_init, RunningMode_Mode_Fast_JIT,
+    RunningMode_Mode_Interp, RunningMode_Mode_LLVM_JIT, RuntimeInitArgs,
 };
 
 use crate::RuntimeError;
 
 /// The builder of `Runtime`. It is used to configure the runtime.
+/// Get one via `Runtime::builder()`
+#[derive(Default)]
 pub struct RuntimeBuilder {
     args: RuntimeInitArgs,
-}
-
-impl Default for RuntimeBuilder {
-    /// Default configuration of `RuntimeBuilder` uses system allocator mode
-    fn default() -> Self {
-        let builder = RuntimeBuilder {
-            args: RuntimeInitArgs::default(),
-        };
-        builder.use_system_allocator()
-    }
 }
 
 impl RuntimeBuilder {
@@ -41,10 +34,12 @@ impl RuntimeBuilder {
         self
     }
 
-    //TODO: feature
-    /// maximum number of threads in a runtime instance(a process)
-    pub fn set_max_threads(mut self, num: u32) -> RuntimeBuilder {
-        self.args.max_thread_num = num;
+    /// system allocator mode
+    /// allocate memory from pool, as a pre-allocated buffer, for runtime consumed memory
+    pub fn use_memory_pool(mut self, mut pool: Vec<u8>, pool_size: u32) -> RuntimeBuilder {
+        self.args.mem_alloc_type = mem_alloc_type_t_Alloc_With_Pool;
+        self.args.mem_alloc_option.pool.heap_buf = pool.as_mut_ptr() as *mut c_void;
+        self.args.mem_alloc_option.pool.heap_size = pool_size;
         self
     }
 
@@ -72,7 +67,7 @@ impl RuntimeBuilder {
         self
     }
 
-    /// create a new `Runtime` instance with the configuration
+    /// create a `Runtime` instance with the configuration
     ///
     /// # Errors
     ///
@@ -103,6 +98,11 @@ pub struct Runtime {}
 static SINGLETON_RUNTIME: OnceLock<Option<Arc<Runtime>>> = OnceLock::new();
 
 impl Runtime {
+    /// return a `RuntimeBuilder` instance
+    ///
+    /// has to
+    /// - select a allocation mode
+    /// - select a running mode
     pub fn builder() -> RuntimeBuilder {
         RuntimeBuilder::default()
     }
@@ -168,7 +168,7 @@ mod tests {
 
     #[test]
     fn test_runtime_builder_default() {
-        let runtime = Runtime::builder().build();
+        let runtime = Runtime::builder().use_system_allocator().build();
         assert_eq!(runtime.is_ok(), true);
         drop(runtime);
     }
