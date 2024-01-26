@@ -901,14 +901,12 @@ FREE_FRAME(WASMExecEnv *exec_env, WASMInterpFrame *frame)
 #if WASM_ENABLE_PERF_PROFILING != 0
     if (frame->function) {
         WASMInterpFrame *prev_frame = frame->prev_frame;
-
-        frame->function->total_exec_time +=
-            os_time_thread_cputime_us() - frame->time_started;
+        uint64 elapsed = os_time_thread_cputime_us() - frame->time_started;
+        frame->function->total_exec_time += elapsed;
         frame->function->total_exec_cnt++;
 
         if (prev_frame && prev_frame->function)
-            prev_frame->function->children_exec_time +=
-                frame->function->total_exec_time;
+            prev_frame->function->children_exec_time += elapsed;
     }
 #endif
     wasm_exec_env_free_wasm_frame(exec_env, frame);
