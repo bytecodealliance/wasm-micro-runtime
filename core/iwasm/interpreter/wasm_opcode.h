@@ -685,6 +685,13 @@ typedef enum WASMAtomicEXTOpcode {
 
 #define SET_GOTO_TABLE_ELEM(opcode) [opcode] = HANDLE_OPCODE(opcode)
 
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_SIMD != 0
+#define SET_GOTO_TABLE_SIMD_PREFIX_ELEM() \
+    SET_GOTO_TABLE_ELEM(WASM_OP_SIMD_PREFIX),
+#else
+#define SET_GOTO_TABLE_SIMD_PREFIX_ELEM()
+#endif
+
 /*
  * Macro used to generate computed goto tables for the C interpreter.
  */
@@ -909,6 +916,7 @@ typedef enum WASMAtomicEXTOpcode {
         HANDLE_OPCODE(EXT_OP_BR_TABLE_CACHE),        /* 0xd6 */ \
         HANDLE_OPCODE(EXT_OP_TRY),                   /* 0xd7 */ \
         SET_GOTO_TABLE_ELEM(WASM_OP_MISC_PREFIX),    /* 0xfc */ \
+        SET_GOTO_TABLE_SIMD_PREFIX_ELEM()            /* 0xfd */ \
         SET_GOTO_TABLE_ELEM(WASM_OP_ATOMIC_PREFIX),  /* 0xfe */ \
         DEF_DEBUG_BREAK_HANDLE()                                \
     };

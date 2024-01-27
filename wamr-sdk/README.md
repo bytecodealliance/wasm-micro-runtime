@@ -8,7 +8,7 @@ Usually there are two tasks for integrating the WAMR into a particular project:
 The **[WAMR SDK](./wamr-sdk)** tools is helpful to finish the two tasks quickly. It supports menu configuration for selecting WAMR components and builds the WAMR to a SDK package that includes **runtime SDK** and **APP SDK**. The runtime SDK is used for building the native application and the APP SDK should be shipped to WASM application developers.
 
 
-**Note**: [WASI-SDK](https://github.com/CraneStation/wasi-sdk/releases) version 7 and above should be installed before building the WAMR SDK. 
+**Note**: [WASI-SDK](https://github.com/WebAssembly/wasi-sdk/releases) version 7 and above should be installed before building the WAMR SDK.
 
 
 

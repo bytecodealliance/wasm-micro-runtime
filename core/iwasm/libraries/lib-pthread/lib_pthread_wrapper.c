@@ -468,7 +468,7 @@ get_thread_info(wasm_exec_env_t exec_env, uint32 handle)
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
     ClusterInfoNode *info = get_cluster_info(cluster);
 
-    if (!info) {
+    if (!info || !handle) {
         return NULL;
     }
 
@@ -1144,6 +1144,10 @@ sem_open_wrapper(wasm_exec_env_t exec_env, const char *name, int32 oflags,
      * For Unix like system, it's dedicated for multiple processes.
      */
 
+    if (!name) { /* avoid passing NULL to bh_hash_map_find and os_sem_open */
+        return -1;
+    }
+
     if ((info_node = bh_hash_map_find(sem_info_map, (void *)name))) {
         return info_node->handle;
     }
@@ -1276,7 +1280,13 @@ sem_unlink_wrapper(wasm_exec_env_t exec_env, const char *name)
     (void)exec_env;
     int32 ret_val;
 
-    ThreadInfoNode *info_node = bh_hash_map_find(sem_info_map, (void *)name);
+    ThreadInfoNode *info_node;
+
+    if (!name) { /* avoid passing NULL to bh_hash_map_find */
+        return -1;
+    }
+
+    info_node = bh_hash_map_find(sem_info_map, (void *)name);
     if (!info_node || info_node->type != T_SEM)
         return -1;
 

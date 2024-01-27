@@ -17,18 +17,18 @@ mkdir ${OUT_DIR}
 mkdir ${OUT_DIR}/wasm-apps
 
 
-echo "##################### build shared-module project"
+echo "##################### build terminate project"
 cd ${CURR_DIR}
 mkdir -p cmake_build
 cd cmake_build
 cmake .. -DCMAKE_BUILD_TYPE=Debug
 make -j ${nproc}
 if [ $? != 0 ];then
-    echo "BUILD_FAIL shared-module exit as $?\n"
+    echo "BUILD_FAIL terminate exit as $?\n"
     exit 2
 fi
 
-cp -a shared-module ${OUT_DIR}
+cp -a terminate ${OUT_DIR}
 
 printf "\n"
 

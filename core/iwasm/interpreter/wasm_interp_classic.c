@@ -871,7 +871,7 @@ ALLOC_FRAME(WASMExecEnv *exec_env, uint32 size, WASMInterpFrame *prev_frame)
     if (frame) {
         frame->prev_frame = prev_frame;
 #if WASM_ENABLE_PERF_PROFILING != 0
-        frame->time_started = os_time_get_boot_microsecond();
+        frame->time_started = os_time_thread_cputime_us();
 #endif
     }
     else {
@@ -887,9 +887,13 @@ FREE_FRAME(WASMExecEnv *exec_env, WASMInterpFrame *frame)
 {
 #if WASM_ENABLE_PERF_PROFILING != 0
     if (frame->function) {
-        frame->function->total_exec_time +=
-            os_time_get_boot_microsecond() - frame->time_started;
+        WASMInterpFrame *prev_frame = frame->prev_frame;
+        uint64 elapsed = os_time_thread_cputime_us() - frame->time_started;
+        frame->function->total_exec_time += elapsed;
         frame->function->total_exec_cnt++;
+
+        if (prev_frame && prev_frame->function)
+            prev_frame->function->children_exec_time += elapsed;
     }
 #endif
     wasm_exec_env_free_wasm_frame(exec_env, frame);
@@ -3654,6 +3658,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         uint32 tbl_idx, elem_idx;
                         uint32 n, s, d;
                         WASMTableInstance *tbl_inst;
+                        uint32 *tbl_seg_elems = NULL, tbl_seg_len = 0;
 
                         read_leb_uint32(frame_ip, frame_ip_end, elem_idx);
                         bh_assert(elem_idx < module->module->table_seg_count);
@@ -3667,10 +3672,18 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         s = (uint32)POP_I32();
                         d = (uint32)POP_I32();
 
-                        if (offset_len_out_of_bounds(
-                                s, n,
+                        if (!bh_bitmap_get_bit(module->e->common.elem_dropped,
+                                               elem_idx)) {
+                            /* table segment isn't dropped */
+                            tbl_seg_elems =
                                 module->module->table_segments[elem_idx]
-                                    .function_count)
+                                    .func_indexes;
+                            tbl_seg_len =
+                                module->module->table_segments[elem_idx]
+                                    .function_count;
+                        }
+
+                        if (offset_len_out_of_bounds(s, n, tbl_seg_len)
                             || offset_len_out_of_bounds(d, n,
                                                         tbl_inst->cur_size)) {
                             wasm_set_exception(module,
@@ -3682,30 +3695,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             break;
                         }
 
-                        if (bh_bitmap_get_bit(module->e->common.elem_dropped,
-                                              elem_idx)) {
-                            wasm_set_exception(module,
-                                               "out of bounds table access");
-                            goto got_exception;
-                        }
-
-                        if (!wasm_elem_is_passive(
-                                module->module->table_segments[elem_idx]
-                                    .mode)) {
-                            wasm_set_exception(module,
-                                               "out of bounds table access");
-                            goto got_exception;
-                        }
-
                         bh_memcpy_s(
                             (uint8 *)tbl_inst
                                 + offsetof(WASMTableInstance, elems)
                                 + d * sizeof(uint32),
                             (uint32)((tbl_inst->cur_size - d) * sizeof(uint32)),
-                            module->module->table_segments[elem_idx]
-                                    .func_indexes
-                                + s,
-                            (uint32)(n * sizeof(uint32)));
+                            tbl_seg_elems + s, (uint32)(n * sizeof(uint32)));
 
                         break;
                     }
@@ -4241,6 +4236,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         HANDLE_OP(WASM_OP_CATCH_ALL)
         HANDLE_OP(EXT_OP_TRY)
 #endif
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_SIMD != 0
+        /* SIMD isn't supported by interpreter, but when JIT is
+           enabled, `iwasm --interp <wasm_file>` may be run to
+           trigger the SIMD opcode in interpreter */
+        HANDLE_OP(WASM_OP_SIMD_PREFIX)
+#endif
         HANDLE_OP(WASM_OP_UNUSED_0x14)
         HANDLE_OP(WASM_OP_UNUSED_0x15)
         HANDLE_OP(WASM_OP_UNUSED_0x16)
@@ -4692,14 +4693,11 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
 #if WASM_ENABLE_QUICK_AOT_ENTRY != 0
         /* Quick call if the quick jit entry is registered */
         if (func_type->quick_aot_entry) {
-            void (*invoke_native)(
-                void *func_ptr, uint8 ret_type, void *exec_env, uint32 *argv,
-                uint32 *argv_ret) = func_type->quick_aot_entry;
-            invoke_native(module_inst->func_ptrs[func_idx],
-                          func_type->result_count > 0
-                              ? func_type->types[func_type->param_count]
-                              : VALUE_TYPE_VOID,
-                          exec_env, argv, argv);
+            void (*invoke_native)(void *func_ptr, void *exec_env, uint32 *argv,
+                                  uint32 *argv_ret) =
+                func_type->quick_aot_entry;
+            invoke_native(module_inst->func_ptrs[func_idx], exec_env, argv,
+                          argv);
             ret = !wasm_copy_exception(module_inst, NULL);
         }
         else

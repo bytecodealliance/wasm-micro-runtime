@@ -327,7 +327,7 @@ check_utf8_str(const uint8 *str, uint32 len)
                     return false;
                 }
             }
-            else if (chr >= 0xE1 && chr <= 0xEF) {
+            else { /* chr >= 0xE1 && chr <= 0xEF */
                 if (p[1] < 0x80 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF) {
                     return false;
                 }
@@ -341,13 +341,13 @@ check_utf8_str(const uint8 *str, uint32 len)
                     return false;
                 }
             }
-            else if (chr >= 0xF1 && chr <= 0xF3) {
+            else if (chr <= 0xF3) { /* and also chr >= 0xF1 */
                 if (p[1] < 0x80 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF
                     || p[3] < 0x80 || p[3] > 0xBF) {
                     return false;
                 }
             }
-            else if (chr == 0xF4) {
+            else { /* chr == 0xF4 */
                 if (p[1] < 0x80 || p[1] > 0x8F || p[2] < 0x80 || p[2] > 0xBF
                     || p[3] < 0x80 || p[3] > 0xBF) {
                     return false;
@@ -4317,15 +4317,6 @@ check_wasi_abi_compatibility(const WASMModule *module,
      * according to the assumption, they should be all wasi compatiable
      */
 
-    /* always can not have both at the same time  */
-    if (start && initialize) {
-        set_error_buf(
-            error_buf, error_buf_size,
-            "neither a command nor a reactor can both have _start function "
-            "and _initialize function at the same time");
-        return false;
-    }
-
 #if WASM_ENABLE_MULTI_MODULE != 0
     /* filter out commands (with `_start`) cases */
     if (start && !main_module) {
@@ -7994,6 +7985,15 @@ re_scan:
                     bh_memcpy_s(loader_ctx->frame_offset, size,
                                 block->param_frame_offsets, size);
                     loader_ctx->frame_offset += (size / sizeof(int16));
+
+                    /* recover dynamic offset */
+                    for (i = 0; i < block->available_param_num; i++) {
+                        if (block->param_frame_offsets[i]
+                            >= loader_ctx->dynamic_offset) {
+                            loader_ctx->dynamic_offset =
+                                block->param_frame_offsets[i] + 1;
+                        }
+                    }
                 }
 #endif
 

@@ -100,6 +100,12 @@ get_section64(Elf64_Ehdr *eh, Elf64_Shdr *section_header)
     return buf + section_header->sh_offset;
 }
 
+static bool
+is_text_section(const char *section_name)
+{
+    return !strcmp(section_name, ".text") || !strcmp(section_name, ".ltext");
+}
+
 bool
 get_text_section(void *buf, uint64_t *offset, uint64_t *size)
 {
@@ -107,6 +113,7 @@ get_text_section(void *buf, uint64_t *offset, uint64_t *size)
     uint32 i;
     char *sh_str;
 
+    /* Assumption: Only one of .text or .ltext is non-empty. */
     if (is64Bit(buf)) {
         Elf64_Ehdr *eh = (Elf64_Ehdr *)buf;
         Elf64_Shdr **sh_table =
@@ -115,14 +122,16 @@ get_text_section(void *buf, uint64_t *offset, uint64_t *size)
             read_section_header_table64(eh, sh_table);
             sh_str = get_section64(eh, sh_table[eh->e_shstrndx]);
             for (i = 0; i < eh->e_shnum; i++) {
-                if (!strcmp(sh_str + sh_table[i]->sh_name, ".text")) {
+                if (is_text_section(sh_str + sh_table[i]->sh_name)) {
                     *offset = sh_table[i]->sh_offset;
                     *size = sh_table[i]->sh_size;
                     sh_table[i]->sh_addr =
                         (Elf64_Addr)(uintptr_t)((char *)buf
                                                 + sh_table[i]->sh_offset);
                     ret = true;
-                    break;
+                    if (*size > 0) {
+                        break;
+                    }
                 }
             }
             wasm_runtime_free(sh_table);
@@ -136,14 +145,16 @@ get_text_section(void *buf, uint64_t *offset, uint64_t *size)
             read_section_header_table(eh, sh_table);
             sh_str = get_section(eh, sh_table[eh->e_shstrndx]);
             for (i = 0; i < eh->e_shnum; i++) {
-                if (!strcmp(sh_str + sh_table[i]->sh_name, ".text")) {
+                if (is_text_section(sh_str + sh_table[i]->sh_name)) {
                     *offset = sh_table[i]->sh_offset;
                     *size = sh_table[i]->sh_size;
                     sh_table[i]->sh_addr =
                         (Elf32_Addr)(uintptr_t)((char *)buf
                                                 + sh_table[i]->sh_offset);
                     ret = true;
-                    break;
+                    if (*size > 0) {
+                        break;
+                    }
                 }
             }
             wasm_runtime_free(sh_table);

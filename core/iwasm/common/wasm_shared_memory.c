@@ -176,8 +176,9 @@ acquire_wait_info(void *address, AtomicWaitNode *wait_node)
     AtomicWaitInfo *wait_info = NULL;
     bh_list_status ret;
 
-    if (address)
-        wait_info = (AtomicWaitInfo *)bh_hash_map_find(wait_map, address);
+    bh_assert(address != NULL);
+
+    wait_info = (AtomicWaitInfo *)bh_hash_map_find(wait_map, address);
 
     if (!wait_node) {
         return wait_info;

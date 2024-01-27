@@ -145,6 +145,7 @@ jobs:
             "-DWAMR_BUILD_SIMD=1",
             "-DWAMR_BUILD_TAIL_CALL=1",
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
+            "-DWAMR_ENABLE_SHARED_MEMORY_MMAP=1",
           ]
         os: [ubuntu-22.04]
         platform: [android, linux]
@@ -322,7 +323,7 @@ jobs:
         run: |
           VERBOSE=1
           cmake -S . -B build ${{ matrix.make_options }}
-          cmake --build build --config Release --parallel 4
+          cmake --build build --config Debug --parallel 4
           ctest --test-dir build --output-on-failure
         working-directory: samples/wasm-c-api
 
@@ -393,7 +394,7 @@ jobs:
           cd samples/file
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release --parallel 4
+          cmake --build . --config Debug --parallel 4
           ./src/iwasm -f wasm-app/file.wasm -d .
 
       - name: Build Sample [multi-thread]
@@ -401,7 +402,7 @@ jobs:
           cd samples/multi-thread
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release --parallel 4
+          cmake --build . --config Debug --parallel 4
           ./iwasm wasm-apps/test.wasm
 
       - name: Build Sample [multi-module]
@@ -409,7 +410,7 @@ jobs:
           cd samples/multi-module
           mkdir build && cd build
           cmake .. -DWAMR_BUILD_AOT=1
-          cmake --build . --config Release --parallel 4
+          cmake --build . --config Debug --parallel 4
           ./multi_module mC.wasm
           ./multi_module mC.aot
 
@@ -418,7 +419,7 @@ jobs:
           cd samples/spawn-thread
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release --parallel 4
+          cmake --build . --config Debug --parallel 4
           ./spawn_thread
 
       - name: Build Sample [ref-types]
@@ -426,7 +427,7 @@ jobs:
           cd samples/ref-types
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release --parallel 4
+          cmake --build . --config Debug --parallel 4
           ./hello
 
       - name: Build Sample [simple]
@@ -441,12 +442,18 @@ jobs:
           cd samples/wasi-threads
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release --parallel 4
+          cmake --build . --config Debug --parallel 4
           ./iwasm wasm-apps/no_pthread.wasm
 
       - name: Build Sample [shared-module]
         run: |
           cd samples/shared-module
+          ./build.sh
+          ./run.sh
+
+      - name: Build Sample [terminate]
+        run: |
+          cd samples/terminate
           ./build.sh
           ./run.sh
 
