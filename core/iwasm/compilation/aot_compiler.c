@@ -36,7 +36,9 @@
 #include "debug/dwarf_extractor.h"
 #endif
 
-#include "../aot/aot_trace_exec.h"
+#if WASM_ENABLE_TRACE_MODE != 0
+#include "../trace-exec/trace_exec.h"
+#endif
 
 #define CHECK_BUF(buf, buf_end, length)                             \
     do {                                                            \
@@ -201,10 +203,12 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
         LLVMSetCurrentDebugLocation2(comp_ctx->builder, location);
 #endif
 
+#if WASM_ENABLE_TRACE_MODE != 0
         if (opcode < WASM_OP_MISC_PREFIX) {
-            aot_trace_exec_build_call_helper(comp_ctx, func_ctx, func_index,
-                                             opcode, 0x0, frame_ip);
+            trace_exec_build_call_helper(comp_ctx, func_ctx, func_index, opcode,
+                                         0x0, frame_ip);
         }
+#endif
 
         switch (opcode) {
             case WASM_OP_UNREACHABLE:
@@ -1377,9 +1381,11 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
                 opcode = *frame_ip++;
 
-                aot_trace_exec_build_call_helper(comp_ctx, func_ctx, func_index,
-                                                 WASM_OP_SIMD_PREFIX, opcode,
-                                                 frame_ip);
+#if WASM_ENABLE_TRACE_MODE != 0
+                trace_exec_build_call_helper(comp_ctx, func_ctx, func_index,
+                                             WASM_OP_SIMD_PREFIX, opcode,
+                                             frame_ip);
+#endif
 
                 /* follow the order of enum WASMSimdEXTOpcode in
                    wasm_opcode.h */

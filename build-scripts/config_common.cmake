@@ -161,6 +161,14 @@ if (WAMR_BUILD_LINUX_PERF EQUAL 1)
   endif ()
 endif ()
 
+# FIXME: remove when supporting other running modes
+if (WAMR_BUILD_TRACE_MODE EQUAL 1)
+  if (NOT WAMR_BUILD_JIT AND NOT WAMR_BUILD_AOT)
+    message(WARNING "only support trace mode in aot and llvm-jit")
+    set(WAMR_BUILD_TRACE_MODE 0)
+  endif ()
+endif ()
+
 ########################################
 
 message ("-- Build Configurations:")
@@ -494,7 +502,6 @@ else ()
   add_definitions (-DWASM_ENABLE_QUICK_AOT_ENTRY=0)
 endif ()
 
-if (WAMR_TRACE_MODE EQUAL 1)
-  add_definitions (-DWASM_TRACE_MODE=1)
-  message("      Include trace mode")
+if (WAMR_BUILD_TRACE_MODE EQUAL 1)
+    message ("     Trace mode enabled")
 endif ()

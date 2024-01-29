@@ -3,21 +3,23 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "aot_llvm.h"
 #include "bh_common.h"
 #include "platform_api_vmcore.h"
 #include "platform_common.h"
 #include "wasm_runtime_common.h"
 #include <stdarg.h>
 #include <stdint.h>
+
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+#include "aot_llvm.h"
 #include "../compilation/aot_compiler.h"
 #include "../interpreter/wasm_opcode.h"
 
 #include "llvm-c/Types.h"
 #endif /* WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0 */
 
-#include "aot_trace_exec.h"
+#include "trace_exec.h"
+#include "trace_exec_ops.h"
 
 #define ARR_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
 
@@ -89,62 +91,8 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign,
     } while (0)
 
 /* ============================== compilation ============================== */
-struct trace_exec_op_info {
-    const char *opcode_name;
-    enum trace_exec_opcode_kind kind;
-};
-
-static const struct trace_exec_op_info simd_info[0xff + 1] = {
-    [SIMD_v128_load] = { "v128.load", IMM_memarg_OP_i32 },
-    [SIMD_v128_load16x4_s] = { "v128_load16x4_s", IMM_memarg_OP_i32 },
-    [SIMD_v128_store] = { "v128.store", IMM_memarg_OP_i32_v128 },
-    [SIMD_v128_const] = { "v128.const", IMM_v128_OP_0 },
-    [SIMD_i8x16_extract_lane_s] = { "i8x16_extract_lane_s", IMM_i8_OP_v128 },
-    [SIMD_i8x16_replace_lane] = { "i8x16.replace_lane", IMM_i8_OP_v128_i32 },
-    [SIMD_v128_load32_zero] = { "v128.load32_zero", IMM_memarg_OP_i32 },
-    [SIMD_f32x4_gt] = { "f32x4.gt", IMM_0_OP_v128_v128 },
-    [SIMD_f64x2_trunc] = { "f64x2.trunc", IMM_0_OP_v128 },
-    [SIMD_i16x8_sub_sat_s] = { "i16x8.sub_sat_s", IMM_0_OP_v128_v128 },
-    [SIMD_i16x8_sub_sat_u] = { "i16x8.sub_sat_u", IMM_0_OP_v128_v128 },
-    [SIMD_i16x8_max_u] = { "i16x8.max_u", IMM_0_OP_v128_v128 },
-    [SIMD_i32x4_max_s] = { "i32x4.max_s", IMM_0_OP_v128_v128 },
-    [SIMD_i64x2_sub] = { "i64x2.sub", IMM_0_OP_v128_v128 },
-    [SIMD_f32x4_add] = { "f32x4.add", IMM_0_OP_v128_v128 },
-    [SIMD_f32x4_abs] = { "f32x4.abs", IMM_0_OP_v128 },
-    [SIMD_f32x4_min] = { "f32x4.min", IMM_0_OP_v128_v128 },
-    [SIMD_f32x4_max] = { "f32x4.max", IMM_0_OP_v128_v128 },
-    [SIMD_f64x2_min] = { "f64x2.min", IMM_0_OP_v128_v128 },
-    [SIMD_f64x2_max] = { "f64x2.max", IMM_0_OP_v128_v128 },
-    [SIMD_f64x2_pmin] = { "f64x2.pmin", IMM_0_OP_v128_v128 },
-};
-
-static const struct trace_exec_op_info opcode_info[0xff + 1] = {
-    [WASM_OP_IF] = { "if", IMM_0_OP_i32 },
-    [WASM_OP_ELSE] = { "else", IMM_0_OP_0 },
-    [WASM_OP_END] = { "end", IMM_0_OP_0 },
-    [WASM_OP_BR] = { "br", IMM_i32_OP_0 },
-    [WASM_OP_BR_IF] = { "br_if", IMM_i32_OP_i32 },
-    [WASM_OP_CALL] = { "call", IMM_i32_OP_0 },
-    [WASM_OP_CALL_INDIRECT] = { "call_indirect", IMM_ty_tbl_OP_i32 },
-    [WASM_OP_DROP] = { "drop", IMM_0_OP_0 },
-    [WASM_OP_GET_LOCAL] = { "local.get", IMM_i32_OP_0 },
-    [WASM_OP_TEE_LOCAL] = { "local.tee", IMM_i32_OP_0 },
-    [WASM_OP_I64_LOAD16_S] = { "i64.load16_s", IMM_memarg_OP_i32 },
-    [WASM_OP_F32_CONST] = { "f32.const", IMM_f32_OP_0 },
-    [WASM_OP_I32_EQZ] = { "i32.eqz", IMM_0_OP_i32 },
-    [WASM_OP_I32_ADD] = { "i32.add", IMM_0_OP_i32_i32 },
-    [WASM_OP_I32_AND] = { "i32.and", IMM_0_OP_i32_i32 },
-    [WASM_OP_I32_OR] = { "i32.or", IMM_0_OP_i32_i32 },
-    [WASM_OP_I32_ROTL] = { "i32.rotl", IMM_0_OP_i32_i32 },
-    [WASM_OP_I32_TRUNC_S_F32] = { "i32.trunc_f32_s", IMM_0_OP_f32 },
-    [WASM_OP_I32_TRUNC_U_F32] = { "i32.trunc_f32_u", IMM_0_OP_f32 },
-    [WASM_OP_I32_TRUNC_S_F64] = { "i32.trunc_f64_s", IMM_0_OP_f64 },
-    [WASM_OP_I32_TRUNC_U_F64] = { "i32.trunc_f64_u", IMM_0_OP_f64 },
-};
-
 typedef bool (*imm_assembler)(AOTCompContext *, uint8 *, LLVMValueRef);
 typedef bool (*opd_assembler)(AOTCompContext *, AOTFuncContext *, LLVMValueRef);
-
 struct trace_exec_op_assembler {
     imm_assembler imm_assembler;
     opd_assembler opd_assembler;
@@ -155,11 +103,10 @@ struct trace_exec_op_assembler {
  * value is a imm or opd value
  */
 static void
-aot_trace_exec_fill_in_value(AOTCompContext *comp_ctx,
-                             LLVMTypeRef struct_value_type,
-                             LLVMValueRef struct_value_ptr,
-                             enum trace_exec_value_kind kind,
-                             LLVMValueRef value)
+trace_exec_fill_in_value(AOTCompContext *comp_ctx,
+                         LLVMTypeRef struct_value_type,
+                         LLVMValueRef struct_value_ptr,
+                         enum trace_exec_value_kind kind, LLVMValueRef value)
 {
     LLVMTypeRef ptr_type = LLVMPointerTypeInContext(comp_ctx->context, 0);
     LLVMValueRef memset_func =
@@ -201,7 +148,7 @@ aot_trace_exec_fill_in_value(AOTCompContext *comp_ctx,
 }
 
 static LLVMTypeRef
-aot_trace_exec_get_struct_value_type(AOTCompContext *comp_ctx)
+trace_exec_get_struct_value_type(AOTCompContext *comp_ctx)
 {
     LLVMTypeRef struct_value_elem_types[5] = {
         I32_TYPE, I32_TYPE, I32_TYPE, I32_TYPE, V128_TYPE,
@@ -213,7 +160,7 @@ aot_trace_exec_get_struct_value_type(AOTCompContext *comp_ctx)
 }
 
 static LLVMTypeRef
-aot_trace_exec_get_struct_instruction_type(AOTCompContext *comp_ctx)
+trace_exec_get_struct_instruction_type(AOTCompContext *comp_ctx)
 {
     LLVMTypeRef ptr_type = LLVMPointerTypeInContext(comp_ctx->context, 0);
     LLVMTypeRef instr_elem_types[5] = {
@@ -225,19 +172,18 @@ aot_trace_exec_get_struct_instruction_type(AOTCompContext *comp_ctx)
 }
 
 static bool
-aot_trace_exec_assemble_imm_1(AOTCompContext *comp_ctx,
-                              enum trace_exec_value_kind imm_value_kind,
-                              LLVMValueRef imm, LLVMValueRef instr_imms_ptr)
+trace_exec_assemble_imm_1(AOTCompContext *comp_ctx,
+                          enum trace_exec_value_kind imm_value_kind,
+                          LLVMValueRef imm, LLVMValueRef instr_imms_ptr)
 {
-    LLVMTypeRef struct_value_type =
-        aot_trace_exec_get_struct_value_type(comp_ctx);
+    LLVMTypeRef struct_value_type = trace_exec_get_struct_value_type(comp_ctx);
 
     /* struct trace_exec_value */
     LLVMValueRef imm_ptr =
         LLVMBuildAlloca(comp_ctx->builder, struct_value_type, "imms_ptr");
 
-    aot_trace_exec_fill_in_value(comp_ctx, struct_value_type, imm_ptr,
-                                 imm_value_kind, imm);
+    trace_exec_fill_in_value(comp_ctx, struct_value_type, imm_ptr,
+                             imm_value_kind, imm);
 
     LLVMValueRef imm_decay =
         LLVMBuildPtrToInt(comp_ctx->builder, imm_ptr, I64_TYPE, "imm_decay");
@@ -247,43 +193,42 @@ aot_trace_exec_assemble_imm_1(AOTCompContext *comp_ctx,
 }
 
 static bool
-aot_trace_exec_assemble_imm_i8(AOTCompContext *comp_ctx, uint8 *ip,
-                               LLVMValueRef instr_imms_ptr)
+trace_exec_assemble_imm_i8(AOTCompContext *comp_ctx, uint8 *ip,
+                           LLVMValueRef instr_imms_ptr)
 {
     uint32 imm_value = *ip;
     LLVMValueRef imm = LLVMConstInt(I32_TYPE, imm_value, false);
 
-    return aot_trace_exec_assemble_imm_1(comp_ctx, TRACE_V_I8, imm,
-                                         instr_imms_ptr);
+    return trace_exec_assemble_imm_1(comp_ctx, TRACE_V_I8, imm, instr_imms_ptr);
 }
 
 static bool
-aot_trace_exec_assemble_imm_i32(AOTCompContext *comp_ctx, uint8 *ip,
-                                LLVMValueRef instr_imms_ptr)
+trace_exec_assemble_imm_i32(AOTCompContext *comp_ctx, uint8 *ip,
+                            LLVMValueRef instr_imms_ptr)
 {
     uint32 imm_value;
     read_leb_uint32(ip, imm_value);
     LLVMValueRef imm = LLVMConstInt(I32_TYPE, imm_value, false);
 
-    return aot_trace_exec_assemble_imm_1(comp_ctx, TRACE_V_I32, imm,
-                                         instr_imms_ptr);
+    return trace_exec_assemble_imm_1(comp_ctx, TRACE_V_I32, imm,
+                                     instr_imms_ptr);
 }
 
 static bool
-aot_trace_exec_assemble_imm_f32(AOTCompContext *comp_ctx, uint8 *ip,
-                                LLVMValueRef instr_imms_ptr)
+trace_exec_assemble_imm_f32(AOTCompContext *comp_ctx, uint8 *ip,
+                            LLVMValueRef instr_imms_ptr)
 {
     float32 imm_value = *(float32 *)ip;
 
     LLVMValueRef imm = LLVMConstReal(F32_TYPE, imm_value);
 
-    return aot_trace_exec_assemble_imm_1(comp_ctx, TRACE_V_F32, imm,
-                                         instr_imms_ptr);
+    return trace_exec_assemble_imm_1(comp_ctx, TRACE_V_F32, imm,
+                                     instr_imms_ptr);
 }
 
 static bool
-aot_trace_exec_assemble_imm_v128(AOTCompContext *comp_ctx, uint8 *ip,
-                                 LLVMValueRef instr_imms_ptr)
+trace_exec_assemble_imm_v128(AOTCompContext *comp_ctx, uint8 *ip,
+                             LLVMValueRef instr_imms_ptr)
 {
     uint64 imm_value[2];
     wasm_runtime_read_v128(ip, &imm_value[0], &imm_value[1]);
@@ -294,19 +239,18 @@ aot_trace_exec_assemble_imm_v128(AOTCompContext *comp_ctx, uint8 *ip,
     };
     LLVMValueRef imm = LLVMConstVector(imm_elem, 2);
 
-    return aot_trace_exec_assemble_imm_1(comp_ctx, TRACE_V_V128, imm,
-                                         instr_imms_ptr);
+    return trace_exec_assemble_imm_1(comp_ctx, TRACE_V_V128, imm,
+                                     instr_imms_ptr);
 }
 
 static bool
-aot_trace_exec_assemble_imm_2(AOTCompContext *comp_ctx,
-                              enum trace_exec_value_kind imms_0_value_kind,
-                              LLVMValueRef imms_0,
-                              enum trace_exec_value_kind imms_1_value_kind,
-                              LLVMValueRef imms_1, LLVMValueRef instr_imms_ptr)
+trace_exec_assemble_imm_2(AOTCompContext *comp_ctx,
+                          enum trace_exec_value_kind imms_0_value_kind,
+                          LLVMValueRef imms_0,
+                          enum trace_exec_value_kind imms_1_value_kind,
+                          LLVMValueRef imms_1, LLVMValueRef instr_imms_ptr)
 {
-    LLVMTypeRef struct_value_type =
-        aot_trace_exec_get_struct_value_type(comp_ctx);
+    LLVMTypeRef struct_value_type = trace_exec_get_struct_value_type(comp_ctx);
 
     /* struct trace_exec_value[2] */
     LLVMTypeRef imms_type = LLVMArrayType(struct_value_type, 2);
@@ -317,15 +261,15 @@ aot_trace_exec_assemble_imm_2(AOTCompContext *comp_ctx,
     LLVMValueRef indices[2] = { I32_ZERO, I32_ZERO };
     LLVMValueRef imms_0_ptr = LLVMBuildInBoundsGEP2(
         comp_ctx->builder, imms_type, imms_ptr, indices, 2, "imms_0_ptr");
-    aot_trace_exec_fill_in_value(comp_ctx, struct_value_type, imms_0_ptr,
-                                 imms_0_value_kind, imms_0);
+    trace_exec_fill_in_value(comp_ctx, struct_value_type, imms_0_ptr,
+                             imms_0_value_kind, imms_0);
 
     /* imm2*/
     indices[1] = I32_ONE;
     LLVMValueRef imms_1_ptr = LLVMBuildInBoundsGEP2(
         comp_ctx->builder, imms_type, imms_ptr, indices, 2, "imms_1_ptr");
-    aot_trace_exec_fill_in_value(comp_ctx, struct_value_type, imms_1_ptr,
-                                 imms_1_value_kind, imms_1);
+    trace_exec_fill_in_value(comp_ctx, struct_value_type, imms_1_ptr,
+                             imms_1_value_kind, imms_1);
 
     LLVMValueRef imms_decay =
         LLVMBuildPtrToInt(comp_ctx->builder, imms_ptr, I64_TYPE, "imm_decay");
@@ -335,8 +279,8 @@ aot_trace_exec_assemble_imm_2(AOTCompContext *comp_ctx,
 }
 
 static bool
-aot_trace_exec_assemble_imm_i32_i32(AOTCompContext *comp_ctx, uint8 *ip,
-                                    LLVMValueRef instr_imms_ptr)
+trace_exec_assemble_imm_i32_i32(AOTCompContext *comp_ctx, uint8 *ip,
+                                LLVMValueRef instr_imms_ptr)
 {
     uint32 imm1_val, imm2_val;
     read_leb_uint32(ip, imm1_val);
@@ -345,20 +289,19 @@ aot_trace_exec_assemble_imm_i32_i32(AOTCompContext *comp_ctx, uint8 *ip,
     LLVMValueRef imm1 = LLVMConstInt(I32_TYPE, imm1_val, false);
     LLVMValueRef imm2 = LLVMConstInt(I32_TYPE, imm2_val, false);
 
-    return aot_trace_exec_assemble_imm_2(comp_ctx, TRACE_V_I32, imm1,
-                                         TRACE_V_I32, imm2, instr_imms_ptr);
+    return trace_exec_assemble_imm_2(comp_ctx, TRACE_V_I32, imm1, TRACE_V_I32,
+                                     imm2, instr_imms_ptr);
 }
 
 static bool
-aot_trace_exec_assemble_imm_memarg(AOTCompContext *comp_ctx, uint8 *ip,
-                                   LLVMValueRef instr_imms_ptr)
+trace_exec_assemble_imm_memarg(AOTCompContext *comp_ctx, uint8 *ip,
+                               LLVMValueRef instr_imms_ptr)
 {
     uint32 align, offset;
     read_leb_uint32(ip, align);
     read_leb_uint32(ip, offset);
 
-    LLVMTypeRef struct_value_type =
-        aot_trace_exec_get_struct_value_type(comp_ctx);
+    LLVMTypeRef struct_value_type = trace_exec_get_struct_value_type(comp_ctx);
 
     /* struct trace_exec_value[2] */
     LLVMTypeRef imms_type = LLVMArrayType(struct_value_type, 2);
@@ -371,8 +314,8 @@ aot_trace_exec_assemble_imm_memarg(AOTCompContext *comp_ctx, uint8 *ip,
         comp_ctx->builder, imms_type, imms_ptr, indices, 2, "imms_0_ptr");
 
     LLVMValueRef imms_0 = LLVMConstInt(I32_TYPE, align, false);
-    aot_trace_exec_fill_in_value(comp_ctx, struct_value_type, imms_0_ptr,
-                                 TRACE_V_I32, imms_0);
+    trace_exec_fill_in_value(comp_ctx, struct_value_type, imms_0_ptr,
+                             TRACE_V_I32, imms_0);
 
     /* imm2:offset*/
     indices[1] = I32_ONE;
@@ -380,8 +323,8 @@ aot_trace_exec_assemble_imm_memarg(AOTCompContext *comp_ctx, uint8 *ip,
         comp_ctx->builder, imms_type, imms_ptr, indices, 2, "imms_1_ptr");
 
     LLVMValueRef imms_1 = LLVMConstInt(I32_TYPE, offset, false);
-    aot_trace_exec_fill_in_value(comp_ctx, struct_value_type, imms_1_ptr,
-                                 TRACE_V_I32, imms_1);
+    trace_exec_fill_in_value(comp_ctx, struct_value_type, imms_1_ptr,
+                             TRACE_V_I32, imms_1);
 
     LLVMValueRef imms_decay =
         LLVMBuildPtrToInt(comp_ctx->builder, imms_ptr, I64_TYPE, "imms_decay");
@@ -391,13 +334,11 @@ aot_trace_exec_assemble_imm_memarg(AOTCompContext *comp_ctx, uint8 *ip,
 }
 
 static bool
-aot_trace_exec_assemble_opd_1(AOTCompContext *comp_ctx,
-                              AOTFuncContext *func_ctx,
-                              enum trace_exec_value_kind opd_value_kind,
-                              LLVMValueRef instr_opds_ptr)
+trace_exec_assemble_opd_1(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                          enum trace_exec_value_kind opd_value_kind,
+                          LLVMValueRef instr_opds_ptr)
 {
-    LLVMTypeRef struct_value_type =
-        aot_trace_exec_get_struct_value_type(comp_ctx);
+    LLVMTypeRef struct_value_type = trace_exec_get_struct_value_type(comp_ctx);
 
     LLVMValueRef opd_ptr =
         LLVMBuildAlloca(comp_ctx->builder, struct_value_type, "opd_ptr");
@@ -406,8 +347,8 @@ aot_trace_exec_assemble_opd_1(AOTCompContext *comp_ctx,
         aot_value_stack_peek(&func_ctx->block_stack.block_list_end->value_stack,
                              0)
             ->value;
-    aot_trace_exec_fill_in_value(comp_ctx, struct_value_type, opd_ptr,
-                                 opd_value_kind, opd);
+    trace_exec_fill_in_value(comp_ctx, struct_value_type, opd_ptr,
+                             opd_value_kind, opd);
 
     LLVMValueRef opd_decay =
         LLVMBuildPtrToInt(comp_ctx->builder, opd_ptr, I64_TYPE, "opd_decay");
@@ -416,50 +357,44 @@ aot_trace_exec_assemble_opd_1(AOTCompContext *comp_ctx,
 }
 
 static bool
-aot_trace_exec_assemble_opd_i32(AOTCompContext *comp_ctx,
-                                AOTFuncContext *func_ctx,
-                                LLVMValueRef instr_opds_ptr)
+trace_exec_assemble_opd_i32(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                            LLVMValueRef instr_opds_ptr)
 {
-    return aot_trace_exec_assemble_opd_1(comp_ctx, func_ctx, TRACE_V_I32,
-                                         instr_opds_ptr);
+    return trace_exec_assemble_opd_1(comp_ctx, func_ctx, TRACE_V_I32,
+                                     instr_opds_ptr);
 }
 
 static bool
-aot_trace_exec_assemble_opd_f32(AOTCompContext *comp_ctx,
-                                AOTFuncContext *func_ctx,
-                                LLVMValueRef instr_opds_ptr)
+trace_exec_assemble_opd_f32(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                            LLVMValueRef instr_opds_ptr)
 {
-    return aot_trace_exec_assemble_opd_1(comp_ctx, func_ctx, TRACE_V_F32,
-                                         instr_opds_ptr);
+    return trace_exec_assemble_opd_1(comp_ctx, func_ctx, TRACE_V_F32,
+                                     instr_opds_ptr);
 }
 
 static bool
-aot_trace_exec_assemble_opd_f64(AOTCompContext *comp_ctx,
-                                AOTFuncContext *func_ctx,
-                                LLVMValueRef instr_opds_ptr)
+trace_exec_assemble_opd_f64(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                            LLVMValueRef instr_opds_ptr)
 {
-    return aot_trace_exec_assemble_opd_1(comp_ctx, func_ctx, TRACE_V_F64,
-                                         instr_opds_ptr);
+    return trace_exec_assemble_opd_1(comp_ctx, func_ctx, TRACE_V_F64,
+                                     instr_opds_ptr);
 }
 
 static bool
-aot_trace_exec_assemble_opd_v128(AOTCompContext *comp_ctx,
-                                 AOTFuncContext *func_ctx,
-                                 LLVMValueRef instr_opds_ptr)
+trace_exec_assemble_opd_v128(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                             LLVMValueRef instr_opds_ptr)
 {
-    return aot_trace_exec_assemble_opd_1(comp_ctx, func_ctx, TRACE_V_V128,
-                                         instr_opds_ptr);
+    return trace_exec_assemble_opd_1(comp_ctx, func_ctx, TRACE_V_V128,
+                                     instr_opds_ptr);
 }
 
 static bool
-aot_trace_exec_assemble_opd_2(AOTCompContext *comp_ctx,
-                              AOTFuncContext *func_ctx,
-                              enum trace_exec_value_kind opd1_value_kind,
-                              enum trace_exec_value_kind opd2_value_kind,
-                              LLVMValueRef instr_opds_ptr)
+trace_exec_assemble_opd_2(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                          enum trace_exec_value_kind opd1_value_kind,
+                          enum trace_exec_value_kind opd2_value_kind,
+                          LLVMValueRef instr_opds_ptr)
 {
-    LLVMTypeRef struct_value_type =
-        aot_trace_exec_get_struct_value_type(comp_ctx);
+    LLVMTypeRef struct_value_type = trace_exec_get_struct_value_type(comp_ctx);
 
     LLVMTypeRef opds_type = LLVMArrayType(struct_value_type, 2);
     LLVMValueRef opds_ptr =
@@ -472,8 +407,8 @@ aot_trace_exec_assemble_opd_2(AOTCompContext *comp_ctx,
         aot_value_stack_peek(&func_ctx->block_stack.block_list_end->value_stack,
                              1)
             ->value;
-    aot_trace_exec_fill_in_value(comp_ctx, struct_value_type, opds_0_ptr,
-                                 opd1_value_kind, op1);
+    trace_exec_fill_in_value(comp_ctx, struct_value_type, opds_0_ptr,
+                             opd1_value_kind, op1);
 
     indices[1] = I32_ONE;
     LLVMValueRef opds_1_ptr = LLVMBuildInBoundsGEP2(
@@ -482,8 +417,8 @@ aot_trace_exec_assemble_opd_2(AOTCompContext *comp_ctx,
         aot_value_stack_peek(&func_ctx->block_stack.block_list_end->value_stack,
                              0)
             ->value;
-    aot_trace_exec_fill_in_value(comp_ctx, struct_value_type, opds_1_ptr,
-                                 opd2_value_kind, op2);
+    trace_exec_fill_in_value(comp_ctx, struct_value_type, opds_1_ptr,
+                             opd2_value_kind, op2);
 
     LLVMValueRef opds_decay =
         LLVMBuildPtrToInt(comp_ctx->builder, opds_ptr, I64_TYPE, "opds_decay");
@@ -492,48 +427,48 @@ aot_trace_exec_assemble_opd_2(AOTCompContext *comp_ctx,
 }
 
 static bool
-aot_trace_exec_assemble_opd_i32_i32(AOTCompContext *comp_ctx,
-                                    AOTFuncContext *func_ctx,
-                                    LLVMValueRef instr_opds_ptr)
+trace_exec_assemble_opd_i32_i32(AOTCompContext *comp_ctx,
+                                AOTFuncContext *func_ctx,
+                                LLVMValueRef instr_opds_ptr)
 {
-    return aot_trace_exec_assemble_opd_2(comp_ctx, func_ctx, TRACE_V_I32,
-                                         TRACE_V_I32, instr_opds_ptr);
+    return trace_exec_assemble_opd_2(comp_ctx, func_ctx, TRACE_V_I32,
+                                     TRACE_V_I32, instr_opds_ptr);
 }
 
 static bool
-aot_trace_exec_assemble_opd_i32_v128(AOTCompContext *comp_ctx,
-                                     AOTFuncContext *func_ctx,
-                                     LLVMValueRef instr_opds_ptr)
+trace_exec_assemble_opd_i32_v128(AOTCompContext *comp_ctx,
+                                 AOTFuncContext *func_ctx,
+                                 LLVMValueRef instr_opds_ptr)
 {
-    return aot_trace_exec_assemble_opd_2(comp_ctx, func_ctx, TRACE_V_I32,
-                                         TRACE_V_V128, instr_opds_ptr);
+    return trace_exec_assemble_opd_2(comp_ctx, func_ctx, TRACE_V_I32,
+                                     TRACE_V_V128, instr_opds_ptr);
 }
 
 static bool
-aot_trace_exec_assemble_opd_v128_i32(AOTCompContext *comp_ctx,
-                                     AOTFuncContext *func_ctx,
-                                     LLVMValueRef instr_opds_ptr)
+trace_exec_assemble_opd_v128_i32(AOTCompContext *comp_ctx,
+                                 AOTFuncContext *func_ctx,
+                                 LLVMValueRef instr_opds_ptr)
 {
-    return aot_trace_exec_assemble_opd_2(comp_ctx, func_ctx, TRACE_V_V128,
-                                         TRACE_V_I32, instr_opds_ptr);
+    return trace_exec_assemble_opd_2(comp_ctx, func_ctx, TRACE_V_V128,
+                                     TRACE_V_I32, instr_opds_ptr);
 }
 
 static bool
-aot_trace_exec_assemble_opd_v128_v128(AOTCompContext *comp_ctx,
-                                      AOTFuncContext *func_ctx,
-                                      LLVMValueRef instr_opds_ptr)
+trace_exec_assemble_opd_v128_v128(AOTCompContext *comp_ctx,
+                                  AOTFuncContext *func_ctx,
+                                  LLVMValueRef instr_opds_ptr)
 {
-    return aot_trace_exec_assemble_opd_2(comp_ctx, func_ctx, TRACE_V_V128,
-                                         TRACE_V_V128, instr_opds_ptr);
+    return trace_exec_assemble_opd_2(comp_ctx, func_ctx, TRACE_V_V128,
+                                     TRACE_V_V128, instr_opds_ptr);
 }
 
 static bool
-aot_trace_exec_build_helper_func_args(AOTCompContext *comp_ctx,
-                                      AOTFuncContext *func_ctx, uint32 func_idx,
-                                      uint8 *ip, uint8 opcode, uint8 ext_opcode,
-                                      const char *opcode_name,
-                                      enum trace_exec_opcode_kind kind,
-                                      LLVMValueRef *args, uint32 *args_num)
+trace_exec_build_helper_func_args(AOTCompContext *comp_ctx,
+                                  AOTFuncContext *func_ctx, uint32 func_idx,
+                                  uint8 *ip, uint8 opcode, uint8 ext_opcode,
+                                  const char *opcode_name,
+                                  enum trace_exec_opcode_kind kind,
+                                  LLVMValueRef *args, uint32 *args_num)
 {
     /* func_idx */
     args[0] = LLVMConstInt(I32_TYPE, func_idx, false);
@@ -552,12 +487,12 @@ aot_trace_exec_build_helper_func_args(AOTCompContext *comp_ctx,
     args[2] =
         LLVMBuildGlobalStringPtr(comp_ctx->builder, opcode_name, "opcode_name");
     /* instr */
-    args[3] = LLVMBuildAlloca(
-        comp_ctx->builder, aot_trace_exec_get_struct_instruction_type(comp_ctx),
-        "instr");
+    args[3] = LLVMBuildAlloca(comp_ctx->builder,
+                              trace_exec_get_struct_instruction_type(comp_ctx),
+                              "instr");
 
     LLVMTypeRef struct_instr_type =
-        aot_trace_exec_get_struct_instruction_type(comp_ctx);
+        trace_exec_get_struct_instruction_type(comp_ctx);
 
     /* instr->opcode */
     LLVMValueRef instr_opcode_ptr = LLVMBuildStructGEP2(
@@ -588,29 +523,29 @@ aot_trace_exec_build_helper_func_args(AOTCompContext *comp_ctx,
 
     struct trace_exec_op_assembler assemblers[OPCODE_KIND_AMOUNT] = {
         [IMM_0_OP_0] = { NULL, NULL },
-        [IMM_0_OP_i32] = { NULL, aot_trace_exec_assemble_opd_i32 },
-        [IMM_0_OP_f32] = { NULL, aot_trace_exec_assemble_opd_f32 },
-        [IMM_0_OP_f64] = { NULL, aot_trace_exec_assemble_opd_f64 },
-        [IMM_0_OP_v128] = { NULL, aot_trace_exec_assemble_opd_v128 },
-        [IMM_0_OP_i32_i32] = { NULL, aot_trace_exec_assemble_opd_i32_i32 },
-        [IMM_0_OP_v128_v128] = { NULL, aot_trace_exec_assemble_opd_v128_v128 },
-        [IMM_i32_OP_0] = { aot_trace_exec_assemble_imm_i32, NULL },
-        [IMM_f32_OP_0] = { aot_trace_exec_assemble_imm_f32, NULL },
-        [IMM_v128_OP_0] = { aot_trace_exec_assemble_imm_v128, NULL },
-        [IMM_i8_OP_v128] = { aot_trace_exec_assemble_imm_i8,
-                             aot_trace_exec_assemble_opd_v128 },
-        [IMM_i32_OP_i32] = { aot_trace_exec_assemble_imm_i32,
-                             aot_trace_exec_assemble_opd_i32 },
-        [IMM_i8_OP_v128_i32] = { aot_trace_exec_assemble_imm_i8,
-                                 aot_trace_exec_assemble_opd_v128_i32 },
-        [IMM_i32_i32_OP_i32] = { aot_trace_exec_assemble_imm_i32_i32,
-                                 aot_trace_exec_assemble_opd_i32 },
-        [IMM_ty_tbl_OP_i32] = { aot_trace_exec_assemble_imm_i32_i32,
-                                aot_trace_exec_assemble_opd_i32 },
-        [IMM_memarg_OP_i32] = { aot_trace_exec_assemble_imm_memarg,
-                                aot_trace_exec_assemble_opd_i32 },
-        [IMM_memarg_OP_i32_v128] = { aot_trace_exec_assemble_imm_memarg,
-                                     aot_trace_exec_assemble_opd_i32_v128 },
+        [IMM_0_OP_i32] = { NULL, trace_exec_assemble_opd_i32 },
+        [IMM_0_OP_f32] = { NULL, trace_exec_assemble_opd_f32 },
+        [IMM_0_OP_f64] = { NULL, trace_exec_assemble_opd_f64 },
+        [IMM_0_OP_v128] = { NULL, trace_exec_assemble_opd_v128 },
+        [IMM_0_OP_i32_i32] = { NULL, trace_exec_assemble_opd_i32_i32 },
+        [IMM_0_OP_v128_v128] = { NULL, trace_exec_assemble_opd_v128_v128 },
+        [IMM_i32_OP_0] = { trace_exec_assemble_imm_i32, NULL },
+        [IMM_f32_OP_0] = { trace_exec_assemble_imm_f32, NULL },
+        [IMM_v128_OP_0] = { trace_exec_assemble_imm_v128, NULL },
+        [IMM_i8_OP_v128] = { trace_exec_assemble_imm_i8,
+                             trace_exec_assemble_opd_v128 },
+        [IMM_i32_OP_i32] = { trace_exec_assemble_imm_i32,
+                             trace_exec_assemble_opd_i32 },
+        [IMM_i8_OP_v128_i32] = { trace_exec_assemble_imm_i8,
+                                 trace_exec_assemble_opd_v128_i32 },
+        [IMM_i32_i32_OP_i32] = { trace_exec_assemble_imm_i32_i32,
+                                 trace_exec_assemble_opd_i32 },
+        [IMM_ty_tbl_OP_i32] = { trace_exec_assemble_imm_i32_i32,
+                                trace_exec_assemble_opd_i32 },
+        [IMM_memarg_OP_i32] = { trace_exec_assemble_imm_memarg,
+                                trace_exec_assemble_opd_i32 },
+        [IMM_memarg_OP_i32_v128] = { trace_exec_assemble_imm_memarg,
+                                     trace_exec_assemble_opd_i32_v128 },
     };
 
     bh_assert(kind < OPCODE_KIND_AMOUNT);
@@ -628,9 +563,9 @@ aot_trace_exec_build_helper_func_args(AOTCompContext *comp_ctx,
 }
 
 bool
-aot_trace_exec_build_call_helper(AOTCompContext *comp_ctx,
-                                 AOTFuncContext *func_ctx, uint32 func_idx,
-                                 uint8 opcode, uint8 ext_opcode, uint8 *ip)
+trace_exec_build_call_helper(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                             uint32 func_idx, uint8 opcode, uint8 ext_opcode,
+                             uint8 *ip)
 {
     // func
     LLVMTypeRef func_type;
@@ -641,7 +576,7 @@ aot_trace_exec_build_call_helper(AOTCompContext *comp_ctx,
     LLVMTypeRef func_ptr_type;
     LLVMValueRef value;
 
-    GET_AOT_FUNCTION(aot_trace_exec_helper, ARR_SIZE(param_types));
+    GET_AOT_FUNCTION(trace_exec_helper, ARR_SIZE(param_types));
 
     // build args
     const char *opcode_name;
@@ -665,7 +600,7 @@ aot_trace_exec_build_call_helper(AOTCompContext *comp_ctx,
     func_idx += comp_ctx->comp_data->wasm_module->import_function_count;
     LLVMValueRef args[4] = { 0 };
     uint32 args_num = 0;
-    bool ret = aot_trace_exec_build_helper_func_args(
+    bool ret = trace_exec_build_helper_func_args(
         comp_ctx, func_ctx, func_idx, ip, opcode, ext_opcode, opcode_name,
         opcode_kind, args, &args_num);
     if (!ret) {
@@ -679,7 +614,7 @@ aot_trace_exec_build_call_helper(AOTCompContext *comp_ctx,
         LLVMBuildCall2(comp_ctx->builder, func_type, func, args, args_num, "");
     if (!ret) {
         aot_set_last_error(
-            "[TRACE EXEC] llvm build aot_trace_exec_op_v128() failed.");
+            "[TRACE EXEC] llvm build trace_exec_op_v128() failed.");
         return false;
     }
 
@@ -793,8 +728,8 @@ pprint_epilogue()
 }
 
 void
-aot_trace_exec_helper(uint32 func_idx, uint64 offset, const char *opcode_name,
-                      struct trace_exec_instruction *instr)
+trace_exec_helper(uint32 func_idx, uint64 offset, const char *opcode_name,
+                  struct trace_exec_instruction *instr)
 {
     struct trace_exec_op_pprinter pprinter[OPCODE_KIND_AMOUNT] = {
         [IMM_0_OP_0] = { NULL, NULL },

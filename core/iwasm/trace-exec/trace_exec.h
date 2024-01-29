@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#ifndef _AOT_TRACE_EXEC_H
-#define _AOT_TRACE_EXEC_H
+#ifndef _TRACE_EXEC_H_
+#define _TRACE_EXEC_H_
 
 #include "bh_platform.h"
 #include "platform_common.h"
@@ -93,7 +93,7 @@ struct trace_exec_instruction {
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
 /* ============================== compilation ============================== */
 bool
-aot_trace_exec_build_call_helper(AOTCompContext *comp_ctx,
+trace_exec_build_call_helper(AOTCompContext *comp_ctx,
                                  AOTFuncContext *func_ctx, uint32 func_idx,
                                  uint8 opcode, uint8 ext_opcode, uint8 *ip);
 #endif
@@ -101,11 +101,11 @@ aot_trace_exec_build_call_helper(AOTCompContext *comp_ctx,
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_AOT != 0
 /* ============================== execution ============================== */
 void
-aot_trace_exec_helper(uint32 func_idx, uint64 offset, const char *opcode_name,
+trace_exec_helper(uint32 func_idx, uint64 offset, const char *opcode_name,
                       struct trace_exec_instruction *instr);
 #endif
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif
 
-#endif /* _AOT_LLVM_H_ */
+#endif /* _TRACE_EXEC_H_ */

@@ -8,7 +8,10 @@
 
 #include "aot_runtime.h"
 #include "aot_intrinsic.h"
-#include "aot_trace_exec.h"
+
+#if WASM_ENABLE_TRACE_MODE != 0
+#include "trace_exec.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,9 +61,9 @@ typedef struct {
 #define REG_AOT_TRACE_SYM()
 #endif
 
-#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_AOT != 0
+#if WASM_ENABLE_TRACE_MODE != 0 && (WASM_ENABLE_JIT != 0 || WASM_ENABLE_AOT != 0)
 #define REG_TRACE_MODE_SYM()              \
-    REG_SYM(aot_trace_exec_helper),
+    REG_SYM(trace_exec_helper),
 #else
 #define REG_TRACE_MODE_SYM()
 #endif
