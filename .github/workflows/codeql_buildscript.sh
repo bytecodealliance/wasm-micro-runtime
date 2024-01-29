@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-sudo apt install build-essential cmake g++-multilib libgcc-9-dev lib32gcc-9-dev ccache
+sudo apt install -y build-essential cmake g++-multilib libgcc-9-dev lib32gcc-9-dev ccache ninja-build
 
 cd wamr-compiler
 ./build_llvm.sh 
