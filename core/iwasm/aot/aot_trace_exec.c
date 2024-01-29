@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "aot_llvm.h"
 #include "bh_common.h"
 #include "platform_api_vmcore.h"
 #include "platform_common.h"
@@ -141,6 +142,14 @@ static const struct trace_exec_op_info opcode_info[0xff + 1] = {
     [WASM_OP_I32_TRUNC_U_F64] = { "i32.trunc_f64_u", IMM_0_OP_f64 },
 };
 
+typedef bool (*imm_assembler)(AOTCompContext *, uint8 *, LLVMValueRef);
+typedef bool (*opd_assembler)(AOTCompContext *, AOTFuncContext *, LLVMValueRef);
+
+struct trace_exec_op_assembler {
+    imm_assembler imm_assembler;
+    opd_assembler opd_assembler;
+};
+
 /*
  * value_ptr points to imms or opds in struct trace_exec_instruction
  * value is a imm or opd value
@@ -213,16 +222,6 @@ aot_trace_exec_get_struct_instruction_type(AOTCompContext *comp_ctx)
     LLVMTypeRef struct_instr_type = LLVMStructTypeInContext(
         comp_ctx->context, instr_elem_types, ARR_SIZE(instr_elem_types), false);
     return struct_instr_type;
-}
-
-static LLVMTypeRef
-aot_trace_exec_get_helper_func_type(AOTCompContext *comp_ctx)
-{
-    LLVMTypeRef ptr_type = LLVMPointerTypeInContext(comp_ctx->context, 0);
-    LLVMTypeRef param_types[4] = { I32_TYPE, I64_TYPE, ptr_type, ptr_type };
-    LLVMTypeRef func_type =
-        LLVMFunctionType(VOID_TYPE, param_types, ARR_SIZE(param_types), false);
-    return func_type;
 }
 
 static bool
@@ -587,105 +586,41 @@ aot_trace_exec_build_helper_func_args(AOTCompContext *comp_ctx,
     LLVMValueRef instr_opds_ptr = LLVMBuildStructGEP2(
         comp_ctx->builder, struct_instr_type, args[3], 4, "instr_opds_ptr");
 
-    switch (kind) {
-        case IMM_0_OP_0:
-        {
-            break;
-        }
-        case IMM_0_OP_i32:
-        {
-            aot_trace_exec_assemble_opd_i32(comp_ctx, func_ctx, instr_opds_ptr);
-            break;
-        }
-        case IMM_0_OP_f32:
-        {
-            aot_trace_exec_assemble_opd_f32(comp_ctx, func_ctx, instr_opds_ptr);
-            break;
-        }
-        case IMM_0_OP_f64:
-        {
-            aot_trace_exec_assemble_opd_f64(comp_ctx, func_ctx, instr_opds_ptr);
-            break;
-        }
-        case IMM_0_OP_v128:
-        {
-            aot_trace_exec_assemble_opd_v128(comp_ctx, func_ctx,
-                                             instr_opds_ptr);
-            break;
-        }
-        case IMM_0_OP_i32_i32:
-        {
-            aot_trace_exec_assemble_opd_i32_i32(comp_ctx, func_ctx,
-                                                instr_opds_ptr);
-            break;
-        }
-        case IMM_0_OP_v128_v128:
-        {
-            aot_trace_exec_assemble_opd_v128_v128(comp_ctx, func_ctx,
-                                                  instr_opds_ptr);
-            break;
-        }
-        case IMM_i32_OP_0:
-        {
-            aot_trace_exec_assemble_imm_i32(comp_ctx, ip, instr_imms_ptr);
-            break;
-        }
-        case IMM_f32_OP_0:
-        {
-            aot_trace_exec_assemble_imm_f32(comp_ctx, ip, instr_imms_ptr);
-            break;
-        }
-        case IMM_v128_OP_0:
-        {
-            aot_trace_exec_assemble_imm_v128(comp_ctx, ip, instr_imms_ptr);
-            break;
-        }
-        case IMM_i32_OP_i32:
-        {
-            aot_trace_exec_assemble_imm_i32(comp_ctx, ip, instr_imms_ptr);
-            aot_trace_exec_assemble_opd_i32(comp_ctx, func_ctx, instr_opds_ptr);
-            break;
-        }
-        case IMM_i8_OP_v128:
-        {
-            aot_trace_exec_assemble_imm_i8(comp_ctx, ip, instr_imms_ptr);
-            aot_trace_exec_assemble_opd_v128(comp_ctx, func_ctx,
-                                             instr_opds_ptr);
-            break;
-        }
-        case IMM_i8_OP_v128_i32:
-        {
-            aot_trace_exec_assemble_imm_i8(comp_ctx, ip, instr_imms_ptr);
-            aot_trace_exec_assemble_opd_v128_i32(comp_ctx, func_ctx,
-                                                 instr_opds_ptr);
-            break;
-        }
-        case IMM_ty_tbl_OP_i32:
-        case IMM_i32_i32_OP_i32:
-        {
-            aot_trace_exec_assemble_imm_i32_i32(comp_ctx, ip, instr_imms_ptr);
-            aot_trace_exec_assemble_opd_i32(comp_ctx, func_ctx, instr_opds_ptr);
-            break;
-        }
-        case IMM_memarg_OP_i32:
-        {
-            aot_trace_exec_assemble_imm_memarg(comp_ctx, ip, instr_imms_ptr);
-            aot_trace_exec_assemble_opd_i32(comp_ctx, func_ctx, instr_opds_ptr);
-            break;
-        }
-        case IMM_memarg_OP_i32_v128:
-        {
-            aot_trace_exec_assemble_imm_memarg(comp_ctx, ip, instr_imms_ptr);
-            aot_trace_exec_assemble_opd_i32_v128(comp_ctx, func_ctx,
-                                                 instr_opds_ptr);
-            break;
-        }
-        default:
-        {
-            LOG_ERROR("not implement 0x%02x 0x%02x", opcode, ext_opcode);
-            *args_num = 0;
-            return false;
-        }
+    struct trace_exec_op_assembler assemblers[OPCODE_KIND_AMOUNT] = {
+        [IMM_0_OP_0] = { NULL, NULL },
+        [IMM_0_OP_i32] = { NULL, aot_trace_exec_assemble_opd_i32 },
+        [IMM_0_OP_f32] = { NULL, aot_trace_exec_assemble_opd_f32 },
+        [IMM_0_OP_f64] = { NULL, aot_trace_exec_assemble_opd_f64 },
+        [IMM_0_OP_v128] = { NULL, aot_trace_exec_assemble_opd_v128 },
+        [IMM_0_OP_i32_i32] = { NULL, aot_trace_exec_assemble_opd_i32_i32 },
+        [IMM_0_OP_v128_v128] = { NULL, aot_trace_exec_assemble_opd_v128_v128 },
+        [IMM_i32_OP_0] = { aot_trace_exec_assemble_imm_i32, NULL },
+        [IMM_f32_OP_0] = { aot_trace_exec_assemble_imm_f32, NULL },
+        [IMM_v128_OP_0] = { aot_trace_exec_assemble_imm_v128, NULL },
+        [IMM_i8_OP_v128] = { aot_trace_exec_assemble_imm_i8,
+                             aot_trace_exec_assemble_opd_v128 },
+        [IMM_i32_OP_i32] = { aot_trace_exec_assemble_imm_i32,
+                             aot_trace_exec_assemble_opd_i32 },
+        [IMM_i8_OP_v128_i32] = { aot_trace_exec_assemble_imm_i8,
+                                 aot_trace_exec_assemble_opd_v128_i32 },
+        [IMM_i32_i32_OP_i32] = { aot_trace_exec_assemble_imm_i32_i32,
+                                 aot_trace_exec_assemble_opd_i32 },
+        [IMM_ty_tbl_OP_i32] = { aot_trace_exec_assemble_imm_i32_i32,
+                                aot_trace_exec_assemble_opd_i32 },
+        [IMM_memarg_OP_i32] = { aot_trace_exec_assemble_imm_memarg,
+                                aot_trace_exec_assemble_opd_i32 },
+        [IMM_memarg_OP_i32_v128] = { aot_trace_exec_assemble_imm_memarg,
+                                     aot_trace_exec_assemble_opd_i32_v128 },
+    };
+
+    bh_assert(kind < OPCODE_KIND_AMOUNT);
+
+    if (assemblers[kind].imm_assembler) {
+        assemblers[kind].imm_assembler(comp_ctx, ip, instr_imms_ptr);
+    }
+
+    if (assemblers[kind].opd_assembler) {
+        assemblers[kind].opd_assembler(comp_ctx, func_ctx, instr_opds_ptr);
     }
 
     *args_num = 4;
@@ -757,40 +692,92 @@ fail:
 
 /* ============================== execution ============================== */
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_AOT != 0
+typedef void (*imm_pprint)(struct trace_exec_value *);
+typedef void (*opd_pprint)(struct trace_exec_value *);
+
+struct trace_exec_op_pprinter {
+    imm_pprint imm_pprint;
+    opd_pprint opd_pprint;
+};
+
 static void
-pprint_i8(uint8 operand)
+pprint_i8(struct trace_exec_value *v)
 {
-    os_printf("0x%02x", operand);
+    os_printf("i8:0x%02x", v->of.i8);
 }
 
 static void
-pprint_i32(uint32 operand)
+pprint_i32(struct trace_exec_value *v)
 {
-    os_printf("0x%08x", operand);
+    os_printf("i32:0x%08x", v->of.i32);
 }
 
 static void
-pprint_i64(uint64 operand)
+pprint_i64(struct trace_exec_value *v)
 {
-    os_printf("0x%016lx", operand);
+    os_printf("i64:0x%016lx", v->of.i64);
 }
 
 static void
-pprint_f32(float32 operand)
+pprint_f32(struct trace_exec_value *v)
 {
-    os_printf("0x%08x", operand);
+    os_printf("i32:0x%08x", v->of.f32);
 }
 
 static void
-pprint_f64(float64 operand)
+pprint_f64(struct trace_exec_value *v)
 {
-    os_printf("0x%016lx", operand);
+    os_printf("i64:0x%016lx", v->of.f64);
 }
 
 static void
-pprint_v128(uint64 *operand)
+pprint_v128(struct trace_exec_value *v)
 {
-    os_printf("0x%016lx 0x%016lx", operand[0], operand[1]);
+    os_printf("v128:0x%016lx 0x%016lx", v->of.v128[0], v->of.v128[1]);
+}
+
+static void
+pprint_i32_i32(struct trace_exec_value *v)
+{
+    pprint_i32(v);
+    os_printf(", ");
+    pprint_i32(v + 1);
+}
+
+static void
+pprint_i32_v128(struct trace_exec_value *v)
+{
+    pprint_i32(v);
+    os_printf(", ");
+    pprint_v128(v + 1);
+}
+
+static void
+pprint_v128_i32(struct trace_exec_value *v)
+{
+    pprint_v128(v);
+    os_printf(", ");
+    pprint_i32(v + 1);
+}
+
+static void
+pprint_v128_v128(struct trace_exec_value *v)
+{
+    pprint_v128(v);
+    os_printf(", ");
+    pprint_v128(v + 1);
+}
+
+void
+pprint_ty_tbl(struct trace_exec_value *v)
+{
+    os_printf("type %u, table %u", v[0].of.i32, v[1].of.i32);
+}
+
+void
+pprint_memarg(struct trace_exec_value *v)
+{
+    os_printf("align %u, offset %u", v[0].of.i32, v[1].of.i32);
 }
 
 static inline void
@@ -805,149 +792,45 @@ pprint_epilogue()
     os_printf("\n");
 }
 
-static void
-pprint_imms(enum trace_exec_opcode_kind kind, struct trace_exec_value *imms)
-{
-    switch (kind) {
-        case IMM_0_OP_0:
-        case IMM_0_OP_i32:
-        case IMM_0_OP_f32:
-        case IMM_0_OP_f64:
-        case IMM_0_OP_v128:
-        case IMM_0_OP_i32_i32:
-        case IMM_0_OP_v128_v128:
-        {
-            break;
-        }
-        case IMM_i8_OP_v128:
-        case IMM_i8_OP_v128_i32:
-        {
-            os_printf("[lane %u], ", imms[0].of.i8);
-            break;
-        }
-        case IMM_i32_OP_0:
-        case IMM_i32_OP_i32:
-        {
-            pprint_i32(imms[0].of.i32);
-            break;
-        }
-        case IMM_f32_OP_0:
-        {
-            pprint_f32(imms[0].of.f32);
-            break;
-        }
-        case IMM_v128_OP_0:
-        {
-            pprint_v128(imms[0].of.v128);
-            break;
-        }
-        case IMM_ty_tbl_OP_i32:
-        {
-            os_printf("[type %u, table %u] ", imms[0].of.i32, imms[1].of.i32);
-            break;
-        }
-        case IMM_memarg_OP_i32:
-        case IMM_memarg_OP_i32_v128:
-        {
-            os_printf("[align %u, offset %u] ", imms[0].of.i32, imms[1].of.i32);
-            break;
-        }
-        default:
-        {
-            os_printf("not implement !");
-        }
-    }
-}
-
-static void
-pprint_opd(struct trace_exec_value *opd)
-{
-    switch (opd->kind) {
-        case TRACE_V_I32:
-        {
-            pprint_i32(opd->of.i32);
-            break;
-        }
-        case TRACE_V_I64:
-        {
-            pprint_i64(opd->of.i64);
-            break;
-        }
-        case TRACE_V_F32:
-        {
-            pprint_f32(opd->of.f32);
-            break;
-        }
-        case TRACE_V_F64:
-        {
-            pprint_f64(opd->of.f64);
-            break;
-        }
-        case TRACE_V_V128:
-        {
-            pprint_v128(opd->of.v128);
-            break;
-        }
-        default:
-            bh_assert(!"unexpected kind");
-    }
-}
-
-static void
-pprint_opds(enum trace_exec_opcode_kind kind, struct trace_exec_value *opds)
-{
-    switch (kind) {
-        /* no operands */
-        case IMM_0_OP_0:
-        case IMM_i32_OP_0:
-        case IMM_f32_OP_0:
-        case IMM_v128_OP_0:
-        {
-            break;
-        }
-        /* 1 operands */
-        case IMM_0_OP_i32:
-        case IMM_0_OP_f32:
-        case IMM_0_OP_f64:
-        case IMM_0_OP_v128:
-        case IMM_i8_OP_v128:
-        case IMM_i32_OP_i32:
-        // TODO: i32: tbl[i32] -> func_idx ?
-        case IMM_ty_tbl_OP_i32:
-        case IMM_memarg_OP_i32:
-        {
-            pprint_opd(&opds[0]);
-            break;
-        }
-        /* 2 operands */
-        case IMM_0_OP_i32_i32:
-        case IMM_0_OP_v128_v128:
-        case IMM_i8_OP_v128_i32:
-        case IMM_memarg_OP_i32_v128:
-        {
-            pprint_opd(&opds[0]);
-            os_printf(", ");
-            pprint_opd(&opds[1]);
-            break;
-        }
-        default:
-        {
-            os_printf("not implement !");
-        }
-    }
-}
-
 void
 aot_trace_exec_helper(uint32 func_idx, uint64 offset, const char *opcode_name,
                       struct trace_exec_instruction *instr)
 {
+    struct trace_exec_op_pprinter pprinter[OPCODE_KIND_AMOUNT] = {
+        [IMM_0_OP_0] = { NULL, NULL },
+        [IMM_0_OP_i32] = { NULL, pprint_i32 },
+        [IMM_0_OP_f32] = { NULL, pprint_f32 },
+        [IMM_0_OP_f64] = { NULL, pprint_f64 },
+        [IMM_0_OP_v128] = { NULL, pprint_v128 },
+        [IMM_0_OP_i32_i32] = { NULL, pprint_i32_i32 },
+        [IMM_0_OP_v128_v128] = { NULL, pprint_v128_v128 },
+        [IMM_i32_OP_0] = { pprint_i32, NULL },
+        [IMM_f32_OP_0] = { pprint_f32, NULL },
+        [IMM_v128_OP_0] = { pprint_v128, NULL },
+        [IMM_i8_OP_v128] = { pprint_i8, pprint_v128 },
+        [IMM_i32_OP_i32] = { pprint_i32, pprint_i32 },
+        [IMM_i8_OP_v128_i32] = { pprint_i8, pprint_v128_i32 },
+        [IMM_i32_i32_OP_i32] = { pprint_i32_i32, pprint_i32 },
+        [IMM_ty_tbl_OP_i32] = { pprint_ty_tbl, pprint_i32 },
+        [IMM_memarg_OP_i32] = { pprint_memarg, pprint_i32 },
+        [IMM_memarg_OP_i32_v128] = { pprint_memarg, pprint_i32_v128 },
+    };
+
+    bh_assert(instr->kind < OPCODE_KIND_AMOUNT);
+
     pprint_prelude(func_idx, offset, opcode_name);
 
     /* print imms */
-    pprint_imms(instr->kind, instr->imms);
+    if (pprinter[instr->kind].imm_pprint) {
+        pprinter[instr->kind].imm_pprint(instr->imms);
+    }
+
     os_printf(" ");
+
     /* print opds */
-    pprint_opds(instr->kind, instr->opds);
+    if (pprinter[instr->kind].opd_pprint) {
+        pprinter[instr->kind].opd_pprint(instr->opds);
+    }
 
     pprint_epilogue();
 }

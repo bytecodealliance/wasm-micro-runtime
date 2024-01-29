@@ -54,23 +54,32 @@ struct trace_exec_value {
 };
 
 enum trace_exec_opcode_kind {
+    // 0 imm, 0 opd
     IMM_0_OP_0,
+    // 0 imm, 1 opd
     IMM_0_OP_i32,
     IMM_0_OP_f32,
     IMM_0_OP_f64,
     IMM_0_OP_v128,
+    // 0 imm, 2 opd
     IMM_0_OP_i32_i32,
     IMM_0_OP_v128_v128,
+    // 1 imm, 0 opd
     IMM_i32_OP_0,
     IMM_f32_OP_0,
     IMM_v128_OP_0,
-    IMM_i32_OP_i32,
+    // 1 imm, 1 opd
     IMM_i8_OP_v128,
+    IMM_i32_OP_i32,
+    // 1 imm, 2 opd
     IMM_i8_OP_v128_i32,
+    // 2 imm, 1 opd
     IMM_i32_i32_OP_i32,
-    IMM_ty_tbl_OP_i32,      // call_indirect
-    IMM_memarg_OP_i32,      // XX.load
+    IMM_ty_tbl_OP_i32, // call_indirect
+    IMM_memarg_OP_i32, // XX.load
+    // 2 imm, 2 opd
     IMM_memarg_OP_i32_v128, // XX.store
+    OPCODE_KIND_AMOUNT,
 };
 
 struct trace_exec_instruction {
