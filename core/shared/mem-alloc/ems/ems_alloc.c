@@ -199,7 +199,7 @@ unlink_hmu(gc_heap_t *heap, hmu_t *hmu)
         }
 
         if (!node) {
-            os_printf("[GC_ERROR]couldn't find the node in the normal list\n");
+            LOG_ERROR("[GC_ERROR]couldn't find the node in the normal list\n");
         }
     }
     else {
@@ -504,7 +504,7 @@ gc_alloc_vo_internal(void *vheap, gc_size_t size, const char *file, int line)
 
 #if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     if (heap->is_heap_corrupted) {
-        os_printf("[GC_ERROR]Heap is corrupted, allocate memory failed.\n");
+        LOG_ERROR("[GC_ERROR]Heap is corrupted, allocate memory failed.\n");
         return NULL;
     }
 #endif
@@ -566,7 +566,7 @@ gc_realloc_vo_internal(void *vheap, void *ptr, gc_size_t size, const char *file,
 
 #if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     if (heap->is_heap_corrupted) {
-        os_printf("[GC_ERROR]Heap is corrupted, allocate memory failed.\n");
+        LOG_ERROR("[GC_ERROR]Heap is corrupted, allocate memory failed.\n");
         return NULL;
     }
 #endif
@@ -693,7 +693,7 @@ gc_free_vo_internal(void *vheap, gc_object_t obj, const char *file, int line)
 
 #if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     if (heap->is_heap_corrupted) {
-        os_printf("[GC_ERROR]Heap is corrupted, free memory failed.\n");
+        LOG_ERROR("[GC_ERROR]Heap is corrupted, free memory failed.\n");
         return GC_ERROR;
     }
 #endif
@@ -774,12 +774,12 @@ out:
 void
 gc_dump_heap_stats(gc_heap_t *heap)
 {
-    os_printf("heap: %p, heap start: %p\n", heap, heap->base_addr);
-    os_printf("total free: %" PRIu32 ", current: %" PRIu32
-              ", highmark: %" PRIu32 "\n",
-              heap->total_free_size, heap->current_size, heap->highmark_size);
-    os_printf("g_total_malloc=%lu, g_total_free=%lu, occupied=%lu\n",
-              g_total_malloc, g_total_free, g_total_malloc - g_total_free);
+    LOG_VERBOSE("heap: %p, heap start: %p\n", heap, heap->base_addr);
+    LOG_VERBOSE("total free: %" PRIu32 ", current: %" PRIu32
+                ", highmark: %" PRIu32 "\n",
+                heap->total_free_size, heap->current_size, heap->highmark_size);
+    LOG_VERBOSE("g_total_malloc=%lu, g_total_free=%lu, occupied=%lu\n",
+                g_total_malloc, g_total_free, g_total_malloc - g_total_free);
 }
 
 uint32
@@ -815,20 +815,20 @@ gci_dump(gc_heap_t *heap)
 
 #if BH_ENABLE_GC_CORRUPTION_CHECK != 0
         if (size == 0 || size > (uint32)((uint8 *)end - (uint8 *)cur)) {
-            os_printf("[GC_ERROR]Heap is corrupted, heap dump failed.\n");
+            LOG_ERROR("[GC_ERROR]Heap is corrupted, heap dump failed.\n");
             heap->is_heap_corrupted = true;
             return;
         }
 #endif
 
-        os_printf("#%d %08" PRIx32 " %" PRIx32 " %d %d"
-                  " %c %" PRId32 "\n",
-                  i, (int32)((char *)cur - (char *)heap->base_addr), (int32)ut,
-                  p, mark, inuse, (int32)hmu_obj_size(size));
+        LOG_VERBOSE("#%d %08" PRIx32 " %" PRIx32 " %d %d"
+                    " %c %" PRId32 "\n",
+                    i, (int32)((char *)cur - (char *)heap->base_addr),
+                    (int32)ut, p, mark, inuse, (int32)hmu_obj_size(size));
 #if BH_ENABLE_GC_VERIFY != 0
         if (inuse == 'V') {
             gc_object_prefix_t *prefix = (gc_object_prefix_t *)(cur + 1);
-            os_printf("#%s:%d\n", prefix->file_name, prefix->line_no);
+            LOG_VERBOSE("#%s:%d\n", prefix->file_name, prefix->line_no);
         }
 #endif
 
@@ -838,7 +838,7 @@ gci_dump(gc_heap_t *heap)
 
 #if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     if (cur != end) {
-        os_printf("[GC_ERROR]Heap is corrupted, heap dump failed.\n");
+        LOG_ERROR("[GC_ERROR]Heap is corrupted, heap dump failed.\n");
         heap->is_heap_corrupted = true;
     }
 #else

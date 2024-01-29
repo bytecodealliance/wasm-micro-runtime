@@ -2442,7 +2442,7 @@ wasm_dump_perf_profiling(const WASMModuleInstance *module_inst)
     char *func_name;
     uint32 i;
 
-    os_printf("Performance profiler data:\n");
+    LOG_VERBOSE("Performance profiler data:\n");
     for (i = 0; i < module_inst->e->function_count; i++) {
         func_inst = module_inst->e->functions + i;
 
@@ -2451,19 +2451,19 @@ wasm_dump_perf_profiling(const WASMModuleInstance *module_inst)
 
         func_name = get_func_name_from_index(module_inst, i);
         if (func_name)
-            os_printf(
+            LOG_VERBOSE(
                 "  func %s, execution time: %.3f ms, execution count: %" PRIu32
                 " times, children execution time: %.3f ms\n",
                 func_name, func_inst->total_exec_time / 1000.0f,
                 func_inst->total_exec_cnt,
                 func_inst->children_exec_time / 1000.0f);
         else
-            os_printf("  func %" PRIu32
-                      ", execution time: %.3f ms, execution count: %" PRIu32
-                      " times, children execution time: %.3f ms\n",
-                      i, func_inst->total_exec_time / 1000.0f,
-                      func_inst->total_exec_cnt,
-                      func_inst->children_exec_time / 1000.0f);
+            LOG_VERBOSE("  func %" PRIu32
+                        ", execution time: %.3f ms, execution count: %" PRIu32
+                        " times, children execution time: %.3f ms\n",
+                        i, func_inst->total_exec_time / 1000.0f,
+                        func_inst->total_exec_cnt,
+                        func_inst->children_exec_time / 1000.0f);
     }
 }
 

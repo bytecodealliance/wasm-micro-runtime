@@ -1954,7 +1954,7 @@ print_supported_targets()
     uint32 i;
     const char *target_name;
 
-    os_printf("Supported targets:\n");
+    LOG_VERBOSE("Supported targets:\n");
     /* over the list of all available targets */
     for (LLVMTargetRef target = LLVMGetFirstTarget(); target != NULL;
          target = LLVMGetNextTarget(target)) {
@@ -1966,16 +1966,16 @@ print_supported_targets()
             continue;
 
         if (strcmp(target_name, "x86-64") == 0)
-            os_printf("  x86_64\n");
+            LOG_VERBOSE("  x86_64\n");
         else if (strcmp(target_name, "x86") == 0)
-            os_printf("  i386\n");
+            LOG_VERBOSE("  i386\n");
         else {
             for (i = 0; i < sizeof(valid_archs) / sizeof(ArchItem); i++) {
                 /* If target_name is prefix for valid_archs[i].arch */
                 if ((strncmp(target_name, valid_archs[i].arch,
                              strlen(target_name))
                      == 0))
-                    os_printf("  %s\n", valid_archs[i].arch);
+                    LOG_VERBOSE("  %s\n", valid_archs[i].arch);
             }
         }
     }
@@ -1985,10 +1985,10 @@ static void
 print_supported_abis()
 {
     uint32 i;
-    os_printf("Supported ABI: ");
+    LOG_VERBOSE("Supported ABI: ");
     for (i = 0; i < sizeof(valid_abis) / sizeof(const char *); i++)
-        os_printf("%s ", valid_abis[i]);
-    os_printf("\n");
+        LOG_VERBOSE("%s ", valid_abis[i]);
+    LOG_VERBOSE("\n");
 }
 
 static bool
@@ -2788,13 +2788,13 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
             comp_ctx->stack_usage_file = option->stack_usage_file;
         }
 
-        os_printf("Create AoT compiler with:\n");
-        os_printf("  target:        %s\n", comp_ctx->target_arch);
-        os_printf("  target cpu:    %s\n", cpu);
-        os_printf("  target triple: %s\n", triple_norm);
-        os_printf("  cpu features:  %s\n", features);
-        os_printf("  opt level:     %d\n", opt_level);
-        os_printf("  size level:    %d\n", size_level);
+        LOG_VERBOSE("Create AoT compiler with:\n");
+        LOG_VERBOSE("  target:        %s\n", comp_ctx->target_arch);
+        LOG_VERBOSE("  target cpu:    %s\n", cpu);
+        LOG_VERBOSE("  target triple: %s\n", triple_norm);
+        LOG_VERBOSE("  cpu features:  %s\n", features);
+        LOG_VERBOSE("  opt level:     %d\n", opt_level);
+        LOG_VERBOSE("  size level:    %d\n", size_level);
         switch (option->output_format) {
             case AOT_LLVMIR_UNOPT_FILE:
                 os_printf("  output format: unoptimized LLVM IR\n");
