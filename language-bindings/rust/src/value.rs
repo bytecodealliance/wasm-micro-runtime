@@ -107,12 +107,13 @@ mod tests {
             binary.append(&mut v.encode());
         }
 
-        let mut decoded_values: Vec<WasmValue> = Vec::new();
-        decoded_values.push(WasmValue::decode_to_i32(binary[0..1].to_vec()));
-        decoded_values.push(WasmValue::decode_to_i64(binary[1..3].to_vec()));
-        decoded_values.push(WasmValue::decode_to_f32(binary[3..4].to_vec()));
-        decoded_values.push(WasmValue::decode_to_f64(binary[4..6].to_vec()));
-        decoded_values.push(WasmValue::decode_to_v128(binary[6..10].to_vec()));
+        let decoded_values: Vec<WasmValue> = vec![
+            WasmValue::decode_to_i32(binary[0..1].to_vec()),
+            WasmValue::decode_to_i64(binary[1..3].to_vec()),
+            WasmValue::decode_to_f32(binary[3..4].to_vec()),
+            WasmValue::decode_to_f64(binary[4..6].to_vec()),
+            WasmValue::decode_to_v128(binary[6..10].to_vec()),
+        ];
 
         assert_eq!(values, decoded_values);
     }

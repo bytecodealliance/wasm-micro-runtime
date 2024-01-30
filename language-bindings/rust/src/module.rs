@@ -29,10 +29,11 @@ struct WASIArg {
     env: Vec<CString>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct Module {
     module: wasm_module_t,
-    // used to keep the module content in memory
+    // to keep the module content in memory
     content: Vec<u8>,
     wasi_arg: WASIArg,
 }
@@ -63,8 +64,8 @@ impl Module {
     ///
     /// If the file does not exist or the file cannot be read, an `RuntimeError::WasmFileFSError` will be returned.
     /// If the wasm file is not a valid wasm file, an `RuntimeError::CompilationError` will be returned.
-    pub fn from_buf(buf: &Vec<u8>) -> Result<Self, RuntimeError> {
-        let mut content = buf.clone();
+    pub fn from_buf(buf: &[u8]) -> Result<Self, RuntimeError> {
+        let mut content = buf.to_vec();
         let mut error_buf = [0i8; DEFAULT_ERROR_BUF_SIZE];
         let module = unsafe {
             wasm_runtime_load(
@@ -249,7 +250,7 @@ mod tests {
     #[test]
     fn test_module_not_exist() {
         let module = Module::from_file(Path::new("not_exist"));
-        assert_eq!(module.is_err(), true);
+        assert!(module.is_err());
     }
 
     #[test]
@@ -268,10 +269,10 @@ mod tests {
             0x7f, 0x01, 0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x07, 0x01, 0x03, 0x61, 0x64, 0x64,
             0x00, 0x00, 0x0a, 0x09, 0x01, 0x07, 0x00, 0x20, 0x00, 0x20, 0x01, 0x6a, 0x0b,
         ];
-        let mut binary = binary.into_iter().map(|c| c as u8).collect::<Vec<u8>>();
+        let binary = binary.into_iter().map(|c| c as u8).collect::<Vec<u8>>();
 
-        let module = Module::from_buf(&mut binary);
-        assert_eq!(module.is_ok(), true);
+        let module = Module::from_buf(&binary);
+        assert!(module.is_ok());
     }
 
     #[test]
@@ -282,7 +283,7 @@ mod tests {
         d.push("resources/test");
         d.push("hello_wasm32-wasi.wasm");
         let module = Module::from_file(d.as_path());
-        assert_eq!(module.is_ok(), true);
+        assert!(module.is_ok());
     }
 
     #[test]
@@ -301,10 +302,10 @@ mod tests {
             0x7f, 0x01, 0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x07, 0x01, 0x03, 0x61, 0x64, 0x64,
             0x00, 0x00, 0x0a, 0x09, 0x01, 0x07, 0x00, 0x20, 0x00, 0x20, 0x01, 0x6a, 0x0b,
         ];
-        let mut binary = binary.into_iter().map(|c| c as u8).collect::<Vec<u8>>();
+        let binary = binary.into_iter().map(|c| c as u8).collect::<Vec<u8>>();
 
-        let module = Module::from_buf(&mut binary);
-        assert_eq!(module.is_ok(), true);
+        let module = Module::from_buf(&binary);
+        assert!(module.is_ok());
         let mut module = module.unwrap();
 
         module.set_wasi_arg_pre_open_path(vec![String::from(".")], vec![]);

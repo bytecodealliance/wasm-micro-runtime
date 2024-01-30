@@ -132,26 +132,23 @@ mod tests {
             0x7f, 0x01, 0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x07, 0x01, 0x03, 0x61, 0x64, 0x64,
             0x00, 0x00, 0x0a, 0x09, 0x01, 0x07, 0x00, 0x20, 0x00, 0x20, 0x01, 0x6a, 0x0b,
         ];
-        let mut binary = binary.into_iter().map(|c| c as u8).collect::<Vec<u8>>();
+        let binary = binary.into_iter().map(|c| c as u8).collect::<Vec<u8>>();
 
-        let module = Module::from_buf(&mut binary);
-        assert_eq!(module.is_ok(), true);
+        let module = Module::from_buf(&binary);
+        assert!(module.is_ok());
         let module = module.unwrap();
 
         let instance = Instance::new(&module, 1024);
-        assert_eq!(instance.is_ok(), true);
+        assert!(instance.is_ok());
         let instance: &Instance = &instance.unwrap();
 
         let function = Function::find_export_func(instance, "add");
-        assert_eq!(function.is_ok(), true);
+        assert!(function.is_ok());
         let function = function.unwrap();
 
-        let mut params: Vec<WasmValue> = Vec::new();
-        params.push(WasmValue::I32(3));
-        params.push(WasmValue::I32(6));
-
+        let params: Vec<WasmValue> = vec![WasmValue::I32(3), WasmValue::I32(6)];
         let call_result = function.call(instance, &params);
-        assert_eq!(call_result.is_ok(), true);
+        assert!(call_result.is_ok());
         assert_eq!(call_result.unwrap(), WasmValue::I32(9));
     }
 
@@ -163,21 +160,20 @@ mod tests {
         d.push("resources/test");
         d.push("hello_wasm32-wasi.wasm");
         let module = Module::from_file(d.as_path());
-        assert_eq!(module.is_ok(), true);
+        assert!(module.is_ok());
         let mut module = module.unwrap();
 
         module.set_wasi_arg_pre_open_path(vec![String::from(".")], vec![]);
 
         let instance = Instance::new(&module, 1024 * 64);
-        assert_eq!(instance.is_ok(), true);
+        assert!(instance.is_ok());
         let instance: &Instance = &instance.unwrap();
 
         let function = Function::find_export_func(instance, "_start");
-        assert_eq!(function.is_ok(), true);
+        assert!(function.is_ok());
         let function = function.unwrap();
 
         let result = function.call(instance, &vec![]);
-        println!("{:?}", result);
-        assert_eq!(result.is_ok(), true);
+        assert!(result.is_ok());
     }
 }

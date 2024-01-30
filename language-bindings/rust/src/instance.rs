@@ -16,8 +16,7 @@ use wamr_sys::{
 };
 
 use crate::{
-    helper::error_buf_to_string, helper::DEFAULT_ERROR_BUF_SIZE, module::Module, value::WasmValue,
-    RuntimeError,
+    helper::error_buf_to_string, helper::DEFAULT_ERROR_BUF_SIZE, module::Module, RuntimeError,
 };
 
 #[derive(Debug)]
@@ -86,14 +85,6 @@ impl Instance {
     pub fn get_inner_instance(&self) -> wasm_module_inst_t {
         self.instance
     }
-
-    pub fn execute_export_func(
-        &self,
-        name: &str,
-        params: &Vec<WasmValue>,
-    ) -> Result<WasmValue, RuntimeError> {
-        unimplemented!()
-    }
 }
 
 impl Drop for Instance {
@@ -125,17 +116,17 @@ mod tests {
             0x7f, 0x01, 0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x07, 0x01, 0x03, 0x61, 0x64, 0x64,
             0x00, 0x00, 0x0a, 0x09, 0x01, 0x07, 0x00, 0x20, 0x00, 0x20, 0x01, 0x6a, 0x0b,
         ];
-        let mut binary = binary.into_iter().map(|c| c as u8).collect::<Vec<u8>>();
+        let binary = binary.into_iter().map(|c| c as u8).collect::<Vec<u8>>();
 
-        let module = Module::from_buf(&mut binary);
-        assert_eq!(module.is_ok(), true);
+        let module = Module::from_buf(&binary);
+        assert!(module.is_ok());
 
         let module = &module.unwrap();
 
-        let instance = Instance::new_with_args(&module, 1024, 1024);
-        assert_eq!(instance.is_ok(), true);
+        let instance = Instance::new_with_args(module, 1024, 1024);
+        assert!(instance.is_ok());
 
-        let instance = Instance::new_with_args(&module, 1024, 0);
-        assert_eq!(instance.is_ok(), true);
+        let instance = Instance::new_with_args(module, 1024, 0);
+        assert!(instance.is_ok());
     }
 }

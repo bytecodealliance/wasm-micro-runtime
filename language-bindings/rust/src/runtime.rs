@@ -149,27 +149,27 @@ mod tests {
     #[test]
     fn test_runtime_new() {
         let runtime = Runtime::new();
-        assert_eq!(runtime.is_ok(), true);
+        assert!(runtime.is_ok());
         drop(runtime);
 
         {
             let runtime = Runtime::new();
-            assert_eq!(runtime.is_ok(), true);
+            assert!(runtime.is_ok());
             let runtime = Runtime::new();
-            assert_eq!(runtime.is_ok(), true);
+            assert!(runtime.is_ok());
             let runtime = Runtime::new();
-            assert_eq!(runtime.is_ok(), true);
+            assert!(runtime.is_ok());
             let runtime = Runtime::new();
-            assert_eq!(runtime.is_ok(), true);
+            assert!(runtime.is_ok());
             let runtime = Runtime::new();
-            assert_eq!(runtime.is_ok(), true);
+            assert!(runtime.is_ok());
         }
     }
 
     #[test]
     fn test_runtime_builder_default() {
         let runtime = Runtime::builder().use_system_allocator().build();
-        assert_eq!(runtime.is_ok(), true);
+        assert!(runtime.is_ok());
         drop(runtime);
     }
 
@@ -179,7 +179,7 @@ mod tests {
             .run_as_interpreter()
             .use_system_allocator()
             .build();
-        assert_eq!(runtime.is_ok(), true);
+        assert!(runtime.is_ok());
         drop(runtime);
     }
 
@@ -189,7 +189,7 @@ mod tests {
             .run_as_fast_jit(1024)
             .use_system_allocator()
             .build();
-        assert_eq!(runtime.is_ok(), true);
+        assert!(runtime.is_ok());
         drop(runtime);
     }
 
@@ -199,7 +199,7 @@ mod tests {
             .run_as_llvm_jit(3, 3)
             .use_system_allocator()
             .build();
-        assert_eq!(runtime.is_ok(), true);
+        assert!(runtime.is_ok());
         drop(runtime);
     }
 }
