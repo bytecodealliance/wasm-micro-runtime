@@ -14,7 +14,7 @@ import time
 
 """
 The script itself has to be put under the same directory with the "spec".
-To run a single non-GC case with interpreter mode:
+To run a single non-GC and non-memory64 case with interpreter mode:
   cd workspace
   python3 runtest.py --wast2wasm wabt/bin/wat2wasm --interpreter iwasm \
     spec/test/core/xxx.wast
@@ -22,7 +22,7 @@ To run a single non-GC case with aot mode:
   cd workspace
   python3 runtest.py --aot --wast2wasm wabt/bin/wat2wasm --interpreter iwasm \
     --aot-compiler wamrc spec/test/core/xxx.wast
-To run a single GC case:
+To run a single GC case or single memory64 case:
   cd workspace
   python3 runtest.py --wast2wasm spec/interpreter/wasm --interpreter iwasm \
     --aot-compiler wamrc --gc spec/test/core/xxx.wast
@@ -78,6 +78,7 @@ def ignore_the_case(
     multi_thread_flag=False,
     simd_flag=False,
     gc_flag=False,
+    memory64_flag=False,
     xip_flag=False,
     eh_flag=False,
     qemu_flag=False,
@@ -162,6 +163,7 @@ def test_case(
     clean_up_flag=True,
     verbose_flag=True,
     gc_flag=False,
+    memory64_flag=False,
     qemu_flag=False,
     qemu_firmware="",
     log="",
@@ -169,7 +171,7 @@ def test_case(
 ):
     CMD = [sys.executable, "runtest.py"]
     CMD.append("--wast2wasm")
-    CMD.append(WAST2WASM_CMD if not gc_flag else SPEC_INTERPRETER_CMD)
+    CMD.append(WAST2WASM_CMD if not gc_flag and not memory64_flag else SPEC_INTERPRETER_CMD)
     CMD.append("--interpreter")
     if sgx_flag:
         CMD.append(IWASM_SGX_CMD)
@@ -216,6 +218,9 @@ def test_case(
 
     if gc_flag:
         CMD.append("--gc")
+
+    if memory64_flag:
+        CMD.append("--memory64")
 
     if log != "":
         CMD.append("--log-dir")
@@ -283,6 +288,7 @@ def test_suite(
     clean_up_flag=True,
     verbose_flag=True,
     gc_flag=False,
+    memory64_flag=False,
     parl_flag=False,
     qemu_flag=False,
     qemu_firmware="",
@@ -325,6 +331,7 @@ def test_suite(
             multi_thread_flag,
             simd_flag,
             gc_flag,
+            memory64_flag,
             xip_flag,
             eh_flag,
             qemu_flag,
@@ -357,6 +364,7 @@ def test_suite(
                         clean_up_flag,
                         verbose_flag,
                         gc_flag,
+                        memory64_flag,
                         qemu_flag,
                         qemu_firmware,
                         log,
@@ -382,6 +390,7 @@ def test_suite(
     else:
         print(f"----- Run the whole spec test suite -----")
         for case_path in case_list:
+            print(case_path)
             try:
                 test_case(
                     str(case_path),
@@ -396,6 +405,7 @@ def test_suite(
                     clean_up_flag,
                     verbose_flag,
                     gc_flag,
+                    memory64_flag,
                     qemu_flag,
                     qemu_firmware,
                     log,
@@ -522,6 +532,13 @@ def main():
         help="Running with GC feature",
     )
     parser.add_argument(
+        "--memory64",
+        action="store_true",
+        default=False,
+        dest="memory64_flag",
+        help="Running with memory64 feature",
+    )
+    parser.add_argument(
         "cases",
         metavar="path_to__case",
         type=str,
@@ -563,6 +580,7 @@ def main():
             options.clean_up_flag,
             options.verbose_flag,
             options.gc_flag,
+            options.memory64_flag,
             options.parl_flag,
             options.qemu_flag,
             options.qemu_firmware,
@@ -589,6 +607,7 @@ def main():
                     options.clean_up_flag,
                     options.verbose_flag,
                     options.gc_flag,
+                    options.memory64_flag,
                     options.qemu_flag,
                     options.qemu_firmware,
                     options.log,
