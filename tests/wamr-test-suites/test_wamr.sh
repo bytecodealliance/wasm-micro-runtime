@@ -119,7 +119,7 @@ do
         ;;
         m)
         echo "set compile target of wamr" ${OPTARG}
-        TARGET=${OPTARG^^} # set target to uppercase if input x86_32 or x86_64 --> X86_32 and X86_64
+        TARGET=$(echo "$OPTARG" | tr '[a-z]' '[A-Z]') # set target to uppercase if input x86_32 or x86_64 --> X86_32 and X86_64
         ;;
         w)
         echo "enable WASI threads"
