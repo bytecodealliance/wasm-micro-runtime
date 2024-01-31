@@ -7,6 +7,7 @@
 
 #if defined(__APPLE__) || defined(__MACH__)
 #include <libkern/OSCacheControl.h>
+#include <TargetConditionals.h>
 #endif
 
 #ifndef BH_ENABLE_TRACE_MMAP
