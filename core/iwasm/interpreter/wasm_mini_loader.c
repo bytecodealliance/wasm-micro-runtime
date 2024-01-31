@@ -5670,6 +5670,8 @@ re_scan:
                         POP_TYPE(
                             wasm_type->types[wasm_type->param_count - i - 1]);
 #if WASM_ENABLE_FAST_INTERP != 0
+                        /* decrease the frame_offset pointer accordingly to keep
+                         * consistent with frame_ref stack */
                         cell_num = wasm_value_type_cell_num(
                             wasm_type->types[wasm_type->param_count - i - 1]);
                         loader_ctx->frame_offset -= cell_num;
@@ -5687,6 +5689,12 @@ re_scan:
                         uint32 cell_num = wasm_value_type_cell_num(
                             block_type.u.type->types[i]);
                         if (i >= available_params) {
+                            /* If there isn't enough data on stack, push a dummy
+                             * offset to keep the stack consistent with
+                             * frame_ref.
+                             * Since the stack is already in polymorphic state,
+                             * the opcode will not be executed, so the dummy
+                             * offset won't cause any error */
                             *loader_ctx->frame_offset++ = 0;
                             if (cell_num > 1) {
                                 *loader_ctx->frame_offset++ = 0;
@@ -5736,6 +5744,8 @@ re_scan:
                     if (BLOCK_HAS_PARAM(block_type)) {
                         uint64 size;
 
+                        /* In polymorphic state, there may be no if condition on
+                         * the stack, so the offset may not emitted */
                         if (if_condition_available) {
                             /* skip the if condition operand offset */
                             wasm_loader_emit_backspace(loader_ctx,
