@@ -8231,11 +8231,11 @@ re_scan:
                      idx--) {
                     ret_type = *(func->func_type->types
                                  + func->func_type->param_count + idx);
-                    POP_TYPE(ret_type);
 #if WASM_ENABLE_FAST_INTERP != 0
                     /* emit the offset after return opcode */
                     POP_OFFSET_TYPE(ret_type);
 #endif
+                    POP_TYPE(ret_type);
                 }
 
                 RESET_STACK();
@@ -8275,10 +8275,10 @@ re_scan:
                 if (func_type->param_count > 0) {
                     for (idx = (int32)(func_type->param_count - 1); idx >= 0;
                          idx--) {
-                        POP_TYPE(func_type->types[idx]);
 #if WASM_ENABLE_FAST_INTERP != 0
                         POP_OFFSET_TYPE(func_type->types[idx]);
 #endif
+                        POP_TYPE(func_type->types[idx]);
                     }
                 }
 
@@ -8376,10 +8376,10 @@ re_scan:
                 if (func_type->param_count > 0) {
                     for (idx = (int32)(func_type->param_count - 1); idx >= 0;
                          idx--) {
-                        POP_TYPE(func_type->types[idx]);
 #if WASM_ENABLE_FAST_INTERP != 0
                         POP_OFFSET_TYPE(func_type->types[idx]);
 #endif
+                        POP_TYPE(func_type->types[idx]);
                     }
                 }
 
