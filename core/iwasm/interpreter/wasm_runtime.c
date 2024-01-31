@@ -1061,7 +1061,7 @@ export_tags_instantiate(const WASMModule *module,
         if (export->kind == EXPORT_KIND_TAG) {
             export_tag->name = export->name;
 
-            bh_assert((uint32)(module_inst->export_tags));
+            bh_assert(module_inst->e->tags);
 
             export_tag->tag = &module_inst->e->tags[export->index];
             export_tag++;
