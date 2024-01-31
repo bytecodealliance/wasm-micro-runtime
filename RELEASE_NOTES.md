@@ -3,6 +3,9 @@
 ### Breaking Changes
 
 ### New Features
+- Implement Exception Handling for classic interpreter (#3096)
+  - Use `cmake -DWAMR_BUILD_EXCE_HANDLING=1/0` option to enable/disable
+    the feature, and by default it is disabled
 
 ### Bug Fixes
 - Fix build errors when initializing wasm_val_t values with macros (#3007)
@@ -14,6 +17,9 @@
 - cosmopolitan: Update compiler and update platform_internal.h (#3079)
 - wasi: Apply wasm_runtime_begin_blocking_op to poll as well (#3080)
 - Fix memory/table segment checks in memory.init/table.init (#3081)
+- perf profiling: Adjust the calculation of execution time (#3089)
+- aot: Fix LLVMSetTailCallKind check (#3099)
+- fast-interp: Fix stack recovery for else branch (#3100)
 
 ### Enhancements
 - Clear compilation warning and dead code (#3002)
@@ -42,6 +48,8 @@
 - Remove a lot of "unused parameter" warnings (#3075)
 - Forward log and log level to custom bh_log callback (#3070)
 - Fix inconsistent code style in aot_loader.c (#3082)
+- freertos: Thread exit more common (#3094)
+- Fix windows build error and compilation warnings (#3095)
 
 ### Others
 - Fix nightly-run CI failure (#3014)
@@ -54,6 +62,10 @@
 - build_wamr.md: Update the document (#3074)
 - Fix download link for wasi-sdk (#3077)
 - README.md: Fix typo tunning to tuning (#3078)
+- Update outdated reference link in multi_module.md (#3092)
+- Add comments to suppress warning from clang-tidy (#3088)
+- CI: Update version of checkout to suppress warnings (#3093)
+- test_wamr.sh: Allow using test script on different platforms (#3098)
 
 ---
 
