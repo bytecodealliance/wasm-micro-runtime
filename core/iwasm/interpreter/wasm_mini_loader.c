@@ -3259,6 +3259,17 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                 u8 = read_uint8(p); /* 0x00 */
                 break;
 
+#if WASM_ENABLE_EXCE_HANDLING != 0
+            case WASM_OP_TRY:
+            case WASM_OP_CATCH:
+            case WASM_OP_THROW:
+            case WASM_OP_RETHROW:
+            case WASM_OP_DELEGATE:
+            case WASM_OP_CATCH_ALL:
+                /* TODO */
+                return false;
+#endif
+
             case WASM_OP_DROP:
             case WASM_OP_SELECT:
             case WASM_OP_DROP_64:
@@ -6172,6 +6183,18 @@ re_scan:
 #endif
                 break;
             }
+
+#if WASM_ENABLE_EXCE_HANDLING != 0
+            case WASM_OP_TRY:
+            case WASM_OP_CATCH:
+            case WASM_OP_THROW:
+            case WASM_OP_RETHROW:
+            case WASM_OP_DELEGATE:
+            case WASM_OP_CATCH_ALL:
+                /* TODO */
+                set_error_buf(error_buf, error_buf_size, "unsupported opcode");
+                goto fail;
+#endif
 
             case WASM_OP_DROP:
             {

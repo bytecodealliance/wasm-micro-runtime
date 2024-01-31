@@ -359,6 +359,14 @@ else
 CFLAGS += -DWASM_ENABLE_REF_TYPES=0
 endif
 
+ifeq ($(CONFIG_INTERPRETERS_WAMR_ENABLE_EXCE_HANDLING),y)
+CFLAGS += -DWASM_ENABLE_EXCE_HANDLING=1
+CFLAGS += -DWASM_ENABLE_TAGS=1
+else
+CFLAGS += -DWASM_ENABLE_EXCE_HANDLING=0
+CFLAGS += -DWASM_ENABLE_TAGS=0
+endif
+
 CFLAGS += -Wno-strict-prototypes -Wno-shadow -Wno-unused-variable
 CFLAGS += -Wno-int-conversion -Wno-implicit-function-declaration
 
