@@ -20,6 +20,8 @@
 - perf profiling: Adjust the calculation of execution time (#3089)
 - aot: Fix LLVMSetTailCallKind check (#3099)
 - fast-interp: Fix stack recovery for else branch (#3100)
+- fast-interp: Fix frame_offset pop order (#3101)
+- Fix AOT compilation on MacOS (#3102)
 
 ### Enhancements
 - Clear compilation warning and dead code (#3002)
