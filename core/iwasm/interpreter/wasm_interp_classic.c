@@ -1387,18 +1387,23 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                             /* push exception_tag_index and
                                              * exception values for rethrow */
                                             PUSH_I32(exception_tag_index);
-                                            word_copy(frame_sp,
-                                                      frame_sp_old
-                                                          - cell_num_to_copy,
-                                                      cell_num_to_copy);
-                                            frame_sp += cell_num_to_copy;
-                                            /* push exception values for catch
-                                             */
-                                            word_copy(frame_sp,
-                                                      frame_sp_old
-                                                          - cell_num_to_copy,
-                                                      cell_num_to_copy);
-                                            frame_sp += cell_num_to_copy;
+                                            if (cell_num_to_copy > 0) {
+                                                word_copy(
+                                                    frame_sp,
+                                                    frame_sp_old
+                                                        - cell_num_to_copy,
+                                                    cell_num_to_copy);
+                                                frame_sp += cell_num_to_copy;
+                                                /* push exception values for
+                                                 * catch
+                                                 */
+                                                word_copy(
+                                                    frame_sp,
+                                                    frame_sp_old
+                                                        - cell_num_to_copy,
+                                                    cell_num_to_copy);
+                                                frame_sp += cell_num_to_copy;
+                                            }
 
                                             /* advance to handler */
                                             HANDLE_OP_END();
@@ -1427,11 +1432,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                         frame_csp -= lookup_depth;
 
                                         /* push exception values for catch */
-                                        word_copy(frame_sp,
-                                                  frame_sp_old
-                                                      - cell_num_to_copy,
-                                                  cell_num_to_copy);
-                                        frame_sp += cell_num_to_copy;
+                                        if (cell_num_to_copy > 0) {
+                                            word_copy(frame_sp,
+                                                      frame_sp_old
+                                                          - cell_num_to_copy,
+                                                      cell_num_to_copy);
+                                            frame_sp += cell_num_to_copy;
+                                        }
 
                                         /* tag_index is already stored in
                                          * exception_tag_index */
@@ -1452,11 +1459,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                         /* push exception_tag_index and
                                          * exception values for rethrow */
                                         PUSH_I32(exception_tag_index);
-                                        word_copy(frame_sp,
-                                                  frame_sp_old
-                                                      - cell_num_to_copy,
-                                                  cell_num_to_copy);
-                                        frame_sp += cell_num_to_copy;
+                                        if (cell_num_to_copy > 0) {
+                                            word_copy(frame_sp,
+                                                      frame_sp_old
+                                                          - cell_num_to_copy,
+                                                      cell_num_to_copy);
+                                            frame_sp += cell_num_to_copy;
+                                        }
                                         /* catch_all has no exception values */
 
                                         /* advance to handler */
@@ -1483,10 +1492,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                              * The values are copied to the CALLER FRAME
                              * (prev_frame->sp) same behvior ad WASM_OP_RETURN
                              */
-                            word_copy(prev_frame->sp,
-                                      frame_sp_old - cell_num_to_copy,
-                                      cell_num_to_copy);
-                            prev_frame->sp += cell_num_to_copy;
+                            if (cell_num_to_copy > 0) {
+                                word_copy(prev_frame->sp,
+                                          frame_sp_old - cell_num_to_copy,
+                                          cell_num_to_copy);
+                                prev_frame->sp += cell_num_to_copy;
+                            }
                             *((int32 *)(prev_frame->sp)) = exception_tag_index;
                             prev_frame->sp++;
 
