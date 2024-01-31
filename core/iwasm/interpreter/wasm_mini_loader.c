@@ -5819,20 +5819,29 @@ re_scan:
 #if WASM_ENABLE_FAST_INTERP != 0
                 /* Recover top param_count values of frame_offset stack */
                 if (block->available_param_num) {
-                    uint32 size;
-                    size = sizeof(int16) * block->available_param_num;
-                    bh_memcpy_s(loader_ctx->frame_offset, size,
-                                block->param_frame_offsets, size);
-                    loader_ctx->frame_offset += (size / sizeof(int16));
+                    uint32 available_param_cell_num = 0;
 
-                    /* recover dynamic offset */
+                    /* total cell num of available parameters */
                     for (i = 0; i < block->available_param_num; i++) {
-                        if (block->param_frame_offsets[i]
+                        uint32 cell_num = wasm_value_type_cell_num(
+                            block->block_type.u.type->types[i]);
+
+                        /* recover dynamic offset */
+                        if (block->param_frame_offsets[available_param_cell_num]
                             >= loader_ctx->dynamic_offset) {
                             loader_ctx->dynamic_offset =
-                                block->param_frame_offsets[i] + 1;
+                                block->param_frame_offsets
+                                    [available_param_cell_num]
+                                + cell_num;
                         }
+
+                        available_param_cell_num += cell_num;
                     }
+
+                    bh_memcpy_s(
+                        loader_ctx->frame_offset, available_param_cell_num,
+                        block->param_frame_offsets, available_param_cell_num);
+                    loader_ctx->frame_offset += available_param_cell_num;
                 }
 #endif
 
