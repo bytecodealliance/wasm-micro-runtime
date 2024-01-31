@@ -7242,6 +7242,7 @@ copy_params_to_dynamic_space(WASMLoaderContext *loader_ctx, bool is_if_block,
     int16 operand_offset = 0;
 
     uint64 size = (uint64)param_count * (sizeof(*cells) + sizeof(*src_offsets));
+    bh_assert(size > 0);
 
     /* For if block, we also need copy the condition operand offset. */
     if (is_if_block)
