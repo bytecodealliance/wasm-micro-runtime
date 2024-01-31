@@ -4679,6 +4679,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                     return true;
                 }
                 else {
+                    skip_leb(p);
                     /* the DELEGATE opcode ends the tryblock, */
                     block_nested_depth--;
                     if (block_nested_depth
