@@ -6,6 +6,7 @@
 - Implement Exception Handling for classic interpreter (#3096)
   - Use `cmake -DWAMR_BUILD_EXCE_HANDLING=1/0` option to enable/disable
     the feature, and by default it is disabled
+  - It is still in highly experimental stage
 
 ### Bug Fixes
 - Fix build errors when initializing wasm_val_t values with macros (#3007)
@@ -22,6 +23,7 @@
 - fast-interp: Fix stack recovery for else branch (#3100)
 - fast-interp: Fix frame_offset pop order (#3101)
 - Fix AOT compilation on MacOS (#3102)
+- fast-interp: Fix block with parameter in polymorphic stack issue (#3112)
 
 ### Enhancements
 - Clear compilation warning and dead code (#3002)
