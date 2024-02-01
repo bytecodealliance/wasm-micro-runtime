@@ -1,3 +1,78 @@
+## WAMR-1.3.2
+
+### Breaking Changes
+
+### New Features
+- Implement Exception Handling for classic interpreter (#3096)
+  - Use `cmake -DWAMR_BUILD_EXCE_HANDLING=1/0` option to enable/disable
+    the feature, and by default it is disabled
+  - It is still in highly experimental stage
+
+### Bug Fixes
+- Fix build errors when initializing wasm_val_t values with macros (#3007)
+- fix(wasm-c-api): Do not clone stack frames if there's no trap (#3008)
+- classic-interp: Handle SIMD opcode when JIT is enabled (#3046)
+- fast-interp: Fix dynamic offset error issue in else branch (#3058)
+- wasm_cluster_destroy_spawned_exec_env: Avoid "invalid exec env" trap (#3068)
+- thread-mgr: Fix locking problems around aux stack allocation (#3073)
+- cosmopolitan: Update compiler and update platform_internal.h (#3079)
+- wasi: Apply wasm_runtime_begin_blocking_op to poll as well (#3080)
+- Fix memory/table segment checks in memory.init/table.init (#3081)
+- perf profiling: Adjust the calculation of execution time (#3089)
+- aot: Fix LLVMSetTailCallKind check (#3099)
+- fast-interp: Fix stack recovery for else branch (#3100)
+- fast-interp: Fix frame_offset pop order (#3101)
+- Fix AOT compilation on MacOS (#3102)
+- fast-interp: Fix block with parameter in polymorphic stack issue (#3112)
+
+### Enhancements
+- Clear compilation warning and dead code (#3002)
+- aot debug: Try to use a bit more appropriate file names (#3000)
+- Increase default app thread stack size (#3010)
+- Rename rwlock_init to avoid conflict (#3016)
+- nuttx: Use larger alignment for os_mmap and comment why (#3017)
+- Allow using mmap for shared memory if hw bound check is disabled (#3029)
+- Don't redefine D_INO if already defined (#3036)
+- Enhancements on wasm function execution time statistic (#2985)
+- wamr-compiler: Fix non-x86{_64} host builds (#3037)
+- Disable quick aot entry for interp and fast-jit (#3039)
+- nuttx: Add option to enable quick aot entry (#3040)
+- Set CONFIG_HAS_CAP_ENTER to support posix file api for freertos (#3041)
+- Revert "Enable MAP_32BIT for macOS (#2992)" (#3032)
+- Enable quick aot entry when hw bound check is disabled (#3044)
+- Do not inherit WASM_SUSPEND_FLAG_BLOCKING from the parent thread (#3051)
+- wasm_runtime_begin_blocking_op: A comment about usage expectation (#3056)
+- Check arguments before calling bh_hash_map_find (#3055)
+- Fix aot large model (--size-level=0) with LLVM 18 (#3057)
+- Add flag to control Winsocket initialization (#3060)
+- nuttx: If STACK_GUARD_SIZE is not set, leave it to config.h (#2927)
+- Enhance setting write gs base with cmake variable (#3066)
+- aot_reloc_x86_64.c: Suggest to try --size-level=0 as well (#3067)
+- Fix some issues reported by CodeQL (#3064)
+- Remove a lot of "unused parameter" warnings (#3075)
+- Forward log and log level to custom bh_log callback (#3070)
+- Fix inconsistent code style in aot_loader.c (#3082)
+- freertos: Thread exit more common (#3094)
+- Fix windows build error and compilation warnings (#3095)
+
+### Others
+- Fix nightly-run CI failure (#3014)
+- Build samples in debug mode (#3019)
+- Remove deprecated tests in language-bindings python (#3018)
+- Avoid unused thread_id warning and recompile multi-module sample (#3033)
+- samples/terminate: Add a sample to demonstrate wasm_runtime_terminate (#3043)
+- Bump NuttX version to 12.4.x in CI (#3047)
+- perf_tune.md: Add refine the calling processes between host and wasm (#3065)
+- build_wamr.md: Update the document (#3074)
+- Fix download link for wasi-sdk (#3077)
+- README.md: Fix typo tunning to tuning (#3078)
+- Update outdated reference link in multi_module.md (#3092)
+- Add comments to suppress warning from clang-tidy (#3088)
+- CI: Update version of checkout to suppress warnings (#3093)
+- test_wamr.sh: Allow using test script on different platforms (#3098)
+
+---
+
 ## WAMR-1.3.1
 
 ### Breaking Changes
