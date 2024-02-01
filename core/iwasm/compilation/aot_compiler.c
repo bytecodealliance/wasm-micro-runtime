@@ -36,6 +36,10 @@
 #include "debug/dwarf_extractor.h"
 #endif
 
+#if WASM_ENABLE_TRACE_MODE != 0
+#include "../trace-exec/trace_exec.h"
+#endif
+
 #define CHECK_BUF(buf, buf_end, length)                             \
     do {                                                            \
         if (buf + length > buf_end) {                               \
@@ -197,6 +201,13 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
             comp_ctx, func_ctx,
             (frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code);
         LLVMSetCurrentDebugLocation2(comp_ctx->builder, location);
+#endif
+
+#if WASM_ENABLE_TRACE_MODE != 0
+        if (opcode < WASM_OP_MISC_PREFIX) {
+            trace_exec_build_call_helper(comp_ctx, func_ctx, func_index, opcode,
+                                         0x0, frame_ip);
+        }
 #endif
 
         switch (opcode) {
@@ -1369,6 +1380,13 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 }
 
                 opcode = *frame_ip++;
+
+#if WASM_ENABLE_TRACE_MODE != 0
+                trace_exec_build_call_helper(comp_ctx, func_ctx, func_index,
+                                             WASM_OP_SIMD_PREFIX, opcode,
+                                             frame_ip);
+#endif
+
                 /* follow the order of enum WASMSimdEXTOpcode in
                    wasm_opcode.h */
                 switch (opcode) {
@@ -2443,8 +2461,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                         break;
                     }
 
-                        /* f64x2 Op */
-
+                    /* f64x2 Op */
                     case SIMD_f64x2_abs:
                     {
                         if (!aot_compile_simd_f64x2_abs(comp_ctx, func_ctx))

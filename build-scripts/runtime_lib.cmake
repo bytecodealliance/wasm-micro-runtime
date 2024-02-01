@@ -149,6 +149,10 @@ if (WAMR_BUILD_WASM_CACHE EQUAL 1)
     include (${WAMR_ROOT_DIR}/build-scripts/involve_boringssl.cmake)
 endif ()
 
+if (WAMR_BUILD_TRACE_MODE EQUAL 1)
+    include (${IWASM_DIR}/trace-exec/iwasm_trace_exec.cmake)
+endif ()
+
 ####################### Common sources #######################
 if (NOT MSVC)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -ffunction-sections -fdata-sections \
@@ -198,6 +202,7 @@ set (source_all
     ${LIBC_EMCC_SOURCE}
     ${LIB_RATS_SOURCE}
     ${DEBUG_ENGINE_SOURCE}
+    ${IWASM_TRACE_EXEC_SOURCE}
 )
 
 set (WAMR_RUNTIME_LIB_SOURCE ${source_all})

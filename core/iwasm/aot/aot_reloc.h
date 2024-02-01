@@ -9,6 +9,10 @@
 #include "aot_runtime.h"
 #include "aot_intrinsic.h"
 
+#if WASM_ENABLE_TRACE_MODE != 0
+#include "trace_exec.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -55,6 +59,13 @@ typedef struct {
     REG_SYM(aot_free_frame),
 #else
 #define REG_AOT_TRACE_SYM()
+#endif
+
+#if WASM_ENABLE_TRACE_MODE != 0 && (WASM_ENABLE_JIT != 0 || WASM_ENABLE_AOT != 0)
+#define REG_TRACE_MODE_SYM()              \
+    REG_SYM(trace_exec_helper),
+#else
+#define REG_TRACE_MODE_SYM()
 #endif
 
 #define REG_INTRINSIC_SYM()               \
@@ -160,6 +171,7 @@ typedef struct {
     REG_AOT_TRACE_SYM()                   \
     REG_INTRINSIC_SYM()                   \
     REG_LLVM_PGO_SYM()                    \
+    REG_TRACE_MODE_SYM()
 
 #define CHECK_RELOC_OFFSET(data_size) do {              \
     if (!check_reloc_offset(target_section_size,        \
