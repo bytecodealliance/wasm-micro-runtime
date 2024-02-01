@@ -257,6 +257,45 @@ get_inst_extra_offset(AOTCompContext *comp_ctx)
     return offset_32;
 }
 
+static bool
+create_func_ptrs(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    LLVMValueRef offset;
+
+    offset = I32_CONST(offsetof(AOTModuleInstance, func_ptrs));
+    func_ctx->func_ptrs =
+        LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, func_ctx->aot_inst,
+                              &offset, 1, "func_ptrs_offset");
+    if (!func_ctx->func_ptrs) {
+        aot_set_last_error("llvm build in bounds gep failed.");
+        return false;
+    }
+    func_ctx->func_ptrs =
+        LLVMBuildBitCast(comp_ctx->builder, func_ctx->func_ptrs,
+                         comp_ctx->exec_env_type, "func_ptrs_tmp");
+    if (!func_ctx->func_ptrs) {
+        aot_set_last_error("llvm build bit cast failed.");
+        return false;
+    }
+
+    func_ctx->func_ptrs = LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE,
+                                         func_ctx->func_ptrs, "func_ptrs_ptr");
+    if (!func_ctx->func_ptrs) {
+        aot_set_last_error("llvm build load failed.");
+        return false;
+    }
+
+    func_ctx->func_ptrs =
+        LLVMBuildBitCast(comp_ctx->builder, func_ctx->func_ptrs,
+                         comp_ctx->exec_env_type, "func_ptrs");
+    if (!func_ctx->func_ptrs) {
+        aot_set_last_error("llvm build bit cast failed.");
+        return false;
+    }
+
+    return true;
+}
+
 /*
  * a "precheck" function performs a few things before calling wrapped_func.
  *
@@ -321,6 +360,9 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, AOTFuncContext *wrapped_func
         goto fail;
     if (comp_ctx->enable_stack_estimation
         && !create_native_stack_top_min(comp_ctx, func_ctx)) {
+        goto fail;
+    }
+    if (!create_func_ptrs(comp_ctx, func_ctx)) {
         goto fail;
     }
 
@@ -639,7 +681,7 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, AOTFuncContext *wrapped_func
 
         // Load function pointer
         if (!(wrapped_func_ptr = LLVMBuildInBoundsGEP2(
-                    b, OPQ_PTR_TYPE, wrapped_func_ctx->func_ptrs,
+                    b, OPQ_PTR_TYPE, func_ctx->func_ptrs,
                     &import_func_idx, 1, "wrapped_native_func_ptr_tmp"))) {
             aot_set_last_error("llvm build inbounds gep failed.");
             goto fail;
@@ -1530,45 +1572,6 @@ create_func_type_indexes(const AOTCompContext *comp_ctx,
         aot_set_last_error("llvm build load failed.");
         return false;
     }
-    return true;
-}
-
-static bool
-create_func_ptrs(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
-{
-    LLVMValueRef offset;
-
-    offset = I32_CONST(offsetof(AOTModuleInstance, func_ptrs));
-    func_ctx->func_ptrs =
-        LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, func_ctx->aot_inst,
-                              &offset, 1, "func_ptrs_offset");
-    if (!func_ctx->func_ptrs) {
-        aot_set_last_error("llvm build in bounds gep failed.");
-        return false;
-    }
-    func_ctx->func_ptrs =
-        LLVMBuildBitCast(comp_ctx->builder, func_ctx->func_ptrs,
-                         comp_ctx->exec_env_type, "func_ptrs_tmp");
-    if (!func_ctx->func_ptrs) {
-        aot_set_last_error("llvm build bit cast failed.");
-        return false;
-    }
-
-    func_ctx->func_ptrs = LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE,
-                                         func_ctx->func_ptrs, "func_ptrs_ptr");
-    if (!func_ctx->func_ptrs) {
-        aot_set_last_error("llvm build load failed.");
-        return false;
-    }
-
-    func_ctx->func_ptrs =
-        LLVMBuildBitCast(comp_ctx->builder, func_ctx->func_ptrs,
-                         comp_ctx->exec_env_type, "func_ptrs");
-    if (!func_ctx->func_ptrs) {
-        aot_set_last_error("llvm build bit cast failed.");
-        return false;
-    }
-
     return true;
 }
 
