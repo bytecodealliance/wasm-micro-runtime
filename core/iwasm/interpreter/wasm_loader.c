@@ -7128,6 +7128,40 @@ fail:
     return NULL;
 }
 
+#if WASM_ENABLE_EXCE_HANDLING != 0
+static BranchBlock *
+check_branch_block_for_delegate(WASMLoaderContext *loader_ctx, uint8 **p_buf,
+                                uint8 *buf_end, char *error_buf,
+                                uint32 error_buf_size)
+{
+    uint8 *p = *p_buf, *p_end = buf_end;
+    BranchBlock *frame_csp_tmp;
+    uint32 depth;
+
+    read_leb_uint32(p, p_end, depth);
+    /*
+     * Note: "delegate 0" means the surrounding block, not the
+     * try-delegate block itself.
+     *
+     * Note: the caller hasn't popped the try-delegate frame yet.
+     */
+    bh_assert(loader_ctx->csp_num > 0);
+    if (loader_ctx->csp_num - 1 <= depth) {
+        set_error_buf(error_buf, error_buf_size, "unknown delegate label");
+        goto fail;
+    }
+    frame_csp_tmp = loader_ctx->frame_csp - depth - 2;
+#if WASM_ENABLE_FAST_INTERP != 0
+    emit_br_info(frame_csp_tmp);
+#endif
+
+    *p_buf = p;
+    return frame_csp_tmp;
+fail:
+    return NULL;
+}
+#endif
+
 static bool
 check_block_stack(WASMLoaderContext *loader_ctx, BranchBlock *block,
                   char *error_buf, uint32 error_buf_size)
@@ -7832,15 +7866,9 @@ re_scan:
             case WASM_OP_DELEGATE:
             {
                 /* check  target block is valid */
-                if (!(frame_csp_tmp = check_branch_block(
+                if (!(frame_csp_tmp = check_branch_block_for_delegate(
                           loader_ctx, &p, p_end, error_buf, error_buf_size)))
                     goto fail;
-
-                /* valid types */
-                if (LABEL_TYPE_TRY != frame_csp_tmp->label_type) {
-                    snprintf(error_buf, error_buf_size, "unknown label");
-                    goto fail;
-                }
 
                 BranchBlock *cur_block = loader_ctx->frame_csp - 1;
                 uint8 label_type = cur_block->label_type;
