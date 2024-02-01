@@ -13,8 +13,8 @@ use std::sync::{Arc, OnceLock};
 
 use wamr_sys::{
     mem_alloc_type_t_Alloc_With_Pool, mem_alloc_type_t_Alloc_With_System_Allocator,
-    wasm_runtime_destroy, wasm_runtime_full_init, wasm_runtime_init, RunningMode_Mode_Fast_JIT,
-    RunningMode_Mode_Interp, RunningMode_Mode_LLVM_JIT, RuntimeInitArgs,
+    wasm_runtime_destroy, wasm_runtime_full_init, wasm_runtime_init, RunningMode_Mode_Interp,
+    RunningMode_Mode_LLVM_JIT, RuntimeInitArgs,
 };
 
 use crate::RuntimeError;
@@ -43,22 +43,14 @@ impl RuntimeBuilder {
         self
     }
 
-    //TODO: feature
     /// use interpreter mode
     pub fn run_as_interpreter(mut self) -> RuntimeBuilder {
         self.args.running_mode = RunningMode_Mode_Interp;
         self
     }
 
-    //TODO: feature
-    /// use fast-jit mode
-    pub fn run_as_fast_jit(mut self, code_cache_size: u32) -> RuntimeBuilder {
-        self.args.running_mode = RunningMode_Mode_Fast_JIT;
-        self.args.fast_jit_code_cache_size = code_cache_size;
-        self
-    }
+    /// TODO: use fast-jit mode
 
-    //TODO: feature
     /// use llvm-jit mode
     pub fn run_as_llvm_jit(mut self, opt_level: u32, size_level: u32) -> RuntimeBuilder {
         self.args.running_mode = RunningMode_Mode_LLVM_JIT;
@@ -145,6 +137,7 @@ impl Drop for Runtime {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wamr_sys::{wasm_runtime_free, wasm_runtime_malloc};
 
     #[test]
     fn test_runtime_new() {
@@ -164,13 +157,22 @@ mod tests {
             let runtime = Runtime::new();
             assert!(runtime.is_ok());
         }
+
+        let small_buf = unsafe { wasm_runtime_malloc(16) };
+        assert!(!small_buf.is_null());
+        unsafe { wasm_runtime_free(small_buf) };
     }
 
     #[test]
     fn test_runtime_builder_default() {
+        // use Mode_Default
         let runtime = Runtime::builder().use_system_allocator().build();
         assert!(runtime.is_ok());
         drop(runtime);
+
+        let small_buf = unsafe { wasm_runtime_malloc(16) };
+        assert!(!small_buf.is_null());
+        unsafe { wasm_runtime_free(small_buf) };
     }
 
     #[test]
@@ -181,16 +183,10 @@ mod tests {
             .build();
         assert!(runtime.is_ok());
         drop(runtime);
-    }
 
-    #[test]
-    fn test_runtime_builder_fast_jit() {
-        let runtime = Runtime::builder()
-            .run_as_fast_jit(1024)
-            .use_system_allocator()
-            .build();
-        assert!(runtime.is_ok());
-        drop(runtime);
+        let small_buf = unsafe { wasm_runtime_malloc(16) };
+        assert!(!small_buf.is_null());
+        unsafe { wasm_runtime_free(small_buf) };
     }
 
     #[test]
@@ -201,5 +197,9 @@ mod tests {
             .build();
         assert!(runtime.is_ok());
         drop(runtime);
+
+        let small_buf = unsafe { wasm_runtime_malloc(16) };
+        assert!(!small_buf.is_null());
+        unsafe { wasm_runtime_free(small_buf) };
     }
 }
