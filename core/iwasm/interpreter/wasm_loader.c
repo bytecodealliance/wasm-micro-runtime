@@ -9836,8 +9836,7 @@ re_scan:
             {
                 uint32 opcode1;
 
-                CHECK_BUF(p, p_end, 1);
-                opcode1 = read_uint8(p);
+                read_leb_uint32(p, p_end, opcode1);
                 /* follow the order of enum WASMSimdEXTOpcode in wasm_opcode.h
                  */
                 switch (opcode1) {
