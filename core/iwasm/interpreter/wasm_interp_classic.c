@@ -3843,8 +3843,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_ATOMIC_PREFIX)
             {
                 uint32 offset = 0, align, addr;
+                uint32 opcode1;
 
-                opcode = *frame_ip++;
+                read_leb_uint32(frame_ip, frame_ip_end, opcode1);
+                opcode = (uint8)opcode1;
 
                 if (opcode != WASM_OP_ATOMIC_FENCE) {
                     read_leb_uint32(frame_ip, frame_ip_end, align);
