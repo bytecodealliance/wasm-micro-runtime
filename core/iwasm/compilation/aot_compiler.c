@@ -1050,6 +1050,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 uint32 opcode1;
 
                 read_leb_uint32(frame_ip, frame_ip_end, opcode1);
+                /* opcode1 was checked in loader and is no larger than
+                   UINT8_MAX */
                 opcode = (uint8)opcode1;
 
 #if WASM_ENABLE_BULK_MEMORY != 0
@@ -1214,6 +1216,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 uint32 opcode1;
 
                 read_leb_uint32(frame_ip, frame_ip_end, opcode1);
+                /* opcode1 was checked in loader and is no larger than
+                   UINT8_MAX */
                 opcode = (uint8)opcode1;
 
                 if (opcode != WASM_OP_ATOMIC_FENCE) {
@@ -1372,6 +1376,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 }
 
                 read_leb_uint32(frame_ip, frame_ip_end, opcode1);
+                /* opcode1 was checked in loader and is no larger than
+                   UINT8_MAX */
                 opcode = (uint8)opcode1;
 
                 /* follow the order of enum WASMSimdEXTOpcode in

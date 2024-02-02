@@ -24,6 +24,7 @@
 - fast-interp: Fix frame_offset pop order (#3101)
 - Fix AOT compilation on MacOS (#3102)
 - fast-interp: Fix block with parameter in polymorphic stack issue (#3112)
+- Fix read and validation of misc/simd/atomic sub opcodes (#3115)
 
 ### Enhancements
 - Clear compilation warning and dead code (#3002)
