@@ -340,9 +340,6 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 static void
 memories_deinstantiate(AOTModuleInstance *module_inst)
 {
-#ifdef WASM_LINEAR_MEMORY_MMAP
-    uint64 map_size;
-#endif
     uint32 i;
     AOTMemoryInstance *memory_inst;
 
@@ -364,23 +361,7 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
             }
 
             if (memory_inst->memory_data) {
-#ifndef OS_ENABLE_HW_BOUND_CHECK
-#ifdef WASM_LINEAR_MEMORY_MMAP
-                if (shared_memory_is_shared(memory_inst)) {
-                    map_size = (uint64)memory_inst->num_bytes_per_page
-                               * memory_inst->max_page_count;
-                    wasm_munmap_linear_memory(memory_inst->memory_data,
-                                              map_size, map_size);
-                }
-                else
-#endif
-                    wasm_runtime_free(memory_inst->memory_data);
-#else
-                map_size = (uint64)memory_inst->num_bytes_per_page
-                           * memory_inst->cur_page_count;
-                wasm_munmap_linear_memory(memory_inst->memory_data, map_size,
-                                          8 * (uint64)BH_GB);
-#endif
+                wasm_deallocate_linear_memory(memory_inst);
             }
         }
     }
@@ -402,14 +383,10 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     uint32 heap_offset = num_bytes_per_page * init_page_count;
     uint64 memory_data_size, max_memory_data_size;
     uint8 *p = NULL, *global_addr;
-#ifdef WASM_LINEAR_MEMORY_MMAP
-    uint8 *mapped_mem = NULL;
-    uint64 map_size;
-#endif
 
+    bool is_shared_memory = false;
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    bool is_shared_memory = memory->memory_flags & 0x02 ? true : false;
-
+    is_shared_memory = memory->memory_flags & 0x02 ? true : false;
     /* Shared memory */
     if (is_shared_memory && parent != NULL) {
         AOTMemoryInstance *shared_memory_instance;
@@ -519,55 +496,18 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
                 module->aux_stack_size);
     LOG_VERBOSE("  heap offset: %u, heap size: %d\n", heap_offset, heap_size);
 
-    memory_data_size = (uint64)num_bytes_per_page * init_page_count;
     max_memory_data_size = (uint64)num_bytes_per_page * max_page_count;
-    bh_assert(memory_data_size <= UINT32_MAX);
     bh_assert(max_memory_data_size <= 4 * (uint64)BH_GB);
     (void)max_memory_data_size;
 
-#ifndef OS_ENABLE_HW_BOUND_CHECK
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (is_shared_memory) {
-#if WASM_ENABLE_SHARED_MEMORY_MMAP != 0
-        map_size = max_memory_data_size;
-        if (max_memory_data_size > 0
-            && !(p = mapped_mem =
-                     wasm_mmap_linear_memory(map_size, &max_memory_data_size,
-                                             error_buf, error_buf_size))) {
-            return NULL;
-        }
-#else
-        /* Allocate maximum memory size when memory is shared */
-        if (max_memory_data_size > 0
-            && !(p = runtime_malloc(max_memory_data_size, error_buf,
-                                    error_buf_size))) {
-            return NULL;
-        }
-#endif
-    }
-    else
-#endif /* end of WASM_ENABLE_SHARED_MEMORY != 0 */
-    {
-        /* Allocate initial memory size when memory is not shared */
-        if (memory_data_size > 0
-            && !(p = runtime_malloc(memory_data_size, error_buf,
-                                    error_buf_size))) {
-            return NULL;
-        }
-    }
-#else  /* else of OS_ENABLE_HW_BOUND_CHECK */
-    /* Totally 8G is mapped, the opcode load/store address range is 0 to 8G:
-     *   ea = i + memarg.offset
-     * both i and memarg.offset are u32 in range 0 to 4G
-     * so the range of ea is 0 to 8G
-     */
-    map_size = 8 * (uint64)BH_GB;
-    if (!(p = mapped_mem = wasm_mmap_linear_memory(
-              map_size, &memory_data_size, error_buf, error_buf_size))) {
-        set_error_buf(error_buf, error_buf_size, "mmap memory failed");
+    if (wasm_allocate_linear_memory(&p, is_shared_memory, num_bytes_per_page,
+                                    init_page_count, max_page_count,
+                                    &memory_data_size)
+        != BHT_OK) {
+        set_error_buf(error_buf, error_buf_size,
+                      "allocate linear memory failed");
         return NULL;
     }
-#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
     memory_inst->module_type = Wasm_Module_AoT;
     memory_inst->num_bytes_per_page = num_bytes_per_page;
@@ -617,16 +557,8 @@ fail2:
     if (heap_size > 0)
         wasm_runtime_free(memory_inst->heap_handle);
 fail1:
-#ifdef WASM_LINEAR_MEMORY_MMAP
-    if (mapped_mem)
-        wasm_munmap_linear_memory(mapped_mem, memory_data_size, map_size);
-    else
-#endif
-    {
-        if (memory_inst->memory_data)
-            wasm_runtime_free(memory_inst->memory_data);
-    }
-    memory_inst->memory_data = NULL;
+    wasm_deallocate_linear_memory(memory_inst);
+
     return NULL;
 }
 

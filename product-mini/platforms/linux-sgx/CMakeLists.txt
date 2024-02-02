@@ -176,3 +176,10 @@ else()
         OUTPUT_VARIABLE cmdOutput
     )
 endif()
+
+if (WAMR_BUILD_SPEC_TEST EQUAL 1)
+    execute_process(
+        COMMAND bash -c "sed -i -E 's/<ReservedMemMaxSize>0x1000000<\\/ReservedMemMaxSize>/<ReservedMemMaxSize>0x8000000<\\/ReservedMemMaxSize>/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.config.xml"
+        OUTPUT_VARIABLE cmdOutput
+    )
+endif()

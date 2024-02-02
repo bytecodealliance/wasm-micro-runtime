@@ -115,9 +115,6 @@ static void
 memories_deinstantiate(WASMModuleInstance *module_inst,
                        WASMMemoryInstance **memories, uint32 count)
 {
-#ifdef WASM_LINEAR_MEMORY_MMAP
-    uint64 map_size;
-#endif
     uint32 i;
     if (memories) {
         for (i = 0; i < count; i++) {
@@ -144,23 +141,7 @@ memories_deinstantiate(WASMModuleInstance *module_inst,
                     memories[i]->heap_handle = NULL;
                 }
                 if (memories[i]->memory_data) {
-#ifndef OS_ENABLE_HW_BOUND_CHECK
-#ifdef WASM_LINEAR_MEMORY_MMAP
-                    if (shared_memory_is_shared(memories[i])) {
-                        map_size = (uint64)memories[i]->num_bytes_per_page
-                                   * memories[i]->max_page_count;
-                        wasm_munmap_linear_memory(memories[i]->memory_data,
-                                                  map_size, map_size);
-                    }
-                    else
-#endif
-                        wasm_runtime_free(memories[i]->memory_data);
-#else
-                    map_size = (uint64)memories[i]->num_bytes_per_page
-                               * memories[i]->cur_page_count;
-                    wasm_munmap_linear_memory(memories[i]->memory_data,
-                                              map_size, 8 * (uint64)BH_GB);
-#endif
+                    wasm_deallocate_linear_memory(memories[i]);
                 }
             }
         }
@@ -182,13 +163,10 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     uint32 inc_page_count, aux_heap_base, global_idx;
     uint32 bytes_of_last_page, bytes_to_page_end;
     uint8 *global_addr;
-#ifdef WASM_LINEAR_MEMORY_MMAP
-    uint8 *mapped_mem = NULL;
-    uint64 map_size;
-#endif
 
+    bool is_shared_memory = false;
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    bool is_shared_memory = flags & 0x02 ? true : false;
+    is_shared_memory = flags & 0x02 ? true : false;
 
     /* shared memory */
     if (is_shared_memory && parent != NULL) {
@@ -197,6 +175,10 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
         shared_memory_inc_reference(memory);
         return memory;
     }
+#else
+    (void)parent;
+    (void)memory_idx;
+    (void)flags;
 #endif /* end of WASM_ENABLE_SHARED_MEMORY */
 
     if (heap_size > 0 && module_inst->module->malloc_function != (uint32)-1
@@ -296,57 +278,20 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
                 num_bytes_per_page, init_page_count, max_page_count);
     LOG_VERBOSE("  heap offset: %u, heap size: %d\n", heap_offset, heap_size);
 
-    memory_data_size = (uint64)num_bytes_per_page * init_page_count;
     max_memory_data_size = (uint64)num_bytes_per_page * max_page_count;
-    bh_assert(memory_data_size <= UINT32_MAX);
     bh_assert(max_memory_data_size <= 4 * (uint64)BH_GB);
     (void)max_memory_data_size;
 
     bh_assert(memory != NULL);
 
-#ifndef OS_ENABLE_HW_BOUND_CHECK
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (is_shared_memory) {
-        /* Allocate maximum memory size when memory is shared */
-#if WASM_ENABLE_SHARED_MEMORY_MMAP != 0
-        map_size = max_memory_data_size;
-        if (max_memory_data_size > 0
-            && !(memory->memory_data = mapped_mem =
-                     wasm_mmap_linear_memory(map_size, &max_memory_data_size,
-                                             error_buf, error_buf_size))) {
-            goto fail1;
-        }
-#else
-        if (max_memory_data_size > 0
-            && !(memory->memory_data = runtime_malloc(
-                     max_memory_data_size, error_buf, error_buf_size))) {
-            goto fail1;
-        }
-#endif
+    if (wasm_allocate_linear_memory(&memory->memory_data, is_shared_memory,
+                                    num_bytes_per_page, init_page_count,
+                                    max_page_count, &memory_data_size)
+        != BHT_OK) {
+        set_error_buf(error_buf, error_buf_size,
+                      "allocate linear memory failed");
+        return NULL;
     }
-    else
-#endif /* end of WASM_ENABLE_SHARED_MEMORY != 0 */
-    {
-        /* Allocate initial memory size when memory is not shared */
-        if (memory_data_size > 0
-            && !(memory->memory_data = runtime_malloc(
-                     memory_data_size, error_buf, error_buf_size))) {
-            goto fail1;
-        }
-    }
-#else  /* else of OS_ENABLE_HW_BOUND_CHECK */
-    /* Totally 8G is mapped, the opcode load/store address range is 0 to 8G:
-     *   ea = i + memarg.offset
-     * both i and memarg.offset are u32 in range 0 to 4G
-     * so the range of ea is 0 to 8G
-     */
-    map_size = 8 * (uint64)BH_GB;
-    if (!(memory->memory_data = mapped_mem = wasm_mmap_linear_memory(
-              map_size, &memory_data_size, error_buf, error_buf_size))) {
-        set_error_buf(error_buf, error_buf_size, "mmap memory failed");
-        goto fail1;
-    }
-#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
     memory->module_type = Wasm_Module_Bytecode;
     memory->num_bytes_per_page = num_bytes_per_page;
@@ -364,13 +309,13 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
 
         if (!(memory->heap_handle = runtime_malloc(
                   (uint64)heap_struct_size, error_buf, error_buf_size))) {
-            goto fail2;
+            goto fail1;
         }
         if (!mem_allocator_create_with_struct_and_pool(
                 memory->heap_handle, heap_struct_size, memory->heap_data,
                 heap_size)) {
             set_error_buf(error_buf, error_buf_size, "init app heap failed");
-            goto fail3;
+            goto fail2;
         }
     }
 
@@ -388,20 +333,13 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     LOG_VERBOSE("Memory instantiate success.");
     return memory;
 
-fail3:
+fail2:
     if (heap_size > 0)
         wasm_runtime_free(memory->heap_handle);
-fail2:
-#ifdef WASM_LINEAR_MEMORY_MMAP
-    if (mapped_mem)
-        wasm_munmap_linear_memory(mapped_mem, memory_data_size, map_size);
-    else
-#endif
-    {
-        if (memory->memory_data)
-            wasm_runtime_free(memory->memory_data);
-    }
 fail1:
+    if (memory->memory_data)
+        wasm_deallocate_linear_memory(memory);
+
     return NULL;
 }
 
@@ -633,7 +571,7 @@ fail:
  * Destroy function instances.
  */
 static void
-functions_deinstantiate(WASMFunctionInstance *functions, uint32 count)
+functions_deinstantiate(WASMFunctionInstance *functions)
 {
     if (functions) {
         wasm_runtime_free(functions);
@@ -1561,6 +1499,7 @@ set_running_mode(WASMModuleInstance *module_inst, RunningMode running_mode,
 
 #if !(WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
       && WASM_ENABLE_LAZY_JIT != 0) /* No possible multi-tier JIT */
+    (void)first_time_set;
     module_inst->e->running_mode = running_mode;
 
     if (running_mode == Mode_Interp) {
@@ -2342,12 +2281,10 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     }
 
     tables_deinstantiate(module_inst);
-    functions_deinstantiate(module_inst->e->functions,
-                            module_inst->e->function_count);
+    functions_deinstantiate(module_inst->e->functions);
 #if WASM_ENABLE_TAGS != 0
     tags_deinstantiate(module_inst->e->tags, module_inst->e->import_tag_ptrs);
 #endif
-
     globals_deinstantiate(module_inst->e->globals);
     export_functions_deinstantiate(module_inst->export_functions);
 #if WASM_ENABLE_TAGS != 0
