@@ -17,7 +17,7 @@ LLVMCreateTargetMachineWithOpts(LLVMTargetRef ctarget, const char *triple,
                                 const char *StackUsageOutput);
 
 /* https://reviews.llvm.org/D153107 */
-#if LLVM_VERSION_MAJOR < 17
+#if LLVM_VERSION_MAJOR < 18
 typedef enum {
     LLVMTailCallKindNone = 0,
     LLVMTailCallKindTail = 1,

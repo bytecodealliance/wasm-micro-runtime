@@ -133,9 +133,10 @@ dwarf_gen_file_info(const AOTCompContext *comp_ctx)
         file_name = filespec.GetFilename();
         dir_name = filespec.GetDirectory();
         if (file_name || dir_name) {
-            file_info = LLVMDIBuilderCreateFile(comp_ctx->debug_builder,
-                                                file_name, strlen(file_name),
-                                                dir_name, strlen(dir_name));
+            file_info = LLVMDIBuilderCreateFile(
+                comp_ctx->debug_builder, file_name,
+                file_name ? strlen(file_name) : 0, dir_name,
+                dir_name ? strlen(dir_name) : 0);
         }
     }
     return file_info;
@@ -298,7 +299,7 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
         return NULL;
 
     LLVMDIBuilderRef DIB = comp_ctx->debug_builder;
-    LLVMMetadataRef File = comp_ctx->debug_file;
+    LLVMMetadataRef File = comp_ctx->debug_file; /* a fallback */
 
     LLVMMetadataRef ParamTypes[num_function_args + 1];
 
@@ -313,6 +314,21 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
             ParamTypes[function_arg_idx + 1] =
                 lldb_type_to_type_dbi(comp_ctx, function_arg_type);
         }
+    }
+
+    auto compile_unit = sc.GetCompileUnit();
+    auto file_spec = compile_unit.GetFileSpec();
+    const char *file_name = file_spec.GetFilename();
+    const char *dir_name = file_spec.GetDirectory();
+    LLVMMetadataRef file_info = NULL;
+    if (file_name || dir_name) {
+        file_info =
+            LLVMDIBuilderCreateFile(comp_ctx->debug_builder, file_name,
+                                    file_name ? strlen(file_name) : 0, dir_name,
+                                    dir_name ? strlen(dir_name) : 0);
+    }
+    if (file_info) {
+        File = file_info;
     }
 
     LLVMMetadataRef FunctionTy = LLVMDIBuilderCreateSubroutineType(
