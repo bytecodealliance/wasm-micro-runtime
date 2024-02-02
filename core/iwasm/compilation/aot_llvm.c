@@ -1695,6 +1695,8 @@ aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
         goto fail;
     }
 
+    aot_estimate_and_record_stack_usage_for_function_call(comp_ctx, func_ctx,
+                                                          func_ctx->func_type);
     /* Create function's first AOTBlock */
     if (!(aot_block =
               aot_create_func_block(comp_ctx, func_ctx, func, aot_func_type))) {
@@ -1765,8 +1767,8 @@ aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
          * REVISIT: probably this breaks windows hw bound check
          * (the RtlAddFunctionTable stuff)
          */
-        if (!comp_ctx->is_jit_mode)
-            LLVMSetLinkage(func_ctx->func, LLVMInternalLinkage);
+        // if (!comp_ctx->is_jit_mode)
+        //     LLVMSetLinkage(func_ctx->func, LLVMInternalLinkage);
         unsigned int kind =
             LLVMGetEnumAttributeKindForName("noinline", strlen("noinline"));
         LLVMAttributeRef attr_noinline =
