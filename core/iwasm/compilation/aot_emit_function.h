@@ -30,11 +30,6 @@ bool
 aot_compile_op_ref_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                         uint32 func_idx);
 
-void
-aot_estimate_and_record_stack_usage_for_function_call(
-    const AOTCompContext *comp_ctx, AOTFuncContext *caller_func_ctx,
-    const AOTFuncType *callee_func_type);
-
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif

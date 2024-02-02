@@ -694,7 +694,7 @@ check_app_addr_and_convert(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     return true;
 }
 
-void
+static void
 aot_estimate_and_record_stack_usage_for_function_call(
     const AOTCompContext *comp_ctx, AOTFuncContext *caller_func_ctx,
     const AOTFuncType *callee_func_type)
