@@ -5092,9 +5092,13 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 #if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
             case WASM_OP_SIMD_PREFIX:
             {
-                /* TODO: shall we ceate a table to be friendly to branch
-                 * prediction */
-                opcode = read_uint8(p);
+                uint32 opcode1;
+
+                read_leb_uint32(p, p_end, opcode1);
+                /* opcode1 was checked in wasm_loader_prepare_bytecode and
+                   is no larger than UINT8_MAX */
+                opcode = (uint8)opcode1;
+
                 /* follow the order of enum WASMSimdEXTOpcode in wasm_opcode.h
                  */
                 switch (opcode) {
@@ -5184,8 +5188,14 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 #if WASM_ENABLE_SHARED_MEMORY != 0
             case WASM_OP_ATOMIC_PREFIX:
             {
-                /* atomic_op (1 u8) + memarg (2 u32_leb) */
-                opcode = read_uint8(p);
+                uint32 opcode1;
+
+                /* atomic_op (u32_leb) + memarg (2 u32_leb) */
+                read_leb_uint32(p, p_end, opcode1);
+                /* opcode1 was checked in wasm_loader_prepare_bytecode and
+                   is no larger than UINT8_MAX */
+                opcode = (uint8)opcode1;
+
                 if (opcode != WASM_OP_ATOMIC_FENCE) {
                     skip_leb_uint32(p, p_end); /* align */
                     skip_leb_uint32(p, p_end); /* offset */
@@ -9836,8 +9846,8 @@ re_scan:
             {
                 uint32 opcode1;
 
-                CHECK_BUF(p, p_end, 1);
-                opcode1 = read_uint8(p);
+                read_leb_uint32(p, p_end, opcode1);
+
                 /* follow the order of enum WASMSimdEXTOpcode in wasm_opcode.h
                  */
                 switch (opcode1) {
@@ -10498,8 +10508,8 @@ re_scan:
             {
                 uint32 opcode1;
 
-                CHECK_BUF(p, p_end, 1);
-                opcode1 = read_uint8(p);
+                read_leb_uint32(p, p_end, opcode1);
+
 #if WASM_ENABLE_FAST_INTERP != 0
                 emit_byte(loader_ctx, opcode1);
 #endif
