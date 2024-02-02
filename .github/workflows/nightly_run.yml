@@ -68,13 +68,13 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}  
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # since jobs.id can't contain the dot character
       # it is hard to use `format` to assemble the cache key
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -199,13 +199,13 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # only download llvm cache when needed
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
         if: endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS')
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -347,12 +347,12 @@ jobs:
             sanitizer: asan
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
         if: (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS'))
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -383,7 +383,9 @@ jobs:
       - name: Build Sample [wasm-c-api]
         run: |
           VERBOSE=1
-          cmake -S . -B build ${{ matrix.make_options }} -D WAMR_BUILD_SANITIZER="${{matrix.sanitizer}}"
+          cmake -S . -B build ${{ matrix.make_options }} \
+                -D WAMR_BUILD_SANITIZER="${{matrix.sanitizer}}" \
+                -D WAMR_BUILD_QUICK_AOT_ENTRY=0
           cmake --build build --config Release --parallel 4
           ctest --test-dir build --output-on-failure
         working-directory: samples/wasm-c-api
@@ -412,7 +414,7 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: download and install wasi-sdk
         run: |
@@ -429,7 +431,7 @@ jobs:
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -499,6 +501,12 @@ jobs:
       - name: Build Sample [shared-module]
         run: |
           cd samples/shared-module
+          ./build.sh
+          ./run.sh
+
+      - name: Build Sample [terminate]
+        run: |
+          cd samples/terminate
           ./build.sh
           ./run.sh
   test:
@@ -587,7 +595,7 @@ jobs:
             test_option: $SIMD_TEST_OPTIONS
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: download and install wasi-sdk
         if: matrix.test_option == '$WASI_TEST_OPTIONS'
@@ -625,7 +633,7 @@ jobs:
       - name: Get LLVM libraries
         if: env.USE_LLVM == 'true'
         id: retrieve_llvm_libs
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ./core/deps/llvm/build/bin

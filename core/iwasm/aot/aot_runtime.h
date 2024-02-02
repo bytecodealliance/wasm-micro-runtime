@@ -286,6 +286,8 @@ typedef struct AOTFuncPerfProfInfo {
     uint64 total_exec_time;
     /* total execution count */
     uint32 total_exec_cnt;
+    /* children execution time */
+    uint64 children_exec_time;
 } AOTFuncPerfProfInfo;
 
 /* AOT auxiliary call stack */
@@ -612,6 +614,13 @@ aot_dump_call_stack(WASMExecEnv *exec_env, bool print, char *buf, uint32 len);
 
 void
 aot_dump_perf_profiling(const AOTModuleInstance *module_inst);
+
+double
+aot_summarize_wasm_execute_time(const AOTModuleInstance *inst);
+
+double
+aot_get_wasm_func_exec_time(const AOTModuleInstance *inst,
+                            const char *func_name);
 
 const uint8 *
 aot_get_custom_section(const AOTModule *module, const char *name, uint32 *len);

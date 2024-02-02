@@ -69,11 +69,11 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -172,13 +172,13 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # only download llvm cache when needed
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
         if: endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS')
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -224,7 +224,7 @@ jobs:
           ]
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: download and install wabt
         run: |
@@ -256,7 +256,7 @@ jobs:
           ]
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: download and install wasi-sdk
         run: |
@@ -283,7 +283,7 @@ jobs:
           cd samples/file
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release --parallel 4
+          cmake --build . --config Debug --parallel 4
           ./src/iwasm -f wasm-app/file.wasm -d .
 
       - name: Build Sample [multi-thread]
@@ -291,7 +291,7 @@ jobs:
           cd samples/multi-thread
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release --parallel 4
+          cmake --build . --config Debug --parallel 4
           ./iwasm wasm-apps/test.wasm
 
       - name: Build Sample [multi-module]
@@ -299,7 +299,7 @@ jobs:
           cd samples/multi-module
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release --parallel 4
+          cmake --build . --config Debug --parallel 4
           ./multi_module mC.wasm
 
       - name: Build Sample [spawn-thread]
@@ -307,7 +307,7 @@ jobs:
           cd samples/spawn-thread
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release --parallel 4
+          cmake --build . --config Debug --parallel 4
           ./spawn_thread
 
       - name: Build Sample [ref-types]
@@ -315,7 +315,7 @@ jobs:
           cd samples/ref-types
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release --parallel 4
+          cmake --build . --config Debug --parallel 4
           ./hello
 
       - name: Build Sample [wasi-threads]
@@ -323,11 +323,17 @@ jobs:
           cd samples/wasi-threads
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release --parallel 4
+          cmake --build . --config Debug --parallel 4
           ./iwasm wasm-apps/no_pthread.wasm
 
       - name: Build Sample [shared-module]
         run: |
           cd samples/shared-module
+          ./build.sh
+          ./run.sh
+
+      - name: Build Sample [terminate]
+        run: |
+          cd samples/terminate
           ./build.sh
           ./run.sh

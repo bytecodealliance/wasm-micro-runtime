@@ -88,7 +88,7 @@ struct LOCKABLE rwlock {
 };
 
 static inline bool
-rwlock_init(struct rwlock *lock) REQUIRES_UNLOCKED(*lock)
+rwlock_initialize(struct rwlock *lock) REQUIRES_UNLOCKED(*lock)
 {
     return os_rwlock_init(&lock->object) == 0 ? true : false;
 }

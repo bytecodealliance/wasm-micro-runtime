@@ -301,6 +301,9 @@ parser.add_argument('--simd', default=False, action='store_true',
 parser.add_argument('--xip', default=False, action='store_true',
         help="Enable XIP")
 
+parser.add_argument('--eh', default=False, action='store_true',
+        help="Enable Exception Handling")
+
 parser.add_argument('--multi-module', default=False, action='store_true',
         help="Enable Multi-thread")
 
@@ -762,6 +765,13 @@ def test_assert(r, opts, mode, cmd, expected):
         if o.find(e) >= 0 or e.find(o) >= 0:
             return True
 
+    # wasm-exception thrown out of function call, not a trap
+    if mode=='wasmexception':
+        o = re.sub('^Exception: ', '', out)
+        e = re.sub('^Exception: ', '', expected)
+        if o.find(e) >= 0 or e.find(o) >= 0:
+            return True
+
     ## 0x9:i32,-0x1:i32 -> ['0x9:i32', '-0x1:i32']
     expected_list = re.split(',', expected)
     out_list = re.split(',', out)
@@ -987,6 +997,42 @@ def test_assert_exhaustion(r,opts,form):
     expected = "Exception: %s\n" % m.group(3)
     test_assert(r, opts, "exhaustion", "%s %s" % (func, " ".join(args)), expected)
 
+
+# added to support WASM_ENABLE_EXCE_HANDLING
+def test_assert_wasmexception(r,opts,form):
+    # params
+
+    # ^
+    #     \(assert_exception\s+
+    #         \(invoke\s+"([^"]+)"\s+
+    #            (\(.*\))\s*
+    #            ()
+    #         \)\s*
+    #     \)\s*
+    # $
+    m = re.search('^\(assert_exception\s+\(invoke\s+"([^"]+)"\s+(\(.*\))\s*\)\s*\)\s*$', form)
+    if not m:
+        # no params
+
+        # ^
+        #       \(assert_exception\s+
+        #           \(invoke\s+"([^"]+)"\s*
+        #               ()
+        #           \)\s*
+        #       \)\s*
+        # $
+        m = re.search('^\(assert_exception\s+\(invoke\s+"([^"]+)"\s*()\)\s*\)\s*$', form)
+    if not m:
+        raise Exception("unparsed assert_exception: '%s'" % form)
+    func = m.group(1) # function name
+    if m.group(2) == '': # arguments
+        args = []
+    else:
+        args = [re.split(' +', v)[1] for v in re.split("\)\s*\(", m.group(2)[1:-1])]
+
+    expected = "Exception: uncaught wasm exception\n"
+    test_assert(r, opts, "wasmexception", "%s %s" % (func, " ".join(args)), expected)
+
 def do_invoke(r, opts, form):
     # params
     m = re.search('^\(invoke\s+"([^"]+)"\s+(\(.*\))\s*\)\s*$', form)
@@ -1025,6 +1071,8 @@ def compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
     # default arguments
     if opts.gc:
         cmd = [opts.wast2wasm, "-u", "-d", wast_tempfile, "-o", wasm_tempfile]
+    elif opts.eh:
+        cmd = [opts.wast2wasm, "--enable-thread", "--no-check", "--enable-exceptions", "--enable-tail-call", wast_tempfile, "-o", wasm_tempfile ]
     else:
         cmd = [opts.wast2wasm, "--enable-thread", "--no-check",
                wast_tempfile, "-o", wasm_tempfile ]
@@ -1236,6 +1284,8 @@ if __name__ == "__main__":
                 test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
             elif re.match("^\(assert_exhaustion\\b.*", form):
                 test_assert_exhaustion(r, opts, form)
+            elif re.match("^\(assert_exception\\b.*", form):
+                test_assert_wasmexception(r, opts, form)
             elif re.match("^\(assert_unlinkable\\b.*", form):
                 test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile if test_aot else None, opts, r, False)
             elif re.match("^\(assert_malformed\\b.*", form):

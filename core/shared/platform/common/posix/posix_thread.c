@@ -9,6 +9,10 @@
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
 
+#if defined(__APPLE__) || defined(__MACH__)
+#include <TargetConditionals.h>
+#endif
+
 typedef struct {
     thread_start_routine_t start;
     void *arg;

@@ -231,6 +231,17 @@
 #define WASM_ENABLE_LOG 1
 #endif
 
+/* When this flag is set, WAMR will not automatically
+ * initialize sockets on Windows platforms. The host
+ * application is responsible for calling WSAStartup()
+ * before executing WAMR code that uses sockets, and
+ * calling WSACleanup() after.
+ * This flag passes control of socket initialization from
+ * WAMR to the host application. */
+#ifndef WASM_ENABLE_HOST_SOCKET_INIT
+#define WASM_ENABLE_HOST_SOCKET_INIT 0
+#endif
+
 #ifndef WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS
 #if defined(BUILD_TARGET_X86_32) || defined(BUILD_TARGET_X86_64) \
     || defined(BUILD_TARGET_AARCH64)
@@ -397,7 +408,7 @@
 #define APP_THREAD_STACK_SIZE_DEFAULT (64 * 1024)
 #define APP_THREAD_STACK_SIZE_MIN (48 * 1024)
 #else
-#define APP_THREAD_STACK_SIZE_DEFAULT (64 * 1024)
+#define APP_THREAD_STACK_SIZE_DEFAULT (128 * 1024)
 #define APP_THREAD_STACK_SIZE_MIN (24 * 1024)
 #endif
 #endif /* end of !(defined(APP_THREAD_STACK_SIZE_DEFAULT) \
@@ -444,6 +455,14 @@
 
 #ifndef WASM_ENABLE_REF_TYPES
 #define WASM_ENABLE_REF_TYPES 0
+#endif
+
+#ifndef WASM_ENABLE_EXCE_HANDLING
+#define WASM_ENABLE_EXCE_HANDLING 0
+#endif
+
+#ifndef WASM_ENABLE_TAGS
+#define WASM_ENABLE_TAGS 0
 #endif
 
 #ifndef WASM_ENABLE_SGX_IPFS
@@ -500,6 +519,11 @@
    these types from the host embedder */
 #ifndef WASM_ENABLE_QUICK_AOT_ENTRY
 #define WASM_ENABLE_QUICK_AOT_ENTRY 1
+#endif
+
+/* Disable mmap based shared memory by default */
+#ifndef WASM_ENABLE_SHARED_MEMORY_MMAP
+#define WASM_ENABLE_SHARED_MEMORY_MMAP 0
 #endif
 
 #endif /* end of _CONFIG_H_ */

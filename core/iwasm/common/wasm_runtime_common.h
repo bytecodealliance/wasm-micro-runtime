@@ -320,6 +320,11 @@ LOAD_I16(void *addr)
 #define SHARED_MEMORY_UNLOCK(memory) (void)0
 #endif
 
+#if defined(OS_ENABLE_HW_BOUND_CHECK) \
+    || (WASM_ENABLE_SHARED_MEMORY != 0 && WASM_ENABLE_SHARED_MEMORY_MMAP != 0)
+#define WASM_LINEAR_MEMORY_MMAP
+#endif
+
 typedef struct WASMModuleCommon {
     /* Module type, for module loaded from WASM bytecode binary,
        this field is Wasm_Module_Bytecode, and this structure should
@@ -1092,6 +1097,14 @@ wasm_runtime_quick_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
 
 void
 wasm_runtime_show_app_heap_corrupted_prompt();
+
+void
+wasm_munmap_linear_memory(void *mapped_mem, uint64 commit_size,
+                          uint64 map_size);
+
+void *
+wasm_mmap_linear_memory(uint64_t map_size, uint64 *io_memory_data_size,
+                        char *error_buf, uint32 error_buf_size);
 
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
 void

@@ -32,6 +32,7 @@ static bool is_winsock_inited = false;
 int
 init_winsock()
 {
+#if WASM_ENABLE_HOST_SOCKET_INIT == 0
     WSADATA wsaData;
 
     if (!is_winsock_inited) {
@@ -42,6 +43,7 @@ init_winsock()
 
         is_winsock_inited = true;
     }
+#endif
 
     return BHT_OK;
 }
@@ -49,9 +51,11 @@ init_winsock()
 void
 deinit_winsock()
 {
+#if WASM_ENABLE_HOST_SOCKET_INIT == 0
     if (is_winsock_inited) {
         WSACleanup();
     }
+#endif
 }
 
 int

@@ -163,7 +163,7 @@ LLVMCreateTargetMachineWithOpts(LLVMTargetRef ctarget, const char *triple,
 }
 
 /* https://reviews.llvm.org/D153107 */
-#if LLVM_VERSION_MAJOR < 17
+#if LLVM_VERSION_MAJOR < 18
 using namespace llvm;
 
 LLVMTailCallKind

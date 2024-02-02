@@ -1157,11 +1157,10 @@ init_func_translation(JitCompContext *cc)
     func_inst = jit_cc_new_reg_ptr(cc);
 #if WASM_ENABLE_PERF_PROFILING != 0
     time_started = jit_cc_new_reg_I64(cc);
-    /* Call os_time_get_boot_microsecond() to get time_started firstly
+    /* Call os_time_get_boot_us() to get time_started firstly
        as there is stack frame switching below, calling native in them
        may cause register spilling work inproperly */
-    if (!jit_emit_callnative(cc, os_time_get_boot_microsecond, time_started,
-                             NULL, 0)) {
+    if (!jit_emit_callnative(cc, os_time_get_boot_us, time_started, NULL, 0)) {
         return NULL;
     }
 #endif
@@ -2258,7 +2257,9 @@ jit_compile_func(JitCompContext *cc)
                 uint32 opcode1;
 
                 read_leb_uint32(frame_ip, frame_ip_end, opcode1);
-                opcode = (uint32)opcode1;
+                /* opcode1 was checked in loader and is no larger than
+                   UINT8_MAX */
+                opcode = (uint8)opcode1;
 
                 switch (opcode) {
                     case WASM_OP_I32_TRUNC_SAT_S_F32:
@@ -2397,10 +2398,13 @@ jit_compile_func(JitCompContext *cc)
             case WASM_OP_ATOMIC_PREFIX:
             {
                 uint8 bin_op, op_type;
+                uint32 opcode1;
 
-                if (frame_ip < frame_ip_end) {
-                    opcode = *frame_ip++;
-                }
+                read_leb_uint32(frame_ip, frame_ip_end, opcode1);
+                /* opcode1 was checked in loader and is no larger than
+                   UINT8_MAX */
+                opcode = (uint8)opcode1;
+
                 if (opcode != WASM_OP_ATOMIC_FENCE) {
                     read_leb_uint32(frame_ip, frame_ip_end, align);
                     read_leb_uint32(frame_ip, frame_ip_end, offset);

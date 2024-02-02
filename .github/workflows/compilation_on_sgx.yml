@@ -117,7 +117,7 @@ jobs:
           source /opt/intel/sgxsdk/environment
 
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Build iwasm
         run: |
@@ -163,7 +163,7 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: download and install wasi-sdk
         run: |
@@ -219,7 +219,7 @@ jobs:
       - name: Get LLVM libraries
         if: matrix.iwasm_make_options_run_mode == '$AOT_BUILD_OPTIONS'
         id: retrieve_llvm_libs
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -244,7 +244,7 @@ jobs:
           cd samples/file
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release --parallel 4
+          cmake --build . --config Debug --parallel 4
           cp wasm-app/file.wasm `pwd`/../../../product-mini/platforms/${{ matrix.platform }}/enclave-sample
 
       - name: Test Sample [file] in non-aot mode
@@ -288,12 +288,12 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Get LLVM libraries
         if: matrix.running_mode == 'aot'
         id: retrieve_llvm_libs
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ./core/deps/llvm/build/bin

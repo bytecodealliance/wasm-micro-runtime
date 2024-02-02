@@ -884,7 +884,7 @@ ALLOC_FRAME(WASMExecEnv *exec_env, uint32 size, WASMInterpFrame *prev_frame)
     if (frame) {
         frame->prev_frame = prev_frame;
 #if WASM_ENABLE_PERF_PROFILING != 0
-        frame->time_started = os_time_get_boot_microsecond();
+        frame->time_started = os_time_thread_cputime_us();
 #endif
     }
     else {
@@ -900,9 +900,13 @@ FREE_FRAME(WASMExecEnv *exec_env, WASMInterpFrame *frame)
 {
 #if WASM_ENABLE_PERF_PROFILING != 0
     if (frame->function) {
-        frame->function->total_exec_time +=
-            os_time_get_boot_microsecond() - frame->time_started;
+        WASMInterpFrame *prev_frame = frame->prev_frame;
+        uint64 elapsed = os_time_thread_cputime_us() - frame->time_started;
+        frame->function->total_exec_time += elapsed;
         frame->function->total_exec_cnt++;
+
+        if (prev_frame && prev_frame->function)
+            prev_frame->function->children_exec_time += elapsed;
     }
 #endif
     wasm_exec_env_free_wasm_frame(exec_env, frame);
@@ -1432,6 +1436,20 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
                 goto call_func_from_interp;
             }
+
+#if WASM_ENABLE_EXCE_HANDLING != 0
+            HANDLE_OP(WASM_OP_TRY)
+            HANDLE_OP(WASM_OP_CATCH)
+            HANDLE_OP(WASM_OP_THROW)
+            HANDLE_OP(WASM_OP_RETHROW)
+            HANDLE_OP(WASM_OP_DELEGATE)
+            HANDLE_OP(WASM_OP_CATCH_ALL)
+            HANDLE_OP(EXT_OP_TRY)
+            {
+                wasm_set_exception(module, "unsupported opcode");
+                goto got_exception;
+            }
+#endif
 
             /* parametric instructions */
             HANDLE_OP(WASM_OP_SELECT)
@@ -3017,7 +3035,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             data = NULL;
                         }
                         else {
-
                             seg_len =
                                 (uint64)module->module->data_segments[segment]
                                     ->data_length;
@@ -3100,6 +3117,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         uint32 tbl_idx, elem_idx;
                         uint32 n, s, d;
                         WASMTableInstance *tbl_inst;
+                        uint32 *tbl_seg_elems = NULL, tbl_seg_len = 0;
 
                         elem_idx = read_uint32(frame_ip);
                         bh_assert(elem_idx < module->module->table_seg_count);
@@ -3113,10 +3131,18 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         s = (uint32)POP_I32();
                         d = (uint32)POP_I32();
 
-                        if (offset_len_out_of_bounds(
-                                s, n,
+                        if (!bh_bitmap_get_bit(module->e->common.elem_dropped,
+                                               elem_idx)) {
+                            /* table segment isn't dropped */
+                            tbl_seg_elems =
                                 module->module->table_segments[elem_idx]
-                                    .function_count)
+                                    .func_indexes;
+                            tbl_seg_len =
+                                module->module->table_segments[elem_idx]
+                                    .function_count;
+                        }
+
+                        if (offset_len_out_of_bounds(s, n, tbl_seg_len)
                             || offset_len_out_of_bounds(d, n,
                                                         tbl_inst->cur_size)) {
                             wasm_set_exception(module,
@@ -3128,30 +3154,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             break;
                         }
 
-                        if (bh_bitmap_get_bit(module->e->common.elem_dropped,
-                                              elem_idx)) {
-                            wasm_set_exception(module,
-                                               "out of bounds table access");
-                            goto got_exception;
-                        }
-
-                        if (!wasm_elem_is_passive(
-                                module->module->table_segments[elem_idx]
-                                    .mode)) {
-                            wasm_set_exception(module,
-                                               "out of bounds table access");
-                            goto got_exception;
-                        }
-
                         bh_memcpy_s(
                             (uint8 *)tbl_inst
                                 + offsetof(WASMTableInstance, elems)
                                 + d * sizeof(uint32),
                             (uint32)((tbl_inst->cur_size - d) * sizeof(uint32)),
-                            module->module->table_segments[elem_idx]
-                                    .func_indexes
-                                + s,
-                            (uint32)(n * sizeof(uint32)));
+                            tbl_seg_elems + s, (uint32)(n * sizeof(uint32)));
                         break;
                     }
                     case WASM_OP_ELEM_DROP:
@@ -3676,10 +3684,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
-        HANDLE_OP(WASM_OP_UNUSED_0x06)
-        HANDLE_OP(WASM_OP_UNUSED_0x07)
-        HANDLE_OP(WASM_OP_UNUSED_0x08)
-        HANDLE_OP(WASM_OP_UNUSED_0x09)
         HANDLE_OP(WASM_OP_UNUSED_0x0a)
 #if WASM_ENABLE_TAIL_CALL == 0
         HANDLE_OP(WASM_OP_RETURN_CALL)
@@ -3695,14 +3699,22 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         HANDLE_OP(WASM_OP_REF_IS_NULL)
         HANDLE_OP(WASM_OP_REF_FUNC)
 #endif
+#if WASM_ENABLE_EXCE_HANDLING == 0
+        /* if exception handling is disabled, these opcodes issue a trap */
+        HANDLE_OP(WASM_OP_TRY)
+        HANDLE_OP(WASM_OP_CATCH)
+        HANDLE_OP(WASM_OP_THROW)
+        HANDLE_OP(WASM_OP_RETHROW)
+        HANDLE_OP(WASM_OP_DELEGATE)
+        HANDLE_OP(WASM_OP_CATCH_ALL)
+        HANDLE_OP(EXT_OP_TRY)
+#endif
         /* SELECT_T is converted to SELECT or SELECT_64 */
         HANDLE_OP(WASM_OP_SELECT_T)
         HANDLE_OP(WASM_OP_UNUSED_0x14)
         HANDLE_OP(WASM_OP_UNUSED_0x15)
         HANDLE_OP(WASM_OP_UNUSED_0x16)
         HANDLE_OP(WASM_OP_UNUSED_0x17)
-        HANDLE_OP(WASM_OP_UNUSED_0x18)
-        HANDLE_OP(WASM_OP_UNUSED_0x19)
         HANDLE_OP(WASM_OP_UNUSED_0x27)
         /* optimized op code */
         HANDLE_OP(WASM_OP_F32_STORE)

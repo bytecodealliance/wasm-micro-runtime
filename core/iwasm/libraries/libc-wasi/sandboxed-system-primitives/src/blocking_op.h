@@ -51,3 +51,9 @@ blocking_op_openat(wasm_exec_env_t exec_env, os_file_handle handle,
                    const char *path, __wasi_oflags_t oflags,
                    __wasi_fdflags_t fd_flags, __wasi_lookupflags_t lookup_flags,
                    wasi_libc_file_access_mode access_mode, os_file_handle *out);
+
+#ifndef BH_PLATFORM_WINDOWS
+__wasi_errno_t
+blocking_op_poll(wasm_exec_env_t exec_env, struct pollfd *pfds, nfds_t nfds,
+                 int timeout, int *retp);
+#endif
