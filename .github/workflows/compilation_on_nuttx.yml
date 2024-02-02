@@ -87,21 +87,21 @@ jobs:
 
     steps:
       - name: Checkout NuttX
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: apache/incubator-nuttx
           ref: releases/12.4
           path: nuttx
 
       - name: Checkout NuttX Apps
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: apache/incubator-nuttx-apps
           ref: releases/12.4
           path: apps
 
       - name: Checkout WAMR
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: ${{ github.repository }}
           path: apps/interpreters/wamr/wamr
