@@ -913,6 +913,17 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_pop_local_object_refs(wasm_exec_env_t exec_env, uint32_t n);
 
 /**
+ * get current local object ref from stack
+ *
+ * @param exec_env the execution environment
+ *
+ * @return the wasm_local_obj_ref_t obj from the top of the stack, not change
+ * the state of the stack
+ */
+WASM_RUNTIME_API_EXTERN wasm_local_obj_ref_t *
+wasm_runtime_get_cur_local_obj_ref(wasm_exec_env_t exec_env);
+
+/**
  * Set finalizer to the given object, if another finalizer is set to the same
  * object, the previous one will be cancelled
  *

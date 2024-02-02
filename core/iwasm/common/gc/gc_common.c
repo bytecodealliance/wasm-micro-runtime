@@ -892,6 +892,15 @@ wasm_runtime_pop_local_object_refs(WASMExecEnv *exec_env, uint32 n)
     } while (--n > 0);
 }
 
+WASMLocalObjectRef *
+wasm_runtime_get_cur_local_obj_ref(WASMExecEnv *exec_env)
+{
+    WASMLocalObjectRef *local_ref = exec_env->cur_local_object_ref;
+
+    bh_assert(local_ref);
+    return local_ref;
+}
+
 void
 wasm_runtime_gc_prepare(WASMExecEnv *exec_env)
 {
