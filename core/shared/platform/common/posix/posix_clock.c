@@ -73,6 +73,8 @@ os_clock_time_get(__wasi_clockid_t clock_id, __wasi_timestamp_t precision,
     clockid_t nclock_id;
     __wasi_errno_t error = wasi_clockid_to_clockid(clock_id, &nclock_id);
 
+    (void)precision;
+
     if (error != __WASI_ESUCCESS)
         return error;
 

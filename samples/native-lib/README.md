@@ -29,7 +29,7 @@ get_native_lib(char **p_module_name, NativeSymbol **p_native_symbols)
 
 ## Preparation
 
-Please install WASI SDK, download the [wasi-sdk release](https://github.com/CraneStation/wasi-sdk/releases) and extract the archive to default path `/opt/wasi-sdk`.
+Please install WASI SDK, download the [wasi-sdk release](https://github.com/WebAssembly/wasi-sdk/releases) and extract the archive to default path `/opt/wasi-sdk`.
 
 ## Build the sample
 

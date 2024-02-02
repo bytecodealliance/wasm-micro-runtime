@@ -1924,16 +1924,18 @@ wasm_frame_func_offset(const wasm_frame_t *frame)
 void
 wasm_frame_vec_clone_internal(Vector *src, Vector *out)
 {
-    bh_assert(src->num_elems != 0 && src->data);
-
-    bh_vector_destroy(out);
-    if (!bh_vector_init(out, src->num_elems, sizeof(WASMCApiFrame), false)) {
+    if (src->num_elems == 0) {
         bh_vector_destroy(out);
         return;
     }
 
-    bh_memcpy_s(out->data, src->num_elems * sizeof(WASMCApiFrame), src->data,
-                src->num_elems * sizeof(WASMCApiFrame));
+    if (!bh_vector_destroy(out)
+        || !bh_vector_init(out, src->num_elems, sizeof(WASMCApiFrame), false)) {
+        return;
+    }
+
+    bh_memcpy_s(out->data, (uint32)(src->num_elems * sizeof(WASMCApiFrame)),
+                src->data, (uint32)(src->num_elems * sizeof(WASMCApiFrame)));
     out->num_elems = src->num_elems;
 }
 
@@ -2292,7 +2294,7 @@ wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
         (uint8 *)module_ex->binary->data, (uint32)module_ex->binary->size,
         error_buf, (uint32)sizeof(error_buf));
     if (!(module_ex->module_comm_rt)) {
-        LOG_ERROR(error_buf);
+        LOG_ERROR("%s", error_buf);
         goto free_vec;
     }
 
@@ -2365,7 +2367,7 @@ wasm_module_validate(wasm_store_t *store, const wasm_byte_vec_t *binary)
     }
     else {
         ret = false;
-        LOG_VERBOSE(error_buf);
+        LOG_VERBOSE("%s", error_buf);
     }
 
     return ret;
@@ -2960,8 +2962,10 @@ wasm_func_new_basic(wasm_store_t *store, const wasm_functype_t *type,
     if (!(func->type = wasm_functype_copy(type))) {
         goto failed;
     }
-    func->param_count = func->type->params->num_elems;
-    func->result_count = func->type->results->num_elems;
+    /* func type's param_count and result_count were checked in
+       loader and are no larger than UINT16_MAX */
+    func->param_count = (uint16)func->type->params->num_elems;
+    func->result_count = (uint16)func->type->results->num_elems;
 
     RETURN_OBJ(func, wasm_func_delete)
 }
@@ -2992,8 +2996,10 @@ wasm_func_new_with_env_basic(wasm_store_t *store, const wasm_functype_t *type,
     if (!(func->type = wasm_functype_copy(type))) {
         goto failed;
     }
-    func->param_count = func->type->params->num_elems;
-    func->result_count = func->type->results->num_elems;
+    /* func type's param_count and result_count were checked in
+       loader and are no larger than UINT16_MAX */
+    func->param_count = (uint16)func->type->params->num_elems;
+    func->result_count = (uint16)func->type->results->num_elems;
 
     RETURN_OBJ(func, wasm_func_delete)
 }
@@ -3083,8 +3089,10 @@ wasm_func_new_internal(wasm_store_t *store, uint16 func_idx_rt,
     if (!func->type) {
         goto failed;
     }
-    func->param_count = func->type->params->num_elems;
-    func->result_count = func->type->results->num_elems;
+    /* func type's param_count and result_count were checked in
+       loader and are no larger than UINT16_MAX */
+    func->param_count = (uint16)func->type->params->num_elems;
+    func->result_count = (uint16)func->type->results->num_elems;
 
     /* will add name information when processing "exports" */
     func->store = store;
@@ -3357,7 +3365,7 @@ wasm_func_call(const wasm_func_t *func, const wasm_val_vec_t *params,
     wasm_runtime_set_exception(func->inst_comm_rt, NULL);
     if (!wasm_runtime_call_wasm(exec_env, func_comm_rt, argc, argv)) {
         if (wasm_runtime_get_exception(func->inst_comm_rt)) {
-            LOG_DEBUG(wasm_runtime_get_exception(func->inst_comm_rt));
+            LOG_DEBUG("%s", wasm_runtime_get_exception(func->inst_comm_rt));
             goto failed;
         }
     }
@@ -5042,7 +5050,7 @@ failed:
         *trap = wasm_trap_new(store, &message);
         wasm_byte_vec_delete(&message);
     }
-    LOG_DEBUG(error_buf);
+    LOG_DEBUG("%s", error_buf);
     wasm_instance_delete_internal(instance);
     return NULL;
 }

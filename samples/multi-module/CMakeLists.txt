@@ -132,6 +132,7 @@ endif()
 # .c -> .wasm
 ExternalProject_Add(WASM_MODULE
   SOURCE_DIR         ${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps
+  BUILD_ALWAYS TRUE
   UPDATE_COMMAND     ""
   PATCH_COMMAND      ""
   CONFIGURE_COMMAND  ${CMAKE_COMMAND}

@@ -25,11 +25,13 @@
  * For NuttX, CONFIG_HAS_ISATTY is provided by its platform header.
  * (platform_internal.h)
  */
+#if !defined(CONFIG_HAS_D_INO)
 #if !defined(__NuttX__)
 #define CONFIG_HAS_D_INO 1
 #define CONFIG_HAS_ISATTY 1
 #else
 #define CONFIG_HAS_D_INO 0
+#endif
 #endif
 
 #if !defined(__APPLE__) && !defined(ESP_PLATFORM) && !defined(__COSMOPOLITAN__)
