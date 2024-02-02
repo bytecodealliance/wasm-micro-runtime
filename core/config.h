@@ -503,6 +503,14 @@
 #define GC_RTTOBJ_MAP_SIZE_DEFAULT 64
 #endif
 
+#ifndef WASM_ENABLE_EXCE_HANDLING
+#define WASM_ENABLE_EXCE_HANDLING 0
+#endif
+
+#ifndef WASM_ENABLE_TAGS
+#define WASM_ENABLE_TAGS 0
+#endif
+
 #ifndef WASM_ENABLE_SGX_IPFS
 #define WASM_ENABLE_SGX_IPFS 0
 #endif

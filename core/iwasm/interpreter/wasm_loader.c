@@ -2428,6 +2428,58 @@ wasm_loader_resolve_global(const char *module_name, const char *global_name,
     return global;
 }
 
+#if WASM_ENABLE_TAGS != 0
+static WASMTag *
+wasm_loader_resolve_tag(const char *module_name, const char *tag_name,
+                        const WASMType *expected_tag_type,
+                        uint32 *linked_tag_index, char *error_buf,
+                        uint32 error_buf_size)
+{
+    WASMModuleCommon *module_reg;
+    WASMTag *tag = NULL;
+    WASMExport *export = NULL;
+    WASMModule *module = NULL;
+
+    module_reg = wasm_runtime_find_module_registered(module_name);
+    if (!module_reg || module_reg->module_type != Wasm_Module_Bytecode) {
+        LOG_DEBUG("can not find a module named %s for tag %s", module_name,
+                  tag_name);
+        set_error_buf(error_buf, error_buf_size, "unknown import");
+        return NULL;
+    }
+
+    module = (WASMModule *)module_reg;
+    export =
+        wasm_loader_find_export(module, module_name, tag_name, EXPORT_KIND_TAG,
+                                error_buf, error_buf_size);
+    if (!export) {
+        return NULL;
+    }
+
+    /* resolve tag type and tag */
+    if (export->index < module->import_tag_count) {
+        /* importing an imported tag from the submodule */
+        tag = module->import_tags[export->index].u.tag.import_tag_linked;
+    }
+    else {
+        /* importing an section tag from the submodule */
+        tag = module->tags[export->index - module->import_tag_count];
+    }
+
+    /* check function type */
+    if (!wasm_type_equal(expected_tag_type, tag->tag_type)) {
+        LOG_DEBUG("%s.%s failed the type check", module_name, tag_name);
+        set_error_buf(error_buf, error_buf_size, "incompatible import type");
+        return NULL;
+    }
+
+    if (linked_tag_index != NULL) {
+        *linked_tag_index = export->index;
+    }
+
+    return tag;
+}
+#endif /* end of WASM_ENABLE_TAGS != 0 */
 #endif /* end of WASM_ENABLE_MULTI_MODULE */
 
 static bool
@@ -2804,6 +2856,89 @@ fail:
     return false;
 }
 
+#if WASM_ENABLE_TAGS != 0
+static bool
+load_tag_import(const uint8 **p_buf, const uint8 *buf_end,
+                const WASMModule *parent_module, /* this module ! */
+                const char *sub_module_name, const char *tag_name,
+                WASMTagImport *tag, /* structure to fill */
+                char *error_buf, uint32 error_buf_size)
+{
+    /* attribute and type of the import statement */
+    uint8 declare_tag_attribute;
+    uint32 declare_type_index;
+    const uint8 *p = *p_buf, *p_end = buf_end;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    WASMModule *sub_module = NULL;
+#endif
+
+    /* get the one byte attribute */
+    CHECK_BUF(p, p_end, 1);
+    declare_tag_attribute = read_uint8(p);
+    if (declare_tag_attribute != 0) {
+        set_error_buf(error_buf, error_buf_size, "unknown tag attribute");
+        goto fail;
+    }
+
+    /* get type */
+    read_leb_uint32(p, p_end, declare_type_index);
+    /* compare against module->types */
+    if (declare_type_index >= parent_module->type_count) {
+        set_error_buf(error_buf, error_buf_size, "unknown tag type");
+        goto fail;
+    }
+
+    WASMType *declare_tag_type = parent_module->types[declare_type_index];
+
+    /* check, that the type of the declared tag returns void */
+    if (declare_tag_type->result_count != 0) {
+        set_error_buf(error_buf, error_buf_size,
+                      "tag type signature does not return void");
+
+        goto fail;
+    }
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+    if (!wasm_runtime_is_built_in_module(sub_module_name)) {
+        sub_module = (WASMModule *)wasm_runtime_load_depended_module(
+            (WASMModuleCommon *)parent_module, sub_module_name, error_buf,
+            error_buf_size);
+        if (!sub_module) {
+            return false;
+        }
+        /* wasm_loader_resolve_tag checks, that the imported tag
+         * and the declared tag have the same type
+         */
+        uint32 linked_tag_index = 0;
+        WASMTag *linked_tag = wasm_loader_resolve_tag(
+            sub_module_name, tag_name, declare_tag_type,
+            &linked_tag_index /* out */, error_buf, error_buf_size);
+        if (linked_tag) {
+            tag->import_module = sub_module;
+            tag->import_tag_linked = linked_tag;
+            tag->import_tag_index_linked = linked_tag_index;
+        }
+    }
+#endif
+    /* store to module tag declarations */
+    tag->attribute = declare_tag_attribute;
+    tag->type = declare_type_index;
+
+    tag->module_name = (char *)sub_module_name;
+    tag->field_name = (char *)tag_name;
+    tag->tag_type = declare_tag_type;
+
+    *p_buf = p;
+    (void)parent_module;
+
+    LOG_VERBOSE("Load tag import success\n");
+
+    return true;
+fail:
+    return false;
+}
+#endif /* end of WASM_ENABLE_TAGS != 0 */
+
 static bool
 load_global_import(const uint8 **p_buf, const uint8 *buf_end,
                    WASMModule *parent_module, char *sub_module_name,
@@ -3086,6 +3221,9 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
     WASMImport *import;
     WASMImport *import_functions = NULL, *import_tables = NULL;
     WASMImport *import_memories = NULL, *import_globals = NULL;
+#if WASM_ENABLE_TAGS != 0
+    WASMImport *import_tags = NULL;
+#endif
     char *sub_module_name, *field_name;
     uint8 u8, kind, global_type;
 
@@ -3114,7 +3252,7 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             p += name_len;
 
             CHECK_BUF(p, p_end, 1);
-            /* 0x00/0x01/0x02/0x03 */
+            /* 0x00/0x01/0x02/0x03/0x04 */
             kind = read_uint8(p);
 
             switch (kind) {
@@ -3157,6 +3295,16 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     }
                     break;
 
+#if WASM_ENABLE_TAGS != 0
+                case IMPORT_KIND_TAG: /* import tags */
+                    /* it only counts the number of tags to import */
+                    module->import_tag_count++;
+                    CHECK_BUF(p, p_end, 1);
+                    u8 = read_uint8(p);
+                    read_leb_uint32(p, p_end, type_index);
+                    break;
+#endif
+
                 case IMPORT_KIND_GLOBAL: /* import global */
 #if WASM_ENABLE_GC != 0
                     /* valtype */
@@ -3196,10 +3344,23 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             import_memories = module->import_memories =
                 module->imports + module->import_function_count
                 + module->import_table_count;
+
+#if WASM_ENABLE_TAGS != 0
+        if (module->import_tag_count)
+            import_tags = module->import_tags =
+                module->imports + module->import_function_count
+                + module->import_table_count + module->import_memory_count;
+        if (module->import_global_count)
+            import_globals = module->import_globals =
+                module->imports + module->import_function_count
+                + module->import_table_count + module->import_memory_count
+                + module->import_tag_count;
+#else
         if (module->import_global_count)
             import_globals = module->import_globals =
                 module->imports + module->import_function_count
                 + module->import_table_count + module->import_memory_count;
+#endif
 
         p = p_old;
 
@@ -3226,7 +3387,7 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             p += name_len;
 
             CHECK_BUF(p, p_end, 1);
-            /* 0x00/0x01/0x02/0x03 */
+            /* 0x00/0x01/0x02/0x03/0x4 */
             kind = read_uint8(p);
 
             switch (kind) {
@@ -3261,6 +3422,18 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                         return false;
                     }
                     break;
+
+#if WASM_ENABLE_TAGS != 0
+                case IMPORT_KIND_TAG:
+                    bh_assert(import_tags);
+                    import = import_tags++;
+                    if (!load_tag_import(&p, p_end, module, sub_module_name,
+                                         field_name, &import->u.tag, error_buf,
+                                         error_buf_size)) {
+                        return false;
+                    }
+                    break;
+#endif
 
                 case IMPORT_KIND_GLOBAL: /* import global */
                     bh_assert(import_globals);
@@ -3975,6 +4148,16 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                         return false;
                     }
                     break;
+#if WASM_ENABLE_TAGS != 0
+                /* export tag */
+                case EXPORT_KIND_TAG:
+                    if (index >= module->tag_count + module->import_tag_count) {
+                        set_error_buf(error_buf, error_buf_size, "unknown tag");
+                        return false;
+                    }
+                    break;
+#endif
+
                 /* global index */
                 case EXPORT_KIND_GLOBAL:
                     if (index
@@ -3984,6 +4167,7 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                         return false;
                     }
                     break;
+
                 default:
                     set_error_buf(error_buf, error_buf_size,
                                   "invalid export kind");
@@ -4534,6 +4718,83 @@ fail:
 }
 #endif
 
+#if WASM_ENABLE_TAGS != 0
+static bool
+load_tag_section(const uint8 *buf, const uint8 *buf_end, const uint8 *buf_code,
+                 const uint8 *buf_code_end, WASMModule *module, char *error_buf,
+                 uint32 error_buf_size)
+{
+    (void)buf_code;
+    (void)buf_code_end;
+
+    const uint8 *p = buf, *p_end = buf_end;
+    size_t total_size = 0;
+    /* number of tags defined in the section */
+    uint32 section_tag_count = 0;
+    uint8 tag_attribute;
+    uint32 tag_type;
+    WASMTag *tag = NULL;
+
+    /* get tag count */
+    read_leb_uint32(p, p_end, section_tag_count);
+    module->tag_count = section_tag_count;
+
+    if (section_tag_count) {
+        total_size = sizeof(WASMTag *) * module->tag_count;
+        if (!(module->tags =
+                  loader_malloc(total_size, error_buf, error_buf_size))) {
+            return false;
+        }
+        /* load each tag, imported tags precede the tags */
+        uint32 tag_index;
+        for (tag_index = 0; tag_index < section_tag_count; tag_index++) {
+
+            /* get the one byte attribute */
+            CHECK_BUF(p, p_end, 1);
+            tag_attribute = read_uint8(p);
+
+            /* get type */
+            read_leb_uint32(p, p_end, tag_type);
+            /* compare against module->types */
+            if (tag_type >= module->type_count) {
+                set_error_buf(error_buf, error_buf_size, "unknown type");
+                return false;
+            }
+
+            /* get return type (must be 0) */
+            /* check, that the type of the referred tag returns void */
+            WASMType *func_type = (WASMType *)module->types[tag_type];
+            if (func_type->result_count != 0) {
+                set_error_buf(error_buf, error_buf_size,
+                              "non-empty tag result type");
+
+                goto fail;
+            }
+
+            if (!(tag = module->tags[tag_index] = loader_malloc(
+                      sizeof(WASMTag), error_buf, error_buf_size))) {
+                return false;
+            }
+
+            /* store to module tag declarations */
+            tag->attribute = tag_attribute;
+            tag->type = tag_type;
+            tag->tag_type = func_type;
+        }
+    }
+
+    if (p != p_end) {
+        set_error_buf(error_buf, error_buf_size, "section size mismatch");
+        return false;
+    }
+
+    LOG_VERBOSE("Load tag section success.\n");
+    return true;
+fail:
+    return false;
+}
+#endif /* end of WASM_ENABLE_TAGS != 0 */
+
 static bool
 load_code_section(const uint8 *buf, const uint8 *buf_end, const uint8 *buf_func,
                   const uint8 *buf_func_end, WASMModule *module,
@@ -4602,7 +4863,6 @@ fail:
     return false;
 }
 
-#if WASM_ENABLE_GC != 0
 #if WASM_ENABLE_STRINGREF != 0
 static bool
 load_stringref_section(const uint8 *buf, const uint8 *buf_end,
@@ -4657,7 +4917,6 @@ fail:
     return false;
 }
 #endif /* end of WASM_ENABLE_STRINGREF != 0 */
-#endif /* end of WASM_ENABLE_GC != 0 */
 
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
 static bool
@@ -5398,6 +5657,14 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                                          error_buf_size))
                     return false;
                 break;
+#if WASM_ENABLE_TAGS != 0
+            case SECTION_TYPE_TAG:
+                /* load tag declaration section */
+                if (!load_tag_section(buf, buf_end, buf_code, buf_code_end,
+                                      module, error_buf, error_buf_size))
+                    return false;
+                break;
+#endif
             case SECTION_TYPE_GLOBAL:
                 if (!load_global_section(buf, buf_end, module, error_buf,
                                          error_buf_size))
@@ -5436,7 +5703,6 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     return false;
                 break;
 #endif
-#if WASM_ENABLE_GC != 0
 #if WASM_ENABLE_STRINGREF != 0
             case SECTION_TYPE_STRINGREF:
                 if (!load_stringref_section(buf, buf_end, module,
@@ -5444,7 +5710,6 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                                             error_buf_size))
                     return false;
                 break;
-#endif
 #endif
             default:
                 set_error_buf(error_buf, error_buf_size, "invalid section id");
@@ -5903,10 +6168,13 @@ static uint8 section_ids[] = {
     SECTION_TYPE_FUNC,
     SECTION_TYPE_TABLE,
     SECTION_TYPE_MEMORY,
-#if WASM_ENABLE_GC != 0
-#if WASM_ENABLE_STRINGREF != 0
-    SECTION_TYPE_STRINGREF,
+#if WASM_ENABLE_TAGS != 0
+    SECTION_TYPE_TAG,
 #endif
+#if WASM_ENABLE_STRINGREF != 0
+    /* must immediately precede the global section,
+       or where the global section would be */
+    SECTION_TYPE_STRINGREF,
 #endif
     SECTION_TYPE_GLOBAL,
     SECTION_TYPE_EXPORT,
@@ -6335,6 +6603,16 @@ wasm_loader_unload(WASMModule *module)
         wasm_runtime_free(module->globals);
     }
 
+#if WASM_ENABLE_TAGS != 0
+    if (module->tags) {
+        for (i = 0; i < module->tag_count; i++) {
+            if (module->tags[i])
+                wasm_runtime_free(module->tags[i]);
+        }
+        wasm_runtime_free(module->tags);
+    }
+#endif
+
     if (module->exports)
         wasm_runtime_free(module->exports);
 
@@ -6371,7 +6649,6 @@ wasm_loader_unload(WASMModule *module)
         }
     }
 
-#if WASM_ENABLE_GC != 0
 #if WASM_ENABLE_STRINGREF != 0
     if (module->string_literal_ptrs) {
         wasm_runtime_free(module->string_literal_ptrs);
@@ -6379,7 +6656,6 @@ wasm_loader_unload(WASMModule *module)
     if (module->string_literal_lengths) {
         wasm_runtime_free(module->string_literal_lengths);
     }
-#endif
 #endif
 
 #if WASM_ENABLE_FAST_INTERP == 0
@@ -6508,6 +6784,65 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             case WASM_OP_UNREACHABLE:
             case WASM_OP_NOP:
                 break;
+
+#if WASM_ENABLE_EXCE_HANDLING != 0
+            case WASM_OP_TRY:
+                u8 = read_uint8(p);
+                if (block_nested_depth
+                    < sizeof(block_stack) / sizeof(BlockAddr)) {
+                    block_stack[block_nested_depth].start_addr = p;
+                    block_stack[block_nested_depth].else_addr = NULL;
+                }
+                block_nested_depth++;
+                break;
+            case EXT_OP_TRY:
+                skip_leb_uint32(p, p_end);
+                if (block_nested_depth
+                    < sizeof(block_stack) / sizeof(BlockAddr)) {
+                    block_stack[block_nested_depth].start_addr = p;
+                    block_stack[block_nested_depth].else_addr = NULL;
+                }
+                block_nested_depth++;
+                break;
+            case WASM_OP_CATCH:
+                if (block_nested_depth == 1) {
+                    *p_end_addr = (uint8 *)(p - 1);
+                    /* stop search and return the address of the catch block */
+                    return true;
+                }
+                break;
+            case WASM_OP_CATCH_ALL:
+                if (block_nested_depth == 1) {
+                    *p_end_addr = (uint8 *)(p - 1);
+                    /* stop search and return the address of the catch_all block
+                     */
+                    return true;
+                }
+                break;
+            case WASM_OP_THROW:
+                /* skip tag_index */
+                skip_leb(p);
+                break;
+            case WASM_OP_RETHROW:
+                /* skip depth */
+                skip_leb(p);
+                break;
+            case WASM_OP_DELEGATE:
+                if (block_nested_depth == 1) {
+                    *p_end_addr = (uint8 *)(p - 1);
+                    return true;
+                }
+                else {
+                    skip_leb(p);
+                    /* the DELEGATE opcode ends the tryblock, */
+                    block_nested_depth--;
+                    if (block_nested_depth
+                        < sizeof(block_stack) / sizeof(BlockAddr))
+                        block_stack[block_nested_depth].end_addr =
+                            (uint8 *)(p - 1);
+                }
+                break;
+#endif /* end of WASM_ENABLE_EXCE_HANDLING != 0 */
 
             case WASM_OP_BLOCK:
             case WASM_OP_LOOP:
@@ -7091,9 +7426,13 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 #if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
             case WASM_OP_SIMD_PREFIX:
             {
-                /* TODO: shall we ceate a table to be friendly to branch
-                 * prediction */
-                opcode = read_uint8(p);
+                uint32 opcode1;
+
+                read_leb_uint32(p, p_end, opcode1);
+                /* opcode1 was checked in wasm_loader_prepare_bytecode and
+                   is no larger than UINT8_MAX */
+                opcode = (uint8)opcode1;
+
                 /* follow the order of enum WASMSimdEXTOpcode in wasm_opcode.h
                  */
                 switch (opcode) {
@@ -7183,8 +7522,14 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 #if WASM_ENABLE_SHARED_MEMORY != 0
             case WASM_OP_ATOMIC_PREFIX:
             {
-                /* atomic_op (1 u8) + memarg (2 u32_leb) */
-                opcode = read_uint8(p);
+                uint32 opcode1;
+
+                /* atomic_op (u32_leb) + memarg (2 u32_leb) */
+                read_leb_uint32(p, p_end, opcode1);
+                /* opcode1 was checked in wasm_loader_prepare_bytecode and
+                   is no larger than UINT8_MAX */
+                opcode = (uint8)opcode1;
+
                 if (opcode != WASM_OP_ATOMIC_FENCE) {
                     skip_leb_uint32(p, p_end); /* align */
                     skip_leb_uint32(p, p_end); /* offset */
@@ -7272,9 +7617,8 @@ typedef struct BranchBlock {
     BranchBlockPatch *patch_list;
     /* This is used to save params frame_offset of of if block */
     int16 *param_frame_offsets;
-    /* This is used to store available param num for if/else branch, so the else
-     * opcode can know how many parameters should be copied to the stack */
-    uint32 available_param_num;
+    /* This is used to recover dynamic offset for else branch */
+    uint16 start_dynamic_offset;
 #endif
 
     /* Indicate the operand stack is in polymorphic state.
@@ -7594,6 +7938,10 @@ wasm_loader_ctx_init(WASMFunction *func, char *error_buf, uint32 error_buf_size)
               loader_ctx->frame_csp_size, error_buf, error_buf_size)))
         goto fail;
     loader_ctx->frame_csp_boundary = loader_ctx->frame_csp_bottom + 8;
+
+#if WASM_ENABLE_EXCE_HANDLING != 0
+    func->exception_handler_count = 0;
+#endif
 
 #if WASM_ENABLE_FAST_INTERP != 0
     loader_ctx->frame_offset_size = sizeof(int16) * 32;
@@ -9706,6 +10054,44 @@ fail:
     return NULL;
 }
 
+#if WASM_ENABLE_EXCE_HANDLING != 0
+static BranchBlock *
+check_branch_block_for_delegate(WASMLoaderContext *loader_ctx, uint8 **p_buf,
+                                uint8 *buf_end, char *error_buf,
+                                uint32 error_buf_size)
+{
+    uint8 *p = *p_buf, *p_end = buf_end;
+    BranchBlock *frame_csp_tmp;
+    uint32 depth;
+
+    read_leb_uint32(p, p_end, depth);
+    /*
+     * Note: "delegate 0" means the surrounding block, not the
+     * try-delegate block itself.
+     *
+     * Note: the caller hasn't popped the try-delegate frame yet.
+     */
+    bh_assert(loader_ctx->csp_num > 0);
+    if (loader_ctx->csp_num - 1 <= depth) {
+#if WASM_ENABLE_SPEC_TEST == 0
+        set_error_buf(error_buf, error_buf_size, "unknown delegate label");
+#else
+        set_error_buf(error_buf, error_buf_size, "unknown label");
+#endif
+        goto fail;
+    }
+    frame_csp_tmp = loader_ctx->frame_csp - depth - 2;
+#if WASM_ENABLE_FAST_INTERP != 0
+    emit_br_info(frame_csp_tmp);
+#endif
+
+    *p_buf = p;
+    return frame_csp_tmp;
+fail:
+    return NULL;
+}
+#endif /* end of WASM_ENABLE_EXCE_HANDLING != 0 */
+
 static bool
 check_block_stack(WASMLoaderContext *loader_ctx, BranchBlock *block,
                   char *error_buf, uint32 error_buf_size)
@@ -9796,11 +10182,26 @@ check_block_stack(WASMLoaderContext *loader_ctx, BranchBlock *block,
         return true;
     }
 
-    /* Check stack cell num equals return cell num */
     if (available_stack_cell != return_cell_num) {
+#if WASM_ENABLE_EXCE_HANDLING != 0
+        /* testspec: this error message format is expected by try_catch.wast */
+        snprintf(
+            error_buf, error_buf_size, "type mismatch: %s requires [%s]%s[%s]",
+            block->label_type == LABEL_TYPE_TRY
+                    || (block->label_type == LABEL_TYPE_CATCH
+                        && return_cell_num > 0)
+                ? "instruction"
+                : "block",
+            return_cell_num > 0 ? type2str(return_types[0]) : "",
+            " but stack has ",
+            available_stack_cell > 0 ? type2str(*(loader_ctx->frame_ref - 1))
+                                     : "");
+        goto fail;
+#else
         set_error_buf(error_buf, error_buf_size,
                       "type mismatch: stack size does not match block type");
         goto fail;
+#endif
     }
 
     /* Check stack values match return types */
@@ -9854,18 +10255,15 @@ fail:
  * 1) POP original parameter out;
  * 2) Push and copy original values to dynamic space.
  * The copy instruction format:
- *   Part a: available param count
+ *   Part a: param count
  *   Part b: all param total cell num
  *   Part c: each param's cell_num, src offset and dst offset
  *   Part d: each param's src offset
  *   Part e: each param's dst offset
- * Note: if the stack is in polymorphic state, the actual copied parameters may
- * be fewer than the defined number in block type
  */
 static bool
 copy_params_to_dynamic_space(WASMLoaderContext *loader_ctx, bool is_if_block,
-                             uint32 *p_available_param_count, char *error_buf,
-                             uint32 error_buf_size)
+                             char *error_buf, uint32 error_buf_size)
 {
     bool ret = false;
     int16 *frame_offset = NULL;
@@ -9877,91 +10275,72 @@ copy_params_to_dynamic_space(WASMLoaderContext *loader_ctx, bool is_if_block,
     BlockType *block_type = &block->block_type;
     WASMFuncType *wasm_type = block_type->u.type;
     uint32 param_count = block_type->u.type->param_count;
-    uint32 available_param_count = 0;
     int16 condition_offset = 0;
     bool disable_emit = false;
     int16 operand_offset = 0;
-    uint64 size;
 
-    if (is_if_block)
-        condition_offset = *loader_ctx->frame_offset;
-
-    /* POP original parameter out */
-    for (i = 0; i < param_count; i++) {
-        int32 available_stack_cell =
-            (int32)(loader_ctx->stack_cell_num - block->stack_cell_num);
-
-        if (available_stack_cell <= 0 && block->is_stack_polymorphic)
-            break;
-
-        POP_OFFSET_TYPE(wasm_type->types[param_count - i - 1]);
-        wasm_loader_emit_backspace(loader_ctx, sizeof(int16));
-    }
-    available_param_count = i;
-
-    size =
-        (uint64)available_param_count * (sizeof(*cells) + sizeof(*src_offsets));
+    uint64 size = (uint64)param_count * (sizeof(*cells) + sizeof(*src_offsets));
+    bh_assert(size > 0);
 
     /* For if block, we also need copy the condition operand offset. */
     if (is_if_block)
         size += sizeof(*cells) + sizeof(*src_offsets);
 
     /* Allocate memory for the emit data */
-    if ((size > 0)
-        && !(emit_data = loader_malloc(size, error_buf, error_buf_size)))
+    if (!(emit_data = loader_malloc(size, error_buf, error_buf_size)))
         return false;
 
     cells = emit_data;
     src_offsets = (int16 *)(cells + param_count);
 
+    if (is_if_block)
+        condition_offset = *loader_ctx->frame_offset;
+
+    /* POP original parameter out */
+    for (i = 0; i < param_count; i++) {
+        POP_OFFSET_TYPE(wasm_type->types[param_count - i - 1]);
+        wasm_loader_emit_backspace(loader_ctx, sizeof(int16));
+    }
     frame_offset = loader_ctx->frame_offset;
 
     /* Get each param's cell num and src offset */
-    for (i = 0; i < available_param_count; i++) {
+    for (i = 0; i < param_count; i++) {
         cell = (uint8)wasm_value_type_cell_num(wasm_type->types[i]);
         cells[i] = cell;
         src_offsets[i] = *frame_offset;
         frame_offset += cell;
     }
-
     /* emit copy instruction */
     emit_label(EXT_OP_COPY_STACK_VALUES);
     /* Part a) */
-    emit_uint32(loader_ctx, is_if_block ? available_param_count + 1
-                                        : available_param_count);
+    emit_uint32(loader_ctx, is_if_block ? param_count + 1 : param_count);
     /* Part b) */
     emit_uint32(loader_ctx, is_if_block ? wasm_type->param_cell_num + 1
                                         : wasm_type->param_cell_num);
     /* Part c) */
-    for (i = 0; i < available_param_count; i++)
+    for (i = 0; i < param_count; i++)
         emit_byte(loader_ctx, cells[i]);
     if (is_if_block)
         emit_byte(loader_ctx, 1);
 
     /* Part d) */
-    for (i = 0; i < available_param_count; i++)
+    for (i = 0; i < param_count; i++)
         emit_operand(loader_ctx, src_offsets[i]);
     if (is_if_block)
         emit_operand(loader_ctx, condition_offset);
 
     /* Part e) */
     /* Push to dynamic space. The push will emit the dst offset. */
-    for (i = 0; i < available_param_count; i++)
+    for (i = 0; i < param_count; i++)
         PUSH_OFFSET_TYPE(wasm_type->types[i]);
     if (is_if_block)
         PUSH_OFFSET_TYPE(VALUE_TYPE_I32);
-
-    if (p_available_param_count) {
-        *p_available_param_count = available_param_count;
-    }
 
     ret = true;
 
 fail:
     /* Free the emit data */
-    if (emit_data) {
-        wasm_runtime_free(emit_data);
-    }
+    wasm_runtime_free(emit_data);
 
     return ret;
 }
@@ -10232,6 +10611,24 @@ re_scan:
             }
             case WASM_OP_BLOCK:
             case WASM_OP_LOOP:
+#if WASM_ENABLE_EXCE_HANDLING != 0
+            case WASM_OP_TRY:
+                if (opcode == WASM_OP_TRY) {
+                    /*
+                     * keep track of exception handlers to account for
+                     * memory allocation
+                     */
+                    func->exception_handler_count++;
+
+                    /*
+                     * try is a block
+                     * do nothing special, but execution continues to
+                     * to handle_op_block_and_loop,
+                     * and that be pushes the csp
+                     */
+                }
+
+#endif
 #if WASM_ENABLE_FAST_INTERP != 0
                 PRESERVE_LOCAL_FOR_BLOCK();
 #endif
@@ -10336,6 +10733,7 @@ re_scan:
 
                     BranchBlock *cur_block = loader_ctx->frame_csp - 1;
 #if WASM_ENABLE_FAST_INTERP != 0
+                    uint32 cell_num;
                     available_params = block_type.u.type->param_count;
 #endif
                     for (i = 0; i < block_type.u.type->param_count; i++) {
@@ -10353,21 +10751,41 @@ re_scan:
 
                         POP_TYPE(
                             wasm_type->types[wasm_type->param_count - i - 1]);
+#if WASM_ENABLE_FAST_INTERP != 0
+                        /* decrease the frame_offset pointer accordingly to keep
+                         * consistent with frame_ref stack */
+                        cell_num = wasm_value_type_cell_num(
+                            wasm_type->types[wasm_type->param_count - i - 1]);
+                        loader_ctx->frame_offset -= cell_num;
+#endif
                     }
                 }
-
                 PUSH_CSP(LABEL_TYPE_BLOCK + (opcode - WASM_OP_BLOCK),
                          block_type, p);
 
                 /* Pass parameters to block */
                 if (BLOCK_HAS_PARAM(block_type)) {
                     for (i = 0; i < block_type.u.type->param_count; i++) {
-                        PUSH_TYPE(block_type.u.type->types[i]);
 #if WASM_ENABLE_FAST_INTERP != 0
+                        uint32 cell_num = wasm_value_type_cell_num(
+                            block_type.u.type->types[i]);
                         if (i >= available_params) {
-                            PUSH_OFFSET_TYPE(block_type.u.type->types[i]);
+                            /* If there isn't enough data on stack, push a dummy
+                             * offset to keep the stack consistent with
+                             * frame_ref.
+                             * Since the stack is already in polymorphic state,
+                             * the opcode will not be executed, so the dummy
+                             * offset won't cause any error */
+                            *loader_ctx->frame_offset++ = 0;
+                            if (cell_num > 1) {
+                                *loader_ctx->frame_offset++ = 0;
+                            }
+                        }
+                        else {
+                            loader_ctx->frame_offset += cell_num;
                         }
 #endif
+                        PUSH_TYPE(block_type.u.type->types[i]);
                     }
                 }
 
@@ -10377,9 +10795,8 @@ re_scan:
 
                     if (BLOCK_HAS_PARAM(block_type)) {
                         /* Make sure params are in dynamic space */
-                        if (!copy_params_to_dynamic_space(loader_ctx, false,
-                                                          NULL, error_buf,
-                                                          error_buf_size))
+                        if (!copy_params_to_dynamic_space(
+                                loader_ctx, false, error_buf, error_buf_size))
                             goto fail;
                     }
 
@@ -10388,6 +10805,11 @@ re_scan:
                             loader_ctx->p_code_compiled;
                     }
                 }
+#if WASM_ENABLE_EXCE_HANDLING != 0
+                else if (opcode == WASM_OP_TRY) {
+                    skip_label();
+                }
+#endif
                 else if (opcode == WASM_OP_IF) {
                     BranchBlock *block = loader_ctx->frame_csp - 1;
                     /* If block has parameters, we should make sure they are in
@@ -10407,17 +10829,21 @@ re_scan:
                      * recover them before entering else branch.
                      *
                      */
-                    if (if_condition_available && BLOCK_HAS_PARAM(block_type)) {
+                    if (BLOCK_HAS_PARAM(block_type)) {
                         uint64 size;
 
-                        /* skip the if condition operand offset */
-                        wasm_loader_emit_backspace(loader_ctx, sizeof(int16));
+                        /* In polymorphic state, there may be no if condition on
+                         * the stack, so the offset may not emitted */
+                        if (if_condition_available) {
+                            /* skip the if condition operand offset */
+                            wasm_loader_emit_backspace(loader_ctx,
+                                                       sizeof(int16));
+                        }
                         /* skip the if label */
                         skip_label();
                         /* Emit a copy instruction */
                         if (!copy_params_to_dynamic_space(
-                                loader_ctx, true, &block->available_param_num,
-                                error_buf, error_buf_size))
+                                loader_ctx, true, error_buf, error_buf_size))
                             goto fail;
 
                         /* Emit the if instruction */
@@ -10438,9 +10864,8 @@ re_scan:
                                         - size / sizeof(int16),
                                     (uint32)size);
                     }
-                    else {
-                        block->available_param_num = 0;
-                    }
+
+                    block->start_dynamic_offset = loader_ctx->dynamic_offset;
 
                     emit_empty_label_addr_and_frame_ip(PATCH_ELSE);
                     emit_empty_label_addr_and_frame_ip(PATCH_END);
@@ -10448,7 +10873,207 @@ re_scan:
 #endif
                 break;
             }
+#if WASM_ENABLE_EXCE_HANDLING != 0
+            case WASM_OP_THROW:
+            {
+                SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(true);
 
+                BranchBlock *cur_block = loader_ctx->frame_csp - 1;
+
+                uint8 label_type = cur_block->label_type;
+                uint32 tag_index = 0;
+                read_leb_int32(p, p_end, tag_index);
+
+                /* check validity of tag_index against module->tag_count */
+                /* check tag index is within the tag index space */
+                if (tag_index >= module->import_tag_count + module->tag_count) {
+                    snprintf(error_buf, error_buf_size, "unknown tag %d",
+                             tag_index);
+                    goto fail;
+                }
+
+                /* the tag_type is stored in either the WASMTag (section tags)
+                 * or WASMTagImport (import tag) */
+                WASMType *tag_type = NULL;
+                if (tag_index < module->import_tag_count) {
+                    tag_type = module->import_tags[tag_index].u.tag.tag_type;
+                }
+                else {
+                    tag_type =
+                        module->tags[tag_index - module->import_tag_count]
+                            ->tag_type;
+                }
+
+                if (tag_type->result_count != 0) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "tag type signature does not return void");
+                    goto fail;
+                }
+
+                int32 available_stack_cell =
+                    (int32)(loader_ctx->stack_cell_num
+                            - cur_block->stack_cell_num);
+
+                /* Check stack values match return types by comparing tag param
+                 * types with stack cells */
+                uint8 *frame_ref = loader_ctx->frame_ref;
+                for (int tti = (int32)tag_type->param_count - 1; tti >= 0;
+                     tti--) {
+                    if (!check_stack_top_values(
+                            loader_ctx, frame_ref, available_stack_cell,
+                            tag_type->types[tti], error_buf, error_buf_size)) {
+                        snprintf(error_buf, error_buf_size,
+                                 "type mismatch: instruction requires [%s] but "
+                                 "stack has [%s]",
+                                 tag_type->param_count > 0
+                                     ? type2str(tag_type->types[tti])
+                                     : "",
+                                 available_stack_cell > 0
+                                     ? type2str(*(loader_ctx->frame_ref - 1))
+                                     : "");
+                        goto fail;
+                    }
+                    frame_ref -= wasm_value_type_cell_num(tag_type->types[tti]);
+                    available_stack_cell -=
+                        wasm_value_type_cell_num(tag_type->types[tti]);
+                }
+
+                /* throw is stack polymorphic */
+                (void)label_type;
+                RESET_STACK();
+
+                break;
+            }
+            case WASM_OP_RETHROW:
+            {
+                /* must be done before checking branch block */
+                SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(true);
+
+                /* check the target catching block:  LABEL_TYPE_CATCH */
+                if (!(frame_csp_tmp =
+                          check_branch_block(loader_ctx, &p, p_end, false,
+                                             error_buf, error_buf_size)))
+                    goto fail;
+
+                if (frame_csp_tmp->label_type != LABEL_TYPE_CATCH
+                    && frame_csp_tmp->label_type != LABEL_TYPE_CATCH_ALL) {
+                    /* trap according to spectest (rethrow.wast) */
+                    set_error_buf(error_buf, error_buf_size,
+                                  "invalid rethrow label");
+                    goto fail;
+                }
+
+                BranchBlock *cur_block = loader_ctx->frame_csp - 1;
+                uint8 label_type = cur_block->label_type;
+                (void)label_type;
+                /* rethrow is stack polymorphic */
+                RESET_STACK();
+                break;
+            }
+            case WASM_OP_DELEGATE:
+            {
+                /* check  target block is valid */
+                if (!(frame_csp_tmp = check_branch_block_for_delegate(
+                          loader_ctx, &p, p_end, error_buf, error_buf_size)))
+                    goto fail;
+
+                BranchBlock *cur_block = loader_ctx->frame_csp - 1;
+                uint8 label_type = cur_block->label_type;
+
+                (void)label_type;
+                /* DELEGATE ends the block */
+                POP_CSP();
+                break;
+            }
+            case WASM_OP_CATCH:
+            {
+                BranchBlock *cur_block = loader_ctx->frame_csp - 1;
+
+                uint8 label_type = cur_block->label_type;
+                uint32 tag_index = 0;
+                read_leb_int32(p, p_end, tag_index);
+
+                /* check validity of tag_index against module->tag_count */
+                /* check tag index is within the tag index space */
+                if (tag_index >= module->import_tag_count + module->tag_count) {
+                    LOG_VERBOSE("In %s, unknown tag at WASM_OP_CATCH\n",
+                                __FUNCTION__);
+                    set_error_buf(error_buf, error_buf_size, "unknown tag");
+                    goto fail;
+                }
+
+                /* the tag_type is stored in either the WASMTag (section tags)
+                 * or WASMTagImport (import tag) */
+                WASMType *func_type = NULL;
+                if (tag_index < module->import_tag_count) {
+                    func_type = module->import_tags[tag_index].u.tag.tag_type;
+                }
+                else {
+                    func_type =
+                        module->tags[tag_index - module->import_tag_count]
+                            ->tag_type;
+                }
+
+                if (func_type->result_count != 0) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "tag type signature does not return void");
+                    goto fail;
+                }
+
+                /* check validity of current label (expect LABEL_TYPE_TRY or
+                 * LABEL_TYPE_CATCH) */
+                if ((LABEL_TYPE_CATCH != label_type)
+                    && (LABEL_TYPE_TRY != label_type)) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "Unexpected block sequence encountered.");
+                    goto fail;
+                }
+
+                BlockType new_block_type;
+                new_block_type.is_value_type = false;
+                new_block_type.u.type = func_type;
+
+                /*
+                 * replace frame_csp by LABEL_TYPE_CATCH
+                 */
+                cur_block->label_type = LABEL_TYPE_CATCH;
+
+                /* RESET_STACK removes the values pushed in TRY or pervious
+                 * CATCH Blocks */
+                RESET_STACK();
+
+                /* push types on the stack according to catched type */
+                if (BLOCK_HAS_PARAM(new_block_type)) {
+                    for (i = 0; i < new_block_type.u.type->param_count; i++)
+                        PUSH_TYPE(new_block_type.u.type->types[i]);
+                }
+                break;
+            }
+            case WASM_OP_CATCH_ALL:
+            {
+                BranchBlock *cur_block = loader_ctx->frame_csp - 1;
+
+                /* expecting a TRY or CATCH, anything else will be considered an
+                 * error */
+                if ((LABEL_TYPE_CATCH != cur_block->label_type)
+                    && (LABEL_TYPE_TRY != cur_block->label_type)) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "Unexpected block sequence encountered.");
+                    goto fail;
+                }
+
+                /* no immediates */
+                /* replace frame_csp by LABEL_TYPE_CATCH_ALL */
+                cur_block->label_type = LABEL_TYPE_CATCH_ALL;
+
+                /* RESET_STACK removes the values pushed in TRY or pervious
+                 * CATCH Blocks */
+                RESET_STACK();
+
+                /* catch_all has no tagtype and therefore no parameters */
+                break;
+            }
+#endif /* end of WASM_ENABLE_EXCE_HANDLING != 0 */
             case WASM_OP_ELSE:
             {
                 BranchBlock *block = NULL;
@@ -10498,21 +11123,13 @@ re_scan:
 
 #if WASM_ENABLE_FAST_INTERP != 0
                 /* Recover top param_count values of frame_offset stack */
-                if (block->available_param_num) {
+                if (BLOCK_HAS_PARAM((block_type))) {
                     uint32 size;
-                    size = sizeof(int16) * block->available_param_num;
+                    size = sizeof(int16) * block_type.u.type->param_cell_num;
                     bh_memcpy_s(loader_ctx->frame_offset, size,
                                 block->param_frame_offsets, size);
                     loader_ctx->frame_offset += (size / sizeof(int16));
-
-                    /* recover dynamic offset */
-                    for (i = 0; i < block->available_param_num; i++) {
-                        if (block->param_frame_offsets[i]
-                            >= loader_ctx->dynamic_offset) {
-                            loader_ctx->dynamic_offset =
-                                block->param_frame_offsets[i] + 1;
-                        }
-                    }
+                    loader_ctx->dynamic_offset = block->start_dynamic_offset;
                 }
 #endif
 
@@ -10772,11 +11389,11 @@ re_scan:
                      idx--) {
                     ret_type = *(func->func_type->types
                                  + func->func_type->param_count + idx);
-                    POP_TYPE(ret_type);
 #if WASM_ENABLE_FAST_INTERP != 0
                     /* emit the offset after return opcode */
                     POP_OFFSET_TYPE(ret_type);
 #endif
+                    POP_TYPE(ret_type);
                 }
 
                 RESET_STACK();
@@ -10873,10 +11490,10 @@ re_scan:
                             j--;
                         }
 #endif
-                        POP_TYPE(func_type->types[idx]);
 #if WASM_ENABLE_FAST_INTERP != 0
                         POP_OFFSET_TYPE(func_type->types[idx]);
 #endif
+                        POP_TYPE(func_type->types[idx]);
                     }
                 }
 
@@ -11000,10 +11617,10 @@ re_scan:
                 if (func_type->param_count > 0) {
                     for (idx = (int32)(func_type->param_count - 1); idx >= 0;
                          idx--) {
-                        POP_TYPE(func_type->types[idx]);
 #if WASM_ENABLE_FAST_INTERP != 0
                         POP_OFFSET_TYPE(func_type->types[idx]);
 #endif
+                        POP_TYPE(func_type->types[idx]);
                     }
                 }
 
@@ -13843,8 +14460,8 @@ re_scan:
                 module->is_simd_used = true;
 #endif
 
-                CHECK_BUF(p, p_end, 1);
-                opcode1 = read_uint8(p);
+                read_leb_uint32(p, p_end, opcode1);
+
                 /* follow the order of enum WASMSimdEXTOpcode in wasm_opcode.h
                  */
                 switch (opcode1) {
@@ -14505,8 +15122,8 @@ re_scan:
             {
                 uint32 opcode1;
 
-                CHECK_BUF(p, p_end, 1);
-                opcode1 = read_uint8(p);
+                read_leb_uint32(p, p_end, opcode1);
+
 #if WASM_ENABLE_FAST_INTERP != 0
                 emit_byte(loader_ctx, opcode1);
 #endif

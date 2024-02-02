@@ -71,11 +71,11 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -174,13 +174,13 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # only download llvm cache when needed
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
         if: endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS')
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -226,7 +226,7 @@ jobs:
           ]
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: download and install wabt
         run: |
@@ -258,7 +258,7 @@ jobs:
           ]
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: download and install wasi-sdk
         run: |
