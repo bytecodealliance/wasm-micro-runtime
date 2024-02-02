@@ -303,9 +303,9 @@ create_func_ptrs(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
  * - stack overflow check (if it does, trap)
  */
 static LLVMValueRef
-aot_add_precheck_function(AOTCompContext *comp_ctx, AOTFuncContext *wrapped_func_ctx,
-                          LLVMModuleRef module, uint32 func_index,
-                          uint32 orig_param_count, LLVMTypeRef func_type)
+aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
+                          uint32 func_index, uint32 orig_param_count,
+                          LLVMTypeRef func_type, LLVMValueRef wrapped_func)
 {
     LLVMValueRef precheck_func;
     LLVMBasicBlockRef begin = NULL;
@@ -572,95 +572,21 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, AOTFuncContext *wrapped_func
     LLVMValueRef retval;
     if (comp_ctx->is_indirect_mode) {
         /* call wrapped_func indirectly */
-        /*
-        // Referring to an argument in another function!
-        LLVMTypeRef func_ptr_type;
-        LLVMValueRef func_temp;
-        LLVMValueRef offset;
-        LLVMValueRef wrapped_func_ptrs;
-        LLVMValueRef wrapped_aot_inst_offset = I32_TWO, wrapped_aot_inst_addr, wrapped_aot_inst;
-
-        aot_estimate_and_record_stack_usage_for_function_call(comp_ctx, func_ctx,
-                                                          func_type);
-
-        LLVMValueRef wrapped_exec_env = LLVMGetParam(wrapped_func_ctx->func, 0);
-        if (!(wrapped_aot_inst_addr = LLVMBuildInBoundsGEP2(
-                b, OPQ_PTR_TYPE, wrapped_exec_env,
-                &wrapped_aot_inst_offset, 1, "wrapped_aot_inst_addr"))) {
-            aot_set_last_error("llvm build in bounds gep failed");
-            goto fail;
-        }
-        // Load aot inst /
-        if (!(wrapped_aot_inst = LLVMBuildLoad2(b, OPQ_PTR_TYPE,
-                                                wrapped_aot_inst_addr, "wrapped_aot_inst"))) {
-            aot_set_last_error("llvm build load failed");
-            goto fail;
-        }
-
-        // Load wrapped function ptrs
-        offset = I32_CONST(offsetof(AOTModuleInstance, func_ptrs));
-        wrapped_func_ptrs =
-            LLVMBuildInBoundsGEP2(b, INT8_TYPE, wrapped_aot_inst,
-                                &offset, 1, "wrapped_func_ptrs_offset");
-        if (!wrapped_func_ptrs) {
-            aot_set_last_error("llvm build in bounds gep failed.");
-            return false;
-        }
-        wrapped_func_ptrs =
-            LLVMBuildBitCast(b,  wrapped_func_ptrs,
-                            comp_ctx->exec_env_type, "wrapped_func_ptrs_tmp");
-        if (!wrapped_func_ptrs) {
-            aot_set_last_error("llvm build bit cast failed.");
-            return false;
-        }
-
-        wrapped_func_ptrs = LLVMBuildLoad2(b, OPQ_PTR_TYPE,
-                                            wrapped_func_ptrs, "wrapped_func_ptrs_ptr");
-        if (!wrapped_func_ptrs) {
-            aot_set_last_error("llvm build load failed.");
-            return false;
-        }
-
-        wrapped_func_ptrs =
-            LLVMBuildBitCast(b, wrapped_func_ptrs,
-                            comp_ctx->exec_env_type, "wrapped_func_ptrs");
-        if (!wrapped_func_ptrs) {
-            aot_set_last_error("llvm build bit cast failed.");
-            return false;
-        }
-
-        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {
-            aot_set_last_error("construct func ptr type failed.");
-            goto fail;
-        }
-
-        // wrapped_func uses the same func_index with func_temp
-        if (!(func_temp = aot_get_func_from_table(comp_ctx, wrapped_func_ptrs,
-                                                func_ptr_type, func_index))) {
-            goto fail;
-        }
-
-        retval = LLVMBuildCall2(b, func_type, func_temp, params, param_count, name);
-        */
-
-        // Instruction does not dominate all uses!
-        // need to get wrapped_ptr in precheck_func, but it seems to be impossible
-        LLVMTypeRef wrapped_native_func_type, wrapped_func_ptr_type;
+        LLVMTypeRef wrapped_func_type, func_ptr_type;
         LLVMTypeRef *wrapped_param_types = NULL;
-        LLVMValueRef wrapped_func_ptr, wrapped_func, import_func_idx;
-        uint64 total_size = 0;
+        LLVMValueRef wrapped_func_indirect;
+        uint32 import_func_count = comp_ctx->comp_data->import_func_count;
+        uint32 func_count = comp_ctx->func_ctx_count;
 
-        if (!(import_func_idx = I32_CONST(func_index))) {
-            aot_set_last_error("llvm build inbounds gep failed.");
-            goto fail;
+        /* Check function index */
+        if (func_index >= import_func_count + func_count) {
+            aot_set_last_error("Function index out of range.");
+            return false;
         }
-    
-        aot_estimate_and_record_stack_usage_for_function_call(comp_ctx, func_ctx,
-                                                          func_type);
 
-        
+        /* Get function type */
         // Initialize parameter types of the LLVM function
-        total_size = sizeof(LLVMTypeRef) * (uint64)(orig_param_count + 1);
+        uint64 total_size = sizeof(LLVMTypeRef) * (uint64)(orig_param_count + 1);
         if (total_size >= UINT32_MAX
             || !(wrapped_param_types = wasm_runtime_malloc((uint32)total_size))) {
             aot_set_last_error("allocate memory failed.");
@@ -668,47 +594,36 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, AOTFuncContext *wrapped_func
         }
         LLVMGetParamTypes(func_type, wrapped_param_types);
 
-        if (!(wrapped_native_func_type = LLVMFunctionType(
+        if (!(wrapped_func_type = LLVMFunctionType(
                     ret_type, wrapped_param_types, orig_param_count + 1, false))) {
             aot_set_last_error("llvm add function type failed.");
             goto fail;
         }
 
-        if (!(wrapped_func_ptr_type = LLVMPointerType(wrapped_native_func_type, 0))) {
+        if (!(func_ptr_type = LLVMPointerType(wrapped_func_type, 0))) {
             aot_set_last_error("create LLVM function type failed.");
             goto fail;
         }
 
-        // Load function pointer
-        if (!(wrapped_func_ptr = LLVMBuildInBoundsGEP2(
-                    b, OPQ_PTR_TYPE, func_ctx->func_ptrs,
-                    &import_func_idx, 1, "wrapped_native_func_ptr_tmp"))) {
-            aot_set_last_error("llvm build inbounds gep failed.");
+        /* func_index layout : 
+            aot_func#xxx, range from 0 ~ func_conut - 1;
+            aot_func#internal#xxx,  range from func_conut ~ 2 * func_conut - 1;
+        */
+        if (!(wrapped_func_indirect = aot_get_func_from_table(comp_ctx, func_ctx->func_ptrs,
+                                                func_ptr_type, func_index + func_count))) {
             goto fail;
         }
-
-        if (!(wrapped_func_ptr = LLVMBuildLoad2(b, OPQ_PTR_TYPE,
-                                        wrapped_func_ptr, "wrapped_native_func_ptr"))) {
-            aot_set_last_error("llvm build load failed.");
-            goto fail;
-        }
-
-        if (!(wrapped_func = LLVMBuildBitCast(b, wrapped_func_ptr,
-                                        wrapped_func_ptr_type, "wrapped_native_func"))) {
-            aot_set_last_error("llvm bit cast failed.");
-            goto fail;
-        }
-
         // Call the function
         if (!(retval = LLVMBuildCall2(
-                    b, wrapped_native_func_type, wrapped_func, params,
+                    b, func_type, wrapped_func_indirect, params,
                     param_count, name))) {
             aot_set_last_error("LLVM build call failed.");
             goto fail;
         }
+        
     }
     else
-        retval = LLVMBuildCall2(b, func_type, wrapped_func_ctx->func, params, param_count, name);
+        retval = LLVMBuildCall2(b, func_type, wrapped_func, params, param_count, name);
 
     if (!retval) {
         goto fail;
@@ -753,7 +668,7 @@ fail:
 static LLVMValueRef
 aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
                   const AOTFuncType *aot_func_type, uint32 func_index,
-                  LLVMTypeRef *p_func_type)
+                  LLVMTypeRef *p_func_type, LLVMValueRef *p_precheck_func)
 {
     LLVMValueRef func = NULL;
     LLVMTypeRef *param_types, ret_type, func_type;
@@ -847,6 +762,29 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
             goto fail;
         }
         LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex, no_omit_fp);
+    }
+
+    if (need_precheck) {
+        if (!comp_ctx->is_jit_mode && !comp_ctx->is_indirect_mode)
+            LLVMSetLinkage(func, LLVMInternalLinkage);
+        unsigned int kind =
+            LLVMGetEnumAttributeKindForName("noinline", strlen("noinline"));
+        LLVMAttributeRef attr_noinline =
+            LLVMCreateEnumAttribute(comp_ctx->context, kind, 0);
+        LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex,
+                                attr_noinline);
+
+        LLVMValueRef precheck_func = aot_add_precheck_function(
+            comp_ctx, module, func_index, aot_func_type->param_count, func_type,
+            func);
+        if (!precheck_func)
+            goto fail;
+        LLVMAddAttributeAtIndex(precheck_func, LLVMAttributeFunctionIndex,
+                                attr_noinline);
+        *p_precheck_func = precheck_func;
+    }
+    else {
+        *p_precheck_func = func;
     }
 
     if (p_func_type)
@@ -1691,12 +1629,10 @@ aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
     /* Add LLVM function */
     if (!(func_ctx->func = aot_add_llvm_func(
               comp_ctx, func_ctx->module, aot_func_type, func_index,
-              &func_ctx->func_type))) {
+              &func_ctx->func_type, &func_ctx->precheck_func))) {
         goto fail;
     }
 
-    aot_estimate_and_record_stack_usage_for_function_call(comp_ctx, func_ctx,
-                                                          func_ctx->func_type);
     /* Create function's first AOTBlock */
     if (!(aot_block =
               aot_create_func_block(comp_ctx, func_ctx, func, aot_func_type))) {
@@ -1757,37 +1693,6 @@ aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
     /* Load function pointers */
     if (!create_func_ptrs(comp_ctx, func_ctx)) {
         goto fail;
-    }
-
-    /* Add pre-check function */
-    const bool need_precheck =
-        comp_ctx->enable_stack_bound_check || comp_ctx->enable_stack_estimation;
-    if (need_precheck) {
-        /*
-         * REVISIT: probably this breaks windows hw bound check
-         * (the RtlAddFunctionTable stuff)
-         */
-        // if (!comp_ctx->is_jit_mode)
-        //     LLVMSetLinkage(func_ctx->func, LLVMInternalLinkage);
-        unsigned int kind =
-            LLVMGetEnumAttributeKindForName("noinline", strlen("noinline"));
-        LLVMAttributeRef attr_noinline =
-            LLVMCreateEnumAttribute(comp_ctx->context, kind, 0);
-        LLVMAddAttributeAtIndex(func_ctx->func, LLVMAttributeFunctionIndex,
-                                attr_noinline);
-
-        LLVMValueRef precheck_func = aot_add_precheck_function(
-            comp_ctx, func_ctx, func_ctx->module, func_index, aot_func_type->param_count, 
-            func_ctx->func_type);
-        if (!precheck_func)
-            goto fail;
-
-        LLVMAddAttributeAtIndex(precheck_func, LLVMAttributeFunctionIndex,
-                                attr_noinline);
-        func_ctx->precheck_func = precheck_func;
-    }
-    else {
-        func_ctx->precheck_func = func_ctx->func;
     }
 
     return func_ctx;
@@ -3153,9 +3058,9 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
     if (!comp_ctx)
         return;
 
-    // if (comp_ctx->stack_usage_file == comp_ctx->stack_usage_temp_file) {
-    //     (void)unlink(comp_ctx->stack_usage_temp_file);
-    // }
+    if (comp_ctx->stack_usage_file == comp_ctx->stack_usage_temp_file) {
+        (void)unlink(comp_ctx->stack_usage_temp_file);
+    }
 
     if (comp_ctx->target_machine)
         LLVMDisposeTargetMachine(comp_ctx->target_machine);

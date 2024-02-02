@@ -1782,14 +1782,20 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
         module->start_function = NULL;
     }
 
-    size = sizeof(uint32) * (uint64)module->func_count;
+    uint32 func_type_count = module->func_count;
+#if defined(BUILD_TARGET_XTENSA)
+    if (module->is_indirect_mode)
+        func_type_count = module->func_count / 2;
+#endif
+
+    size = sizeof(uint32) * (uint64)func_type_count;
     if (size > 0
         && !(module->func_type_indexes =
                  loader_malloc(size, error_buf, error_buf_size))) {
         return false;
     }
 
-    for (i = 0; i < module->func_count; i++) {
+    for (i = 0; i < func_type_count; i++) {
         read_uint32(p, p_end, module->func_type_indexes[i]);
         if (module->func_type_indexes[i] >= module->func_type_count) {
             set_error_buf(error_buf, error_buf_size, "unknown type");

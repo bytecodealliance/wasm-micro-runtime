@@ -592,6 +592,11 @@ get_func_section_size(AOTCompData *comp_data, AOTObjectData *obj_data)
     else
         size = (uint32)sizeof(uint64) * comp_data->func_count;
 
+    /* aot_func#xxx + aot_func_internal#xxx in XIP mode for xtensa */
+    if (obj_data->comp_ctx->is_indirect_mode && 
+        (!strncmp(obj_data->comp_ctx->target_arch, "xtensa", 6)))
+        size *= 2;
+
     size += (uint32)sizeof(uint32) * comp_data->func_count;
     return size;
 }
@@ -1736,7 +1741,11 @@ aot_emit_init_data_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         return false;
 
     offset = align_uint(offset, 4);
-    EMIT_U32(comp_data->func_count);
+    if (obj_data->comp_ctx->is_indirect_mode && 
+        (!strncmp(obj_data->comp_ctx->target_arch, "xtensa", 6)))
+        EMIT_U32(comp_data->func_count * 2);
+    else
+        EMIT_U32(comp_data->func_count);
     EMIT_U32(comp_data->start_func_index);
 
     EMIT_U32(comp_data->aux_data_end_global_index);
@@ -1895,6 +1904,21 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         else
             EMIT_U64(func->text_offset);
     }
+
+    if (obj_data->comp_ctx->is_indirect_mode && 
+        (!strncmp(obj_data->comp_ctx->target_arch, "xtensa", 6)))
+    {
+        /* Explicitly emit aot_func_internal#xxx for Xtensa XIP, 
+            therefore func_indexes ranged from 0 ~ func_count are for aot_func#xxx,
+            func_count + 1 ~ 2 * func_count are for aot_func_internal#xxxx */
+        for (i = 0, func = obj_data->funcs; i < obj_data->func_count; i++, func++) {
+            if (is_32bit_binary(obj_data))
+                EMIT_U32(func->text_offset_of_aot_func_internal);
+            else
+                EMIT_U64(func->text_offset_of_aot_func_internal);
+        }
+    }
+    
 
     for (i = 0; i < comp_data->func_count; i++)
         EMIT_U32(funcs[i]->func_type_index);
