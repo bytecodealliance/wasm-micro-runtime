@@ -4412,19 +4412,20 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         else {
             WASMFunction *cur_wasm_func = cur_func->u.func;
             WASMType *func_type;
+            uint32 max_stack_cell_num = cur_wasm_func->max_stack_cell_num;
 
 #if WASM_ENABLE_EXCE_HANDLING != 0
             /* account for exception handlers */
             /* bundle them here */
             uint32 eh_size =
                 cur_wasm_func->exception_handler_count * sizeof(uint8 *);
-            cur_wasm_func->max_stack_cell_num += eh_size;
+            max_stack_cell_num += eh_size;
 #endif
 
             func_type = cur_wasm_func->func_type;
 
             all_cell_num = cur_func->param_cell_num + cur_func->local_cell_num
-                           + cur_wasm_func->max_stack_cell_num
+                           + max_stack_cell_num
                            + cur_wasm_func->max_block_num
                                  * (uint32)sizeof(WASMBranchBlock) / 4;
 
@@ -4447,8 +4448,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
             frame_sp = frame->sp_bottom =
                 frame_lp + cur_func->param_cell_num + cur_func->local_cell_num;
-            frame->sp_boundary =
-                frame->sp_bottom + cur_wasm_func->max_stack_cell_num;
+            frame->sp_boundary = frame->sp_bottom + max_stack_cell_num;
 
             frame_csp = frame->csp_bottom =
                 (WASMBranchBlock *)frame->sp_boundary;
