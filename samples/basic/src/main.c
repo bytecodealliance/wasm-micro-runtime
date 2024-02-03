@@ -16,6 +16,30 @@ int32_t
 calculate_native(int32_t n, int32_t func1, int32_t func2);
 
 void
+my_log(uint32 log_level, const char *file, int line, const char *fmt, ...)
+{
+    char buf[200];
+    snprintf(buf, 200,
+             log_level == WASM_LOG_LEVEL_VERBOSE ? "[WamrLogger - VERBOSE] %s"
+                                                 : "[WamrLogger] %s",
+             fmt);
+
+    va_list ap;
+    va_start(ap, fmt);
+    vprintf(buf, ap);
+    va_end(ap);
+}
+
+int
+my_vprintf(const char *format, va_list ap)
+{
+    /* Print in blue */
+    char buf[200];
+    snprintf(buf, 200, "\x1b[34m%s\x1b[0m", format);
+    return vprintf(buf, ap);
+}
+
+void
 print_usage(void)
 {
     fprintf(stdout, "Options:\r\n");
@@ -95,6 +119,7 @@ main(int argc, char *argv_main[])
         printf("Init runtime environment failed.\n");
         return -1;
     }
+    wasm_runtime_set_log_level(WASM_LOG_LEVEL_VERBOSE);
 
     buffer = bh_read_file_to_buffer(wasm_path, &buf_size);
 
@@ -103,7 +128,8 @@ main(int argc, char *argv_main[])
         goto fail;
     }
 
-    module = wasm_runtime_load(buffer, buf_size, error_buf, sizeof(error_buf));
+    module = wasm_runtime_load((uint8 *)buffer, buf_size, error_buf,
+                               sizeof(error_buf));
     if (!module) {
         printf("Load wasm module failed. error: %s\n", error_buf);
         goto fail;

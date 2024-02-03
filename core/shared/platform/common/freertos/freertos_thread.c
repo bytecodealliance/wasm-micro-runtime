@@ -204,7 +204,7 @@ os_thread_wrapper(void *arg)
     thread_data_list_add(thread_data);
 
     thread_data->start_routine(thread_data->arg);
-    os_thread_cleanup();
+    os_thread_exit(NULL);
 }
 
 int

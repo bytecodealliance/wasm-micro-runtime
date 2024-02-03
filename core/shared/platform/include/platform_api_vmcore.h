@@ -64,7 +64,13 @@ os_vprintf(const char *format, va_list ap);
  * Get microseconds after boot.
  */
 uint64
-os_time_get_boot_microsecond(void);
+os_time_get_boot_us(void);
+
+/**
+ * Get thread-specific CPU-time clock in microseconds
+ */
+uint64
+os_time_thread_cputime_us(void);
 
 /**
  * Get current thread id.
@@ -129,7 +135,7 @@ enum {
     MMAP_MAP_32BIT = 1,
     /* Don't interpret addr as a hint: place the mapping at exactly
        that address. */
-    MMAP_MAP_FIXED = 2
+    MMAP_MAP_FIXED = 2,
 };
 
 void *
@@ -138,6 +144,11 @@ void
 os_munmap(void *addr, size_t size);
 int
 os_mprotect(void *addr, size_t size, int prot);
+
+/* Doesn't guarantee that protection flags will be preserved.
+   os_mprotect() must be called after remapping. */
+void *
+os_mremap(void *old_addr, size_t old_size, size_t new_size);
 
 #if (WASM_MEM_DUAL_BUS_MIRROR != 0)
 void *

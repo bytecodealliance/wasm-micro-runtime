@@ -416,16 +416,6 @@ typedef struct WASMRegisteredModule {
 } WASMRegisteredModule;
 #endif
 
-typedef struct WASMMemoryInstanceCommon {
-    uint32 module_type;
-
-    /* The following uint8[1] member is a dummy just to indicate
-       some module_type dependent members follow.
-       Typically it should be accessed by casting to the corresponding
-       actual module_type dependent structure, not via this member. */
-    uint8 memory_inst_data[1];
-} WASMMemoryInstanceCommon;
-
 typedef package_type_t PackageType;
 typedef wasm_section_t WASMSection, AOTSection;
 

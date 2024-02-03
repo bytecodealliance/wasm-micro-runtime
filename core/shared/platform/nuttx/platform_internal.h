@@ -44,6 +44,8 @@ typedef pthread_t korp_thread;
 typedef pthread_rwlock_t korp_rwlock;
 typedef sem_t korp_sem;
 
+#define os_getpagesize getpagesize
+
 #define OS_THREAD_MUTEX_INITIALIZER PTHREAD_MUTEX_INITIALIZER
 
 #define BH_APPLET_PRESERVED_STACK_SIZE (2 * BH_KB)

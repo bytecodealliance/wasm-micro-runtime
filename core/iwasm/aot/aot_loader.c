@@ -66,15 +66,15 @@ exchange_uint32(uint8 *p_data)
 }
 
 static void
-exchange_uint64(uint8 *pData)
+exchange_uint64(uint8 *p_data)
 {
     uint32 value;
 
-    value = *(uint32 *)pData;
-    *(uint32 *)pData = *(uint32 *)(pData + 4);
-    *(uint32 *)(pData + 4) = value;
-    exchange_uint32(pData);
-    exchange_uint32(pData + 4);
+    value = *(uint32 *)p_data;
+    *(uint32 *)p_data = *(uint32 *)(p_data + 4);
+    *(uint32 *)(p_data + 4) = value;
+    exchange_uint32(p_data);
+    exchange_uint32(p_data + 4);
 }
 
 static union {
@@ -214,6 +214,8 @@ GET_U16_FROM_ADDR(const uint8 *p)
         p += sizeof(type);                              \
     } while (0)
 
+/* NOLINTBEGIN, disable lint for this region with clang-tidy */
+
 #define read_byte_array(p, p_end, addr, len) \
     do {                                     \
         CHECK_BUF(p, p_end, len);            \
@@ -235,6 +237,8 @@ GET_U16_FROM_ADDR(const uint8 *p)
 #define read_uint16(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint16)
 #define read_uint32(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint32)
 #define read_uint64(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint64)
+
+/* NOLINTEND */
 
 /* Legal values for bin_type */
 #define BIN_TYPE_ELF32L 0 /* 32-bit little endian */
@@ -1976,6 +1980,12 @@ str2uint64(const char *buf, uint64 *p_res)
 #define R_X86_64_GOTPCREL 9 /* 32 bit signed PC relative offset to GOT */
 
 static bool
+is_text_section(const char *section_name)
+{
+    return !strcmp(section_name, ".text") || !strcmp(section_name, ".ltext");
+}
+
+static bool
 do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                    char *error_buf, uint32 error_buf_size)
 {
@@ -2063,7 +2073,7 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
             symbol_addr = module->func_ptrs[func_index];
         }
 #endif
-        else if (!strcmp(symbol, ".text")) {
+        else if (is_text_section(symbol)) {
             symbol_addr = module->code;
         }
         else if (!strcmp(symbol, ".data") || !strcmp(symbol, ".sdata")
@@ -2235,7 +2245,7 @@ do_data_relocation(AOTModule *module, AOTRelocationGroup *group,
 
     for (i = 0; i < group->relocation_count; i++, relocation++) {
         symbol = relocation->symbol_name;
-        if (!strcmp(symbol, ".text")) {
+        if (is_text_section(symbol)) {
             symbol_addr = module->code;
         }
 #if WASM_ENABLE_STATIC_PGO != 0
@@ -2696,6 +2706,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 
         if (!strcmp(group->section_name, ".rel.text")
             || !strcmp(group->section_name, ".rela.text")
+            || !strcmp(group->section_name, ".rel.ltext")
+            || !strcmp(group->section_name, ".rela.ltext")
             || !strcmp(group->section_name, ".rela.literal")
 #ifdef BH_PLATFORM_WINDOWS
             || !strcmp(group->section_name, ".text")
@@ -3126,8 +3138,7 @@ resolve_execute_mode(const uint8 *buf, uint32 size, bool *p_mode,
     p += 8;
     while (p < p_end) {
         read_uint32(p, p_end, section_type);
-        if (section_type <= AOT_SECTION_TYPE_SIGANATURE
-            || section_type == AOT_SECTION_TYPE_TARGET_INFO) {
+        if (section_type <= AOT_SECTION_TYPE_SIGANATURE) {
             read_uint32(p, p_end, section_size);
             CHECK_BUF(p, p_end, section_size);
             if (section_type == AOT_SECTION_TYPE_TARGET_INFO) {
@@ -3142,7 +3153,7 @@ resolve_execute_mode(const uint8 *buf, uint32 size, bool *p_mode,
                 break;
             }
         }
-        else if (section_type > AOT_SECTION_TYPE_SIGANATURE) {
+        else { /* section_type > AOT_SECTION_TYPE_SIGANATURE */
             set_error_buf(error_buf, error_buf_size,
                           "resolve execute mode failed");
             break;

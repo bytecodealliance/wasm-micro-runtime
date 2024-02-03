@@ -188,6 +188,10 @@
 #define WASM_ENABLE_APP_FRAMEWORK 0
 #endif
 
+#ifndef WASM_HAVE_MREMAP
+#define WASM_HAVE_MREMAP 0
+#endif
+
 /* Bulk memory operation */
 #ifndef WASM_ENABLE_BULK_MEMORY
 #define WASM_ENABLE_BULK_MEMORY 0
@@ -229,6 +233,17 @@
 /* WASM log system */
 #ifndef WASM_ENABLE_LOG
 #define WASM_ENABLE_LOG 1
+#endif
+
+/* When this flag is set, WAMR will not automatically
+ * initialize sockets on Windows platforms. The host
+ * application is responsible for calling WSAStartup()
+ * before executing WAMR code that uses sockets, and
+ * calling WSACleanup() after.
+ * This flag passes control of socket initialization from
+ * WAMR to the host application. */
+#ifndef WASM_ENABLE_HOST_SOCKET_INIT
+#define WASM_ENABLE_HOST_SOCKET_INIT 0
 #endif
 
 #ifndef WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS
@@ -397,7 +412,7 @@
 #define APP_THREAD_STACK_SIZE_DEFAULT (64 * 1024)
 #define APP_THREAD_STACK_SIZE_MIN (48 * 1024)
 #else
-#define APP_THREAD_STACK_SIZE_DEFAULT (64 * 1024)
+#define APP_THREAD_STACK_SIZE_DEFAULT (128 * 1024)
 #define APP_THREAD_STACK_SIZE_MIN (24 * 1024)
 #endif
 #endif /* end of !(defined(APP_THREAD_STACK_SIZE_DEFAULT) \
@@ -444,6 +459,14 @@
 
 #ifndef WASM_ENABLE_REF_TYPES
 #define WASM_ENABLE_REF_TYPES 0
+#endif
+
+#ifndef WASM_ENABLE_EXCE_HANDLING
+#define WASM_ENABLE_EXCE_HANDLING 0
+#endif
+
+#ifndef WASM_ENABLE_TAGS
+#define WASM_ENABLE_TAGS 0
 #endif
 
 #ifndef WASM_ENABLE_SGX_IPFS

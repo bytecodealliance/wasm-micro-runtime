@@ -1050,7 +1050,9 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 uint32 opcode1;
 
                 read_leb_uint32(frame_ip, frame_ip_end, opcode1);
-                opcode = (uint32)opcode1;
+                /* opcode1 was checked in loader and is no larger than
+                   UINT8_MAX */
+                opcode = (uint8)opcode1;
 
 #if WASM_ENABLE_BULK_MEMORY != 0
                 if (WASM_OP_MEMORY_INIT <= opcode
@@ -1211,10 +1213,13 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
             case WASM_OP_ATOMIC_PREFIX:
             {
                 uint8 bin_op, op_type;
+                uint32 opcode1;
 
-                if (frame_ip < frame_ip_end) {
-                    opcode = *frame_ip++;
-                }
+                read_leb_uint32(frame_ip, frame_ip_end, opcode1);
+                /* opcode1 was checked in loader and is no larger than
+                   UINT8_MAX */
+                opcode = (uint8)opcode1;
+
                 if (opcode != WASM_OP_ATOMIC_FENCE) {
                     read_leb_uint32(frame_ip, frame_ip_end, align);
                     read_leb_uint32(frame_ip, frame_ip_end, offset);
@@ -1364,11 +1369,17 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 #if WASM_ENABLE_SIMD != 0
             case WASM_OP_SIMD_PREFIX:
             {
+                uint32 opcode1;
+
                 if (!comp_ctx->enable_simd) {
                     goto unsupport_simd;
                 }
 
-                opcode = *frame_ip++;
+                read_leb_uint32(frame_ip, frame_ip_end, opcode1);
+                /* opcode1 was checked in loader and is no larger than
+                   UINT8_MAX */
+                opcode = (uint8)opcode1;
+
                 /* follow the order of enum WASMSimdEXTOpcode in
                    wasm_opcode.h */
                 switch (opcode) {

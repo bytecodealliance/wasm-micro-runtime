@@ -38,7 +38,7 @@ struct _timer_ctx {
 uint64
 bh_get_tick_ms()
 {
-    return os_time_get_boot_microsecond() / 1000;
+    return os_time_get_boot_us() / 1000;
 }
 
 uint32

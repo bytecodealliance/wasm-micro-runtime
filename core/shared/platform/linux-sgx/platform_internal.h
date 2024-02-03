@@ -79,6 +79,8 @@ os_get_invalid_handle()
     return -1;
 }
 
+#define os_getpagesize getpagesize
+
 #ifdef __cplusplus
 }
 #endif

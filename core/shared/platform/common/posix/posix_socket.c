@@ -884,7 +884,7 @@ os_socket_set_ip_ttl(bh_socket_t socket, uint8_t ttl_s)
 int
 os_socket_get_ip_ttl(bh_socket_t socket, uint8_t *ttl_s)
 {
-    socklen_t opt_len = sizeof(ttl_s);
+    socklen_t opt_len = sizeof(*ttl_s);
     if (getsockopt(socket, IPPROTO_IP, IP_TTL, ttl_s, &opt_len) != 0) {
         return BHT_ERROR;
     }
@@ -906,7 +906,7 @@ os_socket_set_ip_multicast_ttl(bh_socket_t socket, uint8_t ttl_s)
 int
 os_socket_get_ip_multicast_ttl(bh_socket_t socket, uint8_t *ttl_s)
 {
-    socklen_t opt_len = sizeof(ttl_s);
+    socklen_t opt_len = sizeof(*ttl_s);
     if (getsockopt(socket, IPPROTO_IP, IP_MULTICAST_TTL, ttl_s, &opt_len)
         != 0) {
         return BHT_ERROR;

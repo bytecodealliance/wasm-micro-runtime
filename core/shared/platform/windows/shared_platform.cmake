@@ -20,6 +20,9 @@ else()
     set(source_all ${source_all} ${PLATFORM_COMMON_LIBC_UTIL_SOURCE})
 endif()
 
+include (${CMAKE_CURRENT_LIST_DIR}/../common/memory/platform_api_memory.cmake)
+set (source_all ${source_all} ${PLATFORM_COMMON_MEMORY_SOURCE})
+
 set (PLATFORM_SHARED_SOURCE ${source_all})
 
 file (GLOB header ${PLATFORM_SHARED_DIR}/../include/*.h)

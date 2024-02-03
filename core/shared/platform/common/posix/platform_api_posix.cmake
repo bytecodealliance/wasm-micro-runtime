@@ -16,4 +16,19 @@ else()
     set(source_all ${source_all} ${PLATFORM_COMMON_LIBC_UTIL_SOURCE})
 endif()
 
+# This is to support old CMake version. Newer version of CMake could use
+# list APPEND/POP_BACK methods.
+include(CheckSymbolExists)
+set (CMAKE_REQUIRED_DEFINITIONS -D_GNU_SOURCE ${CMAKE_REQUIRED_DEFINITIONS})
+check_symbol_exists (mremap "sys/mman.h" MREMAP_EXISTS)
+list (REMOVE_AT CMAKE_REQUIRED_DEFINITIONS 0)
+
+if(MREMAP_EXISTS)
+    add_definitions (-DWASM_HAVE_MREMAP=1)
+else()
+    add_definitions (-DWASM_HAVE_MREMAP=0)
+    include (${CMAKE_CURRENT_LIST_DIR}/../memory/platform_api_memory.cmake)
+    set (source_all ${source_all} ${PLATFORM_COMMON_MEMORY_SOURCE})
+endif()
+
 set (PLATFORM_COMMON_POSIX_SOURCE ${source_all} )

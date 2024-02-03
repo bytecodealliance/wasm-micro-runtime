@@ -142,6 +142,12 @@ else
 CFLAGS += -DWASM_ENABLE_AOT=0
 endif
 
+ifeq ($(CONFIG_INTERPRETERS_WAMR_AOT_QUICK_ENTRY),y)
+CFLAGS += -DWASM_ENABLE_QUICK_AOT_ENTRY=1
+else
+CFLAGS += -DWASM_ENABLE_QUICK_AOT_ENTRY=0
+endif
+
 ifeq ($(CONFIG_INTERPRETERS_WAMR_AOT_WORD_ALIGN_READ),y)
 CFLAGS += -DWASM_ENABLE_WORD_ALIGN_READ=1
 else
@@ -192,9 +198,7 @@ CSRCS += utils.c
 VPATH += $(IWASM_ROOT)/libraries/debug-engine
 endif
 
-ifeq ($(CONFIG_INTERPRETERS_WAMR_STACK_GUARD_SIZE),)
-CFLAGS += -DWASM_STACK_GUARD_SIZE=0
-else
+ifneq ($(CONFIG_INTERPRETERS_WAMR_STACK_GUARD_SIZE),)
 CFLAGS += -DWASM_STACK_GUARD_SIZE=CONFIG_INTERPRETERS_WAMR_STACK_GUARD_SIZE
 endif
 
@@ -355,6 +359,14 @@ else
 CFLAGS += -DWASM_ENABLE_REF_TYPES=0
 endif
 
+ifeq ($(CONFIG_INTERPRETERS_WAMR_ENABLE_EXCE_HANDLING),y)
+CFLAGS += -DWASM_ENABLE_EXCE_HANDLING=1
+CFLAGS += -DWASM_ENABLE_TAGS=1
+else
+CFLAGS += -DWASM_ENABLE_EXCE_HANDLING=0
+CFLAGS += -DWASM_ENABLE_TAGS=0
+endif
+
 CFLAGS += -Wno-strict-prototypes -Wno-shadow -Wno-unused-variable
 CFLAGS += -Wno-int-conversion -Wno-implicit-function-declaration
 
@@ -379,6 +391,7 @@ CSRCS += nuttx_platform.c \
          posix_thread.c \
          posix_time.c \
          posix_sleep.c \
+         mremap.c \
          mem_alloc.c \
          ems_kfc.c \
          ems_alloc.c \
@@ -389,6 +402,7 @@ CSRCS += nuttx_platform.c \
          bh_hashmap.c \
          bh_list.c \
          bh_log.c \
+         bh_memutils.c \
          bh_queue.c \
          bh_vector.c \
          bh_read_file.c \
@@ -404,6 +418,7 @@ CSRCS += nuttx_platform.c \
 ASRCS += $(INVOKE_NATIVE)
 
 VPATH += $(SHARED_ROOT)/platform/nuttx
+VPATH += $(SHARED_ROOT)/platform/common/memory
 VPATH += $(SHARED_ROOT)/platform/common/posix
 VPATH += $(SHARED_ROOT)/platform/common/libc-util
 VPATH += $(SHARED_ROOT)/mem-alloc
