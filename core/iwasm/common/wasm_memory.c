@@ -42,6 +42,14 @@ static void (*free_func)(void *ptr) = NULL;
 
 static unsigned int global_pool_size;
 
+static uint32
+align_as_and_cast(uint64 size, uint64 alignment)
+{
+    uint64 aligned_size = (size + alignment - 1) & ~(alignment - 1);
+
+    return aligned_size > UINT32_MAX ? UINT32_MAX : (uint32)aligned_size;
+}
+
 static bool
 wasm_memory_init_with_pool(void *mem, unsigned int bytes)
 {
@@ -629,7 +637,61 @@ wasm_runtime_set_mem_bound_check_bytes(WASMMemoryInstance *memory,
 #endif
 }
 
-#ifndef OS_ENABLE_HW_BOUND_CHECK
+static void
+wasm_munmap_linear_memory(void *mapped_mem, uint64 commit_size, uint64 map_size)
+{
+#ifdef BH_PLATFORM_WINDOWS
+    os_mem_decommit(mapped_mem, commit_size);
+#else
+    (void)commit_size;
+#endif
+    os_munmap(mapped_mem, map_size);
+}
+
+static void *
+wasm_mremap_linear_memory(void *mapped_mem, uint64 old_size, uint64 new_size,
+                          uint64 commit_size)
+{
+    void *new_mem;
+
+    bh_assert(new_size > 0);
+    bh_assert(new_size > old_size);
+
+    if (mapped_mem) {
+        new_mem = os_mremap(mapped_mem, old_size, new_size);
+    }
+    else {
+        new_mem = os_mmap(NULL, new_size, MMAP_PROT_NONE, MMAP_MAP_NONE,
+                          os_get_invalid_handle());
+    }
+    if (!new_mem) {
+        return NULL;
+    }
+
+#ifdef BH_PLATFORM_WINDOWS
+    if (commit_size > 0
+        && !os_mem_commit(new_mem, commit_size,
+                          MMAP_PROT_READ | MMAP_PROT_WRITE)) {
+        os_munmap(new_mem, new_size);
+        return NULL;
+    }
+#endif
+
+    if (os_mprotect(new_mem, commit_size, MMAP_PROT_READ | MMAP_PROT_WRITE)
+        != 0) {
+        wasm_munmap_linear_memory(new_mem, new_size, new_size);
+        return NULL;
+    }
+
+    return new_mem;
+}
+
+static void *
+wasm_mmap_linear_memory(uint64_t map_size, uint64 commit_size)
+{
+    return wasm_mremap_linear_memory(NULL, 0, map_size, commit_size);
+}
+
 bool
 wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
 {
@@ -638,7 +700,7 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
     uint32 num_bytes_per_page, heap_size, total_size_old = 0;
     uint32 cur_page_count, max_page_count, total_page_count;
     uint64 total_size_new;
-    bool ret = true;
+    bool ret = true, full_size_mmaped;
     enlarge_memory_error_reason_t failure_reason = INTERNAL_ERROR;
 
     if (!memory) {
@@ -646,12 +708,20 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
         goto return_func;
     }
 
-    heap_data_old = memory->heap_data;
-    heap_size = (uint32)(memory->heap_data_end - memory->heap_data);
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    full_size_mmaped = true;
+#elif WASM_ENABLE_SHARED_MEMORY != 0
+    full_size_mmaped = shared_memory_is_shared(memory);
+#else
+    full_size_mmaped = false;
+#endif
 
     memory_data_old = memory->memory_data;
     total_size_old = memory->memory_data_size;
 
+    heap_data_old = memory->heap_data;
+    heap_size = (uint32)(memory->heap_data_end - memory->heap_data);
+
     num_bytes_per_page = memory->num_bytes_per_page;
     cur_page_count = memory->cur_page_count;
     max_page_count = memory->max_page_count;
@@ -681,165 +751,64 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
         total_size_new = UINT32_MAX;
     }
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (shared_memory_is_shared(memory)) {
-        memory->num_bytes_per_page = num_bytes_per_page;
-        memory->cur_page_count = total_page_count;
-        memory->max_page_count = max_page_count;
-        SET_LINEAR_MEMORY_SIZE(memory, (uint32)total_size_new);
-        memory->memory_data_end = memory->memory_data + (uint32)total_size_new;
-
-        wasm_runtime_set_mem_bound_check_bytes(memory, total_size_new);
-        return true;
-    }
+    if (full_size_mmaped) {
+#ifdef BH_PLATFORM_WINDOWS
+        if (!os_mem_commit(memory->memory_data_end,
+                           (uint32)total_size_new - total_size_old,
+                           MMAP_PROT_READ | MMAP_PROT_WRITE)) {
+            ret = false;
+            goto return_func;
+        }
 #endif
 
-    if (heap_size > 0) {
-        if (mem_allocator_is_heap_corrupted(memory->heap_handle)) {
-            wasm_runtime_show_app_heap_corrupted_prompt();
-            ret = false;
-            goto return_func;
-        }
-    }
-
-    if (!(memory_data_new =
-              wasm_runtime_realloc(memory_data_old, (uint32)total_size_new))) {
-        if (!(memory_data_new = wasm_runtime_malloc((uint32)total_size_new))) {
-            ret = false;
-            goto return_func;
-        }
-        if (memory_data_old) {
-            bh_memcpy_s(memory_data_new, (uint32)total_size_new,
-                        memory_data_old, total_size_old);
-            wasm_runtime_free(memory_data_old);
-        }
-    }
-
-    memset(memory_data_new + total_size_old, 0,
-           (uint32)total_size_new - total_size_old);
-
-    if (heap_size > 0) {
-        if (mem_allocator_migrate(memory->heap_handle,
-                                  (char *)heap_data_old
-                                      + (memory_data_new - memory_data_old),
-                                  heap_size)
+        if (os_mprotect(memory->memory_data_end,
+                        (uint32)total_size_new - total_size_old,
+                        MMAP_PROT_READ | MMAP_PROT_WRITE)
             != 0) {
-            /* Don't return here as memory->memory_data is obsolete and
-               must be updated to be correctly used later. */
+#ifdef BH_PLATFORM_WINDOWS
+            os_mem_decommit(memory->memory_data_end,
+                            (uint32)total_size_new - total_size_old);
+#endif
             ret = false;
+            goto return_func;
         }
     }
+    else {
+        if (heap_size > 0) {
+            if (mem_allocator_is_heap_corrupted(memory->heap_handle)) {
+                wasm_runtime_show_app_heap_corrupted_prompt();
+                ret = false;
+                goto return_func;
+            }
+        }
 
-    memory->heap_data = memory_data_new + (heap_data_old - memory_data_old);
-    memory->heap_data_end = memory->heap_data + heap_size;
+        if (!(memory_data_new = wasm_mremap_linear_memory(
+                  memory_data_old, total_size_old, (uint32)total_size_new,
+                  (uint32)total_size_new))) {
+            ret = false;
+            goto return_func;
+        }
 
-    memory->num_bytes_per_page = num_bytes_per_page;
-    memory->cur_page_count = total_page_count;
-    memory->max_page_count = max_page_count;
-    memory->memory_data_size = (uint32)total_size_new;
+        if (heap_size > 0) {
+            if (mem_allocator_migrate(memory->heap_handle,
+                                      (char *)heap_data_old
+                                          + (memory_data_new - memory_data_old),
+                                      heap_size)
+                != 0) {
+                /* Don't return here as memory->memory_data is obsolete and
+                must be updated to be correctly used later. */
+                ret = false;
+            }
+        }
 
-    memory->memory_data = memory_data_new;
-    memory->memory_data_end = memory_data_new + (uint32)total_size_new;
-
-    wasm_runtime_set_mem_bound_check_bytes(memory, total_size_new);
-
+        memory->heap_data = memory_data_new + (heap_data_old - memory_data_old);
+        memory->heap_data_end = memory->heap_data + heap_size;
+        memory->memory_data = memory_data_new;
 #if defined(os_writegsbase)
-    /* write base addr of linear memory to GS segment register */
-    os_writegsbase(memory_data_new);
+        /* write base addr of linear memory to GS segment register */
+        os_writegsbase(memory_data_new);
 #endif
-
-return_func:
-    if (!ret && enlarge_memory_error_cb) {
-        WASMExecEnv *exec_env = NULL;
-
-#if WASM_ENABLE_INTERP != 0
-        if (module->module_type == Wasm_Module_Bytecode)
-            exec_env =
-                ((WASMModuleInstanceExtra *)module->e)->common.cur_exec_env;
-#endif
-#if WASM_ENABLE_AOT != 0
-        if (module->module_type == Wasm_Module_AoT)
-            exec_env =
-                ((AOTModuleInstanceExtra *)module->e)->common.cur_exec_env;
-#endif
-
-        enlarge_memory_error_cb(inc_page_count, total_size_old, 0,
-                                failure_reason,
-                                (WASMModuleInstanceCommon *)module, exec_env,
-                                enlarge_memory_error_user_data);
     }
-
-    return ret;
-}
-#else
-bool
-wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
-{
-    WASMMemoryInstance *memory = wasm_get_default_memory(module);
-    uint32 num_bytes_per_page, total_size_old = 0;
-    uint32 cur_page_count, max_page_count, total_page_count;
-    uint64 total_size_new;
-    bool ret = true;
-    enlarge_memory_error_reason_t failure_reason = INTERNAL_ERROR;
-
-    if (!memory) {
-        ret = false;
-        goto return_func;
-    }
-
-    num_bytes_per_page = memory->num_bytes_per_page;
-    cur_page_count = memory->cur_page_count;
-    max_page_count = memory->max_page_count;
-    total_size_old = num_bytes_per_page * cur_page_count;
-    total_page_count = inc_page_count + cur_page_count;
-    total_size_new = num_bytes_per_page * (uint64)total_page_count;
-
-    if (inc_page_count <= 0)
-        /* No need to enlarge memory */
-        return true;
-
-    if (total_page_count < cur_page_count) { /* integer overflow */
-        ret = false;
-        goto return_func;
-    }
-
-    if (total_page_count > max_page_count) {
-        failure_reason = MAX_SIZE_REACHED;
-        ret = false;
-        goto return_func;
-    }
-
-    bh_assert(total_size_new <= 4 * (uint64)BH_GB);
-    if (total_size_new > UINT32_MAX) {
-        /* Resize to 1 page with size 4G-1 */
-        num_bytes_per_page = UINT32_MAX;
-        total_page_count = max_page_count = 1;
-        total_size_new = UINT32_MAX;
-    }
-
-#ifdef BH_PLATFORM_WINDOWS
-    if (!os_mem_commit(memory->memory_data_end,
-                       (uint32)total_size_new - total_size_old,
-                       MMAP_PROT_READ | MMAP_PROT_WRITE)) {
-        ret = false;
-        goto return_func;
-    }
-#endif
-
-    if (os_mprotect(memory->memory_data_end,
-                    (uint32)total_size_new - total_size_old,
-                    MMAP_PROT_READ | MMAP_PROT_WRITE)
-        != 0) {
-#ifdef BH_PLATFORM_WINDOWS
-        os_mem_decommit(memory->memory_data_end,
-                        (uint32)total_size_new - total_size_old);
-#endif
-        ret = false;
-        goto return_func;
-    }
-
-    /* The increased pages are filled with zero by the OS when os_mmap,
-       no need to memset it again here */
 
     memory->num_bytes_per_page = num_bytes_per_page;
     memory->cur_page_count = total_page_count;
@@ -872,7 +841,6 @@ return_func:
 
     return ret;
 }
-#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
 void
 wasm_runtime_set_enlarge_mem_error_callback(
@@ -898,4 +866,76 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 #endif
 
     return ret;
+}
+
+void
+wasm_deallocate_linear_memory(WASMMemoryInstance *memory_inst)
+{
+    uint64 map_size;
+
+    bh_assert(memory_inst);
+    bh_assert(memory_inst->memory_data);
+
+#ifndef OS_ENABLE_HW_BOUND_CHECK
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (shared_memory_is_shared(memory_inst)) {
+        map_size = (uint64)memory_inst->num_bytes_per_page
+                   * memory_inst->max_page_count;
+    }
+    else
+#endif
+    {
+        map_size = (uint64)memory_inst->num_bytes_per_page
+                   * memory_inst->cur_page_count;
+    }
+#else
+    map_size = 8 * (uint64)BH_GB;
+#endif
+    wasm_munmap_linear_memory(memory_inst->memory_data,
+                              memory_inst->memory_data_size, map_size);
+    memory_inst->memory_data = NULL;
+}
+
+int
+wasm_allocate_linear_memory(uint8 **data, bool is_shared_memory,
+                            uint64 num_bytes_per_page, uint64 init_page_count,
+                            uint64 max_page_count, uint64 *memory_data_size)
+{
+    uint64 map_size, page_size;
+
+    bh_assert(data);
+    bh_assert(memory_data_size);
+
+#ifndef OS_ENABLE_HW_BOUND_CHECK
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (is_shared_memory) {
+        /* Allocate maximum memory size when memory is shared */
+        map_size = max_page_count * num_bytes_per_page;
+    }
+    else
+#endif
+    {
+        map_size = init_page_count * num_bytes_per_page;
+    }
+#else  /* else of OS_ENABLE_HW_BOUND_CHECK */
+    /* Totally 8G is mapped, the opcode load/store address range is 0 to 8G:
+     *   ea = i + memarg.offset
+     * both i and memarg.offset are u32 in range 0 to 4G
+     * so the range of ea is 0 to 8G
+     */
+    map_size = 8 * (uint64)BH_GB;
+#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
+
+    page_size = os_getpagesize();
+    *memory_data_size = init_page_count * num_bytes_per_page;
+    bh_assert(*memory_data_size <= UINT32_MAX);
+    align_as_and_cast(*memory_data_size, page_size);
+
+    if (map_size > 0) {
+        if (!(*data = wasm_mmap_linear_memory(map_size, *memory_data_size))) {
+            return BHT_ERROR;
+        }
+    }
+
+    return BHT_OK;
 }

@@ -37,6 +37,9 @@ else()
   set(source_all ${source_all} ${PLATFORM_COMMON_LIBC_UTIL_SOURCE})
 endif()
 
+include (${CMAKE_CURRENT_LIST_DIR}/../common/memory/platform_api_memory.cmake)
+set (source_all ${source_all} ${PLATFORM_COMMON_MEMORY_SOURCE})
+
 file (GLOB source_all_untrusted ${PLATFORM_SHARED_DIR}/untrusted/*.c)
 
 set (PLATFORM_SHARED_SOURCE ${source_all})
