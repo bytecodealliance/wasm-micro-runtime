@@ -2090,7 +2090,7 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     (void)jmpbuf_node_pop;
     return ret;
 }
-#define invoke_native_internal invoke_native_with_hw_bound_check
+#define invoke_native_internal invoke_native_with_hw_bound_check /* NOLINT */
 #else /* else of OS_ENABLE_HW_BOUND_CHECK */
 static inline bool
 invoke_native_internal(WASMExecEnv *exec_env, void *func_ptr,
@@ -4653,7 +4653,8 @@ aot_frame_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap)
 
         /* stack ref flags */
         uint8 *frame_ref = frame->frame_ref;
-        for (i = local_ref_flag_cell_num; i < frame->sp - frame->lp; i++) {
+        for (i = local_ref_flag_cell_num; i < (uint32)(frame->sp - frame->lp);
+             i++) {
             if (frame_ref[i]) {
                 gc_obj = GET_REF_FROM_ADDR(frame->lp + i);
                 if (wasm_obj_is_created_from_heap(gc_obj)) {

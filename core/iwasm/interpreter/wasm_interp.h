@@ -34,6 +34,14 @@ typedef struct WASMInterpFrame {
     uint64 time_started;
 #endif
 
+#if WASM_ENABLE_EXCE_HANDLING != 0
+    /* set to true if the callee returns an exception rather than
+     * result values on the stack
+     */
+    bool exception_raised;
+    uint32 tag_index;
+#endif
+
 #if WASM_ENABLE_FAST_INTERP != 0
     /* Return offset of the first return value of current frame,
        the callee will put return values here continuously */

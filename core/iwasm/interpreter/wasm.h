@@ -138,6 +138,9 @@ typedef void *table_elem_type_t;
 #if WASM_ENABLE_BULK_MEMORY != 0
 #define SECTION_TYPE_DATACOUNT 12
 #endif
+#if WASM_ENABLE_TAGS != 0
+#define SECTION_TYPE_TAG 13
+#endif
 #if WASM_ENABLE_STRINGREF != 0
 #define SECTION_TYPE_STRINGREF 14
 #endif
@@ -150,16 +153,27 @@ typedef void *table_elem_type_t;
 #define IMPORT_KIND_TABLE 1
 #define IMPORT_KIND_MEMORY 2
 #define IMPORT_KIND_GLOBAL 3
+#if WASM_ENABLE_TAGS != 0
+#define IMPORT_KIND_TAG 4
+#endif
 
 #define EXPORT_KIND_FUNC 0
 #define EXPORT_KIND_TABLE 1
 #define EXPORT_KIND_MEMORY 2
 #define EXPORT_KIND_GLOBAL 3
+#if WASM_ENABLE_TAGS != 0
+#define EXPORT_KIND_TAG 4
+#endif
 
 #define LABEL_TYPE_BLOCK 0
 #define LABEL_TYPE_LOOP 1
 #define LABEL_TYPE_IF 2
 #define LABEL_TYPE_FUNCTION 3
+#if WASM_ENABLE_EXCE_HANDLING != 0
+#define LABEL_TYPE_TRY 4
+#define LABEL_TYPE_CATCH 5
+#define LABEL_TYPE_CATCH_ALL 6
+#endif
 
 #define WASM_TYPE_FUNC 0
 #define WASM_TYPE_STRUCT 1
@@ -179,6 +193,9 @@ typedef void *table_elem_type_t;
 typedef struct WASMModule WASMModule;
 typedef struct WASMFunction WASMFunction;
 typedef struct WASMGlobal WASMGlobal;
+#if WASM_ENABLE_TAGS != 0
+typedef struct WASMTag WASMTag;
+#endif
 
 #ifndef WASM_VALUE_DEFINED
 #define WASM_VALUE_DEFINED
@@ -526,6 +543,24 @@ typedef struct WASMFunctionImport {
 #endif
 } WASMFunctionImport;
 
+#if WASM_ENABLE_TAGS != 0
+typedef struct WASMTagImport {
+    char *module_name;
+    char *field_name;
+    uint8 attribute; /* the type of the tag (numerical) */
+    uint32 type;     /* the type of the catch function (numerical)*/
+    WASMType *tag_type;
+    void *tag_ptr_linked;
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+    /* imported tag  pointer after linked */
+    WASMModule *import_module;
+    WASMTag *import_tag_linked;
+    uint32 import_tag_index_linked;
+#endif
+} WASMTagImport;
+#endif
+
 typedef struct WASMGlobalImport {
     char *module_name;
     char *field_name;
@@ -555,6 +590,9 @@ typedef struct WASMImport {
         WASMFunctionImport function;
         WASMTableImport table;
         WASMMemoryImport memory;
+#if WASM_ENABLE_TAGS != 0
+        WASMTagImport tag;
+#endif
         WASMGlobalImport global;
         struct {
             char *module_name;
@@ -602,6 +640,10 @@ struct WASMFunction {
     uint32 type_idx;
 #endif
 
+#if WASM_ENABLE_EXCE_HANDLING != 0
+    uint32 exception_handler_count;
+#endif
+
 #if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 \
     || WASM_ENABLE_WAMR_COMPILER != 0
     /* Whether function has opcode memory.grow */
@@ -630,6 +672,14 @@ struct WASMFunction {
 #endif
 #endif
 };
+
+#if WASM_ENABLE_TAGS != 0
+struct WASMTag {
+    uint8 attribute; /* the attribute property of the tag (expected to be 0) */
+    uint32 type; /* the type of the tag (expected valid inden in type table) */
+    WASMType *tag_type;
+};
+#endif
 
 struct WASMGlobal {
     uint8 type;
@@ -763,6 +813,9 @@ struct WASMModule {
     uint32 function_count;
     uint32 table_count;
     uint32 memory_count;
+#if WASM_ENABLE_TAGS != 0
+    uint32 tag_count;
+#endif
     uint32 global_count;
     uint32 export_count;
     uint32 table_seg_count;
@@ -783,11 +836,17 @@ struct WASMModule {
     uint32 import_function_count;
     uint32 import_table_count;
     uint32 import_memory_count;
+#if WASM_ENABLE_TAGS != 0
+    uint32 import_tag_count;
+#endif
     uint32 import_global_count;
 
     WASMImport *import_functions;
     WASMImport *import_tables;
     WASMImport *import_memories;
+#if WASM_ENABLE_TAGS != 0
+    WASMImport *import_tags;
+#endif
     WASMImport *import_globals;
 
     WASMType **types;
@@ -795,6 +854,9 @@ struct WASMModule {
     WASMFunction **functions;
     WASMTable *tables;
     WASMMemory *memories;
+#if WASM_ENABLE_TAGS != 0
+    WASMTag **tags;
+#endif
     WASMGlobal *globals;
     WASMExport *exports;
     WASMTableSeg *table_segments;
@@ -1007,6 +1069,11 @@ typedef struct WASMBranchBlock {
     uint8 *target_addr;
     uint32 *frame_sp;
     uint32 cell_num;
+#if WASM_ENABLE_EXCE_HANDLING != 0
+    /* in exception handling, label_type needs to be stored to lookup exception
+     * handlers */
+    uint8 label_type;
+#endif
 } WASMBranchBlock;
 
 /**

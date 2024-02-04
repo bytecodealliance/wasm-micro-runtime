@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: install dependencies
         run: /usr/bin/env python3 -m pip install -r requirements.txt
@@ -52,7 +52,7 @@ jobs:
 
       - name: Cache LLVM libraries
         id: retrieve_llvm_libs
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -62,7 +62,7 @@ jobs:
             ./core/deps/llvm/build/share
           key: ${{ steps.create_lib_cache_key.outputs.key}}
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: ~/.ccache
           key: 0-ccache-${{ inputs.os }}-${{ steps.get_last_commit.outputs.last_commit }}
@@ -70,7 +70,7 @@ jobs:
             0-ccache-${{ inputs.os }}
         if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true' && inputs.os == 'ubuntu-20.04'
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: ~/.cache/ccache
           key: 0-ccache-${{ inputs.os }}-${{ steps.get_last_commit.outputs.last_commit }}
@@ -82,7 +82,7 @@ jobs:
       - run: sudo apt install -y ccache ninja-build
         if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true' && startsWith(inputs.os, 'ubuntu') && inputs.container_image == ''
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: ~/Library/Caches/ccache
           key: 0-ccache-${{ inputs.os }}-${{ steps.get_last_commit.outputs.last_commit }}
