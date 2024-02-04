@@ -281,7 +281,7 @@ mod tests {
 
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("resources/test");
-        d.push("hello_wasm32-wasi.wasm");
+        d.push("gcd_wasm32_wasi.wasm");
         let module = Module::from_file(d.as_path());
         assert!(module.is_ok());
     }

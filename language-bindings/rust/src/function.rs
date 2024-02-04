@@ -150,6 +150,11 @@ mod tests {
         let call_result = function.call(instance, &params);
         assert!(call_result.is_ok());
         assert_eq!(call_result.unwrap(), WasmValue::I32(9));
+
+        let params: Vec<WasmValue> = vec![WasmValue::I32(128), WasmValue::I32(256)];
+        let call_result = function.call(instance, &params);
+        assert!(call_result.is_ok());
+        assert_eq!(call_result.unwrap(), WasmValue::I32(384));
     }
 
     #[test]
@@ -158,7 +163,7 @@ mod tests {
 
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("resources/test");
-        d.push("hello_wasm32-wasi.wasm");
+        d.push("gcd_wasm32_wasi.wasm");
         let module = Module::from_file(d.as_path());
         assert!(module.is_ok());
         let mut module = module.unwrap();
@@ -169,11 +174,16 @@ mod tests {
         assert!(instance.is_ok());
         let instance: &Instance = &instance.unwrap();
 
-        let function = Function::find_export_func(instance, "_start");
+        let function = Function::find_export_func(instance, "gcd");
         assert!(function.is_ok());
         let function = function.unwrap();
 
-        let result = function.call(instance, &vec![]);
-        assert!(result.is_ok());
+        let params: Vec<WasmValue> = vec![WasmValue::I32(9), WasmValue::I32(27)];
+        let result = function.call(instance, &params);
+        assert_eq!(result.unwrap(), WasmValue::I32(9));
+
+        let params: Vec<WasmValue> = vec![WasmValue::I32(0), WasmValue::I32(27)];
+        let result = function.call(instance, &params);
+        assert_eq!(result.unwrap(), WasmValue::I32(27));
     }
 }
