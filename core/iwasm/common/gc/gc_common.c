@@ -866,8 +866,7 @@ wasm_obj_is_instance_of_ref_type(const WASMObjectRef obj,
 }
 
 void
-wasm_runtime_push_local_object_ref(WASMExecEnv *exec_env,
-                                   WASMLocalObjectRef *ref)
+wasm_runtime_push_local_obj_ref(WASMExecEnv *exec_env, WASMLocalObjectRef *ref)
 {
     ref->val = NULL;
     ref->prev = exec_env->cur_local_object_ref;
@@ -875,7 +874,7 @@ wasm_runtime_push_local_object_ref(WASMExecEnv *exec_env,
 }
 
 WASMLocalObjectRef *
-wasm_runtime_pop_local_object_ref(WASMExecEnv *exec_env)
+wasm_runtime_pop_local_obj_ref(WASMExecEnv *exec_env)
 {
     WASMLocalObjectRef *local_ref = exec_env->cur_local_object_ref;
     exec_env->cur_local_object_ref = exec_env->cur_local_object_ref->prev;
@@ -883,13 +882,22 @@ wasm_runtime_pop_local_object_ref(WASMExecEnv *exec_env)
 }
 
 void
-wasm_runtime_pop_local_object_refs(WASMExecEnv *exec_env, uint32 n)
+wasm_runtime_pop_local_obj_refs(WASMExecEnv *exec_env, uint32 n)
 {
     bh_assert(n > 0);
 
     do {
         exec_env->cur_local_object_ref = exec_env->cur_local_object_ref->prev;
     } while (--n > 0);
+}
+
+WASMLocalObjectRef *
+wasm_runtime_get_cur_local_obj_ref(WASMExecEnv *exec_env)
+{
+    WASMLocalObjectRef *local_ref = exec_env->cur_local_object_ref;
+
+    bh_assert(local_ref);
+    return local_ref;
 }
 
 void

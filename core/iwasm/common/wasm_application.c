@@ -595,7 +595,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                                                  module_inst, NULL, 0))) {
                             goto fail;
                         }
-                        wasm_runtime_push_local_object_ref(exec_env, local_ref);
+                        wasm_runtime_push_local_obj_ref(exec_env, local_ref);
                         local_ref->val = (WASMObjectRef)gc_obj;
                         num_local_ref_pushed++;
                         PUT_REF_TO_ADDR(argv1 + p, gc_obj);
@@ -618,7 +618,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                                                  module_inst, NULL, 0))) {
                             goto fail;
                         }
-                        wasm_runtime_push_local_object_ref(exec_env, local_ref);
+                        wasm_runtime_push_local_obj_ref(exec_env, local_ref);
                         local_ref->val = (WASMObjectRef)gc_obj;
                         num_local_ref_pushed++;
                         PUT_REF_TO_ADDR(argv1 + p, gc_obj);
@@ -842,7 +842,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
 
 #if WASM_ENABLE_GC != 0
     for (j = 0; j < num_local_ref_pushed; j++) {
-        local_ref = wasm_runtime_pop_local_object_ref(exec_env);
+        local_ref = wasm_runtime_pop_local_obj_ref(exec_env);
         wasm_runtime_free(local_ref);
     }
 #endif
@@ -856,7 +856,7 @@ fail:
 
 #if WASM_ENABLE_GC != 0
     for (j = 0; j < num_local_ref_pushed; j++) {
-        local_ref = wasm_runtime_pop_local_object_ref(exec_env);
+        local_ref = wasm_runtime_pop_local_obj_ref(exec_env);
         wasm_runtime_free(local_ref);
     }
 #endif
