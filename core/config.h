@@ -335,11 +335,6 @@
 #define WASM_ENABLE_AOT_STACK_FRAME 0
 #endif
 
-/* JIT stack frame */
-#ifndef WASM_ENABLE_JIT_STACK_FRAME
-#define WASM_ENABLE_JIT_STACK_FRAME 0
-#endif
-
 /* Heap verification */
 #ifndef BH_ENABLE_GC_VERIFY
 #define BH_ENABLE_GC_VERIFY 0

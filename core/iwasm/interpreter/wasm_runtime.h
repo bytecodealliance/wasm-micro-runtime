@@ -783,7 +783,7 @@ llvm_jit_table_grow(WASMModuleInstance *module_inst, uint32 tbl_idx,
 #endif
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0 \
-    || WASM_ENABLE_JIT_STACK_FRAME != 0
+    || WASM_ENABLE_AOT_STACK_FRAME != 0
 bool
 llvm_jit_alloc_frame(WASMExecEnv *exec_env, uint32 func_index);
 

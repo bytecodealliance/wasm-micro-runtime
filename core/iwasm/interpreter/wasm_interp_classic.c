@@ -6544,7 +6544,7 @@ fast_jit_call_func_bytecode(WASMModuleInstance *module_inst,
 
 #if WASM_ENABLE_JIT != 0
 #if WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0 \
-    || WASM_ENABLE_JIT_STACK_FRAME != 0
+    || WASM_ENABLE_AOT_STACK_FRAME != 0
 #if WASM_ENABLE_GC == 0
 bool
 llvm_jit_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
@@ -6781,7 +6781,7 @@ llvm_jit_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame)
 }
 #endif /* end of WASM_ENABLE_DUMP_CALL_STACK != 0 \
           || WASM_ENABLE_PERF_PROFILING != 0      \
-          || WASM_ENABLE_JIT_STACK_FRAME != 0 */
+          || WASM_ENABLE_AOT_STACK_FRAME != 0 */
 
 static bool
 llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
@@ -6796,7 +6796,7 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
     bool ret = false;
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0) \
-    || (WASM_ENABLE_JIT_STACK_FRAME != 0)
+    || (WASM_ENABLE_AOT_STACK_FRAME != 0)
     if (!llvm_jit_alloc_frame(exec_env, function - module_inst->e->functions)) {
         /* wasm operand stack overflow has been thrown,
            no need to throw again */
@@ -6909,7 +6909,7 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
 fail:
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0) \
-    || (WASM_ENABLE_JIT_STACK_FRAME != 0)
+    || (WASM_ENABLE_AOT_STACK_FRAME != 0)
     llvm_jit_free_frame_internal(exec_env);
 #endif
 
