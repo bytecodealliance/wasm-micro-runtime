@@ -890,8 +890,8 @@ wasm_obj_is_instance_of_ref_type(const wasm_obj_t obj,
  * @param local_obj_ref the local object ref to push
  */
 WASM_RUNTIME_API_EXTERN void
-wasm_runtime_push_local_object_ref(wasm_exec_env_t exec_env,
-                                   wasm_local_obj_ref_t *local_obj_ref);
+wasm_runtime_push_local_obj_ref(wasm_exec_env_t exec_env,
+                                wasm_local_obj_ref_t *local_obj_ref);
 
 /**
  * Pop a local object ref from stack
@@ -901,7 +901,7 @@ wasm_runtime_push_local_object_ref(wasm_exec_env_t exec_env,
  * @return the popped wasm_local_obj_ref_t
  */
 WASM_RUNTIME_API_EXTERN wasm_local_obj_ref_t *
-wasm_runtime_pop_local_object_ref(wasm_exec_env_t exec_env);
+wasm_runtime_pop_local_obj_ref(wasm_exec_env_t exec_env);
 
 /**
  * Pop n local object refs from stack
@@ -910,10 +910,10 @@ wasm_runtime_pop_local_object_ref(wasm_exec_env_t exec_env);
  * @param n number to pop
  */
 WASM_RUNTIME_API_EXTERN void
-wasm_runtime_pop_local_object_refs(wasm_exec_env_t exec_env, uint32_t n);
+wasm_runtime_pop_local_obj_refs(wasm_exec_env_t exec_env, uint32_t n);
 
 /**
- * get current local object ref from stack
+ * Get current local object ref from stack
  *
  * @param exec_env the execution environment
  *
