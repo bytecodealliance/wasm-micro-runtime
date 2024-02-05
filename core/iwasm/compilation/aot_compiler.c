@@ -1394,6 +1394,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 }
 
                 read_leb_uint32(frame_ip, frame_ip_end, opcode1);
+                /* opcode1 was checked in loader and is no larger than
+                   UINT8_MAX */
                 opcode = (uint8)opcode1;
 
                 switch (opcode) {
