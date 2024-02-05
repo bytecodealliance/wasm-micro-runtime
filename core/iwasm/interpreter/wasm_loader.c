@@ -6367,14 +6367,22 @@ check_wasi_abi_compatibility(const WASMModule *module,
     /* clang-format on */
 
     WASMExport *initialize = NULL, *memory = NULL, *start = NULL;
+    uint32 import_function_count = module->import_function_count;
+    WASMFuncType *func_type;
 
     /* (func (export "_start") (...) */
     start = wasm_loader_find_export(module, "", "_start", EXPORT_KIND_FUNC,
                                     error_buf, error_buf_size);
     if (start) {
-        WASMFuncType *func_type =
-            module->functions[start->index - module->import_function_count]
-                ->func_type;
+        if (start->index < import_function_count) {
+            set_error_buf(
+                error_buf, error_buf_size,
+                "the builtin _start function can not be an import function");
+            return false;
+        }
+
+        func_type =
+            module->functions[start->index - import_function_count]->func_type;
         if (func_type->param_count || func_type->result_count) {
             set_error_buf(error_buf, error_buf_size,
                           "the signature of builtin _start function is wrong");
@@ -6386,11 +6394,17 @@ check_wasi_abi_compatibility(const WASMModule *module,
         initialize =
             wasm_loader_find_export(module, "", "_initialize", EXPORT_KIND_FUNC,
                                     error_buf, error_buf_size);
+
         if (initialize) {
-            WASMFuncType *func_type =
-                module
-                    ->functions[initialize->index
-                                - module->import_function_count]
+            if (initialize->index < import_function_count) {
+                set_error_buf(error_buf, error_buf_size,
+                              "the builtin _initialize function can not be an "
+                              "import function");
+                return false;
+            }
+
+            func_type =
+                module->functions[initialize->index - import_function_count]
                     ->func_type;
             if (func_type->param_count || func_type->result_count) {
                 set_error_buf(
@@ -9899,7 +9913,8 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
     bool is_type_multi_byte;
 #endif
 
-    if (loader_ctx->csp_num < depth + 1) {
+    bh_assert(loader_ctx->csp_num > 0);
+    if (loader_ctx->csp_num - 1 < depth) {
         set_error_buf(error_buf, error_buf_size,
                       "unknown label, "
                       "unexpected end of section or function");
