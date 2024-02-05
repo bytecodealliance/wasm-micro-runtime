@@ -720,8 +720,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
     ConstExprContext const_expr_ctx = { 0 };
     WASMValue cur_value;
 #if WASM_ENABLE_GC != 0
-    uint8 opcode1;
-    uint32 type_idx;
+    uint32 opcode1, type_idx;
+    uint8 opcode;
     WASMRefType cur_ref_type = { 0 };
 #endif
 
@@ -998,8 +998,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
             /* struct.new and array.new */
             case WASM_OP_GC_PREFIX:
             {
-                CHECK_BUF(p, p_end, 1);
-                opcode1 = read_uint8(p);
+                read_leb_uint32(p, p_end, opcode1);
 
                 switch (opcode1) {
                     case WASM_OP_STRUCT_NEW:
@@ -1061,8 +1060,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                             &cur_ref_type.ref_ht_typeidx, false, type_idx);
                         if (!push_const_expr_stack(
                                 &const_expr_ctx, flag, cur_ref_type.ref_type,
-                                &cur_ref_type, opcode1, &cur_value, error_buf,
-                                error_buf_size)) {
+                                &cur_ref_type, (uint8)opcode1, &cur_value,
+                                error_buf, error_buf_size)) {
                             wasm_runtime_free(struct_init_values);
                             goto fail;
                         }
@@ -1089,8 +1088,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                             &cur_ref_type.ref_ht_typeidx, false, type_idx);
                         if (!push_const_expr_stack(
                                 &const_expr_ctx, flag, cur_ref_type.ref_type,
-                                &cur_ref_type, opcode1, &cur_value, error_buf,
-                                error_buf_size)) {
+                                &cur_ref_type, (uint8)opcode1, &cur_value,
+                                error_buf, error_buf_size)) {
                             goto fail;
                         }
                         break;
@@ -1216,8 +1215,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                             &cur_ref_type.ref_ht_typeidx, false, type_idx);
                         if (!push_const_expr_stack(
                                 &const_expr_ctx, flag, cur_ref_type.ref_type,
-                                &cur_ref_type, opcode1, &cur_value, error_buf,
-                                error_buf_size)) {
+                                &cur_ref_type, (uint8)opcode1, &cur_value,
+                                error_buf, error_buf_size)) {
                             if (array_init_values) {
                                 wasm_runtime_free(array_init_values);
                             }
@@ -1252,8 +1251,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                                     false, HEAP_TYPE_I31);
                         if (!push_const_expr_stack(
                                 &const_expr_ctx, flag, cur_ref_type.ref_type,
-                                &cur_ref_type, opcode1, &cur_value, error_buf,
-                                error_buf_size)) {
+                                &cur_ref_type, (uint8)opcode1, &cur_value,
+                                error_buf, error_buf_size)) {
                             goto fail;
                         }
                         break;
@@ -1285,7 +1284,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
     /* There should be only one value left on the init value stack */
     if (!pop_const_expr_stack(&const_expr_ctx, &flag, type,
 #if WASM_ENABLE_GC != 0
-                              ref_type, &opcode1,
+                              ref_type, &opcode,
 #endif
                               &cur_value, error_buf, error_buf_size)) {
         goto fail;
@@ -1302,7 +1301,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 
 #if WASM_ENABLE_GC != 0
     if (init_expr->init_expr_type == WASM_OP_GC_PREFIX) {
-        switch (opcode1) {
+        switch (opcode) {
             case WASM_OP_STRUCT_NEW:
                 init_expr->init_expr_type = INIT_EXPR_TYPE_STRUCT_NEW;
                 break;
@@ -7257,8 +7256,11 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                 uint32 opcode1;
 
                 read_leb_uint32(p, p_end, opcode1);
+                /* opcode1 was checked in wasm_loader_prepare_bytecode and
+                   is no larger than UINT8_MAX */
+                opcode = (uint8)opcode1;
 
-                switch (opcode1) {
+                switch (opcode) {
                     case WASM_OP_STRUCT_NEW:
                     case WASM_OP_STRUCT_NEW_DEFAULT:
                         skip_leb_uint32(p, p_end); /* typeidx */
@@ -7383,8 +7385,11 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                 uint32 opcode1;
 
                 read_leb_uint32(p, p_end, opcode1);
+                /* opcode1 was checked in wasm_loader_prepare_bytecode and
+                   is no larger than UINT8_MAX */
+                opcode = (uint8)opcode1;
 
-                switch (opcode1) {
+                switch (opcode) {
                     case WASM_OP_I32_TRUNC_SAT_S_F32:
                     case WASM_OP_I32_TRUNC_SAT_U_F32:
                     case WASM_OP_I32_TRUNC_SAT_S_F64:
