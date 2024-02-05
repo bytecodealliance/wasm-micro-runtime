@@ -670,9 +670,9 @@ thread_manager_start_routine(void *arg)
     }
 
 #if WASM_ENABLE_PERF_PROFILING != 0
-    LOG_VERBOSE("============= Spawned thread ===========\n");
+    os_printf("============= Spawned thread ===========\n");
     wasm_runtime_dump_perf_profiling(module_inst);
-    LOG_VERBOSE("========================================\n");
+    os_printf("========================================\n");
 #endif
 
     /* Remove exec_env */

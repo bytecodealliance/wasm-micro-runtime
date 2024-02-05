@@ -2986,7 +2986,7 @@ aot_dump_perf_profiling(const AOTModuleInstance *module_inst)
     uint32 total_func_count = module->import_func_count + module->func_count, i;
     const char *func_name;
 
-    LOG_VERBOSE("Performance profiler data:\n");
+    os_printf("Performance profiler data:\n");
     for (i = 0; i < total_func_count; i++, perf_prof++) {
         if (perf_prof->total_exec_cnt == 0)
             continue;
@@ -2994,19 +2994,19 @@ aot_dump_perf_profiling(const AOTModuleInstance *module_inst)
         func_name = get_func_name_from_index(module_inst, i);
 
         if (func_name)
-            LOG_VERBOSE(
+            os_printf(
                 "  func %s, execution time: %.3f ms, execution count: %" PRIu32
                 " times, children execution time: %.3f ms\n",
                 func_name, perf_prof->total_exec_time / 1000.0f,
                 perf_prof->total_exec_cnt,
                 perf_prof->children_exec_time / 1000.0f);
         else
-            LOG_VERBOSE("  func %" PRIu32
-                        ", execution time: %.3f ms, execution count: %" PRIu32
-                        " times, children execution time: %.3f ms\n",
-                        i, perf_prof->total_exec_time / 1000.0f,
-                        perf_prof->total_exec_cnt,
-                        perf_prof->children_exec_time / 1000.0f);
+            os_printf("  func %" PRIu32
+                      ", execution time: %.3f ms, execution count: %" PRIu32
+                      " times, children execution time: %.3f ms\n",
+                      i, perf_prof->total_exec_time / 1000.0f,
+                      perf_prof->total_exec_cnt,
+                      perf_prof->children_exec_time / 1000.0f);
     }
 }
 

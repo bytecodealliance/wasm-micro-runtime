@@ -556,7 +556,7 @@ dump_native(char *data, uint32 length)
         &decoder, data + offset, length - offset, &instruction, operands,
         ZYDIS_MAX_OPERAND_COUNT_VISIBLE, ZYDIS_DFLAG_VISIBLE_OPERANDS_ONLY))) {
         /* Print current instruction pointer */
-        LOG_VERBOSE("%012" PRIX64 "  ", runtime_address);
+        os_printf("%012" PRIX64 "  ", runtime_address);
 
         /* Format & print the binary instruction structure to
            human readable format */
@@ -7624,7 +7624,7 @@ jit_codegen_gen_native(JitCompContext *cc)
             cc, jit_reg_new(JIT_REG_KIND_L32, label_index));
 
 #if CODEGEN_DUMP != 0
-        LOG_VERBOSE("\nL%d:\n\n", label_index);
+        os_printf("\nL%d:\n\n", label_index);
 #endif
 
         JIT_FOREACH_INSN(block, insn)
@@ -7632,7 +7632,7 @@ jit_codegen_gen_native(JitCompContext *cc)
             is_last_insn = (insn->next == block) ? true : false;
 
 #if CODEGEN_DUMP != 0
-            LOG_VERBOSE("\n");
+            os_printf("\n");
             jit_dump_insn(cc, insn);
 #endif
             switch (insn->opcode) {
@@ -9136,9 +9136,9 @@ void
 jit_codegen_dump_native(void *begin_addr, void *end_addr)
 {
 #if WASM_ENABLE_FAST_JIT_DUMP != 0
-    LOG_VERBOSE("\n");
+    os_printf("\n");
     dump_native((char *)begin_addr, (char *)end_addr - (char *)begin_addr);
-    LOG_VERBOSE("\n");
+    os_printf("\n");
 #else
     (void)begin_addr;
     (void)end_addr;

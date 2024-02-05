@@ -774,12 +774,12 @@ out:
 void
 gc_dump_heap_stats(gc_heap_t *heap)
 {
-    LOG_VERBOSE("heap: %p, heap start: %p\n", heap, heap->base_addr);
-    LOG_VERBOSE("total free: %" PRIu32 ", current: %" PRIu32
-                ", highmark: %" PRIu32 "\n",
-                heap->total_free_size, heap->current_size, heap->highmark_size);
-    LOG_VERBOSE("g_total_malloc=%lu, g_total_free=%lu, occupied=%lu\n",
-                g_total_malloc, g_total_free, g_total_malloc - g_total_free);
+    os_printf("heap: %p, heap start: %p\n", heap, heap->base_addr);
+    os_printf("total free: %" PRIu32 ", current: %" PRIu32
+              ", highmark: %" PRIu32 "\n",
+              heap->total_free_size, heap->current_size, heap->highmark_size);
+    os_printf("g_total_malloc=%lu, g_total_free=%lu, occupied=%lu\n",
+              g_total_malloc, g_total_free, g_total_malloc - g_total_free);
 }
 
 uint32
@@ -821,14 +821,14 @@ gci_dump(gc_heap_t *heap)
         }
 #endif
 
-        LOG_VERBOSE("#%d %08" PRIx32 " %" PRIx32 " %d %d"
-                    " %c %" PRId32 "\n",
-                    i, (int32)((char *)cur - (char *)heap->base_addr),
-                    (int32)ut, p, mark, inuse, (int32)hmu_obj_size(size));
+        os_printf("#%d %08" PRIx32 " %" PRIx32 " %d %d"
+                  " %c %" PRId32 "\n",
+                  i, (int32)((char *)cur - (char *)heap->base_addr), (int32)ut,
+                  p, mark, inuse, (int32)hmu_obj_size(size));
 #if BH_ENABLE_GC_VERIFY != 0
         if (inuse == 'V') {
             gc_object_prefix_t *prefix = (gc_object_prefix_t *)(cur + 1);
-            LOG_VERBOSE("#%s:%d\n", prefix->file_name, prefix->line_no);
+            os_printf("#%s:%d\n", prefix->file_name, prefix->line_no);
         }
 #endif
 
