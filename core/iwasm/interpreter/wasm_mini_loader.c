@@ -2143,7 +2143,7 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
 #endif
     option.enable_aux_stack_check = true;
 #if WASM_ENABLE_PERF_PROFILING != 0 || WASM_ENABLE_DUMP_CALL_STACK != 0 \
-    || WASM_ENABLE_JIT_STACK_FRAME != 0
+    || WASM_ENABLE_AOT_STACK_FRAME != 0
     option.enable_aux_stack_frame = true;
 #endif
 #if WASM_ENABLE_PERF_PROFILING != 0

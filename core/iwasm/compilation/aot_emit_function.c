@@ -499,7 +499,7 @@ fail:
     return false;
 }
 
-#if WASM_ENABLE_AOT_STACK_FRAME != 0 || WASM_ENABLE_JIT_STACK_FRAME != 0
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
 static bool
 call_aot_alloc_frame_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                           LLVMValueRef func_idx)
@@ -514,7 +514,7 @@ call_aot_alloc_frame_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[1] = I32_TYPE;
     ret_type = INT8_TYPE;
 
-#if WASM_ENABLE_JIT_STACK_FRAME != 0
+#if WASM_ENABLE_JIT != 0
     if (comp_ctx->is_jit_mode)
         GET_AOT_FUNCTION(llvm_jit_alloc_frame, 2);
     else
@@ -1148,8 +1148,7 @@ free_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     return true;
 }
-#endif /* end of WASM_ENABLE_AOT_STACK_FRAME != 0 || \
-          WASM_ENABLE_JIT_STACK_FRAME != 0 */
+#endif /* end of WASM_ENABLE_AOT_STACK_FRAME != 0 */
 
 /**
  * Check whether the app address and its buffer are inside the linear memory,
@@ -1444,7 +1443,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     if (comp_ctx->enable_aux_stack_frame) {
-#if WASM_ENABLE_AOT_STACK_FRAME != 0 || WASM_ENABLE_JIT_STACK_FRAME != 0
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
         if (!alloc_frame_for_aot_func(comp_ctx, func_ctx, func_idx))
             return false;
 #endif
@@ -1796,7 +1795,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     if (comp_ctx->enable_aux_stack_frame) {
-#if WASM_ENABLE_AOT_STACK_FRAME != 0 || WASM_ENABLE_JIT_STACK_FRAME != 0
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
         if (!free_frame_for_aot_func(comp_ctx, func_ctx))
             goto fail;
 #endif
@@ -2356,7 +2355,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     if (comp_ctx->enable_aux_stack_frame) {
-#if WASM_ENABLE_AOT_STACK_FRAME != 0 || WASM_ENABLE_JIT_STACK_FRAME != 0
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
         /*  TODO: use current frame instead of allocating new frame
                   for WASM_OP_RETURN_CALL_INDIRECT */
         if (!call_aot_alloc_frame_func(comp_ctx, func_ctx, func_idx))
@@ -2546,7 +2545,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     if (comp_ctx->enable_aux_stack_frame) {
-#if WASM_ENABLE_AOT_STACK_FRAME != 0 || WASM_ENABLE_JIT_STACK_FRAME != 0
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
         if (!free_frame_for_aot_func(comp_ctx, func_ctx))
             goto fail;
 #endif
@@ -2853,7 +2852,7 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     if (comp_ctx->enable_aux_stack_frame) {
-#if WASM_ENABLE_AOT_STACK_FRAME != 0 || WASM_ENABLE_JIT_STACK_FRAME != 0
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
         /*  TODO: use current frame instead of allocating new frame
                   for WASM_OP_RETURN_CALL_REF */
         if (!call_aot_alloc_frame_func(comp_ctx, func_ctx, func_idx))
@@ -3050,7 +3049,7 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     if (comp_ctx->enable_aux_stack_frame) {
-#if WASM_ENABLE_AOT_STACK_FRAME != 0 || WASM_ENABLE_JIT_STACK_FRAME != 0
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
         if (!free_frame_for_aot_func(comp_ctx, func_ctx))
             goto fail;
 #endif
