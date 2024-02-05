@@ -42,6 +42,14 @@ void
 wasm_runtime_set_enlarge_mem_error_callback(
     const enlarge_memory_error_callback_t callback, void *user_data);
 
+void
+wasm_deallocate_linear_memory(WASMMemoryInstance *memory_inst);
+
+int
+wasm_allocate_linear_memory(uint8 **data, bool is_shared_memory,
+                            uint64 num_bytes_per_page, uint64 init_page_count,
+                            uint64 max_page_count, uint64 *memory_data_size);
+
 #ifdef __cplusplus
 }
 #endif

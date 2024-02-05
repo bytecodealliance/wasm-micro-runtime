@@ -132,7 +132,7 @@ enum {
     MMAP_MAP_32BIT = 1,
     /* Don't interpret addr as a hint: place the mapping at exactly
        that address. */
-    MMAP_MAP_FIXED = 2
+    MMAP_MAP_FIXED = 2,
 };
 
 void *
@@ -141,6 +141,11 @@ void
 os_munmap(void *addr, size_t size);
 int
 os_mprotect(void *addr, size_t size, int prot);
+
+/* Doesn't guarantee that protection flags will be preserved.
+   os_mprotect() must be called after remapping. */
+void *
+os_mremap(void *old_addr, size_t old_size, size_t new_size);
 
 #if (WASM_MEM_DUAL_BUS_MIRROR != 0)
 void *
