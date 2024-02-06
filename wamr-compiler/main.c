@@ -154,13 +154,15 @@ print_help()
     printf("  --disable-simd            Disable the post-MVP 128-bit SIMD feature:\n");
     printf("                              currently 128-bit SIMD is supported for x86-64 and aarch64 targets,\n");
     printf("                              and by default it is enabled in them and disabled in other targets\n");
-    printf("  --disable-ref-types       Disable the MVP reference types feature\n");
+    printf("  --disable-ref-types       Disable the MVP reference types feature, it will be disabled forcibly if\n");
+    printf("                              GC is enabled\n");
     printf("  --disable-aux-stack-check Disable auxiliary stack overflow/underflow check\n");
     printf("  --enable-dump-call-stack  Enable stack trace feature\n");
     printf("  --enable-perf-profiling   Enable function performance profiling\n");
     printf("  --enable-memory-profiling Enable memory usage profiling\n");
-    printf("  --xip                     A shorthand of --enable-indirect-mode --disable-llvm-intrinsics\n");
-    printf("  --enable-indirect-mode    Enable call function through symbol table but not direct call\n");
+    printf("  --xip                     A shorthand of --enalbe-indirect-mode --disable-llvm-intrinsics\n");
+    printf("  --enable-indirect-mode    Enalbe call function through symbol table but not direct call\n");
+    printf("  --enable-gc               Enalbe GC (Garbage Collection) feature\n");
     printf("  --disable-llvm-intrinsics Disable the LLVM built-in intrinsics\n");
     printf("  --enable-builtin-intrinsics=<flags>\n");
     printf("                            Enable the specified built-in intrinsics, it will override the default\n");
@@ -345,6 +347,7 @@ main(int argc, char *argv[])
     option.enable_aux_stack_check = true;
     option.enable_bulk_memory = true;
     option.enable_ref_types = true;
+    option.enable_gc = false;
 
     /* Process options */
     for (argc--, argv++; argc > 0 && argv[0][0] == '-'; argc--, argv++) {
@@ -440,7 +443,6 @@ main(int argc, char *argv[])
         else if (!strcmp(argv[0], "--enable-multi-thread")) {
             option.enable_bulk_memory = true;
             option.enable_thread_mgr = true;
-            option.enable_ref_types = false;
         }
         else if (!strcmp(argv[0], "--enable-tail-call")) {
             option.enable_tail_call = true;
@@ -463,8 +465,10 @@ main(int argc, char *argv[])
         }
         else if (!strcmp(argv[0], "--enable-perf-profiling")) {
             option.enable_aux_stack_frame = true;
+            option.enable_perf_profiling = true;
         }
         else if (!strcmp(argv[0], "--enable-memory-profiling")) {
+            option.enable_memory_profiling = true;
             option.enable_stack_estimation = true;
         }
         else if (!strcmp(argv[0], "--xip")) {
@@ -473,6 +477,10 @@ main(int argc, char *argv[])
         }
         else if (!strcmp(argv[0], "--enable-indirect-mode")) {
             option.is_indirect_mode = true;
+        }
+        else if (!strcmp(argv[0], "--enable-gc")) {
+            option.enable_aux_stack_frame = true;
+            option.enable_gc = true;
         }
         else if (!strcmp(argv[0], "--disable-llvm-intrinsics")) {
             option.disable_llvm_intrinsics = true;
@@ -580,6 +588,10 @@ main(int argc, char *argv[])
         option.is_sgx_platform = true;
     }
 
+    if (option.enable_gc) {
+        option.enable_ref_types = false;
+    }
+
     if (!use_dummy_wasm) {
         wasm_file_name = argv[0];
 
@@ -641,7 +653,8 @@ main(int argc, char *argv[])
         goto fail2;
     }
 
-    if (!(comp_data = aot_create_comp_data(wasm_module))) {
+    if (!(comp_data = aot_create_comp_data(wasm_module, option.target_arch,
+                                           option.enable_gc))) {
         printf("%s\n", aot_get_last_error());
         goto fail3;
     }

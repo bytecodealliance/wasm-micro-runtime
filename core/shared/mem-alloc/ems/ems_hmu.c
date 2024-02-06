@@ -24,7 +24,7 @@ hmu_init_prefix_and_suffix(hmu_t *hmu, gc_size_t tot_size,
     gc_uint32 i = 0;
 
     bh_assert(hmu);
-    bh_assert(hmu_get_ut(hmu) == HMU_JO || hmu_get_ut(hmu) == HMU_VO);
+    bh_assert(hmu_get_ut(hmu) == HMU_WO || hmu_get_ut(hmu) == HMU_VO);
     bh_assert(tot_size >= OBJ_EXTRA_SIZE);
     bh_assert(!(tot_size & 7));
     bh_assert(hmu_get_ut(hmu) != HMU_VO || hmu_get_size(hmu) >= tot_size);
@@ -48,7 +48,9 @@ hmu_init_prefix_and_suffix(hmu_t *hmu, gc_size_t tot_size,
 void
 hmu_verify(void *vheap, hmu_t *hmu)
 {
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     gc_heap_t *heap = (gc_heap_t *)vheap;
+#endif
     gc_object_prefix_t *prefix = NULL;
     gc_object_suffix_t *suffix = NULL;
     gc_uint32 i = 0;
@@ -64,7 +66,7 @@ hmu_verify(void *vheap, hmu_t *hmu)
     size = prefix->size;
     suffix = (gc_object_suffix_t *)((gc_uint8 *)hmu + size - OBJ_SUFFIX_SIZE);
 
-    if (ut == HMU_VO || ut == HMU_JO) {
+    if (ut == HMU_VO || ut == HMU_WO) {
         /* check padding*/
         for (i = 0; i < GC_OBJECT_PREFIX_PADDING_CNT; i++) {
             if (prefix->padding[i] != GC_OBJECT_PADDING_VALUE) {

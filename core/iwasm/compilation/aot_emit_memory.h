@@ -61,6 +61,14 @@ aot_compile_op_memory_size(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 bool
 aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 
+bool
+check_memory_alignment(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                       LLVMValueRef addr, uint32 align);
+
+LLVMValueRef
+check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                           LLVMValueRef offset, LLVMValueRef bytes);
+
 #if WASM_ENABLE_BULK_MEMORY != 0
 bool
 aot_compile_op_memory_init(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,

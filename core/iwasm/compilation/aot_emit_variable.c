@@ -17,13 +17,21 @@
     } while (0)
 
 static uint8
-get_local_type(AOTFuncContext *func_ctx, uint32 local_idx)
+get_local_type(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+               uint32 local_idx)
 {
     AOTFunc *aot_func = func_ctx->aot_func;
     uint32 param_count = aot_func->func_type->param_count;
-    return local_idx < param_count
-               ? aot_func->func_type->types[local_idx]
-               : aot_func->local_types[local_idx - param_count];
+    uint8 local_type;
+
+    local_type = local_idx < param_count
+                     ? aot_func->func_type->types[local_idx]
+                     : aot_func->local_types_wp[local_idx - param_count];
+
+    if (comp_ctx->enable_gc && aot_is_type_gc_reftype(local_type))
+        local_type = VALUE_TYPE_GC_REF;
+
+    return local_type;
 }
 
 bool
@@ -37,7 +45,7 @@ aot_compile_op_get_local(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     CHECK_LOCAL(local_idx);
 
-    local_type = get_local_type(func_ctx, local_idx);
+    local_type = get_local_type(comp_ctx, func_ctx, local_idx);
 
     snprintf(name, sizeof(name), "%s%d%s", "local", local_idx, "#");
     if (!(value = LLVMBuildLoad2(comp_ctx->builder, TO_LLVM_TYPE(local_type),
@@ -58,20 +66,65 @@ fail:
     return false;
 }
 
-bool
-aot_compile_op_set_local(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                         uint32 local_idx)
+static bool
+aot_compile_op_set_or_tee_local(AOTCompContext *comp_ctx,
+                                AOTFuncContext *func_ctx, uint32 local_idx,
+                                bool is_tee_local)
 {
     LLVMValueRef value;
+    uint8 local_type;
+    uint32 n;
 
     CHECK_LOCAL(local_idx);
 
-    POP(value, get_local_type(func_ctx, local_idx));
+    local_type = get_local_type(comp_ctx, func_ctx, local_idx);
+
+    POP(value, local_type);
+
+    if (comp_ctx->aot_frame) {
+        /* Get the slot index */
+        n = func_ctx->aot_func->local_offsets[local_idx];
+        bh_assert(comp_ctx->aot_frame->lp[n].type == local_type);
+
+        switch (local_type) {
+            case VALUE_TYPE_I32:
+                set_local_i32(comp_ctx->aot_frame, n, value);
+                break;
+            case VALUE_TYPE_I64:
+                set_local_i64(comp_ctx->aot_frame, n, value);
+                break;
+            case VALUE_TYPE_F32:
+                set_local_f32(comp_ctx->aot_frame, n, value);
+                break;
+            case VALUE_TYPE_F64:
+                set_local_f64(comp_ctx->aot_frame, n, value);
+                break;
+            case VALUE_TYPE_V128:
+                set_local_v128(comp_ctx->aot_frame, n, value);
+                break;
+            case VALUE_TYPE_FUNCREF:
+            case VALUE_TYPE_EXTERNREF:
+                set_local_ref(comp_ctx->aot_frame, n, value, local_type);
+                break;
+#if WASM_ENABLE_GC != 0
+            case VALUE_TYPE_GC_REF:
+                set_local_gc_ref(comp_ctx->aot_frame, n, value, local_type);
+                break;
+#endif
+            default:
+                bh_assert(0);
+                break;
+        }
+    }
 
     if (!LLVMBuildStore(comp_ctx->builder, value,
                         func_ctx->locals[local_idx])) {
         aot_set_last_error("llvm build store fail");
         return false;
+    }
+
+    if (is_tee_local) {
+        PUSH(value, local_type);
     }
 
     aot_checked_addr_list_del(func_ctx, local_idx);
@@ -82,30 +135,18 @@ fail:
 }
 
 bool
+aot_compile_op_set_local(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                         uint32 local_idx)
+{
+    return aot_compile_op_set_or_tee_local(comp_ctx, func_ctx, local_idx,
+                                           false);
+}
+
+bool
 aot_compile_op_tee_local(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 local_idx)
 {
-    LLVMValueRef value;
-    uint8 type;
-
-    CHECK_LOCAL(local_idx);
-
-    type = get_local_type(func_ctx, local_idx);
-
-    POP(value, type);
-
-    if (!LLVMBuildStore(comp_ctx->builder, value,
-                        func_ctx->locals[local_idx])) {
-        aot_set_last_error("llvm build store fail");
-        return false;
-    }
-
-    PUSH(value, type);
-    aot_checked_addr_list_del(func_ctx, local_idx);
-    return true;
-
-fail:
-    return false;
+    return aot_compile_op_set_or_tee_local(comp_ctx, func_ctx, local_idx, true);
 }
 
 static bool
@@ -127,16 +168,28 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     bh_assert(global_idx < import_global_count + comp_data->global_count);
 
     if (global_idx < import_global_count) {
-        global_offset = global_base_offset
-                        + comp_data->import_globals[global_idx].data_offset;
+        global_offset =
+            global_base_offset
+            /* Get global data offset according to target info */
+            + (comp_ctx->pointer_size == sizeof(uint64)
+                   ? comp_data->import_globals[global_idx].data_offset_64bit
+                   : comp_data->import_globals[global_idx].data_offset_32bit);
         global_type = comp_data->import_globals[global_idx].type;
     }
     else {
         global_offset =
             global_base_offset
-            + comp_data->globals[global_idx - import_global_count].data_offset;
+            /* Get global data offset according to target info */
+            + (comp_ctx->pointer_size == sizeof(uint64)
+                   ? comp_data->globals[global_idx - import_global_count]
+                         .data_offset_64bit
+                   : comp_data->globals[global_idx - import_global_count]
+                         .data_offset_32bit);
         global_type = comp_data->globals[global_idx - import_global_count].type;
     }
+
+    if (comp_ctx->enable_gc && aot_is_type_gc_reftype(global_type))
+        global_type = VALUE_TYPE_GC_REF;
 
     offset = I32_CONST(global_offset);
     if (!(global_ptr = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
@@ -150,20 +203,25 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         case VALUE_TYPE_I32:
         case VALUE_TYPE_EXTERNREF:
         case VALUE_TYPE_FUNCREF:
-            ptr_type = comp_ctx->basic_types.int32_ptr_type;
+            ptr_type = INT32_PTR_TYPE;
             break;
         case VALUE_TYPE_I64:
-            ptr_type = comp_ctx->basic_types.int64_ptr_type;
+            ptr_type = INT64_PTR_TYPE;
             break;
         case VALUE_TYPE_F32:
-            ptr_type = comp_ctx->basic_types.float32_ptr_type;
+            ptr_type = F32_PTR_TYPE;
             break;
         case VALUE_TYPE_F64:
-            ptr_type = comp_ctx->basic_types.float64_ptr_type;
+            ptr_type = F64_PTR_TYPE;
             break;
         case VALUE_TYPE_V128:
-            ptr_type = comp_ctx->basic_types.v128_ptr_type;
+            ptr_type = V128_PTR_TYPE;
             break;
+#if WASM_ENABLE_GC != 0
+        case VALUE_TYPE_GC_REF:
+            ptr_type = GC_REF_PTR_TYPE;
+            break;
+#endif
         default:
             bh_assert("unknown type");
             break;

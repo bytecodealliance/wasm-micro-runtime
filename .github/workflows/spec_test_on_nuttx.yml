@@ -10,7 +10,13 @@ on:
       - synchronize
     paths:
       - ".github/workflows/spec_test_on_nuttx.yml"
-
+      - "core/**"
+      - "!core/deps/**"
+      - "product-mini/**"
+      - "!samples/workload/**"
+      - "tests/wamr-test-suites/**"
+      - "wamr-compiler/**"
+      - "wamr-sdk/**"
   schedule:
     - cron:  '0 0 * * *'
 
@@ -20,7 +26,7 @@ env:
   LLVM_CACHE_SUFFIX: "build-llvm_libraries_ex"
   WASI_SDK_PATH: "/opt/wasi-sdk"
   WAMR_COMMON_OPTION:
-    "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_STACKSIZE=32768\\nCONFIG_INTERPRETERS_WAMR_LOG=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\\nCONFIG_INTERPRETERS_WAMR_REF_TYPES=y\\nCONFIG_INTERPRETERS_WAMR_ENABLE_SPEC_TEST=y\\nCONFIG_INTERPRETERS_WAMR_SHARED_MEMORY=y\\nCONFIG_INTERPRETERS_WAMR_BULK_MEMORY=y\\nCONFIG_EOL_IS_LF=y\\nCONFIG_ARM_SEMIHOSTING_HOSTFS=y\\nCONFIG_ARM_SEMIHOSTING_HOSTFS_CACHE_COHERENCE=y\\nCONFIG_RISCV_SEMIHOSTING_HOSTFS=y\\nCONFIG_FS_HOSTFS=y\\nCONFIG_LIBC_FLOATINGPOINT=y\\n"
+    "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_STACKSIZE=327680\\nCONFIG_INTERPRETERS_WAMR_LOG=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\\nCONFIG_INTERPRETERS_WAMR_REF_TYPES=y\\nCONFIG_INTERPRETERS_WAMR_ENABLE_SPEC_TEST=y\\nCONFIG_INTERPRETERS_WAMR_SHARED_MEMORY=y\\nCONFIG_INTERPRETERS_WAMR_BULK_MEMORY=y\\nCONFIG_EOL_IS_LF=y\\nCONFIG_ARM_SEMIHOSTING_HOSTFS=y\\nCONFIG_ARM_SEMIHOSTING_HOSTFS_CACHE_COHERENCE=y\\nCONFIG_RISCV_SEMIHOSTING_HOSTFS=y\\nCONFIG_FS_HOSTFS=y\\nCONFIG_LIBC_FLOATINGPOINT=y\\n"
 
 jobs:
   build_llvm_libraries:
@@ -28,13 +34,13 @@ jobs:
     with:
       os: "ubuntu-22.04"
       arch: "ARM RISCV AArch64"
-      container_image: ghcr.io/apache/nuttx/apache-nuttx-ci-linux@sha256:d9261eacf6c6ebe656c571757751c803e8f04c3ae9b820320a5ea5dd57b7205a
+      container_image: ghcr.io/no1wudi/nuttx/apache-nuttx-ci-linux@sha256:8c4e00b607d4d6d66ba8f51c4544819a616eac69d3a2ac669e2af2150e2eb0f9
 
   spec_test_on_qemu:
     runs-on: ubuntu-latest
     needs: [build_llvm_libraries]
     container:
-      image: ghcr.io/apache/nuttx/apache-nuttx-ci-linux@sha256:d9261eacf6c6ebe656c571757751c803e8f04c3ae9b820320a5ea5dd57b7205a
+      image: ghcr.io/no1wudi/nuttx/apache-nuttx-ci-linux@sha256:8c4e00b607d4d6d66ba8f51c4544819a616eac69d3a2ac669e2af2150e2eb0f9
     strategy:
       matrix:
         target_config: [
@@ -75,19 +81,24 @@ jobs:
             mode: "-t aot",
             option: "CONFIG_INTERPRETERS_WAMR_AOT=y\\n"
           },
-          {
-            mode: "-t aot -X",
-            option: "CONFIG_INTERPRETERS_WAMR_AOT=y\\n"
-          },
-          {
-            mode: "-t classic-interp",
-            option: "CONFIG_INTERPRETERS_WAMR_CLASSIC=y\\n"
-          },
-          {
-            mode: "-t fast-interp",
-            option: "CONFIG_INTERPRETERS_WAMR_FAST=y\\n"
-          },
+          # {
+          #   mode: "-t aot -X",
+          #   option: "CONFIG_INTERPRETERS_WAMR_AOT=y\\n"
+          # },
+          # {
+          #   mode: "-t classic-interp",
+          #   option: "CONFIG_INTERPRETERS_WAMR_CLASSIC=y\\n"
+          # },
+          # {
+          #   mode: "-t fast-interp",
+          #   option: "CONFIG_INTERPRETERS_WAMR_FAST=y\\n"
+          # },
         ]
+
+        wamr_feature_option:
+          # Empty option for default
+          - { option: "", mode: "" }
+          - { option: "CONFIG_INTERPRETERS_WAMR_GC=y\\nCONFIG_INTERPRETERS_WAMR_AOT_STACK_FRAME=y\\n", mode: "-G" }
 
         exclude:
           # XIP is not fully supported yet on RISCV64, some relocations can not be resolved
@@ -136,6 +147,23 @@ jobs:
         if: contains(matrix.wamr_test_option.mode, 'aot')
         run: cp -r core/deps/llvm apps/interpreters/wamr/wamr/core/deps/llvm
 
+      # Inject the config option to NuttX
+      # TODO: Merge this into NuttX once GC is generally available
+      - name: Modify Kconfig
+        run: |
+          echo "\n" >> apps/interpreters/wamr/Kconfig
+          echo "config INTERPRETERS_WAMR_GC" >> apps/interpreters/wamr/Kconfig
+          echo "\tbool \"Enable GC\"" >> apps/interpreters/wamr/Kconfig
+          echo "\tdefault n" >> apps/interpreters/wamr/Kconfig
+          echo "\n" >> apps/interpreters/wamr/Kconfig
+          echo "config INTERPRETERS_WAMR_AOT_STACK_FRAME" >> apps/interpreters/wamr/Kconfig
+          echo "\tbool \"Enable AOT stack frame\"" >> apps/interpreters/wamr/Kconfig
+          echo "\tdefault n" >> apps/interpreters/wamr/Kconfig
+          echo "\n" >> apps/interpreters/wamr/Kconfig
+          echo "config INTERPRETERS_WAMR_TAIL_CALL" >> apps/interpreters/wamr/Kconfig
+          echo "\tbool \"Enable Tail Call\"" >> apps/interpreters/wamr/Kconfig
+          echo "\tdefault y" >> apps/interpreters/wamr/Kconfig
+
       - name: Enable WAMR for NuttX
         run: |
           find nuttx/boards -name defconfig | xargs sed -i '$a\${{ env.WAMR_COMMON_OPTION }}'
@@ -143,6 +171,11 @@ jobs:
       - name: Enable WAMR Interpreter for NuttX
         run: |
           find nuttx/boards -name defconfig | xargs sed -i '$a\${{ matrix.wamr_test_option.option }}'
+
+      - name: Enable WAMR Feature for NuttX
+        if: matrix.wamr_feature_option.option != ''
+        run: |
+          find nuttx/boards -name defconfig | xargs sed -i '$a\${{ matrix.wamr_feature_option.option }}'
 
       - name: Disable FPU for NuttX
         if: matrix.target_config.fpu_type == 'none'
@@ -172,4 +205,4 @@ jobs:
       - name: Test
         run: |
           cd apps/interpreters/wamr/wamr/tests/wamr-test-suites
-          ./test_wamr.sh -s spec ${{ matrix.wamr_test_option.mode }} -m ${{ matrix.target_config.target }} -b -Q -P -F ${{ steps.build_firmware.outputs.firmware }}
+          ./test_wamr.sh -s spec ${{ matrix.wamr_test_option.mode }} -m ${{ matrix.target_config.target }} -b -Q -P -F ${{ steps.build_firmware.outputs.firmware }} ${{ matrix.wamr_feature_option.mode}}

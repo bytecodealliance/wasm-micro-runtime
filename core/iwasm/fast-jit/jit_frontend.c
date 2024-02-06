@@ -97,9 +97,9 @@ jit_frontend_get_table_inst_offset(const WASMModule *module, uint32 tbl_idx)
 
         offset += (uint32)offsetof(WASMTableInstance, elems);
 #if WASM_ENABLE_MULTI_MODULE != 0
-        offset += (uint32)sizeof(uint32) * table->max_size;
+        offset += (uint32)sizeof(table_elem_type_t) * table->max_size;
 #else
-        offset += (uint32)sizeof(uint32)
+        offset += (uint32)sizeof(table_elem_type_t)
                   * (table->possible_grow ? table->max_size : table->init_size);
 #endif
 
@@ -1157,21 +1157,22 @@ init_func_translation(JitCompContext *cc)
     func_inst = jit_cc_new_reg_ptr(cc);
 #if WASM_ENABLE_PERF_PROFILING != 0
     time_started = jit_cc_new_reg_I64(cc);
-    /* Call os_time_get_boot_us() to get time_started firstly
+    /* Call os_time_thread_cputime_us() to get time_started firstly
        as there is stack frame switching below, calling native in them
        may cause register spilling work inproperly */
-    if (!jit_emit_callnative(cc, os_time_get_boot_us, time_started, NULL, 0)) {
+    if (!jit_emit_callnative(cc, os_time_thread_cputime_us, time_started, NULL,
+                             0)) {
         return NULL;
     }
 #endif
 #endif
 
-    /* top = exec_env->wasm_stack.s.top */
+    /* top = exec_env->wasm_stack.top */
     GEN_INSN(LDPTR, top, cc->exec_env_reg,
-             NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.s.top)));
-    /* top_boundary = exec_env->wasm_stack.s.top_boundary */
+             NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.top)));
+    /* top_boundary = exec_env->wasm_stack.top_boundary */
     GEN_INSN(LDPTR, top_boundary, cc->exec_env_reg,
-             NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.s.top_boundary)));
+             NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.top_boundary)));
     /* frame_boundary = top + frame_size + outs_size */
     GEN_INSN(ADD, frame_boundary, top, NEW_CONST(PTR, frame_size + outs_size));
     /* if frame_boundary > top_boundary, throw stack overflow exception */
@@ -1184,9 +1185,9 @@ init_func_translation(JitCompContext *cc)
     /* Add first and then sub to reduce one used register */
     /* new_top = frame_boundary - outs_size = top + frame_size */
     GEN_INSN(SUB, new_top, frame_boundary, NEW_CONST(PTR, outs_size));
-    /* exec_env->wasm_stack.s.top = new_top */
+    /* exec_env->wasm_stack.top = new_top */
     GEN_INSN(STPTR, new_top, cc->exec_env_reg,
-             NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.s.top)));
+             NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.top)));
     /* frame_sp = frame->lp + local_size */
     GEN_INSN(ADD, frame_sp, top,
              NEW_CONST(PTR, offsetof(WASMInterpFrame, lp) + local_size));

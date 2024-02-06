@@ -10,6 +10,7 @@
 #include "aot_emit_table.h"
 #include "../aot/aot_runtime.h"
 #include "../aot/aot_intrinsic.h"
+#include "../interpreter/wasm_runtime.h"
 
 #if WASM_ENABLE_DEBUG_AOT != 0
 #include "debug/dwarf_extractor.h"
@@ -25,13 +26,20 @@ create_native_stack_top_min(const AOTCompContext *comp_ctx,
                             AOTFuncContext *func_ctx);
 
 LLVMTypeRef
-wasm_type_to_llvm_type(const AOTLLVMTypes *llvm_types, uint8 wasm_type)
+wasm_type_to_llvm_type(const AOTCompContext *comp_ctx,
+                       const AOTLLVMTypes *llvm_types, uint8 wasm_type)
 {
     switch (wasm_type) {
         case VALUE_TYPE_I32:
+            return llvm_types->int32_type;
         case VALUE_TYPE_FUNCREF:
         case VALUE_TYPE_EXTERNREF:
-            return llvm_types->int32_type;
+            if (comp_ctx->enable_ref_types)
+                return llvm_types->int32_type;
+            else {
+                bh_assert(comp_ctx->enable_gc);
+                return llvm_types->gc_ref_type;
+            }
         case VALUE_TYPE_I64:
             return llvm_types->int64_type;
         case VALUE_TYPE_F32:
@@ -42,9 +50,31 @@ wasm_type_to_llvm_type(const AOTLLVMTypes *llvm_types, uint8 wasm_type)
             return llvm_types->i64x2_vec_type;
         case VALUE_TYPE_VOID:
             return llvm_types->void_type;
+        case REF_TYPE_NULLFUNCREF:
+        case REF_TYPE_NULLEXTERNREF:
+        case REF_TYPE_NULLREF:
+        /* case REF_TYPE_FUNCREF: */
+        /* case REF_TYPE_EXTERNREF: */
+        case REF_TYPE_ANYREF:
+        case REF_TYPE_EQREF:
+        case REF_TYPE_HT_NULLABLE:
+        case REF_TYPE_HT_NON_NULLABLE:
+        case REF_TYPE_I31REF:
+        case REF_TYPE_STRUCTREF:
+        case REF_TYPE_ARRAYREF:
+#if WASM_ENABLE_STRINGREF != 0
+        case REF_TYPE_STRINGREF:
+        case REF_TYPE_STRINGVIEWWTF8:
+        case REF_TYPE_STRINGVIEWWTF16:
+        case REF_TYPE_STRINGVIEWITER:
+#endif
+        case VALUE_TYPE_GC_REF:
+            bh_assert(comp_ctx->enable_gc);
+            return llvm_types->gc_ref_type;
         default:
             break;
     }
+    bh_assert(0);
     return NULL;
 }
 
@@ -245,18 +275,6 @@ aot_estimate_stack_usage_for_function_call(const AOTCompContext *comp_ctx,
     return size;
 }
 
-static uint32
-get_inst_extra_offset(AOTCompContext *comp_ctx)
-{
-    const AOTCompData *comp_data = comp_ctx->comp_data;
-    uint32 table_count = comp_data->import_table_count + comp_data->table_count;
-    uint64 offset = get_tbl_inst_offset(comp_ctx, NULL, table_count);
-    uint32 offset_32 = (uint32)offset;
-    bh_assert(offset <= UINT32_MAX);
-    offset_32 = align_uint((uint32)offset_32, 8);
-    return offset_32;
-}
-
 /*
  * a "precheck" function performs a few things before calling wrapped_func.
  *
@@ -353,7 +371,7 @@ aot_build_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
         LLVMValueRef offset;
         LLVMValueRef stack_sizes_p;
 
-        offset_u32 = get_inst_extra_offset(comp_ctx);
+        offset_u32 = get_module_inst_extra_offset(comp_ctx);
         offset_u32 += offsetof(AOTModuleInstanceExtra, stack_sizes);
         offset = I32_CONST(offset_u32);
         if (!offset) {
@@ -552,6 +570,44 @@ fail:
     return false;
 }
 
+static bool
+check_wasm_type(AOTCompContext *comp_ctx, uint8 type)
+{
+    if (type == VALUE_TYPE_FUNCREF || type == VALUE_TYPE_EXTERNREF) {
+        if (!comp_ctx->enable_ref_types && !comp_ctx->enable_gc) {
+            aot_set_last_error("funcref or externref type was found, "
+                               "try removing --disable-ref-types option "
+                               "or adding --enable-gc option.");
+            return false;
+        }
+        else
+            return true;
+    }
+    else if (aot_is_type_gc_reftype(type)) {
+        if (!comp_ctx->enable_gc) {
+            aot_set_last_error("GC reference type was found, "
+                               "try adding --enable-gc option.");
+            return false;
+        }
+        else
+            return true;
+    }
+    else if (type == VALUE_TYPE_V128) {
+        if (!comp_ctx->enable_simd) {
+            aot_set_last_error("SIMD type was found, try removing "
+                               " --disable-simd option.");
+            return false;
+        }
+        return true;
+    }
+    else if (type != VALUE_TYPE_I32 && type != VALUE_TYPE_I64
+             && type != VALUE_TYPE_F32 && type != VALUE_TYPE_F64) {
+        bh_assert(0);
+    }
+
+    return true;
+}
+
 /**
  * Add LLVM function
  */
@@ -560,6 +616,8 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
                   const AOTFuncType *aot_func_type, uint32 func_index,
                   LLVMTypeRef *p_func_type, LLVMValueRef *p_precheck_func)
 {
+    WASMFunction *aot_func =
+        comp_ctx->comp_data->wasm_module->functions[func_index];
     LLVMValueRef func = NULL;
     LLVMTypeRef *param_types, ret_type, func_type;
     LLVMTypeRef func_type_wrapper;
@@ -569,6 +627,18 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
     uint64 size;
     uint32 i, j = 0, param_count = (uint64)aot_func_type->param_count;
     uint32 backend_thread_num, compile_thread_num;
+
+    /* Check function parameter types and result types */
+    for (i = 0; i < aot_func_type->param_count + aot_func_type->result_count;
+         i++) {
+        if (!check_wasm_type(comp_ctx, aot_func_type->types[i]))
+            return NULL;
+    }
+    /* Check function local types */
+    for (i = 0; i < aot_func->local_count; i++) {
+        if (!check_wasm_type(comp_ctx, aot_func->local_types[i]))
+            return NULL;
+    }
 
     /* exec env as first parameter */
     param_count++;
@@ -922,6 +992,49 @@ create_aux_stack_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 static bool
+create_aux_stack_frame(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    LLVMValueRef wasm_stack_top_bound_ptr, offset;
+
+    offset = I32_ONE;
+    if (!(func_ctx->cur_frame_ptr = LLVMBuildInBoundsGEP2(
+              comp_ctx->builder, OPQ_PTR_TYPE, func_ctx->exec_env, &offset, 1,
+              "cur_frame_ptr"))) {
+        aot_set_last_error("llvm build in bounds gep failed");
+        return false;
+    }
+
+    if (!(func_ctx->cur_frame =
+              LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE,
+                             func_ctx->cur_frame_ptr, "cur_frame"))) {
+        aot_set_last_error("llvm build load failed");
+        return false;
+    }
+
+    /* Get exec_env->wasm_stack.top_boundary and its address */
+    offset = I32_TEN;
+    if (!(wasm_stack_top_bound_ptr = LLVMBuildInBoundsGEP2(
+              comp_ctx->builder, OPQ_PTR_TYPE, func_ctx->exec_env, &offset, 1,
+              "wasm_stack_top_bound_ptr"))
+        || !(func_ctx->wasm_stack_top_bound = LLVMBuildLoad2(
+                 comp_ctx->builder, INT8_PTR_TYPE, wasm_stack_top_bound_ptr,
+                 "wasm_stack_top_bound"))) {
+        aot_set_last_error("load wasm_stack.top_boundary failed");
+        return false;
+    }
+
+    offset = I32_ELEVEN;
+    if (!(func_ctx->wasm_stack_top_ptr = LLVMBuildInBoundsGEP2(
+              comp_ctx->builder, OPQ_PTR_TYPE, func_ctx->exec_env, &offset, 1,
+              "wasm_stack_top_ptr"))) {
+        aot_set_last_error("llvm build inbounds gep failed");
+        return false;
+    }
+
+    return true;
+}
+
+static bool
 create_native_symbol(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef native_symbol_offset = I32_EIGHT, native_symbol_addr;
@@ -955,7 +1068,8 @@ create_local_variables(const AOTCompData *comp_data,
                        const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                        const AOTFunc *func)
 {
-    AOTFuncType *aot_func_type = comp_data->func_types[func->func_type_index];
+    AOTFuncType *aot_func_type =
+        (AOTFuncType *)comp_data->types[func->func_type_index];
     char local_name[32];
     uint32 i, j = 1;
 
@@ -980,14 +1094,14 @@ create_local_variables(const AOTCompData *comp_data,
         LLVMValueRef local_value = NULL;
         snprintf(local_name, sizeof(local_name), "l%d",
                  aot_func_type->param_count + i);
-        local_type = TO_LLVM_TYPE(func->local_types[i]);
+        local_type = TO_LLVM_TYPE(func->local_types_wp[i]);
         func_ctx->locals[aot_func_type->param_count + i] =
             LLVMBuildAlloca(comp_ctx->builder, local_type, local_name);
         if (!func_ctx->locals[aot_func_type->param_count + i]) {
             aot_set_last_error("llvm build alloca failed.");
             return false;
         }
-        switch (func->local_types[i]) {
+        switch (func->local_types_wp[i]) {
             case VALUE_TYPE_I32:
                 local_value = I32_ZERO;
                 break;
@@ -1005,8 +1119,33 @@ create_local_variables(const AOTCompData *comp_data,
                 break;
             case VALUE_TYPE_FUNCREF:
             case VALUE_TYPE_EXTERNREF:
-                local_value = REF_NULL;
+                if (!comp_ctx->enable_gc)
+                    local_value = REF_NULL;
+                else
+                    local_value = GC_REF_NULL;
                 break;
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_NULLREF:
+            /* case REF_TYPE_FUNCREF: */
+            /* case REF_TYPE_EXTERNREF: */
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+#if WASM_ENABLE_STRINGREF != 0
+            case REF_TYPE_STRINGREF:
+            case REF_TYPE_STRINGVIEWWTF8:
+            case REF_TYPE_STRINGVIEWWTF16:
+            case REF_TYPE_STRINGVIEWITER:
+#endif
+                local_value = GC_REF_NULL;
+                break;
+#endif
             default:
                 bh_assert(0);
                 break;
@@ -1539,7 +1678,8 @@ aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
                         AOTFunc *func, uint32 func_index)
 {
     AOTFuncContext *func_ctx;
-    AOTFuncType *aot_func_type = comp_data->func_types[func->func_type_index];
+    AOTFuncType *aot_func_type =
+        (AOTFuncType *)comp_data->types[func->func_type_index];
     WASMModule *module = comp_ctx->comp_data->wasm_module;
     WASMFunction *wasm_func = module->functions[func_index];
     AOTBlock *aot_block;
@@ -1597,6 +1737,11 @@ aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
         goto fail;
     }
 
+    if (comp_ctx->enable_aux_stack_frame
+        && !create_aux_stack_frame(comp_ctx, func_ctx)) {
+        goto fail;
+    }
+
     /* Create local variables */
     if (!create_local_variables(comp_data, comp_ctx, func_ctx, func)) {
         goto fail;
@@ -1634,13 +1779,14 @@ aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
 fail:
     if (func_ctx->mem_info)
         wasm_runtime_free(func_ctx->mem_info);
-    aot_block_stack_destroy(&func_ctx->block_stack);
+    aot_block_stack_destroy(comp_ctx, &func_ctx->block_stack);
     wasm_runtime_free(func_ctx);
     return NULL;
 }
 
 static void
-aot_destroy_func_contexts(AOTFuncContext **func_ctxes, uint32 count)
+aot_destroy_func_contexts(AOTCompContext *comp_ctx, AOTFuncContext **func_ctxes,
+                          uint32 count)
 {
     uint32 i;
 
@@ -1648,7 +1794,7 @@ aot_destroy_func_contexts(AOTFuncContext **func_ctxes, uint32 count)
         if (func_ctxes[i]) {
             if (func_ctxes[i]->mem_info)
                 wasm_runtime_free(func_ctxes[i]->mem_info);
-            aot_block_stack_destroy(&func_ctxes[i]->block_stack);
+            aot_block_stack_destroy(comp_ctx, &func_ctxes[i]->block_stack);
             aot_checked_addr_list_destroy(func_ctxes[i]);
             wasm_runtime_free(func_ctxes[i]);
         }
@@ -1685,7 +1831,8 @@ aot_create_func_contexts(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
         AOTFunc *func = comp_data->funcs[i];
         if (!(func_ctxes[i] =
                   aot_create_func_context(comp_data, comp_ctx, func, i))) {
-            aot_destroy_func_contexts(func_ctxes, comp_data->func_count);
+            aot_destroy_func_contexts(comp_ctx, func_ctxes,
+                                      comp_data->func_count);
             return NULL;
         }
     }
@@ -1694,7 +1841,8 @@ aot_create_func_contexts(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
 }
 
 static bool
-aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context)
+aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context,
+                         int pointer_size)
 {
     basic_types->int1_type = LLVMInt1TypeInContext(context);
     basic_types->int8_type = LLVMInt8TypeInContext(context);
@@ -1759,15 +1907,29 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context)
     basic_types->funcref_type = LLVMInt32TypeInContext(context);
     basic_types->externref_type = LLVMInt32TypeInContext(context);
 
+    if (pointer_size == 4) {
+        basic_types->intptr_t_type = basic_types->int32_type;
+        basic_types->intptr_t_ptr_type = basic_types->int32_ptr_type;
+    }
+    else {
+        basic_types->intptr_t_type = basic_types->int64_type;
+        basic_types->intptr_t_ptr_type = basic_types->int64_ptr_type;
+    }
+
+    basic_types->gc_ref_type = LLVMPointerType(basic_types->void_type, 0);
+    basic_types->gc_ref_ptr_type = LLVMPointerType(basic_types->gc_ref_type, 0);
+
     return (basic_types->int8_ptr_type && basic_types->int8_pptr_type
             && basic_types->int16_ptr_type && basic_types->int32_ptr_type
-            && basic_types->int64_ptr_type && basic_types->float32_ptr_type
+            && basic_types->int64_ptr_type && basic_types->intptr_t_type
+            && basic_types->intptr_t_ptr_type && basic_types->float32_ptr_type
             && basic_types->float64_ptr_type && basic_types->i8x16_vec_type
             && basic_types->i16x8_vec_type && basic_types->i32x4_vec_type
             && basic_types->i64x2_vec_type && basic_types->f32x4_vec_type
             && basic_types->f64x2_vec_type && basic_types->i1x2_vec_type
             && basic_types->meta_data_type && basic_types->funcref_type
-            && basic_types->externref_type)
+            && basic_types->externref_type && basic_types->gc_ref_type
+            && basic_types->gc_ref_ptr_type)
                ? true
                : false;
 }
@@ -1785,6 +1947,9 @@ aot_create_llvm_consts(AOTLLVMConsts *consts, AOTCompContext *comp_ctx)
 #undef CREATE_I1_CONST
 
     if (!(consts->i8_zero = I8_CONST(0)))
+        return false;
+
+    if (!(consts->i8_one = I8_CONST(1)))
         return false;
 
     if (!(consts->f32_zero = F32_CONST(0)))
@@ -1856,6 +2021,13 @@ aot_create_llvm_consts(AOTLLVMConsts *consts, AOTCompContext *comp_ctx)
     CREATE_VEC_ZERO_MASK(4)
     CREATE_VEC_ZERO_MASK(2)
 #undef CREATE_VEC_ZERO_MASK
+
+    if (!(consts->gc_ref_null =
+              LLVMConstNull(comp_ctx->basic_types.gc_ref_type)))
+        return false;
+    if (!(consts->i8_ptr_null =
+              LLVMConstNull(comp_ctx->basic_types.int8_ptr_type)))
+        return false;
 
     return true;
 }
@@ -2369,6 +2541,12 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     if (option->enable_aux_stack_frame)
         comp_ctx->enable_aux_stack_frame = true;
 
+    if (option->enable_perf_profiling)
+        comp_ctx->enable_perf_profiling = true;
+
+    if (option->enable_memory_profiling)
+        comp_ctx->enable_memory_profiling = true;
+
     if (option->enable_aux_stack_check)
         comp_ctx->enable_aux_stack_check = true;
 
@@ -2398,6 +2576,9 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
 
     if (option->builtin_intrinsics)
         comp_ctx->builtin_intrinsics = option->builtin_intrinsics;
+
+    if (option->enable_gc)
+        comp_ctx->enable_gc = true;
 
     comp_ctx->opt_level = option->opt_level;
     comp_ctx->size_level = option->size_level;
@@ -2885,6 +3066,29 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     }
     LLVMDisposeMessage(triple);
 
+#if WASM_ENABLE_WAMR_COMPILER != 0
+    WASMModule *wasm_module = (WASMModule *)comp_data->wasm_module;
+
+    /* Return error if SIMD is disabled by command line but SIMD instructions
+     * are used */
+    if (!option->enable_simd && wasm_module->is_simd_used) {
+        aot_set_last_error("SIMD is disabled by --disable-simd but SIMD "
+                           "instructions are used in this module");
+        goto fail;
+    }
+
+    /* Disable features when they are not actually used */
+    if (!wasm_module->is_simd_used) {
+        option->enable_simd = comp_ctx->enable_simd = false;
+    }
+    if (!wasm_module->is_ref_types_used) {
+        option->enable_ref_types = comp_ctx->enable_ref_types = false;
+    }
+    if (!wasm_module->is_bulk_memory_used) {
+        option->enable_bulk_memory = comp_ctx->enable_bulk_memory = false;
+    }
+#endif
+
     if (option->enable_simd && strcmp(comp_ctx->target_arch, "x86_64") != 0
         && strncmp(comp_ctx->target_arch, "aarch64", 7) != 0) {
         /* Disable simd if it isn't supported by target arch */
@@ -2935,7 +3139,8 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
         goto fail;
     }
 
-    if (!aot_set_llvm_basic_types(&comp_ctx->basic_types, comp_ctx->context)) {
+    if (!aot_set_llvm_basic_types(&comp_ctx->basic_types, comp_ctx->context,
+                                  comp_ctx->pointer_size)) {
         aot_set_last_error("create LLVM basic types failed.");
         goto fail;
     }
@@ -3013,7 +3218,7 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
         LLVMOrcDisposeLLLazyJIT(comp_ctx->orc_jit);
 
     if (comp_ctx->func_ctxes)
-        aot_destroy_func_contexts(comp_ctx->func_ctxes,
+        aot_destroy_func_contexts(comp_ctx, comp_ctx->func_ctxes,
                                   comp_ctx->func_ctx_count);
 
     if (bh_list_length(&comp_ctx->native_symbols) > 0) {
@@ -3028,6 +3233,10 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
 
     if (comp_ctx->target_cpu) {
         wasm_runtime_free(comp_ctx->target_cpu);
+    }
+
+    if (comp_ctx->aot_frame) {
+        wasm_runtime_free(comp_ctx->aot_frame);
     }
 
     wasm_runtime_free(comp_ctx);
@@ -3108,7 +3317,8 @@ aot_get_native_symbol_index(AOTCompContext *comp_ctx, const char *symbol)
 }
 
 void
-aot_value_stack_push(AOTValueStack *stack, AOTValue *value)
+aot_value_stack_push(const AOTCompContext *comp_ctx, AOTValueStack *stack,
+                     AOTValue *value)
 {
     if (!stack->value_list_head)
         stack->value_list_head = stack->value_list_end = value;
@@ -3117,10 +3327,44 @@ aot_value_stack_push(AOTValueStack *stack, AOTValue *value)
         value->prev = stack->value_list_end;
         stack->value_list_end = value;
     }
+
+    if (comp_ctx->aot_frame) {
+        switch (value->type) {
+            case VALUE_TYPE_I32:
+            case VALUE_TYPE_I1:
+                push_i32(comp_ctx->aot_frame, value);
+                break;
+            case VALUE_TYPE_I64:
+                push_i64(comp_ctx->aot_frame, value);
+                break;
+            case VALUE_TYPE_F32:
+                push_f32(comp_ctx->aot_frame, value);
+                break;
+            case VALUE_TYPE_F64:
+                push_f64(comp_ctx->aot_frame, value);
+                break;
+            case VALUE_TYPE_V128:
+                push_v128(comp_ctx->aot_frame, value);
+                break;
+            case VALUE_TYPE_FUNCREF:
+            case VALUE_TYPE_EXTERNREF:
+                push_ref(comp_ctx->aot_frame, value);
+                break;
+#if WASM_ENABLE_GC != 0
+            case VALUE_TYPE_GC_REF:
+                bh_assert(comp_ctx->enable_gc);
+                push_gc_ref(comp_ctx->aot_frame, value);
+                break;
+#endif
+            default:
+                bh_assert(0);
+                break;
+        }
+    }
 }
 
 AOTValue *
-aot_value_stack_pop(AOTValueStack *stack)
+aot_value_stack_pop(const AOTCompContext *comp_ctx, AOTValueStack *stack)
 {
     AOTValue *value = stack->value_list_end;
 
@@ -3134,11 +3378,49 @@ aot_value_stack_pop(AOTValueStack *stack)
         value->prev = NULL;
     }
 
+    if (comp_ctx->aot_frame) {
+        bh_assert(value);
+        bh_assert(value->value == (comp_ctx->aot_frame->sp - 1)->value);
+        bh_assert(value->type == (comp_ctx->aot_frame->sp - 1)->type);
+
+        switch (value->type) {
+            case VALUE_TYPE_I32:
+            case VALUE_TYPE_I1:
+                pop_i32(comp_ctx->aot_frame);
+                break;
+            case VALUE_TYPE_I64:
+                pop_i64(comp_ctx->aot_frame);
+                break;
+            case VALUE_TYPE_F32:
+                pop_f32(comp_ctx->aot_frame);
+                break;
+            case VALUE_TYPE_F64:
+                pop_f64(comp_ctx->aot_frame);
+                break;
+            case VALUE_TYPE_V128:
+                pop_v128(comp_ctx->aot_frame);
+                break;
+            case VALUE_TYPE_FUNCREF:
+            case VALUE_TYPE_EXTERNREF:
+                pop_ref(comp_ctx->aot_frame);
+                break;
+#if WASM_ENABLE_GC != 0
+            case VALUE_TYPE_GC_REF:
+                bh_assert(comp_ctx->enable_gc);
+                pop_gc_ref(comp_ctx->aot_frame);
+                break;
+#endif
+            default:
+                bh_assert(0);
+                break;
+        }
+    }
+
     return value;
 }
 
 void
-aot_value_stack_destroy(AOTValueStack *stack)
+aot_value_stack_destroy(AOTCompContext *comp_ctx, AOTValueStack *stack)
 {
     AOTValue *value = stack->value_list_head, *p;
 
@@ -3183,14 +3465,14 @@ aot_block_stack_pop(AOTBlockStack *stack)
 }
 
 void
-aot_block_stack_destroy(AOTBlockStack *stack)
+aot_block_stack_destroy(AOTCompContext *comp_ctx, AOTBlockStack *stack)
 {
     AOTBlock *block = stack->block_list_head, *p;
 
     while (block) {
         p = block->next;
-        aot_value_stack_destroy(&block->value_stack);
-        aot_block_destroy(block);
+        aot_value_stack_destroy(comp_ctx, &block->value_stack);
+        aot_block_destroy(comp_ctx, block);
         block = p;
     }
 
@@ -3199,9 +3481,9 @@ aot_block_stack_destroy(AOTBlockStack *stack)
 }
 
 void
-aot_block_destroy(AOTBlock *block)
+aot_block_destroy(AOTCompContext *comp_ctx, AOTBlock *block)
 {
-    aot_value_stack_destroy(&block->value_stack);
+    aot_value_stack_destroy(comp_ctx, &block->value_stack);
     if (block->param_types)
         wasm_runtime_free(block->param_types);
     if (block->param_phis)
@@ -3316,8 +3598,38 @@ aot_build_zero_function_ret(const AOTCompContext *comp_ctx,
                 break;
             case VALUE_TYPE_FUNCREF:
             case VALUE_TYPE_EXTERNREF:
-                ret = LLVMBuildRet(comp_ctx->builder, REF_NULL);
+                if (comp_ctx->enable_ref_types)
+                    ret = LLVMBuildRet(comp_ctx->builder, REF_NULL);
+#if WASM_ENABLE_GC != 0
+                else if (comp_ctx->enable_gc)
+                    ret = LLVMBuildRet(comp_ctx->builder, GC_REF_NULL);
+#endif
+                else
+                    bh_assert(0);
                 break;
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_NULLREF:
+            /* case REF_TYPE_FUNCREF: */
+            /* case REF_TYPE_EXTERNREF: */
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+#if WASM_ENABLE_STRINGREF != 0
+            case REF_TYPE_STRINGREF:
+            case REF_TYPE_STRINGVIEWWTF8:
+            case REF_TYPE_STRINGVIEWWTF16:
+            case REF_TYPE_STRINGVIEWITER:
+#endif
+                bh_assert(comp_ctx->enable_gc);
+                ret = LLVMBuildRet(comp_ctx->builder, GC_REF_NULL);
+                break;
+#endif
             default:
                 bh_assert(0);
         }

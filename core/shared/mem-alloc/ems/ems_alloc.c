@@ -5,6 +5,27 @@
 
 #include "ems_gc_internal.h"
 
+#if WASM_ENABLE_GC != 0
+#define LOCK_HEAP(heap)                                                \
+    do {                                                               \
+        if (!heap->is_doing_reclaim)                                   \
+            /* If the heap is doing reclaim, it must have been locked, \
+            we should not lock the heap again. */                      \
+            os_mutex_lock(&heap->lock);                                \
+    } while (0)
+#define UNLOCK_HEAP(heap)                                              \
+    do {                                                               \
+        if (!heap->is_doing_reclaim)                                   \
+            /* If the heap is doing reclaim, it must have been locked, \
+               and will be unlocked after reclaim, we should not       \
+               unlock the heap again. */                               \
+            os_mutex_unlock(&heap->lock);                              \
+    } while (0)
+#else
+#define LOCK_HEAP(heap) os_mutex_lock(&heap->lock)
+#define UNLOCK_HEAP(heap) os_mutex_unlock(&heap->lock)
+#endif
+
 static inline bool
 hmu_is_in_heap(void *hmu, gc_uint8 *heap_base_addr, gc_uint8 *heap_end_addr)
 {
@@ -332,6 +353,11 @@ alloc_hmu(gc_heap_t *heap, gc_size_t size)
     bh_assert(gci_is_heap_valid(heap));
     bh_assert(size > 0 && !(size & 7));
 
+#if WASM_ENABLE_GC != 0
+    /* In doing reclaim, gc must not alloc memory again. */
+    bh_assert(!heap->is_doing_reclaim);
+#endif
+
     base_addr = heap->base_addr;
     end_addr = base_addr + heap->current_size;
 
@@ -454,6 +480,34 @@ alloc_hmu(gc_heap_t *heap, gc_size_t size)
     return NULL;
 }
 
+#if WASM_ENABLE_GC != 0
+static int
+do_gc_heap(gc_heap_t *heap)
+{
+    int ret = GC_SUCCESS;
+#if WASM_ENABLE_GC_PERF_PROFILING != 0
+    uint64 start = 0, end = 0, time = 0;
+
+    start = os_time_get_boot_microsecond();
+#endif
+    if (heap->is_reclaim_enabled) {
+        UNLOCK_HEAP(heap);
+        ret = gci_gc_heap(heap);
+        LOCK_HEAP(heap);
+    }
+#if WASM_ENABLE_GC_PERF_PROFILING != 0
+    end = os_time_get_boot_microsecond();
+    time = end - start;
+    heap->total_gc_time += time;
+    if (time > heap->max_gc_time) {
+        heap->max_gc_time = time;
+    }
+    heap->total_gc_count += 1;
+#endif
+    return ret;
+}
+#endif
+
 /**
  * Find a proper HMU with given size
  *
@@ -475,11 +529,28 @@ alloc_hmu_ex(gc_heap_t *heap, gc_size_t size)
     bh_assert(gci_is_heap_valid(heap));
     bh_assert(size > 0 && !(size & 7));
 
+#if WASM_ENABLE_GC != 0
+#if GC_IN_EVERY_ALLOCATION != 0
+    if (GC_SUCCESS != do_gc_heap(heap))
+        return NULL;
+#else
+    if (heap->total_free_size < heap->gc_threshold) {
+        if (GC_SUCCESS != do_gc_heap(heap))
+            return NULL;
+    }
+    else {
+        hmu_t *ret = NULL;
+        if ((ret = alloc_hmu(heap, size))) {
+            return ret;
+        }
+        if (GC_SUCCESS != do_gc_heap(heap))
+            return NULL;
+    }
+#endif
+#endif
+
     return alloc_hmu(heap, size);
 }
-
-static unsigned long g_total_malloc = 0;
-static unsigned long g_total_free = 0;
 
 #if BH_ENABLE_GC_VERIFY == 0
 gc_object_t
@@ -509,7 +580,7 @@ gc_alloc_vo_internal(void *vheap, gc_size_t size, const char *file, int line)
     }
 #endif
 
-    os_mutex_lock(&heap->lock);
+    LOCK_HEAP(heap);
 
     hmu = alloc_hmu_ex(heap, tot_size);
     if (!hmu)
@@ -520,7 +591,9 @@ gc_alloc_vo_internal(void *vheap, gc_size_t size, const char *file, int line)
        the required size, reset it here */
     tot_size = hmu_get_size(hmu);
 
-    g_total_malloc += tot_size;
+#if GC_STAT_DATA != 0
+    heap->total_size_allocated += tot_size;
+#endif
 
     hmu_set_ut(hmu, HMU_VO);
     hmu_unfree_vo(hmu);
@@ -535,7 +608,7 @@ gc_alloc_vo_internal(void *vheap, gc_size_t size, const char *file, int line)
         memset((uint8 *)ret + size, 0, tot_size - tot_size_unaligned);
 
 finish:
-    os_mutex_unlock(&heap->lock);
+    UNLOCK_HEAP(heap);
     return ret;
 }
 
@@ -582,7 +655,7 @@ gc_realloc_vo_internal(void *vheap, void *ptr, gc_size_t size, const char *file,
     base_addr = heap->base_addr;
     end_addr = base_addr + heap->current_size;
 
-    os_mutex_lock(&heap->lock);
+    LOCK_HEAP(heap);
 
     if (hmu_old) {
         hmu_next = (hmu_t *)((char *)hmu_old + tot_size_old);
@@ -592,7 +665,7 @@ gc_realloc_vo_internal(void *vheap, void *ptr, gc_size_t size, const char *file,
             if (ut == HMU_FC && tot_size <= tot_size_old + tot_size_next) {
                 /* current node and next node meets requirement */
                 if (!unlink_hmu(heap, hmu_next)) {
-                    os_mutex_unlock(&heap->lock);
+                    UNLOCK_HEAP(heap);
                     return NULL;
                 }
                 hmu_set_size(hmu_old, tot_size);
@@ -605,12 +678,12 @@ gc_realloc_vo_internal(void *vheap, void *ptr, gc_size_t size, const char *file,
                     hmu_next = (hmu_t *)((char *)hmu_old + tot_size);
                     tot_size_next = tot_size_old + tot_size_next - tot_size;
                     if (!gci_add_fc(heap, hmu_next, tot_size_next)) {
-                        os_mutex_unlock(&heap->lock);
+                        UNLOCK_HEAP(heap);
                         return NULL;
                     }
                     hmu_mark_pinuse(hmu_next);
                 }
-                os_mutex_unlock(&heap->lock);
+                UNLOCK_HEAP(heap);
                 return obj_old;
             }
         }
@@ -624,7 +697,10 @@ gc_realloc_vo_internal(void *vheap, void *ptr, gc_size_t size, const char *file,
     /* the total size allocated may be larger than
        the required size, reset it here */
     tot_size = hmu_get_size(hmu);
-    g_total_malloc += tot_size;
+
+#if GC_STAT_DATA != 0
+    heap->total_size_allocated += tot_size;
+#endif
 
     hmu_set_ut(hmu, HMU_VO);
     hmu_unfree_vo(hmu);
@@ -647,11 +723,98 @@ finish:
         }
     }
 
-    os_mutex_unlock(&heap->lock);
+    UNLOCK_HEAP(heap);
 
     if (ret && obj_old)
         gc_free_vo(vheap, obj_old);
 
+    return ret;
+}
+
+#if GC_MANUALLY != 0
+void
+gc_free_wo(void *vheap, void *ptr)
+{
+    gc_heap_t *heap = (gc_heap_t *)vheap;
+    gc_object_t *obj = (gc_object_t *)ptr;
+    hmu_t *hmu = obj_to_hmu(obj);
+
+    bh_assert(gci_is_heap_valid(heap));
+    bh_assert(obj);
+    bh_assert((gc_uint8 *)hmu >= heap->base_addr
+              && (gc_uint8 *)hmu < heap->base_addr + heap->current_size);
+    bh_assert(hmu_get_ut(hmu) == HMU_WO);
+
+    hmu_unmark_wo(hmu);
+    (void)heap;
+}
+#endif
+
+/* see ems_gc.h for description*/
+#if BH_ENABLE_GC_VERIFY == 0
+gc_object_t
+gc_alloc_wo(void *vheap, gc_size_t size)
+#else
+gc_object_t
+gc_alloc_wo_internal(void *vheap, gc_size_t size, const char *file, int line)
+#endif
+{
+    gc_heap_t *heap = (gc_heap_t *)vheap;
+    hmu_t *hmu = NULL;
+    gc_object_t ret = (gc_object_t)NULL;
+    gc_size_t tot_size = 0, tot_size_unaligned;
+
+    /* hmu header + prefix + obj + suffix */
+    tot_size_unaligned = HMU_SIZE + OBJ_PREFIX_SIZE + size + OBJ_SUFFIX_SIZE;
+    /* aligned size*/
+    tot_size = GC_ALIGN_8(tot_size_unaligned);
+    if (tot_size < size)
+        /* integer overflow */
+        return NULL;
+
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
+    if (heap->is_heap_corrupted) {
+        os_printf("[GC_ERROR]Heap is corrupted, allocate memory failed.\n");
+        return NULL;
+    }
+#endif
+
+    LOCK_HEAP(heap);
+
+    hmu = alloc_hmu_ex(heap, tot_size);
+    if (!hmu)
+        goto finish;
+
+    /* Do we need to memset the memory to 0? */
+    /* memset((char *)hmu + sizeof(*hmu), 0, tot_size - sizeof(*hmu)); */
+
+    bh_assert(hmu_get_size(hmu) >= tot_size);
+    /* the total size allocated may be larger than
+       the required size, reset it here */
+    tot_size = hmu_get_size(hmu);
+
+#if GC_STAT_DATA != 0
+    heap->total_size_allocated += tot_size;
+#endif
+
+    hmu_set_ut(hmu, HMU_WO);
+#if GC_MANUALLY != 0
+    hmu_mark_wo(hmu);
+#else
+    hmu_unmark_wo(hmu);
+#endif
+
+#if BH_ENABLE_GC_VERIFY != 0
+    hmu_init_prefix_and_suffix(hmu, tot_size, file, line);
+#endif
+
+    ret = hmu_to_obj(hmu);
+    if (tot_size > tot_size_unaligned)
+        /* clear buffer appended by GC_ALIGN_8() */
+        memset((uint8 *)ret + size, 0, tot_size - tot_size_unaligned);
+
+finish:
+    UNLOCK_HEAP(heap);
     return ret;
 }
 
@@ -703,7 +866,7 @@ gc_free_vo_internal(void *vheap, gc_object_t obj, const char *file, int line)
     base_addr = heap->base_addr;
     end_addr = base_addr + heap->current_size;
 
-    os_mutex_lock(&heap->lock);
+    LOCK_HEAP(heap);
 
     if (hmu_is_in_heap(hmu, base_addr, end_addr)) {
 #if BH_ENABLE_GC_VERIFY != 0
@@ -719,9 +882,11 @@ gc_free_vo_internal(void *vheap, gc_object_t obj, const char *file, int line)
 
             size = hmu_get_size(hmu);
 
-            g_total_free += size;
-
             heap->total_free_size += size;
+
+#if GC_STAT_DATA != 0
+            heap->total_size_freed += size;
+#endif
 
             if (!hmu_get_pinuse(hmu)) {
                 prev = (hmu_t *)((char *)hmu - *((int *)hmu - 1));
@@ -767,7 +932,7 @@ gc_free_vo_internal(void *vheap, gc_object_t obj, const char *file, int line)
     }
 
 out:
-    os_mutex_unlock(&heap->lock);
+    UNLOCK_HEAP(heap);
     return ret;
 }
 
@@ -778,8 +943,12 @@ gc_dump_heap_stats(gc_heap_t *heap)
     os_printf("total free: %" PRIu32 ", current: %" PRIu32
               ", highmark: %" PRIu32 "\n",
               heap->total_free_size, heap->current_size, heap->highmark_size);
-    os_printf("g_total_malloc=%lu, g_total_free=%lu, occupied=%lu\n",
-              g_total_malloc, g_total_free, g_total_malloc - g_total_free);
+#if GC_STAT_DATA != 0
+    os_printf("total size allocated: %" PRIu64 ", total size freed: %" PRIu64
+              ", total occupied: %" PRIu64 "\n",
+              heap->total_size_allocated, heap->total_size_freed,
+              heap->total_size_allocated - heap->total_size_freed);
+#endif
 }
 
 uint32
@@ -804,12 +973,12 @@ gci_dump(gc_heap_t *heap)
         ut = hmu_get_ut(cur);
         size = hmu_get_size(cur);
         p = hmu_get_pinuse(cur);
-        mark = hmu_is_jo_marked(cur);
+        mark = hmu_is_wo_marked(cur);
 
         if (ut == HMU_VO)
             inuse = 'V';
-        else if (ut == HMU_JO)
-            inuse = hmu_is_jo_marked(cur) ? 'J' : 'j';
+        else if (ut == HMU_WO)
+            inuse = hmu_is_wo_marked(cur) ? 'W' : 'w';
         else if (ut == HMU_FC)
             inuse = 'F';
 
@@ -845,3 +1014,156 @@ gci_dump(gc_heap_t *heap)
     bh_assert(cur == end);
 #endif
 }
+
+#if WASM_ENABLE_GC != 0
+extra_info_node_t *
+gc_search_extra_info_node(gc_handle_t handle, gc_object_t obj,
+                          gc_size_t *p_index)
+{
+    gc_heap_t *vheap = (gc_heap_t *)handle;
+    int32 low = 0, high = vheap->extra_info_node_cnt - 1;
+    int32 mid;
+    extra_info_node_t *node;
+
+    if (!vheap->extra_info_nodes)
+        return NULL;
+
+    while (low <= high) {
+        mid = (low + high) / 2;
+        node = vheap->extra_info_nodes[mid];
+
+        if (obj == node->obj) {
+            if (p_index) {
+                *p_index = mid;
+            }
+            return node;
+        }
+        else if (obj < node->obj) {
+            high = mid - 1;
+        }
+        else {
+            low = mid + 1;
+        }
+    }
+
+    if (p_index) {
+        *p_index = low;
+    }
+    return NULL;
+}
+
+static bool
+insert_extra_info_node(gc_heap_t *vheap, extra_info_node_t *node)
+{
+    gc_size_t index;
+    extra_info_node_t *orig_node;
+
+    if (!vheap->extra_info_nodes) {
+        vheap->extra_info_nodes = vheap->extra_info_normal_nodes;
+        vheap->extra_info_node_capacity = sizeof(vheap->extra_info_normal_nodes)
+                                          / sizeof(extra_info_node_t *);
+        vheap->extra_info_nodes[0] = node;
+        vheap->extra_info_node_cnt = 1;
+        return true;
+    }
+
+    /* extend array */
+    if (vheap->extra_info_node_cnt == vheap->extra_info_node_capacity) {
+        extra_info_node_t **new_nodes = NULL;
+        gc_size_t new_capacity = vheap->extra_info_node_capacity * 3 / 2;
+        gc_size_t total_size = sizeof(extra_info_node_t *) * new_capacity;
+
+        new_nodes = (extra_info_node_t **)BH_MALLOC(total_size);
+        if (!new_nodes) {
+            LOG_ERROR("alloc extra info nodes failed");
+            return false;
+        }
+
+        bh_memcpy_s(new_nodes, total_size, vheap->extra_info_nodes,
+                    sizeof(extra_info_node_t *) * vheap->extra_info_node_cnt);
+        if (vheap->extra_info_nodes != vheap->extra_info_normal_nodes) {
+            BH_FREE(vheap->extra_info_nodes);
+        }
+
+        vheap->extra_info_nodes = new_nodes;
+        vheap->extra_info_node_capacity = new_capacity;
+    }
+
+    orig_node = gc_search_extra_info_node(vheap, node->obj, &index);
+    if (orig_node) {
+        /* replace the old node */
+        vheap->extra_info_nodes[index] = node;
+        BH_FREE(orig_node);
+    }
+    else {
+        bh_memmove_s(vheap->extra_info_nodes + index + 1,
+                     (vheap->extra_info_node_capacity - index - 1)
+                         * sizeof(extra_info_node_t *),
+                     vheap->extra_info_nodes + index,
+                     (vheap->extra_info_node_cnt - index)
+                         * sizeof(extra_info_node_t *));
+        vheap->extra_info_nodes[index] = node;
+        vheap->extra_info_node_cnt += 1;
+    }
+
+    return true;
+}
+
+bool
+gc_set_finalizer(gc_handle_t handle, gc_object_t obj, gc_finalizer_t cb,
+                 void *data)
+{
+    extra_info_node_t *node = NULL;
+    gc_heap_t *vheap = (gc_heap_t *)handle;
+
+    node = (extra_info_node_t *)BH_MALLOC(sizeof(extra_info_node_t));
+
+    if (!node) {
+        LOG_ERROR("alloc a new extra info node failed");
+        return GC_FALSE;
+    }
+    memset(node, 0, sizeof(extra_info_node_t));
+
+    node->finalizer = cb;
+    node->obj = obj;
+    node->data = data;
+
+    LOCK_HEAP(vheap);
+    if (!insert_extra_info_node(vheap, node)) {
+        BH_FREE(node);
+        UNLOCK_HEAP(vheap);
+        return GC_FALSE;
+    }
+    UNLOCK_HEAP(vheap);
+
+    gct_vm_set_extra_info_flag(obj, true);
+    return GC_TRUE;
+}
+
+void
+gc_unset_finalizer(gc_handle_t handle, gc_object_t obj)
+{
+    gc_size_t index;
+    gc_heap_t *vheap = (gc_heap_t *)handle;
+    extra_info_node_t *node;
+
+    LOCK_HEAP(vheap);
+    node = gc_search_extra_info_node(vheap, obj, &index);
+
+    if (!node) {
+        UNLOCK_HEAP(vheap);
+        return;
+    }
+
+    BH_FREE(node);
+    bh_memmove_s(
+        vheap->extra_info_nodes + index,
+        (vheap->extra_info_node_capacity - index) * sizeof(extra_info_node_t *),
+        vheap->extra_info_nodes + index + 1,
+        (vheap->extra_info_node_cnt - index - 1) * sizeof(extra_info_node_t *));
+    vheap->extra_info_node_cnt -= 1;
+    UNLOCK_HEAP(vheap);
+
+    gct_vm_set_extra_info_flag(obj, false);
+}
+#endif

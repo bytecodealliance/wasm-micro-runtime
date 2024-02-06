@@ -55,6 +55,10 @@ print_help()
     printf("  --jit-codecache-size=n   Set fast jit maximum code cache size in bytes,\n");
     printf("                           default is %u KB\n", FAST_JIT_DEFAULT_CODE_CACHE_SIZE / 1024);
 #endif
+#if WASM_ENABLE_GC != 0
+    printf("  --gc-heap-size=n         Set maximum gc heap size in bytes,\n");
+    printf("                           default is %u KB\n", GC_HEAP_SIZE_DEFAULT / 1024);
+#endif
 #if WASM_ENABLE_JIT != 0
     printf("  --llvm-jit-size-level=n  Set LLVM JIT size level, default is 3\n");
     printf("  --llvm-jit-opt-level=n   Set LLVM JIT optimization level, default is 3\n");
@@ -559,6 +563,9 @@ main(int argc, char *argv[])
 #if WASM_ENABLE_FAST_JIT != 0
     uint32 jit_code_cache_size = FAST_JIT_DEFAULT_CODE_CACHE_SIZE;
 #endif
+#if WASM_ENABLE_GC != 0
+    uint32 gc_heap_size = GC_HEAP_SIZE_DEFAULT;
+#endif
 #if WASM_ENABLE_JIT != 0
     uint32 llvm_jit_size_level = 3;
     uint32 llvm_jit_opt_level = 3;
@@ -664,6 +671,13 @@ main(int argc, char *argv[])
             if (argv[0][21] == '\0')
                 return print_help();
             jit_code_cache_size = atoi(argv[0] + 21);
+        }
+#endif
+#if WASM_ENABLE_GC != 0
+        else if (!strncmp(argv[0], "--gc-heap-size=", 15)) {
+            if (argv[0][21] == '\0')
+                return print_help();
+            gc_heap_size = atoi(argv[0] + 15);
         }
 #endif
 #if WASM_ENABLE_JIT != 0
@@ -819,6 +833,10 @@ main(int argc, char *argv[])
 
 #if WASM_ENABLE_FAST_JIT != 0
     init_args.fast_jit_code_cache_size = jit_code_cache_size;
+#endif
+
+#if WASM_ENABLE_GC != 0
+    init_args.gc_heap_size = gc_heap_size;
 #endif
 
 #if WASM_ENABLE_JIT != 0

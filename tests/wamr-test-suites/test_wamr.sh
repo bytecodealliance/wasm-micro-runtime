@@ -462,13 +462,19 @@ function spec_test()
         pushd spec
 
         git restore . && git clean -ffd .
-        # Sync constant expression descriptions
-        git reset --hard 62beb94ddd41987517781732f17f213d8b866dcc
+        # Reset to commit: "[test] Unify the error message."
+        git reset --hard 0caaadc65b5e1910512d8ae228502edcf9d60390
         git apply ../../spec-test-script/gc_ignore_cases.patch
+
+        if [[ ${ENABLE_QEMU} == 1 ]]; then
+            # Decrease the recursive count for tail call cases as nuttx qemu's
+            # native stack size is much smaller
+            git apply ../../spec-test-script/gc_nuttx_tail_call.patch
+        fi
 
         echo "compile the reference intepreter"
         pushd interpreter
-        make opt
+        make
         popd
     fi
 
@@ -819,6 +825,7 @@ function trigger()
     local EXTRA_COMPILE_FLAGS=""
     # default enabled features
     EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_BULK_MEMORY=1"
+    EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=1"
 
     if [[ ${ENABLE_MULTI_MODULE} == 1 ]];then
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MODULE=1"
@@ -828,9 +835,6 @@ function trigger()
 
     if [[ ${ENABLE_MULTI_THREAD} == 1 ]];then
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_LIB_PTHREAD=1"
-        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=0"
-    else
-        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=1"
     fi
 
     if [[ ${ENABLE_SIMD} == 1 ]]; then
@@ -841,8 +845,8 @@ function trigger()
 
     if [[ ${ENABLE_GC} == 1 ]]; then
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_GC=1"
-        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=1"
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_BULK_MEMORY=1"
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_TAIL_CALL=1"
     fi
 
     if [[ ${ENABLE_DEBUG_VERSION} == 1 ]]; then

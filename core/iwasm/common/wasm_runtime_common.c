@@ -19,6 +19,9 @@
 #include "../aot/debug/jit_debug.h"
 #endif
 #endif
+#if WASM_ENABLE_GC != 0
+#include "gc/gc_object.h"
+#endif
 #if WASM_ENABLE_THREAD_MGR != 0
 #include "../libraries/thread-mgr/thread_manager.h"
 #if WASM_ENABLE_DEBUG_INTERP != 0
@@ -88,7 +91,7 @@ wasm_runtime_destroy_registered_module_list();
 
 #define E_TYPE_XIP 4
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
 /* Initialize externref hashmap */
 static bool
 wasm_externref_map_init();
@@ -96,7 +99,7 @@ wasm_externref_map_init();
 /* Destroy externref hashmap */
 static void
 wasm_externref_map_destroy();
-#endif /* WASM_ENABLE_REF_TYPES */
+#endif /* end of WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0 */
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
@@ -161,6 +164,10 @@ static JitCompOptions jit_options = { 0 };
 /* opt_level: 3, size_level: 3, segue-flags: 0,
    quick_invoke_c_api_import: false */
 static LLVMJITOptions llvm_jit_options = { 3, 3, 0, false };
+#endif
+
+#if WASM_ENABLE_GC != 0
+static uint32 gc_heap_size_default = GC_HEAP_SIZE_DEFAULT;
 #endif
 
 static RunningMode runtime_running_mode = Mode_Default;
@@ -469,7 +476,7 @@ wasm_runtime_env_init()
 #endif
 #endif
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     if (!wasm_externref_map_init()) {
         goto fail8;
     }
@@ -510,11 +517,11 @@ fail10:
 #endif
 #if WASM_ENABLE_FAST_JIT != 0
 fail9:
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     wasm_externref_map_destroy();
 #endif
 #endif
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
 fail8:
 #endif
 #if WASM_ENABLE_AOT != 0
@@ -552,9 +559,9 @@ static bool
 wasm_runtime_exec_env_check(WASMExecEnv *exec_env)
 {
     return exec_env && exec_env->module_inst && exec_env->wasm_stack_size > 0
-           && exec_env->wasm_stack.s.top_boundary
-                  == exec_env->wasm_stack.s.bottom + exec_env->wasm_stack_size
-           && exec_env->wasm_stack.s.top <= exec_env->wasm_stack.s.top_boundary;
+           && exec_env->wasm_stack.top_boundary
+                  == exec_env->wasm_stack.bottom + exec_env->wasm_stack_size
+           && exec_env->wasm_stack.top <= exec_env->wasm_stack.top_boundary;
 }
 
 bool
@@ -574,7 +581,7 @@ wasm_runtime_init()
 void
 wasm_runtime_destroy()
 {
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     wasm_externref_map_destroy();
 #endif
 
@@ -647,6 +654,14 @@ wasm_runtime_get_llvm_jit_options(void)
 }
 #endif
 
+#if WASM_ENABLE_GC != 0
+uint32
+wasm_runtime_get_gc_heap_size_default(void)
+{
+    return gc_heap_size_default;
+}
+#endif
+
 bool
 wasm_runtime_full_init(RuntimeInitArgs *init_args)
 {
@@ -661,6 +676,10 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
 
 #if WASM_ENABLE_FAST_JIT != 0
     jit_options.code_cache_size = init_args->fast_jit_code_cache_size;
+#endif
+
+#if WASM_ENABLE_GC != 0
+    gc_heap_size_default = init_args->gc_heap_size;
 #endif
 
 #if WASM_ENABLE_JIT != 0
@@ -1572,11 +1591,11 @@ void
 wasm_runtime_dump_exec_env_mem_consumption(const WASMExecEnv *exec_env)
 {
     uint32 total_size =
-        offsetof(WASMExecEnv, wasm_stack.s.bottom) + exec_env->wasm_stack_size;
+        offsetof(WASMExecEnv, wasm_stack_u.bottom) + exec_env->wasm_stack_size;
 
     os_printf("Exec env memory consumption, total size: %u\n", total_size);
     os_printf("    exec env struct size: %u\n",
-              offsetof(WASMExecEnv, wasm_stack.s.bottom));
+              offsetof(WASMExecEnv, wasm_stack_u.bottom));
 #if WASM_ENABLE_INTERP != 0 && WASM_ENABLE_FAST_INTERP == 0
     os_printf("        block addr cache size: %u\n",
               sizeof(exec_env->block_addr_cache));
@@ -1637,7 +1656,7 @@ wasm_runtime_dump_mem_consumption(WASMExecEnv *exec_env)
         app_heap_peak_size = gc_get_heap_highmark_size(heap_handle);
     }
 
-    total_size = offsetof(WASMExecEnv, wasm_stack.s.bottom)
+    total_size = offsetof(WASMExecEnv, wasm_stack_u.bottom)
                  + exec_env->wasm_stack_size + module_mem_consps.total_size
                  + module_inst_mem_consps.total_size;
 
@@ -1771,11 +1790,11 @@ wasm_runtime_access_exce_check_guard_page()
 }
 #endif
 
-WASMType *
+WASMFuncType *
 wasm_runtime_get_function_type(const WASMFunctionInstanceCommon *function,
                                uint32 module_type)
 {
-    WASMType *type = NULL;
+    WASMFuncType *type = NULL;
 
 #if WASM_ENABLE_INTERP != 0
     if (module_type == Wasm_Module_Bytecode) {
@@ -1816,7 +1835,7 @@ uint32
 wasm_func_get_param_count(WASMFunctionInstanceCommon *const func_inst,
                           WASMModuleInstanceCommon *const module_inst)
 {
-    WASMType *type =
+    WASMFuncType *type =
         wasm_runtime_get_function_type(func_inst, module_inst->module_type);
     bh_assert(type);
 
@@ -1827,7 +1846,7 @@ uint32
 wasm_func_get_result_count(WASMFunctionInstanceCommon *const func_inst,
                            WASMModuleInstanceCommon *const module_inst)
 {
-    WASMType *type =
+    WASMFuncType *type =
         wasm_runtime_get_function_type(func_inst, module_inst->module_type);
     bh_assert(type);
 
@@ -1861,7 +1880,7 @@ wasm_func_get_param_types(WASMFunctionInstanceCommon *const func_inst,
                           WASMModuleInstanceCommon *const module_inst,
                           wasm_valkind_t *param_types)
 {
-    WASMType *type =
+    WASMFuncType *type =
         wasm_runtime_get_function_type(func_inst, module_inst->module_type);
     uint32 i;
 
@@ -1877,7 +1896,7 @@ wasm_func_get_result_types(WASMFunctionInstanceCommon *const func_inst,
                            WASMModuleInstanceCommon *const module_inst,
                            wasm_valkind_t *result_types)
 {
-    WASMType *type =
+    WASMFuncType *type =
         wasm_runtime_get_function_type(func_inst, module_inst->module_type);
     uint32 i;
 
@@ -1889,7 +1908,7 @@ wasm_func_get_result_types(WASMFunctionInstanceCommon *const func_inst,
     }
 }
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
 /* (uintptr_t)externref -> (uint32)index */
 /*   argv               ->   *ret_argv */
 static bool
@@ -1903,7 +1922,7 @@ wasm_runtime_prepare_call_function(WASMExecEnv *exec_env,
            result_i = 0;
     bool need_param_transform = false, need_result_transform = false;
     uint64 size = 0;
-    WASMType *func_type = wasm_runtime_get_function_type(
+    WASMFuncType *func_type = wasm_runtime_get_function_type(
         function, exec_env->module_inst->module_type);
 
     bh_assert(func_type);
@@ -1996,7 +2015,7 @@ wasm_runtime_finalize_call_function(WASMExecEnv *exec_env,
                                     uint32 *argv, uint32 argc, uint32 *ret_argv)
 {
     uint32 argv_i = 0, result_i = 0, ret_argv_i = 0;
-    WASMType *func_type;
+    WASMFuncType *func_type;
 
     bh_assert((argv && ret_argv) || (argc == 0));
 
@@ -2058,7 +2077,7 @@ wasm_runtime_call_wasm(WASMExecEnv *exec_env,
 {
     bool ret = false;
     uint32 *new_argv = NULL, param_argc;
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     uint32 result_argc = 0;
 #endif
 
@@ -2067,7 +2086,7 @@ wasm_runtime_call_wasm(WASMExecEnv *exec_env,
         return false;
     }
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     if (!wasm_runtime_prepare_call_function(exec_env, function, argv, argc,
                                             &new_argv, &param_argc,
                                             &result_argc)) {
@@ -2097,7 +2116,7 @@ wasm_runtime_call_wasm(WASMExecEnv *exec_env,
         return false;
     }
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     if (!wasm_runtime_finalize_call_function(exec_env, function, new_argv,
                                              result_argc, argv)) {
         wasm_runtime_set_exception(exec_env->module_inst,
@@ -2110,7 +2129,8 @@ wasm_runtime_call_wasm(WASMExecEnv *exec_env,
 }
 
 static void
-parse_args_to_uint32_array(WASMType *type, wasm_val_t *args, uint32 *out_argv)
+parse_args_to_uint32_array(WASMFuncType *type, wasm_val_t *args,
+                           uint32 *out_argv)
 {
     uint32 i, p;
 
@@ -2152,11 +2172,15 @@ parse_args_to_uint32_array(WASMType *type, wasm_val_t *args, uint32 *out_argv)
                 break;
             }
 #if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0
             case WASM_FUNCREF:
             {
                 out_argv[p++] = args[i].of.i32;
                 break;
             }
+#else
+            case WASM_FUNCREF:
+#endif
             case WASM_ANYREF:
             {
 #if UINTPTR_MAX == UINT32_MAX
@@ -2182,7 +2206,7 @@ parse_args_to_uint32_array(WASMType *type, wasm_val_t *args, uint32 *out_argv)
 }
 
 static void
-parse_uint32_array_to_results(WASMType *type, uint32 *argv,
+parse_uint32_array_to_results(WASMFuncType *type, uint32 *argv,
                               wasm_val_t *out_results)
 {
     uint32 i, p;
@@ -2229,6 +2253,7 @@ parse_uint32_array_to_results(WASMType *type, uint32 *argv,
                 break;
             }
 #if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0
             case VALUE_TYPE_FUNCREF:
             {
                 out_results[i].kind = WASM_I32;
@@ -2236,6 +2261,20 @@ parse_uint32_array_to_results(WASMType *type, uint32 *argv,
                 break;
             }
             case VALUE_TYPE_EXTERNREF:
+#else
+            case REF_TYPE_FUNCREF:
+            case REF_TYPE_EXTERNREF:
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_NULLREF:
+#endif /* end of WASM_ENABLE_GC == 0 */
             {
 #if UINTPTR_MAX == UINT32_MAX
                 out_results[i].kind = WASM_ANYREF;
@@ -2252,7 +2291,7 @@ parse_uint32_array_to_results(WASMType *type, uint32 *argv,
 #endif
                 break;
             }
-#endif
+#endif /* end of WASM_ENABLE_REF_TYPES != 0 */
             default:
                 bh_assert(0);
                 break;
@@ -2267,11 +2306,11 @@ wasm_runtime_call_wasm_a(WASMExecEnv *exec_env,
                          uint32 num_args, wasm_val_t args[])
 {
     uint32 argc, argv_buf[16] = { 0 }, *argv = argv_buf, cell_num, module_type;
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     uint32 i, param_size_in_double_world = 0, result_size_in_double_world = 0;
 #endif
     uint64 total_size;
-    WASMType *type;
+    WASMFuncType *type;
     bool ret = false;
 
     module_type = exec_env->module_inst->module_type;
@@ -2283,7 +2322,7 @@ wasm_runtime_call_wasm_a(WASMExecEnv *exec_env,
         goto fail1;
     }
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     for (i = 0; i < type->param_count; i++) {
         param_size_in_double_world +=
             wasm_value_type_cell_num_outside(type->types[i]);
@@ -2341,7 +2380,7 @@ wasm_runtime_call_wasm_v(WASMExecEnv *exec_env,
                          uint32 num_args, ...)
 {
     wasm_val_t args_buf[8] = { 0 }, *args = args_buf;
-    WASMType *type = NULL;
+    WASMFuncType *type = NULL;
     bool ret = false;
     uint64 total_size;
     uint32 i = 0, module_type;
@@ -2389,7 +2428,7 @@ wasm_runtime_call_wasm_v(WASMExecEnv *exec_env,
                 args[i].kind = WASM_F64;
                 args[i].of.f64 = va_arg(vargs, float64);
                 break;
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
             {
                 args[i].kind = WASM_FUNCREF;
@@ -2506,6 +2545,23 @@ static const char *exception_msgs[] = {
     "out of bounds table access",     /* EXCE_OUT_OF_BOUNDS_TABLE_ACCESS */
     "wasm operand stack overflow",    /* EXCE_OPERAND_STACK_OVERFLOW */
     "failed to compile fast jit function", /* EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC */
+    /* GC related exceptions */
+    "null function object",           /* EXCE_NULL_FUNC_OBJ */
+    "null structure object",          /* EXCE_NULL_STRUCT_OBJ */
+    "null array reference",              /* EXCE_NULL_ARRAY_OBJ */
+    "null i31 reference",             /* EXCE_NULL_I31_OBJ */
+    "null reference",                 /* EXCE_NULL_REFERENCE */
+    "create rtt type failed",         /* EXCE_FAILED_TO_CREATE_RTT_TYPE */
+    "create struct object failed",    /* EXCE_FAILED_TO_CREATE_STRUCT_OBJ */
+    "create array object failed",     /* EXCE_FAILED_TO_CREATE_ARRAY_OBJ */
+    "create externref object failed", /* EXCE_FAILED_TO_CREATE_EXTERNREF_OBJ */
+    "cast failure",                   /* EXCE_CAST_FAILURE */
+    "out of bounds array access",      /* EXCE_ARRAY_IDX_OOB */
+    /* stringref related exceptions */
+    "create string object failed",    /* EXCE_FAILED_TO_CREATE_STRING */
+    "create stringref failed",        /* EXCE_FAILED_TO_CREATE_STRINGREF */
+    "create stringview failed",       /* EXCE_FAILED_TO_CREATE_STRINGVIEW */
+    "encode failed",                  /* EXCE_FAILED_TO_ENCODE_STRING */
     "",                               /* EXCE_ALREADY_THROWN */
 };
 /* clang-format on */
@@ -3568,9 +3624,9 @@ wasm_runtime_unregister_natives(const char *module_name,
 
 bool
 wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
-                               const WASMType *func_type, const char *signature,
-                               void *attachment, uint32 *argv, uint32 argc,
-                               uint32 *argv_ret)
+                               const WASMFuncType *func_type,
+                               const char *signature, void *attachment,
+                               uint32 *argv, uint32 argc, uint32 *argv_ret)
 {
     WASMModuleInstanceCommon *module = wasm_runtime_get_module_inst(exec_env);
     typedef void (*NativeRawFuncPtr)(WASMExecEnv *, uint64 *);
@@ -3595,7 +3651,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
     for (i = 0; i < func_type->param_count; i++, argv_dst++) {
         switch (func_type->types[i]) {
             case VALUE_TYPE_I32:
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
 #endif
             {
@@ -3640,7 +3696,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
             case VALUE_TYPE_F32:
                 *(float32 *)argv_dst = *(float32 *)argv_src++;
                 break;
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_EXTERNREF:
             {
                 uint32 externref_idx = *argv_src++;
@@ -3652,6 +3708,32 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
 
                 bh_memcpy_s(argv_dst, sizeof(uintptr_t), argv_src,
                             sizeof(uintptr_t));
+                break;
+            }
+#endif
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_FUNCREF:
+            case REF_TYPE_EXTERNREF:
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_NULLREF:
+#if WASM_ENABLE_STRINGREF != 0
+            case REF_TYPE_STRINGREF:
+            case REF_TYPE_STRINGVIEWWTF8:
+            case REF_TYPE_STRINGVIEWWTF16:
+            case REF_TYPE_STRINGVIEWITER:
+#endif
+            {
+                bh_memcpy_s(argv_dst, sizeof(uintptr_t), argv_src,
+                            sizeof(uintptr_t));
+                argv_src += sizeof(uintptr_t) / sizeof(uint32);
                 break;
             }
 #endif
@@ -3668,7 +3750,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
     if (func_type->result_count > 0) {
         switch (func_type->types[func_type->param_count]) {
             case VALUE_TYPE_I32:
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
 #endif
                 argv_ret[0] = *(uint32 *)argv1;
@@ -3681,7 +3763,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
                 bh_memcpy_s(argv_ret, sizeof(uint32) * 2, argv1,
                             sizeof(uint64));
                 break;
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_EXTERNREF:
             {
                 uint32 externref_idx;
@@ -3695,6 +3777,31 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
                                             &externref_idx))
                     goto fail;
                 argv_ret[0] = externref_idx;
+                break;
+            }
+#endif
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_FUNCREF:
+            case REF_TYPE_EXTERNREF:
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_NULLREF:
+#if WASM_ENABLE_STRINGREF != 0
+            case REF_TYPE_STRINGREF:
+            case REF_TYPE_STRINGVIEWWTF8:
+            case REF_TYPE_STRINGVIEWWTF16:
+            case REF_TYPE_STRINGVIEWITER:
+#endif
+            {
+                bh_memcpy_s(argv_ret, sizeof(uintptr_t), argv1,
+                            sizeof(uintptr_t));
                 break;
             }
 #endif
@@ -3751,7 +3858,7 @@ static volatile VoidFuncPtr invokeNative_Void =
 
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
-                           const WASMType *func_type, const char *signature,
+                           const WASMFuncType *func_type, const char *signature,
                            void *attachment, uint32 *argv, uint32 argc,
                            uint32 *argv_ret)
 {
@@ -3764,7 +3871,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     uint32 result_count = func_type->result_count;
     uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     bool ret = false;
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     bool is_aot_func = (NULL == signature);
 #endif
 #if !defined(BUILD_TARGET_RISCV32_ILP32) && !defined(BUILD_TARGET_ARC)
@@ -3781,7 +3888,27 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     for (i = 0; i < func_type->param_count; i++) {
         switch (func_type->types[i]) {
             case VALUE_TYPE_I32:
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_FUNCREF:
+            case REF_TYPE_EXTERNREF:
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_NULLREF:
+#if WASM_ENABLE_STRINGREF != 0
+            case REF_TYPE_STRINGREF:
+            case REF_TYPE_STRINGVIEWWTF8:
+            case REF_TYPE_STRINGVIEWWTF16:
+            case REF_TYPE_STRINGVIEWITER:
+#endif
+#endif
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
             case VALUE_TYPE_EXTERNREF:
 #endif
@@ -3925,7 +4052,27 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     for (i = 0; i < func_type->param_count; i++) {
         switch (func_type->types[i]) {
             case VALUE_TYPE_I32:
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_FUNCREF:
+            case REF_TYPE_EXTERNREF:
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_NULLREF:
+#if WASM_ENABLE_STRINGREF != 0
+            case REF_TYPE_STRINGREF:
+            case REF_TYPE_STRINGVIEWWTF8:
+            case REF_TYPE_STRINGVIEWWTF16:
+            case REF_TYPE_STRINGVIEWITER:
+#endif
+#endif
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
 #endif
             {
@@ -4082,7 +4229,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 break;
             }
 #endif /* BUILD_TARGET_RISCV32_ILP32D */
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_EXTERNREF:
             {
                 uint32 externref_idx = *argv_src++;
@@ -4128,7 +4275,27 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     else {
         switch (func_type->types[func_type->param_count]) {
             case VALUE_TYPE_I32:
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_FUNCREF:
+            case REF_TYPE_EXTERNREF:
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_NULLREF:
+#if WASM_ENABLE_STRINGREF != 0
+            case REF_TYPE_STRINGREF:
+            case REF_TYPE_STRINGVIEWWTF8:
+            case REF_TYPE_STRINGVIEWWTF16:
+            case REF_TYPE_STRINGVIEWITER:
+#endif
+#endif
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
 #endif
                 argv_ret[0] =
@@ -4146,7 +4313,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 PUT_F64_TO_ADDR(
                     argv_ret, invokeNative_Float64(func_ptr, argv1, n_stacks));
                 break;
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_EXTERNREF:
             {
                 if (is_aot_func) {
@@ -4223,7 +4390,7 @@ word_copy(uint32 *dest, uint32 *src, unsigned num)
 
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
-                           const WASMType *func_type, const char *signature,
+                           const WASMFuncType *func_type, const char *signature,
                            void *attachment, uint32 *argv, uint32 argc,
                            uint32 *argv_ret)
 {
@@ -4234,7 +4401,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     uint64 size;
     bool ret = false;
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     bool is_aot_func = (NULL == signature);
 #endif
 
@@ -4260,7 +4427,27 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     for (i = 0; i < func_type->param_count; i++) {
         switch (func_type->types[i]) {
             case VALUE_TYPE_I32:
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_FUNCREF:
+            case REF_TYPE_EXTERNREF:
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_NULLREF:
+#if WASM_ENABLE_STRINGREF != 0
+            case REF_TYPE_STRINGREF:
+            case REF_TYPE_STRINGVIEWWTF8:
+            case REF_TYPE_STRINGVIEWWTF16:
+            case REF_TYPE_STRINGVIEWITER:
+#endif
+#endif
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
 #endif
             {
@@ -4311,7 +4498,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
             case VALUE_TYPE_F32:
                 argv1[j++] = *argv++;
                 break;
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_EXTERNREF:
             {
                 uint32 externref_idx = *argv++;
@@ -4346,7 +4533,27 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     else {
         switch (func_type->types[func_type->param_count]) {
             case VALUE_TYPE_I32:
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_FUNCREF:
+            case REF_TYPE_EXTERNREF:
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_NULLREF:
+#if WASM_ENABLE_STRINGREF != 0
+            case REF_TYPE_STRINGREF:
+            case REF_TYPE_STRINGVIEWWTF8:
+            case REF_TYPE_STRINGVIEWWTF16:
+            case REF_TYPE_STRINGVIEWITER:
+#endif
+#endif
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
 #endif
                 argv_ret[0] =
@@ -4364,7 +4571,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 PUT_F64_TO_ADDR(argv_ret,
                                 invokeNative_Float64(func_ptr, argv1, argc1));
                 break;
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_EXTERNREF:
             {
                 if (is_aot_func) {
@@ -4491,7 +4698,7 @@ __attribute__((no_sanitize_address))
 #endif
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
-                           const WASMType *func_type, const char *signature,
+                           const WASMFuncType *func_type, const char *signature,
                            void *attachment, uint32 *argv, uint32 argc,
                            uint32 *argv_ret)
 {
@@ -4503,7 +4710,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     uint32 result_count = func_type->result_count;
     uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     bool ret = false;
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     bool is_aot_func = (NULL == signature);
 #endif
 #ifndef BUILD_TARGET_RISCV64_LP64
@@ -4555,7 +4762,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     for (i = 0; i < func_type->param_count; i++) {
         switch (func_type->types[i]) {
             case VALUE_TYPE_I32:
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
 #endif
             {
@@ -4595,6 +4802,26 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 break;
             }
             case VALUE_TYPE_I64:
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_FUNCREF:
+            case REF_TYPE_EXTERNREF:
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_NULLREF:
+#if WASM_ENABLE_STRINGREF != 0
+            case REF_TYPE_STRINGREF:
+            case REF_TYPE_STRINGVIEWWTF8:
+            case REF_TYPE_STRINGVIEWWTF16:
+            case REF_TYPE_STRINGVIEWITER:
+#endif
+#endif
                 if (n_ints < MAX_REG_INTS)
                     ints[n_ints++] = *(uint64 *)argv_src;
                 else
@@ -4618,7 +4845,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 }
                 argv_src += 2;
                 break;
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_EXTERNREF:
             {
                 uint32 externref_idx = *argv_src++;
@@ -4677,13 +4904,33 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
         /* Invoke the native function and get the first result value */
         switch (func_type->types[func_type->param_count]) {
             case VALUE_TYPE_I32:
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
 #endif
                 argv_ret[0] =
                     (uint32)invokeNative_Int32(func_ptr, argv1, n_stacks);
                 break;
             case VALUE_TYPE_I64:
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_FUNCREF:
+            case REF_TYPE_EXTERNREF:
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_NULLREF:
+#if WASM_ENABLE_STRINGREF != 0
+            case REF_TYPE_STRINGREF:
+            case REF_TYPE_STRINGVIEWWTF8:
+            case REF_TYPE_STRINGVIEWWTF16:
+            case REF_TYPE_STRINGVIEWITER:
+#endif
+#endif
                 PUT_I64_TO_ADDR(argv_ret,
                                 invokeNative_Int64(func_ptr, argv1, n_stacks));
                 break;
@@ -4695,7 +4942,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 PUT_F64_TO_ADDR(
                     argv_ret, invokeNative_Float64(func_ptr, argv1, n_stacks));
                 break;
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_EXTERNREF:
             {
                 if (is_aot_func) {
@@ -4887,7 +5134,7 @@ wasm_runtime_join_thread(wasm_thread_t tid, void **retval)
 
 #endif /* end of WASM_ENABLE_THREAD_MGR */
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
 
 static korp_mutex externref_lock;
 static uint32 externref_global_id = 1;
@@ -5167,7 +5414,8 @@ mark_externref(uint32 externref_idx)
 static void
 interp_mark_all_externrefs(WASMModuleInstance *module_inst)
 {
-    uint32 i, j, externref_idx, *table_data;
+    uint32 i, j, externref_idx;
+    table_elem_type_t *table_data;
     uint8 *global_data = module_inst->global_data;
     WASMGlobalInstance *global;
     WASMTableInstance *table;
@@ -5289,7 +5537,7 @@ wasm_externref_retain(uint32 externref_idx)
     os_mutex_unlock(&externref_lock);
     return false;
 }
-#endif /* end of WASM_ENABLE_REF_TYPES */
+#endif /* end of WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0 */
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
 uint32
@@ -5405,6 +5653,9 @@ wasm_runtime_dump_pgo_prof_data_to_buf(WASMModuleInstanceCommon *module_inst,
 bool
 wasm_runtime_get_table_elem_type(const WASMModuleCommon *module_comm,
                                  uint32 table_idx, uint8 *out_elem_type,
+#if WASM_ENABLE_GC != 0
+                                 WASMRefType **out_ref_type,
+#endif
                                  uint32 *out_min_size, uint32 *out_max_size)
 {
 #if WASM_ENABLE_INTERP != 0
@@ -5415,6 +5666,9 @@ wasm_runtime_get_table_elem_type(const WASMModuleCommon *module_comm,
             WASMTableImport *import_table =
                 &((module->import_tables + table_idx)->u.table);
             *out_elem_type = import_table->elem_type;
+#if WASM_ENABLE_GC != 0
+            *out_ref_type = import_table->elem_ref_type;
+#endif
             *out_min_size = import_table->init_size;
             *out_max_size = import_table->max_size;
         }
@@ -5422,6 +5676,9 @@ wasm_runtime_get_table_elem_type(const WASMModuleCommon *module_comm,
             WASMTable *table =
                 module->tables + (table_idx - module->import_table_count);
             *out_elem_type = table->elem_type;
+#if WASM_ENABLE_GC != 0
+            *out_ref_type = table->elem_ref_type;
+#endif
             *out_min_size = table->init_size;
             *out_max_size = table->max_size;
         }
@@ -5435,7 +5692,10 @@ wasm_runtime_get_table_elem_type(const WASMModuleCommon *module_comm,
 
         if (table_idx < module->import_table_count) {
             AOTImportTable *import_table = module->import_tables + table_idx;
-            *out_elem_type = VALUE_TYPE_FUNCREF;
+            *out_elem_type = import_table->elem_type;
+#if WASM_ENABLE_GC != 0
+            *out_ref_type = NULL; /* TODO */
+#endif
             *out_min_size = import_table->table_init_size;
             *out_max_size = import_table->table_max_size;
         }
@@ -5443,6 +5703,9 @@ wasm_runtime_get_table_elem_type(const WASMModuleCommon *module_comm,
             AOTTable *table =
                 module->tables + (table_idx - module->import_table_count);
             *out_elem_type = table->elem_type;
+#if WASM_ENABLE_GC != 0
+            *out_ref_type = NULL; /* TODO */
+#endif
             *out_min_size = table->table_init_size;
             *out_max_size = table->table_max_size;
         }
@@ -5456,31 +5719,28 @@ wasm_runtime_get_table_elem_type(const WASMModuleCommon *module_comm,
 bool
 wasm_runtime_get_table_inst_elem_type(
     const WASMModuleInstanceCommon *module_inst_comm, uint32 table_idx,
-    uint8 *out_elem_type, uint32 *out_min_size, uint32 *out_max_size)
+    uint8 *out_elem_type,
+#if WASM_ENABLE_GC != 0
+    WASMRefType **out_ref_type,
+#endif
+    uint32 *out_min_size, uint32 *out_max_size)
 {
-#if WASM_ENABLE_INTERP != 0
-    if (module_inst_comm->module_type == Wasm_Module_Bytecode) {
-        WASMModuleInstance *module_inst =
-            (WASMModuleInstance *)module_inst_comm;
-        return wasm_runtime_get_table_elem_type(
-            (WASMModuleCommon *)module_inst->module, table_idx, out_elem_type,
-            out_min_size, out_max_size);
-    }
+    WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
+
+    bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
+              || module_inst_comm->module_type == Wasm_Module_AoT);
+
+    return wasm_runtime_get_table_elem_type(
+        (WASMModuleCommon *)module_inst->module, table_idx, out_elem_type,
+#if WASM_ENABLE_GC != 0
+        out_ref_type,
 #endif
-#if WASM_ENABLE_AOT != 0
-    if (module_inst_comm->module_type == Wasm_Module_AoT) {
-        AOTModuleInstance *module_inst = (AOTModuleInstance *)module_inst_comm;
-        return wasm_runtime_get_table_elem_type(
-            (WASMModuleCommon *)module_inst->module, table_idx, out_elem_type,
-            out_min_size, out_max_size);
-    }
-#endif
-    return false;
+        out_min_size, out_max_size);
 }
 
 bool
 wasm_runtime_get_export_func_type(const WASMModuleCommon *module_comm,
-                                  const WASMExport *export, WASMType **out)
+                                  const WASMExport *export, WASMFuncType **out)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_comm->module_type == Wasm_Module_Bytecode) {
@@ -5503,13 +5763,14 @@ wasm_runtime_get_export_func_type(const WASMModuleCommon *module_comm,
         AOTModule *module = (AOTModule *)module_comm;
 
         if (export->index < module->import_func_count) {
-            *out = module->func_types[module->import_funcs[export->index]
-                                          .func_type_index];
+            *out = (WASMFuncType *)
+                       module->types[module->import_funcs[export->index]
+                                         .func_type_index];
         }
         else {
-            *out = module->func_types
-                       [module->func_type_indexes[export->index
-                                                  - module->import_func_count]];
+            *out = (WASMFuncType *)module
+                       ->types[module->func_type_indexes
+                                   [export->index - module->import_func_count]];
         }
         return true;
     }
@@ -5615,15 +5876,23 @@ wasm_runtime_get_export_memory_type(const WASMModuleCommon *module_comm,
 bool
 wasm_runtime_get_export_table_type(const WASMModuleCommon *module_comm,
                                    const WASMExport *export,
-                                   uint8 *out_elem_type, uint32 *out_min_size,
-                                   uint32 *out_max_size)
+                                   uint8 *out_elem_type,
+#if WASM_ENABLE_GC != 0
+                                   WASMRefType **out_ref_type,
+#endif
+                                   uint32 *out_min_size, uint32 *out_max_size)
 {
-    return wasm_runtime_get_table_elem_type(
-        module_comm, export->index, out_elem_type, out_min_size, out_max_size);
+    return wasm_runtime_get_table_elem_type(module_comm, export->index,
+                                            out_elem_type,
+#if WASM_ENABLE_GC != 0
+                                            out_ref_type,
+#endif
+                                            out_min_size, out_max_size);
 }
 
 static inline bool
-argv_to_params(wasm_val_t *out_params, const uint32 *argv, WASMType *func_type)
+argv_to_params(wasm_val_t *out_params, const uint32 *argv,
+               WASMFuncType *func_type)
 {
     wasm_val_t *param = out_params;
     uint32 i = 0, *u32;
@@ -5650,7 +5919,7 @@ argv_to_params(wasm_val_t *out_params, const uint32 *argv, WASMType *func_type)
                 u32[0] = *argv++;
                 u32[1] = *argv++;
                 break;
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_EXTERNREF:
                 param->kind = WASM_ANYREF;
 
@@ -5672,7 +5941,7 @@ argv_to_params(wasm_val_t *out_params, const uint32 *argv, WASMType *func_type)
 
 static inline bool
 results_to_argv(WASMModuleInstanceCommon *module_inst, uint32 *out_argv,
-                const wasm_val_t *results, WASMType *func_type)
+                const wasm_val_t *results, WASMFuncType *func_type)
 {
     const wasm_val_t *result = results;
     uint32 *argv = out_argv, *u32, i;
@@ -5690,10 +5959,11 @@ results_to_argv(WASMModuleInstanceCommon *module_inst, uint32 *out_argv,
                 *argv++ = u32[0];
                 *argv++ = u32[1];
                 break;
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_EXTERNREF:
                 if (!wasm_externref_obj2ref(module_inst,
-                                            (void *)result->of.foreign, argv)) {
+                                            (void *)result->of.foreign,
+                                            (uint32 *)argv)) {
                     return false;
                 }
                 argv++;
@@ -5709,7 +5979,7 @@ results_to_argv(WASMModuleInstanceCommon *module_inst, uint32 *out_argv,
 
 bool
 wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
-                                 void *func_ptr, WASMType *func_type,
+                                 void *func_ptr, WASMFuncType *func_type,
                                  uint32 argc, uint32 *argv, bool with_env,
                                  void *wasm_c_api_env)
 {

@@ -41,10 +41,16 @@ add_definitions(-DWASM_ENABLE_TAIL_CALL=1)
 add_definitions(-DWASM_ENABLE_SIMD=1)
 add_definitions(-DWASM_ENABLE_REF_TYPES=1)
 add_definitions(-DWASM_ENABLE_CUSTOM_NAME_SECTION=1)
+add_definitions(-DWASM_ENABLE_AOT_STACK_FRAME=1)
 add_definitions(-DWASM_ENABLE_DUMP_CALL_STACK=1)
 add_definitions(-DWASM_ENABLE_PERF_PROFILING=1)
 add_definitions(-DWASM_ENABLE_LOAD_CUSTOM_SECTION=1)
 add_definitions(-DWASM_ENABLE_MODULE_INST_CONTEXT=1)
+
+add_definitions(-DWASM_ENABLE_GC=1)
+
+set (WAMR_BUILD_STRINGREF 1)
+set (WAMR_STRINGREF_IMPL_SOURCE "STUB")
 
 if (WAMR_BUILD_LLVM_LEGACY_PM EQUAL 1)
   add_definitions(-DWASM_ENABLE_LLVM_LEGACY_PM=1)
@@ -283,6 +289,7 @@ include (${SHARED_DIR}/utils/shared_utils.cmake)
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 include (${IWASM_DIR}/libraries/thread-mgr/thread_mgr.cmake)
 include (${IWASM_DIR}/common/iwasm_common.cmake)
+include (${IWASM_DIR}/common/gc/iwasm_gc.cmake)
 include (${IWASM_DIR}/interpreter/iwasm_interp.cmake)
 include (${IWASM_DIR}/aot/iwasm_aot.cmake)
 include (${IWASM_DIR}/compilation/iwasm_compl.cmake)
@@ -359,7 +366,8 @@ add_library (vmlib
              ${LIB_WASI_THREADS_SOURCE}
              ${IWASM_COMMON_SOURCE}
              ${IWASM_INTERP_SOURCE}
-             ${IWASM_AOT_SOURCE})
+             ${IWASM_AOT_SOURCE}
+             ${IWASM_GC_SOURCE})
 
 add_library (aotclib ${IWASM_COMPL_SOURCE})
 

@@ -35,11 +35,17 @@ set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 if (NOT DEFINED WAMR_BUILD_TARGET)
   if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)")
     set (WAMR_BUILD_TARGET "AARCH64")
+    if (NOT DEFINED WAMR_BUILD_SIMD)
+      set (WAMR_BUILD_SIMD 1)
+    endif ()
   elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
     set (WAMR_BUILD_TARGET "RISCV64")
   elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
     # Build as X86_64 by default in 64-bit platform
     set (WAMR_BUILD_TARGET "X86_64")
+    if (NOT DEFINED WAMR_BUILD_SIMD)
+      set (WAMR_BUILD_SIMD 1)
+    endif ()
   elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
     # Build as X86_32 by default in 32-bit platform
     set (WAMR_BUILD_TARGET "X86_32")
@@ -65,6 +71,11 @@ set(WAMR_BUILD_LIBC_WASI 0)
 set(WAMR_BUILD_MULTI_MODULE 1)
 set(WAMR_BUILD_DUMP_CALL_STACK 1)
 set(WAMR_BUILD_REF_TYPES 1)
+
+# If not defined WAMR_BUILD_GC, set it to 0
+if(NOT DEFINED WAMRC_BUILD_WITH_GC)
+  set(WAMRC_BUILD_WITH_GC 0)
+endif()
 
 if(NOT DEFINED WAMR_BUILD_FAST_INTERP)
   set(WAMR_BUILD_FAST_INTERP 1)
@@ -172,8 +183,13 @@ foreach(EX ${EXAMPLES})
 
   # generate .aot file
   if(${WAMR_BUILD_AOT} EQUAL 1)
+    if(${WAMRC_BUILD_WITH_GC} EQUAL 1)
+      set(WAMRC_GC_FLAGS "--enable-gc")
+    else()
+      set(WAMRC_GC_FLAGS "")
+    endif()
     add_custom_target(${EX}_AOT
-      COMMAND ${WAMRC} -o ${PROJECT_BINARY_DIR}/${EX}.aot
+      COMMAND ${WAMRC} ${WAMRC_GC_FLAGS} -o ${PROJECT_BINARY_DIR}/${EX}.aot
         ${PROJECT_BINARY_DIR}/${EX}.wasm
       DEPENDS ${EX}_WASM
       BYPRODUCTS ${PROJECT_BINARY_DIR}/${EX}.aot
