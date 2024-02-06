@@ -9954,7 +9954,7 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
     /* If the stack is in polymorphic state, just clear the stack
      * and then re-push the values to make the stack top values
      * match block type. */
-    if (cur_block->is_stack_polymorphic && !is_br_table) {
+    if (cur_block->is_stack_polymorphic) {
 #if WASM_ENABLE_GC != 0
         int32 j = reftype_map_count - 1;
 #endif
