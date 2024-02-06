@@ -5935,8 +5935,9 @@ re_scan:
 
                             for (n = 0; n < cell_num; n++) {
                                 if (loader_ctx->p_code_compiled == NULL) {
-                                    if (!check_offset_push(loader_ctx, error_buf,
-                                                        error_buf_size))
+                                    if (!check_offset_push(loader_ctx,
+                                                           error_buf,
+                                                           error_buf_size))
                                         goto fail;
                                 }
                                 *loader_ctx->frame_offset++ = 0;
