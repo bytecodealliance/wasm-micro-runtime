@@ -1093,7 +1093,7 @@ init_func_translation(JitCompContext *cc)
         || !(jit_frame = jit_calloc(offsetof(JitFrame, lp)
                                     + sizeof(*jit_frame->lp)
                                           * (max_locals + max_stacks)))) {
-        os_printf("allocate jit frame failed\n");
+        LOG_ERROR("allocate jit frame failed\n");
         return NULL;
     }
 

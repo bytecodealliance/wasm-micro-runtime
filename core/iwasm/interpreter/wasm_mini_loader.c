@@ -2271,7 +2271,7 @@ orcjit_thread_callback(void *arg)
     /* Compile fast jit funcitons of this group */
     for (i = group_idx; i < func_count; i += group_stride) {
         if (!jit_compiler_compile(module, i + module->import_function_count)) {
-            os_printf("failed to compile fast jit function %u\n", i);
+            LOG_ERROR("failed to compile fast jit function %u\n", i);
             break;
         }
 
@@ -2298,7 +2298,7 @@ orcjit_thread_callback(void *arg)
                 if (!jit_compiler_set_call_to_fast_jit(
                         module,
                         i + j * group_stride + module->import_function_count)) {
-                    os_printf(
+                    LOG_ERROR(
                         "failed to compile call_to_fast_jit for func %u\n",
                         i + j * group_stride + module->import_function_count);
                     module->orcjit_stop_compiling = true;
@@ -2348,7 +2348,7 @@ orcjit_thread_callback(void *arg)
             LLVMOrcLLLazyJITLookup(comp_ctx->orc_jit, &func_addr, func_name);
         if (error != LLVMErrorSuccess) {
             char *err_msg = LLVMGetErrorMessage(error);
-            os_printf("failed to compile llvm jit function %u: %s", i, err_msg);
+            LOG_ERROR("failed to compile llvm jit function %u: %s", i, err_msg);
             LLVMDisposeErrorMessage(err_msg);
             break;
         }
@@ -2369,7 +2369,7 @@ orcjit_thread_callback(void *arg)
                                                func_name);
                 if (error != LLVMErrorSuccess) {
                     char *err_msg = LLVMGetErrorMessage(error);
-                    os_printf("failed to compile llvm jit function %u: %s", i,
+                    LOG_ERROR("failed to compile llvm jit function %u: %s", i,
                               err_msg);
                     LLVMDisposeErrorMessage(err_msg);
                     /* Ignore current llvm jit func, as its func ptr is
@@ -6813,7 +6813,6 @@ re_scan:
             {
                 p_org = p - 1;
                 GET_LOCAL_INDEX_TYPE_AND_OFFSET();
-                POP_TYPE(local_type);
 
 #if WASM_ENABLE_FAST_INTERP != 0
                 if (!(preserve_referenced_local(
@@ -6867,6 +6866,7 @@ re_scan:
                 }
 #endif
 #endif
+                POP_TYPE(local_type);
                 break;
             }
 
