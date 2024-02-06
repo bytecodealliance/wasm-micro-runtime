@@ -8,11 +8,11 @@
 
 #![allow(unused_variables)]
 
-use ::core::ffi::c_char;
+use core::ffi::c_char;
 
 use wamr_sys::{
-    wasm_module_inst_t, wasm_runtime_deinstantiate, wasm_runtime_init_thread_env,
-    wasm_runtime_instantiate,
+    wasm_module_inst_t, wasm_runtime_deinstantiate, wasm_runtime_destroy_thread_env,
+    wasm_runtime_init_thread_env, wasm_runtime_instantiate,
 };
 
 use crate::{
@@ -90,6 +90,7 @@ impl Instance {
 impl Drop for Instance {
     fn drop(&mut self) {
         unsafe {
+            wasm_runtime_destroy_thread_env();
             wasm_runtime_deinstantiate(self.instance);
         }
     }

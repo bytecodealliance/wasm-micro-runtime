@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2019 Intel Corporation. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
 #[no_mangle]
 pub fn gcd(m: u32, n: u32) -> u32 {
     let mut a = m;

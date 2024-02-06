@@ -16,7 +16,7 @@
 //! Plus, as an embedded of Wasm, you can provide Wasm module functionality by
 //! creating host-defined functions.
 //!
-//! WAMR Rust SDK includes a [*wamr-sys*](../crates/wamr-sys). It will search for
+//! WAMR Rust SDK includes a [*wamr-sys*](../crates/wamr-sys) crate. It will search for
 //! the WAMR runtime source in the path *../..*. And then uses `rust-bindgen` durning
 //! the build process to make a .so.
 //!
@@ -26,15 +26,15 @@
 //! ### Core concepts
 //!
 //! - *Runtime*. It is the environment that hosts all the wasm modules. Each process has one runtime instance.
-//! - *Module*. It is the compiled .wasm. It can be loaded into runtime and instantiated into instance.
+//! - *Module*. It is the compiled .wasm or .aot. It can be loaded into runtime and instantiated into instance.
 //! - *Instance*. It is the running instance of a module. It can be used to call export functions.
 //! - *Function*. It is the exported function.
 //!
 //! ### WASI concepts
 //!
 //! - *WASIArgs*. It is used to configure the WASI environment.
-//!   - *pre-open*. all the files and directories in the list will be opened before the .wasm is loaded.
-//!   - *allowed address*. all ip addresses in the *allowed address* list will be allowed to connect with a socket.
+//!   - *pre-open*. All files and directories in the list will be opened before the .wasm or .aot loaded.
+//!   - *allowed address*. All ip addresses in the *allowed address* list will be allowed to connect with a socket.
 //!   - *allowed DNS*.
 //!
 //! ### WAMR private concepts
@@ -60,16 +60,17 @@
 //!
 //! Say there is a *test.wasm* includes a function named *add*.
 //!
-//! ``` wat
+//! ```
 //!   (func (export "add") (param i32 i32) (result i32)
 //!     (local.get 0)
 //!     (local.get 1)
 //!     (i32.add)
 //!   )
 //! ```
-//! The rust code to call the *add* function likes below:
 //!
-//! ``` rust
+//! The rust code to call the *add* function would be:
+//!
+//! ```
 //! use wamr_rust_sdk::*;
 //!
 //! fn main() -> Result<> {
@@ -93,15 +94,15 @@
 //!
 //! ### Example: more configuration for runtime.
 //!
-//! with more configuration, runtime is capable to run .wasm with variant features, like
-//! - Wasm without WASI requirement. usually, it means that the .wasm is compiled with `-nostdlib`
+//! With more configuration, runtime is capable to run .wasm with variant features, like
+//! - Wasm without WASI requirement. Usually, it means that the .wasm is compiled with `-nostdlib`
 //!   or `--target wasm32-unknown-unknown`
-//! - Config runtime.
-//! - provides host-defined functions to meet import requirements.
+//! - Configure runtime.
+//! - Provides host-defined functions to meet import requirements.
 //!
 //! Say there is a *test.wasm*
 //!
-//! ``` wat
+//! ```
 //! (module
 //!   (func $extra (import "extra") (result i32))
 //!   (func (export "add") (param i32 i32) (result i32)
@@ -116,7 +117,7 @@
 //!
 //! The rust code to call the *add* function is like this:
 //!
-//! ``` rust
+//! ```
 //! use wamr_rust_sdk::*;
 //!
 //! fn main() -> Reulst<> {
