@@ -263,12 +263,11 @@ get_inst_extra_offset(AOTCompContext *comp_ctx)
  * - update native_stack_top_min if necessary
  * - stack overflow check (if it does, trap)
  */
-static LLVMValueRef
-aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
-                          uint32 func_index, uint32 orig_param_count,
-                          LLVMTypeRef func_type, LLVMValueRef wrapped_func)
+static bool
+aot_build_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
+                            LLVMValueRef precheck_func, uint32 func_index,
+                            LLVMTypeRef func_type, LLVMValueRef wrapped_func)
 {
-    LLVMValueRef precheck_func;
     LLVMBasicBlockRef begin = NULL;
     LLVMBasicBlockRef check_top_block = NULL;
     LLVMBasicBlockRef update_top_block = NULL;
@@ -276,12 +275,6 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     LLVMBasicBlockRef call_wrapped_func_block = NULL;
     LLVMValueRef *params = NULL;
 
-    precheck_func =
-        aot_add_llvm_func1(comp_ctx, module, func_index, orig_param_count,
-                           func_type, AOT_FUNC_PREFIX);
-    if (!precheck_func) {
-        goto fail;
-    }
     begin = LLVMAppendBasicBlockInContext(comp_ctx->context, precheck_func,
                                           "begin");
     check_top_block = LLVMAppendBasicBlockInContext(
@@ -550,13 +543,13 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
         }
     }
 
-    return precheck_func;
+    return true;
 fail:
     if (params != NULL) {
         wasm_runtime_free(params);
     }
     aot_set_last_error("failed to build precheck wrapper function.");
-    return NULL;
+    return false;
 }
 
 /**
@@ -626,7 +619,14 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
     const char *prefix = AOT_FUNC_PREFIX;
     const bool need_precheck =
         comp_ctx->enable_stack_bound_check || comp_ctx->enable_stack_estimation;
+    LLVMValueRef precheck_func;
     if (need_precheck) {
+        precheck_func = aot_add_llvm_func1(comp_ctx, module, func_index,
+                                           aot_func_type->param_count,
+                                           func_type, AOT_FUNC_PREFIX);
+        if (!precheck_func) {
+            goto fail;
+        }
         /*
          * REVISIT: probably this breaks windows hw bound check
          * (the RtlAddFunctionTable stuff)
@@ -671,10 +671,8 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
         LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex,
                                 attr_noinline);
 
-        LLVMValueRef precheck_func = aot_add_precheck_function(
-            comp_ctx, module, func_index, aot_func_type->param_count, func_type,
-            func);
-        if (!precheck_func)
+        if (!aot_build_precheck_function(comp_ctx, module, precheck_func,
+                                         func_index, func_type, func))
             goto fail;
         LLVMAddAttributeAtIndex(precheck_func, LLVMAttributeFunctionIndex,
                                 attr_noinline);
