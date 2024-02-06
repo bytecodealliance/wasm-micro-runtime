@@ -15,7 +15,7 @@ gc_init_internal(gc_heap_t *heap, char *base_addr, gc_size_t heap_max_size)
 
     ret = os_mutex_init(&heap->lock);
     if (ret != BHT_OK) {
-        os_printf("[GC_ERROR]failed to init lock\n");
+        LOG_ERROR("[GC_ERROR]failed to init lock\n");
         return NULL;
     }
 
@@ -61,7 +61,7 @@ gc_init_with_pool(char *buf, gc_size_t buf_size)
     gc_size_t heap_max_size;
 
     if (buf_size < APP_HEAP_SIZE_MIN) {
-        os_printf("[GC_ERROR]heap init buf size (%" PRIu32 ") < %" PRIu32 "\n",
+        LOG_ERROR("[GC_ERROR]heap init buf size (%" PRIu32 ") < %" PRIu32 "\n",
                   buf_size, (uint32)APP_HEAP_SIZE_MIN);
         return NULL;
     }
@@ -90,23 +90,23 @@ gc_init_with_struct_and_pool(char *struct_buf, gc_size_t struct_buf_size,
     gc_size_t heap_max_size;
 
     if ((((uintptr_t)struct_buf) & 7) != 0) {
-        os_printf("[GC_ERROR]heap init struct buf not 8-byte aligned\n");
+        LOG_ERROR("[GC_ERROR]heap init struct buf not 8-byte aligned\n");
         return NULL;
     }
 
     if (struct_buf_size < sizeof(gc_handle_t)) {
-        os_printf("[GC_ERROR]heap init struct buf size (%" PRIu32 ") < %zu\n",
+        LOG_ERROR("[GC_ERROR]heap init struct buf size (%" PRIu32 ") < %zu\n",
                   struct_buf_size, sizeof(gc_handle_t));
         return NULL;
     }
 
     if ((((uintptr_t)pool_buf) & 7) != 0) {
-        os_printf("[GC_ERROR]heap init pool buf not 8-byte aligned\n");
+        LOG_ERROR("[GC_ERROR]heap init pool buf not 8-byte aligned\n");
         return NULL;
     }
 
     if (pool_buf_size < APP_HEAP_SIZE_MIN) {
-        os_printf("[GC_ERROR]heap init buf size (%" PRIu32 ") < %u\n",
+        LOG_ERROR("[GC_ERROR]heap init buf size (%" PRIu32 ") < %u\n",
                   pool_buf_size, APP_HEAP_SIZE_MIN);
         return NULL;
     }
@@ -138,7 +138,7 @@ gc_destroy_with_pool(gc_handle_t handle)
         !heap->is_heap_corrupted &&
 #endif
         (hmu_t *)((char *)cur + hmu_get_size(cur)) != end) {
-        os_printf("Memory leak detected:\n");
+        LOG_WARNING("Memory leak detected:\n");
         gci_dump(heap);
         ret = GC_ERROR;
     }
@@ -175,14 +175,14 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
     gc_size_t heap_max_size, size;
 
     if ((((uintptr_t)pool_buf_new) & 7) != 0) {
-        os_printf("[GC_ERROR]heap migrate pool buf not 8-byte aligned\n");
+        LOG_ERROR("[GC_ERROR]heap migrate pool buf not 8-byte aligned\n");
         return GC_ERROR;
     }
 
     heap_max_size = (uint32)(pool_buf_end - base_addr_new) & (uint32)~7;
 
     if (pool_buf_end < base_addr_new || heap_max_size < heap->current_size) {
-        os_printf("[GC_ERROR]heap migrate invlaid pool buf size\n");
+        LOG_ERROR("[GC_ERROR]heap migrate invlaid pool buf size\n");
         return GC_ERROR;
     }
 
@@ -191,7 +191,7 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
 
 #if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     if (heap->is_heap_corrupted) {
-        os_printf("[GC_ERROR]Heap is corrupted, heap migrate failed.\n");
+        LOG_ERROR("[GC_ERROR]Heap is corrupted, heap migrate failed.\n");
         return GC_ERROR;
     }
 #endif
@@ -218,7 +218,7 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
 
 #if BH_ENABLE_GC_CORRUPTION_CHECK != 0
         if (size <= 0 || size > (uint32)((uint8 *)end - (uint8 *)cur)) {
-            os_printf("[GC_ERROR]Heap is corrupted, heap migrate failed.\n");
+            LOG_ERROR("[GC_ERROR]Heap is corrupted, heap migrate failed.\n");
             heap->is_heap_corrupted = true;
             return GC_ERROR;
         }
@@ -247,7 +247,7 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
 
 #if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     if (cur != end) {
-        os_printf("[GC_ERROR]Heap is corrupted, heap migrate failed.\n");
+        LOG_ERROR("[GC_ERROR]Heap is corrupted, heap migrate failed.\n");
         heap->is_heap_corrupted = true;
         return GC_ERROR;
     }

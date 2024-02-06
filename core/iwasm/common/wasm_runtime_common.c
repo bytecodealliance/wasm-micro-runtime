@@ -376,7 +376,7 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
 #endif
     }
 
-    os_printf("Unhandled exception thrown:  exception code: 0x%lx, "
+    LOG_ERROR("Unhandled exception thrown:  exception code: 0x%lx, "
               "exception address: %p, exception information: %p\n",
               ExceptionRecord->ExceptionCode, ExceptionRecord->ExceptionAddress,
               sig_addr);

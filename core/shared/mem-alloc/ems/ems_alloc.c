@@ -199,7 +199,7 @@ unlink_hmu(gc_heap_t *heap, hmu_t *hmu)
         }
 
         if (!node) {
-            os_printf("[GC_ERROR]couldn't find the node in the normal list\n");
+            LOG_ERROR("[GC_ERROR]couldn't find the node in the normal list\n");
         }
     }
     else {
@@ -504,7 +504,7 @@ gc_alloc_vo_internal(void *vheap, gc_size_t size, const char *file, int line)
 
 #if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     if (heap->is_heap_corrupted) {
-        os_printf("[GC_ERROR]Heap is corrupted, allocate memory failed.\n");
+        LOG_ERROR("[GC_ERROR]Heap is corrupted, allocate memory failed.\n");
         return NULL;
     }
 #endif
@@ -566,7 +566,7 @@ gc_realloc_vo_internal(void *vheap, void *ptr, gc_size_t size, const char *file,
 
 #if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     if (heap->is_heap_corrupted) {
-        os_printf("[GC_ERROR]Heap is corrupted, allocate memory failed.\n");
+        LOG_ERROR("[GC_ERROR]Heap is corrupted, allocate memory failed.\n");
         return NULL;
     }
 #endif
@@ -693,7 +693,7 @@ gc_free_vo_internal(void *vheap, gc_object_t obj, const char *file, int line)
 
 #if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     if (heap->is_heap_corrupted) {
-        os_printf("[GC_ERROR]Heap is corrupted, free memory failed.\n");
+        LOG_ERROR("[GC_ERROR]Heap is corrupted, free memory failed.\n");
         return GC_ERROR;
     }
 #endif
@@ -815,7 +815,7 @@ gci_dump(gc_heap_t *heap)
 
 #if BH_ENABLE_GC_CORRUPTION_CHECK != 0
         if (size == 0 || size > (uint32)((uint8 *)end - (uint8 *)cur)) {
-            os_printf("[GC_ERROR]Heap is corrupted, heap dump failed.\n");
+            LOG_ERROR("[GC_ERROR]Heap is corrupted, heap dump failed.\n");
             heap->is_heap_corrupted = true;
             return;
         }
@@ -838,7 +838,7 @@ gci_dump(gc_heap_t *heap)
 
 #if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     if (cur != end) {
-        os_printf("[GC_ERROR]Heap is corrupted, heap dump failed.\n");
+        LOG_ERROR("[GC_ERROR]Heap is corrupted, heap dump failed.\n");
         heap->is_heap_corrupted = true;
     }
 #else
