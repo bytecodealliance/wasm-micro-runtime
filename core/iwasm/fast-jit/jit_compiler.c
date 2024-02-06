@@ -160,10 +160,10 @@ jit_compiler_compile(WASMModule *module, uint32 func_idx)
 
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
         char *function_name = cc->cur_wasm_func->field_name;
-        os_printf("fast jit compilation failed: %s (function_name=%s)\n",
+        LOG_ERROR("fast jit compilation failed: %s (function_name=%s)\n",
                   last_error ? last_error : "unknown error", function_name);
 #else
-        os_printf("fast jit compilation failed: %s\n",
+        LOG_ERROR("fast jit compilation failed: %s\n",
                   last_error ? last_error : "unknown error");
 #endif
 

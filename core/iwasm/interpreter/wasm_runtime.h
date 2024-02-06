@@ -71,6 +71,22 @@ typedef enum WASMExceptionID {
     EXCE_OUT_OF_BOUNDS_TABLE_ACCESS,
     EXCE_OPERAND_STACK_OVERFLOW,
     EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC,
+    /* GC related exceptions */
+    EXCE_NULL_FUNC_OBJ,
+    EXCE_NULL_STRUCT_OBJ,
+    EXCE_NULL_ARRAY_OBJ,
+    EXCE_NULL_I31_OBJ,
+    EXCE_NULL_REFERENCE,
+    EXCE_FAILED_TO_CREATE_RTT_TYPE,
+    EXCE_FAILED_TO_CREATE_STRUCT_OBJ,
+    EXCE_FAILED_TO_CREATE_ARRAY_OBJ,
+    EXCE_FAILED_TO_CREATE_EXTERNREF_OBJ,
+    EXCE_CAST_FAILURE,
+    EXCE_ARRAY_IDX_OOB,
+    EXCE_FAILED_TO_CREATE_STRING,
+    EXCE_FAILED_TO_CREATE_STRINGREF,
+    EXCE_FAILED_TO_CREATE_STRINGVIEW,
+    EXCE_FAILED_TO_ENCODE_STRING,
     EXCE_ALREADY_THROWN,
     EXCE_NUM,
 } WASMExceptionID;
@@ -129,13 +145,29 @@ struct WASMMemoryInstance {
 #endif
 };
 
+/* WASMTableInstance is used to represent table instance in
+ * runtime, to compute the table element address with index
+ * we need to know the element type and the element ref type.
+ * For pointer type, it's 32-bit or 64-bit, align up to 8 bytes
+ * to simplify the computation.
+ * And each struct member should be 4-byte or 8-byte aligned.
+ */
 struct WASMTableInstance {
+    /* The element type */
+    uint8 elem_type;
+    uint8 __padding__[7];
+    union {
+#if WASM_ENABLE_GC != 0
+        WASMRefType *elem_ref_type;
+#endif
+        uint64 __padding__;
+    } elem_ref_type;
     /* Current size */
     uint32 cur_size;
     /* Maximum size */
     uint32 max_size;
     /* Table elements */
-    uint32 elems[1];
+    table_elem_type_t elems[1];
 };
 
 struct WASMGlobalInstance {
@@ -147,6 +179,9 @@ struct WASMGlobalInstance {
     uint32 data_offset;
     /* initial value */
     WASMValue initial_value;
+#if WASM_ENABLE_GC != 0
+    WASMRefType *ref_type;
+#endif
 #if WASM_ENABLE_MULTI_MODULE != 0
     /* just for import, keep the reference here */
     WASMModuleInstance *import_module_inst;
@@ -270,6 +305,13 @@ typedef struct WASMModuleInstanceExtraCommon {
 #endif
 #if WASM_ENABLE_REF_TYPES != 0
     bh_bitmap *elem_dropped;
+#endif
+
+#if WASM_ENABLE_GC != 0
+    /* The gc heap memory pool */
+    uint8 *gc_heap_pool;
+    /* The gc heap created */
+    void *gc_heap_handle;
 #endif
 } WASMModuleInstanceExtraCommon;
 
@@ -598,7 +640,7 @@ void
 wasm_get_module_inst_mem_consumption(const WASMModuleInstance *module,
                                      WASMModuleInstMemConsumption *mem_conspn);
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
 static inline bool
 wasm_elem_is_active(uint32 mode)
 {
@@ -619,8 +661,18 @@ wasm_elem_is_declarative(uint32 mode)
 
 bool
 wasm_enlarge_table(WASMModuleInstance *module_inst, uint32 table_idx,
-                   uint32 inc_entries, uint32 init_val);
-#endif /* WASM_ENABLE_REF_TYPES != 0 */
+                   uint32 inc_entries, table_elem_type_t init_val);
+#endif /* WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0 */
+
+#if WASM_ENABLE_GC != 0
+void *
+wasm_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
+                     bool throw_exce, char *error_buf, uint32 error_buf_size);
+
+bool
+wasm_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap);
+
+#endif
 
 static inline WASMTableInstance *
 wasm_get_table_inst(const WASMModuleInstance *module_inst, uint32 tbl_idx)
@@ -723,19 +775,42 @@ llvm_jit_table_copy(WASMModuleInstance *module_inst, uint32 src_tbl_idx,
 
 void
 llvm_jit_table_fill(WASMModuleInstance *module_inst, uint32 tbl_idx,
-                    uint32 length, uint32 val, uint32 data_offset);
+                    uint32 length, uintptr_t val, uint32 data_offset);
 
 uint32
 llvm_jit_table_grow(WASMModuleInstance *module_inst, uint32 tbl_idx,
-                    uint32 inc_entries, uint32 init_val);
+                    uint32 inc_entries, uintptr_t init_val);
 #endif
 
-#if WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0
+#if WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0 \
+    || WASM_ENABLE_AOT_STACK_FRAME != 0
 bool
 llvm_jit_alloc_frame(WASMExecEnv *exec_env, uint32 func_index);
 
 void
 llvm_jit_free_frame(WASMExecEnv *exec_env);
+
+void
+llvm_jit_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame);
+#endif
+
+#if WASM_ENABLE_GC != 0
+void *
+llvm_jit_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
+                         bool throw_exce, char *error_buf,
+                         uint32 error_buf_size);
+
+bool
+llvm_jit_obj_is_instance_of(WASMModuleInstance *module_inst,
+                            WASMObjectRef gc_obj, uint32 type_index);
+
+WASMRttTypeRef
+llvm_jit_rtt_type_new(WASMModuleInstance *module_inst, uint32 type_index);
+
+bool
+llvm_array_init_with_data(WASMModuleInstance *module_inst, uint32 seg_index,
+                          uint32 data_seg_offset, WASMArrayObjectRef array_obj,
+                          uint32 elem_size, uint32 array_len);
 #endif
 #endif /* end of WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0 */
 

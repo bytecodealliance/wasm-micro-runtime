@@ -3,6 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#if !defined(_GNU_SOURCE) && WASM_HAVE_MREMAP != 0
+/* Enable mremap */
+#define _GNU_SOURCE
+#include "bh_memutils.h"
+#endif
+
 #include "platform_api_vmcore.h"
 
 #if defined(__APPLE__) || defined(__MACH__)
@@ -235,6 +241,23 @@ os_munmap(void *addr, size_t size)
 #endif
     }
 }
+
+#if WASM_HAVE_MREMAP != 0
+void *
+os_mremap(void *old_addr, size_t old_size, size_t new_size)
+{
+    void *ptr = mremap(old_addr, old_size, new_size, MREMAP_MAYMOVE);
+
+    if (ptr == MAP_FAILED) {
+#if BH_ENABLE_TRACE_MMAP != 0
+        os_printf("mremap failed: %d\n", errno);
+#endif
+        return bh_memory_remap_slow(old_addr, old_size, new_size);
+    }
+
+    return ptr;
+}
+#endif
 
 int
 os_mprotect(void *addr, size_t size, int prot)

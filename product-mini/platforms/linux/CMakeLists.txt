@@ -24,11 +24,17 @@ set (CMAKE_CXX_STANDARD 17)
 if (NOT DEFINED WAMR_BUILD_TARGET)
   if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)")
     set (WAMR_BUILD_TARGET "AARCH64")
+    if (NOT DEFINED WAMR_BUILD_SIMD)
+      set (WAMR_BUILD_SIMD 1)
+    endif ()
   elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
     set (WAMR_BUILD_TARGET "RISCV64")
   elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
     # Build as X86_64 by default in 64-bit platform
     set (WAMR_BUILD_TARGET "X86_64")
+    if (NOT DEFINED WAMR_BUILD_SIMD)
+      set (WAMR_BUILD_SIMD 1)
+    endif ()
   elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
     # Build as X86_32 by default in 32-bit platform
     set (WAMR_BUILD_TARGET "X86_32")
@@ -90,7 +96,6 @@ if (NOT DEFINED WAMR_BUILD_LIB_WASI_THREADS)
   # Disable wasi threads library by default
   set (WAMR_BUILD_LIB_WASI_THREADS 0)
 endif()
-
 
 if (NOT DEFINED WAMR_BUILD_MINI_LOADER)
   # Disable wasm mini loader by default

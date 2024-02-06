@@ -12,10 +12,11 @@ gc_init_internal(gc_heap_t *heap, char *base_addr, gc_size_t heap_max_size)
     int ret;
 
     memset(heap, 0, sizeof *heap);
+    memset(base_addr, 0, heap_max_size);
 
     ret = os_mutex_init(&heap->lock);
     if (ret != BHT_OK) {
-        os_printf("[GC_ERROR]failed to init lock\n");
+        LOG_ERROR("[GC_ERROR]failed to init lock\n");
         return NULL;
     }
 
@@ -26,6 +27,10 @@ gc_init_internal(gc_heap_t *heap, char *base_addr, gc_size_t heap_max_size)
 
     heap->total_free_size = heap->current_size;
     heap->highmark_size = 0;
+#if WASM_ENABLE_GC != 0
+    heap->gc_threshold_factor = GC_DEFAULT_THRESHOLD_FACTOR;
+    gc_update_threshold(heap);
+#endif
 
     root = heap->kfc_tree_root = (hmu_tree_node_t *)heap->kfc_tree_root_buf;
     memset(root, 0, sizeof *root);
@@ -61,7 +66,7 @@ gc_init_with_pool(char *buf, gc_size_t buf_size)
     gc_size_t heap_max_size;
 
     if (buf_size < APP_HEAP_SIZE_MIN) {
-        os_printf("[GC_ERROR]heap init buf size (%" PRIu32 ") < %" PRIu32 "\n",
+        LOG_ERROR("[GC_ERROR]heap init buf size (%" PRIu32 ") < %" PRIu32 "\n",
                   buf_size, (uint32)APP_HEAP_SIZE_MIN);
         return NULL;
     }
@@ -90,23 +95,23 @@ gc_init_with_struct_and_pool(char *struct_buf, gc_size_t struct_buf_size,
     gc_size_t heap_max_size;
 
     if ((((uintptr_t)struct_buf) & 7) != 0) {
-        os_printf("[GC_ERROR]heap init struct buf not 8-byte aligned\n");
+        LOG_ERROR("[GC_ERROR]heap init struct buf not 8-byte aligned\n");
         return NULL;
     }
 
     if (struct_buf_size < sizeof(gc_handle_t)) {
-        os_printf("[GC_ERROR]heap init struct buf size (%" PRIu32 ") < %zu\n",
+        LOG_ERROR("[GC_ERROR]heap init struct buf size (%" PRIu32 ") < %zu\n",
                   struct_buf_size, sizeof(gc_handle_t));
         return NULL;
     }
 
     if ((((uintptr_t)pool_buf) & 7) != 0) {
-        os_printf("[GC_ERROR]heap init pool buf not 8-byte aligned\n");
+        LOG_ERROR("[GC_ERROR]heap init pool buf not 8-byte aligned\n");
         return NULL;
     }
 
     if (pool_buf_size < APP_HEAP_SIZE_MIN) {
-        os_printf("[GC_ERROR]heap init buf size (%" PRIu32 ") < %u\n",
+        LOG_ERROR("[GC_ERROR]heap init buf size (%" PRIu32 ") < %u\n",
                   pool_buf_size, APP_HEAP_SIZE_MIN);
         return NULL;
     }
@@ -129,6 +134,28 @@ gc_destroy_with_pool(gc_handle_t handle)
     gc_heap_t *heap = (gc_heap_t *)handle;
     int ret = GC_SUCCESS;
 
+#if WASM_ENABLE_GC != 0
+    gc_size_t i = 0;
+
+    if (heap->extra_info_node_cnt > 0) {
+        for (i = 0; i < heap->extra_info_node_cnt; i++) {
+            extra_info_node_t *node = heap->extra_info_nodes[i];
+#if BH_ENABLE_GC_VERIFY != 0
+            os_printf("Memory leak detected: gc object [%p] not claimed\n",
+                      node->obj);
+#endif
+            bh_assert(heap->is_reclaim_enabled);
+            node->finalizer(node->obj, node->data);
+
+            BH_FREE(heap->extra_info_nodes[i]);
+        }
+
+        if (heap->extra_info_nodes != heap->extra_info_normal_nodes) {
+            BH_FREE(heap->extra_info_nodes);
+        }
+    }
+#endif
+
 #if BH_ENABLE_GC_VERIFY != 0
     hmu_t *cur = (hmu_t *)heap->base_addr;
     hmu_t *end = (hmu_t *)((char *)heap->base_addr + heap->current_size);
@@ -138,16 +165,39 @@ gc_destroy_with_pool(gc_handle_t handle)
         !heap->is_heap_corrupted &&
 #endif
         (hmu_t *)((char *)cur + hmu_get_size(cur)) != end) {
-        os_printf("Memory leak detected:\n");
+        LOG_WARNING("Memory leak detected:\n");
         gci_dump(heap);
         ret = GC_ERROR;
     }
 #endif
 
     os_mutex_destroy(&heap->lock);
+    memset(heap->base_addr, 0, heap->current_size);
     memset(heap, 0, sizeof(gc_heap_t));
     return ret;
 }
+
+#if WASM_ENABLE_GC != 0
+#if WASM_ENABLE_THREAD_MGR == 0
+void
+gc_enable_gc_reclaim(gc_handle_t handle, void *exec_env)
+{
+    gc_heap_t *heap = (gc_heap_t *)handle;
+
+    heap->is_reclaim_enabled = 1;
+    heap->exec_env = exec_env;
+}
+#else
+void
+gc_enable_gc_reclaim(gc_handle_t handle, void *cluster)
+{
+    gc_heap_t *heap = (gc_heap_t *)handle;
+
+    heap->is_reclaim_enabled = 1;
+    heap->cluster = cluster;
+}
+#endif
+#endif
 
 uint32
 gc_get_heap_struct_size()
@@ -175,14 +225,14 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
     gc_size_t heap_max_size, size;
 
     if ((((uintptr_t)pool_buf_new) & 7) != 0) {
-        os_printf("[GC_ERROR]heap migrate pool buf not 8-byte aligned\n");
+        LOG_ERROR("[GC_ERROR]heap migrate pool buf not 8-byte aligned\n");
         return GC_ERROR;
     }
 
     heap_max_size = (uint32)(pool_buf_end - base_addr_new) & (uint32)~7;
 
     if (pool_buf_end < base_addr_new || heap_max_size < heap->current_size) {
-        os_printf("[GC_ERROR]heap migrate invlaid pool buf size\n");
+        LOG_ERROR("[GC_ERROR]heap migrate invlaid pool buf size\n");
         return GC_ERROR;
     }
 
@@ -191,7 +241,7 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
 
 #if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     if (heap->is_heap_corrupted) {
-        os_printf("[GC_ERROR]Heap is corrupted, heap migrate failed.\n");
+        LOG_ERROR("[GC_ERROR]Heap is corrupted, heap migrate failed.\n");
         return GC_ERROR;
     }
 #endif
@@ -218,7 +268,7 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
 
 #if BH_ENABLE_GC_CORRUPTION_CHECK != 0
         if (size <= 0 || size > (uint32)((uint8 *)end - (uint8 *)cur)) {
-            os_printf("[GC_ERROR]Heap is corrupted, heap migrate failed.\n");
+            LOG_ERROR("[GC_ERROR]Heap is corrupted, heap migrate failed.\n");
             heap->is_heap_corrupted = true;
             return GC_ERROR;
         }
@@ -247,7 +297,7 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
 
 #if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     if (cur != end) {
-        os_printf("[GC_ERROR]Heap is corrupted, heap migrate failed.\n");
+        LOG_ERROR("[GC_ERROR]Heap is corrupted, heap migrate failed.\n");
         heap->is_heap_corrupted = true;
         return GC_ERROR;
     }
@@ -287,11 +337,102 @@ gci_verify_heap(gc_heap_t *heap)
 }
 #endif
 
+void
+gc_heap_stat(void *heap_ptr, gc_stat_t *stat)
+{
+    hmu_t *cur = NULL, *end = NULL;
+    hmu_type_t ut;
+    gc_size_t size;
+    gc_heap_t *heap = (gc_heap_t *)heap_ptr;
+
+    memset(stat, 0, sizeof(gc_stat_t));
+    cur = (hmu_t *)heap->base_addr;
+    end = (hmu_t *)((char *)heap->base_addr + heap->current_size);
+
+    while (cur < end) {
+        ut = hmu_get_ut(cur);
+        size = hmu_get_size(cur);
+        bh_assert(size > 0);
+
+        if (ut == HMU_FC || ut == HMU_FM
+            || (ut == HMU_VO && hmu_is_vo_freed(cur))
+            || (ut == HMU_WO && !hmu_is_wo_marked(cur))) {
+            if (ut == HMU_VO)
+                stat->vo_free += size;
+            if (ut == HMU_WO)
+                stat->wo_free += size;
+            stat->free += size;
+            stat->free_block++;
+            if (size / sizeof(int) < GC_HEAP_STAT_SIZE - 1)
+                stat->free_sizes[size / sizeof(int)] += 1;
+            else
+                stat->free_sizes[GC_HEAP_STAT_SIZE - 1] += 1;
+        }
+        else {
+            if (ut == HMU_VO)
+                stat->vo_usage += size;
+            if (ut == HMU_WO)
+                stat->wo_usage += size;
+            stat->usage += size;
+            stat->usage_block++;
+            if (size / sizeof(int) < GC_HEAP_STAT_SIZE - 1)
+                stat->usage_sizes[size / sizeof(int)] += 1;
+            else
+                stat->usage_sizes[GC_HEAP_STAT_SIZE - 1] += 1;
+        }
+
+        cur = (hmu_t *)((char *)cur + size);
+    }
+}
+
+void
+gc_print_stat(void *heap_ptr, int verbose)
+{
+    gc_stat_t stat;
+    int i;
+
+    bh_assert(heap_ptr != NULL);
+    gc_heap_t *heap = (gc_heap_t *)(heap_ptr);
+
+    gc_heap_stat(heap, &stat);
+
+    os_printf("# stat %s %p use %d free %d \n", "instance", heap, stat.usage,
+              stat.free);
+    os_printf("# stat %s %p wo_usage %d vo_usage %d \n", "instance", heap,
+              stat.wo_usage, stat.vo_usage);
+    os_printf("# stat %s %p wo_free %d vo_free %d \n", "instance", heap,
+              stat.wo_free, stat.vo_free);
+#if WASM_ENABLE_GC == 0
+    os_printf("# stat free size %" PRIu32 " high %" PRIu32 "\n",
+              heap->total_free_size, heap->highmark_size);
+#else
+    os_printf("# stat gc %" PRIu32 " free size %" PRIu32 " high %" PRIu32 "\n",
+              heap->total_gc_count, heap->total_free_size, heap->highmark_size);
+#endif
+    if (verbose) {
+        os_printf("usage sizes: \n");
+        for (i = 0; i < GC_HEAP_STAT_SIZE; i++)
+            if (stat.usage_sizes[i])
+                os_printf(" %d: %d; ", i * 4, stat.usage_sizes[i]);
+        os_printf(" \n");
+        os_printf("free sizes: \n");
+        for (i = 0; i < GC_HEAP_STAT_SIZE; i++)
+            if (stat.free_sizes[i])
+                os_printf(" %d: %d; ", i * 4, stat.free_sizes[i]);
+    }
+}
+
 void *
 gc_heap_stats(void *heap_arg, uint32 *stats, int size)
 {
     int i;
     gc_heap_t *heap = (gc_heap_t *)heap_arg;
+
+    if (!gci_is_heap_valid(heap)) {
+        for (i = 0; i < size; i++)
+            stats[i] = 0;
+        return NULL;
+    }
 
     for (i = 0; i < size; i++) {
         switch (i) {
@@ -304,9 +445,83 @@ gc_heap_stats(void *heap_arg, uint32 *stats, int size)
             case GC_STAT_HIGHMARK:
                 stats[i] = heap->highmark_size;
                 break;
+#if WASM_ENABLE_GC != 0
+            case GC_STAT_COUNT:
+                stats[i] = heap->total_gc_count;
+                break;
+            case GC_STAT_TIME:
+                stats[i] = heap->total_gc_time;
+                break;
+#endif
             default:
                 break;
         }
     }
+
     return heap;
 }
+
+void
+gc_traverse_tree(hmu_tree_node_t *node, gc_size_t *stats, int *n)
+{
+    if (!node)
+        return;
+
+    if (*n > 0)
+        gc_traverse_tree(node->right, stats, n);
+
+    if (*n > 0) {
+        (*n)--;
+        stats[*n] = node->size;
+    }
+
+    if (*n > 0)
+        gc_traverse_tree(node->left, stats, n);
+}
+
+void
+gc_show_stat(void *heap)
+{
+
+    uint32 stats[GC_STAT_MAX];
+
+    heap = gc_heap_stats(heap, stats, GC_STAT_MAX);
+
+    os_printf("\n[GC stats %p] %" PRIu32 " %" PRIu32 " %" PRIu32 " %" PRIu32
+              " %" PRIu32 "\n",
+              heap, stats[0], stats[1], stats[2], stats[3], stats[4]);
+}
+
+#if WASM_ENABLE_GC != 0
+void
+gc_show_fragment(void *heap_arg)
+{
+    uint32 stats[3];
+    int n = 3;
+    gc_heap_t *heap = (gc_heap_t *)heap_arg;
+
+    memset(stats, 0, n * sizeof(int));
+    gct_vm_mutex_lock(&heap->lock);
+    gc_traverse_tree(heap->kfc_tree_root, (gc_size_t *)stats, &n);
+    gct_vm_mutex_unlock(&heap->lock);
+    os_printf("\n[GC %p top sizes] %" PRIu32 " %" PRIu32 " %" PRIu32 "\n", heap,
+              stats[0], stats[1], stats[2]);
+}
+
+#if WASM_ENABLE_GC_PERF_PROFILING != 0
+void
+gc_dump_perf_profiling(gc_handle_t *handle)
+{
+    gc_heap_t *gc_heap_handle = (void *)handle;
+    if (gc_heap_handle) {
+        os_printf("\nGC performance summary\n");
+        os_printf("    Total GC time (ms): %u\n",
+                  gc_heap_handle->total_gc_time);
+        os_printf("    Max GC time (ms): %u\n", gc_heap_handle->max_gc_time);
+    }
+    else {
+        os_printf("Failed to dump GC performance\n");
+    }
+}
+#endif
+#endif

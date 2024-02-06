@@ -130,6 +130,10 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 - **WAMR_BUILD_CUSTOM_NAME_SECTION**=1/0, load the function name from custom name section, default to disable if not set
 
+#### **Enable AOT stack frame feature**
+- **WAMR_BUILD_AOT_STACK_FRAME**=1/0, default to disable if not set
+> Note: if it is enabled, the AOT or JIT stack frames (like stack frame of classic interpreter but only necessary data is committed) will be created for AOT or JIT mode in function calls. And please add `--enable-dump-call-stack` option to wamrc during compiling AOT module.
+
 #### **Enable dump call stack feature**
 - **WAMR_BUILD_DUMP_CALL_STACK**=1/0, default to disable if not set
 
@@ -153,7 +157,6 @@ Currently we only profile the memory consumption of module, module_instance and 
 
 > Also refer to [Tune the performance of running wasm/aot file](./perf_tune.md).
 
-
 #### **Enable the global heap**
 - **WAMR_BUILD_GLOBAL_HEAP_POOL**=1/0, default to disable if not set for all *iwasm* applications, except for the platforms Alios and Zephyr.
 
@@ -171,7 +174,8 @@ Currently we only profile the memory consumption of module, module_instance and 
 - **WAMR_APP_THREAD_STACK_SIZE_MAX**=n, default to 8 MB (8388608) if not set
 > Note: the AOT boundary check with hardware trap mechanism might consume large stack since the OS may lazily grow the stack mapping as a guard page is hit, we may use this configuration to reduce the total stack usage, e.g. -DWAMR_APP_THREAD_STACK_SIZE_MAX=131072 (128 KB).
 
-#### **WAMR_BH_VPRINTF**=<vprintf_callback>, default to disable if not set
+#### **Set vprintf callback**
+- **WAMR_BH_VPRINTF**=<vprintf_callback>, default to disable if not set
 > Note: if the vprintf_callback function is provided by developer, the os_printf() and os_vprintf() in Linux, Darwin, Windows and VxWorks platforms, besides WASI Libc output will call the callback function instead of libc vprintf() function to redirect the stdout output. For example, developer can define the callback function like below outside runtime lib:
 >
 > ```C
@@ -224,25 +228,25 @@ Currently we only profile the memory consumption of module, module_instance and 
 
 > For AoT file, must use `--emit-custom-sections` to specify which sections need to be emitted into AoT file, otherwise all custom sections will be ignored.
 
-### **Stack guard size**
+#### **Stack guard size**
 - **WAMR_BUILD_STACK_GUARD_SIZE**=n, default to N/A if not set.
 > Note: By default, the stack guard size is 1K (1024) or 24K (if uvwasi enabled).
 
-### **Disable the writing linear memory base address to x86 GS segment register**
+#### **Disable writing the linear memory base address to x86 GS segment register**
 - **WAMR_DISABLE_WRITE_GS_BASE**=1/0, default to enable if not set and supported by platform
 > Note: by default only platform [linux x86-64](https://github.com/bytecodealliance/wasm-micro-runtime/blob/5fb5119239220b0803e7045ca49b0a29fe65e70e/core/shared/platform/linux/platform_internal.h#L67) will enable this feature, for 32-bit platforms it's automatically disabled even when the flag is set to 0. In linux x86-64, writing the linear memory base address to x86 GS segment register may be used to speedup the linear memory access for LLVM AOT/JIT, when `--enable-segue=[<flags>]` option is added for `wamrc` or `iwasm`.
 
 > See [Enable segue optimization for wamrc when generating the aot file](./perf_tune.md#3-enable-segue-optimization-for-wamrc-when-generating-the-aot-file) for more details.
 
-### **Enable running PGO(Profile-Guided Optimization) instrumented AOT file**
+#### **Enable running PGO(Profile-Guided Optimization) instrumented AOT file**
 - **WAMR_BUILD_STATIC_PGO**=1/0, default to disable if not set
 > Note: See [Use the AOT static PGO method](./perf_tune.md#5-use-the-aot-static-pgo-method) for more details.
 
-### **Enable linux perf support**
+#### **Enable linux perf support**
 - **WAMR_BUILD_LINUX_PERF**=1/0, enable linux perf support to generate the flamegraph to analyze the performance of a wasm application, default to disable if not set
 > Note: See [Use linux-perf](./perf_tune.md#7-use-linux-perf) for more details.
 
-### **Enable module instance context APIs**
+#### **Enable module instance context APIs**
 - **WAMR_BUILD_MODULE_INST_CONTEXT**=1/0, enable module instance context APIs which can set one or more contexts created by the embedder for a wasm module instance, default to enable if not set:
 ```C
     wasm_runtime_create_context_key
@@ -253,9 +257,24 @@ Currently we only profile the memory consumption of module, module_instance and 
 ```
 > Note: See [wasm_export.h](../core/iwasm/include/wasm_export.h) for more details.
 
-### **Enable quick AOT/JTI entries**
+#### **Enable quick AOT/JTI entries**
 - **WAMR_BUILD_QUICK_AOT_ENTRY**=1/0, enable registering quick call entries to speedup the aot/jit func call process, default to enable if not set
 > Note: See [Refine callings to AOT/JIT functions from host native](./perf_tune.md#83-refine-callings-to-aotjit-functions-from-host-native) for more details.
+
+#### **Configurale memory access boundary check**
+- **WAMR_CONFIGUABLE_BOUNDS_CHECKS**=1/0, default to disable if not set
+> Note: If it is enabled, allow to run `iwasm --disable-bounds-checks` to disable the memory access boundary checks for interpreter mode.
+
+#### **Module instance context APIs**
+- **WAMR_BUILD_MODULE_INST_CONTEXT**=1/0, default to disable if not set
+> Note: If it is enabled, allow to set one or more contexts created by embedder for a module instance, the below APIs are provided:
+```C
+    wasm_runtime_create_context_key
+    wasm_runtime_destroy_context_key
+    wasm_runtime_set_context
+    wasm_runtime_set_context_spread
+    wasm_runtime_get_context
+```
 
 **Combination of configurations:**
 

@@ -161,6 +161,9 @@ typedef struct RuntimeInitArgs {
     /* Fast JIT code cache size */
     uint32_t fast_jit_code_cache_size;
 
+    /* Default GC heap size */
+    uint32_t gc_heap_size;
+
     /* Default running mode of the runtime */
     RunningMode running_mode;
 

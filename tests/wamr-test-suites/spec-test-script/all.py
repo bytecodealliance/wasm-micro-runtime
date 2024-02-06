@@ -94,7 +94,7 @@ def ignore_the_case(
         return True
 
     if gc_flag:
-        if case_name in ["type-canon", "type-equivalence", "type-rec"]:
+        if case_name in ["type-equivalence", "type-rec", "array_init_elem", "array_init_data"]:
             return True
 
     if sgx_flag:

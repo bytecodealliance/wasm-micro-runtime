@@ -46,7 +46,8 @@ jit_compile_op_table_get(JitCompContext *cc, uint32 tbl_idx)
     GEN_INSN(I32TOI64, elem_idx_long, elem_idx);
 
     offset = jit_cc_new_reg_I64(cc);
-    GEN_INSN(MUL, offset, elem_idx_long, NEW_CONST(I64, sizeof(uint32)));
+    GEN_INSN(MUL, offset, elem_idx_long,
+             NEW_CONST(I64, sizeof(table_elem_type_t)));
 
     res = jit_cc_new_reg_I32(cc);
     tbl_elems = get_table_elems_reg(cc->jit_frame, tbl_idx);
@@ -77,7 +78,8 @@ jit_compile_op_table_set(JitCompContext *cc, uint32 tbl_idx)
     GEN_INSN(I32TOI64, elem_idx_long, elem_idx);
 
     offset = jit_cc_new_reg_I64(cc);
-    GEN_INSN(MUL, offset, elem_idx_long, NEW_CONST(I64, sizeof(uint32)));
+    GEN_INSN(MUL, offset, elem_idx_long,
+             NEW_CONST(I64, sizeof(table_elem_type_t)));
 
     tbl_elems = get_table_elems_reg(cc->jit_frame, tbl_idx);
     GEN_INSN(STI32, elem_val, tbl_elems, offset);
@@ -92,14 +94,15 @@ wasm_init_table(WASMModuleInstance *inst, uint32 tbl_idx, uint32 seg_idx,
                 uint32 dst_offset, uint32 len, uint32 src_offset)
 {
     WASMTableInstance *tbl;
-    uint32 tbl_sz;
     WASMTableSeg *tbl_seg = inst->module->table_segments + seg_idx;
-    uint32 *tbl_seg_elems = NULL, tbl_seg_len = 0;
+    InitializerExpression *tbl_seg_init_values = NULL, *init_values;
+    uint32 tbl_sz, tbl_seg_len = 0, i;
+    table_elem_type_t *addr;
 
     if (!bh_bitmap_get_bit(inst->e->common.elem_dropped, seg_idx)) {
         /* table segment isn't dropped */
-        tbl_seg_elems = tbl_seg->func_indexes;
-        tbl_seg_len = tbl_seg->function_count;
+        tbl_seg_init_values = tbl_seg->init_values;
+        tbl_seg_len = tbl_seg->value_count;
     }
 
     if (offset_len_out_of_bounds(src_offset, len, tbl_seg_len))
@@ -113,10 +116,13 @@ wasm_init_table(WASMModuleInstance *inst, uint32 tbl_idx, uint32 seg_idx,
     if (!len)
         return 0;
 
-    bh_memcpy_s((uint8 *)tbl + offsetof(WASMTableInstance, elems)
-                    + dst_offset * sizeof(uint32),
-                (uint32)((tbl_sz - dst_offset) * sizeof(uint32)),
-                tbl_seg_elems + src_offset, (uint32)(len * sizeof(uint32)));
+    addr =
+        (table_elem_type_t *)((uint8 *)tbl + offsetof(WASMTableInstance, elems)
+                              + dst_offset * sizeof(table_elem_type_t));
+    init_values = tbl_seg_init_values + src_offset;
+    for (i = 0; i < len; i++) {
+        addr[i] = (table_elem_type_t)(uintptr_t)init_values[+i].u.ref_index;
+    }
 
     return 0;
 out_of_bounds:
@@ -175,12 +181,13 @@ wasm_copy_table(WASMModuleInstance *inst, uint32 src_tbl_idx,
     if (offset_len_out_of_bounds(src_offset, len, src_tbl_sz))
         goto out_of_bounds;
 
-    bh_memmove_s((uint8 *)dst_tbl + offsetof(WASMTableInstance, elems)
-                     + dst_offset * sizeof(uint32),
-                 (uint32)((dst_tbl_sz - dst_offset) * sizeof(uint32)),
-                 (uint8 *)src_tbl + offsetof(WASMTableInstance, elems)
-                     + src_offset * sizeof(uint32),
-                 (uint32)(len * sizeof(uint32)));
+    bh_memmove_s(
+        (uint8 *)dst_tbl + offsetof(WASMTableInstance, elems)
+            + dst_offset * sizeof(table_elem_type_t),
+        (uint32)((dst_tbl_sz - dst_offset) * sizeof(table_elem_type_t)),
+        (uint8 *)src_tbl + offsetof(WASMTableInstance, elems)
+            + src_offset * sizeof(table_elem_type_t),
+        (uint32)(len * sizeof(table_elem_type_t)));
 
     return 0;
 out_of_bounds:
@@ -272,7 +279,7 @@ fail:
 
 static int
 wasm_fill_table(WASMModuleInstance *inst, uint32 tbl_idx, uint32 dst_offset,
-                uint32 val, uint32 len)
+                uintptr_t val, uint32 len)
 {
     WASMTableInstance *tbl;
     uint32 tbl_sz;

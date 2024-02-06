@@ -7,6 +7,46 @@
 #include "../interpreter/wasm_runtime.h"
 #include "../aot/aot_runtime.h"
 
+static bool
+commit_ip(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+          LLVMValueRef exce_ip, bool is_64bit)
+{
+    LLVMValueRef cur_frame = func_ctx->cur_frame;
+    LLVMValueRef value_offset, value_addr, value_ptr;
+    uint32 offset_ip;
+
+    if (!comp_ctx->is_jit_mode)
+        offset_ip = comp_ctx->pointer_size * 4;
+    else
+        offset_ip = offsetof(WASMInterpFrame, ip);
+
+    if (!(value_offset = I32_CONST(offset_ip))) {
+        aot_set_last_error("llvm build const failed");
+        return false;
+    }
+
+    if (!(value_addr =
+              LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, cur_frame,
+                                    &value_offset, 1, "ip_addr"))) {
+        aot_set_last_error("llvm build in bounds gep failed");
+        return false;
+    }
+
+    if (!(value_ptr = LLVMBuildBitCast(
+              comp_ctx->builder, value_addr,
+              is_64bit ? INT64_PTR_TYPE : INT32_PTR_TYPE, "ip_ptr"))) {
+        aot_set_last_error("llvm build bit cast failed");
+        return false;
+    }
+
+    if (!LLVMBuildStore(comp_ctx->builder, exce_ip, value_ptr)) {
+        aot_set_last_error("llvm build store failed");
+        return false;
+    }
+
+    return true;
+}
+
 bool
 aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                    int32 exception_id, bool is_cond_br, LLVMValueRef cond_br_if,
@@ -16,6 +56,7 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef exce_id = I32_CONST((uint32)exception_id), func_const, func;
     LLVMTypeRef param_types[2], ret_type, func_type, func_ptr_type;
     LLVMValueRef param_values[2];
+    bool is_64bit = (comp_ctx->pointer_size == sizeof(uint64)) ? true : false;
 
     bh_assert(exception_id >= 0 && exception_id < EXCE_NUM);
 
@@ -32,11 +73,21 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         LLVMPositionBuilderAtEnd(comp_ctx->builder,
                                  func_ctx->got_exception_block);
 
-        /* Create exection id phi */
+        /* Create exception id phi */
         if (!(func_ctx->exception_id_phi = LLVMBuildPhi(
                   comp_ctx->builder, I32_TYPE, "exception_id_phi"))) {
             aot_set_last_error("llvm build phi failed.");
             return false;
+        }
+
+        if (comp_ctx->aot_frame) {
+            /* Create exception ip phi */
+            if (!(func_ctx->exception_ip_phi = LLVMBuildPhi(
+                      comp_ctx->builder, is_64bit ? I64_TYPE : I32_TYPE,
+                      "exception_ip_phi"))) {
+                aot_set_last_error("llvm build phi failed.");
+                return false;
+            }
         }
 
         /* Call aot_set_exception_with_id() to throw exception */
@@ -103,6 +154,12 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return false;
         }
 
+        if (comp_ctx->aot_frame) {
+            if (!commit_ip(comp_ctx, func_ctx, func_ctx->exception_ip_phi,
+                           is_64bit))
+                return false;
+        }
+
         /* Create return IR */
         AOTFuncType *aot_func_type = func_ctx->aot_func->func_type;
         if (!aot_build_zero_function_ret(comp_ctx, func_ctx, aot_func_type)) {
@@ -115,6 +172,35 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* Add phi incoming value to got_exception block */
     LLVMAddIncoming(func_ctx->exception_id_phi, &exce_id, &block_curr, 1);
+
+    if (comp_ctx->aot_frame) {
+        const uint8 *ip = comp_ctx->aot_frame->frame_ip;
+        LLVMValueRef exce_ip = NULL;
+
+        if (!comp_ctx->is_jit_mode) {
+            WASMModule *module = comp_ctx->comp_data->wasm_module;
+            if (is_64bit)
+                exce_ip =
+                    I64_CONST((uint64)(uintptr_t)(ip - module->load_addr));
+            else
+                exce_ip =
+                    I32_CONST((uint32)(uintptr_t)(ip - module->load_addr));
+        }
+        else {
+            if (is_64bit)
+                exce_ip = I64_CONST((uint64)(uintptr_t)ip);
+            else
+                exce_ip = I32_CONST((uint32)(uintptr_t)ip);
+        }
+
+        if (!exce_ip) {
+            aot_set_last_error("llvm build const failed");
+            return false;
+        }
+
+        /* Add phi incoming value to got_exception block */
+        LLVMAddIncoming(func_ctx->exception_ip_phi, &exce_ip, &block_curr, 1);
+    }
 
     if (!is_cond_br) {
         /* not condition br, create br IR */
