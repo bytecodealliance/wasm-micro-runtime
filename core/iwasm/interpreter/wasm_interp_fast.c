@@ -3017,7 +3017,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         offset = (uint64)(uint32)POP_I32();
                         addr = POP_I32();
 
-#if WASM_ENABLE_THREAD_MGR
+#if WASM_ENABLE_THREAD_MGR != 0
                         linear_mem_size = get_linear_mem_size();
 #endif
 
@@ -3065,7 +3065,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         src = POP_I32();
                         dst = POP_I32();
 
-#if WASM_ENABLE_THREAD_MGR
+#if WASM_ENABLE_THREAD_MGR != 0
                         linear_mem_size = get_linear_mem_size();
 #endif
 
@@ -3095,7 +3095,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         fill_val = POP_I32();
                         dst = POP_I32();
 
-#if WASM_ENABLE_THREAD_MGR
+#if WASM_ENABLE_THREAD_MGR != 0
                         linear_mem_size = get_linear_mem_size();
 #endif
 
