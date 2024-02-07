@@ -336,9 +336,6 @@ aot_build_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
         && !create_native_stack_top_min(comp_ctx, func_ctx)) {
         goto fail;
     }
-    if (!create_func_ptrs(comp_ctx, func_ctx)) {
-        goto fail;
-    }
 
     uint32 param_count = LLVMCountParams(precheck_func);
     uint32 sz = param_count * (uint32)sizeof(LLVMValueRef);
@@ -547,6 +544,10 @@ aot_build_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     if (comp_ctx->is_indirect_mode
         && !strncmp(comp_ctx->target_arch, "xtensa", 6)) {
         /* call wrapped_func indirectly */
+        if (!create_func_ptrs(comp_ctx, func_ctx)) {
+            goto fail;
+        }
+
         LLVMTypeRef func_ptr_type;
         LLVMValueRef wrapped_func_indirect;
         uint32 import_func_count = comp_ctx->comp_data->import_func_count;
