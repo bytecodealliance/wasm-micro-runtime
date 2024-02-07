@@ -776,7 +776,9 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
     }
 
     if (need_precheck) {
-        if (!comp_ctx->is_jit_mode && !comp_ctx->is_indirect_mode)
+        if (!comp_ctx->is_jit_mode
+            && (!comp_ctx->is_indirect_mode
+                && !strncmp(comp_ctx->target_arch, "xtensa", 6)))
             LLVMSetLinkage(func, LLVMInternalLinkage);
         unsigned int kind =
             LLVMGetEnumAttributeKindForName("noinline", strlen("noinline"));
