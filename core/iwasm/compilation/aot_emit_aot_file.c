@@ -873,7 +873,8 @@ get_func_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
     const bool need_precheck = obj_data->comp_ctx->enable_stack_bound_check
                                || obj_data->comp_ctx->enable_stack_estimation;
     /* aot_func#xxx + aot_func_internal#xxx in XIP mode for xtensa */
-    if (obj_data->comp_ctx->is_indirect_mode && need_precheck)
+    if (obj_data->comp_ctx->is_indirect_mode && need_precheck
+        && !strncmp(obj_data->comp_ctx->target_arch, "xtensa", 6))
         size *= 2;
 
     /* max_local_cell_nums */
@@ -2417,7 +2418,8 @@ aot_emit_init_data_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     offset = align_uint(offset, 4);
     const bool need_precheck = obj_data->comp_ctx->enable_stack_bound_check
                                || obj_data->comp_ctx->enable_stack_estimation;
-    if (obj_data->comp_ctx->is_indirect_mode && need_precheck)
+    if (obj_data->comp_ctx->is_indirect_mode && need_precheck
+        && !strncmp(obj_data->comp_ctx->target_arch, "xtensa", 6))
         EMIT_U32(comp_data->func_count * 2);
     else
         EMIT_U32(comp_data->func_count);
@@ -2607,7 +2609,8 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
     const bool need_precheck = obj_data->comp_ctx->enable_stack_bound_check
                                || obj_data->comp_ctx->enable_stack_estimation;
-    if (obj_data->comp_ctx->is_indirect_mode && need_precheck) {
+    if (obj_data->comp_ctx->is_indirect_mode && need_precheck
+        && !strncmp(obj_data->comp_ctx->target_arch, "xtensa", 6)) {
         /*
          * Explicitly emit aot_func_internal#xxx for Xtensa XIP, therefore,
          * for aot_func#xxx, func_indexes ranged from 0 ~ func_count,
@@ -2624,6 +2627,13 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
     for (i = 0; i < comp_data->func_count; i++)
         EMIT_U32(funcs[i]->func_type_index);
+
+    if (obj_data->comp_ctx->is_indirect_mode && need_precheck
+        && !strncmp(obj_data->comp_ctx->target_arch, "xtensa", 6)) {
+        /* func_type_index for aot_func_internal#xxxx */
+        for (i = 0; i < comp_data->func_count; i++)
+            EMIT_U32(funcs[i]->func_type_index);
+    }
 
     for (i = 0; i < comp_data->func_count; i++) {
         uint32 max_local_cell_num =
@@ -2687,12 +2697,6 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         }
     }
 #endif /* end of WASM_ENABLE_GC != 0 */
-
-    if (obj_data->comp_ctx->is_indirect_mode && need_precheck) {
-        /* func_type_index for aot_func_internal#xxxx */
-        for (i = 0; i < comp_data->func_count; i++)
-            EMIT_U32(funcs[i]->func_type_index);
-    }
 
     if (offset - *p_offset != section_size + sizeof(uint32) * 2) {
         aot_set_last_error("emit function section failed.");

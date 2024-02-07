@@ -544,7 +544,8 @@ aot_build_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     }
 
     LLVMValueRef retval;
-    if (comp_ctx->is_indirect_mode) {
+    if (comp_ctx->is_indirect_mode
+        && !strncmp(comp_ctx->target_arch, "xtensa", 6)) {
         /* call wrapped_func indirectly */
         LLVMTypeRef func_ptr_type;
         LLVMValueRef wrapped_func_indirect;
