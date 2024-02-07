@@ -4794,8 +4794,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             {
                 addr1 = GET_OFFSET();
                 addr2 = GET_OFFSET();
-                frame_lp[addr2] = frame_lp[addr1];
-                frame_lp[addr2 + 1] = frame_lp[addr1 + 1];
+
+                PUT_I64_TO_ADDR(frame_lp + addr2,
+                                GET_I64_FROM_ADDR(frame_lp + addr1));
 
 #if WASM_ENABLE_GC != 0
                 /* Ignore constants because they are not reference */
