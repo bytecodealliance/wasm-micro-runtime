@@ -2558,9 +2558,19 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
         }
     }
 
+#if defined(BUILD_TARGET_XTENSA)
+    /*
+     * For Xtensa XIP, real func_count is doubled, including aot_func and
+     * aot_func_internal, so need to divide func_count by 2 here.
+     */
+    if (module->is_indirect_mode)
+        size = sizeof(uint32) * (uint64)module->func_count / 2;
+    else
+#else
     size = sizeof(uint32) * (uint64)module->func_count;
+#endif
 
-    if (size > 0) {
+        if (size > 0) {
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
         if (!(module->max_local_cell_nums =
                   loader_malloc(size, error_buf, error_buf_size))) {
