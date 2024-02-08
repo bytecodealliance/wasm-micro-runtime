@@ -5931,8 +5931,15 @@ re_scan:
                              * Since the stack is already in polymorphic state,
                              * the opcode will not be executed, so the dummy
                              * offset won't cause any error */
-                            *loader_ctx->frame_offset++ = 0;
-                            if (cell_num > 1) {
+                            uint32 n;
+
+                            for (n = 0; n < cell_num; n++) {
+                                if (loader_ctx->p_code_compiled == NULL) {
+                                    if (!check_offset_push(loader_ctx,
+                                                           error_buf,
+                                                           error_buf_size))
+                                        goto fail;
+                                }
                                 *loader_ctx->frame_offset++ = 0;
                             }
                         }
