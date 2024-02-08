@@ -10796,7 +10796,7 @@ re_scan:
                              * Since the stack is already in polymorphic state,
                              * the opcode will not be executed, so the dummy
                              * offset won't cause any error */
-                            uint32_t n;
+                            uint32 n;
 
                             for (n = 0; n < cell_num; n++) {
                                 if (loader_ctx->p_code_compiled == NULL) {
