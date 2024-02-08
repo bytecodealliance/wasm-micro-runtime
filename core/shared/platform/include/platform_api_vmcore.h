@@ -145,8 +145,8 @@ os_mprotect(void *addr, size_t size, int prot);
 static inline void *
 os_mremap_slow(void *old_addr, size_t old_size, size_t new_size)
 {
-    void *new_memory =
-        os_mmap(NULL, new_size, MMAP_PROT_WRITE | MMAP_PROT_READ, 0, -1);
+    void *new_memory = os_mmap(NULL, new_size, MMAP_PROT_WRITE | MMAP_PROT_READ,
+                               0, os_get_invalid_handle());
     if (!new_memory) {
         return NULL;
     }
