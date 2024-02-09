@@ -686,10 +686,12 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
 
     bh_assert(func_index < comp_ctx->func_ctx_count);
     bh_assert(LLVMGetReturnType(func_type) == ret_type);
+
     const char *prefix = AOT_FUNC_PREFIX;
     const bool need_precheck =
         comp_ctx->enable_stack_bound_check || comp_ctx->enable_stack_estimation;
-    LLVMValueRef precheck_func;
+    LLVMValueRef precheck_func = NULL;
+
     if (need_precheck) {
         precheck_func = aot_add_llvm_func1(comp_ctx, module, func_index,
                                            aot_func_type->param_count,
