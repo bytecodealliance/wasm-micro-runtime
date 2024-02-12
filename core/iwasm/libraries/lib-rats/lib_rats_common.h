@@ -15,6 +15,22 @@
 extern "C" {
 #endif
 
+/* Enclave Flags Bit Masks */
+/* If set, then the enclave is initialized */
+#define SGX_FLAGS_INITTED 0x001ULL
+/* If set, then the enclave is debug */
+#define SGX_FLAGS_DEBUG 0x002ULL
+/* If set, then the enclave is 64 bit */
+#define SGX_FLAGS_MODE64BIT 0x004ULL
+/* If set, then the enclave has access to provision key */
+#define SGX_FLAGS_PROVISION_KEY 0x010ULL
+/* If set, then the enclave has access to EINITTOKEN key */
+#define SGX_FLAGS_EINITTOKEN_KEY 0x020ULL
+/* If set, then the enclave uses KSS */
+#define SGX_FLAGS_KSS 0x080ULL
+/* If set, then the enclave enables AEX Notify */
+#define SGX_FLAGS_AEX_NOTIFY 0x400ULL
+
 #define SGX_QUOTE_MAX_SIZE 8192
 #define SGX_USER_DATA_SIZE 64
 #define SGX_MEASUREMENT_SIZE 32
