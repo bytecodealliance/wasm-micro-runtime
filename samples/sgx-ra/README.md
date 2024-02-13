@@ -245,7 +245,9 @@ $ pip3 install -r requirements.txt
 
 ### Validation of the quotes
 The Wasm application can then be modified to validate precomputed quotes using the exposed function `librats_verify`.
+
 Alternatively, the underlying library `librats` may be directly used if the non-SGX platforms do not execute WebAssembly code (without WAMR).
+Examples are provided in the directory [non-sgx-verify/](non-sgx-verify/).
 
 ### Claims validation
 Once the runtime has validated the signature of the quote, the application must also check the other claims embedded in the quote to ensure they match their expected value.
