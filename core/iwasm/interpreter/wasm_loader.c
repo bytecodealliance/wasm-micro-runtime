@@ -1568,8 +1568,10 @@ resolve_func_type(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
     type->param_count = param_count;
     type->result_count = result_count;
     type->ref_type_map_count = ref_type_map_count;
-    type->result_ref_type_maps =
-        type->ref_type_maps + ref_type_map_count - result_ref_type_map_count;
+    if (ref_type_map_count > 0) {
+        type->result_ref_type_maps = type->ref_type_maps + ref_type_map_count
+                                     - result_ref_type_map_count;
+    }
 
     for (i = 0; i < param_count; i++) {
         if (!resolve_value_type(&p, p_end, module, &need_ref_type_map,
