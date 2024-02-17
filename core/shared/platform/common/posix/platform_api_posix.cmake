@@ -25,6 +25,7 @@ list (REMOVE_AT CMAKE_REQUIRED_DEFINITIONS 0)
 
 if(MREMAP_EXISTS)
     add_definitions (-DWASM_HAVE_MREMAP=1)
+    add_definitions (-D_GNU_SOURCE)
 else()
     add_definitions (-DWASM_HAVE_MREMAP=0)
     include (${CMAKE_CURRENT_LIST_DIR}/../memory/platform_api_memory.cmake)
