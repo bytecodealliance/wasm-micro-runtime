@@ -90,10 +90,24 @@ main(int argc, char **argv)
     hex_dump("User Data", evidence->user_data, SGX_USER_DATA_SIZE, 32);
     hex_dump("MRENCLAVE", evidence->mr_enclave, SGX_MEASUREMENT_SIZE, 32);
     hex_dump("MRSIGNER", evidence->mr_signer, SGX_MEASUREMENT_SIZE, 32);
-    printf("\n\tProduct ID:\t\t%u\n", evidence->product_id);
-    printf("\tSecurity Version:\t%u\n", evidence->security_version);
-    printf("\tAttributes.flags:\t%llu\n", evidence->att_flags);
-    printf("\tAttribute.xfrm:\t\t%llu\n", evidence->att_xfrm);
+    printf("\n\tProduct ID:\t\t\t\t%u\n", evidence->product_id);
+    printf("\tSecurity Version:\t\t\t%u\n", evidence->security_version);
+    printf("\tAttributes.flags:\t\t\t%llu\n", evidence->att_flags);
+    printf("\tAttributes.flags[INITTED]:\t\t%d\n",
+           (evidence->att_flags & SGX_FLAGS_INITTED) != 0);
+    printf("\tAttributes.flags[DEBUG]:\t\t%d\n",
+           (evidence->att_flags & SGX_FLAGS_DEBUG) != 0);
+    printf("\tAttributes.flags[MODE64BIT]:\t\t%d\n",
+           (evidence->att_flags & SGX_FLAGS_MODE64BIT) != 0);
+    printf("\tAttributes.flags[PROVISION_KEY]:\t%d\n",
+           (evidence->att_flags & SGX_FLAGS_PROVISION_KEY) != 0);
+    printf("\tAttributes.flags[EINITTOKEN_KEY]:\t%d\n",
+           (evidence->att_flags & SGX_FLAGS_EINITTOKEN_KEY) != 0);
+    printf("\tAttributes.flags[KSS]:\t\t\t%d\n",
+           (evidence->att_flags & SGX_FLAGS_KSS) != 0);
+    printf("\tAttributes.flags[AEX_NOTIFY]:\t\t%d\n",
+           (evidence->att_flags & SGX_FLAGS_AEX_NOTIFY) != 0);
+    printf("\tAttribute.xfrm:\t\t\t\t%llu\n", evidence->att_xfrm);
 
     rats_err = librats_verify((const char *)evidence_json, evidence->user_data);
     if (rats_err != 0) {

@@ -18,6 +18,7 @@ The following commands are an example of the SGX environment installation on Ubu
 # https://download.01.org/intel-sgx/latest/linux-latest/distro
 $ cd $HOME
 $ OS_PLATFORM=ubuntu20.04
+$ OS_CODE_NAME=`lsb_release -sc`
 $ SGX_PLATFORM=$OS_PLATFORM-server
 $ SGX_RELEASE_VERSION=1.17
 $ SGX_DRIVER_VERSION=1.41
@@ -39,7 +40,7 @@ $ chmod +x sgx_linux_x64_sdk_$SGX_SDK_VERSION.bin
 $ sudo ./sgx_linux_x64_sdk_$SGX_SDK_VERSION.bin --prefix /opt/intel
 
 # install SGX DCAP Library
-$ echo 'deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu focal main' | sudo tee /etc/apt/sources.list.d/intel-sgx.list
+$ echo "deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu $OS_CODE_NAME main" | sudo tee /etc/apt/sources.list.d/intel-sgx.list
 $ wget -O - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add
 $ sudo apt-get update
 $ sudo apt-get install -y libsgx-epid libsgx-quote-ex libsgx-dcap-ql libsgx-enclave-common-dev libsgx-dcap-ql-dev libsgx-dcap-default-qpl-dev libsgx-dcap-quote-verify-dev
@@ -86,9 +87,9 @@ Intel provides an implementation of the cache mechanism.
 The following commands set up Intel PCCS.
 ```shell
 # install Node.js
+$ sudo apt install -y curl cracklib-runtime
 $ curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt-get install -y nodejs
 # install PCCS software
-$ sudo apt-get install -y cracklib-runtime
 $ sudo apt-get install -y sgx-dcap-pccs
 ```
 
@@ -140,7 +141,7 @@ Do you want to generate insecure HTTPS key and cert for PCCS service? [Y] (Y/N)
 
 Answer "Y" to this question.
 
-### Provisioning a system into Intel PCCS
+### Provisioning the current system's Intel SGX collateral into the PCCS
 
 Now that the PCCS is up and running, it's time to provision an Intel SGX-enabled platform.
 We use the tool `PCKIDRetrievalTool` to get the attestation collateral of the current machine.
@@ -195,8 +196,75 @@ $ ./iwasm wasm-app/test.wasm
 
 The sample will print the evidence in JSON and the message: *Evidence is trusted.*
 
+In case of validation issues expressed as a value of `0xeXXX`, the corresponding error reason is explained in [this header file](https://github.com/intel/SGXDataCenterAttestationPrimitives/blob/master/QuoteGeneration/quote_wrapper/common/inc/sgx_ql_lib_common.h).
+
+## Validate quotes on non-SGX platforms
+Quotes created on an Intel SGX platform can also be verified on systems that do not support SGX (e.g., a different CPU architecture).
+This scenario typically arises when deploying trusted applications in a cloud environment, which provides confidential computing.
+
+For that purpose, we are required to install a subset of Intel SGX libraries to support quote validation.
+The steps below highlight how to set up such an environment.
+
+
+### Intel SGX dependencies
+```shell
+$ OS_CODE_NAME=`lsb_release -sc`
+# install SGX DCAP Library
+$ echo "deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu $OS_CODE_NAME main" | sudo tee /etc/apt/sources.list.d/intel-sgx.list
+$ wget -O - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add
+$ sudo apt-get update
+$ sudo apt-get install -y libsgx-quote-ex libsgx-dcap-ql libsgx-dcap-quote-verify libsgx-dcap-default-qpl
+```
+
+### Set up the Intel Provisioning Certification Caching Service (Intel PCCS)
+Follow the steps described in the section _Set up the Intel Provisioning Certification Caching Service (Intel PCCS)_.
+
+### Runtime configuration
+Follow the steps described in the section _Runtime configuration_.
+
+### Provisioning all the Intel SGX collateral into the PCCS
+We must finally fetch and configure the SGX collaterals into the PCCS for all the SGX-enabled CPUs.
+
+```shell
+# Set up the Intel PCCS administration tool
+$ git clone https://github.com/intel/SGXDataCenterAttestationPrimitives.git
+$ cd SGXDataCenterAttestationPrimitives/tools/PccsAdminTool
+$ sudo apt-get install -y python3 python3-pip
+$ pip3 install -r requirements.txt
+
+# Configuring the Intel PCCS. Input the PCS/PCCS password as requested.
+# 1. Get registration data from PCCS service
+./pccsadmin.py get
+# 2. Fetch platform collateral data from Intel PCS based on the registration data
+./pccsadmin.py fetch
+# 3. Put platform collateral data or appraisal policy files to PCCS cache db
+./pccsadmin.py put
+# 4. Request PCCS to refresh certificates or collateral in cache database
+./pccsadmin.py refresh
+```
+
+### Validation of the quotes
+The Wasm application can then be modified to validate precomputed quotes using the exposed function `librats_verify`.
+
+Alternatively, the underlying library `librats` may be directly used if the non-SGX platforms do not execute WebAssembly code (without WAMR).
+Examples are provided in the directory [non-sgx-verify/](non-sgx-verify/).
+
+### Claims validation
+Once the runtime has validated the signature of the quote, the application must also check the other claims embedded in the quote to ensure they match their expected value.
+
+The documentation _Data Center Attestation Primitives: Library API_ describes in Section _3.8 Enclave Identity Checking_ defines the claims for the user to check.
+Here is a summary of them:
+
+- **Enclave Identity Checking**: either check the hash _MRENCLAVE_ (the enclave identity) or _MRSIGNER_ and the _product id_ (the software provider identity).
+- **Verify Attributes**: production enclaves should not have the _Debug_ flag set to 1.
+- **Verify SSA Frame extended feature set**
+- **Verify the ISV_SVN level of the enclave**: whenever there is a security update to an enclave, the ISV_SVN value should be increased to reflect the higher security level.
+- **Verify that the ReportData contains the expected value**: This can be used to provide specific data from the enclave or it can be used to hold a hash of a larger block of data which is provided with the quote. Note that the verification of the quote signature confirms the integrity of the report data (and the rest of the REPORT body). 
+
+
 ## Further readings
 
 - [Intel SGX Software Installation Guide For Linux OS](https://download.01.org/intel-sgx/latest/dcap-latest/linux/docs/Intel_SGX_SW_Installation_Guide_for_Linux.pdf)
-- [Intel Software Guard Extensions (Intel® SGX) Data Center Attestation Primitives: Library API ](https://download.01.org/intel-sgx/latest/dcap-latest/linux/docs/Intel_SGX_ECDSA_QuoteLibReference_DCAP_API.pdf)
+- [Intel Software Guard Extensions (Intel® SGX) Data Center Attestation Primitives: Library API](https://download.01.org/intel-sgx/latest/dcap-latest/linux/docs/Intel_SGX_ECDSA_QuoteLibReference_DCAP_API.pdf)
 - [Remote Attestation for Multi-Package Platforms using Intel SGX Datacenter Attestation Primitives (DCAP)](https://download.01.org/intel-sgx/latest/dcap-latest/linux/docs/Intel_SGX_DCAP_Multipackage_SW.pdf)
+- [Documentation of the PCCS administration tool](https://github.com/intel/SGXDataCenterAttestationPrimitives/blob/master/tools/PccsAdminTool/README.txt)
