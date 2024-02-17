@@ -1088,10 +1088,6 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             goto fail;
         }
 
-        /* Set calling convention for the call with the func's calling
-           convention */
-        LLVMSetInstructionCallConv(value_ret, LLVMGetFunctionCallConv(func));
-
         if (tail_call)
             LLVMSetTailCall(value_ret, true);
 

@@ -5226,7 +5226,8 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
     int32 i, available_stack_cell;
     uint16 cell_num;
 
-    if (loader_ctx->csp_num < depth + 1) {
+    bh_assert(loader_ctx->csp_num > 0);
+    if (loader_ctx->csp_num - 1 < depth) {
         set_error_buf(error_buf, error_buf_size,
                       "unknown label, "
                       "unexpected end of section or function");
@@ -5705,8 +5706,15 @@ re_scan:
                              * Since the stack is already in polymorphic state,
                              * the opcode will not be executed, so the dummy
                              * offset won't cause any error */
-                            *loader_ctx->frame_offset++ = 0;
-                            if (cell_num > 1) {
+                            uint32 n;
+
+                            for (n = 0; n < cell_num; n++) {
+                                if (loader_ctx->p_code_compiled == NULL) {
+                                    if (!check_offset_push(loader_ctx,
+                                                           error_buf,
+                                                           error_buf_size))
+                                        goto fail;
+                                }
                                 *loader_ctx->frame_offset++ = 0;
                             }
                         }
@@ -6593,7 +6601,6 @@ re_scan:
             {
                 p_org = p - 1;
                 GET_LOCAL_INDEX_TYPE_AND_OFFSET();
-                POP_TYPE(local_type);
 
 #if WASM_ENABLE_FAST_INTERP != 0
                 if (!(preserve_referenced_local(
@@ -6647,6 +6654,7 @@ re_scan:
                 }
 #endif
 #endif
+                POP_TYPE(local_type);
                 break;
             }
 
