@@ -12253,11 +12253,10 @@ re_scan:
                                                  error_buf, error_buf_size))) {
                         goto fail;
                     }
-                }
-
 #if WASM_ENABLE_FAST_INTERP != 0
-                disable_emit = true;
+                    disable_emit = true;
 #endif
+                }
 
                 /* PUSH the converted (ref ht) */
                 if (type != VALUE_TYPE_ANY) {

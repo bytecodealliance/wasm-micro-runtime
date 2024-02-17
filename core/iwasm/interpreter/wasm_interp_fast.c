@@ -1967,12 +1967,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             }
             HANDLE_OP(WASM_OP_REF_AS_NON_NULL)
             {
-                opnd_off = GET_OFFSET();
-                gc_obj = GET_REF_FROM_ADDR(frame_lp + opnd_off);
+                gc_obj = POP_REF();
                 if (gc_obj == NULL_REF) {
                     wasm_set_exception(module, "null reference");
                     goto got_exception;
                 }
+                PUSH_REF(gc_obj);
                 HANDLE_OP_END();
             }
             HANDLE_OP(WASM_OP_REF_EQ)
