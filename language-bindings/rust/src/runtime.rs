@@ -19,6 +19,56 @@ use wamr_sys::{
 
 use crate::RuntimeError;
 
+#[derive(Clone, Debug)]
+pub struct Runtime {}
+
+static SINGLETON_RUNTIME: OnceLock<Option<Arc<Runtime>>> = OnceLock::new();
+
+impl Runtime {
+    /// return a `RuntimeBuilder` instance
+    ///
+    /// has to
+    /// - select a allocation mode
+    /// - select a running mode
+    pub fn builder() -> RuntimeBuilder {
+        RuntimeBuilder::default()
+    }
+
+    /// create a new `Runtime` instance with the default configuration which includes:
+    /// - system allocator mode
+    /// - the default running mode
+    ///
+    /// # Errors
+    ///
+    /// if the runtime initialization failed, it will return `RuntimeError::InitializationFailure`
+    pub fn new() -> Result<Arc<Self>, RuntimeError> {
+        let runtime = SINGLETON_RUNTIME.get_or_init(|| {
+            let ret;
+            unsafe {
+                ret = wasm_runtime_init();
+            }
+
+            match ret {
+                true => Some(Arc::new(Runtime {})),
+                false => None,
+            }
+        });
+
+        match runtime {
+            Some(runtime) => Ok(Arc::clone(runtime)),
+            None => Err(RuntimeError::InitializationFailure),
+        }
+    }
+}
+
+impl Drop for Runtime {
+    fn drop(&mut self) {
+        unsafe {
+            wasm_runtime_destroy();
+        }
+    }
+}
+
 /// The builder of `Runtime`. It is used to configure the runtime.
 /// Get one via `Runtime::builder()`
 #[derive(Default)]
@@ -80,56 +130,6 @@ impl RuntimeBuilder {
         match runtime {
             Some(runtime) => Ok(Arc::clone(runtime)),
             None => Err(RuntimeError::InitializationFailure),
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Runtime {}
-
-static SINGLETON_RUNTIME: OnceLock<Option<Arc<Runtime>>> = OnceLock::new();
-
-impl Runtime {
-    /// return a `RuntimeBuilder` instance
-    ///
-    /// has to
-    /// - select a allocation mode
-    /// - select a running mode
-    pub fn builder() -> RuntimeBuilder {
-        RuntimeBuilder::default()
-    }
-
-    /// create a new `Runtime` instance with the default configuration which includes:
-    /// - system allocator mode
-    /// - the default running mode
-    ///
-    /// # Errors
-    ///
-    /// if the runtime initialization failed, it will return `RuntimeError::InitializationFailure`
-    pub fn new() -> Result<Arc<Self>, RuntimeError> {
-        let runtime = SINGLETON_RUNTIME.get_or_init(|| {
-            let ret;
-            unsafe {
-                ret = wasm_runtime_init();
-            }
-
-            match ret {
-                true => Some(Arc::new(Runtime {})),
-                false => None,
-            }
-        });
-
-        match runtime {
-            Some(runtime) => Ok(Arc::clone(runtime)),
-            None => Err(RuntimeError::InitializationFailure),
-        }
-    }
-}
-
-impl Drop for Runtime {
-    fn drop(&mut self) {
-        unsafe {
-            wasm_runtime_destroy();
         }
     }
 }
