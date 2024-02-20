@@ -147,6 +147,7 @@ jobs:
       upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver}}
       wasi_sdk_url: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz
+      wamr_app_framework_url: https://github.com/bytecodealliance/wamr-app-framework.git
 
   release_wamr_sdk_on_ubuntu_2204:
     needs: [create_tag, create_release]
@@ -157,6 +158,7 @@ jobs:
       upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver}}
       wasi_sdk_url: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz
+      wamr_app_framework_url: https://github.com/bytecodealliance/wamr-app-framework.git
 
   release_wamr_sdk_on_macos:
     needs: [create_tag, create_release]
@@ -167,6 +169,7 @@ jobs:
       upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver}}
       wasi_sdk_url: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-macos.tar.gz
+      wamr_app_framework_url: https://github.com/bytecodealliance/wamr-app-framework.git
 
   #
   # vscode extension cross-platform

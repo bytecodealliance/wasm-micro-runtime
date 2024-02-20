@@ -211,17 +211,17 @@ API that way unless necessary because it needs extra carefulness.
 
 We must do data serialization for passing structured data or class objects between the two worlds of WASM and native. There are two serialization methods available in WASM as below, and yet you can introduce more like json, cbor etc.
 
-- [attributes container](../core/app-framework/app-native-shared/attr_container.c)
-- [restful request/response](../core/app-framework/app-native-shared/restful_utils.c)
+- [attributes container](https://github.com/bytecodealliance/wamr-app-framework/blob/main/app-framework/app-native-shared/attr_container.c)
+- [restful request/response](https://github.com/bytecodealliance/wamr-app-framework/blob/main/app-framework/app-native-shared/restful_utils.c)
 
-Note the serialization library is separately compiled into WASM and runtime. And the source files are located in the folder "[core/app-framework/app-native-shared](../core/app-framework/app-native-shared)“ where all source files will be compiled into both worlds.
+Note the serialization library is separately compiled into WASM and runtime. And the source files are located in the folder "[wamr-app-framework/app-framework/app-native-shared](https://github.com/bytecodealliance/wamr-app-framework/blob/main/app-framework/app-native-shared)“ where all source files will be compiled into both worlds.
 
 
 
 The following sample code demonstrates WASM app packs a response structure to buffer, then pass the buffer pointer to the native:
 
 ```c
-/*** file name: core/app-framework/base/app/request.c ***/
+/*** file name: https://github.com/bytecodealliance/wamr-app-framework/blob/main/app-framework/base/app/request.c ***/
 
 void api_response_send(response_t *response)
 {
@@ -240,7 +240,7 @@ void api_response_send(response_t *response)
 The following code demonstrates the native API unpack the WASM buffer to local native data structure:
 
 ```c
-/*** file name: core/app-framework/base/native/request_response.c  ***/
+/*** file name: https://github.com/bytecodealliance/wamr-app-framework/blob/main/app-framework/base/native/request_response.c  ***/
 
 bool
 wasm_response_send(wasm_exec_env_t exec_env, char *buffer, int size)

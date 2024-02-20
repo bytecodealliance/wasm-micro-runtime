@@ -214,7 +214,6 @@ endif()
 
 set (SHARED_DIR ../core/shared)
 set (IWASM_DIR ../core/iwasm)
-set (APP_FRAMEWORK_DIR ../core/app-framework)
 
 include_directories (${SHARED_DIR}/include
                      ${IWASM_DIR}/include)
