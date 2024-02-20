@@ -1,0 +1,14 @@
+# Copyright (C) 2023 Liquid Reply GmbH. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+[package]
+name = "wasi-hello"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0 WITH LLVM-exception"
+authors = ["Sven Pfennig <s.pfennig@reply.de>"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+wamr-sdk-rust = {version = "0.1.0", path = "../.."}

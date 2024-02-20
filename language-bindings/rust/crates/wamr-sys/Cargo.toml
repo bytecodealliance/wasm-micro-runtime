@@ -2,14 +2,17 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 [package]
-name = "wasi-hello"
+name = "wamr-sys"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0 WITH LLVM-exception"
-license-file = "../../../../LICENSE"
 authors = ["Sven Pfennig <s.pfennig@reply.de>"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-wamr-sdk-rust = {version = "0.1.0", path = "../.."}
+
+[build-dependencies]
+cc = "1.0"
+cmake = "0.1"
+bindgen = "0.66"
