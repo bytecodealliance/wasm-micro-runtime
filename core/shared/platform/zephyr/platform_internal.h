@@ -50,6 +50,12 @@
 #include <zephyr/net/net_context.h>
 #endif /* end of KERNEL_VERSION_NUMBER < 0x030200 */
 
+#if KERNEL_VERSION_NUMBER >= 0x030300 /* version 3.3.0 */
+#if defined(CONFIG_CPU_CORTEX_M7) && defined(CONFIG_ARM_MPU)
+#include <zephyr/cache.h>
+#endif
+#endif /* end of KERNEL_VERSION_NUMBER > 0x030300 */
+
 #ifdef CONFIG_ARM_MPU
 #if KERNEL_VERSION_NUMBER < 0x030200 /* version 3.2.0 */
 #include <arch/arm/aarch32/cortex_m/cmsis.h>
