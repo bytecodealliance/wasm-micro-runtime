@@ -100,10 +100,14 @@ impl Drop for Instance {
 mod tests {
     use super::*;
     use crate::runtime::Runtime;
+    use wamr_sys::{
+        wasm_runtime_get_running_mode, RunningMode_Mode_Interp, RunningMode_Mode_LLVM_JIT,
+    };
 
     #[test]
     fn test_instance_new() {
-        let _ = Runtime::new().expect("runtime init failed");
+        let runtime = Runtime::new();
+        assert!(runtime.is_ok());
 
         // (module
         //   (func (export "add") (param i32 i32) (result i32)
@@ -129,5 +133,92 @@ mod tests {
 
         let instance = Instance::new_with_args(module, 1024, 0);
         assert!(instance.is_ok());
+
+        let instance = instance.unwrap();
+        assert_eq!(
+            unsafe { wasm_runtime_get_running_mode(instance.get_inner_instance()) },
+            if cfg!(feature = "llvmjit") {
+                RunningMode_Mode_LLVM_JIT
+            } else {
+                RunningMode_Mode_Interp
+            }
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn test_instance_running_mode_default() {
+        let runtime = Runtime::builder().use_system_allocator().build();
+        assert!(runtime.is_ok());
+
+        // (module
+        //   (func (export "add") (param i32 i32) (result i32)
+        //     (local.get 0)
+        //     (local.get 1)
+        //     (i32.add)
+        //   )
+        // )
+        let binary = vec![
+            0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x07, 0x01, 0x60, 0x02, 0x7f,
+            0x7f, 0x01, 0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x07, 0x01, 0x03, 0x61, 0x64, 0x64,
+            0x00, 0x00, 0x0a, 0x09, 0x01, 0x07, 0x00, 0x20, 0x00, 0x20, 0x01, 0x6a, 0x0b,
+        ];
+        let binary = binary.into_iter().map(|c| c as u8).collect::<Vec<u8>>();
+
+        let module = Module::from_buf(&binary);
+        assert!(module.is_ok());
+
+        let module = &module.unwrap();
+
+        let instance = Instance::new_with_args(module, 1024, 1024);
+        assert!(instance.is_ok());
+
+        let instance = instance.unwrap();
+        assert_eq!(
+            unsafe { wasm_runtime_get_running_mode(instance.get_inner_instance()) },
+            if cfg!(feature = "llvmjit") {
+                RunningMode_Mode_LLVM_JIT
+            } else {
+                RunningMode_Mode_Interp
+            }
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn test_instance_running_mode_interpreter() {
+        let runtime = Runtime::builder()
+            .run_as_interpreter()
+            .use_system_allocator()
+            .build();
+        assert!(runtime.is_ok());
+
+        // (module
+        //   (func (export "add") (param i32 i32) (result i32)
+        //     (local.get 0)
+        //     (local.get 1)
+        //     (i32.add)
+        //   )
+        // )
+        let binary = vec![
+            0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x07, 0x01, 0x60, 0x02, 0x7f,
+            0x7f, 0x01, 0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x07, 0x01, 0x03, 0x61, 0x64, 0x64,
+            0x00, 0x00, 0x0a, 0x09, 0x01, 0x07, 0x00, 0x20, 0x00, 0x20, 0x01, 0x6a, 0x0b,
+        ];
+        let binary = binary.into_iter().map(|c| c as u8).collect::<Vec<u8>>();
+
+        let module = Module::from_buf(&binary);
+        assert!(module.is_ok());
+
+        let module = &module.unwrap();
+
+        let instance = Instance::new_with_args(module, 1024, 1024);
+        assert!(instance.is_ok());
+
+        let instance = instance.unwrap();
+        assert_eq!(
+            unsafe { wasm_runtime_get_running_mode(instance.get_inner_instance()) },
+            RunningMode_Mode_Interp
+        );
     }
 }

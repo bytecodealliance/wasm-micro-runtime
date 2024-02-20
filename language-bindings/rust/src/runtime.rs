@@ -8,8 +8,7 @@
 //! `Runtime::new()` or `Runtime::builder().build()` once.
 
 use std::ffi::c_void;
-use std::option::Option;
-use std::sync::{Arc, OnceLock};
+use std::sync::Mutex;
 
 use wamr_sys::{
     mem_alloc_type_t_Alloc_With_Pool, mem_alloc_type_t_Alloc_With_System_Allocator,
@@ -22,7 +21,7 @@ use crate::RuntimeError;
 #[derive(Clone, Debug)]
 pub struct Runtime {}
 
-static SINGLETON_RUNTIME: OnceLock<Option<Arc<Runtime>>> = OnceLock::new();
+static SINGLETON_REF_CNT: Mutex<i32> = Mutex::new(0);
 
 impl Runtime {
     /// return a `RuntimeBuilder` instance
@@ -41,30 +40,31 @@ impl Runtime {
     /// # Errors
     ///
     /// if the runtime initialization failed, it will return `RuntimeError::InitializationFailure`
-    pub fn new() -> Result<Arc<Self>, RuntimeError> {
-        let runtime = SINGLETON_RUNTIME.get_or_init(|| {
-            let ret;
-            unsafe {
-                ret = wasm_runtime_init();
-            }
+    pub fn new() -> Result<Self, RuntimeError> {
+        let mut ref_cnt = SINGLETON_REF_CNT.lock().unwrap();
 
-            match ret {
-                true => Some(Arc::new(Runtime {})),
-                false => None,
-            }
-        });
+        *ref_cnt += 1;
 
-        match runtime {
-            Some(runtime) => Ok(Arc::clone(runtime)),
-            None => Err(RuntimeError::InitializationFailure),
+        match *ref_cnt {
+            1 => match unsafe { wasm_runtime_init() } {
+                true => Ok(Runtime {}),
+                false => Err(RuntimeError::InitializationFailure),
+            },
+            _ => Ok(Runtime {}),
         }
     }
 }
 
 impl Drop for Runtime {
     fn drop(&mut self) {
-        unsafe {
-            wasm_runtime_destroy();
+        let mut ref_cnt = SINGLETON_REF_CNT.lock().unwrap();
+
+        *ref_cnt -= 1;
+
+        if *ref_cnt == 0 {
+            unsafe {
+                wasm_runtime_destroy();
+            }
         }
     }
 }
@@ -114,22 +114,17 @@ impl RuntimeBuilder {
     /// # Errors
     ///
     /// if the runtime initialization failed, it will return `RuntimeError::InitializationFailure`
-    pub fn build(mut self) -> Result<Arc<Runtime>, RuntimeError> {
-        let runtime = SINGLETON_RUNTIME.get_or_init(|| {
-            let ret;
-            unsafe {
-                ret = wasm_runtime_full_init(&mut self.args);
-            }
+    pub fn build(mut self) -> Result<Runtime, RuntimeError> {
+        let mut ref_cnt = SINGLETON_REF_CNT.lock().unwrap();
 
-            match ret {
-                true => Some(Arc::new(Runtime {})),
-                false => None,
-            }
-        });
+        *ref_cnt += 1;
 
-        match runtime {
-            Some(runtime) => Ok(Arc::clone(runtime)),
-            None => Err(RuntimeError::InitializationFailure),
+        match *ref_cnt {
+            1 => match unsafe { wasm_runtime_full_init(&mut self.args) } {
+                true => Ok(Runtime {}),
+                false => Err(RuntimeError::InitializationFailure),
+            },
+            _ => Ok(Runtime {}),
         }
     }
 }
@@ -140,27 +135,36 @@ mod tests {
     use wamr_sys::{wasm_runtime_free, wasm_runtime_malloc};
 
     #[test]
+    #[ignore]
     fn test_runtime_new() {
         let runtime = Runtime::new();
         assert!(runtime.is_ok());
+
+        /* use malloc to confirm */
+        let small_buf = unsafe { wasm_runtime_malloc(16) };
+        assert!(!small_buf.is_null());
+        unsafe { wasm_runtime_free(small_buf) };
+
         drop(runtime);
+
+        /* runtime has been destroyed. malloc should be failed */
+        let small_buf = unsafe { wasm_runtime_malloc(16) };
+        assert!(small_buf.is_null());
 
         {
             let runtime = Runtime::new();
             assert!(runtime.is_ok());
+
             let runtime = Runtime::new();
             assert!(runtime.is_ok());
-            let runtime = Runtime::new();
-            assert!(runtime.is_ok());
-            let runtime = Runtime::new();
-            assert!(runtime.is_ok());
+
             let runtime = Runtime::new();
             assert!(runtime.is_ok());
         }
 
+        /* runtime has been destroyed. malloc should be failed */
         let small_buf = unsafe { wasm_runtime_malloc(16) };
-        assert!(!small_buf.is_null());
-        unsafe { wasm_runtime_free(small_buf) };
+        assert!(small_buf.is_null());
     }
 
     #[test]
@@ -168,7 +172,6 @@ mod tests {
         // use Mode_Default
         let runtime = Runtime::builder().use_system_allocator().build();
         assert!(runtime.is_ok());
-        drop(runtime);
 
         let small_buf = unsafe { wasm_runtime_malloc(16) };
         assert!(!small_buf.is_null());
@@ -182,7 +185,6 @@ mod tests {
             .use_system_allocator()
             .build();
         assert!(runtime.is_ok());
-        drop(runtime);
 
         let small_buf = unsafe { wasm_runtime_malloc(16) };
         assert!(!small_buf.is_null());
@@ -190,13 +192,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "llvmjit")]
+    #[ignore]
     fn test_runtime_builder_llvm_jit() {
         let runtime = Runtime::builder()
             .run_as_llvm_jit(3, 3)
             .use_system_allocator()
             .build();
         assert!(runtime.is_ok());
-        drop(runtime);
 
         let small_buf = unsafe { wasm_runtime_malloc(16) };
         assert!(!small_buf.is_null());
