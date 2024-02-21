@@ -144,6 +144,7 @@
 
 pub mod function;
 mod helper;
+pub mod host_function;
 pub mod instance;
 pub mod module;
 pub mod runtime;

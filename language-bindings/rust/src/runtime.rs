@@ -12,14 +12,17 @@ use std::sync::Mutex;
 
 use wamr_sys::{
     mem_alloc_type_t_Alloc_With_Pool, mem_alloc_type_t_Alloc_With_System_Allocator,
-    wasm_runtime_destroy, wasm_runtime_full_init, wasm_runtime_init, RunningMode_Mode_Interp,
-    RunningMode_Mode_LLVM_JIT, RuntimeInitArgs,
+    wasm_runtime_destroy, wasm_runtime_full_init, wasm_runtime_init, NativeSymbol,
+    RunningMode_Mode_Interp, RunningMode_Mode_LLVM_JIT, RuntimeInitArgs,
 };
 
-use crate::RuntimeError;
+use crate::{host_function::HostFunctionList, RuntimeError};
 
-#[derive(Clone, Debug)]
-pub struct Runtime {}
+#[allow(dead_code)]
+#[derive(Debug)]
+pub struct Runtime {
+    host_functions: HostFunctionList,
+}
 
 static SINGLETON_REF_CNT: Mutex<i32> = Mutex::new(0);
 
@@ -47,10 +50,14 @@ impl Runtime {
 
         match *ref_cnt {
             1 => match unsafe { wasm_runtime_init() } {
-                true => Ok(Runtime {}),
+                true => Ok(Runtime {
+                    host_functions: HostFunctionList::new("empty"),
+                }),
                 false => Err(RuntimeError::InitializationFailure),
             },
-            _ => Ok(Runtime {}),
+            _ => Ok(Runtime {
+                host_functions: HostFunctionList::new("empty"),
+            }),
         }
     }
 }
@@ -71,9 +78,20 @@ impl Drop for Runtime {
 
 /// The builder of `Runtime`. It is used to configure the runtime.
 /// Get one via `Runtime::builder()`
-#[derive(Default)]
 pub struct RuntimeBuilder {
     args: RuntimeInitArgs,
+    host_functions: HostFunctionList,
+}
+
+/// Can't build() until config allocator mode
+impl Default for RuntimeBuilder {
+    fn default() -> Self {
+        let args = RuntimeInitArgs::default();
+        RuntimeBuilder {
+            args,
+            host_functions: HostFunctionList::new("host"),
+        }
+    }
 }
 
 impl RuntimeBuilder {
@@ -99,13 +117,22 @@ impl RuntimeBuilder {
         self
     }
 
-    /// TODO: use fast-jit mode
-
     /// use llvm-jit mode
     pub fn run_as_llvm_jit(mut self, opt_level: u32, size_level: u32) -> RuntimeBuilder {
         self.args.running_mode = RunningMode_Mode_LLVM_JIT;
         self.args.llvm_jit_opt_level = opt_level;
         self.args.llvm_jit_size_level = size_level;
+        self
+    }
+
+    /// register a host function
+    pub fn add_host_function(
+        mut self,
+        function_name: &str,
+        function_ptr: *mut c_void,
+    ) -> RuntimeBuilder {
+        self.host_functions
+            .add_host_function(function_name, function_ptr);
         self
     }
 
@@ -120,11 +147,24 @@ impl RuntimeBuilder {
         *ref_cnt += 1;
 
         match *ref_cnt {
-            1 => match unsafe { wasm_runtime_full_init(&mut self.args) } {
-                true => Ok(Runtime {}),
+            1 => match unsafe {
+                let module_name = &(self.host_functions).get_module_name();
+                self.args.native_module_name = module_name.as_ptr();
+
+                let native_symbols = &(self.host_functions).get_native_symbols();
+                self.args.n_native_symbols = native_symbols.len() as u32;
+                self.args.native_symbols = native_symbols.as_ptr() as *mut NativeSymbol;
+
+                wasm_runtime_full_init(&mut self.args)
+            } {
+                true => Ok(Runtime {
+                    host_functions: self.host_functions,
+                }),
                 false => Err(RuntimeError::InitializationFailure),
             },
-            _ => Ok(Runtime {}),
+            _ => Ok(Runtime {
+                host_functions: self.host_functions,
+            }),
         }
     }
 }
