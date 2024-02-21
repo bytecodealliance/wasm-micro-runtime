@@ -9899,9 +9899,23 @@ check_memory_align_equal(uint8 opcode, uint32 align, char *error_buf,
 }
 #endif /* end of WASM_ENABLE_SHARED_MEMORY */
 
+typedef struct BrTablelStackRecoverInfo {
+    uint32 value_count;
+    uint32 stack_cell_num;
+    uint8 *frame_ref;
+    uint8 *frame_ref_popped;
+    uint8 *frame_ref_values;
+#if WASM_ENABLE_FAST_INTERP != 0
+    int16 *frame_offset;
+    int16 *frame_offset_popped;
+    int16 *frame_offset_values;
+#endif
+} BrTablelStackRecoverInfo;
+
 static bool
 wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
-                     bool is_br_table, char *error_buf, uint32 error_buf_size)
+                     bool is_br_table, BrTablelStackRecoverInfo *table_br_info,
+                     char *error_buf, uint32 error_buf_size)
 {
     BranchBlock *target_block, *cur_block;
     BlockType *target_block_type;
@@ -9917,6 +9931,10 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
     int32 available_reftype_map;
     bool is_type_multi_byte;
 #endif
+    uint8 *frame_ref_values = NULL;
+#if WASM_ENABLE_FAST_INTERP != 0
+    int16 *frame_offset = NULL, *frame_offset_values = NULL;
+#endif
 
     bh_assert(loader_ctx->csp_num > 0);
     if (loader_ctx->csp_num - 1 < depth) {
@@ -9930,6 +9948,9 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
     target_block = loader_ctx->frame_csp - (depth + 1);
     target_block_type = &target_block->block_type;
     frame_ref = loader_ctx->frame_ref;
+#if WASM_ENABLE_FAST_INTERP != 0
+    frame_offset = loader_ctx->frame_offset;
+#endif
 #if WASM_ENABLE_GC != 0
     frame_reftype_map = loader_ctx->frame_reftype_map;
 #endif
@@ -9958,6 +9979,16 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
 #if WASM_ENABLE_GC != 0
         int32 j = reftype_map_count - 1;
 #endif
+
+        if (is_br_table) {
+            bh_assert(table_br_info);
+            table_br_info->stack_cell_num = loader_ctx->stack_cell_num;
+            table_br_info->frame_ref = frame_ref;
+#if WASM_ENABLE_FAST_INTERP != 0
+            table_br_info->frame_offset = frame_offset;
+#endif
+        }
+
         for (i = (int32)arity - 1; i >= 0; i--) {
 #if WASM_ENABLE_GC != 0
             if (wasm_is_type_multi_byte_type(types[i])) {
@@ -9976,6 +10007,37 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
 #if WASM_ENABLE_GC != 0
         j = 0;
 #endif
+
+        if (is_br_table) {
+            uint32 pop_count = (uint32)(frame_ref - loader_ctx->frame_ref);
+            bh_assert(table_br_info);
+
+            table_br_info->value_count = pop_count;
+            if (pop_count) {
+                frame_ref_values = loader_malloc((uint64)arity * sizeof(uint8),
+                                                error_buf, error_buf_size);
+                if (!frame_ref_values) {
+                    goto fail;
+                }
+                bh_memcpy_s(frame_ref_values, pop_count * sizeof(uint8),
+                            loader_ctx->frame_ref, pop_count * sizeof(uint8));
+                table_br_info->frame_ref_popped = loader_ctx->frame_ref;
+                table_br_info->frame_ref_values = frame_ref_values;
+
+#if WASM_ENABLE_FAST_INTERP != 0
+                frame_offset_values = loader_malloc((uint64)arity * sizeof(int16),
+                                                    error_buf, error_buf_size);
+                if (!frame_offset_values) {
+                    goto fail;
+                }
+                bh_memcpy_s(frame_offset_values, pop_count * sizeof(int16),
+                            loader_ctx->frame_offset, pop_count * sizeof(int16));
+                table_br_info->frame_offset_popped = loader_ctx->frame_offset;
+                table_br_info->frame_offset_values = frame_offset_values;
+#endif
+            }
+        }
+
         for (i = 0; i < (int32)arity; i++) {
 #if WASM_ENABLE_GC != 0
             if (wasm_is_type_multi_byte_type(types[i])) {
@@ -10046,6 +10108,21 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
     return true;
 
 fail:
+    if (is_br_table) {
+        if (frame_ref_values) {
+            wasm_runtime_free(frame_ref_values);
+        }
+
+#if WASM_ENABLE_FAST_INTERP != 0
+        if (frame_offset_values) {
+            wasm_runtime_free(frame_offset_values);
+        }
+#endif
+
+        bh_assert(table_br_info);
+        memset(table_br_info, 0, sizeof(BrTablelStackRecoverInfo));
+    }
+
     return false;
 }
 
@@ -10057,15 +10134,41 @@ check_branch_block(WASMLoaderContext *loader_ctx, uint8 **p_buf, uint8 *buf_end,
     BranchBlock *frame_csp_tmp;
     uint32 depth;
 
+    BrTablelStackRecoverInfo table_recover_info = { 0 };
+
     read_leb_uint32(p, p_end, depth);
-    if (!wasm_loader_check_br(loader_ctx, depth, is_br_table, error_buf,
-                              error_buf_size)) {
+    if (!wasm_loader_check_br(loader_ctx, depth, is_br_table,
+                              &table_recover_info, error_buf, error_buf_size)) {
         goto fail;
     }
 
     frame_csp_tmp = loader_ctx->frame_csp - depth - 1;
 #if WASM_ENABLE_FAST_INTERP != 0
     emit_br_info(frame_csp_tmp);
+#endif
+
+    if (is_br_table) {
+        if (table_recover_info.value_count) {
+            uint32 value_count = table_recover_info.value_count;
+            bh_memcpy_s(table_recover_info.frame_ref_popped,
+                        value_count * sizeof(uint8),
+                        table_recover_info.frame_ref_values,
+                        value_count * sizeof(uint8));
+            wasm_runtime_free(table_recover_info.frame_ref_values);
+#if WASM_ENABLE_FAST_INTERP != 0
+            bh_memcpy_s(table_recover_info.frame_offset_popped,
+                        value_count * sizeof(int16),
+                        table_recover_info.frame_offset_values,
+                        value_count * sizeof(int16));
+            wasm_runtime_free(table_recover_info.frame_offset_values);
+#endif
+        }
+    }
+
+    loader_ctx->stack_cell_num = table_recover_info.stack_cell_num;
+    loader_ctx->frame_ref = table_recover_info.frame_ref;
+#if WASM_ENABLE_FAST_INTERP != 0
+    loader_ctx->frame_offset = table_recover_info.frame_offset;
 #endif
 
     *p_buf = p;
