@@ -24,11 +24,15 @@ bh_platform_destroy()
 int
 os_printf(const char *fmt, ...)
 {
-    int ret;
+    int ret = 0;
     va_list ap;
 
     va_start(ap, fmt);
-    ret = __android_log_vprint(ANDROID_LOG_INFO, "wasm_runtime::", fmt, ap);
+#ifndef BH_VPRINTF
+    ret += __android_log_vprint(ANDROID_LOG_INFO, "wasm_runtime::", fmt, ap);
+#else
+    ret += BH_VPRINTF(fmt, ap);
+#endif
     va_end(ap);
 
     return ret;
@@ -37,7 +41,11 @@ os_printf(const char *fmt, ...)
 int
 os_vprintf(const char *fmt, va_list ap)
 {
+#ifndef BH_VPRINTF
     return __android_log_vprint(ANDROID_LOG_INFO, "wasm_runtime::", fmt, ap);
+#else
+    return BH_VPRINTF(fmt, ap);
+#endif
 }
 
 #if __ANDROID_API__ < 19
