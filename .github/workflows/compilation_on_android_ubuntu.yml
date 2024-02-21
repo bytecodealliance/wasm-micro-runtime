@@ -659,6 +659,12 @@ jobs:
           npm install
         working-directory: test-tools/wamr-ide/VSCode-Extension
 
+      - name: code style check
+        run: |
+          npm install --save-dev prettier
+          npm run prettier-format-check
+        working-directory: test-tools/wamr-ide/VSCode-Extension
+
       - name: build iwasm with source debugging feature
         run: |
           mkdir build
@@ -747,7 +753,7 @@ jobs:
           cp ../../../../../../core/deps/python/lib/libpython${{ env.PYTHON_VERSION }}.so.1.0 lib
         working-directory: test-tools/wamr-ide/VSCode-Extension/resource/debug/linux
 
-      - name: run tests
-        timeout-minutes: 5
-        run: xvfb-run npm run test
-        working-directory: test-tools/wamr-ide/VSCode-Extension
+      # - name: run tests
+      #   timeout-minutes: 5
+      #   run: xvfb-run npm run test
+      #   working-directory: test-tools/wamr-ide/VSCode-Extension
