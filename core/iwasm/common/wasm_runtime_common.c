@@ -3630,7 +3630,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
 {
     WASMModuleInstanceCommon *module = wasm_runtime_get_module_inst(exec_env);
     typedef void (*NativeRawFuncPtr)(WASMExecEnv *, uint64 *);
-    NativeRawFuncPtr invokeNativeRaw = (NativeRawFuncPtr)func_ptr;
+    NativeRawFuncPtr invoke_native_raw = (NativeRawFuncPtr)func_ptr;
     uint64 argv_buf[16] = { 0 }, *argv1 = argv_buf, *argv_dst, size;
     uint32 *argv_src = argv, i, argc1, ptr_len;
     uint32 arg_i32;
@@ -3744,7 +3744,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
     }
 
     exec_env->attachment = attachment;
-    invokeNativeRaw(exec_env, argv1);
+    invoke_native_raw(exec_env, argv1);
     exec_env->attachment = NULL;
 
     if (func_type->result_count > 0) {
