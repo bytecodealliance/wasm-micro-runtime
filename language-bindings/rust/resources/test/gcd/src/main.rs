@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#[no_mangle]
+#[export_name = "gcd"]
 pub fn gcd(m: u32, n: u32) -> u32 {
     let mut a = m;
     let mut b = n;
