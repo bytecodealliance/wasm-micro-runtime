@@ -650,6 +650,12 @@ jobs:
           npm install
         working-directory: test-tools/wamr-ide/VSCode-Extension
 
+      - name: code style check
+        run: |
+          npm install --save-dev prettier
+          npm run prettier-format-check
+        working-directory: test-tools/wamr-ide/VSCode-Extension
+
       - name: build iwasm with source debugging feature
         run: |
           mkdir build
