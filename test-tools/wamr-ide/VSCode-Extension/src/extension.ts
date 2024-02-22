@@ -813,7 +813,7 @@ interface BuildArgs {
     maxMemorySize: string;
     stackSize: string;
     exportedSymbols: string;
-    iwasmHeapSize: string;
+    hostManagedHeapSize: string;
 }
 
 /**

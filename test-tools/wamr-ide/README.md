@@ -16,7 +16,7 @@ The WAMR-IDE is an Integrated Development Environment to develop WebAssembly app
 
 Now, the most straightforward way to install the WAMR IDE extension is by searching for WAMR-IDE in the VS Code extension marketplace and installing it directly. So, if you simply want to use WAMR debugging features in VS Code, this is the ideal (and effortless) way. And you are ready to [use WAMR IDE](#how-to-use-wamr-ide).
 
-> It is only recommended to download versions after 1.3.2 from the marketplace, as versions available in the marketplace before might have bugs.
+> It is only recommended to download versions after 1.3.2 from the marketplace
 
 Also, we have same version tagged docker images, lldb binaries and VS Code installation file(.vsix file) packed for each GitHub release. You can following the tutorial in [this section](#21-download-wamr-vs-code-extension-from-the-github-releaserecommended-approach).
 
@@ -276,7 +276,7 @@ Short Explanation of the Fields Above:
 - Output file name: The compiled wasm file name of your program.
 - Initial linear memory size, Max linear memory size, Stack size: The wasi-sdk clang compile options.
 - Exported symbols: The symbols your wasm program wants to export. **Multiple symbols are separated by commas without spaces**.
-- iwasm heap size: The running configuration for the heap size of iwasm. In most cases, the default size would be fine, but in some scenarios, let's say you want to allocate more memory using `malloc`, you should increase it here accordingly.
+- Host managed heap size: The running configuration for the host managed heap size of iwasm. In most cases, the default size would be fine, but in some scenarios, let's say you want to allocate more memory using `malloc`, you should increase it here accordingly.
 
 > Note that due to the current implementation limitation, after changing the `Output file name` or `iwasm heap size`, you need to close and reopen VSCode (to reactivate the extension) so that the running config will be correctly updated.
 

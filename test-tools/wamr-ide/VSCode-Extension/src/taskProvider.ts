@@ -31,7 +31,7 @@ export class WasmTaskProvider implements vscode.TaskProvider {
             /* target name is used for generated aot target */
             const targetName =
                 TargetConfigPanel.buildArgs.outputFileName.split('.')[0];
-            const heapSize = TargetConfigPanel.buildArgs.iwasmHeapSize;
+            const heapSize = TargetConfigPanel.buildArgs.hostManagedHeapSize;
 
             if (
                 os.platform() === 'linux' ||

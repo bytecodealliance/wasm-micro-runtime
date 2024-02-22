@@ -753,7 +753,7 @@ jobs:
           cp ../../../../../../core/deps/python/lib/libpython${{ env.PYTHON_VERSION }}.so.1.0 lib
         working-directory: test-tools/wamr-ide/VSCode-Extension/resource/debug/linux
 
-      # - name: run tests
-      #   timeout-minutes: 5
-      #   run: xvfb-run npm run test
-      #   working-directory: test-tools/wamr-ide/VSCode-Extension
+      - name: run tests
+        timeout-minutes: 5
+        run: xvfb-run npm run test
+        working-directory: test-tools/wamr-ide/VSCode-Extension
