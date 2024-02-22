@@ -102,7 +102,8 @@ void abort(void);
 size_t strspn(const char *s, const char *accept);
 size_t strcspn(const char *s, const char *reject);
 
-/* math functions which are not provided by os */
+/* math functions which are not provided by os with minimal libc */
+#if defined(CONFIG_MINIMAL_LIBC)
 double atan(double x);
 double atan2(double y, double x);
 double sqrt(double x);
@@ -129,6 +130,10 @@ double scalbn(double x, int n);
 unsigned long long int strtoull(const char *nptr, char **endptr, int base);
 double strtod(const char *nptr, char **endptr);
 float strtof(const char *nptr, char **endptr);
+#else
+#include <math.h>
+#endif /* CONFIG_MINIMAL_LIBC */
+
 /* clang-format on */
 
 #if KERNEL_VERSION_NUMBER >= 0x030100 /* version 3.1.0 */
