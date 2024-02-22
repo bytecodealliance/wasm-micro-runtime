@@ -5,6 +5,16 @@ name: Rust linter
 on:
   # will be triggered on PR events
   pull_request:
+    types:
+      - opened
+      - synchronize
+    paths:
+      - "./language-bindings/rust/**"
+
+  push:
+    branches:
+      - main
+      - "dev/**"
     paths:
       - "./language-bindings/rust/**"
 
@@ -26,6 +36,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Run Clippy
         run: cargo clippy --all-targets --all-features
+        working-directory: ./language-bindings/rust/
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run test cases
+        run: cargo test --lib
+        working-directory: ./language-bindings/rust/
+
+      - name: Run test cases sequentially
+        run: cargo test --lib -- --ignored --test-threads 1
         working-directory: ./language-bindings/rust/

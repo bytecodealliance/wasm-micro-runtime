@@ -255,7 +255,8 @@ mod tests {
 
     #[test]
     fn test_module_from_buf() {
-        let _ = Runtime::new().expect("runtime init failed");
+        let runtime = Runtime::new();
+        assert!(runtime.is_ok());
 
         // (module
         //   (func (export "add") (param i32 i32) (result i32)
@@ -277,7 +278,8 @@ mod tests {
 
     #[test]
     fn test_module_from_file() {
-        let _ = Runtime::new().expect("runtime init failed");
+        let runtime = Runtime::new();
+        assert!(runtime.is_ok());
 
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("resources/test");
@@ -288,7 +290,8 @@ mod tests {
 
     #[test]
     fn test_wasi_args() {
-        let _ = Runtime::new().expect("runtime init failed");
+        let runtime = Runtime::new();
+        assert!(runtime.is_ok());
 
         // (module
         //   (func (export "add") (param i32 i32) (result i32)
