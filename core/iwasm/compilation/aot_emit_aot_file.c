@@ -1529,6 +1529,7 @@ fail_integer_too_large:
     return false;
 }
 
+/* NOLINTNEXTLINE */
 #define read_leb_uint32(p, p_end, res)                         \
     do {                                                       \
         uint64 res64;                                          \

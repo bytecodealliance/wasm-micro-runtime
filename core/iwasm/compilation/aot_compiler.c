@@ -83,6 +83,7 @@ read_leb(const uint8 *buf, const uint8 *buf_end, uint32 *p_offset,
     return true;
 }
 
+/* NOLINTNEXTLINE */
 #define read_leb_uint32(p, p_end, res)                    \
     do {                                                  \
         uint32 off = 0;                                   \
@@ -93,6 +94,7 @@ read_leb(const uint8 *buf, const uint8 *buf_end, uint32 *p_offset,
         res = (uint32)res64;                              \
     } while (0)
 
+/* NOLINTNEXTLINE */
 #define read_leb_int32(p, p_end, res)                    \
     do {                                                 \
         uint32 off = 0;                                  \
@@ -103,6 +105,7 @@ read_leb(const uint8 *buf, const uint8 *buf_end, uint32 *p_offset,
         res = (int32)res64;                              \
     } while (0)
 
+/* NOLINTNEXTLINE */
 #define read_leb_int64(p, p_end, res)                    \
     do {                                                 \
         uint32 off = 0;                                  \
