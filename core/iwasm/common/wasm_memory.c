@@ -6,7 +6,6 @@
 #include "wasm_runtime_common.h"
 #include "../interpreter/wasm_runtime.h"
 #include "../aot/aot_runtime.h"
-#include "bh_platform.h"
 #include "mem_alloc.h"
 #include "wasm_memory.h"
 
@@ -53,11 +52,11 @@ align_as_and_cast(uint64 size, uint64 alignment)
 static bool
 wasm_memory_init_with_pool(void *mem, unsigned int bytes)
 {
-    mem_allocator_t _allocator = mem_allocator_create(mem, bytes);
+    mem_allocator_t allocator = mem_allocator_create(mem, bytes);
 
-    if (_allocator) {
+    if (allocator) {
         memory_mode = MEMORY_MODE_POOL;
-        pool_allocator = _allocator;
+        pool_allocator = allocator;
         global_pool_size = bytes;
         return true;
     }
@@ -84,18 +83,18 @@ wasm_memory_init_with_allocator(void *_user_data, void *_malloc_func,
 }
 #else
 static bool
-wasm_memory_init_with_allocator(void *_malloc_func, void *_realloc_func,
-                                void *_free_func)
+wasm_memory_init_with_allocator(void *malloc_func_ptr, void *realloc_func_ptr,
+                                void *free_func_ptr)
 {
-    if (_malloc_func && _free_func && _malloc_func != _free_func) {
+    if (malloc_func_ptr && free_func_ptr && malloc_func_ptr != free_func_ptr) {
         memory_mode = MEMORY_MODE_ALLOCATOR;
-        malloc_func = _malloc_func;
-        realloc_func = _realloc_func;
-        free_func = _free_func;
+        malloc_func = malloc_func_ptr;
+        realloc_func = realloc_func_ptr;
+        free_func = free_func_ptr;
         return true;
     }
-    LOG_ERROR("Init memory with allocator (%p, %p, %p) failed.\n", _malloc_func,
-              _realloc_func, _free_func);
+    LOG_ERROR("Init memory with allocator (%p, %p, %p) failed.\n",
+              malloc_func_ptr, realloc_func_ptr, free_func_ptr);
     return false;
 }
 #endif
@@ -123,18 +122,13 @@ wasm_runtime_memory_init(mem_alloc_type_t mem_alloc_type,
                                           alloc_option->pool.heap_size);
     }
     else if (mem_alloc_type == Alloc_With_Allocator) {
+        return wasm_memory_init_with_allocator(
 #if WASM_MEM_ALLOC_WITH_USER_DATA != 0
-        return wasm_memory_init_with_allocator(
             alloc_option->allocator.user_data,
-            alloc_option->allocator.malloc_func,
-            alloc_option->allocator.realloc_func,
-            alloc_option->allocator.free_func);
-#else
-        return wasm_memory_init_with_allocator(
-            alloc_option->allocator.malloc_func,
-            alloc_option->allocator.realloc_func,
-            alloc_option->allocator.free_func);
 #endif
+            alloc_option->allocator.malloc_func,
+            alloc_option->allocator.realloc_func,
+            alloc_option->allocator.free_func);
     }
     else if (mem_alloc_type == Alloc_With_System_Allocator) {
         memory_mode = MEMORY_MODE_SYSTEM_ALLOCATOR;
