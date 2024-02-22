@@ -257,7 +257,7 @@ Click `Change workspace` button, a dialog will show as following. You can select
 
   At the same time, all added `include path` and `exclude files` will be saved in `.wamr/compilation_config.json` as json array.
 
-  ![compilation config](./Media/compilation_config_2.png "compilation config")
+  ![compilation config](./Media/compilation_config.png "compilation config")
 
 > `Toggle state of path including` just shows when selecting `folder` and hides with other resources.
 >
@@ -278,7 +278,7 @@ Short Explanation of the Fields Above:
 - Exported symbols: The symbols your wasm program wants to export. **Multiple symbols are separated by commas without spaces**.
 - Host managed heap size: The running configuration for the host managed heap size of iwasm. In most cases, the default size would be fine, but in some scenarios, let's say you want to allocate more memory using `malloc`, you should increase it here accordingly.
 
-> Note that due to the current implementation limitation, after changing the `Output file name` or `iwasm heap size`, you need to close and reopen VSCode (to reactivate the extension) so that the running config will be correctly updated.
+> Note that due to the current implementation limitation, after changing the `Output file name` or `Host managed heap size`, you need to close and reopen VSCode (to reactivate the extension) so that the running config will be correctly updated.
 
 Then click `Modify` button to confirm, if configurations are modified successfully and following message will pop. Click `OK`, the page will be auto closed.
 
@@ -286,7 +286,7 @@ Then click `Modify` button to confirm, if configurations are modified successful
 
 And all configuration will be saved in `.wamr/compilation_config.json`.
 
-![configuration file](./Media/compilation_config.png "configuration file")
+![configuration file](./Media/compilation_config_2.png "configuration file")
 
 #### 2. `Build`
 
