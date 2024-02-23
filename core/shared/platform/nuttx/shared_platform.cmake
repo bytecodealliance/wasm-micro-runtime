@@ -16,5 +16,6 @@ if (WAMR_BUILD_LIBC_WASI EQUAL 1)
   set(source_all ${source_all} ${PLATFORM_COMMON_LIBC_UTIL_SOURCE})
 endif ()
 
-set (PLATFORM_SHARED_SOURCE ${source_all} ${PLATFORM_COMMON_MATH_SOURCE})
+include (${CMAKE_CURRENT_LIST_DIR}/../common/memory/platform_api_memory.cmake)
+set (PLATFORM_SHARED_SOURCE ${source_all} ${PLATFORM_COMMON_MATH_SOURCE} ${PLATFORM_COMMON_MEMORY_SOURCE})
 

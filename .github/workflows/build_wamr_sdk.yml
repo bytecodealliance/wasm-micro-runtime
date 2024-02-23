@@ -30,12 +30,24 @@ on:
         description: download WASI_SDK from this URL
         type: string
         required: true
+      wamr_app_framework_url:
+        description: download WAMR app framework to get wamr_sdk
+        type: string
+        required: true
 
 jobs:
   build:
     runs-on: ${{ inputs.runner }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: download wamr-app-framework
+        run: |
+          git clone ${{ inputs.wamr_app_framework_url }}
+          cd wamr-app-framework
+          git submodule init
+          git submodule update 
+        working-directory: wamr-sdk
 
       - name: download and install wasi-sdk
         run: |
@@ -48,14 +60,16 @@ jobs:
 
       - name: generate wamr-sdk release
         run: |
+          cd ./wamr-app-framework/wamr-sdk
           ./build_sdk.sh -n wamr-sdk -x $(pwd)/${{ inputs.config_file }}
         working-directory: wamr-sdk
 
       - name: compress the binary
         run: |
+          cd wamr-app-framework/wamr-sdk/out
           tar czf wamr-sdk-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz wamr-sdk
           zip -r wamr-sdk-${{ inputs.ver_num }}-${{ inputs.runner }}.zip wamr-sdk
-        working-directory: wamr-sdk/out
+        working-directory: wamr-sdk
 
       - name: upload release tar.gz
         uses: actions/upload-release-asset@v1
@@ -63,7 +77,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ inputs.upload_url }}
-          asset_path: wamr-sdk/out/wamr-sdk-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz
+          asset_path: wamr-sdk/wamr-app-framework/wamr-sdk/out/wamr-sdk-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz
           asset_name: wamr-sdk-${{ inputs.ver_num }}-${{ inputs.arch }}-${{ inputs.runner }}.tar.gz
           asset_content_type: application/x-gzip
 
@@ -73,6 +87,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ inputs.upload_url }}
-          asset_path: wamr-sdk/out/wamr-sdk-${{ inputs.ver_num }}-${{ inputs.runner }}.zip
+          asset_path: wamr-sdk/wamr-app-framework/wamr-sdk/out/wamr-sdk-${{ inputs.ver_num }}-${{ inputs.runner }}.zip
           asset_name: wamr-sdk-${{ inputs.ver_num }}-${{ inputs.arch }}-${{ inputs.runner }}.zip
           asset_content_type: application/zip
+
+      - name: delete wamr-app-framework
+        run: |
+          rm -rf wamr-app-framework
+        working-directory: wamr-sdk

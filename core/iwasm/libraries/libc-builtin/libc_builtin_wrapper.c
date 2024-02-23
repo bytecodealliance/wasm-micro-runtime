@@ -1136,6 +1136,10 @@ static WASMNativeGlobalDef native_global_defs[] = {
     { "test", "global-f32", VALUE_TYPE_F32, false, .value.f32 = 0 },
     { "test", "global-mut-i32", VALUE_TYPE_I32, true, .value.i32 = 0 },
     { "test", "global-mut-i64", VALUE_TYPE_I64, true, .value.i64 = 0 },
+#if WASM_ENABLE_GC != 0
+    { "G", "g", VALUE_TYPE_I32, false, .value.i32 = 4 },
+    { "M", "g", REF_TYPE_HT_NON_NULLABLE, false, .value.gc_obj = 0 },
+#endif
 #endif
     { "global", "NaN", VALUE_TYPE_F64, .value.u64 = 0x7FF8000000000000LL },
     { "global", "Infinity", VALUE_TYPE_F64, .value.u64 = 0x7FF0000000000000LL }

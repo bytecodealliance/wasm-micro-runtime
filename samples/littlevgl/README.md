@@ -3,6 +3,9 @@ description: "The related code/working directory of this example resides in dire
 ---
 "littlevgl" sample introduction
 ==============
+
+> Note: The sample has been migrated to [bytecodealliance/wamr-app-framework/samples/littlevgl](https://github.com/bytecodealliance/wamr-app-framework/tree/main/samples/littlevgl).
+
 This sample demonstrates that a graphic user interface application in WebAssembly by compiling the LittlevGL v5.3, an open-source embedded 2d graphic library into the WASM bytecode.
 
 In this sample, the whole LittlevGL v5.3 source code is built into the WebAssembly code with the user application. The platform interfaces defined by LittlevGL is implemented in the runtime and registered for WASM application through calling wasm_runtime_full_init().

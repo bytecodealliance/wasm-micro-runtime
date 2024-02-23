@@ -5,6 +5,8 @@ description: "The related code/working directory of this example resides in dire
 "simple" sample introduction
 ==============
 
+> Note: The sample has been migrated to [bytecodealliance/wamr-app-framework/samples/simple](https://github.com/bytecodealliance/wamr-app-framework/tree/main/samples/simple).
+
 This sample demonstrates following scenarios:
 
 - Use tool "host_tool" to remotely install/uninstall wasm applications from the WAMR runtime over either TCP socket or UART cable

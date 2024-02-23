@@ -499,7 +499,9 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
     if (UINTPTR_MAX == UINT64_MAX) {
         offset_i32 = jit_cc_new_reg_I32(cc);
         offset = jit_cc_new_reg_I64(cc);
-        GEN_INSN(SHL, offset_i32, elem_idx, NEW_CONST(I32, 2));
+        /* Calculate offset by pointer size (elem_idx *
+         * sizeof(table_elem_type_t)) */
+        GEN_INSN(SHL, offset_i32, elem_idx, NEW_CONST(I32, 3));
         GEN_INSN(I32TOI64, offset, offset_i32);
     }
     else {

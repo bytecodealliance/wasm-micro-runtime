@@ -2,6 +2,9 @@
 description: "The related code/working directory of this example resides in directory {WAMR_DIR}/test-tools/IoT-APP-Store-Demo"
 ---
 # IoT Application Store
+
+> Note: This demo has been migrated to [bytecodealliance/wamr-app-framework/test-tools/IoT-APP-Store-Demo](https://github.com/bytecodealliance/wamr-app-framework/tree/main/test-tools/IoT-APP-Store-Demo).
+
 Wasm application management portal for WAMR
 
 ## Start the server

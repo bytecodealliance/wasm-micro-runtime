@@ -2,10 +2,10 @@ WebAssembly Micro Runtime Attributions
 ======================================
 
 WAMR project reused some components from other open source project:
-- **cJson**: used in the host_tool for remotely managing wasm applications
+- **cJson**: in the repository [wamr-app-framework](https://github.com/bytecodealliance/wamr-app-framework/), used in the host_tool for remotely managing wasm applications
 - **contiki-ng**: for the coap protocol implementation
 - **freebsd libm**: used in core/shared/platform/alios/bh_math.c
-- **LVGL**: for the gui samples and wrapped the wasm graphic layer
+- **LVGL**: in the repository [wamr-app-framework](https://github.com/bytecodealliance/wamr-app-framework/), for the gui samples and wrapped the wasm graphic layer
 - **llvm**: for the AOT/JIT compilation
 - **wasm-c-api**: to implement the C-APIs of wasm. using headers and sameples
 - **wasmtime**: for the wasi libc implementation
@@ -42,7 +42,7 @@ The WAMR fast interpreter is a clean room development. We would acknowledge the 
 
 ### cJson
 
-[LICENSE](./test-tools/host-tool/external/cJSON/LICENSE)
+[LICENSE](https://github.com/bytecodealliance/wamr-app-framework/blob/main/test-tools/host-tool/external/cJSON/LICENSE)
 
 ### contiki-ng
 
@@ -54,9 +54,9 @@ The WAMR fast interpreter is a clean room development. We would acknowledge the 
 
 ### LVGL
 
-[LICENSE](./samples/littlevgl/LICENCE.txt)
+[LICENSE](https://github.com/bytecodealliance/wamr-app-framework/blob/main/samples/littlevgl/LICENCE.txt)
 
-[LICENSE](./core/app-framework/wgl/app/wa-inc/lvgl/LICENCE.txt)
+[LICENSE](https://github.com/bytecodealliance/wamr-app-framework/blob/main/app-framework/wgl/app/wa-inc/lvgl/LICENCE.txt)
 
 ### llvm
 
@@ -64,7 +64,7 @@ The WAMR fast interpreter is a clean room development. We would acknowledge the 
 
 ### wasm-c-api
 
-[LICENSE](./samples/wasm-c-api/src/LICENSE)
+[LICENSE](https://github.com/bytecodealliance/wamr-app-framework/blob/main/samples/wasm-c-api/src/LICENSE)
 
 ### wasmtime
 
@@ -76,7 +76,7 @@ The WAMR fast interpreter is a clean room development. We would acknowledge the 
 
 ### zephyr
 
-[LICENSE](./samples/gui/wasm-runtime-wgl/src/platform/zephyr/LICENSE)
+[LICENSE](https://github.com/bytecodealliance/wamr-app-framework/blob/main/samples/gui/wasm-runtime-wgl/src/platform/zephyr/LICENSE)
 
 ### wac
 

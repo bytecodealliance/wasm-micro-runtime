@@ -3,6 +3,9 @@ description: "The related code/working directory of this example resides in dire
 ---
 "gui" sample introduction
 ==============
+
+> Note: The sample has been migrated to [bytecodealliance/wamr-app-framework/samples/gui](https://github.com/bytecodealliance/wamr-app-framework/tree/main/samples/gui).
+
 This sample demonstrates that a graphic user interface application in WebAssembly programming with WAMR graphic library(WGL)  which is part of WAMR app-framework.
 
 Compared with the [littlevgl](../littlevgl) sample, WGL compiles LittlevGL source code into the WAMR runtime and defines a set of wrapper API's for exporting to Webassembly application.

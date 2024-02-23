@@ -10,6 +10,9 @@
 #include "../common/wasm_runtime_common.h"
 #include "../interpreter/wasm_runtime.h"
 #include "../compilation/aot.h"
+#if WASM_ENABLE_GC != 0
+#include "gc_export.h"
+#endif
 
 #if WASM_ENABLE_WASI_NN != 0
 #include "../libraries/wasi-nn/src/wasi_nn_private.h"
@@ -18,6 +21,20 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* Wasm feature supported, mainly used by AOTTargetInfo now */
+#define WASM_FEATURE_SIMD_128BIT (1 << 0)
+#define WASM_FEATURE_BULK_MEMORY (1 << 1)
+#define WASM_FEATURE_MULTI_THREAD (1 << 2)
+#define WASM_FEATURE_REF_TYPES (1 << 3)
+#define WASM_FEATURE_GARBAGE_COLLECTION (1 << 4)
+#define WASM_FEATURE_EXCEPTION_HANDLING (1 << 5)
+#define WASM_FEATURE_MEMORY64 (1 << 6)
+#define WASM_FEATURE_MULTI_MEMORY (1 << 7)
+#define WASM_FEATURE_DYNAMIC_LINKING (1 << 8)
+#define WASM_FEATURE_COMPONENT_MODEL (1 << 9)
+#define WASM_FEATURE_RELAXED_SIMD (1 << 10)
+#define WASM_FEATURE_FLEXIBLE_VECTORS (1 << 11)
 
 typedef enum AOTSectionType {
     AOT_SECTION_TYPE_TARGET_INFO = 0,
@@ -35,6 +52,7 @@ typedef enum AOTCustomSectionType {
     AOT_CUSTOM_SECTION_NATIVE_SYMBOL = 1,
     AOT_CUSTOM_SECTION_ACCESS_CONTROL = 2,
     AOT_CUSTOM_SECTION_NAME = 3,
+    AOT_CUSTOM_SECTION_STRING_LITERAL = 4,
 } AOTCustomSectionType;
 
 typedef struct AOTObjectDataSection {
@@ -103,6 +121,13 @@ typedef struct GOTItem {
 } GOTItem, *GOTItemList;
 #endif
 
+#if WASM_ENABLE_GC != 0
+typedef struct LocalRefFlag {
+    uint32 local_ref_flag_cell_num;
+    uint8 *local_ref_flags;
+} LocalRefFlag;
+#endif
+
 typedef struct AOTModule {
     uint32 module_type;
 
@@ -133,9 +158,9 @@ typedef struct AOTModule {
     uint32 table_init_data_count;
     AOTTableInitData **table_init_data_list;
 
-    /* function type info */
-    uint32 func_type_count;
-    AOTFuncType **func_types;
+    /* type info */
+    uint32 type_count;
+    AOTType **types;
 
     /* import global variable info */
     uint32 import_global_count;
@@ -158,6 +183,17 @@ typedef struct AOTModule {
     void **func_ptrs;
     /* func type indexes of AOTed (un-imported) functions */
     uint32 *func_type_indexes;
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
+    /* max local cell nums of AOTed (un-imported) functions */
+    uint32 *max_local_cell_nums;
+    /* max stack cell nums of AOTed (un-imported) functions */
+    uint32 *max_stack_cell_nums;
+#endif
+
+#if WASM_ENABLE_GC != 0
+    /* params + locals ref flags of (both import and AOTed) functions */
+    LocalRefFlag *func_local_ref_flags;
+#endif
 
     /* export info */
     uint32 export_count;
@@ -239,6 +275,26 @@ typedef struct AOTModule {
     bh_list import_module_list_head;
     bh_list *import_module_list;
 #endif
+
+#if WASM_ENABLE_GC != 0
+    /* Ref types hash set */
+    HashMap *ref_type_set;
+    struct WASMRttType **rtt_types;
+    korp_mutex rtt_type_lock;
+#if WASM_ENABLE_STRINGREF != 0
+    /* special rtts for stringref types
+        - stringref
+        - stringview_wtf8
+        - stringview_wtf16
+        - stringview_iter
+     */
+    struct WASMRttType *stringref_rtts[4];
+    uint32 string_literal_count;
+    uint32 *string_literal_lengths;
+    const uint8 **string_literal_ptrs;
+#endif
+#endif
+
 #if WASM_ENABLE_DEBUG_AOT != 0
     void *elf_hdr;
     uint32 elf_size;
@@ -275,8 +331,10 @@ typedef struct AOTTargetInfo {
     uint32 e_version;
     /* Processor-specific flags */
     uint32 e_flags;
+    /* Specify wasm features supported */
+    uint64 feature_flags;
     /* Reserved */
-    uint32 reserved;
+    uint64 reserved;
     /* Arch name */
     char arch[16];
 } AOTTargetInfo;
@@ -292,12 +350,37 @@ typedef struct AOTFuncPerfProfInfo {
 
 /* AOT auxiliary call stack */
 typedef struct AOTFrame {
+    /* The frame of the caller which is calling current function */
     struct AOTFrame *prev_frame;
-    uint32 func_index;
-#if WASM_ENABLE_PERF_PROFILING != 0
-    uint64 time_started;
+
+    /* The non-imported function index of current function */
+    uintptr_t func_index;
+
+    /* Used when performance profiling is enabled */
+    uintptr_t time_started;
+
+    /* Used when performance profiling is enabled */
     AOTFuncPerfProfInfo *func_perf_prof_info;
-#endif
+
+    /* Instruction pointer: offset to the bytecode array */
+    uintptr_t ip_offset;
+
+    /* Operand stack top pointer of the current frame */
+    uint32 *sp;
+
+    /* Frame ref flags (GC only) */
+    uint8 *frame_ref;
+
+    /**
+     * Frame data, the layout is:
+     *  local area: parameters and local variables
+     *  stack area: wasm operand stack
+     *  frame ref flags (GC only):
+     *      whether each cell in local and stack area is a GC obj
+     *      currently local's ref flags are stored in AOTModule,
+     *      here we only reserve the padding bytes
+     */
+    uint32 lp[1];
 } AOTFrame;
 
 #if WASM_ENABLE_STATIC_PGO != 0
@@ -564,7 +647,7 @@ void
 aot_get_module_inst_mem_consumption(const AOTModuleInstance *module_inst,
                                     WASMModuleInstMemConsumption *mem_conspn);
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
 void
 aot_drop_table_seg(AOTModuleInstance *module_inst, uint32 tbl_seg_idx);
 
@@ -580,11 +663,11 @@ aot_table_copy(AOTModuleInstance *module_inst, uint32 src_tbl_idx,
 
 void
 aot_table_fill(AOTModuleInstance *module_inst, uint32 tbl_idx, uint32 length,
-               uint32 val, uint32 data_offset);
+               table_elem_type_t val, uint32 data_offset);
 
 uint32
 aot_table_grow(AOTModuleInstance *module_inst, uint32 tbl_idx,
-               uint32 inc_entries, uint32 init_val);
+               uint32 inc_entries, table_elem_type_t init_val);
 #endif
 
 bool
@@ -592,6 +675,9 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index);
 
 void
 aot_free_frame(WASMExecEnv *exec_env);
+
+void
+aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame);
 
 bool
 aot_create_call_stack(struct WASMExecEnv *exec_env);
@@ -654,6 +740,27 @@ aot_exchange_uint32(uint8 *p_data);
 void
 aot_exchange_uint64(uint8 *p_data);
 #endif /* end of WASM_ENABLE_STATIC_PGO != 0 */
+
+#if WASM_ENABLE_GC != 0
+void *
+aot_create_func_obj(AOTModuleInstance *module_inst, uint32 func_idx,
+                    bool throw_exce, char *error_buf, uint32 error_buf_size);
+
+bool
+aot_obj_is_instance_of(AOTModuleInstance *module_inst, WASMObjectRef gc_obj,
+                       uint32 type_index);
+
+WASMRttTypeRef
+aot_rtt_type_new(AOTModuleInstance *module_inst, uint32 type_index);
+
+bool
+aot_array_init_with_data(AOTModuleInstance *module_inst, uint32 seg_index,
+                         uint32 data_seg_offset, WASMArrayObjectRef array_obj,
+                         uint32 elem_size, uint32 array_len);
+
+bool
+aot_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap);
+#endif /* end of WASM_ENABLE_GC != 0 */
 
 #ifdef __cplusplus
 } /* end of extern "C" */

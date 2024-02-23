@@ -9,6 +9,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "aot_comp_option.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -20,7 +22,8 @@ struct AOTCompContext;
 typedef struct AOTCompContext *aot_comp_context_t;
 
 aot_comp_data_t
-aot_create_comp_data(void *wasm_module);
+aot_create_comp_data(void *wasm_module, const char *target_arch,
+                     bool gc_enabled);
 
 void
 aot_destroy_comp_data(aot_comp_data_t comp_data);
@@ -37,41 +40,6 @@ enum {
     AOT_LLVMIR_UNOPT_FILE,
     AOT_LLVMIR_OPT_FILE,
 };
-
-/* always sync it with AOTCompOption in compilation/aot_llvm.h */
-typedef struct AOTCompOption {
-    bool is_jit_mode;
-    bool is_indirect_mode;
-    char *target_arch;
-    char *target_abi;
-    char *target_cpu;
-    char *cpu_features;
-    bool is_sgx_platform;
-    bool enable_bulk_memory;
-    bool enable_thread_mgr;
-    bool enable_tail_call;
-    bool enable_simd;
-    bool enable_ref_types;
-    bool enable_aux_stack_check;
-    bool enable_aux_stack_frame;
-    bool disable_llvm_intrinsics;
-    bool disable_llvm_lto;
-    bool enable_llvm_pgo;
-    bool enable_stack_estimation;
-    bool quick_invoke_c_api_import;
-    char *use_prof_file;
-    uint32_t opt_level;
-    uint32_t size_level;
-    uint32_t output_format;
-    uint32_t bounds_checks;
-    uint32_t stack_bounds_checks;
-    uint32_t segue_flags;
-    char **custom_sections;
-    uint32_t custom_sections_count;
-    const char *stack_usage_file;
-    const char *llvm_passes;
-    const char *builtin_intrinsics;
-} AOTCompOption, *aot_comp_option_t;
 
 bool
 aot_compiler_init(void);

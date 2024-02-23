@@ -16,6 +16,10 @@ if (NOT DEFINED WAMR_BUILD_TARGET)
   if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     # Build as X86_64 by default in 64-bit platform
     set (WAMR_BUILD_TARGET "X86_64")
+    if (NOT DEFINED WAMR_BUILD_SIMD)
+      # Enable SIMD by default in 64-bit platform
+      set (WAMR_BUILD_SIMD 1)
+    endif ()
   elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
     # Build as X86_32 by default in 32-bit platform
     set (WAMR_BUILD_TARGET "X86_32")
@@ -173,6 +177,13 @@ if (WAMR_BUILD_LIBC_WASI EQUAL 1)
 else()
     execute_process(
         COMMAND bash -c "sed -i -E 's/^WAMR_BUILD_LIBC_WASI = 1/WAMR_BUILD_LIBC_WASI = 0/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
+        OUTPUT_VARIABLE cmdOutput
+    )
+endif()
+
+if (WAMR_BUILD_SPEC_TEST EQUAL 1)
+    execute_process(
+        COMMAND bash -c "sed -i -E 's/<ReservedMemMaxSize>0x1000000<\\/ReservedMemMaxSize>/<ReservedMemMaxSize>0x8000000<\\/ReservedMemMaxSize>/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.config.xml"
         OUTPUT_VARIABLE cmdOutput
     )
 endif()
