@@ -17,8 +17,8 @@ extern "C" {
 typedef enum hmu_type_enum {
     HMU_TYPE_MIN = 0,
     HMU_TYPE_MAX = 3,
-    HMU_JO = 3,
-    HMU_VO = 2,
+    HMU_WO = 3, /* WASM Object */
+    HMU_VO = 2, /* VM Object */
     HMU_FC = 1,
     HMU_FM = 0
 } hmu_type_t;
@@ -135,13 +135,13 @@ hmu_verify(void *vheap, hmu_t *hmu);
 #define hmu_unmark_pinuse(hmu) CLRBIT((hmu)->header, HMU_P_OFFSET)
 #define hmu_get_pinuse(hmu) GETBIT((hmu)->header, HMU_P_OFFSET)
 
-#define HMU_JO_VT_SIZE 27
-#define HMU_JO_VT_OFFSET 0
-#define HMU_JO_MB_OFFSET 28
+#define HMU_WO_VT_SIZE 27
+#define HMU_WO_VT_OFFSET 0
+#define HMU_WO_MB_OFFSET 28
 
-#define hmu_mark_jo(hmu) SETBIT((hmu)->header, HMU_JO_MB_OFFSET)
-#define hmu_unmark_jo(hmu) CLRBIT((hmu)->header, HMU_JO_MB_OFFSET)
-#define hmu_is_jo_marked(hmu) GETBIT((hmu)->header, HMU_JO_MB_OFFSET)
+#define hmu_mark_wo(hmu) SETBIT((hmu)->header, HMU_WO_MB_OFFSET)
+#define hmu_unmark_wo(hmu) CLRBIT((hmu)->header, HMU_WO_MB_OFFSET)
+#define hmu_is_wo_marked(hmu) GETBIT((hmu)->header, HMU_WO_MB_OFFSET)
 
 /**
  * The hmu size is divisible by 8, its lowest 3 bits are 0, so we only
@@ -271,6 +271,33 @@ typedef struct gc_heap_struct {
          size[left] <= size[cur] < size[right] */
     hmu_tree_node_t *kfc_tree_root;
 
+#if WASM_ENABLE_GC != 0
+    /* for rootset enumeration of private heap*/
+    void *root_set;
+
+#if WASM_ENABLE_THREAD_MGR == 0
+    /* exec_env of current wasm module instance */
+    void *exec_env;
+#else
+    /* thread cluster of current module instances */
+    void *cluster;
+#endif
+
+    /* whether the fast mode of marking process that requires
+       additional memory fails.  When the fast mode fails, the
+       marking process can still be done in the slow mode, which
+       doesn't need additional memory (by walking through all
+       blocks and marking sucessors of marked nodes until no new
+       node is marked).  TODO: slow mode is not implemented.  */
+    unsigned is_fast_marking_failed : 1;
+
+    /* whether the heap is doing reclaim */
+    unsigned is_doing_reclaim : 1;
+
+    /* Whether the heap can do reclaim */
+    unsigned is_reclaim_enabled : 1;
+#endif
+
 #if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     /* whether heap is corrupted, e.g. the hmu nodes are modified
        by user */
@@ -280,7 +307,53 @@ typedef struct gc_heap_struct {
     gc_size_t init_size;
     gc_size_t highmark_size;
     gc_size_t total_free_size;
+
+#if WASM_ENABLE_GC != 0
+    gc_size_t gc_threshold;
+    gc_size_t gc_threshold_factor;
+    gc_size_t total_gc_count;
+    gc_size_t total_gc_time;
+    gc_size_t max_gc_time;
+    /* Usually there won't be too many extra info node, so we try to use a fixed
+     * array to store them, if the fixed array don't have enough space to store
+     * the nodes, a new space will be allocated from heap */
+    extra_info_node_t *extra_info_normal_nodes[EXTRA_INFO_NORMAL_NODE_CNT];
+    /* Used to store extra information such as finalizer for specified nodes, we
+     * introduce a seperate space to store these information so only nodes who
+     * really require extra information will occupy additional memory spaces. */
+    extra_info_node_t **extra_info_nodes;
+    gc_size_t extra_info_node_cnt;
+    gc_size_t extra_info_node_capacity;
+#endif
+#if GC_STAT_DATA != 0
+    gc_uint64 total_size_allocated;
+    gc_uint64 total_size_freed;
+#endif
 } gc_heap_t;
+
+#if WASM_ENABLE_GC != 0
+
+#define GC_DEFAULT_THRESHOLD_FACTOR 300
+
+static inline void
+gc_update_threshold(gc_heap_t *heap)
+{
+    heap->gc_threshold =
+        heap->total_free_size * heap->gc_threshold_factor / 1000;
+}
+
+#define gct_vm_mutex_init os_mutex_init
+#define gct_vm_mutex_destroy os_mutex_destroy
+#define gct_vm_mutex_lock os_mutex_lock
+#define gct_vm_mutex_unlock os_mutex_unlock
+#define gct_vm_gc_prepare wasm_runtime_gc_prepare
+#define gct_vm_gc_finished wasm_runtime_gc_finalize
+#define gct_vm_begin_rootset_enumeration wasm_runtime_traverse_gc_rootset
+#define gct_vm_get_wasm_object_ref_list wasm_runtime_get_wasm_object_ref_list
+#define gct_vm_get_extra_info_flag wasm_runtime_get_wasm_object_extra_info_flag
+#define gct_vm_set_extra_info_flag wasm_runtime_set_wasm_object_extra_info_flag
+
+#endif /* end of WAMS_ENABLE_GC != 0 */
 
 /**
  * MISC internal used APIs

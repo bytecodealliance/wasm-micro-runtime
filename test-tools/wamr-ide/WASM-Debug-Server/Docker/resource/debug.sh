@@ -3,4 +3,5 @@
 
 #!/bin/bash
 TARGET=$1
-./iwasm -g=0.0.0.0:1234 /mnt/build/${TARGET}.wasm
+HEAP_SIZE=$2
+./iwasm -g=0.0.0.0:1234 --heap-size=${HEAP_SIZE} /mnt/build/${TARGET}.wasm

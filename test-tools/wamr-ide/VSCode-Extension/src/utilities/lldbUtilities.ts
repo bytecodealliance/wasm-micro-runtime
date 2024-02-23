@@ -35,9 +35,7 @@ function getLLDBUnzipFilePath(destinationFolder: string, filename: string) {
     return path.join(destinationFolder, ...dirs);
 }
 
-export function getWAMRExtensionVersion(
-    extensionPath: string
-): string {
+export function getWAMRExtensionVersion(extensionPath: string): string {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     return require(path.join(extensionPath, 'package.json')).version;
 }
@@ -68,7 +66,6 @@ export function isLLDBInstalled(extensionPath: string): boolean {
 export async function promptInstallLLDB(
     extensionPath: string
 ): Promise<SelectionOfPrompt> {
-
     const response = await vscode.window.showWarningMessage(
         'No LLDB instance found. Setup now?',
         SelectionOfPrompt.setUp,
@@ -84,9 +81,7 @@ export async function promptInstallLLDB(
     return SelectionOfPrompt.setUp;
 }
 
-export async function downloadLldb(
-    extensionPath: string
-): Promise<void> {
+export async function downloadLldb(extensionPath: string): Promise<void> {
     const downloadUrl = getLLDBDownloadUrl(extensionPath);
     const destinationDir = os.platform();
 

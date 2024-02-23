@@ -232,14 +232,14 @@ destroy_wait_info(void *wait_info)
 }
 
 static void
-map_try_release_wait_info(HashMap *wait_map_, AtomicWaitInfo *wait_info,
+map_try_release_wait_info(HashMap *wait_hash_map, AtomicWaitInfo *wait_info,
                           void *address)
 {
     if (wait_info->wait_list->len > 0) {
         return;
     }
 
-    bh_hash_map_remove(wait_map_, address, NULL, NULL);
+    bh_hash_map_remove(wait_hash_map, address, NULL, NULL);
     destroy_wait_info(wait_info);
 }
 

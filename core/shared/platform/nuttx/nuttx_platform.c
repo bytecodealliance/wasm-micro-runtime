@@ -94,7 +94,11 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
 
 #if defined(CONFIG_ARCH_USE_TEXT_HEAP)
     if ((prot & MMAP_PROT_EXEC) != 0) {
-        return up_textheap_memalign(sizeof(void *), size);
+        p = up_textheap_memalign(sizeof(void *), size);
+        if (p) {
+            memset(p, 0, size);
+        }
+        return p;
     }
 #endif
 
@@ -108,7 +112,11 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
             return NULL;
         }
         i_addr = (void *)((uint8 *)d_addr + MEM_DUAL_BUS_OFFSET);
-        return in_ibus_ext(i_addr) ? i_addr : d_addr;
+        p = in_ibus_ext(i_addr) ? i_addr : d_addr;
+        if (p) {
+            memset(p, 0, size);
+        }
+        return p;
     }
 #endif
     /* Note: aot_loader.c assumes that os_mmap provides large enough
@@ -125,6 +133,10 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
     if (posix_memalign(&p, 32, size)) {
         return NULL;
     }
+
+    /* Zero the memory which is required by os_mmap */
+    memset(p, 0, size);
+
     return p;
 }
 

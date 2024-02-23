@@ -236,6 +236,23 @@ os_munmap(void *addr, size_t size)
     }
 }
 
+#if WASM_HAVE_MREMAP != 0
+void *
+os_mremap(void *old_addr, size_t old_size, size_t new_size)
+{
+    void *ptr = mremap(old_addr, old_size, new_size, MREMAP_MAYMOVE);
+
+    if (ptr == MAP_FAILED) {
+#if BH_ENABLE_TRACE_MMAP != 0
+        os_printf("mremap failed: %d\n", errno);
+#endif
+        return os_mremap_slow(old_addr, old_size, new_size);
+    }
+
+    return ptr;
+}
+#endif
+
 int
 os_mprotect(void *addr, size_t size, int prot)
 {

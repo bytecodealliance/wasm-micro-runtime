@@ -13,6 +13,15 @@
 #if WASM_ENABLE_THREAD_MGR != 0
 #include "../libraries/thread-mgr/thread_manager.h"
 #endif
+#if WASM_ENABLE_GC != 0
+#include "gc/gc_object.h"
+#if WASM_ENABLE_STRINGREF != 0
+#include "string_object.h"
+#endif
+#if WASM_ENABLE_GC_PERF_PROFILING != 0
+#include "../../shared/mem-alloc/mem_alloc.h"
+#endif
+#endif
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
@@ -52,7 +61,7 @@ static union {
  * Implementation of wasm_application_execute_main()
  */
 static bool
-check_main_func_type(const WASMType *type)
+check_main_func_type(const WASMFuncType *type)
 {
     if (!(type->param_count == 0 || type->param_count == 2)
         || type->result_count > 1) {
@@ -83,7 +92,7 @@ static bool
 execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
 {
     WASMFunctionInstanceCommon *func;
-    WASMType *func_type = NULL;
+    WASMFuncType *func_type = NULL;
     WASMExecEnv *exec_env = NULL;
     uint32 argc1 = 0, argv1[2] = { 0 };
     uint32 total_argv_size = 0;
@@ -244,6 +253,11 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
     }
 #endif
 
+#if WASM_ENABLE_GC_PERF_PROFILING != 0
+    void *handle = wasm_runtime_get_gc_heap_handle(module_inst);
+    mem_allocator_dump_perf_profiling(handle);
+#endif
+
 #if WASM_ENABLE_PERF_PROFILING != 0
     wasm_runtime_dump_perf_profiling(module_inst);
 #endif
@@ -304,10 +318,15 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
              int32 argc, char *argv[])
 {
     WASMFunctionInstanceCommon *target_func;
-    WASMType *type = NULL;
+    WASMFuncType *type = NULL;
     WASMExecEnv *exec_env = NULL;
+#if WASM_ENABLE_GC != 0
+    WASMRefTypeMap *ref_type_map;
+    WASMLocalObjectRef *local_ref;
+    uint32 num_local_ref_pushed = 0;
+#endif
     uint32 argc1, *argv1 = NULL, cell_num = 0, j, k = 0;
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     uint32 param_size_in_double_world = 0, result_size_in_double_world = 0;
 #endif
     int32 i, p, module_type;
@@ -337,7 +356,14 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
         goto fail;
     }
 
-#if WASM_ENABLE_REF_TYPES != 0
+    exec_env = wasm_runtime_get_exec_env_singleton(module_inst);
+    if (!exec_env) {
+        wasm_runtime_set_exception(module_inst,
+                                   "create singleton exec_env failed");
+        goto fail;
+    }
+
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     for (i = 0; i < type->param_count; i++) {
         param_size_in_double_world +=
             wasm_value_type_cell_num_outside(type->types[i]);
@@ -360,6 +386,9 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
         goto fail;
     }
 
+#if WASM_ENABLE_GC != 0
+    ref_type_map = type->ref_type_maps;
+#endif
     /* Parse arguments */
     for (i = 0, p = 0; i < argc; i++) {
         char *endptr = NULL;
@@ -482,8 +511,11 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                 break;
             }
 #endif /* WASM_ENABLE_SIMD != 0 */
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
+#if UINTPTR_MAX == UINT32_MAX
+            case VALUE_TYPE_EXTERNREF:
+#endif
             {
                 if (strncasecmp(argv[i], "null", 4) == 0) {
                     argv1[p++] = (uint32)-1;
@@ -493,16 +525,9 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                 }
                 break;
             }
+#if UINTPTR_MAX == UINT64_MAX
             case VALUE_TYPE_EXTERNREF:
             {
-#if UINTPTR_MAX == UINT32_MAX
-                if (strncasecmp(argv[i], "null", 4) == 0) {
-                    argv1[p++] = (uint32)-1;
-                }
-                else {
-                    argv1[p++] = strtoul(argv[i], &endptr, 0);
-                }
-#else
                 union {
                     uintptr_t val;
                     uint32 parts[2];
@@ -515,13 +540,97 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                 }
                 argv1[p++] = u.parts[0];
                 argv1[p++] = u.parts[1];
-#endif
                 break;
             }
-#endif /* WASM_ENABLE_REF_TYPES */
+#endif
+#endif /* WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0 */
             default:
+            {
+#if WASM_ENABLE_GC != 0
+                bool is_extern_ref = false;
+                bool is_anyref = false;
+
+                if (wasm_is_type_reftype(type->types[i])) {
+                    if (strncasecmp(argv[i], "null", 4) == 0) {
+                        PUT_REF_TO_ADDR(argv1 + p, NULL_REF);
+                        p += REF_CELL_NUM;
+                        break;
+                    }
+                    else if (type->types[i] == VALUE_TYPE_EXTERNREF) {
+                        is_extern_ref = true;
+                    }
+                    else if (type->types[i] == VALUE_TYPE_ANYREF) {
+                        is_anyref = true;
+                    }
+
+                    if (wasm_is_type_multi_byte_type(
+                            type->types[type->param_count + i])) {
+                        WASMRefType *ref_type = ref_type_map->ref_type;
+                        if (wasm_is_refheaptype_common(
+                                &ref_type->ref_ht_common)) {
+                            int32 heap_type = ref_type->ref_ht_common.heap_type;
+                            if (heap_type == HEAP_TYPE_EXTERN) {
+                                is_extern_ref = true;
+                            }
+                            else if (heap_type == HEAP_TYPE_ANY) {
+                                is_anyref = true;
+                            }
+                        }
+
+                        ref_type_map++;
+                    }
+
+                    if (is_extern_ref) {
+                        WASMExternrefObjectRef gc_obj;
+                        void *extern_obj =
+                            (void *)(uintptr_t)strtoull(argv[i], &endptr, 0);
+                        gc_obj = wasm_externref_obj_new(exec_env, extern_obj);
+                        if (!gc_obj) {
+                            wasm_runtime_set_exception(
+                                module_inst, "create extern object failed");
+                            goto fail;
+                        }
+                        if (!(local_ref =
+                                  runtime_malloc(sizeof(WASMLocalObjectRef),
+                                                 module_inst, NULL, 0))) {
+                            goto fail;
+                        }
+                        wasm_runtime_push_local_obj_ref(exec_env, local_ref);
+                        local_ref->val = (WASMObjectRef)gc_obj;
+                        num_local_ref_pushed++;
+                        PUT_REF_TO_ADDR(argv1 + p, gc_obj);
+                        p += REF_CELL_NUM;
+                    }
+                    else if (is_anyref) {
+                        /* If a parameter type is (ref null? any) and its value
+                         * is not null, then we treat the value as host ptr */
+                        WASMAnyrefObjectRef gc_obj;
+                        void *host_obj =
+                            (void *)(uintptr_t)strtoull(argv[i], &endptr, 0);
+                        gc_obj = wasm_anyref_obj_new(exec_env, host_obj);
+                        if (!gc_obj) {
+                            wasm_runtime_set_exception(
+                                module_inst, "create anyref object failed");
+                            goto fail;
+                        }
+                        if (!(local_ref =
+                                  runtime_malloc(sizeof(WASMLocalObjectRef),
+                                                 module_inst, NULL, 0))) {
+                            goto fail;
+                        }
+                        wasm_runtime_push_local_obj_ref(exec_env, local_ref);
+                        local_ref->val = (WASMObjectRef)gc_obj;
+                        num_local_ref_pushed++;
+                        PUT_REF_TO_ADDR(argv1 + p, gc_obj);
+                        p += REF_CELL_NUM;
+                    }
+
+                    break;
+                }
+#endif /* end of WASM_ENABLE_GC != 0 */
                 bh_assert(0);
                 break;
+            }
         }
         if (endptr && *endptr != '\0' && *endptr != '_') {
             snprintf(buf, sizeof(buf), "invalid input argument %" PRId32 ": %s",
@@ -532,21 +641,17 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
     }
 
     wasm_runtime_set_exception(module_inst, NULL);
-#if WASM_ENABLE_REF_TYPES == 0
+#if WASM_ENABLE_REF_TYPES == 0 && WASM_ENABLE_GC == 0
     bh_assert(p == (int32)argc1);
 #endif
-
-    exec_env = wasm_runtime_get_exec_env_singleton(module_inst);
-    if (!exec_env) {
-        wasm_runtime_set_exception(module_inst,
-                                   "create singleton exec_env failed");
-        goto fail;
-    }
 
     if (!wasm_runtime_call_wasm(exec_env, target_func, argc1, argv1)) {
         goto fail;
     }
 
+#if WASM_ENABLE_GC != 0
+    ref_type_map = type->result_ref_type_maps;
+#endif
     /* print return value */
     for (j = 0; j < type->result_count; j++) {
         switch (type->types[type->param_count + j]) {
@@ -586,7 +691,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                 os_printf("%.7g:f64", u.val);
                 break;
             }
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
             {
                 if (argv1[k] != NULL_REF)
@@ -619,7 +724,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
 #endif
                 break;
             }
-#endif
+#endif /* end of WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0 */
 #if WASM_ENABLE_SIMD != 0
             case VALUE_TYPE_V128:
             {
@@ -631,13 +736,116 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
             }
 #endif /*  WASM_ENABLE_SIMD != 0 */
             default:
+            {
+#if WASM_ENABLE_GC != 0
+                if (wasm_is_type_reftype(type->types[type->param_count + j])) {
+                    void *gc_obj = GET_REF_FROM_ADDR(argv1 + k);
+                    k += REF_CELL_NUM;
+                    if (!gc_obj) {
+                        uint8 type1 = type->types[type->param_count + j];
+                        WASMRefType *ref_type1 = NULL;
+                        WASMType **types = NULL;
+                        uint32 type_count = 0;
+
+                        if (wasm_is_type_multi_byte_type(
+                                type->types[type->param_count + j]))
+                            ref_type1 = ref_type_map->ref_type;
+
+#if WASM_ENABLE_INTERP != 0
+                        if (module_inst->module_type == Wasm_Module_Bytecode) {
+                            WASMModule *module =
+                                ((WASMModuleInstance *)module_inst)->module;
+                            types = module->types;
+                            type_count = module->type_count;
+                        }
+#endif
+#if WASM_ENABLE_AOT != 0
+                        if (module_inst->module_type == Wasm_Module_AoT) {
+                            AOTModule *module =
+                                (AOTModule *)((AOTModuleInstance *)module_inst)
+                                    ->module;
+                            types = module->types;
+                            type_count = module->type_count;
+                        }
+#endif
+                        bh_assert(type);
+                        if (wasm_reftype_is_subtype_of(type1, ref_type1,
+                                                       REF_TYPE_ANYREF, NULL,
+                                                       types, type_count))
+                            os_printf("any:");
+                        else if (wasm_reftype_is_subtype_of(
+                                     type1, ref_type1, REF_TYPE_FUNCREF, NULL,
+                                     types, type_count))
+                            os_printf("func:");
+                        if (wasm_reftype_is_subtype_of(type1, ref_type1,
+                                                       REF_TYPE_EXTERNREF, NULL,
+                                                       types, type_count))
+                            os_printf("extern:");
+                        os_printf("ref.null");
+                    }
+                    else if (wasm_obj_is_func_obj(gc_obj))
+                        os_printf("ref.func");
+#if WASM_ENABLE_STRINGREF != 0
+                    else if (wasm_obj_is_stringref_obj(gc_obj)
+                             || wasm_obj_is_stringview_wtf8_obj(gc_obj)) {
+                        wasm_string_dump(
+                            (WASMString)wasm_stringref_obj_get_value(gc_obj));
+                    }
+                    else if (wasm_obj_is_stringview_wtf16_obj(gc_obj)) {
+                        wasm_string_dump(
+                            (WASMString)wasm_stringview_wtf16_obj_get_value(
+                                gc_obj));
+                    }
+#endif
+                    else if (wasm_obj_is_externref_obj(gc_obj)) {
+#if WASM_ENABLE_SPEC_TEST != 0
+                        WASMObjectRef obj = wasm_externref_obj_to_internal_obj(
+                            (WASMExternrefObjectRef)gc_obj);
+                        if (wasm_obj_is_anyref_obj(obj))
+                            os_printf("0x%" PRIxPTR ":ref.extern",
+                                      (uintptr_t)wasm_anyref_obj_get_value(
+                                          (WASMAnyrefObjectRef)obj));
+                        else
+#endif
+                            os_printf("ref.extern");
+                    }
+                    else if (wasm_obj_is_i31_obj(gc_obj))
+                        os_printf("ref.i31");
+                    else if (wasm_obj_is_array_obj(gc_obj))
+                        os_printf("ref.array");
+                    else if (wasm_obj_is_struct_obj(gc_obj))
+                        os_printf("ref.struct");
+                    else if (wasm_obj_is_eq_obj(gc_obj))
+                        os_printf("ref.eq");
+                    else if (wasm_obj_is_anyref_obj(gc_obj))
+                        os_printf("0x%" PRIxPTR ":ref.host",
+                                  (uintptr_t)wasm_anyref_obj_get_value(
+                                      (WASMAnyrefObjectRef)gc_obj));
+                    else if (wasm_obj_is_internal_obj(gc_obj))
+                        os_printf("ref.any");
+
+                    if (wasm_is_type_multi_byte_type(
+                            type->types[type->param_count + j]))
+                        ref_type_map++;
+
+                    break;
+                }
+#endif /* endof WASM_ENABLE_GC != 0 */
                 bh_assert(0);
                 break;
+            }
         }
         if (j < (uint32)(type->result_count - 1))
             os_printf(",");
     }
     os_printf("\n");
+
+#if WASM_ENABLE_GC != 0
+    for (j = 0; j < num_local_ref_pushed; j++) {
+        local_ref = wasm_runtime_pop_local_obj_ref(exec_env);
+        wasm_runtime_free(local_ref);
+    }
+#endif
 
     wasm_runtime_free(argv1);
     return true;
@@ -645,6 +853,13 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
 fail:
     if (argv1)
         wasm_runtime_free(argv1);
+
+#if WASM_ENABLE_GC != 0
+    for (j = 0; j < num_local_ref_pushed; j++) {
+        local_ref = wasm_runtime_pop_local_obj_ref(exec_env);
+        wasm_runtime_free(local_ref);
+    }
+#endif
 
     bh_assert(wasm_runtime_get_exception(module_inst));
     return false;
@@ -666,6 +881,11 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
     if (exec_env) {
         wasm_runtime_dump_mem_consumption(exec_env);
     }
+#endif
+
+#if WASM_ENABLE_GC_PERF_PROFILING != 0
+    void *handle = wasm_runtime_get_gc_heap_handle(module_inst);
+    mem_allocator_dump_perf_profiling(handle);
 #endif
 
 #if WASM_ENABLE_PERF_PROFILING != 0

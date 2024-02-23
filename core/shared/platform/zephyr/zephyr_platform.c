@@ -202,10 +202,14 @@ void
 os_dcache_flush()
 {
 #if defined(CONFIG_CPU_CORTEX_M7) && defined(CONFIG_ARM_MPU)
+#if KERNEL_VERSION_NUMBER < 0x030300 /* version 3.3.0 */
     uint32 key;
     key = irq_lock();
     SCB_CleanDCache();
     irq_unlock(key);
+#else
+    sys_cache_data_flush_all();
+#endif
 #elif defined(CONFIG_SOC_CVF_EM7D) && defined(CONFIG_ARC_MPU) \
     && defined(CONFIG_CACHE_FLUSHING)
     __asm__ __volatile__("sync");
@@ -216,7 +220,11 @@ os_dcache_flush()
 
 void
 os_icache_flush(void *start, size_t len)
-{}
+{
+#if KERNEL_VERSION_NUMBER >= 0x030300 /* version 3.3.0 */
+    sys_cache_instr_flush_range(start, len);
+#endif
+}
 
 void
 set_exec_mem_alloc_func(exec_mem_alloc_func_t alloc_func,
