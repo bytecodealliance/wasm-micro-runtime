@@ -19,7 +19,7 @@ struct HostFunction {
 #[derive(Debug)]
 pub struct HostFunctionList {
     pub module_name: CString,
-    // keep ownership of host functions
+    // keep ownership of the content of `native_symbols`
     host_functions: Vec<HostFunction>,
     pub native_symbols: Vec<NativeSymbol>,
 }
@@ -33,7 +33,7 @@ impl HostFunctionList {
         }
     }
 
-    pub fn add_host_function(&mut self, function_name: &str, function_ptr: *mut c_void) {
+    pub fn register_host_function(&mut self, function_name: &str, function_ptr: *mut c_void) {
         self.host_functions.push(HostFunction {
             function_name: CString::new(function_name).unwrap(),
             function_ptr,
@@ -80,7 +80,7 @@ mod tests {
     fn test_host_function() {
         let runtime = Runtime::builder()
             .use_system_allocator()
-            .add_host_function("extra", extra as *mut c_void)
+            .register_host_function("extra", extra as *mut c_void)
             .build();
         assert!(runtime.is_ok());
 
