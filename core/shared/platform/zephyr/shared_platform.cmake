@@ -8,7 +8,9 @@ add_definitions(-DBH_PLATFORM_ZEPHYR)
 include_directories(${PLATFORM_SHARED_DIR})
 include_directories(${PLATFORM_SHARED_DIR}/../include)
 
-include (${CMAKE_CURRENT_LIST_DIR}/../common/math/platform_api_math.cmake)
+if(${CONFIG_MINIMAL_LIBC})
+    include (${CMAKE_CURRENT_LIST_DIR}/../common/math/platform_api_math.cmake)
+endif()
 
 file (GLOB_RECURSE source_all ${PLATFORM_SHARED_DIR}/*.c)
 

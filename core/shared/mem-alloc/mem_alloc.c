@@ -4,6 +4,7 @@
  */
 
 #include "mem_alloc.h"
+#include <stdbool.h>
 
 #if DEFAULT_MEM_ALLOCATOR == MEM_ALLOCATOR_EMS
 
@@ -56,6 +57,43 @@ mem_allocator_free(mem_allocator_t allocator, void *ptr)
         gc_free_vo((gc_handle_t)allocator, ptr);
 }
 
+#if WASM_ENABLE_GC != 0
+void *
+mem_allocator_malloc_with_gc(mem_allocator_t allocator, uint32_t size)
+{
+    return gc_alloc_wo((gc_handle_t)allocator, size);
+}
+
+#if WASM_GC_MANUALLY != 0
+void
+mem_allocator_free_with_gc(mem_allocator_t allocator, void *ptr)
+{
+    if (ptr)
+        gc_free_wo((gc_handle_t)allocator, ptr);
+}
+#endif
+
+#if WASM_ENABLE_THREAD_MGR == 0
+void
+mem_allocator_enable_gc_reclaim(mem_allocator_t allocator, void *exec_env)
+{
+    return gc_enable_gc_reclaim((gc_handle_t)allocator, exec_env);
+}
+#else
+void
+mem_allocator_enable_gc_reclaim(mem_allocator_t allocator, void *cluster)
+{
+    return gc_enable_gc_reclaim((gc_handle_t)allocator, cluster);
+}
+#endif
+
+int
+mem_allocator_add_root(mem_allocator_t allocator, WASMObjectRef obj)
+{
+    return gc_add_root((gc_handle_t)allocator, (gc_object_t)obj);
+}
+#endif
+
 int
 mem_allocator_migrate(mem_allocator_t allocator, char *pool_buf_new,
                       uint32 pool_buf_size)
@@ -75,6 +113,30 @@ mem_allocator_get_alloc_info(mem_allocator_t allocator, void *mem_alloc_info)
     gc_heap_stats((gc_handle_t)allocator, mem_alloc_info, 3);
     return true;
 }
+
+#if WASM_ENABLE_GC != 0
+bool
+mem_allocator_set_gc_finalizer(mem_allocator_t allocator, void *obj,
+                               gc_finalizer_t cb, void *data)
+{
+    return gc_set_finalizer((gc_handle_t)allocator, (gc_object_t)obj, cb, data);
+}
+
+void
+mem_allocator_unset_gc_finalizer(mem_allocator_t allocator, void *obj)
+{
+    gc_unset_finalizer((gc_handle_t)allocator, (gc_object_t)obj);
+}
+
+#if WASM_ENABLE_GC_PERF_PROFILING != 0
+void
+mem_allocator_dump_perf_profiling(mem_allocator_t allocator)
+{
+    gc_dump_perf_profiling((gc_handle_t)allocator);
+}
+#endif
+
+#endif
 
 #else /* else of DEFAULT_MEM_ALLOCATOR */
 

@@ -14,8 +14,8 @@ WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (Wasm) 
 - [**iwasm**](./product-mini/): The executable binary built with WAMR VMcore supports WASI and command line interface.
 - [**wamrc**](./wamr-compiler/): The AOT compiler to compile Wasm file into AOT file
 - Useful components and tools for building real solutions with WAMR vmcore:
-  - [App-framework](./core/app-framework/README.md): A framework for supporting APIs for the Wasm applications
-  - [App-manager](./core/app-mgr/README.md): a framework for dynamical loading the Wasm module remotely
+  - [App-framework](https://github.com/bytecodealliance/wamr-app-framework/blob/main/app-framework/README.md): A framework for supporting APIs for the Wasm applications
+  - [App-manager](https://github.com/bytecodealliance/wamr-app-framework/blob/main/app-mgr/README.md): a framework for dynamical loading the Wasm module remotely
   - [WAMR-IDE](./test-tools/wamr-ide): An experimental VSCode extension for developping WebAssembly applications with C/C++
 
 

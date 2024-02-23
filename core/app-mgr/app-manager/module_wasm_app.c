@@ -1231,7 +1231,11 @@ wasm_app_module_on_install_request_byte_arrive(uint8 ch, int request_total_size,
 #if WASM_ENABLE_BULK_MEMORY == 0
         uint8 section_type_max = SECTION_TYPE_DATA;
 #else
+#if WASM_ENABLE_STRINGREF != 0
+        uint8 section_type_max = SECTION_TYPE_STRINGREF;
+#else
         uint8 section_type_max = SECTION_TYPE_DATACOUNT;
+#endif /* end of WASM_ENABLE_STRINGREF != 0 */
 #endif
         if (section_type <= section_type_max) {
             wasm_section_t *new_section;

@@ -269,14 +269,14 @@ getentropy_wrapper(wasm_exec_env_t exec_env, void *buffer, uint32 length)
 static int
 setjmp_wrapper(wasm_exec_env_t exec_env, void *jmp_buf)
 {
-    os_printf("setjmp() called\n");
+    LOG_DEBUG("setjmp() called\n");
     return 0;
 }
 
 static void
 longjmp_wrapper(wasm_exec_env_t exec_env, void *jmp_buf, int val)
 {
-    os_printf("longjmp() called\n");
+    LOG_DEBUG("longjmp() called\n");
 }
 
 #if !defined(BH_PLATFORM_LINUX_SGX)

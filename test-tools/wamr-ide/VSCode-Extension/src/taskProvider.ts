@@ -31,6 +31,7 @@ export class WasmTaskProvider implements vscode.TaskProvider {
             /* target name is used for generated aot target */
             const targetName =
                 TargetConfigPanel.buildArgs.outputFileName.split('.')[0];
+            const heapSize = TargetConfigPanel.buildArgs.hostManagedHeapSize;
 
             if (
                 os.platform() === 'linux' ||
@@ -57,7 +58,7 @@ export class WasmTaskProvider implements vscode.TaskProvider {
                             : (this._script.get('debugScript') as string),
                     options: {
                         executable: this._script.get('debugScript'),
-                        shellArgs: [targetName, this._wamrVersion],
+                        shellArgs: [targetName, this._wamrVersion, heapSize],
                     },
                 };
 
@@ -69,7 +70,7 @@ export class WasmTaskProvider implements vscode.TaskProvider {
                             : (this._script.get('runScript') as string),
                     options: {
                         executable: this._script.get('runScript'),
-                        shellArgs: [targetName, this._wamrVersion],
+                        shellArgs: [targetName, this._wamrVersion, heapSize],
                     },
                 };
 
