@@ -5540,6 +5540,9 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
         if (is_br_table) {
             uint32 total_size;
 
+            /* The stack operand num should not be smaller than before
+               after pop and push operations */
+            bh_assert(loader_ctx->stack_cell_num >= stack_cell_num_old);
             loader_ctx->stack_cell_num = stack_cell_num_old;
             loader_ctx->frame_ref =
                 loader_ctx->frame_ref_bottom + stack_cell_num_old;
@@ -5549,6 +5552,9 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
                         frame_ref_buf, total_size);
 
 #if WASM_ENABLE_FAST_INTERP != 0
+            /* The stack operand num should not be smaller than before
+               after pop and push operations */
+            bh_assert(loader_ctx->reftype_map_num >= reftype_map_num_old);
             loader_ctx->frame_offset =
                 loader_ctx->frame_offset_bottom + stack_cell_num_old;
             total_size = (uint32)sizeof(int16)
