@@ -5504,8 +5504,8 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
                                                    error_buf_size))) {
                 goto fail;
             }
-            bh_memcpy_s(frame_ref_buf, (uint32)total_size, frame_ref_old,
-                        (uint32)total_size);
+            bh_memcpy_s(frame_ref_buf, (uint32)total_size,
+                        frame_ref_after_popped, (uint32)total_size);
 
 #if WASM_ENABLE_FAST_INTERP != 0
             frame_offset_after_popped = loader_ctx->frame_offset;
@@ -5516,8 +5516,8 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
                                                       error_buf_size))) {
                 goto fail;
             }
-            bh_memcpy_s(frame_offset_buf, (uint32)total_size, frame_offset_old,
-                        (uint32)total_size);
+            bh_memcpy_s(frame_offset_buf, (uint32)total_size,
+                        frame_offset_after_popped, (uint32)total_size);
 #endif
         }
 
@@ -5534,22 +5534,27 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
         emit_br_info(target_block);
 #endif
 
-        /* Restore the stack data */
+        /* Restore the stack data, note that frame_ref_bottom,
+           frame_reftype_map_bottom, frame_offset_bottom may be
+           re-allocated in the above push operations */
         if (is_br_table) {
             uint32 total_size;
 
+            loader_ctx->stack_cell_num = stack_cell_num_old;
+            loader_ctx->frame_ref =
+                loader_ctx->frame_ref_bottom + stack_cell_num_old;
             total_size = (uint32)sizeof(uint8)
                          * (frame_ref_old - frame_ref_after_popped);
-            bh_memcpy_s(frame_ref_old, total_size, frame_ref_buf, total_size);
-            loader_ctx->frame_ref = frame_ref_old;
-            loader_ctx->stack_cell_num = stack_cell_num_old;
+            bh_memcpy_s((uint8 *)loader_ctx->frame_ref - total_size, total_size,
+                        frame_ref_buf, total_size);
 
 #if WASM_ENABLE_FAST_INTERP != 0
+            loader_ctx->frame_offset =
+                loader_ctx->frame_offset_bottom + stack_cell_num_old;
             total_size = (uint32)sizeof(int16)
                          * (frame_offset_old - frame_offset_after_popped);
-            bh_memcpy_s(frame_offset_old, total_size, frame_offset_buf,
-                        total_size);
-            loader_ctx->frame_offset = frame_offset_old;
+            bh_memcpy_s((uint8 *)loader_ctx->frame_offset - total_size,
+                        total_size, frame_offset_buf, total_size);
             (loader_ctx->frame_csp - 1)->dynamic_offset = dynamic_offset_old;
 #endif
         }
