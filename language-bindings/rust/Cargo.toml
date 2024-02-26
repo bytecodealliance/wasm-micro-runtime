@@ -1,19 +1,33 @@
 # Copyright (C) 2019 Intel Corporation. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-[package]
-name = "wamr-rust-sdk"
-version = "0.1.0"
+[workspace]
+members = ["crates/wamr-sys"]
+exclude = [
+    "examples/wasi-hello",
+    "resources/test/gcd",
+    "resources/test/add-extra"
+]
+resolver = "2"
+
+[workspace.package]
 edition = "2021"
 license = "Apache-2.0 WITH LLVM-exception"
-resolver = "2"
+authors = ["The WAMR Project Developers"]
+
+[package]
+name = "wamr-rust-sdk"
+description = "The Rust SDK of WAMR"
+version = "0.1.0"
+license.workspace = true
+readme = "README.md"
+categories = ["api-bindings", "wasm"]
+keywords =["api-bindings", "wasm", "webassembly"]
+repository = "https://github.com/bytecodealliance/wasm-micro-runtime"
+edition.workspace = true
 
 [dependencies]
 wamr-sys = { path = "crates/wamr-sys", version = "0.1.0" }
-
-[workspace]
-members = ["crates/wamr-sys", ]
-exclude = ["examples/wasi-hello", "resources/test/gcd", "resources/test/add-extra"]
 
 [features]
 llvmjit = ["wamr-sys/llvmjit"]

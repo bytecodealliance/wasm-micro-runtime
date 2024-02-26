@@ -13,9 +13,6 @@ fn main() {
     let wamr_root = Path::new("../../../../").canonicalize().unwrap();
     assert!(wamr_root.exists());
 
-    let llvm_dir = wamr_root.join("core/deps/llvm/build");
-    assert!(llvm_dir.exists());
-
     let enable_llvm_jit = if cfg!(feature = "llvmjit") { "1" } else { "0" };
     let dst = Config::new(&wamr_root)
         // running mode
@@ -45,8 +42,11 @@ fn main() {
         println!("cargo:rustc-link-lib=dylib=stdc++");
         println!("cargo:rustc-link-lib=dylib=z");
 
+        let llvm_dir = wamr_root.join("core/deps/llvm/build");
+        assert!(llvm_dir.exists());
         println!("cargo:libdir={}/lib", llvm_dir.display());
         println!("cargo:rustc-link-search=native={}/lib", llvm_dir.display());
+
         println!("cargo:rustc-link-lib=static=LLVMXRay");
         println!("cargo:rustc-link-lib=static=LLVMLibDriver");
         println!("cargo:rustc-link-lib=static=LLVMDlltoolDriver");

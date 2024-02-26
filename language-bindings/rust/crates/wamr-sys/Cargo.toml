@@ -3,13 +3,14 @@
 
 [package]
 name = "wamr-sys"
+description = "WAMR is a lightweight standalone WebAssembly (Wasm) runtime with small footprint, high performance and highly configurable features"
 version = "0.1.0"
-edition = "2021"
-license = "Apache-2.0 WITH LLVM-exception"
-authors = ["Sven Pfennig <s.pfennig@reply.de>"]
+license.workspace = true
 links = "vmlib"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+categories = ["api-bindings", "wasm"]
+keywords =["api-bindings", "wasm", "webassembly"]
+repository = "https://github.com/bytecodealliance/wasm-micro-runtime"
+edition.workspace = true
 
 [dependencies]
 
