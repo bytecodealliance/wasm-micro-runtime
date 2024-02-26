@@ -1108,10 +1108,21 @@ init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
 {
     uint32 i;
     void **func_ptrs;
-    uint64 total_size = ((uint64)module->import_func_count + module->func_count)
-                        * sizeof(void *);
+    uint32 func_count = module->func_count;
+#if defined(BUILD_TARGET_XTENSA)
+    /*
+     * For Xtensa XIP, real func_count is doubled, including aot_func and
+     * aot_func_internal, so need to multipy func_count by 2 here.
+     */
+    if (module->is_indirect_mode) {
+        func_count *= 2;
+    }
+#endif
 
-    if (module->import_func_count + module->func_count == 0)
+    uint64 total_size =
+        ((uint64)module->import_func_count + func_count) * sizeof(void *);
+
+    if (module->import_func_count + func_count == 0)
         return true;
 
     /* Allocate memory */
@@ -1133,8 +1144,8 @@ init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
     }
 
     /* Set defined function pointers */
-    bh_memcpy_s(func_ptrs, sizeof(void *) * module->func_count,
-                module->func_ptrs, sizeof(void *) * module->func_count);
+    bh_memcpy_s(func_ptrs, sizeof(void *) * func_count, module->func_ptrs,
+                sizeof(void *) * func_count);
     return true;
 }
 
@@ -1144,10 +1155,21 @@ init_func_type_indexes(AOTModuleInstance *module_inst, AOTModule *module,
 {
     uint32 i;
     uint32 *func_type_index;
-    uint64 total_size = ((uint64)module->import_func_count + module->func_count)
-                        * sizeof(uint32);
+    uint32 func_count = module->func_count;
+#if defined(BUILD_TARGET_XTENSA)
+    /*
+     * For Xtensa XIP, real func_count is doubled, including aot_func and
+     * aot_func_internal, so need to multipy func_count by 2 here.
+     */
+    if (module->is_indirect_mode) {
+        func_count *= 2;
+    }
+#endif
 
-    if (module->import_func_count + module->func_count == 0)
+    uint64 total_size =
+        ((uint64)module->import_func_count + func_count) * sizeof(uint32);
+
+    if (module->import_func_count + func_count == 0)
         return true;
 
     /* Allocate memory */
@@ -1161,8 +1183,8 @@ init_func_type_indexes(AOTModuleInstance *module_inst, AOTModule *module,
     for (i = 0; i < module->import_func_count; i++, func_type_index++)
         *func_type_index = module->import_funcs[i].func_type_index;
 
-    bh_memcpy_s(func_type_index, sizeof(uint32) * module->func_count,
-                module->func_type_indexes, sizeof(uint32) * module->func_count);
+    bh_memcpy_s(func_type_index, sizeof(uint32) * func_count,
+                module->func_type_indexes, sizeof(uint32) * func_count);
     return true;
 }
 

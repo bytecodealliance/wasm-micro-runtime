@@ -2423,10 +2423,7 @@ aot_emit_init_data_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         return false;
 
     offset = align_uint(offset, 4);
-    if (need_call_wrapped_indirect(obj_data))
-        EMIT_U32(comp_data->func_count * 2);
-    else
-        EMIT_U32(comp_data->func_count);
+    EMIT_U32(comp_data->func_count);
     EMIT_U32(comp_data->start_func_index);
 
     EMIT_U32(comp_data->aux_data_end_global_index);
