@@ -4532,7 +4532,7 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                                   "unknown element segment kind");
                     return false;
             }
-#else
+#else  /* else of WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0 */
             /*
              * like:      00  41 05 0b               04 00 01 00 01
              * for: (elem 0   (offset (i32.const 5)) $f1 $f2 $f1 $f2)
@@ -4548,7 +4548,7 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
             if (!load_func_index_vec(&p, p_end, module, table_segment,
                                      error_buf, error_buf_size))
                 return false;
-#endif /* WASM_ENABLE_REF_TYPES != 0 */
+#endif /* end of WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0 */
 
 #if WASM_ENABLE_WAMR_COMPILER != 0
             if (table_segment->elem_type == VALUE_TYPE_EXTERNREF)
@@ -12301,7 +12301,14 @@ re_scan:
                        note that it doesn't matter whether the table seg's mode
                        is passive, active or declarative. */
                     for (i = 0; i < module->table_seg_count; i++, table_seg++) {
-                        if (table_seg->elem_type == VALUE_TYPE_FUNCREF) {
+                        if (table_seg->elem_type == VALUE_TYPE_FUNCREF
+#if WASM_ENABLE_GC != 0
+                            || (table_seg->elem_type == REF_TYPE_HT_NON_NULLABLE
+                                && table_seg->elem_ref_type->ref_ht_common
+                                           .heap_type
+                                       == HEAP_TYPE_FUNC)
+#endif
+                        ) {
                             for (j = 0; j < table_seg->value_count; j++) {
                                 if (table_seg->init_values[j].u.ref_index
                                     == func_idx) {
