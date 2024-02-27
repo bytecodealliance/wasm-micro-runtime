@@ -2423,12 +2423,20 @@ load_init_data_section(const uint8 *buf, const uint8 *buf_end,
     }
 
     read_uint32(p, p_end, module->aux_data_end_global_index);
-    read_uint32(p, p_end, module->aux_data_end);
+    read_uint64(p, p_end, module->aux_data_end);
     read_uint32(p, p_end, module->aux_heap_base_global_index);
-    read_uint32(p, p_end, module->aux_heap_base);
+    read_uint64(p, p_end, module->aux_heap_base);
     read_uint32(p, p_end, module->aux_stack_top_global_index);
-    read_uint32(p, p_end, module->aux_stack_bottom);
+    read_uint64(p, p_end, module->aux_stack_bottom);
     read_uint32(p, p_end, module->aux_stack_size);
+
+    if (module->aux_data_end > UINT32_MAX || module->aux_heap_base > UINT32_MAX
+        || module->aux_stack_bottom > UINT32_MAX) {
+        set_error_buf(
+            error_buf, error_buf_size,
+            "invalid range of aux_date_end/aux_heap_base/aux_stack_bottom");
+        return false;
+    }
 
     if (!load_object_data_sections_info(&p, p_end, module,
                                         is_load_from_file_buf, error_buf,

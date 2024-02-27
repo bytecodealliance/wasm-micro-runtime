@@ -134,7 +134,7 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
     }
 #endif /* end of BUILD_TARGET_RISCV64_LP64D || BUILD_TARGET_RISCV64_LP64 */
 
-    /* memory has't been mapped or was mapped failed previously */
+    /* memory hasn't been mapped or was mapped failed previously */
     if (addr == MAP_FAILED) {
         /* try 5 times */
         for (i = 0; i < 5; i++) {

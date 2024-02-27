@@ -246,19 +246,19 @@ typedef struct AOTModule {
        -1 means unexported */
     uint32 aux_data_end_global_index;
     /* auxiliary __data_end exported by wasm app */
-    uint32 aux_data_end;
+    uint64 aux_data_end;
 
     /* the index of auxiliary __heap_base global,
        -1 means unexported */
     uint32 aux_heap_base_global_index;
     /* auxiliary __heap_base exported by wasm app */
-    uint32 aux_heap_base;
+    uint64 aux_heap_base;
 
     /* the index of auxiliary stack top global,
        -1 means unexported */
     uint32 aux_stack_top_global_index;
     /* auxiliary stack bottom resolved */
-    uint32 aux_stack_bottom;
+    uint64 aux_stack_bottom;
     /* auxiliary stack size resolved */
     uint32 aux_stack_size;
 
@@ -558,32 +558,32 @@ aot_get_exception(AOTModuleInstance *module_inst);
 bool
 aot_copy_exception(AOTModuleInstance *module_inst, char *exception_buf);
 
-uint32
+uint64
 aot_module_malloc_internal(AOTModuleInstance *module_inst, WASMExecEnv *env,
-                           uint32 size, void **p_native_addr);
+                           uint64 size, void **p_native_addr);
 
-uint32
+uint64
 aot_module_realloc_internal(AOTModuleInstance *module_inst, WASMExecEnv *env,
-                            uint32 ptr, uint32 size, void **p_native_addr);
+                            uint64 ptr, uint64 size, void **p_native_addr);
 
 void
 aot_module_free_internal(AOTModuleInstance *module_inst, WASMExecEnv *env,
-                         uint32 ptr);
+                         uint64 ptr);
 
-uint32
-aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
+uint64
+aot_module_malloc(AOTModuleInstance *module_inst, uint64 size,
                   void **p_native_addr);
 
-uint32
-aot_module_realloc(AOTModuleInstance *module_inst, uint32 ptr, uint32 size,
+uint64
+aot_module_realloc(AOTModuleInstance *module_inst, uint64 ptr, uint64 size,
                    void **p_native_addr);
 
 void
-aot_module_free(AOTModuleInstance *module_inst, uint32 ptr);
+aot_module_free(AOTModuleInstance *module_inst, uint64 ptr);
 
-uint32
+uint64
 aot_module_dup_data(AOTModuleInstance *module_inst, const char *src,
-                    uint32 size);
+                    uint64 size);
 
 bool
 aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count);
@@ -605,7 +605,7 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
  */
 bool
 aot_check_app_addr_and_convert(AOTModuleInstance *module_inst, bool is_str,
-                               uint32 app_buf_addr, uint32 app_buf_size,
+                               uint64 app_buf_addr, uint64 app_buf_size,
                                void **p_native_addr);
 
 uint32
@@ -634,10 +634,10 @@ aot_data_drop(AOTModuleInstance *module_inst, uint32 seg_index);
 
 #if WASM_ENABLE_THREAD_MGR != 0
 bool
-aot_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size);
+aot_set_aux_stack(WASMExecEnv *exec_env, uint64 start_offset, uint32 size);
 
 bool
-aot_get_aux_stack(WASMExecEnv *exec_env, uint32 *start_offset, uint32 *size);
+aot_get_aux_stack(WASMExecEnv *exec_env, uint64 *start_offset, uint32 *size);
 #endif
 
 void

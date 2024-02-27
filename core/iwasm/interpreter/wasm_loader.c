@@ -5597,8 +5597,9 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                                 *buf_func = NULL, *buf_func_end = NULL;
     WASMGlobal *aux_data_end_global = NULL, *aux_heap_base_global = NULL;
     WASMGlobal *aux_stack_top_global = NULL, *global;
-    uint32 aux_data_end = (uint32)-1, aux_heap_base = (uint32)-1;
-    uint32 aux_stack_top = (uint32)-1, global_index, func_index, i;
+    uint64 aux_data_end = (uint64)-1, aux_heap_base = (uint64)-1,
+           aux_stack_top = (uint64)-1;
+    uint32 global_index, func_index, i;
     uint32 aux_data_end_global_index = (uint32)-1;
     uint32 aux_heap_base_global_index = (uint32)-1;
     WASMFuncType *func_type;
@@ -5735,7 +5736,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     && global->init_expr.init_expr_type
                            == INIT_EXPR_TYPE_I32_CONST) {
                     aux_heap_base_global = global;
-                    aux_heap_base = global->init_expr.u.i32;
+                    aux_heap_base = (uint64)(uint32)global->init_expr.u.i32;
                     aux_heap_base_global_index = export->index;
                     LOG_VERBOSE("Found aux __heap_base global, value: %d",
                                 aux_heap_base);
@@ -5748,7 +5749,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     && global->init_expr.init_expr_type
                            == INIT_EXPR_TYPE_I32_CONST) {
                     aux_data_end_global = global;
-                    aux_data_end = global->init_expr.u.i32;
+                    aux_data_end = (uint64)(uint32)global->init_expr.u.i32;
                     aux_data_end_global_index = export->index;
                     LOG_VERBOSE("Found aux __data_end global, value: %d",
                                 aux_data_end);
@@ -5789,9 +5790,10 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                         && global->type == VALUE_TYPE_I32
                         && global->init_expr.init_expr_type
                                == INIT_EXPR_TYPE_I32_CONST
-                        && (uint32)global->init_expr.u.i32 <= aux_heap_base) {
+                        && (uint64)(uint32)global->init_expr.u.i32
+                               <= aux_heap_base) {
                         aux_stack_top_global = global;
-                        aux_stack_top = (uint32)global->init_expr.u.i32;
+                        aux_stack_top = (uint64)(uint32)global->init_expr.u.i32;
                         module->aux_stack_top_global_index =
                             module->import_global_count + global_index;
                         module->aux_stack_bottom = aux_stack_top;
@@ -5939,7 +5941,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
         if (aux_data_end_global && aux_heap_base_global
             && aux_stack_top_global) {
             uint64 init_memory_size;
-            uint32 shrunk_memory_size = align_uint(aux_heap_base, 8);
+            uint32 shrunk_memory_size = align_uint((uint32)aux_heap_base, 8);
 
             if (module->import_memory_count) {
                 memory_import = &module->import_memories[0].u.memory;

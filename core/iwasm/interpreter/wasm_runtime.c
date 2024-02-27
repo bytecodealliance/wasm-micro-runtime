@@ -162,10 +162,10 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
                    char *error_buf, uint32 error_buf_size)
 {
     WASMModule *module = module_inst->module;
-    uint64 memory_data_size, max_memory_data_size;
-    uint32 heap_offset = num_bytes_per_page * init_page_count;
-    uint32 inc_page_count, aux_heap_base, global_idx;
+    uint32 inc_page_count, global_idx;
     uint32 bytes_of_last_page, bytes_to_page_end;
+    uint64 aux_heap_base, heap_offset = num_bytes_per_page * init_page_count;
+    uint64 memory_data_size, max_memory_data_size;
     uint8 *global_addr;
 
     bool is_shared_memory = false;
@@ -243,7 +243,7 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
                       && global_idx < module_inst->e->global_count);
             global_addr = module_inst->global_data
                           + module_inst->e->globals[global_idx].data_offset;
-            *(uint32 *)global_addr = aux_heap_base;
+            *(uint32 *)global_addr = (uint32)aux_heap_base;
             LOG_VERBOSE("Reset __heap_base global to %u", aux_heap_base);
         }
         else {
@@ -263,18 +263,8 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
                           "try using `--heap-size=0` option");
             return NULL;
         }
-        else if (init_page_count == DEFAULT_MAX_PAGES) {
-            num_bytes_per_page = UINT32_MAX;
-            init_page_count = max_page_count = 1;
-        }
         if (max_page_count > DEFAULT_MAX_PAGES)
             max_page_count = DEFAULT_MAX_PAGES;
-    }
-    else { /* heap_size == 0 */
-        if (init_page_count == DEFAULT_MAX_PAGES) {
-            num_bytes_per_page = UINT32_MAX;
-            init_page_count = max_page_count = 1;
-        }
     }
 
     LOG_VERBOSE("Memory instantiate:");
@@ -283,7 +273,7 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     LOG_VERBOSE("  heap offset: %u, heap size: %d\n", heap_offset, heap_size);
 
     max_memory_data_size = (uint64)num_bytes_per_page * max_page_count;
-    bh_assert(max_memory_data_size <= 4 * (uint64)BH_GB);
+    bh_assert(max_memory_data_size <= MAX_LINEAR_MEMORY_SIZE);
     (void)max_memory_data_size;
 
     bh_assert(memory != NULL);
@@ -301,11 +291,11 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     memory->num_bytes_per_page = num_bytes_per_page;
     memory->cur_page_count = init_page_count;
     memory->max_page_count = max_page_count;
-    memory->memory_data_size = (uint32)memory_data_size;
+    memory->memory_data_size = memory_data_size;
 
     memory->heap_data = memory->memory_data + heap_offset;
     memory->heap_data_end = memory->heap_data + heap_size;
-    memory->memory_data_end = memory->memory_data + (uint32)memory_data_size;
+    memory->memory_data_end = memory->memory_data + memory_data_size;
 
     /* Initialize heap */
     if (heap_size > 0) {
@@ -3274,14 +3264,17 @@ wasm_get_wasm_func_exec_time(const WASMModuleInstance *inst,
 }
 #endif /*WASM_ENABLE_PERF_PROFILING != 0*/
 
-uint32
+uint64
 wasm_module_malloc_internal(WASMModuleInstance *module_inst,
-                            WASMExecEnv *exec_env, uint32 size,
+                            WASMExecEnv *exec_env, uint64 size,
                             void **p_native_addr)
 {
     WASMMemoryInstance *memory = wasm_get_default_memory(module_inst);
     uint8 *addr = NULL;
     uint32 offset = 0;
+
+    /* TODO: Memory64 size check based on memory idx type */
+    bh_assert(size <= UINT32_MAX);
 
     if (!memory) {
         wasm_set_exception(module_inst, "uninitialized memory");
@@ -3289,12 +3282,12 @@ wasm_module_malloc_internal(WASMModuleInstance *module_inst,
     }
 
     if (memory->heap_handle) {
-        addr = mem_allocator_malloc(memory->heap_handle, size);
+        addr = mem_allocator_malloc(memory->heap_handle, (uint32)size);
     }
     else if (module_inst->e->malloc_function && module_inst->e->free_function) {
         if (!execute_malloc_function(
                 module_inst, exec_env, module_inst->e->malloc_function,
-                module_inst->e->retain_function, size, &offset)) {
+                module_inst->e->retain_function, (uint32)size, &offset)) {
             return 0;
         }
         /* If we use app's malloc function,
@@ -3317,16 +3310,20 @@ wasm_module_malloc_internal(WASMModuleInstance *module_inst,
     if (p_native_addr)
         *p_native_addr = addr;
 
-    return (uint32)(addr - memory->memory_data);
+    return (uint64)(addr - memory->memory_data);
 }
 
-uint32
+uint64
 wasm_module_realloc_internal(WASMModuleInstance *module_inst,
-                             WASMExecEnv *exec_env, uint32 ptr, uint32 size,
+                             WASMExecEnv *exec_env, uint64 ptr, uint64 size,
                              void **p_native_addr)
 {
     WASMMemoryInstance *memory = wasm_get_default_memory(module_inst);
     uint8 *addr = NULL;
+
+    /* TODO: Memory64 ptr and size check based on memory idx type */
+    bh_assert(ptr <= UINT32_MAX);
+    bh_assert(size <= UINT32_MAX);
 
     if (!memory) {
         wasm_set_exception(module_inst, "uninitialized memory");
@@ -3335,7 +3332,9 @@ wasm_module_realloc_internal(WASMModuleInstance *module_inst,
 
     if (memory->heap_handle) {
         addr = mem_allocator_realloc(
-            memory->heap_handle, ptr ? memory->memory_data + ptr : NULL, size);
+            memory->heap_handle,
+            (uint32)ptr ? memory->memory_data + (uint32)ptr : NULL,
+            (uint32)size);
     }
 
     /* Only support realloc in WAMR's app heap */
@@ -3354,21 +3353,24 @@ wasm_module_realloc_internal(WASMModuleInstance *module_inst,
     if (p_native_addr)
         *p_native_addr = addr;
 
-    return (uint32)(addr - memory->memory_data);
+    return (uint64)(addr - memory->memory_data);
 }
 
 void
 wasm_module_free_internal(WASMModuleInstance *module_inst,
-                          WASMExecEnv *exec_env, uint32 ptr)
+                          WASMExecEnv *exec_env, uint64 ptr)
 {
     WASMMemoryInstance *memory = wasm_get_default_memory(module_inst);
+
+    /* TODO: Memory64 ptr and size check based on memory idx type */
+    bh_assert(ptr <= UINT32_MAX);
 
     if (!memory) {
         return;
     }
 
     if (ptr) {
-        uint8 *addr = memory->memory_data + ptr;
+        uint8 *addr = memory->memory_data + (uint32)ptr;
         uint8 *memory_data_end;
 
         /* memory->memory_data_end may be changed in memory grow */
@@ -3384,20 +3386,20 @@ wasm_module_free_internal(WASMModuleInstance *module_inst,
                  && module_inst->e->free_function && memory->memory_data <= addr
                  && addr < memory_data_end) {
             execute_free_function(module_inst, exec_env,
-                                  module_inst->e->free_function, ptr);
+                                  module_inst->e->free_function, (uint32)ptr);
         }
     }
 }
 
-uint32
-wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
+uint64
+wasm_module_malloc(WASMModuleInstance *module_inst, uint64 size,
                    void **p_native_addr)
 {
     return wasm_module_malloc_internal(module_inst, NULL, size, p_native_addr);
 }
 
-uint32
-wasm_module_realloc(WASMModuleInstance *module_inst, uint32 ptr, uint32 size,
+uint64
+wasm_module_realloc(WASMModuleInstance *module_inst, uint64 ptr, uint64 size,
                     void **p_native_addr)
 {
     return wasm_module_realloc_internal(module_inst, NULL, ptr, size,
@@ -3405,22 +3407,26 @@ wasm_module_realloc(WASMModuleInstance *module_inst, uint32 ptr, uint32 size,
 }
 
 void
-wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr)
+wasm_module_free(WASMModuleInstance *module_inst, uint64 ptr)
 {
     wasm_module_free_internal(module_inst, NULL, ptr);
 }
 
-uint32
+uint64
 wasm_module_dup_data(WASMModuleInstance *module_inst, const char *src,
-                     uint32 size)
+                     uint64 size)
 {
     char *buffer;
-    uint32 buffer_offset =
+    uint64 buffer_offset =
         wasm_module_malloc(module_inst, size, (void **)&buffer);
+
+    /* TODO: Memory64 size check based on memory idx type */
+    bh_assert(size <= UINT32_MAX);
+
     if (buffer_offset != 0) {
         buffer = wasm_runtime_addr_app_to_native(
             (WASMModuleInstanceCommon *)module_inst, buffer_offset);
-        bh_memcpy_s(buffer, size, src, size);
+        bh_memcpy_s(buffer, (uint32)size, src, (uint32)size);
     }
     return buffer_offset;
 }
@@ -3543,7 +3549,7 @@ wasm_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
 
 #if WASM_ENABLE_THREAD_MGR != 0
 bool
-wasm_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size)
+wasm_set_aux_stack(WASMExecEnv *exec_env, uint64 start_offset, uint32 size)
 {
     WASMModuleInstance *module_inst =
         (WASMModuleInstance *)exec_env->module_inst;
@@ -3551,8 +3557,8 @@ wasm_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size)
 
 #if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION == 0
     /* Check the aux stack space */
-    uint32 data_end = module_inst->module->aux_data_end;
-    uint32 stack_bottom = module_inst->module->aux_stack_bottom;
+    uint64 data_end = module_inst->module->aux_data_end;
+    uint64 stack_bottom = module_inst->module->aux_stack_bottom;
     bool is_stack_before_data = stack_bottom < data_end ? true : false;
     if ((is_stack_before_data && (size > start_offset))
         || ((!is_stack_before_data) && (start_offset - data_end < size)))
@@ -3565,11 +3571,11 @@ wasm_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size)
         uint8 *global_addr =
             module_inst->global_data
             + module_inst->e->globals[stack_top_idx].data_offset;
-        *(int32 *)global_addr = start_offset;
+        *(int32 *)global_addr = (uint32)start_offset;
         /* The aux stack boundary is a constant value,
             set the value to exec_env */
-        exec_env->aux_stack_boundary.boundary = start_offset - size;
-        exec_env->aux_stack_bottom.bottom = start_offset;
+        exec_env->aux_stack_boundary = (uintptr_t)start_offset - size;
+        exec_env->aux_stack_bottom = (uintptr_t)start_offset;
         return true;
     }
 
@@ -3577,14 +3583,14 @@ wasm_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size)
 }
 
 bool
-wasm_get_aux_stack(WASMExecEnv *exec_env, uint32 *start_offset, uint32 *size)
+wasm_get_aux_stack(WASMExecEnv *exec_env, uint64 *start_offset, uint32 *size)
 {
     WASMModuleInstance *module_inst =
         (WASMModuleInstance *)exec_env->module_inst;
 
     /* The aux stack information is resolved in loader
         and store in module */
-    uint32 stack_bottom = module_inst->module->aux_stack_bottom;
+    uint64 stack_bottom = module_inst->module->aux_stack_bottom;
     uint32 total_aux_stack_size = module_inst->module->aux_stack_size;
 
     if (stack_bottom != 0 && total_aux_stack_size != 0) {
@@ -4104,7 +4110,7 @@ llvm_jit_memory_init(WASMModuleInstance *module_inst, uint32 seg_index,
     }
 
     if (!wasm_runtime_validate_app_addr((WASMModuleInstanceCommon *)module_inst,
-                                        dst, len))
+                                        (uint64)dst, (uint64)len))
         return false;
 
     if ((uint64)offset + (uint64)len > seg_len) {
@@ -4113,10 +4119,11 @@ llvm_jit_memory_init(WASMModuleInstance *module_inst, uint32 seg_index,
     }
 
     maddr = wasm_runtime_addr_app_to_native(
-        (WASMModuleInstanceCommon *)module_inst, dst);
+        (WASMModuleInstanceCommon *)module_inst, (uint64)dst);
 
     SHARED_MEMORY_LOCK(memory_inst);
-    bh_memcpy_s(maddr, memory_inst->memory_data_size - dst, data + offset, len);
+    bh_memcpy_s(maddr, (uint32)(memory_inst->memory_data_size - dst),
+                data + offset, len);
     SHARED_MEMORY_UNLOCK(memory_inst);
     return true;
 }

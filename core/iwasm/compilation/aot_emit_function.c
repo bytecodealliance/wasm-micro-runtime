@@ -1154,6 +1154,7 @@ free_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
  * Check whether the app address and its buffer are inside the linear memory,
  * if no, throw exception
  */
+/* TODO: type changes */
 static bool
 check_app_addr_and_convert(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                            bool is_str_arg, LLVMValueRef app_addr,

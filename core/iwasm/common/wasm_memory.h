@@ -16,9 +16,9 @@ extern "C" {
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #define GET_LINEAR_MEMORY_SIZE(memory) \
-    BH_ATOMIC_32_LOAD(memory->memory_data_size)
+    BH_ATOMIC_64_LOAD(memory->memory_data_size)
 #define SET_LINEAR_MEMORY_SIZE(memory, size) \
-    BH_ATOMIC_32_STORE(memory->memory_data_size, size)
+    BH_ATOMIC_64_STORE(memory->memory_data_size, size)
 #else
 #define GET_LINEAR_MEMORY_SIZE(memory) memory->memory_data_size
 #define SET_LINEAR_MEMORY_SIZE(memory, size) memory->memory_data_size = size

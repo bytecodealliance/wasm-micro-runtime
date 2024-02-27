@@ -62,16 +62,10 @@ typedef struct WASMExecEnv {
     WASMSuspendFlags suspend_flags;
 
     /* Auxiliary stack boundary */
-    union {
-        uint32 boundary;
-        uintptr_t __padding__;
-    } aux_stack_boundary;
+    uintptr_t aux_stack_boundary;
 
     /* Auxiliary stack bottom */
-    union {
-        uint32 bottom;
-        uintptr_t __padding__;
-    } aux_stack_bottom;
+    uintptr_t aux_stack_bottom;
 
 #if WASM_ENABLE_AOT != 0
     /* Native symbol list, reserved */
@@ -195,8 +189,7 @@ wasm_exec_env_destroy(WASMExecEnv *exec_env);
 static inline bool
 wasm_exec_env_is_aux_stack_managed_by_runtime(WASMExecEnv *exec_env)
 {
-    return exec_env->aux_stack_boundary.boundary != 0
-           || exec_env->aux_stack_bottom.bottom != 0;
+    return exec_env->aux_stack_boundary != 0 || exec_env->aux_stack_bottom != 0;
 }
 
 /**

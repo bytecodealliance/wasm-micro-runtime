@@ -251,7 +251,7 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             LLVMBasicBlockRef block_curr =
                 LLVMGetInsertBlock(comp_ctx->builder);
             LLVMBasicBlockRef check_overflow_succ, check_underflow_succ;
-            LLVMValueRef cmp;
+            LLVMValueRef cmp, aux_stack_bound, aux_stack_bottom;
 
             /* Add basic blocks */
             if (!(check_overflow_succ = LLVMAppendBasicBlockInContext(
@@ -271,8 +271,14 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             LLVMMoveBasicBlockAfter(check_underflow_succ, check_overflow_succ);
 
             /* Check aux stack overflow */
+            if (!(aux_stack_bound = LLVMBuildTruncOrBitCast(
+                      comp_ctx->builder, func_ctx->aux_stack_bound,
+                      TO_LLVM_TYPE(global_type), "aux_stack_bound"))) {
+                aot_set_last_error("llvm build truncOrBitCast failed.");
+                return false;
+            }
             if (!(cmp = LLVMBuildICmp(comp_ctx->builder, LLVMIntULE, global,
-                                      func_ctx->aux_stack_bound, "cmp"))) {
+                                      aux_stack_bound, "cmp"))) {
                 aot_set_last_error("llvm build icmp failed.");
                 return false;
             }
@@ -283,8 +289,14 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
             /* Check aux stack underflow */
             LLVMPositionBuilderAtEnd(comp_ctx->builder, check_overflow_succ);
+            if (!(aux_stack_bottom = LLVMBuildTruncOrBitCast(
+                      comp_ctx->builder, func_ctx->aux_stack_bottom,
+                      TO_LLVM_TYPE(global_type), "aux_stack_bound"))) {
+                aot_set_last_error("llvm build truncOrBitCast failed.");
+                return false;
+            }
             if (!(cmp = LLVMBuildICmp(comp_ctx->builder, LLVMIntUGT, global,
-                                      func_ctx->aux_stack_bottom, "cmp"))) {
+                                      aux_stack_bottom, "cmp"))) {
                 aot_set_last_error("llvm build icmp failed.");
                 return false;
             }

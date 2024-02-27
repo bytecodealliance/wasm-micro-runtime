@@ -48,28 +48,26 @@ typedef float64 CellType_F64;
 
 #if !defined(OS_ENABLE_HW_BOUND_CHECK) \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
-#define CHECK_MEMORY_OVERFLOW(bytes)                             \
-    do {                                                         \
-        uint64 offset1 = (uint64)offset + (uint64)addr;          \
-        if (disable_bounds_checks                                \
-            || offset1 + bytes <= (uint64)get_linear_mem_size()) \
-            /* If offset1 is in valid range, maddr must also     \
-               be in valid range, no need to check it again. */  \
-            maddr = memory->memory_data + offset1;               \
-        else                                                     \
-            goto out_of_bounds;                                  \
+#define CHECK_MEMORY_OVERFLOW(bytes)                                           \
+    do {                                                                       \
+        uint64 offset1 = (uint64)offset + (uint64)addr;                        \
+        if (disable_bounds_checks || offset1 + bytes <= get_linear_mem_size()) \
+            /* If offset1 is in valid range, maddr must also                   \
+               be in valid range, no need to check it again. */                \
+            maddr = memory->memory_data + offset1;                             \
+        else                                                                   \
+            goto out_of_bounds;                                                \
     } while (0)
 
-#define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr)          \
-    do {                                                         \
-        uint64 offset1 = (uint32)(start);                        \
-        if (disable_bounds_checks                                \
-            || offset1 + bytes <= (uint64)get_linear_mem_size()) \
-            /* App heap space is not valid space for             \
-             bulk memory operation */                            \
-            maddr = memory->memory_data + offset1;               \
-        else                                                     \
-            goto out_of_bounds;                                  \
+#define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr)                        \
+    do {                                                                       \
+        uint64 offset1 = (uint32)(start);                                      \
+        if (disable_bounds_checks || offset1 + bytes <= get_linear_mem_size()) \
+            /* App heap space is not valid space for                           \
+             bulk memory operation */                                          \
+            maddr = memory->memory_data + offset1;                             \
+        else                                                                   \
+            goto out_of_bounds;                                                \
     } while (0)
 #else
 #define CHECK_MEMORY_OVERFLOW(bytes)                    \
@@ -1374,7 +1372,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if !defined(OS_ENABLE_HW_BOUND_CHECK)              \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
     || WASM_ENABLE_BULK_MEMORY != 0
-    uint32 linear_mem_size = 0;
+    uint64 linear_mem_size = 0;
     if (memory)
 #if WASM_ENABLE_THREAD_MGR == 0
         linear_mem_size = memory->memory_data_size;
@@ -1465,7 +1463,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 goto got_exception;
             }
 
-            HANDLE_OP(WASM_OP_NOP) { HANDLE_OP_END(); }
+            HANDLE_OP(WASM_OP_NOP)
+            {
+                HANDLE_OP_END();
+            }
 
 #if WASM_ENABLE_EXCE_HANDLING != 0
             HANDLE_OP(WASM_OP_RETHROW)
@@ -4093,11 +4094,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 global = globals + global_idx;
                 global_addr = get_global_addr(global_data, global);
                 aux_stack_top = *(uint32 *)(frame_sp - 1);
-                if (aux_stack_top <= exec_env->aux_stack_boundary.boundary) {
+                if (aux_stack_top <= exec_env->aux_stack_boundary) {
                     wasm_set_exception(module, "wasm auxiliary stack overflow");
                     goto got_exception;
                 }
-                if (aux_stack_top > exec_env->aux_stack_bottom.bottom) {
+                if (aux_stack_top > exec_env->aux_stack_bottom) {
                     wasm_set_exception(module,
                                        "wasm auxiliary stack underflow");
                     goto got_exception;
@@ -5329,7 +5330,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_I32_REINTERPRET_F32)
             HANDLE_OP(WASM_OP_I64_REINTERPRET_F64)
             HANDLE_OP(WASM_OP_F32_REINTERPRET_I32)
-            HANDLE_OP(WASM_OP_F64_REINTERPRET_I64) { HANDLE_OP_END(); }
+            HANDLE_OP(WASM_OP_F64_REINTERPRET_I64)
+            {
+                HANDLE_OP_END();
+            }
 
             HANDLE_OP(WASM_OP_I32_EXTEND8_S)
             {
@@ -5491,7 +5495,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
 
                         /* allowing the destination and source to overlap */
-                        bh_memmove_s(mdst, linear_mem_size - dst, msrc, len);
+                        bh_memmove_s(mdst, (uint32)linear_mem_size - dst, msrc,
+                                     len);
                         break;
                     }
                     case WASM_OP_MEMORY_FILL:
@@ -5511,7 +5516,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #ifndef OS_ENABLE_HW_BOUND_CHECK
                         CHECK_BULK_MEMORY_OVERFLOW(dst, len, mdst);
 #else
-                        if ((uint64)(uint32)dst + len > (uint64)linear_mem_size)
+                        if ((uint64)(uint32)dst + len > linear_mem_size)
                             goto out_of_bounds;
                         mdst = memory->memory_data + (uint32)dst;
 #endif

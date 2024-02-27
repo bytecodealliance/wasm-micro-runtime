@@ -630,7 +630,7 @@ wasm_init_memory(WASMModuleInstance *inst, uint32 mem_idx, uint32 seg_idx,
 {
     WASMMemoryInstance *mem_inst;
     WASMDataSeg *data_segment;
-    uint32 mem_size;
+    uint64 mem_size;
     uint8 *mem_addr, *data_addr;
     uint32 seg_len;
 

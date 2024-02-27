@@ -992,7 +992,10 @@ static bool
 create_aux_stack_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef aux_stack_bound_offset = I32_SIX, aux_stack_bound_addr;
-    LLVMValueRef aux_stack_bottom_offset = I32_SEVEN, aux_stack_bottom_addr;
+    LLVMValueRef aux_stack_bottom_offset =
+                     comp_ctx->pointer_size == sizeof(uint64) ? I32_EIGHT
+                                                              : I32_SEVEN,
+                 aux_stack_bottom_addr;
 
     /* Get aux stack boundary address */
     if (!(aux_stack_bound_addr = LLVMBuildInBoundsGEP2(
@@ -1004,14 +1007,14 @@ create_aux_stack_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     if (!(aux_stack_bound_addr =
               LLVMBuildBitCast(comp_ctx->builder, aux_stack_bound_addr,
-                               INT32_PTR_TYPE, "aux_stack_bound_ptr"))) {
+                               INTPTR_T_PTR_TYPE, "aux_stack_bound_ptr"))) {
         aot_set_last_error("llvm build bit cast failed");
         return false;
     }
 
     if (!(func_ctx->aux_stack_bound =
-              LLVMBuildLoad2(comp_ctx->builder, I32_TYPE, aux_stack_bound_addr,
-                             "aux_stack_bound"))) {
+              LLVMBuildLoad2(comp_ctx->builder, INTPTR_T_TYPE,
+                             aux_stack_bound_addr, "aux_stack_bound"))) {
         aot_set_last_error("llvm build load failed");
         return false;
     }
@@ -1026,13 +1029,13 @@ create_aux_stack_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     if (!(aux_stack_bottom_addr =
               LLVMBuildBitCast(comp_ctx->builder, aux_stack_bottom_addr,
-                               INT32_PTR_TYPE, "aux_stack_bottom_ptr"))) {
+                               INTPTR_T_PTR_TYPE, "aux_stack_bottom_ptr"))) {
         aot_set_last_error("llvm build bit cast failed");
         return false;
     }
     if (!(func_ctx->aux_stack_bottom =
-              LLVMBuildLoad2(comp_ctx->builder, I32_TYPE, aux_stack_bottom_addr,
-                             "aux_stack_bottom"))) {
+              LLVMBuildLoad2(comp_ctx->builder, INTPTR_T_TYPE,
+                             aux_stack_bottom_addr, "aux_stack_bottom"))) {
         aot_set_last_error("llvm build load failed");
         return false;
     }
