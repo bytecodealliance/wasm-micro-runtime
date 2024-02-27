@@ -58,37 +58,36 @@
 //! *wasm32-wasi* is a most common target for Wasm. It means that the .wasm is compiled with
 //! `cargo build --target wasm32-wasi` or `wasi-sdk/bin/clang --target wasm32-wasi`.
 //!
-//! Say there is a *test.wasm* includes a function named *add*.
+//! Say there is a gcd_wasm32_wasi.wasm which includes a function named *gcd*. It returns the GCD
+//! of two parameters.
+//!
+//! The rust code to call the function would be:
 //!
 //! ```
-//!   (func (export "add") (param i32 i32) (result i32)
-//!     (local.get 0)
-//!     (local.get 1)
-//!     (i32.add)
-//!   )
-//! ```
+//! use wamr_rust_sdk::{
+//!     runtime::Runtime, module::Module, instance::Instance, function::Function,
+//!     value::WasmValue, RuntimeError
+//! };
+//! use std::path::PathBuf;
 //!
-//! The rust code to call the *add* function would be:
+//! fn main() -> Result<(), RuntimeError> {
+//!     let runtime = Runtime::new()?;
 //!
-//! ```
-//! use wamr_rust_sdk::*;
+//!     let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+//!     d.push("resources/test");
+//!     d.push("gcd_wasm32_wasi.wasm");
 //!
-//! fn main() -> Result<> {
-//!   let runtime = Runtime::new()?;
+//!     let module = Module::from_file(d.as_path())?;
 //!
-//!   let module = Module::from_file(&runtime, "test.wasm")?;
-//!   module.set_wasi_arg_pre_open_path(vec![String::from(".")], vec![]);
+//!     let instance = Instance::new(&module, 1024 * 64)?;
 //!
-//!   let stack_size = 1024;
-//!   let instance = Instance::new(&module, stack_size)?;
+//!     let function = Function::find_export_func(&instance, "gcd")?;
 //!
-//!   let wasm_func = instance.find_export_func("add")?;
-//!   let params: Vec<WasmValue> = vec![WasmValue::I32(1), WasmValue::I32(2)];
+//!     let params: Vec<WasmValue> = vec![WasmValue::I32(9), WasmValue::I32(27)];
+//!     let result = function.call(&instance, &params)?;
+//!     assert_eq!(result, WasmValue::I32(9));
 //!
-//!   let ret = wasm_func.call(&instance, &params)?;
-//!   assert_eq!(ret , WasmValue::I32(3));
-//!
-//!   Ok()
+//!     Ok(())
 //! }
 //! ```
 //!
@@ -100,50 +99,50 @@
 //! - Configure runtime.
 //! - Provides host-defined functions to meet import requirements.
 //!
-//! Say there is a *test.wasm*
-//!
-//! ```
-//! (module
-//!   (func $extra (import "extra") (result i32))
-//!   (func (export "add") (param i32 i32) (result i32)
-//!     (local.get 0)
-//!     (local.get 1)
-//!     (i32.add)
-//!     (call $extra)
-//!     (i32.add)
-//!   )
-//! )
-//! ```
+//! Say there is an add_extra_wasm32_wasi.wasm. Its exported function, `add()`,
+//! requires an imported function, `extra()`, during the execution. The `add()`
+//! adds two parameters and the result of `extra()` . It is like `a + b + extra()`.
 //!
 //! The rust code to call the *add* function is like this:
 //!
 //! ```
-//! use wamr_rust_sdk::*;
+//! use wamr_rust_sdk::{
+//!     runtime::Runtime, module::Module, instance::Instance, function::Function,
+//!     value::WasmValue, RuntimeError
+//! };
+//! use std::path::PathBuf;
+//! use std::ffi::c_void;
 //!
-//! fn main() -> Reulst<> {
-//!   let runtime = Runtime::builder().run_as_interpreter().use_system_allocator().build()?;
+//! extern "C" fn extra() -> i32 {
+//!     100
+//! }
 //!
-//!   // TODO: working on NativeFunction and host-function, may change sooner or later
-//!   let native_functions : Vec<NativeFunction> = Vec::new();
-//!   native_functions.push(NativeFunction::new("extra", || => 10));
-//!   runtime.register_native_functions(&native_functions);
+//! fn main() -> Result<(), RuntimeError> {
+//!     let runtime = Runtime::builder()
+//!         .use_system_allocator()
+//!         .register_host_function("extra", extra as *mut c_void)
+//!         .build()?;
 //!
-//!   let module = Module::from_file(&runtime, "test.wasm")?;
+//!     let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+//!     d.push("resources/test");
+//!     d.push("add_extra_wasm32_wasi.wasm");
+//!     let module = Module::from_file(d.as_path())?;
 //!
-//!   let stack_size = 1024;
-//!   let instance = Instance::new(&module, stack_size)?;
-//!   let wasm_func = instance.find_export_func("add")?;
-//!   let params: Vec<WasmValue> = vec![WasmValue::I32(1), WasmValue::I32(2)];
-//!   let ret = wasm_func.call(&instance, &params)?;
-//!   assert_eq!(ret , WasmValue::I32(13));
+//!     let instance = Instance::new(&module, 1024 * 64)?;
 //!
-//!   Ok()
+//!     let function = Function::find_export_func(&instance, "add")?;
+//!
+//!     let params: Vec<WasmValue> = vec![WasmValue::I32(9), WasmValue::I32(27)];
+//!     let result = function.call(&instance, &params)?;
+//!     assert_eq!(result, WasmValue::I32(136));
+//!
+//!     Ok(())
 //! }
 //! ```
-//!
 
 pub mod function;
 mod helper;
+pub mod host_function;
 pub mod instance;
 pub mod module;
 pub mod runtime;
