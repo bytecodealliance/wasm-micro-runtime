@@ -770,21 +770,21 @@ WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_get_custom_data(WASMModuleInstanceCommon *module_inst);
 
 /* Internal API */
-uint32
+uint64
 wasm_runtime_module_malloc_internal(WASMModuleInstanceCommon *module_inst,
-                                    WASMExecEnv *exec_env, uint32 size,
+                                    WASMExecEnv *exec_env, uint64 size,
                                     void **p_native_addr);
 
 /* Internal API */
-uint32
+uint64
 wasm_runtime_module_realloc_internal(WASMModuleInstanceCommon *module_inst,
-                                     WASMExecEnv *exec_env, uint32 ptr,
-                                     uint32 size, void **p_native_addr);
+                                     WASMExecEnv *exec_env, uint64 ptr,
+                                     uint64 size, void **p_native_addr);
 
 /* Internal API */
 void
 wasm_runtime_module_free_internal(WASMModuleInstanceCommon *module_inst,
-                                  WASMExecEnv *exec_env, uint32 ptr);
+                                  WASMExecEnv *exec_env, uint64 ptr);
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN uint64

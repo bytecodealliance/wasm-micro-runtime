@@ -53,6 +53,10 @@ typedef uint16 bh_atomic_16_t;
  * If left undefined, it will be automatically defined
  * according to the platform.
  */
+#ifdef WASM_UINT64_IS_ATOMIC
+#define BH_ATOMIC_64_IS_ATOMIC WASM_UINT64_IS_ATOMIC
+#endif /* WASM_UINT64_IS_ATOMIC */
+
 #ifdef WASM_UINT32_IS_ATOMIC
 #define BH_ATOMIC_32_IS_ATOMIC WASM_UINT32_IS_ATOMIC
 #endif /* WASM_UINT32_IS_ATOMIC */

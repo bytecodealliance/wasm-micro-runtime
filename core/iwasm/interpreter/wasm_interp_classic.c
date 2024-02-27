@@ -1209,8 +1209,8 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
     uint8 *ip = prev_frame->ip;
     char buf[128];
     WASMExecEnv *sub_module_exec_env = NULL;
-    uint32 aux_stack_origin_boundary = 0;
-    uint32 aux_stack_origin_bottom = 0;
+    uintptr_t aux_stack_origin_boundary = 0;
+    uintptr_t aux_stack_origin_bottom = 0;
 
     if (!sub_func_inst) {
         snprintf(buf, sizeof(buf),
@@ -1233,13 +1233,11 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
     wasm_exec_env_set_module_inst(exec_env,
                                   (WASMModuleInstanceCommon *)sub_module_inst);
     /* - aux_stack_boundary */
-    aux_stack_origin_boundary = exec_env->aux_stack_boundary.boundary;
-    exec_env->aux_stack_boundary.boundary =
-        sub_module_exec_env->aux_stack_boundary.boundary;
+    aux_stack_origin_boundary = exec_env->aux_stack_boundary;
+    exec_env->aux_stack_boundary = sub_module_exec_env->aux_stack_boundary;
     /* - aux_stack_bottom */
-    aux_stack_origin_bottom = exec_env->aux_stack_bottom.bottom;
-    exec_env->aux_stack_bottom.bottom =
-        sub_module_exec_env->aux_stack_bottom.bottom;
+    aux_stack_origin_bottom = exec_env->aux_stack_bottom;
+    exec_env->aux_stack_bottom = sub_module_exec_env->aux_stack_bottom;
 
     /* set ip NULL to make call_func_bytecode return after executing
        this function */
@@ -1251,8 +1249,8 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 
     /* restore ip and other replaced */
     prev_frame->ip = ip;
-    exec_env->aux_stack_boundary.boundary = aux_stack_origin_boundary;
-    exec_env->aux_stack_bottom.bottom = aux_stack_origin_bottom;
+    exec_env->aux_stack_boundary = aux_stack_origin_boundary;
+    exec_env->aux_stack_bottom = aux_stack_origin_bottom;
     wasm_exec_env_restore_module_inst(exec_env,
                                       (WASMModuleInstanceCommon *)module_inst);
 }
@@ -1463,10 +1461,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 goto got_exception;
             }
 
-            HANDLE_OP(WASM_OP_NOP)
-            {
-                HANDLE_OP_END();
-            }
+            HANDLE_OP(WASM_OP_NOP) { HANDLE_OP_END(); }
 
 #if WASM_ENABLE_EXCE_HANDLING != 0
             HANDLE_OP(WASM_OP_RETHROW)
@@ -4087,18 +4082,18 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
             HANDLE_OP(WASM_OP_SET_GLOBAL_AUX_STACK)
             {
-                uint32 aux_stack_top;
+                uint64 aux_stack_top;
 
                 read_leb_uint32(frame_ip, frame_ip_end, global_idx);
                 bh_assert(global_idx < module->e->global_count);
                 global = globals + global_idx;
                 global_addr = get_global_addr(global_data, global);
-                aux_stack_top = *(uint32 *)(frame_sp - 1);
-                if (aux_stack_top <= exec_env->aux_stack_boundary) {
+                aux_stack_top = (uint64)(*(uint32 *)(frame_sp - 1));
+                if (aux_stack_top <= (uint64)exec_env->aux_stack_boundary) {
                     wasm_set_exception(module, "wasm auxiliary stack overflow");
                     goto got_exception;
                 }
-                if (aux_stack_top > exec_env->aux_stack_bottom) {
+                if (aux_stack_top > (uint64)exec_env->aux_stack_bottom) {
                     wasm_set_exception(module,
                                        "wasm auxiliary stack underflow");
                     goto got_exception;
@@ -4107,8 +4102,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 frame_sp--;
 #if WASM_ENABLE_MEMORY_PROFILING != 0
                 if (module->module->aux_stack_top_global_index != (uint32)-1) {
-                    uint32 aux_stack_used = module->module->aux_stack_bottom
-                                            - *(uint32 *)global_addr;
+                    uint32 aux_stack_used =
+                        (uint32)(module->module->aux_stack_bottom
+                                 - *(uint32 *)global_addr);
                     if (aux_stack_used > module->e->max_aux_stack_used)
                         module->e->max_aux_stack_used = aux_stack_used;
                 }
@@ -5330,10 +5326,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_I32_REINTERPRET_F32)
             HANDLE_OP(WASM_OP_I64_REINTERPRET_F64)
             HANDLE_OP(WASM_OP_F32_REINTERPRET_I32)
-            HANDLE_OP(WASM_OP_F64_REINTERPRET_I64)
-            {
-                HANDLE_OP_END();
-            }
+            HANDLE_OP(WASM_OP_F64_REINTERPRET_I64) { HANDLE_OP_END(); }
 
             HANDLE_OP(WASM_OP_I32_EXTEND8_S)
             {

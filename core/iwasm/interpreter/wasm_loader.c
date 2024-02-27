@@ -5754,7 +5754,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     LOG_VERBOSE("Found aux __data_end global, value: %d",
                                 aux_data_end);
 
-                    aux_data_end = align_uint(aux_data_end, 16);
+                    aux_data_end = align_uint((uint32)aux_data_end, 16);
                 }
             }
 
@@ -5799,8 +5799,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                         module->aux_stack_bottom = aux_stack_top;
                         module->aux_stack_size =
                             aux_stack_top > aux_data_end
-                                ? aux_stack_top - aux_data_end
-                                : aux_stack_top;
+                                ? (uint32)(aux_stack_top - aux_data_end)
+                                : (uint32)aux_stack_top;
                         LOG_VERBOSE("Found aux stack top global, value: %d, "
                                     "global index: %d, stack size: %d",
                                     aux_stack_top, global_index,

@@ -1273,8 +1273,8 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
     uint8 *ip = prev_frame->ip;
     char buf[128];
     WASMExecEnv *sub_module_exec_env = NULL;
-    uint32 aux_stack_origin_boundary = 0;
-    uint32 aux_stack_origin_bottom = 0;
+    uintptr_t aux_stack_origin_boundary = 0;
+    uintptr_t aux_stack_origin_bottom = 0;
 
     if (!sub_func_inst) {
         snprintf(buf, sizeof(buf),
@@ -1297,13 +1297,11 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
     wasm_exec_env_set_module_inst(exec_env,
                                   (WASMModuleInstanceCommon *)sub_module_inst);
     /* - aux_stack_boundary */
-    aux_stack_origin_boundary = exec_env->aux_stack_boundary.boundary;
-    exec_env->aux_stack_boundary.boundary =
-        sub_module_exec_env->aux_stack_boundary.boundary;
+    aux_stack_origin_boundary = exec_env->aux_stack_boundary;
+    exec_env->aux_stack_boundary = sub_module_exec_env->aux_stack_boundary;
     /* - aux_stack_bottom */
-    aux_stack_origin_bottom = exec_env->aux_stack_bottom.bottom;
-    exec_env->aux_stack_bottom.bottom =
-        sub_module_exec_env->aux_stack_bottom.bottom;
+    aux_stack_origin_bottom = exec_env->aux_stack_bottom;
+    exec_env->aux_stack_bottom = sub_module_exec_env->aux_stack_bottom;
 
     /* set ip NULL to make call_func_bytecode return after executing
        this function */
@@ -1315,8 +1313,8 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 
     /* restore ip and other replaced */
     prev_frame->ip = ip;
-    exec_env->aux_stack_boundary.boundary = aux_stack_origin_boundary;
-    exec_env->aux_stack_bottom.bottom = aux_stack_origin_bottom;
+    exec_env->aux_stack_boundary = aux_stack_origin_boundary;
+    exec_env->aux_stack_bottom = aux_stack_origin_bottom;
     wasm_exec_env_restore_module_inst(exec_env,
                                       (WASMModuleInstanceCommon *)module_inst);
 }
@@ -3542,11 +3540,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                        "wasm auxiliary stack underflow");
                     goto got_exception;
                 }
-                *(int32 *)global_addr = aux_stack_top;
+                *(int32 *)global_addr = (uint32)aux_stack_top;
 #if WASM_ENABLE_MEMORY_PROFILING != 0
                 if (module->module->aux_stack_top_global_index != (uint32)-1) {
-                    uint32 aux_stack_used = module->module->aux_stack_bottom
-                                            - *(uint32 *)global_addr;
+                    uint32 aux_stack_used =
+                        (uint32)(module->module->aux_stack_bottom
+                                 - *(uint32 *)global_addr);
                     if (aux_stack_used > module->e->max_aux_stack_used)
                         module->e->max_aux_stack_used = aux_stack_used;
                 }

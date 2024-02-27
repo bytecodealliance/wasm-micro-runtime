@@ -146,7 +146,7 @@ wasm_cluster_allocate_aux_stack(WASMExecEnv *exec_env, uint64 *p_start,
 #if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION != 0
     WASMModuleInstanceCommon *module_inst =
         wasm_exec_env_get_module_inst(exec_env);
-    uint32 stack_end;
+    uint64 stack_end;
 
     stack_end = wasm_runtime_module_malloc_internal(module_inst, exec_env,
                                                     cluster->stack_size, NULL);

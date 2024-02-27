@@ -2772,9 +2772,9 @@ wasm_runtime_is_bounds_checks_enabled(WASMModuleInstanceCommon *module_inst)
 }
 #endif
 
-uint32
+uint64
 wasm_runtime_module_malloc_internal(WASMModuleInstanceCommon *module_inst,
-                                    WASMExecEnv *exec_env, uint32 size,
+                                    WASMExecEnv *exec_env, uint64 size,
                                     void **p_native_addr)
 {
 #if WASM_ENABLE_INTERP != 0
@@ -2790,10 +2790,10 @@ wasm_runtime_module_malloc_internal(WASMModuleInstanceCommon *module_inst,
     return 0;
 }
 
-uint32
+uint64
 wasm_runtime_module_realloc_internal(WASMModuleInstanceCommon *module_inst,
-                                     WASMExecEnv *exec_env, uint32 ptr,
-                                     uint32 size, void **p_native_addr)
+                                     WASMExecEnv *exec_env, uint64 ptr,
+                                     uint64 size, void **p_native_addr)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode)
@@ -2810,7 +2810,7 @@ wasm_runtime_module_realloc_internal(WASMModuleInstanceCommon *module_inst,
 
 void
 wasm_runtime_module_free_internal(WASMModuleInstanceCommon *module_inst,
-                                  WASMExecEnv *exec_env, uint32 ptr)
+                                  WASMExecEnv *exec_env, uint64 ptr)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
@@ -2847,7 +2847,7 @@ wasm_runtime_module_malloc(WASMModuleInstanceCommon *module_inst, uint64 size,
 
 uint64
 wasm_runtime_module_realloc(WASMModuleInstanceCommon *module_inst, uint64 ptr,
-                            uint size, void **p_native_addr)
+                            uint64 size, void **p_native_addr)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode)
