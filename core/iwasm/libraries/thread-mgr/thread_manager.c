@@ -281,7 +281,7 @@ wasm_cluster_create(WASMExecEnv *exec_env)
 
 #if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION == 0
     if (cluster_max_thread_num != 0) {
-        uint64 total_size = cluster_max_thread_num * sizeof(uint32);
+        uint64 total_size = cluster_max_thread_num * sizeof(uint64);
         uint32 i;
         if (total_size >= UINT32_MAX
             || !(cluster->stack_tops =
