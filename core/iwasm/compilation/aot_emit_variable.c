@@ -271,6 +271,8 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             LLVMMoveBasicBlockAfter(check_underflow_succ, check_overflow_succ);
 
             /* Check aux stack overflow */
+
+            /* TODO: memory64 cast to mem idx type */
             if (!(aux_stack_bound = LLVMBuildTruncOrBitCast(
                       comp_ctx->builder, func_ctx->aux_stack_bound,
                       TO_LLVM_TYPE(global_type), "aux_stack_bound"))) {
@@ -289,9 +291,11 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
             /* Check aux stack underflow */
             LLVMPositionBuilderAtEnd(comp_ctx->builder, check_overflow_succ);
+
+            /* TODO: memory64 cast to mem idx type */
             if (!(aux_stack_bottom = LLVMBuildTruncOrBitCast(
                       comp_ctx->builder, func_ctx->aux_stack_bottom,
-                      TO_LLVM_TYPE(global_type), "aux_stack_bound"))) {
+                      TO_LLVM_TYPE(global_type), "aux_stack_bottom"))) {
                 aot_set_last_error("llvm build truncOrBitCast failed.");
                 return false;
             }

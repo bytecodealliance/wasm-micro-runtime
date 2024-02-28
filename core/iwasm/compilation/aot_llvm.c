@@ -992,10 +992,7 @@ static bool
 create_aux_stack_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef aux_stack_bound_offset = I32_SIX, aux_stack_bound_addr;
-    LLVMValueRef aux_stack_bottom_offset =
-                     comp_ctx->pointer_size == sizeof(uint64) ? I32_EIGHT
-                                                              : I32_SEVEN,
-                 aux_stack_bottom_addr;
+    LLVMValueRef aux_stack_bottom_offset = I32_SEVEN, aux_stack_bottom_addr;
 
     /* Get aux stack boundary address */
     if (!(aux_stack_bound_addr = LLVMBuildInBoundsGEP2(

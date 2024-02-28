@@ -265,10 +265,6 @@ jit_compile_op_set_global(JitCompContext *cc, uint32 global_idx,
                 JitReg aux_stack_bound = get_aux_stack_bound_reg(cc->jit_frame);
                 JitReg aux_stack_bottom =
                     get_aux_stack_bottom_reg(cc->jit_frame);
-#if UINTPTR_MAX == UINT64_MAX
-                GEN_INSN(I64TOI32, aux_stack_bound, aux_stack_bound);
-                GEN_INSN(I64TOI32, aux_stack_bottom, aux_stack_bottom);
-#endif
                 GEN_INSN(CMP, cc->cmp_reg, value, aux_stack_bound);
                 if (!(jit_emit_exception(cc, EXCE_AUX_STACK_OVERFLOW,
                                          JIT_OP_BLEU, cc->cmp_reg, NULL)))
