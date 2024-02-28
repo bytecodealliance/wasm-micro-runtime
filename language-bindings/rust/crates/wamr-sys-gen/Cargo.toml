@@ -1,0 +1,14 @@
+# Copyright (C) 2023 Liquid Reply GmbH. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+[package]
+name = "wamr-sys-gen"
+description = "use bindgen to produce bindings for wamr-sys"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+
+[build-dependencies]
+bindgen = "0.66"

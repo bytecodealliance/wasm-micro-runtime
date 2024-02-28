@@ -15,9 +15,6 @@ edition.workspace = true
 [dependencies]
 
 [build-dependencies]
-cc = "1.0"
-cmake = "0.1"
-bindgen = "0.66"
 
 [features]
 llvmjit = []

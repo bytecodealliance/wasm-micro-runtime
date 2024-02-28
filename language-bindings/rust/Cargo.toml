@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 [workspace]
-members = ["crates/wamr-sys"]
+members = ["crates/wamr-sys", "crates/wamr-sys-gen"]
 exclude = [
     "examples/wasi-hello",
     "resources/test/gcd",
