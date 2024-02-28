@@ -198,8 +198,8 @@ get_aux_stack_bound_reg(JitFrame *frame)
     if (!frame->aux_stack_bound_reg) {
         frame->aux_stack_bound_reg = cc->aux_stack_bound_reg;
         GEN_INSN(
-            LDI32, frame->aux_stack_bound_reg, cc->exec_env_reg,
-            NEW_CONST(I32, offsetof(WASMExecEnv, aux_stack_boundary.boundary)));
+            LDPTR, frame->aux_stack_bound_reg, cc->exec_env_reg,
+            NEW_CONST(I32, offsetof(WASMExecEnv, aux_stack_boundary)));
     }
     return frame->aux_stack_bound_reg;
 }
@@ -212,8 +212,8 @@ get_aux_stack_bottom_reg(JitFrame *frame)
     if (!frame->aux_stack_bottom_reg) {
         frame->aux_stack_bottom_reg = cc->aux_stack_bottom_reg;
         GEN_INSN(
-            LDI32, frame->aux_stack_bottom_reg, cc->exec_env_reg,
-            NEW_CONST(I32, offsetof(WASMExecEnv, aux_stack_bottom.bottom)));
+            LDPTR, frame->aux_stack_bottom_reg, cc->exec_env_reg,
+            NEW_CONST(I32, offsetof(WASMExecEnv, aux_stack_bottom)));
     }
     return frame->aux_stack_bottom_reg;
 }
@@ -915,8 +915,9 @@ create_fixed_virtual_regs(JitCompContext *cc)
     cc->import_func_ptrs_reg = jit_cc_new_reg_ptr(cc);
     cc->fast_jit_func_ptrs_reg = jit_cc_new_reg_ptr(cc);
     cc->func_type_indexes_reg = jit_cc_new_reg_ptr(cc);
-    cc->aux_stack_bound_reg = jit_cc_new_reg_I32(cc);
-    cc->aux_stack_bottom_reg = jit_cc_new_reg_I32(cc);
+    // uintptr type
+    cc->aux_stack_bound_reg = jit_cc_new_reg_ptr(cc);
+    cc->aux_stack_bottom_reg = jit_cc_new_reg_ptr(cc);
 
     count = module->import_memory_count + module->memory_count;
     if (count > 0) {

@@ -87,7 +87,7 @@ typedef uint16 bh_atomic_16_t;
 #endif
 #else
 #ifndef BH_ATOMIC_64_IS_ATOMIC
-#define BH_ATOMIC_64_IS_ATOMIC 1
+#define BH_ATOMIC_64_IS_ATOMIC 0
 #endif
 #ifndef BH_ATOMIC_32_IS_ATOMIC
 #define BH_ATOMIC_32_IS_ATOMIC 0
