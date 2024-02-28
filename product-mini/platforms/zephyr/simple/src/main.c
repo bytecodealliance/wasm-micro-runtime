@@ -129,7 +129,9 @@ iwasm_main(void *arg1, void *arg2, void *arg3)
     init_args.mem_alloc_type = Alloc_With_Pool;
     init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
     init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
-#elif (CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE != 0 || CONFIG_NEWLIB_LIBC)
+#elif (defined(CONFIG_COMMON_LIBC_MALLOC)            \
+       && CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE != 0) \
+    || defined(CONFIG_NEWLIB_LIBC)
     init_args.mem_alloc_type = Alloc_With_System_Allocator;
 #else
 #error "memory allocation scheme is not defined."
