@@ -604,7 +604,8 @@ wasm_cluster_destroy_spawned_exec_env(WASMExecEnv *exec_env)
     }
 
     /* Free aux stack space */
-    wasm_cluster_free_aux_stack(exec_env_tls, (uint64)exec_env->aux_stack_bottom);
+    wasm_cluster_free_aux_stack(exec_env_tls,
+                                (uint64)exec_env->aux_stack_bottom);
 
     os_mutex_lock(&cluster->lock);
 

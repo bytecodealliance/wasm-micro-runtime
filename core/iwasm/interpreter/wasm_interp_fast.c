@@ -3530,6 +3530,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 bh_assert(global_idx < module->e->global_count);
                 global = globals + global_idx;
                 global_addr = get_global_addr(global_data, global);
+                /* TODO: Memory64 the data type depends on mem idx type */
                 aux_stack_top = (uint64)frame_lp[GET_OFFSET()];
                 if (aux_stack_top <= (uint64)exec_env->aux_stack_boundary) {
                     wasm_set_exception(module, "wasm auxiliary stack overflow");

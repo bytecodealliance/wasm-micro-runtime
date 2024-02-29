@@ -149,8 +149,6 @@ wasm_exec_env_create(struct WASMModuleInstanceCommon *module_inst,
     /* Set the aux_stack_boundary and aux_stack_bottom */
     if (module_inst->module_type == Wasm_Module_Bytecode) {
         WASMModule *module = ((WASMModuleInstance *)module_inst)->module;
-        /* TODO: only assert when it's not memory64 */
-        bh_assert(module->aux_stack_bottom < UINT32_MAX);
         exec_env->aux_stack_bottom = (uintptr_t)module->aux_stack_bottom;
         exec_env->aux_stack_boundary =
             (uintptr_t)module->aux_stack_bottom - module->aux_stack_size;
@@ -165,8 +163,6 @@ wasm_exec_env_create(struct WASMModuleInstanceCommon *module_inst,
     if (module_inst->module_type == Wasm_Module_AoT) {
         AOTModule *module =
             (AOTModule *)((AOTModuleInstance *)module_inst)->module;
-        /* TODO: only assert when it's not memory64 */
-        bh_assert(module->aux_stack_bottom < UINT32_MAX);
         exec_env->aux_stack_bottom = (uintptr_t)module->aux_stack_bottom;
         exec_env->aux_stack_boundary =
             (uintptr_t)module->aux_stack_bottom - module->aux_stack_size;

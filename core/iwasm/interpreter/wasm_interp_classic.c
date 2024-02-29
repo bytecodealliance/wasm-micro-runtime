@@ -4088,6 +4088,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 bh_assert(global_idx < module->e->global_count);
                 global = globals + global_idx;
                 global_addr = get_global_addr(global_data, global);
+                /* TODO: Memory64 the data type depends on mem idx type */
                 aux_stack_top = (uint64)(*(uint32 *)(frame_sp - 1));
                 if (aux_stack_top <= (uint64)exec_env->aux_stack_boundary) {
                     wasm_set_exception(module, "wasm auxiliary stack overflow");
@@ -5488,8 +5489,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
 
                         /* allowing the destination and source to overlap */
-                        bh_memmove_s(mdst, (uint32)linear_mem_size - dst, msrc,
-                                     len);
+                        bh_memmove_s(mdst, (uint32)(linear_mem_size - dst),
+                                     msrc, len);
                         break;
                     }
                     case WASM_OP_MEMORY_FILL:

@@ -655,7 +655,7 @@ wasm_init_memory(WASMModuleInstance *inst, uint32 mem_idx, uint32 seg_idx,
         goto out_of_bounds;
 
     mem_addr = mem_inst->memory_data + mem_offset;
-    bh_memcpy_s(mem_addr, (uint32)mem_size - mem_offset, data_addr, len);
+    bh_memcpy_s(mem_addr, (uint32)(mem_size - mem_offset), data_addr, len);
 
     return 0;
 out_of_bounds:

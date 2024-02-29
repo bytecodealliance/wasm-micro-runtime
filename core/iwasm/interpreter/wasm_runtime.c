@@ -3417,11 +3417,12 @@ wasm_module_dup_data(WASMModuleInstance *module_inst, const char *src,
                      uint64 size)
 {
     char *buffer;
-    uint64 buffer_offset =
-        wasm_module_malloc(module_inst, size, (void **)&buffer);
+    uint64 buffer_offset;
 
     /* TODO: Memory64 size check based on memory idx type */
     bh_assert(size <= UINT32_MAX);
+
+    buffer_offset = wasm_module_malloc(module_inst, size, (void **)&buffer);
 
     if (buffer_offset != 0) {
         buffer = wasm_runtime_addr_app_to_native(
@@ -3684,7 +3685,8 @@ void
 wasm_get_module_inst_mem_consumption(const WASMModuleInstance *module_inst,
                                      WASMModuleInstMemConsumption *mem_conspn)
 {
-    uint32 i, size;
+    uint32 i;
+    uint64 size;
 
     memset(mem_conspn, 0, sizeof(*mem_conspn));
 

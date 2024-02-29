@@ -2430,8 +2430,9 @@ load_init_data_section(const uint8 *buf, const uint8 *buf_end,
     read_uint64(p, p_end, module->aux_stack_bottom);
     read_uint32(p, p_end, module->aux_stack_size);
 
-    if (module->aux_data_end > UINT32_MAX || module->aux_heap_base > UINT32_MAX
-        || module->aux_stack_bottom > UINT32_MAX) {
+    if (module->aux_data_end >= MAX_LINEAR_MEMORY_SIZE
+        || module->aux_heap_base >= MAX_LINEAR_MEMORY_SIZE
+        || module->aux_stack_bottom >= MAX_LINEAR_MEMORY_SIZE) {
         set_error_buf(
             error_buf, error_buf_size,
             "invalid range of aux_date_end/aux_heap_base/aux_stack_bottom");

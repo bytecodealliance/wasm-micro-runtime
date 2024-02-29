@@ -1611,11 +1611,11 @@ wasm_runtime_dump_module_inst_mem_consumption(
     }
 #endif
 
-    os_printf("WASM module inst memory consumption, total size: %u\n",
+    os_printf("WASM module inst memory consumption, total size: %lu\n",
               mem_conspn.total_size);
     os_printf("    module inst struct size: %u\n",
               mem_conspn.module_inst_struct_size);
-    os_printf("    memories size: %u\n", mem_conspn.memories_size);
+    os_printf("    memories size: %lu\n", mem_conspn.memories_size);
     os_printf("        app heap size: %u\n", mem_conspn.app_heap_size);
     os_printf("    tables size: %u\n", mem_conspn.tables_size);
     os_printf("    functions size: %u\n", mem_conspn.functions_size);
@@ -1650,8 +1650,9 @@ wasm_runtime_dump_mem_consumption(WASMExecEnv *exec_env)
     WASMModuleInstanceCommon *module_inst_common;
     WASMModuleCommon *module_common = NULL;
     void *heap_handle = NULL;
-    uint32 total_size = 0, app_heap_peak_size = 0;
+    uint32 app_heap_peak_size = 0;
     uint32 max_aux_stack_used = -1;
+    uint64 total_size = 0;
 
     module_inst_common = exec_env->module_inst;
 #if WASM_ENABLE_INTERP != 0
@@ -3691,6 +3692,8 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
             case VALUE_TYPE_FUNCREF:
 #endif
             {
+                /* TODO: memory64 the data type of ptr_len and argc depends on
+                 * mem idx type */
                 *(uint32 *)argv_dst = arg_i32 = *argv_src++;
                 if (signature) {
                     if (signature[i + 1] == '*') {
@@ -4114,6 +4117,8 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
             {
                 arg_i32 = *argv_src++;
 
+                /* TODO: memory64 the data type of ptr_len and argc depends on
+                 * mem idx type */
                 if (signature) {
                     if (signature[i + 1] == '*') {
                         /* param is a pointer */
@@ -4489,6 +4494,8 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
             {
                 arg_i32 = *argv++;
 
+                /* TODO: memory64 the data type of ptr_len and argc depends on
+                 * mem idx type */
                 if (signature) {
                     if (signature[i + 1] == '*') {
                         /* param is a pointer */
@@ -4804,6 +4811,8 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
             {
                 arg_i32 = *argv_src++;
                 arg_i64 = arg_i32;
+                /* TODO: memory64 the data type of ptr_len and argc depends on
+                 * mem idx type */
                 if (signature) {
                     if (signature[i + 1] == '*') {
                         /* param is a pointer */

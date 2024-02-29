@@ -413,10 +413,10 @@ typedef struct WASMModuleMemConsumption {
 } WASMModuleMemConsumption;
 
 typedef struct WASMModuleInstMemConsumption {
-    uint32 total_size;
+    uint64 total_size;
     uint32 module_inst_struct_size;
-    uint32 memories_size;
     uint32 app_heap_size;
+    uint64 memories_size;
     uint32 tables_size;
     uint32 globals_size;
     uint32 functions_size;

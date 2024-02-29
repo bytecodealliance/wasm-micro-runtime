@@ -951,8 +951,6 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     offset =
         LLVMBuildZExt(comp_ctx->builder, offset, I64_TYPE, "extend_offset");
     bytes = LLVMBuildZExt(comp_ctx->builder, bytes, I64_TYPE, "extend_len");
-    mem_size =
-        LLVMBuildZExt(comp_ctx->builder, mem_size, I64_TYPE, "extend_size");
 
     BUILD_OP(Add, offset, bytes, max_addr, "max_addr");
     BUILD_ICMP(LLVMIntUGT, max_addr, mem_size, cmp, "cmp_max_mem_addr");

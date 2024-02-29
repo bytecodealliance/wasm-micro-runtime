@@ -331,6 +331,7 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
                 func_params[1] = NEW_CONST(I32, false); /* is_str = false */
                 func_params[2] = argvs[i];
                 if (signature[i + 2] == '~') {
+                    /* TODO: Memory64 no need to convert if mem idx type i64 */
                     func_params[3] = jit_cc_new_reg_I64(cc);
                     /* pointer with length followed */
                     GEN_INSN(I32TOI64, func_params[3], argvs[i + 1]);
@@ -350,7 +351,7 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
 
             if (is_pointer_arg) {
                 JitReg native_addr_64 = jit_cc_new_reg_I64(cc);
-                /* TODO: Memory64 no need to convert if mem idx type is i64 */
+                /* TODO: Memory64 no need to convert if mem idx type i64 */
                 GEN_INSN(I32TOI64, native_addr_64, func_params[2]);
                 func_params[2] = native_addr_64;
 

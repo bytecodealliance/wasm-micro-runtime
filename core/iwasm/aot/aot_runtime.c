@@ -2649,16 +2649,17 @@ aot_module_dup_data(AOTModuleInstance *module_inst, const char *src,
                     uint64 size)
 {
     char *buffer;
-    uint64 buffer_offset =
-        aot_module_malloc(module_inst, size, (void **)&buffer);
+    uint64 buffer_offset;
 
     /* TODO: Memory64 size check based on memory idx type */
     bh_assert(size <= UINT32_MAX);
 
+    buffer_offset = aot_module_malloc(module_inst, size, (void **)&buffer);
+
     if (buffer_offset != 0) {
         buffer = wasm_runtime_addr_app_to_native(
             (WASMModuleInstanceCommon *)module_inst, buffer_offset);
-        bh_memcpy_s(buffer, size, src, size);
+        bh_memcpy_s(buffer, (uint32)size, src, (uint32)size);
     }
     return buffer_offset;
 }
@@ -3016,7 +3017,7 @@ aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index, uint32 offset,
         (WASMModuleInstanceCommon *)module_inst, (uint64)dst);
 
     SHARED_MEMORY_LOCK(memory_inst);
-    bh_memcpy_s(maddr, (uint32)memory_inst->memory_data_size - dst,
+    bh_memcpy_s(maddr, (uint32)(memory_inst->memory_data_size - dst),
                 data + offset, len);
     SHARED_MEMORY_UNLOCK(memory_inst);
     return true;
