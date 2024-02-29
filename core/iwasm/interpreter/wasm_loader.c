@@ -9028,6 +9028,7 @@ wasm_loader_emit_br_info(WASMLoaderContext *ctx, BranchBlock *frame_csp,
         /* Part e */
         dynamic_offset =
             frame_csp->dynamic_offset + wasm_get_cell_num(types, arity);
+        ctx->dynamic_offset = dynamic_offset;
         for (i = (int32)arity - 1; i >= 0; i--) {
             cell = (uint8)wasm_value_type_cell_num(types[i]);
             dynamic_offset -= cell;

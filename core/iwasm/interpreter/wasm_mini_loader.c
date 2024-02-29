@@ -4750,6 +4750,7 @@ wasm_loader_emit_br_info(WASMLoaderContext *ctx, BranchBlock *frame_csp,
         /* Part e */
         dynamic_offset =
             frame_csp->dynamic_offset + wasm_get_cell_num(types, arity);
+        ctx->dynamic_offset = dynamic_offset;
         for (i = (int32)arity - 1; i >= 0; i--) {
             cell = (uint8)wasm_value_type_cell_num(types[i]);
             dynamic_offset -= cell;
@@ -5552,9 +5553,6 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
                         frame_ref_buf, total_size);
 
 #if WASM_ENABLE_FAST_INTERP != 0
-            /* The stack operand num should not be smaller than before
-               after pop and push operations */
-            bh_assert(loader_ctx->reftype_map_num >= reftype_map_num_old);
             loader_ctx->frame_offset =
                 loader_ctx->frame_offset_bottom + stack_cell_num_old;
             total_size = (uint32)sizeof(int16)
