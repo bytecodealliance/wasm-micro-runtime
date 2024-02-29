@@ -1365,7 +1365,7 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
     if (!(func_ctx->mem_info[0].mem_data_size_addr = LLVMBuildBitCast(
               comp_ctx->builder, func_ctx->mem_info[0].mem_data_size_addr,
-              INT32_PTR_TYPE, "mem_data_size_ptr"))) {
+              INT64_PTR_TYPE, "mem_data_size_ptr"))) {
         aot_set_last_error("llvm build bit cast failed");
         return false;
     }
@@ -1384,7 +1384,7 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return false;
         }
         if (!(func_ctx->mem_info[0].mem_data_size_addr = LLVMBuildLoad2(
-                  comp_ctx->builder, I32_TYPE,
+                  comp_ctx->builder, I64_TYPE,
                   func_ctx->mem_info[0].mem_data_size_addr, "mem_data_size"))) {
             aot_set_last_error("llvm build load failed");
             return false;

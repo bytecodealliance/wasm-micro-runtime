@@ -731,7 +731,7 @@ jit_set_exception_with_id(WASMModuleInstance *module_inst, uint32 id);
  */
 bool
 jit_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
-                               uint32 app_buf_addr, uint32 app_buf_size,
+                               uint64 app_buf_addr, uint64 app_buf_size,
                                void **p_native_addr);
 #endif /* end of WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 \
           || WASM_ENABLE_WAMR_COMPILER != 0 */

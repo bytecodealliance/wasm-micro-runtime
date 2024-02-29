@@ -3964,7 +3964,7 @@ jit_set_exception_with_id(WASMModuleInstance *module_inst, uint32 id)
 
 bool
 jit_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
-                               uint32 app_buf_addr, uint32 app_buf_size,
+                               uint64 app_buf_addr, uint64 app_buf_size,
                                void **p_native_addr)
 {
     bool ret = wasm_check_app_addr_and_convert(
