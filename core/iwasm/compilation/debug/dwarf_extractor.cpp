@@ -387,9 +387,10 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
             LLVMMetadataRef ParamLocation = LLVMDIBuilderCreateDebugLocation(
                 comp_ctx->context, dec.GetLine(), dec.GetColumn(),
                 FunctionMetadata, NULL);
+            const char *varname = variable.GetName();
             LLVMMetadataRef ParamVar = LLVMDIBuilderCreateParameterVariable(
-                DIB, FunctionMetadata, variable.GetName(),
-                strlen(variable.GetName()), function_arg_idx + 1 + 1,
+                DIB, FunctionMetadata, varname, varname ? strlen(varname) : 0,
+                function_arg_idx + 1 + 1,
                 File, // starts form 1, and 1 is exenv,
                 dec.GetLine(), ParamTypes[function_arg_idx + 1], true,
                 LLVMDIFlagZero);
