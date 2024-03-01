@@ -644,6 +644,12 @@ WASM_API_EXTERN own wasm_instance_t* wasm_instance_new_with_args(
   own wasm_trap_t** trap, const uint32_t stack_size, const uint32_t heap_size
 );
 
+// please refer to wasm_runtime_instantiate_ex(...) in core/iwasm/include/wasm_export.h
+WASM_API_EXTERN own wasm_instance_t* wasm_instance_new_with_args_ex(
+  wasm_store_t*, const wasm_module_t*, const wasm_extern_vec_t *imports,
+  own wasm_trap_t** trap, const uint32_t stack_size, const uint32_t heap_size, const uint32_t max_memory_pages
+);
+
 WASM_API_EXTERN void wasm_instance_exports(const wasm_instance_t*, own wasm_extern_vec_t* out);
 
 

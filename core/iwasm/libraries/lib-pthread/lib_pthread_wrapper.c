@@ -579,7 +579,7 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
 #endif
 
     if (!(new_module_inst = wasm_runtime_instantiate_internal(
-              module, module_inst, exec_env, stack_size, 0, NULL, 0)))
+              module, module_inst, exec_env, stack_size, 0, 0, NULL, 0)))
         return -1;
 
     /* Set custom_data to new module instance */

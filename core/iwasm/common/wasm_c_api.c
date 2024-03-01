@@ -4873,6 +4873,18 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
                             own wasm_trap_t **trap, const uint32 stack_size,
                             const uint32 heap_size)
 {
+    return wasm_instance_new_with_args_ex(store, module, imports, trap,
+                                          stack_size, heap_size, 0);
+}
+
+wasm_instance_t *
+wasm_instance_new_with_args_ex(wasm_store_t *store, const wasm_module_t *module,
+                               const wasm_extern_vec_t *imports,
+                               own wasm_trap_t **trap,
+                               const uint32_t stack_size,
+                               const uint32_t heap_size,
+                               const uint32_t max_memory_pages)
+{
     char sub_error_buf[128] = { 0 };
     char error_buf[256] = { 0 };
     wasm_instance_t *instance = NULL;
@@ -4911,8 +4923,9 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
      * will do the linking result check at the end of wasm_runtime_instantiate
      */
 
-    instance->inst_comm_rt = wasm_runtime_instantiate(
-        *module, stack_size, heap_size, sub_error_buf, sizeof(sub_error_buf));
+    instance->inst_comm_rt = wasm_runtime_instantiate_ex(
+        *module, stack_size, heap_size, max_memory_pages, sub_error_buf,
+        sizeof(sub_error_buf));
     if (!instance->inst_comm_rt) {
         goto failed;
     }

@@ -528,6 +528,32 @@ wasm_runtime_instantiate(const wasm_module_t module,
                          char *error_buf, uint32_t error_buf_size);
 
 /**
+ * Instantiate a WASM module, overwriting maximum memory
+ * 
+ * @param module the WASM module to instantiate
+ * @param default_stack_size the default stack size of the module instance when the
+ *        exec env's operation stack isn't created by user, e.g. API
+ *        wasm_application_execute_main() and wasm_application_execute_func()
+ *        create the operation stack internally with the stack size specified
+ *        here. And API wasm_runtime_create_exec_env() creates the operation
+ *        stack with stack size specified by its parameter, the stack size
+ *        specified here is ignored.
+ * @param host_managed_heap_size the default heap size of the module instance, a heap will
+ *        be created besides the app memory space. Both wasm app and native
+ *        function can allocate memory from the heap.
+ * @param max_memory_pages the number of pages (64k each) to use as maximum memory
+ * @param error_buf buffer to output the error info if failed
+ * @param error_buf_size the size of the error buffer
+ *
+ * @return return the instantiated WASM module instance, NULL if failed
+ */
+WASM_RUNTIME_API_EXTERN wasm_module_inst_t
+wasm_runtime_instantiate_ex(const wasm_module_t module,
+                         uint32_t default_stack_size, uint32_t host_managed_heap_size,
+                         uint32_t max_memory_pages,
+                         char *error_buf, uint32_t error_buf_size);
+
+/**
  * Set the running mode of a WASM module instance, override the
  * default running mode of the runtime. Note that it only makes sense when
  * the input is a wasm bytecode file: for the AOT file, runtime always runs
