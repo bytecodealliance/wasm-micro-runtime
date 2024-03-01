@@ -1965,8 +1965,8 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context,
         basic_types->intptr_t_ptr_type = basic_types->int64_ptr_type;
     }
 
-    basic_types->gc_ref_type = LLVMPointerType(basic_types->void_type, 0);
-    basic_types->gc_ref_ptr_type = LLVMPointerType(basic_types->gc_ref_type, 0);
+    basic_types->gc_ref_type = basic_types->int8_ptr_type;
+    basic_types->gc_ref_ptr_type = basic_types->int8_pptr_type;
 
     return (basic_types->int8_ptr_type && basic_types->int8_pptr_type
             && basic_types->int16_ptr_type && basic_types->int32_ptr_type
