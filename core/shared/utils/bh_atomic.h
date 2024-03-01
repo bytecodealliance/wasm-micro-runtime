@@ -97,18 +97,20 @@ typedef uint16 bh_atomic_16_t;
 #endif
 #endif
 
-/* Force disable atomic 16-bit operations on bare-metal RISC-V
- * because the 16-bit atomic operations is emulated by 32-bit
+/* Force disable atomic 16/64-bit operations on bare-metal RISC-V
+ * because the 16/64-bit atomic operations is emulated by 32-bit
  * atomic operations, which has linkage problem on current toolchain:
  * in function `shared_memory_inc_reference':
  * wasm_shared_memory.c:85:(.text.shared_memory_inc_reference+0x10): undefined
- * reference to `__atomic_fetch_add_2'
+ * reference to `__atomic_fetch_add_2/8'
  */
 #ifndef WASM_UINT16_IS_ATOMIC
 #if !defined(__linux__) && !defined(__FreeBSD__) && !defined(__NetBSD__) \
     && !defined(__OpenBSD__) && defined(__riscv)
 #undef BH_ATOMIC_16_IS_ATOMIC
 #define BH_ATOMIC_16_IS_ATOMIC 0
+#undef BH_ATOMIC_64_IS_ATOMIC
+#define BH_ATOMIC_64_IS_ATOMIC 0
 #endif
 #endif
 
