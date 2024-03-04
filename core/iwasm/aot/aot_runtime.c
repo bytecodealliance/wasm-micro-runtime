@@ -790,7 +790,8 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     uint32 num_bytes_per_page = memory->num_bytes_per_page;
     uint32 init_page_count = memory->mem_init_page_count;
     uint32 max_page_count =
-        max_memory_pages == 0 ? memory->mem_max_page_count : max_memory_pages;
+        wasm_runtime_get_max_mem(max_memory_pages, memory->mem_init_page_count,
+                                 memory->mem_max_page_count);
     uint32 inc_page_count, aux_heap_base, global_idx;
     uint32 bytes_of_last_page, bytes_to_page_end;
     uint32 heap_offset = num_bytes_per_page * init_page_count;

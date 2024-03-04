@@ -375,9 +375,9 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
     for (i = 0; i < module->import_memory_count; i++, import++, memory++) {
         uint32 num_bytes_per_page = import->u.memory.num_bytes_per_page;
         uint32 init_page_count = import->u.memory.init_page_count;
-        uint32 max_page_count = max_memory_pages == 0
-                                    ? import->u.memory.max_page_count
-                                    : max_memory_pages;
+        uint32 max_page_count = wasm_runtime_get_max_mem(
+            max_memory_pages, import->u.memory.init_page_count,
+            import->u.memory.max_page_count);
         uint32 flags = import->u.memory.flags;
         uint32 actual_heap_size = heap_size;
 
@@ -415,9 +415,9 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 
     /* instantiate memories from memory section */
     for (i = 0; i < module->memory_count; i++, memory++) {
-        uint32 max_page_count = max_memory_pages == 0
-                                    ? module->memories[i].max_page_count
-                                    : max_memory_pages;
+        uint32 max_page_count = wasm_runtime_get_max_mem(
+            max_memory_pages, module->memories[i].init_page_count,
+            module->memories[i].max_page_count);
         if (!(memories[mem_index] = memory_instantiate(
                   module_inst, parent, memory, mem_index,
                   module->memories[i].num_bytes_per_page,

@@ -562,6 +562,11 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_unload(WASMModuleCommon *module);
 
 /* Internal API */
+uint32
+wasm_runtime_get_max_mem(uint32 max_memory_pages, uint32 module_init_page_count,
+                         uint32 module_max_page_count);
+
+/* Internal API */
 WASMModuleInstanceCommon *
 wasm_runtime_instantiate_internal(WASMModuleCommon *module,
                                   WASMModuleInstanceCommon *parent,
@@ -582,9 +587,9 @@ wasm_runtime_instantiate(WASMModuleCommon *module, uint32 default_stack_size,
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN WASMModuleInstanceCommon *
-wasm_runtime_instantiate_ex(WASMModuleCommon *module, uint32 stack_size,
-                            uint32 heap_size, uint32 max_memory_pages,
-                            char *error_buf, uint32 error_buf_size);
+wasm_runtime_instantiate_ex(WASMModuleCommon *module,
+                            const InstantiationArgs *args, char *error_buf,
+                            uint32 error_buf_size);
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool

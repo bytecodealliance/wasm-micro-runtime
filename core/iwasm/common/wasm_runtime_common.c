@@ -1357,6 +1357,30 @@ wasm_runtime_unload(WASMModuleCommon *module)
 #endif
 }
 
+uint32
+wasm_runtime_get_max_mem(uint32 max_memory_pages, uint32 module_init_page_count,
+                         uint32 module_max_page_count)
+{
+    if (max_memory_pages == 0) {
+        /* Max memory not overwritten by runtime, use value from wasm module */
+        return module_max_page_count;
+    }
+
+    if (max_memory_pages < module_init_page_count) {
+        LOG_WARNING("Cannot override max memory with value lower than module "
+                    "initial memory");
+        return module_init_page_count;
+    }
+
+    if (max_memory_pages > module_max_page_count) {
+        LOG_WARNING("Cannot override max memory with value greater than module "
+                    "max memory");
+        return module_max_page_count;
+    }
+
+    return max_memory_pages;
+}
+
 WASMModuleInstanceCommon *
 wasm_runtime_instantiate_internal(WASMModuleCommon *module,
                                   WASMModuleInstanceCommon *parent,
@@ -1392,13 +1416,14 @@ wasm_runtime_instantiate(WASMModuleCommon *module, uint32 stack_size,
 }
 
 WASMModuleInstanceCommon *
-wasm_runtime_instantiate_ex(WASMModuleCommon *module, uint32 stack_size,
-                            uint32 heap_size, uint32 max_memory_pages,
-                            char *error_buf, uint32 error_buf_size)
+wasm_runtime_instantiate_ex(WASMModuleCommon *module,
+                            const InstantiationArgs *args, char *error_buf,
+                            uint32 error_buf_size)
 {
-    return wasm_runtime_instantiate_internal(module, NULL, NULL, stack_size,
-                                             heap_size, max_memory_pages,
-                                             error_buf, error_buf_size);
+    return wasm_runtime_instantiate_internal(
+        module, NULL, NULL, args->default_stack_size,
+        args->host_managed_heap_size, args->max_memory_pages, error_buf,
+        error_buf_size);
 }
 
 void
