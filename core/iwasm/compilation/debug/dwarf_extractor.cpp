@@ -354,10 +354,27 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
         LLVMDIBuilderCreateExpression(DIB, NULL, 0);
     auto variable_list =
         function.GetBlock().GetVariables(extractor->target, true, false, false);
+    unsigned int variable_offset = 0;
     if (num_function_args != variable_list.GetSize()) {
-        LOG_ERROR(
-            "function args number dismatch!:value number=%d, function args=%d",
-            variable_list.GetSize(), num_function_args);
+        // A hack to detect C++ "this" pointer.
+        //
+        // REVISIT: is there a more reliable way?
+        // At the DWARF level, we can probably look at DW_AT_object_pointer
+        // and DW_AT_artificial. I'm not sure how it can be done via the
+        // LLDB API though.
+        if (num_function_args + 1 == variable_list.GetSize()) {
+            SBValue variable(variable_list.GetValueAtIndex(0));
+            const char *varname = variable.GetName();
+            if (varname != NULL && !strcmp(varname, "this")) {
+                variable_offset = 1;
+            }
+        }
+        if (!variable_offset) {
+            LOG_ERROR("function args number dismatch!:function %s %s value "
+                      "number=%d, function args=%d",
+                      function_name, function.GetMangledName(),
+                      variable_list.GetSize(), num_function_args);
+        }
     }
 
     LLVMMetadataRef ParamLocation = LLVMDIBuilderCreateDebugLocation(
@@ -378,9 +395,10 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
     LLVMDIBuilderInsertDbgValueAtEnd(DIB, Param, ParamVar, ParamExpression,
                                      ParamLocation, block_curr);
 
-    for (uint32_t function_arg_idx = 0;
-         function_arg_idx < variable_list.GetSize(); ++function_arg_idx) {
-        SBValue variable(variable_list.GetValueAtIndex(function_arg_idx));
+    for (uint32_t function_arg_idx = 0; function_arg_idx < num_function_args;
+         ++function_arg_idx) {
+        uint32_t variable_idx = variable_offset + function_arg_idx;
+        SBValue variable(variable_list.GetValueAtIndex(variable_idx));
         if (variable.IsValid()) {
             SBDeclaration dec(variable.GetDeclaration());
             auto valtype = variable.GetType();
@@ -390,12 +408,11 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
             const char *varname = variable.GetName();
             LLVMMetadataRef ParamVar = LLVMDIBuilderCreateParameterVariable(
                 DIB, FunctionMetadata, varname, varname ? strlen(varname) : 0,
-                function_arg_idx + 1 + 1,
+                variable_idx + 1 + 1,
                 File, // starts form 1, and 1 is exenv,
                 dec.GetLine(), ParamTypes[function_arg_idx + 1], true,
                 LLVMDIFlagZero);
-            LLVMValueRef Param =
-                LLVMGetParam(func_ctx->func, function_arg_idx + 1);
+            LLVMValueRef Param = LLVMGetParam(func_ctx->func, variable_idx + 1);
             LLVMDIBuilderInsertDbgValueAtEnd(DIB, Param, ParamVar,
                                              ParamExpression, ParamLocation,
                                              block_curr);
