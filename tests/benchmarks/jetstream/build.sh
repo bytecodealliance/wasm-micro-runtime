@@ -7,11 +7,11 @@ source /opt/emsdk/emsdk_env.sh
 
 PLATFORM=$(uname -s | tr A-Z a-z)
 
+WORK_DIR=$PWD
 OUT_DIR=$PWD/out
 WAMRC_CMD=$PWD/../../../wamr-compiler/build/wamrc
+JETSTREAM_DIR=$PWD/perf-automation/benchmarks/JetStream2/wasm
 
-mkdir -p jetstream
-mkdir -p tsf-src
 mkdir -p ${OUT_DIR}
 
 if [[ $1 != "--no-simd" ]];then
@@ -22,20 +22,16 @@ else
     WASM_SIMD_FLAGS=""
 fi
 
-cd jetstream
-
-echo "Download source files .."
-wget -N https://browserbench.org/JetStream/wasm/gcc-loops.cpp
-wget -N https://browserbench.org/JetStream/wasm/quicksort.c
-wget -N https://browserbench.org/JetStream/wasm/HashSet.cpp
-wget -N https://browserbench.org/JetStream/simple/float-mm.c
-
-if [[ $? != 0 ]]; then
-    exit
+if [ ! -d perf-automation ]; then
+    git clone https://github.com/mozilla/perf-automation.git
+    echo "Patch source files .."
+    cd perf-automation
+    patch -p1 -N < ../jetstream.patch
 fi
 
-echo "Patch source files .."
-patch -p1 -N < ../jetstream.patch
+cd ${JETSTREAM_DIR}
+
+# Build gcc-loops
 
 echo "Build gcc-loops with g++ .."
 g++ -O3 ${NATIVE_SIMD_FLAGS} -o ${OUT_DIR}/gcc-loops_native gcc-loops.cpp
@@ -56,6 +52,8 @@ if [[ ${PLATFORM} == "linux" ]]; then
     ${WAMRC_CMD} --enable-segue -o ${OUT_DIR}/gcc-loops_segue.aot ${OUT_DIR}/gcc-loops.wasm
 fi
 
+# Build quicksort
+
 echo "Build quicksort with gcc .."
 gcc -O3 ${NATIVE_SIMD_FLAGS} -o ${OUT_DIR}/quicksort_native quicksort.c
 
@@ -73,6 +71,8 @@ if [[ ${PLATFORM} == "linux" ]]; then
     echo "Compile quicksort.wasm to quicksort_segue.aot"
     ${WAMRC_CMD} --enable-segue -o ${OUT_DIR}/quicksort_segue.aot ${OUT_DIR}/quicksort.wasm
 fi
+
+# Build HashSet
 
 echo "Build HashSet with g++ .."
 g++ -O3 ${NATIVE_SIMD_FLAGS} -o ${OUT_DIR}/HashSet_native HashSet.cpp \
@@ -93,6 +93,10 @@ if [[ ${PLATFORM} == "linux" ]]; then
     ${WAMRC_CMD} --enable-segue -o ${OUT_DIR}/HashSet_segue.aot ${OUT_DIR}/HashSet.wasm
 fi
 
+# Build float-mm
+
+cd ${JETSTREAM_DIR}/../simple
+
 echo "Build float-mm with gcc .."
 gcc -O3 ${NATIVE_SIMD_FLAGS} -o ${OUT_DIR}/float-mm_native float-mm.c
 
@@ -111,7 +115,9 @@ if [[ ${PLATFORM} == "linux" ]]; then
     ${WAMRC_CMD} --enable-segue -o ${OUT_DIR}/float-mm_segue.aot ${OUT_DIR}/float-mm.wasm
 fi
 
-cd ../tsf-src
+# Build tsf
+
+cd ${JETSTREAM_DIR}/TSF
 
 tsf_srcs="tsf_asprintf.c tsf_buffer.c tsf_error.c tsf_reflect.c tsf_st.c \
           tsf_type.c tsf_io.c tsf_native.c tsf_generator.c tsf_st_typetable.c \
@@ -126,28 +132,6 @@ tsf_srcs="tsf_asprintf.c tsf_buffer.c tsf_error.c tsf_reflect.c tsf_st.c \
           tsf_ra_type_man.c tsf_adaptive_reader.c tsf_sha1.c tsf_sha1_writer.c \
           tsf_fsdb.c tsf_fsdb_protocol.c tsf_define_helpers.c tsf_ir.c \
           tsf_ir_different.c tsf_ir_speed.c"
-
-tsf_files="${tsf_srcs} config.h gpc_worklist.h \
-           tsf_config_stub.h tsf.h tsf_internal.h tsf_region.h tsf_types.h \
-           gpc.h tsf_atomics.h tsf_define_helpers.h tsf_indent.h tsf_inttypes.h \
-           tsf_serial_protocol.h tsf_util.h gpc_int_common.h tsf_build_defines.h \
-           tsf_format.h tsf_internal_config.h tsf_ir_different.h tsf_sha1.h \
-           tsf_zip_abstract.h gpc_internal.h tsf_config.h tsf_fsdb_protocol.h \
-           tsf_internal_config_stub.h tsf_ir.h tsf_st.h \
-           gpc_instruction_dispatch.gen gpc_instruction_stack_effects.gen \
-           gpc_instruction_to_string.gen gpc_instruction_size.gen \
-           gpc_instruction_static_size.gen gpc_interpreter.gen"
-
-echo "Download tsf source files .."
-for t in ${tsf_files}
-do
-    wget -N "https://browserbench.org/JetStream/wasm/TSF/${t}"
-    if [[ $? != 0 ]]; then
-        exit
-    fi
-done
-
-patch -p1 -N < ../tsf.patch
 
 echo "Build tsf with gcc .."
 gcc \
