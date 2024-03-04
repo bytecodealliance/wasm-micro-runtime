@@ -177,6 +177,8 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         const uint8 *ip = comp_ctx->aot_frame->frame_ip;
         LLVMValueRef exce_ip = NULL;
 
+#if WASM_ENABLE_DEBUG_INTERP != 0 || WASM_ENABLE_FAST_JIT != 0 \
+    || WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_JIT != 0
         if (!comp_ctx->is_jit_mode) {
             WASMModule *module = comp_ctx->comp_data->wasm_module;
             if (is_64bit)
@@ -186,7 +188,9 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 exce_ip =
                     I32_CONST((uint32)(uintptr_t)(ip - module->load_addr));
         }
-        else {
+        else
+#endif
+        {
             if (is_64bit)
                 exce_ip = I64_CONST((uint64)(uintptr_t)ip);
             else

@@ -595,6 +595,8 @@ aot_gen_commit_sp_ip(AOTCompFrame *frame, bool commit_sp, bool commit_ip)
             return false;
         }
 
+#if WASM_ENABLE_DEBUG_INTERP != 0 || WASM_ENABLE_FAST_JIT != 0 \
+    || WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_JIT != 0
         if (!comp_ctx->is_jit_mode) {
             WASMModule *module = comp_ctx->comp_data->wasm_module;
             if (is_64bit)
@@ -602,7 +604,9 @@ aot_gen_commit_sp_ip(AOTCompFrame *frame, bool commit_sp, bool commit_ip)
             else
                 value = I32_CONST((uint32)(uintptr_t)(ip - module->load_addr));
         }
-        else {
+        else
+#endif
+        {
             if (is_64bit)
                 value = I64_CONST((uint64)(uintptr_t)ip);
             else
