@@ -387,6 +387,7 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
         LLVMDIBuilderCreateExpression(DIB, NULL, 0);
     auto variable_list =
         function.GetBlock().GetVariables(extractor->target, true, false, false);
+    unsigned int variable_offset = 0;
     if (num_function_args != variable_list.GetSize()) {
         LOG_ERROR(
             "function args number mismatch!:value number=%d, function args=%d",
@@ -423,12 +424,11 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
             const char *varname = variable.GetName();
             LLVMMetadataRef ParamVar = LLVMDIBuilderCreateParameterVariable(
                 DIB, FunctionMetadata, varname, varname ? strlen(varname) : 0,
-                function_arg_idx + 1 + 1,
+                variable_idx + 1 + 1,
                 File, // starts form 1, and 1 is exenv,
                 dec.GetLine(), ParamTypes[function_arg_idx + 1], true,
                 LLVMDIFlagZero);
-            LLVMValueRef Param =
-                LLVMGetParam(func_ctx->func, function_arg_idx + 1);
+            LLVMValueRef Param = LLVMGetParam(func_ctx->func, variable_idx + 1);
             LLVMDIBuilderInsertDbgValueAtEnd(DIB, Param, ParamVar,
                                              ParamExpression, ParamLocation,
                                              block_curr);
