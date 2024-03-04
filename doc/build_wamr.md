@@ -132,11 +132,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 #### **Enable AOT stack frame feature**
 - **WAMR_BUILD_AOT_STACK_FRAME**=1/0, default to disable if not set
-> Note: if it is enabled, the AOT stack frames (like stack frame of classic interpreter but only necessary data is committed) will be created for AOT mode in function calls. And please add `--enable-dump-call-stack` option to wamrc during compiling AOT module.
-
-#### **ENABLE JIT stack frame feature**
-- **WAMR_BUILD_JIT_STACK_FRAME**=1/0, default to disable if not set
-> Note: if it is enabled, the JIT stack frames (like stack frame of classic interpreter but only necessary data is committed) will be created for JIT mode in function calls.
+> Note: if it is enabled, the AOT or JIT stack frames (like stack frame of classic interpreter but only necessary data is committed) will be created for AOT or JIT mode in function calls. And please add `--enable-dump-call-stack` option to wamrc during compiling AOT module.
 
 #### **Enable dump call stack feature**
 - **WAMR_BUILD_DUMP_CALL_STACK**=1/0, default to disable if not set

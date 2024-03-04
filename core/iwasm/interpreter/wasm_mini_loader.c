@@ -2143,7 +2143,7 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
 #endif
     option.enable_aux_stack_check = true;
 #if WASM_ENABLE_PERF_PROFILING != 0 || WASM_ENABLE_DUMP_CALL_STACK != 0 \
-    || WASM_ENABLE_JIT_STACK_FRAME != 0
+    || WASM_ENABLE_AOT_STACK_FRAME != 0
     option.enable_aux_stack_frame = true;
 #endif
 #if WASM_ENABLE_PERF_PROFILING != 0
@@ -2271,7 +2271,7 @@ orcjit_thread_callback(void *arg)
     /* Compile fast jit funcitons of this group */
     for (i = group_idx; i < func_count; i += group_stride) {
         if (!jit_compiler_compile(module, i + module->import_function_count)) {
-            os_printf("failed to compile fast jit function %u\n", i);
+            LOG_ERROR("failed to compile fast jit function %u\n", i);
             break;
         }
 
@@ -2298,7 +2298,7 @@ orcjit_thread_callback(void *arg)
                 if (!jit_compiler_set_call_to_fast_jit(
                         module,
                         i + j * group_stride + module->import_function_count)) {
-                    os_printf(
+                    LOG_ERROR(
                         "failed to compile call_to_fast_jit for func %u\n",
                         i + j * group_stride + module->import_function_count);
                     module->orcjit_stop_compiling = true;
@@ -2348,7 +2348,7 @@ orcjit_thread_callback(void *arg)
             LLVMOrcLLLazyJITLookup(comp_ctx->orc_jit, &func_addr, func_name);
         if (error != LLVMErrorSuccess) {
             char *err_msg = LLVMGetErrorMessage(error);
-            os_printf("failed to compile llvm jit function %u: %s", i, err_msg);
+            LOG_ERROR("failed to compile llvm jit function %u: %s", i, err_msg);
             LLVMDisposeErrorMessage(err_msg);
             break;
         }
@@ -2369,7 +2369,7 @@ orcjit_thread_callback(void *arg)
                                                func_name);
                 if (error != LLVMErrorSuccess) {
                     char *err_msg = LLVMGetErrorMessage(error);
-                    os_printf("failed to compile llvm jit function %u: %s", i,
+                    LOG_ERROR("failed to compile llvm jit function %u: %s", i,
                               err_msg);
                     LLVMDisposeErrorMessage(err_msg);
                     /* Ignore current llvm jit func, as its func ptr is
@@ -5451,7 +5451,8 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
     int32 i, available_stack_cell;
     uint16 cell_num;
 
-    if (loader_ctx->csp_num < depth + 1) {
+    bh_assert(loader_ctx->csp_num > 0);
+    if (loader_ctx->csp_num - 1 < depth) {
         set_error_buf(error_buf, error_buf_size,
                       "unknown label, "
                       "unexpected end of section or function");
@@ -6812,7 +6813,6 @@ re_scan:
             {
                 p_org = p - 1;
                 GET_LOCAL_INDEX_TYPE_AND_OFFSET();
-                POP_TYPE(local_type);
 
 #if WASM_ENABLE_FAST_INTERP != 0
                 if (!(preserve_referenced_local(
@@ -6866,6 +6866,7 @@ re_scan:
                 }
 #endif
 #endif
+                POP_TYPE(local_type);
                 break;
             }
 

@@ -720,8 +720,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
     ConstExprContext const_expr_ctx = { 0 };
     WASMValue cur_value;
 #if WASM_ENABLE_GC != 0
-    uint8 opcode1;
-    uint32 type_idx;
+    uint32 opcode1, type_idx;
+    uint8 opcode;
     WASMRefType cur_ref_type = { 0 };
 #endif
 
@@ -998,8 +998,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
             /* struct.new and array.new */
             case WASM_OP_GC_PREFIX:
             {
-                CHECK_BUF(p, p_end, 1);
-                opcode1 = read_uint8(p);
+                read_leb_uint32(p, p_end, opcode1);
 
                 switch (opcode1) {
                     case WASM_OP_STRUCT_NEW:
@@ -1061,8 +1060,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                             &cur_ref_type.ref_ht_typeidx, false, type_idx);
                         if (!push_const_expr_stack(
                                 &const_expr_ctx, flag, cur_ref_type.ref_type,
-                                &cur_ref_type, opcode1, &cur_value, error_buf,
-                                error_buf_size)) {
+                                &cur_ref_type, (uint8)opcode1, &cur_value,
+                                error_buf, error_buf_size)) {
                             wasm_runtime_free(struct_init_values);
                             goto fail;
                         }
@@ -1089,8 +1088,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                             &cur_ref_type.ref_ht_typeidx, false, type_idx);
                         if (!push_const_expr_stack(
                                 &const_expr_ctx, flag, cur_ref_type.ref_type,
-                                &cur_ref_type, opcode1, &cur_value, error_buf,
-                                error_buf_size)) {
+                                &cur_ref_type, (uint8)opcode1, &cur_value,
+                                error_buf, error_buf_size)) {
                             goto fail;
                         }
                         break;
@@ -1216,8 +1215,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                             &cur_ref_type.ref_ht_typeidx, false, type_idx);
                         if (!push_const_expr_stack(
                                 &const_expr_ctx, flag, cur_ref_type.ref_type,
-                                &cur_ref_type, opcode1, &cur_value, error_buf,
-                                error_buf_size)) {
+                                &cur_ref_type, (uint8)opcode1, &cur_value,
+                                error_buf, error_buf_size)) {
                             if (array_init_values) {
                                 wasm_runtime_free(array_init_values);
                             }
@@ -1252,8 +1251,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                                     false, HEAP_TYPE_I31);
                         if (!push_const_expr_stack(
                                 &const_expr_ctx, flag, cur_ref_type.ref_type,
-                                &cur_ref_type, opcode1, &cur_value, error_buf,
-                                error_buf_size)) {
+                                &cur_ref_type, (uint8)opcode1, &cur_value,
+                                error_buf, error_buf_size)) {
                             goto fail;
                         }
                         break;
@@ -1285,7 +1284,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
     /* There should be only one value left on the init value stack */
     if (!pop_const_expr_stack(&const_expr_ctx, &flag, type,
 #if WASM_ENABLE_GC != 0
-                              ref_type, &opcode1,
+                              ref_type, &opcode,
 #endif
                               &cur_value, error_buf, error_buf_size)) {
         goto fail;
@@ -1302,7 +1301,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 
 #if WASM_ENABLE_GC != 0
     if (init_expr->init_expr_type == WASM_OP_GC_PREFIX) {
-        switch (opcode1) {
+        switch (opcode) {
             case WASM_OP_STRUCT_NEW:
                 init_expr->init_expr_type = INIT_EXPR_TYPE_STRUCT_NEW;
                 break;
@@ -5235,7 +5234,7 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
 #endif
     option.enable_aux_stack_check = true;
 #if WASM_ENABLE_PERF_PROFILING != 0 || WASM_ENABLE_DUMP_CALL_STACK != 0 \
-    || WASM_ENABLE_JIT_STACK_FRAME != 0
+    || WASM_ENABLE_AOT_STACK_FRAME != 0
     option.enable_aux_stack_frame = true;
 #endif
 #if WASM_ENABLE_PERF_PROFILING != 0
@@ -5361,7 +5360,7 @@ orcjit_thread_callback(void *arg)
     /* Compile fast jit funcitons of this group */
     for (i = group_idx; i < func_count; i += group_stride) {
         if (!jit_compiler_compile(module, i + module->import_function_count)) {
-            os_printf("failed to compile fast jit function %u\n", i);
+            LOG_ERROR("failed to compile fast jit function %u\n", i);
             break;
         }
 
@@ -5388,7 +5387,7 @@ orcjit_thread_callback(void *arg)
                 if (!jit_compiler_set_call_to_fast_jit(
                         module,
                         i + j * group_stride + module->import_function_count)) {
-                    os_printf(
+                    LOG_ERROR(
                         "failed to compile call_to_fast_jit for func %u\n",
                         i + j * group_stride + module->import_function_count);
                     module->orcjit_stop_compiling = true;
@@ -5438,7 +5437,7 @@ orcjit_thread_callback(void *arg)
             LLVMOrcLLLazyJITLookup(comp_ctx->orc_jit, &func_addr, func_name);
         if (error != LLVMErrorSuccess) {
             char *err_msg = LLVMGetErrorMessage(error);
-            os_printf("failed to compile llvm jit function %u: %s", i, err_msg);
+            LOG_ERROR("failed to compile llvm jit function %u: %s", i, err_msg);
             LLVMDisposeErrorMessage(err_msg);
             break;
         }
@@ -5459,7 +5458,7 @@ orcjit_thread_callback(void *arg)
                                                func_name);
                 if (error != LLVMErrorSuccess) {
                     char *err_msg = LLVMGetErrorMessage(error);
-                    os_printf("failed to compile llvm jit function %u: %s", i,
+                    LOG_ERROR("failed to compile llvm jit function %u: %s", i,
                               err_msg);
                     LLVMDisposeErrorMessage(err_msg);
                     /* Ignore current llvm jit func, as its func ptr is
@@ -6367,14 +6366,22 @@ check_wasi_abi_compatibility(const WASMModule *module,
     /* clang-format on */
 
     WASMExport *initialize = NULL, *memory = NULL, *start = NULL;
+    uint32 import_function_count = module->import_function_count;
+    WASMFuncType *func_type;
 
     /* (func (export "_start") (...) */
     start = wasm_loader_find_export(module, "", "_start", EXPORT_KIND_FUNC,
                                     error_buf, error_buf_size);
     if (start) {
-        WASMFuncType *func_type =
-            module->functions[start->index - module->import_function_count]
-                ->func_type;
+        if (start->index < import_function_count) {
+            set_error_buf(
+                error_buf, error_buf_size,
+                "the builtin _start function can not be an import function");
+            return false;
+        }
+
+        func_type =
+            module->functions[start->index - import_function_count]->func_type;
         if (func_type->param_count || func_type->result_count) {
             set_error_buf(error_buf, error_buf_size,
                           "the signature of builtin _start function is wrong");
@@ -6386,11 +6393,17 @@ check_wasi_abi_compatibility(const WASMModule *module,
         initialize =
             wasm_loader_find_export(module, "", "_initialize", EXPORT_KIND_FUNC,
                                     error_buf, error_buf_size);
+
         if (initialize) {
-            WASMFuncType *func_type =
-                module
-                    ->functions[initialize->index
-                                - module->import_function_count]
+            if (initialize->index < import_function_count) {
+                set_error_buf(error_buf, error_buf_size,
+                              "the builtin _initialize function can not be an "
+                              "import function");
+                return false;
+            }
+
+            func_type =
+                module->functions[initialize->index - import_function_count]
                     ->func_type;
             if (func_type->param_count || func_type->result_count) {
                 set_error_buf(
@@ -7243,8 +7256,11 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                 uint32 opcode1;
 
                 read_leb_uint32(p, p_end, opcode1);
+                /* opcode1 was checked in wasm_loader_prepare_bytecode and
+                   is no larger than UINT8_MAX */
+                opcode = (uint8)opcode1;
 
-                switch (opcode1) {
+                switch (opcode) {
                     case WASM_OP_STRUCT_NEW:
                     case WASM_OP_STRUCT_NEW_DEFAULT:
                         skip_leb_uint32(p, p_end); /* typeidx */
@@ -7369,8 +7385,11 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                 uint32 opcode1;
 
                 read_leb_uint32(p, p_end, opcode1);
+                /* opcode1 was checked in wasm_loader_prepare_bytecode and
+                   is no larger than UINT8_MAX */
+                opcode = (uint8)opcode1;
 
-                switch (opcode1) {
+                switch (opcode) {
                     case WASM_OP_I32_TRUNC_SAT_S_F32:
                     case WASM_OP_I32_TRUNC_SAT_U_F32:
                     case WASM_OP_I32_TRUNC_SAT_S_F64:
@@ -9899,7 +9918,8 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
     bool is_type_multi_byte;
 #endif
 
-    if (loader_ctx->csp_num < depth + 1) {
+    bh_assert(loader_ctx->csp_num > 0);
+    if (loader_ctx->csp_num - 1 < depth) {
         set_error_buf(error_buf, error_buf_size,
                       "unknown label, "
                       "unexpected end of section or function");
@@ -12342,7 +12362,6 @@ re_scan:
             {
                 p_org = p - 1;
                 GET_LOCAL_INDEX_TYPE_AND_OFFSET();
-                POP_TYPE(local_type);
 
 #if WASM_ENABLE_FAST_INTERP != 0
                 if (!(preserve_referenced_local(
@@ -12413,6 +12432,8 @@ re_scan:
                     wasm_loader_mask_local(loader_ctx, local_idx - param_count);
                 }
 #endif
+
+                POP_TYPE(local_type);
                 break;
             }
 

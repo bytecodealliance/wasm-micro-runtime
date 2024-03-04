@@ -4181,7 +4181,7 @@ load(const uint8 *buf, uint32 size, AOTModule *module, char *error_buf,
     {
         uint32 i;
         for (i = 0; i < module->func_count; i++) {
-            os_printf("AOT func %u, addr: %p\n", i, module->func_ptrs[i]);
+            LOG_VERBOSE("AOT func %u, addr: %p\n", i, module->func_ptrs[i]);
         }
     }
 #endif
