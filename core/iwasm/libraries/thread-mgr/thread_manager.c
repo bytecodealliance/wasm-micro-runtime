@@ -504,7 +504,7 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
     }
 
     if (!(new_module_inst = wasm_runtime_instantiate_internal(
-              module, module_inst, exec_env, stack_size, 0, NULL, 0))) {
+              module, module_inst, exec_env, stack_size, 0, 0, NULL, 0))) {
         return NULL;
     }
 

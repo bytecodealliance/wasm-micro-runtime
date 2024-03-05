@@ -186,6 +186,16 @@ struct wasm_config_t {
     /*TODO: wasi args*/
 };
 
+#ifndef INSTANTIATION_ARGS_OPTION_DEFINED
+#define INSTANTIATION_ARGS_OPTION_DEFINED
+/* WASM module instantiation arguments */
+typedef struct InstantiationArgs {
+    uint32_t default_stack_size;
+    uint32_t host_managed_heap_size;
+    uint32_t max_memory_pages;
+} InstantiationArgs;
+#endif /* INSTANTIATION_ARGS_OPTION_DEFINED */
+
 /*
  * by default:
  * - mem_alloc_type is Alloc_With_System_Allocator
@@ -642,6 +652,12 @@ WASM_API_EXTERN own wasm_instance_t* wasm_instance_new(
 WASM_API_EXTERN own wasm_instance_t* wasm_instance_new_with_args(
   wasm_store_t*, const wasm_module_t*, const wasm_extern_vec_t *imports,
   own wasm_trap_t** trap, const uint32_t stack_size, const uint32_t heap_size
+);
+
+// please refer to wasm_runtime_instantiate_ex(...) in core/iwasm/include/wasm_export.h
+WASM_API_EXTERN own wasm_instance_t* wasm_instance_new_with_args_ex(
+  wasm_store_t*, const wasm_module_t*, const wasm_extern_vec_t *imports,
+  own wasm_trap_t** trap, const InstantiationArgs *inst_args
 );
 
 WASM_API_EXTERN void wasm_instance_exports(const wasm_instance_t*, own wasm_extern_vec_t* out);

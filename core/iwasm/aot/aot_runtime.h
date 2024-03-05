@@ -482,7 +482,8 @@ aot_unload(AOTModule *module);
 AOTModuleInstance *
 aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
                 WASMExecEnv *exec_env_main, uint32 stack_size, uint32 heap_size,
-                char *error_buf, uint32 error_buf_size);
+                uint32 max_memory_pages, char *error_buf,
+                uint32 error_buf_size);
 
 /**
  * Deinstantiate a AOT module instance, destroy the resources.

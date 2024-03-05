@@ -1357,24 +1357,48 @@ wasm_runtime_unload(WASMModuleCommon *module)
 #endif
 }
 
+uint32
+wasm_runtime_get_max_mem(uint32 max_memory_pages, uint32 module_init_page_count,
+                         uint32 module_max_page_count)
+{
+    if (max_memory_pages == 0) {
+        /* Max memory not overwritten by runtime, use value from wasm module */
+        return module_max_page_count;
+    }
+
+    if (max_memory_pages < module_init_page_count) {
+        LOG_WARNING("Cannot override max memory with value lower than module "
+                    "initial memory");
+        return module_init_page_count;
+    }
+
+    if (max_memory_pages > module_max_page_count) {
+        LOG_WARNING("Cannot override max memory with value greater than module "
+                    "max memory");
+        return module_max_page_count;
+    }
+
+    return max_memory_pages;
+}
+
 WASMModuleInstanceCommon *
 wasm_runtime_instantiate_internal(WASMModuleCommon *module,
                                   WASMModuleInstanceCommon *parent,
                                   WASMExecEnv *exec_env_main, uint32 stack_size,
-                                  uint32 heap_size, char *error_buf,
-                                  uint32 error_buf_size)
+                                  uint32 heap_size, uint32 max_memory_pages,
+                                  char *error_buf, uint32 error_buf_size)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode)
         return (WASMModuleInstanceCommon *)wasm_instantiate(
             (WASMModule *)module, (WASMModuleInstance *)parent, exec_env_main,
-            stack_size, heap_size, error_buf, error_buf_size);
+            stack_size, heap_size, max_memory_pages, error_buf, error_buf_size);
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module->module_type == Wasm_Module_AoT)
         return (WASMModuleInstanceCommon *)aot_instantiate(
             (AOTModule *)module, (AOTModuleInstance *)parent, exec_env_main,
-            stack_size, heap_size, error_buf, error_buf_size);
+            stack_size, heap_size, max_memory_pages, error_buf, error_buf_size);
 #endif
     set_error_buf(error_buf, error_buf_size,
                   "Instantiate module failed, invalid module type");
@@ -1386,8 +1410,20 @@ wasm_runtime_instantiate(WASMModuleCommon *module, uint32 stack_size,
                          uint32 heap_size, char *error_buf,
                          uint32 error_buf_size)
 {
+    return wasm_runtime_instantiate_internal(module, NULL, NULL, stack_size,
+                                             heap_size, 0, error_buf,
+                                             error_buf_size);
+}
+
+WASMModuleInstanceCommon *
+wasm_runtime_instantiate_ex(WASMModuleCommon *module,
+                            const InstantiationArgs *args, char *error_buf,
+                            uint32 error_buf_size)
+{
     return wasm_runtime_instantiate_internal(
-        module, NULL, NULL, stack_size, heap_size, error_buf, error_buf_size);
+        module, NULL, NULL, args->default_stack_size,
+        args->host_managed_heap_size, args->max_memory_pages, error_buf,
+        error_buf_size);
 }
 
 void
@@ -6403,7 +6439,8 @@ bool
 wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
                                     WASMModuleInstanceCommon *module_inst,
                                     uint32 stack_size, uint32 heap_size,
-                                    char *error_buf, uint32 error_buf_size)
+                                    uint32 max_memory_pages, char *error_buf,
+                                    uint32 error_buf_size)
 {
     bh_list *sub_module_inst_list = NULL;
     WASMRegisteredModule *sub_module_list_node = NULL;
@@ -6431,8 +6468,8 @@ wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
         WASMModuleCommon *sub_module = sub_module_list_node->module;
         WASMModuleInstanceCommon *sub_module_inst = NULL;
         sub_module_inst = wasm_runtime_instantiate_internal(
-            sub_module, NULL, NULL, stack_size, heap_size, error_buf,
-            error_buf_size);
+            sub_module, NULL, NULL, stack_size, heap_size, max_memory_pages,
+            error_buf, error_buf_size);
         if (!sub_module_inst) {
             LOG_DEBUG("instantiate %s failed",
                       sub_module_list_node->module_name);

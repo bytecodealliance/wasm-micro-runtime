@@ -353,7 +353,8 @@ fail1:
 static WASMMemoryInstance **
 memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                      WASMModuleInstance *parent, uint32 heap_size,
-                     char *error_buf, uint32 error_buf_size)
+                     uint32 max_memory_pages, char *error_buf,
+                     uint32 error_buf_size)
 {
     WASMImport *import;
     uint32 mem_index = 0, i,
@@ -374,7 +375,9 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
     for (i = 0; i < module->import_memory_count; i++, import++, memory++) {
         uint32 num_bytes_per_page = import->u.memory.num_bytes_per_page;
         uint32 init_page_count = import->u.memory.init_page_count;
-        uint32 max_page_count = import->u.memory.max_page_count;
+        uint32 max_page_count = wasm_runtime_get_max_mem(
+            max_memory_pages, import->u.memory.init_page_count,
+            import->u.memory.max_page_count);
         uint32 flags = import->u.memory.flags;
         uint32 actual_heap_size = heap_size;
 
@@ -412,12 +415,15 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 
     /* instantiate memories from memory section */
     for (i = 0; i < module->memory_count; i++, memory++) {
+        uint32 max_page_count = wasm_runtime_get_max_mem(
+            max_memory_pages, module->memories[i].init_page_count,
+            module->memories[i].max_page_count);
         if (!(memories[mem_index] = memory_instantiate(
                   module_inst, parent, memory, mem_index,
                   module->memories[i].num_bytes_per_page,
-                  module->memories[i].init_page_count,
-                  module->memories[i].max_page_count, heap_size,
-                  module->memories[i].flags, error_buf, error_buf_size))) {
+                  module->memories[i].init_page_count, max_page_count,
+                  heap_size, module->memories[i].flags, error_buf,
+                  error_buf_size))) {
             memories_deinstantiate(module_inst, memories, memory_count);
             return NULL;
         }
@@ -1934,7 +1940,8 @@ wasm_set_running_mode(WASMModuleInstance *module_inst, RunningMode running_mode)
 WASMModuleInstance *
 wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                  WASMExecEnv *exec_env_main, uint32 stack_size,
-                 uint32 heap_size, char *error_buf, uint32 error_buf_size)
+                 uint32 heap_size, uint32 max_memory_pages, char *error_buf,
+                 uint32 error_buf_size)
 {
     WASMModuleInstance *module_inst;
     WASMGlobalInstance *globals = NULL, *global;
@@ -2022,7 +2029,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         &module_inst->e->sub_module_inst_list_head;
     ret = wasm_runtime_sub_module_instantiate(
         (WASMModuleCommon *)module, (WASMModuleInstanceCommon *)module_inst,
-        stack_size, heap_size, error_buf, error_buf_size);
+        stack_size, heap_size, max_memory_pages, error_buf, error_buf_size);
     if (!ret) {
         LOG_DEBUG("build a sub module list failed");
         goto fail;
@@ -2131,9 +2138,9 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
     /* Instantiate memories/tables/functions/tags */
     if ((module_inst->memory_count > 0
-         && !(module_inst->memories =
-                  memories_instantiate(module, module_inst, parent, heap_size,
-                                       error_buf, error_buf_size)))
+         && !(module_inst->memories = memories_instantiate(
+                  module, module_inst, parent, heap_size, max_memory_pages,
+                  error_buf, error_buf_size)))
         || (module_inst->table_count > 0
             && !(module_inst->tables =
                      tables_instantiate(module, module_inst, first_table,

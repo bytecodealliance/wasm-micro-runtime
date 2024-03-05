@@ -783,12 +783,15 @@ static AOTMemoryInstance *
 memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
                    AOTModule *module, AOTMemoryInstance *memory_inst,
                    AOTMemory *memory, uint32 memory_idx, uint32 heap_size,
-                   char *error_buf, uint32 error_buf_size)
+                   uint32 max_memory_pages, char *error_buf,
+                   uint32 error_buf_size)
 {
     void *heap_handle;
     uint32 num_bytes_per_page = memory->num_bytes_per_page;
     uint32 init_page_count = memory->mem_init_page_count;
-    uint32 max_page_count = memory->mem_max_page_count;
+    uint32 max_page_count =
+        wasm_runtime_get_max_mem(max_memory_pages, memory->mem_init_page_count,
+                                 memory->mem_max_page_count);
     uint32 inc_page_count, aux_heap_base, global_idx;
     uint32 bytes_of_last_page, bytes_to_page_end;
     uint32 heap_offset = num_bytes_per_page * init_page_count;
@@ -984,7 +987,8 @@ aot_get_default_memory(AOTModuleInstance *module_inst)
 
 static bool
 memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
-                     AOTModule *module, uint32 heap_size, char *error_buf,
+                     AOTModule *module, uint32 heap_size,
+                     uint32 max_memory_pages, char *error_buf,
                      uint32 error_buf_size)
 {
     uint32 global_index, global_data_offset, base_offset, length;
@@ -1002,9 +1006,9 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
 
     memories = module_inst->global_table_data.memory_instances;
     for (i = 0; i < memory_count; i++, memories++) {
-        memory_inst = memory_instantiate(module_inst, parent, module, memories,
-                                         &module->memories[i], i, heap_size,
-                                         error_buf, error_buf_size);
+        memory_inst = memory_instantiate(
+            module_inst, parent, module, memories, &module->memories[i], i,
+            heap_size, max_memory_pages, error_buf, error_buf_size);
         if (!memory_inst) {
             return false;
         }
@@ -1461,7 +1465,7 @@ check_linked_symbol(AOTModule *module, char *error_buf, uint32 error_buf_size)
 AOTModuleInstance *
 aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
                 WASMExecEnv *exec_env_main, uint32 stack_size, uint32 heap_size,
-                char *error_buf, uint32 error_buf_size)
+                uint32 max_memory_pages, char *error_buf, uint32 error_buf_size)
 {
     AOTModuleInstance *module_inst;
 #if WASM_ENABLE_BULK_MEMORY != 0 || WASM_ENABLE_REF_TYPES != 0
@@ -1551,7 +1555,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         &((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list_head;
     ret = wasm_runtime_sub_module_instantiate(
         (WASMModuleCommon *)module, (WASMModuleInstanceCommon *)module_inst,
-        stack_size, heap_size, error_buf, error_buf_size);
+        stack_size, heap_size, max_memory_pages, error_buf, error_buf_size);
     if (!ret) {
         LOG_DEBUG("build a sub module list failed");
         goto fail;
@@ -1613,8 +1617,8 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         goto fail;
 
     /* Initialize memory space */
-    if (!memories_instantiate(module_inst, parent, module, heap_size, error_buf,
-                              error_buf_size))
+    if (!memories_instantiate(module_inst, parent, module, heap_size,
+                              max_memory_pages, error_buf, error_buf_size))
         goto fail;
 
     /* Initialize function pointers */
