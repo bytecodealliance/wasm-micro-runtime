@@ -242,7 +242,7 @@ jobs:
         run: |
           cmake -S . -B build ${{ matrix.make_options }}
           cmake --build build --config Release --parallel 4
-          ctest --test-dir build
+          ctest --test-dir build --output-on-failure
         working-directory: samples/wasm-c-api
 
   build_samples_others:

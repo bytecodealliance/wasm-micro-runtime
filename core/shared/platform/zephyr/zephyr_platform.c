@@ -72,18 +72,20 @@ bh_platform_destroy()
 void *
 os_malloc(unsigned size)
 {
-    return NULL;
+    return malloc(size);
 }
 
 void *
 os_realloc(void *ptr, unsigned size)
 {
-    return NULL;
+    return realloc(ptr, size);
 }
 
 void
 os_free(void *ptr)
-{}
+{
+    free(ptr);
+}
 
 int
 os_dumps_proc_mem_info(char *out, unsigned int size)

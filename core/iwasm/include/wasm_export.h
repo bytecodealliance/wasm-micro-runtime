@@ -183,6 +183,16 @@ typedef struct RuntimeInitArgs {
     bool enable_linux_perf;
 } RuntimeInitArgs;
 
+#ifndef INSTANTIATION_ARGS_OPTION_DEFINED
+#define INSTANTIATION_ARGS_OPTION_DEFINED
+/* WASM module instantiation arguments */
+typedef struct InstantiationArgs {
+    uint32_t default_stack_size;
+    uint32_t host_managed_heap_size;
+    uint32_t max_memory_pages;
+} InstantiationArgs;
+#endif /* INSTANTIATION_ARGS_OPTION_DEFINED */
+
 #ifndef WASM_VALKIND_T_DEFINED
 #define WASM_VALKIND_T_DEFINED
 typedef uint8_t wasm_valkind_t;
@@ -525,6 +535,16 @@ wasm_runtime_set_wasi_ns_lookup_pool(wasm_module_t module, const char *ns_lookup
 WASM_RUNTIME_API_EXTERN wasm_module_inst_t
 wasm_runtime_instantiate(const wasm_module_t module,
                          uint32_t default_stack_size, uint32_t host_managed_heap_size,
+                         char *error_buf, uint32_t error_buf_size);
+
+/**
+ * Instantiate a WASM module, with specified instantiation arguments
+ * 
+ * Same as wasm_runtime_instantiate, but it also allows overwriting maximum memory
+ */
+WASM_RUNTIME_API_EXTERN wasm_module_inst_t
+wasm_runtime_instantiate_ex(const wasm_module_t module,
+                         const InstantiationArgs *args,
                          char *error_buf, uint32_t error_buf_size);
 
 /**

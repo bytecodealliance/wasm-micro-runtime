@@ -2500,15 +2500,26 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
     const uint8 *p = buf, *p_end = buf_end;
     uint32 i;
     uint64 size, text_offset;
+    uint32 func_count = module->func_count;
 
-    size = sizeof(void *) * (uint64)module->func_count;
+#if defined(BUILD_TARGET_XTENSA)
+    /*
+     * For Xtensa XIP, real func_count is doubled, including aot_func and
+     * aot_func_internal, so need to multipy func_count by 2 here.
+     */
+    if (module->is_indirect_mode) {
+        func_count *= 2;
+    }
+#endif
+
+    size = sizeof(void *) * (uint64)func_count;
     if (size > 0
         && !(module->func_ptrs =
                  loader_malloc(size, error_buf, error_buf_size))) {
         return false;
     }
 
-    for (i = 0; i < module->func_count; i++) {
+    for (i = 0; i < func_count; i++) {
         if (sizeof(void *) == 8) {
             read_uint64(p, p_end, text_offset);
         }
@@ -2543,14 +2554,14 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
         module->start_function = NULL;
     }
 
-    size = sizeof(uint32) * (uint64)module->func_count;
+    size = sizeof(uint32) * (uint64)func_count;
     if (size > 0
         && !(module->func_type_indexes =
                  loader_malloc(size, error_buf, error_buf_size))) {
         return false;
     }
 
-    for (i = 0; i < module->func_count; i++) {
+    for (i = 0; i < func_count; i++) {
         read_uint32(p, p_end, module->func_type_indexes[i]);
         if (module->func_type_indexes[i] >= module->type_count) {
             set_error_buf(error_buf, error_buf_size, "unknown type");

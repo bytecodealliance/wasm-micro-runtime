@@ -12,6 +12,9 @@
 __wasi_timestamp_t
 convert_filetime_to_wasi_timestamp(LPFILETIME filetime);
 
+FILETIME
+convert_wasi_timestamp_to_filetime(__wasi_timestamp_t timestamp);
+
 /* Convert a Windows error code to a WASI error code */
 __wasi_errno_t
 convert_windows_error_code(DWORD windows_error_code);
