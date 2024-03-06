@@ -94,7 +94,7 @@ extern "C" {
 #define DEFAULT_MAX_PAGES 65536
 
 /* Max size of linear memory */
-#define MAX_LINEAR_MEMORY_SIZE 4 * (uint64)BH_GB
+#define MAX_LINEAR_MEMORY_SIZE (4 * (uint64)BH_GB)
 
 #if WASM_ENABLE_GC == 0
 typedef uintptr_t table_elem_type_t;
@@ -1091,6 +1091,21 @@ inline static unsigned
 align_uint(unsigned v, unsigned b)
 {
     unsigned m = b - 1;
+    return (v + m) & ~m;
+}
+
+/**
+ * Align an 64 bit unsigned value on a alignment boundary.
+ *
+ * @param v the value to be aligned
+ * @param b the alignment boundary (2, 4, 8, ...)
+ *
+ * @return the aligned value
+ */
+inline static uint64
+align_uint64(uint64 v, uint64 b)
+{
+    uint64 m = b - 1;
     return (v + m) & ~m;
 }
 

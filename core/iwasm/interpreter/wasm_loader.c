@@ -5754,7 +5754,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     LOG_VERBOSE("Found aux __data_end global, value: %d",
                                 aux_data_end);
 
-                    aux_data_end = align_uint((uint32)aux_data_end, 16);
+                    aux_data_end = align_uint64(aux_data_end, 16);
                 }
             }
 
@@ -5941,29 +5941,35 @@ load_from_sections(WASMModule *module, WASMSection *sections,
         if (aux_data_end_global && aux_heap_base_global
             && aux_stack_top_global) {
             uint64 init_memory_size;
-            uint32 shrunk_memory_size = align_uint((uint32)aux_heap_base, 8);
+            uint64 shrunk_memory_size = align_uint64(aux_heap_base, 8);
 
-            if (module->import_memory_count) {
-                memory_import = &module->import_memories[0].u.memory;
-                init_memory_size = (uint64)memory_import->num_bytes_per_page
-                                   * memory_import->init_page_count;
-                if (shrunk_memory_size <= init_memory_size) {
-                    /* Reset memory info to decrease memory usage */
-                    memory_import->num_bytes_per_page = shrunk_memory_size;
-                    memory_import->init_page_count = 1;
-                    LOG_VERBOSE("Shrink import memory size to %d",
-                                shrunk_memory_size);
+            /* Only resize(shrunk) the memory size if num_bytes_per_page is in
+             * valid range of uint32 */
+            if (shrunk_memory_size <= UINT32_MAX) {
+                if (module->import_memory_count) {
+                    memory_import = &module->import_memories[0].u.memory;
+                    init_memory_size = (uint64)memory_import->num_bytes_per_page
+                                       * memory_import->init_page_count;
+                    if (shrunk_memory_size <= init_memory_size) {
+                        /* Reset memory info to decrease memory usage */
+                        memory_import->num_bytes_per_page = shrunk_memory_size;
+                        memory_import->init_page_count = 1;
+                        LOG_VERBOSE("Shrink import memory size to %d",
+                                    shrunk_memory_size);
+                    }
                 }
-            }
-            if (module->memory_count) {
-                memory = &module->memories[0];
-                init_memory_size = (uint64)memory->num_bytes_per_page
-                                   * memory->init_page_count;
-                if (shrunk_memory_size <= init_memory_size) {
-                    /* Reset memory info to decrease memory usage */
-                    memory->num_bytes_per_page = shrunk_memory_size;
-                    memory->init_page_count = 1;
-                    LOG_VERBOSE("Shrink memory size to %d", shrunk_memory_size);
+
+                if (module->memory_count) {
+                    memory = &module->memories[0];
+                    init_memory_size = (uint64)memory->num_bytes_per_page
+                                       * memory->init_page_count;
+                    if (shrunk_memory_size <= init_memory_size) {
+                        /* Reset memory info to decrease memory usage */
+                        memory->num_bytes_per_page = shrunk_memory_size;
+                        memory->init_page_count = 1;
+                        LOG_VERBOSE("Shrink memory size to %d",
+                                    shrunk_memory_size);
+                    }
                 }
             }
         }
@@ -5971,30 +5977,31 @@ load_from_sections(WASMModule *module, WASMSection *sections,
 #if WASM_ENABLE_MULTI_MODULE == 0
         if (module->import_memory_count) {
             memory_import = &module->import_memories[0].u.memory;
-            if (memory_import->init_page_count < DEFAULT_MAX_PAGES)
+            /* Only resize the memory to one big page if num_bytes_per_page is
+             * in valid range of uint32 */
+            if (memory_import->init_page_count < DEFAULT_MAX_PAGES) {
                 memory_import->num_bytes_per_page *=
                     memory_import->init_page_count;
-            else
-                memory_import->num_bytes_per_page = UINT32_MAX;
 
-            if (memory_import->init_page_count > 0)
-                memory_import->init_page_count = memory_import->max_page_count =
-                    1;
-            else
-                memory_import->init_page_count = memory_import->max_page_count =
-                    0;
+                if (memory_import->init_page_count > 0)
+                    memory_import->init_page_count =
+                        memory_import->max_page_count = 1;
+                else
+                    memory_import->init_page_count =
+                        memory_import->max_page_count = 0;
+            }
         }
         if (module->memory_count) {
             memory = &module->memories[0];
-            if (memory->init_page_count < DEFAULT_MAX_PAGES)
+            /* Only resize(shrunk) the memory size if num_bytes_per_page is in
+             * valid range of uint32 */
+            if (memory->init_page_count < DEFAULT_MAX_PAGES) {
                 memory->num_bytes_per_page *= memory->init_page_count;
-            else
-                memory->num_bytes_per_page = UINT32_MAX;
-
-            if (memory->init_page_count > 0)
-                memory->init_page_count = memory->max_page_count = 1;
-            else
-                memory->init_page_count = memory->max_page_count = 0;
+                if (memory->init_page_count > 0)
+                    memory->init_page_count = memory->max_page_count = 1;
+                else
+                    memory->init_page_count = memory->max_page_count = 0;
+            }
         }
 #endif
     }

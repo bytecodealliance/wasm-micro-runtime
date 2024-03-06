@@ -110,8 +110,9 @@ struct WASMMemoryInstance {
          0: non-shared memory, > 0: shared memory */
     bh_atomic_16_t ref_count;
 
-    /* Four bytes Paddings */
-    uint32 padding;
+    /* Four-byte paddings to ensure the layout of WASMMemoryInstance is the same
+     * in both 64-bit and 32-bit */
+    uint8 __paddings[4];
 
     /* Number bytes per page */
     uint32 num_bytes_per_page;
