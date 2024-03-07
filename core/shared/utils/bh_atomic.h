@@ -112,9 +112,12 @@ typedef uint16 bh_atomic_16_t;
 #endif
 #endif
 
-/* On 32-bit platform, disable 64-bit atomic opeartions */
+/* On some 32-bit platform, disable 64-bit atomic operations, otherwise
+ * undefined reference to `__atomic_load_8' */
 #ifndef WASM_UINT64_IS_ATOMIC
-#if UINT32_MAX == UINTPTR_MAX
+#if !defined(__linux__) && !defined(__FreeBSD__) && !defined(__NetBSD__) \
+    && !defined(__OpenBSD__) && (defined(__riscv) || defined(__arm__))   \
+    && UINT32_MAX == UINTPTR_MAX
 #undef BH_ATOMIC_64_IS_ATOMIC
 #define BH_ATOMIC_64_IS_ATOMIC 0
 #endif

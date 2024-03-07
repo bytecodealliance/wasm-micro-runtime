@@ -1015,10 +1015,9 @@ create_aux_stack_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         aot_set_last_error("llvm build load failed");
         return false;
     }
-    /* TODO: Memory64 the actual type depends on mem_idx type */
-    if (!(func_ctx->aux_stack_bound = LLVMBuildTruncOrBitCast(
-              comp_ctx->builder, func_ctx->aux_stack_bound, I32_TYPE,
-              "aux_stack_bound_mem_idx_type"))) {
+    if (!(func_ctx->aux_stack_bound =
+              LLVMBuildZExt(comp_ctx->builder, func_ctx->aux_stack_bound,
+                            I64_TYPE, "aux_stack_bound_i64"))) {
         aot_set_last_error("llvm build truncOrBitCast failed.");
         return false;
     }
@@ -1044,10 +1043,9 @@ create_aux_stack_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         aot_set_last_error("llvm build load failed");
         return false;
     }
-    /* TODO: Memory64 the actual type depends on mem_idx type */
-    if (!(func_ctx->aux_stack_bottom = LLVMBuildTruncOrBitCast(
-              comp_ctx->builder, func_ctx->aux_stack_bottom, I32_TYPE,
-              "aux_stack_bottom_mem_idx_type"))) {
+    if (!(func_ctx->aux_stack_bottom =
+              LLVMBuildZExt(comp_ctx->builder, func_ctx->aux_stack_bottom,
+                            I64_TYPE, "aux_stack_bottom_i64"))) {
         aot_set_last_error("llvm build truncOrBitCast failed.");
         return false;
     }

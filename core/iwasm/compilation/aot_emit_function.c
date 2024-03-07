@@ -1560,13 +1560,13 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                               comp_ctx->builder, native_addr_size, I64_TYPE,
                               "native_addr_size_i64"))) {
                         aot_set_last_error("llvm build zextOrBitCast failed.");
-                        return false;
+                        goto fail;
                     }
                     if (!(param_values[j] = LLVMBuildZExtOrBitCast(
                               comp_ctx->builder, param_values[j], I64_TYPE,
                               "native_addr_i64"))) {
                         aot_set_last_error("llvm build zextOrBitCast failed.");
-                        return false;
+                        goto fail;
                     }
                     if (!check_app_addr_and_convert(
                             comp_ctx, func_ctx, false, param_values[j],
@@ -1581,7 +1581,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                               comp_ctx->builder, param_values[j], I64_TYPE,
                               "native_addr_i64"))) {
                         aot_set_last_error("llvm build zextOrBitCast failed.");
-                        return false;
+                        goto fail;
                     }
                     if (!check_app_addr_and_convert(
                             comp_ctx, func_ctx, true, param_values[j],
