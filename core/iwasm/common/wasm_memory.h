@@ -20,7 +20,7 @@ extern "C" {
     BH_ATOMIC_64_LOAD(memory->memory_data_size)
 #define SET_LINEAR_MEMORY_SIZE(memory, size) \
     BH_ATOMIC_64_STORE(memory->memory_data_size, size)
-#else
+#elif WASM_ENABLE_SHARED_MEMORY != 0
 static inline uint64
 GET_LINEAR_MEMORY_SIZE(const WASMMemoryInstance *memory)
 {
@@ -36,6 +36,9 @@ SET_LINEAR_MEMORY_SIZE(WASMMemoryInstance *memory, uint64 size)
     BH_ATOMIC_64_STORE(memory->memory_data_size, size);
     SHARED_MEMORY_UNLOCK(memory);
 }
+#else
+#define GET_LINEAR_MEMORY_SIZE(memory) memory->memory_data_size
+#define SET_LINEAR_MEMORY_SIZE(memory, size) memory->memory_data_size = size
 #endif
 
 bool
