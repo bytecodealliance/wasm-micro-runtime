@@ -369,3 +369,13 @@ jobs:
           cd samples/terminate
           ./build.sh
           ./run.sh
+
+      - name: Build Sample [debug-tools]
+        run: |
+          cd samples/debug-tools
+          mkdir build && cd build
+          cmake ..
+          cmake --build . --config Debug --parallel 4
+          ./iwasm wasm-apps/trap.wasm | grep "#" > call_stack.txt
+          ./iwasm wasm-apps/trap.aot | grep "#" > call_stack_aot.txt
+          bash -x ../symbolicate.sh  
