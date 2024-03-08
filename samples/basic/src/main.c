@@ -61,7 +61,7 @@ main(int argc, char *argv_main[])
     wasm_function_inst_t func = NULL;
     wasm_function_inst_t func2 = NULL;
     char *native_buffer = NULL;
-    uint32_t wasm_buffer = 0;
+    uint64_t wasm_buffer = 0;
 
     RuntimeInitArgs init_args;
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
@@ -176,7 +176,7 @@ main(int argc, char *argv_main[])
            ret_val);
 
     // Next we will pass a buffer to the WASM function
-    uint32 argv2[4];
+    uint32 argv2[5];
 
     // must allocate buffer from wasm instance memory space (never use pointer
     // from host runtime)
@@ -185,8 +185,8 @@ main(int argc, char *argv_main[])
 
     memcpy(argv2, &ret_val, sizeof(float)); // the first argument
     argv2[1] = wasm_buffer; // the second argument is the wasm buffer address
-    argv2[2] = 100;         //  the third argument is the wasm buffer size
-    argv2[3] = 3; //  the last argument is the digits after decimal point for
+    argv2[3] = 100;         //  the third argument is the wasm buffer size
+    argv2[4] = 3; //  the last argument is the digits after decimal point for
                   //  converting float to string
 
     if (!(func2 = wasm_runtime_lookup_function(module_inst, "float_to_string",
@@ -231,7 +231,7 @@ fail:
         wasm_runtime_destroy_exec_env(exec_env);
     if (module_inst) {
         if (wasm_buffer)
-            wasm_runtime_module_free(module_inst, wasm_buffer);
+            wasm_runtime_module_free(module_inst, (uint64)wasm_buffer);
         wasm_runtime_deinstantiate(module_inst);
     }
     if (module)

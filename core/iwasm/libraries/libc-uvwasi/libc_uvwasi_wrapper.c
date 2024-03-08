@@ -115,9 +115,9 @@ wasi_args_get(wasm_exec_env_t exec_env, uint32 *argv_offsets, char *argv_buf)
 
     total_size = sizeof(int32) * ((uint64)argc + 1);
     if (total_size >= UINT32_MAX
-        || !validate_native_addr(argv_offsets, (uint32)total_size)
+        || !validate_native_addr(argv_offsets, total_size)
         || argv_buf_size >= UINT32_MAX
-        || !validate_native_addr(argv_buf, (uint32)argv_buf_size))
+        || !validate_native_addr(argv_buf, (uint64)argv_buf_size))
         return (wasi_errno_t)-1;
 
     total_size = sizeof(char *) * ((uint64)argc + 1);
@@ -132,7 +132,7 @@ wasi_args_get(wasm_exec_env_t exec_env, uint32 *argv_offsets, char *argv_buf)
     }
 
     for (i = 0; i < argc; i++)
-        argv_offsets[i] = addr_native_to_app(argv[i]);
+        argv_offsets[i] = (uint32)addr_native_to_app(argv[i]);
 
     wasm_runtime_free(argv);
     return 0;
@@ -150,8 +150,8 @@ wasi_args_sizes_get(wasm_exec_env_t exec_env, uint32 *argc_app,
     if (!uvwasi)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr(argc_app, sizeof(uint32))
-        || !validate_native_addr(argv_buf_size_app, sizeof(uint32)))
+    if (!validate_native_addr(argc_app, (uint64)sizeof(uint32))
+        || !validate_native_addr(argv_buf_size_app, (uint64)sizeof(uint32)))
         return (wasi_errno_t)-1;
 
     err = uvwasi_args_sizes_get(uvwasi, &argc, &argv_buf_size);
@@ -170,7 +170,7 @@ wasi_clock_res_get(wasm_exec_env_t exec_env, wasi_clockid_t clock_id,
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     uvwasi_t *uvwasi = get_wasi_ctx(module_inst);
 
-    if (!validate_native_addr(resolution, sizeof(wasi_timestamp_t)))
+    if (!validate_native_addr(resolution, (uint64)sizeof(wasi_timestamp_t)))
         return (wasi_errno_t)-1;
 
     return uvwasi_clock_res_get(uvwasi, clock_id, resolution);
@@ -183,7 +183,7 @@ wasi_clock_time_get(wasm_exec_env_t exec_env, wasi_clockid_t clock_id,
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     uvwasi_t *uvwasi = get_wasi_ctx(module_inst);
 
-    if (!validate_native_addr(time, sizeof(wasi_timestamp_t)))
+    if (!validate_native_addr(time, (uint64)sizeof(wasi_timestamp_t)))
         return (wasi_errno_t)-1;
 
     return uvwasi_clock_time_get(uvwasi, clock_id, precision, time);
@@ -212,9 +212,9 @@ wasi_environ_get(wasm_exec_env_t exec_env, uint32 *environ_offsets,
 
     total_size = sizeof(int32) * ((uint64)environ_count + 1);
     if (total_size >= UINT32_MAX
-        || !validate_native_addr(environ_offsets, (uint32)total_size)
+        || !validate_native_addr(environ_offsets, total_size)
         || environ_buf_size >= UINT32_MAX
-        || !validate_native_addr(environ_buf, (uint32)environ_buf_size))
+        || !validate_native_addr(environ_buf, (uint64)environ_buf_size))
         return (wasi_errno_t)-1;
 
     total_size = sizeof(char *) * (((uint64)environ_count + 1));
@@ -230,7 +230,7 @@ wasi_environ_get(wasm_exec_env_t exec_env, uint32 *environ_offsets,
     }
 
     for (i = 0; i < environ_count; i++)
-        environ_offsets[i] = addr_native_to_app(environs[i]);
+        environ_offsets[i] = (uint32)addr_native_to_app(environs[i]);
 
     wasm_runtime_free(environs);
     return 0;
@@ -248,8 +248,8 @@ wasi_environ_sizes_get(wasm_exec_env_t exec_env, uint32 *environ_count_app,
     if (!uvwasi)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr(environ_count_app, sizeof(uint32))
-        || !validate_native_addr(environ_buf_size_app, sizeof(uint32)))
+    if (!validate_native_addr(environ_count_app, (uint64)sizeof(uint32))
+        || !validate_native_addr(environ_buf_size_app, (uint64)sizeof(uint32)))
         return (wasi_errno_t)-1;
 
     err = uvwasi_environ_sizes_get(uvwasi, &environ_count, &environ_buf_size);
@@ -273,7 +273,7 @@ wasi_fd_prestat_get(wasm_exec_env_t exec_env, wasi_fd_t fd,
     if (!uvwasi)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr(prestat_app, sizeof(wasi_prestat_app_t)))
+    if (!validate_native_addr(prestat_app, (uint64)sizeof(wasi_prestat_app_t)))
         return (wasi_errno_t)-1;
 
     err = uvwasi_fd_prestat_get(uvwasi, fd, &prestat);
@@ -338,9 +338,9 @@ wasi_fd_pread(wasm_exec_env_t exec_env, wasi_fd_t fd, iovec_app_t *iovec_app,
         return (wasi_errno_t)-1;
 
     total_size = sizeof(iovec_app_t) * (uint64)iovs_len;
-    if (!validate_native_addr(nread_app, (uint32)sizeof(uint32))
+    if (!validate_native_addr(nread_app, (uint64)sizeof(uint32))
         || total_size >= UINT32_MAX
-        || !validate_native_addr(iovec_app, (uint32)total_size))
+        || !validate_native_addr(iovec_app, total_size))
         return (wasi_errno_t)-1;
 
     total_size = sizeof(wasi_iovec_t) * (uint64)iovs_len;
@@ -350,11 +350,12 @@ wasi_fd_pread(wasm_exec_env_t exec_env, wasi_fd_t fd, iovec_app_t *iovec_app,
 
     iovec = iovec_begin;
     for (i = 0; i < iovs_len; i++, iovec_app++, iovec++) {
-        if (!validate_app_addr(iovec_app->buf_offset, iovec_app->buf_len)) {
+        if (!validate_app_addr((uint64)iovec_app->buf_offset,
+                               (uint64)iovec_app->buf_len)) {
             err = (wasi_errno_t)-1;
             goto fail;
         }
-        iovec->buf = (void *)addr_app_to_native(iovec_app->buf_offset);
+        iovec->buf = (void *)addr_app_to_native((uint64)iovec_app->buf_offset);
         iovec->buf_len = iovec_app->buf_len;
     }
 
@@ -389,9 +390,9 @@ wasi_fd_pwrite(wasm_exec_env_t exec_env, wasi_fd_t fd,
         return (wasi_errno_t)-1;
 
     total_size = sizeof(iovec_app_t) * (uint64)iovs_len;
-    if (!validate_native_addr(nwritten_app, (uint32)sizeof(uint32))
+    if (!validate_native_addr(nwritten_app, (uint64)sizeof(uint32))
         || total_size >= UINT32_MAX
-        || !validate_native_addr((void *)iovec_app, (uint32)total_size))
+        || !validate_native_addr((void *)iovec_app, total_size))
         return (wasi_errno_t)-1;
 
     total_size = sizeof(wasi_ciovec_t) * (uint64)iovs_len;
@@ -401,11 +402,12 @@ wasi_fd_pwrite(wasm_exec_env_t exec_env, wasi_fd_t fd,
 
     ciovec = ciovec_begin;
     for (i = 0; i < iovs_len; i++, iovec_app++, ciovec++) {
-        if (!validate_app_addr(iovec_app->buf_offset, iovec_app->buf_len)) {
+        if (!validate_app_addr((uint64)iovec_app->buf_offset,
+                               (uint64)iovec_app->buf_len)) {
             err = (wasi_errno_t)-1;
             goto fail;
         }
-        ciovec->buf = (char *)addr_app_to_native(iovec_app->buf_offset);
+        ciovec->buf = (char *)addr_app_to_native((uint64)iovec_app->buf_offset);
         ciovec->buf_len = iovec_app->buf_len;
     }
 
@@ -440,9 +442,9 @@ wasi_fd_read(wasm_exec_env_t exec_env, wasi_fd_t fd,
         return (wasi_errno_t)-1;
 
     total_size = sizeof(iovec_app_t) * (uint64)iovs_len;
-    if (!validate_native_addr(nread_app, (uint32)sizeof(uint32))
+    if (!validate_native_addr(nread_app, (uint64)sizeof(uint32))
         || total_size >= UINT32_MAX
-        || !validate_native_addr((void *)iovec_app, (uint32)total_size))
+        || !validate_native_addr((void *)iovec_app, total_size))
         return (wasi_errno_t)-1;
 
     total_size = sizeof(wasi_iovec_t) * (uint64)iovs_len;
@@ -452,11 +454,12 @@ wasi_fd_read(wasm_exec_env_t exec_env, wasi_fd_t fd,
 
     iovec = iovec_begin;
     for (i = 0; i < iovs_len; i++, iovec_app++, iovec++) {
-        if (!validate_app_addr(iovec_app->buf_offset, iovec_app->buf_len)) {
+        if (!validate_app_addr((uint64)iovec_app->buf_offset,
+                               (uint64)iovec_app->buf_len)) {
             err = (wasi_errno_t)-1;
             goto fail;
         }
-        iovec->buf = (void *)addr_app_to_native(iovec_app->buf_offset);
+        iovec->buf = (void *)addr_app_to_native((uint64)iovec_app->buf_offset);
         iovec->buf_len = iovec_app->buf_len;
     }
 
@@ -496,7 +499,7 @@ wasi_fd_seek(wasm_exec_env_t exec_env, wasi_fd_t fd, wasi_filedelta_t offset,
     if (!uvwasi)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr(newoffset, sizeof(wasi_filesize_t)))
+    if (!validate_native_addr(newoffset, (uint64)sizeof(wasi_filesize_t)))
         return (wasi_errno_t)-1;
 
     return uvwasi_fd_seek(uvwasi, fd, offset, whence, newoffset);
@@ -511,7 +514,7 @@ wasi_fd_tell(wasm_exec_env_t exec_env, wasi_fd_t fd, wasi_filesize_t *newoffset)
     if (!uvwasi)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr(newoffset, sizeof(wasi_filesize_t)))
+    if (!validate_native_addr(newoffset, (uint64)sizeof(wasi_filesize_t)))
         return (wasi_errno_t)-1;
 
     return uvwasi_fd_tell(uvwasi, fd, newoffset);
@@ -529,7 +532,7 @@ wasi_fd_fdstat_get(wasm_exec_env_t exec_env, wasi_fd_t fd,
     if (!uvwasi)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr(fdstat_app, sizeof(wasi_fdstat_t)))
+    if (!validate_native_addr(fdstat_app, (uint64)sizeof(wasi_fdstat_t)))
         return (wasi_errno_t)-1;
 
     err = uvwasi_fd_fdstat_get(uvwasi, fd, &fdstat);
@@ -597,9 +600,9 @@ wasi_fd_write(wasm_exec_env_t exec_env, wasi_fd_t fd,
         return (wasi_errno_t)-1;
 
     total_size = sizeof(iovec_app_t) * (uint64)iovs_len;
-    if (!validate_native_addr(nwritten_app, (uint32)sizeof(uint32))
+    if (!validate_native_addr(nwritten_app, (uint64)sizeof(uint32))
         || total_size >= UINT32_MAX
-        || !validate_native_addr((void *)iovec_app, (uint32)total_size))
+        || !validate_native_addr((void *)iovec_app, total_size))
         return (wasi_errno_t)-1;
 
     total_size = sizeof(wasi_ciovec_t) * (uint64)iovs_len;
@@ -609,11 +612,12 @@ wasi_fd_write(wasm_exec_env_t exec_env, wasi_fd_t fd,
 
     ciovec = ciovec_begin;
     for (i = 0; i < iovs_len; i++, iovec_app++, ciovec++) {
-        if (!validate_app_addr(iovec_app->buf_offset, iovec_app->buf_len)) {
+        if (!validate_app_addr((uint64)iovec_app->buf_offset,
+                               (uint64)iovec_app->buf_len)) {
             err = (wasi_errno_t)-1;
             goto fail;
         }
-        ciovec->buf = (char *)addr_app_to_native(iovec_app->buf_offset);
+        ciovec->buf = (char *)addr_app_to_native((uint64)iovec_app->buf_offset);
         ciovec->buf_len = iovec_app->buf_len;
     }
 
@@ -725,7 +729,7 @@ wasi_path_open(wasm_exec_env_t exec_env, wasi_fd_t dirfd,
     if (!uvwasi)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr(fd_app, sizeof(wasi_fd_t)))
+    if (!validate_native_addr(fd_app, (uint64)sizeof(wasi_fd_t)))
         return (wasi_errno_t)-1;
 
     err = uvwasi_path_open(uvwasi, dirfd, dirflags, path, path_len, oflags,
@@ -747,7 +751,7 @@ wasi_fd_readdir(wasm_exec_env_t exec_env, wasi_fd_t fd, void *buf,
     if (!uvwasi)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr(bufused_app, sizeof(uint32)))
+    if (!validate_native_addr(bufused_app, (uint64)sizeof(uint32)))
         return (wasi_errno_t)-1;
 
     err = uvwasi_fd_readdir(uvwasi, fd, buf, buf_len, cookie, &bufused);
@@ -771,7 +775,7 @@ wasi_path_readlink(wasm_exec_env_t exec_env, wasi_fd_t fd, const char *path,
     if (!uvwasi)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr(bufused_app, sizeof(uint32)))
+    if (!validate_native_addr(bufused_app, (uint64)sizeof(uint32)))
         return (wasi_errno_t)-1;
 
     err = uvwasi_path_readlink(uvwasi, fd, path, path_len, buf, buf_len,
@@ -808,7 +812,7 @@ wasi_fd_filestat_get(wasm_exec_env_t exec_env, wasi_fd_t fd,
     if (!uvwasi)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr(filestat, sizeof(wasi_filestat_t)))
+    if (!validate_native_addr(filestat, (uint64)sizeof(wasi_filestat_t)))
         return (wasi_errno_t)-1;
 
     return uvwasi_fd_filestat_get(uvwasi, fd, filestat);
@@ -852,7 +856,7 @@ wasi_path_filestat_get(wasm_exec_env_t exec_env, wasi_fd_t fd,
     if (!uvwasi)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr(filestat, sizeof(wasi_filestat_t)))
+    if (!validate_native_addr(filestat, (uint64)sizeof(wasi_filestat_t)))
         return (wasi_errno_t)-1;
 
     return uvwasi_path_filestat_get(uvwasi, fd, flags, path, path_len,
@@ -928,9 +932,9 @@ wasi_poll_oneoff(wasm_exec_env_t exec_env, const wasi_subscription_t *in,
     if (!uvwasi)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr((void *)in, sizeof(wasi_subscription_t))
-        || !validate_native_addr(out, sizeof(wasi_event_t))
-        || !validate_native_addr(nevents_app, sizeof(uint32)))
+    if (!validate_native_addr((void *)in, (uint64)sizeof(wasi_subscription_t))
+        || !validate_native_addr(out, (uint64)sizeof(wasi_event_t))
+        || !validate_native_addr(nevents_app, (uint64)sizeof(uint32)))
         return (wasi_errno_t)-1;
 
     err = uvwasi_poll_oneoff(uvwasi, in, out, nsubscriptions, &nevents);
@@ -1002,11 +1006,12 @@ wasi_sock_recv(wasm_exec_env_t exec_env, wasi_fd_t sock, iovec_app_t *ri_data,
 
     iovec = iovec_begin;
     for (i = 0; i < ri_data_len; i++, ri_data++, iovec++) {
-        if (!validate_app_addr(ri_data->buf_offset, ri_data->buf_len)) {
+        if (!validate_app_addr((uint64)ri_data->buf_offset,
+                               (uint64)ri_data->buf_len)) {
             err = (wasi_errno_t)-1;
             goto fail;
         }
-        iovec->buf = (void *)addr_app_to_native(ri_data->buf_offset);
+        iovec->buf = (void *)addr_app_to_native((uint64)ri_data->buf_offset);
         iovec->buf_len = ri_data->buf_len;
     }
 
@@ -1042,9 +1047,9 @@ wasi_sock_send(wasm_exec_env_t exec_env, wasi_fd_t sock,
         return (wasi_errno_t)-1;
 
     total_size = sizeof(iovec_app_t) * (uint64)si_data_len;
-    if (!validate_native_addr(so_datalen_app, sizeof(uint32))
+    if (!validate_native_addr(so_datalen_app, (uint64)sizeof(uint32))
         || total_size >= UINT32_MAX
-        || !validate_native_addr((void *)si_data, (uint32)total_size))
+        || !validate_native_addr((void *)si_data, total_size))
         return (wasi_errno_t)-1;
 
     total_size = sizeof(wasi_ciovec_t) * (uint64)si_data_len;
@@ -1054,11 +1059,12 @@ wasi_sock_send(wasm_exec_env_t exec_env, wasi_fd_t sock,
 
     ciovec = ciovec_begin;
     for (i = 0; i < si_data_len; i++, si_data++, ciovec++) {
-        if (!validate_app_addr(si_data->buf_offset, si_data->buf_len)) {
+        if (!validate_app_addr((uint64)si_data->buf_offset,
+                               (uint64)si_data->buf_len)) {
             err = (wasi_errno_t)-1;
             goto fail;
         }
-        ciovec->buf = (char *)addr_app_to_native(si_data->buf_offset);
+        ciovec->buf = (char *)addr_app_to_native((uint64)si_data->buf_offset);
         ciovec->buf_len = si_data->buf_len;
     }
 

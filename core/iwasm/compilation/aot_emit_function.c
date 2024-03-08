@@ -1167,8 +1167,8 @@ check_app_addr_and_convert(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* prepare function type of aot_check_app_addr_and_convert */
     func_param_types[0] = comp_ctx->aot_inst_type; /* module_inst */
     func_param_types[1] = INT8_TYPE;               /* is_str_arg */
-    func_param_types[2] = I32_TYPE;                /* app_offset */
-    func_param_types[3] = I32_TYPE;                /* buf_size */
+    func_param_types[2] = I64_TYPE;                /* app_offset */
+    func_param_types[3] = I64_TYPE;                /* buf_size */
     func_param_types[4] =
         comp_ctx->basic_types.int8_pptr_type; /* p_native_addr */
     if (!(func_type =
@@ -1555,7 +1555,19 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                     if (signature[i + 2] == '~')
                         native_addr_size = param_values[i + 2];
                     else
-                        native_addr_size = I32_ONE;
+                        native_addr_size = I64_CONST(1);
+                    if (!(native_addr_size = LLVMBuildZExtOrBitCast(
+                              comp_ctx->builder, native_addr_size, I64_TYPE,
+                              "native_addr_size_i64"))) {
+                        aot_set_last_error("llvm build zextOrBitCast failed.");
+                        goto fail;
+                    }
+                    if (!(param_values[j] = LLVMBuildZExtOrBitCast(
+                              comp_ctx->builder, param_values[j], I64_TYPE,
+                              "native_addr_i64"))) {
+                        aot_set_last_error("llvm build zextOrBitCast failed.");
+                        goto fail;
+                    }
                     if (!check_app_addr_and_convert(
                             comp_ctx, func_ctx, false, param_values[j],
                             native_addr_size, &native_addr)) {
@@ -1564,7 +1576,13 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                     param_values[j] = native_addr;
                 }
                 else if (signature[i + 1] == '$') {
-                    native_addr_size = I32_ZERO;
+                    native_addr_size = I64_ZERO;
+                    if (!(param_values[j] = LLVMBuildZExtOrBitCast(
+                              comp_ctx->builder, param_values[j], I64_TYPE,
+                              "native_addr_i64"))) {
+                        aot_set_last_error("llvm build zextOrBitCast failed.");
+                        goto fail;
+                    }
                     if (!check_app_addr_and_convert(
                             comp_ctx, func_ctx, true, param_values[j],
                             native_addr_size, &native_addr)) {

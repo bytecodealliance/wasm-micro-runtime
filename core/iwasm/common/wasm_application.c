@@ -97,7 +97,7 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
     uint32 argc1 = 0, argv1[2] = { 0 };
     uint32 total_argv_size = 0;
     uint64 total_size;
-    uint32 argv_buf_offset = 0;
+    uint64 argv_buf_offset = 0;
     int32 i;
     char *argv_buf, *p, *p_end;
     uint32 *argv_offsets, module_type;
@@ -202,7 +202,7 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
 
         if (total_size >= UINT32_MAX
             || !(argv_buf_offset = wasm_runtime_module_malloc(
-                     module_inst, (uint32)total_size, (void **)&argv_buf))) {
+                     module_inst, total_size, (void **)&argv_buf))) {
             wasm_runtime_set_exception(module_inst, "allocate memory failed");
             return false;
         }
@@ -214,12 +214,13 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
         for (i = 0; i < argc; i++) {
             bh_memcpy_s(p, (uint32)(p_end - p), argv[i],
                         (uint32)(strlen(argv[i]) + 1));
-            argv_offsets[i] = argv_buf_offset + (uint32)(p - argv_buf);
+            argv_offsets[i] = (uint32)argv_buf_offset + (uint32)(p - argv_buf);
             p += strlen(argv[i]) + 1;
         }
 
         argc1 = 2;
         argv1[0] = (uint32)argc;
+        /* TODO: memory64 uint64 when the memory idx is i64 */
         argv1[1] =
             (uint32)wasm_runtime_addr_native_to_app(module_inst, argv_offsets);
     }

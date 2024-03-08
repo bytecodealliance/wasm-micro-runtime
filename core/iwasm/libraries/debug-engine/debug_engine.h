@@ -53,9 +53,9 @@ typedef enum debug_state_t {
 } debug_state_t;
 
 typedef struct WASMDebugExecutionMemory {
-    uint32 start_offset;
+    uint64 start_offset;
+    uint64 current_pos;
     uint32 size;
-    uint32 current_pos;
 } WASMDebugExecutionMemory;
 
 struct WASMDebugInstance {

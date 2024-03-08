@@ -282,7 +282,7 @@ wasm_runtime_get_mem_alloc_info(mem_alloc_info_t *mem_alloc_info)
 
 bool
 wasm_runtime_validate_app_addr(WASMModuleInstanceCommon *module_inst_comm,
-                               uint32 app_offset, uint32 size)
+                               uint64 app_offset, uint64 size)
 {
     WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
     WASMMemoryInstance *memory_inst;
@@ -299,8 +299,9 @@ wasm_runtime_validate_app_addr(WASMModuleInstanceCommon *module_inst_comm,
         goto fail;
     }
 
-    /* integer overflow check */
-    if (app_offset > UINT32_MAX - size) {
+    /* boundary overflow check */
+    if (size > MAX_LINEAR_MEMORY_SIZE
+        || app_offset > MAX_LINEAR_MEMORY_SIZE - size) {
         goto fail;
     }
 
@@ -320,10 +321,10 @@ fail:
 
 bool
 wasm_runtime_validate_app_str_addr(WASMModuleInstanceCommon *module_inst_comm,
-                                   uint32 app_str_offset)
+                                   uint64 app_str_offset)
 {
     WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
-    uint32 app_end_offset;
+    uint64 app_end_offset;
     char *str, *str_end;
 
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
@@ -335,6 +336,12 @@ wasm_runtime_validate_app_str_addr(WASMModuleInstanceCommon *module_inst_comm,
 
     if (!wasm_runtime_get_app_addr_range(module_inst_comm, app_str_offset, NULL,
                                          &app_end_offset))
+        goto fail;
+
+    /* boundary overflow check, max start offset can only be size - 1, while end
+     * offset can be size */
+    if (app_str_offset >= MAX_LINEAR_MEMORY_SIZE
+        || app_end_offset > MAX_LINEAR_MEMORY_SIZE)
         goto fail;
 
     str = wasm_runtime_addr_app_to_native(module_inst_comm, app_str_offset);
@@ -352,7 +359,7 @@ fail:
 
 bool
 wasm_runtime_validate_native_addr(WASMModuleInstanceCommon *module_inst_comm,
-                                  void *native_ptr, uint32 size)
+                                  void *native_ptr, uint64 size)
 {
     WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
     WASMMemoryInstance *memory_inst;
@@ -370,8 +377,8 @@ wasm_runtime_validate_native_addr(WASMModuleInstanceCommon *module_inst_comm,
         goto fail;
     }
 
-    /* integer overflow check */
-    if ((uintptr_t)addr > UINTPTR_MAX - size) {
+    /* boundary overflow check */
+    if (size > MAX_LINEAR_MEMORY_SIZE || (uintptr_t)addr > UINTPTR_MAX - size) {
         goto fail;
     }
 
@@ -392,7 +399,7 @@ fail:
 
 void *
 wasm_runtime_addr_app_to_native(WASMModuleInstanceCommon *module_inst_comm,
-                                uint32 app_offset)
+                                uint64 app_offset)
 {
     WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
     WASMMemoryInstance *memory_inst;
@@ -411,7 +418,7 @@ wasm_runtime_addr_app_to_native(WASMModuleInstanceCommon *module_inst_comm,
 
     SHARED_MEMORY_LOCK(memory_inst);
 
-    addr = memory_inst->memory_data + app_offset;
+    addr = memory_inst->memory_data + (uintptr_t)app_offset;
 
     if (bounds_checks) {
         if (memory_inst->memory_data <= addr
@@ -430,7 +437,7 @@ wasm_runtime_addr_app_to_native(WASMModuleInstanceCommon *module_inst_comm,
     return NULL;
 }
 
-uint32
+uint64
 wasm_runtime_addr_native_to_app(WASMModuleInstanceCommon *module_inst_comm,
                                 void *native_ptr)
 {
@@ -438,7 +445,7 @@ wasm_runtime_addr_native_to_app(WASMModuleInstanceCommon *module_inst_comm,
     WASMMemoryInstance *memory_inst;
     uint8 *addr = (uint8 *)native_ptr;
     bool bounds_checks;
-    uint32 ret;
+    uint64 ret;
 
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
@@ -455,14 +462,14 @@ wasm_runtime_addr_native_to_app(WASMModuleInstanceCommon *module_inst_comm,
     if (bounds_checks) {
         if (memory_inst->memory_data <= addr
             && addr < memory_inst->memory_data_end) {
-            ret = (uint32)(addr - memory_inst->memory_data);
+            ret = (uint64)(addr - memory_inst->memory_data);
             SHARED_MEMORY_UNLOCK(memory_inst);
             return ret;
         }
     }
     /* If bounds checks is disabled, return the offset directly */
     else if (addr != NULL) {
-        ret = (uint32)(addr - memory_inst->memory_data);
+        ret = (uint64)(addr - memory_inst->memory_data);
         SHARED_MEMORY_UNLOCK(memory_inst);
         return ret;
     }
@@ -473,12 +480,12 @@ wasm_runtime_addr_native_to_app(WASMModuleInstanceCommon *module_inst_comm,
 
 bool
 wasm_runtime_get_app_addr_range(WASMModuleInstanceCommon *module_inst_comm,
-                                uint32 app_offset, uint32 *p_app_start_offset,
-                                uint32 *p_app_end_offset)
+                                uint64 app_offset, uint64 *p_app_start_offset,
+                                uint64 *p_app_end_offset)
 {
     WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
     WASMMemoryInstance *memory_inst;
-    uint32 memory_data_size;
+    uint64 memory_data_size;
 
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
@@ -541,19 +548,21 @@ wasm_runtime_get_native_addr_range(WASMModuleInstanceCommon *module_inst_comm,
 
 bool
 wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
-                                uint32 app_buf_addr, uint32 app_buf_size,
+                                uint64 app_buf_addr, uint64 app_buf_size,
                                 void **p_native_addr)
 {
     WASMMemoryInstance *memory_inst = wasm_get_default_memory(module_inst);
     uint8 *native_addr;
     bool bounds_checks;
 
+    bh_assert(app_buf_addr <= UINTPTR_MAX && app_buf_size <= UINTPTR_MAX);
+
     if (!memory_inst) {
         wasm_set_exception(module_inst, "out of bounds memory access");
         return false;
     }
 
-    native_addr = memory_inst->memory_data + app_buf_addr;
+    native_addr = memory_inst->memory_data + (uintptr_t)app_buf_addr;
 
     bounds_checks = is_bounds_checks_enabled((wasm_module_inst_t)module_inst);
 
@@ -695,9 +704,9 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
 {
     WASMMemoryInstance *memory = wasm_get_default_memory(module);
     uint8 *memory_data_old, *memory_data_new, *heap_data_old;
-    uint32 num_bytes_per_page, heap_size, total_size_old = 0;
+    uint32 num_bytes_per_page, heap_size;
     uint32 cur_page_count, max_page_count, total_page_count;
-    uint64 total_size_new;
+    uint64 total_size_old = 0, total_size_new;
     bool ret = true, full_size_mmaped;
     enlarge_memory_error_reason_t failure_reason = INTERNAL_ERROR;
 
@@ -741,18 +750,12 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
         goto return_func;
     }
 
-    bh_assert(total_size_new <= 4 * (uint64)BH_GB);
-    if (total_size_new > UINT32_MAX) {
-        /* Resize to 1 page with size 4G-1 */
-        num_bytes_per_page = UINT32_MAX;
-        total_page_count = max_page_count = 1;
-        total_size_new = UINT32_MAX;
-    }
+    bh_assert(total_size_new <= MAX_LINEAR_MEMORY_SIZE);
 
     if (full_size_mmaped) {
 #ifdef BH_PLATFORM_WINDOWS
         if (!os_mem_commit(memory->memory_data_end,
-                           (uint32)total_size_new - total_size_old,
+                           (uint32)(total_size_new - total_size_old),
                            MMAP_PROT_READ | MMAP_PROT_WRITE)) {
             ret = false;
             goto return_func;
@@ -760,12 +763,12 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
 #endif
 
         if (os_mprotect(memory->memory_data_end,
-                        (uint32)total_size_new - total_size_old,
+                        (uint32)(total_size_new - total_size_old),
                         MMAP_PROT_READ | MMAP_PROT_WRITE)
             != 0) {
 #ifdef BH_PLATFORM_WINDOWS
             os_mem_decommit(memory->memory_data_end,
-                            (uint32)total_size_new - total_size_old);
+                            (uint32)(total_size_new - total_size_old));
 #endif
             ret = false;
             goto return_func;
@@ -780,9 +783,9 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
             }
         }
 
-        if (!(memory_data_new = wasm_mremap_linear_memory(
-                  memory_data_old, total_size_old, (uint32)total_size_new,
-                  (uint32)total_size_new))) {
+        if (!(memory_data_new =
+                  wasm_mremap_linear_memory(memory_data_old, total_size_old,
+                                            total_size_new, total_size_new))) {
             ret = false;
             goto return_func;
         }
@@ -811,8 +814,8 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
     memory->num_bytes_per_page = num_bytes_per_page;
     memory->cur_page_count = total_page_count;
     memory->max_page_count = max_page_count;
-    SET_LINEAR_MEMORY_SIZE(memory, (uint32)total_size_new);
-    memory->memory_data_end = memory->memory_data + (uint32)total_size_new;
+    SET_LINEAR_MEMORY_SIZE(memory, total_size_new);
+    memory->memory_data_end = memory->memory_data + total_size_new;
 
     wasm_runtime_set_mem_bound_check_bytes(memory, total_size_new);
 
@@ -926,7 +929,7 @@ wasm_allocate_linear_memory(uint8 **data, bool is_shared_memory,
 
     page_size = os_getpagesize();
     *memory_data_size = init_page_count * num_bytes_per_page;
-    bh_assert(*memory_data_size <= UINT32_MAX);
+    bh_assert(*memory_data_size <= MAX_LINEAR_MEMORY_SIZE);
     align_as_and_cast(*memory_data_size, page_size);
 
     if (map_size > 0) {
