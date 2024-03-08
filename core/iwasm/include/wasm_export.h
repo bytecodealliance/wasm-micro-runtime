@@ -616,13 +616,12 @@ wasm_runtime_get_wasi_exit_code(wasm_module_inst_t module_inst);
  *
  * @param module_inst the module instance
  * @param name the name of the function
- * @param signature the signature of the function, ignored currently
  *
  * @return the function instance found, NULL if not found
  */
 WASM_RUNTIME_API_EXTERN wasm_function_inst_t
 wasm_runtime_lookup_function(wasm_module_inst_t const module_inst,
-                             const char *name, const char *signature);
+                             const char *name);
 
 /**
  * Get parameter count of the function instance

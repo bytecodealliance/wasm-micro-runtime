@@ -288,7 +288,7 @@ And in the host embedder:
     bool ret;
 
     argv[0] = *(uint32 *)&arg_f32;
-    func = wasm_runtime_lookup_function(module_inst, "foo1", NULL);
+    func = wasm_runtime_lookup_function(module_inst, "foo1");
     ret = wasm_runtime_call_wasm(exec_env, func, 1, argv);
     if (!ret) {
         /* handle exception */

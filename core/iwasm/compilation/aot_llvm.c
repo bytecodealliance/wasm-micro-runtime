@@ -124,7 +124,7 @@ create_basic_func_context(const AOTCompContext *comp_ctx,
 {
     LLVMValueRef aot_inst_offset = I32_TWO, aot_inst_addr;
 
-    /* Save the pameters for fast access */
+    /* Save the parameters for fast access */
     func_ctx->exec_env = LLVMGetParam(func_ctx->func, 0);
 
     /* Get aot inst address, the layout of exec_env is:

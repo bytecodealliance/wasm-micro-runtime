@@ -128,7 +128,7 @@ main(int argc, char *argv_main[])
     }
 
     wasm_function_inst_t func3 =
-        wasm_runtime_lookup_function(module_inst, "calculate", NULL);
+        wasm_runtime_lookup_function(module_inst, "calculate");
     if (!func3) {
         printf("The wasm function calculate is not found.\n");
         goto fail;

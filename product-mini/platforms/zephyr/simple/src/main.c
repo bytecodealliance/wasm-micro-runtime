@@ -65,14 +65,12 @@ app_instance_main(wasm_module_inst_t module_inst)
     wasm_exec_env_t exec_env;
     unsigned argv[2] = { 0 };
 
-    if (wasm_runtime_lookup_function(module_inst, "main", NULL)
-        || wasm_runtime_lookup_function(module_inst, "__main_argc_argv",
-                                        NULL)) {
+    if (wasm_runtime_lookup_function(module_inst, "main")
+        || wasm_runtime_lookup_function(module_inst, "__main_argc_argv")) {
         LOG_VERBOSE("Calling main function\n");
         wasm_application_execute_main(module_inst, app_argc, app_argv);
     }
-    else if ((func = wasm_runtime_lookup_function(module_inst, "app_main",
-                                                  NULL))) {
+    else if ((func = wasm_runtime_lookup_function(module_inst, "app_main"))) {
         exec_env =
             wasm_runtime_create_exec_env(module_inst, CONFIG_APP_HEAP_SIZE);
         if (!exec_env) {

@@ -100,7 +100,7 @@ After a module is instantiated, the runtime embedder can lookup the target WASM 
 ```c
   /* lookup a WASM function by its name
      The function signature can NULL here */
-  func = wasm_runtime_lookup_function(module_inst, "fib", NULL);
+  func = wasm_runtime_lookup_function(module_inst, "fib");
 
   /* creat an execution environment to execute the WASM functions */
   exec_env = wasm_runtime_create_exec_env(module_inst, stack_size);

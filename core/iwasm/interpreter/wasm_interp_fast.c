@@ -1187,9 +1187,8 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
     if (!func_import->call_conv_wasm_c_api) {
         native_func_pointer = module_inst->import_func_ptrs[cur_func_index];
     }
-    else if (module_inst->e->common.c_api_func_imports) {
-        c_api_func_import =
-            module_inst->e->common.c_api_func_imports + cur_func_index;
+    else if (module_inst->c_api_func_imports) {
+        c_api_func_import = module_inst->c_api_func_imports + cur_func_index;
         native_func_pointer = c_api_func_import->func_ptr_linked;
     }
 
