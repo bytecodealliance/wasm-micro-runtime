@@ -223,6 +223,18 @@ def parse_module_functions(wasm_objdump: Path, wasm_file: Path) -> dict[str, str
     return function_index_to_name
 
 
+def demangle(cxxfilt: Path, function_name: str) -> str:
+    cmd = f"{cxxfilt} -n {function_name}"
+    p = subprocess.run(
+        shlex.split(cmd),
+        check=True,
+        capture_output=True,
+        text=True,
+        universal_newlines=True,
+    )
+    return p.stdout.strip()
+
+
 def main():
     parser = argparse.ArgumentParser(description="addr2line for wasm")
     parser.add_argument("--wasi-sdk", type=Path, help="path to wasi-sdk")
@@ -241,6 +253,9 @@ def main():
 
     llvm_dwarf_dump = args.wasi_sdk.joinpath("bin/llvm-dwarfdump")
     assert llvm_dwarf_dump.exists()
+
+    llvm_cxxfilt = args.wasi_sdk.joinpath("bin/llvm-cxxfilt")
+    assert llvm_cxxfilt.exists()
 
     code_section_start = get_code_section_start(wasm_objdump, args.wasm_file)
     if code_section_start == -1:
@@ -275,7 +290,7 @@ def main():
                 )
 
                 _, funciton_file, function_line = line_info
-                function_name = function_index_to_name[index]
+                function_name = demangle(llvm_cxxfilt, function_index_to_name[index])
                 print(f"{i}: {function_name}")
                 print(f"\tat {funciton_file}:{function_line}")
             else:
@@ -286,6 +301,7 @@ def main():
                 )
 
                 function_name, funciton_file, function_line, function_column = line_info
+                function_name = demangle(llvm_cxxfilt, function_name)
                 print(f"{i}: {function_name}")
                 print(f"\tat {funciton_file}:{function_line}:{function_column}")
 
