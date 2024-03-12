@@ -45,6 +45,7 @@ set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
     }
 }
 
+#if WASM_ENABLE_MEMORY64 != 0
 static void
 set_error_buf_mem_offset_out_of_range(char *error_buf, uint32 error_buf_size)
 {
@@ -52,6 +53,7 @@ set_error_buf_mem_offset_out_of_range(char *error_buf, uint32 error_buf_size)
         snprintf(error_buf, error_buf_size, "offset out of range");
     }
 }
+#endif
 
 static void
 set_error_buf_v(char *error_buf, uint32 error_buf_size, const char *format, ...)
@@ -148,7 +150,7 @@ read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
     }
     else if (sign && maxbits == 32) {
         if (shift < maxbits) {
-            /* Sign extend, second highest bit is the sign bit */
+            /* Sign extend, second-highest bit is the sign bit */
             if ((uint8)byte & 0x40)
                 result |= (~((uint64)0)) << shift;
         }
@@ -163,7 +165,7 @@ read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
     }
     else if (sign && maxbits == 64) {
         if (shift < maxbits) {
-            /* Sign extend, second highest bit is the sign bit */
+            /* Sign extend, second-highest bit is the sign bit */
             if ((uint8)byte & 0x40)
                 result |= (~((uint64)0)) << shift;
         }
@@ -200,6 +202,7 @@ fail:
         res = (int64)res64;                                             \
     } while (0)
 
+#if WASM_ENABLE_MEMORY64 != 0
 #define read_leb_mem_offset(p, p_end, res)                                    \
     do {                                                                      \
         uint64 res64;                                                         \
@@ -208,8 +211,11 @@ fail:
             set_error_buf_mem_offset_out_of_range(error_buf, error_buf_size); \
             goto fail;                                                        \
         }                                                                     \
-        res = (mem_offset_t)res64;                                            \
+        res = (linear_mem_ptr_t)res64;                                        \
     } while (0)
+#else
+#define read_leb_mem_offset(p, p_end, res) read_leb_uint32(p, p_end, res)
+#endif
 
 #define read_leb_uint32(p, p_end, res)                                   \
     do {                                                                 \
@@ -2794,7 +2800,7 @@ check_memory_flag(const uint8 mem_flag, char *error_buf, uint32 error_buf_size)
      * runtime */
     if (mem_flag > MAX_PAGE_COUNT_FLAG) {
 #if WASM_ENABLE_SHARED_MEMORY == 0
-        if (mem_flag & SAHRED_MEMORY_FLAG) {
+        if (mem_flag & SHARED_MEMORY_FLAG) {
             LOG_VERBOSE("shared memory flag was found, please enable shared "
                         "memory, lib-pthread or lib-wasi-threads");
             set_error_buf(error_buf, error_buf_size, "invalid limits flags");
@@ -2810,11 +2816,11 @@ check_memory_flag(const uint8 mem_flag, char *error_buf, uint32 error_buf_size)
 #endif
     }
 
-    if (mem_flag > MAX_PAGE_COUNT_FLAG + SAHRED_MEMORY_FLAG + MEMORY64_FLAG) {
+    if (mem_flag > MAX_PAGE_COUNT_FLAG + SHARED_MEMORY_FLAG + MEMORY64_FLAG) {
         set_error_buf(error_buf, error_buf_size, "invalid limits flags");
         return false;
     }
-    else if ((mem_flag & SAHRED_MEMORY_FLAG)
+    else if ((mem_flag & SHARED_MEMORY_FLAG)
              && !(mem_flag & MAX_PAGE_COUNT_FLAG)) {
         set_error_buf(error_buf, error_buf_size,
                       "shared memory must have maximum");
@@ -2892,7 +2898,7 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
 #if WASM_ENABLE_LIB_WASI_THREADS != 0
             /* Avoid memory import failure when wasi-threads is enabled
                and the memory is shared */
-            if (!(mem_flag & SAHRED_MEMORY_FLAG))
+            if (!(mem_flag & SHARED_MEMORY_FLAG))
                 return false;
 #else
             return false;
@@ -10745,12 +10751,11 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
     uint16 *local_offsets, local_offset;
     uint32 type_idx, func_idx, local_idx, global_idx, table_idx;
     uint32 table_seg_idx, data_seg_idx, count, align, i;
-    mem_offset_t mem_offset;
+    linear_mem_ptr_t mem_offset;
     int32 i32_const = 0;
     int64 i64_const;
     uint8 opcode;
     bool return_value = false;
-    bool is_memory64 = false;
     WASMLoaderContext *loader_ctx;
     BranchBlock *frame_csp_tmp;
 #if WASM_ENABLE_GC != 0
@@ -10770,6 +10775,9 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
 
     LOG_OP("\nProcessing func | [%d] params | [%d] locals | [%d] return\n",
            func->param_cell_num, func->local_cell_num, func->ret_cell_num);
+#endif
+#if WASM_ENABLE_MEMORY64 != 0
+    bool is_memory64 = false;
 #endif
 
     global_count = module->import_global_count + module->global_count;

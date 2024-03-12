@@ -96,6 +96,9 @@ extern "C" {
 
 /* Max size of linear memory */
 #define MAX_LINEAR_MEMORY_SIZE (4 * (uint64)BH_GB)
+/* Roughly 274 TB */
+#define MAX_LINEAR_MEM64_MEMORY_SIZE \
+    (DEFAULT_MEM64_MAX_PAGES * 64 * (uint64)BH_KB)
 
 #if WASM_ENABLE_GC == 0
 typedef uintptr_t table_elem_type_t;
@@ -106,7 +109,7 @@ typedef void *table_elem_type_t;
 #define REF_CELL_NUM ((uint32)sizeof(uintptr_t) / sizeof(uint32))
 #endif
 
-#define INIT_EXPR_NONE 0x0
+#define INIT_EXPR_NONE 0x00
 #define INIT_EXPR_TYPE_I32_CONST 0x41
 #define INIT_EXPR_TYPE_I64_CONST 0x42
 #define INIT_EXPR_TYPE_F32_CONST 0x43
@@ -486,9 +489,9 @@ typedef struct WASMTable {
 } WASMTable;
 
 #if WASM_ENABLE_MEMORY64 != 0
-typedef uint64 mem_offset_t;
+typedef uint64 linear_mem_ptr_t;
 #else
-typedef uint32 mem_offset_t;
+typedef uint32 linear_mem_ptr_t;
 #endif
 
 typedef struct WASMMemory {

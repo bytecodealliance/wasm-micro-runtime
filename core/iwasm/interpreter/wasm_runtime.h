@@ -120,8 +120,6 @@ struct WASMMemoryInstance {
     uint32 cur_page_count;
     /* Maximum page count */
     uint32 max_page_count;
-    /* Paddings */
-    uint32 padding;
     /* Memory data size */
     uint64 memory_data_size;
     /**

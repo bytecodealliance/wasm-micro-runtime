@@ -166,12 +166,12 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     uint32 bytes_of_last_page, bytes_to_page_end;
     uint64 aux_heap_base,
         heap_offset = (uint64)num_bytes_per_page * init_page_count;
-    uint64 memory_data_size, max_memory_data_size;
+    uint64 memory_data_size, max_memory_data_size, default_max_memory_size;
     uint8 *global_addr;
 
     bool is_shared_memory = false;
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    is_shared_memory = flags & SAHRED_MEMORY_FLAG ? true : false;
+    is_shared_memory = flags & SHARED_MEMORY_FLAG ? true : false;
 
     /* shared memory */
     if (is_shared_memory && parent != NULL) {
@@ -194,6 +194,9 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     default_max_page =
         memory->is_memory64 ? DEFAULT_MEM64_MAX_PAGES : DEFAULT_MAX_PAGES;
 
+    default_max_memory_size = memory->is_memory64 ? MAX_LINEAR_MEM64_MEMORY_SIZE
+                                                  : MAX_LINEAR_MEMORY_SIZE;
+
     if (heap_size > 0 && module_inst->module->malloc_function != (uint32)-1
         && module_inst->module->free_function != (uint32)-1) {
         /* Disable app heap, use malloc/free function exported
@@ -203,16 +206,7 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
 
     /* If initial memory is the largest size allowed, disallowing insert host
      * managed heap */
-    if (heap_size > 0 && heap_offset == MAX_LINEAR_MEMORY_SIZE) {
-        set_error_buf(error_buf, error_buf_size,
-                      "failed to insert app heap into linear memory, "
-                      "try using `--heap-size=0` option");
-        return NULL;
-    }
-
-    /* If initial memory is the largest size allowed, disallowing insert host
-     * managed heap */
-    if (heap_size > 0 && heap_offset == MAX_LINEAR_MEMORY_SIZE) {
+    if (heap_size > 0 && heap_offset == default_max_memory_size) {
         set_error_buf(error_buf, error_buf_size,
                       "failed to insert app heap into linear memory, "
                       "try using `--heap-size=0` option");
@@ -311,7 +305,7 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     LOG_VERBOSE("  heap offset: %u, heap size: %d\n", heap_offset, heap_size);
 
     max_memory_data_size = (uint64)num_bytes_per_page * max_page_count;
-    bh_assert(max_memory_data_size <= MAX_LINEAR_MEMORY_SIZE);
+    bh_assert(max_memory_data_size <= default_max_memory_size);
     (void)max_memory_data_size;
 
     bh_assert(memory != NULL);
@@ -1976,7 +1970,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
     WASMTableInstance *first_table;
     uint32 global_count, i;
     uint32 length, extra_info_offset;
-    mem_offset_t base_offset;
+    linear_mem_ptr_t base_offset;
     uint32 module_inst_struct_size =
         offsetof(WASMModuleInstance, global_table_data.bytes);
     uint64 module_inst_mem_inst_size;
@@ -2334,7 +2328,6 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
             (uint64)memory->num_bytes_per_page * memory->cur_page_count;
         bh_assert(memory_data || memory_size == 0);
 
-        /* TODO: doesn't use macro to control for in the future */
         bh_assert(
             data_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL
             || (data_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
@@ -2360,14 +2353,16 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
 #if WASM_ENABLE_MEMORY64 != 0
             if (memory->is_memory64) {
-                base_offset = globals[data_seg->base_offset.u.global_index]
-                                  .initial_value.i64;
+                base_offset =
+                    (uint64)globals[data_seg->base_offset.u.global_index]
+                        .initial_value.i64;
             }
             else
 #endif
             {
-                base_offset = globals[data_seg->base_offset.u.global_index]
-                                  .initial_value.i32;
+                base_offset =
+                    (uint32)globals[data_seg->base_offset.u.global_index]
+                        .initial_value.i32;
             }
         }
         else {
@@ -2413,7 +2408,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
         if (memory_data) {
             bh_memcpy_s(memory_data + base_offset,
-                        (mem_offset_t)memory_size - base_offset, data_seg->data,
+                        (uint32)memory_size - base_offset, data_seg->data,
                         length);
         }
     }
