@@ -919,7 +919,7 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             comp_ctx->comp_data->memories[0].num_bytes_per_page;
         uint32 init_page_count =
             comp_ctx->comp_data->memories[0].mem_init_page_count;
-        uint32 mem_data_size = num_bytes_per_page * init_page_count;
+        uint64 mem_data_size = (uint64)num_bytes_per_page * init_page_count;
         if (mem_data_size > 0 && mem_offset + mem_len <= mem_data_size) {
             /* inside memory space */
             /* maddr = mem_base_addr + moffset */
@@ -938,7 +938,7 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
     else {
         if (!(mem_size = LLVMBuildLoad2(
-                  comp_ctx->builder, I32_TYPE,
+                  comp_ctx->builder, I64_TYPE,
                   func_ctx->mem_info[0].mem_data_size_addr, "mem_size"))) {
             aot_set_last_error("llvm build load failed.");
             goto fail;
@@ -951,8 +951,6 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     offset =
         LLVMBuildZExt(comp_ctx->builder, offset, I64_TYPE, "extend_offset");
     bytes = LLVMBuildZExt(comp_ctx->builder, bytes, I64_TYPE, "extend_len");
-    mem_size =
-        LLVMBuildZExt(comp_ctx->builder, mem_size, I64_TYPE, "extend_size");
 
     BUILD_OP(Add, offset, bytes, max_addr, "max_addr");
     BUILD_ICMP(LLVMIntUGT, max_addr, mem_size, cmp, "cmp_max_mem_addr");

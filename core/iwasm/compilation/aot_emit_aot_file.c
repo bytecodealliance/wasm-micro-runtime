@@ -850,7 +850,7 @@ get_init_data_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
     size += (uint32)sizeof(uint32) * 2;
 
     /* aux data/heap/stack data */
-    size += sizeof(uint32) * 7;
+    size += sizeof(uint32) * 10;
 
     size += get_object_data_section_info_size(comp_ctx, obj_data);
     return size;
@@ -2428,11 +2428,11 @@ aot_emit_init_data_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     EMIT_U32(comp_data->start_func_index);
 
     EMIT_U32(comp_data->aux_data_end_global_index);
-    EMIT_U32(comp_data->aux_data_end);
+    EMIT_U64(comp_data->aux_data_end);
     EMIT_U32(comp_data->aux_heap_base_global_index);
-    EMIT_U32(comp_data->aux_heap_base);
+    EMIT_U64(comp_data->aux_heap_base);
     EMIT_U32(comp_data->aux_stack_top_global_index);
-    EMIT_U32(comp_data->aux_stack_bottom);
+    EMIT_U64(comp_data->aux_stack_bottom);
     EMIT_U32(comp_data->aux_stack_size);
 
     if (!aot_emit_object_data_section_info(buf, buf_end, &offset, comp_ctx,

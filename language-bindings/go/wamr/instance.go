@@ -309,62 +309,62 @@ func (self *Instance) GetException() string {
 }
 
 /* Allocate memory from the heap of the instance */
-func (self Instance) ModuleMalloc(size uint32) (uint32, *uint8) {
-    var offset C.uint32_t
+func (self Instance) ModuleMalloc(size uint64) (uint64, *uint8) {
+    var offset C.uint64_t
     native_addrs := make([]*uint8, 1, 1)
     ptr := unsafe.Pointer(&native_addrs[0])
-    offset = C.wasm_runtime_module_malloc(self._instance, (C.uint32_t)(size),
+    offset = C.wasm_runtime_module_malloc(self._instance, (C.uint64_t)(size),
                                           (*unsafe.Pointer)(ptr))
-    return (uint32)(offset), native_addrs[0]
+    return (uint64)(offset), native_addrs[0]
 }
 
 /* Free memory to the heap of the instance */
-func (self Instance) ModuleFree(offset uint32) {
-    C.wasm_runtime_module_free(self._instance, (C.uint32_t)(offset))
+func (self Instance) ModuleFree(offset uint64) {
+    C.wasm_runtime_module_free(self._instance, (C.uint64_t)(offset))
 }
 
-func (self Instance) ValidateAppAddr(app_offset uint32, size uint32) bool {
+func (self Instance) ValidateAppAddr(app_offset uint64, size uint64) bool {
     ret := C.wasm_runtime_validate_app_addr(self._instance,
-                                            (C.uint32_t)(app_offset),
-                                            (C.uint32_t)(size))
+                                            (C.uint64_t)(app_offset),
+                                            (C.uint64_t)(size))
     return (bool)(ret)
 }
 
-func (self Instance) ValidateStrAddr(app_str_offset uint32) bool {
+func (self Instance) ValidateStrAddr(app_str_offset uint64) bool {
     ret := C.wasm_runtime_validate_app_str_addr(self._instance,
-                                                (C.uint32_t)(app_str_offset))
+                                                (C.uint64_t)(app_str_offset))
     return (bool)(ret)
 }
 
-func (self Instance) ValidateNativeAddr(native_ptr *uint8, size uint32) bool {
+func (self Instance) ValidateNativeAddr(native_ptr *uint8, size uint64) bool {
     native_ptr_C := (unsafe.Pointer)(native_ptr)
     ret := C.wasm_runtime_validate_native_addr(self._instance,
                                                native_ptr_C,
-                                               (C.uint32_t)(size))
+                                               (C.uint64_t)(size))
     return (bool)(ret)
 }
 
-func (self Instance) AddrAppToNative(app_offset uint32) *uint8 {
+func (self Instance) AddrAppToNative(app_offset uint64) *uint8 {
     native_ptr := C.wasm_runtime_addr_app_to_native(self._instance,
-                                                    (C.uint32_t)(app_offset))
+                                                    (C.uint64_t)(app_offset))
     return (*uint8)(native_ptr)
 }
 
-func (self Instance) AddrNativeToApp(native_ptr *uint8) uint32 {
+func (self Instance) AddrNativeToApp(native_ptr *uint8) uint64 {
     native_ptr_C := (unsafe.Pointer)(native_ptr)
     offset := C.wasm_runtime_addr_native_to_app(self._instance,
                                                 native_ptr_C)
-    return (uint32)(offset)
+    return (uint64)(offset)
 }
 
-func (self Instance) GetAppAddrRange(app_offset uint32) (bool,
-                                                         uint32,
-                                                         uint32) {
-    var start_offset, end_offset C.uint32_t
+func (self Instance) GetAppAddrRange(app_offset uint64) (bool,
+                                                         uint64,
+                                                         uint64) {
+    var start_offset, end_offset C.uint64_t
     ret := C.wasm_runtime_get_app_addr_range(self._instance,
-                                             (C.uint32_t)(app_offset),
+                                             (C.uint64_t)(app_offset),
                                              &start_offset, &end_offset)
-    return (bool)(ret), (uint32)(start_offset), (uint32)(end_offset)
+    return (bool)(ret), (uint64)(start_offset), (uint64)(end_offset)
 }
 
 func (self Instance) GetNativeAddrRange(native_ptr *uint8) (bool,

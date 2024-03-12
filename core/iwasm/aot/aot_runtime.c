@@ -50,7 +50,7 @@ bh_static_assert(offsetof(AOTModuleInstance, cur_exception)
 bh_static_assert(offsetof(AOTModuleInstance, global_table_data)
                  == 13 * sizeof(uint64) + 128 + 11 * sizeof(uint64));
 
-bh_static_assert(sizeof(AOTMemoryInstance) == 104);
+bh_static_assert(sizeof(AOTMemoryInstance) == 112);
 bh_static_assert(offsetof(AOTTableInstance, elems) == 24);
 
 bh_static_assert(offsetof(AOTModuleInstanceExtra, stack_sizes) == 0);
@@ -792,9 +792,10 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     uint32 max_page_count =
         wasm_runtime_get_max_mem(max_memory_pages, memory->mem_init_page_count,
                                  memory->mem_max_page_count);
-    uint32 inc_page_count, aux_heap_base, global_idx;
+    uint32 inc_page_count, global_idx;
     uint32 bytes_of_last_page, bytes_to_page_end;
-    uint32 heap_offset = num_bytes_per_page * init_page_count;
+    uint64 aux_heap_base,
+        heap_offset = (uint64)num_bytes_per_page * init_page_count;
     uint64 memory_data_size, max_memory_data_size;
     uint8 *p = NULL, *global_addr;
 
@@ -817,6 +818,15 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         /* Disable app heap, use malloc/free function exported
            by wasm app to allocate/free memory instead */
         heap_size = 0;
+    }
+
+    /* If initial memory is the largest size allowed, disallowing insert host
+     * managed heap */
+    if (heap_size > 0 && heap_offset == MAX_LINEAR_MEMORY_SIZE) {
+        set_error_buf(error_buf, error_buf_size,
+                      "failed to insert app heap into linear memory, "
+                      "try using `--heap-size=0` option");
+        return NULL;
     }
 
     if (init_page_count == max_page_count && init_page_count == 1) {
@@ -842,7 +852,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         }
         else if (module->aux_heap_base_global_index != (uint32)-1
                  && module->aux_heap_base
-                        < num_bytes_per_page * init_page_count) {
+                        < (uint64)num_bytes_per_page * init_page_count) {
             /* Insert app heap before __heap_base */
             aux_heap_base = module->aux_heap_base;
             bytes_of_last_page = aux_heap_base % num_bytes_per_page;
@@ -869,15 +879,15 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
                          - module->import_global_count;
             global_addr = module_inst->global_data
                           + module->globals[global_idx].data_offset;
-            *(uint32 *)global_addr = aux_heap_base;
+            *(uint32 *)global_addr = (uint32)aux_heap_base;
             LOG_VERBOSE("Reset __heap_base global to %u", aux_heap_base);
         }
         else {
             /* Insert app heap before new page */
             inc_page_count =
                 (heap_size + num_bytes_per_page - 1) / num_bytes_per_page;
-            heap_offset = num_bytes_per_page * init_page_count;
-            heap_size = num_bytes_per_page * inc_page_count;
+            heap_offset = (uint64)num_bytes_per_page * init_page_count;
+            heap_size = (uint64)num_bytes_per_page * inc_page_count;
             if (heap_size > 0)
                 heap_size -= 1 * BH_KB;
         }
@@ -889,18 +899,8 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
                           "try using `--heap-size=0` option");
             return NULL;
         }
-        else if (init_page_count == DEFAULT_MAX_PAGES) {
-            num_bytes_per_page = UINT32_MAX;
-            init_page_count = max_page_count = 1;
-        }
         if (max_page_count > DEFAULT_MAX_PAGES)
             max_page_count = DEFAULT_MAX_PAGES;
-    }
-    else { /* heap_size == 0 */
-        if (init_page_count == DEFAULT_MAX_PAGES) {
-            num_bytes_per_page = UINT32_MAX;
-            init_page_count = max_page_count = 1;
-        }
     }
 
     LOG_VERBOSE("Memory instantiate:");
@@ -911,7 +911,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     LOG_VERBOSE("  heap offset: %u, heap size: %d\n", heap_offset, heap_size);
 
     max_memory_data_size = (uint64)num_bytes_per_page * max_page_count;
-    bh_assert(max_memory_data_size <= 4 * (uint64)BH_GB);
+    bh_assert(max_memory_data_size <= MAX_LINEAR_MEMORY_SIZE);
     (void)max_memory_data_size;
 
     if (wasm_allocate_linear_memory(&p, is_shared_memory, num_bytes_per_page,
@@ -927,11 +927,11 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     memory_inst->num_bytes_per_page = num_bytes_per_page;
     memory_inst->cur_page_count = init_page_count;
     memory_inst->max_page_count = max_page_count;
-    memory_inst->memory_data_size = (uint32)memory_data_size;
+    memory_inst->memory_data_size = memory_data_size;
 
     /* Init memory info */
     memory_inst->memory_data = p;
-    memory_inst->memory_data_end = p + (uint32)memory_data_size;
+    memory_inst->memory_data_end = p + memory_data_size;
 
     /* Initialize heap info */
     memory_inst->heap_data = p + heap_offset;
@@ -1098,7 +1098,7 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
 
         if (memory_inst->memory_data) {
             bh_memcpy_s((uint8 *)memory_inst->memory_data + base_offset,
-                        memory_inst->memory_data_size - base_offset,
+                        (uint32)memory_inst->memory_data_size - base_offset,
                         data_seg->bytes, length);
         }
     }
@@ -2472,9 +2472,9 @@ execute_free_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
     return ret;
 }
 
-uint32
+uint64
 aot_module_malloc_internal(AOTModuleInstance *module_inst,
-                           WASMExecEnv *exec_env, uint32 size,
+                           WASMExecEnv *exec_env, uint64 size,
                            void **p_native_addr)
 {
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
@@ -2482,13 +2482,16 @@ aot_module_malloc_internal(AOTModuleInstance *module_inst,
     uint8 *addr = NULL;
     uint32 offset = 0;
 
+    /* TODO: Memory64 size check based on memory idx type */
+    bh_assert(size <= UINT32_MAX);
+
     if (!memory_inst) {
         aot_set_exception(module_inst, "uninitialized memory");
         return 0;
     }
 
     if (memory_inst->heap_handle) {
-        addr = mem_allocator_malloc(memory_inst->heap_handle, size);
+        addr = mem_allocator_malloc(memory_inst->heap_handle, (uint32)size);
     }
     else if (module->malloc_func_index != (uint32)-1
              && module->free_func_index != (uint32)-1) {
@@ -2513,7 +2516,7 @@ aot_module_malloc_internal(AOTModuleInstance *module_inst,
 
         if (!malloc_func
             || !execute_malloc_function(module_inst, exec_env, malloc_func,
-                                        retain_func, size, &offset)) {
+                                        retain_func, (uint32)size, &offset)) {
             return 0;
         }
         addr = offset ? (uint8 *)memory_inst->memory_data + offset : NULL;
@@ -2532,16 +2535,20 @@ aot_module_malloc_internal(AOTModuleInstance *module_inst,
     }
     if (p_native_addr)
         *p_native_addr = addr;
-    return (uint32)(addr - memory_inst->memory_data);
+    return (uint64)(addr - memory_inst->memory_data);
 }
 
-uint32
+uint64
 aot_module_realloc_internal(AOTModuleInstance *module_inst,
-                            WASMExecEnv *exec_env, uint32 ptr, uint32 size,
+                            WASMExecEnv *exec_env, uint64 ptr, uint64 size,
                             void **p_native_addr)
 {
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
     uint8 *addr = NULL;
+
+    /* TODO: Memory64 ptr and size check based on memory idx type */
+    bh_assert(ptr <= UINT32_MAX);
+    bh_assert(size <= UINT32_MAX);
 
     if (!memory_inst) {
         aot_set_exception(module_inst, "uninitialized memory");
@@ -2551,7 +2558,8 @@ aot_module_realloc_internal(AOTModuleInstance *module_inst,
     if (memory_inst->heap_handle) {
         addr = mem_allocator_realloc(
             memory_inst->heap_handle,
-            ptr ? memory_inst->memory_data + ptr : NULL, size);
+            (uint32)ptr ? memory_inst->memory_data + (uint32)ptr : NULL,
+            (uint32)size);
     }
 
     /* Only support realloc in WAMR's app heap */
@@ -2570,12 +2578,12 @@ aot_module_realloc_internal(AOTModuleInstance *module_inst,
 
     if (p_native_addr)
         *p_native_addr = addr;
-    return (uint32)(addr - memory_inst->memory_data);
+    return (uint64)(addr - memory_inst->memory_data);
 }
 
 void
 aot_module_free_internal(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
-                         uint32 ptr)
+                         uint64 ptr)
 {
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
     AOTModule *module = (AOTModule *)module_inst->module;
@@ -2584,8 +2592,11 @@ aot_module_free_internal(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
         return;
     }
 
+    /* TODO: Memory64 ptr and size check based on memory idx type */
+    bh_assert(ptr <= UINT32_MAX);
+
     if (ptr) {
-        uint8 *addr = memory_inst->memory_data + ptr;
+        uint8 *addr = memory_inst->memory_data + (uint32)ptr;
         uint8 *memory_data_end;
 
         /* memory->memory_data_end may be changed in memory grow */
@@ -2616,20 +2627,21 @@ aot_module_free_internal(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
                 free_func = aot_lookup_function(module_inst, "__unpin", "(i)i");
 
             if (free_func)
-                execute_free_function(module_inst, exec_env, free_func, ptr);
+                execute_free_function(module_inst, exec_env, free_func,
+                                      (uint32)ptr);
         }
     }
 }
 
-uint32
-aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
+uint64
+aot_module_malloc(AOTModuleInstance *module_inst, uint64 size,
                   void **p_native_addr)
 {
     return aot_module_malloc_internal(module_inst, NULL, size, p_native_addr);
 }
 
-uint32
-aot_module_realloc(AOTModuleInstance *module_inst, uint32 ptr, uint32 size,
+uint64
+aot_module_realloc(AOTModuleInstance *module_inst, uint64 ptr, uint64 size,
                    void **p_native_addr)
 {
     return aot_module_realloc_internal(module_inst, NULL, ptr, size,
@@ -2637,23 +2649,27 @@ aot_module_realloc(AOTModuleInstance *module_inst, uint32 ptr, uint32 size,
 }
 
 void
-aot_module_free(AOTModuleInstance *module_inst, uint32 ptr)
+aot_module_free(AOTModuleInstance *module_inst, uint64 ptr)
 {
     aot_module_free_internal(module_inst, NULL, ptr);
 }
 
-uint32
+uint64
 aot_module_dup_data(AOTModuleInstance *module_inst, const char *src,
-                    uint32 size)
+                    uint64 size)
 {
     char *buffer;
-    uint32 buffer_offset =
-        aot_module_malloc(module_inst, size, (void **)&buffer);
+    uint64 buffer_offset;
+
+    /* TODO: Memory64 size check based on memory idx type */
+    bh_assert(size <= UINT32_MAX);
+
+    buffer_offset = aot_module_malloc(module_inst, size, (void **)&buffer);
 
     if (buffer_offset != 0) {
         buffer = wasm_runtime_addr_app_to_native(
             (WASMModuleInstanceCommon *)module_inst, buffer_offset);
-        bh_memcpy_s(buffer, size, src, size);
+        bh_memcpy_s(buffer, (uint32)size, src, (uint32)size);
     }
     return buffer_offset;
 }
@@ -2935,7 +2951,7 @@ fail:
 
 bool
 aot_check_app_addr_and_convert(AOTModuleInstance *module_inst, bool is_str,
-                               uint32 app_buf_addr, uint32 app_buf_size,
+                               uint64 app_buf_addr, uint64 app_buf_size,
                                void **p_native_addr)
 {
     bool ret;
@@ -2999,7 +3015,7 @@ aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index, uint32 offset,
     }
 
     if (!wasm_runtime_validate_app_addr((WASMModuleInstanceCommon *)module_inst,
-                                        dst, len))
+                                        (uint64)dst, (uint64)len))
         return false;
 
     if ((uint64)offset + (uint64)len > seg_len) {
@@ -3008,10 +3024,11 @@ aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index, uint32 offset,
     }
 
     maddr = wasm_runtime_addr_app_to_native(
-        (WASMModuleInstanceCommon *)module_inst, dst);
+        (WASMModuleInstanceCommon *)module_inst, (uint64)dst);
 
     SHARED_MEMORY_LOCK(memory_inst);
-    bh_memcpy_s(maddr, memory_inst->memory_data_size - dst, data + offset, len);
+    bh_memcpy_s(maddr, (uint32)(memory_inst->memory_data_size - dst),
+                data + offset, len);
     SHARED_MEMORY_UNLOCK(memory_inst);
     return true;
 }
@@ -3030,14 +3047,14 @@ aot_data_drop(AOTModuleInstance *module_inst, uint32 seg_index)
 
 #if WASM_ENABLE_THREAD_MGR != 0
 bool
-aot_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size)
+aot_set_aux_stack(WASMExecEnv *exec_env, uint64 start_offset, uint32 size)
 {
     AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
     AOTModule *module = (AOTModule *)module_inst->module;
 
     uint32 stack_top_idx = module->aux_stack_top_global_index;
-    uint32 data_end = module->aux_data_end;
-    uint32 stack_bottom = module->aux_stack_bottom;
+    uint64 data_end = module->aux_data_end;
+    uint64 stack_bottom = module->aux_stack_bottom;
     bool is_stack_before_data = stack_bottom < data_end ? true : false;
 
     /* Check the aux stack space, currently we don't allocate space in heap */
@@ -3050,12 +3067,13 @@ aot_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size)
             set the initial value for the global */
         uint32 global_offset = module->globals[stack_top_idx].data_offset;
         uint8 *global_addr = module_inst->global_data + global_offset;
-        *(int32 *)global_addr = start_offset;
+        /* TODO: Memory64 the type i32/i64 depends on memory idx type*/
+        *(int32 *)global_addr = (uint32)start_offset;
 
         /* The aux stack boundary is a constant value,
             set the value to exec_env */
-        exec_env->aux_stack_boundary.boundary = start_offset - size;
-        exec_env->aux_stack_bottom.bottom = start_offset;
+        exec_env->aux_stack_boundary = (uintptr_t)start_offset - size;
+        exec_env->aux_stack_bottom = (uintptr_t)start_offset;
         return true;
     }
 
@@ -3063,14 +3081,14 @@ aot_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size)
 }
 
 bool
-aot_get_aux_stack(WASMExecEnv *exec_env, uint32 *start_offset, uint32 *size)
+aot_get_aux_stack(WASMExecEnv *exec_env, uint64 *start_offset, uint32 *size)
 {
     AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
     AOTModule *module = (AOTModule *)module_inst->module;
 
     /* The aux stack information is resolved in loader
         and store in module */
-    uint32 stack_bottom = module->aux_stack_bottom;
+    uint64 stack_bottom = module->aux_stack_bottom;
     uint32 total_aux_stack_size = module->aux_stack_size;
 
     if (stack_bottom != 0 && total_aux_stack_size != 0) {

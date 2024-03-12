@@ -211,9 +211,9 @@ There are two runtime APIs available for this purpose.
  * p_native_addr: return the native address of allocated memory
  * size: the buffer size to allocate
  */
-uint32_t
+uint64_t
 wasm_runtime_module_malloc(wasm_module_inst_t module_inst,
-                           uint32_t size, void **p_native_addr);
+                           uint64_t size, void **p_native_addr);
 
 /**
  * malloc a buffer from instance's private memory space,
@@ -223,28 +223,28 @@ wasm_runtime_module_malloc(wasm_module_inst_t module_inst,
  * src: the native buffer address
  * size: the size of buffer to be allocated and copy data
  */
-uint32_t
+uint64_t
 wasm_runtime_module_dup_data(wasm_module_inst_t module_inst,
-                             const char *src, uint32_t size);
+                             const char *src, uint64_t size);
 
 /* free the memory allocated from module memory space */
 void
-wasm_runtime_module_free(wasm_module_inst_t module_inst, uint32_t ptr);
+wasm_runtime_module_free(wasm_module_inst_t module_inst, uint64_t ptr);
 ```
 
 Usage sample:
 
 ```c
 char * buffer = NULL;
-uint32_t buffer_for_wasm;
+uint64_t buffer_for_wasm;
 
 buffer_for_wasm = wasm_runtime_module_malloc(module_inst, 100, &buffer);
 if (buffer_for_wasm != 0) {
-    uint32 argv[2];
+    uint32 argv[3];
     strncpy(buffer, "hello", 100); /* use native address for accessing in runtime */
     argv[0] = buffer_for_wasm;     /* pass the buffer address for WASM space */
-    argv[1] = 100;                 /* the size of buffer */
-    wasm_runtime_call_wasm(exec_env, func, 2, argv);
+    argv[2] = 100;                 /* the size of buffer */
+    wasm_runtime_call_wasm(exec_env, func, 3, argv);
 
     /* it is runtime embedder's responsibility to release the memory,
        unless the WASM app will free the passed pointer in its code */

@@ -93,6 +93,9 @@ extern "C" {
 #define DEFAULT_NUM_BYTES_PER_PAGE 65536
 #define DEFAULT_MAX_PAGES 65536
 
+/* Max size of linear memory */
+#define MAX_LINEAR_MEMORY_SIZE (4 * (uint64)BH_GB)
+
 #if WASM_ENABLE_GC == 0
 typedef uintptr_t table_elem_type_t;
 #define NULL_REF (0xFFFFFFFF)
@@ -870,19 +873,19 @@ struct WASMModule {
        -1 means unexported */
     uint32 aux_data_end_global_index;
     /* auxiliary __data_end exported by wasm app */
-    uint32 aux_data_end;
+    uint64 aux_data_end;
 
     /* the index of auxiliary __heap_base global,
        -1 means unexported */
     uint32 aux_heap_base_global_index;
     /* auxiliary __heap_base exported by wasm app */
-    uint32 aux_heap_base;
+    uint64 aux_heap_base;
 
     /* the index of auxiliary stack top global,
        -1 means unexported */
     uint32 aux_stack_top_global_index;
     /* auxiliary stack bottom resolved */
-    uint32 aux_stack_bottom;
+    uint64 aux_stack_bottom;
     /* auxiliary stack size resolved */
     uint32 aux_stack_size;
 
@@ -1088,6 +1091,21 @@ inline static unsigned
 align_uint(unsigned v, unsigned b)
 {
     unsigned m = b - 1;
+    return (v + m) & ~m;
+}
+
+/**
+ * Align an 64 bit unsigned value on a alignment boundary.
+ *
+ * @param v the value to be aligned
+ * @param b the alignment boundary (2, 4, 8, ...)
+ *
+ * @return the aligned value
+ */
+inline static uint64
+align_uint64(uint64 v, uint64 b)
+{
+    uint64 m = b - 1;
     return (v + m) & ~m;
 }
 

@@ -558,7 +558,8 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     ThreadRoutineArgs *routine_args = NULL;
     uint32 thread_handle;
     uint32 stack_size = 8192;
-    uint32 aux_stack_start = 0, aux_stack_size;
+    uint32 aux_stack_size;
+    uint64 aux_stack_start = 0;
     int32 ret = -1;
 
     bh_assert(module);
@@ -669,14 +670,14 @@ pthread_join_wrapper(wasm_exec_env_t exec_env, uint32 thread,
 
     /* validate addr, we can use current thread's
        module instance here as the memory is shared */
-    if (!validate_app_addr(retval_offset, sizeof(int32))) {
+    if (!validate_app_addr((uint64)retval_offset, (uint64)sizeof(int32))) {
         /* Join failed, but we don't want to terminate all threads,
            do not spread exception here */
         wasm_runtime_set_exception(module_inst, NULL);
         return -1;
     }
 
-    retval = (void **)addr_app_to_native(retval_offset);
+    retval = (void **)addr_app_to_native((uint64)retval_offset);
 
     node = get_thread_info(exec_env, thread);
     if (!node) {
@@ -1263,7 +1264,7 @@ sem_getvalue_wrapper(wasm_exec_env_t exec_env, uint32 sem, int32 *sval)
     (void)exec_env;
     SemCallbackArgs args = { sem, NULL };
 
-    if (validate_native_addr(sval, sizeof(int32))) {
+    if (validate_native_addr(sval, (uint64)sizeof(int32))) {
 
         bh_hash_map_traverse(sem_info_map, sem_fetch_cb, &args);
 

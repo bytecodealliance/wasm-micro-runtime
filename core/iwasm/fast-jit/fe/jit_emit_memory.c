@@ -630,7 +630,7 @@ wasm_init_memory(WASMModuleInstance *inst, uint32 mem_idx, uint32 seg_idx,
 {
     WASMMemoryInstance *mem_inst;
     WASMDataSeg *data_segment;
-    uint32 mem_size;
+    uint64 mem_size;
     uint8 *mem_addr, *data_addr;
     uint32 seg_len;
 
@@ -655,7 +655,7 @@ wasm_init_memory(WASMModuleInstance *inst, uint32 mem_idx, uint32 seg_idx,
         goto out_of_bounds;
 
     mem_addr = mem_inst->memory_data + mem_offset;
-    bh_memcpy_s(mem_addr, mem_size - mem_offset, data_addr, len);
+    bh_memcpy_s(mem_addr, (uint32)(mem_size - mem_offset), data_addr, len);
 
     return 0;
 out_of_bounds:
@@ -719,7 +719,7 @@ wasm_copy_memory(WASMModuleInstance *inst, uint32 src_mem_idx,
                  uint32 dst_offset)
 {
     WASMMemoryInstance *src_mem, *dst_mem;
-    uint32 src_mem_size, dst_mem_size;
+    uint64 src_mem_size, dst_mem_size;
     uint8 *src_addr, *dst_addr;
 
     src_mem = inst->memories[src_mem_idx];
@@ -738,7 +738,7 @@ wasm_copy_memory(WASMModuleInstance *inst, uint32 src_mem_idx,
     src_addr = src_mem->memory_data + src_offset;
     dst_addr = dst_mem->memory_data + dst_offset;
     /* allowing the destination and source to overlap */
-    bh_memmove_s(dst_addr, dst_mem_size - dst_offset, src_addr, len);
+    bh_memmove_s(dst_addr, (uint32)(dst_mem_size - dst_offset), src_addr, len);
 
     return 0;
 out_of_bounds:
@@ -784,7 +784,7 @@ wasm_fill_memory(WASMModuleInstance *inst, uint32 mem_idx, uint32 len,
                  uint32 val, uint32 dst)
 {
     WASMMemoryInstance *mem_inst;
-    uint32 mem_size;
+    uint64 mem_size;
     uint8 *dst_addr;
 
     mem_inst = inst->memories[mem_idx];

@@ -211,7 +211,8 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
                                                  &builder_native)))
         return res;
 
-    if (!wasm_runtime_validate_native_addr(instance, g, sizeof(graph))) {
+    if (!wasm_runtime_validate_native_addr(instance, g,
+                                           (uint64)sizeof(graph))) {
         NN_ERR_PRINTF("graph is invalid");
         res = invalid_argument;
         goto fail;
@@ -248,8 +249,8 @@ wasi_nn_init_execution_context(wasm_exec_env_t exec_env, graph g,
     if (success != (res = is_model_initialized(wasi_nn_ctx)))
         return res;
 
-    if (!wasm_runtime_validate_native_addr(instance, ctx,
-                                           sizeof(graph_execution_context))) {
+    if (!wasm_runtime_validate_native_addr(
+            instance, ctx, (uint64)sizeof(graph_execution_context))) {
         NN_ERR_PRINTF("ctx is invalid");
         return invalid_argument;
     }
@@ -331,7 +332,7 @@ wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
         return res;
 
     if (!wasm_runtime_validate_native_addr(instance, output_tensor_size,
-                                           sizeof(uint32_t))) {
+                                           (uint64)sizeof(uint32_t))) {
         NN_ERR_PRINTF("output_tensor_size is invalid");
         return invalid_argument;
     }
