@@ -668,9 +668,7 @@ thread_manager_start_routine(void *arg)
 #endif
 
     /* Free aux stack space */
-    if (exec_env->is_aux_stack_allocated)
-        wasm_cluster_free_aux_stack(exec_env,
-                                    (uint64)exec_env->aux_stack_bottom);
+    wasm_cluster_free_aux_stack(exec_env, (uint64)exec_env->aux_stack_bottom);
 
     os_mutex_lock(&cluster_list_lock);
 
@@ -779,7 +777,6 @@ wasm_cluster_create_thread(WASMExecEnv *exec_env,
         /* Disable aux stack */
         new_exec_env->aux_stack_boundary = 0;
         new_exec_env->aux_stack_bottom = UINTPTR_MAX;
-        new_exec_env->is_aux_stack_allocated = false;
     }
 
     /* Inherit suspend_flags of parent thread */
@@ -1108,9 +1105,7 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
 #endif
 
     /* Free aux stack space */
-    if (exec_env->is_aux_stack_allocated)
-        wasm_cluster_free_aux_stack(exec_env,
-                                    (uint64)exec_env->aux_stack_bottom);
+    wasm_cluster_free_aux_stack(exec_env, (uint64)exec_env->aux_stack_bottom);
 
     /* App exit the thread, free the resources before exit native thread */
 

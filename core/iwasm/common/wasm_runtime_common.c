@@ -4277,6 +4277,8 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
             case VALUE_TYPE_FUNCREF:
 #endif
             {
+                /* TODO: memory64 the data type of ptr_len and argc depends on
+                 * mem idx type */
                 *(uint32 *)argv_dst = arg_i32 = *argv_src++;
                 /* TODO: memory64 if future there is a way for supporting
                  * wasm64 and wasm32 in libc at the same time, remove the
@@ -4747,6 +4749,8 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
             {
                 arg_i32 = *argv_src++;
 
+                /* TODO: memory64 the data type of ptr_len and argc depends on
+                 * mem idx type */
                 if (signature) {
                     if (signature[i + 1] == '*') {
                         /* param is a pointer */
@@ -5122,6 +5126,8 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
             {
                 arg_i32 = *argv++;
 
+                /* TODO: memory64 the data type of ptr_len and argc depends on
+                 * mem idx type */
                 if (signature) {
                     if (signature[i + 1] == '*') {
                         /* param is a pointer */
