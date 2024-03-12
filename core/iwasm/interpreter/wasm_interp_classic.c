@@ -5426,8 +5426,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #ifndef OS_ENABLE_HW_BOUND_CHECK
                         CHECK_BULK_MEMORY_OVERFLOW(addr, bytes, maddr);
 #else
-                        if ((uint64)(uint32)addr + bytes
-                            > (uint64)linear_mem_size)
+                        if ((uint64)(uint32)addr + bytes > linear_mem_size)
                             goto out_of_bounds;
                         maddr = memory->memory_data + (uint32)addr;
 #endif
@@ -5446,7 +5445,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         if (offset + bytes > seg_len)
                             goto out_of_bounds;
 
-                        bh_memcpy_s(maddr, linear_mem_size - addr,
+                        bh_memcpy_s(maddr, (uint32)(linear_mem_size - addr),
                                     data + offset, (uint32)bytes);
                         break;
                     }
@@ -5478,11 +5477,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         CHECK_BULK_MEMORY_OVERFLOW(src, len, msrc);
                         CHECK_BULK_MEMORY_OVERFLOW(dst, len, mdst);
 #else
-                        if ((uint64)(uint32)src + len > (uint64)linear_mem_size)
+                        if ((uint64)(uint32)src + len > linear_mem_size)
                             goto out_of_bounds;
                         msrc = memory->memory_data + (uint32)src;
 
-                        if ((uint64)(uint32)dst + len > (uint64)linear_mem_size)
+                        if ((uint64)(uint32)dst + len > linear_mem_size)
                             goto out_of_bounds;
                         mdst = memory->memory_data + (uint32)dst;
 #endif
