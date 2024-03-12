@@ -426,15 +426,13 @@ wasm_runtime_addr_app_to_native(WASMModuleInstanceCommon *module_inst_comm,
             SHARED_MEMORY_UNLOCK(memory_inst);
             return addr;
         }
-    }
-    /* If bounds checks is disabled, return the address directly */
-    else if (app_offset != 0) {
         SHARED_MEMORY_UNLOCK(memory_inst);
-        return addr;
+        return NULL;
     }
 
+    /* If bounds checks is disabled, return the address directly */
     SHARED_MEMORY_UNLOCK(memory_inst);
-    return NULL;
+    return addr;
 }
 
 uint64
