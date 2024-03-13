@@ -613,10 +613,10 @@ uint32
 aot_get_plt_table_size();
 
 void *
-aot_memmove(void *dest, const void *src, size_t n);
+aot_memmove(void *dest, const void *src, uint32_t n);
 
 void *
-aot_memset(void *s, int c, size_t n);
+aot_memset(void *s, int c, uint32_t n);
 
 double
 aot_sqrt(double x);

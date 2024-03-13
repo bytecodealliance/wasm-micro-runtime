@@ -2957,13 +2957,13 @@ aot_check_app_addr_and_convert(AOTModuleInstance *module_inst, bool is_str,
 }
 
 void *
-aot_memmove(void *dest, const void *src, size_t n)
+aot_memmove(void *dest, const void *src, uint32_t n)
 {
     return memmove(dest, src, n);
 }
 
 void *
-aot_memset(void *s, int c, size_t n)
+aot_memset(void *s, int c, uint32_t n)
 {
     return memset(s, c, n);
 }
