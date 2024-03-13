@@ -147,10 +147,10 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
     }
 #endif /* end of WASM_ENABLE_LIBC_WASI */
 
-    if (!(func = wasm_runtime_lookup_function(module_inst, "main", NULL))
-        && !(func = wasm_runtime_lookup_function(module_inst,
-                                                 "__main_argc_argv", NULL))
-        && !(func = wasm_runtime_lookup_function(module_inst, "_main", NULL))) {
+    if (!(func = wasm_runtime_lookup_function(module_inst, "main"))
+        && !(func =
+                 wasm_runtime_lookup_function(module_inst, "__main_argc_argv"))
+        && !(func = wasm_runtime_lookup_function(module_inst, "_main"))) {
 #if WASM_ENABLE_LIBC_WASI != 0
         wasm_runtime_set_exception(
             module_inst, "lookup the entry point symbol (like _start, main, "
@@ -337,8 +337,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
     bh_assert(argc >= 0);
     LOG_DEBUG("call a function \"%s\" with %d arguments", name, argc);
 
-    if (!(target_func =
-              wasm_runtime_lookup_function(module_inst, name, NULL))) {
+    if (!(target_func = wasm_runtime_lookup_function(module_inst, name))) {
         snprintf(buf, sizeof(buf), "lookup function %s failed", name);
         wasm_runtime_set_exception(module_inst, buf);
         goto fail;

@@ -129,8 +129,7 @@ func (self *Instance) CallFunc(funcName string,
         cName := C.CString(funcName)
         defer C.free(unsafe.Pointer(cName))
 
-        _func = C.wasm_runtime_lookup_function(self._instance,
-                                               cName, (*C.char)(C.NULL))
+        _func = C.wasm_runtime_lookup_function(self._instance, cName)
         if _func == nil {
             return fmt.Errorf("CallFunc error: lookup function failed")
         }
@@ -170,8 +169,7 @@ func (self *Instance) CallFuncV(funcName string,
         cName := C.CString(funcName)
         defer C.free(unsafe.Pointer(cName))
 
-        _func = C.wasm_runtime_lookup_function(self._instance,
-                                               cName, (*C.char)(C.NULL))
+        _func = C.wasm_runtime_lookup_function(self._instance, cName)
         if _func == nil {
             return fmt.Errorf("CallFunc error: lookup function failed")
         }

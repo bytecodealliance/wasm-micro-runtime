@@ -104,15 +104,15 @@ main(int argc, char *argv_main[])
             goto fail;
         }
 
-        func_test_data_drop[i] = wasm_runtime_lookup_function(
-            module_inst[i], name_test_data_drop, NULL);
+        func_test_data_drop[i] =
+            wasm_runtime_lookup_function(module_inst[i], name_test_data_drop);
         if (!func_test_data_drop[i]) {
             printf("The wasm function %s is not found.\n", name_test_data_drop);
             goto fail;
         }
 
-        func_test_elem_drop[i] = wasm_runtime_lookup_function(
-            module_inst[i], name_test_elem_drop, NULL);
+        func_test_elem_drop[i] =
+            wasm_runtime_lookup_function(module_inst[i], name_test_elem_drop);
         if (!func_test_elem_drop[i]) {
             printf("The wasm function %s is not found.\n", name_test_elem_drop);
             goto fail;

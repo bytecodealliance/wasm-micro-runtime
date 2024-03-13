@@ -175,7 +175,7 @@ class Instance:
         wasm_runtime_module_free(self.module_inst, wasm_handler)
 
     def lookup_function(self, name: str) -> wasm_function_inst_t:
-        func = wasm_runtime_lookup_function(self.module_inst, name, None)
+        func = wasm_runtime_lookup_function(self.module_inst, name)
         if not func:
             raise Exception("Error while looking-up function")
         return func

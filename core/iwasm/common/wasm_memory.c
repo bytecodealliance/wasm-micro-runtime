@@ -823,13 +823,11 @@ return_func:
 
 #if WASM_ENABLE_INTERP != 0
         if (module->module_type == Wasm_Module_Bytecode)
-            exec_env =
-                ((WASMModuleInstanceExtra *)module->e)->common.cur_exec_env;
+            exec_env = ((WASMModuleInstance *)module)->cur_exec_env;
 #endif
 #if WASM_ENABLE_AOT != 0
         if (module->module_type == Wasm_Module_AoT)
-            exec_env =
-                ((AOTModuleInstanceExtra *)module->e)->common.cur_exec_env;
+            exec_env = ((AOTModuleInstance *)module)->cur_exec_env;
 #endif
 
         enlarge_memory_error_cb(inc_page_count, total_size_old, 0,

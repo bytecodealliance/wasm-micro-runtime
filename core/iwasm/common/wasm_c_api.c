@@ -4939,19 +4939,17 @@ wasm_instance_new_with_args_ex(wasm_store_t *store, const wasm_module_t *module,
     /* create the c-api func import list */
 #if WASM_ENABLE_INTERP != 0
     if (instance->inst_comm_rt->module_type == Wasm_Module_Bytecode) {
-        WASMModuleInstanceExtra *e =
-            ((WASMModuleInstance *)instance->inst_comm_rt)->e;
-        p_func_imports = &(e->common.c_api_func_imports);
+        WASMModuleInstance *wasm_module_inst =
+            (WASMModuleInstance *)instance->inst_comm_rt;
+        p_func_imports = &(wasm_module_inst->c_api_func_imports);
         import_func_count = MODULE_INTERP(module)->import_function_count;
     }
 #endif
 #if WASM_ENABLE_AOT != 0
     if (instance->inst_comm_rt->module_type == Wasm_Module_AoT) {
-        AOTModuleInstanceExtra *e =
-            (AOTModuleInstanceExtra *)((AOTModuleInstance *)
-                                           instance->inst_comm_rt)
-                ->e;
-        p_func_imports = &(e->common.c_api_func_imports);
+        AOTModuleInstance *aot_module_inst =
+            (AOTModuleInstance *)instance->inst_comm_rt;
+        p_func_imports = &(aot_module_inst->c_api_func_imports);
         import_func_count = MODULE_AOT(module)->import_func_count;
     }
 #endif
@@ -4965,7 +4963,7 @@ wasm_instance_new_with_args_ex(wasm_store_t *store, const wasm_module_t *module,
         goto failed;
     }
 
-    /* fill in module_inst->e->c_api_func_imports */
+    /* fill in module_inst->c_api_func_imports */
     for (i = 0; imports && i < imports->num_elems; i++) {
         wasm_func_t *func_host = NULL;
         wasm_extern_t *in = imports->data[i];

@@ -149,8 +149,7 @@ main(int argc, char *argv_main[])
         goto fail;
     }
 
-    if (!(func = wasm_runtime_lookup_function(module_inst, "generate_float",
-                                              NULL))) {
+    if (!(func = wasm_runtime_lookup_function(module_inst, "generate_float"))) {
         printf("The generate_float wasm function is not found.\n");
         goto fail;
     }
@@ -189,8 +188,8 @@ main(int argc, char *argv_main[])
     argv2[4] = 3; //  the last argument is the digits after decimal point for
                   //  converting float to string
 
-    if (!(func2 = wasm_runtime_lookup_function(module_inst, "float_to_string",
-                                               NULL))) {
+    if (!(func2 =
+              wasm_runtime_lookup_function(module_inst, "float_to_string"))) {
         printf(
             "The wasm function float_to_string wasm function is not found.\n");
         goto fail;
@@ -208,7 +207,7 @@ main(int argc, char *argv_main[])
     }
 
     wasm_function_inst_t func3 =
-        wasm_runtime_lookup_function(module_inst, "calculate", NULL);
+        wasm_runtime_lookup_function(module_inst, "calculate");
     if (!func3) {
         printf("The wasm function calculate is not found.\n");
         goto fail;

@@ -98,8 +98,8 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
 
     wasm_native_inherit_contexts(new_module_inst, module_inst);
 
-    start_func = wasm_runtime_lookup_function(new_module_inst,
-                                              THREAD_START_FUNCTION, NULL);
+    start_func =
+        wasm_runtime_lookup_function(new_module_inst, THREAD_START_FUNCTION);
     if (!start_func) {
         LOG_ERROR("Failed to find thread start function %s",
                   THREAD_START_FUNCTION);
