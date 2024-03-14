@@ -138,7 +138,7 @@ struct WASMMemoryInstance {
     DefPointer(uint8 *, heap_data_end);
     /* The heap created */
     DefPointer(void *, heap_handle);
-    /* TODO: use it replace the g_shared_memory_lock */
+    /* TODO: use it to replace the g_shared_memory_lock */
     DefPointer(korp_mutex *, shared_memory_lock);
 
 #if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 \
