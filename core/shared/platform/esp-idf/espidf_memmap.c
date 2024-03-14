@@ -59,6 +59,12 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
     }
 }
 
+void *
+os_mremap(void *old_addr, size_t old_size, size_t new_size)
+{
+    return os_mremap_slow(old_addr, old_size, new_size);
+}
+
 void
 os_munmap(void *addr, size_t size)
 {

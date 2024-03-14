@@ -11421,7 +11421,7 @@ re_scan:
 
             case WASM_OP_BR_TABLE:
             {
-                uint32 depth, default_arity, arity = 0;
+                uint32 depth = 0, default_arity, arity = 0;
                 BranchBlock *target_block;
                 BlockType *target_block_type;
 #if WASM_ENABLE_FAST_INTERP == 0
