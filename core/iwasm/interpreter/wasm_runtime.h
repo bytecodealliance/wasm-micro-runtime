@@ -138,6 +138,8 @@ struct WASMMemoryInstance {
     DefPointer(uint8 *, heap_data_end);
     /* The heap created */
     DefPointer(void *, heap_handle);
+    /* TODO: use it to replace the g_shared_memory_lock */
+    DefPointer(korp_mutex *, memory_lock);
 
 #if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 \
     || WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_AOT != 0
@@ -405,8 +407,6 @@ struct WASMModuleInstance {
        it denotes `AOTModule *` */
     DefPointer(WASMModule *, module);
 
-    DefPointer(void *, used_to_be_wasi_ctx); /* unused */
-
     DefPointer(WASMExecEnv *, exec_env_singleton);
     /* Array of function pointers to import functions,
        not available in AOTModuleInstance */
@@ -434,7 +434,7 @@ struct WASMModuleInstance {
 
     /* Default WASM operand stack size */
     uint32 default_wasm_stack_size;
-    uint32 reserved[5];
+    uint32 reserved[7];
 
     /*
      * +------------------------------+ <-- memories
