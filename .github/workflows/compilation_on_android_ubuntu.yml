@@ -574,12 +574,12 @@ jobs:
 
       - name: Set-up OCaml
         uses: ocaml/setup-ocaml@v2
-        if: matrix.test_option == '$GC_TEST_OPTIONS'
+        if: matrix.test_option == '$GC_TEST_OPTIONS' || matrix.test_option == '$MEMORY64_TEST_OPTIONS'
         with:
           ocaml-compiler: 4.13
 
       - name: Set-up Ocamlbuild
-        if: matrix.test_option == '$GC_TEST_OPTIONS'
+        if: matrix.test_option == '$GC_TEST_OPTIONS' || matrix.test_option == '$MEMORY64_TEST_OPTIONS'
         run: opam install ocamlbuild dune
 
       - name: download and install wasi-sdk
