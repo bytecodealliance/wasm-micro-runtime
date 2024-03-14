@@ -499,6 +499,7 @@ function spec_test()
         git reset --hard 48e69f394869c55b7bbe14ac963c09f4605490b6
         git checkout 044d0d2e77bdcbe891f7e0b9dd2ac01d56435f0b -- test/core/elem.wast
         git apply ../../spec-test-script/ignore_cases.patch
+        git apply ../../spec-test-script/memory64.patch
 
         echo "compile the reference intepreter"
         pushd interpreter
