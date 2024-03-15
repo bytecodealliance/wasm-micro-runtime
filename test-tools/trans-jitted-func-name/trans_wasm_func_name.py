@@ -68,6 +68,7 @@ def collect_import_section_content(wasm_objdump_bin: Path, wasm_file: Path) -> d
     )
 
     if p.stderr:
+        print("No content in import section")
         return {}
 
     import_section = {}
@@ -77,17 +78,19 @@ def collect_import_section_content(wasm_objdump_bin: Path, wasm_file: Path) -> d
         if not line:
             continue
 
-        if line.startswith(" - func"):
-            import_section.update("function", import_section.get("function", 0) + 1)
+        if re.search(r"^-\s+func", line):
+            import_section.update(function=import_section.get("function", 0) + 1)
         else:
             pass
 
+    assert len(import_section) > 0, "failed to retrive content of import section"
     return import_section
 
 
 def collect_name_section_content(wasm_objdump_bin: Path, wasm_file: Path) -> dict:
     """
-    execute "wasm_objdump_bin -j name -x wasm_file" and store the output in a list
+    execute "wasm_objdump_bin -j name -x wasm_file" and store the output in a dict
+    {1: xxxx, 2: yyyy, 3: zzzz}
     """
     assert wasm_objdump_bin.exists()
     assert wasm_file.exists()
@@ -117,7 +120,7 @@ def collect_name_section_content(wasm_objdump_bin: Path, wasm_file: Path) -> dic
             assert m
 
             func_index, func_name = m.groups()
-            name_section.update({func_index: func_name})
+            name_section.update({int(func_index): func_name})
 
     assert name_section
     return name_section
@@ -162,7 +165,7 @@ def replace_function_name(
                     new_line.append(sym)
                     continue
 
-                func_idx = m.groups()[-1]
+                func_idx = int(m.groups()[-1]) + import_function_count
                 if func_idx in name_section:
                     wasm_func_name = f"[Wasm] {name_section[func_idx]}"
                 else:
