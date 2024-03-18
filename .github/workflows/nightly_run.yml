@@ -626,7 +626,9 @@ jobs:
         run: echo "TEST_ON_X86_32=true" >> $GITHUB_ENV
 
       - name: set additional tsan options
-        run: echo "TSAN_OPTIONS=suppressions=$PWD/tsan_suppressions.txt" >> $GITHUB_ENV
+        run: |
+          echo "TSAN_OPTIONS=suppressions=$PWD/tsan_suppressions.txt" >> $GITHUB_ENV
+          sudo sysctl vm.mmap_rnd_bits=28
         working-directory: tests/wamr-test-suites
 
       #only download llvm libraries in jit and aot mode
