@@ -3947,7 +3947,12 @@ aot_resolve_object_relocation_group(AOTObjectData *obj_data,
          * Note: aot_stack_sizes_section_name section only contains
          * stack_sizes table.
          */
-        if (!strcmp(relocation->symbol_name, aot_stack_sizes_name)) {
+        if (!strcmp(relocation->symbol_name, aot_stack_sizes_name)
+            /* in windows 32, the symbol name may start with '_' */
+            || (strlen(relocation->symbol_name) > 0
+                && relocation->symbol_name[0] == '_'
+                && !strcmp(relocation->symbol_name + 1,
+                           aot_stack_sizes_name))) {
             /* discard const */
             relocation->symbol_name = (char *)aot_stack_sizes_section_name;
         }
