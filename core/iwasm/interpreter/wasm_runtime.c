@@ -166,7 +166,7 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     uint32 bytes_of_last_page, bytes_to_page_end;
     uint64 aux_heap_base,
         heap_offset = (uint64)num_bytes_per_page * init_page_count;
-    uint64 memory_data_size, max_memory_data_size, default_max_memory_size;
+    uint64 memory_data_size, max_memory_data_size;
     uint8 *global_addr;
 
     bool is_shared_memory = false;
@@ -194,9 +194,6 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     default_max_page =
         memory->is_memory64 ? DEFAULT_MEM64_MAX_PAGES : DEFAULT_MAX_PAGES;
 
-    default_max_memory_size = memory->is_memory64 ? MAX_LINEAR_MEM64_MEMORY_SIZE
-                                                  : MAX_LINEAR_MEMORY_SIZE;
-
     if (heap_size > 0 && module_inst->module->malloc_function != (uint32)-1
         && module_inst->module->free_function != (uint32)-1) {
         /* Disable app heap, use malloc/free function exported
@@ -206,7 +203,8 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
 
     /* If initial memory is the largest size allowed, disallowing insert host
      * managed heap */
-    if (heap_size > 0 && heap_offset == default_max_memory_size) {
+    if (heap_size > 0
+        && heap_offset == GET_MAX_LINEAR_MEMORY_SIZE(memory->is_memory64)) {
         set_error_buf(error_buf, error_buf_size,
                       "failed to insert app heap into linear memory, "
                       "try using `--heap-size=0` option");
@@ -305,7 +303,8 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     LOG_VERBOSE("  heap offset: %u, heap size: %d\n", heap_offset, heap_size);
 
     max_memory_data_size = (uint64)num_bytes_per_page * max_page_count;
-    bh_assert(max_memory_data_size <= default_max_memory_size);
+    bh_assert(max_memory_data_size
+              <= GET_MAX_LINEAR_MEMORY_SIZE(memory->is_memory64));
     (void)max_memory_data_size;
 
     bh_assert(memory != NULL);
