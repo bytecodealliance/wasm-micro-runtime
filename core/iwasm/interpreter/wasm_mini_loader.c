@@ -47,6 +47,7 @@ set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 #define skip_leb_int64(p, p_end) skip_leb(p)
 #define skip_leb_uint32(p, p_end) skip_leb(p)
 #define skip_leb_int32(p, p_end) skip_leb(p)
+#define skip_leb_mem_offset(p, p_end) skip_leb(p)
 
 static bool
 is_32bit_type(uint8 type)
@@ -116,7 +117,7 @@ read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
     }
     else if (sign && maxbits == 32) {
         if (shift < maxbits) {
-            /* Sign extend, second highest bit is the sign bit */
+            /* Sign extend, second-highest bit is the sign bit */
             if ((uint8)byte & 0x40)
                 result |= (~((uint64)0)) << shift;
         }
@@ -132,7 +133,7 @@ read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
     }
     else if (sign && maxbits == 64) {
         if (shift < maxbits) {
-            /* Sign extend, second highest bit is the sign bit */
+            /* Sign extend, second-highest bit is the sign bit */
             if ((uint8)byte & 0x40)
                 result |= (~((uint64)0)) << shift;
         }
@@ -179,6 +180,18 @@ read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
                  error_buf_size);                                  \
         res = (int32)res64;                                        \
     } while (0)
+
+#if WASM_ENABLE_MEMORY64 != 0
+#define read_leb_mem_offset(p, p_end, res)                                  \
+    do {                                                                    \
+        uint64 res64;                                                       \
+        read_leb((uint8 **)&p, p_end, is_memory64 ? 64 : 32, false, &res64, \
+                 error_buf, error_buf_size);                                \
+        res = (linear_mem_ptr_t)res64;                                      \
+    } while (0)
+#else
+#define read_leb_mem_offset(p, p_end, res) read_leb_uint32(p, p_end, res)
+#endif
 
 static void *
 loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
@@ -741,6 +754,39 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
 }
 
 static bool
+check_memory_flag(const uint8 mem_flag)
+{
+
+    /* Check whether certain features indicated by mem_flag are enabled in
+     * runtime */
+    if (mem_flag > MAX_PAGE_COUNT_FLAG) {
+#if WASM_ENABLE_SHARED_MEMORY == 0
+        if (mem_flag & SHARED_MEMORY_FLAG) {
+            LOG_VERBOSE("shared memory flag was found, please enable shared "
+                        "memory, lib-pthread or lib-wasi-threads");
+            return false;
+        }
+#endif
+#if WASM_ENABLE_MEMORY64 == 0
+        if (mem_flag & MEMORY64_FLAG) {
+            LOG_VERBOSE("memory64 flag was found, please enable memory64");
+            return false;
+        }
+#endif
+    }
+
+    if (mem_flag > MAX_PAGE_COUNT_FLAG + SHARED_MEMORY_FLAG + MEMORY64_FLAG) {
+        return false;
+    }
+    else if ((mem_flag & SHARED_MEMORY_FLAG)
+             && !(mem_flag & MAX_PAGE_COUNT_FLAG)) {
+        return false;
+    }
+
+    return true;
+}
+
+static bool
 load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
                    WASMModule *parent_module, const char *sub_module_name,
                    const char *memory_name, WASMMemoryImport *memory,
@@ -752,20 +798,28 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
     uint32 max_page_count = pool_size * APP_MEMORY_MAX_GLOBAL_HEAP_PERCENT
                             / DEFAULT_NUM_BYTES_PER_PAGE;
 #else
-    uint32 max_page_count = DEFAULT_MAX_PAGES;
+    uint32 max_page_count;
 #endif /* WASM_ENABLE_APP_FRAMEWORK */
-    uint32 declare_max_page_count_flag = 0;
+    uint32 mem_flag = 0;
+    bool is_memory64 = false;
     uint32 declare_init_page_count = 0;
     uint32 declare_max_page_count = 0;
 
-    read_leb_uint32(p, p_end, declare_max_page_count_flag);
-    read_leb_uint32(p, p_end, declare_init_page_count);
-    bh_assert(declare_init_page_count <= 65536);
+    read_leb_uint32(p, p_end, mem_flag);
+    bh_assert(check_memory_flag(mem_flag));
 
-    if (declare_max_page_count_flag & 1) {
+#if WASM_ENABLE_APP_FRAMEWORK == 0
+    is_memory64 = mem_flag & MEMORY64_FLAG;
+    max_page_count = is_memory64 ? DEFAULT_MEM64_MAX_PAGES : DEFAULT_MAX_PAGES;
+#endif
+
+    read_leb_uint32(p, p_end, declare_init_page_count);
+    bh_assert(declare_init_page_count <= max_page_count);
+
+    if (mem_flag & MAX_PAGE_COUNT_FLAG) {
         read_leb_uint32(p, p_end, declare_max_page_count);
         bh_assert(declare_init_page_count <= declare_max_page_count);
-        bh_assert(declare_max_page_count <= 65536);
+        bh_assert(declare_max_page_count <= max_page_count);
         if (declare_max_page_count > max_page_count) {
             declare_max_page_count = max_page_count;
         }
@@ -776,12 +830,13 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
     }
 
     /* now we believe all declaration are ok */
-    memory->flags = declare_max_page_count_flag;
+    memory->flags = mem_flag;
     memory->init_page_count = declare_init_page_count;
     memory->max_page_count = declare_max_page_count;
     memory->num_bytes_per_page = DEFAULT_NUM_BYTES_PER_PAGE;
 
     *p_buf = p;
+    (void)check_memory_flag;
     return true;
 }
 
@@ -868,26 +923,28 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
     uint32 max_page_count = pool_size * APP_MEMORY_MAX_GLOBAL_HEAP_PERCENT
                             / DEFAULT_NUM_BYTES_PER_PAGE;
 #else
-    uint32 max_page_count = DEFAULT_MAX_PAGES;
+    uint32 max_page_count;
+    bool is_memory64 = false;
 #endif
 
     p_org = p;
     read_leb_uint32(p, p_end, memory->flags);
     bh_assert(p - p_org <= 1);
     (void)p_org;
-#if WASM_ENABLE_SHARED_MEMORY == 0
-    bh_assert(memory->flags <= 1);
-#else
-    bh_assert(memory->flags <= 3 && memory->flags != 2);
+    bh_assert(check_memory_flag(memory->flags));
+
+#if WASM_ENABLE_APP_FRAMEWORK == 0
+    is_memory64 = memory->flags & MEMORY64_FLAG;
+    max_page_count = is_memory64 ? DEFAULT_MEM64_MAX_PAGES : DEFAULT_MAX_PAGES;
 #endif
 
     read_leb_uint32(p, p_end, memory->init_page_count);
-    bh_assert(memory->init_page_count <= 65536);
+    bh_assert(memory->init_page_count <= max_page_count);
 
     if (memory->flags & 1) {
         read_leb_uint32(p, p_end, memory->max_page_count);
         bh_assert(memory->init_page_count <= memory->max_page_count);
-        bh_assert(memory->max_page_count <= 65536);
+        bh_assert(memory->max_page_count <= max_page_count);
         if (memory->max_page_count > max_page_count)
             memory->max_page_count = max_page_count;
     }
@@ -899,6 +956,7 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
     memory->num_bytes_per_page = DEFAULT_NUM_BYTES_PER_PAGE;
 
     *p_buf = p;
+    (void)check_memory_flag;
     return true;
 }
 
@@ -1761,6 +1819,7 @@ load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
     bool is_passive = false;
     uint32 mem_flag;
 #endif
+    uint8 mem_offset_type;
 
     read_leb_uint32(p, p_end, data_seg_count);
 
@@ -1809,9 +1868,33 @@ load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
 
 #if WASM_ENABLE_BULK_MEMORY != 0
             if (!is_passive)
+#endif /* WASM_ENABLE_BULK_MEMORY */
+            {
+#if WASM_ENABLE_MEMORY64 != 0
+                /* This memory_flag is from memory instead of data segment */
+                uint8 memory_flag;
+                if (module->import_memory_count > 0) {
+                    memory_flag =
+                        module->import_memories[mem_index].u.memory.flags;
+                }
+                else {
+                    memory_flag =
+                        module
+                            ->memories[mem_index - module->import_memory_count]
+                            .flags;
+                }
+                mem_offset_type = memory_flag & MEMORY64_FLAG ? VALUE_TYPE_I64
+                                                              : VALUE_TYPE_I32;
+#else
+                mem_offset_type = VALUE_TYPE_I32;
+#endif /* WASM_ENABLE_MEMORY64 */
+            }
+
+#if WASM_ENABLE_BULK_MEMORY != 0
+            if (!is_passive)
 #endif
                 if (!load_init_expr(module, &p, p_end, &init_expr,
-                                    VALUE_TYPE_I32, error_buf, error_buf_size))
+                                    mem_offset_type, error_buf, error_buf_size))
                     return false;
 
             read_leb_uint32(p, p_end, data_seg_len);
@@ -3587,8 +3670,8 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             case WASM_OP_I64_STORE8:
             case WASM_OP_I64_STORE16:
             case WASM_OP_I64_STORE32:
-                skip_leb_uint32(p, p_end); /* align */
-                skip_leb_uint32(p, p_end); /* offset */
+                skip_leb_uint32(p, p_end);     /* align */
+                skip_leb_mem_offset(p, p_end); /* offset */
                 break;
 
             case WASM_OP_MEMORY_SIZE:
@@ -5129,6 +5212,11 @@ fail:
             goto fail;                                                  \
     } while (0)
 
+#define PUSH_MEM_OFFSET() PUSH_OFFSET_TYPE(mem_offset_type)
+#define PUSH_PAGE_COUNT() PUSH_MEM_OFFSET()
+
+#define POP_MEM_OFFSET() POP_OFFSET_TYPE(mem_offset_type)
+
 #define POP_AND_PUSH(type_pop, type_push)                         \
     do {                                                          \
         if (!(wasm_loader_push_pop_frame_ref_offset(              \
@@ -5183,6 +5271,15 @@ fail:
             goto fail;                                                   \
     } while (0)
 
+#define PUSH_MEM_OFFSET()                                             \
+    do {                                                              \
+        if (!(wasm_loader_push_frame_ref(loader_ctx, mem_offset_type, \
+                                         error_buf, error_buf_size))) \
+            goto fail;                                                \
+    } while (0)
+
+#define PUSH_PAGE_COUNT() PUSH_MEM_OFFSET()
+
 #define POP_I32()                                                              \
     do {                                                                       \
         if (!(wasm_loader_pop_frame_ref(loader_ctx, VALUE_TYPE_I32, error_buf, \
@@ -5216,6 +5313,13 @@ fail:
         if (!(wasm_loader_pop_frame_ref(loader_ctx, VALUE_TYPE_FUNCREF, \
                                         error_buf, error_buf_size)))    \
             goto fail;                                                  \
+    } while (0)
+
+#define POP_MEM_OFFSET()                                             \
+    do {                                                             \
+        if (!(wasm_loader_pop_frame_ref(loader_ctx, mem_offset_type, \
+                                        error_buf, error_buf_size))) \
+            goto fail;                                               \
     } while (0)
 
 #define POP_AND_PUSH(type_pop, type_push)                              \
@@ -5828,10 +5932,11 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
 {
     uint8 *p = func->code, *p_end = func->code + func->code_size, *p_org;
     uint32 param_count, local_count, global_count;
-    uint8 *param_types, *local_types, local_type, global_type;
+    uint8 *param_types, *local_types, local_type, global_type, mem_offset_type;
     BlockType func_block_type;
     uint16 *local_offsets, local_offset;
-    uint32 count, local_idx, global_idx, u32, align, mem_offset, i;
+    uint32 count, local_idx, global_idx, u32, align, i;
+    linear_mem_ptr_t mem_offset;
     int32 i32, i32_const = 0;
     int64 i64_const;
     uint8 opcode, u8;
@@ -5852,6 +5957,9 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
 
     LOG_OP("\nProcessing func | [%d] params | [%d] locals | [%d] return\n",
            func->param_cell_num, func->local_cell_num, func->ret_cell_num);
+#endif
+#if WASM_ENABLE_MEMORY64 != 0
+    bool is_memory64 = false;
 #endif
 
     global_count = module->import_global_count + module->global_count;
@@ -7161,8 +7269,14 @@ re_scan:
                 }
 #endif
                 CHECK_MEMORY();
-                read_leb_uint32(p, p_end, align);      /* align */
-                read_leb_uint32(p, p_end, mem_offset); /* offset */
+                read_leb_uint32(p, p_end, align); /* align */
+#if WASM_ENABLE_MEMORY64 != 0
+                is_memory64 = module->memories[0].flags & MEMORY64_FLAG;
+                mem_offset_type = is_memory64 ? VALUE_TYPE_I64 : VALUE_TYPE_I32;
+#else
+                mem_offset_type = VALUE_TYPE_I32;
+#endif
+                read_leb_mem_offset(p, p_end, mem_offset); /* offset */
 #if WASM_ENABLE_FAST_INTERP != 0
                 emit_uint32(loader_ctx, mem_offset);
 #endif
@@ -7176,7 +7290,7 @@ re_scan:
                     case WASM_OP_I32_LOAD8_U:
                     case WASM_OP_I32_LOAD16_S:
                     case WASM_OP_I32_LOAD16_U:
-                        POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I32);
+                        POP_AND_PUSH(mem_offset_type, VALUE_TYPE_I32);
                         break;
                     case WASM_OP_I64_LOAD:
                     case WASM_OP_I64_LOAD8_S:
@@ -7185,35 +7299,35 @@ re_scan:
                     case WASM_OP_I64_LOAD16_U:
                     case WASM_OP_I64_LOAD32_S:
                     case WASM_OP_I64_LOAD32_U:
-                        POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I64);
+                        POP_AND_PUSH(mem_offset_type, VALUE_TYPE_I64);
                         break;
                     case WASM_OP_F32_LOAD:
-                        POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_F32);
+                        POP_AND_PUSH(mem_offset_type, VALUE_TYPE_F32);
                         break;
                     case WASM_OP_F64_LOAD:
-                        POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_F64);
+                        POP_AND_PUSH(mem_offset_type, VALUE_TYPE_F64);
                         break;
                     /* store */
                     case WASM_OP_I32_STORE:
                     case WASM_OP_I32_STORE8:
                     case WASM_OP_I32_STORE16:
                         POP_I32();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         break;
                     case WASM_OP_I64_STORE:
                     case WASM_OP_I64_STORE8:
                     case WASM_OP_I64_STORE16:
                     case WASM_OP_I64_STORE32:
                         POP_I64();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         break;
                     case WASM_OP_F32_STORE:
                         POP_F32();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         break;
                     case WASM_OP_F64_STORE:
                         POP_F64();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         break;
                     default:
                         break;
@@ -7226,7 +7340,14 @@ re_scan:
                 /* reserved byte 0x00 */
                 bh_assert(*p == 0x00);
                 p++;
-                PUSH_I32();
+#if WASM_ENABLE_MEMORY64 != 0
+                mem_offset_type = module->memories[0].flags & MEMORY64_FLAG
+                                      ? VALUE_TYPE_I64
+                                      : VALUE_TYPE_I32;
+#else
+                mem_offset_type = VALUE_TYPE_I32;
+#endif
+                PUSH_PAGE_COUNT();
 
                 module->possible_memory_grow = true;
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
@@ -7239,7 +7360,14 @@ re_scan:
                 /* reserved byte 0x00 */
                 bh_assert(*p == 0x00);
                 p++;
-                POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I32);
+#if WASM_ENABLE_MEMORY64 != 0
+                mem_offset_type = module->memories[0].flags & MEMORY64_FLAG
+                                      ? VALUE_TYPE_I64
+                                      : VALUE_TYPE_I32;
+#else
+                mem_offset_type = VALUE_TYPE_I32;
+#endif
+                POP_AND_PUSH(mem_offset_type, mem_offset_type);
 
                 module->possible_memory_grow = true;
 #if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 \
@@ -7590,7 +7718,15 @@ re_scan:
 
                         POP_I32();
                         POP_I32();
-                        POP_I32();
+#if WASM_ENABLE_MEMORY64 != 0
+                        mem_offset_type =
+                            module->memories[0].flags & MEMORY64_FLAG
+                                ? VALUE_TYPE_I64
+                                : VALUE_TYPE_I32;
+#else
+                        mem_offset_type = VALUE_TYPE_I32;
+#endif
+                        POP_MEM_OFFSET();
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
 #endif
@@ -7619,9 +7755,17 @@ re_scan:
                                       + module->memory_count
                                   > 0);
 
-                        POP_I32();
-                        POP_I32();
-                        POP_I32();
+#if WASM_ENABLE_MEMORY64 != 0
+                        mem_offset_type =
+                            module->memories[0].flags & MEMORY64_FLAG
+                                ? VALUE_TYPE_I64
+                                : VALUE_TYPE_I32;
+#else
+                        mem_offset_type = VALUE_TYPE_I32;
+#endif
+                        POP_MEM_OFFSET();
+                        POP_MEM_OFFSET();
+                        POP_MEM_OFFSET();
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
 #endif
@@ -7636,9 +7780,17 @@ re_scan:
                                       + module->memory_count
                                   > 0);
 
+#if WASM_ENABLE_MEMORY64 != 0
+                        mem_offset_type =
+                            module->memories[0].flags & MEMORY64_FLAG
+                                ? VALUE_TYPE_I64
+                                : VALUE_TYPE_I32;
+#else
+                        mem_offset_type = VALUE_TYPE_I32;
+#endif
+                        POP_MEM_OFFSET();
                         POP_I32();
-                        POP_I32();
-                        POP_I32();
+                        POP_MEM_OFFSET();
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
 #endif
