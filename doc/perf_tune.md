@@ -98,17 +98,22 @@ You should only use this method for well tested wasm applications and make sure 
 Linux perf is a powerful tool to analyze the performance of a program, developer can use it to find the hot functions and optimize them. It is one profiler supported by WAMR. In order to use it, you need to add `--perf-profile` while running _iwasm_. By default, it is disabled.
 
 > [!CAUTION]
-> For now, only llvm-jit mode supports linux-perf.
+> For now, only llvm-jit mode and aot mode supports linux-perf.
 
 Here is a basic example, if there is a Wasm application _foo.wasm_, you'll execute.
 
 ```
-$ perf record --output=perf.data.raw -- iwasm --perf-profile foo.wasm
+$ perf record --output=perf.data.raw -- iwasm --enable-linux-perf foo.wasm
 ```
 
-This will create a _perf.data_ and a _jit-xxx.dump_ under _~/.debug.jit/_ folder. This extra file is WAMR generated at runtime, and it contains the mapping between the JIT code and the original Wasm function names.
+This will create a _perf.data_ and
+- a _jit-xxx.dump_ under _~/.debug/jit/_ folder if running llvm-jit mode
+- or _/tmp/perf-<pid>.map_ if running AOT mode
 
-The next thing need to do is to merge _jit-xxx.dump_ file into the _perf.data_.
+
+This file is WAMR generated. It contains information which includes jitted(precompiled) code addresses in memory, names of jitted (precompiled) functions which are named as *aot_func#N* and so on.
+
+If running with llvm-jit mode, the next thing is to merge _jit-xxx.dump_ file into the _perf.data_.
 
 ```
 $ perf inject --jit --input=perf.data.raw --output=perf.data
@@ -141,28 +146,28 @@ $ perf report --input=perf.data
 [Flamegraph](https://www.brendangregg.com/flamegraphs.html) is a powerful tool to visualize stack traces of profiled software so that the most frequent code-paths can be identified quickly and accurately. In order to use it, you need to [capture graphs](https://github.com/brendangregg/FlameGraph#1-capture-stacks) when running `perf record`
 
 ```
-$ perf record -k mono --call-graph=fp --output=perf.data.raw -- iwasm --perf-profile foo.wasm
+$ perf record -k mono --call-graph=fp --output=perf.data.raw -- iwasm --enable-linux-perf foo.wasm
 ```
 
-merge the _jit-xxx.dump_ file into the _perf.data.raw_.
+If running with llvm-jit mode, merge the _jit-xxx.dump_ file into the _perf.data.raw_.
 
 ```
 $ perf inject --jit --input=perf.data.raw --output=perf.data
 ```
 
-generate the stack trace file.
+Generate the stack trace file.
 
 ```
 $ perf script > out.perf
 ```
 
-[fold stacks](https://github.com/brendangregg/FlameGraph#2-fold-stacks).
+[Fold stacks](https://github.com/brendangregg/FlameGraph#2-fold-stacks).
 
 ```
 $ ./FlameGraph/stackcollapse-perf.pl out.perf > out.folded
 ```
 
-[render a flamegraph](https://github.com/brendangregg/FlameGraph#3-flamegraphpl)
+[Render a flamegraph](https://github.com/brendangregg/FlameGraph#3-flamegraphpl)
 
 ```
 $ ./FlameGraph/flamegraph.pl out.folded > perf.foo.wasm.svg
