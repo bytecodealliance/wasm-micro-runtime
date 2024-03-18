@@ -438,6 +438,16 @@ wasm_struct_obj_get_field(const wasm_struct_obj_t obj, uint32_t field_idx,
                           bool sign_extend, wasm_value_t *value);
 
 /**
+ * Get the field count of the a struct object.
+ *
+ * @param obj the WASM struct object
+ *
+ * @return the field count of the a struct object
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_struct_obj_get_field_count(const wasm_struct_obj_t obj);
+
+/**
  * Create an array object with the index of defined type, the obj's length is
  * length, init value is init_value
  *
