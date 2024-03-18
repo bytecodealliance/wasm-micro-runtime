@@ -204,7 +204,9 @@ jobs:
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
           - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
-          # Memory64 only on CLASSIC INTERP mode
+          # Memory64 only on CLASSIC INTERP mode, and only on 64-bit platform
+          - make_options_feature: "-DWAMR_BUILD_MEMORY64=1"
+            platform: android
           - make_options_run_mode: $AOT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MEMORY64=1"
           - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
