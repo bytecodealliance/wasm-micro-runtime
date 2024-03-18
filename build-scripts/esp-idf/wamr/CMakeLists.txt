@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 # Set WAMR's build options
-if("${IDF_TARGET}" STREQUAL "esp32")
-    set(WAMR_BUILD_TARGET "XTENSA")
-else()
+if("${IDF_TARGET}" STREQUAL "esp32c3" OR "${IDF_TARGET}" STREQUAL "esp32c6")
     set(WAMR_BUILD_TARGET "RISCV32")
+else()
+    set(WAMR_BUILD_TARGET "XTENSA")
 endif()
 
 set(WAMR_BUILD_PLATFORM "esp-idf")
