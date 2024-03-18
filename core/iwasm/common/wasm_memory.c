@@ -704,7 +704,7 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
     uint8 *memory_data_old, *memory_data_new, *heap_data_old;
     uint32 num_bytes_per_page, heap_size;
     uint32 cur_page_count, max_page_count, total_page_count;
-    uint64 total_size_old = 0, total_size_new, default_max_memory_size;
+    uint64 total_size_old = 0, total_size_new;
     bool ret = true, full_size_mmaped;
     enlarge_memory_error_reason_t failure_reason = INTERNAL_ERROR;
 
@@ -748,9 +748,8 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
         goto return_func;
     }
 
-    default_max_memory_size = memory->is_memory64 ? MAX_LINEAR_MEM64_MEMORY_SIZE
-                                                  : MAX_LINEAR_MEMORY_SIZE;
-    bh_assert(total_size_new <= default_max_memory_size);
+    bh_assert(total_size_new
+              <= GET_MAX_LINEAR_MEMORY_SIZE(memory->is_memory64));
 
     if (full_size_mmaped) {
 #ifdef BH_PLATFORM_WINDOWS
@@ -837,7 +836,7 @@ return_func:
                                 (WASMModuleInstanceCommon *)module, exec_env,
                                 enlarge_memory_error_user_data);
     }
-    (void)default_max_memory_size;
+
     return ret;
 }
 

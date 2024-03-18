@@ -99,6 +99,9 @@ extern "C" {
 /* Roughly 274 TB */
 #define MAX_LINEAR_MEM64_MEMORY_SIZE \
     (DEFAULT_MEM64_MAX_PAGES * 64 * (uint64)BH_KB)
+/* Macro to check memory flag and return appropriate memory size */
+#define GET_MAX_LINEAR_MEMORY_SIZE(is_memory64) \
+    (is_memory64 ? MAX_LINEAR_MEM64_MEMORY_SIZE : MAX_LINEAR_MEMORY_SIZE)
 
 #if WASM_ENABLE_GC == 0
 typedef uintptr_t table_elem_type_t;

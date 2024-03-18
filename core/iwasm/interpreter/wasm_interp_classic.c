@@ -664,6 +664,7 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
         p += _off;                                 \
     } while (0)
 
+#if WASM_ENABLE_MEMORY64 != 0
 #define read_leb_mem_offset(p, p_end, res)                                \
     do {                                                                  \
         uint8 _val = *p;                                                  \
@@ -677,6 +678,9 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
                                          false);                          \
         p += _off;                                                        \
     } while (0)
+#else
+#define read_leb_mem_offset(p, p_end, res) read_leb_uint32(p, p_end, res)
+#endif
 
 #if WASM_ENABLE_LABELS_AS_VALUES == 0
 #define RECOVER_FRAME_IP_END() frame_ip_end = wasm_get_func_code_end(cur_func)
@@ -1472,7 +1476,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     int32_t exception_tag_index;
 #endif
     uint8 value_type;
-    bool is_memory64 = false;
 #if !defined(OS_ENABLE_HW_BOUND_CHECK) \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
 #if WASM_CONFIGURABLE_BOUNDS_CHECKS != 0
@@ -1496,6 +1499,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     WASMStringviewWTF16ObjectRef stringview_wtf16_obj;
     WASMStringviewIterObjectRef stringview_iter_obj;
 #endif
+#endif
+#if WASM_ENABLE_MEMORY64 != 0
+    bool is_memory64 = false;
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
@@ -4477,7 +4483,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 else
 #endif
                 {
-                    PUT_I64_TO_ADDR((linear_mem_ptr_t *)maddr,
+                    PUT_I64_TO_ADDR((uint32 *)maddr,
                                     GET_I64_FROM_ADDR(frame_sp + 1));
                 }
                 CHECK_WRITE_WATCHPOINT(addr, offset);
@@ -5749,8 +5755,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         SYNC_ALL_TO_FRAME();
 #endif
                         for (i = 0; i < n; i++) {
-                            /* UINT32_MAX indicates that it is a null ref
-                             */
+                            /* UINT32_MAX indicates that it is a null ref */
                             bh_assert(init_values[i].init_expr_type
                                           == INIT_EXPR_TYPE_REFNULL_CONST
                                       || init_values[i].init_expr_type
