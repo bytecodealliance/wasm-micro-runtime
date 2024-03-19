@@ -1,45 +1,31 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 3.4.1)
+cmake_minimum_required (VERSION 3.14)
 
-project (iwasm)
+set (CMAKE_VERBOSE_MAKEFILE ON)
 
-set (CMAKE_VERBOSE_MAKEFILE OFF)
-
-set (WAMR_BUILD_PLATFORM "android")
+if (NOT CMAKE_BUILD_TYPE)
+  set (CMAKE_BUILD_TYPE Release)
+endif ()
 
 # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-Readme.md#environment-variables-3
 set (CMAKE_TOOLCHAIN_FILE "$ENV{ANDROID_NDK_LATEST_HOME}/build/cmake/android.toolchain.cmake")
 set (ANDROID_SDK $ENV{ANDROID_HOME})
 set (ANDROID_NDK $ENV{ANDROID_NDK_LATEST_HOME})
 
-if (NOT DEFINED ANDROID_LD)
-  set (ANDROID_LD lld)
-endif ()
-
-if (NOT DEFINED ANDROID_PLATFORM)
-  set (ANDROID_PLATFORM 24)
-endif ()
-
-# Reset default linker flags
-set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
-set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
-
 if (NOT DEFINED WAMR_BUILD_TARGET)
   if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)")
     set (WAMR_BUILD_TARGET "AARCH64")
-    if (NOT DEFINED WAMR_BUILD_SIMD)
-      set (WAMR_BUILD_SIMD 1)
-    endif ()
   elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
     set (WAMR_BUILD_TARGET "RISCV64")
+  elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+    set (WAMR_BUILD_TARGET "X86_64")
+  elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "i386")
+    set (WAMR_BUILD_TARGET "X86_32")
   elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
     # Build as X86_64 by default in 64-bit platform
     set (WAMR_BUILD_TARGET "X86_64")
-    if (NOT DEFINED WAMR_BUILD_SIMD)
-      set (WAMR_BUILD_SIMD 1)
-    endif ()
   elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
     # Build as X86_32 by default in 32-bit platform
     set (WAMR_BUILD_TARGET "X86_32")
@@ -62,9 +48,21 @@ if (NOT DEFINED ANDROID_ABI)
   endif ()
 endif ()
 
-if (NOT CMAKE_BUILD_TYPE)
-  set (CMAKE_BUILD_TYPE Release)
+if (NOT DEFINED ANDROID_LD)
+  set (ANDROID_LD lld)
 endif ()
+
+if (NOT DEFINED ANDROID_PLATFORM)
+  set (ANDROID_PLATFORM 24)
+endif ()
+
+project (iwasm)
+
+# Reset default linker flags
+set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
+set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
+
+set (WAMR_BUILD_PLATFORM "android")
 
 if (NOT DEFINED WAMR_BUILD_INTERP)
   # Enable Interpreter by default
