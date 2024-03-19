@@ -240,11 +240,11 @@ jobs:
           cmake --build . --config Release --parallel 4
         working-directory: product-mini/platforms/${{ matrix.platform }}
 
+      # CI only supports building x86_32 for android platform
       - name: Build iwasm for android
         if: matrix.platform == 'android'
         run: |
           mkdir build && cd build
-          # CI only supports building x86_32 for android platform
           cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }} -DWAMR_BUILD_TARGET=X86_32
           cmake --build . --config Release --parallel 4
         working-directory: product-mini/platforms/${{ matrix.platform }}
