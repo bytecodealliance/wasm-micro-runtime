@@ -2917,6 +2917,17 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
             }
             symbol_addr = module->func_ptrs[func_index];
         }
+        else if (!strncmp(symbol, "_" AOT_FUNC_INTERNAL_PREFIX,
+                          strlen("_" AOT_FUNC_INTERNAL_PREFIX))) {
+            p = symbol + strlen("_" AOT_FUNC_INTERNAL_PREFIX);
+            if (*p == '\0'
+                || (func_index = (uint32)atoi(p)) > module->func_count) {
+                set_error_buf_v(error_buf, error_buf_size, "invalid symbol %s",
+                                symbol);
+                goto check_symbol_fail;
+            }
+            symbol_addr = module->func_ptrs[func_index];
+        }
 #endif
         else if (is_text_section(symbol)) {
             symbol_addr = module->code;
