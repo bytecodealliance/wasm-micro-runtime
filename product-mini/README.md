@@ -312,7 +312,7 @@ WAMR provides some features which can be easily configured by passing options to
 
 ## Android
 
-able to generate a shared library support Android platform.
+Able to generate a shared library support Android platform.
 - need an [android SDK](https://developer.android.com/studio). Go and get the "Command line tools only"
 - look for a command named *sdkmanager* and download below components. version numbers might need to check and pick others
    - "build-tools;29.0.3"
@@ -326,7 +326,7 @@ able to generate a shared library support Android platform.
 - export ANDROID_NDK_LATEST_HOME=/the/path/of/downloaded/sdk/ndk/2x.xxx/
 - ready to go
 
-Use such commands, you are able to compile with default configurations. Any compiling requirement should be satisfied by modifying product-mini/platforms/android/CMakeList.txt. For example, chaning ${WAMR_BUILD_TARGET} in CMakeList could get different libraries support different ABIs.
+Use such commands, you are able to compile with default configurations.
 
 ``` shell
 $ cd product-mini/platforms/android/
@@ -337,6 +337,15 @@ $ make
 $ # check output in distribution/wasm
 $ # include/ includes all necesary head files
 $ # lib includes libiwasm.so
+```
+
+To change the target architecture and ABI, you can define `WAMR_BUILD_TARGET` or `ANDROID_ABI` respectively. To build for [supported Android ABIs](https://developer.android.com/ndk/guides/abis#sa):
+
+```shell
+$ cmake .. -DWAMR_BUILD_TARGET=X86_32  -DANDROID_ABI=x86          # 32-bit Intel CPU
+$ cmake .. -DWAMR_BUILD_TARGET=X86_64  -DANDROID_ABI=x86_64       # 64-bit Intel CPU
+$ cmake .. -DWAMR_BUILD_TARGET=ARMV7A  -DANDROID_ABI=armeabi-v7a  # 32-bit ARM CPU
+$ cmake .. -DWAMR_BUILD_TARGET=AARCH64 -DANDROID_ABI=arm64-v8a    # 64-bit ARM CPU
 ```
 
 ## NuttX
