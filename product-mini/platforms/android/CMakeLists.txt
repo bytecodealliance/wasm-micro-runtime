@@ -3,35 +3,20 @@
 
 cmake_minimum_required (VERSION 3.14)
 
-set (CMAKE_VERBOSE_MAKEFILE ON)
-
-if (NOT CMAKE_BUILD_TYPE)
-  set (CMAKE_BUILD_TYPE Release)
-endif ()
-
-# https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-Readme.md#environment-variables-3
-set (CMAKE_TOOLCHAIN_FILE "$ENV{ANDROID_NDK_LATEST_HOME}/build/cmake/android.toolchain.cmake")
-set (ANDROID_SDK $ENV{ANDROID_HOME})
-set (ANDROID_NDK $ENV{ANDROID_NDK_LATEST_HOME})
+# Reset default linker flags
+set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
+set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
 if (NOT DEFINED WAMR_BUILD_TARGET)
-  if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)")
-    set (WAMR_BUILD_TARGET "AARCH64")
-  elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
-    set (WAMR_BUILD_TARGET "RISCV64")
-  elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-    set (WAMR_BUILD_TARGET "X86_64")
-  elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "i386")
-    set (WAMR_BUILD_TARGET "X86_32")
-  elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
-    # Build as X86_64 by default in 64-bit platform
-    set (WAMR_BUILD_TARGET "X86_64")
-  elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    # Build as X86_32 by default in 32-bit platform
-    set (WAMR_BUILD_TARGET "X86_32")
-  else ()
-    message(SEND_ERROR "Unsupported build target platform!")
-  endif ()
+  message (FATAL_ERROR "WAMR_BUILD_TARGET isn't set")
+endif ()
+
+if (NOT (WAMR_BUILD_TARGET STREQUAL "X86_64"
+         OR WAMR_BUILD_TARGET STREQUAL "X86_32"
+         OR WAMR_BUILD_TARGET MATCHES "AARCH64.*"
+         OR WAMR_BUILD_TARGET MATCHES "ARM.*"
+         OR WAMR_BUILD_TARGET MATCHES "RISCV64.*"))
+  message (FATAL_ERROR "Unsupported build target platform ${WAMR_BUILD_TARGET}!")
 endif ()
 
 if (NOT DEFINED ANDROID_ABI)
@@ -44,7 +29,7 @@ if (NOT DEFINED ANDROID_ABI)
   elseif (WAMR_BUILD_TARGET MATCHES "ARM.*")
     set (ANDROID_ABI "armeabi-v7a")
   else ()
-    set (ANDROID_ABI "x86_64")
+    set (ANDROID_ABI "riscv64")
   endif ()
 endif ()
 
@@ -56,13 +41,20 @@ if (NOT DEFINED ANDROID_PLATFORM)
   set (ANDROID_PLATFORM 24)
 endif ()
 
+# https://android.googlesource.com/platform/ndk/+/master/build/cmake/android.toolchain.cmake
+set (CMAKE_TOOLCHAIN_FILE "$ENV{ANDROID_NDK_LATEST_HOME}/build/cmake/android.toolchain.cmake")
+set (ANDROID_SDK $ENV{ANDROID_HOME})
+set (ANDROID_NDK $ENV{ANDROID_NDK_LATEST_HOME})
+
 project (iwasm)
 
-# Reset default linker flags
-set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
-set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
-
 set (WAMR_BUILD_PLATFORM "android")
+
+set (CMAKE_VERBOSE_MAKEFILE ON)
+
+if (NOT CMAKE_BUILD_TYPE)
+  set (CMAKE_BUILD_TYPE Release)
+endif ()
 
 if (NOT DEFINED WAMR_BUILD_INTERP)
   # Enable Interpreter by default
