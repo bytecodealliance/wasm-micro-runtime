@@ -217,63 +217,6 @@ memory_realloc(void *mem_old, uint32 size_old, uint32 size_new, char *error_buf,
         mem = mem_new;                                                     \
     } while (0)
 
-static char *
-const_str_list_insert(const uint8 *str, uint32 len, WASMModule *module,
-                      bool is_load_from_file_buf, char *error_buf,
-                      uint32 error_buf_size)
-{
-    StringNode *node, *node_next;
-
-    if (len == 0) {
-        return "";
-    }
-    else if (is_load_from_file_buf) {
-        /* As the file buffer can be referred to after loading, we use
-           the previous byte of leb encoded size to adjust the string:
-           move string 1 byte backward and then append '\0' */
-        char *c_str = (char *)str - 1;
-        bh_memmove_s(c_str, len + 1, c_str + 1, len);
-        c_str[len] = '\0';
-        return c_str;
-    }
-
-    /* Search const str list */
-    node = module->const_str_list;
-    while (node) {
-        node_next = node->next;
-        if (strlen(node->str) == len && !memcmp(node->str, str, len))
-            break;
-        node = node_next;
-    }
-
-    if (node) {
-        LOG_DEBUG("reuse %s", node->str);
-        return node->str;
-    }
-
-    if (!(node = loader_malloc(sizeof(StringNode) + len + 1, error_buf,
-                               error_buf_size))) {
-        return NULL;
-    }
-
-    node->str = ((char *)node) + sizeof(StringNode);
-    bh_memcpy_s(node->str, len + 1, str, len);
-    node->str[len] = '\0';
-
-    if (!module->const_str_list) {
-        /* set as head */
-        module->const_str_list = node;
-        node->next = NULL;
-    }
-    else {
-        /* insert it */
-        node->next = module->const_str_list;
-        module->const_str_list = node;
-    }
-
-    return node->str;
-}
-
 static void
 destroy_wasm_type(WASMFuncType *type)
 {
@@ -1008,7 +951,7 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             /* load module name */
             read_leb_uint32(p, p_end, name_len);
             CHECK_BUF(p, p_end, name_len);
-            if (!(sub_module_name = const_str_list_insert(
+            if (!(sub_module_name = wasm_const_str_list_insert(
                       p, name_len, module, is_load_from_file_buf, error_buf,
                       error_buf_size))) {
                 return false;
@@ -1018,7 +961,7 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             /* load field name */
             read_leb_uint32(p, p_end, name_len);
             CHECK_BUF(p, p_end, name_len);
-            if (!(field_name = const_str_list_insert(
+            if (!(field_name = wasm_const_str_list_insert(
                       p, name_len, module, is_load_from_file_buf, error_buf,
                       error_buf_size))) {
                 return false;
@@ -1426,7 +1369,7 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                             && memcmp(name, p, str_len) == 0));
             }
 
-            if (!(export->name = const_str_list_insert(
+            if (!(export->name = wasm_const_str_list_insert(
                       p, str_len, module, is_load_from_file_buf, error_buf,
                       error_buf_size))) {
                 return false;
@@ -1957,7 +1900,7 @@ handle_name_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                             func_index -= module->import_function_count;
                             bh_assert(func_index < module->function_count);
                             if (!(module->functions[func_index]->field_name =
-                                      const_str_list_insert(
+                                      wasm_const_str_list_insert(
                                           p, func_name_len, module,
                                           is_load_from_file_buf, error_buf,
                                           error_buf_size))) {
@@ -2982,6 +2925,8 @@ create_module(char *error_buf, uint32 error_buf_size)
 
     /* Set start_function to -1, means no start function */
     module->start_function = (uint32)-1;
+
+    module->name = "";
 
 #if WASM_ENABLE_FAST_INTERP == 0
     module->br_table_cache_list = &module->br_table_cache_list_head;
