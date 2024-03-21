@@ -4923,7 +4923,7 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
     }
 
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
-    if (memcmp(p, "name", 4) == 0) {
+    if (name_len == 4 && memcmp(p, "name", 4) == 0) {
         module->name_section_buf = buf;
         module->name_section_buf_end = buf_end;
         p += name_len;
