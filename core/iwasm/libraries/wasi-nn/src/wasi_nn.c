@@ -189,9 +189,16 @@ is_model_initialized(WASINNContext *wasi_nn_ctx)
 
 /* WASI-NN implementation */
 
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+error
+wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_wasm *builder,
+             uint32_t builder_wasm_size, graph_encoding encoding,
+             execution_target target, graph *g)
+#else  /* WASM_ENABLE_WASI_EPHEMERAL_NN == 0 */
 error
 wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
              graph_encoding encoding, execution_target target, graph *g)
+#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
 {
     NN_DBG_PRINTF("Running wasi_nn_load [encoding=%d, target=%d]...", encoding,
                   target);
@@ -206,10 +213,17 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
 
     error res;
     graph_builder_array builder_native = { 0 };
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+    if (success
+        != (res = graph_builder_array_app_native(
+                instance, builder, builder_wasm_size, &builder_native)))
+        return res;
+#else  /* WASM_ENABLE_WASI_EPHEMERAL_NN == 0 */
     if (success
         != (res = graph_builder_array_app_native(instance, builder,
                                                  &builder_native)))
         return res;
+#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
 
     if (!wasm_runtime_validate_native_addr(instance, g,
                                            (uint64)sizeof(graph))) {
@@ -315,10 +329,17 @@ wasi_nn_compute(wasm_exec_env_t exec_env, graph_execution_context ctx)
     return res;
 }
 
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+error
+wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
+                   uint32_t index, tensor_data output_tensor,
+                   uint32_t output_tensor_len, uint32_t *output_tensor_size)
+#else  /* WASM_ENABLE_WASI_EPHEMERAL_NN == 0 */
 error
 wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
                    uint32_t index, tensor_data output_tensor,
                    uint32_t *output_tensor_size)
+#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
 {
     NN_DBG_PRINTF("Running wasi_nn_get_output [ctx=%d, index=%d]...", ctx,
                   index);
@@ -337,8 +358,14 @@ wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
         return invalid_argument;
     }
 
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+    res = lookup[wasi_nn_ctx->current_encoding].get_output(
+        wasi_nn_ctx->tflite_ctx, ctx, index, output_tensor, &output_tensor_len);
+    *output_tensor_size = output_tensor_len;
+#else  /* WASM_ENABLE_WASI_EPHEMERAL_NN == 0 */
     res = lookup[wasi_nn_ctx->current_encoding].get_output(
         wasi_nn_ctx->tflite_ctx, ctx, index, output_tensor, output_tensor_size);
+#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
     NN_DBG_PRINTF("wasi_nn_get_output finished with status %d [data_size=%d]",
                   res, *output_tensor_size);
     return res;
@@ -352,11 +379,19 @@ wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
 /* clang-format on */
 
 static NativeSymbol native_symbols_wasi_nn[] = {
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+    REG_NATIVE_FUNC(load, "(*iii*)i"),
+    REG_NATIVE_FUNC(init_execution_context, "(i*)i"),
+    REG_NATIVE_FUNC(set_input, "(ii*)i"),
+    REG_NATIVE_FUNC(compute, "(i)i"),
+    REG_NATIVE_FUNC(get_output, "(ii*i*)i"),
+#else  /* WASM_ENABLE_WASI_EPHEMERAL_NN == 0 */
     REG_NATIVE_FUNC(load, "(*ii*)i"),
     REG_NATIVE_FUNC(init_execution_context, "(i*)i"),
     REG_NATIVE_FUNC(set_input, "(ii*)i"),
     REG_NATIVE_FUNC(compute, "(i)i"),
     REG_NATIVE_FUNC(get_output, "(ii**)i"),
+#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
 };
 
 uint32_t
