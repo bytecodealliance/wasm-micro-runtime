@@ -72,6 +72,51 @@ graph_builder_array_app_native(wasm_module_inst_t instance,
     return success;
 }
 
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+error
+graph_builder_array_app_native_ephemeral(wasm_module_inst_t instance,
+                                         graph_builder_wasm *builder_wasm,
+                                         uint32_t size,
+                                         graph_builder_array *builder_array)
+{
+    if (!wasm_runtime_validate_native_addr(instance, builder_wasm,
+                                           size * sizeof(graph_builder_wasm))) {
+        NN_ERR_PRINTF("builder_wasm is invalid");
+        return invalid_argument;
+    }
+
+    NN_DBG_PRINTF("Graph builder array contains %d elements", size);
+
+    graph_builder *builder =
+        (graph_builder *)wasm_runtime_malloc(size * sizeof(graph_builder));
+    if (builder == NULL)
+        return missing_memory;
+
+    for (uint32_t i = 0; i < size; ++i) {
+        if (!wasm_runtime_validate_app_addr(
+                instance, builder_wasm[i].buf_offset, builder_wasm[i].size)) {
+            NN_ERR_PRINTF("builder_wasm[i].buf_offset is invalid");
+            return invalid_argument;
+        }
+
+        error res;
+        if (success
+            != (res = graph_builder_app_native(instance, &builder_wasm[i],
+                                               &builder[i]))) {
+            wasm_runtime_free(builder);
+            return res;
+        }
+
+        NN_DBG_PRINTF("Graph builder %d contains %d elements", i,
+                      builder->size);
+    }
+
+    builder_array->buf = builder;
+    builder_array->size = size;
+    return success;
+}
+#endif // WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+
 static error
 tensor_data_app_native(wasm_module_inst_t instance, uint32_t total_elements,
                        tensor_wasm *input_tensor_wasm, tensor_data *data)
@@ -165,3 +210,92 @@ tensor_app_native(wasm_module_inst_t instance, tensor_wasm *input_tensor_wasm,
     input_tensor->data = data;
     return success;
 }
+
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+static error
+tensor_data_app_native_ephemeral(wasm_module_inst_t instance,
+                                 uint32_t total_elements,
+                                 tensor_wasm_ephemeral *input_tensor_wasm,
+                                 tensor_data *data)
+{
+    if (!wasm_runtime_validate_app_addr(instance,
+                                        input_tensor_wasm->data_offset,
+                                        input_tensor_wasm->data_size)) {
+        NN_ERR_PRINTF("input_tensor_wasm->data_offset is invalid");
+        return invalid_argument;
+    }
+    *data = (tensor_data)wasm_runtime_addr_app_to_native(
+        instance, input_tensor_wasm->data_offset);
+    return success;
+}
+
+static error
+tensor_dimensions_app_native_ephemeral(wasm_module_inst_t instance,
+                                       tensor_wasm_ephemeral *input_tensor_wasm,
+                                       tensor_dimensions **dimensions)
+{
+    tensor_dimensions_wasm *dimensions_wasm = &input_tensor_wasm->dimensions;
+
+    if (!wasm_runtime_validate_app_addr(instance, dimensions_wasm->buf_offset,
+                                        sizeof(tensor_dimensions))) {
+        NN_ERR_PRINTF("dimensions_wasm->buf_offset is invalid");
+        return invalid_argument;
+    }
+
+    *dimensions =
+        (tensor_dimensions *)wasm_runtime_malloc(sizeof(tensor_dimensions));
+    if (dimensions == NULL)
+        return missing_memory;
+
+    (*dimensions)->size = dimensions_wasm->size;
+    (*dimensions)->buf = (uint32_t *)wasm_runtime_addr_app_to_native(
+        instance, dimensions_wasm->buf_offset);
+
+    NN_DBG_PRINTF("Number of dimensions: %d", (*dimensions)->size);
+    return success;
+}
+
+error
+tensor_app_native_ephemeral(wasm_module_inst_t instance,
+                            tensor_wasm_ephemeral *input_tensor_wasm,
+                            tensor *input_tensor)
+{
+    NN_DBG_PRINTF("Converting tensor_wasm to tensor");
+    if (!wasm_runtime_validate_native_addr(instance, input_tensor_wasm,
+                                           sizeof(tensor_wasm))) {
+        NN_ERR_PRINTF("input_tensor_wasm is invalid");
+        return invalid_argument;
+    }
+
+    error res;
+
+    tensor_dimensions *dimensions = NULL;
+    if (success
+        != (res = tensor_dimensions_app_native_ephemeral(
+                instance, input_tensor_wasm, &dimensions))) {
+        NN_ERR_PRINTF("error when parsing dimensions");
+        return res;
+    }
+
+    uint32_t total_elements = 1;
+    for (uint32_t i = 0; i < dimensions->size; ++i) {
+        total_elements *= dimensions->buf[i];
+        NN_DBG_PRINTF("Dimension %d: %d", i, dimensions->buf[i]);
+    }
+    NN_DBG_PRINTF("Tensor type: %d", input_tensor_wasm->type);
+    NN_DBG_PRINTF("Total number of elements: %d", total_elements);
+
+    tensor_data data = NULL;
+    if (success
+        != (res = tensor_data_app_native_ephemeral(instance, total_elements,
+                                                   input_tensor_wasm, &data))) {
+        wasm_runtime_free(dimensions);
+        return res;
+    }
+
+    input_tensor->type = input_tensor_wasm->type;
+    input_tensor->dimensions = dimensions;
+    input_tensor->data = data;
+    return success;
+}
+#endif // WASM_ENABLE_WASI_EPHEMERAL_NN != 0
