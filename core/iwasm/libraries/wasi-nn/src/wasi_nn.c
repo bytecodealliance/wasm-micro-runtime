@@ -281,7 +281,7 @@ fail:
 
     return res;
 }
-#endif // WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
 
 error
 wasi_nn_init_execution_context(wasm_exec_env_t exec_env, graph g,
@@ -377,7 +377,7 @@ wasi_ephemeral_nn_set_input(wasm_exec_env_t exec_env,
     NN_DBG_PRINTF("wasi_nn_set_input finished with status %d", res);
     return res;
 }
-#endif // WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
 
 error
 wasi_nn_compute(wasm_exec_env_t exec_env, graph_execution_context ctx)
@@ -459,7 +459,7 @@ wasi_ephemeral_nn_get_output(wasm_exec_env_t exec_env,
                   res, *output_tensor_size);
     return res;
 }
-#endif // WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
 
 /* Register WASI-NN in WAMR */
 
@@ -469,7 +469,7 @@ wasi_ephemeral_nn_get_output(wasm_exec_env_t exec_env,
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
 #define REG_NATIVE_FUNC_EPHEMERAL(func_name, signature) \
     { #func_name, wasi_ephemeral_nn_##func_name, signature, NULL }
-#endif // WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
 /* clang-format on */
 
 static NativeSymbol native_symbols_wasi_nn[] = {
@@ -488,7 +488,7 @@ static NativeSymbol native_symbols_wasi_ephemeral_nn[] = {
     REG_NATIVE_FUNC(compute, "(i)i"),
     REG_NATIVE_FUNC_EPHEMERAL(get_output, "(ii*i*)i"),
 };
-#endif // WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
 
 uint32_t
 get_wasi_nn_export_apis(NativeSymbol **p_native_symbols)
@@ -506,7 +506,7 @@ get_wasi_ephemeral_nn_export_apis(NativeSymbol **p_native_symbols)
     *p_native_symbols = native_symbols_wasi_ephemeral_nn;
     return sizeof(native_symbols_wasi_nn) / sizeof(NativeSymbol);
 }
-#endif // WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
 
 #if defined(WASI_NN_SHARED)
 uint32_t

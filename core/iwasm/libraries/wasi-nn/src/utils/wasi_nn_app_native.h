@@ -46,7 +46,7 @@ typedef struct {
     uint32_t data_offset;
     uint32_t data_size;
 } tensor_wasm_ephemeral;
-#endif // WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
 
 error
 graph_builder_array_app_native(wasm_module_inst_t instance,
@@ -59,7 +59,7 @@ graph_builder_array_app_native_ephemeral(wasm_module_inst_t instance,
                                          graph_builder_wasm *builder_wasm,
                                          uint32_t size,
                                          graph_builder_array *builder_array);
-#endif // WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
 
 error
 tensor_app_native(wasm_module_inst_t instance, tensor_wasm *input_tensor,
@@ -70,6 +70,6 @@ error
 tensor_app_native_ephemeral(wasm_module_inst_t instance,
                             tensor_wasm_ephemeral *input_tensor_wasm,
                             tensor *input_tensor);
-#endif // WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
 
 #endif

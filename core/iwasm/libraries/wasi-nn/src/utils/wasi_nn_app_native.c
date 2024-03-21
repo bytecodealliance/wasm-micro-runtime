@@ -96,6 +96,7 @@ graph_builder_array_app_native_ephemeral(wasm_module_inst_t instance,
         if (!wasm_runtime_validate_app_addr(
                 instance, builder_wasm[i].buf_offset, builder_wasm[i].size)) {
             NN_ERR_PRINTF("builder_wasm[i].buf_offset is invalid");
+            wasm_runtime_free(builder);
             return invalid_argument;
         }
 
@@ -115,7 +116,7 @@ graph_builder_array_app_native_ephemeral(wasm_module_inst_t instance,
     builder_array->size = size;
     return success;
 }
-#endif // WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
 
 static error
 tensor_data_app_native(wasm_module_inst_t instance, uint32_t total_elements,
@@ -298,4 +299,4 @@ tensor_app_native_ephemeral(wasm_module_inst_t instance,
     input_tensor->data = data;
     return success;
 }
-#endif // WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */

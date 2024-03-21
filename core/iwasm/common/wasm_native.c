@@ -575,7 +575,7 @@ wasm_native_init()
     if (!wasm_native_register_natives("wasi_ephemeral_nn", native_symbols,
                                       n_native_symbols))
         goto fail;
-#endif // WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
 #endif
 
 #if WASM_ENABLE_QUICK_AOT_ENTRY != 0
