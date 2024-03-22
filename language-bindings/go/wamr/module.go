@@ -117,8 +117,8 @@ func (self *Module) SetWasiArgsEx(dirList [][]byte, mapDirList [][]byte,
     C.wasm_runtime_set_wasi_args_ex(self.module, dirPtr, dirCount,
                                     mapDirPtr, mapDirCount,
                                     envPtr, envCount, argvPtr, argc,
-                                    C.longlong(stdinfd), C.longlong(stdoutfd),
-                                    C.longlong(stderrfd))
+                                    C.int64_t(stdinfd), C.int64_t(stdoutfd),
+                                    C.int64_t(stderrfd))
 }
 
 /* Set module's wasi network address pool */
