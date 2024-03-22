@@ -188,10 +188,16 @@ jobs:
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
           - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
-          # Fast-JIT and Multi-Tier-JIT mode don't support android(X86-32)
+          # Fast-JIT and Multi-Tier-JIT mode don't support android
           - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
             platform: android
           - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
+            platform: android
+          # LLVM JIT pre-built binary wasn't compiled by Android NDK
+          # and isn't available for android
+          - make_options_run_mode: $LLVM_LAZY_JIT_BUILD_OPTIONS
+            platform: android
+          - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
             platform: android
         include:
           - os: ubuntu-20.04
@@ -219,10 +225,20 @@ jobs:
         if: endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS') && (steps.retrieve_llvm_libs.outputs.cache-hit != 'true')
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
-      - name: Build iwasm
+      - name: Build iwasm for linux
+        if: matrix.platform == 'linux'
         run: |
           mkdir build && cd build
           cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }}
+          cmake --build . --config Release --parallel 4
+        working-directory: product-mini/platforms/${{ matrix.platform }}
+
+      - name: Build iwasm for android
+        if: matrix.platform == 'android'
+        run: |
+          mkdir build && cd build
+          cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }} \
+                -DWAMR_BUILD_TARGET=X86_64
           cmake --build . --config Release --parallel 4
         working-directory: product-mini/platforms/${{ matrix.platform }}
 
