@@ -15580,8 +15580,7 @@ re_scan:
                     case WASM_OP_ATOMIC_RMW_I64_CMPXCHG:
                     case WASM_OP_ATOMIC_RMW_I64_CMPXCHG8_U:
                     case WASM_OP_ATOMIC_RMW_I64_CMPXCHG16_U:
-                    case
-                        RMW_I64_CMPXCHG32_U:
+                    case WASM_OP_ATOMIC_RMW_I64_CMPXCHG32_U:
                         POP_I64();
                         POP_I64();
                         POP_I32();
