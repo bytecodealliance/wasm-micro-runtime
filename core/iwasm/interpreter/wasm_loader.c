@@ -211,7 +211,7 @@ fail:
             set_error_buf_mem_offset_out_of_range(error_buf, error_buf_size); \
             goto fail;                                                        \
         }                                                                     \
-        res = (linear_mem_ptr_t)res64;                                        \
+        res = (mem_offset_t)res64;                                            \
     } while (0)
 #else
 #define read_leb_mem_offset(p, p_end, res) read_leb_uint32(p, p_end, res)
@@ -2795,7 +2795,6 @@ check_memory_max_size(bool is_memory64, uint32 init_size, uint32 max_size,
 static bool
 check_memory_flag(const uint8 mem_flag, char *error_buf, uint32 error_buf_size)
 {
-
     /* Check whether certain features indicated by mem_flag are enabled in
      * runtime */
     if (mem_flag > MAX_PAGE_COUNT_FLAG) {
@@ -7566,6 +7565,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 #if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
             case WASM_OP_SIMD_PREFIX:
             {
+                /* TODO: memory64 offset type changes */
                 uint32 opcode1;
 
                 read_leb_uint32(p, p_end, opcode1);
@@ -7662,6 +7662,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 #if WASM_ENABLE_SHARED_MEMORY != 0
             case WASM_OP_ATOMIC_PREFIX:
             {
+                /* TODO: memory64 offset type changes */
                 uint32 opcode1;
 
                 /* atomic_op (u32_leb) + memarg (2 u32_leb) */
@@ -10757,7 +10758,7 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
     uint16 *local_offsets, local_offset;
     uint32 type_idx, func_idx, local_idx, global_idx, table_idx;
     uint32 table_seg_idx, data_seg_idx, count, align, i;
-    linear_mem_ptr_t mem_offset;
+    mem_offset_t mem_offset;
     int32 i32_const = 0;
     int64 i64_const;
     uint8 opcode;
@@ -14781,6 +14782,7 @@ re_scan:
 #if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
             case WASM_OP_SIMD_PREFIX:
             {
+                /* TODO: memory64 offset type changes */
                 uint32 opcode1;
 
 #if WASM_ENABLE_WAMR_COMPILER != 0
@@ -15448,6 +15450,7 @@ re_scan:
 #if WASM_ENABLE_SHARED_MEMORY != 0
             case WASM_OP_ATOMIC_PREFIX:
             {
+                /* TODO: memory64 offset type changes */
                 uint32 opcode1;
 
                 read_leb_uint32(p, p_end, opcode1);
@@ -15577,7 +15580,8 @@ re_scan:
                     case WASM_OP_ATOMIC_RMW_I64_CMPXCHG:
                     case WASM_OP_ATOMIC_RMW_I64_CMPXCHG8_U:
                     case WASM_OP_ATOMIC_RMW_I64_CMPXCHG16_U:
-                    case WASM_OP_ATOMIC_RMW_I64_CMPXCHG32_U:
+                    case
+                        RMW_I64_CMPXCHG32_U:
                         POP_I64();
                         POP_I64();
                         POP_I32();

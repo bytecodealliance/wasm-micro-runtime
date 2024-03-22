@@ -90,6 +90,10 @@ extern "C" {
  */
 #define VALUE_TYPE_GC_REF 0x43
 
+#define MAX_PAGE_COUNT_FLAG 0x01
+#define SHARED_MEMORY_FLAG 0x02
+#define MEMORY64_FLAG 0x04
+
 #define DEFAULT_NUM_BYTES_PER_PAGE 65536
 #define DEFAULT_MAX_PAGES 65536
 #define DEFAULT_MEM64_MAX_PAGES UINT32_MAX
@@ -98,7 +102,7 @@ extern "C" {
 #define MAX_LINEAR_MEMORY_SIZE (4 * (uint64)BH_GB)
 /* Roughly 274 TB */
 #define MAX_LINEAR_MEM64_MEMORY_SIZE \
-    (DEFAULT_MEM64_MAX_PAGES * 64 * (uint64)BH_KB)
+    (DEFAULT_MEM64_MAX_PAGES * (uint64)64 * (uint64)BH_KB)
 /* Macro to check memory flag and return appropriate memory size */
 #define GET_MAX_LINEAR_MEMORY_SIZE(is_memory64) \
     (is_memory64 ? MAX_LINEAR_MEM64_MEMORY_SIZE : MAX_LINEAR_MEMORY_SIZE)
@@ -492,9 +496,9 @@ typedef struct WASMTable {
 } WASMTable;
 
 #if WASM_ENABLE_MEMORY64 != 0
-typedef uint64 linear_mem_ptr_t;
+typedef uint64 mem_offset_t;
 #else
-typedef uint32 linear_mem_ptr_t;
+typedef uint32 mem_offset_t;
 #endif
 
 typedef struct WASMMemory {

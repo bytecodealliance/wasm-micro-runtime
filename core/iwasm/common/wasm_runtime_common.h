@@ -31,10 +31,6 @@ extern "C" {
 /* Internal use for setting default running mode */
 #define Mode_Default 0
 
-#define MAX_PAGE_COUNT_FLAG 0x01
-#define SHARED_MEMORY_FLAG 0x02
-#define MEMORY64_FLAG 0x04
-
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
 
 #define PUT_I64_TO_ADDR(addr, value)       \

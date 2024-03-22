@@ -1969,7 +1969,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
     WASMTableInstance *first_table;
     uint32 global_count, i;
     uint32 length, extra_info_offset;
-    linear_mem_ptr_t base_offset;
+    mem_offset_t base_offset;
     uint32 module_inst_struct_size =
         offsetof(WASMModuleInstance, global_table_data.bytes);
     uint64 module_inst_mem_inst_size;

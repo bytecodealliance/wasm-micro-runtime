@@ -187,7 +187,7 @@ read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
         uint64 res64;                                                       \
         read_leb((uint8 **)&p, p_end, is_memory64 ? 64 : 32, false, &res64, \
                  error_buf, error_buf_size);                                \
-        res = (linear_mem_ptr_t)res64;                                      \
+        res = (mem_offset_t)res64;                                          \
     } while (0)
 #else
 #define read_leb_mem_offset(p, p_end, res) read_leb_uint32(p, p_end, res)
@@ -756,7 +756,6 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
 static bool
 check_memory_flag(const uint8 mem_flag)
 {
-
     /* Check whether certain features indicated by mem_flag are enabled in
      * runtime */
     if (mem_flag > MAX_PAGE_COUNT_FLAG) {
@@ -3886,6 +3885,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 #if WASM_ENABLE_SHARED_MEMORY != 0
             case WASM_OP_ATOMIC_PREFIX:
             {
+                /* TODO: memory64 offset type changes */
                 uint32 opcode1;
 
                 /* atomic_op (u32_leb) + memarg (2 u32_leb) */
@@ -5936,7 +5936,7 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
     BlockType func_block_type;
     uint16 *local_offsets, local_offset;
     uint32 count, local_idx, global_idx, u32, align, i;
-    linear_mem_ptr_t mem_offset;
+    mem_offset_t mem_offset;
     int32 i32, i32_const = 0;
     int64 i64_const;
     uint8 opcode, u8;
@@ -7945,6 +7945,7 @@ re_scan:
 #if WASM_ENABLE_SHARED_MEMORY != 0
             case WASM_OP_ATOMIC_PREFIX:
             {
+                /* TODO: memory64 offset type changes */
                 uint32 opcode1;
 
                 read_leb_uint32(p, p_end, opcode1);

@@ -46,9 +46,10 @@ typedef float64 CellType_F64;
 #define get_linear_mem_size() GET_LINEAR_MEMORY_SIZE(memory)
 #endif
 
-#if (!defined(OS_ENABLE_HW_BOUND_CHECK)               \
-     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0) \
-    && WASM_ENABLE_MEMORY64 == 0
+#if WASM_ENABLE_MEMORY64 == 0
+
+#if (!defined(OS_ENABLE_HW_BOUND_CHECK) \
+     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0)
 #define CHECK_MEMORY_OVERFLOW(bytes)                                           \
     do {                                                                       \
         uint64 offset1 = (uint64)offset + (uint64)addr;                        \
@@ -70,7 +71,23 @@ typedef float64 CellType_F64;
         else                                                                   \
             goto out_of_bounds;                                                \
     } while (0)
-#elif WASM_ENABLE_MEMORY64 != 0
+#else /* else of !defined(OS_ENABLE_HW_BOUND_CHECK) || \
+         WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 */
+#define CHECK_MEMORY_OVERFLOW(bytes)                    \
+    do {                                                \
+        uint64 offset1 = (uint64)offset + (uint64)addr; \
+        maddr = memory->memory_data + offset1;          \
+    } while (0)
+
+#define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr) \
+    do {                                                \
+        maddr = memory->memory_data + (uint32)(start);  \
+    } while (0)
+#endif /* end of !defined(OS_ENABLE_HW_BOUND_CHECK) || \
+          WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 */
+
+#else /* else of WASM_ENABLE_MEMORY64 == 0 */
+
 #define CHECK_MEMORY_OVERFLOW(bytes)                                        \
     do {                                                                    \
         uint64 offset1 = (uint64)offset + (uint64)addr;                     \
@@ -95,20 +112,8 @@ typedef float64 CellType_F64;
         else                                                       \
             goto out_of_bounds;                                    \
     } while (0)
-#else
-#define CHECK_MEMORY_OVERFLOW(bytes)                    \
-    do {                                                \
-        uint64 offset1 = (uint64)offset + (uint64)addr; \
-        maddr = memory->memory_data + offset1;          \
-    } while (0)
 
-#define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr) \
-    do {                                                \
-        maddr = memory->memory_data + (uint32)(start);  \
-    } while (0)
-#endif /* #if !defined(OS_ENABLE_HW_BOUND_CHECK)            \
-            || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
-           && WASM_ENABLE_MEMORY64 == 0 */
+#endif /* end of WASM_ENABLE_MEMORY64 == 0 */
 
 #define CHECK_ATOMIC_MEMORY_ACCESS()                                 \
     do {                                                             \
@@ -546,7 +551,7 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
 #endif
 
 #if WASM_ENABLE_MEMORY64 != 0
-#define POP_MEM_OFFSET() is_memory64 ? POP_I64() : POP_I32()
+#define POP_MEM_OFFSET() (is_memory64 ? POP_I64() : POP_I32())
 #else
 #define POP_MEM_OFFSET() POP_I32()
 #endif
@@ -619,49 +624,52 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
         frame_csp = frame->csp; \
     } while (0)
 
-#define read_leb_int64(p, p_end, res)              \
-    do {                                           \
-        uint8 _val = *p;                           \
-        if (!(_val & 0x80)) {                      \
-            res = (int64)_val;                     \
-            if (_val & 0x40)                       \
-                /* sign extend */                  \
-                res |= 0xFFFFFFFFFFFFFF80LL;       \
-            p++;                                   \
-            break;                                 \
-        }                                          \
-        uint32 _off = 0;                           \
-        res = (int64)read_leb(p, &_off, 64, true); \
-        p += _off;                                 \
+#define read_leb_int64(p, p_end, res)                  \
+    do {                                               \
+        uint8 _val = *p;                               \
+        if (!(_val & 0x80)) {                          \
+            res = (int64)_val;                         \
+            if (_val & 0x40)                           \
+                /* sign extend */                      \
+                res |= 0xFFFFFFFFFFFFFF80LL;           \
+            p++;                                       \
+        }                                              \
+        else {                                         \
+            uint32 _off = 0;                           \
+            res = (int64)read_leb(p, &_off, 64, true); \
+            p += _off;                                 \
+        }                                              \
     } while (0)
 
-#define read_leb_uint32(p, p_end, res)               \
-    do {                                             \
-        uint8 _val = *p;                             \
-        if (!(_val & 0x80)) {                        \
-            res = _val;                              \
-            p++;                                     \
-            break;                                   \
-        }                                            \
-        uint32 _off = 0;                             \
-        res = (uint32)read_leb(p, &_off, 32, false); \
-        p += _off;                                   \
+#define read_leb_uint32(p, p_end, res)                   \
+    do {                                                 \
+        uint8 _val = *p;                                 \
+        if (!(_val & 0x80)) {                            \
+            res = _val;                                  \
+            p++;                                         \
+        }                                                \
+        else {                                           \
+            uint32 _off = 0;                             \
+            res = (uint32)read_leb(p, &_off, 32, false); \
+            p += _off;                                   \
+        }                                                \
     } while (0)
 
-#define read_leb_int32(p, p_end, res)              \
-    do {                                           \
-        uint8 _val = *p;                           \
-        if (!(_val & 0x80)) {                      \
-            res = (int32)_val;                     \
-            if (_val & 0x40)                       \
-                /* sign extend */                  \
-                res |= 0xFFFFFF80;                 \
-            p++;                                   \
-            break;                                 \
-        }                                          \
-        uint32 _off = 0;                           \
-        res = (int32)read_leb(p, &_off, 32, true); \
-        p += _off;                                 \
+#define read_leb_int32(p, p_end, res)                  \
+    do {                                               \
+        uint8 _val = *p;                               \
+        if (!(_val & 0x80)) {                          \
+            res = (int32)_val;                         \
+            if (_val & 0x40)                           \
+                /* sign extend */                      \
+                res |= 0xFFFFFF80;                     \
+            p++;                                       \
+        }                                              \
+        else {                                         \
+            uint32 _off = 0;                           \
+            res = (int32)read_leb(p, &_off, 32, true); \
+            p += _off;                                 \
+        }                                              \
     } while (0)
 
 #if WASM_ENABLE_MEMORY64 != 0
@@ -669,14 +677,15 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
     do {                                                                  \
         uint8 _val = *p;                                                  \
         if (!(_val & 0x80)) {                                             \
-            res = (linear_mem_ptr_t)_val;                                 \
+            res = (mem_offset_t)_val;                                     \
             p++;                                                          \
-            break;                                                        \
         }                                                                 \
-        uint32 _off = 0;                                                  \
-        res = (linear_mem_ptr_t)read_leb(p, &_off, is_memory64 ? 64 : 32, \
+        else {                                                            \
+            uint32 _off = 0;                                              \
+            res = (mem_offset_t)read_leb(p, &_off, is_memory64 ? 64 : 32, \
                                          false);                          \
-        p += _off;                                                        \
+            p += _off;                                                    \
+        }                                                                 \
     } while (0)
 #else
 #define read_leb_mem_offset(p, p_end, res) read_leb_uint32(p, p_end, res)
@@ -4216,7 +4225,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_F32_LOAD)
             {
                 uint32 flags;
-                linear_mem_ptr_t offset, addr;
+                mem_offset_t offset, addr;
 
                 read_leb_uint32(frame_ip, frame_ip_end, flags);
 #if WASM_ENABLE_MEMORY64 != 0
@@ -4235,7 +4244,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_F64_LOAD)
             {
                 uint32 flags;
-                linear_mem_ptr_t offset, addr;
+                mem_offset_t offset, addr;
 
                 read_leb_uint32(frame_ip, frame_ip_end, flags);
 #if WASM_ENABLE_MEMORY64 != 0
@@ -4253,7 +4262,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_I32_LOAD8_S)
             {
                 uint32 flags;
-                linear_mem_ptr_t offset, addr;
+                mem_offset_t offset, addr;
 
                 read_leb_uint32(frame_ip, frame_ip_end, flags);
 #if WASM_ENABLE_MEMORY64 != 0
@@ -4271,7 +4280,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_I32_LOAD8_U)
             {
                 uint32 flags;
-                linear_mem_ptr_t offset, addr;
+                mem_offset_t offset, addr;
 
                 read_leb_uint32(frame_ip, frame_ip_end, flags);
 #if WASM_ENABLE_MEMORY64 != 0
@@ -4289,7 +4298,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_I32_LOAD16_S)
             {
                 uint32 flags;
-                linear_mem_ptr_t offset, addr;
+                mem_offset_t offset, addr;
 
                 read_leb_uint32(frame_ip, frame_ip_end, flags);
 #if WASM_ENABLE_MEMORY64 != 0
@@ -4307,7 +4316,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_I32_LOAD16_U)
             {
                 uint32 flags;
-                linear_mem_ptr_t offset, addr;
+                mem_offset_t offset, addr;
 
                 read_leb_uint32(frame_ip, frame_ip_end, flags);
 #if WASM_ENABLE_MEMORY64 != 0
@@ -4325,7 +4334,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_I64_LOAD8_S)
             {
                 uint32 flags;
-                linear_mem_ptr_t offset, addr;
+                mem_offset_t offset, addr;
 
                 read_leb_uint32(frame_ip, frame_ip_end, flags);
 #if WASM_ENABLE_MEMORY64 != 0
@@ -4343,7 +4352,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_I64_LOAD8_U)
             {
                 uint32 flags;
-                linear_mem_ptr_t offset, addr;
+                mem_offset_t offset, addr;
 
                 read_leb_uint32(frame_ip, frame_ip_end, flags);
 #if WASM_ENABLE_MEMORY64 != 0
@@ -4361,7 +4370,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_I64_LOAD16_S)
             {
                 uint32 flags;
-                linear_mem_ptr_t offset, addr;
+                mem_offset_t offset, addr;
 
                 read_leb_uint32(frame_ip, frame_ip_end, flags);
 #if WASM_ENABLE_MEMORY64 != 0
@@ -4379,7 +4388,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_I64_LOAD16_U)
             {
                 uint32 flags;
-                linear_mem_ptr_t offset, addr;
+                mem_offset_t offset, addr;
 
                 read_leb_uint32(frame_ip, frame_ip_end, flags);
 #if WASM_ENABLE_MEMORY64 != 0
@@ -4397,7 +4406,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_I64_LOAD32_S)
             {
                 uint32 flags;
-                linear_mem_ptr_t offset, addr;
+                mem_offset_t offset, addr;
 
                 opcode = *(frame_ip - 1);
                 read_leb_uint32(frame_ip, frame_ip_end, flags);
@@ -4416,7 +4425,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_I64_LOAD32_U)
             {
                 uint32 flags;
-                linear_mem_ptr_t offset, addr;
+                mem_offset_t offset, addr;
 
                 read_leb_uint32(frame_ip, frame_ip_end, flags);
 #if WASM_ENABLE_MEMORY64 != 0
@@ -4436,7 +4445,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_F32_STORE)
             {
                 uint32 flags;
-                linear_mem_ptr_t offset, addr;
+                mem_offset_t offset, addr;
 
                 read_leb_uint32(frame_ip, frame_ip_end, flags);
 #if WASM_ENABLE_MEMORY64 != 0
@@ -4464,7 +4473,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_F64_STORE)
             {
                 uint32 flags;
-                linear_mem_ptr_t offset, addr;
+                mem_offset_t offset, addr;
 
                 read_leb_uint32(frame_ip, frame_ip_end, flags);
 #if WASM_ENABLE_MEMORY64 != 0
@@ -4477,7 +4486,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
 #if WASM_ENABLE_MEMORY64 != 0
                 if (is_memory64) {
-                    PUT_I64_TO_ADDR((linear_mem_ptr_t *)maddr,
+                    PUT_I64_TO_ADDR((mem_offset_t *)maddr,
                                     GET_I64_FROM_ADDR(frame_sp + 2));
                 }
                 else
@@ -4495,7 +4504,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_I32_STORE16)
             {
                 uint32 flags;
-                linear_mem_ptr_t offset, addr;
+                mem_offset_t offset, addr;
                 uint32 sval;
 
                 opcode = *(frame_ip - 1);
@@ -4525,7 +4534,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_I64_STORE32)
             {
                 uint32 flags;
-                linear_mem_ptr_t offset, addr;
+                mem_offset_t offset, addr;
                 uint64 sval;
 
                 opcode = *(frame_ip - 1);
@@ -5585,7 +5594,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_MEMORY_INIT:
                     {
                         uint32 segment;
-                        linear_mem_ptr_t addr;
+                        mem_offset_t addr;
                         uint64 bytes, offset, seg_len;
                         uint8 *data;
 
@@ -5598,7 +5607,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                         bytes = (uint64)(uint32)POP_I32();
                         offset = (uint64)(uint32)POP_I32();
-                        addr = (linear_mem_ptr_t)POP_MEM_OFFSET();
+                        addr = (mem_offset_t)POP_MEM_OFFSET();
 
 #if WASM_ENABLE_THREAD_MGR != 0
                         linear_mem_size = get_linear_mem_size();
@@ -5641,7 +5650,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     }
                     case WASM_OP_MEMORY_COPY:
                     {
-                        linear_mem_ptr_t dst, src, len;
+                        mem_offset_t dst, src, len;
                         uint8 *mdst, *msrc;
 
                         frame_ip += 2;
@@ -5676,7 +5685,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     }
                     case WASM_OP_MEMORY_FILL:
                     {
-                        linear_mem_ptr_t dst, len;
+                        mem_offset_t dst, len;
                         uint8 fill_val, *mdst;
                         frame_ip++;
 

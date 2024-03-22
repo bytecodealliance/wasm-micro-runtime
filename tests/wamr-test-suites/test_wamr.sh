@@ -517,7 +517,7 @@ function spec_test()
 
     local ARGS_FOR_SPEC_TEST=""
 
-    # multi-module only enable in interp mode and aot moe
+    # multi-module only enable in interp mode and aot mode
     if [[ 1 == ${ENABLE_MULTI_MODULE} ]]; then
         if [[ $1 == 'classic-interp' || $1 == 'fast-interp' || $1 == 'aot' ]]; then
             ARGS_FOR_SPEC_TEST+="-M "
@@ -566,7 +566,7 @@ function spec_test()
         ARGS_FOR_SPEC_TEST+="--gc "
     fi
 
-    # wasm64(memory64) only enable in interp and aot mode
+    # wasm64(memory64) is only enabled in interp and aot mode
     if [[ 1 == ${ENABLE_MEMORY64} ]]; then
         if [[ $1 == 'classic-interp' || $1 == 'aot' ]]; then
             ARGS_FOR_SPEC_TEST+="--memory64 "

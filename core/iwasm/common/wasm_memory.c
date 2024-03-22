@@ -754,7 +754,7 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
     if (full_size_mmaped) {
 #ifdef BH_PLATFORM_WINDOWS
         if (!os_mem_commit(memory->memory_data_end,
-                           (uint32)(total_size_new - total_size_old),
+                           (mem_offset_t)(total_size_new - total_size_old),
                            MMAP_PROT_READ | MMAP_PROT_WRITE)) {
             ret = false;
             goto return_func;
@@ -762,12 +762,12 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
 #endif
 
         if (os_mprotect(memory->memory_data_end,
-                        (linear_mem_ptr_t)(total_size_new - total_size_old),
+                        (mem_offset_t)(total_size_new - total_size_old),
                         MMAP_PROT_READ | MMAP_PROT_WRITE)
             != 0) {
 #ifdef BH_PLATFORM_WINDOWS
             os_mem_decommit(memory->memory_data_end,
-                            (uint32)(total_size_new - total_size_old));
+                            (mem_offset_t)(total_size_new - total_size_old));
 #endif
             ret = false;
             goto return_func;
