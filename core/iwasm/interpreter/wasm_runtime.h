@@ -103,7 +103,7 @@ struct WASMMemoryInstance {
     /* Whether the memory is shared */
     uint8 is_shared_memory;
 
-    /* TODO: Memory64 whether the memory has 64-bit memory addresses */
+    /* Whether the memory has 64-bit memory addresses */
     uint8 is_memory64;
 
     /* Reference count of the memory instance:
