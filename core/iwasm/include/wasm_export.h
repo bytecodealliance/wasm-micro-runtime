@@ -539,7 +539,7 @@ wasm_runtime_instantiate(const wasm_module_t module,
 
 /**
  * Instantiate a WASM module, with specified instantiation arguments
- * 
+ *
  * Same as wasm_runtime_instantiate, but it also allows overwriting maximum memory
  */
 WASM_RUNTIME_API_EXTERN wasm_module_inst_t
@@ -1668,6 +1668,15 @@ wasm_runtime_begin_blocking_op(wasm_exec_env_t exec_env);
 
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_end_blocking_op(wasm_exec_env_t exec_env);
+
+
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_set_module_name(wasm_module_t module, const char *name,
+                             char *error_buf, uint32_t error_buf_size);
+
+/* return the most recently set module name or "" if never set before */
+WASM_RUNTIME_API_EXTERN const char*
+wasm_runtime_get_module_name(wasm_module_t module);
 
 /* clang-format on */
 

@@ -6585,3 +6585,44 @@ wasm_runtime_set_linux_perf(bool flag)
     enable_linux_perf = flag;
 }
 #endif
+
+bool
+wasm_runtime_set_module_name(wasm_module_t module, const char *name,
+                             char *error_buf, uint32_t error_buf_size)
+{
+    if (!module)
+        return false;
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode)
+        return wasm_set_module_name((WASMModule *)module, name, error_buf,
+                                    error_buf_size);
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT)
+        return aot_set_module_name((AOTModule *)module, name, error_buf,
+                                   error_buf_size);
+#endif
+
+    return false;
+}
+
+const char *
+wasm_runtime_get_module_name(wasm_module_t module)
+{
+    if (!module)
+        return "";
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode)
+        return wasm_get_module_name((WASMModule *)module);
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT)
+        return aot_get_module_name((AOTModule *)module);
+#endif
+
+    return "";
+}

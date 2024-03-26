@@ -1048,6 +1048,9 @@ struct WASMModule {
     bool is_ref_types_used;
     bool is_bulk_memory_used;
 #endif
+
+    /* user defined name */
+    char *name;
 };
 
 typedef struct BlockType {

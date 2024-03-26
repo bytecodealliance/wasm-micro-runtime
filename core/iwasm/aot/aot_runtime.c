@@ -4663,3 +4663,71 @@ aot_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap)
     return true;
 }
 #endif /* end of WASM_ENABLE_GC != 0 */
+
+char *
+aot_const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+                         bool is_vram_word_align,
+#endif
+                         char *error_buf, uint32 error_buf_size)
+{
+    HashMap *set = module->const_str_set;
+    char *c_str, *value;
+
+    /* Create const string set if it isn't created */
+    if (!set
+        && !(set = module->const_str_set = bh_hash_map_create(
+                 32, false, (HashFunc)wasm_string_hash,
+                 (KeyEqualFunc)wasm_string_equal, NULL, wasm_runtime_free))) {
+        set_error_buf(error_buf, error_buf_size,
+                      "create const string set failed");
+        return NULL;
+    }
+
+    /* Lookup const string set, use the string if found */
+    if (!(c_str = runtime_malloc((uint32)len, error_buf, error_buf_size))) {
+        return NULL;
+    }
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+    if (is_vram_word_align) {
+        bh_memcpy_wa(c_str, (uint32)len, str, (uint32)len);
+    }
+    else
+#endif
+    {
+        bh_memcpy_s(c_str, len, str, (uint32)len);
+    }
+
+    if ((value = bh_hash_map_find(set, c_str))) {
+        wasm_runtime_free(c_str);
+        return value;
+    }
+
+    if (!bh_hash_map_insert(set, c_str, c_str)) {
+        set_error_buf(error_buf, error_buf_size,
+                      "insert string to hash map failed");
+        wasm_runtime_free(c_str);
+        return NULL;
+    }
+
+    return c_str;
+}
+
+bool
+aot_set_module_name(AOTModule *module, const char *name, char *error_buf,
+                    uint32_t error_buf_size)
+{
+    if (!name)
+        return false;
+
+    module->name =
+        aot_const_str_set_insert((const uint8 *)name, strlen(name) + 1, module,
+                                 error_buf, error_buf_size);
+    return module->name != NULL;
+}
+
+const char *
+aot_get_module_name(AOTModule *module)
+{
+    return module->name;
+}

@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -81,6 +82,8 @@ int main(int argc, const char* argv[]) {
 
   wasm_byte_vec_delete(&binary);
 
+  assert(wasm_module_set_name(module, "hello"));
+
   // Create external print functions.
   printf("Creating callback...\n");
   own wasm_functype_t* hello_type = wasm_functype_new_0_0();
@@ -115,6 +118,12 @@ int main(int argc, const char* argv[]) {
   if (run_func == NULL) {
     printf("> Error accessing export!\n");
     return 1;
+  }
+
+  {
+    const char* name = wasm_module_get_name(module);
+    assert(strncmp(name, "hello", 5) == 0);
+    printf("> removing module %s \n", name);
   }
 
   wasm_module_delete(module);

@@ -290,55 +290,6 @@ loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
 }
 
 static char *
-const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
-#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
-                     bool is_vram_word_align,
-#endif
-                     char *error_buf, uint32 error_buf_size)
-{
-    HashMap *set = module->const_str_set;
-    char *c_str, *value;
-
-    /* Create const string set if it isn't created */
-    if (!set
-        && !(set = module->const_str_set = bh_hash_map_create(
-                 32, false, (HashFunc)wasm_string_hash,
-                 (KeyEqualFunc)wasm_string_equal, NULL, wasm_runtime_free))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "create const string set failed");
-        return NULL;
-    }
-
-    /* Lookup const string set, use the string if found */
-    if (!(c_str = loader_malloc((uint32)len, error_buf, error_buf_size))) {
-        return NULL;
-    }
-#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
-    if (is_vram_word_align) {
-        bh_memcpy_wa(c_str, (uint32)len, str, (uint32)len);
-    }
-    else
-#endif
-    {
-        bh_memcpy_s(c_str, len, str, (uint32)len);
-    }
-
-    if ((value = bh_hash_map_find(set, c_str))) {
-        wasm_runtime_free(c_str);
-        return value;
-    }
-
-    if (!bh_hash_map_insert(set, c_str, c_str)) {
-        set_error_buf(error_buf, error_buf_size,
-                      "insert string to hash map failed");
-        wasm_runtime_free(c_str);
-        return NULL;
-    }
-
-    return c_str;
-}
-
-static char *
 load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             bool is_load_from_file_buf,
 #if (WASM_ENABLE_WORD_ALIGN_READ != 0)
@@ -359,9 +310,9 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
     }
 #if (WASM_ENABLE_WORD_ALIGN_READ != 0)
     else if (is_vram_word_align) {
-        if (!(str = const_str_set_insert((uint8 *)p, str_len, module,
-                                         is_vram_word_align, error_buf,
-                                         error_buf_size))) {
+        if (!(str = aot_const_str_set_insert((uint8 *)p, str_len, module,
+                                             is_vram_word_align, error_buf,
+                                             error_buf_size))) {
             goto fail;
         }
     }
@@ -378,11 +329,11 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
            after loading, we must create another string and insert it
            into const string set */
         bh_assert(p[str_len - 1] == '\0');
-        if (!(str = const_str_set_insert((uint8 *)p, str_len, module,
+        if (!(str = aot_const_str_set_insert((uint8 *)p, str_len, module,
 #if (WASM_ENABLE_WORD_ALIGN_READ != 0)
-                                         is_vram_word_align,
+                                             is_vram_word_align,
 #endif
-                                         error_buf, error_buf_size))) {
+                                             error_buf, error_buf_size))) {
             goto fail;
         }
     }
@@ -3938,6 +3889,8 @@ create_module(char *error_buf, uint32 error_buf_size)
     }
 
     module->module_type = Wasm_Module_AoT;
+
+    module->name = "";
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     module->import_module_list = &module->import_module_list_head;
