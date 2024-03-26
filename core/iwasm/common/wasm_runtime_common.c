@@ -3671,6 +3671,9 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
     uint64 argv_buf[16] = { 0 }, *argv1 = argv_buf, *argv_dst, size;
     uint32 *argv_src = argv, i, argc1, ptr_len;
     uint32 arg_i32;
+#if WASM_ENABLE_MEMORY64 != 0
+    uint64 arg_i64;
+#endif
     bool ret = false;
 
     argc1 = func_type->param_count;

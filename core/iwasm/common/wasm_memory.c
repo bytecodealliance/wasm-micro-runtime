@@ -896,8 +896,9 @@ wasm_deallocate_linear_memory(WASMMemoryInstance *memory_inst)
 
 int
 wasm_allocate_linear_memory(uint8 **data, bool is_shared_memory,
-                            uint64 num_bytes_per_page, uint64 init_page_count,
-                            uint64 max_page_count, uint64 *memory_data_size)
+                            bool is_memory64, uint64 num_bytes_per_page,
+                            uint64 init_page_count, uint64 max_page_count,
+                            uint64 *memory_data_size)
 {
     uint64 map_size, page_size;
 
@@ -926,7 +927,16 @@ wasm_allocate_linear_memory(uint8 **data, bool is_shared_memory,
 
     page_size = os_getpagesize();
     *memory_data_size = init_page_count * num_bytes_per_page;
-    bh_assert(*memory_data_size <= MAX_LINEAR_MEMORY_SIZE);
+
+#if WASM_ENABLE_MEMORY64 != 0
+    if (is_memory64) {
+        bh_assert(*memory_data_size <= MAX_LINEAR_MEM64_MEMORY_SIZE);
+    }
+    else
+#endif
+    {
+        bh_assert(*memory_data_size <= MAX_LINEAR_MEMORY_SIZE);
+    }
     align_as_and_cast(*memory_data_size, page_size);
 
     if (map_size > 0) {
