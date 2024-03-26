@@ -1,0 +1,9 @@
+build --incompatible_enable_cc_toolchain_resolution
+# Emscripten configs
+build:wasm --copt="-Wno-unused"
+build:wasm --copt="-Wno-unused-function"
+build:wasm --copt="-Wno-unused-but-set-variable"
+build:wasm --cxxopt=-std=c++17
+build:wasm --host_cxxopt=-std=c++17
+#build:wasm --cxxopt=-std=gnu++14
+#build:wasm --host_cxxopt=-std=gnu++14

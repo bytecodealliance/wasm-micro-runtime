@@ -1,0 +1,16 @@
+diff --git a/absl/debugging/internal/stacktrace_emscripten-inl.inc b/absl/debugging/internal/stacktrace_emscripten-inl.inc
+index 0f44451..fea7a6c 100644
+--- a/absl/debugging/internal/stacktrace_emscripten-inl.inc
++++ b/absl/debugging/internal/stacktrace_emscripten-inl.inc
+@@ -53,7 +53,10 @@ ABSL_ATTRIBUTE_UNUSED static int stacktraces_enabler = []() {
+   // Check if we can even create stacktraces. If not, bail early and leave
+   // disable_stacktraces set as-is.
+   // clang-format off
+-  if (!EM_ASM_INT({ return (typeof wasmOffsetConverter !== 'undefined'); })) {
++ #if 0
++  if (!EM_ASM_INT({ return (typeof wasmOffsetConverter !== 'undefined'); }))
++ #endif
++  {
+     return 0;
+   }
+   // clang-format on

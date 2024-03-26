@@ -161,7 +161,7 @@ set(WAMRC "${CMAKE_CURRENT_SOURCE_DIR}/../../../wamr-compiler/build/wamrc")
 if(EXISTS ${WAMRC})
   message("-- Will generate .aot")
 else()
-  message("Will generate .wasm")
+  message("-- Will generate .wasm")
 endif()
 
 foreach(BENCHMARK IN LISTS NATIVE_BENCHMARKS)

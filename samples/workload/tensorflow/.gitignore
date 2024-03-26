@@ -1,0 +1,6 @@
+/**
+!.gitignore
+!*.patch
+!CMakeLists.txt
+!bazelrc.user
+!README.md
