@@ -3668,12 +3668,9 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
     WASMModuleInstanceCommon *module = wasm_runtime_get_module_inst(exec_env);
     typedef void (*NativeRawFuncPtr)(WASMExecEnv *, uint64 *);
     NativeRawFuncPtr invoke_native_raw = (NativeRawFuncPtr)func_ptr;
-    uint64 argv_buf[16] = { 0 }, *argv1 = argv_buf, *argv_dst, size;
+    uint64 argv_buf[16] = { 0 }, *argv1 = argv_buf, *argv_dst, size, arg_i64;
     uint32 *argv_src = argv, i, argc1, ptr_len;
     uint32 arg_i32;
-#if WASM_ENABLE_MEMORY64 != 0
-    uint64 arg_i64;
-#endif
     bool ret = false;
 
     argc1 = func_type->param_count;
@@ -3695,8 +3692,6 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
             case VALUE_TYPE_FUNCREF:
 #endif
             {
-                /* TODO: memory64 the data type of ptr_len and argc depends on
-                 * mem idx type */
                 *(uint32 *)argv_dst = arg_i32 = *argv_src++;
                 if (signature) {
                     if (signature[i + 1] == '*') {
@@ -3730,6 +3725,45 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
                 break;
             }
             case VALUE_TYPE_I64:
+#if WASM_ENABLE_MEMORY64 != 0
+            {
+                bh_memcpy_s(argv_dst, sizeof(uint64), argv_src,
+                            sizeof(uint32) * 2);
+                argv_src += 2;
+                arg_i64 = *argv_dst;
+                if (signature) {
+                    /* TODO: memory64 pointer with length need a new symbol
+                     * to represent type i64, with '~' still represent i32
+                     * length */
+                    if (signature[i + 1] == '*') {
+                        /* param is a pointer */
+                        if (signature[i + 2] == '~')
+                            /* pointer with length followed */
+                            ptr_len = *argv_src;
+                        else
+                            /* pointer without length followed */
+                            ptr_len = 1;
+
+                        if (!wasm_runtime_validate_app_addr(module, arg_i64,
+                                                            (uint64)ptr_len))
+                            goto fail;
+
+                        *argv_dst = (uint64)wasm_runtime_addr_app_to_native(
+                            module, arg_i64);
+                    }
+                    else if (signature[i + 1] == '$') {
+                        /* param is a string */
+                        if (!wasm_runtime_validate_app_str_addr(module,
+                                                                arg_i64))
+                            goto fail;
+
+                        *argv_dst = (uint64)wasm_runtime_addr_app_to_native(
+                            module, arg_i64);
+                    }
+                }
+                break;
+            }
+#endif
             case VALUE_TYPE_F64:
                 bh_memcpy_s(argv_dst, sizeof(uint64), argv_src,
                             sizeof(uint32) * 2);
@@ -3858,6 +3892,9 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
 fail:
     if (argv1 != argv_buf)
         wasm_runtime_free(argv1);
+#if WASM_ENABLE_MEMORY64 == 0
+    (void)arg_i64;
+#endif
     return ret;
 }
 
@@ -4120,8 +4157,6 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
             {
                 arg_i32 = *argv_src++;
 
-                /* TODO: memory64 the data type of ptr_len and argc depends on
-                 * mem idx type */
                 if (signature) {
                     if (signature[i + 1] == '*') {
                         /* param is a pointer */
@@ -4497,8 +4532,6 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
             {
                 arg_i32 = *argv++;
 
-                /* TODO: memory64 the data type of ptr_len and argc depends on
-                 * mem idx type */
                 if (signature) {
                     if (signature[i + 1] == '*') {
                         /* param is a pointer */
@@ -4814,8 +4847,6 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
             {
                 arg_i32 = *argv_src++;
                 arg_i64 = arg_i32;
-                /* TODO: memory64 the data type of ptr_len and argc depends on
-                 * mem idx type */
                 if (signature) {
                     if (signature[i + 1] == '*') {
                         /* param is a pointer */
@@ -4850,6 +4881,47 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 break;
             }
             case VALUE_TYPE_I64:
+#if WASM_ENABLE_MEMORY64 != 0
+            {
+                arg_i64 = *(uint64 *)argv_src;
+                argv_src += 2;
+                if (signature) {
+                    /* TODO: memory64 pointer with length need a new symbol
+                     * to represent type i64, with '~' still represent i32
+                     * length */
+                    if (signature[i + 1] == '*') {
+                        /* param is a pointer */
+                        if (signature[i + 2] == '~')
+                            /* pointer with length followed */
+                            ptr_len = *argv_src;
+                        else
+                            /* pointer without length followed */
+                            ptr_len = 1;
+
+                        if (!wasm_runtime_validate_app_addr(module, arg_i64,
+                                                            (uint64)ptr_len))
+                            goto fail;
+
+                        arg_i64 = (uint64)wasm_runtime_addr_app_to_native(
+                            module, arg_i64);
+                    }
+                    else if (signature[i + 1] == '$') {
+                        /* param is a string */
+                        if (!wasm_runtime_validate_app_str_addr(module,
+                                                                arg_i64))
+                            goto fail;
+
+                        arg_i64 = (uint64)wasm_runtime_addr_app_to_native(
+                            module, arg_i64);
+                    }
+                }
+                if (n_ints < MAX_REG_INTS)
+                    ints[n_ints++] = arg_i64;
+                else
+                    stacks[n_stacks++] = arg_i64;
+                break;
+            }
+#endif
 #if WASM_ENABLE_GC != 0
             case REF_TYPE_FUNCREF:
             case REF_TYPE_EXTERNREF:

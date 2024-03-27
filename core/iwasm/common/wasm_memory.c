@@ -286,6 +286,7 @@ wasm_runtime_validate_app_addr(WASMModuleInstanceCommon *module_inst_comm,
 {
     WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
     WASMMemoryInstance *memory_inst;
+    uint64 max_linear_memory_size = MAX_LINEAR_MEMORY_SIZE;
 
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
@@ -299,9 +300,13 @@ wasm_runtime_validate_app_addr(WASMModuleInstanceCommon *module_inst_comm,
         goto fail;
     }
 
+#if WASM_ENABLE_MEMORY64 != 0
+    if (memory_inst->is_memory64)
+        max_linear_memory_size = MAX_LINEAR_MEM64_MEMORY_SIZE;
+#endif
     /* boundary overflow check */
-    if (size > MAX_LINEAR_MEMORY_SIZE
-        || app_offset > MAX_LINEAR_MEMORY_SIZE - size) {
+    if (size > max_linear_memory_size
+        || app_offset > max_linear_memory_size - size) {
         goto fail;
     }
 
@@ -324,7 +329,7 @@ wasm_runtime_validate_app_str_addr(WASMModuleInstanceCommon *module_inst_comm,
                                    uint64 app_str_offset)
 {
     WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
-    uint64 app_end_offset;
+    uint64 app_end_offset, max_linear_memory_size = MAX_LINEAR_MEMORY_SIZE;
     char *str, *str_end;
 
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
@@ -338,10 +343,14 @@ wasm_runtime_validate_app_str_addr(WASMModuleInstanceCommon *module_inst_comm,
                                          &app_end_offset))
         goto fail;
 
+#if WASM_ENABLE_MEMORY64 != 0
+    if (module_inst->memories[0]->is_memory64)
+        max_linear_memory_size = MAX_LINEAR_MEM64_MEMORY_SIZE;
+#endif
     /* boundary overflow check, max start offset can only be size - 1, while end
      * offset can be size */
-    if (app_str_offset >= MAX_LINEAR_MEMORY_SIZE
-        || app_end_offset > MAX_LINEAR_MEMORY_SIZE)
+    if (app_str_offset >= max_linear_memory_size
+        || app_end_offset > max_linear_memory_size)
         goto fail;
 
     str = wasm_runtime_addr_app_to_native(module_inst_comm, app_str_offset);
@@ -364,6 +373,7 @@ wasm_runtime_validate_native_addr(WASMModuleInstanceCommon *module_inst_comm,
     WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
     WASMMemoryInstance *memory_inst;
     uint8 *addr = (uint8 *)native_ptr;
+    uint64 max_linear_memory_size = MAX_LINEAR_MEMORY_SIZE;
 
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
@@ -377,8 +387,12 @@ wasm_runtime_validate_native_addr(WASMModuleInstanceCommon *module_inst_comm,
         goto fail;
     }
 
+#if WASM_ENABLE_MEMORY64 != 0
+    if (memory_inst->is_memory64)
+        max_linear_memory_size = MAX_LINEAR_MEM64_MEMORY_SIZE;
+#endif
     /* boundary overflow check */
-    if (size > MAX_LINEAR_MEMORY_SIZE || (uintptr_t)addr > UINTPTR_MAX - size) {
+    if (size > max_linear_memory_size || (uintptr_t)addr > UINTPTR_MAX - size) {
         goto fail;
     }
 

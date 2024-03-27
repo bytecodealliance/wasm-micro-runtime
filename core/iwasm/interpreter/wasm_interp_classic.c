@@ -5924,7 +5924,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_SHARED_MEMORY != 0
             HANDLE_OP(WASM_OP_ATOMIC_PREFIX)
             {
-                linear_mem_ptr_t offset = 0, addr;
+                mem_offset_t offset = 0, addr;
                 uint32 align = 0;
                 uint32 opcode1;
 
@@ -5935,6 +5935,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 if (opcode != WASM_OP_ATOMIC_FENCE) {
                     read_leb_uint32(frame_ip, frame_ip_end, align);
+#if WASM_ENABLE_MEMORY64 != 0
+                    is_memory64 = module->memories[0]->is_memory64;
+#endif
                     read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                 }
 
@@ -6157,7 +6160,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             CHECK_MEMORY_OVERFLOW(8);
                             CHECK_ATOMIC_MEMORY_ACCESS();
                             shared_memory_lock(memory);
-                            PUT_I64_TO_ADDR((uint32 *)maddr, sval);
+                            STORE_I64(maddr, sval);
                             shared_memory_unlock(memory);
                         }
                         break;

@@ -229,8 +229,8 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
             argc1 = 3;
             uint64_t app_addr =
                 wasm_runtime_addr_native_to_app(module_inst, argv_offsets);
-            argv1[1] = (uint32_t)(app_addr & 0xFFFFFFFF);
-            argv1[2] = (uint32_t)((app_addr >> 32) & 0xFFFFFFFF);
+            bh_memcpy_s(&(argv1[1]), sizeof(uint32) * 2, &app_addr,
+                        sizeof(uint64));
         }
         else
 #endif
