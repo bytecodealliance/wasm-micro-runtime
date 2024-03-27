@@ -8912,21 +8912,6 @@ wasm_loader_emit_br_info(WASMLoaderContext *ctx, BranchBlock *frame_csp,
             dynamic_offset -= cell;
             emit_operand(ctx, dynamic_offset);
         }
-        /* Update ctx->max_dynamic_offset */
-        if (dynamic_offset > ctx->max_dynamic_offset)
-            ctx->max_dynamic_offset = dynamic_offset;
-        /* Update ctx->dynamic_offset */
-        frame_offset = ctx->frame_offset;
-        for (i = (int32)arity - 1; i >= 0; i--) {
-            cell = (uint8)wasm_value_type_cell_num(types[i]);
-            /* Ensure the frame offset stack won't go underflow */
-            if (frame_offset - cell >= ctx->frame_offset_bottom) {
-                frame_offset -= cell;
-                if (*frame_offset > ctx->start_dynamic_offset
-                    && *frame_offset < ctx->max_dynamic_offset)
-                    ctx->dynamic_offset -= cell;
-            }
-        }
     }
 
     /* Part f */
