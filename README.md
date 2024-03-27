@@ -21,7 +21,12 @@ WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (Wasm) 
 
 ### Key features
 - Full compliant to the W3C Wasm MVP
-- Small runtime binary size (~85K for interpreter and ~50K for AOT) and low memory usage
+- Small runtime binary size (core vmlib on rv32gc with tail-call/bulk memroy/shared memroy support)
+  * ~68.8K for fast interpreter
+  * ~67.2K for classic interpreter
+  * ~35.5K for aot runtime
+  * ~25.1K for libc-wasi library
+  * ~4.2K for libc-builtin library
 - Near to native speed by AOT and JIT
 - Self-implemented AOT module loader to enable AOT working on Linux, Windows, MacOS, Android, SGX and MCU systems
 - Choices of Wasm application libc support: the built-in libc subset for the embedded environment or [WASI](https://github.com/WebAssembly/WASI) for the standard libc
