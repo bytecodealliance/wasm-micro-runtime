@@ -2234,7 +2234,8 @@ quit:
 #endif /* WASM_ENABLE_WASM_CACHE != 0 */
 
 wasm_module_t *
-wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
+wasm_module_new_ex(wasm_store_t *store, const wasm_byte_vec_t *binary,
+                   const LoadArgs *args)
 {
     char error_buf[128] = { 0 };
     wasm_module_ex_t *module_ex = NULL;
@@ -2290,8 +2291,8 @@ wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
     if (!module_ex->binary->data)
         goto free_binary;
 
-    module_ex->module_comm_rt = wasm_runtime_load(
-        (uint8 *)module_ex->binary->data, (uint32)module_ex->binary->size,
+    module_ex->module_comm_rt = wasm_runtime_load_ex(
+        (uint8 *)module_ex->binary->data, (uint32)module_ex->binary->size, args,
         error_buf, (uint32)sizeof(error_buf));
     if (!(module_ex->module_comm_rt)) {
         LOG_ERROR("%s", error_buf);
@@ -2335,6 +2336,14 @@ free_module:
 quit:
     LOG_ERROR("%s failed", __FUNCTION__);
     return NULL;
+}
+
+wasm_module_t *
+wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
+{
+    LoadArgs args = { 0 };
+    args.name = "";
+    return wasm_module_new_ex(store, binary, &args);
 }
 
 bool

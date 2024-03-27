@@ -183,6 +183,14 @@ typedef struct RuntimeInitArgs {
     bool enable_linux_perf;
 } RuntimeInitArgs;
 
+#ifndef LOAD_ARGS_OPTION_DEFINED
+#define LOAD_ARGS_OPTION_DEFINED
+typedef struct LoadArgs {
+    char *name;
+    /* TODO: more fields? */
+} LoadArgs;
+#endif /* LOAD_ARGS_OPTION_DEFINED */
+
 #ifndef INSTANTIATION_ARGS_OPTION_DEFINED
 #define INSTANTIATION_ARGS_OPTION_DEFINED
 /* WASM module instantiation arguments */
@@ -418,6 +426,13 @@ wasm_runtime_find_module_registered(const char *module_name);
 WASM_RUNTIME_API_EXTERN wasm_module_t
 wasm_runtime_load(uint8_t *buf, uint32_t size,
                   char *error_buf, uint32_t error_buf_size);
+
+/**
+ * Load a WASM module with specified load argument.
+ */
+WASM_RUNTIME_API_EXTERN wasm_module_t
+wasm_runtime_load_ex(uint8_t *buf, uint32_t size, const LoadArgs *args,
+                     char *error_buf, uint32_t error_buf_size);
 
 /**
  * Load a WASM module from a specified WASM or AOT section list.

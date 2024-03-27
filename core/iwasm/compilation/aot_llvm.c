@@ -85,7 +85,7 @@ aot_add_llvm_func1(const AOTCompContext *comp_ctx, LLVMModuleRef module,
                    uint32 func_index, uint32 param_count, LLVMTypeRef func_type,
                    const char *prefix)
 {
-    char func_name[48];
+    char func_name[48] = { 0 };
     LLVMValueRef func;
     LLVMValueRef local_value;
     uint32 i, j;

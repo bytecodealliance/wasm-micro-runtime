@@ -60,13 +60,13 @@ wasm_load(uint8 *buf, uint32 size,
 #if WASM_ENABLE_MULTI_MODULE != 0
           bool main_module,
 #endif
-          char *error_buf, uint32 error_buf_size)
+          const LoadArgs *name, char *error_buf, uint32 error_buf_size)
 {
     return wasm_loader_load(buf, size,
 #if WASM_ENABLE_MULTI_MODULE != 0
                             main_module,
 #endif
-                            error_buf, error_buf_size);
+                            name, error_buf, error_buf_size);
 }
 
 WASMModule *
