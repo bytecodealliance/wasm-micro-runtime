@@ -65,9 +65,11 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
         /* integer overflow */
         return NULL;
 
+#if WASM_ENABLE_MEMORY64 == 0
     if (request_size > 16 * (uint64)UINT32_MAX)
-        /* at most 16 G is allowed */
+        /* at most 64 G is allowed */
         return NULL;
+#endif
 
     if (prot & MMAP_PROT_READ)
         map_prot |= PROT_READ;

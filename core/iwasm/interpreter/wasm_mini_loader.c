@@ -3895,8 +3895,8 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                 opcode = (uint8)opcode1;
 
                 if (opcode != WASM_OP_ATOMIC_FENCE) {
-                    skip_leb_uint32(p, p_end); /* align */
-                    skip_leb_uint32(p, p_end); /* offset */
+                    skip_leb_uint32(p, p_end);     /* align */
+                    skip_leb_mem_offset(p, p_end); /* offset */
                 }
                 else {
                     /* atomic.fence doesn't have memarg */
@@ -7955,8 +7955,15 @@ re_scan:
 #endif
                 if (opcode1 != WASM_OP_ATOMIC_FENCE) {
                     CHECK_MEMORY();
-                    read_leb_uint32(p, p_end, align);      /* align */
-                    read_leb_uint32(p, p_end, mem_offset); /* offset */
+                    read_leb_uint32(p, p_end, align); /* align */
+#if WASM_ENABLE_MEMORY64 != 0
+                    is_memory64 = module->memories[0].flags & MEMORY64_FLAG;
+                    mem_offset_type =
+                        is_memory64 ? VALUE_TYPE_I64 : VALUE_TYPE_I32;
+#else
+                    mem_offset_type = VALUE_TYPE_I32;
+#endif
+                    read_leb_mem_offset(p, p_end, mem_offset); /* offset */
 #if WASM_ENABLE_FAST_INTERP != 0
                     emit_uint32(loader_ctx, mem_offset);
 #endif
@@ -7966,18 +7973,20 @@ re_scan:
 #endif
                 switch (opcode1) {
                     case WASM_OP_ATOMIC_NOTIFY:
-                        POP2_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I32);
+                        POP_I32();
+                        POP_MEM_OFFSET();
+                        PUSH_I32();
                         break;
                     case WASM_OP_ATOMIC_WAIT32:
                         POP_I64();
                         POP_I32();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         PUSH_I32();
                         break;
                     case WASM_OP_ATOMIC_WAIT64:
                         POP_I64();
                         POP_I64();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         PUSH_I32();
                         break;
                     case WASM_OP_ATOMIC_FENCE:
@@ -7988,26 +7997,26 @@ re_scan:
                     case WASM_OP_ATOMIC_I32_LOAD:
                     case WASM_OP_ATOMIC_I32_LOAD8_U:
                     case WASM_OP_ATOMIC_I32_LOAD16_U:
-                        POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I32);
+                        POP_AND_PUSH(mem_offset_type, VALUE_TYPE_I32);
                         break;
                     case WASM_OP_ATOMIC_I32_STORE:
                     case WASM_OP_ATOMIC_I32_STORE8:
                     case WASM_OP_ATOMIC_I32_STORE16:
                         POP_I32();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         break;
                     case WASM_OP_ATOMIC_I64_LOAD:
                     case WASM_OP_ATOMIC_I64_LOAD8_U:
                     case WASM_OP_ATOMIC_I64_LOAD16_U:
                     case WASM_OP_ATOMIC_I64_LOAD32_U:
-                        POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I64);
+                        POP_AND_PUSH(mem_offset_type, VALUE_TYPE_I64);
                         break;
                     case WASM_OP_ATOMIC_I64_STORE:
                     case WASM_OP_ATOMIC_I64_STORE8:
                     case WASM_OP_ATOMIC_I64_STORE16:
                     case WASM_OP_ATOMIC_I64_STORE32:
                         POP_I64();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         break;
                     case WASM_OP_ATOMIC_RMW_I32_ADD:
                     case WASM_OP_ATOMIC_RMW_I32_ADD8_U:
@@ -8027,7 +8036,9 @@ re_scan:
                     case WASM_OP_ATOMIC_RMW_I32_XCHG:
                     case WASM_OP_ATOMIC_RMW_I32_XCHG8_U:
                     case WASM_OP_ATOMIC_RMW_I32_XCHG16_U:
-                        POP2_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I32);
+                        POP_I32();
+                        POP_MEM_OFFSET();
+                        PUSH_I32();
                         break;
                     case WASM_OP_ATOMIC_RMW_I64_ADD:
                     case WASM_OP_ATOMIC_RMW_I64_ADD8_U:
@@ -8054,7 +8065,7 @@ re_scan:
                     case WASM_OP_ATOMIC_RMW_I64_XCHG16_U:
                     case WASM_OP_ATOMIC_RMW_I64_XCHG32_U:
                         POP_I64();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         PUSH_I64();
                         break;
                     case WASM_OP_ATOMIC_RMW_I32_CMPXCHG:
@@ -8062,7 +8073,7 @@ re_scan:
                     case WASM_OP_ATOMIC_RMW_I32_CMPXCHG16_U:
                         POP_I32();
                         POP_I32();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         PUSH_I32();
                         break;
                     case WASM_OP_ATOMIC_RMW_I64_CMPXCHG:
@@ -8071,7 +8082,7 @@ re_scan:
                     case WASM_OP_ATOMIC_RMW_I64_CMPXCHG32_U:
                         POP_I64();
                         POP_I64();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         PUSH_I64();
                         break;
                     default:

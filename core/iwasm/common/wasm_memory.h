@@ -64,8 +64,9 @@ wasm_deallocate_linear_memory(WASMMemoryInstance *memory_inst);
 
 int
 wasm_allocate_linear_memory(uint8 **data, bool is_shared_memory,
-                            uint64 num_bytes_per_page, uint64 init_page_count,
-                            uint64 max_page_count, uint64 *memory_data_size);
+                            bool is_memory64, uint64 num_bytes_per_page,
+                            uint64 init_page_count, uint64 max_page_count,
+                            uint64 *memory_data_size);
 
 #ifdef __cplusplus
 }
