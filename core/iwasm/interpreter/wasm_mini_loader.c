@@ -5960,6 +5960,16 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
 #endif
 #if WASM_ENABLE_MEMORY64 != 0
     bool is_memory64 = false;
+    /* TODO: multi-memories for now assuming the memory idx type is consistent
+     * across multi-memories */
+    if (module->import_memory_count > 0)
+        is_memory64 = module->import_memories[0].u.memory.flags & MEMORY64_FLAG;
+    else if (module->memory_count > 0)
+        is_memory64 = module->memories[0].flags & MEMORY64_FLAG;
+
+    mem_offset_type = is_memory64 ? VALUE_TYPE_I64 : VALUE_TYPE_I32;
+#else
+    mem_offset_type = VALUE_TYPE_I32;
 #endif
 
     global_count = module->import_global_count + module->global_count;
@@ -5999,19 +6009,6 @@ re_scan:
         func->code_compiled = loader_ctx->p_code_compiled;
         func->code_compiled_size = loader_ctx->code_compiled_size;
     }
-#endif
-
-#if WASM_ENABLE_MEMORY64 != 0
-    /* TODO: multi-memories for now assuming the memory idx type is consistent
-     * across multi-memories */
-    if (module->import_memory_count > 0)
-        is_memory64 = module->import_memories[0].u.memory.flags & MEMORY64_FLAG;
-    else if (module->memory_count > 0)
-        is_memory64 = module->memories[0].flags & MEMORY64_FLAG;
-
-    mem_offset_type = is_memory64 ? VALUE_TYPE_I64 : VALUE_TYPE_I32;
-#else
-    mem_offset_type = VALUE_TYPE_I32;
 #endif
 
     PUSH_CSP(LABEL_TYPE_FUNCTION, func_block_type, p);

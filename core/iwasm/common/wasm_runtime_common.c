@@ -3732,7 +3732,8 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
             case VALUE_TYPE_I64:
 #if WASM_ENABLE_MEMORY64 != 0
             {
-                PUT_I64_TO_ADDR((uint32 *)argv, GET_I64_FROM_ADDR(argv_src));
+                PUT_I64_TO_ADDR((uint32 *)argv_dst,
+                                GET_I64_FROM_ADDR(argv_src));
                 argv_src += 2;
                 arg_i64 = *argv_dst;
                 if (signature) {
