@@ -779,7 +779,6 @@ wasm_runtime_full_init_internal(RuntimeInitArgs *init_args)
     return true;
 }
 
-
 bool
 wasm_runtime_full_init(RuntimeInitArgs *init_args)
 {
