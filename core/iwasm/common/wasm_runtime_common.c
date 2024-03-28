@@ -3693,6 +3693,10 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
 #endif
             {
                 *(uint32 *)argv_dst = arg_i32 = *argv_src++;
+                /* TODO: memory64 if future there is a way for supporting
+                 * wasm64 and wasm32 in libc at the same time, remove the
+                 * macro control */
+#if WASM_ENABLE_MEMORY64 == 0
                 if (signature) {
                     if (signature[i + 1] == '*') {
                         /* param is a pointer */
@@ -3722,13 +3726,13 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
                                 module, (uint64)arg_i32);
                     }
                 }
+#endif
                 break;
             }
             case VALUE_TYPE_I64:
 #if WASM_ENABLE_MEMORY64 != 0
             {
-                bh_memcpy_s(argv_dst, sizeof(uint64), argv_src,
-                            sizeof(uint32) * 2);
+                PUT_I64_TO_ADDR((uint32 *)argv, GET_I64_FROM_ADDR(argv_src));
                 argv_src += 2;
                 arg_i64 = *argv_dst;
                 if (signature) {
@@ -4847,6 +4851,10 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
             {
                 arg_i32 = *argv_src++;
                 arg_i64 = arg_i32;
+                /* TODO: memory64 if future there is a way for supporting
+                 * wasm64 and wasm32 in libc at the same time, remove the
+                 * macro control */
+#if WASM_ENABLE_MEMORY64 == 0
                 if (signature) {
                     if (signature[i + 1] == '*') {
                         /* param is a pointer */
@@ -4874,6 +4882,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                             module, (uint64)arg_i32);
                     }
                 }
+#endif
                 if (n_ints < MAX_REG_INTS)
                     ints[n_ints++] = arg_i64;
                 else
@@ -4883,7 +4892,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
             case VALUE_TYPE_I64:
 #if WASM_ENABLE_MEMORY64 != 0
             {
-                arg_i64 = *(uint64 *)argv_src;
+                arg_i64 = GET_I64_FROM_ADDR(argv_src);
                 argv_src += 2;
                 if (signature) {
                     /* TODO: memory64 pointer with length need a new symbol

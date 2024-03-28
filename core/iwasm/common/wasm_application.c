@@ -227,10 +227,9 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
 #if WASM_ENABLE_MEMORY64 != 0
         if (is_memory64) {
             argc1 = 3;
-            uint64_t app_addr =
+            uint64 app_addr =
                 wasm_runtime_addr_native_to_app(module_inst, argv_offsets);
-            bh_memcpy_s(&(argv1[1]), sizeof(uint32) * 2, &app_addr,
-                        sizeof(uint64));
+            PUT_I64_TO_ADDR(&argv[1], app_addr);
         }
         else
 #endif
