@@ -914,9 +914,10 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     bh_assert(max_memory_data_size <= MAX_LINEAR_MEMORY_SIZE);
     (void)max_memory_data_size;
 
-    if (wasm_allocate_linear_memory(&p, is_shared_memory, num_bytes_per_page,
-                                    init_page_count, max_page_count,
-                                    &memory_data_size)
+    /* TODO: memory64 uses is_memory64 flag */
+    if (wasm_allocate_linear_memory(&p, is_shared_memory, false,
+                                    num_bytes_per_page, init_page_count,
+                                    max_page_count, &memory_data_size)
         != BHT_OK) {
         set_error_buf(error_buf, error_buf_size,
                       "allocate linear memory failed");

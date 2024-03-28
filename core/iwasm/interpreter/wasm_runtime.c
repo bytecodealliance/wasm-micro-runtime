@@ -310,8 +310,9 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     bh_assert(memory != NULL);
 
     if (wasm_allocate_linear_memory(&memory->memory_data, is_shared_memory,
-                                    num_bytes_per_page, init_page_count,
-                                    max_page_count, &memory_data_size)
+                                    memory->is_memory64, num_bytes_per_page,
+                                    init_page_count, max_page_count,
+                                    &memory_data_size)
         != BHT_OK) {
         set_error_buf(error_buf, error_buf_size,
                       "allocate linear memory failed");

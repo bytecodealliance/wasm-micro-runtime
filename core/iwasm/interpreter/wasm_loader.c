@@ -7672,8 +7672,8 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                 opcode = (uint8)opcode1;
 
                 if (opcode != WASM_OP_ATOMIC_FENCE) {
-                    skip_leb_uint32(p, p_end); /* align */
-                    skip_leb_uint32(p, p_end); /* offset */
+                    skip_leb_uint32(p, p_end);     /* align */
+                    skip_leb_mem_offset(p, p_end); /* offset */
                 }
                 else {
                     /* atomic.fence doesn't have memarg */
@@ -10785,6 +10785,16 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
 #endif
 #if WASM_ENABLE_MEMORY64 != 0
     bool is_memory64 = false;
+    /* TODO: multi-memories for now assuming the memory idx type is consistent
+     * across multi-memories */
+    if (module->import_memory_count > 0)
+        is_memory64 = module->import_memories[0].u.memory.flags & MEMORY64_FLAG;
+    else if (module->memory_count > 0)
+        is_memory64 = module->memories[0].flags & MEMORY64_FLAG;
+
+    mem_offset_type = is_memory64 ? VALUE_TYPE_I64 : VALUE_TYPE_I32;
+#else
+    mem_offset_type = VALUE_TYPE_I32;
 #endif
 
     global_count = module->import_global_count + module->global_count;
@@ -12977,13 +12987,7 @@ re_scan:
                 }
 #endif
                 CHECK_MEMORY();
-                read_leb_uint32(p, p_end, align); /* align */
-#if WASM_ENABLE_MEMORY64 != 0
-                is_memory64 = module->memories[0].flags & MEMORY64_FLAG;
-                mem_offset_type = is_memory64 ? VALUE_TYPE_I64 : VALUE_TYPE_I32;
-#else
-                mem_offset_type = VALUE_TYPE_I32;
-#endif
+                read_leb_uint32(p, p_end, align);          /* align */
                 read_leb_mem_offset(p, p_end, mem_offset); /* offset */
                 if (!check_memory_access_align(opcode, align, error_buf,
                                                error_buf_size)) {
@@ -13055,14 +13059,6 @@ re_scan:
                                   "zero byte expected");
                     goto fail;
                 }
-
-#if WASM_ENABLE_MEMORY64 != 0
-                mem_offset_type = module->memories[0].flags & MEMORY64_FLAG
-                                      ? VALUE_TYPE_I64
-                                      : VALUE_TYPE_I32;
-#else
-                mem_offset_type = VALUE_TYPE_I32;
-#endif
                 PUSH_PAGE_COUNT();
 
                 module->possible_memory_grow = true;
@@ -13079,13 +13075,6 @@ re_scan:
                                   "zero byte expected");
                     goto fail;
                 }
-#if WASM_ENABLE_MEMORY64 != 0
-                mem_offset_type = module->memories[0].flags & MEMORY64_FLAG
-                                      ? VALUE_TYPE_I64
-                                      : VALUE_TYPE_I32;
-#else
-                mem_offset_type = VALUE_TYPE_I32;
-#endif
                 POP_AND_PUSH(mem_offset_type, mem_offset_type);
 
                 module->possible_memory_grow = true;
@@ -14447,14 +14436,6 @@ re_scan:
 
                         POP_I32();
                         POP_I32();
-#if WASM_ENABLE_MEMORY64 != 0
-                        mem_offset_type =
-                            module->memories[0].flags & MEMORY64_FLAG
-                                ? VALUE_TYPE_I64
-                                : VALUE_TYPE_I32;
-#else
-                        mem_offset_type = VALUE_TYPE_I32;
-#endif
                         POP_MEM_OFFSET();
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
@@ -14498,14 +14479,6 @@ re_scan:
                             && module->memory_count == 0)
                             goto fail_unknown_memory;
 
-#if WASM_ENABLE_MEMORY64 != 0
-                        mem_offset_type =
-                            module->memories[0].flags & MEMORY64_FLAG
-                                ? VALUE_TYPE_I64
-                                : VALUE_TYPE_I32;
-#else
-                        mem_offset_type = VALUE_TYPE_I32;
-#endif
                         POP_MEM_OFFSET();
                         POP_MEM_OFFSET();
                         POP_MEM_OFFSET();
@@ -14526,14 +14499,6 @@ re_scan:
                             && module->memory_count == 0) {
                             goto fail_unknown_memory;
                         }
-#if WASM_ENABLE_MEMORY64 != 0
-                        mem_offset_type =
-                            module->memories[0].flags & MEMORY64_FLAG
-                                ? VALUE_TYPE_I64
-                                : VALUE_TYPE_I32;
-#else
-                        mem_offset_type = VALUE_TYPE_I32;
-#endif
                         POP_MEM_OFFSET();
                         POP_I32();
                         POP_MEM_OFFSET();
@@ -15450,7 +15415,6 @@ re_scan:
 #if WASM_ENABLE_SHARED_MEMORY != 0
             case WASM_OP_ATOMIC_PREFIX:
             {
-                /* TODO: memory64 offset type changes */
                 uint32 opcode1;
 
                 read_leb_uint32(p, p_end, opcode1);
@@ -15460,8 +15424,8 @@ re_scan:
 #endif
                 if (opcode1 != WASM_OP_ATOMIC_FENCE) {
                     CHECK_MEMORY();
-                    read_leb_uint32(p, p_end, align);      /* align */
-                    read_leb_uint32(p, p_end, mem_offset); /* offset */
+                    read_leb_uint32(p, p_end, align);          /* align */
+                    read_leb_mem_offset(p, p_end, mem_offset); /* offset */
                     if (!check_memory_align_equal(opcode1, align, error_buf,
                                                   error_buf_size)) {
                         goto fail;
@@ -15475,18 +15439,20 @@ re_scan:
 #endif
                 switch (opcode1) {
                     case WASM_OP_ATOMIC_NOTIFY:
-                        POP2_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I32);
+                        POP_I32();
+                        POP_MEM_OFFSET();
+                        PUSH_I32();
                         break;
                     case WASM_OP_ATOMIC_WAIT32:
                         POP_I64();
                         POP_I32();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         PUSH_I32();
                         break;
                     case WASM_OP_ATOMIC_WAIT64:
                         POP_I64();
                         POP_I64();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         PUSH_I32();
                         break;
                     case WASM_OP_ATOMIC_FENCE:
@@ -15500,26 +15466,26 @@ re_scan:
                     case WASM_OP_ATOMIC_I32_LOAD:
                     case WASM_OP_ATOMIC_I32_LOAD8_U:
                     case WASM_OP_ATOMIC_I32_LOAD16_U:
-                        POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I32);
+                        POP_AND_PUSH(mem_offset_type, VALUE_TYPE_I32);
                         break;
                     case WASM_OP_ATOMIC_I32_STORE:
                     case WASM_OP_ATOMIC_I32_STORE8:
                     case WASM_OP_ATOMIC_I32_STORE16:
                         POP_I32();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         break;
                     case WASM_OP_ATOMIC_I64_LOAD:
                     case WASM_OP_ATOMIC_I64_LOAD8_U:
                     case WASM_OP_ATOMIC_I64_LOAD16_U:
                     case WASM_OP_ATOMIC_I64_LOAD32_U:
-                        POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I64);
+                        POP_AND_PUSH(mem_offset_type, VALUE_TYPE_I64);
                         break;
                     case WASM_OP_ATOMIC_I64_STORE:
                     case WASM_OP_ATOMIC_I64_STORE8:
                     case WASM_OP_ATOMIC_I64_STORE16:
                     case WASM_OP_ATOMIC_I64_STORE32:
                         POP_I64();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         break;
                     case WASM_OP_ATOMIC_RMW_I32_ADD:
                     case WASM_OP_ATOMIC_RMW_I32_ADD8_U:
@@ -15539,7 +15505,9 @@ re_scan:
                     case WASM_OP_ATOMIC_RMW_I32_XCHG:
                     case WASM_OP_ATOMIC_RMW_I32_XCHG8_U:
                     case WASM_OP_ATOMIC_RMW_I32_XCHG16_U:
-                        POP2_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I32);
+                        POP_I32();
+                        POP_MEM_OFFSET();
+                        PUSH_I32();
                         break;
                     case WASM_OP_ATOMIC_RMW_I64_ADD:
                     case WASM_OP_ATOMIC_RMW_I64_ADD8_U:
@@ -15566,7 +15534,7 @@ re_scan:
                     case WASM_OP_ATOMIC_RMW_I64_XCHG16_U:
                     case WASM_OP_ATOMIC_RMW_I64_XCHG32_U:
                         POP_I64();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         PUSH_I64();
                         break;
                     case WASM_OP_ATOMIC_RMW_I32_CMPXCHG:
@@ -15574,7 +15542,7 @@ re_scan:
                     case WASM_OP_ATOMIC_RMW_I32_CMPXCHG16_U:
                         POP_I32();
                         POP_I32();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         PUSH_I32();
                         break;
                     case WASM_OP_ATOMIC_RMW_I64_CMPXCHG:
@@ -15583,7 +15551,7 @@ re_scan:
                     case WASM_OP_ATOMIC_RMW_I64_CMPXCHG32_U:
                         POP_I64();
                         POP_I64();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         PUSH_I64();
                         break;
                     default:

@@ -61,7 +61,7 @@ static union {
  * Implementation of wasm_application_execute_main()
  */
 static bool
-check_main_func_type(const WASMFuncType *type)
+check_main_func_type(const WASMFuncType *type, bool is_memory64)
 {
     if (!(type->param_count == 0 || type->param_count == 2)
         || type->result_count > 1) {
@@ -72,7 +72,8 @@ check_main_func_type(const WASMFuncType *type)
 
     if (type->param_count == 2
         && !(type->types[0] == VALUE_TYPE_I32
-             && type->types[1] == VALUE_TYPE_I32)) {
+             && type->types[1]
+                    == (is_memory64 ? VALUE_TYPE_I64 : VALUE_TYPE_I32))) {
         LOG_ERROR(
             "WASM execute application failed: invalid main function type.\n");
         return false;
@@ -94,14 +95,18 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
     WASMFunctionInstanceCommon *func;
     WASMFuncType *func_type = NULL;
     WASMExecEnv *exec_env = NULL;
-    uint32 argc1 = 0, argv1[2] = { 0 };
+    uint32 argc1 = 0, argv1[3] = { 0 };
     uint32 total_argv_size = 0;
     uint64 total_size;
     uint64 argv_buf_offset = 0;
     int32 i;
     char *argv_buf, *p, *p_end;
     uint32 *argv_offsets, module_type;
-    bool ret, is_import_func = true;
+    bool ret, is_import_func = true, is_memory64 = false;
+#if WASM_ENABLE_MEMORY64 != 0
+    WASMModuleInstance *wasm_module_inst = (WASMModuleInstance *)module_inst;
+    is_memory64 = wasm_module_inst->memories[0]->is_memory64;
+#endif
 
     exec_env = wasm_runtime_get_exec_env_singleton(module_inst);
     if (!exec_env) {
@@ -187,7 +192,7 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
         return false;
     }
 
-    if (!check_main_func_type(func_type)) {
+    if (!check_main_func_type(func_type, is_memory64)) {
         wasm_runtime_set_exception(module_inst,
                                    "invalid function type of main function");
         return false;
@@ -218,11 +223,21 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
             p += strlen(argv[i]) + 1;
         }
 
-        argc1 = 2;
         argv1[0] = (uint32)argc;
-        /* TODO: memory64 uint64 when the memory idx is i64 */
-        argv1[1] =
-            (uint32)wasm_runtime_addr_native_to_app(module_inst, argv_offsets);
+#if WASM_ENABLE_MEMORY64 != 0
+        if (is_memory64) {
+            argc1 = 3;
+            uint64 app_addr =
+                wasm_runtime_addr_native_to_app(module_inst, argv_offsets);
+            PUT_I64_TO_ADDR(&argv[1], app_addr);
+        }
+        else
+#endif
+        {
+            argc1 = 2;
+            argv1[1] = (uint32)wasm_runtime_addr_native_to_app(module_inst,
+                                                               argv_offsets);
+        }
     }
 
     ret = wasm_runtime_call_wasm(exec_env, func, argc1, argv1);
