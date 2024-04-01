@@ -27,7 +27,7 @@ We Use Github Flow, So All Code Changes Happen Through Pull Requests. Pull reque
 Coding Style
 ===============================
 Please use [K&R](https://en.wikipedia.org/wiki/Indentation_style#K.26R) coding style, such as 4 spaces for indentation rather than tabs etc.
-We suggest use Eclipse like IDE or stable coding format tools to make your code compliant to K&R format.
+We suggest using VS Code like IDE or stable coding format tools, like clang-format, to make your code compliant to the customized format(in .clang-format).
 
 Report bugs
 ===================

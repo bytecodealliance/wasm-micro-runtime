@@ -5832,11 +5832,11 @@ fail:
         wasm_loader_emit_ptr(loader_ctx, NULL);                              \
     } while (0)
 
-#define emit_br_info(frame_csp)                                         \
-    do {                                                                \
-        if (!wasm_loader_emit_br_info(loader_ctx, frame_csp, error_buf, \
-                                      error_buf_size))                  \
-            goto fail;                                                  \
+#define emit_br_info(frame_csp, is_br)                                         \
+    do {                                                                       \
+        if (!wasm_loader_emit_br_info(loader_ctx, frame_csp, is_br, error_buf, \
+                                      error_buf_size))                         \
+            goto fail;                                                         \
     } while (0)
 
 #define LAST_OP_OUTPUT_I32()                                                   \
@@ -6223,7 +6223,7 @@ apply_label_patch(WASMLoaderContext *ctx, uint8 depth, uint8 patch_type)
 
 static bool
 wasm_loader_emit_br_info(WASMLoaderContext *ctx, BranchBlock *frame_csp,
-                         char *error_buf, uint32 error_buf_size)
+                         bool is_br, char *error_buf, uint32 error_buf_size)
 {
     /* br info layout:
      *  a) arity of target block
@@ -6271,6 +6271,8 @@ wasm_loader_emit_br_info(WASMLoaderContext *ctx, BranchBlock *frame_csp,
         /* Part e */
         dynamic_offset =
             frame_csp->dynamic_offset + wasm_get_cell_num(types, arity);
+        if (is_br)
+            ctx->dynamic_offset = dynamic_offset;
         for (i = (int32)arity - 1; i >= 0; i--) {
             cell = (uint8)wasm_value_type_cell_num(types[i]);
             dynamic_offset -= cell;
@@ -6872,13 +6874,6 @@ fail:
         local_offset = local_offsets[local_idx];                       \
     } while (0)
 
-#define CHECK_BR(depth)                                         \
-    do {                                                        \
-        if (!wasm_loader_check_br(loader_ctx, depth, error_buf, \
-                                  error_buf_size))              \
-            goto fail;                                          \
-    } while (0)
-
 static bool
 check_memory(WASMModule *module, char *error_buf, uint32 error_buf_size)
 {
@@ -7061,7 +7056,7 @@ check_memory_align_equal(uint8 opcode, uint32 align, char *error_buf,
 #endif /* end of WASM_ENABLE_SHARED_MEMORY */
 
 static bool
-wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
+wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth, uint8 opcode,
                      char *error_buf, uint32 error_buf_size)
 {
     BranchBlock *target_block, *cur_block;
@@ -7070,6 +7065,20 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
     uint32 arity = 0;
     int32 i, available_stack_cell;
     uint16 cell_num;
+
+    uint8 *frame_ref_old = loader_ctx->frame_ref;
+    uint8 *frame_ref_after_popped = NULL;
+    uint8 frame_ref_tmp[4] = { 0 };
+    uint8 *frame_ref_buf = frame_ref_tmp;
+    uint32 stack_cell_num_old = loader_ctx->stack_cell_num;
+#if WASM_ENABLE_FAST_INTERP != 0
+    int16 *frame_offset_old = loader_ctx->frame_offset;
+    int16 *frame_offset_after_popped = NULL;
+    int16 frame_offset_tmp[4] = { 0 };
+    int16 *frame_offset_buf = frame_offset_tmp;
+    uint16 dynamic_offset_old = (loader_ctx->frame_csp - 1)->dynamic_offset;
+#endif
+    bool ret = false;
 
     bh_assert(loader_ctx->csp_num > 0);
     if (loader_ctx->csp_num - 1 < depth) {
@@ -7102,6 +7111,38 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
 #endif
             POP_TYPE(types[i]);
         }
+
+        /* Backup stack data since it may be changed in the below
+           push operations, and the stack data may be used when
+           checking other target blocks of opcode br_table */
+        if (opcode == WASM_OP_BR_TABLE) {
+            uint64 total_size;
+
+            frame_ref_after_popped = loader_ctx->frame_ref;
+            total_size = (uint64)sizeof(uint8)
+                         * (frame_ref_old - frame_ref_after_popped);
+            if (total_size > sizeof(frame_ref_tmp)
+                && !(frame_ref_buf = loader_malloc(total_size, error_buf,
+                                                   error_buf_size))) {
+                goto fail;
+            }
+            bh_memcpy_s(frame_ref_buf, (uint32)total_size,
+                        frame_ref_after_popped, (uint32)total_size);
+
+#if WASM_ENABLE_FAST_INTERP != 0
+            frame_offset_after_popped = loader_ctx->frame_offset;
+            total_size = (uint64)sizeof(int16)
+                         * (frame_offset_old - frame_offset_after_popped);
+            if (total_size > sizeof(frame_offset_tmp)
+                && !(frame_offset_buf = loader_malloc(total_size, error_buf,
+                                                      error_buf_size))) {
+                goto fail;
+            }
+            bh_memcpy_s(frame_offset_buf, (uint32)total_size,
+                        frame_offset_after_popped, (uint32)total_size);
+#endif
+        }
+
         for (i = 0; i < (int32)arity; i++) {
 #if WASM_ENABLE_FAST_INTERP != 0
             bool disable_emit = true;
@@ -7110,7 +7151,41 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
 #endif
             PUSH_TYPE(types[i]);
         }
-        return true;
+
+#if WASM_ENABLE_FAST_INTERP != 0
+        emit_br_info(target_block, opcode == WASM_OP_BR);
+#endif
+
+        /* Restore the stack data, note that frame_ref_bottom,
+           frame_reftype_map_bottom, frame_offset_bottom may be
+           re-allocated in the above push operations */
+        if (opcode == WASM_OP_BR_TABLE) {
+            uint32 total_size;
+
+            /* The stack operand num should not be smaller than before
+               after pop and push operations */
+            bh_assert(loader_ctx->stack_cell_num >= stack_cell_num_old);
+            loader_ctx->stack_cell_num = stack_cell_num_old;
+            loader_ctx->frame_ref =
+                loader_ctx->frame_ref_bottom + stack_cell_num_old;
+            total_size = (uint32)sizeof(uint8)
+                         * (frame_ref_old - frame_ref_after_popped);
+            bh_memcpy_s((uint8 *)loader_ctx->frame_ref - total_size, total_size,
+                        frame_ref_buf, total_size);
+
+#if WASM_ENABLE_FAST_INTERP != 0
+            loader_ctx->frame_offset =
+                loader_ctx->frame_offset_bottom + stack_cell_num_old;
+            total_size = (uint32)sizeof(int16)
+                         * (frame_offset_old - frame_offset_after_popped);
+            bh_memcpy_s((uint8 *)loader_ctx->frame_offset - total_size,
+                        total_size, frame_offset_buf, total_size);
+            (loader_ctx->frame_csp - 1)->dynamic_offset = dynamic_offset_old;
+#endif
+        }
+
+        ret = true;
+        goto cleanup_and_return;
     }
 
     available_stack_cell =
@@ -7120,32 +7195,46 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
     for (i = (int32)arity - 1; i >= 0; i--) {
         if (!check_stack_top_values(frame_ref, available_stack_cell, types[i],
                                     error_buf, error_buf_size))
-            return false;
+            goto fail;
         cell_num = wasm_value_type_cell_num(types[i]);
         frame_ref -= cell_num;
         available_stack_cell -= cell_num;
     }
 
-    return true;
+#if WASM_ENABLE_FAST_INTERP != 0
+    emit_br_info(target_block, opcode == WASM_OP_BR);
+#endif
 
+    ret = true;
+
+cleanup_and_return:
 fail:
-    return false;
+    if (frame_ref_buf && frame_ref_buf != frame_ref_tmp)
+        wasm_runtime_free(frame_ref_buf);
+#if WASM_ENABLE_FAST_INTERP != 0
+    if (frame_offset_buf && frame_offset_buf != frame_offset_tmp)
+        wasm_runtime_free(frame_offset_tmp);
+#endif
+
+    return ret;
 }
 
 static BranchBlock *
 check_branch_block(WASMLoaderContext *loader_ctx, uint8 **p_buf, uint8 *buf_end,
-                   char *error_buf, uint32 error_buf_size)
+                   uint8 opcode, char *error_buf, uint32 error_buf_size)
 {
     uint8 *p = *p_buf, *p_end = buf_end;
     BranchBlock *frame_csp_tmp;
     uint32 depth;
 
     read_leb_uint32(p, p_end, depth);
-    CHECK_BR(depth);
+    bh_assert(loader_ctx->csp_num > 0);
+    if (!wasm_loader_check_br(loader_ctx, depth, opcode, error_buf,
+                              error_buf_size)) {
+        goto fail;
+    }
+
     frame_csp_tmp = loader_ctx->frame_csp - depth - 1;
-#if WASM_ENABLE_FAST_INTERP != 0
-    emit_br_info(frame_csp_tmp);
-#endif
 
     *p_buf = p;
     return frame_csp_tmp;
@@ -7876,8 +7965,9 @@ re_scan:
                 SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(true);
 
                 /* check the target catching block:  LABEL_TYPE_CATCH */
-                if (!(frame_csp_tmp = check_branch_block(
-                          loader_ctx, &p, p_end, error_buf, error_buf_size)))
+                if (!(frame_csp_tmp =
+                          check_branch_block(loader_ctx, &p, p_end, opcode,
+                                             error_buf, error_buf_size)))
                     goto fail;
 
                 if (frame_csp_tmp->label_type != LABEL_TYPE_CATCH
@@ -8132,8 +8222,9 @@ re_scan:
 
             case WASM_OP_BR:
             {
-                if (!(frame_csp_tmp = check_branch_block(
-                          loader_ctx, &p, p_end, error_buf, error_buf_size)))
+                if (!(frame_csp_tmp =
+                          check_branch_block(loader_ctx, &p, p_end, opcode,
+                                             error_buf, error_buf_size)))
                     goto fail;
 
                 RESET_STACK();
@@ -8145,8 +8236,9 @@ re_scan:
             {
                 POP_I32();
 
-                if (!(frame_csp_tmp = check_branch_block(
-                          loader_ctx, &p, p_end, error_buf, error_buf_size)))
+                if (!(frame_csp_tmp =
+                          check_branch_block(loader_ctx, &p, p_end, opcode,
+                                             error_buf, error_buf_size)))
                     goto fail;
 
                 break;
@@ -8158,7 +8250,7 @@ re_scan:
                 uint32 ret_count = 0;
 #if WASM_ENABLE_FAST_INTERP == 0
                 uint8 *p_depth_begin, *p_depth;
-                uint32 depth, j;
+                uint32 depth = 0, j;
                 BrTableCache *br_table_cache = NULL;
 
                 p_org = p - 1;
@@ -8175,7 +8267,7 @@ re_scan:
 #endif
                 for (i = 0; i <= count; i++) {
                     if (!(frame_csp_tmp =
-                              check_branch_block(loader_ctx, &p, p_end,
+                              check_branch_block(loader_ctx, &p, p_end, opcode,
                                                  error_buf, error_buf_size)))
                         goto fail;
 

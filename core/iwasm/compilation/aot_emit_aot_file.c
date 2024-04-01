@@ -1004,28 +1004,28 @@ exchange_uint32(uint8 *p_data)
 }
 
 static void
-exchange_uint64(uint8 *pData)
+exchange_uint64(uint8 *p_data)
 {
     uint32 value;
 
-    value = *(uint32 *)pData;
-    *(uint32 *)pData = *(uint32 *)(pData + 4);
-    *(uint32 *)(pData + 4) = value;
-    exchange_uint32(pData);
-    exchange_uint32(pData + 4);
+    value = *(uint32 *)p_data;
+    *(uint32 *)p_data = *(uint32 *)(p_data + 4);
+    *(uint32 *)(p_data + 4) = value;
+    exchange_uint32(p_data);
+    exchange_uint32(p_data + 4);
 }
 
 static void
-exchange_uint128(uint8 *pData)
+exchange_uint128(uint8 *p_data)
 {
     /* swap high 64bit and low 64bit */
-    uint64 value = *(uint64 *)pData;
-    *(uint64 *)pData = *(uint64 *)(pData + 8);
-    *(uint64 *)(pData + 8) = value;
+    uint64 value = *(uint64 *)p_data;
+    *(uint64 *)p_data = *(uint64 *)(p_data + 8);
+    *(uint64 *)(p_data + 8) = value;
     /* exchange high 64bit */
-    exchange_uint64(pData);
+    exchange_uint64(p_data);
     /* exchange low 64bit */
-    exchange_uint64(pData + 8);
+    exchange_uint64(p_data + 8);
 }
 
 static union {
@@ -3106,7 +3106,12 @@ aot_resolve_object_relocation_group(AOTObjectData *obj_data,
          * Note: aot_stack_sizes_section_name section only contains
          * stack_sizes table.
          */
-        if (!strcmp(relocation->symbol_name, aot_stack_sizes_name)) {
+        if (!strcmp(relocation->symbol_name, aot_stack_sizes_name)
+            /* in windows 32, the symbol name may start with '_' */
+            || (strlen(relocation->symbol_name) > 0
+                && relocation->symbol_name[0] == '_'
+                && !strcmp(relocation->symbol_name + 1,
+                           aot_stack_sizes_name))) {
             /* discard const */
             relocation->symbol_name = (char *)aot_stack_sizes_section_name;
         }
