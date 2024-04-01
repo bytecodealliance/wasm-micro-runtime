@@ -15,6 +15,7 @@ function submitFunc() {
     let maxMemSize = document.getElementById('max_mem_size').value;
     let stackSize = document.getElementById('stack_size').value;
     let exportedSymbols = document.getElementById('exported_symbols').value;
+    let hostManagedHeapSize = document.getElementById('host_managed_heap_size').value;
 
     vscode.postMessage({
         command: 'config_build_target',
@@ -23,5 +24,6 @@ function submitFunc() {
         maxMemSize: maxMemSize,
         stackSize: stackSize,
         exportedSymbols: exportedSymbols,
+        hostManagedHeapSize: hostManagedHeapSize,
     });
 }

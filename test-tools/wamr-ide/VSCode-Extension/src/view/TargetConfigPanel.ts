@@ -20,6 +20,7 @@ export class TargetConfigPanel {
         maxMemorySize: '131072',
         stackSize: '4096',
         exportedSymbols: 'main',
+        hostManagedHeapSize: '4096',
     };
 
     private static readonly userInputError: number = -2;
@@ -74,14 +75,16 @@ export class TargetConfigPanel {
         initMemSize: string,
         maxMemSize: string,
         stackSize: string,
-        exportedSymbols: string
+        exportedSymbols: string,
+        hostManagedHeapSize: string
     ): number {
         if (
             outputFileName === '' ||
             initMemSize === '' ||
             maxMemSize === '' ||
             stackSize === '' ||
-            exportedSymbols === ''
+            exportedSymbols === '' ||
+            hostManagedHeapSize === ''
         ) {
             return TargetConfigPanel.userInputError;
         }
@@ -95,6 +98,7 @@ export class TargetConfigPanel {
             maxMemorySize: maxMemSize,
             stackSize: stackSize,
             exportedSymbols: exportedSymbols,
+            hostManagedHeapSize: hostManagedHeapSize,
         };
         const configStr = readFromConfigFile();
 
@@ -174,6 +178,10 @@ export class TargetConfigPanel {
             .replace(
                 /(\${exported_symbols_val})/,
                 TargetConfigPanel.buildArgs.exportedSymbols
+            )
+            .replace(
+                /(\${host_managed_heap_size_val})/,
+                TargetConfigPanel.buildArgs.hostManagedHeapSize
             );
 
         return html;
@@ -189,7 +197,8 @@ export class TargetConfigPanel {
                             message.initMemSize === '' ||
                             message.maxMemSize === '' ||
                             message.stackSize === '' ||
-                            message.exportedSymbols === ''
+                            message.exportedSymbols === '' ||
+                            message.hostManagedHeapSize === ''
                         ) {
                             vscode.window.showErrorMessage(
                                 'Please fill chart before your submit!'
@@ -201,7 +210,8 @@ export class TargetConfigPanel {
                                 message.initMemSize,
                                 message.maxMemSize,
                                 message.stackSize,
-                                message.exportedSymbols
+                                message.exportedSymbols,
+                                message.hostManagedHeapSize
                             ) === TargetConfigPanel.executionSuccess
                         ) {
                             vscode.window
