@@ -8448,11 +8448,11 @@ fail:
         wasm_loader_emit_ptr(loader_ctx, NULL);                              \
     } while (0)
 
-#define emit_br_info(frame_csp)                                         \
-    do {                                                                \
-        if (!wasm_loader_emit_br_info(loader_ctx, frame_csp, error_buf, \
-                                      error_buf_size))                  \
-            goto fail;                                                  \
+#define emit_br_info(frame_csp, is_br)                                         \
+    do {                                                                       \
+        if (!wasm_loader_emit_br_info(loader_ctx, frame_csp, is_br, error_buf, \
+                                      error_buf_size))                         \
+            goto fail;                                                         \
     } while (0)
 
 #define LAST_OP_OUTPUT_I32()                                                   \
@@ -8846,7 +8846,7 @@ apply_label_patch(WASMLoaderContext *ctx, uint8 depth, uint8 patch_type)
 
 static bool
 wasm_loader_emit_br_info(WASMLoaderContext *ctx, BranchBlock *frame_csp,
-                         char *error_buf, uint32 error_buf_size)
+                         bool is_br, char *error_buf, uint32 error_buf_size)
 {
     /* br info layout:
      *  a) arity of target block
@@ -8907,6 +8907,8 @@ wasm_loader_emit_br_info(WASMLoaderContext *ctx, BranchBlock *frame_csp,
         /* Part e */
         dynamic_offset =
             frame_csp->dynamic_offset + wasm_get_cell_num(types, arity);
+        if (is_br)
+            ctx->dynamic_offset = dynamic_offset;
         for (i = (int32)arity - 1; i >= 0; i--) {
             cell = (uint8)wasm_value_type_cell_num(types[i]);
             dynamic_offset -= cell;
@@ -9774,8 +9776,8 @@ check_memory_align_equal(uint8 opcode, uint32 align, char *error_buf,
 #endif /* end of WASM_ENABLE_SHARED_MEMORY */
 
 static bool
-wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
-                     bool is_br_table, char *error_buf, uint32 error_buf_size)
+wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth, uint8 opcode,
+                     char *error_buf, uint32 error_buf_size)
 {
     BranchBlock *target_block, *cur_block;
     BlockType *target_block_type;
@@ -9872,7 +9874,7 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
         /* Backup stack data since it may be changed in the below
            push operations, and the stack data may be used when
            checking other target blocks of opcode br_table */
-        if (is_br_table) {
+        if (opcode == WASM_OP_BR_TABLE) {
             uint64 total_size;
 
             frame_ref_after_popped = loader_ctx->frame_ref;
@@ -9936,13 +9938,13 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
         }
 
 #if WASM_ENABLE_FAST_INTERP != 0
-        emit_br_info(target_block);
+        emit_br_info(target_block, opcode == WASM_OP_BR);
 #endif
 
         /* Restore the stack data, note that frame_ref_bottom,
            frame_reftype_map_bottom, frame_offset_bottom may be
            re-allocated in the above push operations */
-        if (is_br_table) {
+        if (opcode == WASM_OP_BR_TABLE) {
             uint32 total_size;
 
             /* The stack operand num should not be smaller than before
@@ -10033,7 +10035,7 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
     }
 
 #if WASM_ENABLE_FAST_INTERP != 0
-    emit_br_info(target_block);
+    emit_br_info(target_block, opcode == WASM_OP_BR);
 #endif
 
     ret = true;
@@ -10056,14 +10058,14 @@ fail:
 
 static BranchBlock *
 check_branch_block(WASMLoaderContext *loader_ctx, uint8 **p_buf, uint8 *buf_end,
-                   bool is_br_table, char *error_buf, uint32 error_buf_size)
+                   uint8 opcode, char *error_buf, uint32 error_buf_size)
 {
     uint8 *p = *p_buf, *p_end = buf_end;
     BranchBlock *frame_csp_tmp;
     uint32 depth;
 
     read_leb_uint32(p, p_end, depth);
-    if (!wasm_loader_check_br(loader_ctx, depth, is_br_table, error_buf,
+    if (!wasm_loader_check_br(loader_ctx, depth, opcode, error_buf,
                               error_buf_size)) {
         goto fail;
     }
@@ -10980,7 +10982,7 @@ re_scan:
 
                 /* check the target catching block:  LABEL_TYPE_CATCH */
                 if (!(frame_csp_tmp =
-                          check_branch_block(loader_ctx, &p, p_end, false,
+                          check_branch_block(loader_ctx, &p, p_end, opcode,
                                              error_buf, error_buf_size)))
                     goto fail;
 
@@ -11267,7 +11269,7 @@ re_scan:
             case WASM_OP_BR:
             {
                 if (!(frame_csp_tmp =
-                          check_branch_block(loader_ctx, &p, p_end, false,
+                          check_branch_block(loader_ctx, &p, p_end, opcode,
                                              error_buf, error_buf_size)))
                     goto fail;
 
@@ -11281,7 +11283,7 @@ re_scan:
                 POP_I32();
 
                 if (!(frame_csp_tmp =
-                          check_branch_block(loader_ctx, &p, p_end, false,
+                          check_branch_block(loader_ctx, &p, p_end, opcode,
                                              error_buf, error_buf_size)))
                     goto fail;
 
@@ -11351,7 +11353,7 @@ re_scan:
                     }
 
                     if (!(frame_csp_tmp =
-                              check_branch_block(loader_ctx, &p, p_end, true,
+                              check_branch_block(loader_ctx, &p, p_end, opcode,
                                                  error_buf, error_buf_size))) {
                         goto fail;
                     }
@@ -12256,7 +12258,7 @@ re_scan:
 
                 if (opcode == WASM_OP_BR_ON_NULL) {
                     if (!(frame_csp_tmp =
-                              check_branch_block(loader_ctx, &p, p_end, false,
+                              check_branch_block(loader_ctx, &p, p_end, opcode,
                                                  error_buf, error_buf_size))) {
                         goto fail;
                     }
@@ -12303,7 +12305,7 @@ re_scan:
                     PUSH_REF(type);
                 }
                 if (!(frame_csp_tmp =
-                          check_branch_block(loader_ctx, &p, p_end, false,
+                          check_branch_block(loader_ctx, &p, p_end, opcode,
                                              error_buf, error_buf_size))) {
                     goto fail;
                 }
@@ -13785,7 +13787,7 @@ re_scan:
                         }
                         PUSH_REF(type_tmp);
                         if (!(frame_csp_tmp = check_branch_block(
-                                  loader_ctx, &p, p_end, false, error_buf,
+                                  loader_ctx, &p, p_end, opcode, error_buf,
                                   error_buf_size))) {
                             goto fail;
                         }
