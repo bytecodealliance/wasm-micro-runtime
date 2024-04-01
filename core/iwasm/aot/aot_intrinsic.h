@@ -287,10 +287,10 @@ aot_intrinsic_i64_bit_or(uint64 l, uint64 r);
 uint64
 aot_intrinsic_i64_bit_and(uint64 l, uint64 r);
 
+#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0
 const char *
 aot_intrinsic_get_symbol(const char *llvm_intrinsic);
 
-#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0
 bool
 aot_intrinsic_check_capability(const AOTCompContext *comp_ctx,
                                const char *llvm_intrinsic);
