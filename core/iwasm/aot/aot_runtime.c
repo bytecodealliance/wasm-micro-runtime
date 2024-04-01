@@ -4722,6 +4722,9 @@ aot_set_module_name(AOTModule *module, const char *name, char *error_buf,
 
     module->name =
         aot_const_str_set_insert((const uint8 *)name, strlen(name) + 1, module,
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+                                 false,
+#endif
                                  error_buf, error_buf_size);
     return module->name != NULL;
 }
