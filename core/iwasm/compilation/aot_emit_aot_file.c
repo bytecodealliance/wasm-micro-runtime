@@ -25,73 +25,6 @@
         }                                                  \
     } while (0)
 
-#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
-static bool
-check_utf8_str(const uint8 *str, uint32 len)
-{
-    /* The valid ranges are taken from page 125, below link
-       https://www.unicode.org/versions/Unicode9.0.0/ch03.pdf */
-    const uint8 *p = str, *p_end = str + len;
-    uint8 chr;
-
-    while (p < p_end) {
-        chr = *p;
-        if (chr < 0x80) {
-            p++;
-        }
-        else if (chr >= 0xC2 && chr <= 0xDF && p + 1 < p_end) {
-            if (p[1] < 0x80 || p[1] > 0xBF) {
-                return false;
-            }
-            p += 2;
-        }
-        else if (chr >= 0xE0 && chr <= 0xEF && p + 2 < p_end) {
-            if (chr == 0xE0) {
-                if (p[1] < 0xA0 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF) {
-                    return false;
-                }
-            }
-            else if (chr == 0xED) {
-                if (p[1] < 0x80 || p[1] > 0x9F || p[2] < 0x80 || p[2] > 0xBF) {
-                    return false;
-                }
-            }
-            else if (chr >= 0xE1 && chr <= 0xEF) {
-                if (p[1] < 0x80 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF) {
-                    return false;
-                }
-            }
-            p += 3;
-        }
-        else if (chr >= 0xF0 && chr <= 0xF4 && p + 3 < p_end) {
-            if (chr == 0xF0) {
-                if (p[1] < 0x90 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF
-                    || p[3] < 0x80 || p[3] > 0xBF) {
-                    return false;
-                }
-            }
-            else if (chr >= 0xF1 && chr <= 0xF3) {
-                if (p[1] < 0x80 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF
-                    || p[3] < 0x80 || p[3] > 0xBF) {
-                    return false;
-                }
-            }
-            else if (chr == 0xF4) {
-                if (p[1] < 0x80 || p[1] > 0x8F || p[2] < 0x80 || p[2] > 0xBF
-                    || p[3] < 0x80 || p[3] > 0xBF) {
-                    return false;
-                }
-            }
-            p += 4;
-        }
-        else {
-            return false;
-        }
-    }
-    return (p == p_end);
-}
-#endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION != 0 */
-
 /* Internal function in object file */
 typedef struct AOTObjectFunc {
     char *func_name;
@@ -1552,9 +1485,16 @@ fail_integer_too_large:
         res = (uint32)res64;                                   \
     } while (0)
 
+/*
+ * - transfer .name section in .wasm (comp_data->name_section_buf) to
+ *   aot buf (comp_data->aot_name_section_buf)
+ * - leb128 to u32
+ * - add `\0` at the end of every name, and adjust length(+1)
+ */
 static uint32
 get_name_section_size(AOTCompData *comp_data)
 {
+    /* original name section content in .wasm */
     const uint8 *p = comp_data->name_section_buf,
                 *p_end = comp_data->name_section_buf_end;
     uint8 *buf, *buf_end;
@@ -1581,22 +1521,20 @@ get_name_section_size(AOTCompData *comp_data)
         aot_set_last_error("allocate memory for custom name section failed.");
         return 0;
     }
+    memset(buf, 0, (uint32)max_aot_buf_size);
     buf_end = buf + max_aot_buf_size;
 
+    /* the size of "name". it should be 4 */
     read_leb_uint32(p, p_end, name_len);
     offset = align_uint(offset, 4);
     EMIT_U32(name_len);
 
-    if (name_len == 0 || p + name_len > p_end) {
+    if (name_len != 4 || p + name_len > p_end) {
         aot_set_last_error("unexpected end");
         return 0;
     }
 
-    if (!check_utf8_str(p, name_len)) {
-        aot_set_last_error("invalid UTF-8 encoding");
-        return 0;
-    }
-
+    /* "name" */
     if (memcmp(p, "name", 4) != 0) {
         aot_set_last_error("invalid custom name section");
         return 0;
@@ -1645,9 +1583,18 @@ get_name_section_size(AOTCompData *comp_data)
                         previous_func_index = func_index;
                         read_leb_uint32(p, p_end, func_name_len);
                         offset = align_uint(offset, 2);
-                        EMIT_U16(func_name_len);
+
+                        /* emit a string ends with `\0` */
+                        if (func_name_len + 1 > UINT16_MAX) {
+                            aot_set_last_error(
+                                "emit string failed: string too long");
+                            goto fail;
+                        }
+                        /* extra 1 byte for \0 */
+                        EMIT_U16(func_name_len + 1);
                         EMIT_BUF(p, func_name_len);
                         p += func_name_len;
+                        EMIT_U8(0);
                     }
                 }
                 break;

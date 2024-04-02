@@ -570,6 +570,14 @@
 #define WASM_ENABLE_QUICK_AOT_ENTRY 1
 #endif
 
+/* Support AOT intrinsic functions which can be called from the AOT code
+   when `--disable-llvm-intrinsics` flag or
+   `--enable-builtin-intrinsics=<intr1,intr2,...>` is used by wamrc to
+   generate the AOT file */
+#ifndef WASM_ENABLE_AOT_INTRINSICS
+#define WASM_ENABLE_AOT_INTRINSICS 1
+#endif
+
 /* Disable memory64 by default */
 #ifndef WASM_ENABLE_MEMORY64
 #define WASM_ENABLE_MEMORY64 0

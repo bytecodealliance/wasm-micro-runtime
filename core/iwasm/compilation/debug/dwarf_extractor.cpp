@@ -491,6 +491,8 @@ dwarf_gen_location(const AOTCompContext *comp_ctx,
     dwarf_extractor *extractor;
     AOTFunc *func = func_ctx->aot_func;
 
+    if (func_ctx->debug_func == NULL)
+        return NULL;
     if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
         return NULL;
 

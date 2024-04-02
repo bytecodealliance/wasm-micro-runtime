@@ -230,63 +230,6 @@ memory_realloc(void *mem_old, uint32 size_old, uint32 size_new, char *error_buf,
         mem = mem_new;                                                     \
     } while (0)
 
-static char *
-const_str_list_insert(const uint8 *str, uint32 len, WASMModule *module,
-                      bool is_load_from_file_buf, char *error_buf,
-                      uint32 error_buf_size)
-{
-    StringNode *node, *node_next;
-
-    if (len == 0) {
-        return "";
-    }
-    else if (is_load_from_file_buf) {
-        /* As the file buffer can be referred to after loading, we use
-           the previous byte of leb encoded size to adjust the string:
-           move string 1 byte backward and then append '\0' */
-        char *c_str = (char *)str - 1;
-        bh_memmove_s(c_str, len + 1, c_str + 1, len);
-        c_str[len] = '\0';
-        return c_str;
-    }
-
-    /* Search const str list */
-    node = module->const_str_list;
-    while (node) {
-        node_next = node->next;
-        if (strlen(node->str) == len && !memcmp(node->str, str, len))
-            break;
-        node = node_next;
-    }
-
-    if (node) {
-        LOG_DEBUG("reuse %s", node->str);
-        return node->str;
-    }
-
-    if (!(node = loader_malloc(sizeof(StringNode) + len + 1, error_buf,
-                               error_buf_size))) {
-        return NULL;
-    }
-
-    node->str = ((char *)node) + sizeof(StringNode);
-    bh_memcpy_s(node->str, len + 1, str, len);
-    node->str[len] = '\0';
-
-    if (!module->const_str_list) {
-        /* set as head */
-        module->const_str_list = node;
-        node->next = NULL;
-    }
-    else {
-        /* insert it */
-        node->next = module->const_str_list;
-        module->const_str_list = node;
-    }
-
-    return node->str;
-}
-
 static void
 destroy_wasm_type(WASMFuncType *type)
 {
@@ -1065,7 +1008,7 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             /* load module name */
             read_leb_uint32(p, p_end, name_len);
             CHECK_BUF(p, p_end, name_len);
-            if (!(sub_module_name = const_str_list_insert(
+            if (!(sub_module_name = wasm_const_str_list_insert(
                       p, name_len, module, is_load_from_file_buf, error_buf,
                       error_buf_size))) {
                 return false;
@@ -1075,7 +1018,7 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             /* load field name */
             read_leb_uint32(p, p_end, name_len);
             CHECK_BUF(p, p_end, name_len);
-            if (!(field_name = const_str_list_insert(
+            if (!(field_name = wasm_const_str_list_insert(
                       p, name_len, module, is_load_from_file_buf, error_buf,
                       error_buf_size))) {
                 return false;
@@ -1483,7 +1426,7 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                             && memcmp(name, p, str_len) == 0));
             }
 
-            if (!(export->name = const_str_list_insert(
+            if (!(export->name = wasm_const_str_list_insert(
                       p, str_len, module, is_load_from_file_buf, error_buf,
                       error_buf_size))) {
                 return false;
@@ -2039,7 +1982,7 @@ handle_name_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                             func_index -= module->import_function_count;
                             bh_assert(func_index < module->function_count);
                             if (!(module->functions[func_index]->field_name =
-                                      const_str_list_insert(
+                                      wasm_const_str_list_insert(
                                           p, func_name_len, module,
                                           is_load_from_file_buf, error_buf,
                                           error_buf_size))) {
@@ -2081,7 +2024,7 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
     bh_assert(name_len > 0 && p + name_len <= p_end);
 
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
-    if (memcmp(p, "name", 4) == 0) {
+    if (name_len == 4 && memcmp(p, "name", 4) == 0) {
         p += name_len;
         handle_name_section(p, p_end, module, is_load_from_file_buf, error_buf,
                             error_buf_size);
@@ -3064,6 +3007,8 @@ create_module(char *error_buf, uint32 error_buf_size)
 
     /* Set start_function to -1, means no start function */
     module->start_function = (uint32)-1;
+
+    module->name = "";
 
 #if WASM_ENABLE_FAST_INTERP == 0
     module->br_table_cache_list = &module->br_table_cache_list_head;
@@ -4398,11 +4343,11 @@ wasm_loader_pop_frame_csp(WASMLoaderContext *ctx, char *error_buf,
         wasm_loader_emit_ptr(loader_ctx, NULL);                              \
     } while (0)
 
-#define emit_br_info(frame_csp)                                         \
-    do {                                                                \
-        if (!wasm_loader_emit_br_info(loader_ctx, frame_csp, error_buf, \
-                                      error_buf_size))                  \
-            goto fail;                                                  \
+#define emit_br_info(frame_csp, is_br)                                         \
+    do {                                                                       \
+        if (!wasm_loader_emit_br_info(loader_ctx, frame_csp, is_br, error_buf, \
+                                      error_buf_size))                         \
+            goto fail;                                                         \
     } while (0)
 
 #define LAST_OP_OUTPUT_I32()                                                   \
@@ -4787,7 +4732,7 @@ apply_label_patch(WASMLoaderContext *ctx, uint8 depth, uint8 patch_type)
 
 static bool
 wasm_loader_emit_br_info(WASMLoaderContext *ctx, BranchBlock *frame_csp,
-                         char *error_buf, uint32 error_buf_size)
+                         bool is_br, char *error_buf, uint32 error_buf_size)
 {
     /* br info layout:
      *  a) arity of target block
@@ -4836,7 +4781,8 @@ wasm_loader_emit_br_info(WASMLoaderContext *ctx, BranchBlock *frame_csp,
         /* Part e */
         dynamic_offset =
             frame_csp->dynamic_offset + wasm_get_cell_num(types, arity);
-        ctx->dynamic_offset = dynamic_offset;
+        if (is_br)
+            ctx->dynamic_offset = dynamic_offset;
         for (i = (int32)arity - 1; i >= 0; i--) {
             cell = (uint8)wasm_value_type_cell_num(types[i]);
             dynamic_offset -= cell;
@@ -5542,8 +5488,8 @@ fail:
     } while (0)
 
 static bool
-wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
-                     bool is_br_table, char *error_buf, uint32 error_buf_size)
+wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth, uint8 opcode,
+                     char *error_buf, uint32 error_buf_size)
 {
     BranchBlock *target_block, *cur_block;
     BlockType *target_block_type;
@@ -5601,7 +5547,7 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
         /* Backup stack data since it may be changed in the below
            push operations, and the stack data may be used when
            checking other target blocks of opcode br_table */
-        if (is_br_table) {
+        if (opcode == WASM_OP_BR_TABLE) {
             uint64 total_size;
 
             frame_ref_after_popped = loader_ctx->frame_ref;
@@ -5639,13 +5585,13 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
         }
 
 #if WASM_ENABLE_FAST_INTERP != 0
-        emit_br_info(target_block);
+        emit_br_info(target_block, opcode == WASM_OP_BR);
 #endif
 
         /* Restore the stack data, note that frame_ref_bottom,
            frame_reftype_map_bottom, frame_offset_bottom may be
            re-allocated in the above push operations */
-        if (is_br_table) {
+        if (opcode == WASM_OP_BR_TABLE) {
             uint32 total_size;
 
             /* The stack operand num should not be smaller than before
@@ -5689,7 +5635,7 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
     }
 
 #if WASM_ENABLE_FAST_INTERP != 0
-    emit_br_info(target_block);
+    emit_br_info(target_block, opcode == WASM_OP_BR);
 #endif
 
     ret = true;
@@ -5708,14 +5654,14 @@ fail:
 
 static BranchBlock *
 check_branch_block(WASMLoaderContext *loader_ctx, uint8 **p_buf, uint8 *buf_end,
-                   bool is_br_table, char *error_buf, uint32 error_buf_size)
+                   uint8 opcode, char *error_buf, uint32 error_buf_size)
 {
     uint8 *p = *p_buf, *p_end = buf_end;
     BranchBlock *frame_csp_tmp;
     uint32 depth;
 
     read_leb_uint32(p, p_end, depth);
-    if (!wasm_loader_check_br(loader_ctx, depth, is_br_table, error_buf,
+    if (!wasm_loader_check_br(loader_ctx, depth, opcode, error_buf,
                               error_buf_size)) {
         goto fail;
     }
@@ -6353,7 +6299,7 @@ re_scan:
             case WASM_OP_BR:
             {
                 if (!(frame_csp_tmp =
-                          check_branch_block(loader_ctx, &p, p_end, false,
+                          check_branch_block(loader_ctx, &p, p_end, opcode,
                                              error_buf, error_buf_size)))
                     goto fail;
 
@@ -6367,7 +6313,7 @@ re_scan:
                 POP_I32();
 
                 if (!(frame_csp_tmp =
-                          check_branch_block(loader_ctx, &p, p_end, false,
+                          check_branch_block(loader_ctx, &p, p_end, opcode,
                                              error_buf, error_buf_size)))
                     goto fail;
 
@@ -6397,7 +6343,7 @@ re_scan:
 #endif
                 for (i = 0; i <= count; i++) {
                     if (!(frame_csp_tmp =
-                              check_branch_block(loader_ctx, &p, p_end, true,
+                              check_branch_block(loader_ctx, &p, p_end, opcode,
                                                  error_buf, error_buf_size)))
                         goto fail;
 

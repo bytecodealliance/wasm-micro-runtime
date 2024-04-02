@@ -307,6 +307,9 @@ typedef struct AOTModule {
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
     WASMCustomSection *custom_section_list;
 #endif
+
+    /* user defined name */
+    char *name;
 } AOTModule;
 
 #define AOTMemoryInstance WASMMemoryInstance
@@ -760,6 +763,20 @@ aot_array_init_with_data(AOTModuleInstance *module_inst, uint32 seg_index,
 bool
 aot_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap);
 #endif /* end of WASM_ENABLE_GC != 0 */
+
+char *
+aot_const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+                         bool is_vram_word_align,
+#endif
+                         char *error_buf, uint32 error_buf_size);
+
+bool
+aot_set_module_name(AOTModule *module, const char *name, char *error_buf,
+                    uint32_t error_buf_size);
+
+const char *
+aot_get_module_name(AOTModule *module);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

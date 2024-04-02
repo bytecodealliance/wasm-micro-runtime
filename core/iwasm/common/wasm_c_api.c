@@ -2949,6 +2949,34 @@ wasm_shared_module_delete(own wasm_shared_module_t *shared_module)
     wasm_module_delete_internal((wasm_module_t *)shared_module);
 }
 
+bool
+wasm_module_set_name(wasm_module_t *module, const char *name)
+{
+    char error_buf[256] = { 0 };
+    wasm_module_ex_t *module_ex = NULL;
+
+    if (!module)
+        return false;
+
+    module_ex = module_to_module_ext(module);
+    bool ret = wasm_runtime_set_module_name(module_ex->module_comm_rt, name,
+                                            error_buf, sizeof(error_buf) - 1);
+    if (!ret)
+        LOG_WARNING("set module name failed: %s", error_buf);
+    return ret;
+}
+
+const char *
+wasm_module_get_name(wasm_module_t *module)
+{
+    wasm_module_ex_t *module_ex = NULL;
+    if (!module)
+        return "";
+
+    module_ex = module_to_module_ext(module);
+    return wasm_runtime_get_module_name(module_ex->module_comm_rt);
+}
+
 static wasm_func_t *
 wasm_func_new_basic(wasm_store_t *store, const wasm_functype_t *type,
                     wasm_func_callback_t func_callback)

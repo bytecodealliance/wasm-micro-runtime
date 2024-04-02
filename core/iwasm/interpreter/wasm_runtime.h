@@ -836,6 +836,21 @@ exception_unlock(WASMModuleInstance *module_inst);
 #define exception_unlock(module_inst) (void)(module_inst)
 #endif
 
+bool
+wasm_check_utf8_str(const uint8 *str, uint32 len);
+
+char *
+wasm_const_str_list_insert(const uint8 *str, uint32 len, WASMModule *module,
+                           bool is_load_from_file_buf, char *error_buf,
+                           uint32 error_buf_size);
+
+bool
+wasm_set_module_name(WASMModule *module, const char *name, char *error_buf,
+                     uint32_t error_buf_size);
+
+const char *
+wasm_get_module_name(WASMModule *module);
+
 #ifdef __cplusplus
 }
 #endif

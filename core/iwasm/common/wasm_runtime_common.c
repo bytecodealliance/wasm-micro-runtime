@@ -564,8 +564,20 @@ wasm_runtime_exec_env_check(WASMExecEnv *exec_env)
            && exec_env->wasm_stack.top <= exec_env->wasm_stack.top_boundary;
 }
 
-bool
-wasm_runtime_init()
+#if defined(OS_THREAD_MUTEX_INITIALIZER)
+/**
+ * lock for wasm_runtime_init/wasm_runtime_full_init and runtime_ref_count
+ * Note: if the platform has mutex initializer, we use a global lock to
+ * lock the operations of runtime init/full_init, otherwise when there are
+ * operations happening simultaneously in multiple threads, developer
+ * must create the lock by himself, and use it to lock the operations
+ */
+static korp_mutex runtime_lock = OS_THREAD_MUTEX_INITIALIZER;
+#endif
+static int32 runtime_ref_count = 0;
+
+static bool
+wasm_runtime_init_internal()
 {
     if (!wasm_runtime_memory_init(Alloc_With_System_Allocator, NULL))
         return false;
@@ -578,8 +590,32 @@ wasm_runtime_init()
     return true;
 }
 
-void
-wasm_runtime_destroy()
+bool
+wasm_runtime_init()
+{
+    bool ret = true;
+
+#if defined(OS_THREAD_MUTEX_INITIALIZER)
+    os_mutex_lock(&runtime_lock);
+#endif
+
+    bh_assert(runtime_ref_count >= 0);
+    if (runtime_ref_count == 0) {
+        ret = wasm_runtime_init_internal();
+    }
+    if (ret) {
+        runtime_ref_count++;
+    }
+
+#if defined(OS_THREAD_MUTEX_INITIALIZER)
+    os_mutex_unlock(&runtime_lock);
+#endif
+
+    return ret;
+}
+
+static void
+wasm_runtime_destroy_internal()
 {
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     wasm_externref_map_destroy();
@@ -640,6 +676,24 @@ wasm_runtime_destroy()
     wasm_runtime_memory_destroy();
 }
 
+void
+wasm_runtime_destroy()
+{
+#if defined(OS_THREAD_MUTEX_INITIALIZER)
+    os_mutex_lock(&runtime_lock);
+#endif
+
+    bh_assert(runtime_ref_count > 0);
+    runtime_ref_count--;
+    if (runtime_ref_count == 0) {
+        wasm_runtime_destroy_internal();
+    }
+
+#if defined(OS_THREAD_MUTEX_INITIALIZER)
+    os_mutex_unlock(&runtime_lock);
+#endif
+}
+
 RunningMode
 wasm_runtime_get_default_running_mode(void)
 {
@@ -662,8 +716,8 @@ wasm_runtime_get_gc_heap_size_default(void)
 }
 #endif
 
-bool
-wasm_runtime_full_init(RuntimeInitArgs *init_args)
+static bool
+wasm_runtime_full_init_internal(RuntimeInitArgs *init_args)
 {
     if (!wasm_runtime_memory_init(init_args->mem_alloc_type,
                                   &init_args->mem_alloc_option))
@@ -723,6 +777,30 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
 #endif
 
     return true;
+}
+
+bool
+wasm_runtime_full_init(RuntimeInitArgs *init_args)
+{
+    bool ret = true;
+
+#if defined(OS_THREAD_MUTEX_INITIALIZER)
+    os_mutex_lock(&runtime_lock);
+#endif
+
+    bh_assert(runtime_ref_count >= 0);
+    if (runtime_ref_count == 0) {
+        ret = wasm_runtime_full_init_internal(init_args);
+    }
+    if (ret) {
+        runtime_ref_count++;
+    }
+
+#if defined(OS_THREAD_MUTEX_INITIALIZER)
+    os_mutex_unlock(&runtime_lock);
+#endif
+
+    return ret;
 }
 
 void
@@ -6670,3 +6748,44 @@ wasm_runtime_set_linux_perf(bool flag)
     enable_linux_perf = flag;
 }
 #endif
+
+bool
+wasm_runtime_set_module_name(wasm_module_t module, const char *name,
+                             char *error_buf, uint32_t error_buf_size)
+{
+    if (!module)
+        return false;
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode)
+        return wasm_set_module_name((WASMModule *)module, name, error_buf,
+                                    error_buf_size);
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT)
+        return aot_set_module_name((AOTModule *)module, name, error_buf,
+                                   error_buf_size);
+#endif
+
+    return false;
+}
+
+const char *
+wasm_runtime_get_module_name(wasm_module_t module)
+{
+    if (!module)
+        return "";
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode)
+        return wasm_get_module_name((WASMModule *)module);
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT)
+        return aot_get_module_name((AOTModule *)module);
+#endif
+
+    return "";
+}
