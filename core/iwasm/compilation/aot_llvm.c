@@ -2547,6 +2547,9 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
         aot_set_last_error("create LLVM module failed.");
         goto fail;
     }
+#if LLVM_VERSION_MAJOR >= 19
+    LLVMSetIsNewDbgInfoFormat(comp_ctx->module, true);
+#endif
 
 #if WASM_ENABLE_LINUX_PERF != 0
     if (wasm_runtime_get_linux_perf()) {
