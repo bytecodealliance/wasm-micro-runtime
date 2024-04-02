@@ -7157,8 +7157,8 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth, uint8 opcode,
 #endif
 
         /* Restore the stack data, note that frame_ref_bottom,
-           frame_reftype_map_bottom, frame_offset_bottom may be
-           re-allocated in the above push operations */
+           frame_offset_bottom may be re-allocated in the above
+           push operations */
         if (opcode == WASM_OP_BR_TABLE) {
             uint32 total_size;
 
