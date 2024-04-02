@@ -130,6 +130,7 @@ jobs:
             "-DWAMR_BUILD_SIMD=1",
             "-DWAMR_BUILD_TAIL_CALL=1",
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
+            "-DWAMR_BUILD_MEMORY64=1",
           ]
         os: [ubuntu-20.04]
         platform: [android, linux]
@@ -188,6 +189,21 @@ jobs:
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
           - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
+          # Memory64 only on CLASSIC INTERP mode, and only on 64-bit platform
+          - make_options_feature: "-DWAMR_BUILD_MEMORY64=1"
+            platform: android
+          - make_options_run_mode: $AOT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MEMORY64=1"
+          - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MEMORY64=1"
+          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MEMORY64=1"
+          - make_options_run_mode: $LLVM_LAZY_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MEMORY64=1"
+          - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MEMORY64=1"
+          - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MEMORY64=1"
           # Fast-JIT and Multi-Tier-JIT mode don't support android
           - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
             platform: android
@@ -271,6 +287,7 @@ jobs:
             "-DWAMR_BUILD_SIMD=1",
             "-DWAMR_BUILD_TAIL_CALL=1",
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
+            "-DWAMR_BUILD_MEMORY64=1",
           ]
         exclude:
           # uncompatiable feature and platform
@@ -299,6 +316,11 @@ jobs:
           # MINI_LOADER only on INTERP mode
           - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
+          # Memory64 only on CLASSIC INTERP mode
+          - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MEMORY64=1"
+          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MEMORY64=1"
     steps:
       - name: checkout
         uses: actions/checkout@v3

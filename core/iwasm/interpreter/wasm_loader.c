@@ -45,6 +45,16 @@ set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
     }
 }
 
+#if WASM_ENABLE_MEMORY64 != 0
+static void
+set_error_buf_mem_offset_out_of_range(char *error_buf, uint32 error_buf_size)
+{
+    if (error_buf != NULL) {
+        snprintf(error_buf, error_buf_size, "offset out of range");
+    }
+}
+#endif
+
 static void
 set_error_buf_v(char *error_buf, uint32 error_buf_size, const char *format, ...)
 {
@@ -102,6 +112,7 @@ check_buf1(const uint8 *buf, const uint8 *buf_end, uint32 length,
 #define skip_leb_int64(p, p_end) skip_leb(p)
 #define skip_leb_uint32(p, p_end) skip_leb(p)
 #define skip_leb_int32(p, p_end) skip_leb(p)
+#define skip_leb_mem_offset(p, p_end) skip_leb(p)
 
 static bool
 read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
@@ -139,7 +150,7 @@ read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
     }
     else if (sign && maxbits == 32) {
         if (shift < maxbits) {
-            /* Sign extend, second highest bit is the sign bit */
+            /* Sign extend, second-highest bit is the sign bit */
             if ((uint8)byte & 0x40)
                 result |= (~((uint64)0)) << shift;
         }
@@ -154,7 +165,7 @@ read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
     }
     else if (sign && maxbits == 64) {
         if (shift < maxbits) {
-            /* Sign extend, second highest bit is the sign bit */
+            /* Sign extend, second-highest bit is the sign bit */
             if ((uint8)byte & 0x40)
                 result |= (~((uint64)0)) << shift;
         }
@@ -190,6 +201,21 @@ fail:
             goto fail;                                                  \
         res = (int64)res64;                                             \
     } while (0)
+
+#if WASM_ENABLE_MEMORY64 != 0
+#define read_leb_mem_offset(p, p_end, res)                                    \
+    do {                                                                      \
+        uint64 res64;                                                         \
+        if (!read_leb((uint8 **)&p, p_end, is_memory64 ? 64 : 32, false,      \
+                      &res64, error_buf, error_buf_size)) {                   \
+            set_error_buf_mem_offset_out_of_range(error_buf, error_buf_size); \
+            goto fail;                                                        \
+        }                                                                     \
+        res = (mem_offset_t)res64;                                            \
+    } while (0)
+#else
+#define read_leb_mem_offset(p, p_end, res) read_leb_uint32(p, p_end, res)
+#endif
 
 #define read_leb_uint32(p, p_end, res)                                   \
     do {                                                                 \
@@ -2582,31 +2608,92 @@ fail:
 }
 
 static bool
-check_memory_init_size(uint32 init_size, char *error_buf, uint32 error_buf_size)
+check_memory_init_size(bool is_memory64, uint32 init_size, char *error_buf,
+                       uint32 error_buf_size)
 {
-    if (init_size > DEFAULT_MAX_PAGES) {
+    uint32 default_max_size =
+        is_memory64 ? DEFAULT_MEM64_MAX_PAGES : DEFAULT_MAX_PAGES;
+
+    if (!is_memory64 && init_size > default_max_size) {
         set_error_buf(error_buf, error_buf_size,
                       "memory size must be at most 65536 pages (4GiB)");
         return false;
     }
+#if WASM_ENABLE_MEMORY64 != 0
+    else if (is_memory64 && init_size > default_max_size) {
+        set_error_buf(
+            error_buf, error_buf_size,
+            "memory size must be at most 4,294,967,295 pages (274 Terabyte)");
+        return false;
+    }
+#endif
     return true;
 }
 
 static bool
-check_memory_max_size(uint32 init_size, uint32 max_size, char *error_buf,
-                      uint32 error_buf_size)
+check_memory_max_size(bool is_memory64, uint32 init_size, uint32 max_size,
+                      char *error_buf, uint32 error_buf_size)
 {
+    uint32 default_max_size =
+        is_memory64 ? DEFAULT_MEM64_MAX_PAGES : DEFAULT_MAX_PAGES;
+
     if (max_size < init_size) {
         set_error_buf(error_buf, error_buf_size,
                       "size minimum must not be greater than maximum");
         return false;
     }
 
-    if (max_size > DEFAULT_MAX_PAGES) {
+    if (!is_memory64 && max_size > default_max_size) {
         set_error_buf(error_buf, error_buf_size,
                       "memory size must be at most 65536 pages (4GiB)");
         return false;
     }
+#if WASM_ENABLE_MEMORY64 != 0
+    else if (is_memory64 && max_size > default_max_size) {
+        set_error_buf(
+            error_buf, error_buf_size,
+            "memory size must be at most 4,294,967,295 pages (274 Terabyte)");
+        return false;
+    }
+#endif
+
+    return true;
+}
+
+static bool
+check_memory_flag(const uint8 mem_flag, char *error_buf, uint32 error_buf_size)
+{
+    /* Check whether certain features indicated by mem_flag are enabled in
+     * runtime */
+    if (mem_flag > MAX_PAGE_COUNT_FLAG) {
+#if WASM_ENABLE_SHARED_MEMORY == 0
+        if (mem_flag & SHARED_MEMORY_FLAG) {
+            LOG_VERBOSE("shared memory flag was found, please enable shared "
+                        "memory, lib-pthread or lib-wasi-threads");
+            set_error_buf(error_buf, error_buf_size, "invalid limits flags");
+            return false;
+        }
+#endif
+#if WASM_ENABLE_MEMORY64 == 0
+        if (mem_flag & MEMORY64_FLAG) {
+            LOG_VERBOSE("memory64 flag was found, please enable memory64");
+            set_error_buf(error_buf, error_buf_size, "invalid limits flags");
+            return false;
+        }
+#endif
+    }
+
+    if (mem_flag > MAX_PAGE_COUNT_FLAG + SHARED_MEMORY_FLAG + MEMORY64_FLAG) {
+        set_error_buf(error_buf, error_buf_size, "invalid limits flags");
+        return false;
+    }
+    else if ((mem_flag & SHARED_MEMORY_FLAG)
+             && !(mem_flag & MAX_PAGE_COUNT_FLAG)) {
+        set_error_buf(error_buf, error_buf_size,
+                      "shared memory must have maximum");
+        return false;
+    }
+
     return true;
 }
 
@@ -2616,15 +2703,16 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
                    const char *memory_name, WASMMemoryImport *memory,
                    char *error_buf, uint32 error_buf_size)
 {
-    const uint8 *p = *p_buf, *p_end = buf_end;
+    const uint8 *p = *p_buf, *p_end = buf_end, *p_org;
 #if WASM_ENABLE_APP_FRAMEWORK != 0
     uint32 pool_size = wasm_runtime_memory_pool_size();
     uint32 max_page_count = pool_size * APP_MEMORY_MAX_GLOBAL_HEAP_PERCENT
                             / DEFAULT_NUM_BYTES_PER_PAGE;
 #else
-    uint32 max_page_count = DEFAULT_MAX_PAGES;
+    uint32 max_page_count;
 #endif /* WASM_ENABLE_APP_FRAMEWORK */
-    uint32 declare_max_page_count_flag = 0;
+    uint32 mem_flag = 0;
+    bool is_memory64 = false;
     uint32 declare_init_page_count = 0;
     uint32 declare_max_page_count = 0;
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -2632,16 +2720,31 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
     WASMMemory *linked_memory = NULL;
 #endif
 
-    read_leb_uint32(p, p_end, declare_max_page_count_flag);
+    p_org = p;
+    read_leb_uint32(p, p_end, mem_flag);
+    is_memory64 = mem_flag & MEMORY64_FLAG;
+    if (p - p_org > 1) {
+        LOG_VERBOSE("integer representation too long");
+        set_error_buf(error_buf, error_buf_size, "invalid limits flags");
+        return false;
+    }
+
+    if (!check_memory_flag(mem_flag, error_buf, error_buf_size)) {
+        return false;
+    }
+
     read_leb_uint32(p, p_end, declare_init_page_count);
-    if (!check_memory_init_size(declare_init_page_count, error_buf,
+    if (!check_memory_init_size(is_memory64, declare_init_page_count, error_buf,
                                 error_buf_size)) {
         return false;
     }
 
-    if (declare_max_page_count_flag & 1) {
+#if WASM_ENABLE_APP_FRAMEWORK == 0
+    max_page_count = is_memory64 ? DEFAULT_MEM64_MAX_PAGES : DEFAULT_MAX_PAGES;
+#endif
+    if (mem_flag & MAX_PAGE_COUNT_FLAG) {
         read_leb_uint32(p, p_end, declare_max_page_count);
-        if (!check_memory_max_size(declare_init_page_count,
+        if (!check_memory_max_size(is_memory64, declare_init_page_count,
                                    declare_max_page_count, error_buf,
                                    error_buf_size)) {
             return false;
@@ -2664,7 +2767,7 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
 #if WASM_ENABLE_LIB_WASI_THREADS != 0
             /* Avoid memory import failure when wasi-threads is enabled
                and the memory is shared */
-            if (!(declare_max_page_count_flag & 2))
+            if (!(mem_flag & SHARED_MEMORY_FLAG))
                 return false;
 #else
             return false;
@@ -2712,7 +2815,7 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
     }
 
     /* now we believe all declaration are ok */
-    memory->flags = declare_max_page_count_flag;
+    memory->flags = mem_flag;
     memory->init_page_count = declare_init_page_count;
     memory->max_page_count = declare_max_page_count;
     memory->num_bytes_per_page = DEFAULT_NUM_BYTES_PER_PAGE;
@@ -3013,53 +3116,34 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
     uint32 max_page_count = pool_size * APP_MEMORY_MAX_GLOBAL_HEAP_PERCENT
                             / DEFAULT_NUM_BYTES_PER_PAGE;
 #else
-    uint32 max_page_count = DEFAULT_MAX_PAGES;
+    uint32 max_page_count;
 #endif
+    bool is_memory64 = false;
 
     p_org = p;
     read_leb_uint32(p, p_end, memory->flags);
-#if WASM_ENABLE_SHARED_MEMORY == 0
+    is_memory64 = memory->flags & MEMORY64_FLAG;
     if (p - p_org > 1) {
-        set_error_buf(error_buf, error_buf_size,
-                      "integer representation too long");
-        return false;
-    }
-    if (memory->flags > 1) {
-        if (memory->flags & 2) {
-            set_error_buf(error_buf, error_buf_size,
-                          "shared memory flag was found, "
-                          "please enable shared memory, lib-pthread "
-                          "or lib-wasi-threads");
-        }
-        else {
-            set_error_buf(error_buf, error_buf_size, "invalid memory flags");
-        }
-        return false;
-    }
-#else
-    if (p - p_org > 1) {
+        LOG_VERBOSE("integer representation too long");
         set_error_buf(error_buf, error_buf_size, "invalid limits flags");
         return false;
     }
-    if (memory->flags > 3) {
-        set_error_buf(error_buf, error_buf_size, "invalid limits flags");
+
+    if (!check_memory_flag(memory->flags, error_buf, error_buf_size)) {
         return false;
     }
-    else if (memory->flags == 2) {
-        set_error_buf(error_buf, error_buf_size,
-                      "shared memory must have maximum");
-        return false;
-    }
-#endif
 
     read_leb_uint32(p, p_end, memory->init_page_count);
-    if (!check_memory_init_size(memory->init_page_count, error_buf,
+    if (!check_memory_init_size(is_memory64, memory->init_page_count, error_buf,
                                 error_buf_size))
         return false;
 
+#if WASM_ENABLE_APP_FRAMEWORK == 0
+    max_page_count = is_memory64 ? DEFAULT_MEM64_MAX_PAGES : DEFAULT_MAX_PAGES;
+#endif
     if (memory->flags & 1) {
         read_leb_uint32(p, p_end, memory->max_page_count);
-        if (!check_memory_max_size(memory->init_page_count,
+        if (!check_memory_max_size(is_memory64, memory->init_page_count,
                                    memory->max_page_count, error_buf,
                                    error_buf_size))
             return false;
@@ -4450,6 +4534,7 @@ load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
     bool is_passive = false;
     uint32 mem_flag;
 #endif
+    uint8 mem_offset_type;
 
     read_leb_uint32(p, p_end, data_seg_count);
 
@@ -4518,8 +4603,32 @@ load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
 #if WASM_ENABLE_BULK_MEMORY != 0
             if (!is_passive)
 #endif
+            {
+#if WASM_ENABLE_MEMORY64 != 0
+                /* This memory_flag is from memory instead of data segment */
+                uint8 memory_flag;
+                if (module->import_memory_count > 0) {
+                    memory_flag =
+                        module->import_memories[mem_index].u.memory.flags;
+                }
+                else {
+                    memory_flag =
+                        module
+                            ->memories[mem_index - module->import_memory_count]
+                            .flags;
+                }
+                mem_offset_type = memory_flag & MEMORY64_FLAG ? VALUE_TYPE_I64
+                                                              : VALUE_TYPE_I32;
+#else
+                mem_offset_type = VALUE_TYPE_I32;
+#endif
+            }
+
+#if WASM_ENABLE_BULK_MEMORY != 0
+            if (!is_passive)
+#endif
                 if (!load_init_expr(module, &p, p_end, &init_expr,
-                                    VALUE_TYPE_I32, NULL, error_buf,
+                                    mem_offset_type, NULL, error_buf,
                                     error_buf_size))
                     return false;
 
@@ -6979,8 +7088,8 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             case WASM_OP_I64_STORE8:
             case WASM_OP_I64_STORE16:
             case WASM_OP_I64_STORE32:
-                skip_leb_uint32(p, p_end); /* align */
-                skip_leb_uint32(p, p_end); /* offset */
+                skip_leb_uint32(p, p_end);     /* align */
+                skip_leb_mem_offset(p, p_end); /* offset */
                 break;
 
             case WASM_OP_MEMORY_SIZE:
@@ -7326,6 +7435,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 #if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
             case WASM_OP_SIMD_PREFIX:
             {
+                /* TODO: memory64 offset type changes */
                 uint32 opcode1;
 
                 read_leb_uint32(p, p_end, opcode1);
@@ -7422,6 +7532,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 #if WASM_ENABLE_SHARED_MEMORY != 0
             case WASM_OP_ATOMIC_PREFIX:
             {
+                /* TODO: memory64 offset type changes */
                 uint32 opcode1;
 
                 /* atomic_op (u32_leb) + memarg (2 u32_leb) */
@@ -7431,8 +7542,8 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                 opcode = (uint8)opcode1;
 
                 if (opcode != WASM_OP_ATOMIC_FENCE) {
-                    skip_leb_uint32(p, p_end); /* align */
-                    skip_leb_uint32(p, p_end); /* offset */
+                    skip_leb_uint32(p, p_end);     /* align */
+                    skip_leb_mem_offset(p, p_end); /* offset */
                 }
                 else {
                     /* atomic.fence doesn't have memarg */
@@ -9334,6 +9445,8 @@ fail:
 #define PUSH_EXTERNREF() TEMPLATE_PUSH(EXTERNREF)
 #define PUSH_REF(Type) TEMPLATE_PUSH_REF(Type)
 #define POP_REF(Type) TEMPLATE_POP_REF(Type)
+#define PUSH_MEM_OFFSET() TEMPLATE_PUSH_REF(mem_offset_type)
+#define PUSH_PAGE_COUNT() PUSH_MEM_OFFSET()
 
 #define POP_I32() TEMPLATE_POP(I32)
 #define POP_F32() TEMPLATE_POP(F32)
@@ -9343,6 +9456,7 @@ fail:
 #define POP_FUNCREF() TEMPLATE_POP(FUNCREF)
 #define POP_EXTERNREF() TEMPLATE_POP(EXTERNREF)
 #define POP_STRINGREF() TEMPLATE_POP(STRINGREF)
+#define POP_MEM_OFFSET() TEMPLATE_POP_REF(mem_offset_type)
 
 #if WASM_ENABLE_FAST_INTERP != 0
 
@@ -10510,11 +10624,12 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
 {
     uint8 *p = func->code, *p_end = func->code + func->code_size, *p_org;
     uint32 param_count, local_count, global_count;
-    uint8 *param_types, *local_types, local_type, global_type;
+    uint8 *param_types, *local_types, local_type, global_type, mem_offset_type;
     BlockType func_block_type;
     uint16 *local_offsets, local_offset;
     uint32 type_idx, func_idx, local_idx, global_idx, table_idx;
-    uint32 table_seg_idx, data_seg_idx, count, align, mem_offset, i;
+    uint32 table_seg_idx, data_seg_idx, count, align, i;
+    mem_offset_t mem_offset;
     int32 i32_const = 0;
     int64 i64_const;
     uint8 opcode;
@@ -10538,6 +10653,19 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
 
     LOG_OP("\nProcessing func | [%d] params | [%d] locals | [%d] return\n",
            func->param_cell_num, func->local_cell_num, func->ret_cell_num);
+#endif
+#if WASM_ENABLE_MEMORY64 != 0
+    bool is_memory64 = false;
+    /* TODO: multi-memories for now assuming the memory idx type is consistent
+     * across multi-memories */
+    if (module->import_memory_count > 0)
+        is_memory64 = module->import_memories[0].u.memory.flags & MEMORY64_FLAG;
+    else if (module->memory_count > 0)
+        is_memory64 = module->memories[0].flags & MEMORY64_FLAG;
+
+    mem_offset_type = is_memory64 ? VALUE_TYPE_I64 : VALUE_TYPE_I32;
+#else
+    mem_offset_type = VALUE_TYPE_I32;
 #endif
 
     global_count = module->import_global_count + module->global_count;
@@ -12730,8 +12858,8 @@ re_scan:
                 }
 #endif
                 CHECK_MEMORY();
-                read_leb_uint32(p, p_end, align);      /* align */
-                read_leb_uint32(p, p_end, mem_offset); /* offset */
+                read_leb_uint32(p, p_end, align);          /* align */
+                read_leb_mem_offset(p, p_end, mem_offset); /* offset */
                 if (!check_memory_access_align(opcode, align, error_buf,
                                                error_buf_size)) {
                     goto fail;
@@ -12749,7 +12877,7 @@ re_scan:
                     case WASM_OP_I32_LOAD8_U:
                     case WASM_OP_I32_LOAD16_S:
                     case WASM_OP_I32_LOAD16_U:
-                        POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I32);
+                        POP_AND_PUSH(mem_offset_type, VALUE_TYPE_I32);
                         break;
                     case WASM_OP_I64_LOAD:
                     case WASM_OP_I64_LOAD8_S:
@@ -12758,35 +12886,35 @@ re_scan:
                     case WASM_OP_I64_LOAD16_U:
                     case WASM_OP_I64_LOAD32_S:
                     case WASM_OP_I64_LOAD32_U:
-                        POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I64);
+                        POP_AND_PUSH(mem_offset_type, VALUE_TYPE_I64);
                         break;
                     case WASM_OP_F32_LOAD:
-                        POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_F32);
+                        POP_AND_PUSH(mem_offset_type, VALUE_TYPE_F32);
                         break;
                     case WASM_OP_F64_LOAD:
-                        POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_F64);
+                        POP_AND_PUSH(mem_offset_type, VALUE_TYPE_F64);
                         break;
                     /* store */
                     case WASM_OP_I32_STORE:
                     case WASM_OP_I32_STORE8:
                     case WASM_OP_I32_STORE16:
                         POP_I32();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         break;
                     case WASM_OP_I64_STORE:
                     case WASM_OP_I64_STORE8:
                     case WASM_OP_I64_STORE16:
                     case WASM_OP_I64_STORE32:
                         POP_I64();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         break;
                     case WASM_OP_F32_STORE:
                         POP_F32();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         break;
                     case WASM_OP_F64_STORE:
                         POP_F64();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         break;
                     default:
                         break;
@@ -12802,7 +12930,7 @@ re_scan:
                                   "zero byte expected");
                     goto fail;
                 }
-                PUSH_I32();
+                PUSH_PAGE_COUNT();
 
                 module->possible_memory_grow = true;
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
@@ -12818,7 +12946,7 @@ re_scan:
                                   "zero byte expected");
                     goto fail;
                 }
-                POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I32);
+                POP_AND_PUSH(mem_offset_type, mem_offset_type);
 
                 module->possible_memory_grow = true;
 #if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 \
@@ -14179,7 +14307,7 @@ re_scan:
 
                         POP_I32();
                         POP_I32();
-                        POP_I32();
+                        POP_MEM_OFFSET();
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
 #endif
@@ -14222,9 +14350,9 @@ re_scan:
                             && module->memory_count == 0)
                             goto fail_unknown_memory;
 
-                        POP_I32();
-                        POP_I32();
-                        POP_I32();
+                        POP_MEM_OFFSET();
+                        POP_MEM_OFFSET();
+                        POP_MEM_OFFSET();
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
 #endif
@@ -14242,10 +14370,9 @@ re_scan:
                             && module->memory_count == 0) {
                             goto fail_unknown_memory;
                         }
-
+                        POP_MEM_OFFSET();
                         POP_I32();
-                        POP_I32();
-                        POP_I32();
+                        POP_MEM_OFFSET();
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
 #endif
@@ -14491,6 +14618,7 @@ re_scan:
 #if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
             case WASM_OP_SIMD_PREFIX:
             {
+                /* TODO: memory64 offset type changes */
                 uint32 opcode1;
 
 #if WASM_ENABLE_WAMR_COMPILER != 0
@@ -15167,8 +15295,8 @@ re_scan:
 #endif
                 if (opcode1 != WASM_OP_ATOMIC_FENCE) {
                     CHECK_MEMORY();
-                    read_leb_uint32(p, p_end, align);      /* align */
-                    read_leb_uint32(p, p_end, mem_offset); /* offset */
+                    read_leb_uint32(p, p_end, align);          /* align */
+                    read_leb_mem_offset(p, p_end, mem_offset); /* offset */
                     if (!check_memory_align_equal(opcode1, align, error_buf,
                                                   error_buf_size)) {
                         goto fail;
@@ -15182,18 +15310,20 @@ re_scan:
 #endif
                 switch (opcode1) {
                     case WASM_OP_ATOMIC_NOTIFY:
-                        POP2_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I32);
+                        POP_I32();
+                        POP_MEM_OFFSET();
+                        PUSH_I32();
                         break;
                     case WASM_OP_ATOMIC_WAIT32:
                         POP_I64();
                         POP_I32();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         PUSH_I32();
                         break;
                     case WASM_OP_ATOMIC_WAIT64:
                         POP_I64();
                         POP_I64();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         PUSH_I32();
                         break;
                     case WASM_OP_ATOMIC_FENCE:
@@ -15207,26 +15337,26 @@ re_scan:
                     case WASM_OP_ATOMIC_I32_LOAD:
                     case WASM_OP_ATOMIC_I32_LOAD8_U:
                     case WASM_OP_ATOMIC_I32_LOAD16_U:
-                        POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I32);
+                        POP_AND_PUSH(mem_offset_type, VALUE_TYPE_I32);
                         break;
                     case WASM_OP_ATOMIC_I32_STORE:
                     case WASM_OP_ATOMIC_I32_STORE8:
                     case WASM_OP_ATOMIC_I32_STORE16:
                         POP_I32();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         break;
                     case WASM_OP_ATOMIC_I64_LOAD:
                     case WASM_OP_ATOMIC_I64_LOAD8_U:
                     case WASM_OP_ATOMIC_I64_LOAD16_U:
                     case WASM_OP_ATOMIC_I64_LOAD32_U:
-                        POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I64);
+                        POP_AND_PUSH(mem_offset_type, VALUE_TYPE_I64);
                         break;
                     case WASM_OP_ATOMIC_I64_STORE:
                     case WASM_OP_ATOMIC_I64_STORE8:
                     case WASM_OP_ATOMIC_I64_STORE16:
                     case WASM_OP_ATOMIC_I64_STORE32:
                         POP_I64();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         break;
                     case WASM_OP_ATOMIC_RMW_I32_ADD:
                     case WASM_OP_ATOMIC_RMW_I32_ADD8_U:
@@ -15246,7 +15376,9 @@ re_scan:
                     case WASM_OP_ATOMIC_RMW_I32_XCHG:
                     case WASM_OP_ATOMIC_RMW_I32_XCHG8_U:
                     case WASM_OP_ATOMIC_RMW_I32_XCHG16_U:
-                        POP2_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I32);
+                        POP_I32();
+                        POP_MEM_OFFSET();
+                        PUSH_I32();
                         break;
                     case WASM_OP_ATOMIC_RMW_I64_ADD:
                     case WASM_OP_ATOMIC_RMW_I64_ADD8_U:
@@ -15273,7 +15405,7 @@ re_scan:
                     case WASM_OP_ATOMIC_RMW_I64_XCHG16_U:
                     case WASM_OP_ATOMIC_RMW_I64_XCHG32_U:
                         POP_I64();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         PUSH_I64();
                         break;
                     case WASM_OP_ATOMIC_RMW_I32_CMPXCHG:
@@ -15281,7 +15413,7 @@ re_scan:
                     case WASM_OP_ATOMIC_RMW_I32_CMPXCHG16_U:
                         POP_I32();
                         POP_I32();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         PUSH_I32();
                         break;
                     case WASM_OP_ATOMIC_RMW_I64_CMPXCHG:
@@ -15290,7 +15422,7 @@ re_scan:
                     case WASM_OP_ATOMIC_RMW_I64_CMPXCHG32_U:
                         POP_I64();
                         POP_I64();
-                        POP_I32();
+                        POP_MEM_OFFSET();
                         PUSH_I64();
                         break;
                     default:
