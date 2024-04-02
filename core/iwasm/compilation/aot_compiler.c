@@ -966,7 +966,9 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
         location = dwarf_gen_location(
             comp_ctx, func_ctx,
             (frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code);
-        LLVMSetCurrentDebugLocation2(comp_ctx->builder, location);
+        if (location != NULL) {
+            LLVMSetCurrentDebugLocation2(comp_ctx->builder, location);
+        }
 #endif
 
         switch (opcode) {
