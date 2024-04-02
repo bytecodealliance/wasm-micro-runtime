@@ -374,7 +374,9 @@ handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 goto fail;
             }
 #if WASM_ENABLE_DEBUG_AOT != 0
-            LLVMInstructionSetDebugLoc(ret, return_location);
+            if (return_location != NULL) {
+                LLVMInstructionSetDebugLoc(ret, return_location);
+            }
 #endif
         }
         else {
@@ -383,7 +385,9 @@ handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 goto fail;
             }
 #if WASM_ENABLE_DEBUG_AOT != 0
-            LLVMInstructionSetDebugLoc(ret, return_location);
+            if (return_location != NULL) {
+                LLVMInstructionSetDebugLoc(ret, return_location);
+            }
 #endif
         }
     }
