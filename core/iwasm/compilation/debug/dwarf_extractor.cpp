@@ -295,6 +295,28 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
     const size_t num_function_args = function_args.GetSize();
     dwarf_extractor *extractor;
 
+    /*
+     * Process only known languages.
+     * We have a few assumptions which might not be true for non-C functions.
+     *
+     * At least it's known broken for C++ and Rust:
+     * https://github.com/bytecodealliance/wasm-micro-runtime/issues/3187
+     * https://github.com/bytecodealliance/wasm-micro-runtime/issues/3163
+     */
+    LanguageType language_type = function.GetLanguage();
+    switch (language_type) {
+        case eLanguageTypeC89:
+        case eLanguageTypeC:
+        case eLanguageTypeC99:
+        case eLanguageTypeC11:
+        case eLanguageTypeC17:
+            break;
+        default:
+            LOG_WARNING("func %s has unsuppoted language_type 0x%x",
+                        function_name, (int)language_type);
+            return NULL;
+    }
+
     if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
         return NULL;
 
