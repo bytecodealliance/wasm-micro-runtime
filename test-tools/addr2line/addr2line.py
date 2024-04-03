@@ -178,9 +178,13 @@ def parse_call_stack_line(line: str) -> tuple[str, str, str]:
     #00: 0x0a04 - $f18   => (00, 0x0a04, $f18)
     Old format:
     #00 $f18             => (00, _, $f18)
+    Text format (-DWAMR_BUILD_LOAD_CUSTOM_SECTION=1 -DWAMR_BUILD_CUSTOM_NAME_SECTION=1):
+    #02: 0x0200 - a      => (02, 0x0200, a)
+    _start (always):
+    #05: 0x011f - _start => (05, 0x011f, _start)
     """
 
-    # New format
+    # New format and Text format and _start
     PATTERN = r"#([0-9]+): 0x([0-9a-f]+) - (\S+)"
     m = re.match(PATTERN, line)
     if m is not None:
@@ -261,8 +265,7 @@ def main():
     if code_section_start == -1:
         return -1
 
-    if args.no_addr:
-        function_index_to_name = parse_module_functions(wasm_objdump, args.wasm_file)
+    function_index_to_name = parse_module_functions(wasm_objdump, args.wasm_file)
 
     assert args.call_stack_file.exists()
     with open(args.call_stack_file, "rt", encoding="ascii") as f:
@@ -272,15 +275,17 @@ def main():
                 continue
 
             splitted = parse_call_stack_line(line)
-            assert splitted is not None
+            if splitted is None:
+                print(f"{line}")
+                continue
 
             _, offset, index = splitted
-            if not index.startswith("$f"):  # E.g. _start
-                print(f"{i}: {index}")
-                continue
-            index = index[2:]
-
             if args.no_addr:
+                if not index.startswith("$f"):  # E.g. _start or Text format
+                    print(f"{i}: {index}")
+                    continue
+                index = index[2:]
+
                 if index not in function_index_to_name:
                     print(f"{i}: {line}")
                     continue
@@ -289,21 +294,30 @@ def main():
                     llvm_dwarf_dump, args.wasm_file, function_index_to_name[index]
                 )
 
-                _, funciton_file, function_line = line_info
+                _, function_file, function_line = line_info
                 function_name = demangle(llvm_cxxfilt, function_index_to_name[index])
                 print(f"{i}: {function_name}")
-                print(f"\tat {funciton_file}:{function_line}")
+                print(f"\tat {function_file}:{function_line}")
             else:
                 offset = int(offset, 16)
                 offset = offset - code_section_start
-                line_info = get_line_info_from_function_addr(
-                    llvm_dwarf_dump, args.wasm_file, offset
+                function_name, function_file, function_line, function_column = (
+                    get_line_info_from_function_addr(
+                        llvm_dwarf_dump, args.wasm_file, offset
+                    )
                 )
 
-                function_name, funciton_file, function_line, function_column = line_info
+                # if can't parse function_name, use name section or <index>
+                if function_name == "<unknown>":
+                    if index.startswith("$f"):
+                        function_name = function_index_to_name.get(index[2:], index)
+                    else:
+                        function_name = index
+
                 function_name = demangle(llvm_cxxfilt, function_name)
+
                 print(f"{i}: {function_name}")
-                print(f"\tat {funciton_file}:{function_line}:{function_column}")
+                print(f"\tat {function_file}:{function_line}:{function_column}")
 
     return 0
 

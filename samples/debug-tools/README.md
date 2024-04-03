@@ -63,7 +63,7 @@ The output should be something like:
         at wasm-micro-runtime/samples/debug-tools/wasm-apps/trap.c:17:12
 3: main
         at wasm-micro-runtime/samples/debug-tools/wasm-apps/trap.c:24:5
-4: <unknown>
+4: __main_void
         at unknown:?:?
 5: _start
 ```
@@ -79,3 +79,22 @@ $ python3 ../../../test-tools/addr2line/addr2line.py \
     --wasm-file wasm-apps/trap.wasm \
     call_stack.txt --no-addr
 ```
+
+### Another approach
+
+If the wasm file is with "name" section, it is able to output function name in the stack trace. To achieve that, need to enable `WAMR_BUILD_LOAD_CUSTOM_SECTION` and `WAMR_BUILD_CUSTOM_NAME_SECTION`. If using .aot file, need to add `--emit-custom-sections=name` into wamrc command line options.
+
+Then the output should be something like
+
+```text
+#00: 0x0159 - c
+#01: 0x01b2 - b
+#02: 0x0200 - a
+#03: 0x026b - main
+#04: 0x236b - __main_void
+#05: 0x011f - _start
+
+Exception: unreachable
+```
+
+Also, it is able to use *addr2line.py* to add file and line info to the stack trace.
