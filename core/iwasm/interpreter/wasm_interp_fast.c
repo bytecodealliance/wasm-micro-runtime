@@ -1693,7 +1693,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 /* clang-format off */
 #if WASM_ENABLE_GC == 0
-                fidx = tbl_inst->elems[val];
+                fidx = (uint32)tbl_inst->elems[val];
                 if (fidx == (uint32)-1) {
                     wasm_set_exception(module, "uninitialized element");
                     goto got_exception;

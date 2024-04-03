@@ -101,6 +101,26 @@ if [[ $? != 0 ]]; then
     exit 1;
 fi
 
+# build iwasm with exception handling enabled
+cd ${WAMR_DIR}/product-mini/platforms/linux
+rm -rf build && mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Debug -DWAMR_BUILD_EXCE_HANDLING=1
+make -j
+if [[ $? != 0 ]]; then
+    echo "Failed to build iwasm with exception handling enabled!"
+    exit 1;
+fi
+
+# build iwasm with memory64 enabled
+cd ${WAMR_DIR}/product-mini/platforms/linux
+rm -rf build && mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Debug -DWAMR_BUILD_MEMORY64=1
+make -j
+if [[ $? != 0 ]]; then
+    echo "Failed to build iwasm with memory64 enabled!"
+    exit 1;
+fi
+
 # build iwasm with hardware boundary check disabled
 cd ${WAMR_DIR}/product-mini/platforms/linux
 rm -rf build && mkdir build && cd build

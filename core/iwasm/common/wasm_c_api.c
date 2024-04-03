@@ -3987,7 +3987,7 @@ wasm_table_get(const wasm_table_t *table, wasm_table_size_t index)
         if (index >= table_interp->cur_size) {
             return NULL;
         }
-        ref_idx = table_interp->elems[index];
+        ref_idx = (uint32)table_interp->elems[index];
     }
 #endif
 
@@ -3998,7 +3998,7 @@ wasm_table_get(const wasm_table_t *table, wasm_table_size_t index)
         if (index >= table_aot->cur_size) {
             return NULL;
         }
-        ref_idx = table_aot->elems[index];
+        ref_idx = (uint32)table_aot->elems[index];
     }
 #endif
 

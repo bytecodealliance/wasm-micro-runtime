@@ -1329,8 +1329,8 @@ block_type_get_param_types(BlockType *block_type, uint8 **p_param_types,
         param_count = func_type->param_count;
 #if WASM_ENABLE_GC != 0
         *p_param_reftype_maps = func_type->ref_type_maps;
-        *p_param_reftype_map_count =
-            func_type->result_ref_type_maps - func_type->ref_type_maps;
+        *p_param_reftype_map_count = (uint32)(func_type->result_ref_type_maps
+                                              - func_type->ref_type_maps);
 #endif
     }
     else {

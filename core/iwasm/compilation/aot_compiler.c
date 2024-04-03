@@ -330,7 +330,7 @@ aot_gen_commit_values(AOTCompFrame *frame)
         if (!p->dirty)
             continue;
 
-        n = p - frame->lp;
+        n = (uint32)(p - frame->lp);
 
         /* Commit reference flag */
         if (comp_ctx->enable_gc) {
@@ -432,7 +432,7 @@ aot_gen_commit_values(AOTCompFrame *frame)
             continue;
 
         p->dirty = 0;
-        n = p - frame->lp;
+        n = (uint32)(p - frame->lp);
 
         /* Commit values */
         switch (p->type) {
@@ -538,7 +538,7 @@ aot_gen_commit_values(AOTCompFrame *frame)
         /* Clear reference flags for unused stack slots.  */
         for (p = frame->sp; p < end; p++) {
             bh_assert(!p->ref);
-            n = p - frame->lp;
+            n = (uint32)(p - frame->lp);
 
             /* Commit reference flag.  */
             if (p->ref != p->committed_ref - 1) {
@@ -621,7 +621,7 @@ aot_gen_commit_sp_ip(AOTCompFrame *frame, bool commit_sp, bool commit_ip)
     }
 
     if (commit_sp) {
-        n = sp - frame->lp;
+        n = (uint32)(sp - frame->lp);
         value = I32_CONST(offset_of_local(comp_ctx, n));
         if (!value) {
             aot_set_last_error("llvm build const failed");

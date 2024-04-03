@@ -1269,6 +1269,7 @@ aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                         PUSH(values[j], target_block->result_types[j]);
                     }
                     wasm_runtime_free(values);
+                    values = NULL;
                 }
                 target_block->is_reachable = true;
                 if (i == br_count)
@@ -1294,6 +1295,7 @@ aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                         PUSH(values[j], target_block->param_types[j]);
                     }
                     wasm_runtime_free(values);
+                    values = NULL;
                 }
                 if (i == br_count)
                     default_llvm_block = target_block->llvm_entry_block;

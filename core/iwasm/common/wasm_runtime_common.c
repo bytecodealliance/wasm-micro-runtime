@@ -275,11 +275,11 @@ decode_insn(uint8 *insn)
                                         buffer, sizeof(buffer),
                                         runtime_address);
 
+#if 0
         /* Print current instruction */
-        /*
         os_printf("%012" PRIX64 "  ", runtime_address);
         puts(buffer);
-        */
+#endif
 
         return instruction.length;
     }
@@ -1043,7 +1043,7 @@ wasm_runtime_register_module_internal(const char *module_name,
     /* module hasn't been registered */
     node = runtime_malloc(sizeof(WASMRegisteredModule), NULL, NULL, 0);
     if (!node) {
-        LOG_DEBUG("malloc WASMRegisteredModule failed. SZ=%d",
+        LOG_DEBUG("malloc WASMRegisteredModule failed. SZ=%zu",
                   sizeof(WASMRegisteredModule));
         return false;
     }
@@ -1780,7 +1780,7 @@ wasm_runtime_dump_mem_consumption(WASMExecEnv *exec_env)
     wasm_runtime_dump_module_inst_mem_consumption(module_inst_common);
     wasm_runtime_dump_exec_env_mem_consumption(exec_env);
     os_printf("\nTotal memory consumption of module, module inst and "
-              "exec env: %u\n",
+              "exec env: %" PRIu64 "\n",
               total_size);
     os_printf("Total interpreter stack used: %u\n",
               exec_env->max_wasm_stack_used);
@@ -5488,6 +5488,7 @@ wasm_externref_set_cleanup(WASMModuleInstanceCommon *module_inst,
     if (lookup_user_data.found) {
         void *key = (void *)(uintptr_t)lookup_user_data.externref_idx;
         ExternRefMapNode *node = bh_hash_map_find(externref_map, key);
+        bh_assert(node);
         node->cleanup = extern_obj_cleanup;
         ok = true;
     }
@@ -6539,12 +6540,12 @@ wasm_runtime_load_depended_module(const WASMModuleCommon *parent_module,
     if (!ret) {
         LOG_DEBUG("read the file of %s failed", sub_module_name);
         set_error_buf_v(parent_module, error_buf, error_buf_size,
-                        "unknown import", sub_module_name);
+                        "unknown import %s", sub_module_name);
         goto delete_loading_module;
     }
     if (get_package_type(buffer, buffer_size) != parent_module->module_type) {
         LOG_DEBUG("moudle %s type error", sub_module_name);
-        goto delete_loading_module;
+        goto destroy_file_buffer;
     }
     if (get_package_type(buffer, buffer_size) == Wasm_Module_Bytecode) {
 #if WASM_ENABLE_INTERP != 0
@@ -6650,7 +6651,7 @@ wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
         sub_module_inst_list_node = loader_malloc(sizeof(WASMSubModInstNode),
                                                   error_buf, error_buf_size);
         if (!sub_module_inst_list_node) {
-            LOG_DEBUG("Malloc WASMSubModInstNode failed, SZ:%d",
+            LOG_DEBUG("Malloc WASMSubModInstNode failed, SZ: %zu",
                       sizeof(WASMSubModInstNode));
             if (sub_module_inst)
                 wasm_runtime_deinstantiate_internal(sub_module_inst, false);

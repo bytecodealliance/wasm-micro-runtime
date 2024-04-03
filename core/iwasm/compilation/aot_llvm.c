@@ -674,7 +674,8 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
     uint32 backend_thread_num, compile_thread_num;
 
     /* Check function parameter types and result types */
-    for (i = 0; i < aot_func_type->param_count + aot_func_type->result_count;
+    for (i = 0;
+         i < (uint32)(aot_func_type->param_count + aot_func_type->result_count);
          i++) {
         if (!check_wasm_type(comp_ctx, aot_func_type->types[i]))
             return NULL;
