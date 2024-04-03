@@ -313,6 +313,17 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
         if (function_arg_type.IsValid()) {
             ParamTypes[function_arg_idx + 1] =
                 lldb_type_to_type_dbi(comp_ctx, function_arg_type);
+            if (ParamTypes[function_arg_idx + 1] == NULL) {
+                LOG_WARNING(
+                    "func %s arg %" PRIu32
+                    " has a type not implemented by lldb_type_to_type_dbi",
+                    function_name, function_arg_idx);
+            }
+        }
+        else {
+            LOG_WARNING("func %s arg %" PRIu32 ": GetTypeAtIndex failed",
+                        function_name, function_arg_idx);
+            ParamTypes[function_arg_idx + 1] = NULL;
         }
     }
 
@@ -399,7 +410,7 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
          ++function_arg_idx) {
         uint32_t variable_idx = variable_offset + function_arg_idx;
         SBValue variable(variable_list.GetValueAtIndex(variable_idx));
-        if (variable.IsValid()) {
+        if (variable.IsValid() && ParamTypes[function_arg_idx + 1] != NULL) {
             SBDeclaration dec(variable.GetDeclaration());
             auto valtype = variable.GetType();
             LLVMMetadataRef ParamLocation = LLVMDIBuilderCreateDebugLocation(
