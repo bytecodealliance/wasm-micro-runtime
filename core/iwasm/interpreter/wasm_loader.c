@@ -7213,7 +7213,7 @@ fail:
         wasm_runtime_free(frame_ref_buf);
 #if WASM_ENABLE_FAST_INTERP != 0
     if (frame_offset_buf && frame_offset_buf != frame_offset_tmp)
-        wasm_runtime_free(frame_offset_tmp);
+        wasm_runtime_free(frame_offset_buf);
 #endif
 
     return ret;
