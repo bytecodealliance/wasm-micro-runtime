@@ -3844,7 +3844,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_SHARED_MEMORY != 0
             HANDLE_OP(WASM_OP_ATOMIC_PREFIX)
             {
-                uint32 offset = 0, align, addr;
+                uint32 offset = 0, align = 0, addr;
                 uint32 opcode1;
 
                 read_leb_uint32(frame_ip, frame_ip_end, opcode1);

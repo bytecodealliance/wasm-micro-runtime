@@ -426,7 +426,7 @@ sprintf_wrapper(wasm_exec_env_t exec_env, char *str, const char *format,
     if (!wasm_runtime_get_native_addr_range(module_inst, (uint8 *)str, NULL,
                                             &native_end_offset)) {
         wasm_runtime_set_exception(module_inst, "out of bounds memory access");
-        return false;
+        return 0;
     }
 
     ctx.str = str;

@@ -170,7 +170,9 @@ export async function activate(context: vscode.ExtensionContext) {
     }
 
     /* register debug configuration */
-    wasmDebugConfigProvider = new WasmDebugConfigurationProvider(context.extensionPath);
+    wasmDebugConfigProvider = new WasmDebugConfigurationProvider(
+        context.extensionPath
+    );
 
     vscode.debug.registerDebugConfigurationProvider(
         'wamr-debug',
@@ -811,6 +813,7 @@ interface BuildArgs {
     maxMemorySize: string;
     stackSize: string;
     exportedSymbols: string;
+    hostManagedHeapSize: string;
 }
 
 /**

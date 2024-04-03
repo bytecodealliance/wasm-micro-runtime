@@ -14,7 +14,11 @@ The WAMR-IDE is an Integrated Development Environment to develop WebAssembly app
 
 ## How to setup WAMR IDE
 
-Now, we have same version tagged docker images, lldb binaries and VS Code installation file(.vsix file) packed for each GitHub release. So if you simply want to use WAMR debugging features in VS Code, the ideal(and effortless) way is following the tutorial in [this section](#21-download-wamr-vs-code-extension-from-the-github-releaserecommended-approach).
+Now, the most straightforward way to install the WAMR IDE extension is by searching for WAMR-IDE in the VS Code extension marketplace and installing it directly. So, if you simply want to use WAMR debugging features in VS Code, this is the ideal (and effortless) way. And you are ready to [use WAMR IDE](#how-to-use-wamr-ide).
+
+> It is only recommended to download versions after 1.3.2 from the marketplace.
+
+Also, we have same version tagged docker images, lldb binaries and VS Code installation file(.vsix file) packed for each GitHub release. You can following the tutorial in [this section](#21-download-wamr-vs-code-extension-from-the-github-releaserecommended-approach).
 
 Alternatively, if you want to build lldb, docker images, or .vsix file locally so that you can try the effect of your modification, you could refer to the tutorial in [this section](#22-build-wamr-vs-code-extension-locallyalternative-approach).
 
@@ -93,19 +97,19 @@ We have 2 docker images which should be built or loaded on your host, `wasm-tool
 Windows (powershell):
 
 ```batch
-$ cd .\WASM-Toolchain\Docker
-$ .\build_docker_image.bat
-$ cd .\WASM-Debug-Server\Docker
-$ .\build_docker_image.bat
+cd .\WASM-Toolchain\Docker
+.\build_docker_image.bat
+cd .\WASM-Debug-Server\Docker
+.\build_docker_image.bat
 ```
 
 Linux:
 
 ```shell
-$ cd ./WASM-Toolchain/Docker
-$ ./build_docker_image.sh
-$ cd ./WASM-Debug-Server/Docker
-$ ./build_docker_image.sh
+cd ./WASM-Toolchain/Docker
+./build_docker_image.sh
+cd ./WASM-Debug-Server/Docker
+./build_docker_image.sh
 ```
 
 ##### 2.2.2 After building, you can find `wasm-toolchain` and `wasm-debug-server` docker images on your local
@@ -145,11 +149,11 @@ $ docker build --no-cache --build-arg http_proxy=http://proxy.example.com:1234
 `wamride-1.0.0.vsix` can be packaged by [`npm vsce`](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
 
 ```shell
-$ npm install -g vsce
-$ cd VSCode-Extension
-$ rm -rf node_modules
-$ npm install
-$ vsce package
+npm install -g vsce
+cd VSCode-Extension
+rm -rf node_modules
+npm install
+vsce package
 ```
 
 ##### 2.2.7 Enable VS Code debugging feature
@@ -171,7 +175,6 @@ $ cp inst/* /home/{usrname}/.vscode-server/extensions/wamr.wamride-1.0.0/resourc
 If you want to use your own patched `lldb`, you could follow this [instruction](../../doc/source_debugging.md#debugging-with-interpreter) to build `lldb`. And follow this [instruction](./VSCode-Extension/resource/debug/README.md)
 to copy the binaries to replace the existing ones.
 
-
 > **You can also debug the extension directly follow this [instruction](./VSCode-Extension/README.md) without packing the extension.**
 
 ##### 2.2.7 Install extension from vsix
@@ -184,7 +187,7 @@ select `wamride-1.0.0.vsix` which you have packed on your host.
 
 ## How to use `wamr-ide`
 
-#### `WAMR-IDE` extension contains 2 components as following picture showing. `WAMR IDE` for workspace and project management and `Current Project` for project's execution.
+#### `WAMR-IDE` extension contains 2 components as following picture showing. `WAMR IDE` for workspace and project management and `Current Project` for project's execution
 
 ![wamr_ide_main_menu](./Media/wamr_ide_main_menu.png "wamr-ide main menu")
 
@@ -254,7 +257,7 @@ Click `Change workspace` button, a dialog will show as following. You can select
 
   At the same time, all added `include path` and `exclude files` will be saved in `.wamr/compilation_config.json` as json array.
 
-  ![compilation config](./Media/compilation_config_2.png "compilation config")
+  ![compilation config](./Media/compilation_config.png "compilation config")
 
 > `Toggle state of path including` just shows when selecting `folder` and hides with other resources.
 >
@@ -268,13 +271,22 @@ Click `Configuration` button, a new page will be shown as following. You can con
 
 ![config building target](./Media/Config_building_target.png "config building target")
 
+Short Explanation of the Fields Above:
+
+- Output file name: The compiled wasm file name of your program.
+- Initial linear memory size, Max linear memory size, Stack size: The wasi-sdk clang compile options.
+- Exported symbols: The symbols your wasm program wants to export. **Multiple symbols are separated by commas without spaces**.
+- Host managed heap size: The running configuration for the host managed heap size of iwasm. In most cases, the default size would be fine, but in some scenarios, let's say you want to allocate more memory using `malloc`, you should increase it here accordingly.
+
+> Note that due to the current implementation limitation, after changing the `Output file name` or `Host managed heap size`, you need to close and reopen VSCode (to reactivate the extension) so that the running config will be correctly updated.
+
 Then click `Modify` button to confirm, if configurations are modified successfully and following message will pop. Click `OK`, the page will be auto closed.
 
 ![save configuration](./Media/save_configuration.png "save configuration")
 
 And all configuration will be saved in `.wamr/compilation_config.json`.
 
-![configuration file](./Media/compilation_config.png "configuration file")
+![configuration file](./Media/compilation_config_2.png "configuration file")
 
 #### 2. `Build`
 

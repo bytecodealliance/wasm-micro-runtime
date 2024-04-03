@@ -203,7 +203,12 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
             goto fail;                                                      \
         }                                                                   \
         memset(aot_value, 0, sizeof(AOTValue));                             \
-        aot_value->type = value_type;                                       \
+        if (comp_ctx->enable_ref_types                                      \
+            && (value_type == VALUE_TYPE_FUNCREF                            \
+                || value_type == VALUE_TYPE_EXTERNREF))                     \
+            aot_value->type = VALUE_TYPE_I32;                               \
+        else                                                                \
+            aot_value->type = value_type;                                   \
         aot_value->value = llvm_value;                                      \
         aot_value_stack_push(                                               \
             &func_ctx->block_stack.block_list_end->value_stack, aot_value); \
