@@ -43,6 +43,29 @@ For example, there is a call-stack dump:
 """
 
 
+def locate_sourceMappingURL_section(wasm_objdump: Path, wasm_file: Path) -> bool:
+    """
+    Figure out if the wasm file has a sourceMappingURL section.
+    """
+    cmd = f"{wasm_objdump} -h {wasm_file}"
+    p = subprocess.run(
+        shlex.split(cmd),
+        check=True,
+        capture_output=True,
+        text=True,
+        universal_newlines=True,
+    )
+    outputs = p.stdout.split(os.linesep)
+
+    for line in outputs:
+        line = line.strip()
+        if "sourceMappingURL" in line:
+            return True
+    else:
+        print(f"No sourceMappingURL section found in {wasm_file}")
+        return False
+
+
 def get_code_section_start(wasm_objdump: Path, wasm_file: Path) -> int:
     """
     Find the start offset of Code section in a wasm file.
@@ -79,7 +102,7 @@ def get_code_section_start(wasm_objdump: Path, wasm_file: Path) -> int:
     return -1
 
 
-def get_line_info_from_function_addr(
+def get_line_info_from_function_addr_dwarf(
     dwarf_dump: Path, wasm_file: Path, offset: int
 ) -> tuple[str, str, str, str]:
     """
@@ -126,7 +149,7 @@ def get_dwarf_tag_value(tag: str, line: str) -> str:
     return m.groups()[0]
 
 
-def get_line_info_from_function_name(
+def get_line_info_from_function_name_dwarf(
     dwarf_dump: Path, wasm_file: Path, function_name: str
 ) -> tuple[str, str, str]:
     """
@@ -158,6 +181,17 @@ def get_line_info_from_function_name(
             function_line = get_dwarf_tag_value("DW_AT_decl_line", line)
 
     return (function_name, function_file, function_line)
+
+
+def get_line_info_from_function_addr_sourcemapping(
+    emsymbolizer: Path, wasm_file: Path, offset: int
+) -> tuple[str, str, str, str]:
+    """
+    Find the location info of a given offset in a wasm file which is compiled with emcc.
+
+    {emsymbolizer} {wasm_file} {offset of file}
+    """
+    pass
 
 
 def parse_line_info(line_info: str) -> tuple[str, str, str]:
@@ -250,6 +284,7 @@ def main():
         action="store_true",
         help="use call stack without addresses or from fast interpreter mode",
     )
+    parser.add_argument("--emsdk", type=Path, help="path to emsdk")
     args = parser.parse_args()
 
     wasm_objdump = args.wabt.joinpath("bin/wasm-objdump")
@@ -260,6 +295,15 @@ def main():
 
     llvm_cxxfilt = args.wasi_sdk.joinpath("bin/llvm-cxxfilt")
     assert llvm_cxxfilt.exists()
+
+    emcc_production = locate_sourceMappingURL_section(wasm_objdump, args.wasm_file)
+    if emcc_production:
+        if args.emsdk is None:
+            print("Please provide the path to emsdk via --emsdk")
+            return -1
+
+        emsymbolizer = args.emsdk.joinpath("upstream/emscripten/emsymbolizer")
+        assert emsymbolizer.exists()
 
     code_section_start = get_code_section_start(wasm_objdump, args.wasm_file)
     if code_section_start == -1:
@@ -281,6 +325,7 @@ def main():
 
             _, offset, index = splitted
             if args.no_addr:
+                # FIXME: w/ emcc production
                 if not index.startswith("$f"):  # E.g. _start or Text format
                     print(f"{i}: {index}")
                     continue
@@ -290,7 +335,7 @@ def main():
                     print(f"{i}: {line}")
                     continue
 
-                line_info = get_line_info_from_function_name(
+                line_info = get_line_info_from_function_name_dwarf(
                     llvm_dwarf_dump, args.wasm_file, function_index_to_name[index]
                 )
 
@@ -302,7 +347,7 @@ def main():
                 offset = int(offset, 16)
                 offset = offset - code_section_start
                 function_name, function_file, function_line, function_column = (
-                    get_line_info_from_function_addr(
+                    get_line_info_from_function_addr_dwarf(
                         llvm_dwarf_dump, args.wasm_file, offset
                     )
                 )
