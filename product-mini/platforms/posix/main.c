@@ -675,7 +675,7 @@ main(int argc, char *argv[])
 #endif
 #if WASM_ENABLE_GC != 0
         else if (!strncmp(argv[0], "--gc-heap-size=", 15)) {
-            if (argv[0][21] == '\0')
+            if (argv[0][15] == '\0')
                 return print_help();
             gc_heap_size = atoi(argv[0] + 15);
         }
