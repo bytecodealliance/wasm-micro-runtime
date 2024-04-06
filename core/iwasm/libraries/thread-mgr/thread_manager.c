@@ -1057,7 +1057,8 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
 
     /* Free aux stack space */
     if (exec_env->is_aux_stack_allocated)
-        wasm_cluster_free_aux_stack(exec_env, (uint64)exec_env->aux_stack_bottom);
+        wasm_cluster_free_aux_stack(exec_env,
+                                    (uint64)exec_env->aux_stack_bottom);
 
     /* App exit the thread, free the resources before exit native thread */
 
