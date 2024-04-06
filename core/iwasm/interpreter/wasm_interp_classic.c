@@ -1509,6 +1509,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     WASMStringviewIterObjectRef stringview_iter_obj;
 #endif
 #endif
+#if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0
+    bool is_return_call = false;
+#endif
 #if WASM_ENABLE_MEMORY64 != 0
     /* TODO: multi-memories for now assuming the memory idx type is consistent
      * across multi-memories */
@@ -6227,6 +6230,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 frame_ip = frame->ip;
                 frame_sp = frame->sp;
                 frame_csp = frame->csp;
+#if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0
+                is_return_call = false;
+#endif
                 goto call_func_from_entry;
             }
 
@@ -6320,6 +6326,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         }
         FREE_FRAME(exec_env, frame);
         wasm_exec_env_set_cur_frame(exec_env, prev_frame);
+        is_return_call = true;
         goto call_func_from_entry;
     }
 #endif
@@ -6333,6 +6340,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         }
         SYNC_ALL_TO_FRAME();
         prev_frame = frame;
+#if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0
+        is_return_call = false;
+#endif
     }
 
     call_func_from_entry:
@@ -6394,9 +6404,18 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                              prev_frame);
             }
 
-            prev_frame = frame->prev_frame;
-            cur_func = frame->function;
-            UPDATE_ALL_FROM_FRAME();
+#if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0
+            /* Don't restore some variables from frame for tail call, since
+               they weren't committed into the frame previously and are
+               available now. Instead, the frame was freed, allocated and
+               set again, restoring from it may cause unexped behavior. */
+            if (!is_return_call)
+#endif
+            {
+                prev_frame = frame->prev_frame;
+                cur_func = frame->function;
+                UPDATE_ALL_FROM_FRAME();
+            }
 
             /* update memory size, no need to update memory ptr as
                it isn't changed in wasm_enlarge_memory */
