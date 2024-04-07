@@ -3,6 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+/**
+ * @file   lib_export.h
+ * @date   Wed Mar 20 10:46:38 2024
+ *
+ */
+
 #ifndef _LIB_EXPORT_H_
 #define _LIB_EXPORT_H_
 

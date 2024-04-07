@@ -3,6 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+/**
+ * @file   gc_export.h
+ * @date   Wed Mar 20 10:46:38 2024
+ *
+ * @brief  This file defines the exported GC APIs
+ */
+
 #ifndef _GC_EXPORT_H
 #define _GC_EXPORT_H
 
