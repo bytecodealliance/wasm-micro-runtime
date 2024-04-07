@@ -526,7 +526,6 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
                   "failed to allocate aux stack space for new thread");
         goto fail1;
     }
-    exec_env->is_aux_stack_allocated = true;
 
     os_mutex_lock(&cluster->lock);
 
@@ -559,6 +558,7 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
                                      aux_stack_size)) {
         goto fail3;
     }
+    new_exec_env->is_aux_stack_allocated = true;
 
     /* Inherit suspend_flags of parent thread */
     new_exec_env->suspend_flags.flags =
