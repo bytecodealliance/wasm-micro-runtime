@@ -41,12 +41,12 @@ static void (*free_func)(void *ptr) = NULL;
 
 static unsigned int global_pool_size;
 
-static uint32
+static uint64
 align_as_and_cast(uint64 size, uint64 alignment)
 {
     uint64 aligned_size = (size + alignment - 1) & ~(alignment - 1);
 
-    return aligned_size > UINT32_MAX ? UINT32_MAX : (uint32)aligned_size;
+    return aligned_size;
 }
 
 static bool
