@@ -9294,7 +9294,7 @@ jit_codegen_init()
         a.jne(imm);
 
         char *stream_old = (char *)a.code()->sectionById(0)->buffer().data()
-                       + a.code()->sectionById(0)->buffer().size();
+                           + a.code()->sectionById(0)->buffer().size();
 
         /* If yes, call jit_set_exception_with_id to throw exception,
            and then set eax to JIT_INTERP_ACTION_THROWN, and jump to
