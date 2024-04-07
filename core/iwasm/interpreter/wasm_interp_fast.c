@@ -5866,11 +5866,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             }
 
 #if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0
-            /* Don't restore some variables from frame for tail call, since
-               they weren't committed into the frame previously and are
-               available now. Instead, the frame was freed, allocated and
-               set again, restoring from it may cause unexped behavior. */
-            if (!is_return_call)
+            if (is_return_call) {
+                /* the frame was freed before tail calling and
+                   the prev_frame was set as exec_env's cur_frame,
+                   so here we recover context from prev_frame */
+                RECOVER_CONTEXT(prev_frame);
+            }
+            else
 #endif
             {
                 prev_frame = frame->prev_frame;
