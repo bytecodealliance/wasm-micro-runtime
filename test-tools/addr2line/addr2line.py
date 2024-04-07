@@ -61,9 +61,8 @@ def locate_sourceMappingURL_section(wasm_objdump: Path, wasm_file: Path) -> bool
         line = line.strip()
         if "sourceMappingURL" in line:
             return True
-    else:
-        print(f"No sourceMappingURL section found in {wasm_file}")
-        return False
+
+    return False
 
 
 def get_code_section_start(wasm_objdump: Path, wasm_file: Path) -> int:

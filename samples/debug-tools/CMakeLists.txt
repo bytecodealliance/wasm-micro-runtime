@@ -7,6 +7,10 @@ include(CheckPIESupported)
 
 project(debug_tools_sample)
 
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+find_package(WASISDK REQUIRED)
+find_package(EMSCRIPTEN 3.1.50 REQUIRED)
+
 ################  runtime settings  ################
 string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
 if (APPLE)
@@ -61,7 +65,26 @@ include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 
 ################ wasm application ################
-add_subdirectory(wasm-apps)
+include(ExternalProject)
+
+# wasm32-wasi
+ExternalProject_Add(wasm33-wasi
+  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps"
+  CONFIGURE_COMMAND ${CMAKE_COMMAND} -S ${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps -B build
+                      -DCMAKE_TOOLCHAIN_FILE=${WASISDK_TOOLCHAIN}
+  BUILD_COMMAND     ${CMAKE_COMMAND} --build build
+  INSTALL_COMMAND   ${CMAKE_COMMAND} --install build --prefix ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+# wasm32-emscripten
+ExternalProject_Add(wasm32-emscripten
+  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps"
+  CONFIGURE_COMMAND ${CMAKE_COMMAND} -S ${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps -B build
+                      -DCMAKE_TOOLCHAIN_FILE=${EMSCRIPTEN_TOOLCHAIN}
+                      -DCMAKE_VERBOSE_MAKEFILE=On
+  BUILD_COMMAND     ${CMAKE_COMMAND} --build build
+  INSTALL_COMMAND   ${CMAKE_COMMAND} --install build --prefix ${CMAKE_CURRENT_BINARY_DIR}/emscripten
+)
 
 ################ wamr runtime ################
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
