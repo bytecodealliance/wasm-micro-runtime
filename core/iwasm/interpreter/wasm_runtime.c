@@ -273,7 +273,7 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
                 /* For memory32, the global value should be i32 */
                 *(uint32 *)global_addr = (uint32)aux_heap_base;
             }
-            LOG_VERBOSE("Reset __heap_base global to %lu", aux_heap_base);
+            LOG_VERBOSE("Reset __heap_base global to %" PRIu64, aux_heap_base);
         }
         else {
             /* Insert app heap before new page */
@@ -300,7 +300,8 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     LOG_VERBOSE("Memory instantiate:");
     LOG_VERBOSE("  page bytes: %u, init pages: %u, max pages: %u",
                 num_bytes_per_page, init_page_count, max_page_count);
-    LOG_VERBOSE("  heap offset: %u, heap size: %d\n", heap_offset, heap_size);
+    LOG_VERBOSE("  heap offset: %" PRIu64 ", heap size: %u\n", heap_offset,
+                heap_size);
 
     max_memory_data_size = (uint64)num_bytes_per_page * max_page_count;
     bh_assert(max_memory_data_size
@@ -2379,8 +2380,13 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
         /* check offset */
         if (base_offset > memory_size) {
-            LOG_DEBUG("base_offset(%d) > memory_size(%d)", base_offset,
+#if WASM_ENABLE_MEMORY64 != 0
+            LOG_DEBUG("base_offset(%" PRIu64 ") > memory_size(%" PRIu64 ")",
+                      base_offset, memory_size);
+#else
+            LOG_DEBUG("base_offset(%u) > memory_size(%" PRIu64 ")", base_offset,
                       memory_size);
+#endif
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
             set_error_buf(error_buf, error_buf_size,
                           "out of bounds memory access");
@@ -2394,8 +2400,14 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         /* check offset + length(could be zero) */
         length = data_seg->data_length;
         if ((uint64)base_offset + length > memory_size) {
-            LOG_DEBUG("base_offset(%d) + length(%d) > memory_size(%d)",
+#if WASM_ENABLE_MEMORY64 != 0
+            LOG_DEBUG("base_offset(%" PRIu64
+                      ") + length(%d) > memory_size(%" PRIu64 ")",
                       base_offset, length, memory_size);
+#else
+            LOG_DEBUG("base_offset(%u) + length(%d) > memory_size(%" PRIu64 ")",
+                      base_offset, length, memory_size);
+#endif
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
             set_error_buf(error_buf, error_buf_size,
                           "out of bounds memory access");
@@ -3356,7 +3368,8 @@ wasm_module_malloc_internal(WASMModuleInstance *module_inst,
             wasm_set_exception(module_inst, "app heap corrupted");
         }
         else {
-            LOG_WARNING("warning: allocate %u bytes memory failed", size);
+            LOG_WARNING("warning: allocate %" PRIu64 " bytes memory failed",
+                        size);
         }
         return 0;
     }
@@ -3555,7 +3568,7 @@ call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 tbl_elem_idx,
     }
 
 #if WASM_ENABLE_GC == 0
-    func_idx = tbl_elem_val;
+    func_idx = (uint32)tbl_elem_val;
 #else
     func_idx =
         wasm_func_obj_get_func_idx_bound((WASMFuncObjectRef)tbl_elem_val);
@@ -4586,8 +4599,8 @@ wasm_set_module_name(WASMModule *module, const char *name, char *error_buf,
         return false;
 
     module->name =
-        wasm_const_str_list_insert((const uint8 *)name, strlen(name), module,
-                                   false, error_buf, error_buf_size);
+        wasm_const_str_list_insert((const uint8 *)name, (uint32)strlen(name),
+                                   module, false, error_buf, error_buf_size);
     return module->name != NULL;
 }
 

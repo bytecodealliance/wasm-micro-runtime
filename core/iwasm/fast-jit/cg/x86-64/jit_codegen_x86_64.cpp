@@ -7511,7 +7511,7 @@ at_rmw_xor_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
             CHECK_KIND(r3, JIT_REG_KIND_I64);                                  \
         }                                                                      \
         /* r0: read/return value r2: memory base addr can't be const */        \
-        /* already check it's not const in LOAD_4ARGS(); */                    \
+        /* already check it's not const in LOAD_4ARGS() */                     \
         reg_no_dst = jit_reg_no(r0);                                           \
         CHECK_REG_NO(reg_no_dst, jit_reg_kind(r0));                            \
         /* mem_data base address has to be non-const */                        \
@@ -9419,7 +9419,7 @@ static uint8 hreg_info_F64[3][16] = {
       1, 1, 1, 1, 1, 1, 1, 0 }, /* caller_saved_jitted */
 };
 
-static const JitHardRegInfo hreg_info = {
+static const JitHardRegInfo g_hreg_info = {
     {
         { 0, NULL, NULL, NULL }, /* VOID */
 
@@ -9459,7 +9459,7 @@ static const JitHardRegInfo hreg_info = {
 const JitHardRegInfo *
 jit_codegen_get_hreg_info()
 {
-    return &hreg_info;
+    return &g_hreg_info;
 }
 
 static const char *reg_names_i32[] = {

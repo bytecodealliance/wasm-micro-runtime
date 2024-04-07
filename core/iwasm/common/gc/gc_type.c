@@ -148,7 +148,7 @@ wasm_dump_func_type(const WASMFuncType *type)
 
     os_printf("] -> [");
 
-    for (; i < type->param_count + type->result_count; i++) {
+    for (; i < (uint32)(type->param_count + type->result_count); i++) {
         if (wasm_is_type_multi_byte_type(type->types[i])) {
             bh_assert(j < type->ref_type_map_count);
             bh_assert(i == type->ref_type_maps[j].index);
@@ -264,7 +264,7 @@ wasm_func_type_equal(const WASMFuncType *type1, const WASMFuncType *type2,
         || type1->ref_type_map_count != type2->ref_type_map_count)
         return false;
 
-    for (i = 0; i < type1->param_count + type1->result_count; i++) {
+    for (i = 0; i < (uint32)(type1->param_count + type1->result_count); i++) {
         if (type1->types[i] != type2->types[i])
             return false;
 
@@ -399,7 +399,7 @@ wasm_func_type_is_subtype_of(const WASMFuncType *type1,
         }
     }
 
-    for (; i < type1->param_count + type1->result_count; i++) {
+    for (; i < (uint32)(type1->param_count + type1->result_count); i++) {
         if (wasm_is_type_multi_byte_type(type1->types[i])) {
             bh_assert(j1 < type1->ref_type_map_count);
             ref_type1 = type1->ref_type_maps[j1++].ref_type;

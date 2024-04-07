@@ -1430,9 +1430,20 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
         read_uint64(buf, buf_end, init_expr_value);
 #if WASM_ENABLE_GC != 0
         if (wasm_is_type_multi_byte_type(elem_type)) {
-            /* TODO: check ref_type */
-            read_uint16(buf, buf_end, reftype.ref_ht_common.ref_type);
-            read_uint16(buf, buf_end, reftype.ref_ht_common.nullable);
+            uint16 ref_type, nullable;
+            read_uint16(buf, buf_end, ref_type);
+            if (elem_type != ref_type) {
+                set_error_buf(error_buf, error_buf_size, "invalid elem type");
+                return false;
+            }
+            reftype.ref_ht_common.ref_type = (uint8)ref_type;
+            read_uint16(buf, buf_end, nullable);
+            if (nullable != 0 && nullable != 1) {
+                set_error_buf(error_buf, error_buf_size,
+                              "invalid nullable value");
+                return false;
+            }
+            reftype.ref_ht_common.nullable = (uint8)nullable;
             read_uint32(buf, buf_end, reftype.ref_ht_common.heap_type);
         }
         else
@@ -4379,7 +4390,7 @@ aot_unload(AOTModule *module)
         }
 
         if (module->string_literal_ptrs) {
-            wasm_runtime_free(module->string_literal_ptrs);
+            wasm_runtime_free((void *)module->string_literal_ptrs);
         }
     }
 #endif
