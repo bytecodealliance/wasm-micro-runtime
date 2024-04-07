@@ -55,7 +55,8 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
 #else
         uint32_t mem_caps = MALLOC_CAP_8BIT;
 #endif
-        void *buf_origin = heap_caps_malloc(size, mem_caps);
+        void *buf_origin =
+            heap_caps_malloc(size + 4 + sizeof(uintptr_t), mem_caps);
         if (!buf_origin) {
             return NULL;
         }
