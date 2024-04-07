@@ -41,9 +41,8 @@ WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (Wasm) 
 - [wasm-c-api](https://github.com/WebAssembly/wasm-c-api), ref to [document](doc/wasm_c_api.md) and [sample](samples/wasm-c-api)
 - [128-bit SIMD](https://github.com/WebAssembly/simd), ref to [samples/workload](samples/workload)
 - [Reference Types](https://github.com/WebAssembly/reference-types), ref to [document](doc/ref_types.md) and [sample](samples/ref-types)
-- [Tail-call](https://github.com/WebAssembly/tail-call), [Sign-extension operators](https://github.com/WebAssembly/sign-extension-ops)
 - [Bulk memory operations](https://github.com/WebAssembly/bulk-memory-operations), [Shared memory](https://github.com/WebAssembly/threads/blob/main/proposals/threads/Overview.md#shared-linear-memory), [Memory64](https://github.com/WebAssembly/memory64)
-- [Garbage Collection](https://github.com/WebAssembly/gc), [Exception Handling](https://github.com/WebAssembly/exception-handling)
+- [Tail-call](https://github.com/WebAssembly/tail-call), [Garbage Collection](https://github.com/WebAssembly/gc), [Exception Handling](https://github.com/WebAssembly/exception-handling)
 
 ### Supported architectures and platforms
 The WAMR VMcore supports the following architectures:
