@@ -65,7 +65,7 @@
 #if WASM_ENABLE_MULTI_MODULE != 0
 /**
  * A safety insurance to prevent
- * circular depencies which leads stack overflow
+ * circular dependencies which leads stack overflow
  * try to break early
  */
 typedef struct LoadingModule {
@@ -1333,10 +1333,14 @@ register_module_with_null_name(WASMModuleCommon *module_common, char *error_buf,
 }
 
 WASMModuleCommon *
-wasm_runtime_load(uint8 *buf, uint32 size, char *error_buf,
-                  uint32 error_buf_size)
+wasm_runtime_load_ex(uint8 *buf, uint32 size, const LoadArgs *args,
+                     char *error_buf, uint32 error_buf_size)
 {
     WASMModuleCommon *module_common = NULL;
+
+    if (!args) {
+        return NULL;
+    }
 
     if (get_package_type(buf, size) == Wasm_Module_Bytecode) {
 #if WASM_ENABLE_INTERP != 0
@@ -1345,13 +1349,13 @@ wasm_runtime_load(uint8 *buf, uint32 size, char *error_buf,
 #if WASM_ENABLE_MULTI_MODULE != 0
                                           true,
 #endif
-                                          error_buf, error_buf_size);
+                                          args, error_buf, error_buf_size);
 #endif
     }
     else if (get_package_type(buf, size) == Wasm_Module_AoT) {
 #if WASM_ENABLE_AOT != 0
         module_common = (WASMModuleCommon *)aot_load_from_aot_file(
-            buf, size, error_buf, error_buf_size);
+            buf, size, args, error_buf, error_buf_size);
 #endif
     }
     else {
@@ -1367,8 +1371,19 @@ wasm_runtime_load(uint8 *buf, uint32 size, char *error_buf,
         LOG_DEBUG("WASM module load failed");
         return NULL;
     }
+
+    /*TODO: use file name as name and register with name? */
     return register_module_with_null_name(module_common, error_buf,
                                           error_buf_size);
+}
+
+WASMModuleCommon *
+wasm_runtime_load(uint8 *buf, uint32 size, char *error_buf,
+                  uint32 error_buf_size)
+{
+    LoadArgs args = { 0 };
+    args.name = "";
+    return wasm_runtime_load_ex(buf, size, &args, error_buf, error_buf_size);
 }
 
 WASMModuleCommon *
@@ -6501,6 +6516,7 @@ wasm_runtime_load_depended_module(const WASMModuleCommon *parent_module,
     bool ret = false;
     uint8 *buffer = NULL;
     uint32 buffer_size = 0;
+    LoadArgs args = { 0 };
 
     /* check the registered module list of the parent */
     sub_module = wasm_runtime_search_sub_module(parent_module, sub_module_name);
@@ -6547,16 +6563,18 @@ wasm_runtime_load_depended_module(const WASMModuleCommon *parent_module,
         LOG_DEBUG("moudle %s type error", sub_module_name);
         goto destroy_file_buffer;
     }
+
+    args.name = (char *)sub_module_name;
     if (get_package_type(buffer, buffer_size) == Wasm_Module_Bytecode) {
 #if WASM_ENABLE_INTERP != 0
-        sub_module = (WASMModuleCommon *)wasm_load(buffer, buffer_size, false,
-                                                   error_buf, error_buf_size);
+        sub_module = (WASMModuleCommon *)wasm_load(
+            buffer, buffer_size, false, &args, error_buf, error_buf_size);
 #endif
     }
     else if (get_package_type(buffer, buffer_size) == Wasm_Module_AoT) {
 #if WASM_ENABLE_AOT != 0
         sub_module = (WASMModuleCommon *)aot_load_from_aot_file(
-            buffer, buffer_size, error_buf, error_buf_size);
+            buffer, buffer_size, &args, error_buf, error_buf_size);
 #endif
     }
     if (!sub_module) {

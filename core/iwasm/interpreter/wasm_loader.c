@@ -6043,7 +6043,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
 }
 
 static WASMModule *
-create_module(char *error_buf, uint32 error_buf_size)
+create_module(char *name, char *error_buf, uint32 error_buf_size)
 {
     WASMModule *module =
         loader_malloc(sizeof(WASMModule), error_buf, error_buf_size);
@@ -6058,7 +6058,7 @@ create_module(char *error_buf, uint32 error_buf_size)
     /* Set start_function to -1, means no start function */
     module->start_function = (uint32)-1;
 
-    module->name = "";
+    module->name = name;
 
 #if WASM_ENABLE_FAST_INTERP == 0
     module->br_table_cache_list = &module->br_table_cache_list_head;
@@ -6138,7 +6138,7 @@ WASMModule *
 wasm_loader_load_from_sections(WASMSection *section_list, char *error_buf,
                                uint32 error_buf_size)
 {
-    WASMModule *module = create_module(error_buf, error_buf_size);
+    WASMModule *module = create_module("", error_buf, error_buf_size);
     if (!module)
         return NULL;
 
@@ -6479,9 +6479,9 @@ wasm_loader_load(uint8 *buf, uint32 size,
 #if WASM_ENABLE_MULTI_MODULE != 0
                  bool main_module,
 #endif
-                 char *error_buf, uint32 error_buf_size)
+                 const LoadArgs *args, char *error_buf, uint32 error_buf_size)
 {
-    WASMModule *module = create_module(error_buf, error_buf_size);
+    WASMModule *module = create_module(args->name, error_buf, error_buf_size);
     if (!module) {
         return NULL;
     }
