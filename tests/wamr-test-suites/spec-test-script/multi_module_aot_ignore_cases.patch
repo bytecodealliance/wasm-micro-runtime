@@ -1,174 +1,124 @@
+diff --git a/test/core/imports.wast b/test/core/imports.wast
+index 0cc07cb..4e8367a 100644
+--- a/test/core/imports.wast
++++ b/test/core/imports.wast
+@@ -86,7 +86,7 @@
+ (assert_return (invoke "print64" (i64.const 24)))
+ 
+ (assert_invalid
+-  (module 
++  (module
+     (type (func (result i32)))
+     (import "test" "func" (func (type 1)))
+   )
+@@ -578,6 +578,7 @@
+ (assert_return (invoke "grow" (i32.const 1)) (i32.const -1))
+ (assert_return (invoke "grow" (i32.const 0)) (i32.const 2))
+ 
++(;
+ (module $Mgm
+   (memory (export "memory") 1) ;; initial size is 1
+   (func (export "grow") (result i32) (memory.grow (i32.const 1)))
+@@ -586,7 +587,7 @@
+ (assert_return (invoke $Mgm "grow") (i32.const 1)) ;; now size is 2
+ (module $Mgim1
+   ;; imported memory limits should match, because external memory size is 2 now
+-  (memory (export "memory") (import "grown-memory" "memory") 2) 
++  (memory (export "memory") (import "grown-memory" "memory") 2)
+   (func (export "grow") (result i32) (memory.grow (i32.const 1)))
+ )
+ (register "grown-imported-memory" $Mgim1)
+@@ -597,7 +598,7 @@
+   (func (export "size") (result i32) (memory.size))
+ )
+ (assert_return (invoke $Mgim2 "size") (i32.const 3))
+-
++;)
+ 
+ ;; Syntax errors
+ 
+@@ -669,6 +670,7 @@
+   "import after memory"
+ )
+ 
++(;
+ ;; This module is required to validate, regardless of whether it can be
+ ;; linked. Overloading is not possible in wasm itself, but it is possible
+ ;; in modules from which wasm can import.
+@@ -695,3 +697,4 @@
+   )
+   "unknown import"
+ )
++;)
+\ No newline at end of file
 diff --git a/test/core/linking.wast b/test/core/linking.wast
-index d0bfb5f..6617945 100644
+index 994e0f4..8fbcc02 100644
 --- a/test/core/linking.wast
 +++ b/test/core/linking.wast
-@@ -35,7 +35,7 @@
+@@ -19,11 +19,11 @@
+ (assert_return (invoke $Nf "call") (i32.const 3))
+ (assert_return (invoke $Nf "call Mf.call") (i32.const 2))
+ 
+-(module
++(module $M1
+   (import "spectest" "print_i32" (func $f (param i32)))
+   (export "print" (func $f))
+ )
+-(register "reexport_f")
++(register "reexport_f" $M1)
+ (assert_unlinkable
+   (module (import "reexport_f" "print" (func (param i64))))
+   "incompatible import type"
+@@ -35,7 +35,6 @@
  
  
  ;; Globals
 -
-+(;
  (module $Mg
    (global $glob (export "glob") i32 (i32.const 42))
    (func (export "get") (result i32) (global.get $glob))
-@@ -63,7 +63,7 @@
-   (export "Mg.get_mut" (func $get_mut))
-   (export "Mg.set_mut" (func $set_mut))
+@@ -47,6 +46,7 @@
  )
+ (register "Mg" $Mg)
+ 
++(; only sharing initial values
+ (module $Ng
+   (global $x (import "Mg" "glob") i32)
+   (global $mut_glob (import "Mg" "mut_glob") (mut i32))
+@@ -81,7 +81,7 @@
+ (assert_return (get $Ng "Mg.mut_glob") (i32.const 241))
+ (assert_return (invoke $Mg "get_mut") (i32.const 241))
+ (assert_return (invoke $Ng "Mg.get_mut") (i32.const 241))
 -
 +;)
- (;
- (assert_return (get $Mg "glob") (i32.const 42))
- (assert_return (get $Ng "Mg.glob") (i32.const 42))
-@@ -84,7 +84,7 @@
- (assert_return (invoke $Ng "Mg.get_mut") (i32.const 241))
- ;)
  
--
-+(;
  (assert_unlinkable
    (module (import "Mg" "mut_glob" (global i32)))
-   "incompatible import type"
-@@ -166,7 +166,7 @@
-     (call_indirect (type 1) (local.get 0))
-   )
- )
+@@ -130,7 +130,7 @@
+ 
+ 
+ ;; Tables
 -
-+;)
- (;
- (assert_return (invoke $Mt "call" (i32.const 2)) (i32.const 4))
- (assert_return (invoke $Nt "Mt.call" (i32.const 2)) (i32.const 4))
-@@ -191,7 +191,7 @@
- (assert_return (invoke $Nt "call" (i32.const 3)) (i32.const -4))
- (assert_trap (invoke $Nt "call" (i32.const 4)) "indirect call type mismatch")
- ;)
--
-+(;
- (module $Ot
++(; no such support
+ (module $Mt
    (type (func (result i32)))
- 
-@@ -204,7 +204,7 @@
-     (call_indirect (type 0) (local.get 0))
-   )
+   (type (func))
+@@ -307,10 +307,11 @@
+   (module (table (import "Mtable_ex" "t-extern") 1 funcref))
+   "incompatible import type"
  )
--
 +;)
- (;
- (assert_return (invoke $Mt "call" (i32.const 3)) (i32.const 4))
- (assert_return (invoke $Nt "Mt.call" (i32.const 3)) (i32.const 4))
-@@ -231,7 +231,7 @@
- 
- (assert_trap (invoke $Ot "call" (i32.const 20)) "undefined element")
- ;)
--
-+(;
- (module
-   (table (import "Mt" "tab") 0 funcref)
-   (elem (i32.const 9) $f)
-@@ -266,7 +266,7 @@
-   "unknown import"
- )
- (assert_trap (invoke $Mt "call" (i32.const 7)) "uninitialized element")
--
-+;)
- ;; Unlike in the v1 spec, active element segments stored before an
- ;; out-of-bounds access persist after the instantiation failure.
- (;
-@@ -297,7 +297,7 @@
- (assert_return (invoke $Mt "call" (i32.const 7)) (i32.const 0))
- ;)
- 
--
-+(;
- (module $Mtable_ex
-   (table $t1 (export "t-func") 1 funcref)
-   (table $t2 (export "t-extern") 1 externref)
-@@ -308,7 +308,7 @@
-   (table (import "Mtable_ex" "t-func") 1 funcref)
-   (table (import "Mtable_ex" "t-extern") 1 externref)
- )
--
-+;)
- (;
- (assert_unlinkable
-   (module (table (import "Mtable_ex" "t-func") 1 externref))
-@@ -322,7 +322,7 @@
  
  
  ;; Memories
 -
-+(;
++(; no such support
  (module $Mm
    (memory (export "mem") 1 5)
    (data (i32.const 10) "\00\01\02\03\04\05\06\07\08\09")
-@@ -357,14 +357,14 @@
-     (i32.load8_u (local.get 0))
-   )
- )
--
+@@ -451,3 +452,4 @@
+ 
+ (assert_return (invoke $Ms "get memory[0]") (i32.const 104))  ;; 'h'
+ (assert_return (invoke $Ms "get table[0]") (i32.const 0xdead))
 +;)
- (;
- (assert_return (invoke $Mm "load" (i32.const 12)) (i32.const 0xa7))
- (assert_return (invoke $Nm "Mm.load" (i32.const 12)) (i32.const 0xa7))
- (assert_return (invoke $Nm "load" (i32.const 12)) (i32.const 0xf2))
- (assert_return (invoke $Om "load" (i32.const 12)) (i32.const 0xa7))
- ;)
--
-+(;
- (module
-   (memory (import "Mm" "mem") 0)
-   (data (i32.const 0xffff) "a")
-@@ -385,7 +385,7 @@
-     (memory.grow (local.get 0))
-   )
- )
--
-+;)
- (;
- (assert_return (invoke $Pm "grow" (i32.const 0)) (i32.const 1))
- (assert_return (invoke $Pm "grow" (i32.const 2)) (i32.const 1))
-@@ -396,7 +396,7 @@
- (assert_return (invoke $Pm "grow" (i32.const 1)) (i32.const -1))
- (assert_return (invoke $Pm "grow" (i32.const 0)) (i32.const 5))
- ;)
--
-+(;
- (assert_unlinkable
-   (module
-     (func $host (import "spectest" "print"))
-@@ -419,11 +419,12 @@
-   )
-   "out of bounds memory access"
- )
-+;)
- (;
- (assert_return (invoke $Mm "load" (i32.const 0)) (i32.const 97))
- (assert_return (invoke $Mm "load" (i32.const 327670)) (i32.const 0))
- ;)
--
-+(;
- (assert_trap
-   (module
-     (memory (import "Mm" "mem") 1)
-@@ -434,10 +435,11 @@
-   )
-   "out of bounds table access"
- )
-+;)
- (;
- (assert_return (invoke $Mm "load" (i32.const 0)) (i32.const 97))
- ;)
--
-+(;
- ;; Store is modified if the start function traps.
- (module $Ms
-   (type $t (func (result i32)))
-@@ -451,7 +453,7 @@
-   )
- )
- (register "Ms" $Ms)
--
-+;)
- (;
- (assert_trap
-   (module
+\ No newline at end of file

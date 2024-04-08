@@ -1002,6 +1002,12 @@ print_i32_wrapper(wasm_exec_env_t exec_env, int32 i32)
 }
 
 static void
+print_i64_wrapper(wasm_exec_env_t exec_env, int64 i64)
+{
+    os_printf("in specttest.print_i64(%" PRId32 ")\n", i64);
+}
+
+static void
 print_i32_f32_wrapper(wasm_exec_env_t exec_env, int32 i32, float f32)
 {
     os_printf("in specttest.print_i32_f32(%" PRId32 ", %f)\n", i32, f32);
@@ -1091,6 +1097,7 @@ static NativeSymbol native_symbols_libc_builtin[] = {
 static NativeSymbol native_symbols_spectest[] = {
     REG_NATIVE_FUNC(print, "()"),
     REG_NATIVE_FUNC(print_i32, "(i)"),
+    REG_NATIVE_FUNC(print_i64, "(I)"),
     REG_NATIVE_FUNC(print_i32_f32, "(if)"),
     REG_NATIVE_FUNC(print_f64_f64, "(FF)"),
     REG_NATIVE_FUNC(print_f32, "(f)"),
@@ -1136,6 +1143,7 @@ static WASMNativeGlobalDef native_global_defs[] = {
     { "test", "global-f32", VALUE_TYPE_F32, false, .value.f32 = 0 },
     { "test", "global-mut-i32", VALUE_TYPE_I32, true, .value.i32 = 0 },
     { "test", "global-mut-i64", VALUE_TYPE_I64, true, .value.i64 = 0 },
+    { "test", "g", VALUE_TYPE_I32, true, .value.i32 = 0 },
 #if WASM_ENABLE_GC != 0
     { "G", "g", VALUE_TYPE_I32, false, .value.i32 = 4 },
     { "M", "g", REF_TYPE_HT_NON_NULLABLE, false, .value.gc_obj = 0 },

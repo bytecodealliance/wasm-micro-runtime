@@ -18,5 +18,5 @@ for wat_file in ../../wamr-compiler/*.wat; do
     echo "Compiling $wasm_file to $aot_file"
     $WAMRC_CMD -o $aot_file $wasm_file
     echo "Testing $aot_file"
-    $IWASM_CMD "$aot_file"
+    $IWASM_CMD -f _start "$aot_file"
 done

@@ -1074,12 +1074,14 @@ def compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
     log("Compiling WASM to '%s'" % wasm_tempfile)
 
     # default arguments
-    if opts.gc or opts.memory64:
+    if opts.gc:
         cmd = [opts.wast2wasm, "-u", "-d", wast_tempfile, "-o", wasm_tempfile]
     elif opts.eh:
-        cmd = [opts.wast2wasm, "--enable-thread", "--no-check", "--enable-exceptions", "--enable-tail-call", wast_tempfile, "-o", wasm_tempfile ]
+        cmd = [opts.wast2wasm, "--enable-threads", "--no-check", "--enable-exceptions", "--enable-tail-call", wast_tempfile, "-o", wasm_tempfile ]
+    elif opts.memory64:
+        cmd = [opts.wast2wasm, "--enable-memory64", "--no-check", wast_tempfile, "-o", wasm_tempfile ]
     else:
-        cmd = [opts.wast2wasm, "--enable-thread", "--no-check",
+        cmd = [opts.wast2wasm, "--enable-threads", "--no-check",
                wast_tempfile, "-o", wasm_tempfile ]
 
     # remove reference-type and bulk-memory enabling options since a WABT
