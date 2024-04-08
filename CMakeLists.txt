@@ -3,6 +3,11 @@
 
 cmake_minimum_required (VERSION 3.0)
 
+if(ESP_PLATFORM)
+  include (${COMPONENT_DIR}/build-scripts/esp-idf/wamr/CMakeLists.txt)
+  return()
+endif()
+
 project (iwasm)
 
 set (CMAKE_VERBOSE_MAKEFILE OFF)

@@ -55,7 +55,24 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
 #else
         uint32_t mem_caps = MALLOC_CAP_8BIT;
 #endif
-        return heap_caps_malloc(size, mem_caps);
+        void *buf_origin =
+            heap_caps_malloc(size + 4 + sizeof(uintptr_t), mem_caps);
+        if (!buf_origin) {
+            return NULL;
+        }
+
+        // Memory allocation with MALLOC_CAP_SPIRAM or MALLOC_CAP_8BIT will
+        // return 4-byte aligned Reserve extra 4 byte to fixup alignment and
+        // size for the pointer to the originally allocated address
+        void *buf_fixed = buf_origin + sizeof(void *);
+        if ((uintptr_t)buf_fixed & (uintptr_t)0x7) {
+            buf_fixed = (void *)((uintptr_t)(buf_fixed + 4) & (~(uintptr_t)7));
+        }
+
+        uintptr_t *addr_field = buf_fixed - sizeof(uintptr_t);
+        *addr_field = (uintptr_t)buf_origin;
+
+        return buf_fixed;
     }
 }
 
