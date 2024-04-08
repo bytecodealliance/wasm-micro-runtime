@@ -445,31 +445,40 @@ static char global_heap_buf[WASM_GLOBAL_HEAP_SIZE] = { 0 };
 #else
 static void *
 malloc_func(
-#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
+#if WASM_MEM_ALLOC_WITH_USAGE != 0
+    mem_alloc_usage_t usage,
+#elif WASM_MEM_ALLOC_WITH_USER_DATA != 0
     void *user_data,
 #endif
     unsigned int size)
 {
+    //printf("current allocated for %d\n", usage);
     return malloc(size);
 }
 
 static void *
 realloc_func(
-#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
+#if WASM_MEM_ALLOC_WITH_USAGE != 0
+    mem_alloc_usage_t usage,
+#elif WASM_MEM_ALLOC_WITH_USER_DATA != 0
     void *user_data,
 #endif
     void *ptr, unsigned int size)
 {
+    //printf("current realloc for %d\n", usage);
     return realloc(ptr, size);
 }
 
 static void
 free_func(
-#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
+#if WASM_MEM_ALLOC_WITH_USAGE != 0
+    mem_alloc_usage_t usage,
+#elif WASM_MEM_ALLOC_WITH_USER_DATA != 0
     void *user_data,
 #endif
     void *ptr)
 {
+    //printf("current free for %d\n", usage);
     free(ptr);
 }
 #endif /* end of WASM_ENABLE_GLOBAL_HEAP_POOL */

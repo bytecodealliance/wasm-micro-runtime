@@ -107,6 +107,11 @@ typedef enum {
     Alloc_With_System_Allocator,
 } mem_alloc_type_t;
 
+typedef enum {
+    Alloc_For_Runtime,
+    Alloc_For_LinearMemory
+} mem_alloc_usage_t;
+
 /* Memory allocator option */
 typedef union MemAllocOption {
     struct {
