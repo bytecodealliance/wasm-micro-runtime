@@ -9293,8 +9293,8 @@ jit_codegen_init()
         imm.setValue(INT32_MAX);
         a.jne(imm);
 
-        char *stream = (char *)a.code()->sectionById(0)->buffer().data()
-                       + a.code()->sectionById(0)->buffer().size();
+        char *stream_old = (char *)a.code()->sectionById(0)->buffer().data()
+                           + a.code()->sectionById(0)->buffer().size();
 
         /* If yes, call jit_set_exception_with_id to throw exception,
            and then set eax to JIT_INTERP_ACTION_THROWN, and jump to
@@ -9319,7 +9319,7 @@ jit_codegen_init()
         /* Patch the offset of jne instruction */
         char *stream_new = (char *)a.code()->sectionById(0)->buffer().data()
                            + a.code()->sectionById(0)->buffer().size();
-        *(int32 *)(stream - 4) = (int32)(stream_new - stream);
+        *(int32 *)(stream_old - 4) = (int32)(stream_new - stream_old);
     }
 
     /* Load compiled func ptr and call it */
