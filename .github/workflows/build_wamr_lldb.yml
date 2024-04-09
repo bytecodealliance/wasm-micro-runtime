@@ -82,9 +82,7 @@ jobs:
       - name: install utils macos
         if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'macos')
         run: |
-          brew remove swig
-          brew install swig@4.1 cmake ninja libedit
-          brew link --overwrite swig@4.1
+          brew install swig cmake ninja libedit
           sudo rm -rf /Library/Developer/CommandLineTools
 
       - name: install utils ubuntu
