@@ -84,15 +84,6 @@ def get_code_section_start(wasm_objdump: Path, wasm_file: Path) -> int:
     )
     outputs = p.stdout.split(os.linesep)
 
-    # if there is no .debug section, return -1
-    for line in outputs:
-        line = line.strip()
-        if ".debug_info" in line:
-            break
-    else:
-        print(f"No .debug_info section found {wasm_file}")
-        return -1
-
     for line in outputs:
         line = line.strip()
         if "Code" in line:
@@ -189,8 +180,42 @@ def get_line_info_from_function_addr_sourcemapping(
     Find the location info of a given offset in a wasm file which is compiled with emcc.
 
     {emsymbolizer} {wasm_file} {offset of file}
+
+    there usually are two lines:
+    ??
+    relative path to source file:line:column
     """
-    pass
+    debug_info_source = wasm_file.with_name(f"{wasm_file.name}.map")
+    cmd = f"{emsymbolizer} -t code -f {debug_info_source} {wasm_file} {offset}"
+    p = subprocess.run(
+        shlex.split(cmd),
+        check=False,
+        capture_output=True,
+        text=True,
+        universal_newlines=True,
+        cwd=Path.cwd(),
+    )
+    outputs = p.stdout.split(os.linesep)
+
+    function_name, function_file = "<unknown>", "unknown"
+    function_line, function_column = "?", "?"
+
+    for line in outputs:
+        line = line.strip()
+
+        if not line:
+            continue
+
+        m = re.match("(.*):(\d+):(\d+)", line)
+        if m:
+            function_file, function_line, function_column = m.groups()
+            continue
+        else:
+            # it's always ??, not sure about that
+            if "??" != line:
+                function_name = line
+
+    return (function_name, function_file, function_line, function_column)
 
 
 def parse_line_info(line_info: str) -> tuple[str, str, str]:
@@ -334,22 +359,40 @@ def main():
                     print(f"{i}: {line}")
                     continue
 
-                line_info = get_line_info_from_function_name_dwarf(
-                    llvm_dwarf_dump, args.wasm_file, function_index_to_name[index]
-                )
+                if not emcc_production:
+                    _, function_file, function_line = (
+                        get_line_info_from_function_name_dwarf(
+                            llvm_dwarf_dump,
+                            args.wasm_file,
+                            function_index_to_name[index],
+                        )
+                    )
+                else:
+                    _, function_file, function_line = _, "unknown", "?"
 
-                _, function_file, function_line = line_info
                 function_name = demangle(llvm_cxxfilt, function_index_to_name[index])
                 print(f"{i}: {function_name}")
                 print(f"\tat {function_file}:{function_line}")
             else:
                 offset = int(offset, 16)
+                # match the algorithm in wasm_interp_create_call_stack()
+                # either a *offset* to *code* section start
+                # or a *offset* in a file
+                assert offset > code_section_start
                 offset = offset - code_section_start
-                function_name, function_file, function_line, function_column = (
-                    get_line_info_from_function_addr_dwarf(
-                        llvm_dwarf_dump, args.wasm_file, offset
+
+                if emcc_production:
+                    function_name, function_file, function_line, function_column = (
+                        get_line_info_from_function_addr_sourcemapping(
+                            emsymbolizer, args.wasm_file, offset
+                        )
                     )
-                )
+                else:
+                    function_name, function_file, function_line, function_column = (
+                        get_line_info_from_function_addr_dwarf(
+                            llvm_dwarf_dump, args.wasm_file, offset
+                        )
+                    )
 
                 # if can't parse function_name, use name section or <index>
                 if function_name == "<unknown>":

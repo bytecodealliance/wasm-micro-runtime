@@ -8,7 +8,7 @@ on:
     types:
       - opened
       - synchronize
-    # running nightly pipeline if you're changing it 
+    # running nightly pipeline if you're changing it
     # stress tests are run only in nightly at the moment, so running them in they are changed
     paths:
       - ".github/workflows/nightly_run.yml"
@@ -54,7 +54,7 @@ jobs:
     with:
       os: "ubuntu-22.04"
       arch: "X86"
-  
+
   build_wamrc:
     needs:
       [
@@ -65,7 +65,7 @@ jobs:
       matrix:
         include:
           - os: ubuntu-20.04
-            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}  
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -459,13 +459,13 @@ jobs:
           cd /opt
           sudo wget ${{ matrix.wasi_sdk_release }}
           sudo tar -xzf wasi-sdk-*.tar.gz
-          sudo mv wasi-sdk-20.0 wasi-sdk
+          sudo ln -sf wasi-sdk-20.0 wasi-sdk
       - name: download and install wabt
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
           sudo tar -xzf wabt-1.0.31-*.tar.gz
-          sudo mv wabt-1.0.31 wabt
+          sudo ln -sf wabt-1.0.31 wabt
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
@@ -643,7 +643,7 @@ jobs:
           sudo tar -xzf wasi-sdk-*.tar.gz
           sudo mv wasi-sdk-20.0 wasi-sdk
 
-      # It is a temporary solution until new wasi-sdk that includes bug fixes is released 
+      # It is a temporary solution until new wasi-sdk that includes bug fixes is released
       - name: build wasi-libc from source
         if: matrix.test_option == '$WASI_TEST_OPTIONS'
         run: |

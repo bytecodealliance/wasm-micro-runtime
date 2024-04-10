@@ -8,8 +8,12 @@ project (debut_tools_wasm)
 set (CMAKE_BUILD_TYPE Debug)  # Otherwise no debug symbols (addr2line)
 
 list (APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/../cmake)
-find_package (EMSCRIPTEN 3.1.50 REQUIRED)
 find_package (WAMRC REQUIRED)
+
+option(SOURCE_MAP_DEMO "Enable source map demo" OFF)
+if (SOURCE_MAP_DEMO)
+  find_package(EMSCRIPTEN 3.1.50 REQUIRED)
+endif ()
 
 ################ wasm and aot compilation ################
 function (compile_sample SOURCE_FILE)
@@ -47,7 +51,7 @@ function (compile_sample SOURCE_FILE)
   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${AOT_FILE}  DESTINATION wasm-apps)
   if (DEFINED EMSCRIPTEN)
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${FILE_NAME}.sourcemap.wasm DESTINATION wasm-apps)
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${FILE_NAME}.sourcemap.wasm.maps DESTINATION wasm-apps)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${FILE_NAME}.sourcemap.wasm.map DESTINATION wasm-apps)
   endif ()
 endfunction ()
 
