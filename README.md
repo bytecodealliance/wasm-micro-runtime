@@ -67,6 +67,7 @@ The following platforms are supported, click each link below for how to build iw
 - [Port WAMR to a new platform](./doc/port_wamr.md)
 - [VS Code development container](./doc/devcontainer.md)
 - [Samples](./samples) and [Benchmarks](./tests/benchmarks)
+- [End-user APIs documentation](https://bytecodealliance.github.io/wamr.dev/apis/)
 
 
 
