@@ -5,7 +5,6 @@
 
 /**
  * @file   lib_export.h
- * @date   Wed Mar 20 10:46:38 2024
  *
  */
 

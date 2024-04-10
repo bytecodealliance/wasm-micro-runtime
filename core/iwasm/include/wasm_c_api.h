@@ -2,7 +2,6 @@
 
 /**
  * @file   wasm_c_api.h
- * @date   Wed Mar 20 10:46:38 2024
  *
  * @brief  This file defines the WebAssembly C APIs
  */
