@@ -6,3 +6,10 @@ documentation: https://wamr.gitbook.io/
 issues: https://github.com/bytecodealliance/wasm-micro-runtime/issues
 dependencies:
   idf: ">=4.4"
+targets:
+  - esp32
+  - esp32s3
+  - esp32c3
+  - esp32c6
+examples:
+  - path: product-mini/platforms/esp-idf
