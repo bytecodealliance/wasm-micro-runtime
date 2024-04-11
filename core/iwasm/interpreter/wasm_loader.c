@@ -13008,6 +13008,7 @@ re_scan:
                 break;
 
             case WASM_OP_F32_CONST:
+                CHECK_BUF(p, p_end, sizeof(float32));
                 p += sizeof(float32);
 #if WASM_ENABLE_FAST_INTERP != 0
                 skip_label();
@@ -13026,6 +13027,7 @@ re_scan:
                 break;
 
             case WASM_OP_F64_CONST:
+                CHECK_BUF(p, p_end, sizeof(float64));
                 p += sizeof(float64);
 #if WASM_ENABLE_FAST_INTERP != 0
                 skip_label();
@@ -14356,6 +14358,7 @@ re_scan:
                     }
                     case WASM_OP_MEMORY_COPY:
                     {
+                        CHECK_BUF(p, p_end, sizeof(int16));
                         /* both src and dst memory index should be 0 */
                         if (*(int16 *)p != 0x0000)
                             goto fail_zero_byte_expected;
