@@ -4353,11 +4353,21 @@ llvm_jit_table_grow(WASMModuleInstance *module_inst, uint32 tbl_idx,
     }
 
     if (tbl_inst->cur_size > UINT32_MAX - inc_size) { /* integer overflow */
+#if WASM_ENABLE_SPEC_TEST == 0
+        LOG_WARNING("table grow (%" PRIu32 "-> %" PRIu32
+                    ") failed because of integer overflow",
+                    tbl_inst->cur_size, inc_size);
+#endif
         return (uint32)-1;
     }
 
     total_size = tbl_inst->cur_size + inc_size;
     if (total_size > tbl_inst->max_size) {
+#if WASM_ENABLE_SPEC_TEST == 0
+        LOG_WARNING("table grow (%" PRIu32 "-> %" PRIu32
+                    ") failed because of over max size",
+                    tbl_inst->cur_size, inc_size);
+#endif
         return (uint32)-1;
     }
 

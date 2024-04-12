@@ -3366,39 +3366,49 @@ aot_table_fill(AOTModuleInstance *module_inst, uint32 tbl_idx, uint32 length,
 }
 
 uint32
-aot_table_grow(AOTModuleInstance *module_inst, uint32 tbl_idx,
-               uint32 inc_entries, table_elem_type_t init_val)
+aot_table_grow(AOTModuleInstance *module_inst, uint32 tbl_idx, uint32 inc_size,
+               table_elem_type_t init_val)
 {
-    uint32 entry_count, i, orig_tbl_sz;
     AOTTableInstance *tbl_inst;
+    uint32 i, orig_size, total_size;
 
     tbl_inst = module_inst->tables[tbl_idx];
     if (!tbl_inst) {
         return (uint32)-1;
     }
 
-    orig_tbl_sz = tbl_inst->cur_size;
+    orig_size = tbl_inst->cur_size;
 
-    if (!inc_entries) {
-        return orig_tbl_sz;
+    if (!inc_size) {
+        return orig_size;
     }
 
-    if (tbl_inst->cur_size > UINT32_MAX - inc_entries) {
+    if (tbl_inst->cur_size > UINT32_MAX - inc_size) {
+#if WASM_ENABLE_SPEC_TEST == 0
+        LOG_WARNING("table grow (%" PRIu32 "-> %" PRIu32
+                    ") failed because of integer overflow",
+                    tbl_inst->cur_size, inc_size);
+#endif
         return (uint32)-1;
     }
 
-    entry_count = tbl_inst->cur_size + inc_entries;
-    if (entry_count > tbl_inst->max_size) {
+    total_size = tbl_inst->cur_size + inc_size;
+    if (total_size > tbl_inst->max_size) {
+#if WASM_ENABLE_SPEC_TEST == 0
+        LOG_WARNING("table grow (%" PRIu32 "-> %" PRIu32
+                    ") failed because of over max size",
+                    tbl_inst->cur_size, inc_size);
+#endif
         return (uint32)-1;
     }
 
     /* fill in */
-    for (i = 0; i < inc_entries; ++i) {
+    for (i = 0; i < inc_size; ++i) {
         tbl_inst->elems[tbl_inst->cur_size + i] = init_val;
     }
 
-    tbl_inst->cur_size = entry_count;
-    return orig_tbl_sz;
+    tbl_inst->cur_size = total_size;
+    return orig_size;
 }
 #endif /* WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0 */
 
