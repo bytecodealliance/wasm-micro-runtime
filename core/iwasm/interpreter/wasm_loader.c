@@ -36,6 +36,21 @@
 #define TEMPLATE_READ_VALUE(Type, p) \
     (p += sizeof(Type), *(Type *)(p - sizeof(Type)))
 
+#if WASM_ENABLE_MEMORY64 != 0
+static bool
+has_module_memory64(WASMModule *module)
+{
+    /* TODO: multi-memories for now assuming the memory idx type is consistent
+     * across multi-memories */
+    if (module->import_memory_count > 0)
+        return !!(module->import_memories[0].u.memory.flags & MEMORY64_FLAG);
+    else if (module->memory_count > 0)
+        return !!(module->memories[0].flags & MEMORY64_FLAG);
+
+    return false;
+}
+#endif
+
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
@@ -5659,6 +5674,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     uint32 aux_data_end_global_index = (uint32)-1;
     uint32 aux_heap_base_global_index = (uint32)-1;
     WASMFuncType *func_type;
+    uint8 malloc_free_io_type = VALUE_TYPE_I32;
 
     /* Find code and function sections if have */
     while (section) {
@@ -5887,6 +5903,10 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     module->retain_function = (uint32)-1;
 
     /* Resolve malloc/free function exported by wasm module */
+#if WASM_ENABLE_MEMORY64 != 0
+    if (has_module_memory64(module))
+        malloc_free_io_type = VALUE_TYPE_I64;
+#endif
     export = module->exports;
     for (i = 0; i < module->export_count; i++, export ++) {
         if (export->kind == EXPORT_KIND_FUNC) {
@@ -5895,8 +5915,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                 func_index = export->index - module->import_function_count;
                 func_type = module->functions[func_index]->func_type;
                 if (func_type->param_count == 1 && func_type->result_count == 1
-                    && func_type->types[0] == VALUE_TYPE_I32
-                    && func_type->types[1] == VALUE_TYPE_I32) {
+                    && func_type->types[0] == malloc_free_io_type
+                    && func_type->types[1] == malloc_free_io_type) {
                     bh_assert(module->malloc_function == (uint32)-1);
                     module->malloc_function = export->index;
                     LOG_VERBOSE("Found malloc function, name: %s, index: %u",
@@ -5909,9 +5929,9 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                 func_index = export->index - module->import_function_count;
                 func_type = module->functions[func_index]->func_type;
                 if (func_type->param_count == 2 && func_type->result_count == 1
-                    && func_type->types[0] == VALUE_TYPE_I32
+                    && func_type->types[0] == malloc_free_io_type
                     && func_type->types[1] == VALUE_TYPE_I32
-                    && func_type->types[2] == VALUE_TYPE_I32) {
+                    && func_type->types[2] == malloc_free_io_type) {
                     uint32 j;
                     WASMExport *export_tmp;
 
@@ -5935,8 +5955,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                                 module->functions[func_index]->func_type;
                             if (func_type->param_count == 1
                                 && func_type->result_count == 1
-                                && func_type->types[0] == VALUE_TYPE_I32
-                                && func_type->types[1] == VALUE_TYPE_I32) {
+                                && func_type->types[0] == malloc_free_io_type
+                                && func_type->types[1] == malloc_free_io_type) {
                                 bh_assert(module->retain_function
                                           == (uint32)-1);
                                 module->retain_function = export_tmp->index;
@@ -5962,7 +5982,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                 func_index = export->index - module->import_function_count;
                 func_type = module->functions[func_index]->func_type;
                 if (func_type->param_count == 1 && func_type->result_count == 0
-                    && func_type->types[0] == VALUE_TYPE_I32) {
+                    && func_type->types[0] == malloc_free_io_type) {
                     bh_assert(module->free_function == (uint32)-1);
                     module->free_function = export->index;
                     LOG_VERBOSE("Found free function, name: %s, index: %u",
@@ -10737,14 +10757,7 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
            func->param_cell_num, func->local_cell_num, func->ret_cell_num);
 #endif
 #if WASM_ENABLE_MEMORY64 != 0
-    bool is_memory64 = false;
-    /* TODO: multi-memories for now assuming the memory idx type is consistent
-     * across multi-memories */
-    if (module->import_memory_count > 0)
-        is_memory64 = module->import_memories[0].u.memory.flags & MEMORY64_FLAG;
-    else if (module->memory_count > 0)
-        is_memory64 = module->memories[0].flags & MEMORY64_FLAG;
-
+    bool is_memory64 = has_module_memory64(module);
     mem_offset_type = is_memory64 ? VALUE_TYPE_I64 : VALUE_TYPE_I32;
 #else
     mem_offset_type = VALUE_TYPE_I32;
