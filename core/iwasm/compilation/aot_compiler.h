@@ -569,6 +569,10 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
         memset(aot_value, 0, sizeof(AOTValue));                           \
         if (comp_ctx->enable_gc && aot_is_type_gc_reftype(value_type))    \
             aot_value->type = VALUE_TYPE_GC_REF;                          \
+        else if (comp_ctx->enable_ref_types                               \
+                 && (value_type == VALUE_TYPE_FUNCREF                     \
+                     || value_type == VALUE_TYPE_EXTERNREF))              \
+            aot_value->type = VALUE_TYPE_I32;                             \
         else                                                              \
             aot_value->type = value_type;                                 \
         aot_value->value = llvm_value;                                    \

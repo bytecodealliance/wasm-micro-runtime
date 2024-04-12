@@ -10,12 +10,6 @@ endif ()
 if (NOT DEFINED IWASM_DIR)
     set (IWASM_DIR ${WAMR_ROOT_DIR}/core/iwasm)
 endif ()
-if (NOT DEFINED APP_MGR_DIR)
-    set (APP_MGR_DIR ${WAMR_ROOT_DIR}/core/app-mgr)
-endif ()
-if (NOT DEFINED APP_FRAMEWORK_DIR)
-    set (APP_FRAMEWORK_DIR ${WAMR_ROOT_DIR}/core/app-framework)
-endif ()
 if (NOT DEFINED DEPS_DIR)
     set (DEPS_DIR ${WAMR_ROOT_DIR}/core/deps)
 endif ()
@@ -86,13 +80,6 @@ if (WAMR_BUILD_GC EQUAL 1)
     include (${IWASM_DIR}/common/gc/iwasm_gc.cmake)
     # Enable the dependent feature if GC is enabled
     set (WAMR_BUILD_REF_TYPES 1)
-endif ()
-
-if (WAMR_BUILD_APP_FRAMEWORK EQUAL 1)
-    include (${APP_FRAMEWORK_DIR}/app_framework.cmake)
-    include (${SHARED_DIR}/coap/lib_coap.cmake)
-    include (${APP_MGR_DIR}/app-manager/app_mgr.cmake)
-    include (${APP_MGR_DIR}/app-mgr-shared/app_mgr_shared.cmake)
 endif ()
 
 if (WAMR_BUILD_LIBC_BUILTIN EQUAL 1)
@@ -200,9 +187,6 @@ set (source_all
     ${IWASM_COMPL_SOURCE}
     ${IWASM_FAST_JIT_SOURCE}
     ${IWASM_GC_SOURCE}
-    ${WASM_APP_LIB_SOURCE_ALL}
-    ${NATIVE_INTERFACE_SOURCE}
-    ${APP_MGR_SOURCE}
     ${LIB_WASI_THREADS_SOURCE}
     ${LIB_PTHREAD_SOURCE}
     ${THREAD_MGR_SOURCE}

@@ -62,6 +62,7 @@ typedef struct {
 #define REG_AOT_TRACE_SYM()
 #endif
 
+#if WASM_ENABLE_AOT_INTRINSICS != 0
 #define REG_INTRINSIC_SYM()               \
     REG_SYM(aot_intrinsic_fabs_f32),      \
     REG_SYM(aot_intrinsic_fabs_f64),      \
@@ -124,7 +125,10 @@ typedef struct {
     REG_SYM(aot_intrinsic_i32_div_s),     \
     REG_SYM(aot_intrinsic_i32_div_u),     \
     REG_SYM(aot_intrinsic_i32_rem_s),     \
-    REG_SYM(aot_intrinsic_i32_rem_u),     \
+    REG_SYM(aot_intrinsic_i32_rem_u),
+#else
+#define REG_INTRINSIC_SYM()
+#endif
 
 #if WASM_ENABLE_STATIC_PGO != 0
 #define REG_LLVM_PGO_SYM()               \

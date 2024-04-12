@@ -39,16 +39,15 @@ typedef float64 CellType_F64;
 
 #if !defined(OS_ENABLE_HW_BOUND_CHECK) \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
-#define CHECK_MEMORY_OVERFLOW(bytes)                             \
-    do {                                                         \
-        uint64 offset1 = (uint64)offset + (uint64)addr;          \
-        if (disable_bounds_checks                                \
-            || offset1 + bytes <= (uint64)get_linear_mem_size()) \
-            /* If offset1 is in valid range, maddr must also     \
-                be in valid range, no need to check it again. */ \
-            maddr = memory->memory_data + offset1;               \
-        else                                                     \
-            goto out_of_bounds;                                  \
+#define CHECK_MEMORY_OVERFLOW(bytes)                                           \
+    do {                                                                       \
+        uint64 offset1 = (uint64)offset + (uint64)addr;                        \
+        if (disable_bounds_checks || offset1 + bytes <= get_linear_mem_size()) \
+            /* If offset1 is in valid range, maddr must also                   \
+                be in valid range, no need to check it again. */               \
+            maddr = memory->memory_data + offset1;                             \
+        else                                                                   \
+            goto out_of_bounds;                                                \
     } while (0)
 
 #define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr)                        \
@@ -1188,9 +1187,8 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
     if (!func_import->call_conv_wasm_c_api) {
         native_func_pointer = module_inst->import_func_ptrs[cur_func_index];
     }
-    else if (module_inst->e->common.c_api_func_imports) {
-        c_api_func_import =
-            module_inst->e->common.c_api_func_imports + cur_func_index;
+    else if (module_inst->c_api_func_imports) {
+        c_api_func_import = module_inst->c_api_func_imports + cur_func_index;
         native_func_pointer = c_api_func_import->func_ptr_linked;
     }
 
@@ -1274,8 +1272,8 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
     uint8 *ip = prev_frame->ip;
     char buf[128];
     WASMExecEnv *sub_module_exec_env = NULL;
-    uint32 aux_stack_origin_boundary = 0;
-    uint32 aux_stack_origin_bottom = 0;
+    uintptr_t aux_stack_origin_boundary = 0;
+    uintptr_t aux_stack_origin_bottom = 0;
 
     if (!sub_func_inst) {
         snprintf(buf, sizeof(buf),
@@ -1298,13 +1296,11 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
     wasm_exec_env_set_module_inst(exec_env,
                                   (WASMModuleInstanceCommon *)sub_module_inst);
     /* - aux_stack_boundary */
-    aux_stack_origin_boundary = exec_env->aux_stack_boundary.boundary;
-    exec_env->aux_stack_boundary.boundary =
-        sub_module_exec_env->aux_stack_boundary.boundary;
+    aux_stack_origin_boundary = exec_env->aux_stack_boundary;
+    exec_env->aux_stack_boundary = sub_module_exec_env->aux_stack_boundary;
     /* - aux_stack_bottom */
-    aux_stack_origin_bottom = exec_env->aux_stack_bottom.bottom;
-    exec_env->aux_stack_bottom.bottom =
-        sub_module_exec_env->aux_stack_bottom.bottom;
+    aux_stack_origin_bottom = exec_env->aux_stack_bottom;
+    exec_env->aux_stack_bottom = sub_module_exec_env->aux_stack_bottom;
 
     /* set ip NULL to make call_func_bytecode return after executing
        this function */
@@ -1316,8 +1312,8 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 
     /* restore ip and other replaced */
     prev_frame->ip = ip;
-    exec_env->aux_stack_boundary.boundary = aux_stack_origin_boundary;
-    exec_env->aux_stack_bottom.bottom = aux_stack_origin_bottom;
+    exec_env->aux_stack_boundary = aux_stack_origin_boundary;
+    exec_env->aux_stack_bottom = aux_stack_origin_bottom;
     wasm_exec_env_restore_module_inst(exec_env,
                                       (WASMModuleInstanceCommon *)module_inst);
 }
@@ -1444,7 +1440,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if !defined(OS_ENABLE_HW_BOUND_CHECK)              \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
     || WASM_ENABLE_BULK_MEMORY != 0
-    uint32 linear_mem_size = 0;
+    uint64 linear_mem_size = 0;
     if (memory)
 #if WASM_ENABLE_THREAD_MGR == 0
         linear_mem_size = memory->memory_data_size;
@@ -1504,6 +1500,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     WASMStringviewWTF16ObjectRef stringview_wtf16_obj;
     WASMStringviewIterObjectRef stringview_iter_obj;
 #endif
+#endif
+#if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0
+    bool is_return_call = false;
 #endif
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
@@ -1697,7 +1696,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 /* clang-format off */
 #if WASM_ENABLE_GC == 0
-                fidx = tbl_inst->elems[val];
+                fidx = (uint32)tbl_inst->elems[val];
                 if (fidx == (uint32)-1) {
                     wasm_set_exception(module, "uninitialized element");
                     goto got_exception;
@@ -1967,12 +1966,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             }
             HANDLE_OP(WASM_OP_REF_AS_NON_NULL)
             {
-                opnd_off = GET_OFFSET();
-                gc_obj = GET_REF_FROM_ADDR(frame_lp + opnd_off);
+                gc_obj = POP_REF();
                 if (gc_obj == NULL_REF) {
                     wasm_set_exception(module, "null reference");
                     goto got_exception;
                 }
+                PUSH_REF(gc_obj);
                 HANDLE_OP_END();
             }
             HANDLE_OP(WASM_OP_REF_EQ)
@@ -3527,27 +3526,29 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
             HANDLE_OP(WASM_OP_SET_GLOBAL_AUX_STACK)
             {
-                uint32 aux_stack_top;
+                uint64 aux_stack_top;
 
                 global_idx = read_uint32(frame_ip);
                 bh_assert(global_idx < module->e->global_count);
                 global = globals + global_idx;
                 global_addr = get_global_addr(global_data, global);
-                aux_stack_top = frame_lp[GET_OFFSET()];
-                if (aux_stack_top <= exec_env->aux_stack_boundary.boundary) {
+                /* TODO: Memory64 the data type depends on mem idx type */
+                aux_stack_top = (uint64)frame_lp[GET_OFFSET()];
+                if (aux_stack_top <= (uint64)exec_env->aux_stack_boundary) {
                     wasm_set_exception(module, "wasm auxiliary stack overflow");
                     goto got_exception;
                 }
-                if (aux_stack_top > exec_env->aux_stack_bottom.bottom) {
+                if (aux_stack_top > (uint64)exec_env->aux_stack_bottom) {
                     wasm_set_exception(module,
                                        "wasm auxiliary stack underflow");
                     goto got_exception;
                 }
-                *(int32 *)global_addr = aux_stack_top;
+                *(int32 *)global_addr = (uint32)aux_stack_top;
 #if WASM_ENABLE_MEMORY_PROFILING != 0
                 if (module->module->aux_stack_top_global_index != (uint32)-1) {
-                    uint32 aux_stack_used = module->module->aux_stack_bottom
-                                            - *(uint32 *)global_addr;
+                    uint32 aux_stack_used =
+                        (uint32)(module->module->aux_stack_bottom
+                                 - *(uint32 *)global_addr);
                     if (aux_stack_used > module->e->max_aux_stack_used)
                         module->e->max_aux_stack_used = aux_stack_used;
                 }
@@ -4794,8 +4795,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             {
                 addr1 = GET_OFFSET();
                 addr2 = GET_OFFSET();
-                frame_lp[addr2] = frame_lp[addr1];
-                frame_lp[addr2 + 1] = frame_lp[addr1 + 1];
+
+                PUT_I64_TO_ADDR(frame_lp + addr2,
+                                GET_I64_FROM_ADDR(frame_lp + addr1));
 
 #if WASM_ENABLE_GC != 0
                 /* Ignore constants because they are not reference */
@@ -4967,8 +4969,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #ifndef OS_ENABLE_HW_BOUND_CHECK
                         CHECK_BULK_MEMORY_OVERFLOW(addr, bytes, maddr);
 #else
-                        if ((uint64)(uint32)addr + bytes
-                            > (uint64)linear_mem_size)
+                        if ((uint64)(uint32)addr + bytes > linear_mem_size)
                             goto out_of_bounds;
                         maddr = memory->memory_data + (uint32)addr;
 #endif
@@ -4986,7 +4987,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         if (offset + bytes > seg_len)
                             goto out_of_bounds;
 
-                        bh_memcpy_s(maddr, linear_mem_size - addr,
+                        bh_memcpy_s(maddr, (uint32)(linear_mem_size - addr),
                                     data + offset, (uint32)bytes);
                         break;
                     }
@@ -5016,17 +5017,18 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         CHECK_BULK_MEMORY_OVERFLOW(src, len, msrc);
                         CHECK_BULK_MEMORY_OVERFLOW(dst, len, mdst);
 #else
-                        if ((uint64)(uint32)src + len > (uint64)linear_mem_size)
+                        if ((uint64)(uint32)src + len > linear_mem_size)
                             goto out_of_bounds;
                         msrc = memory->memory_data + (uint32)src;
 
-                        if ((uint64)(uint32)dst + len > (uint64)linear_mem_size)
+                        if ((uint64)(uint32)dst + len > linear_mem_size)
                             goto out_of_bounds;
                         mdst = memory->memory_data + (uint32)dst;
 #endif
 
                         /* allowing the destination and source to overlap */
-                        bh_memmove_s(mdst, linear_mem_size - dst, msrc, len);
+                        bh_memmove_s(mdst, (uint32)(linear_mem_size - dst),
+                                     msrc, len);
                         break;
                     }
                     case WASM_OP_MEMORY_FILL:
@@ -5045,7 +5047,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #ifndef OS_ENABLE_HW_BOUND_CHECK
                         CHECK_BULK_MEMORY_OVERFLOW(dst, len, mdst);
 #else
-                        if ((uint64)(uint32)dst + len > (uint64)linear_mem_size)
+                        if ((uint64)(uint32)dst + len > linear_mem_size)
                             goto out_of_bounds;
                         mdst = memory->memory_data + (uint32)dst;
 #endif
@@ -5619,6 +5621,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             {
                 frame = prev_frame;
                 frame_ip = frame->ip;
+#if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0
+                is_return_call = false;
+#endif
                 goto call_func_from_entry;
             }
 
@@ -5767,6 +5772,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         FREE_FRAME(exec_env, frame);
         frame_ip += cur_func->param_count * sizeof(int16);
         wasm_exec_env_set_cur_frame(exec_env, (WASMRuntimeFrame *)prev_frame);
+        is_return_call = true;
         goto call_func_from_entry;
     }
 #endif /* WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0 */
@@ -5839,6 +5845,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         }
         SYNC_ALL_TO_FRAME();
         prev_frame = frame;
+#if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0
+        is_return_call = false;
+#endif
     }
 
     call_func_from_entry:
@@ -5856,9 +5865,20 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                              prev_frame);
             }
 
-            prev_frame = frame->prev_frame;
-            cur_func = frame->function;
-            UPDATE_ALL_FROM_FRAME();
+#if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0
+            if (is_return_call) {
+                /* the frame was freed before tail calling and
+                   the prev_frame was set as exec_env's cur_frame,
+                   so here we recover context from prev_frame */
+                RECOVER_CONTEXT(prev_frame);
+            }
+            else
+#endif
+            {
+                prev_frame = frame->prev_frame;
+                cur_func = frame->function;
+                UPDATE_ALL_FROM_FRAME();
+            }
 
             /* update memory size, no need to update memory ptr as
                it isn't changed in wasm_enlarge_memory */

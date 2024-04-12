@@ -103,12 +103,16 @@ struct WASMMemoryInstance {
     /* Whether the memory is shared */
     uint8 is_shared_memory;
 
-    /* One byte padding */
-    uint8 __padding__;
+    /* Whether the memory has 64-bit memory addresses */
+    uint8 is_memory64;
 
     /* Reference count of the memory instance:
          0: non-shared memory, > 0: shared memory */
     bh_atomic_16_t ref_count;
+
+    /* Four-byte paddings to ensure the layout of WASMMemoryInstance is the same
+     * in both 64-bit and 32-bit */
+    uint8 __paddings[4];
 
     /* Number bytes per page */
     uint32 num_bytes_per_page;
@@ -117,7 +121,7 @@ struct WASMMemoryInstance {
     /* Maximum page count */
     uint32 max_page_count;
     /* Memory data size */
-    uint32 memory_data_size;
+    uint64 memory_data_size;
     /**
      * Memory data begin address, Note:
      *   the app-heap might be inserted in to the linear memory,
@@ -134,6 +138,8 @@ struct WASMMemoryInstance {
     DefPointer(uint8 *, heap_data_end);
     /* The heap created */
     DefPointer(void *, heap_handle);
+    /* TODO: use it to replace the g_shared_memory_lock */
+    DefPointer(korp_mutex *, memory_lock);
 
 #if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 \
     || WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_AOT != 0
@@ -175,7 +181,8 @@ struct WASMGlobalInstance {
     uint8 type;
     /* mutable or constant */
     bool is_mutable;
-    /* data offset to base_addr of WASMMemoryInstance */
+    /* data offset to the address of initial_value, started from the end of
+     * WASMMemoryInstance(start of WASMGlobalInstance)*/
     uint32 data_offset;
     /* initial value */
     WASMValue initial_value;
@@ -292,10 +299,9 @@ typedef struct CApiFuncImport {
 
 /* The common part of WASMModuleInstanceExtra and AOTModuleInstanceExtra */
 typedef struct WASMModuleInstanceExtraCommon {
-    CApiFuncImport *c_api_func_imports;
+#if WASM_ENABLE_MODULE_INST_CONTEXT != 0
     void *contexts[WASM_MAX_INSTANCE_CONTEXTS];
-    /* pointer to the exec env currently used */
-    WASMExecEnv *cur_exec_env;
+#endif
 #if WASM_CONFIGURABLE_BOUNDS_CHECKS != 0
     /* Disable bounds checks or not */
     bool disable_bounds_checks;
@@ -401,8 +407,6 @@ struct WASMModuleInstance {
        it denotes `AOTModule *` */
     DefPointer(WASMModule *, module);
 
-    DefPointer(void *, used_to_be_wasi_ctx); /* unused */
-
     DefPointer(WASMExecEnv *, exec_env_singleton);
     /* Array of function pointers to import functions,
        not available in AOTModuleInstance */
@@ -421,13 +425,16 @@ struct WASMModuleInstance {
     /* Function performance profiling info list, only available
        in AOTModuleInstance */
     DefPointer(struct AOTFuncPerfProfInfo *, func_perf_profilings);
+    DefPointer(CApiFuncImport *, c_api_func_imports);
+    /* Pointer to the exec env currently used */
+    DefPointer(WASMExecEnv *, cur_exec_env);
     /* WASM/AOT module extra info, for AOTModuleInstance,
        it denotes `AOTModuleInstanceExtra *` */
     DefPointer(WASMModuleInstanceExtra *, e);
 
     /* Default WASM operand stack size */
     uint32 default_wasm_stack_size;
-    uint32 reserved[3];
+    uint32 reserved[7];
 
     /*
      * +------------------------------+ <-- memories
@@ -501,7 +508,7 @@ wasm_load(uint8 *buf, uint32 size,
 #if WASM_ENABLE_MULTI_MODULE != 0
           bool main_module,
 #endif
-          char *error_buf, uint32 error_buf_size);
+          const LoadArgs *args, char *error_buf, uint32 error_buf_size);
 
 WASMModule *
 wasm_load_from_sections(WASMSection *section_list, char *error_buf,
@@ -513,7 +520,8 @@ wasm_unload(WASMModule *module);
 WASMModuleInstance *
 wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                  WASMExecEnv *exec_env_main, uint32 stack_size,
-                 uint32 heap_size, char *error_buf, uint32 error_buf_size);
+                 uint32 heap_size, uint32 max_memory_pages, char *error_buf,
+                 uint32 error_buf_size);
 
 void
 wasm_dump_perf_profiling(const WASMModuleInstance *module_inst);
@@ -533,8 +541,7 @@ wasm_set_running_mode(WASMModuleInstance *module_inst,
                       RunningMode running_mode);
 
 WASMFunctionInstance *
-wasm_lookup_function(const WASMModuleInstance *module_inst, const char *name,
-                     const char *signature);
+wasm_lookup_function(const WASMModuleInstance *module_inst, const char *name);
 
 #if WASM_ENABLE_MULTI_MODULE != 0
 WASMGlobalInstance *
@@ -576,34 +583,34 @@ wasm_get_exception(WASMModuleInstance *module);
 bool
 wasm_copy_exception(WASMModuleInstance *module_inst, char *exception_buf);
 
-uint32
+uint64
 wasm_module_malloc_internal(WASMModuleInstance *module_inst,
-                            WASMExecEnv *exec_env, uint32 size,
+                            WASMExecEnv *exec_env, uint64 size,
                             void **p_native_addr);
 
-uint32
+uint64
 wasm_module_realloc_internal(WASMModuleInstance *module_inst,
-                             WASMExecEnv *exec_env, uint32 ptr, uint32 size,
+                             WASMExecEnv *exec_env, uint64 ptr, uint64 size,
                              void **p_native_addr);
 
 void
 wasm_module_free_internal(WASMModuleInstance *module_inst,
-                          WASMExecEnv *exec_env, uint32 ptr);
+                          WASMExecEnv *exec_env, uint64 ptr);
 
-uint32
-wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
+uint64
+wasm_module_malloc(WASMModuleInstance *module_inst, uint64 size,
                    void **p_native_addr);
 
-uint32
-wasm_module_realloc(WASMModuleInstance *module_inst, uint32 ptr, uint32 size,
+uint64
+wasm_module_realloc(WASMModuleInstance *module_inst, uint64 ptr, uint64 size,
                     void **p_native_addr);
 
 void
-wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr);
+wasm_module_free(WASMModuleInstance *module_inst, uint64 ptr);
 
-uint32
+uint64
 wasm_module_dup_data(WASMModuleInstance *module_inst, const char *src,
-                     uint32 size);
+                     uint64 size);
 
 /**
  * Check whether the app address and the buf is inside the linear memory,
@@ -611,7 +618,7 @@ wasm_module_dup_data(WASMModuleInstance *module_inst, const char *src,
  */
 bool
 wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
-                                uint32 app_buf_addr, uint32 app_buf_size,
+                                uint64 app_buf_addr, uint64 app_buf_size,
                                 void **p_native_addr);
 
 WASMMemoryInstance *
@@ -626,10 +633,10 @@ wasm_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
 
 #if WASM_ENABLE_THREAD_MGR != 0
 bool
-wasm_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size);
+wasm_set_aux_stack(WASMExecEnv *exec_env, uint64 start_offset, uint32 size);
 
 bool
-wasm_get_aux_stack(WASMExecEnv *exec_env, uint32 *start_offset, uint32 *size);
+wasm_get_aux_stack(WASMExecEnv *exec_env, uint64 *start_offset, uint32 *size);
 #endif
 
 void
@@ -726,7 +733,7 @@ jit_set_exception_with_id(WASMModuleInstance *module_inst, uint32 id);
  */
 bool
 jit_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
-                               uint32 app_buf_addr, uint32 app_buf_size,
+                               uint64 app_buf_addr, uint64 app_buf_size,
                                void **p_native_addr);
 #endif /* end of WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 \
           || WASM_ENABLE_WAMR_COMPILER != 0 */
@@ -828,6 +835,21 @@ exception_unlock(WASMModuleInstance *module_inst);
 #define exception_lock(module_inst) (void)(module_inst)
 #define exception_unlock(module_inst) (void)(module_inst)
 #endif
+
+bool
+wasm_check_utf8_str(const uint8 *str, uint32 len);
+
+char *
+wasm_const_str_list_insert(const uint8 *str, uint32 len, WASMModule *module,
+                           bool is_load_from_file_buf, char *error_buf,
+                           uint32 error_buf_size);
+
+bool
+wasm_set_module_name(WASMModule *module, const char *name, char *error_buf,
+                     uint32_t error_buf_size);
+
+const char *
+wasm_get_module_name(WASMModule *module);
 
 #ifdef __cplusplus
 }

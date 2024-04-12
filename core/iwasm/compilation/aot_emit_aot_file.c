@@ -25,73 +25,6 @@
         }                                                  \
     } while (0)
 
-#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
-static bool
-check_utf8_str(const uint8 *str, uint32 len)
-{
-    /* The valid ranges are taken from page 125, below link
-       https://www.unicode.org/versions/Unicode9.0.0/ch03.pdf */
-    const uint8 *p = str, *p_end = str + len;
-    uint8 chr;
-
-    while (p < p_end) {
-        chr = *p;
-        if (chr < 0x80) {
-            p++;
-        }
-        else if (chr >= 0xC2 && chr <= 0xDF && p + 1 < p_end) {
-            if (p[1] < 0x80 || p[1] > 0xBF) {
-                return false;
-            }
-            p += 2;
-        }
-        else if (chr >= 0xE0 && chr <= 0xEF && p + 2 < p_end) {
-            if (chr == 0xE0) {
-                if (p[1] < 0xA0 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF) {
-                    return false;
-                }
-            }
-            else if (chr == 0xED) {
-                if (p[1] < 0x80 || p[1] > 0x9F || p[2] < 0x80 || p[2] > 0xBF) {
-                    return false;
-                }
-            }
-            else if (chr >= 0xE1 && chr <= 0xEF) {
-                if (p[1] < 0x80 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF) {
-                    return false;
-                }
-            }
-            p += 3;
-        }
-        else if (chr >= 0xF0 && chr <= 0xF4 && p + 3 < p_end) {
-            if (chr == 0xF0) {
-                if (p[1] < 0x90 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF
-                    || p[3] < 0x80 || p[3] > 0xBF) {
-                    return false;
-                }
-            }
-            else if (chr >= 0xF1 && chr <= 0xF3) {
-                if (p[1] < 0x80 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF
-                    || p[3] < 0x80 || p[3] > 0xBF) {
-                    return false;
-                }
-            }
-            else if (chr == 0xF4) {
-                if (p[1] < 0x80 || p[1] > 0x8F || p[2] < 0x80 || p[2] > 0xBF
-                    || p[3] < 0x80 || p[3] > 0xBF) {
-                    return false;
-                }
-            }
-            p += 4;
-        }
-        else {
-            return false;
-        }
-    }
-    return (p == p_end);
-}
-#endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION != 0 */
-
 /* Internal function in object file */
 typedef struct AOTObjectFunc {
     char *func_name;
@@ -177,6 +110,16 @@ is_little_endian_binary(const AOTObjectData *obj_data)
 {
     /* bit 0: 0 is little-endian, 1 is big-endian */
     return obj_data->target_info.bin_type & 1 ? false : true;
+}
+
+static bool
+need_call_wrapped_indirect(const AOTObjectData *obj_data)
+{
+    const bool need_precheck = obj_data->comp_ctx->enable_stack_bound_check
+                               || obj_data->comp_ctx->enable_stack_estimation;
+
+    return obj_data->comp_ctx->is_indirect_mode && need_precheck
+           && !strncmp(obj_data->comp_ctx->target_arch, "xtensa", 6);
 }
 
 static bool
@@ -840,7 +783,7 @@ get_init_data_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
     size += (uint32)sizeof(uint32) * 2;
 
     /* aux data/heap/stack data */
-    size += sizeof(uint32) * 7;
+    size += sizeof(uint32) * 10;
 
     size += get_object_data_section_info_size(comp_ctx, obj_data);
     return size;
@@ -869,6 +812,10 @@ get_func_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
 
     /* function type indexes */
     size += (uint32)sizeof(uint32) * comp_data->func_count;
+
+    /* aot_func#xxx + aot_func_internal#xxx in XIP mode for xtensa */
+    if (need_call_wrapped_indirect(obj_data))
+        size *= 2;
 
     /* max_local_cell_nums */
     size += (uint32)sizeof(uint32) * comp_data->func_count;
@@ -1342,28 +1289,28 @@ exchange_uint32(uint8 *p_data)
 }
 
 static void
-exchange_uint64(uint8 *pData)
+exchange_uint64(uint8 *p_data)
 {
     uint32 value;
 
-    value = *(uint32 *)pData;
-    *(uint32 *)pData = *(uint32 *)(pData + 4);
-    *(uint32 *)(pData + 4) = value;
-    exchange_uint32(pData);
-    exchange_uint32(pData + 4);
+    value = *(uint32 *)p_data;
+    *(uint32 *)p_data = *(uint32 *)(p_data + 4);
+    *(uint32 *)(p_data + 4) = value;
+    exchange_uint32(p_data);
+    exchange_uint32(p_data + 4);
 }
 
 static void
-exchange_uint128(uint8 *pData)
+exchange_uint128(uint8 *p_data)
 {
     /* swap high 64bit and low 64bit */
-    uint64 value = *(uint64 *)pData;
-    *(uint64 *)pData = *(uint64 *)(pData + 8);
-    *(uint64 *)(pData + 8) = value;
+    uint64 value = *(uint64 *)p_data;
+    *(uint64 *)p_data = *(uint64 *)(p_data + 8);
+    *(uint64 *)(p_data + 8) = value;
     /* exchange high 64bit */
-    exchange_uint64(pData);
+    exchange_uint64(p_data);
     /* exchange low 64bit */
-    exchange_uint64(pData + 8);
+    exchange_uint64(p_data + 8);
 }
 
 static union {
@@ -1529,6 +1476,7 @@ fail_integer_too_large:
     return false;
 }
 
+/* NOLINTNEXTLINE */
 #define read_leb_uint32(p, p_end, res)                         \
     do {                                                       \
         uint64 res64;                                          \
@@ -1537,9 +1485,16 @@ fail_integer_too_large:
         res = (uint32)res64;                                   \
     } while (0)
 
+/*
+ * - transfer .name section in .wasm (comp_data->name_section_buf) to
+ *   aot buf (comp_data->aot_name_section_buf)
+ * - leb128 to u32
+ * - add `\0` at the end of every name, and adjust length(+1)
+ */
 static uint32
 get_name_section_size(AOTCompData *comp_data)
 {
+    /* original name section content in .wasm */
     const uint8 *p = comp_data->name_section_buf,
                 *p_end = comp_data->name_section_buf_end;
     uint8 *buf, *buf_end;
@@ -1566,22 +1521,20 @@ get_name_section_size(AOTCompData *comp_data)
         aot_set_last_error("allocate memory for custom name section failed.");
         return 0;
     }
+    memset(buf, 0, (uint32)max_aot_buf_size);
     buf_end = buf + max_aot_buf_size;
 
+    /* the size of "name". it should be 4 */
     read_leb_uint32(p, p_end, name_len);
     offset = align_uint(offset, 4);
     EMIT_U32(name_len);
 
-    if (name_len == 0 || p + name_len > p_end) {
+    if (name_len != 4 || p + name_len > p_end) {
         aot_set_last_error("unexpected end");
         return 0;
     }
 
-    if (!check_utf8_str(p, name_len)) {
-        aot_set_last_error("invalid UTF-8 encoding");
-        return 0;
-    }
-
+    /* "name" */
     if (memcmp(p, "name", 4) != 0) {
         aot_set_last_error("invalid custom name section");
         return 0;
@@ -1630,9 +1583,18 @@ get_name_section_size(AOTCompData *comp_data)
                         previous_func_index = func_index;
                         read_leb_uint32(p, p_end, func_name_len);
                         offset = align_uint(offset, 2);
-                        EMIT_U16(func_name_len);
+
+                        /* emit a string ends with `\0` */
+                        if (func_name_len + 1 > UINT16_MAX) {
+                            aot_set_last_error(
+                                "emit string failed: string too long");
+                            goto fail;
+                        }
+                        /* extra 1 byte for \0 */
+                        EMIT_U16(func_name_len + 1);
                         EMIT_BUF(p, func_name_len);
                         p += func_name_len;
+                        EMIT_U8(0);
                     }
                 }
                 break;
@@ -2413,11 +2375,11 @@ aot_emit_init_data_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     EMIT_U32(comp_data->start_func_index);
 
     EMIT_U32(comp_data->aux_data_end_global_index);
-    EMIT_U32(comp_data->aux_data_end);
+    EMIT_U64(comp_data->aux_data_end);
     EMIT_U32(comp_data->aux_heap_base_global_index);
-    EMIT_U32(comp_data->aux_heap_base);
+    EMIT_U64(comp_data->aux_heap_base);
     EMIT_U32(comp_data->aux_stack_top_global_index);
-    EMIT_U32(comp_data->aux_stack_bottom);
+    EMIT_U64(comp_data->aux_stack_bottom);
     EMIT_U32(comp_data->aux_stack_size);
 
     if (!aot_emit_object_data_section_info(buf, buf_end, &offset, comp_ctx,
@@ -2594,8 +2556,29 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             EMIT_U64(func->text_offset);
     }
 
+    if (need_call_wrapped_indirect(obj_data)) {
+        /*
+         * Explicitly emit aot_func_internal#xxx for Xtensa XIP, therefore,
+         * for aot_func#xxx, func_indexes ranged from 0 ~ func_count,
+         * for aot_func_internal#xxxx, from func_count + 1 ~ 2 * func_count.
+         */
+        for (i = 0, func = obj_data->funcs; i < obj_data->func_count;
+             i++, func++) {
+            if (is_32bit_binary(obj_data))
+                EMIT_U32(func->text_offset_of_aot_func_internal);
+            else
+                EMIT_U64(func->text_offset_of_aot_func_internal);
+        }
+    }
+
     for (i = 0; i < comp_data->func_count; i++)
         EMIT_U32(funcs[i]->func_type_index);
+
+    if (need_call_wrapped_indirect(obj_data)) {
+        /* func_type_index for aot_func_internal#xxxx */
+        for (i = 0; i < comp_data->func_count; i++)
+            EMIT_U32(funcs[i]->func_type_index);
+    }
 
     for (i = 0; i < comp_data->func_count; i++) {
         uint32 max_local_cell_num =
@@ -3911,7 +3894,12 @@ aot_resolve_object_relocation_group(AOTObjectData *obj_data,
          * Note: aot_stack_sizes_section_name section only contains
          * stack_sizes table.
          */
-        if (!strcmp(relocation->symbol_name, aot_stack_sizes_name)) {
+        if (!strcmp(relocation->symbol_name, aot_stack_sizes_name)
+            /* in windows 32, the symbol name may start with '_' */
+            || (strlen(relocation->symbol_name) > 0
+                && relocation->symbol_name[0] == '_'
+                && !strcmp(relocation->symbol_name + 1,
+                           aot_stack_sizes_name))) {
             /* discard const */
             relocation->symbol_name = (char *)aot_stack_sizes_section_name;
         }

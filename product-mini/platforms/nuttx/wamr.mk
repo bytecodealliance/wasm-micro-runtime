@@ -437,7 +437,6 @@ CSRCS += nuttx_platform.c \
          bh_hashmap.c \
          bh_list.c \
          bh_log.c \
-         bh_memutils.c \
          bh_queue.c \
          bh_vector.c \
          bh_read_file.c \

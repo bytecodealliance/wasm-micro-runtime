@@ -109,6 +109,12 @@ typedef unsigned int korp_sem;
 #define DT_LNK DTYPE_LINK
 #define DT_SOCK DTYPE_SOCK
 
+static inline int
+os_getpagesize()
+{
+    return 4096;
+}
+
 typedef int os_file_handle;
 typedef DIR *os_dir_stream;
 typedef int os_raw_file_handle;

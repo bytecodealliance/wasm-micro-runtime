@@ -157,6 +157,16 @@ void
 wasm_struct_obj_get_field(const WASMStructObjectRef struct_obj,
                           uint32 field_idx, bool sign_extend, WASMValue *value);
 
+/**
+ * Return the field count of the WASM struct object.
+ *
+ * @param struct_obj the WASM struct object
+ *
+ * @return the field count of the WASM struct object
+ */
+uint32
+wasm_struct_obj_get_field_count(const WASMStructObjectRef struct_obj);
+
 WASMArrayObjectRef
 wasm_array_obj_new_internal(void *heap_handle, WASMRttTypeRef rtt_type,
                             uint32 length, WASMValue *init_value);

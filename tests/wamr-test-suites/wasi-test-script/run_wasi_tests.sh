@@ -41,6 +41,12 @@ readonly THREAD_INTERNAL_TESTS="${WAMR_DIR}/core/iwasm/libraries/lib-wasi-thread
 readonly THREAD_STRESS_TESTS="${WAMR_DIR}/core/iwasm/libraries/lib-wasi-threads/stress-test/"
 readonly LIB_SOCKET_TESTS="${WAMR_DIR}/core/iwasm/libraries/lib-socket/test/"
 
+add_env_key_to_test_config_file() {
+    filepath="tests/$2/testsuite/$3.json"
+    modified_contents=$(jq ".env.$1 = 1" "$filepath")
+    echo "$modified_contents" > "$filepath"
+}
+
 run_aot_tests () {
     local -n tests=$1
     local -n excluded_tests=$2
@@ -94,6 +100,15 @@ if [[ $MODE != "aot" ]];then
     $PYTHON_EXE -m pip install -r test-runner/requirements.txt
 
     export TEST_RUNTIME_EXE="${IWASM_CMD}"
+
+    # Some of the WASI test assertions can be controlled via environment
+    # variables. The following ones are set on Windows so that the tests pass.
+    if [ "$PLATFORM" == "windows" ]; then
+        add_env_key_to_test_config_file NO_DANGLING_FILESYSTEM rust symlink_loop
+        add_env_key_to_test_config_file NO_DANGLING_FILESYSTEM rust dangling_symlink
+        add_env_key_to_test_config_file ERRNO_MODE_WINDOWS rust path_open_preopen
+        add_env_key_to_test_config_file NO_RENAME_DIR_TO_EMPTY_DIR rust path_rename
+    fi
 
     TEST_OPTIONS="-r adapters/wasm-micro-runtime.py \
         -t \

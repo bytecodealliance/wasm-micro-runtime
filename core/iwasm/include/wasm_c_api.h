@@ -1,5 +1,11 @@
 // WebAssembly C API
 
+/**
+ * @file   wasm_c_api.h
+ *
+ * @brief  This file defines the WebAssembly C APIs
+ */
+
 #ifndef _WASM_C_API_H_
 #define _WASM_C_API_H_
 
@@ -185,6 +191,16 @@ struct wasm_config_t {
     bool enable_linux_perf;
     /*TODO: wasi args*/
 };
+
+#ifndef INSTANTIATION_ARGS_OPTION_DEFINED
+#define INSTANTIATION_ARGS_OPTION_DEFINED
+/* WASM module instantiation arguments */
+typedef struct InstantiationArgs {
+    uint32_t default_stack_size;
+    uint32_t host_managed_heap_size;
+    uint32_t max_memory_pages;
+} InstantiationArgs;
+#endif /* INSTANTIATION_ARGS_OPTION_DEFINED */
 
 /*
  * by default:
@@ -507,9 +523,20 @@ struct WASMModuleCommon;
 typedef struct WASMModuleCommon *wasm_module_t;
 #endif
 
+#ifndef LOAD_ARGS_OPTION_DEFINED
+#define LOAD_ARGS_OPTION_DEFINED
+typedef struct LoadArgs {
+    char *name;
+    /* TODO: more fields? */
+} LoadArgs;
+#endif /* LOAD_ARGS_OPTION_DEFINED */
 
 WASM_API_EXTERN own wasm_module_t* wasm_module_new(
   wasm_store_t*, const wasm_byte_vec_t* binary);
+
+// please refer to wasm_runtime_load_ex(...) in core/iwasm/include/wasm_export.h
+WASM_API_EXTERN own wasm_module_t* wasm_module_new_ex(
+  wasm_store_t*, const wasm_byte_vec_t* binary, const LoadArgs *args);
 
 WASM_API_EXTERN void wasm_module_delete(own wasm_module_t*);
 
@@ -525,6 +552,9 @@ typedef wasm_module_t wasm_shared_module_t;
 WASM_API_EXTERN own wasm_shared_module_t* wasm_module_share(wasm_module_t*);
 WASM_API_EXTERN own wasm_module_t* wasm_module_obtain(wasm_store_t*, wasm_shared_module_t*);
 WASM_API_EXTERN void wasm_shared_module_delete(own wasm_shared_module_t*);
+
+WASM_API_EXTERN bool wasm_module_set_name(wasm_module_t*, const char* name);
+WASM_API_EXTERN const char *wasm_module_get_name(wasm_module_t*);
 
 
 // Function Instances
@@ -642,6 +672,12 @@ WASM_API_EXTERN own wasm_instance_t* wasm_instance_new(
 WASM_API_EXTERN own wasm_instance_t* wasm_instance_new_with_args(
   wasm_store_t*, const wasm_module_t*, const wasm_extern_vec_t *imports,
   own wasm_trap_t** trap, const uint32_t stack_size, const uint32_t heap_size
+);
+
+// please refer to wasm_runtime_instantiate_ex(...) in core/iwasm/include/wasm_export.h
+WASM_API_EXTERN own wasm_instance_t* wasm_instance_new_with_args_ex(
+  wasm_store_t*, const wasm_module_t*, const wasm_extern_vec_t *imports,
+  own wasm_trap_t** trap, const InstantiationArgs *inst_args
 );
 
 WASM_API_EXTERN void wasm_instance_exports(const wasm_instance_t*, own wasm_extern_vec_t* out);

@@ -234,19 +234,19 @@ main(int argc, char *argv[])
 
     /* lookup function instance */
     if (!(wasm_cmp_externref_ptr = wasm_runtime_lookup_function(
-              wasm_module_inst, "cmp-externref", NULL))) {
+              wasm_module_inst, "cmp-externref"))) {
         printf("%s\n", "lookup function cmp-externref failed");
         goto fail;
     }
 
     if (!(wasm_get_externref_ptr = wasm_runtime_lookup_function(
-              wasm_module_inst, "get-externref", NULL))) {
+              wasm_module_inst, "get-externref"))) {
         printf("%s\n", "lookup function get-externref failed");
         goto fail;
     }
 
     if (!(wasm_set_externref_ptr = wasm_runtime_lookup_function(
-              wasm_module_inst, "set-externref", NULL))) {
+              wasm_module_inst, "set-externref"))) {
         printf("%s\n", "lookup function set-externref failed");
         goto fail;
     }

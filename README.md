@@ -14,8 +14,8 @@ WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (Wasm) 
 - [**iwasm**](./product-mini/): The executable binary built with WAMR VMcore supports WASI and command line interface.
 - [**wamrc**](./wamr-compiler/): The AOT compiler to compile Wasm file into AOT file
 - Useful components and tools for building real solutions with WAMR vmcore:
-  - [App-framework](./core/app-framework/README.md): A framework for supporting APIs for the Wasm applications
-  - [App-manager](./core/app-mgr/README.md): a framework for dynamical loading the Wasm module remotely
+  - [App-framework](https://github.com/bytecodealliance/wamr-app-framework/blob/main/app-framework/README.md): A framework for supporting APIs for the Wasm applications
+  - [App-manager](https://github.com/bytecodealliance/wamr-app-framework/blob/main/app-mgr/README.md): a framework for dynamical loading the Wasm module remotely
   - [WAMR-IDE](./test-tools/wamr-ide): An experimental VSCode extension for developping WebAssembly applications with C/C++
 
 
@@ -35,25 +35,24 @@ WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (Wasm) 
 - [XIP (Execution In Place) support](./doc/xip.md), ref to [document](./doc/xip.md)
 - [Berkeley/Posix Socket support](./doc/socket_api.md), ref to [document](./doc/socket_api.md) and [sample](./samples/socket-api)
 - [Multi-tier JIT](./product-mini#linux) and [Running mode control](https://bytecodealliance.github.io/wamr.dev/blog/introduction-to-wamr-running-modes/)
-- Language bindings: [Go](./language-bindings/go/README.md), [Python](./language-bindings/python/README.md)
+- Language bindings: [Go](./language-bindings/go/README.md), [Python](./language-bindings/python/README.md), [Rust](./language-bindings/rust/README.md)
 
 ### Wasm post-MVP features
 - [wasm-c-api](https://github.com/WebAssembly/wasm-c-api), ref to [document](doc/wasm_c_api.md) and [sample](samples/wasm-c-api)
 - [128-bit SIMD](https://github.com/WebAssembly/simd), ref to [samples/workload](samples/workload)
 - [Reference Types](https://github.com/WebAssembly/reference-types), ref to [document](doc/ref_types.md) and [sample](samples/ref-types)
-- [Non-trapping float-to-int conversions](https://github.com/WebAssembly/nontrapping-float-to-int-conversions)
-- [Sign-extension operators](https://github.com/WebAssembly/sign-extension-ops), [Bulk memory operations](https://github.com/WebAssembly/bulk-memory-operations)
-- [Multi-value](https://github.com/WebAssembly/multi-value), [Tail-call](https://github.com/WebAssembly/tail-call), [Shared memory](https://github.com/WebAssembly/threads/blob/main/proposals/threads/Overview.md#shared-linear-memory)
+- [Bulk memory operations](https://github.com/WebAssembly/bulk-memory-operations), [Shared memory](https://github.com/WebAssembly/threads/blob/main/proposals/threads/Overview.md#shared-linear-memory), [Memory64](https://github.com/WebAssembly/memory64)
+- [Tail-call](https://github.com/WebAssembly/tail-call), [Garbage Collection](https://github.com/WebAssembly/gc), [Exception Handling](https://github.com/WebAssembly/exception-handling)
 
 ### Supported architectures and platforms
-The WAMR VMcore supports the following architectures:  
+The WAMR VMcore supports the following architectures:
 - X86-64, X86-32
 - ARM, THUMB (ARMV7 Cortex-M7 and Cortex-A15 are tested)
 - AArch64 (Cortex-A57 and Cortex-A53 are tested)
 - RISCV64, RISCV32 (RISC-V LP64 and RISC-V LP64D are tested)
 - XTENSA, MIPS, ARC
 
-The following platforms are supported, click each link below for how to build iwasm on that platform. Refer to [WAMR porting guide](./doc/port_wamr.md) for how to port WAMR to a new platform.  
+The following platforms are supported, click each link below for how to build iwasm on that platform. Refer to [WAMR porting guide](./doc/port_wamr.md) for how to port WAMR to a new platform.
 - [Linux](./product-mini/README.md#linux),  [Linux SGX (Intel Software Guard Extension)](./doc/linux_sgx.md),  [MacOS](./product-mini/README.md#macos),  [Android](./product-mini/README.md#android), [Windows](./product-mini/README.md#windows), [Windows (MinGW)](./product-mini/README.md#mingw)
 - [Zephyr](./product-mini/README.md#zephyr),  [AliOS-Things](./product-mini/README.md#alios-things),  [VxWorks](./product-mini/README.md#vxworks), [NuttX](./product-mini/README.md#nuttx), [RT-Thread](./product-mini/README.md#RT-Thread), [ESP-IDF](./product-mini/README.md#esp-idf)
 
@@ -67,7 +66,8 @@ The following platforms are supported, click each link below for how to build iw
 - [Build Wasm applications](./doc/build_wasm_app.md)
 - [Port WAMR to a new platform](./doc/port_wamr.md)
 - [VS Code development container](./doc/devcontainer.md)
-- [Samples](./samples) and [Benchmarks](./tests/benchmarks) 
+- [Samples](./samples) and [Benchmarks](./tests/benchmarks)
+- [End-user APIs documentation](https://bytecodealliance.github.io/wamr.dev/apis/)
 
 
 

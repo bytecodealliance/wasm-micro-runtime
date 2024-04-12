@@ -149,9 +149,9 @@ wasm_exec_env_create(struct WASMModuleInstanceCommon *module_inst,
     /* Set the aux_stack_boundary and aux_stack_bottom */
     if (module_inst->module_type == Wasm_Module_Bytecode) {
         WASMModule *module = ((WASMModuleInstance *)module_inst)->module;
-        exec_env->aux_stack_bottom.bottom = module->aux_stack_bottom;
-        exec_env->aux_stack_boundary.boundary =
-            module->aux_stack_bottom - module->aux_stack_size;
+        exec_env->aux_stack_bottom = (uintptr_t)module->aux_stack_bottom;
+        exec_env->aux_stack_boundary =
+            (uintptr_t)module->aux_stack_bottom - module->aux_stack_size;
 #if WASM_ENABLE_GC != 0
         gc_heap_handle =
             ((WASMModuleInstance *)module_inst)->e->common.gc_heap_pool;
@@ -163,9 +163,9 @@ wasm_exec_env_create(struct WASMModuleInstanceCommon *module_inst,
     if (module_inst->module_type == Wasm_Module_AoT) {
         AOTModule *module =
             (AOTModule *)((AOTModuleInstance *)module_inst)->module;
-        exec_env->aux_stack_bottom.bottom = module->aux_stack_bottom;
-        exec_env->aux_stack_boundary.boundary =
-            module->aux_stack_bottom - module->aux_stack_size;
+        exec_env->aux_stack_bottom = (uintptr_t)module->aux_stack_bottom;
+        exec_env->aux_stack_boundary =
+            (uintptr_t)module->aux_stack_bottom - module->aux_stack_size;
 #if WASM_ENABLE_GC != 0
         gc_heap_handle =
             ((AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e)

@@ -6,6 +6,7 @@ from ctypes import addressof
 from ctypes import c_char
 from ctypes import c_uint
 from ctypes import c_uint8
+from ctypes import c_uint64
 from ctypes import c_void_p
 from ctypes import cast
 from ctypes import create_string_buffer
@@ -167,14 +168,14 @@ class Instance:
             raise Exception("Error while creating module instance")
         return module_inst
 
-    def malloc(self, nbytes: int, native_handler) -> c_uint:
+    def malloc(self, nbytes: int, native_handler) -> c_uint64:
         return wasm_runtime_module_malloc(self.module_inst, nbytes, native_handler)
 
     def free(self, wasm_handler) -> None:
         wasm_runtime_module_free(self.module_inst, wasm_handler)
 
     def lookup_function(self, name: str) -> wasm_function_inst_t:
-        func = wasm_runtime_lookup_function(self.module_inst, name, None)
+        func = wasm_runtime_lookup_function(self.module_inst, name)
         if not func:
             raise Exception("Error while looking-up function")
         return func

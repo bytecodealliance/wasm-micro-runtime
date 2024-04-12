@@ -152,6 +152,10 @@
 #define WASM_ENABLE_WASI_NN_EXTERNAL_DELEGATE 0
 #endif
 
+#ifndef WASM_ENABLE_WASI_EPHEMERAL_NN
+#define WASM_ENABLE_WASI_EPHEMERAL_NN 0
+#endif
+
 /* Default disable libc emcc */
 #ifndef WASM_ENABLE_LIBC_EMCC
 #define WASM_ENABLE_LIBC_EMCC 0
@@ -411,7 +415,7 @@
 #else
 #define DEFAULT_WASM_STACK_SIZE (12 * 1024)
 #endif
-/* Min auxilliary stack size of each wasm thread */
+/* Min auxiliary stack size of each wasm thread */
 #define WASM_THREAD_AUX_STACK_SIZE_MIN (256)
 
 /* Default/min native stack size of each app thread */
@@ -560,10 +564,23 @@
 #endif
 
 /* Support registering quick AOT/JIT function entries of some func types
-   to speedup the calling process of invoking the AOT/JIT functions of
+   to speed up the calling process of invoking the AOT/JIT functions of
    these types from the host embedder */
 #ifndef WASM_ENABLE_QUICK_AOT_ENTRY
 #define WASM_ENABLE_QUICK_AOT_ENTRY 1
+#endif
+
+/* Support AOT intrinsic functions which can be called from the AOT code
+   when `--disable-llvm-intrinsics` flag or
+   `--enable-builtin-intrinsics=<intr1,intr2,...>` is used by wamrc to
+   generate the AOT file */
+#ifndef WASM_ENABLE_AOT_INTRINSICS
+#define WASM_ENABLE_AOT_INTRINSICS 1
+#endif
+
+/* Disable memory64 by default */
+#ifndef WASM_ENABLE_MEMORY64
+#define WASM_ENABLE_MEMORY64 0
 #endif
 
 #ifndef WASM_TABLE_MAX_SIZE

@@ -226,15 +226,6 @@ aot_compile_simd_i16x8_narrow_i32x4(AOTCompContext *comp_ctx,
     }
 }
 
-bool
-aot_compile_simd_i32x4_narrow_i64x2(AOTCompContext *comp_ctx,
-                                    AOTFuncContext *func_ctx, bool is_signed)
-{
-    /* TODO: x86 intrinsics */
-    return simd_integer_narrow_common(comp_ctx, func_ctx, e_sat_i64x2,
-                                      is_signed);
-}
-
 enum integer_extend_type {
     e_ext_i8x16,
     e_ext_i16x8,

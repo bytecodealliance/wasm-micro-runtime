@@ -1102,7 +1102,7 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth,
         }
     }
 
-    /* Only opy parameters or results when their count > 0 and
+    /* Only copy parameters or results when their count > 0 and
        the src/dst addr are different */
     copy_arities = check_copy_arities(block_dst, jit_frame);
 

@@ -30,7 +30,7 @@ struct WASMCluster {
     /* The aux stack of a module with shared memory will be
         divided into several segments. This array store the
         stack top of different segments */
-    uint32 *stack_tops;
+    uint64 *stack_tops;
     /* Record which segments are occupied */
     bool *stack_segment_occupied;
 #endif
@@ -89,7 +89,7 @@ wasm_cluster_dup_c_api_imports(WASMModuleInstanceCommon *module_inst_dst,
 int32
 wasm_cluster_create_thread(WASMExecEnv *exec_env,
                            wasm_module_inst_t module_inst,
-                           bool is_aux_stack_allocated, uint32 aux_stack_start,
+                           bool is_aux_stack_allocated, uint64 aux_stack_start,
                            uint32 aux_stack_size,
                            void *(*thread_routine)(void *), void *arg);
 
@@ -231,11 +231,11 @@ void
 wasm_cluster_traverse_unlock(WASMExecEnv *exec_env);
 
 bool
-wasm_cluster_allocate_aux_stack(WASMExecEnv *exec_env, uint32 *p_start,
+wasm_cluster_allocate_aux_stack(WASMExecEnv *exec_env, uint64 *p_start,
                                 uint32 *p_size);
 
 bool
-wasm_cluster_free_aux_stack(WASMExecEnv *exec_env, uint32 start);
+wasm_cluster_free_aux_stack(WASMExecEnv *exec_env, uint64 start);
 
 #ifdef __cplusplus
 }

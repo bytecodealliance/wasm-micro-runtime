@@ -24,6 +24,8 @@ create_native_stack_bound(const AOTCompContext *comp_ctx,
 static bool
 create_native_stack_top_min(const AOTCompContext *comp_ctx,
                             AOTFuncContext *func_ctx);
+static bool
+create_func_ptrs(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 
 LLVMTypeRef
 wasm_type_to_llvm_type(const AOTCompContext *comp_ctx,
@@ -83,7 +85,7 @@ aot_add_llvm_func1(const AOTCompContext *comp_ctx, LLVMModuleRef module,
                    uint32 func_index, uint32 param_count, LLVMTypeRef func_type,
                    const char *prefix)
 {
-    char func_name[48];
+    char func_name[48] = { 0 };
     LLVMValueRef func;
     LLVMValueRef local_value;
     uint32 i, j;
@@ -122,7 +124,7 @@ create_basic_func_context(const AOTCompContext *comp_ctx,
 {
     LLVMValueRef aot_inst_offset = I32_TWO, aot_inst_addr;
 
-    /* Save the pameters for fast access */
+    /* Save the parameters for fast access */
     func_ctx->exec_env = LLVMGetParam(func_ctx->func, 0);
 
     /* Get aot inst address, the layout of exec_env is:
@@ -537,8 +539,51 @@ aot_build_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     if (ret_type == VOID_TYPE) {
         name = "";
     }
-    LLVMValueRef retval =
-        LLVMBuildCall2(b, func_type, wrapped_func, params, param_count, name);
+
+    LLVMValueRef retval;
+    if (comp_ctx->is_indirect_mode
+        && !strncmp(comp_ctx->target_arch, "xtensa", 6)) {
+        /* call wrapped_func indirectly */
+        if (!create_func_ptrs(comp_ctx, func_ctx)) {
+            goto fail;
+        }
+
+        LLVMTypeRef func_ptr_type;
+        LLVMValueRef wrapped_func_indirect;
+        uint32 import_func_count = comp_ctx->comp_data->import_func_count;
+        uint32 func_count = comp_ctx->func_ctx_count;
+
+        /* Check function index */
+        if (func_index >= import_func_count + func_count) {
+            aot_set_last_error("Function index out of range.");
+            goto fail;
+        }
+
+        /* Get function type */
+        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {
+            aot_set_last_error("create LLVM function type failed.");
+            goto fail;
+        }
+
+        /*
+         * func_index layout :
+         * aot_func#xxx, range from 0 ~ func_conut - 1;
+         * aot_func#internal#xxx,  range from func_conut ~ 2 * func_conut - 1;
+         */
+        if (!(wrapped_func_indirect = aot_get_func_from_table(
+                  comp_ctx, func_ctx->func_ptrs, func_ptr_type,
+                  func_index + func_count + import_func_count))) {
+            goto fail;
+        }
+
+        /* Call the function indirectly */
+        retval = LLVMBuildCall2(b, func_type, wrapped_func_indirect, params,
+                                param_count, name);
+    }
+    else
+        retval = LLVMBuildCall2(b, func_type, wrapped_func, params, param_count,
+                                name);
+
     if (!retval) {
         goto fail;
     }
@@ -629,7 +674,8 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
     uint32 backend_thread_num, compile_thread_num;
 
     /* Check function parameter types and result types */
-    for (i = 0; i < aot_func_type->param_count + aot_func_type->result_count;
+    for (i = 0;
+         i < (uint32)(aot_func_type->param_count + aot_func_type->result_count);
          i++) {
         if (!check_wasm_type(comp_ctx, aot_func_type->types[i]))
             return NULL;
@@ -686,10 +732,12 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
 
     bh_assert(func_index < comp_ctx->func_ctx_count);
     bh_assert(LLVMGetReturnType(func_type) == ret_type);
+
     const char *prefix = AOT_FUNC_PREFIX;
     const bool need_precheck =
         comp_ctx->enable_stack_bound_check || comp_ctx->enable_stack_estimation;
-    LLVMValueRef precheck_func;
+    LLVMValueRef precheck_func = NULL;
+
     if (need_precheck) {
         precheck_func = aot_add_llvm_func1(comp_ctx, module, func_index,
                                            aot_func_type->param_count,
@@ -732,7 +780,9 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
     }
 
     if (need_precheck) {
-        if (!comp_ctx->is_jit_mode)
+        if (!comp_ctx->is_jit_mode
+            && !(comp_ctx->is_indirect_mode
+                 && !strncmp(comp_ctx->target_arch, "xtensa", 6)))
             LLVMSetLinkage(func, LLVMInternalLinkage);
         unsigned int kind =
             LLVMGetEnumAttributeKindForName("noinline", strlen("noinline"));
@@ -955,15 +1005,21 @@ create_aux_stack_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     if (!(aux_stack_bound_addr =
               LLVMBuildBitCast(comp_ctx->builder, aux_stack_bound_addr,
-                               INT32_PTR_TYPE, "aux_stack_bound_ptr"))) {
+                               INTPTR_T_PTR_TYPE, "aux_stack_bound_ptr"))) {
         aot_set_last_error("llvm build bit cast failed");
         return false;
     }
 
     if (!(func_ctx->aux_stack_bound =
-              LLVMBuildLoad2(comp_ctx->builder, I32_TYPE, aux_stack_bound_addr,
-                             "aux_stack_bound"))) {
+              LLVMBuildLoad2(comp_ctx->builder, INTPTR_T_TYPE,
+                             aux_stack_bound_addr, "aux_stack_bound_intptr"))) {
         aot_set_last_error("llvm build load failed");
+        return false;
+    }
+    if (!(func_ctx->aux_stack_bound =
+              LLVMBuildZExt(comp_ctx->builder, func_ctx->aux_stack_bound,
+                            I64_TYPE, "aux_stack_bound_i64"))) {
+        aot_set_last_error("llvm build truncOrBitCast failed.");
         return false;
     }
 
@@ -977,14 +1033,21 @@ create_aux_stack_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     if (!(aux_stack_bottom_addr =
               LLVMBuildBitCast(comp_ctx->builder, aux_stack_bottom_addr,
-                               INT32_PTR_TYPE, "aux_stack_bottom_ptr"))) {
+                               INTPTR_T_PTR_TYPE, "aux_stack_bottom_ptr"))) {
         aot_set_last_error("llvm build bit cast failed");
         return false;
     }
+
     if (!(func_ctx->aux_stack_bottom =
-              LLVMBuildLoad2(comp_ctx->builder, I32_TYPE, aux_stack_bottom_addr,
-                             "aux_stack_bottom"))) {
+              LLVMBuildLoad2(comp_ctx->builder, INTPTR_T_TYPE,
+                             aux_stack_bottom_addr, "aux_stack_bottom"))) {
         aot_set_last_error("llvm build load failed");
+        return false;
+    }
+    if (!(func_ctx->aux_stack_bottom =
+              LLVMBuildZExt(comp_ctx->builder, func_ctx->aux_stack_bottom,
+                            I64_TYPE, "aux_stack_bottom_i64"))) {
+        aot_set_last_error("llvm build truncOrBitCast failed.");
         return false;
     }
 
@@ -1316,7 +1379,7 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
     if (!(func_ctx->mem_info[0].mem_data_size_addr = LLVMBuildBitCast(
               comp_ctx->builder, func_ctx->mem_info[0].mem_data_size_addr,
-              INT32_PTR_TYPE, "mem_data_size_ptr"))) {
+              INT64_PTR_TYPE, "mem_data_size_ptr"))) {
         aot_set_last_error("llvm build bit cast failed");
         return false;
     }
@@ -1335,7 +1398,7 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return false;
         }
         if (!(func_ctx->mem_info[0].mem_data_size_addr = LLVMBuildLoad2(
-                  comp_ctx->builder, I32_TYPE,
+                  comp_ctx->builder, I64_TYPE,
                   func_ctx->mem_info[0].mem_data_size_addr, "mem_data_size"))) {
             aot_set_last_error("llvm build load failed");
             return false;
@@ -1916,8 +1979,8 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context,
         basic_types->intptr_t_ptr_type = basic_types->int64_ptr_type;
     }
 
-    basic_types->gc_ref_type = LLVMPointerType(basic_types->void_type, 0);
-    basic_types->gc_ref_ptr_type = LLVMPointerType(basic_types->gc_ref_type, 0);
+    basic_types->gc_ref_type = basic_types->int8_ptr_type;
+    basic_types->gc_ref_ptr_type = basic_types->int8_pptr_type;
 
     return (basic_types->int8_ptr_type && basic_types->int8_pptr_type
             && basic_types->int16_ptr_type && basic_types->int32_ptr_type
@@ -2485,6 +2548,9 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
         aot_set_last_error("create LLVM module failed.");
         goto fail;
     }
+#if LLVM_VERSION_MAJOR >= 19
+    LLVMSetIsNewDbgInfoFormat(comp_ctx->module, true);
+#endif
 
 #if WASM_ENABLE_LINUX_PERF != 0
     if (wasm_runtime_get_linux_perf()) {

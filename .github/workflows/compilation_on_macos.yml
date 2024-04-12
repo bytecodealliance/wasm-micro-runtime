@@ -20,7 +20,6 @@ on:
       - "!samples/workload/**"
       - "tests/wamr-test-suites/**"
       - "wamr-compiler/**"
-      - "wamr-sdk/**"
   # will be triggered on push events
   push:
     branches:
@@ -37,7 +36,6 @@ on:
       - "!samples/workload/**"
       - "tests/wamr-test-suites/**"
       - "wamr-compiler/**"
-      - "wamr-sdk/**"
   # allow to be triggered manually
   workflow_dispatch:
 
@@ -244,7 +242,7 @@ jobs:
         run: |
           cmake -S . -B build ${{ matrix.make_options }}
           cmake --build build --config Release --parallel 4
-          ctest --test-dir build
+          ctest --test-dir build --output-on-failure
         working-directory: samples/wasm-c-api
 
   build_samples_others:
@@ -275,14 +273,14 @@ jobs:
           cd /opt
           sudo wget ${{ matrix.wasi_sdk_release }}
           sudo tar -xzf wasi-sdk-*.tar.gz
-          sudo mv wasi-sdk-20.0 wasi-sdk
+          sudo ln -sf wasi-sdk-20.0 wasi-sdk
 
       - name: download and install wabt
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
           sudo tar -xzf wabt-1.0.31-*.tar.gz
-          sudo mv wabt-1.0.31 wabt
+          sudo ln -sf wabt-1.0.31 wabt
 
       - name: Build Sample [basic]
         run: |
@@ -348,7 +346,7 @@ jobs:
           cmake ..
           cmake --build . --config Release --parallel 4
         working-directory: wamr-compiler
-        
+
       - name: Build Sample [wasi-threads]
         run: |
           cd samples/wasi-threads
@@ -371,3 +369,13 @@ jobs:
           cd samples/terminate
           ./build.sh
           ./run.sh
+
+      - name: Build Sample [debug-tools]
+        run: |
+          cd samples/debug-tools
+          mkdir build && cd build
+          cmake ..
+          cmake --build . --config Debug --parallel 4
+          ./iwasm wasm-apps/trap.wasm | grep "#" > call_stack.txt
+          ./iwasm wasm-apps/trap.aot | grep "#" > call_stack_aot.txt
+          bash -x ../symbolicate.sh

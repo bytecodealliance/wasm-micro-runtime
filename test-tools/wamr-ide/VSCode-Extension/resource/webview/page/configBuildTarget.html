@@ -41,8 +41,26 @@
                 <vscode-text-field id="stack_size" value=${stack_size_val}></vscode-text-field>
             </div>
             <div>
-                <label><b>Exported symbols: </b></label>
+                <label><b>Exported symbols: </b>
+                    <span><b>(separated by ',')</b></span>
+                </label>
                 <vscode-text-area rows="3" id="exported_symbols" placeholder="Please split each symbol with comma. Like 'app_main,on_init'" value=${exported_symbols_val}></vscode-text-area>
+            </div>
+        </div>
+    </div>
+
+    <div class="box_wrapper">
+        <div class="config_form_heading">
+            <h2>Config iwasm running option</h2>
+            <vscode-divider></vscode-divider>
+        </div>
+    </div>
+
+    <div class="box_wrapper">
+        <div class="config_form_body">
+            <div>
+                <label><b>Host managed heap size: </b></label>
+                <vscode-text-field id="host_managed_heap_size" value=${host_managed_heap_size_val}></vscode-text-field>
             </div>
         </div>
     </div>
