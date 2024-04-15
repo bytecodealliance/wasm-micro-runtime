@@ -776,6 +776,17 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
     bh_assert(total_size_new
               <= GET_MAX_LINEAR_MEMORY_SIZE(memory->is_memory64));
 
+#if WASM_MEM_ALLOC_WITH_USAGE != 0
+    (void)full_size_mmaped;
+    if (!(memory_data_new = realloc_func(Alloc_For_LinearMemory,
+                                         memory_data_old, total_size_new))) {
+        ret = false;
+        goto return_func;
+    }
+    memory->heap_data = memory_data_new + (heap_data_old - memory_data_old);
+    memory->heap_data_end = memory->heap_data + heap_size;
+    memory->memory_data = memory_data_new;
+#else
     if (full_size_mmaped) {
 #ifdef BH_PLATFORM_WINDOWS
         if (!os_mem_commit(memory->memory_data_end,
@@ -807,12 +818,6 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
             }
         }
 
-#if WASM_MEM_ALLOC_WITH_USAGE != 0
-        if (!(memory_data_new = realloc_func(Alloc_For_LinearMemory, memory_data_old, total_size_new))) {
-            ret = false;
-            goto return_func;
-        }
-#else
         if (!(memory_data_new =
                   wasm_mremap_linear_memory(memory_data_old, total_size_old,
                                             total_size_new, total_size_new))) {
@@ -820,7 +825,6 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
             goto return_func;
         }
 
-#endif
         if (heap_size > 0) {
             if (mem_allocator_migrate(memory->heap_handle,
                                       (char *)heap_data_old
@@ -841,6 +845,7 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
         os_writegsbase(memory_data_new);
 #endif
     }
+#endif /* end of WASM_MEM_ALLOC_WITH_USAGE */
 
     memory->num_bytes_per_page = num_bytes_per_page;
     memory->cur_page_count = total_page_count;
@@ -923,7 +928,8 @@ wasm_deallocate_linear_memory(WASMMemoryInstance *memory_inst)
 #endif
 
 #if WASM_MEM_ALLOC_WITH_USAGE != 0
-        free_func(Alloc_For_LinearMemory, memory_inst->memory_data);
+    (void)map_size;
+    free_func(Alloc_For_LinearMemory, memory_inst->memory_data);
 #else
     wasm_munmap_linear_memory(memory_inst->memory_data,
                               memory_inst->memory_data_size, map_size);
@@ -979,6 +985,7 @@ wasm_allocate_linear_memory(uint8 **data, bool is_shared_memory,
 
     if (map_size > 0) {
 #if WASM_MEM_ALLOC_WITH_USAGE != 0
+        (void)wasm_mmap_linear_memory;
         if (!(*data = malloc_func(Alloc_For_LinearMemory, *memory_data_size))) {
             return BHT_ERROR;
         }
