@@ -826,7 +826,6 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
             goto return_func;
         }
 
-#
         if (heap_size > 0) {
             if (mem_allocator_migrate(memory->heap_handle,
                                       (char *)heap_data_old
@@ -969,7 +968,6 @@ wasm_allocate_linear_memory(uint8 **data, bool is_shared_memory,
      * so the range of ea is 0 to 8G
      */
     map_size = 8 * (uint64)BH_GB;
-
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
     page_size = os_getpagesize();
