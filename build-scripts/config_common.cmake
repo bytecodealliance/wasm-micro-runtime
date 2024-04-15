@@ -134,7 +134,9 @@ endif ()
 
 # Sanitizers
 
-set(WAMR_BUILD_SANITIZER $ENV{WAMR_BUILD_SANITIZER})
+if (NOT DEFINED WAMR_BUILD_SANITIZER)
+  set(WAMR_BUILD_SANITIZER $ENV{WAMR_BUILD_SANITIZER})
+endif ()
 
 if (NOT DEFINED WAMR_BUILD_SANITIZER)
   set(WAMR_BUILD_SANITIZER "")
@@ -553,4 +555,7 @@ if (WAMR_BUILD_AOT EQUAL 1)
 else ()
   # Disable aot intrinsics for interp, fast-jit and llvm-jit
   add_definitions (-DWASM_ENABLE_AOT_INTRINSICS=0)
+endif ()
+if (NOT WAMR_BUILD_SANITIZER STREQUAL "")
+  message ("     Sanitizer ${WAMR_BUILD_SANITIZER} enabled")
 endif ()

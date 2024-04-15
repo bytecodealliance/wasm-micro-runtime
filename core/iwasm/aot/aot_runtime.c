@@ -4477,6 +4477,22 @@ aot_obj_is_instance_of(AOTModuleInstance *module_inst, WASMObjectRef gc_obj,
     return wasm_obj_is_instance_of(gc_obj, type_index, types, type_count);
 }
 
+bool
+aot_func_type_is_super_of(AOTModuleInstance *module_inst, uint32 type_idx1,
+                          uint32 type_idx2)
+{
+    AOTModule *aot_module = (AOTModule *)module_inst->module;
+    AOTType **types = aot_module->types;
+
+    if (type_idx1 == type_idx2)
+        return true;
+
+    bh_assert(types[type_idx1]->type_flag == WASM_TYPE_FUNC);
+    bh_assert(types[type_idx2]->type_flag == WASM_TYPE_FUNC);
+    return wasm_func_type_is_super_of((WASMFuncType *)types[type_idx1],
+                                      (WASMFuncType *)types[type_idx2]);
+}
+
 WASMRttTypeRef
 aot_rtt_type_new(AOTModuleInstance *module_inst, uint32 type_index)
 {
