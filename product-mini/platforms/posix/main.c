@@ -452,7 +452,6 @@ malloc_func(
 #endif
     unsigned int size)
 {
-    //printf("current allocated for %d\n", usage);
     return malloc(size);
 }
 
@@ -465,7 +464,6 @@ realloc_func(
 #endif
     void *ptr, unsigned int size)
 {
-    //printf("current realloc for %d\n", usage);
     return realloc(ptr, size);
 }
 
@@ -478,7 +476,6 @@ free_func(
 #endif
     void *ptr)
 {
-    //printf("current free for %d\n", usage);
     free(ptr);
 }
 #endif /* end of WASM_ENABLE_GLOBAL_HEAP_POOL */
