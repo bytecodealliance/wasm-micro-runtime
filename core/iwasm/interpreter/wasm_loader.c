@@ -11666,6 +11666,15 @@ re_scan:
                 if (opcode == WASM_OP_CALL_REF
                     || opcode == WASM_OP_RETURN_CALL_REF) {
                     read_leb_uint32(p, p_end, type_idx1);
+                    if (!check_type_index(module, module->type_count, type_idx1,
+                                          error_buf, error_buf_size)) {
+                        goto fail;
+                    }
+                    if (module->types[type_idx1]->type_flag != WASM_TYPE_FUNC) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "unkown function type");
+                        goto fail;
+                    }
                     if (!wasm_loader_pop_nullable_typeidx(loader_ctx, &type,
                                                           &type_idx, error_buf,
                                                           error_buf_size)) {
@@ -11683,7 +11692,9 @@ re_scan:
                                       "unkown function type");
                         goto fail;
                     }
-                    if (type_idx != type_idx1) {
+                    if (!wasm_func_type_is_super_of(
+                            (WASMFuncType *)module->types[type_idx1],
+                            (WASMFuncType *)module->types[type_idx])) {
                         set_error_buf(error_buf, error_buf_size,
                                       "function type mismatch");
                         goto fail;

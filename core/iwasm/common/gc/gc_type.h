@@ -48,7 +48,7 @@ wasm_func_type_is_subtype_of(const WASMFuncType *type1,
                              const WASMTypePtr *types, uint32 type_count);
 
 /* Whether func type1 is one of super types of func type2,
-   used for the func type check in call_indirect opcode */
+   used for the func type check in call_indirect/call_ref opcodes */
 bool
 wasm_func_type_is_super_of(const WASMFuncType *type1,
                            const WASMFuncType *type2);
