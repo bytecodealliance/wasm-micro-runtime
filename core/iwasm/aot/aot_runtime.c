@@ -1721,6 +1721,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
 
         bh_assert(table_init_data);
 
+        bh_assert(table_init_data->table_index < module_inst->table_count);
         table = module_inst->tables[table_init_data->table_index];
         bh_assert(table);
 
@@ -1728,7 +1729,9 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         bh_assert(table_data);
 
         wasm_runtime_get_table_inst_elem_type(
-            (WASMModuleInstanceCommon *)module_inst, i, &tbl_elem_type,
+            (WASMModuleInstanceCommon *)module_inst,
+            table_init_data->table_index,
+            &tbl_elem_type,
             &tbl_elem_ref_type, &tbl_init_size, &tbl_max_size);
 
         if (!wasm_elem_is_declarative(table_init_data->mode)
