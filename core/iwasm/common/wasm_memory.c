@@ -777,16 +777,15 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
               <= GET_MAX_LINEAR_MEMORY_SIZE(memory->is_memory64));
 
 #if WASM_MEM_ALLOC_WITH_USAGE != 0
-        (void)full_size_mmaped;
-        if (!(memory_data_new = realloc_func(Alloc_For_LinearMemory,
-                                             memory_data_old,
-                                             total_size_new))) {
-            ret = false;
-            goto return_func;
-        }
-        memory->heap_data = memory_data_new + (heap_data_old - memory_data_old);
-        memory->heap_data_end = memory->heap_data + heap_size;
-        memory->memory_data = memory_data_new;
+    (void)full_size_mmaped;
+    if (!(memory_data_new = realloc_func(Alloc_For_LinearMemory,
+                                         memory_data_old, total_size_new))) {
+        ret = false;
+        goto return_func;
+    }
+    memory->heap_data = memory_data_new + (heap_data_old - memory_data_old);
+    memory->heap_data_end = memory->heap_data + heap_size;
+    memory->memory_data = memory_data_new;
 #else
     if (full_size_mmaped) {
 #ifdef BH_PLATFORM_WINDOWS
@@ -929,8 +928,8 @@ wasm_deallocate_linear_memory(WASMMemoryInstance *memory_inst)
 #endif
 
 #if WASM_MEM_ALLOC_WITH_USAGE != 0
-        (void)map_size;
-        free_func(Alloc_For_LinearMemory, memory_inst->memory_data);
+    (void)map_size;
+    free_func(Alloc_For_LinearMemory, memory_inst->memory_data);
 #else
     wasm_munmap_linear_memory(memory_inst->memory_data,
                               memory_inst->memory_data_size, map_size);
