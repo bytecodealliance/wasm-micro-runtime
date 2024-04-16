@@ -762,10 +762,16 @@ wasm_refheaptype_equal(const RefHeapType_Common *ref_heap_type1,
     if (ref_heap_type1->heap_type != ref_heap_type2->heap_type) {
         if (wasm_is_refheaptype_typeidx(ref_heap_type1)
             && wasm_is_refheaptype_typeidx(ref_heap_type2)) {
-            return types[ref_heap_type1->heap_type]
-                           == types[ref_heap_type2->heap_type]
-                       ? true
-                       : false;
+            if (ref_heap_type1->heap_type == ref_heap_type2->heap_type)
+                return true;
+            else
+                /* the type_count may be 0 when called from reftype_equal */
+                return ((uint32)ref_heap_type1->heap_type < type_count
+                        && (uint32)ref_heap_type2->heap_type < type_count
+                        && types[ref_heap_type1->heap_type]
+                               == types[ref_heap_type2->heap_type])
+                           ? true
+                           : false;
         }
         return false;
     }
@@ -1012,9 +1018,12 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
 #endif
     else if (type1 == REF_TYPE_HT_NULLABLE) {
         if (wasm_is_refheaptype_typeidx(&ref_type1->ref_ht_common)) {
+            bh_assert((uint32)ref_type1->ref_ht_typeidx.type_idx < type_count);
             /* reftype1 is (ref null $t) */
             if (type2 == REF_TYPE_HT_NULLABLE && ref_type2 != NULL
                 && wasm_is_refheaptype_typeidx(&ref_type2->ref_ht_common)) {
+                bh_assert((uint32)ref_type2->ref_ht_typeidx.type_idx
+                          < type_count);
                 return wasm_type_is_supers_of(
                     types[ref_type2->ref_ht_typeidx.type_idx],
                     types[ref_type1->ref_ht_typeidx.type_idx]);
@@ -1059,11 +1068,14 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
     else if (type1 == REF_TYPE_HT_NON_NULLABLE) {
         bh_assert(ref_type1);
         if (wasm_is_refheaptype_typeidx(&ref_type1->ref_ht_common)) {
+            bh_assert((uint32)ref_type1->ref_ht_typeidx.type_idx < type_count);
             /* reftype1 is (ref $t) */
             if ((type2 == REF_TYPE_HT_NULLABLE
                  || type2 == REF_TYPE_HT_NON_NULLABLE)
                 && ref_type2 != NULL
                 && wasm_is_refheaptype_typeidx(&ref_type2->ref_ht_common)) {
+                bh_assert((uint32)ref_type2->ref_ht_typeidx.type_idx
+                          < type_count);
                 return wasm_type_is_supers_of(
                     types[ref_type2->ref_ht_typeidx.type_idx],
                     types[ref_type1->ref_ht_typeidx.type_idx]);

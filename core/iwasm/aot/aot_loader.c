@@ -1905,7 +1905,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                     AOTType *parent_type = module->types[parent_type_idx];
                     /* subtyping has been checked during compilation */
                     bh_assert(wasm_type_is_subtype_of(
-                        module->types[j], parent_type, module->types, i));
+                        module->types[j], parent_type, module->types, i + 1));
                     (void)parent_type;
                 }
             }
