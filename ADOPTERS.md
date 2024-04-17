@@ -14,10 +14,10 @@ The list is in alphabetical order._
 | [Moonbit](https://www.moonbitlang.com) | [@peter-jerry-ye](https://github.com/peter-jerry-ye) | ![Undisclosed](https://img.shields.io/badge/-Undisclosed-blue?style=flat) | MoonBit is an end-to-end programming language toolchain for cloud and edge computing using WebAssembly. |
 | [Microsoft](https://www.microsoft.com) | [@Mossaka](https://github.com/Mossaka)                       | ![production](https://img.shields.io/badge/-production-blue?style=flat)                                                       | Hyperlight runs Wasm workloads in VMs without OS and kernel, it is a solution for improving the management and security of Wasm workloads on Azure. |
 | [Midokura](https://www.midokura.com)                          |   [@yamt](https://github.com/yamt)                                     | ![Undisclosed](https://img.shields.io/badge/-Undisclosed-blue?style=flat) | WEdge: the next-generation Edge AI sensing platform                                                   |
-| [Xiaomi](https://www.mi.com)           | [@no1wudi](https://github.com/no1wudi)                       | ![production](https://img.shields.io/badge/-production-blue?style=flat) | Xiaomi Vela is Xiaomi's IoT embedded software platform based on the open-source, real-time operating system NuttX. |
-| [Xiaomi](https://www.mi.com)           | [@no1wudi](https://github.com/no1wudi)                       | ![production](https://img.shields.io/badge/-production-blue?style=flat) | TEE (trusted execution environment) app engine. |
 | [Siemens](https://www.siemens.com)    | [@ttrenner](https://github.com/ttrenner)                     | ![Undisclosed](https://img.shields.io/badge/-Undisclosed-blue?style=flat)                                                | Industrial, IoT                                               |
 | [Sony Semiconductor Solutions](https://www.sony-semicon.com)      | [@dongsheng28849455](https://github.com/dongsheng28849455)                                    | ![production](https://img.shields.io/badge/-production-blue?style=flat) | AI digital camera                                                   |
+| [Xiaomi](https://www.mi.com)           | [@no1wudi](https://github.com/no1wudi)                       | ![production](https://img.shields.io/badge/-production-blue?style=flat) | Xiaomi Vela is Xiaomi's IoT embedded software platform based on the open-source, real-time operating system NuttX. |
+| [Xiaomi](https://www.mi.com)           | [@no1wudi](https://github.com/no1wudi)                       | ![production](https://img.shields.io/badge/-production-blue?style=flat) | TEE (trusted execution environment) app engine. |
 
 # Adopted in open-source projects
 
@@ -32,5 +32,5 @@ _The list is in alphabetical order._
 | [harfbuzz](https://github.com/harfbuzz/harfbuzz)             | https://github.com/harfbuzz/harfbuzz/blob/main/docs/wasm-shaper.md#enabling-the-wasm-shaper-when-building-harfbuzz |
 | [inclave-containers](https://github.com/inclavare-containers/inclavare-containers) | https://github.com/inclavare-containers/inclavare-containers |
 | [private-data-objects](https://github.com/hyperledger-labs/private-data-objects) | https://github.com/hyperledger-labs/private-data-objects/blob/main/common/interpreter/wawaka_wasm/README.md |
-| [Wasmnizer-ts](https://github.com/web-devkits/Wasmnizer-ts)  | https://github.com/web-devkits/Wasmnizer-ts                  |
 | [runwasi](https://github.com/containerd/runwasi)             | https://github.com/containerd/runwasi/pull/508 (WIP)         |
+| [Wasmnizer-ts](https://github.com/web-devkits/Wasmnizer-ts)  | https://github.com/web-devkits/Wasmnizer-ts                  |
