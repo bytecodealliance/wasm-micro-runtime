@@ -128,7 +128,7 @@ struct LOCKABLE cond {
     clockid_t clock;
 #endif
 };
-
+#if !defined(BH_PLATFORM_ZEPHYR)
 static inline bool
 cond_init_monotonic(struct cond *cond)
 {
@@ -177,7 +177,7 @@ cond_init_realtime(struct cond *cond)
 
     return true;
 }
-
+#endif /* !defined(BH_PLATFORM_ZEPHYR) */
 static inline void
 cond_destroy(struct cond *cond)
 {
@@ -197,7 +197,7 @@ cond_timedwait(struct cond *cond, struct mutex *lock, uint64_t timeout,
                bool abstime) REQUIRES_EXCLUSIVE(*lock) NO_LOCK_ANALYSIS
 {
     int ret;
-    struct timespec ts = {
+    struct os_timespec ts = {
         .tv_sec = (time_t)(timeout / 1000000000),
         .tv_nsec = (long)(timeout % 1000000000),
     };
@@ -210,8 +210,8 @@ cond_timedwait(struct cond *cond, struct mutex *lock, uint64_t timeout,
          * realtime clock.
          */
         if (cond->clock != CLOCK_REALTIME) {
-            struct timespec ts_monotonic;
-            struct timespec ts_realtime;
+            struct os_timespec ts_monotonic;
+            struct os_timespec ts_realtime;
 
             clock_gettime(cond->clock, &ts_monotonic);
             ts.tv_sec -= ts_monotonic.tv_sec;
@@ -241,7 +241,7 @@ cond_timedwait(struct cond *cond, struct mutex *lock, uint64_t timeout,
         return ret == ETIMEDOUT;
 #else
         /* Convert to absolute timeout. */
-        struct timespec ts_now;
+        struct os_timespec ts_now;
 #if CONFIG_HAS_PTHREAD_CONDATTR_SETCLOCK
         clock_gettime(cond->clock, &ts_now);
 #else

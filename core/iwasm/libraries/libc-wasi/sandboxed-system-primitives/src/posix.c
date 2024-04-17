@@ -2057,6 +2057,8 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
 {
 #ifdef BH_PLATFORM_WINDOWS
     return __WASI_ENOSYS;
+#elif BH_PLATEFORM_ZEPHYR
+    return __WASI_ENOSYS;
 #else
     // Sleeping.
     if (nsubscriptions == 1 && in[0].u.type == __WASI_EVENTTYPE_CLOCK) {
@@ -2147,7 +2149,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
         wasm_runtime_malloc((uint32)(nsubscriptions * sizeof(*fos)));
     if (fos == NULL)
         return __WASI_ENOMEM;
-    struct pollfd *pfds =
+    struct os_poll_file_handle *pfds =
         wasm_runtime_malloc((uint32)(nsubscriptions * sizeof(*pfds)));
     if (pfds == NULL) {
         wasm_runtime_free(fos);
@@ -2172,7 +2174,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
                                          __WASI_RIGHT_POLL_FD_READWRITE, 0);
                 if (error == 0) {
                     // Proper file descriptor on which we can poll().
-                    pfds[i] = (struct pollfd){
+                    pfds[i] = (struct os_poll_file_handle){
                         .fd = fos[i]->file_handle,
                         .events = s->u.type == __WASI_EVENTTYPE_FD_READ
                                       ? POLLIN
@@ -2182,7 +2184,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
                 else {
                     // Invalid file descriptor or rights missing.
                     fos[i] = NULL;
-                    pfds[i] = (struct pollfd){ .fd = -1 };
+                    pfds[i] = (struct os_poll_file_handle){ .fd = -1 };
                     out[(*nevents)++] = (__wasi_event_t){
                         .userdata = s->userdata,
                         .error = error,
@@ -2197,7 +2199,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
                            == 0) {
                     // Relative timeout.
                     fos[i] = NULL;
-                    pfds[i] = (struct pollfd){ .fd = -1 };
+                    pfds[i] = (struct os_poll_file_handle){ .fd = -1 };
                     clock_subscription = s;
                     break;
                 }
@@ -2205,7 +2207,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
             default:
                 // Unsupported event.
                 fos[i] = NULL;
-                pfds[i] = (struct pollfd){ .fd = -1 };
+                pfds[i] = (struct os_poll_file_handle){ .fd = -1 };
                 out[(*nevents)++] = (__wasi_event_t){
                     .userdata = s->userdata,
                     .error = __WASI_ENOSYS,
@@ -2249,7 +2251,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
                 __wasi_filesize_t nbytes = 0;
                 if (in[i].u.type == __WASI_EVENTTYPE_FD_READ) {
                     int l;
-                    if (ioctl(fos[i]->file_handle, FIONREAD, &l) == 0)
+                    if (os_ioctl(fos[i]->file_handle, FIONREAD, &l) == 0)
                         nbytes = (__wasi_filesize_t)l;
                 }
                 if ((pfds[i].revents & POLLNVAL) != 0) {

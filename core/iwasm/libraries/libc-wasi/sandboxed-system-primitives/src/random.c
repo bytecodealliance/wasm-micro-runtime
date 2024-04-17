@@ -66,6 +66,18 @@ random_buf(void *buf, size_t len)
     return ret ? __WASI_EINVAL : __WASI_ESUCCESS;
 }
 
+#elif defined(BH_PLATFORM_ZEPHYR)
+static void
+open_urandom(void)
+{
+    // Not implemented
+}
+__wasi_errno_t
+random_buf(void *buf, size_t len)
+{
+    return __WASI_ENOSYS;
+}
+
 #else
 
 static int urandom = -1;

@@ -1636,4 +1636,12 @@ os_clock_time_get(__wasi_clockid_t clock_id, __wasi_timestamp_t precision,
 }
 #endif
 
+
+/* Expermimental :*/
+__wasi_errno_t
+os_ioctl(os_file_handle *handle, int request, void *argp);
+
+__wasi_errno_t
+os_poll(os_poll_file_handle *pfds, os_nfds_t nfs, int timeout);
+
 #endif /* #ifndef PLATFORM_API_EXTENSION_H */
