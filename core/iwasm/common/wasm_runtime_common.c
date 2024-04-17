@@ -3597,6 +3597,103 @@ static union {
 
 #define is_little_endian() (__ue.b == 1) /* NOLINT */
 
+uint32_t
+wasm_runtime_import_count(const wasm_module_t module)
+{
+    if (!module) {
+        return 0;
+    }
+
+    const WASMModule *wasm_module = (const WASMModule *)module;
+
+    return wasm_module->import_count;
+}
+
+void
+wasm_runtime_import_info(const wasm_module_t module, uint32_t import_index,
+                         wasm_import_info_t *import_info)
+{
+    if (!import_info) {
+        bh_assert(0);
+        return;
+    }
+
+    memset(import_info, 0, sizeof(wasm_import_info_t));
+
+    if (!module) {
+        bh_assert(0);
+        return;
+    }
+    const WASMModule *wasm_module = (const WASMModule *)module;
+
+    if (import_index >= wasm_module->import_count) {
+        bh_assert(0);
+        return;
+    }
+
+    import_info->module_name =
+        wasm_module->imports[import_index].u.names.module_name;
+    import_info->name = wasm_module->imports[import_index].u.names.field_name;
+    import_info->kind = wasm_module->imports[import_index].kind;
+    switch (import_info->kind) {
+        case WASM_IMPORT_EXPORT_KIND_FUNC:
+            import_info->linked =
+                wasm_module->imports[import_index].u.function.func_ptr_linked;
+            break;
+        case WASM_IMPORT_EXPORT_KIND_GLOBAL:
+            import_info->linked =
+                wasm_module->imports[import_index].u.global.is_linked;
+            break;
+        case WASM_IMPORT_EXPORT_KIND_TABLE:
+            import_info->linked = true; /* is this correct? */
+            break;
+        case WASM_IMPORT_EXPORT_KIND_MEMORY:
+            import_info->linked = true; /* is this correct? */
+            break;
+        default:
+            bh_assert(0);
+            break;
+    }
+}
+
+uint32_t
+wasm_runtime_export_count(const wasm_module_t module)
+{
+    if (!module) {
+        return 0;
+    }
+
+    const WASMModule *wasm_module = (const WASMModule *)module;
+
+    return wasm_module->export_count;
+}
+
+void
+wasm_runtime_export_info(const wasm_module_t module, uint32_t export_index,
+                         wasm_export_info_t *export_info)
+{
+    if (!export_info) {
+        bh_assert(0);
+        return;
+    }
+
+    memset(export_info, 0, sizeof(wasm_export_info_t));
+
+    if (!module) {
+        bh_assert(0);
+        return;
+    }
+    const WASMModule *wasm_module = (const WASMModule *)module;
+
+    if (export_index >= wasm_module->export_count) {
+        bh_assert(0);
+        return;
+    }
+
+    export_info->name = wasm_module->exports[export_index].name;
+    export_info->kind = wasm_module->exports[export_index].kind;
+}
+
 bool
 wasm_runtime_register_natives(const char *module_name,
                               NativeSymbol *native_symbols,

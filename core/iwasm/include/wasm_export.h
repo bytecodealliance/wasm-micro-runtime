@@ -63,6 +63,30 @@ struct WASMModuleCommon;
 typedef struct WASMModuleCommon *wasm_module_t;
 #endif
 
+typedef enum
+{
+  WASM_IMPORT_EXPORT_KIND_FUNC,
+  WASM_IMPORT_EXPORT_KIND_GLOBAL,
+  WASM_IMPORT_EXPORT_KIND_TABLE,
+  WASM_IMPORT_EXPORT_KIND_MEMORY,
+} wasm_import_export_kind_t;
+
+typedef struct wasm_import_info_t
+{
+    const char * module_name;
+    const char * name;
+    wasm_import_export_kind_t kind;
+    bool linked;
+} wasm_import_info_t;
+
+typedef struct wasm_export_info_t
+{
+    const char * name;
+    wasm_import_export_kind_t kind;
+} wasm_export_info_t;
+
+
+
 /* Instantiated WASM module */
 struct WASMModuleInstanceCommon;
 typedef struct WASMModuleInstanceCommon *wasm_module_inst_t;
@@ -1156,6 +1180,21 @@ wasm_runtime_get_native_addr_range(wasm_module_inst_t module_inst,
                                    uint8_t *native_ptr,
                                    uint8_t **p_native_start_addr,
                                    uint8_t **p_native_end_addr);
+
+
+WASM_RUNTIME_API_EXTERN uint32_t wasm_runtime_import_count(const wasm_module_t module);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_import_info(const wasm_module_t module,
+                         uint32_t import_index,
+                         wasm_import_info_t * import_info);
+
+WASM_RUNTIME_API_EXTERN uint32_t wasm_runtime_export_count(const wasm_module_t module);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_export_info(const wasm_module_t module,
+                         uint32_t export_index,
+                         wasm_export_info_t * export_info);
 
 /**
  * Register native functions with same module name
