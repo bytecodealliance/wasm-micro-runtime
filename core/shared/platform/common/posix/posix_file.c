@@ -823,7 +823,7 @@ os_fadvise(os_file_handle handle, __wasi_filesize_t offset,
 
     int ret = posix_fadvise(handle, (off_t)offset, (off_t)length, nadvice);
 
-    if (ret < 0)
+    if (ret != 0)
         return convert_errno(ret);
 
     return __WASI_ESUCCESS;
