@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+#
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+
 sudo apt update
 
 sudo apt install -y build-essential cmake g++-multilib libgcc-11-dev lib32gcc-11-dev ccache ninja-build ccache

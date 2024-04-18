@@ -3,6 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+/**
+ * @file   wasm_export.h
+ *
+ * @brief  This file defines the exported common runtime APIs
+ */
+
 #ifndef _WASM_EXPORT_H
 #define _WASM_EXPORT_H
 

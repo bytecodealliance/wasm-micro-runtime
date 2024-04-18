@@ -143,6 +143,7 @@ typedef struct {
     REG_SYM(aot_array_init_with_data),     \
     REG_SYM(aot_create_func_obj),          \
     REG_SYM(aot_obj_is_instance_of),       \
+    REG_SYM(aot_func_type_is_super_of),    \
     REG_SYM(aot_rtt_type_new),             \
     REG_SYM(wasm_array_obj_copy),          \
     REG_SYM(wasm_array_obj_new),           \

@@ -77,10 +77,6 @@ aot_compile_simd_i16x8_avgr_u(AOTCompContext *comp_ctx,
                               AOTFuncContext *func_ctx);
 
 bool
-aot_compile_simd_i32x4_avgr_u(AOTCompContext *comp_ctx,
-                              AOTFuncContext *func_ctx);
-
-bool
 aot_compile_simd_i32x4_dot_i16x8(AOTCompContext *comp_ctx,
                                  AOTFuncContext *func_ctx);
 

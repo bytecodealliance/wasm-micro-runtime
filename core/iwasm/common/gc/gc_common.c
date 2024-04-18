@@ -304,7 +304,12 @@ wasm_defined_type_equal(WASMType *const def_type1, WASMType *const def_type2,
     }
 #endif
 #if WASM_ENABLE_AOT != 0
-    /* TODO */
+    if (module->module_type == Wasm_Module_AoT) {
+        AOTModule *aot_module = (AOTModule *)module;
+
+        types = aot_module->types;
+        type_count = aot_module->type_count;
+    }
 #endif
 
     bh_assert(types);

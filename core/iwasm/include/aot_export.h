@@ -3,6 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+/**
+ * @file   aot_export.h
+ *
+ * @brief  This file defines the exported AOT compilation APIs
+ */
+
 #ifndef _AOT_EXPORT_H
 #define _AOT_EXPORT_H
 

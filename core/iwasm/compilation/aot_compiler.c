@@ -3452,16 +3452,6 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                         break;
                     }
 
-                    case SIMD_i32x4_narrow_i64x2_s:
-                    case SIMD_i32x4_narrow_i64x2_u:
-                    {
-                        if (!aot_compile_simd_i32x4_narrow_i64x2(
-                                comp_ctx, func_ctx,
-                                SIMD_i32x4_narrow_i64x2_s == opcode))
-                            return false;
-                        break;
-                    }
-
                     case SIMD_i32x4_extend_low_i16x8_s:
                     case SIMD_i32x4_extend_high_i16x8_s:
                     {
@@ -3501,30 +3491,10 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                         break;
                     }
 
-                    case SIMD_i32x4_add_sat_s:
-                    case SIMD_i32x4_add_sat_u:
-                    {
-                        if (!aot_compile_simd_i32x4_saturate(
-                                comp_ctx, func_ctx, V128_ADD,
-                                opcode == SIMD_i32x4_add_sat_s))
-                            return false;
-                        break;
-                    }
-
                     case SIMD_i32x4_sub:
                     {
                         if (!aot_compile_simd_i32x4_arith(comp_ctx, func_ctx,
                                                           V128_SUB))
-                            return false;
-                        break;
-                    }
-
-                    case SIMD_i32x4_sub_sat_s:
-                    case SIMD_i32x4_sub_sat_u:
-                    {
-                        if (!aot_compile_simd_i32x4_saturate(
-                                comp_ctx, func_ctx, V128_SUB,
-                                opcode == SIMD_i32x4_add_sat_s))
                             return false;
                         break;
                     }
@@ -3561,13 +3531,6 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     {
                         if (!aot_compile_simd_i32x4_dot_i16x8(comp_ctx,
                                                               func_ctx))
-                            return false;
-                        break;
-                    }
-
-                    case SIMD_i32x4_avgr_u:
-                    {
-                        if (!aot_compile_simd_i32x4_avgr_u(comp_ctx, func_ctx))
                             return false;
                         break;
                     }
@@ -3728,13 +3691,6 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                         break;
                     }
 
-                    case SIMD_f32x4_round:
-                    {
-                        if (!aot_compile_simd_f32x4_round(comp_ctx, func_ctx))
-                            return false;
-                        break;
-                    }
-
                     case SIMD_f32x4_sqrt:
                     {
                         if (!aot_compile_simd_f32x4_sqrt(comp_ctx, func_ctx))
@@ -3784,13 +3740,6 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     case SIMD_f64x2_neg:
                     {
                         if (!aot_compile_simd_f64x2_neg(comp_ctx, func_ctx))
-                            return false;
-                        break;
-                    }
-
-                    case SIMD_f64x2_round:
-                    {
-                        if (!aot_compile_simd_f64x2_round(comp_ctx, func_ctx))
                             return false;
                         break;
                     }

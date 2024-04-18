@@ -578,3 +578,33 @@ os_thread_get_stack_boundary()
 void
 os_thread_jit_write_protect_np(bool enabled)
 {}
+
+int
+os_thread_detach(korp_tid thread)
+{
+    (void)thread;
+    return BHT_OK;
+}
+
+void
+os_thread_exit(void *retval)
+{
+    (void)retval;
+    os_thread_cleanup();
+    k_thread_abort(k_current_get());
+}
+
+int
+os_cond_broadcast(korp_cond *cond)
+{
+    os_thread_wait_node *node;
+    k_mutex_lock(&cond->wait_list_lock, K_FOREVER);
+    node = cond->thread_wait_list;
+    while (node) {
+        os_thread_wait_node *next = node->next;
+        k_sem_give(&node->sem);
+        node = next;
+    }
+    k_mutex_unlock(&cond->wait_list_lock);
+    return BHT_OK;
+}

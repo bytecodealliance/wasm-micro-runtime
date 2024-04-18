@@ -4353,11 +4353,21 @@ llvm_jit_table_grow(WASMModuleInstance *module_inst, uint32 tbl_idx,
     }
 
     if (tbl_inst->cur_size > UINT32_MAX - inc_size) { /* integer overflow */
+#if WASM_ENABLE_SPEC_TEST == 0
+        LOG_WARNING("table grow (%" PRIu32 "-> %" PRIu32
+                    ") failed because of integer overflow",
+                    tbl_inst->cur_size, inc_size);
+#endif
         return (uint32)-1;
     }
 
     total_size = tbl_inst->cur_size + inc_size;
     if (total_size > tbl_inst->max_size) {
+#if WASM_ENABLE_SPEC_TEST == 0
+        LOG_WARNING("table grow (%" PRIu32 "-> %" PRIu32
+                    ") failed because of over max size",
+                    tbl_inst->cur_size, inc_size);
+#endif
         return (uint32)-1;
     }
 
@@ -4392,6 +4402,22 @@ llvm_jit_obj_is_instance_of(WASMModuleInstance *module_inst,
     uint32 type_count = module->type_count;
 
     return wasm_obj_is_instance_of(gc_obj, type_index, types, type_count);
+}
+
+bool
+llvm_jit_func_type_is_super_of(WASMModuleInstance *module_inst,
+                               uint32 type_idx1, uint32 type_idx2)
+{
+    WASMModule *module = module_inst->module;
+    WASMType **types = module->types;
+
+    if (type_idx1 == type_idx2)
+        return true;
+
+    bh_assert(types[type_idx1]->type_flag == WASM_TYPE_FUNC);
+    bh_assert(types[type_idx2]->type_flag == WASM_TYPE_FUNC);
+    return wasm_func_type_is_super_of((WASMFuncType *)types[type_idx1],
+                                      (WASMFuncType *)types[type_idx2]);
 }
 
 WASMRttTypeRef
