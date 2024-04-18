@@ -66,6 +66,7 @@ def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_fl
         "-DLLVM_INCLUDE_UTILS:BOOL=OFF",
         "-DLLVM_INCLUDE_TESTS:BOOL=OFF",
         "-DLLVM_OPTIMIZED_TABLEGEN:BOOL=ON",
+        "-DLLVM_STATIC_LINK_CXX_STDLIB=ON",
     ]
 
     # ccache is not available on Windows

@@ -387,6 +387,12 @@ if (NOT MSVC)
       target_link_libraries (wamrc ssp.a ws2_32)
   else()
       target_link_libraries (wamrc -ldl)
+      # Link libc++ statically to reduce the runtime dependency
+      target_link_libraries (wamrc -static-libstdc++)
+      # If not on macOS, link libgcc statically
+      if (NOT APPLE)
+        target_link_libraries (wamrc -static-libgcc)
+      endif()
   endif()
 else()
   target_link_libraries (wamrc aotclib vmlib  ${lib_lldb} ${WAMRC_LINK_LLVM_LIBS} ${lib_ubsan}
