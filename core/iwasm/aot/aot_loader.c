@@ -1526,29 +1526,41 @@ fail:
 }
 
 static void
+destroy_type(AOTType *type)
+{
+#if WASM_ENABLE_GC != 0
+    if (type->ref_count > 1) {
+        /* The type is referenced by other types
+           of current aot module */
+        type->ref_count--;
+        return;
+    }
+
+    if (type->type_flag == WASM_TYPE_FUNC) {
+        AOTFuncType *func_type = (AOTFuncType *)type;
+        if (func_type->ref_type_maps != NULL) {
+            bh_assert(func_type->ref_type_map_count > 0);
+            wasm_runtime_free(func_type->ref_type_maps);
+        }
+    }
+    else if (type->type_flag == WASM_TYPE_STRUCT) {
+        AOTStructType *struct_type = (AOTStructType *)type;
+        if (struct_type->ref_type_maps != NULL) {
+            bh_assert(struct_type->ref_type_map_count > 0);
+            wasm_runtime_free(struct_type->ref_type_maps);
+        }
+    }
+#endif
+    wasm_runtime_free(type);
+}
+
+static void
 destroy_types(AOTType **types, uint32 count)
 {
     uint32 i;
     for (i = 0; i < count; i++) {
-
         if (types[i]) {
-#if WASM_ENABLE_GC != 0
-            if (types[i]->type_flag == WASM_TYPE_FUNC) {
-                AOTFuncType *func_type = (AOTFuncType *)types[i];
-                if (func_type->ref_type_maps != NULL) {
-                    bh_assert(func_type->ref_type_map_count > 0);
-                    wasm_runtime_free(func_type->ref_type_maps);
-                }
-            }
-            else if (types[i]->type_flag == WASM_TYPE_STRUCT) {
-                AOTStructType *struct_type = (AOTStructType *)types[i];
-                if (struct_type->ref_type_maps != NULL) {
-                    bh_assert(struct_type->ref_type_map_count > 0);
-                    wasm_runtime_free(struct_type->ref_type_maps);
-                }
-            }
-#endif
-            wasm_runtime_free(types[i]);
+            destroy_type(types[i]);
         }
     }
     wasm_runtime_free(types);
@@ -1556,14 +1568,17 @@ destroy_types(AOTType **types, uint32 count)
 
 #if WASM_ENABLE_GC != 0
 static void
-init_base_type(AOTType *base_type, uint16 type_flag, bool is_sub_final,
-               uint32 parent_type_idx, uint16 rec_count, uint16 rec_idx)
+init_base_type(AOTType *base_type, uint32 type_idx, uint16 type_flag,
+               bool is_sub_final, uint32 parent_type_idx, uint16 rec_count,
+               uint16 rec_idx)
 {
     base_type->type_flag = type_flag;
+    base_type->ref_count = 1;
     base_type->is_sub_final = is_sub_final;
     base_type->parent_type_idx = parent_type_idx;
     base_type->rec_count = rec_count;
     base_type->rec_idx = rec_idx;
+    base_type->rec_begin_type_idx = type_idx - rec_idx;
 }
 
 static bool
@@ -1576,7 +1591,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
     uint32 i, j;
     uint32 type_flag, param_cell_num, ret_cell_num;
     uint16 param_count, result_count, ref_type_map_count, rec_count, rec_idx;
-    bool is_sub_final;
+    bool is_equivalence_type, is_sub_final;
     uint32 parent_type_idx;
     WASMRefType ref_type;
 
@@ -1590,12 +1605,31 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
     /* Create each type */
     for (i = 0; i < module->type_count; i++) {
-
         buf = align_ptr(buf, 4);
 
         /* Read base type info */
         read_uint16(buf, buf_end, type_flag);
-        read_uint16(buf, buf_end, is_sub_final);
+
+        read_uint8(buf, buf_end, is_equivalence_type);
+        /* If there is an equivalence type, re-use it */
+        if (is_equivalence_type) {
+            uint8 u8;
+            /* padding */
+            read_uint8(buf, buf_end, u8);
+            (void)u8;
+
+            read_uint32(buf, buf_end, j);
+            if (module->types[j]->ref_count == UINT16_MAX) {
+                set_error_buf(error_buf, error_buf_size,
+                              "wasm type's ref count too large");
+                goto fail;
+            }
+            module->types[j]->ref_count++;
+            module->types[i] = module->types[j];
+            continue;
+        }
+
+        read_uint8(buf, buf_end, is_sub_final);
         read_uint32(buf, buf_end, parent_type_idx);
         read_uint16(buf, buf_end, rec_count);
         read_uint16(buf, buf_end, rec_idx);
@@ -1620,7 +1654,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
             types[i] = (AOTType *)func_type;
 
-            init_base_type((AOTType *)func_type, type_flag, is_sub_final,
+            init_base_type((AOTType *)func_type, i, type_flag, is_sub_final,
                            parent_type_idx, rec_count, rec_idx);
             func_type->param_count = param_count;
             func_type->result_count = result_count;
@@ -1726,7 +1760,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             offset = (uint32)offsetof(WASMStructObject, field_data);
             types[i] = (AOTType *)struct_type;
 
-            init_base_type((AOTType *)struct_type, type_flag, is_sub_final,
+            init_base_type((AOTType *)struct_type, i, type_flag, is_sub_final,
                            parent_type_idx, rec_count, rec_idx);
             struct_type->field_count = field_count;
             struct_type->ref_type_map_count = ref_type_map_count;
@@ -1812,7 +1846,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
             types[i] = (AOTType *)array_type;
 
-            init_base_type((AOTType *)array_type, type_flag, is_sub_final,
+            init_base_type((AOTType *)array_type, i, type_flag, is_sub_final,
                            parent_type_idx, rec_count, rec_idx);
             read_uint16(buf, buf_end, array_type->elem_flags);
             read_uint8(buf, buf_end, array_type->elem_type);
@@ -1841,7 +1875,6 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             if (rec_count == 0) {
                 bh_assert(rec_idx == 0);
             }
-
             for (j = i - rec_idx; j <= i; j++) {
                 AOTType *cur_type = module->types[j];
                 parent_type_idx = cur_type->parent_type_idx;
@@ -1850,6 +1883,11 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
                     module->types[j]->parent_type = parent_type;
                     module->types[j]->root_type = parent_type->root_type;
+                    if (parent_type->inherit_depth == UINT16_MAX) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "parent type's inherit depth too large");
+                        goto fail;
+                    }
                     module->types[j]->inherit_depth =
                         parent_type->inherit_depth + 1;
                 }
@@ -1867,7 +1905,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                     AOTType *parent_type = module->types[parent_type_idx];
                     /* subtyping has been checked during compilation */
                     bh_assert(wasm_type_is_subtype_of(
-                        module->types[j], parent_type, module->types, i));
+                        module->types[j], parent_type, module->types, i + 1));
                     (void)parent_type;
                 }
             }

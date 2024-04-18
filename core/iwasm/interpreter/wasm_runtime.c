@@ -4404,6 +4404,22 @@ llvm_jit_obj_is_instance_of(WASMModuleInstance *module_inst,
     return wasm_obj_is_instance_of(gc_obj, type_index, types, type_count);
 }
 
+bool
+llvm_jit_func_type_is_super_of(WASMModuleInstance *module_inst,
+                               uint32 type_idx1, uint32 type_idx2)
+{
+    WASMModule *module = module_inst->module;
+    WASMType **types = module->types;
+
+    if (type_idx1 == type_idx2)
+        return true;
+
+    bh_assert(types[type_idx1]->type_flag == WASM_TYPE_FUNC);
+    bh_assert(types[type_idx2]->type_flag == WASM_TYPE_FUNC);
+    return wasm_func_type_is_super_of((WASMFuncType *)types[type_idx1],
+                                      (WASMFuncType *)types[type_idx2]);
+}
+
 WASMRttTypeRef
 llvm_jit_rtt_type_new(WASMModuleInstance *module_inst, uint32 type_index)
 {
