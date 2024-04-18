@@ -554,6 +554,6 @@ else ()
   # Disable aot intrinsics for interp, fast-jit and llvm-jit
   add_definitions (-DWASM_ENABLE_AOT_INTRINSICS=0)
 endif ()
-if (WAMR_BUILD_MEM_ALLOC_WITH_USAGE EQUAL 1)
+if (WAMR_BUILD_ALLOC_WITH_USAGE EQUAL 1)
   add_definitions(-DWASM_MEM_ALLOC_WITH_USAGE=1)
 endif()

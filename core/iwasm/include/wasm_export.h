@@ -119,6 +119,9 @@ typedef union MemAllocOption {
         uint32_t heap_size;
     } pool;
     struct {
+        /* the function signature is varied when
+        WASM_MEM_ALLOC_WITH_USER_DATA and
+        WASM_MEM_ALLOC_WITH_USAGE are defined */
         void *malloc_func;
         void *realloc_func;
         void *free_func;
