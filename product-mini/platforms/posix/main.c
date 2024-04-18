@@ -445,6 +445,9 @@ static char global_heap_buf[WASM_GLOBAL_HEAP_SIZE] = { 0 };
 #else
 static void *
 malloc_func(
+#if WASM_MEM_ALLOC_WITH_USAGE != 0
+    mem_alloc_usage_t usage,
+#endif
 #if WASM_MEM_ALLOC_WITH_USER_DATA != 0
     void *user_data,
 #endif
@@ -455,6 +458,9 @@ malloc_func(
 
 static void *
 realloc_func(
+#if WASM_MEM_ALLOC_WITH_USAGE != 0
+    mem_alloc_usage_t usage, bool full_size_mmaped,
+#endif
 #if WASM_MEM_ALLOC_WITH_USER_DATA != 0
     void *user_data,
 #endif
@@ -465,6 +471,9 @@ realloc_func(
 
 static void
 free_func(
+#if WASM_MEM_ALLOC_WITH_USAGE != 0
+    mem_alloc_usage_t usage,
+#endif
 #if WASM_MEM_ALLOC_WITH_USER_DATA != 0
     void *user_data,
 #endif

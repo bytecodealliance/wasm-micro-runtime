@@ -587,4 +587,8 @@
 #define WASM_TABLE_MAX_SIZE 1024
 #endif
 
+#ifndef WASM_MEM_ALLOC_WITH_USAGE
+#define WASM_MEM_ALLOC_WITH_USAGE 0
+#endif
+
 #endif /* end of _CONFIG_H_ */

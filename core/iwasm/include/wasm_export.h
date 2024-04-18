@@ -113,6 +113,11 @@ typedef enum {
     Alloc_With_System_Allocator,
 } mem_alloc_type_t;
 
+typedef enum {
+    Alloc_For_Runtime,
+    Alloc_For_LinearMemory
+} mem_alloc_usage_t;
+
 /* Memory allocator option */
 typedef union MemAllocOption {
     struct {
@@ -120,6 +125,9 @@ typedef union MemAllocOption {
         uint32_t heap_size;
     } pool;
     struct {
+        /* the function signature is varied when
+        WASM_MEM_ALLOC_WITH_USER_DATA and
+        WASM_MEM_ALLOC_WITH_USAGE are defined */
         void *malloc_func;
         void *realloc_func;
         void *free_func;
