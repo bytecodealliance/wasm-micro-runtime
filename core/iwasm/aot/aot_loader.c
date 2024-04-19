@@ -3295,37 +3295,26 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
             bh_memcpy_s(symbol_name_buf, (uint32)sizeof(symbol_name_buf),
                         symbol_name, symbol_name_len);
 
-            if ((group_name_len == strlen(".text")
-                 || (module->is_indirect_mode
-                     && group_name_len == strlen(".text") + 1))
+            /* aot compiler emits string with '\0' since 2.0.0 */
+            if (group_name_len == strlen(".text") + 1
                 && !strncmp(group_name, ".text", strlen(".text"))) {
-                if ((symbol_name_len == strlen(YMM_PLT_PREFIX) + 64
-                     || (module->is_indirect_mode
-                         && symbol_name_len == strlen(YMM_PLT_PREFIX) + 64 + 1))
+                /* aot compiler emits string with '\0' since 2.0.0 */
+                if (symbol_name_len == strlen(YMM_PLT_PREFIX) + 64 + 1
                     && !strncmp(symbol_name, YMM_PLT_PREFIX,
                                 strlen(YMM_PLT_PREFIX))) {
                     module->ymm_plt_count++;
                 }
-                else if ((symbol_name_len == strlen(XMM_PLT_PREFIX) + 32
-                          || (module->is_indirect_mode
-                              && symbol_name_len
-                                     == strlen(XMM_PLT_PREFIX) + 32 + 1))
+                else if (symbol_name_len == strlen(XMM_PLT_PREFIX) + 32 + 1
                          && !strncmp(symbol_name, XMM_PLT_PREFIX,
                                      strlen(XMM_PLT_PREFIX))) {
                     module->xmm_plt_count++;
                 }
-                else if ((symbol_name_len == strlen(REAL_PLT_PREFIX) + 16
-                          || (module->is_indirect_mode
-                              && symbol_name_len
-                                     == strlen(REAL_PLT_PREFIX) + 16 + 1))
+                else if (symbol_name_len == strlen(REAL_PLT_PREFIX) + 16 + 1
                          && !strncmp(symbol_name, REAL_PLT_PREFIX,
                                      strlen(REAL_PLT_PREFIX))) {
                     module->real_plt_count++;
                 }
-                else if ((symbol_name_len >= strlen(REAL_PLT_PREFIX) + 8
-                          || (module->is_indirect_mode
-                              && symbol_name_len
-                                     == strlen(REAL_PLT_PREFIX) + 8 + 1))
+                else if (symbol_name_len >= strlen(REAL_PLT_PREFIX) + 8 + 1
                          && !strncmp(symbol_name, REAL_PLT_PREFIX,
                                      strlen(REAL_PLT_PREFIX))) {
                     module->float_plt_count++;
