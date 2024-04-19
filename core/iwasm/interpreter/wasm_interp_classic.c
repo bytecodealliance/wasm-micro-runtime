@@ -4202,7 +4202,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 else
 #endif
                 {
-                    *(uint32 *)global_addr = aux_stack_top;
+                    *(uint32 *)global_addr = (uint32)aux_stack_top;
                     frame_sp--;
                 }
 #if WASM_ENABLE_MEMORY_PROFILING != 0
