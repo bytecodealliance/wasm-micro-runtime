@@ -1003,7 +1003,7 @@ os_ioctl(os_file_handle handle, int request, ...)
 
     va_start(args, request);
     if(zsock_ioctl(handle, request, args) < 0){
-        wasi_errno = zephyr_to_wasi_errno(errno);
+        wasi_errno = convert_errno(errno);
     }
     va_end(args);
 
@@ -1018,14 +1018,14 @@ os_poll(os_poll_file_handle *fds, os_nfds_t nfs, int timeout)
 
     rc = zsock_poll(fds, nfs, timeout);
     if(rc < 0){
-        wasi_errno = zephyr_to_wasi_errno(errno);
+        wasi_errno = convert_errno(errno);
     }
     switch(rc){
         case 0:
             wasi_errno = __WASI_ETIMEDOUT;
             break;
         case -1:
-            wasi_errno = zephyr_to_wasi_errno(errno);
+            wasi_errno = convert_errno(errno);
             break;
         default:
             break;

@@ -1,6 +1,5 @@
 #include "platform_api_extension.h"
 #include "libc_errno.h"
-#include "zephyr_errno.h"
 
 __wasi_errno_t
 os_fstat(os_file_handle handle, struct __wasi_filestat_t *buf){
@@ -206,11 +205,6 @@ bool
 os_is_dir_stream_valid(os_dir_stream *dir_stream){
     return false;
 }
-
-// os_file_handle
-// os_get_invalid_handle(){
-//     return NULL;
-// }
 
 bool
 os_is_handle_valid(os_file_handle *handle){
