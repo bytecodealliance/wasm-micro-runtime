@@ -1501,6 +1501,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     WASMStringviewIterObjectRef stringview_iter_obj;
 #endif
 #endif
+#if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0
+    bool is_return_call = false;
+#endif
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
 #define HANDLE_OPCODE(op) &&HANDLE_##op
@@ -1693,7 +1696,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 /* clang-format off */
 #if WASM_ENABLE_GC == 0
-                fidx = tbl_inst->elems[val];
+                fidx = (uint32)tbl_inst->elems[val];
                 if (fidx == (uint32)-1) {
                     wasm_set_exception(module, "uninitialized element");
                     goto got_exception;
@@ -1733,8 +1736,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     goto got_exception;
                 }
 #else
-                if (cur_type->min_type_idx_normalized
-                        != cur_func_type->min_type_idx_normalized) {
+                if (!wasm_func_type_is_super_of(cur_type, cur_func_type)) {
                     wasm_set_exception(module, "indirect call type mismatch");
                     goto got_exception;
                 }
@@ -5618,6 +5620,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             {
                 frame = prev_frame;
                 frame_ip = frame->ip;
+#if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0
+                is_return_call = false;
+#endif
                 goto call_func_from_entry;
             }
 
@@ -5766,6 +5771,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         FREE_FRAME(exec_env, frame);
         frame_ip += cur_func->param_count * sizeof(int16);
         wasm_exec_env_set_cur_frame(exec_env, (WASMRuntimeFrame *)prev_frame);
+        is_return_call = true;
         goto call_func_from_entry;
     }
 #endif /* WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0 */
@@ -5838,6 +5844,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         }
         SYNC_ALL_TO_FRAME();
         prev_frame = frame;
+#if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0
+        is_return_call = false;
+#endif
     }
 
     call_func_from_entry:
@@ -5855,9 +5864,20 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                              prev_frame);
             }
 
-            prev_frame = frame->prev_frame;
-            cur_func = frame->function;
-            UPDATE_ALL_FROM_FRAME();
+#if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0
+            if (is_return_call) {
+                /* the frame was freed before tail calling and
+                   the prev_frame was set as exec_env's cur_frame,
+                   so here we recover context from prev_frame */
+                RECOVER_CONTEXT(prev_frame);
+            }
+            else
+#endif
+            {
+                prev_frame = frame->prev_frame;
+                cur_func = frame->function;
+                UPDATE_ALL_FROM_FRAME();
+            }
 
             /* update memory size, no need to update memory ptr as
                it isn't changed in wasm_enlarge_memory */

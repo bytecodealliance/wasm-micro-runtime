@@ -6,6 +6,12 @@
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
 
+#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)) \
+    && (ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 2, 0))
+#define UTIMENSAT_TIMESPEC_POINTER 1
+#define FUTIMENS_TIMESPEC_POINTER 1
+#endif
+
 int
 bh_platform_init()
 {
@@ -234,7 +240,13 @@ unlinkat(int fd, const char *path, int flag)
 }
 
 int
-utimensat(int fd, const char *path, const struct timespec ts[2], int flag)
+utimensat(int fd, const char *path,
+#if UTIMENSAT_TIMESPEC_POINTER
+          const struct timespec *ts,
+#else
+          const struct timespec ts[2],
+#endif
+          int flag)
 {
     errno = ENOSYS;
     return -1;
@@ -257,7 +269,13 @@ ftruncate(int fd, off_t length)
 #endif
 
 int
-futimens(int fd, const struct timespec times[2])
+futimens(int fd,
+#if FUTIMENS_TIMESPEC_POINTER
+         const struct timespec *times
+#else
+         const struct timespec times[2]
+#endif
+)
 {
     errno = ENOSYS;
     return -1;

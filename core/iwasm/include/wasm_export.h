@@ -3,6 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+/**
+ * @file   wasm_export.h
+ *
+ * @brief  This file defines the exported common runtime APIs
+ */
+
 #ifndef _WASM_EXPORT_H
 #define _WASM_EXPORT_H
 
@@ -107,6 +113,11 @@ typedef enum {
     Alloc_With_System_Allocator,
 } mem_alloc_type_t;
 
+typedef enum {
+    Alloc_For_Runtime,
+    Alloc_For_LinearMemory
+} mem_alloc_usage_t;
+
 /* Memory allocator option */
 typedef union MemAllocOption {
     struct {
@@ -114,6 +125,9 @@ typedef union MemAllocOption {
         uint32_t heap_size;
     } pool;
     struct {
+        /* the function signature is varied when
+        WASM_MEM_ALLOC_WITH_USER_DATA and
+        WASM_MEM_ALLOC_WITH_USAGE are defined */
         void *malloc_func;
         void *realloc_func;
         void *free_func;
@@ -182,6 +196,14 @@ typedef struct RuntimeInitArgs {
      */
     bool enable_linux_perf;
 } RuntimeInitArgs;
+
+#ifndef LOAD_ARGS_OPTION_DEFINED
+#define LOAD_ARGS_OPTION_DEFINED
+typedef struct LoadArgs {
+    char *name;
+    /* TODO: more fields? */
+} LoadArgs;
+#endif /* LOAD_ARGS_OPTION_DEFINED */
 
 #ifndef INSTANTIATION_ARGS_OPTION_DEFINED
 #define INSTANTIATION_ARGS_OPTION_DEFINED
@@ -418,6 +440,13 @@ wasm_runtime_find_module_registered(const char *module_name);
 WASM_RUNTIME_API_EXTERN wasm_module_t
 wasm_runtime_load(uint8_t *buf, uint32_t size,
                   char *error_buf, uint32_t error_buf_size);
+
+/**
+ * Load a WASM module with specified load argument.
+ */
+WASM_RUNTIME_API_EXTERN wasm_module_t
+wasm_runtime_load_ex(uint8_t *buf, uint32_t size, const LoadArgs *args,
+                     char *error_buf, uint32_t error_buf_size);
 
 /**
  * Load a WASM module from a specified WASM or AOT section list.

@@ -21,10 +21,6 @@ aot_compile_simd_i16x8_narrow_i32x4(AOTCompContext *comp_ctx,
                                     AOTFuncContext *func_ctx, bool is_signed);
 
 bool
-aot_compile_simd_i32x4_narrow_i64x2(AOTCompContext *comp_ctx,
-                                    AOTFuncContext *func_ctx, bool is_signed);
-
-bool
 aot_compile_simd_i16x8_extend_i8x16(AOTCompContext *comp_ctx,
                                     AOTFuncContext *func_ctx, bool is_low,
                                     bool is_signed);

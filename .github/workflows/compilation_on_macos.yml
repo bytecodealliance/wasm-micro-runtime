@@ -273,14 +273,14 @@ jobs:
           cd /opt
           sudo wget ${{ matrix.wasi_sdk_release }}
           sudo tar -xzf wasi-sdk-*.tar.gz
-          sudo mv wasi-sdk-20.0 wasi-sdk
+          sudo ln -sf wasi-sdk-20.0 wasi-sdk
 
       - name: download and install wabt
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
           sudo tar -xzf wabt-1.0.31-*.tar.gz
-          sudo mv wabt-1.0.31 wabt
+          sudo ln -sf wabt-1.0.31 wabt
 
       - name: Build Sample [basic]
         run: |
@@ -346,7 +346,7 @@ jobs:
           cmake ..
           cmake --build . --config Release --parallel 4
         working-directory: wamr-compiler
-        
+
       - name: Build Sample [wasi-threads]
         run: |
           cd samples/wasi-threads
@@ -378,4 +378,4 @@ jobs:
           cmake --build . --config Debug --parallel 4
           ./iwasm wasm-apps/trap.wasm | grep "#" > call_stack.txt
           ./iwasm wasm-apps/trap.aot | grep "#" > call_stack_aot.txt
-          bash -x ../symbolicate.sh  
+          bash -x ../symbolicate.sh

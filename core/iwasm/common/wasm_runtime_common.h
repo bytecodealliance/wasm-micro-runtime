@@ -373,7 +373,7 @@ typedef struct WASMModuleCommon {
 
     /* The following uint8[1] member is a dummy just to indicate
        some module_type dependent members follow.
-       Typically it should be accessed by casting to the corresponding
+       Typically, it should be accessed by casting to the corresponding
        actual module_type dependent structure, not via this member. */
     uint8 module_data[1];
 } WASMModuleCommon;
@@ -389,7 +389,7 @@ typedef struct WASMModuleInstanceCommon {
 
     /* The following uint8[1] member is a dummy just to indicate
        some module_type dependent members follow.
-       Typically it should be accessed by casting to the corresponding
+       Typically, it should be accessed by casting to the corresponding
        actual module_type dependent structure, not via this member. */
     uint8 module_inst_data[1];
 } WASMModuleInstanceCommon;

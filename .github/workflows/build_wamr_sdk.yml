@@ -58,6 +58,12 @@ jobs:
           sudo rm ${basename}
           sudo mv wasi-sdk-* wasi-sdk
 
+      - name: download dependencies
+        run: |
+          cd ./wamr-app-framework/deps
+          ./download.sh
+        working-directory: wamr-sdk
+
       - name: generate wamr-sdk release
         run: |
           cd ./wamr-app-framework/wamr-sdk

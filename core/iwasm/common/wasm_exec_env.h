@@ -117,6 +117,9 @@ typedef struct WASMExecEnv {
 
     /* whether current thread is detached */
     bool thread_is_detached;
+
+    /* whether the aux stack is allocated */
+    bool is_aux_stack_allocated;
 #endif
 
 #if WASM_ENABLE_GC != 0

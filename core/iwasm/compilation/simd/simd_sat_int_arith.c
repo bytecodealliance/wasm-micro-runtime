@@ -64,18 +64,3 @@ aot_compile_simd_i16x8_saturate(AOTCompContext *comp_ctx,
                               is_signed ? intrinsics[arith_op][0]
                                         : intrinsics[arith_op][1]);
 }
-
-bool
-aot_compile_simd_i32x4_saturate(AOTCompContext *comp_ctx,
-                                AOTFuncContext *func_ctx,
-                                V128Arithmetic arith_op, bool is_signed)
-{
-    char *intrinsics[][2] = {
-        { "llvm.sadd.sat.v4i32", "llvm.uadd.sat.v4i32" },
-        { "llvm.ssub.sat.v4i32", "llvm.usub.sat.v4i32" },
-    };
-
-    return simd_sat_int_arith(comp_ctx, func_ctx, V128_i16x8_TYPE,
-                              is_signed ? intrinsics[arith_op][0]
-                                        : intrinsics[arith_op][1]);
-}

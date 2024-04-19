@@ -77,13 +77,13 @@ mem_allocator_free_with_gc(mem_allocator_t allocator, void *ptr)
 void
 mem_allocator_enable_gc_reclaim(mem_allocator_t allocator, void *exec_env)
 {
-    return gc_enable_gc_reclaim((gc_handle_t)allocator, exec_env);
+    gc_enable_gc_reclaim((gc_handle_t)allocator, exec_env);
 }
 #else
 void
 mem_allocator_enable_gc_reclaim(mem_allocator_t allocator, void *cluster)
 {
-    return gc_enable_gc_reclaim((gc_handle_t)allocator, cluster);
+    gc_enable_gc_reclaim((gc_handle_t)allocator, cluster);
 }
 #endif
 

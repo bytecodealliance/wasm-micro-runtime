@@ -85,7 +85,7 @@ aot_add_llvm_func1(const AOTCompContext *comp_ctx, LLVMModuleRef module,
                    uint32 func_index, uint32 param_count, LLVMTypeRef func_type,
                    const char *prefix)
 {
-    char func_name[48];
+    char func_name[48] = { 0 };
     LLVMValueRef func;
     LLVMValueRef local_value;
     uint32 i, j;
@@ -674,7 +674,8 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
     uint32 backend_thread_num, compile_thread_num;
 
     /* Check function parameter types and result types */
-    for (i = 0; i < aot_func_type->param_count + aot_func_type->result_count;
+    for (i = 0;
+         i < (uint32)(aot_func_type->param_count + aot_func_type->result_count);
          i++) {
         if (!check_wasm_type(comp_ctx, aot_func_type->types[i]))
             return NULL;
@@ -2547,6 +2548,9 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
         aot_set_last_error("create LLVM module failed.");
         goto fail;
     }
+#if LLVM_VERSION_MAJOR >= 19
+    LLVMSetIsNewDbgInfoFormat(comp_ctx->module, true);
+#endif
 
 #if WASM_ENABLE_LINUX_PERF != 0
     if (wasm_runtime_get_linux_perf()) {

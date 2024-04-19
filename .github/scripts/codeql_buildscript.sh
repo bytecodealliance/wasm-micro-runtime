@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+#
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+
 sudo apt update
 
 sudo apt install -y build-essential cmake g++-multilib libgcc-11-dev lib32gcc-11-dev ccache ninja-build ccache
@@ -98,6 +103,26 @@ cmake .. -DCMAKE_BUILD_TYPE=Debug -DWAMR_BUILD_GC=1
 make -j
 if [[ $? != 0 ]]; then
     echo "Failed to build iwasm with GC enabled!"
+    exit 1;
+fi
+
+# build iwasm with exception handling enabled
+cd ${WAMR_DIR}/product-mini/platforms/linux
+rm -rf build && mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Debug -DWAMR_BUILD_EXCE_HANDLING=1
+make -j
+if [[ $? != 0 ]]; then
+    echo "Failed to build iwasm with exception handling enabled!"
+    exit 1;
+fi
+
+# build iwasm with memory64 enabled
+cd ${WAMR_DIR}/product-mini/platforms/linux
+rm -rf build && mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Debug -DWAMR_BUILD_MEMORY64=1
+make -j
+if [[ $? != 0 ]]; then
+    echo "Failed to build iwasm with memory64 enabled!"
     exit 1;
 fi
 

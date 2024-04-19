@@ -42,9 +42,12 @@ def fetch_version_from_code():
 
 
 def fetch_latest_git_tag():
-    list_tag_cmd = (
-        'git tag --list WAMR-*.*.* --sort=committerdate --format="%(refname:short)"'
-    )
+    """
+    Get the most recent tag from the HEAD,
+    if it's main branch, it should be the latest release tag.
+    if it's release/x.x.x branch, it should be the latest release tag of the branch.
+    """
+    list_tag_cmd = "git describe --tags --abbrev=0 HEAD"
     p = subprocess.run(shlex.split(list_tag_cmd), capture_output=True, check=True)
 
     all_tags = p.stdout.decode().strip()

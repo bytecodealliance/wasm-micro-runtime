@@ -43,6 +43,28 @@ For example, there is a call-stack dump:
 """
 
 
+def locate_sourceMappingURL_section(wasm_objdump: Path, wasm_file: Path) -> bool:
+    """
+    Figure out if the wasm file has a sourceMappingURL section.
+    """
+    cmd = f"{wasm_objdump} -h {wasm_file}"
+    p = subprocess.run(
+        shlex.split(cmd),
+        check=True,
+        capture_output=True,
+        text=True,
+        universal_newlines=True,
+    )
+    outputs = p.stdout.split(os.linesep)
+
+    for line in outputs:
+        line = line.strip()
+        if "sourceMappingURL" in line:
+            return True
+
+    return False
+
+
 def get_code_section_start(wasm_objdump: Path, wasm_file: Path) -> int:
     """
     Find the start offset of Code section in a wasm file.
@@ -62,15 +84,6 @@ def get_code_section_start(wasm_objdump: Path, wasm_file: Path) -> int:
     )
     outputs = p.stdout.split(os.linesep)
 
-    # if there is no .debug section, return -1
-    for line in outputs:
-        line = line.strip()
-        if ".debug_info" in line:
-            break
-    else:
-        print(f"No .debug_info section found {wasm_file}")
-        return -1
-
     for line in outputs:
         line = line.strip()
         if "Code" in line:
@@ -79,7 +92,7 @@ def get_code_section_start(wasm_objdump: Path, wasm_file: Path) -> int:
     return -1
 
 
-def get_line_info_from_function_addr(
+def get_line_info_from_function_addr_dwarf(
     dwarf_dump: Path, wasm_file: Path, offset: int
 ) -> tuple[str, str, str, str]:
     """
@@ -126,7 +139,7 @@ def get_dwarf_tag_value(tag: str, line: str) -> str:
     return m.groups()[0]
 
 
-def get_line_info_from_function_name(
+def get_line_info_from_function_name_dwarf(
     dwarf_dump: Path, wasm_file: Path, function_name: str
 ) -> tuple[str, str, str]:
     """
@@ -160,6 +173,51 @@ def get_line_info_from_function_name(
     return (function_name, function_file, function_line)
 
 
+def get_line_info_from_function_addr_sourcemapping(
+    emsymbolizer: Path, wasm_file: Path, offset: int
+) -> tuple[str, str, str, str]:
+    """
+    Find the location info of a given offset in a wasm file which is compiled with emcc.
+
+    {emsymbolizer} {wasm_file} {offset of file}
+
+    there usually are two lines:
+    ??
+    relative path to source file:line:column
+    """
+    debug_info_source = wasm_file.with_name(f"{wasm_file.name}.map")
+    cmd = f"{emsymbolizer} -t code -f {debug_info_source} {wasm_file} {offset}"
+    p = subprocess.run(
+        shlex.split(cmd),
+        check=False,
+        capture_output=True,
+        text=True,
+        universal_newlines=True,
+        cwd=Path.cwd(),
+    )
+    outputs = p.stdout.split(os.linesep)
+
+    function_name, function_file = "<unknown>", "unknown"
+    function_line, function_column = "?", "?"
+
+    for line in outputs:
+        line = line.strip()
+
+        if not line:
+            continue
+
+        m = re.match("(.*):(\d+):(\d+)", line)
+        if m:
+            function_file, function_line, function_column = m.groups()
+            continue
+        else:
+            # it's always ??, not sure about that
+            if "??" != line:
+                function_name = line
+
+    return (function_name, function_file, function_line, function_column)
+
+
 def parse_line_info(line_info: str) -> tuple[str, str, str]:
     """
     line_info -> [file, line, column]
@@ -178,9 +236,13 @@ def parse_call_stack_line(line: str) -> tuple[str, str, str]:
     #00: 0x0a04 - $f18   => (00, 0x0a04, $f18)
     Old format:
     #00 $f18             => (00, _, $f18)
+    Text format (-DWAMR_BUILD_LOAD_CUSTOM_SECTION=1 -DWAMR_BUILD_CUSTOM_NAME_SECTION=1):
+    #02: 0x0200 - a      => (02, 0x0200, a)
+    _start (always):
+    #05: 0x011f - _start => (05, 0x011f, _start)
     """
 
-    # New format
+    # New format and Text format and _start
     PATTERN = r"#([0-9]+): 0x([0-9a-f]+) - (\S+)"
     m = re.match(PATTERN, line)
     if m is not None:
@@ -246,6 +308,7 @@ def main():
         action="store_true",
         help="use call stack without addresses or from fast interpreter mode",
     )
+    parser.add_argument("--emsdk", type=Path, help="path to emsdk")
     args = parser.parse_args()
 
     wasm_objdump = args.wabt.joinpath("bin/wasm-objdump")
@@ -257,12 +320,20 @@ def main():
     llvm_cxxfilt = args.wasi_sdk.joinpath("bin/llvm-cxxfilt")
     assert llvm_cxxfilt.exists()
 
+    emcc_production = locate_sourceMappingURL_section(wasm_objdump, args.wasm_file)
+    if emcc_production:
+        if args.emsdk is None:
+            print("Please provide the path to emsdk via --emsdk")
+            return -1
+
+        emsymbolizer = args.emsdk.joinpath("upstream/emscripten/emsymbolizer")
+        assert emsymbolizer.exists()
+
     code_section_start = get_code_section_start(wasm_objdump, args.wasm_file)
     if code_section_start == -1:
         return -1
 
-    if args.no_addr:
-        function_index_to_name = parse_module_functions(wasm_objdump, args.wasm_file)
+    function_index_to_name = parse_module_functions(wasm_objdump, args.wasm_file)
 
     assert args.call_stack_file.exists()
     with open(args.call_stack_file, "rt", encoding="ascii") as f:
@@ -272,38 +343,68 @@ def main():
                 continue
 
             splitted = parse_call_stack_line(line)
-            assert splitted is not None
+            if splitted is None:
+                print(f"{line}")
+                continue
 
             _, offset, index = splitted
-            if not index.startswith("$f"):  # E.g. _start
-                print(f"{i}: {index}")
-                continue
-            index = index[2:]
-
             if args.no_addr:
+                # FIXME: w/ emcc production
+                if not index.startswith("$f"):  # E.g. _start or Text format
+                    print(f"{i}: {index}")
+                    continue
+                index = index[2:]
+
                 if index not in function_index_to_name:
                     print(f"{i}: {line}")
                     continue
 
-                line_info = get_line_info_from_function_name(
-                    llvm_dwarf_dump, args.wasm_file, function_index_to_name[index]
-                )
+                if not emcc_production:
+                    _, function_file, function_line = (
+                        get_line_info_from_function_name_dwarf(
+                            llvm_dwarf_dump,
+                            args.wasm_file,
+                            function_index_to_name[index],
+                        )
+                    )
+                else:
+                    _, function_file, function_line = _, "unknown", "?"
 
-                _, funciton_file, function_line = line_info
                 function_name = demangle(llvm_cxxfilt, function_index_to_name[index])
                 print(f"{i}: {function_name}")
-                print(f"\tat {funciton_file}:{function_line}")
+                print(f"\tat {function_file}:{function_line}")
             else:
                 offset = int(offset, 16)
+                # match the algorithm in wasm_interp_create_call_stack()
+                # either a *offset* to *code* section start
+                # or a *offset* in a file
+                assert offset > code_section_start
                 offset = offset - code_section_start
-                line_info = get_line_info_from_function_addr(
-                    llvm_dwarf_dump, args.wasm_file, offset
-                )
 
-                function_name, funciton_file, function_line, function_column = line_info
+                if emcc_production:
+                    function_name, function_file, function_line, function_column = (
+                        get_line_info_from_function_addr_sourcemapping(
+                            emsymbolizer, args.wasm_file, offset
+                        )
+                    )
+                else:
+                    function_name, function_file, function_line, function_column = (
+                        get_line_info_from_function_addr_dwarf(
+                            llvm_dwarf_dump, args.wasm_file, offset
+                        )
+                    )
+
+                # if can't parse function_name, use name section or <index>
+                if function_name == "<unknown>":
+                    if index.startswith("$f"):
+                        function_name = function_index_to_name.get(index[2:], index)
+                    else:
+                        function_name = index
+
                 function_name = demangle(llvm_cxxfilt, function_name)
+
                 print(f"{i}: {function_name}")
-                print(f"\tat {funciton_file}:{function_line}:{function_column}")
+                print(f"\tat {function_file}:{function_line}:{function_column}")
 
     return 0
 

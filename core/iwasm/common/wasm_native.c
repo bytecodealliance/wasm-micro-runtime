@@ -84,9 +84,9 @@ compare_type_with_signautre(uint8 type, const char signature)
     if ('r' == signature
 #if WASM_ENABLE_GC != 0
 #if WASM_ENABLE_STRINGREF != 0
-        && (type >= REF_TYPE_STRINGVIEWITER && type <= REF_TYPE_FUNCREF)
+        && (type >= REF_TYPE_STRINGVIEWITER && type <= REF_TYPE_NULLFUNCREF)
 #else
-        && (type >= REF_TYPE_NULLREF && type <= REF_TYPE_FUNCREF)
+        && (type >= REF_TYPE_HT_NULLABLE && type <= REF_TYPE_NULLFUNCREF)
 #endif
 #else
         && type == VALUE_TYPE_EXTERNREF

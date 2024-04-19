@@ -1123,7 +1123,8 @@ posix_memalign_wrapper(wasm_exec_env_t exec_env, void **memptr, int32 align,
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     void *p = NULL;
 
-    *((int32 *)memptr) = module_malloc(size, (void **)&p);
+    /* TODO: for memory 64, module_malloc may return uint64 offset */
+    *((uint32 *)memptr) = (uint32)module_malloc(size, (void **)&p);
     if (!p)
         return -1;
 

@@ -23,6 +23,7 @@ function help()
     echo "-p enable multi thread feature"
     echo "-S enable SIMD feature"
     echo "-G enable GC feature"
+    echo "-W enable memory64 feature"
     echo "-X enable XIP feature"
     echo "-e enable exception handling"
     echo "-x test SGX"
@@ -50,6 +51,7 @@ ENABLE_MULTI_THREAD=0
 COLLECT_CODE_COVERAGE=0
 ENABLE_SIMD=0
 ENABLE_GC=0
+ENABLE_MEMORY64=0
 ENABLE_XIP=0
 ENABLE_EH=0
 ENABLE_DEBUG_VERSION=0
@@ -72,7 +74,7 @@ WASI_TESTSUITE_COMMIT="ee807fc551978490bf1c277059aabfa1e589a6c2"
 TARGET_LIST=("AARCH64" "AARCH64_VFP" "ARMV7" "ARMV7_VFP" "THUMBV7" "THUMBV7_VFP" \
              "RISCV32" "RISCV32_ILP32F" "RISCV32_ILP32D" "RISCV64" "RISCV64_LP64F" "RISCV64_LP64D")
 
-while getopts ":s:cabgvt:m:MCpSXexwPGQF:j:T:" opt
+while getopts ":s:cabgvt:m:MCpSXexwWPGQF:j:T:" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -130,6 +132,10 @@ do
         M)
         echo "enable multi module feature"
         ENABLE_MULTI_MODULE=1
+        ;;
+        W)
+        echo "enable wasm64(memory64) feature"
+        ENABLE_MEMORY64=1
         ;;
         C)
         echo "enable code coverage"
@@ -478,6 +484,29 @@ function spec_test()
         popd
     fi
 
+    # update memory64 cases
+    if [[ ${ENABLE_MEMORY64} == 1 ]]; then
+        echo "checkout spec for memory64 proposal"
+
+        popd
+        rm -fr spec
+        # check spec test cases for memory64
+        git clone -b main --single-branch https://github.com/WebAssembly/memory64.git spec
+        pushd spec
+
+        git restore . && git clean -ffd .
+        # Reset to commit: "Merge remote-tracking branch 'upstream/main' into merge2"
+        git reset --hard 48e69f394869c55b7bbe14ac963c09f4605490b6
+        git checkout 044d0d2e77bdcbe891f7e0b9dd2ac01d56435f0b -- test/core/elem.wast
+        git apply ../../spec-test-script/ignore_cases.patch
+        git apply ../../spec-test-script/memory64.patch
+
+        echo "compile the reference intepreter"
+        pushd interpreter
+        make
+        popd
+    fi
+
     popd
     echo $(pwd)
 
@@ -488,7 +517,7 @@ function spec_test()
 
     local ARGS_FOR_SPEC_TEST=""
 
-    # multi-module only enable in interp mode
+    # multi-module only enable in interp mode and aot mode
     if [[ 1 == ${ENABLE_MULTI_MODULE} ]]; then
         if [[ $1 == 'classic-interp' || $1 == 'fast-interp' || $1 == 'aot' ]]; then
             ARGS_FOR_SPEC_TEST+="-M "
@@ -535,6 +564,13 @@ function spec_test()
 
     if [[ ${ENABLE_GC} == 1 ]]; then
         ARGS_FOR_SPEC_TEST+="--gc "
+    fi
+
+    # wasm64(memory64) is only enabled in interp and aot mode
+    if [[ 1 == ${ENABLE_MEMORY64} ]]; then
+        if [[ $1 == 'classic-interp' || $1 == 'aot' ]]; then
+            ARGS_FOR_SPEC_TEST+="--memory64 "
+        fi
     fi
 
     if [[ ${ENABLE_QEMU} == 1 ]]; then
@@ -831,6 +867,12 @@ function trigger()
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MODULE=1"
     else
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MODULE=0"
+    fi
+
+    if [[ ${ENABLE_MEMORY64} == 1 ]];then
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MEMORY64=1"
+    else
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MEMORY64=0"
     fi
 
     if [[ ${ENABLE_MULTI_THREAD} == 1 ]];then
