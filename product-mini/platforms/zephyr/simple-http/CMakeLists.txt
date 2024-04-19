@@ -10,35 +10,17 @@ enable_language (ASM)
 
 set (WAMR_BUILD_PLATFORM "zephyr")
 
-############################################################################################################################
-# __          __     __  __ _____     _____ ____  _   _ ______ _____ _____ _    _ _____         _______ _____ ____  _   _  #
-# \ \        / /\   |  \/  |  __ \   / ____/ __ \| \ | |  ____|_   _/ ____| |  | |  __ \     /\|__   __|_   _/ __ \| \ | | #
-#  \ \  /\  / /  \  | \  / | |__) | | |   | |  | |  \| | |__    | || |  __| |  | | |__) |   /  \  | |    | || |  | |  \| | #
-#   \ \/  \/ / /\ \ | |\/| |  _  /  | |   | |  | | . ` |  __|   | || | |_ | |  | |  _  /   / /\ \ | |    | || |  | | . ` | #
-#    \  /\  / ____ \| |  | | | \ \  | |___| |__| | |\  | |     _| || |__| | |__| | | \ \  / ____ \| |   _| || |__| | |\  | #
-#     \/  \/_/    \_\_|  |_|_|  \_\  \_____\____/|_| \_|_|    |_____\_____|\____/|_|  \_\/_/    \_\_|  |_____\____/|_| \_| #
-############################################################################################################################
-
-# Build as X86_32 by default, change to "AARCH64[sub]", "ARM[sub]", "THUMB[sub]", "MIPS" or "XTENSA"
-# if we want to support arm, thumb, mips or xtensa
-  
+# WAMR Configuration:
 set (WAMR_BUILD_TARGET "THUMB")
 set (WAMR_BUILD_INTERP 1)
 set (WAMR_BUILD_AOT 1)
 set (WAMR_BUILD_LIBC_BUILTIN 1)
 set (WAMR_BUILD_LIBC_WASI 1) # 1 to use sockets 
-set (WAMR_BUILD_LIB_PTHREAD 0) # 1 to use sockets => cause errors 
+set (WAMR_BUILD_LIB_PTHREAD 0)
 set (WAMR_BUILD_GLOBAL_HEAP_POOL 1)
 set (WAMR_BUILD_GLOBAL_HEAP_SIZE 131072) # 128 KB
 
-###################################################
-#   _____ ______ _______   ______ _   ___      __ #
-#  / ____|  ____|__   __| |  ____| \ | \ \    / / #
-# | (___ | |__     | |    | |__  |  \| |\ \  / /  #
-#  \___ \|  __|    | |    |  __| | . ` | \ \/ /   #
-#  ____) | |____   | |    | |____| |\  |  \  /    #
-# |_____/|______|  |_|    |______|_| \_|   \/     #
-###################################################
+# Environment variables:
 
 # Check if WAMR_ROOT_DIR is set 
 if(DEFINED ENV{WAMR_ROOT_DIR})
@@ -78,7 +60,7 @@ set(WAMR_SDK_DIR
     ${WAMR_APP_FRAMEWORK_DIR}/wamr-sdk
 )
 
-# set the WAMR_LIBC_BUILTIN_DIR with the path specified in the environment variable
+# set the WAMR_LIBC_BUILTIN_DIR
 set(WAMR_LIBC_BUILTIN_DIR
     ${WAMR_SDK_DIR}/wamr-sdk/app/libc-builtin-sysroot
 )
@@ -106,15 +88,8 @@ target_sources(app PRIVATE
                ${WAMR_RUNTIME_LIB_SOURCE}
                src/main.c)
 
-####################################################################################################
-#   ____  _    _ _____ _      _____   __          __      _____ __  __   __  __  ____  _____  
-#  |  _ \| |  | |_   _| |    |  __ \  \ \        / /\    / ____|  \/  |  |  \/  |/ __ \|  __ \ 
-#  | |_) | |  | | | | | |    | |  | |  \ \  /\  / /  \  | (___ | \  / |  | \  / | |  | | |  | |
-#  |  _ <| |  | | | | | |    | |  | |   \ \/  \/ / /\ \  \___ \| |\/| |  | |\/| | |  | | |  | |
-#  | |_) | |__| |_| |_| |____| |__| |    \  /\  / ____ \ ____) | |  | |  | |  | | |__| | |__| |
-#  |____/ \____/|_____|______|_____/      \/  \/_/    \_\_____/|_|  |_|  |_|  |_|\____/|_____/
-####################################################################################################
 
+# Build wasm module with WAMR SDK
 add_dependencies(app wamr-sdk)
 
 include(ExternalProject)
@@ -141,6 +116,7 @@ ExternalProject_Add(wamr-sdk
   USES_TERMINAL
 )
 
+# Curently only one app is present
 set(WASM_APPS
     http_get
 )
@@ -156,7 +132,6 @@ foreach(WASM_APP ${WASM_APPS})
       ${WASI_SDK_PATH}/bin/clang -O3
         -I${WAMR_LIBC_BUILTIN_DIR}/include
         -I${WAMR_SDK_PACKAGE_OUT_DIR}/include
-        -I/usr/include/ # temp
         -L${WAMR_SDK_PACKAGE_OUT_DIR}/lib
         -lapp_framework
         -z stack-size=8192 -Wl,--initial-memory=65536
@@ -173,7 +148,6 @@ foreach(WASM_APP ${WASM_APPS})
     USES_TERMINAL
   )
   
-
   # Run python script to generate the header file 
   add_custom_command(
     OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/src/${WASM_APP}.h

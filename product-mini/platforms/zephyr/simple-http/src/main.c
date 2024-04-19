@@ -21,7 +21,7 @@
 #define CONFIG_APP_HEAP_SIZE 8192
 
 #ifdef CONFIG_NO_OPTIMIZATIONS
-#define CONFIG_MAIN_THREAD_STACK_SIZE 8192
+#define CONFIG_MAIN_THREAD_STACK_SIZE 8192 * 4
 #else
 #define CONFIG_MAIN_THREAD_STACK_SIZE 4096
 #endif
@@ -126,23 +126,19 @@ iwasm_main(void *arg1, void *arg2, void *arg3)
 #error "memory allocation scheme is not defined."
 #endif
 
-// Use the address pool in wasm-micro-runtime
-// #if WASM_ENABLE_LIBC_WASI != 0
-// #define HUMAN_READABLE_ADDRESS "192.0.2.10\\24"
-//     libc_wasi_parse_context_t wasi_parse_ctx;
-//     memset(&wasi_parse_ctx, 0, sizeof(wasi_parse_ctx));
+/* Use the address pool in wasm-micro-runtime */
+#if WASM_ENABLE_LIBC_WASI != 0
+#define ADDRESS_POOL_SIZE 1
+    const char *addr_pool[ADDRESS_POOL_SIZE] = {
+        "192.0.2.10\\24",
+        // Add more addresses here if needed
+    };
 
-//     libc_wasi_parse_result_t result = libc_wasi_parse(HUMAN_READABLE_ADDRESS, &wasi_parse_ctx);
-//     switch (result) {
-//         case LIBC_WASI_PARSE_RESULT_OK:
-//             continue;
-//         case LIBC_WASI_PARSE_RESULT_NEED_HELP:
-//             return;
-//         case LIBC_WASI_PARSE_RESULT_BAD_PARAM:
-//             return;
-//     }
-//     libc_wasi_init(wasm_module, argc, argv, &wasi_parse_ctx);
-// #endif
+    /*wasm_runtime_set_wasi_addr_pool(wasm_module_t module, 
+                    const char *addr_pool[], uint32_t addr_pool_size); */
+    wasm_runtime_set_wasi_addr_pool(wasm_module, addr_pool,
+                                    ADDRESS_POOL_SIZE);
+#endif
 
     /* initialize runtime environment */
     if (!wasm_runtime_full_init(&init_args)) {
@@ -176,7 +172,7 @@ iwasm_main(void *arg1, void *arg2, void *arg3)
     /* invoke the main function */
     app_instance_main(wasm_module_inst);
 
-// 
+// TODO: adapt app_instance_main to have a ret code.
 // #if WASM_ENABLE_LIBC_WASI != 0
 //     if (ret == 0) {
 //         /* propagate wasi exit code. */

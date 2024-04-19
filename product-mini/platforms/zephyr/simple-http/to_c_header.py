@@ -1,9 +1,7 @@
 # Python script to convert wasm file to byte array in a .h file
 import os
 
-
 CWD = os.getcwd()
-
 CMAKE_CURRENT_BINARY_DIR = os.getenv('CMAKE_CURRENT_BINARY_DIR', CWD)
 CMAKE_CURRENT_SOURCE_DIR = os.getenv('CMAKE_CURRENT_SOURCE_DIR', f'{CWD}/../src')
 

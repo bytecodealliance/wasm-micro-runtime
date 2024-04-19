@@ -1,7 +1,6 @@
 #include "platform_api_extension.h"
 #include "platform_api_vmcore.h"
 
-
 #include <zephyr/net/net_ip.h>
 #include <zephyr/net/socket.h>
 #include <zephyr/net/socket_types.h>
@@ -11,6 +10,7 @@
 
 #include "zephyr_errno.h"
 #include <assert.h>
+#include <stdarg.h>
 
 // Static functions
 static bool
@@ -512,9 +512,9 @@ os_socket_get_send_buf_size(bh_socket_t socket, size_t *bufsiz)
 
 int
 os_socket_set_recv_buf_size(bh_socket_t socket, size_t bufsiz)
-{
+{    
     int buf_size_int = (int)bufsiz;
-    
+
     if (zsock_getsockopt(socket, SOL_SOCKET, SO_RCVBUF, &buf_size_int,
                    sizeof(buf_size_int))
         != 0) {
@@ -574,7 +574,7 @@ os_socket_get_send_timeout(bh_socket_t socket, uint64 *timeout_us)
     struct timeval tv;
     socklen_t tv_len = sizeof(tv);
     
-    if (zsock_setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &tv, &tv_len) != 0) {
+    if (zsock_setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &tv, tv_len) != 0) {
         return BHT_ERROR;
     }
     *timeout_us = (tv.tv_sec * 1000000UL) + tv.tv_usec;
@@ -602,7 +602,7 @@ os_socket_get_recv_timeout(bh_socket_t socket, uint64 *timeout_us)
     struct timeval tv;
     socklen_t tv_len = sizeof(tv);
 
-    if (zsock_setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &tv, &tv_len) != 0) {
+    if (zsock_setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &tv, tv_len) != 0) {
         return BHT_ERROR;
     }
     *timeout_us = (tv.tv_sec * 1000000UL) + tv.tv_usec;
@@ -722,7 +722,7 @@ os_socket_get_tcp_keep_idle(bh_socket_t socket, uint32_t *time_s)
     socklen_t time_s_len = sizeof(time_s_int);
 
 #ifdef TCP_KEEPIDLE
-    if (zsock_setsockopt(socket, IPPROTO_TCP, TCP_KEEPIDLE, &time_s_int, &time_s_len)
+    if (zsock_setsockopt(socket, IPPROTO_TCP, TCP_KEEPIDLE, &time_s_int, time_s_len)
         != 0) {
         return BHT_ERROR;
     }
@@ -730,7 +730,7 @@ os_socket_get_tcp_keep_idle(bh_socket_t socket, uint32_t *time_s)
 
     return BHT_OK;
 #elif defined(TCP_KEEPALIVE)
-    if (zsock_setsockopt(socket, IPPROTO_TCP, TCP_KEEPALIVE, &time_s_int, &time_s_len)
+    if (zsock_setsockopt(socket, IPPROTO_TCP, TCP_KEEPALIVE, &time_s_int, time_s_len)
         != 0) {
         return BHT_ERROR;
     }
@@ -901,6 +901,7 @@ os_socket_set_ip_drop_membership(bh_socket_t socket,
             return BHT_ERROR;
         }
     }
+    return BHT_OK;
 }
 
 int
@@ -918,7 +919,7 @@ os_socket_get_ip_ttl(bh_socket_t socket, uint8_t *ttl_s)
 {
     socklen_t opt_len = sizeof(*ttl_s);
 
-    if (zsock_setsockopt(socket, IPPROTO_IP, IP_MULTICAST_TTL, ttl_s, &opt_len)
+    if (zsock_setsockopt(socket, IPPROTO_IP, IP_MULTICAST_TTL, ttl_s, opt_len)
         != 0) {
         return BHT_ERROR;
     }
@@ -942,7 +943,7 @@ os_socket_get_ip_multicast_ttl(bh_socket_t socket, uint8_t *ttl_s)
 {
     socklen_t opt_len = sizeof(*ttl_s);
 
-    if (zsock_setsockopt(socket, IPPROTO_IP, IP_MULTICAST_TTL, ttl_s, &opt_len)
+    if (zsock_setsockopt(socket, IPPROTO_IP, IP_MULTICAST_TTL, ttl_s, opt_len)
         != 0) {
         return BHT_ERROR;
     }
@@ -993,14 +994,19 @@ os_socket_get_broadcast(bh_socket_t socket, bool *is_enabled)
 }
 
 // Experimental :
+#if !defined(WAMR_PLATFORM_ZEPHYR_FORCE_NO_ERROR)
 __wasi_errno_t
-os_ioctl(os_file_handle *handle, int request, void *argp)
+os_ioctl(os_file_handle handle, int request, ...)
 {
     __wasi_errno_t wasi_errno = __WASI_ESUCCESS;
+    va_list args;
 
-    if(zsock_ioctl_wrapper(handle, request, argp) < 0){
+    va_start(args, request);
+    if(zsock_ioctl(handle, request, args) < 0){
         wasi_errno = zephyr_to_wasi_errno(errno);
     }
+    va_end(args);
+
     return wasi_errno;
 }
 
@@ -1010,13 +1016,13 @@ os_poll(os_poll_file_handle *fds, os_nfds_t nfs, int timeout)
     __wasi_errno_t wasi_errno = __WASI_ESUCCESS;
     int rc = 0;
 
-    rc = zsock_poll(fds, nfs, timeout) 
+    rc = zsock_poll(fds, nfs, timeout);
     if(rc < 0){
         wasi_errno = zephyr_to_wasi_errno(errno);
     }
     switch(rc){
         case 0:
-            wasi_errno = __WASI_ETIMEOUT;
+            wasi_errno = __WASI_ETIMEDOUT;
             break;
         case -1:
             wasi_errno = zephyr_to_wasi_errno(errno);
@@ -1026,3 +1032,4 @@ os_poll(os_poll_file_handle *fds, os_nfds_t nfs, int timeout)
     }
     return wasi_errno;
 }
+#endif

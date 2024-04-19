@@ -88,6 +88,12 @@ typedef struct korp_cond {
     os_thread_wait_list thread_wait_list;
 } korp_cond;
 
+typedef struct {
+    struct k_mutex mtx;  // Mutex for exclusive access
+    struct k_sem sem;    // Semaphore for shared access
+    int read_count;      // Number of readers
+} korp_rwlock;
+
 #ifndef Z_TIMEOUT_MS
 #define Z_TIMEOUT_MS(ms) ms
 #endif
@@ -167,7 +173,9 @@ typedef void *os_dir_stream;
 typedef int os_raw_file_handle;
 
 /*********************************************************/
-// try to stub POSIX implementation in sandboxed env.
+//try to stub POSIX implementation in sandboxed env.
+#if !defined(WAMR_PLATFORM_ZEPHYR_FORCE_NO_ERROR)
+
 typedef struct zsock_pollfd os_poll_file_handle;
 typedef unsigned int os_nfds_t;
 
@@ -188,11 +196,13 @@ typedef struct {
 #define CLOCK_REALTIME 1
 #define CLOCK_MONOTONIC 4
 
-typedef struct {
-    struct k_mutex mtx;  // Mutex for exclusive access
-    struct k_sem sem;    // Semaphore for shared access
-    int read_count;      // Number of readers
-} korp_rwlock;
+// TODO: use it in sandboxed posix.c.
+// int os_sched_yield(void)
+// {    
+//     k_yield();
+//     return 0;
+// }
+#endif
 /*********************************************************/
 
 static inline os_file_handle

@@ -22,6 +22,7 @@
 #include "refcount.h"
 #include "rights.h"
 #include "str.h"
+#include "assert.h"
 
 /* Some platforms (e.g. Windows) already define `min()` macro.
  We're undefing it here to make sure the `min` call does exactly
@@ -1857,8 +1858,12 @@ wasmtime_ssp_fd_filestat_get(wasm_exec_env_t exec_env, struct fd_table *curfds,
 }
 
 static void
-convert_timestamp(__wasi_timestamp_t in, struct timespec *out)
+convert_timestamp(__wasi_timestamp_t in, struct os_timespec *out)
 {
+#if defined(WAMR_PLATFORM_ZEPHYR_FORCE_NO_ERROR)
+    // No clock implem
+}
+#else
     // Store sub-second remainder.
 #if defined(__SYSCALL_SLONG_TYPE)
     out->tv_nsec = (__SYSCALL_SLONG_TYPE)(in % 1000000000);
@@ -1870,7 +1875,7 @@ convert_timestamp(__wasi_timestamp_t in, struct timespec *out)
     // Clamp to the maximum in case it would overflow our system's time_t.
     out->tv_sec = (time_t)in < BH_TIME_T_MAX ? (time_t)in : BH_TIME_T_MAX;
 }
-
+#endif /* WAMR_PLATFORM_ZEPHYR_FORCE_NO_ERROR */
 __wasi_errno_t
 wasmtime_ssp_fd_filestat_set_size(wasm_exec_env_t exec_env,
                                   struct fd_table *curfds, __wasi_fd_t fd,
@@ -2055,9 +2060,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
                          size_t nsubscriptions,
                          size_t *nevents) NO_LOCK_ANALYSIS
 {
-#ifdef BH_PLATFORM_WINDOWS
-    return __WASI_ENOSYS;
-#elif BH_PLATEFORM_ZEPHYR
+#if defined(BH_PLATFORM_WINDOWS) || defined(WAMR_PLATFORM_ZEPHYR_FORCE_NO_ERROR)
     return __WASI_ENOSYS;
 #else
     // Sleeping.
@@ -2069,7 +2072,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
 #if CONFIG_HAS_CLOCK_NANOSLEEP
         clockid_t clock_id;
         if (wasi_clockid_to_clockid(in[0].u.u.clock.clock_id, &clock_id)) {
-            struct timespec ts;
+            struct os_timespec ts;
             convert_timestamp(in[0].u.u.clock.timeout, &ts);
             int ret = clock_nanosleep(
                 clock_id,
@@ -2096,7 +2099,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
                 else {
                     // Perform relative sleeps on the monotonic clock also using
                     // nanosleep(). This is incorrect, but good enough for now.
-                    struct timespec ts;
+                    struct os_timespec ts;
                     convert_timestamp(in[0].u.u.clock.timeout, &ts);
                     nanosleep(&ts, NULL);
                 }
@@ -2124,7 +2127,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
                 }
                 else {
                     // Relative sleeps can be done using nanosleep().
-                    struct timespec ts;
+                    struct os_timespec ts;
                     convert_timestamp(in[0].u.u.clock.timeout, &ts);
                     nanosleep(&ts, NULL);
                 }
@@ -2911,8 +2914,10 @@ wasmtime_ssp_sock_shutdown(wasm_exec_env_t exec_env, struct fd_table *curfds,
 __wasi_errno_t
 wasmtime_ssp_sched_yield(void)
 {
-#ifdef BH_PLATFORM_WINDOWS
+#if defined(BH_PLATFORM_WINDOWS)
     SwitchToThread();
+#elif defined(WAMR_PLATFORM_ZEPHYR_FORCE_NO_ERROR)
+    k_yield();
 #else
     if (sched_yield() < 0)
         return convert_errno(errno);

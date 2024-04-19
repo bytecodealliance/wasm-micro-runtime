@@ -128,7 +128,7 @@ struct LOCKABLE cond {
     clockid_t clock;
 #endif
 };
-#if !defined(BH_PLATFORM_ZEPHYR)
+#if !defined(WAMR_PLATFORM_ZEPHYR_FORCE_NO_ERROR)
 static inline bool
 cond_init_monotonic(struct cond *cond)
 {
@@ -177,7 +177,7 @@ cond_init_realtime(struct cond *cond)
 
     return true;
 }
-#endif /* !defined(BH_PLATFORM_ZEPHYR) */
+#endif /* !defWAMR) */
 static inline void
 cond_destroy(struct cond *cond)
 {
@@ -196,7 +196,12 @@ static inline bool
 cond_timedwait(struct cond *cond, struct mutex *lock, uint64_t timeout,
                bool abstime) REQUIRES_EXCLUSIVE(*lock) NO_LOCK_ANALYSIS
 {
+#if defined(WAMR_PLATFORM_ZEPHYR_FORCE_NO_ERROR)
+    return false;
+}
+#else
     int ret;
+
     struct os_timespec ts = {
         .tv_sec = (time_t)(timeout / 1000000000),
         .tv_nsec = (long)(timeout % 1000000000),
@@ -229,7 +234,7 @@ cond_timedwait(struct cond *cond, struct mutex *lock, uint64_t timeout,
                 ++ts.tv_sec;
             }
         }
-#endif
+#endif /* !CONFIG_HAS_PTHREAD_CONDATTR_SETCLOCK */
     }
     else {
 #if CONFIG_HAS_PTHREAD_COND_TIMEDWAIT_RELATIVE_NP
@@ -253,7 +258,7 @@ cond_timedwait(struct cond *cond, struct mutex *lock, uint64_t timeout,
             ts.tv_nsec -= 1000000000;
             ++ts.tv_sec;
         }
-#endif
+#endif /* CONFIG_HAS_PTHREAD_COND_TIMEDWAIT_RELATIVE_NP */
     }
 
     ret = pthread_cond_timedwait(&cond->object, &lock->object, &ts);
@@ -261,6 +266,7 @@ cond_timedwait(struct cond *cond, struct mutex *lock, uint64_t timeout,
               && "pthread_cond_timedwait() failed");
     return ret == ETIMEDOUT;
 }
+#endif /* WAMR_PLATFORM_ZEPHYR_FORCE_NO_ERROR */
 #endif
 
 static inline void

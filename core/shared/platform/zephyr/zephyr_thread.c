@@ -580,6 +580,41 @@ os_thread_jit_write_protect_np(bool enabled)
 {}
 
 int
+os_rwlock_init(korp_rwlock *lock)
+{
+    /* Not implemented */
+    return BHT_ERROR;
+}
+
+int
+os_rwlock_rdlock(korp_rwlock *lock)
+{
+    /* Not implemented */
+    return BHT_ERROR;
+}
+
+int
+os_rwlock_wrlock(korp_rwlock *lock)
+{
+    /* Not implemented */
+    return BHT_ERROR;
+}
+
+int
+os_rwlock_unlock(korp_rwlock *lock)
+{
+    /* Not implemented */
+    return BHT_ERROR;
+}
+
+int
+os_rwlock_destroy(korp_rwlock *lock)
+{
+    /* Not implemented */
+    return BHT_ERROR;
+}
+
+int
 os_thread_detach(korp_tid thread)
 {
     (void)thread;
