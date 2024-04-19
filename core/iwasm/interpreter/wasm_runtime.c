@@ -1400,30 +1400,39 @@ fail:
 static bool
 execute_malloc_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
                         WASMFunctionInstance *malloc_func,
-                        WASMFunctionInstance *retain_func, uint32 size,
-                        uint32 *p_result)
+                        WASMFunctionInstance *retain_func, uint64 size,
+                        uint64 *p_result)
 {
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     WASMExecEnv *exec_env_tls = wasm_runtime_get_exec_env_tls();
 #endif
     WASMExecEnv *exec_env_created = NULL;
     WASMModuleInstanceCommon *module_inst_old = NULL;
-    uint32 argv[2], argc;
+    uint32 argv[3], argc;
     bool ret;
-
-    argv[0] = size;
-    argc = 1;
+#if WASM_ENABLE_MEMORY64 != 0
+    bool is_memory64 = module_inst->memories[0]->is_memory64;
+    if (is_memory64) {
+        argc = 2;
+        PUT_I64_TO_ADDR(&argv[0], size);
+    }
+    else
+#endif
+    {
+        argc = 1;
+        argv[0] = size;
+    }
 
     /* if __retain is exported, then this module is compiled by
         assemblyscript, the memory should be managed by as's runtime,
         in this case we need to call the retain function after malloc
         the memory */
     if (retain_func) {
-        /* the malloc functino from assemblyscript is:
+        /* the malloc function from assemblyscript is:
             function __new(size: usize, id: u32)
             id = 0 means this is an ArrayBuffer object */
-        argv[1] = 0;
-        argc = 2;
+        argv[argc] = 0;
+        argc++;
     }
 
     if (exec_env) {
@@ -1475,24 +1484,42 @@ execute_malloc_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     if (exec_env_created)
         wasm_exec_env_destroy(exec_env_created);
 
-    if (ret)
-        *p_result = argv[0];
+    if (ret) {
+#if WASM_ENABLE_MEMORY64 != 0
+        if (is_memory64)
+            *p_result = GET_I64_FROM_ADDR(&argv[0]);
+        else
+#endif
+        {
+            *p_result = argv[0];
+        }
+    }
     return ret;
 }
 
 static bool
 execute_free_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
-                      WASMFunctionInstance *free_func, uint32 offset)
+                      WASMFunctionInstance *free_func, uint64 offset)
 {
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     WASMExecEnv *exec_env_tls = wasm_runtime_get_exec_env_tls();
 #endif
     WASMExecEnv *exec_env_created = NULL;
     WASMModuleInstanceCommon *module_inst_old = NULL;
-    uint32 argv[2];
+    uint32 argv[2], argc;
     bool ret;
 
-    argv[0] = offset;
+#if WASM_ENABLE_MEMORY64 != 0
+    if (module_inst->memories[0]->is_memory64) {
+        PUT_I64_TO_ADDR(&argv[0], offset);
+        argc = 2;
+    }
+    else
+#endif
+    {
+        argv[0] = (uint32)offset;
+        argc = 1;
+    }
 
     if (exec_env) {
 #ifdef OS_ENABLE_HW_BOUND_CHECK
@@ -1531,7 +1558,7 @@ execute_free_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
         }
     }
 
-    ret = wasm_call_function(exec_env, free_func, 1, argv);
+    ret = wasm_call_function(exec_env, free_func, argc, argv);
 
     if (module_inst_old)
         /* Restore the existing exec_env's module inst */
@@ -3336,7 +3363,7 @@ wasm_module_malloc_internal(WASMModuleInstance *module_inst,
 {
     WASMMemoryInstance *memory = wasm_get_default_memory(module_inst);
     uint8 *addr = NULL;
-    uint32 offset = 0;
+    uint64 offset = 0;
 
     /* TODO: Memory64 size check based on memory idx type */
     bh_assert(size <= UINT32_MAX);
@@ -3352,7 +3379,7 @@ wasm_module_malloc_internal(WASMModuleInstance *module_inst,
     else if (module_inst->e->malloc_function && module_inst->e->free_function) {
         if (!execute_malloc_function(
                 module_inst, exec_env, module_inst->e->malloc_function,
-                module_inst->e->retain_function, (uint32)size, &offset)) {
+                module_inst->e->retain_function, size, &offset)) {
             return 0;
         }
         /* If we use app's malloc function,
@@ -3452,7 +3479,7 @@ wasm_module_free_internal(WASMModuleInstance *module_inst,
                  && module_inst->e->free_function && memory->memory_data <= addr
                  && addr < memory_data_end) {
             execute_free_function(module_inst, exec_env,
-                                  module_inst->e->free_function, (uint32)ptr);
+                                  module_inst->e->free_function, ptr);
         }
     }
 }
