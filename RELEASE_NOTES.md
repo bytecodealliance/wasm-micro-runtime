@@ -33,7 +33,6 @@
 - posix_file.c: Correct the dirfd argument that passes to fstatat (#3244)
 - Fix compilation errors on zephyr platform (#3255)
 - Fix dynamic offset not updated in op_br for block with ret type (#3269)
-- nuttx: Migrate NuttX CMake build for WAMR (#3256)
 - aot debug: Fix a NULL dereference (#3274)
 - thread mgr: Free aux stack only when it was allocated (#3282)
 - interp: Restore context from prev_frame after tail calling a native function (#3283)
