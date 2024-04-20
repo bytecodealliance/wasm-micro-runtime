@@ -39,6 +39,7 @@
 - interp: Restore context from prev_frame after tail calling a native function (#3283)
 - Sync simd opcode definitions spec (#3290)
 - Fix posix_fadvise error handling (#3323)
+- Fix windows relocation string parsing issue (#3333)
 
 ### Enhancements
 - Zero the memory mapped from os_mmap in NuttX (#3132)
@@ -79,6 +80,9 @@
 - Log warning if growing table failed (#3310)
 - Enhance GC subtyping checks (#3317)
 - User defined memory allocator for different purposes (#3316)
+- Add a comment on WASM_STACK_GUARD_SIZE (#3332)
+- Allow executing malloc/free from native in memory64 mode (#3315)
+- Add functions to expose module import/export info (#3330)
 
 ### Others
 - Add ARM MacOS to the CI (#3120)
@@ -90,6 +94,7 @@
 - Fix CI error when install packages for macos-14 (#3270)
 - Update document for GC, exception handling and memory64 features (#3284)
 - Update release CI (#3295)
+- Add native-stack-overflow sample (#3321)
 
 ---
 

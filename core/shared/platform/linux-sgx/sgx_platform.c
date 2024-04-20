@@ -154,8 +154,8 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
 
     ret = sgx_alloc_rsrv_mem(aligned_size);
     if (ret == NULL) {
-        os_printf("os_mmap(size=%u, aligned size=%lu, prot=0x%x) failed.", size,
-                  aligned_size, prot);
+        os_printf("os_mmap(size=%u, aligned size=%lu, prot=0x%x) failed.\n",
+                  size, aligned_size, prot);
         return NULL;
     }
 
@@ -168,7 +168,7 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
 
     st = sgx_tprotect_rsrv_mem(ret, aligned_size, mprot);
     if (st != SGX_SUCCESS) {
-        os_printf("os_mmap(size=%u, prot=0x%x) failed to set protect.", size,
+        os_printf("os_mmap(size=%u, prot=0x%x) failed to set protect.\n", size,
                   prot);
         sgx_free_rsrv_mem(ret, aligned_size);
         return NULL;
@@ -205,7 +205,8 @@ os_mprotect(void *addr, size_t size, int prot)
         mprot |= SGX_PROT_EXEC;
     st = sgx_tprotect_rsrv_mem(addr, aligned_size, mprot);
     if (st != SGX_SUCCESS)
-        os_printf("os_mprotect(addr=0x%" PRIx64 ", size=%u, prot=0x%x) failed.",
+        os_printf("os_mprotect(addr=0x%" PRIx64
+                  ", size=%u, prot=0x%x) failed.\n",
                   (uintptr_t)addr, size, prot);
 
     return (st == SGX_SUCCESS ? 0 : -1);
