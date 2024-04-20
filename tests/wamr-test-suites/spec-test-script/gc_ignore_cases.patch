@@ -9,78 +9,6 @@ index 335496f0..5b975028 100644
 -  "integer representation too long"
 +  "invalid type flag" ;; In GC extension, the first byte in rectype define is just one byte, not LEB128 encoded.
  )
-diff --git a/test/core/binary.wast b/test/core/binary.wast
-index 1661a1c6..84c716b9 100644
---- a/test/core/binary.wast
-+++ b/test/core/binary.wast
-@@ -1082,7 +1082,7 @@
- )
- 
- ;; 1 br_table target declared, 2 given
--(assert_malformed
-+(;assert_malformed
-   (module binary
-     "\00asm" "\01\00\00\00"
-     "\01\04\01"                             ;; type section
-@@ -1132,3 +1132,4 @@
-   )
-   "unexpected content after last section"
- )
-+;)
-diff --git a/test/core/data.wast b/test/core/data.wast
-index a5c87fbb..6f948bae 100644
---- a/test/core/data.wast
-+++ b/test/core/data.wast
-@@ -306,9 +306,10 @@
-     "\02\01\41\00\0b"                       ;; active data segment 0 for memory 1
-     "\00"                                   ;; empty vec(byte)
-   )
--  "unknown memory 1"
-+  "unknown memory"
- )
- 
-+(; not supported by wat2wasm
- ;; Data segment with memory index 0 (no memory section)
- (assert_invalid
-   (module binary
-@@ -317,7 +318,7 @@
-     "\00\41\00\0b"                          ;; active data segment 0 for memory 0
-     "\00"                                   ;; empty vec(byte)
-   )
--  "unknown memory 0"
-+  "unknown memory"
- )
- 
- ;; Data segment with memory index 1 (no memory section)
-@@ -328,7 +329,7 @@
-     "\02\01\41\00\0b"                       ;; active data segment 0 for memory 1
-     "\00"                                   ;; empty vec(byte)
-   )
--  "unknown memory 1"
-+  "unknown memory"
- )
- 
- ;; Data segment with memory index 1 and vec(byte) as above,
-@@ -348,7 +349,7 @@
-     "\20\21\22\23\24\25\26\27\28\29\2a\2b\2c\2d\2e\2f"
-     "\30\31\32\33\34\35\36\37\38\39\3a\3b\3c\3d"
-   )
--  "unknown memory 1"
-+  "unknown memory"
- )
- 
- ;; Data segment with memory index 1 and specially crafted vec(byte) after.
-@@ -368,8 +369,9 @@
-     "\20\21\22\23\24\25\26\27\28\29\2a\2b\2c\2d\2e\2f"
-     "\30\31\32\33\34\35\36\37\38\39\3a\3b\3c\3d"
-   )
--  "unknown memory 1"
-+  "unknown memory"
- )
-+;)
- 
- 
- ;; Invalid offsets
 diff --git a/test/core/elem.wast b/test/core/elem.wast
 index df1610f6..32c1d8b3 100644
 --- a/test/core/elem.wast
@@ -268,196 +196,11 @@ index 00000000..32650644
 +  )
 +  "unsupported initializer expression for table"
 +)
-diff --git a/test/core/gc/ref_test.wast b/test/core/gc/ref_test.wast
-index 590b81b8..e0aa49ed 100644
---- a/test/core/gc/ref_test.wast
-+++ b/test/core/gc/ref_test.wast
-@@ -310,15 +310,16 @@
-       (br_if $l (i32.eqz (ref.test (ref $t0) (table.get (i32.const 11)))))
-       (br_if $l (i32.eqz (ref.test (ref $t0) (table.get (i32.const 12)))))
- 
--      (br_if $l (i32.eqz (ref.test (ref $t1') (table.get (i32.const 1)))))
--      (br_if $l (i32.eqz (ref.test (ref $t1') (table.get (i32.const 2)))))
-+      ;; Must have explicit sub relationship
-+      ;; (br_if $l (i32.eqz (ref.test (ref $t1') (table.get (i32.const 1)))))
-+      ;; (br_if $l (i32.eqz (ref.test (ref $t1') (table.get (i32.const 2)))))
- 
--      (br_if $l (i32.eqz (ref.test (ref $t1) (table.get (i32.const 11)))))
--      (br_if $l (i32.eqz (ref.test (ref $t1) (table.get (i32.const 12)))))
-+      ;; (br_if $l (i32.eqz (ref.test (ref $t1) (table.get (i32.const 11)))))
-+      ;; (br_if $l (i32.eqz (ref.test (ref $t1) (table.get (i32.const 12)))))
- 
--      (br_if $l (i32.eqz (ref.test (ref $t2') (table.get (i32.const 2)))))
-+      ;; (br_if $l (i32.eqz (ref.test (ref $t2') (table.get (i32.const 2)))))
- 
--      (br_if $l (i32.eqz (ref.test (ref $t2) (table.get (i32.const 12)))))
-+      ;; (br_if $l (i32.eqz (ref.test (ref $t2) (table.get (i32.const 12)))))
- 
-       (return)
-     )
 diff --git a/test/core/gc/type-subtyping.wast b/test/core/gc/type-subtyping.wast
-index a9022fc3..4e22e91b 100644
+index a9022fc3..4aa36e2a 100644
 --- a/test/core/gc/type-subtyping.wast
 +++ b/test/core/gc/type-subtyping.wast
-@@ -112,6 +112,8 @@
-   )
- )
- 
-+;; don't support recursive type equality and subtype check
-+(;
- (module
-   (rec (type $f1 (sub (func))) (type (struct (field (ref $f1)))))
-   (rec (type $f2 (sub (func))) (type (struct (field (ref $f2)))))
-@@ -135,6 +137,7 @@
-   (func $g (type $g2))
-   (global (ref $g1) (ref.func $g))
- )
-+;)
- 
- (assert_invalid
-   (module
-@@ -156,6 +159,8 @@
-   (global (ref $f1) (ref.func $g))
- )
- 
-+;; don't support recursive type equality and subtype check
-+(;
- (module
-   (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
-   (rec (type $f2 (sub (func))) (type $s2 (sub (struct (field (ref $f2))))))
-@@ -201,6 +206,7 @@
-   (global (ref $g12) (ref.func $g12))
-   (global (ref $g22) (ref.func $g12))
- )
-+;)
- 
- (assert_invalid
-   (module
-@@ -226,6 +232,8 @@
- 
- ;; Runtime types
- 
-+;; don't support recursive type equality and subtype check
-+(;
- (module
-   (type $t0 (sub (func (result (ref null func)))))
-   (rec (type $t1 (sub $t0 (func (result (ref null $t1))))))
-@@ -286,6 +294,7 @@
- (assert_trap (invoke "fail4") "cast")
- (assert_trap (invoke "fail5") "cast")
- (assert_trap (invoke "fail6") "cast")
-+;)
- 
- (module
-   (type $t1 (sub (func)))
-@@ -316,7 +325,8 @@
- (assert_trap (invoke "fail3") "cast")
- (assert_trap (invoke "fail4") "cast")
- 
--
-+;; don't support recursive type equality and subtype check
-+(;
- (module
-   (rec (type $f1 (sub (func))) (type (struct (field (ref $f1)))))
-   (rec (type $f2 (sub (func))) (type (struct (field (ref $f2)))))
-@@ -346,6 +356,7 @@
-   )
- )
- (assert_return (invoke "run") (i32.const 1))
-+;)
- 
- (module
-   (rec (type $f1 (sub (func))) (type (struct (field (ref $f1)))))
-@@ -370,6 +381,8 @@
- )
- (assert_return (invoke "run") (i32.const 1))
- 
-+;; don't support recursive type equality and subtype check
-+(;
- (module
-   (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
-   (rec (type $f2 (sub (func))) (type $s2 (sub (struct (field (ref $f2))))))
-@@ -390,7 +403,6 @@
- )
- (assert_return (invoke "run") (i32.const 1) (i32.const 1))
- 
--
- (module
-   (rec (type $f11 (sub (func (result (ref func))))) (type $f12 (sub $f11 (func (result (ref $f11))))))
-   (rec (type $f21 (sub (func (result (ref func))))) (type $f22 (sub $f21 (func (result (ref $f21))))))
-@@ -429,7 +441,9 @@
-   (i32.const 1) (i32.const 1) (i32.const 1) (i32.const 1)
-   (i32.const 1) (i32.const 1) (i32.const 1) (i32.const 1)
- )
-+;)
- 
-+(; we use normalized function type index
- (module
-   (rec (type $f11 (sub (func))) (type $f12 (sub $f11 (func))))
-   (rec (type $f21 (sub (func))) (type $f22 (sub $f11 (func))))
-@@ -439,6 +453,7 @@
-   )
- )
- (assert_return (invoke "run") (i32.const 0))
-+;)
- 
- (module
-   (rec (type $f01 (sub (func))) (type $f02 (sub $f01 (func))))
-@@ -547,15 +562,15 @@
-   (func (import "M3" "g") (type $g1))
- )
- 
--(module
--  (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
--  (rec (type $f2 (sub (func))) (type $s2 (sub (struct (field (ref $f2))))))
--  (rec
--    (type $g2 (sub $f2 (func)))
--    (type (sub $s2 (struct (field (ref $f1) (ref $f2) (ref $f1) (ref $f2) (ref $g2)))))
--  )
--  (func (export "g") (type $g2))
--)
-+;; (module
-+;;   (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
-+;;   (rec (type $f2 (sub (func))) (type $s2 (sub (struct (field (ref $f2))))))
-+;;   (rec
-+;;     (type $g2 (sub $f2 (func)))
-+;;     (type (sub $s2 (struct (field (ref $f1) (ref $f2) (ref $f1) (ref $f2) (ref $g2)))))
-+;;   )
-+;;   (func (export "g") (type $g2))
-+;; )
- (register "M4")
- (module
-   (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
-@@ -597,17 +612,17 @@
-   (func (import "M6" "g") (type $f1))
- )
- 
--(module
--  (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
--  (rec (type $f2 (sub (func))) (type $s2 (sub (struct (field (ref $f2))))))
--  (rec
--    (type $g2 (sub $f2 (func)))
--    (type (sub $s2 (struct (field (ref $f1) (ref $f2) (ref $f1) (ref $f2) (ref $g2)))))
--  )
--  (rec (type $h (sub $g2 (func))) (type (struct)))
--  (func (export "h") (type $h))
--)
--(register "M7")
-+;; (module
-+;;   (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
-+;;   (rec (type $f2 (sub (func))) (type $s2 (sub (struct (field (ref $f2))))))
-+;;   (rec
-+;;     (type $g2 (sub $f2 (func)))
-+;;     (type (sub $s2 (struct (field (ref $f1) (ref $f2) (ref $f1) (ref $f2) (ref $g2)))))
-+;;   )
-+;;   (rec (type $h (sub $g2 (func))) (type (struct)))
-+;;   (func (export "h") (type $h))
-+;; )
-+;; (register "M7")
- (module
-   (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
-   (rec (type $f2 (sub (func))) (type $s2 (sub (struct (field (ref $f2))))))
-@@ -740,7 +755,7 @@
+@@ -740,7 +740,7 @@
    "sub type"
  )
  
@@ -466,7 +209,7 @@ index a9022fc3..4e22e91b 100644
    (module
      (type $f0 (sub (func (param i32) (result i32))))
      (type $s0 (sub $f0 (struct)))
-@@ -764,7 +779,7 @@
+@@ -764,7 +764,7 @@
    "sub type"
  )
  
@@ -475,7 +218,7 @@ index a9022fc3..4e22e91b 100644
    (module
      (type $s0 (sub (struct)))
      (type $f0 (sub $s0 (func (param i32) (result i32))))
-@@ -772,7 +787,7 @@
+@@ -772,7 +772,7 @@
    "sub type"
  )
  
@@ -1262,29 +1005,3 @@ index 0b2d26f7..bdab6a01 100644
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
    (elem (table $t1) (i32.const 2) func 3 1 4 1)
-diff --git a/test/core/unreached-valid.wast b/test/core/unreached-valid.wast
-index f3feb0f3..d8ef8743 100644
---- a/test/core/unreached-valid.wast
-+++ b/test/core/unreached-valid.wast
-@@ -60,7 +60,7 @@
- 
- ;; Validation after unreachable
- 
--(module
-+(;module
-   (func (export "meet-bottom")
-     (block (result f64)
-       (block (result f32)
-@@ -76,7 +76,6 @@
- 
- (assert_trap (invoke "meet-bottom") "unreachable")
- 
--
- ;; Bottom heap type
- 
- (module
-@@ -106,3 +105,4 @@
-     (unreachable)
-   )
- )
-+;)

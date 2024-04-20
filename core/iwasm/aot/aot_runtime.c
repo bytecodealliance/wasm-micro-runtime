@@ -1721,6 +1721,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
 
         bh_assert(table_init_data);
 
+        bh_assert(table_init_data->table_index < module_inst->table_count);
         table = module_inst->tables[table_init_data->table_index];
         bh_assert(table);
 
@@ -1728,8 +1729,9 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         bh_assert(table_data);
 
         wasm_runtime_get_table_inst_elem_type(
-            (WASMModuleInstanceCommon *)module_inst, i, &tbl_elem_type,
-            &tbl_elem_ref_type, &tbl_init_size, &tbl_max_size);
+            (WASMModuleInstanceCommon *)module_inst,
+            table_init_data->table_index, &tbl_elem_type, &tbl_elem_ref_type,
+            &tbl_init_size, &tbl_max_size);
 
         if (!wasm_elem_is_declarative(table_init_data->mode)
             && !wasm_reftype_is_subtype_of(
@@ -4485,6 +4487,22 @@ aot_obj_is_instance_of(AOTModuleInstance *module_inst, WASMObjectRef gc_obj,
     uint32 type_count = aot_module->type_count;
 
     return wasm_obj_is_instance_of(gc_obj, type_index, types, type_count);
+}
+
+bool
+aot_func_type_is_super_of(AOTModuleInstance *module_inst, uint32 type_idx1,
+                          uint32 type_idx2)
+{
+    AOTModule *aot_module = (AOTModule *)module_inst->module;
+    AOTType **types = aot_module->types;
+
+    if (type_idx1 == type_idx2)
+        return true;
+
+    bh_assert(types[type_idx1]->type_flag == WASM_TYPE_FUNC);
+    bh_assert(types[type_idx2]->type_flag == WASM_TYPE_FUNC);
+    return wasm_func_type_is_super_of((WASMFuncType *)types[type_idx1],
+                                      (WASMFuncType *)types[type_idx2]);
 }
 
 WASMRttTypeRef

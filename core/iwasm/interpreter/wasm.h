@@ -274,7 +274,7 @@ typedef struct InitializerExpression {
  */
 typedef struct RefHeapType_TypeIdx {
     /* ref_type is REF_TYPE_HT_NULLABLE or
-       REF_TYPE_HT_NON_NULLABLE, (0x6C or 0x6B) */
+       REF_TYPE_HT_NON_NULLABLE, (0x63 or 0x64) */
     uint8 ref_type;
     /* true if ref_type is REF_TYPE_HT_NULLABLE */
     bool nullable;
@@ -288,7 +288,7 @@ typedef struct RefHeapType_TypeIdx {
  */
 typedef struct RefHeapType_Common {
     /* ref_type is REF_TYPE_HT_NULLABLE or
-       REF_TYPE_HT_NON_NULLABLE (0x6C or 0x6B) */
+       REF_TYPE_HT_NON_NULLABLE (0x63 or 0x64) */
     uint8 ref_type;
     /* true if ref_type is REF_TYPE_HT_NULLABLE */
     bool nullable;
@@ -338,18 +338,24 @@ typedef struct WASMType {
     uint16 type_flag;
 
     bool is_sub_final;
+    /* How many types are referring to this type */
+    uint16 ref_count;
     /* The inheritance depth */
-    uint32 inherit_depth;
+    uint16 inherit_depth;
     /* The root type */
     struct WASMType *root_type;
     /* The parent type */
     struct WASMType *parent_type;
     uint32 parent_type_idx;
 
-    /* number of internal types in the current rec group, if the type is not in
-     * a recursive group, rec_count = 0 */
+    /* The number of internal types in the current rec group, and if
+       the type is not in a recursive group, rec_count is 1 since a
+       single type definition is reinterpreted as a short-hand for a
+       recursive group containing just one type */
     uint16 rec_count;
     uint16 rec_idx;
+    /* The index of the begin type of this group */
+    uint32 rec_begin_type_idx;
 } WASMType, *WASMTypePtr;
 #endif /* end of WASM_ENABLE_GC */
 
@@ -375,9 +381,6 @@ typedef struct WASMFuncType {
     uint16 ref_type_map_count;
     WASMRefTypeMap *ref_type_maps;
     WASMRefTypeMap *result_ref_type_maps;
-    /* minimal type index of the type equal to this type,
-       used in type equal check in call_indirect opcode */
-    uint32 min_type_idx_normalized;
 #else
     uint16 ref_count;
 #endif

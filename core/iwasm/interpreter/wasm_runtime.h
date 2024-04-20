@@ -811,6 +811,11 @@ bool
 llvm_jit_obj_is_instance_of(WASMModuleInstance *module_inst,
                             WASMObjectRef gc_obj, uint32 type_index);
 
+/* Whether func type1 is one of super types of func type2 */
+bool
+llvm_jit_func_type_is_super_of(WASMModuleInstance *module_inst,
+                               uint32 type_idx1, uint32 type_idx2);
+
 WASMRttTypeRef
 llvm_jit_rtt_type_new(WASMModuleInstance *module_inst, uint32 type_index);
 
