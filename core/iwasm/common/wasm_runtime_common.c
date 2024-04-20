@@ -3727,6 +3727,213 @@ static union {
 
 #define is_little_endian() (__ue.b == 1) /* NOLINT */
 
+int32
+wasm_runtime_get_import_count(WASMModuleCommon *const module)
+{
+    if (!module) {
+        bh_assert(0);
+        return -1;
+    }
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        const AOTModule *aot_module = (const AOTModule *)module;
+        return (int32)(aot_module->import_func_count
+                       + aot_module->import_global_count
+                       + aot_module->import_table_count
+                       + aot_module->import_memory_count);
+    }
+#endif
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        const WASMModule *wasm_module = (const WASMModule *)module;
+        return (int32)wasm_module->import_count;
+    }
+#endif
+
+    return -1;
+}
+
+void
+wasm_runtime_get_import_type(WASMModuleCommon *const module, int32 import_index,
+                             wasm_import_type *import_type)
+{
+    if (!import_type) {
+        bh_assert(0);
+        return;
+    }
+
+    memset(import_type, 0, sizeof(wasm_import_type));
+
+    if (!module) {
+        bh_assert(0);
+        return;
+    }
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        const AOTModule *aot_module = (const AOTModule *)module;
+
+        uint32 func_index = (uint32)import_index;
+        if (func_index < aot_module->import_func_count) {
+            const AOTImportFunc *aot_import_func =
+                &aot_module->import_funcs[func_index];
+            import_type->module_name = aot_import_func->module_name;
+            import_type->name = aot_import_func->func_name;
+            import_type->kind = WASM_IMPORT_EXPORT_KIND_FUNC;
+            import_type->linked =
+                aot_import_func->func_ptr_linked ? true : false;
+            return;
+        }
+
+        uint32 global_index = func_index - aot_module->import_func_count;
+        if (global_index < aot_module->import_global_count) {
+            const AOTImportGlobal *aot_import_global =
+                &aot_module->import_globals[global_index];
+            import_type->module_name = aot_import_global->module_name;
+            import_type->name = aot_import_global->global_name;
+            import_type->kind = WASM_IMPORT_EXPORT_KIND_GLOBAL;
+            import_type->linked = aot_import_global->is_linked;
+            return;
+        }
+
+        uint32 table_index = global_index - aot_module->import_global_count;
+        if (table_index < aot_module->import_table_count) {
+            const AOTImportTable *aot_import_table =
+                &aot_module->import_tables[table_index];
+            import_type->module_name = aot_import_table->module_name;
+            import_type->name = aot_import_table->table_name;
+            import_type->kind = WASM_IMPORT_EXPORT_KIND_TABLE;
+            import_type->linked = false;
+            return;
+        }
+
+        uint32 memory_index = table_index - aot_module->import_table_count;
+        if (memory_index < aot_module->import_memory_count) {
+            const AOTImportMemory *aot_import_memory =
+                &aot_module->import_memories[memory_index];
+            import_type->module_name = aot_import_memory->module_name;
+            import_type->name = aot_import_memory->memory_name;
+            import_type->kind = WASM_IMPORT_EXPORT_KIND_MEMORY;
+            import_type->linked = false;
+            return;
+        }
+
+        bh_assert(0);
+        return;
+    }
+#endif
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        const WASMModule *wasm_module = (const WASMModule *)module;
+
+        if ((uint32)import_index >= wasm_module->import_count) {
+            bh_assert(0);
+            return;
+        }
+
+        const WASMImport *wasm_import = &wasm_module->imports[import_index];
+
+        import_type->module_name = wasm_import->u.names.module_name;
+        import_type->name = wasm_import->u.names.field_name;
+        import_type->kind = wasm_import->kind;
+        switch (import_type->kind) {
+            case WASM_IMPORT_EXPORT_KIND_FUNC:
+                import_type->linked = wasm_import->u.function.func_ptr_linked;
+                break;
+            case WASM_IMPORT_EXPORT_KIND_GLOBAL:
+                import_type->linked = wasm_import->u.global.is_linked;
+                break;
+            case WASM_IMPORT_EXPORT_KIND_TABLE:
+                /* not supported */
+                import_type->linked = false;
+                break;
+            case WASM_IMPORT_EXPORT_KIND_MEMORY:
+                /* not supported */
+                import_type->linked = false;
+                break;
+            default:
+                bh_assert(0);
+                break;
+        }
+
+        return;
+    }
+#endif
+}
+
+int32
+wasm_runtime_get_export_count(WASMModuleCommon *const module)
+{
+    if (!module) {
+        bh_assert(0);
+        return -1;
+    }
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        const AOTModule *aot_module = (const AOTModule *)module;
+        return (int32)aot_module->export_count;
+    }
+#endif
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        const WASMModule *wasm_module = (const WASMModule *)module;
+        return (int32)wasm_module->export_count;
+    }
+#endif
+
+    return -1;
+}
+
+void
+wasm_runtime_get_export_type(WASMModuleCommon *const module, int32 export_index,
+                             wasm_export_type *export_type)
+{
+    if (!export_type) {
+        bh_assert(0);
+        return;
+    }
+
+    memset(export_type, 0, sizeof(wasm_export_type));
+
+    if (!module) {
+        bh_assert(0);
+        return;
+    }
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        const AOTModule *aot_module = (const AOTModule *)module;
+
+        if ((uint32)export_index >= aot_module->export_count) {
+            bh_assert(0);
+            return;
+        }
+
+        const AOTExport *aot_export = &aot_module->exports[export_index];
+        export_type->name = aot_export->name;
+        export_type->kind = aot_export->kind;
+        return;
+    }
+#endif
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        const WASMModule *wasm_module = (const WASMModule *)module;
+
+        if ((uint32)export_index >= wasm_module->export_count) {
+            bh_assert(0);
+            return;
+        }
+
+        const WASMExport *wasm_export = &wasm_module->exports[export_index];
+        export_type->name = wasm_export->name;
+        export_type->kind = wasm_export->kind;
+        return;
+    }
+#endif
+}
+
 bool
 wasm_runtime_register_natives(const char *module_name,
                               NativeSymbol *native_symbols,

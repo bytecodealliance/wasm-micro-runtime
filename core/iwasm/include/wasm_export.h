@@ -69,6 +69,25 @@ struct WASMModuleCommon;
 typedef struct WASMModuleCommon *wasm_module_t;
 #endif
 
+typedef enum {
+    WASM_IMPORT_EXPORT_KIND_FUNC,
+    WASM_IMPORT_EXPORT_KIND_TABLE,
+    WASM_IMPORT_EXPORT_KIND_MEMORY,
+    WASM_IMPORT_EXPORT_KIND_GLOBAL
+} wasm_import_export_kind_t;
+
+typedef struct wasm_import_type {
+    const char *module_name;
+    const char *name;
+    wasm_import_export_kind_t kind;
+    bool linked;
+} wasm_import_type;
+
+typedef struct wasm_export_type {
+    const char *name;
+    wasm_import_export_kind_t kind;
+} wasm_export_type;
+
 /* Instantiated WASM module */
 struct WASMModuleInstanceCommon;
 typedef struct WASMModuleInstanceCommon *wasm_module_inst_t;
@@ -1204,6 +1223,48 @@ wasm_runtime_get_native_addr_range(wasm_module_inst_t module_inst,
                                    uint8_t *native_ptr,
                                    uint8_t **p_native_start_addr,
                                    uint8_t **p_native_end_addr);
+
+/**
+ * Get the number of import items for a WASM module
+ *
+ * @param module the WASM module
+ *
+ * @return the number of imports (zero for none), or -1 for failure
+ */
+WASM_RUNTIME_API_EXTERN int32_t
+wasm_runtime_get_import_count(const wasm_module_t module);
+
+/**
+ * Get information about a specific WASM module import
+ *
+ * @param module the WASM module
+ * @param import_index the desired import index
+ * @param import_type the location to store information about the import
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_get_import_type(const wasm_module_t module, int32_t import_index,
+                             wasm_import_type *import_type);
+
+/**
+ * Get the number of export items for a WASM module
+ *
+ * @param module the WASM module
+ *
+ * @return the number of exports (zero for none), or -1 for failure
+ */
+WASM_RUNTIME_API_EXTERN int32_t
+wasm_runtime_get_export_count(const wasm_module_t module);
+
+/**
+ * Get information about a specific WASM module export
+ *
+ * @param module the WASM module
+ * @param export_index the desired export index
+ * @param export_type the location to store information about the export
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_get_export_type(const wasm_module_t module, int32_t export_index,
+                             wasm_export_type *export_type);
 
 /**
  * Register native functions with same module name
