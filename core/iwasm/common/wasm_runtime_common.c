@@ -3597,8 +3597,8 @@ static union {
 
 #define is_little_endian() (__ue.b == 1) /* NOLINT */
 
-int32_t
-wasm_runtime_get_import_count(const wasm_module_t module)
+int32
+wasm_runtime_get_import_count(WASMModuleCommon *const module)
 {
     if (!module) {
         bh_assert(0);
@@ -3608,16 +3608,16 @@ wasm_runtime_get_import_count(const wasm_module_t module)
 #if WASM_ENABLE_AOT != 0
     if (module->module_type == Wasm_Module_AoT) {
         const AOTModule *aot_module = (const AOTModule *)module;
-        return (int32_t)(aot_module->import_func_count
-                         + aot_module->import_global_count
-                         + aot_module->import_table_count
-                         + aot_module->import_memory_count);
+        return (int32)(aot_module->import_func_count
+                       + aot_module->import_global_count
+                       + aot_module->import_table_count
+                       + aot_module->import_memory_count);
     }
 #endif
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode) {
         const WASMModule *wasm_module = (const WASMModule *)module;
-        return (int32_t)wasm_module->import_count;
+        return (int32)wasm_module->import_count;
     }
 #endif
 
@@ -3625,7 +3625,7 @@ wasm_runtime_get_import_count(const wasm_module_t module)
 }
 
 void
-wasm_runtime_get_import_type(const wasm_module_t module, int32_t import_index,
+wasm_runtime_get_import_type(WASMModuleCommon *const module, int32 import_index,
                              wasm_import_type *import_type)
 {
     if (!import_type) {
@@ -3644,12 +3644,7 @@ wasm_runtime_get_import_type(const wasm_module_t module, int32_t import_index,
     if (module->module_type == Wasm_Module_AoT) {
         const AOTModule *aot_module = (const AOTModule *)module;
 
-        if (import_index < 0) {
-            bh_assert(0);
-            return;
-        }
-
-        uint32_t func_index = (uint32_t)import_index;
+        uint32 func_index = (uint32)import_index;
         if (func_index < aot_module->import_func_count) {
             const AOTImportFunc *aot_import_func =
                 &aot_module->import_funcs[func_index];
@@ -3661,7 +3656,7 @@ wasm_runtime_get_import_type(const wasm_module_t module, int32_t import_index,
             return;
         }
 
-        uint32_t global_index = func_index - aot_module->import_func_count;
+        uint32 global_index = func_index - aot_module->import_func_count;
         if (global_index < aot_module->import_global_count) {
             const AOTImportGlobal *aot_import_global =
                 &aot_module->import_globals[global_index];
@@ -3672,7 +3667,7 @@ wasm_runtime_get_import_type(const wasm_module_t module, int32_t import_index,
             return;
         }
 
-        uint32_t table_index = global_index - aot_module->import_global_count;
+        uint32 table_index = global_index - aot_module->import_global_count;
         if (table_index < aot_module->import_table_count) {
             const AOTImportTable *aot_import_table =
                 &aot_module->import_tables[table_index];
@@ -3683,7 +3678,7 @@ wasm_runtime_get_import_type(const wasm_module_t module, int32_t import_index,
             return;
         }
 
-        uint32_t memory_index = table_index - aot_module->import_table_count;
+        uint32 memory_index = table_index - aot_module->import_table_count;
         if (memory_index < aot_module->import_memory_count) {
             const AOTImportMemory *aot_import_memory =
                 &aot_module->import_memories[memory_index];
@@ -3702,8 +3697,7 @@ wasm_runtime_get_import_type(const wasm_module_t module, int32_t import_index,
     if (module->module_type == Wasm_Module_Bytecode) {
         const WASMModule *wasm_module = (const WASMModule *)module;
 
-        if ((import_index < 0)
-            || ((uint32_t)import_index >= wasm_module->import_count)) {
+        if ((uint32)import_index >= wasm_module->import_count) {
             bh_assert(0);
             return;
         }
@@ -3738,8 +3732,8 @@ wasm_runtime_get_import_type(const wasm_module_t module, int32_t import_index,
 #endif
 }
 
-int32_t
-wasm_runtime_get_export_count(const wasm_module_t module)
+int32
+wasm_runtime_get_export_count(WASMModuleCommon *const module)
 {
     if (!module) {
         bh_assert(0);
@@ -3749,13 +3743,13 @@ wasm_runtime_get_export_count(const wasm_module_t module)
 #if WASM_ENABLE_AOT != 0
     if (module->module_type == Wasm_Module_AoT) {
         const AOTModule *aot_module = (const AOTModule *)module;
-        return (int32_t)aot_module->export_count;
+        return (int32)aot_module->export_count;
     }
 #endif
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode) {
         const WASMModule *wasm_module = (const WASMModule *)module;
-        return (int32_t)wasm_module->export_count;
+        return (int32)wasm_module->export_count;
     }
 #endif
 
@@ -3763,7 +3757,7 @@ wasm_runtime_get_export_count(const wasm_module_t module)
 }
 
 void
-wasm_runtime_get_export_type(const wasm_module_t module, int32_t export_index,
+wasm_runtime_get_export_type(WASMModuleCommon *const module, int32 export_index,
                              wasm_export_type *export_type)
 {
     if (!export_type) {
@@ -3782,8 +3776,7 @@ wasm_runtime_get_export_type(const wasm_module_t module, int32_t export_index,
     if (module->module_type == Wasm_Module_AoT) {
         const AOTModule *aot_module = (const AOTModule *)module;
 
-        if ((export_index < 0)
-            || ((uint32_t)export_index >= aot_module->export_count)) {
+        if ((uint32)export_index >= aot_module->export_count) {
             bh_assert(0);
             return;
         }
@@ -3798,8 +3791,7 @@ wasm_runtime_get_export_type(const wasm_module_t module, int32_t export_index,
     if (module->module_type == Wasm_Module_Bytecode) {
         const WASMModule *wasm_module = (const WASMModule *)module;
 
-        if ((export_index < 0)
-            || ((uint32_t)export_index >= wasm_module->export_count)) {
+        if ((uint32)export_index >= wasm_module->export_count) {
             bh_assert(0);
             return;
         }
