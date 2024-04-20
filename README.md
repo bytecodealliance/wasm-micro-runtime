@@ -10,12 +10,12 @@
 [Build WAMR](./doc/build_wamr.md) | [Build AOT Compiler](./wamr-compiler/README.md) | [Embed WAMR](./doc/embed_wamr.md) | [Export Native API](./doc/export_native_api.md) | [Build Wasm Apps](./doc/build_wasm_app.md) | [Samples](./samples/README.md)
 
 WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (Wasm) runtime with small footprint, high performance and highly configurable features for applications cross from embedded, IoT, edge to Trusted Execution Environment (TEE), smart contract, cloud native and so on. It includes a few parts as below:
-- [**VMcore**](./core/iwasm/): A set of runtime libraries for loading and running Wasm modules. It supports several execution modes including interpreter, Ahead-of-Time compilation(AoT) and Just-in-Time compilation (JIT). The WAMR supports two JIT tiers - Fast JIT, LLVM JIT, and dynamic tier-up from Fast JIT to LLVM JIT.
-- [**iwasm**](./product-mini/): The executable binary built with WAMR VMcore supports WASI and command line interface.
+- [**VMcore**](./core/iwasm/): A set of runtime libraries for loading and running Wasm modules. It supports rich running modes including interpreter, Ahead-of-Time compilation(AoT) and Just-in-Time compilation (JIT). WAMR supports two JIT tiers - Fast JIT, LLVM JIT, and dynamic tier-up from Fast JIT to LLVM JIT.
+- [**iwasm**](./product-mini/): The executable binary built with WAMR VMcore which supports WASI and command line interface.
 - [**wamrc**](./wamr-compiler/): The AOT compiler to compile Wasm file into AOT file
 - Useful components and tools for building real solutions with WAMR vmcore:
   - [App-framework](https://github.com/bytecodealliance/wamr-app-framework/blob/main/app-framework/README.md): A framework for supporting APIs for the Wasm applications
-  - [App-manager](https://github.com/bytecodealliance/wamr-app-framework/blob/main/app-mgr/README.md): a framework for dynamical loading the Wasm module remotely
+  - [App-manager](https://github.com/bytecodealliance/wamr-app-framework/blob/main/app-mgr/README.md): A framework for dynamical loading the Wasm module remotely
   - [WAMR-IDE](./test-tools/wamr-ide): An experimental VSCode extension for developping WebAssembly applications with C/C++
 
 
@@ -60,7 +60,7 @@ The following platforms are supported, click each link below for how to build iw
 ## Getting started
 - [Build VM core](./doc/build_wamr.md) and [Build wamrc AOT compiler](./wamr-compiler/README.md)
 - [Build iwasm (mini product)](./product-mini/README.md): [Linux](./product-mini/README.md#linux), [SGX](./doc/linux_sgx.md), [MacOS](./product-mini/README.md#macos) and [Windows](./product-mini/README.md#windows)
-- [Embed into C/C++](./doc/embed_wamr.md), [Embed into Python](./language-bindings/python), [Embed into Go](./language-bindings/go)
+- [Embed into C/C++](./doc/embed_wamr.md), [Embed into Python](./language-bindings/python), [Embed into Go](./language-bindings/go), [Embed in Rust](./language-bindings/rust)
 - [Register native APIs for Wasm applications](./doc/export_native_api.md)
 - [Build wamrc AOT compiler](./wamr-compiler/README.md)
 - [Build Wasm applications](./doc/build_wasm_app.md)
@@ -68,7 +68,6 @@ The following platforms are supported, click each link below for how to build iw
 - [VS Code development container](./doc/devcontainer.md)
 - [Samples](./samples) and [Benchmarks](./tests/benchmarks)
 - [End-user APIs documentation](https://bytecodealliance.github.io/wamr.dev/apis/)
-
 
 
 ### Performance and memory
@@ -80,7 +79,6 @@ The following platforms are supported, click each link below for how to build iw
 - [Performance tuning](./doc/perf_tune.md): how to tune the performance
 - [Benchmarks](./tests/benchmarks): checkout these links for how to run the benchmarks: [PolyBench](./tests/benchmarks/polybench), [CoreMark](./tests/benchmarks/coremark), [Sightglass](./tests/benchmarks/sightglass), [JetStream2](./tests/benchmarks/jetstream)
 - [Performance and footprint data](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/Performance): the performance and footprint data
-
 
 
 Project Technical Steering Committee
