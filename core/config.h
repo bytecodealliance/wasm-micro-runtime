@@ -486,7 +486,7 @@
 /* UVWASI requires larger native stack */
 #define WASM_STACK_GUARD_SIZE (4096 * 6)
 #else
-#define WASM_STACK_GUARD_SIZE (1024)
+#define WASM_STACK_GUARD_SIZE (1024 * 5)
 #endif
 #endif
 
