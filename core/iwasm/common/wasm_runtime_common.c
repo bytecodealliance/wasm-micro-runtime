@@ -219,7 +219,7 @@ runtime_signal_handler(void *sig_addr)
             os_longjmp(jmpbuf_node->jmpbuf, 1);
         }
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
-        else if (stack_min_addr - page_size <= (uint8 *)sig_addr
+        else if (stack_min_addr <= (uint8 *)sig_addr
                  && (uint8 *)sig_addr
                         < stack_min_addr + page_size * guard_page_count) {
             /* The address which causes segmentation fault is inside
