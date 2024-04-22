@@ -43,7 +43,9 @@ __attribute__((export_name("test"))) uint32_t
 test(uint32_t native_stack, uint32_t recurse_count)
 {
     uint32_t ret;
+#if 0 /* notyet */
     ret = host_consume_stack_and_call_indirect(cb, 321, native_stack);
+#endif
 
     /*
      * ------ os_thread_get_stack_boundary
