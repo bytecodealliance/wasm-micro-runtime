@@ -101,11 +101,15 @@ main(int argc, char **argv)
         const char *exception = NULL;
         nest = 0;
 
-        uint32_t *x = os_thread_get_stack_boundary();
+        uint32_t *x = (void *)os_thread_get_stack_boundary();
         x[-1] = 0xaabbccdd;
         x[-2] = 0x12345678;
+        x[-3] = 0xdeadbeef;
+        x[-4] = 0xcafecdef;
         assert(x[-1] == 0xaabbccdd);
         assert(x[-2] == 0x12345678);
+        assert(x[-3] == 0xdeadbeef);
+        assert(x[-4] == 0xcafecdef);
 
         module_inst = wasm_runtime_instantiate(module, stack_size, heap_size,
                                                error_buf, sizeof(error_buf));
@@ -145,6 +149,8 @@ main(int argc, char **argv)
         }
         assert(x[-1] == 0xaabbccdd);
         assert(x[-2] == 0x12345678);
+        assert(x[-3] == 0xdeadbeef);
+        assert(x[-4] == 0xcafecdef);
         /*
          * note: non-zero "nest" here demonstrates resource leak on longjmp
          * from signal handler.
