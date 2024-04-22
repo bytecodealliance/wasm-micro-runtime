@@ -920,7 +920,12 @@ os_readdir(os_dir_stream dir_stream, __wasi_dirent_t *entry,
 
     if (dent == NULL) {
         *d_name = NULL;
-        return convert_errno(errno);
+        if (errno != 0) {
+            return convert_errno(errno);
+        }
+        else {
+            return 0;
+        }
     }
 
     long offset = (__wasi_dircookie_t)telldir(dir_stream);

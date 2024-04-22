@@ -464,7 +464,9 @@ main(int argc, char *argv[])
 #if WASM_ENABLE_DEBUG_INTERP != 0
     init_args.instance_port = instance_port;
     if (ip_addr)
-        strcpy(init_args.ip_addr, ip_addr);
+        /* ensure that init_args.ip_addr is null terminated */
+        strncpy_s(init_args.ip_addr, sizeof(init_args.ip_addr) - 1, ip_addr,
+                  strlen(ip_addr));
 #endif
 
     /* initialize runtime environment */

@@ -5898,8 +5898,11 @@ re_scan:
                 BranchBlock *block = NULL;
                 BlockType block_type = (loader_ctx->frame_csp - 1)->block_type;
                 bh_assert(loader_ctx->csp_num >= 2
+                          /* the matched if is found */
                           && (loader_ctx->frame_csp - 1)->label_type
-                                 == LABEL_TYPE_IF);
+                                 == LABEL_TYPE_IF
+                          /* duplicated else isn't found */
+                          && !(loader_ctx->frame_csp - 1)->else_addr);
                 block = loader_ctx->frame_csp - 1;
 
                 /* check whether if branch's stack matches its result type */
@@ -5934,8 +5937,8 @@ re_scan:
                     bh_memcpy_s(loader_ctx->frame_offset, size,
                                 block->param_frame_offsets, size);
                     loader_ctx->frame_offset += (size / sizeof(int16));
-                    loader_ctx->dynamic_offset = block->start_dynamic_offset;
                 }
+                loader_ctx->dynamic_offset = block->start_dynamic_offset;
 #endif
 
                 break;
@@ -6618,25 +6621,44 @@ re_scan:
                     goto fail;
                 }
 
-                /* Refer to a forward-declared function */
-                if (func_idx >= cur_func_idx + module->import_function_count) {
+                /* Refer to a forward-declared function:
+                   the function must be an import, exported, or present in
+                   a table elem segment or global initializer to be used as
+                   the operand to ref.func */
+                if (func_idx >= module->import_function_count) {
                     WASMTableSeg *table_seg = module->table_segments;
                     bool func_declared = false;
                     uint32 j;
 
-                    /* Check whether the function is declared in table segs,
-                       note that it doesn't matter whether the table seg's mode
-                       is passive, active or declarative. */
-                    for (i = 0; i < module->table_seg_count; i++, table_seg++) {
-                        if (table_seg->elem_type == VALUE_TYPE_FUNCREF) {
-                            for (j = 0; j < table_seg->function_count; j++) {
-                                if (table_seg->func_indexes[j] == func_idx) {
-                                    func_declared = true;
-                                    break;
+                    for (i = 0; i < module->global_count; i++) {
+                        if (module->globals[i].type == VALUE_TYPE_FUNCREF
+                            && module->globals[i].init_expr.init_expr_type
+                                   == INIT_EXPR_TYPE_FUNCREF_CONST
+                            && module->globals[i].init_expr.u.u32 == func_idx) {
+                            func_declared = true;
+                            break;
+                        }
+                    }
+
+                    if (!func_declared) {
+                        /* Check whether the function is declared in table segs,
+                           note that it doesn't matter whether the table seg's
+                           mode is passive, active or declarative. */
+                        for (i = 0; i < module->table_seg_count;
+                             i++, table_seg++) {
+                            if (table_seg->elem_type == VALUE_TYPE_FUNCREF) {
+                                for (j = 0; j < table_seg->function_count;
+                                     j++) {
+                                    if (table_seg->func_indexes[j]
+                                        == func_idx) {
+                                        func_declared = true;
+                                        break;
+                                    }
                                 }
                             }
                         }
                     }
+
                     if (!func_declared) {
                         /* Check whether the function is exported */
                         for (i = 0; i < module->export_count; i++) {
@@ -7065,6 +7087,7 @@ re_scan:
                 break;
 
             case WASM_OP_F32_CONST:
+                CHECK_BUF(p, p_end, sizeof(float32));
                 p += sizeof(float32);
 #if WASM_ENABLE_FAST_INTERP != 0
                 skip_label();
@@ -7083,6 +7106,7 @@ re_scan:
                 break;
 
             case WASM_OP_F64_CONST:
+                CHECK_BUF(p, p_end, sizeof(float64));
                 p += sizeof(float64);
 #if WASM_ENABLE_FAST_INTERP != 0
                 skip_label();
@@ -7390,6 +7414,7 @@ re_scan:
                     }
                     case WASM_OP_MEMORY_COPY:
                     {
+                        CHECK_BUF(p, p_end, sizeof(int16));
                         /* both src and dst memory index should be 0 */
                         bh_assert(*(int16 *)p == 0x0000);
                         p += 2;

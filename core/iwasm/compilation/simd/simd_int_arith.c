@@ -243,7 +243,6 @@ aot_compile_simd_i64x2_abs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 enum integer_avgr_u {
     e_avgr_u_i8x16,
     e_avgr_u_i16x8,
-    e_avgr_u_i32x4,
 };
 
 /* TODO: try int_x86_mmx_pavg_b and int_x86_mmx_pavg_w */
@@ -257,9 +256,8 @@ simd_v128_avg(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMTypeRef vector_type[] = {
         V128_i8x16_TYPE,
         V128_i16x8_TYPE,
-        V128_i32x4_TYPE,
     };
-    unsigned lanes[] = { 16, 8, 4 };
+    unsigned lanes[] = { 16, 8 };
 
     if (!(rhs = simd_pop_v128_and_bitcast(comp_ctx, func_ctx,
                                           vector_type[itype], "rhs"))
@@ -323,13 +321,6 @@ aot_compile_simd_i16x8_avgr_u(AOTCompContext *comp_ctx,
                               AOTFuncContext *func_ctx)
 {
     return simd_v128_avg(comp_ctx, func_ctx, e_avgr_u_i16x8);
-}
-
-bool
-aot_compile_simd_i32x4_avgr_u(AOTCompContext *comp_ctx,
-                              AOTFuncContext *func_ctx)
-{
-    return simd_v128_avg(comp_ctx, func_ctx, e_avgr_u_i32x4);
 }
 
 bool

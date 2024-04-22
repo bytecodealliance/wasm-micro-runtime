@@ -131,7 +131,7 @@ read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
     }
     else if (sign && maxbits == 32) {
         if (shift < maxbits) {
-            /* Sign extend, second highest bit is the sign bit */
+            /* Sign extend, second-highest bit is the sign bit */
             if ((uint8)byte & 0x40)
                 result |= (~((uint64)0)) << shift;
         }
@@ -146,7 +146,7 @@ read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
     }
     else if (sign && maxbits == 64) {
         if (shift < maxbits) {
-            /* Sign extend, second highest bit is the sign bit */
+            /* Sign extend, second-highest bit is the sign bit */
             if ((uint8)byte & 0x40)
                 result |= (~((uint64)0)) << shift;
         }
@@ -7266,7 +7266,7 @@ check_branch_block_for_delegate(WASMLoaderContext *loader_ctx, uint8 **p_buf,
     }
     frame_csp_tmp = loader_ctx->frame_csp - depth - 2;
 #if WASM_ENABLE_FAST_INTERP != 0
-    emit_br_info(frame_csp_tmp);
+    emit_br_info(frame_csp_tmp, false);
 #endif
 
     *p_buf = p;
@@ -8095,8 +8095,10 @@ re_scan:
                 BlockType block_type;
 
                 if (loader_ctx->csp_num < 2
-                    || (loader_ctx->frame_csp - 1)->label_type
-                           != LABEL_TYPE_IF) {
+                    /* the matched if isn't found */
+                    || (loader_ctx->frame_csp - 1)->label_type != LABEL_TYPE_IF
+                    /* duplicated else is found */
+                    || (loader_ctx->frame_csp - 1)->else_addr) {
                     set_error_buf(
                         error_buf, error_buf_size,
                         "opcode else found without matched opcode if");
@@ -8137,8 +8139,8 @@ re_scan:
                     bh_memcpy_s(loader_ctx->frame_offset, size,
                                 block->param_frame_offsets, size);
                     loader_ctx->frame_offset += (size / sizeof(int16));
-                    loader_ctx->dynamic_offset = block->start_dynamic_offset;
                 }
+                loader_ctx->dynamic_offset = block->start_dynamic_offset;
 #endif
 
                 break;
@@ -8924,25 +8926,44 @@ re_scan:
                     goto fail;
                 }
 
-                /* Refer to a forward-declared function */
-                if (func_idx >= cur_func_idx + module->import_function_count) {
+                /* Refer to a forward-declared function:
+                   the function must be an import, exported, or present in
+                   a table elem segment or global initializer to be used as
+                   the operand to ref.func */
+                if (func_idx >= module->import_function_count) {
                     WASMTableSeg *table_seg = module->table_segments;
                     bool func_declared = false;
                     uint32 j;
 
-                    /* Check whether the function is declared in table segs,
-                       note that it doesn't matter whether the table seg's mode
-                       is passive, active or declarative. */
-                    for (i = 0; i < module->table_seg_count; i++, table_seg++) {
-                        if (table_seg->elem_type == VALUE_TYPE_FUNCREF) {
-                            for (j = 0; j < table_seg->function_count; j++) {
-                                if (table_seg->func_indexes[j] == func_idx) {
-                                    func_declared = true;
-                                    break;
+                    for (i = 0; i < module->global_count; i++) {
+                        if (module->globals[i].type == VALUE_TYPE_FUNCREF
+                            && module->globals[i].init_expr.init_expr_type
+                                   == INIT_EXPR_TYPE_FUNCREF_CONST
+                            && module->globals[i].init_expr.u.u32 == func_idx) {
+                            func_declared = true;
+                            break;
+                        }
+                    }
+
+                    if (!func_declared) {
+                        /* Check whether the function is declared in table segs,
+                           note that it doesn't matter whether the table seg's
+                           mode is passive, active or declarative. */
+                        for (i = 0; i < module->table_seg_count;
+                             i++, table_seg++) {
+                            if (table_seg->elem_type == VALUE_TYPE_FUNCREF) {
+                                for (j = 0; j < table_seg->function_count;
+                                     j++) {
+                                    if (table_seg->func_indexes[j]
+                                        == func_idx) {
+                                        func_declared = true;
+                                        break;
+                                    }
                                 }
                             }
                         }
                     }
+
                     if (!func_declared) {
                         /* Check whether the function is exported */
                         for (i = 0; i < module->export_count; i++) {
@@ -9424,6 +9445,7 @@ re_scan:
                 break;
 
             case WASM_OP_F32_CONST:
+                CHECK_BUF(p, p_end, sizeof(float32));
                 p += sizeof(float32);
 #if WASM_ENABLE_FAST_INTERP != 0
                 skip_label();
@@ -9442,6 +9464,7 @@ re_scan:
                 break;
 
             case WASM_OP_F64_CONST:
+                CHECK_BUF(p, p_end, sizeof(float64));
                 p += sizeof(float64);
 #if WASM_ENABLE_FAST_INTERP != 0
                 skip_label();
@@ -9763,6 +9786,7 @@ re_scan:
                     }
                     case WASM_OP_MEMORY_COPY:
                     {
+                        CHECK_BUF(p, p_end, sizeof(int16));
                         /* both src and dst memory index should be 0 */
                         if (*(int16 *)p != 0x0000)
                             goto fail_zero_byte_expected;
@@ -10448,13 +10472,6 @@ re_scan:
                         break;
                     }
 
-                    case SIMD_i32x4_narrow_i64x2_s:
-                    case SIMD_i32x4_narrow_i64x2_u:
-                    {
-                        POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
-                        break;
-                    }
-
                     case SIMD_i32x4_extend_low_i16x8_s:
                     case SIMD_i32x4_extend_high_i16x8_s:
                     case SIMD_i32x4_extend_low_i16x8_u:
@@ -10481,7 +10498,6 @@ re_scan:
                     case SIMD_i32x4_max_s:
                     case SIMD_i32x4_max_u:
                     case SIMD_i32x4_dot_i16x8_s:
-                    case SIMD_i32x4_avgr_u:
                     case SIMD_i32x4_extmul_low_i16x8_s:
                     case SIMD_i32x4_extmul_high_i16x8_s:
                     case SIMD_i32x4_extmul_low_i16x8_u:
@@ -10545,7 +10561,6 @@ re_scan:
                     /* f32x4 operation */
                     case SIMD_f32x4_abs:
                     case SIMD_f32x4_neg:
-                    case SIMD_f32x4_round:
                     case SIMD_f32x4_sqrt:
                     {
                         POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
@@ -10568,7 +10583,6 @@ re_scan:
                     /* f64x2 operation */
                     case SIMD_f64x2_abs:
                     case SIMD_f64x2_neg:
-                    case SIMD_f64x2_round:
                     case SIMD_f64x2_sqrt:
                     {
                         POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
