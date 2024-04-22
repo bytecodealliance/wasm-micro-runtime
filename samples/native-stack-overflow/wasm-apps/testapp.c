@@ -44,6 +44,25 @@ test(uint32_t native_stack, uint32_t recurse_count)
 {
     uint32_t ret;
     ret = host_consume_stack_and_call_indirect(cb, 321, native_stack);
+
+    /*
+     * ------ os_thread_get_stack_boundary
+     * ^
+     * |
+     * | "native_stack" bytes of stack left by
+     * | host_consume_stack_and_call_indirect
+     * |
+     * | ^
+     * | |
+     * | | consume_stack_cb (interpreter or aot)
+     * v |
+     *   ^
+     *   |
+     *   | host_consume_stack_and_call_indirect
+     *   |
+     *
+     *
+     */
     ret = host_consume_stack_and_call_indirect(consume_stack_cb, recurse_count,
                                                native_stack);
 #if 0 /* notyet */
