@@ -124,8 +124,8 @@ main(int argc, char **argv)
 
         /* note: the function type is (ii)i */
         uint32_t wasm_argv[] = {
-            stack,
-            30,
+            stack, /* native_stack */
+            30,    /* recurse_count */
         };
         uint32_t wasm_argc = 2;
         if (!wasm_runtime_call_wasm(exec_env, func, wasm_argc, wasm_argv)) {
