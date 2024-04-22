@@ -2347,14 +2347,32 @@ execute_malloc_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
 #endif
     WASMExecEnv *exec_env_created = NULL;
     WASMModuleInstanceCommon *module_inst_old = NULL;
-    uint32 argv[2], argc;
+    uint32 argv[3], argc;
     bool ret;
 
-    argv[0] = size;
-    argc = 1;
-    if (retain_func) {
-        argv[1] = 0;
+#if WASM_ENABLE_MEMORY64 != 0
+    bool is_memory64 = module_inst->memories[0]->is_memory64;
+    if (is_memory64) {
         argc = 2;
+        PUT_I64_TO_ADDR(&argv[0], size);
+    }
+    else
+#endif
+    {
+        argc = 1;
+        argv[0] = size;
+    }
+
+    /* if __retain is exported, then this module is compiled by
+        assemblyscript, the memory should be managed by as's runtime,
+        in this case we need to call the retain function after malloc
+        the memory */
+    if (retain_func) {
+        /* the malloc function from assemblyscript is:
+            function __new(size: usize, id: u32)
+            id = 0 means this is an ArrayBuffer object */
+        argv[argc] = 0;
+        argc++;
     }
 
     if (exec_env) {
@@ -2406,8 +2424,16 @@ execute_malloc_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
     if (exec_env_created)
         wasm_exec_env_destroy(exec_env_created);
 
-    if (ret)
-        *p_result = argv[0];
+    if (ret) {
+#if WASM_ENABLE_MEMORY64 != 0
+        if (is_memory64)
+            *p_result = GET_I64_FROM_ADDR(&argv[0]);
+        else
+#endif
+        {
+            *p_result = argv[0];
+        }
+    }
     return ret;
 }
 
@@ -2420,10 +2446,20 @@ execute_free_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
 #endif
     WASMExecEnv *exec_env_created = NULL;
     WASMModuleInstanceCommon *module_inst_old = NULL;
-    uint32 argv[2];
+    uint32 argv[2], argc;
     bool ret;
 
-    argv[0] = offset;
+    #if WASM_ENABLE_MEMORY64 != 0
+    if (module_inst->memories[0]->is_memory64) {
+        PUT_I64_TO_ADDR(&argv[0], offset);
+        argc = 2;
+    }
+    else
+#endif
+    {
+        argv[0] = (uint32)offset;
+        argc = 1;
+    }
 
     if (exec_env) {
 #ifdef OS_ENABLE_HW_BOUND_CHECK
@@ -2462,7 +2498,7 @@ execute_free_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
         }
     }
 
-    ret = aot_call_function(exec_env, free_func, 1, argv);
+    ret = aot_call_function(exec_env, free_func, argc, argv);
 
     if (module_inst_old)
         /* Restore the existing exec_env's module inst */

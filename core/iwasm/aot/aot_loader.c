@@ -3632,6 +3632,21 @@ fail:
     return ret;
 }
 
+#if WASM_ENABLE_MEMORY64 != 0
+static bool
+has_module_memory64(AOTModule *module)
+{
+    /* TODO: multi-memories for now assuming the memory idx type is consistent
+     * across multi-memories */
+    if (module->import_memory_count > 0)
+        return !!(module->import_memories[0].memory_flags & MEMORY64_FLAG);
+    else if (module->memory_count > 0)
+        return !!(module->memories[0].memory_flags & MEMORY64_FLAG);
+
+    return false;
+}
+#endif
+
 static bool
 load_from_sections(AOTModule *module, AOTSection *sections,
                    bool is_load_from_file_buf, char *error_buf,
@@ -3643,6 +3658,7 @@ load_from_sections(AOTModule *module, AOTSection *sections,
     uint32 i, func_index, func_type_index;
     AOTFuncType *func_type;
     AOTExport *exports;
+    uint8 malloc_free_io_type = VALUE_TYPE_I32;
 
     while (section) {
         buf = section->section_body;
@@ -3717,7 +3733,10 @@ load_from_sections(AOTModule *module, AOTSection *sections,
     module->malloc_func_index = (uint32)-1;
     module->free_func_index = (uint32)-1;
     module->retain_func_index = (uint32)-1;
-
+#if WASM_ENABLE_MEMORY64 != 0
+    if (has_module_memory64(module))
+        malloc_free_io_type = VALUE_TYPE_I64;
+#endif
     exports = module->exports;
     for (i = 0; i < module->export_count; i++) {
         if (exports[i].kind == EXPORT_KIND_FUNC
@@ -3727,8 +3746,8 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                 func_type_index = module->func_type_indexes[func_index];
                 func_type = (AOTFuncType *)module->types[func_type_index];
                 if (func_type->param_count == 1 && func_type->result_count == 1
-                    && func_type->types[0] == VALUE_TYPE_I32
-                    && func_type->types[1] == VALUE_TYPE_I32) {
+                    && func_type->types[0] == malloc_free_io_type
+                    && func_type->types[1] == malloc_free_io_type) {
                     bh_assert(module->malloc_func_index == (uint32)-1);
                     module->malloc_func_index = func_index;
                     LOG_VERBOSE("Found malloc function, name: %s, index: %u",
@@ -3740,9 +3759,9 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                 func_type_index = module->func_type_indexes[func_index];
                 func_type = (AOTFuncType *)module->types[func_type_index];
                 if (func_type->param_count == 2 && func_type->result_count == 1
-                    && func_type->types[0] == VALUE_TYPE_I32
+                    && func_type->types[0] == malloc_free_io_type
                     && func_type->types[1] == VALUE_TYPE_I32
-                    && func_type->types[2] == VALUE_TYPE_I32) {
+                    && func_type->types[2] == malloc_free_io_type) {
                     uint32 j;
                     WASMExport *export_tmp;
 
@@ -3766,8 +3785,8 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                                 (AOTFuncType *)module->types[func_type_index];
                             if (func_type->param_count == 1
                                 && func_type->result_count == 1
-                                && func_type->types[0] == VALUE_TYPE_I32
-                                && func_type->types[1] == VALUE_TYPE_I32) {
+                                && func_type->types[0] == malloc_free_io_type
+                                && func_type->types[1] == malloc_free_io_type) {
                                 bh_assert(module->retain_func_index
                                           == (uint32)-1);
                                 module->retain_func_index = export_tmp->index;
@@ -3793,7 +3812,7 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                 func_type_index = module->func_type_indexes[func_index];
                 func_type = (AOTFuncType *)module->types[func_type_index];
                 if (func_type->param_count == 1 && func_type->result_count == 0
-                    && func_type->types[0] == VALUE_TYPE_I32) {
+                    && func_type->types[0] == malloc_free_io_type) {
                     bh_assert(module->free_func_index == (uint32)-1);
                     module->free_func_index = func_index;
                     LOG_VERBOSE("Found free function, name: %s, index: %u",
