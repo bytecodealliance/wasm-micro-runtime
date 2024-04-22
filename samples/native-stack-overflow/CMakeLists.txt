@@ -65,6 +65,10 @@ if (NOT MSVC)
   endif ()
 endif ()
 
+if (CMAKE_C_COMPILER_ID MATCHES "Clang")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-usage")
+endif ()
+
 # build out vmlib
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
