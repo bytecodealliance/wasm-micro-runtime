@@ -17,7 +17,7 @@ cb(int x)
 }
 
 int
-consume_stack_cb(int x)
+consume_stack_cb(int x) __attribute__((disable_tail_calls))
 {
     /*
      * intentions:
