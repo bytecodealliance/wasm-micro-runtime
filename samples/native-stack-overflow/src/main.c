@@ -101,6 +101,12 @@ main(int argc, char **argv)
         const char *exception = NULL;
         nest = 0;
 
+        uint32_t *x = os_thread_get_stack_boundary();
+        x[-1] = 0xaabbccdd;
+        x[-2] = 0x12345678;
+        assert(x[-1] == 0xaabbccdd);
+        assert(x[-2] == 0x12345678);
+
         module_inst = wasm_runtime_instantiate(module, stack_size, heap_size,
                                                error_buf, sizeof(error_buf));
         if (!module_inst) {
@@ -134,6 +140,11 @@ main(int argc, char **argv)
         }
         failed = false;
     fail2:
+        if (x[-1] != 0xaabbccdd) {
+            printf("stack size %u\n", stack);
+        }
+        assert(x[-1] == 0xaabbccdd);
+        assert(x[-2] == 0x12345678);
         /*
          * note: non-zero "nest" here demonstrates resource leak on longjmp
          * from signal handler.
