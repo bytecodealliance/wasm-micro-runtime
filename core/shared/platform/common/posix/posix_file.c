@@ -922,7 +922,8 @@ os_readdir(os_dir_stream dir_stream, __wasi_dirent_t *entry,
         *d_name = NULL;
         if (errno != 0) {
             return convert_errno(errno);
-        } else {
+        }
+        else {
             return 0;
         }
     }
