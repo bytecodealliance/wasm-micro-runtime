@@ -5179,10 +5179,21 @@ fail:
             goto fail;                                                  \
     } while (0)
 
-#define PUSH_MEM_OFFSET() PUSH_OFFSET_TYPE(mem_offset_type)
+#define PUSH_MEM_OFFSET()                                                    \
+    do {                                                                     \
+        if (!wasm_loader_push_frame_ref_offset(loader_ctx, mem_offset_type,  \
+                                               disable_emit, operand_offset, \
+                                               error_buf, error_buf_size))   \
+            goto fail;                                                       \
+    } while (0)
 #define PUSH_PAGE_COUNT() PUSH_MEM_OFFSET()
 
-#define POP_MEM_OFFSET() POP_OFFSET_TYPE(mem_offset_type)
+#define POP_MEM_OFFSET()                                                   \
+    do {                                                                   \
+        if (!wasm_loader_pop_frame_ref_offset(loader_ctx, mem_offset_type, \
+                                              error_buf, error_buf_size))  \
+            goto fail;                                                     \
+    } while (0)
 
 #define POP_AND_PUSH(type_pop, type_push)                         \
     do {                                                          \
