@@ -1776,7 +1776,7 @@ load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
     bool is_passive = false;
     uint32 mem_flag;
 #endif
-    uint8 mem_offset_type;
+    uint8 mem_offset_type = VALUE_TYPE_I32;
 
     read_leb_uint32(p, p_end, data_seg_count);
 
@@ -5179,10 +5179,21 @@ fail:
             goto fail;                                                  \
     } while (0)
 
-#define PUSH_MEM_OFFSET() PUSH_OFFSET_TYPE(mem_offset_type)
+#define PUSH_MEM_OFFSET()                                                    \
+    do {                                                                     \
+        if (!wasm_loader_push_frame_ref_offset(loader_ctx, mem_offset_type,  \
+                                               disable_emit, operand_offset, \
+                                               error_buf, error_buf_size))   \
+            goto fail;                                                       \
+    } while (0)
 #define PUSH_PAGE_COUNT() PUSH_MEM_OFFSET()
 
-#define POP_MEM_OFFSET() POP_OFFSET_TYPE(mem_offset_type)
+#define POP_MEM_OFFSET()                                                   \
+    do {                                                                   \
+        if (!wasm_loader_pop_frame_ref_offset(loader_ctx, mem_offset_type, \
+                                              error_buf, error_buf_size))  \
+            goto fail;                                                     \
+    } while (0)
 
 #define POP_AND_PUSH(type_pop, type_push)                         \
     do {                                                          \
@@ -6203,8 +6214,11 @@ re_scan:
                 BranchBlock *block = NULL;
                 BlockType block_type = (loader_ctx->frame_csp - 1)->block_type;
                 bh_assert(loader_ctx->csp_num >= 2
+                          /* the matched if is found */
                           && (loader_ctx->frame_csp - 1)->label_type
-                                 == LABEL_TYPE_IF);
+                                 == LABEL_TYPE_IF
+                          /* duplicated else isn't found */
+                          && !(loader_ctx->frame_csp - 1)->else_addr);
                 block = loader_ctx->frame_csp - 1;
 
                 /* check whether if branch's stack matches its result type */
@@ -6916,26 +6930,43 @@ re_scan:
                     goto fail;
                 }
 
-                /* Refer to a forward-declared function */
-                if (func_idx >= cur_func_idx + module->import_function_count) {
+                /* Refer to a forward-declared function:
+                   the function must be an import, exported, or present in
+                   a table elem segment or global initializer to be used as
+                   the operand to ref.func */
+                if (func_idx >= module->import_function_count) {
                     WASMTableSeg *table_seg = module->table_segments;
                     bool func_declared = false;
                     uint32 j;
 
-                    /* Check whether the function is declared in table segs,
-                       note that it doesn't matter whether the table seg's mode
-                       is passive, active or declarative. */
-                    for (i = 0; i < module->table_seg_count; i++, table_seg++) {
-                        if (table_seg->elem_type == VALUE_TYPE_FUNCREF) {
-                            for (j = 0; j < table_seg->value_count; j++) {
-                                if (table_seg->init_values[j].u.ref_index
-                                    == func_idx) {
-                                    func_declared = true;
-                                    break;
+                    for (i = 0; i < module->global_count; i++) {
+                        if (module->globals[i].type == VALUE_TYPE_FUNCREF
+                            && module->globals[i].init_expr.init_expr_type
+                                   == INIT_EXPR_TYPE_FUNCREF_CONST
+                            && module->globals[i].init_expr.u.u32 == func_idx) {
+                            func_declared = true;
+                            break;
+                        }
+                    }
+
+                    if (!func_declared) {
+                        /* Check whether the function is declared in table segs,
+                           note that it doesn't matter whether the table seg's
+                           mode is passive, active or declarative. */
+                        for (i = 0; i < module->table_seg_count;
+                             i++, table_seg++) {
+                            if (table_seg->elem_type == VALUE_TYPE_FUNCREF) {
+                                for (j = 0; j < table_seg->value_count; j++) {
+                                    if (table_seg->init_values[j].u.ref_index
+                                        == func_idx) {
+                                        func_declared = true;
+                                        break;
+                                    }
                                 }
                             }
                         }
                     }
+
                     if (!func_declared) {
                         /* Check whether the function is exported */
                         for (i = 0; i < module->export_count; i++) {
