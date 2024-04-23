@@ -3139,8 +3139,6 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
 {
     WASMExecEnv *exec_env_tls = wasm_runtime_get_exec_env_tls();
     WASMJmpBuf jmpbuf_node = { 0 }, *jmpbuf_node_pop;
-    uint32 page_size = os_getpagesize();
-    uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
     WASMRuntimeFrame *prev_frame = wasm_exec_env_get_cur_frame(exec_env);
     uint8 *prev_top = exec_env->wasm_stack.top;
 #ifdef BH_PLATFORM_WINDOWS
@@ -3153,10 +3151,7 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
     /* Check native stack overflow firstly to ensure we have enough
        native stack to run the following codes before actually calling
        the aot function in invokeNative function. */
-    RECORD_STACK_USAGE(exec_env, (uint8 *)&exec_env_tls);
-    if ((uint8 *)&exec_env_tls
-        < exec_env->native_stack_boundary + page_size * guard_page_count) {
-        wasm_set_exception(module_inst, "native stack overflow");
+    if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
         return;
     }
 

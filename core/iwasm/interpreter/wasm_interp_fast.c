@@ -6081,12 +6081,13 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     }
     argc = function->param_cell_num;
 
-    RECORD_STACK_USAGE(exec_env, (uint8 *)&prev_frame);
-#if !(defined(OS_ENABLE_HW_BOUND_CHECK) \
-      && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0)
-    if ((uint8 *)&prev_frame < exec_env->native_stack_boundary) {
-        wasm_set_exception((WASMModuleInstance *)exec_env->module_inst,
-                           "native stack overflow");
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
+    /*
+     * wasm_runtime_detect_native_stack_overflow is done by
+     * call_wasm_with_hw_bound_check.
+     */
+#else
+    if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
         return;
     }
 #endif
