@@ -1167,6 +1167,10 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
     all_cell_num += (local_cell_num + 3) / 4;
 #endif
 
+    if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
+        return;
+    }
+
     if (!(frame =
               ALLOC_FRAME(exec_env, wasm_interp_interp_frame_size(all_cell_num),
                           prev_frame)))

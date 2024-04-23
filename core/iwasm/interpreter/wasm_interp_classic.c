@@ -1159,6 +1159,10 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
     uint8 *frame_ref;
 #endif
 
+    if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
+        return;
+    }
+
     all_cell_num = local_cell_num;
 #if WASM_ENABLE_GC != 0
     all_cell_num += (local_cell_num + 3) / 4;
