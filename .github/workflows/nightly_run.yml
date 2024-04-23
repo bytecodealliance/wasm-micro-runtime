@@ -323,7 +323,7 @@ jobs:
             make_options_feature: "-DWAMR_BUILD_MEMORY64=1"
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         uses: nick-fields/retry@v2
