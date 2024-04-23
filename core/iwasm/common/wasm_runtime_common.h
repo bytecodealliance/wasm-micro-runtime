@@ -1189,7 +1189,7 @@ wasm_runtime_end_blocking_op(WASMExecEnv *exec_env);
 void
 wasm_runtime_interrupt_blocking_op(WASMExecEnv *exec_env);
 
-bool
+WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_detect_native_stack_overflow(WASMExecEnv *exec_env);
 
 #if WASM_ENABLE_LINUX_PERF != 0

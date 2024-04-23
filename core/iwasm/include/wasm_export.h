@@ -1756,6 +1756,9 @@ wasm_runtime_set_module_name(wasm_module_t module, const char *name,
 WASM_RUNTIME_API_EXTERN const char *
 wasm_runtime_get_module_name(wasm_module_t module);
 
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_detect_native_stack_overflow(wasm_exec_env_t exec_env);
+
 #ifdef __cplusplus
 }
 #endif
