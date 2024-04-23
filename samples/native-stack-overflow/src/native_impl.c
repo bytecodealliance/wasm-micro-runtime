@@ -45,9 +45,12 @@ host_consume_stack_and_call_indirect(wasm_exec_env_t exec_env, uint32_t funcidx,
     void *boundary = os_thread_get_stack_boundary();
     void *fp = __builtin_frame_address(0);
     ptrdiff_t diff = fp - boundary;
-    if ((unsigned char *)fp < (unsigned char *)boundary + 1024 * 5) {
-        wasm_runtime_set_exception(wasm_runtime_get_module_inst(exec_env),
-                                   "native stack overflow 2");
+    /*
+     * because this function performs recursive calls depending on
+     * the user input, we don't have an apriori knowledge how much stack
+     * we need. perform the overflow check on each iteration.
+     */
+    if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
         return 0;
     }
     if (diff > stack) {
