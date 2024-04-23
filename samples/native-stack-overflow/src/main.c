@@ -40,10 +40,11 @@ main(int argc, char **argv)
     char *buffer;
     char error_buf[128];
 
-    if (argc != 2) {
+    if (argc != 3) {
         return 2;
     }
-    char *module_path = argv[1];
+    const char *module_path = argv[1];
+    const char *funcname = argv[2];
 
     wasm_module_t module = NULL;
     uint32 buf_size;
@@ -124,7 +125,6 @@ main(int argc, char **argv)
             goto fail2;
         }
 
-        const char *funcname = "test";
         wasm_function_inst_t func =
             wasm_runtime_lookup_function(module_inst, funcname);
         if (!func) {

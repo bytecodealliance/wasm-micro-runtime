@@ -54,7 +54,7 @@ host_consume_stack_and_call_indirect(wasm_exec_env_t exec_env, uint32_t funcidx,
     return call_indirect(exec_env, funcidx, x);
 }
 
-static uint32_t
+__attribute__((noinline)) static uint32_t
 consume_stack1(wasm_exec_env_t exec_env, void *base, uint32_t stack)
 {
     void *fp = __builtin_frame_address(0);

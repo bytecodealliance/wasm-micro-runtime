@@ -39,14 +39,9 @@ host_consume_stack_cb(int x)
     return host_consume_stack(x);
 }
 
-__attribute__((export_name("test"))) uint32_t
-test(uint32_t native_stack, uint32_t recurse_count)
+__attribute__((export_name("test1"))) uint32_t
+test1(uint32_t native_stack, uint32_t recurse_count)
 {
-    uint32_t ret;
-#if 0 /* notyet */
-    ret = host_consume_stack_and_call_indirect(cb, 321, native_stack);
-#endif
-
     /*
      * ------ os_thread_get_stack_boundary
      * ^
@@ -65,11 +60,15 @@ test(uint32_t native_stack, uint32_t recurse_count)
      *
      *
      */
-    ret = host_consume_stack_and_call_indirect(consume_stack_cb, recurse_count,
-                                               native_stack);
-#if 0 /* notyet */
-    ret = host_consume_stack_and_call_indirect(host_consume_stack_cb, 1000000,
-                                          native_stack);
-#endif
+    uint32_t ret = host_consume_stack_and_call_indirect(
+        consume_stack_cb, recurse_count, native_stack);
+    return 42;
+}
+
+__attribute__((export_name("test2"))) uint32_t
+test2(uint32_t native_stack, uint32_t recurse_count)
+{
+    uint32_t ret = host_consume_stack_and_call_indirect(host_consume_stack_cb,
+                                                        6000, native_stack);
     return 42;
 }
