@@ -614,6 +614,7 @@ jobs:
         if: >
           ((matrix.test_option == '$DEFAULT_TEST_OPTIONS' || matrix.test_option == '$THREADS_TEST_OPTIONS'
             || matrix.test_option == '$WASI_TEST_OPTIONS' || matrix.test_option == '$GC_TEST_OPTIONS')
+           && matrix.test_option != '$MEMORY64_TEST_OPTIONS'
            && matrix.running_mode != 'fast-jit' && matrix.running_mode != 'jit' && matrix.running_mode != 'multi-tier-jit')
         run: echo "TEST_ON_X86_32=true" >> $GITHUB_ENV
 
