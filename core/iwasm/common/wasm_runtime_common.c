@@ -7015,3 +7015,32 @@ wasm_runtime_get_module_name(wasm_module_t module)
 
     return "";
 }
+
+/*
+ * wasm_runtime_detect_native_stack_overflow
+ *
+ * - raise "native stack overflow" exception if available native stack
+ *   at this point is less than WASM_STACK_GUARD_SIZE. in that case,
+ *   return false.
+ *
+ * - update native_stack_top_min.
+ */
+bool
+wasm_runtime_detect_native_stack_overflow(WASMExecEnv *exec_env)
+{
+    uint8 *boundary;
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
+    uint32 page_size = os_getpagesize();
+    uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
+    boundary = exec_env->native_stack_boundary + page_size * guard_page_count;
+#else
+    boundary = exec_env->native_stack_boundary;
+#endif
+    RECORD_STACK_USAGE(exec_env, (uint8 *)&boundary);
+    if ((uint8 *)&boundary < boundary) {
+        wasm_runtime_set_exception(wasm_runtime_get_module_inst(exec_env),
+                                   "native stack overflow");
+        return false;
+    }
+    return true;
+}
