@@ -1,4 +1,4 @@
-#!/bin/bash
+#! /bin/sh
 
 NAME=${1:-test1}
 
