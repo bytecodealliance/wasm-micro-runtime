@@ -486,7 +486,26 @@
 /* UVWASI requires larger native stack */
 #define WASM_STACK_GUARD_SIZE (4096 * 6)
 #else
-#define WASM_STACK_GUARD_SIZE (1024)
+/*
+ * Use a larger default for platforms like macOS/Linux.
+ *
+ * For example, wasm_interp_call_func_bytecode + wasm_runtime_set_exception
+ * would consume >4KB stack on x86-64 macOS.
+ *
+ * Although product-mini/platforms/nuttx always overrides
+ * WASM_STACK_GUARD_SIZE, exclude NuttX here just in case.
+ */
+#if defined(__APPLE__) || (defined(__unix__) && !defined(__NuttX__))
+#define WASM_STACK_GUARD_SIZE (1024 * 5)
+#else
+/*
+ * Otherwise, assume very small requirement for now.
+ *
+ * Embedders for very small devices likely fine-tune WASM_STACK_GUARD_SIZE
+ * for their specific applications anyway.
+ */
+#define WASM_STACK_GUARD_SIZE 1024
+#endif
 #endif
 #endif
 
