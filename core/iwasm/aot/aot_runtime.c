@@ -1041,7 +1041,7 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
                initialized */
             continue;
 
-        bh_assert(data_seg->offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
+        bh_assert(data_seg->offset.init_expr_type == (memory_inst->is_memory64 ? INIT_EXPR_TYPE_I64_CONST : INIT_EXPR_TYPE_I32_CONST)
                   || data_seg->offset.init_expr_type
                          == INIT_EXPR_TYPE_GET_GLOBAL);
 
@@ -3024,7 +3024,7 @@ aot_sqrtf(float x)
 #if WASM_ENABLE_BULK_MEMORY != 0
 bool
 aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index, uint32 offset,
-                uint32 len, uint32 dst)
+                uint32 len, mem_offset_t dst)
 {
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
     AOTModule *aot_module;

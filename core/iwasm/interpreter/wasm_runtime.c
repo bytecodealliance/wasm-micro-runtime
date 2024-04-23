@@ -4176,7 +4176,7 @@ fail:
 #if WASM_ENABLE_BULK_MEMORY != 0
 bool
 llvm_jit_memory_init(WASMModuleInstance *module_inst, uint32 seg_index,
-                     uint32 offset, uint32 len, uint32 dst)
+                     uint32 offset, uint32 len, mem_offset_t dst)
 {
     WASMMemoryInstance *memory_inst;
     WASMModule *module;
