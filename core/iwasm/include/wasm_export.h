@@ -1759,6 +1759,10 @@ wasm_runtime_get_module_name(wasm_module_t module);
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_detect_native_stack_overflow(wasm_exec_env_t exec_env);
 
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_detect_native_stack_overflow_size(wasm_exec_env_t exec_env,
+                                               uint32_t required_size);
+
 #ifdef __cplusplus
 }
 #endif
