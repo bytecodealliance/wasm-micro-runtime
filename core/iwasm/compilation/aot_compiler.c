@@ -2715,7 +2715,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     case SIMD_v128_load:
                     {
                         read_leb_uint32(frame_ip, frame_ip_end, align);
-                        read_leb_uint32(frame_ip, frame_ip_end, offset);
+                        read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                         if (!aot_compile_simd_v128_load(comp_ctx, func_ctx,
                                                         align, offset))
                             return false;
@@ -2730,7 +2730,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     case SIMD_v128_load32x2_u:
                     {
                         read_leb_uint32(frame_ip, frame_ip_end, align);
-                        read_leb_uint32(frame_ip, frame_ip_end, offset);
+                        read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                         if (!aot_compile_simd_load_extend(
                                 comp_ctx, func_ctx, opcode, align, offset))
                             return false;
@@ -2743,7 +2743,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     case SIMD_v128_load64_splat:
                     {
                         read_leb_uint32(frame_ip, frame_ip_end, align);
-                        read_leb_uint32(frame_ip, frame_ip_end, offset);
+                        read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                         if (!aot_compile_simd_load_splat(comp_ctx, func_ctx,
                                                          opcode, align, offset))
                             return false;
@@ -2753,7 +2753,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     case SIMD_v128_store:
                     {
                         read_leb_uint32(frame_ip, frame_ip_end, align);
-                        read_leb_uint32(frame_ip, frame_ip_end, offset);
+                        read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                         if (!aot_compile_simd_v128_store(comp_ctx, func_ctx,
                                                          align, offset))
                             return false;
