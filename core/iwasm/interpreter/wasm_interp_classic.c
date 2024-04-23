@@ -1290,6 +1290,14 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
     uintptr_t aux_stack_origin_boundary = 0;
     uintptr_t aux_stack_origin_bottom = 0;
 
+    /*
+     * perform stack overflow check before calling
+     * wasm_interp_call_func_bytecode recursively.
+     */
+    if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
+        return;
+    }
+
     if (!sub_func_inst) {
         snprintf(buf, sizeof(buf),
                  "failed to call unlinked import function (%s, %s)",
