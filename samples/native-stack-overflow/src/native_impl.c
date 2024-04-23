@@ -61,6 +61,7 @@ consume_stack1(wasm_exec_env_t exec_env, void *base, uint32_t stack)
     ptrdiff_t diff = (unsigned char *)base - (unsigned char *)fp;
     assert(diff > 0);
     char buf[16];
+    /* note: unlike memset, memset_s is not allowed to be optimized away. */
     memset_s(buf, sizeof(buf), 0, sizeof(buf));
     if (diff > stack) {
         return diff;

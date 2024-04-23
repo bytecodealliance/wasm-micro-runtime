@@ -145,7 +145,8 @@ main(int argc, char **argv)
         failed = false;
     fail2:
         if (x[-1] != 0xaabbccdd) {
-            printf("stack size %u\n", stack);
+            printf("stack overurn detected %u\n", stack);
+            abort();
         }
         assert(x[-1] == 0xaabbccdd);
         assert(x[-2] == 0x12345678);
