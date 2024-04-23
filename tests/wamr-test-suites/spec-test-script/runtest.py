@@ -1119,9 +1119,6 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
         cmd.append("--enable-gc")
         cmd.append("--enable-tail-call")
 
-    if opts.memory64:
-        cmd.append("--enable-memory64")
-
     if output == 'object':
         cmd.append("--format=object")
     elif output == 'ir':
@@ -1134,9 +1131,10 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
 
     # Bounds checks is disabled by default for 64-bit targets, to
     # use the hardware based bounds checks. But it is not supported
-    # in QEMU with NuttX.
-    # Enable bounds checks explicitly for all targets if running in QEMU.
-    if opts.qemu:
+    # in QEMU with NuttX and in memory64 mode.
+    # Enable bounds checks explicitly for all targets if running in QEMU or all targets
+    # running in memory64 mode.
+    if opts.qemu or opts.memory64:
         cmd.append("--bounds-checks=1")
 
     # RISCV64 requires -mcmodel=medany, which can be set by --size-level=1

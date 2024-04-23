@@ -387,6 +387,19 @@ function setup_wabt()
     fi
 }
 
+function compile_reference_interpreter()
+{
+    echo "compile the reference intepreter"
+    pushd interpreter
+    make
+    if [ $? -ne 0 ]
+    then
+        echo "Failed to compile the reference interpreter"
+        exit 1
+    fi
+    popd
+}
+
 # TODO: with iwasm only
 function spec_test()
 {
@@ -442,17 +455,17 @@ function spec_test()
         popd
         if [ ! -d "exception-handling" ];then
             echo "exception-handling not exist, clone it from github"
-            git clone -b master --single-branch https://github.com/WebAssembly/exception-handling 
+            git clone -b master --single-branch https://github.com/WebAssembly/exception-handling
         fi
         pushd exception-handling
 
         # restore and clean everything
         git reset --hard 51c721661b671bb7dc4b3a3acb9e079b49778d36
-        
+
         if [[ ${ENABLE_MULTI_MODULE} == 0 ]]; then
             git apply ../../spec-test-script/exception_handling.patch
         fi
-        
+
         popd
         echo $(pwd)
     fi
@@ -478,10 +491,7 @@ function spec_test()
             git apply ../../spec-test-script/gc_nuttx_tail_call.patch
         fi
 
-        echo "compile the reference intepreter"
-        pushd interpreter
-        make
-        popd
+        compile_reference_interpreter
     fi
 
     # update memory64 cases
@@ -497,14 +507,11 @@ function spec_test()
         git restore . && git clean -ffd .
         # Reset to commit: "Merge remote-tracking branch 'upstream/main' into merge2"
         git reset --hard 48e69f394869c55b7bbe14ac963c09f4605490b6
-        git checkout 044d0d2e77bdcbe891f7e0b9dd2ac01d56435f0b -- test/core/elem.wast
+        git checkout 044d0d2e77bdcbe891f7e0b9dd2ac01d56435f0b -- test/core/elem.wast test/core/data.wast
         git apply ../../spec-test-script/ignore_cases.patch
         git apply ../../spec-test-script/memory64.patch
 
-        echo "compile the reference intepreter"
-        pushd interpreter
-        make
-        popd
+        compile_reference_interpreter
     fi
 
     popd
