@@ -1980,8 +1980,8 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
        native stack to run the following codes before actually calling
        the aot function in invokeNative function. */
     RECORD_STACK_USAGE(exec_env, (uint8 *)&module_inst);
-    if ((uint8 *)&module_inst < exec_env->native_stack_boundary
-                                    + page_size * (guard_page_count + 1)) {
+    if ((uint8 *)&module_inst
+        < exec_env->native_stack_boundary + page_size * guard_page_count) {
         aot_set_exception_with_id(module_inst, EXCE_NATIVE_STACK_OVERFLOW);
         return false;
     }

@@ -3154,8 +3154,8 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
        native stack to run the following codes before actually calling
        the aot function in invokeNative function. */
     RECORD_STACK_USAGE(exec_env, (uint8 *)&exec_env_tls);
-    if ((uint8 *)&exec_env_tls < exec_env->native_stack_boundary
-                                     + page_size * (guard_page_count + 1)) {
+    if ((uint8 *)&exec_env_tls
+        < exec_env->native_stack_boundary + page_size * guard_page_count) {
         wasm_set_exception(module_inst, "native stack overflow");
         return;
     }
