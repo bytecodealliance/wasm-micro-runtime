@@ -6354,11 +6354,11 @@ re_scan:
             case WASM_OP_BR_TABLE:
             {
                 uint8 *ret_types = NULL;
-                uint32 ret_count = 0;
+                uint32 ret_count = 0, depth = 0;
 #if WASM_ENABLE_FAST_INTERP == 0
                 BrTableCache *br_table_cache = NULL;
                 uint8 *p_depth_begin, *p_depth, *p_opcode = p - 1;
-                uint32 depth, j;
+                uint32 j;
 #endif
 
                 read_leb_uint32(p, p_end, count);
@@ -6373,6 +6373,7 @@ re_scan:
                     read_leb_uint32(p, p_end, depth);
                     bh_assert(loader_ctx->csp_num > 0);
                     bh_assert(loader_ctx->csp_num - 1 >= depth);
+                    (void)depth;
                 }
                 p = p_org;
 
