@@ -96,6 +96,11 @@ consume_stack1(wasm_exec_env_t exec_env, void *base, uint32_t stack)
 uint32_t
 host_consume_stack(wasm_exec_env_t exec_env, uint32_t stack)
 {
+    /* this function consumes a bit more than "stack" bytes */
+    if (!wasm_runtime_detect_native_stack_overflow_size(exec_env,
+                                                        500 + stack)) {
+        return 0;
+    }
     void *base = __builtin_frame_address(0);
     return consume_stack1(exec_env, base, stack);
 }
