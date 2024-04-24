@@ -20,6 +20,34 @@ static NativeSymbol native_symbols[] = {
     { "host_consume_stack", host_consume_stack, "(i)i", NULL },
 };
 
+void *
+canary_addr()
+{
+    uint8_t *p = os_thread_get_stack_boundary();
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
+    uint32_t page_size = os_getpagesize();
+    uint32_t guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
+    return p + page_size * guard_page_count;
+#else
+    return p;
+#endif
+}
+
+void
+canary_init(void)
+{
+    uint32_t *canary = canary_addr();
+    *canary = 0xaabbccdd;
+}
+
+bool
+canary_check(void)
+{
+    /* assume an overflow if the first uint32_t on the stack was modified */
+    const uint32_t *canary = (void *)canary_addr();
+    return *canary == 0xaabbccdd;
+}
+
 struct record {
     bool failed;
     bool leaked;
@@ -102,16 +130,7 @@ main(int argc, char **argv)
         const char *exception = NULL;
         nest = 0;
 
-        uint32_t *x = (void *)os_thread_get_stack_boundary();
-        x[-1] = 0xaabbccdd;
-        x[-2] = 0x12345678;
-        x[-3] = 0xdeadbeef;
-        x[-4] = 0xcafecdef;
-        assert(x[-1] == 0xaabbccdd);
-        assert(x[-2] == 0x12345678);
-        assert(x[-3] == 0xdeadbeef);
-        assert(x[-4] == 0xcafecdef);
-
+        canary_init();
         module_inst = wasm_runtime_instantiate(module, stack_size, heap_size,
                                                error_buf, sizeof(error_buf));
         if (!module_inst) {
@@ -144,14 +163,11 @@ main(int argc, char **argv)
         }
         failed = false;
     fail2:
-        if (x[-1] != 0xaabbccdd) {
-            printf("stack overurn detected %u\n", stack);
+        if (!canary_check()) {
+            printf("stack overurn detected for stack=%u\n", stack);
             abort();
         }
-        assert(x[-1] == 0xaabbccdd);
-        assert(x[-2] == 0x12345678);
-        assert(x[-3] == 0xdeadbeef);
-        assert(x[-4] == 0xcafecdef);
+
         /*
          * note: non-zero "nest" here demonstrates resource leak on longjmp
          * from signal handler.
