@@ -11,6 +11,9 @@ else()
   project (native-stack-overflow C ASM)
 endif()
 
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_EXTENSIONS YES)
+
 ################  runtime settings  ################
 string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
 if (APPLE)
