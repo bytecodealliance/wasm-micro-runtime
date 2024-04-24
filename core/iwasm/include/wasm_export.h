@@ -1756,6 +1756,20 @@ wasm_runtime_set_module_name(wasm_module_t module, const char *name,
 WASM_RUNTIME_API_EXTERN const char *
 wasm_runtime_get_module_name(wasm_module_t module);
 
+/*
+ * wasm_runtime_detect_native_stack_overflow
+ *
+ * Detect native stack shortage.
+ * Ensure that the calling thread still has a reasonable amount of
+ * native stack (WASM_STACK_GUARD_SIZE bytes) available.
+ *
+ * If enough stack is left, returns true.
+ * Otherwise, raise a "native stack overflow" trap and returns false.
+ *
+ * Note: please do not expect a very strict detection. it's a good idea
+ * to give some margins. wasm_runtime_detect_native_stack_overflow itslf
+ * requires a small amount of stack to run.
+ */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_detect_native_stack_overflow(wasm_exec_env_t exec_env);
 
