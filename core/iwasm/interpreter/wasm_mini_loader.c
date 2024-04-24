@@ -70,7 +70,7 @@ is_32bit_type(uint8 type)
     if (type == VALUE_TYPE_I32
         || type == VALUE_TYPE_F32
         /* the operand stack is in polymorphic state */
-        || VALUE_TYPE_ANY
+        || type == VALUE_TYPE_ANY
 #if WASM_ENABLE_REF_TYPES != 0
         || type == VALUE_TYPE_FUNCREF || type == VALUE_TYPE_EXTERNREF
 #endif
@@ -6357,7 +6357,7 @@ re_scan:
                 uint32 ret_count = 0;
 #if WASM_ENABLE_FAST_INTERP == 0
                 BrTableCache *br_table_cache = NULL;
-                uint8 *p_depth_begin, *p_depth, *p_ocode = p - 1;
+                uint8 *p_depth_begin, *p_depth, *p_opcode = p - 1;
                 uint32 depth, j;
 #endif
 
@@ -6401,7 +6401,7 @@ re_scan:
                                       error_buf, error_buf_size))) {
                                 goto fail;
                             }
-                            *p_code = EXT_OP_BR_TABLE_CACHE;
+                            *p_opcode = EXT_OP_BR_TABLE_CACHE;
                             br_table_cache->br_table_op_addr = p_opcode;
                             br_table_cache->br_count = count;
                             /* Copy previous depths which are one byte */
