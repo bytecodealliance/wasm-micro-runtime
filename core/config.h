@@ -463,9 +463,12 @@
  *
  * - w/o hw bound check, the intepreter loop
  *
- *   the classic interpreter wasm_interp_call_func_bytecode alone
- *   seems to consume about 2600 bytes stack.
- *   (with the default configuration for macOS/amd64)
+ *   the stack consumption heavily depends on compiler settings,
+ *   especially for huge functions like the classic interpreter's
+ *   wasm_interp_call_func_bytecode:
+ *
+ *     200 bytes (release build, macOS/amd64)
+ *     2600 bytes (debug build, macOS/amd64)
  *
  *   libc snprintf (used by eg. wasm_runtime_set_exception) consumes about
  *   1600 bytes stack on macOS/amd64, about 2000 bytes on Ubuntu amd64 20.04.
@@ -480,6 +483,10 @@
  * Note: on platforms with lazy function binding, don't forget to consider
  * the symbol resolution overhead on the first call. For example,
  * on Ubuntu amd64 20.04, it seems to consume about 1500 bytes.
+ * For some reasons, macOS amd64 12.7.4 seems to resolve symbols eagerly.
+ * (Observed with a binary with traditional non-chained fixups.)
+ * The latest macOS seems to apply chained fixups in kernel on page-in time.
+ * (thus it wouldn't consume userland stack.)
  */
 #ifndef WASM_STACK_GUARD_SIZE
 #if WASM_ENABLE_UVWASI != 0
@@ -489,14 +496,19 @@
 /*
  * Use a larger default for platforms like macOS/Linux.
  *
- * For example, wasm_interp_call_func_bytecode + wasm_runtime_set_exception
- * would consume >4KB stack on x86-64 macOS.
+ * For example, the classic intepreter loop which ended up with a trap
+ * (wasm_runtime_set_exception) would consume about 2KB stack on x86-64
+ * macOS. On Ubuntu amd64 20.04, it seems to consume a bit more.
  *
  * Although product-mini/platforms/nuttx always overrides
  * WASM_STACK_GUARD_SIZE, exclude NuttX here just in case.
  */
 #if defined(__APPLE__) || (defined(__unix__) && !defined(__NuttX__))
+#if BH_DEBUG != 0 /* assumption: BH_DEBUG matches CMAKE_BUILD_TYPE=Debug */
 #define WASM_STACK_GUARD_SIZE (1024 * 5)
+#else
+#define WASM_STACK_GUARD_SIZE (1024 * 3)
+#endif
 #else
 /*
  * Otherwise, assume very small requirement for now.
