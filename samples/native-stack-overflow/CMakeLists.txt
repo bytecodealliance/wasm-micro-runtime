@@ -65,7 +65,7 @@ if (NOT MSVC)
   endif ()
 endif ()
 
-if (CMAKE_C_COMPILER_ID MATCHES "Clang")
+if (CMAKE_C_COMPILER_ID MATCHES "Clang" AND CMAKE_C_COMPILER_VERSION VERSION_GREATER 13.0.0)
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-usage")
 endif ()
 
