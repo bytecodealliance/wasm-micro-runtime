@@ -792,6 +792,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     uint32 max_page_count =
         wasm_runtime_get_max_mem(max_memory_pages, memory->mem_init_page_count,
                                  memory->mem_max_page_count);
+    uint32 default_max_pages;
     uint32 inc_page_count, global_idx;
     uint32 bytes_of_last_page, bytes_to_page_end;
     uint64 aux_heap_base,
@@ -812,6 +813,16 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         return shared_memory_instance;
     }
 #endif
+
+#if WASM_ENABLE_MEMORY64 != 0
+    if (memory->memory_flags & MEMORY64_FLAG) {
+        default_max_pages = DEFAULT_MEM64_MAX_PAGES;
+    }
+    else
+#endif
+    {
+        default_max_pages = DEFAULT_MAX_PAGES;
+    }
 
     if (heap_size > 0 && module->malloc_func_index != (uint32)-1
         && module->free_func_index != (uint32)-1) {
@@ -893,14 +904,14 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         }
         init_page_count += inc_page_count;
         max_page_count += inc_page_count;
-        if (init_page_count > DEFAULT_MAX_PAGES) {
+        if (init_page_count > default_max_pages) {
             set_error_buf(error_buf, error_buf_size,
                           "failed to insert app heap into linear memory, "
                           "try using `--heap-size=0` option");
             return NULL;
         }
-        if (max_page_count > DEFAULT_MAX_PAGES)
-            max_page_count = DEFAULT_MAX_PAGES;
+        if (max_page_count > default_max_pages)
+            max_page_count = default_max_pages;
     }
 
     LOG_VERBOSE("Memory instantiate:");
@@ -912,7 +923,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
                 heap_size);
 
     max_memory_data_size = (uint64)num_bytes_per_page * max_page_count;
-    bh_assert(max_memory_data_size <= MAX_LINEAR_MEMORY_SIZE);
+    bh_assert(max_memory_data_size <= GET_MAX_LINEAR_MEMORY_SIZE(true));
     (void)max_memory_data_size;
 
     /* TODO: memory64 uses is_memory64 flag */
@@ -1041,7 +1052,9 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
                initialized */
             continue;
 
-        bh_assert(data_seg->offset.init_expr_type == (memory_inst->is_memory64 ? INIT_EXPR_TYPE_I64_CONST : INIT_EXPR_TYPE_I32_CONST)
+        bh_assert(data_seg->offset.init_expr_type
+                      == (memory_inst->is_memory64 ? INIT_EXPR_TYPE_I64_CONST
+                                                   : INIT_EXPR_TYPE_I32_CONST)
                   || data_seg->offset.init_expr_type
                          == INIT_EXPR_TYPE_GET_GLOBAL);
 
@@ -2449,7 +2462,7 @@ execute_free_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
     uint32 argv[2], argc;
     bool ret;
 
-    #if WASM_ENABLE_MEMORY64 != 0
+#if WASM_ENABLE_MEMORY64 != 0
     if (module_inst->memories[0]->is_memory64) {
         PUT_I64_TO_ADDR(&argv[0], offset);
         argc = 2;

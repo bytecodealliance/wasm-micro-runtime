@@ -1012,7 +1012,7 @@ wasm_allocate_linear_memory(uint8 **data, bool is_shared_memory,
     else
 #endif
     {
-        bh_assert(*memory_data_size <= MAX_LINEAR_MEMORY_SIZE);
+        bh_assert(*memory_data_size <= GET_MAX_LINEAR_MEMORY_SIZE(is_memory64));
     }
     *memory_data_size = align_as_and_cast(*memory_data_size, page_size);
 

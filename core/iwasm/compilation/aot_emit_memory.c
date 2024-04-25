@@ -100,11 +100,18 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     is_target_64bit = (comp_ctx->pointer_size == sizeof(uint64)) ? true : false;
 
     if (comp_ctx->is_indirect_mode
-        && aot_intrinsic_check_capability(comp_ctx, "i32.const")) {
+        && aot_intrinsic_check_capability(comp_ctx, MEMORY64_COND_VALUE("i64.const", "i32.const"))) {
         WASMValue wasm_value;
-        wasm_value.i32 = offset;
+#if WASM_ENABLE_MEMORY64 != 0
+        if (IS_MEMORY64) {
+            wasm_value.i64 = offset;
+        } else
+#endif
+        {
+            wasm_value.i32 = (int32)offset;
+        }
         offset_const = aot_load_const_from_table(
-            comp_ctx, func_ctx->native_symbol, &wasm_value, VALUE_TYPE_I32);
+            comp_ctx, func_ctx->native_symbol, &wasm_value, MEMORY64_COND_VALUE(VALUE_TYPE_I64, VALUE_TYPE_I32));
         if (!offset_const) {
             return NULL;
         }
@@ -158,7 +165,7 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         if (mem_offset + bytes <= mem_data_size) {
             /* inside memory space */
             if (comp_ctx->pointer_size == sizeof(uint64))
-                offset1 = I64_CONST((uint32)mem_offset);
+                offset1 = I64_CONST(mem_offset);
             else
                 offset1 = I32_CONST((uint32)mem_offset);
             CHECK_LLVM_CONST(offset1);
