@@ -553,7 +553,7 @@ jobs:
           mkdir build && cd build
           cmake ..
           cmake --build . --config Release --parallel 4
-          ./iwasm --heap-size=1024 --native-lib=./libtest_add.so --native-lib=./libtest_sqrt.so --native-lib=./libtest_hello.so --native-lib=./libtest_hello2.so wasm-app/test.wasm
+          ./iwasm --native-lib=./libtest_add.so --native-lib=./libtest_sqrt.so --native-lib=./libtest_hello.so --native-lib=./libtest_hello2.so wasm-app/test.wasm
         working-directory: ./samples/native-lib
 
       - name: checkout wamr-app-framework
