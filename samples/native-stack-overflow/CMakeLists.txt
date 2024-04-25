@@ -72,6 +72,11 @@ if (CMAKE_C_COMPILER_ID MATCHES "Clang" AND CMAKE_C_COMPILER_VERSION VERSION_GRE
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-usage")
 endif ()
 
+# GCC doesn't have disable_tail_calls attribute
+if (CMAKE_C_COMPILER_ID MATCHES "GNU")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-optimize-sibling-calls")
+endif ()
+
 # build out vmlib
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
