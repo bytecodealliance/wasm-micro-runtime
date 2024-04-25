@@ -69,7 +69,7 @@ echo "#################### build wasm apps done"
 
 echo "#################### aot-compile"
 WAMRC=${WAMR_DIR}/wamr-compiler/build/wamrc
-${WAMRC} -o ${OUT_DIR}/wasm-apps/${OUT_FILE}.aot ${OUT_DIR}/wasm-apps/${OUT_FILE}
+${WAMRC} -o ${OUT_DIR}/wasm-apps/${OUT_FILE}.aot --size-level=0 ${OUT_DIR}/wasm-apps/${OUT_FILE}
 
 echo "#################### aot-compile (--bounds-checks=1)"
-${WAMRC} -o ${OUT_DIR}/wasm-apps/${OUT_FILE}.aot.bounds-checks --bounds-checks=1 ${OUT_DIR}/wasm-apps/${OUT_FILE}
+${WAMRC} -o ${OUT_DIR}/wasm-apps/${OUT_FILE}.aot.bounds-checks --size-level=0 --bounds-checks=1 ${OUT_DIR}/wasm-apps/${OUT_FILE}
