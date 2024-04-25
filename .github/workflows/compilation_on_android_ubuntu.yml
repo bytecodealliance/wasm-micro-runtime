@@ -491,6 +491,13 @@ jobs:
           ./iwasm wasm-apps/trap.aot | grep "#" > call_stack_aot.txt
           bash -x ../symbolicate.sh
 
+      - name: Build Sample [native-stack-overflow]
+        run: |
+          cd samples/native-stack-overflow
+          ./build.sh
+          ./run.sh test1
+          ./run.sh test2
+
   test:
     needs:
       [
