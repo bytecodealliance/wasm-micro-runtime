@@ -448,6 +448,7 @@ function spec_test()
 
         git apply ../../spec-test-script/thread_proposal_ignore_cases.patch
         git apply ../../spec-test-script/thread_proposal_fix_atomic_case.patch
+        git apply ../../spec-test-script/thread_proposal_remove_memory64_flag_case.patch
     fi
 
     if [ ${ENABLE_EH} == 1 ]; then
