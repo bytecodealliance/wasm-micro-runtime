@@ -293,7 +293,10 @@ type2str(uint8 type)
 static bool
 is_32bit_type(uint8 type)
 {
-    if (type == VALUE_TYPE_I32 || type == VALUE_TYPE_F32
+    if (type == VALUE_TYPE_I32
+        || type == VALUE_TYPE_F32
+        /* the operand stack is in polymorphic state */
+        || type == VALUE_TYPE_ANY
 #if WASM_ENABLE_GC != 0
         || (sizeof(uintptr_t) == 4 && wasm_is_type_reftype(type))
 #elif WASM_ENABLE_REF_TYPES != 0
@@ -11533,16 +11536,17 @@ re_scan:
 #endif
                 POP_I32();
 
-                /* Get the default depth and check it */
+                /* Get each depth and check it */
                 p_org = p;
                 for (i = 0; i <= count; i++) {
                     read_leb_uint32(p, p_end, depth);
-                }
-                if (loader_ctx->csp_num < depth + 1) {
-                    set_error_buf(error_buf, error_buf_size,
-                                  "unknown label, "
-                                  "unexpected end of section or function");
-                    goto fail;
+                    bh_assert(loader_ctx->csp_num > 0);
+                    if (loader_ctx->csp_num - 1 < depth) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "unknown label, "
+                                      "unexpected end of section or function");
+                        goto fail;
+                    }
                 }
                 p = p_org;
 
@@ -11558,12 +11562,6 @@ re_scan:
                 for (i = 0; i <= count; i++) {
                     p_org = p;
                     read_leb_uint32(p, p_end, depth);
-                    if (loader_ctx->csp_num < depth + 1) {
-                        set_error_buf(error_buf, error_buf_size,
-                                      "unknown label, "
-                                      "unexpected end of section or function");
-                        goto fail;
-                    }
                     p = p_org;
 
                     /* Get the target block's arity and check it */
@@ -11965,8 +11963,7 @@ re_scan:
                         loader_ctx->reftype_map_num--;
                     }
 #endif
-                    if (is_32bit_type(*(loader_ctx->frame_ref - 1))
-                        || *(loader_ctx->frame_ref - 1) == VALUE_TYPE_ANY) {
+                    if (is_32bit_type(*(loader_ctx->frame_ref - 1))) {
                         loader_ctx->frame_ref--;
                         loader_ctx->stack_cell_num--;
 #if WASM_ENABLE_FAST_INTERP != 0
