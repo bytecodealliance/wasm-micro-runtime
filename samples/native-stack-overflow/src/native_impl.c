@@ -66,7 +66,9 @@ host_consume_stack_and_call_indirect(wasm_exec_env_t exec_env, uint32_t funcidx,
 
 __attribute__((noinline)) static uint32_t
 consume_stack1(wasm_exec_env_t exec_env, void *base, uint32_t stack)
+#if defined(__clang__)
     __attribute__((disable_tail_calls))
+#endif
 {
     void *fp = __builtin_frame_address(0);
     ptrdiff_t diff = (unsigned char *)base - (unsigned char *)fp;
