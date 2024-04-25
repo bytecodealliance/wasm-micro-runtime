@@ -84,7 +84,7 @@ LLVMValueRef
 aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                           mem_offset_t offset, uint32 bytes, bool enable_segue)
 {
-    LLVMValueRef offset_const = I32_CONST(offset);
+    LLVMValueRef offset_const = MEMORY64_COND_VALUE(I64_CONST(offset), I32_CONST(offset));
     LLVMValueRef addr, maddr, offset1, cmp1, cmp2, cmp;
     LLVMValueRef mem_base_addr, mem_check_bound;
     LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
