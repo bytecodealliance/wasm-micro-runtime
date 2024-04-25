@@ -547,6 +547,26 @@ jobs:
           cd samples/terminate
           ./build.sh
           ./run.sh
+
+      - name: Build Sample [native-lib]
+        run: |
+          mkdir build && cd build
+          cmake ..
+          cmake --build . --config Release --parallel 4
+          ./iwasm --native-lib=./libtest_add.so --native-lib=./libtest_sqrt.so --native-lib=./libtest_hello.so --native-lib=./libtest_hello2.so wasm-app/test.wasm
+        working-directory: ./samples/native-lib
+
+      - name: checkout wamr-app-framework
+        run: git clone https://github.com/bytecodealliance/wamr-app-framework.git
+      - name: download wamr-app-framework dependencies
+        run: LVGL=0 LV_DRIVERS=0 ./download.sh
+        working-directory: ./wamr-app-framework/deps
+      - name: Build Sample [simple]
+        run: |
+          ./build.sh -p host-interp
+          python3 ./sample_test_run.py $(pwd)/out
+          exit $?
+        working-directory: ./wamr-app-framework/samples/simple
   test:
     needs:
       [
