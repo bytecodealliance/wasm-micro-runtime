@@ -9,11 +9,10 @@
 #include "soc/mmu.h"
 #include "rom/cache.h"
 
-#define MEM_DUAL_BUS_OFFSET (IRAM0_CACHE_ADDRESS_LOW - DRAM0_CACHE_ADDRESS_LOW)
+#define MEM_DUAL_BUS_OFFSET (SOC_IROM_LOW - SOC_IROM_HIGH)
 
-#define in_ibus_ext(addr)                      \
-    (((uint32)addr >= IRAM0_CACHE_ADDRESS_LOW) \
-     && ((uint32)addr < IRAM0_CACHE_ADDRESS_HIGH))
+#define in_ibus_ext(addr) \
+    (((uint32)addr >= SOC_IROM_LOW) && ((uint32)addr < SOC_IROM_HIGH))
 
 static portMUX_TYPE s_spinlock = portMUX_INITIALIZER_UNLOCKED;
 #endif
