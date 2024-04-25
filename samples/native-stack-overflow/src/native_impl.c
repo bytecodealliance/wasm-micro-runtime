@@ -3,8 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#define __STDC_WANT_LIB_EXT1__ 1
+
 #include <inttypes.h>
 #include <stdio.h>
+#include <string.h>
+
+#if defined(__APPLE__)
+#include <Availability.h>
+#endif
 
 #include "wasm_export.h"
 #include "bh_platform.h"
@@ -38,6 +45,11 @@ host_consume_stack_and_call_indirect(wasm_exec_env_t exec_env, uint32_t funcidx,
     void *boundary = os_thread_get_stack_boundary();
     void *fp = __builtin_frame_address(0);
     ptrdiff_t diff = fp - boundary;
+    if ((unsigned char *)fp < (unsigned char *)boundary + 1024 * 5) {
+        wasm_runtime_set_exception(wasm_runtime_get_module_inst(exec_env),
+                                   "native stack overflow 2");
+        return 0;
+    }
     if (diff > stack) {
         prev_diff = diff;
         nest++;
@@ -49,14 +61,29 @@ host_consume_stack_and_call_indirect(wasm_exec_env_t exec_env, uint32_t funcidx,
     return call_indirect(exec_env, funcidx, x);
 }
 
-static uint32_t
+__attribute__((noinline)) static uint32_t
 consume_stack1(wasm_exec_env_t exec_env, void *base, uint32_t stack)
+    __attribute__((disable_tail_calls))
 {
     void *fp = __builtin_frame_address(0);
     ptrdiff_t diff = (unsigned char *)base - (unsigned char *)fp;
     assert(diff > 0);
     char buf[16];
+    /*
+     * note: we prefer to use memset_s here because, unlike memset,
+     * memset_s is not allowed to be optimized away.
+     *
+     * memset_s is available for macOS 10.13+ according to:
+     * https://developer.apple.com/documentation/kernel/2876438-memset_s
+     */
+#if defined(__STDC_LIB_EXT1__)                  \
+    || (defined(__MAC_OS_X_VERSION_MAX_ALLOWED) \
+        && __MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_3)
     memset_s(buf, sizeof(buf), 0, sizeof(buf));
+#else
+#warning memset_s is not available
+    memset(buf, 0, sizeof(buf));
+#endif
     if (diff > stack) {
         return diff;
     }

@@ -11,6 +11,9 @@ else()
   project (native-stack-overflow C ASM)
 endif()
 
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_EXTENSIONS YES)
+
 ################  runtime settings  ################
 string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
 if (APPLE)
@@ -43,7 +46,7 @@ if (NOT DEFINED WAMR_BUILD_TARGET)
 endif ()
 
 if (NOT CMAKE_BUILD_TYPE)
-  set (CMAKE_BUILD_TYPE Debug)
+  set (CMAKE_BUILD_TYPE Release)
 endif ()
 
 set (WAMR_BUILD_INTERP 1)
@@ -63,6 +66,10 @@ if (NOT MSVC)
       set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mindirect-branch-register")
     endif ()
   endif ()
+endif ()
+
+if (CMAKE_C_COMPILER_ID MATCHES "Clang" AND CMAKE_C_COMPILER_VERSION VERSION_GREATER 13.0.0)
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-usage")
 endif ()
 
 # build out vmlib

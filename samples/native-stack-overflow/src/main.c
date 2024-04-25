@@ -20,6 +20,34 @@ static NativeSymbol native_symbols[] = {
     { "host_consume_stack", host_consume_stack, "(i)i", NULL },
 };
 
+void *
+canary_addr()
+{
+    uint8_t *p = os_thread_get_stack_boundary();
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
+    uint32_t page_size = os_getpagesize();
+    uint32_t guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
+    return p + page_size * guard_page_count;
+#else
+    return p;
+#endif
+}
+
+void
+canary_init(void)
+{
+    uint32_t *canary = canary_addr();
+    *canary = 0xaabbccdd;
+}
+
+bool
+canary_check(void)
+{
+    /* assume an overflow if the first uint32_t on the stack was modified */
+    const uint32_t *canary = (void *)canary_addr();
+    return *canary == 0xaabbccdd;
+}
+
 struct record {
     bool failed;
     bool leaked;
@@ -40,10 +68,11 @@ main(int argc, char **argv)
     char *buffer;
     char error_buf[128];
 
-    if (argc != 2) {
+    if (argc != 3) {
         return 2;
     }
-    char *module_path = argv[1];
+    const char *module_path = argv[1];
+    const char *funcname = argv[2];
 
     wasm_module_t module = NULL;
     uint32 buf_size;
@@ -101,6 +130,7 @@ main(int argc, char **argv)
         const char *exception = NULL;
         nest = 0;
 
+        canary_init();
         module_inst = wasm_runtime_instantiate(module, stack_size, heap_size,
                                                error_buf, sizeof(error_buf));
         if (!module_inst) {
@@ -114,7 +144,6 @@ main(int argc, char **argv)
             goto fail2;
         }
 
-        const char *funcname = "test";
         wasm_function_inst_t func =
             wasm_runtime_lookup_function(module_inst, funcname);
         if (!func) {
@@ -124,8 +153,8 @@ main(int argc, char **argv)
 
         /* note: the function type is (ii)i */
         uint32_t wasm_argv[] = {
-            stack,
-            30,
+            stack, /* native_stack */
+            30,    /* recurse_count */
         };
         uint32_t wasm_argc = 2;
         if (!wasm_runtime_call_wasm(exec_env, func, wasm_argc, wasm_argv)) {
@@ -134,6 +163,11 @@ main(int argc, char **argv)
         }
         failed = false;
     fail2:
+        if (!canary_check()) {
+            printf("stack overurn detected for stack=%u\n", stack);
+            abort();
+        }
+
         /*
          * note: non-zero "nest" here demonstrates resource leak on longjmp
          * from signal handler.
