@@ -653,6 +653,16 @@ wasm_runtime_instantiate_ex(const wasm_module_t module,
                             uint32_t error_buf_size);
 
 /**
+ * Instantiate a WASM module, with specified instantiation arguments
+ *
+ * Same as wasm_runtime_instantiate, but it also allows overwriting maximum memory
+ */
+WASM_RUNTIME_API_EXTERN wasm_module_inst_t
+wasm_runtime_instantiate_ex(const wasm_module_t module,
+                         const InstantiationArgs *args,
+                         char *error_buf, uint32_t error_buf_size);
+
+/**
  * Set the running mode of a WASM module instance, override the
  * default running mode of the runtime. Note that it only makes sense when
  * the input is a wasm bytecode file: for the AOT file, runtime always runs

@@ -1420,6 +1420,21 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Get param cell number */
     param_cell_num = func_type->param_cell_num;
 
+    // #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING !=
+    // 0)
+    //     if (comp_ctx->enable_aux_stack_frame) {
+    //         LLVMValueRef func_idx_const;
+
+    //         if (!(func_idx_const = I32_CONST(func_idx))) {
+    //             aot_set_last_error("llvm build const failed.");
+    //             return false;
+    //         }
+    //         if (!call_aot_alloc_frame_func(comp_ctx, func_ctx,
+    //         func_idx_const))
+    //             return false;
+    //     }
+    // #endif
+
     /* Allocate memory for parameters.
      * Parameters layout:
      *   - exec env
