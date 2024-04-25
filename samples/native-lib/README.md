@@ -49,14 +49,14 @@ will be generated.
 
 ```bash
 cd build
-./iwasm --native-lib=./libtest_add.so --native-lib=./libtest_sqrt.so --native-lib=./libtest_hello.so --native-lib=./libtest_hello2.so wasm-app/test.wasm
+./iwasm --heap-size=1024 --native-lib=./libtest_add.so --native-lib=./libtest_sqrt.so --native-lib=./libtest_hello.so --native-lib=./libtest_hello2.so wasm-app/test.wasm
 ```
 
 ### macOS
 
 ```bash
 cd build
-./iwasm --native-lib=libtest_add.dylib --native-lib=libtest_sqrt.dylib --native-lib=libtest_hello.dylib --native-lib=libtest_hello2.dylib wasm-app/test.wasm
+./iwasm --heap-size=1024 --native-lib=libtest_add.dylib --native-lib=libtest_sqrt.dylib --native-lib=libtest_hello.dylib --native-lib=libtest_hello2.dylib wasm-app/test.wasm
 ```
 
 The output is:
