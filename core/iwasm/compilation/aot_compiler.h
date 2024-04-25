@@ -188,12 +188,32 @@ bool
 aot_gen_commit_values(AOTCompFrame *frame);
 
 /**
- * Generate instructions to commit SP and IP pointers to the frame.
+ * Generate instructions to restore computation result to the frame.
+ * The general principle is to only restore values that will be used
+ * through the frame.
  *
  * @param frame the frame information
  */
 bool
 aot_gen_commit_sp_ip(AOTCompFrame *frame, bool commit_sp, bool commit_ip);
+
+/**
+ * Generate instructions to restore computation result to the frame.
+ *
+ * @param frame the frame information
+ */
+bool
+aot_gen_restore_values(AOTCompFrame *frame);
+bool
+aot_gen_checkpoint(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                   const uint8 *frame_ip);
+/**
+ * Generate instructions to commit SP and IP pointers to the frame.
+ *
+ * @param frame the frame information
+ */
+bool
+aot_gen_commit_values(AOTCompFrame *frame);
 
 bool
 aot_frame_store_value(AOTCompContext *comp_ctx, LLVMValueRef value,

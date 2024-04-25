@@ -27,6 +27,9 @@
 #if WASM_ENABLE_FAST_JIT != 0
 #include "../fast-jit/jit_compiler.h"
 #endif
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+#include "../libraries/ckpt-restore/ckpt_restore.h"
+#endif
 
 typedef int32 CellType_I32;
 typedef int64 CellType_I64;
@@ -722,11 +725,13 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
 #define GET_OPCODE() (void)0
 #endif
 
-#define DEF_OP_I_CONST(ctype, src_op_type)              \
-    do {                                                \
-        ctype cval;                                     \
-        read_leb_##ctype(frame_ip, frame_ip_end, cval); \
-        PUSH_##src_op_type(cval);                       \
+#define DEF_OP_I_CONST(ctype, src_op_type)                              \
+    do {                                                                \
+        ctype cval;                                                     \
+        read_leb_##ctype(frame_ip, frame_ip_end, cval);                 \
+        PUSH_##src_op_type(cval);                                       \
+        LOG_DEBUG("i32.const %d %d %ld", cval, *frame_sp,               \
+                  ((uint8 *)frame_sp) - exec_env->wasm_stack.s.bottom); \
     } while (0)
 
 #define DEF_OP_EQZ(src_op_type)             \
@@ -1273,7 +1278,7 @@ fast_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
 #endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
-static void
+void
 wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                WASMExecEnv *exec_env,
                                WASMFunctionInstance *cur_func,
@@ -1415,7 +1420,7 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
         goto *handle_table[*frame_ip++];                                  \
     } while (0)
 #else
-#define HANDLE_OP_END() FETCH_OPCODE_AND_DISPATCH()
+#define HANDLE_OP_END() FETCH_OPCODE_AND_DISPATCH();
 #endif
 
 #else /* else of WASM_ENABLE_LABELS_AS_VALUES */
@@ -1433,8 +1438,8 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
     continue
 #else
 #define HANDLE_OP_END() continue
-#endif
 
+#endif
 #endif /* end of WASM_ENABLE_LABELS_AS_VALUES */
 
 static inline uint8 *
@@ -1450,7 +1455,7 @@ get_global_addr(uint8 *global_data, WASMGlobalInstance *global)
 #endif
 }
 
-static void
+void
 wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                WASMExecEnv *exec_env,
                                WASMFunctionInstance *cur_func,
@@ -1497,6 +1502,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     int32_t exception_tag_index;
 #endif
     uint8 value_type;
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    if (exec_env->is_restore) {
+        // WASMFunction *cur_wasm_func = cur_func->u.func;
+        frame = exec_env->cur_frame;
+        UPDATE_ALL_FROM_FRAME();
+        frame_ip_end = wasm_get_func_code_end(cur_func);
+        frame_lp = frame->lp;
+    }
+#endif
 #if !defined(OS_ENABLE_HW_BOUND_CHECK) \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
 #if WASM_CONFIGURABLE_BOUNDS_CHECKS != 0
@@ -2072,6 +2086,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_END)
             {
                 if (frame_csp > frame->csp_bottom + 1) {
+                    LOG_DEBUG("csp %p csp_bottom %p", frame_csp,
+                              frame->csp_bottom);
                     POP_CSP();
                 }
                 else { /* end of function, treat as WASM_OP_RETURN */
@@ -4028,6 +4044,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         GET_I64_FROM_ADDR(frame_lp + (local_offset & 0x7F)));
                 else
                     PUSH_I32(*(int32 *)(frame_lp + local_offset));
+                LOG_DEBUG("local.get %d %d %ld %d %ld", local_offset, *frame_lp,
+                          ((uint8 *)frame_lp) - exec_env->wasm_stack.s.bottom,
+                          *frame_sp,
+                          ((uint8 *)frame_sp) - exec_env->wasm_stack.s.bottom);
+
                 HANDLE_OP_END();
             }
 
@@ -4074,6 +4095,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         POP_I64());
                 else
                     *(int32 *)(frame_lp + local_offset) = POP_I32();
+                LOG_DEBUG("local.set %d %d %ld", local_offset, *frame_sp,
+                          ((uint8 *)frame_sp) - exec_env->wasm_stack.s.bottom);
+
                 HANDLE_OP_END();
             }
 
@@ -4235,6 +4259,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 bh_assert(global_idx < module->e->global_count);
                 global = globals + global_idx;
                 global_addr = get_global_addr(global_data, global);
+                LOG_DEBUG("set.global %d %d %ld", global_idx, *frame_sp,
+                          ((uint8 *)frame_sp) - exec_env->wasm_stack.s.bottom);
                 PUT_I64_TO_ADDR((uint32 *)global_addr, POP_I64());
                 HANDLE_OP_END();
             }
@@ -4828,6 +4854,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_I32_ADD)
             {
                 DEF_OP_NUMERIC(uint32, uint32, I32, +);
+                LOG_DEBUG("i32.add %d %ld", *frame_sp,
+                          ((uint8 *)frame_sp) - exec_env->wasm_stack.s.bottom);
                 HANDLE_OP_END();
             }
 
@@ -6583,7 +6611,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             /* Called from native. */
             return;
         }
-
         RECOVER_CONTEXT(prev_frame);
 #if WASM_ENABLE_EXCE_HANDLING != 0
         if (wasm_get_exception(module)) {

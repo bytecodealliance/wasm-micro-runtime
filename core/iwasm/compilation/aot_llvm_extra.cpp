@@ -3,6 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include <llvm/IR/Value.h>
+#include <llvm/IR/Type.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/IRBuilder.h>
+#include "llvm/IR/InlineAsm.h"
 #include <llvm/Passes/StandardInstrumentations.h>
 #include <llvm/Support/Error.h>
 #if LLVM_VERSION_MAJOR < 17
@@ -32,6 +37,7 @@
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/IntrinsicInst.h>
 #include <llvm/IR/PassManager.h>
+#include <llvm/IR/DIBuilder.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/ErrorHandling.h>
 #if LLVM_VERSION_MAJOR >= 17
@@ -78,6 +84,9 @@ aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);
 
 void
 aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module);
+
+void
+aot_apply_mvvm_pass(AOTCompContext *comp_ctx, LLVMModuleRef module);
 
 LLVM_C_EXTERN_C_END
 
@@ -183,6 +192,83 @@ aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str)
 #endif /* WASM_ENABLE_SIMD */
 }
 
+struct AddNopPass : public PassInfoMixin<AddNopPass> {
+  public:
+    AddNopPass() {}
+
+    int line_no = 1;
+    int count = 0;
+
+    int getLineNo() { return line_no++; }
+
+    PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM)
+    {
+        LLVMContext &context = F.getContext();
+
+        // To get a valid scope
+        DIBuilder di_builder(*F.getParent());
+        auto f = di_builder.createFile("nop-pass", ".");
+        auto cu = di_builder.createCompileUnit(dwarf::DW_LANG_C, f, "Nop Pass",
+                                               false, "", 0);
+        SmallVector<Metadata *> tys;
+        auto fty = di_builder.createSubroutineType(
+            di_builder.getOrCreateTypeArray(tys));
+
+        auto sp = di_builder.createFunction(f, F.getName(), StringRef(), f, 1,
+                                            fty, 1, DINode::FlagPrototyped,
+                                            DISubprogram::SPFlagDefinition);
+        F.setSubprogram(sp);
+
+        IRBuilder<> builder(context);
+        Function *donothing_func = Function::Create(
+            FunctionType::get(builder.getVoidTy(), false),
+            Function::ExternalLinkage, "llvm.donothing", F.getParent());
+
+        for (Function::iterator bb = F.begin(), bbe = F.end(); bb != bbe;
+             ++bb) {
+            BasicBlock &b = *bb;
+            bool first_inst = true;
+            for (auto it = bb->begin(); it != bb->end(); it++) {
+                Instruction *instruction = &*it;
+
+                it->setDebugLoc(DILocation::get(context, getLineNo(), 1, sp));
+
+                if (llvm::isa<llvm::PHINode>(instruction))
+                    continue;
+
+                if (first_inst) {
+                    builder.SetInsertPoint(instruction);
+
+                    auto functy =
+                        llvm::FunctionType::get(builder.getVoidTy(), false);
+                    auto inline_asm = llvm::InlineAsm::get(
+                        functy, "nop", "~{dirflag},~{fpsr},~{flags}", true);
+
+                    auto dummy_inst = builder.CreateCall(donothing_func);
+                    dummy_inst->setDebugLoc(
+                        DILocation::get(context, getLineNo(), 2, sp));
+
+                    auto fence_inst = builder.CreateFence(
+                        AtomicOrdering::SequentiallyConsistent);
+                    fence_inst->setDebugLoc(
+                        DILocation::get(context, getLineNo(), 514, sp));
+
+                    auto asm_inst = builder.CreateCall(inline_asm);
+                    asm_inst->setDebugLoc(
+                        DILocation::get(context, getLineNo(), 514, sp));
+
+                    count++;
+
+                    first_inst = false;
+                }
+            }
+        }
+
+        di_builder.finalize();
+        return PreservedAnalyses::all();
+    }
+};
+
 void
 aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
 {
@@ -190,7 +276,7 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
         reinterpret_cast<TargetMachine *>(comp_ctx->target_machine);
     PipelineTuningOptions PTO;
     PTO.LoopVectorization = true;
-    PTO.SLPVectorization = true;
+    PTO.SLPVectorization = false;
     PTO.LoopUnrolling = true;
 
 #if LLVM_VERSION_MAJOR >= 16
@@ -323,7 +409,7 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
 
         /* Apply Vectorize related passes for AOT mode */
         FPM.addPass(LoopVectorizePass());
-        FPM.addPass(SLPVectorizerPass());
+        // FPM.addPass(SLPVectorizerPass());
         FPM.addPass(LoadStoreVectorizerPass());
         FPM.addPass(VectorCombinePass());
 
@@ -385,6 +471,33 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
             MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM1)));
         }
     }
+    MPM.run(*M, MAM);
+}
+
+void
+aot_apply_mvvm_pass(AOTCompContext *comp_ctx, LLVMModuleRef module)
+{
+    PassBuilder PB;
+
+    /* Register all the basic analyses with the managers */
+    LoopAnalysisManager LAM;
+    FunctionAnalysisManager FAM;
+    CGSCCAnalysisManager CGAM;
+    ModuleAnalysisManager MAM;
+
+    PB.registerFunctionAnalyses(FAM);
+    PB.registerLoopAnalyses(LAM);
+    PB.registerModuleAnalyses(MAM);
+    PB.registerCGSCCAnalyses(CGAM);
+    PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+    Module *M = reinterpret_cast<Module *>(module);
+
+    ModulePassManager MPM;
+
+    FunctionPassManager mvvm_fpm;
+    mvvm_fpm.addPass(AddNopPass());
+    MPM.addPass(createModuleToFunctionPassAdaptor(std::move(mvvm_fpm)));
 
     MPM.run(*M, MAM);
 }

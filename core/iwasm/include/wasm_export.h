@@ -496,6 +496,13 @@ wasm_runtime_load_ex(uint8_t *buf, uint32_t size, const LoadArgs *args,
                      char *error_buf, uint32_t error_buf_size);
 
 /**
+ * Load a WASM module with specified load argument.
+ */
+WASM_RUNTIME_API_EXTERN wasm_module_t
+wasm_runtime_load_ex(uint8_t *buf, uint32_t size, const LoadArgs *args,
+                     char *error_buf, uint32_t error_buf_size);
+
+/**
  * Load a WASM module from a specified WASM or AOT section list.
  *
  * @param section_list the section list which contains each section data
@@ -624,6 +631,16 @@ WASM_RUNTIME_API_EXTERN wasm_module_inst_t
 wasm_runtime_instantiate_ex(const wasm_module_t module,
                             const InstantiationArgs *args, char *error_buf,
                             uint32_t error_buf_size);
+
+/**
+ * Instantiate a WASM module, with specified instantiation arguments
+ *
+ * Same as wasm_runtime_instantiate, but it also allows overwriting maximum memory
+ */
+WASM_RUNTIME_API_EXTERN wasm_module_inst_t
+wasm_runtime_instantiate_ex(const wasm_module_t module,
+                         const InstantiationArgs *args,
+                         char *error_buf, uint32_t error_buf_size);
 
 /**
  * Set the running mode of a WASM module instance, override the
@@ -1959,6 +1976,39 @@ wasm_runtime_detect_native_stack_overflow_size(wasm_exec_env_t exec_env,
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_underlying_binary_freeable(const wasm_module_t module);
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+/*
+ * wasm_runtime_checkpoint/wasm_runtime_restore
+ *
+ * These APIs are intended to be used by the host to register the current 
+ * state of the WASM module instance to a file and restore the state from
+ * file
+ * eg.
+ *
+ *   if (!wasm_runtime_checkpoint(module_inst, file_name)) {
+ *       exit(-1);
+ *   }
+ *   if (!wasm_runtime_restore(module_inst, file_name, file_name1)) {
+ *       exit(-1);
+ *   }
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_checkpoint(wasm_module_inst_t module_inst,
+                               char *file);
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_restore(wasm_module_inst_t module_inst,
+                               char *file, char *file1);
+#endif
+
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_set_module_name(wasm_module_t module, const char *name,
+                             char *error_buf, uint32_t error_buf_size);
+
+/* return the most recently set module name or "" if never set before */
+WASM_RUNTIME_API_EXTERN const char*
+wasm_runtime_get_module_name(wasm_module_t module);
+
+/* clang-format on */
 
 #ifdef __cplusplus
 }

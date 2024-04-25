@@ -936,6 +936,236 @@ init_comp_frame(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     return true;
 }
 
+static LLVMValueRef
+load_value(AOTCompContext *comp_ctx, uint8 value_type, LLVMValueRef cur_frame,
+           uint32 offset)
+{
+    LLVMValueRef value_offset, value_addr, value_ptr = NULL, res;
+    LLVMTypeRef value_ptr_type, llvm_value_type;
+
+    if (!(value_offset = I32_CONST(offset))) {
+        aot_set_last_error("llvm build const failed");
+        return false;
+    }
+
+    if (!(value_addr =
+              LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, cur_frame,
+                                    &value_offset, 1, "value_addr"))) {
+        aot_set_last_error("llvm build in bounds gep failed");
+        return false;
+    }
+
+    switch (value_type) {
+        case VALUE_TYPE_I32:
+            llvm_value_type = I32_TYPE;
+            value_ptr_type = INT32_PTR_TYPE;
+            break;
+        case VALUE_TYPE_I64:
+            llvm_value_type = I64_TYPE;
+            value_ptr_type = INT64_PTR_TYPE;
+            break;
+        case VALUE_TYPE_F32:
+            llvm_value_type = F32_TYPE;
+            value_ptr_type = F32_PTR_TYPE;
+            break;
+        case VALUE_TYPE_F64:
+            llvm_value_type = F64_TYPE;
+            value_ptr_type = F64_PTR_TYPE;
+            break;
+        case VALUE_TYPE_V128:
+            llvm_value_type = V128_TYPE;
+            value_ptr_type = V128_PTR_TYPE;
+            break;
+        default:
+            bh_assert(0);
+            break;
+    }
+
+    if (!(value_ptr = LLVMBuildBitCast(comp_ctx->builder, value_addr,
+                                       value_ptr_type, "value_ptr"))) {
+        aot_set_last_error("llvm build bit cast failed");
+        return false;
+    }
+
+    if (!(res = LLVMBuildLoad2(comp_ctx->builder, llvm_value_type, value_ptr,
+                               "restore_val"))) {
+        aot_set_last_error("llvm build load failed");
+        return false;
+    }
+
+    return res;
+}
+
+bool
+aot_gen_restore_values(AOTCompFrame *frame)
+{
+    AOTCompContext *comp_ctx = frame->comp_ctx;
+    AOTFuncContext *func_ctx = frame->func_ctx;
+    AOTValueSlot *p;
+    LLVMValueRef restore_value, store, value_ptr;
+    uint32 n, local_idx = 0;
+
+    for (p = frame->lp; p < frame->sp; p++, local_idx++) {
+        n = p - frame->lp;
+
+        if (local_idx < func_ctx->aot_func->func_type->param_count
+                            + func_ctx->aot_func->local_count) {
+            value_ptr = func_ctx->locals[local_idx];
+        }
+        else {
+            value_ptr = p->value;
+        }
+        if (!value_ptr) {
+            fprintf(stderr, "restore value is null, %d %d\n", local_idx, n);
+            exit(-1);
+        }
+
+        switch (p->type) {
+            case VALUE_TYPE_I32:
+            case VALUE_TYPE_FUNCREF:
+            case VALUE_TYPE_EXTERNREF:
+                if (!(restore_value = load_value(comp_ctx, VALUE_TYPE_I32,
+                                                 func_ctx->cur_frame,
+                                                 offset_of_local(comp_ctx, n))))
+                    return false;
+                break;
+            case VALUE_TYPE_I64:
+                ++p;
+                if (!(restore_value = load_value(comp_ctx, VALUE_TYPE_I64,
+                                                 func_ctx->cur_frame,
+                                                 offset_of_local(comp_ctx, n))))
+                    return false;
+                break;
+            case VALUE_TYPE_F32:
+                if (!(restore_value = load_value(comp_ctx, VALUE_TYPE_F32,
+                                                 func_ctx->cur_frame,
+                                                 offset_of_local(comp_ctx, n))))
+                    return false;
+                break;
+            case VALUE_TYPE_F64:
+                ++p;
+                if (!(restore_value = load_value(comp_ctx, VALUE_TYPE_F64,
+                                                 func_ctx->cur_frame,
+                                                 offset_of_local(comp_ctx, n))))
+                    return false;
+                break;
+            case VALUE_TYPE_V128:
+                ++p;
+                ++p;
+                ++p;
+                if (!(restore_value = load_value(comp_ctx, VALUE_TYPE_V128,
+                                                 func_ctx->cur_frame,
+                                                 offset_of_local(comp_ctx, n))))
+                    return false;
+                break;
+            case VALUE_TYPE_I1:
+                if (!(restore_value = load_value(comp_ctx, VALUE_TYPE_I32,
+                                                 func_ctx->cur_frame,
+                                                 offset_of_local(comp_ctx, n))))
+                    return false;
+                if (!(restore_value =
+                          LLVMBuildTrunc(comp_ctx->builder, restore_value,
+                                         INT1_TYPE, "restore_i1_val"))) {
+                    aot_set_last_error("llvm build bit cast failed");
+                }
+                break;
+            default:
+                bh_assert(0);
+                break;
+        }
+
+        store = LLVMBuildStore(comp_ctx->builder, restore_value, value_ptr);
+        if (!store) {
+            aot_set_last_error("llvm build store failed");
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool
+aot_gen_checkpoint(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                   const uint8 *frame_ip)
+{
+    comp_ctx->inst_checkpointed = true;
+
+    bool disable_commit =
+        comp_ctx->checkpoint_type != 0 && comp_ctx->exp_disable_commit_sp_ip;
+    bool disable_restore_jump =
+        comp_ctx->checkpoint_type != 0 && comp_ctx->exp_disable_restore_jump;
+    bool disable_gen_fence_int3 =
+        comp_ctx->checkpoint_type != 0 && comp_ctx->exp_disable_gen_fence_int3;
+
+    if (disable_commit) {
+    }
+    else {
+        if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
+                                  frame_ip))
+            return false;
+        if (!aot_gen_commit_values(comp_ctx->aot_frame))
+            return false;
+    }
+    if (disable_gen_fence_int3) {
+    }
+    else {
+        if (!aot_compile_emit_fence_nop(comp_ctx, func_ctx))
+            return false;
+    }
+
+    if (disable_restore_jump) {
+    }
+    else {
+        char name[32];
+        LLVMBasicBlockRef block_restore_jump, block_restore_value;
+
+        snprintf(name, sizeof(name), "restore-%zu",
+                 (uint64)(uintptr_t)(frame_ip - func_ctx->aot_func->code));
+        if (!(block_restore_value = LLVMAppendBasicBlockInContext(
+                  comp_ctx->context, func_ctx->func, name))) {
+            aot_set_last_error("add LLVM basic block failed.");
+            return false;
+        }
+
+        snprintf(name, sizeof(name), "restore-jump-%zu",
+                 (uint64)(uintptr_t)(frame_ip - func_ctx->aot_func->code));
+        if (!(block_restore_jump = LLVMAppendBasicBlockInContext(
+                  comp_ctx->context, func_ctx->func, name))) {
+            aot_set_last_error("add LLVM basic block failed.");
+            return false;
+        }
+
+        LLVMMoveBasicBlockAfter(
+            block_restore_value,
+            LLVMGetInsertBlock(comp_ctx->aot_frame_alloca_builder));
+        LLVMMoveBasicBlockAfter(block_restore_jump,
+                                LLVMGetInsertBlock(comp_ctx->builder));
+
+        if (!LLVMBuildBr(comp_ctx->builder, block_restore_jump)) {
+            aot_set_last_error("llvm build br failed.");
+            return false;
+        }
+
+        LLVMValueRef ip_offset;
+        if (comp_ctx->pointer_size == sizeof(uint64))
+            ip_offset = I64_CONST(
+                (uint64)(uintptr_t)(frame_ip - func_ctx->aot_func->code));
+        else
+            ip_offset = I32_CONST(
+                (uint32)(uintptr_t)(frame_ip - func_ctx->aot_func->code));
+        LLVMAddCase(func_ctx->restore_switch, ip_offset, block_restore_value);
+
+        LLVMPositionBuilderAtEnd(comp_ctx->builder, block_restore_value);
+        if (!aot_gen_restore_values(comp_ctx->aot_frame))
+            return false;
+        LLVMBuildBr(comp_ctx->builder, block_restore_jump);
+
+        LLVMPositionBuilderAtEnd(comp_ctx->builder, block_restore_jump);
+    }
+
+    return true;
+}
+
 static bool
 aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 {
@@ -972,7 +1202,61 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
     LLVMPositionBuilderAtEnd(
         comp_ctx->builder,
         func_ctx->block_stack.block_list_head->llvm_entry_block);
+
+    {
+        if (comp_ctx->aot_frame) {
+            uint32 offset_ip = offsetof(AOTFrame, ip_offset);
+            LLVMValueRef cur_frame = func_ctx->cur_frame;
+            LLVMValueRef value_offset, value_addr, value_ptr, value;
+            bool is_64bit =
+                (comp_ctx->pointer_size == sizeof(uint64)) ? true : false;
+            if (!(value_offset = I32_CONST(offset_ip))) {
+                aot_set_last_error("llvm build const failed");
+                return false;
+            }
+
+            if (!(value_addr = LLVMBuildInBoundsGEP2(
+                      comp_ctx->builder, INT8_TYPE, cur_frame, &value_offset, 1,
+                      "ip_addr"))) {
+                aot_set_last_error("llvm build in bounds gep failed");
+                return false;
+            }
+
+            if (!(value_ptr = LLVMBuildBitCast(
+                      comp_ctx->builder, value_addr,
+                      is_64bit ? INT64_PTR_TYPE : INT32_PTR_TYPE, "ip_ptr"))) {
+                aot_set_last_error("llvm build bit cast failed");
+                return false;
+            }
+
+            if (!(value = LLVMBuildLoad2(comp_ctx->builder,
+                                         is_64bit ? I64_TYPE : I32_TYPE,
+                                         value_ptr, "init_ip"))) {
+                aot_set_last_error("llvm build load failed");
+                return false;
+            }
+
+            LLVMBasicBlockRef normal_block;
+            char name[32];
+            snprintf(name, sizeof(name), "restore-no_restore");
+            if (!(normal_block = LLVMAppendBasicBlockInContext(
+                      comp_ctx->context, func_ctx->func, name))) {
+                aot_set_last_error("add LLVM basic block failed.");
+                goto fail;
+            }
+            LLVMMoveBasicBlockAfter(normal_block,
+                                    LLVMGetInsertBlock(comp_ctx->builder));
+            func_ctx->restore_switch =
+                LLVMBuildSwitch(comp_ctx->builder, value, normal_block, 0);
+            LLVMPositionBuilderAtEnd(comp_ctx->builder, normal_block);
+
+            LLVMPositionBuilderBefore(comp_ctx->aot_frame_alloca_builder,
+                                      func_ctx->restore_switch);
+        }
+    }
+
     while (frame_ip < frame_ip_end) {
+        comp_ctx->inst_checkpointed = false;
         opcode = *frame_ip++;
 
         if (comp_ctx->aot_frame) {
@@ -1156,15 +1440,30 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
             case WASM_OP_CALL:
             {
+                uint8 *frame_ip_org = frame_ip;
+                if (comp_ctx->enable_checkpoint
+                    && !comp_ctx->inst_checkpointed) {
+                    bh_assert(comp_ctx->aot_frame);
+                    aot_gen_checkpoint(comp_ctx, func_ctx, frame_ip_org);
+                }
+
                 read_leb_uint32(frame_ip, frame_ip_end, func_idx);
-                if (!aot_compile_op_call(comp_ctx, func_ctx, func_idx, false))
+                if (!aot_compile_op_call(comp_ctx, func_ctx, func_idx, false,
+                                         frame_ip_org))
                     return false;
                 break;
             }
 
             case WASM_OP_CALL_INDIRECT:
             {
+                uint8 *frame_ip_org = frame_ip;
                 uint32 tbl_idx;
+
+                if (comp_ctx->enable_checkpoint
+                    && !comp_ctx->inst_checkpointed) {
+                    bh_assert(comp_ctx->aot_frame);
+                    aot_gen_checkpoint(comp_ctx, func_ctx, frame_ip_org);
+                }
 
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
 
@@ -1177,7 +1476,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 }
 
                 if (!aot_compile_op_call_indirect(comp_ctx, func_ctx, type_idx,
-                                                  tbl_idx))
+                                                  tbl_idx, frame_ip_org))
                     return false;
                 break;
             }
@@ -1191,7 +1490,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 }
 
                 read_leb_uint32(frame_ip, frame_ip_end, func_idx);
-                if (!aot_compile_op_call(comp_ctx, func_ctx, func_idx, true))
+                if (!aot_compile_op_call(comp_ctx, func_ctx, func_idx, false,
+                                         frame_ip))
                     return false;
                 if (!aot_compile_op_return(comp_ctx, func_ctx, &frame_ip))
                     return false;
@@ -1200,6 +1500,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
             case WASM_OP_RETURN_CALL_INDIRECT:
             {
+                uint8 *frame_ip_org = frame_ip;
                 uint32 tbl_idx;
 
                 if (!comp_ctx->enable_tail_call) {
@@ -1217,7 +1518,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 }
 
                 if (!aot_compile_op_call_indirect(comp_ctx, func_ctx, type_idx,
-                                                  tbl_idx))
+                                                  tbl_idx, frame_ip_org))
                     return false;
                 if (!aot_compile_op_return(comp_ctx, func_ctx, &frame_ip))
                     return false;

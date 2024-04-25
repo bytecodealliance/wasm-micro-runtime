@@ -14,11 +14,12 @@ extern "C" {
 
 bool
 aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                    uint32 func_idx, bool tail_call);
+                    uint32 func_idx, bool tail_call, const uint8 *frame_ip);
 
 bool
 aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                             uint32 type_idx, uint32 tbl_idx);
+                             uint32 type_idx, uint32 tbl_idx,
+                             const uint8 *frame_ip);
 
 bool
 aot_compile_op_ref_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);

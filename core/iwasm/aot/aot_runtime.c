@@ -15,6 +15,9 @@
 #if WASM_ENABLE_THREAD_MGR != 0
 #include "../libraries/thread-mgr/thread_manager.h"
 #endif
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+#include "../libraries/ckpt-restore/ckpt_restore.h"
+#endif
 
 /*
  * Note: These offsets need to match the values hardcoded in
@@ -67,6 +70,11 @@ bh_static_assert(offsetof(AOTFrame, func_index) == sizeof(uintptr_t) * 1);
 bh_static_assert(offsetof(AOTFrame, time_started) == sizeof(uintptr_t) * 2);
 bh_static_assert(offsetof(AOTFrame, func_perf_prof_info)
                  == sizeof(uintptr_t) * 3);
+bh_static_assert(offsetof(AOTFrame, ip_offset) == sizeof(uintptr_t) * 4);
+bh_static_assert(offsetof(AOTFrame, sp) == sizeof(uintptr_t) * 5);
+bh_static_assert(offsetof(AOTFrame, frame_ref) == sizeof(uintptr_t) * 6);
+bh_static_assert(offsetof(AOTFrame, lp) == sizeof(uintptr_t) * 7);
+
 bh_static_assert(offsetof(AOTFrame, ip_offset) == sizeof(uintptr_t) * 4);
 bh_static_assert(offsetof(AOTFrame, sp) == sizeof(uintptr_t) * 5);
 bh_static_assert(offsetof(AOTFrame, frame_ref) == sizeof(uintptr_t) * 6);
@@ -810,6 +818,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         bh_assert(memory_idx == 0);
         bh_assert(parent->memory_count > memory_idx);
         shared_memory_instance = parent->memories[memory_idx];
+        shared_memory_instance->ref_count++;
         shared_memory_inc_reference(shared_memory_instance);
         return shared_memory_instance;
     }
@@ -1042,6 +1051,15 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         /* Ignore setting memory init data if no memory inst is created */
         return true;
     }
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    /* Currently we have only one memory instance */
+    bool is_shared_memory = module->memories[0].memory_flags & 0x02 ? true : false;
+    if (is_shared_memory && parent != NULL) {
+        /* Ignore setting memory init data if the memory has been initialized */
+        return true;
+    }
+#endif
 
     for (i = 0; i < module->mem_init_data_count; i++) {
         data_seg = module->mem_init_data_list[i];
@@ -1885,6 +1903,7 @@ destroy_c_api_frames(Vector *frames)
 void
 aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 {
+#if WASM_ENABLE_CHECKPOINT_RESTORE == 0
     WASMModuleInstanceExtraCommon *common =
         &((AOTModuleInstanceExtra *)module_inst->e)->common;
     if (module_inst->exec_env_singleton) {
@@ -1958,6 +1977,7 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 #endif
 
     wasm_runtime_free(module_inst);
+#endif
 }
 
 AOTFunctionInstance *
@@ -2242,6 +2262,7 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         while (exec_env->cur_frame != prev_frame)
             aot_free_frame(exec_env);
 #endif
+        // checkpoint
         if (!ret) {
             if (argv1 != argv1_buf)
                 wasm_runtime_free(argv1);
@@ -2542,6 +2563,9 @@ aot_module_malloc_internal(AOTModuleInstance *module_inst,
     /* TODO: Memory64 size check based on memory idx type */
     bh_assert(size <= UINT32_MAX);
 
+    /* TODO: Memory64 size check based on memory idx type */
+    bh_assert(size <= UINT32_MAX);
+
     if (!memory_inst) {
         aot_set_exception(module_inst, "uninitialized memory");
         return 0;
@@ -2569,7 +2593,7 @@ aot_module_malloc_internal(AOTModuleInstance *module_inst,
 
         if (!malloc_func
             || !execute_malloc_function(module_inst, exec_env, malloc_func,
-                                        retain_func, size, &offset)) {
+                                        retain_func, (uint32)size, &offset)) {
             return 0;
         }
         addr = offset ? (uint8 *)memory_inst->memory_data + offset : NULL;
@@ -2680,7 +2704,8 @@ aot_module_free_internal(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
                 free_func = aot_lookup_function(module_inst, "__unpin");
 
             if (free_func)
-                execute_free_function(module_inst, exec_env, free_func, ptr);
+                execute_free_function(module_inst, exec_env, free_func,
+                                      (uint32)ptr);
         }
     }
 }
@@ -2857,6 +2882,17 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
     }
 
     tbl_elem_val = ((table_elem_type_t *)tbl_inst->elems)[table_elem_idx];
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    if (exec_env->is_restore && exec_env->restore_call_chain) {
+        struct AOTFrame *rcc = *(exec_env->restore_call_chain);
+        while (rcc->prev_frame) {
+            rcc = rcc->prev_frame;
+        }
+        LOG_DEBUG("func_idx: %d instead of %d of thread %ld\n", rcc->func_index,
+                  func_idx, exec_env->handle);
+        func_idx = rcc->func_index;
+    }
+#endif
     if (tbl_elem_val == NULL_REF) {
         aot_set_exception_with_id(module_inst, EXCE_UNINITIALIZED_ELEMENT);
         goto fail;
@@ -3529,6 +3565,12 @@ get_func_name_from_index(const AOTModuleInstance *module_inst,
 #endif /* end of WASM_ENABLE_DUMP_CALL_STACK != 0 || \
           WASM_ENABLE_PERF_PROFILING != 0 */
 
+void
+aot_raise(WASMExecEnv *exec_env, int sig)
+{
+    raise(sig);
+}
+
 #if WASM_ENABLE_GC == 0
 bool
 aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
@@ -3608,6 +3650,9 @@ aot_free_frame(WASMExecEnv *exec_env)
 bool
 aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
 {
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    LOG_DEBUG("aot_alloc_frame %u thread %d\n", func_index, exec_env->handle);
+#endif
     AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
     AOTModule *module = (AOTModule *)module_inst->module;
 #if WASM_ENABLE_PERF_PROFILING != 0
@@ -3617,6 +3662,27 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     AOTFrame *frame;
     uint32 max_local_cell_num, max_stack_cell_num, all_cell_num;
     uint32 aot_func_idx, frame_size;
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    if (exec_env->restore_call_chain) {
+        frame = exec_env->restore_call_chain[exec_env->call_chain_size - 1];
+        LOG_DEBUG("frame restored, func idx %zu\n", frame->func_index);
+        exec_env->call_chain_size--;
+        frame->prev_frame = (AOTFrame *)exec_env->cur_frame;
+        exec_env->cur_frame = (struct WASMInterpFrame *)frame;
+        if (exec_env->call_chain_size == 0) {
+            // TODO: fix memory leak
+            exec_env->restore_call_chain = NULL;
+        }
+        LOG_DEBUG("restore call chain %zu==%u, %p, %p, %d\n",
+                  ((AOTFrame *)exec_env->cur_frame)->func_index, func_index,
+                  exec_env, exec_env->restore_call_chain, exec_env->handle);
+        if (((AOTFrame *)exec_env->cur_frame)->func_index != func_index) {
+            LOG_DEBUG("NOT MATCH!!!\n");
+            exit(1);
+        }
+        return true;
+    }
+#endif
 
     if (func_index >= module->import_func_count) {
         aot_func_idx = func_index - module->import_func_count;
@@ -3648,6 +3714,11 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     frame->time_started = (uintptr_t)os_time_thread_cputime_us();
     frame->func_perf_prof_info = func_perf_prof;
 #endif
+    frame->ip_offset = 0;
+    frame->sp = frame->lp + max_local_cell_num;
+#if WASM_ENABLE_GC != 0
+    frame->frame_ref = frame->sp + max_stack_cell_num;
+#endif
 
 #if WASM_ENABLE_GC != 0
     frame->sp = frame->lp + max_local_cell_num;
@@ -3664,6 +3735,10 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
 static inline void
 aot_free_frame_internal(WASMExecEnv *exec_env)
 {
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    int func_index = ((AOTFrame *)exec_env->cur_frame)->func_index;
+    LOG_DEBUG("aot_free_frame %zu %d\n", func_index, exec_env->handle);
+#endif
     AOTFrame *cur_frame = (AOTFrame *)exec_env->cur_frame;
     AOTFrame *prev_frame = cur_frame->prev_frame;
 
@@ -3678,7 +3753,6 @@ aot_free_frame_internal(WASMExecEnv *exec_env)
     if (prev_frame)
         prev_frame->func_perf_prof_info->children_exec_time += time_elapsed;
 #endif
-
     wasm_exec_env_free_wasm_frame(exec_env, cur_frame);
     exec_env->cur_frame = (struct WASMInterpFrame *)prev_frame;
 }

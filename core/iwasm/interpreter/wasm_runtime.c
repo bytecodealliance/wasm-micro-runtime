@@ -3489,6 +3489,9 @@ wasm_module_malloc_internal(WASMModuleInstance *module_inst,
     /* TODO: Memory64 size check based on memory idx type */
     bh_assert(size <= UINT32_MAX);
 
+    /* TODO: Memory64 size check based on memory idx type */
+    bh_assert(size <= UINT32_MAX);
+
     if (!memory) {
         wasm_set_exception(module_inst, "uninitialized memory");
         return 0;
@@ -3500,7 +3503,7 @@ wasm_module_malloc_internal(WASMModuleInstance *module_inst,
     else if (module_inst->e->malloc_function && module_inst->e->free_function) {
         if (!execute_malloc_function(
                 module_inst, exec_env, module_inst->e->malloc_function,
-                module_inst->e->retain_function, size, &offset)) {
+                module_inst->e->retain_function, (uint32)size, &offset)) {
             return 0;
         }
         /* If we use app's malloc function,
@@ -3600,7 +3603,7 @@ wasm_module_free_internal(WASMModuleInstance *module_inst,
                  && module_inst->e->free_function && memory->memory_data <= addr
                  && addr < memory_data_end) {
             execute_free_function(module_inst, exec_env,
-                                  module_inst->e->free_function, ptr);
+                                  module_inst->e->free_function, (uint32)ptr);
         }
     }
 }

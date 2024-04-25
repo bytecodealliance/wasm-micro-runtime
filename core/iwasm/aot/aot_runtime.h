@@ -679,6 +679,9 @@ bool
 aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index);
 
 void
+aot_raise(WASMExecEnv *exec_env, int exception);
+
+void
 aot_free_frame(WASMExecEnv *exec_env);
 
 void

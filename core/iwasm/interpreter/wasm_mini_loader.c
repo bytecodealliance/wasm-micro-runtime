@@ -716,6 +716,38 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
 }
 
 static bool
+check_memory_flag(const uint8 mem_flag)
+{
+    /* Check whether certain features indicated by mem_flag are enabled in
+     * runtime */
+    if (mem_flag > MAX_PAGE_COUNT_FLAG) {
+#if WASM_ENABLE_SHARED_MEMORY == 0
+        if (mem_flag & SHARED_MEMORY_FLAG) {
+            LOG_VERBOSE("shared memory flag was found, please enable shared "
+                        "memory, lib-pthread or lib-wasi-threads");
+            return false;
+        }
+#endif
+#if WASM_ENABLE_MEMORY64 == 0
+        if (mem_flag & MEMORY64_FLAG) {
+            LOG_VERBOSE("memory64 flag was found, please enable memory64");
+            return false;
+        }
+#endif
+    }
+
+    if (mem_flag > MAX_PAGE_COUNT_FLAG + SHARED_MEMORY_FLAG + MEMORY64_FLAG) {
+        return false;
+    }
+    else if ((mem_flag & SHARED_MEMORY_FLAG)
+             && !(mem_flag & MAX_PAGE_COUNT_FLAG)) {
+        return false;
+    }
+
+    return true;
+}
+
+static bool
 load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
                    WASMModule *parent_module, const char *sub_module_name,
                    const char *memory_name, WASMMemoryImport *memory,
@@ -767,6 +799,7 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
     memory->mem_type.num_bytes_per_page = DEFAULT_NUM_BYTES_PER_PAGE;
 
     *p_buf = p;
+    (void)check_memory_flag;
     return true;
 }
 
@@ -889,6 +922,7 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
     memory->num_bytes_per_page = DEFAULT_NUM_BYTES_PER_PAGE;
 
     *p_buf = p;
+    (void)check_memory_flag;
     return true;
 }
 
