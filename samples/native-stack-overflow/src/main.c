@@ -114,7 +114,7 @@ main(int argc, char **argv)
            "--------\n");
 
     unsigned int stack;
-    unsigned int prevstack;
+    unsigned int prevstack = 0; /* appease GCC -Wmaybe-uninitialized */
     unsigned int stack_range_start = 0;
     unsigned int stack_range_end = 4096 * 6;
     unsigned int step = 16;
