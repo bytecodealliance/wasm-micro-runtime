@@ -379,3 +379,12 @@ jobs:
           ./iwasm wasm-apps/trap.wasm | grep "#" > call_stack.txt
           ./iwasm wasm-apps/trap.aot | grep "#" > call_stack_aot.txt
           bash -x ../symbolicate.sh
+
+      # skip on arm64 (macos-14) for now
+      - name: Build Sample [native-stack-overflow]
+        if: matrix.os != 'macos-14'
+        run: |
+          cd samples/native-stack-overflow
+          ./build.sh
+          ./run.sh test1
+          ./run.sh test2

@@ -1756,6 +1756,57 @@ wasm_runtime_set_module_name(wasm_module_t module, const char *name,
 WASM_RUNTIME_API_EXTERN const char *
 wasm_runtime_get_module_name(wasm_module_t module);
 
+/*
+ * wasm_runtime_detect_native_stack_overflow
+ *
+ * Detect native stack shortage.
+ * Ensure that the calling thread still has a reasonable amount of
+ * native stack (WASM_STACK_GUARD_SIZE bytes) available.
+ *
+ * If enough stack is left, this function returns true.
+ * Otherwise, this function raises a "native stack overflow" trap and
+ * returns false.
+ *
+ * Note: please do not expect a very strict detection. it's a good idea
+ * to give some margins. wasm_runtime_detect_native_stack_overflow itself
+ * requires a small amount of stack to run.
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_detect_native_stack_overflow(wasm_exec_env_t exec_env);
+
+/*
+ * wasm_runtime_detect_native_stack_overflow_size
+ *
+ * Similar to wasm_runtime_detect_native_stack_overflow,
+ * but use the caller-specified size instead of WASM_STACK_GUARD_SIZE.
+ *
+ * An expected usage:
+ * ```c
+ * __attribute__((noinline))  // inlining can break the stack check
+ * void stack_hog(void)
+ * {
+ *     // consume a lot of stack here
+ * }
+ *
+ * void
+ * stack_hog_wrapper(exec_env) {
+ *     // the amount of stack stack_hog would consume,
+ *     // plus a small margin
+ *     uint32_t size = 10000000;
+ *
+ *     if (!wasm_runtime_detect_native_stack_overflow_size(exec_env, size)) {
+ *         // wasm_runtime_detect_native_stack_overflow_size has raised
+ *         // a trap.
+ *         return;
+ *     }
+ *     stack_hog();
+ * }
+ * ```
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_detect_native_stack_overflow_size(wasm_exec_env_t exec_env,
+                                               uint32_t required_size);
+
 #ifdef __cplusplus
 }
 #endif

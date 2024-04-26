@@ -548,6 +548,13 @@ jobs:
           ./build.sh
           ./run.sh
 
+      - name: Build Sample [native-stack-overflow]
+        run: |
+          cd samples/native-stack-overflow
+          ./build.sh
+          ./run.sh test1
+          ./run.sh test2
+
       - name: Build Sample [native-lib]
         run: |
           mkdir build && cd build
@@ -567,6 +574,7 @@ jobs:
           python3 ./sample_test_run.py $(pwd)/out
           exit $?
         working-directory: ./wamr-app-framework/samples/simple
+
   test:
     needs:
       [
