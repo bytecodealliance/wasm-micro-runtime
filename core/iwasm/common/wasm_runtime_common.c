@@ -7028,15 +7028,17 @@ wasm_runtime_get_module_name(wasm_module_t module)
 bool
 wasm_runtime_detect_native_stack_overflow(WASMExecEnv *exec_env)
 {
-    uint8 *boundary;
+    uint8 *boundary = exec_env->native_stack_boundary;
+    RECORD_STACK_USAGE(exec_env, (uint8 *)&boundary);
+    if (boundary == NULL) {
+        /* the platfrom doesn't support os_thread_get_stack_boundary */
+        return true;
+    }
 #if defined(OS_ENABLE_HW_BOUND_CHECK) && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
     uint32 page_size = os_getpagesize();
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
-    boundary = exec_env->native_stack_boundary + page_size * guard_page_count;
-#else
-    boundary = exec_env->native_stack_boundary;
+    boundary = boundary + page_size * guard_page_count;
 #endif
-    RECORD_STACK_USAGE(exec_env, (uint8 *)&boundary);
     if ((uint8 *)&boundary < boundary) {
         wasm_runtime_set_exception(wasm_runtime_get_module_inst(exec_env),
                                    "native stack overflow");
@@ -7049,15 +7051,17 @@ bool
 wasm_runtime_detect_native_stack_overflow_size(WASMExecEnv *exec_env,
                                                uint32 requested_size)
 {
-    uint8 *boundary;
+    uint8 *boundary = exec_env->native_stack_boundary;
+    RECORD_STACK_USAGE(exec_env, (uint8 *)&boundary);
+    if (boundary == NULL) {
+        /* the platfrom doesn't support os_thread_get_stack_boundary */
+        return true;
+    }
 #if defined(OS_ENABLE_HW_BOUND_CHECK) && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
     uint32 page_size = os_getpagesize();
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
-    boundary = exec_env->native_stack_boundary + page_size * guard_page_count;
-#else
-    boundary = exec_env->native_stack_boundary;
+    boundary = boundary + page_size * guard_page_count;
 #endif
-    RECORD_STACK_USAGE(exec_env, (uint8 *)&boundary);
     /* adjust the boundary for the requested size */
     boundary = boundary - WASM_STACK_GUARD_SIZE + requested_size;
     if ((uint8 *)&boundary < boundary) {
