@@ -10,7 +10,7 @@ endif ()
 
 include_directories (${IWASM_FAST_JIT_DIR})
 
-if (WAMR_BUILD_TARGET STREQUAL "X86_64" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
+if (WAMR_BUILD_TARGET STREQUAL "X86_64" OR WAMR_BUILD_TARGET STREQUAL "AMD_64" OR WAMR_BUILD_TARGET STREQUAL "AARCH64")
     include(FetchContent)
     if (NOT WAMR_BUILD_PLATFORM STREQUAL "linux-sgx")
         FetchContent_Declare(
@@ -89,6 +89,8 @@ file (GLOB c_source_jit ${IWASM_FAST_JIT_DIR}/*.c ${IWASM_FAST_JIT_DIR}/fe/*.c)
 
 if (WAMR_BUILD_TARGET STREQUAL "X86_64" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
   file (GLOB_RECURSE cpp_source_jit_cg ${IWASM_FAST_JIT_DIR}/cg/x86-64/*.cpp)
+elseif (WAMR_BUILD_TARGET STREQUAL "AARCH64")
+  file (GLOB_RECURSE cpp_source_jit_cg ${IWASM_FAST_JIT_DIR}/cg/aarch64/*.cpp)
 else ()
   message (FATAL_ERROR "Fast JIT codegen for target ${WAMR_BUILD_TARGET} isn't implemented")
 endif ()

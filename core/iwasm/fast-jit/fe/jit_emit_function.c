@@ -956,7 +956,7 @@ emit_callnative(JitCompContext *cc, JitReg native_func_reg, JitReg res,
 }
 #else
 static bool
-emit_callnative(JitCompContext *cc, JitRef native_func_reg, JitReg res,
+emit_callnative(JitCompContext *cc, JitReg native_func_reg, JitReg res,
                 JitReg *params, uint32 param_count)
 {
     JitInsn *insn;
