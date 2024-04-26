@@ -219,7 +219,10 @@ type2str(uint8 type)
 static bool
 is_32bit_type(uint8 type)
 {
-    if (type == VALUE_TYPE_I32 || type == VALUE_TYPE_F32
+    if (type == VALUE_TYPE_I32
+        || type == VALUE_TYPE_F32
+        /* the operand stack is in polymorphic state */
+        || type == VALUE_TYPE_ANY
 #if WASM_ENABLE_REF_TYPES != 0
         || type == VALUE_TYPE_FUNCREF || type == VALUE_TYPE_EXTERNREF
 #endif
@@ -5631,7 +5634,7 @@ wasm_loader_push_frame_ref(WASMLoaderContext *ctx, uint8 type, char *error_buf,
 
     *ctx->frame_ref++ = type;
     ctx->stack_cell_num++;
-    if (is_32bit_type(type) || type == VALUE_TYPE_ANY)
+    if (is_32bit_type(type))
         goto check_stack_and_return;
 
     if (!check_stack_push(ctx, error_buf, error_buf_size))
@@ -5689,7 +5692,7 @@ wasm_loader_pop_frame_ref(WASMLoaderContext *ctx, uint8 type, char *error_buf,
     ctx->frame_ref--;
     ctx->stack_cell_num--;
 
-    if (is_32bit_type(type) || *ctx->frame_ref == VALUE_TYPE_ANY)
+    if (is_32bit_type(type))
         return true;
 
     ctx->frame_ref--;
@@ -8249,13 +8252,11 @@ re_scan:
             case WASM_OP_BR_TABLE:
             {
                 uint8 *ret_types = NULL;
-                uint32 ret_count = 0;
+                uint32 ret_count = 0, depth = 0;
 #if WASM_ENABLE_FAST_INTERP == 0
-                uint8 *p_depth_begin, *p_depth;
-                uint32 depth = 0, j;
                 BrTableCache *br_table_cache = NULL;
-
-                p_org = p - 1;
+                uint8 *p_depth_begin, *p_depth, *p_opcode = p - 1;
+                uint32 j;
 #endif
 
                 read_leb_uint32(p, p_end, count);
@@ -8263,6 +8264,20 @@ re_scan:
                 emit_uint32(loader_ctx, count);
 #endif
                 POP_I32();
+
+                /* Get each depth and check it */
+                p_org = p;
+                for (i = 0; i <= count; i++) {
+                    read_leb_uint32(p, p_end, depth);
+                    bh_assert(loader_ctx->csp_num > 0);
+                    if (loader_ctx->csp_num - 1 < depth) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "unknown label, "
+                                      "unexpected end of section or function");
+                        goto fail;
+                    }
+                }
+                p = p_org;
 
 #if WASM_ENABLE_FAST_INTERP == 0
                 p_depth_begin = p_depth = p;
@@ -8317,7 +8332,7 @@ re_scan:
                             /* The depth cannot be stored in one byte,
                                create br_table cache to store each depth */
 #if WASM_ENABLE_DEBUG_INTERP != 0
-                            if (!record_fast_op(module, p_org, *p_org,
+                            if (!record_fast_op(module, p_opcode, *p_opcode,
                                                 error_buf, error_buf_size)) {
                                 goto fail;
                             }
@@ -8329,8 +8344,8 @@ re_scan:
                                       error_buf, error_buf_size))) {
                                 goto fail;
                             }
-                            *p_org = EXT_OP_BR_TABLE_CACHE;
-                            br_table_cache->br_table_op_addr = p_org;
+                            *p_opcode = EXT_OP_BR_TABLE_CACHE;
+                            br_table_cache->br_table_op_addr = p_opcode;
                             br_table_cache->br_count = count;
                             /* Copy previous depths which are one byte */
                             for (j = 0; j < i; j++) {
@@ -8585,8 +8600,7 @@ re_scan:
                 }
 
                 if (available_stack_cell > 0) {
-                    if (is_32bit_type(*(loader_ctx->frame_ref - 1))
-                        || *(loader_ctx->frame_ref - 1) == VALUE_TYPE_ANY) {
+                    if (is_32bit_type(*(loader_ctx->frame_ref - 1))) {
                         loader_ctx->frame_ref--;
                         loader_ctx->stack_cell_num--;
 #if WASM_ENABLE_FAST_INTERP != 0
