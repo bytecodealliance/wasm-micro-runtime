@@ -35,12 +35,12 @@ jobs:
 
       - name: install dependencies for non macos-14
         if: inputs.os != 'macos-14'
-        run: /usr/bin/env python3 -m pip install -r requirements.txt
+        run: /usr/bin/env python3 -m pip install --break-system-packages -r requirements.txt
         working-directory: build-scripts
 
       - name: install dependencies for macos-14
         if: inputs.os == 'macos-14'
-        run: /usr/bin/env python3 -m pip install -r requirements.txt --break-system-packages
+        run: /usr/bin/env python3 -m pip install --break-system-packages -r requirements.txt --break-system-packages
         working-directory: build-scripts
 
       - name: retrive the last commit ID
