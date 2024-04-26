@@ -113,10 +113,11 @@ main(int argc, char **argv)
     printf("-------------------------------------------------------------------"
            "--------\n");
 
+    uint32_t page_size = os_getpagesize();
     unsigned int stack;
     unsigned int prevstack = 0; /* appease GCC -Wmaybe-uninitialized */
     unsigned int stack_range_start = 0;
-    unsigned int stack_range_end = 4096 * 6;
+    unsigned int stack_range_end = page_size * 6;
     unsigned int step = 16;
     struct record rec0;
     struct record rec1;

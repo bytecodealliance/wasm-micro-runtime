@@ -523,7 +523,12 @@
 
 /* Guard page count for stack overflow check with hardware trap */
 #ifndef STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT
+#if defined(__APPLE__) && defined(__aarch64__)
+/* Note: on macOS/iOS arm64, the user page size is 16KB */
+#define STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT 1
+#else
 #define STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT 3
+#endif
 #endif
 
 /* Default wasm block address cache size and conflict list size */
