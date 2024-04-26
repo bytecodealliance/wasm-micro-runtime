@@ -56,7 +56,7 @@ jobs:
   build_llvm_libraries_on_intel_macos:
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
-      os: "macos-latest"
+      os: "macos-13"
       arch: "X86"
   build_llvm_libraries_on_arm_macos:
     uses: ./.github/workflows/build_llvm_libraries.yml
@@ -70,7 +70,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-latest
+          - os: macos-13
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_intel_macos.outputs.cache_key }}
     steps:
       - name: checkout
@@ -131,7 +131,7 @@ jobs:
             "-DWAMR_BUILD_TAIL_CALL=1",
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
           ]
-        os: [macos-latest]
+        os: [macos-13]
         platform: [darwin]
         exclude:
           # uncompatiable feature and platform
@@ -173,7 +173,7 @@ jobs:
           - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
         include:
-          - os: macos-latest
+          - os: macos-13
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_intel_macos.outputs.cache_key }}
     steps:
       - name: checkout
@@ -218,7 +218,7 @@ jobs:
             #$LLVM_EAGER_JIT_BUILD_OPTIONS,
             #$AOT_BUILD_OPTIONS,
           ]
-        os: [macos-latest]
+        os: [macos-13]
         wasi_sdk_release:
           [
             "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-macos.tar.gz",
@@ -250,7 +250,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, macos-14]
+        os: [macos-13, macos-14]
         wasi_sdk_release:
           [
             "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-macos.tar.gz",
@@ -260,7 +260,7 @@ jobs:
             "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-macos-12.tar.gz",
           ]
         include:
-          - os: macos-latest
+          - os: macos-13
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_intel_macos.outputs.cache_key }}
           - os: macos-14
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_arm_macos.outputs.cache_key }}
