@@ -89,7 +89,7 @@ Each letter in the "()" represents a parameter type, and the one following after
 - '**I**': i64 
 - '**f**': f32
 - '**F**': f64
-- '**r**': externref (has to be the value of a `uintptr_t` variable)
+- '**r**': externref (has to be the value of a `uintptr_t` variable), or all kinds of GC reference types when GC feature is enabled
 - '**\***': the parameter is a buffer address in WASM application
 - '**~**': the parameter is the byte length of WASM buffer as referred by preceding argument "\*". It must follow after '*', otherwise, registration will fail
 - '**$**': the parameter is a string in WASM application

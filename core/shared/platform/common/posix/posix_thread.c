@@ -445,9 +445,6 @@ os_thread_get_stack_boundary()
         pthread_attr_destroy(&attr);
         if (stack_size > max_stack_size)
             addr = addr + stack_size - max_stack_size;
-        if (guard_size < (size_t)page_size)
-            /* Reserved 1 guard page at least for safety */
-            guard_size = (size_t)page_size;
         addr += guard_size;
     }
     (void)stack_size;
@@ -466,8 +463,6 @@ os_thread_get_stack_boundary()
             stack_size = max_stack_size;
 
         addr -= stack_size;
-        /* Reserved 1 guard page at least for safety */
-        addr += page_size;
     }
 #endif
 

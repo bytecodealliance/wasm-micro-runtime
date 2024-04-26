@@ -8,7 +8,7 @@ on:
     types:
       - opened
       - synchronize
-    # running nightly pipeline if you're changing it 
+    # running nightly pipeline if you're changing it
     # stress tests are run only in nightly at the moment, so running them in they are changed
     paths:
       - ".github/workflows/nightly_run.yml"
@@ -54,7 +54,7 @@ jobs:
     with:
       os: "ubuntu-22.04"
       arch: "X86"
-  
+
   build_wamrc:
     needs:
       [
@@ -65,7 +65,7 @@ jobs:
       matrix:
         include:
           - os: ubuntu-20.04
-            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}  
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -459,13 +459,13 @@ jobs:
           cd /opt
           sudo wget ${{ matrix.wasi_sdk_release }}
           sudo tar -xzf wasi-sdk-*.tar.gz
-          sudo mv wasi-sdk-20.0 wasi-sdk
+          sudo ln -sf wasi-sdk-20.0 wasi-sdk
       - name: download and install wabt
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
           sudo tar -xzf wabt-1.0.31-*.tar.gz
-          sudo mv wabt-1.0.31 wabt
+          sudo ln -sf wabt-1.0.31 wabt
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
@@ -547,6 +547,34 @@ jobs:
           cd samples/terminate
           ./build.sh
           ./run.sh
+
+      - name: Build Sample [native-stack-overflow]
+        run: |
+          cd samples/native-stack-overflow
+          ./build.sh
+          ./run.sh test1
+          ./run.sh test2
+
+      - name: Build Sample [native-lib]
+        run: |
+          mkdir build && cd build
+          cmake ..
+          cmake --build . --config Release --parallel 4
+          ./iwasm --native-lib=./libtest_add.so --native-lib=./libtest_sqrt.so --native-lib=./libtest_hello.so --native-lib=./libtest_hello2.so wasm-app/test.wasm
+        working-directory: ./samples/native-lib
+
+      - name: checkout wamr-app-framework
+        run: git clone https://github.com/bytecodealliance/wamr-app-framework.git
+      - name: download wamr-app-framework dependencies
+        run: LVGL=0 LV_DRIVERS=0 ./download.sh
+        working-directory: ./wamr-app-framework/deps
+      - name: Build Sample [simple]
+        run: |
+          ./build.sh -p host-interp
+          python3 ./sample_test_run.py $(pwd)/out
+          exit $?
+        working-directory: ./wamr-app-framework/samples/simple
+
   test:
     needs:
       [
@@ -643,7 +671,7 @@ jobs:
           sudo tar -xzf wasi-sdk-*.tar.gz
           sudo mv wasi-sdk-20.0 wasi-sdk
 
-      # It is a temporary solution until new wasi-sdk that includes bug fixes is released 
+      # It is a temporary solution until new wasi-sdk that includes bug fixes is released
       - name: build wasi-libc from source
         if: matrix.test_option == '$WASI_TEST_OPTIONS'
         run: |

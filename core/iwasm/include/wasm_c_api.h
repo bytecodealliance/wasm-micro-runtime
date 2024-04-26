@@ -1,5 +1,11 @@
 // WebAssembly C API
 
+/**
+ * @file   wasm_c_api.h
+ *
+ * @brief  This file defines the WebAssembly C APIs
+ */
+
 #ifndef _WASM_C_API_H_
 #define _WASM_C_API_H_
 

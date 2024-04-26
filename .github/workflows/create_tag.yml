@@ -32,8 +32,22 @@ jobs:
       - name: prepare
         id: preparation
         run: |
-          # show latest 3 versions
-          git tag --list WAMR-*.*.* --sort=committerdate --format="%(refname:short)" | tail -n 3
+          # show latest 3 versions on the branch that create release
+          # Set the initial commit to the head of the branch
+          commit="HEAD"
+          # 
+          # Loop to get the three most recent tags
+          for i in {1..3}
+          do
+              # Get the most recent tag reachable from the current commit
+              tag=$(git describe --tags --abbrev=0 $commit)
+
+              # Print the tag
+              echo "$tag"
+
+              # Move to the commit before the found tag to find the next tag in the next iteration
+              commit=$(git rev-list -n 1 $tag^)
+          done
           # compare latest git tag and semantic version definition
           result=$(python3 ./.github/scripts/fetch_and_compare_version.py)
           echo "script result is ${result}"

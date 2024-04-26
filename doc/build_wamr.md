@@ -254,6 +254,10 @@ Currently we only profile the memory consumption of module, module_instance and 
 
 > See [Enable segue optimization for wamrc when generating the aot file](./perf_tune.md#3-enable-segue-optimization-for-wamrc-when-generating-the-aot-file) for more details.
 
+#### **User defined linear memory allocator**
+- **WAMR_BUILD_ALLOC_WITH_USAGE**=1/0, default to disable if not set
+> Notes: by default, the linear memory is allocated by system. when it's set to 1 and Alloc_With_Allocator is selected, it will be allocated by customer.
+
 #### **Enable running PGO(Profile-Guided Optimization) instrumented AOT file**
 - **WAMR_BUILD_STATIC_PGO**=1/0, default to disable if not set
 > Note: See [Use the AOT static PGO method](./perf_tune.md#5-use-the-aot-static-pgo-method) for more details.

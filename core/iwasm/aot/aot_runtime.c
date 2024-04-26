@@ -1721,6 +1721,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
 
         bh_assert(table_init_data);
 
+        bh_assert(table_init_data->table_index < module_inst->table_count);
         table = module_inst->tables[table_init_data->table_index];
         bh_assert(table);
 
@@ -1728,8 +1729,9 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         bh_assert(table_data);
 
         wasm_runtime_get_table_inst_elem_type(
-            (WASMModuleInstanceCommon *)module_inst, i, &tbl_elem_type,
-            &tbl_elem_ref_type, &tbl_init_size, &tbl_max_size);
+            (WASMModuleInstanceCommon *)module_inst,
+            table_init_data->table_index, &tbl_elem_type, &tbl_elem_ref_type,
+            &tbl_init_size, &tbl_max_size);
 
         if (!wasm_elem_is_declarative(table_init_data->mode)
             && !wasm_reftype_is_subtype_of(
@@ -1965,8 +1967,6 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
     WASMExecEnv *exec_env_tls = wasm_runtime_get_exec_env_tls();
     WASMJmpBuf jmpbuf_node = { 0 }, *jmpbuf_node_pop;
-    uint32 page_size = os_getpagesize();
-    uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
 #ifdef BH_PLATFORM_WINDOWS
     int result;
     bool has_exception;
@@ -1977,10 +1977,7 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     /* Check native stack overflow firstly to ensure we have enough
        native stack to run the following codes before actually calling
        the aot function in invokeNative function. */
-    RECORD_STACK_USAGE(exec_env, (uint8 *)&module_inst);
-    if ((uint8 *)&module_inst < exec_env->native_stack_boundary
-                                    + page_size * (guard_page_count + 1)) {
-        aot_set_exception_with_id(module_inst, EXCE_NATIVE_STACK_OVERFLOW);
+    if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
         return false;
     }
 
@@ -2788,9 +2785,7 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
        exec_env->native_stack_boundary must have been set, we don't set
        it again */
 
-    RECORD_STACK_USAGE(exec_env, (uint8 *)&module_inst);
-    if ((uint8 *)&module_inst < exec_env->native_stack_boundary) {
-        aot_set_exception_with_id(module_inst, EXCE_NATIVE_STACK_OVERFLOW);
+    if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
         goto fail;
     }
 
@@ -3366,39 +3361,49 @@ aot_table_fill(AOTModuleInstance *module_inst, uint32 tbl_idx, uint32 length,
 }
 
 uint32
-aot_table_grow(AOTModuleInstance *module_inst, uint32 tbl_idx,
-               uint32 inc_entries, table_elem_type_t init_val)
+aot_table_grow(AOTModuleInstance *module_inst, uint32 tbl_idx, uint32 inc_size,
+               table_elem_type_t init_val)
 {
-    uint32 entry_count, i, orig_tbl_sz;
     AOTTableInstance *tbl_inst;
+    uint32 i, orig_size, total_size;
 
     tbl_inst = module_inst->tables[tbl_idx];
     if (!tbl_inst) {
         return (uint32)-1;
     }
 
-    orig_tbl_sz = tbl_inst->cur_size;
+    orig_size = tbl_inst->cur_size;
 
-    if (!inc_entries) {
-        return orig_tbl_sz;
+    if (!inc_size) {
+        return orig_size;
     }
 
-    if (tbl_inst->cur_size > UINT32_MAX - inc_entries) {
+    if (tbl_inst->cur_size > UINT32_MAX - inc_size) {
+#if WASM_ENABLE_SPEC_TEST == 0
+        LOG_WARNING("table grow (%" PRIu32 "-> %" PRIu32
+                    ") failed because of integer overflow",
+                    tbl_inst->cur_size, inc_size);
+#endif
         return (uint32)-1;
     }
 
-    entry_count = tbl_inst->cur_size + inc_entries;
-    if (entry_count > tbl_inst->max_size) {
+    total_size = tbl_inst->cur_size + inc_size;
+    if (total_size > tbl_inst->max_size) {
+#if WASM_ENABLE_SPEC_TEST == 0
+        LOG_WARNING("table grow (%" PRIu32 "-> %" PRIu32
+                    ") failed because of over max size",
+                    tbl_inst->cur_size, inc_size);
+#endif
         return (uint32)-1;
     }
 
     /* fill in */
-    for (i = 0; i < inc_entries; ++i) {
+    for (i = 0; i < inc_size; ++i) {
         tbl_inst->elems[tbl_inst->cur_size + i] = init_val;
     }
 
-    tbl_inst->cur_size = entry_count;
-    return orig_tbl_sz;
+    tbl_inst->cur_size = total_size;
+    return orig_size;
 }
 #endif /* WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0 */
 
@@ -4475,6 +4480,22 @@ aot_obj_is_instance_of(AOTModuleInstance *module_inst, WASMObjectRef gc_obj,
     uint32 type_count = aot_module->type_count;
 
     return wasm_obj_is_instance_of(gc_obj, type_index, types, type_count);
+}
+
+bool
+aot_func_type_is_super_of(AOTModuleInstance *module_inst, uint32 type_idx1,
+                          uint32 type_idx2)
+{
+    AOTModule *aot_module = (AOTModule *)module_inst->module;
+    AOTType **types = aot_module->types;
+
+    if (type_idx1 == type_idx2)
+        return true;
+
+    bh_assert(types[type_idx1]->type_flag == WASM_TYPE_FUNC);
+    bh_assert(types[type_idx2]->type_flag == WASM_TYPE_FUNC);
+    return wasm_func_type_is_super_of((WASMFuncType *)types[type_idx1],
+                                      (WASMFuncType *)types[type_idx2]);
 }
 
 WASMRttTypeRef

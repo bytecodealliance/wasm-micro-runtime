@@ -1167,6 +1167,10 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
     all_cell_num += (local_cell_num + 3) / 4;
 #endif
 
+    if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
+        return;
+    }
+
     if (!(frame =
               ALLOC_FRAME(exec_env, wasm_interp_interp_frame_size(all_cell_num),
                           prev_frame)))
@@ -1274,6 +1278,14 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
     WASMExecEnv *sub_module_exec_env = NULL;
     uintptr_t aux_stack_origin_boundary = 0;
     uintptr_t aux_stack_origin_bottom = 0;
+
+    /*
+     * perform stack overflow check before calling
+     * wasm_interp_call_func_bytecode recursively.
+     */
+    if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
+        return;
+    }
 
     if (!sub_func_inst) {
         snprintf(buf, sizeof(buf),
@@ -1736,8 +1748,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     goto got_exception;
                 }
 #else
-                if (cur_type->min_type_idx_normalized
-                        != cur_func_type->min_type_idx_normalized) {
+                if (!wasm_func_type_is_super_of(cur_type, cur_func_type)) {
                     wasm_set_exception(module, "indirect call type mismatch");
                     goto got_exception;
                 }
@@ -6082,12 +6093,13 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     }
     argc = function->param_cell_num;
 
-    RECORD_STACK_USAGE(exec_env, (uint8 *)&prev_frame);
-#if !(defined(OS_ENABLE_HW_BOUND_CHECK) \
-      && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0)
-    if ((uint8 *)&prev_frame < exec_env->native_stack_boundary) {
-        wasm_set_exception((WASMModuleInstance *)exec_env->module_inst,
-                           "native stack overflow");
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
+    /*
+     * wasm_runtime_detect_native_stack_overflow is done by
+     * call_wasm_with_hw_bound_check.
+     */
+#else
+    if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
         return;
     }
 #endif
