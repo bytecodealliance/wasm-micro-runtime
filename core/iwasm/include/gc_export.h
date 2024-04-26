@@ -231,16 +231,6 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_defined_type_is_array_type(const wasm_defined_type_t def_type);
 
 /**
- * Get parameter count of a function type
- *
- * @param func_type the specified function type
- *
- * @return the param count of the specified function type
- */
-WASM_RUNTIME_API_EXTERN uint32_t
-wasm_func_type_get_param_count(const wasm_func_type_t func_type);
-
-/**
  * Get type of a specified parameter of a function type
  *
  * @param func_type the specified function type
@@ -252,16 +242,6 @@ wasm_func_type_get_param_count(const wasm_func_type_t func_type);
 WASM_RUNTIME_API_EXTERN wasm_ref_type_t
 wasm_func_type_get_param_type(const wasm_func_type_t func_type,
                               uint32_t param_idx);
-
-/**
- * Get result count of a function type
- *
- * @param func_type the specified function type
- *
- * @return the result count of the specified function type
- */
-WASM_RUNTIME_API_EXTERN uint32_t
-wasm_func_type_get_result_count(const wasm_func_type_t func_type);
 
 /**
  * Get type of a specified result of a function type
