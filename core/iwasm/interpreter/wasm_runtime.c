@@ -1420,7 +1420,7 @@ execute_malloc_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
 #endif
     {
         argc = 1;
-        argv[0] = size;
+        argv[0] = (uint32)size;
     }
 
     /* if __retain is exported, then this module is compiled by
