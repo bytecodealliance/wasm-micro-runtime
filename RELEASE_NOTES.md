@@ -1,3 +1,72 @@
+## WAMR-1.3.3
+
+### Breaking Changes
+
+### New Features
+
+### Bug Fixes
+- Cumulative fixes for release/1.3.x (#3155)
+  Apply patches in branch main for branch `release/1.3.x`:
+  - Fix loader check_wasi_abi_compatibility (#3126)
+  - Zero the memory mapped from os_mmap in NuttX (#3132)
+  - Fix possible integer overflow in loader target block check (#3133)
+  - Fix locel.set in polymorphic stack (#3135)
+  - Fix threads opcodes' boundary check in classic-interp and fast-interp (#3136)
+  - aot_compile_op_call: Stop setting calling convention explicitly (#3140)
+  - aot compiler: Place precheck wrapper before the corresponding wrapped function (#3141)
+  - fast-interp: Fix copy_stack_top_i64 overlap issue (#3146)
+  - fast-interp: Fix frame_offset overflow issue (#3149)
+  - Fix null pointer access in fast-interp when configurable soft bound check is enabled (#3150)
+- Cumulative fixes for release/1.3.x (#3268)
+  Apply patches which were fixed branch main to branch `release/1.3.x`:
+  - zephyr: Use zephyr sys_cache instead of CMSIS (#3162)
+  - Fix llvm jit push funcref/externref result type issue (#3169)
+  - Fix inconsistent coding convention (#3171)
+  - VSCode IDE enhancement and readme update (#3172)
+  - zephyr: include math only with minimal libc (#3177)
+  - Fix wasm loader handling opcode br_table (#3176)
+  - Specify language in the wasi socket ext project (#3183)
+  - lldb_function_to_function_dbi: Fix a null dereference (#3189)
+  - Fix LLVM assertion failure and update CONTRIBUTING.md (#3197)
+  - lldb_function_to_function_dbi: A hack to avoid crashing on C++ methods (#3190)
+  - Fix compilation errors on MinGW (#3217)
+  - Fix compilation errors on esp-idf platform (#3224)
+  - Fix aot relocation symbols not found on windows 32-bit (#3231)
+  - Fix nightly run tsan ASLR issue (#3233)
+  - Go binding: Change C.long to C.int64_t when call wasm_runtime_set_wasi_args_ex (#3235)
+  - posix_file.c: Correct the dirfd argument that passes to fstatat (#3244)
+  - Fix compilation errors on zephyr platform (#3255)
+  - Fix dynamic offset not updated in op_br for block with ret type (#3269)
+  - Fix CI error when install packages for macos-14 (#3270)
+- Fix ESP-IDF platform mmap data size error (#3288)
+- Fix ESP32-S3 compiling error (#3360)
+- release/1.3.x: Cumulative fixes for release/1.3.x (#3342)
+  Apply patches which were fixed in branch main to branch `release/1.3.x`:
+  - aot debug: Fix a few NULL dereferences on errors (#3273)
+  - aot debug: Fix a NULL dereference (#3274)
+  - aot debug: Process lldb_function_to_function_dbi only for C (#3278)
+  - Revert "lldb_function_to_function_dbi: A hack to avoid crashing on C++ methods (#3190)" (#3281)
+  - Fix warnings/issues reported in Windows and by CodeQL/Coverity (#3275)
+  - thread mgr: Free aux stack only when it was allocated (#3282)
+  - interp: Restore context from prev_frame after tail calling a native function (#3283)
+  - Sync simd opcode definitions spec (#3290)
+  - Add more checks in wasm loader (#3300)
+  - Fix posix_fadvise error handling (#3323)
+  - Fix readdir for posix (#3339)
+  - wasm loader: Fix checks for opcode ref.func and opcode else (#3340)
+  - Enhance wasm loader checks for opcode br_table (#3352)
+  - CI: Use macos-13 instead of macos-latest (#3366)
+
+### Enhancements
+- Add wamr to esp-idf components registry (#3264)
+- Update esp-idf platform support in release/v1.3.x (#3296)
+- Add WASI support for esp-idf platform in release/1.3.x (#3334)
+
+### Others
+- Update release CI (#3294)
+
+---
+
 ## WAMR-1.3.2
 
 ### Breaking Changes
