@@ -390,7 +390,7 @@
 #else
 #define DEFAULT_WASM_STACK_SIZE (12 * 1024)
 #endif
-/* Min auxilliary stack size of each wasm thread */
+/* Min auxiliary stack size of each wasm thread */
 #define WASM_THREAD_AUX_STACK_SIZE_MIN (256)
 
 /* Default/min native stack size of each app thread */
@@ -515,7 +515,7 @@
 #endif
 
 /* Support registering quick AOT/JIT function entries of some func types
-   to speedup the calling process of invoking the AOT/JIT functions of
+   to speed up the calling process of invoking the AOT/JIT functions of
    these types from the host embedder */
 #ifndef WASM_ENABLE_QUICK_AOT_ENTRY
 #define WASM_ENABLE_QUICK_AOT_ENTRY 1

@@ -1224,6 +1224,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     bool disable_bounds_checks = false;
 #endif
 #endif
+#if WASM_ENABLE_TAIL_CALL != 0
+    bool is_return_call = false;
+#endif
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
 #define HANDLE_OPCODE(op) &&HANDLE_##op
@@ -3639,6 +3642,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             {
                 frame = prev_frame;
                 frame_ip = frame->ip;
+#if WASM_ENABLE_TAIL_CALL != 0
+                is_return_call = false;
+#endif
                 goto call_func_from_entry;
             }
 
@@ -3779,6 +3785,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         FREE_FRAME(exec_env, frame);
         frame_ip += cur_func->param_count * sizeof(int16);
         wasm_exec_env_set_cur_frame(exec_env, (WASMRuntimeFrame *)prev_frame);
+        is_return_call = true;
         goto call_func_from_entry;
     }
 #endif /* WASM_ENABLE_TAIL_CALL */
@@ -3839,6 +3846,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         }
         SYNC_ALL_TO_FRAME();
         prev_frame = frame;
+#if WASM_ENABLE_TAIL_CALL != 0
+        is_return_call = false;
+#endif
     }
 
     call_func_from_entry:
@@ -3856,9 +3866,20 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                              prev_frame);
             }
 
-            prev_frame = frame->prev_frame;
-            cur_func = frame->function;
-            UPDATE_ALL_FROM_FRAME();
+#if WASM_ENABLE_TAIL_CALL != 0
+            if (is_return_call) {
+                /* the frame was freed before tail calling and
+                   the prev_frame was set as exec_env's cur_frame,
+                   so here we recover context from prev_frame */
+                RECOVER_CONTEXT(prev_frame);
+            }
+            else
+#endif
+            {
+                prev_frame = frame->prev_frame;
+                cur_func = frame->function;
+                UPDATE_ALL_FROM_FRAME();
+            }
 
             /* update memory size, no need to update memory ptr as
                it isn't changed in wasm_enlarge_memory */

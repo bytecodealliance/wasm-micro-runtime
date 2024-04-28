@@ -556,6 +556,7 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
                                      aux_stack_size)) {
         goto fail3;
     }
+    new_exec_env->is_aux_stack_allocated = true;
 
     /* Inherit suspend_flags of parent thread */
     new_exec_env->suspend_flags.flags =
@@ -601,7 +602,9 @@ wasm_cluster_destroy_spawned_exec_env(WASMExecEnv *exec_env)
         exec_env_tls = exec_env;
     }
 
-    /* Free aux stack space */
+    /* Free aux stack space which was allocated in
+       wasm_cluster_spawn_exec_env */
+    bh_assert(exec_env_tls->is_aux_stack_allocated);
     wasm_cluster_free_aux_stack(exec_env_tls,
                                 exec_env->aux_stack_bottom.bottom);
 
@@ -653,7 +656,9 @@ thread_manager_start_routine(void *arg)
 #endif
 
     /* Free aux stack space */
-    wasm_cluster_free_aux_stack(exec_env, exec_env->aux_stack_bottom.bottom);
+    if (exec_env->is_aux_stack_allocated)
+        wasm_cluster_free_aux_stack(exec_env,
+                                    exec_env->aux_stack_bottom.bottom);
 
     os_mutex_lock(&cluster_list_lock);
 
@@ -721,11 +726,13 @@ wasm_cluster_create_thread(WASMExecEnv *exec_env,
                                          aux_stack_size)) {
             goto fail2;
         }
+        new_exec_env->is_aux_stack_allocated = true;
     }
     else {
         /* Disable aux stack */
         new_exec_env->aux_stack_boundary.boundary = 0;
         new_exec_env->aux_stack_bottom.bottom = UINT32_MAX;
+        new_exec_env->is_aux_stack_allocated = false;
     }
 
     /* Inherit suspend_flags of parent thread */

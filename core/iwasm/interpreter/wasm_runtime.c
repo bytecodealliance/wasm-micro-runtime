@@ -2017,7 +2017,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
         /* check offset */
         if (base_offset > memory_size) {
-            LOG_DEBUG("base_offset(%d) > memory_size(%d)", base_offset,
+            LOG_DEBUG("base_offset(%u) > memory_size(%" PRIu64 ")", base_offset,
                       memory_size);
 #if WASM_ENABLE_REF_TYPES != 0
             set_error_buf(error_buf, error_buf_size,
@@ -2032,7 +2032,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         /* check offset + length(could be zero) */
         length = data_seg->data_length;
         if ((uint64)base_offset + length > memory_size) {
-            LOG_DEBUG("base_offset(%d) + length(%d) > memory_size(%d)",
+            LOG_DEBUG("base_offset(%u) + length(%u) > memory_size(%" PRIu64 ")",
                       base_offset, length, memory_size);
 #if WASM_ENABLE_REF_TYPES != 0
             set_error_buf(error_buf, error_buf_size,

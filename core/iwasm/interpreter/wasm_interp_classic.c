@@ -1222,6 +1222,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     bool disable_bounds_checks = false;
 #endif
 #endif
+#if WASM_ENABLE_TAIL_CALL != 0
+    bool is_return_call = false;
+#endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
     uint8 *frame_ip_orig = NULL;
@@ -4205,6 +4208,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 frame_ip = frame->ip;
                 frame_sp = frame->sp;
                 frame_csp = frame->csp;
+#if WASM_ENABLE_TAIL_CALL != 0
+                is_return_call = false;
+#endif
                 goto call_func_from_entry;
             }
 
@@ -4291,6 +4297,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         }
         FREE_FRAME(exec_env, frame);
         wasm_exec_env_set_cur_frame(exec_env, prev_frame);
+        is_return_call = true;
         goto call_func_from_entry;
     }
 #endif
@@ -4304,6 +4311,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             word_copy(outs_area->lp, frame_sp, cur_func->param_cell_num);
         }
         prev_frame = frame;
+#if WASM_ENABLE_TAIL_CALL != 0
+        is_return_call = false;
+#endif
     }
 
     call_func_from_entry:
@@ -4313,15 +4323,27 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             if (cur_func->import_func_inst) {
                 wasm_interp_call_func_import(module, exec_env, cur_func,
                                              prev_frame);
+#if WASM_ENABLE_TAIL_CALL != 0
+                if (is_return_call) {
+                    /* the frame was freed before tail calling and
+                       the prev_frame was set as exec_env's cur_frame,
+                       so here we recover context from prev_frame */
+                    RECOVER_CONTEXT(prev_frame);
+                }
+                else
+#endif
+                {
+                    prev_frame = frame->prev_frame;
+                    cur_func = frame->function;
+                    UPDATE_ALL_FROM_FRAME();
+                }
+
 #if WASM_ENABLE_EXCE_HANDLING != 0
                 char uncaught_exception[128] = { 0 };
                 bool has_exception =
                     wasm_copy_exception(module, uncaught_exception);
                 if (has_exception
                     && strstr(uncaught_exception, "uncaught wasm exception")) {
-                    /* fix framesp */
-                    UPDATE_ALL_FROM_FRAME();
-
                     uint32 import_exception;
                     /* initialize imported exception index to be invalid */
                     SET_INVALID_TAGINDEX(import_exception);
@@ -4363,11 +4385,21 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             {
                 wasm_interp_call_func_native(module, exec_env, cur_func,
                                              prev_frame);
+#if WASM_ENABLE_TAIL_CALL != 0
+                if (is_return_call) {
+                    /* the frame was freed before tail calling and
+                       the prev_frame was set as exec_env's cur_frame,
+                       so here we recover context from prev_frame */
+                    RECOVER_CONTEXT(prev_frame);
+                }
+                else
+#endif
+                {
+                    prev_frame = frame->prev_frame;
+                    cur_func = frame->function;
+                    UPDATE_ALL_FROM_FRAME();
+                }
             }
-
-            prev_frame = frame->prev_frame;
-            cur_func = frame->function;
-            UPDATE_ALL_FROM_FRAME();
 
             /* update memory size, no need to update memory ptr as
                it isn't changed in wasm_enlarge_memory */

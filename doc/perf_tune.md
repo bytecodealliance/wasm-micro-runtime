@@ -28,7 +28,7 @@ emcc -msimd128 -O3 -o <wasm_file> <c/c++ source files>
 - Reduce the footprint of JIT/AOT, the JIT/AOT code generated is smaller
 - Reduce the compilation time of JIT/AOT
 
-Currently it is supported on linux x86-64, developer can use `--enable-segue=[<flags>]` for wamrc:
+Currently it is only supported on linux x86-64, developer can use `--enable-segue=[<flags>]` for wamrc:
 
 ```bash
 wamrc --enable-segue -o aot_file wasm_file
@@ -49,6 +49,8 @@ iwasm --enable-segue wasm_file      (iwasm is built with llvm-jit enabled)
 # or
 iwasm --enable-segue=[<flags>] wasm_file
 ```
+
+> Note: Currently it is only supported on linux x86-64.
 
 ## 5. Use the AOT static PGO method
 

@@ -272,7 +272,9 @@ handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 goto fail;
             }
 #if WASM_ENABLE_DEBUG_AOT != 0
-            LLVMInstructionSetDebugLoc(ret, return_location);
+            if (return_location != NULL) {
+                LLVMInstructionSetDebugLoc(ret, return_location);
+            }
 #endif
         }
         else {
@@ -281,7 +283,9 @@ handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 goto fail;
             }
 #if WASM_ENABLE_DEBUG_AOT != 0
-            LLVMInstructionSetDebugLoc(ret, return_location);
+            if (return_location != NULL) {
+                LLVMInstructionSetDebugLoc(ret, return_location);
+            }
 #endif
         }
     }
@@ -1048,6 +1052,7 @@ aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                         PUSH(values[j], target_block->result_types[j]);
                     }
                     wasm_runtime_free(values);
+                    values = NULL;
                 }
                 target_block->is_reachable = true;
                 if (i == br_count)
@@ -1073,6 +1078,7 @@ aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                         PUSH(values[j], target_block->param_types[j]);
                     }
                     wasm_runtime_free(values);
+                    values = NULL;
                 }
                 if (i == br_count)
                     default_llvm_block = target_block->llvm_entry_block;
