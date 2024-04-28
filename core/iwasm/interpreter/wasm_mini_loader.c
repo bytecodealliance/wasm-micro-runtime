@@ -3963,7 +3963,7 @@ wasm_loader_pop_frame_ref(WASMLoaderContext *ctx, uint8 type, char *error_buf,
     ctx->frame_ref--;
     ctx->stack_cell_num--;
 
-    if (is_32bit_type(type))
+    if (is_32bit_type(type) || *ctx->frame_ref == VALUE_TYPE_ANY)
         return true;
 
     ctx->frame_ref--;
