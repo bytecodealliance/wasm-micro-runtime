@@ -68,9 +68,11 @@ typedef struct JITDescriptor {
  * To prevent GCC from inlining or removing it we place noinline attribute
  * and inline assembler statement inside.
  */
-void attribute_noinline __jit_debug_register_code();
+void attribute_noinline
+__jit_debug_register_code();
 
-void attribute_noinline __jit_debug_register_code()
+void attribute_noinline
+__jit_debug_register_code()
 {
     int x;
     *(char *)&x = '\0';
