@@ -169,6 +169,7 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
     st = sgx_tprotect_rsrv_mem(ret, aligned_size, mprot);
     if (st != SGX_SUCCESS) {
         os_printf("os_mmap(size=%u, prot=0x%x) failed to set protect.\n", size,
+                  prot);
         sgx_free_rsrv_mem(ret, aligned_size);
         return NULL;
     }
