@@ -6,19 +6,31 @@
 #include "platform_common.h"
 #include "win_util.h"
 
+// From 1601-01-01 to 1970-01-01 there are 134774 days.
+static const uint64_t NT_to_UNIX_epoch_in_ns =
+    134774ull * 86400ull * 1000ull * 1000ull * 1000ull;
+
 __wasi_timestamp_t
 convert_filetime_to_wasi_timestamp(LPFILETIME filetime)
 {
-    // From 1601-01-01 to 1970-01-01 there are 134774 days.
-    static const uint64_t NT_to_UNIX_epoch =
-        134774ull * 86400ull * 1000ull * 1000ull * 1000ull;
-
     ULARGE_INTEGER temp = { .HighPart = filetime->dwHighDateTime,
                             .LowPart = filetime->dwLowDateTime };
 
     // WASI timestamps are measured in nanoseconds whereas FILETIME structs are
     // represented in terms 100-nanosecond intervals.
-    return (temp.QuadPart * 100ull) - NT_to_UNIX_epoch;
+    return (temp.QuadPart * 100ull) - NT_to_UNIX_epoch_in_ns;
+}
+
+FILETIME
+convert_wasi_timestamp_to_filetime(__wasi_timestamp_t timestamp)
+{
+    ULARGE_INTEGER temp = { .QuadPart =
+                                (timestamp + NT_to_UNIX_epoch_in_ns) / 100ull };
+
+    FILETIME ret = { .dwLowDateTime = temp.LowPart,
+                     .dwHighDateTime = temp.HighPart };
+
+    return ret;
 }
 
 __wasi_errno_t

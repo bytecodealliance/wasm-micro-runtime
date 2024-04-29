@@ -6,6 +6,7 @@
 ESP32_TARGET="esp32"
 ESP32C3_TARGET="esp32c3"
 ESP32S3_TARGET="esp32s3"
+ESP32C6_TARGET="esp32c6"
 
 usage ()
 {
@@ -15,6 +16,7 @@ usage ()
         echo "        $0 $ESP32_TARGET"
         echo "        $0 $ESP32C3_TARGET"
         echo "        $0 $ESP32S3_TARGET"
+        echo "        $0 $ESP32C6_TARGET"
         exit 1
 }
 

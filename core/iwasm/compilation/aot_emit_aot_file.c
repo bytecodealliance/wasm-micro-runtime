@@ -25,73 +25,6 @@
         }                                                  \
     } while (0)
 
-#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
-static bool
-check_utf8_str(const uint8 *str, uint32 len)
-{
-    /* The valid ranges are taken from page 125, below link
-       https://www.unicode.org/versions/Unicode9.0.0/ch03.pdf */
-    const uint8 *p = str, *p_end = str + len;
-    uint8 chr;
-
-    while (p < p_end) {
-        chr = *p;
-        if (chr < 0x80) {
-            p++;
-        }
-        else if (chr >= 0xC2 && chr <= 0xDF && p + 1 < p_end) {
-            if (p[1] < 0x80 || p[1] > 0xBF) {
-                return false;
-            }
-            p += 2;
-        }
-        else if (chr >= 0xE0 && chr <= 0xEF && p + 2 < p_end) {
-            if (chr == 0xE0) {
-                if (p[1] < 0xA0 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF) {
-                    return false;
-                }
-            }
-            else if (chr == 0xED) {
-                if (p[1] < 0x80 || p[1] > 0x9F || p[2] < 0x80 || p[2] > 0xBF) {
-                    return false;
-                }
-            }
-            else if (chr >= 0xE1 && chr <= 0xEF) {
-                if (p[1] < 0x80 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF) {
-                    return false;
-                }
-            }
-            p += 3;
-        }
-        else if (chr >= 0xF0 && chr <= 0xF4 && p + 3 < p_end) {
-            if (chr == 0xF0) {
-                if (p[1] < 0x90 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF
-                    || p[3] < 0x80 || p[3] > 0xBF) {
-                    return false;
-                }
-            }
-            else if (chr >= 0xF1 && chr <= 0xF3) {
-                if (p[1] < 0x80 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF
-                    || p[3] < 0x80 || p[3] > 0xBF) {
-                    return false;
-                }
-            }
-            else if (chr == 0xF4) {
-                if (p[1] < 0x80 || p[1] > 0x8F || p[2] < 0x80 || p[2] > 0xBF
-                    || p[3] < 0x80 || p[3] > 0xBF) {
-                    return false;
-                }
-            }
-            p += 4;
-        }
-        else {
-            return false;
-        }
-    }
-    return (p == p_end);
-}
-#endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION != 0 */
-
 /* Internal function in object file */
 typedef struct AOTObjectFunc {
     char *func_name;
@@ -177,6 +110,16 @@ is_little_endian_binary(const AOTObjectData *obj_data)
 {
     /* bit 0: 0 is little-endian, 1 is big-endian */
     return obj_data->target_info.bin_type & 1 ? false : true;
+}
+
+static bool
+need_call_wrapped_indirect(const AOTObjectData *obj_data)
+{
+    const bool need_precheck = obj_data->comp_ctx->enable_stack_bound_check
+                               || obj_data->comp_ctx->enable_stack_estimation;
+
+    return obj_data->comp_ctx->is_indirect_mode && need_precheck
+           && !strncmp(obj_data->comp_ctx->target_arch, "xtensa", 6);
 }
 
 static bool
@@ -541,15 +484,15 @@ static uint32
 get_func_type_size(AOTCompContext *comp_ctx, AOTFuncType *func_type)
 {
 #if WASM_ENABLE_GC != 0
-    /* type flag + is_sub_final + parent_type_idx + rec_count + rec_idx + param
-     * count + result count
-     * + ref_type_map_count + types + context of ref_type_map */
+    /* type flag + equivalence type flag + is_sub_final + parent_type_idx
+       + rec_count + rec_idx + param count + result count
+       + ref_type_map_count + types + context of ref_type_map */
     if (comp_ctx->enable_gc) {
         uint32 size = 0;
 
         /* type flag */
         size += sizeof(func_type->base_type.type_flag);
-        /* is_sub_final */
+        /* equivalence type flag + is_sub_final */
         size += sizeof(uint16);
         /* parent_type_idx */
         size += sizeof(func_type->base_type.parent_type_idx);
@@ -586,12 +529,12 @@ static uint32
 get_struct_type_size(AOTCompContext *comp_ctx, AOTStructType *struct_type)
 {
     uint32 size = 0;
-    /* type flag + is_sub_final + parent_type_idx + rec_count + rec_idx + field
-     * count + fields */
+    /* type flag + equivalence type flag + is_sub_final + parent_type_idx
+       + rec_count + rec_idx + field count + fields */
 
     /* type flag */
     size += sizeof(struct_type->base_type.type_flag);
-    /* is_sub_final */
+    /* equivalence type flag + is_sub_final */
     size += sizeof(uint16);
     /* parent_type_idx */
     size += sizeof(struct_type->base_type.parent_type_idx);
@@ -615,12 +558,12 @@ static uint32
 get_array_type_size(AOTCompContext *comp_ctx, AOTArrayType *array_type)
 {
     uint32 size = 0;
-    /* type flag + is_sub_final + parent_type_idx + rec_count + rec_idx +
-       elem_flags + elem_type + elem_ref_type */
+    /* type flag + equivalence type flag + is_sub_final + parent_type_idx
+       + rec_count + rec_idx + elem_flags + elem_type + elem_ref_type */
 
     /* type flag */
     size += sizeof(array_type->base_type.type_flag);
-    /* is_sub_final */
+    /* equivalence type flag + is_sub_final */
     size += sizeof(uint16);
     /* parent_type_idx (u32) */
     size += sizeof(array_type->base_type.parent_type_idx);
@@ -654,7 +597,22 @@ get_type_info_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
 #if WASM_ENABLE_GC != 0
     if (comp_ctx->enable_gc) {
         for (i = 0; i < comp_data->type_count; i++) {
+            uint32 j;
+
             size = align_uint(size, 4);
+
+            /* Emit simple info if there is an equivalence type */
+            for (j = 0; j < i; j++) {
+                if (comp_data->types[j] == comp_data->types[i]) {
+                    /* type_flag (2 bytes) + equivalence type flag (1 byte)
+                       + padding (1 byte) + equivalence type index */
+                    size += 8;
+                    break;
+                }
+            }
+            if (j < i)
+                continue;
+
             if (comp_data->types[i]->type_flag == WASM_TYPE_FUNC)
                 size += get_func_type_size(comp_ctx,
                                            (AOTFuncType *)comp_data->types[i]);
@@ -840,7 +798,7 @@ get_init_data_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
     size += (uint32)sizeof(uint32) * 2;
 
     /* aux data/heap/stack data */
-    size += sizeof(uint32) * 7;
+    size += sizeof(uint32) * 10;
 
     size += get_object_data_section_info_size(comp_ctx, obj_data);
     return size;
@@ -869,6 +827,10 @@ get_func_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
 
     /* function type indexes */
     size += (uint32)sizeof(uint32) * comp_data->func_count;
+
+    /* aot_func#xxx + aot_func_internal#xxx in XIP mode for xtensa */
+    if (need_call_wrapped_indirect(obj_data))
+        size *= 2;
 
     /* max_local_cell_nums */
     size += (uint32)sizeof(uint32) * comp_data->func_count;
@@ -1538,9 +1500,16 @@ fail_integer_too_large:
         res = (uint32)res64;                                   \
     } while (0)
 
+/*
+ * - transfer .name section in .wasm (comp_data->name_section_buf) to
+ *   aot buf (comp_data->aot_name_section_buf)
+ * - leb128 to u32
+ * - add `\0` at the end of every name, and adjust length(+1)
+ */
 static uint32
 get_name_section_size(AOTCompData *comp_data)
 {
+    /* original name section content in .wasm */
     const uint8 *p = comp_data->name_section_buf,
                 *p_end = comp_data->name_section_buf_end;
     uint8 *buf, *buf_end;
@@ -1567,22 +1536,20 @@ get_name_section_size(AOTCompData *comp_data)
         aot_set_last_error("allocate memory for custom name section failed.");
         return 0;
     }
+    memset(buf, 0, (uint32)max_aot_buf_size);
     buf_end = buf + max_aot_buf_size;
 
+    /* the size of "name". it should be 4 */
     read_leb_uint32(p, p_end, name_len);
     offset = align_uint(offset, 4);
     EMIT_U32(name_len);
 
-    if (name_len == 0 || p + name_len > p_end) {
+    if (name_len != 4 || p + name_len > p_end) {
         aot_set_last_error("unexpected end");
         return 0;
     }
 
-    if (!check_utf8_str(p, name_len)) {
-        aot_set_last_error("invalid UTF-8 encoding");
-        return 0;
-    }
-
+    /* "name" */
     if (memcmp(p, "name", 4) != 0) {
         aot_set_last_error("invalid custom name section");
         return 0;
@@ -1631,9 +1598,18 @@ get_name_section_size(AOTCompData *comp_data)
                         previous_func_index = func_index;
                         read_leb_uint32(p, p_end, func_name_len);
                         offset = align_uint(offset, 2);
-                        EMIT_U16(func_name_len);
+
+                        /* emit a string ends with `\0` */
+                        if (func_name_len + 1 > UINT16_MAX) {
+                            aot_set_last_error(
+                                "emit string failed: string too long");
+                            goto fail;
+                        }
+                        /* extra 1 byte for \0 */
+                        EMIT_U16(func_name_len + 1);
                         EMIT_BUF(p, func_name_len);
                         p += func_name_len;
+                        EMIT_U8(0);
                     }
                 }
                 break;
@@ -2132,13 +2108,32 @@ aot_emit_type_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
 #if WASM_ENABLE_GC != 0
     if (comp_ctx->enable_gc) {
-        int32 idx;
         AOTType **types = comp_data->types;
+        int32 idx;
+        uint32 j;
 
         for (i = 0; i < comp_data->type_count; i++) {
             offset = align_uint(offset, 4);
+
+            /* Emit simple info if there is an equivalence type */
+            for (j = 0; j < i; j++) {
+                if (types[j] == types[i]) {
+                    EMIT_U16(types[i]->type_flag);
+                    /* equivalence type flag is true */
+                    EMIT_U8(1);
+                    EMIT_U8(0);
+                    /* equivalence type index */
+                    EMIT_U32(j);
+                    break;
+                }
+            }
+            if (j < i)
+                continue;
+
             EMIT_U16(types[i]->type_flag);
-            EMIT_U16(types[i]->is_sub_final);
+            /* equivalence type flag is false */
+            EMIT_U8(0);
+            EMIT_U8(types[i]->is_sub_final);
             EMIT_U32(types[i]->parent_type_idx);
 
             EMIT_U16(types[i]->rec_count);
@@ -2414,11 +2409,11 @@ aot_emit_init_data_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     EMIT_U32(comp_data->start_func_index);
 
     EMIT_U32(comp_data->aux_data_end_global_index);
-    EMIT_U32(comp_data->aux_data_end);
+    EMIT_U64(comp_data->aux_data_end);
     EMIT_U32(comp_data->aux_heap_base_global_index);
-    EMIT_U32(comp_data->aux_heap_base);
+    EMIT_U64(comp_data->aux_heap_base);
     EMIT_U32(comp_data->aux_stack_top_global_index);
-    EMIT_U32(comp_data->aux_stack_bottom);
+    EMIT_U64(comp_data->aux_stack_bottom);
     EMIT_U32(comp_data->aux_stack_size);
 
     if (!aot_emit_object_data_section_info(buf, buf_end, &offset, comp_ctx,
@@ -2595,8 +2590,29 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             EMIT_U64(func->text_offset);
     }
 
+    if (need_call_wrapped_indirect(obj_data)) {
+        /*
+         * Explicitly emit aot_func_internal#xxx for Xtensa XIP, therefore,
+         * for aot_func#xxx, func_indexes ranged from 0 ~ func_count,
+         * for aot_func_internal#xxxx, from func_count + 1 ~ 2 * func_count.
+         */
+        for (i = 0, func = obj_data->funcs; i < obj_data->func_count;
+             i++, func++) {
+            if (is_32bit_binary(obj_data))
+                EMIT_U32(func->text_offset_of_aot_func_internal);
+            else
+                EMIT_U64(func->text_offset_of_aot_func_internal);
+        }
+    }
+
     for (i = 0; i < comp_data->func_count; i++)
         EMIT_U32(funcs[i]->func_type_index);
+
+    if (need_call_wrapped_indirect(obj_data)) {
+        /* func_type_index for aot_func_internal#xxxx */
+        for (i = 0; i < comp_data->func_count; i++)
+            EMIT_U32(funcs[i]->func_type_index);
+    }
 
     for (i = 0; i < comp_data->func_count; i++) {
         uint32 max_local_cell_num =
@@ -2611,7 +2627,7 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     if (comp_ctx->enable_gc) {
         /* emit func_local_ref_flag arrays for both import and AOTed funcs */
         AOTFuncType *func_type;
-        uint32 j, local_ref_flags_cell_num;
+        uint32 j, local_ref_flags_cell_num, paddings;
 
         for (i = 0; i < comp_data->import_func_count; i++) {
             func_type = comp_data->import_funcs[i].func_type;
@@ -2621,6 +2637,8 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                 local_ref_flags_cell_num += wasm_value_type_cell_num_internal(
                     func_type->types[j], comp_ctx->pointer_size);
             }
+            paddings =
+                local_ref_flags_cell_num < 2 ? 2 - local_ref_flags_cell_num : 0;
             local_ref_flags_cell_num =
                 local_ref_flags_cell_num > 2 ? local_ref_flags_cell_num : 2;
 
@@ -2632,7 +2650,7 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                                        func_type->types[j]))
                     return false;
             }
-            for (; j < 2; j++)
+            for (j = 0; j < paddings; j++)
                 EMIT_U8(0);
         }
 
@@ -3912,7 +3930,12 @@ aot_resolve_object_relocation_group(AOTObjectData *obj_data,
          * Note: aot_stack_sizes_section_name section only contains
          * stack_sizes table.
          */
-        if (!strcmp(relocation->symbol_name, aot_stack_sizes_name)) {
+        if (!strcmp(relocation->symbol_name, aot_stack_sizes_name)
+            /* in windows 32, the symbol name may start with '_' */
+            || (strlen(relocation->symbol_name) > 0
+                && relocation->symbol_name[0] == '_'
+                && !strcmp(relocation->symbol_name + 1,
+                           aot_stack_sizes_name))) {
             /* discard const */
             relocation->symbol_name = (char *)aot_stack_sizes_section_name;
         }

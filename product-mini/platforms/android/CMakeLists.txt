@@ -1,58 +1,69 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 3.4.1)
-
-set (CMAKE_VERBOSE_MAKEFILE on)
-set (CMAKE_BUILD_TYPE       Release)
-
-# https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-Readme.md#environment-variables-3
-set (CMAKE_TOOLCHAIN_FILE "$ENV{ANDROID_NDK_LATEST_HOME}/build/cmake/android.toolchain.cmake")
-set (ANDROID_SDK $ENV{ANDROID_HOME})
-set (ANDROID_NDK $ENV{ANDROID_NDK_LATEST_HOME})
-
-set (ANDROID_ABI "x86")
-set (ANDROID_LD lld)
-if (NOT DEFINED ANDROID_PLATFORM)
-  set (ANDROID_PLATFORM 24)
-endif ()
-
-project (iwasm)
-
-set (WAMR_BUILD_PLATFORM      "android")
-set (WAMR_BUILD_TARGET        "X86_32")
-set (WAMR_BUILD_TYPE          Release)
-set (WAMR_BUILD_INTERP        1)
-set (WAMR_BUILD_AOT           1)
-set (WAMR_BUILD_JIT           0)
-set (WAMR_BUILD_LIBC_BUILTIN  1)
-set (WAMR_BUILD_LIBC_WASI     1)
+cmake_minimum_required (VERSION 3.14)
 
 # Reset default linker flags
 set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
-# Set WAMR_BUILD_TARGET, currently values supported:
-# "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]", "MIPS", "XTENSA"
 if (NOT DEFINED WAMR_BUILD_TARGET)
-  if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-    # Build as X86_64 by default in 64-bit platform
-    set (WAMR_BUILD_TARGET "X86_64")
-  elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    # Build as X86_32 by default in 32-bit platform
-    set (WAMR_BUILD_TARGET "X86_32")
+  message (FATAL_ERROR "WAMR_BUILD_TARGET isn't set")
+endif ()
+
+if (NOT (WAMR_BUILD_TARGET STREQUAL "X86_64"
+         OR WAMR_BUILD_TARGET STREQUAL "X86_32"
+         OR WAMR_BUILD_TARGET MATCHES "AARCH64.*"
+         OR WAMR_BUILD_TARGET MATCHES "ARM.*"
+         OR WAMR_BUILD_TARGET MATCHES "RISCV64.*"))
+  message (FATAL_ERROR "Unsupported build target platform ${WAMR_BUILD_TARGET}!")
+endif ()
+
+if (NOT DEFINED ANDROID_ABI)
+  if (WAMR_BUILD_TARGET STREQUAL "X86_64")
+    set (ANDROID_ABI "x86_64")
+  elseif (WAMR_BUILD_TARGET STREQUAL "X86_32")
+    set (ANDROID_ABI "x86")
+  elseif (WAMR_BUILD_TARGET MATCHES "AARCH64.*")
+    set (ANDROID_ABI "arm64-v8a")
+  elseif (WAMR_BUILD_TARGET MATCHES "ARM.*")
+    set (ANDROID_ABI "armeabi-v7a")
   else ()
-    message(SEND_ERROR "Unsupported build target platform!")
+    set (ANDROID_ABI "riscv64")
   endif ()
 endif ()
 
+if (NOT DEFINED ANDROID_LD)
+  set (ANDROID_LD lld)
+endif ()
+
+if (NOT DEFINED ANDROID_PLATFORM)
+  set (ANDROID_PLATFORM 24)
+endif ()
+
+# https://android.googlesource.com/platform/ndk/+/master/build/cmake/android.toolchain.cmake
+set (CMAKE_TOOLCHAIN_FILE "$ENV{ANDROID_NDK_LATEST_HOME}/build/cmake/android.toolchain.cmake")
+set (ANDROID_SDK $ENV{ANDROID_HOME})
+set (ANDROID_NDK $ENV{ANDROID_NDK_LATEST_HOME})
+
+project (iwasm)
+
+set (WAMR_BUILD_PLATFORM "android")
+
+set (CMAKE_VERBOSE_MAKEFILE ON)
+
 if (NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
+  set (CMAKE_BUILD_TYPE Release)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_INTERP)
   # Enable Interpreter by default
   set (WAMR_BUILD_INTERP 1)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
+  # Enable fast interpreter
+  set (WAMR_BUILD_FAST_INTERP 1)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_AOT)
@@ -74,6 +85,21 @@ if (NOT DEFINED WAMR_BUILD_LIBC_WASI)
   # Enable libc wasi support by default
   set (WAMR_BUILD_LIBC_WASI 1)
 endif ()
+
+if (NOT DEFINED WAMR_BUILD_MULTI_MODULE)
+  # Disable multiple modules by default
+  set (WAMR_BUILD_MULTI_MODULE 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_LIB_PTHREAD)
+  # Disable pthread library by default
+  set (WAMR_BUILD_LIB_PTHREAD 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_LIB_WASI_THREADS)
+  # Disable wasi threads library by default
+  set (WAMR_BUILD_LIB_WASI_THREADS 0)
+endif()
 
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 

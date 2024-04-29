@@ -2,5 +2,4 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 idf_component_register(SRCS "main.c"
-                    INCLUDE_DIRS "."
-                    REQUIRES wamr)
+                    INCLUDE_DIRS ".")

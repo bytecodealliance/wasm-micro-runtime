@@ -295,6 +295,28 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
     const size_t num_function_args = function_args.GetSize();
     dwarf_extractor *extractor;
 
+    /*
+     * Process only known languages.
+     * We have a few assumptions which might not be true for non-C functions.
+     *
+     * At least it's known broken for C++ and Rust:
+     * https://github.com/bytecodealliance/wasm-micro-runtime/issues/3187
+     * https://github.com/bytecodealliance/wasm-micro-runtime/issues/3163
+     */
+    LanguageType language_type = function.GetLanguage();
+    switch (language_type) {
+        case eLanguageTypeC89:
+        case eLanguageTypeC:
+        case eLanguageTypeC99:
+        case eLanguageTypeC11:
+        case eLanguageTypeC17:
+            break;
+        default:
+            LOG_WARNING("func %s has unsuppoted language_type 0x%x",
+                        function_name, (int)language_type);
+            return NULL;
+    }
+
     if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
         return NULL;
 
@@ -313,6 +335,17 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
         if (function_arg_type.IsValid()) {
             ParamTypes[function_arg_idx + 1] =
                 lldb_type_to_type_dbi(comp_ctx, function_arg_type);
+            if (ParamTypes[function_arg_idx + 1] == NULL) {
+                LOG_WARNING(
+                    "func %s arg %" PRIu32
+                    " has a type not implemented by lldb_type_to_type_dbi",
+                    function_name, function_arg_idx);
+            }
+        }
+        else {
+            LOG_WARNING("func %s arg %" PRIu32 ": GetTypeAtIndex failed",
+                        function_name, function_arg_idx);
+            ParamTypes[function_arg_idx + 1] = NULL;
         }
     }
 
@@ -381,15 +414,16 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
     for (uint32_t function_arg_idx = 0;
          function_arg_idx < variable_list.GetSize(); ++function_arg_idx) {
         SBValue variable(variable_list.GetValueAtIndex(function_arg_idx));
-        if (variable.IsValid()) {
+        if (variable.IsValid() && ParamTypes[function_arg_idx + 1] != NULL) {
             SBDeclaration dec(variable.GetDeclaration());
             auto valtype = variable.GetType();
             LLVMMetadataRef ParamLocation = LLVMDIBuilderCreateDebugLocation(
                 comp_ctx->context, dec.GetLine(), dec.GetColumn(),
                 FunctionMetadata, NULL);
+            const char *varname = variable.GetName();
             LLVMMetadataRef ParamVar = LLVMDIBuilderCreateParameterVariable(
-                DIB, FunctionMetadata, variable.GetName(),
-                strlen(variable.GetName()), function_arg_idx + 1 + 1,
+                DIB, FunctionMetadata, varname, varname ? strlen(varname) : 0,
+                function_arg_idx + 1 + 1,
                 File, // starts form 1, and 1 is exenv,
                 dec.GetLine(), ParamTypes[function_arg_idx + 1], true,
                 LLVMDIFlagZero);
@@ -473,6 +507,8 @@ dwarf_gen_location(const AOTCompContext *comp_ctx,
     dwarf_extractor *extractor;
     AOTFunc *func = func_ctx->aot_func;
 
+    if (func_ctx->debug_func == NULL)
+        return NULL;
     if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
         return NULL;
 

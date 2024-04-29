@@ -87,7 +87,7 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
     stack_size = ((WASMModuleInstance *)module_inst)->default_wasm_stack_size;
 
     if (!(new_module_inst = wasm_runtime_instantiate_internal(
-              module, module_inst, exec_env, stack_size, 0, NULL, 0)))
+              module, module_inst, exec_env, stack_size, 0, 0, NULL, 0)))
         return -1;
 
     wasm_runtime_set_custom_data_internal(
@@ -98,8 +98,8 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
 
     wasm_native_inherit_contexts(new_module_inst, module_inst);
 
-    start_func = wasm_runtime_lookup_function(new_module_inst,
-                                              THREAD_START_FUNCTION, NULL);
+    start_func =
+        wasm_runtime_lookup_function(new_module_inst, THREAD_START_FUNCTION);
     if (!start_func) {
         LOG_ERROR("Failed to find thread start function %s",
                   THREAD_START_FUNCTION);

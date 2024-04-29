@@ -3,6 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#ifndef _BLOCKING_OP_H_
+#define _BLOCKING_OP_H_
+
 #include "bh_platform.h"
 #include "wasm_export.h"
 
@@ -57,3 +60,5 @@ __wasi_errno_t
 blocking_op_poll(wasm_exec_env_t exec_env, struct pollfd *pfds, nfds_t nfds,
                  int timeout, int *retp);
 #endif
+
+#endif /* end of _BLOCKING_OP_H_ */

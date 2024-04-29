@@ -3,7 +3,7 @@
 
 cmake_minimum_required (VERSION 2.8...3.16)
 
-project(socket_wasi_ext)
+project(socket_wasi_ext LANGUAGES C)
 
 add_library(${PROJECT_NAME} STATIC ${CMAKE_CURRENT_LIST_DIR}/src/wasi/wasi_socket_ext.c)
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_LIST_DIR}/inc/)

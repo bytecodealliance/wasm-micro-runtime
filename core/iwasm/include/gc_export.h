@@ -3,6 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+/**
+ * @file   gc_export.h
+ *
+ * @brief  This file defines the exported GC APIs
+ */
+
 #ifndef _GC_EXPORT_H
 #define _GC_EXPORT_H
 
@@ -436,6 +442,16 @@ wasm_struct_obj_set_field(wasm_struct_obj_t obj, uint32_t field_idx,
 WASM_RUNTIME_API_EXTERN void
 wasm_struct_obj_get_field(const wasm_struct_obj_t obj, uint32_t field_idx,
                           bool sign_extend, wasm_value_t *value);
+
+/**
+ * Get the field count of the a struct object.
+ *
+ * @param obj the WASM struct object
+ *
+ * @return the field count of the a struct object
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_struct_obj_get_field_count(const wasm_struct_obj_t obj);
 
 /**
  * Create an array object with the index of defined type, the obj's length is

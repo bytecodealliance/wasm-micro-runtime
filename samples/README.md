@@ -1,5 +1,5 @@
-
 # Samples
+
 - [**basic**](./basic): Demonstrating how to use runtime exposed API's to call WASM functions, how to register native functions and call them, and how to call WASM function from native function.
 - **[file](./file/README.md)**: Demonstrating the supported file interaction API of WASI. This sample can also demonstrate the SGX IPFS (Intel Protected File System), enabling an enclave to seal and unseal data at rest.
 - **[multi-thread](./multi-thread/)**: Demonstrating how to run wasm application which creates multiple threads to execute wasm functions concurrently, and uses mutex/cond by calling pthread related API's.
@@ -12,3 +12,4 @@
 - **[native-lib](./native-lib/README.md)**: Demonstrating how to write required interfaces in native library, build it into a shared library and register the shared library to iwasm.
 - **[sgx-ra](./sgx-ra/README.md)**: Demonstrating how to execute Remote Attestation on SGX with [librats](https://github.com/inclavare-containers/librats), which enables mutual attestation with other runtimes or other entities that support librats to ensure that each is running within the TEE.
 - **[workload](./workload/README.md)**: Demonstrating how to build and run some complex workloads, e.g. tensorflow-lite, XNNPACK, wasm-av1, meshoptimizer and bwa.
+- **[debug-tools](./debug-tools/README.md)**: Demonstrating how to symbolicate a stack trace.

@@ -60,11 +60,11 @@ The WAMR fast interpreter is a clean room development. We would acknowledge the 
 
 ### llvm
 
-[LICENSE](./core/deps/llvm/llvm/LICENCE.txt)
+[LICENSE](./LICENCE.txt)
 
 ### wasm-c-api
 
-[LICENSE](https://github.com/bytecodealliance/wamr-app-framework/blob/main/samples/wasm-c-api/src/LICENSE)
+[LICENSE](./samples/wasm-c-api/src/LICENSE)
 
 ### wasmtime
 
@@ -77,10 +77,6 @@ The WAMR fast interpreter is a clean room development. We would acknowledge the 
 ### zephyr
 
 [LICENSE](https://github.com/bytecodealliance/wamr-app-framework/blob/main/samples/gui/wasm-runtime-wgl/src/platform/zephyr/LICENSE)
-
-### wac
-
-[LICENSE](./tests/wamr-test-suites/spec-test-script/LICENSE)
 
 ### libuv
 

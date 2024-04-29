@@ -184,7 +184,8 @@ __sys_stat64_wrapper(wasm_exec_env_t exec_env, const char *pathname,
     int ret;
     struct stat statbuf;
 
-    if (!validate_native_addr((void *)statbuf_app, sizeof(struct stat_emcc)))
+    if (!validate_native_addr((void *)statbuf_app,
+                              (uint64)sizeof(struct stat_emcc)))
         return -1;
 
     if (pathname == NULL)
@@ -204,7 +205,8 @@ __sys_fstat64_wrapper(wasm_exec_env_t exec_env, int fd,
     int ret;
     struct stat statbuf;
 
-    if (!validate_native_addr((void *)statbuf_app, sizeof(struct stat_emcc)))
+    if (!validate_native_addr((void *)statbuf_app,
+                              (uint64)sizeof(struct stat_emcc)))
         return -1;
 
     if (fd <= 0)
@@ -225,7 +227,7 @@ mmap_wrapper(wasm_exec_env_t exec_env, void *addr, int length, int prot,
     char *buf;
     int size_read;
 
-    buf_offset = module_malloc(length, (void **)&buf);
+    buf_offset = module_malloc((uint64)length, (void **)&buf);
     if (buf_offset == 0)
         return -1;
 
@@ -244,7 +246,7 @@ static int
 munmap_wrapper(wasm_exec_env_t exec_env, uint32 buf_offset, int length)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    module_free(buf_offset);
+    module_free((uint64)buf_offset);
     return 0;
 }
 
@@ -422,7 +424,7 @@ __sys_getcwd_wrapper(wasm_exec_env_t exec_env, char *buf, uint32 size)
         return -1;
 
     ret = getcwd(buf, size);
-    return ret ? addr_native_to_app(ret) : 0;
+    return ret ? (uint32)addr_native_to_app(ret) : 0;
 }
 
 #include <sys/utsname.h>
@@ -443,7 +445,7 @@ __sys_uname_wrapper(wasm_exec_env_t exec_env, struct utsname_app *uname_app)
     struct utsname uname_native = { 0 };
     uint32 length;
 
-    if (!validate_native_addr(uname_app, sizeof(struct utsname_app)))
+    if (!validate_native_addr(uname_app, (uint64)sizeof(struct utsname_app)))
         return -1;
 
     if (uname(&uname_native) != 0) {

@@ -24,7 +24,6 @@
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
 #include <errno.h>
 #include <stdbool.h>
@@ -56,6 +55,12 @@ typedef struct JITDescriptor {
     JITCodeEntry *first_entry_;
 } JITDescriptor;
 
+#if defined(_WIN32) || defined(_WIN32_)
+#define attribute_noinline __declspec(noinline)
+#else
+#define attribute_noinline __attribute__((noinline))
+#endif
+
 /* LLVM has already define this */
 #if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
 /**
@@ -63,9 +68,11 @@ typedef struct JITDescriptor {
  * To prevent GCC from inlining or removing it we place noinline attribute
  * and inline assembler statement inside.
  */
-void __attribute__((noinline)) __jit_debug_register_code();
+void attribute_noinline
+__jit_debug_register_code();
 
-void __attribute__((noinline)) __jit_debug_register_code()
+void attribute_noinline
+__jit_debug_register_code()
 {
     int x;
     *(char *)&x = '\0';

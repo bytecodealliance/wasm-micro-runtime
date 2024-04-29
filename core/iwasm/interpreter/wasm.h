@@ -90,8 +90,22 @@ extern "C" {
  */
 #define VALUE_TYPE_GC_REF 0x43
 
+#define MAX_PAGE_COUNT_FLAG 0x01
+#define SHARED_MEMORY_FLAG 0x02
+#define MEMORY64_FLAG 0x04
+
 #define DEFAULT_NUM_BYTES_PER_PAGE 65536
 #define DEFAULT_MAX_PAGES 65536
+#define DEFAULT_MEM64_MAX_PAGES UINT32_MAX
+
+/* Max size of linear memory */
+#define MAX_LINEAR_MEMORY_SIZE (4 * (uint64)BH_GB)
+/* Roughly 274 TB */
+#define MAX_LINEAR_MEM64_MEMORY_SIZE \
+    (DEFAULT_MEM64_MAX_PAGES * (uint64)64 * (uint64)BH_KB)
+/* Macro to check memory flag and return appropriate memory size */
+#define GET_MAX_LINEAR_MEMORY_SIZE(is_memory64) \
+    (is_memory64 ? MAX_LINEAR_MEM64_MEMORY_SIZE : MAX_LINEAR_MEMORY_SIZE)
 
 #if WASM_ENABLE_GC == 0
 typedef uintptr_t table_elem_type_t;
@@ -260,7 +274,7 @@ typedef struct InitializerExpression {
  */
 typedef struct RefHeapType_TypeIdx {
     /* ref_type is REF_TYPE_HT_NULLABLE or
-       REF_TYPE_HT_NON_NULLABLE, (0x6C or 0x6B) */
+       REF_TYPE_HT_NON_NULLABLE, (0x63 or 0x64) */
     uint8 ref_type;
     /* true if ref_type is REF_TYPE_HT_NULLABLE */
     bool nullable;
@@ -274,7 +288,7 @@ typedef struct RefHeapType_TypeIdx {
  */
 typedef struct RefHeapType_Common {
     /* ref_type is REF_TYPE_HT_NULLABLE or
-       REF_TYPE_HT_NON_NULLABLE (0x6C or 0x6B) */
+       REF_TYPE_HT_NON_NULLABLE (0x63 or 0x64) */
     uint8 ref_type;
     /* true if ref_type is REF_TYPE_HT_NULLABLE */
     bool nullable;
@@ -324,18 +338,24 @@ typedef struct WASMType {
     uint16 type_flag;
 
     bool is_sub_final;
+    /* How many types are referring to this type */
+    uint16 ref_count;
     /* The inheritance depth */
-    uint32 inherit_depth;
+    uint16 inherit_depth;
     /* The root type */
     struct WASMType *root_type;
     /* The parent type */
     struct WASMType *parent_type;
     uint32 parent_type_idx;
 
-    /* number of internal types in the current rec group, if the type is not in
-     * a recursive group, rec_count = 0 */
+    /* The number of internal types in the current rec group, and if
+       the type is not in a recursive group, rec_count is 1 since a
+       single type definition is reinterpreted as a short-hand for a
+       recursive group containing just one type */
     uint16 rec_count;
     uint16 rec_idx;
+    /* The index of the begin type of this group */
+    uint32 rec_begin_type_idx;
 } WASMType, *WASMTypePtr;
 #endif /* end of WASM_ENABLE_GC */
 
@@ -361,9 +381,6 @@ typedef struct WASMFuncType {
     uint16 ref_type_map_count;
     WASMRefTypeMap *ref_type_maps;
     WASMRefTypeMap *result_ref_type_maps;
-    /* minimal type index of the type equal to this type,
-       used in type equal check in call_indirect opcode */
-    uint32 min_type_idx_normalized;
 #else
     uint16 ref_count;
 #endif
@@ -480,6 +497,12 @@ typedef struct WASMTable {
     InitializerExpression init_expr;
 #endif
 } WASMTable;
+
+#if WASM_ENABLE_MEMORY64 != 0
+typedef uint64 mem_offset_t;
+#else
+typedef uint32 mem_offset_t;
+#endif
 
 typedef struct WASMMemory {
     uint32 flags;
@@ -870,19 +893,19 @@ struct WASMModule {
        -1 means unexported */
     uint32 aux_data_end_global_index;
     /* auxiliary __data_end exported by wasm app */
-    uint32 aux_data_end;
+    uint64 aux_data_end;
 
     /* the index of auxiliary __heap_base global,
        -1 means unexported */
     uint32 aux_heap_base_global_index;
     /* auxiliary __heap_base exported by wasm app */
-    uint32 aux_heap_base;
+    uint64 aux_heap_base;
 
     /* the index of auxiliary stack top global,
        -1 means unexported */
     uint32 aux_stack_top_global_index;
     /* auxiliary stack bottom resolved */
-    uint32 aux_stack_bottom;
+    uint64 aux_stack_bottom;
     /* auxiliary stack size resolved */
     uint32 aux_stack_size;
 
@@ -1045,6 +1068,9 @@ struct WASMModule {
     bool is_ref_types_used;
     bool is_bulk_memory_used;
 #endif
+
+    /* user defined name */
+    char *name;
 };
 
 typedef struct BlockType {
@@ -1088,6 +1114,21 @@ inline static unsigned
 align_uint(unsigned v, unsigned b)
 {
     unsigned m = b - 1;
+    return (v + m) & ~m;
+}
+
+/**
+ * Align an 64 bit unsigned value on a alignment boundary.
+ *
+ * @param v the value to be aligned
+ * @param b the alignment boundary (2, 4, 8, ...)
+ *
+ * @return the aligned value
+ */
+inline static uint64
+align_uint64(uint64 v, uint64 b)
+{
+    uint64 m = b - 1;
     return (v + m) & ~m;
 }
 
@@ -1291,8 +1332,8 @@ block_type_get_param_types(BlockType *block_type, uint8 **p_param_types,
         param_count = func_type->param_count;
 #if WASM_ENABLE_GC != 0
         *p_param_reftype_maps = func_type->ref_type_maps;
-        *p_param_reftype_map_count =
-            func_type->result_ref_type_maps - func_type->ref_type_maps;
+        *p_param_reftype_map_count = (uint32)(func_type->result_ref_type_maps
+                                              - func_type->ref_type_maps);
 #endif
     }
     else {

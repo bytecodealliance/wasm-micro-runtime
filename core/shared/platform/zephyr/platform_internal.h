@@ -51,9 +51,7 @@
 #endif /* end of KERNEL_VERSION_NUMBER < 0x030200 */
 
 #if KERNEL_VERSION_NUMBER >= 0x030300 /* version 3.3.0 */
-#if defined(CONFIG_CPU_CORTEX_M7) && defined(CONFIG_ARM_MPU)
 #include <zephyr/cache.h>
-#endif
 #endif /* end of KERNEL_VERSION_NUMBER > 0x030300 */
 
 #ifdef CONFIG_ARM_MPU
@@ -175,6 +173,17 @@ static inline os_file_handle
 os_get_invalid_handle()
 {
     return -1;
+}
+
+static inline int
+os_getpagesize()
+{
+#ifdef CONFIG_MMU
+    return CONFIG_MMU_PAGE_SIZE;
+#else
+    /* Return a default page size if the MMU is not enabled */
+    return 4096; /* 4KB */
+#endif
 }
 
 #endif

@@ -444,14 +444,14 @@ final:
 
 /* The caller must not have any locks */
 bool
-wasm_cluster_allocate_aux_stack(WASMExecEnv *exec_env, uint32 *p_start,
+wasm_cluster_allocate_aux_stack(WASMExecEnv *exec_env, uint64 *p_start,
                                 uint32 *p_size)
 {
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
 #if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION != 0
     WASMModuleInstanceCommon *module_inst =
         wasm_exec_env_get_module_inst(exec_env);
-    uint32 stack_end;
+    uint64 stack_end;
 
     stack_end = wasm_runtime_module_malloc_internal(module_inst, exec_env,
                                                     cluster->stack_size, NULL);
@@ -492,7 +492,7 @@ wasm_cluster_allocate_aux_stack(WASMExecEnv *exec_env, uint32 *p_start,
 
 /* The caller must not have any locks */
 bool
-wasm_cluster_free_aux_stack(WASMExecEnv *exec_env, uint32 start)
+wasm_cluster_free_aux_stack(WASMExecEnv *exec_env, uint64 start)
 {
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
 
@@ -530,7 +530,8 @@ WASMCluster *
 wasm_cluster_create(WASMExecEnv *exec_env)
 {
     WASMCluster *cluster;
-    uint32 aux_stack_start, aux_stack_size;
+    uint32 aux_stack_size;
+    uint64 aux_stack_start;
     bh_list_status ret;
 
     bh_assert(exec_env->cluster == NULL);
@@ -607,7 +608,7 @@ wasm_cluster_create(WASMExecEnv *exec_env)
 
 #if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION == 0
     if (cluster_max_thread_num != 0) {
-        uint64 total_size = cluster_max_thread_num * sizeof(uint32);
+        uint64 total_size = cluster_max_thread_num * sizeof(uint64);
         uint32 i;
         if (total_size >= UINT32_MAX
             || !(cluster->stack_tops =
@@ -808,7 +809,8 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
     wasm_module_t module;
     wasm_module_inst_t new_module_inst;
     WASMExecEnv *new_exec_env;
-    uint32 aux_stack_start, aux_stack_size;
+    uint32 aux_stack_size;
+    uint64 aux_stack_start;
     uint32 stack_size = 8192;
 
     if (!module_inst || !(module = wasm_exec_env_get_module(exec_env))) {
@@ -816,7 +818,7 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
     }
 
     if (!(new_module_inst = wasm_runtime_instantiate_internal(
-              module, module_inst, exec_env, stack_size, 0, NULL, 0))) {
+              module, module_inst, exec_env, stack_size, 0, 0, NULL, 0))) {
         return NULL;
     }
 
@@ -868,6 +870,7 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
                                      aux_stack_size)) {
         goto fail3;
     }
+    new_exec_env->is_aux_stack_allocated = true;
 
     /* Inherit suspend_flags of parent thread, no need to acquire
        thread_state_lock as the thread list has been locked */
@@ -916,9 +919,11 @@ wasm_cluster_destroy_spawned_exec_env(WASMExecEnv *exec_env)
         exec_env_tls = exec_env;
     }
 
-    /* Free aux stack space */
+    /* Free aux stack space which was allocated in
+       wasm_cluster_spawn_exec_env */
+    bh_assert(exec_env_tls->is_aux_stack_allocated);
     wasm_cluster_free_aux_stack(exec_env_tls,
-                                exec_env->aux_stack_bottom.bottom);
+                                (uint64)exec_env->aux_stack_bottom);
 
     cluster_lock_thread_list(cluster, self);
 
@@ -966,7 +971,9 @@ thread_manager_start_routine(void *arg)
     /* Routine exit */
 
     /* Free aux stack space */
-    wasm_cluster_free_aux_stack(exec_env, exec_env->aux_stack_bottom.bottom);
+    if (exec_env->is_aux_stack_allocated)
+        wasm_cluster_free_aux_stack(exec_env,
+                                    (uint64)exec_env->aux_stack_bottom);
 
     cluster_lock_thread_list(cluster, exec_env);
 
@@ -1010,7 +1017,7 @@ thread_manager_start_routine(void *arg)
 int32
 wasm_cluster_create_thread(WASMExecEnv *exec_env,
                            wasm_module_inst_t module_inst,
-                           bool is_aux_stack_allocated, uint32 aux_stack_start,
+                           bool is_aux_stack_allocated, uint64 aux_stack_start,
                            uint32 aux_stack_size,
                            void *(*thread_routine)(void *), void *arg)
 {
@@ -1038,11 +1045,13 @@ wasm_cluster_create_thread(WASMExecEnv *exec_env,
                                          aux_stack_size)) {
             goto fail2;
         }
+        new_exec_env->is_aux_stack_allocated = true;
     }
     else {
         /* Disable aux stack */
-        new_exec_env->aux_stack_boundary.boundary = 0;
-        new_exec_env->aux_stack_bottom.bottom = UINT32_MAX;
+        new_exec_env->aux_stack_boundary = 0;
+        new_exec_env->aux_stack_bottom = UINTPTR_MAX;
+        new_exec_env->is_aux_stack_allocated = false;
     }
 
     /* Inherit suspend_flags of parent thread, no need to acquire
@@ -1097,10 +1106,10 @@ wasm_cluster_dup_c_api_imports(WASMModuleInstanceCommon *module_inst_dst,
 
 #if WASM_ENABLE_INTERP != 0
     if (module_inst_src->module_type == Wasm_Module_Bytecode) {
-        new_c_api_func_imports = &(((WASMModuleInstance *)module_inst_dst)
-                                       ->e->common.c_api_func_imports);
-        c_api_func_imports = ((const WASMModuleInstance *)module_inst_src)
-                                 ->e->common.c_api_func_imports;
+        new_c_api_func_imports =
+            &(((WASMModuleInstance *)module_inst_dst)->c_api_func_imports);
+        c_api_func_imports =
+            ((const WASMModuleInstance *)module_inst_src)->c_api_func_imports;
         import_func_count =
             ((WASMModule *)(((const WASMModuleInstance *)module_inst_src)
                                 ->module))
@@ -1109,13 +1118,10 @@ wasm_cluster_dup_c_api_imports(WASMModuleInstanceCommon *module_inst_dst,
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst_src->module_type == Wasm_Module_AoT) {
-        AOTModuleInstanceExtra *e =
-            (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst_dst)->e;
-        new_c_api_func_imports = &(e->common.c_api_func_imports);
-
-        e = (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst_src)->e;
-        c_api_func_imports = e->common.c_api_func_imports;
-
+        new_c_api_func_imports =
+            &(((AOTModuleInstance *)module_inst_dst)->c_api_func_imports);
+        c_api_func_imports =
+            ((const AOTModuleInstance *)module_inst_src)->c_api_func_imports;
         import_func_count =
             ((AOTModule *)(((AOTModuleInstance *)module_inst_src)->module))
                 ->import_func_count;
@@ -1346,7 +1352,9 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
     /* App exit the thread, free the resources before exit native thread */
 
     /* Free aux stack space */
-    wasm_cluster_free_aux_stack(exec_env, exec_env->aux_stack_bottom.bottom);
+    if (exec_env->is_aux_stack_allocated)
+        wasm_cluster_free_aux_stack(exec_env,
+                                    (uint64)exec_env->aux_stack_bottom);
 
     cluster_lock_thread_list(cluster, exec_env);
 

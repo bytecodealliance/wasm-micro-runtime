@@ -2013,6 +2013,15 @@ def wasm_instance_new_with_args(arg0,arg1,arg2,arg3,arg4,arg5):
     _wasm_instance_new_with_args.argtypes = [POINTER(wasm_store_t),POINTER(wasm_module_t),POINTER(wasm_extern_vec_t),POINTER(POINTER(wasm_trap_t)),c_uint32,c_uint32]
     return _wasm_instance_new_with_args(arg0,arg1,arg2,arg3,arg4,arg5)
 
+class InstantiationArgs(Structure):
+    pass
+
+def wasm_instance_new_with_args_ex(arg0,arg1,arg2,arg3,arg4):
+    _wasm_instance_new_with_args_ex = libiwasm.wasm_instance_new_with_args_ex
+    _wasm_instance_new_with_args_ex.restype = POINTER(wasm_instance_t)
+    _wasm_instance_new_with_args_ex.argtypes = [POINTER(wasm_store_t),POINTER(wasm_module_t),POINTER(wasm_extern_vec_t),POINTER(POINTER(wasm_trap_t)),POINTER(InstantiationArgs)]
+    return _wasm_instance_new_with_args_ex(arg0,arg1,arg2,arg3,arg4)
+
 def wasm_instance_exports(arg0,arg1):
     _wasm_instance_exports = libiwasm.wasm_instance_exports
     _wasm_instance_exports.restype = None
