@@ -25,6 +25,21 @@
 #define TEMPLATE_READ_VALUE(Type, p) \
     (p += sizeof(Type), *(Type *)(p - sizeof(Type)))
 
+#if WASM_ENABLE_MEMORY64 != 0
+static bool
+has_module_memory64(WASMModule *module)
+{
+    /* TODO: multi-memories for now assuming the memory idx type is consistent
+     * across multi-memories */
+    if (module->import_memory_count > 0)
+        return !!(module->import_memories[0].u.memory.flags & MEMORY64_FLAG);
+    else if (module->memory_count > 0)
+        return !!(module->memories[0].flags & MEMORY64_FLAG);
+
+    return false;
+}
+#endif
+
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
@@ -52,7 +67,10 @@ set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 static bool
 is_32bit_type(uint8 type)
 {
-    if (type == VALUE_TYPE_I32 || type == VALUE_TYPE_F32
+    if (type == VALUE_TYPE_I32
+        || type == VALUE_TYPE_F32
+        /* the operand stack is in polymorphic state */
+        || type == VALUE_TYPE_ANY
 #if WASM_ENABLE_REF_TYPES != 0
         || type == VALUE_TYPE_FUNCREF || type == VALUE_TYPE_EXTERNREF
 #endif
@@ -1761,7 +1779,7 @@ load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
     bool is_passive = false;
     uint32 mem_flag;
 #endif
-    uint8 mem_offset_type;
+    uint8 mem_offset_type = VALUE_TYPE_I32;
 
     read_leb_uint32(p, p_end, data_seg_count);
 
@@ -2573,6 +2591,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     uint32 aux_data_end_global_index = (uint32)-1;
     uint32 aux_heap_base_global_index = (uint32)-1;
     WASMFuncType *func_type;
+    uint8 malloc_free_io_type = VALUE_TYPE_I32;
 
     /* Find code and function sections if have */
     while (section) {
@@ -2781,6 +2800,10 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     module->retain_function = (uint32)-1;
 
     /* Resolve malloc/free function exported by wasm module */
+#if WASM_ENABLE_MEMORY64 != 0
+    if (has_module_memory64(module))
+        malloc_free_io_type = VALUE_TYPE_I64;
+#endif
     export = module->exports;
     for (i = 0; i < module->export_count; i++, export ++) {
         if (export->kind == EXPORT_KIND_FUNC) {
@@ -2789,8 +2812,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                 func_index = export->index - module->import_function_count;
                 func_type = module->functions[func_index]->func_type;
                 if (func_type->param_count == 1 && func_type->result_count == 1
-                    && func_type->types[0] == VALUE_TYPE_I32
-                    && func_type->types[1] == VALUE_TYPE_I32) {
+                    && func_type->types[0] == malloc_free_io_type
+                    && func_type->types[1] == malloc_free_io_type) {
                     bh_assert(module->malloc_function == (uint32)-1);
                     module->malloc_function = export->index;
                     LOG_VERBOSE("Found malloc function, name: %s, index: %u",
@@ -2803,9 +2826,9 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                 func_index = export->index - module->import_function_count;
                 func_type = module->functions[func_index]->func_type;
                 if (func_type->param_count == 2 && func_type->result_count == 1
-                    && func_type->types[0] == VALUE_TYPE_I32
+                    && func_type->types[0] == malloc_free_io_type
                     && func_type->types[1] == VALUE_TYPE_I32
-                    && func_type->types[2] == VALUE_TYPE_I32) {
+                    && func_type->types[2] == malloc_free_io_type) {
                     uint32 j;
                     WASMExport *export_tmp;
 
@@ -2829,8 +2852,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                                 module->functions[func_index]->func_type;
                             if (func_type->param_count == 1
                                 && func_type->result_count == 1
-                                && func_type->types[0] == VALUE_TYPE_I32
-                                && func_type->types[1] == VALUE_TYPE_I32) {
+                                && func_type->types[0] == malloc_free_io_type
+                                && func_type->types[1] == malloc_free_io_type) {
                                 bh_assert(module->retain_function
                                           == (uint32)-1);
                                 module->retain_function = export_tmp->index;
@@ -2856,7 +2879,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                 func_index = export->index - module->import_function_count;
                 func_type = module->functions[func_index]->func_type;
                 if (func_type->param_count == 1 && func_type->result_count == 0
-                    && func_type->types[0] == VALUE_TYPE_I32) {
+                    && func_type->types[0] == malloc_free_io_type) {
                     bh_assert(module->free_function == (uint32)-1);
                     module->free_function = export->index;
                     LOG_VERBOSE("Found free function, name: %s, index: %u",
@@ -5159,10 +5182,21 @@ fail:
             goto fail;                                                  \
     } while (0)
 
-#define PUSH_MEM_OFFSET() PUSH_OFFSET_TYPE(mem_offset_type)
+#define PUSH_MEM_OFFSET()                                                    \
+    do {                                                                     \
+        if (!wasm_loader_push_frame_ref_offset(loader_ctx, mem_offset_type,  \
+                                               disable_emit, operand_offset, \
+                                               error_buf, error_buf_size))   \
+            goto fail;                                                       \
+    } while (0)
 #define PUSH_PAGE_COUNT() PUSH_MEM_OFFSET()
 
-#define POP_MEM_OFFSET() POP_OFFSET_TYPE(mem_offset_type)
+#define POP_MEM_OFFSET()                                                   \
+    do {                                                                   \
+        if (!wasm_loader_pop_frame_ref_offset(loader_ctx, mem_offset_type, \
+                                              error_buf, error_buf_size))  \
+            goto fail;                                                     \
+    } while (0)
 
 #define POP_AND_PUSH(type_pop, type_push)                         \
     do {                                                          \
@@ -5906,14 +5940,7 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
            func->param_cell_num, func->local_cell_num, func->ret_cell_num);
 #endif
 #if WASM_ENABLE_MEMORY64 != 0
-    bool is_memory64 = false;
-    /* TODO: multi-memories for now assuming the memory idx type is consistent
-     * across multi-memories */
-    if (module->import_memory_count > 0)
-        is_memory64 = module->import_memories[0].u.memory.flags & MEMORY64_FLAG;
-    else if (module->memory_count > 0)
-        is_memory64 = module->memories[0].flags & MEMORY64_FLAG;
-
+    bool is_memory64 = has_module_memory64(module);
     mem_offset_type = is_memory64 ? VALUE_TYPE_I64 : VALUE_TYPE_I32;
 #else
     mem_offset_type = VALUE_TYPE_I32;
@@ -6190,8 +6217,11 @@ re_scan:
                 BranchBlock *block = NULL;
                 BlockType block_type = (loader_ctx->frame_csp - 1)->block_type;
                 bh_assert(loader_ctx->csp_num >= 2
+                          /* the matched if is found */
                           && (loader_ctx->frame_csp - 1)->label_type
-                                 == LABEL_TYPE_IF);
+                                 == LABEL_TYPE_IF
+                          /* duplicated else isn't found */
+                          && !(loader_ctx->frame_csp - 1)->else_addr);
                 block = loader_ctx->frame_csp - 1;
 
                 /* check whether if branch's stack matches its result type */
@@ -6226,8 +6256,8 @@ re_scan:
                     bh_memcpy_s(loader_ctx->frame_offset, size,
                                 block->param_frame_offsets, size);
                     loader_ctx->frame_offset += (size / sizeof(int16));
-                    loader_ctx->dynamic_offset = block->start_dynamic_offset;
                 }
+                loader_ctx->dynamic_offset = block->start_dynamic_offset;
 #endif
 
                 break;
@@ -6324,13 +6354,11 @@ re_scan:
             case WASM_OP_BR_TABLE:
             {
                 uint8 *ret_types = NULL;
-                uint32 ret_count = 0;
+                uint32 ret_count = 0, depth = 0;
 #if WASM_ENABLE_FAST_INTERP == 0
-                uint8 *p_depth_begin, *p_depth;
-                uint32 depth, j;
                 BrTableCache *br_table_cache = NULL;
-
-                p_org = p - 1;
+                uint8 *p_depth_begin, *p_depth, *p_opcode = p - 1;
+                uint32 j;
 #endif
 
                 read_leb_uint32(p, p_end, count);
@@ -6338,6 +6366,16 @@ re_scan:
                 emit_uint32(loader_ctx, count);
 #endif
                 POP_I32();
+
+                /* Get each depth and check it */
+                p_org = p;
+                for (i = 0; i <= count; i++) {
+                    read_leb_uint32(p, p_end, depth);
+                    bh_assert(loader_ctx->csp_num > 0);
+                    bh_assert(loader_ctx->csp_num - 1 >= depth);
+                    (void)depth;
+                }
+                p = p_org;
 
 #if WASM_ENABLE_FAST_INTERP == 0
                 p_depth_begin = p_depth = p;
@@ -6364,8 +6402,8 @@ re_scan:
                                       error_buf, error_buf_size))) {
                                 goto fail;
                             }
-                            *p_org = EXT_OP_BR_TABLE_CACHE;
-                            br_table_cache->br_table_op_addr = p_org;
+                            *p_opcode = EXT_OP_BR_TABLE_CACHE;
+                            br_table_cache->br_table_op_addr = p_opcode;
                             br_table_cache->br_count = count;
                             /* Copy previous depths which are one byte */
                             for (j = 0; j < i; j++) {
@@ -6596,8 +6634,7 @@ re_scan:
                             && !cur_block->is_stack_polymorphic));
 
                 if (available_stack_cell > 0) {
-                    if (is_32bit_type(*(loader_ctx->frame_ref - 1))
-                        || *(loader_ctx->frame_ref - 1) == VALUE_TYPE_ANY) {
+                    if (is_32bit_type(*(loader_ctx->frame_ref - 1))) {
                         loader_ctx->frame_ref--;
                         loader_ctx->stack_cell_num--;
 #if WASM_ENABLE_FAST_INTERP != 0
@@ -6659,6 +6696,7 @@ re_scan:
                     switch (*(loader_ctx->frame_ref - 1)) {
                         case REF_I32:
                         case REF_F32:
+                        case REF_ANY:
                             break;
                         case REF_I64_2:
                         case REF_F64_2:
@@ -6903,26 +6941,43 @@ re_scan:
                     goto fail;
                 }
 
-                /* Refer to a forward-declared function */
-                if (func_idx >= cur_func_idx + module->import_function_count) {
+                /* Refer to a forward-declared function:
+                   the function must be an import, exported, or present in
+                   a table elem segment or global initializer to be used as
+                   the operand to ref.func */
+                if (func_idx >= module->import_function_count) {
                     WASMTableSeg *table_seg = module->table_segments;
                     bool func_declared = false;
                     uint32 j;
 
-                    /* Check whether the function is declared in table segs,
-                       note that it doesn't matter whether the table seg's mode
-                       is passive, active or declarative. */
-                    for (i = 0; i < module->table_seg_count; i++, table_seg++) {
-                        if (table_seg->elem_type == VALUE_TYPE_FUNCREF) {
-                            for (j = 0; j < table_seg->value_count; j++) {
-                                if (table_seg->init_values[j].u.ref_index
-                                    == func_idx) {
-                                    func_declared = true;
-                                    break;
+                    for (i = 0; i < module->global_count; i++) {
+                        if (module->globals[i].type == VALUE_TYPE_FUNCREF
+                            && module->globals[i].init_expr.init_expr_type
+                                   == INIT_EXPR_TYPE_FUNCREF_CONST
+                            && module->globals[i].init_expr.u.u32 == func_idx) {
+                            func_declared = true;
+                            break;
+                        }
+                    }
+
+                    if (!func_declared) {
+                        /* Check whether the function is declared in table segs,
+                           note that it doesn't matter whether the table seg's
+                           mode is passive, active or declarative. */
+                        for (i = 0; i < module->table_seg_count;
+                             i++, table_seg++) {
+                            if (table_seg->elem_type == VALUE_TYPE_FUNCREF) {
+                                for (j = 0; j < table_seg->value_count; j++) {
+                                    if (table_seg->init_values[j].u.ref_index
+                                        == func_idx) {
+                                        func_declared = true;
+                                        break;
+                                    }
                                 }
                             }
                         }
                     }
+
                     if (!func_declared) {
                         /* Check whether the function is exported */
                         for (i = 0; i < module->export_count; i++) {

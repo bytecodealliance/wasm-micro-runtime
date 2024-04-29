@@ -350,7 +350,7 @@ ipfs_fopen(int fd, int flags)
         errno = __WASI_ECANCELED;
         sgx_fclose(sgx_file);
         os_printf("An error occurred while inserting the IPFS file pointer in "
-                  "the map.");
+                  "the map.\n");
         return NULL;
     }
 

@@ -250,6 +250,51 @@ wasm_value_types_is_subtype_of(const uint8 *types1,
     return true;
 }
 
+static bool
+rec_ref_type_equal(const WASMRefType *ref_type1, const WASMRefType *ref_type2,
+                   uint32 rec_begin_type_idx1, uint32 rec_begin_type_idx2,
+                   uint32 rec_count, const WASMTypePtr *types,
+                   uint32 type_count)
+{
+    uint32 type_idx1, type_idx2;
+
+    if (!wasm_is_refheaptype_typeidx(&ref_type1->ref_ht_common)
+        || !wasm_is_refheaptype_typeidx(&ref_type2->ref_ht_common))
+        return ref_type1->ref_ht_common.heap_type
+                       == ref_type2->ref_ht_common.heap_type
+                   ? true
+                   : false;
+
+    /* Now both ref types are type of (ref type_idx) */
+    type_idx1 = ref_type1->ref_ht_typeidx.type_idx;
+    type_idx2 = ref_type2->ref_ht_typeidx.type_idx;
+
+    if (type_idx1 >= rec_begin_type_idx1
+        && type_idx1 < rec_begin_type_idx1 + rec_count) {
+        /* The converted iso-recursive types should be the same */
+        bool ret = (type_idx2 >= rec_begin_type_idx2
+                    && type_idx2 < rec_begin_type_idx2 + rec_count
+                    && type_idx1 - rec_begin_type_idx1
+                           == type_idx2 - rec_begin_type_idx2)
+                       ? true
+                       : false;
+        return ret;
+    }
+    else if (type_idx2 >= rec_begin_type_idx2
+             && type_idx2 < rec_begin_type_idx2 + rec_count) {
+        /* The converted iso-recursive types should be the same */
+        bool ret = (type_idx1 >= rec_begin_type_idx1
+                    && type_idx1 < rec_begin_type_idx1 + rec_count
+                    && type_idx1 - rec_begin_type_idx1
+                           == type_idx2 - rec_begin_type_idx2)
+                       ? true
+                       : false;
+        return ret;
+    }
+
+    return types[type_idx1] == types[type_idx2] ? true : false;
+}
+
 bool
 wasm_func_type_equal(const WASMFuncType *type1, const WASMFuncType *type2,
                      const WASMTypePtr *types, uint32 type_count)
@@ -277,9 +322,11 @@ wasm_func_type_equal(const WASMFuncType *type1, const WASMFuncType *type2,
 
             ref_type1 = type1->ref_type_maps[j].ref_type;
             ref_type2 = type2->ref_type_maps[j].ref_type;
-            if (!wasm_reftype_equal(ref_type1->ref_type, ref_type1,
-                                    ref_type2->ref_type, ref_type2, types,
-                                    type_count))
+
+            if (!rec_ref_type_equal(
+                    ref_type1, ref_type2, type1->base_type.rec_begin_type_idx,
+                    type2->base_type.rec_begin_type_idx,
+                    type1->base_type.rec_count, types, type_count))
                 return false;
 
             j++;
@@ -316,9 +363,11 @@ wasm_struct_type_equal(const WASMStructType *type1, const WASMStructType *type2,
 
             ref_type1 = type1->ref_type_maps[j].ref_type;
             ref_type2 = type2->ref_type_maps[j].ref_type;
-            if (!wasm_reftype_equal(ref_type1->ref_type, ref_type1,
-                                    ref_type2->ref_type, ref_type2, types,
-                                    type_count))
+
+            if (!rec_ref_type_equal(
+                    ref_type1, ref_type2, type1->base_type.rec_begin_type_idx,
+                    type2->base_type.rec_begin_type_idx,
+                    type1->base_type.rec_count, types, type_count))
                 return false;
 
             j++;
@@ -338,20 +387,66 @@ wasm_array_type_equal(const WASMArrayType *type1, const WASMArrayType *type2,
     if (type1->elem_flags != type2->elem_flags)
         return false;
 
-    return wasm_reftype_equal(type1->elem_type, type1->elem_ref_type,
-                              type2->elem_type, type2->elem_ref_type, types,
-                              type_count);
+    if (type1->elem_type != type2->elem_type)
+        return false;
+
+    if (!wasm_is_type_multi_byte_type(type1->elem_type))
+        return true;
+
+    return rec_ref_type_equal(type1->elem_ref_type, type2->elem_ref_type,
+                              type1->base_type.rec_begin_type_idx,
+                              type2->base_type.rec_begin_type_idx,
+                              type1->base_type.rec_count, types, type_count);
 }
 
 bool
 wasm_type_equal(const WASMType *type1, const WASMType *type2,
                 const WASMTypePtr *types, uint32 type_count)
 {
+    uint32 rec_begin_type_idx1 = type1->rec_begin_type_idx;
+    uint32 rec_begin_type_idx2 = type2->rec_begin_type_idx;
+    uint32 parent_type_idx1, parent_type_idx2, rec_count;
+
     if (type1 == type2)
         return true;
 
-    if (type1->type_flag != type2->type_flag)
+    if (!(type1->type_flag == type2->type_flag
+          && type1->is_sub_final == type2->is_sub_final
+          && type1->rec_count == type2->rec_count
+          && type1->rec_idx == type2->rec_idx))
         return false;
+
+    rec_count = type1->rec_count;
+
+    parent_type_idx1 = type1->parent_type_idx;
+    parent_type_idx2 = type2->parent_type_idx;
+
+    if (parent_type_idx1 >= rec_begin_type_idx1
+        && parent_type_idx1 < rec_begin_type_idx1 + rec_count) {
+        /* The converted iso-recursive types should be the same */
+        if (!(parent_type_idx2 >= rec_begin_type_idx2
+              && parent_type_idx2 < rec_begin_type_idx2 + rec_count
+              && parent_type_idx1 - rec_begin_type_idx1
+                     == parent_type_idx2 - rec_begin_type_idx2)) {
+            return false;
+        }
+    }
+    else if (parent_type_idx2 >= rec_begin_type_idx2
+             && parent_type_idx2 < rec_begin_type_idx2 + rec_count) {
+        /* The converted iso-recursive types should be the same */
+        if (!(parent_type_idx1 >= rec_begin_type_idx1
+              && parent_type_idx1 < rec_begin_type_idx1 + rec_count
+              && parent_type_idx1 - rec_begin_type_idx1
+                     == parent_type_idx2 - rec_begin_type_idx2)) {
+            return false;
+        }
+    }
+    else if (type1->parent_type != type2->parent_type) {
+        /* The parent types should be same since they have been
+           normalized and equivalence types with different type
+           indexes are referring to a same WASMType */
+        return false;
+    }
 
     if (wasm_type_is_func_type(type1))
         return wasm_func_type_equal((WASMFuncType *)type1,
@@ -653,12 +748,6 @@ wasm_reftype_struct_size(const WASMRefType *ref_type)
     return (uint32)sizeof(RefHeapType_Common);
 }
 
-static bool
-type_idx_equal(uint32 type_idx1, uint32 type_idx2)
-{
-    return (type_idx1 == type_idx2) ? true : false;
-}
-
 bool
 wasm_refheaptype_equal(const RefHeapType_Common *ref_heap_type1,
                        const RefHeapType_Common *ref_heap_type2,
@@ -673,8 +762,16 @@ wasm_refheaptype_equal(const RefHeapType_Common *ref_heap_type1,
     if (ref_heap_type1->heap_type != ref_heap_type2->heap_type) {
         if (wasm_is_refheaptype_typeidx(ref_heap_type1)
             && wasm_is_refheaptype_typeidx(ref_heap_type2)) {
-            return type_idx_equal(ref_heap_type1->heap_type,
-                                  ref_heap_type2->heap_type);
+            if (ref_heap_type1->heap_type == ref_heap_type2->heap_type)
+                return true;
+            else
+                /* the type_count may be 0 when called from reftype_equal */
+                return ((uint32)ref_heap_type1->heap_type < type_count
+                        && (uint32)ref_heap_type2->heap_type < type_count
+                        && types[ref_heap_type1->heap_type]
+                               == types[ref_heap_type2->heap_type])
+                           ? true
+                           : false;
         }
         return false;
     }
@@ -836,6 +933,13 @@ wasm_type_is_supers_of(const WASMType *type1, const WASMType *type2)
 }
 
 bool
+wasm_func_type_is_super_of(const WASMFuncType *type1, const WASMFuncType *type2)
+{
+    return wasm_type_is_supers_of((const WASMType *)type1,
+                                  (const WASMType *)type2);
+}
+
+bool
 wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
                            uint8 type2, const WASMRefType *ref_type2,
                            const WASMTypePtr *types, uint32 type_count)
@@ -914,14 +1018,15 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
 #endif
     else if (type1 == REF_TYPE_HT_NULLABLE) {
         if (wasm_is_refheaptype_typeidx(&ref_type1->ref_ht_common)) {
+            bh_assert((uint32)ref_type1->ref_ht_typeidx.type_idx < type_count);
             /* reftype1 is (ref null $t) */
             if (type2 == REF_TYPE_HT_NULLABLE && ref_type2 != NULL
                 && wasm_is_refheaptype_typeidx(&ref_type2->ref_ht_common)) {
-                return type_idx_equal(ref_type1->ref_ht_typeidx.type_idx,
-                                      ref_type2->ref_ht_typeidx.type_idx)
-                       || wasm_type_is_supers_of(
-                           types[ref_type2->ref_ht_typeidx.type_idx],
-                           types[ref_type1->ref_ht_typeidx.type_idx]);
+                bh_assert((uint32)ref_type2->ref_ht_typeidx.type_idx
+                          < type_count);
+                return wasm_type_is_supers_of(
+                    types[ref_type2->ref_ht_typeidx.type_idx],
+                    types[ref_type1->ref_ht_typeidx.type_idx]);
             }
             else if (types[ref_type1->ref_ht_typeidx.type_idx]->type_flag
                      == WASM_TYPE_STRUCT)
@@ -963,16 +1068,17 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
     else if (type1 == REF_TYPE_HT_NON_NULLABLE) {
         bh_assert(ref_type1);
         if (wasm_is_refheaptype_typeidx(&ref_type1->ref_ht_common)) {
+            bh_assert((uint32)ref_type1->ref_ht_typeidx.type_idx < type_count);
             /* reftype1 is (ref $t) */
             if ((type2 == REF_TYPE_HT_NULLABLE
                  || type2 == REF_TYPE_HT_NON_NULLABLE)
                 && ref_type2 != NULL
                 && wasm_is_refheaptype_typeidx(&ref_type2->ref_ht_common)) {
-                return type_idx_equal(ref_type1->ref_ht_typeidx.type_idx,
-                                      ref_type2->ref_ht_typeidx.type_idx)
-                       || wasm_type_is_supers_of(
-                           types[ref_type2->ref_ht_typeidx.type_idx],
-                           types[ref_type1->ref_ht_typeidx.type_idx]);
+                bh_assert((uint32)ref_type2->ref_ht_typeidx.type_idx
+                          < type_count);
+                return wasm_type_is_supers_of(
+                    types[ref_type2->ref_ht_typeidx.type_idx],
+                    types[ref_type1->ref_ht_typeidx.type_idx]);
             }
             else if (types[ref_type1->ref_ht_typeidx.type_idx]->type_flag
                      == WASM_TYPE_STRUCT) {

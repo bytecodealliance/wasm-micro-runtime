@@ -61,8 +61,6 @@ jobs:
           "boards/arm/rp2040/raspberrypi-pico/configs/nsh",
           # cortex-m7
           "boards/arm/stm32h7/nucleo-h743zi/configs/nsh",
-          # riscv32imc
-          "boards/risc-v/espressif/esp32c3-generic/configs/nsh",
           # riscv32gc
           "boards/risc-v/qemu-rv/rv-virt/configs/nsh",
           # riscv64gc
@@ -114,3 +112,26 @@ jobs:
           cd nuttx
           tools/configure.sh ${{ matrix.nuttx_board_config }}
           make -j$(nproc) EXTRAFLAGS=-Werror
+
+      - name: Checkout Bloaty
+        uses: actions/checkout@v3
+        with:
+          repository: google/bloaty
+          submodules: recursive
+          path: bloaty
+
+      - name: Build Bloaty
+        run: |
+          cmake -Bbuild -GNinja bloaty
+          cmake --build build
+
+      - name: Size Report
+        run: |
+          echo "Build target: ${{ matrix.nuttx_board_config }}"
+          echo "WAMR build config: ${{ matrix.wamr_config_option }}"
+          echo "WAMR size:"
+          build/bloaty -d compileunits --source-filter wamr nuttx/nuttx
+          echo "libc-builtin size (if enabled):"
+          build/bloaty -d compileunits --source-filter libc-builtin nuttx/nuttx
+          echo "libc-wasi size (if enabled):"
+          build/bloaty -d compileunits --source-filter libc-wasi nuttx/nuttx

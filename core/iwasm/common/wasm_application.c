@@ -578,8 +578,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                         is_anyref = true;
                     }
 
-                    if (wasm_is_type_multi_byte_type(
-                            type->types[type->param_count + i])) {
+                    if (wasm_is_type_multi_byte_type(type->types[i])) {
                         WASMRefType *ref_type = ref_type_map->ref_type;
                         if (wasm_is_refheaptype_common(
                                 &ref_type->ref_ht_common)) {

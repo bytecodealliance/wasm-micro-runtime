@@ -29,15 +29,34 @@ static void *enlarge_memory_error_user_data;
 
 #if WASM_MEM_ALLOC_WITH_USER_DATA != 0
 static void *allocator_user_data = NULL;
-static void *(*malloc_func)(void *user_data, unsigned int size) = NULL;
-static void *(*realloc_func)(void *user_data, void *ptr,
-                             unsigned int size) = NULL;
-static void (*free_func)(void *user_data, void *ptr) = NULL;
-#else
-static void *(*malloc_func)(unsigned int size) = NULL;
-static void *(*realloc_func)(void *ptr, unsigned int size) = NULL;
-static void (*free_func)(void *ptr) = NULL;
 #endif
+
+static void *(*malloc_func)(
+#if WASM_MEM_ALLOC_WITH_USAGE != 0
+    mem_alloc_usage_t usage,
+#endif
+#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
+    void *user_data,
+#endif
+    unsigned int size) = NULL;
+
+static void *(*realloc_func)(
+#if WASM_MEM_ALLOC_WITH_USAGE != 0
+    mem_alloc_usage_t usage, bool full_size_mmaped,
+#endif
+#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
+    void *user_data,
+#endif
+    void *ptr, unsigned int size) = NULL;
+
+static void (*free_func)(
+#if WASM_MEM_ALLOC_WITH_USAGE != 0
+    mem_alloc_usage_t usage,
+#endif
+#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
+    void *user_data,
+#endif
+    void *ptr) = NULL;
 
 static unsigned int global_pool_size;
 
@@ -177,11 +196,14 @@ wasm_runtime_malloc_internal(unsigned int size)
         return mem_allocator_malloc(pool_allocator, size);
     }
     else if (memory_mode == MEMORY_MODE_ALLOCATOR) {
-#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
-        return malloc_func(allocator_user_data, size);
-#else
-        return malloc_func(size);
+        return malloc_func(
+#if WASM_MEM_ALLOC_WITH_USAGE != 0
+            Alloc_For_Runtime,
 #endif
+#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
+            allocator_user_data,
+#endif
+            size);
     }
     else {
         return os_malloc(size);
@@ -201,11 +223,14 @@ wasm_runtime_realloc_internal(void *ptr, unsigned int size)
     }
     else if (memory_mode == MEMORY_MODE_ALLOCATOR) {
         if (realloc_func)
-#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
-            return realloc_func(allocator_user_data, ptr, size);
-#else
-            return realloc_func(ptr, size);
+            return realloc_func(
+#if WASM_MEM_ALLOC_WITH_USAGE != 0
+                Alloc_For_Runtime, false,
 #endif
+#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
+                allocator_user_data,
+#endif
+                ptr, size);
         else
             return NULL;
     }
@@ -233,11 +258,14 @@ wasm_runtime_free_internal(void *ptr)
         mem_allocator_free(pool_allocator, ptr);
     }
     else if (memory_mode == MEMORY_MODE_ALLOCATOR) {
-#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
-        free_func(allocator_user_data, ptr);
-#else
-        free_func(ptr);
+        free_func(
+#if WASM_MEM_ALLOC_WITH_USAGE != 0
+            Alloc_For_Runtime,
 #endif
+#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
+            allocator_user_data,
+#endif
+            ptr);
     }
     else {
         os_free(ptr);
@@ -765,6 +793,29 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
     bh_assert(total_size_new
               <= GET_MAX_LINEAR_MEMORY_SIZE(memory->is_memory64));
 
+#if WASM_MEM_ALLOC_WITH_USAGE != 0
+    if (!(memory_data_new =
+              realloc_func(Alloc_For_LinearMemory, full_size_mmaped,
+#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
+                           NULL,
+#endif
+                           memory_data_old, total_size_new))) {
+        ret = false;
+        goto return_func;
+    }
+    if (heap_size > 0) {
+        if (mem_allocator_migrate(memory->heap_handle,
+                                  (char *)heap_data_old
+                                      + (memory_data_new - memory_data_old),
+                                  heap_size)
+            != 0) {
+            ret = false;
+        }
+    }
+    memory->heap_data = memory_data_new + (heap_data_old - memory_data_old);
+    memory->heap_data_end = memory->heap_data + heap_size;
+    memory->memory_data = memory_data_new;
+#else
     if (full_size_mmaped) {
 #ifdef BH_PLATFORM_WINDOWS
         if (!os_mem_commit(memory->memory_data_end,
@@ -823,6 +874,7 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
         os_writegsbase(memory_data_new);
 #endif
     }
+#endif /* end of WASM_MEM_ALLOC_WITH_USAGE */
 
     memory->num_bytes_per_page = num_bytes_per_page;
     memory->cur_page_count = total_page_count;
@@ -903,8 +955,19 @@ wasm_deallocate_linear_memory(WASMMemoryInstance *memory_inst)
 #else
     map_size = 8 * (uint64)BH_GB;
 #endif
+
+#if WASM_MEM_ALLOC_WITH_USAGE != 0
+    (void)map_size;
+    free_func(Alloc_For_LinearMemory,
+#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
+              NULL,
+#endif
+              memory_inst->memory_data);
+#else
     wasm_munmap_linear_memory(memory_inst->memory_data,
                               memory_inst->memory_data_size, map_size);
+#endif
+
     memory_inst->memory_data = NULL;
 }
 
@@ -954,9 +1017,20 @@ wasm_allocate_linear_memory(uint8 **data, bool is_shared_memory,
     *memory_data_size = align_as_and_cast(*memory_data_size, page_size);
 
     if (map_size > 0) {
+#if WASM_MEM_ALLOC_WITH_USAGE != 0
+        (void)wasm_mmap_linear_memory;
+        if (!(*data = malloc_func(Alloc_For_LinearMemory,
+#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
+                                  NULL,
+#endif
+                                  *memory_data_size))) {
+            return BHT_ERROR;
+        }
+#else
         if (!(*data = wasm_mmap_linear_memory(map_size, *memory_data_size))) {
             return BHT_ERROR;
         }
+#endif
     }
 
     return BHT_OK;
