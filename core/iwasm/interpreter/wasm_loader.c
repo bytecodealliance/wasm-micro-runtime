@@ -8678,6 +8678,7 @@ re_scan:
                     switch (*(loader_ctx->frame_ref - 1)) {
                         case REF_I32:
                         case REF_F32:
+                        case REF_ANY:
                             break;
                         case REF_I64_2:
                         case REF_F64_2:
