@@ -16,29 +16,16 @@
 #endif /* end of BUILD_TARGET_RISCV64_LP64 || BUILD_TARGET_RISCV32_ILP32 */
 
 #if defined(BUILD_TARGET_RISCV64_LP64) || defined(BUILD_TARGET_RISCV32_ILP32)
-#if defined(BUILD_TARGET_RISCV64_LP64)
-#define CONFIG_GLOBAL_HEAP_BUF_SIZE 4360
-#define CONFIG_APP_STACK_SIZE 288
-#define CONFIG_MAIN_THREAD_STACK_SIZE 2400
-#else
 #define CONFIG_GLOBAL_HEAP_BUF_SIZE 5120
 #define CONFIG_APP_STACK_SIZE 512
-#define CONFIG_MAIN_THREAD_STACK_SIZE 4096
-#endif
-#define CONFIG_APP_HEAP_SIZE 256
+#define CONFIG_APP_HEAP_SIZE 512
 #else /* else of BUILD_TARGET_RISCV64_LP64 || BUILD_TARGET_RISCV32_ILP32 */
-
 #define CONFIG_GLOBAL_HEAP_BUF_SIZE WASM_GLOBAL_HEAP_SIZE
 #define CONFIG_APP_STACK_SIZE 8192
 #define CONFIG_APP_HEAP_SIZE 8192
-
-#ifdef CONFIG_NO_OPTIMIZATIONS
-#define CONFIG_MAIN_THREAD_STACK_SIZE 8192
-#else
-#define CONFIG_MAIN_THREAD_STACK_SIZE 4096
-#endif
-
 #endif /* end of BUILD_TARGET_RISCV64_LP64 || BUILD_TARGET_RISCV32_ILP32 */
+
+#define CONFIG_MAIN_THREAD_STACK_SIZE 8192
 
 static int app_argc;
 static char **app_argv;
@@ -65,14 +52,12 @@ app_instance_main(wasm_module_inst_t module_inst)
     wasm_exec_env_t exec_env;
     unsigned argv[2] = { 0 };
 
-    if (wasm_runtime_lookup_function(module_inst, "main", NULL)
-        || wasm_runtime_lookup_function(module_inst, "__main_argc_argv",
-                                        NULL)) {
+    if (wasm_runtime_lookup_function(module_inst, "main")
+        || wasm_runtime_lookup_function(module_inst, "__main_argc_argv")) {
         LOG_VERBOSE("Calling main function\n");
         wasm_application_execute_main(module_inst, app_argc, app_argv);
     }
-    else if ((func = wasm_runtime_lookup_function(module_inst, "app_main",
-                                                  NULL))) {
+    else if ((func = wasm_runtime_lookup_function(module_inst, "app_main"))) {
         exec_env =
             wasm_runtime_create_exec_env(module_inst, CONFIG_APP_HEAP_SIZE);
         if (!exec_env) {
@@ -129,8 +114,12 @@ iwasm_main(void *arg1, void *arg2, void *arg3)
     init_args.mem_alloc_type = Alloc_With_Pool;
     init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
     init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
+#elif (defined(CONFIG_COMMON_LIBC_MALLOC)            \
+       && CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE != 0) \
+    || defined(CONFIG_NEWLIB_LIBC)
+    init_args.mem_alloc_type = Alloc_With_System_Allocator;
 #else
-#error Another memory allocation scheme than global heap pool is not implemented yet for Zephyr.
+#error "memory allocation scheme is not defined."
 #endif
 
     /* initialize runtime environment */

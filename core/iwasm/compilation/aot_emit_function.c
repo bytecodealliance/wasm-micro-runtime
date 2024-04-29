@@ -329,13 +329,9 @@ call_aot_invoke_c_api_native(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     param_values[0] = func_ctx->aot_inst;
 
-    /* Get module_inst->e->common.c_api_func_imports */
-    offset_c_api_func_imports =
-        get_module_inst_extra_offset(comp_ctx)
-        + (comp_ctx->is_jit_mode
-               ? offsetof(WASMModuleInstanceExtra, common.c_api_func_imports)
-               /* offsetof(AOTModuleInstanceExtra, common.c_api_func_imports) */
-               : sizeof(uint64));
+    /* Get module_inst->c_api_func_imports, jit mode WASMModuleInstance is the
+     * same layout with AOTModuleInstance */
+    offset_c_api_func_imports = offsetof(AOTModuleInstance, c_api_func_imports);
     offset = I32_CONST(offset_c_api_func_imports);
     CHECK_LLVM_CONST(offset);
     c_api_func_imports =
@@ -1167,8 +1163,8 @@ check_app_addr_and_convert(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* prepare function type of aot_check_app_addr_and_convert */
     func_param_types[0] = comp_ctx->aot_inst_type; /* module_inst */
     func_param_types[1] = INT8_TYPE;               /* is_str_arg */
-    func_param_types[2] = I32_TYPE;                /* app_offset */
-    func_param_types[3] = I32_TYPE;                /* buf_size */
+    func_param_types[2] = I64_TYPE;                /* app_offset */
+    func_param_types[3] = I64_TYPE;                /* buf_size */
     func_param_types[4] =
         comp_ctx->basic_types.int8_pptr_type; /* p_native_addr */
     if (!(func_type =
@@ -1555,7 +1551,19 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                     if (signature[i + 2] == '~')
                         native_addr_size = param_values[i + 2];
                     else
-                        native_addr_size = I32_ONE;
+                        native_addr_size = I64_CONST(1);
+                    if (!(native_addr_size = LLVMBuildZExtOrBitCast(
+                              comp_ctx->builder, native_addr_size, I64_TYPE,
+                              "native_addr_size_i64"))) {
+                        aot_set_last_error("llvm build zextOrBitCast failed.");
+                        goto fail;
+                    }
+                    if (!(param_values[j] = LLVMBuildZExtOrBitCast(
+                              comp_ctx->builder, param_values[j], I64_TYPE,
+                              "native_addr_i64"))) {
+                        aot_set_last_error("llvm build zextOrBitCast failed.");
+                        goto fail;
+                    }
                     if (!check_app_addr_and_convert(
                             comp_ctx, func_ctx, false, param_values[j],
                             native_addr_size, &native_addr)) {
@@ -1564,7 +1572,13 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                     param_values[j] = native_addr;
                 }
                 else if (signature[i + 1] == '$') {
-                    native_addr_size = I32_ZERO;
+                    native_addr_size = I64_ZERO;
+                    if (!(param_values[j] = LLVMBuildZExtOrBitCast(
+                              comp_ctx->builder, param_values[j], I64_TYPE,
+                              "native_addr_i64"))) {
+                        aot_set_last_error("llvm build zextOrBitCast failed.");
+                        goto fail;
+                    }
                     if (!check_app_addr_and_convert(
                             comp_ctx, func_ctx, true, param_values[j],
                             native_addr_size, &native_addr)) {
@@ -1812,6 +1826,52 @@ fail:
     return ret;
 }
 
+#if WASM_ENABLE_GC != 0
+static LLVMValueRef
+call_aot_func_type_is_super_of_func(AOTCompContext *comp_ctx,
+                                    AOTFuncContext *func_ctx,
+                                    LLVMValueRef type_idx1,
+                                    LLVMValueRef type_idx2)
+{
+    LLVMValueRef param_values[3], ret_value, value, func;
+    LLVMTypeRef param_types[3], ret_type, func_type, func_ptr_type;
+
+    param_types[0] = comp_ctx->aot_inst_type;
+    param_types[1] = I32_TYPE;
+    param_types[2] = I32_TYPE;
+    ret_type = INT8_TYPE;
+
+#if WASM_ENABLE_JIT != 0
+    if (comp_ctx->is_jit_mode)
+        GET_AOT_FUNCTION(llvm_jit_func_type_is_super_of, 3);
+    else
+#endif
+        GET_AOT_FUNCTION(aot_func_type_is_super_of, 3);
+
+    param_values[0] = func_ctx->aot_inst;
+    param_values[1] = type_idx1;
+    param_values[2] = type_idx2;
+
+    if (!(ret_value =
+              LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values,
+                             3, "call_aot_func_type_is_super_of"))) {
+        aot_set_last_error("llvm build call failed.");
+        return NULL;
+    }
+
+    if (!(ret_value = LLVMBuildICmp(comp_ctx->builder, LLVMIntEQ, ret_value,
+                                    I8_ZERO, "check_fail"))) {
+        aot_set_last_error("llvm build icmp failed.");
+        return NULL;
+    }
+
+    return ret_value;
+
+fail:
+    return NULL;
+}
+#endif
+
 static bool
 call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             AOTFuncType *aot_func_type,
@@ -2004,15 +2064,23 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
-    /* Find the equivalent function type whose type index is the smallest:
-       the callee function's type index is also converted to the smallest
-       one in wasm loader, so we can just check whether the two type indexes
-       are equal (the type index of call_indirect opcode and callee func),
-       we don't need to check whether the whole function types are equal,
-       including param types and result types. */
-    type_idx =
-        wasm_get_smallest_type_idx((WASMTypePtr *)comp_ctx->comp_data->types,
-                                   comp_ctx->comp_data->type_count, type_idx);
+    if (!comp_ctx->enable_gc) {
+        /* Find the equivalent function type whose type index is the smallest:
+           the callee function's type index is also converted to the smallest
+           one in wasm loader, so we can just check whether the two type indexes
+           are equal (the type index of call_indirect opcode and callee func),
+           we don't need to check whether the whole function types are equal,
+           including param types and result types. */
+        type_idx = wasm_get_smallest_type_idx(
+            (WASMTypePtr *)comp_ctx->comp_data->types,
+            comp_ctx->comp_data->type_count, type_idx);
+    }
+    else {
+        /* Call aot_func_type_is_super_of to check whether the func type
+           provided in the bytecode is a super type of the func type of
+           the function to call */
+    }
+
     ftype_idx_const = I32_CONST(type_idx);
     CHECK_LLVM_CONST(ftype_idx_const);
 
@@ -2240,11 +2308,23 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    /* Check if function type index not equal */
-    if (!(cmp_ftype_idx = LLVMBuildICmp(comp_ctx->builder, LLVMIntNE, ftype_idx,
-                                        ftype_idx_const, "cmp_ftype_idx"))) {
-        aot_set_last_error("llvm build icmp failed.");
-        goto fail;
+#if WASM_ENABLE_GC != 0
+    if (comp_ctx->enable_gc) {
+        if (!(cmp_ftype_idx = call_aot_func_type_is_super_of_func(
+                  comp_ctx, func_ctx, ftype_idx_const, ftype_idx))) {
+            goto fail;
+        }
+    }
+    else
+#endif
+    {
+        /* Check if function type index not equal */
+        if (!(cmp_ftype_idx =
+                  LLVMBuildICmp(comp_ctx->builder, LLVMIntNE, ftype_idx,
+                                ftype_idx_const, "cmp_ftype_idx"))) {
+            aot_set_last_error("llvm build icmp failed.");
+            goto fail;
+        }
     }
 
     /* Throw exception if ftype_idx != ftype_idx_const */

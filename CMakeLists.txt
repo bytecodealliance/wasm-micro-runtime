@@ -3,6 +3,11 @@
 
 cmake_minimum_required (VERSION 3.0)
 
+if(ESP_PLATFORM)
+  include (${COMPONENT_DIR}/build-scripts/esp-idf/wamr/CMakeLists.txt)
+  return()
+endif()
+
 project (iwasm)
 
 set (CMAKE_VERBOSE_MAKEFILE OFF)
@@ -151,7 +156,7 @@ if (WAMR_BUILD_WASM_CACHE EQUAL 1)
 endif ()
 
 if (MINGW)
-  target_link_libraries (iwasm_shared -lWs2_32)
+  target_link_libraries (iwasm_shared INTERFACE -lWs2_32 -lwsock32)
 endif ()
 
 install (TARGETS iwasm_shared LIBRARY DESTINATION lib)

@@ -431,130 +431,131 @@ In next phase, we will create OOP APIs. Almost follow the
 
 ## A big list
 
-| WASM Concept | Procedural APIs                | OOP APIs   | OOP APIs methods |
-| ------------ | ------------------------------ | ---------- | ---------------- |
-| XXX_vec      | wasm_xxx_vec_new               |            | list             |
-|              | wasm_xxx_vec_new_uninitialized |            |                  |
-|              | wasm_xxx_vec_new_empty         |            |                  |
-|              | wasm_xxx_vec_copy              |            |                  |
-|              | wasm_xxx_vec_delete            |            |                  |
-| valtype      | wasm_valtype_new               | valtype    | \_\_init\_\_     |
-|              | wasm_valtype_delete            |            | \_\_del\_\_      |
-|              | wasm_valtype_kind              |            | \_\_eq\_\_       |
-|              | wasm_valtype_copy              |            |                  |
-|              | _vector methods_               |            |                  |
-| functype     | wasm_functype_new              | functype   |                  |
-|              | wasm_functype_delete           |            |                  |
-|              | wasm_functype_params           |            |                  |
-|              | wasm_functype_results          |            |                  |
-|              | wasm_functype_copy             |            |                  |
-|              | _vector methods_               |            |                  |
-| globaltype   | wasm_globaltype_new            | globaltype | \_\_init\_\_     |
-|              | wasm_globaltype_delete         |            | \_\_del\_\_      |
-|              | wasm_globaltype_content        |            | \_\_eq\_\_       |
-|              | wasm_globaltype_mutability     |            |                  |
-|              | wasm_globaltype_copy           |            |                  |
-|              | _vector methods_               |            |                  |
-| tabletype    | wasm_tabletype_new             | tabletype  | \_\_init\_\_     |
-|              | wasm_tabletype_delete          |            | \_\_del\_\_      |
-|              | wasm_tabletype_element         |            | \_\_eq\_\_       |
-|              | wasm_tabletype_limits          |            |                  |
-|              | wasm_tabletype_copy            |            |                  |
-|              | _vector methods_               |            |                  |
-| memorytype   | wasm_memorytype_new            | memorytype | \_\_init\_\_     |
-|              | wasm_memorytype_delete         |            | \_\_del\_\_      |
-|              | wasm_memorytype_limits         |            | \_\_eq\_\_       |
-|              | wasm_memorytype_copy           |            |                  |
-|              | _vector methods_               |            |                  |
-| externtype   | wasm_externtype_as_XXX         | externtype |                  |
-|              | wasm_XXX_as_externtype         |            |                  |
-|              | wasm_externtype_copy           |            |                  |
-|              | wasm_externtype_delete         |            |                  |
-|              | wasm_externtype_kind           |            |                  |
-|              | _vector methods_               |            |                  |
-| importtype   | wasm_importtype_new            | importtype |                  |
-|              | wasm_importtype_delete         |            |                  |
-|              | wasm_importtype_module         |            |                  |
-|              | wasm_importtype_name           |            |                  |
-|              | wasm_importtype_type           |            |                  |
-|              | wasm_importtype_copy           |            |                  |
-|              | _vector methods_               |            |                  |
-| exportype    | wasm_exporttype_new            | exporttype |                  |
-|              | wasm_exporttype_delete         |            |                  |
-|              | wasm_exporttype_name           |            |                  |
-|              | wasm_exporttype_type           |            |                  |
-|              | wasm_exporttype_copy           |            |                  |
-|              | _vector methods_               |            |                  |
-| val          | wasm_val_delete                | val        |                  |
-|              | wasm_val_copy                  |            |                  |
-|              | _vector methods_               |            |                  |
-| frame        | wasm_frame_delete              | frame      |                  |
-|              | wasm_frame_instance            |            |                  |
-|              | wasm_frame_func_index          |            |                  |
-|              | wasm_frame_func_offset         |            |                  |
-|              | wasm_frame_module_offset       |            |                  |
-|              | wasm_frame_copy                |            |                  |
-|              | _vector methods_               |            |                  |
-| trap         | wasm_trap_new                  | trap       |                  |
-|              | wasm_trap_delete               |            |                  |
-|              | wasm_trap_message              |            |                  |
-|              | wasm_trap_origin               |            |                  |
-|              | wasm_trap_trace                |            |                  |
-|              | _vector methods_               |            |                  |
-| foreign      | wasm_foreign_new               | foreign    |                  |
-|              | wasm_foreign_delete            |            |                  |
-|              | _vector methods_               |            |                  |
-| engine       | wasm_engine_new                | engine     |                  |
-|              | wasm_engine_new_with_args\*    |            |                  |
-|              | wasm_engine_new_with_config    |            |                  |
-|              | wasm_engine_delete             |            |                  |
-| store        | wasm_store_new                 | store      |                  |
-|              | wasm_store_delete              |            |                  |
-|              | _vector methods_               |            |                  |
-| module       | wasm_module_new                | module     |                  |
-|              | wasm_module_delete             |            |                  |
-|              | wasm_module_validate           |            |                  |
-|              | wasm_module_imports            |            |                  |
-|              | wasm_module_exports            |            |                  |
-| instance     | wasm_instance_new              | instance   |                  |
-|              | wasm_instance_delete           |            |                  |
-|              | wasm_instance_new_with_args\*  |            |                  |
-|              | wasm_instance_exports          |            |                  |
-|              | _vector methods_               |            |                  |
-| func         | wasm_func_new                  | func       |                  |
-|              | wasm_func_new_with_env         |            |                  |
-|              | wasm_func_delete               |            |                  |
-|              | wasm_func_type                 |            |                  |
-|              | wasm_func_call                 |            |                  |
-|              | wasm_func_param_arity          |            |                  |
-|              | wasm_func_result_arity         |            |                  |
-|              | _vector methods_               |            |                  |
-| global       | wasm_global_new                | global     |                  |
-|              | wasm_global_delete             |            |                  |
-|              | wasm_global_type               |            |                  |
-|              | wasm_global_get                |            |                  |
-|              | wasm_global_set                |            |                  |
-|              | _vector methods_               |            |                  |
-| table        | wasm_table_new                 | table      |                  |
-|              | wasm_table_delete              |            |                  |
-|              | wasm_table_type                |            |                  |
-|              | wasm_table_get                 |            |                  |
-|              | wasm_table_set                 |            |                  |
-|              | wasm_table_size                |            |                  |
-|              | _vector methods_               |            |                  |
-| memory       | wasm_memory_new                | memory     |                  |
-|              | wasm_memory_delete             |            |                  |
-|              | wasm_memory_type               |            |                  |
-|              | wasm_memory_data               |            |                  |
-|              | wasm_memory_data_size          |            |                  |
-|              | wasm_memory_size               |            |                  |
-|              | _vector methods_               |            |                  |
-| extern       | wasm_extern_delete             | extern     |                  |
-|              | wasm_extern_as_XXX             |            |                  |
-|              | wasm_XXX_as_extern             |            |                  |
-|              | wasm_extern_kind               |            |                  |
-|              | wasm_extern_type               |            |                  |
-|              | _vector methods_               |            |                  |
+| WASM Concept | Procedural APIs                  | OOP APIs   | OOP APIs methods |
+| ------------ | -------------------------------- | ---------- | ---------------- |
+| XXX_vec      | wasm_xxx_vec_new                 |            | list             |
+|              | wasm_xxx_vec_new_uninitialized   |            |                  |
+|              | wasm_xxx_vec_new_empty           |            |                  |
+|              | wasm_xxx_vec_copy                |            |                  |
+|              | wasm_xxx_vec_delete              |            |                  |
+| valtype      | wasm_valtype_new                 | valtype    | \_\_init\_\_     |
+|              | wasm_valtype_delete              |            | \_\_del\_\_      |
+|              | wasm_valtype_kind                |            | \_\_eq\_\_       |
+|              | wasm_valtype_copy                |            |                  |
+|              | _vector methods_                 |            |                  |
+| functype     | wasm_functype_new                | functype   |                  |
+|              | wasm_functype_delete             |            |                  |
+|              | wasm_functype_params             |            |                  |
+|              | wasm_functype_results            |            |                  |
+|              | wasm_functype_copy               |            |                  |
+|              | _vector methods_                 |            |                  |
+| globaltype   | wasm_globaltype_new              | globaltype | \_\_init\_\_     |
+|              | wasm_globaltype_delete           |            | \_\_del\_\_      |
+|              | wasm_globaltype_content          |            | \_\_eq\_\_       |
+|              | wasm_globaltype_mutability       |            |                  |
+|              | wasm_globaltype_copy             |            |                  |
+|              | _vector methods_                 |            |                  |
+| tabletype    | wasm_tabletype_new               | tabletype  | \_\_init\_\_     |
+|              | wasm_tabletype_delete            |            | \_\_del\_\_      |
+|              | wasm_tabletype_element           |            | \_\_eq\_\_       |
+|              | wasm_tabletype_limits            |            |                  |
+|              | wasm_tabletype_copy              |            |                  |
+|              | _vector methods_                 |            |                  |
+| memorytype   | wasm_memorytype_new              | memorytype | \_\_init\_\_     |
+|              | wasm_memorytype_delete           |            | \_\_del\_\_      |
+|              | wasm_memorytype_limits           |            | \_\_eq\_\_       |
+|              | wasm_memorytype_copy             |            |                  |
+|              | _vector methods_                 |            |                  |
+| externtype   | wasm_externtype_as_XXX           | externtype |                  |
+|              | wasm_XXX_as_externtype           |            |                  |
+|              | wasm_externtype_copy             |            |                  |
+|              | wasm_externtype_delete           |            |                  |
+|              | wasm_externtype_kind             |            |                  |
+|              | _vector methods_                 |            |                  |
+| importtype   | wasm_importtype_new              | importtype |                  |
+|              | wasm_importtype_delete           |            |                  |
+|              | wasm_importtype_module           |            |                  |
+|              | wasm_importtype_name             |            |                  |
+|              | wasm_importtype_type             |            |                  |
+|              | wasm_importtype_copy             |            |                  |
+|              | _vector methods_                 |            |                  |
+| exportype    | wasm_exporttype_new              | exporttype |                  |
+|              | wasm_exporttype_delete           |            |                  |
+|              | wasm_exporttype_name             |            |                  |
+|              | wasm_exporttype_type             |            |                  |
+|              | wasm_exporttype_copy             |            |                  |
+|              | _vector methods_                 |            |                  |
+| val          | wasm_val_delete                  | val        |                  |
+|              | wasm_val_copy                    |            |                  |
+|              | _vector methods_                 |            |                  |
+| frame        | wasm_frame_delete                | frame      |                  |
+|              | wasm_frame_instance              |            |                  |
+|              | wasm_frame_func_index            |            |                  |
+|              | wasm_frame_func_offset           |            |                  |
+|              | wasm_frame_module_offset         |            |                  |
+|              | wasm_frame_copy                  |            |                  |
+|              | _vector methods_                 |            |                  |
+| trap         | wasm_trap_new                    | trap       |                  |
+|              | wasm_trap_delete                 |            |                  |
+|              | wasm_trap_message                |            |                  |
+|              | wasm_trap_origin                 |            |                  |
+|              | wasm_trap_trace                  |            |                  |
+|              | _vector methods_                 |            |                  |
+| foreign      | wasm_foreign_new                 | foreign    |                  |
+|              | wasm_foreign_delete              |            |                  |
+|              | _vector methods_                 |            |                  |
+| engine       | wasm_engine_new                  | engine     |                  |
+|              | wasm_engine_new_with_args\*      |            |                  |
+|              | wasm_engine_new_with_config      |            |                  |
+|              | wasm_engine_delete               |            |                  |
+| store        | wasm_store_new                   | store      |                  |
+|              | wasm_store_delete                |            |                  |
+|              | _vector methods_                 |            |                  |
+| module       | wasm_module_new                  | module     |                  |
+|              | wasm_module_delete               |            |                  |
+|              | wasm_module_validate             |            |                  |
+|              | wasm_module_imports              |            |                  |
+|              | wasm_module_exports              |            |                  |
+| instance     | wasm_instance_new                | instance   |                  |
+|              | wasm_instance_delete             |            |                  |
+|              | wasm_instance_new_with_args\*    |            |                  |
+|              | wasm_instance_new_with_args_ex\* |            |                  |
+|              | wasm_instance_exports            |            |                  |
+|              | _vector methods_                 |            |                  |
+| func         | wasm_func_new                    | func       |                  |
+|              | wasm_func_new_with_env           |            |                  |
+|              | wasm_func_delete                 |            |                  |
+|              | wasm_func_type                   |            |                  |
+|              | wasm_func_call                   |            |                  |
+|              | wasm_func_param_arity            |            |                  |
+|              | wasm_func_result_arity           |            |                  |
+|              | _vector methods_                 |            |                  |
+| global       | wasm_global_new                  | global     |                  |
+|              | wasm_global_delete               |            |                  |
+|              | wasm_global_type                 |            |                  |
+|              | wasm_global_get                  |            |                  |
+|              | wasm_global_set                  |            |                  |
+|              | _vector methods_                 |            |                  |
+| table        | wasm_table_new                   | table      |                  |
+|              | wasm_table_delete                |            |                  |
+|              | wasm_table_type                  |            |                  |
+|              | wasm_table_get                   |            |                  |
+|              | wasm_table_set                   |            |                  |
+|              | wasm_table_size                  |            |                  |
+|              | _vector methods_                 |            |                  |
+| memory       | wasm_memory_new                  | memory     |                  |
+|              | wasm_memory_delete               |            |                  |
+|              | wasm_memory_type                 |            |                  |
+|              | wasm_memory_data                 |            |                  |
+|              | wasm_memory_data_size            |            |                  |
+|              | wasm_memory_size                 |            |                  |
+|              | _vector methods_                 |            |                  |
+| extern       | wasm_extern_delete               | extern     |                  |
+|              | wasm_extern_as_XXX               |            |                  |
+|              | wasm_XXX_as_extern               |            |                  |
+|              | wasm_extern_kind                 |            |                  |
+|              | wasm_extern_type                 |            |                  |
+|              | _vector methods_                 |            |                  |
 
 not supported _functions_
 

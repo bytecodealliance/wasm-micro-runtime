@@ -76,6 +76,11 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 #### **Enable bulk memory feature**
 - **WAMR_BUILD_BULK_MEMORY**=1/0, default to disable if not set
 
+#### **Enable memory64 feature**
+- **WAMR_BUILD_MEMORY64**=1/0, default to disable if not set
+
+> Note: Currently, the memory64 feature is only supported in classic interpreter running mode. 
+
 #### **Enable thread manager**
 - **WAMR_BUILD_THREAD_MGR**=1/0, default to disable if not set
 
@@ -107,6 +112,9 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 - **WAMR_BUILD_WASI_NN_EXTERNAL_DELEGATE_PATH**=Path to the external delegate shared library (e.g. `libedgetpu.so.1.0` for Coral USB)
 
+#### **Enable lib wasi-nn with `wasi_ephemeral_nn` module support**
+- **WAMR_BUILD_WASI_EPHEMERAL_NN**=1/0, default to disable if not set
+
 #### **Disable boundary check with hardware trap**
 - **WAMR_DISABLE_HW_BOUND_CHECK**=1/0, default to enable if not set and supported by platform
 > Note: by default only platform [linux/darwin/android/windows/vxworks 64-bit](https://github.com/bytecodealliance/wasm-micro-runtime/blob/5fb5119239220b0803e7045ca49b0a29fe65e70e/core/shared/platform/linux/platform_internal.h#L81) will enable the boundary check with hardware trap feature, for 32-bit platforms it's automatically disabled even when the flag is set to 0, and the wamrc tool will generate AOT code without boundary check instructions in all 64-bit targets except SGX to improve performance. The boundary check includes linear memory access boundary and native stack access boundary, if `WAMR_DISABLE_STACK_HW_BOUND_CHECK` below isn't set.
@@ -125,6 +133,14 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 #### **Enable 128-bit SIMD feature**
 - **WAMR_BUILD_SIMD**=1/0, default to enable if not set
 > Note: only supported in AOT mode x86-64 target.
+
+#### **Enable Exception Handling**
+- **WAMR_BUILD_EXCE_HANDLING**=1/0, default to disable if not set
+
+> Note: Currently, the exception handling feature is only supported in classic interpreter running mode. 
+
+#### **Enable Garbage Collection**
+- **WAMR_BUILD_GC**=1/0, default to disable if not set
 
 #### **Configure Debug**
 
@@ -238,6 +254,10 @@ Currently we only profile the memory consumption of module, module_instance and 
 
 > See [Enable segue optimization for wamrc when generating the aot file](./perf_tune.md#3-enable-segue-optimization-for-wamrc-when-generating-the-aot-file) for more details.
 
+#### **User defined linear memory allocator**
+- **WAMR_BUILD_ALLOC_WITH_USAGE**=1/0, default to disable if not set
+> Notes: by default, the linear memory is allocated by system. when it's set to 1 and Alloc_With_Allocator is selected, it will be allocated by customer.
+
 #### **Enable running PGO(Profile-Guided Optimization) instrumented AOT file**
 - **WAMR_BUILD_STATIC_PGO**=1/0, default to disable if not set
 > Note: See [Use the AOT static PGO method](./perf_tune.md#5-use-the-aot-static-pgo-method) for more details.
@@ -260,6 +280,10 @@ Currently we only profile the memory consumption of module, module_instance and 
 #### **Enable quick AOT/JTI entries**
 - **WAMR_BUILD_QUICK_AOT_ENTRY**=1/0, enable registering quick call entries to speedup the aot/jit func call process, default to enable if not set
 > Note: See [Refine callings to AOT/JIT functions from host native](./perf_tune.md#83-refine-callings-to-aotjit-functions-from-host-native) for more details.
+
+#### **Enable AOT intrinsics**
+- **WAMR_BUILD_AOT_INTRINSICS**=1/0, enable the AOT intrinsic functions, default to enable if not set. These functions can be called from the AOT code when `--disable-llvm-intrinsics` flag or `--enable-builtin-intrinsics=<intr1,intr2,...>` flag is used by wamrc to generate the AOT file.
+> Note: See [Tuning the XIP intrinsic functions](./xip.md#tuning-the-xip-intrinsic-functions) for more details.
 
 #### **Configurale memory access boundary check**
 - **WAMR_CONFIGUABLE_BOUNDS_CHECKS**=1/0, default to disable if not set

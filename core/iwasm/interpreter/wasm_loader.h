@@ -28,7 +28,7 @@ wasm_loader_load(uint8 *buf, uint32 size,
 #if WASM_ENABLE_MULTI_MODULE != 0
                  bool main_module,
 #endif
-                 char *error_buf, uint32 error_buf_size);
+                 const LoadArgs *args, char *error_buf, uint32 error_buf_size);
 
 /**
  * Load a WASM module from a specified WASM section list.

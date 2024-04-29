@@ -394,7 +394,7 @@ handle_expired_timers(timer_ctx_t ctx, app_timer_t *expired)
            operation may change expired->next */
         expired = expired->next;
         if (t->is_periodic) {
-            /* if it is repeating, then reschedule it; */
+            /* if it is repeating, then reschedule it */
             reschedule_timer(ctx, t);
         }
         else {

@@ -33,14 +33,6 @@ bool
 aot_compile_simd_f64x2_abs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 
 bool
-aot_compile_simd_f32x4_round(AOTCompContext *comp_ctx,
-                             AOTFuncContext *func_ctx);
-
-bool
-aot_compile_simd_f64x2_round(AOTCompContext *comp_ctx,
-                             AOTFuncContext *func_ctx);
-
-bool
 aot_compile_simd_f32x4_sqrt(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 
 bool

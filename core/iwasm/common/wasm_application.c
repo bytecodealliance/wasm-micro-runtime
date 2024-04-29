@@ -61,7 +61,7 @@ static union {
  * Implementation of wasm_application_execute_main()
  */
 static bool
-check_main_func_type(const WASMFuncType *type)
+check_main_func_type(const WASMFuncType *type, bool is_memory64)
 {
     if (!(type->param_count == 0 || type->param_count == 2)
         || type->result_count > 1) {
@@ -72,7 +72,8 @@ check_main_func_type(const WASMFuncType *type)
 
     if (type->param_count == 2
         && !(type->types[0] == VALUE_TYPE_I32
-             && type->types[1] == VALUE_TYPE_I32)) {
+             && type->types[1]
+                    == (is_memory64 ? VALUE_TYPE_I64 : VALUE_TYPE_I32))) {
         LOG_ERROR(
             "WASM execute application failed: invalid main function type.\n");
         return false;
@@ -94,14 +95,18 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
     WASMFunctionInstanceCommon *func;
     WASMFuncType *func_type = NULL;
     WASMExecEnv *exec_env = NULL;
-    uint32 argc1 = 0, argv1[2] = { 0 };
+    uint32 argc1 = 0, argv1[3] = { 0 };
     uint32 total_argv_size = 0;
     uint64 total_size;
-    uint32 argv_buf_offset = 0;
+    uint64 argv_buf_offset = 0;
     int32 i;
     char *argv_buf, *p, *p_end;
     uint32 *argv_offsets, module_type;
-    bool ret, is_import_func = true;
+    bool ret, is_import_func = true, is_memory64 = false;
+#if WASM_ENABLE_MEMORY64 != 0
+    WASMModuleInstance *wasm_module_inst = (WASMModuleInstance *)module_inst;
+    is_memory64 = wasm_module_inst->memories[0]->is_memory64;
+#endif
 
     exec_env = wasm_runtime_get_exec_env_singleton(module_inst);
     if (!exec_env) {
@@ -147,10 +152,10 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
     }
 #endif /* end of WASM_ENABLE_LIBC_WASI */
 
-    if (!(func = wasm_runtime_lookup_function(module_inst, "main", NULL))
-        && !(func = wasm_runtime_lookup_function(module_inst,
-                                                 "__main_argc_argv", NULL))
-        && !(func = wasm_runtime_lookup_function(module_inst, "_main", NULL))) {
+    if (!(func = wasm_runtime_lookup_function(module_inst, "main"))
+        && !(func =
+                 wasm_runtime_lookup_function(module_inst, "__main_argc_argv"))
+        && !(func = wasm_runtime_lookup_function(module_inst, "_main"))) {
 #if WASM_ENABLE_LIBC_WASI != 0
         wasm_runtime_set_exception(
             module_inst, "lookup the entry point symbol (like _start, main, "
@@ -187,7 +192,7 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
         return false;
     }
 
-    if (!check_main_func_type(func_type)) {
+    if (!check_main_func_type(func_type, is_memory64)) {
         wasm_runtime_set_exception(module_inst,
                                    "invalid function type of main function");
         return false;
@@ -202,7 +207,7 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
 
         if (total_size >= UINT32_MAX
             || !(argv_buf_offset = wasm_runtime_module_malloc(
-                     module_inst, (uint32)total_size, (void **)&argv_buf))) {
+                     module_inst, total_size, (void **)&argv_buf))) {
             wasm_runtime_set_exception(module_inst, "allocate memory failed");
             return false;
         }
@@ -214,14 +219,25 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
         for (i = 0; i < argc; i++) {
             bh_memcpy_s(p, (uint32)(p_end - p), argv[i],
                         (uint32)(strlen(argv[i]) + 1));
-            argv_offsets[i] = argv_buf_offset + (uint32)(p - argv_buf);
+            argv_offsets[i] = (uint32)argv_buf_offset + (uint32)(p - argv_buf);
             p += strlen(argv[i]) + 1;
         }
 
-        argc1 = 2;
         argv1[0] = (uint32)argc;
-        argv1[1] =
-            (uint32)wasm_runtime_addr_native_to_app(module_inst, argv_offsets);
+#if WASM_ENABLE_MEMORY64 != 0
+        if (is_memory64) {
+            argc1 = 3;
+            uint64 app_addr =
+                wasm_runtime_addr_native_to_app(module_inst, argv_offsets);
+            PUT_I64_TO_ADDR(&argv[1], app_addr);
+        }
+        else
+#endif
+        {
+            argc1 = 2;
+            argv1[1] = (uint32)wasm_runtime_addr_native_to_app(module_inst,
+                                                               argv_offsets);
+        }
     }
 
     ret = wasm_runtime_call_wasm(exec_env, func, argc1, argv1);
@@ -336,8 +352,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
     bh_assert(argc >= 0);
     LOG_DEBUG("call a function \"%s\" with %d arguments", name, argc);
 
-    if (!(target_func =
-              wasm_runtime_lookup_function(module_inst, name, NULL))) {
+    if (!(target_func = wasm_runtime_lookup_function(module_inst, name))) {
         snprintf(buf, sizeof(buf), "lookup function %s failed", name);
         wasm_runtime_set_exception(module_inst, buf);
         goto fail;
@@ -563,8 +578,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                         is_anyref = true;
                     }
 
-                    if (wasm_is_type_multi_byte_type(
-                            type->types[type->param_count + i])) {
+                    if (wasm_is_type_multi_byte_type(type->types[i])) {
                         WASMRefType *ref_type = ref_type_map->ref_type;
                         if (wasm_is_refheaptype_common(
                                 &ref_type->ref_ht_common)) {

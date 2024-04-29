@@ -29,7 +29,7 @@ thread(void *arg)
         return NULL;
     }
 
-    func = wasm_runtime_lookup_function(module_inst, "sum", NULL);
+    func = wasm_runtime_lookup_function(module_inst, "sum");
     if (!func) {
         printf("failed to lookup function sum");
         wasm_runtime_destroy_thread_env();
@@ -57,7 +57,7 @@ wamr_thread_cb(wasm_exec_env_t exec_env, void *arg)
     wasm_function_inst_t func;
     uint32 argv[2];
 
-    func = wasm_runtime_lookup_function(module_inst, "sum", NULL);
+    func = wasm_runtime_lookup_function(module_inst, "sum");
     if (!func) {
         printf("failed to lookup function sum");
         return NULL;
@@ -133,7 +133,7 @@ main(int argc, char *argv[])
         goto fail4;
     }
 
-    func = wasm_runtime_lookup_function(wasm_module_inst, "sum", NULL);
+    func = wasm_runtime_lookup_function(wasm_module_inst, "sum");
     if (!func) {
         printf("failed to lookup function sum");
         goto fail5;

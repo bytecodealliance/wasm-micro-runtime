@@ -316,11 +316,11 @@ typedef struct AOTCompData {
     uint32 retain_func_index;
 
     uint32 aux_data_end_global_index;
-    uint32 aux_data_end;
+    uint64 aux_data_end;
     uint32 aux_heap_base_global_index;
-    uint32 aux_heap_base;
+    uint64 aux_heap_base;
     uint32 aux_stack_top_global_index;
-    uint32 aux_stack_bottom;
+    uint64 aux_stack_bottom;
     uint32 aux_stack_size;
 
 #if WASM_ENABLE_STRINGREF != 0

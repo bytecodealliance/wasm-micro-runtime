@@ -62,8 +62,7 @@ WAMR hopes that the native host or embedding environment loads/unloads the modul
 ```c
 wasm_function_inst_t
 wasm_runtime_lookup_function(wasm_module_inst_t const module_inst,
-                             const char *name,
-                             const char *signature);
+                             const char *name);
 ```
 
 Multi-module allows one to look up an exported function of a submodule. There are two ways to indicate the function _name_:

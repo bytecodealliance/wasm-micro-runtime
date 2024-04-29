@@ -409,7 +409,7 @@ wasm_debug_instance_create(WASMCluster *cluster, int32 port)
      * expressions */
     instance->exec_mem_info.size = DEBUG_EXECUTION_MEMORY_SIZE;
     instance->exec_mem_info.start_offset = wasm_runtime_module_malloc(
-        module_inst, instance->exec_mem_info.size, NULL);
+        module_inst, (uint64)instance->exec_mem_info.size, NULL);
     if (instance->exec_mem_info.start_offset == 0) {
         LOG_WARNING(
             "WASM Debug Engine warning: failed to allocate linear memory for "
@@ -1393,7 +1393,7 @@ wasm_debug_instance_mmap(WASMDebugInstance *instance, uint32 size,
         return 0;
     }
 
-    if ((uint64)instance->exec_mem_info.current_pos
+    if (instance->exec_mem_info.current_pos
             - instance->exec_mem_info.start_offset + size
         <= (uint64)instance->exec_mem_info.size) {
         offset = instance->exec_mem_info.current_pos;
