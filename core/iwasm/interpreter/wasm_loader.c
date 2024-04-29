@@ -12041,6 +12041,7 @@ re_scan:
                     switch (*(loader_ctx->frame_ref - 1)) {
                         case VALUE_TYPE_I32:
                         case VALUE_TYPE_F32:
+                        case VALUE_TYPE_ANY:
                             break;
                         case VALUE_TYPE_I64:
                         case VALUE_TYPE_F64:
