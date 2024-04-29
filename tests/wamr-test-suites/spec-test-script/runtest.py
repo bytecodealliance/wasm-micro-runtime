@@ -313,6 +313,9 @@ parser.add_argument('--multi-thread', default=False, action='store_true',
 parser.add_argument('--gc', default=False, action='store_true',
         help='Test with GC')
 
+parser.add_argument('--memory64', default=False, action='store_true',
+        help='Test with Memory64')
+
 parser.add_argument('--qemu', default=False, action='store_true',
         help="Enable QEMU")
 
@@ -1071,7 +1074,7 @@ def compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
     log("Compiling WASM to '%s'" % wasm_tempfile)
 
     # default arguments
-    if opts.gc:
+    if opts.gc or opts.memory64:
         cmd = [opts.wast2wasm, "-u", "-d", wast_tempfile, "-o", wasm_tempfile]
     elif opts.eh:
         cmd = [opts.wast2wasm, "--enable-thread", "--no-check", "--enable-exceptions", "--enable-tail-call", wast_tempfile, "-o", wasm_tempfile ]
@@ -1115,6 +1118,9 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
     if opts.gc:
         cmd.append("--enable-gc")
         cmd.append("--enable-tail-call")
+
+    if opts.memory64:
+        cmd.append("--enable-memory64")
 
     if output == 'object':
         cmd.append("--format=object")

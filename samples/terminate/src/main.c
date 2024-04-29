@@ -39,7 +39,7 @@ runner_with_spawn_exec_env(void *vp)
     wasm_function_inst_t func;
     bool ok = wasm_runtime_init_thread_env();
     assert(ok);
-    func = wasm_runtime_lookup_function(inst, "block_forever", NULL);
+    func = wasm_runtime_lookup_function(inst, "block_forever");
     assert(func != NULL);
     wasm_runtime_call_wasm(env, func, 0, NULL);
     wasm_runtime_destroy_spawned_exec_env(env);

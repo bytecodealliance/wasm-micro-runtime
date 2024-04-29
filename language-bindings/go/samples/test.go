@@ -87,7 +87,7 @@ func main() {
     var instance *wamr.Instance
     var argv []uint32
     var results []interface{}
-    var offset uint32
+    var offset uint64
     var native_addr *uint8
     var err error
 

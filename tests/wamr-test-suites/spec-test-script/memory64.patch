@@ -1,0 +1,28 @@
+diff --git a/test/core/memory.wast b/test/core/memory.wast
+index 1dd5b84..497b69f 100644
+--- a/test/core/memory.wast
++++ b/test/core/memory.wast
+@@ -76,17 +76,17 @@
+   "memory size must be at most 65536 pages (4GiB)"
+ )
+ 
+-(assert_invalid
++(assert_malformed
+   (module quote "(memory 0x1_0000_0000)")
+-  "memory size must be at most 65536 pages (4GiB)"
++  "i32 constant out of range"
+ )
+-(assert_invalid
++(assert_malformed
+   (module quote "(memory 0x1_0000_0000 0x1_0000_0000)")
+-  "memory size must be at most 65536 pages (4GiB)"
++  "i32 constant out of range"
+ )
+-(assert_invalid
++(assert_malformed
+   (module quote "(memory 0 0x1_0000_0000)")
+-  "memory size must be at most 65536 pages (4GiB)"
++  "i32 constant out of range"
+ )
+ 
+ (module

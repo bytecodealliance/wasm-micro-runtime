@@ -25,9 +25,11 @@ disable_mpu_rasr_xn(void)
        would most likely be set at index 2. */
     for (index = 0U; index < 8; index++) {
         MPU->RNR = index;
+#ifdef MPU_RASR_XN_Msk
         if (MPU->RASR & MPU_RASR_XN_Msk) {
             MPU->RASR |= ~MPU_RASR_XN_Msk;
         }
+#endif
     }
 }
 #endif /* end of CONFIG_ARM_MPU */
@@ -72,18 +74,20 @@ bh_platform_destroy()
 void *
 os_malloc(unsigned size)
 {
-    return NULL;
+    return malloc(size);
 }
 
 void *
 os_realloc(void *ptr, unsigned size)
 {
-    return NULL;
+    return realloc(ptr, size);
 }
 
 void
 os_free(void *ptr)
-{}
+{
+    free(ptr);
+}
 
 int
 os_dumps_proc_mem_info(char *out, unsigned int size)
@@ -181,6 +185,12 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
         return exec_mem_alloc_func((uint32)size);
     else
         return BH_MALLOC(size);
+}
+
+void *
+os_mremap(void *old_addr, size_t old_size, size_t new_size)
+{
+    return os_mremap_slow(old_addr, old_size, new_size);
 }
 
 void

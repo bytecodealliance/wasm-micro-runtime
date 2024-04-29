@@ -231,3 +231,58 @@ os_cond_broadcast(korp_cond *cond)
 {
     return pthread_cond_broadcast(cond);
 }
+
+int
+os_rwlock_init(korp_rwlock *lock)
+{
+    assert(lock);
+
+    if (pthread_rwlock_init(lock, NULL) != BHT_OK)
+        return BHT_ERROR;
+
+    return BHT_OK;
+}
+
+int
+os_rwlock_rdlock(korp_rwlock *lock)
+{
+    assert(lock);
+
+    if (pthread_rwlock_rdlock(lock) != BHT_OK)
+        return BHT_ERROR;
+
+    return BHT_OK;
+}
+
+int
+os_rwlock_wrlock(korp_rwlock *lock)
+{
+    assert(lock);
+
+    if (pthread_rwlock_wrlock(lock) != BHT_OK)
+        return BHT_ERROR;
+
+    return BHT_OK;
+}
+
+int
+os_rwlock_unlock(korp_rwlock *lock)
+{
+    assert(lock);
+
+    if (pthread_rwlock_unlock(lock) != BHT_OK)
+        return BHT_ERROR;
+
+    return BHT_OK;
+}
+
+int
+os_rwlock_destroy(korp_rwlock *lock)
+{
+    assert(lock);
+
+    if (pthread_rwlock_destroy(lock) != BHT_OK)
+        return BHT_ERROR;
+
+    return BHT_OK;
+}

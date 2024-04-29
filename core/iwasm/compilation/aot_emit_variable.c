@@ -251,7 +251,7 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             LLVMBasicBlockRef block_curr =
                 LLVMGetInsertBlock(comp_ctx->builder);
             LLVMBasicBlockRef check_overflow_succ, check_underflow_succ;
-            LLVMValueRef cmp;
+            LLVMValueRef cmp, global_i64;
 
             /* Add basic blocks */
             if (!(check_overflow_succ = LLVMAppendBasicBlockInContext(
@@ -270,8 +270,14 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             }
             LLVMMoveBasicBlockAfter(check_underflow_succ, check_overflow_succ);
 
+            if (!(global_i64 = LLVMBuildZExt(comp_ctx->builder, global,
+                                             I64_TYPE, "global_i64"))) {
+                aot_set_last_error("llvm build zext failed.");
+                return false;
+            }
+
             /* Check aux stack overflow */
-            if (!(cmp = LLVMBuildICmp(comp_ctx->builder, LLVMIntULE, global,
+            if (!(cmp = LLVMBuildICmp(comp_ctx->builder, LLVMIntULE, global_i64,
                                       func_ctx->aux_stack_bound, "cmp"))) {
                 aot_set_last_error("llvm build icmp failed.");
                 return false;
@@ -283,7 +289,7 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
             /* Check aux stack underflow */
             LLVMPositionBuilderAtEnd(comp_ctx->builder, check_overflow_succ);
-            if (!(cmp = LLVMBuildICmp(comp_ctx->builder, LLVMIntUGT, global,
+            if (!(cmp = LLVMBuildICmp(comp_ctx->builder, LLVMIntUGT, global_i64,
                                       func_ctx->aux_stack_bottom, "cmp"))) {
                 aot_set_last_error("llvm build icmp failed.");
                 return false;

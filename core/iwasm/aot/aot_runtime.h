@@ -246,19 +246,19 @@ typedef struct AOTModule {
        -1 means unexported */
     uint32 aux_data_end_global_index;
     /* auxiliary __data_end exported by wasm app */
-    uint32 aux_data_end;
+    uint64 aux_data_end;
 
     /* the index of auxiliary __heap_base global,
        -1 means unexported */
     uint32 aux_heap_base_global_index;
     /* auxiliary __heap_base exported by wasm app */
-    uint32 aux_heap_base;
+    uint64 aux_heap_base;
 
     /* the index of auxiliary stack top global,
        -1 means unexported */
     uint32 aux_stack_top_global_index;
     /* auxiliary stack bottom resolved */
-    uint32 aux_stack_bottom;
+    uint64 aux_stack_bottom;
     /* auxiliary stack size resolved */
     uint32 aux_stack_size;
 
@@ -307,6 +307,9 @@ typedef struct AOTModule {
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
     WASMCustomSection *custom_section_list;
 #endif
+
+    /* user defined name */
+    char *name;
 } AOTModule;
 
 #define AOTMemoryInstance WASMMemoryInstance
@@ -441,8 +444,8 @@ typedef struct LLVMProfileData_64 {
  * @return return AOT module loaded, NULL if failed
  */
 AOTModule *
-aot_load_from_aot_file(const uint8 *buf, uint32 size, char *error_buf,
-                       uint32 error_buf_size);
+aot_load_from_aot_file(const uint8 *buf, uint32 size, const LoadArgs *args,
+                       char *error_buf, uint32 error_buf_size);
 
 /**
  * Load a AOT module from a specified AOT section list.
@@ -482,7 +485,8 @@ aot_unload(AOTModule *module);
 AOTModuleInstance *
 aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
                 WASMExecEnv *exec_env_main, uint32 stack_size, uint32 heap_size,
-                char *error_buf, uint32 error_buf_size);
+                uint32 max_memory_pages, char *error_buf,
+                uint32 error_buf_size);
 
 /**
  * Deinstantiate a AOT module instance, destroy the resources.
@@ -498,14 +502,12 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst);
  *
  * @param module_inst the module instance
  * @param name the name of the function
- * @param signature the signature of the function, use "i32"/"i64"/"f32"/"f64"
- *        to represent the type of i32/i64/f32/f64, e.g. "(i32i64)" "(i32)f32"
  *
  * @return the function instance found
  */
 AOTFunctionInstance *
-aot_lookup_function(const AOTModuleInstance *module_inst, const char *name,
-                    const char *signature);
+aot_lookup_function(const AOTModuleInstance *module_inst, const char *name);
+
 /**
  * Call the given AOT function of a AOT module instance with
  * arguments.
@@ -557,32 +559,32 @@ aot_get_exception(AOTModuleInstance *module_inst);
 bool
 aot_copy_exception(AOTModuleInstance *module_inst, char *exception_buf);
 
-uint32
+uint64
 aot_module_malloc_internal(AOTModuleInstance *module_inst, WASMExecEnv *env,
-                           uint32 size, void **p_native_addr);
+                           uint64 size, void **p_native_addr);
 
-uint32
+uint64
 aot_module_realloc_internal(AOTModuleInstance *module_inst, WASMExecEnv *env,
-                            uint32 ptr, uint32 size, void **p_native_addr);
+                            uint64 ptr, uint64 size, void **p_native_addr);
 
 void
 aot_module_free_internal(AOTModuleInstance *module_inst, WASMExecEnv *env,
-                         uint32 ptr);
+                         uint64 ptr);
 
-uint32
-aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
+uint64
+aot_module_malloc(AOTModuleInstance *module_inst, uint64 size,
                   void **p_native_addr);
 
-uint32
-aot_module_realloc(AOTModuleInstance *module_inst, uint32 ptr, uint32 size,
+uint64
+aot_module_realloc(AOTModuleInstance *module_inst, uint64 ptr, uint64 size,
                    void **p_native_addr);
 
 void
-aot_module_free(AOTModuleInstance *module_inst, uint32 ptr);
+aot_module_free(AOTModuleInstance *module_inst, uint64 ptr);
 
-uint32
+uint64
 aot_module_dup_data(AOTModuleInstance *module_inst, const char *src,
-                    uint32 size);
+                    uint64 size);
 
 bool
 aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count);
@@ -604,7 +606,7 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
  */
 bool
 aot_check_app_addr_and_convert(AOTModuleInstance *module_inst, bool is_str,
-                               uint32 app_buf_addr, uint32 app_buf_size,
+                               uint64 app_buf_addr, uint64 app_buf_size,
                                void **p_native_addr);
 
 uint32
@@ -633,10 +635,10 @@ aot_data_drop(AOTModuleInstance *module_inst, uint32 seg_index);
 
 #if WASM_ENABLE_THREAD_MGR != 0
 bool
-aot_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size);
+aot_set_aux_stack(WASMExecEnv *exec_env, uint64 start_offset, uint32 size);
 
 bool
-aot_get_aux_stack(WASMExecEnv *exec_env, uint32 *start_offset, uint32 *size);
+aot_get_aux_stack(WASMExecEnv *exec_env, uint64 *start_offset, uint32 *size);
 #endif
 
 void
@@ -750,6 +752,11 @@ bool
 aot_obj_is_instance_of(AOTModuleInstance *module_inst, WASMObjectRef gc_obj,
                        uint32 type_index);
 
+/* Whether func type1 is one of super types of func type2 */
+bool
+aot_func_type_is_super_of(AOTModuleInstance *module_inst, uint32 type_idx1,
+                          uint32 type_idx2);
+
 WASMRttTypeRef
 aot_rtt_type_new(AOTModuleInstance *module_inst, uint32 type_index);
 
@@ -761,6 +768,20 @@ aot_array_init_with_data(AOTModuleInstance *module_inst, uint32 seg_index,
 bool
 aot_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap);
 #endif /* end of WASM_ENABLE_GC != 0 */
+
+char *
+aot_const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+                         bool is_vram_word_align,
+#endif
+                         char *error_buf, uint32 error_buf_size);
+
+bool
+aot_set_module_name(AOTModule *module, const char *name, char *error_buf,
+                    uint32_t error_buf_size);
+
+const char *
+aot_get_module_name(AOTModule *module);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

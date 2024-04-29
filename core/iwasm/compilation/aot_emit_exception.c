@@ -88,6 +88,12 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 aot_set_last_error("llvm build phi failed.");
                 return false;
             }
+
+            /* Commit ip to current frame */
+            if (!commit_ip(comp_ctx, func_ctx, func_ctx->exception_ip_phi,
+                           is_64bit)) {
+                return false;
+            }
         }
 
         /* Call aot_set_exception_with_id() to throw exception */
@@ -152,12 +158,6 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             "")) {
             aot_set_last_error("llvm build call failed.");
             return false;
-        }
-
-        if (comp_ctx->aot_frame) {
-            if (!commit_ip(comp_ctx, func_ctx, func_ctx->exception_ip_phi,
-                           is_64bit))
-                return false;
         }
 
         /* Create return IR */

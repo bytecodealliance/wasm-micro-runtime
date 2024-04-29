@@ -1,6 +1,6 @@
 # WARM API
 
-* **Notice**: The python package `wamr.wamrapi.wamr` need python >= `3.9`.
+* **Notice**: The python package `wamr.wamrapi.wamr` need python >= `3.10`.
 
 ## Setup
 
@@ -8,7 +8,7 @@
 
 Install requirements,
 
-```
+```shell
 pip install -r requirements.txt
 ```
 
@@ -17,6 +17,7 @@ pip install -r requirements.txt
 The following command builds the iwasm library and generates the Python bindings,
 
 ```sh
+# In WAMR root directory
 bash language-bindings/python/utils/create_lib.sh
 ```
 

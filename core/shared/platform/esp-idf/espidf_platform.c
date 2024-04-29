@@ -3,8 +3,24 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "sdkconfig.h"
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
+
+#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)) \
+    && (ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 2, 0))
+#define UTIMENSAT_TIMESPEC_POINTER 1
+#define FUTIMENS_TIMESPEC_POINTER 1
+#endif
+
+#if CONFIG_LITTLEFS_OPEN_DIR && CONFIG_LITTLEFS_FCNTL_GET_PATH
+#define OPENAT_SUPPORT 1
+
+#undef F_GETPATH
+#define F_GETPATH CONFIG_LITTLEFS_FCNTL_F_GETPATH_VALUE
+
+#define DIR_PATH_LEN (CONFIG_LITTLEFS_OBJ_NAME_LEN + 1)
+#endif
 
 int
 bh_platform_init()
@@ -177,12 +193,40 @@ writev(int fildes, const struct iovec *iov, int iovcnt)
     return ntotal;
 }
 
+#if OPENAT_SUPPORT
+int
+openat(int fd, const char *pathname, int flags, ...)
+{
+    int new_fd;
+    int ret;
+    char dir_path[DIR_PATH_LEN];
+    char *full_path;
+
+    ret = fcntl(fd, F_GETPATH, dir_path);
+    if (ret != 0) {
+        errno = -EINVAL;
+        return -1;
+    }
+
+    ret = asprintf(&full_path, "%s/%s", dir_path, pathname);
+    if (ret < 0) {
+        errno = ENOMEM;
+        return -1;
+    }
+
+    new_fd = open(full_path, flags);
+    free(full_path);
+
+    return new_fd;
+}
+#else
 int
 openat(int fd, const char *path, int oflags, ...)
 {
     errno = ENOSYS;
     return -1;
 }
+#endif
 
 int
 fstatat(int fd, const char *path, struct stat *buf, int flag)
@@ -234,7 +278,13 @@ unlinkat(int fd, const char *path, int flag)
 }
 
 int
-utimensat(int fd, const char *path, const struct timespec *ts, int flag)
+utimensat(int fd, const char *path,
+#if UTIMENSAT_TIMESPEC_POINTER
+          const struct timespec *ts,
+#else
+          const struct timespec ts[2],
+#endif
+          int flag)
 {
     errno = ENOSYS;
     return -1;
@@ -257,7 +307,13 @@ ftruncate(int fd, off_t length)
 #endif
 
 int
-futimens(int fd, const struct timespec *times)
+futimens(int fd,
+#if FUTIMENS_TIMESPEC_POINTER
+         const struct timespec *times
+#else
+         const struct timespec times[2]
+#endif
+)
 {
     errno = ENOSYS;
     return -1;

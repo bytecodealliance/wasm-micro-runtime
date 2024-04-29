@@ -89,7 +89,7 @@ Each letter in the "()" represents a parameter type, and the one following after
 - '**I**': i64 
 - '**f**': f32
 - '**F**': f64
-- '**r**': externref (has to be the value of a `uintptr_t` variable)
+- '**r**': externref (has to be the value of a `uintptr_t` variable), or all kinds of GC reference types when GC feature is enabled
 - '**\***': the parameter is a buffer address in WASM application
 - '**~**': the parameter is the byte length of WASM buffer as referred by preceding argument "\*". It must follow after '*', otherwise, registration will fail
 - '**$**': the parameter is a string in WASM application
@@ -170,12 +170,12 @@ void foo2(wasm_exec_env_t exec_env,
     if (!wasm_runtime_validate_app_str_add(msg_offset))
         return 0;
     
-    if (!wasm_runtime_validate_app_addr(buffer_offset, buf_len))
+    if (!wasm_runtime_validate_app_addr((uint64)buffer_offset, (uint64)buf_len))
         return;
 
     // do address conversion
-    buffer = wasm_runtime_addr_app_to_native(buffer_offset);
-    msg = wasm_runtime_addr_app_to_native(msg_offset);
+    buffer = wasm_runtime_addr_app_to_native((uint64)buffer_offset);
+    msg = wasm_runtime_addr_app_to_native((uint64)msg_offset);
 
     strncpy(buffer, msg, buf_len);
 }

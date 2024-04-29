@@ -189,6 +189,16 @@ wasm_struct_obj_get_field(const WASMStructObjectRef struct_obj,
     }
 }
 
+uint32
+wasm_struct_obj_get_field_count(const WASMStructObjectRef struct_obj)
+{
+    WASMRttTypeRef rtt_type =
+        (WASMRttTypeRef)wasm_object_header((WASMObjectRef)struct_obj);
+    WASMStructType *struct_type = (WASMStructType *)rtt_type->defined_type;
+
+    return struct_type->field_count;
+}
+
 WASMArrayObjectRef
 wasm_array_obj_new_internal(void *heap_handle, WASMRttTypeRef rtt_type,
                             uint32 length, WASMValue *init_value)

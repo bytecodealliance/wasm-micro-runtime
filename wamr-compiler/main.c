@@ -176,7 +176,7 @@ print_help()
     printf("                            Enable the specified LLVM passes, using comma to separate\n");
     printf("  --use-prof-file=<file>    Use profile file collected by LLVM PGO (Profile-Guided Optimization)\n");
     printf("  --enable-segue[=<flags>]  Enable using segment register GS as the base address of linear memory,\n");
-    printf("                            only available on linux/linux-sgx x86-64, which may improve performance,\n");
+    printf("                            only available on linux x86-64, which may improve performance,\n");
     printf("                            flags can be: i32.load, i64.load, f32.load, f64.load, v128.load,\n");
     printf("                                          i32.store, i64.store, f32.store, f64.store, v128.store\n");
     printf("                            Use comma to separate, e.g. --enable-segue=i32.load,i64.store\n");

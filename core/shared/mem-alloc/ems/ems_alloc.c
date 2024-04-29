@@ -785,8 +785,8 @@ gc_alloc_wo_internal(void *vheap, gc_size_t size, const char *file, int line)
     if (!hmu)
         goto finish;
 
-    /* Do we need to memset the memory to 0? */
-    /* memset((char *)hmu + sizeof(*hmu), 0, tot_size - sizeof(*hmu)); */
+    /* Don't memset the memory to improve performance, the caller should
+       decide whether to memset it or not */
 
     bh_assert(hmu_get_size(hmu) >= tot_size);
     /* the total size allocated may be larger than
