@@ -3,7 +3,8 @@
 #include "../interpreter/wasm.h"
 
 static void
-set_error_buf(char *error_buf, uint32 error_buf_size, const char *string, bool is_aot)
+set_error_buf(char *error_buf, uint32 error_buf_size, const char *string,
+              bool is_aot)
 {
     if (error_buf != NULL) {
         snprintf(error_buf, error_buf_size, "%s module load failed: %s",
@@ -12,7 +13,8 @@ set_error_buf(char *error_buf, uint32 error_buf_size, const char *string, bool i
 }
 
 bool
-wasm_memory_check_flags(const uint8 mem_flag, char *error_buf, uint32 error_buf_size, bool is_aot)
+wasm_memory_check_flags(const uint8 mem_flag, char *error_buf,
+                        uint32 error_buf_size, bool is_aot)
 {
     /* Check whether certain features indicated by mem_flag are enabled in
      * runtime */
@@ -21,21 +23,24 @@ wasm_memory_check_flags(const uint8 mem_flag, char *error_buf, uint32 error_buf_
         if (mem_flag & SHARED_MEMORY_FLAG) {
             LOG_VERBOSE("shared memory flag was found, please enable shared "
                         "memory, lib-pthread or lib-wasi-threads");
-            set_error_buf(error_buf, error_buf_size, "invalid limits flags", is_aot);
+            set_error_buf(error_buf, error_buf_size, "invalid limits flags",
+                          is_aot);
             return false;
         }
 #endif
 #if WASM_ENABLE_MEMORY64 == 0
         if (mem_flag & MEMORY64_FLAG) {
             LOG_VERBOSE("memory64 flag was found, please enable memory64");
-            set_error_buf(error_buf, error_buf_size, "invalid limits flags", is_aot);
+            set_error_buf(error_buf, error_buf_size, "invalid limits flags",
+                          is_aot);
             return false;
         }
 #endif
     }
 
     if (mem_flag > MAX_PAGE_COUNT_FLAG + SHARED_MEMORY_FLAG + MEMORY64_FLAG) {
-        set_error_buf(error_buf, error_buf_size, "invalid limits flags", is_aot);
+        set_error_buf(error_buf, error_buf_size, "invalid limits flags",
+                      is_aot);
         return false;
     }
     else if ((mem_flag & SHARED_MEMORY_FLAG)

@@ -17,13 +17,13 @@ extern "C" {
 
 bool
 aot_compile_op_i32_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                        uint32 align, mem_offset_t offset, uint32 bytes, bool sign,
-                        bool atomic);
+                        uint32 align, mem_offset_t offset, uint32 bytes,
+                        bool sign, bool atomic);
 
 bool
 aot_compile_op_i64_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                        uint32 align, mem_offset_t offset, uint32 bytes, bool sign,
-                        bool atomic);
+                        uint32 align, mem_offset_t offset, uint32 bytes,
+                        bool sign, bool atomic);
 
 bool
 aot_compile_op_f32_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,

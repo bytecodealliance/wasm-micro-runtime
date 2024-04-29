@@ -861,7 +861,8 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
     read_leb_uint32(p, p_end, memory->flags);
     bh_assert(p - p_org <= 1);
     (void)p_org;
-    if (!wasm_memory_check_flags(memory->flags, error_buf, error_buf_size, false)) {
+    if (!wasm_memory_check_flags(memory->flags, error_buf, error_buf_size,
+                                 false)) {
         return false;
     }
 

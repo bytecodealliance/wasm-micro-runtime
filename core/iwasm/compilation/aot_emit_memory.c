@@ -84,7 +84,8 @@ LLVMValueRef
 aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                           mem_offset_t offset, uint32 bytes, bool enable_segue)
 {
-    LLVMValueRef offset_const = MEMORY64_COND_VALUE(I64_CONST(offset), I32_CONST(offset));
+    LLVMValueRef offset_const =
+        MEMORY64_COND_VALUE(I64_CONST(offset), I32_CONST(offset));
     LLVMValueRef addr, maddr, offset1, cmp1, cmp2, cmp;
     LLVMValueRef mem_base_addr, mem_check_bound;
     LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
@@ -100,18 +101,21 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     is_target_64bit = (comp_ctx->pointer_size == sizeof(uint64)) ? true : false;
 
     if (comp_ctx->is_indirect_mode
-        && aot_intrinsic_check_capability(comp_ctx, MEMORY64_COND_VALUE("i64.const", "i32.const"))) {
+        && aot_intrinsic_check_capability(
+            comp_ctx, MEMORY64_COND_VALUE("i64.const", "i32.const"))) {
         WASMValue wasm_value;
 #if WASM_ENABLE_MEMORY64 != 0
         if (IS_MEMORY64) {
             wasm_value.i64 = offset;
-        } else
+        }
+        else
 #endif
         {
             wasm_value.i32 = (int32)offset;
         }
         offset_const = aot_load_const_from_table(
-            comp_ctx, func_ctx->native_symbol, &wasm_value, MEMORY64_COND_VALUE(VALUE_TYPE_I64, VALUE_TYPE_I32));
+            comp_ctx, func_ctx->native_symbol, &wasm_value,
+            MEMORY64_COND_VALUE(VALUE_TYPE_I64, VALUE_TYPE_I32));
         if (!offset_const) {
             return NULL;
         }
@@ -213,7 +217,8 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             if (!(mem_size = get_memory_curr_page_count(comp_ctx, func_ctx))) {
                 goto fail;
             }
-            BUILD_ICMP(LLVMIntEQ, mem_size, MEMORY64_COND_VALUE(I64_ZERO, I32_ZERO), cmp, "is_zero");
+            BUILD_ICMP(LLVMIntEQ, mem_size,
+                       MEMORY64_COND_VALUE(I64_ZERO, I32_ZERO), cmp, "is_zero");
             ADD_BASIC_BLOCK(check_succ, "check_mem_size_succ");
             LLVMMoveBasicBlockAfter(check_succ, block_curr);
             if (!aot_emit_exception(comp_ctx, func_ctx,
@@ -419,8 +424,8 @@ fail:
 
 bool
 aot_compile_op_i32_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                        uint32 align, mem_offset_t offset, uint32 bytes, bool sign,
-                        bool atomic)
+                        uint32 align, mem_offset_t offset, uint32 bytes,
+                        bool sign, bool atomic)
 {
     LLVMValueRef maddr, value = NULL;
     LLVMTypeRef data_type;
@@ -489,8 +494,8 @@ fail:
 
 bool
 aot_compile_op_i64_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                        uint32 align, mem_offset_t offset, uint32 bytes, bool sign,
-                        bool atomic)
+                        uint32 align, mem_offset_t offset, uint32 bytes,
+                        bool sign, bool atomic)
 {
     LLVMValueRef maddr, value = NULL;
     LLVMTypeRef data_type;
@@ -613,7 +618,8 @@ fail:
 
 bool
 aot_compile_op_i32_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                         uint32 align, mem_offset_t offset, uint32 bytes, bool atomic)
+                         uint32 align, mem_offset_t offset, uint32 bytes,
+                         bool atomic)
 {
     LLVMValueRef maddr, value;
     bool enable_segue = comp_ctx->enable_segue_i32_store;
@@ -663,7 +669,8 @@ fail:
 
 bool
 aot_compile_op_i64_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                         uint32 align, mem_offset_t offset, uint32 bytes, bool atomic)
+                         uint32 align, mem_offset_t offset, uint32 bytes,
+                         bool atomic)
 {
     LLVMValueRef maddr, value;
     bool enable_segue = comp_ctx->enable_segue_i64_store;
@@ -781,7 +788,8 @@ get_memory_curr_page_count(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         }
     }
 
-    return LLVMBuildIntCast(comp_ctx->builder, mem_size, MEMORY64_COND_VALUE(I64_TYPE, I32_TYPE), "");
+    return LLVMBuildIntCast(comp_ctx->builder, mem_size,
+                            MEMORY64_COND_VALUE(I64_TYPE, I32_TYPE), "");
 fail:
     return NULL;
 }
@@ -871,8 +879,9 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     BUILD_ICMP(LLVMIntUGT, ret_value, I8_ZERO, ret_value, "mem_grow_ret");
 
     /* ret_value = ret_value == true ? delta : pre_page_count */
-    if (!(ret_value = LLVMBuildSelect(comp_ctx->builder, ret_value, mem_size,
-                                      MEMORY64_COND_VALUE(I64_NEG_ONE, I32_NEG_ONE), "mem_grow_ret"))) {
+    if (!(ret_value = LLVMBuildSelect(
+              comp_ctx->builder, ret_value, mem_size,
+              MEMORY64_COND_VALUE(I64_NEG_ONE, I32_NEG_ONE), "mem_grow_ret"))) {
         aot_set_last_error("llvm build select failed.");
         return false;
     }
