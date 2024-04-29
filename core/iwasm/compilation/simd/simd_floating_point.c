@@ -130,20 +130,6 @@ aot_compile_simd_f64x2_abs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 bool
-aot_compile_simd_f32x4_round(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
-{
-    return simd_float_intrinsic(comp_ctx, func_ctx, V128_f32x4_TYPE,
-                                "llvm.round.v4f32");
-}
-
-bool
-aot_compile_simd_f64x2_round(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
-{
-    return simd_float_intrinsic(comp_ctx, func_ctx, V128_f64x2_TYPE,
-                                "llvm.round.v2f64");
-}
-
-bool
 aot_compile_simd_f32x4_sqrt(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     return simd_float_intrinsic(comp_ctx, func_ctx, V128_f32x4_TYPE,

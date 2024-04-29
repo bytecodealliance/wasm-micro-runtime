@@ -56,7 +56,7 @@ jobs:
   build_llvm_libraries_on_intel_macos:
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
-      os: "macos-latest"
+      os: "macos-13"
       arch: "X86"
   build_llvm_libraries_on_arm_macos:
     uses: ./.github/workflows/build_llvm_libraries.yml
@@ -70,7 +70,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-latest
+          - os: macos-13
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_intel_macos.outputs.cache_key }}
     steps:
       - name: checkout
@@ -131,7 +131,7 @@ jobs:
             "-DWAMR_BUILD_TAIL_CALL=1",
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
           ]
-        os: [macos-latest]
+        os: [macos-13]
         platform: [darwin]
         exclude:
           # uncompatiable feature and platform
@@ -173,7 +173,7 @@ jobs:
           - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
         include:
-          - os: macos-latest
+          - os: macos-13
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_intel_macos.outputs.cache_key }}
     steps:
       - name: checkout
@@ -218,7 +218,7 @@ jobs:
             #$LLVM_EAGER_JIT_BUILD_OPTIONS,
             #$AOT_BUILD_OPTIONS,
           ]
-        os: [macos-latest]
+        os: [macos-13]
         wasi_sdk_release:
           [
             "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-macos.tar.gz",
@@ -250,7 +250,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, macos-14]
+        os: [macos-13, macos-14]
         wasi_sdk_release:
           [
             "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-macos.tar.gz",
@@ -260,7 +260,7 @@ jobs:
             "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-macos-12.tar.gz",
           ]
         include:
-          - os: macos-latest
+          - os: macos-13
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_intel_macos.outputs.cache_key }}
           - os: macos-14
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_arm_macos.outputs.cache_key }}
@@ -273,14 +273,14 @@ jobs:
           cd /opt
           sudo wget ${{ matrix.wasi_sdk_release }}
           sudo tar -xzf wasi-sdk-*.tar.gz
-          sudo mv wasi-sdk-20.0 wasi-sdk
+          sudo ln -sf wasi-sdk-20.0 wasi-sdk
 
       - name: download and install wabt
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
           sudo tar -xzf wabt-1.0.31-*.tar.gz
-          sudo mv wabt-1.0.31 wabt
+          sudo ln -sf wabt-1.0.31 wabt
 
       - name: Build Sample [basic]
         run: |
@@ -346,7 +346,7 @@ jobs:
           cmake ..
           cmake --build . --config Release --parallel 4
         working-directory: wamr-compiler
-        
+
       - name: Build Sample [wasi-threads]
         run: |
           cd samples/wasi-threads
@@ -378,4 +378,11 @@ jobs:
           cmake --build . --config Debug --parallel 4
           ./iwasm wasm-apps/trap.wasm | grep "#" > call_stack.txt
           ./iwasm wasm-apps/trap.aot | grep "#" > call_stack_aot.txt
-          bash -x ../symbolicate.sh  
+          bash -x ../symbolicate.sh
+
+      - name: Build Sample [native-stack-overflow]
+        run: |
+          cd samples/native-stack-overflow
+          ./build.sh
+          ./run.sh test1
+          ./run.sh test2

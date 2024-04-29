@@ -63,7 +63,7 @@ The output should be something like:
         at wasm-micro-runtime/samples/debug-tools/wasm-apps/trap.c:17:12
 3: main
         at wasm-micro-runtime/samples/debug-tools/wasm-apps/trap.c:24:5
-4: <unknown>
+4: __main_void
         at unknown:?:?
 5: _start
 ```
@@ -79,3 +79,55 @@ $ python3 ../../../test-tools/addr2line/addr2line.py \
     --wasm-file wasm-apps/trap.wasm \
     call_stack.txt --no-addr
 ```
+
+#### sourcemap
+
+This script also supports _sourcemap_ which is produced by [_emscripten_](https://emscripten.org/docs/tools_reference/emcc.html). The _sourcemap_ is used to map the wasm function to the original source file. To use it, add `-gsource-map` option to _emcc_ command line. The output should be a section named "sourceMappingURL" and a separated file named "_.map_.
+
+If the wasm file is with _sourcemap_, the script will use it to get the source file and line info. It needs an extra command line option `--emsdk` to specify the path of _emsdk_. The script will use _emsymbolizer_ to query the source file and line info.
+
+````bash
+$ python3 ../../../test-tools/addr2line/addr2line.py \
+    --wasi-sdk /opt/wasi-sdk \
+    --wabt /opt/wabt \
+    --wasm-file emscripten/wasm-apps/trap.wasm \
+    --emsdk /opt/emsdk \
+    call_stack.from_wasm_w_sourcemap.txt
+
+The output should be something like:
+
+```text
+1: c
+        at ../../../../../wasm-apps/trap.c:5:1
+2: b
+        at ../../../../../wasm-apps/trap.c:11:12
+3: a
+        at ../../../../../wasm-apps/trap.c:17:12
+4: main
+        at ../../../../../wasm-apps/trap.c:24:5
+5: __main_void
+        at ../../../../../../../../../emsdk/emscripten/system/lib/standalone/__main_void.c:53:10
+6: _start
+        at ../../../../../../../../../emsdk/emscripten/system/lib/libc/crt1.c:27:3
+````
+
+> The script assume the separated map file _.map_ is in the same directory as the wasm file.
+
+### Another approach
+
+If the wasm file is with "name" section, it is able to output function name in the stack trace. To achieve that, need to enable `WAMR_BUILD_LOAD_CUSTOM_SECTION` and `WAMR_BUILD_CUSTOM_NAME_SECTION`. If using .aot file, need to add `--emit-custom-sections=name` into wamrc command line options.
+
+Then the output should be something like
+
+```text
+#00: 0x0159 - c
+#01: 0x01b2 - b
+#02: 0x0200 - a
+#03: 0x026b - main
+#04: 0x236b - __main_void
+#05: 0x011f - _start
+
+Exception: unreachable
+```
+
+Also, it is able to use _addr2line.py_ to add file and line info to the stack trace.

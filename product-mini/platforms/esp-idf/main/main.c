@@ -12,11 +12,7 @@
 
 #include "esp_log.h"
 
-#ifdef CONFIG_IDF_TARGET_ESP32S3
 #define IWASM_MAIN_STACK_SIZE 5120
-#else
-#define IWASM_MAIN_STACK_SIZE 4096
-#endif
 
 #define LOG_TAG "wamr"
 

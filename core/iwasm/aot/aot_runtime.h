@@ -444,8 +444,8 @@ typedef struct LLVMProfileData_64 {
  * @return return AOT module loaded, NULL if failed
  */
 AOTModule *
-aot_load_from_aot_file(const uint8 *buf, uint32 size, char *error_buf,
-                       uint32 error_buf_size);
+aot_load_from_aot_file(const uint8 *buf, uint32 size, const LoadArgs *args,
+                       char *error_buf, uint32 error_buf_size);
 
 /**
  * Load a AOT module from a specified AOT section list.
@@ -751,6 +751,11 @@ aot_create_func_obj(AOTModuleInstance *module_inst, uint32 func_idx,
 bool
 aot_obj_is_instance_of(AOTModuleInstance *module_inst, WASMObjectRef gc_obj,
                        uint32 type_index);
+
+/* Whether func type1 is one of super types of func type2 */
+bool
+aot_func_type_is_super_of(AOTModuleInstance *module_inst, uint32 type_idx1,
+                          uint32 type_idx2);
 
 WASMRttTypeRef
 aot_rtt_type_new(AOTModuleInstance *module_inst, uint32 type_index);

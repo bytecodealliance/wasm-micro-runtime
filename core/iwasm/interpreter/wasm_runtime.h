@@ -508,7 +508,7 @@ wasm_load(uint8 *buf, uint32 size,
 #if WASM_ENABLE_MULTI_MODULE != 0
           bool main_module,
 #endif
-          char *error_buf, uint32 error_buf_size);
+          const LoadArgs *args, char *error_buf, uint32 error_buf_size);
 
 WASMModule *
 wasm_load_from_sections(WASMSection *section_list, char *error_buf,
@@ -810,6 +810,11 @@ llvm_jit_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
 bool
 llvm_jit_obj_is_instance_of(WASMModuleInstance *module_inst,
                             WASMObjectRef gc_obj, uint32 type_index);
+
+/* Whether func type1 is one of super types of func type2 */
+bool
+llvm_jit_func_type_is_super_of(WASMModuleInstance *module_inst,
+                               uint32 type_idx1, uint32 type_idx2);
 
 WASMRttTypeRef
 llvm_jit_rtt_type_new(WASMModuleInstance *module_inst, uint32 type_index);

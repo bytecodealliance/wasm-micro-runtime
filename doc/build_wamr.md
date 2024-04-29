@@ -76,6 +76,11 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 #### **Enable bulk memory feature**
 - **WAMR_BUILD_BULK_MEMORY**=1/0, default to disable if not set
 
+#### **Enable memory64 feature**
+- **WAMR_BUILD_MEMORY64**=1/0, default to disable if not set
+
+> Note: Currently, the memory64 feature is only supported in classic interpreter running mode. 
+
 #### **Enable thread manager**
 - **WAMR_BUILD_THREAD_MGR**=1/0, default to disable if not set
 
@@ -128,6 +133,14 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 #### **Enable 128-bit SIMD feature**
 - **WAMR_BUILD_SIMD**=1/0, default to enable if not set
 > Note: only supported in AOT mode x86-64 target.
+
+#### **Enable Exception Handling**
+- **WAMR_BUILD_EXCE_HANDLING**=1/0, default to disable if not set
+
+> Note: Currently, the exception handling feature is only supported in classic interpreter running mode. 
+
+#### **Enable Garbage Collection**
+- **WAMR_BUILD_GC**=1/0, default to disable if not set
 
 #### **Configure Debug**
 
@@ -240,6 +253,10 @@ Currently we only profile the memory consumption of module, module_instance and 
 > Note: by default only platform [linux x86-64](https://github.com/bytecodealliance/wasm-micro-runtime/blob/5fb5119239220b0803e7045ca49b0a29fe65e70e/core/shared/platform/linux/platform_internal.h#L67) will enable this feature, for 32-bit platforms it's automatically disabled even when the flag is set to 0. In linux x86-64, writing the linear memory base address to x86 GS segment register may be used to speedup the linear memory access for LLVM AOT/JIT, when `--enable-segue=[<flags>]` option is added for `wamrc` or `iwasm`.
 
 > See [Enable segue optimization for wamrc when generating the aot file](./perf_tune.md#3-enable-segue-optimization-for-wamrc-when-generating-the-aot-file) for more details.
+
+#### **User defined linear memory allocator**
+- **WAMR_BUILD_ALLOC_WITH_USAGE**=1/0, default to disable if not set
+> Notes: by default, the linear memory is allocated by system. when it's set to 1 and Alloc_With_Allocator is selected, it will be allocated by customer.
 
 #### **Enable running PGO(Profile-Guided Optimization) instrumented AOT file**
 - **WAMR_BUILD_STATIC_PGO**=1/0, default to disable if not set

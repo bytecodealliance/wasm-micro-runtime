@@ -636,7 +636,7 @@ wasm_init_memory(WASMModuleInstance *inst, uint32 mem_idx, uint32 seg_idx,
 
     /* if d + n > the length of mem.data */
     mem_inst = inst->memories[mem_idx];
-    mem_size = mem_inst->cur_page_count * mem_inst->num_bytes_per_page;
+    mem_size = mem_inst->cur_page_count * (uint64)mem_inst->num_bytes_per_page;
     if (mem_size < mem_offset || mem_size - mem_offset < len)
         goto out_of_bounds;
 
@@ -724,8 +724,10 @@ wasm_copy_memory(WASMModuleInstance *inst, uint32 src_mem_idx,
 
     src_mem = inst->memories[src_mem_idx];
     dst_mem = inst->memories[dst_mem_idx];
-    src_mem_size = src_mem->cur_page_count * src_mem->num_bytes_per_page;
-    dst_mem_size = dst_mem->cur_page_count * dst_mem->num_bytes_per_page;
+    src_mem_size =
+        src_mem->cur_page_count * (uint64)src_mem->num_bytes_per_page;
+    dst_mem_size =
+        dst_mem->cur_page_count * (uint64)dst_mem->num_bytes_per_page;
 
     /* if s + n > the length of mem.data */
     if (src_mem_size < src_offset || src_mem_size - src_offset < len)
@@ -788,7 +790,7 @@ wasm_fill_memory(WASMModuleInstance *inst, uint32 mem_idx, uint32 len,
     uint8 *dst_addr;
 
     mem_inst = inst->memories[mem_idx];
-    mem_size = mem_inst->cur_page_count * mem_inst->num_bytes_per_page;
+    mem_size = mem_inst->cur_page_count * (uint64)mem_inst->num_bytes_per_page;
 
     if (mem_size < dst || mem_size - dst < len)
         goto out_of_bounds;
