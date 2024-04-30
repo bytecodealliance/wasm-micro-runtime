@@ -101,6 +101,6 @@ include_directories(./include)
 include_directories(${CMAKE_CURRENT_LIST_DIR}/src)
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
-add_executable (aot-analyzer src/main.cc src/aot-file.cc src/binary-file.cc src/option-parser.cc src/wasm-file.cc ${UNCOMMON_SHARED_SOURCE})
+add_executable (aot-analyzer src/main.cc src/aot_file.cc src/binary_file.cc src/option_parser.cc src/wasm_file.cc ${UNCOMMON_SHARED_SOURCE})
 
 target_link_libraries (aot-analyzer vmlib -lm -ldl -lpthread -lrt)

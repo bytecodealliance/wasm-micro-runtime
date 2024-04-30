@@ -6,7 +6,7 @@
 #ifndef AOT_FILE_H_
 #define AOT_FILE_H_
 
-#include "binary-file.h"
+#include "binary_file.h"
 
 namespace analyzer {
 

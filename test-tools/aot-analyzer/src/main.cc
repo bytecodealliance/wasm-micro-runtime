@@ -7,10 +7,10 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "aot-file.h"
+#include "aot_file.h"
 #include "common.h"
-#include "option-parser.h"
-#include "wasm-file.h"
+#include "option_parser.h"
+#include "wasm_file.h"
 
 using namespace analyzer;
 

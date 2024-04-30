@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "aot-file.h"
+#include "aot_file.h"
 
 #include <cstring>
 
-#include "analyzer-error.h"
+#include "analyzer_error.h"
 #include "common.h"
 
 namespace analyzer {

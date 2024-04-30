@@ -6,7 +6,7 @@
 #ifndef WASM_FILE_H_
 #define WASM_FILE_H_
 
-#include "binary-file.h"
+#include "binary_file.h"
 
 namespace analyzer {
 
