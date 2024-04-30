@@ -12,12 +12,16 @@
 
 namespace analyzer {
 
-WasmFile::WasmFile(const char *file_name) : BinaryFile(file_name) {}
+WasmFile::WasmFile(const char *file_name)
+  : BinaryFile(file_name)
+{}
 
-Result WasmFile::Scan() {
+Result
+WasmFile::Scan()
+{
     WASMModuleMemConsumption mem_conspn = GetMemConsumption();
     wasm_get_module_mem_consumption((WASMModule *)GetModule(), &mem_conspn);
     return Result::Ok;
 }
 
-}  // namespace analyzer
+} // namespace analyzer

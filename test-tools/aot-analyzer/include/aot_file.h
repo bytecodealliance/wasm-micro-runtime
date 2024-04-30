@@ -10,8 +10,9 @@
 
 namespace analyzer {
 
-class AoTFile : public BinaryFile {
-   public:
+class AoTFile : public BinaryFile
+{
+  public:
     AoTFile(const char *file_name);
 
     Result Scan();
@@ -23,9 +24,9 @@ class AoTFile : public BinaryFile {
     std::string GetExectuionTypeName(uint16_t e_type);
     std::string GetExectuionMachineName(uint16_t e_machine);
 
-   private:
+  private:
     AOTTargetInfo target_info_;
 };
 
-}  // namespace analyzer
+} // namespace analyzer
 #endif

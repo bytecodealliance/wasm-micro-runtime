@@ -130,13 +130,15 @@
 #define analyzer_snprintf snprintf
 #elif COMPILER_IS_MSVC
 #include <cstdarg>
-int analyzer_snprintf(char *str, size_t size, const char *format, ...);
+int
+analyzer_snprintf(char *str, size_t size, const char *format, ...);
 #else
 #error no snprintf
 #endif
 
 #if COMPILER_IS_MSVC
-int analyzer_vsnprintf(char *str, size_t size, const char *format, va_list ap);
+int
+analyzer_vsnprintf(char *str, size_t size, const char *format, va_list ap);
 #else
 #define analyzer_vsnprintf vsnprintf
 #endif

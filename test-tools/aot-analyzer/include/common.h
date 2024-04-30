@@ -14,13 +14,10 @@
 #define ANALYZER_TRY try {
 #define ANALYZER_CATCH_BAD_ALLOC \
     }                            \
-    catch (std::bad_alloc &) {   \
-    }
-#define ANALYZER_CATCH_BAD_ALLOC_AND_EXIT               \
-    }                                                   \
-    catch (std::bad_alloc &) {                          \
-        ANALYZER_FATAL("Memory allocation failure.\n"); \
-    }
+    catch (std::bad_alloc &) {}
+#define ANALYZER_CATCH_BAD_ALLOC_AND_EXIT \
+    }                                     \
+    catch (std::bad_alloc &) { ANALYZER_FATAL("Memory allocation failure.\n"); }
 #else
 #define ANALYZER_TRY
 #define ANALYZER_CATCH_BAD_ALLOC
@@ -43,28 +40,44 @@ struct Result {
         Error,
     };
 
-    Result() : Result(Ok) {}
-    Result(Enum e) : enum_(e) {}
+    Result()
+      : Result(Ok)
+    {}
+    Result(Enum e)
+      : enum_(e)
+    {}
     operator Enum() const { return enum_; }
     Result &operator|=(Result rhs);
 
-   private:
+  private:
     Enum enum_;
 };
 
-inline Result operator|(Result lhs, Result rhs) {
+inline Result
+operator|(Result lhs, Result rhs)
+{
     return (lhs == Result::Error || rhs == Result::Error) ? Result::Error
                                                           : Result::Ok;
 }
 
-inline Result &Result::operator|=(Result rhs) {
+inline Result &
+Result::operator|=(Result rhs)
+{
     enum_ = *this | rhs;
     return *this;
 }
 
-inline bool Succeeded(Result result) { return result == Result::Ok; }
+inline bool
+Succeeded(Result result)
+{
+    return result == Result::Ok;
+}
 
-inline bool Failed(Result result) { return result == Result::Error; }
+inline bool
+Failed(Result result)
+{
+    return result == Result::Error;
+}
 
 #define CHECK_RESULT(expr)        \
     do {                          \
@@ -83,5 +96,5 @@ inline bool Failed(Result result) { return result == Result::Error; }
 
 #define ERROR_UNLESS(expr, ...) ERROR_IF(!(expr), __VA_ARGS__)
 
-}  // namespace analyzer
+} // namespace analyzer
 #endif

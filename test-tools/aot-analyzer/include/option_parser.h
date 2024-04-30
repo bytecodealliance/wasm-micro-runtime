@@ -14,8 +14,9 @@
 
 namespace analyzer {
 
-class OptionParser {
-   public:
+class OptionParser
+{
+  public:
     enum class HasArgument { No, Yes };
     enum class ArgumentCount { One, OneOrMore, ZeroOrMore };
 
@@ -60,7 +61,7 @@ class OptionParser {
     void Parse(int argc, char *argv[]);
     void PrintHelp();
 
-   private:
+  private:
     static int Match(const char *s, const std::string &full, bool has_argument);
     void ANALYZER_PRINTF_FORMAT(2, 3) Errorf(const char *format, ...);
     void HandleArgument(size_t *arg_index, const char *arg_value);
@@ -73,5 +74,5 @@ class OptionParser {
     Callback on_error_;
 };
 
-}  // namespace analyzer
+} // namespace analyzer
 #endif

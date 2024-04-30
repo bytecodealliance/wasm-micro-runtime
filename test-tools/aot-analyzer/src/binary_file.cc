@@ -17,15 +17,18 @@
 namespace analyzer {
 
 BinaryFile::BinaryFile(const char *file_name)
-    : file_name_(file_name),
-      file_data_(NULL),
-      file_size_(0),
-      current_pos_(0),
-      module_(NULL) {
+  : file_name_(file_name)
+  , file_data_(NULL)
+  , file_size_(0)
+  , current_pos_(0)
+  , module_(NULL)
+{
     memset(&mem_conspn_, 0, sizeof(WASMModuleMemConsumption));
 }
 
-Result BinaryFile::ReadModule() {
+Result
+BinaryFile::ReadModule()
+{
     char error_buf[128];
 
 #if WASM_ENABLE_GC != 0
@@ -39,7 +42,7 @@ Result BinaryFile::ReadModule() {
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
 #if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
-    static char global_heap_buf[WASM_GLOBAL_HEAP_SIZE] = {0};
+    static char global_heap_buf[WASM_GLOBAL_HEAP_SIZE] = { 0 };
     init_args.mem_alloc_type = Alloc_With_Pool;
     init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
     init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
@@ -84,10 +87,15 @@ Result BinaryFile::ReadModule() {
     return Result::Ok;
 }
 
-Result BinaryFile::Scan() { return Result::Ok; }
+Result
+BinaryFile::Scan()
+{
+    return Result::Ok;
+}
 
 void ANALYZER_PRINTF_FORMAT(2, 3) BinaryFile::PrintError(const char *format,
-                                                         ...) {
+                                                         ...)
+{
     ErrorLevel error_level = ErrorLevel::Error;
     ANALYZER_SNPRINTF_ALLOCA(buffer, length, format);
     Error error(error_level, buffer);
@@ -95,7 +103,9 @@ void ANALYZER_PRINTF_FORMAT(2, 3) BinaryFile::PrintError(const char *format,
             GetErrorLevelName(error_level), buffer);
 }
 
-Result BinaryFile::UpdateCurrentPos(uint32_t steps) {
+Result
+BinaryFile::UpdateCurrentPos(uint32_t steps)
+{
     if (current_pos_ + steps > file_size_) {
         return Result::Error;
     }
@@ -103,4 +113,4 @@ Result BinaryFile::UpdateCurrentPos(uint32_t steps) {
     return Result::Ok;
 }
 
-}  // namespace analyzer
+} // namespace analyzer

@@ -19,7 +19,9 @@ enum class ErrorLevel {
     Error,
 };
 
-static inline const char *GetErrorLevelName(ErrorLevel error_level) {
+static inline const char *
+GetErrorLevelName(ErrorLevel error_level)
+{
     switch (error_level) {
         case ErrorLevel::Warning:
             return "warning";
@@ -29,11 +31,16 @@ static inline const char *GetErrorLevelName(ErrorLevel error_level) {
     ANALYZER_UNREACHABLE;
 }
 
-class Error {
-   public:
-    Error() : error_level_(ErrorLevel::Error) {}
+class Error
+{
+  public:
+    Error()
+      : error_level_(ErrorLevel::Error)
+    {}
     Error(ErrorLevel error_level, std::string_view message)
-        : error_level_(error_level), message_(message) {}
+      : error_level_(error_level)
+      , message_(message)
+    {}
 
     ErrorLevel error_level_;
     std::string message_;
@@ -41,5 +48,5 @@ class Error {
 
 using Errors = std::vector<Error>;
 
-}  // namespace analyzer
+} // namespace analyzer
 #endif
