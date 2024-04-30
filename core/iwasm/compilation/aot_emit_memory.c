@@ -1094,7 +1094,7 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         /* zero extend to uint64 if the target is 64-bit */
         len = LLVMBuildZExt(comp_ctx->builder, len, I64_TYPE, "len64");
         if (!len) {
-            aot_set_last_error("llvm build bitcast failed.");
+            aot_set_last_error("llvm build zero extend failed.");
             return false;
         }
     }
@@ -1185,7 +1185,7 @@ aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         /* zero extend to uint64 if the target is 64-bit */
         len = LLVMBuildZExt(comp_ctx->builder, len, I64_TYPE, "len64");
         if (!len) {
-            aot_set_last_error("llvm build bitcast failed.");
+            aot_set_last_error("llvm build zero extend failed.");
             return false;
         }
     }
