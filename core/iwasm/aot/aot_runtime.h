@@ -36,6 +36,7 @@ extern "C" {
 #define WASM_FEATURE_RELAXED_SIMD (1 << 10)
 #define WASM_FEATURE_FLEXIBLE_VECTORS (1 << 11)
 
+/* Keep in sync with section_type_t */
 typedef enum AOTSectionType {
     AOT_SECTION_TYPE_TARGET_INFO = 0,
     AOT_SECTION_TYPE_INIT_DATA = 1,

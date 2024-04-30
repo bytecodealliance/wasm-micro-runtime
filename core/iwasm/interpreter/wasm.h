@@ -137,6 +137,7 @@ typedef void *table_elem_type_t;
 #define WASM_MAGIC_NUMBER 0x6d736100
 #define WASM_CURRENT_VERSION 1
 
+/* Keep in sync with section_type_t */
 #define SECTION_TYPE_USER 0
 #define SECTION_TYPE_TYPE 1
 #define SECTION_TYPE_IMPORT 2
@@ -1246,7 +1247,7 @@ wasm_value_type_size(uint8 value_type)
 inline static uint16
 wasm_value_type_cell_num(uint8 value_type)
 {
-    return wasm_value_type_size(value_type) / 4;
+    return (uint16)wasm_value_type_size(value_type) / 4;
 }
 
 inline static uint32

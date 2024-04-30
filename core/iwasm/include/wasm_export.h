@@ -1807,6 +1807,64 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_detect_native_stack_overflow_size(wasm_exec_env_t exec_env,
                                                uint32_t required_size);
 
+typedef struct load_section_result_t {
+    wasm_section_list_t sections;
+    bool is_aot;
+} load_section_result_t;
+
+typedef enum {
+    WASM_SECTION_TYPE_USER = 0,
+    WASM_SECTION_TYPE_TYPE = 1,
+    WASM_SECTION_TYPE_IMPORT = 2,
+    WASM_SECTION_TYPE_FUNC = 3,
+    WASM_SECTION_TYPE_TABLE = 4,
+    WASM_SECTION_TYPE_MEMORY = 5,
+    WASM_SECTION_TYPE_GLOBAL = 6,
+    WASM_SECTION_TYPE_EXPORT = 7,
+    WASM_SECTION_TYPE_START = 8,
+    WASM_SECTION_TYPE_ELEM = 9,
+    WASM_SECTION_TYPE_CODE = 10,
+    WASM_SECTION_TYPE_DATA = 11,
+    WASM_SECTION_TYPE_DATACOUNT = 12
+} wasm_section_type_t;
+
+typedef enum {
+    WASM_AOT_SECTION_TYPE_TARGET_INFO = 0,
+    WASM_AOT_SECTION_TYPE_INIT_DATA = 1,
+    WASM_AOT_SECTION_TYPE_TEXT = 2,
+    WASM_AOT_SECTION_TYPE_FUNCTION = 3,
+    WASM_AOT_SECTION_TYPE_EXPORT = 4,
+    WASM_AOT_SECTION_TYPE_RELOCATION = 5,
+    WASM_AOT_SECTION_TYPE_SIGANATURE = 6,
+    WASM_AOT_SECTION_TYPE_CUSTOM = 100,
+} aot_section_type_t;
+
+/**
+ * Read sections from WASM module. Those sections can be then passed to
+ * wasm_runtime_load_from_sections.
+ *
+ * @param buf the buffer containing the WASM module
+ * @param size the size of the buffer containing the WASM module
+ * @param p_section_result the structure containing the sections read
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_read_to_sections(uint8_t *buf, uint64_t size,
+                              load_section_result_t *p_section_result);
+
+/**
+ * Destroy the sections specified with section types
+ *
+ * @param section_result the structure containing the sections
+ * @param section_types the list of sections to destroy, NULL to destroy all
+ * sections; possible sections types are listed in wasm_section_type_t and
+ * aot_section_type_t
+ * @param section_cnt the number of sections to destroy
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_destroy_sections(load_section_result_t *section_result,
+                              uint8_t *section_types, int section_cnt);
+
 #ifdef __cplusplus
 }
 #endif

@@ -1204,6 +1204,14 @@ void
 wasm_runtime_set_linux_perf(bool flag);
 #endif
 
+bool
+wasm_runtime_read_to_sections(uint8_t *buf, uint64_t size,
+                              load_section_result_t *p_section_result);
+
+void
+wasm_runtime_destroy_sections(load_section_result_t *section_result,
+                              uint8_t *section_types, int section_cnt);
+
 #ifdef __cplusplus
 }
 #endif
