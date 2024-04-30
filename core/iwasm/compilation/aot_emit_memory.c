@@ -1106,7 +1106,7 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
         param_types[0] = INT8_PTR_TYPE;
         param_types[1] = INT8_PTR_TYPE;
-        param_types[2] = INTPTR_T_TYPE; /* int32 for 32-bit, int64 for 64-bit */
+        param_types[2] = SIZE_T_TYPE;
         ret_type = INT8_PTR_TYPE;
 
         if (!(func_type = LLVMFunctionType(ret_type, param_types, 3, false))) {
@@ -1192,7 +1192,7 @@ aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     param_types[0] = INT8_PTR_TYPE;
     param_types[1] = I32_TYPE;
-    param_types[2] = INTPTR_T_TYPE; /* int32 for 32-bit, int64 for 64-bit */
+    param_types[2] = SIZE_T_TYPE;
     ret_type = INT8_PTR_TYPE;
 
     if (!(func_type = LLVMFunctionType(ret_type, param_types, 3, false))) {

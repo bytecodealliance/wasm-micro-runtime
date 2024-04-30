@@ -262,6 +262,7 @@ typedef struct AOTLLVMTypes {
     LLVMTypeRef int32_type;
     LLVMTypeRef int64_type;
     LLVMTypeRef intptr_t_type;
+    LLVMTypeRef size_t_type;
     LLVMTypeRef float32_type;
     LLVMTypeRef float64_type;
     LLVMTypeRef void_type;
