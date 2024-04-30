@@ -15,21 +15,26 @@ OptionParser::Option::Option(char short_name, const std::string &long_name,
                              const std::string &metavar,
                              HasArgument has_argument, const std::string &help,
                              const Callback &callback)
-    : short_name(short_name),
-      long_name(long_name),
-      metavar(metavar),
-      has_argument(has_argument == HasArgument::Yes),
-      help(help),
-      callback(callback) {}
+  : short_name(short_name)
+  , long_name(long_name)
+  , metavar(metavar)
+  , has_argument(has_argument == HasArgument::Yes)
+  , help(help)
+  , callback(callback)
+{}
 
 OptionParser::Argument::Argument(const std::string &name, ArgumentCount count,
                                  const Callback &callback)
-    : name(name), count(count), callback(callback) {}
+  : name(name)
+  , count(count)
+  , callback(callback)
+{}
 
 OptionParser::OptionParser(const char *program_name, const char *description)
-    : program_name_(program_name),
-      description_(description),
-      on_error_([this](const std::string &message) { DefaultError(message); }) {
+  : program_name_(program_name)
+  , description_(description)
+  , on_error_([this](const std::string &message) { DefaultError(message); })
+{
     AddOption("help", "Print this help message", [this]() {
         PrintHelp();
         exit(0);
@@ -40,43 +45,56 @@ OptionParser::OptionParser(const char *program_name, const char *description)
     });
 }
 
-void OptionParser::AddOption(const Option &option) {
+void
+OptionParser::AddOption(const Option &option)
+{
     options_.emplace_back(option);
 }
 
-void OptionParser::AddArgument(const std::string &name, ArgumentCount count,
-                               const Callback &callback) {
+void
+OptionParser::AddArgument(const std::string &name, ArgumentCount count,
+                          const Callback &callback)
+{
     arguments_.emplace_back(name, count, callback);
 }
 
-void OptionParser::AddOption(char short_name, const char *long_name,
-                             const char *help, const NullCallback &callback) {
+void
+OptionParser::AddOption(char short_name, const char *long_name,
+                        const char *help, const NullCallback &callback)
+{
     Option option(short_name, long_name, std::string(), HasArgument::No, help,
                   [callback](const char *) { callback(); });
     AddOption(option);
 }
 
-void OptionParser::AddOption(const char *long_name, const char *help,
-                             const NullCallback &callback) {
+void
+OptionParser::AddOption(const char *long_name, const char *help,
+                        const NullCallback &callback)
+{
     Option option('\0', long_name, std::string(), HasArgument::No, help,
                   [callback](const char *) { callback(); });
     AddOption(option);
 }
 
-void OptionParser::AddOption(char short_name, const char *long_name,
-                             const char *metavar, const char *help,
-                             const Callback &callback) {
+void
+OptionParser::AddOption(char short_name, const char *long_name,
+                        const char *metavar, const char *help,
+                        const Callback &callback)
+{
     Option option(short_name, long_name, metavar, HasArgument::Yes, help,
                   callback);
     AddOption(option);
 }
 
-void OptionParser::SetErrorCallback(const Callback &callback) {
+void
+OptionParser::SetErrorCallback(const Callback &callback)
+{
     on_error_ = callback;
 }
 
-int OptionParser::Match(const char *s, const std::string &full,
-                        bool has_argument) {
+int
+OptionParser::Match(const char *s, const std::string &full, bool has_argument)
+{
     int i;
     for (i = 0;; i++) {
         if (full[i] == '\0') {
@@ -99,7 +117,9 @@ int OptionParser::Match(const char *s, const std::string &full,
     return i;
 }
 
-void OptionParser::Errorf(const char *format, ...) {
+void
+OptionParser::Errorf(const char *format, ...)
+{
     ANALYZER_SNPRINTF_ALLOCA(buffer, length, format);
     std::string msg(program_name_);
     msg += ": ";
@@ -108,11 +128,15 @@ void OptionParser::Errorf(const char *format, ...) {
     on_error_(msg.c_str());
 }
 
-void OptionParser::DefaultError(const std::string &message) {
+void
+OptionParser::DefaultError(const std::string &message)
+{
     ANALYZER_FATAL("%s \n", message.c_str());
 }
 
-void OptionParser::HandleArgument(size_t *arg_index, const char *arg_value) {
+void
+OptionParser::HandleArgument(size_t *arg_index, const char *arg_value)
+{
     if (*arg_index >= arguments_.size()) {
         Errorf("unexpected argument '%s'", arg_value);
         return;
@@ -126,7 +150,9 @@ void OptionParser::HandleArgument(size_t *arg_index, const char *arg_value) {
     }
 }
 
-void OptionParser::Parse(int argc, char *argv[]) {
+void
+OptionParser::Parse(int argc, char *argv[])
+{
     size_t arg_index = 0;
     bool processing_options = true;
 
@@ -154,7 +180,8 @@ void OptionParser::Parse(int argc, char *argv[]) {
                         best_index = j;
                         best_length = match_length;
                         best_count = 1;
-                    } else if (match_length == best_length && best_length > 0) {
+                    }
+                    else if (match_length == best_length && best_length > 0) {
                         best_count++;
                     }
                 }
@@ -163,7 +190,8 @@ void OptionParser::Parse(int argc, char *argv[]) {
             if (best_count > 1) {
                 Errorf("ambiguous option '%s'", arg);
                 continue;
-            } else if (best_count == 0) {
+            }
+            else if (best_count == 0) {
                 Errorf("unknown option '%s'", arg);
                 continue;
             }
@@ -173,7 +201,8 @@ void OptionParser::Parse(int argc, char *argv[]) {
             if (best_option.has_argument) {
                 if (arg[best_length + 1] != 0 && arg[best_length + 2] == '=') {
                     option_argument = &arg[best_length + 3];
-                } else {
+                }
+                else {
                     if (i + 1 == argc || argv[i + 1][0] == '-') {
                         Errorf("option '--%s' requires argument",
                                best_option.long_name.c_str());
@@ -184,7 +213,8 @@ void OptionParser::Parse(int argc, char *argv[]) {
                 }
             }
             best_option.callback(option_argument);
-        } else {
+        }
+        else {
             if (arg[1] == '\0') {
                 HandleArgument(&arg_index, arg);
                 continue;
@@ -233,7 +263,9 @@ void OptionParser::Parse(int argc, char *argv[]) {
     }
 }
 
-void OptionParser::PrintHelp() {
+void
+OptionParser::PrintHelp()
+{
     printf("usage: %s [options]", program_name_.c_str());
 
     for (size_t i = 0; i < arguments_.size(); ++i) {
@@ -266,7 +298,8 @@ void OptionParser::PrintHelp() {
             if (!option.metavar.empty()) {
                 length += option.metavar.size() + 1;
             }
-        } else {
+        }
+        else {
             continue;
         }
 
@@ -283,7 +316,8 @@ void OptionParser::PrintHelp() {
         std::string line;
         if (option.short_name) {
             line += std::string("  -") + option.short_name + ", ";
-        } else {
+        }
+        else {
             line += "      ";
         }
 
@@ -292,7 +326,8 @@ void OptionParser::PrintHelp() {
             flag = "--";
             if (!option.metavar.empty()) {
                 flag += option.long_name + '=' + option.metavar;
-            } else {
+            }
+            else {
                 flag += option.long_name;
             }
         }
@@ -307,4 +342,4 @@ void OptionParser::PrintHelp() {
     }
 }
 
-}  // namespace analyzer
+} // namespace analyzer

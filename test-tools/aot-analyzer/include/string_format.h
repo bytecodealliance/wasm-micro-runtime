@@ -38,7 +38,8 @@
 namespace analyzer {
 
 inline std::string ANALYZER_PRINTF_FORMAT(1, 2)
-    StringPrintf(const char *format, ...) {
+    StringPrintf(const char *format, ...)
+{
     va_list args;
     va_list args_copy;
     va_start(args, format);
@@ -51,5 +52,5 @@ inline std::string ANALYZER_PRINTF_FORMAT(1, 2)
     return std::string(buffer.data(), len - 1);
 }
 
-}  // namespace analyzer
+} // namespace analyzer
 #endif

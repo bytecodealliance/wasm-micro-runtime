@@ -10,12 +10,13 @@
 
 namespace analyzer {
 
-class WasmFile : public BinaryFile {
-   public:
+class WasmFile : public BinaryFile
+{
+  public:
     WasmFile(const char *file_name);
 
     Result Scan();
 };
 
-}  // namespace analyzer
+} // namespace analyzer
 #endif

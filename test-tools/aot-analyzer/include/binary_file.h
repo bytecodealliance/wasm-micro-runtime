@@ -14,8 +14,9 @@
 
 namespace analyzer {
 
-class BinaryFile {
-   public:
+class BinaryFile
+{
+  public:
     BinaryFile(const char *file_name);
 
     Result ReadModule();
@@ -32,7 +33,7 @@ class BinaryFile {
     wasm_module_t GetModule() { return module_; }
     WASMModuleMemConsumption GetMemConsumption() { return mem_conspn_; }
 
-   private:
+  private:
     const char *file_name_;
     uint8_t *file_data_;
     uint32_t file_size_;
@@ -41,10 +42,12 @@ class BinaryFile {
     WASMModuleMemConsumption mem_conspn_;
 };
 
-template <typename T>
-Result ReadT(T *out_value, BinaryFile *file, const char *type_name) {
-    if (file == NULL ||
-        file->GetCurrentPos() + sizeof(T) > file->GetFileSize()) {
+template<typename T>
+Result
+ReadT(T *out_value, BinaryFile *file, const char *type_name)
+{
+    if (file == NULL
+        || file->GetCurrentPos() + sizeof(T) > file->GetFileSize()) {
         return Result::Error;
     }
 #if WAMR_BIG_ENDIAN
@@ -59,5 +62,5 @@ Result ReadT(T *out_value, BinaryFile *file, const char *type_name) {
     return Result::Ok;
 }
 
-}  // namespace analyzer
+} // namespace analyzer
 #endif
