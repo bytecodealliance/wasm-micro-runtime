@@ -3,12 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "binary-file.h"
+#include "binary_file.h"
 
 #include <cctype>
 #include <cstring>
 
-#include "analyzer-error.h"
+#include "analyzer_error.h"
 
 #if HAVE_ALLOCA
 #include <alloca.h>

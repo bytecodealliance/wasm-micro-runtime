@@ -6,7 +6,7 @@
 #ifndef COMMON_H_
 #define COMMON_H_
 
-#include "string-format.h"
+#include "string_format.h"
 
 #define ANALYZER_FATAL(...) fprintf(stderr, __VA_ARGS__), exit(1)
 

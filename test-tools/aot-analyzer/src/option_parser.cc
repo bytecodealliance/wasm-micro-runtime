@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "option-parser.h"
+#include "option_parser.h"
 
 #include "common.h"
 #include "config.h"
-#include "string-format.h"
+#include "string_format.h"
 
 namespace analyzer {
 

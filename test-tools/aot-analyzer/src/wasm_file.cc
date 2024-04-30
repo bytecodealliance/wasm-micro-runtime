@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "wasm-file.h"
+#include "wasm_file.h"
 
 #include <cstring>
 
-#include "analyzer-error.h"
+#include "analyzer_error.h"
 #include "common.h"
 
 namespace analyzer {
