@@ -1602,7 +1602,7 @@ wasm_runtime_get_version(uint32_t *major, uint32_t *minor, uint32_t *patch);
 
 /**
  * Check whether an import func `(import <module_name> <func_name> (func ...))`
- * is linked or not with runtime registered natvie functions
+ * is linked or not with runtime registered native functions
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_import_func_linked(const char *module_name,
@@ -1610,7 +1610,7 @@ wasm_runtime_is_import_func_linked(const char *module_name,
 
 /**
  * Check whether an import global `(import <module_name> <global_name>
- * (global ...))` is linked or not with runtime registered natvie globals
+ * (global ...))` is linked or not with runtime registered native globals
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_import_global_linked(const char *module_name,
