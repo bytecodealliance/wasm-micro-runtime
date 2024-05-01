@@ -31,7 +31,7 @@ insert_sock_open_data(uint32_t poolfd, int af, int socktype, uint32_t sockfd)
         wamr->socket_fd_map_[sockfd].socketOpenData.sockfd = sockfd;
     }
     else {
-        LOG_DEBUG("socket_fd {} not found", sockfd);
+        LOG_DEBUG("socket_fd %d not found", sockfd);
     }
 }
 #if !defined(BH_PLATFORM_WINDOWS)
@@ -134,7 +134,7 @@ insert_sock_recv_from_data(uint32_t sock, uint8 *ri_data, uint32 ri_data_len,
             recvFromData.src_addr.ip.ip6[7] = src_addr->addr.ip6.addr.h3;
             recvFromData.src_addr.port = src_addr->addr.ip6.port;
         }
-        LOG_DEBUG("insert_sock_recv_from_data {} {}", sock,
+        LOG_DEBUG("insert_sock_recv_from_data %d %d", sock,
                   ((int)((struct mvvm_op_data *)ri_data)->op));
         if (((struct mvvm_op_data *)ri_data)->op == MVVM_SOCK_FIN) {
             wamr->socket_fd_map_[sock].is_collection = false;
@@ -154,14 +154,14 @@ replay_sock_recv_from_data(uint32_t sock, uint8 **ri_data,
     // check from wamr->socket_fd_map_[sock] and drain one
     // should be in the same order
     if (wamr->socket_fd_map_[sock].socketRecvFromDatas.empty()) {
-        LOG_DEBUG("no recvfrom data {}", sock);
+        LOG_DEBUG("no recvfrom data %d", sock);
         *recv_size = 0;
         return;
     }
     // shoud we check the src_addr?
     if (wamr->socket_fd_map_[sock].replay_start_index
-        >= wamr->socket_fd_map_[sock].socketRecvFromDatas.size()) {
-        LOG_DEBUG("replay index out of bound {}", sock);
+        >= (int)wamr->socket_fd_map_[sock].socketRecvFromDatas.size()) {
+        LOG_DEBUG("replay index out of bound %d", sock);
         *recv_size = 0;
         return;
     }
@@ -211,41 +211,25 @@ void
 insert_fd(int fd, const char *path, int flags, int offset, enum fd_op op)
 {
     if (fd > 2) {
-        LOG_DEBUG("insert_fd(fd,filename,flags, offset) fd: {} flags: {} "
-                  "offset: {}, op: {}",
+        LOG_DEBUG("insert_fd(fd,filename,flags, offset) fd: %d flags: %d "
+                  "offset: %d, op: %d",
                   fd, flags, offset, ((int)op));
         std::string path_;
         std::vector<std::tuple<int, int, enum fd_op>> ops_;
         std::tie(path_, ops_) = wamr->fd_map_[fd];
-        if (wamr->policy == "replay") {
+        // policy is compression
+        if (strcmp(path, "") != 0) {
             ops_.emplace_back(flags, offset, op);
-            // policy is replay
-            if (strcmp(path, "") != 0)
-                wamr->fd_map_[fd] = std::make_tuple(std::string(path), ops_);
-            else
-                wamr->fd_map_[fd] = std::make_tuple(path_, ops_);
+            wamr->fd_map_[fd] = std::make_tuple(std::string(path), ops_);
         }
         else {
-            // policy is compression
-            if (strcmp(path, "") != 0) {
-                ops_.emplace_back(flags, offset, op);
-                wamr->fd_map_[fd] = std::make_tuple(std::string(path), ops_);
+            if (ops_.size() == 1) {
+                ops_.emplace_back(flags, offset, MVVM_FSEEK);
             }
             else {
-                if (ops_.size() == 1) {
-                    ops_.emplace_back(flags, offset, MVVM_FSEEK);
-                }
-                else {
-                    // LOG_DEBUG("insert_seek{} {}", std::get<1>(ops_[1]),
-                    // flags); if ((flags == 2 || flags == 0) && op ==
-                    // MVVM_FSEEK) {
-                    //     ops_.back() = std::make_tuple(flags, offset,
-                    //     MVVM_FSEEK);
-                    // } else
-                    ops_.back() = std::make_tuple(1, offset, MVVM_FSEEK);
-                }
-                wamr->fd_map_[fd] = std::make_tuple(path_, ops_);
+                ops_.back() = std::make_tuple(1, offset, MVVM_FSEEK);
             }
+            wamr->fd_map_[fd] = std::make_tuple(path_, ops_);
         }
     }
 }
@@ -255,8 +239,8 @@ void
 rename_fd(int old_fd, char const *old_path, int new_fd, char const *new_path)
 {
     LOG_DEBUG("rename_fd(int old_fd, char const *old_path, int new_fd, char "
-              "const *new_path) old:{} "
-              "old_fd:{} new_fd:{}, new_path:{}",
+              "const *new_path) old:%d "
+              "old_fd:%d new_fd:%d, new_path:%s",
               old_fd, old_path, new_fd, new_path);
     if (wamr->fd_map_.find(old_fd) != wamr->fd_map_.end()) {
         auto new_fd_ = wamr->fd_map_[old_fd];
@@ -275,14 +259,14 @@ rename_fd(int old_fd, char const *old_path, int new_fd, char const *new_path)
 void
 remove_fd(int fd)
 {
-    LOG_DEBUG("remove_fd(fd) fd{}", fd);
+    LOG_DEBUG("remove_fd(fd) fd%d", fd);
     if (wamr->fd_map_.find(fd) != wamr->fd_map_.end())
         wamr->fd_map_.erase(fd);
     else {
         if (wamr->socket_fd_map_.find(fd) != wamr->socket_fd_map_.end())
             wamr->socket_fd_map_.erase(fd);
         else
-            LOG_DEBUG("fd not found {}", fd);
+            LOG_DEBUG("fd not found %d", fd);
     }
 }
 bool
@@ -300,7 +284,7 @@ insert_socket(int fd, int domain, int type, int protocol)
 {
     // if protocol == 1, is the remote protocol, we need to getsockname?
 
-    LOG_DEBUG("insert_socket(fd, domain, type, protocol) {} {} {} {}", fd,
+    LOG_DEBUG("insert_socket(fd, domain, type, protocol) %d %d %d %d", fd,
               domain, type, protocol);
     if (wamr) {
         if (wamr->socket_fd_map_.find(fd) != wamr->socket_fd_map_.end()) {
@@ -328,7 +312,7 @@ update_socket_fd_address(int fd, SocketAddrPool *address)
 {
     if (wamr)
         wamr->socket_fd_map_[fd].socketAddress.port = address->port;
-    LOG_DEBUG("#update_socket_fd_address(fd, address) {} {}", fd,
+    LOG_DEBUG("#update_socket_fd_address(fd, address) %d %d", fd,
               wamr->socket_fd_map_[fd].socketAddress.port);
     if (address->is_4) {
         wamr->socket_fd_map_[fd].socketAddress.is_4 = true;
@@ -399,7 +383,7 @@ void
 insert_sync_op(wasm_exec_env_t exec_env, const uint32 *mutex,
                enum sync_op locking)
 {
-    LOG_DEBUG("insert sync on offset {}, as op: {} ",
+    LOG_DEBUG("insert sync on offset %d, as op: %d ",
               (uint32)(((uint8 *)mutex)
                        - ((WASMModuleInstance *)exec_env->module_inst)
                              ->memories[0]
@@ -407,7 +391,9 @@ insert_sync_op(wasm_exec_env_t exec_env, const uint32 *mutex,
               ((int)locking));
     struct sync_op_t sync_op = { .tid = ((uint64_t)exec_env->handle),
                                  .ref = *mutex,
-                                 .sync_op = locking };
+                                 .sync_op = locking,
+                                 .expected = 0,
+                                 .wait64 = 0 };
     if (wamr)
         wamr->sync_ops.push_back(sync_op);
 }
@@ -440,12 +426,9 @@ insert_sync_op_atomic_wake(wasm_exec_env_t exec_env, const uint32 *mutex)
 
     // Remove elements from wamr->sync_ops where the ref matches the given
     // mutex's ref
-    auto new_end = std::remove_if(wamr->sync_ops.begin(), wamr->sync_ops.end(),
-                                  [ref](const sync_op_t &op) {
-                                      // LOG_DEBUG("remove_if {} {}", op.ref,
-                                      // ref);
-                                      return op.ref == ref;
-                                  });
+    auto new_end =
+        std::remove_if(wamr->sync_ops.begin(), wamr->sync_ops.end(),
+                       [ref](const sync_op_t &op) { return op.ref == ref; });
     if (wamr)
         wamr->sync_ops.erase(new_end, wamr->sync_ops.end());
 }
@@ -460,7 +443,8 @@ insert_sync_op_atomic_notify(wasm_exec_env_t exec_env, const uint32 *mutex,
                               ->memories[0]
                               ->memory_data),
         .sync_op = SYNC_OP_ATOMIC_NOTIFY,
-        .expected = count
+        .expected = count,
+        .wait64 = 0
     };
     if (wamr)
         wamr->sync_ops.push_back(sync_op);
@@ -468,7 +452,7 @@ insert_sync_op_atomic_notify(wasm_exec_env_t exec_env, const uint32 *mutex,
 void
 insert_tid_start_arg(uint64_t tid, size_t start_arg, size_t vtid)
 {
-    LOG_DEBUG("insert_tid_start_arg {} {} {}", tid, start_arg, vtid);
+    LOG_DEBUG("insert_tid_start_arg %lu %lu %d", tid, start_arg, vtid);
     if (wamr)
         wamr->tid_start_arg_map[tid] = std::make_pair(start_arg, vtid);
 };
@@ -476,7 +460,7 @@ insert_tid_start_arg(uint64_t tid, size_t start_arg, size_t vtid)
 void
 wamr_handle_map(uint64_t old_tid, uint64_t tid)
 {
-    LOG_DEBUG("wamr_handle_map old:< {} > new:< {} >", old_tid, tid);
+    LOG_DEBUG("wamr_handle_map old:< %lu > new:< %lu >", old_tid, tid);
     if (wamr)
         wamr->tid_map[old_tid] = tid;
 };
@@ -484,7 +468,7 @@ wamr_handle_map(uint64_t old_tid, uint64_t tid)
 void
 insert_parent_child(uint64_t tid, uint64_t child_tid)
 {
-    LOG_DEBUG("insert_parent_child {} {}", tid, child_tid);
+    LOG_DEBUG("insert_parent_child %lu %lu", tid, child_tid);
     if (wamr)
         wamr->child_tid_map[child_tid] = tid;
 }
@@ -499,7 +483,7 @@ lightweight_checkpoint(WASMExecEnv *exec_env)
     if (((AOTFrame *)exec_env->cur_frame)) {
         fid = (int)((AOTFrame *)exec_env->cur_frame)->func_index;
     }
-    LOG_DEBUG("checkpoint {}, func({})", ((void *)exec_env), fid);
+    LOG_DEBUG("checkpoint %p, func(%d)", ((void *)exec_env), fid);
     if (fid == -1) {
         LOG_DEBUG("skip checkpoint");
         return;
@@ -520,7 +504,7 @@ lightweight_uncheckpoint(WASMExecEnv *exec_env)
     if (((AOTFrame *)exec_env->cur_frame)) {
         fid = (int)((AOTFrame *)exec_env->cur_frame)->func_index;
     }
-    LOG_DEBUG("uncheckpoint {} func({})", ((void *)exec_env), fid);
+    LOG_DEBUG("uncheckpoint %p func(%d)", ((void *)exec_env), fid);
     if (fid == -1) {
         LOG_DEBUG("skip uncheckpoint");
         return;
@@ -541,11 +525,11 @@ void
 print_stack(AOTFrame *frame)
 {
     if (frame) {
-        fprintf(stderr, "stack: ");
+        LOG_DEBUG("stack: ");
         for (int *i = (int *)frame->lp; i < (int *)frame->sp; i++) {
-            fprintf(stderr, "%d ", *i);
+            LOG_DEBUG("%d ", *i);
         }
-        fprintf(stderr, "\n");
+        LOG_DEBUG("\n");
     }
     else {
         LOG_DEBUG("no cur_frame");
@@ -565,8 +549,8 @@ print_exec_env_debug_info(WASMExecEnv *exec_env)
         auto p = (AOTFrame *)exec_env->cur_frame;
         while (p) {
             uint32 *frame_lp = p->lp;
-            LOG_DEBUG("{}", (size_t)((size_t)frame_lp - (size_t)p));
-            LOG_DEBUG("depth {}, function {}, ip {}, lp {}, sp {}", call_depth,
+            LOG_DEBUG("%d", (size_t)((size_t)frame_lp - (size_t)p));
+            LOG_DEBUG("depth %d, function %d, ip %d, lp %p, sp %p", call_depth,
                       p->func_index, p->ip_offset, (void *)frame_lp,
                       (void *)p->sp);
             call_depth++;
@@ -593,19 +577,15 @@ print_memory(WASMExecEnv *exec_env)
     for (size_t j = 0; j < module_inst->memory_count; j++) {
         auto mem = module_inst->memories[j];
         if (mem) {
-            LOG_DEBUG("memory data size {}", mem->memory_data_size);
+            LOG_DEBUG("memory data size %d", mem->memory_data_size);
             if (mem->memory_data_size >= 70288 + 64) {
-                // for (int *i = (int *)(mem->memory_data + 70288); i < (int
-                // *)(mem->memory_data + 70288 + 64); ++i) {
-                //     fprintf(stdout, "%d ", *i);
-                // }
                 for (int *i = (int *)(mem->memory_data);
                      i < (int *)(mem->memory_data_end); ++i) {
                     if (1 <= *i && *i <= 9)
-                        fprintf(stdout, "%zu = %d\n",
-                                (uint8 *)i - mem->memory_data, *i);
+                        LOG_DEBUG("%zu = %d\n", (uint8 *)i - mem->memory_data,
+                                  *i);
                 }
-                fprintf(stdout, "\n");
+                LOG_DEBUG("\n");
             }
         }
     }
@@ -619,8 +599,8 @@ void
 sigtrap_handler(int sig)
 {
     auto exec_env = wamr->get_exec_env();
-    //    print_exec_env_debug_info(exec_env);
-    //    print_memory(exec_env);
+    print_exec_env_debug_info(exec_env);
+    print_memory(exec_env);
 
 #if defined(BH_PLATFORM_WINDOWS)
     signal(SIGILL, sigtrap_handler);
@@ -685,7 +665,7 @@ sigint_handler(int sig)
         serialize_to_file(wamr->exec_env);
         return;
     }
-    fprintf(stderr, "Caught signal %d, performing custom logic...\n", sig);
+    LOG_DEBUG("Caught signal %d, performing custom logic...\n", sig);
     checkpoint = true;
     wamr->int3_ul = std::unique_lock(wamr->int3_mtx);
     wamr->replace_nop_with_int3();

@@ -7,7 +7,7 @@
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/IRBuilder.h>
-#include "llvm/IR/InlineAsm.h"
+#include <llvm/IR/InlineAsm.h>
 #include <llvm/Passes/StandardInstrumentations.h>
 #include <llvm/Support/Error.h>
 #if LLVM_VERSION_MAJOR < 17
@@ -276,7 +276,6 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
         reinterpret_cast<TargetMachine *>(comp_ctx->target_machine);
     PipelineTuningOptions PTO;
     PTO.LoopVectorization = true;
-    PTO.SLPVectorization = false;
     PTO.LoopUnrolling = true;
 
 #if LLVM_VERSION_MAJOR >= 16
@@ -409,7 +408,7 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
 
         /* Apply Vectorize related passes for AOT mode */
         FPM.addPass(LoopVectorizePass());
-        // FPM.addPass(SLPVectorizerPass());
+        FPM.addPass(SLPVectorizerPass());
         FPM.addPass(LoadStoreVectorizerPass());
         FPM.addPass(VectorCombinePass());
 

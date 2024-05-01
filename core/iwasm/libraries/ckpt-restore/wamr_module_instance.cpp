@@ -22,13 +22,13 @@ WAMRModuleInstance::dump_impl(WASMModuleInstance *env)
     // The first thread will dump the memory
     if (((WAMRExecEnv *)this)->cur_count
         == ((uint64_t)wamr->exec_env->handle)) {
-        for (int i = 0; i < env->memory_count; i++) {
+        for (uint32 i = 0; i < env->memory_count; i++) {
             auto local_mem = WAMRMemoryInstance();
             dump(&local_mem, env->memories[i]);
             memories.push_back(local_mem);
         }
-        for (int i = 0; i < env->table_count; i++) {
-            LOG_DEBUG("Dumping table {}", env->tables[i]->cur_size);
+        for (uint32 i = 0; i < env->table_count; i++) {
+            LOG_DEBUG("Dumping table %d", env->tables[i]->cur_size);
             auto table =
                 WAMRTableInstance{ .elem_type = (*env->tables[i]).elem_type,
                                    .cur_size = (*env->tables[i]).cur_size,
@@ -40,7 +40,7 @@ WAMRModuleInstance::dump_impl(WASMModuleInstance *env)
     global_data = std::vector<uint8>(env->global_data,
                                      env->global_data + env->global_data_size);
     dump(&wasi_ctx, &env->module->wasi_args);
-    LOG_DEBUG("Dumped global data ptr: {}", ((void *)env->global_data));
+    LOG_DEBUG("Dumped global data ptr: %p", ((void *)env->global_data));
     if (wamr->is_aot) {
         auto module = (AOTModule *)env->module;
         aux_data_end_global_index = module->aux_data_end_global_index;
@@ -69,7 +69,7 @@ WAMRModuleInstance::restore_impl(WASMModuleInstance *env)
 {
     if (!wamr->tmp_buf) {
         env->memory_count = memories.size();
-        for (int i = 0; i < env->memory_count; i++) {
+        for (uint32 i = 0; i < env->memory_count; i++) {
             restore(&memories[i], env->memories[i]);
         }
         wamr->tmp_buf = env->memories;
@@ -77,7 +77,7 @@ WAMRModuleInstance::restore_impl(WASMModuleInstance *env)
 
         env->global_data_size = global_data.size();
         memcpy(env->global_data, global_data.data(), global_data.size());
-        for (int i = 0; i < env->table_count; i++) {
+        for (uint32 i = 0; i < env->table_count; i++) {
             env->tables[i] =
                 new WASMTableInstance{ .elem_type = tables[i].elem_type,
                                        .cur_size = tables[i].cur_size,
@@ -91,7 +91,7 @@ WAMRModuleInstance::restore_impl(WASMModuleInstance *env)
         env->memories = wamr->tmp_buf;
         memcpy(env->global_data, global_data.data(), global_data.size());
         env->global_data_size = global_data.size();
-        for (int i = 0; i < env->table_count; i++) {
+        for (uint32 i = 0; i < env->table_count; i++) {
             env->tables[i] = new WASMTableInstance{
                 .elem_type = (*env->tables[i]).elem_type,
                 .cur_size = (*env->tables[i]).cur_size,

@@ -22,7 +22,7 @@ struct WAMRInterpFrame {
     uint32 size{};
     /* Instruction pointer of the bytecode array.  */
     uint32 ip{};
-    int32 function_index{};
+    uint32 function_index{};
     std::string function_name{};
 
     /* Operand stack top pointer of the current frame. The bottom of

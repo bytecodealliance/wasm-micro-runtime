@@ -18,7 +18,6 @@ WAMRMemoryInstance::restore_impl(WASMMemoryInstance *env)
 {
     env->module_type = module_type;
     env->ref_count = ref_count + 1;
-    LOG_DEBUG("ref_count:{}", env->ref_count);
     env->is_shared_memory = true;
     env->num_bytes_per_page = num_bytes_per_page;
     env->cur_page_count = cur_page_count;

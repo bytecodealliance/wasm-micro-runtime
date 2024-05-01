@@ -77,8 +77,7 @@ WAMRExecEnv::restore_impl(WASMExecEnv *env)
     else {
         auto module_inst = (WASMModuleInstance *)env->module_inst;
         auto get_function = [&](size_t function_index) {
-            if (0 <= function_index
-                && function_index < module_inst->e->function_count) {
+            if (function_index < module_inst->e->function_count) {
                 LOG_DEBUG("function_index {} restored", function_index);
                 auto function = &module_inst->e->functions[function_index];
                 if (function->is_import_func) {

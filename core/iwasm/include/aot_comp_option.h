@@ -30,7 +30,6 @@ typedef struct AOTCompOption {
     bool enable_memory_profiling;
     bool enable_aux_stack_dirty_bit;
     bool enable_counter_loop_checkpoint;
-    bool enable_checkpoint_pgo;
     const char *aot_file_name;
     bool exp_disable_stack_commit_before_block;
     bool exp_disable_gen_fence_int3;

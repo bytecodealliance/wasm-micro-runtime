@@ -35,8 +35,47 @@
 #endif
 
 WAMRInstance::ThreadArgs **argptr;
+#if __has_include(<expected>) && __cplusplus > 202002L
 std::counting_semaphore<100> wakeup(0);
 std::counting_semaphore<100> thread_init(0);
+#else
+template<int MaxCount>
+class CountingSemaphore
+{
+  private:
+    std::mutex mtx_;
+    std::condition_variable cv_;
+    int count_;
+
+  public:
+    explicit CountingSemaphore(int count)
+      : count_(count)
+    {}
+
+    void acquire()
+    {
+        std::unique_lock<std::mutex> lock(mtx_);
+        cv_.wait(lock, [this] { return count_ > 0; });
+        --count_;
+    }
+
+    void release()
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        ++count_;
+        cv_.notify_one();
+    }
+
+    void release(int n)
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        count_ += n;
+        cv_.notify_all();
+    }
+};
+CountingSemaphore<100> wakeup(0);
+CountingSemaphore<100> thread_init(0);
+#endif
 WAMRInstance *wamr;
 WriteStream *writer;
 ReadStream *reader;
@@ -67,10 +106,8 @@ static auto string_vec_to_cstr_array =
         return cstrArray;
     };
 
-WAMRInstance::WAMRInstance(const char *wasm_path, bool is_jit,
-                           std::string policy)
+WAMRInstance::WAMRInstance(const char *wasm_path, bool is_jit)
   : is_jit(is_jit)
-  , policy(policy)
 {
     {
         std::string path(wasm_path);
@@ -122,7 +159,7 @@ WAMRInstance::WAMRInstance(const char *wasm_path, bool is_jit,
     module_ = wasm_runtime_load((uint8_t *)buffer, buf_size, error_buf,
                                 sizeof(error_buf));
     if (!module_) {
-        LOG_DEBUG("Load wasm module failed. error: {}", error_buf);
+        LOG_DEBUG("Load wasm module failed. error: %s", error_buf);
         throw;
     }
 #if !defined(BH_PLATFORM_WINDOWS)
@@ -195,11 +232,18 @@ WAMRInstance::load_wasm_binary(const char *wasm_path, char **buffer_ptr)
 
     return true;
 }
-WAMRInstance::WAMRInstance(WASMExecEnv *exec_env)
+WAMRInstance::WAMRInstance(const char *wasm_path, WASMExecEnv *exec_env)
 {
-    this->exec_env = exec_env;
+    std::string path(wasm_path);
+    this->exec_env = cur_env = exec_env;
     module_inst = exec_env->module_inst;
     module_ = wasm_exec_env_get_module(exec_env);
+
+    if (path.substr(path.length() - 4) == ".bin") {
+        is_aot = module_->module_type == Wasm_Module_AoT;
+        wasm_file_path = path.substr(0, path.length() - 4) + ".wasm";
+        aot_file_path = path.substr(0, path.length() - 4) + ".aot";
+    }
 }
 WAMRInstance::~WAMRInstance()
 {
@@ -216,12 +260,12 @@ WAMRInstance::find_func(const char *name)
 {
 #if WASM_ENABLE_CUSTUM_NAME_SECTION != 0
     if (!(func = wasm_runtime_lookup_function(module_inst, name))) {
-        LOG_DEBUG("The wasi\"{}\"function is not found.", name);
+        LOG_DEBUG("The wasi\"%s\"function is not found.", name);
         auto target_module = get_module_instance()->e;
         for (int i = 0; i < target_module->function_count; i++) {
             auto cur_func = &target_module->functions[i];
             if (cur_func->is_import_func) {
-                LOG_DEBUG("{} {}", cur_func->u.func_import->field_name, i);
+                LOG_DEBUG("%s %d", cur_func->u.func_import->field_name, i);
 
                 if (!strcmp(cur_func->u.func_import->field_name, name)) {
 
@@ -230,7 +274,7 @@ WAMRInstance::find_func(const char *name)
                 }
             }
             else {
-                LOG_DEBUG("{} {}", cur_func->u.func->field_name, i);
+                LOG_DEBUG("%s %d", cur_func->u.func->field_name, i);
 
                 if (!strcmp(cur_func->u.func->field_name, name)) {
                     func = ((WASMFunctionInstanceCommon *)cur_func);
@@ -548,10 +592,10 @@ WAMRInstance::replay_sync_ops(bool main, wasm_exec_env_t exec_env)
     // Actually replay
     os_mutex_lock(&syncop_mutex);
     while (sync_iter != sync_ops.end()) {
-        LOG_DEBUG("test {} == {}, op {}\n", (uint64_t)exec_env->handle,
+        LOG_DEBUG("test %lu == %lu, op %d\n", (uint64_t)exec_env->handle,
                   (uint64_t)sync_iter->tid, ((int)sync_iter->sync_op));
         if (((uint64_t)(*sync_iter).tid) == ((uint64_t)exec_env->handle)) {
-            LOG_DEBUG("replay {}, op {}\n", sync_iter->tid,
+            LOG_DEBUG("replay %lu, op %d\n", sync_iter->tid,
                       ((int)sync_iter->sync_op));
             auto mysync = sync_iter;
             ++sync_iter;
@@ -677,7 +721,7 @@ WAMRInstance::recover(std::vector<std::unique_ptr<WAMRExecEnv>> *e_)
                 end - this->time);
             this->time =
                 std::chrono::time_point<std::chrono::high_resolution_clock>();
-            LOG_DEBUG("Recover time: {}\n", dur.count() / 1000000.0);
+            LOG_DEBUG("Recover time: %f\n", dur.count() / 1000000.0);
             // put things back
         }
         invoke_main();
@@ -712,12 +756,12 @@ WAMRInstance::spawn_child(WASMExecEnv *cur_env, bool main)
             }
             parent = child_tid_map[parent];
             for (auto &[tid, vtid] : tid_start_arg_map) {
-                if (vtid.second == parent) {
+                if (vtid.second == (int)parent) {
                     parent = tid;
                     break;
                 }
             }
-            LOG_DEBUG("{} {}", parent, child_env->cur_count);
+            LOG_DEBUG("%lu %d", parent, child_env->cur_count);
         } // calculate parent TID once
         if (parent != ((uint64_t)cur_env->handle) && (parent != !main)) {
             cv.wait(ul);
@@ -726,7 +770,7 @@ WAMRInstance::spawn_child(WASMExecEnv *cur_env, bool main)
         // requires to record the args and callback for the pthread.
         argptr[id] = &thread_arg;
         // restart thread execution
-        LOG_DEBUG("pthread_create_wrapper, func {}\n", child_env->cur_count);
+        LOG_DEBUG("pthread_create_wrapper, func %d\n", child_env->cur_count);
         // module_inst = wasm_runtime_instantiate(module, stack_size, heap_size,
         // error_buf, sizeof(error_buf));
         if (tid_start_arg_map.find(child_env->cur_count)
@@ -803,7 +847,7 @@ extern "C" { // stop name mangling so it can be linked externally
 void
 wamr_wait(wasm_exec_env_t exec_env)
 {
-    LOG_DEBUG("child getting ready to wait {}", ((void *)exec_env));
+    LOG_DEBUG("child getting ready to wait %p", ((void *)exec_env));
     thread_init.release(1);
 #if WASM_ENABLE_LIB_PTHREAD != 0
     wamr->spawn_child(exec_env, false);
@@ -811,7 +855,7 @@ wamr_wait(wasm_exec_env_t exec_env)
     LOG_DEBUG("finish child restore");
     wakeup.acquire();
 #if WASM_ENABLE_LIB_PTHREAD != 0
-    LOG_DEBUG("go child!! {}", ((uint64_t)exec_env->handle));
+    LOG_DEBUG("go child!! %lu", ((uint64_t)exec_env->handle));
     wamr->replay_sync_ops(false, exec_env);
     LOG_DEBUG("finish syncing");
 #endif
@@ -823,7 +867,7 @@ wamr_wait(wasm_exec_env_t exec_env)
             end - wamr->time);
         wamr->time =
             std::chrono::time_point<std::chrono::high_resolution_clock>();
-        LOG_DEBUG("Recover time: {}\n", dur.count() / 1000000.0);
+        LOG_DEBUG("Recover time: %f\n", dur.count() / 1000000.0);
         // put things back
     }
     // finished restoring
@@ -855,7 +899,7 @@ WAMRInstance::instantiate()
     module_inst = wasm_runtime_instantiate(module_, stack_size, heap_size,
                                            error_buf, sizeof(error_buf));
     if (!module_inst) {
-        LOG_DEBUG("Instantiate wasm module failed. error: {}", error_buf);
+        LOG_DEBUG("Instantiate wasm module failed. error: %s", error_buf);
         throw;
     }
     cur_env = exec_env = wasm_runtime_create_exec_env(module_inst, stack_size);
@@ -865,8 +909,8 @@ bool
 is_ip_in_cidr(const char *base_ip, int subnet_mask_len, uint32_t ip)
 {
     uint32_t base_ip_bin, subnet_mask, network_addr, broadcast_addr;
-    LOG_DEBUG("base_ip: {} subnet_mask_len: {}", base_ip, subnet_mask_len);
-    LOG_DEBUG("ip: {}.{}.{}.{}", (ip >> 24) & 0xFF, (ip >> 16) & 0xFF,
+    LOG_DEBUG("base_ip: %d subnet_mask_len: %d", base_ip, subnet_mask_len);
+    LOG_DEBUG("ip: %d.%d.%d.%d", (ip >> 24) & 0xFF, (ip >> 16) & 0xFF,
               (ip >> 8) & 0xFF, ip & 0xFF);
 
     // Convert base IP to binary
@@ -958,7 +1002,7 @@ serialize_to_file(WASMExecEnv *instance)
         wamr->should_snapshot = true;
     }
     // If we're not all ready
-    LOG_DEBUG("thread {}, with {} ready out of {} total",
+    LOG_DEBUG("thread %lu, with %d ready out of %d total",
               ((uint64_t)instance->handle), wamr->ready, all_count);
 #endif
 #if !defined(BH_PLATFORM_WINDOWS)
@@ -994,7 +1038,7 @@ serialize_to_file(WASMExecEnv *instance)
                 src_addr = wamr->local_addr;
                 src_addr.port = sock_data.socketAddress.port;
             }
-            LOG_DEBUG("addr: {} {}.{}.{}.{}  port: {}", tmp_fd, src_addr.ip4[0],
+            LOG_DEBUG("addr: %d %d.%d.%d.%d  port: %d", tmp_fd, src_addr.ip4[0],
                       src_addr.ip4[1], src_addr.ip4[2], src_addr.ip4[3],
                       src_addr.port);
             snprintf(tmp_ip4, sizeof(tmp_ip4), "%u.%u.%u.%u",
@@ -1015,10 +1059,10 @@ serialize_to_file(WASMExecEnv *instance)
             if (!strcmp(tmp_ip4, "0.0.0.0")
                 || !strcmp(tmp_ip6, "0:0:0:0:0:0:0:0")) {
                 if (!wamr->op_data.is_tcp) {
-                    if (sock_data.socketSentToData.dest_addr.ip.is_4
-                            && !strcmp(tmp_ip4, "0.0.0.0")
-                        || !sock_data.socketSentToData.dest_addr.ip.is_4
-                               && !strcmp(tmp_ip6, "0:0:0:0:0:0:0:0")) {
+                    if ((sock_data.socketSentToData.dest_addr.ip.is_4
+                         && !strcmp(tmp_ip4, "0.0.0.0"))
+                        || (!sock_data.socketSentToData.dest_addr.ip.is_4
+                            && !strcmp(tmp_ip6, "0:0:0:0:0:0:0:0"))) {
                         wamr->op_data.addr[idx][1].is_4 =
                             sock_data.socketRecvFromDatas[0].src_addr.ip.is_4;
                         std::memcpy(
@@ -1092,7 +1136,7 @@ serialize_to_file(WASMExecEnv *instance)
                     }
                 }
             }
-            LOG_DEBUG("dest_addr: {}.{}.{}.{}:{}",
+            LOG_DEBUG("dest_addr: %d.%d.%d.%d:%d",
                       wamr->op_data.addr[idx][1].ip4[0],
                       wamr->op_data.addr[idx][1].ip4[1],
                       wamr->op_data.addr[idx][1].ip4[2],
@@ -1116,7 +1160,7 @@ serialize_to_file(WASMExecEnv *instance)
         }
         // Connect to the server
         if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-            LOG_DEBUG("Connection Failed {}", errno);
+            LOG_DEBUG("Connection Failed %d", errno);
             exit(EXIT_FAILURE);
         }
 
@@ -1150,23 +1194,13 @@ serialize_to_file(WASMExecEnv *instance)
     }
     // finish filling vector
 #endif
-#if defined(BH_PLATFORM_LINUX)
-    if (dynamic_cast<RDMAWriteStream *>(writer)) {
-        auto buffer = struct_pack::serialize(as);
-        ((RDMAWriteStream *)writer)->buffer = buffer;
-        ((RDMAWriteStream *)writer)->position = buffer.size();
-        LOG_DEBUG("Snapshot size: {}\n", buffer.size());
-        delete ((RDMAWriteStream *)writer);
-    }
-    else
-#endif
-        struct_pack::serialize_to(*writer, as);
+    struct_pack::serialize_to(*writer, as);
 
     auto end = std::chrono::high_resolution_clock::now();
     // get duration in us
     auto dur =
         std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    LOG_DEBUG("Snapshot time: {} s", dur.count() / 1000000.0);
+    LOG_DEBUG("Snapshot time: %f s", dur.count() / 1000000.0);
     exit(EXIT_SUCCESS);
 }
 
@@ -1187,7 +1221,8 @@ isValidPath(char *path)
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_checkpoint(wasm_module_inst_t module_inst, char *file)
 {
-    wamr = new WAMRInstance(wasm_runtime_get_exec_env_singleton(module_inst));
+    wamr = new WAMRInstance(file,
+                            wasm_runtime_get_exec_env_singleton(module_inst));
     char protocol[10];
     char address[16];
     int port;
@@ -1204,13 +1239,6 @@ wasm_runtime_checkpoint(wasm_module_inst_t module_inst, char *file)
         if (sscanf(file, "%8[^:]://%15[^:]:%d", protocol, address, &port)) {
             writer = new SocketWriteStream(address, port);
         }
-#if defined(BH_PLATFORM_LINUX)
-        // parse rdma://0.0.0.0:1234 from file
-        else if (sscanf(file, "%9[^:]://%15[^:]:%d", protocol, address, &port)
-                 == 3) {
-            writer = new RDMAWriteStream(address, port);
-        }
-#endif
     }
     wamr->invoke_main();
     return true;
@@ -1218,7 +1246,8 @@ wasm_runtime_checkpoint(wasm_module_inst_t module_inst, char *file)
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_restore(wasm_module_inst_t module_inst, char *file, char *file1)
 {
-    wamr = new WAMRInstance(wasm_runtime_get_exec_env_singleton(module_inst));
+    wamr = new WAMRInstance(file,
+                            wasm_runtime_get_exec_env_singleton(module_inst));
     register_sigtrap();
     register_sigint();
     wamr->get_int3_addr();
@@ -1235,16 +1264,6 @@ wasm_runtime_restore(wasm_module_inst_t module_inst, char *file, char *file1)
         if (sscanf(file, "%8[^:]://%15[^:]:%d", protocol, address, &port)) {
             reader = new SocketReadStream(address, port);
         }
-#if defined(BH_PLATFORM_LINUX)
-        // parse rdma://0.0.0.0:1234 from file
-        else if (sscanf(file, "%9[^:]://%15[^:]:%d", protocol, address, &port)
-                 == 3) {
-            printf("Protocol: %s\n", protocol);
-            printf("Address: %s\n", address);
-            printf("Port: %d\n", port);
-            reader = new RDMAReadStream(address, port);
-        }
-#endif
     }
 
     auto a =
@@ -1260,18 +1279,8 @@ wasm_runtime_restore(wasm_module_inst_t module_inst, char *file, char *file1)
         if (sscanf(file1, "%8[^:]://%15[^:]:%d", protocol, address, &port)) {
             reader = new SocketReadStream(address, port);
         }
-#if defined(BH_PLATFORM_LINUX)
-        // parse rdma://0.0.0.0:1234 from file1
-        else if (sscanf(file1, "%9[^:]://%15[^:]:%d", protocol, address, &port)
-                 == 3) {
-            printf("Protocol: %s\n", protocol);
-            printf("Address: %s\n", address);
-            printf("Port: %d\n", port);
-            reader = new RDMAReadStream(address, port);
-        }
-#endif
     }
-#if !defined(BH_PLATFORM_LINUX)
+#if defined(BH_PLATFORM_LINUX)
     if (!a[a.size() - 1]
              ->module_inst.wasi_ctx.socket_fd_map
              .empty()) { // new ip, old ip // only if tcp requires keepalive
@@ -1280,7 +1289,7 @@ wasm_runtime_restore(wasm_module_inst_t module_inst, char *file, char *file1)
         int fd = 0;
         bool is_tcp_server;
         SocketAddrPool src_addr = wamr->local_addr;
-        LOG_DEBUG("new ip {}.{}.{}.{}:{}", src_addr.ip4[0], src_addr.ip4[1],
+        LOG_DEBUG("new ip %d.%d.%d.%d:%d", src_addr.ip4[0], src_addr.ip4[1],
                   src_addr.ip4[2], src_addr.ip4[3], src_addr.port);
         // got from wamr
         for (auto &[_, socketMetaData] :
@@ -1309,7 +1318,7 @@ wasm_runtime_restore(wasm_module_inst_t module_inst, char *file, char *file1)
         }
 
         if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-            LOG_ERROR("Connection Failed {}", errno);
+            LOG_ERROR("Connection Failed %d", errno);
             return false;
         }
         // send the fd

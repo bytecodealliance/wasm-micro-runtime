@@ -82,7 +82,6 @@ WAMRWASIArguments::dump_impl(WASIArguments *env)
     }
     for (auto &[k, v] : wamr->child_tid_map) {
         child_tid_map[k] = v;
-        LOG_DEBUG("child_tid_map: {} {}", k, v);
     }
     // only one thread has fd_map
     if (wamr->should_snapshot)
@@ -161,48 +160,23 @@ WAMRWASIArguments::restore_impl(WASIArguments *env)
         wamr->should_snapshot = true;
 #endif
         for (auto &[k, v] : tid_start_arg_map) {
-            LOG_DEBUG("tid_start_arg_map: {}, {}", k, v.second);
             wamr->tid_start_arg_map[k] = v;
         }
         for (auto &[k, v] : child_tid_map) {
             wamr->child_tid_map[k] = v;
-            LOG_DEBUG("child_tid_map: {}, {}", k, v);
         }
         for (auto [fd, res] : this->fd_map) {
             // differ from path from file
             auto path = std::get<0>(res);
-            LOG_DEBUG("fd: {} path: {}", fd, path);
             for (auto [flags, offset, op] : std::get<1>(res)) {
-                // differ from path from file
-                if (wamr->policy == "replay") {
-                    switch (op) {
-                        case MVVM_FOPEN:
-                            r = wamr->invoke_fopen(path, fd);
-                            if (r != fd)
-                                wamr->invoke_frenumber(r, fd);
-                            wamr->fd_map_[fd] = res;
-                            break;
-                        case MVVM_FWRITE:
-                        case MVVM_FREAD:
-                            wamr->invoke_fseek(fd, 1, offset);
-                        case MVVM_FSEEK:
-                            wamr->invoke_fseek(fd, flags, offset);
-                            break;
-                        default:
-                            break;
-                    }
+                if (op == MVVM_FOPEN) {
+                    r = wamr->invoke_fopen(path, fd);
+                    if (r != fd)
+                        wamr->invoke_frenumber(r, fd);
+                    wamr->fd_map_[fd] = res;
                 }
-                else if (wamr->policy == "compression") {
-                    if (op == MVVM_FOPEN) {
-                        r = wamr->invoke_fopen(path, fd);
-                        if (r != fd)
-                            wamr->invoke_frenumber(r, fd);
-                        wamr->fd_map_[fd] = res;
-                    }
-                    else {
-                        // wamr->invoke_fseek(fd, 2, 15);
-                        wamr->invoke_fseek(fd, 0, offset);
-                    }
+                else {
+                    wamr->invoke_fseek(fd, 0, offset);
                 }
             }
         }

@@ -66,13 +66,8 @@ WAMRInstance::get_int3_addr()
     }
     char buf[1024];
     std::string output;
-    while (fgets(buf, sizeof(buf), fp) != nullptr) {
-#if defined(BH_PLATFORM_WINDOWS)
+    while (fgets(buf, sizeof(buf), fp) != nullptr)
         output += std::string(buf);
-#else
-        output += std::string(buf);
-#endif
-    }
 #if defined(BH_PLATFORM_WINDOWS)
     _pclose(fp);
 #else
@@ -99,6 +94,7 @@ WAMRInstance::get_int3_addr()
     for (auto &a : addr) {
         auto addr = a;
         auto offset = std::stoul(addr, nullptr, 16);
+        fprintf(stderr, "offset %lu\n", offset);
 #ifdef __x86_64__
         if (code[offset] != 0xcc) {
             fprintf(stderr, "code[%lu] != 0xcc\n", offset);
@@ -177,6 +173,7 @@ WAMRInstance::replace_int3_with_nop()
 #else
 #ifdef __x86_64__
         code[offset] = 0x90;
+        fprintf(stderr, "offset %lu\n", offset);
 #elif __aarch64__
         code[offset + 3] = 0xd5;
         code[offset + 2] = 0x03;

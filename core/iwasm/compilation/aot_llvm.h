@@ -111,6 +111,12 @@ typedef struct AOTValueSlot {
 
 /* Frame information for translation */
 typedef struct AOTCompFrame {
+    /* The current wasm module */
+    WASMModule *cur_wasm_module;
+    /* The current wasm function */
+    WASMFunction *cur_wasm_func;
+    /* The current wasm function index */
+    uint32 cur_wasm_func_idx;
     /* The current compilation context */
     struct AOTCompContext *comp_ctx;
     /* The current function context */
@@ -419,7 +425,6 @@ typedef struct AOTCompContext {
     bool inst_checkpointed;
     bool enable_aux_stack_dirty_bit;
     bool enable_counter_loop_checkpoint;
-    bool enable_checkpoint_pgo;
     const char *aot_file_name;
     bool exp_disable_stack_commit_before_block;
     bool exp_disable_gen_fence_int3;
@@ -537,6 +542,7 @@ typedef struct AOTCompOption {
     bool enable_thread_mgr;
     bool enable_tail_call;
     bool enable_simd;
+    bool enable_gc;
     bool enable_ref_types;
     bool enable_aux_stack_check;
     bool enable_aux_stack_frame;
@@ -548,7 +554,6 @@ typedef struct AOTCompOption {
     bool enable_memory_profiling;
     bool enable_aux_stack_dirty_bit;
     bool enable_counter_loop_checkpoint;
-    bool enable_checkpoint_pgo;
     const char *aot_file_name;
     bool exp_disable_stack_commit_before_block;
     bool exp_disable_gen_fence_int3;
@@ -569,7 +574,6 @@ typedef struct AOTCompOption {
     uint32 segue_flags;
     char **custom_sections;
     uint32 custom_sections_count;
-    bool enable_gc;
     const char *stack_usage_file;
     const char *llvm_passes;
     const char *builtin_intrinsics;
@@ -677,9 +681,6 @@ aot_handle_llvm_errmsg(const char *string, LLVMErrorRef err);
 
 char *
 aot_compress_aot_func_names(AOTCompContext *comp_ctx, uint32 *p_size);
-
-void
-aot_block_add_unroll_pass(AOTCompContext *comp_ctx, LLVMValueRef branch);
 
 bool
 aot_set_cond_br_weights(AOTCompContext *comp_ctx, LLVMValueRef cond_br,

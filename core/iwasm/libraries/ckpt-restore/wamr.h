@@ -109,7 +109,6 @@ class WAMRInstance
     std::mutex as_mtx{};
     std::vector<struct sync_op_t> sync_ops;
     bool should_snapshot{};
-    std::string policy{};
     WASMMemoryInstance **tmp_buf = nullptr;
     uint32 tmp_buf_size{};
     std::vector<struct sync_op_t>::iterator sync_iter;
@@ -121,7 +120,7 @@ class WAMRInstance
     size_t cur_thread;
     std::chrono::time_point<std::chrono::high_resolution_clock> time;
     std::vector<long long> latencies;
-    bool is_jit{};
+    bool is_jit;
     bool is_aot{};
     char error_buf[128]{};
     struct mvvm_op_data op_data {};
@@ -130,9 +129,8 @@ class WAMRInstance
         wasm_exec_env_t exec_env;
     } ThreadArgs;
 
-    explicit WAMRInstance(const char *wasm_path, bool is_jit,
-                          std::string policy = "compression");
-    explicit WAMRInstance(WASMExecEnv *exec_env);
+    explicit WAMRInstance(const char *wasm_path, bool is_jit);
+    explicit WAMRInstance(const char *wasm_path, WASMExecEnv *exec_env);
     void instantiate();
     void recover(std::vector<std::unique_ptr<WAMRExecEnv>> *);
     bool load_wasm_binary(const char *wasm_path, char **buffer_ptr);

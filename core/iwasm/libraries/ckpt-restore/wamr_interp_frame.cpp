@@ -13,7 +13,9 @@
 #include "wamr_interp_frame.h"
 #include "wamr.h"
 #include "wamr_branch_block.h"
+#include <wasm_opcode.h>
 #include <memory>
+#include <wasm_loader.h>
 extern WAMRInstance *wamr;
 void
 WAMRInterpFrame::dump_impl(WASMInterpFrame *env)
@@ -60,7 +62,7 @@ WAMRInterpFrame::restore_impl(WASMInterpFrame *env)
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
     else {
         auto target_module = wamr->get_module_instance()->e;
-        for (int i = 0; i < target_module->function_count; i++) {
+        for (uint32 i = 0; i < target_module->function_count; i++) {
             auto cur_func = &target_module->functions[i];
             if (!cur_func->is_import_func) {
                 if (!strcmp(cur_func->u.func->field_name,
@@ -110,7 +112,7 @@ WAMRInterpFrame::restore_impl(WASMInterpFrame *env)
             restore(csp_item.get(), env->csp_bottom + i);
             LOG_DEBUG("csp_bottom {}",
                       ((uint8 *)env->csp_bottom + i)
-                          - wamr->get_exec_env()->wasm_stack.s.bottom);
+                          - wamr->get_exec_env()->wasm_stack.bottom);
             i++;
         }
 
@@ -119,9 +121,9 @@ WAMRInterpFrame::restore_impl(WASMInterpFrame *env)
             env->csp_bottom + env->function->u.func->max_block_num;
     }
 #endif
-    LOG_DEBUG("func_idx {} ip {} sp {} stack bottom {}", function_index,
+    LOG_DEBUG("func_idx %d ip %p sp %p stack bottom %p", function_index,
               (void *)env->ip, (void *)env->sp,
-              (void *)wamr->get_exec_env()->wasm_stack.s.bottom);
+              (void *)wamr->get_exec_env()->wasm_stack.bottom);
 }
 
 #if WASM_ENABLE_AOT != 0
@@ -132,7 +134,7 @@ WAMRInterpFrame::dump_impl(AOTFrame *env)
     ip = env->ip_offset;
     sp = env->sp - env->lp; // offset to the wasm_stack_top
 
-    LOG_DEBUG("function_index {} ip_offset {} lp {} sp {} sp_offset {}",
+    LOG_DEBUG("function_index %d ip_offset %d lp %p sp %p sp_offset %lu",
               env->func_index, ip, (void *)env->lp, (void *)env->sp, sp);
 
     stack_frame = std::vector(env->lp, env->sp);
@@ -375,7 +377,6 @@ wasm_replay_csp_bytecode(WASMExecEnv *exec_env, WASMInterpFrame *frame,
 #if WASM_ENABLE_DEBUG_INTERP != 0
     op_break_retry:
 #endif
-#if WASM_ENABLE_FAST_INTERP == 0
         switch (opcode) {
             case WASM_OP_UNREACHABLE:
             case WASM_OP_NOP:
@@ -1025,7 +1026,6 @@ wasm_replay_csp_bytecode(WASMExecEnv *exec_env, WASMInterpFrame *frame,
                 }
                 break;
             }
-#endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
             case DEBUG_OP_BREAK:
             {

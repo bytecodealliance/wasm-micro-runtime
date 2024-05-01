@@ -843,8 +843,8 @@ aot_compile_op_end(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     if (comp_ctx->aot_frame) {
         bh_assert(comp_ctx->aot_frame->sp == block->frame_sp_begin);
-#if WASM_ENABLE_CHECKPOINT_RESTORE == 0
-        // restore_frame_sp(block, comp_ctx->aot_frame);
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+        restore_frame_sp_for_op_else(block, comp_ctx->aot_frame);
 #endif
     }
 
@@ -941,7 +941,7 @@ aot_compile_op_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (!(block_dst = get_target_block(func_ctx, br_depth))) {
         return false;
     }
-
+#if WASM_ENABLE_CHECKPOINT_RESTORE == 0
     if (comp_ctx->aot_frame) {
         if (comp_ctx->enable_gc && !aot_gen_commit_values(comp_ctx->aot_frame))
             return false;
@@ -958,7 +958,7 @@ aot_compile_op_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 block_dst->frame_sp_max_reached = comp_ctx->aot_frame->sp;
         }
     }
-
+#endif
     /* Terminate or suspend current thread only when this is a backward jump */
     if (comp_ctx->enable_thread_mgr
         && block_dst->label_type == LABEL_TYPE_LOOP) {
@@ -1319,8 +1319,10 @@ aot_compile_op_return(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         (*p_frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code);
 #endif
 
-    // if (comp_ctx->aot_frame)
-    // call_aot_free_frame_func(comp_ctx, func_ctx);
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    if (comp_ctx->aot_frame)
+        free_frame_for_aot_func(comp_ctx, func_ctx);
+#endif
     if (block_func->result_count) {
         /* Store extra result values to function parameters */
         for (i = 0; i < block_func->result_count - 1; i++) {
