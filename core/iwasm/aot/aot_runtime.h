@@ -784,6 +784,10 @@ aot_set_module_name(AOTModule *module, const char *name, char *error_buf,
 const char *
 aot_get_module_name(AOTModule *module);
 
+bool
+aot_read_to_sections(const uint8 *buf, uint32 size, AOTSection **p_section_list,
+                     char *error_buf, uint32 error_buf_size);
+
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif

@@ -6295,8 +6295,9 @@ get_section_index(uint8 section_type)
 }
 
 static bool
-create_sections(const uint8 *buf, uint32 size, WASMSection **p_section_list,
-                char *error_buf, uint32 error_buf_size)
+create_sections(const uint8 *buf, uint32 size, bool alloc_mem_for_section_body,
+                WASMSection **p_section_list, char *error_buf,
+                uint32 error_buf_size)
 {
     WASMSection *section_list_end = NULL, *section;
     const uint8 *p = buf, *p_end = buf + size /*, *section_body*/;
@@ -6333,8 +6334,19 @@ create_sections(const uint8 *buf, uint32 size, WASMSection **p_section_list,
             }
 
             section->section_type = section_type;
-            section->section_body = (uint8 *)p;
             section->section_body_size = section_size;
+            if (alloc_mem_for_section_body) {
+                section->section_body = loader_malloc(
+                    section->section_body_size, error_buf, error_buf_size);
+                if (!section->section_body)
+                    goto fail;
+
+                bh_memcpy_s(section->section_body, section->section_body_size,
+                            p, section_size);
+            }
+            else {
+                section->section_body = (uint8 *)p;
+            }
 
             if (!section_list_end)
                 *p_section_list = section_list_end = section;
@@ -6404,7 +6416,8 @@ load(const uint8 *buf, uint32 size, WASMModule *module, char *error_buf,
         return false;
     }
 
-    if (!create_sections(buf, size, &section_list, error_buf, error_buf_size)
+    if (!create_sections(buf, size, false, &section_list, error_buf,
+                         error_buf_size)
         || !load_from_sections(module, section_list, true, error_buf,
                                error_buf_size)) {
         destroy_sections(section_list);
@@ -6415,6 +6428,15 @@ load(const uint8 *buf, uint32 size, WASMModule *module, char *error_buf,
     return true;
 fail:
     return false;
+}
+
+bool
+wasm_read_to_sections(const uint8 *buf, uint32 size,
+                      WASMSection **p_section_list, char *error_buf,
+                      uint32 error_buf_size)
+{
+    return create_sections(buf, size, true, p_section_list, error_buf,
+                           error_buf_size);
 }
 
 #if WASM_ENABLE_LIBC_WASI != 0

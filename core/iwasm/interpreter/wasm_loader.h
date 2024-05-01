@@ -73,6 +73,11 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                             uint8 block_type, uint8 **p_else_addr,
                             uint8 **p_end_addr);
 
+bool
+wasm_read_to_sections(const uint8 *buf, uint32 size,
+                      WASMSection **p_section_list, char *error_buf,
+                      uint32 error_buf_size);
+
 #ifdef __cplusplus
 }
 #endif

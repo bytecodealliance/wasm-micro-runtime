@@ -1846,11 +1846,14 @@ typedef enum {
  * @param buf the buffer containing the WASM module
  * @param size the size of the buffer containing the WASM module
  * @param p_section_result the structure containing the sections read
+ * @param error_buf output of the exception info
+ * @param error_buf_size the size of the exception string
  * @return true if success, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_read_to_sections(uint8_t *buf, uint64_t size,
-                              load_section_result_t *p_section_result);
+                              load_section_result_t *p_section_result,
+                              char *error_buf, uint32_t error_buf_size);
 
 /**
  * Destroy the sections specified with section types

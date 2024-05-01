@@ -1205,12 +1205,13 @@ wasm_runtime_set_linux_perf(bool flag);
 #endif
 
 bool
-wasm_runtime_read_to_sections(uint8_t *buf, uint64_t size,
-                              load_section_result_t *p_section_result);
+wasm_runtime_read_to_sections(uint8 *buf, uint64 size,
+                              load_section_result_t *p_section_result,
+                              char *error_buf, uint32 error_buf_size);
 
 void
 wasm_runtime_destroy_sections(load_section_result_t *section_result,
-                              uint8_t *section_types, int section_cnt);
+                              uint8 *section_types, int section_cnt);
 
 #ifdef __cplusplus
 }

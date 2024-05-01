@@ -3886,15 +3886,21 @@ aot_load_from_sections(AOTSection *section_list, char *error_buf,
 }
 
 static void
-destroy_sections(AOTSection *section_list, bool destroy_aot_text)
+destroy_sections(AOTSection *section_list, bool free_section_body,
+                 bool destroy_aot_text)
 {
     AOTSection *section = section_list, *next;
     while (section) {
         next = section->next;
         if (destroy_aot_text && section->section_type == AOT_SECTION_TYPE_TEXT
-            && section->section_body)
+            && section->section_body) {
             os_munmap((uint8 *)section->section_body,
                       section->section_body_size);
+        }
+        else if (free_section_body && section->section_body) {
+            wasm_runtime_free(section->section_body);
+        }
+
         wasm_runtime_free(section);
         section = next;
     }
@@ -3941,8 +3947,8 @@ fail:
 
 static bool
 create_sections(AOTModule *module, const uint8 *buf, uint32 size,
-                AOTSection **p_section_list, char *error_buf,
-                uint32 error_buf_size)
+                bool alloc_mem_for_section_body, AOTSection **p_section_list,
+                char *error_buf, uint32 error_buf_size)
 {
     AOTSection *section_list = NULL, *section_list_end = NULL, *section;
     const uint8 *p = buf, *p_end = buf + size;
@@ -4035,6 +4041,17 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
                     }
                 }
             }
+            else {
+                if (alloc_mem_for_section_body) {
+                    section->section_body = loader_malloc(
+                        section->section_body_size, error_buf, error_buf_size);
+                    if (!section->section_body)
+                        goto fail;
+
+                    bh_memcpy_s(section->section_body,
+                                section->section_body_size, p, section_size);
+                }
+            }
 
             if (!section_list)
                 section_list = section_list_end = section;
@@ -4060,8 +4077,19 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
     return true;
 fail:
     if (section_list)
-        destroy_sections(section_list, destroy_aot_text);
+        destroy_sections(section_list, alloc_mem_for_section_body,
+                         destroy_aot_text);
     return false;
+}
+
+bool
+aot_read_to_sections(const uint8 *buf, uint32 size, AOTSection **p_section_list,
+                     char *error_buf, uint32 error_buf_size)
+{
+    AOTModule
+        fake_module; /* Unused, passed since required by create_sections */
+    return create_sections(&fake_module, buf, size, true, p_section_list,
+                           error_buf, error_buf_size);
 }
 
 static bool
@@ -4086,7 +4114,7 @@ load(const uint8 *buf, uint32 size, AOTModule *module, char *error_buf,
         return false;
     }
 
-    if (!create_sections(module, buf, size, &section_list, error_buf,
+    if (!create_sections(module, buf, size, false, &section_list, error_buf,
                          error_buf_size))
         return false;
 
@@ -4095,14 +4123,15 @@ load(const uint8 *buf, uint32 size, AOTModule *module, char *error_buf,
     if (!ret) {
         /* If load_from_sections() fails, then aot text is destroyed
            in destroy_sections() */
-        destroy_sections(section_list, module->is_indirect_mode ? false : true);
+        destroy_sections(section_list, false,
+                         module->is_indirect_mode ? false : true);
         /* aot_unload() won't destroy aot text again */
         module->code = NULL;
     }
     else {
         /* If load_from_sections() succeeds, then aot text is set to
            module->code and will be destroyed in aot_unload() */
-        destroy_sections(section_list, false);
+        destroy_sections(section_list, false, false);
     }
 
 #if 0

@@ -12,6 +12,7 @@
 #include "wasm_memory.h"
 #if WASM_ENABLE_INTERP != 0
 #include "../interpreter/wasm_runtime.h"
+#include "wasm_loader.h"
 #endif
 #if WASM_ENABLE_AOT != 0
 #include "../aot/aot_runtime.h"
@@ -7072,7 +7073,7 @@ wasm_runtime_detect_native_stack_overflow_size(WASMExecEnv *exec_env,
     return true;
 }
 
-#if WASM_ENABLE_INTERP != 0 || WASM_ENABLE_JIT != 0
+#if WASM_ENABLE_INTERP != 0
 static void
 destroy_all_wasm_sections(wasm_section_list_t sections)
 {
@@ -7172,11 +7173,11 @@ destroy_part_aot_sections(aot_section_list_t *p_sections, uint8 *section_types,
 
 void
 wasm_runtime_destroy_sections(load_section_result_t *section_result,
-                              uint8_t *section_types, int section_cnt)
+                              uint8 *section_types, int section_cnt)
 {
     bool destroy_all_sections = (section_types == NULL);
     if (destroy_all_sections) {
-#if WASM_ENABLE_INTERP != 0 || WASM_ENABLE_JIT != 0
+#if WASM_ENABLE_INTERP != 0
         if (!section_result->is_aot)
             destroy_all_wasm_sections(section_result->sections);
 #endif
@@ -7186,7 +7187,7 @@ wasm_runtime_destroy_sections(load_section_result_t *section_result,
 #endif
     }
     else {
-#if WASM_ENABLE_INTERP != 0 || WASM_ENABLE_JIT != 0
+#if WASM_ENABLE_INTERP != 0
         if (!section_result->is_aot)
             destroy_part_wasm_sections(&section_result->sections, section_types,
                                        section_cnt);
@@ -7199,377 +7200,27 @@ wasm_runtime_destroy_sections(load_section_result_t *section_result,
     }
 }
 
-typedef enum wasm_section_parse_phase_t {
-    /* Magic phase */
-    Phase_App_Magic,
-
-#if WASM_ENABLE_INTERP != 0 || WASM_ENABLE_JIT != 0
-    /* Phases of wasm bytecode file */
-    Phase_Wasm_Version,
-    Phase_Wasm_Section_Type,
-    Phase_Wasm_Section_Size,
-    Phase_Wasm_Section_Content,
-#endif
-
-#if WASM_ENABLE_AOT != 0
-    /* Phases of wasm AOT file */
-    Phase_AOT_Version,
-    Phase_AOT_Section_ID,
-    Phase_AOT_Section_Size,
-    Phase_AOT_Section_Content
-#endif
-} wasm_section_parse_phase_t;
-
-typedef struct wasm_section_parse_ctx_t {
-    wasm_section_parse_phase_t phase;
-    uint64_t size_in_phase;
-    int total_received_size;
-    int magic;
-    int version;
-    wasm_section_list_t sections;
-    wasm_section_t *section_end;
-    package_type_t package_type;
-} wasm_section_parse_ctx_t;
-
-static bool
-wasm_section_parse_byte(uint8 ch, int request_total_size,
-                        wasm_section_parse_ctx_t *section_ctx)
-{
-    uint8 *p;
-    int magic;
-    section_ctx->total_received_size++;
-
-    if (section_ctx->phase == Phase_App_Magic) {
-        /* start to receive wasm app magic: bytecode or aot */
-        p = (uint8 *)&section_ctx->magic;
-
-        p[section_ctx->size_in_phase++] = ch;
-
-        if (section_ctx->size_in_phase == sizeof(section_ctx->magic)) {
-            magic = section_ctx->magic;
-            section_ctx->package_type =
-                get_package_type((uint8 *)&magic, sizeof(magic) + 1);
-            switch (section_ctx->package_type) {
-#if WASM_ENABLE_INTERP != 0 || WASM_ENABLE_JIT != 0
-                case Wasm_Module_Bytecode:
-                    section_ctx->phase = Phase_Wasm_Version;
-                    section_ctx->size_in_phase = 0;
-                    break;
-#endif
-#if WASM_ENABLE_AOT != 0
-                case Wasm_Module_AoT:
-                    section_ctx->phase = Phase_AOT_Version;
-                    section_ctx->size_in_phase = 0;
-                    break;
-#endif
-                default:
-                    LOG_ERROR("Parse section failed: invalid file format.");
-                    goto fail;
-            }
-        }
-        return true;
-    }
-#if WASM_ENABLE_INTERP != 0 || WASM_ENABLE_JIT != 0
-    else if (section_ctx->phase == Phase_Wasm_Version) {
-        p = (uint8 *)&section_ctx->version;
-        p[section_ctx->size_in_phase++] = ch;
-
-        if (section_ctx->size_in_phase == sizeof(section_ctx->version)) {
-            section_ctx->phase = Phase_Wasm_Section_Type;
-            section_ctx->size_in_phase = 0;
-        }
-        return true;
-    }
-    else if (section_ctx->phase == Phase_Wasm_Section_Type) {
-        uint8 section_type = ch;
-#if WASM_ENABLE_BULK_MEMORY == 0
-        uint8 section_type_max = SECTION_TYPE_DATA;
-#else
-#if WASM_ENABLE_STRINGREF != 0
-        uint8 section_type_max = SECTION_TYPE_STRINGREF;
-#else
-        uint8 section_type_max = SECTION_TYPE_DATACOUNT;
-#endif /* end of WASM_ENABLE_STRINGREF != 0 */
-#endif
-        if (section_type <= section_type_max) {
-            wasm_section_t *new_section;
-            if (!(new_section = (wasm_section_t *)wasm_runtime_malloc(
-                      sizeof(wasm_section_t)))) {
-                LOG_ERROR("Parse section failed: memory allocation failure.");
-                goto fail;
-            }
-            memset(new_section, 0, sizeof(wasm_section_t));
-            new_section->section_type = section_type;
-            new_section->next = NULL;
-
-            /* add the section to tail of link list */
-            if (NULL == section_ctx->sections) {
-                section_ctx->sections = new_section;
-                section_ctx->section_end = new_section;
-            }
-            else {
-                section_ctx->section_end->next = new_section;
-                section_ctx->section_end = new_section;
-            }
-
-            section_ctx->phase = Phase_Wasm_Section_Size;
-            section_ctx->size_in_phase = 0;
-
-            return true;
-        }
-        else {
-            LOG_ERROR("Parse section failed: invalid wasm section type: %d.",
-                      section_type);
-            goto fail;
-        }
-    }
-    else if (section_ctx->phase == Phase_Wasm_Section_Size) {
-        /* the last section is the current receiving one */
-        wasm_section_t *section = section_ctx->section_end;
-        uint32 byte;
-
-        bh_assert(section);
-
-        byte = ch;
-
-        section->section_body_size |=
-            ((byte & 0x7f) << section_ctx->size_in_phase * 7);
-        section_ctx->size_in_phase++;
-        /* check leab128 overflow for uint32 value */
-        if (section_ctx->size_in_phase
-            > (sizeof(section->section_body_size) * 8 + 7 - 1) / 7) {
-            LOG_ERROR("Parse section failed: LEB overflow when parsing section "
-                      "size.");
-            goto fail;
-        }
-
-        if ((byte & 0x80) == 0) {
-            /* leb128 encoded section size parsed done */
-            if (!(section->section_body =
-                      wasm_runtime_malloc(section->section_body_size))) {
-                LOG_ERROR("Parse section failed: memory allocation failure.");
-                goto fail;
-            }
-            section_ctx->phase = Phase_Wasm_Section_Content;
-            section_ctx->size_in_phase = 0;
-        }
-
-        return true;
-    }
-    else if (section_ctx->phase == Phase_Wasm_Section_Content) {
-        /* the last section is the current receiving one */
-        wasm_section_t *section = section_ctx->section_end;
-
-        bh_assert(section);
-
-        section->section_body[section_ctx->size_in_phase++] = ch;
-
-        if (section_ctx->size_in_phase == section->section_body_size) {
-            section_ctx->phase = Phase_Wasm_Section_Type;
-            section_ctx->size_in_phase = 0;
-            return true;
-        }
-
-        return true;
-    }
-#endif /* end of WASM_ENABLE_INTERP != 0 || WASM_ENABLE_JIT != 0 */
-#if WASM_ENABLE_AOT != 0
-    else if (section_ctx->phase == Phase_AOT_Version) {
-        p = (uint8 *)&section_ctx->version;
-        p[section_ctx->size_in_phase++] = ch;
-
-        if (section_ctx->size_in_phase == sizeof(section_ctx->version)) {
-            section_ctx->phase = Phase_AOT_Section_ID;
-            section_ctx->size_in_phase = 0;
-        }
-        return true;
-    }
-    else if (section_ctx->phase == Phase_AOT_Section_ID) {
-        aot_section_t *cur_section;
-        uint32 aot_file_cur_offset =
-            (uint32_t)section_ctx->total_received_size - 1;
-
-        if (section_ctx->size_in_phase == 0) {
-            /* Skip paddings */
-            if (aot_file_cur_offset % 4)
-                return true;
-
-            if (!(cur_section = (aot_section_t *)wasm_runtime_malloc(
-                      sizeof(aot_section_t)))) {
-                LOG_ERROR("Parse section failed: memory allocation failure.");
-                goto fail;
-            }
-            memset(cur_section, 0, sizeof(aot_section_t));
-
-            /* add the section to tail of link list */
-            if (NULL == section_ctx->sections) {
-                section_ctx->sections = cur_section;
-                section_ctx->section_end = cur_section;
-            }
-            else {
-                section_ctx->section_end->next = cur_section;
-                section_ctx->section_end = cur_section;
-            }
-        }
-        else {
-            cur_section = section_ctx->section_end;
-            bh_assert(cur_section);
-        }
-
-        p = (uint8 *)&cur_section->section_type;
-        p[section_ctx->size_in_phase++] = ch;
-        if (section_ctx->size_in_phase == sizeof(cur_section->section_type)) {
-            /* Notes: integers are always little endian encoded in AOT file */
-            if (!is_little_endian())
-                exchange_uint32(p);
-            if (cur_section->section_type < AOT_SECTION_TYPE_SIGANATURE
-                || cur_section->section_type == AOT_SECTION_TYPE_CUSTOM) {
-                section_ctx->phase = Phase_AOT_Section_Size;
-                section_ctx->size_in_phase = 0;
-            }
-            else {
-                LOG_ERROR("Parse section failed: invalid AOT section id: %d.",
-                          cur_section->section_type);
-                goto fail;
-            }
-        }
-
-        return true;
-    }
-    else if (section_ctx->phase == Phase_AOT_Section_Size) {
-        /* the last section is the current receiving one */
-        aot_section_t *section = section_ctx->section_end;
-        bh_assert(section);
-
-        p = (uint8 *)&section->section_body_size;
-        p[section_ctx->size_in_phase++] = ch;
-        if (section_ctx->size_in_phase == sizeof(section->section_body_size)) {
-            /* Notes: integers are always little endian encoded in AOT file */
-            if (!is_little_endian())
-                exchange_uint32(p);
-            /* Allocate memory for section body */
-            if (section->section_body_size > 0) {
-                if (section->section_type == AOT_SECTION_TYPE_TEXT) {
-                    int map_prot =
-                        MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC;
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
-    || defined(BUILD_TARGET_RISCV64_LP64D)                       \
-    || defined(BUILD_TARGET_RISCV64_LP64)
-                    /* aot code and data in x86_64 must be in range 0 to 2G due
-                       to relocation for R_X86_64_32/32S/PC32 */
-                    int map_flags = MMAP_MAP_32BIT;
-#else
-                    int map_flags = MMAP_MAP_NONE;
-#endif
-                    uint64 total_size = (uint64)section->section_body_size
-                                        + aot_get_plt_table_size();
-                    total_size = (total_size + 3) & ~((uint64)3);
-                    if (total_size >= UINT32_MAX
-                        || !(section->section_body =
-                                 os_mmap(NULL, (uint32)total_size, map_prot,
-                                         map_flags, os_get_invalid_handle()))) {
-                        LOG_ERROR(
-                            "Parse section failed: memory allocation failure.");
-                        goto fail;
-                    }
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-                    /* address must be in the first 2 Gigabytes of
-                       the process address space */
-                    bh_assert((uintptr_t)section->section_body < INT32_MAX);
-#endif
-                }
-                else {
-                    if (!(section->section_body = wasm_runtime_malloc(
-                              section->section_body_size))) {
-                        LOG_ERROR(
-                            "Parse section failed: memory allocation failure.");
-                        goto fail;
-                    }
-                }
-            }
-
-            section_ctx->phase = Phase_AOT_Section_Content;
-            section_ctx->size_in_phase = 0;
-        }
-
-        return true;
-    }
-    else if (section_ctx->phase == Phase_AOT_Section_Content) {
-        /* the last section is the current receiving one */
-        aot_section_t *section = section_ctx->section_end;
-        bh_assert(section && section->section_body);
-
-        section->section_body[section_ctx->size_in_phase++] = ch;
-
-        if (section_ctx->size_in_phase == section->section_body_size) {
-            if (section->section_type == AOT_SECTION_TYPE_TEXT) {
-                uint32 total_size =
-                    section->section_body_size + aot_get_plt_table_size();
-                total_size = (total_size + 3) & ~3;
-                if (total_size > section->section_body_size) {
-                    memset(section->section_body + section->section_body_size,
-                           0, total_size - section->section_body_size);
-                    section->section_body_size = total_size;
-                }
-            }
-
-            section_ctx->phase = Phase_AOT_Section_ID;
-            section_ctx->size_in_phase = 0;
-            return true;
-        }
-
-        return true;
-    }
-#endif /* end of WASM_ENABLE_AOT != 0 */
-
-fail:
-    /* Restore the package type */
-    magic = section_ctx->magic;
-    section_ctx->package_type =
-        get_package_type((uint8 *)&magic, sizeof(magic) + 1);
-    switch (section_ctx->package_type) {
-#if WASM_ENABLE_INTERP != 0 || WASM_ENABLE_JIT != 0
-        case Wasm_Module_Bytecode:
-            destroy_all_wasm_sections(section_ctx->sections);
-            break;
-#endif
-#if WASM_ENABLE_AOT != 0
-        case Wasm_Module_AoT:
-            destroy_all_aot_sections(section_ctx->sections);
-            break;
-#endif
-        default:
-            break;
-    }
-
-    memset(&section_ctx, 0, sizeof(section_ctx));
-    return false;
-}
-
 bool
-wasm_runtime_read_to_sections(uint8_t *buf, uint64_t size,
-                              load_section_result_t *p_section_result)
+wasm_runtime_read_to_sections(uint8 *buf, uint64 size,
+                              load_section_result_t *p_section_result,
+                              char *error_buf, uint32 error_buf_size)
 {
-    wasm_section_parse_ctx_t section_ctx = {
-        .phase = Phase_App_Magic,
-        .size_in_phase = 0,
-        .total_received_size = 0,
-        .magic = 0,
-        .version = 0,
-        .sections = NULL,
-        .section_end = NULL,
-        .package_type = Package_Type_Unknown,
-    };
+    bool ret = false;
 
-    for (uint64_t i = 0; i < size; i++) {
-        bool ret = wasm_section_parse_byte(buf[i], size, &section_ctx);
-        if (!ret) {
-            p_section_result->sections = NULL;
-            return false;
-        }
+#if WASM_ENABLE_INTERP != 0
+    if (get_package_type(buf, size) == Wasm_Module_Bytecode) {
+        ret = wasm_read_to_sections(buf, size, &p_section_result->sections,
+                                    error_buf, error_buf_size);
+        p_section_result->is_aot = false;
     }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (get_package_type(buf, size) == Wasm_Module_AoT) {
+        ret = aot_read_to_sections(buf, size, &p_section_result->sections,
+                                   error_buf, error_buf_size);
+        p_section_result->is_aot = true;
+    }
+#endif
 
-    p_section_result->sections = section_ctx.sections;
-    p_section_result->is_aot = section_ctx.package_type == Wasm_Module_AoT;
-    return true;
+    return ret;
 }
