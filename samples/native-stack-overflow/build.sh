@@ -41,6 +41,11 @@ if [ $? != 0 ];then
 fi
 cp -a native-stack-overflow ${OUT_DIR}/native-stack-overflow.WAMR_DISABLE_HW_BOUND_CHECK
 
+echo "##################### signature shared lib"
+cd ${CURR_DIR}
+cc -I ../../core/iwasm/include -shared -o ${OUT_DIR}/signature.so \
+src/signature.c
+
 echo
 
 echo "##################### build wasm apps"
@@ -69,7 +74,30 @@ echo "#################### build wasm apps done"
 
 echo "#################### aot-compile"
 WAMRC=${WAMR_DIR}/wamr-compiler/build/wamrc
-${WAMRC} -o ${OUT_DIR}/wasm-apps/${OUT_FILE}.aot --size-level=0 ${OUT_DIR}/wasm-apps/${OUT_FILE}
+${WAMRC} \
+-o ${OUT_DIR}/wasm-apps/${OUT_FILE}.aot \
+--size-level=0 \
+${OUT_DIR}/wasm-apps/${OUT_FILE}
+
+echo "#################### aot-compile w/ signature"
+WAMRC=${WAMR_DIR}/wamr-compiler/build/wamrc
+${WAMRC} \
+-o ${OUT_DIR}/wasm-apps/${OUT_FILE}.aot.signature \
+--size-level=0 \
+--native-lib=${OUT_DIR}/signature.so \
+${OUT_DIR}/wasm-apps/${OUT_FILE}
 
 echo "#################### aot-compile (--bounds-checks=1)"
-${WAMRC} -o ${OUT_DIR}/wasm-apps/${OUT_FILE}.aot.bounds-checks --size-level=0 --bounds-checks=1 ${OUT_DIR}/wasm-apps/${OUT_FILE}
+${WAMRC} \
+-o ${OUT_DIR}/wasm-apps/${OUT_FILE}.aot.bounds-checks \
+--size-level=0 \
+--bounds-checks=1 \
+${OUT_DIR}/wasm-apps/${OUT_FILE}
+
+echo "#################### aot-compile (--bounds-checks=1) w/ signature"
+${WAMRC} \
+-o ${OUT_DIR}/wasm-apps/${OUT_FILE}.aot.signature.bounds-checks \
+--size-level=0 \
+--native-lib=${OUT_DIR}/signature.so \
+--bounds-checks=1 \
+${OUT_DIR}/wasm-apps/${OUT_FILE}
