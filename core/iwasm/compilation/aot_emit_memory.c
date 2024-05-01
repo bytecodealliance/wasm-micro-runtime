@@ -1090,6 +1090,15 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     if (!(dst_addr = check_bulk_memory_overflow(comp_ctx, func_ctx, dst, len)))
         return false;
 
+    if (comp_ctx->pointer_size == sizeof(uint64)) {
+        /* zero extend to uint64 if the target is 64-bit */
+        len = LLVMBuildZExt(comp_ctx->builder, len, I64_TYPE, "len64");
+        if (!len) {
+            aot_set_last_error("llvm build zero extend failed.");
+            return false;
+        }
+    }
+
     call_aot_memmove = comp_ctx->is_indirect_mode || comp_ctx->is_jit_mode;
     if (call_aot_memmove) {
         LLVMTypeRef param_types[3], ret_type, func_type, func_ptr_type;
@@ -1097,7 +1106,7 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
         param_types[0] = INT8_PTR_TYPE;
         param_types[1] = INT8_PTR_TYPE;
-        param_types[2] = I32_TYPE;
+        param_types[2] = SIZE_T_TYPE;
         ret_type = INT8_PTR_TYPE;
 
         if (!(func_type = LLVMFunctionType(ret_type, param_types, 3, false))) {
@@ -1172,9 +1181,18 @@ aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     if (!(dst_addr = check_bulk_memory_overflow(comp_ctx, func_ctx, dst, len)))
         return false;
 
+    if (comp_ctx->pointer_size == sizeof(uint64)) {
+        /* zero extend to uint64 if the target is 64-bit */
+        len = LLVMBuildZExt(comp_ctx->builder, len, I64_TYPE, "len64");
+        if (!len) {
+            aot_set_last_error("llvm build zero extend failed.");
+            return false;
+        }
+    }
+
     param_types[0] = INT8_PTR_TYPE;
     param_types[1] = I32_TYPE;
-    param_types[2] = I32_TYPE;
+    param_types[2] = SIZE_T_TYPE;
     ret_type = INT8_PTR_TYPE;
 
     if (!(func_type = LLVMFunctionType(ret_type, param_types, 3, false))) {
