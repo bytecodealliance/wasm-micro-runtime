@@ -30,3 +30,4 @@ Normally there are some methods to tune the memory usage:
 - set the app heap size with `wasm_runtime_instantiate`
 - use `nostdlib` mode, add `-Wl,--strip-all`: refer to [How to reduce the footprint](./build_wasm_app.md#2-how-to-reduce-the-footprint) of building wasm app for more details
 - use XIP mode, refer to [WAMR XIP (Execution In Place) feature introduction](./xip.md) for more details
+- use `wasm_runtime_destroy_sections` to destroy sections when they are not needed anymore (see [example](../samples/basic/src/read_sections.c))

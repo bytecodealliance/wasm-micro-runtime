@@ -79,12 +79,16 @@ include_directories(${CMAKE_CURRENT_LIST_DIR}/src)
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
 add_executable (basic src/main.c src/native_impl.c ${UNCOMMON_SHARED_SOURCE})
+add_executable (read_sections src/read_sections.c ${UNCOMMON_SHARED_SOURCE})
 
 check_pie_supported()
 set_target_properties (basic PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties (read_sections PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 if (APPLE)
   target_link_libraries (basic vmlib -lm -ldl -lpthread)
+  target_link_libraries (read_sections vmlib -lm -ldl -lpthread)
 else ()
   target_link_libraries (basic vmlib -lm -ldl -lpthread -lrt)
+  target_link_libraries (read_sections vmlib -lm -ldl -lpthread -lrt)
 endif ()

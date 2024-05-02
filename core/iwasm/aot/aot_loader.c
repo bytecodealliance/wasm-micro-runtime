@@ -3875,11 +3875,14 @@ aot_load_from_sections(AOTSection *section_list, char *error_buf,
     if (!module)
         return NULL;
 
+    os_thread_jit_write_protect_np(false); /* Make memory writable */
     if (!load_from_sections(module, section_list, false, error_buf,
                             error_buf_size)) {
         aot_unload(module);
         return NULL;
     }
+    os_thread_jit_write_protect_np(true); /* Make memory executable */
+    os_icache_flush(module->code, module->code_size);
 
     LOG_VERBOSE("Load module from sections success.\n");
     return module;
@@ -4086,10 +4089,16 @@ bool
 aot_read_to_sections(const uint8 *buf, uint32 size, AOTSection **p_section_list,
                      char *error_buf, uint32 error_buf_size)
 {
+    bool ret = false;
     AOTModule
         fake_module; /* Unused, passed since required by create_sections */
-    return create_sections(&fake_module, buf, size, true, p_section_list,
-                           error_buf, error_buf_size);
+
+    os_thread_jit_write_protect_np(false); /* Make memory writable */
+    ret = create_sections(&fake_module, buf, size, true, p_section_list,
+                          error_buf, error_buf_size);
+    os_thread_jit_write_protect_np(true); /* Make memory executable */
+
+    return ret;
 }
 
 static bool
