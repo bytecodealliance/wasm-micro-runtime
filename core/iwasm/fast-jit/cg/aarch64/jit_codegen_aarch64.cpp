@@ -35,17 +35,17 @@ typedef enum {
     REG_B5_IDX,
     REG_B6_IDX,
     REG_B7_IDX,
-    REG_B8_IDX,  // often used as an indirect result register (similar to x86 RAX)
+    REG_B8_IDX,
     REG_B9_IDX,
     REG_B10_IDX,
     REG_B11_IDX,
     REG_B12_IDX,
     REG_B13_IDX,
     REG_B14_IDX,
-    REG_B15_IDX, // often reserved for intra-procedural call usage
-    REG_B16_IDX, // IP0, typically used by the linker and intra-procedural calls
-    REG_B17_IDX, // IP1, similarly used as X16
-    REG_B18_IDX, // platform register, possibly reserved
+    REG_B15_IDX,
+    REG_B16_IDX,
+    REG_B17_IDX,
+    REG_B18_IDX,
     REG_B19_IDX,
     REG_B20_IDX,
     REG_B21_IDX,
@@ -56,9 +56,9 @@ typedef enum {
     REG_B26_IDX,
     REG_B27_IDX,
     REG_B28_IDX,
-    REG_B29_IDX, // Frame Pointer (FP), analogous to x86 RBP
+    REG_B29_IDX,
     REG_B30_IDX,
-    REG_I8_FREE_IDX = REG_B0_IDX // Example: assuming X9 is free for general use
+    REG_I8_FREE_IDX = REG_B0_IDX
 } RegIndexI8;
 
 typedef enum {
@@ -70,17 +70,17 @@ typedef enum {
     REG_H5_IDX,
     REG_H6_IDX,
     REG_H7_IDX,
-    REG_H8_IDX,  // often used as an indirect result register (similar to x86 RAX)
+    REG_H8_IDX,
     REG_H9_IDX,
     REG_H10_IDX,
     REG_H11_IDX,
     REG_H12_IDX,
     REG_H13_IDX,
     REG_H14_IDX,
-    REG_H15_IDX, // often reserved for intra-procedural call usage
-    REG_H16_IDX, // IP0, typically used by the linker and intra-procedural calls
-    REG_H17_IDX, // IP1, similarly used as X16
-    REG_H18_IDX, // platform register, possibly reserved
+    REG_H15_IDX,
+    REG_H16_IDX,
+    REG_H17_IDX,
+    REG_H18_IDX,
     REG_H19_IDX,
     REG_H20_IDX,
     REG_H21_IDX,
@@ -91,9 +91,9 @@ typedef enum {
     REG_H26_IDX,
     REG_H27_IDX,
     REG_H28_IDX,
-    REG_H29_IDX, // Frame Pointer (FP), analogous to x86 RBP
+    REG_H29_IDX,
     REG_H30_IDX,
-    REG_I16_FREE_IDX = REG_H0_IDX // Example: assuming X9 is free for general use
+    REG_I16_FREE_IDX = REG_H0_IDX
 } RegIndexI16;
 
 typedef enum {
@@ -105,7 +105,8 @@ typedef enum {
     REG_W5_IDX,
     REG_W6_IDX,
     REG_W7_IDX,
-    REG_W8_IDX,  // often used as an indirect result register (similar to x86 RAX)
+    REG_W8_IDX, // often used as an indirect result register (similar to x86
+                // RAX)
     REG_W9_IDX,
     REG_W10_IDX,
     REG_W11_IDX,
@@ -129,10 +130,10 @@ typedef enum {
     REG_W29_IDX, // Frame Pointer (FP), analogous to x86 RBP
     REG_W30_IDX,
     REG_WZR_IDX, // Zero Register (acts as a hardwired zero)
-    REG_WSP_IDX,  // Stack Pointer, analogous to x86 RSP
-    REG_I32_FREE_IDX = REG_W9_IDX // Example: assuming X9 is free for general use
+    REG_WSP_IDX, // Stack Pointer, analogous to x86 RSP
+    REG_I32_FREE_IDX =
+        REG_W9_IDX // Example: assuming X9 is free for general use
 } RegIndexI32;
-
 
 typedef enum {
     REG_X0_IDX = 0,
@@ -143,7 +144,8 @@ typedef enum {
     REG_X5_IDX,
     REG_X6_IDX,
     REG_X7_IDX,
-    REG_X8_IDX,  // often used as an indirect result register (similar to x86 RAX)
+    REG_X8_IDX, // often used as an indirect result register (similar to x86
+                // RAX)
     REG_X9_IDX,
     REG_X10_IDX,
     REG_X11_IDX,
@@ -168,7 +170,8 @@ typedef enum {
     REG_X30_IDX, // Link Register (LR)
     REG_XZR_IDX, // Zero Register (acts as a hardwired zero)
     REG_SP_IDX,  // Stack Pointer, analogous to x86 RSP
-    REG_I64_FREE_IDX = REG_X9_IDX // Example: assuming X9 is free for general use
+    REG_I64_FREE_IDX =
+        REG_X9_IDX // Example: assuming X9 is free for general use
 } RegIndexI64;
 /* clang-format off */
 a64::Gp regs_i8[] = {
@@ -217,19 +220,31 @@ a64::Gp regs_i64[] = {
 
 #define REG_F32_FREE_IDX 15
 #define REG_F64_FREE_IDX 15
+#define REG_F128_FREE_IDX 15
 
-a64::VecD regs_f32[] = {
-    a64::d0,  a64::d1,  a64::d2,  a64::d3,
-    a64::d4,  a64::d5,  a64::d6,  a64::d7,
-    a64::d8,  a64::d9,  a64::d10, a64::d11,
-    a64::d12, a64::d13, a64::d14, a64::d15,
-    a64::d16, a64::d17, a64::d18, a64::d19,
-    a64::d20, a64::d21, a64::d22, a64::d23,
-    a64::d24, a64::d25, a64::d26, a64::d27,
-    a64::d28, a64::d29, a64::d30, a64::d31
+a64::VecB regs_f8[] = {
+    a64::b0,  a64::b1,  a64::b2,  a64::b3,
+    a64::b4,  a64::b5,  a64::b6,  a64::b7,
+    a64::b8,  a64::b9,  a64::b10, a64::b11,
+    a64::b12, a64::b13, a64::b14, a64::b15,
+    a64::b16, a64::b17, a64::b18, a64::b19,
+    a64::b20, a64::b21, a64::b22, a64::b23,
+    a64::b24, a64::b25, a64::b26, a64::b27,
+    a64::b28, a64::b29, a64::b30, a64::b31
 };
 
-a64::VecD regs_float[] = {
+a64::VecS regs_f32[] = {
+    a64::s0,  a64::s1,  a64::s2,  a64::s3,
+    a64::s4,  a64::s5,  a64::s6,  a64::s7,
+    a64::s8,  a64::s9,  a64::s10, a64::s11,
+    a64::s12, a64::s13, a64::s14, a64::s15,
+    a64::s16, a64::s17, a64::s18, a64::s19,
+    a64::s20, a64::s21, a64::s22, a64::s23,
+    a64::s24, a64::s25, a64::s26, a64::s27,
+    a64::s28, a64::s29, a64::s30, a64::s31
+};
+
+a64::VecD regs_f64[] = {
     a64::d0,  a64::d1,  a64::d2,  a64::d3,
     a64::d4,  a64::d5,  a64::d6,  a64::d7,
     a64::d8,  a64::d9,  a64::d10, a64::d11,
@@ -335,16 +350,16 @@ jit_codegen_interp_jitted_glue(void *exec_env, JitInterpSwitchInfo *info,
             GOTO_FAIL;                                            \
     } while (0)
 
-#define CHECK_F32_REG_NO(no)                                          \
-    do {                                                              \
-        if ((uint32)no >= sizeof(regs_float) / sizeof(regs_float[0])) \
-            GOTO_FAIL;                                                \
+#define CHECK_F32_REG_NO(no)                                      \
+    do {                                                          \
+        if ((uint32)no >= sizeof(regs_f32) / sizeof(regs_f32[0])) \
+            GOTO_FAIL;                                            \
     } while (0)
 
-#define CHECK_F64_REG_NO(no)                                          \
-    do {                                                              \
-        if ((uint32)no >= sizeof(regs_float) / sizeof(regs_float[0])) \
-            GOTO_FAIL;                                                \
+#define CHECK_F64_REG_NO(no)                                      \
+    do {                                                          \
+        if ((uint32)no >= sizeof(regs_f64) / sizeof(regs_f64[0])) \
+            GOTO_FAIL;                                            \
     } while (0)
 
 /* Check if a register number is valid */
@@ -842,8 +857,8 @@ mov_r_to_r(a64::Assembler &a, uint32 kind_dst, int32 reg_no_dst,
  * @return true if success, false otherwise
  */
 static bool
-mov_m_to_r(a64::Assembler &a, uint32_t bytes_dst, uint32_t kind_dst, bool is_signed,
-           int32_t reg_no_dst, a64::Mem &m_src)
+mov_m_to_r(a64::Assembler &a, uint32_t bytes_dst, uint32_t kind_dst,
+           bool is_signed, int32_t reg_no_dst, a64::Mem &m_src)
 {
     if (kind_dst == JIT_REG_KIND_I32) {
         switch (bytes_dst) {
@@ -975,23 +990,33 @@ mov_r_to_m(a64::Assembler &a, uint32_t bytes_dst, uint32_t kind_dst,
  * @return new stream
  */
 static bool
-mov_imm_to_m(a64::Assembler &a, a64::Mem &m_dst, Imm imm_src, uint32_t bytes_dst)
+mov_imm_to_m(a64::Assembler &a, a64::Mem &m_dst, Imm imm_src,
+             uint32_t bytes_dst)
 {
     if (bytes_dst == 8) {
         int64_t value = imm_src.value();
         if (value >= INT32_MIN && value <= INT32_MAX) {
-            // If value fits in 32-bit, use a 32-bit move (which is implicitly zero-extended to 64 bits)
+            // If value fits in 32-bit, use a 32-bit move (which is implicitly
+            // zero-extended to 64 bits)
             a.mov(a64::w(REG_I64_FREE_IDX), (int32_t)value);
             a.str(a64::w(REG_I64_FREE_IDX), m_dst);
-        } else {
-            // Use MOVZ and MOVK sequence to construct the full 64-bit immediate in a register
-            a.movz(a64::x(REG_I64_FREE_IDX), imm_src.value() & 0xFFFF, 0); // Lower 16 bits
-            a.movk(a64::x(REG_I64_FREE_IDX), (imm_src.value() >> 16) & 0xFFFF, 16);
-            a.movk(a64::x(REG_I64_FREE_IDX), (imm_src.value() >> 32) & 0xFFFF, 32);
-            a.movk(a64::x(REG_I64_FREE_IDX), (imm_src.value() >> 48) & 0xFFFF, 48);
-            a.str(a64::x(REG_I64_FREE_IDX), m_dst); // Store the 64-bit value from the register to memory
         }
-    } else {
+        else {
+            // Use MOVZ and MOVK sequence to construct the full 64-bit immediate
+            // in a register
+            a.movz(a64::x(REG_I64_FREE_IDX), imm_src.value() & 0xFFFF,
+                   0); // Lower 16 bits
+            a.movk(a64::x(REG_I64_FREE_IDX), (imm_src.value() >> 16) & 0xFFFF,
+                   16);
+            a.movk(a64::x(REG_I64_FREE_IDX), (imm_src.value() >> 32) & 0xFFFF,
+                   32);
+            a.movk(a64::x(REG_I64_FREE_IDX), (imm_src.value() >> 48) & 0xFFFF,
+                   48);
+            a.str(a64::x(REG_I64_FREE_IDX),
+                  m_dst); // Store the 64-bit value from the register to memory
+        }
+    }
+    else {
         // For 32-bit or smaller values, move the immediate to a register first
         a.mov(a64::w(REG_I64_FREE_IDX), imm_src.value());
         switch (bytes_dst) {
@@ -1026,10 +1051,12 @@ mov_imm_to_m(a64::Assembler &a, a64::Mem &m_dst, Imm imm_src, uint32_t bytes_dst
  *
  * @return true if success, false otherwise
  */
-static bool xchg_r_to_m(a64::Assembler &a, uint32_t bytes_dst, uint32_t kind_dst,
+static bool
+xchg_r_to_m(a64::Assembler &a, uint32_t bytes_dst, uint32_t kind_dst,
             a64::Mem &m_dst, int32_t reg_no_src)
 {
-    bh_assert((kind_dst == JIT_REG_KIND_I32 && bytes_dst <= 4) || kind_dst == JIT_REG_KIND_I64);
+    bh_assert((kind_dst == JIT_REG_KIND_I32 && bytes_dst <= 4)
+              || kind_dst == JIT_REG_KIND_I64);
 
     switch (bytes_dst) {
         case 1:
@@ -1864,7 +1891,8 @@ convert_r_i32_to_r_i64(a64::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
  * @return true if success, false otherwise
  */
 static bool
-convert_r_i32_to_r_f32(a64::Assembler &a, int32_t reg_no_dst, int32_t reg_no_src)
+convert_r_i32_to_r_f32(a64::Assembler &a, int32_t reg_no_dst,
+                       int32_t reg_no_src)
 {
     a.scvtf(a64::s(reg_no_dst), a64::w(reg_no_src));
     return true;
@@ -1898,7 +1926,7 @@ convert_imm_i32_to_r_f32(a64::Assembler &a, int32 reg_no, int32 data)
 static bool
 convert_r_i32_to_r_f64(a64::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    a.ucvtf(regs_float[reg_no_dst], regs_i32[reg_no_src]);
+    a.ucvtf(regs_f64[reg_no_dst], regs_i32[reg_no_src]);
     return true;
 }
 
@@ -2057,7 +2085,7 @@ static bool
 convert_imm_u32_to_r_f32(a64::Assembler &a, int32 reg_no, uint32 data)
 {
     mov_imm_to_r_i64(a, REG_I64_FREE_IDX, (int64)(uint64)data);
-    a.scvtf(regs_float[reg_no], regs_i64[REG_I64_FREE_IDX]);
+    a.scvtf(regs_f32[reg_no], regs_i64[REG_I64_FREE_IDX]);
     return true;
 }
 
@@ -2074,7 +2102,7 @@ static bool
 convert_r_u32_to_r_f32(a64::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
     extend_r32_to_r64(a, REG_I64_FREE_IDX, reg_no_src, false);
-    a.scvtf(regs_float[reg_no_dst], regs_i64[REG_I64_FREE_IDX]);
+    a.scvtf(regs_f32[reg_no_dst], regs_i64[REG_I64_FREE_IDX]);
     return true;
 }
 
@@ -2091,7 +2119,7 @@ static bool
 convert_imm_u32_to_r_f64(a64::Assembler &a, int32 reg_no, uint32 data)
 {
     mov_imm_to_r_i64(a, REG_I64_FREE_IDX, (int64)(uint64)data);
-    a.ucvtf(regs_float[reg_no], regs_i64[REG_I64_FREE_IDX]);
+    a.ucvtf(regs_f64[reg_no], regs_i64[REG_I64_FREE_IDX]);
     return true;
 }
 
@@ -2108,7 +2136,7 @@ static bool
 convert_r_u32_to_r_f64(a64::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
     extend_r32_to_r64(a, REG_I64_FREE_IDX, reg_no_src, false);
-    a.ucvtf(regs_float[reg_no_dst], regs_i64[REG_I64_FREE_IDX]);
+    a.ucvtf(regs_f64[reg_no_dst], regs_i64[REG_I64_FREE_IDX]);
     return true;
 }
 
@@ -2124,7 +2152,7 @@ convert_r_u32_to_r_f64(a64::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 static bool
 convert_r_i64_to_r_f32(a64::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    a.scvtf(regs_float[reg_no_dst], regs_i64[reg_no_src]);
+    a.scvtf(regs_f32[reg_no_dst], regs_i64[reg_no_src]);
     return true;
 }
 
@@ -2156,7 +2184,7 @@ convert_imm_i64_to_r_f32(a64::Assembler &a, int32 reg_no, int64 data)
 static bool
 convert_r_i64_to_r_f64(a64::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    a.ucvtf(regs_float[reg_no_dst], regs_i64[reg_no_src]);
+    a.ucvtf(regs_f64[reg_no_dst], regs_i64[reg_no_src]);
     return true;
 }
 
@@ -2203,7 +2231,7 @@ convert_imm_f32_to_r_i32(a64::Assembler &a, int32 reg_no, float data)
 static bool
 convert_r_f32_to_r_i32(a64::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    a.fcvtzs(regs_i32[reg_no_dst], regs_float[reg_no_src]);
+    a.fcvtzs(regs_i32[reg_no_dst], regs_f32[reg_no_src]);
     return true;
 }
 
@@ -2234,7 +2262,7 @@ convert_imm_f32_to_r_u32(a64::Assembler &a, int32 reg_no, float data)
 static bool
 convert_r_f32_to_r_u32(a64::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    a.fcvtzs(regs_i64[reg_no_dst], regs_float[reg_no_src]);
+    a.fcvtzs(regs_i64[reg_no_dst], regs_f32[reg_no_src]);
     return true;
 }
 
@@ -2265,7 +2293,7 @@ convert_imm_f32_to_r_i64(a64::Assembler &a, int32 reg_no, float data)
 static bool
 convert_r_f32_to_r_i64(a64::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    a.fcvtzs(regs_i64[reg_no_dst], regs_float[reg_no_src]);
+    a.fcvtzs(regs_i64[reg_no_dst], regs_f32[reg_no_src]);
     return true;
 }
 
@@ -2296,7 +2324,7 @@ convert_imm_f32_to_r_f64(a64::Assembler &a, int32 reg_no, float data)
 static bool
 convert_r_f32_to_r_f64(a64::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    a.fcvtzu(regs_float[reg_no_dst], regs_float[reg_no_src]);
+    a.fcvtzu(regs_f64[reg_no_dst], regs_f32[reg_no_src]);
     return true;
 }
 
@@ -2327,7 +2355,7 @@ convert_imm_f64_to_r_i32(a64::Assembler &a, int32 reg_no, double data)
 static bool
 convert_r_f64_to_r_i32(a64::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    a.fcvtzu(regs_i32[reg_no_dst], regs_float[reg_no_src]);
+    a.fcvtzu(regs_i32[reg_no_dst], regs_f64[reg_no_src]);
     return true;
 }
 
@@ -2358,7 +2386,7 @@ convert_imm_f64_to_r_i64(a64::Assembler &a, int32 reg_no, double data)
 static bool
 convert_r_f64_to_r_i64(a64::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    a.fcvtzu(regs_i64[reg_no_dst], regs_float[reg_no_src]);
+    a.fcvtzu(regs_i64[reg_no_dst], regs_f64[reg_no_src]);
     return true;
 }
 
@@ -2389,7 +2417,7 @@ convert_imm_f64_to_r_f32(a64::Assembler &a, int32 reg_no, double data)
 static bool
 convert_r_f64_to_r_f32(a64::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    a.ucvtf(regs_float[reg_no_dst], regs_float[reg_no_src]);
+    a.ucvtf(regs_f32[reg_no_dst], regs_f64[reg_no_src]);
     return true;
 }
 
@@ -2420,7 +2448,7 @@ convert_imm_f64_to_r_u32(a64::Assembler &a, int32 reg_no, double data)
 static bool
 convert_r_f64_to_r_u32(a64::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    a.fcvtzu(regs_i64[reg_no_dst], regs_float[reg_no_src]);
+    a.fcvtzu(regs_i64[reg_no_dst], regs_f64[reg_no_src]);
     return true;
 }
 
@@ -2608,14 +2636,17 @@ alu_r_r_imm_i32(a64::Assembler &a, ALU_OP op, int32 reg_no_dst,
             else if (data == -1) {
                 mov_r_to_r(a, JIT_REG_KIND_I32, reg_no_dst, reg_no_src);
                 a.neg(a64::x(reg_no_dst), a64::x(reg_no_dst));
-            } else if (data == 1) {
+            }
+            else if (data == 1) {
                 mov_r_to_r(a, JIT_REG_KIND_I32, reg_no_dst, reg_no_src);
-            } else if (data > 0 && (data & (data - 1)) == 0x0) {
+            }
+            else if (data > 0 && (data & (data - 1)) == 0x0) {
                 mov_r_to_r(a, JIT_REG_KIND_I32, reg_no_dst, reg_no_src);
                 data = static_cast<int32_t>(local_log2(data));
                 imm.setValue(data);
                 a.lsl(a64::x(reg_no_dst), a64::x(reg_no_dst), imm);
-            } else {
+            }
+            else {
                 a.mvn(a64::x(reg_no_dst), a64::x(reg_no_src), imm);
             }
             break;
@@ -2624,26 +2655,32 @@ alu_r_r_imm_i32(a64::Assembler &a, ALU_OP op, int32 reg_no_dst,
             bh_assert(reg_no_src == REG_X0_IDX);
             if (op == DIV_S) {
                 bh_assert(reg_no_dst == REG_X0_IDX);
-            } else {
+            }
+            else {
                 bh_assert(reg_no_dst == REG_X1_IDX);
             }
             a.mov(a64::x(REG_I64_FREE_IDX), imm);
-            a.sdiv(a64::x(reg_no_dst), a64::x(REG_X0_IDX), a64::x(REG_I64_FREE_IDX));
+            a.sdiv(a64::x(reg_no_dst), a64::x(REG_X0_IDX),
+                   a64::x(REG_I64_FREE_IDX));
             if (op == REM_S)
-                a.msub(a64::x(reg_no_dst), a64::x(reg_no_dst), a64::x(REG_I64_FREE_IDX), a64::x(REG_X0_IDX));
+                a.msub(a64::x(reg_no_dst), a64::x(reg_no_dst),
+                       a64::x(REG_I64_FREE_IDX), a64::x(REG_X0_IDX));
             break;
         case DIV_U:
         case REM_U:
             bh_assert(reg_no_src == REG_X0_IDX);
             if (op == DIV_U) {
                 bh_assert(reg_no_dst == REG_X0_IDX);
-            } else {
+            }
+            else {
                 bh_assert(reg_no_dst == REG_X1_IDX);
             }
             a.mov(a64::x(REG_I64_FREE_IDX), imm);
-            a.udiv(a64::x(reg_no_dst), a64::x(REG_X0_IDX), a64::x(REG_I64_FREE_IDX));
+            a.udiv(a64::x(reg_no_dst), a64::x(REG_X0_IDX),
+                   a64::x(REG_I64_FREE_IDX));
             if (op == REM_U)
-                a.msub(a64::x(reg_no_dst), a64::x(reg_no_dst), a64::x(REG_I64_FREE_IDX), a64::x(REG_X0_IDX));
+                a.msub(a64::x(reg_no_dst), a64::x(reg_no_dst),
+                       a64::x(REG_I64_FREE_IDX), a64::x(REG_X0_IDX));
             break;
         default:
             bh_assert(0);
@@ -2671,26 +2708,35 @@ alu_r_r_r_i32(a64::Assembler &a, ALU_OP op, int32 reg_no_dst, int32 reg_no1_src,
         case ADD:
             if (reg_no_dst != reg_no2_src) {
                 mov_r_to_r(a, JIT_REG_KIND_I32, reg_no_dst, reg_no1_src);
-                a.add(a64::x(reg_no_dst), a64::x(reg_no_dst), a64::x(reg_no2_src));
-            } else {
-                a.add(a64::x(reg_no2_src), a64::x(reg_no2_src), a64::x(reg_no1_src));
+                a.add(a64::x(reg_no_dst), a64::x(reg_no_dst),
+                      a64::x(reg_no2_src));
+            }
+            else {
+                a.add(a64::x(reg_no2_src), a64::x(reg_no2_src),
+                      a64::x(reg_no1_src));
             }
             break;
         case SUB:
             if (reg_no_dst != reg_no2_src) {
                 mov_r_to_r(a, JIT_REG_KIND_I32, reg_no_dst, reg_no1_src);
-                a.sub(a64::x(reg_no_dst), a64::x(reg_no_dst), a64::x(reg_no2_src));
-            } else {
-                a.sub(a64::x(reg_no2_src), a64::x(reg_no2_src), a64::x(reg_no1_src));
+                a.sub(a64::x(reg_no_dst), a64::x(reg_no_dst),
+                      a64::x(reg_no2_src));
+            }
+            else {
+                a.sub(a64::x(reg_no2_src), a64::x(reg_no2_src),
+                      a64::x(reg_no1_src));
                 a.neg(a64::x(reg_no2_src), a64::x(reg_no2_src));
             }
             break;
         case MUL:
             if (reg_no_dst != reg_no2_src) {
                 mov_r_to_r(a, JIT_REG_KIND_I32, reg_no_dst, reg_no1_src);
-                a.mul(a64::x(reg_no_dst), a64::x(reg_no_dst), a64::x(reg_no2_src));
-            } else {
-                a.mul(a64::x(reg_no2_src), a64::x(reg_no2_src), a64::x(reg_no1_src));
+                a.mul(a64::x(reg_no_dst), a64::x(reg_no_dst),
+                      a64::x(reg_no2_src));
+            }
+            else {
+                a.mul(a64::x(reg_no2_src), a64::x(reg_no2_src),
+                      a64::x(reg_no1_src));
             }
             break;
         case DIV_S:
@@ -2698,7 +2744,8 @@ alu_r_r_r_i32(a64::Assembler &a, ALU_OP op, int32 reg_no_dst, int32 reg_no1_src,
             bh_assert(reg_no1_src == REG_X0_IDX);
             if (op == DIV_S) {
                 bh_assert(reg_no_dst == REG_X0_IDX);
-            } else {
+            }
+            else {
                 bh_assert(reg_no_dst == REG_X1_IDX);
                 if (reg_no2_src == REG_X1_IDX) {
                     a.mov(a64::x(REG_I64_FREE_IDX), a64::x(REG_X1_IDX));
@@ -2707,7 +2754,8 @@ alu_r_r_r_i32(a64::Assembler &a, ALU_OP op, int32 reg_no_dst, int32 reg_no1_src,
             }
             a.sdiv(a64::x(reg_no_dst), a64::x(REG_X0_IDX), a64::x(reg_no2_src));
             if (op == REM_S) {
-                a.msub(a64::x(reg_no_dst), a64::x(reg_no_dst), a64::x(reg_no2_src), a64::x(REG_X0_IDX));
+                a.msub(a64::x(reg_no_dst), a64::x(reg_no_dst),
+                       a64::x(reg_no2_src), a64::x(REG_X0_IDX));
             }
             break;
         case DIV_U:
@@ -2715,7 +2763,8 @@ alu_r_r_r_i32(a64::Assembler &a, ALU_OP op, int32 reg_no_dst, int32 reg_no1_src,
             bh_assert(reg_no1_src == REG_X0_IDX);
             if (op == DIV_U) {
                 bh_assert(reg_no_dst == REG_X0_IDX);
-            } else {
+            }
+            else {
                 bh_assert(reg_no_dst == REG_X1_IDX);
                 if (reg_no2_src == REG_X1_IDX) {
                     a.mov(a64::x(REG_I64_FREE_IDX), a64::x(REG_X1_IDX));
@@ -2724,7 +2773,8 @@ alu_r_r_r_i32(a64::Assembler &a, ALU_OP op, int32 reg_no_dst, int32 reg_no1_src,
             }
             a.udiv(a64::x(reg_no_dst), a64::x(REG_X0_IDX), a64::x(reg_no2_src));
             if (op == REM_U) {
-                a.msub(a64::x(reg_no_dst), a64::x(reg_no_dst), a64::x(reg_no2_src), a64::x(REG_X0_IDX));
+                a.msub(a64::x(reg_no_dst), a64::x(reg_no_dst),
+                       a64::x(reg_no2_src), a64::x(REG_X0_IDX));
             }
             break;
         default:
@@ -2874,36 +2924,42 @@ alu_r_r_to_r_i32(a64::Assembler &a, ALU_OP op, int32 reg_no_dst,
  * @return true if success, false otherwise
  */
 static bool
-alu_r_r_r_i64(a64::Assembler &a, ALU_OP op, int32_t reg_no_dst, int32_t reg_no1_src,
-              int32_t reg_no2_src)
+alu_r_r_r_i64(a64::Assembler &a, ALU_OP op, int32_t reg_no_dst,
+              int32_t reg_no1_src, int32_t reg_no2_src)
 {
     switch (op) {
         case ADD:
             if (reg_no_dst != reg_no2_src) {
                 mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no1_src);
-                a.add(a64::x(reg_no_dst), a64::x(reg_no_dst), a64::x(reg_no2_src));
+                a.add(a64::x(reg_no_dst), a64::x(reg_no_dst),
+                      a64::x(reg_no2_src));
             }
             else {
-                a.add(a64::x(reg_no2_src), a64::x(reg_no2_src), a64::x(reg_no1_src));
+                a.add(a64::x(reg_no2_src), a64::x(reg_no2_src),
+                      a64::x(reg_no1_src));
             }
             break;
         case SUB:
             if (reg_no_dst != reg_no2_src) {
                 mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no1_src);
-                a.sub(a64::x(reg_no_dst), a64::x(reg_no_dst), a64::x(reg_no2_src));
+                a.sub(a64::x(reg_no_dst), a64::x(reg_no_dst),
+                      a64::x(reg_no2_src));
             }
             else {
-                a.sub(a64::x(reg_no2_src), a64::x(reg_no2_src), a64::x(reg_no1_src));
+                a.sub(a64::x(reg_no2_src), a64::x(reg_no2_src),
+                      a64::x(reg_no1_src));
                 a.neg(a64::x(reg_no2_src), a64::x(reg_no2_src));
             }
             break;
         case MUL:
             if (reg_no_dst != reg_no2_src) {
                 mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no1_src);
-                a.mul(a64::x(reg_no_dst), a64::x(reg_no_dst), a64::x(reg_no2_src));
+                a.mul(a64::x(reg_no_dst), a64::x(reg_no_dst),
+                      a64::x(reg_no2_src));
             }
             else {
-                a.mul(a64::x(reg_no2_src), a64::x(reg_no2_src), a64::x(reg_no1_src));
+                a.mul(a64::x(reg_no2_src), a64::x(reg_no2_src),
+                      a64::x(reg_no1_src));
             }
             break;
         case DIV_S:
@@ -2917,7 +2973,8 @@ alu_r_r_r_i64(a64::Assembler &a, ALU_OP op, int32_t reg_no_dst, int32_t reg_no1_
             }
             a.sdiv(a64::x(reg_no_dst), a64::x(REG_X0_IDX), a64::x(reg_no2_src));
             if (op == REM_S) {
-                a.msub(a64::x(reg_no_dst), a64::x(reg_no_dst), a64::x(reg_no2_src), a64::x(REG_X0_IDX));
+                a.msub(a64::x(reg_no_dst), a64::x(reg_no_dst),
+                       a64::x(reg_no2_src), a64::x(REG_X0_IDX));
             }
             break;
         case DIV_U:
@@ -2931,7 +2988,8 @@ alu_r_r_r_i64(a64::Assembler &a, ALU_OP op, int32_t reg_no_dst, int32_t reg_no1_
             }
             a.udiv(a64::x(reg_no_dst), a64::x(REG_X0_IDX), a64::x(reg_no2_src));
             if (op == REM_U) {
-                a.msub(a64::x(reg_no_dst), a64::x(reg_no_dst), a64::x(reg_no2_src), a64::x(REG_X0_IDX));
+                a.msub(a64::x(reg_no_dst), a64::x(reg_no_dst),
+                       a64::x(reg_no2_src), a64::x(REG_X0_IDX));
             }
             break;
         default:
@@ -2967,7 +3025,8 @@ alu_r_r_imm_i64(a64::Assembler &a, ALU_OP op, int32_t reg_no_dst,
             }
             else {
                 a.mov(a64::x(REG_I64_FREE_IDX), imm);
-                a.add(a64::x(reg_no_dst), a64::x(reg_no_dst), a64::x(REG_I64_FREE_IDX));
+                a.add(a64::x(reg_no_dst), a64::x(reg_no_dst),
+                      a64::x(REG_I64_FREE_IDX));
             }
             break;
         case SUB:
@@ -2978,7 +3037,8 @@ alu_r_r_imm_i64(a64::Assembler &a, ALU_OP op, int32_t reg_no_dst,
             }
             else {
                 a.mov(a64::x(REG_I64_FREE_IDX), imm);
-                a.sub(a64::x(reg_no_dst), a64::x(reg_no_dst), a64::x(REG_I64_FREE_IDX));
+                a.sub(a64::x(reg_no_dst), a64::x(reg_no_dst),
+                      a64::x(REG_I64_FREE_IDX));
             }
             break;
         case MUL:
@@ -3020,9 +3080,11 @@ alu_r_r_imm_i64(a64::Assembler &a, ALU_OP op, int32_t reg_no_dst,
                 bh_assert(reg_no_dst == REG_X1_IDX);
             }
             a.mov(a64::x(REG_I64_FREE_IDX), imm);
-            a.sdiv(a64::x(reg_no_dst), a64::x(REG_X0_IDX), a64::x(REG_I64_FREE_IDX));
+            a.sdiv(a64::x(reg_no_dst), a64::x(REG_X0_IDX),
+                   a64::x(REG_I64_FREE_IDX));
             if (op == REM_S) {
-                a.msub(a64::x(reg_no_dst), a64::x(reg_no_dst), a64::x(REG_I64_FREE_IDX), a64::x(REG_X0_IDX));
+                a.msub(a64::x(reg_no_dst), a64::x(reg_no_dst),
+                       a64::x(REG_I64_FREE_IDX), a64::x(REG_X0_IDX));
             }
             break;
         case DIV_U:
@@ -3035,9 +3097,11 @@ alu_r_r_imm_i64(a64::Assembler &a, ALU_OP op, int32_t reg_no_dst,
                 bh_assert(reg_no_dst == REG_X1_IDX);
             }
             a.mov(a64::x(REG_I64_FREE_IDX), imm);
-            a.udiv(a64::x(reg_no_dst), a64::x(REG_X0_IDX), a64::x(REG_I64_FREE_IDX));
+            a.udiv(a64::x(reg_no_dst), a64::x(REG_X0_IDX),
+                   a64::x(REG_I64_FREE_IDX));
             if (op == REM_U) {
-                a.msub(a64::x(reg_no_dst), a64::x(reg_no_dst), a64::x(REG_I64_FREE_IDX), a64::x(REG_X0_IDX));
+                a.msub(a64::x(reg_no_dst), a64::x(reg_no_dst),
+                       a64::x(REG_I64_FREE_IDX), a64::x(REG_X0_IDX));
             }
             break;
         default:
@@ -3242,32 +3306,86 @@ alu_r_m_float(a64::Assembler &a, ALU_OP op, int32 reg_no, a64::Mem &m,
     switch (op) {
         case ADD:
         {
-            a.fadd(regs_float[reg_no], regs_float[reg_no], m);
+            if (is_f32) {
+                a.ldr(a64::s(REG_F32_FREE_IDX), m);
+                a.fadd(a64::s(reg_no), a64::s(reg_no),
+                       a64::s(REG_F32_FREE_IDX));
+            }
+            else {
+                a.ldr(a64::d(REG_F64_FREE_IDX), m);
+                a.fadd(a64::d(reg_no), a64::d(reg_no),
+                       a64::d(REG_F64_FREE_IDX));
+            }
             break;
         }
         case SUB:
         {
-            a.fsub(regs_float[reg_no], regs_float[reg_no], m);
+            if (is_f32) {
+                a.ldr(a64::s(REG_F32_FREE_IDX), m);
+                a.fsub(a64::s(reg_no), a64::s(reg_no),
+                       a64::s(REG_F32_FREE_IDX));
+            }
+            else {
+                a.ldr(a64::d(REG_F64_FREE_IDX), m);
+                a.fsub(a64::d(reg_no), a64::d(reg_no),
+                       a64::d(REG_F64_FREE_IDX));
+            }
             break;
         }
         case MUL:
         {
-            a.fmul(regs_float[reg_no], regs_float[reg_no], m);
+            if (is_f32) {
+                a.ldr(a64::s(REG_F32_FREE_IDX), m);
+                a.fmul(a64::s(reg_no), a64::s(reg_no),
+                       a64::s(REG_F32_FREE_IDX));
+            }
+            else {
+                a.ldr(a64::d(REG_F64_FREE_IDX), m);
+                a.fmul(a64::d(reg_no), a64::d(reg_no),
+                       a64::d(REG_F64_FREE_IDX));
+            }
             break;
         }
         case DIV_S:
         {
-            a.fdiv(regs_float[reg_no], regs_float[reg_no], m);
+            if (is_f32) {
+                a.ldr(a64::s(REG_F32_FREE_IDX), m);
+                a.fdiv(a64::s(reg_no), a64::s(reg_no),
+                       a64::s(REG_F32_FREE_IDX));
+            }
+            else {
+                a.ldr(a64::d(REG_F64_FREE_IDX), m);
+                a.fdiv(a64::d(reg_no), a64::d(reg_no),
+                       a64::d(REG_F64_FREE_IDX));
+            }
             break;
         }
         case MAX:
         {
-            a.fmax(regs_float[reg_no], regs_float[reg_no], m);
+            if (is_f32) {
+                a.ldr(a64::s(REG_F32_FREE_IDX), m);
+                a.fmax(a64::s(reg_no), a64::s(reg_no),
+                       a64::s(REG_F32_FREE_IDX));
+            }
+            else {
+                a.ldr(a64::d(REG_F64_FREE_IDX), m);
+                a.fmax(a64::d(reg_no), a64::d(reg_no),
+                       a64::d(REG_F64_FREE_IDX));
+            }
             break;
         }
         case MIN:
         {
-            a.fmin(regs_float[reg_no], regs_float[reg_no], m);
+            if (is_f32) {
+                a.ldr(a64::s(REG_F32_FREE_IDX), m);
+                a.fmin(a64::s(reg_no), a64::s(reg_no),
+                       a64::s(REG_F32_FREE_IDX));
+            }
+            else {
+                a.ldr(a64::d(REG_F64_FREE_IDX), m);
+                a.fmin(a64::d(reg_no), a64::d(reg_no),
+                       a64::d(REG_F64_FREE_IDX));
+            }
             break;
         }
         default:
@@ -3291,16 +3409,16 @@ alu_r_m_float(a64::Assembler &a, ALU_OP op, int32 reg_no, a64::Mem &m,
  * @return true if success, false otherwise
  */
 static bool
-alu_imm_r_to_r_f32(a64::Assembler &a, ALU_OP op, int32 reg_no_dst,
-                   float data1_src, int32 reg_no2_src)
+alu_imm_r_to_r_f32(a64::Assembler &a, ALU_OP op, int32_t reg_no_dst,
+                   float data1_src, int32_t reg_no2_src)
 {
     const JitHardRegInfo *hreg_info = jit_codegen_get_hreg_info();
-    /* xmm -> m128 */
-    a64::Mem cache = a64::xmmword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
-                                      offsetof(WASMExecEnv, jit_cache));
-    a.movups(cache, regs_float[reg_no2_src]);
+    /* fp -> stack */
+    a64::Mem cache = a64::Mem(a64::x(hreg_info->exec_env_hreg_index),
+                              offsetof(WASMExecEnv, jit_cache));
+    a.str(a64::s(reg_no2_src), cache);
 
-    /* imm -> gp -> xmm */
+    /* imm -> gp -> fp */
     mov_imm_to_r_f32(a, reg_no_dst, data1_src);
 
     return alu_r_m_float(a, op, reg_no_dst, cache, true);
@@ -3318,13 +3436,13 @@ alu_imm_r_to_r_f32(a64::Assembler &a, ALU_OP op, int32 reg_no_dst,
  * @return true if success, false otherwise
  */
 static bool
-alu_r_imm_to_r_f32(a64::Assembler &a, ALU_OP op, int32 reg_no_dst,
-                   int32 reg_no1_src, float data2_src)
+alu_r_imm_to_r_f32(a64::Assembler &a, ALU_OP op, int32_t reg_no_dst,
+                   int32_t reg_no1_src, float data2_src)
 {
     const JitHardRegInfo *hreg_info = jit_codegen_get_hreg_info();
-    /* imm -> m32 */
-    a64::Mem cache = a64::dword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
-                                    offsetof(WASMExecEnv, jit_cache));
+    /* imm -> stack */
+    a64::Mem cache = a64::Mem(a64::x(hreg_info->exec_env_hreg_index),
+                              offsetof(WASMExecEnv, jit_cache));
     cast_float_to_integer v = { .f = data2_src };
     Imm imm(v.i);
     mov_imm_to_m(a, cache, imm, 4);
@@ -3332,7 +3450,6 @@ alu_r_imm_to_r_f32(a64::Assembler &a, ALU_OP op, int32 reg_no_dst,
     mov_r_to_r_f32(a, reg_no_dst, reg_no1_src);
     return alu_r_m_float(a, op, reg_no_dst, cache, true);
 }
-
 /**
  * Encode float alu operation of reg and reg, and save result to reg
  *
@@ -3369,32 +3486,38 @@ alu_r_r_to_r_f32(a64::Assembler &a, ALU_OP op, int32 reg_no_dst,
     switch (op) {
         case ADD:
         {
-            a.fadd(regs_float[reg_no_dst], regs_float[reg_no_dst], regs_float[reg_no2_src]);
+            a.fadd(regs_f32[reg_no_dst], regs_f32[reg_no_dst],
+                   regs_f32[reg_no2_src]);
             break;
         }
         case SUB:
         {
-            a.fsub(regs_float[reg_no_dst], regs_float[reg_no_dst], regs_float[reg_no2_src]);
+            a.fsub(regs_f32[reg_no_dst], regs_f32[reg_no_dst],
+                   regs_f32[reg_no2_src]);
             break;
         }
         case MUL:
         {
-            a.fmul(regs_float[reg_no_dst], regs_float[reg_no_dst], regs_float[reg_no2_src]);
+            a.fmul(regs_f32[reg_no_dst], regs_f32[reg_no_dst],
+                   regs_f32[reg_no2_src]);
             break;
         }
         case DIV_S:
         {
-            a.fdiv(regs_float[reg_no_dst], regs_float[reg_no_dst], regs_float[reg_no2_src]);
+            a.fdiv(regs_f32[reg_no_dst], regs_f32[reg_no_dst],
+                   regs_f32[reg_no2_src]);
             break;
         }
         case MAX:
         {
-            a.fmax(regs_float[reg_no_dst], regs_float[reg_no_dst], regs_float[reg_no2_src]);
+            a.fmax(regs_f32[reg_no_dst], regs_f32[reg_no_dst],
+                   regs_f32[reg_no2_src]);
             break;
         }
         case MIN:
         {
-            a.fmin(regs_float[reg_no_dst], regs_float[reg_no_dst], regs_float[reg_no2_src]);
+            a.fmin(regs_f32[reg_no_dst], regs_f32[reg_no_dst],
+                   regs_f32[reg_no2_src]);
             break;
         }
         default:
@@ -3485,13 +3608,13 @@ alu_imm_r_to_r_f64(a64::Assembler &a, ALU_OP op, int32 reg_no_dst,
                    double data1_src, int32 reg_no2_src)
 {
     const JitHardRegInfo *hreg_info = jit_codegen_get_hreg_info();
-    /* xmm -> m128 */
-    a64::Mem cache = a64::qword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
-                                    offsetof(WASMExecEnv, jit_cache));
-    a.movupd(cache, regs_float[reg_no2_src]);
+    /* fp -> stack */
+    a64::Mem cache = a64::Mem(a64::x(hreg_info->exec_env_hreg_index),
+                              offsetof(WASMExecEnv, jit_cache));
+    a.str(a64::d(reg_no2_src), cache);
 
-    /* imm -> gp -> xmm */
-    mov_imm_to_r_f64(a, reg_no_dst, data1_src);
+    /* imm -> gp -> fp */
+    mov_imm_to_r_f32(a, reg_no_dst, data1_src);
 
     return alu_r_m_float(a, op, reg_no_dst, cache, false);
 }
@@ -3512,9 +3635,9 @@ alu_r_imm_to_r_f64(a64::Assembler &a, ALU_OP op, int32 reg_no_dst,
                    int32 reg_no1_src, double data2_src)
 {
     const JitHardRegInfo *hreg_info = jit_codegen_get_hreg_info();
-    /* imm -> m64 */
-    a64::Mem cache = a64::qword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
-                                    offsetof(WASMExecEnv, jit_cache));
+    /* imm -> stack */
+    a64::Mem cache = a64::Mem(a64::x(hreg_info->exec_env_hreg_index),
+                              offsetof(WASMExecEnv, jit_cache));
     cast_double_to_integer v = { .d = data2_src };
     Imm imm(v.i);
     mov_imm_to_m(a, cache, imm, 8);
@@ -3559,32 +3682,38 @@ alu_r_r_to_r_f64(a64::Assembler &a, ALU_OP op, int32 reg_no_dst,
     switch (op) {
         case ADD:
         {
-            a.addsd(regs_float[reg_no_dst], regs_float[reg_no2_src]);
+            a.fadd(regs_f64[reg_no_dst], regs_f64[reg_no_dst],
+                   regs_f64[reg_no2_src]);
             break;
         }
         case SUB:
         {
-            a.subsd(regs_float[reg_no_dst], regs_float[reg_no2_src]);
+            a.fsub(regs_f64[reg_no_dst], regs_f64[reg_no_dst],
+                   regs_f64[reg_no2_src]);
             break;
         }
         case MUL:
         {
-            a.mulsd(regs_float[reg_no_dst], regs_float[reg_no2_src]);
+            a.fmul(regs_f64[reg_no_dst], regs_f64[reg_no_dst],
+                   regs_f64[reg_no2_src]);
             break;
         }
         case DIV_S:
         {
-            a.divsd(regs_float[reg_no_dst], regs_float[reg_no2_src]);
+            a.fdiv(regs_f64[reg_no_dst], regs_f64[reg_no_dst],
+                   regs_f64[reg_no2_src]);
             break;
         }
         case MAX:
         {
-            a.maxsd(regs_float[reg_no_dst], regs_float[reg_no2_src]);
+            a.fmax(regs_f64[reg_no_dst], regs_f64[reg_no_dst],
+                   regs_f64[reg_no2_src]);
             break;
         }
         case MIN:
         {
-            a.minsd(regs_float[reg_no_dst], regs_float[reg_no2_src]);
+            a.fmin(regs_f64[reg_no_dst], regs_f64[reg_no_dst],
+                   regs_f64[reg_no2_src]);
             break;
         }
         default:
@@ -3618,17 +3747,14 @@ bit_r_imm_i32(a64::Assembler &a, BIT_OP op, int32 reg_no, int32 data)
     switch (op) {
         case OR:
             if (data != 0)
-                a.or_(regs_i32[reg_no], imm);
+                a.orr(regs_i32[reg_no], regs_i32[reg_no], imm);
             break;
         case XOR:
-            if (data == -1)
-                a.not_(regs_i32[reg_no]);
-            else if (data != 0)
-                a.xor_(regs_i32[reg_no], imm);
+            a.eor(regs_i32[reg_no], regs_i32[reg_no], imm);
             break;
         case AND:
             if (data != -1)
-                a.and_(regs_i32[reg_no], imm);
+                a.and_(regs_i32[reg_no], regs_i32[reg_no], imm);
             break;
         default:
             bh_assert(0);
@@ -3652,13 +3778,16 @@ bit_r_r_i32(a64::Assembler &a, BIT_OP op, int32 reg_no_dst, int32 reg_no_src)
 {
     switch (op) {
         case OR:
-            a.or_(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+            a.orr(regs_i32[reg_no_dst], regs_i32[reg_no_dst],
+                  regs_i32[reg_no_src]);
             break;
         case XOR:
-            a.xor_(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+            a.eor(regs_i32[reg_no_dst], regs_i32[reg_no_dst],
+                  regs_i32[reg_no_src]);
             break;
         case AND:
-            a.and_(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+            a.and_(regs_i32[reg_no_dst], regs_i32[reg_no_dst],
+                   regs_i32[reg_no_src]);
             break;
         default:
             bh_assert(0);
@@ -3719,7 +3848,7 @@ bit_imm_r_to_r_i32(a64::Assembler &a, BIT_OP op, int32 reg_no_dst,
                    int32 data1_src, int32 reg_no2_src)
 {
     if (op == AND && data1_src == 0)
-        a.xor_(regs_i32[reg_no_dst], regs_i32[reg_no_dst]);
+        a.eor(regs_i32[reg_no_dst], regs_i32[reg_no_dst], regs_i32[reg_no_dst]);
     else if (op == OR && data1_src == -1) {
         Imm imm(-1);
         a.mov(regs_i32[reg_no_dst], imm);
@@ -3793,37 +3922,36 @@ bit_r_imm_i64(a64::Assembler &a, BIT_OP op, int32 reg_no, int64 data)
             if (data != 0) {
                 if (data >= INT32_MIN && data <= INT32_MAX) {
                     imm.setValue((int32)data);
-                    a.or_(regs_i64[reg_no], imm);
+                    a.orr(regs_i64[reg_no], regs_i64[reg_no], imm);
                 }
                 else {
                     a.mov(regs_i64[REG_I64_FREE_IDX], imm);
-                    a.or_(regs_i64[reg_no], regs_i64[REG_I64_FREE_IDX]);
+                    a.orr(regs_i64[reg_no], regs_i64[reg_no],
+                          regs_i64[REG_I64_FREE_IDX]);
                 }
             }
             break;
         case XOR:
-            if (data == -1LL)
-                a.not_(regs_i64[reg_no]);
-            else if (data != 0) {
-                if (data >= INT32_MIN && data <= INT32_MAX) {
-                    imm.setValue((int32)data);
-                    a.xor_(regs_i64[reg_no], imm);
-                }
-                else {
-                    a.mov(regs_i64[REG_I64_FREE_IDX], imm);
-                    a.xor_(regs_i64[reg_no], regs_i64[REG_I64_FREE_IDX]);
-                }
+            if (data >= INT32_MIN && data <= INT32_MAX) {
+                imm.setValue((int32)data);
+                a.eor(regs_i64[reg_no], regs_i64[reg_no], imm);
+            }
+            else {
+                a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+                a.eor(regs_i64[reg_no], regs_i64[reg_no],
+                      regs_i64[REG_I64_FREE_IDX]);
             }
             break;
         case AND:
             if (data != -1LL) {
                 if (data >= INT32_MIN && data <= INT32_MAX) {
                     imm.setValue((int32)data);
-                    a.and_(regs_i64[reg_no], imm);
+                    a.and_(regs_i64[reg_no], regs_i64[reg_no], imm);
                 }
                 else {
                     a.mov(regs_i64[REG_I64_FREE_IDX], imm);
-                    a.and_(regs_i64[reg_no], regs_i64[REG_I64_FREE_IDX]);
+                    a.and_(regs_i64[reg_no], regs_i64[reg_no],
+                           regs_i64[REG_I64_FREE_IDX]);
                 }
             }
             break;
@@ -3849,13 +3977,16 @@ bit_r_r_i64(a64::Assembler &a, BIT_OP op, int32 reg_no_dst, int32 reg_no_src)
 {
     switch (op) {
         case OR:
-            a.or_(regs_i64[reg_no_dst], regs_i64[reg_no_src]);
+            a.orr(regs_i64[reg_no_dst], regs_i64[reg_no_dst],
+                  regs_i64[reg_no_src]);
             break;
         case XOR:
-            a.xor_(regs_i64[reg_no_dst], regs_i64[reg_no_src]);
+            a.eor(regs_i64[reg_no_dst], regs_i64[reg_no_dst],
+                  regs_i64[reg_no_src]);
             break;
         case AND:
-            a.and_(regs_i64[reg_no_dst], regs_i64[reg_no_src]);
+            a.and_(regs_i64[reg_no_dst], regs_i64[reg_no_dst],
+                   regs_i64[reg_no_src]);
             break;
         default:
             bh_assert(0);
@@ -3916,7 +4047,7 @@ bit_imm_r_to_r_i64(a64::Assembler &a, BIT_OP op, int32 reg_no_dst,
                    int64 data1_src, int32 reg_no2_src)
 {
     if (op == AND && data1_src == 0)
-        a.xor_(regs_i64[reg_no_dst], regs_i64[reg_no_dst]);
+        a.eor(regs_i64[reg_no_dst], regs_i64[reg_no_dst], regs_i64[reg_no_dst]);
     else if (op == OR && data1_src == -1LL) {
         Imm imm(-1LL);
         a.mov(regs_i64[reg_no_dst], imm);
@@ -4063,37 +4194,34 @@ shift_imm_r_to_r_i32(a64::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
  * @return true if success, false otherwise
  */
 static bool
-shift_r_imm_to_r_i32(a64::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
-                     int32 reg_no1_src, int32 data2_src)
+shift_r_imm_to_r_i32(a64::Assembler &a, SHIFT_OP op, int32_t reg_no_dst,
+                     int32_t reg_no1_src, int32_t data2_src)
 {
-    /* SHL/SHA/SHR r/m32, imm8 */
-    Imm imm((uint8)data2_src);
-
     mov_r_to_r_i32(a, reg_no_dst, reg_no1_src);
     switch (op) {
         case SHL:
         {
-            a.shl(regs_i32[reg_no_dst], imm);
+            a.lsl(a64::w(reg_no_dst), a64::w(reg_no_dst), data2_src);
             break;
         }
         case SHRS:
         {
-            a.sar(regs_i32[reg_no_dst], imm);
+            a.asr(a64::w(reg_no_dst), a64::w(reg_no_dst), data2_src);
             break;
         }
         case SHRU:
         {
-            a.shr(regs_i32[reg_no_dst], imm);
+            a.lsr(a64::w(reg_no_dst), a64::w(reg_no_dst), data2_src);
             break;
         }
         case ROTL:
         {
-            a.rol(regs_i32[reg_no_dst], imm);
+            a.ror(a64::w(reg_no_dst), a64::w(reg_no_dst), 32 - data2_src);
             break;
         }
         case ROTR:
         {
-            a.ror(regs_i32[reg_no_dst], imm);
+            a.ror(a64::w(reg_no_dst), a64::w(reg_no_dst), data2_src);
             break;
         }
         default:
@@ -4102,8 +4230,8 @@ shift_r_imm_to_r_i32(a64::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
             goto fail;
         }
     }
-
     return true;
+
 fail:
     return false;
 }
@@ -4120,39 +4248,35 @@ fail:
  * @return true if success, false otherwise
  */
 static bool
-shift_r_r_to_r_i32(a64::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
-                   int32 reg_no1_src, int32 reg_no2_src)
+shift_r_r_to_r_i32(a64::Assembler &a, SHIFT_OP op, int32_t reg_no_dst,
+                   int32_t reg_no1_src, int32_t reg_no2_src)
 {
-    /* should be CL */
-    if (reg_no2_src != REG_ECX_IDX)
-        return false;
-
     mov_r_to_r_i32(a, reg_no_dst, reg_no1_src);
-
     switch (op) {
         case SHL:
         {
-            a.shl(regs_i32[reg_no_dst], a64::cl);
+            a.lslv(a64::w(reg_no_dst), a64::w(reg_no_dst), a64::w(reg_no2_src));
             break;
         }
         case SHRS:
         {
-            a.sar(regs_i32[reg_no_dst], a64::cl);
+            a.asrv(a64::w(reg_no_dst), a64::w(reg_no_dst), a64::w(reg_no2_src));
             break;
         }
         case SHRU:
         {
-            a.shr(regs_i32[reg_no_dst], a64::cl);
+            a.lsrv(a64::w(reg_no_dst), a64::w(reg_no_dst), a64::w(reg_no2_src));
             break;
         }
         case ROTL:
         {
-            a.rol(regs_i32[reg_no_dst], a64::cl);
+            a.neg(a64::w(reg_no2_src), a64::w(reg_no2_src));
+            a.rorv(a64::w(reg_no_dst), a64::w(reg_no_dst), a64::w(reg_no2_src));
             break;
         }
         case ROTR:
         {
-            a.ror(regs_i32[reg_no_dst], a64::cl);
+            a.rorv(a64::w(reg_no_dst), a64::w(reg_no_dst), a64::w(reg_no2_src));
             break;
         }
         default:
@@ -4161,8 +4285,8 @@ shift_r_r_to_r_i32(a64::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
             goto fail;
         }
     }
-
     return true;
+
 fail:
     return false;
 }
@@ -4266,32 +4390,33 @@ shift_r_imm_to_r_i64(a64::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
 {
     /* SHL/SHA/SHR r/m64, imm8 */
     Imm imm((uint8)data2_src);
+    Imm imm1(32 - data2_src);
 
     mov_r_to_r_i64(a, reg_no_dst, reg_no1_src);
     switch (op) {
         case SHL:
         {
-            a.shl(regs_i64[reg_no_dst], imm);
+            a.lsl(regs_i64[reg_no_dst], regs_i64[reg_no_dst], imm);
             break;
         }
         case SHRS:
         {
-            a.sar(regs_i64[reg_no_dst], imm);
+            a.asr(regs_i64[reg_no_dst], regs_i64[reg_no_dst], imm);
             break;
         }
         case SHRU:
         {
-            a.shr(regs_i64[reg_no_dst], imm);
+            a.lsr(regs_i64[reg_no_dst], regs_i64[reg_no_dst], imm);
             break;
         }
         case ROTL:
         {
-            a.rol(regs_i64[reg_no_dst], imm);
+            a.ror(regs_i64[reg_no_dst], regs_i64[reg_no_dst], imm1);
             break;
         }
         case ROTR:
         {
-            a.ror(regs_i64[reg_no_dst], imm);
+            a.ror(regs_i64[reg_no_dst], regs_i64[reg_no_dst], imm);
             break;
         }
         default:
@@ -4321,36 +4446,33 @@ static bool
 shift_r_r_to_r_i64(a64::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
                    int32 reg_no1_src, int32 reg_no2_src)
 {
-    /* should be CL */
-    if (reg_no2_src != REG_ECX_IDX)
-        return false;
-
     mov_r_to_r_i64(a, reg_no_dst, reg_no1_src);
 
     switch (op) {
         case SHL:
         {
-            a.shl(regs_i64[reg_no_dst], a64::cl);
+            a.lslv(a64::x(reg_no_dst), a64::x(reg_no_dst), a64::x(reg_no2_src));
             break;
         }
         case SHRS:
         {
-            a.sar(regs_i64[reg_no_dst], a64::cl);
+            a.asrv(a64::x(reg_no_dst), a64::x(reg_no_dst), a64::x(reg_no2_src));
             break;
         }
         case SHRU:
         {
-            a.shr(regs_i64[reg_no_dst], a64::cl);
+            a.lsrv(a64::x(reg_no_dst), a64::x(reg_no_dst), a64::x(reg_no2_src));
             break;
         }
         case ROTL:
         {
-            a.rol(regs_i64[reg_no_dst], a64::cl);
+            a.neg(a64::x(reg_no2_src), a64::x(reg_no2_src));
+            a.rorv(a64::x(reg_no_dst), a64::x(reg_no_dst), a64::x(reg_no2_src));
             break;
         }
         case ROTR:
         {
-            a.ror(regs_i64[reg_no_dst], a64::cl);
+            a.rorv(a64::x(reg_no_dst), a64::x(reg_no_dst), a64::x(reg_no2_src));
             break;
         }
         default:
@@ -4560,7 +4682,7 @@ static bool
 cmp_r_r_to_r_f32(a64::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
                  int32 reg_no2_src)
 {
-    a.comiss(regs_float[reg_no1_src], regs_float[reg_no2_src]);
+    a.fcmp(regs_f32[reg_no1_src], regs_f32[reg_no2_src]);
     (void)reg_no_dst;
     return true;
 }
@@ -4605,7 +4727,7 @@ cmp_imm_r_to_r_f32(a64::Assembler &a, int32 reg_no_dst, float data1_src,
                    int32 reg_no2_src)
 {
     mov_imm_to_r_f32(a, REG_F32_FREE_IDX, data1_src);
-    a.comiss(regs_float[REG_F32_FREE_IDX], regs_float[reg_no2_src]);
+    a.fcmp(regs_f32[REG_F32_FREE_IDX], regs_f32[reg_no2_src]);
     (void)reg_no_dst;
     return true;
 }
@@ -4626,7 +4748,7 @@ cmp_r_imm_to_r_f32(a64::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
                    float data2_src)
 {
     mov_imm_to_r_f32(a, REG_F32_FREE_IDX, data2_src);
-    a.comiss(regs_float[reg_no1_src], regs_float[REG_F32_FREE_IDX]);
+    a.fcmp(regs_f32[reg_no1_src], regs_f32[REG_F32_FREE_IDX]);
     (void)reg_no_dst;
     return true;
 }
@@ -4646,7 +4768,7 @@ static bool
 cmp_r_r_to_r_f64(a64::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
                  int32 reg_no2_src)
 {
-    a.comisd(regs_float[reg_no1_src], regs_float[reg_no2_src]);
+    a.fcmp(regs_f64[reg_no1_src], regs_f64[reg_no2_src]);
     (void)reg_no_dst;
     return true;
 }
@@ -4691,7 +4813,7 @@ cmp_imm_r_to_r_f64(a64::Assembler &a, int32 reg_no_dst, double data1_src,
                    int32 reg_no2_src)
 {
     mov_imm_to_r_f64(a, REG_F64_FREE_IDX, data1_src);
-    a.comisd(regs_float[REG_F64_FREE_IDX], regs_float[reg_no2_src]);
+    a.fcmp(regs_f64[REG_F64_FREE_IDX], regs_f64[reg_no2_src]);
     (void)reg_no_dst;
     return true;
 }
@@ -4712,7 +4834,7 @@ cmp_r_imm_to_r_f64(a64::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
                    double data2_src)
 {
     mov_imm_to_r_f64(a, REG_F64_FREE_IDX, data2_src);
-    a.comisd(regs_float[reg_no1_src], regs_float[REG_F64_FREE_IDX]);
+    a.fcmp(regs_f64[reg_no1_src], regs_f64[REG_F64_FREE_IDX]);
     (void)reg_no_dst;
     return true;
 }
@@ -5297,18 +5419,21 @@ fail:
  * @return true if success, false otherwise
  */
 static bool
-bitcount_r_to_r_i32(a64::Assembler &a, BITCOUNT_OP op, int32 reg_no_dst,
-                    int32 reg_no_src)
+bitcount_r_to_r_i32(a64::Assembler &a, BITCOUNT_OP op, int32_t reg_no_dst,
+                    int32_t reg_no_src)
 {
     switch (op) {
         case CLZ:
-            a.lzcnt(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+            a.clz(a64::w(reg_no_dst), a64::w(reg_no_src));
             break;
         case CTZ:
-            a.tzcnt(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+            a.rbit(a64::w(reg_no_dst), a64::w(reg_no_src));
+            a.clz(a64::w(reg_no_dst), a64::w(reg_no_dst));
             break;
         case POPCNT:
-            a.popcnt(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+            a.fmov(a64::d(REG_F32_FREE_IDX), a64::x(reg_no_src));
+            a.cnt(a64::v(REG_F128_FREE_IDX).d(), a64::v(REG_F128_FREE_IDX).d());
+            a.addv(regs_f8[reg_no_dst], a64::v(REG_F128_FREE_IDX).b());
             break;
         default:
             bh_assert(0);
@@ -5333,13 +5458,16 @@ bitcount_r_to_r_i64(a64::Assembler &a, BITCOUNT_OP op, int32 reg_no_dst,
 {
     switch (op) {
         case CLZ:
-            a.lzcnt(regs_i64[reg_no_dst], regs_i64[reg_no_src]);
+            a.clz(a64::x(reg_no_dst), a64::x(reg_no_src));
             break;
         case CTZ:
-            a.tzcnt(regs_i64[reg_no_dst], regs_i64[reg_no_src]);
+            a.rbit(a64::x(reg_no_dst), a64::x(reg_no_src));
+            a.clz(a64::x(reg_no_dst), a64::x(reg_no_dst));
             break;
         case POPCNT:
-            a.popcnt(regs_i64[reg_no_dst], regs_i64[reg_no_src]);
+            a.fmov(a64::d(REG_F32_FREE_IDX), a64::x(reg_no_src));
+            a.cnt(a64::v(REG_F128_FREE_IDX).d(), a64::v(REG_F128_FREE_IDX).d());
+            a.addv(regs_f8[reg_no_dst], a64::v(REG_F128_FREE_IDX).b());
             break;
         default:
             bh_assert(0);
@@ -5584,13 +5712,16 @@ cmp_r_and_jmp_relative(JitCompContext *cc, a64::Assembler &a, COND_OP op,
         }
     }
 
-    JitErrorHandler *err_handler = static_cast<JitErrorHandler *>(a.code()->errorHandler());
+    JitErrorHandler *err_handler =
+        static_cast<JitErrorHandler *>(a.code()->errorHandler());
 
     if (!err_handler->err) {
         // Patch the offset
-        a64::Section *section = a.code()->sectionById(0);
-        uint32_t code_offset = static_cast<uint32_t>(section->buffer().size() - 4);
-        uint32_t *offset_ptr = reinterpret_cast<uint32_t *>(section->buffer().data() + code_offset);
+        Section *section = a.code()->sectionById(0);
+        uint32_t code_offset =
+            static_cast<uint32_t>(section->buffer().size() - 4);
+        uint32_t *offset_ptr = reinterpret_cast<uint32_t *>(
+            section->buffer().data() + code_offset);
         *offset_ptr = static_cast<uint32_t>(offset);
 
         // Bind the label to the current position
@@ -5679,18 +5810,19 @@ fail:
         if (label_is_ahead(cc, label_dst, label_src)) {                    \
             JitErrorHandler *err_handler =                                 \
                 (JitErrorHandler *)a.code()->errorHandler();               \
-            int32 _offset;                                                 \
+            int32_t offset;                                                \
             char *stream;                                                  \
-            Imm imm(INT32_MAX);                                            \
-            a.jmp(imm);                                                    \
+            Label imm = a.newLabel();                                      \
+            a.b(imm);                                                      \
             if (!err_handler->err) {                                       \
                 /* The offset written by asmjit is always 0, we patch it   \
-                   again, 6 is the size of jmp instruciton */              \
+                   again, 4 is the size of b instruction */                \
                 stream = (char *)a.code()->sectionById(0)->buffer().data() \
-                         + a.code()->sectionById(0)->buffer().size() - 6;  \
-                _offset = label_offsets[label_dst]                         \
-                          - a.code()->sectionById(0)->buffer().size();     \
-                *(int32 *)(stream + 2) = _offset;                          \
+                         + a.code()->sectionById(0)->buffer().size() - 4;  \
+                offset = label_offsets[label_dst]                          \
+                         - a.code()->sectionById(0)->buffer().size();      \
+                *(int32_t *)(stream) = offset;                             \
+                a.bind(imm);                                               \
             }                                                              \
         }                                                                  \
         else {                                                             \
@@ -5807,22 +5939,22 @@ fail:
  */
 static bool
 lookupswitch_r(JitCompContext *cc, a64::Assembler &a, bh_list *jmp_info_list,
-               uint32 *label_offsets, int32 label_src, int32 reg_no,
+               uint32_t *label_offsets, int32_t label_src, int32_t reg_no,
                const JitOpndLookupSwitch *opnd, bool is_last_insn)
 {
     JmpInfo *node;
     Imm imm;
     a64::Mem m;
-    uint32 i;
-    int32 label_dst = 0;
+    uint32_t i;
+    int32_t label_dst = 0;
     char *stream;
 
     if (opnd->match_pairs_num < 10) {
-        /* For small count of branches, it is better to compare
-           the key with branch value and jump one by one */
+        /* For small count of branches, it is better to compare the key with
+         * branch value and jump one by one */
         for (i = 0; i < opnd->match_pairs_num; i++) {
             imm.setValue(opnd->match_pairs[i].value);
-            a.cmp(regs_i32[reg_no], imm);
+            a.cmp(a64::w(reg_no), imm);
 
             node = (JmpInfo *)jit_malloc(sizeof(JmpInfo));
             if (!node)
@@ -5831,11 +5963,10 @@ lookupswitch_r(JitCompContext *cc, a64::Assembler &a, bh_list *jmp_info_list,
             node->type = JMP_DST_LABEL_REL;
             node->label_src = label_src;
             node->dst_info.label_dst = jit_reg_no(opnd->match_pairs[i].target);
-            node->offset = a.code()->sectionById(0)->buffer().size() + 2;
+            node->offset = a.code()->sectionById(0)->buffer().size() + 4;
             bh_list_insert(jmp_info_list, node);
 
-            imm.setValue(INT32_MAX);
-            a.je(imm);
+            a.b_eq(a.newLabel());
         }
 
         if (opnd->default_target) {
@@ -5847,17 +5978,19 @@ lookupswitch_r(JitCompContext *cc, a64::Assembler &a, bh_list *jmp_info_list,
     }
     else {
         /* For bigger count of branches, use indirect jump */
-        /* unsigned extend to rsi */
-        a.mov(regs_i32[REG_I32_FREE_IDX], regs_i32[reg_no]);
-        imm.setValue(opnd->match_pairs_num);
-        a.cmp(regs_i64[REG_I64_FREE_IDX], imm);
 
-        /* Jump to default label if rsi >= br_count */
+        /* unsigned extend to x1 */
+        a.mov(a64::w(REG_I64_FREE_IDX), a64::w(reg_no));
+
+        imm.setValue(opnd->match_pairs_num);
+        a.cmp(a64::w(REG_I64_FREE_IDX), imm);
+
+        /* Jump to default label if x1 >= br_count */
         stream = (char *)a.code()->sectionById(0)->buffer().data()
                  + a.code()->sectionById(0)->buffer().size();
-        imm.setValue(INT32_MAX);
-        a.jb(imm);
-        *(uint32 *)(stream + 2) = 6;
+        a.b_hs(a.newLabel());
+
+        *(uint32_t *)(stream + 4) = 8;
 
         node = (JmpInfo *)jit_calloc(sizeof(JmpInfo));
         if (!node)
@@ -5866,27 +5999,26 @@ lookupswitch_r(JitCompContext *cc, a64::Assembler &a, bh_list *jmp_info_list,
         node->type = JMP_DST_LABEL_REL;
         node->label_src = label_src;
         node->dst_info.label_dst = jit_reg_no(opnd->default_target);
-        node->offset = a.code()->sectionById(0)->buffer().size() + 2;
+        node->offset = a.code()->sectionById(0)->buffer().size() + 4;
         bh_list_insert(jmp_info_list, node);
 
-        imm.setValue(INT32_MAX);
-        a.jmp(imm);
+        a.b(a.newLabel());
 
         node = (JmpInfo *)jit_malloc(sizeof(JmpInfo));
         if (!node)
             GOTO_FAIL;
 
         node->type = JMP_LOOKUPSWITCH_BASE;
-        node->offset = a.code()->sectionById(0)->buffer().size() + 2;
+        node->offset = a.code()->sectionById(0)->buffer().size() + 4;
         bh_list_insert(jmp_info_list, node);
 
         /* LookupSwitch table base addr */
-        imm.setValue(INT64_MAX);
-        a.mov(regs_i64[reg_no], imm);
+        a.adr(a64::x(reg_no), a.newLabel());
 
-        /* jmp *(base_addr + rsi * 8) */
-        m = a64::ptr(regs_i64[reg_no], regs_i64[REG_I64_FREE_IDX], 3);
-        a.jmp(m);
+        /* jmp *(base_addr + x1 * 8) */
+        a.add(a64::x(reg_no), a64::x(reg_no), a64::x(REG_I64_FREE_IDX),
+              a64::lsl(3));
+        a.br(a64::x(reg_no));
 
         /* Store each dst label absolute address */
         for (i = 0; i < opnd->match_pairs_num; i++) {
@@ -5904,6 +6036,7 @@ lookupswitch_r(JitCompContext *cc, a64::Assembler &a, bh_list *jmp_info_list,
     }
 
     return true;
+
 fail:
     return false;
 }
@@ -5967,11 +6100,11 @@ lower_callnative(JitCompContext *cc, a64::Assembler &a, JitInsn *insn)
     void (*func_ptr)(void);
     JitReg ret_reg, func_reg, arg_reg;
     /* the index of callee saved registers in regs_i64 */
-    uint8 regs_arg_idx[] = { REG_RDI_IDX, REG_RSI_IDX, REG_RDX_IDX,
-                             REG_RCX_IDX, REG_R8_IDX,  REG_R9_IDX };
+    uint8_t regs_arg_idx[] = { REG_X0_IDX, REG_X1_IDX, REG_X2_IDX, REG_X3_IDX,
+                               REG_X4_IDX, REG_X5_IDX, REG_X6_IDX, REG_X7_IDX };
     Imm imm;
-    uint32 i, opnd_num;
-    int32 integer_reg_index = 0, floatpoint_reg_index = 0;
+    uint32_t i, opnd_num;
+    int32_t integer_reg_index = 0, floatpoint_reg_index = 0;
 
     ret_reg = *(jit_insn_opndv(insn, 0));
     func_reg = *(jit_insn_opndv(insn, 1));
@@ -5982,22 +6115,22 @@ lower_callnative(JitCompContext *cc, a64::Assembler &a, JitInsn *insn)
 
     opnd_num = jit_insn_opndv_num(insn);
     for (i = 0; i < opnd_num - 2; i++) {
-        /*TODO: if arguments number is greater than 6 */
-        bh_assert(integer_reg_index < 6);
-        bh_assert(floatpoint_reg_index < 6);
+        /*TODO: if arguments number is greater than 8 */
+        bh_assert(integer_reg_index < 8);
+        bh_assert(floatpoint_reg_index < 8);
 
         arg_reg = *(jit_insn_opndv(insn, i + 2));
         switch (jit_reg_kind(arg_reg)) {
             case JIT_REG_KIND_I32:
             {
-                int32 reg_no = regs_arg_idx[integer_reg_index++];
+                int32_t reg_no = regs_arg_idx[integer_reg_index++];
                 CHECK_I64_REG_NO(reg_no);
                 if (jit_reg_is_const(arg_reg)) {
-                    mov_imm_to_r_i64(a, reg_no,
-                                     (int64)jit_cc_get_const_I32(cc, arg_reg));
+                    mov_imm_to_r_i64(
+                        a, reg_no, (int64_t)jit_cc_get_const_I32(cc, arg_reg));
                 }
                 else {
-                    int32 arg_reg_no = jit_reg_no(arg_reg);
+                    int32_t arg_reg_no = jit_reg_no(arg_reg);
                     CHECK_I32_REG_NO(arg_reg_no);
                     extend_r32_to_r64(a, reg_no, arg_reg_no, true);
                 }
@@ -6005,14 +6138,14 @@ lower_callnative(JitCompContext *cc, a64::Assembler &a, JitInsn *insn)
             }
             case JIT_REG_KIND_I64:
             {
-                int32 reg_no = regs_arg_idx[integer_reg_index++];
+                int32_t reg_no = regs_arg_idx[integer_reg_index++];
                 CHECK_I64_REG_NO(reg_no);
                 if (jit_reg_is_const(arg_reg)) {
                     mov_imm_to_r_i64(a, reg_no,
                                      jit_cc_get_const_I64(cc, arg_reg));
                 }
                 else {
-                    int32 arg_reg_no = jit_reg_no(arg_reg);
+                    int32_t arg_reg_no = jit_reg_no(arg_reg);
                     CHECK_I64_REG_NO(arg_reg_no);
                     mov_r_to_r_i64(a, reg_no, arg_reg_no);
                 }
@@ -6020,13 +6153,13 @@ lower_callnative(JitCompContext *cc, a64::Assembler &a, JitInsn *insn)
             }
             case JIT_REG_KIND_F32:
             {
-                CHECK_F32_REG_NO((int32)floatpoint_reg_index);
+                CHECK_F32_REG_NO((int32_t)floatpoint_reg_index);
                 if (jit_reg_is_const(arg_reg)) {
                     mov_imm_to_r_f32(a, floatpoint_reg_index,
                                      jit_cc_get_const_F32(cc, arg_reg));
                 }
                 else {
-                    int32 arg_reg_no = jit_reg_no(arg_reg);
+                    int32_t arg_reg_no = jit_reg_no(arg_reg);
                     CHECK_F32_REG_NO(arg_reg_no);
                     mov_r_to_r_f32(a, floatpoint_reg_index, arg_reg_no);
                 }
@@ -6035,13 +6168,13 @@ lower_callnative(JitCompContext *cc, a64::Assembler &a, JitInsn *insn)
             }
             case JIT_REG_KIND_F64:
             {
-                CHECK_F64_REG_NO((int32)floatpoint_reg_index);
+                CHECK_F64_REG_NO((int32_t)floatpoint_reg_index);
                 if (jit_reg_is_const(arg_reg)) {
                     mov_imm_to_r_f64(a, floatpoint_reg_index,
                                      jit_cc_get_const_F64(cc, arg_reg));
                 }
                 else {
-                    int32 arg_reg_no = jit_reg_no(arg_reg);
+                    int32_t arg_reg_no = jit_reg_no(arg_reg);
                     CHECK_F64_REG_NO(arg_reg_no);
                     mov_r_to_r_f64(a, floatpoint_reg_index, arg_reg_no);
                 }
@@ -6050,32 +6183,31 @@ lower_callnative(JitCompContext *cc, a64::Assembler &a, JitInsn *insn)
             }
             default:
             {
-
                 bh_assert(0);
                 goto fail;
             }
         }
     }
 
-    imm.setValue((uint64)func_ptr);
-    a.mov(regs_i64[REG_RAX_IDX], imm);
-    a.call(regs_i64[REG_RAX_IDX]);
+    imm.setValue((uint64_t)func_ptr);
+    a.mov(a64::x(REG_X30_IDX), imm);
+    a.blr(a64::x(REG_X30_IDX));
 
     if (ret_reg) {
-        uint32 ret_reg_no = jit_reg_no(ret_reg);
+        uint32_t ret_reg_no = jit_reg_no(ret_reg);
         if (jit_reg_kind(ret_reg) == JIT_REG_KIND_I64) {
             CHECK_I64_REG_NO(ret_reg_no);
-            /* mov res, rax */
-            mov_r_to_r_i64(a, ret_reg_no, REG_RAX_IDX);
+            /* mov res, x0 */
+            mov_r_to_r_i64(a, ret_reg_no, REG_X0_IDX);
         }
         else if (jit_reg_kind(ret_reg) == JIT_REG_KIND_F64) {
             CHECK_F64_REG_NO(ret_reg_no);
-            /* mov res, xmm0_f64 */
+            /* mov res, d0 */
             mov_r_to_r_f64(a, ret_reg_no, 0);
         }
         else {
             bh_assert((jit_reg_kind(ret_reg) == JIT_REG_KIND_I32
-                       && ret_reg_no == REG_EAX_IDX)
+                       && ret_reg_no == REG_W0_IDX)
                       || (jit_reg_kind(ret_reg) == JIT_REG_KIND_F32
                           && ret_reg_no == 0));
         }
@@ -6099,22 +6231,22 @@ fail:
  */
 static bool
 lower_callbc(JitCompContext *cc, a64::Assembler &a, bh_list *jmp_info_list,
-             int32 label_src, JitInsn *insn)
+             int32_t label_src, JitInsn *insn)
 {
     JmpInfo *node;
     Imm imm;
-    JitReg edx_hreg = jit_reg_new(JIT_REG_KIND_I32, REG_EDX_IDX);
-    JitReg rdx_hreg = jit_reg_new(JIT_REG_KIND_I64, REG_RDX_IDX);
-    JitReg xmm0_f32_hreg = jit_reg_new(JIT_REG_KIND_F32, 0);
-    JitReg xmm0_f64_hreg = jit_reg_new(JIT_REG_KIND_F64, 0);
+    JitReg w0_hreg = jit_reg_new(JIT_REG_KIND_I32, REG_W0_IDX);
+    JitReg x0_hreg = jit_reg_new(JIT_REG_KIND_I64, REG_X0_IDX);
+    JitReg s0_hreg = jit_reg_new(JIT_REG_KIND_F32, 0);
+    JitReg d0_hreg = jit_reg_new(JIT_REG_KIND_F64, 0);
     JitReg ret_reg = *(jit_insn_opnd(insn, 0));
     JitReg func_reg = *(jit_insn_opnd(insn, 2));
     JitReg func_idx = *(jit_insn_opnd(insn, 3));
     JitReg src_reg;
-    int32 func_reg_no;
+    int32_t func_reg_no;
 
     /* Load return_jitted_addr from stack */
-    a64::Mem m(a64::rbp, cc->jitted_return_address_offset);
+    a64::Mem m(a64::x29, cc->jitted_return_address_offset);
 
     CHECK_KIND(func_reg, JIT_REG_KIND_I64);
     func_reg_no = jit_reg_no(func_reg);
@@ -6123,10 +6255,10 @@ lower_callbc(JitCompContext *cc, a64::Assembler &a, bh_list *jmp_info_list,
     CHECK_KIND(func_idx, JIT_REG_KIND_I32);
     if (jit_reg_is_const(func_idx)) {
         imm.setValue(jit_cc_get_const_I32(cc, func_idx));
-        a.mov(regs_i64[REG_RDX_IDX], imm);
+        a.mov(a64::x(REG_X8_IDX), imm);
     }
     else {
-        a.movzx(regs_i64[REG_RDX_IDX], regs_i32[jit_reg_no(func_idx)]);
+        a.mov(a64::w(REG_X8_IDX), a64::w(jit_reg_no(func_idx)));
     }
 
     node = (JmpInfo *)jit_malloc(sizeof(JmpInfo));
@@ -6135,29 +6267,29 @@ lower_callbc(JitCompContext *cc, a64::Assembler &a, bh_list *jmp_info_list,
 
     node->type = JMP_END_OF_CALLBC;
     node->label_src = label_src;
-    node->offset = a.code()->sectionById(0)->buffer().size() + 2;
+    node->offset = a.code()->sectionById(0)->buffer().size() + 4;
     bh_list_insert(jmp_info_list, node);
 
     /* Set next jited addr to glue_ret_jited_addr, 0 will be replaced with
        actual offset after actual code cache is allocated */
     imm.setValue(INT64_MAX);
-    a.mov(regs_i64[REG_I64_FREE_IDX], imm);
-    a.mov(m, regs_i64[REG_I64_FREE_IDX]);
-    a.jmp(regs_i64[func_reg_no]);
+    a.mov(a64::x(REG_X9_IDX), imm);
+    a.str(a64::x(REG_X9_IDX), m);
+    a.br(a64::x(func_reg_no));
 
     if (ret_reg) {
         switch (jit_reg_kind(ret_reg)) {
             case JIT_REG_KIND_I32:
-                src_reg = edx_hreg;
+                src_reg = w0_hreg;
                 break;
             case JIT_REG_KIND_I64:
-                src_reg = rdx_hreg;
+                src_reg = x0_hreg;
                 break;
             case JIT_REG_KIND_F32:
-                src_reg = xmm0_f32_hreg;
+                src_reg = s0_hreg;
                 break;
             case JIT_REG_KIND_F64:
-                src_reg = xmm0_f64_hreg;
+                src_reg = d0_hreg;
                 break;
             default:
                 bh_assert(0);
@@ -6175,14 +6307,14 @@ fail:
 static bool
 lower_returnbc(JitCompContext *cc, a64::Assembler &a, JitInsn *insn)
 {
-    JitReg edx_hreg = jit_reg_new(JIT_REG_KIND_I32, REG_EDX_IDX);
-    JitReg rdx_hreg = jit_reg_new(JIT_REG_KIND_I64, REG_RDX_IDX);
-    JitReg xmm0_f32_hreg = jit_reg_new(JIT_REG_KIND_F32, 0);
-    JitReg xmm0_f64_hreg = jit_reg_new(JIT_REG_KIND_F64, 0);
+    JitReg w0_hreg = jit_reg_new(JIT_REG_KIND_I32, REG_W0_IDX);
+    JitReg x0_hreg = jit_reg_new(JIT_REG_KIND_I64, REG_X0_IDX);
+    JitReg s0_hreg = jit_reg_new(JIT_REG_KIND_F32, 0);
+    JitReg d0_hreg = jit_reg_new(JIT_REG_KIND_F64, 0);
     JitReg act_reg = *(jit_insn_opnd(insn, 0));
     JitReg ret_reg = *(jit_insn_opnd(insn, 1));
     JitReg dst_reg;
-    int32 act;
+    int32_t act;
 
     CHECK_CONST(act_reg);
     CHECK_KIND(act_reg, JIT_REG_KIND_I32);
@@ -6192,16 +6324,16 @@ lower_returnbc(JitCompContext *cc, a64::Assembler &a, JitInsn *insn)
     if (ret_reg) {
         switch (jit_reg_kind(ret_reg)) {
             case JIT_REG_KIND_I32:
-                dst_reg = edx_hreg;
+                dst_reg = w0_hreg;
                 break;
             case JIT_REG_KIND_I64:
-                dst_reg = rdx_hreg;
+                dst_reg = x0_hreg;
                 break;
             case JIT_REG_KIND_F32:
-                dst_reg = xmm0_f32_hreg;
+                dst_reg = s0_hreg;
                 break;
             case JIT_REG_KIND_F64:
-                dst_reg = xmm0_f64_hreg;
+                dst_reg = d0_hreg;
                 break;
             default:
                 bh_assert(0);
@@ -6212,12 +6344,13 @@ lower_returnbc(JitCompContext *cc, a64::Assembler &a, JitInsn *insn)
     }
 
     {
-        /* eax = act */
+        /* w0 = act */
         Imm imm(act);
-        a.mov(a64::eax, imm);
+        a.mov(a64::w0, imm);
 
-        a64::Mem m(a64::rbp, cc->jitted_return_address_offset);
-        a.jmp(m);
+        a64::Mem m(a64::x29, cc->jitted_return_address_offset);
+        a.ldr(a64::x30, m);
+        a.ret(a64::x30);
     }
     return true;
 fail:
@@ -6228,20 +6361,20 @@ static bool
 lower_return(JitCompContext *cc, a64::Assembler &a, JitInsn *insn)
 {
     JitReg act_reg = *(jit_insn_opnd(insn, 0));
-    int32 act;
+    int32_t act;
 
     CHECK_CONST(act_reg);
     CHECK_KIND(act_reg, JIT_REG_KIND_I32);
 
     act = jit_cc_get_const_I32(cc, act_reg);
     {
-        /* eax = act */
+        /* w0 = act */
         Imm imm(act);
-        a.mov(a64::eax, imm);
+        a.mov(a64::w0, imm);
 
         imm.setValue((uintptr_t)code_block_return_to_interp_from_jitted);
-        a.mov(regs_i64[REG_I64_FREE_IDX], imm);
-        a.jmp(regs_i64[REG_I64_FREE_IDX]);
+        a.mov(a64::x(REG_X9_IDX), imm);
+        a.br(a64::x(REG_X9_IDX));
     }
     return true;
 fail:
@@ -6327,7 +6460,7 @@ cast_imm_i32_to_r_f32(a64::Assembler &a, int32 reg_no, int32 data)
 {
     Imm imm(data);
     a.mov(regs_i32[REG_I32_FREE_IDX], imm);
-    a.movd(regs_float[reg_no], regs_i32[REG_I32_FREE_IDX]);
+    a.fmov(regs_f32[reg_no], regs_i32[REG_I32_FREE_IDX]);
     return true;
 }
 
@@ -6343,7 +6476,7 @@ cast_imm_i32_to_r_f32(a64::Assembler &a, int32 reg_no, int32 data)
 static bool
 cast_r_i32_to_r_f32(a64::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    a.movd(regs_float[reg_no_dst], regs_i32[reg_no_src]);
+    a.fmov(regs_f32[reg_no_dst], regs_i32[reg_no_src]);
     return true;
 }
 
@@ -6361,7 +6494,7 @@ cast_imm_i64_to_r_f64(a64::Assembler &a, int32 reg_no, int64 data)
 {
     Imm imm(data);
     a.mov(regs_i64[REG_I64_FREE_IDX], imm);
-    a.movq(regs_float[reg_no], regs_i64[REG_I64_FREE_IDX]);
+    a.fmov(regs_f64[reg_no], regs_i64[REG_I64_FREE_IDX]);
     return true;
 }
 
@@ -6377,7 +6510,7 @@ cast_imm_i64_to_r_f64(a64::Assembler &a, int32 reg_no, int64 data)
 static bool
 cast_r_i64_to_r_f64(a64::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    a.movq(regs_float[reg_no_dst], regs_i64[reg_no_src]);
+    a.fmov(regs_f64[reg_no_dst], regs_i64[reg_no_src]);
     return true;
 }
 
@@ -6409,7 +6542,7 @@ cast_imm_f32_to_r_i32(a64::Assembler &a, int32 reg_no, float data)
 static bool
 cast_r_f32_to_r_i32(a64::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    a.movd(regs_i32[reg_no_dst], regs_float[reg_no_src]);
+    a.fmov(regs_i32[reg_no_dst], regs_f32[reg_no_src]);
     return true;
 }
 
@@ -6441,7 +6574,7 @@ cast_imm_f64_to_r_i64(a64::Assembler &a, int32 reg_no, double data)
 static bool
 cast_r_f64_to_r_i64(a64::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    a.movq(regs_i64[reg_no_dst], regs_float[reg_no_src]);
+    a.fmov(regs_i64[reg_no_dst], regs_f64[reg_no_src]);
     return true;
 }
 
@@ -6552,24 +6685,40 @@ extend_r_to_r(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst,
  * @return true if success, false otherwise
  */
 static bool
-at_cmpxchg(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst,
-           int32 reg_no_xchg, a64::Mem &m_dst)
+at_cmpxchg(a64::Assembler &a, uint32_t bytes_dst, uint32_t kind_dst,
+           int32_t reg_no_xchg, a64::Mem &m_dst)
 {
     bh_assert((kind_dst == JIT_REG_KIND_I32 && bytes_dst <= 4)
               || kind_dst == JIT_REG_KIND_I64);
-    bh_assert(reg_no_xchg < 16);
+    bh_assert(reg_no_xchg < 32);
     switch (bytes_dst) {
         case 1:
-            a.lock().cmpxchg(m_dst, regs_i8[reg_no_xchg]);
+            a.ldxrb(a64::w(REG_W10_IDX), m_dst);
+            a.cmp(a64::w(REG_W10_IDX), a64::w(reg_no_xchg));
+            a.csel(a64::w(REG_W10_IDX), a64::w(reg_no_xchg),
+                   a64::w(REG_W10_IDX), a64::CondCode::kEQ);
+            a.stxrb(a64::w(REG_W11_IDX), a64::w(REG_W10_IDX), m_dst);
             break;
         case 2:
-            a.lock().cmpxchg(m_dst, regs_i16[reg_no_xchg]);
+            a.ldxrh(a64::w(REG_W10_IDX), m_dst);
+            a.cmp(a64::w(REG_W10_IDX), a64::w(reg_no_xchg));
+            a.csel(a64::w(REG_W10_IDX), a64::w(reg_no_xchg),
+                   a64::w(REG_W10_IDX), a64::CondCode::kEQ);
+            a.stxrh(a64::w(REG_W11_IDX), a64::w(REG_W10_IDX), m_dst);
             break;
         case 4:
-            a.lock().cmpxchg(m_dst, regs_i32[reg_no_xchg]);
+            a.ldxr(a64::w(REG_W10_IDX), m_dst);
+            a.cmp(a64::w(REG_W10_IDX), a64::w(reg_no_xchg));
+            a.csel(a64::w(REG_W10_IDX), a64::w(reg_no_xchg),
+                   a64::w(REG_W10_IDX), a64::CondCode::kEQ);
+            a.stxr(a64::w(REG_W11_IDX), a64::w(REG_W10_IDX), m_dst);
             break;
         case 8:
-            a.lock().cmpxchg(m_dst, regs_i64[reg_no_xchg]);
+            a.ldxr(a64::x(REG_X10_IDX), m_dst);
+            a.cmp(a64::x(REG_X10_IDX), a64::x(reg_no_xchg));
+            a.csel(a64::x(REG_X10_IDX), a64::x(reg_no_xchg),
+                   a64::x(REG_X10_IDX), a64::CondCode::kEQ);
+            a.stxr(a64::w(REG_W11_IDX), a64::x(REG_X10_IDX), m_dst);
             break;
         default:
             bh_assert(0);
@@ -6602,7 +6751,7 @@ at_cmpxchg_r_ra_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
 {
     a64::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset]);
     return at_cmpxchg(a, bytes_dst, kind_dst, reg_no_xchg, m)
-           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, REG_RAX_IDX);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_X0_IDX, REG_X0_IDX);
 }
 
 /**
@@ -6628,7 +6777,7 @@ at_cmpxchg_r_ra_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
 {
     a64::Mem m(regs_i64[reg_no_base], offset);
     return at_cmpxchg(a, bytes_dst, kind_dst, reg_no_xchg, m)
-           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, REG_RAX_IDX);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_X0_IDX, REG_X0_IDX);
 }
 
 /**
@@ -6658,7 +6807,7 @@ at_cmpxchg_imm_ra_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
     imm_set_value(imm, data_xchg, bytes_dst);
     uint32 reg_no_xchg = mov_imm_to_free_reg(a, imm, bytes_dst);
     return at_cmpxchg(a, bytes_dst, kind_dst, reg_no_xchg, m)
-           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, REG_RAX_IDX);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_X0_IDX, REG_X0_IDX);
 }
 
 /**
@@ -6687,7 +6836,7 @@ at_cmpxchg_imm_ra_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
     imm_set_value(imm, data_xchg, bytes_dst);
     uint32 reg_no_xchg = mov_imm_to_free_reg(a, imm, bytes_dst);
     return at_cmpxchg(a, bytes_dst, kind_dst, reg_no_xchg, m)
-           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, REG_RAX_IDX);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_X0_IDX, REG_X0_IDX);
 }
 
 /**
@@ -6695,64 +6844,64 @@ at_cmpxchg_imm_ra_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
  * @param kind the data kind, can only be I32 or I64
  * @param bytes_dst the byte number of dst data
  */
-#define CMPXCHG_R_R_R_R_R(kind, type, bytes_dst)                           \
-    do {                                                                   \
-        type data_xchg = 0;                                                \
-        int32 reg_no_xchg = 0, reg_no_cmp = 0, reg_no_base = 0,            \
-              reg_no_offset = 0;                                           \
-        int32 offset = 0;                                                  \
-        bool _ret = false;                                                 \
-        if (jit_reg_is_const(r3)) {                                        \
-            CHECK_KIND(r3, JIT_REG_KIND_I32);                              \
-        }                                                                  \
-        else {                                                             \
-            CHECK_KIND(r3, JIT_REG_KIND_I64);                              \
-        }                                                                  \
-        /* r1: expected value(it must in register a)                       \
-         * r2: memory base addr can't be const */                          \
-        CHECK_NCONST(r1);                                                  \
-        reg_no_cmp = jit_reg_no(r1);                                       \
-        bh_assert(reg_no_cmp == REG_EAX_IDX || reg_no_cmp == REG_RAX_IDX); \
-        CHECK_REG_NO(reg_no_cmp, jit_reg_kind(r1));                        \
-        CHECK_NCONST(r2);                                                  \
-        reg_no_base = jit_reg_no(r2);                                      \
-        CHECK_REG_NO(reg_no_base, jit_reg_kind(r2));                       \
-        /* r0: replacement value r3: offset can be const */                \
-        if (jit_reg_is_const(r0))                                          \
-            data_xchg = jit_cc_get_const_##kind(cc, r0);                   \
-        else {                                                             \
-            reg_no_xchg = jit_reg_no(r0);                                  \
-            CHECK_REG_NO(reg_no_xchg, jit_reg_kind(r0));                   \
-        }                                                                  \
-        if (jit_reg_is_const(r3))                                          \
-            offset = jit_cc_get_const_I32(cc, r3);                         \
-        else {                                                             \
-            reg_no_offset = jit_reg_no(r3);                                \
-            CHECK_REG_NO(reg_no_offset, jit_reg_kind(r3));                 \
-        }                                                                  \
-                                                                           \
-        if (jit_reg_is_const(r0)) {                                        \
-            if (jit_reg_is_const(r3))                                      \
-                _ret = at_cmpxchg_imm_ra_base_r_offset_imm(                \
-                    a, bytes_dst, JIT_REG_KIND_##kind, &data_xchg,         \
-                    reg_no_base, offset);                                  \
-            else                                                           \
-                _ret = at_cmpxchg_imm_ra_base_r_offset_r(                  \
-                    a, bytes_dst, JIT_REG_KIND_##kind, &data_xchg,         \
-                    reg_no_base, reg_no_offset);                           \
-        }                                                                  \
-        else {                                                             \
-            if (jit_reg_is_const(r3))                                      \
-                _ret = at_cmpxchg_r_ra_base_r_offset_imm(                  \
-                    a, bytes_dst, JIT_REG_KIND_##kind, reg_no_xchg,        \
-                    reg_no_base, offset);                                  \
-            else                                                           \
-                _ret = at_cmpxchg_r_ra_base_r_offset_r(                    \
-                    a, bytes_dst, JIT_REG_KIND_##kind, reg_no_xchg,        \
-                    reg_no_base, reg_no_offset);                           \
-        }                                                                  \
-        if (!_ret)                                                         \
-            GOTO_FAIL;                                                     \
+#define CMPXCHG_R_R_R_R_R(kind, type, bytes_dst)                         \
+    do {                                                                 \
+        type data_xchg = 0;                                              \
+        int32 reg_no_xchg = 0, reg_no_cmp = 0, reg_no_base = 0,          \
+              reg_no_offset = 0;                                         \
+        int32 offset = 0;                                                \
+        bool _ret = false;                                               \
+        if (jit_reg_is_const(r3)) {                                      \
+            CHECK_KIND(r3, JIT_REG_KIND_I32);                            \
+        }                                                                \
+        else {                                                           \
+            CHECK_KIND(r3, JIT_REG_KIND_I64);                            \
+        }                                                                \
+        /* r1: expected value(it must in register a)                     \
+         * r2: memory base addr can't be const */                        \
+        CHECK_NCONST(r1);                                                \
+        reg_no_cmp = jit_reg_no(r1);                                     \
+        bh_assert(reg_no_cmp == REG_W0_IDX || reg_no_cmp == REG_X0_IDX); \
+        CHECK_REG_NO(reg_no_cmp, jit_reg_kind(r1));                      \
+        CHECK_NCONST(r2);                                                \
+        reg_no_base = jit_reg_no(r2);                                    \
+        CHECK_REG_NO(reg_no_base, jit_reg_kind(r2));                     \
+        /* r0: replacement value r3: offset can be const */              \
+        if (jit_reg_is_const(r0))                                        \
+            data_xchg = jit_cc_get_const_##kind(cc, r0);                 \
+        else {                                                           \
+            reg_no_xchg = jit_reg_no(r0);                                \
+            CHECK_REG_NO(reg_no_xchg, jit_reg_kind(r0));                 \
+        }                                                                \
+        if (jit_reg_is_const(r3))                                        \
+            offset = jit_cc_get_const_I32(cc, r3);                       \
+        else {                                                           \
+            reg_no_offset = jit_reg_no(r3);                              \
+            CHECK_REG_NO(reg_no_offset, jit_reg_kind(r3));               \
+        }                                                                \
+                                                                         \
+        if (jit_reg_is_const(r0)) {                                      \
+            if (jit_reg_is_const(r3))                                    \
+                _ret = at_cmpxchg_imm_ra_base_r_offset_imm(              \
+                    a, bytes_dst, JIT_REG_KIND_##kind, &data_xchg,       \
+                    reg_no_base, offset);                                \
+            else                                                         \
+                _ret = at_cmpxchg_imm_ra_base_r_offset_r(                \
+                    a, bytes_dst, JIT_REG_KIND_##kind, &data_xchg,       \
+                    reg_no_base, reg_no_offset);                         \
+        }                                                                \
+        else {                                                           \
+            if (jit_reg_is_const(r3))                                    \
+                _ret = at_cmpxchg_r_ra_base_r_offset_imm(                \
+                    a, bytes_dst, JIT_REG_KIND_##kind, reg_no_xchg,      \
+                    reg_no_base, offset);                                \
+            else                                                         \
+                _ret = at_cmpxchg_r_ra_base_r_offset_r(                  \
+                    a, bytes_dst, JIT_REG_KIND_##kind, reg_no_xchg,      \
+                    reg_no_base, reg_no_offset);                         \
+        }                                                                \
+        if (!_ret)                                                       \
+            GOTO_FAIL;                                                   \
     } while (0)
 
 /**
@@ -6774,16 +6923,16 @@ neg_r(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst, int32 reg_no_src)
     bh_assert(reg_no_src < 16);
     switch (bytes_dst) {
         case 1:
-            a.neg(regs_i8[reg_no_src]);
+            a.neg(regs_i8[reg_no_src], regs_i8[reg_no_src]);
             break;
         case 2:
-            a.neg(regs_i16[reg_no_src]);
+            a.neg(regs_i16[reg_no_src], regs_i16[reg_no_src]);
             break;
         case 4:
-            a.neg(regs_i32[reg_no_src]);
+            a.neg(regs_i32[reg_no_src], regs_i32[reg_no_src]);
             break;
         case 8:
-            a.neg(regs_i64[reg_no_src]);
+            a.neg(regs_i64[reg_no_src], regs_i64[reg_no_src]);
             break;
         default:
             bh_assert(0);
@@ -6805,30 +6954,49 @@ neg_r(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst, int32 reg_no_src)
  * @return true if success, false otherwise
  */
 static bool
-at_xadd(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst, int32 reg_no_src,
-        a64::Mem &m_dst)
+at_xadd(a64::Assembler &a, uint32_t bytes_dst, uint32_t kind_dst,
+        int32_t reg_no_src, a64::Mem &m_dst)
 {
     bh_assert((kind_dst == JIT_REG_KIND_I32 && bytes_dst <= 4)
               || kind_dst == JIT_REG_KIND_I64);
-    bh_assert(reg_no_src < 16);
+    bh_assert(reg_no_src < 32);
     switch (bytes_dst) {
         case 1:
-            a.lock().xadd(m_dst, regs_i8[reg_no_src]);
+            a.ldxrb(a64::w(REG_W10_IDX), m_dst);
+            a.add(a64::w(REG_W11_IDX), a64::w(REG_W10_IDX), a64::w(reg_no_src));
+            a.stxrb(a64::w(REG_W12_IDX), a64::w(REG_W11_IDX), m_dst);
+            a.cmp(a64::w(REG_W12_IDX), a64::wzr);
+            a.b_ne(-4 * 4);
+            a.mov(a64::w(reg_no_src), a64::w(REG_W10_IDX));
             break;
         case 2:
-            a.lock().xadd(m_dst, regs_i16[reg_no_src]);
+            a.ldxrh(a64::w(REG_W10_IDX), m_dst);
+            a.add(a64::w(REG_W11_IDX), a64::w(REG_W10_IDX), a64::w(reg_no_src));
+            a.stxrh(a64::w(REG_W12_IDX), a64::w(REG_W11_IDX), m_dst);
+            a.cmp(a64::w(REG_W12_IDX), a64::wzr);
+            a.b_ne(-4 * 4);
+            a.mov(a64::w(reg_no_src), a64::w(REG_W10_IDX));
             break;
         case 4:
-            a.lock().xadd(m_dst, regs_i32[reg_no_src]);
+            a.ldxr(a64::w(REG_W10_IDX), m_dst);
+            a.add(a64::w(REG_W11_IDX), a64::w(REG_W10_IDX), a64::w(reg_no_src));
+            a.stxr(a64::w(REG_W12_IDX), a64::w(REG_W11_IDX), m_dst);
+            a.cmp(a64::w(REG_W12_IDX), a64::wzr);
+            a.b_ne(-4 * 4);
+            a.mov(a64::w(reg_no_src), a64::w(REG_W10_IDX));
             break;
         case 8:
-            a.lock().xadd(m_dst, regs_i64[reg_no_src]);
+            a.ldxr(a64::x(REG_X10_IDX), m_dst);
+            a.add(a64::x(REG_X11_IDX), a64::x(REG_X10_IDX), a64::x(reg_no_src));
+            a.stxr(a64::w(REG_W12_IDX), a64::x(REG_X11_IDX), m_dst);
+            a.cmp(a64::w(REG_W12_IDX), a64::wzr);
+            a.b_ne(-4 * 4);
+            a.mov(a64::x(reg_no_src), a64::x(REG_X10_IDX));
             break;
         default:
             bh_assert(0);
             return false;
     }
-
     return true;
 }
 
@@ -7160,33 +7328,39 @@ at_rmw_xchg_r_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
  * @param kind the data kind, can only be I32 or I64
  * @param bytes_dst the byte number of dst data
  */
-#define AT_RMW_LOGICAL_LOOP(bin_op, kind, bytes_dst)                           \
+#define AT_RMW_LOGICAL_BIN_OP(bin_op, reg1, reg2) a.bin_op(reg1, reg1, reg2)
+
+#define AT_RMW_LOGICAL_LOOP_1(bin_op, kind, bytes_dst)                         \
     do {                                                                       \
         bh_assert((kind_dst == JIT_REG_KIND_I32 && bytes_dst <= 4)             \
                   || kind_dst == JIT_REG_KIND_I64);                            \
         bh_assert(reg_no_src < 16 && reg_no_dst < 16);                         \
         /* read original value in memory(operand 1) to rax(expected) */        \
-        mov_m_to_r(a, bytes_dst, kind_dst, false, REG_RAX_IDX, m_dst);         \
+        mov_m_to_r(a, bytes_dst, kind_dst, false, REG_X0_IDX, m_dst);          \
         Label loop = a.newLabel();                                             \
         /* check whether loop is valid, and bind the loop label                \
          * to the current position in the code. */                             \
         if (!loop.isValid() || a.bind(loop) != kErrorOk)                       \
             return false;                                                      \
         /* move operand 1 to temp reg rb */                                    \
-        mov_r_to_r(a, kind_dst, REG_RBX_IDX, REG_RAX_IDX);                     \
+        mov_r_to_r(a, kind_dst, REG_X19_IDX, REG_X0_IDX);                      \
         /* actual logical operation with operand 2, result save to rbx */      \
         switch (bytes_dst) {                                                   \
             case 1:                                                            \
-                a.bin_op##_(regs_i8[REG_RBX_IDX], regs_i8[reg_no_src]);        \
+                AT_RMW_LOGICAL_BIN_OP(bin_op, regs_i8[REG_X19_IDX],            \
+                                      regs_i8[reg_no_src]);                    \
                 break;                                                         \
             case 2:                                                            \
-                a.bin_op##_(regs_i16[REG_RBX_IDX], regs_i16[reg_no_src]);      \
+                AT_RMW_LOGICAL_BIN_OP(bin_op, regs_i16[REG_X19_IDX],           \
+                                      regs_i16[reg_no_src]);                   \
                 break;                                                         \
             case 4:                                                            \
-                a.bin_op##_(regs_i32[REG_RBX_IDX], regs_i32[reg_no_src]);      \
+                AT_RMW_LOGICAL_BIN_OP(bin_op, regs_i32[REG_X19_IDX],           \
+                                      regs_i32[reg_no_src]);                   \
                 break;                                                         \
             case 8:                                                            \
-                a.bin_op##_(regs_i64[REG_RBX_IDX], regs_i64[reg_no_src]);      \
+                AT_RMW_LOGICAL_BIN_OP(bin_op, regs_i64[REG_X19_IDX],           \
+                                      regs_i64[reg_no_src]);                   \
                 break;                                                         \
             default:                                                           \
                 bh_assert(0);                                                  \
@@ -7196,8 +7370,53 @@ at_rmw_xchg_r_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
          * REG, if change successfully, mem data is changed and exit loop(ZF   \
          * is set) if not, loop again(ZF is clear) and tries to do logical ops \
          * atomically */                                                       \
-        at_cmpxchg(a, bytes_dst, kind_dst, REG_RBX_IDX, m_dst);                \
-        a.jne(loop);                                                           \
+        at_cmpxchg(a, bytes_dst, kind_dst, REG_X19_IDX, m_dst);                \
+        a.b_ne(loop);                                                          \
+        return true;                                                           \
+    } while (0)
+
+#define AT_RMW_LOGICAL_LOOP(bin_op, kind, bytes_dst)                           \
+    do {                                                                       \
+        bh_assert((kind_dst == JIT_REG_KIND_I32 && bytes_dst <= 4)             \
+                  || kind_dst == JIT_REG_KIND_I64);                            \
+        bh_assert(reg_no_src < 16 && reg_no_dst < 16);                         \
+        /* read original value in memory(operand 1) to rax(expected) */        \
+        mov_m_to_r(a, bytes_dst, kind_dst, false, REG_X0_IDX, m_dst);          \
+        Label loop = a.newLabel();                                             \
+        /* check whether loop is valid, and bind the loop label                \
+         * to the current position in the code. */                             \
+        if (!loop.isValid() || a.bind(loop) != kErrorOk)                       \
+            return false;                                                      \
+        /* move operand 1 to temp reg rb */                                    \
+        mov_r_to_r(a, kind_dst, REG_X19_IDX, REG_X0_IDX);                      \
+        /* actual logical operation with operand 2, result save to rbx */      \
+        switch (bytes_dst) {                                                   \
+            case 1:                                                            \
+                a.bin_op##_(regs_i8[REG_X19_IDX], regs_i8[REG_X19_IDX],        \
+                            regs_i8[reg_no_src]);                              \
+                break;                                                         \
+            case 2:                                                            \
+                a.bin_op##_(regs_i16[REG_X19_IDX], regs_i16[REG_X19_IDX],      \
+                            regs_i16[reg_no_src]);                             \
+                break;                                                         \
+            case 4:                                                            \
+                a.bin_op##_(regs_i32[REG_X19_IDX], regs_i16[REG_X19_IDX],      \
+                            regs_i32[reg_no_src]);                             \
+                break;                                                         \
+            case 8:                                                            \
+                a.bin_op##_(regs_i64[REG_X19_IDX], regs_i16[REG_X19_IDX],      \
+                            regs_i64[reg_no_src]);                             \
+                break;                                                         \
+            default:                                                           \
+                bh_assert(0);                                                  \
+                return false;                                                  \
+        }                                                                      \
+        /* cmp with read value in RAX, try to change with result value in RBX  \
+         * REG, if change successfully, mem data is changed and exit loop(ZF   \
+         * is set) if not, loop again(ZF is clear) and tries to do logical ops \
+         * atomically */                                                       \
+        at_cmpxchg(a, bytes_dst, kind_dst, REG_X19_IDX, m_dst);                \
+        a.b_ne(loop);                                                          \
         return true;                                                           \
     } while (0)
 
@@ -7238,7 +7457,7 @@ static bool
 at_or(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst, int32 reg_no_dst,
       int32 reg_no_src, a64::Mem &m_dst)
 {
-    AT_RMW_LOGICAL_LOOP(or, kind_dst, bytes_dst);
+    AT_RMW_LOGICAL_LOOP_1(orr, kind_dst, bytes_dst);
 }
 /**
  * Encode atomic logical binary operation: xor
@@ -7257,7 +7476,7 @@ static bool
 at_xor(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst, int32 reg_no_dst,
        int32 reg_no_src, a64::Mem &m_dst)
 {
-    AT_RMW_LOGICAL_LOOP(xor, kind_dst, bytes_dst);
+    AT_RMW_LOGICAL_LOOP_1(eor, kind_dst, bytes_dst);
 }
 
 /**
@@ -7285,7 +7504,7 @@ at_rmw_and_imm_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
     return at_and(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_X0_IDX, reg_no_dst);
 }
 
 /**
@@ -7313,7 +7532,7 @@ at_rmw_and_imm_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
     return at_and(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_X0_IDX, reg_no_dst);
 }
 
 /**
@@ -7338,7 +7557,7 @@ at_rmw_and_r_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
 {
     a64::Mem m(regs_i64[reg_no_base], offset);
     return at_and(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_X0_IDX, reg_no_dst);
 }
 
 /**
@@ -7363,7 +7582,7 @@ at_rmw_and_r_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
 {
     a64::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset]);
     return at_and(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_X0_IDX, reg_no_dst);
 }
 
 /**
@@ -7390,7 +7609,7 @@ at_rmw_or_imm_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
     return at_or(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_X0_IDX, reg_no_dst);
 }
 
 /**
@@ -7417,7 +7636,7 @@ at_rmw_or_imm_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
     return at_or(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_X0_IDX, reg_no_dst);
 }
 
 /**
@@ -7441,7 +7660,7 @@ at_rmw_or_r_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
 {
     a64::Mem m(regs_i64[reg_no_base], offset);
     return at_or(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_X0_IDX, reg_no_dst);
 }
 
 /**
@@ -7465,7 +7684,7 @@ at_rmw_or_r_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
 {
     a64::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset]);
     return at_or(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_X0_IDX, reg_no_dst);
 }
 
 /**
@@ -7493,7 +7712,7 @@ at_rmw_xor_imm_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
     return at_xor(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_X0_IDX, reg_no_dst);
 }
 
 /**
@@ -7521,7 +7740,7 @@ at_rmw_xor_imm_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
     return at_xor(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_X0_IDX, reg_no_dst);
 }
 
 /**
@@ -7546,7 +7765,7 @@ at_rmw_xor_r_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
 {
     a64::Mem m(regs_i64[reg_no_base], offset);
     return at_xor(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_X0_IDX, reg_no_dst);
 }
 
 /**
@@ -7571,7 +7790,7 @@ at_rmw_xor_r_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
 {
     a64::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset]);
     return at_xor(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_X0_IDX, reg_no_dst);
 }
 
 /**
@@ -7645,7 +7864,7 @@ at_rmw_xor_r_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
 static void
 fence(a64::Assembler &a)
 {
-    a.mfence();
+    a.dmb(a64::Predicate::DB::kISH);
 }
 
 /**
@@ -9227,17 +9446,16 @@ jit_codegen_dump_native(void *begin_addr, void *end_addr)
     (void)end_addr;
 #endif
 }
-
 bool
 jit_codegen_init()
 {
     const JitHardRegInfo *hreg_info = jit_codegen_get_hreg_info();
     JitGlobals *jit_globals = jit_compiler_get_jit_globals();
     char *code_buf, *stream;
-    uint32 code_size;
+    uint32_t code_size;
 
     JitErrorHandler err_handler;
-    Environment env(Arch::kX64);
+    Environment env(Arch::kAArch64);
     CodeHolder code;
     code.init(env);
     code.setErrorHandler(&err_handler);
@@ -9245,30 +9463,25 @@ jit_codegen_init()
 
     /* Initialize code_block_switch_to_jitted_from_interp */
 
-    /* push callee-save registers */
-    a.push(a64::rbp);
-    a.push(a64::rbx);
-    a.push(a64::r12);
-    a.push(a64::r13);
-    a.push(a64::r14);
-    a.push(a64::r15);
-    /* push info */
-    a.push(a64::rsi);
+    /* Push callee-save registers */
+    a.stp(a64::x29, a64::x30, a64::Mem(a64::sp, -16));
+    a.stp(a64::x19, a64::x20, a64::Mem(a64::sp, -16));
+    a.stp(a64::x21, a64::x22, a64::Mem(a64::sp, -16));
+    a.stp(a64::x23, a64::x24, a64::Mem(a64::sp, -16));
+    /* Push info */
+    a.str(a64::x1, a64::Mem(a64::sp, -16));
 
-    /* Note: the number of register pushed must be odd, as the stack pointer
-       %rsp must be aligned to a 16-byte boundary before making a call, so
-       when a function (including this function) gets control, %rsp is not
-       aligned. We push odd number registers here to make %rsp happy before
-       calling native functions. */
+    /* Note: the number of registers pushed must be even, as the stack pointer
+       sp must be aligned to a 16-byte boundary before making a call. */
 
     /* exec_env_reg = exec_env */
-    a.mov(regs_i64[hreg_info->exec_env_hreg_index], a64::rdi);
+    a.mov(a64::x(hreg_info->exec_env_hreg_index), a64::x0);
     /* fp_reg = info->frame */
-    a.mov(a64::rbp, a64::ptr(a64::rsi, offsetof(JitInterpSwitchInfo, frame)));
-    /* rdx = func_idx, is already set in the func_idx argument of
+    a.ldr(a64::x29, a64::Mem(a64::x1, offsetof(JitInterpSwitchInfo, frame)));
+    /* x8 = func_idx, is already set in the func_idx argument of
        jit_codegen_interp_jitted_glue  */
-    /* jmp target, rcx = pc */
-    a.jmp(a64::rcx);
+    /* jmp target, x9 = pc */
+    a.br(a64::x9);
 
     if (err_handler.err)
         return false;
@@ -9282,40 +9495,34 @@ jit_codegen_init()
     bh_memcpy_s(stream, code_size, code_buf, code_size);
     code_block_switch_to_jitted_from_interp = stream;
 
-#if 0
-    dump_native(stream, code_size);
-#endif
-
     /* Initialize code_block_return_to_interp_from_jitted */
 
     a.setOffset(0);
 
-    /* pop info */
-    a.pop(a64::rsi);
+    /* Pop info */
+    a.ldr(a64::x1, a64::Mem(a64::sp, 16));
     /* info->frame = fp_reg */
     {
-        a64::Mem m(a64::rsi, offsetof(JitInterpSwitchInfo, frame));
-        a.mov(m, a64::rbp);
+        a64::Mem m(a64::x1, offsetof(JitInterpSwitchInfo, frame));
+        a.str(a64::x29, m);
     }
-    /* info->out.ret.ival[0, 1] = rdx */
+    /* info->out.ret.ival[0, 1] = x8 */
     {
-        a64::Mem m(a64::rsi, offsetof(JitInterpSwitchInfo, out.ret.ival));
-        a.mov(m, a64::rdx);
+        a64::Mem m(a64::x1, offsetof(JitInterpSwitchInfo, out.ret.ival));
+        a.str(a64::x8, m);
     }
-    /* info->out.ret.fval[0, 1] = xmm0 */
+    /* info->out.ret.fval[0, 1] = d0 */
     {
-        a64::Mem m(a64::rsi, offsetof(JitInterpSwitchInfo, out.ret.fval));
-        a.movsd(m, a64::xmm0);
+        a64::Mem m(a64::x1, offsetof(JitInterpSwitchInfo, out.ret.fval));
+        a.str(a64::d0, m);
     }
 
-    /* pop callee-save registers */
-    a.pop(a64::r15);
-    a.pop(a64::r14);
-    a.pop(a64::r13);
-    a.pop(a64::r12);
-    a.pop(a64::rbx);
-    a.pop(a64::rbp);
-    a.ret();
+    /* Pop callee-save registers */
+    a.ldp(a64::x23, a64::x24, a64::Mem(a64::sp, 16));
+    a.ldp(a64::x21, a64::x22, a64::Mem(a64::sp, 16));
+    a.ldp(a64::x19, a64::x20, a64::Mem(a64::sp, 16));
+    a.ldp(a64::x29, a64::x30, a64::Mem(a64::sp, 16));
+    a.ret(a64::x0);
 
     if (err_handler.err)
         goto fail1;
@@ -9330,96 +9537,84 @@ jit_codegen_init()
     code_block_return_to_interp_from_jitted =
         jit_globals->return_to_interp_from_jitted = stream;
 
-#if 0
-    dump_native(stream, code_size);
-#endif
-
 #if WASM_ENABLE_LAZY_JIT != 0
     /* Initialize code_block_compile_fast_jit_and_then_call */
 
     a.setOffset(0);
 
-    /* Use rbx, r12, r13 to save func_dix, module_inst and module,
+    /* Use x19, x20, x21 to save func_idx, module_inst, and module,
        as they are callee-save registers */
 
-    /* Backup func_idx: rbx = rdx = func_idx, note that rdx has
+    /* Backup func_idx: x19 = x8 = func_idx, note that x8 has
        been prepared in the caller:
          callbc or code_block_switch_to_jitted_from_interp */
-    a.mov(a64::rbx, a64::rdx);
-    /* r12 = module_inst = exec_env->module_inst */
+    a.mov(a64::x19, a64::x8);
+    /* x20 = module_inst = exec_env->module_inst */
     {
-        a64::Mem m(regs_i64[hreg_info->exec_env_hreg_index],
-                   (uint32)offsetof(WASMExecEnv, module_inst));
-        a.mov(a64::r12, m);
+        a64::Mem m(a64::x(hreg_info->exec_env_hreg_index),
+                   (uint32_t)offsetof(WASMExecEnv, module_inst));
+        a.ldr(a64::x20, m);
     }
-    /* rdi = r13 = module_inst->module */
+    /* x0 = x21 = module_inst->module */
     {
-        a64::Mem m(a64::r12, (uint32)offsetof(WASMModuleInstance, module));
-        a.mov(a64::rdi, m);
-        a.mov(a64::r13, a64::rdi);
+        a64::Mem m(a64::x20, (uint32_t)offsetof(WASMModuleInstance, module));
+        a.ldr(a64::x0, m);
+        a.mov(a64::x21, a64::x0);
     }
-    /* rsi = rdx = func_idx */
-    a.mov(a64::rsi, a64::rdx);
+    /* x1 = x8 = func_idx */
+    a.mov(a64::x1, a64::x8);
     /* Call jit_compiler_compile(module, func_idx) */
     {
-        Imm imm((uint64)(uintptr_t)jit_compiler_compile);
-        a.mov(a64::rax, imm);
-        a.call(a64::rax);
+        Imm imm((uint64_t)(uintptr_t)jit_compiler_compile);
+        a.mov(a64::x9, imm);
+        a.blr(a64::x9);
     }
 
     /* Check if failed to compile the jit function */
     {
         /* Did jit_compiler_compile return false? */
-        Imm imm((uint8)0);
-        a.cmp(a64::al, imm);
+        Imm imm((uint8_t)0);
+        a.cmp(a64::w0, imm);
         /* If no, jump to `Load compiled func ptr and call it` */
-        imm.setValue(INT32_MAX);
-        a.jne(imm);
-
-        char *stream = (char *)a.code()->sectionById(0)->buffer().data()
-                       + a.code()->sectionById(0)->buffer().size();
+        a.b_ne(4 * 15);
 
         /* If yes, call jit_set_exception_with_id to throw exception,
-           and then set eax to JIT_INTERP_ACTION_THROWN, and jump to
+           and then set x0 to JIT_INTERP_ACTION_THROWN, and jump to
            code_block_return_to_interp_from_jitted to return */
 
-        /* rdi = module_inst */
-        a.mov(a64::rdi, a64::r12);
-        /* rsi = EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC */
+        /* x0 = module_inst */
+        a.mov(a64::x0, a64::x20);
+        /* x1 = EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC */
         imm.setValue(EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC);
-        a.mov(a64::rsi, imm);
+        a.mov(a64::x1, imm);
         /* Call jit_set_exception_with_id */
-        imm.setValue((uint64)(uintptr_t)jit_set_exception_with_id);
-        a.mov(a64::rax, imm);
-        a.call(a64::rax);
+        imm.setValue((uint64_t)(uintptr_t)jit_set_exception_with_id);
+        a.mov(a64::x9, imm);
+        a.blr(a64::x9);
         /* Return to the caller */
         imm.setValue(JIT_INTERP_ACTION_THROWN);
-        a.mov(a64::eax, imm);
+        a.mov(a64::x0, imm);
         imm.setValue(code_block_return_to_interp_from_jitted);
-        a.mov(a64::rsi, imm);
-        a.jmp(a64::rsi);
-
-        /* Patch the offset of jne instruction */
-        char *stream_new = (char *)a.code()->sectionById(0)->buffer().data()
-                           + a.code()->sectionById(0)->buffer().size();
-        *(int32 *)(stream - 4) = (int32)(stream_new - stream);
+        a.mov(a64::x1, imm);
+        a.br(a64::x1);
     }
 
     /* Load compiled func ptr and call it */
     {
-        /* rsi = module->import_function_count */
-        a64::Mem m1(a64::r13,
-                    (uint32)offsetof(WASMModule, import_function_count));
-        a.movzx(a64::rsi, m1);
-        /* rbx = rbx - module->import_function_count */
-        a.sub(a64::rbx, a64::rsi);
-        /* rax = module->fast_jit_func_ptrs */
-        a64::Mem m2(a64::r13, (uint32)offsetof(WASMModule, fast_jit_func_ptrs));
-        a.mov(a64::rax, m2);
-        /* rax = fast_jit_func_ptrs[rbx] */
-        a64::Mem m3(a64::rax, a64::rbx, 3, 0);
-        a.mov(a64::rax, m3);
-        a.jmp(a64::rax);
+        /* x1 = module->import_function_count */
+        a64::Mem m1(a64::x21,
+                    (uint32_t)offsetof(WASMModule, import_function_count));
+        a.ldr(a64::x1, m1);
+        /* x19 = x19 - module->import_function_count */
+        a.sub(a64::x19, a64::x19, a64::x1);
+        /* x9 = module->fast_jit_func_ptrs */
+        a64::Mem m2(a64::x21,
+                    (uint32_t)offsetof(WASMModule, fast_jit_func_ptrs));
+        a.ldr(a64::x9, m2);
+        /* x9 = fast_jit_func_ptrs[x19] */
+        a64::Mem m3(a64::x9, a64::x19, a64::lsl(3));
+        a.ldr(a64::x9, m3);
+        a.br(a64::x9);
     }
 
     if (err_handler.err)
@@ -9435,9 +9630,6 @@ jit_codegen_init()
     code_block_compile_fast_jit_and_then_call =
         jit_globals->compile_fast_jit_and_then_call = stream;
 
-#if 0
-    dump_native(stream, code_size);
-#endif
 #endif /* end of WASM_ENABLE_LAZY_JIT != 0 */
 
     return true;
@@ -9546,27 +9738,27 @@ jit_codegen_get_hreg_info()
 }
 
 static const char *reg_names_i32[] = {
-    "w0", "w1", "w2",  "w3",  "w4",  "w5",  "w6",  "w7",
-    "w8", "w9", "w10", "w11", "w12", "w13", "w14", "w15"
+    "w0",  "w1",  "w2",  "w3",  "w4",  "w5",  "w6",  "w7",  "w8",  "w9",  "w10",
+    "w11", "w12", "w13", "w14", "w15", "w16", "w17", "w18", "w19", "w20", "w21",
+    "w22", "w23", "w24", "w25", "w26", "w27", "w28", "w29", "w30", "wzr", "wsp"
 };
 
 static const char *reg_names_i64[] = {
-    "x0", "x1", "x2",  "x3",  "x4",  "x5",  "x6",  "x7",
-    "x8", "x9", "x10", "x11", "x12", "x13", "x14", "x15"
+    "x0",  "x1",  "x2",  "x3",  "x4",  "x5",  "x6",  "x7",  "x8",  "x9",  "x10",
+    "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x18", "x19", "x20", "x21",
+    "x22", "x23", "x24", "x25", "x26", "x27", "x28", "x29", "x30", "xzr", "sp"
 };
 
 static const char *reg_names_f32[] = {
-    "s0",  "s1",  "s2",  "s3",  "s4",  "s5",  "s6",  "s7",
-    "s8",  "s9",  "s10", "s11", "s12", "s13", "s14", "s15",
-    "s16", "s17", "s18", "s19", "s20", "s21", "s22", "s23",
-    "s24", "s25", "s26", "s27", "s28", "s29", "s30", "s31"
+    "s0",  "s1",  "s2",  "s3",  "s4",  "s5",  "s6",  "s7",  "s8",  "s9",  "s10",
+    "s11", "s12", "s13", "s14", "s15", "s16", "s17", "s18", "s19", "s20", "s21",
+    "s22", "s23", "s24", "s25", "s26", "s27", "s28", "s29", "s30", "s31"
 };
 
 static const char *reg_names_f64[] = {
-    "d0",  "d1",  "d2",  "d3",  "d4",  "d5",  "d6",  "d7",
-    "d8",  "d9",  "d10", "d11", "d12", "d13", "d14", "d15",
-    "d16", "d17", "d18", "d19", "d20", "d21", "d22", "d23",
-    "d24", "d25", "d26", "d27", "d28", "d29", "d30", "d31"
+    "d0",  "d1",  "d2",  "d3",  "d4",  "d5",  "d6",  "d7",  "d8",  "d9",  "d10",
+    "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18", "d19", "d20", "d21",
+    "d22", "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d30", "d31"
 };
 
 JitReg

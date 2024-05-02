@@ -35,18 +35,17 @@ if (WAMR_BUILD_TARGET STREQUAL "X86_64" OR WAMR_BUILD_TARGET STREQUAL "AMD_64" O
         add_definitions(-DASMJIT_NO_BUILDER)
         add_definitions(-DASMJIT_NO_COMPILER)
         add_definitions(-DASMJIT_NO_JIT)
-        add_definitions(-DASMJIT_NO_LOGGING)
         add_definitions(-DASMJIT_NO_TEXT)
         add_definitions(-DASMJIT_NO_VALIDATION)
         add_definitions(-DASMJIT_NO_INTROSPECTION)
         add_definitions(-DASMJIT_NO_INTRINSICS)
-        add_definitions(-DASMJIT_NO_AARCH64)
         add_definitions(-DASMJIT_NO_AARCH32)
         include_directories("${asmjit_SOURCE_DIR}/src")
         add_subdirectory(${asmjit_SOURCE_DIR} ${asmjit_BINARY_DIR} EXCLUDE_FROM_ALL)
         file (GLOB_RECURSE cpp_source_asmjit
             ${asmjit_SOURCE_DIR}/src/asmjit/core/*.cpp
             ${asmjit_SOURCE_DIR}/src/asmjit/x86/*.cpp
+            ${asmjit_SOURCE_DIR}/src/asmjit/arm/*.cpp
         )
     endif ()
     if (WAMR_BUILD_FAST_JIT_DUMP EQUAL 1)
