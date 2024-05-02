@@ -7,7 +7,7 @@
 
 /**
  * The verbose level of the log system.  Only those verbose logs whose
- * levels are less than or equal to this value are outputed.
+ * levels are less than or equal to this value are output.
  */
 static uint32 log_verbose_level = BH_LOG_LEVEL_WARNING;
 

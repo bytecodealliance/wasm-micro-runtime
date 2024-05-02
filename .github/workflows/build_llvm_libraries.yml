@@ -43,7 +43,7 @@ jobs:
         run: /usr/bin/env python3 -m pip install -r requirements.txt --break-system-packages
         working-directory: build-scripts
 
-      - name: retrive the last commit ID
+      - name: retrieve the last commit ID
         id: get_last_commit
         run: echo "last_commit=$(GH_TOKEN=${{ secrets.GITHUB_TOKEN }} /usr/bin/env python3 ./build_llvm.py --llvm-ver)" >> $GITHUB_OUTPUT
         working-directory: build-scripts

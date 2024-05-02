@@ -261,7 +261,7 @@ simd_integer_extension(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
-    /* retrive the low or high half */
+    /* retrieve the low or high half */
     if (!(sub_vector = LLVMBuildShuffleVector(comp_ctx->builder, vector,
                                               undef[itype], mask, "half"))) {
         HANDLE_FAILURE("LLVMBuildShuffleVector");

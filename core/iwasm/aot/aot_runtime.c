@@ -1119,7 +1119,7 @@ init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
 #if defined(BUILD_TARGET_XTENSA)
     /*
      * For Xtensa XIP, real func_count is doubled, including aot_func and
-     * aot_func_internal, so need to multipy func_count by 2 here.
+     * aot_func_internal, so need to multiply func_count by 2 here.
      */
     if (module->is_indirect_mode) {
         func_count *= 2;
@@ -1166,7 +1166,7 @@ init_func_type_indexes(AOTModuleInstance *module_inst, AOTModule *module,
 #if defined(BUILD_TARGET_XTENSA)
     /*
      * For Xtensa XIP, real func_count is doubled, including aot_func and
-     * aot_func_internal, so need to multipy func_count by 2 here.
+     * aot_func_internal, so need to multiply func_count by 2 here.
      */
     if (module->is_indirect_mode) {
         func_count *= 2;
@@ -1394,7 +1394,7 @@ execute_post_instantiate_functions(AOTModuleInstance *module_inst,
     }
 #endif
 
-    /* Execute start function for both main insance and sub instance */
+    /* Execute start function for both main instance and sub instance */
     if (module->start_function) {
         AOTFunctionInstance start_func = { 0 };
         uint32 func_type_idx;
@@ -2221,8 +2221,8 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
 
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
         /* Free all frames allocated, note that some frames
-           may be allocated in AOT code and havent' been
-           freed if exception occured */
+           may be allocated in AOT code and haven't been
+           freed if exception occurred */
         while (exec_env->cur_frame != prev_frame)
             aot_free_frame(exec_env);
 #endif
@@ -2291,8 +2291,8 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
 
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
         /* Free all frames allocated, note that some frames
-           may be allocated in AOT code and havent' been
-           freed if exception occured */
+           may be allocated in AOT code and haven't been
+           freed if exception occurred */
         while (exec_env->cur_frame != prev_frame)
             aot_free_frame(exec_env);
 #endif
@@ -4296,7 +4296,7 @@ aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
             LLVMProfileData_64 *prof_data_64 = (LLVMProfileData_64 *)buf;
 
             /* Convert LLVMProfileData to LLVMProfileData_64, the pointer width
-               in the output file is alawys 8 bytes */
+               in the output file is always 8 bytes */
             prof_data = (LLVMProfileData *)module->data_sections[i].data;
             prof_data_64->func_md5 = prof_data->func_md5;
             prof_data_64->func_hash = prof_data->func_hash;

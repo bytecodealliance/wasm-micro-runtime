@@ -94,7 +94,7 @@ check_buf(const uint8 *buf, const uint8 *buf_end, uint32 length,
 {
     if ((uintptr_t)buf + length < (uintptr_t)buf
         || (uintptr_t)buf + length > (uintptr_t)buf_end) {
-        set_error_buf(error_buf, error_buf_size, "unexpect end");
+        set_error_buf(error_buf, error_buf_size, "unexpected end");
         return false;
     }
     return true;
@@ -323,13 +323,13 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 #endif
     else if (is_load_from_file_buf) {
         /* The string is always terminated with '\0', use it directly.
-         * In this case, the file buffer can be reffered to after loading.
+         * In this case, the file buffer can be referred to after loading.
          */
         bh_assert(p[str_len - 1] == '\0');
         str = (char *)p;
     }
     else {
-        /* Load from sections, the file buffer cannot be reffered to
+        /* Load from sections, the file buffer cannot be referred to
            after loading, we must create another string and insert it
            into const string set */
         bh_assert(p[str_len - 1] == '\0');
@@ -2518,7 +2518,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
 #if defined(BUILD_TARGET_XTENSA)
     /*
      * For Xtensa XIP, real func_count is doubled, including aot_func and
-     * aot_func_internal, so need to multipy func_count by 2 here.
+     * aot_func_internal, so need to multiply func_count by 2 here.
      */
     if (module->is_indirect_mode) {
         func_count *= 2;
@@ -3912,7 +3912,7 @@ resolve_execute_mode(const uint8 *buf, uint32 size, bool *p_mode,
     p += 8;
     while (p < p_end) {
         read_uint32(p, p_end, section_type);
-        if (section_type <= AOT_SECTION_TYPE_SIGANATURE) {
+        if (section_type <= AOT_SECTION_TYPE_SIGNATURE) {
             read_uint32(p, p_end, section_size);
             CHECK_BUF(p, p_end, section_size);
             if (section_type == AOT_SECTION_TYPE_TARGET_INFO) {
@@ -3927,7 +3927,7 @@ resolve_execute_mode(const uint8 *buf, uint32 size, bool *p_mode,
                 break;
             }
         }
-        else { /* section_type > AOT_SECTION_TYPE_SIGANATURE */
+        else { /* section_type > AOT_SECTION_TYPE_SIGNATURE */
             set_error_buf(error_buf, error_buf_size,
                           "resolve execute mode failed");
             break;
@@ -3966,7 +3966,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
     p += 8;
     while (p < p_end) {
         read_uint32(p, p_end, section_type);
-        if (section_type < AOT_SECTION_TYPE_SIGANATURE
+        if (section_type < AOT_SECTION_TYPE_SIGNATURE
             || section_type == AOT_SECTION_TYPE_CUSTOM) {
             read_uint32(p, p_end, section_size);
             CHECK_BUF(p, p_end, section_size);

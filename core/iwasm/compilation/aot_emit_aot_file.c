@@ -3090,7 +3090,7 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
         && bin_type != LLVMBinaryTypeMachO32B
         && bin_type != LLVMBinaryTypeMachO64L
         && bin_type != LLVMBinaryTypeMachO64B) {
-        aot_set_last_error("invaid llvm binary bin_type.");
+        aot_set_last_error("invalid llvm binary bin_type.");
         return false;
     }
 
@@ -3166,13 +3166,13 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
     else if (bin_type == LLVMBinaryTypeMachO32L
              || bin_type == LLVMBinaryTypeMachO32B) {
         /* TODO: parse file type of Mach-O 32 */
-        aot_set_last_error("invaid llvm binary bin_type.");
+        aot_set_last_error("invalid llvm binary bin_type.");
         return false;
     }
     else if (bin_type == LLVMBinaryTypeMachO64L
              || bin_type == LLVMBinaryTypeMachO64B) {
         /* TODO: parse file type of Mach-O 64 */
-        aot_set_last_error("invaid llvm binary bin_type.");
+        aot_set_last_error("invalid llvm binary bin_type.");
         return false;
     }
 

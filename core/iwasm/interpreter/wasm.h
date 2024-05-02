@@ -85,8 +85,8 @@ extern "C" {
 /**
  * Used by wamr compiler to represent object ref types,
  * including func object ref, externref object ref,
- * internal object ref, eq obect ref, i31 object ref,
- * struct object ref, array obect ref
+ * internal object ref, eq object ref, i31 object ref,
+ * struct object ref, array object ref
  */
 #define VALUE_TYPE_GC_REF 0x43
 
@@ -762,7 +762,7 @@ typedef struct WASIArguments {
     uint32 map_dir_count;
     const char **env;
     uint32 env_count;
-    /* in CIDR noation */
+    /* in CIDR notation */
     const char **addr_pool;
     uint32 addr_count;
     const char **ns_lookup_pool;
@@ -1021,7 +1021,7 @@ struct WASMModule {
     /**
      * func pointers of LLVM JITed (un-imported) functions
      * for non Multi-Tier JIT mode:
-     *   each pointer is set to the lookuped llvm jit func ptr, note that it
+     *   each pointer is set to the looked up llvm jit func ptr, note that it
      *   is a stub and will trigger the actual compilation when it is called
      * for Multi-Tier JIT mode:
      *   each pointer is inited as call_to_fast_jit code block, when the llvm
