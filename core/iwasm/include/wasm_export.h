@@ -1271,9 +1271,9 @@ wasm_runtime_get_export_type(const wasm_module_t module, int32_t export_index,
  *
  * @param func_type the function
  *
- * @return the number of parameters for the function if successful, -1 otherwise
+ * @return the number of parameters for the function
  */
-WASM_RUNTIME_API_EXTERN int32_t
+WASM_RUNTIME_API_EXTERN uint32_t
 wasm_func_type_get_param_count(wasm_func_type_t const func_type);
 
 /**
@@ -1293,9 +1293,9 @@ wasm_func_type_get_param_valkind(wasm_func_type_t const func_type,
  *
  * @param func_type the function
  *
- * @return the number of results for the function if successful, -1 otherwise
+ * @return the number of results for the function
  */
-WASM_RUNTIME_API_EXTERN int32_t
+WASM_RUNTIME_API_EXTERN uint32_t
 wasm_func_type_get_result_count(wasm_func_type_t const function);
 
 /**

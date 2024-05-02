@@ -3949,13 +3949,10 @@ wasm_runtime_get_export_type(WASMModuleCommon *const module, int32 export_index,
 #endif
 }
 
-int32
+uint32
 wasm_func_type_get_param_count(WASMFuncType *const func_type)
 {
-    if (!func_type) {
-        bh_assert(0);
-        return -1;
-    }
+    bh_assert(func_type);
 
     return func_type->param_count;
 }
@@ -3992,13 +3989,10 @@ wasm_func_type_get_param_valkind(WASMFuncType *const func_type,
     }
 }
 
-int32
+uint32
 wasm_func_type_get_result_count(WASMFuncType *const func_type)
 {
-    if (!func_type) {
-        bh_assert(0);
-        return -1;
-    }
+    bh_assert(func_type);
 
     return func_type->result_count;
 }
