@@ -49,7 +49,7 @@
 #define CONFIG_HAS_CLOCK_NANOSLEEP 0
 #endif
 
-#if defined(__APPLE__) || defined(__CloudABI__)
+#if defined(__APPLE__) || defined(__CloudABI__) && !defined(BH_PLATFORM_ZEPHYR)
 #define CONFIG_HAS_PTHREAD_COND_TIMEDWAIT_RELATIVE_NP 1
 #else
 #define CONFIG_HAS_PTHREAD_COND_TIMEDWAIT_RELATIVE_NP 0

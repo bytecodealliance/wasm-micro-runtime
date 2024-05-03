@@ -1858,12 +1858,8 @@ wasmtime_ssp_fd_filestat_get(wasm_exec_env_t exec_env, struct fd_table *curfds,
 }
 
 static void
-convert_timestamp(__wasi_timestamp_t in, struct os_timespec *out)
+convert_timestamp(__wasi_timestamp_t in, os_timespec *out)
 {
-#if defined(WAMR_PLATFORM_ZEPHYR_FORCE_NO_ERROR)
-    // No clock implem
-}
-#else
     // Store sub-second remainder.
 #if defined(__SYSCALL_SLONG_TYPE)
     out->tv_nsec = (__SYSCALL_SLONG_TYPE)(in % 1000000000);
@@ -1875,7 +1871,7 @@ convert_timestamp(__wasi_timestamp_t in, struct os_timespec *out)
     // Clamp to the maximum in case it would overflow our system's time_t.
     out->tv_sec = (time_t)in < BH_TIME_T_MAX ? (time_t)in : BH_TIME_T_MAX;
 }
-#endif /* WAMR_PLATFORM_ZEPHYR_FORCE_NO_ERROR */
+
 __wasi_errno_t
 wasmtime_ssp_fd_filestat_set_size(wasm_exec_env_t exec_env,
                                   struct fd_table *curfds, __wasi_fd_t fd,
@@ -2060,7 +2056,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
                          size_t nsubscriptions,
                          size_t *nevents) NO_LOCK_ANALYSIS
 {
-#if defined(BH_PLATFORM_WINDOWS) || defined(WAMR_PLATFORM_ZEPHYR_FORCE_NO_ERROR)
+#if defined(BH_PLATFORM_WINDOWS) || defined(BH_PLATFORM_ZEPHYR) 
     return __WASI_ENOSYS;
 #else
     // Sleeping.
@@ -2072,7 +2068,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
 #if CONFIG_HAS_CLOCK_NANOSLEEP
         clockid_t clock_id;
         if (wasi_clockid_to_clockid(in[0].u.u.clock.clock_id, &clock_id)) {
-            struct os_timespec ts;
+            os_timespec ts;
             convert_timestamp(in[0].u.u.clock.timeout, &ts);
             int ret = clock_nanosleep(
                 clock_id,
@@ -2099,7 +2095,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
                 else {
                     // Perform relative sleeps on the monotonic clock also using
                     // nanosleep(). This is incorrect, but good enough for now.
-                    struct os_timespec ts;
+                    os_timespec ts;
                     convert_timestamp(in[0].u.u.clock.timeout, &ts);
                     nanosleep(&ts, NULL);
                 }
@@ -2127,7 +2123,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
                 }
                 else {
                     // Relative sleeps can be done using nanosleep().
-                    struct os_timespec ts;
+                    os_timespec ts;
                     convert_timestamp(in[0].u.u.clock.timeout, &ts);
                     nanosleep(&ts, NULL);
                 }
@@ -2152,7 +2148,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
         wasm_runtime_malloc((uint32)(nsubscriptions * sizeof(*fos)));
     if (fos == NULL)
         return __WASI_ENOMEM;
-    struct os_poll_file_handle *pfds =
+    os_poll_file_handle *pfds =
         wasm_runtime_malloc((uint32)(nsubscriptions * sizeof(*pfds)));
     if (pfds == NULL) {
         wasm_runtime_free(fos);
@@ -2177,7 +2173,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
                                          __WASI_RIGHT_POLL_FD_READWRITE, 0);
                 if (error == 0) {
                     // Proper file descriptor on which we can poll().
-                    pfds[i] = (struct os_poll_file_handle){
+                    pfds[i] = (os_poll_file_handle){
                         .fd = fos[i]->file_handle,
                         .events = s->u.type == __WASI_EVENTTYPE_FD_READ
                                       ? POLLIN
@@ -2187,7 +2183,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
                 else {
                     // Invalid file descriptor or rights missing.
                     fos[i] = NULL;
-                    pfds[i] = (struct os_poll_file_handle){ .fd = -1 };
+                    pfds[i] = (os_poll_file_handle){ .fd = -1 };
                     out[(*nevents)++] = (__wasi_event_t){
                         .userdata = s->userdata,
                         .error = error,
@@ -2202,7 +2198,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
                            == 0) {
                     // Relative timeout.
                     fos[i] = NULL;
-                    pfds[i] = (struct os_poll_file_handle){ .fd = -1 };
+                    pfds[i] = (os_poll_file_handle){ .fd = -1 };
                     clock_subscription = s;
                     break;
                 }
@@ -2210,7 +2206,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
             default:
                 // Unsupported event.
                 fos[i] = NULL;
-                pfds[i] = (struct os_poll_file_handle){ .fd = -1 };
+                pfds[i] = (os_poll_file_handle){ .fd = -1 };
                 out[(*nevents)++] = (__wasi_event_t){
                     .userdata = s->userdata,
                     .error = __WASI_ENOSYS,
@@ -2916,7 +2912,7 @@ wasmtime_ssp_sched_yield(void)
 {
 #if defined(BH_PLATFORM_WINDOWS)
     SwitchToThread();
-#elif defined(WAMR_PLATFORM_ZEPHYR_FORCE_NO_ERROR)
+#elif defined(BH_PLATFORM_ZEPHYR) 
     k_yield();
 #else
     if (sched_yield() < 0)

@@ -5,8 +5,6 @@ set (PLATFORM_SHARED_DIR ${CMAKE_CURRENT_LIST_DIR})
 
 add_definitions(-DBH_PLATFORM_ZEPHYR)
 
-# add_definitions (-DWAMR_PLATFORM_ZEPHYR_FORCE_NO_ERROR)
-
 include_directories(${PLATFORM_SHARED_DIR})
 include_directories(${PLATFORM_SHARED_DIR}/../include)
 

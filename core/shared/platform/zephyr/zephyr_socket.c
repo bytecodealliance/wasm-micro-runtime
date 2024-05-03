@@ -8,7 +8,7 @@
 #include <zephyr/posix/poll.h>
 #include <zephyr/posix/fcntl.h>
 
-#include "zephyr_errno.h"
+#include "libc_errno.h"
 #include <assert.h>
 #include <stdarg.h>
 
@@ -354,7 +354,7 @@ __wasi_errno_t
 os_socket_shutdown(bh_socket_t socket)
 {
     if (zsock_shutdown(socket, ZSOCK_SHUT_RDWR) == -1) {
-        return zephyr_to_wasi_errno(errno);
+        return convert_errno(errno);
     }
     return __WASI_ESUCCESS;;
 }
@@ -994,7 +994,6 @@ os_socket_get_broadcast(bh_socket_t socket, bool *is_enabled)
 }
 
 // Experimental :
-#if !defined(WAMR_PLATFORM_ZEPHYR_FORCE_NO_ERROR)
 __wasi_errno_t
 os_ioctl(os_file_handle handle, int request, ...)
 {
@@ -1032,4 +1031,3 @@ os_poll(os_poll_file_handle *fds, os_nfds_t nfs, int timeout)
     }
     return wasi_errno;
 }
-#endif

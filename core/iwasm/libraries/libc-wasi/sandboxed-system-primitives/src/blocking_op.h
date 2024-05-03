@@ -55,7 +55,7 @@ blocking_op_openat(wasm_exec_env_t exec_env, os_file_handle handle,
                    __wasi_fdflags_t fd_flags, __wasi_lookupflags_t lookup_flags,
                    wasi_libc_file_access_mode access_mode, os_file_handle *out);
 
-#if !defined(BH_PLATFORM_WINDOWS) && !defined(WAMR_PLATFORM_ZEPHYR_FORCE_NO_ERROR)
+#if !defined(BH_PLATFORM_WINDOWS)
 __wasi_errno_t
 blocking_op_poll(wasm_exec_env_t exec_env, os_poll_file_handle *pfds, os_nfds_t nfds,
                  int timeout, int *retp);

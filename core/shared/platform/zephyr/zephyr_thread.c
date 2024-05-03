@@ -582,8 +582,15 @@ os_thread_jit_write_protect_np(bool enabled)
 int
 os_rwlock_init(korp_rwlock *lock)
 {
-    /* Not implemented */
-    return BHT_ERROR;
+    if (lock == NULL) {
+        return BHT_ERROR;
+    }
+
+    k_mutex_init(&lock->mtx);
+    k_sem_init(&lock->sem, 0, K_SEM_MAX_LIMIT);
+    lock->read_count = 0;
+
+    return BHT_OK;
 }
 
 int
@@ -596,15 +603,33 @@ os_rwlock_rdlock(korp_rwlock *lock)
 int
 os_rwlock_wrlock(korp_rwlock *lock)
 {
-    /* Not implemented */
-    return BHT_ERROR;
+   // Acquire the mutex to ensure exclusive access
+    if (k_mutex_lock(&lock->mtx, K_FOREVER) != 0) {
+        return BHT_ERROR;
+    }
+
+    // Wait until there are no readers
+    while (lock->read_count > 0) {
+        // Release the mutex while we're waiting
+        k_mutex_unlock(&lock->mtx);
+
+        // Wait for a short time
+        k_sleep(K_MSEC(1));
+
+        // Re-acquire the mutex
+        if (k_mutex_lock(&lock->mtx, K_FOREVER) != 0) {
+            return BHT_ERROR;
+        }
+    }
+    // At this point, we hold the mutex and there are no readers, so we have the write lock
+    return BHT_OK;
 }
 
 int
 os_rwlock_unlock(korp_rwlock *lock)
 {
-    /* Not implemented */
-    return BHT_ERROR;
+    k_mutex_unlock(&lock->mtx);
+    return BHT_OK;
 }
 
 int
@@ -642,4 +667,80 @@ os_cond_broadcast(korp_cond *cond)
     }
     k_mutex_unlock(&cond->wait_list_lock);
     return BHT_OK;
+}
+
+
+korp_sem *
+os_sem_open(const char *name, int oflags, int mode, int val)
+{
+    /* Not implemented */
+    return NULL;
+}
+
+int
+os_sem_close(korp_sem *sem)
+{
+    /* Not implemented */
+    return BHT_ERROR;
+}
+
+int
+os_sem_wait(korp_sem *sem)
+{
+    /* Not implemented */
+    return BHT_ERROR;
+}
+
+int
+os_sem_trywait(korp_sem *sem)
+{
+    /* Not implemented */
+    return BHT_ERROR;
+}
+
+int
+os_sem_post(korp_sem *sem)
+{
+    /* Not implemented */
+    return BHT_ERROR;
+}
+
+int
+os_sem_getvalue(korp_sem *sem, int *sval)
+{
+    /* Not implemented */
+    return BHT_ERROR;
+}
+
+int
+os_sem_unlink(const char *name)
+{
+    /* Not implemented */
+    return BHT_ERROR;
+}
+
+int
+os_blocking_op_init()
+{
+    /* Not implemented */
+    return BHT_ERROR;
+}
+
+void
+os_begin_blocking_op()
+{
+    /* Not implemented */
+}
+
+void
+os_end_blocking_op()
+{
+    /* Not implemented */
+}
+
+int
+os_wakeup_blocking_op(korp_tid tid)
+{
+    /* Not implemented */
+    return BHT_ERROR;
 }

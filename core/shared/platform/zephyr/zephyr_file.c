@@ -1,9 +1,56 @@
 #include "platform_api_extension.h"
 #include "libc_errno.h"
 
+
 __wasi_errno_t
 os_fstat(os_file_handle handle, struct __wasi_filestat_t *buf){
-    return __WASI_ENOSYS;
+    // Zephyr does not support file system without enbling it. 
+    // Zephyr do expose `fd_stat` in the file system API.
+    // A POSIX wrapper `fstat` exists for the function.
+    // We choose to go without it for now, because socket should work without file system.
+    // In this cas the handle could be:
+    //     * stdin, stdout or stderr
+    //     * a socket
+
+    // typedef struct __wasi_filestat_t {
+    // __wasi_device_t dev;         // Device ID of device containing the file.
+    // __wasi_inode_t ino;          // File serial number.
+    // __wasi_filetype_t filetype;  // File type.
+    // __wasi_linkcount_t nlink;    // Number of hard links to the file.
+    // __wasi_filesize_t size;      // For regular files, the file size in bytes. For symbolic links, the length in bytes of the pathname contained in the symbolic link.
+    // __wasi_timestamp_t atim;     // Last data access timestamp.
+    // __wasi_timestamp_t mtim;     // Last data modification timestamp.
+    // __wasi_timestamp_t ctim;     // Last file status change timestamp.
+    // } __wasi_filestat_t;
+    int socktype;
+    socklen_t socktypelen = sizeof(socktype);
+
+    if(handle == 0){
+        return __WASI_EBADF;
+    }
+    
+    if (handle == 1 || handle == 2 || handle == 3){
+        buf->st_filetype = __WASI_FILETYPE_UNKNOWN;
+        return __WASI_ESUCCESS;
+    }
+   
+    if(zsock_getsockopt(handle, SOL_SOCKET, SO_TYPE, &socktype, socktypelen) > 0){
+        switch (socktype) {
+            case SOCK_DGRAM:
+                buf->st_filetype = __WASI_FILETYPE_SOCKET_DGRAM;
+                break;
+            case SOCK_STREAM:
+                buf->st_filetype = __WASI_FILETYPE_SOCKET_STREAM;
+                break;
+            default:
+                buf->st_filetype = __WASI_FILETYPE_UNKNOWN;
+                break;
+        }
+        return __WASI_ESUCCESS;
+    } else {
+        return __WASI_EBADF;
+
+    }
 }
 
 __wasi_errno_t
@@ -47,7 +94,12 @@ os_openat(os_file_handle handle, const char *path, __wasi_oflags_t oflags,
 __wasi_errno_t
 os_file_get_access_mode(os_file_handle handle,
                         wasi_libc_file_access_mode *access_mode){
-    return __WASI_ENOSYS;
+    // No acces mode in Zephyr
+    // As we are handling socket and stdin, stdout, stderr
+    // We can set the access mode to read write
+    *access_mode = WASI_LIBC_ACCESS_MODE_READ_WRITE;
+    
+    return __WASI_ESUCCESS;
 }
 
 __wasi_errno_t
@@ -157,17 +209,26 @@ os_isatty(os_file_handle handle){
 
 os_file_handle
 os_convert_stdin_handle(os_raw_file_handle raw_stdin){
-    return NULL;
+#ifndef STDIN_FILENO
+#define STDIN_FILENO 1
+#endif
+    return raw_stdin > 0 ? raw_stdin : STDIN_FILENO;
 }
 
 os_file_handle
 os_convert_stdout_handle(os_raw_file_handle raw_stdout){
-    return NULL;
+#ifndef STDOUT_FILENO
+#define STDOUT_FILENO 2
+#endif
+    return raw_stdout > 0 ? raw_stdout : STDOUT_FILENO;
 }
 
 os_file_handle
 os_convert_stderr_handle(os_raw_file_handle raw_stderr){
-    return NULL;
+#ifndef STDERR_FILENO
+#define STDERR_FILENO 3
+#endif
+    return raw_stderr > 0 ? raw_stderr : STDERR_FILENO;
 }
 
 __wasi_errno_t
@@ -208,6 +269,9 @@ os_is_dir_stream_valid(os_dir_stream *dir_stream){
 
 bool
 os_is_handle_valid(os_file_handle *handle){
+    if(handle != NULL)
+        return *handle > -1;
+
     return false;
 }
 

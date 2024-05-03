@@ -3,7 +3,6 @@ This is a simple http client that make a GET request to a server.
 
 ## Setup
 1. Connect the USB cable to the Nucleo board.
-
 2. Optional: Connect a network cable to the board ethernet port.
 
 ## Run Command
@@ -30,36 +29,87 @@ This is a simple http client that make a GET request to a server.
 
 4. **Debug:** Curently investigating.
 
-## Different approach
+## Work Done
+1. Removed the previous introduced definition `-DWAMR_PLATFORM_ZEPHYR_FORCE_NO_ERROR`.
 
-* **Soft:** Trying to implement missing API, and enhancing the existing abstraction API.
+2. Implemented missing `os_` abstraction needed to compile.
+    * **Increase Support:**
+        * **Socket API**: nearly alls, Zephyr socket API is POXIX. Unable to test.
+    * **Fix compilation errors:** mostly due to sandboxed primitives.
+        * **File System API:**
+            1. `os_convert_<stdin | stoud | stderr>_handle`: called in `wasm_runtime_common` by `wasm_runtime_init_wasi`.
+            2. `os_file_get_access_mode`: called in `posix.c` by `fd_table_insert_existing` and `wasi_ssp_sock_accept`.
+            3. `os_fstat`: called by in posix.x by `fd_determine_type_rights`.
+        * **Thread API:**
+            1. `os_rwlock_wrlock`: 
+            2. `os_rwlock_init`: called by `posix.c` by `fd_table_init`.
+            3. `os_rwlock_unlock`:
+        * **New Functions:**
+            1. `os_ioctl`: because `ioctl` was called in `posix.c` and caused compilation error.
+            2. `os_poll`: because `poll` was called in `blocking_op.c`.
+        * **New types:**
+            1. `os_poll_file_handle`: because `pollfd` was used in `blocking_op.c` and `posix.c` 
+            2. `os_nfds_t`: because `nfds_t` was used in `blocking_op.c` (could pass `unsigned int` instead of abstracting).
+            3. `os_timespec`: because `timespec` was used in `posix.c`.
+        * **Define:** To not throw errors Posix flag were defined with Zephyr equivalent or similar to Zephyr POSIX implemtation layer (eg: `POLLIN`, `POLLOUT`, `CLOCK_REALTIME`, ...).
+        * **ifdef:** Some `#if defined(BH_PLATFORM_ZEPHYR)` were added to make the code compile.
+        * **ssp_config:** The `ssp_config` file was modified to add support for Zephyr like for freeRTOS.
 
-* **Hard:** Making the code compile and run with the existing API. 
+3. Now that the code compile, I changed build policy.
+    * **previously:** I tried to build the `http_get.wasm` each time the simple-http sample is compiled.
+    * **now:** I compile the `http_get.wasm` module standalone and include it in the `wasm-apps` folder. I still let the source code and dependencies in the present.
+    * Then I still use the python script to make an c byte array, it's quite heavy. I'm investigationg how to pass the module without it. 
 
-By default, we are following the **Soft** approach. If you want to follow the **Hard** approach, you need to uncomment the following line in the `shared_plateform.cmake` file.
-```cmake
-# add_definitions (-DWAMR_PLATFORM_ZEPHYR_FORCE_NO_ERROR)
-```
+4. Change in `main.c`:
+    * No longer use a thread to launch the runtime.
+    * Added call to set WASI context.
+    * Simplified the code just one function `main`.
+
+⚠️ **Warning:** No other OS will compile because of the new functions and types.
 
 ### Outputs
-
-* **Soft:** Unable to compile the code.
-
-* **Hard:** The code will compile but cause a stack overflow error.
+1. **Serial Monitor Output:**
     ```bash
-    [00:00:00.001,000] <err> os: ***** USAGE FAULT *****
-    [00:00:00.007,000] <err> os:   Stack overflow (context area not valid)
-    [00:00:00.014,000] <err> os: r0/a1:  0xf0f0f0f0  r1/a2:  0x693b613b  r2/a3:  0x0807be46
-    [00:00:00.022,000] <err> os: r3/a4:  0x09000000 r12/ip:  0x2002fb58 r14/lr:  0x0804f0b1
-    [00:00:00.031,000] <err> os:  xpsr:  0x08080c00
-    [00:00:00.036,000] <err> os: Faulting instruction address (r15/pc): 0x2a1b681b
-    [00:00:00.044,000] <err> os: >>> ZEPHYR FATAL ERROR 2: Stack overflow on CPU 0
-    [00:00:00.052,000] <err> os: Current thread: 0x20002ef8 (unknown)
-    [00:00:00.059,000] <err> os: Halting system
+    *** Booting Zephyr OS build v3.6.0-3137-g1ad4b5c61703 ***
+    [00:00:00.006,000] <inf> net_config: Initializing network
+    [00:00:00.011,000] <inf> net_config: Waiting interface 1 (0x200098fc) to be up...
+    [00:00:01.501,000] <inf> net_config: Interface 1 (0x200098fc) coming up
+    [00:00:01.508,000] <inf> net_config: IPv4 address: 192.0.2.1
+    global heap size: 153600
+    Wasm file size: 32478
+    Creating exec_env
+    Calling main function
+    Failed to call main function
+    Exception: wasi proc exit
+    wasi exit code: 1
+    elapsed: 56
     ```
+2. **Error Code:**
+    * `wasi proc exit`: From what I read it is similar to a POSIX `exit()`.
+    * `wasi errno`: The returned status code is 1 so `_WASI_E2BIG`.
+
+3. **Try to solve:**
+    * I suspected a lack of memory so I increased both heap and stack.
+        ```
+        Runtime stack                = 8KB
+        Runtime global heap pool     = 150KB
+        App stack                    = 8KB
+        App heap                     = 40KB
+        ```
+    * I tried to build `iwasm` (samples/socket-api) on Linux with these parameters:
+        ```cmake
+        set(WAMR_BUILD_GLOBAL_HEAP_SIZE  153600)
+        set(DEFAULT_WASM_STACK_SIZE 8192)
+        ```
+        It worked, and executed the `http_get.wasm` module without problem.
+    * I also saw that in the samples/socket-api we link `libm` and `libdl`:
+        ```cmake
+        target_link_libraries(iwasm vmlib -lpthread -lm -ldl)
+        ```
+        Not sure how should I handle this because here I'm building my executable with zephyr toolchain and it doesn't contain the `libdl`. May be I should link with WASI toolchain `libdl` and `libm`.
+
 
 ## Expected Output
-
 ### Host
 ```bash
 python3 -m http.server --bind 0.0.0.0

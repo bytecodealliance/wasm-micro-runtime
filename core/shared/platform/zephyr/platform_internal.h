@@ -77,7 +77,8 @@
 typedef struct k_thread korp_thread;
 typedef korp_thread *korp_tid;
 typedef struct k_mutex korp_mutex;
-typedef unsigned int korp_sem;
+// typedef unsigned int korp_sem;
+typedef struct k_sem korp_sem;
 
 /* korp_rwlock is used in platform_api_extension.h,
    we just define the type to make the compiler happy */
@@ -174,9 +175,8 @@ typedef int os_raw_file_handle;
 
 /*********************************************************/
 //try to stub POSIX implementation in sandboxed env.
-#if !defined(WAMR_PLATFORM_ZEPHYR_FORCE_NO_ERROR)
 
-typedef struct zsock_pollfd os_poll_file_handle;
+typedef struct pollfd os_poll_file_handle;
 typedef unsigned int os_nfds_t;
 
 #define POLLIN ZSOCK_POLLIN
@@ -202,7 +202,7 @@ typedef struct {
 //     k_yield();
 //     return 0;
 // }
-#endif
+
 /*********************************************************/
 
 static inline os_file_handle
