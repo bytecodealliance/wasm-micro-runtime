@@ -1029,7 +1029,7 @@ aot_compile_op_memory_init(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[1] = I32_TYPE;
     param_types[2] = I32_TYPE;
     param_types[3] = I32_TYPE;
-    param_types[4] = MEMORY64_COND_VALUE(I64_TYPE, I32_TYPE);
+    param_types[4] = SIZE_T_TYPE;
     ret_type = INT8_TYPE;
 
     if (comp_ctx->is_jit_mode)
