@@ -38,6 +38,20 @@
 
 #define SET_BUILD_POS(block) LLVMPositionBuilderAtEnd(comp_ctx->builder, block)
 
+static bool
+zero_extend_u64(AOTCompContext *comp_ctx, LLVMValueRef *value, const char *name)
+{
+    if (comp_ctx->pointer_size == sizeof(uint64)) {
+        /* zero extend to uint64 if the target is 64-bit */
+        *value = LLVMBuildZExt(comp_ctx->builder, *value, I64_TYPE, name);
+        if (!*value) {
+            aot_set_last_error("llvm build zero extend failed.");
+            return false;
+        }
+    }
+    return true;
+}
+
 static LLVMValueRef
 get_memory_check_bound(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                        uint32 bytes)
@@ -1027,6 +1041,10 @@ aot_compile_op_memory_init(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     POP_I32(offset);
     POP_MEM_OFFSET(dst);
 
+    if (!zero_extend_u64(comp_ctx, &dst, "dst64")) {
+        return false;
+    }
+
     param_types[0] = INT8_PTR_TYPE;
     param_types[1] = I32_TYPE;
     param_types[2] = I32_TYPE;
@@ -1128,13 +1146,8 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     if (!(dst_addr = check_bulk_memory_overflow(comp_ctx, func_ctx, dst, len)))
         return false;
 
-    if (comp_ctx->pointer_size == sizeof(uint64)) {
-        /* zero extend to uint64 if the target is 64-bit */
-        len = LLVMBuildZExt(comp_ctx->builder, len, I64_TYPE, "len64");
-        if (!len) {
-            aot_set_last_error("llvm build zero extend failed.");
-            return false;
-        }
+    if (!zero_extend_u64(comp_ctx, &len, "len64")) {
+        return false;
     }
 
     call_aot_memmove = comp_ctx->is_indirect_mode || comp_ctx->is_jit_mode;
@@ -1219,13 +1232,8 @@ aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     if (!(dst_addr = check_bulk_memory_overflow(comp_ctx, func_ctx, dst, len)))
         return false;
 
-    if (comp_ctx->pointer_size == sizeof(uint64)) {
-        /* zero extend to uint64 if the target is 64-bit */
-        len = LLVMBuildZExt(comp_ctx->builder, len, I64_TYPE, "len64");
-        if (!len) {
-            aot_set_last_error("llvm build zero extend failed.");
-            return false;
-        }
+    if (!zero_extend_u64(comp_ctx, &len, "len64")) {
+        return false;
     }
 
     param_types[0] = INT8_PTR_TYPE;
