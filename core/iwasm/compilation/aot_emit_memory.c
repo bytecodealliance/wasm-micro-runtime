@@ -811,10 +811,12 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef mem_size = get_memory_curr_page_count(comp_ctx, func_ctx);
     LLVMValueRef delta, param_values[2], ret_value, func, value;
-    LLVMValueRef u32_max;
-    LLVMBasicBlockRef check_page_size;
     LLVMTypeRef param_types[2], ret_type, func_type, func_ptr_type;
     int32 func_index;
+#if WASM_ENABLE_MEMORY64 != 0
+    LLVMBasicBlockRef check_page_size;
+    LLVMValueRef u32_max;
+#endif
 
     if (!mem_size)
         return false;
