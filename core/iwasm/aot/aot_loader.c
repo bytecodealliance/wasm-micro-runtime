@@ -1043,6 +1043,12 @@ load_memory_info(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
     for (i = 0; i < module->memory_count; i++) {
         read_uint32(buf, buf_end, module->memories[i].memory_flags);
+
+        if (!wasm_memory_check_flags(module->memories[i].memory_flags,
+                                     error_buf, error_buf_size, true)) {
+            return false;
+        }
+
         read_uint32(buf, buf_end, module->memories[i].num_bytes_per_page);
         read_uint32(buf, buf_end, module->memories[i].mem_init_page_count);
         read_uint32(buf, buf_end, module->memories[i].mem_max_page_count);
