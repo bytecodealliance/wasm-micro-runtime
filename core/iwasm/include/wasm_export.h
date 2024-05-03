@@ -222,6 +222,13 @@ typedef struct RuntimeInitArgs {
 #define LOAD_ARGS_OPTION_DEFINED
 typedef struct LoadArgs {
     char *name;
+    /* This option is only used by the Wasm C API (see wasm_c_api.h) */
+    bool clone_wasm_binary;
+    /* False by default, used by AOT/wasm loader only.
+    If true, the AOT/wasm loader creates a copy of some module fields (e.g.
+    const strings), making it possible to free the wasm binary buffer after
+    loading. */
+    bool wasm_binary_freeable;
     /* TODO: more fields? */
 } LoadArgs;
 #endif /* LOAD_ARGS_OPTION_DEFINED */
