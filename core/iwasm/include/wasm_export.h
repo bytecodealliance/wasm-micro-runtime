@@ -1267,19 +1267,19 @@ wasm_runtime_get_export_type(const wasm_module_t module, int32_t export_index,
                              wasm_export_t *export_type);
 
 /**
- * Get the number of parameters for a function
+ * Get the number of parameters for a function type
  *
- * @param func_type the function
+ * @param func_type the function type
  *
- * @return the number of parameters for the function
+ * @return the number of parameters for the function type
  */
 WASM_RUNTIME_API_EXTERN uint32_t
 wasm_func_type_get_param_count(wasm_func_type_t const func_type);
 
 /**
- * Get the kind of a parameter for a function
+ * Get the kind of a parameter for a function type
  *
- * @param func_type the function
+ * @param func_type the function type
  * @param param_index the index of the parameter to get
  *
  * @return the kind of the parameter if successful, -1 otherwise
@@ -1289,19 +1289,19 @@ wasm_func_type_get_param_valkind(wasm_func_type_t const func_type,
                                  uint32_t param_index);
 
 /**
- * Get the number of results for a function
+ * Get the number of results for a function type
  *
- * @param func_type the function
+ * @param func_type the function type
  *
- * @return the number of results for the function
+ * @return the number of results for the function type
  */
 WASM_RUNTIME_API_EXTERN uint32_t
-wasm_func_type_get_result_count(wasm_func_type_t const function);
+wasm_func_type_get_result_count(wasm_func_type_t const func_type);
 
 /**
- * Get the kind of a result for a function
+ * Get the kind of a result for a function type
  *
- * @param func_type the function
+ * @param func_type the function type
  * @param result_index the index of the result to get
  *
  * @return the kind of the result if successful, -1 otherwise
