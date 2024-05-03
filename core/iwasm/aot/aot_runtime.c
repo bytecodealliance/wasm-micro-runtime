@@ -72,10 +72,13 @@ bh_static_assert(offsetof(AOTFrame, sp) == sizeof(uintptr_t) * 5);
 bh_static_assert(offsetof(AOTFrame, frame_ref) == sizeof(uintptr_t) * 6);
 bh_static_assert(offsetof(AOTFrame, lp) == sizeof(uintptr_t) * 7);
 
+#if WASM_ENABLE_BULK_MEMORY != 0
 static uint32
-clamp_u64_to_u32(uint64 value) {
+clamp_u64_to_u32(uint64 value)
+{
     return value > UINT32_MAX ? UINT32_MAX : (uint32)value;
 }
+#endif
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
