@@ -811,6 +811,8 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef mem_size = get_memory_curr_page_count(comp_ctx, func_ctx);
     LLVMValueRef delta, param_values[2], ret_value, func, value;
+    LLVMValueRef u32_max;
+    LLVMBasicBlockRef check_page_size;
     LLVMTypeRef param_types[2], ret_type, func_type, func_ptr_type;
     int32 func_index;
 
@@ -866,6 +868,24 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
             return false;
         }
     }
+
+#if WASM_ENABLE_MEMORY64 != 0
+    if (IS_MEMORY64) {
+        if (!(u32_max = I64_CONST(UINT32_MAX))) {
+            aot_set_last_error("llvm build const failed");
+            return false;
+        }
+        BUILD_ICMP(LLVMIntUGT, delta, u32_max, ret_value, "page_size_cmp");
+        if (!(check_page_size = LLVMAppendBasicBlockInContext(
+                  comp_ctx->context, func_ctx->func, "check_page_size"))) {
+            aot_set_last_error("llvm add basic block failed.");
+            goto fail;
+        }
+        if (!(aot_emit_exception(comp_ctx, func_ctx, EXCE_INTEGER_OVERFLOW,
+                                 true, ret_value, check_page_size)))
+            goto fail;
+    }
+#endif
 
     /* Call function aot_enlarge_memory() */
     param_values[0] = func_ctx->aot_inst;
