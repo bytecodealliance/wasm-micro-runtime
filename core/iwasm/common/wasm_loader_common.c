@@ -1,3 +1,7 @@
+/*
+ * Copyright (C) 2024 Amazon Inc.  All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
 #include "wasm_loader_common.h"
 #include "bh_log.h"
 #include "../interpreter/wasm.h"
