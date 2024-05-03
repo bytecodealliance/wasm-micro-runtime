@@ -72,17 +72,26 @@ typedef enum {
     WASM_IMPORT_EXPORT_KIND_GLOBAL
 } wasm_import_export_kind_t;
 
-typedef struct wasm_import_type {
+struct WASMFuncType;
+typedef struct WASMFuncType *wasm_func_type_t;
+
+typedef struct wasm_import_t {
     const char *module_name;
     const char *name;
     wasm_import_export_kind_t kind;
     bool linked;
-} wasm_import_type;
+    union {
+        wasm_func_type_t func_type;
+    } u;
+} wasm_import_t;
 
-typedef struct wasm_export_type {
+typedef struct wasm_export_t {
     const char *name;
     wasm_import_export_kind_t kind;
-} wasm_export_type;
+    union {
+        wasm_func_type_t func_type;
+    } u;
+} wasm_export_t;
 
 /* Instantiated WASM module */
 struct WASMModuleInstanceCommon;
@@ -1234,7 +1243,7 @@ wasm_runtime_get_import_count(const wasm_module_t module);
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_get_import_type(const wasm_module_t module, int32_t import_index,
-                             wasm_import_type *import_type);
+                             wasm_import_t *import_type);
 
 /**
  * Get the number of export items for a WASM module
@@ -1255,7 +1264,51 @@ wasm_runtime_get_export_count(const wasm_module_t module);
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_get_export_type(const wasm_module_t module, int32_t export_index,
-                             wasm_export_type *export_type);
+                             wasm_export_t *export_type);
+
+/**
+ * Get the number of parameters for a function type
+ *
+ * @param func_type the function type
+ *
+ * @return the number of parameters for the function type
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_func_type_get_param_count(wasm_func_type_t const func_type);
+
+/**
+ * Get the kind of a parameter for a function type
+ *
+ * @param func_type the function type
+ * @param param_index the index of the parameter to get
+ *
+ * @return the kind of the parameter if successful, -1 otherwise
+ */
+WASM_RUNTIME_API_EXTERN wasm_valkind_t
+wasm_func_type_get_param_valkind(wasm_func_type_t const func_type,
+                                 uint32_t param_index);
+
+/**
+ * Get the number of results for a function type
+ *
+ * @param func_type the function type
+ *
+ * @return the number of results for the function type
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_func_type_get_result_count(wasm_func_type_t const func_type);
+
+/**
+ * Get the kind of a result for a function type
+ *
+ * @param func_type the function type
+ * @param result_index the index of the result to get
+ *
+ * @return the kind of the result if successful, -1 otherwise
+ */
+WASM_RUNTIME_API_EXTERN wasm_valkind_t
+wasm_func_type_get_result_valkind(wasm_func_type_t const func_type,
+                                  uint32_t result_index);
 
 /**
  * Register native functions with same module name

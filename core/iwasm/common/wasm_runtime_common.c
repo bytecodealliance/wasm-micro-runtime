@@ -3756,14 +3756,14 @@ wasm_runtime_get_import_count(WASMModuleCommon *const module)
 
 void
 wasm_runtime_get_import_type(WASMModuleCommon *const module, int32 import_index,
-                             wasm_import_type *import_type)
+                             wasm_import_t *import_type)
 {
     if (!import_type) {
         bh_assert(0);
         return;
     }
 
-    memset(import_type, 0, sizeof(wasm_import_type));
+    memset(import_type, 0, sizeof(wasm_import_t));
 
     if (!module) {
         bh_assert(0);
@@ -3783,6 +3783,7 @@ wasm_runtime_get_import_type(WASMModuleCommon *const module, int32 import_index,
             import_type->kind = WASM_IMPORT_EXPORT_KIND_FUNC;
             import_type->linked =
                 aot_import_func->func_ptr_linked ? true : false;
+            import_type->u.func_type = aot_import_func->func_type;
             return;
         }
 
@@ -3840,6 +3841,7 @@ wasm_runtime_get_import_type(WASMModuleCommon *const module, int32 import_index,
         switch (import_type->kind) {
             case WASM_IMPORT_EXPORT_KIND_FUNC:
                 import_type->linked = wasm_import->u.function.func_ptr_linked;
+                import_type->u.func_type = wasm_import->u.function.func_type;
                 break;
             case WASM_IMPORT_EXPORT_KIND_GLOBAL:
                 import_type->linked = wasm_import->u.global.is_linked;
@@ -3888,14 +3890,14 @@ wasm_runtime_get_export_count(WASMModuleCommon *const module)
 
 void
 wasm_runtime_get_export_type(WASMModuleCommon *const module, int32 export_index,
-                             wasm_export_type *export_type)
+                             wasm_export_t *export_type)
 {
     if (!export_type) {
         bh_assert(0);
         return;
     }
 
-    memset(export_type, 0, sizeof(wasm_export_type));
+    memset(export_type, 0, sizeof(wasm_export_t));
 
     if (!module) {
         bh_assert(0);
@@ -3914,6 +3916,12 @@ wasm_runtime_get_export_type(WASMModuleCommon *const module, int32 export_index,
         const AOTExport *aot_export = &aot_module->exports[export_index];
         export_type->name = aot_export->name;
         export_type->kind = aot_export->kind;
+        if (export_type->kind == EXPORT_KIND_FUNC) {
+            export_type->u.func_type =
+                (AOTFuncType *)aot_module->types
+                    [aot_module->func_type_indexes
+                         [aot_export->index - aot_module->import_func_count]];
+        }
         return;
     }
 #endif
@@ -3929,9 +3937,100 @@ wasm_runtime_get_export_type(WASMModuleCommon *const module, int32 export_index,
         const WASMExport *wasm_export = &wasm_module->exports[export_index];
         export_type->name = wasm_export->name;
         export_type->kind = wasm_export->kind;
+        if (wasm_export->kind == EXPORT_KIND_FUNC) {
+            export_type->u.func_type =
+                wasm_module
+                    ->functions[wasm_export->index
+                                - wasm_module->import_function_count]
+                    ->func_type;
+        }
         return;
     }
 #endif
+}
+
+uint32
+wasm_func_type_get_param_count(WASMFuncType *const func_type)
+{
+    bh_assert(func_type);
+
+    return func_type->param_count;
+}
+
+wasm_valkind_t
+wasm_func_type_get_param_valkind(WASMFuncType *const func_type,
+                                 uint32 param_index)
+{
+    if (!func_type || (param_index >= func_type->param_count)) {
+        bh_assert(0);
+        return (wasm_valkind_t)-1;
+    }
+
+    switch (func_type->types[param_index]) {
+        case VALUE_TYPE_I32:
+            return WASM_I32;
+        case VALUE_TYPE_I64:
+            return WASM_I64;
+        case VALUE_TYPE_F32:
+            return WASM_F32;
+        case VALUE_TYPE_F64:
+            return WASM_F64;
+        case VALUE_TYPE_FUNCREF:
+            return WASM_FUNCREF;
+
+        case VALUE_TYPE_V128:
+        case VALUE_TYPE_EXTERNREF:
+        case VALUE_TYPE_VOID:
+        default:
+        {
+            bh_assert(0);
+            return (wasm_valkind_t)-1;
+        }
+    }
+}
+
+uint32
+wasm_func_type_get_result_count(WASMFuncType *const func_type)
+{
+    bh_assert(func_type);
+
+    return func_type->result_count;
+}
+
+wasm_valkind_t
+wasm_func_type_get_result_valkind(WASMFuncType *const func_type,
+                                  uint32 result_index)
+{
+    if (!func_type || (result_index >= func_type->result_count)) {
+        bh_assert(0);
+        return (wasm_valkind_t)-1;
+    }
+
+    switch (func_type->types[func_type->param_count + result_index]) {
+        case VALUE_TYPE_I32:
+            return WASM_I32;
+        case VALUE_TYPE_I64:
+            return WASM_I64;
+        case VALUE_TYPE_F32:
+            return WASM_F32;
+        case VALUE_TYPE_F64:
+            return WASM_F64;
+        case VALUE_TYPE_FUNCREF:
+            return WASM_FUNCREF;
+
+#if WASM_ENABLE_SIMD != 0
+        case VALUE_TYPE_V128:
+#endif
+#if WASM_ENABLE_REF_TYPES != 0
+        case VALUE_TYPE_EXTERNREF:
+#endif
+        case VALUE_TYPE_VOID:
+        default:
+        {
+            bh_assert(0);
+            return (wasm_valkind_t)-1;
+        }
+    }
 }
 
 bool
