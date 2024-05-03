@@ -9,6 +9,7 @@
 #include "aot_reloc.h"
 #include "../common/wasm_runtime_common.h"
 #include "../common/wasm_native.h"
+#include "../common/wasm_loader_common.h"
 #include "../compilation/aot.h"
 
 #if WASM_ENABLE_DEBUG_AOT != 0
