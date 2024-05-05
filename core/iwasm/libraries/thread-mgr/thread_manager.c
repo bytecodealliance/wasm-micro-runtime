@@ -1194,7 +1194,7 @@ wait_for_thread_visitor(void *node, void *user_data)
 }
 
 void
-wams_cluster_wait_for_all(WASMCluster *cluster)
+wasm_cluster_wait_for_all(WASMCluster *cluster)
 {
     os_mutex_lock(&cluster->lock);
     cluster->processing = true;

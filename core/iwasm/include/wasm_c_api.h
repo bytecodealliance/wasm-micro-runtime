@@ -96,7 +96,7 @@ typedef double float64_t;
 // Vectors
 // size: capacity
 // num_elems: current number of elements
-// size_of_elem: size of one elemen
+// size_of_elem: size of one element
 #define WASM_DECLARE_VEC(name, ptr_or_none) \
   typedef struct wasm_##name##_vec_t { \
     size_t size; \
@@ -183,7 +183,7 @@ typedef union MemAllocOption {
 } MemAllocOption;
 #endif /* MEM_ALLOC_OPTION_DEFINED */
 
-/* Runtime configration */
+/* Runtime configuration */
 struct wasm_config_t {
     mem_alloc_type_t mem_alloc_type;
     MemAllocOption mem_alloc_option;

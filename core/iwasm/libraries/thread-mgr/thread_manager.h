@@ -45,7 +45,7 @@ struct WASMCluster {
      * requests. This is a short-lived state, must be cleared immediately once
      * the processing finished.
      * This is used to avoid dead lock when one thread waiting another thread
-     * with lock, see wams_cluster_wait_for_all and wasm_cluster_terminate_all
+     * with lock, see wasm_cluster_wait_for_all and wasm_cluster_terminate_all
      */
     bool processing;
 #if WASM_ENABLE_DEBUG_INTERP != 0
@@ -135,7 +135,7 @@ wasm_cluster_terminate_all_except_self(WASMCluster *cluster,
                                        WASMExecEnv *exec_env);
 
 void
-wams_cluster_wait_for_all(WASMCluster *cluster);
+wasm_cluster_wait_for_all(WASMCluster *cluster);
 
 void
 wasm_cluster_wait_for_all_except_self(WASMCluster *cluster,

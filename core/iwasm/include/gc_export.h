@@ -707,7 +707,7 @@ wasm_externref_obj_to_internal_obj(const wasm_externref_obj_t externref_obj);
  * @param exec_env the execution environment
  * @param internal_obj the internal object
  *
- * @return wasm_externref_obj_t if create success, NULL othersise
+ * @return wasm_externref_obj_t if create success, NULL otherwise
  */
 WASM_RUNTIME_API_EXTERN wasm_externref_obj_t
 wasm_internal_obj_to_externref_obj(wasm_exec_env_t exec_env,
@@ -757,7 +757,7 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_unpin_object(wasm_exec_env_t exec_env, wasm_obj_t obj);
 
 /**
- * Check whether an object is a struct objectc
+ * Check whether an object is a struct object
  *
  * @param obj the object to check
  *

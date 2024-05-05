@@ -304,7 +304,7 @@
 #define WASM_DISABLE_STACK_HW_BOUND_CHECK 0
 #endif
 
-/* Disable SIMD unless it is manualy enabled somewhere */
+/* Disable SIMD unless it is manually enabled somewhere */
 #ifndef WASM_ENABLE_SIMD
 #define WASM_ENABLE_SIMD 0
 #endif
@@ -445,7 +445,7 @@
 #endif
 
 /* Reserved bytes to the native thread stack boundary, throw native
- * stack overflow exception if the guard boudary is reached
+ * stack overflow exception if the guard boundary is reached
  *
  * WASM_STACK_GUARD_SIZE needs to be large enough for:
  *
@@ -461,7 +461,7 @@
  * - aot runtime functions
  *   eg. aot_enlarge_memory.
  *
- * - w/o hw bound check, the intepreter loop
+ * - w/o hw bound check, the interpreter loop
  *
  *   the stack consumption heavily depends on compiler settings,
  *   especially for huge functions like the classic interpreter's
@@ -514,7 +514,7 @@
 /*
  * Use a larger default for platforms like macOS/Linux.
  *
- * For example, the classic intepreter loop which ended up with a trap
+ * For example, the classic interpreter loop which ended up with a trap
  * (wasm_runtime_set_exception) would consume about 2KB stack on x86-64
  * macOS. On Ubuntu amd64 20.04, it seems to consume a bit more.
  *

@@ -536,7 +536,7 @@ search_thread_local_store_num(Vector *stores_by_tid, korp_tid tid,
 #endif
 
 static unsigned
-retrive_thread_local_store_num(Vector *stores_by_tid, korp_tid tid)
+retrieve_thread_local_store_num(Vector *stores_by_tid, korp_tid tid)
 {
 #ifndef os_thread_local_attribute
     unsigned i = 0;
@@ -664,8 +664,8 @@ wasm_store_new(wasm_engine_t *engine)
     if (!engine || singleton_engine != engine)
         return NULL;
 
-    if (!retrive_thread_local_store_num(&engine->stores_by_tid,
-                                        os_self_thread())) {
+    if (!retrieve_thread_local_store_num(&engine->stores_by_tid,
+                                         os_self_thread())) {
         if (!wasm_runtime_init_thread_env()) {
             LOG_ERROR("init thread environment failed");
             return NULL;
@@ -734,8 +734,8 @@ wasm_store_delete(wasm_store_t *store)
 
     if (decrease_thread_local_store_num(&singleton_engine->stores_by_tid,
                                         os_self_thread())) {
-        if (!retrive_thread_local_store_num(&singleton_engine->stores_by_tid,
-                                            os_self_thread())) {
+        if (!retrieve_thread_local_store_num(&singleton_engine->stores_by_tid,
+                                             os_self_thread())) {
             wasm_runtime_destroy_thread_env();
         }
     }
@@ -2263,7 +2263,7 @@ wasm_module_new_ex(wasm_store_t *store, const wasm_byte_vec_t *binary,
         result = result || (pkg_type == Wasm_Module_AoT);
 #endif
         if (!result) {
-            LOG_VERBOSE("current building isn't compatiable with the module,"
+            LOG_VERBOSE("current building isn't compatible with the module,"
                         "may need recompile");
             goto quit;
         }
@@ -3386,7 +3386,7 @@ wasm_func_call(const wasm_func_t *func, const wasm_val_vec_t *params,
         }
     }
 
-    /* copy parametes */
+    /* copy parameters */
     if (param_count
         && !params_to_argv(params, wasm_functype_params(func->type), argv,
                            &argc)) {

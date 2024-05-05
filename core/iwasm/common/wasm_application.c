@@ -127,7 +127,7 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
 #if WASM_ENABLE_THREAD_MGR != 0
         if (ret) {
             /* On a successful return from the `_start` function,
-               we terminate other threads by mimicing wasi:proc_exit(0).
+               we terminate other threads by mimicking wasi:proc_exit(0).
 
                Note:
                - A return from the `main` function is an equivalent of
@@ -516,11 +516,11 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
             case VALUE_TYPE_V128:
             {
                 /* it likes 0x123\0x234 or 123\234 */
-                /* retrive first i64 */
+                /* retrieve first i64 */
                 *(uint64 *)(argv1 + p) = strtoull(argv[i], &endptr, 0);
                 /* skip \ */
                 endptr++;
-                /* retrive second i64 */
+                /* retrieve second i64 */
                 *(uint64 *)(argv1 + p + 2) = strtoull(endptr, &endptr, 0);
                 p += 4;
                 break;

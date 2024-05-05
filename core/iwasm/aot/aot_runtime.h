@@ -43,7 +43,7 @@ typedef enum AOTSectionType {
     AOT_SECTION_TYPE_FUNCTION = 3,
     AOT_SECTION_TYPE_EXPORT = 4,
     AOT_SECTION_TYPE_RELOCATION = 5,
-    AOT_SECTION_TYPE_SIGANATURE = 6,
+    AOT_SECTION_TYPE_SIGNATURE = 6,
     AOT_SECTION_TYPE_CUSTOM = 100,
 } AOTSectionType;
 
@@ -420,7 +420,7 @@ typedef struct LLVMProfileData {
     uint16 num_value_sites[2];
 } LLVMProfileData;
 
-/* The profiling data for writting to the output file, the width of
+/* The profiling data for writing to the output file, the width of
    pointer is 8 bytes suppose we always use wamrc and llvm-profdata
    with 64-bit mode */
 typedef struct LLVMProfileData_64 {

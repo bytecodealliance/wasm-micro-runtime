@@ -922,7 +922,7 @@ wasm_runtime_is_xip_file(const uint8 *buf, uint32 size)
             read_uint16(p, p_end, e_type);
             return (e_type == E_TYPE_XIP) ? true : false;
         }
-        else if (section_type >= AOT_SECTION_TYPE_SIGANATURE) {
+        else if (section_type >= AOT_SECTION_TYPE_SIGNATURE) {
             return false;
         }
         p += section_size;
@@ -1034,7 +1034,7 @@ wasm_runtime_register_module_internal(const char *module_name,
             }
         }
         else {
-            /* module has empyt name, reset it */
+            /* module has empty name, reset it */
             node->module_name = module_name;
             return true;
         }
@@ -2150,7 +2150,7 @@ wasm_runtime_finalize_call_function(WASMExecEnv *exec_env,
     bh_assert((argv && ret_argv) || (argc == 0));
 
     if (argv == ret_argv) {
-        /* no need to transfrom externref results */
+        /* no need to transform externref results */
         return true;
     }
 
@@ -2823,7 +2823,7 @@ void
 wasm_runtime_set_bounds_checks(WASMModuleInstanceCommon *module_inst,
                                bool enable)
 {
-    /* Alwary disable bounds checks if hw bounds checks enabled */
+    /* Always disable bounds checks if hw bounds checks is enabled */
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     enable = false;
 #endif
@@ -5892,7 +5892,7 @@ wasm_externref_ref2obj(uint32 externref_idx, void **p_extern_obj)
 {
     ExternRefMapNode *node;
 
-    /* catch a `ref.null` vairable */
+    /* catch a `ref.null` variable */
     if (externref_idx == NULL_REF) {
         *p_extern_obj = NULL;
         return true;
@@ -6866,7 +6866,7 @@ wasm_runtime_load_depended_module(const WASMModuleCommon *parent_module,
         goto delete_loading_module;
     }
     if (get_package_type(buffer, buffer_size) != parent_module->module_type) {
-        LOG_DEBUG("moudle %s type error", sub_module_name);
+        LOG_DEBUG("module %s type error", sub_module_name);
         goto destroy_file_buffer;
     }
 
@@ -7130,7 +7130,7 @@ wasm_runtime_detect_native_stack_overflow(WASMExecEnv *exec_env)
     uint8 *boundary = exec_env->native_stack_boundary;
     RECORD_STACK_USAGE(exec_env, (uint8 *)&boundary);
     if (boundary == NULL) {
-        /* the platfrom doesn't support os_thread_get_stack_boundary */
+        /* the platform doesn't support os_thread_get_stack_boundary */
         return true;
     }
 #if defined(OS_ENABLE_HW_BOUND_CHECK) && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
@@ -7153,7 +7153,7 @@ wasm_runtime_detect_native_stack_overflow_size(WASMExecEnv *exec_env,
     uint8 *boundary = exec_env->native_stack_boundary;
     RECORD_STACK_USAGE(exec_env, (uint8 *)&boundary);
     if (boundary == NULL) {
-        /* the platfrom doesn't support os_thread_get_stack_boundary */
+        /* the platform doesn't support os_thread_get_stack_boundary */
         return true;
     }
 #if defined(OS_ENABLE_HW_BOUND_CHECK) && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0

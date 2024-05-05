@@ -57,7 +57,7 @@ def pre_flight_check(root: pathlib) -> bool:
     def check_aspell(root):
         return True
 
-    def check_clang_foramt(root: pathlib) -> bool:
+    def check_clang_format(root: pathlib) -> bool:
         if not locate_command(CLANG_FORMAT_CMD):
             return False
 
@@ -74,7 +74,7 @@ def pre_flight_check(root: pathlib) -> bool:
     def check_git_clang_format() -> bool:
         return locate_command(GIT_CLANG_FORMAT_CMD)
 
-    return check_aspell(root) and check_clang_foramt(root) and check_git_clang_format()
+    return check_aspell(root) and check_clang_format(root) and check_git_clang_format()
 
 
 def run_clang_format(file_path: pathlib, root: pathlib) -> bool:
