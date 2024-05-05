@@ -2823,7 +2823,7 @@ void
 wasm_runtime_set_bounds_checks(WASMModuleInstanceCommon *module_inst,
                                bool enable)
 {
-    /* Alwars disable bounds checks if hw bounds checks enabled */
+    /* Always disable bounds checks if hw bounds checks is enabled */
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     enable = false;
 #endif
