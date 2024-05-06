@@ -18,6 +18,7 @@ class BinaryFile
 {
   public:
     BinaryFile(const char *file_name);
+    ~BinaryFile();
 
     Result ReadModule();
 

@@ -26,6 +26,15 @@ BinaryFile::BinaryFile(const char *file_name)
     memset(&mem_conspn_, 0, sizeof(WASMModuleMemConsumption));
 }
 
+BinaryFile::~BinaryFile()
+{
+    if (module_) {
+        wasm_runtime_unload(module_);
+        wasm_runtime_free(file_data_);
+        wasm_runtime_destroy();
+    }
+}
+
 Result
 BinaryFile::ReadModule()
 {
@@ -53,19 +62,6 @@ BinaryFile::ReadModule()
     init_args.mem_alloc_option.allocator.free_func = (void *)free;
 #endif
 
-#if WASM_ENABLE_FAST_JIT != 0
-    init_args.fast_jit_code_cache_size = jit_code_cache_size;
-#endif
-
-#if WASM_ENABLE_GC != 0
-    init_args.gc_heap_size = gc_heap_size;
-#endif
-
-#if WASM_ENABLE_JIT != 0
-    init_args.llvm_jit_size_level = llvm_jit_size_level;
-    init_args.llvm_jit_opt_level = llvm_jit_opt_level;
-#endif
-
     /* initialize runtime environment */
     if (!wasm_runtime_full_init(&init_args)) {
         printf("Init runtime environment failed. \n");
@@ -75,6 +71,7 @@ BinaryFile::ReadModule()
     file_data_ = (uint8 *)bh_read_file_to_buffer(file_name_, &file_size_);
     if (!file_data_) {
         printf("Open Binary file [%s] failed. \n", file_name_);
+        wasm_runtime_destroy();
         return Result::Error;
     }
 
@@ -82,6 +79,8 @@ BinaryFile::ReadModule()
         wasm_runtime_load(file_data_, file_size_, error_buf, sizeof(error_buf));
     if (!module_) {
         printf("Load Binary module failed. error: %s \n", error_buf);
+        wasm_runtime_free(file_data_);
+        wasm_runtime_destroy();
         return Result::Error;
     }
     return Result::Ok;
