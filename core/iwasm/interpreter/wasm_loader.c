@@ -1318,15 +1318,15 @@ destroy_wasm_type(WASMType *type)
 /* Resolve (ref null ht) or (ref ht) */
 static bool
 resolve_reftype_htref(const uint8 **p_buf, const uint8 *buf_end,
-                      WASMModule *module, uint32 type_count, bool nullabel,
+                      WASMModule *module, uint32 type_count, bool nullable,
                       WASMRefType *ref_type, char *error_buf,
                       uint32 error_buf_size)
 {
     const uint8 *p = *p_buf, *p_end = buf_end;
 
     ref_type->ref_type =
-        nullabel ? REF_TYPE_HT_NULLABLE : REF_TYPE_HT_NON_NULLABLE;
-    ref_type->ref_ht_common.nullabel = nullabel;
+        nullable ? REF_TYPE_HT_NULLABLE : REF_TYPE_HT_NON_NULLABLE;
+    ref_type->ref_ht_common.nullable = nullable;
     read_leb_int32(p, p_end, ref_type->ref_ht_common.heap_type);
 
     if (wasm_is_refheaptype_typeidx(&ref_type->ref_ht_common)) {
@@ -1364,7 +1364,7 @@ resolve_value_type(const uint8 **p_buf, const uint8 *buf_end,
     CHECK_BUF(p, p_end, 1);
     type = read_uint8(p);
 
-    if (wasm_is_reftype_htref_nullabel(type)) {
+    if (wasm_is_reftype_htref_nullable(type)) {
         /* (ref null ht) */
         if (!resolve_reftype_htref(&p, p_end, module, type_count, true,
                                    ref_type, error_buf, error_buf_size))
@@ -1381,7 +1381,7 @@ resolve_value_type(const uint8 **p_buf, const uint8 *buf_end,
             *p_need_ref_type_map = false;
         }
     }
-    else if (wasm_is_reftype_htref_non_nullabel(type)) {
+    else if (wasm_is_reftype_htref_non_nullable(type)) {
         /* (ref ht) */
         if (!resolve_reftype_htref(&p, p_end, module, type_count, false,
                                    ref_type, error_buf, error_buf_size))
@@ -1753,7 +1753,7 @@ fail:
 }
 
 static bool
-init_ref_type(WASMModule *module, WASMRefType *ref_type, bool nullabel,
+init_ref_type(WASMModule *module, WASMRefType *ref_type, bool nullable,
               int32 heap_type, char *error_buf, uint32 error_buf_size)
 {
     if (heap_type >= 0) {
@@ -1761,7 +1761,7 @@ init_ref_type(WASMModule *module, WASMRefType *ref_type, bool nullabel,
                               error_buf_size)) {
             return false;
         }
-        wasm_set_refheaptype_typeidx(&ref_type->ref_ht_typeidx, nullabel,
+        wasm_set_refheaptype_typeidx(&ref_type->ref_ht_typeidx, nullable,
                                      heap_type);
     }
     else {
@@ -1769,9 +1769,9 @@ init_ref_type(WASMModule *module, WASMRefType *ref_type, bool nullabel,
             set_error_buf(error_buf, error_buf_size, "unknown type");
             return false;
         }
-        wasm_set_refheaptype_common(&ref_type->ref_ht_common, nullabel,
+        wasm_set_refheaptype_common(&ref_type->ref_ht_common, nullable,
                                     heap_type);
-        if (nullabel) {
+        if (nullable) {
             /* For (ref null func/extern/any/eq/i31/data),
                they are same as
                 funcref/externref/anyref/eqref/i31ref/dataref,
@@ -1803,14 +1803,14 @@ calculate_reftype_diff(WASMRefType *ref_type_diff, WASMRefType *ref_type1,
         ref_type_diff->ref_type = ref_type1->ref_type;
     }
 
-    if (ref_type2->ref_ht_common.nullabel) {
+    if (ref_type2->ref_ht_common.nullable) {
         if (wasm_is_type_reftype(ref_type_diff->ref_type)
             && !(wasm_is_type_multi_byte_type(ref_type_diff->ref_type))) {
             wasm_set_refheaptype_typeidx(&ref_type_diff->ref_ht_typeidx, false,
                                          (int32)ref_type_diff->ref_type - 0x80);
         }
         else {
-            ref_type_diff->ref_ht_typeidx.nullabel = false;
+            ref_type_diff->ref_ht_typeidx.nullable = false;
         }
     }
 }
@@ -2595,7 +2595,7 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
                             error_buf_size)) {
         return false;
     }
-    if (wasm_is_reftype_htref_non_nullabel(ref_type.ref_type)) {
+    if (wasm_is_reftype_htref_non_nullable(ref_type.ref_type)) {
         set_error_buf(error_buf, error_buf_size, "type mismatch");
         return false;
     }
@@ -3907,10 +3907,10 @@ load_table_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 }
             }
             else {
-                if (wasm_is_reftype_htref_non_nullabel(table->elem_type)) {
+                if (wasm_is_reftype_htref_non_nullable(table->elem_type)) {
                     set_error_buf(
                         error_buf, error_buf_size,
-                        "type mismatch: non-nullabel table without init expr");
+                        "type mismatch: non-nullable table without init expr");
                     return false;
                 }
             }
@@ -7722,7 +7722,7 @@ typedef struct BranchBlock {
 #if WASM_ENABLE_GC != 0
     uint32 reftype_map_num;
     /* Indicate which local is used inside current block, used to validate
-     * local.get with non-nullabel ref types */
+     * local.get with non-nullable ref types */
     uint8 *local_use_mask;
     uint32 local_use_mask_size;
 #endif
@@ -8447,7 +8447,7 @@ wasm_loader_pop_heap_obj(WASMLoaderContext *ctx, uint8 *p_type,
 /* Check whether the stack top elem is subtype of (ref null ht),
    and if yes, pop it and return the converted (ref ht) */
 static bool
-wasm_loader_pop_nullabel_ht(WASMLoaderContext *ctx, uint8 *p_type,
+wasm_loader_pop_nullable_ht(WASMLoaderContext *ctx, uint8 *p_type,
                             WASMRefType *ref_ht_ret, char *error_buf,
                             uint32 error_buf_size)
 {
@@ -8468,13 +8468,13 @@ wasm_loader_pop_nullabel_ht(WASMLoaderContext *ctx, uint8 *p_type,
                                         + (type - REF_TYPE_ARRAYREF));
         type = ref_ht_ret->ref_type;
     }
-    else if (wasm_is_reftype_htref_nullabel(type)
-             || wasm_is_reftype_htref_non_nullabel(type)) {
+    else if (wasm_is_reftype_htref_nullable(type)
+             || wasm_is_reftype_htref_non_nullable(type)) {
         bh_memcpy_s(ref_ht_ret, (uint32)sizeof(WASMRefType), &ref_type,
                     wasm_reftype_struct_size(&ref_type));
         /* Convert to (ref ht) */
         ref_ht_ret->ref_ht_common.ref_type = REF_TYPE_HT_NON_NULLABLE;
-        ref_ht_ret->ref_ht_common.nullabel = false;
+        ref_ht_ret->ref_ht_common.nullable = false;
         type = ref_ht_ret->ref_type;
     }
     *p_type = type;
@@ -8485,7 +8485,7 @@ wasm_loader_pop_nullabel_ht(WASMLoaderContext *ctx, uint8 *p_type,
 /* Check whether the stack top elem is (ref null $t) or (ref $t),
    and if yes, pop it and return the type_idx */
 static bool
-wasm_loader_pop_nullabel_typeidx(WASMLoaderContext *ctx, uint8 *p_type,
+wasm_loader_pop_nullable_typeidx(WASMLoaderContext *ctx, uint8 *p_type,
                                  uint32 *p_type_idx, char *error_buf,
                                  uint32 error_buf_size)
 {
@@ -8501,8 +8501,8 @@ wasm_loader_pop_nullabel_typeidx(WASMLoaderContext *ctx, uint8 *p_type,
 
     if (type != VALUE_TYPE_ANY) {
         /* stack top isn't (ref null $t) */
-        if (!((wasm_is_reftype_htref_nullabel(type)
-               || wasm_is_reftype_htref_non_nullabel(type))
+        if (!((wasm_is_reftype_htref_nullable(type)
+               || wasm_is_reftype_htref_non_nullable(type))
               && wasm_is_refheaptype_typeidx(&ref_type->ref_ht_common))) {
             set_error_buf(error_buf, error_buf_size,
                           "type mismatch: expect (ref null $t) but got others");
@@ -11688,7 +11688,7 @@ re_scan:
                                       "unkown function type");
                         goto fail;
                     }
-                    if (!wasm_loader_pop_nullabel_typeidx(loader_ctx, &type,
+                    if (!wasm_loader_pop_nullable_typeidx(loader_ctx, &type,
                                                           &type_idx, error_buf,
                                                           error_buf_size)) {
                         goto fail;
@@ -12512,7 +12512,7 @@ re_scan:
                 WASMRefType ref_type;
 
                 /* POP (ref null ht) and get the converted (ref ht) */
-                if (!wasm_loader_pop_nullabel_ht(loader_ctx, &type, &ref_type,
+                if (!wasm_loader_pop_nullable_ht(loader_ctx, &type, &ref_type,
                                                  error_buf, error_buf_size)) {
                     goto fail;
                 }
@@ -12546,7 +12546,7 @@ re_scan:
                     - (loader_ctx->frame_csp - 1)->stack_cell_num;
 
                 /* POP (ref null ht) and get the converted (ref ht) */
-                if (!wasm_loader_pop_nullabel_ht(loader_ctx, &type, &ref_type,
+                if (!wasm_loader_pop_nullable_ht(loader_ctx, &type, &ref_type,
                                                  error_buf, error_buf_size)) {
                     goto fail;
                 }
@@ -12595,9 +12595,9 @@ re_scan:
                 PUSH_TYPE(local_type);
 
 #if WASM_ENABLE_GC != 0
-                /* Cannot get a non-nullabel and unset local */
+                /* Cannot get a non-nullable and unset local */
                 if (local_idx >= param_count
-                    && wasm_is_reftype_htref_non_nullabel(local_type)
+                    && wasm_is_reftype_htref_non_nullable(local_type)
                     && !wasm_loader_get_local_status(loader_ctx,
                                                      local_idx - param_count)) {
                     set_error_buf(error_buf, error_buf_size,
@@ -13929,12 +13929,12 @@ re_scan:
                             || opcode1 == WASM_OP_REF_TEST_NULLABLE)
                             PUSH_I32();
                         else {
-                            bool nullabel =
+                            bool nullable =
                                 (opcode1 == WASM_OP_REF_CAST_NULLABLE) ? true
                                                                        : false;
-                            if (heap_type >= 0 || !nullabel) {
+                            if (heap_type >= 0 || !nullable) {
                                 wasm_set_refheaptype_typeidx(
-                                    &wasm_ref_type.ref_ht_typeidx, nullabel,
+                                    &wasm_ref_type.ref_ht_typeidx, nullable,
                                     heap_type);
                                 PUSH_REF(wasm_ref_type.ref_type);
                             }
@@ -13953,7 +13953,7 @@ re_scan:
                         uint8 type_tmp, castflags;
                         uint32 depth;
                         int32 heap_type_dst;
-                        bool src_nullabel, dst_nullabel;
+                        bool src_nullable, dst_nullable;
 
                         CHECK_BUF(p, p_end, 1);
                         castflags = read_uint8(p);
@@ -13988,9 +13988,9 @@ re_scan:
                                           "invalid castflags");
                             break;
                         }
-                        src_nullabel =
+                        src_nullable =
                             (castflags == 1) || (castflags == 3) ? true : false;
-                        dst_nullabel =
+                        dst_nullable =
                             (castflags == 2) || (castflags == 3) ? true : false;
 
                         /* Pop and backup the stack top's ref type */
@@ -14001,14 +14001,14 @@ re_scan:
                         }
 
                         /* The reference type rt1 must be valid */
-                        if (!init_ref_type(module, &ref_type1, src_nullabel,
+                        if (!init_ref_type(module, &ref_type1, src_nullable,
                                            heap_type, error_buf,
                                            error_buf_size)) {
                             goto fail;
                         }
 
                         /* The reference type rt2 must be valid. */
-                        if (!init_ref_type(module, &ref_type2, dst_nullabel,
+                        if (!init_ref_type(module, &ref_type2, dst_nullable,
                                            heap_type_dst, error_buf,
                                            error_buf_size)) {
                             goto fail;
