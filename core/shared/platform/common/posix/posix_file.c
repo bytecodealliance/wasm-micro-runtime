@@ -469,6 +469,11 @@ os_preadv(os_file_handle handle, const struct __wasi_iovec_t *iov, int iovcnt,
     *nread = (size_t)len;
     return __WASI_ESUCCESS;
 #else
+    if (iovcnt == 0) {
+        *nread = 0;
+        return __WASI_ESUCCESS;
+    }
+
     if (iovcnt == 1) {
         ssize_t len = pread(handle, iov->buf, iov->buf_len, offset);
 

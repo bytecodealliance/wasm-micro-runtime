@@ -830,9 +830,6 @@ wasmtime_ssp_fd_pread(wasm_exec_env_t exec_env, struct fd_table *curfds,
                       __wasi_fd_t fd, const __wasi_iovec_t *iov, size_t iovcnt,
                       __wasi_filesize_t offset, size_t *nread)
 {
-    if (iovcnt == 0)
-        return __WASI_EINVAL;
-
     struct fd_object *fo;
     __wasi_errno_t error =
         fd_object_get(curfds, &fo, fd, __WASI_RIGHT_FD_READ, 0);
