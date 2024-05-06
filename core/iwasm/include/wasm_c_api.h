@@ -433,7 +433,7 @@ struct wasm_ref_t;
 
 typedef struct wasm_val_t {
   wasm_valkind_t kind;
-  uint8_t __paddings[7];
+  uint8_t _paddings[7];
   union {
     int32_t i32;
     int64_t i64;
@@ -864,12 +864,12 @@ static inline void* wasm_val_ptr(const wasm_val_t* val) {
 #endif
 }
 
-#define WASM_I32_VAL(i) {.kind = WASM_I32, .__paddings = {0}, .of = {.i32 = i}}
-#define WASM_I64_VAL(i) {.kind = WASM_I64, .__paddings = {0}, .of = {.i64 = i}}
-#define WASM_F32_VAL(z) {.kind = WASM_F32, .__paddings = {0}, .of = {.f32 = z}}
-#define WASM_F64_VAL(z) {.kind = WASM_F64, .__paddings = {0}, .of = {.f64 = z}}
-#define WASM_REF_VAL(r) {.kind = WASM_ANYREF, .__paddings = {0}, .of = {.ref = r}}
-#define WASM_INIT_VAL {.kind = WASM_ANYREF, .__paddings = {0}, .of = {.ref = NULL}}
+#define WASM_I32_VAL(i) {.kind = WASM_I32, ._paddings = {0}, .of = {.i32 = i}}
+#define WASM_I64_VAL(i) {.kind = WASM_I64, ._paddings = {0}, .of = {.i64 = i}}
+#define WASM_F32_VAL(z) {.kind = WASM_F32, ._paddings = {0}, .of = {.f32 = z}}
+#define WASM_F64_VAL(z) {.kind = WASM_F64, ._paddings = {0}, .of = {.f64 = z}}
+#define WASM_REF_VAL(r) {.kind = WASM_ANYREF, ._paddings = {0}, .of = {.ref = r}}
+#define WASM_INIT_VAL {.kind = WASM_ANYREF, ._paddings = {0}, .of = {.ref = NULL}}
 
 #define KILOBYTE(n) ((n) * 1024)
 
