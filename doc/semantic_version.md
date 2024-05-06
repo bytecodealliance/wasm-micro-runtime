@@ -13,7 +13,7 @@ There are three parts in the new version string:
 
 ## Legacy versions
 
-All legacy versions(tags) will keep their current status. No existed releasings names
+All legacy versions(tags) will keep their current status. No existing release names
 and links will be changed.
 
 ## Reference

@@ -1561,7 +1561,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 goto got_exception;
             }
 
-            HANDLE_OP(WASM_OP_NOP) { HANDLE_OP_END(); }
+            HANDLE_OP(WASM_OP_NOP)
+            {
+                HANDLE_OP_END();
+            }
 
 #if WASM_ENABLE_EXCE_HANDLING != 0
             HANDLE_OP(WASM_OP_RETHROW)
@@ -1584,7 +1587,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 uint32 *tgtframe_sp = tgtframe->frame_sp;
 
-                /* frame sp of tgtframe points to catched exception */
+                /* frame sp of tgtframe points to caught exception */
                 exception_tag_index = *((uint32 *)tgtframe_sp);
                 tgtframe_sp++;
 
@@ -1655,7 +1658,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                              * BLOCK, IF and LOOP do not contain handlers and
                              * cannot catch exceptions.
                              * blocks marked as CATCH or
-                             * CATCH_ALL did already caugth an exception and can
+                             * CATCH_ALL did already caught an exception and can
                              * only be a target for RETHROW, but cannot catch an
                              * exception again
                              */
@@ -1787,7 +1790,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                 }
                                 handler_number++;
                             }
-                            /* exception not catched in this frame */
+                            /* exception not caught in this frame */
                             break;
                         }
                         case LABEL_TYPE_FUNCTION:
@@ -5477,7 +5480,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_I32_REINTERPRET_F32)
             HANDLE_OP(WASM_OP_I64_REINTERPRET_F64)
             HANDLE_OP(WASM_OP_F32_REINTERPRET_I32)
-            HANDLE_OP(WASM_OP_F64_REINTERPRET_I64) { HANDLE_OP_END(); }
+            HANDLE_OP(WASM_OP_F64_REINTERPRET_I64)
+            {
+                HANDLE_OP_END();
+            }
 
             HANDLE_OP(WASM_OP_I32_EXTEND8_S)
             {
@@ -6411,7 +6417,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
                     }
                     /*
-                     * excange the thrown exception (index valid in submodule)
+                     * exchange the thrown exception (index valid in submodule)
                      * with the imported exception index (valid in this module)
                      * if the module did not import the exception,
                      * that results in a "INVALID_TAGINDEX", that triggers
@@ -6468,7 +6474,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     goto find_a_catch_handler;
                 }
 
-                /* when throw hits the end of a function it signalles with a
+                /* when throw hits the end of a function it signals with a
                  * "uncaught wasm exception" trap */
                 if (has_exception
                     && strstr(uncaught_exception, "uncaught wasm exception")) {

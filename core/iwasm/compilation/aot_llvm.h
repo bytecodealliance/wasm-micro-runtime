@@ -374,7 +374,7 @@ typedef struct AOTCompContext {
     char target_arch[16];
     unsigned pointer_size;
 
-    /* Hardware intrinsic compability flags */
+    /* Hardware intrinsic compatibility flags */
     uint64 flags[8];
 
     /* required by JIT */
@@ -441,7 +441,7 @@ typedef struct AOTCompContext {
     /* Use profile file collected by LLVM PGO */
     char *use_prof_file;
 
-    /* Enable to use segument register as the base addr
+    /* Enable to use segment register as the base addr
        of linear memory for load/store operations */
     bool enable_segue_i32_load;
     bool enable_segue_i64_load;

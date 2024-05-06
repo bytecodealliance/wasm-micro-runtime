@@ -37,7 +37,7 @@ typedef struct dwarf_extractor {
 
 #define TO_HANDLE(extractor) (dwarf_extractor_handle_t)(extractor)
 
-#define TO_EXTACTOR(handle) (dwarf_extractor *)(handle)
+#define TO_EXTRACTOR(handle) (dwarf_extractor *)(handle)
 
 static bool is_debugger_initialized;
 
@@ -103,7 +103,7 @@ fail3:
 void
 destroy_dwarf_extractor(dwarf_extractor_handle_t handle)
 {
-    dwarf_extractor *extractor = TO_EXTACTOR(handle);
+    dwarf_extractor *extractor = TO_EXTRACTOR(handle);
     if (!extractor)
         return;
     extractor->debugger.DeleteTarget(extractor->target);
@@ -122,7 +122,7 @@ dwarf_gen_file_info(const AOTCompContext *comp_ctx)
     const char *file_name;
     const char *dir_name;
 
-    if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
+    if (!(extractor = TO_EXTRACTOR(comp_ctx->comp_data->extractor)))
         return NULL;
 
     units_number = extractor->module.GetNumCompileUnits();
@@ -198,7 +198,7 @@ dwarf_gen_comp_unit_info(const AOTCompContext *comp_ctx)
     int units_number;
     LLVMMetadataRef comp_unit = NULL;
 
-    if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
+    if (!(extractor = TO_EXTRACTOR(comp_ctx->comp_data->extractor)))
         return NULL;
 
     units_number = extractor->module.GetNumCompileUnits();
@@ -312,12 +312,12 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
         case eLanguageTypeC17:
             break;
         default:
-            LOG_WARNING("func %s has unsuppoted language_type 0x%x",
+            LOG_WARNING("func %s has unsupported language_type 0x%x",
                         function_name, (int)language_type);
             return NULL;
     }
 
-    if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
+    if (!(extractor = TO_EXTRACTOR(comp_ctx->comp_data->extractor)))
         return NULL;
 
     LLVMDIBuilderRef DIB = comp_ctx->debug_builder;
@@ -389,7 +389,7 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
         function.GetBlock().GetVariables(extractor->target, true, false, false);
     if (num_function_args != variable_list.GetSize()) {
         LOG_ERROR(
-            "function args number dismatch!:value number=%d, function args=%d",
+            "function args number mismatch!:value number=%d, function args=%d",
             variable_list.GetSize(), num_function_args);
     }
 
@@ -399,13 +399,13 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
     // TODO:change to void *  or WasmExenv * ？
     LLVMMetadataRef voidtype =
         LLVMDIBuilderCreateBasicType(DIB, "void", 4, 0, 0, LLVMDIFlagZero);
-    LLVMMetadataRef voidpionter =
+    LLVMMetadataRef voidpointer =
         LLVMDIBuilderCreatePointerType(DIB, voidtype, 64, 0, 0, "void *", 6);
 
     LLVMMetadataRef ParamVar = LLVMDIBuilderCreateParameterVariable(
         DIB, FunctionMetadata, "exenv", 5, 1,
         File, // starts form 1, and 1 is exenv,
-        line_entry.GetLine(), voidpionter, true, LLVMDIFlagZero);
+        line_entry.GetLine(), voidpointer, true, LLVMDIFlagZero);
     LLVMValueRef Param = LLVMGetParam(func_ctx->func, 0);
     LLVMBasicBlockRef block_curr = LLVMGetEntryBasicBlock(func_ctx->func);
     LLVMDIBuilderInsertDbgValueAtEnd(DIB, Param, ParamVar, ParamExpression,
@@ -447,13 +447,13 @@ dwarf_gen_func_info(const AOTCompContext *comp_ctx,
     uint64_t vm_offset;
     AOTFunc *func = func_ctx->aot_func;
 
-    if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
+    if (!(extractor = TO_EXTRACTOR(comp_ctx->comp_data->extractor)))
         return NULL;
 
     // A code address in DWARF for WebAssembly is the offset of an
     // instruction relative within the Code section of the WebAssembly file.
     // For this reason Section::GetFileAddress() must return zero for the
-    // Code section. (refert to ObjectFileWasm.cpp)
+    // Code section. (refer to ObjectFileWasm.cpp)
     vm_offset = func->code - comp_ctx->comp_data->wasm_module->buf_code;
 
     auto sbaddr = extractor->target.ResolveFileAddress(vm_offset);
@@ -479,13 +479,13 @@ dwarf_get_func_name(const AOTCompContext *comp_ctx,
 
     name[0] = '\0';
 
-    if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
+    if (!(extractor = TO_EXTRACTOR(comp_ctx->comp_data->extractor)))
         return;
 
     // A code address in DWARF for WebAssembly is the offset of an
     // instruction relative within the Code section of the WebAssembly file.
     // For this reason Section::GetFileAddress() must return zero for the
-    // Code section. (refert to ObjectFileWasm.cpp)
+    // Code section. (refer to ObjectFileWasm.cpp)
     vm_offset = func->code - comp_ctx->comp_data->wasm_module->buf_code;
 
     auto sbaddr = extractor->target.ResolveFileAddress(vm_offset);
@@ -509,7 +509,7 @@ dwarf_gen_location(const AOTCompContext *comp_ctx,
 
     if (func_ctx->debug_func == NULL)
         return NULL;
-    if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
+    if (!(extractor = TO_EXTRACTOR(comp_ctx->comp_data->extractor)))
         return NULL;
 
     auto sbaddr = extractor->target.ResolveFileAddress(vm_offset);
@@ -550,13 +550,13 @@ dwarf_gen_func_ret_location(const AOTCompContext *comp_ctx,
     AOTFunc *func = func_ctx->aot_func;
     LLVMMetadataRef location_info = NULL;
 
-    if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
+    if (!(extractor = TO_EXTRACTOR(comp_ctx->comp_data->extractor)))
         return NULL;
 
     // A code address in DWARF for WebAssembly is the offset of an
     // instruction relative within the Code section of the WebAssembly file.
     // For this reason Section::GetFileAddress() must return zero for the
-    // Code section. (refert to ObjectFileWasm.cpp)
+    // Code section. (refer to ObjectFileWasm.cpp)
     vm_offset = (func->code + func->code_size - 1)
                 - comp_ctx->comp_data->wasm_module->buf_code;
     location_info = dwarf_gen_location(comp_ctx, func_ctx, vm_offset);

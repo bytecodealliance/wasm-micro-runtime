@@ -12,7 +12,7 @@
 static bool
 simd_integer_narrow_x86(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                         LLVMTypeRef in_vector_type, LLVMTypeRef out_vector_type,
-                        const char *instrinsic)
+                        const char *intrinsic)
 {
     LLVMValueRef vector1, vector2, result;
     LLVMTypeRef param_types[2] = { in_vector_type, in_vector_type };
@@ -24,7 +24,7 @@ simd_integer_narrow_x86(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
-    if (!(result = aot_call_llvm_intrinsic(comp_ctx, func_ctx, instrinsic,
+    if (!(result = aot_call_llvm_intrinsic(comp_ctx, func_ctx, intrinsic,
                                            out_vector_type, param_types, 2,
                                            vector1, vector2))) {
         HANDLE_FAILURE("LLVMBuildCall");
@@ -659,7 +659,7 @@ aot_compile_simd_i16x8_q15mulr_sat(AOTCompContext *comp_ctx,
 
     if (!(result = LLVMBuildTrunc(comp_ctx->builder, result, V128_i16x8_TYPE,
                                   "down_to_v8i16"))) {
-        HANDLE_FAILURE("LLVMBuidlTrunc");
+        HANDLE_FAILURE("LLVMBuildTrunc");
         return false;
     }
 

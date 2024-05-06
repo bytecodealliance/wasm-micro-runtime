@@ -145,7 +145,7 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
      * Note: not throw the integer-overflow-exception here since it must
      * have been thrown when converting float to integer before
      */
-    /* return addres directly if constant offset and inside memory space */
+    /* return address directly if constant offset and inside memory space */
     if (LLVMIsEfficientConstInt(addr)) {
         uint64 mem_offset =
             (uint64)LLVMConstIntGetZExtValue(addr) + (uint64)offset;
@@ -1410,7 +1410,7 @@ aot_compile_op_atomic_cmpxchg(AOTCompContext *comp_ctx,
     LLVMSetVolatile(result, true);
 
     /* CmpXchg return {i32, i1} structure,
-       we need to extrack the previous_value from the structure */
+       we need to extract the previous_value from the structure */
     if (!(result = LLVMBuildExtractValue(comp_ctx->builder, result, 0,
                                          "previous_value"))) {
         goto fail;

@@ -1143,14 +1143,14 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                     case WASM_OP_ANY_CONVERT_EXTERN:
                     {
                         set_error_buf(error_buf, error_buf_size,
-                                      "unsuppoted constant expression of "
+                                      "unsupported constant expression of "
                                       "extern.internalize");
                         goto fail;
                     }
                     case WASM_OP_EXTERN_CONVERT_ANY:
                     {
                         set_error_buf(error_buf, error_buf_size,
-                                      "unsuppoted constant expression of "
+                                      "unsupported constant expression of "
                                       "extern.externalize");
                         goto fail;
                     }
@@ -1318,15 +1318,15 @@ destroy_wasm_type(WASMType *type)
 /* Resolve (ref null ht) or (ref ht) */
 static bool
 resolve_reftype_htref(const uint8 **p_buf, const uint8 *buf_end,
-                      WASMModule *module, uint32 type_count, bool nullable,
+                      WASMModule *module, uint32 type_count, bool nullabel,
                       WASMRefType *ref_type, char *error_buf,
                       uint32 error_buf_size)
 {
     const uint8 *p = *p_buf, *p_end = buf_end;
 
     ref_type->ref_type =
-        nullable ? REF_TYPE_HT_NULLABLE : REF_TYPE_HT_NON_NULLABLE;
-    ref_type->ref_ht_common.nullable = nullable;
+        nullabel ? REF_TYPE_HT_NULLABLE : REF_TYPE_HT_NON_NULLABLE;
+    ref_type->ref_ht_common.nullabel = nullabel;
     read_leb_int32(p, p_end, ref_type->ref_ht_common.heap_type);
 
     if (wasm_is_refheaptype_typeidx(&ref_type->ref_ht_common)) {
@@ -1364,7 +1364,7 @@ resolve_value_type(const uint8 **p_buf, const uint8 *buf_end,
     CHECK_BUF(p, p_end, 1);
     type = read_uint8(p);
 
-    if (wasm_is_reftype_htref_nullable(type)) {
+    if (wasm_is_reftype_htref_nullabel(type)) {
         /* (ref null ht) */
         if (!resolve_reftype_htref(&p, p_end, module, type_count, true,
                                    ref_type, error_buf, error_buf_size))
@@ -1381,7 +1381,7 @@ resolve_value_type(const uint8 **p_buf, const uint8 *buf_end,
             *p_need_ref_type_map = false;
         }
     }
-    else if (wasm_is_reftype_htref_non_nullable(type)) {
+    else if (wasm_is_reftype_htref_non_nullabel(type)) {
         /* (ref ht) */
         if (!resolve_reftype_htref(&p, p_end, module, type_count, false,
                                    ref_type, error_buf, error_buf_size))
@@ -1753,7 +1753,7 @@ fail:
 }
 
 static bool
-init_ref_type(WASMModule *module, WASMRefType *ref_type, bool nullable,
+init_ref_type(WASMModule *module, WASMRefType *ref_type, bool nullabel,
               int32 heap_type, char *error_buf, uint32 error_buf_size)
 {
     if (heap_type >= 0) {
@@ -1761,7 +1761,7 @@ init_ref_type(WASMModule *module, WASMRefType *ref_type, bool nullable,
                               error_buf_size)) {
             return false;
         }
-        wasm_set_refheaptype_typeidx(&ref_type->ref_ht_typeidx, nullable,
+        wasm_set_refheaptype_typeidx(&ref_type->ref_ht_typeidx, nullabel,
                                      heap_type);
     }
     else {
@@ -1769,9 +1769,9 @@ init_ref_type(WASMModule *module, WASMRefType *ref_type, bool nullable,
             set_error_buf(error_buf, error_buf_size, "unknown type");
             return false;
         }
-        wasm_set_refheaptype_common(&ref_type->ref_ht_common, nullable,
+        wasm_set_refheaptype_common(&ref_type->ref_ht_common, nullabel,
                                     heap_type);
-        if (nullable) {
+        if (nullabel) {
             /* For (ref null func/extern/any/eq/i31/data),
                they are same as
                 funcref/externref/anyref/eqref/i31ref/dataref,
@@ -1803,14 +1803,14 @@ calculate_reftype_diff(WASMRefType *ref_type_diff, WASMRefType *ref_type1,
         ref_type_diff->ref_type = ref_type1->ref_type;
     }
 
-    if (ref_type2->ref_ht_common.nullable) {
+    if (ref_type2->ref_ht_common.nullabel) {
         if (wasm_is_type_reftype(ref_type_diff->ref_type)
             && !(wasm_is_type_multi_byte_type(ref_type_diff->ref_type))) {
             wasm_set_refheaptype_typeidx(&ref_type_diff->ref_ht_typeidx, false,
                                          (int32)ref_type_diff->ref_type - 0x80);
         }
         else {
-            ref_type_diff->ref_ht_typeidx.nullable = false;
+            ref_type_diff->ref_ht_typeidx.nullabel = false;
         }
     }
 }
@@ -2595,7 +2595,7 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
                             error_buf_size)) {
         return false;
     }
-    if (wasm_is_reftype_htref_non_nullable(ref_type.ref_type)) {
+    if (wasm_is_reftype_htref_non_nullabel(ref_type.ref_type)) {
         set_error_buf(error_buf, error_buf_size, "type mismatch");
         return false;
     }
@@ -3907,10 +3907,10 @@ load_table_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 }
             }
             else {
-                if (wasm_is_reftype_htref_non_nullable(table->elem_type)) {
+                if (wasm_is_reftype_htref_non_nullabel(table->elem_type)) {
                     set_error_buf(
                         error_buf, error_buf_size,
-                        "type mismatch: non-nullable table without init expr");
+                        "type mismatch: non-nullabel table without init expr");
                     return false;
                 }
             }
@@ -5433,7 +5433,7 @@ orcjit_thread_callback(void *arg)
     uint32 i;
 
 #if WASM_ENABLE_FAST_JIT != 0
-    /* Compile fast jit funcitons of this group */
+    /* Compile fast jit functions of this group */
     for (i = group_idx; i < func_count; i += group_stride) {
         if (!jit_compiler_compile(module, i + module->import_function_count)) {
             LOG_ERROR("failed to compile fast jit function %u\n", i);
@@ -5547,7 +5547,7 @@ orcjit_thread_callback(void *arg)
                     i + j * group_stride + module->import_function_count,
                     (void *)func_addr);
 
-                /* Try to switch to call this llvm jit funtion instead of
+                /* Try to switch to call this llvm jit function instead of
                    fast jit function from fast jit jitted code */
                 jit_compiler_set_call_to_llvm_jit(
                     module,
@@ -6431,7 +6431,7 @@ check_wasi_abi_compatibility(const WASMModule *module,
 {
     /**
      * be careful with:
-     * wasi compatiable modules(command/reactor) which don't import any wasi
+     * wasi compatible modules(command/reactor) which don't import any wasi
      * APIs. Usually, a command has to import a "prox_exit" at least, but a
      * reactor can depend on nothing. At the same time, each has its own entry
      * point.
@@ -6508,7 +6508,7 @@ check_wasi_abi_compatibility(const WASMModule *module,
         }
     }
 
-    /* filter out non-wasi compatiable modules */
+    /* filter out non-wasi compatible modules */
     if (!module->import_wasi_api && !start && !initialize) {
         return true;
     }
@@ -6521,7 +6521,7 @@ check_wasi_abi_compatibility(const WASMModule *module,
 
     /*
      * there is at least one of `_start` and `_initialize` in below cases.
-     * according to the assumption, they should be all wasi compatiable
+     * according to the assumption, they should be all wasi compatible
      */
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -6786,7 +6786,7 @@ wasm_loader_unload(WASMModule *module)
             WASMRegisteredModule *next = bh_list_elem_next(node);
             bh_list_remove(module->import_module_list, node);
             /*
-             * unload(sub_module) will be trigged during runtime_destroy().
+             * unload(sub_module) will be triggered during runtime_destroy().
              * every module in the global module list will be unloaded one by
              * one. so don't worry.
              */
@@ -7049,9 +7049,9 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                 break;
 
             case WASM_OP_BR_TABLE:
-                read_leb_uint32(p, p_end, count); /* lable num */
+                read_leb_uint32(p, p_end, count); /* label num */
 #if WASM_ENABLE_FAST_INTERP != 0
-                for (i = 0; i <= count; i++) /* lableidxs */
+                for (i = 0; i <= count; i++) /* labelidxs */
                     skip_leb_uint32(p, p_end);
 #else
                 p += count + 1;
@@ -7062,7 +7062,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 
 #if WASM_ENABLE_FAST_INTERP == 0
             case EXT_OP_BR_TABLE_CACHE:
-                read_leb_uint32(p, p_end, count); /* lable num */
+                read_leb_uint32(p, p_end, count); /* label num */
                 while (*p == WASM_OP_NOP)
                     p++;
                 break;
@@ -7086,7 +7086,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 #if WASM_ENABLE_REF_TYPES == 0 && WASM_ENABLE_GC == 0
                 u8 = read_uint8(p); /* 0x00 */
 #else
-                skip_leb_uint32(p, p_end); /* talbeidx */
+                skip_leb_uint32(p, p_end); /* tableidx */
 #endif
                 break;
 
@@ -7661,7 +7661,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             {
                 WASMDebugInstance *debug_instance =
                     wasm_exec_env_get_instance(exec_env);
-                char orignal_opcode[1];
+                char original_opcode[1];
                 uint64 size = 1;
                 WASMModuleInstance *module_inst =
                     (WASMModuleInstance *)exec_env->module_inst;
@@ -7670,12 +7670,12 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                                     : ~0;
                 if (debug_instance) {
                     if (wasm_debug_instance_get_obj_mem(debug_instance, offset,
-                                                        orignal_opcode, &size)
+                                                        original_opcode, &size)
                         && size == 1) {
                         LOG_VERBOSE("WASM loader find OP_BREAK , recover it "
                                     "with  %02x: ",
-                                    orignal_opcode[0]);
-                        opcode = orignal_opcode[0];
+                                    original_opcode[0]);
+                        opcode = original_opcode[0];
                         goto op_break_retry;
                     }
                 }
@@ -7722,7 +7722,7 @@ typedef struct BranchBlock {
 #if WASM_ENABLE_GC != 0
     uint32 reftype_map_num;
     /* Indicate which local is used inside current block, used to validate
-     * local.get with non-nullable ref types */
+     * local.get with non-nullabel ref types */
     uint8 *local_use_mask;
     uint32 local_use_mask_size;
 #endif
@@ -8447,7 +8447,7 @@ wasm_loader_pop_heap_obj(WASMLoaderContext *ctx, uint8 *p_type,
 /* Check whether the stack top elem is subtype of (ref null ht),
    and if yes, pop it and return the converted (ref ht) */
 static bool
-wasm_loader_pop_nullable_ht(WASMLoaderContext *ctx, uint8 *p_type,
+wasm_loader_pop_nullabel_ht(WASMLoaderContext *ctx, uint8 *p_type,
                             WASMRefType *ref_ht_ret, char *error_buf,
                             uint32 error_buf_size)
 {
@@ -8468,13 +8468,13 @@ wasm_loader_pop_nullable_ht(WASMLoaderContext *ctx, uint8 *p_type,
                                         + (type - REF_TYPE_ARRAYREF));
         type = ref_ht_ret->ref_type;
     }
-    else if (wasm_is_reftype_htref_nullable(type)
-             || wasm_is_reftype_htref_non_nullable(type)) {
+    else if (wasm_is_reftype_htref_nullabel(type)
+             || wasm_is_reftype_htref_non_nullabel(type)) {
         bh_memcpy_s(ref_ht_ret, (uint32)sizeof(WASMRefType), &ref_type,
                     wasm_reftype_struct_size(&ref_type));
         /* Convert to (ref ht) */
         ref_ht_ret->ref_ht_common.ref_type = REF_TYPE_HT_NON_NULLABLE;
-        ref_ht_ret->ref_ht_common.nullable = false;
+        ref_ht_ret->ref_ht_common.nullabel = false;
         type = ref_ht_ret->ref_type;
     }
     *p_type = type;
@@ -8485,7 +8485,7 @@ wasm_loader_pop_nullable_ht(WASMLoaderContext *ctx, uint8 *p_type,
 /* Check whether the stack top elem is (ref null $t) or (ref $t),
    and if yes, pop it and return the type_idx */
 static bool
-wasm_loader_pop_nullable_typeidx(WASMLoaderContext *ctx, uint8 *p_type,
+wasm_loader_pop_nullabel_typeidx(WASMLoaderContext *ctx, uint8 *p_type,
                                  uint32 *p_type_idx, char *error_buf,
                                  uint32 error_buf_size)
 {
@@ -8501,8 +8501,8 @@ wasm_loader_pop_nullable_typeidx(WASMLoaderContext *ctx, uint8 *p_type,
 
     if (type != VALUE_TYPE_ANY) {
         /* stack top isn't (ref null $t) */
-        if (!((wasm_is_reftype_htref_nullable(type)
-               || wasm_is_reftype_htref_non_nullable(type))
+        if (!((wasm_is_reftype_htref_nullabel(type)
+               || wasm_is_reftype_htref_non_nullabel(type))
               && wasm_is_refheaptype_typeidx(&ref_type->ref_ht_common))) {
             set_error_buf(error_buf, error_buf_size,
                           "type mismatch: expect (ref null $t) but got others");
@@ -9373,7 +9373,7 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
                             sizeof(float64));
                 ctx->const_cell_num += 2;
                 /* The const buf will be reversed, we use the second cell */
-                /* of the i64/f64 const so the finnal offset is corrent */
+                /* of the i64/f64 const so the final offset is correct */
                 operand_offset++;
                 break;
             case VALUE_TYPE_I64:
@@ -9405,7 +9405,7 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
         LOG_OP("#### new const [%d]: %ld\n", ctx->num_const,
                (int64)c->value.i64);
     }
-    /* use negetive index for const */
+    /* use negative index for const */
     operand_offset = -(operand_offset + 1);
     *offset = operand_offset;
     return true;
@@ -11300,7 +11300,7 @@ re_scan:
                  * CATCH Blocks */
                 RESET_STACK();
 
-                /* push types on the stack according to catched type */
+                /* push types on the stack according to caught type */
                 if (BLOCK_HAS_PARAM(new_block_type)) {
                     for (i = 0; i < new_block_type.u.type->param_count; i++)
                         PUSH_TYPE(new_block_type.u.type->types[i]);
@@ -11688,7 +11688,7 @@ re_scan:
                                       "unkown function type");
                         goto fail;
                     }
-                    if (!wasm_loader_pop_nullable_typeidx(loader_ctx, &type,
+                    if (!wasm_loader_pop_nullabel_typeidx(loader_ctx, &type,
                                                           &type_idx, error_buf,
                                                           error_buf_size)) {
                         goto fail;
@@ -12512,7 +12512,7 @@ re_scan:
                 WASMRefType ref_type;
 
                 /* POP (ref null ht) and get the converted (ref ht) */
-                if (!wasm_loader_pop_nullable_ht(loader_ctx, &type, &ref_type,
+                if (!wasm_loader_pop_nullabel_ht(loader_ctx, &type, &ref_type,
                                                  error_buf, error_buf_size)) {
                     goto fail;
                 }
@@ -12546,7 +12546,7 @@ re_scan:
                     - (loader_ctx->frame_csp - 1)->stack_cell_num;
 
                 /* POP (ref null ht) and get the converted (ref ht) */
-                if (!wasm_loader_pop_nullable_ht(loader_ctx, &type, &ref_type,
+                if (!wasm_loader_pop_nullabel_ht(loader_ctx, &type, &ref_type,
                                                  error_buf, error_buf_size)) {
                     goto fail;
                 }
@@ -12595,9 +12595,9 @@ re_scan:
                 PUSH_TYPE(local_type);
 
 #if WASM_ENABLE_GC != 0
-                /* Cannot get a non-nullable and unset local */
+                /* Cannot get a non-nullabel and unset local */
                 if (local_idx >= param_count
-                    && wasm_is_reftype_htref_non_nullable(local_type)
+                    && wasm_is_reftype_htref_non_nullabel(local_type)
                     && !wasm_loader_get_local_status(loader_ctx,
                                                      local_idx - param_count)) {
                     set_error_buf(error_buf, error_buf_size,
@@ -13643,7 +13643,7 @@ re_scan:
 
                             if (u32 >= module->data_seg_count) {
                                 set_error_buf(error_buf, error_buf_size,
-                                              "unknown data segement");
+                                              "unknown data segment");
                                 goto fail;
                             }
 
@@ -13662,7 +13662,7 @@ re_scan:
 
                             if (u32 >= module->table_seg_count) {
                                 set_error_buf(error_buf, error_buf_size,
-                                              "unknown element segement");
+                                              "unknown element segment");
                                 goto fail;
                             }
                             if (!wasm_reftype_is_subtype_of(
@@ -13929,12 +13929,12 @@ re_scan:
                             || opcode1 == WASM_OP_REF_TEST_NULLABLE)
                             PUSH_I32();
                         else {
-                            bool nullable =
+                            bool nullabel =
                                 (opcode1 == WASM_OP_REF_CAST_NULLABLE) ? true
                                                                        : false;
-                            if (heap_type >= 0 || !nullable) {
+                            if (heap_type >= 0 || !nullabel) {
                                 wasm_set_refheaptype_typeidx(
-                                    &wasm_ref_type.ref_ht_typeidx, nullable,
+                                    &wasm_ref_type.ref_ht_typeidx, nullabel,
                                     heap_type);
                                 PUSH_REF(wasm_ref_type.ref_type);
                             }
@@ -13953,7 +13953,7 @@ re_scan:
                         uint8 type_tmp, castflags;
                         uint32 depth;
                         int32 heap_type_dst;
-                        bool src_nullable, dst_nullable;
+                        bool src_nullabel, dst_nullabel;
 
                         CHECK_BUF(p, p_end, 1);
                         castflags = read_uint8(p);
@@ -13988,9 +13988,9 @@ re_scan:
                                           "invalid castflags");
                             break;
                         }
-                        src_nullable =
+                        src_nullabel =
                             (castflags == 1) || (castflags == 3) ? true : false;
-                        dst_nullable =
+                        dst_nullabel =
                             (castflags == 2) || (castflags == 3) ? true : false;
 
                         /* Pop and backup the stack top's ref type */
@@ -14001,14 +14001,14 @@ re_scan:
                         }
 
                         /* The reference type rt1 must be valid */
-                        if (!init_ref_type(module, &ref_type1, src_nullable,
+                        if (!init_ref_type(module, &ref_type1, src_nullabel,
                                            heap_type, error_buf,
                                            error_buf_size)) {
                             goto fail;
                         }
 
                         /* The reference type rt2 must be valid. */
-                        if (!init_ref_type(module, &ref_type2, dst_nullable,
+                        if (!init_ref_type(module, &ref_type2, dst_nullabel,
                                            heap_type_dst, error_buf,
                                            error_buf_size)) {
                             goto fail;

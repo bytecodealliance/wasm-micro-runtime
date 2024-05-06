@@ -41,7 +41,8 @@ MyCompiler::MyCompiler(llvm::orc::JITTargetMachineBuilder JTMB, cb_t cb,
   , JTMB(std::move(JTMB))
   , cb(cb)
   , cb_data(cb_data)
-{}
+{
+}
 
 class PrintStackSizes : public llvm::MachineFunctionPass
 {
@@ -59,7 +60,8 @@ PrintStackSizes::PrintStackSizes(cb_t cb, void *cb_data)
   : MachineFunctionPass(ID)
   , cb(cb)
   , cb_data(cb_data)
-{}
+{
+}
 
 char PrintStackSizes::ID = 0;
 
@@ -130,7 +132,7 @@ DEFINE_SIMPLE_CONVERSION_FUNCTIONS(llvm::orc::LLLazyJITBuilder,
                                    LLVMOrcLLLazyJITBuilderRef)
 
 void
-LLVMOrcLLJITBuilderSetCompileFuncitonCreatorWithStackSizesCallback(
+LLVMOrcLLJITBuilderSetCompileFunctionCreatorWithStackSizesCallback(
     LLVMOrcLLLazyJITBuilderRef Builder,
     void (*cb)(void *, const char *, size_t, size_t), void *cb_data)
 {

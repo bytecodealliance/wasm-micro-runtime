@@ -99,7 +99,7 @@ jobs:
         os: [ubuntu-20.04]
         platform: [linux-sgx]
         exclude:
-          # uncompatiable mode and feature
+          # incompatible mode and feature
           # MINI_LOADER only on INTERP mode
           - make_options_run_mode: $AOT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"

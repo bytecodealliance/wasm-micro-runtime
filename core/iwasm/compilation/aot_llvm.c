@@ -2393,7 +2393,7 @@ jit_stack_size_callback(void *user_data, const char *name, size_t namelen,
     stack_consumption_to_call_wrapped_func =
         musttail ? 0
                  : aot_estimate_stack_usage_for_function_call(
-                     comp_ctx, func_ctx->aot_func->func_type);
+                       comp_ctx, func_ctx->aot_func->func_type);
     LOG_VERBOSE("func %.*s stack %u + %zu + %u", (int)namelen, name,
                 stack_consumption_to_call_wrapped_func, stack_size, call_size);
 
@@ -2418,7 +2418,7 @@ orc_jit_create(AOTCompContext *comp_ctx)
     }
 
     if (comp_ctx->enable_stack_bound_check || comp_ctx->enable_stack_estimation)
-        LLVMOrcLLJITBuilderSetCompileFuncitonCreatorWithStackSizesCallback(
+        LLVMOrcLLJITBuilderSetCompileFunctionCreatorWithStackSizesCallback(
             builder, jit_stack_size_callback, comp_ctx);
 
     err = LLVMOrcJITTargetMachineBuilderDetectHost(&jtmb);

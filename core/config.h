@@ -384,7 +384,7 @@
 #define RESOURCE_REGISTRATION_NUM_MAX 16
 
 /* Max length of resource/event url */
-#define RESOUCE_EVENT_URL_LEN_MAX 256
+#define RESOURCE_EVENT_URL_LEN_MAX 256
 
 /* Default length of queue */
 #define DEFAULT_QUEUE_LENGTH 50

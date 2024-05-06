@@ -333,7 +333,7 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
 
     while (1) {
         if (timeout < 0) {
-            /* wait forever until it is notified or terminatied
+            /* wait forever until it is notified or terminated
                here we keep waiting and checking every second */
             os_cond_reltimedwait(&wait_node->wait_cond, lock,
                                  (uint64)timeout_1sec);
