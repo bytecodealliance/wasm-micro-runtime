@@ -2360,20 +2360,24 @@ execute_malloc_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
 #endif
     WASMExecEnv *exec_env_created = NULL;
     WASMModuleInstanceCommon *module_inst_old = NULL;
-    uint32 argv[3], argc;
+    union {
+        uint32 u32[3];
+        uint64 u64;
+    } argv;
+    uint32 argc;
     bool ret;
 
 #if WASM_ENABLE_MEMORY64 != 0
     bool is_memory64 = module_inst->memories[0]->is_memory64;
     if (is_memory64) {
         argc = 2;
-        PUT_I64_TO_ADDR(&argv[0], size);
+        PUT_I64_TO_ADDR(&argv.u64, size);
     }
     else
 #endif
     {
         argc = 1;
-        argv[0] = (uint32)size;
+        argv.u32[0] = (uint32)size;
     }
 
     /* if __retain is exported, then this module is compiled by
@@ -2384,7 +2388,7 @@ execute_malloc_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
         /* the malloc function from assemblyscript is:
             function __new(size: usize, id: u32)
             id = 0 means this is an ArrayBuffer object */
-        argv[argc] = 0;
+        argv.u32[argc] = 0;
         argc++;
     }
 
@@ -2425,10 +2429,10 @@ execute_malloc_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
         }
     }
 
-    ret = aot_call_function(exec_env, malloc_func, argc, argv);
+    ret = aot_call_function(exec_env, malloc_func, argc, argv.u32);
 
     if (retain_func && ret)
-        ret = aot_call_function(exec_env, retain_func, 1, argv);
+        ret = aot_call_function(exec_env, retain_func, 1, argv.u32);
 
     if (module_inst_old)
         /* Restore the existing exec_env's module inst */
@@ -2440,11 +2444,11 @@ execute_malloc_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
     if (ret) {
 #if WASM_ENABLE_MEMORY64 != 0
         if (is_memory64)
-            *p_result = GET_I64_FROM_ADDR(&argv[0]);
+            *p_result = GET_I64_FROM_ADDR(&argv.u64);
         else
 #endif
         {
-            *p_result = argv[0];
+            *p_result = argv.u32[0];
         }
     }
     return ret;
@@ -2459,18 +2463,22 @@ execute_free_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
 #endif
     WASMExecEnv *exec_env_created = NULL;
     WASMModuleInstanceCommon *module_inst_old = NULL;
-    uint32 argv[2], argc;
+    union {
+        uint32 u32[2];
+        uint64 u64;
+    } argv;
+    uint32 argc;
     bool ret;
 
 #if WASM_ENABLE_MEMORY64 != 0
     if (module_inst->memories[0]->is_memory64) {
-        PUT_I64_TO_ADDR(&argv[0], offset);
+        PUT_I64_TO_ADDR(&argv.u64, offset);
         argc = 2;
     }
     else
 #endif
     {
-        argv[0] = (uint32)offset;
+        argv.u32[0] = (uint32)offset;
         argc = 1;
     }
 
@@ -2511,7 +2519,7 @@ execute_free_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
         }
     }
 
-    ret = aot_call_function(exec_env, free_func, argc, argv);
+    ret = aot_call_function(exec_env, free_func, argc, argv.u32);
 
     if (module_inst_old)
         /* Restore the existing exec_env's module inst */
