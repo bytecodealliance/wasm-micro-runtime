@@ -4211,7 +4211,7 @@ llvm_jit_memory_init(WASMModuleInstance *module_inst, uint32 seg_index,
         (WASMModuleInstanceCommon *)module_inst, (uint64)dst);
 
     SHARED_MEMORY_LOCK(memory_inst);
-    bh_memcpy_s(maddr, (uint32)(memory_inst->memory_data_size - dst),
+    bh_memcpy_s(maddr, CLAMP_U64_TO_U32(memory_inst->memory_data_size - dst),
                 data + offset, len);
     SHARED_MEMORY_UNLOCK(memory_inst);
     return true;

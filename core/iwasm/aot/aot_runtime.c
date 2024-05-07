@@ -72,14 +72,6 @@ bh_static_assert(offsetof(AOTFrame, sp) == sizeof(uintptr_t) * 5);
 bh_static_assert(offsetof(AOTFrame, frame_ref) == sizeof(uintptr_t) * 6);
 bh_static_assert(offsetof(AOTFrame, lp) == sizeof(uintptr_t) * 7);
 
-#if WASM_ENABLE_BULK_MEMORY != 0
-static uint32
-clamp_u64_to_u32(uint64 value)
-{
-    return value > UINT32_MAX ? UINT32_MAX : (uint32)value;
-}
-#endif
-
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
@@ -2360,8 +2352,8 @@ aot_copy_exception(AOTModuleInstance *module_inst, char *exception_buf)
 static bool
 execute_malloc_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
                         AOTFunctionInstance *malloc_func,
-                        AOTFunctionInstance *retain_func, uint32 size,
-                        uint32 *p_result)
+                        AOTFunctionInstance *retain_func, uint64 size,
+                        uint64 *p_result)
 {
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     WASMExecEnv *exec_env_tls = wasm_runtime_get_exec_env_tls();
@@ -2381,7 +2373,7 @@ execute_malloc_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
 #endif
     {
         argc = 1;
-        argv[0] = size;
+        argv[0] = (uint32)size;
     }
 
     /* if __retain is exported, then this module is compiled by
@@ -2460,7 +2452,7 @@ execute_malloc_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
 
 static bool
 execute_free_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
-                      AOTFunctionInstance *free_func, uint32 offset)
+                      AOTFunctionInstance *free_func, uint64 offset)
 {
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     WASMExecEnv *exec_env_tls = wasm_runtime_get_exec_env_tls();
@@ -2539,7 +2531,7 @@ aot_module_malloc_internal(AOTModuleInstance *module_inst,
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
     AOTModule *module = (AOTModule *)module_inst->module;
     uint8 *addr = NULL;
-    uint32 offset = 0;
+    uint64 offset = 0;
 
     /* TODO: Memory64 size check based on memory idx type */
     bh_assert(size <= UINT32_MAX);
@@ -2571,7 +2563,7 @@ aot_module_malloc_internal(AOTModuleInstance *module_inst,
 
         if (!malloc_func
             || !execute_malloc_function(module_inst, exec_env, malloc_func,
-                                        retain_func, (uint32)size, &offset)) {
+                                        retain_func, size, &offset)) {
             return 0;
         }
         addr = offset ? (uint8 *)memory_inst->memory_data + offset : NULL;
@@ -3078,7 +3070,7 @@ aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index, uint32 offset,
         (WASMModuleInstanceCommon *)module_inst, (uint64)dst);
 
     SHARED_MEMORY_LOCK(memory_inst);
-    bh_memcpy_s(maddr, clamp_u64_to_u32(memory_inst->memory_data_size - dst),
+    bh_memcpy_s(maddr, CLAMP_U64_TO_U32(memory_inst->memory_data_size - dst),
                 data + offset, len);
     SHARED_MEMORY_UNLOCK(memory_inst);
     return true;

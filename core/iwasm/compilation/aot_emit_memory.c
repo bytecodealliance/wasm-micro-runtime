@@ -828,8 +828,7 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     LLVMTypeRef param_types[2], ret_type, func_type, func_ptr_type;
     int32 func_index;
 #if WASM_ENABLE_MEMORY64 != 0
-    LLVMBasicBlockRef check_page_size;
-    LLVMValueRef u32_max;
+    LLVMValueRef u32_max, u32_cmp_result;
 #endif
 
     if (!mem_size)
@@ -885,24 +884,6 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         }
     }
 
-#if WASM_ENABLE_MEMORY64 != 0
-    if (IS_MEMORY64) {
-        if (!(u32_max = I64_CONST(UINT32_MAX))) {
-            aot_set_last_error("llvm build const failed");
-            return false;
-        }
-        BUILD_ICMP(LLVMIntUGT, delta, u32_max, ret_value, "page_size_cmp");
-        if (!(check_page_size = LLVMAppendBasicBlockInContext(
-                  comp_ctx->context, func_ctx->func, "check_page_size"))) {
-            aot_set_last_error("llvm add basic block failed.");
-            goto fail;
-        }
-        if (!(aot_emit_exception(comp_ctx, func_ctx, EXCE_INTEGER_OVERFLOW,
-                                 true, ret_value, check_page_size)))
-            goto fail;
-    }
-#endif
-
     /* Call function aot_enlarge_memory() */
     param_values[0] = func_ctx->aot_inst;
     param_values[1] = LLVMBuildTrunc(comp_ctx->builder, delta, I32_TYPE, "");
@@ -913,8 +894,18 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     }
 
     BUILD_ICMP(LLVMIntUGT, ret_value, I8_ZERO, ret_value, "mem_grow_ret");
+#if WASM_ENABLE_MEMORY64 != 0
+    if (IS_MEMORY64) {
+        if (!(u32_max = I64_CONST(UINT32_MAX))) {
+            aot_set_last_error("llvm build const failed");
+            return false;
+        }
+        BUILD_ICMP(LLVMIntULE, delta, u32_max, u32_cmp_result, "page_size_cmp");
+        BUILD_OP(And, ret_value, u32_cmp_result, ret_value, "and");
+    }
+#endif
 
-    /* ret_value = ret_value == true ? delta : pre_page_count */
+    /* ret_value = ret_value == true ? pre_page_count : -1 */
     if (!(ret_value = LLVMBuildSelect(
               comp_ctx->builder, ret_value, mem_size,
               MEMORY64_COND_VALUE(I64_NEG_ONE, I32_NEG_ONE), "mem_grow_ret"))) {
