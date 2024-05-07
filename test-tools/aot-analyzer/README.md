@@ -21,6 +21,15 @@ $ cmake ..
 $ cmake --build .
 ```
 
+To analyze AoT files with GC feature enabled, you need to enable GC feature when compiling this tool:
+
+```console
+$ mkdir build
+$ cd build
+$ cmake -DWAMR_BUILD_GC=1 ..
+$ cmake --build .
+```
+
 ## Running aot-analyzer
 
 Some examples:

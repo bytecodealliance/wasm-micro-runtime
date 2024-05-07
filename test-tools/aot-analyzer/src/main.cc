@@ -95,6 +95,65 @@ InitStdio()
 #endif
 }
 
+void dump_value_type(uint8 type)
+{
+    switch (type) {
+        case VALUE_TYPE_I32:
+            printf("i32");
+            break;
+        case VALUE_TYPE_I64:
+            printf("i64");
+            break;
+        case VALUE_TYPE_F32:
+            printf("f32");
+            break;
+        case VALUE_TYPE_F64:
+            printf("f64");
+            break;
+        case VALUE_TYPE_V128:
+            printf("v128");
+            break;
+        case PACKED_TYPE_I8:
+            printf("i8");
+            break;
+        case PACKED_TYPE_I16:
+            printf("i16");
+            break;
+        case REF_TYPE_FUNCREF:
+            printf("funcref");
+            break;
+        case REF_TYPE_EXTERNREF:
+            printf("externref");
+            break;
+        case REF_TYPE_ANYREF:
+            printf("anyref");
+            break;
+        case REF_TYPE_EQREF:
+            printf("eqref");
+            break;
+        case REF_TYPE_I31REF:
+            printf("i31ref");
+            break;
+        case REF_TYPE_STRUCTREF:
+            printf("structref");
+            break;
+        case REF_TYPE_ARRAYREF:
+            printf("arrayref");
+            break;
+        case REF_TYPE_NULLREF:
+            printf("nullref");
+            break;
+        case REF_TYPE_NULLFUNCREF:
+            printf("nullfuncref");
+            break;
+        case REF_TYPE_NULLEXTERNREF:
+            printf("nullexternref");
+            break;
+        default:
+            printf("unknown");
+    }
+}
+
 void
 DumpInfo(AoTFile *aot)
 {
@@ -141,28 +200,49 @@ DumpDetails(AoTFile *aot)
     const uint32_t type_count = ((AOTModule *)(aot->GetModule()))->type_count;
     AOTType **types = ((AOTModule *)(aot->GetModule()))->types;
     printf("Types[%u] \n", type_count);
-
+#if WASM_ENABLE_GC != 0
     const char *wasm_type[] = { "function", "struct", "array" };
     for (uint32_t index = 0; index < type_count; index++) {
         AOTType *type = types[index];
         const uint16_t type_flag = type->type_flag;
+        printf("  -[%u] ", index);
         if (type_flag == WASM_TYPE_FUNC) {
-            printf("  -[%u] %s    param_count:%u    result_count:%u \n", index,
-                   wasm_type[type_flag], ((AOTFuncType *)type)->param_count,
-                   ((AOTFuncType *)type)->result_count);
+            wasm_dump_func_type(((AOTFuncType *)type));
         }
         else if (type_flag == WASM_TYPE_STRUCT) {
-            printf("  -[%u] %s    field_count:%u \n", index,
-                   wasm_type[type_flag], ((AOTStructType *)type)->field_count);
+            wasm_dump_struct_type(((AOTStructType *)type));
         }
         else if (type_flag == WASM_TYPE_ARRAY) {
-            printf("  -[%u] %s    elem_type:%d \n", index, wasm_type[type_flag],
-                   ((AOTArrayType *)type)->elem_type);
+            wasm_dump_array_type(((AOTArrayType *)type));
         }
         else {
             printf("  -[%u] unknown type \n", index);
         }
     }
+#else
+    for (uint32_t index = 0; index < type_count; index++) {
+        printf("  -[%u] ", index);
+        AOTType *type = types[index];
+        uint32_t i = 0;
+        printf("func [");
+
+    for (i = 0; i < type->param_count; i++) {
+        dump_value_type(type->types[i]);
+        if (i < (uint32)type->param_count - 1)
+            printf(" ");
+    }
+
+    printf("] -> [");
+
+    for (; i < (uint32)(type->param_count + type->result_count); i++) {
+        dump_value_type(type->types[i]);
+        if (i < (uint32)type->param_count + type->result_count - 1)
+            printf(" ");
+    }
+
+    printf("]\n");
+    }
+#endif
     printf("\n\n");
 
     // Imports
@@ -185,8 +265,8 @@ DumpDetails(AoTFile *aot)
     printf("Imports[%u] \n", import_memory_count + import_table_count
                                  + import_global_count + import_func_count);
 
-    // import memory
-    printf("  -memories[%u] \n", import_memory_count);
+    // import memories
+    printf("  -import_memories[%u] \n", import_memory_count);
     for (uint32_t index = 0; index < import_memory_count; index++) {
         AOTImportMemory memory = import_memories[index];
         printf("    -[%u] num_bytes_per_page:%5u    init_page_count:%5u    "
@@ -197,28 +277,38 @@ DumpDetails(AoTFile *aot)
     }
     printf("\n");
 
-    // import table
-    printf("  -tables[%u] \n", import_table_count);
+    // import tables
+    printf("  -import_tables[%u] \n", import_table_count);
     for (uint32_t index = 0; index < import_table_count; index++) {
         AOTImportTable table = import_tables[index];
-        printf("    -[%u] elem_type:%5d    init_size:%5u    max_size:%5u    "
+        printf("    -[%u] ", index);
+        printf("elem_type: ");
+        #if WASM_ENABLE_GC != 0
+        wasm_dump_value_type(table.elem_type, table.elem_ref_type);
+        #else
+        dump_value_type(table.elem_type);
+        #endif
+        printf("    init_size:%5u    max_size:%5u    "
                "module_name: %s    table_name: %s \n",
-               index, table.elem_type, table.table_init_size,
+               table.table_init_size,
                table.table_max_size, table.module_name, table.table_name);
     }
     printf("\n");
 
-    // import global
-    printf("  -globals[%u] \n", import_global_count);
+    // import globals
+    printf("  -import_globals[%u] \n", import_global_count);
     for (uint32_t index = 0; index < import_global_count; index++) {
         AOTImportGlobal global = import_globals[index];
-        printf("    -[%u] type:%5d    module_name: %s    global_name: %s \n",
-               index, global.type, global.module_name, global.global_name);
+        printf("    -[%u] ", index);
+        printf("type: ");
+        dump_value_type(global.type);
+        printf("    module_name: %s    global_name: %s \n",
+               global.module_name, global.global_name);
     }
     printf("\n");
 
-    // import function
-    printf("  -functions[%u] \n", import_func_count);
+    // import functions
+    printf("  -import_functions[%u] \n", import_func_count);
     for (uint32_t index = 0; index < import_func_count; index++) {
         AOTImportFunc func = import_funcs[index];
         printf("    -[%u] module_name: %s    function_name: %s \n", index,
@@ -251,11 +341,17 @@ DumpDetails(AoTFile *aot)
     const uint32_t table_count = ((AOTModule *)(aot->GetModule()))->table_count;
     AOTTable *tables = ((AOTModule *)(aot->GetModule()))->tables;
     printf("Tables[%u] \n", table_count);
-
     for (uint32_t index = 0; index < table_count; index++) {
         AOTTable table = tables[index];
-        printf("  -[%u] elem_type:%5d    init_size:%5u    max_size:%5u \n",
-               index, table.elem_type, table.table_init_size,
+        printf("  -[%u] ", index);
+        printf("elem_type: ");
+        #if WASM_ENABLE_GC != 0
+        wasm_dump_value_type(table.elem_type, table.elem_ref_type);
+        #else
+        dump_value_type(table.elem_type);
+        #endif
+        printf("    init_size:%5u    max_size:%5u \n",
+               table.table_init_size,
                table.table_max_size);
     }
     printf("\n\n");
@@ -283,8 +379,11 @@ DumpDetails(AoTFile *aot)
 
     for (uint32_t index = 0; index < global_count; index++) {
         AOTGlobal global = globals[index];
-        printf("  -[%u] type:%5d    mutable:%5d    offset:%5u \n", index,
-               global.type, global.is_mutable, global.data_offset);
+        printf("  -[%u] ", index);
+        printf("type: ");
+        dump_value_type(global.type);
+        printf("    is_mutable: %d    size: %u    data_offset: %u \n",
+               global.is_mutable, global.size, global.data_offset);
     }
     printf("\n\n");
 
@@ -333,7 +432,6 @@ DumpCompare(AoTFile *aot, WasmFile *wasm)
     WASMModuleMemConsumption aot_mem_conspn = aot->GetMemConsumption();
 
     WASMModule *wasm_module = (WASMModule *)(wasm->GetModule());
-    WASMModuleMemConsumption wasm_mem_conspn = wasm->GetMemConsumption();
 
     const uint32_t aot_func_count = aot_module->func_count;
     const uint32_t aot_code_size = aot_module->code_size;

@@ -17,9 +17,6 @@ endif ()
 set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
-add_definitions(-DWASM_ENABLE_GC=1)
-
-set (WAMR_BUILD_STRINGREF 1)
 set (WAMR_STRINGREF_IMPL_SOURCE "STUB")
 
 # Set WAMR_BUILD_TARGET, currently values supported:
@@ -55,24 +52,9 @@ if (NOT DEFINED WAMR_BUILD_AOT)
   set (WAMR_BUILD_AOT 1)
 endif ()
 
-if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
-  # Enable fast interpreter
-  set (WAMR_BUILD_FAST_INTERP 1)
-endif ()
-
-if (NOT DEFINED WAMR_BUILD_REF_TYPES)
-  # Disable reference types by default
-  set (WAMR_BUILD_REF_TYPES 0)
-endif ()
-
 if (NOT DEFINED WAMR_BUILD_MEMORY_PROFILING)
   # Enable reference types by default
   set (WAMR_BUILD_MEMORY_PROFILING 1)
-endif ()
-
-if (NOT DEFINED WASM_ENABLE_GC)
-  # Enable gc by default
-  set (WASM_ENABLE_GC 1)
 endif ()
 
 if (NOT DEFINED WAMR_BIG_ENDIAN)
