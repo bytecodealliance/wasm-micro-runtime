@@ -67,7 +67,7 @@
           "description": "Test opcodes: 'WASM_OP_REF_CAST', 'WASM_OP_REF_CAST_NULLABLE', 'WASM_OP_REF_AS_NON_NULL'"
         },
         {
-          "name": "type-subtyping",
+          "name": "type_subtyping",
           "description": "Test opcodes: 'WASM_OP_CALL_INDIRECT', 'WASM_OP_REF_FUNC'"
         },
         {
