@@ -1484,7 +1484,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint32 cond, count, fidx, tidx, frame_size = 0;
     uint32 all_cell_num = 0;
     int16 addr1, addr2, addr_ret = 0;
-    int32 didx, val;
+    int32 i, didx, val;
     uint8 *maddr = NULL;
     uint32 local_idx, local_offset, global_idx;
     uint8 opcode = 0, local_type, *global_addr;
@@ -5946,6 +5946,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             /* Initialize the local variables */
             memset(frame_lp + cur_func->param_cell_num, 0,
                    (uint32)(cur_func->local_cell_num * 4));
+            /* externref/funcref should be NULL_REF rather than 0 */
+            for (i = 0; i < cur_func->local_cell_num; i++) {
+                if (cur_wasm_func->local_types[i] == VALUE_TYPE_EXTERNREF
+                    || cur_wasm_func->local_types[i] == VALUE_TYPE_FUNCREF) {
+                    *(frame_lp + cur_func->param_cell_num + i) = NULL_REF;
+                }
+            }
 
 #if WASM_ENABLE_GC != 0
             /* frame->ip is used during GC root set enumeration, so we must
