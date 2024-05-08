@@ -64,13 +64,13 @@ BinaryFile::ReadModule()
 
     /* initialize runtime environment */
     if (!wasm_runtime_full_init(&init_args)) {
-        printf("Init runtime environment failed. \n");
+        printf("Init runtime environment failed.\n");
         return Result::Error;
     }
 
     file_data_ = (uint8 *)bh_read_file_to_buffer(file_name_, &file_size_);
     if (!file_data_) {
-        printf("Open Binary file [%s] failed. \n", file_name_);
+        printf("Open Binary file [%s] failed.\n", file_name_);
         wasm_runtime_destroy();
         return Result::Error;
     }
@@ -78,7 +78,7 @@ BinaryFile::ReadModule()
     module_ =
         wasm_runtime_load(file_data_, file_size_, error_buf, sizeof(error_buf));
     if (!module_) {
-        printf("Load Binary module failed. error: %s \n", error_buf);
+        printf("Load Binary module failed. error: %s\n", error_buf);
         wasm_runtime_free(file_data_);
         wasm_runtime_destroy();
         return Result::Error;
@@ -98,7 +98,7 @@ void ANALYZER_PRINTF_FORMAT(2, 3) BinaryFile::PrintError(const char *format,
     ErrorLevel error_level = ErrorLevel::Error;
     ANALYZER_SNPRINTF_ALLOCA(buffer, length, format);
     Error error(error_level, buffer);
-    fprintf(stderr, "%07" PRIzx ": %s: %s \n", current_pos_,
+    fprintf(stderr, "%07" PRIzx ": %s: %s\n", current_pos_,
             GetErrorLevelName(error_level), buffer);
 }
 

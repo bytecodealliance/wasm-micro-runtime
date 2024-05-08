@@ -40,7 +40,7 @@ OptionParser::OptionParser(const char *program_name, const char *description)
         exit(0);
     });
     AddOption("version", "Print version information", []() {
-        printf("%s \n", ANALYZER_VERSION_STRING);
+        printf("%s\n", ANALYZER_VERSION_STRING);
         exit(0);
     });
 }
@@ -131,7 +131,7 @@ OptionParser::Errorf(const char *format, ...)
 void
 OptionParser::DefaultError(const std::string &message)
 {
-    ANALYZER_FATAL("%s \n", message.c_str());
+    ANALYZER_FATAL("%s\n", message.c_str());
 }
 
 void
@@ -286,8 +286,8 @@ OptionParser::PrintHelp()
     }
 
     printf("\n\n");
-    printf("%s \n", description_.c_str());
-    printf("options: \n");
+    printf("%s\n", description_.c_str());
+    printf("options:\n");
 
     const size_t kExtraSpace = 8;
     size_t longest_name_length = 0;
@@ -338,7 +338,7 @@ OptionParser::PrintHelp()
         if (!option.help.empty()) {
             line += option.help;
         }
-        printf("%s \n", line.c_str());
+        printf("%s\n", line.c_str());
     }
 }
 

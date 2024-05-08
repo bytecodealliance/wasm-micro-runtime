@@ -159,48 +159,48 @@ void
 DumpInfo(AoTFile *aot)
 {
     const AOTTargetInfo target_info = aot->GetTargetInfo();
-    printf("AOT File Information: \n\n");
-    printf("Binary type: %s \n",
+    printf("AOT File Information:\n\n");
+    printf("Binary type: %s\n",
            aot->GetBinTypeName(target_info.bin_type).c_str());
-    printf("ABI type: %d \n", target_info.abi_type);
-    printf("Exectuion type: %s \n",
+    printf("ABI type: %d\n", target_info.abi_type);
+    printf("Exectuion type: %s\n",
            aot->GetExectuionTypeName(target_info.e_type).c_str());
-    printf("Exectuion machine: %s \n",
+    printf("Exectuion machine: %s\n",
            aot->GetExectuionMachineName(target_info.e_machine).c_str());
-    printf("Exectuion version: %u \n", target_info.e_version);
-    printf("Exectuion flags: %u \n", target_info.e_flags);
-    printf("Feature flags: %ld \n", target_info.feature_flags);
-    printf("Reserved: %ld \n", target_info.reserved);
-    printf("Arch: %s \n", target_info.arch);
+    printf("Exectuion version: %u\n", target_info.e_version);
+    printf("Exectuion flags: %u\n", target_info.e_flags);
+    printf("Feature flags: %ld\n", target_info.feature_flags);
+    printf("Reserved: %ld\n", target_info.reserved);
+    printf("Arch: %s\n", target_info.arch);
 }
 
 void
 DumpTextSize(AoTFile *aot)
 {
     const AOTTargetInfo target_info = aot->GetTargetInfo();
-    printf("%s:       file format <%s> \n\n", aot->GetFileName(),
+    printf("%s:       file format <%s>\n\n", aot->GetFileName(),
            aot->GetBinTypeName(target_info.bin_type).c_str());
-    printf("Text size: \n");
+    printf("Text size:\n");
 
     const uint32_t literal_size =
         ((AOTModule *)(aot->GetModule()))->literal_size;
     const uint32_t code_size = ((AOTModule *)(aot->GetModule()))->code_size;
-    printf("   literal size= %u Bytes \n", literal_size);
-    printf("      code size= %u Bytes \n", code_size);
+    printf("   literal size= %u Bytes\n", literal_size);
+    printf("      code size= %u Bytes\n", code_size);
 }
 
 void
 DumpDetails(AoTFile *aot)
 {
     const AOTTargetInfo target_info = aot->GetTargetInfo();
-    printf("%s:          file format <%s> \n\n", aot->GetFileName(),
+    printf("%s:          file format <%s>\n\n", aot->GetFileName(),
            aot->GetBinTypeName(target_info.bin_type).c_str());
-    printf("Details: \n\n");
+    printf("Details:\n\n");
 
     // Types
     const uint32_t type_count = ((AOTModule *)(aot->GetModule()))->type_count;
     AOTType **types = ((AOTModule *)(aot->GetModule()))->types;
-    printf("Types[%u] \n", type_count);
+    printf("Types[%u]\n", type_count);
 #if WASM_ENABLE_GC != 0
     const char *wasm_type[] = { "function", "struct", "array" };
     for (uint32_t index = 0; index < type_count; index++) {
@@ -217,7 +217,7 @@ DumpDetails(AoTFile *aot)
             wasm_dump_array_type(((AOTArrayType *)type));
         }
         else {
-            printf("  -[%u] unknown type \n", index);
+            printf("  -[%u] unknown type\n", index);
         }
     }
 #else
@@ -263,15 +263,15 @@ DumpDetails(AoTFile *aot)
         ((AOTModule *)(aot->GetModule()))->import_func_count;
     AOTImportFunc *import_funcs =
         ((AOTModule *)(aot->GetModule()))->import_funcs;
-    printf("Imports[%u] \n", import_memory_count + import_table_count
-                                 + import_global_count + import_func_count);
+    printf("Imports[%u]\n", import_memory_count + import_table_count
+                                + import_global_count + import_func_count);
 
     // import memories
-    printf("  -import_memories[%u] \n", import_memory_count);
+    printf("  -import_memories[%u]\n", import_memory_count);
     for (uint32_t index = 0; index < import_memory_count; index++) {
         AOTImportMemory memory = import_memories[index];
         printf("    -[%u] num_bytes_per_page:%5u    init_page_count:%5u    "
-               "max_page_count:%5u    module_name: %s    memory_name: %s \n",
+               "max_page_count:%5u    module_name: %s    memory_name: %s\n",
                index, memory.num_bytes_per_page, memory.mem_init_page_count,
                memory.mem_max_page_count, memory.module_name,
                memory.memory_name);
@@ -279,7 +279,7 @@ DumpDetails(AoTFile *aot)
     printf("\n");
 
     // import tables
-    printf("  -import_tables[%u] \n", import_table_count);
+    printf("  -import_tables[%u]\n", import_table_count);
     for (uint32_t index = 0; index < import_table_count; index++) {
         AOTImportTable table = import_tables[index];
         printf("    -[%u] ", index);
@@ -290,29 +290,29 @@ DumpDetails(AoTFile *aot)
         dump_value_type(table.elem_type);
 #endif
         printf("    init_size:%5u    max_size:%5u    "
-               "module_name: %s    table_name: %s \n",
+               "module_name: %s    table_name: %s\n",
                table.table_init_size, table.table_max_size, table.module_name,
                table.table_name);
     }
     printf("\n");
 
     // import globals
-    printf("  -import_globals[%u] \n", import_global_count);
+    printf("  -import_globals[%u]\n", import_global_count);
     for (uint32_t index = 0; index < import_global_count; index++) {
         AOTImportGlobal global = import_globals[index];
         printf("    -[%u] ", index);
         printf("type: ");
         dump_value_type(global.type);
-        printf("    module_name: %s    global_name: %s \n", global.module_name,
+        printf("    module_name: %s    global_name: %s\n", global.module_name,
                global.global_name);
     }
     printf("\n");
 
     // import functions
-    printf("  -import_functions[%u] \n", import_func_count);
+    printf("  -import_functions[%u]\n", import_func_count);
     for (uint32_t index = 0; index < import_func_count; index++) {
         AOTImportFunc func = import_funcs[index];
-        printf("    -[%u] module_name: %s    function_name: %s \n", index,
+        printf("    -[%u] module_name: %s    function_name: %s\n", index,
                func.module_name, func.func_name);
     }
     printf("\n\n");
@@ -324,7 +324,7 @@ DumpDetails(AoTFile *aot)
     sorted_func_ptrs = sort_func_ptrs(((AOTModule *)(aot->GetModule())));
 
     if (sorted_func_ptrs) {
-        printf("Function[%u] \n", func_count);
+        printf("Function[%u]\n", func_count);
         for (uint32_t index = 0; index < func_count; index++) {
             const uint32_t func_size =
                 index + 1 < func_count
@@ -333,15 +333,16 @@ DumpDetails(AoTFile *aot)
                     : code_size
                           + (uintptr_t)(((AOTModule *)(aot->GetModule()))->code)
                           - (uintptr_t)(sorted_func_ptrs[index].ptr);
-            printf("  -[%u] code_size= %u Bytes \n", index, func_size);
+            printf("  -[%u] code_size= %u Bytes\n", index, func_size);
         }
+        wasm_runtime_free(sorted_func_ptrs);
         printf("\n\n");
     }
 
     // Tables
     const uint32_t table_count = ((AOTModule *)(aot->GetModule()))->table_count;
     AOTTable *tables = ((AOTModule *)(aot->GetModule()))->tables;
-    printf("Tables[%u] \n", table_count);
+    printf("Tables[%u]\n", table_count);
     for (uint32_t index = 0; index < table_count; index++) {
         AOTTable table = tables[index];
         printf("  -[%u] ", index);
@@ -351,7 +352,7 @@ DumpDetails(AoTFile *aot)
 #else
         dump_value_type(table.elem_type);
 #endif
-        printf("    init_size:%5u    max_size:%5u \n", table.table_init_size,
+        printf("    init_size:%5u    max_size:%5u\n", table.table_init_size,
                table.table_max_size);
     }
     printf("\n\n");
@@ -360,12 +361,12 @@ DumpDetails(AoTFile *aot)
     const uint32_t memory_count =
         ((AOTModule *)(aot->GetModule()))->memory_count;
     AOTMemory *memories = ((AOTModule *)(aot->GetModule()))->memories;
-    printf("Memories[%u] \n", memory_count);
+    printf("Memories[%u]\n", memory_count);
 
     for (uint32_t index = 0; index < memory_count; index++) {
         AOTMemory memory = memories[index];
         printf("  -[%u] memory_flags:%5u    bytes_per_page:%5u    "
-               "init_page_count:%5u    max_page_count:%5u \n",
+               "init_page_count:%5u    max_page_count:%5u\n",
                index, memory.memory_flags, memory.num_bytes_per_page,
                memory.mem_init_page_count, memory.mem_max_page_count);
     }
@@ -375,14 +376,14 @@ DumpDetails(AoTFile *aot)
     const uint32_t global_count =
         ((AOTModule *)(aot->GetModule()))->global_count;
     AOTGlobal *globals = ((AOTModule *)(aot->GetModule()))->globals;
-    printf("Globals[%u] \n", global_count);
+    printf("Globals[%u]\n", global_count);
 
     for (uint32_t index = 0; index < global_count; index++) {
         AOTGlobal global = globals[index];
         printf("  -[%u] ", index);
         printf("type: ");
         dump_value_type(global.type);
-        printf("    is_mutable: %d    size: %u    data_offset: %u \n",
+        printf("    is_mutable: %d    size: %u    data_offset: %u\n",
                global.is_mutable, global.size, global.data_offset);
     }
     printf("\n\n");
@@ -391,11 +392,11 @@ DumpDetails(AoTFile *aot)
     const uint32_t export_count =
         ((AOTModule *)(aot->GetModule()))->export_count;
     AOTExport *exports = ((AOTModule *)(aot->GetModule()))->exports;
-    printf("Exports[%u] \n", export_count);
+    printf("Exports[%u]\n", export_count);
 
     for (uint32_t index = 0; index < export_count; index++) {
         AOTExport expt = exports[index];
-        printf("  -[%u] kind:%5d    index:%5u    name: %s \n", index, expt.kind,
+        printf("  -[%u] kind:%5d    index:%5u    name: %s\n", index, expt.kind,
                expt.index, expt.name);
     }
     printf("\n\n");
@@ -407,18 +408,18 @@ DumpDetails(AoTFile *aot)
     const uint32_t data_section_count =
         ((AOTModule *)(aot->GetModule()))->data_section_count;
 
-    printf("Codes[%u] \n", aot_code_size);
-    printf("  -code \n");
-    printf("    -code_size: %u Bytes \n", code_size);
+    printf("Codes[%u]\n", aot_code_size);
+    printf("  -code\n");
+    printf("    -code_size: %u Bytes\n", code_size);
     printf("\n");
-    printf("  -literal \n");
-    printf("    -literal_size: %u Bytes \n", literal_size);
+    printf("  -literal\n");
+    printf("    -literal_size: %u Bytes\n", literal_size);
     printf("\n");
-    printf("  -data section \n");
+    printf("  -data section\n");
     for (uint32_t index = 0; index < data_section_count; index++) {
         AOTObjectDataSection *obj_data =
             ((AOTModule *)(aot->GetModule()))->data_sections + index;
-        printf("    -[%u] code_size:%5u Bytes    name: %s \n", index,
+        printf("    -[%u] code_size:%5u Bytes    name: %s\n", index,
                obj_data->size, obj_data->name);
     }
     printf("\n\n");
@@ -437,13 +438,18 @@ DumpCompare(AoTFile *aot, WasmFile *wasm)
     const uint32_t aot_code_size = aot_module->code_size;
     struct func_info *sorted_func_ptrs = NULL;
     sorted_func_ptrs = sort_func_ptrs(((AOTModule *)(aot->GetModule())));
+    if (!sorted_func_ptrs) {
+        printf("sort AoT functions failed.\n");
+        return;
+    }
 
     const uint32_t wasm_func_count = wasm_module->function_count;
     WASMFunction **wasm_functions = wasm_module->functions;
 
     if (aot_func_count != wasm_func_count) {
         printf("The number of AoT functions does not match the number of Wasm "
-               "functions. \n");
+               "functions.\n");
+        wasm_runtime_free(sorted_func_ptrs);
         return;
     }
 
@@ -451,19 +457,19 @@ DumpCompare(AoTFile *aot, WasmFile *wasm)
     // print function Comparison Details
     printf(
         "|--------------------------------------------------------------------"
-        "-------------------| \n");
+        "-------------------|\n");
     printf(
         "|                             Function Code Size Compare             "
-        "                   | \n");
+        "                   |\n");
     printf(
         "|--------------------------------------------------------------------"
-        "-------------------| \n");
+        "-------------------|\n");
     printf(
         "|   ID   |  AoT Function Code Size   |  Wasm Function Code Size   |  "
-        "expansion multiple | \n");
+        "expansion multiple |\n");
     printf(
         "|--------------------------------------------------------------------"
-        "-------------------| \n");
+        "-------------------|\n");
 
     for (uint32_t index = 0; index < aot_func_count; index++) {
         const uint32_t aot_func_size =
@@ -477,30 +483,32 @@ DumpCompare(AoTFile *aot, WasmFile *wasm)
         printf(
             "|  %4d  |    %10d Bytes       |    %10d Bytes        |  %10.2f    "
             " "
-            "    | \n",
+            "    |\n",
             index, aot_func_size, wasm_func_size,
             (aot_func_size * 1.0) / wasm_func_size);
         printf(
             "|-----------------------------------------------------------------"
             "-"
-            "---------------------| \n");
+            "---------------------|\n");
     }
+    wasm_runtime_free(sorted_func_ptrs);
+
     printf("\n\n");
 
     printf(
         "|--------------------------------------------------------------------"
-        "---| \n");
+        "---|\n");
     printf(
         "|                        Total Code Size Compare                     "
-        "   | \n");
+        "   |\n");
     printf(
         "|--------------------------------------------------------------------"
-        "---| \n");
-    printf("|  AoT code size= %10d Bytes  |  Wasm code size= %10d Bytes | \n",
+        "---|\n");
+    printf("|  AoT code size= %10d Bytes  |  Wasm code size= %10d Bytes |\n",
            aot_code_size, wasm_code_size);
     printf(
         "|--------------------------------------------------------------------"
-        "---| \n");
+        "---|\n");
 }
 
 int
@@ -512,11 +520,11 @@ ProgramMain(int argc, char **argv)
     if (!s_objdump_options.info && !s_objdump_options.text_size
         && !s_objdump_options.details && !s_objdump_options.compare) {
         fprintf(stderr,
-                "At least one of the following switches must be given: \n");
-        fprintf(stderr, " -i/ --info \n");
-        fprintf(stderr, " -t/ --text-size \n");
-        fprintf(stderr, " -x/ --details \n");
-        fprintf(stderr, " -c/ --compare \n");
+                "At least one of the following switches must be given:\n");
+        fprintf(stderr, " -i/ --info\n");
+        fprintf(stderr, " -t/ --text-size\n");
+        fprintf(stderr, " -x/ --details\n");
+        fprintf(stderr, " -c/ --compare\n");
         return 1;
     }
 
@@ -525,7 +533,7 @@ ProgramMain(int argc, char **argv)
         BinaryFile *reader = NULL;
         const char *dot = strrchr(filename, '.');
         if (!dot) {
-            printf("bad file name: %s \n", filename);
+            printf("bad file name: %s\n", filename);
             continue;
         }
 
@@ -536,12 +544,12 @@ ProgramMain(int argc, char **argv)
             reader = new WasmFile(filename);
         }
         else {
-            printf("unkown file extension: %s \n", dot);
+            printf("unkown file extension: %s\n", dot);
             continue;
         }
 
         if (reader && reader->ReadModule() == Result::Error) {
-            printf("read module failed. \n");
+            printf("read module failed.\n");
             continue;
         }
 
@@ -559,13 +567,13 @@ ProgramMain(int argc, char **argv)
             if (module_type == Wasm_Module_AoT) {
                 AoTFile *aot = dynamic_cast<AoTFile *>(reader);
                 if (!aot) {
-                    printf("[DumpInfo]: Reader cast failed. \n");
+                    printf("[DumpInfo]: Reader cast failed.\n");
                     continue;
                 }
                 DumpInfo(aot);
             }
             else {
-                printf("[DumpInfo]: Wrong file format, not an AoT file. \n");
+                printf("[DumpInfo]: Wrong file format, not an AoT file.\n");
             }
         }
     }
@@ -580,14 +588,13 @@ ProgramMain(int argc, char **argv)
             if (module_type == Wasm_Module_AoT) {
                 AoTFile *aot = dynamic_cast<AoTFile *>(reader);
                 if (!aot) {
-                    printf("[DumpTextSize]: Reader cast failed. \n");
+                    printf("[DumpTextSize]: Reader cast failed.\n");
                     continue;
                 }
                 DumpTextSize(aot);
             }
             else {
-                printf(
-                    "[DumpTextSize]: Wrong file format, not an AoT file. \n");
+                printf("[DumpTextSize]: Wrong file format, not an AoT file.\n");
             }
         }
     }
@@ -602,13 +609,13 @@ ProgramMain(int argc, char **argv)
             if (module_type == Wasm_Module_AoT) {
                 AoTFile *aot = dynamic_cast<AoTFile *>(reader);
                 if (!aot) {
-                    printf("[DumpDetails]: Reader cast failed. \n");
+                    printf("[DumpDetails]: Reader cast failed.\n");
                     continue;
                 }
                 DumpDetails(aot);
             }
             else {
-                printf("[DumpDetails]: Wrong file format, not an AoT file. \n");
+                printf("[DumpDetails]: Wrong file format, not an AoT file.\n");
             }
         }
     }
@@ -618,7 +625,7 @@ ProgramMain(int argc, char **argv)
         printf("\n");
 
         if (readers.size() != 2) {
-            printf("[DumpCompare]: Illegal number of file parameters. \n");
+            printf("[DumpCompare]: Illegal number of file parameters.\n");
             return 1;
         }
 
@@ -635,11 +642,11 @@ ProgramMain(int argc, char **argv)
             }
         }
         if (!aot) {
-            printf("[DumpCompare]: an aot file is required for comparison. \n");
+            printf("[DumpCompare]: an aot file is required for comparison.\n");
             return 1;
         }
         if (!wasm) {
-            printf("[DumpCompare]: a wasm file is required for comparison. \n");
+            printf("[DumpCompare]: a wasm file is required for comparison.\n");
             return 1;
         }
         DumpCompare(aot, wasm);
