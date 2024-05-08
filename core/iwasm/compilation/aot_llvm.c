@@ -2418,7 +2418,7 @@ orc_jit_create(AOTCompContext *comp_ctx)
     }
 
     if (comp_ctx->enable_stack_bound_check || comp_ctx->enable_stack_estimation)
-        LLVMOrcLLJITBuilderSetCompileFuncitonCreatorWithStackSizesCallback(
+        LLVMOrcLLJITBuilderSetCompileFunctionCreatorWithStackSizesCallback(
             builder, jit_stack_size_callback, comp_ctx);
 
     err = LLVMOrcJITTargetMachineBuilderDetectHost(&jtmb);

@@ -554,7 +554,7 @@ compile_int_div(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
     else {
-        /* Check divied by zero */
+        /* Check divided by zero */
         LLVM_BUILD_ICMP(LLVMIntEQ, right, is_i32 ? I32_ZERO : I64_ZERO,
                         cmp_div_zero, "cmp_div_zero");
         ADD_BASIC_BLOCK(check_div_zero_succ, "check_div_zero_success");

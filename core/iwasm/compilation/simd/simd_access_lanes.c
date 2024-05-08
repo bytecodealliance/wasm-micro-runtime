@@ -85,7 +85,7 @@ aot_compile_simd_swizzle_x86(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     if (!(condition = LLVMBuildICmp(comp_ctx->builder, LLVMIntUGE, mask,
                                     max_lanes, "compare_with_16"))) {
-        HANDLE_FAILURE("LLVMBuldICmp");
+        HANDLE_FAILURE("LLVMBuildICmp");
         goto fail;
     }
 
@@ -363,7 +363,7 @@ aot_compile_simd_replace(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    return simd_bitcast_and_push_v128(comp_ctx, func_ctx, result, "reesult");
+    return simd_bitcast_and_push_v128(comp_ctx, func_ctx, result, "result");
 
 fail:
     return false;

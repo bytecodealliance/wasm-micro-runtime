@@ -3966,7 +3966,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
         orc_main_dylib = LLVMOrcLLLazyJITGetMainJITDylib(comp_ctx->orc_jit);
         if (!orc_main_dylib) {
             aot_set_last_error(
-                "failed to get orc orc_jit main dynmaic library");
+                "failed to get orc orc_jit main dynamic library");
             return false;
         }
 
@@ -4191,7 +4191,7 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
                 /*
                  * move the temporary .su file to the specified location.
                  *
-                 * Note: the former is automatimally inferred from the output
+                 * Note: the former is automatically inferred from the output
                  * filename (file_name here) by clang.
                  *
                  * Note: the latter might be user-specified.
@@ -4247,7 +4247,7 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
 #endif /* end of !(defined(_WIN32) || defined(_WIN32_)) */
 
     if (!strncmp(LLVMGetTargetName(target), "arc", 3))
-        /* Emit to assmelby file instead for arc target
+        /* Emit to assembly file instead for arc target
            as it cannot emit to object file */
         file_type = LLVMAssemblyFile;
 

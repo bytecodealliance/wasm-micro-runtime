@@ -685,7 +685,7 @@ add_f64xi64_intrinsics(AOTCompContext *comp_ctx)
 }
 
 static void
-add_common_float_integer_convertion(AOTCompContext *comp_ctx)
+add_common_float_integer_conversion(AOTCompContext *comp_ctx)
 {
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_TO_F32);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_U32_TO_F32);
@@ -851,7 +851,7 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
             add_f32_common_intrinsics(comp_ctx);
             add_f64_common_intrinsics(comp_ctx);
             add_i64_common_intrinsics(comp_ctx);
-            add_common_float_integer_convertion(comp_ctx);
+            add_common_float_integer_conversion(comp_ctx);
         }
     }
     else if (!strncmp(comp_ctx->target_arch, "riscv", 5)) {
@@ -862,7 +862,7 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
          */
         add_f32_common_intrinsics(comp_ctx);
         add_f64_common_intrinsics(comp_ctx);
-        add_common_float_integer_convertion(comp_ctx);
+        add_common_float_integer_conversion(comp_ctx);
         if (!strncmp(comp_ctx->target_arch, "riscv32", 7)) {
             add_i64_common_intrinsics(comp_ctx);
         }
@@ -876,7 +876,7 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
         add_i32_common_intrinsics(comp_ctx);
         add_f64_common_intrinsics(comp_ctx);
         add_i64_common_intrinsics(comp_ctx);
-        add_common_float_integer_convertion(comp_ctx);
+        add_common_float_integer_conversion(comp_ctx);
         add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_CONST);
         add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_CONST);
         add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_CONST);

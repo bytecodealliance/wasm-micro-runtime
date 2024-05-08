@@ -79,7 +79,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 #### **Enable memory64 feature**
 - **WAMR_BUILD_MEMORY64**=1/0, default to disable if not set
 
-> Note: Currently, the memory64 feature is only supported in classic interpreter running mode. 
+> Note: Currently, the memory64 feature is only supported in classic interpreter running mode.
 
 #### **Enable thread manager**
 - **WAMR_BUILD_THREAD_MGR**=1/0, default to disable if not set
@@ -137,7 +137,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 #### **Enable Exception Handling**
 - **WAMR_BUILD_EXCE_HANDLING**=1/0, default to disable if not set
 
-> Note: Currently, the exception handling feature is only supported in classic interpreter running mode. 
+> Note: Currently, the exception handling feature is only supported in classic interpreter running mode.
 
 #### **Enable Garbage Collection**
 - **WAMR_BUILD_GC**=1/0, default to disable if not set
@@ -210,7 +210,7 @@ Currently we only profile the memory consumption of module, module_instance and 
 > }
 > ```
 >
-> and then use `cmake -DWAMR_BH_VPRINTF=my_vprintf ..` to pass the callback function, or add `BH_VPRINTF=my_vprintf` macro for the compiler, e.g. add line `add_defintions(-DBH_VPRINTF=my_vprintf)` in CMakeListst.txt. See [basic sample](../samples/basic/src/main.c) for a usage example.
+> and then use `cmake -DWAMR_BH_VPRINTF=my_vprintf ..` to pass the callback function, or add `BH_VPRINTF=my_vprintf` macro for the compiler, e.g. add line `add_definitions(-DBH_VPRINTF=my_vprintf)` in CMakeLists.txt. See [basic sample](../samples/basic/src/main.c) for a usage example.
 
 #### **WAMR_BH_LOG**=<log_callback>, default to disable if not set
 > Note: if the log_callback function is provided by the developer, WAMR logs are redirected to such callback. For example:
@@ -285,7 +285,7 @@ Currently we only profile the memory consumption of module, module_instance and 
 - **WAMR_BUILD_AOT_INTRINSICS**=1/0, enable the AOT intrinsic functions, default to enable if not set. These functions can be called from the AOT code when `--disable-llvm-intrinsics` flag or `--enable-builtin-intrinsics=<intr1,intr2,...>` flag is used by wamrc to generate the AOT file.
 > Note: See [Tuning the XIP intrinsic functions](./xip.md#tuning-the-xip-intrinsic-functions) for more details.
 
-#### **Configurale memory access boundary check**
+#### **Configurable memory access boundary check**
 - **WAMR_CONFIGUABLE_BOUNDS_CHECKS**=1/0, default to disable if not set
 > Note: If it is enabled, allow to run `iwasm --disable-bounds-checks` to disable the memory access boundary checks for interpreter mode.
 

@@ -45,7 +45,7 @@ simd_build_bitmask(const AOTCompContext *comp_ctx,
         goto fail;
     }
 
-    /* fill every bit in a lange with its sign bit */
+    /* fill every bit in a lane with its sign bit */
     if (!(ashr_distance = simd_build_splat_const_integer_vector(
               comp_ctx, element_type[itype], lane_bits[itype] - 1,
               lanes[itype]))) {

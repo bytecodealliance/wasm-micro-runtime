@@ -203,7 +203,7 @@ PartitionFunction(GlobalValueSet Requested)
                  * if the jit wrapper (which has "_wrapper" suffix in
                  * the name) is requested, compile others in the group too.
                  * otherwise, only compile the requested one.
-                 * (and possibly the correspondig wrapped function,
+                 * (and possibly the corresponding wrapped function,
                  * which has AOT_FUNC_INTERNAL_PREFIX.)
                  */
                 wrapper = strstr(gvname + prefix_len, "_wrapper");

@@ -135,8 +135,8 @@ jobs:
         os: [ubuntu-20.04]
         platform: [android, linux]
         exclude:
-          # uncompatiable feature and platform
-          # uncompatiable mode and feature
+          # incompatible feature and platform
+          # incompatible mode and feature
           # MULTI_MODULE only on INTERP mode and AOT mode
           - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
@@ -290,8 +290,8 @@ jobs:
             "-DWAMR_BUILD_MEMORY64=1",
           ]
         exclude:
-          # uncompatiable feature and platform
-          # uncompatiable mode and feature
+          # incompatible feature and platform
+          # incompatible mode and feature
           # MULTI_MODULE only on INTERP mode and AOT mode
           - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
@@ -619,7 +619,7 @@ jobs:
             ubuntu_version: "22.04"
 
         exclude:
-          # uncompatiable modes and features
+          # incompatible modes and features
           - os: ubuntu-20.04
             sanitizer: tsan
           # asan works only for aot now

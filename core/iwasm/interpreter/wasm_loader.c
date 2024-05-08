@@ -1143,14 +1143,14 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                     case WASM_OP_ANY_CONVERT_EXTERN:
                     {
                         set_error_buf(error_buf, error_buf_size,
-                                      "unsuppoted constant expression of "
+                                      "unsupported constant expression of "
                                       "extern.internalize");
                         goto fail;
                     }
                     case WASM_OP_EXTERN_CONVERT_ANY:
                     {
                         set_error_buf(error_buf, error_buf_size,
-                                      "unsuppoted constant expression of "
+                                      "unsupported constant expression of "
                                       "extern.externalize");
                         goto fail;
                     }
@@ -5433,7 +5433,7 @@ orcjit_thread_callback(void *arg)
     uint32 i;
 
 #if WASM_ENABLE_FAST_JIT != 0
-    /* Compile fast jit funcitons of this group */
+    /* Compile fast jit functions of this group */
     for (i = group_idx; i < func_count; i += group_stride) {
         if (!jit_compiler_compile(module, i + module->import_function_count)) {
             LOG_ERROR("failed to compile fast jit function %u\n", i);
@@ -5547,7 +5547,7 @@ orcjit_thread_callback(void *arg)
                     i + j * group_stride + module->import_function_count,
                     (void *)func_addr);
 
-                /* Try to switch to call this llvm jit funtion instead of
+                /* Try to switch to call this llvm jit function instead of
                    fast jit function from fast jit jitted code */
                 jit_compiler_set_call_to_llvm_jit(
                     module,
@@ -6431,7 +6431,7 @@ check_wasi_abi_compatibility(const WASMModule *module,
 {
     /**
      * be careful with:
-     * wasi compatiable modules(command/reactor) which don't import any wasi
+     * wasi compatible modules(command/reactor) which don't import any wasi
      * APIs. Usually, a command has to import a "prox_exit" at least, but a
      * reactor can depend on nothing. At the same time, each has its own entry
      * point.
@@ -6508,7 +6508,7 @@ check_wasi_abi_compatibility(const WASMModule *module,
         }
     }
 
-    /* filter out non-wasi compatiable modules */
+    /* filter out non-wasi compatible modules */
     if (!module->import_wasi_api && !start && !initialize) {
         return true;
     }
@@ -6521,7 +6521,7 @@ check_wasi_abi_compatibility(const WASMModule *module,
 
     /*
      * there is at least one of `_start` and `_initialize` in below cases.
-     * according to the assumption, they should be all wasi compatiable
+     * according to the assumption, they should be all wasi compatible
      */
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -6786,7 +6786,7 @@ wasm_loader_unload(WASMModule *module)
             WASMRegisteredModule *next = bh_list_elem_next(node);
             bh_list_remove(module->import_module_list, node);
             /*
-             * unload(sub_module) will be trigged during runtime_destroy().
+             * unload(sub_module) will be triggered during runtime_destroy().
              * every module in the global module list will be unloaded one by
              * one. so don't worry.
              */
@@ -7049,9 +7049,9 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                 break;
 
             case WASM_OP_BR_TABLE:
-                read_leb_uint32(p, p_end, count); /* lable num */
+                read_leb_uint32(p, p_end, count); /* label num */
 #if WASM_ENABLE_FAST_INTERP != 0
-                for (i = 0; i <= count; i++) /* lableidxs */
+                for (i = 0; i <= count; i++) /* labelidxs */
                     skip_leb_uint32(p, p_end);
 #else
                 p += count + 1;
@@ -7062,7 +7062,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 
 #if WASM_ENABLE_FAST_INTERP == 0
             case EXT_OP_BR_TABLE_CACHE:
-                read_leb_uint32(p, p_end, count); /* lable num */
+                read_leb_uint32(p, p_end, count); /* label num */
                 while (*p == WASM_OP_NOP)
                     p++;
                 break;
@@ -7086,7 +7086,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 #if WASM_ENABLE_REF_TYPES == 0 && WASM_ENABLE_GC == 0
                 u8 = read_uint8(p); /* 0x00 */
 #else
-                skip_leb_uint32(p, p_end); /* talbeidx */
+                skip_leb_uint32(p, p_end); /* tableidx */
 #endif
                 break;
 
@@ -7661,7 +7661,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             {
                 WASMDebugInstance *debug_instance =
                     wasm_exec_env_get_instance(exec_env);
-                char orignal_opcode[1];
+                char original_opcode[1];
                 uint64 size = 1;
                 WASMModuleInstance *module_inst =
                     (WASMModuleInstance *)exec_env->module_inst;
@@ -7670,12 +7670,12 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                                     : ~0;
                 if (debug_instance) {
                     if (wasm_debug_instance_get_obj_mem(debug_instance, offset,
-                                                        orignal_opcode, &size)
+                                                        original_opcode, &size)
                         && size == 1) {
                         LOG_VERBOSE("WASM loader find OP_BREAK , recover it "
                                     "with  %02x: ",
-                                    orignal_opcode[0]);
-                        opcode = orignal_opcode[0];
+                                    original_opcode[0]);
+                        opcode = original_opcode[0];
                         goto op_break_retry;
                     }
                 }
@@ -9373,7 +9373,7 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
                             sizeof(float64));
                 ctx->const_cell_num += 2;
                 /* The const buf will be reversed, we use the second cell */
-                /* of the i64/f64 const so the finnal offset is corrent */
+                /* of the i64/f64 const so the final offset is correct */
                 operand_offset++;
                 break;
             case VALUE_TYPE_I64:
@@ -9405,7 +9405,7 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
         LOG_OP("#### new const [%d]: %ld\n", ctx->num_const,
                (int64)c->value.i64);
     }
-    /* use negetive index for const */
+    /* use negative index for const */
     operand_offset = -(operand_offset + 1);
     *offset = operand_offset;
     return true;
@@ -11300,7 +11300,7 @@ re_scan:
                  * CATCH Blocks */
                 RESET_STACK();
 
-                /* push types on the stack according to catched type */
+                /* push types on the stack according to caught type */
                 if (BLOCK_HAS_PARAM(new_block_type)) {
                     for (i = 0; i < new_block_type.u.type->param_count; i++)
                         PUSH_TYPE(new_block_type.u.type->types[i]);
@@ -13643,7 +13643,7 @@ re_scan:
 
                             if (u32 >= module->data_seg_count) {
                                 set_error_buf(error_buf, error_buf_size,
-                                              "unknown data segement");
+                                              "unknown data segment");
                                 goto fail;
                             }
 
@@ -13662,7 +13662,7 @@ re_scan:
 
                             if (u32 >= module->table_seg_count) {
                                 set_error_buf(error_buf, error_buf_size,
-                                              "unknown element segement");
+                                              "unknown element segment");
                                 goto fail;
                             }
                             if (!wasm_reftype_is_subtype_of(
