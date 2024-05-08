@@ -11333,7 +11333,7 @@ re_scan:
             }
 #endif /* end of WASM_ENABLE_EXCE_HANDLING != 0 */
             case WASM_OP_ELSE:
-handle_op_else:
+            handle_op_else:
             {
                 BranchBlock *block = NULL;
                 BlockType block_type;

@@ -6213,7 +6213,7 @@ re_scan:
             }
 
             case WASM_OP_ELSE:
-handle_op_else:
+            handle_op_else:
             {
                 BranchBlock *block = NULL;
                 BlockType block_type = (loader_ctx->frame_csp - 1)->block_type;
