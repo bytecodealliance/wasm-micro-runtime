@@ -1484,7 +1484,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint32 cond, count, fidx, tidx, frame_size = 0;
     uint32 all_cell_num = 0;
     int16 addr1, addr2, addr_ret = 0;
-    int32 i, didx, val;
+    int32 didx, val;
     uint8 *maddr = NULL;
     uint32 local_idx, local_offset, global_idx;
     uint8 opcode = 0, local_type, *global_addr;
@@ -5905,6 +5905,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         else {
             WASMFunction *cur_wasm_func = cur_func->u.func;
             uint32 cell_num_of_local_stack;
+#if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
+            uint32 i;
+#endif
 
             cell_num_of_local_stack = cur_func->param_cell_num
                                       + cur_func->local_cell_num
