@@ -221,16 +221,16 @@ aot_create_import_globals(const WASMModule *module, bool gc_enabled,
         WASMGlobalImport *import_global = &module->import_globals[i].u.global;
         import_globals[i].module_name = import_global->module_name;
         import_globals[i].global_name = import_global->field_name;
-        import_globals[i].type = import_global->type;
-        import_globals[i].is_mutable = import_global->is_mutable;
+        import_globals[i].common.type = import_global->common.type;
+        import_globals[i].common.is_mutable = import_global->common.is_mutable;
         import_globals[i].global_data_linked =
             import_global->global_data_linked;
 
         import_globals[i].data_offset_64bit = data_offset_64bit;
         import_globals[i].data_offset_32bit = data_offset_32bit;
 
-        get_value_type_size(import_global->type, gc_enabled, &value_size_64bit,
-                            &value_size_32bit);
+        get_value_type_size(import_global->common.type, gc_enabled,
+                            &value_size_64bit, &value_size_32bit);
 
         import_globals[i].size_64bit = value_size_64bit;
         import_globals[i].size_32bit = value_size_32bit;
@@ -269,15 +269,15 @@ aot_create_globals(const WASMModule *module, bool gc_enabled,
     /* Create each global */
     for (i = 0; i < module->global_count; i++) {
         WASMGlobal *global = &module->globals[i];
-        globals[i].type = global->type;
-        globals[i].is_mutable = global->is_mutable;
+        globals[i].common.type = global->common.type;
+        globals[i].common.is_mutable = global->common.is_mutable;
         memcpy(&globals[i].init_expr, &global->init_expr,
                sizeof(global->init_expr));
 
         globals[i].data_offset_64bit = data_offset_64bit;
         globals[i].data_offset_32bit = data_offset_32bit;
 
-        get_value_type_size(global->type, gc_enabled, &value_size_64bit,
+        get_value_type_size(global->common.type, gc_enabled, &value_size_64bit,
                             &value_size_32bit);
 
         globals[i].size_64bit = value_size_64bit;

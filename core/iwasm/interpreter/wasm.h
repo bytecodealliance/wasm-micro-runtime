@@ -584,11 +584,15 @@ typedef struct WASMTagImport {
 } WASMTagImport;
 #endif
 
+typedef struct WASMGlobalCommon {
+    uint8 type;
+    bool is_mutable;
+} WASMGlobalCommon;
+
 typedef struct WASMGlobalImport {
     char *module_name;
     char *field_name;
-    uint8 type;
-    bool is_mutable;
+    WASMGlobalCommon common;
     bool is_linked;
     /* global data after linked */
     WASMValue global_data_linked;
@@ -705,8 +709,7 @@ struct WASMTag {
 #endif
 
 struct WASMGlobal {
-    uint8 type;
-    bool is_mutable;
+    WASMGlobalCommon common;
 #if WASM_ENABLE_GC != 0
     WASMRefType *ref_type;
 #endif
