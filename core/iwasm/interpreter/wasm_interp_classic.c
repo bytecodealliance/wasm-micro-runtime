@@ -6545,6 +6545,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             /* Initialize the local variables */
             memset(frame_lp + cur_func->param_cell_num, 0,
                    (uint32)(cur_func->local_cell_num * 4));
+
+#if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
             /* externref/funcref should be NULL_REF rather than 0 */
             for (i = 0; i < cur_func->local_cell_num; i++) {
                 if (cur_wasm_func->local_types[i] == VALUE_TYPE_EXTERNREF
@@ -6552,6 +6554,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     *(frame_lp + cur_func->param_cell_num + i) = NULL_REF;
                 }
             }
+#endif
 
             /* Push function block as first block */
             cell_num = func_type->ret_cell_num;
