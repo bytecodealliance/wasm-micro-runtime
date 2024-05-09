@@ -6213,6 +6213,7 @@ re_scan:
             }
 
             case WASM_OP_ELSE:
+            handle_op_else:
             {
                 BranchBlock *block = NULL;
                 BlockType block_type = (loader_ctx->frame_csp - 1)->block_type;
@@ -6272,26 +6273,21 @@ re_scan:
                                        error_buf_size))
                     goto fail;
 
-                /* if no else branch, and return types do not match param types,
-                 * fail */
+                /* if there is no else branch, make a virtual else opcode for
+                   easier integrity check and to copy the correct results to
+                   the block return address for fast-interp mode:
+                   change if block from `if ... end` to `if ... else end` */
                 if (cur_block->label_type == LABEL_TYPE_IF
                     && !cur_block->else_addr) {
-                    uint32 block_param_count = 0, block_ret_count = 0;
-                    uint8 *block_param_types = NULL, *block_ret_types = NULL;
-                    BlockType *cur_block_type = &cur_block->block_type;
-
-                    block_param_count = block_type_get_param_types(
-                        cur_block_type, &block_param_types);
-                    block_ret_count = block_type_get_result_types(
-                        cur_block_type, &block_ret_types);
-                    bh_assert(block_param_count == block_ret_count
-                              && (!block_param_count
-                                  || !memcmp(block_param_types, block_ret_types,
-                                             block_param_count)));
-                    (void)block_ret_types;
-                    (void)block_ret_count;
-                    (void)block_param_types;
-                    (void)block_param_count;
+                    opcode = WASM_OP_ELSE;
+                    p--;
+#if WASM_ENABLE_FAST_INTERP != 0
+                    p_org = p;
+                    skip_label();
+                    disable_emit = false;
+                    emit_label(opcode);
+#endif
+                    goto handle_op_else;
                 }
 
                 POP_CSP();
