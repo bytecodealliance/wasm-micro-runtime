@@ -5906,7 +5906,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             WASMFunction *cur_wasm_func = cur_func->u.func;
             uint32 cell_num_of_local_stack;
 #if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
-            uint32 i;
+            uint32 i, local_cell_idx;
 #endif
 
             cell_num_of_local_stack = cur_func->param_cell_num
@@ -5952,11 +5952,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
 #if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
             /* externref/funcref should be NULL_REF rather than 0 */
+            local_cell_idx = cur_func->param_cell_num;
             for (i = 0; i < cur_func->local_cell_num; i++) {
                 if (cur_wasm_func->local_types[i] == VALUE_TYPE_EXTERNREF
                     || cur_wasm_func->local_types[i] == VALUE_TYPE_FUNCREF) {
-                    *(frame_lp + cur_func->param_cell_num + i) = NULL_REF;
+                    *(frame_lp + local_cell_idx) = NULL_REF;
                 }
+                local_cell_idx +=
+                    wasm_value_type_cell_num(cur_wasm_func->local_types[i]);
             }
 #endif
 
