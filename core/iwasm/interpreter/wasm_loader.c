@@ -11406,9 +11406,10 @@ re_scan:
                                        error_buf_size))
                     goto fail;
 
-                /* if no else branch, make a virtual else opcode for easy
-                   checking and to copy the correct results to the block
-                   return address in fast-interp mode */
+                /* if there is no else branch, make a virtual else opcode for
+                   easier integrity check and to copy the correct results to
+                   the block return address for fast-interp mode:
+                   change if block from `if ... end` to `if ... else end` */
                 if (cur_block->label_type == LABEL_TYPE_IF
                     && !cur_block->else_addr) {
                     opcode = WASM_OP_ELSE;
