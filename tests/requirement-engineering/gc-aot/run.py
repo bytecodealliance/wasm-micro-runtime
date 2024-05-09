@@ -10,10 +10,10 @@ from typing import List, Dict, Tuple
 import json
 
 WORK_DIR = os.getcwd()
-WAMR_DIR = os.path.join(WORK_DIR, "../../../wamr")
+WAMR_DIR = os.path.join(WORK_DIR, "../../..")
 IWASM_CMD = os.path.join(
-    WORK_DIR, "../../../wamr/product-mini/platforms/linux/build/iwasm")
-WAMRC_CMD = os.path.join(WORK_DIR, "../../../wamr/wamr-compiler/build/wamrc")
+    WORK_DIR, "../../../product-mini/platforms/linux/build/iwasm")
+WAMRC_CMD = os.path.join(WORK_DIR, "../../../wamr-compiler/build/wamrc")
 
 SUBREQUIREMENT_DESCRIPTIONS = {
     1: ("633", "Modify existing opcodes to conform to the semantics of the GC proposal when needed."),
