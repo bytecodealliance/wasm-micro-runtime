@@ -28,6 +28,7 @@ function help()
     echo "-e enable exception handling"
     echo "-x test SGX"
     echo "-w enable WASI threads"
+    echo "-a test all runtimes in sightglass suite"
     echo "-b use the wabt binary release package instead of compiling from the source code"
     echo "-g build iwasm with debug version"
     echo "-v enable GC heap verification"
@@ -37,6 +38,10 @@ function help()
     echo "-C enable code coverage collect"
     echo "-j set the platform to test"
     echo "-T set sanitizer to use in tests(ubsan|tsan|asan)"
+    echo "-r [requirement name] [N [N ...]] specify a requirement name followed by one or more"
+    echo "                                  subrequirement IDs, if no subrequirement is specificed,"
+    echo "                                  it will run all subrequirements. When this optin is used,"
+    echo "                                  only run requirement tests"
 }
 
 OPT_PARSED=""
@@ -73,8 +78,11 @@ QEMU_FIRMWARE=""
 WASI_TESTSUITE_COMMIT="ee807fc551978490bf1c277059aabfa1e589a6c2"
 TARGET_LIST=("AARCH64" "AARCH64_VFP" "ARMV7" "ARMV7_VFP" "THUMBV7" "THUMBV7_VFP" \
              "RISCV32" "RISCV32_ILP32F" "RISCV32_ILP32D" "RISCV64" "RISCV64_LP64F" "RISCV64_LP64D")
+REQUIREMENT_NAME=""
+# Initialize an empty array for subrequirement IDs
+SUBREQUIREMENT_IDS=()
 
-while getopts ":s:cabgvt:m:MCpSXexwWPGQF:j:T:" opt
+while getopts ":s:cabgvt:m:MCpSXexwWPGQF:j:T:r:" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -192,6 +200,19 @@ do
         echo "sanitizer is " ${OPTARG}
         WAMR_BUILD_SANITIZER=${OPTARG}
         ;;
+        r)
+        REQUIREMENT_NAME=$OPTARG
+        # get next arg if there are multiple values after -r
+        eval "nxarg=\${$((OPTIND))}"
+        # loop until the next symbol '-' or the end of arguments
+        while [[ "${nxarg}" =~ ^[0-9]+$ ]]; do
+            SUBREQUIREMENT_IDS+=("$nxarg")
+            OPTIND=$((OPTIND+1))
+            eval "nxarg=\${$((OPTIND))}"
+        done
+        echo "Only Test requirement name: ${REQUIREMENT_NAME}"
+        [[ ${#SUBREQUIREMENT_IDS[@]} -ne 0 ]] && echo "Choose subrequirement IDs: ${SUBREQUIREMENT_IDS[@]}"
+        ;;
         ?)
         help
         exit 1
@@ -219,6 +240,7 @@ readonly REPORT_DIR=${WORK_DIR}/report/${DATE}
 mkdir -p ${REPORT_DIR}
 
 readonly WAMR_DIR=${WORK_DIR}/../../..
+readonly REQUIREMENT_SCRIPT_DIR=${WORK_DIR}/../requirement-engineering-test-script
 
 if [[ ${SGX_OPT} == "--sgx" ]];then
     readonly IWASM_LINUX_ROOT_DIR="${WAMR_DIR}/product-mini/platforms/linux-sgx"
@@ -442,17 +464,17 @@ function spec_test()
         popd
         if [ ! -d "exception-handling" ];then
             echo "exception-handling not exist, clone it from github"
-            git clone -b master --single-branch https://github.com/WebAssembly/exception-handling 
+            git clone -b master --single-branch https://github.com/WebAssembly/exception-handling
         fi
         pushd exception-handling
 
         # restore and clean everything
         git reset --hard 51c721661b671bb7dc4b3a3acb9e079b49778d36
-        
+
         if [[ ${ENABLE_MULTI_MODULE} == 0 ]]; then
             git apply ../../spec-test-script/exception_handling.patch
         fi
-        
+
         popd
         echo $(pwd)
     fi
@@ -731,6 +753,8 @@ function collect_standalone()
         ./collect_coverage.sh "${CODE_COV_FILE}" "${STANDALONE_DIR}/test-running-modes/c-embed/build"
         echo "Collect code coverage of standalone test-ts2"
         ./collect_coverage.sh "${CODE_COV_FILE}" "${STANDALONE_DIR}/test-ts2/build"
+        echo "Collect code coverage of standalone test-module-malloc"
+        ./collect_coverage.sh "${CODE_COV_FILE}" "${STANDALONE_DIR}/test-module-malloc/build"
 
         popd > /dev/null 2>&1
     fi
@@ -858,6 +882,13 @@ function collect_coverage()
 
 function trigger()
 {
+    # Check if REQUIREMENT_NAME is set, if set, only calling requirement test and early return
+    if [[ -n $REQUIREMENT_NAME ]]; then
+        python ${REQUIREMENT_SCRIPT_DIR}/run_requirement.py -o ${REPORT_DIR}/ -r "$REQUIREMENT_NAME" "${SUBREQUIREMENT_IDS[@]}" 
+        # early return with the python script exit status
+        return $?
+    fi
+
     local EXTRA_COMPILE_FLAGS=""
     # default enabled features
     EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_BULK_MEMORY=1"
@@ -907,6 +938,7 @@ function trigger()
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_EXCE_HANDLING=1"
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_TAIL_CALL=1"
     fi
+
     echo "SANITIZER IS" $WAMR_BUILD_SANITIZER
 
     if [[ "$WAMR_BUILD_SANITIZER" == "ubsan" ]]; then
