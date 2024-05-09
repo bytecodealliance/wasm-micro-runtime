@@ -241,7 +241,7 @@ readonly DATE=$(date +%Y-%m-%d_%H:%M:%S)
 readonly REPORT_DIR=${WORK_DIR}/report/${DATE}
 mkdir -p ${REPORT_DIR}
 
-readonly WAMR_DIR=${WORK_DIR}/../../../wamr
+readonly WAMR_DIR=${WORK_DIR}/../../..
 readonly REQUIREMENT_SCRIPT_DIR=${WORK_DIR}/../requirement-engineering-test-script
 
 if [[ ${SGX_OPT} == "--sgx" ]];then

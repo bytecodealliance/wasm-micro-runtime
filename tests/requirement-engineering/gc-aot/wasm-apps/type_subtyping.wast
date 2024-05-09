@@ -112,8 +112,6 @@
   )
 )
 
-;; don't support recursive type equality and subtype check
-(;
 (module
   (rec (type $f1 (sub (func))) (type (struct (field (ref $f1)))))
   (rec (type $f2 (sub (func))) (type (struct (field (ref $f2)))))
@@ -137,7 +135,6 @@
   (func $g (type $g2))
   (global (ref $g1) (ref.func $g))
 )
-;)
 
 (assert_invalid
   (module
@@ -159,8 +156,6 @@
   (global (ref $f1) (ref.func $g))
 )
 
-;; don't support recursive type equality and subtype check
-(;
 (module
   (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
   (rec (type $f2 (sub (func))) (type $s2 (sub (struct (field (ref $f2))))))
@@ -206,7 +201,6 @@
   (global (ref $g12) (ref.func $g12))
   (global (ref $g22) (ref.func $g12))
 )
-;)
 
 (assert_invalid
   (module
@@ -232,8 +226,6 @@
 
 ;; Runtime types
 
-;; don't support recursive type equality and subtype check
-(;
 (module
   (type $t0 (sub (func (result (ref null func)))))
   (rec (type $t1 (sub $t0 (func (result (ref null $t1))))))
@@ -294,7 +286,6 @@
 (assert_trap (invoke "fail4") "cast")
 (assert_trap (invoke "fail5") "cast")
 (assert_trap (invoke "fail6") "cast")
-;)
 
 (module
   (type $t1 (sub (func)))
@@ -325,8 +316,6 @@
 (assert_trap (invoke "fail3") "cast")
 (assert_trap (invoke "fail4") "cast")
 
-;; don't support recursive type equality and subtype check
-(;
 (module
   (rec (type $f1 (sub (func))) (type (struct (field (ref $f1)))))
   (rec (type $f2 (sub (func))) (type (struct (field (ref $f2)))))
@@ -356,7 +345,6 @@
   )
 )
 (assert_return (invoke "run") (i32.const 1))
-;)
 
 (module
   (rec (type $f1 (sub (func))) (type (struct (field (ref $f1)))))
@@ -381,8 +369,6 @@
 )
 (assert_return (invoke "run") (i32.const 1))
 
-;; don't support recursive type equality and subtype check
-(;
 (module
   (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
   (rec (type $f2 (sub (func))) (type $s2 (sub (struct (field (ref $f2))))))
@@ -441,9 +427,7 @@
   (i32.const 1) (i32.const 1) (i32.const 1) (i32.const 1)
   (i32.const 1) (i32.const 1) (i32.const 1) (i32.const 1)
 )
-;)
 
-(; we use normalized function type index
 (module
   (rec (type $f11 (sub (func))) (type $f12 (sub $f11 (func))))
   (rec (type $f21 (sub (func))) (type $f22 (sub $f11 (func))))
@@ -453,7 +437,6 @@
   )
 )
 (assert_return (invoke "run") (i32.const 0))
-;)
 
 (module
   (rec (type $f01 (sub (func))) (type $f02 (sub $f01 (func))))
@@ -562,15 +545,15 @@
   (func (import "M3" "g") (type $g1))
 )
 
-;; (module
-;;   (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
-;;   (rec (type $f2 (sub (func))) (type $s2 (sub (struct (field (ref $f2))))))
-;;   (rec
-;;     (type $g2 (sub $f2 (func)))
-;;     (type (sub $s2 (struct (field (ref $f1) (ref $f2) (ref $f1) (ref $f2) (ref $g2)))))
-;;   )
-;;   (func (export "g") (type $g2))
-;; )
+(module
+  (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
+  (rec (type $f2 (sub (func))) (type $s2 (sub (struct (field (ref $f2))))))
+  (rec
+    (type $g2 (sub $f2 (func)))
+    (type (sub $s2 (struct (field (ref $f1) (ref $f2) (ref $f1) (ref $f2) (ref $g2)))))
+  )
+  (func (export "g") (type $g2))
+)
 (register "M4")
 (module
   (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
@@ -612,16 +595,16 @@
   (func (import "M6" "g") (type $f1))
 )
 
-;; (module
-;;   (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
-;;   (rec (type $f2 (sub (func))) (type $s2 (sub (struct (field (ref $f2))))))
-;;   (rec
-;;     (type $g2 (sub $f2 (func)))
-;;     (type (sub $s2 (struct (field (ref $f1) (ref $f2) (ref $f1) (ref $f2) (ref $g2)))))
-;;   )
-;;   (rec (type $h (sub $g2 (func))) (type (struct)))
-;;   (func (export "h") (type $h))
-;; )
+(module
+  (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
+  (rec (type $f2 (sub (func))) (type $s2 (sub (struct (field (ref $f2))))))
+  (rec
+    (type $g2 (sub $f2 (func)))
+    (type (sub $s2 (struct (field (ref $f1) (ref $f2) (ref $f1) (ref $f2) (ref $g2)))))
+  )
+  (rec (type $h (sub $g2 (func))) (type (struct)))
+  (func (export "h") (type $h))
+)
 ;; (register "M7")
 (module
   (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))

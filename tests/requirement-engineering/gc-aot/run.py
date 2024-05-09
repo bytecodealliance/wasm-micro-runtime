@@ -28,7 +28,7 @@ def test_subrequirement(id: int) -> Dict[Tuple[str, str], bool]:
     test_cases = {}
     result = {}
 
-    with open('test-cases.json') as config_file:
+    with open('test_cases.json') as config_file:
         config = json.load(config_file)
         for req in config["sub-requirements"]:
             if req['req_id'] == id:

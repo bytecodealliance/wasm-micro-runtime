@@ -12,11 +12,9 @@ IWASM_DIR = os.path.join(
     WORK_DIR, "../../../product-mini/platforms/linux")
 
 
-def compile_llvm(verbose: bool):
+def compile_llvm():
     print("============ compile llvm =============")
     os.chdir(os.path.join(WAMR_DIR, "wamr-compiler"))
-    print(WORK_DIR)
-    os.system("ls")
     exit_status = os.system("./build_llvm.sh")
     assert exit_status >> 8 == 0, "compile llvm failed, add -v for detail error output"
     print("============ compile llvm successful =============")
@@ -54,21 +52,21 @@ def compile_iwasm(verbose: bool):
     print("============ compile iwasm successful =============")
 
 
-def compile_spec_interpreter(verbose: bool):
+def compile_spec_interpreter():
     print("============ compile spec interpreter =============")
 
     os.chdir(WORK_DIR)
-    exit_status = os.system("./build-spec-interpreter.sh")
+    exit_status = os.system("./build_spec_interpreter.sh")
 
     assert exit_status >> 8 == 0, "compile spec interpreter failed."
     print("============ compile spec interpreter successful =============")
 
 
 def build(verbose: bool) -> None:
-    compile_llvm(True)
+    compile_llvm()
     compile_wamrc(verbose)
     compile_iwasm(verbose)
-    compile_spec_interpreter(verbose)
+    compile_spec_interpreter()
     return
 
 
