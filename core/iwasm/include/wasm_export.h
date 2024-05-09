@@ -75,8 +75,8 @@ typedef enum {
 struct WASMFuncType;
 typedef struct WASMFuncType *wasm_func_type_t;
 
-struct WASMGlobalCommon;
-typedef struct WASMGlobalCommon *wasm_global_type_t;
+struct WASMGlobalType;
+typedef struct WASMGlobalType *wasm_global_type_t;
 
 typedef struct wasm_import_t {
     const char *module_name;

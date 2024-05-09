@@ -3796,7 +3796,7 @@ wasm_runtime_get_import_type(WASMModuleCommon *const module, int32 import_index,
             import_type->kind = WASM_IMPORT_EXPORT_KIND_GLOBAL;
             import_type->linked = aot_import_global->is_linked;
             import_type->u.global_type =
-                (WASMGlobalCommon *)&aot_import_global->common;
+                (WASMGlobalType *)&aot_import_global->type;
             return;
         }
 
@@ -3848,7 +3848,7 @@ wasm_runtime_get_import_type(WASMModuleCommon *const module, int32 import_index,
             case WASM_IMPORT_EXPORT_KIND_GLOBAL:
                 import_type->linked = wasm_import->u.global.is_linked;
                 import_type->u.global_type =
-                    (WASMGlobalCommon *)&wasm_import->u.global.common;
+                    (WASMGlobalType *)&wasm_import->u.global.type;
                 break;
             case WASM_IMPORT_EXPORT_KIND_TABLE:
                 /* not supported */
@@ -3933,7 +3933,7 @@ wasm_runtime_get_export_type(WASMModuleCommon *const module, int32 export_index,
                     &aot_module
                          ->globals[aot_export->index
                                    - aot_module->import_global_count]
-                         .common;
+                         .type;
                 break;
             case WASM_IMPORT_EXPORT_KIND_TABLE:
                 /* not supported */
@@ -3975,7 +3975,7 @@ wasm_runtime_get_export_type(WASMModuleCommon *const module, int32 export_index,
                     &wasm_module
                          ->globals[wasm_export->index
                                    - wasm_module->import_global_count]
-                         .common;
+                         .type;
                 break;
             case WASM_IMPORT_EXPORT_KIND_TABLE:
                 /* not supported */
@@ -4082,7 +4082,7 @@ wasm_global_type_get_valkind(const wasm_global_type_t global_type)
 {
     bh_assert(global_type);
 
-    return val_type_to_val_kind(global_type->type);
+    return val_type_to_val_kind(global_type->val_type);
 }
 
 bool
@@ -6051,7 +6051,7 @@ aot_mark_all_externrefs(AOTModuleInstance *module_inst)
     const AOTTableInstance *table_inst;
 
     for (i = 0; i < module->global_count; i++, global++) {
-        if (global->common.type == VALUE_TYPE_EXTERNREF) {
+        if (global->type.val_type == VALUE_TYPE_EXTERNREF) {
             mark_externref(
                 *(uint32 *)(module_inst->global_data + global->data_offset));
         }
@@ -6380,14 +6380,14 @@ wasm_runtime_get_export_global_type(const WASMModuleCommon *module_comm,
         if (export->index < module->import_global_count) {
             WASMGlobalImport *import_global =
                 &((module->import_globals + export->index)->u.global);
-            *out_val_type = import_global->common.type;
-            *out_mutability = import_global->common.is_mutable;
+            *out_val_type = import_global->type.val_type;
+            *out_mutability = import_global->type.is_mutable;
         }
         else {
             WASMGlobal *global =
                 module->globals + (export->index - module->import_global_count);
-            *out_val_type = global->common.type;
-            *out_mutability = global->common.is_mutable;
+            *out_val_type = global->type.val_type;
+            *out_mutability = global->type.is_mutable;
         }
         return true;
     }
@@ -6400,14 +6400,14 @@ wasm_runtime_get_export_global_type(const WASMModuleCommon *module_comm,
         if (export->index < module->import_global_count) {
             AOTImportGlobal *import_global =
                 module->import_globals + export->index;
-            *out_val_type = import_global->common.type;
-            *out_mutability = import_global->common.is_mutable;
+            *out_val_type = import_global->type.val_type;
+            *out_mutability = import_global->type.is_mutable;
         }
         else {
             AOTGlobal *global =
                 module->globals + (export->index - module->import_global_count);
-            *out_val_type = global->common.type;
-            *out_mutability = global->common.is_mutable;
+            *out_val_type = global->type.val_type;
+            *out_mutability = global->type.is_mutable;
         }
         return true;
     }

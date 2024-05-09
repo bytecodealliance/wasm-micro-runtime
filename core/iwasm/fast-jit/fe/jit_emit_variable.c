@@ -168,12 +168,12 @@ get_global_type(const WASMModule *module, uint32 global_idx)
     if (global_idx < module->import_global_count) {
         const WASMGlobalImport *import_global =
             &((module->import_globals + global_idx)->u.global);
-        return import_global->common.type;
+        return import_global->type.val_type;
     }
     else {
         const WASMGlobal *global =
             module->globals + (global_idx - module->import_global_count);
-        return global->common.type;
+        return global->type.val_type;
     }
 }
 
