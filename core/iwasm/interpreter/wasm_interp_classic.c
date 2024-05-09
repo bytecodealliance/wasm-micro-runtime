@@ -6552,7 +6552,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
             /* externref/funcref should be NULL_REF rather than 0 */
             local_cell_idx = cur_func->param_cell_num;
-            for (i = 0; i < cur_func->local_cell_num; i++) {
+            for (i = 0; i < cur_wasm_func->local_count; i++) {
                 if (cur_wasm_func->local_types[i] == VALUE_TYPE_EXTERNREF
                     || cur_wasm_func->local_types[i] == VALUE_TYPE_FUNCREF) {
                     *(frame_lp + local_cell_idx) = NULL_REF;
