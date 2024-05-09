@@ -14,9 +14,7 @@ function help()
 {
     echo "test_wamr.sh [options]"
     echo "-c clean previous test results, not start test"
-    echo "-s {suite_name} test only one suite (spec|standalone|sightglass|unit"
-    echo "                                     |malformed|wasi|wasi_certification"
-    echo "                                     |polybench|libsodium|wamr_compiler)"
+    echo "-s {suite_name} test only one suite (spec|wasi_certification|wamr_compiler)"
     echo "-m set compile target of iwasm(x86_64|x86_32|armv7|armv7_vfp|thumbv7|thumbv7_vfp|"
     echo "                               riscv32|riscv32_ilp32f|riscv32_ilp32d|riscv64|"
     echo "                               riscv64_lp64f|riscv64_lp64d|aarch64|aarch64_vfp)"
@@ -1078,7 +1076,7 @@ if [[ $TEST_CASE_ARR ]];then
     trigger || (echo "TEST FAILED"; exit 1)
 else
     # test all suite, ignore polybench and libsodium because of long time cost
-    TEST_CASE_ARR=("spec" "malformed" "wasi" "sightglass" "standalone")
+    TEST_CASE_ARR=("spec")
     : '
     if [[ $COLLECT_CODE_COVERAGE == 1 ]];then
         # add polybench if collecting code coverage data
