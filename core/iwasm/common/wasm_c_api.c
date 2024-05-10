@@ -2998,6 +2998,12 @@ wasm_module_get_name(wasm_module_t *module)
     return wasm_runtime_get_module_name(module_ex->module_comm_rt);
 }
 
+bool
+wasm_module_is_underlying_binary_cloned(const wasm_module_t *module)
+{
+    return ((wasm_module_ex_t *)module)->is_binary_cloned;
+}
+
 static wasm_func_t *
 wasm_func_new_basic(wasm_store_t *store, const wasm_functype_t *type,
                     wasm_func_callback_t func_callback)

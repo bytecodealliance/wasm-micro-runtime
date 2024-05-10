@@ -310,6 +310,9 @@ typedef struct AOTModule {
 
     /* user defined name */
     char *name;
+
+    /* Whether the underlying wasm binary buffer can be freed */
+    bool is_binary_freeable;
 } AOTModule;
 
 #define AOTMemoryInstance WASMMemoryInstance

@@ -1350,12 +1350,14 @@ wasm_runtime_load_ex(uint8 *buf, uint32 size, const LoadArgs *args,
                                           true,
 #endif
                                           args, error_buf, error_buf_size);
+        ((WASMModule *)module_common)->is_binary_freeable = true;
 #endif
     }
     else if (get_package_type(buf, size) == Wasm_Module_AoT) {
 #if WASM_ENABLE_AOT != 0
         module_common = (WASMModuleCommon *)aot_load_from_aot_file(
             buf, size, args, error_buf, error_buf_size);
+        ((AOTModule *)module_common)->is_binary_freeable = true;
 #endif
     }
     else {
@@ -7169,4 +7171,23 @@ wasm_runtime_detect_native_stack_overflow_size(WASMExecEnv *exec_env,
         return false;
     }
     return true;
+}
+
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_is_underlying_binary_freeable(const wasm_module_t module)
+{
+    bool is_freeable = false;
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        is_freeable = ((WASMModule *)module)->is_binary_freeable;
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        is_freeable = ((AOTModule *)module)->is_binary_freeable;
+    }
+#endif
+
+    return is_freeable;
 }

@@ -6149,6 +6149,7 @@ create_module(char *name, char *error_buf, uint32 error_buf_size)
     module->start_function = (uint32)-1;
 
     module->name = name;
+    module->is_binary_freeable = false;
 
 #if WASM_ENABLE_FAST_INTERP == 0
     module->br_table_cache_list = &module->br_table_cache_list_head;

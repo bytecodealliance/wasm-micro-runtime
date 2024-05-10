@@ -3835,6 +3835,7 @@ create_module(char *name, char *error_buf, uint32 error_buf_size)
     module->module_type = Wasm_Module_AoT;
 
     module->name = name;
+    module->is_binary_freeable = false;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     module->import_module_list = &module->import_module_list_head;
