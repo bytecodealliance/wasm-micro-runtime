@@ -175,9 +175,7 @@ typedef struct AOTTableInitData {
 typedef struct AOTImportGlobal {
     char *module_name;
     char *global_name;
-    /* VALUE_TYPE_I32/I64/F32/F64 */
-    uint8 type;
-    bool is_mutable;
+    WASMGlobalType type;
     uint32 size;
     /* The data offset of current global in global data */
     uint32 data_offset;
@@ -203,9 +201,7 @@ typedef struct AOTImportGlobal {
  * Global variable
  */
 typedef struct AOTGlobal {
-    /* VALUE_TYPE_I32/I64/F32/F64 */
-    uint8 type;
-    bool is_mutable;
+    WASMGlobalType type;
     uint32 size;
     /* The data offset of current global in global data */
     uint32 data_offset;

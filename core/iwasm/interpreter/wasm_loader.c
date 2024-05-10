@@ -841,7 +841,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                     "unknown global %u", global_idx);
                     goto fail;
                 }
-                if (module->import_globals[global_idx].u.global.is_mutable) {
+                if (module->import_globals[global_idx]
+                        .u.global.type.is_mutable) {
                     set_error_buf_v(error_buf, error_buf_size,
                                     "constant expression required");
                     goto fail;
@@ -854,7 +855,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                     goto fail;
                 }
                 if (global_idx < module->import_global_count
-                    && module->import_globals[global_idx].u.global.is_mutable) {
+                    && module->import_globals[global_idx]
+                           .u.global.type.is_mutable) {
                     set_error_buf_v(error_buf, error_buf_size,
                                     "constant expression required");
                     goto fail;
@@ -862,8 +864,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 #endif
 
                 if (global_idx < module->import_global_count) {
-                    global_type =
-                        module->import_globals[global_idx].u.global.type;
+                    global_type = module->import_globals[global_idx]
+                                      .u.global.type.val_type;
 #if WASM_ENABLE_GC != 0
                     if (wasm_is_type_multi_byte_type(global_type)) {
                         WASMRefType *global_ref_type =
@@ -880,7 +882,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                     global_type =
                         module
                             ->globals[global_idx - module->import_global_count]
-                            .type;
+                            .type.val_type;
 #if WASM_ENABLE_GC != 0
                     if (wasm_is_type_multi_byte_type(global_type)) {
                         WASMRefType *global_ref_type =
@@ -2404,7 +2406,8 @@ wasm_loader_resolve_global(const char *module_name, const char *global_name,
         global =
             &(module->globals[export->index - module->import_global_count]);
     }
-    if (global->type != type || global->is_mutable != is_mutable) {
+    if (global->type.val_type != type
+        || global->type.is_mutable != is_mutable) {
         LOG_DEBUG("%s,%s failed type check(%d, %d), expected(%d, %d)",
                   module_name, global_name, global->type, global->is_mutable,
                   type, is_mutable);
@@ -3059,8 +3062,8 @@ load_global_import(const uint8 **p_buf, const uint8 *buf_end,
     ret = wasm_native_lookup_libc_builtin_global(sub_module_name, global_name,
                                                  global);
     if (ret) {
-        if (global->type != declare_type
-            || global->is_mutable != declare_mutable) {
+        if (global->type.val_type != declare_type
+            || global->type.is_mutable != declare_mutable) {
             set_error_buf(error_buf, error_buf_size,
                           "incompatible import type");
             return false;
@@ -3092,13 +3095,13 @@ load_global_import(const uint8 **p_buf, const uint8 *buf_end,
 
     global->module_name = sub_module_name;
     global->field_name = global_name;
-    global->type = declare_type;
-    global->is_mutable = (declare_mutable == 1);
+    global->type.val_type = declare_type;
+    global->type.is_mutable = (declare_mutable == 1);
 
 #if WASM_ENABLE_WAMR_COMPILER != 0
-    if (global->type == VALUE_TYPE_V128)
+    if (global->type.val_type == VALUE_TYPE_V128)
         parent_module->is_simd_used = true;
-    else if (global->type == VALUE_TYPE_EXTERNREF)
+    else if (global->type.val_type == VALUE_TYPE_EXTERNREF)
         parent_module->is_ref_types_used = true;
 #endif
     (void)parent_module;
@@ -4005,7 +4008,7 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
         for (i = 0; i < global_count; i++, global++) {
 #if WASM_ENABLE_GC == 0
             CHECK_BUF(p, p_end, 2);
-            global->type = read_uint8(p);
+            global->type.val_type = read_uint8(p);
             mutable = read_uint8(p);
 #else
             if (!resolve_value_type(&p, p_end, module, module->type_count,
@@ -4013,27 +4016,27 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                                     error_buf, error_buf_size)) {
                 return false;
             }
-            global->type = ref_type.ref_type;
+            global->type.val_type = ref_type.ref_type;
             CHECK_BUF(p, p_end, 1);
             mutable = read_uint8(p);
 #endif /* end of WASM_ENABLE_GC */
 
 #if WASM_ENABLE_WAMR_COMPILER != 0
-            if (global->type == VALUE_TYPE_V128)
+            if (global->type.val_type == VALUE_TYPE_V128)
                 module->is_simd_used = true;
-            else if (global->type == VALUE_TYPE_FUNCREF
-                     || global->type == VALUE_TYPE_EXTERNREF)
+            else if (global->type.val_type == VALUE_TYPE_FUNCREF
+                     || global->type.val_type == VALUE_TYPE_EXTERNREF)
                 module->is_ref_types_used = true;
 #endif
 
             if (!check_mutability(mutable, error_buf, error_buf_size)) {
                 return false;
             }
-            global->is_mutable = mutable ? true : false;
+            global->type.is_mutable = mutable ? true : false;
 
             /* initialize expression */
             if (!load_init_expr(module, &p, p_end, &(global->init_expr),
-                                global->type,
+                                global->type.val_type,
 #if WASM_ENABLE_GC == 0
                                 NULL,
 #else
@@ -4055,8 +4058,8 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 }
 
                 if (global_idx < module->import_global_count) {
-                    global_type =
-                        module->import_globals[global_idx].u.global.type;
+                    global_type = module->import_globals[global_idx]
+                                      .u.global.type.val_type;
                     global_ref_type =
                         module->import_globals[global_idx].u.global.ref_type;
                 }
@@ -4064,14 +4067,14 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     global_type =
                         module
                             ->globals[global_idx - module->import_global_count]
-                            .type;
+                            .type.val_type;
                     global_ref_type =
                         module
                             ->globals[global_idx - module->import_global_count]
                             .ref_type;
                 }
                 if (!wasm_reftype_is_subtype_of(
-                        global_type, global_ref_type, global->type,
+                        global_type, global_ref_type, global->type.val_type,
                         global->ref_type, module->types, module->type_count)) {
                     set_error_buf(error_buf, error_buf_size, "type mismatch");
                     return false;
@@ -5182,7 +5185,7 @@ calculate_global_data_offset(WASMModule *module)
 #if WASM_ENABLE_FAST_JIT != 0
         import_global->data_offset = data_offset;
 #endif
-        data_offset += wasm_value_type_size(import_global->type);
+        data_offset += wasm_value_type_size(import_global->type.val_type);
     }
 
     for (i = 0; i < module->global_count; i++) {
@@ -5190,7 +5193,7 @@ calculate_global_data_offset(WASMModule *module)
 #if WASM_ENABLE_FAST_JIT != 0
         global->data_offset = data_offset;
 #endif
-        data_offset += wasm_value_type_size(global->type);
+        data_offset += wasm_value_type_size(global->type.val_type);
     }
 
     module->global_data_size = data_offset;
@@ -5807,7 +5810,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
             if (!strcmp(export->name, "__heap_base")) {
                 global_index = export->index - module->import_global_count;
                 global = module->globals + global_index;
-                if (global->type == VALUE_TYPE_I32 && !global->is_mutable
+                if (global->type.val_type == VALUE_TYPE_I32
+                    && !global->type.is_mutable
                     && global->init_expr.init_expr_type
                            == INIT_EXPR_TYPE_I32_CONST) {
                     aux_heap_base_global = global;
@@ -5820,7 +5824,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
             else if (!strcmp(export->name, "__data_end")) {
                 global_index = export->index - module->import_global_count;
                 global = module->globals + global_index;
-                if (global->type == VALUE_TYPE_I32 && !global->is_mutable
+                if (global->type.val_type == VALUE_TYPE_I32
+                    && !global->type.is_mutable
                     && global->init_expr.init_expr_type
                            == INIT_EXPR_TYPE_I32_CONST) {
                     aux_data_end_global = global;
@@ -5860,9 +5865,9 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                 for (global_index = 0; global_index < module->global_count;
                      global_index++) {
                     global = module->globals + global_index;
-                    if (global->is_mutable /* heap_base and data_end is
+                    if (global->type.is_mutable /* heap_base and data_end is
                                               not mutable */
-                        && global->type == VALUE_TYPE_I32
+                        && global->type.val_type == VALUE_TYPE_I32
                         && global->init_expr.init_expr_type
                                == INIT_EXPR_TYPE_I32_CONST
                         && (uint64)(uint32)global->init_expr.u.i32
@@ -12383,7 +12388,8 @@ re_scan:
                     uint32 j;
 
                     for (i = 0; i < module->global_count; i++) {
-                        if (module->globals[i].type == VALUE_TYPE_FUNCREF
+                        if (module->globals[i].type.val_type
+                                == VALUE_TYPE_FUNCREF
                             && module->globals[i].init_expr.init_expr_type
                                    == INIT_EXPR_TYPE_FUNCREF_CONST
                             && module->globals[i].init_expr.u.u32 == func_idx) {
@@ -12767,13 +12773,13 @@ re_scan:
                     goto fail;
                 }
 
-                global_type =
-                    global_idx < module->import_global_count
-                        ? module->import_globals[global_idx].u.global.type
-                        : module
-                              ->globals[global_idx
-                                        - module->import_global_count]
-                              .type;
+                global_type = global_idx < module->import_global_count
+                                  ? module->import_globals[global_idx]
+                                        .u.global.type.val_type
+                                  : module
+                                        ->globals[global_idx
+                                                  - module->import_global_count]
+                                        .type.val_type;
 #if WASM_ENABLE_GC != 0
                 ref_type =
                     global_idx < module->import_global_count
@@ -12827,13 +12833,13 @@ re_scan:
                     goto fail;
                 }
 
-                is_mutable =
-                    global_idx < module->import_global_count
-                        ? module->import_globals[global_idx].u.global.is_mutable
-                        : module
-                              ->globals[global_idx
-                                        - module->import_global_count]
-                              .is_mutable;
+                is_mutable = global_idx < module->import_global_count
+                                 ? module->import_globals[global_idx]
+                                       .u.global.type.is_mutable
+                                 : module
+                                       ->globals[global_idx
+                                                 - module->import_global_count]
+                                       .type.is_mutable;
                 if (!is_mutable) {
 #if WASM_ENABLE_GC == 0
                     set_error_buf(error_buf, error_buf_size,
@@ -12845,13 +12851,13 @@ re_scan:
                     goto fail;
                 }
 
-                global_type =
-                    global_idx < module->import_global_count
-                        ? module->import_globals[global_idx].u.global.type
-                        : module
-                              ->globals[global_idx
-                                        - module->import_global_count]
-                              .type;
+                global_type = global_idx < module->import_global_count
+                                  ? module->import_globals[global_idx]
+                                        .u.global.type.val_type
+                                  : module
+                                        ->globals[global_idx
+                                                  - module->import_global_count]
+                                        .type.val_type;
 #if WASM_ENABLE_GC != 0
                 ref_type =
                     global_idx < module->import_global_count

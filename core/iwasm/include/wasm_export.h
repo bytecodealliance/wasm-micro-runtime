@@ -75,6 +75,9 @@ typedef enum {
 struct WASMFuncType;
 typedef struct WASMFuncType *wasm_func_type_t;
 
+struct WASMGlobalType;
+typedef struct WASMGlobalType *wasm_global_type_t;
+
 typedef struct wasm_import_t {
     const char *module_name;
     const char *name;
@@ -82,6 +85,7 @@ typedef struct wasm_import_t {
     bool linked;
     union {
         wasm_func_type_t func_type;
+        wasm_global_type_t global_type;
     } u;
 } wasm_import_t;
 
@@ -90,6 +94,7 @@ typedef struct wasm_export_t {
     wasm_import_export_kind_t kind;
     union {
         wasm_func_type_t func_type;
+        wasm_global_type_t global_type;
     } u;
 } wasm_export_t;
 
@@ -1309,6 +1314,12 @@ wasm_func_type_get_result_count(wasm_func_type_t const func_type);
 WASM_RUNTIME_API_EXTERN wasm_valkind_t
 wasm_func_type_get_result_valkind(wasm_func_type_t const func_type,
                                   uint32_t result_index);
+
+WASM_RUNTIME_API_EXTERN wasm_valkind_t
+wasm_global_type_get_valkind(const wasm_global_type_t global_type);
+
+WASM_RUNTIME_API_EXTERN bool
+wasm_global_type_get_mutable(const wasm_global_type_t global_type);
 
 /**
  * Register native functions with same module name

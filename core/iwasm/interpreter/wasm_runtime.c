@@ -856,7 +856,7 @@ check_global_init_expr(const WASMModule *module, uint32 global_index,
      * And initializer expression cannot reference a mutable global.
      */
     if (global_index >= module->import_global_count
-        || (module->import_globals + global_index)->u.global.is_mutable) {
+        || (module->import_globals + global_index)->u.global.type.is_mutable) {
         set_error_buf(error_buf, error_buf_size,
                       "constant expression required");
         return false;
@@ -888,8 +888,8 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
     import = module->import_globals;
     for (i = 0; i < module->import_global_count; i++, import++) {
         WASMGlobalImport *global_import = &import->u.global;
-        global->type = global_import->type;
-        global->is_mutable = global_import->is_mutable;
+        global->type = global_import->type.val_type;
+        global->is_mutable = global_import->type.is_mutable;
 #if WASM_ENABLE_GC != 0
         global->ref_type = global_import->ref_type;
 #endif
@@ -935,8 +935,8 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
         InitializerExpression *init_expr = &(module->globals[i].init_expr);
         uint8 flag = init_expr->init_expr_type;
 
-        global->type = module->globals[i].type;
-        global->is_mutable = module->globals[i].is_mutable;
+        global->type = module->globals[i].type.val_type;
+        global->is_mutable = module->globals[i].type.is_mutable;
 #if WASM_ENABLE_FAST_JIT != 0
         bh_assert(global_data_offset == module->globals[i].data_offset);
 #endif

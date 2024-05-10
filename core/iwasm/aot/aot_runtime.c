@@ -129,7 +129,7 @@ check_global_init_expr(const AOTModule *module, uint32 global_index,
      * And initializer expression cannot reference a mutable global.
      */
     if (global_index >= module->import_global_count
-        || module->import_globals->is_mutable) {
+        || module->import_globals->type.is_mutable) {
         set_error_buf(error_buf, error_buf_size,
                       "constant expression required");
         return false;
@@ -141,7 +141,7 @@ check_global_init_expr(const AOTModule *module, uint32 global_index,
         return false;
     }
     if (global_index < module->import_global_count
-        && module->import_globals[global_index].is_mutable) {
+        && module->import_globals[global_index].type.is_mutable) {
         set_error_buf(error_buf, error_buf_size,
                       "constant expression required");
         return false;
@@ -389,7 +389,7 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     for (i = 0; i < module->import_global_count; i++, import_global++) {
         bh_assert(import_global->data_offset
                   == (uint32)(p - module_inst->global_data));
-        init_global_data(p, import_global->type,
+        init_global_data(p, import_global->type.val_type,
                          &import_global->global_data_linked);
         p += import_global->size;
     }
@@ -410,20 +410,20 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                 }
 #if WASM_ENABLE_GC == 0
                 init_global_data(
-                    p, global->type,
+                    p, global->type.val_type,
                     &module->import_globals[init_expr->u.global_index]
                          .global_data_linked);
 #else
                 if (init_expr->u.global_index < module->import_global_count) {
                     init_global_data(
-                        p, global->type,
+                        p, global->type.val_type,
                         &module->import_globals[init_expr->u.global_index]
                              .global_data_linked);
                 }
                 else {
                     uint32 global_idx =
                         init_expr->u.global_index - module->import_global_count;
-                    init_global_data(p, global->type,
+                    init_global_data(p, global->type.val_type,
                                      &module->globals[global_idx].init_expr.u);
                 }
 #endif
@@ -581,7 +581,7 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 #endif /* end of WASM_ENABLE_GC != 0 */
             default:
             {
-                init_global_data(p, global->type, &init_expr->u);
+                init_global_data(p, global->type.val_type, &init_expr->u);
                 break;
             }
         }
@@ -4549,7 +4549,7 @@ aot_global_traverse_gc_rootset(AOTModuleInstance *module_inst, void *heap)
     uint32 i;
 
     for (i = 0; i < module->import_global_count; i++, import_global++) {
-        if (wasm_is_type_reftype(import_global->type)) {
+        if (wasm_is_type_reftype(import_global->type.val_type)) {
             gc_obj = GET_REF_FROM_ADDR((uint32 *)global_data);
             if (wasm_obj_is_created_from_heap(gc_obj)) {
                 if (0 != mem_allocator_add_root((mem_allocator_t)heap, gc_obj))
@@ -4560,7 +4560,7 @@ aot_global_traverse_gc_rootset(AOTModuleInstance *module_inst, void *heap)
     }
 
     for (i = 0; i < module->global_count; i++, global++) {
-        if (wasm_is_type_reftype(global->type)) {
+        if (wasm_is_type_reftype(global->type.val_type)) {
             gc_obj = GET_REF_FROM_ADDR((uint32 *)global_data);
             if (wasm_obj_is_created_from_heap(gc_obj)) {
                 if (0 != mem_allocator_add_root((mem_allocator_t)heap, gc_obj))

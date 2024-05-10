@@ -2241,8 +2241,8 @@ aot_emit_import_global_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
     for (i = 0; i < comp_data->import_global_count; i++, import_global++) {
         offset = align_uint(offset, 2);
-        EMIT_U8(import_global->type);
-        EMIT_U8(import_global->is_mutable);
+        EMIT_U8(import_global->type.val_type);
+        EMIT_U8(import_global->type.is_mutable);
         EMIT_STR(import_global->module_name);
         offset = align_uint(offset, 2);
         EMIT_STR(import_global->global_name);
@@ -2273,8 +2273,8 @@ aot_emit_global_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
     for (i = 0; i < comp_data->global_count; i++, global++) {
         offset = align_uint(offset, 4);
-        EMIT_U8(global->type);
-        EMIT_U8(global->is_mutable);
+        EMIT_U8(global->type.val_type);
+        EMIT_U8(global->type.is_mutable);
 
         offset = align_uint(offset, 4);
         if (!aot_emit_init_expr(buf, buf_end, &offset, comp_ctx,

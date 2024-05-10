@@ -3795,6 +3795,8 @@ wasm_runtime_get_import_type(WASMModuleCommon *const module, int32 import_index,
             import_type->name = aot_import_global->global_name;
             import_type->kind = WASM_IMPORT_EXPORT_KIND_GLOBAL;
             import_type->linked = aot_import_global->is_linked;
+            import_type->u.global_type =
+                (WASMGlobalType *)&aot_import_global->type;
             return;
         }
 
@@ -3845,6 +3847,8 @@ wasm_runtime_get_import_type(WASMModuleCommon *const module, int32 import_index,
                 break;
             case WASM_IMPORT_EXPORT_KIND_GLOBAL:
                 import_type->linked = wasm_import->u.global.is_linked;
+                import_type->u.global_type =
+                    (WASMGlobalType *)&wasm_import->u.global.type;
                 break;
             case WASM_IMPORT_EXPORT_KIND_TABLE:
                 /* not supported */
@@ -3916,11 +3920,32 @@ wasm_runtime_get_export_type(WASMModuleCommon *const module, int32 export_index,
         const AOTExport *aot_export = &aot_module->exports[export_index];
         export_type->name = aot_export->name;
         export_type->kind = aot_export->kind;
-        if (export_type->kind == EXPORT_KIND_FUNC) {
-            export_type->u.func_type =
-                (AOTFuncType *)aot_module->types
-                    [aot_module->func_type_indexes
-                         [aot_export->index - aot_module->import_func_count]];
+        switch (export_type->kind) {
+            case WASM_IMPORT_EXPORT_KIND_FUNC:
+                export_type->u.func_type =
+                    (AOTFuncType *)aot_module
+                        ->types[aot_module->func_type_indexes
+                                    [aot_export->index
+                                     - aot_module->import_func_count]];
+                break;
+            case WASM_IMPORT_EXPORT_KIND_GLOBAL:
+                export_type->u.global_type =
+                    &aot_module
+                         ->globals[aot_export->index
+                                   - aot_module->import_global_count]
+                         .type;
+                break;
+            case WASM_IMPORT_EXPORT_KIND_TABLE:
+                /* not supported */
+                // export_type->linked = false;
+                break;
+            case WASM_IMPORT_EXPORT_KIND_MEMORY:
+                /* not supported */
+                // export_type->linked = false;
+                break;
+            default:
+                bh_assert(0);
+                break;
         }
         return;
     }
@@ -3937,12 +3962,31 @@ wasm_runtime_get_export_type(WASMModuleCommon *const module, int32 export_index,
         const WASMExport *wasm_export = &wasm_module->exports[export_index];
         export_type->name = wasm_export->name;
         export_type->kind = wasm_export->kind;
-        if (wasm_export->kind == EXPORT_KIND_FUNC) {
-            export_type->u.func_type =
-                wasm_module
-                    ->functions[wasm_export->index
-                                - wasm_module->import_function_count]
-                    ->func_type;
+        switch (export_type->kind) {
+            case WASM_IMPORT_EXPORT_KIND_FUNC:
+                export_type->u.func_type =
+                    wasm_module
+                        ->functions[wasm_export->index
+                                    - wasm_module->import_function_count]
+                        ->func_type;
+                break;
+            case WASM_IMPORT_EXPORT_KIND_GLOBAL:
+                export_type->u.global_type =
+                    &wasm_module
+                         ->globals[wasm_export->index
+                                   - wasm_module->import_global_count]
+                         .type;
+                break;
+            case WASM_IMPORT_EXPORT_KIND_TABLE:
+                /* not supported */
+                // export_type->linked = false;
+                break;
+            case WASM_IMPORT_EXPORT_KIND_MEMORY:
+                /* not supported */
+                // export_type->linked = false;
+                break;
+                bh_assert(0);
+                break;
         }
         return;
     }
@@ -4031,6 +4075,22 @@ wasm_func_type_get_result_valkind(WASMFuncType *const func_type,
             return (wasm_valkind_t)-1;
         }
     }
+}
+
+wasm_valkind_t
+wasm_global_type_get_valkind(const wasm_global_type_t global_type)
+{
+    bh_assert(global_type);
+
+    return val_type_to_val_kind(global_type->val_type);
+}
+
+bool
+wasm_global_type_get_mutable(const wasm_global_type_t global_type)
+{
+    bh_assert(global_type);
+
+    return global_type->is_mutable;
 }
 
 bool
@@ -5991,7 +6051,7 @@ aot_mark_all_externrefs(AOTModuleInstance *module_inst)
     const AOTTableInstance *table_inst;
 
     for (i = 0; i < module->global_count; i++, global++) {
-        if (global->type == VALUE_TYPE_EXTERNREF) {
+        if (global->type.val_type == VALUE_TYPE_EXTERNREF) {
             mark_externref(
                 *(uint32 *)(module_inst->global_data + global->data_offset));
         }
@@ -6320,14 +6380,14 @@ wasm_runtime_get_export_global_type(const WASMModuleCommon *module_comm,
         if (export->index < module->import_global_count) {
             WASMGlobalImport *import_global =
                 &((module->import_globals + export->index)->u.global);
-            *out_val_type = import_global->type;
-            *out_mutability = import_global->is_mutable;
+            *out_val_type = import_global->type.val_type;
+            *out_mutability = import_global->type.is_mutable;
         }
         else {
             WASMGlobal *global =
                 module->globals + (export->index - module->import_global_count);
-            *out_val_type = global->type;
-            *out_mutability = global->is_mutable;
+            *out_val_type = global->type.val_type;
+            *out_mutability = global->type.is_mutable;
         }
         return true;
     }
@@ -6340,14 +6400,14 @@ wasm_runtime_get_export_global_type(const WASMModuleCommon *module_comm,
         if (export->index < module->import_global_count) {
             AOTImportGlobal *import_global =
                 module->import_globals + export->index;
-            *out_val_type = import_global->type;
-            *out_mutability = import_global->is_mutable;
+            *out_val_type = import_global->type.val_type;
+            *out_mutability = import_global->type.is_mutable;
         }
         else {
             AOTGlobal *global =
                 module->globals + (export->index - module->import_global_count);
-            *out_val_type = global->type;
-            *out_mutability = global->is_mutable;
+            *out_val_type = global->type.val_type;
+            *out_mutability = global->type.is_mutable;
         }
         return true;
     }

@@ -2042,8 +2042,8 @@ load_import_globals(const uint8 **p_buf, const uint8 *buf_end,
     /* Create each import global */
     for (i = 0; i < module->import_global_count; i++) {
         buf = (uint8 *)align_ptr(buf, 2);
-        read_uint8(buf, buf_end, import_globals[i].type);
-        read_uint8(buf, buf_end, import_globals[i].is_mutable);
+        read_uint8(buf, buf_end, import_globals[i].type.val_type);
+        read_uint8(buf, buf_end, import_globals[i].type.is_mutable);
         read_string(buf, buf_end, import_globals[i].module_name);
         read_string(buf, buf_end, import_globals[i].global_name);
 
@@ -2051,8 +2051,9 @@ load_import_globals(const uint8 **p_buf, const uint8 *buf_end,
         if (wasm_native_lookup_libc_builtin_global(
                 import_globals[i].module_name, import_globals[i].global_name,
                 &tmp_global)) {
-            if (tmp_global.type != import_globals[i].type
-                || tmp_global.is_mutable != import_globals[i].is_mutable) {
+            if (tmp_global.type.val_type != import_globals[i].type.val_type
+                || tmp_global.type.is_mutable
+                       != import_globals[i].type.is_mutable) {
                 set_error_buf(error_buf, error_buf_size,
                               "incompatible import type");
                 return false;
@@ -2065,7 +2066,8 @@ load_import_globals(const uint8 **p_buf, const uint8 *buf_end,
         import_globals[i].is_linked = false;
 #endif
 
-        import_globals[i].size = wasm_value_type_size(import_globals[i].type);
+        import_globals[i].size =
+            wasm_value_type_size(import_globals[i].type.val_type);
         import_globals[i].data_offset = data_offset;
         data_offset += import_globals[i].size;
         module->global_data_size += import_globals[i].size;
@@ -2130,8 +2132,8 @@ load_globals(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
     /* Create each global */
     for (i = 0; i < module->global_count; i++) {
-        read_uint8(buf, buf_end, globals[i].type);
-        read_uint8(buf, buf_end, globals[i].is_mutable);
+        read_uint8(buf, buf_end, globals[i].type.val_type);
+        read_uint8(buf, buf_end, globals[i].type.is_mutable);
 
         buf = align_ptr(buf, 4);
 
@@ -2139,7 +2141,7 @@ load_globals(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                             error_buf, error_buf_size))
             return false;
 
-        globals[i].size = wasm_value_type_size(globals[i].type);
+        globals[i].size = wasm_value_type_size(globals[i].type.val_type);
         globals[i].data_offset = data_offset;
         data_offset += globals[i].size;
         module->global_data_size += globals[i].size;

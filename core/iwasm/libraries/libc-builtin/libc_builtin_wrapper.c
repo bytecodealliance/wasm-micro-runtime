@@ -1161,8 +1161,8 @@ wasm_native_lookup_libc_builtin_global(const char *module_name,
     while (global_def < global_def_end) {
         if (!strcmp(global_def->module_name, module_name)
             && !strcmp(global_def->global_name, global_name)) {
-            global->type = global_def->type;
-            global->is_mutable = global_def->is_mutable;
+            global->type.val_type = global_def->type;
+            global->type.is_mutable = global_def->is_mutable;
             global->global_data_linked = global_def->value;
             return true;
         }

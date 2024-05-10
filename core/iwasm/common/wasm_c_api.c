@@ -2521,8 +2521,8 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
                                      + (i - import_func_count);
                 module_name_rt = import->u.names.module_name;
                 field_name_rt = import->u.names.field_name;
-                val_type_rt = import->u.global.type;
-                mutability_rt = import->u.global.is_mutable;
+                val_type_rt = import->u.global.type.val_type;
+                mutability_rt = import->u.global.type.is_mutable;
             }
 #endif
 
@@ -2532,8 +2532,8 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
                                           + (i - import_func_count);
                 module_name_rt = import->module_name;
                 field_name_rt = import->global_name;
-                val_type_rt = import->type;
-                mutability_rt = import->is_mutable;
+                val_type_rt = import->type.val_type;
+                mutability_rt = import->type.is_mutable;
             }
 #endif
 
@@ -3634,7 +3634,7 @@ aot_global_set(const AOTModuleInstance *inst_aot, uint16 global_idx_rt,
 
     if (global_idx_rt < module_aot->import_global_count) {
         data_offset = module_aot->import_globals[global_idx_rt].data_offset;
-        val_type_rt = module_aot->import_globals[global_idx_rt].type;
+        val_type_rt = module_aot->import_globals[global_idx_rt].type.val_type;
     }
     else {
         data_offset =
@@ -3642,7 +3642,7 @@ aot_global_set(const AOTModuleInstance *inst_aot, uint16 global_idx_rt,
                 .data_offset;
         val_type_rt =
             module_aot->globals[global_idx_rt - module_aot->import_global_count]
-                .type;
+                .type.val_type;
     }
 
     data = (void *)(inst_aot->global_data + data_offset);
@@ -3661,7 +3661,7 @@ aot_global_get(const AOTModuleInstance *inst_aot, uint16 global_idx_rt,
 
     if (global_idx_rt < module_aot->import_global_count) {
         data_offset = module_aot->import_globals[global_idx_rt].data_offset;
-        val_type_rt = module_aot->import_globals[global_idx_rt].type;
+        val_type_rt = module_aot->import_globals[global_idx_rt].type.val_type;
     }
     else {
         data_offset =
@@ -3669,7 +3669,7 @@ aot_global_get(const AOTModuleInstance *inst_aot, uint16 global_idx_rt,
                 .data_offset;
         val_type_rt =
             module_aot->globals[global_idx_rt - module_aot->import_global_count]
-                .type;
+                .type.val_type;
     }
 
     data = inst_aot->global_data + data_offset;
@@ -3786,15 +3786,15 @@ wasm_global_new_internal(wasm_store_t *store, uint16 global_idx_rt,
         if (global_idx_rt < module_aot->import_global_count) {
             AOTImportGlobal *global_import_aot =
                 module_aot->import_globals + global_idx_rt;
-            val_type_rt = global_import_aot->type;
-            is_mutable = global_import_aot->is_mutable;
+            val_type_rt = global_import_aot->type.val_type;
+            is_mutable = global_import_aot->type.is_mutable;
         }
         else {
             AOTGlobal *global_aot =
                 module_aot->globals
                 + (global_idx_rt - module_aot->import_global_count);
-            val_type_rt = global_aot->type;
-            is_mutable = global_aot->is_mutable;
+            val_type_rt = global_aot->type.val_type;
+            is_mutable = global_aot->type.is_mutable;
         }
     }
 #endif
@@ -4511,8 +4511,9 @@ interp_link_global(const WASMModule *module_interp, uint16 global_idx_rt,
         return true;
 
     /* type comparison */
-    if (!cmp_val_kind_with_val_type(wasm_valtype_kind(import->type->val_type),
-                                    imported_global_interp->u.global.type))
+    if (!cmp_val_kind_with_val_type(
+            wasm_valtype_kind(import->type->val_type),
+            imported_global_interp->u.global.type.val_type))
         return false;
 
     /* set init value */
@@ -4685,7 +4686,7 @@ aot_link_global(const AOTModule *module_aot, uint16 global_idx_rt,
     bh_assert(val_type);
 
     if (!cmp_val_kind_with_val_type(wasm_valtype_kind(val_type),
-                                    import_aot_global->type))
+                                    import_aot_global->type.val_type))
         return false;
 
     bh_assert(import->init);
