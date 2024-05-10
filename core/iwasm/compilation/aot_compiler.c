@@ -3023,7 +3023,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     case SIMD_v128_load64_lane:
                     {
                         read_leb_uint32(frame_ip, frame_ip_end, align);
-                        read_leb_uint32(frame_ip, frame_ip_end, offset);
+                        read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                         if (!aot_compile_simd_load_lane(comp_ctx, func_ctx,
                                                         opcode, align, offset,
                                                         *frame_ip++))
@@ -3037,7 +3037,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     case SIMD_v128_store64_lane:
                     {
                         read_leb_uint32(frame_ip, frame_ip_end, align);
-                        read_leb_uint32(frame_ip, frame_ip_end, offset);
+                        read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                         if (!aot_compile_simd_store_lane(comp_ctx, func_ctx,
                                                          opcode, align, offset,
                                                          *frame_ip++))
@@ -3049,7 +3049,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     case SIMD_v128_load64_zero:
                     {
                         read_leb_uint32(frame_ip, frame_ip_end, align);
-                        read_leb_uint32(frame_ip, frame_ip_end, offset);
+                        read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                         if (!aot_compile_simd_load_zero(comp_ctx, func_ctx,
                                                         opcode, align, offset))
                             return false;

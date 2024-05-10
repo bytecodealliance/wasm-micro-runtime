@@ -500,8 +500,10 @@ typedef struct WASMTable {
 
 #if WASM_ENABLE_MEMORY64 != 0
 typedef uint64 mem_offset_t;
+#define PR_MEM_OFFSET PRIu64
 #else
 typedef uint32 mem_offset_t;
+#define PR_MEM_OFFSET PRIu32
 #endif
 
 typedef struct WASMMemory {

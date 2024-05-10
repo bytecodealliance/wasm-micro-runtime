@@ -1288,7 +1288,7 @@ fail:
 bool
 aot_compile_op_atomic_rmw(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                           uint8 atomic_op, uint8 op_type, uint32 align,
-                          uint32 offset, uint32 bytes)
+                          mem_offset_t offset, uint32 bytes)
 {
     LLVMValueRef maddr, value, result;
     bool enable_segue = (op_type == VALUE_TYPE_I32)
@@ -1374,7 +1374,7 @@ fail:
 bool
 aot_compile_op_atomic_cmpxchg(AOTCompContext *comp_ctx,
                               AOTFuncContext *func_ctx, uint8 op_type,
-                              uint32 align, uint32 offset, uint32 bytes)
+                              uint32 align, mem_offset_t offset, uint32 bytes)
 {
     LLVMValueRef maddr, value, expect, result;
     bool enable_segue = (op_type == VALUE_TYPE_I32)
@@ -1479,7 +1479,7 @@ fail:
 
 bool
 aot_compile_op_atomic_wait(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                           uint8 op_type, uint32 align, uint32 offset,
+                           uint8 op_type, uint32 align, mem_offset_t offset,
                            uint32 bytes)
 {
     LLVMValueRef maddr, value, timeout, expect, cmp;
@@ -1571,7 +1571,7 @@ fail:
 bool
 aot_compiler_op_atomic_notify(AOTCompContext *comp_ctx,
                               AOTFuncContext *func_ctx, uint32 align,
-                              uint32 offset, uint32 bytes)
+                              mem_offset_t offset, uint32 bytes)
 {
     LLVMValueRef maddr, value, count;
     LLVMValueRef param_values[3], ret_value, func;

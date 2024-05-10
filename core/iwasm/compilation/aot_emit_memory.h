@@ -89,22 +89,22 @@ aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 bool
 aot_compile_op_atomic_rmw(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                           uint8 atomic_op, uint8 op_type, uint32 align,
-                          uint32 offset, uint32 bytes);
+                          mem_offset_t offset, uint32 bytes);
 
 bool
 aot_compile_op_atomic_cmpxchg(AOTCompContext *comp_ctx,
                               AOTFuncContext *func_ctx, uint8 op_type,
-                              uint32 align, uint32 offset, uint32 bytes);
+                              uint32 align, mem_offset_t offset, uint32 bytes);
 
 bool
 aot_compile_op_atomic_wait(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                           uint8 op_type, uint32 align, uint32 offset,
+                           uint8 op_type, uint32 align, mem_offset_t offset,
                            uint32 bytes);
 
 bool
 aot_compiler_op_atomic_notify(AOTCompContext *comp_ctx,
                               AOTFuncContext *func_ctx, uint32 align,
-                              uint32 offset, uint32 bytes);
+                              mem_offset_t offset, uint32 bytes);
 
 bool
 aot_compiler_op_atomic_fence(AOTCompContext *comp_ctx,
