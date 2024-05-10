@@ -2955,7 +2955,8 @@ load_tag_import(const uint8 **p_buf, const uint8 *buf_end,
         goto fail;
     }
 
-    WASMType *declare_tag_type = parent_module->types[declare_type_index];
+    WASMFuncType *declare_tag_type =
+        (WASMFuncType *)parent_module->types[declare_type_index];
 
     /* check, that the type of the declared tag returns void */
     if (declare_tag_type->result_count != 0) {
@@ -4841,7 +4842,7 @@ load_tag_section(const uint8 *buf, const uint8 *buf_end, const uint8 *buf_code,
 
             /* get return type (must be 0) */
             /* check, that the type of the referred tag returns void */
-            WASMType *func_type = (WASMType *)module->types[tag_type];
+            WASMFuncType *func_type = (WASMFuncType *)module->types[tag_type];
             if (func_type->result_count != 0) {
                 set_error_buf(error_buf, error_buf_size,
                               "non-empty tag result type");
@@ -11157,7 +11158,7 @@ re_scan:
 
                 /* the tag_type is stored in either the WASMTag (section tags)
                  * or WASMTagImport (import tag) */
-                WASMType *tag_type = NULL;
+                WASMFuncType *tag_type = NULL;
                 if (tag_index < module->import_tag_count) {
                     tag_type = module->import_tags[tag_index].u.tag.tag_type;
                 }
@@ -11180,11 +11181,40 @@ re_scan:
                 /* Check stack values match return types by comparing tag param
                  * types with stack cells */
                 uint8 *frame_ref = loader_ctx->frame_ref;
+#if WASM_ENABLE_GC != 0
+                WASMRefTypeMap *frame_reftype_map =
+                    loader_ctx->frame_reftype_map;
+                uint32 frame_reftype_map_num = loader_ctx->reftype_map_num;
+                param_reftype_maps = tag_type->ref_type_maps;
+                /* For tag_type function, it shouldn't have result_count = 0 */
+                param_reftype_map_count = tag_type->ref_type_map_count;
+                param_count = (int32)tag_type->param_count;
+#endif
+
                 for (int tti = (int32)tag_type->param_count - 1; tti >= 0;
                      tti--) {
+#if WASM_ENABLE_GC != 0
+                    local_type = tag_type->types[tti];
+                    local_idx = tti;
+                    bool is_type_multi_byte =
+                        wasm_is_type_multi_byte_type(local_type);
+                    WASMRefType *ref_type = NULL;
+                    if (is_type_multi_byte) {
+                        bh_assert(param_reftype_maps);
+                        GET_LOCAL_REFTYPE();
+                    }
+#endif
+
                     if (!check_stack_top_values(
                             loader_ctx, frame_ref, available_stack_cell,
-                            tag_type->types[tti], error_buf, error_buf_size)) {
+#if WASM_ENABLE_GC != 0
+                            frame_reftype_map, frame_reftype_map_num,
+#endif
+                            tag_type->types[tti],
+#if WASM_ENABLE_GC != 0
+                            ref_type,
+#endif
+                            error_buf, error_buf_size)) {
                         snprintf(error_buf, error_buf_size,
                                  "type mismatch: instruction requires [%s] but "
                                  "stack has [%s]",
@@ -11267,7 +11297,7 @@ re_scan:
 
                 /* the tag_type is stored in either the WASMTag (section tags)
                  * or WASMTagImport (import tag) */
-                WASMType *func_type = NULL;
+                WASMFuncType *func_type = NULL;
                 if (tag_index < module->import_tag_count) {
                     func_type = module->import_tags[tag_index].u.tag.tag_type;
                 }

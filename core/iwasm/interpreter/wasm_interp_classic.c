@@ -1612,7 +1612,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             /* landing pad for the rethrow ? */
             find_a_catch_handler:
             {
-                WASMType *tag_type = NULL;
+                WASMFuncType *tag_type = NULL;
                 uint32 cell_num_to_copy = 0;
                 if (IS_INVALID_TAGINDEX(exception_tag_index)) {
                     /*
