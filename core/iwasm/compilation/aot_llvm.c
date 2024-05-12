@@ -743,7 +743,16 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
             LLVMCreateEnumAttribute(comp_ctx->context, kind, 0);
         LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex,
                                 attr_noinline);
-
+        if (!strcmp(comp_ctx->target_arch, "xtensa")) {
+            /* Because "func" is only called by "precheck_func", short-call
+             * should be ok. We prefer short-call because it's smaller
+             * and more importantly doesn't involve relocations.
+             */
+            LLVMAttributeRef attr_short_call = LLVMCreateStringAttribute(
+                comp_ctx->context, "short-call", strlen("short-call"), "", 0);
+            LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex,
+                                    attr_short_call);
+        }
         if (!aot_build_precheck_function(comp_ctx, module, precheck_func,
                                          func_index, func_type, func))
             goto fail;
