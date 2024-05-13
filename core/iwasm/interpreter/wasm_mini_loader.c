@@ -475,8 +475,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                 global_idx = cur_value.global_index;
 
                 bh_assert(global_idx < module->import_global_count);
-                bh_assert(
-                    !module->import_globals[global_idx].u.global.is_mutable);
+                bh_assert(!module->import_globals[global_idx]
+                               .u.global.type.is_mutable);
 
                 if (global_idx < module->import_global_count) {
                     global_type = module->import_globals[global_idx]
