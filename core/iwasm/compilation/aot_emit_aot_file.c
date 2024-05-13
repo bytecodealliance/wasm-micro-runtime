@@ -113,16 +113,6 @@ is_little_endian_binary(const AOTObjectData *obj_data)
 }
 
 static bool
-need_call_wrapped_indirect(const AOTObjectData *obj_data)
-{
-    const bool need_precheck = obj_data->comp_ctx->enable_stack_bound_check
-                               || obj_data->comp_ctx->enable_stack_estimation;
-
-    return obj_data->comp_ctx->is_indirect_mode && need_precheck
-           && !strncmp(obj_data->comp_ctx->target_arch, "xtensa", 6);
-}
-
-static bool
 str_starts_with(const char *str, const char *prefix)
 {
     size_t len_pre = strlen(prefix), len_str = strlen(str);
@@ -827,10 +817,6 @@ get_func_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
 
     /* function type indexes */
     size += (uint32)sizeof(uint32) * comp_data->func_count;
-
-    /* aot_func#xxx + aot_func_internal#xxx in XIP mode for xtensa */
-    if (need_call_wrapped_indirect(obj_data))
-        size *= 2;
 
     /* max_local_cell_nums */
     size += (uint32)sizeof(uint32) * comp_data->func_count;
@@ -2590,29 +2576,8 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             EMIT_U64(func->text_offset);
     }
 
-    if (need_call_wrapped_indirect(obj_data)) {
-        /*
-         * Explicitly emit aot_func_internal#xxx for Xtensa XIP, therefore,
-         * for aot_func#xxx, func_indexes ranged from 0 ~ func_count,
-         * for aot_func_internal#xxxx, from func_count + 1 ~ 2 * func_count.
-         */
-        for (i = 0, func = obj_data->funcs; i < obj_data->func_count;
-             i++, func++) {
-            if (is_32bit_binary(obj_data))
-                EMIT_U32(func->text_offset_of_aot_func_internal);
-            else
-                EMIT_U64(func->text_offset_of_aot_func_internal);
-        }
-    }
-
     for (i = 0; i < comp_data->func_count; i++)
         EMIT_U32(funcs[i]->func_type_index);
-
-    if (need_call_wrapped_indirect(obj_data)) {
-        /* func_type_index for aot_func_internal#xxxx */
-        for (i = 0; i < comp_data->func_count; i++)
-            EMIT_U32(funcs[i]->func_type_index);
-    }
 
     for (i = 0; i < comp_data->func_count; i++) {
         uint32 max_local_cell_num =
