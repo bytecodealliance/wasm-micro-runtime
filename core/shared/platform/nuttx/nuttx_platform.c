@@ -19,6 +19,11 @@
 #define IRAM0_CACHE_ADDRESS_HIGH 0x44000000
 #define IRAM_ATTR locate_data(".iram1")
 
+#define INTERNAL_SRAM_1_DBUS_ADDRESS_LOW 0x3fc88000
+#define INTERNAL_SRAM_1_DBUS_ADDRESS_HIGH 0x3fcf0000
+#define INTERNAL_SRAM_1_IBUS_ADDRESS_LOW 0x40378000
+#define INTERNAL_SRAM_1_IBUS_ADDRESS_HIGH 0x403e0000
+
 #define in_ibus_ext(addr)                      \
     (((uint32)addr >= IRAM0_CACHE_ADDRESS_LOW) \
      && ((uint32)addr < IRAM0_CACHE_ADDRESS_HIGH))
@@ -181,6 +186,11 @@ os_get_dbus_mirror(void *ibus)
 {
     if (in_ibus_ext(ibus)) {
         return (void *)((uint8 *)ibus - MEM_DUAL_BUS_OFFSET);
+    }
+    else if (INTERNAL_SRAM_1_IBUS_ADDRESS_LOW <= (uintptr_t)ibus
+             && (uintptr_t)ibus < INTERNAL_SRAM_1_IBUS_ADDRESS_HIGH) {
+        return (void *)((uintptr_t)ibus - INTERNAL_SRAM_1_IBUS_ADDRESS_LOW
+                        + INTERNAL_SRAM_1_DBUS_ADDRESS_LOW);
     }
     else {
         return ibus;
