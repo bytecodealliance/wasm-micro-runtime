@@ -887,6 +887,7 @@ main(int argc, char *argv[])
 #if WASM_ENABLE_AOT != 0
     if (wasm_runtime_is_xip_file(wasm_file_buf, wasm_file_size)) {
         uint8 *wasm_file_mapped;
+        uint8 *daddr;
         int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC;
         int map_flags = MMAP_MAP_32BIT;
 
@@ -897,8 +898,15 @@ main(int argc, char *argv[])
             goto fail1;
         }
 
-        bh_memcpy_s(wasm_file_mapped, wasm_file_size, wasm_file_buf,
-                    wasm_file_size);
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+        daddr = os_get_dbus_mirror(wasm_file_mapped);
+#else
+        daddr = wasm_file_mapped;
+#endif
+        bh_memcpy_s(daddr, wasm_file_size, wasm_file_buf, wasm_file_size);
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+        os_dcache_flush();
+#endif
         wasm_runtime_free(wasm_file_buf);
         wasm_file_buf = wasm_file_mapped;
         is_xip_file = true;
