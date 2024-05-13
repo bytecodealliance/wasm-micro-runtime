@@ -286,7 +286,7 @@ Currently we only profile the memory consumption of module, module_instance and 
 > Note: See [Tuning the XIP intrinsic functions](./xip.md#tuning-the-xip-intrinsic-functions) for more details.
 
 #### **Configurable memory access boundary check**
-- **WAMR_CONFIGUABLE_BOUNDS_CHECKS**=1/0, default to disable if not set
+- **WAMR_CONFIGURABLE_BOUNDS_CHECKS**=1/0, default to disable if not set
 > Note: If it is enabled, allow to run `iwasm --disable-bounds-checks` to disable the memory access boundary checks for interpreter mode.
 
 #### **Module instance context APIs**
