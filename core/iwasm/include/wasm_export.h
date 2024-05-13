@@ -254,15 +254,6 @@ enum wasm_valkind_enum {
 #define WASM_VAL_T_DEFINED
 struct wasm_ref_t;
 
-typedef union wasm_v128_t {
-    int8_t i8x16[16];
-    int16_t i16x8[8];
-    int32_t i32x4[4];
-    int64_t i64x2[2];
-    float f32x4[4];
-    double f64x2[2];
-} wasm_v128_t;
-
 typedef struct wasm_val_t {
     wasm_valkind_t kind;
     uint8_t __paddings[7];
@@ -272,7 +263,6 @@ typedef struct wasm_val_t {
         int64_t i64;
         float f32;
         double f64;
-        wasm_v128_t v128;
         /* represent a foreign object, aka externref in .wat */
         uintptr_t foreign;
         struct wasm_ref_t *ref;

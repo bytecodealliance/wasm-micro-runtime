@@ -1649,11 +1649,7 @@ rt_val_to_wasm_val(const uint8 *data, uint8 val_type_rt, wasm_val_t *out)
             out->of.f64 = *((float64 *)data);
             break;
         case VALUE_TYPE_V128:
-            out->kind = WASM_V128;
-            out->of.v128.i32x4[0] = ((int32 *)data)[0];
-            out->of.v128.i32x4[1] = ((int32 *)data)[1];
-            out->of.v128.i32x4[2] = ((int32 *)data)[2];
-            out->of.v128.i32x4[3] = ((int32 *)data)[3];
+            bh_assert(0);
             break;
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
         case VALUE_TYPE_EXTERNREF:
@@ -1697,11 +1693,7 @@ wasm_val_to_rt_val(WASMModuleInstanceCommon *inst_comm_rt, uint8 val_type_rt,
             *((float64 *)data) = v->of.f64;
             break;
         case VALUE_TYPE_V128:
-            bh_assert(WASM_V128 == v->kind);
-            ((int32 *)data)[0] = v->of.v128.i32x4[0];
-            ((int32 *)data)[1] = v->of.v128.i32x4[1];
-            ((int32 *)data)[2] = v->of.v128.i32x4[2];
-            ((int32 *)data)[3] = v->of.v128.i32x4[3];
+            bh_assert(0);
             break;
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
         case VALUE_TYPE_EXTERNREF:
@@ -3268,11 +3260,7 @@ params_to_argv(const wasm_val_vec_t *params,
                 argv += 2;
                 break;
             case WASM_V128:
-                ((int32 *)argv)[0] = param->of.v128.i32x4[0];
-                ((int32 *)argv)[1] = param->of.v128.i32x4[1];
-                ((int32 *)argv)[2] = param->of.v128.i32x4[3];
-                ((int32 *)argv)[3] = param->of.v128.i32x4[3];
-                argv += 4;
+                bh_assert(0);
                 break;
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case WASM_ANYREF:
@@ -3317,11 +3305,7 @@ argv_to_results(const uint32 *argv, const wasm_valtype_vec_t *result_defs,
                 argv += 2;
                 break;
             case WASM_V128:
-                result->of.v128.i32x4[0] = ((int32 *)argv)[0];
-                result->of.v128.i32x4[1] = ((int32 *)argv)[1];
-                result->of.v128.i32x4[2] = ((int32 *)argv)[2];
-                result->of.v128.i32x4[3] = ((int32 *)argv)[3];
-                argv += 4;
+                bh_assert(0);
                 break;
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case WASM_ANYREF:

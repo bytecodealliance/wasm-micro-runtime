@@ -2305,12 +2305,7 @@ parse_args_to_uint32_array(WASMFuncType *type, wasm_val_t *args,
             }
             case WASM_V128:
             {
-                wasm_v128_t val;
-                val = args[i].of.v128;
-                out_argv[p++] = val.i32x4[0];
-                out_argv[p++] = val.i32x4[1];
-                out_argv[p++] = val.i32x4[2];
-                out_argv[p++] = val.i32x4[3];
+                bh_assert(0);
                 break;
             }
 #if WASM_ENABLE_REF_TYPES != 0
@@ -2396,13 +2391,7 @@ parse_uint32_array_to_results(WASMFuncType *type, uint32 *argv,
             }
             case VALUE_TYPE_V128:
             {
-                wasm_v128_t val;
-                val.i32x4[0] = argv[p++];
-                val.i32x4[1] = argv[p++];
-                val.i32x4[2] = argv[p++];
-                val.i32x4[3] = argv[p++];
-                out_results[i].kind = WASM_V128;
-                out_results[i].of.v128 = val;
+                bh_assert(0);
                 break;
             }
 #if WASM_ENABLE_REF_TYPES != 0
@@ -2582,8 +2571,7 @@ wasm_runtime_call_wasm_v(WASMExecEnv *exec_env,
                 args[i].of.f64 = va_arg(vargs, float64);
                 break;
             case VALUE_TYPE_V128:
-                args[i].kind = WASM_V128;
-                args[i].of.v128 = va_arg(vargs, wasm_v128_t);
+                bh_assert(0);
                 break;
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
