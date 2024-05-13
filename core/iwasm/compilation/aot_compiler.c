@@ -84,37 +84,46 @@ read_leb(const uint8 *buf, const uint8 *buf_end, uint32 *p_offset,
 }
 
 /* NOLINTNEXTLINE */
-#define read_leb_uint32(p, p_end, res)                    \
-    do {                                                  \
-        uint32 off = 0;                                   \
-        uint64 res64;                                     \
-        if (!read_leb(p, p_end, &off, 32, false, &res64)) \
-            return false;                                 \
-        p += off;                                         \
-        res = (uint32)res64;                              \
+#define read_leb_generic(p, p_end, res, res_type, sign)                     \
+    do {                                                                    \
+        uint32 off = 0;                                                     \
+        uint64 res64;                                                       \
+        if (!read_leb(p, p_end, &off, sizeof(res_type) << 3, sign, &res64)) \
+            return false;                                                   \
+        p += off;                                                           \
+        res = (res_type)res64;                                              \
     } while (0)
 
 /* NOLINTNEXTLINE */
-#define read_leb_int32(p, p_end, res)                    \
-    do {                                                 \
-        uint32 off = 0;                                  \
-        uint64 res64;                                    \
-        if (!read_leb(p, p_end, &off, 32, true, &res64)) \
-            return false;                                \
-        p += off;                                        \
-        res = (int32)res64;                              \
-    } while (0)
+#define read_leb_int32(p, p_end, res) \
+    read_leb_generic(p, p_end, res, int32, true)
 
 /* NOLINTNEXTLINE */
-#define read_leb_int64(p, p_end, res)                    \
-    do {                                                 \
-        uint32 off = 0;                                  \
-        uint64 res64;                                    \
-        if (!read_leb(p, p_end, &off, 64, true, &res64)) \
-            return false;                                \
-        p += off;                                        \
-        res = (int64)res64;                              \
+#define read_leb_int64(p, p_end, res) \
+    read_leb_generic(p, p_end, res, int64, true)
+
+/* NOLINTNEXTLINE */
+#define read_leb_uint32(p, p_end, res) \
+    read_leb_generic(p, p_end, res, uint32, false)
+
+/* NOLINTNEXTLINE */
+#define read_leb_uint64(p, p_end, res) \
+    read_leb_generic(p, p_end, res, uint64, false)
+
+/* NOLINTNEXTLINE */
+#if WASM_ENABLE_MEMORY64 != 0
+#define read_leb_mem_offset(p, p_end, res)  \
+    do {                                    \
+        if (IS_MEMORY64) {                  \
+            read_leb_uint64(p, p_end, res); \
+        }                                   \
+        else {                              \
+            read_leb_uint32(p, p_end, res); \
+        }                                   \
     } while (0)
+#else
+#define read_leb_mem_offset read_leb_uint32
+#endif
 
 /**
  * Since wamrc uses a full feature Wasm loader,
@@ -134,6 +143,13 @@ aot_validate_wasm(AOTCompContext *comp_ctx)
             return false;
         }
     }
+
+#if WASM_ENABLE_MEMORY64 != 0
+    if (comp_ctx->pointer_size < sizeof(uint64) && IS_MEMORY64) {
+        aot_set_last_error("Compiling wasm64 to 32bit platform is not allowed");
+        return false;
+    }
+#endif
 
     return true;
 }
@@ -933,7 +949,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
     uint16 result_count;
     uint32 br_depth, *br_depths, br_count;
     uint32 func_idx, type_idx, mem_idx, local_idx, global_idx, i;
-    uint32 bytes = 4, align, offset;
+    uint32 bytes = 4, align;
+    mem_offset_t offset;
     uint32 type_index;
     bool sign = true;
     int32 i32_const;
@@ -1892,7 +1909,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 sign = (opcode == WASM_OP_I32_LOAD16_S) ? true : false;
             op_i32_load:
                 read_leb_uint32(frame_ip, frame_ip_end, align);
-                read_leb_uint32(frame_ip, frame_ip_end, offset);
+                read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                 if (!aot_compile_op_i32_load(comp_ctx, func_ctx, align, offset,
                                              bytes, sign, false))
                     return false;
@@ -1918,7 +1935,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 sign = (opcode == WASM_OP_I64_LOAD32_S) ? true : false;
             op_i64_load:
                 read_leb_uint32(frame_ip, frame_ip_end, align);
-                read_leb_uint32(frame_ip, frame_ip_end, offset);
+                read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                 if (!aot_compile_op_i64_load(comp_ctx, func_ctx, align, offset,
                                              bytes, sign, false))
                     return false;
@@ -1926,14 +1943,14 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
             case WASM_OP_F32_LOAD:
                 read_leb_uint32(frame_ip, frame_ip_end, align);
-                read_leb_uint32(frame_ip, frame_ip_end, offset);
+                read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                 if (!aot_compile_op_f32_load(comp_ctx, func_ctx, align, offset))
                     return false;
                 break;
 
             case WASM_OP_F64_LOAD:
                 read_leb_uint32(frame_ip, frame_ip_end, align);
-                read_leb_uint32(frame_ip, frame_ip_end, offset);
+                read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                 if (!aot_compile_op_f64_load(comp_ctx, func_ctx, align, offset))
                     return false;
                 break;
@@ -1948,7 +1965,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 bytes = 2;
             op_i32_store:
                 read_leb_uint32(frame_ip, frame_ip_end, align);
-                read_leb_uint32(frame_ip, frame_ip_end, offset);
+                read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                 if (!aot_compile_op_i32_store(comp_ctx, func_ctx, align, offset,
                                               bytes, false))
                     return false;
@@ -1967,7 +1984,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 bytes = 4;
             op_i64_store:
                 read_leb_uint32(frame_ip, frame_ip_end, align);
-                read_leb_uint32(frame_ip, frame_ip_end, offset);
+                read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                 if (!aot_compile_op_i64_store(comp_ctx, func_ctx, align, offset,
                                               bytes, false))
                     return false;
@@ -1975,7 +1992,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
             case WASM_OP_F32_STORE:
                 read_leb_uint32(frame_ip, frame_ip_end, align);
-                read_leb_uint32(frame_ip, frame_ip_end, offset);
+                read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                 if (!aot_compile_op_f32_store(comp_ctx, func_ctx, align,
                                               offset))
                     return false;
@@ -1983,7 +2000,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
             case WASM_OP_F64_STORE:
                 read_leb_uint32(frame_ip, frame_ip_end, align);
-                read_leb_uint32(frame_ip, frame_ip_end, offset);
+                read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                 if (!aot_compile_op_f64_store(comp_ctx, func_ctx, align,
                                               offset))
                     return false;
@@ -2540,7 +2557,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
                 if (opcode != WASM_OP_ATOMIC_FENCE) {
                     read_leb_uint32(frame_ip, frame_ip_end, align);
-                    read_leb_uint32(frame_ip, frame_ip_end, offset);
+                    read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                 }
                 switch (opcode) {
                     case WASM_OP_ATOMIC_WAIT32:
@@ -2705,7 +2722,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     case SIMD_v128_load:
                     {
                         read_leb_uint32(frame_ip, frame_ip_end, align);
-                        read_leb_uint32(frame_ip, frame_ip_end, offset);
+                        read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                         if (!aot_compile_simd_v128_load(comp_ctx, func_ctx,
                                                         align, offset))
                             return false;
@@ -2720,7 +2737,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     case SIMD_v128_load32x2_u:
                     {
                         read_leb_uint32(frame_ip, frame_ip_end, align);
-                        read_leb_uint32(frame_ip, frame_ip_end, offset);
+                        read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                         if (!aot_compile_simd_load_extend(
                                 comp_ctx, func_ctx, opcode, align, offset))
                             return false;
@@ -2733,7 +2750,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     case SIMD_v128_load64_splat:
                     {
                         read_leb_uint32(frame_ip, frame_ip_end, align);
-                        read_leb_uint32(frame_ip, frame_ip_end, offset);
+                        read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                         if (!aot_compile_simd_load_splat(comp_ctx, func_ctx,
                                                          opcode, align, offset))
                             return false;
@@ -2743,7 +2760,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     case SIMD_v128_store:
                     {
                         read_leb_uint32(frame_ip, frame_ip_end, align);
-                        read_leb_uint32(frame_ip, frame_ip_end, offset);
+                        read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                         if (!aot_compile_simd_v128_store(comp_ctx, func_ctx,
                                                          align, offset))
                             return false;
@@ -3006,7 +3023,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     case SIMD_v128_load64_lane:
                     {
                         read_leb_uint32(frame_ip, frame_ip_end, align);
-                        read_leb_uint32(frame_ip, frame_ip_end, offset);
+                        read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                         if (!aot_compile_simd_load_lane(comp_ctx, func_ctx,
                                                         opcode, align, offset,
                                                         *frame_ip++))
@@ -3020,7 +3037,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     case SIMD_v128_store64_lane:
                     {
                         read_leb_uint32(frame_ip, frame_ip_end, align);
-                        read_leb_uint32(frame_ip, frame_ip_end, offset);
+                        read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                         if (!aot_compile_simd_store_lane(comp_ctx, func_ctx,
                                                          opcode, align, offset,
                                                          *frame_ip++))
@@ -3032,7 +3049,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     case SIMD_v128_load64_zero:
                     {
                         read_leb_uint32(frame_ip, frame_ip_end, align);
-                        read_leb_uint32(frame_ip, frame_ip_end, offset);
+                        read_leb_mem_offset(frame_ip, frame_ip_end, offset);
                         if (!aot_compile_simd_load_zero(comp_ctx, func_ctx,
                                                         opcode, align, offset))
                             return false;

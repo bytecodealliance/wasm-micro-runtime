@@ -792,16 +792,18 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     uint32 max_page_count =
         wasm_runtime_get_max_mem(max_memory_pages, memory->mem_init_page_count,
                                  memory->mem_max_page_count);
+    uint32 default_max_pages;
     uint32 inc_page_count, global_idx;
     uint32 bytes_of_last_page, bytes_to_page_end;
     uint64 aux_heap_base,
         heap_offset = (uint64)num_bytes_per_page * init_page_count;
     uint64 memory_data_size, max_memory_data_size;
     uint8 *p = NULL, *global_addr;
+    bool is_memory64 = memory->memory_flags & MEMORY64_FLAG;
 
     bool is_shared_memory = false;
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    is_shared_memory = memory->memory_flags & 0x02 ? true : false;
+    is_shared_memory = memory->memory_flags & SHARED_MEMORY_FLAG ? true : false;
     /* Shared memory */
     if (is_shared_memory && parent != NULL) {
         AOTMemoryInstance *shared_memory_instance;
@@ -812,6 +814,16 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         return shared_memory_instance;
     }
 #endif
+
+#if WASM_ENABLE_MEMORY64 != 0
+    if (is_memory64) {
+        default_max_pages = DEFAULT_MEM64_MAX_PAGES;
+    }
+    else
+#endif
+    {
+        default_max_pages = DEFAULT_MAX_PAGES;
+    }
 
     if (heap_size > 0 && module->malloc_func_index != (uint32)-1
         && module->free_func_index != (uint32)-1) {
@@ -893,14 +905,14 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         }
         init_page_count += inc_page_count;
         max_page_count += inc_page_count;
-        if (init_page_count > DEFAULT_MAX_PAGES) {
+        if (init_page_count > default_max_pages) {
             set_error_buf(error_buf, error_buf_size,
                           "failed to insert app heap into linear memory, "
                           "try using `--heap-size=0` option");
             return NULL;
         }
-        if (max_page_count > DEFAULT_MAX_PAGES)
-            max_page_count = DEFAULT_MAX_PAGES;
+        if (max_page_count > default_max_pages)
+            max_page_count = default_max_pages;
     }
 
     LOG_VERBOSE("Memory instantiate:");
@@ -912,11 +924,11 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
                 heap_size);
 
     max_memory_data_size = (uint64)num_bytes_per_page * max_page_count;
-    bh_assert(max_memory_data_size <= MAX_LINEAR_MEMORY_SIZE);
+    bh_assert(max_memory_data_size <= GET_MAX_LINEAR_MEMORY_SIZE(is_memory64));
     (void)max_memory_data_size;
 
     /* TODO: memory64 uses is_memory64 flag */
-    if (wasm_allocate_linear_memory(&p, is_shared_memory, false,
+    if (wasm_allocate_linear_memory(&p, is_shared_memory, is_memory64,
                                     num_bytes_per_page, init_page_count,
                                     max_page_count, &memory_data_size)
         != BHT_OK) {
@@ -930,6 +942,11 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     memory_inst->cur_page_count = init_page_count;
     memory_inst->max_page_count = max_page_count;
     memory_inst->memory_data_size = memory_data_size;
+#if WASM_ENABLE_MEMORY64 != 0
+    if (is_memory64) {
+        memory_inst->is_memory64 = 1;
+    }
+#endif
 
     /* Init memory info */
     memory_inst->memory_data = p;
@@ -993,11 +1010,12 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
                      uint32 max_memory_pages, char *error_buf,
                      uint32 error_buf_size)
 {
-    uint32 global_index, global_data_offset, base_offset, length;
+    uint32 global_index, global_data_offset, length;
     uint32 i, memory_count = module->memory_count;
     AOTMemoryInstance *memories, *memory_inst;
     AOTMemInitData *data_seg;
     uint64 total_size;
+    mem_offset_t base_offset;
 
     module_inst->memory_count = memory_count;
     total_size = sizeof(AOTMemoryInstance *) * (uint64)memory_count;
@@ -1036,7 +1054,9 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
                initialized */
             continue;
 
-        bh_assert(data_seg->offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
+        bh_assert(data_seg->offset.init_expr_type
+                      == (memory_inst->is_memory64 ? INIT_EXPR_TYPE_I64_CONST
+                                                   : INIT_EXPR_TYPE_I32_CONST)
                   || data_seg->offset.init_expr_type
                          == INIT_EXPR_TYPE_GET_GLOBAL);
 
@@ -1057,11 +1077,28 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
                     module->globals[global_index - module->import_global_count]
                         .data_offset;
 
-            base_offset =
-                *(uint32 *)(module_inst->global_data + global_data_offset);
+#if WASM_ENABLE_MEMORY64 != 0
+            if (memory_inst->is_memory64) {
+                base_offset =
+                    *(uint64 *)(module_inst->global_data + global_data_offset);
+            }
+            else
+#endif
+            {
+                base_offset =
+                    *(uint32 *)(module_inst->global_data + global_data_offset);
+            }
         }
         else {
-            base_offset = (uint32)data_seg->offset.u.i32;
+#if WASM_ENABLE_MEMORY64 != 0
+            if (memory_inst->is_memory64) {
+                base_offset = data_seg->offset.u.i64;
+            }
+            else
+#endif
+            {
+                base_offset = data_seg->offset.u.u32;
+            }
         }
 
         /* Copy memory data */
@@ -1071,7 +1108,8 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         /* Check memory data */
         /* check offset since length might negative */
         if (base_offset > memory_inst->memory_data_size) {
-            LOG_DEBUG("base_offset(%d) > memory_data_size(%" PRIu64 ")",
+            LOG_DEBUG("base_offset(%" PR_MEM_OFFSET
+                      ") > memory_data_size(%" PRIu64 ")",
                       base_offset, memory_inst->memory_data_size);
 #if WASM_ENABLE_REF_TYPES != 0
             set_error_buf(error_buf, error_buf_size,
@@ -1086,8 +1124,8 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         /* check offset + length(could be zero) */
         length = data_seg->byte_count;
         if (base_offset + length > memory_inst->memory_data_size) {
-            LOG_DEBUG("base_offset(%d) + length(%d) > memory_data_size(%" PRIu64
-                      ")",
+            LOG_DEBUG("base_offset(%" PR_MEM_OFFSET
+                      ") + length(%d) > memory_data_size(%" PRIu64 ")",
                       base_offset, length, memory_inst->memory_data_size);
 #if WASM_ENABLE_REF_TYPES != 0
             set_error_buf(error_buf, error_buf_size,
@@ -2334,22 +2372,44 @@ aot_copy_exception(AOTModuleInstance *module_inst, char *exception_buf)
 static bool
 execute_malloc_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
                         AOTFunctionInstance *malloc_func,
-                        AOTFunctionInstance *retain_func, uint32 size,
-                        uint32 *p_result)
+                        AOTFunctionInstance *retain_func, uint64 size,
+                        uint64 *p_result)
 {
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     WASMExecEnv *exec_env_tls = wasm_runtime_get_exec_env_tls();
 #endif
     WASMExecEnv *exec_env_created = NULL;
     WASMModuleInstanceCommon *module_inst_old = NULL;
-    uint32 argv[2], argc;
+    union {
+        uint32 u32[3];
+        uint64 u64;
+    } argv;
+    uint32 argc;
     bool ret;
 
-    argv[0] = size;
-    argc = 1;
-    if (retain_func) {
-        argv[1] = 0;
+#if WASM_ENABLE_MEMORY64 != 0
+    bool is_memory64 = module_inst->memories[0]->is_memory64;
+    if (is_memory64) {
         argc = 2;
+        PUT_I64_TO_ADDR(&argv.u64, size);
+    }
+    else
+#endif
+    {
+        argc = 1;
+        argv.u32[0] = (uint32)size;
+    }
+
+    /* if __retain is exported, then this module is compiled by
+        assemblyscript, the memory should be managed by as's runtime,
+        in this case we need to call the retain function after malloc
+        the memory */
+    if (retain_func) {
+        /* the malloc function from assemblyscript is:
+            function __new(size: usize, id: u32)
+            id = 0 means this is an ArrayBuffer object */
+        argv.u32[argc] = 0;
+        argc++;
     }
 
     if (exec_env) {
@@ -2389,10 +2449,10 @@ execute_malloc_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
         }
     }
 
-    ret = aot_call_function(exec_env, malloc_func, argc, argv);
+    ret = aot_call_function(exec_env, malloc_func, argc, argv.u32);
 
     if (retain_func && ret)
-        ret = aot_call_function(exec_env, retain_func, 1, argv);
+        ret = aot_call_function(exec_env, retain_func, 1, argv.u32);
 
     if (module_inst_old)
         /* Restore the existing exec_env's module inst */
@@ -2401,24 +2461,46 @@ execute_malloc_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
     if (exec_env_created)
         wasm_exec_env_destroy(exec_env_created);
 
-    if (ret)
-        *p_result = argv[0];
+    if (ret) {
+#if WASM_ENABLE_MEMORY64 != 0
+        if (is_memory64)
+            *p_result = GET_I64_FROM_ADDR(&argv.u64);
+        else
+#endif
+        {
+            *p_result = argv.u32[0];
+        }
+    }
     return ret;
 }
 
 static bool
 execute_free_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
-                      AOTFunctionInstance *free_func, uint32 offset)
+                      AOTFunctionInstance *free_func, uint64 offset)
 {
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     WASMExecEnv *exec_env_tls = wasm_runtime_get_exec_env_tls();
 #endif
     WASMExecEnv *exec_env_created = NULL;
     WASMModuleInstanceCommon *module_inst_old = NULL;
-    uint32 argv[2];
+    union {
+        uint32 u32[2];
+        uint64 u64;
+    } argv;
+    uint32 argc;
     bool ret;
 
-    argv[0] = offset;
+#if WASM_ENABLE_MEMORY64 != 0
+    if (module_inst->memories[0]->is_memory64) {
+        PUT_I64_TO_ADDR(&argv.u64, offset);
+        argc = 2;
+    }
+    else
+#endif
+    {
+        argv.u32[0] = (uint32)offset;
+        argc = 1;
+    }
 
     if (exec_env) {
 #ifdef OS_ENABLE_HW_BOUND_CHECK
@@ -2457,7 +2539,7 @@ execute_free_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
         }
     }
 
-    ret = aot_call_function(exec_env, free_func, 1, argv);
+    ret = aot_call_function(exec_env, free_func, argc, argv.u32);
 
     if (module_inst_old)
         /* Restore the existing exec_env's module inst */
@@ -2477,7 +2559,7 @@ aot_module_malloc_internal(AOTModuleInstance *module_inst,
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
     AOTModule *module = (AOTModule *)module_inst->module;
     uint8 *addr = NULL;
-    uint32 offset = 0;
+    uint64 offset = 0;
 
     /* TODO: Memory64 size check based on memory idx type */
     bh_assert(size <= UINT32_MAX);
@@ -2509,7 +2591,7 @@ aot_module_malloc_internal(AOTModuleInstance *module_inst,
 
         if (!malloc_func
             || !execute_malloc_function(module_inst, exec_env, malloc_func,
-                                        retain_func, (uint32)size, &offset)) {
+                                        retain_func, size, &offset)) {
             return 0;
         }
         addr = offset ? (uint8 *)memory_inst->memory_data + offset : NULL;
@@ -2620,8 +2702,7 @@ aot_module_free_internal(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
                 free_func = aot_lookup_function(module_inst, "__unpin");
 
             if (free_func)
-                execute_free_function(module_inst, exec_env, free_func,
-                                      (uint32)ptr);
+                execute_free_function(module_inst, exec_env, free_func, ptr);
         }
     }
 }
@@ -2983,7 +3064,7 @@ aot_sqrtf(float x)
 #if WASM_ENABLE_BULK_MEMORY != 0
 bool
 aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index, uint32 offset,
-                uint32 len, uint32 dst)
+                uint32 len, size_t dst)
 {
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
     AOTModule *aot_module;
@@ -3016,7 +3097,7 @@ aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index, uint32 offset,
         (WASMModuleInstanceCommon *)module_inst, (uint64)dst);
 
     SHARED_MEMORY_LOCK(memory_inst);
-    bh_memcpy_s(maddr, (uint32)(memory_inst->memory_data_size - dst),
+    bh_memcpy_s(maddr, CLAMP_U64_TO_U32(memory_inst->memory_data_size - dst),
                 data + offset, len);
     SHARED_MEMORY_UNLOCK(memory_inst);
     return true;

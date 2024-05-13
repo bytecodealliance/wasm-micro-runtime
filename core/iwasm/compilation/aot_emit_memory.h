@@ -17,43 +17,43 @@ extern "C" {
 
 bool
 aot_compile_op_i32_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                        uint32 align, uint32 offset, uint32 bytes, bool sign,
-                        bool atomic);
+                        uint32 align, mem_offset_t offset, uint32 bytes,
+                        bool sign, bool atomic);
 
 bool
 aot_compile_op_i64_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                        uint32 align, uint32 offset, uint32 bytes, bool sign,
-                        bool atomic);
+                        uint32 align, mem_offset_t offset, uint32 bytes,
+                        bool sign, bool atomic);
 
 bool
 aot_compile_op_f32_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                        uint32 align, uint32 offset);
+                        uint32 align, mem_offset_t offset);
 
 bool
 aot_compile_op_f64_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                        uint32 align, uint32 offset);
+                        uint32 align, mem_offset_t offset);
 
 bool
 aot_compile_op_i32_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                         uint32 align, uint32 offset, uint32 bytes,
+                         uint32 align, mem_offset_t offset, uint32 bytes,
                          bool atomic);
 
 bool
 aot_compile_op_i64_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                         uint32 align, uint32 offset, uint32 bytes,
+                         uint32 align, mem_offset_t offset, uint32 bytes,
                          bool atomic);
 
 bool
 aot_compile_op_f32_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                         uint32 align, uint32 offset);
+                         uint32 align, mem_offset_t offset);
 
 bool
 aot_compile_op_f64_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                         uint32 align, uint32 offset);
+                         uint32 align, mem_offset_t offset);
 
 LLVMValueRef
 aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                          uint32 offset, uint32 bytes, bool enable_segue);
+                          mem_offset_t offset, uint32 bytes, bool enable_segue);
 
 bool
 aot_compile_op_memory_size(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
@@ -89,22 +89,22 @@ aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 bool
 aot_compile_op_atomic_rmw(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                           uint8 atomic_op, uint8 op_type, uint32 align,
-                          uint32 offset, uint32 bytes);
+                          mem_offset_t offset, uint32 bytes);
 
 bool
 aot_compile_op_atomic_cmpxchg(AOTCompContext *comp_ctx,
                               AOTFuncContext *func_ctx, uint8 op_type,
-                              uint32 align, uint32 offset, uint32 bytes);
+                              uint32 align, mem_offset_t offset, uint32 bytes);
 
 bool
 aot_compile_op_atomic_wait(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                           uint8 op_type, uint32 align, uint32 offset,
+                           uint8 op_type, uint32 align, mem_offset_t offset,
                            uint32 bytes);
 
 bool
 aot_compiler_op_atomic_notify(AOTCompContext *comp_ctx,
                               AOTFuncContext *func_ctx, uint32 align,
-                              uint32 offset, uint32 bytes);
+                              mem_offset_t offset, uint32 bytes);
 
 bool
 aot_compiler_op_atomic_fence(AOTCompContext *comp_ctx,

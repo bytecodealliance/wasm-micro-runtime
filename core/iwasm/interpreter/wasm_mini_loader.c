@@ -11,6 +11,7 @@
 #include "wasm_runtime.h"
 #include "../common/wasm_native.h"
 #include "../common/wasm_memory.h"
+#include "wasm_loader_common.h"
 #if WASM_ENABLE_FAST_JIT != 0
 #include "../fast-jit/jit_compiler.h"
 #include "../fast-jit/jit_codecache.h"
@@ -715,38 +716,6 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
 }
 
 static bool
-check_memory_flag(const uint8 mem_flag)
-{
-    /* Check whether certain features indicated by mem_flag are enabled in
-     * runtime */
-    if (mem_flag > MAX_PAGE_COUNT_FLAG) {
-#if WASM_ENABLE_SHARED_MEMORY == 0
-        if (mem_flag & SHARED_MEMORY_FLAG) {
-            LOG_VERBOSE("shared memory flag was found, please enable shared "
-                        "memory, lib-pthread or lib-wasi-threads");
-            return false;
-        }
-#endif
-#if WASM_ENABLE_MEMORY64 == 0
-        if (mem_flag & MEMORY64_FLAG) {
-            LOG_VERBOSE("memory64 flag was found, please enable memory64");
-            return false;
-        }
-#endif
-    }
-
-    if (mem_flag > MAX_PAGE_COUNT_FLAG + SHARED_MEMORY_FLAG + MEMORY64_FLAG) {
-        return false;
-    }
-    else if ((mem_flag & SHARED_MEMORY_FLAG)
-             && !(mem_flag & MAX_PAGE_COUNT_FLAG)) {
-        return false;
-    }
-
-    return true;
-}
-
-static bool
 load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
                    WASMModule *parent_module, const char *sub_module_name,
                    const char *memory_name, WASMMemoryImport *memory,
@@ -766,7 +735,9 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
     uint32 declare_max_page_count = 0;
 
     read_leb_uint32(p, p_end, mem_flag);
-    bh_assert(check_memory_flag(mem_flag));
+    if (!wasm_memory_check_flags(mem_flag, error_buf, error_buf_size, false)) {
+        return false;
+    }
 
 #if WASM_ENABLE_APP_FRAMEWORK == 0
     is_memory64 = mem_flag & MEMORY64_FLAG;
@@ -796,7 +767,6 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
     memory->num_bytes_per_page = DEFAULT_NUM_BYTES_PER_PAGE;
 
     *p_buf = p;
-    (void)check_memory_flag;
     return true;
 }
 
@@ -891,7 +861,10 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
     read_leb_uint32(p, p_end, memory->flags);
     bh_assert(p - p_org <= 1);
     (void)p_org;
-    bh_assert(check_memory_flag(memory->flags));
+    if (!wasm_memory_check_flags(memory->flags, error_buf, error_buf_size,
+                                 false)) {
+        return false;
+    }
 
 #if WASM_ENABLE_APP_FRAMEWORK == 0
     is_memory64 = memory->flags & MEMORY64_FLAG;
@@ -916,7 +889,6 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
     memory->num_bytes_per_page = DEFAULT_NUM_BYTES_PER_PAGE;
 
     *p_buf = p;
-    (void)check_memory_flag;
     return true;
 }
 

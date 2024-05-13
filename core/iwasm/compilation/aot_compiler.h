@@ -519,6 +519,15 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
         wasm_runtime_free(aot_value);                                        \
     } while (0)
 
+#if WASM_ENABLE_MEMORY64 != 0
+#define IS_MEMORY64 \
+    (comp_ctx->comp_data->memories[0].memory_flags & MEMORY64_FLAG)
+#define MEMORY64_COND_VALUE(VAL_IF_ENABLED, VAL_IF_DISABLED) \
+    (IS_MEMORY64 ? VAL_IF_ENABLED : VAL_IF_DISABLED)
+#else
+#define MEMORY64_COND_VALUE(VAL_IF_ENABLED, VAL_IF_DISABLED) (VAL_IF_DISABLED)
+#endif
+
 #define POP_I32(v) POP(v, VALUE_TYPE_I32)
 #define POP_I64(v) POP(v, VALUE_TYPE_I64)
 #define POP_F32(v) POP(v, VALUE_TYPE_F32)
@@ -527,6 +536,10 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
 #define POP_FUNCREF(v) POP(v, VALUE_TYPE_FUNCREF)
 #define POP_EXTERNREF(v) POP(v, VALUE_TYPE_EXTERNREF)
 #define POP_GC_REF(v) POP(v, VALUE_TYPE_GC_REF)
+#define POP_MEM_OFFSET(v) \
+    POP(v, MEMORY64_COND_VALUE(VALUE_TYPE_I64, VALUE_TYPE_I32))
+#define POP_PAGE_COUNT(v) \
+    POP(v, MEMORY64_COND_VALUE(VALUE_TYPE_I64, VALUE_TYPE_I32))
 
 #define POP_COND(llvm_value)                                                   \
     do {                                                                       \
@@ -590,6 +603,8 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
 #define PUSH_FUNCREF(v) PUSH(v, VALUE_TYPE_FUNCREF)
 #define PUSH_EXTERNREF(v) PUSH(v, VALUE_TYPE_EXTERNREF)
 #define PUSH_GC_REF(v) PUSH(v, VALUE_TYPE_GC_REF)
+#define PUSH_PAGE_COUNT(v) \
+    PUSH(v, MEMORY64_COND_VALUE(VALUE_TYPE_I64, VALUE_TYPE_I32))
 
 #define TO_LLVM_TYPE(wasm_type) \
     wasm_type_to_llvm_type(comp_ctx, &comp_ctx->basic_types, wasm_type)

@@ -451,6 +451,7 @@ CSRCS += nuttx_platform.c \
          wasm_runtime_common.c \
          wasm_native.c \
          wasm_exec_env.c \
+         wasm_loader_common.c \
          wasm_memory.c \
          wasm_c_api.c
 

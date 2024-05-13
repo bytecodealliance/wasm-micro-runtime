@@ -760,7 +760,7 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
 #if WASM_ENABLE_BULK_MEMORY != 0
 bool
 llvm_jit_memory_init(WASMModuleInstance *module_inst, uint32 seg_index,
-                     uint32 offset, uint32 len, uint32 dst);
+                     uint32 offset, uint32 len, size_t dst);
 
 bool
 llvm_jit_data_drop(WASMModuleInstance *module_inst, uint32 seg_index);

@@ -362,6 +362,9 @@ LOAD_I16(void *addr)
 #define SHARED_MEMORY_UNLOCK(memory) (void)0
 #endif
 
+#define CLAMP_U64_TO_U32(value) \
+    ((value) > UINT32_MAX ? UINT32_MAX : (uint32)(value))
+
 typedef struct WASMModuleCommon {
     /* Module type, for module loaded from WASM bytecode binary,
        this field is Wasm_Module_Bytecode, and this structure should
