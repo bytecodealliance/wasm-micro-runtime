@@ -1350,14 +1350,18 @@ wasm_runtime_load_ex(uint8 *buf, uint32 size, const LoadArgs *args,
                                           true,
 #endif
                                           args, error_buf, error_buf_size);
-        ((WASMModule *)module_common)->is_binary_freeable = true;
+        if (module_common)
+            ((WASMModule *)module_common)->is_binary_freeable =
+                args->wasm_binary_freeable;
 #endif
     }
     else if (get_package_type(buf, size) == Wasm_Module_AoT) {
 #if WASM_ENABLE_AOT != 0
         module_common = (WASMModuleCommon *)aot_load_from_aot_file(
             buf, size, args, error_buf, error_buf_size);
-        ((AOTModule *)module_common)->is_binary_freeable = true;
+        if (module_common)
+            ((AOTModule *)module_common)->is_binary_freeable =
+                args->wasm_binary_freeable;
 #endif
     }
     else {
@@ -1402,6 +1406,7 @@ wasm_runtime_load_from_sections(WASMSection *section_list, bool is_aot,
             LOG_DEBUG("WASM module load failed from sections");
             return NULL;
         }
+        ((WASMModule *)module_common)->is_binary_freeable = true;
         return register_module_with_null_name(module_common, error_buf,
                                               error_buf_size);
 #endif
@@ -1414,6 +1419,7 @@ wasm_runtime_load_from_sections(WASMSection *section_list, bool is_aot,
             LOG_DEBUG("WASM module load failed from sections");
             return NULL;
         }
+        ((AOTModule *)module_common)->is_binary_freeable = true;
         return register_module_with_null_name(module_common, error_buf,
                                               error_buf_size);
 #endif
@@ -7180,7 +7186,14 @@ wasm_runtime_is_underlying_binary_freeable(const wasm_module_t module)
 
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode) {
+#if (WASM_ENABLE_JIT != 0 || WASM_ENABLE_FAST_JIT != 0) \
+    && (WASM_ENABLE_LAZY_JIT != 0)
+        is_freeable = false;
+#elif WASM_ENABLE_FAST_INTERP == 0
+        is_freeable = false;
+#else
         is_freeable = ((WASMModule *)module)->is_binary_freeable;
+#endif
     }
 #endif
 #if WASM_ENABLE_AOT != 0

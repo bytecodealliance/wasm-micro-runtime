@@ -562,7 +562,7 @@ WASM_API_EXTERN void wasm_shared_module_delete(own wasm_shared_module_t*);
 WASM_API_EXTERN bool wasm_module_set_name(wasm_module_t*, const char* name);
 WASM_API_EXTERN const char *wasm_module_get_name(wasm_module_t*);
 
-WASM_API_EXTERN bool wasm_module_is_underlying_binary_cloned(const wasm_module_t* module);
+WASM_API_EXTERN bool wasm_module_is_underlying_binary_freeable(const wasm_module_t* module);
 
 
 // Function Instances

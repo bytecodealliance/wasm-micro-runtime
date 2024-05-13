@@ -2999,9 +2999,10 @@ wasm_module_get_name(wasm_module_t *module)
 }
 
 bool
-wasm_module_is_underlying_binary_cloned(const wasm_module_t *module)
+wasm_module_is_underlying_binary_freeable(const wasm_module_t *module)
 {
-    return ((wasm_module_ex_t *)module)->is_binary_cloned;
+    return ((wasm_module_ex_t *)module)->is_binary_cloned
+           && wasm_runtime_is_underlying_binary_freeable(*module);
 }
 
 static wasm_func_t *
