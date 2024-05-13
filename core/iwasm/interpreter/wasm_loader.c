@@ -2410,8 +2410,8 @@ wasm_loader_resolve_global(const char *module_name, const char *global_name,
     if (global->type.val_type != type
         || global->type.is_mutable != is_mutable) {
         LOG_DEBUG("%s,%s failed type check(%d, %d), expected(%d, %d)",
-                  module_name, global_name, global->type, global->is_mutable,
-                  type, is_mutable);
+                  module_name, global_name, global->type.val_type,
+                  global->type.is_mutable, type, is_mutable);
         set_error_buf(error_buf, error_buf_size, "incompatible import type");
         return NULL;
     }

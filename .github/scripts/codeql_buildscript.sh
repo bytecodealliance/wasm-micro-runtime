@@ -264,7 +264,7 @@ fi
 # build iwasm with configurable bounds checks enabled
 cd ${WAMR_DIR}/product-mini/platforms/linux
 rm -rf build && mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Debug -DWAMR_CONFIGUABLE_BOUNDS_CHECKS=1
+cmake .. -DCMAKE_BUILD_TYPE=Debug -DWAMR_CONFIGURABLE_BOUNDS_CHECKS=1
 make -j
 if [[ $? != 0 ]]; then
     echo "Failed to build iwasm with configurable bounds checks enabled!"
