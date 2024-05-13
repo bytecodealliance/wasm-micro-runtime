@@ -574,7 +574,7 @@ typedef struct WASMTagImport {
     char *field_name;
     uint8 attribute; /* the type of the tag (numerical) */
     uint32 type;     /* the type of the catch function (numerical)*/
-    WASMType *tag_type;
+    WASMFuncType *tag_type;
     void *tag_ptr_linked;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -706,7 +706,7 @@ struct WASMFunction {
 struct WASMTag {
     uint8 attribute; /* the attribute property of the tag (expected to be 0) */
     uint32 type; /* the type of the tag (expected valid inden in type table) */
-    WASMType *tag_type;
+    WASMFuncType *tag_type;
 };
 #endif
 
