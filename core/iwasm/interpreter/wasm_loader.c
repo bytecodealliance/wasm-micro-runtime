@@ -11196,13 +11196,9 @@ re_scan:
 #if WASM_ENABLE_GC != 0
                     local_type = tag_type->types[tti];
                     local_idx = tti;
-                    bool is_type_multi_byte =
-                        wasm_is_type_multi_byte_type(local_type);
-                    WASMRefType *ref_type = NULL;
-                    if (is_type_multi_byte) {
-                        bh_assert(param_reftype_maps);
-                        GET_LOCAL_REFTYPE();
-                    }
+                    /* Get the wasm_ref_type if the local_type is multibyte
+                     * type */
+                    GET_LOCAL_REFTYPE();
 #endif
 
                     if (!check_stack_top_values(
@@ -11212,7 +11208,7 @@ re_scan:
 #endif
                             tag_type->types[tti],
 #if WASM_ENABLE_GC != 0
-                            ref_type,
+                            &wasm_ref_type,
 #endif
                             error_buf, error_buf_size)) {
                         snprintf(error_buf, error_buf_size,
