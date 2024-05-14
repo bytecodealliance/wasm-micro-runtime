@@ -759,7 +759,7 @@ val_type_rt_2_valkind(uint8 val_type_rt)
 #undef WAMR_VAL_TYPE_2_WASM_VAL_KIND
 
         default:
-            return WASM_ANYREF;
+            return WASM_EXTERNREF;
     }
 }
 
@@ -776,7 +776,7 @@ wasm_valtype_new(wasm_valkind_t kind)
 
     if (kind > WASM_V128 && WASM_FUNCREF != kind
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
-        && WASM_ANYREF != kind
+        && WASM_EXTERNREF != kind
 #endif
     ) {
         return NULL;
@@ -808,7 +808,7 @@ wasm_valtype_copy(const wasm_valtype_t *src)
 wasm_valkind_t
 wasm_valtype_kind(const wasm_valtype_t *val_type)
 {
-    return val_type ? val_type->kind : WASM_ANYREF;
+    return val_type ? val_type->kind : WASM_EXTERNREF;
 }
 
 static wasm_functype_t *
@@ -976,7 +976,7 @@ cmp_val_kind_with_val_type(wasm_valkind_t v_k, uint8 v_t)
            || (v_k == WASM_F32 && v_t == VALUE_TYPE_F32)
            || (v_k == WASM_F64 && v_t == VALUE_TYPE_F64)
            || (v_k == WASM_V128 && v_t == VALUE_TYPE_V128)
-           || (v_k == WASM_ANYREF && v_t == VALUE_TYPE_EXTERNREF)
+           || (v_k == WASM_EXTERNREF && v_t == VALUE_TYPE_EXTERNREF)
            || (v_k == WASM_FUNCREF && v_t == VALUE_TYPE_FUNCREF);
 }
 
@@ -1135,7 +1135,7 @@ wasm_tabletype_new(own wasm_valtype_t *val_type, const wasm_limits_t *limits)
 
     if (wasm_valtype_kind(val_type) != WASM_FUNCREF
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
-        && wasm_valtype_kind(val_type) != WASM_ANYREF
+        && wasm_valtype_kind(val_type) != WASM_EXTERNREF
 #endif
     ) {
         return NULL;
@@ -1653,7 +1653,7 @@ rt_val_to_wasm_val(const uint8 *data, uint8 val_type_rt, wasm_val_t *out)
             break;
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
         case VALUE_TYPE_EXTERNREF:
-            out->kind = WASM_ANYREF;
+            out->kind = WASM_EXTERNREF;
             if (NULL_REF == *(uint32 *)data) {
                 out->of.ref = NULL;
             }
@@ -1697,7 +1697,7 @@ wasm_val_to_rt_val(WASMModuleInstanceCommon *inst_comm_rt, uint8 val_type_rt,
             break;
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
         case VALUE_TYPE_EXTERNREF:
-            bh_assert(WASM_ANYREF == v->kind);
+            bh_assert(WASM_EXTERNREF == v->kind);
             ret =
                 wasm_externref_obj2ref(inst_comm_rt, v->of.ref, (uint32 *)data);
             break;
@@ -3263,7 +3263,7 @@ params_to_argv(const wasm_val_vec_t *params,
                 bh_assert(0);
                 break;
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
-            case WASM_ANYREF:
+            case WASM_EXTERNREF:
                 *(uintptr_t *)argv = (uintptr_t)param->of.ref;
                 argv += sizeof(uintptr_t) / sizeof(uint32);
                 break;
@@ -3308,7 +3308,7 @@ argv_to_results(const uint32 *argv, const wasm_valtype_vec_t *result_defs,
                 bh_assert(0);
                 break;
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
-            case WASM_ANYREF:
+            case WASM_EXTERNREF:
                 result->of.ref = (struct wasm_ref_t *)(*(uintptr_t *)argv);
                 argv += sizeof(uintptr_t) / sizeof(uint32);
                 break;
@@ -4034,7 +4034,7 @@ wasm_table_get(const wasm_table_t *table, wasm_table_size_t index)
     }
 
 #if WASM_ENABLE_REF_TYPES != 0
-    if (table->type->val_type->kind == WASM_ANYREF) {
+    if (table->type->val_type->kind == WASM_EXTERNREF) {
         void *externref_obj;
         if (!wasm_externref_ref2obj(ref_idx, &externref_obj)) {
             return NULL;
@@ -4064,7 +4064,7 @@ wasm_table_set(wasm_table_t *table, wasm_table_size_t index,
     if (ref
 #if WASM_ENABLE_REF_TYPES != 0
         && !(WASM_REF_foreign == ref->kind
-             && WASM_ANYREF == table->type->val_type->kind)
+             && WASM_EXTERNREF == table->type->val_type->kind)
 #endif
         && !(WASM_REF_func == ref->kind
              && WASM_FUNCREF == table->type->val_type->kind)) {
@@ -4111,7 +4111,7 @@ wasm_table_set(wasm_table_t *table, wasm_table_size_t index,
     }
 
 #if WASM_ENABLE_REF_TYPES != 0
-    if (table->type->val_type->kind == WASM_ANYREF) {
+    if (table->type->val_type->kind == WASM_EXTERNREF) {
         return wasm_externref_obj2ref(table->inst_comm_rt, ref, p_ref_idx);
     }
     else
@@ -5268,7 +5268,7 @@ wasm_externkind_t
 wasm_extern_kind(const wasm_extern_t *external)
 {
     if (!external) {
-        return WASM_ANYREF;
+        return WASM_EXTERNREF;
     }
 
     return external->kind;

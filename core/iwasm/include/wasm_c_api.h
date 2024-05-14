@@ -298,7 +298,7 @@ enum wasm_valkind_enum {
   WASM_F32,
   WASM_F64,
   WASM_V128,
-  WASM_ANYREF = 128,
+  WASM_EXTERNREF = 128,
   WASM_FUNCREF,
 };
 #endif
@@ -308,10 +308,10 @@ WASM_API_EXTERN own wasm_valtype_t* wasm_valtype_new(wasm_valkind_t);
 WASM_API_EXTERN wasm_valkind_t wasm_valtype_kind(const wasm_valtype_t*);
 
 static inline bool wasm_valkind_is_num(wasm_valkind_t k) {
-  return k < WASM_ANYREF;
+  return k < WASM_EXTERNREF;
 }
 static inline bool wasm_valkind_is_ref(wasm_valkind_t k) {
-  return k >= WASM_ANYREF;
+  return k >= WASM_EXTERNREF;
 }
 
 static inline bool wasm_valtype_is_num(const wasm_valtype_t* t) {
@@ -712,7 +712,7 @@ static inline own wasm_valtype_t* wasm_valtype_new_v128(void) {
 }
 
 static inline own wasm_valtype_t* wasm_valtype_new_anyref(void) {
-  return wasm_valtype_new(WASM_ANYREF);
+  return wasm_valtype_new(WASM_EXTERNREF);
 }
 static inline own wasm_valtype_t* wasm_valtype_new_funcref(void) {
   return wasm_valtype_new(WASM_FUNCREF);
@@ -872,8 +872,8 @@ static inline void* wasm_val_ptr(const wasm_val_t* val) {
 #define WASM_I64_VAL(i) {.kind = WASM_I64, ._paddings = {0}, .of = {.i64 = i}}
 #define WASM_F32_VAL(z) {.kind = WASM_F32, ._paddings = {0}, .of = {.f32 = z}}
 #define WASM_F64_VAL(z) {.kind = WASM_F64, ._paddings = {0}, .of = {.f64 = z}}
-#define WASM_REF_VAL(r) {.kind = WASM_ANYREF, ._paddings = {0}, .of = {.ref = r}}
-#define WASM_INIT_VAL {.kind = WASM_ANYREF, ._paddings = {0}, .of = {.ref = NULL}}
+#define WASM_REF_VAL(r) {.kind = WASM_EXTERNREF, ._paddings = {0}, .of = {.ref = r}}
+#define WASM_INIT_VAL {.kind = WASM_EXTERNREF, ._paddings = {0}, .of = {.ref = NULL}}
 
 #define KILOBYTE(n) ((n) * 1024)
 
