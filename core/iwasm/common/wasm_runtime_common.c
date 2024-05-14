@@ -1995,6 +1995,8 @@ val_type_to_val_kind(uint8 value_type)
             return WASM_F32;
         case VALUE_TYPE_F64:
             return WASM_F64;
+        case VALUE_TYPE_V128:
+            return WASM_V128;
         case VALUE_TYPE_FUNCREF:
             return WASM_FUNCREF;
         case VALUE_TYPE_EXTERNREF:
@@ -2301,6 +2303,11 @@ parse_args_to_uint32_array(WASMFuncType *type, wasm_val_t *args,
                 out_argv[p++] = u.parts[1];
                 break;
             }
+            case WASM_V128:
+            {
+                bh_assert(0);
+                break;
+            }
 #if WASM_ENABLE_REF_TYPES != 0
 #if WASM_ENABLE_GC == 0
             case WASM_FUNCREF:
@@ -2380,6 +2387,11 @@ parse_uint32_array_to_results(WASMFuncType *type, uint32 *argv,
                 u.parts[1] = argv[p++];
                 out_results[i].kind = WASM_F64;
                 out_results[i].of.f64 = u.val;
+                break;
+            }
+            case VALUE_TYPE_V128:
+            {
+                bh_assert(0);
                 break;
             }
 #if WASM_ENABLE_REF_TYPES != 0
@@ -2557,6 +2569,9 @@ wasm_runtime_call_wasm_v(WASMExecEnv *exec_env,
             case VALUE_TYPE_F64:
                 args[i].kind = WASM_F64;
                 args[i].of.f64 = va_arg(vargs, float64);
+                break;
+            case VALUE_TYPE_V128:
+                bh_assert(0);
                 break;
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
@@ -4019,10 +4034,11 @@ wasm_func_type_get_param_valkind(WASMFuncType *const func_type,
             return WASM_F32;
         case VALUE_TYPE_F64:
             return WASM_F64;
+        case VALUE_TYPE_V128:
+            return WASM_V128;
         case VALUE_TYPE_FUNCREF:
             return WASM_FUNCREF;
 
-        case VALUE_TYPE_V128:
         case VALUE_TYPE_EXTERNREF:
         case VALUE_TYPE_VOID:
         default:
@@ -4064,6 +4080,7 @@ wasm_func_type_get_result_valkind(WASMFuncType *const func_type,
 
 #if WASM_ENABLE_SIMD != 0
         case VALUE_TYPE_V128:
+            return WASM_V128;
 #endif
 #if WASM_ENABLE_REF_TYPES != 0
         case VALUE_TYPE_EXTERNREF:

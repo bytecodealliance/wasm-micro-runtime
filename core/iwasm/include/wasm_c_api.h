@@ -297,6 +297,7 @@ enum wasm_valkind_enum {
   WASM_I64,
   WASM_F32,
   WASM_F64,
+  WASM_V128,
   WASM_ANYREF = 128,
   WASM_FUNCREF,
 };
@@ -705,6 +706,9 @@ static inline own wasm_valtype_t* wasm_valtype_new_f32(void) {
 }
 static inline own wasm_valtype_t* wasm_valtype_new_f64(void) {
   return wasm_valtype_new(WASM_F64);
+}
+static inline own wasm_valtype_t* wasm_valtype_new_v128(void) {
+  return wasm_valtype_new(WASM_V128);
 }
 
 static inline own wasm_valtype_t* wasm_valtype_new_anyref(void) {

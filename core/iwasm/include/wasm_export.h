@@ -249,6 +249,7 @@ enum wasm_valkind_enum {
     WASM_I64,
     WASM_F32,
     WASM_F64,
+    WASM_V128,
     WASM_ANYREF = 128,
     WASM_FUNCREF,
 };

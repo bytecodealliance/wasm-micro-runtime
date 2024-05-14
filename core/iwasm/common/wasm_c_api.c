@@ -754,6 +754,7 @@ val_type_rt_2_valkind(uint8 val_type_rt)
         WAMR_VAL_TYPE_2_WASM_VAL_KIND(I64)
         WAMR_VAL_TYPE_2_WASM_VAL_KIND(F32)
         WAMR_VAL_TYPE_2_WASM_VAL_KIND(F64)
+        WAMR_VAL_TYPE_2_WASM_VAL_KIND(V128)
         WAMR_VAL_TYPE_2_WASM_VAL_KIND(FUNCREF)
 #undef WAMR_VAL_TYPE_2_WASM_VAL_KIND
 
@@ -773,7 +774,7 @@ wasm_valtype_new(wasm_valkind_t kind)
 {
     wasm_valtype_t *val_type;
 
-    if (kind > WASM_F64 && WASM_FUNCREF != kind
+    if (kind > WASM_V128 && WASM_FUNCREF != kind
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
         && WASM_ANYREF != kind
 #endif
@@ -974,6 +975,7 @@ cmp_val_kind_with_val_type(wasm_valkind_t v_k, uint8 v_t)
            || (v_k == WASM_I64 && v_t == VALUE_TYPE_I64)
            || (v_k == WASM_F32 && v_t == VALUE_TYPE_F32)
            || (v_k == WASM_F64 && v_t == VALUE_TYPE_F64)
+           || (v_k == WASM_V128 && v_t == VALUE_TYPE_V128)
            || (v_k == WASM_ANYREF && v_t == VALUE_TYPE_EXTERNREF)
            || (v_k == WASM_FUNCREF && v_t == VALUE_TYPE_FUNCREF);
 }
@@ -1646,6 +1648,9 @@ rt_val_to_wasm_val(const uint8 *data, uint8 val_type_rt, wasm_val_t *out)
             out->kind = WASM_F64;
             out->of.f64 = *((float64 *)data);
             break;
+        case VALUE_TYPE_V128:
+            bh_assert(0);
+            break;
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
         case VALUE_TYPE_EXTERNREF:
             out->kind = WASM_ANYREF;
@@ -1686,6 +1691,9 @@ wasm_val_to_rt_val(WASMModuleInstanceCommon *inst_comm_rt, uint8 val_type_rt,
         case VALUE_TYPE_F64:
             bh_assert(WASM_F64 == v->kind);
             *((float64 *)data) = v->of.f64;
+            break;
+        case VALUE_TYPE_V128:
+            bh_assert(0);
             break;
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
         case VALUE_TYPE_EXTERNREF:
@@ -3251,6 +3259,9 @@ params_to_argv(const wasm_val_vec_t *params,
                 *(int64 *)argv = param->of.i64;
                 argv += 2;
                 break;
+            case WASM_V128:
+                bh_assert(0);
+                break;
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case WASM_ANYREF:
                 *(uintptr_t *)argv = (uintptr_t)param->of.ref;
@@ -3292,6 +3303,9 @@ argv_to_results(const uint32 *argv, const wasm_valtype_vec_t *result_defs,
             case WASM_F64:
                 result->of.i64 = *(int64 *)argv;
                 argv += 2;
+                break;
+            case WASM_V128:
+                bh_assert(0);
                 break;
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case WASM_ANYREF:

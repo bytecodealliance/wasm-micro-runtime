@@ -213,10 +213,11 @@ typedef struct WASMTag WASMTag;
 
 #ifndef WASM_VALUE_DEFINED
 #define WASM_VALUE_DEFINED
+
 typedef union V128 {
     int8 i8x16[16];
     int16 i16x8[8];
-    int32 i32x8[4];
+    int32 i32x4[4];
     int64 i64x2[2];
     float32 f32x4[4];
     float64 f64x2[2];
