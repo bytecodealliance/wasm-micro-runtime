@@ -593,6 +593,7 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     return true;
 }
 
+NO_SANITIZE_UNDEFINED
 static bool
 tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                    AOTTableInstance *first_tbl_inst, char *error_buf,

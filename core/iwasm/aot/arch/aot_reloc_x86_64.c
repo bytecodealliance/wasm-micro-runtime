@@ -72,6 +72,7 @@ get_plt_table_size()
     return size;
 }
 
+NO_SANITIZE_UNDEFINED
 void
 init_plt_table(uint8 *plt)
 {
@@ -106,6 +107,7 @@ check_reloc_offset(uint32 target_section_size, uint64 reloc_offset,
     return true;
 }
 
+NO_SANITIZE_UNDEFINED
 bool
 apply_relocation(AOTModule *module, uint8 *target_section_addr,
                  uint32 target_section_size, uint64 reloc_offset,
