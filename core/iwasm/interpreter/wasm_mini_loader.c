@@ -475,8 +475,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                 global_idx = cur_value.global_index;
 
                 bh_assert(global_idx < module->import_global_count);
-                bh_assert(
-                    !module->import_globals[global_idx].u.global.is_mutable);
+                bh_assert(!module->import_globals[global_idx]
+                               .u.global.type.is_mutable);
 
                 if (global_idx < module->import_global_count) {
                     global_type = module->import_globals[global_idx]
@@ -796,8 +796,8 @@ load_global_import(const uint8 **p_buf, const uint8 *buf_end,
     ret = wasm_native_lookup_libc_builtin_global(sub_module_name, global_name,
                                                  global);
     if (ret) {
-        bh_assert(global->type == declare_type
-                  && global->is_mutable != declare_mutable);
+        bh_assert(global->type.val_type == declare_type
+                  && global->type.is_mutable != declare_mutable);
     }
 #endif /* WASM_ENABLE_LIBC_BUILTIN */
 

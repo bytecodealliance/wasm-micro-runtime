@@ -516,7 +516,7 @@ if (WAMR_BUILD_TARGET STREQUAL "X86_64"
     message ("     Write linear memory base addr to x86 GS register enabled")
   endif ()
 endif ()
-if (WAMR_CONFIGUABLE_BOUNDS_CHECKS EQUAL 1)
+if (WAMR_CONFIGURABLE_BOUNDS_CHECKS EQUAL 1)
   add_definitions (-DWASM_CONFIGURABLE_BOUNDS_CHECKS=1)
   message ("     Configurable bounds checks enabled")
 endif ()
