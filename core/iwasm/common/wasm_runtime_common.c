@@ -1891,6 +1891,155 @@ wasm_runtime_set_module_inst(WASMExecEnv *exec_env,
     wasm_exec_env_set_module_inst(exec_env, module_inst);
 }
 
+wasm_export_global_t
+wasm_runtime_get_export_global(wasm_exec_env_t exec_env, const char *name)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (exec_env->module_inst->module_type == Wasm_Module_Bytecode) {
+        WASMModuleInstance *wasm_module_inst =
+            (WASMModuleInstance *)exec_env->module_inst;
+        WASMModule *wasm_module = wasm_module_inst->module;
+        uint32 i;
+        for (i = 0; i < wasm_module->export_count; i++) {
+            const WASMExport *wasm_export = &wasm_module->exports[i];
+            if ((wasm_export->kind == WASM_IMPORT_EXPORT_KIND_GLOBAL)
+                && !strcmp(wasm_export->name, name)) {
+                return &wasm_module_inst->e->globals[wasm_export->index];
+            }
+        }
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (exec_env->module_inst->module_type == Wasm_Module_AoT) {
+        AOTModuleInstance *aot_module_inst =
+            (AOTModuleInstance *)exec_env->module_inst;
+        AOTModule *aot_module = (AOTModule *)aot_module_inst->module;
+        uint32 i;
+        for (i = 0; i < aot_module->export_count; i++) {
+            const AOTExport *aot_export = &aot_module->exports[i];
+            if ((aot_export->kind == WASM_IMPORT_EXPORT_KIND_GLOBAL)
+                && !strcmp(aot_export->name, name)) {
+                return &aot_module_inst->e->globals[aot_export->index];
+            }
+        }
+    }
+#endif
+
+    return NULL;
+}
+
+wasm_valkind_t
+wasm_runtime_export_global_get_kind(wasm_export_global_t export_global)
+{
+    switch (export_global->type) {
+        case VALUE_TYPE_I32:
+            return WASM_I32;
+        case VALUE_TYPE_I64:
+            return WASM_I64;
+        case VALUE_TYPE_F32:
+            return WASM_F32;
+        case VALUE_TYPE_F64:
+            return WASM_F64;
+        case VALUE_TYPE_V128:
+            return WASM_V128;
+        case VALUE_TYPE_FUNCREF:
+            bh_assert(0);
+            return WASM_FUNCREF;
+        case VALUE_TYPE_EXTERNREF:
+        case VALUE_TYPE_VOID:
+        default:
+            bh_assert(0);
+            return (wasm_valkind_t)-1;
+    }
+}
+
+bool
+wasm_runtime_export_global_get_mutable(wasm_export_global_t export_global)
+{
+    return export_global->is_mutable;
+}
+
+bool
+wasm_runtime_export_global_get_value(wasm_export_global_t export_global,
+                                     wasm_val_t *value)
+{
+    if (!value) {
+        bh_assert(0);
+        return false;
+    }
+
+    memset(value, 0, sizeof(wasm_val_t));
+
+    if (!export_global) {
+        bh_assert(0);
+        return false;
+    }
+
+    switch (export_global->type) {
+        case VALUE_TYPE_I32:
+            value->kind = WASM_I32;
+            value->of.i32 = export_global->initial_value.i32;
+            break;
+        case VALUE_TYPE_I64:
+            value->kind = WASM_I64;
+            value->of.i64 = export_global->initial_value.i64;
+            break;
+        case VALUE_TYPE_F32:
+            value->kind = WASM_F32;
+            value->of.f32 = export_global->initial_value.f32;
+            break;
+        case VALUE_TYPE_F64:
+            value->kind = WASM_F64;
+            value->of.f64 = export_global->initial_value.f64;
+            break;
+        case VALUE_TYPE_V128:
+        case VALUE_TYPE_FUNCREF:
+        case VALUE_TYPE_EXTERNREF:
+        case VALUE_TYPE_VOID:
+        default:
+            bh_assert(0);
+            return false;
+    }
+
+    return true;
+}
+
+bool
+wasm_runtime_export_global_set_value(wasm_export_global_t export_global,
+                                     const wasm_val_t *value)
+{
+    if (!export_global || !value) {
+        bh_assert(0);
+        return false;
+    }
+
+    switch (value->kind) {
+        case WASM_I32:
+            export_global->type = VALUE_TYPE_I32;
+            export_global->initial_value.i32 = value->of.i32;
+            break;
+        case WASM_I64:
+            export_global->type = VALUE_TYPE_I64;
+            export_global->initial_value.i64 = value->of.i64;
+            break;
+        case WASM_F32:
+            export_global->type = VALUE_TYPE_F32;
+            export_global->initial_value.f32 = value->of.f32;
+            break;
+        case WASM_F64:
+            export_global->type = VALUE_TYPE_F64;
+            export_global->initial_value.f64 = value->of.f64;
+            break;
+        case WASM_V128:
+        case WASM_FUNCREF:
+        case WASM_EXTERNREF:
+        default:
+            bh_assert(0);
+            return false;
+    }
+
+    return true;
+}
 void *
 wasm_runtime_get_function_attachment(WASMExecEnv *exec_env)
 {

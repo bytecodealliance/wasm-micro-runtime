@@ -1407,6 +1407,69 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_unregister_natives(const char *module_name,
                                 NativeSymbol *native_symbols);
 
+struct WASMGlobalInstance;
+typedef struct WASMGlobalInstance *wasm_export_global_t;
+/**
+ * Get an export global
+ *
+ * @param exec_env the execution environment to retrieve
+ * @param module_name the export module name
+ * @param name the export global name
+ *
+ * @return the export global
+ *
+ */
+wasm_export_global_t
+wasm_runtime_get_export_global(wasm_exec_env_t exec_env, const char *name);
+
+/**
+ * Get the kind of an export global
+ *
+ * @param export_global the export global
+ *
+ * @return the kind of the export global
+ *
+ */
+wasm_valkind_t
+wasm_runtime_export_global_get_kind(wasm_export_global_t export_global);
+
+/**
+ * Get the mutability of an export global
+ *
+ * @param export_global the export global
+ *
+ * @return true if mutable, false otherwise
+ *
+ */
+bool
+wasm_runtime_export_global_get_mutable(wasm_export_global_t export_global);
+
+/**
+ * Get the value of an export global
+ *
+ * @param export_global the export global
+ * @param value the pre-allocated pointer to store the value
+ *
+ * @return true if successful, false otherwise
+ *
+ */
+bool
+wasm_runtime_export_global_get_value(wasm_export_global_t export_global,
+                                     wasm_val_t *value);
+
+/**
+ * Set the value of an export global
+ *
+ * @param export_global the export global
+ * @param value pointer to the value to store
+ *
+ * @return true if successful, false otherwise
+ *
+ */
+bool
+wasm_runtime_export_global_set_value(wasm_export_global_t export_global,
+                                     const wasm_val_t *value);
+
 /**
  * Get attachment of native function from execution environment
  *
