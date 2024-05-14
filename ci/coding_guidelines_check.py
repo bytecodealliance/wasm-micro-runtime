@@ -5,7 +5,7 @@
 #
 import argparse
 import re
-import pathlib
+from pathlib import Path
 import re
 import shlex
 import shutil
@@ -46,18 +46,18 @@ def locate_command(command: str) -> bool:
 
 
 def is_excluded(path: str) -> bool:
-    path = pathlib.Path(path).resolve()
+    path = Path(path).resolve()
     for exclude_path in EXCLUDE_PATHS:
         if path.match(exclude_path):
             return True
     return False
 
 
-def pre_flight_check(root: pathlib) -> bool:
+def pre_flight_check(root: Path) -> bool:
     def check_aspell(root):
         return True
 
-    def check_clang_format(root: pathlib) -> bool:
+    def check_clang_format(root: Path) -> bool:
         if not locate_command(CLANG_FORMAT_CMD):
             return False
 
@@ -77,7 +77,7 @@ def pre_flight_check(root: pathlib) -> bool:
     return check_aspell(root) and check_clang_format(root) and check_git_clang_format()
 
 
-def run_clang_format(file_path: pathlib, root: pathlib) -> bool:
+def run_clang_format(file_path: Path, root: Path) -> bool:
     try:
         subprocess.check_call(
             shlex.split(
@@ -91,7 +91,7 @@ def run_clang_format(file_path: pathlib, root: pathlib) -> bool:
         return False
 
 
-def run_clang_format_diff(root: pathlib, commits: str) -> bool:
+def run_clang_format_diff(root: Path, commits: str) -> bool:
     """
     Use `clang-format-12` or `git-clang-format-12` to check code format of
     the PR, with a commit range specified. It is required to format the
@@ -155,11 +155,11 @@ def run_clang_format_diff(root: pathlib, commits: str) -> bool:
         return False
 
 
-def run_aspell(file_path: pathlib, root: pathlib) -> bool:
+def run_aspell(file_path: Path, root: Path) -> bool:
     return True
 
 
-def check_dir_name(path: pathlib, root: pathlib) -> bool:
+def check_dir_name(path: Path, root: Path) -> bool:
     m = re.search(INVALID_DIR_NAME_SEGMENT, str(path.relative_to(root).parent))
     if m:
         print(f"--- found a character '_' in {m.groups()} in {path}")
@@ -167,7 +167,22 @@ def check_dir_name(path: pathlib, root: pathlib) -> bool:
     return not m
 
 
-def check_file_name(path: pathlib) -> bool:
+def check_file_name(path: Path) -> bool:
+    """
+    file names should not contain any character '-'
+
+    but some names are well known and use '-' as the separator, e.g.:
+    - docker-compose
+    - package-lock
+    - vite-env.d
+    """
+    if path.stem in [
+        "docker-compose",
+        "package-lock",
+        "vite-env.d",
+    ]:
+        return True
+
     m = re.search(INVALID_FILE_NAME_SEGMENT, path.stem)
     if m:
         print(f"--- found a character '-' in {m.groups()} in {path}")
@@ -175,7 +190,7 @@ def check_file_name(path: pathlib) -> bool:
     return not m
 
 
-def parse_commits_range(root: pathlib, commits: str) -> list:
+def parse_commits_range(root: Path, commits: str) -> list:
     GIT_LOG_CMD = f"git log --pretty='%H' {commits}"
     try:
         ret = subprocess.check_output(
@@ -187,7 +202,7 @@ def parse_commits_range(root: pathlib, commits: str) -> list:
         return []
 
 
-def analysis_new_item_name(root: pathlib, commit: str) -> bool:
+def analysis_new_item_name(root: Path, commit: str) -> bool:
     """
     For any file name in the repo, it is required to use '_' to replace '-'.
 
@@ -216,7 +231,7 @@ def analysis_new_item_name(root: pathlib, commit: str) -> bool:
                 continue
 
             new_item = match.group(1)
-            new_item = pathlib.Path(new_item).resolve()
+            new_item = Path(new_item).resolve()
 
             if new_item.is_file():
                 if not check_file_name(new_item):
@@ -235,7 +250,7 @@ def analysis_new_item_name(root: pathlib, commit: str) -> bool:
         return False
 
 
-def process_entire_pr(root: pathlib, commits: str) -> bool:
+def process_entire_pr(root: Path, commits: str) -> bool:
     if not commits:
         print("Please provide a commits range")
         return False
@@ -268,7 +283,7 @@ def main() -> int:
     )
     options = parser.parse_args()
 
-    wamr_root = pathlib.Path(__file__).parent.joinpath("..").resolve()
+    wamr_root = Path(__file__).parent.joinpath("..").resolve()
 
     if not pre_flight_check(wamr_root):
         return False
@@ -279,23 +294,23 @@ def main() -> int:
 # run with python3 -m unitest ci/coding_guidelines_check.py
 class TestCheck(unittest.TestCase):
     def test_check_dir_name_failed(self):
-        root = pathlib.Path("/root/Workspace/")
+        root = Path("/root/Workspace/")
         new_file_path = root.joinpath("core/shared/platform/esp_idf/espid_memmap.c")
         self.assertFalse(check_dir_name(new_file_path, root))
 
     def test_check_dir_name_pass(self):
-        root = pathlib.Path("/root/Workspace/")
+        root = Path("/root/Workspace/")
         new_file_path = root.joinpath("core/shared/platform/esp-idf/espid_memmap.c")
         self.assertTrue(check_dir_name(new_file_path, root))
 
     def test_check_file_name_failed(self):
-        new_file_path = pathlib.Path(
+        new_file_path = Path(
             "/root/Workspace/core/shared/platform/esp-idf/espid-memmap.c"
         )
         self.assertFalse(check_file_name(new_file_path))
 
     def test_check_file_name_pass(self):
-        new_file_path = pathlib.Path(
+        new_file_path = Path(
             "/root/Workspace/core/shared/platform/esp-idf/espid_memmap.c"
         )
         self.assertTrue(check_file_name(new_file_path))
