@@ -368,32 +368,15 @@
 #define WASM_GLOBAL_HEAP_SIZE (10 * 1024 * 1024)
 #endif
 
-/* Max app number of all modules */
-#define MAX_APP_INSTALLATIONS 3
-
-/* Default timer number in one app */
-#define DEFAULT_TIMERS_PER_APP 20
-
-/* Max timer number in one app */
-#define MAX_TIMERS_PER_APP 30
-
-/* Max connection number in one app */
-#define MAX_CONNECTION_PER_APP 20
-
-/* Max resource registration number in one app */
-#define RESOURCE_REGISTRATION_NUM_MAX 16
-
-/* Max length of resource/event url */
-#define RESOUCE_EVENT_URL_LEN_MAX 256
-
 /* Default length of queue */
+#ifndef DEFAULT_QUEUE_LENGTH
 #define DEFAULT_QUEUE_LENGTH 50
-
-/* Default watchdog interval in ms */
-#define DEFAULT_WATCHDOG_INTERVAL (3 * 60 * 1000)
+#endif
 
 /* The max percentage of global heap that app memory space can grow */
+#ifndef APP_MEMORY_MAX_GLOBAL_HEAP_PERCENT
 #define APP_MEMORY_MAX_GLOBAL_HEAP_PERCENT 1 / 3
+#endif
 
 /* Default min/max heap size of each app */
 #ifndef APP_HEAP_SIZE_DEFAULT
