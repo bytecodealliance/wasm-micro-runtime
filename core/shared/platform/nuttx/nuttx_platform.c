@@ -105,7 +105,8 @@ os_mprotect(void *addr, size_t size, int prot)
 void
 os_dcache_flush()
 {
-#if defined(CONFIG_ARCH_USE_TEXT_HEAP)
+#if defined(CONFIG_ARCH_USE_TEXT_HEAP) \
+    && defined(CONFIG_ARCH_TEXT_HEAP_SEPARATE_DATA_ADDRESS)
     up_textheap_data_sync();
 #endif
 }
@@ -118,7 +119,8 @@ os_icache_flush(void *start, size_t len)
 void *
 os_get_dbus_mirror(void *ibus)
 {
-#if defined(CONFIG_ARCH_USE_TEXT_HEAP)
+#if defined(CONFIG_ARCH_USE_TEXT_HEAP) \
+    && defined(CONFIG_ARCH_TEXT_HEAP_SEPARATE_DATA_ADDRESS)
     return up_textheap_data_address(ibus);
 #else
     return ibus;
