@@ -973,9 +973,9 @@ fail:
                     }                                                      \
                 }                                                          \
                 else if (cells[0] == 2) {                                  \
-                    frame_lp[dst_offsets[0]] = frame_lp[src_offsets[0]];   \
-                    frame_lp[dst_offsets[0] + 1] =                         \
-                        frame_lp[src_offsets[0] + 1];                      \
+                    PUT_I64_TO_ADDR(                                       \
+                        frame_lp + dst_offsets[0],                         \
+                        GET_I64_FROM_ADDR(frame_lp + src_offsets[0]));     \
                     /* Ignore constants because they are not reference */  \
                     if (src_offsets[0] >= 0) {                             \
                         CLEAR_FRAME_REF((unsigned)src_offsets[0]);         \
@@ -1020,9 +1020,9 @@ fail:
                 if (cells[0] == 1)                                          \
                     frame_lp[dst_offsets[0]] = frame_lp[src_offsets[0]];    \
                 else if (cells[0] == 2) {                                   \
-                    frame_lp[dst_offsets[0]] = frame_lp[src_offsets[0]];    \
-                    frame_lp[dst_offsets[0] + 1] =                          \
-                        frame_lp[src_offsets[0] + 1];                       \
+                    PUT_I64_TO_ADDR(                                        \
+                        frame_lp + dst_offsets[0],                          \
+                        GET_I64_FROM_ADDR(frame_lp + src_offsets[0]));      \
                 }                                                           \
             }                                                               \
             else {                                                          \
@@ -4868,8 +4868,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 GET_LOCAL_INDEX_TYPE_AND_OFFSET();
                 addr1 = GET_OFFSET();
 
-                if (local_type == VALUE_TYPE_I32
-                    || local_type == VALUE_TYPE_F32) {
+                if (local_type == VALUE_TYPE_I32 || local_type == VALUE_TYPE_F32
+#if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
+                    || local_type == VALUE_TYPE_FUNCREF
+                    || local_type == VALUE_TYPE_EXTERNREF
+#endif
+                ) {
                     *(int32 *)(frame_lp + local_offset) = frame_lp[addr1];
                 }
                 else if (local_type == VALUE_TYPE_I64
