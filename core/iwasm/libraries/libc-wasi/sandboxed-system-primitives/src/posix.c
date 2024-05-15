@@ -650,8 +650,10 @@ fd_table_insert(wasm_exec_env_t exec_env, struct fd_table *ft,
 
     __wasi_errno_t error = fd_table_unused(ft, out);
 
-    if (error != __WASI_ESUCCESS)
+    if (error != __WASI_ESUCCESS) {
+        rwlock_unlock(&ft->lock);
         return error;
+    }
 
     fd_table_attach(ft, *out, fo, rights_base, rights_inheriting);
     rwlock_unlock(&ft->lock);
