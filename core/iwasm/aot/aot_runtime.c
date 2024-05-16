@@ -492,7 +492,7 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
             case INIT_EXPR_TYPE_I31_NEW:
             {
                 WASMI31ObjectRef i31_obj = wasm_i31_obj_new(init_expr->u.i32);
-                global->initial_value.gc_obj = i31_obj;
+                global->initial_value.gc_obj = (wasm_obj_t)i31_obj;
                 PUT_REF_TO_ADDR(p, i31_obj);
                 break;
             }
