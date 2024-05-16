@@ -1891,8 +1891,9 @@ wasm_runtime_set_module_inst(WASMExecEnv *exec_env,
     wasm_exec_env_set_module_inst(exec_env, module_inst);
 }
 
-wasm_export_global_t
-wasm_runtime_get_export_global(wasm_exec_env_t exec_env, const char *name)
+wasm_global_instance_t
+wasm_runtime_get_export_global_instance(wasm_exec_env_t exec_env,
+                                        const char *name)
 {
 #if WASM_ENABLE_INTERP != 0
     if (exec_env->module_inst->module_type == Wasm_Module_Bytecode) {
@@ -1929,9 +1930,9 @@ wasm_runtime_get_export_global(wasm_exec_env_t exec_env, const char *name)
 }
 
 wasm_valkind_t
-wasm_runtime_export_global_get_kind(wasm_export_global_t export_global)
+wasm_runtime_global_instance_get_kind(wasm_global_instance_t global_instance)
 {
-    switch (export_global->type) {
+    switch (global_instance->type) {
         case VALUE_TYPE_I32:
             return WASM_I32;
         case VALUE_TYPE_I64:
@@ -1954,14 +1955,14 @@ wasm_runtime_export_global_get_kind(wasm_export_global_t export_global)
 }
 
 bool
-wasm_runtime_export_global_get_mutable(wasm_export_global_t export_global)
+wasm_runtime_global_instance_get_mutable(wasm_global_instance_t global_instance)
 {
-    return export_global->is_mutable;
+    return global_instance->is_mutable;
 }
 
 bool
-wasm_runtime_export_global_get_value(wasm_export_global_t export_global,
-                                     wasm_val_t *value)
+wasm_runtime_global_instance_get_value(wasm_global_instance_t global_instance,
+                                       wasm_val_t *value)
 {
     if (!value) {
         bh_assert(0);
@@ -1970,27 +1971,27 @@ wasm_runtime_export_global_get_value(wasm_export_global_t export_global,
 
     memset(value, 0, sizeof(wasm_val_t));
 
-    if (!export_global) {
+    if (!global_instance) {
         bh_assert(0);
         return false;
     }
 
-    switch (export_global->type) {
+    switch (global_instance->type) {
         case VALUE_TYPE_I32:
             value->kind = WASM_I32;
-            value->of.i32 = export_global->initial_value.i32;
+            value->of.i32 = global_instance->initial_value.i32;
             break;
         case VALUE_TYPE_I64:
             value->kind = WASM_I64;
-            value->of.i64 = export_global->initial_value.i64;
+            value->of.i64 = global_instance->initial_value.i64;
             break;
         case VALUE_TYPE_F32:
             value->kind = WASM_F32;
-            value->of.f32 = export_global->initial_value.f32;
+            value->of.f32 = global_instance->initial_value.f32;
             break;
         case VALUE_TYPE_F64:
             value->kind = WASM_F64;
-            value->of.f64 = export_global->initial_value.f64;
+            value->of.f64 = global_instance->initial_value.f64;
             break;
         case VALUE_TYPE_V128:
         case VALUE_TYPE_FUNCREF:
@@ -2005,30 +2006,30 @@ wasm_runtime_export_global_get_value(wasm_export_global_t export_global,
 }
 
 bool
-wasm_runtime_export_global_set_value(wasm_export_global_t export_global,
-                                     const wasm_val_t *value)
+wasm_runtime_global_instance_set_value(wasm_global_instance_t global_instance,
+                                       const wasm_val_t *value)
 {
-    if (!export_global || !value) {
+    if (!global_instance || !value) {
         bh_assert(0);
         return false;
     }
 
     switch (value->kind) {
         case WASM_I32:
-            export_global->type = VALUE_TYPE_I32;
-            export_global->initial_value.i32 = value->of.i32;
+            global_instance->type = VALUE_TYPE_I32;
+            global_instance->initial_value.i32 = value->of.i32;
             break;
         case WASM_I64:
-            export_global->type = VALUE_TYPE_I64;
-            export_global->initial_value.i64 = value->of.i64;
+            global_instance->type = VALUE_TYPE_I64;
+            global_instance->initial_value.i64 = value->of.i64;
             break;
         case WASM_F32:
-            export_global->type = VALUE_TYPE_F32;
-            export_global->initial_value.f32 = value->of.f32;
+            global_instance->type = VALUE_TYPE_F32;
+            global_instance->initial_value.f32 = value->of.f32;
             break;
         case WASM_F64:
-            export_global->type = VALUE_TYPE_F64;
-            export_global->initial_value.f64 = value->of.f64;
+            global_instance->type = VALUE_TYPE_F64;
+            global_instance->initial_value.f64 = value->of.f64;
             break;
         case WASM_V128:
         case WASM_FUNCREF:
