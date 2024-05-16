@@ -13,17 +13,22 @@
 #include "wasm_export.h"
 #include "http_get.h"
 
-// 
+
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
-#include <zephyr/drivers/flash.h>
+#include <zephyr/net/net_ip.h>
+#include <zephyr/net/socket.h>
+#include <zephyr/net/http/client.h>
 
 #define CONFIG_HEAP_MEM_POOL_SIZE WASM_GLOBAL_HEAP_SIZE
 #define CONFIG_APP_STACK_SIZE 8192 
-#define CONFIG_APP_HEAP_SIZE 8192 * 5
+#define CONFIG_APP_HEAP_SIZE 8192
 
 static char global_heap_buf[CONFIG_HEAP_MEM_POOL_SIZE] = { 0 };
+
+static int app_argc;
+static char **app_argv;
 
 int main(void)
 {
@@ -36,9 +41,9 @@ int main(void)
     RuntimeInitArgs init_args;
     char error_buf[128];
     const char *exception;
-    wasm_function_inst_t func;
-    wasm_exec_env_t exec_env;
-    unsigned argv[2] = { 0 };
+    // wasm_function_inst_t func;
+    // wasm_exec_env_t exec_env;
+    // unsigned argv[2] = { 0 };
 
     int log_verbose_level = 2;
 
@@ -104,31 +109,36 @@ int main(void)
 
     /* invoke the main function */
     // if ((func = wasm_runtime_lookup_function(wasm_module_inst, "_start"))) {
-    if ((func = wasm_runtime_lookup_function(wasm_module_inst, "__main_argc_argv"))) {
-        printf("Creating exec_env\n");
-        exec_env = wasm_runtime_create_exec_env(wasm_module_inst, CONFIG_APP_HEAP_SIZE);
-        if (!exec_env) {
-            printf("Create exec env failed\n");
-            return -1;
-        }
+    if (wasm_runtime_lookup_function(wasm_module_inst, "_start")
+        || wasm_runtime_lookup_function(wasm_module_inst, "__main_argc_argv")) {
 
-        printf("Calling main function\n");
-        bool ret = wasm_runtime_call_wasm(exec_env, func, 2, argv);
+        printf("main found\n");
+        wasm_application_execute_main(wasm_module_inst, 0, NULL);
+        printf("main executed\n");
+        // printf("Creating exec_env\n");
+        // exec_env = wasm_runtime_create_exec_env(wasm_module_inst, CONFIG_APP_HEAP_SIZE);
+        // if (!exec_env) {
+        //     printf("Create exec env failed\n");
+        //     return -1;
+        // }
+
+        // printf("Calling main function\n");
+        // bool ret = wasm_runtime_call_wasm(exec_env, func, 2, argv);
         
-        if(!ret) {
-            printf("Failed to call main function\n");
-            goto fail3;
-        }
+        // if(!ret) {
+        //     printf("Failed to call main function\n");
+        //     goto fail3;
+        // }
 
-        wasm_runtime_destroy_exec_env(exec_env);
+        // wasm_runtime_destroy_exec_env(exec_env);
     }
     else {
         printf("Failed to lookup function main\n");
         return -1;
     }
 
-fail3:
-    printf("%s\n", wasm_runtime_get_exception(wasm_module_inst));
+    if ((exception = wasm_runtime_get_exception(wasm_module_inst)))
+        printf("%s\n", exception);
 
     int rc = wasm_runtime_get_wasi_exit_code(wasm_module_inst);
     printf("wasi exit code: %d\n", rc); // 1 = _WASI_E2BIG
@@ -146,7 +156,7 @@ fail1:
 
     end = k_uptime_get_32();
 
-    printf("elapsed: %d\n", (end - start));
+    printf("elapsed: %dms\n", (end - start));
 
     return 0;
 }

@@ -176,7 +176,7 @@ typedef int os_raw_file_handle;
 /*********************************************************/
 //try to stub POSIX implementation in sandboxed env.
 
-typedef struct pollfd os_poll_file_handle;
+typedef struct zsock_pollfd os_poll_file_handle;
 typedef unsigned int os_nfds_t;
 
 #define POLLIN ZSOCK_POLLIN

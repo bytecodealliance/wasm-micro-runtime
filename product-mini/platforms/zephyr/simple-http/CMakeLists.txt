@@ -14,11 +14,11 @@ set (WAMR_BUILD_PLATFORM "zephyr")
 set (WAMR_BUILD_TARGET "THUMB")
 set (WAMR_BUILD_INTERP 1)
 set (WAMR_BUILD_AOT 0)
-set (WAMR_BUILD_LIBC_BUILTIN 1)
+set (WAMR_BUILD_LIBC_BUILTIN 1) # printf
 set (WAMR_BUILD_LIBC_WASI 1)
 set (WAMR_BUILD_LIB_PTHREAD 0)
 set (WAMR_BUILD_GLOBAL_HEAP_POOL 1)
-set (WAMR_BUILD_GLOBAL_HEAP_SIZE 153600) # 150 KB
+set (WAMR_BUILD_GLOBAL_HEAP_SIZE 131072) # 128 KB
 
 # Environment variables:
 
@@ -82,5 +82,8 @@ target_sources(app PRIVATE
                ${WAMR_RUNTIME_LIB_SOURCE}
                src/main.c)
 
-# May need to link libraries like in samples.
-# target_link_libraries(app PRIVATE -lm ) # also ${CMAKE_DL_LIBS} or -ldl, but doesn't exist in toolchain.
+# Link libraries like in samples.
+set(WASI_LIBM "${WASI_SDK_PATH}/share/wasi-sysroot/lib/wasm32-wasi/libm.a")
+set(WASI_LIBDL "${WASI_SDK_PATH}/share/wasi-sysroot/lib/wasm32-wasi/libdl.a")
+
+target_link_libraries(app PUBLIC ${WASI_LIBM} ${WASI_LIBDL})

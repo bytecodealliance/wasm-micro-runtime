@@ -1,6 +1,8 @@
 #include "platform_api_extension.h"
 #include "libc_errno.h"
 
+// socket_set defined in zephyr_socket.c
+extern zsock_fd_set socket_set;
 
 __wasi_errno_t
 os_fstat(os_file_handle handle, struct __wasi_filestat_t *buf){
@@ -24,33 +26,50 @@ os_fstat(os_file_handle handle, struct __wasi_filestat_t *buf){
     // } __wasi_filestat_t;
     int socktype;
     socklen_t socktypelen = sizeof(socktype);
+    printf("[OS-Layer] fstat\n");
 
-    if(handle == 0){
+    if(handle < 0){
         return __WASI_EBADF;
-    }
-    
-    if (handle == 1 || handle == 2 || handle == 3){
-        buf->st_filetype = __WASI_FILETYPE_UNKNOWN;
-        return __WASI_ESUCCESS;
     }
    
-    if(zsock_getsockopt(handle, SOL_SOCKET, SO_TYPE, &socktype, socktypelen) > 0){
-        switch (socktype) {
-            case SOCK_DGRAM:
-                buf->st_filetype = __WASI_FILETYPE_SOCKET_DGRAM;
-                break;
-            case SOCK_STREAM:
-                buf->st_filetype = __WASI_FILETYPE_SOCKET_STREAM;
-                break;
-            default:
-                buf->st_filetype = __WASI_FILETYPE_UNKNOWN;
-                break;
-        }
-        return __WASI_ESUCCESS;
-    } else {
-        return __WASI_EBADF;
+    // // Strangely 1st created socket is 3.
+    // if (handle == 1 || handle == 2 || handle == 3){
+    //     buf->st_filetype = __WASI_FILETYPE_CHARACTER_DEVICE;
+    //     // no return because it could be a socket
+    //     return __WASI_ESUCCESS;
+    // }
 
-    }
+    printf("[OS-Layer] handle: %d\n", handle);
+    printf("[OS-Layer] Dumbly return that fd is a socket\n");
+    buf->st_filetype = __WASI_FILETYPE_SOCKET_STREAM;
+    return __WASI_ESUCCESS;
+    // if(ZSOCK_FD_ISSET(handle, &socket_set) != 0){
+    //     printf("socket is part of the socket_set\n");
+    //     if(zsock_getsockopt(handle, SOL_SOCKET, SO_TYPE, &socktype, socktypelen) != -1){
+    //         printf("getsockopt\n");
+    //         switch (socktype) {
+    //             case SOCK_DGRAM:
+    //                 printf("socktype: SOCK_DGRAM\n");
+    //                 buf->st_filetype = __WASI_FILETYPE_SOCKET_DGRAM;
+    //                 break;
+    //             case SOCK_STREAM:
+    //                 printf("socktype: SOCK_STREAM\n");
+    //                 buf->st_filetype = __WASI_FILETYPE_SOCKET_STREAM;
+    //                 break;
+    //             default:
+    //                 printf("socktype: default\n");
+    //                 buf->st_filetype = __WASI_FILETYPE_UNKNOWN;
+    //                 break;
+    //         }
+    //         return __WASI_ESUCCESS;
+    //     } else {
+    //         printf("Not a sock\n");
+    //         buf->st_filetype = __WASI_FILETYPE_UNKNOWN;
+    //         return __WASI_ESUCCESS;
+    //     }
+    // }
+    // printf("socket is NOT part of the socket_set\n");
+    // return __WASI_EBADF;
 }
 
 __wasi_errno_t
@@ -210,9 +229,9 @@ os_isatty(os_file_handle handle){
 os_file_handle
 os_convert_stdin_handle(os_raw_file_handle raw_stdin){
 #ifndef STDIN_FILENO
-#define STDIN_FILENO 1
+#define STDIN_FILENO 1 
 #endif
-    return raw_stdin > 0 ? raw_stdin : STDIN_FILENO;
+    return raw_stdin >= 0 ? raw_stdin : STDIN_FILENO;
 }
 
 os_file_handle
@@ -220,7 +239,7 @@ os_convert_stdout_handle(os_raw_file_handle raw_stdout){
 #ifndef STDOUT_FILENO
 #define STDOUT_FILENO 2
 #endif
-    return raw_stdout > 0 ? raw_stdout : STDOUT_FILENO;
+    return raw_stdout >= 0 ? raw_stdout : STDOUT_FILENO;
 }
 
 os_file_handle
@@ -228,7 +247,7 @@ os_convert_stderr_handle(os_raw_file_handle raw_stderr){
 #ifndef STDERR_FILENO
 #define STDERR_FILENO 3
 #endif
-    return raw_stderr > 0 ? raw_stderr : STDERR_FILENO;
+    return raw_stderr >= 0 ? raw_stderr : STDERR_FILENO;
 }
 
 __wasi_errno_t

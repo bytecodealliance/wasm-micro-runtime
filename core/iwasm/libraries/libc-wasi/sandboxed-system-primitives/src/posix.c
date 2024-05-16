@@ -648,7 +648,7 @@ fd_table_insert(wasm_exec_env_t exec_env, struct fd_table *ft,
         fd_object_release(exec_env, fo);
         return convert_errno(errno);
     }
-
+    
     __wasi_errno_t error = fd_table_unused(ft, out);
 
     if (error != __WASI_ESUCCESS)
@@ -674,7 +674,7 @@ fd_table_insert_fd(wasm_exec_env_t exec_env, struct fd_table *ft,
         os_close(in, false);
         return error;
     }
-
+    
     fo->file_handle = in;
     if (type == __WASI_FILETYPE_DIRECTORY) {
         if (!mutex_init(&fo->directory.lock)) {
@@ -779,6 +779,7 @@ fd_object_get_locked(struct fd_object **fo, struct fd_table *ft, __wasi_fd_t fd,
                      __wasi_rights_t rights_inheriting)
     TRYLOCKS_EXCLUSIVE(0, (*fo)->refcount) REQUIRES_EXCLUSIVE(ft->lock)
 {
+    printf("[SSP] fd_object_get_locked\n");
     // Test whether the file descriptor number is valid.
     struct fd_entry *fe;
     __wasi_errno_t error =
@@ -2532,19 +2533,45 @@ wasi_ssp_sock_connect(wasm_exec_env_t exec_env, struct fd_table *curfds,
     struct fd_object *fo;
     __wasi_errno_t error;
     int ret;
+    printf("[SSP] sock connect\n");
+    
+    uint8_t *adjusted_addr = (uint8_t *)addr + 4;
+    printf("[SSP] wasi addr moved: %u.%u.%u.%u\n", adjusted_addr[0],
+                                                adjusted_addr[1],
+                                                adjusted_addr[2],
+                                                adjusted_addr[3]);
+    // use a copy because addr will be modified
+    uint8_t adjusted_addr_copy[4];
+    memcpy(adjusted_addr_copy, adjusted_addr, 4);
+
+    uint16_t *adjusted_port = (uint16_t *)(adjusted_addr + 4);
+    printf("[SSP] raw addr port %u\n", ntohs(*adjusted_port));
+
+    uint16_t adjusted_port_copy = ntohs(*adjusted_port);
+    
+    // adjust addr
+    addr->addr.ip4.addr.n0 = adjusted_addr_copy[3];
+    addr->addr.ip4.addr.n1 = adjusted_addr_copy[2]; 
+    addr->addr.ip4.addr.n2 = adjusted_addr_copy[1];
+    addr->addr.ip4.addr.n3 = adjusted_addr_copy[0];
+    addr->addr.ip4.port = adjusted_port_copy;
 
     if (!wasi_addr_to_string(addr, buf, sizeof(buf))) {
+        printf("[SSP] wasi addr to string failed\n");
         return __WASI_EPROTONOSUPPORT;
     }
 
     if (!addr_pool_search(addr_pool, buf)) {
+        printf("[SSP] addr pool search failed\n");
         return __WASI_EACCES;
     }
 
     error = fd_object_get(curfds, &fo, fd, __WASI_RIGHT_SOCK_BIND, 0);
-    if (error != __WASI_ESUCCESS)
+    if (error != __WASI_ESUCCESS){
+        printf("[SSP] get fd failed\n"); 
         return error;
-
+    }
+    
     ret = blocking_op_socket_connect(exec_env, fo->file_handle, buf,
                                      addr->kind == IPv4 ? addr->addr.ip4.port
                                                         : addr->addr.ip6.port);
@@ -2809,6 +2836,28 @@ wasmtime_ssp_sock_recv_from(wasm_exec_env_t exec_env, struct fd_table *curfds,
     bh_sockaddr_t sockaddr;
     int ret;
 
+    uint8_t *adjusted_addr = (uint8_t *)src_addr + 4;
+    printf("[SSP] wasi addr moved: %u.%u.%u.%u\n", adjusted_addr[0],
+                                                adjusted_addr[1],
+                                                adjusted_addr[2],
+                                                adjusted_addr[3]);
+    // use a copy because addr will be modified
+    uint8_t adjusted_addr_copy[4];
+    memcpy(adjusted_addr_copy, adjusted_addr, 4);
+
+    uint16_t *adjusted_port = (uint16_t *)(adjusted_addr + 4);
+    printf("[SSP] raw addr port %u\n", ntohs(*adjusted_port));
+
+    uint16_t adjusted_port_copy = ntohs(*adjusted_port);
+    
+    // adjust addr
+    src_addr->addr.ip4.addr.n0 = adjusted_addr_copy[3];
+    src_addr->addr.ip4.addr.n1 = adjusted_addr_copy[2]; 
+    src_addr->addr.ip4.addr.n2 = adjusted_addr_copy[1];
+    src_addr->addr.ip4.addr.n3 = adjusted_addr_copy[0];
+    src_addr->addr.ip4.port = adjusted_port_copy;
+
+
     error = fd_object_get(curfds, &fo, sock, __WASI_RIGHT_FD_READ, 0);
     if (error != 0) {
         return error;
@@ -2820,6 +2869,8 @@ wasmtime_ssp_sock_recv_from(wasm_exec_env_t exec_env, struct fd_table *curfds,
     if (-1 == ret) {
         return convert_errno(errno);
     }
+
+    printf("[SSP] message buffer size: %d\n", ret);
 
     bh_sockaddr_to_wasi_addr(&sockaddr, src_addr);
 
@@ -2864,7 +2915,26 @@ wasmtime_ssp_sock_send_to(wasm_exec_env_t exec_env, struct fd_table *curfds,
     int ret;
     bh_sockaddr_t sockaddr;
 
-    if (!wasi_addr_to_string(dest_addr, addr_buf, sizeof(addr_buf))) {
+    __wasi_addr_t adjusted_addr;
+    memcpy(&adjusted_addr, dest_addr, sizeof(__wasi_addr_t));
+
+    uint8_t *ip_addr = (uint8_t *)&adjusted_addr.addr.ip4.addr + 2;
+    printf("[SSP] wasi addr moved: %u.%u.%u.%u\n", ip_addr[0],
+                                                ip_addr[1],
+                                                ip_addr[2],
+                                                ip_addr[3]);
+
+    uint16_t *port = (uint16_t *)(ip_addr + 4);
+    printf("[SSP] raw addr port %u\n", ntohs(*port));
+
+    // adjust addr
+    adjusted_addr.addr.ip4.addr.n0 = ip_addr[3];
+    adjusted_addr.addr.ip4.addr.n1 = ip_addr[2];
+    adjusted_addr.addr.ip4.addr.n2 = ip_addr[1];
+    adjusted_addr.addr.ip4.addr.n3 = ip_addr[0];
+    adjusted_addr.addr.ip4.port = ntohs(*port);
+
+    if (!wasi_addr_to_string(&adjusted_addr, addr_buf, sizeof(addr_buf))) {
         return __WASI_EPROTONOSUPPORT;
     }
 
@@ -2877,10 +2947,10 @@ wasmtime_ssp_sock_send_to(wasm_exec_env_t exec_env, struct fd_table *curfds,
         return error;
     }
 
-    wasi_addr_to_bh_sockaddr(dest_addr, &sockaddr);
+    wasi_addr_to_bh_sockaddr(&adjusted_addr, &sockaddr);
 
     ret = blocking_op_socket_send_to(exec_env, fo->file_handle, buf, buf_len, 0,
-                                     &sockaddr);
+                                     &adjusted_addr);
     fd_object_release(exec_env, fo);
     if (-1 == ret) {
         return convert_errno(errno);
@@ -3097,6 +3167,8 @@ compare_address(const struct addr_pool *addr_pool_entry,
     size_t addr_size;
     uint8_t max_addr_mask;
 
+    printf("[SSP] compare address\n");
+
     if (addr_pool_entry->type == IPv4) {
         uint32_t addr_ip4 = htonl(addr_pool_entry->addr.ip4);
         bh_memcpy_s(basebuf, sizeof(addr_ip4), &addr_ip4, sizeof(addr_ip4));
@@ -3133,7 +3205,7 @@ compare_address(const struct addr_pool *addr_pool_entry,
             return false;
         }
     }
-
+    printf("[SSP] compare address succeed\n");
     return true;
 }
 
@@ -3143,6 +3215,7 @@ addr_pool_search(struct addr_pool *addr_pool, const char *addr)
     struct addr_pool *cur = addr_pool->next;
     bh_ip_addr_buffer_t target;
     __wasi_addr_type_t addr_type;
+    printf("[SSP] addr pool search\n");
 
     if (os_socket_inet_network(true, addr, &target) != BHT_OK) {
         size_t i;
@@ -3162,6 +3235,7 @@ addr_pool_search(struct addr_pool *addr_pool, const char *addr)
 
     while (cur) {
         if (cur->type == addr_type && compare_address(cur, &target)) {
+            printf("[SSP] addr pool search success: target = %d | buf = %s\n", target.ipv4, addr);
             return true;
         }
 

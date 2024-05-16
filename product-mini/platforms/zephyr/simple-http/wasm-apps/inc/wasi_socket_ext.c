@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <netinet/in.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <wasi/api.h>
@@ -17,6 +18,32 @@
         errno = error;                   \
         return -1;                       \
     }
+
+// temp: to bypass linking problem 
+// investing how to link libc.a to the wasm app
+uint16_t ntohs(uint16_t netshort) {
+    return ((netshort >> 8) & 0xff) | ((netshort & 0xff) << 8);
+}
+
+uint16_t htons(uint16_t netshort) {
+    return ((netshort >> 8) & 0xff) | ((netshort & 0xff) << 8);
+}
+
+uint32_t ntohl(uint32_t netlong) {
+    return ((netlong >> 24) & 0xff) |
+           ((netlong >> 8) & 0xff00) |
+           ((netlong & 0xff00) << 8) |
+           ((netlong & 0xff) << 24);
+}
+
+uint32_t htonl(uint32_t netlong) {
+    return ((netlong >> 24) & 0xff) |
+           ((netlong >> 8) & 0xff00) |
+           ((netlong & 0xff00) << 8) |
+           ((netlong & 0xff) << 24);
+}
+
+// ~temp
 
 static void
 ipv4_addr_to_wasi_ip4_addr(uint32_t addr_num, __wasi_addr_ip4_t *out)

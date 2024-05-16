@@ -12,6 +12,11 @@
 #include <assert.h>
 #include <stdarg.h>
 
+// To test if fd is a socket in fstat
+// May have to be removed
+zsock_fd_set socket_set;
+bool socket_set_initialized = false;
+
 // Static functions
 static bool
 textual_addr_to_sockaddr(const char *textual, int port, struct sockaddr *out,
@@ -180,15 +185,25 @@ os_socket_create(bh_socket_t *sock, bool is_ipv4, bool is_tcp)
 {
     int af = is_ipv4 ? AF_INET : AF_INET6;
 
+    if (!socket_set_initialized) {
+        ZSOCK_FD_ZERO(&socket_set);
+        socket_set_initialized = true;
+    }
+
     if (!sock) {
         return BHT_ERROR;
     }
-
+    
     if (is_tcp) {
+        printf("[OS-Layer] Creating socket...\n");
         *sock = zsock_socket(af, SOCK_STREAM, IPPROTO_TCP);
     }
     else {
         *sock = zsock_socket(af, SOCK_DGRAM, IPPROTO_UDP); // IPPROTO_UDP or 0 ?
+    }
+
+    if (*sock != -1) {
+        ZSOCK_FD_SET(*sock, &socket_set);
     }
 
     return (*sock == -1) ? BHT_ERROR : BHT_OK;
@@ -284,11 +299,15 @@ os_socket_connect(bh_socket_t socket, const char *addr, int port)
 
     if (!textual_addr_to_sockaddr(addr, port, (struct sockaddr *)&addr_in,
                                   &socklen)) {
+        printf("[OS-Layer] Failed to convert text addr to sockaddr\n"); 
         return BHT_ERROR;
     }
+    printf("[OS-Layer] About to connect to %s\n", addr);
+    printf("[OS-Layer] Port: %d\n", port);
 
     ret = zsock_connect(socket, (struct sockaddr *)&addr_in, socklen);
     if (ret < 0) {
+        printf("[OS-Layer] Error %d\n", errno);
         return BHT_ERROR;
     }
 
@@ -306,20 +325,32 @@ os_socket_recv_from(bh_socket_t socket, void *buf, unsigned int len, int flags,
                     bh_sockaddr_t *src_addr)
 {
     struct sockaddr_storage addr = { 0 };
+    struct sockaddr *temp_addr = (struct sockaddr *)&addr; 
     socklen_t socklen = sizeof(addr);
     int ret;
-
+    printf("[OS-Layer] Receiving from socket %d\n", socket);
     ret = zsock_recvfrom(socket, buf, len, flags, (struct sockaddr *)&addr,
                          &socklen);
     if (ret < 0) {
+        printf("[OS-Layer] Error %d\n", errno);
         return BHT_ERROR;
     }
+    
+    // zsock_recvfrom doesn't seem to set `addr->sa_family` (to AF_INET)
+    temp_addr->sa_family = AF_INET;
+
+    printf("[OS-Layer] Received %d bytes\n", ret);
 
     if (src_addr && socklen > 0) {
-        if (sockaddr_to_bh_sockaddr((struct sockaddr *)&addr, src_addr) != BHT_OK) {
+        if (sockaddr_to_bh_sockaddr(temp_addr, src_addr)
+            == BHT_ERROR) {
+            printf("[OS-Layer] Error converting sockaddr to bh_sockaddr\n");
             return BHT_ERROR;
         }
     }
+    // else if (src_addr) {
+    //     memset(src_addr, 0, sizeof(*src_addr));
+    // }
 
     return ret;
 
@@ -347,6 +378,8 @@ os_socket_send_to(bh_socket_t socket, const void *buf, unsigned int len,
 int
 os_socket_close(bh_socket_t socket)
 {
+    ZSOCK_FD_CLR(socket, &socket_set);
+    printf("[OS-Layer] closing socket\n");
     return zsock_close(socket) == -1 ? BHT_ERROR : BHT_OK;
 }
 
@@ -362,6 +395,7 @@ os_socket_shutdown(bh_socket_t socket)
 int
 os_socket_inet_network(bool is_ipv4, const char *cp, bh_ip_addr_buffer_t *out)
 {
+    printf("[OS-Layer] inet network\n");
     if (!cp)
         return BHT_ERROR;
 
@@ -371,6 +405,7 @@ os_socket_inet_network(bool is_ipv4, const char *cp, bh_ip_addr_buffer_t *out)
         }
         /* Note: ntohl(INADDR_NONE) == INADDR_NONE */
         out->ipv4 = ntohl(out->ipv4);
+        printf("[OS-Layer] address:  %s To representation: = %u\n", cp, out->ipv4);
     }
     else {
 #ifdef IPPROTO_IPV6
