@@ -393,7 +393,8 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
     /* Initialize import global data */
     global = globals;
-    for (i = 0; i < module->import_global_count; i++, import_global++) {
+    for (i = 0; i < module->import_global_count;
+         i++, import_global++, global++) {
         bh_assert(import_global->data_offset
                   == (uint32)(p - module_inst->global_data));
         init_global_data(p, import_global->type.val_type,
@@ -412,7 +413,7 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     }
 
     /* Initialize defined global data */
-    for (i = 0; i < module->global_count; i++) {
+    for (i = 0; i < module->global_count; i++, global++) {
         uint8 flag;
         bh_assert(module->globals[i].data_offset
                   == (uint32)(p - module_inst->global_data));
@@ -623,7 +624,6 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
             }
         }
 
-        global++;
         p += module->globals[i].size;
     }
 
