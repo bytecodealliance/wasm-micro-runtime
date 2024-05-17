@@ -269,23 +269,24 @@ jobs:
     strategy:
       matrix:
         running_mode: ["classic-interp", "fast-interp", "aot", "fast-jit"]
-        test_option: ["-x -p -s spec -b -P", "-x -p -s spec -S -b -P", "-x -p -s spec -X -b -P"]
+        # FIXME: use binary release(adding -b) instead of building from source after upgrading to 22.04
+        test_option: ["-x -p -s spec -P", "-x -p -s spec -S -P", "-x -p -s spec -X -P"]
         llvm_cache_key: ["${{ needs.build_llvm_libraries.outputs.cache_key }}"]
         exclude:
           # classic-interp, fast-interp and fast-jit don't support simd
           - running_mode: "classic-interp"
-            test_option: "-x -p -s spec -S -b -P"
+            test_option: "-x -p -s spec -S -P"
           - running_mode: "fast-interp"
-            test_option: "-x -p -s spec -S -b -P"
+            test_option: "-x -p -s spec -S -P"
           - running_mode: "fast-jit"
-            test_option: "-x -p -s spec -S -b -P"
+            test_option: "-x -p -s spec -S -P"
           # classic-interp, fast-interp and fast jit don't support XIP
           - running_mode: "classic-interp"
-            test_option: "-x -p -s spec -X -b -P"
+            test_option: "-x -p -s spec -X -P"
           - running_mode: "fast-interp"
-            test_option: "-x -p -s spec -X -b -P"
+            test_option: "-x -p -s spec -X -P"
           - running_mode: "fast-jit"
-            test_option: "-x -p -s spec -X -b -P"
+            test_option: "-x -p -s spec -X -P"
 
     steps:
       - name: checkout
@@ -319,6 +320,9 @@ jobs:
           wget -qO - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add -
           sudo apt update
           sudo apt install -y libsgx-launch libsgx-urts
+
+      - name: install for wabt compilation
+        run: sudo apt update && sudo apt install -y ninja-build
 
       - name: run spec tests
         run: |

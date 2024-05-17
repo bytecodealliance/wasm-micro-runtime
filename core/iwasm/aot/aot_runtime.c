@@ -120,7 +120,6 @@ check_global_init_expr(const AOTModule *module, uint32 global_index,
         return false;
     }
 
-#if WASM_ENABLE_GC == 0
     /**
      * Currently, constant expressions occurring as initializers of
      * globals are further constrained in that contained global.get
@@ -129,24 +128,26 @@ check_global_init_expr(const AOTModule *module, uint32 global_index,
      * And initializer expression cannot reference a mutable global.
      */
     if (global_index >= module->import_global_count
-        || module->import_globals->type.is_mutable) {
-        set_error_buf(error_buf, error_buf_size,
-                      "constant expression required");
-        return false;
-    }
-#else
-    if (global_index >= module->import_global_count + module->global_count) {
+    /* make spec test happy */
+#if WASM_ENABLE_GC != 0
+                            + module->global_count
+#endif
+    ) {
         set_error_buf_v(error_buf, error_buf_size, "unknown global %u",
                         global_index);
         return false;
     }
-    if (global_index < module->import_global_count
-        && module->import_globals[global_index].type.is_mutable) {
+
+    if (
+    /* make spec test happy */
+#if WASM_ENABLE_GC != 0
+        global_index < module->import_global_count &&
+#endif
+        module->import_globals[global_index].type.is_mutable) {
         set_error_buf(error_buf, error_buf_size,
                       "constant expression required");
         return false;
     }
-#endif
 
     return true;
 }

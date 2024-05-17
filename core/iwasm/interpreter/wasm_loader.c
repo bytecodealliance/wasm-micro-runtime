@@ -830,39 +830,35 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                 read_leb_uint32(p, p_end, cur_value.global_index);
                 global_idx = cur_value.global_index;
 
-#if WASM_ENABLE_GC == 0
-                if (global_idx >= module->import_global_count) {
-                    /**
-                     * Currently, constant expressions occurring as initializers
-                     * of globals are further constrained in that contained
-                     * global.get instructions are
-                     * only allowed to refer to imported globals.
-                     */
+                /*
+                 * Currently, constant expressions occurring as initializers
+                 * of globals are further constrained in that contained
+                 * global.get instructions are
+                 * only allowed to refer to imported globals.
+                 *
+                 * https://webassembly.github.io/spec/core/valid/instructions.html#constant-expressions
+                 */
+                if (global_idx >= module->import_global_count
+                /* make spec test happy */
+#if WASM_ENABLE_GC != 0
+                                      + module->global_count
+#endif
+                ) {
                     set_error_buf_v(error_buf, error_buf_size,
                                     "unknown global %u", global_idx);
                     goto fail;
                 }
-                if (module->import_globals[global_idx]
+                if (
+                /* make spec test happy */
+#if WASM_ENABLE_GC != 0
+                    global_idx < module->import_global_count &&
+#endif
+                    module->import_globals[global_idx]
                         .u.global.type.is_mutable) {
                     set_error_buf_v(error_buf, error_buf_size,
                                     "constant expression required");
                     goto fail;
                 }
-#else
-                if (global_idx
-                    >= module->import_global_count + module->global_count) {
-                    set_error_buf_v(error_buf, error_buf_size,
-                                    "unknown global %u", global_idx);
-                    goto fail;
-                }
-                if (global_idx < module->import_global_count
-                    && module->import_globals[global_idx]
-                           .u.global.type.is_mutable) {
-                    set_error_buf_v(error_buf, error_buf_size,
-                                    "constant expression required");
-                    goto fail;
-                }
-#endif
 
                 if (global_idx < module->import_global_count) {
                     global_type = module->import_globals[global_idx]
@@ -4244,6 +4240,43 @@ fail:
     return false;
 }
 
+/* Element segments must match element type of table */
+static bool
+check_table_elem_type(WASMModule *module, uint32 table_index,
+                      uint32 type_from_elem_seg, char *error_buf,
+                      uint32 error_buf_size)
+{
+    uint32 table_declared_elem_type;
+
+    if (table_index < module->import_table_count)
+        table_declared_elem_type =
+            module->import_tables[table_index].u.table.elem_type;
+    else
+        table_declared_elem_type = (module->tables + table_index)->elem_type;
+
+    if (table_declared_elem_type == type_from_elem_seg)
+        return true;
+
+#if WASM_ENABLE_GC != 0
+    /*
+     * balance in: anyref, funcref, (ref.null func) and (ref.func)
+     */
+    if (table_declared_elem_type == REF_TYPE_ANYREF)
+        return true;
+
+    if (table_declared_elem_type == VALUE_TYPE_FUNCREF
+        && type_from_elem_seg == REF_TYPE_HT_NON_NULLABLE)
+        return true;
+
+    if (table_declared_elem_type == REF_TYPE_HT_NULLABLE
+        && type_from_elem_seg == REF_TYPE_HT_NON_NULLABLE)
+        return true;
+#endif
+
+    set_error_buf(error_buf, error_buf_size, "type mismatch");
+    return false;
+}
+
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
 static bool
 load_elem_type(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
@@ -4479,6 +4512,12 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                             return false;
                     }
 
+                    if (!check_table_elem_type(module,
+                                               table_segment->table_index,
+                                               table_segment->elem_type,
+                                               error_buf, error_buf_size))
+                        return false;
+
                     break;
                 }
                 /* elemkind + passive/declarative */
@@ -4530,6 +4569,13 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                                                 error_buf_size))
                             return false;
                     }
+
+                    if (!check_table_elem_type(module,
+                                               table_segment->table_index,
+                                               table_segment->elem_type,
+                                               error_buf, error_buf_size))
+                        return false;
+
                     break;
                 case 5:
                 case 7:
@@ -4565,6 +4611,13 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                 return false;
             if (!load_func_index_vec(&p, p_end, module, table_segment,
                                      error_buf, error_buf_size))
+                return false;
+
+            table_segment->elem_type = VALUE_TYPE_FUNCREF;
+
+            if (!check_table_elem_type(module, table_segment->table_index,
+                                       table_segment->elem_type, error_buf,
+                                       error_buf_size))
                 return false;
 #endif /* end of WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0 */
 

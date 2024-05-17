@@ -36,10 +36,11 @@ env:
   LLVM_EAGER_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_JIT=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0"
   MULTI_TIER_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=1"
   # For Spec Test
-  DEFAULT_TEST_OPTIONS: "-s spec -b -P"
-  MULTI_MODULES_TEST_OPTIONS: "-s spec -b -M -P"
-  SIMD_TEST_OPTIONS: "-s spec -b -S -P"
-  THREADS_TEST_OPTIONS: "-s spec -b -p -P"
+  # FIXME: use binary release(adding -b) instead of building from source after upgrading to 22.04
+  DEFAULT_TEST_OPTIONS: "-s spec -P"
+  MULTI_MODULES_TEST_OPTIONS: "-s spec -M -P"
+  SIMD_TEST_OPTIONS: "-s spec -S -P"
+  THREADS_TEST_OPTIONS: "-s spec -p -P"
   X86_32_TARGET_TEST_OPTIONS: "-m x86_32 -P"
   WASI_TEST_OPTIONS: "-s wasi_certification -w"
 
@@ -718,6 +719,9 @@ jobs:
       - name: install jq JSON processor
         if: matrix.running_mode == 'aot' && matrix.test_option == '$WASI_TEST_OPTIONS'
         run: sudo apt-get update && sudo apt install -y jq
+
+      - name: install for wabt compilation
+        run: sudo apt update && sudo apt install -y ninja-build
 
       - name: Build WASI thread tests
         if: matrix.test_option == '$WASI_TEST_OPTIONS'
