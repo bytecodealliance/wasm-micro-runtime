@@ -42,6 +42,8 @@
 typedef struct wasm_module_ex_t {
     struct WASMModuleCommon *module_comm_rt;
     wasm_byte_vec_t *binary;
+    /* If true, binary in wasm_module_ex_t contains a copy of the WASM binary */
+    bool is_binary_cloned;
     korp_mutex lock;
     uint32 ref_count;
 #if WASM_ENABLE_WASM_CACHE != 0
@@ -2242,8 +2244,7 @@ quit:
 #endif /* WASM_ENABLE_WASM_CACHE != 0 */
 
 wasm_module_t *
-wasm_module_new_ex(wasm_store_t *store, const wasm_byte_vec_t *binary,
-                   const LoadArgs *args)
+wasm_module_new_ex(wasm_store_t *store, wasm_byte_vec_t *binary, LoadArgs *args)
 {
     char error_buf[128] = { 0 };
     wasm_module_ex_t *module_ex = NULL;
@@ -2291,14 +2292,21 @@ wasm_module_new_ex(wasm_store_t *store, const wasm_byte_vec_t *binary,
     if (!module_ex)
         goto quit;
 
-    module_ex->binary = malloc_internal(sizeof(wasm_byte_vec_t));
-    if (!module_ex->binary)
-        goto free_module;
+    module_ex->is_binary_cloned = args->clone_wasm_binary;
+    if (args->clone_wasm_binary) {
+        module_ex->binary = malloc_internal(sizeof(wasm_byte_vec_t));
+        if (!module_ex->binary)
+            goto free_module;
 
-    wasm_byte_vec_copy(module_ex->binary, binary);
-    if (!module_ex->binary->data)
-        goto free_binary;
+        wasm_byte_vec_copy(module_ex->binary, binary);
+        if (!module_ex->binary->data)
+            goto free_binary;
+    }
+    else {
+        module_ex->binary = binary;
+    }
 
+    args->wasm_binary_freeable = !args->clone_wasm_binary;
     module_ex->module_comm_rt = wasm_runtime_load_ex(
         (uint8 *)module_ex->binary->data, (uint32)module_ex->binary->size, args,
         error_buf, (uint32)sizeof(error_buf));
@@ -2336,9 +2344,11 @@ remove_last:
 unload:
     wasm_runtime_unload(module_ex->module_comm_rt);
 free_vec:
-    wasm_byte_vec_delete(module_ex->binary);
+    if (args->clone_wasm_binary)
+        wasm_byte_vec_delete(module_ex->binary);
 free_binary:
-    wasm_runtime_free(module_ex->binary);
+    if (args->clone_wasm_binary)
+        wasm_runtime_free(module_ex->binary);
 free_module:
     wasm_runtime_free(module_ex);
 quit:
@@ -2351,7 +2361,8 @@ wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
 {
     LoadArgs args = { 0 };
     args.name = "";
-    return wasm_module_new_ex(store, binary, &args);
+    args.clone_wasm_binary = true;
+    return wasm_module_new_ex(store, (wasm_byte_vec_t *)binary, &args);
 }
 
 bool
@@ -2410,7 +2421,8 @@ wasm_module_delete_internal(wasm_module_t *module)
         return;
     }
 
-    DEINIT_VEC(module_ex->binary, wasm_byte_vec_delete);
+    if (module_ex->is_binary_cloned)
+        DEINIT_VEC(module_ex->binary, wasm_byte_vec_delete);
 
     if (module_ex->module_comm_rt) {
         wasm_runtime_unload(module_ex->module_comm_rt);
@@ -2992,6 +3004,16 @@ wasm_module_get_name(wasm_module_t *module)
 
     module_ex = module_to_module_ext(module);
     return wasm_runtime_get_module_name(module_ex->module_comm_rt);
+}
+
+bool
+wasm_module_is_underlying_binary_freeable(
+    const wasm_module_t *module, const struct wasm_instance_t *instance)
+{
+    if (((wasm_module_ex_t *)module)->is_binary_cloned)
+        return true;
+
+    return wasm_runtime_is_underlying_binary_freeable(instance->inst_comm_rt);
 }
 
 static wasm_func_t *

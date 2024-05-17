@@ -3852,6 +3852,7 @@ create_module(char *name, char *error_buf, uint32 error_buf_size)
     module->module_type = Wasm_Module_AoT;
 
     module->name = name;
+    module->is_binary_freeable = false;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     module->import_module_list = &module->import_module_list_head;
@@ -4082,8 +4083,8 @@ fail:
 }
 
 static bool
-load(const uint8 *buf, uint32 size, AOTModule *module, char *error_buf,
-     uint32 error_buf_size)
+load(const uint8 *buf, uint32 size, AOTModule *module,
+     bool wasm_binary_freeable, char *error_buf, uint32 error_buf_size)
 {
     const uint8 *buf_end = buf + size;
     const uint8 *p = buf, *p_end = buf_end;
@@ -4107,8 +4108,8 @@ load(const uint8 *buf, uint32 size, AOTModule *module, char *error_buf,
                          error_buf_size))
         return false;
 
-    ret = load_from_sections(module, section_list, true, error_buf,
-                             error_buf_size);
+    ret = load_from_sections(module, section_list, !wasm_binary_freeable,
+                             error_buf, error_buf_size);
     if (!ret) {
         /* If load_from_sections() fails, then aot text is destroyed
            in destroy_sections() */
@@ -4152,7 +4153,8 @@ aot_load_from_aot_file(const uint8 *buf, uint32 size, const LoadArgs *args,
         return NULL;
 
     os_thread_jit_write_protect_np(false); /* Make memory writable */
-    if (!load(buf, size, module, error_buf, error_buf_size)) {
+    if (!load(buf, size, module, args->wasm_binary_freeable, error_buf,
+              error_buf_size)) {
         aot_unload(module);
         return NULL;
     }

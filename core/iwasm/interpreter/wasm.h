@@ -1077,6 +1077,9 @@ struct WASMModule {
 
     /* user defined name */
     char *name;
+
+    /* Whether the underlying wasm binary buffer can be freed */
+    bool is_binary_freeable;
 };
 
 typedef struct BlockType {

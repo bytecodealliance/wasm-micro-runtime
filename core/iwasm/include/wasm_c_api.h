@@ -528,6 +528,12 @@ typedef struct WASMModuleCommon *wasm_module_t;
 #define LOAD_ARGS_OPTION_DEFINED
 typedef struct LoadArgs {
     char *name;
+    /* True by default, used by wasm-c-api only.
+    If false, the wasm input buffer (wasm_byte_vec_t) is referenced by the
+    module instead of being cloned. Hence, it can be freed after module loading. */
+    bool clone_wasm_binary;
+    /* This option is only used by the AOT/wasm loader (see wasm_export.h) */
+    bool wasm_binary_freeable;
     /* TODO: more fields? */
 } LoadArgs;
 #endif /* LOAD_ARGS_OPTION_DEFINED */
@@ -537,7 +543,7 @@ WASM_API_EXTERN own wasm_module_t* wasm_module_new(
 
 // please refer to wasm_runtime_load_ex(...) in core/iwasm/include/wasm_export.h
 WASM_API_EXTERN own wasm_module_t* wasm_module_new_ex(
-  wasm_store_t*, const wasm_byte_vec_t* binary, const LoadArgs *args);
+  wasm_store_t*, wasm_byte_vec_t* binary, LoadArgs *args);
 
 WASM_API_EXTERN void wasm_module_delete(own wasm_module_t*);
 
@@ -556,6 +562,8 @@ WASM_API_EXTERN void wasm_shared_module_delete(own wasm_shared_module_t*);
 
 WASM_API_EXTERN bool wasm_module_set_name(wasm_module_t*, const char* name);
 WASM_API_EXTERN const char *wasm_module_get_name(wasm_module_t*);
+
+WASM_API_EXTERN bool wasm_module_is_underlying_binary_freeable(const wasm_module_t *module, const struct wasm_instance_t* instance);
 
 
 // Function Instances

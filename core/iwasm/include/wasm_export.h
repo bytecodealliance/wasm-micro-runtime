@@ -227,6 +227,13 @@ typedef struct RuntimeInitArgs {
 #define LOAD_ARGS_OPTION_DEFINED
 typedef struct LoadArgs {
     char *name;
+    /* This option is only used by the Wasm C API (see wasm_c_api.h) */
+    bool clone_wasm_binary;
+    /* False by default, used by AOT/wasm loader only.
+    If true, the AOT/wasm loader creates a copy of some module fields (e.g.
+    const strings), making it possible to free the wasm binary buffer after
+    loading. */
+    bool wasm_binary_freeable;
     /* TODO: more fields? */
 } LoadArgs;
 #endif /* LOAD_ARGS_OPTION_DEFINED */
@@ -1885,6 +1892,16 @@ wasm_runtime_detect_native_stack_overflow(wasm_exec_env_t exec_env);
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_detect_native_stack_overflow_size(wasm_exec_env_t exec_env,
                                                uint32_t required_size);
+
+/**
+ * Query whether the wasm binary buffer used to create the module can be freed
+ *
+ * @param module_inst the target module instance
+ * @return true if the wasm binary buffer can be freed
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_is_underlying_binary_freeable(
+    const wasm_module_inst_t module_inst);
 
 #ifdef __cplusplus
 }

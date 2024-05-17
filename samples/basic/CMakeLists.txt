@@ -79,12 +79,16 @@ include_directories(${CMAKE_CURRENT_LIST_DIR}/src)
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
 add_executable (basic src/main.c src/native_impl.c ${UNCOMMON_SHARED_SOURCE})
+add_executable (free_buffer_early src/free_buffer_early.c ${UNCOMMON_SHARED_SOURCE})
 
 check_pie_supported()
 set_target_properties (basic PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties (free_buffer_early PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 if (APPLE)
   target_link_libraries (basic vmlib -lm -ldl -lpthread)
+  target_link_libraries (free_buffer_early vmlib -lm -ldl -lpthread)
 else ()
   target_link_libraries (basic vmlib -lm -ldl -lpthread -lrt)
+  target_link_libraries (free_buffer_early vmlib -lm -ldl -lpthread -lrt)
 endif ()

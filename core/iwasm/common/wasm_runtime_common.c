@@ -1350,12 +1350,18 @@ wasm_runtime_load_ex(uint8 *buf, uint32 size, const LoadArgs *args,
                                           true,
 #endif
                                           args, error_buf, error_buf_size);
+        if (module_common)
+            ((WASMModule *)module_common)->is_binary_freeable =
+                args->wasm_binary_freeable;
 #endif
     }
     else if (get_package_type(buf, size) == Wasm_Module_AoT) {
 #if WASM_ENABLE_AOT != 0
         module_common = (WASMModuleCommon *)aot_load_from_aot_file(
             buf, size, args, error_buf, error_buf_size);
+        if (module_common)
+            ((AOTModule *)module_common)->is_binary_freeable =
+                args->wasm_binary_freeable;
 #endif
     }
     else {
@@ -1383,6 +1389,7 @@ wasm_runtime_load(uint8 *buf, uint32 size, char *error_buf,
 {
     LoadArgs args = { 0 };
     args.name = "";
+    args.wasm_binary_freeable = false;
     return wasm_runtime_load_ex(buf, size, &args, error_buf, error_buf_size);
 }
 
@@ -1400,6 +1407,7 @@ wasm_runtime_load_from_sections(WASMSection *section_list, bool is_aot,
             LOG_DEBUG("WASM module load failed from sections");
             return NULL;
         }
+        ((WASMModule *)module_common)->is_binary_freeable = true;
         return register_module_with_null_name(module_common, error_buf,
                                               error_buf_size);
 #endif
@@ -1412,6 +1420,7 @@ wasm_runtime_load_from_sections(WASMSection *section_list, bool is_aot,
             LOG_DEBUG("WASM module load failed from sections");
             return NULL;
         }
+        ((AOTModule *)module_common)->is_binary_freeable = true;
         return register_module_with_null_name(module_common, error_buf,
                                               error_buf_size);
 #endif
@@ -7245,5 +7254,53 @@ wasm_runtime_detect_native_stack_overflow_size(WASMExecEnv *exec_env,
                                    "native stack overflow");
         return false;
     }
+    return true;
+}
+
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_is_underlying_binary_freeable(const wasm_module_inst_t module_inst)
+{
+    uint32 i;
+
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+#if (WASM_ENABLE_JIT != 0 || WASM_ENABLE_FAST_JIT != 0) \
+    && (WASM_ENABLE_LAZY_JIT != 0)
+        return false;
+#elif WASM_ENABLE_FAST_INTERP == 0
+        return false;
+#else
+        /* Fast interpreter mode */
+        WASMModule *module = ((WASMModuleInstance *)module_inst)->module;
+        if (!module->is_binary_freeable)
+            return false;
+#if WASM_ENABLE_GC != 0 && WASM_ENABLE_STRINGREF != 0
+        if (module->string_literal_ptrs)
+            return false;
+#endif
+#if WASM_ENABLE_BULK_MEMORY != 0
+        for (i = 0; i < module->data_seg_count; i++)
+            if (!bh_bitmap_get_bit(
+                    ((WASMModuleInstance *)module_inst)->e->common.data_dropped,
+                    i))
+                return false;
+#endif
+#endif
+    }
+#endif /* WASM_ENABLE_INTERP != 0 */
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        AOTModule *module =
+            (AOTModule *)((AOTModuleInstance *)module_inst)->module;
+        if (!module->is_binary_freeable)
+            return false;
+#if WASM_ENABLE_GC != 0 && WASM_ENABLE_STRINGREF != 0
+        if (module->string_literal_ptrs)
+            return false;
+#endif
+    }
+#endif /* WASM_ENABLE_AOT != 0 */
+
+    (void)i;
     return true;
 }
