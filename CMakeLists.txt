@@ -16,6 +16,13 @@ if (NOT DEFINED WAMR_BUILD_PLATFORM)
   string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_STATIC)
+  set (WAMR_BUILD_STATIC 1)
+endif ()
+if (NOT DEFINED WAMR_BUILD_SHARED)
+  set (WAMR_BUILD_SHARED 1)
+endif ()
+
 # Reset default linker flags
 set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
@@ -136,30 +143,34 @@ endif ()
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
 # STATIC LIBRARY
-add_library(iwasm_static STATIC ${WAMR_RUNTIME_LIB_SOURCE})
-set_target_properties (iwasm_static PROPERTIES OUTPUT_NAME vmlib)
-target_include_directories(iwasm_static INTERFACE ${WAMR_ROOT_DIR}/core/iwasm/include)
-target_link_libraries (iwasm_static INTERFACE ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
-if (WAMR_BUILD_WASM_CACHE EQUAL 1)
-  target_link_libraries(iwasm_static INTERFACE boringssl_crypto)
-endif ()
+if (WAMR_BUILD_STATIC)
+    add_library(iwasm_static STATIC ${WAMR_RUNTIME_LIB_SOURCE})
+    set_target_properties (iwasm_static PROPERTIES OUTPUT_NAME vmlib)
+    target_include_directories(iwasm_static INTERFACE ${WAMR_ROOT_DIR}/core/iwasm/include)
+    target_link_libraries (iwasm_static INTERFACE ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
+    if (WAMR_BUILD_WASM_CACHE EQUAL 1)
+      target_link_libraries(iwasm_static INTERFACE boringssl_crypto)
+    endif ()
 
-install (TARGETS iwasm_static ARCHIVE DESTINATION lib)
+    install (TARGETS iwasm_static ARCHIVE DESTINATION lib)
+endif ()
 
 # SHARED LIBRARY
-add_library (iwasm_shared SHARED ${WAMR_RUNTIME_LIB_SOURCE})
-set_target_properties (iwasm_shared PROPERTIES OUTPUT_NAME iwasm)
-target_include_directories(iwasm_shared INTERFACE ${WAMR_ROOT_DIR}/core/iwasm/include)
-target_link_libraries (iwasm_shared INTERFACE ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
-if (WAMR_BUILD_WASM_CACHE EQUAL 1)
-  target_link_libraries(iwasm_shared INTERFACE boringssl_crypto)
-endif ()
+if (WAMR_BUILD_SHARED)
+    add_library (iwasm_shared SHARED ${WAMR_RUNTIME_LIB_SOURCE})
+    set_target_properties (iwasm_shared PROPERTIES OUTPUT_NAME iwasm)
+    target_include_directories(iwasm_shared INTERFACE ${WAMR_ROOT_DIR}/core/iwasm/include)
+    target_link_libraries (iwasm_shared INTERFACE ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
+    if (WAMR_BUILD_WASM_CACHE EQUAL 1)
+      target_link_libraries(iwasm_shared INTERFACE boringssl_crypto)
+    endif ()
 
-if (MINGW)
-  target_link_libraries (iwasm_shared INTERFACE -lWs2_32 -lwsock32)
-endif ()
+    if (MINGW)
+      target_link_libraries (iwasm_shared INTERFACE -lWs2_32 -lwsock32)
+    endif ()
 
-install (TARGETS iwasm_shared LIBRARY DESTINATION lib)
+    install (TARGETS iwasm_shared LIBRARY DESTINATION lib)
+endif ()
 
 # HEADERS
 install (FILES
