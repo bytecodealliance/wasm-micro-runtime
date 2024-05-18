@@ -18,7 +18,7 @@
 #include "gnuc.h"
 
 #if defined(__FreeBSD__) || defined(__APPLE__) \
-    || (defined(ANDROID) && __ANDROID_API__ < 28)
+    || ((defined(ANDROID) || defined(__ANDROID__)) && (__ANDROID_API__ < 28))
 #define CONFIG_HAS_ARC4RANDOM_BUF 1
 #else
 #define CONFIG_HAS_ARC4RANDOM_BUF 0
