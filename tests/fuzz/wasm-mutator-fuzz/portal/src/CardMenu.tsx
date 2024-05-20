@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 import {
   Button,
   Modal,
@@ -9,7 +12,7 @@ import {
   Form,
   message,
   Input,
-  Progress,
+  Progress
 } from "antd";
 import React, { useEffect, useState } from "react";
 import "antd/dist/antd.css";
@@ -21,16 +24,16 @@ const { TextArea } = Input;
 const tabList2 = [
   {
     key: "error",
-    tab: "error",
+    tab: "error"
   },
   {
     key: "stdout",
-    tab: "stdout",
+    tab: "stdout"
   },
   {
     key: "stderr",
-    tab: "stderr",
-  },
+    tab: "stderr"
+  }
 ];
 
 interface ErrorDataType {
@@ -50,13 +53,7 @@ const CardMenu: React.FC<{
   tableLoading: boolean;
   resultReload: number;
   setResultReload: any;
-}> = ({
-  result,
-  detail_result,
-  tableLoading,
-  resultReload,
-  setResultReload,
-}) => {
+}> = ({ result, detail_result, tableLoading, resultReload, setResultReload }) => {
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [modal2Visible, setModal2Visible] = useState(false);
@@ -68,7 +65,7 @@ const CardMenu: React.FC<{
   result.results &&
     (result.results = result.results.map((t: any) => ({
       key: t.id,
-      ...t,
+      ...t
     })));
 
   const error_columns: ColumnsType<ErrorDataType> = [
@@ -82,7 +79,7 @@ const CardMenu: React.FC<{
             <div className="col-item-value">{value}</div>
           </Tooltip>
         );
-      },
+      }
     },
     {
       title: "CreateTime",
@@ -94,7 +91,7 @@ const CardMenu: React.FC<{
             <div className="col-item-value">{value}</div>
           </Tooltip>
         );
-      },
+      }
     },
     {
       title: "UpdateTime",
@@ -106,7 +103,7 @@ const CardMenu: React.FC<{
             <div className="col-item-value">{value}</div>
           </Tooltip>
         );
-      },
+      }
     },
     {
       title: "Comment",
@@ -118,7 +115,7 @@ const CardMenu: React.FC<{
             <div className="col-item-value">{value?.comment}</div>
           </Tooltip>
         );
-      },
+      }
     },
     {
       title: "Assign",
@@ -130,7 +127,7 @@ const CardMenu: React.FC<{
             <div className="col-item-value">{value?.assign}</div>
           </Tooltip>
         );
-      },
+      }
     },
     {
       title: "Status",
@@ -139,7 +136,7 @@ const CardMenu: React.FC<{
       filters: [
         { text: "Pending", value: 2 },
         { text: "Error", value: 1 },
-        { text: "OK", value: 0 },
+        { text: "OK", value: 0 }
       ],
       onFilter: (value, record) => {
         return record.status === value;
@@ -172,7 +169,7 @@ const CardMenu: React.FC<{
             </div>
           </>
         );
-      },
+      }
     },
     {
       title: "Action",
@@ -185,10 +182,7 @@ const CardMenu: React.FC<{
               type="primary"
               onClick={() => {
                 console.log(Object.data);
-                fetch(
-                  import.meta.env.VITE_SERVER_URL +
-                    `/get_error_out?id=${Object.id}`
-                )
+                fetch(import.meta.env.VITE_SERVER_URL + `/get_error_out?id=${Object.id}`)
                   .then((res) => {
                     return res.json();
                   })
@@ -207,10 +201,9 @@ const CardMenu: React.FC<{
               onClick={async () => {
                 try {
                   const response = await fetch(
-                    import.meta.env.VITE_SERVER_URL +
-                      `/get_error_txt?id=${Object.id}`,
+                    import.meta.env.VITE_SERVER_URL + `/get_error_txt?id=${Object.id}`,
                     {
-                      method: "GET",
+                      method: "GET"
                     }
                   );
                   console.log(Object.name);
@@ -225,8 +218,8 @@ const CardMenu: React.FC<{
             </Button>
           </>
         );
-      },
-    },
+      }
+    }
   ];
 
   const onSelectChange = (newSelectedRowKeys: React.Key[]) => {
@@ -240,14 +233,14 @@ const CardMenu: React.FC<{
       method: "POST",
       headers: {
         Accept: "application/json",
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
         id: selectedRowKeys,
         repo: repo,
         branch: branch,
-        build_args: build_args,
-      }),
+        build_args: build_args
+      })
     })
       .then((res) => {
         return res.json();
@@ -268,8 +261,8 @@ const CardMenu: React.FC<{
     selectedRowKeys,
     onChange: onSelectChange,
     getCheckboxProps: (record: ErrorDataType) => ({
-      disabled: Number(record.status) === 2,
-    }),
+      disabled: Number(record.status) === 2
+    })
   };
   const hasSelected = selectedRowKeys.length > 0;
   const [form] = Form.useForm();
@@ -279,16 +272,16 @@ const CardMenu: React.FC<{
       method: "POST",
       headers: {
         Accept: "application/json",
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
       },
 
       body: JSON.stringify({
         id: selectedRowKeys,
         comment: {
           comment: comment,
-          assign: assign,
-        },
-      }),
+          assign: assign
+        }
+      })
     })
       .then((res) => {
         return res.json();
@@ -317,14 +310,10 @@ const CardMenu: React.FC<{
             let filename = name;
             if (
               response.headers.get("content-disposition") &&
-              response.headers
-                ?.get("content-disposition")
-                ?.indexOf("filename=") !== -1
+              response.headers?.get("content-disposition")?.indexOf("filename=") !== -1
             ) {
               filename =
-                response.headers
-                  ?.get("content-disposition")
-                  ?.split("filename=")[1] || name;
+                response.headers?.get("content-disposition")?.split("filename=")[1] || name;
               a.href = downUrl;
               a.download = `${decodeURI(filename.split('"')[1])}` || name;
               a.click();
@@ -359,7 +348,7 @@ const CardMenu: React.FC<{
           height: document.body.clientHeight - 210,
           textAlign: "left",
           borderRadius: "10px",
-          overflow: "hidden",
+          overflow: "hidden"
         }}
         // headStyle={{ backgroundColor: "#87CEFAB7" }}
         title="errors"
@@ -371,7 +360,7 @@ const CardMenu: React.FC<{
           <div
             style={{
               marginBottom: 16,
-              textAlign: "left",
+              textAlign: "left"
             }}
           >
             <Button
@@ -402,20 +391,17 @@ const CardMenu: React.FC<{
               onClick={async () => {
                 setDownLoading(true);
                 try {
-                  const response = await fetch(
-                    import.meta.env.VITE_SERVER_URL + "/get_cases_zip",
-                    {
-                      method: "POST",
-                      headers: {
-                        Accept: "application/json",
-                        "Content-Type": "application/json",
-                      },
+                  const response = await fetch(import.meta.env.VITE_SERVER_URL + "/get_cases_zip", {
+                    method: "POST",
+                    headers: {
+                      Accept: "application/json",
+                      "Content-Type": "application/json"
+                    },
 
-                      body: JSON.stringify({
-                        id: selectedRowKeys,
-                      }),
-                    }
-                  );
+                    body: JSON.stringify({
+                      id: selectedRowKeys
+                    })
+                  });
                   get_cases(response, "cases.zip");
                 } catch (err) {
                   message.error("Download timeout");
@@ -461,7 +447,7 @@ const CardMenu: React.FC<{
               style={{
                 whiteSpace: "pre-wrap",
                 height: "350px",
-                overflow: "auto",
+                overflow: "auto"
               }}
             >
               {errorTabData}
@@ -472,21 +458,9 @@ const CardMenu: React.FC<{
             centered
             visible={modalVisible}
             onOk={() => {
-              let repo = form.getFieldsValue([
-                "repo",
-                "branch",
-                "build_args",
-              ]).repo;
-              let branch = form.getFieldsValue([
-                "repo",
-                "branch",
-                "build_args",
-              ]).branch;
-              let build_args = form.getFieldsValue([
-                "repo",
-                "branch",
-                "build_args",
-              ]).build_args;
+              let repo = form.getFieldsValue(["repo", "branch", "build_args"]).repo;
+              let branch = form.getFieldsValue(["repo", "branch", "build_args"]).branch;
+              let build_args = form.getFieldsValue(["repo", "branch", "build_args"]).build_args;
               if (repo === "" || branch === "") {
                 message.error("repo and branch cannot be empty");
                 return;
@@ -509,36 +483,23 @@ const CardMenu: React.FC<{
               setModalVisible(false);
             }}
           >
-            <Form
-              form={form}
-              name="domain"
-              labelCol={{ span: 4 }}
-              wrapperCol={{ span: 24 }}
-            >
+            <Form form={form} name="domain" labelCol={{ span: 4 }} wrapperCol={{ span: 24 }}>
               <Form.Item
                 label="repo"
                 name="repo"
                 rules={[{ required: true, message: "Please input your repo!" }]}
               >
-                <TextArea
-                  defaultValue={detail_result.repo}
-                  placeholder="Please enter repo"
-                />
+                <TextArea defaultValue={detail_result.repo} placeholder="Please enter repo" />
               </Form.Item>
               <Form.Item
                 label="branch"
                 name="branch"
-                rules={[
-                  { required: true, message: "Please input your branch!" },
-                ]}
+                rules={[{ required: true, message: "Please input your branch!" }]}
               >
                 <Input defaultValue={detail_result.branch} />
               </Form.Item>
               <Form.Item label="build_args" name="build_args">
-                <Input
-                  defaultValue={detail_result.build_args}
-                  placeholder="Please enter build"
-                />
+                <Input defaultValue={detail_result.build_args} placeholder="Please enter build" />
               </Form.Item>
             </Form>
           </Modal>

@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 import {
   Descriptions,
   DatePicker,
@@ -14,7 +17,7 @@ import {
   Input,
   message,
   Upload,
-  UploadFile,
+  UploadFile
 } from "antd";
 import { useEffect, useState } from "react";
 import moment from "moment";
@@ -67,25 +70,20 @@ const Description = ({ res, setId, setResult }: select_uuid) => {
   };
   // let fileList: UploadFile[] = [];
   var fileList: Array<string> = [];
-  const new_fuzzing = (
-    repo: string,
-    branch: string,
-    fuzz_time: number,
-    build_args: string
-  ) => {
+  const new_fuzzing = (repo: string, branch: string, fuzz_time: number, build_args: string) => {
     fetch(import.meta.env.VITE_SERVER_URL + "/new_fuzzing", {
       method: "POST",
       headers: {
         Accept: "application/json",
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
       },
 
       body: JSON.stringify({
         repo: repo,
         branch: branch,
         fuzz_time: fuzz_time,
-        build_args: build_args,
-      }),
+        build_args: build_args
+      })
     })
       .then((res) => {
         return res.json();
@@ -130,12 +128,7 @@ const Description = ({ res, setId, setResult }: select_uuid) => {
         centered
         visible={modalVisible}
         onOk={() => {
-          const fields_value = form.getFieldsValue([
-            "repo",
-            "branch",
-            "end_time",
-            "build_args",
-          ]);
+          const fields_value = form.getFieldsValue(["repo", "branch", "end_time", "build_args"]);
           let repo = fields_value.repo;
           let branch = fields_value.branch;
           let fuzz_time = fields_value.end_time;
@@ -260,12 +253,12 @@ const Description = ({ res, setId, setResult }: select_uuid) => {
                 fetch(import.meta.env.VITE_SERVER_URL + "/remove_case", {
                   method: "POST",
                   headers: {
-                    "Content-Type": "application/json",
+                    "Content-Type": "application/json"
                   },
 
                   body: JSON.stringify({
-                    filename: file.name,
-                  }),
+                    filename: file.name
+                  })
                 });
               }}
             >
@@ -281,7 +274,7 @@ const Description = ({ res, setId, setResult }: select_uuid) => {
         style={{
           display: "flex",
           height: document.body.clientHeight - 210,
-          overflow: "auto",
+          overflow: "auto"
         }}
       >
         {Object.keys(res).map((r: any) => (
@@ -292,7 +285,7 @@ const Description = ({ res, setId, setResult }: select_uuid) => {
               width: "99.9%",
               textAlign: "left",
               borderRadius: "10px",
-              overflow: "hidden",
+              overflow: "hidden"
             }}
             headStyle={{ backgroundColor: "#87CEFAB7" }}
           >
@@ -314,15 +307,9 @@ const Description = ({ res, setId, setResult }: select_uuid) => {
                 )
               }
             >
-              <Descriptions.Item label="Start time">
-                {res[r].start_time}
-              </Descriptions.Item>
-              <Descriptions.Item label="End time">
-                {res[r].end_time}
-              </Descriptions.Item>
-              <Descriptions.Item label="Build args">
-                {res[r].build_args}
-              </Descriptions.Item>
+              <Descriptions.Item label="Start time">{res[r].start_time}</Descriptions.Item>
+              <Descriptions.Item label="End time">{res[r].end_time}</Descriptions.Item>
+              <Descriptions.Item label="Build args">{res[r].build_args}</Descriptions.Item>
               <Descriptions.Item label="WAMR commit">
                 <a
                   href={`https://github.com/bytecodealliance/wasm-micro-runtime/commit/${res[r]?.wamr_commit}`}
@@ -350,20 +337,17 @@ const Description = ({ res, setId, setResult }: select_uuid) => {
                       type="primary"
                       danger
                       onClick={() => {
-                        fetch(
-                          import.meta.env.VITE_SERVER_URL + "/end_fuzzing",
-                          {
-                            method: "POST",
-                            headers: {
-                              Accept: "application/json",
-                              "Content-Type": "application/json",
-                            },
+                        fetch(import.meta.env.VITE_SERVER_URL + "/end_fuzzing", {
+                          method: "POST",
+                          headers: {
+                            Accept: "application/json",
+                            "Content-Type": "application/json"
+                          },
 
-                            body: JSON.stringify({
-                              id: res[r].id,
-                            }),
-                          }
-                        )
+                          body: JSON.stringify({
+                            id: res[r].id
+                          })
+                        })
                           .then((res) => {
                             return res.json();
                           })
@@ -386,10 +370,7 @@ const Description = ({ res, setId, setResult }: select_uuid) => {
 
             <Row gutter={24}>
               <Col span={6}>
-                <Statistic
-                  title="Total Error"
-                  value={res[r].error + res[r].end_error}
-                />
+                <Statistic title="Total Error" value={res[r].error + res[r].end_error} />
               </Col>
               <Col span={6}>
                 <Statistic title="Fixed" value={res[r].end_error} />

@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 import { useEffect, useState } from "react";
 import "./App.css";
 
@@ -52,7 +55,7 @@ function App() {
   const select_uuid = {
     res: dataList,
     setId,
-    setResult,
+    setResult
   };
 
   if (!isLoaded) {
@@ -91,7 +94,7 @@ function App() {
                 detail_result: result,
                 tableLoading,
                 resultReload,
-                setResultReload,
+                setResultReload
               }}
             />
           }
