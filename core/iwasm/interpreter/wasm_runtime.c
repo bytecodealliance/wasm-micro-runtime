@@ -925,6 +925,10 @@ instantiate_struct_global_recursive(WASMModule *module,
                 bh_assert(heap_type >= 0);
                 wasm_type = module->types[heap_type];
 
+                bh_assert(wasm_type->type_flag == WASM_TYPE_STRUCT
+                          && wasm_type->type_flag == WASM_TYPE_ARRAY
+                          && wasm_type->type_flag == WASM_TYPE_FUNC);
+
                 if (wasm_type->type_flag == WASM_TYPE_STRUCT) {
                     WASMStructNewInitValues *init_values1 =
                         (WASMStructNewInitValues *)wasm_value->data;
@@ -939,8 +943,11 @@ instantiate_struct_global_recursive(WASMModule *module,
                                               &field_value);
                 }
                 else if (wasm_type->type_flag == WASM_TYPE_ARRAY) {
-                    /* struct's field is an array obj */
-                    bh_assert(0);
+                    /* struct object's field is an array obj */
+                    set_error_buf(error_buf, error_buf_size,
+                                  "array as a field in struct object is "
+                                  "not supported in constant init expr");
+                    return NULL;
                 }
                 else if (wasm_type->type_flag == WASM_TYPE_FUNC) {
                     WASMFuncObjectRef func_obj = NULL;
@@ -955,9 +962,6 @@ instantiate_struct_global_recursive(WASMModule *module,
                     field_value.gc_obj = (WASMObjectRef)func_obj;
                     wasm_struct_obj_set_field(struct_obj, field_idx,
                                               &field_value);
-                }
-                else {
-                    bh_assert(0);
                 }
             }
             else {

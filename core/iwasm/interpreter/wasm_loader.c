@@ -539,6 +539,12 @@ destroy_init_expr_data_recursive(WASMModule *module, void *data)
         return;
 
     wasm_type = module->types[struct_init_values->type_idx];
+
+    /* The data can only be type of `WASMStructNewInitValues *`
+       or `WASMArrayNewInitValues *` */
+    bh_assert(wasm_type->type_flag == WASM_TYPE_STRUCT
+              || wasm_type->type_flag == WASM_TYPE_ARRAY);
+
     if (wasm_type->type_flag == WASM_TYPE_STRUCT) {
         WASMStructType *struct_type = (WASMStructType *)wasm_type;
         WASMRefTypeMap *ref_type_map = struct_type->ref_type_maps;
@@ -578,9 +584,6 @@ destroy_init_expr_data_recursive(WASMModule *module, void *data)
                     module, array_init_values->elem_data[i].data);
             }
         }
-    }
-    else {
-        bh_assert(0);
     }
 
     wasm_runtime_free(data);
