@@ -1,5 +1,5 @@
 FROM ubuntu:20.04
-WORKDIR /wamr-internal-test/tests/fuzz/wasm-mutator-fuzz/server
+WORKDIR /wamr-test/tests/fuzz/wasm-mutator-fuzz/server
 COPY ./tests/fuzz/wasm-mutator-fuzz/server/requirements.txt /requirements.txt
 
 ARG proxy=""
@@ -19,21 +19,21 @@ RUN apt-get -o Acquire::http::proxy="$proxy" update \
     gcc build-essential cmake g++-multilib libunwind-dev \
     wget -y --no-install-recommends && rm -rf /var/lib/apt/lists/* \
     && pip install --no-cache-dir -U -r /requirements.txt --proxy=$proxy
-COPY ./tests/fuzz /wamr-internal-test/tests/fuzz
+COPY ./tests/fuzz /wamr-test/tests/fuzz
 
 RUN if [ "$proxy" != "" ]; \
     then git config --global http.proxy $proxy && git config --global https.proxy $proxy; \
     else echo Do not set proxy for git; \
     fi
 
-WORKDIR /wamr-internal-test/tests/fuzz/wasm-mutator-fuzz
+WORKDIR /wamr-test/tests/fuzz/wasm-mutator-fuzz
 
 RUN wget --progress=dot:giga -e "https_proxy=$proxy" \
     https://github.com/bytecodealliance/wasm-tools/releases/download/v1.201.0/wasm-tools-1.201.0-x86_64-linux.tar.gz \
     && tar -xzf wasm-tools-1.201.0-x86_64-linux.tar.gz && mv wasm-tools-1.201.0-x86_64-linux wasm-tools
-ENV PATH="/wamr-internal-test/tests/fuzz/wasm-mutator-fuzz/wasm-tools:$PATH"
+ENV PATH="/wamr-test/tests/fuzz/wasm-mutator-fuzz/wasm-tools:$PATH"
 
-WORKDIR /wamr-internal-test/tests/fuzz/wasm-mutator-fuzz/server/app
+WORKDIR /wamr-test/tests/fuzz/wasm-mutator-fuzz/server/app
 
 # hadolint ignore=DL3025
 CMD nohup sh -c 'python3 main.py'

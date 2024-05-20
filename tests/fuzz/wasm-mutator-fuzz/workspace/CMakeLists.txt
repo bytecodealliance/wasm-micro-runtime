@@ -127,8 +127,8 @@ set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fsanitize=signed-integer-overflow  
                     -fprofile-instr-generate -fcoverage-mapping \
                     -fsanitize=address,undefined,fuzzer")
                     
-include(${REPO_ROOT_DIR}/core/shared/utils/uncommon/shared_uncommon.cmake)
-include(${REPO_ROOT_DIR}/build-scripts/runtime_lib.cmake)
+include(${REPO_ROOT_DIR}/wamr/core/shared/utils/uncommon/shared_uncommon.cmake)
+include(${REPO_ROOT_DIR}/wamr/build-scripts/runtime_lib.cmake)
 
 add_library(vmlib
     ${WAMR_RUNTIME_LIB_SOURCE}

@@ -22,8 +22,8 @@ services:
       - "${server_port}:16667"
     container_name: fuzz_server
     volumes:
-      - "./server/app/data.db:/wamr-internal-test/tests/fuzz/wasm-mutator-fuzz/server/app/data.db"
-      - "./workspace:/wamr-internal-test/tests/fuzz/wasm-mutator-fuzz/workspace"
+      - "./server/app/data.db:/wamr-test/tests/fuzz/wasm-mutator-fuzz/server/app/data.db"
+      - "./workspace:/wamr-test/tests/fuzz/wasm-mutator-fuzz/workspace"
     environment:
       - "TZ=Asia/Shanghai"
     restart: on-failure
