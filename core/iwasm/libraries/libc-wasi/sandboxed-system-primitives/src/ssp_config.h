@@ -26,9 +26,17 @@
 
 // On Linux, prefer to use getrandom, though it isn't available in
 // GLIBC before 2.25.
-#if (defined(__linux__) || defined(ESP_PLATFORM) || defined(__COSMOPOLITAN__)) \
-    && (!defined(__GLIBC__) || __GLIBC__ > 2                                   \
-        || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 25))
+//
+// NuttX has arc4random_buf, getrandom, and /dev/urandom.
+// We prefer getrandom here because it has the best chance to be usable.
+// - Our /dev/urandom usage (keep the open descriptor in a global variable)
+//   is not compatible with NuttX flat memory model.
+// - arc4random_buf is only available with CONFIG_CRYPTO_RANDOM_POOL=y.
+#if defined(__NuttX__)                               \
+    || ((defined(__linux__) || defined(ESP_PLATFORM) \
+         || defined(__COSMOPOLITAN__))               \
+        && (!defined(__GLIBC__) || __GLIBC__ > 2     \
+            || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 25)))
 #define CONFIG_HAS_GETRANDOM 1
 #else
 #define CONFIG_HAS_GETRANDOM 0
