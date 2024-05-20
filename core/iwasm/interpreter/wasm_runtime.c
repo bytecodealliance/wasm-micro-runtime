@@ -2364,12 +2364,11 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
             (uint64)memory->num_bytes_per_page * memory->cur_page_count;
         bh_assert(memory_data || memory_size == 0);
 
-        bh_assert(
-            data_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL
-            || (data_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
-                && !memory->is_memory64)
-            || (data_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_I64_CONST
-                && memory->is_memory64));
+        bh_assert(data_seg->base_offset.init_expr_type
+                      == INIT_EXPR_TYPE_GET_GLOBAL
+                  || data_seg->base_offset.init_expr_type
+                         == (memory->is_memory64 ? INIT_EXPR_TYPE_I64_CONST
+                                                 : INIT_EXPR_TYPE_I32_CONST));
 
         if (data_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
             if (!check_global_init_expr(module,

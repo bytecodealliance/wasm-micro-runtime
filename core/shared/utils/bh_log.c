@@ -38,7 +38,7 @@ bh_log(LogLevel log_level, const char *file, int line, const char *fmt, ...)
     t = t % (60 * 60);
     m = t / 60;
     s = t % 60;
-    mills = (uint32)(usec % 1000);
+    mills = (uint32)((usec % 1000000) / 1000);
 
     snprintf(buf, sizeof(buf),
              "%02" PRIu32 ":%02" PRIu32 ":%02" PRIu32 ":%03" PRIu32, h, m, s,

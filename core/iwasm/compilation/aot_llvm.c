@@ -1204,7 +1204,7 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     func_ctx->mem_space_unchanged = mem_space_unchanged;
 
     memory_count = module->memory_count + module->import_memory_count;
-    /* If the module dosen't have memory, reserve
+    /* If the module doesn't have memory, reserve
         one mem_info space with empty content */
     if (memory_count == 0)
         memory_count = 1;
