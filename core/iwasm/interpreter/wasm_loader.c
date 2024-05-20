@@ -501,6 +501,8 @@ push_const_expr_stack(ConstExprContext *ctx, uint8 flag, uint8 type,
                                     error_buf, error_buf_size))) {
                 goto fail;
             }
+            bh_memcpy_s(ctx->stack, (ctx->size + 4) * (uint32)sizeof(InitValue),
+                        ctx->data, ctx->size * (uint32)sizeof(InitValue));
         }
         ctx->size += 4;
     }
@@ -11713,12 +11715,29 @@ re_scan:
 
             case WASM_OP_RETURN:
             {
+                WASMFuncType *func_type = func->func_type;
                 int32 idx;
                 uint8 ret_type;
-                for (idx = (int32)func->func_type->result_count - 1; idx >= 0;
+
+#if WASM_ENABLE_GC != 0
+                uint32 j = func_type->ref_type_map_count - 1;
+#endif
+                for (idx = (int32)func_type->result_count - 1; idx >= 0;
                      idx--) {
-                    ret_type = *(func->func_type->types
-                                 + func->func_type->param_count + idx);
+                    ret_type =
+                        *(func_type->types + func_type->param_count + idx);
+#if WASM_ENABLE_GC != 0
+                    if (wasm_is_type_multi_byte_type(ret_type)) {
+                        WASMRefType *ref_type =
+                            func_type->ref_type_maps[j].ref_type;
+                        bh_assert(func_type->ref_type_maps[j].index
+                                  == func_type->param_count + idx);
+                        bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
+                                    ref_type,
+                                    wasm_reftype_struct_size(ref_type));
+                        j--;
+                    }
+#endif
 #if WASM_ENABLE_FAST_INTERP != 0
                     /* emit the offset after return opcode */
                     POP_OFFSET_TYPE(ret_type);
