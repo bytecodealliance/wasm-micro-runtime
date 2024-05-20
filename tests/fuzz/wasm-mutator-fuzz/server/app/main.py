@@ -1,3 +1,9 @@
+#!/usr/bin/env python
+#
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+
 # coding=utf-8
 from sched import scheduler
 from flask import Flask, request, jsonify, send_file

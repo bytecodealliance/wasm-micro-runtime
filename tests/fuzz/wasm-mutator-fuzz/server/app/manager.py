@@ -1,3 +1,9 @@
+#!/usr/bin/env python
+#
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+
 from flask_script import Manager
 from flask_migrate import Migrate, MigrateCommand
 from main import app, db
