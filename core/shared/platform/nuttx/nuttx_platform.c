@@ -106,7 +106,7 @@ void
 os_dcache_flush()
 {
 #if defined(CONFIG_ARCH_USE_TEXT_HEAP) \
-    && defined(CONFIG_ARCH_TEXT_HEAP_SEPARATE_DATA_ADDRESS)
+    && defined(CONFIG_ARCH_HAVE_TEXT_HEAP_SEPARATE_DATA_ADDRESS)
     up_textheap_data_sync();
 #endif
 }
@@ -120,7 +120,7 @@ void *
 os_get_dbus_mirror(void *ibus)
 {
 #if defined(CONFIG_ARCH_USE_TEXT_HEAP) \
-    && defined(CONFIG_ARCH_TEXT_HEAP_SEPARATE_DATA_ADDRESS)
+    && defined(CONFIG_ARCH_HAVE_TEXT_HEAP_SEPARATE_DATA_ADDRESS)
     return up_textheap_data_address(ibus);
 #else
     return ibus;
