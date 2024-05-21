@@ -427,6 +427,8 @@ function compile_reference_interpreter()
 # TODO: with iwasm only
 function spec_test()
 {
+    local RUNNING_MODE="$1"
+
     echo "Now start spec tests"
     touch ${REPORT_DIR}/spec_test_report.txt
 
@@ -499,7 +501,11 @@ function spec_test()
             git apply ../../spec-test-script/simd_ignore_cases.patch || exit 1
         fi
         if [[ ${ENABLE_MULTI_MODULE} == 1 ]]; then
-            git apply ../../spec-test-script/multi_module_aot_ignore_cases.patch || exit 1
+            git apply ../../spec-test-script/multi_module_ignore_cases.patch || exit 1
+
+            if [[ ${RUNNING_MODE} == "aot" ]]; then
+                git apply ../../spec-test-script/multi_module_aot_ignore_cases.patch || exit 1
+            fi
         fi
     fi
 
@@ -856,10 +862,10 @@ function do_execute_in_running_mode()
         fi
     fi
 
-    # FIXME: add "aot" after fix the linking failure
     if [[ ${ENABLE_MULTI_MODULE} -eq 1 ]]; then
         if [[ "${RUNNING_MODE}" != "classic-interp" \
-                && "${RUNNING_MODE}" != "fast-interp" ]]; then
+                && "${RUNNING_MODE}" != "fast-interp" \
+                && "${RUNNING_MODE}" != "aot" ]]; then
             echo "support multi-module in both interp modes"
             return 0
         fi
