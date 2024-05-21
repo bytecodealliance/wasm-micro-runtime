@@ -250,13 +250,13 @@ typedef union WASMValue {
 #endif /* end of WASM_VALUE_DEFINED */
 
 typedef struct WASMStructNewInitValues {
-    uint8 type_idx;
+    uint32 type_idx;
     uint32 count;
     WASMValue fields[1];
 } WASMStructNewInitValues;
 
 typedef struct WASMArrayNewInitValues {
-    uint8 type_idx;
+    uint32 type_idx;
     uint32 length;
     WASMValue elem_data[1];
 } WASMArrayNewInitValues;

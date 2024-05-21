@@ -501,6 +501,8 @@ push_const_expr_stack(ConstExprContext *ctx, uint8 flag, uint8 type,
                                     error_buf, error_buf_size))) {
                 goto fail;
             }
+            bh_memcpy_s(ctx->stack, (ctx->size + 4) * (uint32)sizeof(InitValue),
+                        ctx->data, ctx->size * (uint32)sizeof(InitValue));
         }
         ctx->size += 4;
     }
@@ -522,6 +524,71 @@ push_const_expr_stack(ConstExprContext *ctx, uint8 flag, uint8 type,
 fail:
     return false;
 }
+
+#if WASM_ENABLE_GC != 0
+static void
+destroy_init_expr_data_recursive(WASMModule *module, void *data)
+{
+    WASMStructNewInitValues *struct_init_values =
+        (WASMStructNewInitValues *)data;
+    WASMArrayNewInitValues *array_init_values = (WASMArrayNewInitValues *)data;
+    WASMType *wasm_type;
+    uint32 i;
+
+    if (!data)
+        return;
+
+    wasm_type = module->types[struct_init_values->type_idx];
+
+    /* The data can only be type of `WASMStructNewInitValues *`
+       or `WASMArrayNewInitValues *` */
+    bh_assert(wasm_type->type_flag == WASM_TYPE_STRUCT
+              || wasm_type->type_flag == WASM_TYPE_ARRAY);
+
+    if (wasm_type->type_flag == WASM_TYPE_STRUCT) {
+        WASMStructType *struct_type = (WASMStructType *)wasm_type;
+        WASMRefTypeMap *ref_type_map = struct_type->ref_type_maps;
+        WASMRefType *ref_type;
+        uint8 field_type;
+
+        for (i = 0; i < struct_init_values->count; i++) {
+            field_type = struct_type->fields[i].field_type;
+            if (wasm_is_type_multi_byte_type(field_type))
+                ref_type = ref_type_map->ref_type;
+            else
+                ref_type = NULL;
+            if (wasm_reftype_is_subtype_of(field_type, ref_type,
+                                           REF_TYPE_STRUCTREF, NULL,
+                                           module->types, module->type_count)
+                || wasm_reftype_is_subtype_of(
+                    field_type, ref_type, REF_TYPE_ARRAYREF, NULL,
+                    module->types, module->type_count)) {
+                destroy_init_expr_data_recursive(
+                    module, struct_init_values->fields[i].data);
+            }
+        }
+    }
+    else if (wasm_type->type_flag == WASM_TYPE_ARRAY) {
+        WASMArrayType *array_type = (WASMArrayType *)wasm_type;
+        WASMRefType *elem_ref_type = array_type->elem_ref_type;
+        uint8 elem_type = array_type->elem_type;
+
+        for (i = 0; i < array_init_values->length; i++) {
+            if (wasm_reftype_is_subtype_of(elem_type, elem_ref_type,
+                                           REF_TYPE_STRUCTREF, NULL,
+                                           module->types, module->type_count)
+                || wasm_reftype_is_subtype_of(
+                    elem_type, elem_ref_type, REF_TYPE_ARRAYREF, NULL,
+                    module->types, module->type_count)) {
+                destroy_init_expr_data_recursive(
+                    module, array_init_values->elem_data[i].data);
+            }
+        }
+    }
+
+    wasm_runtime_free(data);
+}
+#endif
 
 static bool
 pop_const_expr_stack(ConstExprContext *ctx, uint8 *p_flag, uint8 type,
@@ -554,17 +621,6 @@ pop_const_expr_stack(ConstExprContext *ctx, uint8 *p_flag, uint8 type,
                         " but got other");
         goto fail;
     }
-
-    if ((ctx->sp != 0) && (cur_value->flag == WASM_OP_GC_PREFIX)
-        && (cur_value->gc_opcode != WASM_OP_REF_I31)) {
-        /* To reduce complexity, we don't allow initialize struct fields/array
-         * element with references, so struct/array must be at the bottom of the
-         * init value stack */
-        set_error_buf(
-            error_buf, error_buf_size,
-            "struct or array as field is not supported in constant expr");
-        goto fail;
-    }
 #endif
 
     if (p_flag)
@@ -584,7 +640,7 @@ fail:
         && (cur_value->gc_opcode == WASM_OP_STRUCT_NEW
             || cur_value->gc_opcode == WASM_OP_ARRAY_NEW
             || cur_value->gc_opcode == WASM_OP_ARRAY_NEW_FIXED)) {
-        wasm_runtime_free(cur_value->value.data);
+        destroy_init_expr_data_recursive(ctx->module, cur_value->value.data);
     }
     return false;
 #endif
@@ -601,7 +657,8 @@ destroy_const_expr_stack(ConstExprContext *ctx)
             && (ctx->stack[i].gc_opcode == WASM_OP_STRUCT_NEW
                 || ctx->stack[i].gc_opcode == WASM_OP_ARRAY_NEW
                 || ctx->stack[i].gc_opcode == WASM_OP_ARRAY_NEW_FIXED)) {
-            wasm_runtime_free(ctx->stack[i].value.data);
+            destroy_init_expr_data_recursive(ctx->module,
+                                             ctx->stack[i].value.data);
         }
     }
 #endif
@@ -613,12 +670,12 @@ destroy_const_expr_stack(ConstExprContext *ctx)
 
 #if WASM_ENABLE_GC != 0
 static void
-destroy_init_expr(InitializerExpression *expr)
+destroy_init_expr(WASMModule *module, InitializerExpression *expr)
 {
     if (expr->init_expr_type == INIT_EXPR_TYPE_STRUCT_NEW
         || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW
         || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_FIXED) {
-        wasm_runtime_free(expr->u.data);
+        destroy_init_expr_data_recursive(module, expr->u.data);
     }
 }
 #endif /* end of WASM_ENABLE_GC != 0 */
@@ -941,6 +998,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                   error_buf, error_buf_size))) {
                             goto fail;
                         }
+                        struct_init_values->type_idx = type_idx;
                         struct_init_values->count = field_count;
 
                         for (i = field_count; i > 0; i--) {
@@ -963,7 +1021,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                     field_ref_type, NULL,
                                     &struct_init_values->fields[field_idx],
                                     error_buf, error_buf_size)) {
-                                wasm_runtime_free(struct_init_values);
+                                destroy_init_expr_data_recursive(
+                                    module, struct_init_values);
                                 goto fail;
                             }
                         }
@@ -975,7 +1034,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                 &const_expr_ctx, flag, cur_ref_type.ref_type,
                                 &cur_ref_type, (uint8)opcode1, &cur_value,
                                 error_buf, error_buf_size)) {
-                            wasm_runtime_free(struct_init_values);
+                            destroy_init_expr_data_recursive(
+                                module, struct_init_values);
                             goto fail;
                         }
                         break;
@@ -1059,7 +1119,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                         &const_expr_ctx, NULL, VALUE_TYPE_I32,
                                         NULL, NULL, &len_val, error_buf,
                                         error_buf_size)) {
-                                    wasm_runtime_free(array_init_values);
+                                    destroy_init_expr_data_recursive(
+                                        module, array_init_values);
                                     goto fail;
                                 }
                                 array_init_values->length = len_val.i32;
@@ -1069,7 +1130,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                         elem_ref_type, NULL,
                                         &array_init_values->elem_data[0],
                                         error_buf, error_buf_size)) {
-                                    wasm_runtime_free(array_init_values);
+                                    destroy_init_expr_data_recursive(
+                                        module, array_init_values);
                                     goto fail;
                                 }
 
@@ -1100,7 +1162,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                             &array_init_values
                                                  ->elem_data[i - 1],
                                             error_buf, error_buf_size)) {
-                                        wasm_runtime_free(array_init_values);
+                                        destroy_init_expr_data_recursive(
+                                            module, array_init_values);
                                         goto fail;
                                     }
                                 }
@@ -1133,7 +1196,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                 &cur_ref_type, (uint8)opcode1, &cur_value,
                                 error_buf, error_buf_size)) {
                             if (array_init_values) {
-                                wasm_runtime_free(array_init_values);
+                                destroy_init_expr_data_recursive(
+                                    module, array_init_values);
                             }
                             goto fail;
                         }
@@ -6669,14 +6733,6 @@ wasm_loader_unload(WASMModule *module)
     }
 #endif
 
-    if (module->types) {
-        for (i = 0; i < module->type_count; i++) {
-            if (module->types[i])
-                destroy_wasm_type(module->types[i]);
-        }
-        wasm_runtime_free(module->types);
-    }
-
     if (module->imports)
         wasm_runtime_free(module->imports);
 
@@ -6718,7 +6774,7 @@ wasm_loader_unload(WASMModule *module)
     if (module->tables) {
 #if WASM_ENABLE_GC != 0
         for (i = 0; i < module->table_count; i++) {
-            destroy_init_expr(&module->tables[i].init_expr);
+            destroy_init_expr(module, &module->tables[i].init_expr);
         }
 #endif
         wasm_runtime_free(module->tables);
@@ -6730,7 +6786,7 @@ wasm_loader_unload(WASMModule *module)
     if (module->globals) {
 #if WASM_ENABLE_GC != 0
         for (i = 0; i < module->global_count; i++) {
-            destroy_init_expr(&module->globals[i].init_expr);
+            destroy_init_expr(module, &module->globals[i].init_expr);
         }
 #endif
         wasm_runtime_free(module->globals);
@@ -6756,7 +6812,7 @@ wasm_loader_unload(WASMModule *module)
                 uint32 j;
                 for (j = 0; j < module->table_segments[i].value_count; j++) {
                     destroy_init_expr(
-                        &module->table_segments[i].init_values[j]);
+                        module, &module->table_segments[i].init_values[j]);
                 }
 #endif
                 wasm_runtime_free(module->table_segments[i].init_values);
@@ -6771,6 +6827,14 @@ wasm_loader_unload(WASMModule *module)
                 wasm_runtime_free(module->data_segments[i]);
         }
         wasm_runtime_free(module->data_segments);
+    }
+
+    if (module->types) {
+        for (i = 0; i < module->type_count; i++) {
+            if (module->types[i])
+                destroy_wasm_type(module->types[i]);
+        }
+        wasm_runtime_free(module->types);
     }
 
     if (module->const_str_list) {
@@ -11654,12 +11718,29 @@ re_scan:
 
             case WASM_OP_RETURN:
             {
+                WASMFuncType *func_type = func->func_type;
                 int32 idx;
                 uint8 ret_type;
-                for (idx = (int32)func->func_type->result_count - 1; idx >= 0;
+
+#if WASM_ENABLE_GC != 0
+                uint32 j = func_type->ref_type_map_count - 1;
+#endif
+                for (idx = (int32)func_type->result_count - 1; idx >= 0;
                      idx--) {
-                    ret_type = *(func->func_type->types
-                                 + func->func_type->param_count + idx);
+                    ret_type =
+                        *(func_type->types + func_type->param_count + idx);
+#if WASM_ENABLE_GC != 0
+                    if (wasm_is_type_multi_byte_type(ret_type)) {
+                        WASMRefType *ref_type =
+                            func_type->ref_type_maps[j].ref_type;
+                        bh_assert(func_type->ref_type_maps[j].index
+                                  == func_type->param_count + idx);
+                        bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
+                                    ref_type,
+                                    wasm_reftype_struct_size(ref_type));
+                        j--;
+                    }
+#endif
 #if WASM_ENABLE_FAST_INTERP != 0
                     /* emit the offset after return opcode */
                     POP_OFFSET_TYPE(ret_type);
