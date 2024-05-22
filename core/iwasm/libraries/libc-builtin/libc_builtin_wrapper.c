@@ -321,10 +321,22 @@ fail:
     return false;
 }
 
+#ifndef BUILTIN_LIBC_BUFFERED_PRINTF
+#define BUILTIN_LIBC_BUFFERED_PRINTF 0
+#endif
+
+#ifndef BUILTIN_LIBC_BUFFERED_PRINT_SIZE
+#define BUILTIN_LIBC_BUFFERED_PRINT_SIZE 128
+#endif
+
 struct str_context {
     char *str;
     uint32 max;
     uint32 count;
+#if BUILTIN_LIBC_BUFFERED_PRINTF != 0
+    char print_buf[BUILTIN_LIBC_BUFFERED_PRINT_SIZE];
+    uint32 print_buf_size;
+#endif
 };
 
 static int
@@ -345,41 +357,23 @@ sprintf_out(int c, struct str_context *ctx)
     return c;
 }
 
-#ifndef BUILTIN_LIBC_BUFFERED_PRINTF
-#define BUILTIN_LIBC_BUFFERED_PRINTF 0
-#endif
-
-#ifndef BUILTIN_LIBC_BUFFERED_PRINT_SIZE
-#define BUILTIN_LIBC_BUFFERED_PRINT_SIZE 128
-#endif
-#ifndef BUILTIN_LIBC_BUFFERED_PRINT_PREFIX
-#define BUILTIN_LIBC_BUFFERED_PRINT_PREFIX
-#endif
-
 #if BUILTIN_LIBC_BUFFERED_PRINTF != 0
-
-BUILTIN_LIBC_BUFFERED_PRINT_PREFIX
-static char print_buf[BUILTIN_LIBC_BUFFERED_PRINT_SIZE] = { 0 };
-
-BUILTIN_LIBC_BUFFERED_PRINT_PREFIX
-static int print_buf_size = 0;
-
 static int
 printf_out(int c, struct str_context *ctx)
 {
     if (c == '\n') {
-        print_buf[print_buf_size] = '\0';
-        os_printf("%s\n", print_buf);
-        print_buf_size = 0;
+        ctx->print_buf[ctx->print_buf_size] = '\0';
+        os_printf("%s\n", ctx->print_buf);
+        ctx->print_buf_size = 0;
     }
-    else if (print_buf_size >= sizeof(print_buf) - 2) {
-        print_buf[print_buf_size++] = (char)c;
-        print_buf[print_buf_size] = '\0';
-        os_printf("%s\n", print_buf);
-        print_buf_size = 0;
+    else if (ctx->print_buf_size >= sizeof(ctx->print_buf) - 2) {
+        ctx->print_buf[ctx->print_buf_size++] = (char)c;
+        ctx->print_buf[ctx->print_buf_size] = '\0';
+        os_printf("%s\n", ctx->print_buf);
+        ctx->print_buf_size = 0;
     }
     else {
-        print_buf[print_buf_size++] = (char)c;
+        ctx->print_buf[ctx->print_buf_size++] = (char)c;
     }
     ctx->count++;
     return c;
@@ -398,7 +392,9 @@ static int
 printf_wrapper(wasm_exec_env_t exec_env, const char *format, _va_list va_args)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    struct str_context ctx = { NULL, 0, 0 };
+    struct str_context ctx = { 0 };
+
+    memset(&ctx, 0, sizeof(ctx));
 
     /* format has been checked by runtime */
     if (!validate_native_addr(va_args, (uint64)sizeof(int32)))
@@ -407,6 +403,11 @@ printf_wrapper(wasm_exec_env_t exec_env, const char *format, _va_list va_args)
     if (!_vprintf_wa((out_func_t)printf_out, &ctx, format, va_args,
                      module_inst))
         return 0;
+
+#if BUILTIN_LIBC_BUFFERED_PRINTF != 0
+    if (ctx.print_buf_size > 0)
+        os_printf("%s", ctx.print_buf);
+#endif
 
     return (int)ctx.count;
 }
