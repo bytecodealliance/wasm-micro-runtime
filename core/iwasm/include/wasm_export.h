@@ -282,6 +282,13 @@ typedef struct wasm_val_t {
 } wasm_val_t;
 #endif
 
+/* Global instance*/
+typedef struct wasm_global_inst_t {
+    wasm_valkind_t kind;
+    bool is_mutable;
+    void *global_data;
+} wasm_global_inst_t;
+
 typedef enum {
     WASM_LOG_LEVEL_FATAL = 0,
     WASM_LOG_LEVEL_ERROR = 1,
@@ -1413,6 +1420,21 @@ wasm_runtime_register_natives_raw(const char *module_name,
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_unregister_natives(const char *module_name,
                                 NativeSymbol *native_symbols);
+
+/**
+ * Get an export global instance
+ *
+ * @param module_inst the module instance
+ * @param name the export global name
+ * @param global_inst location to store the global instance
+ *
+ * @return true if success, false otherwise
+ *
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_get_export_global_inst(const wasm_module_inst_t module_inst,
+                                    const char *name,
+                                    wasm_global_inst_t *global_inst);
 
 /**
  * Get attachment of native function from execution environment

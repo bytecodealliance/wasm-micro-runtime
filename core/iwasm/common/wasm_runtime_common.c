@@ -91,6 +91,9 @@ wasm_runtime_destroy_registered_module_list();
 
 #define E_TYPE_XIP 4
 
+static uint8
+val_type_to_val_kind(uint8 value_type);
+
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
 /* Initialize externref hashmap */
 static bool
@@ -1898,6 +1901,67 @@ wasm_runtime_set_module_inst(WASMExecEnv *exec_env,
                              WASMModuleInstanceCommon *const module_inst)
 {
     wasm_exec_env_set_module_inst(exec_env, module_inst);
+}
+
+bool
+wasm_runtime_get_export_global_inst(WASMModuleInstanceCommon *const module_inst,
+                                    char const *name,
+                                    wasm_global_inst_t *global_inst)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        const WASMModuleInstance *wasm_module_inst =
+            (const WASMModuleInstance *)module_inst;
+        const WASMModule *wasm_module = wasm_module_inst->module;
+        uint32 i;
+        for (i = 0; i < wasm_module->export_count; i++) {
+            const WASMExport *wasm_export = &wasm_module->exports[i];
+            if ((wasm_export->kind == WASM_IMPORT_EXPORT_KIND_GLOBAL)
+                && !strcmp(wasm_export->name, name)) {
+                const WASMModuleInstanceExtra *e =
+                    (WASMModuleInstanceExtra *)wasm_module_inst->e;
+                const WASMGlobalInstance *global =
+                    &e->globals[wasm_export->index];
+                global_inst->kind = val_type_to_val_kind(global->type);
+                global_inst->is_mutable = global->is_mutable;
+#if WASM_ENABLE_MULTI_MODULE == 0
+                global_inst->global_data =
+                    wasm_module_inst->global_data + global->data_offset;
+#else
+                global_inst->global_data =
+                    global->import_global_inst
+                        ? global->import_module_inst->global_data
+                              + global->import_global_inst->data_offset
+                        : wasm_module_inst->global_data + global->data_offset;
+#endif
+                return true;
+            }
+        }
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        const AOTModuleInstance *aot_module_inst =
+            (AOTModuleInstance *)module_inst;
+        const AOTModule *aot_module = (AOTModule *)aot_module_inst->module;
+        uint32 i;
+        for (i = 0; i < aot_module->export_count; i++) {
+            const AOTExport *aot_export = &aot_module->exports[i];
+            if ((aot_export->kind == WASM_IMPORT_EXPORT_KIND_GLOBAL)
+                && !strcmp(aot_export->name, name)) {
+                const AOTGlobal *global =
+                    &aot_module->globals[aot_export->index];
+                global_inst->kind = val_type_to_val_kind(global->type.val_type);
+                global_inst->is_mutable = global->type.is_mutable;
+                global_inst->global_data =
+                    aot_module_inst->global_data + global->data_offset;
+                return true;
+            }
+        }
+    }
+#endif
+
+    return false;
 }
 
 void *
