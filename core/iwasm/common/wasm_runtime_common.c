@@ -1895,7 +1895,7 @@ wasm_runtime_set_module_inst(WASMExecEnv *exec_env,
 }
 
 bool
-wasm_runtime_get_export_global_inst(const wasm_module_inst_t module_inst,
+wasm_runtime_get_export_global_inst(WASMModuleInstanceCommon *const module_inst,
                                     char const *name,
                                     wasm_global_inst_t *global_inst)
 {
