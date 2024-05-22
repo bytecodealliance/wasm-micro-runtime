@@ -96,7 +96,7 @@ main(int argc, char *argv_main[])
         goto fail;
     }
 
-    if (wasm_runtime_is_underlying_binary_freeable(module_inst)) {
+    if (wasm_runtime_is_underlying_binary_freeable(module)) {
         printf("Able to free wasm binary buffer.\n");
         wasm_runtime_free(buffer);
         buffer = NULL;
