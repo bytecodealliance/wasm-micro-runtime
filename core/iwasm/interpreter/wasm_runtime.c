@@ -926,8 +926,8 @@ instantiate_struct_global_recursive(WASMModule *module,
                 wasm_type = module->types[heap_type];
 
                 bh_assert(wasm_type->type_flag == WASM_TYPE_STRUCT
-                          && wasm_type->type_flag == WASM_TYPE_ARRAY
-                          && wasm_type->type_flag == WASM_TYPE_FUNC);
+                          || wasm_type->type_flag == WASM_TYPE_ARRAY
+                          || wasm_type->type_flag == WASM_TYPE_FUNC);
 
                 if (wasm_type->type_flag == WASM_TYPE_STRUCT) {
                     WASMStructNewInitValues *init_values1 =
