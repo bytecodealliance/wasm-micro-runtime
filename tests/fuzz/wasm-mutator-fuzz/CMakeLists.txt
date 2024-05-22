@@ -5,8 +5,6 @@ cmake_minimum_required (VERSION 2.8)
 
 project(wasm_mutator)
 
-add_definitions(-DUNIT_TEST)
-
 set (CMAKE_BUILD_TYPE Debug)
 
 set (CMAKE_C_COMPILER "clang")
@@ -42,10 +40,6 @@ endif ()
 if(CUSTOM_MUTATOR EQUAL 1)
   add_compile_definitions(CUSTOM_MUTATOR)
 endif()
-
-if (NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
-endif ()
 
 if (NOT DEFINED WAMR_BUILD_INTERP)
   # Enable Interpreter by default
@@ -120,13 +114,22 @@ set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
 add_definitions(-DWAMR_USE_MEM_POOL=0)
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -fsanitize=signed-integer-overflow  \
-                    -fprofile-instr-generate -fcoverage-mapping \
-                    -fsanitize=address,undefined,fuzzer")
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fsanitize=signed-integer-overflow  \
-                    -fprofile-instr-generate -fcoverage-mapping \
-                    -fsanitize=address,undefined,fuzzer")
-                    
+
+# Enable fuzzer
+add_compile_options(-fsanitize=fuzzer)
+add_link_options(-fsanitize=fuzzer)
+
+# if not calling from oss-fuzz helper, enable all support sanitizers
+# oss-fuzz always defines `HELPER=True`
+if (NOT "$ENV{HELPER}" STREQUAL "True")
+  add_compile_options(
+    -fsanitize=signed-integer-overflow
+    -fprofile-instr-generate -fcoverage-mapping
+    -fsanitize=address,undefined
+  )
+  add_link_options(-fsanitize=address)
+endif ()
+
 include(${REPO_ROOT_DIR}/core/shared/utils/uncommon/shared_uncommon.cmake)
 include(${REPO_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
