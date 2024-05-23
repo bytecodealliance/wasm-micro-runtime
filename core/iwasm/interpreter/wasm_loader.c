@@ -379,7 +379,8 @@ loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
 {
     void *mem;
 
-    if (size >= UINT32_MAX || !(mem = wasm_runtime_malloc((uint32)size))) {
+    if (size >= WASM_MEM_ALLOC_MAX_SIZE
+        || !(mem = wasm_runtime_malloc((uint32)size))) {
         set_error_buf(error_buf, error_buf_size, "allocate memory failed");
         return NULL;
     }
@@ -3052,7 +3053,12 @@ load_global_import(const uint8 **p_buf, const uint8 *buf_end,
 
 #if WASM_ENABLE_GC == 0
     CHECK_BUF(p, p_end, 2);
+    /* global type */
     declare_type = read_uint8(p);
+    if (!is_value_type(declare_type)) {
+        set_error_buf(error_buf, error_buf_size, "type mismatch");
+        return false;
+    }
     declare_mutable = read_uint8(p);
 #else
     if (!resolve_value_type(&p, p_end, parent_module, parent_module->type_count,
@@ -4034,7 +4040,12 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
         for (i = 0; i < global_count; i++, global++) {
 #if WASM_ENABLE_GC == 0
             CHECK_BUF(p, p_end, 2);
+            /* global type */
             global->type.val_type = read_uint8(p);
+            if (!is_value_type(global->type.val_type)) {
+                set_error_buf(error_buf, error_buf_size, "type mismatch");
+                return false;
+            }
             mutable = read_uint8(p);
 #else
             if (!resolve_value_type(&p, p_end, module, module->type_count,
