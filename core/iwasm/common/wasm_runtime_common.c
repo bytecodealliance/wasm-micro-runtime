@@ -7258,7 +7258,7 @@ wasm_runtime_detect_native_stack_overflow_size(WASMExecEnv *exec_env,
 }
 
 WASM_RUNTIME_API_EXTERN bool
-wasm_runtime_is_underlying_binary_freeable(const wasm_module_t module)
+wasm_runtime_is_underlying_binary_freeable(WASMModuleCommon *const module)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode) {
