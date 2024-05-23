@@ -1642,6 +1642,38 @@
                 "stdout content": "0x7a:i64",
                 "description": "no '0x100000001:i64'"
             }
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                3410
+            ],
+            "runtime": "iwasm-default-gc-enabled",
+            "file": "kotlin_wasm_wasi_example_wasm_wasi_prod.wasm",
+            "mode": "fast-interp",
+            "options": "",
+            "argument": "",
+            "expected return": {
+                "ret code": 0,
+                "stdout content": "Hello from Kotlin via WASI\nCurrent 'realtime' timestamp is:",
+                "description": "no 'struct or array as field is not supported in constant expr'"
+            }
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                3411
+            ],
+            "runtime": "iwasm-default-gc-enabled",
+            "file": "kotlin_wasm_wasi_example_wasm_wasi_dev.wasm",
+            "mode": "fast-interp",
+            "options": "",
+            "argument": "",
+            "expected return": {
+                "ret code": 0,
+                "stdout content": "Hello from Kotlin via WASI\nCurrent 'realtime' timestamp is:",
+                "description": "no 'type mismatch: expect (ref null ht) but got other1 unknown type'"
+            }
         }
     ]
 }
