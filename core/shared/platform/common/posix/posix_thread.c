@@ -4,7 +4,9 @@
  */
 
 #ifndef _GNU_SOURCE
+#if !defined(__RTTHREAD__)
 #define _GNU_SOURCE
+#endif
 #endif
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
@@ -448,7 +450,7 @@ os_thread_get_stack_boundary()
         addr += guard_size;
     }
     (void)stack_size;
-#elif defined(__APPLE__) || defined(__NuttX__)
+#elif defined(__APPLE__) || defined(__NuttX__) || defined(__RTTHREAD__)
     if ((addr = (uint8 *)pthread_get_stackaddr_np(self))) {
         stack_size = pthread_get_stacksize_np(self);
 
