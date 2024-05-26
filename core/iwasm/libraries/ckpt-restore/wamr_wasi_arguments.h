@@ -17,12 +17,12 @@
 #include "wamr_serializer.h"
 #include "wasm_runtime.h"
 #include <atomic>
-#include <filesystem>
 #include <map>
 #include <memory>
 #include <ranges>
 #include <string>
 #include <unordered_map>
+#include <tuple>
 #include <vector>
 
 struct WAMRAddrPool {

@@ -346,7 +346,6 @@ def main():
             if splitted is None:
                 print(f"{line}")
                 continue
-            index = index[2:]
 
             _, offset, index = splitted
             if args.no_addr:

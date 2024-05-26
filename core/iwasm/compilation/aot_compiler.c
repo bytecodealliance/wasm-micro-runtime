@@ -374,20 +374,19 @@ aot_gen_commit_value(AOTCompFrame *frame, bool reset_dirty_bit,
     }
     if (local_idx < func_ctx->aot_func->func_type->param_count
                         + func_ctx->aot_func->local_count) {
-        fprintf(stderr, "LLVMBuildLoad2 %d < %d\n", local_idx,
-                func_ctx->aot_func->local_count);
         value =
             LLVMBuildLoad2(comp_ctx->builder, llvm_value_type,
                            func_ctx->locals[local_idx], "commit_stack_load");
-        fprintf(stderr, "DONE LLVMBuildLoad2 %d\n", local_idx);
     }
     else {
         if (!(*p)->value) {
             fprintf(stderr, "value is null, %d %d\n", local_idx, n);
             exit(-1);
         }
-        value = LLVMBuildLoad2(comp_ctx->builder, llvm_value_type, (*p)->value,
-                               "commit_stack_load");
+        value = (*p)->value;
+        // value = LLVMBuildLoad2(comp_ctx->builder, llvm_value_type,
+        // (*p)->value,
+        //                        "commit_stack_load");
     }
     if (value == NULL) {
         fprintf(stderr, "gen value load error\n");
