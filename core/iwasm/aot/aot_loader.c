@@ -9,6 +9,7 @@
 #include "aot_reloc.h"
 #include "../common/wasm_runtime_common.h"
 #include "../common/wasm_native.h"
+#include "../common/wasm_loader_common.h"
 #include "../compilation/aot.h"
 
 #if WASM_ENABLE_DEBUG_AOT != 0
@@ -94,7 +95,7 @@ check_buf(const uint8 *buf, const uint8 *buf_end, uint32 length,
 {
     if ((uintptr_t)buf + length < (uintptr_t)buf
         || (uintptr_t)buf + length > (uintptr_t)buf_end) {
-        set_error_buf(error_buf, error_buf_size, "unexpect end");
+        set_error_buf(error_buf, error_buf_size, "unexpected end");
         return false;
     }
     return true;
@@ -323,13 +324,13 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 #endif
     else if (is_load_from_file_buf) {
         /* The string is always terminated with '\0', use it directly.
-         * In this case, the file buffer can be reffered to after loading.
+         * In this case, the file buffer can be referred to after loading.
          */
         bh_assert(p[str_len - 1] == '\0');
         str = (char *)p;
     }
     else {
-        /* Load from sections, the file buffer cannot be reffered to
+        /* Load from sections, the file buffer cannot be referred to
            after loading, we must create another string and insert it
            into const string set */
         bh_assert(p[str_len - 1] == '\0');
@@ -1043,6 +1044,12 @@ load_memory_info(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
     for (i = 0; i < module->memory_count; i++) {
         read_uint32(buf, buf_end, module->memories[i].memory_flags);
+
+        if (!wasm_memory_check_flags(module->memories[i].memory_flags,
+                                     error_buf, error_buf_size, true)) {
+            return false;
+        }
+
         read_uint32(buf, buf_end, module->memories[i].num_bytes_per_page);
         read_uint32(buf, buf_end, module->memories[i].mem_init_page_count);
         read_uint32(buf, buf_end, module->memories[i].mem_max_page_count);
@@ -2042,8 +2049,8 @@ load_import_globals(const uint8 **p_buf, const uint8 *buf_end,
     /* Create each import global */
     for (i = 0; i < module->import_global_count; i++) {
         buf = (uint8 *)align_ptr(buf, 2);
-        read_uint8(buf, buf_end, import_globals[i].type);
-        read_uint8(buf, buf_end, import_globals[i].is_mutable);
+        read_uint8(buf, buf_end, import_globals[i].type.val_type);
+        read_uint8(buf, buf_end, import_globals[i].type.is_mutable);
         read_string(buf, buf_end, import_globals[i].module_name);
         read_string(buf, buf_end, import_globals[i].global_name);
 
@@ -2051,8 +2058,9 @@ load_import_globals(const uint8 **p_buf, const uint8 *buf_end,
         if (wasm_native_lookup_libc_builtin_global(
                 import_globals[i].module_name, import_globals[i].global_name,
                 &tmp_global)) {
-            if (tmp_global.type != import_globals[i].type
-                || tmp_global.is_mutable != import_globals[i].is_mutable) {
+            if (tmp_global.type.val_type != import_globals[i].type.val_type
+                || tmp_global.type.is_mutable
+                       != import_globals[i].type.is_mutable) {
                 set_error_buf(error_buf, error_buf_size,
                               "incompatible import type");
                 return false;
@@ -2065,7 +2073,8 @@ load_import_globals(const uint8 **p_buf, const uint8 *buf_end,
         import_globals[i].is_linked = false;
 #endif
 
-        import_globals[i].size = wasm_value_type_size(import_globals[i].type);
+        import_globals[i].size =
+            wasm_value_type_size(import_globals[i].type.val_type);
         import_globals[i].data_offset = data_offset;
         data_offset += import_globals[i].size;
         module->global_data_size += import_globals[i].size;
@@ -2130,8 +2139,8 @@ load_globals(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
     /* Create each global */
     for (i = 0; i < module->global_count; i++) {
-        read_uint8(buf, buf_end, globals[i].type);
-        read_uint8(buf, buf_end, globals[i].is_mutable);
+        read_uint8(buf, buf_end, globals[i].type.val_type);
+        read_uint8(buf, buf_end, globals[i].type.is_mutable);
 
         buf = align_ptr(buf, 4);
 
@@ -2139,7 +2148,7 @@ load_globals(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                             error_buf, error_buf_size))
             return false;
 
-        globals[i].size = wasm_value_type_size(globals[i].type);
+        globals[i].size = wasm_value_type_size(globals[i].type.val_type);
         globals[i].data_offset = data_offset;
         data_offset += globals[i].size;
         module->global_data_size += globals[i].size;
@@ -2513,26 +2522,15 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
     const uint8 *p = buf, *p_end = buf_end;
     uint32 i;
     uint64 size, text_offset;
-    uint32 func_count = module->func_count;
 
-#if defined(BUILD_TARGET_XTENSA)
-    /*
-     * For Xtensa XIP, real func_count is doubled, including aot_func and
-     * aot_func_internal, so need to multipy func_count by 2 here.
-     */
-    if (module->is_indirect_mode) {
-        func_count *= 2;
-    }
-#endif
-
-    size = sizeof(void *) * (uint64)func_count;
+    size = sizeof(void *) * (uint64)module->func_count;
     if (size > 0
         && !(module->func_ptrs =
                  loader_malloc(size, error_buf, error_buf_size))) {
         return false;
     }
 
-    for (i = 0; i < func_count; i++) {
+    for (i = 0; i < module->func_count; i++) {
         if (sizeof(void *) == 8) {
             read_uint64(p, p_end, text_offset);
         }
@@ -2567,14 +2565,14 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
         module->start_function = NULL;
     }
 
-    size = sizeof(uint32) * (uint64)func_count;
+    size = sizeof(uint32) * (uint64)module->func_count;
     if (size > 0
         && !(module->func_type_indexes =
                  loader_malloc(size, error_buf, error_buf_size))) {
         return false;
     }
 
-    for (i = 0; i < func_count; i++) {
+    for (i = 0; i < module->func_count; i++) {
         read_uint32(p, p_end, module->func_type_indexes[i]);
         if (module->func_type_indexes[i] >= module->type_count) {
             set_error_buf(error_buf, error_buf_size, "unknown type");
@@ -3632,6 +3630,21 @@ fail:
     return ret;
 }
 
+#if WASM_ENABLE_MEMORY64 != 0
+static bool
+has_module_memory64(AOTModule *module)
+{
+    /* TODO: multi-memories for now assuming the memory idx type is consistent
+     * across multi-memories */
+    if (module->import_memory_count > 0)
+        return !!(module->import_memories[0].memory_flags & MEMORY64_FLAG);
+    else if (module->memory_count > 0)
+        return !!(module->memories[0].memory_flags & MEMORY64_FLAG);
+
+    return false;
+}
+#endif
+
 static bool
 load_from_sections(AOTModule *module, AOTSection *sections,
                    bool is_load_from_file_buf, char *error_buf,
@@ -3643,6 +3656,7 @@ load_from_sections(AOTModule *module, AOTSection *sections,
     uint32 i, func_index, func_type_index;
     AOTFuncType *func_type;
     AOTExport *exports;
+    uint8 malloc_free_io_type = VALUE_TYPE_I32;
 
     while (section) {
         buf = section->section_body;
@@ -3717,7 +3731,10 @@ load_from_sections(AOTModule *module, AOTSection *sections,
     module->malloc_func_index = (uint32)-1;
     module->free_func_index = (uint32)-1;
     module->retain_func_index = (uint32)-1;
-
+#if WASM_ENABLE_MEMORY64 != 0
+    if (has_module_memory64(module))
+        malloc_free_io_type = VALUE_TYPE_I64;
+#endif
     exports = module->exports;
     for (i = 0; i < module->export_count; i++) {
         if (exports[i].kind == EXPORT_KIND_FUNC
@@ -3727,8 +3744,8 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                 func_type_index = module->func_type_indexes[func_index];
                 func_type = (AOTFuncType *)module->types[func_type_index];
                 if (func_type->param_count == 1 && func_type->result_count == 1
-                    && func_type->types[0] == VALUE_TYPE_I32
-                    && func_type->types[1] == VALUE_TYPE_I32) {
+                    && func_type->types[0] == malloc_free_io_type
+                    && func_type->types[1] == malloc_free_io_type) {
                     bh_assert(module->malloc_func_index == (uint32)-1);
                     module->malloc_func_index = func_index;
                     LOG_VERBOSE("Found malloc function, name: %s, index: %u",
@@ -3740,9 +3757,9 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                 func_type_index = module->func_type_indexes[func_index];
                 func_type = (AOTFuncType *)module->types[func_type_index];
                 if (func_type->param_count == 2 && func_type->result_count == 1
-                    && func_type->types[0] == VALUE_TYPE_I32
+                    && func_type->types[0] == malloc_free_io_type
                     && func_type->types[1] == VALUE_TYPE_I32
-                    && func_type->types[2] == VALUE_TYPE_I32) {
+                    && func_type->types[2] == malloc_free_io_type) {
                     uint32 j;
                     WASMExport *export_tmp;
 
@@ -3766,8 +3783,8 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                                 (AOTFuncType *)module->types[func_type_index];
                             if (func_type->param_count == 1
                                 && func_type->result_count == 1
-                                && func_type->types[0] == VALUE_TYPE_I32
-                                && func_type->types[1] == VALUE_TYPE_I32) {
+                                && func_type->types[0] == malloc_free_io_type
+                                && func_type->types[1] == malloc_free_io_type) {
                                 bh_assert(module->retain_func_index
                                           == (uint32)-1);
                                 module->retain_func_index = export_tmp->index;
@@ -3793,7 +3810,7 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                 func_type_index = module->func_type_indexes[func_index];
                 func_type = (AOTFuncType *)module->types[func_type_index];
                 if (func_type->param_count == 1 && func_type->result_count == 0
-                    && func_type->types[0] == VALUE_TYPE_I32) {
+                    && func_type->types[0] == malloc_free_io_type) {
                     bh_assert(module->free_func_index == (uint32)-1);
                     module->free_func_index = func_index;
                     LOG_VERBOSE("Found free function, name: %s, index: %u",
@@ -3835,6 +3852,7 @@ create_module(char *name, char *error_buf, uint32 error_buf_size)
     module->module_type = Wasm_Module_AoT;
 
     module->name = name;
+    module->is_binary_freeable = false;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     module->import_module_list = &module->import_module_list_head;
@@ -3912,7 +3930,7 @@ resolve_execute_mode(const uint8 *buf, uint32 size, bool *p_mode,
     p += 8;
     while (p < p_end) {
         read_uint32(p, p_end, section_type);
-        if (section_type <= AOT_SECTION_TYPE_SIGANATURE) {
+        if (section_type <= AOT_SECTION_TYPE_SIGNATURE) {
             read_uint32(p, p_end, section_size);
             CHECK_BUF(p, p_end, section_size);
             if (section_type == AOT_SECTION_TYPE_TARGET_INFO) {
@@ -3927,7 +3945,7 @@ resolve_execute_mode(const uint8 *buf, uint32 size, bool *p_mode,
                 break;
             }
         }
-        else { /* section_type > AOT_SECTION_TYPE_SIGANATURE */
+        else { /* section_type > AOT_SECTION_TYPE_SIGNATURE */
             set_error_buf(error_buf, error_buf_size,
                           "resolve execute mode failed");
             break;
@@ -3966,7 +3984,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
     p += 8;
     while (p < p_end) {
         read_uint32(p, p_end, section_type);
-        if (section_type < AOT_SECTION_TYPE_SIGANATURE
+        if (section_type < AOT_SECTION_TYPE_SIGNATURE
             || section_type == AOT_SECTION_TYPE_CUSTOM) {
             read_uint32(p, p_end, section_size);
             CHECK_BUF(p, p_end, section_size);
@@ -4065,8 +4083,8 @@ fail:
 }
 
 static bool
-load(const uint8 *buf, uint32 size, AOTModule *module, char *error_buf,
-     uint32 error_buf_size)
+load(const uint8 *buf, uint32 size, AOTModule *module,
+     bool wasm_binary_freeable, char *error_buf, uint32 error_buf_size)
 {
     const uint8 *buf_end = buf + size;
     const uint8 *p = buf, *p_end = buf_end;
@@ -4090,8 +4108,8 @@ load(const uint8 *buf, uint32 size, AOTModule *module, char *error_buf,
                          error_buf_size))
         return false;
 
-    ret = load_from_sections(module, section_list, true, error_buf,
-                             error_buf_size);
+    ret = load_from_sections(module, section_list, !wasm_binary_freeable,
+                             error_buf, error_buf_size);
     if (!ret) {
         /* If load_from_sections() fails, then aot text is destroyed
            in destroy_sections() */
@@ -4135,7 +4153,8 @@ aot_load_from_aot_file(const uint8 *buf, uint32 size, const LoadArgs *args,
         return NULL;
 
     os_thread_jit_write_protect_np(false); /* Make memory writable */
-    if (!load(buf, size, module, error_buf, error_buf_size)) {
+    if (!load(buf, size, module, args->wasm_binary_freeable, error_buf,
+              error_buf_size)) {
         aot_unload(module);
         return NULL;
     }

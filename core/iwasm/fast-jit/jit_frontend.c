@@ -1243,6 +1243,21 @@ init_func_translation(JitCompContext *cc)
                  NEW_CONST(I32, local_off));
     }
 
+#if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
+    /* externref/funcref should be NULL_REF rather than 0 */
+    local_off = (uint32)offsetof(WASMInterpFrame, lp)
+                + cur_wasm_func->param_cell_num * 4;
+    for (i = 0; i < cur_wasm_func->local_count; i++) {
+        if (cur_wasm_func->local_types[i] == VALUE_TYPE_EXTERNREF
+            || cur_wasm_func->local_types[i] == VALUE_TYPE_FUNCREF) {
+            GEN_INSN(STI32, NEW_CONST(I32, NULL_REF), cc->fp_reg,
+                     NEW_CONST(I32, local_off));
+        }
+        local_off +=
+            4 * wasm_value_type_cell_num(cur_wasm_func->local_types[i]);
+    }
+#endif
+
     return jit_frame;
 }
 

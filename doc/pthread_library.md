@@ -132,7 +132,7 @@ make
 ```
 
 
-## Aux stack seperation
+## Aux stack separation
 The compiler may use some spaces in the linear memory as an auxiliary stack. When pthread is enabled, every thread should have its own aux stack space, so the total aux stack space reserved by the compiler will be divided into N + 1 parts, where N is the maximum number of threads that can be created by the user code.
 
 The default value of N is 4, which means you can create 4 threads at most. This value can be changed by an option if you are using product-mini:

@@ -1,5 +1,5 @@
 diff --git a/test/core/simd/simd_lane.wast b/test/core/simd/simd_lane.wast
-index 9d4b5fd7..4656dd2b 100644
+index 9b66f53..48a4e6d 100644
 --- a/test/core/simd/simd_lane.wast
 +++ b/test/core/simd/simd_lane.wast
 @@ -602,23 +602,23 @@
@@ -50,7 +50,7 @@ index 9d4b5fd7..4656dd2b 100644
  ;; Non-nat lane index
  
 diff --git a/test/core/simd/simd_load.wast b/test/core/simd/simd_load.wast
-index 4b2edc16..c7639218 100644
+index 4b2edc1..c763921 100644
 --- a/test/core/simd/simd_load.wast
 +++ b/test/core/simd/simd_load.wast
 @@ -124,7 +124,7 @@

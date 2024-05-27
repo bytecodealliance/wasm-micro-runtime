@@ -71,7 +71,7 @@ uint32
 get_lib_rats_export_apis(NativeSymbol **p_lib_rats_apis);
 
 static bool
-compare_type_with_signautre(uint8 type, const char signature)
+compare_type_with_signature(uint8 type, const char signature)
 {
     const char num_sig_map[] = { 'F', 'f', 'I', 'i' };
 
@@ -122,10 +122,10 @@ check_symbol_signature(const WASMFuncType *type, const char *signature)
         sig = *p++;
 
         /* a f64/f32/i64/i32/externref parameter */
-        if (compare_type_with_signautre(type->types[i], sig))
+        if (compare_type_with_signature(type->types[i], sig))
             continue;
 
-        /* a pointer/string paramter */
+        /* a pointer/string parameter */
         if (type->types[i] != VALUE_TYPE_I32)
             /* pointer and string must be i32 type */
             return false;
@@ -156,7 +156,7 @@ check_symbol_signature(const WASMFuncType *type, const char *signature)
             return false;
 
         /* result types includes: f64,f32,i64,i32,externref */
-        if (!compare_type_with_signautre(type->types[i], *p))
+        if (!compare_type_with_signature(type->types[i], *p))
             return false;
 
         p++;

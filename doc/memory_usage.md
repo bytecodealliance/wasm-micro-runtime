@@ -48,7 +48,7 @@ A WASM linear memory is either shared or non-shared.
 A WASM linear memory has `min` and `max` sizes.
 (They correspond to `wasm-ld`'s `--init-memory` and `--max-memory` options.)
 They are in the number of WASM pages, each of which is of 65536 bytes.
-The `max` is optional for non-shared memory. When omitted, it effectivily
+The `max` is optional for non-shared memory. When omitted, it effectively
 means unlimited.
 
 The linear memory is allocated via `os_mmap` and `os_mem_commit`/`os_mprotect`.

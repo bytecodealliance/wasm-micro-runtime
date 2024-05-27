@@ -6,6 +6,11 @@
 #include "../wasm_runtime_common.h"
 #include "../wasm_exec_env.h"
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-non-prototype"
+#endif
+
 void
 invokeNative(void (*native_code)(), uint32 argv[], uint32 argc)
 {
@@ -112,3 +117,7 @@ invokeNative(void (*native_code)(), uint32 argv[], uint32 argc)
         }
     }
 }
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif

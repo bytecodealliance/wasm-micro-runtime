@@ -1584,7 +1584,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 uint32 *tgtframe_sp = tgtframe->frame_sp;
 
-                /* frame sp of tgtframe points to catched exception */
+                /* frame sp of tgtframe points to caught exception */
                 exception_tag_index = *((uint32 *)tgtframe_sp);
                 tgtframe_sp++;
 
@@ -1612,7 +1612,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             /* landing pad for the rethrow ? */
             find_a_catch_handler:
             {
-                WASMType *tag_type = NULL;
+                WASMFuncType *tag_type = NULL;
                 uint32 cell_num_to_copy = 0;
                 if (IS_INVALID_TAGINDEX(exception_tag_index)) {
                     /*
@@ -1655,7 +1655,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                              * BLOCK, IF and LOOP do not contain handlers and
                              * cannot catch exceptions.
                              * blocks marked as CATCH or
-                             * CATCH_ALL did already caugth an exception and can
+                             * CATCH_ALL did already caught an exception and can
                              * only be a target for RETHROW, but cannot catch an
                              * exception again
                              */
@@ -1787,7 +1787,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                 }
                                 handler_number++;
                             }
-                            /* exception not catched in this frame */
+                            /* exception not caught in this frame */
                             break;
                         }
                         case LABEL_TYPE_FUNCTION:
@@ -6411,7 +6411,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
                     }
                     /*
-                     * excange the thrown exception (index valid in submodule)
+                     * exchange the thrown exception (index valid in submodule)
                      * with the imported exception index (valid in this module)
                      * if the module did not import the exception,
                      * that results in a "INVALID_TAGINDEX", that triggers
@@ -6468,7 +6468,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     goto find_a_catch_handler;
                 }
 
-                /* when throw hits the end of a function it signalles with a
+                /* when throw hits the end of a function it signals with a
                  * "uncaught wasm exception" trap */
                 if (has_exception
                     && strstr(uncaught_exception, "uncaught wasm exception")) {
@@ -6487,6 +6487,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             WASMFuncType *func_type = cur_wasm_func->func_type;
             uint32 max_stack_cell_num = cur_wasm_func->max_stack_cell_num;
             uint32 cell_num_of_local_stack;
+#if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
+            uint32 local_cell_idx;
+#endif
 
 #if WASM_ENABLE_EXCE_HANDLING != 0
             /* account for exception handlers, bundle them here */
@@ -6545,6 +6548,19 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             /* Initialize the local variables */
             memset(frame_lp + cur_func->param_cell_num, 0,
                    (uint32)(cur_func->local_cell_num * 4));
+
+#if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
+            /* externref/funcref should be NULL_REF rather than 0 */
+            local_cell_idx = cur_func->param_cell_num;
+            for (i = 0; i < cur_wasm_func->local_count; i++) {
+                if (cur_wasm_func->local_types[i] == VALUE_TYPE_EXTERNREF
+                    || cur_wasm_func->local_types[i] == VALUE_TYPE_FUNCREF) {
+                    *(frame_lp + local_cell_idx) = NULL_REF;
+                }
+                local_cell_idx +=
+                    wasm_value_type_cell_num(cur_wasm_func->local_types[i]);
+            }
+#endif
 
             /* Push function block as first block */
             cell_num = func_type->ret_cell_num;

@@ -174,7 +174,7 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             + (comp_ctx->pointer_size == sizeof(uint64)
                    ? comp_data->import_globals[global_idx].data_offset_64bit
                    : comp_data->import_globals[global_idx].data_offset_32bit);
-        global_type = comp_data->import_globals[global_idx].type;
+        global_type = comp_data->import_globals[global_idx].type.val_type;
     }
     else {
         global_offset =
@@ -185,7 +185,8 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          .data_offset_64bit
                    : comp_data->globals[global_idx - import_global_count]
                          .data_offset_32bit);
-        global_type = comp_data->globals[global_idx - import_global_count].type;
+        global_type =
+            comp_data->globals[global_idx - import_global_count].type.val_type;
     }
 
     if (comp_ctx->enable_gc && aot_is_type_gc_reftype(global_type))

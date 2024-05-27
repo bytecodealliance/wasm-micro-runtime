@@ -85,8 +85,8 @@ extern "C" {
 /**
  * Used by wamr compiler to represent object ref types,
  * including func object ref, externref object ref,
- * internal object ref, eq obect ref, i31 object ref,
- * struct object ref, array obect ref
+ * internal object ref, eq object ref, i31 object ref,
+ * struct object ref, array object ref
  */
 #define VALUE_TYPE_GC_REF 0x43
 
@@ -213,10 +213,11 @@ typedef struct WASMTag WASMTag;
 
 #ifndef WASM_VALUE_DEFINED
 #define WASM_VALUE_DEFINED
+
 typedef union V128 {
     int8 i8x16[16];
     int16 i16x8[8];
-    int32 i32x8[4];
+    int32 i32x4[4];
     int64 i64x2[2];
     float32 f32x4[4];
     float64 f64x2[2];
@@ -249,13 +250,13 @@ typedef union WASMValue {
 #endif /* end of WASM_VALUE_DEFINED */
 
 typedef struct WASMStructNewInitValues {
-    uint8 type_idx;
+    uint32 type_idx;
     uint32 count;
     WASMValue fields[1];
 } WASMStructNewInitValues;
 
 typedef struct WASMArrayNewInitValues {
-    uint8 type_idx;
+    uint32 type_idx;
     uint32 length;
     WASMValue elem_data[1];
 } WASMArrayNewInitValues;
@@ -500,8 +501,10 @@ typedef struct WASMTable {
 
 #if WASM_ENABLE_MEMORY64 != 0
 typedef uint64 mem_offset_t;
+#define PR_MEM_OFFSET PRIu64
 #else
 typedef uint32 mem_offset_t;
+#define PR_MEM_OFFSET PRIu32
 #endif
 
 typedef struct WASMMemory {
@@ -572,7 +575,7 @@ typedef struct WASMTagImport {
     char *field_name;
     uint8 attribute; /* the type of the tag (numerical) */
     uint32 type;     /* the type of the catch function (numerical)*/
-    WASMType *tag_type;
+    WASMFuncType *tag_type;
     void *tag_ptr_linked;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -584,11 +587,15 @@ typedef struct WASMTagImport {
 } WASMTagImport;
 #endif
 
+typedef struct WASMGlobalType {
+    uint8 val_type;
+    bool is_mutable;
+} WASMGlobalType;
+
 typedef struct WASMGlobalImport {
     char *module_name;
     char *field_name;
-    uint8 type;
-    bool is_mutable;
+    WASMGlobalType type;
     bool is_linked;
     /* global data after linked */
     WASMValue global_data_linked;
@@ -700,13 +707,12 @@ struct WASMFunction {
 struct WASMTag {
     uint8 attribute; /* the attribute property of the tag (expected to be 0) */
     uint32 type; /* the type of the tag (expected valid inden in type table) */
-    WASMType *tag_type;
+    WASMFuncType *tag_type;
 };
 #endif
 
 struct WASMGlobal {
-    uint8 type;
-    bool is_mutable;
+    WASMGlobalType type;
 #if WASM_ENABLE_GC != 0
     WASMRefType *ref_type;
 #endif
@@ -746,6 +752,7 @@ typedef struct WASMDataSeg {
     bool is_passive;
 #endif
     uint8 *data;
+    bool is_data_cloned;
 } WASMDataSeg;
 
 typedef struct BlockAddr {
@@ -762,7 +769,7 @@ typedef struct WASIArguments {
     uint32 map_dir_count;
     const char **env;
     uint32 env_count;
-    /* in CIDR noation */
+    /* in CIDR notation */
     const char **addr_pool;
     uint32 addr_count;
     const char **ns_lookup_pool;
@@ -1021,7 +1028,7 @@ struct WASMModule {
     /**
      * func pointers of LLVM JITed (un-imported) functions
      * for non Multi-Tier JIT mode:
-     *   each pointer is set to the lookuped llvm jit func ptr, note that it
+     *   each pointer is set to the looked up llvm jit func ptr, note that it
      *   is a stub and will trigger the actual compilation when it is called
      * for Multi-Tier JIT mode:
      *   each pointer is inited as call_to_fast_jit code block, when the llvm
@@ -1071,6 +1078,9 @@ struct WASMModule {
 
     /* user defined name */
     char *name;
+
+    /* Whether the underlying wasm binary buffer can be freed */
+    bool is_binary_freeable;
 };
 
 typedef struct BlockType {
