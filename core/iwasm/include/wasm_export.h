@@ -1918,12 +1918,11 @@ wasm_runtime_detect_native_stack_overflow_size(wasm_exec_env_t exec_env,
 /**
  * Query whether the wasm binary buffer used to create the module can be freed
  *
- * @param module_inst the target module instance
+ * @param module the target module
  * @return true if the wasm binary buffer can be freed
  */
 WASM_RUNTIME_API_EXTERN bool
-wasm_runtime_is_underlying_binary_freeable(
-    const wasm_module_inst_t module_inst);
+wasm_runtime_is_underlying_binary_freeable(const wasm_module_t module);
 
 #ifdef __cplusplus
 }

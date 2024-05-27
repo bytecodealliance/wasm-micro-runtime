@@ -7322,12 +7322,10 @@ wasm_runtime_detect_native_stack_overflow_size(WASMExecEnv *exec_env,
 }
 
 WASM_RUNTIME_API_EXTERN bool
-wasm_runtime_is_underlying_binary_freeable(const wasm_module_inst_t module_inst)
+wasm_runtime_is_underlying_binary_freeable(WASMModuleCommon *const module)
 {
-    uint32 i;
-
 #if WASM_ENABLE_INTERP != 0
-    if (module_inst->module_type == Wasm_Module_Bytecode) {
+    if (module->module_type == Wasm_Module_Bytecode) {
 #if (WASM_ENABLE_JIT != 0 || WASM_ENABLE_FAST_JIT != 0) \
     && (WASM_ENABLE_LAZY_JIT != 0)
         return false;
@@ -7335,36 +7333,25 @@ wasm_runtime_is_underlying_binary_freeable(const wasm_module_inst_t module_inst)
         return false;
 #else
         /* Fast interpreter mode */
-        WASMModule *module = ((WASMModuleInstance *)module_inst)->module;
-        if (!module->is_binary_freeable)
+        if (!((WASMModule *)module)->is_binary_freeable)
             return false;
 #if WASM_ENABLE_GC != 0 && WASM_ENABLE_STRINGREF != 0
-        if (module->string_literal_ptrs)
+        if (((WASMModule *)module)->string_literal_ptrs)
             return false;
-#endif
-#if WASM_ENABLE_BULK_MEMORY != 0
-        for (i = 0; i < module->data_seg_count; i++)
-            if (!bh_bitmap_get_bit(
-                    ((WASMModuleInstance *)module_inst)->e->common.data_dropped,
-                    i))
-                return false;
 #endif
 #endif
     }
 #endif /* WASM_ENABLE_INTERP != 0 */
 #if WASM_ENABLE_AOT != 0
-    if (module_inst->module_type == Wasm_Module_AoT) {
-        AOTModule *module =
-            (AOTModule *)((AOTModuleInstance *)module_inst)->module;
-        if (!module->is_binary_freeable)
+    if (module->module_type == Wasm_Module_AoT) {
+        if (!((AOTModule *)module)->is_binary_freeable)
             return false;
 #if WASM_ENABLE_GC != 0 && WASM_ENABLE_STRINGREF != 0
-        if (module->string_literal_ptrs)
+        if (((AOTModule *)module)->string_literal_ptrs)
             return false;
 #endif
     }
 #endif /* WASM_ENABLE_AOT != 0 */
 
-    (void)i;
     return true;
 }

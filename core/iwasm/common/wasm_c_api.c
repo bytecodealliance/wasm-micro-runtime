@@ -3007,13 +3007,12 @@ wasm_module_get_name(wasm_module_t *module)
 }
 
 bool
-wasm_module_is_underlying_binary_freeable(
-    const wasm_module_t *module, const struct wasm_instance_t *instance)
+wasm_module_is_underlying_binary_freeable(const wasm_module_t *module)
 {
     if (((wasm_module_ex_t *)module)->is_binary_cloned)
         return true;
 
-    return wasm_runtime_is_underlying_binary_freeable(instance->inst_comm_rt);
+    return wasm_runtime_is_underlying_binary_freeable(*module);
 }
 
 static wasm_func_t *

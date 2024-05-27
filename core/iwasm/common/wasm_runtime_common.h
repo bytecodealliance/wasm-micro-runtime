@@ -1200,8 +1200,7 @@ wasm_runtime_detect_native_stack_overflow_size(WASMExecEnv *exec_env,
                                                uint32 requested_size);
 
 WASM_RUNTIME_API_EXTERN bool
-wasm_runtime_is_underlying_binary_freeable(
-    const wasm_module_inst_t module_inst);
+wasm_runtime_is_underlying_binary_freeable(WASMModuleCommon *const module);
 
 #if WASM_ENABLE_LINUX_PERF != 0
 bool

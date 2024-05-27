@@ -89,17 +89,17 @@ main(int argc, char *argv_main[])
         goto fail;
     }
 
+    if (wasm_runtime_is_underlying_binary_freeable(module)) {
+        printf("Able to free wasm binary buffer.\n");
+        wasm_runtime_free(buffer);
+        buffer = NULL;
+    }
+
     module_inst = wasm_runtime_instantiate(module, stack_size, heap_size,
                                            error_buf, sizeof(error_buf));
     if (!module_inst) {
         printf("Instantiate wasm module failed. error: %s.\n", error_buf);
         goto fail;
-    }
-
-    if (wasm_runtime_is_underlying_binary_freeable(module_inst)) {
-        printf("Able to free wasm binary buffer.\n");
-        wasm_runtime_free(buffer);
-        buffer = NULL;
     }
 
     char *args[1] = { "3" };
