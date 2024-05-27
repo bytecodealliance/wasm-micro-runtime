@@ -53,7 +53,13 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
     if ((prot & MMAP_PROT_EXEC) != 0) {
         p = up_textheap_memalign(sizeof(void *), size);
         if (p) {
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+            void *dp = os_get_dbus_mirror(p);
+            memset(dp, 0, size);
+            os_dcache_flush();
+#else
             memset(p, 0, size);
+#endif
         }
         return p;
     }
