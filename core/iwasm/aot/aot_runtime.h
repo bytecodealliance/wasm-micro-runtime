@@ -530,6 +530,8 @@ bool
 aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
                   unsigned argc, uint32 argv[]);
 
+void
+aot_raise(WASMExecEnv *exec_env, int exception);
 /**
  * Set AOT module instance exception with exception string
  *

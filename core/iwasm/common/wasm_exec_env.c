@@ -72,6 +72,7 @@ wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
     exec_env->wasm_stack.top_boundary =
         exec_env->wasm_stack.bottom + stack_size;
     exec_env->wasm_stack.top = exec_env->wasm_stack.bottom;
+    exec_env->is_checkpoint = false;
 
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
@@ -85,6 +86,10 @@ wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
     wasm_runtime_dump_exec_env_mem_consumption(exec_env);
 #endif
 
+    exec_env->is_checkpoint = false;
+    exec_env->is_restore = false;
+    exec_env->call_chain_size = 0;
+    exec_env->restore_call_chain = NULL;
     return exec_env;
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
@@ -202,7 +207,7 @@ wasm_exec_env_destroy(WASMExecEnv *exec_env)
         wasm_cluster_wait_for_all_except_self(cluster, exec_env);
 #if WASM_ENABLE_DEBUG_INTERP != 0
         /* Must fire exit event after other threads exits, otherwise
-           the stopped thread will be overriden by other threads */
+           the stopped thread will be overrided by other threads */
         wasm_cluster_thread_exited(exec_env);
 #endif
         /* We have waited for other threads, this is the only alive thread, so

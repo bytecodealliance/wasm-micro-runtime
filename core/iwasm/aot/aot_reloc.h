@@ -187,6 +187,7 @@ typedef struct {
     REG_SYM(aot_call_indirect),           \
     REG_SYM(aot_enlarge_memory),          \
     REG_SYM(aot_set_exception),           \
+    REG_SYM(aot_raise),                   \
     REG_SYM(aot_check_app_addr_and_convert),\
     REG_SYM(wasm_runtime_quick_invoke_c_api_native),\
     { "memset", (void*)aot_memset },      \

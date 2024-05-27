@@ -17,6 +17,10 @@
 #include "debug_engine.h"
 #endif
 
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+#include "../ckpt-restore/ckpt_restore.h"
+#endif
+
 typedef struct {
     bh_list_link l;
     void (*destroy_cb)(WASMCluster *);
@@ -636,7 +640,13 @@ thread_manager_start_routine(void *arg)
     bh_assert(module_inst != NULL);
 
     os_mutex_lock(&exec_env->wait_lock);
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    uint64_t old_handle = ((uint64_t)exec_env->handle);
+#endif
     exec_env->handle = os_self_thread();
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    wamr_handle_map(old_handle, ((uint64_t)exec_env->handle));
+#endif
     /* Notify the parent thread to continue running */
     os_cond_signal(&exec_env->wait_cond);
     os_mutex_unlock(&exec_env->wait_lock);
@@ -696,6 +706,11 @@ thread_manager_start_routine(void *arg)
     os_thread_exit(ret);
     return ret;
 }
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+// Explicitly define so it moves a pointer instead of int
+WASMExecEnv *
+restore_env(WASMModuleInstanceCommon *module_inst);
+#endif
 
 int32
 wasm_cluster_create_thread(WASMExecEnv *exec_env,
@@ -707,6 +722,10 @@ wasm_cluster_create_thread(WASMExecEnv *exec_env,
     WASMCluster *cluster;
     WASMExecEnv *new_exec_env;
     korp_tid tid;
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    void *save_restore_call_chain = NULL;
+    bool is_restore = false;
+#endif
 
     cluster = wasm_exec_env_get_cluster(exec_env);
     bh_assert(cluster);
@@ -717,19 +736,46 @@ wasm_cluster_create_thread(WASMExecEnv *exec_env,
         goto fail1;
     }
 
-    new_exec_env =
-        wasm_exec_env_create_internal(module_inst, exec_env->wasm_stack_size);
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    if (exec_env->is_restore) {
+        // Don't generate a new env on restore
+        new_exec_env = restore_env(module_inst);
+        printf("restored child env\n");
+        save_restore_call_chain = new_exec_env->restore_call_chain;
+        is_restore = true;
+        exec_env->restore_call_chain = NULL;
+        exec_env->is_restore = false;
+        fprintf(stderr, "thread mgr: save_restore_call_chain %p\n",
+                save_restore_call_chain);
+    }
+    else {
+#endif
+        new_exec_env = wasm_exec_env_create_internal(module_inst,
+                                                     exec_env->wasm_stack_size);
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    }
+#endif
+    LOG_DEBUG("new exec env is at %p\n", new_exec_env);
+
     if (!new_exec_env)
         goto fail1;
 
-    if (is_aux_stack_allocated) {
-        /* Set aux stack for current thread */
-        if (!wasm_exec_env_set_aux_stack(new_exec_env, aux_stack_start,
-                                         aux_stack_size)) {
-            goto fail2;
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    // only need to transfer if not restoring
+    if (!exec_env->is_restore) {
+#endif
+        if (is_aux_stack_allocated) {
+            /* Set aux stack for current thread */
+            if (!wasm_exec_env_set_aux_stack(new_exec_env, aux_stack_start,
+                                             aux_stack_size)) {
+                goto fail2;
+            }
+            new_exec_env->is_aux_stack_allocated = true;
         }
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
         new_exec_env->is_aux_stack_allocated = true;
     }
+#endif
     else {
         /* Disable aux stack */
         new_exec_env->aux_stack_boundary = 0;
@@ -748,6 +794,13 @@ wasm_cluster_create_thread(WASMExecEnv *exec_env,
     new_exec_env->thread_arg = arg;
 
     os_mutex_lock(&new_exec_env->wait_lock);
+
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    if (is_restore) {
+        exec_env->restore_call_chain = save_restore_call_chain;
+        exec_env->is_restore = true;
+    }
+#endif
 
     if (0
         != os_thread_create(&tid, thread_manager_start_routine,

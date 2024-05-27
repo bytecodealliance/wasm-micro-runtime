@@ -10,6 +10,8 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <wasi/api.h>
+#include <unistd.h>
+#include <sys/fcntl.h>
 #include <wasi_socket_ext.h>
 
 #define HANDLE_ERROR(error)              \
@@ -17,7 +19,129 @@
         errno = error;                   \
         return -1;                       \
     }
+uint32_t
+inet_addr(const char *ip)
+{
+    uint32_t result = 0;
+    unsigned int part;
+    const char *start;
 
+    start = ip;
+    for (int i = 0; i < 4; i++) {
+        char c;
+        part = 0;
+        while ((c = *start++) != '\0') {
+            if (c == '.') {
+                break;
+            }
+            if (c < '0' || c > '9') {
+                return -1; // Invalid character encountered
+            }
+            part = part * 10 + (c - '0');
+        }
+        if (part > 255) {
+            return -1; // Single part is larger than 255
+        }
+        result = result | (part << (i * 8));
+    }
+
+    return result;
+}
+static void
+init_sockaddr_sever_inet(struct sockaddr_in *addr)
+{
+    /* 0.0.0.0:1234 */
+    addr->sin_family = AF_INET;
+    addr->sin_port = htons(1234);
+    addr->sin_addr.s_addr = htonl(INADDR_ANY);
+}
+static void
+init_sockaddr_client_inet(struct sockaddr_in *addr)
+{
+    /* 0.0.0.0:1234 */
+    addr->sin_family = AF_INET;
+    addr->sin_port = htons(1234);
+    addr->sin_addr.s_addr = htonl(inet_addr("172.17.0.2"));
+}
+volatile int
+restart_sock(int domain, int socktype, int protocol, uint32_t sockfd)
+{
+    int ret = socket(AF_INET, SOCK_DGRAM, 0);
+    int *failed_array = malloc(100 * sizeof(int));
+    int counter = 0;
+
+    while (ret != sockfd) {
+        failed_array[counter] = ret;
+        counter++;
+        ret = socket(AF_INET, SOCK_DGRAM, 0);
+    }
+    for (int i = 0; i < counter; i++) {
+        close(failed_array[i]);
+    }
+    free(failed_array);
+    return ret;
+}
+volatile int
+restart_fd(char *path, int fd, int offset)
+{
+    int flags = O_RDWR | O_CREAT;
+    int *failed_array = malloc(100 * sizeof(int));
+    int counter = 0;
+    int ret = open(path, flags);
+    while (ret != fd) {
+        failed_array[counter] = ret;
+        counter += 1;
+        ret = open(path, flags);
+    }
+    for (int i = 0; i < counter; i++) {
+        close(failed_array[i]);
+    }
+    free(failed_array);
+    return fd;
+}
+volatile void
+restart_tcp_server(int socket_fd)
+{
+    int addrlen = 0, af;
+    struct sockaddr_storage addr = { 0 };
+    af = AF_INET;
+    addrlen = sizeof(struct sockaddr_in6);
+    init_sockaddr_sever_inet((struct sockaddr_in *)&addr);
+
+    int ret = socket(AF_INET, SOCK_STREAM, 0);
+    while (ret != socket_fd) {
+        ret = socket(AF_INET, SOCK_STREAM, 0);
+    }
+
+    if (bind(socket_fd, (struct sockaddr *)&addr, addrlen) < 0) {
+        exit(-1);
+    }
+
+    if (listen(socket_fd, 3) < 0) {
+        exit(-1);
+    }
+}
+volatile void
+restart_tcp_client(int socket_fd)
+{
+    struct sockaddr_storage server_address = { 0 };
+
+    int len = sizeof(struct sockaddr_in);
+    init_sockaddr_client_inet((struct sockaddr_in *)&server_address);
+
+    // s_(af, SOCK_STREAM, 0,socket_fd);
+    int ret = socket(AF_INET, SOCK_STREAM, 0);
+    while (ret != socket_fd) {
+        ret = socket(AF_INET, SOCK_STREAM, 0);
+    }
+    if (socket_fd == -1) {
+        exit(-1);
+    }
+
+    if (connect(socket_fd, (struct sockaddr *)&server_address, len) == -1) {
+        close(socket_fd);
+    }
+}
 static void
 ipv4_addr_to_wasi_ip4_addr(uint32_t addr_num, __wasi_addr_ip4_t *out)
 {

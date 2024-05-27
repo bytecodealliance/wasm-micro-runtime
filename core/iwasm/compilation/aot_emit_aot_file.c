@@ -4420,8 +4420,21 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
     if (comp_ctx->enable_gc) {
         obj_data->target_info.feature_flags |= WASM_FEATURE_GARBAGE_COLLECTION;
     }
-
     bh_print_time("Begin to resolve object file info");
+
+    if (comp_ctx->enable_checkpoint) {
+
+        char *object_file_name =
+            malloc(strlen(comp_ctx->aot_file_name) + strlen(".o") + 1);
+        strcpy(object_file_name, comp_ctx->aot_file_name);
+        strcat(object_file_name, ".o");
+        FILE *object_file = fopen(object_file_name, "w");
+        fwrite(LLVMGetBufferStart(obj_data->mem_buf), 1,
+               LLVMGetBufferSize(obj_data->mem_buf), object_file);
+        fclose(object_file);
+        printf("Write object file to %s\n", object_file_name);
+        free(object_file_name);
+    }
 
     /* resolve target info/text/relocations/functions */
     if (!aot_resolve_target_info(comp_ctx, obj_data)
@@ -4514,7 +4527,8 @@ aot_emit_aot_file(AOTCompContext *comp_ctx, AOTCompData *comp_data,
     uint32 aot_file_size;
     bool ret = false;
     FILE *file;
-
+    if (comp_ctx->enable_checkpoint)
+        comp_ctx->aot_file_name = file_name;
     bh_print_time("Begin to emit AOT file");
 
     if (!(aot_file_buf =
@@ -4538,6 +4552,8 @@ fail2:
     fclose(file);
 
 fail1:
+    if (comp_ctx->enable_checkpoint)
+        comp_ctx->aot_file_name = NULL;
     wasm_runtime_free(aot_file_buf);
 
     return ret;

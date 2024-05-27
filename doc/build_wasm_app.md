@@ -366,6 +366,11 @@ Usage: wamrc [options] -o output_file wasm_file
   --disable-aux-stack-check Disable auxiliary stack overflow/underflow check
   --enable-dump-call-stack  Enable stack trace feature
   --enable-perf-profiling   Enable function performance profiling
+  --enable-aux-stack-dirty-bit   Enable function level auxiliary stack dirty bit checkpoint restore
+  --enable-checkpoint   Enable function level checkpoint restore
+  --enable-br-checkpoint   Enable branch level checkpoint restore
+  --enable-loop-checkpoint   Enable loop level checkpoint restore
+  --enable-every-checkpoint   Enable instruction level checkpoint restore
   -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log
 Examples: wamrc -o test.aot test.wasm
           wamrc --target=i386 -o test.aot test.wasm

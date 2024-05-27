@@ -150,6 +150,18 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 - **WAMR_BUILD_AOT_STACK_FRAME**=1/0, default to disable if not set
 > Note: if it is enabled, the AOT or JIT stack frames (like stack frame of classic interpreter but only necessary data is committed) will be created for AOT or JIT mode in function calls. And please add `--enable-dump-call-stack` option to wamrc during compiling AOT module.
 
+# **Enable Checkpoint Restore Feature**
+The Checkpoint Restore feature in WAMR allows you to save and restore the execution state of a WebAssembly module. This feature is useful for implementing functionality like record and replay, as well as for debugging and testing purposes. To enable the Checkpoint Restore feature, set the following option when building WAMR:
+- **WAMR_BUILD_CHECKPOINT_RESTORE**=1/0 (default: disabled if not set)
+> Note: When enabling the Checkpoint Restore feature, please keep the following requirements in mind:
+1. The feature requires the `--disable-dump-call-stack` option to be passed to `wamrc` during AOT module compilation. This option disables the dumping of the call stack, which is necessary for the Checkpoint Restore feature to work correctly.
+2. You must also enable checkpoint support by using either the `--enable-checkpoint` or `--enable-*-checkpoint` variant options when compiling the AOT module with `wamrc`. These options enable the generation of checkpoint-related metadata in the compiled module.
+3. The WebAssembly module must be compiled with debug information enabled. This is typically done by passing the `-g` flag to the WebAssembly compiler. Debug information is required for the custom name section of the WebAssembly module, which is used by the Checkpoint Restore feature.
+When the Checkpoint Restore feature is used in conjunction with WASI (WebAssembly System Interface) or the Thread Manager (THREAD_MGR) in WAMR, additional functionality becomes available:
+- If WASI is enabled, the Checkpoint Restore feature supports record and replay functionality for WASI-based applications. This means you can record the execution of a WASI application and replay it later for debugging or analysis purposes.
+- If the Thread Manager is enabled, the Checkpoint Restore feature supports record and replay functionality for WebAssembly modules that utilize threads (PTHREAD). This allows you to record and replay the execution of multi-threaded WebAssembly applications.
+By enabling the Checkpoint Restore feature and meeting the necessary requirements, you can take advantage of these powerful capabilities in WAMR, enhancing your ability to debug, test, and analyze WebAssembly modules.
+
 #### **Enable dump call stack feature**
 - **WAMR_BUILD_DUMP_CALL_STACK**=1/0, default to disable if not set
 

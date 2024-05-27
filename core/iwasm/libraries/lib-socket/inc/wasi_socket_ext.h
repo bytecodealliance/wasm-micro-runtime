@@ -994,6 +994,19 @@ __wasi_sock_get_ipv6_only(__wasi_fd_t fd, bool *option)
  * we tend to keep original implentations of recv() and send().
  */
 
+/**
+ * restart the function call with the given arguments
+ */
+volatile int
+restart_sock(int domain, int socktype, int protocol, uint32_t sockfd);
+volatile int
+restart_fd(char *path, int fd, int offset);
+volatile void
+restart_tcp_client(int socket_fd);
+volatile void
+restart_tcp_server(int socket_fd);
+uint32_t
+inet_addr(const char *ip);
 #ifdef __cplusplus
 }
 #endif

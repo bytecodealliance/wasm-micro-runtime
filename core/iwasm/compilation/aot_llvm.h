@@ -113,6 +113,12 @@ typedef struct AOTValueSlot {
 
 /* Frame information for translation */
 typedef struct AOTCompFrame {
+    /* The current wasm module */
+    WASMModule *cur_wasm_module;
+    /* The current wasm function */
+    WASMFunction *cur_wasm_func;
+    /* The current wasm function index */
+    uint32 cur_wasm_func_idx;
     /* The current compilation context */
     struct AOTCompContext *comp_ctx;
     /* The current function context */
@@ -249,6 +255,8 @@ typedef struct AOTFuncContext {
 #if WASM_ENABLE_DEBUG_AOT != 0
     LLVMMetadataRef debug_func;
 #endif
+
+    LLVMValueRef restore_switch;
 
     unsigned int stack_consumption_for_func_call;
 
@@ -415,6 +423,22 @@ typedef struct AOTCompContext {
 
     /* Memory usage profiling */
     bool enable_memory_profiling;
+
+    bool enable_checkpoint;
+    bool enable_loop_checkpoint;
+    bool enable_br_checkpoint;
+    bool enable_every_checkpoint;
+    bool inst_checkpointed;
+    bool enable_aux_stack_dirty_bit;
+    bool enable_counter_loop_checkpoint;
+    const char *aot_file_name;
+    bool exp_disable_stack_commit_before_block;
+    bool exp_disable_gen_fence_int3;
+    bool exp_disable_commit_sp_ip;
+    bool exp_disable_local_commit;
+    bool exp_disable_restore_jump;
+    LLVMBuilderRef aot_frame_alloca_builder;
+    int checkpoint_type; /* 0 - func, 1 - loop, 2 - br, 3 - every*/
 
     /* Thread Manager */
     bool enable_thread_mgr;
@@ -612,7 +636,16 @@ bool
 aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);
 
 void
+aot_add_expand_memory_op_pass(LLVMPassManagerRef pass);
+
+void
+aot_add_simple_loop_unswitch_pass(LLVMPassManagerRef pass);
+
+void
 aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module);
+
+void
+aot_apply_mvvm_pass(AOTCompContext *comp_ctx, LLVMModuleRef module);
 
 void
 aot_handle_llvm_errmsg(const char *string, LLVMErrorRef err);

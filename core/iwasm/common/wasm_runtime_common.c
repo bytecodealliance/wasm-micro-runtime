@@ -37,6 +37,9 @@
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
 #include "../compilation/aot_llvm.h"
 #endif
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+#include "../libraries/ckpt-restore/ckpt_restore.h"
+#endif
 #include "../common/wasm_c_api_internal.h"
 #include "../../version.h"
 
@@ -61,6 +64,10 @@
 
 #undef CHECK
 #undef CHECK1
+
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+#undef wasm_runtime_invoke_native
+#endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
 /**
@@ -7221,6 +7228,28 @@ void
 wasm_runtime_set_linux_perf(bool flag)
 {
     enable_linux_perf = flag;
+}
+#endif
+
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+bool
+wasm_runtime_invoke_native_shim(WASMExecEnv *exec_env, void *func_ptr,
+                                const WASMType *func_type,
+                                const char *signature, void *attachment,
+                                uint32 *argv, uint32 argc, uint32 *argv_ret)
+{
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    // Commented because assuming native funcs are not blocking
+    // lightweight_checkpoint(exec_env);
+#endif
+    bool ret =
+        wasm_runtime_invoke_native(exec_env, func_ptr, func_type, signature,
+                                   attachment, argv, argc, argv_ret);
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    // Commented because assuming native funcs are not blocking
+    // lightweight_uncheckpoint(exec_env);
+#endif
+    return ret;
 }
 #endif
 
