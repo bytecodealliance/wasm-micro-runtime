@@ -11,7 +11,7 @@ apt-get update \
   libgcc-9-dev lib32gcc-9-dev lsb-release \
   ninja-build ocaml ocamlbuild python2.7 \
   software-properties-common tree tzdata \
-  unzip valgrind vim wget zip --no-install-recommen
+  unzip valgrind vim wget zip --no-install-recommends
 ```
 
 Then install CMake and wasi-sdk-16.0

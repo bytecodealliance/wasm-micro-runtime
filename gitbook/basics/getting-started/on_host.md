@@ -14,7 +14,7 @@ make
 Then you are ready to go to the directory that contains the hello world program and copy our iwasm vmcore
 
 ```sh
-cp iwasm ../../app-samples/hello-world
+cp iwasm ../../../app-samples/hello-world
 cd ${WAMR-dir}/product-mini/app-samples/hello-world
 ./build.sh
 ```
