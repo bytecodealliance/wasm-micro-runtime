@@ -6942,7 +6942,8 @@ re_scan:
                     uint32 j;
 
                     for (i = 0; i < module->global_count; i++) {
-                        if (module->globals[i].type == VALUE_TYPE_FUNCREF
+                        if (module->globals[i].type.val_type
+                                == VALUE_TYPE_FUNCREF
                             && module->globals[i].init_expr.init_expr_type
                                    == INIT_EXPR_TYPE_FUNCREF_CONST
                             && module->globals[i].init_expr.u.u32 == func_idx) {
