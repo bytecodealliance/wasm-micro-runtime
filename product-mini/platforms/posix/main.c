@@ -535,14 +535,15 @@ void *
 timeout_thread(void *vp)
 {
     const struct timeout_arg *arg = vp;
-    const uint32 end_time = os_time_get_boot_us() + arg->timeout_ms * 1000;
+    const uint64 end_time =
+        os_time_get_boot_us() + (uint64)arg->timeout_ms * 1000;
     while (!arg->cancel) {
-        const uint32 now = os_time_get_boot_us();
-        if ((int32)(now - end_time) > 0) {
+        const uint64 now = os_time_get_boot_us();
+        if ((int64)(now - end_time) > 0) {
             wasm_runtime_terminate(arg->inst);
             break;
         }
-        const uint32 left_us = end_time - now;
+        const uint64 left_us = end_time - now;
         uint32 us;
         if (left_us >= 100 * 1000) {
             us = 100 * 1000;
