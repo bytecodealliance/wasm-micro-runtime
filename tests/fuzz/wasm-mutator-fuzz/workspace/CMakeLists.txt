@@ -113,7 +113,7 @@ message([ceith]:REPO_ROOT_DIR, ${REPO_ROOT_DIR})
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
-add_definitions(-DWAMR_USE_MEM_POOL=0)
+add_definitions(-DWAMR_USE_MEM_POOL=0 -DWASM_ENABLE_FUZZ_TEST=1)
 
 # Enable fuzzer
 add_compile_options(-fsanitize=fuzzer)
