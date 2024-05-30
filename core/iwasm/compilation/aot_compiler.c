@@ -487,10 +487,6 @@ fake_aot_gen_commit_value(AOTCompFrame *frame, bool reset_dirty_bit,
         case VALUE_TYPE_FUNCREF:
         case VALUE_TYPE_EXTERNREF:
             break;
-            break;
-
-            break;
-
         case VALUE_TYPE_I64:
             if (reset_dirty_bit)
                 ((*p) + 1)->dirty = 0;

@@ -50,7 +50,8 @@ class CountingSemaphore
   public:
     explicit CountingSemaphore(int count)
       : count_(count)
-    {}
+    {
+    }
 
     void acquire()
     {
@@ -258,9 +259,8 @@ WAMRInstance::~WAMRInstance()
 void
 WAMRInstance::find_func(const char *name)
 {
-#if WASM_ENABLE_CUSTUM_NAME_SECTION != 0
     if (!(func = wasm_runtime_lookup_function(module_inst, name))) {
-        LOG_DEBUG("The wasi\"%s\"function is not found.", name);
+        LOG_DEBUG("The wasi \"%s\" function is not found.", name);
         auto target_module = get_module_instance()->e;
         for (int i = 0; i < target_module->function_count; i++) {
             auto cur_func = &target_module->functions[i];
@@ -283,10 +283,6 @@ WAMRInstance::find_func(const char *name)
             }
         }
     }
-#else
-    LOG_ERROR("Not supported without custom name section");
-    exit(-1);
-#endif
 }
 int
 WAMRInstance::invoke_main()
@@ -303,7 +299,7 @@ WAMRInstance::invoke_init_c()
 {
     auto name1 = "__wasm_call_ctors";
     if (!(func = wasm_runtime_lookup_function(module_inst, name1))) {
-        LOG_DEBUG("The wasi ", name1, " function is not found.");
+        LOG_DEBUG("The wasi %d function is not found.", name1);
     }
     else {
         wasm_runtime_call_wasm(exec_env, func, 0, nullptr);
@@ -662,7 +658,7 @@ WAMRInstance::recover(std::vector<std::unique_ptr<WAMRExecEnv>> *e_)
     set_wasi_args(execEnv.front()->module_inst.wasi_ctx);
     instantiate();
     this->time = std::chrono::high_resolution_clock::now();
-    invoke_init_c();
+    // invoke_init_c();
 
     restore(execEnv.front(), cur_env);
     if (tid_start_arg_map.find(execEnv.back()->cur_count)

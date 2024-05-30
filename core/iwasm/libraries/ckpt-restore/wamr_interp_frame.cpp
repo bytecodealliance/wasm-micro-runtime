@@ -34,12 +34,10 @@ WAMRInterpFrame::dump_impl(WASMInterpFrame *env)
                         ->wasm_stack.bottom); // offset to the wasm_stack_top
         }
 #endif
-#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
         if (env->function->u.func->field_name)
             function_name = env->function->u.func->field_name;
         else
             function_name = env->function->u.func_import->field_name;
-#endif
     }
 }
 std::vector<std::unique_ptr<WAMRBranchBlock>>
@@ -49,7 +47,7 @@ void
 WAMRInterpFrame::restore_impl(WASMInterpFrame *env)
 {
     auto module_inst = (WASMModuleInstance *)wamr->get_exec_env()->module_inst;
-    if (0 <= function_index
+    if (0 < function_index
         && function_index < module_inst->e->function_count) {
         // LOGV(INFO) << fmt::format("function_index {} restored",
         // function_index);
@@ -59,7 +57,6 @@ WAMRInterpFrame::restore_impl(WASMInterpFrame *env)
             exit(-1);
         }
     }
-#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
     else {
         auto target_module = wamr->get_module_instance()->e;
         for (uint32 i = 0; i < target_module->function_count; i++) {
@@ -82,7 +79,6 @@ WAMRInterpFrame::restore_impl(WASMInterpFrame *env)
             }
         }
     }
-#endif
     wamr->set_func(env->function->u.func);
     auto cur_func = env->function;
     WASMFunction *cur_wasm_func = cur_func->u.func;

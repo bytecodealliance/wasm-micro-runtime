@@ -1216,6 +1216,12 @@ wasm_runtime_checkpoint(wasm_module_inst_t module_inst, char *file);
 bool
 wasm_runtime_restore(wasm_module_inst_t module_inst, char *file, char *file1);
 #endif
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_detect_native_stack_overflow(WASMExecEnv *exec_env);
+
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_detect_native_stack_overflow_size(WASMExecEnv *exec_env,
+                                               uint32 requested_size);
 
 #if WASM_ENABLE_LINUX_PERF != 0
 bool

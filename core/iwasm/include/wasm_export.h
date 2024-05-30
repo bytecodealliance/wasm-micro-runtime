@@ -617,7 +617,6 @@ wasm_runtime_set_wasi_ns_lookup_pool(wasm_module_t module,
  */
 WASM_RUNTIME_API_EXTERN wasm_module_inst_t
 wasm_runtime_instantiate(const wasm_module_t module,
-<<<<<<< HEAD
                          uint32_t default_stack_size,
                          uint32_t host_managed_heap_size, char *error_buf,
                          uint32_t error_buf_size);
@@ -632,14 +631,6 @@ WASM_RUNTIME_API_EXTERN wasm_module_inst_t
 wasm_runtime_instantiate_ex(const wasm_module_t module,
                             const InstantiationArgs *args, char *error_buf,
                             uint32_t error_buf_size);
-||||||| parent of d8948a72 (Update version number to 2.0.0 and update release notes (#3327))
-                         uint32_t default_stack_size, uint32_t host_managed_heap_size,
-                         char *error_buf, uint32_t error_buf_size);
-=======
-                         uint32_t default_stack_size,
-                         uint32_t host_managed_heap_size, char *error_buf,
-                         uint32_t error_buf_size);
->>>>>>> d8948a72 (Update version number to 2.0.0 and update release notes (#3327))
 
 /**
  * Instantiate a WASM module, with specified instantiation arguments
@@ -655,12 +646,13 @@ wasm_runtime_instantiate_ex(const wasm_module_t module,
 /**
  * Instantiate a WASM module, with specified instantiation arguments
  *
- * Same as wasm_runtime_instantiate, but it also allows overwriting maximum memory
+ * Same as wasm_runtime_instantiate, but it also allows overwriting maximum
+ * memory
  */
 WASM_RUNTIME_API_EXTERN wasm_module_inst_t
 wasm_runtime_instantiate_ex(const wasm_module_t module,
-                         const InstantiationArgs *args,
-                         char *error_buf, uint32_t error_buf_size);
+                            const InstantiationArgs *args, char *error_buf,
+                            uint32_t error_buf_size);
 
 /**
  * Set the running mode of a WASM module instance, override the
@@ -1567,16 +1559,8 @@ WASM_RUNTIME_API_EXTERN double
 wasm_runtime_sum_wasm_exec_time(wasm_module_inst_t module_inst);
 
 /**
-<<<<<<< HEAD
  * Return execution time in ms of a given wasm function with
  * func_name. If the function is not found, return 0.
-||||||| parent of d8948a72 (Update version number to 2.0.0 and update release notes (#3327))
- * Return execution time in ms of a given wasm funciton with
-*  func_name. If the function is not found, return 0.
-=======
- * Return execution time in ms of a given wasm funciton with
- * func_name. If the function is not found, return 0.
->>>>>>> d8948a72 (Update version number to 2.0.0 and update release notes (#3327))
  *
  * @param module_inst the WASM module instance to profile
  * @param func_name could be an export name or a name in the
@@ -1798,16 +1782,8 @@ wasm_runtime_is_import_func_linked(const char *module_name,
                                    const char *func_name);
 
 /**
-<<<<<<< HEAD
  * Check whether an import global `(import <module_name> <global_name>
  * (global ...))` is linked or not with runtime registered native globals
-||||||| parent of d8948a72 (Update version number to 2.0.0 and update release notes (#3327))
- * Check whether an import global `(import <module_name> <global_name> (global ...))`
- * is linked or not with runtime registered natvie globals
-=======
- * Check whether an import global `(import <module_name> <global_name>
- * (global ...))` is linked or not with runtime registered natvie globals
->>>>>>> d8948a72 (Update version number to 2.0.0 and update release notes (#3327))
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_import_global_linked(const char *module_name,
@@ -2016,7 +1992,7 @@ wasm_runtime_is_underlying_binary_freeable(const wasm_module_t module);
 /*
  * wasm_runtime_checkpoint/wasm_runtime_restore
  *
- * These APIs are intended to be used by the host to register the current 
+ * These APIs are intended to be used by the host to register the current
  * state of the WASM module instance to a file and restore the state from
  * file
  * eg.
@@ -2029,11 +2005,9 @@ wasm_runtime_is_underlying_binary_freeable(const wasm_module_t module);
  *   }
  */
 WASM_RUNTIME_API_EXTERN bool
-wasm_runtime_checkpoint(wasm_module_inst_t module_inst,
-                               char *file);
+wasm_runtime_checkpoint(wasm_module_inst_t module_inst, char *file);
 WASM_RUNTIME_API_EXTERN bool
-wasm_runtime_restore(wasm_module_inst_t module_inst,
-                               char *file, char *file1);
+wasm_runtime_restore(wasm_module_inst_t module_inst, char *file, char *file1);
 #endif
 
 WASM_RUNTIME_API_EXTERN bool

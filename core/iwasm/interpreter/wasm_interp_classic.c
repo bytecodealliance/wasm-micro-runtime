@@ -1504,7 +1504,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint8 value_type;
 #if WASM_ENABLE_CHECKPOINT_RESTORE != 0
     if (exec_env->is_restore) {
-        // WASMFunction *cur_wasm_func = cur_func->u.func;
+        WASMFunction *cur_wasm_func = cur_func->u.func;
         frame = exec_env->cur_frame;
         UPDATE_ALL_FROM_FRAME();
         frame_ip_end = wasm_get_func_code_end(cur_func);

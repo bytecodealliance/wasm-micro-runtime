@@ -78,19 +78,24 @@ WAMRExecEnv::restore_impl(WASMExecEnv *env)
         auto module_inst = (WASMModuleInstance *)env->module_inst;
         auto get_function = [&](size_t function_index) {
             if (function_index < module_inst->e->function_count) {
-                LOG_DEBUG("function_index {} restored", function_index);
+                LOG_DEBUG("function_index %d restored", function_index);
                 auto function = &module_inst->e->functions[function_index];
                 if (function->is_import_func) {
-                    LOG_DEBUG("function_index {} is_import_func",
+                    LOG_DEBUG("function_index %d is_import_func",
                               function_index);
                     exit(-1);
                 }
                 return function;
             }
             else {
-                LOG_DEBUG("function_index {} invalid", function_index);
+                LOG_DEBUG("function_index %d invalid", function_index);
                 exit(-1);
             };
+        };
+
+        auto get_function_name = [&](std::string function_name) {
+            wamr->find_func(function_name.c_str());
+            return ((WASMFunctionInstance *)wamr->func);
         };
 
         auto ALLOC_FRAME = [&](WASMExecEnv *exec_env, uint32 size,
@@ -108,7 +113,16 @@ WAMRExecEnv::restore_impl(WASMExecEnv *env)
         };
 
         std::reverse(frames.begin(), frames.end());
-        auto function = get_function(frames.at(0)->function_index);
+        WASMFunctionInstance *function;
+        if (frames.at(0)->function_name.empty()) {
+            frames.erase(frames.begin());
+        }
+        if (frames.at(0)->function_index == 0) {
+            function = get_function_name(frames.at(0)->function_name);
+        }
+        else {
+            function = get_function(frames.at(0)->function_index);
+        }
         unsigned all_cell_num =
             function->ret_cell_num > 2 ? function->ret_cell_num : 2;
         unsigned frame_size = wasm_interp_interp_frame_size(all_cell_num);
@@ -118,7 +132,13 @@ WAMRExecEnv::restore_impl(WASMExecEnv *env)
         frame->ip = nullptr;
         prev_frame = frame;
         for (const auto &dump_frame : frames) {
-            auto cur_func = get_function(dump_frame->function_index);
+            WASMFunctionInstance *cur_func;
+            if (dump_frame->function_index > 0) {
+                cur_func = get_function(dump_frame->function_index);
+            }
+            else {
+                cur_func = get_function_name(dump_frame->function_name);
+            }
             auto cur_wasm_func = cur_func->u.func;
             all_cell_num = cur_func->param_cell_num + cur_func->local_cell_num
                            + cur_wasm_func->max_stack_cell_num

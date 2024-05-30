@@ -1054,7 +1054,8 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     /* Currently we have only one memory instance */
-    bool is_shared_memory = module->memories[0].memory_flags & 0x02 ? true : false;
+    bool is_shared_memory =
+        module->memories[0].memory_flags & 0x02 ? true : false;
     if (is_shared_memory && parent != NULL) {
         /* Ignore setting memory init data if the memory has been initialized */
         return true;
