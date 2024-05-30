@@ -85,14 +85,14 @@ jobs:
       - name: Checkout NuttX
         uses: actions/checkout@v4
         with:
-          repository: apache/incubator-nuttx
+          repository: apache/nuttx
           ref: releases/12.4
           path: nuttx
 
       - name: Checkout NuttX Apps
         uses: actions/checkout@v4
         with:
-          repository: apache/incubator-nuttx-apps
+          repository: apache/nuttx-apps
           ref: releases/12.4
           path: apps
 
