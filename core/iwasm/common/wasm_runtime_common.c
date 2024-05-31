@@ -384,12 +384,14 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                 return ret;
         }
 #endif
+        else {
+            LOG_WARNING("Unhandled exception thrown:  exception code: 0x%lx, "
+                        "exception address: %p, exception information: %p\n",
+                        ExceptionRecord->ExceptionCode,
+                        ExceptionRecord->ExceptionAddress, sig_addr);
+        }
     }
 
-    LOG_ERROR("Unhandled exception thrown:  exception code: 0x%lx, "
-              "exception address: %p, exception information: %p\n",
-              ExceptionRecord->ExceptionCode, ExceptionRecord->ExceptionAddress,
-              sig_addr);
     return EXCEPTION_CONTINUE_SEARCH;
 }
 #endif /* end of BH_PLATFORM_WINDOWS */
