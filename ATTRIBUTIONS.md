@@ -35,7 +35,7 @@ The WAMR fast interpreter is a clean room development. We would acknowledge the 
 | uvwasi | unspecified | v0.0.12 | https://github.com/nodejs/uvwasi | |
 | asmjit | unspecified | unspecified | https://github.com/asmjit/asmjit | |
 | zydis | unspecified | e14a07895136182a5b53e181eec3b1c6e0b434de | https://github.com/zyantific/zydis | |
-| NuttX ELF headers | 72313301e23f9c2de969fb64b9a0f67bb4c284df | 10.3.0 | https://github.com/apache/incubator-nuttx | |
+| NuttX ELF headers | 72313301e23f9c2de969fb64b9a0f67bb4c284df | 10.3.0 | https://github.com/apache/nuttx | |
 | Dhrystone | 2.1 | 2.1 | https://fossies.org/linux/privat/old/ | |
 
 ## Licenses
