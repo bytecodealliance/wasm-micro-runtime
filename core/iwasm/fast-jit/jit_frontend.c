@@ -1510,7 +1510,9 @@ jit_compile_func(JitCompContext *cc)
             case EXT_OP_LOOP:
             case EXT_OP_IF:
             {
-                read_leb_uint32(frame_ip, frame_ip_end, type_idx);
+                read_leb_int32(frame_ip, frame_ip_end, type_idx);
+                /* type index was checked in wasm loader */
+                bh_assert(type_idx < cc->cur_wasm_module->type_count);
                 func_type = cc->cur_wasm_module->types[type_idx];
                 param_count = func_type->param_count;
                 param_types = func_type->types;
