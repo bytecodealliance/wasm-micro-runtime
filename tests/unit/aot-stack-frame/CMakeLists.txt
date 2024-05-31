@@ -51,3 +51,5 @@ add_executable (aot_stack_frame_test ${unit_test_sources})
 add_dependencies (aot_stack_frame_test aot-stack-frame-test-wasm)
 
 target_link_libraries (aot_stack_frame_test ${LLVM_AVAILABLE_LIBS} gtest_main )
+
+#gtest_discover_tests(aot_stack_frame_test)

@@ -47,3 +47,5 @@ add_custom_command(TARGET gc_test POST_BUILD
   ${CMAKE_CURRENT_BINARY_DIR}
   COMMENT "Copy wasm files to directory ${CMAKE_CURRENT_BINARY_DIR}"
 )
+
+#gtest_discover_tests(gc_test)
