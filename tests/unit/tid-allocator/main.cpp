@@ -2,6 +2,7 @@
  * Copyright (C) 2023 Amazon.com Inc. or its affiliates. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
+
 #include <gtest/gtest.h>
 #include "wasm_runtime_common.h"
 
