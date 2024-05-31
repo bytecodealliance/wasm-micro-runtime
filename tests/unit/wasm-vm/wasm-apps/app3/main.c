@@ -8,22 +8,25 @@
 #include <memory.h>
 #include <string.h>
 
-void on_init()
-{
-}
+void
+on_init()
+{}
 
-int my_sqrt(int x, int y)
+int
+my_sqrt(int x, int y)
 {
     return x * x + y * y;
 }
 
-void *null_pointer()
+void *
+null_pointer()
 {
     void *ptr = NULL;
     return ptr;
 }
 
-void *my_malloc(int size)
+void *
+my_malloc(int size)
 {
     return malloc(size);
 }

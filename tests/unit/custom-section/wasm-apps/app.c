@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-int main(int argc, char const *argv[])
+int
+main(int argc, char const *argv[])
 {
     return 0;
 }

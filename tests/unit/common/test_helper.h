@@ -12,71 +12,80 @@
 #include <memory>
 #include <fstream>
 
-template <int Size = 512 * 1024> class WAMRRuntimeRAII {
-private:
-  char global_heap_buf[Size];
-  RuntimeInitArgs init_args;
+template<int Size = 512 * 1024>
+class WAMRRuntimeRAII
+{
+  private:
+    char global_heap_buf[Size];
+    RuntimeInitArgs init_args;
 
-public:
-  WAMRRuntimeRAII() {
-    memset(&init_args, 0, sizeof(RuntimeInitArgs));
+  public:
+    WAMRRuntimeRAII()
+    {
+        memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
-    init_args.mem_alloc_type = Alloc_With_Pool;
-    init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
-    init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
+        init_args.mem_alloc_type = Alloc_With_Pool;
+        init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
+        init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
 
-    wasm_runtime_full_init(&init_args);
-  }
+        wasm_runtime_full_init(&init_args);
+    }
 
-  ~WAMRRuntimeRAII() { wasm_runtime_destroy(); }
+    ~WAMRRuntimeRAII() { wasm_runtime_destroy(); }
 };
 
-class WAMRModule {
-private:
-  wasm_module_t module_;
+class WAMRModule
+{
+  private:
+    wasm_module_t module_;
 
-public:
-  WAMRModule(uint8_t *buffer, uint32_t size) {
-    module_ = wasm_runtime_load(buffer, size, NULL, 0);
-  }
+  public:
+    WAMRModule(uint8_t *buffer, uint32_t size)
+    {
+        module_ = wasm_runtime_load(buffer, size, NULL, 0);
+    }
 
-  ~WAMRModule() { wasm_runtime_unload(module_); }
+    ~WAMRModule() { wasm_runtime_unload(module_); }
 
-  wasm_module_t get() const { return module_; }
+    wasm_module_t get() const { return module_; }
 };
 
-class WAMRInstance {
-private:
-  wasm_module_inst_t module_inst_;
+class WAMRInstance
+{
+  private:
+    wasm_module_inst_t module_inst_;
 
-public:
-  WAMRInstance(WAMRModule &module, uint32_t stack_size = 8192,
-               uint32_t heap_size = 8192) {
-    module_inst_ =
-        wasm_runtime_instantiate(module.get(), stack_size, heap_size, NULL, 0);
-  }
+  public:
+    WAMRInstance(WAMRModule &module, uint32_t stack_size = 8192,
+                 uint32_t heap_size = 8192)
+    {
+        module_inst_ = wasm_runtime_instantiate(module.get(), stack_size,
+                                                heap_size, NULL, 0);
+    }
 
-  ~WAMRInstance() { wasm_runtime_deinstantiate(module_inst_); }
+    ~WAMRInstance() { wasm_runtime_deinstantiate(module_inst_); }
 
-  wasm_module_inst_t get() const { return module_inst_; }
+    wasm_module_inst_t get() const { return module_inst_; }
 };
 
-class WAMRExecEnv {
-private:
-  wasm_exec_env_t exec_env_;
+class WAMRExecEnv
+{
+  private:
+    wasm_exec_env_t exec_env_;
 
-public:
-  WAMRExecEnv(WAMRInstance &instance, uint32_t stack_size = 8192) {
-    exec_env_ = wasm_runtime_create_exec_env(instance.get(), stack_size);
-  }
+  public:
+    WAMRExecEnv(WAMRInstance &instance, uint32_t stack_size = 8192)
+    {
+        exec_env_ = wasm_runtime_create_exec_env(instance.get(), stack_size);
+    }
 
-  ~WAMRExecEnv() { wasm_runtime_destroy_exec_env(exec_env_); }
+    ~WAMRExecEnv() { wasm_runtime_destroy_exec_env(exec_env_); }
 
-  wasm_exec_env_t get() const { return exec_env_; }
-  wasm_module_inst_t get_inst() const
-  {
-      return wasm_runtime_get_module_inst(exec_env_);
-  }
+    wasm_exec_env_t get() const { return exec_env_; }
+    wasm_module_inst_t get_inst() const
+    {
+        return wasm_runtime_get_module_inst(exec_env_);
+    }
 };
 
 static uint8_t dummy_wasm_buffer[] = {
@@ -95,147 +104,158 @@ static uint8_t dummy_wasm_buffer[] = {
     0x64, 0x38, 0x63, 0x32, 0x66, 0x30, 0x34, 0x64, 0x64, 0x65, 0x32, 0x33,
     0x62, 0x65, 0x65, 0x30, 0x66, 0x62, 0x33, 0x61, 0x37, 0x64, 0x30, 0x36,
     0x39, 0x61, 0x39, 0x62, 0x31, 0x30, 0x34, 0x36, 0x64, 0x61, 0x39, 0x37,
-    0x39, 0x29};
-
-class DummyExecEnv {
-private:
-  std::shared_ptr<WAMRExecEnv> dummy_exec_env_;
-  std::shared_ptr<WAMRInstance> inst_;
-  std::shared_ptr<WAMRModule> mod_;
-  std::vector<uint8_t> my_wasm_buffer;
-
-private:
-  void construct(uint8_t *buf, uint32_t len)
-  {
-      std::vector<uint8_t> buffer(buf, buf + len);
-      my_wasm_buffer = buffer;
-
-      mod_ = std::make_shared<WAMRModule>(my_wasm_buffer.data(),
-                                          my_wasm_buffer.size());
-      EXPECT_NE(mod_.get(), nullptr);
-      inst_ = std::make_shared<WAMRInstance>(*mod_);
-      EXPECT_NE(inst_.get(), nullptr);
-      dummy_exec_env_ = std::make_shared<WAMRExecEnv>(*inst_);
-      EXPECT_NE(dummy_exec_env_.get(), nullptr);
-  }
-
-public:
-  DummyExecEnv() { construct(dummy_wasm_buffer, sizeof(dummy_wasm_buffer)); }
-
-  DummyExecEnv(uint8_t *buf, uint32_t len) { construct(buf, len); }
-
-  DummyExecEnv(std::string filename)
-  {
-      std::ifstream wasm_file(filename, std::ios::binary);
-      std::vector<uint8_t> buffer(std::istreambuf_iterator<char>(wasm_file),
-                                  {});
-
-      construct(buffer.data(), buffer.size());
-  }
-
-  ~DummyExecEnv() {}
-
-  wasm_exec_env_t get() const { return dummy_exec_env_->get(); }
-
-  void *app_to_native(uint32_t app_addr) const
-  {
-      return wasm_runtime_addr_app_to_native(inst_->get(), app_addr);
-  }
-
-  uint32_t native_to_app(void *ptr) const
-  {
-      return wasm_runtime_addr_native_to_app(inst_->get(), ptr);
-  }
-
-  const char *get_exception() const
-  {
-      return wasm_runtime_get_exception(inst_->get());
-  }
-
-  void set_exception(std::string str) const
-  {
-      wasm_runtime_set_exception(inst_->get(), str.c_str());
-  }
-
-  void clear_exception() const { wasm_runtime_clear_exception(inst_->get()); }
-
-  bool execute(const char *func_name, uint32_t argc, uint32_t argv[])
-  {
-      wasm_function_inst_t func;
-
-      if (!(func =
-                wasm_runtime_lookup_function(inst_->get(), func_name))) {
-          return false;
-      }
-
-      return wasm_runtime_call_wasm(dummy_exec_env_->get(), func, argc, argv);
-  }
+    0x39, 0x29
 };
 
-class WAMRVaList {
-private:
-  void *buffer_;
-  uint32_t current_loc_;
-  uint32_t capacity_;
-  wasm_exec_env_t exec_env_;
+class DummyExecEnv
+{
+  private:
+    std::shared_ptr<WAMRExecEnv> dummy_exec_env_;
+    std::shared_ptr<WAMRInstance> inst_;
+    std::shared_ptr<WAMRModule> mod_;
+    std::vector<uint8_t> my_wasm_buffer;
 
-  void _append(void *ptr, uint32_t size) {
-    if (current_loc_ + size >= capacity_) {
-      capacity_ *= 2;
-      buffer_ = realloc(buffer_, capacity_);
-      ASSERT_NE(buffer_, nullptr);
+  private:
+    void construct(uint8_t *buf, uint32_t len)
+    {
+        std::vector<uint8_t> buffer(buf, buf + len);
+        my_wasm_buffer = buffer;
+
+        mod_ = std::make_shared<WAMRModule>(my_wasm_buffer.data(),
+                                            my_wasm_buffer.size());
+        EXPECT_NE(mod_.get(), nullptr);
+        inst_ = std::make_shared<WAMRInstance>(*mod_);
+        EXPECT_NE(inst_.get(), nullptr);
+        dummy_exec_env_ = std::make_shared<WAMRExecEnv>(*inst_);
+        EXPECT_NE(dummy_exec_env_.get(), nullptr);
     }
 
-    memcpy((void *)((uintptr_t)buffer_ + current_loc_), ptr, size);
-    current_loc_ += size;
-  }
+  public:
+    DummyExecEnv() { construct(dummy_wasm_buffer, sizeof(dummy_wasm_buffer)); }
 
-public:
-  explicit WAMRVaList(wasm_exec_env_t exec_env) : exec_env_(exec_env) {
-    capacity_ = 64;
-    buffer_ = malloc(capacity_);
-    EXPECT_NE(buffer_, nullptr);
-    current_loc_ = 0;
-  }
+    DummyExecEnv(uint8_t *buf, uint32_t len) { construct(buf, len); }
 
-  ~WAMRVaList() {
-    current_loc_ = 0;
-    free(buffer_);
-  }
+    DummyExecEnv(std::string filename)
+    {
+        std::ifstream wasm_file(filename, std::ios::binary);
+        std::vector<uint8_t> buffer(std::istreambuf_iterator<char>(wasm_file),
+                                    {});
 
-  template <typename T> void add(T arg) {
-    if (std::is_floating_point<T>::value) {
-      /* float data should be 8 bytes aligned */
-      current_loc_ = ((current_loc_ + 7) & ~7);
-      _append(&arg, sizeof(T));
-    } else if (std::is_integral<T>::value) {
-      if (sizeof(T) > 4) {
-        current_loc_ = ((current_loc_ + 7) & ~7);
-      }
-      _append(&arg, sizeof(T));
+        construct(buffer.data(), buffer.size());
     }
-  }
 
-  void add(std::string arg) {
-    void *native_addr;
-    auto inst = wasm_runtime_get_module_inst(exec_env_);
-    uint32_t addr =
-        wasm_runtime_module_malloc(inst, arg.size() + 1, &native_addr);
-    ASSERT_NE(addr, 0);
-    memcpy(native_addr, arg.data(), arg.size());
-    *(char *)((uintptr_t)native_addr + arg.size()) = 0;
-    _append(&addr, sizeof(uint32_t));
-  }
+    ~DummyExecEnv() {}
 
-  void add(const char *arg) { add(std::string(arg)); }
+    wasm_exec_env_t get() const { return dummy_exec_env_->get(); }
 
-  char *get() const {
-    auto inst = wasm_runtime_get_module_inst(exec_env_);
-    uint32_t addr =
-        wasm_runtime_module_dup_data(inst, (const char *)buffer_, current_loc_);
-    EXPECT_NE(addr, 0);
-    return (char *)wasm_runtime_addr_app_to_native(inst, addr);
-  }
+    void *app_to_native(uint32_t app_addr) const
+    {
+        return wasm_runtime_addr_app_to_native(inst_->get(), app_addr);
+    }
+
+    uint32_t native_to_app(void *ptr) const
+    {
+        return wasm_runtime_addr_native_to_app(inst_->get(), ptr);
+    }
+
+    const char *get_exception() const
+    {
+        return wasm_runtime_get_exception(inst_->get());
+    }
+
+    void set_exception(std::string str) const
+    {
+        wasm_runtime_set_exception(inst_->get(), str.c_str());
+    }
+
+    void clear_exception() const { wasm_runtime_clear_exception(inst_->get()); }
+
+    bool execute(const char *func_name, uint32_t argc, uint32_t argv[])
+    {
+        wasm_function_inst_t func;
+
+        if (!(func = wasm_runtime_lookup_function(inst_->get(), func_name))) {
+            return false;
+        }
+
+        return wasm_runtime_call_wasm(dummy_exec_env_->get(), func, argc, argv);
+    }
+};
+
+class WAMRVaList
+{
+  private:
+    void *buffer_;
+    uint32_t current_loc_;
+    uint32_t capacity_;
+    wasm_exec_env_t exec_env_;
+
+    void _append(void *ptr, uint32_t size)
+    {
+        if (current_loc_ + size >= capacity_) {
+            capacity_ *= 2;
+            buffer_ = realloc(buffer_, capacity_);
+            ASSERT_NE(buffer_, nullptr);
+        }
+
+        memcpy((void *)((uintptr_t)buffer_ + current_loc_), ptr, size);
+        current_loc_ += size;
+    }
+
+  public:
+    explicit WAMRVaList(wasm_exec_env_t exec_env)
+      : exec_env_(exec_env)
+    {
+        capacity_ = 64;
+        buffer_ = malloc(capacity_);
+        EXPECT_NE(buffer_, nullptr);
+        current_loc_ = 0;
+    }
+
+    ~WAMRVaList()
+    {
+        current_loc_ = 0;
+        free(buffer_);
+    }
+
+    template<typename T>
+    void add(T arg)
+    {
+        if (std::is_floating_point<T>::value) {
+            /* float data should be 8 bytes aligned */
+            current_loc_ = ((current_loc_ + 7) & ~7);
+            _append(&arg, sizeof(T));
+        }
+        else if (std::is_integral<T>::value) {
+            if (sizeof(T) > 4) {
+                current_loc_ = ((current_loc_ + 7) & ~7);
+            }
+            _append(&arg, sizeof(T));
+        }
+    }
+
+    void add(std::string arg)
+    {
+        void *native_addr;
+        auto inst = wasm_runtime_get_module_inst(exec_env_);
+        uint32_t addr =
+            wasm_runtime_module_malloc(inst, arg.size() + 1, &native_addr);
+        ASSERT_NE(addr, 0);
+        memcpy(native_addr, arg.data(), arg.size());
+        *(char *)((uintptr_t)native_addr + arg.size()) = 0;
+        _append(&addr, sizeof(uint32_t));
+    }
+
+    void add(const char *arg) { add(std::string(arg)); }
+
+    char *get() const
+    {
+        auto inst = wasm_runtime_get_module_inst(exec_env_);
+        uint32_t addr = wasm_runtime_module_dup_data(
+            inst, (const char *)buffer_, current_loc_);
+        EXPECT_NE(addr, 0);
+        return (char *)wasm_runtime_addr_app_to_native(inst, addr);
+    }
 };
 
 /* Get memory space in app */

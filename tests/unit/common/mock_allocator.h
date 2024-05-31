@@ -57,8 +57,7 @@ class DumpAllocUsage : public MockAllocator<INT32_MAX>
   public:
     DumpAllocUsage()
       : MockAllocator<INT32_MAX>()
-    {
-    }
+    {}
 
     ~DumpAllocUsage()
     {
