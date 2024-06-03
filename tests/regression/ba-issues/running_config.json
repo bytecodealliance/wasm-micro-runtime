@@ -912,7 +912,7 @@
             "options": "",
             "argument": "",
             "expected return": {
-                "ret code": 57,
+                "ret code": 8,
                 "stdout content": "",
                 "description": "sock_shutdown on a non-socket file descriptor should fail with 57 notsock"
             }
@@ -1705,6 +1705,22 @@
                 "ret code": 255,
                 "stdout content": "WASM module load failed: unknown type",
                 "description": "no '0x0:i64'"
+            }
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                3491
+            ],
+            "runtime": "iwasm-default-wasi-disabled",
+            "file": "nop_0LM_592_17171016522810388.wasm",
+            "mode": "fast-interp",
+            "options": "",
+            "argument": "",
+            "expected return": {
+                "ret code": 255,
+                "stdout content": "WASM module load failed: data count and data section have inconsistent lengths",
+                "description": "Check data segment count"
             }
         }
     ]
