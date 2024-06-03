@@ -1740,8 +1740,12 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
 
 static bool
 load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
-                          WASMModule *module, bool clone_data_seg,
-                          char *error_buf, uint32 error_buf_size)
+                          WASMModule *module,
+#if WASM_ENABLE_BULK_MEMORY != 0
+                          bool has_datacount_section,
+#endif
+                          bool clone_data_seg, char *error_buf,
+                          uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf_end;
     uint32 data_seg_count, i, mem_index, data_seg_len;
@@ -1757,7 +1761,7 @@ load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
     read_leb_uint32(p, p_end, data_seg_count);
 
 #if WASM_ENABLE_BULK_MEMORY != 0
-    bh_assert(module->data_seg_count1 == 0
+    bh_assert(!has_datacount_section
               || data_seg_count == module->data_seg_count1);
 #endif
 
@@ -2029,8 +2033,10 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
     if (name_len == 4 && memcmp(p, "name", 4) == 0) {
         p += name_len;
-        handle_name_section(p, p_end, module, is_load_from_file_buf, error_buf,
-                            error_buf_size);
+        if (!handle_name_section(p, p_end, module, is_load_from_file_buf,
+                                 error_buf, error_buf_size)) {
+            return false;
+        }
     }
 #endif
     LOG_VERBOSE("Load custom section success.\n");
@@ -2579,6 +2585,9 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     uint8 malloc_free_io_type = VALUE_TYPE_I32;
     bool reuse_const_strings = is_load_from_file_buf && !wasm_binary_freeable;
     bool clone_data_seg = is_load_from_file_buf && wasm_binary_freeable;
+#if WASM_ENABLE_BULK_MEMORY != 0
+    bool has_datacount_section = false;
+#endif
 
     /* Find code and function sections if have */
     while (section) {
@@ -2660,6 +2669,9 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                 break;
             case SECTION_TYPE_DATA:
                 if (!load_data_segment_section(buf, buf_end, module,
+#if WASM_ENABLE_BULK_MEMORY != 0
+                                               has_datacount_section,
+#endif
                                                clone_data_seg, error_buf,
                                                error_buf_size))
                     return false;
@@ -2669,6 +2681,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                 if (!load_datacount_section(buf, buf_end, module, error_buf,
                                             error_buf_size))
                     return false;
+                has_datacount_section = true;
                 break;
 #endif
             default:
