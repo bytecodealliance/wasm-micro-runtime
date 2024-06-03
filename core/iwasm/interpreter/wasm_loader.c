@@ -5245,10 +5245,11 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
         module->name_section_buf = buf;
         module->name_section_buf_end = buf_end;
         p += name_len;
-        handle_name_section(p, p_end, module, is_load_from_file_buf, error_buf,
-                            error_buf_size);
+        if (!handle_name_section(p, p_end, module, is_load_from_file_buf,
+                                 error_buf, error_buf_size)) {
+            return false;
+        }
         LOG_VERBOSE("Load custom name section success.");
-        return true;
     }
 #endif
 

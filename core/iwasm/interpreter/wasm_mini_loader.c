@@ -2033,8 +2033,10 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
     if (name_len == 4 && memcmp(p, "name", 4) == 0) {
         p += name_len;
-        handle_name_section(p, p_end, module, is_load_from_file_buf, error_buf,
-                            error_buf_size);
+        if (!handle_name_section(p, p_end, module, is_load_from_file_buf,
+                                 error_buf, error_buf_size)) {
+            return false;
+        }
     }
 #endif
     LOG_VERBOSE("Load custom section success.\n");
