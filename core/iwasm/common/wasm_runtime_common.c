@@ -4170,7 +4170,7 @@ wasm_func_type_get_result_valkind(WASMFuncType *const func_type,
 }
 
 wasm_valkind_t
-wasm_global_type_get_valkind(const wasm_global_type_t global_type)
+wasm_global_type_get_valkind(WASMGlobalType *const global_type)
 {
     bh_assert(global_type);
 
@@ -4178,7 +4178,7 @@ wasm_global_type_get_valkind(const wasm_global_type_t global_type)
 }
 
 bool
-wasm_global_type_get_mutable(const wasm_global_type_t global_type)
+wasm_global_type_get_mutable(WASMGlobalType *const global_type)
 {
     bh_assert(global_type);
 
