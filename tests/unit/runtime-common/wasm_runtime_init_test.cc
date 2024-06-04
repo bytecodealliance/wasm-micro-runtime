@@ -104,6 +104,7 @@ TEST_F(wasm_runtime_init_test_suite, init_and_register_natives)
                                                   n_native_symbols));
     EXPECT_EQ(true, wasm_runtime_register_natives_raw("env", native_symbols,
                                                       n_native_symbols));
+    wasm_runtime_destroy();
 }
 
 TEST_F(wasm_runtime_init_test_suite, init_thread_env_destroy_thread_env)
@@ -146,12 +147,9 @@ TEST_F(wasm_runtime_init_test_suite, wasm_runtime_full_init)
     /* Use valid module, and runtime need to be proper inited */
     wasm_file_buf =
         (unsigned char *)bh_read_file_to_buffer(WASM_FILE_1, &wasm_file_size);
-    if (!wasm_file_buf)
-        goto fail;
-    if (!(module =
-              wasm_runtime_load(wasm_file_buf, wasm_file_size, nullptr, 0))) {
-        goto fail;
-    }
+    EXPECT_NE(nullptr, wasm_file_buf);
+    module = wasm_runtime_load(wasm_file_buf, wasm_file_size, nullptr, 0);
+    EXPECT_NE(nullptr, module);
     EXPECT_EQ(true, wasm_runtime_register_module_internal(
                         "module", module, wasm_file_buf, wasm_file_size, nullptr, 0));
     wasm_runtime_destroy();
@@ -161,7 +159,4 @@ TEST_F(wasm_runtime_init_test_suite, wasm_runtime_full_init)
     init_args.mem_alloc_option.pool.heap_buf = NULL;
     init_args.mem_alloc_option.pool.heap_size = 0;
     EXPECT_EQ(false, wasm_runtime_full_init(&init_args));
-fail:
-    if (!module)
-        wasm_runtime_unload(module);
 }
