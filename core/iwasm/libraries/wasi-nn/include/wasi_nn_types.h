@@ -9,6 +9,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * ERRORS
  *
@@ -100,7 +104,8 @@ typedef enum {
     onnx,
     tensorflow,
     pytorch,
-    tensorflowlite
+    tensorflowlite,
+    backend_amount
 } graph_encoding;
 
 // Define where the graph should be executed.
@@ -109,4 +114,35 @@ typedef enum execution_target { cpu = 0, gpu, tpu } execution_target;
 // Bind a `graph` to the input and output tensors for an inference.
 typedef uint32_t graph_execution_context;
 
+/* Definition of 'wasi_nn.h' structs in WASM app format (using offset) */
+
+typedef wasi_nn_error (*LOAD)(void *, graph_builder_array *, graph_encoding,
+                              execution_target, graph *);
+typedef wasi_nn_error (*INIT_EXECUTION_CONTEXT)(void *, graph,
+                                                graph_execution_context *);
+typedef wasi_nn_error (*SET_INPUT)(void *, graph_execution_context, uint32_t,
+                                   tensor *);
+typedef wasi_nn_error (*COMPUTE)(void *, graph_execution_context);
+typedef wasi_nn_error (*GET_OUTPUT)(void *, graph_execution_context, uint32_t,
+                                    tensor_data, uint32_t *);
+/* wasi-nn general APIs */
+typedef void (*BACKEND_INITIALIZE)(void **);
+typedef void (*BACKEND_DEINITIALIZE)(void *);
+
+typedef struct {
+    LOAD load;
+    INIT_EXECUTION_CONTEXT init_execution_context;
+    SET_INPUT set_input;
+    COMPUTE compute;
+    GET_OUTPUT get_output;
+    BACKEND_INITIALIZE init;
+    BACKEND_DEINITIALIZE deinit;
+} api_function;
+
+bool
+wasi_nn_register_backend(graph_encoding backend_code, api_function apis);
+
+#ifdef __cplusplus
+}
+#endif
 #endif

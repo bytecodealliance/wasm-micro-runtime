@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "wasi_nn_types.h"
 #include "wasi_nn_tensorflowlite.hpp"
 #include "logger.h"
 
@@ -486,4 +485,19 @@ tensorflowlite_destroy(void *tflite_ctx)
     os_mutex_destroy(&tfl_ctx->g_lock);
     delete tfl_ctx;
     NN_DBG_PRINTF("Memory free'd.");
+}
+
+__attribute__((constructor(200))) void
+tflite_register_backend()
+{
+    api_function apis = {
+        .load = tensorflowlite_load,
+        .init_execution_context = tensorflowlite_init_execution_context,
+        .set_input = tensorflowlite_set_input,
+        .compute = tensorflowlite_compute,
+        .get_output = tensorflowlite_get_output,
+        .init = tensorflowlite_initialize,
+        .deinit = tensorflowlite_destroy,
+    };
+    wasi_nn_register_backend(tensorflowlite, apis);
 }
