@@ -14,6 +14,7 @@ add_definitions (-Dattr_container_free=free)
 set (WAMR_BUILD_LIBC_WASI 0)
 set (WAMR_BUILD_APP_FRAMEWORK 1)
 set (WAMR_BUILD_AOT 0)
+set (WAMR_BUILD_INTERP 1)
 
 include (../unit_common.cmake)
 
