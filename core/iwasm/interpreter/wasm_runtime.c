@@ -394,6 +394,7 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
     memory = module_inst->global_table_data.memory_instances;
 
     /* instantiate memories from import section */
+    /* TODO: only set aux stack related data and heap data on main memory */
     import = module->import_memories;
     for (i = 0; i < module->import_memory_count; i++, import++, memory++) {
         uint32 num_bytes_per_page =
