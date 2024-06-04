@@ -276,7 +276,10 @@ jobs:
 
   build_unit_tests:
     needs:
-      [build_llvm_libraries_on_ubuntu_2204]
+      [
+        build_llvm_libraries_on_ubuntu_2204,
+        build_wamrc
+      ]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -326,6 +329,13 @@ jobs:
           sudo wget ${{ matrix.wabt_release }}
           sudo tar -xzf wabt-1.0.31-*.tar.gz
           sudo mv wabt-1.0.31 wabt
+
+      - name: Build wamrc
+        run: |
+          mkdir build && cd build
+          cmake ..
+          cmake --build . --config Release --parallel 4
+        working-directory: wamr-compiler
 
       - name: Build and run unit tests
         run: |
