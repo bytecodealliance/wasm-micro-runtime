@@ -520,8 +520,7 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
     } while (0)
 
 #if WASM_ENABLE_MEMORY64 != 0
-#define IS_MEMORY64 \
-    (comp_ctx->comp_data->memories[0].memory_flags & MEMORY64_FLAG)
+#define IS_MEMORY64 (comp_ctx->comp_data->memories[0].flags & MEMORY64_FLAG)
 #define MEMORY64_COND_VALUE(VAL_IF_ENABLED, VAL_IF_DISABLED) \
     (IS_MEMORY64 ? VAL_IF_ENABLED : VAL_IF_DISABLED)
 #else

@@ -512,7 +512,7 @@ typedef struct WASMMemory {
     uint32 num_bytes_per_page;
     uint32 init_page_count;
     uint32 max_page_count;
-} WASMMemory;
+} WASMMemory, WASMMemoryType;
 
 typedef struct WASMTableImport {
     char *module_name;
@@ -536,10 +536,7 @@ typedef struct WASMTableImport {
 typedef struct WASMMemoryImport {
     char *module_name;
     char *field_name;
-    uint32 flags;
-    uint32 num_bytes_per_page;
-    uint32 init_page_count;
-    uint32 max_page_count;
+    WASMMemoryType mem_type;
 #if WASM_ENABLE_MULTI_MODULE != 0
     WASMModule *import_module;
     WASMMemory *import_memory_linked;

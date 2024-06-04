@@ -78,6 +78,10 @@ typedef struct WASMFuncType *wasm_func_type_t;
 struct WASMGlobalType;
 typedef struct WASMGlobalType *wasm_global_type_t;
 
+struct WASMMemory;
+typedef struct WASMMemory WASMMemoryType;
+typedef WASMMemoryType *wasm_memory_type_t;
+
 typedef struct wasm_import_t {
     const char *module_name;
     const char *name;
@@ -86,6 +90,7 @@ typedef struct wasm_import_t {
     union {
         wasm_func_type_t func_type;
         wasm_global_type_t global_type;
+        wasm_memory_type_t memory_type;
     } u;
 } wasm_import_t;
 
@@ -95,6 +100,7 @@ typedef struct wasm_export_t {
     union {
         wasm_func_type_t func_type;
         wasm_global_type_t global_type;
+        wasm_memory_type_t memory_type;
     } u;
 } wasm_export_t;
 
@@ -288,6 +294,12 @@ typedef struct wasm_global_inst_t {
     bool is_mutable;
     void *global_data;
 } wasm_global_inst_t;
+
+/* Memory instance*/
+typedef struct wasm_memory_inst_t {
+    void *address;
+    uint32_t size;
+} wasm_memory_inst_t;
 
 typedef enum {
     WASM_LOG_LEVEL_FATAL = 0,
@@ -1351,6 +1363,36 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_global_type_get_mutable(const wasm_global_type_t global_type);
 
 /**
+ * Get the shared setting for a memory type
+ *
+ * @param memory_type the memory type
+ *
+ * @return true if shared, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_memory_type_get_shared(const wasm_memory_type_t memory_type);
+
+/**
+ * Get the initial page count for a memory type
+ *
+ * @param memory_type the memory type
+ *
+ * @return the initial memory page count
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_memory_type_get_init_page_count(const wasm_memory_type_t memory_type);
+
+/**
+ * Get the maximum page count for a memory type
+ *
+ * @param memory_type the memory type
+ *
+ * @return the maximum memory page count
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_memory_type_get_max_page_count(const wasm_memory_type_t memory_type);
+
+/**
  * Register native functions with same module name
  *
  * Note: The array `native_symbols` should not be read-only because the
@@ -1435,6 +1477,21 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_get_export_global_inst(const wasm_module_inst_t module_inst,
                                     const char *name,
                                     wasm_global_inst_t *global_inst);
+
+/**
+ * Get an export memory instance
+ *
+ * @param module_inst the module instance
+ * @param name the export memory name
+ * @param memory_inst location to store the memory instance
+ *
+ * @return true if success, false otherwise
+ *
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_get_export_memory_inst(const wasm_module_inst_t module_inst,
+                                    const char *name,
+                                    wasm_memory_inst_t *memory_inst);
 
 /**
  * Get attachment of native function from execution environment
