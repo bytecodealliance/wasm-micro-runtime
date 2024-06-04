@@ -1,0 +1,57 @@
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+FROM mcr.microsoft.com/devcontainers/rust:1-1-bullseye
+
+ARG DEBIAN_FRONTEND=noninteractive
+ENV TZ=Asian/Shanghai
+
+# hadolint ignore=DL3009
+RUN apt-get update \
+  && apt-get upgrade -y
+
+#
+# Rust targets
+RUN rustup target add wasm32-wasi wasm32-unknown-unknown
+
+#
+# Openvino
+# Refer to
+#   - https://docs.openvino.ai/2022.3/openvino_docs_install_guides_installing_openvino_from_archive_linux.html
+#   - https://docs.openvino.ai/2023.3/openvino_docs_install_guides_installing_openvino_from_archive_linux.html
+#   - https://docs.openvino.ai/2024/get-started/install-openvino/install-openvino-archive-linux.html
+#
+# FIXME: upgrade to 2024.1 or latest after wasi-nn(rust binding) is ready
+WORKDIR /opt/intel
+RUN wget -q https://storage.openvinotoolkit.org/repositories/openvino/packages/2022.3.2/linux/l_openvino_toolkit_ubuntu20_2022.3.2.9279.e2c7e4d7b4d_x86_64.tgz
+RUN tar -xf l_openvino_toolkit_ubuntu20_2022.3.2.9279.e2c7e4d7b4d_x86_64.tgz \
+  && rm l_openvino_toolkit_ubuntu20_2022.3.2.9279.e2c7e4d7b4d_x86_64.tgz \
+  && mv l_openvino_toolkit_ubuntu20_2022.3.2.9279.e2c7e4d7b4d_x86_64 /opt/intel/openvino
+
+WORKDIR /opt/intel/openvino
+RUN ./install_dependencies/install_openvino_dependencies.sh -y \
+  && ./setupvars.sh
+
+#
+# wasmtime
+WORKDIR /opt
+RUN wget -q https://github.com/bytecodealliance/wasmtime/releases/download/v21.0.0/wasmtime-v21.0.0-x86_64-linux.tar.xz
+RUN tar -xf wasmtime-v21.0.0-x86_64-linux.tar.xz \
+  && rm wasmtime-v21.0.0-x86_64-linux.tar.xz \
+  && ln -sf "$(realpath ./wasmtime-v21.0.0-x86_64-linux/wasmtime)" /usr/local/bin/wasmtime
+
+#
+# wasi-nn
+WORKDIR /workspaces/wasi-nn
+RUN git clone --depth 1 https://github.com/bytecodealliance/wasi-nn.git .
+# hadolint ignore=DL3059
+RUN ./build.sh rust
+
+# There are model files(mobilenet*) and wasm files(wasi-nn-example.wasm) in the directory,
+# /workspaces/wasi-nn/rust/examples/classification-example/build
+
+RUN apt-get autoremove -y \
+  && apt-get clean -y \
+  && rm -rf /tmp/*
+
+WORKDIR /workspaces
