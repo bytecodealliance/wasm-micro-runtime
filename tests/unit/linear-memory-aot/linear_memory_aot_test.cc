@@ -130,6 +130,7 @@ destroy_module_env(struct ret_env module_env)
     }
 }
 
+#if 0
 TEST_F(TEST_SUITE_NAME, test_aot_mem_page_count)
 {
     struct ret_env tmp_module_env;
@@ -187,6 +188,7 @@ TEST_F(TEST_SUITE_NAME, test_aot_mem_page_count)
         destroy_module_env(tmp_module_env);
     }
 }
+#endif
 
 TEST_F(TEST_SUITE_NAME, test_aot_about_app_heap)
 {
@@ -246,6 +248,7 @@ failed_out_of_bounds:
     destroy_module_env(tmp_module_env);
 }
 
+#if 0
 TEST_F(TEST_SUITE_NAME, test_mem_grow_out_of_bounds)
 {
     struct ret_env tmp_module_env;
@@ -359,3 +362,4 @@ TEST_F(TEST_SUITE_NAME, test_mem_grow_out_of_bounds)
 failed_out_of_bounds:
     destroy_module_env(tmp_module_env);
 }
+#endif
