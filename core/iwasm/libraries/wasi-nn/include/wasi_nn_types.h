@@ -28,7 +28,7 @@ typedef enum {
     busy,
     // Runtime Error.
     runtime_error,
-} error;
+} wasi_nn_error;
 
 /**
  * TENSOR
@@ -105,5 +105,8 @@ typedef enum {
 
 // Define where the graph should be executed.
 typedef enum execution_target { cpu = 0, gpu, tpu } execution_target;
+
+// Bind a `graph` to the input and output tensors for an inference.
+typedef uint32_t graph_execution_context;
 
 #endif

@@ -12,7 +12,7 @@
 #include <errno.h>
 #include <string.h>
 
-#include "wasi_nn.h"
+#include "wasi_nn_types.h"
 #include "logger.h"
 
 #include "bh_platform.h"
@@ -47,18 +47,18 @@ typedef struct {
 } tensor_wasm;
 
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-error
+wasi_nn_error
 graph_builder_array_app_native(wasm_module_inst_t instance,
                                graph_builder_wasm *builder_wasm, uint32_t size,
                                graph_builder_array *builder_array);
 #else  /* WASM_ENABLE_WASI_EPHEMERAL_NN == 0 */
-error
+wasi_nn_error
 graph_builder_array_app_native(wasm_module_inst_t instance,
                                graph_builder_array_wasm *builder,
                                graph_builder_array *builder_native);
 #endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
 
-error
+wasi_nn_error
 tensor_app_native(wasm_module_inst_t instance, tensor_wasm *input_tensor,
                   tensor *input_tensor_native);
 
