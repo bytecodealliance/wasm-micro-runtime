@@ -295,12 +295,6 @@ typedef struct wasm_global_inst_t {
     void *global_data;
 } wasm_global_inst_t;
 
-/* Memory instance*/
-typedef struct wasm_memory_inst_t {
-    void *address;
-    uint32_t size;
-} wasm_memory_inst_t;
-
 typedef enum {
     WASM_LOG_LEVEL_FATAL = 0,
     WASM_LOG_LEVEL_ERROR = 1,
