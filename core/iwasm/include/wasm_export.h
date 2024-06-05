@@ -1479,21 +1479,6 @@ wasm_runtime_get_export_global_inst(const wasm_module_inst_t module_inst,
                                     wasm_global_inst_t *global_inst);
 
 /**
- * Get an export memory instance
- *
- * @param module_inst the module instance
- * @param name the export memory name
- * @param memory_inst location to store the memory instance
- *
- * @return true if success, false otherwise
- *
- */
-WASM_RUNTIME_API_EXTERN bool
-wasm_runtime_get_export_memory_inst(const wasm_module_inst_t module_inst,
-                                    const char *name,
-                                    wasm_memory_inst_t *memory_inst);
-
-/**
  * Get attachment of native function from execution environment
  *
  * @param exec_env the execution environment to retrieve

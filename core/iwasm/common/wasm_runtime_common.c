@@ -1966,53 +1966,6 @@ wasm_runtime_get_export_global_inst(WASMModuleInstanceCommon *const module_inst,
     return false;
 }
 
-bool
-wasm_runtime_get_export_memory_inst(WASMModuleInstanceCommon *const module_inst,
-                                    char const *name,
-                                    wasm_memory_inst_t *memory_inst)
-{
-#if WASM_ENABLE_INTERP != 0
-    if (module_inst->module_type == Wasm_Module_Bytecode) {
-        const WASMModuleInstance *wasm_module_inst =
-            (const WASMModuleInstance *)module_inst;
-        const WASMModule *wasm_module = wasm_module_inst->module;
-        uint32 i;
-        for (i = 0; i < wasm_module->export_count; i++) {
-            const WASMExport *wasm_export = &wasm_module->exports[i];
-            if ((wasm_export->kind == WASM_IMPORT_EXPORT_KIND_MEMORY)
-                && !strcmp(wasm_export->name, name)) {
-                const WASMMemoryInstance *memory =
-                    wasm_module_inst->memories[wasm_export->index];
-                memory_inst->address = memory->memory_data;
-                memory_inst->size = memory->memory_data_size;
-                return true;
-            }
-        }
-    }
-#endif
-#if WASM_ENABLE_AOT != 0
-    if (module_inst->module_type == Wasm_Module_AoT) {
-        const AOTModuleInstance *aot_module_inst =
-            (AOTModuleInstance *)module_inst;
-        const AOTModule *aot_module = (AOTModule *)aot_module_inst->module;
-        uint32 i;
-        for (i = 0; i < aot_module->export_count; i++) {
-            const AOTExport *aot_export = &aot_module->exports[i];
-            if ((aot_export->kind == WASM_IMPORT_EXPORT_KIND_MEMORY)
-                && !strcmp(aot_export->name, name)) {
-                const WASMMemoryInstance *memory =
-                    aot_module_inst->memories[aot_export->index];
-                memory_inst->address = memory->memory_data;
-                memory_inst->size = memory->memory_data_size;
-                return true;
-            }
-        }
-    }
-#endif
-
-    return false;
-}
-
 void *
 wasm_runtime_get_function_attachment(WASMExecEnv *exec_env)
 {
