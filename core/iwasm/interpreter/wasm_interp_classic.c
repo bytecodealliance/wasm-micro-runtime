@@ -5647,6 +5647,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     {
                         mem_offset_t dst, src, len;
                         uint8 *mdst, *msrc;
+                        uint32 dlen;
 
 #if WASM_ENABLE_MULTI_MEMORY == 0
                         /* Skip src and dst memidx */
@@ -5660,7 +5661,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         /* dst memidx */
                         read_leb_memidx(frame_ip, frame_ip_end, memidx);
 #endif
-#if WASM_ENABLE_MULTI_MEMORY != 0 || WASM_ENABLE_MULTI_MEMORY != 0
+#if WASM_ENABLE_THREAD_MGR != 0 || WASM_ENABLE_MULTI_MEMORY != 0
                         linear_mem_size = get_linear_mem_size();
 #endif
                         /* Boundary check */
@@ -5671,12 +5672,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             goto out_of_bounds;
                         mdst = memory->memory_data + (uint32)dst;
 #endif
+                        dlen = (uint32)(linear_mem_size - dst);
 
 #if WASM_ENABLE_MULTI_MEMORY != 0
                         /* src memidx */
                         read_leb_memidx(frame_ip, frame_ip_end, memidx);
 #endif
-#if WASM_ENABLE_MULTI_MEMORY != 0 || WASM_ENABLE_MULTI_MEMORY != 0
+#if WASM_ENABLE_THREAD_MGR != 0 || WASM_ENABLE_MULTI_MEMORY != 0
                         linear_mem_size = get_linear_mem_size();
 #endif
                         /* Boundary check */
@@ -5689,14 +5691,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
 
                         /* allowing the destination and source to overlap */
-#if WASM_ENABLE_MEMORY64 == 0
-                        bh_memmove_s(mdst, (uint32)(linear_mem_size - dst),
-                                     msrc, (uint32)len);
-#else
-                        /* use memmove when memory64 is enabled since len
-                           may be larger than UINT32_MAX */
-                        memmove(mdst, msrc, len);
-#endif
+                        bh_memmove_s(mdst, (mem_offset_t)dlen, msrc,
+                                     (mem_offset_t)len);
                         break;
                     }
                     case WASM_OP_MEMORY_FILL:
