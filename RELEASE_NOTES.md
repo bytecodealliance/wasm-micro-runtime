@@ -51,6 +51,7 @@
  - Enhance wasm loader checks for opcode br_table (#3352)
 
 ### Others
+ - Bump requests from 2.32.2 to 2.32.3 in /build-scripts (#3494)
  - Enable building static library on Android platform (#3488)
  - wasm-mutator-fuzz: Generate more kinds of corpus (#3487)
  - Correct nuttx repo names (#3484)
