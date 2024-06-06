@@ -3,6 +3,7 @@
 ### Breaking Changes
 
 ### New Features
+ - Add wasm_export.h APIs to expose memory type (#3496)
  - Add api to get export global instance (#3452)
  - Add wasm-mutator-fuzz test (#3420)
  - Implement Memory64 support for AOT (#3362)
@@ -12,6 +13,8 @@
  - Add WASI support for esp-idf platform (#3348)
 
 ### Bug Fixes
+ - Fix posix build when libc wasi is disabled and debug interp is enabled (#3503)
+ - Fix wasm_mini_loader.c build when jit or multi-module is enabled (#3502)
  - Fix wasm loader check data segment count (#3492)
  - Fix loader parse block type and calculate dynamic offset for loop args (#3482)
  - Fix memory64 handling find_block_addr and execute_main (#3480)
@@ -48,6 +51,7 @@
  - Enhance wasm loader checks for opcode br_table (#3352)
 
 ### Others
+ - Bump requests from 2.32.2 to 2.32.3 in /build-scripts (#3494)
  - Enable building static library on Android platform (#3488)
  - wasm-mutator-fuzz: Generate more kinds of corpus (#3487)
  - Correct nuttx repo names (#3484)
