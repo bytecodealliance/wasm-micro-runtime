@@ -78,6 +78,10 @@ typedef struct WASMFuncType *wasm_func_type_t;
 struct WASMGlobalType;
 typedef struct WASMGlobalType *wasm_global_type_t;
 
+struct WASMMemory;
+typedef struct WASMMemory WASMMemoryType;
+typedef WASMMemoryType *wasm_memory_type_t;
+
 typedef struct wasm_import_t {
     const char *module_name;
     const char *name;
@@ -86,6 +90,7 @@ typedef struct wasm_import_t {
     union {
         wasm_func_type_t func_type;
         wasm_global_type_t global_type;
+        wasm_memory_type_t memory_type;
     } u;
 } wasm_import_t;
 
@@ -95,6 +100,7 @@ typedef struct wasm_export_t {
     union {
         wasm_func_type_t func_type;
         wasm_global_type_t global_type;
+        wasm_memory_type_t memory_type;
     } u;
 } wasm_export_t;
 
@@ -1349,6 +1355,36 @@ wasm_global_type_get_valkind(const wasm_global_type_t global_type);
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_global_type_get_mutable(const wasm_global_type_t global_type);
+
+/**
+ * Get the shared setting for a memory type
+ *
+ * @param memory_type the memory type
+ *
+ * @return true if shared, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_memory_type_get_shared(const wasm_memory_type_t memory_type);
+
+/**
+ * Get the initial page count for a memory type
+ *
+ * @param memory_type the memory type
+ *
+ * @return the initial memory page count
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_memory_type_get_init_page_count(const wasm_memory_type_t memory_type);
+
+/**
+ * Get the maximum page count for a memory type
+ *
+ * @param memory_type the memory type
+ *
+ * @return the maximum memory page count
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_memory_type_get_max_page_count(const wasm_memory_type_t memory_type);
 
 /**
  * Register native functions with same module name

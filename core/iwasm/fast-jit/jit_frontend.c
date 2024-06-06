@@ -234,7 +234,7 @@ is_shared_memory(WASMModule *module, uint32 mem_idx)
 
     if (mem_idx < module->import_memory_count) {
         memory_import = &(module->import_memories[mem_idx].u.memory);
-        is_shared = memory_import->flags & 0x02 ? true : false;
+        is_shared = memory_import->mem_type.flags & 0x02 ? true : false;
     }
     else {
         memory = &module->memories[mem_idx - module->import_memory_count];

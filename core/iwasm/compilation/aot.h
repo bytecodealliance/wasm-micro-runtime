@@ -46,6 +46,8 @@ typedef WASMStructType AOTStructType;
 typedef WASMArrayType AOTArrayType;
 #endif
 typedef WASMExport AOTExport;
+typedef WASMMemory AOTMemory;
+typedef WASMMemoryType AOTMemoryType;
 
 #if WASM_ENABLE_DEBUG_AOT != 0
 typedef void *dwarf_extractor_handle_t;
@@ -81,22 +83,8 @@ typedef enum AOTFloatCond {
 typedef struct AOTImportMemory {
     char *module_name;
     char *memory_name;
-    uint32 memory_flags;
-    uint32 num_bytes_per_page;
-    uint32 mem_init_page_count;
-    uint32 mem_max_page_count;
+    AOTMemoryType mem_type;
 } AOTImportMemory;
-
-/**
- * Memory information
- */
-typedef struct AOTMemory {
-    /* memory info */
-    uint32 memory_flags;
-    uint32 num_bytes_per_page;
-    uint32 mem_init_page_count;
-    uint32 mem_max_page_count;
-} AOTMemory;
 
 /**
  * A segment of memory init data

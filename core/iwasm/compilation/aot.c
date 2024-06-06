@@ -558,28 +558,24 @@ aot_create_comp_data(WASMModule *module, const char *target_arch,
     /* Set memory page count */
     for (i = 0; i < module->import_memory_count + module->memory_count; i++) {
         if (i < module->import_memory_count) {
-            comp_data->memories[i].memory_flags =
-                module->import_memories[i].u.memory.flags;
+            comp_data->memories[i].flags =
+                module->import_memories[i].u.memory.mem_type.flags;
             comp_data->memories[i].num_bytes_per_page =
-                module->import_memories[i].u.memory.num_bytes_per_page;
-            comp_data->memories[i].mem_init_page_count =
-                module->import_memories[i].u.memory.init_page_count;
-            comp_data->memories[i].mem_max_page_count =
-                module->import_memories[i].u.memory.max_page_count;
-            comp_data->memories[i].num_bytes_per_page =
-                module->import_memories[i].u.memory.num_bytes_per_page;
+                module->import_memories[i].u.memory.mem_type.num_bytes_per_page;
+            comp_data->memories[i].init_page_count =
+                module->import_memories[i].u.memory.mem_type.init_page_count;
+            comp_data->memories[i].max_page_count =
+                module->import_memories[i].u.memory.mem_type.max_page_count;
         }
         else {
             j = i - module->import_memory_count;
-            comp_data->memories[i].memory_flags = module->memories[j].flags;
+            comp_data->memories[i].flags = module->memories[j].flags;
             comp_data->memories[i].num_bytes_per_page =
                 module->memories[j].num_bytes_per_page;
-            comp_data->memories[i].mem_init_page_count =
+            comp_data->memories[i].init_page_count =
                 module->memories[j].init_page_count;
-            comp_data->memories[i].mem_max_page_count =
+            comp_data->memories[i].max_page_count =
                 module->memories[j].max_page_count;
-            comp_data->memories[i].num_bytes_per_page =
-                module->memories[j].num_bytes_per_page;
         }
     }
 

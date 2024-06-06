@@ -2580,8 +2580,8 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
                     + (i - import_func_count - import_global_count);
                 module_name_rt = import->u.names.module_name;
                 field_name_rt = import->u.names.field_name;
-                min_page = import->u.memory.init_page_count;
-                max_page = import->u.memory.max_page_count;
+                min_page = import->u.memory.mem_type.init_page_count;
+                max_page = import->u.memory.mem_type.max_page_count;
             }
 #endif
 
@@ -2592,8 +2592,8 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
                     + (i - import_func_count - import_global_count);
                 module_name_rt = import->module_name;
                 field_name_rt = import->memory_name;
-                min_page = import->mem_init_page_count;
-                max_page = import->mem_max_page_count;
+                min_page = import->mem_type.init_page_count;
+                max_page = import->mem_type.max_page_count;
             }
 #endif
 
@@ -4308,12 +4308,12 @@ wasm_memory_new_internal(wasm_store_t *store, uint16 memory_idx_rt,
         AOTModule *module_aot = (AOTModule *)inst_aot->module;
 
         if (memory_idx_rt < module_aot->import_memory_count) {
-            min_pages = module_aot->import_memories->mem_init_page_count;
-            max_pages = module_aot->import_memories->mem_max_page_count;
+            min_pages = module_aot->import_memories->mem_type.init_page_count;
+            max_pages = module_aot->import_memories->mem_type.max_page_count;
         }
         else {
-            min_pages = module_aot->memories->mem_init_page_count;
-            max_pages = module_aot->memories->mem_max_page_count;
+            min_pages = module_aot->memories->init_page_count;
+            max_pages = module_aot->memories->max_page_count;
         }
         init_flag = true;
     }

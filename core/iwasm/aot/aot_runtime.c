@@ -789,10 +789,9 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
 {
     void *heap_handle;
     uint32 num_bytes_per_page = memory->num_bytes_per_page;
-    uint32 init_page_count = memory->mem_init_page_count;
-    uint32 max_page_count =
-        wasm_runtime_get_max_mem(max_memory_pages, memory->mem_init_page_count,
-                                 memory->mem_max_page_count);
+    uint32 init_page_count = memory->init_page_count;
+    uint32 max_page_count = wasm_runtime_get_max_mem(
+        max_memory_pages, memory->init_page_count, memory->max_page_count);
     uint32 default_max_pages;
     uint32 inc_page_count, global_idx;
     uint32 bytes_of_last_page, bytes_to_page_end;
@@ -800,11 +799,11 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         heap_offset = (uint64)num_bytes_per_page * init_page_count;
     uint64 memory_data_size, max_memory_data_size;
     uint8 *p = NULL, *global_addr;
-    bool is_memory64 = memory->memory_flags & MEMORY64_FLAG;
+    bool is_memory64 = memory->flags & MEMORY64_FLAG;
 
     bool is_shared_memory = false;
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    is_shared_memory = memory->memory_flags & SHARED_MEMORY_FLAG ? true : false;
+    is_shared_memory = memory->flags & SHARED_MEMORY_FLAG ? true : false;
     /* Shared memory */
     if (is_shared_memory && parent != NULL) {
         AOTMemoryInstance *shared_memory_instance;

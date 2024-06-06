@@ -33,7 +33,7 @@ has_module_memory64(WASMModule *module)
     /* TODO: multi-memories for now assuming the memory idx type is consistent
      * across multi-memories */
     if (module->import_memory_count > 0)
-        return !!(module->import_memories[0].u.memory.flags & MEMORY64_FLAG);
+        return !!(module->import_memories[0].u.mem_type.flags & MEMORY64_FLAG);
     else if (module->memory_count > 0)
         return !!(module->memories[0].flags & MEMORY64_FLAG);
 
@@ -761,10 +761,10 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
     }
 
     /* now we believe all declaration are ok */
-    memory->flags = mem_flag;
-    memory->init_page_count = declare_init_page_count;
-    memory->max_page_count = declare_max_page_count;
-    memory->num_bytes_per_page = DEFAULT_NUM_BYTES_PER_PAGE;
+    memory->mem_type.flags = mem_flag;
+    memory->mem_type.init_page_count = declare_init_page_count;
+    memory->mem_type.max_page_count = declare_max_page_count;
+    memory->mem_type.num_bytes_per_page = DEFAULT_NUM_BYTES_PER_PAGE;
 
     *p_buf = p;
     return true;
@@ -1812,7 +1812,7 @@ load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
                 uint8 memory_flag;
                 if (module->import_memory_count > 0) {
                     memory_flag =
-                        module->import_memories[mem_index].u.memory.flags;
+                        module->import_memories[mem_index].u.mem_type.flags;
                 }
                 else {
                     memory_flag =
@@ -2922,12 +2922,14 @@ load_from_sections(WASMModule *module, WASMSection *sections,
             if (shrunk_memory_size <= UINT32_MAX) {
                 if (module->import_memory_count) {
                     memory_import = &module->import_memories[0].u.memory;
-                    init_memory_size = (uint64)memory_import->num_bytes_per_page
-                                       * memory_import->init_page_count;
+                    init_memory_size =
+                        (uint64)memory_import->mem_type.num_bytes_per_page
+                        * memory_import->mem_type.init_page_count;
                     if (shrunk_memory_size <= init_memory_size) {
                         /* Reset memory info to decrease memory usage */
-                        memory_import->num_bytes_per_page = shrunk_memory_size;
-                        memory_import->init_page_count = 1;
+                        memory_import->mem_type.num_bytes_per_page =
+                            shrunk_memory_size;
+                        memory_import->mem_type.init_page_count = 1;
                         LOG_VERBOSE("Shrink import memory size to %" PRIu64,
                                     shrunk_memory_size);
                     }
@@ -2950,15 +2952,15 @@ load_from_sections(WASMModule *module, WASMSection *sections,
 
         if (module->import_memory_count) {
             memory_import = &module->import_memories[0].u.memory;
-            if (memory_import->init_page_count < DEFAULT_MAX_PAGES) {
-                memory_import->num_bytes_per_page *=
-                    memory_import->init_page_count;
-                if (memory_import->init_page_count > 0)
-                    memory_import->init_page_count =
-                        memory_import->max_page_count = 1;
+            if (memory_import->mem_type.init_page_count < DEFAULT_MAX_PAGES) {
+                memory_import->mem_type.num_bytes_per_page *=
+                    memory_import->mem_type.init_page_count;
+                if (memory_import->mem_type.init_page_count > 0)
+                    memory_import->mem_type.init_page_count =
+                        memory_import->mem_type.max_page_count = 1;
                 else
-                    memory_import->init_page_count =
-                        memory_import->max_page_count = 0;
+                    memory_import->mem_type.init_page_count =
+                        memory_import->mem_type.max_page_count = 0;
             }
         }
 
