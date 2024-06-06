@@ -2114,7 +2114,7 @@ static bool
 init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
                                uint32 error_buf_size)
 {
-    LLVMJITOptions llvm_jit_options = wasm_runtime_get_llvm_jit_options();
+    LLVMJITOptions *llvm_jit_options = wasm_runtime_get_llvm_jit_options();
     AOTCompOption option = { 0 };
     char *aot_last_error;
     uint64 size;
@@ -3235,8 +3235,11 @@ load(const uint8 *buf, uint32 size, WASMModule *module,
 }
 
 WASMModule *
-wasm_loader_load(uint8 *buf, uint32 size, const LoadArgs *args, char *error_buf,
-                 uint32 error_buf_size)
+wasm_loader_load(uint8 *buf, uint32 size,
+#if WASM_ENABLE_MULTI_MODULE != 0
+                 bool main_module,
+#endif
+                 const LoadArgs *args, char *error_buf, uint32 error_buf_size)
 {
     WASMModule *module = create_module(args->name, error_buf, error_buf_size);
     if (!module) {
@@ -3253,6 +3256,10 @@ wasm_loader_load(uint8 *buf, uint32 size, const LoadArgs *args, char *error_buf,
               error_buf_size)) {
         goto fail;
     }
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+    (void)main_module;
+#endif
 
     LOG_VERBOSE("Load module success.\n");
     return module;
