@@ -618,21 +618,21 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     for (i = 0; i != module_inst->table_count; ++i) {
         if (i < module->import_table_count) {
             AOTImportTable *import_table = module->import_tables + i;
-            tbl_inst->cur_size = import_table->table_init_size;
+            tbl_inst->cur_size = import_table->table_type.init_size;
             tbl_inst->max_size =
                 aot_get_imp_tbl_data_slots(import_table, false);
+            tbl_inst->elem_type = module->tables[i].table_type.elem_type;
 #if WASM_ENABLE_GC != 0
-            tbl_inst->elem_type = module->tables[i].elem_type;
             tbl_inst->elem_ref_type.elem_ref_type =
                 module->tables[i].elem_ref_type;
 #endif
         }
         else {
             AOTTable *table = module->tables + (i - module->import_table_count);
-            tbl_inst->cur_size = table->table_init_size;
+            tbl_inst->cur_size = table->table_type.init_size;
             tbl_inst->max_size = aot_get_tbl_data_slots(table, false);
+            tbl_inst->elem_type = module->tables[i].table_type.elem_type;
 #if WASM_ENABLE_GC != 0
-            tbl_inst->elem_type = module->tables[i].elem_type;
             tbl_inst->elem_ref_type.elem_ref_type =
                 module->tables[i].elem_ref_type;
 #endif
@@ -1184,6 +1184,52 @@ init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
 }
 
 static bool
+create_functions(AOTModuleInstance *module_inst, AOTModule *module,
+                 char *error_buf, uint32 error_buf_size)
+{
+    AOTModuleInstanceExtra *extra = (AOTModuleInstanceExtra *)module_inst->e;
+    uint32 i;
+    AOTFunctionInstance *function;
+    uint64 total_size = ((uint64)module->import_func_count + module->func_count)
+                        * sizeof(AOTFunctionInstance);
+
+    if (module->import_func_count + module->func_count == 0)
+        return true;
+
+    /* Allocate memory */
+    if (!(extra->functions =
+              runtime_malloc(total_size, error_buf, error_buf_size))) {
+        return false;
+    }
+
+    function = (AOTFunctionInstance *)extra->functions;
+
+    /* instantiate functions from import section */
+    for (i = 0; i < module->import_func_count; i++) {
+        function->is_import_func = true;
+        function->func_name = module->import_funcs[i].func_name;
+        function->func_index = i;
+        function->u.func_import = &module->import_funcs[i];
+        function++;
+    }
+
+    /* instantiate functions from function section */
+    for (i = 0; i < module->func_count; i++) {
+        uint32 ftype_index = module->func_type_indexes[i];
+        function->is_import_func = false;
+        function->func_name = ""; /* only use for export lookup */
+        function->func_index = module->import_func_count + i;
+        function->u.func.func_type = (AOTFuncType *)module->types[ftype_index];
+        function->u.func.func_ptr = module->func_ptrs[i];
+        function++;
+    }
+    bh_assert(function - (AOTFunctionInstance *)extra->functions
+              == (uint64)module->import_func_count + module->func_count);
+
+    return true;
+}
+
+static bool
 init_func_type_indexes(AOTModuleInstance *module_inst, AOTModule *module,
                        char *error_buf, uint32 error_buf_size)
 {
@@ -1620,6 +1666,9 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     }
 #endif
 
+    ((AOTModuleInstanceExtra *)module_inst->e)->function_count =
+        module->import_func_count + module->func_count;
+
     /* Initialize global info */
     p = (uint8 *)module_inst + module_inst_struct_size
         + module_inst_mem_inst_size;
@@ -1648,6 +1697,9 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         goto fail;
 
     if (!create_exports(module_inst, module, error_buf, error_buf_size))
+        goto fail;
+
+    if (!create_functions(module_inst, module, error_buf, error_buf_size))
         goto fail;
 
 #if WASM_ENABLE_LIBC_WASI != 0
@@ -1885,8 +1937,8 @@ destroy_c_api_frames(Vector *frames)
 void
 aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 {
-    WASMModuleInstanceExtraCommon *common =
-        &((AOTModuleInstanceExtra *)module_inst->e)->common;
+    AOTModuleInstanceExtra *extra = (AOTModuleInstanceExtra *)module_inst->e;
+    WASMModuleInstanceExtraCommon *common = &extra->common;
     if (module_inst->exec_env_singleton) {
         /* wasm_exec_env_destroy will call
            wasm_cluster_wait_for_all_except_self to wait for other
@@ -1923,6 +1975,9 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
     if (module_inst->export_functions)
         wasm_runtime_free(module_inst->export_functions);
 
+    if (extra->functions)
+        wasm_runtime_free(extra->functions);
+
     if (module_inst->func_ptrs)
         wasm_runtime_free(module_inst->func_ptrs);
 
@@ -1934,12 +1989,10 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 
 #if WASM_ENABLE_GC != 0
     if (!is_sub_inst) {
-        AOTModuleInstanceExtra *extra =
-            (AOTModuleInstanceExtra *)module_inst->e;
-        if (extra->common.gc_heap_handle)
-            mem_allocator_destroy(extra->common.gc_heap_handle);
-        if (extra->common.gc_heap_pool)
-            wasm_runtime_free(extra->common.gc_heap_pool);
+        if (common->gc_heap_handle)
+            mem_allocator_destroy(common->gc_heap_handle);
+        if (common->gc_heap_pool)
+            wasm_runtime_free(common->gc_heap_pool);
     }
 #endif
 

@@ -2620,9 +2620,9 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
                        - import_memory_count);
                 module_name_rt = import->u.names.module_name;
                 field_name_rt = import->u.names.field_name;
-                elem_type_rt = import->u.table.elem_type;
-                min_size = import->u.table.init_size;
-                max_size = import->u.table.max_size;
+                elem_type_rt = import->u.table.table_type.elem_type;
+                min_size = import->u.table.table_type.init_size;
+                max_size = import->u.table.table_type.max_size;
             }
 #endif
 
@@ -2634,9 +2634,9 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
                        - import_memory_count);
                 module_name_rt = import->module_name;
                 field_name_rt = import->table_name;
-                elem_type_rt = import->elem_type;
-                min_size = import->table_init_size;
-                max_size = import->table_max_size;
+                elem_type_rt = import->table_type.elem_type;
+                min_size = import->table_type.init_size;
+                max_size = import->table_type.max_size;
             }
 #endif
 
@@ -4195,13 +4195,13 @@ wasm_table_size(const wasm_table_t *table)
         if (table->table_idx_rt < module_aot->import_table_count) {
             AOTImportTable *table_aot =
                 module_aot->import_tables + table->table_idx_rt;
-            return table_aot->table_init_size;
+            return table_aot->table_type.init_size;
         }
         else {
             AOTTable *table_aot =
                 module_aot->tables
                 + (table->table_idx_rt - module_aot->import_table_count);
-            return table_aot->table_init_size;
+            return table_aot->table_type.init_size;
         }
     }
 #endif
