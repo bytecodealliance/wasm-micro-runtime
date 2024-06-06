@@ -3235,7 +3235,7 @@ load(const uint8 *buf, uint32 size, WASMModule *module,
 WASMModule *
 wasm_loader_load(uint8 *buf, uint32 size,
 #if WASM_ENABLE_MULTI_MODULE != 0
-                 bool /* main_module */,
+                 bool main_module,
 #endif
                  const LoadArgs *args, char *error_buf, uint32 error_buf_size)
 {
@@ -3254,6 +3254,10 @@ wasm_loader_load(uint8 *buf, uint32 size,
               error_buf_size)) {
         goto fail;
     }
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+    (void)main_module;
+#endif
 
     LOG_VERBOSE("Load module success.\n");
     return module;
