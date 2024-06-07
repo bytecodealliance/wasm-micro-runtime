@@ -1,13 +1,6 @@
 /*
- * The WebAssembly Live Migration Project
- *
- *  By: Aibo Hu
- *      Yiwei Yang
- *      Brian Zhao
- *      Andrew Quinn
- *
- *  Copyright 2024 Regents of the Univeristy of California
- *  UC Santa Cruz Sluglab.
+ * Regents of the Univeristy of California, All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 #ifndef MVVM_WAMR_READ_WRITE_H
 #define MVVM_WAMR_READ_WRITE_H
@@ -42,7 +35,8 @@ struct FwriteStream : public WriteStream {
     }
     explicit FwriteStream(const char *file_name)
       : file(fopen(file_name, "wb"))
-    {}
+    {
+    }
     ~FwriteStream() override { fclose(file); }
 };
 struct FreadStream : public ReadStream {
@@ -67,7 +61,8 @@ struct FreadStream : public ReadStream {
     std::size_t tellg() const override { return ftell(file); }
     explicit FreadStream(const char *file_name)
       : file(fopen(file_name, "rb"))
-    {}
+    {
+    }
     ~FreadStream() override { fclose(file); }
 };
 // static_assert(ReaderStreamTrait<FreadStream, char>,

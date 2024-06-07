@@ -42,6 +42,7 @@
 #endif
 #include "../common/wasm_c_api_internal.h"
 #include "../../version.h"
+
 /**
  * For runtime build, BH_MALLOC/BH_FREE should be defined as
  * wasm_runtime_malloc/wasm_runtime_free.

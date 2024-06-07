@@ -1,13 +1,6 @@
 /*
- * The WebAssembly Live Migration Project
- *
- *  By: Aibo Hu
- *      Yiwei Yang
- *      Brian Zhao
- *      Andrew Quinn
- *
- *  Copyright 2024 Regents of the Univeristy of California
- *  UC Santa Cruz Sluglab.
+ * Regents of the Univeristy of California, All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 #ifndef MVVM_WAMR_WASI_CONTEXT_H

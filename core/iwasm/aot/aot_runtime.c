@@ -75,11 +75,6 @@ bh_static_assert(offsetof(AOTFrame, sp) == sizeof(uintptr_t) * 5);
 bh_static_assert(offsetof(AOTFrame, frame_ref) == sizeof(uintptr_t) * 6);
 bh_static_assert(offsetof(AOTFrame, lp) == sizeof(uintptr_t) * 7);
 
-bh_static_assert(offsetof(AOTFrame, ip_offset) == sizeof(uintptr_t) * 4);
-bh_static_assert(offsetof(AOTFrame, sp) == sizeof(uintptr_t) * 5);
-bh_static_assert(offsetof(AOTFrame, frame_ref) == sizeof(uintptr_t) * 6);
-bh_static_assert(offsetof(AOTFrame, lp) == sizeof(uintptr_t) * 7);
-
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
@@ -818,7 +813,6 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         bh_assert(memory_idx == 0);
         bh_assert(parent->memory_count > memory_idx);
         shared_memory_instance = parent->memories[memory_idx];
-        shared_memory_instance->ref_count++;
         shared_memory_inc_reference(shared_memory_instance);
         return shared_memory_instance;
     }
@@ -1051,16 +1045,6 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         /* Ignore setting memory init data if no memory inst is created */
         return true;
     }
-
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    /* Currently we have only one memory instance */
-    bool is_shared_memory =
-        module->memories[0].memory_flags & 0x02 ? true : false;
-    if (is_shared_memory && parent != NULL) {
-        /* Ignore setting memory init data if the memory has been initialized */
-        return true;
-    }
-#endif
 
     for (i = 0; i < module->mem_init_data_count; i++) {
         data_seg = module->mem_init_data_list[i];
@@ -1904,7 +1888,6 @@ destroy_c_api_frames(Vector *frames)
 void
 aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 {
-#if WASM_ENABLE_CHECKPOINT_RESTORE == 0
     WASMModuleInstanceExtraCommon *common =
         &((AOTModuleInstanceExtra *)module_inst->e)->common;
     if (module_inst->exec_env_singleton) {
@@ -1978,7 +1961,6 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 #endif
 
     wasm_runtime_free(module_inst);
-#endif
 }
 
 AOTFunctionInstance *
@@ -2263,7 +2245,6 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         while (exec_env->cur_frame != prev_frame)
             aot_free_frame(exec_env);
 #endif
-        // checkpoint
         if (!ret) {
             if (argv1 != argv1_buf)
                 wasm_runtime_free(argv1);
@@ -2564,9 +2545,6 @@ aot_module_malloc_internal(AOTModuleInstance *module_inst,
     /* TODO: Memory64 size check based on memory idx type */
     bh_assert(size <= UINT32_MAX);
 
-    /* TODO: Memory64 size check based on memory idx type */
-    bh_assert(size <= UINT32_MAX);
-
     if (!memory_inst) {
         aot_set_exception(module_inst, "uninitialized memory");
         return 0;
@@ -2594,7 +2572,7 @@ aot_module_malloc_internal(AOTModuleInstance *module_inst,
 
         if (!malloc_func
             || !execute_malloc_function(module_inst, exec_env, malloc_func,
-                                        retain_func, (uint32)size, &offset)) {
+                                        retain_func, size, &offset)) {
             return 0;
         }
         addr = offset ? (uint8 *)memory_inst->memory_data + offset : NULL;
@@ -2705,8 +2683,7 @@ aot_module_free_internal(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
                 free_func = aot_lookup_function(module_inst, "__unpin");
 
             if (free_func)
-                execute_free_function(module_inst, exec_env, free_func,
-                                      (uint32)ptr);
+                execute_free_function(module_inst, exec_env, free_func, ptr);
         }
     }
 }
@@ -2889,8 +2866,6 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
         while (rcc->prev_frame) {
             rcc = rcc->prev_frame;
         }
-        LOG_DEBUG("func_idx: %d instead of %d of thread %ld\n", rcc->func_index,
-                  func_idx, exec_env->handle);
         func_idx = rcc->func_index;
     }
 #endif
@@ -3754,6 +3729,7 @@ aot_free_frame_internal(WASMExecEnv *exec_env)
     if (prev_frame)
         prev_frame->func_perf_prof_info->children_exec_time += time_elapsed;
 #endif
+
     wasm_exec_env_free_wasm_frame(exec_env, cur_frame);
     exec_env->cur_frame = (struct WASMInterpFrame *)prev_frame;
 }

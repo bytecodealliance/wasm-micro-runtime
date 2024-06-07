@@ -41,7 +41,6 @@ WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (Wasm) 
 - [Berkeley/Posix Socket support](./doc/socket_api.md), ref to [document](./doc/socket_api.md) and [sample](./samples/socket-api)
 - [Multi-tier JIT](./product-mini#linux) and [Running mode control](https://bytecodealliance.github.io/wamr.dev/blog/introduction-to-wamr-running-modes/)
 - Language bindings: [Go](./language-bindings/go/README.md), [Python](./language-bindings/python/README.md), [Rust](./language-bindings/rust/README.md)
-- Language bindings: [Go](./language-bindings/go/README.md), [Python](./language-bindings/python/README.md), [Rust](./language-bindings/rust/README.md)
 
 ### Wasm post-MVP features
 - [wasm-c-api](https://github.com/WebAssembly/wasm-c-api), ref to [document](doc/wasm_c_api.md) and [sample](samples/wasm-c-api)

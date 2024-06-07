@@ -1,13 +1,6 @@
 /*
- * The WebAssembly Live Migration Project
- *
- *  By: Aibo Hu
- *      Yiwei Yang
- *      Brian Zhao
- *      Andrew Quinn
- *
- *  Copyright 2024 Regents of the Univeristy of California
- *  UC Santa Cruz Sluglab.
+ * Regents of the Univeristy of California, All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 #include "wamr.h"
@@ -265,17 +258,12 @@ WAMRInstance::find_func(const char *name)
         for (int i = 0; i < target_module->function_count; i++) {
             auto cur_func = &target_module->functions[i];
             if (cur_func->is_import_func) {
-                LOG_DEBUG("%s %d", cur_func->u.func_import->field_name, i);
-
                 if (!strcmp(cur_func->u.func_import->field_name, name)) {
-
                     func = ((WASMFunctionInstanceCommon *)cur_func);
                     break;
                 }
             }
             else {
-                LOG_DEBUG("%s %d", cur_func->u.func->field_name, i);
-
                 if (!strcmp(cur_func->u.func->field_name, name)) {
                     func = ((WASMFunctionInstanceCommon *)cur_func);
                     break;
