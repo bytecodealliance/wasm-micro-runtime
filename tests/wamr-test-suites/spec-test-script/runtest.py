@@ -48,33 +48,82 @@ aot_target_options_map = {
     "x86_64": ["--target=x86_64", "--cpu=skylake"],
     "aarch64": ["--target=aarch64", "--target-abi=eabi", "--cpu=cortex-a53"],
     "aarch64_vfp": ["--target=aarch64", "--target-abi=gnueabihf", "--cpu=cortex-a53"],
-    "armv7": ["--target=armv7", "--target-abi=eabi", "--cpu=cortex-a9", "--cpu-features=-neon"],
+    "armv7": [
+        "--target=armv7",
+        "--target-abi=eabi",
+        "--cpu=cortex-a9",
+        "--cpu-features=-neon",
+    ],
     "armv7_vfp": ["--target=armv7", "--target-abi=gnueabihf", "--cpu=cortex-a9"],
-    "thumbv7": ["--target=thumbv7", "--target-abi=eabi", "--cpu=cortex-a9", "--cpu-features=-neon,-vfpv3"],
-    "thumbv7_vfp": ["--target=thumbv7", "--target-abi=gnueabihf", "--cpu=cortex-a9", "--cpu-features=-neon"],
-    "riscv32": ["--target=riscv32", "--target-abi=ilp32", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c"],
-    "riscv32_ilp32f": ["--target=riscv32", "--target-abi=ilp32f", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c,+f"],
-    "riscv32_ilp32d": ["--target=riscv32", "--target-abi=ilp32d", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c,+f,+d"],
-    "riscv64": ["--target=riscv64", "--target-abi=lp64", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c"],
-    "riscv64_lp64f": ["--target=riscv64", "--target-abi=lp64f", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c,+f"],
-    "riscv64_lp64d": ["--target=riscv64", "--target-abi=lp64d", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c,+f,+d"],
+    "thumbv7": [
+        "--target=thumbv7",
+        "--target-abi=eabi",
+        "--cpu=cortex-a9",
+        "--cpu-features=-neon,-vfpv3",
+    ],
+    "thumbv7_vfp": [
+        "--target=thumbv7",
+        "--target-abi=gnueabihf",
+        "--cpu=cortex-a9",
+        "--cpu-features=-neon",
+    ],
+    "riscv32": [
+        "--target=riscv32",
+        "--target-abi=ilp32",
+        "--cpu=generic-rv32",
+        "--cpu-features=+m,+a,+c",
+    ],
+    "riscv32_ilp32f": [
+        "--target=riscv32",
+        "--target-abi=ilp32f",
+        "--cpu=generic-rv32",
+        "--cpu-features=+m,+a,+c,+f",
+    ],
+    "riscv32_ilp32d": [
+        "--target=riscv32",
+        "--target-abi=ilp32d",
+        "--cpu=generic-rv32",
+        "--cpu-features=+m,+a,+c,+f,+d",
+    ],
+    "riscv64": [
+        "--target=riscv64",
+        "--target-abi=lp64",
+        "--cpu=generic-rv64",
+        "--cpu-features=+m,+a,+c",
+    ],
+    "riscv64_lp64f": [
+        "--target=riscv64",
+        "--target-abi=lp64f",
+        "--cpu=generic-rv64",
+        "--cpu-features=+m,+a,+c,+f",
+    ],
+    "riscv64_lp64d": [
+        "--target=riscv64",
+        "--target-abi=lp64d",
+        "--cpu=generic-rv64",
+        "--cpu-features=+m,+a,+c,+f,+d",
+    ],
 }
+
 
 def debug(data):
     if debug_file:
         debug_file.write(data)
         debug_file.flush()
 
-def log(data, end='\n'):
+
+def log(data, end="\n"):
     if log_file:
         log_file.write(data + end)
         log_file.flush()
     print(data, end=end)
     sys.stdout.flush()
 
+
 def create_tmp_file(suffix: str) -> str:
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:
         return tmp_file.name
+
 
 # TODO: do we need to support '\n' too
 import platform
@@ -93,7 +142,8 @@ class AsyncStreamReader:
         self._reader_thread = threading.Thread(
             daemon=True,
             target=AsyncStreamReader._stdout_reader,
-            args=(self._queue, stream))
+            args=(self._queue, stream),
+        )
         self._reader_thread.start()
 
     def read(self) -> Optional[bytes]:
@@ -114,7 +164,7 @@ class AsyncStreamReader:
                 raise e
 
 
-class Runner():
+class Runner:
     def __init__(self, args, no_pty=False):
         self.no_pty = no_pty
 
@@ -123,37 +173,44 @@ class Runner():
 
         self.process = None
         env = os.environ
-        env['TERM'] = 'dumb'
-        env['INPUTRC'] = '/dev/null'
-        env['PERL_RL'] = 'false'
+        env["TERM"] = "dumb"
+        env["INPUTRC"] = "/dev/null"
+        env["PERL_RL"] = "false"
         if no_pty:
-            self.process = Popen(args, bufsize=0,
-                           stdin=PIPE, stdout=PIPE, stderr=STDOUT,
-                           env=env)
+            self.process = Popen(
+                args, bufsize=0, stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env
+            )
             self.stdin = self.process.stdin
             self.stdout = self.process.stdout
         else:
             import fcntl
+
             # Pseudo-TTY and terminal manipulation
             import pty
             import termios
+
             # Use tty to setup an interactive environment
             master, slave = pty.openpty()
 
             # Set terminal size large so that readline will not send
             # ANSI/VT escape codes when the lines are long.
-            buf = array.array('h', [100, 200, 0, 0])
+            buf = array.array("h", [100, 200, 0, 0])
             fcntl.ioctl(master, termios.TIOCSWINSZ, buf, True)
 
-            self.process = Popen(args, bufsize=0,
-                           stdin=slave, stdout=slave, stderr=STDOUT,
-                           preexec_fn=os.setsid,
-                           env=env)
+            self.process = Popen(
+                args,
+                bufsize=0,
+                stdin=slave,
+                stdout=slave,
+                stderr=STDOUT,
+                preexec_fn=os.setsid,
+                env=env,
+            )
             # Now close slave so that we will get an exception from
             # read when the child exits early
             # http://stackoverflow.com/questions/11165521
             os.close(slave)
-            self.stdin = os.fdopen(master, 'r+b', 0)
+            self.stdin = os.fdopen(master, "r+b", 0)
             self.stdout = self.stdin
 
         if platform.system().lower() == "windows":
@@ -170,7 +227,7 @@ class Runner():
             # select doesn't work on file descriptors on Windows.
             # however, this method is much faster than using
             # queue, so we keep it for non-windows platforms.
-            [outs,_,_] = select([self.stdout], [], [], 1)
+            [outs, _, _] = select([self.stdout], [], [], 1)
             if self.stdout in outs:
                 return True, self.stdout.read(1)
             else:
@@ -185,14 +242,14 @@ class Runner():
             if not read_byte:
                 # EOF on macOS ends up here.
                 break
-            read_byte = read_byte.decode('utf-8') if IS_PY_3 else read_byte
+            read_byte = read_byte.decode("utf-8") if IS_PY_3 else read_byte
 
             debug(read_byte)
             if self.no_pty:
-                self.buf += read_byte.replace('\n', '\r\n')
+                self.buf += read_byte.replace("\n", "\r\n")
             else:
                 self.buf += read_byte
-            self.buf = self.buf.replace('\r\r', '\r')
+            self.buf = self.buf.replace("\r\r", "\r")
 
             # filter the prompts
             for prompt in prompts:
@@ -200,15 +257,14 @@ class Runner():
                 match = pattern.search(self.buf)
                 if match:
                     end = match.end()
-                    buf = self.buf[0:end-len(prompt)]
+                    buf = self.buf[0 : end - len(prompt)]
                     self.buf = self.buf[end:]
                     return buf
         return None
 
     def writeline(self, str):
-        str_to_write = str + '\n'
-        str_to_write = bytes(
-            str_to_write, 'utf-8') if IS_PY_3 else str_to_write
+        str_to_write = str + "\n"
+        str_to_write = bytes(str_to_write, "utf-8") if IS_PY_3 else str_to_write
 
         self.stdin.write(str_to_write)
 
@@ -218,7 +274,7 @@ class Runner():
         if self.process:
             try:
                 self.writeline("__exit__")
-                time.sleep(.020)
+                time.sleep(0.020)
                 self.process.kill()
             except OSError:
                 pass
@@ -235,11 +291,14 @@ class Runner():
             if self._stream_reader:
                 self._stream_reader.cleanup()
 
+
 def assert_prompt(runner, prompts, timeout, is_need_execute_result):
     # Wait for the initial prompt
     header = runner.read_to_prompt(prompts, timeout=timeout)
     if not header and is_need_execute_result:
-        log(" ---------- will terminate cause the case needs result while there is none inside of buf. ----------")
+        log(
+            " ---------- will terminate cause the case needs result while there is none inside of buf. ----------"
+        )
         sys.exit(1)
     if not header == None:
         if header:
@@ -253,89 +312,114 @@ def assert_prompt(runner, prompts, timeout, is_need_execute_result):
 ### WebAssembly specific
 
 parser = argparse.ArgumentParser(
-        description="Run a test file against a WebAssembly interpreter")
-parser.add_argument('--wast2wasm', type=str,
-        default=os.environ.get("WAST2WASM", "wast2wasm"),
-        help="Path to wast2wasm program")
-parser.add_argument('--interpreter', type=str,
-        default=os.environ.get("IWASM_CMD", "iwasm"),
-        help="Path to WebAssembly interpreter")
-parser.add_argument('--aot-compiler', type=str,
-        default=os.environ.get("WAMRC_CMD", "wamrc"),
-        help="Path to WebAssembly AoT compiler")
+    description="Run a test file against a WebAssembly interpreter"
+)
+parser.add_argument(
+    "--wast2wasm",
+    type=str,
+    default=os.environ.get("WAST2WASM", "wast2wasm"),
+    help="Path to wast2wasm program",
+)
+parser.add_argument(
+    "--interpreter",
+    type=str,
+    default=os.environ.get("IWASM_CMD", "iwasm"),
+    help="Path to WebAssembly interpreter",
+)
+parser.add_argument(
+    "--aot-compiler",
+    type=str,
+    default=os.environ.get("WAMRC_CMD", "wamrc"),
+    help="Path to WebAssembly AoT compiler",
+)
 
-parser.add_argument('--no_cleanup', action='store_true',
-        help="Keep temporary *.wasm files")
+parser.add_argument(
+    "--no_cleanup", action="store_true", help="Keep temporary *.wasm files"
+)
 
-parser.add_argument('--rundir',
-        help="change to the directory before running tests")
-parser.add_argument('--start-timeout', default=30, type=int,
-        help="default timeout for initial prompt")
-parser.add_argument('--test-timeout', default=20, type=int,
-        help="default timeout for each individual test action")
-parser.add_argument('--no-pty', action='store_true',
-        help="Use direct pipes instead of pseudo-tty")
-parser.add_argument('--log-file', type=str,
-        help="Write messages to the named file in addition the screen")
-parser.add_argument('--log-dir', type=str,
-        help="The log directory to save the case file if test failed")
-parser.add_argument('--debug-file', type=str,
-        help="Write all test interaction the named file")
+parser.add_argument("--rundir", help="change to the directory before running tests")
+parser.add_argument(
+    "--start-timeout", default=30, type=int, help="default timeout for initial prompt"
+)
+parser.add_argument(
+    "--test-timeout",
+    default=20,
+    type=int,
+    help="default timeout for each individual test action",
+)
+parser.add_argument(
+    "--no-pty", action="store_true", help="Use direct pipes instead of pseudo-tty"
+)
+parser.add_argument(
+    "--log-file",
+    type=str,
+    help="Write messages to the named file in addition the screen",
+)
+parser.add_argument(
+    "--log-dir", type=str, help="The log directory to save the case file if test failed"
+)
+parser.add_argument(
+    "--debug-file", type=str, help="Write all test interaction the named file"
+)
 
-parser.add_argument('test_file', type=argparse.FileType('r'),
-        help="a WebAssembly *.wast test file")
+parser.add_argument(
+    "test_file", type=argparse.FileType("r"), help="a WebAssembly *.wast test file"
+)
 
-parser.add_argument('--aot', action='store_true',
-        help="Test with AOT")
+parser.add_argument("--aot", action="store_true", help="Test with AOT")
 
-parser.add_argument('--target', type=str,
-        default="x86_64",
-        help="Set running target")
+parser.add_argument("--target", type=str, default="x86_64", help="Set running target")
 
-parser.add_argument('--sgx', action='store_true',
-        help="Test SGX")
+parser.add_argument("--sgx", action="store_true", help="Test SGX")
 
-parser.add_argument('--simd', default=False, action='store_true',
-        help="Enable SIMD")
+parser.add_argument("--simd", default=False, action="store_true", help="Enable SIMD")
 
-parser.add_argument('--xip', default=False, action='store_true',
-        help="Enable XIP")
+parser.add_argument("--xip", default=False, action="store_true", help="Enable XIP")
 
-parser.add_argument('--eh', default=False, action='store_true',
-        help="Enable Exception Handling")
+parser.add_argument(
+    "--eh", default=False, action="store_true", help="Enable Exception Handling"
+)
 
-parser.add_argument('--multi-module', default=False, action='store_true',
-        help="Enable Multi-thread")
+parser.add_argument(
+    "--multi-module", default=False, action="store_true", help="Enable Multi-thread"
+)
 
-parser.add_argument('--multi-thread', default=False, action='store_true',
-        help="Enable Multi-thread")
+parser.add_argument(
+    "--multi-thread", default=False, action="store_true", help="Enable Multi-thread"
+)
 
-parser.add_argument('--gc', default=False, action='store_true',
-        help='Test with GC')
+parser.add_argument("--gc", default=False, action="store_true", help="Test with GC")
 
-parser.add_argument('--memory64', default=False, action='store_true',
-        help='Test with Memory64')
+parser.add_argument(
+    "--memory64", default=False, action="store_true", help="Test with Memory64"
+)
 
-parser.add_argument('--qemu', default=False, action='store_true',
-        help="Enable QEMU")
+parser.add_argument(
+    "--multi-memory", default=False, action="store_true", help="Test with multi-memory"
+)
 
-parser.add_argument('--qemu-firmware', default='', help="Firmware required by qemu")
+parser.add_argument("--qemu", default=False, action="store_true", help="Enable QEMU")
 
-parser.add_argument('--verbose', default=False, action='store_true',
-        help='show more logs')
+parser.add_argument("--qemu-firmware", default="", help="Firmware required by qemu")
+
+parser.add_argument(
+    "--verbose", default=False, action="store_true", help="show more logs"
+)
 
 # regex patterns of tests to skip
 C_SKIP_TESTS = ()
 PY_SKIP_TESTS = (
-        # names.wast
-        'invoke \"~!',
-        # conversions.wast
-        '18446742974197923840.0',
-        '18446744073709549568.0',
-        '9223372036854775808',
-        'reinterpret_f.*nan',
-        # endianness
-        '.const 0x1.fff' )
+    # names.wast
+    'invoke "~!',
+    # conversions.wast
+    "18446742974197923840.0",
+    "18446744073709549568.0",
+    "9223372036854775808",
+    "reinterpret_f.*nan",
+    # endianness
+    ".const 0x1.fff",
+)
+
 
 def read_forms(string):
     forms = []
@@ -345,45 +429,51 @@ def read_forms(string):
     pos = 0
     while pos < len(string):
         # Keep track of line number
-        if string[pos] == '\n': line += 1
+        if string[pos] == "\n":
+            line += 1
 
         # Handle top-level elements
         if depth == 0:
             # Add top-level comments
-            if string[pos:pos+2] == ";;":
+            if string[pos : pos + 2] == ";;":
                 end = string.find("\n", pos)
-                if end == -1: end == len(string)
+                if end == -1:
+                    end == len(string)
                 forms.append(string[pos:end])
                 pos = end
                 continue
 
             # TODO: handle nested multi-line comments
-            if string[pos:pos+2] == "(;":
+            if string[pos : pos + 2] == "(;":
                 # Skip multi-line comment
                 end = string.find(";)", pos)
                 if end == -1:
-                    raise Exception("mismatch multiline comment on line %d: '%s'" % (
-                        line, string[pos:pos+80]))
-                pos = end+2
+                    raise Exception(
+                        "mismatch multiline comment on line %d: '%s'"
+                        % (line, string[pos : pos + 80])
+                    )
+                pos = end + 2
                 continue
 
             # Ignore whitespace between top-level forms
-            if string[pos] in (' ', '\n', '\t'):
+            if string[pos] in (" ", "\n", "\t"):
                 pos += 1
                 continue
 
         # Read a top-level form
-        if string[pos] == '(': depth += 1
-        if string[pos] == ')': depth -= 1
+        if string[pos] == "(":
+            depth += 1
+        if string[pos] == ")":
+            depth -= 1
         if depth == 0 and not form:
-            raise Exception("garbage on line %d: '%s'" % (
-                line, string[pos:pos+80]))
+            raise Exception("garbage on line %d: '%s'" % (line, string[pos : pos + 80]))
         form += string[pos]
         if depth == 0 and form:
             forms.append(form)
             form = ""
         pos += 1
     return forms
+
 
 def get_module_exp_from_assert(string):
     depth = 0
@@ -394,11 +484,13 @@ def get_module_exp_from_assert(string):
     result = []
     while pos < len(string):
         # record from the " (module "
-        if string[pos:pos+7] == "(module":
+        if string[pos : pos + 7] == "(module":
             start_record = True
         if start_record:
-            if string[pos] == '(' : depth += 1
-            if string[pos] == ')' : depth -= 1
+            if string[pos] == "(":
+                depth += 1
+            if string[pos] == ")":
+                depth -= 1
             module += string[pos]
             # if we get all (module ) .
             if depth == 0 and module:
@@ -406,98 +498,111 @@ def get_module_exp_from_assert(string):
                 start_record = False
         # get expected exception
         if string[pos] == '"':
-            end = string.find("\"", pos+1)
+            end = string.find('"', pos + 1)
             if end != -1:
-                end_rel = string.find("\"",end+1)
+                end_rel = string.find('"', end + 1)
                 if end_rel == -1:
-                    result.append(string[pos+1:end])
+                    result.append(string[pos + 1 : end])
         pos += 1
     return result
 
-def string_to_unsigned(number_in_string, lane_type):
-    if not lane_type in ['i8x16', 'i16x8', 'i32x4', 'i64x2']:
-        raise Exception("invalid value {} and type {} and lane_type {}".format(number_in_string, type, lane_type))
 
-    number = int(number_in_string, 16) if '0x' in number_in_string else int(number_in_string)
+def string_to_unsigned(number_in_string, lane_type):
+    if not lane_type in ["i8x16", "i16x8", "i32x4", "i64x2"]:
+        raise Exception(
+            "invalid value {} and type {} and lane_type {}".format(
+                number_in_string, type, lane_type
+            )
+        )
+
+    number = (
+        int(number_in_string, 16) if "0x" in number_in_string else int(number_in_string)
+    )
 
     if "i8x16" == lane_type:
         if number < 0:
-            packed = struct.pack('b', number)
-            number = struct.unpack('B', packed)[0]
+            packed = struct.pack("b", number)
+            number = struct.unpack("B", packed)[0]
     elif "i16x8" == lane_type:
         if number < 0:
-            packed = struct.pack('h', number)
-            number = struct.unpack('H', packed)[0]
+            packed = struct.pack("h", number)
+            number = struct.unpack("H", packed)[0]
     elif "i32x4" == lane_type:
         if number < 0:
-            packed = struct.pack('i', number)
-            number = struct.unpack('I', packed)[0]
-    else: # "i64x2" == lane_type:
+            packed = struct.pack("i", number)
+            number = struct.unpack("I", packed)[0]
+    else:  # "i64x2" == lane_type:
         if number < 0:
-            packed = struct.pack('q', number)
-            number = struct.unpack('Q', packed)[0]
+            packed = struct.pack("q", number)
+            number = struct.unpack("Q", packed)[0]
 
     return number
+
 
 def cast_v128_to_i64x2(numbers, type, lane_type):
     numbers = [n.replace("_", "") for n in numbers]
 
     if "i8x16" == lane_type:
-        assert(16 == len(numbers)), "{} should like {}".format(numbers, lane_type)
+        assert 16 == len(numbers), "{} should like {}".format(numbers, lane_type)
         # str -> int
         numbers = [string_to_unsigned(n, lane_type) for n in numbers]
         # i8 -> i64
         packed = struct.pack(16 * "B", *numbers)
     elif "i16x8" == lane_type:
-        assert(8 == len(numbers)), "{} should like {}".format(numbers, lane_type)
+        assert 8 == len(numbers), "{} should like {}".format(numbers, lane_type)
         # str -> int
         numbers = [string_to_unsigned(n, lane_type) for n in numbers]
         # i16 -> i64
         packed = struct.pack(8 * "H", *numbers)
     elif "i32x4" == lane_type:
-        assert(4 == len(numbers)), "{} should like {}".format(numbers, lane_type)
+        assert 4 == len(numbers), "{} should like {}".format(numbers, lane_type)
         # str -> int
         numbers = [string_to_unsigned(n, lane_type) for n in numbers]
         # i32 -> i64
         packed = struct.pack(4 * "I", *numbers)
     elif "i64x2" == lane_type:
-        assert(2 == len(numbers)), "{} should like {}".format(numbers, lane_type)
+        assert 2 == len(numbers), "{} should like {}".format(numbers, lane_type)
         # str -> int
         numbers = [string_to_unsigned(n, lane_type) for n in numbers]
         # i64 -> i64
         packed = struct.pack(2 * "Q", *numbers)
     elif "f32x4" == lane_type:
-        assert(4 == len(numbers)), "{} should like {}".format(numbers, lane_type)
+        assert 4 == len(numbers), "{} should like {}".format(numbers, lane_type)
         # str -> int
         numbers = [parse_simple_const_w_type(n, "f32")[0] for n in numbers]
         # f32 -> i64
         packed = struct.pack(4 * "f", *numbers)
     elif "f64x2" == lane_type:
-        assert(2 == len(numbers)), "{} should like {}".format(numbers, lane_type)
+        assert 2 == len(numbers), "{} should like {}".format(numbers, lane_type)
         # str -> int
         numbers = [parse_simple_const_w_type(n, "f64")[0] for n in numbers]
         # f64 -> i64
         packed = struct.pack(2 * "d", *numbers)
     else:
-        raise Exception("invalid value {} and type {} and lane_type {}".format(numbers, type, lane_type))
+        raise Exception(
+            "invalid value {} and type {} and lane_type {}".format(
+                numbers, type, lane_type
+            )
+        )
 
-    assert(packed)
+    assert packed
     unpacked = struct.unpack("Q Q", packed)
     return unpacked, f"[{unpacked[0]:#x} {unpacked[1]:#x}]:{lane_type}:v128"
 
+
 def parse_simple_const_w_type(number, type):
-    number = number.replace('_', '')
+    number = number.replace("_", "")
     number = re.sub(r"nan\((ind|snan)\)", "nan", number)
     if type in ["i32", "i64"]:
-        number = int(number, 16) if '0x' in number else int(number)
-        return number, "0x{:x}:{}".format(number, type) \
-                   if number >= 0 \
-                   else "-0x{:x}:{}".format(0 - number, type)
+        number = int(number, 16) if "0x" in number else int(number)
+        return number, "0x{:x}:{}".format(
+            number, type
+        ) if number >= 0 else "-0x{:x}:{}".format(0 - number, type)
     elif type in ["f32", "f64"]:
         if "nan:" in number:
-            return float('nan'), "nan:{}".format(type)
+            return float("nan"), "nan:{}".format(type)
         else:
-            number = float.fromhex(number) if '0x' in number else float(number)
+            number = float.fromhex(number) if "0x" in number else float(number)
             return number, "{:.7g}:{}".format(number, type)
     elif type == "ref.null":
         if number == "func":
@@ -509,13 +614,14 @@ def parse_simple_const_w_type(number, type):
         else:
             raise Exception("invalid value {} and type {}".format(number, type))
     elif type == "ref.extern":
-        number = int(number, 16) if '0x' in number else int(number)
+        number = int(number, 16) if "0x" in number else int(number)
         return number, "0x{:x}:ref.extern".format(number)
     elif type == "ref.host":
-        number = int(number, 16) if '0x' in number else int(number)
+        number = int(number, 16) if "0x" in number else int(number)
         return number, "0x{:x}:ref.host".format(number)
     else:
         raise Exception("invalid value {} and type {}".format(number, type))
+
 
 def parse_assertion_value(val):
     """
@@ -537,7 +643,7 @@ def parse_assertion_value(val):
     if not val:
         return None, ""
 
-    splitted = re.split('\s+', val)
+    splitted = re.split("\s+", val)
     splitted = [s for s in splitted if s]
     type = splitted[0].split(".")[0]
     lane_type = splitted[1] if len(splitted) > 2 else ""
@@ -553,21 +659,25 @@ def parse_assertion_value(val):
     else:
         return cast_v128_to_i64x2(numbers, type, lane_type)
 
+
 def int2uint32(i):
-    return i & 0xffffffff
+    return i & 0xFFFFFFFF
+
 
 def int2int32(i):
-    val = i & 0xffffffff
+    val = i & 0xFFFFFFFF
     if val & 0x80000000:
         return val - 0x100000000
     else:
         return val
 
+
 def int2uint64(i):
-    return i & 0xffffffffffffffff
+    return i & 0xFFFFFFFFFFFFFFFF
+
 
 def int2int64(i):
-    val = i & 0xffffffffffffffff
+    val = i & 0xFFFFFFFFFFFFFFFF
     if val & 0x8000000000000000:
         return val - 0x10000000000000000
     else:
@@ -580,23 +690,30 @@ def num_repr(i):
     else:
         return "%.16g" % i
 
+
 def hexpad16(i):
     return "0x%04x" % i
+
 
 def hexpad24(i):
     return "0x%06x" % i
 
+
 def hexpad32(i):
     return "0x%08x" % i
+
 
 def hexpad64(i):
     return "0x%016x" % i
 
+
 def invoke(r, args, cmd):
     r.writeline(cmd)
 
-    return r.read_to_prompt(['\r\nwebassembly> ', '\nwebassembly> '],
-                            timeout=args.test_timeout)
+    return r.read_to_prompt(
+        ["\r\nwebassembly> ", "\nwebassembly> "], timeout=args.test_timeout
+    )
+
 
 def vector_value_comparison(out, expected):
     """
@@ -605,16 +722,16 @@ def vector_value_comparison(out, expected):
     """
     # print("vector value comparision {} vs {}".format(out, expected))
 
-    out_val, out_type = out.split(':')
+    out_val, out_type = out.split(":")
     # <number nubmer> => number number
     out_val = out_val[1:-1]
 
-    expected_val, lane_type, expected_type = expected.split(':')
+    expected_val, lane_type, expected_type = expected.split(":")
     # [number nubmer] => number number
     expected_val = expected_val[1:-1]
 
-    assert("v128" == out_type), "out_type should be v128"
-    assert("v128" == expected_type), "expected_type should be v128"
+    assert "v128" == out_type, "out_type should be v128"
+    assert "v128" == expected_type, "expected_type should be v128"
 
     if out_type != expected_type:
         return False
@@ -624,14 +741,20 @@ def vector_value_comparison(out, expected):
 
     # since i64x2
     out_packed = struct.pack("QQ", int(out_val[0], 16), int(out_val[1], 16))
-    expected_packed = struct.pack("QQ",
-        int(expected_val[0]) if not "0x" in expected_val[0] else int(expected_val[0], 16),
-        int(expected_val[1]) if not "0x" in expected_val[1] else int(expected_val[1], 16))
+    expected_packed = struct.pack(
+        "QQ",
+        int(expected_val[0])
+        if not "0x" in expected_val[0]
+        else int(expected_val[0], 16),
+        int(expected_val[1])
+        if not "0x" in expected_val[1]
+        else int(expected_val[1], 16),
+    )
 
     if lane_type in ["i8x16", "i16x8", "i32x4", "i64x2"]:
         return out_packed == expected_packed
     else:
-        assert(lane_type in ["f32x4", "f64x2"]), "unexpected lane_type"
+        assert lane_type in ["f32x4", "f64x2"], "unexpected lane_type"
 
         if "f32x4" == lane_type:
             out_unpacked = struct.unpack("ffff", out_packed)
@@ -675,8 +798,8 @@ def simple_value_comparison(out, expected):
         # the add result in x86_32 is inf
         return True
 
-    out_val, out_type = out.split(':')
-    expected_val, expected_type = expected.split(':')
+    out_val, out_type = out.split(":")
+    expected_val, expected_type = expected.split(":")
 
     if not out_type == expected_type:
         return False
@@ -684,28 +807,33 @@ def simple_value_comparison(out, expected):
     out_val, _ = parse_simple_const_w_type(out_val, out_type)
     expected_val, _ = parse_simple_const_w_type(expected_val, expected_type)
 
-    if out_val == expected_val \
-        or (math.isnan(out_val) and math.isnan(expected_val)):
+    if out_val == expected_val or (math.isnan(out_val) and math.isnan(expected_val)):
         return True
 
     if "i32" == expected_type:
-        out_val_binary = struct.pack('I', out_val) if out_val > 0 \
-                            else struct.pack('i', out_val)
-        expected_val_binary = struct.pack('I', expected_val) \
-                                if expected_val > 0 \
-                                    else struct.pack('i', expected_val)
+        out_val_binary = (
+            struct.pack("I", out_val) if out_val > 0 else struct.pack("i", out_val)
+        )
+        expected_val_binary = (
+            struct.pack("I", expected_val)
+            if expected_val > 0
+            else struct.pack("i", expected_val)
+        )
     elif "i64" == expected_type:
-        out_val_binary = struct.pack('Q', out_val) if out_val > 0 \
-                            else struct.pack('q', out_val)
-        expected_val_binary = struct.pack('Q', expected_val) \
-                                if expected_val > 0 \
-                                    else struct.pack('q', expected_val)
+        out_val_binary = (
+            struct.pack("Q", out_val) if out_val > 0 else struct.pack("q", out_val)
+        )
+        expected_val_binary = (
+            struct.pack("Q", expected_val)
+            if expected_val > 0
+            else struct.pack("q", expected_val)
+        )
     elif "f32" == expected_type:
-        out_val_binary = struct.pack('f', out_val)
-        expected_val_binary = struct.pack('f', expected_val)
+        out_val_binary = struct.pack("f", out_val)
+        expected_val_binary = struct.pack("f", expected_val)
     elif "f64" == expected_type:
-        out_val_binary = struct.pack('d', out_val)
-        expected_val_binary = struct.pack('d', expected_val)
+        out_val_binary = struct.pack("d", out_val)
+        expected_val_binary = struct.pack("d", expected_val)
     elif "ref.extern" == expected_type:
         out_val_binary = out_val
         expected_val_binary = expected_val
@@ -713,7 +841,7 @@ def simple_value_comparison(out, expected):
         out_val_binary = out_val
         expected_val_binary = expected_val
     else:
-        assert(0), "unknown 'expected_type' {}".format(expected_type)
+        assert 0, "unknown 'expected_type' {}".format(expected_type)
 
     if out_val_binary == expected_val_binary:
         return True
@@ -727,6 +855,7 @@ def simple_value_comparison(out, expected):
 
     return False
 
+
 def value_comparison(out, expected):
     if out == expected:
         return True
@@ -735,56 +864,69 @@ def value_comparison(out, expected):
         return False
 
     if not out in ["ref.array", "ref.struct", "ref.func", "ref.any", "ref.i31"]:
-        assert(':' in out), "out should be in a form likes numbers:type, but {}".format(out)
+        assert ":" in out, "out should be in a form likes numbers:type, but {}".format(
+            out
+        )
     if not expected in ["ref.array", "ref.struct", "ref.func", "ref.any", "ref.i31"]:
-        assert(':' in expected), "expected should be in a form likes numbers:type, but {}".format(expected)
+        assert (
+            ":" in expected
+        ), "expected should be in a form likes numbers:type, but {}".format(expected)
 
-    if 'v128' in out:
+    if "v128" in out:
         return vector_value_comparison(out, expected)
     else:
         return simple_value_comparison(out, expected)
+
 
 def is_result_match_expected(out, expected):
     # compare value instead of comparing strings of values
     return value_comparison(out, expected)
 
+
 def test_assert(r, opts, mode, cmd, expected):
     log("Testing(%s) %s = %s" % (mode, cmd, expected))
     out = invoke(r, opts, cmd)
-    if '\n' in out or ' ' in out:
-        outs = [''] + out.split('\n')[1:]
+    if "\n" in out or " " in out:
+        outs = [""] + out.split("\n")[1:]
         out = outs[-1]
 
-    if mode=='trap':
-        o = re.sub('^Exception: ', '', out)
-        e = re.sub('^Exception: ', '', expected)
+    if mode == "trap":
+        o = re.sub("^Exception: ", "", out)
+        e = re.sub("^Exception: ", "", expected)
         if o.find(e) >= 0 or e.find(o) >= 0:
             return True
 
-    if mode=='exhaustion':
-        o = re.sub('^Exception: ', '', out)
-        expected = 'Exception: stack overflow'
-        e = re.sub('^Exception: ', '', expected)
+    if mode == "exhaustion":
+        o = re.sub("^Exception: ", "", out)
+        expected = "Exception: stack overflow"
+        e = re.sub("^Exception: ", "", expected)
         if o.find(e) >= 0 or e.find(o) >= 0:
             return True
 
     # wasm-exception thrown out of function call, not a trap
-    if mode=='wasmexception':
-        o = re.sub('^Exception: ', '', out)
-        e = re.sub('^Exception: ', '', expected)
+    if mode == "wasmexception":
+        o = re.sub("^Exception: ", "", out)
+        e = re.sub("^Exception: ", "", expected)
         if o.find(e) >= 0 or e.find(o) >= 0:
             return True
 
     ## 0x9:i32,-0x1:i32 -> ['0x9:i32', '-0x1:i32']
-    expected_list = re.split(',', expected)
-    out_list = re.split(',', out)
+    expected_list = re.split(",", expected)
+    out_list = re.split(",", out)
     if len(expected_list) != len(out_list):
-        raise Exception("Failed:\n Results count incorrect:\n expected: '%s'\n  got: '%s'" % (expected, out))
+        raise Exception(
+            "Failed:\n Results count incorrect:\n expected: '%s'\n  got: '%s'"
+            % (expected, out)
+        )
     for i in range(len(expected_list)):
         if not is_result_match_expected(out_list[i], expected_list[i]):
-            raise Exception("Failed:\n Result %d incorrect:\n expected: '%s'\n  got: '%s'" % (i, expected_list[i], out_list[i]))
+            raise Exception(
+                "Failed:\n Result %d incorrect:\n expected: '%s'\n  got: '%s'"
+                % (i, expected_list[i], out_list[i])
+            )
 
     return True
+
 
 def test_assert_return(r, opts, form):
     """
@@ -792,50 +934,80 @@ def test_assert_return(r, opts, form):
     n. to search a pattern like (assert_return (invoke $module_name function_name ... ) ...)
     """
     # params, return
-    m = re.search('^\(assert_return\s+\(invoke\s+"((?:[^"]|\\\")*)"\s+(\(.*\))\s*\)\s*(\(.*\))\s*\)\s*$', form, re.S)
+    m = re.search(
+        '^\(assert_return\s+\(invoke\s+"((?:[^"]|\\")*)"\s+(\(.*\))\s*\)\s*(\(.*\))\s*\)\s*$',
+        form,
+        re.S,
+    )
     # judge if assert_return cmd includes the module name
-    n = re.search('^\(assert_return\s+\(invoke\s+\$((?:[^\s])*)\s+"((?:[^"]|\\\")*)"\s+(\(.*\))\s*\)\s*(\(.*\))\s*\)\s*$', form, re.S)
+    n = re.search(
+        '^\(assert_return\s+\(invoke\s+\$((?:[^\s])*)\s+"((?:[^"]|\\")*)"\s+(\(.*\))\s*\)\s*(\(.*\))\s*\)\s*$',
+        form,
+        re.S,
+    )
 
     # print("assert_return with {}".format(form))
 
     if not m:
         # no params, return
-        m = re.search('^\(assert_return\s+\(invoke\s+"((?:[^"]|\\\")*)"\s*\)\s+()(\(.*\))\s*\)\s*$', form, re.S)
+        m = re.search(
+            '^\(assert_return\s+\(invoke\s+"((?:[^"]|\\")*)"\s*\)\s+()(\(.*\))\s*\)\s*$',
+            form,
+            re.S,
+        )
     if not m:
         # params, no return
-        m = re.search('^\(assert_return\s+\(invoke\s+"([^"]*)"\s+(\(.*\))()\s*\)\s*\)\s*$', form, re.S)
+        m = re.search(
+            '^\(assert_return\s+\(invoke\s+"([^"]*)"\s+(\(.*\))()\s*\)\s*\)\s*$',
+            form,
+            re.S,
+        )
     if not m:
         # no params, no return
-        m = re.search('^\(assert_return\s+\(invoke\s+"([^"]*)"\s*()()\)\s*\)\s*$', form, re.S)
+        m = re.search(
+            '^\(assert_return\s+\(invoke\s+"([^"]*)"\s*()()\)\s*\)\s*$', form, re.S
+        )
     if not m:
         # params, return
         if not n:
             # no params, return
-            n = re.search('^\(assert_return\s+\(invoke\s+\$((?:[^\s])*)\s+"((?:[^"]|\\\")*)"\s*\)\s+()(\(.*\))\s*\)\s*$', form, re.S)
+            n = re.search(
+                '^\(assert_return\s+\(invoke\s+\$((?:[^\s])*)\s+"((?:[^"]|\\")*)"\s*\)\s+()(\(.*\))\s*\)\s*$',
+                form,
+                re.S,
+            )
         if not n:
             # params, no return
-            n = re.search('^\(assert_return\s+\(invoke\s+\$((?:[^\s])*)\s+"([^"]*)"\s+(\(.*\))()\s*\)\s*\)\s*$', form, re.S)
+            n = re.search(
+                '^\(assert_return\s+\(invoke\s+\$((?:[^\s])*)\s+"([^"]*)"\s+(\(.*\))()\s*\)\s*\)\s*$',
+                form,
+                re.S,
+            )
         if not n:
             # no params, no return
-            n = re.search('^\(assert_return\s+\(invoke\s+\$((?:[^\s])*)\s+"([^"]*)"*()()\)\s*\)\s*$', form, re.S)
+            n = re.search(
+                '^\(assert_return\s+\(invoke\s+\$((?:[^\s])*)\s+"([^"]*)"*()()\)\s*\)\s*$',
+                form,
+                re.S,
+            )
     if not m and not n:
-        if re.search('^\(assert_return\s+\(get.*\).*\)$', form, re.S):
+        if re.search("^\(assert_return\s+\(get.*\).*\)$", form, re.S):
             log("ignoring assert_return get")
             return
         else:
             raise Exception("unparsed assert_return: '%s'" % form)
     if m and not n:
         func = m.group(1)
-        if ' ' in func:
-            func = func.replace(' ', '\\')
+        if " " in func:
+            func = func.replace(" ", "\\")
 
-        if m.group(2) == '':
+        if m.group(2) == "":
             args = []
         else:
-            #args = [re.split(' +', v)[1].replace('_', "") for v in re.split("\)\s*\(", m.group(2)[1:-1])]
+            # args = [re.split(' +', v)[1].replace('_', "") for v in re.split("\)\s*\(", m.group(2)[1:-1])]
             # split arguments with ')spaces(', remove leading and tailing ) and (
-            args_type_and_value = re.split(r'\)\s+\(', m.group(2)[1:-1])
-            args_type_and_value = [s.replace('_', '') for s in args_type_and_value]
+            args_type_and_value = re.split(r"\)\s+\(", m.group(2)[1:-1])
+            args_type_and_value = [s.replace("_", "") for s in args_type_and_value]
             # args are in two forms:
             # f32.const -0x1.000001fffffffffffp-50
             # v128.const i32x4 0 0 0 0
@@ -843,24 +1015,30 @@ def test_assert_return(r, opts, form):
             for arg in args_type_and_value:
                 # remove leading and tailing spaces, it might confuse following assertions
                 arg = arg.strip()
-                splitted = re.split('\s+', arg)
+                splitted = re.split("\s+", arg)
                 splitted = [s for s in splitted if s]
 
                 if splitted[0] in ["i32.const", "i64.const"]:
-                    assert(2 == len(splitted)), "{} should have two parts".format(splitted)
+                    assert 2 == len(splitted), "{} should have two parts".format(
+                        splitted
+                    )
                     # in wast 01234 means 1234
                     # in c 0123 means 83 in oct
                     number, _ = parse_simple_const_w_type(splitted[1], splitted[0][:3])
                     args.append(str(number))
                 elif splitted[0] in ["f32.const", "f64.const"]:
                     # let strtof or strtod handle original arguments
-                    assert(2 == len(splitted)), "{} should have two parts".format(splitted)
+                    assert 2 == len(splitted), "{} should have two parts".format(
+                        splitted
+                    )
                     args.append(splitted[1])
                 elif "v128.const" == splitted[0]:
-                    assert(len(splitted) > 2), "{} should have more than two parts".format(splitted)
-                    numbers, _ = cast_v128_to_i64x2(splitted[2:], 'v128', splitted[1])
+                    assert (
+                        len(splitted) > 2
+                    ), "{} should have more than two parts".format(splitted)
+                    numbers, _ = cast_v128_to_i64x2(splitted[2:], "v128", splitted[1])
 
-                    assert(len(numbers) == 2), "has to reform arguments into i64x2"
+                    assert len(numbers) == 2, "has to reform arguments into i64x2"
                     args.append(f"{numbers[0]:#x}\{numbers[1]:#x}")
                 elif "ref.null" == splitted[0]:
                     args.append("null")
@@ -871,19 +1049,29 @@ def test_assert_return(r, opts, form):
                     number, _ = parse_simple_const_w_type(splitted[1], splitted[0])
                     args.append(str(number))
                 else:
-                    assert(0), "an unkonwn parameter type"
+                    assert 0, "an unkonwn parameter type"
 
-        if m.group(3) == '':
-            returns= []
+        if m.group(3) == "":
+            returns = []
         else:
             returns = re.split("\)\s*\(", m.group(3)[1:-1])
         # processed numbers in strings
-        if len(returns) == 1 and returns[0] in ["ref.array", "ref.struct", "ref.i31",
-                                                "ref.eq", "ref.any", "ref.extern",
-                                                "ref.func", "ref.null"]:
+        if len(returns) == 1 and returns[0] in [
+            "ref.array",
+            "ref.struct",
+            "ref.i31",
+            "ref.eq",
+            "ref.any",
+            "ref.extern",
+            "ref.func",
+            "ref.null",
+        ]:
             expected = [returns[0]]
-        elif len(returns) == 1 and returns[0] in ["func:ref.null", "any:ref.null",
-                                                  "extern:ref.null"]:
+        elif len(returns) == 1 and returns[0] in [
+            "func:ref.null",
+            "any:ref.null",
+            "extern:ref.null",
+        ]:
             expected = [returns[0]]
         else:
             expected = [parse_assertion_value(v)[1] for v in returns]
@@ -895,61 +1083,78 @@ def test_assert_return(r, opts, form):
         # assume the cmd is (assert_return(invoke $ABC "func")).
         # run the ABC.wasm firstly
         if test_aot:
-            r = compile_wasm_to_aot(module+".wasm", module+".aot", True, opts, r)
+            r = compile_wasm_to_aot(module + ".wasm", module + ".aot", True, opts, r)
             try:
-                assert_prompt(r, ['Compile success'], opts.start_timeout, False)
+                assert_prompt(r, ["Compile success"], opts.start_timeout, False)
             except:
                 _, exc, _ = sys.exc_info()
                 log("Run wamrc failed:\n  got: '%s'" % r.buf)
                 ret_code = 1
                 sys.exit(1)
-        r = run_wasm_with_repl(module+".wasm", module+".aot" if test_aot else module, opts, r)
+        r = run_wasm_with_repl(
+            module + ".wasm", module + ".aot" if test_aot else module, opts, r
+        )
         # Wait for the initial prompt
         try:
-            assert_prompt(r, ['webassembly> '], opts.start_timeout, False)
+            assert_prompt(r, ["webassembly> "], opts.start_timeout, False)
         except:
             _, exc, _ = sys.exc_info()
-            raise Exception("Failed:\n  expected: '%s'\n  got: '%s'" % \
-                            (repr(exc), r.buf))
+            raise Exception(
+                "Failed:\n  expected: '%s'\n  got: '%s'" % (repr(exc), r.buf)
+            )
         func = n.group(2)
-        if ' ' in func:
-            func = func.replace(' ', '\\')
+        if " " in func:
+            func = func.replace(" ", "\\")
 
-        if n.group(3) == '':
-            args=[]
+        if n.group(3) == "":
+            args = []
         else:
             # convert (ref.null extern/func) into (ref.null null)
             n1 = n.group(3).replace("(ref.null extern)", "(ref.null null)")
             n1 = n1.replace("ref.null func)", "(ref.null null)")
-            args = [re.split(' +', v)[1] for v in re.split("\)\s*\(", n1[1:-1])]
+            args = [re.split(" +", v)[1] for v in re.split("\)\s*\(", n1[1:-1])]
 
         _, expected = parse_assertion_value(n.group(4)[1:-1])
         test_assert(r, opts, "return", "%s %s" % (func, " ".join(args)), expected)
 
+
 def test_assert_trap(r, opts, form):
     # params
-    m = re.search('^\(assert_trap\s+\(invoke\s+"([^"]*)"\s+(\(.*\))\s*\)\s*"([^"]+)"\s*\)\s*$', form)
+    m = re.search(
+        '^\(assert_trap\s+\(invoke\s+"([^"]*)"\s+(\(.*\))\s*\)\s*"([^"]+)"\s*\)\s*$',
+        form,
+    )
     # judge if assert_return cmd includes the module name
-    n = re.search('^\(assert_trap\s+\(invoke\s+\$((?:[^\s])*)\s+"([^"]*)"\s+(\(.*\))\s*\)\s*"([^"]+)"\s*\)\s*$', form, re.S)
+    n = re.search(
+        '^\(assert_trap\s+\(invoke\s+\$((?:[^\s])*)\s+"([^"]*)"\s+(\(.*\))\s*\)\s*"([^"]+)"\s*\)\s*$',
+        form,
+        re.S,
+    )
     if not m:
         # no params
-        m = re.search('^\(assert_trap\s+\(invoke\s+"([^"]*)"\s*()\)\s*"([^"]+)"\s*\)\s*$', form)
+        m = re.search(
+            '^\(assert_trap\s+\(invoke\s+"([^"]*)"\s*()\)\s*"([^"]+)"\s*\)\s*$', form
+        )
     if not m:
         if not n:
             # no params
-            n = re.search('^\(assert_trap\s+\(invoke\s+\$((?:[^\s])*)\s+"([^"]*)"\s*()\)\s*"([^"]+)"\s*\)\s*$', form, re.S)
+            n = re.search(
+                '^\(assert_trap\s+\(invoke\s+\$((?:[^\s])*)\s+"([^"]*)"\s*()\)\s*"([^"]+)"\s*\)\s*$',
+                form,
+                re.S,
+            )
     if not m and not n:
         raise Exception("unparsed assert_trap: '%s'" % form)
 
     if m and not n:
         func = m.group(1)
-        if m.group(2) == '':
+        if m.group(2) == "":
             args = []
         else:
             # convert (ref.null extern/func) into (ref.null null)
             m1 = m.group(2).replace("(ref.null extern)", "(ref.null null)")
             m1 = m1.replace("ref.null func)", "(ref.null null)")
-            args = [re.split(' +', v)[1] for v in re.split("\)\s*\(", m1[1:-1])]
+            args = [re.split(" +", v)[1] for v in re.split("\)\s*\(", m1[1:-1])]
 
         expected = "Exception: %s" % m.group(3)
         test_assert(r, opts, "trap", "%s %s" % (func, " ".join(args)), expected)
@@ -961,50 +1166,60 @@ def test_assert_trap(r, opts, form):
         # will trigger the module named in assert_return(invoke $ABC).
         # run the ABC.wasm firstly
         if test_aot:
-            r = compile_wasm_to_aot(module+".wasm", module+".aot", True, opts, r)
+            r = compile_wasm_to_aot(module + ".wasm", module + ".aot", True, opts, r)
             try:
-                assert_prompt(r, ['Compile success'], opts.start_timeout, False)
+                assert_prompt(r, ["Compile success"], opts.start_timeout, False)
             except:
                 _, exc, _ = sys.exc_info()
                 log("Run wamrc failed:\n  got: '%s'" % r.buf)
                 ret_code = 1
                 sys.exit(1)
-        r = run_wasm_with_repl(module+".wasm", module+".aot" if test_aot else module, opts, r)
+        r = run_wasm_with_repl(
+            module + ".wasm", module + ".aot" if test_aot else module, opts, r
+        )
         # Wait for the initial prompt
         try:
-            assert_prompt(r, ['webassembly> '], opts.start_timeout, False)
+            assert_prompt(r, ["webassembly> "], opts.start_timeout, False)
         except:
             _, exc, _ = sys.exc_info()
-            raise Exception("Failed:\n  expected: '%s'\n  got: '%s'" % \
-                            (repr(exc), r.buf))
+            raise Exception(
+                "Failed:\n  expected: '%s'\n  got: '%s'" % (repr(exc), r.buf)
+            )
 
         func = n.group(2)
-        if n.group(3) == '':
+        if n.group(3) == "":
             args = []
         else:
-            args = [re.split(' +', v)[1] for v in re.split("\)\s*\(", n.group(3)[1:-1])]
+            args = [re.split(" +", v)[1] for v in re.split("\)\s*\(", n.group(3)[1:-1])]
         expected = "Exception: %s" % n.group(4)
         test_assert(r, opts, "trap", "%s %s" % (func, " ".join(args)), expected)
 
-def test_assert_exhaustion(r,opts,form):
+
+def test_assert_exhaustion(r, opts, form):
     # params
-    m = re.search('^\(assert_exhaustion\s+\(invoke\s+"([^"]*)"\s+(\(.*\))\s*\)\s*"([^"]+)"\s*\)\s*$', form)
+    m = re.search(
+        '^\(assert_exhaustion\s+\(invoke\s+"([^"]*)"\s+(\(.*\))\s*\)\s*"([^"]+)"\s*\)\s*$',
+        form,
+    )
     if not m:
         # no params
-        m = re.search('^\(assert_exhaustion\s+\(invoke\s+"([^"]*)"\s*()\)\s*"([^"]+)"\s*\)\s*$', form)
+        m = re.search(
+            '^\(assert_exhaustion\s+\(invoke\s+"([^"]*)"\s*()\)\s*"([^"]+)"\s*\)\s*$',
+            form,
+        )
     if not m:
         raise Exception("unparsed assert_exhaustion: '%s'" % form)
     func = m.group(1)
-    if m.group(2) == '':
+    if m.group(2) == "":
         args = []
     else:
-        args = [re.split(' +', v)[1] for v in re.split("\)\s*\(", m.group(2)[1:-1])]
+        args = [re.split(" +", v)[1] for v in re.split("\)\s*\(", m.group(2)[1:-1])]
     expected = "Exception: %s\n" % m.group(3)
     test_assert(r, opts, "exhaustion", "%s %s" % (func, " ".join(args)), expected)
 
 
 # added to support WASM_ENABLE_EXCE_HANDLING
-def test_assert_wasmexception(r,opts,form):
+def test_assert_wasmexception(r, opts, form):
     # params
 
     # ^
@@ -1015,7 +1230,9 @@ def test_assert_wasmexception(r,opts,form):
     #         \)\s*
     #     \)\s*
     # $
-    m = re.search('^\(assert_exception\s+\(invoke\s+"([^"]+)"\s+(\(.*\))\s*\)\s*\)\s*$', form)
+    m = re.search(
+        '^\(assert_exception\s+\(invoke\s+"([^"]+)"\s+(\(.*\))\s*\)\s*\)\s*$', form
+    )
     if not m:
         # no params
 
@@ -1026,17 +1243,20 @@ def test_assert_wasmexception(r,opts,form):
         #           \)\s*
         #       \)\s*
         # $
-        m = re.search('^\(assert_exception\s+\(invoke\s+"([^"]+)"\s*()\)\s*\)\s*$', form)
+        m = re.search(
+            '^\(assert_exception\s+\(invoke\s+"([^"]+)"\s*()\)\s*\)\s*$', form
+        )
     if not m:
         raise Exception("unparsed assert_exception: '%s'" % form)
-    func = m.group(1) # function name
-    if m.group(2) == '': # arguments
+    func = m.group(1)  # function name
+    if m.group(2) == "":  # arguments
         args = []
     else:
-        args = [re.split(' +', v)[1] for v in re.split("\)\s*\(", m.group(2)[1:-1])]
+        args = [re.split(" +", v)[1] for v in re.split("\)\s*\(", m.group(2)[1:-1])]
 
     expected = "Exception: uncaught wasm exception\n"
     test_assert(r, opts, "wasmexception", "%s %s" % (func, " ".join(args)), expected)
+
 
 def do_invoke(r, opts, form):
     # params
@@ -1048,18 +1268,18 @@ def do_invoke(r, opts, form):
         raise Exception("unparsed invoke: '%s'" % form)
     func = m.group(1)
 
-    if ' ' in func:
-        func = func.replace(' ', '\\')
+    if " " in func:
+        func = func.replace(" ", "\\")
 
-    if m.group(2) == '':
+    if m.group(2) == "":
         args = []
     else:
-        args = [re.split(' +', v)[1] for v in re.split("\)\s*\(", m.group(2)[1:-1])]
+        args = [re.split(" +", v)[1] for v in re.split("\)\s*\(", m.group(2)[1:-1])]
 
-    log("Invoking %s(%s)" % (
-        func, ", ".join([str(a) for a in args])))
+    log("Invoking %s(%s)" % (func, ", ".join([str(a) for a in args])))
 
     invoke(r, opts, "%s %s" % (func, " ".join(args)))
+
 
 def skip_test(form, skip_list):
     for s in skip_list:
@@ -1067,9 +1287,10 @@ def skip_test(form, skip_list):
             return True
     return False
 
+
 def compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
     log("Writing WAST module to '%s'" % wast_tempfile)
-    with open(wast_tempfile, 'w') as file:
+    with open(wast_tempfile, "w") as file:
         file.write(form)
     log("Compiling WASM to '%s'" % wasm_tempfile)
 
@@ -1077,12 +1298,43 @@ def compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
     if opts.gc:
         cmd = [opts.wast2wasm, "-u", "-d", wast_tempfile, "-o", wasm_tempfile]
     elif opts.eh:
-        cmd = [opts.wast2wasm, "--enable-threads", "--no-check", "--enable-exceptions", "--enable-tail-call", wast_tempfile, "-o", wasm_tempfile ]
+        cmd = [
+            opts.wast2wasm,
+            "--enable-threads",
+            "--no-check",
+            "--enable-exceptions",
+            "--enable-tail-call",
+            wast_tempfile,
+            "-o",
+            wasm_tempfile,
+        ]
     elif opts.memory64:
-        cmd = [opts.wast2wasm, "--enable-memory64", "--no-check", wast_tempfile, "-o", wasm_tempfile ]
+        cmd = [
+            opts.wast2wasm,
+            "--enable-memory64",
+            "--no-check",
+            wast_tempfile,
+            "-o",
+            wasm_tempfile,
+        ]
+    elif opts.multi_memory:
+        cmd = [
+            opts.wast2wasm,
+            "--enable-multi-memory",
+            "--no-check",
+            wast_tempfile,
+            "-o",
+            wasm_tempfile,
+        ]
     else:
-        cmd = [opts.wast2wasm, "--enable-threads", "--no-check",
-               wast_tempfile, "-o", wasm_tempfile ]
+        cmd = [
+            opts.wast2wasm,
+            "--enable-threads",
+            "--no-check",
+            wast_tempfile,
+            "-o",
+            wasm_tempfile,
+        ]
 
     # remove reference-type and bulk-memory enabling options since a WABT
     # commit 30c1e983d30b33a8004b39fd60cbd64477a7956c
@@ -1097,7 +1349,8 @@ def compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
 
     return True
 
-def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = 'default'):
+
+def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output="default"):
     log("Compiling '%s' to '%s'" % (wasm_tempfile, aot_tempfile))
     cmd = [opts.aot_compiler]
 
@@ -1121,9 +1374,9 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
         cmd.append("--enable-gc")
         cmd.append("--enable-tail-call")
 
-    if output == 'object':
+    if output == "object":
         cmd.append("--format=object")
-    elif output == 'ir':
+    elif output == "ir":
         cmd.append("--format=llvmir-opt")
 
     # disable llvm link time optimization as it might convert
@@ -1149,10 +1402,11 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
     if not runner:
         subprocess.check_call(cmd)
     else:
-        if (r != None):
+        if r != None:
             r.cleanup()
         r = Runner(cmd, no_pty=opts.no_pty)
         return r
+
 
 def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
     tmpfile = aot_tempfile if test_aot else wasm_tempfile
@@ -1167,10 +1421,12 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
         cmd_iwasm = [opts.interpreter, "--heap-size=0", "--repl", tmpfile]
 
     if opts.multi_module:
-        cmd_iwasm.insert(1, "--module-path=" + (tempfile.gettempdir() if not opts.qemu else "/tmp" ))
+        cmd_iwasm.insert(
+            1, "--module-path=" + (tempfile.gettempdir() if not opts.qemu else "/tmp")
+        )
 
     if opts.qemu:
-        if opts.qemu_firmware == '':
+        if opts.qemu_firmware == "":
             raise Exception("QEMU firmware missing")
 
         if opts.target.startswith("aarch64"):
@@ -1192,17 +1448,18 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
         cmd = cmd_iwasm
 
     log("Running: %s" % " ".join(cmd))
-    if (r != None):
+    if r != None:
         r.cleanup()
     r = Runner(cmd, no_pty=opts.no_pty)
 
     if opts.qemu:
-        r.read_to_prompt(['nsh> '], 10)
+        r.read_to_prompt(["nsh> "], 10)
         r.writeline("mount -t hostfs -o fs={} /tmp".format(tempfile.gettempdir()))
-        r.read_to_prompt(['nsh> '], 10)
+        r.read_to_prompt(["nsh> "], 10)
         r.writeline(" ".join(cmd_iwasm))
 
     return r
+
 
 def create_tmpfiles(wast_name):
     tempfiles = []
@@ -1216,10 +1473,13 @@ def create_tmpfiles(wast_name):
     temp_file_repo.extend(tempfiles)
     return tempfiles
 
-def test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile, opts, r, loadable = True):
+
+def test_assert_with_exception(
+    form, wast_tempfile, wasm_tempfile, aot_tempfile, opts, r, loadable=True
+):
     details_inside_ast = get_module_exp_from_assert(form)
-    log("module is ....'%s'"%details_inside_ast[0])
-    log("exception is ....'%s'"%details_inside_ast[1])
+    log("module is ....'%s'" % details_inside_ast[0])
+    log("exception is ....'%s'" % details_inside_ast[1])
     # parse the module
     module = details_inside_ast[0]
     expected = details_inside_ast[1]
@@ -1230,17 +1490,19 @@ def test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile,
     if test_aot:
         r = compile_wasm_to_aot(wasm_tempfile, aot_tempfile, True, opts, r)
         try:
-            assert_prompt(r, ['Compile success'], opts.start_timeout, True)
+            assert_prompt(r, ["Compile success"], opts.start_timeout, True)
         except:
             _, exc, _ = sys.exc_info()
-            if (r.buf.find(expected) >= 0):
+            if r.buf.find(expected) >= 0:
                 log("Out exception includes expected one, pass:")
                 log("  Expected: %s" % expected)
                 log("  Got: %s" % r.buf)
                 return
             else:
-                log("Run wamrc failed:\n  expected: '%s'\n  got: '%s'" % \
-                    (expected, r.buf))
+                log(
+                    "Run wamrc failed:\n  expected: '%s'\n  got: '%s'"
+                    % (expected, r.buf)
+                )
                 ret_code = 1
                 sys.exit(1)
 
@@ -1251,29 +1513,35 @@ def test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile,
     if loadable:
         # Wait for the initial prompt
         try:
-            assert_prompt(r, ['webassembly> '], opts.start_timeout, True)
+            assert_prompt(r, ["webassembly> "], opts.start_timeout, True)
         except:
             _, exc, _ = sys.exc_info()
-            if (r.buf.find(expected) >= 0):
+            if r.buf.find(expected) >= 0:
                 log("Out exception includes expected one, pass:")
-                log("  Expected: %s" %expected)
+                log("  Expected: %s" % expected)
                 log("  Got: %s" % r.buf)
             else:
-                raise Exception("Failed:\n  expected: '%s'\n  got: '%s'" % \
-                                (expected, r.buf))
+                raise Exception(
+                    "Failed:\n  expected: '%s'\n  got: '%s'" % (expected, r.buf)
+                )
+
 
 if __name__ == "__main__":
     opts = parser.parse_args(sys.argv[1:])
     # print('Input param :',opts)
 
-    if opts.aot: test_aot = True
+    if opts.aot:
+        test_aot = True
     # default x86_64
     test_target = opts.target
 
-    if opts.rundir: os.chdir(opts.rundir)
+    if opts.rundir:
+        os.chdir(opts.rundir)
 
-    if opts.log_file:   log_file   = open(opts.log_file, "a")
-    if opts.debug_file: debug_file = open(opts.debug_file, "a")
+    if opts.log_file:
+        log_file = open(opts.log_file, "a")
+    if opts.debug_file:
+        debug_file = open(opts.debug_file, "a")
 
     if opts.interpreter.endswith(".py"):
         SKIP_TESTS = PY_SKIP_TESTS
@@ -1300,84 +1568,131 @@ if __name__ == "__main__":
             elif skip_test(form, SKIP_TESTS):
                 log("Skipping test: %s" % form[0:60])
             elif re.match("^\(assert_trap\s+\(module", form):
-                test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
+                test_assert_with_exception(
+                    form,
+                    wast_tempfile,
+                    wasm_tempfile,
+                    aot_tempfile if test_aot else None,
+                    opts,
+                    r,
+                )
             elif re.match("^\(assert_exhaustion\\b.*", form):
                 test_assert_exhaustion(r, opts, form)
             elif re.match("^\(assert_exception\\b.*", form):
                 test_assert_wasmexception(r, opts, form)
             elif re.match("^\(assert_unlinkable\\b.*", form):
-                test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile if test_aot else None, opts, r, False)
+                test_assert_with_exception(
+                    form,
+                    wast_tempfile,
+                    wasm_tempfile,
+                    aot_tempfile if test_aot else None,
+                    opts,
+                    r,
+                    False,
+                )
             elif re.match("^\(assert_malformed\\b.*", form):
                 # remove comments in wast
-                form,n = re.subn(";;.*\n", "", form)
-                m = re.match("^\(assert_malformed\s*\(module binary\s*(\".*\").*\)\s*\"(.*)\"\s*\)$", form, re.DOTALL)
+                form, n = re.subn(";;.*\n", "", form)
+                m = re.match(
+                    '^\(assert_malformed\s*\(module binary\s*(".*").*\)\s*"(.*)"\s*\)$',
+                    form,
+                    re.DOTALL,
+                )
 
                 if m:
                     # workaround: spec test changes error message to "malformed" while iwasm still use "invalid"
                     error_msg = m.group(2).replace("malformed", "invalid")
                     log("Testing(malformed)")
-                    with open(wasm_tempfile, 'wb') as f:
+                    with open(wasm_tempfile, "wb") as f:
                         s = m.group(1)
                         while s:
-                            res = re.match("[^\"]*\"([^\"]*)\"(.*)", s, re.DOTALL)
+                            res = re.match('[^"]*"([^"]*)"(.*)', s, re.DOTALL)
                             if IS_PY_3:
-                                context = res.group(1).replace("\\", "\\x").encode("latin1").decode("unicode-escape").encode("latin1")
+                                context = (
+                                    res.group(1)
+                                    .replace("\\", "\\x")
+                                    .encode("latin1")
+                                    .decode("unicode-escape")
+                                    .encode("latin1")
+                                )
                                 f.write(context)
                             else:
-                                f.write(res.group(1).replace("\\", "\\x").decode("string-escape"))
+                                f.write(
+                                    res.group(1)
+                                    .replace("\\", "\\x")
+                                    .decode("string-escape")
+                                )
                             s = res.group(2)
 
                     # compile wasm to aot
                     if test_aot:
-                        r = compile_wasm_to_aot(wasm_tempfile, aot_tempfile, True, opts, r)
+                        r = compile_wasm_to_aot(
+                            wasm_tempfile, aot_tempfile, True, opts, r
+                        )
                         try:
-                            assert_prompt(r, ['Compile success'], opts.start_timeout, True)
+                            assert_prompt(
+                                r, ["Compile success"], opts.start_timeout, True
+                            )
                         except:
                             _, exc, _ = sys.exc_info()
-                            if (r.buf.find(error_msg) >= 0):
+                            if r.buf.find(error_msg) >= 0:
                                 log("Out exception includes expected one, pass:")
                                 log("  Expected: %s" % error_msg)
                                 log("  Got: %s" % r.buf)
                                 continue
                             # one case in binary.wast
-                            elif (error_msg == "unexpected end of section or function"
-                                  and r.buf.find("unexpected end")):
+                            elif (
+                                error_msg == "unexpected end of section or function"
+                                and r.buf.find("unexpected end")
+                            ):
                                 continue
                             # one case in binary.wast
-                            elif (error_msg == "invalid value type"
-                                  and r.buf.find("unexpected end")):
+                            elif error_msg == "invalid value type" and r.buf.find(
+                                "unexpected end"
+                            ):
                                 continue
                             # one case in binary.wast
-                            elif (error_msg == "integer too large"
-                                  and r.buf.find("tables cannot be shared")):
+                            elif error_msg == "integer too large" and r.buf.find(
+                                "tables cannot be shared"
+                            ):
                                 continue
                             # one case in binary.wast
-                            elif (error_msg == "zero byte expected"
-                                  and r.buf.find("unknown table")):
+                            elif error_msg == "zero byte expected" and r.buf.find(
+                                "unknown table"
+                            ):
                                 continue
                             # one case in binary.wast
-                            elif (error_msg == "invalid section id"
-                                  and r.buf.find("unexpected end of section or function")):
+                            elif error_msg == "invalid section id" and r.buf.find(
+                                "unexpected end of section or function"
+                            ):
                                 continue
                             # one case in binary.wast
-                            elif (error_msg == "illegal opcode"
-                                  and r.buf.find("unexpected end of section or function")):
+                            elif error_msg == "illegal opcode" and r.buf.find(
+                                "unexpected end of section or function"
+                            ):
                                 continue
                             # one case in custom.wast
-                            elif (error_msg == "length out of bounds"
-                                  and r.buf.find("unexpected end")):
+                            elif error_msg == "length out of bounds" and r.buf.find(
+                                "unexpected end"
+                            ):
                                 continue
                             # several cases in binary-leb128.wast
-                            elif (error_msg == "integer representation too long"
-                                  and r.buf.find("invalid section id")):
+                            elif (
+                                error_msg == "integer representation too long"
+                                and r.buf.find("invalid section id")
+                            ):
                                 continue
                             else:
-                                log("Run wamrc failed:\n  expected: '%s'\n  got: '%s'" % \
-                                    (error_msg, r.buf))
+                                log(
+                                    "Run wamrc failed:\n  expected: '%s'\n  got: '%s'"
+                                    % (error_msg, r.buf)
+                                )
                                 ret_code = 1
                                 sys.exit(1)
 
-                    r = run_wasm_with_repl(wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
+                    r = run_wasm_with_repl(
+                        wasm_tempfile, aot_tempfile if test_aot else None, opts, r
+                    )
 
                 elif re.match("^\(assert_malformed\s*\(module quote", form):
                     log("ignoring assert_malformed module quote")
@@ -1389,81 +1704,113 @@ if __name__ == "__main__":
             elif re.match(".*\(invoke\s+\$\\b.*", form):
                 # invoke a particular named module's function
                 if form.startswith("(assert_return"):
-                    test_assert_return(r,opts,form)
+                    test_assert_return(r, opts, form)
                 elif form.startswith("(assert_trap"):
-                    test_assert_trap(r,opts,form)
+                    test_assert_trap(r, opts, form)
             elif re.match("^\(module\\b.*", form):
                 # if the module includes the particular name startswith $
                 m = re.search("^\(module\s+\$.\S+", form)
                 if m:
                     # get module name
-                    module_name = re.split('\$', m.group(0).strip())[1]
+                    module_name = re.split("\$", m.group(0).strip())[1]
                     if module_name:
                         # create temporal files
                         temp_files = create_tmpfiles(module_name)
-                        if not compile_wast_to_wasm(form, temp_files[0], temp_files[1], opts):
+                        if not compile_wast_to_wasm(
+                            form, temp_files[0], temp_files[1], opts
+                        ):
                             raise Exception("compile wast to wasm failed")
 
                         if test_aot:
-                            r = compile_wasm_to_aot(temp_files[1], temp_files[2], True, opts, r)
+                            r = compile_wasm_to_aot(
+                                temp_files[1], temp_files[2], True, opts, r
+                            )
                             try:
-                                assert_prompt(r, ['Compile success'], opts.start_timeout, False)
+                                assert_prompt(
+                                    r, ["Compile success"], opts.start_timeout, False
+                                )
                             except:
                                 _, exc, _ = sys.exc_info()
                                 log("Run wamrc failed:\n  got: '%s'" % r.buf)
                                 ret_code = 1
                                 sys.exit(1)
                         temp_module_table[module_name] = temp_files[1]
-                        r = run_wasm_with_repl(temp_files[1], temp_files[2] if test_aot else None, opts, r)
+                        r = run_wasm_with_repl(
+                            temp_files[1], temp_files[2] if test_aot else None, opts, r
+                        )
                 else:
-                    if not compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
+                    if not compile_wast_to_wasm(
+                        form, wast_tempfile, wasm_tempfile, opts
+                    ):
                         raise Exception("compile wast to wasm failed")
 
                     if test_aot:
-                        r = compile_wasm_to_aot(wasm_tempfile, aot_tempfile, True, opts, r)
+                        r = compile_wasm_to_aot(
+                            wasm_tempfile, aot_tempfile, True, opts, r
+                        )
                         try:
-                            assert_prompt(r, ['Compile success'], opts.start_timeout, False)
+                            assert_prompt(
+                                r, ["Compile success"], opts.start_timeout, False
+                            )
                         except:
                             _, exc, _ = sys.exc_info()
                             log("Run wamrc failed:\n  got: '%s'" % r.buf)
                             ret_code = 1
                             sys.exit(1)
 
-                    r = run_wasm_with_repl(wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
+                    r = run_wasm_with_repl(
+                        wasm_tempfile, aot_tempfile if test_aot else None, opts, r
+                    )
 
                 # Wait for the initial prompt
                 try:
-                    assert_prompt(r, ['webassembly> '], opts.start_timeout, False)
+                    assert_prompt(r, ["webassembly> "], opts.start_timeout, False)
                 except:
                     _, exc, _ = sys.exc_info()
-                    raise Exception("Failed:\n  expected: '%s'\n  got: '%s'" % \
-                                    (repr(exc), r.buf))
+                    raise Exception(
+                        "Failed:\n  expected: '%s'\n  got: '%s'" % (repr(exc), r.buf)
+                    )
 
             elif re.match("^\(assert_return\\b.*", form):
-                assert(r), "iwasm repl runtime should be not null"
+                assert r, "iwasm repl runtime should be not null"
                 test_assert_return(r, opts, form)
             elif re.match("^\(assert_trap\\b.*", form):
                 test_assert_trap(r, opts, form)
             elif re.match("^\(invoke\\b.*", form):
-                assert(r), "iwasm repl runtime should be not null"
+                assert r, "iwasm repl runtime should be not null"
                 do_invoke(r, opts, form)
             elif re.match("^\(assert_invalid\\b.*", form):
-                test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
+                test_assert_with_exception(
+                    form,
+                    wast_tempfile,
+                    wasm_tempfile,
+                    aot_tempfile if test_aot else None,
+                    opts,
+                    r,
+                )
             elif re.match("^\(register\\b.*", form):
                 # get module's new name from the register cmd
-                name_new =re.split('\"',re.search('\".*\"',form).group(0))[1]
+                name_new = re.split('"', re.search('".*"', form).group(0))[1]
                 if name_new:
                     new_module = os.path.join(tempfile.gettempdir(), name_new + ".wasm")
-                    shutil.copyfile(temp_module_table.get(name_new, wasm_tempfile), new_module)
+                    shutil.copyfile(
+                        temp_module_table.get(name_new, wasm_tempfile), new_module
+                    )
 
                     # add new_module copied from the old into temp_file_repo[]
                     temp_file_repo.append(new_module)
 
                     if test_aot:
-                        new_module_aot = os.path.join(tempfile.gettempdir(), name_new + ".aot")
-                        r = compile_wasm_to_aot(new_module, new_module_aot, True, opts, r)
+                        new_module_aot = os.path.join(
+                            tempfile.gettempdir(), name_new + ".aot"
+                        )
+                        r = compile_wasm_to_aot(
+                            new_module, new_module_aot, True, opts, r
+                        )
                         try:
-                            assert_prompt(r, ['Compile success'], opts.start_timeout, True)
+                            assert_prompt(
+                                r, ["Compile success"], opts.start_timeout, True
+                            )
                         except:
                             raise Exception("compile wasm to aot failed")
                         # add aot module into temp_file_repo[]
@@ -1478,16 +1825,28 @@ if __name__ == "__main__":
         print("THE FINAL EXCEPTION IS {}".format(e))
         ret_code = 101
 
-        shutil.copyfile(wasm_tempfile, os.path.join(opts.log_dir, os.path.basename(wasm_tempfile)))
+        shutil.copyfile(
+            wasm_tempfile, os.path.join(opts.log_dir, os.path.basename(wasm_tempfile))
+        )
 
         if opts.aot or opts.xip:
-            shutil.copyfile(aot_tempfile, os.path.join(opts.log_dir,os.path.basename(aot_tempfile)))
+            shutil.copyfile(
+                aot_tempfile, os.path.join(opts.log_dir, os.path.basename(aot_tempfile))
+            )
             if "indirect-mode" in str(e):
-                compile_wasm_to_aot(wasm_tempfile, aot_tempfile, None, opts, None, "object")
-                shutil.copyfile(aot_tempfile, os.path.join(opts.log_dir,os.path.basename(aot_tempfile)+'.o'))
+                compile_wasm_to_aot(
+                    wasm_tempfile, aot_tempfile, None, opts, None, "object"
+                )
+                shutil.copyfile(
+                    aot_tempfile,
+                    os.path.join(opts.log_dir, os.path.basename(aot_tempfile) + ".o"),
+                )
                 subprocess.check_call(["llvm-objdump", "-r", aot_tempfile])
             compile_wasm_to_aot(wasm_tempfile, aot_tempfile, None, opts, None, "ir")
-            shutil.copyfile(aot_tempfile, os.path.join(opts.log_dir,os.path.basename(aot_tempfile)+".ir"))
+            shutil.copyfile(
+                aot_tempfile,
+                os.path.join(opts.log_dir, os.path.basename(aot_tempfile) + ".ir"),
+            )
 
     else:
         ret_code = 0
@@ -1502,7 +1861,7 @@ if __name__ == "__main__":
             # remove the files under /tempfiles/ and copy of .wasm files
             if temp_file_repo:
                 for t in temp_file_repo:
-                    if(len(str(t))!=0 and os.path.exists(t)):
+                    if len(str(t)) != 0 and os.path.exists(t):
                         os.remove(t)
 
             log("### End testing %s" % opts.test_file.name)
