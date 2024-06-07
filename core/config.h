@@ -663,4 +663,17 @@
 #define WASM_MEM_ALLOC_WITH_USAGE 0
 #endif
 
+#ifndef WASM_ENABLE_FUZZ_TEST
+#define WASM_ENABLE_FUZZ_TEST 0
+#endif
+
+#ifndef WASM_MEM_ALLOC_MAX_SIZE
+#if WASM_ENABLE_FUZZ_TEST != 0
+/* In oss-fuzz, the maximum RAM is ~2.5G */
+#define WASM_MEM_ALLOC_MAX_SIZE (2U * 1024 * 1024 * 1024)
+#else
+#define WASM_MEM_ALLOC_MAX_SIZE UINT32_MAX
+#endif
+#endif
+
 #endif /* end of _CONFIG_H_ */

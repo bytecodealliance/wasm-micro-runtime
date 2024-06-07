@@ -201,9 +201,23 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
     if (func_type->param_count) {
         for (i = 0; i < argc; i++)
             total_argv_size += (uint32)(strlen(argv[i]) + 1);
-        total_argv_size = align_uint(total_argv_size, 4);
+#if WASM_ENABLE_MEMORY64 != 0
+        if (is_memory64)
+            /* `char **argv` is an array of 64-bit elements in memory64 */
+            total_argv_size = align_uint(total_argv_size, 8);
+        else
+#endif
+            total_argv_size = align_uint(total_argv_size, 4);
 
-        total_size = (uint64)total_argv_size + sizeof(int32) * (uint64)argc;
+#if WASM_ENABLE_MEMORY64 != 0
+        if (is_memory64)
+            /* `char **argv` is an array of 64-bit elements in memory64 */
+            total_size =
+                (uint64)total_argv_size + sizeof(uint64) * (uint64)argc;
+        else
+#endif
+            total_size =
+                (uint64)total_argv_size + sizeof(uint32) * (uint64)argc;
 
         if (total_size >= UINT32_MAX
             || !(argv_buf_offset = wasm_runtime_module_malloc(
@@ -219,7 +233,15 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
         for (i = 0; i < argc; i++) {
             bh_memcpy_s(p, (uint32)(p_end - p), argv[i],
                         (uint32)(strlen(argv[i]) + 1));
-            argv_offsets[i] = (uint32)argv_buf_offset + (uint32)(p - argv_buf);
+#if WASM_ENABLE_MEMORY64 != 0
+            if (is_memory64)
+                /* `char **argv` is an array of 64-bit elements in memory64 */
+                ((uint64 *)argv_offsets)[i] =
+                    (uint32)argv_buf_offset + (uint32)(p - argv_buf);
+            else
+#endif
+                argv_offsets[i] =
+                    (uint32)argv_buf_offset + (uint32)(p - argv_buf);
             p += strlen(argv[i]) + 1;
         }
 

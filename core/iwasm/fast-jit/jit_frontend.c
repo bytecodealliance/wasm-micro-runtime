@@ -234,7 +234,7 @@ is_shared_memory(WASMModule *module, uint32 mem_idx)
 
     if (mem_idx < module->import_memory_count) {
         memory_import = &(module->import_memories[mem_idx].u.memory);
-        is_shared = memory_import->flags & 0x02 ? true : false;
+        is_shared = memory_import->mem_type.flags & 0x02 ? true : false;
     }
     else {
         memory = &module->memories[mem_idx - module->import_memory_count];
@@ -1510,7 +1510,9 @@ jit_compile_func(JitCompContext *cc)
             case EXT_OP_LOOP:
             case EXT_OP_IF:
             {
-                read_leb_uint32(frame_ip, frame_ip_end, type_idx);
+                read_leb_int32(frame_ip, frame_ip_end, type_idx);
+                /* type index was checked in wasm loader */
+                bh_assert(type_idx < cc->cur_wasm_module->type_count);
                 func_type = cc->cur_wasm_module->types[type_idx];
                 param_count = func_type->param_count;
                 param_types = func_type->types;

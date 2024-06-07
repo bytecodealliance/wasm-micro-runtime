@@ -272,9 +272,9 @@ DumpDetails(AoTFile *aot)
         AOTImportMemory memory = import_memories[index];
         printf("    -[%u] num_bytes_per_page:%5u    init_page_count:%5u    "
                "max_page_count:%5u    module_name: %s    memory_name: %s\n",
-               index, memory.num_bytes_per_page, memory.mem_init_page_count,
-               memory.mem_max_page_count, memory.module_name,
-               memory.memory_name);
+               index, memory.memory.num_bytes_per_page,
+               memory.memory.init_page_count, memory.memory.max_page_count,
+               memory.module_name, memory.memory_name);
     }
     printf("\n");
 
@@ -365,10 +365,10 @@ DumpDetails(AoTFile *aot)
 
     for (uint32_t index = 0; index < memory_count; index++) {
         AOTMemory memory = memories[index];
-        printf("  -[%u] memory_flags:%5u    bytes_per_page:%5u    "
+        printf("  -[%u] flags:%5u    bytes_per_page:%5u    "
                "init_page_count:%5u    max_page_count:%5u\n",
-               index, memory.memory_flags, memory.num_bytes_per_page,
-               memory.mem_init_page_count, memory.mem_max_page_count);
+               index, memory.flags, memory.num_bytes_per_page,
+               memory.init_page_count, memory.max_page_count);
     }
     printf("\n\n");
 

@@ -384,12 +384,14 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                 return ret;
         }
 #endif
+        else {
+            LOG_WARNING("Unhandled exception thrown:  exception code: 0x%lx, "
+                        "exception address: %p, exception information: %p\n",
+                        ExceptionRecord->ExceptionCode,
+                        ExceptionRecord->ExceptionAddress, sig_addr);
+        }
     }
 
-    LOG_ERROR("Unhandled exception thrown:  exception code: 0x%lx, "
-              "exception address: %p, exception information: %p\n",
-              ExceptionRecord->ExceptionCode, ExceptionRecord->ExceptionAddress,
-              sig_addr);
     return EXCEPTION_CONTINUE_SEARCH;
 }
 #endif /* end of BH_PLATFORM_WINDOWS */
@@ -3871,7 +3873,8 @@ wasm_runtime_get_import_type(WASMModuleCommon *const module, int32 import_index,
             import_type->kind = WASM_IMPORT_EXPORT_KIND_FUNC;
             import_type->linked =
                 aot_import_func->func_ptr_linked ? true : false;
-            import_type->u.func_type = aot_import_func->func_type;
+            import_type->u.func_type =
+                (WASMFuncType *)aot_import_func->func_type;
             return;
         }
 
@@ -3907,6 +3910,8 @@ wasm_runtime_get_import_type(WASMModuleCommon *const module, int32 import_index,
             import_type->name = aot_import_memory->memory_name;
             import_type->kind = WASM_IMPORT_EXPORT_KIND_MEMORY;
             import_type->linked = false;
+            import_type->u.memory_type =
+                (WASMMemoryType *)&aot_import_memory->mem_type;
             return;
         }
 
@@ -3931,7 +3936,8 @@ wasm_runtime_get_import_type(WASMModuleCommon *const module, int32 import_index,
         switch (import_type->kind) {
             case WASM_IMPORT_EXPORT_KIND_FUNC:
                 import_type->linked = wasm_import->u.function.func_ptr_linked;
-                import_type->u.func_type = wasm_import->u.function.func_type;
+                import_type->u.func_type =
+                    (WASMFuncType *)wasm_import->u.function.func_type;
                 break;
             case WASM_IMPORT_EXPORT_KIND_GLOBAL:
                 import_type->linked = wasm_import->u.global.is_linked;
@@ -3939,12 +3945,12 @@ wasm_runtime_get_import_type(WASMModuleCommon *const module, int32 import_index,
                     (WASMGlobalType *)&wasm_import->u.global.type;
                 break;
             case WASM_IMPORT_EXPORT_KIND_TABLE:
-                /* not supported */
-                import_type->linked = false;
+                import_type->linked = false; /* not supported */
                 break;
             case WASM_IMPORT_EXPORT_KIND_MEMORY:
-                /* not supported */
-                import_type->linked = false;
+                import_type->linked = false; /* not supported */
+                import_type->u.memory_type =
+                    (WASMMemoryType *)&wasm_import->u.memory.mem_type;
                 break;
             default:
                 bh_assert(0);
@@ -4024,12 +4030,11 @@ wasm_runtime_get_export_type(WASMModuleCommon *const module, int32 export_index,
                          .type;
                 break;
             case WASM_IMPORT_EXPORT_KIND_TABLE:
-                /* not supported */
-                // export_type->linked = false;
                 break;
             case WASM_IMPORT_EXPORT_KIND_MEMORY:
-                /* not supported */
-                // export_type->linked = false;
+                export_type->u.memory_type =
+                    &aot_module->memories[aot_export->index
+                                          - aot_module->import_memory_count];
                 break;
             default:
                 bh_assert(0);
@@ -4066,13 +4071,13 @@ wasm_runtime_get_export_type(WASMModuleCommon *const module, int32 export_index,
                          .type;
                 break;
             case WASM_IMPORT_EXPORT_KIND_TABLE:
-                /* not supported */
-                // export_type->linked = false;
                 break;
             case WASM_IMPORT_EXPORT_KIND_MEMORY:
-                /* not supported */
-                // export_type->linked = false;
+                export_type->u.memory_type =
+                    &wasm_module->memories[wasm_export->index
+                                           - wasm_module->import_memory_count];
                 break;
+            default:
                 bh_assert(0);
                 break;
         }
@@ -4168,7 +4173,7 @@ wasm_func_type_get_result_valkind(WASMFuncType *const func_type,
 }
 
 wasm_valkind_t
-wasm_global_type_get_valkind(const wasm_global_type_t global_type)
+wasm_global_type_get_valkind(WASMGlobalType *const global_type)
 {
     bh_assert(global_type);
 
@@ -4176,11 +4181,35 @@ wasm_global_type_get_valkind(const wasm_global_type_t global_type)
 }
 
 bool
-wasm_global_type_get_mutable(const wasm_global_type_t global_type)
+wasm_global_type_get_mutable(WASMGlobalType *const global_type)
 {
     bh_assert(global_type);
 
     return global_type->is_mutable;
+}
+
+bool
+wasm_memory_type_get_shared(WASMMemoryType *const memory_type)
+{
+    bh_assert(memory_type);
+
+    return (memory_type->flags & SHARED_MEMORY_FLAG) ? true : false;
+}
+
+uint32
+wasm_memory_type_get_init_page_count(WASMMemoryType *const memory_type)
+{
+    bh_assert(memory_type);
+
+    return memory_type->init_page_count;
+}
+
+uint32
+wasm_memory_type_get_max_page_count(WASMMemoryType *const memory_type)
+{
+    bh_assert(memory_type);
+
+    return memory_type->max_page_count;
 }
 
 bool
@@ -6517,8 +6546,8 @@ wasm_runtime_get_export_memory_type(const WASMModuleCommon *module_comm,
         if (export->index < module->import_memory_count) {
             WASMMemoryImport *import_memory =
                 &((module->import_memories + export->index)->u.memory);
-            *out_min_page = import_memory->init_page_count;
-            *out_max_page = import_memory->max_page_count;
+            *out_min_page = import_memory->mem_type.init_page_count;
+            *out_max_page = import_memory->mem_type.max_page_count;
         }
         else {
             WASMMemory *memory =
@@ -6538,14 +6567,14 @@ wasm_runtime_get_export_memory_type(const WASMModuleCommon *module_comm,
         if (export->index < module->import_memory_count) {
             AOTImportMemory *import_memory =
                 module->import_memories + export->index;
-            *out_min_page = import_memory->mem_init_page_count;
-            *out_max_page = import_memory->mem_max_page_count;
+            *out_min_page = import_memory->mem_type.init_page_count;
+            *out_max_page = import_memory->mem_type.max_page_count;
         }
         else {
             AOTMemory *memory = module->memories
                                 + (export->index - module->import_memory_count);
-            *out_min_page = memory->mem_init_page_count;
-            *out_max_page = memory->mem_max_page_count;
+            *out_min_page = memory->init_page_count;
+            *out_max_page = memory->max_page_count;
         }
         return true;
     }

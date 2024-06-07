@@ -189,7 +189,7 @@ get_import_memory_size(AOTCompData *comp_data)
 static uint32
 get_memory_size(AOTCompData *comp_data)
 {
-    /* memory_count + count * (memory_flags + num_bytes_per_page +
+    /* memory_count + count * (flags + num_bytes_per_page +
                                init_page_count + max_page_count) */
     return (uint32)(sizeof(uint32)
                     + comp_data->memory_count * sizeof(uint32) * 4);
@@ -1762,10 +1762,10 @@ aot_emit_mem_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     EMIT_U32(comp_data->memory_count);
     /* Emit memory items */
     for (i = 0; i < comp_data->memory_count; i++) {
-        EMIT_U32(comp_data->memories[i].memory_flags);
+        EMIT_U32(comp_data->memories[i].flags);
         EMIT_U32(comp_data->memories[i].num_bytes_per_page);
-        EMIT_U32(comp_data->memories[i].mem_init_page_count);
-        EMIT_U32(comp_data->memories[i].mem_max_page_count);
+        EMIT_U32(comp_data->memories[i].init_page_count);
+        EMIT_U32(comp_data->memories[i].max_page_count);
     }
 
     /* Emit mem init data count */

@@ -1043,16 +1043,16 @@ load_memory_info(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
     }
 
     for (i = 0; i < module->memory_count; i++) {
-        read_uint32(buf, buf_end, module->memories[i].memory_flags);
+        read_uint32(buf, buf_end, module->memories[i].flags);
 
-        if (!wasm_memory_check_flags(module->memories[i].memory_flags,
-                                     error_buf, error_buf_size, true)) {
+        if (!wasm_memory_check_flags(module->memories[i].flags, error_buf,
+                                     error_buf_size, true)) {
             return false;
         }
 
         read_uint32(buf, buf_end, module->memories[i].num_bytes_per_page);
-        read_uint32(buf, buf_end, module->memories[i].mem_init_page_count);
-        read_uint32(buf, buf_end, module->memories[i].mem_max_page_count);
+        read_uint32(buf, buf_end, module->memories[i].init_page_count);
+        read_uint32(buf, buf_end, module->memories[i].max_page_count);
     }
 
     read_uint32(buf, buf_end, module->mem_init_data_count);
@@ -3637,9 +3637,9 @@ has_module_memory64(AOTModule *module)
     /* TODO: multi-memories for now assuming the memory idx type is consistent
      * across multi-memories */
     if (module->import_memory_count > 0)
-        return !!(module->import_memories[0].memory_flags & MEMORY64_FLAG);
+        return !!(module->import_memories[0].mem_type.flags & MEMORY64_FLAG);
     else if (module->memory_count > 0)
-        return !!(module->memories[0].memory_flags & MEMORY64_FLAG);
+        return !!(module->memories[0].flags & MEMORY64_FLAG);
 
     return false;
 }

@@ -912,7 +912,7 @@
             "options": "",
             "argument": "",
             "expected return": {
-                "ret code": 57,
+                "ret code": 8,
                 "stdout content": "",
                 "description": "sock_shutdown on a non-socket file descriptor should fail with 57 notsock"
             }
@@ -1673,6 +1673,54 @@
                 "ret code": 0,
                 "stdout content": "Hello from Kotlin via WASI\nCurrent 'realtime' timestamp is:",
                 "description": "no 'type mismatch: expect (ref null ht) but got other1 unknown type'"
+            }
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                3467
+            ],
+            "runtime": "iwasm-default-wasi-disabled",
+            "file": "tt_unreachable.wasm",
+            "mode": "fast-interp",
+            "options": "--heap-size=0 -f to_test",
+            "argument": "",
+            "expected return": {
+                "ret code": 1,
+                "stdout content": "Exception: unreachable",
+                "description": "no '-1.861157e+19:f32'"
+            }
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                3468
+            ],
+            "runtime": "iwasm-default-wasi-disabled",
+            "file": "i64.add.wasm",
+            "mode": "fast-interp",
+            "options": "--heap-size=0 -f to_test",
+            "argument": "",
+            "expected return": {
+                "ret code": 255,
+                "stdout content": "WASM module load failed: unknown type",
+                "description": "no '0x0:i64'"
+            }
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                3491
+            ],
+            "runtime": "iwasm-default-wasi-disabled",
+            "file": "nop_0LM_592_17171016522810388.wasm",
+            "mode": "fast-interp",
+            "options": "",
+            "argument": "",
+            "expected return": {
+                "ret code": 255,
+                "stdout content": "WASM module load failed: data count and data section have inconsistent lengths",
+                "description": "Check data segment count"
             }
         }
     ]

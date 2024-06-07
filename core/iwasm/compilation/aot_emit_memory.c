@@ -109,7 +109,7 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     bool is_target_64bit, is_local_of_aot_value = false;
 #if WASM_ENABLE_SHARED_MEMORY != 0
     bool is_shared_memory =
-        comp_ctx->comp_data->memories[0].memory_flags & SHARED_MEMORY_FLAG;
+        comp_ctx->comp_data->memories[0].flags & SHARED_MEMORY_FLAG;
 #endif
 
     is_target_64bit = (comp_ctx->pointer_size == sizeof(uint64)) ? true : false;
@@ -177,7 +177,7 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         uint32 num_bytes_per_page =
             comp_ctx->comp_data->memories[0].num_bytes_per_page;
         uint32 init_page_count =
-            comp_ctx->comp_data->memories[0].mem_init_page_count;
+            comp_ctx->comp_data->memories[0].init_page_count;
         uint64 mem_data_size = (uint64)num_bytes_per_page * init_page_count;
 
         if (mem_offset + bytes <= mem_data_size) {
@@ -224,7 +224,7 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
              && aot_checked_addr_list_find(func_ctx, local_idx_of_aot_value,
                                            offset, bytes))) {
         uint32 init_page_count =
-            comp_ctx->comp_data->memories[0].mem_init_page_count;
+            comp_ctx->comp_data->memories[0].init_page_count;
         if (init_page_count == 0) {
             LLVMValueRef mem_size;
 
@@ -932,8 +932,7 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* Get memory base address and memory data size */
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    bool is_shared_memory =
-        comp_ctx->comp_data->memories[0].memory_flags & 0x02;
+    bool is_shared_memory = comp_ctx->comp_data->memories[0].flags & 0x02;
 
     if (func_ctx->mem_space_unchanged || is_shared_memory) {
 #else
@@ -961,7 +960,7 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         uint32 num_bytes_per_page =
             comp_ctx->comp_data->memories[0].num_bytes_per_page;
         uint32 init_page_count =
-            comp_ctx->comp_data->memories[0].mem_init_page_count;
+            comp_ctx->comp_data->memories[0].init_page_count;
         uint64 mem_data_size = (uint64)num_bytes_per_page * init_page_count;
         if (mem_data_size > 0 && mem_offset + mem_len <= mem_data_size) {
             /* inside memory space */

@@ -396,12 +396,13 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
     /* instantiate memories from import section */
     import = module->import_memories;
     for (i = 0; i < module->import_memory_count; i++, import++, memory++) {
-        uint32 num_bytes_per_page = import->u.memory.num_bytes_per_page;
-        uint32 init_page_count = import->u.memory.init_page_count;
+        uint32 num_bytes_per_page =
+            import->u.memory.mem_type.num_bytes_per_page;
+        uint32 init_page_count = import->u.memory.mem_type.init_page_count;
         uint32 max_page_count = wasm_runtime_get_max_mem(
-            max_memory_pages, import->u.memory.init_page_count,
-            import->u.memory.max_page_count);
-        uint32 flags = import->u.memory.flags;
+            max_memory_pages, import->u.memory.mem_type.init_page_count,
+            import->u.memory.mem_type.max_page_count);
+        uint32 flags = import->u.memory.mem_type.flags;
         uint32 actual_heap_size = heap_size;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -3181,7 +3182,7 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
 
     if (!is_sub_inst) {
 #if WASM_ENABLE_WASI_NN != 0
-        wasi_nn_destroy(module_inst);
+        wasi_nn_destroy((WASMModuleInstanceCommon *)module_inst);
 #endif
         wasm_native_call_context_dtors((WASMModuleInstanceCommon *)module_inst);
     }

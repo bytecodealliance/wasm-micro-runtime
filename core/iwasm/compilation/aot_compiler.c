@@ -1028,7 +1028,9 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 }
                 else {
                     frame_ip--;
-                    read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                    read_leb_int32(frame_ip, frame_ip_end, type_index);
+                    /* type index was checked in wasm loader */
+                    bh_assert(type_index < comp_ctx->comp_data->type_count);
                     func_type =
                         (AOTFuncType *)comp_ctx->comp_data->types[type_index];
                     param_count = func_type->param_count;
@@ -1048,7 +1050,9 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
             case EXT_OP_LOOP:
             case EXT_OP_IF:
             {
-                read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                read_leb_int32(frame_ip, frame_ip_end, type_index);
+                /* type index was checked in wasm loader */
+                bh_assert(type_index < comp_ctx->comp_data->type_count);
                 func_type =
                     (AOTFuncType *)comp_ctx->comp_data->types[type_index];
                 param_count = func_type->param_count;

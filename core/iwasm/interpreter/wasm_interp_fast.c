@@ -3446,10 +3446,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             {
                 /* clang-format off */
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
-                    local_offset = *frame_ip++;
+                local_offset = *frame_ip++;
 #else
-                    local_offset = *frame_ip;
-                    frame_ip += 2;
+                local_offset = *frame_ip;
+                frame_ip += 2;
 #endif
                 /* clang-format on */
                 *(uint32 *)(frame_lp + local_offset) =
@@ -3463,10 +3463,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             {
                 /* clang-format off */
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
-                    local_offset = *frame_ip++;
+                local_offset = *frame_ip++;
 #else
-                    local_offset = *frame_ip;
-                    frame_ip += 2;
+                local_offset = *frame_ip;
+                frame_ip += 2;
 #endif
                 /* clang-format on */
                 PUT_I64_TO_ADDR((uint32 *)(frame_lp + local_offset),

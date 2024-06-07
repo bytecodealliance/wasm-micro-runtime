@@ -11,7 +11,6 @@
 #include <string.h>
 #include <stdint.h>
 
-#include "wasi_nn.h"
 #include "wasi_nn_private.h"
 #include "wasi_nn_app_native.h"
 #include "wasi_nn_tensorflowlite.hpp"
@@ -24,14 +23,15 @@
 
 /* Definition of 'wasi_nn.h' structs in WASM app format (using offset) */
 
-typedef error (*LOAD)(void *, graph_builder_array *, graph_encoding,
-                      execution_target, graph *);
-typedef error (*INIT_EXECUTION_CONTEXT)(void *, graph,
-                                        graph_execution_context *);
-typedef error (*SET_INPUT)(void *, graph_execution_context, uint32_t, tensor *);
-typedef error (*COMPUTE)(void *, graph_execution_context);
-typedef error (*GET_OUTPUT)(void *, graph_execution_context, uint32_t,
-                            tensor_data, uint32_t *);
+typedef wasi_nn_error (*LOAD)(void *, graph_builder_array *, graph_encoding,
+                              execution_target, graph *);
+typedef wasi_nn_error (*INIT_EXECUTION_CONTEXT)(void *, graph,
+                                                graph_execution_context *);
+typedef wasi_nn_error (*SET_INPUT)(void *, graph_execution_context, uint32_t,
+                                   tensor *);
+typedef wasi_nn_error (*COMPUTE)(void *, graph_execution_context);
+typedef wasi_nn_error (*GET_OUTPUT)(void *, graph_execution_context, uint32_t,
+                                    tensor_data, uint32_t *);
 
 typedef struct {
     LOAD load;
@@ -177,7 +177,7 @@ is_encoding_implemented(graph_encoding encoding)
            && lookup[encoding].get_output;
 }
 
-static error
+static wasi_nn_error
 is_model_initialized(WASINNContext *wasi_nn_ctx)
 {
     if (!wasi_nn_ctx->is_model_loaded) {
@@ -190,12 +190,12 @@ is_model_initialized(WASINNContext *wasi_nn_ctx)
 /* WASI-NN implementation */
 
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-error
+wasi_nn_error
 wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_wasm *builder,
              uint32_t builder_wasm_size, graph_encoding encoding,
              execution_target target, graph *g)
 #else  /* WASM_ENABLE_WASI_EPHEMERAL_NN == 0 */
-error
+wasi_nn_error
 wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
              graph_encoding encoding, execution_target target, graph *g)
 #endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
@@ -211,7 +211,7 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
     wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
     bh_assert(instance);
 
-    error res;
+    wasi_nn_error res;
     graph_builder_array builder_native = { 0 };
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
     if (success
@@ -249,7 +249,7 @@ fail:
     return res;
 }
 
-error
+wasi_nn_error
 wasi_nn_init_execution_context(wasm_exec_env_t exec_env, graph g,
                                graph_execution_context *ctx)
 {
@@ -259,7 +259,7 @@ wasi_nn_init_execution_context(wasm_exec_env_t exec_env, graph g,
     bh_assert(instance);
     WASINNContext *wasi_nn_ctx = wasm_runtime_get_wasi_nn_ctx(instance);
 
-    error res;
+    wasi_nn_error res;
     if (success != (res = is_model_initialized(wasi_nn_ctx)))
         return res;
 
@@ -278,7 +278,7 @@ wasi_nn_init_execution_context(wasm_exec_env_t exec_env, graph g,
     return res;
 }
 
-error
+wasi_nn_error
 wasi_nn_set_input(wasm_exec_env_t exec_env, graph_execution_context ctx,
                   uint32_t index, tensor_wasm *input_tensor)
 {
@@ -289,7 +289,7 @@ wasi_nn_set_input(wasm_exec_env_t exec_env, graph_execution_context ctx,
     bh_assert(instance);
     WASINNContext *wasi_nn_ctx = wasm_runtime_get_wasi_nn_ctx(instance);
 
-    error res;
+    wasi_nn_error res;
     if (success != (res = is_model_initialized(wasi_nn_ctx)))
         return res;
 
@@ -310,7 +310,7 @@ wasi_nn_set_input(wasm_exec_env_t exec_env, graph_execution_context ctx,
     return res;
 }
 
-error
+wasi_nn_error
 wasi_nn_compute(wasm_exec_env_t exec_env, graph_execution_context ctx)
 {
     NN_DBG_PRINTF("Running wasi_nn_compute [ctx=%d]...", ctx);
@@ -319,7 +319,7 @@ wasi_nn_compute(wasm_exec_env_t exec_env, graph_execution_context ctx)
     bh_assert(instance);
     WASINNContext *wasi_nn_ctx = wasm_runtime_get_wasi_nn_ctx(instance);
 
-    error res;
+    wasi_nn_error res;
     if (success != (res = is_model_initialized(wasi_nn_ctx)))
         return res;
 
@@ -330,12 +330,12 @@ wasi_nn_compute(wasm_exec_env_t exec_env, graph_execution_context ctx)
 }
 
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-error
+wasi_nn_error
 wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
                    uint32_t index, tensor_data output_tensor,
                    uint32_t output_tensor_len, uint32_t *output_tensor_size)
 #else  /* WASM_ENABLE_WASI_EPHEMERAL_NN == 0 */
-error
+wasi_nn_error
 wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
                    uint32_t index, tensor_data output_tensor,
                    uint32_t *output_tensor_size)
@@ -348,7 +348,7 @@ wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
     bh_assert(instance);
     WASINNContext *wasi_nn_ctx = wasm_runtime_get_wasi_nn_ctx(instance);
 
-    error res;
+    wasi_nn_error res;
     if (success != (res = is_model_initialized(wasi_nn_ctx)))
         return res;
 

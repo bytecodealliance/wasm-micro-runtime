@@ -22,9 +22,9 @@
  * @param encoding  Model encoding.
  * @param target    Execution target.
  * @param g         Graph.
- * @return error    Execution status.
+ * @return wasi_nn_error    Execution status.
  */
-error
+wasi_nn_error
 load(graph_builder_array *builder, graph_encoding encoding,
      execution_target target, graph *g)
     __attribute__((import_module("wasi_nn")));
@@ -34,17 +34,14 @@ load(graph_builder_array *builder, graph_encoding encoding,
  *
  */
 
-// Bind a `graph` to the input and output tensors for an inference.
-typedef uint32_t graph_execution_context;
-
 /**
  * @brief Create an execution instance of a loaded graph.
  *
  * @param g         Graph.
  * @param ctx       Execution context.
- * @return error    Execution status.
+ * @return wasi_nn_error    Execution status.
  */
-error
+wasi_nn_error
 init_execution_context(graph g, graph_execution_context *ctx)
     __attribute__((import_module("wasi_nn")));
 
@@ -54,9 +51,9 @@ init_execution_context(graph g, graph_execution_context *ctx)
  * @param ctx       Execution context.
  * @param index     Input tensor index.
  * @param tensor    Input tensor.
- * @return error    Execution status.
+ * @return wasi_nn_error    Execution status.
  */
-error
+wasi_nn_error
 set_input(graph_execution_context ctx, uint32_t index, tensor *tensor)
     __attribute__((import_module("wasi_nn")));
 
@@ -64,9 +61,9 @@ set_input(graph_execution_context ctx, uint32_t index, tensor *tensor)
  * @brief Compute the inference on the given inputs.
  *
  * @param ctx       Execution context.
- * @return error    Execution status.
+ * @return wasi_nn_error    Execution status.
  */
-error
+wasi_nn_error
 compute(graph_execution_context ctx) __attribute__((import_module("wasi_nn")));
 
 /**
@@ -79,9 +76,9 @@ compute(graph_execution_context ctx) __attribute__((import_module("wasi_nn")));
  * @param output_tensor_size    Pointer to `output_tensor` maximum size.
  *                              After the function call it is updated with the
  * copied number of bytes.
- * @return error                Execution status.
+ * @return wasi_nn_error                Execution status.
  */
-error
+wasi_nn_error
 get_output(graph_execution_context ctx, uint32_t index,
            tensor_data output_tensor, uint32_t *output_tensor_size)
     __attribute__((import_module("wasi_nn")));

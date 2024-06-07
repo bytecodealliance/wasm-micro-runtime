@@ -16,22 +16,21 @@ By only including this file in your WASM application you will bind WASI-NN into 
 
 To run the tests we assume that the current directory is the root of the repository.
 
-
 ### Build the runtime
 
 Build the runtime image for your execution target type.
 
 `EXECUTION_TYPE` can be:
-* `cpu`
-* `nvidia-gpu`
-* `vx-delegate`
-* `tpu`
+
+- `cpu`
+- `nvidia-gpu`
+- `vx-delegate`
+- `tpu`
 
 ```
 EXECUTION_TYPE=cpu
 docker build -t wasi-nn-${EXECUTION_TYPE} -f core/iwasm/libraries/wasi-nn/test/Dockerfile.${EXECUTION_TYPE} .
 ```
-
 
 ### Build wasm app
 
@@ -43,7 +42,6 @@ docker build -t wasi-nn-compile -f core/iwasm/libraries/wasi-nn/test/Dockerfile.
 docker run -v $PWD/core/iwasm/libraries/wasi-nn:/wasi-nn wasi-nn-compile
 ```
 
-
 ### Run wasm app
 
 If all the tests have run properly you will the the following message in the terminal,
@@ -52,7 +50,7 @@ If all the tests have run properly you will the the following message in the ter
 Tests: passed!
 ```
 
-* CPU
+- CPU
 
 ```
 docker run \
@@ -64,9 +62,9 @@ docker run \
     /assets/test_tensorflow.wasm
 ```
 
-* (NVIDIA) GPU
-    * Requirements:
-        * [NVIDIA docker](https://github.com/NVIDIA/nvidia-docker).
+- (NVIDIA) GPU
+  - Requirements:
+    - [NVIDIA docker](https://github.com/NVIDIA/nvidia-docker).
 
 ```
 docker run \
@@ -79,7 +77,7 @@ docker run \
     /assets/test_tensorflow.wasm
 ```
 
-* vx-delegate for NPU (x86 simulator)
+- vx-delegate for NPU (x86 simulator)
 
 ```
 docker run \
@@ -90,9 +88,9 @@ docker run \
     /assets/test_tensorflow_quantized.wasm
 ```
 
-* (Coral) TPU
-    * Requirements:
-        * [Coral USB](https://coral.ai/products/accelerator/).
+- (Coral) TPU
+  - Requirements:
+    - [Coral USB](https://coral.ai/products/accelerator/).
 
 ```
 docker run \
@@ -109,6 +107,45 @@ docker run \
 
 Supported:
 
-* Graph encoding: `tensorflowlite`.
-* Execution target: `cpu`, `gpu` and `tpu`.
-* Tensor type: `fp32`.
+- Graph encoding: `tensorflowlite`.
+- Execution target: `cpu`, `gpu` and `tpu`.
+- Tensor type: `fp32`.
+
+## Smoke test
+
+Use [classification-example](https://github.com/bytecodealliance/wasi-nn/tree/main/rust/examples/classification-example) as a smoke test case to make sure the wasi-nn support in WAMR is working properly.
+
+> [!Important]
+> It requires openvino.
+
+### Prepare the model and the wasm
+
+``` bash
+$ pwd
+/workspaces/wasm-micro-runtime/core/iwasm/libraries/wasi-nn/test
+
+$ docker build -t wasi-nn-example:v1.0 -f Dockerfile.wasi-nn-example .
+```
+
+There are model files(*mobilenet\**) and wasm files(*wasi-nn-example.wasm*) in the directory */workspaces/wasi-nn/rust/examples/classification-example/build* in the image of wasi-nn-example:v1.0.
+
+### build iwasm and test
+
+*TODO: May need alternative steps to build the iwasm and test in the container of wasi-nn-example:v1.0*
+
+``` bash
+$ pwd
+/workspaces/wasm-micro-runtime
+
+$ docker run --rm -it -v $(pwd):/workspaces/wasm-micro-runtime wasi-nn-example:v1.0 /bin/bash
+```
+
+> [!Caution]
+> The following steps are executed in the container of wasi-nn-example:v1.0.
+
+``` bash
+$ cd /workspaces/wasm-micro-runtime/product-mini/platforms/linux
+$ cmake -S . -B build -DWAMR_BUILD_WASI_NN=1 -DWAMR_BUILD_WASI_EPHEMERAL_NN=1
+$ cmake --build build
+$ ./build/iwasm -v=5 --map-dir=/workspaces/wasi-nn/rust/examples/classification-example/build/::fixture /workspaces/wasi-nn/rust/examples/classification-example/build/wasi-nn-example.wasm
+```

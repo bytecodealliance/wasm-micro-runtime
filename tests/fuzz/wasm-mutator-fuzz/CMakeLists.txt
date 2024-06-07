@@ -58,12 +58,12 @@ endif ()
 
 if (NOT DEFINED WAMR_BUILD_LIBC_BUILTIN)
   # Enable libc builtin support by default
-  set (WAMR_BUILD_LIBC_BUILTIN 1)
+  set (WAMR_BUILD_LIBC_BUILTIN 0)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_LIBC_WASI)
   # Enable libc wasi support by default
-  set (WAMR_BUILD_LIBC_WASI 1)
+  set (WAMR_BUILD_LIBC_WASI 0)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
@@ -92,8 +92,8 @@ if (NOT DEFINED WAMR_BUILD_SIMD)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_REF_TYPES)
-  # Disable reference types by default
-  set (WAMR_BUILD_REF_TYPES 0)
+  # Enable reference type by default
+  set (WAMR_BUILD_REF_TYPES 1)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_DEBUG_INTERP)
@@ -113,7 +113,7 @@ message([ceith]:REPO_ROOT_DIR, ${REPO_ROOT_DIR})
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
-add_definitions(-DWAMR_USE_MEM_POOL=0)
+add_definitions(-DWAMR_USE_MEM_POOL=0 -DWASM_ENABLE_FUZZ_TEST=1)
 
 # Enable fuzzer
 add_compile_options(-fsanitize=fuzzer)
