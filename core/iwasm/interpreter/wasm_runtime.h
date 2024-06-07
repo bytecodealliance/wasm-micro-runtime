@@ -95,7 +95,12 @@ typedef union {
     uint64 u64;
     uint32 u32[2];
 } MemBound;
-
+struct SocketAddrPool {
+    uint32 ip4[4];
+    uint16 ip6[8];
+    bool is_4;
+    uint16 port;
+};
 struct WASMMemoryInstance {
     /* Module type */
     uint32 module_type;

@@ -82,6 +82,10 @@ print_help()
 #if WASM_ENABLE_LIBC_WASI != 0
     libc_wasi_print_help();
 #endif
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    printf("  --ckpt=<file>            Start checkpoint to file, socket, or a RDMA connection\n");
+    printf("  --restore=<file1,file2>  Start restore from file, socket, or a RDMA connection\n");
+#endif
 #if BH_HAS_DLFCN
     printf("  --native-lib=<lib>       Register native libraries to the WASM module, which\n");
     printf("                           are shared object (.so) files, for example:\n");
@@ -565,6 +569,12 @@ main(int argc, char *argv[])
     const char *func_name = NULL;
     uint8 *wasm_file_buf = NULL;
     uint32 wasm_file_size;
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    char *wasm_ckpt_file = NULL;
+    char *wasm_restore_file = NULL;
+    char *wasm_restore_file1 = NULL;
+#endif
+
     uint32 stack_size = 64 * 1024;
 #if WASM_ENABLE_LIBC_WASI != 0
     uint32 heap_size = 0;
@@ -665,6 +675,25 @@ main(int argc, char *argv[])
 #if WASM_CONFIGURABLE_BOUNDS_CHECKS != 0
         else if (!strcmp(argv[0], "--disable-bounds-checks")) {
             disable_bounds_checks = true;
+        }
+#endif
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+        else if (!strncmp(argv[0], "--ckpt=", 7)) {
+            if (argv[0][7] == '\0')
+                return print_help();
+            wasm_ckpt_file = argv[0] + 7;
+        }
+        else if (!strncmp(argv[0], "--restore=", 10)) {
+            if (argv[0][10] == '\0')
+                return print_help();
+            char *file = strtok(argv[0] + 10, ",");
+            if (file != NULL) {
+                wasm_restore_file = file;
+                file = strtok(NULL, ",");
+                if (file != NULL) {
+                    wasm_restore_file1 = file;
+                }
+            }
         }
 #endif
         else if (!strncmp(argv[0], "--stack-size=", 13)) {
@@ -977,7 +1006,17 @@ main(int argc, char *argv[])
         }
     }
 #endif
-
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    if (wasm_ckpt_file) {
+        wasm_runtime_checkpoint(wasm_module_inst, wasm_ckpt_file);
+        goto fail3;
+    }
+    if (wasm_restore_file) {
+        wasm_runtime_restore(wasm_module_inst, wasm_restore_file,
+                             wasm_restore_file1);
+        goto fail3;
+    }
+#endif
     ret = 0;
     const char *exception = NULL;
     if (is_repl_mode) {

@@ -18,6 +18,10 @@
 #include "aot_runtime.h"
 #endif
 
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+#include "../ckpt-restore/ckpt_restore.h"
+#endif
+
 #define WAMR_PTHREAD_KEYS_MAX 32
 
 /* clang-format off */
@@ -511,12 +515,16 @@ pthread_start_routine(void *arg)
 
     wasm_exec_env_set_thread_info(exec_env);
     argv[0] = routine_args->arg;
-
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    register_sigtrap();
+    if (exec_env->is_restore) {
+        wamr_wait(exec_env);
+    }
+#endif
     if (!wasm_runtime_call_indirect(exec_env, routine_args->elem_index, 1,
                                     argv)) {
         /* Exception has already been spread during throwing */
     }
-
     /* destroy pthread key values */
     call_key_destructor(exec_env);
 
@@ -544,7 +552,7 @@ pthread_start_routine(void *arg)
     return (void *)(uintptr_t)argv[0];
 }
 
-static int
+int
 pthread_create_wrapper(wasm_exec_env_t exec_env,
                        uint32 *thread,    /* thread_handle */
                        const void *attr,  /* not supported */
@@ -583,14 +591,14 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
               module, module_inst, exec_env, stack_size, 0, 0, NULL, 0)))
         return -1;
 
-    /* Set custom_data to new module instance */
-    wasm_runtime_set_custom_data_internal(
-        new_module_inst, wasm_runtime_get_custom_data(module_inst));
+    // /* Set custom_data to new module instance */
+    // wasm_runtime_set_custom_data_internal(
+    //     new_module_inst, wasm_runtime_get_custom_data(module_inst));
 
-    wasm_native_inherit_contexts(new_module_inst, module_inst);
+    // wasm_native_inherit_contexts(new_module_inst, module_inst);
 
-    if (!(wasm_cluster_dup_c_api_imports(new_module_inst, module_inst)))
-        goto fail;
+    // if (!(wasm_cluster_dup_c_api_imports(new_module_inst, module_inst)))
+    //     goto fail;
 
     if (!(info_node = wasm_runtime_malloc(sizeof(ThreadInfoNode))))
         goto fail;
@@ -623,6 +631,9 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
         goto fail;
     }
 
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    insert_parent_child(((uint64_t)exec_env->handle), routine_args->arg);
+#endif
     os_mutex_lock(&exec_env->wait_lock);
     ret = wasm_cluster_create_thread(
         exec_env, new_module_inst, true, aux_stack_start, aux_stack_size,
@@ -689,8 +700,16 @@ pthread_join_wrapper(wasm_exec_env_t exec_env, uint32 thread,
     bh_assert(target_exec_env);
 
     if (node->status != THREAD_EXIT) {
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+        lightweight_checkpoint(exec_env);
+        LOG_DEBUG("start join thread \n");
+#endif
         /* if the thread is still running, call the platforms join API */
         join_ret = wasm_cluster_join_thread(target_exec_env, (void **)&ret);
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+        printf("finish join thread \n");
+        lightweight_uncheckpoint(exec_env);
+#endif
     }
     else {
         /* if the thread has exited, return stored results */
@@ -808,7 +827,7 @@ pthread_exit_wrapper(wasm_exec_env_t exec_env, int32 retval_offset)
     wasm_cluster_exit_thread(exec_env, (void *)(uintptr_t)retval_offset);
 }
 
-static int32
+int32
 pthread_mutex_init_wrapper(wasm_exec_env_t exec_env, uint32 *mutex, void *attr)
 {
     korp_mutex *pmutex;
@@ -851,23 +870,33 @@ fail1:
     return -1;
 }
 
-static int32
+int32
 pthread_mutex_lock_wrapper(wasm_exec_env_t exec_env, uint32 *mutex)
 {
     ThreadInfoNode *info_node = get_thread_info(exec_env, *mutex);
     if (!info_node || info_node->type != T_MUTEX)
         return -1;
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    lightweight_checkpoint(exec_env);
+#endif
 
-    return os_mutex_lock(info_node->u.mutex);
+    int32 rc = os_mutex_lock(info_node->u.mutex);
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    lightweight_uncheckpoint(exec_env);
+    insert_sync_op(exec_env, mutex, SYNC_OP_MUTEX_LOCK);
+#endif
+    return rc;
 }
 
-static int32
+int32
 pthread_mutex_unlock_wrapper(wasm_exec_env_t exec_env, uint32 *mutex)
 {
     ThreadInfoNode *info_node = get_thread_info(exec_env, *mutex);
     if (!info_node || info_node->type != T_MUTEX)
         return -1;
-
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    insert_sync_op(exec_env, mutex, SYNC_OP_MUTEX_UNLOCK);
+#endif
     return os_mutex_unlock(info_node->u.mutex);
 }
 
@@ -930,7 +959,7 @@ fail1:
     return -1;
 }
 
-static int32
+int32
 pthread_cond_wait_wrapper(wasm_exec_env_t exec_env, uint32 *cond, uint32 *mutex)
 {
     ThreadInfoNode *cond_info_node, *mutex_info_node;
@@ -943,7 +972,14 @@ pthread_cond_wait_wrapper(wasm_exec_env_t exec_env, uint32 *cond, uint32 *mutex)
     if (!mutex_info_node || mutex_info_node->type != T_MUTEX)
         return -1;
 
-    return os_cond_wait(cond_info_node->u.cond, mutex_info_node->u.mutex);
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    lightweight_checkpoint(exec_env);
+#endif
+    int32 rc = os_cond_wait(cond_info_node->u.cond, mutex_info_node->u.mutex);
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    lightweight_uncheckpoint(exec_env);
+#endif
+    return rc;
 }
 
 /**
@@ -968,7 +1004,7 @@ pthread_cond_timedwait_wrapper(wasm_exec_env_t exec_env, uint32 *cond,
                                 mutex_info_node->u.mutex, useconds);
 }
 
-static int32
+int32
 pthread_cond_signal_wrapper(wasm_exec_env_t exec_env, uint32 *cond)
 {
     ThreadInfoNode *info_node = get_thread_info(exec_env, *cond);
@@ -978,7 +1014,7 @@ pthread_cond_signal_wrapper(wasm_exec_env_t exec_env, uint32 *cond)
     return os_cond_signal(info_node->u.cond);
 }
 
-static int32
+int32
 pthread_cond_broadcast_wrapper(wasm_exec_env_t exec_env, uint32 *cond)
 {
     ThreadInfoNode *info_node = get_thread_info(exec_env, *cond);

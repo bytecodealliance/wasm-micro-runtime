@@ -16,6 +16,8 @@ bool
 aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                    int32 exception_id, bool is_cond_br, LLVMValueRef cond_br_if,
                    LLVMBasicBlockRef cond_br_else_block);
+bool
+aot_compile_emit_fence_nop(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

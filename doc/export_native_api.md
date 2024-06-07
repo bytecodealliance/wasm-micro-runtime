@@ -171,6 +171,8 @@ void foo2(wasm_exec_env_t exec_env,
         return 0;
 
     if (!wasm_runtime_validate_app_addr((uint64)buffer_offset, (uint64)buf_len))
+    
+    if (!wasm_runtime_validate_app_addr((uint64)buffer_offset, (uint64)buf_len))
         return;
 
     // do address conversion
