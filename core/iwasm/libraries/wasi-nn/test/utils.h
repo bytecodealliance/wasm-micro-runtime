@@ -23,19 +23,19 @@ typedef struct {
 
 /* wasi-nn wrappers */
 
-error
+wasi_nn_error
 wasm_load(char *model_name, graph *g, execution_target target);
 
-error
+wasi_nn_error
 wasm_init_execution_context(graph g, graph_execution_context *ctx);
 
-error
+wasi_nn_error
 wasm_set_input(graph_execution_context ctx, float *input_tensor, uint32_t *dim);
 
-error
+wasi_nn_error
 wasm_compute(graph_execution_context ctx);
 
-error
+wasi_nn_error
 wasm_get_output(graph_execution_context ctx, uint32_t index, float *out_tensor,
                 uint32_t *out_size);
 

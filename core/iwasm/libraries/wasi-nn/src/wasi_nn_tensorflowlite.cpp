@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "wasi_nn.h"
+#include "wasi_nn_types.h"
 #include "wasi_nn_tensorflowlite.hpp"
 #include "logger.h"
 
@@ -50,7 +50,7 @@ typedef struct {
 
 /* Utils */
 
-static error
+static wasi_nn_error
 initialize_g(TFLiteContext *tfl_ctx, graph *g)
 {
     os_mutex_lock(&tfl_ctx->g_lock);
@@ -63,7 +63,7 @@ initialize_g(TFLiteContext *tfl_ctx, graph *g)
     os_mutex_unlock(&tfl_ctx->g_lock);
     return success;
 }
-static error
+static wasi_nn_error
 initialize_graph_ctx(TFLiteContext *tfl_ctx, graph g,
                      graph_execution_context *ctx)
 {
@@ -78,7 +78,7 @@ initialize_graph_ctx(TFLiteContext *tfl_ctx, graph g,
     return success;
 }
 
-static error
+static wasi_nn_error
 is_valid_graph(TFLiteContext *tfl_ctx, graph g)
 {
     if (g >= MAX_GRAPHS_PER_INST) {
@@ -96,7 +96,7 @@ is_valid_graph(TFLiteContext *tfl_ctx, graph g)
     return success;
 }
 
-static error
+static wasi_nn_error
 is_valid_graph_execution_context(TFLiteContext *tfl_ctx,
                                  graph_execution_context ctx)
 {
@@ -114,7 +114,7 @@ is_valid_graph_execution_context(TFLiteContext *tfl_ctx,
 
 /* WASI-NN (tensorflow) implementation */
 
-error
+wasi_nn_error
 tensorflowlite_load(void *tflite_ctx, graph_builder_array *builder,
                     graph_encoding encoding, execution_target target, graph *g)
 {
@@ -135,7 +135,7 @@ tensorflowlite_load(void *tflite_ctx, graph_builder_array *builder,
         return invalid_argument;
     }
 
-    error res;
+    wasi_nn_error res;
     if (success != (res = initialize_g(tfl_ctx, g)))
         return res;
 
@@ -168,13 +168,13 @@ tensorflowlite_load(void *tflite_ctx, graph_builder_array *builder,
     return success;
 }
 
-error
+wasi_nn_error
 tensorflowlite_init_execution_context(void *tflite_ctx, graph g,
                                       graph_execution_context *ctx)
 {
     TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
 
-    error res;
+    wasi_nn_error res;
     if (success != (res = is_valid_graph(tfl_ctx, g)))
         return res;
 
@@ -257,13 +257,13 @@ tensorflowlite_init_execution_context(void *tflite_ctx, graph g,
     return success;
 }
 
-error
+wasi_nn_error
 tensorflowlite_set_input(void *tflite_ctx, graph_execution_context ctx,
                          uint32_t index, tensor *input_tensor)
 {
     TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
 
-    error res;
+    wasi_nn_error res;
     if (success != (res = is_valid_graph_execution_context(tfl_ctx, ctx)))
         return res;
 
@@ -328,12 +328,12 @@ tensorflowlite_set_input(void *tflite_ctx, graph_execution_context ctx,
     return success;
 }
 
-error
+wasi_nn_error
 tensorflowlite_compute(void *tflite_ctx, graph_execution_context ctx)
 {
     TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
 
-    error res;
+    wasi_nn_error res;
     if (success != (res = is_valid_graph_execution_context(tfl_ctx, ctx)))
         return res;
 
@@ -341,14 +341,14 @@ tensorflowlite_compute(void *tflite_ctx, graph_execution_context ctx)
     return success;
 }
 
-error
+wasi_nn_error
 tensorflowlite_get_output(void *tflite_ctx, graph_execution_context ctx,
                           uint32_t index, tensor_data output_tensor,
                           uint32_t *output_tensor_size)
 {
     TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
 
-    error res;
+    wasi_nn_error res;
     if (success != (res = is_valid_graph_execution_context(tfl_ctx, ctx)))
         return res;
 
@@ -472,6 +472,8 @@ tensorflowlite_destroy(void *tflite_ctx)
 #endif
                         break;
                     }
+                    default:
+                        break;
                 }
             }
             wasm_runtime_free(tfl_ctx->models[i].model_pointer);

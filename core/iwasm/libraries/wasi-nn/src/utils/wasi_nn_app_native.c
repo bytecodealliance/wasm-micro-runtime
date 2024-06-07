@@ -5,7 +5,7 @@
 
 #include "wasi_nn_app_native.h"
 
-static error
+static wasi_nn_error
 graph_builder_app_native(wasm_module_inst_t instance,
                          graph_builder_wasm *builder_wasm,
                          graph_builder *builder)
@@ -27,12 +27,12 @@ graph_builder_app_native(wasm_module_inst_t instance,
  * builder_array_wasm is consisted of {builder_wasm, size}
  */
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-error
+wasi_nn_error
 graph_builder_array_app_native(wasm_module_inst_t instance,
                                graph_builder_wasm *builder_wasm, uint32_t size,
                                graph_builder_array *builder_array)
 #else  /* WASM_ENABLE_WASI_EPHEMERAL_NN == 0 */
-error
+wasi_nn_error
 graph_builder_array_app_native(wasm_module_inst_t instance,
                                graph_builder_array_wasm *builder_array_wasm,
                                graph_builder_array *builder_array)
@@ -79,7 +79,7 @@ graph_builder_array_app_native(wasm_module_inst_t instance,
         return missing_memory;
 
     for (uint32_t i = 0; i < array_size; ++i) {
-        error res;
+        wasi_nn_error res;
         if (success
             != (res = graph_builder_app_native(instance, &builder_wasm[i],
                                                &builder[i]))) {
@@ -97,7 +97,7 @@ graph_builder_array_app_native(wasm_module_inst_t instance,
 #undef array_size
 }
 
-static error
+static wasi_nn_error
 tensor_data_app_native(wasm_module_inst_t instance, uint32_t total_elements,
                        tensor_wasm *input_tensor_wasm, tensor_data *data)
 {
@@ -119,7 +119,7 @@ tensor_data_app_native(wasm_module_inst_t instance, uint32_t total_elements,
 #undef data_size
 }
 
-static error
+static wasi_nn_error
 tensor_dimensions_app_native(wasm_module_inst_t instance,
                              tensor_wasm *input_tensor_wasm,
                              tensor_dimensions **dimensions)
@@ -159,7 +159,7 @@ tensor_dimensions_app_native(wasm_module_inst_t instance,
     return success;
 }
 
-error
+wasi_nn_error
 tensor_app_native(wasm_module_inst_t instance, tensor_wasm *input_tensor_wasm,
                   tensor *input_tensor)
 {
@@ -170,7 +170,7 @@ tensor_app_native(wasm_module_inst_t instance, tensor_wasm *input_tensor_wasm,
         return invalid_argument;
     }
 
-    error res;
+    wasi_nn_error res;
 
     tensor_dimensions *dimensions = NULL;
     if (success
