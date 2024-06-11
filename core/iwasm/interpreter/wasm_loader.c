@@ -13255,8 +13255,10 @@ re_scan:
                 CHECK_MEMORY();
                 read_leb_uint32(p, p_end, align); /* align */
 #if WASM_ENABLE_MULTI_MEMORY != 0
-                /* Bit 6 indicating the optional memidx */
+                /* Bit 6 indicating the optional memidx, and reset bit 6 for
+                 * alignment check */
                 if (align & 0x40) {
+                    align &= 0x3F;
                     read_leb_uint32(p, p_end, memidx); /* memidx */
                     check_memidx(module, memidx);
                 }

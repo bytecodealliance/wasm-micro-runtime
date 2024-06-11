@@ -151,8 +151,9 @@ do
         ENABLE_MEMORY64=1
         ;;
         E)
-        echo "enable multi memory64 feature"
+        echo "enable multi memory feature(auto enable multi module)"
         ENABLE_MULTI_MEMORY=1
+        ENABLE_MULTI_MODULE=1
         ;;
         C)
         echo "enable code coverage"
@@ -512,6 +513,13 @@ function spec_test()
         git reset --hard 48e69f394869c55b7bbe14ac963c09f4605490b6
         git checkout 044d0d2e77bdcbe891f7e0b9dd2ac01d56435f0b -- test/core/elem.wast
         git apply ../../spec-test-script/multi_memory_ignore_cases.patch || exit 1
+        if [[ ${ENABLE_MULTI_MODULE} == 1 ]]; then
+            git apply ../../spec-test-script/multi_module_ignore_cases.patch || exit 1
+
+            if [[ ${RUNNING_MODE} == "aot" ]]; then
+                git apply ../../spec-test-script/multi_module_aot_ignore_cases.patch || exit 1
+            fi
+        fi
     else
         echo "checkout spec for default proposal"
 
