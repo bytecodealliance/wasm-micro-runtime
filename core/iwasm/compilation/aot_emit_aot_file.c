@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "aot_compiler.h"
+#include "aot_emit_aot_file.h"
 #include "../aot/aot_runtime.h"
 
 #define PUT_U64_TO_ADDR(addr, value)        \
@@ -24,65 +24,6 @@
             return (uint32)-1;                             \
         }                                                  \
     } while (0)
-
-/* Internal function in object file */
-typedef struct AOTObjectFunc {
-    char *func_name;
-    /* text offset of aot_func#n */
-    uint64 text_offset;
-    /* text offset of aot_func_internal#n */
-    uint64 text_offset_of_aot_func_internal;
-} AOTObjectFunc;
-
-/* Symbol table list node */
-typedef struct AOTSymbolNode {
-    struct AOTSymbolNode *next;
-    uint32 str_len;
-    char *symbol;
-} AOTSymbolNode;
-
-typedef struct AOTSymbolList {
-    AOTSymbolNode *head;
-    AOTSymbolNode *end;
-    uint32 len;
-} AOTSymbolList;
-
-/* AOT object data */
-typedef struct AOTObjectData {
-    AOTCompContext *comp_ctx;
-
-    LLVMMemoryBufferRef mem_buf;
-    LLVMBinaryRef binary;
-
-    AOTTargetInfo target_info;
-
-    void *text;
-    uint32 text_size;
-
-    void *text_unlikely;
-    uint32 text_unlikely_size;
-
-    void *text_hot;
-    uint32 text_hot_size;
-
-    /* literal data and size */
-    void *literal;
-    uint32 literal_size;
-
-    AOTObjectDataSection *data_sections;
-    uint32 data_sections_count;
-
-    AOTObjectFunc *funcs;
-    uint32 func_count;
-
-    AOTSymbolList symbol_list;
-    AOTRelocationGroup *relocation_groups;
-    uint32 relocation_group_count;
-
-    const char *stack_sizes_section_name;
-    uint32 stack_sizes_offset;
-    uint32 *stack_sizes;
-} AOTObjectData;
 
 #if 0
 static void dump_buf(uint8 *buf, uint32 size, char *title)
