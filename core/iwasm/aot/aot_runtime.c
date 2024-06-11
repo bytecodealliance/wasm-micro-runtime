@@ -2824,7 +2824,11 @@ bool
 aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
 {
     /* TODO: multi-memory memidx */
-    return wasm_enlarge_memory(module_inst, 0, inc_page_count);
+    return wasm_enlarge_memory(module_inst,
+#if WASM_ENABLE_MULTI_MEMORY
+                               0,
+#endif
+                               inc_page_count);
 }
 
 bool
