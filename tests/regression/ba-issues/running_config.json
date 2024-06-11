@@ -1729,7 +1729,7 @@
                 3513
             ],
             "runtime": "iwasm-default-wasi-disabled",
-            "file": "iwasm-poc-04-new-valid.wasm",
+            "file": "iwasm_poc_04.wasm",
             "mode": "fast-interp",
             "options": "-f main",
             "argument": "",
@@ -1745,7 +1745,7 @@
                 3514
             ],
             "runtime": "iwasm-default-wasi-disabled",
-            "file": "iwasm-poc-05-new-valid.wasm",
+            "file": "iwasm_poc_05.wasm",
             "mode": "fast-interp",
             "options": "-f main",
             "argument": "",
