@@ -10,13 +10,14 @@ set (CMAKE_BUILD_TYPE Debug)
 set (CMAKE_C_COMPILER "clang")
 set (CMAKE_CXX_COMPILER "clang++")
 
-set (WAMR_BUILD_PLATFORM "linux")
+string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
 
 # Reset default linker flags
 set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
-set (CMAKE_C_STANDARD 99)
+set (CMAKE_C_STANDARD 11)
+set (CMAKE_CXX_STANDARD 17)
 
 # Set WAMR_BUILD_TARGET, currently values supported:
 # "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]",
@@ -35,6 +36,10 @@ if (NOT DEFINED WAMR_BUILD_TARGET)
   else ()
     message(SEND_ERROR "Unsupported build target platform!")
   endif ()
+endif ()
+
+if (APPLE)
+  add_definitions(-DBH_PLATFORM_DARWIN)
 endif ()
 
 if(CUSTOM_MUTATOR EQUAL 1)
@@ -130,7 +135,7 @@ if (IN_OSS_FUZZ EQUAL -1)
     -fprofile-instr-generate -fcoverage-mapping
     -fsanitize=address,undefined
   )
-  add_link_options(-fsanitize=address)
+  add_link_options(-fsanitize=address -fprofile-instr-generate)
 endif ()
 
 include(${REPO_ROOT_DIR}/core/shared/utils/uncommon/shared_uncommon.cmake)
