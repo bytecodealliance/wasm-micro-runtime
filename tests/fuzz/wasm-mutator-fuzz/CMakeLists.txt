@@ -120,8 +120,11 @@ add_compile_options(-fsanitize=fuzzer)
 add_link_options(-fsanitize=fuzzer)
 
 # if not calling from oss-fuzz helper, enable all support sanitizers
-# oss-fuzz always defines `HELPER=True`
-if (NOT "$ENV{HELPER}" STREQUAL "True")
+# oss-fuzz will define FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION in CFLAGS and CXXFLAGS
+set(CFLAGS_ENV $ENV{CFLAGS})
+string(FIND "${CFLAGS_ENV}" "-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION" IN_OSS_FUZZ)
+if (IN_OSS_FUZZ EQUAL -1)
+  message("[ceith]:Enable ASan and UBSan in non-oss-fuzz environment")
   add_compile_options(
     -fsanitize=signed-integer-overflow
     -fprofile-instr-generate -fcoverage-mapping
