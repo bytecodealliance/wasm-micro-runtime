@@ -318,8 +318,8 @@ def test_suite(
         case_list.extend(eh_case_list_include)
 
     if multi_memory_flag:
-        multi_memory_flag = sorted(suite_path.glob("multi-memory/*.wast"))
-        case_list.extend(multi_memory_flag)
+        multi_memory_list = sorted(suite_path.glob("multi-memory/*.wast"))
+        case_list.extend(multi_memory_list)
 
     # ignore based on command line options
     filtered_case_list = []
