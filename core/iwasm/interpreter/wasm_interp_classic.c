@@ -4573,9 +4573,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
             HANDLE_OP(WASM_OP_MEMORY_GROW)
             {
-                uint32 mem_idx, delta, prev_page_count = memory->cur_page_count;
+                uint32 mem_idx, delta, prev_page_count;
 
                 read_leb_memidx(frame_ip, frame_ip_end, mem_idx);
+                prev_page_count = memory->cur_page_count;
                 delta = (uint32)POP_PAGE_COUNT();
 
                 if (!wasm_enlarge_memory(module,

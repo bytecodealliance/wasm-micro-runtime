@@ -14776,8 +14776,8 @@ re_scan:
                         /* both src and dst memory index should be 0 */
                         if (*(int16 *)p != 0x0000)
                             goto fail_zero_byte_expected;
-#endif
                         p += 2;
+#endif
 
                         if (module->import_memory_count == 0
                             && module->memory_count == 0)
