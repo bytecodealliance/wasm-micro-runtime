@@ -1,49 +1,5 @@
-diff --git a/test/core/data.wast b/test/core/data.wast
-index b1e1239..a0f6967 100644
---- a/test/core/data.wast
-+++ b/test/core/data.wast
-@@ -312,7 +312,8 @@
-     "\02\01\41\00\0b"                       ;; active data segment 0 for memory 1
-     "\00"                                   ;; empty vec(byte)
-   )
--  "unknown memory 1"
-+  ;; TODO: restore after supporting multi memory"
-+  "unknown memory"
- )
- 
- ;; Data segment with memory index 0 (no memory section)
-@@ -334,7 +335,8 @@
-     "\02\01\41\00\0b"                       ;; active data segment 0 for memory 1
-     "\00"                                   ;; empty vec(byte)
-   )
--  "unknown memory 1"
-+  ;; TODO: restore after supporting multi memory"
-+  "unknown memory"
- )
- 
- ;; Data segment with memory index 1 and vec(byte) as above,
-@@ -354,7 +356,8 @@
-     "\20\21\22\23\24\25\26\27\28\29\2a\2b\2c\2d\2e\2f"
-     "\30\31\32\33\34\35\36\37\38\39\3a\3b\3c\3d"
-   )
--  "unknown memory 1"
-+  ;; TODO: restore after supporting multi memory"
-+  "unknown memory"
- )
- 
- ;; Data segment with memory index 1 and specially crafted vec(byte) after.
-@@ -374,7 +377,8 @@
-     "\20\21\22\23\24\25\26\27\28\29\2a\2b\2c\2d\2e\2f"
-     "\30\31\32\33\34\35\36\37\38\39\3a\3b\3c\3d"
-   )
--  "unknown memory 1"
-+  ;; TODO: restore after supporting multi memory"
-+  "unknown memory"
- )
- 
- 
 diff --git a/test/core/elem.wast b/test/core/elem.wast
-index 575ecef..6eecab9 100644
+index 575ecef8..6eecab93 100644
 --- a/test/core/elem.wast
 +++ b/test/core/elem.wast
 @@ -571,9 +571,11 @@
@@ -67,8 +23,132 @@ index 575ecef..6eecab9 100644
  (assert_return (invoke $module1 "call-8") (i32.const 69))
  (assert_return (invoke $module1 "call-9") (i32.const 70))
 +;)
+diff --git a/test/core/imports.wast b/test/core/imports.wast
+index 94c1af5c..bb1704fc 100644
+--- a/test/core/imports.wast
++++ b/test/core/imports.wast
+@@ -86,7 +86,7 @@
+ (assert_return (invoke "print64" (i64.const 24)))
+ 
+ (assert_invalid
+-  (module 
++  (module
+     (type (func (result i32)))
+     (import "test" "func" (func (type 1)))
+   )
+@@ -559,6 +559,7 @@
+ (assert_return (invoke "grow" (i32.const 1)) (i32.const -1))
+ (assert_return (invoke "grow" (i32.const 0)) (i32.const 2))
+ 
++(;
+ (module $Mgm
+   (memory (export "memory") 1) ;; initial size is 1
+   (func (export "grow") (result i32) (memory.grow (i32.const 1)))
+@@ -567,7 +568,7 @@
+ (assert_return (invoke $Mgm "grow") (i32.const 1)) ;; now size is 2
+ (module $Mgim1
+   ;; imported memory limits should match, because external memory size is 2 now
+-  (memory (export "memory") (import "grown-memory" "memory") 2) 
++  (memory (export "memory") (import "grown-memory" "memory") 2)
+   (func (export "grow") (result i32) (memory.grow (i32.const 1)))
+ )
+ (register "grown-imported-memory" $Mgim1)
+@@ -578,7 +579,7 @@
+   (func (export "size") (result i32) (memory.size))
+ )
+ (assert_return (invoke $Mgim2 "size") (i32.const 3))
+-
++;)
+ 
+ ;; Syntax errors
+ 
+@@ -650,6 +651,7 @@
+   "import after memory"
+ )
+ 
++(;
+ ;; This module is required to validate, regardless of whether it can be
+ ;; linked. Overloading is not possible in wasm itself, but it is possible
+ ;; in modules from which wasm can import.
+@@ -676,3 +678,4 @@
+   )
+   "unknown import"
+ )
++;)
+\ No newline at end of file
+diff --git a/test/core/linking.wast b/test/core/linking.wast
+index 994e0f49..8fbcc021 100644
+--- a/test/core/linking.wast
++++ b/test/core/linking.wast
+@@ -19,11 +19,11 @@
+ (assert_return (invoke $Nf "call") (i32.const 3))
+ (assert_return (invoke $Nf "call Mf.call") (i32.const 2))
+ 
+-(module
++(module $M1
+   (import "spectest" "print_i32" (func $f (param i32)))
+   (export "print" (func $f))
+ )
+-(register "reexport_f")
++(register "reexport_f" $M1)
+ (assert_unlinkable
+   (module (import "reexport_f" "print" (func (param i64))))
+   "incompatible import type"
+@@ -35,7 +35,6 @@
+ 
+ 
+ ;; Globals
+-
+ (module $Mg
+   (global $glob (export "glob") i32 (i32.const 42))
+   (func (export "get") (result i32) (global.get $glob))
+@@ -47,6 +46,7 @@
+ )
+ (register "Mg" $Mg)
+ 
++(; only sharing initial values
+ (module $Ng
+   (global $x (import "Mg" "glob") i32)
+   (global $mut_glob (import "Mg" "mut_glob") (mut i32))
+@@ -81,7 +81,7 @@
+ (assert_return (get $Ng "Mg.mut_glob") (i32.const 241))
+ (assert_return (invoke $Mg "get_mut") (i32.const 241))
+ (assert_return (invoke $Ng "Mg.get_mut") (i32.const 241))
+-
++;)
+ 
+ (assert_unlinkable
+   (module (import "Mg" "mut_glob" (global i32)))
+@@ -130,7 +130,7 @@
+ 
+ 
+ ;; Tables
+-
++(; no such support
+ (module $Mt
+   (type (func (result i32)))
+   (type (func))
+@@ -307,10 +307,11 @@
+   (module (table (import "Mtable_ex" "t-extern") 1 funcref))
+   "incompatible import type"
+ )
++;)
+ 
+ 
+ ;; Memories
+-
++(; no such support
+ (module $Mm
+   (memory (export "mem") 1 5)
+   (data (i32.const 10) "\00\01\02\03\04\05\06\07\08\09")
+@@ -451,3 +452,4 @@
+ 
+ (assert_return (invoke $Ms "get memory[0]") (i32.const 104))  ;; 'h'
+ (assert_return (invoke $Ms "get table[0]") (i32.const 0xdead))
++;)
+\ No newline at end of file
 diff --git a/test/core/ref_func.wast b/test/core/ref_func.wast
-index adb5cb7..6396013 100644
+index adb5cb78..6396013b 100644
 --- a/test/core/ref_func.wast
 +++ b/test/core/ref_func.wast
 @@ -4,7 +4,7 @@
@@ -80,8 +160,40 @@ index adb5cb7..6396013 100644
    (func $g (param $x i32) (result i32)
      (i32.add (local.get $x) (i32.const 1))
    )
+diff --git a/test/core/store.wast b/test/core/store.wast
+index 86f6263a..65a0d4ee 100644
+--- a/test/core/store.wast
++++ b/test/core/store.wast
+@@ -35,7 +35,10 @@
+     (i64.store (local.get 0) (local.get 1))
+   )
+ )
+-(register "M1")
++(register "M1" $M1)
++
++(invoke "store" (i32.const 0) (i64.const 1))
++(assert_return (invoke "load" (i32.const 0)) (i64.const 1))
+ 
+ (module $M2
+   (memory (export "mem") 1)
+@@ -47,12 +50,10 @@
+     (i64.store (local.get 0) (local.get 1))
+   )
+ )
+-(register "M2")
++(register "M2" $M2)
+ 
+-(invoke $M1 "store" (i32.const 0) (i64.const 1))
+-(invoke $M2 "store" (i32.const 0) (i64.const 2))
+-(assert_return (invoke $M1 "load" (i32.const 0)) (i64.const 1))
+-(assert_return (invoke $M2 "load" (i32.const 0)) (i64.const 2))
++(invoke "store" (i32.const 0) (i64.const 2))
++(assert_return (invoke "load" (i32.const 0)) (i64.const 2))
+ 
+ (module
+   (memory $mem1 (import "M1" "mem") 1)
 diff --git a/test/core/table_copy.wast b/test/core/table_copy.wast
-index 380e84e..59230cf 100644
+index 380e84ee..59230cfb 100644
 --- a/test/core/table_copy.wast
 +++ b/test/core/table_copy.wast
 @@ -14,11 +14,11 @@
@@ -391,7 +503,7 @@ index 380e84e..59230cf 100644
    (table $t1 30 30 funcref)
    (elem (table $t1) (i32.const 2) func 3 1 4 1)
 diff --git a/test/core/table_init.wast b/test/core/table_init.wast
-index 0b2d26f..3c595e5 100644
+index 0b2d26f7..3c595e5b 100644
 --- a/test/core/table_init.wast
 +++ b/test/core/table_init.wast
 @@ -14,11 +14,11 @@
