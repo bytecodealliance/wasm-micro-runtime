@@ -4402,8 +4402,8 @@ aot_emit_aot_file_buf(AOTCompContext *comp_ctx, AOTCompData *comp_data,
     }
 
     memset(aot_file_buf, 0, aot_file_size);
-    if (!aot_emit_aot_file_buf_ex(comp_ctx, comp_data, obj_data,
-                                  aot_file_buf, aot_file_size))
+    if (!aot_emit_aot_file_buf_ex(comp_ctx, comp_data, obj_data, aot_file_buf,
+                                  aot_file_size))
         goto fail2;
 
     *p_aot_file_size = aot_file_size;
@@ -4421,8 +4421,8 @@ fail1:
 
 bool
 aot_emit_aot_file_buf_ex(AOTCompContext *comp_ctx, AOTCompData *comp_data,
-                         AOTObjectData *obj_data,
-                         uint8 *buf, uint32 aot_file_size)
+                         AOTObjectData *obj_data, uint8 *buf,
+                         uint32 aot_file_size)
 {
     uint8 *buf_end = buf + aot_file_size;
     uint32 offset = 0;

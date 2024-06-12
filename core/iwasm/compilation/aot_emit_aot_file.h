@@ -71,7 +71,6 @@ typedef struct AOTObjectData {
     uint32 *stack_sizes;
 } AOTObjectData;
 
-
 AOTObjectData *
 aot_obj_data_create(AOTCompContext *comp_ctx);
 
@@ -89,12 +88,11 @@ aot_emit_aot_file_buf(AOTCompContext *comp_ctx, AOTCompData *comp_data,
 
 bool
 aot_emit_aot_file_buf_ex(AOTCompContext *comp_ctx, AOTCompData *comp_data,
-                         AOTObjectData *obj_data,
-                         uint8 *aot_file_buf, uint32 aot_file_size);
+                         AOTObjectData *obj_data, uint8 *aot_file_buf,
+                         uint32 aot_file_size);
 
 void
 aot_obj_data_destroy(AOTObjectData *obj_data);
-
 
 #ifdef __cplusplus
 } /* end of extern "C" */
