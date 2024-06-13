@@ -131,9 +131,20 @@ string(FIND "${CFLAGS_ENV}" "-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION" IN_OSS_
 if (IN_OSS_FUZZ EQUAL -1)
   message("[ceith]:Enable ASan and UBSan in non-oss-fuzz environment")
   add_compile_options(
-    -fsanitize=signed-integer-overflow
     -fprofile-instr-generate -fcoverage-mapping
+    -fno-sanitize-recover=all
     -fsanitize=address,undefined
+    # reference: https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html
+    # -fsanitize=undefined: All of the checks listed above other than float-divide-by-zero,
+    #     unsigned-integer-overflow, implicit-conversion, local-bounds and
+    #     the nullability-* group of checks.
+    #
+    # for now, we disable below from UBSan
+    # -alignment
+    # -implicit-conversion
+    #
+    -fsanitize=float-divide-by-zero,unsigned-integer-overflow,local-bounds,nullability
+    -fno-sanitize=alignment
   )
   add_link_options(-fsanitize=address -fprofile-instr-generate)
 endif ()

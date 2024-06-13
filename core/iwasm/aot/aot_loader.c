@@ -367,6 +367,8 @@ get_aot_file_target(AOTTargetInfo *target_info, char *target_buf,
             break;
         case E_MACHINE_ARM:
         case E_MACHINE_AARCH64:
+            /* TODO: this will make following `strncmp()` ~L392 unnecessary.
+             * Use const strings here */
             machine_type = target_info->arch;
             break;
         case E_MACHINE_MIPS:
@@ -500,6 +502,11 @@ load_target_info_section(const uint8 *buf, const uint8 *buf_end,
     read_uint64(p, p_end, target_info.feature_flags);
     read_uint64(p, p_end, target_info.reserved);
     read_byte_array(p, p_end, target_info.arch, sizeof(target_info.arch));
+
+    if (target_info.arch[sizeof(target_info.arch) - 1] != '\0') {
+        set_error_buf(error_buf, error_buf_size, "invalid arch string");
+        return false;
+    }
 
     if (p != buf_end) {
         set_error_buf(error_buf, error_buf_size, "invalid section size");
@@ -1033,7 +1040,8 @@ load_memory_info(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
     read_uint32(buf, buf_end, module->import_memory_count);
     /* We don't support import_memory_count > 0 currently */
-    bh_assert(module->import_memory_count == 0);
+    if (module->import_memory_count > 0)
+        return false;
 
     read_uint32(buf, buf_end, module->memory_count);
     total_size = sizeof(AOTMemory) * (uint64)module->memory_count;
