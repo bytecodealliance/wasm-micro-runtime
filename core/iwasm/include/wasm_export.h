@@ -1407,7 +1407,7 @@ wasm_memory_type_get_max_page_count(const wasm_memory_type_t memory_type);
  * @return the element kind
  */
 WASM_RUNTIME_API_EXTERN wasm_valkind_t
-wasm_table_type_get_element_kind(const wasm_table_type_t table_type);
+wasm_table_type_get_elem_kind(const wasm_table_type_t table_type);
 
 /**
  * Get the sharing setting for a table type

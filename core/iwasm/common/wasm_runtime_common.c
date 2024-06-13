@@ -4351,7 +4351,7 @@ wasm_memory_type_get_max_page_count(WASMMemoryType *const memory_type)
 }
 
 wasm_valkind_t
-wasm_table_type_get_element_kind(WASMTableType *const table_type)
+wasm_table_type_get_elem_kind(WASMTableType *const table_type)
 {
     bh_assert(table_type);
 
