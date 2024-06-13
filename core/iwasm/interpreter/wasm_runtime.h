@@ -620,10 +620,8 @@ wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
 WASMMemoryInstance *
 wasm_get_default_memory(WASMModuleInstance *module_inst);
 
-#if WASM_ENABLE_MULTI_MEMORY != 0
 WASMMemoryInstance *
 wasm_get_memory_i(WASMModuleInstance *module_inst, uint32 index);
-#endif
 
 bool
 wasm_enlarge_memory(WASMModuleInstance *module_inst,

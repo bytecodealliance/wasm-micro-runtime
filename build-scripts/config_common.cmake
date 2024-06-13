@@ -267,8 +267,6 @@ if (WAMR_BUILD_MULTI_MEMORY EQUAL 1)
   add_definitions (-DWASM_ENABLE_MULTI_MEMORY=1)
   message ("     Multi memory enabled")
   set (WAMR_BUILD_DEBUG_INTERP 0)
-  message (WARNING  "     Debug Interpreter disabled when Multi memory enabled")
-  # TODO: maybe disable HW check for multi-memory since it will map multiple 4G memory ?
 endif ()
 if (WAMR_BUILD_THREAD_MGR EQUAL 1)
   message ("     Thread manager enabled")
