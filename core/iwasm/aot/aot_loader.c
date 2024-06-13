@@ -1328,8 +1328,9 @@ load_import_table_list(const uint8 **p_buf, const uint8 *buf_end,
 
             ref_type.ref_type = import_table->table_type.elem_type;
             /* TODO: check ref_type */
-            if (!(import_table->elem_ref_type = wasm_reftype_set_insert(
-                      module->ref_type_set, &ref_type))) {
+            if (!(import_table->table_type.elem_ref_type =
+                      wasm_reftype_set_insert(module->ref_type_set,
+                                              &ref_type))) {
                 set_error_buf(error_buf, error_buf_size,
                               "insert ref type to hash set failed");
                 return false;
@@ -1381,7 +1382,7 @@ load_table_list(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
             ref_type.ref_type = table->table_type.elem_type;
             /* TODO: check ref_type */
-            if (!(table->elem_ref_type = wasm_reftype_set_insert(
+            if (!(table->table_type.elem_ref_type = wasm_reftype_set_insert(
                       module->ref_type_set, &ref_type))) {
                 set_error_buf(error_buf, error_buf_size,
                               "insert ref type to hash set failed");

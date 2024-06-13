@@ -608,8 +608,8 @@ aot_create_comp_data(WASMModule *module, const char *target_arch,
                 comp_data->tables[i].table_type.max_size =
                     module->import_tables[i].u.table.table_type.max_size;
 #if WASM_ENABLE_GC != 0
-                comp_data->tables[i].elem_ref_type =
-                    module->import_tables[i].u.table.elem_ref_type;
+                comp_data->tables[i].table_type.elem_ref_type =
+                    module->import_tables[i].u.table.table_type.elem_ref_type;
 #endif
                 comp_data->tables[i].table_type.possible_grow =
                     module->import_tables[i].u.table.table_type.possible_grow;
@@ -627,8 +627,8 @@ aot_create_comp_data(WASMModule *module, const char *target_arch,
                 comp_data->tables[i].table_type.possible_grow =
                     module->tables[j].table_type.possible_grow;
 #if WASM_ENABLE_GC != 0
-                comp_data->tables[j].elem_ref_type =
-                    module->tables[j].elem_ref_type;
+                comp_data->tables[j].table_type.elem_ref_type =
+                    module->tables[j].table_type.elem_ref_type;
                 /* Note: if the init_expr contains extra data for struct/array
                  * initialization information (init_expr.u.data), the pointer is
                  * copied.

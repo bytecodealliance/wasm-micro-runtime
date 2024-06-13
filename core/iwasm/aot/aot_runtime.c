@@ -624,7 +624,7 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
             tbl_inst->elem_type = module->tables[i].table_type.elem_type;
 #if WASM_ENABLE_GC != 0
             tbl_inst->elem_ref_type.elem_ref_type =
-                module->tables[i].elem_ref_type;
+                module->tables[i].table_type.elem_ref_type;
 #endif
         }
         else {
@@ -634,7 +634,7 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
             tbl_inst->elem_type = module->tables[i].table_type.elem_type;
 #if WASM_ENABLE_GC != 0
             tbl_inst->elem_ref_type.elem_ref_type =
-                module->tables[i].elem_ref_type;
+                module->tables[i].table_type.elem_ref_type;
 #endif
         }
 

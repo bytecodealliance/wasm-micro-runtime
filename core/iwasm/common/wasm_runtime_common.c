@@ -6546,7 +6546,7 @@ wasm_runtime_get_table_elem_type(const WASMModuleCommon *module_comm,
                 &((module->import_tables + table_idx)->u.table);
             *out_elem_type = import_table->table_type.elem_type;
 #if WASM_ENABLE_GC != 0
-            *out_ref_type = import_table->elem_ref_type;
+            *out_ref_type = import_table->table_type.elem_ref_type;
 #endif
             *out_min_size = import_table->table_type.init_size;
             *out_max_size = import_table->table_type.max_size;
@@ -6556,7 +6556,7 @@ wasm_runtime_get_table_elem_type(const WASMModuleCommon *module_comm,
                 module->tables + (table_idx - module->import_table_count);
             *out_elem_type = table->table_type.elem_type;
 #if WASM_ENABLE_GC != 0
-            *out_ref_type = table->elem_ref_type;
+            *out_ref_type = table->table_type.elem_ref_type;
 #endif
             *out_min_size = table->table_type.init_size;
             *out_max_size = table->table_type.max_size;

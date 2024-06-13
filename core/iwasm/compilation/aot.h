@@ -113,9 +113,6 @@ typedef struct AOTImportTable {
     char *module_name;
     char *table_name;
     AOTTableType table_type;
-#if WASM_ENABLE_GC != 0
-    WASMRefType *elem_ref_type;
-#endif
 } AOTImportTable;
 
 /**

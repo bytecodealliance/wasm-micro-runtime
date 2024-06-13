@@ -568,7 +568,8 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         {
             table->elem_type = import->u.table.table_type.elem_type;
 #if WASM_ENABLE_GC != 0
-            table->elem_ref_type.elem_ref_type = import->u.table.elem_ref_type;
+            table->elem_ref_type.elem_ref_type =
+                import->u.table.table_type.elem_ref_type;
 #endif
             table->cur_size = import->u.table.table_type.init_size;
             table->max_size = max_size_fixed;
@@ -612,7 +613,8 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 #endif
         table->elem_type = module->tables[i].table_type.elem_type;
 #if WASM_ENABLE_GC != 0
-        table->elem_ref_type.elem_ref_type = module->tables[i].elem_ref_type;
+        table->elem_ref_type.elem_ref_type =
+            module->tables[i].table_type.elem_ref_type;
 #endif
         table->cur_size = module->tables[i].table_type.init_size;
         table->max_size = max_size_fixed;

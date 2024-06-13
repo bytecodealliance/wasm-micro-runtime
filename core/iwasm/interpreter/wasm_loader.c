@@ -2668,7 +2668,7 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
     }
     declare_elem_type = ref_type.ref_type;
     if (need_ref_type_map) {
-        if (!(table->elem_ref_type =
+        if (!(table->table_type.elem_ref_type =
                   reftype_set_insert(parent_module->ref_type_set, &ref_type,
                                      error_buf, error_buf_size))) {
             return false;
@@ -2676,7 +2676,7 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
     }
 #if TRACE_WASM_LOADER != 0
     os_printf("import table type: ");
-    wasm_dump_value_type(declare_elem_type, table->elem_ref_type);
+    wasm_dump_value_type(declare_elem_type, table->table_type.elem_ref_type);
     os_printf("\n");
 #endif
 #endif /* end of WASM_ENABLE_GC == 0 */
@@ -3174,7 +3174,7 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
     }
     table->table_type.elem_type = ref_type.ref_type;
     if (need_ref_type_map) {
-        if (!(table->elem_ref_type =
+        if (!(table->table_type.elem_ref_type =
                   reftype_set_insert(module->ref_type_set, &ref_type, error_buf,
                                      error_buf_size))) {
             return false;
@@ -3182,7 +3182,8 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
     }
 #if TRACE_WASM_LOADER != 0
     os_printf("table type: ");
-    wasm_dump_value_type(table->elem_type, table->elem_ref_type);
+    wasm_dump_value_type(table->table_type.elem_type,
+                         table->table_type.elem_ref_type);
     os_printf("\n");
 #endif
 #endif /* end of WASM_ENABLE_GC == 0 */
@@ -3934,7 +3935,7 @@ load_table_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             if (has_init) {
                 if (!load_init_expr(module, &p, p_end, &table->init_expr,
                                     table->table_type.elem_type,
-                                    table->elem_ref_type, error_buf,
+                                    table->table_type.elem_ref_type, error_buf,
                                     error_buf_size))
                     return false;
                 if (table->init_expr.init_expr_type >= INIT_EXPR_TYPE_STRUCT_NEW
@@ -10831,7 +10832,8 @@ get_table_elem_type(const WASMModule *module, uint32 table_idx,
 #if WASM_ENABLE_GC != 0
         if (p_ref_type)
             *((WASMRefType **)p_ref_type) =
-                module->import_tables[table_idx].u.table.elem_ref_type;
+                module->import_tables[table_idx]
+                    .u.table.table_type.elem_ref_type;
 #endif
     }
     else {
@@ -10843,7 +10845,7 @@ get_table_elem_type(const WASMModule *module, uint32 table_idx,
         if (p_ref_type)
             *((WASMRefType **)p_ref_type) =
                 module->tables[module->import_table_count + table_idx]
-                    .elem_ref_type;
+                    .table_type.elem_ref_type;
 #endif
     }
     return true;

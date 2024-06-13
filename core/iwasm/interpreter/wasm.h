@@ -492,12 +492,14 @@ typedef struct WASMTableType {
     uint32 init_size;
     /* specified if (flags & 1), else it is 0x10000 */
     uint32 max_size;
+#if WASM_ENABLE_GC != 0
+    WASMRefType *elem_ref_type;
+#endif
 } WASMTableType;
 
 typedef struct WASMTable {
     WASMTableType table_type;
 #if WASM_ENABLE_GC != 0
-    WASMRefType *elem_ref_type;
     /* init expr for the whole table */
     InitializerExpression init_expr;
 #endif
@@ -522,9 +524,6 @@ typedef struct WASMTableImport {
     char *module_name;
     char *field_name;
     WASMTableType table_type;
-#if WASM_ENABLE_GC != 0
-    WASMRefType *elem_ref_type;
-#endif
 #if WASM_ENABLE_MULTI_MODULE != 0
     WASMModule *import_module;
     WASMTable *import_table_linked;
