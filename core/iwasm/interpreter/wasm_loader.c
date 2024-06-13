@@ -380,8 +380,7 @@ loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
 {
     void *mem;
 
-    if (size >= WASM_MEM_ALLOC_MAX_SIZE
-        || !(mem = wasm_runtime_malloc((uint32)size))) {
+    if (size >= UINT32_MAX || !(mem = wasm_runtime_malloc((uint32)size))) {
         set_error_buf(error_buf, error_buf_size, "allocate memory failed");
         return NULL;
     }
@@ -2255,9 +2254,15 @@ fail:
 static void
 adjust_table_max_size(uint32 init_size, uint32 max_size_flag, uint32 *max_size)
 {
-    uint32 default_max_size = init_size * 2 > WASM_TABLE_MAX_SIZE
-                                  ? init_size * 2
-                                  : WASM_TABLE_MAX_SIZE;
+    uint32 default_max_size;
+
+    if (UINT32_MAX / 2 > init_size)
+        default_max_size = init_size * 2;
+    else
+        default_max_size = UINT32_MAX;
+
+    if (default_max_size < WASM_TABLE_MAX_SIZE)
+        default_max_size = WASM_TABLE_MAX_SIZE;
 
     if (max_size_flag) {
         /* module defines the table limitation */
