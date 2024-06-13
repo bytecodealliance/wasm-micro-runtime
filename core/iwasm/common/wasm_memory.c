@@ -670,16 +670,14 @@ wasm_get_default_memory(WASMModuleInstance *module_inst)
         return NULL;
 }
 
-#if WASM_ENABLE_MULTI_MEMORY != 0
 WASMMemoryInstance *
 wasm_get_memory_i(WASMModuleInstance *module_inst, uint32 index)
 {
-    if (module_inst->memories)
+    if (module_inst->memories && index <= module_inst->memory_count)
         return module_inst->memories[index];
     else
         return NULL;
 }
-#endif
 
 void
 wasm_runtime_set_mem_bound_check_bytes(WASMMemoryInstance *memory,
