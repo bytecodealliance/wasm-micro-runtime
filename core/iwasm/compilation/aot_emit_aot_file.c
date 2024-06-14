@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "aot_compiler.h"
+#include "aot_emit_aot_file.h"
 #include "../aot/aot_runtime.h"
 
 #define PUT_U64_TO_ADDR(addr, value)        \
@@ -1189,9 +1189,9 @@ get_string_literal_section_size(AOTCompContext *comp_ctx,
 static uint32
 get_custom_sections_size(AOTCompContext *comp_ctx, AOTCompData *comp_data);
 
-static uint32
-get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
-                  AOTObjectData *obj_data)
+uint32
+aot_get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
+                      AOTObjectData *obj_data)
 {
     uint32 size = 0;
     uint32 size_custom_section = 0;
@@ -4228,7 +4228,7 @@ destroy_relocation_symbol_list(AOTSymbolList *symbol_list)
     }
 }
 
-static void
+void
 aot_obj_data_destroy(AOTObjectData *obj_data)
 {
     if (obj_data->binary)
@@ -4261,7 +4261,7 @@ aot_obj_data_destroy(AOTObjectData *obj_data)
     wasm_runtime_free(obj_data);
 }
 
-static AOTObjectData *
+AOTObjectData *
 aot_obj_data_create(AOTCompContext *comp_ctx)
 {
     char *err = NULL;
@@ -4443,25 +4443,48 @@ aot_emit_aot_file_buf(AOTCompContext *comp_ctx, AOTCompData *comp_data,
                       uint32 *p_aot_file_size)
 {
     AOTObjectData *obj_data = aot_obj_data_create(comp_ctx);
-    uint8 *aot_file_buf, *buf, *buf_end;
-    uint32 aot_file_size, offset = 0;
+    uint8 *aot_file_buf;
+    uint32 aot_file_size;
 
     if (!obj_data)
         return NULL;
 
-    aot_file_size = get_aot_file_size(comp_ctx, comp_data, obj_data);
+    aot_file_size = aot_get_aot_file_size(comp_ctx, comp_data, obj_data);
     if (aot_file_size == 0) {
         aot_set_last_error("get aot file size failed");
         goto fail1;
     }
 
-    if (!(buf = aot_file_buf = wasm_runtime_malloc(aot_file_size))) {
+    if (!(aot_file_buf = wasm_runtime_malloc(aot_file_size))) {
         aot_set_last_error("allocate memory failed.");
         goto fail1;
     }
 
     memset(aot_file_buf, 0, aot_file_size);
-    buf_end = buf + aot_file_size;
+    if (!aot_emit_aot_file_buf_ex(comp_ctx, comp_data, obj_data, aot_file_buf,
+                                  aot_file_size))
+        goto fail2;
+
+    *p_aot_file_size = aot_file_size;
+
+    aot_obj_data_destroy(obj_data);
+    return aot_file_buf;
+
+fail2:
+    wasm_runtime_free(aot_file_buf);
+
+fail1:
+    aot_obj_data_destroy(obj_data);
+    return NULL;
+}
+
+bool
+aot_emit_aot_file_buf_ex(AOTCompContext *comp_ctx, AOTCompData *comp_data,
+                         AOTObjectData *obj_data, uint8 *buf,
+                         uint32 aot_file_size)
+{
+    uint8 *buf_end = buf + aot_file_size;
+    uint32 offset = 0;
 
     if (!aot_emit_file_header(buf, buf_end, &offset, comp_data, obj_data)
         || !aot_emit_target_info_section(buf, buf_end, &offset, comp_data,
@@ -4482,7 +4505,7 @@ aot_emit_aot_file_buf(AOTCompContext *comp_ctx, AOTCompData *comp_data,
                                             comp_ctx)
 #endif
     )
-        goto fail2;
+        return false;
 
 #if 0
     dump_buf(buf, offset, "sections");
@@ -4490,20 +4513,10 @@ aot_emit_aot_file_buf(AOTCompContext *comp_ctx, AOTCompData *comp_data,
 
     if (offset != aot_file_size) {
         aot_set_last_error("emit aot file failed.");
-        goto fail2;
+        return false;
     }
 
-    *p_aot_file_size = aot_file_size;
-
-    aot_obj_data_destroy(obj_data);
-    return aot_file_buf;
-
-fail2:
-    wasm_runtime_free(aot_file_buf);
-
-fail1:
-    aot_obj_data_destroy(obj_data);
-    return NULL;
+    return true;
 }
 
 bool

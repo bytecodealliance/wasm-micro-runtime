@@ -783,14 +783,6 @@ bool
 aot_emit_llvm_file(AOTCompContext *comp_ctx, const char *file_name);
 
 bool
-aot_emit_aot_file(AOTCompContext *comp_ctx, AOTCompData *comp_data,
-                  const char *file_name);
-
-uint8 *
-aot_emit_aot_file_buf(AOTCompContext *comp_ctx, AOTCompData *comp_data,
-                      uint32 *p_aot_file_size);
-
-bool
 aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name);
 
 char *
