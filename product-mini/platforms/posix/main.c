@@ -295,7 +295,8 @@ load_native_lib(const char *name)
     /* open the native library */
     if (!(lib->handle = dlopen(name, RTLD_NOW | RTLD_GLOBAL))
         && !(lib->handle = dlopen(name, RTLD_LAZY))) {
-        LOG_WARNING("warning: failed to load native library %s", name);
+        LOG_WARNING("warning: failed to load native library %s. %s", name,
+                    dlerror());
         goto fail;
     }
 
