@@ -7691,19 +7691,16 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 #if WASM_ENABLE_BULK_MEMORY != 0
                     case WASM_OP_MEMORY_INIT:
                         skip_leb_uint32(p, p_end);
-                        /* skip memory idx */
                         skip_leb_memidx(p, p_end);
                         break;
                     case WASM_OP_DATA_DROP:
                         skip_leb_uint32(p, p_end);
                         break;
                     case WASM_OP_MEMORY_COPY:
-                        /* skip two memory idx */
                         skip_leb_memidx(p, p_end);
                         skip_leb_memidx(p, p_end);
                         break;
                     case WASM_OP_MEMORY_FILL:
-                        /* skip memory idx */
                         skip_leb_memidx(p, p_end);
                         break;
 #endif /* WASM_ENABLE_BULK_MEMORY */
