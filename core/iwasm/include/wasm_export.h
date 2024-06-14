@@ -1550,9 +1550,8 @@ wasm_runtime_get_export_table_inst(const wasm_module_inst_t module_inst,
  * @return the function instance if successful, NULL otherwise
  */
 WASM_RUNTIME_API_EXTERN wasm_function_inst_t
-wasm_runtime_table_get_func_inst(const wasm_module_inst_t module_inst,
-                                 const wasm_table_inst_t *table_inst,
-                                 uint32_t idx);
+wasm_table_get_func_inst(const wasm_module_inst_t module_inst,
+                         const wasm_table_inst_t *table_inst, uint32_t idx);
 
 /**
  * Get attachment of native function from execution environment

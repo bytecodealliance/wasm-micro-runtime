@@ -2020,9 +2020,8 @@ wasm_runtime_get_export_table_inst(WASMModuleInstanceCommon *const module_inst,
 }
 
 WASMFunctionInstanceCommon *
-wasm_runtime_table_get_func_inst(
-    struct WASMModuleInstanceCommon *const module_inst,
-    const wasm_table_inst_t *table_inst, uint32_t idx)
+wasm_table_get_func_inst(struct WASMModuleInstanceCommon *const module_inst,
+                         const wasm_table_inst_t *table_inst, uint32_t idx)
 {
     if (!table_inst) {
         bh_assert(0);
