@@ -134,6 +134,7 @@ check_buf1(const uint8 *buf, const uint8 *buf_end, uint32 length,
 #if WASM_ENABLE_MULTI_MEMORY == 0
 #define skip_leb_align(p, p_end) skip_leb(p)
 #else
+/* Skip the following memidx if applicable */
 #define skip_leb_align(p, p_end)       \
     do {                               \
         if (*p++ & 0x40)               \
@@ -262,6 +263,7 @@ fail:
         res = (int32)res64;                                             \
     } while (0)
 
+#define read_leb_memidx(p, p_end, res) read_leb_uint32(p, p_end, res)
 #if WASM_ENABLE_MULTI_MEMORY != 0
 #define check_memidx(module, memidx)                                        \
     do {                                                                    \
@@ -271,6 +273,26 @@ fail:
             goto fail;                                                      \
         }                                                                   \
     } while (0)
+/* Bit 6 indicating the optional memidx, and reset bit 6 for
+ * alignment check */
+#define read_leb_align(p, p_end, res)                       \
+    do {                                                    \
+        read_leb_uint32(p, p_end, res);                     \
+        if (res & 0x40) {                                   \
+            res &= 0x3F;                                    \
+            read_leb_uint32(p, p_end, memidx); /* memidx */ \
+            check_memidx(module, memidx);                   \
+        }                                                   \
+    } while (0)
+#else
+/* reserved byte 0x00 */
+#define check_memidx(module, memidx)      \
+    do {                                  \
+        (void)module;                     \
+        if (memidx != 0)                  \
+            goto fail_zero_byte_expected; \
+    } while (0)
+#define read_leb_align(p, p_end, res) read_leb_uint32(p, p_end, res)
 #endif
 
 static char *
@@ -10981,9 +11003,7 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
 #else
     mem_offset_type = VALUE_TYPE_I32;
 #endif
-#if WASM_ENABLE_MULTI_MEMORY != 0
     uint32 memidx;
-#endif
 
     global_count = module->import_global_count + module->global_count;
 
@@ -13253,16 +13273,7 @@ re_scan:
                 }
 #endif
                 CHECK_MEMORY();
-                read_leb_uint32(p, p_end, align); /* align */
-#if WASM_ENABLE_MULTI_MEMORY != 0
-                /* Bit 6 indicating the optional memidx, and reset bit 6 for
-                 * alignment check */
-                if (align & 0x40) {
-                    align &= 0x3F;
-                    read_leb_uint32(p, p_end, memidx); /* memidx */
-                    check_memidx(module, memidx);
-                }
-#endif
+                read_leb_align(p, p_end, align);           /* align */
                 read_leb_mem_offset(p, p_end, mem_offset); /* offset */
                 if (!check_memory_access_align(opcode, align, error_buf,
                                                error_buf_size)) {
@@ -13328,17 +13339,8 @@ re_scan:
 
             case WASM_OP_MEMORY_SIZE:
                 CHECK_MEMORY();
-#if WASM_ENABLE_MULTI_MEMORY != 0
                 read_leb_uint32(p, p_end, memidx);
                 check_memidx(module, memidx);
-#else
-                /* reserved byte 0x00 */
-                if (*p++ != 0x00) {
-                    set_error_buf(error_buf, error_buf_size,
-                                  "zero byte expected");
-                    goto fail;
-                }
-#endif
                 PUSH_PAGE_COUNT();
 
                 module->possible_memory_grow = true;
@@ -13349,17 +13351,8 @@ re_scan:
 
             case WASM_OP_MEMORY_GROW:
                 CHECK_MEMORY();
-                /* reserved byte 0x00 */
-#if WASM_ENABLE_MULTI_MEMORY != 0
                 read_leb_uint32(p, p_end, memidx);
                 check_memidx(module, memidx);
-#else
-                if (*p++ != 0x00) {
-                    set_error_buf(error_buf, error_buf_size,
-                                  "zero byte expected");
-                    goto fail;
-                }
-#endif
                 POP_AND_PUSH(mem_offset_type, mem_offset_type);
 
                 module->possible_memory_grow = true;
@@ -14711,13 +14704,8 @@ re_scan:
                             && module->memory_count == 0)
                             goto fail_unknown_memory;
 
-#if WASM_ENABLE_MULTI_MEMORY != 0
                         read_leb_uint32(p, p_end, memidx);
                         check_memidx(module, memidx);
-#else
-                        if (*p++ != 0x00)
-                            goto fail_zero_byte_expected;
-#endif
 
                         if (data_seg_idx >= module->data_seg_count) {
                             set_error_buf_v(error_buf, error_buf_size,
@@ -14766,18 +14754,11 @@ re_scan:
                     case WASM_OP_MEMORY_COPY:
                     {
                         CHECK_BUF(p, p_end, sizeof(int16));
-#if WASM_ENABLE_MULTI_MEMORY != 0
                         /* check both src and dst memory index */
                         read_leb_uint32(p, p_end, memidx);
                         check_memidx(module, memidx);
                         read_leb_uint32(p, p_end, memidx);
                         check_memidx(module, memidx);
-#else
-                        /* both src and dst memory index should be 0 */
-                        if (*(int16 *)p != 0x0000)
-                            goto fail_zero_byte_expected;
-                        p += 2;
-#endif
 
                         if (module->import_memory_count == 0
                             && module->memory_count == 0)
@@ -14796,14 +14777,8 @@ re_scan:
                     }
                     case WASM_OP_MEMORY_FILL:
                     {
-#if WASM_ENABLE_MULTI_MEMORY != 0
                         read_leb_uint32(p, p_end, memidx);
                         check_memidx(module, memidx);
-#else
-                        if (*p++ != 0x00) {
-                            goto fail_zero_byte_expected;
-                        }
-#endif
                         if (module->import_memory_count == 0
                             && module->memory_count == 0) {
                             goto fail_unknown_memory;

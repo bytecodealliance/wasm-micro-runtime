@@ -45,7 +45,7 @@ typedef float64 CellType_F64;
 #elif WASM_ENABLE_MULTI_MEMORY != 0
 /**
  * Load memory data size in each time boundary check in
- * multi-memory mode since the memory[i] may be different
+ * multi-memory mode since the memory instance(memories[i]) may be different
  */
 #define get_linear_mem_size() memory->memory_data_size
 #else
@@ -705,8 +705,9 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
 
 #if WASM_ENABLE_MULTI_MEMORY != 0
 /* First read the alignment, then if it has flag indicating following memidx,
- * read it, if id don't have flag and memidx not indicating default memory,
- * reset the memory to default memory */
+ * read it and set the memory instance to memories[memidx] for following memory
+ * access and boundary check, if it doesn't have flag reset the memory instance
+ * to the default memories[0] */
 #define read_leb_align(p, p_end, res)                   \
     do {                                                \
         read_leb_uint32(p, p_end, res);                 \
@@ -5665,7 +5666,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_THREAD_MGR != 0 || WASM_ENABLE_MULTI_MEMORY != 0
                         linear_mem_size = get_linear_mem_size();
 #endif
-                        /* Boundary check */
+                        /* dst boundary check */
 #ifndef OS_ENABLE_HW_BOUND_CHECK
                         CHECK_BULK_MEMORY_OVERFLOW(dst, len, mdst);
 #else
@@ -5682,7 +5683,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_THREAD_MGR != 0 || WASM_ENABLE_MULTI_MEMORY != 0
                         linear_mem_size = get_linear_mem_size();
 #endif
-                        /* Boundary check */
+                        /* src boundary check */
 #ifndef OS_ENABLE_HW_BOUND_CHECK
                         CHECK_BULK_MEMORY_OVERFLOW(src, len, msrc);
 #else

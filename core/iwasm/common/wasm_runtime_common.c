@@ -190,7 +190,7 @@ is_sig_addr_oob(void *sig_addr, WASMModuleInstance *module_inst)
     uint32 i;
 
     for (i = 0; i < module_inst->memory_count; ++i) {
-        /* Get the default memory instance */
+        /* To be compatible with multi memory, get the ith memory instance */
         memory_inst = wasm_get_memory_i(module_inst, i);
         if (memory_inst) {
             mapped_mem_start_addr = memory_inst->memory_data;
