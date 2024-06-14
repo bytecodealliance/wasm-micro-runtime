@@ -305,7 +305,8 @@ typedef struct wasm_table_inst_t {
     wasm_valkind_t elem_kind;
     uint32_t cur_size;
     uint32_t max_size;
-    const void **elems;
+    /* represents the elements of the table, for internal use only */
+    void *elems;
 } wasm_table_inst_t;
 
 typedef enum {

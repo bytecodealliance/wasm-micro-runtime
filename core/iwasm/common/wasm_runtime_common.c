@@ -1987,7 +1987,7 @@ wasm_runtime_get_export_table_inst(WASMModuleInstanceCommon *const module_inst,
                     val_type_to_val_kind(wasm_table_inst->elem_type);
                 table_inst->cur_size = wasm_table_inst->cur_size;
                 table_inst->max_size = wasm_table_inst->max_size;
-                table_inst->elems = (const void **)wasm_table_inst->elems;
+                table_inst->elems = (void *)wasm_table_inst->elems;
                 return true;
             }
         }
@@ -2009,7 +2009,7 @@ wasm_runtime_get_export_table_inst(WASMModuleInstanceCommon *const module_inst,
                     val_type_to_val_kind(aot_table_inst->elem_type);
                 table_inst->cur_size = aot_table_inst->cur_size;
                 table_inst->max_size = aot_table_inst->max_size;
-                table_inst->elems = (const void **)aot_table_inst->elems;
+                table_inst->elems = (void *)aot_table_inst->elems;
                 return true;
             }
         }
