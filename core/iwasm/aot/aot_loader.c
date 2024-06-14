@@ -326,14 +326,18 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         /* The string is always terminated with '\0', use it directly.
          * In this case, the file buffer can be referred to after loading.
          */
-        bh_assert(p[str_len - 1] == '\0');
+        if (p[str_len - 1] != '\0')
+            goto fail;
+
         str = (char *)p;
     }
     else {
         /* Load from sections, the file buffer cannot be referred to
            after loading, we must create another string and insert it
            into const string set */
-        bh_assert(p[str_len - 1] == '\0');
+        if (p[str_len - 1] != '\0')
+            goto fail;
+
         if (!(str = aot_const_str_set_insert((uint8 *)p, str_len, module,
 #if (WASM_ENABLE_WORD_ALIGN_READ != 0)
                                              is_vram_word_align,
@@ -568,7 +572,7 @@ get_native_symbol_by_name(const char *name)
 
     sym = get_target_symbol_map(&symnum);
 
-    while (symnum--) {
+    while (symnum && symnum--) {
         if (strcmp(sym->symbol_name, name) == 0) {
             func = sym->symbol_addr;
             break;
