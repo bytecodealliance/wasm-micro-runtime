@@ -673,7 +673,7 @@ wasm_get_default_memory(WASMModuleInstance *module_inst)
 WASMMemoryInstance *
 wasm_get_memory_i(WASMModuleInstance *module_inst, uint32 index)
 {
-    if (module_inst->memories && index <= module_inst->memory_count)
+    if (module_inst->memories)
         return module_inst->memories[index];
     else
         return NULL;
