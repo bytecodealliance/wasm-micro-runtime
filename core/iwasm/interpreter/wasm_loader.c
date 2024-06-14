@@ -286,11 +286,13 @@ fail:
     } while (0)
 #else
 /* reserved byte 0x00 */
-#define check_memidx(module, memidx)      \
-    do {                                  \
-        (void)module;                     \
-        if (memidx != 0)                  \
-            goto fail_zero_byte_expected; \
+#define check_memidx(module, memidx)                                        \
+    do {                                                                    \
+        (void)module;                                                       \
+        if (memidx != 0) {                                                  \
+            set_error_buf(error_buf, error_buf_size, "zero byte expected"); \
+            goto fail;                                                      \
+        }                                                                   \
     } while (0)
 #define read_leb_align(p, p_end, res) read_leb_uint32(p, p_end, res)
 #endif
@@ -14794,13 +14796,6 @@ re_scan:
 #endif
                         break;
                     }
-
-#if WASM_ENABLE_MULTI_MEMORY == 0
-                    fail_zero_byte_expected:
-                        set_error_buf(error_buf, error_buf_size,
-                                      "zero byte expected");
-                        goto fail;
-#endif
 
                     fail_unknown_memory:
                         set_error_buf(error_buf, error_buf_size,
