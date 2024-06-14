@@ -72,8 +72,8 @@ void
 aot_obj_data_destroy(aot_obj_data_t obj_data);
 
 uint32_t
-get_aot_file_size(aot_comp_context_t comp_ctx, aot_comp_data_t comp_data,
-                  aot_obj_data_t obj_data);
+aot_get_aot_file_size(aot_comp_context_t comp_ctx, aot_comp_data_t comp_data,
+                      aot_obj_data_t obj_data);
 
 uint8_t *
 aot_emit_aot_file_buf(aot_comp_context_t comp_ctx, aot_comp_data_t comp_data,

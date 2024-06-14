@@ -1190,8 +1190,8 @@ static uint32
 get_custom_sections_size(AOTCompContext *comp_ctx, AOTCompData *comp_data);
 
 uint32
-get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
-                  AOTObjectData *obj_data)
+aot_get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
+                      AOTObjectData *obj_data)
 {
     uint32 size = 0;
     uint32 size_custom_section = 0;
@@ -4449,7 +4449,7 @@ aot_emit_aot_file_buf(AOTCompContext *comp_ctx, AOTCompData *comp_data,
     if (!obj_data)
         return NULL;
 
-    aot_file_size = get_aot_file_size(comp_ctx, comp_data, obj_data);
+    aot_file_size = aot_get_aot_file_size(comp_ctx, comp_data, obj_data);
     if (aot_file_size == 0) {
         aot_set_last_error("get aot file size failed");
         goto fail1;
@@ -4485,6 +4485,7 @@ aot_emit_aot_file_buf_ex(AOTCompContext *comp_ctx, AOTCompData *comp_data,
 {
     uint8 *buf_end = buf + aot_file_size;
     uint32 offset = 0;
+
     if (!aot_emit_file_header(buf, buf_end, &offset, comp_data, obj_data)
         || !aot_emit_target_info_section(buf, buf_end, &offset, comp_data,
                                          obj_data)
