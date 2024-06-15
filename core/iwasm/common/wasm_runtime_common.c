@@ -2061,8 +2061,6 @@ wasm_table_get_func_inst(struct WASMModuleInstanceCommon *const module_inst,
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
         AOTModuleInstance *aot_module_inst = (AOTModuleInstance *)module_inst;
-        AOTModuleInstanceExtra *extra =
-            (AOTModuleInstanceExtra *)aot_module_inst->e;
         uint32 func_idx;
         table_elem_type_t tbl_elem_val =
             ((table_elem_type_t *)table_inst->elems)[idx];
@@ -2077,12 +2075,7 @@ wasm_table_get_func_inst(struct WASMModuleInstanceCommon *const module_inst,
             wasm_func_obj_get_func_idx_bound((WASMFuncObjectRef)tbl_elem_val);
 #endif
 
-        if (func_idx >= extra->function_count) {
-            bh_assert(0);
-            return NULL;
-        }
-
-        return extra->functions + func_idx;
+        return aot_get_function_instance(aot_module_inst, func_idx);
     }
 #endif
 

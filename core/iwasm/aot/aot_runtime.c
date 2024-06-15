@@ -1188,13 +1188,13 @@ create_functions(AOTModuleInstance *module_inst, AOTModule *module,
                  char *error_buf, uint32 error_buf_size)
 {
     AOTModuleInstanceExtra *extra = (AOTModuleInstanceExtra *)module_inst->e;
-    uint32 i;
-    AOTFunctionInstance *function;
-    uint64 total_size = ((uint64)module->import_func_count + module->func_count)
-                        * sizeof(AOTFunctionInstance);
+    uint64 func_count =
+        ((uint64)module->import_func_count + module->func_count);
+    uint64 total_size = func_count * sizeof(AOTFunctionInstance *);
 
-    if (module->import_func_count + module->func_count == 0)
+    if (func_count == 0) {
         return true;
+    }
 
     /* Allocate memory */
     if (!(extra->functions =
@@ -1202,31 +1202,61 @@ create_functions(AOTModuleInstance *module_inst, AOTModule *module,
         return false;
     }
 
-    function = (AOTFunctionInstance *)extra->functions;
+    memset(extra->functions, 0, total_size);
 
-    /* instantiate functions from import section */
-    for (i = 0; i < module->import_func_count; i++) {
-        function->is_import_func = true;
-        function->func_name = module->import_funcs[i].func_name;
-        function->func_index = i;
-        function->u.func_import = &module->import_funcs[i];
-        function++;
-    }
-
-    /* instantiate functions from function section */
-    for (i = 0; i < module->func_count; i++) {
-        uint32 ftype_index = module->func_type_indexes[i];
-        function->is_import_func = false;
-        function->func_name = ""; /* only use for export lookup */
-        function->func_index = module->import_func_count + i;
-        function->u.func.func_type = (AOTFuncType *)module->types[ftype_index];
-        function->u.func.func_ptr = module->func_ptrs[i];
-        function++;
-    }
-    bh_assert(function - (AOTFunctionInstance *)extra->functions
-              == (uint64)module->import_func_count + module->func_count);
+    extra->function_count = module->import_func_count + module->func_count;
 
     return true;
+}
+
+AOTFunctionInstance *
+aot_get_function_instance(AOTModuleInstance *module_inst, uint32 func_idx)
+{
+    AOTModule *module = (AOTModule *)module_inst->module;
+    AOTModuleInstanceExtra *extra = (AOTModuleInstanceExtra *)module_inst->e;
+    AOTFunctionInstance *function;
+
+    /* check that requested function index is valid */
+    if (func_idx >= extra->function_count) {
+        bh_assert(0);
+        return NULL;
+    }
+
+    if (!extra->functions) {
+        /* this should not happen if create_functions() has been called */
+        bh_assert(0);
+        return NULL;
+    }
+
+    /* check if already instantiated and return that if possible */
+    if (extra->functions[func_idx]) {
+        return extra->functions[func_idx];
+    }
+
+    function =
+        (AOTFunctionInstance *)wasm_runtime_malloc(sizeof(AOTFunctionInstance));
+
+    if (func_idx < module->import_func_count) {
+        /* instantiate function from import section */
+        function->is_import_func = true;
+        function->func_name = module->import_funcs[func_idx].func_name;
+        function->func_index = func_idx;
+        function->u.func_import = &module->import_funcs[func_idx];
+    }
+    else {
+        /* instantiate non-import function */
+        uint32 ftype_index = module->func_type_indexes[func_idx];
+        function->is_import_func = false;
+        function->func_name = ""; /* not needed, only use for export lookup */
+        function->func_index = module->import_func_count + func_idx;
+        function->u.func.func_type = (AOTFuncType *)module->types[ftype_index];
+        function->u.func.func_ptr = module->func_ptrs[func_idx];
+        function++;
+    }
+
+    extra->functions[func_idx] = function;
+
+    return function;
 }
 
 static bool
@@ -1666,9 +1696,6 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     }
 #endif
 
-    ((AOTModuleInstanceExtra *)module_inst->e)->function_count =
-        module->import_func_count + module->func_count;
-
     /* Initialize global info */
     p = (uint8 *)module_inst + module_inst_struct_size
         + module_inst_mem_inst_size;
@@ -1975,8 +2002,15 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
     if (module_inst->export_functions)
         wasm_runtime_free(module_inst->export_functions);
 
-    if (extra->functions)
+    if (extra->functions) {
+        for (uint32 func_idx = 0; func_idx < extra->function_count;
+             ++func_idx) {
+            if (extra->functions[func_idx]) {
+                wasm_runtime_free(extra->functions[func_idx]);
+            }
+        }
         wasm_runtime_free(extra->functions);
+    }
 
     if (module_inst->func_ptrs)
         wasm_runtime_free(module_inst->func_ptrs);
