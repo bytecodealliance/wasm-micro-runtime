@@ -1251,7 +1251,6 @@ aot_get_function_instance(AOTModuleInstance *module_inst, uint32 func_idx)
         function->func_index = module->import_func_count + func_idx;
         function->u.func.func_type = (AOTFuncType *)module->types[ftype_index];
         function->u.func.func_ptr = module->func_ptrs[func_idx];
-        function++;
     }
 
     extra->functions[func_idx] = function;
