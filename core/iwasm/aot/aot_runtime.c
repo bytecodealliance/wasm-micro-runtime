@@ -2111,6 +2111,7 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
             void (*invoke_native)(void *func_ptr, void *exec_env, uint32 *argv,
                                   uint32 *argv_ret) =
                 func_type->quick_aot_entry;
+            exec_env->attachment = attachment;
             invoke_native(func_ptr, exec_env, argv, argv_ret);
             ret = !aot_copy_exception(module_inst, NULL);
         }
@@ -2189,6 +2190,7 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
                   unsigned argc, uint32 argv[])
 {
     AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
+    AOTModule *module = (AOTModule *)module_inst->module;
     AOTFuncType *func_type = function->is_import_func
                                  ? function->u.func_import->func_type
                                  : function->u.func.func_type;
@@ -2198,6 +2200,7 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
     void *func_ptr = function->is_import_func
                          ? function->u.func_import->func_ptr_linked
                          : function->u.func.func_ptr;
+    void *attachment = NULL;
 #if WASM_ENABLE_MULTI_MODULE != 0
     bh_list *sub_module_list_node = NULL;
     const char *sub_inst_name = NULL;
@@ -2257,6 +2260,10 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
        hw bound check is enabled */
 #endif
 
+    if (function->func_index < module->import_func_count) {
+        attachment = function->u.func_import->attachment;
+    }
+
     /* Set exec env, so it can be later retrieved from instance */
     module_inst->cur_exec_env = exec_env;
 
@@ -2307,7 +2314,8 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
 #endif
 
         ret = invoke_native_internal(exec_env, function->u.func.func_ptr,
-                                     func_type, NULL, NULL, argv1, argc, argv);
+                                     func_type, NULL, attachment, argv1, argc,
+                                     argv);
 
         if (!ret) {
 #ifdef AOT_STACK_FRAME_DEBUG
@@ -2376,8 +2384,8 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         }
 #endif
 
-        ret = invoke_native_internal(exec_env, func_ptr, func_type, NULL, NULL,
-                                     argv, argc, argv);
+        ret = invoke_native_internal(exec_env, func_ptr, func_type, NULL,
+                                     attachment, argv, argc, argv);
 
         if (aot_copy_exception(module_inst, NULL)) {
 #ifdef AOT_STACK_FRAME_DEBUG
@@ -2978,8 +2986,8 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
         /* Call native function */
         import_func = aot_module->import_funcs + func_idx;
         signature = import_func->signature;
+        attachment = import_func->attachment;
         if (import_func->call_conv_raw) {
-            attachment = import_func->attachment;
             ret = wasm_runtime_invoke_native_raw(exec_env, func_ptr, func_type,
                                                  signature, attachment, argv,
                                                  argc, argv);
