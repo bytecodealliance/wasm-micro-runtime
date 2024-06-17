@@ -1202,8 +1202,6 @@ create_functions(AOTModuleInstance *module_inst, AOTModule *module,
         return false;
     }
 
-    memset(extra->functions, 0, total_size);
-
     extra->function_count = module->import_func_count + module->func_count;
 
     return true;
@@ -1233,8 +1231,8 @@ aot_get_function_instance(AOTModuleInstance *module_inst, uint32 func_idx)
         return extra->functions[func_idx];
     }
 
-    function =
-        (AOTFunctionInstance *)wasm_runtime_malloc(sizeof(AOTFunctionInstance));
+    function = (AOTFunctionInstance *)runtime_malloc(
+        sizeof(AOTFunctionInstance), NULL, 0);
 
     if (func_idx < module->import_func_count) {
         /* instantiate function from import section */
@@ -1247,7 +1245,6 @@ aot_get_function_instance(AOTModuleInstance *module_inst, uint32 func_idx)
         /* instantiate non-import function */
         uint32 ftype_index = module->func_type_indexes[func_idx];
         function->is_import_func = false;
-        function->func_name = ""; /* not needed, only use for export lookup */
         function->func_index = module->import_func_count + func_idx;
         function->u.func.func_type = (AOTFuncType *)module->types[ftype_index];
         function->u.func.func_ptr = module->func_ptrs[func_idx];
