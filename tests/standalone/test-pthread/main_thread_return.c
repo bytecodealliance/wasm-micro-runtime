@@ -7,7 +7,8 @@
 #include <stdio.h>
 
 /* Start function for the background thread */
-void *bg_func(void *arg)
+void *
+bg_func(void *arg)
 {
     uint32_t i;
 
@@ -19,9 +20,10 @@ void *bg_func(void *arg)
 }
 
 /* Foreground thread and main entry point */
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
-    pthread_t   bg_thread;
+    pthread_t bg_thread;
 
     if (pthread_create(&bg_thread, NULL, bg_func, NULL)) {
         printf("Thread create failed");

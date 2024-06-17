@@ -10,7 +10,9 @@
 #include <fcntl.h>
 #include <errno.h>
 
-int main(int argc, char **argv) {
+int
+main(int argc, char **argv)
+{
     int n, m;
     char buf[BUFSIZ];
 
@@ -22,19 +24,20 @@ int main(int argc, char **argv) {
     printf("##open %s\n", argv[1]);
     int in = open(argv[1], O_RDONLY);
     if (in < 0) {
-        fprintf(stderr, "error opening input %s: %s\n", argv[1], strerror(errno));
+        fprintf(stderr, "error opening input %s: %s\n", argv[1],
+                strerror(errno));
         exit(1);
     }
 
     printf("##open %s\n", argv[2]);
     int out = open(argv[2], O_WRONLY | O_CREAT, 0660);
     if (out < 0) {
-        fprintf(stderr, "error opening output %s: %s\n", argv[2], strerror(errno));
+        fprintf(stderr, "error opening output %s: %s\n", argv[2],
+                strerror(errno));
         exit(1);
     }
 
-    printf("##read content of %s, and write it to %s\n",
-           argv[1], argv[2]);
+    printf("##read content of %s, and write it to %s\n", argv[1], argv[2]);
     while ((n = read(in, buf, BUFSIZ)) > 0) {
         while (n > 0) {
             m = write(out, buf, n);

@@ -13,7 +13,6 @@
 #include <time.h>
 #include <poll.h>
 
-
 uint64_t
 get_time_us()
 {
@@ -25,12 +24,12 @@ get_time_us()
     return ((uint64_t)ts.tv_sec) * 1000 * 1000 + ((uint64_t)ts.tv_nsec) / 1000;
 }
 
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
     uint64_t time_start, time_end;
     struct pollfd fds[2];
     int ret;
-
 
     printf("sleep 2 seconds\n");
     time_start = get_time_us();
@@ -44,32 +43,32 @@ int main(int argc, char **argv)
         return -1;
     }
 
-	/* watch stdin for input */
-	fds[0].fd = STDIN_FILENO;
-	fds[0].events = POLLIN;
+    /* watch stdin for input */
+    fds[0].fd = STDIN_FILENO;
+    fds[0].events = POLLIN;
 
-	/* watch stdout for ability to write */
-	fds[1].fd = STDOUT_FILENO;
-	fds[1].events = POLLOUT;
+    /* watch stdout for ability to write */
+    fds[1].fd = STDOUT_FILENO;
+    fds[1].events = POLLOUT;
 
     printf("poll with 5 seconds\n");
-	ret = poll(fds, 2, 5 * 1000);
+    ret = poll(fds, 2, 5 * 1000);
 
-	if (ret == -1) {
-		perror ("poll");
-		return 1;
-	}
+    if (ret == -1) {
+        perror("poll");
+        return 1;
+    }
 
-	if (!ret) {
-		printf ("Test poll failed, %d seconds elapsed!\n", 5);
-		return 0;
-	}
+    if (!ret) {
+        printf("Test poll failed, %d seconds elapsed!\n", 5);
+        return 0;
+    }
 
-	if (fds[0].revents & POLLIN)
-		printf ("stdin is readable\n");
+    if (fds[0].revents & POLLIN)
+        printf("stdin is readable\n");
 
-	if (fds[1].revents & POLLOUT)
-		printf ("stdout is writable\n");
+    if (fds[1].revents & POLLOUT)
+        printf("stdout is writable\n");
 
     printf("Test finished\n");
     return 0;

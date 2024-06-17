@@ -15,7 +15,7 @@ int my_mutex;
 int
 try_lock()
 {
-    return __atomic_compare_exchange(&my_mutex, &(int){ 0 },  &(int){ 1 }, false,
+    return __atomic_compare_exchange(&my_mutex, &(int){ 0 }, &(int){ 1 }, false,
                                      __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
 }
 

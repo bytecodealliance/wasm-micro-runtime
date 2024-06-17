@@ -26,7 +26,8 @@ main()
     pthread_t thread1, thread2;
 
     printf("============ test naive peterson lock(should trap) ============\n");
-    printf("============ May not be able to observe in interpreter mode ============\n");
+    printf("============ May not be able to observe in interpreter mode "
+           "============\n");
     run_test(&thread1, &thread2, test_peterson_lock_atomicity);
 
     return 0;

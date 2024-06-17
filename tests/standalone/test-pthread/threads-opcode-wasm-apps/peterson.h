@@ -42,7 +42,7 @@ test_peterson_lock_atomicity(void *arg)
 
 int
 run_test(pthread_t *thread1_ptr, pthread_t *thread2_ptr,
-                   void *(*start_routine)(void *))
+         void *(*start_routine)(void *))
 {
     lock.flag[0] = false;
     lock.flag[1] = false;

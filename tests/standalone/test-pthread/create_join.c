@@ -7,16 +7,17 @@
 #include <stdio.h>
 
 /* Calculate Fibonacci numbers shared function */
-int fibonacci(int iterations)
+int
+fibonacci(int iterations)
 {
-    int     val = 1;
-    int     last = 0;
+    int val = 1;
+    int last = 0;
 
     if (iterations == 0) {
         return 0;
     }
     for (int i = 1; i < iterations; i++) {
-        int     seq;
+        int seq;
 
         seq = val + last;
         last = val;
@@ -28,9 +29,10 @@ int fibonacci(int iterations)
 int bg = 42;
 
 /* Start function for the background thread */
-void *bg_func(void *arg)
+void *
+bg_func(void *arg)
 {
-    int     *iter = (void *)arg;
+    int *iter = (void *)arg;
 
     *iter = fibonacci(*iter);
     printf("bg number: %d\n", *iter);
@@ -38,11 +40,12 @@ void *bg_func(void *arg)
 }
 
 /* Foreground thread and main entry point */
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
-    int         fg_val = 54;
-    int         bg_val = 42;
-    pthread_t   bg_thread;
+    int fg_val = 54;
+    int bg_val = 42;
+    pthread_t bg_thread;
 
     /* Create the background thread */
     if (pthread_create(&bg_thread, NULL, bg_func, &bg_val)) {

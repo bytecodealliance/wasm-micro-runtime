@@ -7,7 +7,8 @@
 #include <stdio.h>
 
 /* Start function for the background thread */
-void *bg_func(void *arg)
+void *
+bg_func(void *arg)
 {
     printf("Thread start.\n");
     while (1) {
@@ -16,9 +17,10 @@ void *bg_func(void *arg)
 }
 
 /* Foreground thread and main entry point */
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
-    pthread_t   bg_thread;
+    pthread_t bg_thread;
 
     if (pthread_create(&bg_thread, NULL, bg_func, NULL)) {
         printf("Thread create failed");
@@ -28,8 +30,8 @@ int main(int argc, char *argv[])
 
     /* Wait for background thread to finish */
     if (pthread_join(bg_thread, NULL)) {
-       printf("Thread join failed");
-       return 2;
+        printf("Thread join failed");
+        return 2;
     }
 
     printf("Sub-thread exit.\n");

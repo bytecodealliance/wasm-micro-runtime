@@ -11,7 +11,8 @@
 
 static char global_heap_buf[10 * 1024 * 1024] = { 0 };
 
-void test_invoke_native();
+void
+test_invoke_native();
 
 int
 main(int argc, char *argv[])
@@ -36,4 +37,3 @@ main(int argc, char *argv[])
     wasm_runtime_destroy();
     return 0;
 }
-
