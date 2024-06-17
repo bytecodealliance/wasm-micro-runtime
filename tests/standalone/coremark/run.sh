@@ -14,8 +14,8 @@ readonly WAMRC_CMD="../../../wamr-compiler/build/wamrc"
 if [[ $1 != "--aot" ]]; then
     echo "============> run coremark_wasi_nofp.wasm"
     ${IWASM_CMD} coremark_wasi_nofp.wasm
-    echo "============> run coremark-wasi.wasm"
-    ${IWASM_CMD} coremark-wasi.wasm
+    echo "============> run coremark_wasi.wasm"
+    ${IWASM_CMD} coremark_wasi.wasm
 else
     echo "============> compile coremark_wasi_nofp.wasm to aot"
     [[ $2 == "--sgx" ]] && ${WAMRC_CMD} -sgx -o coremark_wasi_nofp.aot coremark_wasi_nofp.wasm \
@@ -23,10 +23,10 @@ else
     echo "============> run coremark_wasi_nofp.aot"
     ${IWASM_CMD} coremark_wasi_nofp.aot
 
-    echo "============> compile coremark-wasi.wasm to aot"
-    [[ $2 == "--sgx" ]] && ${WAMRC_CMD} -sgx -o coremark-wasi.aot coremark-wasi.wasm \
-                        || ${WAMRC_CMD} -o coremark-wasi.aot coremark-wasi.wasm
-    echo "============> run coremark-wasi.aot"
-    ${IWASM_CMD} coremark-wasi.aot
+    echo "============> compile coremark_wasi.wasm to aot"
+    [[ $2 == "--sgx" ]] && ${WAMRC_CMD} -sgx -o coremark_wasi.aot coremark_wasi.wasm \
+                        || ${WAMRC_CMD} -o coremark_wasi.aot coremark_wasi.wasm
+    echo "============> run coremark_wasi.aot"
+    ${IWASM_CMD} coremark_wasi.aot
 fi
 
