@@ -1190,7 +1190,7 @@ create_functions(AOTModuleInstance *module_inst, AOTModule *module,
     AOTModuleInstanceExtra *extra = (AOTModuleInstanceExtra *)module_inst->e;
     uint64 func_count =
         ((uint64)module->import_func_count + module->func_count);
-    uint64 total_size = func_count * sizeof(AOTFunctionInstance *);
+    uint64 total_size = func_count * (uint64)sizeof(AOTFunctionInstance *);
 
     if (func_count == 0) {
         return true;
