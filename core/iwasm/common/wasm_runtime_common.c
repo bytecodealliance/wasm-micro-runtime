@@ -2050,11 +2050,7 @@ wasm_table_get_func_inst(struct WASMModuleInstanceCommon *const module_inst,
             wasm_func_obj_get_func_idx_bound((WASMFuncObjectRef)tbl_elem_val);
 #endif
 
-        if (func_idx >= wasm_module_inst->e->function_count) {
-            bh_assert(0);
-            return NULL;
-        }
-
+        bh_assert(func_idx < wasm_module_inst->e->function_count);
         return wasm_module_inst->e->functions + func_idx;
     }
 #endif
