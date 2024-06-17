@@ -1684,6 +1684,9 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
             func_type->ref_type_map_count = ref_type_map_count;
 
+            if (!is_valid_func_type(func_type))
+                goto fail;
+
             param_cell_num = wasm_get_cell_num(func_type->types, param_count);
             ret_cell_num =
                 wasm_get_cell_num(func_type->types + param_count, result_count);
@@ -1987,6 +1990,9 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         func_types[i]->param_count = (uint16)param_count;
         func_types[i]->result_count = (uint16)result_count;
         read_byte_array(buf, buf_end, func_types[i]->types, (uint32)size1);
+
+        if (!is_valid_func_type(func_types[i]))
+            goto fail;
 
         param_cell_num = wasm_get_cell_num(func_types[i]->types, param_count);
         ret_cell_num =

@@ -7,6 +7,7 @@
 #define _WASM_LOADER_COMMON_H
 
 #include "platform_common.h"
+#include "../interpreter/wasm.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -15,6 +16,12 @@ extern "C" {
 bool
 wasm_memory_check_flags(const uint8 mem_flag, char *error_buf,
                         uint32 error_buf_size, bool is_aot);
+
+bool
+is_valid_value_type(uint8 value_tpye);
+
+bool
+is_valid_func_type(const WASMFuncType *func_type);
 
 #ifdef __cplusplus
 }
