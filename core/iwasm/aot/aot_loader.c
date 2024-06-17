@@ -651,6 +651,12 @@ load_native_symbol_section(const uint8 *buf, const uint8 *buf_end,
     int32 i;
     const char *symbol;
 
+    if (module->native_symbol_list) {
+        set_error_buf(error_buf, error_buf_size,
+                      "duplicated native symbol section");
+        return false;
+    }
+
     read_uint32(p, p_end, cnt);
 
     if (cnt > 0) {
