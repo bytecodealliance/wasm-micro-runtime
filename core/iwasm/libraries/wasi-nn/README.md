@@ -21,9 +21,21 @@ $ cmake -DWAMR_BUILD_WASI_NN=1 <other options> ...
 
 ### Wasm
 
-The definition of functions provided by WASI-NN (Wasm imports) is in the header file _core/iwasm/libraries/wasi-nn/wasi_nn.h_.
+The definition of functions provided by WASI-NN (Wasm imports) is in the header file [wasi_nn.h](_core/iwasm/libraries/wasi-nn/wasi_nn.h_). By only including this file in a WASM application you will bind WASI-NN into your module.
 
-By only including this file in a WASM application you will bind WASI-NN into your module.
+For some historical reasons, there are two sets of functions in the header file. The first set is the original one, and the second set is the new one. The new set is recommended to use. In code, `WASM_ENABLE_WASI_EPHEMERAL_NN` is used to control which set of functions to use. If `WASM_ENABLE_WASI_EPHEMERAL_NN` is defined, the new set of functions will be used. Otherwise, the original set of functions will be used.
+
+There is a big difference between the two sets of functions, `tensor_type`.
+
+``` c
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+typedef enum { fp16 = 0, fp32, fp64, bf16, u8, i32, i64 } tensor_type;
+#else
+typedef enum { fp16 = 0, fp32, up8, ip32 } tensor_type;
+#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
+```
+
+It is required to recompile the Wasm application if you want to switch between the two sets of functions.
 
 ## Tests
 
@@ -41,7 +53,10 @@ Build the runtime image for your execution target type.
 - `tpu`
 
 ```bash
-EXECUTION_TYPE=cpu docker build -t wasi-nn-${EXECUTION_TYPE} -f core/iwasm/libraries/wasi-nn/test/Dockerfile.${EXECUTION_TYPE} .
+$ pwd
+<somewhere>/wasm-micro-runtime
+
+$ EXECUTION_TYPE=cpu docker build -t wasi-nn-${EXECUTION_TYPE} -f core/iwasm/libraries/wasi-nn/test/Dockerfile.${EXECUTION_TYPE} .
 ```
 
 ### Build wasm app
