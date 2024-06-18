@@ -305,12 +305,21 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
      * https://github.com/bytecodealliance/wasm-micro-runtime/issues/3163
      */
     LanguageType language_type = function.GetLanguage();
+    bool cplusplus = false;
     switch (language_type) {
         case eLanguageTypeC89:
         case eLanguageTypeC:
         case eLanguageTypeC99:
         case eLanguageTypeC11:
         case eLanguageTypeC17:
+            break;
+        case eLanguageTypeC_plus_plus:
+        case eLanguageTypeC_plus_plus_03:
+        case eLanguageTypeC_plus_plus_11:
+        case eLanguageTypeC_plus_plus_14:
+        case eLanguageTypeC_plus_plus_17:
+        case eLanguageTypeC_plus_plus_20:
+            cplusplus = true;
             break;
         default:
             LOG_WARNING("func %s has unsupported language_type 0x%x",
@@ -325,28 +334,32 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
     LLVMMetadataRef File = comp_ctx->debug_file; /* a fallback */
 
     LLVMMetadataRef ParamTypes[num_function_args + 1];
+    size_t num_param_types = 0;
 
-    ParamTypes[0] = lldb_type_to_type_dbi(comp_ctx, return_type);
+    if (!cplusplus) {
+        num_param_types = num_function_args + 1;
+        ParamTypes[0] = lldb_type_to_type_dbi(comp_ctx, return_type);
 
-    for (uint32_t function_arg_idx = 0; function_arg_idx < num_function_args;
-         ++function_arg_idx) {
-        SBType function_arg_type =
-            function_args.GetTypeAtIndex(function_arg_idx);
+        for (uint32_t function_arg_idx = 0;
+             function_arg_idx < num_function_args; ++function_arg_idx) {
+            SBType function_arg_type =
+                function_args.GetTypeAtIndex(function_arg_idx);
 
-        if (function_arg_type.IsValid()) {
-            ParamTypes[function_arg_idx + 1] =
-                lldb_type_to_type_dbi(comp_ctx, function_arg_type);
-            if (ParamTypes[function_arg_idx + 1] == NULL) {
-                LOG_WARNING(
-                    "func %s arg %" PRIu32
-                    " has a type not implemented by lldb_type_to_type_dbi",
-                    function_name, function_arg_idx);
-            }
-        }
-        else {
-            LOG_WARNING("func %s arg %" PRIu32 ": GetTypeAtIndex failed",
+            if (function_arg_type.IsValid()) {
+                ParamTypes[function_arg_idx + 1] =
+                    lldb_type_to_type_dbi(comp_ctx, function_arg_type);
+                if (ParamTypes[function_arg_idx + 1] == NULL) {
+                    LOG_WARNING(
+                        "func %s arg %" PRIu32
+                        " has a type not implemented by lldb_type_to_type_dbi",
                         function_name, function_arg_idx);
-            ParamTypes[function_arg_idx + 1] = NULL;
+                }
+            }
+            else {
+                LOG_WARNING("func %s arg %" PRIu32 ": GetTypeAtIndex failed",
+                            function_name, function_arg_idx);
+                ParamTypes[function_arg_idx + 1] = NULL;
+            }
         }
     }
 
@@ -366,7 +379,7 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
     }
 
     LLVMMetadataRef FunctionTy = LLVMDIBuilderCreateSubroutineType(
-        DIB, File, ParamTypes, num_function_args + 1, LLVMDIFlagZero);
+        DIB, File, ParamTypes, num_param_types, LLVMDIFlagZero);
 
     auto line_entry = sc.GetLineEntry();
     LLVMMetadataRef ReplaceableFunctionMetadata =
@@ -386,13 +399,6 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
 
     LLVMMetadataRef ParamExpression =
         LLVMDIBuilderCreateExpression(DIB, NULL, 0);
-    auto variable_list =
-        function.GetBlock().GetVariables(extractor->target, true, false, false);
-    if (num_function_args != variable_list.GetSize()) {
-        LOG_ERROR(
-            "function args number mismatch!:value number=%d, function args=%d",
-            variable_list.GetSize(), num_function_args);
-    }
 
     LLVMMetadataRef ParamLocation = LLVMDIBuilderCreateDebugLocation(
         comp_ctx->context, line_entry.GetLine(), 0, FunctionMetadata, NULL);
@@ -412,27 +418,38 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
     LLVMDIBuilderInsertDbgValueAtEnd(DIB, Param, ParamVar, ParamExpression,
                                      ParamLocation, block_curr);
 
-    for (uint32_t function_arg_idx = 0;
-         function_arg_idx < variable_list.GetSize(); ++function_arg_idx) {
-        SBValue variable(variable_list.GetValueAtIndex(function_arg_idx));
-        if (variable.IsValid() && ParamTypes[function_arg_idx + 1] != NULL) {
-            SBDeclaration dec(variable.GetDeclaration());
-            auto valtype = variable.GetType();
-            LLVMMetadataRef ParamLocation = LLVMDIBuilderCreateDebugLocation(
-                comp_ctx->context, dec.GetLine(), dec.GetColumn(),
-                FunctionMetadata, NULL);
-            const char *varname = variable.GetName();
-            LLVMMetadataRef ParamVar = LLVMDIBuilderCreateParameterVariable(
-                DIB, FunctionMetadata, varname, varname ? strlen(varname) : 0,
-                function_arg_idx + 1 + 1,
-                File, // starts form 1, and 1 is exenv,
-                dec.GetLine(), ParamTypes[function_arg_idx + 1], true,
-                LLVMDIFlagZero);
-            LLVMValueRef Param =
-                LLVMGetParam(func_ctx->func, function_arg_idx + 1);
-            LLVMDIBuilderInsertDbgValueAtEnd(DIB, Param, ParamVar,
-                                             ParamExpression, ParamLocation,
-                                             block_curr);
+    if (!cplusplus) {
+        auto variable_list = function.GetBlock().GetVariables(
+            extractor->target, true, false, false);
+        if (num_function_args != variable_list.GetSize()) {
+            LOG_ERROR("function args number mismatch!:value number=%d, "
+                      "function args=%d",
+                      variable_list.GetSize(), num_function_args);
+        }
+        for (uint32_t function_arg_idx = 0;
+             function_arg_idx < variable_list.GetSize(); ++function_arg_idx) {
+            SBValue variable(variable_list.GetValueAtIndex(function_arg_idx));
+            if (variable.IsValid()
+                && ParamTypes[function_arg_idx + 1] != NULL) {
+                SBDeclaration dec(variable.GetDeclaration());
+                auto valtype = variable.GetType();
+                LLVMMetadataRef ParamLocation =
+                    LLVMDIBuilderCreateDebugLocation(
+                        comp_ctx->context, dec.GetLine(), dec.GetColumn(),
+                        FunctionMetadata, NULL);
+                const char *varname = variable.GetName();
+                LLVMMetadataRef ParamVar = LLVMDIBuilderCreateParameterVariable(
+                    DIB, FunctionMetadata, varname,
+                    varname ? strlen(varname) : 0, function_arg_idx + 1 + 1,
+                    File, // starts form 1, and 1 is exenv,
+                    dec.GetLine(), ParamTypes[function_arg_idx + 1], true,
+                    LLVMDIFlagZero);
+                LLVMValueRef Param =
+                    LLVMGetParam(func_ctx->func, function_arg_idx + 1);
+                LLVMDIBuilderInsertDbgValueAtEnd(DIB, Param, ParamVar,
+                                                 ParamExpression, ParamLocation,
+                                                 block_curr);
+            }
         }
     }
 
