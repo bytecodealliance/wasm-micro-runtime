@@ -4,6 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
 
+# Download alice29.txt
+wget https://raw.githubusercontent.com/google/brotli/master/tests/testdata/alice29.txt
+
 if [[ $2 == "--sgx" ]];then
     readonly IWASM_CMD="../../../product-mini/platforms/linux-sgx/enclave-sample/iwasm"
 else
