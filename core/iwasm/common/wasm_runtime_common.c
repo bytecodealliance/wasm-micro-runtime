@@ -173,6 +173,10 @@ static LLVMJITOptions llvm_jit_options = { 3, 3, 0, false };
 static uint32 gc_heap_size_default = GC_HEAP_SIZE_DEFAULT;
 #endif
 
+#if WASM_ENABLE_SHARED_HEAP != 0
+static uint32 shared_heap_size = 0;
+#endif
+
 static RunningMode runtime_running_mode = Mode_Default;
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
@@ -721,6 +725,14 @@ wasm_runtime_get_gc_heap_size_default(void)
 }
 #endif
 
+#if WASM_ENABLE_SHARED_HEAP != 0
+uint32
+wasm_runtime_get_shared_heap_size(void)
+{
+    return shared_heap_size;
+}
+#endif
+
 static bool
 wasm_runtime_full_init_internal(RuntimeInitArgs *init_args)
 {
@@ -739,6 +751,10 @@ wasm_runtime_full_init_internal(RuntimeInitArgs *init_args)
 
 #if WASM_ENABLE_GC != 0
     gc_heap_size_default = init_args->gc_heap_size;
+#endif
+
+#if WASM_ENABLE_SHARED_HEAP != 0
+    shared_heap_size = init_args->shared_heap_size;
 #endif
 
 #if WASM_ENABLE_JIT != 0
@@ -3062,6 +3078,38 @@ wasm_runtime_module_free(WASMModuleInstanceCommon *module_inst, uint64 ptr)
     }
 #endif
 }
+
+#if WASM_ENABLE_SHARED_HEAP != 0
+uint64
+wasm_runtime_module_shared_malloc(WASMModuleInstanceCommon *module_inst,
+                                  uint64 size, void **p_native_addr)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode)
+        return wasm_module_shared_malloc((WASMModuleInstance *)module_inst,
+                                         size, p_native_addr);
+#endif
+#if WASM_ENABLE_AOT != 0
+        // TODO
+#endif
+    return 0;
+}
+
+void
+wasm_runtime_module_shared_free(WASMModuleInstanceCommon *module_inst,
+                                uint64 ptr)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        wasm_module_shared_free((WASMModuleInstance *)module_inst, ptr);
+        return;
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    // TODO
+#endif
+}
+#endif
 
 uint64
 wasm_runtime_module_dup_data(WASMModuleInstanceCommon *module_inst,

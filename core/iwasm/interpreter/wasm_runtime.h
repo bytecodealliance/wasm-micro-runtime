@@ -364,6 +364,12 @@ typedef struct WASMModuleInstanceExtra {
 #endif
 } WASMModuleInstanceExtra;
 
+typedef struct WASMSharedHeap {
+    void *handle;
+    uint8 *data;
+    uint32 size;
+} WASMSharedHeap;
+
 struct AOTFuncPerfProfInfo;
 
 struct WASMModuleInstance {
@@ -431,11 +437,12 @@ struct WASMModuleInstance {
     /* WASM/AOT module extra info, for AOTModuleInstance,
        it denotes `AOTModuleInstanceExtra *` */
     DefPointer(WASMModuleInstanceExtra *, e);
+    DefPointer(WASMSharedHeap *, shared_heap);
+
 
     /* Default WASM operand stack size */
     uint32 default_wasm_stack_size;
     uint32 reserved[7];
-
     /*
      * +------------------------------+ <-- memories
      * | WASMMemoryInstance[mem_count], mem_count is always 1 for LLVM JIT/AOT
@@ -587,6 +594,12 @@ uint64
 wasm_module_malloc_internal(WASMModuleInstance *module_inst,
                             WASMExecEnv *exec_env, uint64 size,
                             void **p_native_addr);
+#if WASM_ENABLE_SHARED_HEAP != 0
+uint64
+wasm_module_malloc_internal(WASMModuleInstance *module_inst,
+                            WASMExecEnv *exec_env, uint64 size,
+                            void **p_native_addr);
+#endif
 
 uint64
 wasm_module_realloc_internal(WASMModuleInstance *module_inst,
@@ -607,6 +620,14 @@ wasm_module_realloc(WASMModuleInstance *module_inst, uint64 ptr, uint64 size,
 
 void
 wasm_module_free(WASMModuleInstance *module_inst, uint64 ptr);
+
+#if WASM_ENABLE_SHARED_HEAP != 0
+uint64
+wasm_module_shared_malloc(WASMModuleInstance *module_inst, uint64 size,
+                          void **p_native_addr);
+void
+wasm_module_shared_free(WASMModuleInstance *module_inst, uint64 ptr);
+#endif
 
 uint64
 wasm_module_dup_data(WASMModuleInstance *module_inst, const char *src,

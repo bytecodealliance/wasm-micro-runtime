@@ -250,6 +250,13 @@ if (WAMR_BUILD_SHARED_MEMORY EQUAL 1)
 else ()
   add_definitions (-DWASM_ENABLE_SHARED_MEMORY=0)
 endif ()
+if (WAMR_BUILD_SHARED_HEAP EQUAL 1)
+  add_definitions (-DWASM_ENABLE_SHARED_HEAP=1)
+  message ("     Shared heap enabled")
+else()
+  add_definitions (-DWASM_ENABLE_SHARED_HEAP=0)
+endif()
+
 if (WAMR_BUILD_MEMORY64 EQUAL 1)
   # if native is 32-bit or cross-compiled to 32-bit
   if (NOT WAMR_BUILD_TARGET MATCHES ".*64.*")

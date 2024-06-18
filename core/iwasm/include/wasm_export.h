@@ -210,6 +210,9 @@ typedef struct RuntimeInitArgs {
     /* Default GC heap size */
     uint32_t gc_heap_size;
 
+    /* Shared heap size */
+    uint32_t shared_heap_size;
+
     /* Default running mode of the runtime */
     RunningMode running_mode;
 
@@ -1116,6 +1119,32 @@ wasm_runtime_module_malloc(wasm_module_inst_t module_inst, uint64_t size,
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_module_free(wasm_module_inst_t module_inst, uint64_t ptr);
+
+/**
+ * Allocate memory from the shared heap of WASM module instance
+ *
+ * @param module_inst the WASM module instance which contains heap
+ * @param size the size bytes to allocate
+ * @param p_native_addr return native address of the allocated memory
+ *        if it is not NULL, and return NULL if memory malloc failed
+ *
+ * @return the allocated memory address, which is a relative offset to the
+ *         base address of the module instance's memory space. Note that
+ *         it is not an absolute address.
+ *         Return non-zero if success, zero if failed.
+ */
+WASM_RUNTIME_API_EXTERN uint64_t
+wasm_runtime_module_shared_malloc(wasm_module_inst_t module_inst, uint64_t size,
+                                  void **p_native_addr);
+
+/**
+ * Free memory to the shared heap of WASM module instance
+ *
+ * @param module_inst the WASM module instance which contains shared heap
+ * @param ptr the pointer to free
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_module_shared_free(wasm_module_inst_t module_inst, uint64 ptr);
 
 /**
  * Allocate memory from the heap of WASM module instance and initialize

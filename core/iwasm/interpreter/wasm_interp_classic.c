@@ -48,6 +48,32 @@ typedef float64 CellType_F64;
 
 #if WASM_ENABLE_MEMORY64 == 0
 
+#if WASM_ENABLE_SHARED_HEAP != 0
+bool
+check_memory_shared_heap_overflow(uint8 **p_maddr, WASMModuleInstance *module,
+                                  uint64 offset1, uint64 bytes,
+                                  uint64 linear_mem_size)
+{
+    if (offset1 + bytes > linear_mem_size
+        && offset1 + bytes >= ~((uint32)0) - module->shared_heap->size
+        && offset1 + bytes <= ~((uint32)0)) {
+        uint64 heap_start = ~((uint32)0) - module->shared_heap->size;
+        uint64 heap_offset = (uint64)offset1 - heap_start;
+        *p_maddr = module->shared_heap->handle + heap_offset;
+        return true;
+    }
+    return false;
+}
+#else
+bool
+check_memory_shared_heap_overflow(uint8 **p_maddr, WASMModuleInstance *module,
+                                  uint64 offset1, uint64 bytes,
+                                  uint64 linear_mem_size)
+{
+    return false;
+}
+#endif
+
 #if (!defined(OS_ENABLE_HW_BOUND_CHECK) \
      || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0)
 #define CHECK_MEMORY_OVERFLOW(bytes)                                           \
@@ -57,6 +83,10 @@ typedef float64 CellType_F64;
             /* If offset1 is in valid range, maddr must also                   \
                be in valid range, no need to check it again. */                \
             maddr = memory->memory_data + offset1;                             \
+        else if (check_memory_shared_heap_overflow(                            \
+                     &maddr, module, offset1, bytes, get_linear_mem_size())) { \
+            break;                                                             \
+        }                                                                      \
         else                                                                   \
             goto out_of_bounds;                                                \
     } while (0)
@@ -68,49 +98,90 @@ typedef float64 CellType_F64;
             /* App heap space is not valid space for                           \
              bulk memory operation */                                          \
             maddr = memory->memory_data + offset1;                             \
+        else if (check_memory_shared_heap_overflow(                            \
+                     &maddr, module, offset1, bytes, get_linear_mem_size())) { \
+            break;                                                             \
+        }                                                                      \
         else                                                                   \
             goto out_of_bounds;                                                \
     } while (0)
 #else /* else of !defined(OS_ENABLE_HW_BOUND_CHECK) || \
          WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 */
-#define CHECK_MEMORY_OVERFLOW(bytes)                    \
-    do {                                                \
-        uint64 offset1 = (uint64)offset + (uint64)addr; \
-        maddr = memory->memory_data + offset1;          \
+#define CHECK_MEMORY_OVERFLOW(bytes)                                      \
+    do {                                                                  \
+        uint64 offset1 = (uint64)offset + (uint64)addr;                   \
+        maddr = memory->memory_data + offset1;                            \
+        check_memory_shared_heap_overflow(&maddr, module, offset1, bytes, \
+                                          get_linear_mem_size());         \
     } while (0)
 
-#define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr) \
-    do {                                                \
-        maddr = memory->memory_data + (uint32)(start);  \
+#define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr)                   \
+    do {                                                                  \
+        maddr = memory->memory_data + (uint32)(start);                    \
+        check_memory_shared_heap_overflow(&maddr, module, offset1, bytes, \
+                                          get_linear_mem_size());         \
     } while (0)
 #endif /* end of !defined(OS_ENABLE_HW_BOUND_CHECK) || \
           WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 */
 
 #else /* else of WASM_ENABLE_MEMORY64 == 0 */
-
-#define CHECK_MEMORY_OVERFLOW(bytes)                                        \
-    do {                                                                    \
-        uint64 offset1 = (uint64)offset + (uint64)addr;                     \
-        /* If memory64 is enabled, offset1, offset1 + bytes can overflow */ \
-        if (disable_bounds_checks                                           \
-            || (offset1 >= offset && offset1 + bytes >= offset1             \
-                && offset1 + bytes <= get_linear_mem_size()))               \
-            maddr = memory->memory_data + offset1;                          \
-        else                                                                \
-            goto out_of_bounds;                                             \
+#if WASM_ENABLE_SHARED_HEAP != 0
+bool
+check_memory_shared_heap_overflow(uint8 **p_maddr, WASMModuleInstance *module,
+                                  uint64 offset1, uint64 bytes,
+                                  uint64 linear_mem_size)
+{
+    if (offset1 + bytes > linear_mem_size
+        && offset1 + bytes >= ~((uint64)0) - module->shared_heap->size
+        && offset1 + bytes <= ~((uint64)0)) {
+        uint64 heap_start = ~((uint64)0) - module->shared_heap->size;
+        uint64 heap_offset = (uint64)offset1 - heap_start;
+        *p_maddr = module->shared_heap->handle + heap_offset;
+        return true;
+    }
+    return false;
+}
+#else
+bool
+check_memory_shared_heap_overflow(uint8 **p_maddr, WASMModuleInstance *module,
+                                  uint64 offset1, uint64 bytes,
+                                  uint64 linear_mem_size)
+{
+    return false;
+}
+#endif
+#define CHECK_MEMORY_OVERFLOW(bytes)                                           \
+    do {                                                                       \
+        uint64 offset1 = (uint64)offset + (uint64)addr;                        \
+        /* If memory64 is enabled, offset1, offset1 + bytes can                \
+         * overflow */                                                         \
+        if (disable_bounds_checks                                              \
+            || (offset1 >= offset && offset1 + bytes >= offset1                \
+                && offset1 + bytes <= get_linear_mem_size()))                  \
+            maddr = memory->memory_data + offset1;                             \
+        else if (check_memory_shared_heap_overflow(                            \
+                     &maddr, module, offset1, bytes, get_linear_mem_size())) { \
+            break;                                                             \
+        }                                                                      \
+        else                                                                   \
+            goto out_of_bounds;                                                \
     } while (0)
-#define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr)            \
-    do {                                                           \
-        uint64 offset1 = (uint64)(start);                          \
-        /* If memory64 is enabled, offset1 + bytes can overflow */ \
-        if (disable_bounds_checks                                  \
-            || (offset1 + bytes >= offset1                         \
-                && offset1 + bytes <= get_linear_mem_size()))      \
-            /* App heap space is not valid space for               \
-             bulk memory operation */                              \
-            maddr = memory->memory_data + offset1;                 \
-        else                                                       \
-            goto out_of_bounds;                                    \
+#define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr)                        \
+    do {                                                                       \
+        uint64 offset1 = (uint64)(start);                                      \
+        /* If memory64 is enabled, offset1 + bytes can overflow */             \
+        if (disable_bounds_checks                                              \
+            || (offset1 + bytes >= offset1                                     \
+                && offset1 + bytes <= get_linear_mem_size()))                  \
+            /* App heap space is not valid space for                           \
+             bulk memory operation */                                          \
+            maddr = memory->memory_data + offset1;                             \
+        else if (check_memory_shared_heap_overflow(                            \
+                     &maddr, module, offset1, bytes, get_linear_mem_size())) { \
+            break;                                                             \
+        }                                                                      \
+        else                                                                   \
+            goto out_of_bounds;                                                \
     } while (0)
 
 #endif /* end of WASM_ENABLE_MEMORY64 == 0 */

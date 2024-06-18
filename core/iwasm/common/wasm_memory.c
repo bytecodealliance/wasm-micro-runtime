@@ -335,7 +335,7 @@ wasm_runtime_validate_app_addr(WASMModuleInstanceCommon *module_inst_comm,
     /* boundary overflow check */
     if (size > max_linear_memory_size
         || app_offset > max_linear_memory_size - size) {
-        goto fail;
+        goto shared_heap_bound_check;
     }
 
     SHARED_MEMORY_LOCK(memory_inst);
@@ -346,7 +346,21 @@ wasm_runtime_validate_app_addr(WASMModuleInstanceCommon *module_inst_comm,
     }
 
     SHARED_MEMORY_UNLOCK(memory_inst);
-
+shared_heap_bound_check:
+#if WASM_ENABLE_SHARED_HEAP != 0
+#if WASM_ENABLE_MEMORY64 != 0
+    if (app_offset + size > app_offset
+        && app_offset + size >= ~((uint64)0) - module_inst->shared_heap->size
+        && app_offset + size <= ~((uint64)0)) {
+        return true;
+    }
+#else
+    if (app_offset + size >= ~((uint32)0) - module_inst->shared_heap->size
+        && app_offset + size <= ~((uint32)0)) {
+        return true;
+    }
+#endif
+#endif
 fail:
     wasm_set_exception(module_inst, "out of bounds memory access");
     return false;
@@ -431,7 +445,15 @@ wasm_runtime_validate_native_addr(WASMModuleInstanceCommon *module_inst_comm,
         SHARED_MEMORY_UNLOCK(memory_inst);
         return true;
     }
-
+#if WASM_ENABLE_SHARED_HEAP != 0
+    else if (module_inst->shared_heap && module_inst->shared_heap->data
+             && addr + size <= module_inst->shared_heap->data
+                                   + module_inst->shared_heap->size
+             && addr + size >= module_inst->shared_heap->data) {
+        SHARED_MEMORY_UNLOCK(memory_inst);
+        return true;
+    }
+#endif
     SHARED_MEMORY_UNLOCK(memory_inst);
 
 fail:
@@ -468,6 +490,27 @@ wasm_runtime_addr_app_to_native(WASMModuleInstanceCommon *module_inst_comm,
             SHARED_MEMORY_UNLOCK(memory_inst);
             return addr;
         }
+#if WASM_ENABLE_SHARED_HEAP
+#if WASM_ENABLE_MEMORY64 == 0
+        else if (app_offset >= ~((uint32)0) - module_inst->shared_heap->size
+                 && app_offset <= ~((uint32)0) - 1) {
+            uint64 heap_start =
+                ((uint64)1 << 32) - (uint64)module_inst->shared_heap->size;
+            uint64 heap_offset = (uint64)app_offset - heap_start;
+            addr = module_inst->shared_heap->data + heap_offset;
+            return addr;
+        }
+#else
+        else if (app_offset >= ~((uint64)0) - module_inst->shared_heap->size
+                 && app_offset <= ~((uint64)0) - 1) {
+            uint64 heap_start =
+                ~((uint64)0) - (uint64)module_inst->shared_heap->size;
+            uint64 heap_offset = (uint64)app_offset - heap_start;
+            addr = module_inst->shared_heap->data + heap_offset;
+            return addr;
+        }
+#endif
+#endif
         SHARED_MEMORY_UNLOCK(memory_inst);
         return NULL;
     }
@@ -506,6 +549,16 @@ wasm_runtime_addr_native_to_app(WASMModuleInstanceCommon *module_inst_comm,
             SHARED_MEMORY_UNLOCK(memory_inst);
             return ret;
         }
+#if WASM_ENABLE_SHARED_HEAP != 0
+        else if (module_inst->shared_heap && module_inst->shared_heap->data
+                 && module_inst->shared_heap->data <= addr
+                 && addr <= module_inst->shared_heap->data
+                                + module_inst->shared_heap->size) {
+            ret = (uint64)(addr - (uint8 *)module_inst->shared_heap->data);
+            SHARED_MEMORY_UNLOCK(memory_inst);
+            return ret;
+        }
+#endif
     }
     /* If bounds checks is disabled, return the offset directly */
     else if (addr != NULL) {

@@ -51,6 +51,9 @@ print_help()
 #endif
     printf("  --stack-size=n           Set maximum stack size in bytes, default is 64 KB\n");
     printf("  --heap-size=n            Set maximum heap size in bytes, default is 16 KB\n");
+#if WASM_ENABLE_SHARED_HEAP != 0
+    printf("  --shared-heap-size       Set shared heap size in bytes\n");
+#endif
 #if WASM_ENABLE_FAST_JIT != 0
     printf("  --jit-codecache-size=n   Set fast jit maximum code cache size in bytes,\n");
     printf("                           default is %u KB\n", FAST_JIT_DEFAULT_CODE_CACHE_SIZE / 1024);
@@ -571,6 +574,9 @@ main(int argc, char *argv[])
 #else
     uint32 heap_size = 16 * 1024;
 #endif
+#if WASM_ENABLE_SHARED_HEAP != 0
+    uint32 shared_heap_size = 0;
+#endif
 #if WASM_ENABLE_FAST_JIT != 0
     uint32 jit_code_cache_size = FAST_JIT_DEFAULT_CODE_CACHE_SIZE;
 #endif
@@ -677,6 +683,13 @@ main(int argc, char *argv[])
                 return print_help();
             heap_size = atoi(argv[0] + 12);
         }
+#if WASM_ENABLE_SHARED_HEAP != 0
+        else if (!strncmp(argv[0], "--shared-heap-size=", 19)) {
+            if (argv[0][18] == '\0')
+                return print_help();
+            shared_heap_size = atoi(argv[0] + 19);
+        }
+#endif
 #if WASM_ENABLE_FAST_JIT != 0
         else if (!strncmp(argv[0], "--jit-codecache-size=", 21)) {
             if (argv[0][21] == '\0')
@@ -848,6 +861,10 @@ main(int argc, char *argv[])
 
 #if WASM_ENABLE_GC != 0
     init_args.gc_heap_size = gc_heap_size;
+#endif
+
+#if WASM_ENABLE_SHARED_HEAP != 0
+    init_args.shared_heap_size = shared_heap_size;
 #endif
 
 #if WASM_ENABLE_JIT != 0
