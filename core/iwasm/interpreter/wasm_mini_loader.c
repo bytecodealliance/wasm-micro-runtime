@@ -89,22 +89,9 @@ is_64bit_type(uint8 type)
 }
 
 static bool
-is_value_type(uint8 type)
-{
-    if (type == VALUE_TYPE_I32 || type == VALUE_TYPE_I64
-        || type == VALUE_TYPE_F32 || type == VALUE_TYPE_F64
-#if WASM_ENABLE_REF_TYPES != 0
-        || type == VALUE_TYPE_FUNCREF || type == VALUE_TYPE_EXTERNREF
-#endif
-    )
-        return true;
-    return false;
-}
-
-static bool
 is_byte_a_type(uint8 type)
 {
-    return is_value_type(type) || (type == VALUE_TYPE_VOID);
+    return is_valid_value_type(type) || (type == VALUE_TYPE_VOID);
 }
 
 static void
@@ -581,7 +568,7 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 type->types[param_count + j] = read_uint8(p);
             }
             for (j = 0; j < param_count + result_count; j++) {
-                bh_assert(is_value_type(type->types[j]));
+                bh_assert(is_valid_value_type(type->types[j]));
             }
 
             param_cell_num = wasm_get_cell_num(type->types, param_count);
@@ -1228,7 +1215,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
                 CHECK_BUF(p_code, buf_code_end, 1);
                 /* 0x7F/0x7E/0x7D/0x7C */
                 type = read_uint8(p_code);
-                bh_assert(is_value_type(type));
+                bh_assert(is_valid_value_type(type));
                 for (k = 0; k < sub_local_count; k++) {
                     func->local_types[local_type_index++] = type;
                 }
@@ -6829,7 +6816,7 @@ re_scan:
 
                 CHECK_BUF(p, p_end, 1);
                 ref_type = read_uint8(p);
-                if (!is_value_type(ref_type)) {
+                if (!is_valid_value_type(ref_type)) {
                     set_error_buf(error_buf, error_buf_size,
                                   "unknown value type");
                     goto fail;
