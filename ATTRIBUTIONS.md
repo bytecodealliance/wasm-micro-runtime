@@ -18,7 +18,7 @@ WAMR project reused some components from other open source project:
 - **NuttX ELF headers**: used in core/iwasm/aot/debug/elf_parser.c
 - **Dhrystone**: for the test benchmakr dhrystone
 
-The WAMR fast interpreter is a clean room development. We would acknowledge the inspirations by [WASM3](https://github.com/wasm3/wasm3) open source project for the approach of pre-calculated oprand stack location.
+The WAMR fast interpreter is a clean room development. We would acknowledge the inspirations by [WASM3](https://github.com/wasm3/wasm3) open source project for the approach of pre-calculated operand stack location.
 
 |  third party components | version number | latest release | vendor pages | CVE details |
 | --- | --- | --- | --- | --- |

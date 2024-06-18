@@ -76,7 +76,7 @@ graph_builder_array_app_native(wasm_module_inst_t instance,
     graph_builder *builder = (graph_builder *)wasm_runtime_malloc(
         array_size * sizeof(graph_builder));
     if (builder == NULL)
-        return missing_memory;
+        return too_large;
 
     for (uint32_t i = 0; i < array_size; ++i) {
         wasi_nn_error res;
@@ -149,7 +149,7 @@ tensor_dimensions_app_native(wasm_module_inst_t instance,
     *dimensions =
         (tensor_dimensions *)wasm_runtime_malloc(sizeof(tensor_dimensions));
     if (dimensions == NULL)
-        return missing_memory;
+        return too_large;
 
     (*dimensions)->size = dimensions_wasm->size;
     (*dimensions)->buf = (uint32_t *)wasm_runtime_addr_app_to_native(

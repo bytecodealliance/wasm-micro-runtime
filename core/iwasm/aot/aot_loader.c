@@ -326,14 +326,18 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         /* The string is always terminated with '\0', use it directly.
          * In this case, the file buffer can be referred to after loading.
          */
-        bh_assert(p[str_len - 1] == '\0');
+        if (p[str_len - 1] != '\0')
+            goto fail;
+
         str = (char *)p;
     }
     else {
         /* Load from sections, the file buffer cannot be referred to
            after loading, we must create another string and insert it
            into const string set */
-        bh_assert(p[str_len - 1] == '\0');
+        if (p[str_len - 1] != '\0')
+            goto fail;
+
         if (!(str = aot_const_str_set_insert((uint8 *)p, str_len, module,
 #if (WASM_ENABLE_WORD_ALIGN_READ != 0)
                                              is_vram_word_align,
@@ -367,6 +371,8 @@ get_aot_file_target(AOTTargetInfo *target_info, char *target_buf,
             break;
         case E_MACHINE_ARM:
         case E_MACHINE_AARCH64:
+            /* TODO: this will make following `strncmp()` ~L392 unnecessary.
+             * Use const strings here */
             machine_type = target_info->arch;
             break;
         case E_MACHINE_MIPS:
@@ -501,6 +507,11 @@ load_target_info_section(const uint8 *buf, const uint8 *buf_end,
     read_uint64(p, p_end, target_info.reserved);
     read_byte_array(p, p_end, target_info.arch, sizeof(target_info.arch));
 
+    if (target_info.arch[sizeof(target_info.arch) - 1] != '\0') {
+        set_error_buf(error_buf, error_buf_size, "invalid arch string");
+        return false;
+    }
+
     if (p != buf_end) {
         set_error_buf(error_buf, error_buf_size, "invalid section size");
         return false;
@@ -561,7 +572,7 @@ get_native_symbol_by_name(const char *name)
 
     sym = get_target_symbol_map(&symnum);
 
-    while (symnum--) {
+    while (symnum && symnum--) {
         if (strcmp(sym->symbol_name, name) == 0) {
             func = sym->symbol_addr;
             break;
@@ -639,6 +650,12 @@ load_native_symbol_section(const uint8 *buf, const uint8 *buf_end,
     uint32 cnt;
     int32 i;
     const char *symbol;
+
+    if (module->native_symbol_list) {
+        set_error_buf(error_buf, error_buf_size,
+                      "duplicated native symbol section");
+        return false;
+    }
 
     read_uint32(p, p_end, cnt);
 
@@ -1033,7 +1050,8 @@ load_memory_info(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
     read_uint32(buf, buf_end, module->import_memory_count);
     /* We don't support import_memory_count > 0 currently */
-    bh_assert(module->import_memory_count == 0);
+    if (module->import_memory_count > 0)
+        return false;
 
     read_uint32(buf, buf_end, module->memory_count);
     total_size = sizeof(AOTMemory) * (uint64)module->memory_count;
@@ -1672,6 +1690,9 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
             func_type->ref_type_map_count = ref_type_map_count;
 
+            if (!is_valid_func_type(func_type))
+                goto fail;
+
             param_cell_num = wasm_get_cell_num(func_type->types, param_count);
             ret_cell_num =
                 wasm_get_cell_num(func_type->types + param_count, result_count);
@@ -1975,6 +1996,9 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         func_types[i]->param_count = (uint16)param_count;
         func_types[i]->result_count = (uint16)result_count;
         read_byte_array(buf, buf_end, func_types[i]->types, (uint32)size1);
+
+        if (!is_valid_func_type(func_types[i]))
+            goto fail;
 
         param_cell_num = wasm_get_cell_num(func_types[i]->types, param_count);
         ret_cell_num =

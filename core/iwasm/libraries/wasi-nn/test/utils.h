@@ -8,7 +8,7 @@
 
 #include <stdint.h>
 
-#include "wasi_nn.h"
+#include "wasi_nn_types.h"
 
 #define MAX_MODEL_SIZE 85000000
 #define MAX_OUTPUT_TENSOR_SIZE 1000000
