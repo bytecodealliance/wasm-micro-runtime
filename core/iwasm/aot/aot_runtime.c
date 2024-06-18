@@ -2102,6 +2102,7 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
                 func_type->quick_aot_entry;
             exec_env->attachment = attachment;
             invoke_native(func_ptr, exec_env, argv, argv_ret);
+            exec_env->attachment = NULL;
             ret = !aot_copy_exception(module_inst, NULL);
         }
         else
