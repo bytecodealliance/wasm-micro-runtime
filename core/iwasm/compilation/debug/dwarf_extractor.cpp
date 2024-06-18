@@ -290,7 +290,7 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
 {
     SBFunction function(sc.GetFunction());
     const char *function_name = function.GetName();
-    const char *link_name = function.GetName();
+    const char *link_name = function.GetMangledName();
     SBTypeList function_args = function.GetType().GetFunctionArgumentTypes();
     SBType return_type = function.GetType().GetFunctionReturnType();
     const size_t num_function_args = function_args.GetSize();
@@ -389,8 +389,8 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
 
     LLVMMetadataRef FunctionMetadata = LLVMDIBuilderCreateFunction(
         DIB, File, function_name, strlen(function_name), link_name,
-        strlen(link_name), File, line_entry.GetLine(), FunctionTy, true, true,
-        line_entry.GetLine(), LLVMDIFlagZero, false);
+        link_name != NULL ? strlen(link_name) : 0, File, line_entry.GetLine(),
+        FunctionTy, true, true, line_entry.GetLine(), LLVMDIFlagZero, false);
 
     LLVMMetadataReplaceAllUsesWith(ReplaceableFunctionMetadata,
                                    FunctionMetadata);
