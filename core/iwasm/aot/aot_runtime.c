@@ -1718,9 +1718,6 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     if (!create_exports(module_inst, module, error_buf, error_buf_size))
         goto fail;
 
-    extra->functions = NULL;
-    extra->function_count = 0;
-
 #if WASM_ENABLE_LIBC_WASI != 0
     if (!is_sub_inst) {
         if (!wasm_runtime_init_wasi(
