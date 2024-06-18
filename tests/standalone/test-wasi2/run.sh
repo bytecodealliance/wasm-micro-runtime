@@ -17,16 +17,14 @@ echo "============> compile test-wasi2 to wasm"
     -Wl,--allow-undefined \
     -o test-wasi2.wasm main.c
 
-gcc -O3 -o test main.c
-
 if [[ $1 != "--aot" ]]; then
     echo "============> run test-wasi2.wasm"
-    ${IWASM_CMD} --dir=. --dir=/tmp test-wasi2.wasm test.txt /tmp/somewhere.txt
+    ${IWASM_CMD} test-wasi2.wasm
 else
     echo "============> compile test-wasi2.wasm to aot"
     [[ $2 == "--sgx" ]] && ${WAMRC_CMD} -sgx -o test-wasi2.aot test-wasi2.wasm \
                         || ${WAMRC_CMD} -o test-wasi2.aot test-wasi2.wasm
     echo "============> run test-wasi2.aot"
-    ${IWASM_CMD} --dir=. --dir=/tmp test-wasi2.aot test.txt /tmp/somewhere.txt
+    ${IWASM_CMD} test-wasi2.aot
 fi
 

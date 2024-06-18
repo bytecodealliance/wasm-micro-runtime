@@ -47,6 +47,8 @@ else
     TARGET=$5
 fi
 
+RUNNING_MODE=${1:2}
+
 function contain()
 {
     # [$1, $-1)
@@ -98,7 +100,7 @@ echo "*--------------    standalone test cases finish    --------------*"
 echo ""
 echo ""
 
-report_file="./standalone_test_report.txt"
+report_file="./standalone_test_report_${RUNNING_MODE}.txt"
 # Delete the last report file
 if [ -f "${report_file}" ]; then
     rm "${report_file}"
