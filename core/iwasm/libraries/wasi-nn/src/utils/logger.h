@@ -21,7 +21,7 @@
     3 -> err
     4 -> NO LOGS
 */
-#define NN_LOG_LEVEL 0
+#define NN_LOG_LEVEL 2
 #endif
 
 // Definition of the levels

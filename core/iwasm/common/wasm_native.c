@@ -30,11 +30,13 @@ uint32
 get_spectest_export_apis(NativeSymbol **p_libc_builtin_apis);
 #endif
 
+#if WASM_ENABLE_SHARED_HEAP != 0
+uint32
+get_lib_shared_heap_export_apis(NativeSymbol **p_shared_heap_apis);
+#endif
+
 uint32
 get_libc_wasi_export_apis(NativeSymbol **p_libc_wasi_apis);
-
-uint32_t
-get_wasi_nn_export_apis(NativeSymbol **p_libc_wasi_apis);
 
 uint32
 get_base_lib_export_apis(NativeSymbol **p_base_lib_apis);
@@ -511,6 +513,14 @@ wasm_native_init()
         goto fail;
 #endif
 
+#if WASM_ENABLE_SHARED_HEAP != 0
+    n_native_symbols = get_lib_shared_heap_export_apis(&native_symbols);
+    if (n_native_symbols > 0
+        && !wasm_native_register_natives("env", native_symbols,
+                                         n_native_symbols))
+        goto fail;
+#endif
+
 #if WASM_ENABLE_BASE_LIB != 0
     n_native_symbols = get_base_lib_export_apis(&native_symbols);
     if (n_native_symbols > 0
@@ -564,18 +574,6 @@ wasm_native_init()
                                          n_native_symbols))
         goto fail;
 #endif /* WASM_ENABLE_LIB_RATS */
-
-#if WASM_ENABLE_WASI_NN != 0
-    n_native_symbols = get_wasi_nn_export_apis(&native_symbols);
-#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-#define wasi_nn_module_name "wasi_ephemeral_nn"
-#else /* WASM_ENABLE_WASI_EPHEMERAL_NN == 0 */
-#define wasi_nn_module_name "wasi_nn"
-#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
-    if (!wasm_native_register_natives(wasi_nn_module_name, native_symbols,
-                                      n_native_symbols))
-        goto fail;
-#endif
 
 #if WASM_ENABLE_QUICK_AOT_ENTRY != 0
     if (!quick_aot_entry_init()) {

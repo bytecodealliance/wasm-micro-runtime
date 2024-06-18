@@ -284,6 +284,13 @@ wasm_runtime_malloc(unsigned int size)
 #endif
     }
 
+#if WASM_ENABLE_FUZZ_TEST != 0
+    if (size >= WASM_MEM_ALLOC_MAX_SIZE) {
+        LOG_WARNING("warning: wasm_runtime_malloc with too large size\n");
+        return NULL;
+    }
+#endif
+
     return wasm_runtime_malloc_internal(size);
 }
 
@@ -495,7 +502,7 @@ wasm_runtime_addr_app_to_native(WASMModuleInstanceCommon *module_inst_comm,
         else if (app_offset >= ~((uint32)0) - module_inst->shared_heap->size
                  && app_offset <= ~((uint32)0) - 1) {
             uint64 heap_start =
-                ((uint64)1 << 32) - (uint64)module_inst->shared_heap->size;
+                (uint64)(~((uint32)0)) - (uint64)module_inst->shared_heap->size;
             uint64 heap_offset = (uint64)app_offset - heap_start;
             addr = module_inst->shared_heap->data + heap_offset;
             return addr;

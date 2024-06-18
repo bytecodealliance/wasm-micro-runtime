@@ -2297,6 +2297,12 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
             goto fail;
         }
     }
+    else
+    {
+        module_inst->shared_heap->size = parent->shared_heap->size;
+        module_inst->shared_heap->data = parent->shared_heap->data;
+        module_inst->shared_heap->handle = parent->shared_heap->handle;
+    }
 #endif
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
@@ -3227,9 +3233,6 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
         wasm_runtime_free(module_inst->c_api_func_imports);
 
     if (!is_sub_inst) {
-#if WASM_ENABLE_WASI_NN != 0
-        wasi_nn_destroy((WASMModuleInstanceCommon *)module_inst);
-#endif
         wasm_native_call_context_dtors((WASMModuleInstanceCommon *)module_inst);
     }
 

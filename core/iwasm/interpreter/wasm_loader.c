@@ -323,27 +323,6 @@ is_64bit_type(uint8 type)
     return false;
 }
 
-static bool
-is_value_type(uint8 type)
-{
-    if (/* I32/I64/F32/F64, 0x7C to 0x7F */
-        (type >= VALUE_TYPE_F64 && type <= VALUE_TYPE_I32)
-#if WASM_ENABLE_GC != 0
-        /* reference types, 0x65 to 0x70 */
-        || wasm_is_type_reftype(type)
-#elif WASM_ENABLE_REF_TYPES != 0
-        || (type == VALUE_TYPE_FUNCREF || type == VALUE_TYPE_EXTERNREF)
-#endif
-#if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
-        || type == VALUE_TYPE_V128 /* 0x7B */
-#endif
-#endif
-    )
-        return true;
-    return false;
-}
-
 #if WASM_ENABLE_GC != 0
 static bool
 is_packed_type(uint8 type)
@@ -355,7 +334,8 @@ is_packed_type(uint8 type)
 static bool
 is_byte_a_type(uint8 type)
 {
-    return (is_value_type(type) || (type == VALUE_TYPE_VOID)) ? true : false;
+    return (is_valid_value_type(type) || (type == VALUE_TYPE_VOID)) ? true
+                                                                    : false;
 }
 
 #if WASM_ENABLE_SIMD != 0
@@ -380,8 +360,7 @@ loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
 {
     void *mem;
 
-    if (size >= WASM_MEM_ALLOC_MAX_SIZE
-        || !(mem = wasm_runtime_malloc((uint32)size))) {
+    if (size >= UINT32_MAX || !(mem = wasm_runtime_malloc((uint32)size))) {
         set_error_buf(error_buf, error_buf_size, "allocate memory failed");
         return NULL;
     }
@@ -1463,7 +1442,7 @@ resolve_value_type(const uint8 **p_buf, const uint8 *buf_end,
     }
     else {
         /* type which can be represented by one byte */
-        if (!is_value_type(type)
+        if (!is_valid_value_type(type)
             && !(allow_packed_type && is_packed_type(type))) {
             set_error_buf(error_buf, error_buf_size, "type mismatch");
             return false;
@@ -1973,7 +1952,7 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 type->types[param_count + j] = read_uint8(p);
             }
             for (j = 0; j < param_count + result_count; j++) {
-                if (!is_value_type(type->types[j])) {
+                if (!is_valid_value_type(type->types[j])) {
                     set_error_buf(error_buf, error_buf_size,
                                   "unknown value type");
                     return false;
@@ -2255,9 +2234,15 @@ fail:
 static void
 adjust_table_max_size(uint32 init_size, uint32 max_size_flag, uint32 *max_size)
 {
-    uint32 default_max_size = init_size * 2 > WASM_TABLE_MAX_SIZE
-                                  ? init_size * 2
-                                  : WASM_TABLE_MAX_SIZE;
+    uint32 default_max_size;
+
+    if (UINT32_MAX / 2 > init_size)
+        default_max_size = init_size * 2;
+    else
+        default_max_size = UINT32_MAX;
+
+    if (default_max_size < WASM_TABLE_MAX_SIZE)
+        default_max_size = WASM_TABLE_MAX_SIZE;
 
     if (max_size_flag) {
         /* module defines the table limitation */
@@ -3056,7 +3041,7 @@ load_global_import(const uint8 **p_buf, const uint8 *buf_end,
     CHECK_BUF(p, p_end, 2);
     /* global type */
     declare_type = read_uint8(p);
-    if (!is_value_type(declare_type)) {
+    if (!is_valid_value_type(declare_type)) {
         set_error_buf(error_buf, error_buf_size, "type mismatch");
         return false;
     }
@@ -3768,7 +3753,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
                 CHECK_BUF(p_code, buf_code_end, 1);
                 /* 0x7F/0x7E/0x7D/0x7C */
                 type = read_uint8(p_code);
-                if (!is_value_type(type)) {
+                if (!is_valid_value_type(type)) {
                     if (type == VALUE_TYPE_V128)
                         set_error_buf(error_buf, error_buf_size,
                                       "v128 value type requires simd feature");
@@ -4043,7 +4028,7 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             CHECK_BUF(p, p_end, 2);
             /* global type */
             global->type.val_type = read_uint8(p);
-            if (!is_value_type(global->type.val_type)) {
+            if (!is_valid_value_type(global->type.val_type)) {
                 set_error_buf(error_buf, error_buf_size, "type mismatch");
                 return false;
             }
@@ -9365,42 +9350,41 @@ wasm_loader_pop_frame_offset(WASMLoaderContext *ctx, uint8 type,
                              char *error_buf, uint32 error_buf_size)
 {
     /* if ctx->frame_csp equals ctx->frame_csp_bottom,
-        then current block is the function block */
+       then current block is the function block */
     uint32 depth = ctx->frame_csp > ctx->frame_csp_bottom ? 1 : 0;
     BranchBlock *cur_block = ctx->frame_csp - depth;
     int32 available_stack_cell =
         (int32)(ctx->stack_cell_num - cur_block->stack_cell_num);
+    uint32 cell_num_to_pop;
 
     /* Directly return success if current block is in stack
-     * polymorphic state while stack is empty. */
+       polymorphic state while stack is empty. */
     if (available_stack_cell <= 0 && cur_block->is_stack_polymorphic)
         return true;
 
     if (type == VALUE_TYPE_VOID)
         return true;
 
-    if (is_32bit_type(type)) {
-        /* Check the offset stack bottom to ensure the frame offset
-            stack will not go underflow. But we don't thrown error
-            and return true here, because the error msg should be
-            given in wasm_loader_pop_frame_ref */
-        if (!check_offset_pop(ctx, 1))
-            return true;
+    /* Change type to ANY when the stack top is ANY, so as to avoid
+       popping unneeded offsets, e.g. if type is I64/F64, we may pop
+       two offsets */
+    if (available_stack_cell > 0 && *(ctx->frame_ref - 1) == VALUE_TYPE_ANY)
+        type = VALUE_TYPE_ANY;
 
-        ctx->frame_offset -= 1;
-        if ((*(ctx->frame_offset) > ctx->start_dynamic_offset)
-            && (*(ctx->frame_offset) < ctx->max_dynamic_offset))
-            ctx->dynamic_offset -= 1;
-    }
-    else {
-        if (!check_offset_pop(ctx, 2))
-            return true;
+    cell_num_to_pop = wasm_value_type_cell_num(type);
 
-        ctx->frame_offset -= 2;
-        if ((*(ctx->frame_offset) > ctx->start_dynamic_offset)
-            && (*(ctx->frame_offset) < ctx->max_dynamic_offset))
-            ctx->dynamic_offset -= 2;
-    }
+    /* Check the offset stack bottom to ensure the frame offset
+       stack will not go underflow. But we don't thrown error
+       and return true here, because the error msg should be
+       given in wasm_loader_pop_frame_ref */
+    if (!check_offset_pop(ctx, cell_num_to_pop))
+        return true;
+
+    ctx->frame_offset -= cell_num_to_pop;
+    if ((*(ctx->frame_offset) > ctx->start_dynamic_offset)
+        && (*(ctx->frame_offset) < ctx->max_dynamic_offset))
+        ctx->dynamic_offset -= cell_num_to_pop;
+
     emit_operand(ctx, *(ctx->frame_offset));
 
     (void)error_buf;
@@ -10888,6 +10872,12 @@ wasm_loader_get_custom_section(WASMModule *module, const char *name,
 }
 #endif
 
+#if 0
+#define HANDLE_OPCODE(opcode) #opcode
+DEFINE_GOTO_TABLE(const char *, op_mnemonics);
+#undef HANDLE_OPCODE
+#endif
+
 static bool
 wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
                              uint32 cur_func_idx, char *error_buf,
@@ -12312,7 +12302,7 @@ re_scan:
 #if WASM_ENABLE_GC == 0
                 CHECK_BUF(p, p_end, 1);
                 type = read_uint8(p);
-                if (!is_value_type(type)) {
+                if (!is_valid_value_type(type)) {
                     set_error_buf(error_buf, error_buf_size,
                                   "unknown value type");
                     goto fail;

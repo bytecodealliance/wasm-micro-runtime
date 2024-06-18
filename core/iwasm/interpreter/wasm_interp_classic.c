@@ -59,7 +59,7 @@ check_memory_shared_heap_overflow(uint8 **p_maddr, WASMModuleInstance *module,
         && offset1 + bytes <= ~((uint32)0)) {
         uint64 heap_start = ~((uint32)0) - module->shared_heap->size;
         uint64 heap_offset = (uint64)offset1 - heap_start;
-        *p_maddr = module->shared_heap->handle + heap_offset;
+        *p_maddr = module->shared_heap->data + heap_offset;
         return true;
     }
     return false;
@@ -136,7 +136,7 @@ check_memory_shared_heap_overflow(uint8 **p_maddr, WASMModuleInstance *module,
         && offset1 + bytes <= ~((uint64)0)) {
         uint64 heap_start = ~((uint64)0) - module->shared_heap->size;
         uint64 heap_offset = (uint64)offset1 - heap_start;
-        *p_maddr = module->shared_heap->handle + heap_offset;
+        *p_maddr = module->shared_heap->data + heap_offset;
         return true;
     }
     return false;

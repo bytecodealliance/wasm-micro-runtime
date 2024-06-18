@@ -44,13 +44,6 @@ wasm_runtime_module_realloc(wasm_module_inst_t module, uint64 ptr, uint64 size,
 
 #define module_free(offset) \
     wasm_runtime_module_free(module_inst, offset)
-
-#if WASM_ENABLE_SHARED_HEAP != 0
-#define module_shared_malloc(size, p_native_addr) \
-    wasm_runtime_module_shared_malloc(module_inst, size, p_native_addr)
-#define module_shared_free(offset) \
-    wasm_runtime_module_shared_free(module_inst, offset)
-#endif
 /* clang-format on */
 
 typedef int (*out_func_t)(int c, void *ctx);
@@ -706,26 +699,6 @@ free_wrapper(wasm_exec_env_t exec_env, void *ptr)
     module_free(addr_native_to_app(ptr));
 }
 
-#if WASM_ENABLE_SHARED_HEAP != 0
-static uint32
-shared_malloc_wrapper(wasm_exec_env_t exec_env, uint32 size)
-{
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    return (uint32)module_shared_malloc((uint64)size, NULL);
-}
-
-static void
-shared_free_wrapper(wasm_exec_env_t exec_env, void *ptr)
-{
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-
-    if (!validate_native_addr(ptr, (uint64)sizeof(uint32)))
-        return;
-
-    module_shared_free(addr_native_to_app(ptr));
-}
-#endif
-
 static int32
 atoi_wrapper(wasm_exec_env_t exec_env, const char *s)
 {
@@ -1087,10 +1060,6 @@ static NativeSymbol native_symbols_libc_builtin[] = {
     REG_NATIVE_FUNC(malloc, "(i)i"),
     REG_NATIVE_FUNC(realloc, "(ii)i"),
     REG_NATIVE_FUNC(calloc, "(ii)i"),
-#if WASM_ENABLE_SHARED_HEAP != 0
-    REG_NATIVE_FUNC(shared_malloc, "(i)i"),
-    REG_NATIVE_FUNC(shared_free, "(*)"),
-#endif
     REG_NATIVE_FUNC(strdup, "($)i"),
     /* clang may introduce __strdup */
     REG_NATIVE_FUNC(_strdup, "($)i"),

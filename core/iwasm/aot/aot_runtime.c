@@ -50,7 +50,7 @@ bh_static_assert(offsetof(AOTModuleInstance, cur_exception)
 bh_static_assert(offsetof(AOTModuleInstance, c_api_func_imports)
                  == 13 * sizeof(uint64) + 128 + 7 * sizeof(uint64));
 bh_static_assert(offsetof(AOTModuleInstance, global_table_data)
-                 == 13 * sizeof(uint64) + 128 + 14 * sizeof(uint64));
+                 == 14 * sizeof(uint64) + 128 + 14 * sizeof(uint64));
 
 bh_static_assert(sizeof(AOTMemoryInstance) == 120);
 bh_static_assert(offsetof(AOTTableInstance, elems) == 24);
@@ -1944,9 +1944,6 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 #endif
 
     if (!is_sub_inst) {
-#if WASM_ENABLE_WASI_NN != 0
-        wasi_nn_destroy((WASMModuleInstanceCommon *)module_inst);
-#endif
         wasm_native_call_context_dtors((WASMModuleInstanceCommon *)module_inst);
     }
 
