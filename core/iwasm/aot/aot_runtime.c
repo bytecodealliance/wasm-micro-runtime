@@ -1234,12 +1234,14 @@ aot_get_function_instance(AOTModuleInstance *module_inst, uint32 func_idx)
         }
         else {
             /* instantiate non-import function */
-            uint32 ftype_index = module->func_type_indexes[func_idx];
+            uint32 ftype_index =
+                module->func_type_indexes[func_idx - module->import_func_count];
             function->is_import_func = false;
-            function->func_index = module->import_func_count + func_idx;
+            function->func_index = func_idx;
             function->u.func.func_type =
                 (AOTFuncType *)module->types[ftype_index];
-            function->u.func.func_ptr = module->func_ptrs[func_idx];
+            function->u.func.func_ptr =
+                module->func_ptrs[func_idx - module->import_func_count];
         }
 
         extra->functions[func_idx] = function;
