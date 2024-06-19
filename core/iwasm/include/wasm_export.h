@@ -245,14 +245,6 @@ typedef struct LoadArgs {
     const strings), making it possible to free the wasm binary buffer after
     loading. */
     bool wasm_binary_freeable;
-#if WASM_ENABLE_MULTI_MODULE != 0
-    /* False by default, used by AOT/wasm loader only.
-    If true, the AOT/wasm loader will continue to load even if dependant
-    modules are missing instead of failing, so that the AOT compiler could
-    compile a single WASM that depends on other modules without actually
-    loading the dependant modules. */
-    bool allow_missing_imports;
-#endif
     /* TODO: more fields? */
 } LoadArgs;
 #endif /* LOAD_ARGS_OPTION_DEFINED */

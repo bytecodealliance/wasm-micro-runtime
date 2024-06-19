@@ -326,7 +326,6 @@ main(int argc, char *argv[])
     int log_verbose_level = 2;
     bool sgx_mode = false, size_level_set = false, use_dummy_wasm = false;
     int exit_status = EXIT_FAILURE;
-    LoadArgs load_args = { 0 };
 #if BH_HAS_DLFCN
     const char *native_lib_list[8] = { NULL };
     uint32 native_lib_count = 0;
@@ -648,14 +647,8 @@ main(int argc, char *argv[])
     }
 
     /* load WASM module */
-    load_args.name = "";
-    load_args.wasm_binary_freeable = false;
-#if WASM_ENABLE_MULTI_MODULE != 0
-    load_args.allow_missing_imports = true;
-#endif
-    if (!(wasm_module =
-              wasm_runtime_load_ex(wasm_file, wasm_file_size, &load_args,
-                                   error_buf, sizeof(error_buf)))) {
+    if (!(wasm_module = wasm_runtime_load(wasm_file, wasm_file_size, error_buf,
+                                          sizeof(error_buf)))) {
         printf("%s\n", error_buf);
         goto fail2;
     }
