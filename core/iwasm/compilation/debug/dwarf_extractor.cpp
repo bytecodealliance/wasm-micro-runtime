@@ -418,7 +418,20 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
     LLVMDIBuilderInsertDbgValueAtEnd(DIB, Param, ParamVar, ParamExpression,
                                      ParamLocation, block_curr);
 
-    if (!cplusplus) {
+    if (num_function_args != func_ctx->aot_func->func_type->param_count) {
+        // for C, this happens when the compiler optimized out some of
+        // function parameters.
+        //
+        // for C++, this mismatch is normal because of the "this" pointer.
+        if (!cplusplus) {
+            LOG_WARNING("function args number mismatch! num_function_args: %d, "
+                        "wasm func params: %d, func: %s",
+                        num_function_args,
+                        func_ctx->aot_func->func_type->param_count,
+                        function_name);
+        }
+    }
+    else if (!cplusplus) {
         auto variable_list = function.GetBlock().GetVariables(
             extractor->target, true, false, false);
         if (num_function_args != variable_list.GetSize()) {
