@@ -75,6 +75,9 @@ typedef enum {
 struct WASMFuncType;
 typedef struct WASMFuncType *wasm_func_type_t;
 
+struct WASMTableType;
+typedef struct WASMTableType *wasm_table_type_t;
+
 struct WASMGlobalType;
 typedef struct WASMGlobalType *wasm_global_type_t;
 
@@ -89,6 +92,7 @@ typedef struct wasm_import_t {
     bool linked;
     union {
         wasm_func_type_t func_type;
+        wasm_table_type_t table_type;
         wasm_global_type_t global_type;
         wasm_memory_type_t memory_type;
     } u;
@@ -99,6 +103,7 @@ typedef struct wasm_export_t {
     wasm_import_export_kind_t kind;
     union {
         wasm_func_type_t func_type;
+        wasm_table_type_t table_type;
         wasm_global_type_t global_type;
         wasm_memory_type_t memory_type;
     } u;
@@ -294,6 +299,15 @@ typedef struct wasm_global_inst_t {
     bool is_mutable;
     void *global_data;
 } wasm_global_inst_t;
+
+/* Table instance*/
+typedef struct wasm_table_inst_t {
+    wasm_valkind_t elem_kind;
+    uint32_t cur_size;
+    uint32_t max_size;
+    /* represents the elements of the table, for internal use only */
+    void *elems;
+} wasm_table_inst_t;
 
 typedef enum {
     WASM_LOG_LEVEL_FATAL = 0,
@@ -1387,6 +1401,46 @@ WASM_RUNTIME_API_EXTERN uint32_t
 wasm_memory_type_get_max_page_count(const wasm_memory_type_t memory_type);
 
 /**
+ * Get the element kind for a table type
+ *
+ * @param table_type the table type
+ *
+ * @return the element kind
+ */
+WASM_RUNTIME_API_EXTERN wasm_valkind_t
+wasm_table_type_get_elem_kind(const wasm_table_type_t table_type);
+
+/**
+ * Get the sharing setting for a table type
+ *
+ * @param table_type the table type
+ *
+ * @return true if shared, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_table_type_get_shared(const wasm_table_type_t table_type);
+
+/**
+ * Get the initial size for a table type
+ *
+ * @param table_type the table type
+ *
+ * @return the initial table size
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_table_type_get_init_size(const wasm_table_type_t table_type);
+
+/**
+ * Get the maximum size for a table type
+ *
+ * @param table_type the table type
+ *
+ * @return the maximum table size
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_table_type_get_max_size(const wasm_table_type_t table_type);
+
+/**
  * Register native functions with same module name
  *
  * Note: The array `native_symbols` should not be read-only because the
@@ -1471,6 +1525,34 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_get_export_global_inst(const wasm_module_inst_t module_inst,
                                     const char *name,
                                     wasm_global_inst_t *global_inst);
+
+/**
+ * Get an export table instance
+ *
+ * @param module_inst the module instance
+ * @param name the export table name
+ * @param table_inst location to store the table instance
+ *
+ * @return true if success, false otherwise
+ *
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_get_export_table_inst(const wasm_module_inst_t module_inst,
+                                   const char *name,
+                                   wasm_table_inst_t *table_inst);
+
+/**
+ * Get a function instance from a table.
+ *
+ * @param module_inst the module instance
+ * @param table_inst the table instance
+ * @param idx the index in the table
+ *
+ * @return the function instance if successful, NULL otherwise
+ */
+WASM_RUNTIME_API_EXTERN wasm_function_inst_t
+wasm_table_get_func_inst(const wasm_module_inst_t module_inst,
+                         const wasm_table_inst_t *table_inst, uint32_t idx);
 
 /**
  * Get attachment of native function from execution environment

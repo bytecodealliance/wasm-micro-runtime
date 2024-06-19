@@ -291,8 +291,8 @@ DumpDetails(AoTFile *aot)
 #endif
         printf("    init_size:%5u    max_size:%5u    "
                "module_name: %s    table_name: %s\n",
-               table.table_init_size, table.table_max_size, table.module_name,
-               table.table_name);
+               table.table_type.init_size, table.table_type.max_size,
+               table.module_name, table.table_type.name);
     }
     printf("\n");
 
@@ -352,8 +352,8 @@ DumpDetails(AoTFile *aot)
 #else
         dump_value_type(table.elem_type);
 #endif
-        printf("    init_size:%5u    max_size:%5u\n", table.table_init_size,
-               table.table_max_size);
+        printf("    init_size:%5u    max_size:%5u\n",
+               table.table_type.init_size, table.table_type.max_size);
     }
     printf("\n\n");
 

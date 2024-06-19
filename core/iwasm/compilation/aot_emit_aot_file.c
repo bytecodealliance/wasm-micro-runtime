@@ -383,11 +383,11 @@ get_import_table_size(const AOTCompContext *comp_ctx,
      * | import_table_count
      * ------------------------------
      * |                   | U8 elem_type
-     * |                   | U8 table_flags
+     * |                   | U8 flags
      * |                   | U8 possible_grow
      * | AOTImportTable[N] | U8 elem_ref_type.nullable (for GC only)
-     * |                   | U32 table_init_size
-     * |                   | U32 table_max_size
+     * |                   | U32 init_size
+     * |                   | U32 max_size
      * |                   | U32 elem_ref_type.heap_type (for GC only)
      * ------------------------------
      */
@@ -397,7 +397,8 @@ get_import_table_size(const AOTCompContext *comp_ctx,
     for (i = 0; i < comp_data->import_table_count; i++) {
         size += sizeof(uint32) * 3;
 #if WASM_ENABLE_GC != 0
-        if (comp_ctx->enable_gc && comp_data->import_tables[i].elem_ref_type)
+        if (comp_ctx->enable_gc
+            && comp_data->import_tables[i].table_type.elem_ref_type)
             size += sizeof(uint32);
 #endif
     }
@@ -412,11 +413,11 @@ get_table_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data)
      * | table_count
      * ------------------------------
      * |             | U8 elem_type
-     * |             | U8 table_flags
+     * |             | U8 flags
      * |             | U8 possible_grow
      * | AOTTable[N] | U8 elem_ref_type.nullable (for GC only)
-     * |             | U32 table_init_size
-     * |             | U32 table_max_size
+     * |             | U32 init_size
+     * |             | U32 max_size
      * |             | U32 elem_ref_type.heap_type (for GC only)
      * |             | N   init_expr (for GC only)
      * ------------------------------
@@ -428,7 +429,7 @@ get_table_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data)
         size += sizeof(uint32) * 3;
 #if WASM_ENABLE_GC != 0
         if (comp_ctx->enable_gc) {
-            if (comp_data->tables[i].elem_ref_type) {
+            if (comp_data->tables[i].table_type.elem_ref_type) {
                 size += sizeof(uint32);
             }
             size += get_init_expr_size(comp_ctx, comp_data,
@@ -1955,13 +1956,14 @@ aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
          * EMIT_STR(comp_data->import_tables[i].module_name );
          * EMIT_STR(comp_data->import_tables[i].table_name);
          */
-        EMIT_U8(comp_data->import_tables[i].elem_type);
-        EMIT_U8(comp_data->import_tables[i].table_flags);
-        EMIT_U8(comp_data->import_tables[i].possible_grow);
+        EMIT_U8(comp_data->import_tables[i].table_type.elem_type);
+        EMIT_U8(comp_data->import_tables[i].table_type.flags);
+        EMIT_U8(comp_data->import_tables[i].table_type.possible_grow);
 #if WASM_ENABLE_GC != 0
-        if (comp_ctx->enable_gc && comp_data->import_tables[i].elem_ref_type) {
+        if (comp_ctx->enable_gc
+            && comp_data->import_tables[i].table_type.elem_ref_type) {
             EMIT_U8(comp_data->import_tables[i]
-                        .elem_ref_type->ref_ht_common.nullable);
+                        .table_type.elem_ref_type->ref_ht_common.nullable);
         }
         else
 #endif
@@ -1969,14 +1971,15 @@ aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             /* emit one placeholder to keep the same size */
             EMIT_U8(0);
         }
-        EMIT_U32(comp_data->import_tables[i].table_init_size);
-        EMIT_U32(comp_data->import_tables[i].table_max_size);
+        EMIT_U32(comp_data->import_tables[i].table_type.init_size);
+        EMIT_U32(comp_data->import_tables[i].table_type.max_size);
 #if WASM_ENABLE_GC != 0
-        if (comp_ctx->enable_gc && comp_data->import_tables[i].elem_ref_type) {
+        if (comp_ctx->enable_gc
+            && comp_data->import_tables[i].table_type.elem_ref_type) {
             bh_assert(wasm_is_type_multi_byte_type(
                 comp_data->import_tables[i].elem_type));
             EMIT_U32(comp_data->import_tables[i]
-                         .elem_ref_type->ref_ht_common.heap_type);
+                         .table_type.elem_ref_type->ref_ht_common.heap_type);
         }
 #endif
     }
@@ -1985,12 +1988,14 @@ aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     EMIT_U32(comp_data->table_count);
     /* Emit table items */
     for (i = 0; i < comp_data->table_count; i++) {
-        EMIT_U8(comp_data->tables[i].elem_type);
-        EMIT_U8(comp_data->tables[i].table_flags);
-        EMIT_U8(comp_data->tables[i].possible_grow);
+        EMIT_U8(comp_data->tables[i].table_type.elem_type);
+        EMIT_U8(comp_data->tables[i].table_type.flags);
+        EMIT_U8(comp_data->tables[i].table_type.possible_grow);
 #if WASM_ENABLE_GC != 0
-        if (comp_ctx->enable_gc && comp_data->tables[i].elem_ref_type) {
-            EMIT_U8(comp_data->tables[i].elem_ref_type->ref_ht_common.nullable);
+        if (comp_ctx->enable_gc
+            && comp_data->tables[i].table_type.elem_ref_type) {
+            EMIT_U8(comp_data->tables[i]
+                        .table_type.elem_ref_type->ref_ht_common.nullable);
         }
         else
 #endif
@@ -1998,15 +2003,16 @@ aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             /* emit one placeholder to keep the same size */
             EMIT_U8(0);
         }
-        EMIT_U32(comp_data->tables[i].table_init_size);
-        EMIT_U32(comp_data->tables[i].table_max_size);
+        EMIT_U32(comp_data->tables[i].table_type.init_size);
+        EMIT_U32(comp_data->tables[i].table_type.max_size);
 #if WASM_ENABLE_GC != 0
         if (comp_ctx->enable_gc) {
-            if (comp_data->tables[i].elem_ref_type) {
+            if (comp_data->tables[i].table_type.elem_ref_type) {
                 bh_assert(wasm_is_type_multi_byte_type(
                     comp_data->tables[i].elem_type));
-                EMIT_U32(comp_data->tables[i]
-                             .elem_ref_type->ref_ht_common.heap_type);
+                EMIT_U32(
+                    comp_data->tables[i]
+                        .table_type.elem_ref_type->ref_ht_common.heap_type);
             }
             if (!aot_emit_init_expr(buf, buf_end, &offset, comp_ctx,
                                     &comp_data->tables[i].init_expr)) {

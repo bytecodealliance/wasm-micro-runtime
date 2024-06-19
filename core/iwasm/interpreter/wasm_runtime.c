@@ -533,9 +533,9 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 #endif
         {
             /* in order to save memory, alloc resource as few as possible */
-            max_size_fixed = import->u.table.possible_grow
-                                 ? import->u.table.max_size
-                                 : import->u.table.init_size;
+            max_size_fixed = import->u.table.table_type.possible_grow
+                                 ? import->u.table.table_type.max_size
+                                 : import->u.table.table_type.init_size;
 
             /* it is a built-in table, every module has its own */
             total_size = offsetof(WASMTableInstance, elems);
@@ -556,8 +556,8 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 #if WASM_ENABLE_MULTI_MODULE != 0
         *table_linked = table_inst_linked;
         if (table_inst_linked != NULL) {
-#if WASM_ENABLE_GC != 0
             table->elem_type = table_inst_linked->elem_type;
+#if WASM_ENABLE_GC != 0
             table->elem_ref_type = table_inst_linked->elem_ref_type;
 #endif
             table->cur_size = table_inst_linked->cur_size;
@@ -566,11 +566,12 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         else
 #endif
         {
+            table->elem_type = import->u.table.table_type.elem_type;
 #if WASM_ENABLE_GC != 0
-            table->elem_type = import->u.table.elem_type;
-            table->elem_ref_type.elem_ref_type = import->u.table.elem_ref_type;
+            table->elem_ref_type.elem_ref_type =
+                import->u.table.table_type.elem_ref_type;
 #endif
-            table->cur_size = import->u.table.init_size;
+            table->cur_size = import->u.table.table_type.init_size;
             table->max_size = max_size_fixed;
         }
 
@@ -587,11 +588,11 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         total_size = offsetof(WASMTableInstance, elems);
 #if WASM_ENABLE_MULTI_MODULE != 0
         /* in case, a module which imports this table will grow it */
-        max_size_fixed = module->tables[i].max_size;
+        max_size_fixed = module->tables[i].table_type.max_size;
 #else
-        max_size_fixed = module->tables[i].possible_grow
-                             ? module->tables[i].max_size
-                             : module->tables[i].init_size;
+        max_size_fixed = module->tables[i].table_type.possible_grow
+                             ? module->tables[i].table_type.max_size
+                             : module->tables[i].table_type.init_size;
 #endif
 #if WASM_ENABLE_GC == 0
         /* Store function indexes */
@@ -610,11 +611,12 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         /* For GC, all elements have already been set to NULL_REF (0) as
            uninitialized elements */
 #endif
+        table->elem_type = module->tables[i].table_type.elem_type;
 #if WASM_ENABLE_GC != 0
-        table->elem_type = module->tables[i].elem_type;
-        table->elem_ref_type.elem_ref_type = module->tables[i].elem_ref_type;
+        table->elem_ref_type.elem_ref_type =
+            module->tables[i].table_type.elem_ref_type;
 #endif
-        table->cur_size = module->tables[i].init_size;
+        table->cur_size = module->tables[i].table_type.init_size;
         table->max_size = max_size_fixed;
 
         table = (WASMTableInstance *)((uint8 *)table + (uint32)total_size);
@@ -2164,23 +2166,26 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         WASMTableImport *import_table = &module->import_tables[i].u.table;
         table_size += offsetof(WASMTableInstance, elems);
 #if WASM_ENABLE_MULTI_MODULE != 0
-        table_size +=
-            (uint64)sizeof(table_elem_type_t) * import_table->max_size;
+        table_size += (uint64)sizeof(table_elem_type_t)
+                      * import_table->table_type.max_size;
 #else
         table_size += (uint64)sizeof(table_elem_type_t)
-                      * (import_table->possible_grow ? import_table->max_size
-                                                     : import_table->init_size);
+                      * (import_table->table_type.possible_grow
+                             ? import_table->table_type.max_size
+                             : import_table->table_type.init_size);
 #endif
     }
     for (i = 0; i < module->table_count; i++) {
         WASMTable *table = module->tables + i;
         table_size += offsetof(WASMTableInstance, elems);
 #if WASM_ENABLE_MULTI_MODULE != 0
-        table_size += (uint64)sizeof(table_elem_type_t) * table->max_size;
+        table_size +=
+            (uint64)sizeof(table_elem_type_t) * table->table_type.max_size;
 #else
         table_size +=
             (uint64)sizeof(table_elem_type_t)
-            * (table->possible_grow ? table->max_size : table->init_size);
+            * (table->table_type.possible_grow ? table->table_type.max_size
+                                               : table->table_type.init_size);
 #endif
     }
     total_size += table_size;

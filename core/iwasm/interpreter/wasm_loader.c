@@ -2364,10 +2364,11 @@ wasm_loader_resolve_table(const char *module_name, const char *table_name,
     else {
         table = &(module->tables[export->index - module->import_table_count]);
     }
-    if (table->init_size < init_size || table->max_size > max_size) {
+    if (table->table_type.init_size < init_size
+        || table->table_type.max_size > max_size) {
         LOG_DEBUG("%s,%s failed type check(%d-%d), expected(%d-%d)",
-                  module_name, table_name, table->init_size, table->max_size,
-                  init_size, max_size);
+                  module_name, table_name, table->table_type.init_size,
+                  table->table_type.max_size, init_size, max_size);
         set_error_buf(error_buf, error_buf_size, "incompatible import type");
         return NULL;
     }
@@ -2652,7 +2653,7 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
     }
     declare_elem_type = ref_type.ref_type;
     if (need_ref_type_map) {
-        if (!(table->elem_ref_type =
+        if (!(table->table_type.elem_ref_type =
                   reftype_set_insert(parent_module->ref_type_set, &ref_type,
                                      error_buf, error_buf_size))) {
             return false;
@@ -2660,7 +2661,7 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
     }
 #if TRACE_WASM_LOADER != 0
     os_printf("import table type: ");
-    wasm_dump_value_type(declare_elem_type, table->elem_ref_type);
+    wasm_dump_value_type(declare_elem_type, table->table_type.elem_ref_type);
     os_printf("\n");
 #endif
 #endif /* end of WASM_ENABLE_GC == 0 */
@@ -2702,10 +2703,10 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
         }
 
         /* reset with linked table limit */
-        declare_elem_type = linked_table->elem_type;
-        declare_init_size = linked_table->init_size;
-        declare_max_size = linked_table->max_size;
-        declare_max_size_flag = linked_table->flags;
+        declare_elem_type = linked_table->table_type.elem_type;
+        declare_init_size = linked_table->table_type.init_size;
+        declare_max_size = linked_table->table_type.max_size;
+        declare_max_size_flag = linked_table->table_type.flags;
         table->import_table_linked = linked_table;
         table->import_module = sub_module;
     }
@@ -2735,13 +2736,13 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
     }
 
     /* now we believe all declaration are ok */
-    table->elem_type = declare_elem_type;
-    table->init_size = declare_init_size;
-    table->flags = declare_max_size_flag;
-    table->max_size = declare_max_size;
+    table->table_type.elem_type = declare_elem_type;
+    table->table_type.init_size = declare_init_size;
+    table->table_type.flags = declare_max_size_flag;
+    table->table_type.max_size = declare_max_size;
 
 #if WASM_ENABLE_WAMR_COMPILER != 0
-    if (table->elem_type == VALUE_TYPE_EXTERNREF)
+    if (table->table_type.elem_type == VALUE_TYPE_EXTERNREF)
         parent_module->is_ref_types_used = true;
 #endif
     (void)parent_module;
@@ -3141,10 +3142,10 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
 #if WASM_ENABLE_GC == 0
     CHECK_BUF(p, p_end, 1);
     /* 0x70 or 0x6F */
-    table->elem_type = read_uint8(p);
-    if (VALUE_TYPE_FUNCREF != table->elem_type
+    table->table_type.elem_type = read_uint8(p);
+    if (VALUE_TYPE_FUNCREF != table->table_type.elem_type
 #if WASM_ENABLE_REF_TYPES != 0
-        && VALUE_TYPE_EXTERNREF != table->elem_type
+        && VALUE_TYPE_EXTERNREF != table->table_type.elem_type
 #endif
     ) {
         set_error_buf(error_buf, error_buf_size, "incompatible import type");
@@ -3156,9 +3157,9 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
                             error_buf_size)) {
         return false;
     }
-    table->elem_type = ref_type.ref_type;
+    table->table_type.elem_type = ref_type.ref_type;
     if (need_ref_type_map) {
-        if (!(table->elem_ref_type =
+        if (!(table->table_type.elem_ref_type =
                   reftype_set_insert(module->ref_type_set, &ref_type, error_buf,
                                      error_buf_size))) {
             return false;
@@ -3166,20 +3167,21 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
     }
 #if TRACE_WASM_LOADER != 0
     os_printf("table type: ");
-    wasm_dump_value_type(table->elem_type, table->elem_ref_type);
+    wasm_dump_value_type(table->table_type.elem_type,
+                         table->table_type.elem_ref_type);
     os_printf("\n");
 #endif
 #endif /* end of WASM_ENABLE_GC == 0 */
 
     p_org = p;
-    read_leb_uint32(p, p_end, table->flags);
+    read_leb_uint32(p, p_end, table->table_type.flags);
 #if WASM_ENABLE_SHARED_MEMORY == 0
     if (p - p_org > 1) {
         set_error_buf(error_buf, error_buf_size,
                       "integer representation too long");
         return false;
     }
-    if (table->flags > 1) {
+    if (table->table_type.flags > 1) {
         set_error_buf(error_buf, error_buf_size, "integer too large");
         return false;
     }
@@ -3188,29 +3190,31 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
         set_error_buf(error_buf, error_buf_size, "invalid limits flags");
         return false;
     }
-    if (table->flags == 2) {
+    if (table->table_type.flags == 2) {
         set_error_buf(error_buf, error_buf_size, "tables cannot be shared");
         return false;
     }
-    if (table->flags > 1) {
+    if (table->table_type.flags > 1) {
         set_error_buf(error_buf, error_buf_size, "invalid limits flags");
         return false;
     }
 #endif
 
-    read_leb_uint32(p, p_end, table->init_size);
+    read_leb_uint32(p, p_end, table->table_type.init_size);
 
-    if (table->flags) {
-        read_leb_uint32(p, p_end, table->max_size);
-        if (!check_table_max_size(table->init_size, table->max_size, error_buf,
+    if (table->table_type.flags) {
+        read_leb_uint32(p, p_end, table->table_type.max_size);
+        if (!check_table_max_size(table->table_type.init_size,
+                                  table->table_type.max_size, error_buf,
                                   error_buf_size))
             return false;
     }
 
-    adjust_table_max_size(table->init_size, table->flags, &table->max_size);
+    adjust_table_max_size(table->table_type.init_size, table->table_type.flags,
+                          &table->table_type.max_size);
 
 #if WASM_ENABLE_WAMR_COMPILER != 0
-    if (table->elem_type == VALUE_TYPE_EXTERNREF)
+    if (table->table_type.elem_type == VALUE_TYPE_EXTERNREF)
         module->is_ref_types_used = true;
 #endif
 
@@ -3915,8 +3919,9 @@ load_table_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 #if WASM_ENABLE_GC != 0
             if (has_init) {
                 if (!load_init_expr(module, &p, p_end, &table->init_expr,
-                                    table->elem_type, table->elem_ref_type,
-                                    error_buf, error_buf_size))
+                                    table->table_type.elem_type,
+                                    table->table_type.elem_ref_type, error_buf,
+                                    error_buf_size))
                     return false;
                 if (table->init_expr.init_expr_type >= INIT_EXPR_TYPE_STRUCT_NEW
                     && table->init_expr.init_expr_type
@@ -3928,7 +3933,8 @@ load_table_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 }
             }
             else {
-                if (wasm_is_reftype_htref_non_nullable(table->elem_type)) {
+                if (wasm_is_reftype_htref_non_nullable(
+                        table->table_type.elem_type)) {
                     set_error_buf(
                         error_buf, error_buf_size,
                         "type mismatch: non-nullable table without init expr");
@@ -3938,7 +3944,7 @@ load_table_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 #endif /* end of WASM_ENABLE_GC != 0 */
 
 #if WASM_ENABLE_WAMR_COMPILER != 0
-            if (table->elem_type == VALUE_TYPE_EXTERNREF)
+            if (table->table_type.elem_type == VALUE_TYPE_EXTERNREF)
                 module->is_ref_types_used = true;
 #endif
         }
@@ -4311,9 +4317,10 @@ check_table_elem_type(WASMModule *module, uint32 table_index,
 
     if (table_index < module->import_table_count)
         table_declared_elem_type =
-            module->import_tables[table_index].u.table.elem_type;
+            module->import_tables[table_index].u.table.table_type.elem_type;
     else
-        table_declared_elem_type = (module->tables + table_index)->elem_type;
+        table_declared_elem_type =
+            (module->tables + table_index)->table_type.elem_type;
 
     if (table_declared_elem_type == type_from_elem_seg)
         return true;
@@ -10804,23 +10811,25 @@ get_table_elem_type(const WASMModule *module, uint32 table_idx,
 
     if (table_idx < module->import_table_count) {
         if (p_elem_type)
-            *p_elem_type = module->import_tables[table_idx].u.table.elem_type;
+            *p_elem_type =
+                module->import_tables[table_idx].u.table.table_type.elem_type;
 #if WASM_ENABLE_GC != 0
         if (p_ref_type)
             *((WASMRefType **)p_ref_type) =
-                module->import_tables[table_idx].u.table.elem_ref_type;
+                module->import_tables[table_idx]
+                    .u.table.table_type.elem_ref_type;
 #endif
     }
     else {
         if (p_elem_type)
             *p_elem_type =
                 module->tables[module->import_table_count + table_idx]
-                    .elem_type;
+                    .table_type.elem_type;
 #if WASM_ENABLE_GC != 0
         if (p_ref_type)
             *((WASMRefType **)p_ref_type) =
                 module->tables[module->import_table_count + table_idx]
-                    .elem_ref_type;
+                    .table_type.elem_ref_type;
 #endif
     }
     return true;
@@ -14878,13 +14887,13 @@ re_scan:
                         if (opcode1 == WASM_OP_TABLE_GROW) {
                             if (table_idx < module->import_table_count) {
                                 module->import_tables[table_idx]
-                                    .u.table.possible_grow = true;
+                                    .u.table.table_type.possible_grow = true;
                             }
                             else {
                                 module
                                     ->tables[table_idx
                                              - module->import_table_count]
-                                    .possible_grow = true;
+                                    .table_type.possible_grow = true;
                             }
                         }
 

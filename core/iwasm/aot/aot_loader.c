@@ -1330,24 +1330,25 @@ load_import_table_list(const uint8 **p_buf, const uint8 *buf_end,
 
     /* keep sync with aot_emit_table_info() aot_emit_aot_file */
     for (i = 0; i < module->import_table_count; i++, import_table++) {
-        read_uint8(buf, buf_end, import_table->elem_type);
-        read_uint8(buf, buf_end, import_table->table_flags);
-        read_uint8(buf, buf_end, import_table->possible_grow);
+        read_uint8(buf, buf_end, import_table->table_type.elem_type);
+        read_uint8(buf, buf_end, import_table->table_type.flags);
+        read_uint8(buf, buf_end, import_table->table_type.possible_grow);
 #if WASM_ENABLE_GC != 0
-        if (wasm_is_type_multi_byte_type(import_table->elem_type)) {
+        if (wasm_is_type_multi_byte_type(import_table->table_type.elem_type)) {
             read_uint8(buf, buf_end, ref_type.ref_ht_common.nullable);
         }
 #endif
-        read_uint32(buf, buf_end, import_table->table_init_size);
-        read_uint32(buf, buf_end, import_table->table_max_size);
+        read_uint32(buf, buf_end, import_table->table_type.init_size);
+        read_uint32(buf, buf_end, import_table->table_type.max_size);
 #if WASM_ENABLE_GC != 0
-        if (wasm_is_type_multi_byte_type(import_table->elem_type)) {
+        if (wasm_is_type_multi_byte_type(import_table->table_type.elem_type)) {
             read_uint32(buf, buf_end, ref_type.ref_ht_common.heap_type);
 
-            ref_type.ref_type = import_table->elem_type;
+            ref_type.ref_type = import_table->table_type.elem_type;
             /* TODO: check ref_type */
-            if (!(import_table->elem_ref_type = wasm_reftype_set_insert(
-                      module->ref_type_set, &ref_type))) {
+            if (!(import_table->table_type.elem_ref_type =
+                      wasm_reftype_set_insert(module->ref_type_set,
+                                              &ref_type))) {
                 set_error_buf(error_buf, error_buf_size,
                               "insert ref type to hash set failed");
                 return false;
@@ -1383,23 +1384,23 @@ load_table_list(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
     /* Create each table data segment */
     for (i = 0; i < module->table_count; i++, table++) {
-        read_uint8(buf, buf_end, table->elem_type);
-        read_uint8(buf, buf_end, table->table_flags);
-        read_uint8(buf, buf_end, table->possible_grow);
+        read_uint8(buf, buf_end, table->table_type.elem_type);
+        read_uint8(buf, buf_end, table->table_type.flags);
+        read_uint8(buf, buf_end, table->table_type.possible_grow);
 #if WASM_ENABLE_GC != 0
-        if (wasm_is_type_multi_byte_type(table->elem_type)) {
+        if (wasm_is_type_multi_byte_type(table->table_type.elem_type)) {
             read_uint8(buf, buf_end, ref_type.ref_ht_common.nullable);
         }
 #endif
-        read_uint32(buf, buf_end, table->table_init_size);
-        read_uint32(buf, buf_end, table->table_max_size);
+        read_uint32(buf, buf_end, table->table_type.init_size);
+        read_uint32(buf, buf_end, table->table_type.max_size);
 #if WASM_ENABLE_GC != 0
-        if (wasm_is_type_multi_byte_type(table->elem_type)) {
+        if (wasm_is_type_multi_byte_type(table->table_type.elem_type)) {
             read_uint32(buf, buf_end, ref_type.ref_ht_common.heap_type);
 
-            ref_type.ref_type = table->elem_type;
+            ref_type.ref_type = table->table_type.elem_type;
             /* TODO: check ref_type */
-            if (!(table->elem_ref_type = wasm_reftype_set_insert(
+            if (!(table->table_type.elem_ref_type = wasm_reftype_set_insert(
                       module->ref_type_set, &ref_type))) {
                 set_error_buf(error_buf, error_buf_size,
                               "insert ref type to hash set failed");

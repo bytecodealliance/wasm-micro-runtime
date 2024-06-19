@@ -695,10 +695,10 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
         !((declare_max_size_flag & 1) && declare_init_size > declare_max_size));
 
     /* now we believe all declaration are ok */
-    table->elem_type = declare_elem_type;
-    table->init_size = declare_init_size;
-    table->flags = declare_max_size_flag;
-    table->max_size = declare_max_size;
+    table->table_type.elem_type = declare_elem_type;
+    table->table_type.init_size = declare_init_size;
+    table->table_type.flags = declare_max_size_flag;
+    table->table_type.max_size = declare_max_size;
     return true;
 }
 
@@ -805,26 +805,27 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMTable *table,
 
     CHECK_BUF(p, p_end, 1);
     /* 0x70 or 0x6F */
-    table->elem_type = read_uint8(p);
-    bh_assert((VALUE_TYPE_FUNCREF == table->elem_type)
+    table->table_type.elem_type = read_uint8(p);
+    bh_assert((VALUE_TYPE_FUNCREF == table->table_type.elem_type)
 #if WASM_ENABLE_REF_TYPES != 0
-              || VALUE_TYPE_EXTERNREF == table->elem_type
+              || VALUE_TYPE_EXTERNREF == table->table_type.elem_type
 #endif
     );
 
     p_org = p;
-    read_leb_uint32(p, p_end, table->flags);
+    read_leb_uint32(p, p_end, table->table_type.flags);
     bh_assert(p - p_org <= 1);
-    bh_assert(table->flags <= 1);
+    bh_assert(table->table_type.flags <= 1);
     (void)p_org;
 
-    read_leb_uint32(p, p_end, table->init_size);
-    if (table->flags == 1) {
-        read_leb_uint32(p, p_end, table->max_size);
-        bh_assert(table->init_size <= table->max_size);
+    read_leb_uint32(p, p_end, table->table_type.init_size);
+    if (table->table_type.flags == 1) {
+        read_leb_uint32(p, p_end, table->table_type.max_size);
+        bh_assert(table->table_type.init_size <= table->table_type.max_size);
     }
 
-    adjust_table_max_size(table->init_size, table->flags, &table->max_size);
+    adjust_table_max_size(table->table_type.init_size, table->table_type.flags,
+                          &table->table_type.max_size);
 
     *p_buf = p;
     return true;
@@ -2515,11 +2516,12 @@ get_table_elem_type(const WASMModule *module, uint32 table_idx,
 
     if (p_elem_type) {
         if (table_idx < module->import_table_count)
-            *p_elem_type = module->import_tables[table_idx].u.table.elem_type;
+            *p_elem_type =
+                module->import_tables[table_idx].u.table.table_type.elem_type;
         else
             *p_elem_type =
                 module->tables[module->import_table_count + table_idx]
-                    .elem_type;
+                    .table_type.elem_type;
     }
     return true;
 }
@@ -7917,13 +7919,13 @@ re_scan:
                         if (opcode1 == WASM_OP_TABLE_GROW) {
                             if (table_idx < module->import_table_count) {
                                 module->import_tables[table_idx]
-                                    .u.table.possible_grow = true;
+                                    .u.table.table_type.possible_grow = true;
                             }
                             else {
                                 module
                                     ->tables[table_idx
                                              - module->import_table_count]
-                                    .possible_grow = true;
+                                    .table_type.possible_grow = true;
                             }
                         }
 

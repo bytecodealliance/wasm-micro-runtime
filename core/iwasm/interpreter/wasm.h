@@ -480,11 +480,11 @@ typedef void *WASMString;
 #endif /* end of WASM_ENABLE_STRINGREF != 0 */
 #endif /* end of WASM_ENABLE_GC != 0 */
 
-typedef struct WASMTable {
+typedef struct WASMTableType {
     uint8 elem_type;
     /**
      * 0: no max size and not shared
-     * 1: hax max size
+     * 1: has max size
      * 2: shared
      */
     uint8 flags;
@@ -494,6 +494,12 @@ typedef struct WASMTable {
     uint32 max_size;
 #if WASM_ENABLE_GC != 0
     WASMRefType *elem_ref_type;
+#endif
+} WASMTableType;
+
+typedef struct WASMTable {
+    WASMTableType table_type;
+#if WASM_ENABLE_GC != 0
     /* init expr for the whole table */
     InitializerExpression init_expr;
 #endif
@@ -517,16 +523,7 @@ typedef struct WASMMemory {
 typedef struct WASMTableImport {
     char *module_name;
     char *field_name;
-    /* 0: no max size, 1: has max size */
-    uint8 elem_type;
-    uint8 flags;
-    bool possible_grow;
-    uint32 init_size;
-    /* specified if (flags & 1), else it is 0x10000 */
-    uint32 max_size;
-#if WASM_ENABLE_GC != 0
-    WASMRefType *elem_ref_type;
-#endif
+    WASMTableType table_type;
 #if WASM_ENABLE_MULTI_MODULE != 0
     WASMModule *import_module;
     WASMTable *import_table_linked;
