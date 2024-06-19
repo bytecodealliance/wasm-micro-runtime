@@ -51,8 +51,6 @@ else
     TARGET=$5
 fi
 
-RUNNING_MODE=${1:2}
-
 function contain()
 {
     # [$1, $-1)
@@ -103,38 +101,31 @@ total_num=$((failed_num+passed_num))
 echo "*--------------    standalone test cases finish    --------------*"
 echo ""
 echo ""
-
-report_file="./standalone_test_report_${RUNNING_MODE}.txt"
-# Delete the last report file
-if [ -f "${report_file}" ]; then
-    rm "${report_file}"
-fi
-
-echo  "*================   Standalone Test Report Start   ==============*" | tee -a ${report_file}
-echo  "" | tee -a ${report_file}
-echo  "Total: ${total_num}" | tee -a ${report_file}
-echo  "Passed: ${passed_num}" | tee -a ${report_file}
-echo  "Failed: ${failed_num}" | tee -a ${report_file}
+echo  "*================   Standalone Test Report Start   ==============*"
+echo  ""
+echo  "Total: ${total_num}"
+echo  "Passed: ${passed_num}"
+echo  "Failed: ${failed_num}"
 
 
 if [ ${passed_num} -gt 0 ]; then
-    echo  "" >> ${report_file}
-    echo  "******************************************************************" >> ${report_file}
-    echo  "Passed cases list:" >> ${report_file}
-    echo  "" >> ${report_file}
+    echo  ""
+    echo  "******************************************************************"
+    echo  "Passed cases list:"
+    echo  ""
     for passed_case in "${passed_list[@]}"; do
-        echo  "  $passed_case" >> ${report_file}
+        echo  "  $passed_case"
     done
 fi
 
 if [ ${failed_num} -gt 0 ]; then
-    echo  "" | tee -a ${report_file}
-    echo  "******************************************************************" | tee -a ${report_file}
-    echo  "Failed cases list:" | tee -a ${report_file}
+    echo  ""
+    echo  "******************************************************************"
+    echo  "Failed cases list:"
     for failed_case in "${failed_list[@]}"; do
-        echo  "  $failed_case" | tee -a ${report_file}
+        echo  "  $failed_case"
     done
 fi
 
-echo  "" | tee -a ${report_file}
-echo  "*================   Standalone Test Report End   ==============*" | tee -a ${report_file}
+echo  ""
+echo  "*================   Standalone Test Report End   ==============*"
