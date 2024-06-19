@@ -189,7 +189,7 @@ wasm_runtime_malloc_internal(unsigned int size)
 {
     if (memory_mode == MEMORY_MODE_UNKNOWN) {
         LOG_WARNING(
-            "wasm_runtime_malloc failed: memory hasn't been initialize.\n");
+            "wasm_runtime_malloc failed: memory hasn't been initialized.\n");
         return NULL;
     }
     else if (memory_mode == MEMORY_MODE_POOL) {
@@ -215,7 +215,7 @@ wasm_runtime_realloc_internal(void *ptr, unsigned int size)
 {
     if (memory_mode == MEMORY_MODE_UNKNOWN) {
         LOG_WARNING(
-            "wasm_runtime_realloc failed: memory hasn't been initialize.\n");
+            "wasm_runtime_realloc failed: memory hasn't been initialized.\n");
         return NULL;
     }
     else if (memory_mode == MEMORY_MODE_POOL) {
