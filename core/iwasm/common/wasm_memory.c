@@ -541,6 +541,10 @@ wasm_runtime_addr_native_to_app(WASMModuleInstanceCommon *module_inst_comm,
               || module_inst_comm->module_type == Wasm_Module_AoT);
 
     bounds_checks = is_bounds_checks_enabled(module_inst_comm);
+#if WASM_ENABLE_SHARED_HEAP != 0
+    /* If shared heap is enabled, bounds check is always needed */
+    bounds_checks = true;
+#endif
 
     memory_inst = wasm_get_default_memory(module_inst);
     if (!memory_inst) {
