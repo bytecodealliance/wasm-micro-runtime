@@ -1977,7 +1977,7 @@ aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         if (comp_ctx->enable_gc
             && comp_data->import_tables[i].table_type.elem_ref_type) {
             bh_assert(wasm_is_type_multi_byte_type(
-                comp_data->import_tables[i].elem_type));
+                comp_data->import_tables[i].table_type.elem_type));
             EMIT_U32(comp_data->import_tables[i]
                          .table_type.elem_ref_type->ref_ht_common.heap_type);
         }
@@ -2009,7 +2009,7 @@ aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         if (comp_ctx->enable_gc) {
             if (comp_data->tables[i].table_type.elem_ref_type) {
                 bh_assert(wasm_is_type_multi_byte_type(
-                    comp_data->tables[i].elem_type));
+                    comp_data->tables[i].table_type.elem_type));
                 EMIT_U32(
                     comp_data->tables[i]
                         .table_type.elem_ref_type->ref_ht_common.heap_type);
