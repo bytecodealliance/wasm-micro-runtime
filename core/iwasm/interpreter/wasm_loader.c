@@ -3256,6 +3256,14 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
 #if WASM_ENABLE_APP_FRAMEWORK == 0
     max_page_count = is_memory64 ? DEFAULT_MEM64_MAX_PAGES : DEFAULT_MAX_PAGES;
 #endif
+
+#if WASM_ENABLE_SHARED_HEAP
+    uint32 shared_heap_size = wasm_runtime_get_shared_heap_size();
+    uint32 shared_heap_page_count =
+        shared_heap_size / DEFAULT_NUM_BYTES_PER_PAGE + 1;
+    max_page_count -= shared_heap_page_count;
+#endif
+
     if (memory->flags & 1) {
         read_leb_uint32(p, p_end, memory->max_page_count);
         if (!check_memory_max_size(is_memory64, memory->init_page_count,
