@@ -19,7 +19,7 @@ simd_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, uint32 align,
     LLVMValueRef maddr, data;
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset,
-                                            data_length, enable_segue))) {
+                                            data_length, enable_segue, NULL))) {
         HANDLE_FAILURE("aot_check_memory_overflow");
         return NULL;
     }
@@ -287,7 +287,7 @@ simd_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, uint32 align,
     LLVMValueRef maddr, result;
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset,
-                                            data_length, enable_segue)))
+                                            data_length, enable_segue, NULL)))
         return false;
 
     if (!(maddr = LLVMBuildBitCast(comp_ctx->builder, maddr, value_ptr_type,
