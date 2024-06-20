@@ -4010,7 +4010,7 @@ wasm_runtime_get_import_type(WASMModuleCommon *const module, int32 import_index,
             import_type->module_name = aot_import_table->module_name;
             import_type->name = aot_import_table->table_name;
             import_type->kind = WASM_IMPORT_EXPORT_KIND_TABLE;
-            import_type->linked = false;
+            import_type->linked = false; /* not supported */
             import_type->u.table_type =
                 (WASMTableType *)&aot_import_table->table_type;
             return;
@@ -4023,7 +4023,7 @@ wasm_runtime_get_import_type(WASMModuleCommon *const module, int32 import_index,
             import_type->module_name = aot_import_memory->module_name;
             import_type->name = aot_import_memory->memory_name;
             import_type->kind = WASM_IMPORT_EXPORT_KIND_MEMORY;
-            import_type->linked = false;
+            import_type->linked = false; /* not supported */
             import_type->u.memory_type =
                 (WASMMemoryType *)&aot_import_memory->mem_type;
             return;
