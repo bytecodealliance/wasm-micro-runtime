@@ -3688,9 +3688,9 @@ wasm_module_shared_malloc_internal(WASMModuleInstance *module_inst,
 
     uint64 shared_heap_start = 0;
 #if WASM_ENABLE_MEMORY64 == 0
-    shared_heap_start = ~((uint32)0) - (uint64)module_inst->shared_heap->size;
+    shared_heap_start = UINT32_MAX - (uint64)module_inst->shared_heap->size;
 #else
-    shared_heap_start = ~((uint64)0) - (uint64)module_inst->shared_heap->size;
+    shared_heap_start = UINT64_MAX - (uint64)module_inst->shared_heap->size;
 #endif
     uint64 offset = (uint64)(addr - (uint8 *)module_inst->shared_heap->data)
                     + shared_heap_start;

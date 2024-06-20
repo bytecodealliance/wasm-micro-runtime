@@ -357,13 +357,13 @@ shared_heap_bound_check:
 #if WASM_ENABLE_SHARED_HEAP != 0
 #if WASM_ENABLE_MEMORY64 != 0
     if (app_offset + size > app_offset
-        && app_offset + size >= ~((uint64)0) - module_inst->shared_heap->size
-        && app_offset + size <= ~((uint64)0)) {
+        && app_offset + size >= UINT64_MAX - module_inst->shared_heap->size
+        && app_offset + size <= UINT64_MAX) {
         return true;
     }
 #else
-    if (app_offset + size >= ~((uint32)0) - module_inst->shared_heap->size
-        && app_offset + size <= ~((uint32)0)) {
+    if (app_offset + size >= UINT32_MAX - module_inst->shared_heap->size
+        && app_offset + size <= UINT32_MAX) {
         return true;
     }
 #endif
@@ -499,19 +499,19 @@ wasm_runtime_addr_app_to_native(WASMModuleInstanceCommon *module_inst_comm,
         }
 #if WASM_ENABLE_SHARED_HEAP
 #if WASM_ENABLE_MEMORY64 == 0
-        else if (app_offset >= ~((uint32)0) - module_inst->shared_heap->size
-                 && app_offset <= ~((uint32)0) - 1) {
+        else if (app_offset >= UINT32_MAX - module_inst->shared_heap->size
+                 && app_offset <= UINT32_MAX - 1) {
             uint64 heap_start =
-                (uint64)(~((uint32)0)) - (uint64)module_inst->shared_heap->size;
+                (uint64)(UINT32_MAX) - (uint64)module_inst->shared_heap->size;
             uint64 heap_offset = (uint64)app_offset - heap_start;
             addr = module_inst->shared_heap->data + heap_offset;
             return addr;
         }
 #else
-        else if (app_offset >= ~((uint64)0) - module_inst->shared_heap->size
-                 && app_offset <= ~((uint64)0) - 1) {
+        else if (app_offset >= UINT64_MAX - module_inst->shared_heap->size
+                 && app_offset <= UINT64_MAX - 1) {
             uint64 heap_start =
-                ~((uint64)0) - (uint64)module_inst->shared_heap->size;
+                UINT64_MAX - (uint64)module_inst->shared_heap->size;
             uint64 heap_offset = (uint64)app_offset - heap_start;
             addr = module_inst->shared_heap->data + heap_offset;
             return addr;
