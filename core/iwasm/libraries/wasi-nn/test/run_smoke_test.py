@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
 
+from dataclasses import dataclass
 from pathlib import Path
 from pprint import pprint
 import re
@@ -13,70 +14,149 @@ import subprocess
 from typing import List
 
 
-def execute_tflite_birds_v1_image_once(
-    runtime_bin: str, runtime_args: List[str], cwd: Path
+@dataclass
+class WasmEdgeExampleResult:
+    class_id: int
+    possibility: float
+
+
+def execute_once(
+    runtime_bin: str,
+    runtime_args: List[str],
+    wasm_file: str,
+    wasm_args: List[str],
+    cwd: Path,
 ) -> str:
-    """
-    execute tflite_birds_v1_image example with
-
-    ```
-    iwasm --native-lib=somewhere/libwasi-nn-tflite.so --map-dir=.:. \
-        ./wasmedge-wasinn-example-tflite-bird-image.wasm  \
-        lite-model_aiy_vision_classifier_birds_V1_3.tflite \
-        bird.jpg
-    ```
-
-    or
-
-    ```
-    wasmedge --dir=.:. \
-        ./wasmedge-wasinn-example-tflite-bird-image.wasm  \
-        lite-model_aiy_vision_classifier_birds_V1_3.tflite \
-        bird.jpg
-    ```
-
-    assumption:
-    - under the right directory, tflite-birds_v1-image
-    - every materials are ready
-    """
-
-    wasm_file = "./wasmedge-wasinn-example-tflite-bird-image.wasm"
-    wasm_args = ["lite-model_aiy_vision_classifier_birds_V1_3.tflite", "bird.jpg"]
-
     cmd = [runtime_bin]
     cmd.extend(runtime_args)
     cmd.append(wasm_file)
     cmd.extend(wasm_args)
 
-    try:
-        p = subprocess.run(
-            cmd,
-            cwd=cwd,
-            capture_output=True,
-            check=True,
-            text=True,
-            universal_newlines=True,
-        )
-        return p.stdout
-    except subprocess.CalledProcessError as e:
-        print(e.stderr)
-        print()
-        print(e.stdout)
+    # print(f'Execute: {" ".join(cmd)}')
+
+    p = subprocess.run(
+        cmd,
+        cwd=cwd,
+        capture_output=True,
+        check=True,
+        text=True,
+        universal_newlines=True,
+    )
+    return p.stdout
 
 
-def filter_output_tflite_birds_v1_image(output: str) -> List[str]:
+def execute_openvino_road_segmentation_adas_once(
+    runtime_bin: str, runtime_args: List[str], cwd: Path
+) -> str:
     """
-    not all output is needed for comparision
+    execute openvino-road-segmentation-adas with iwasm and wasmedge
+    """
 
-    pick lines like: "   1.) [526](136)Cathartes burrovianus"
+    wasm_file = (
+        "./openvino-road-seg-adas/target/wasm32-wasi/debug/openvino-road-seg-adas.wasm"
+    )
+    wasm_args = [
+        "./model/road-segmentation-adas-0001.xml",
+        "./model/road-segmentation-adas-0001.bin",
+        "./image/empty_road_mapillary.jpg",
+    ]
+    return execute_once(runtime_bin, runtime_args, wasm_file, wasm_args, cwd)
+
+
+def execute_openvino_mobilenet_raw_once(
+    runtime_bin: str, runtime_args: List[str], cwd: Path
+) -> str:
+    """
+    execute openvino-mobilenet-image with iwasm and wasmedge
+    """
+
+    wasm_file = "./rust/target/wasm32-wasi/debug/wasmedge-wasinn-example-mobilenet.wasm"
+    wasm_args = [
+        "mobilenet.xml",
+        "mobilenet.bin",
+        "./tensor-1x224x224x3-f32.bgr",
+    ]
+    return execute_once(runtime_bin, runtime_args, wasm_file, wasm_args, cwd)
+
+
+def execute_openvino_mobilenet_image_once(
+    runtime_bin: str, runtime_args: List[str], cwd: Path
+) -> str:
+    """
+    execute openvino-mobilenet-image with iwasm and wasmedge
+    """
+
+    wasm_file = (
+        "./rust/target/wasm32-wasi/debug/wasmedge-wasinn-example-mobilenet-image.wasm"
+    )
+    wasm_args = [
+        "mobilenet.xml",
+        "mobilenet.bin",
+        "input.jpg",
+    ]
+    return execute_once(runtime_bin, runtime_args, wasm_file, wasm_args, cwd)
+
+
+def execute_tflite_birds_v1_image_once(
+    runtime_bin: str, runtime_args: List[str], cwd: Path
+) -> str:
+    """
+    execute openvino-mobilenet-image with iwasm and wasmedge
+    """
+
+    wasm_file = (
+        "rust/target/wasm32-wasi/debug/wasmedge-wasinn-example-tflite-bird-image.wasm"
+    )
+    wasm_args = ["lite-model_aiy_vision_classifier_birds_V1_3.tflite", "bird.jpg"]
+    return execute_once(runtime_bin, runtime_args, wasm_file, wasm_args, cwd)
+
+
+def filter_output(output: str) -> List[WasmEdgeExampleResult]:
+    """
+    not all output is required for comparison
+
+    pick lines like: " 1.) [166](198)Aix galericulata"
     """
     filtered = []
-    PATTERN = re.compile(r"^\s+\d\.\)\s+\[\d+\]\(\d+\)\w+")
+    PATTERN = re.compile(r"^\s+\d\.\)\s+\[(\d+)\]\(([.0-9]+)\)\w+")
     for line in output.split("\n"):
-        if PATTERN.search(line):
-            filtered.append(line.strip())
+        m = PATTERN.search(line)
+        if m:
+            class_id, possibility = m.groups()
+            filtered.append(WasmEdgeExampleResult(class_id, possibility))
 
+    assert len(filtered)
     return filtered
+
+
+def compare_output(
+    iwasm_output: List[WasmEdgeExampleResult],
+    wasmedge_output: List[WasmEdgeExampleResult],
+) -> bool:
+    """
+    only compare top 2 and ignore possibility
+    """
+    return (iwasm_output[0].class_id, iwasm_output[1].class_id) == (
+        wasmedge_output[0].class_id,
+        wasmedge_output[1].class_id,
+    )
+
+
+def summarizer_result(
+    example_name: str,
+    iwasm_output: List[WasmEdgeExampleResult],
+    wasmedge_output: List[WasmEdgeExampleResult],
+):
+    if compare_output(iwasm_output, wasmedge_output):
+        print(f"- {example_name}. PASS")
+        return
+
+    print(f"- {example_name}. FAILED")
+    print("------------------------------------------------------------")
+    pprint(iwasm_output)
+    print("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+    pprint(wasmedge_output)
+    print("------------------------------------------------------------")
 
 
 def execute_tflite_birds_v1_image(iwasm_bin: str, wasmedge_bin: str, cwd: Path):
@@ -88,33 +168,124 @@ def execute_tflite_birds_v1_image(iwasm_bin: str, wasmedge_bin: str, cwd: Path):
         ],
         cwd,
     )
-    iwasm_output = filter_output_tflite_birds_v1_image(iwasm_output)
+    iwasm_output = filter_output(iwasm_output)
 
     wasmedge_output = execute_tflite_birds_v1_image_once(
         wasmedge_bin, ["--dir=.:."], cwd
     )
-    wasmedge_output = filter_output_tflite_birds_v1_image(wasmedge_output)
+    wasmedge_output = filter_output(wasmedge_output)
 
-    if iwasm_output == wasmedge_output:
-        print("- tflite_birds_v1_image. PASS")
+    summarizer_result("tf_lite_birds_v1_image", iwasm_output, wasmedge_output)
+
+
+def execute_openvino_mobilenet_image(iwasm_bin: str, wasmedge_bin: str, cwd: Path):
+    iwasm_output = execute_openvino_mobilenet_image_once(
+        iwasm_bin,
+        [
+            "--native-lib=/workspaces/wamr/product-mini/platforms/linux/build/libwasi-nn-openvino.so",
+            "--map-dir=.:.",
+        ],
+        cwd,
+    )
+    iwasm_output = filter_output(iwasm_output)
+
+    wasmedge_output = execute_openvino_mobilenet_image_once(
+        wasmedge_bin, ["--dir=.:."], cwd
+    )
+    wasmedge_output = filter_output(wasmedge_output)
+
+    summarizer_result("openvino_mobile_image", iwasm_output, wasmedge_output)
+
+
+def execute_openvino_mobilenet_raw(iwasm_bin: str, wasmedge_bin: str, cwd: Path):
+    iwasm_output = execute_openvino_mobilenet_raw_once(
+        iwasm_bin,
+        [
+            "--native-lib=/workspaces/wamr/product-mini/platforms/linux/build/libwasi-nn-openvino.so",
+            "--map-dir=.:.",
+        ],
+        cwd,
+    )
+    iwasm_output = filter_output(iwasm_output)
+
+    wasmedge_output = execute_openvino_mobilenet_raw_once(
+        wasmedge_bin, ["--dir=.:."], cwd
+    )
+    wasmedge_output = filter_output(wasmedge_output)
+
+    summarizer_result("openvino_mobile_raw", iwasm_output, wasmedge_output)
+
+
+def execute_openvino_road_segmentation_adas(
+    iwasm_bin: str, wasmedge_bin: str, cwd: Path
+):
+    def filter_output(output: str) -> str:
+        """
+        focus on lines:
+           The size of the output buffer is 7340032 bytes
+           dump tensor to "wasinn-openvino-inference-output-1x4x512x896xf32.tensor"
+        """
+        for line in output.split("\n"):
+            if "The size of the output buffer is" in line:
+                dump_tensor_size = int(line.split(" ")[-2])
+                continue
+
+            if "dump tensor to " in line:
+                dump_tensor_file = line.split(" ")[-1]
+                continue
+
+        return (dump_tensor_file, dump_tensor_size)
+
+    iwasm_output = execute_openvino_road_segmentation_adas_once(
+        iwasm_bin,
+        [
+            "--native-lib=/workspaces/wamr/product-mini/platforms/linux/build/libwasi-nn-openvino.so",
+            "--map-dir=.:.",
+        ],
+        cwd,
+    )
+    iwasm_tensor_file, iwasm_tensor_size = filter_output(iwasm_output)
+
+    wasmedge_output = execute_openvino_road_segmentation_adas_once(
+        wasmedge_bin, ["--dir=.:."], cwd
+    )
+    wasmedge_tensor_file, wasmedge_tensor_size = filter_output(wasmedge_output)
+
+    # TODO: binary compare?
+    if iwasm_tensor_size == wasmedge_tensor_size:
+        print(f"- openvino_road_segmentation_adas. PASS")
         return
 
-    print("- tflite_birds_v1_image. FAILED")
+    print(f"- openvino_road_segmentation_adas. FAILED")
     print("------------------------------------------------------------")
-    pprint(iwasm_output)
+    print(f"FILE:{iwasm_tensor_file}, SIZE:{iwasm_tensor_size}")
     print("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-    pprint(wasmedge_output)
+    print(f"FILE:{wasmedge_tensor_file}, SIZE:{wasmedge_tensor_size}")
     print("------------------------------------------------------------")
 
 
-def execute_wasmedge_wasinn_exmaples(iwasm_bin: str, wasmedge_bin: str):
+def execute_wasmedge_wasinn_examples(iwasm_bin: str, wasmedge_bin: str):
     assert Path.cwd().name == "wasmedge-wasinn-examples"
     assert shutil.which(iwasm_bin)
     assert shutil.which(wasmedge_bin)
 
-    tflite_birds_v1_image_dir = Path.cwd().joinpath("./tflite-birds_v1-image")
-    execute_tflite_birds_v1_image(iwasm_bin, wasmedge_bin, tflite_birds_v1_image_dir)
+    # TODO: keep commenting until https://github.com/bytecodealliance/wasm-micro-runtime/pull/3597 is merged
+    # tflite_birds_v1_image_dir = Path.cwd().joinpath("./tflite-birds_v1-image")
+    # execute_tflite_birds_v1_image(iwasm_bin, wasmedge_bin, tflite_birds_v1_image_dir)
+
+    openvino_mobile_image_dir = Path.cwd().joinpath("./openvino-mobilenet-image")
+    execute_openvino_mobilenet_image(iwasm_bin, wasmedge_bin, openvino_mobile_image_dir)
+
+    openvino_mobile_raw_dir = Path.cwd().joinpath("./openvino-mobilenet-raw")
+    execute_openvino_mobilenet_raw(iwasm_bin, wasmedge_bin, openvino_mobile_raw_dir)
+
+    openvino_road_segmentation_adas_dir = Path.cwd().joinpath(
+        "./openvino-road-segmentation-adas"
+    )
+    execute_openvino_road_segmentation_adas(
+        iwasm_bin, wasmedge_bin, openvino_road_segmentation_adas_dir
+    )
 
 
 if __name__ == "__main__":
-    execute_wasmedge_wasinn_exmaples("iwasm", "wasmedge")
+    execute_wasmedge_wasinn_examples("iwasm", "wasmedge")
