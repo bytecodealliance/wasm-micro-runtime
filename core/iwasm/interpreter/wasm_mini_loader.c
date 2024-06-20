@@ -684,7 +684,7 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
     read_leb_uint32(p, p_end, declare_init_size);
     if (declare_max_size_flag & 1) {
         read_leb_uint32(p, p_end, declare_max_size);
-        bh_assert(table->init_size <= table->max_size);
+        bh_assert(table->table_type.init_size <= table->table_type.max_size);
     }
 
     adjust_table_max_size(declare_init_size, declare_max_size_flag,
