@@ -712,7 +712,7 @@ wasm_runtime_get_wasi_exit_code(wasm_module_inst_t module_inst);
  * @return the function instance found, NULL if not found
  */
 WASM_RUNTIME_API_EXTERN wasm_function_inst_t
-wasm_runtime_lookup_function(wasm_module_inst_t const module_inst,
+wasm_runtime_lookup_function(const wasm_module_inst_t module_inst,
                              const char *name);
 
 /**
@@ -724,8 +724,8 @@ wasm_runtime_lookup_function(wasm_module_inst_t const module_inst,
  * @return the parameter count of the function instance
  */
 WASM_RUNTIME_API_EXTERN uint32_t
-wasm_func_get_param_count(wasm_function_inst_t const func_inst,
-                          wasm_module_inst_t const module_inst);
+wasm_func_get_param_count(const wasm_function_inst_t func_inst,
+                          const wasm_module_inst_t module_inst);
 
 /**
  * Get result count of the function instance
@@ -736,8 +736,8 @@ wasm_func_get_param_count(wasm_function_inst_t const func_inst,
  * @return the result count of the function instance
  */
 WASM_RUNTIME_API_EXTERN uint32_t
-wasm_func_get_result_count(wasm_function_inst_t const func_inst,
-                           wasm_module_inst_t const module_inst);
+wasm_func_get_result_count(const wasm_function_inst_t func_inst,
+                           const wasm_module_inst_t module_inst);
 
 /**
  * Get parameter types of the function instance
@@ -747,8 +747,8 @@ wasm_func_get_result_count(wasm_function_inst_t const func_inst,
  * @param param_types the parameter types returned
  */
 WASM_RUNTIME_API_EXTERN void
-wasm_func_get_param_types(wasm_function_inst_t const func_inst,
-                          wasm_module_inst_t const module_inst,
+wasm_func_get_param_types(const wasm_function_inst_t func_inst,
+                          const wasm_module_inst_t module_inst,
                           wasm_valkind_t *param_types);
 
 /**
@@ -759,8 +759,8 @@ wasm_func_get_param_types(wasm_function_inst_t const func_inst,
  * @param result_types the result types returned
  */
 WASM_RUNTIME_API_EXTERN void
-wasm_func_get_result_types(wasm_function_inst_t const func_inst,
-                           wasm_module_inst_t const module_inst,
+wasm_func_get_result_types(const wasm_function_inst_t func_inst,
+                           const wasm_module_inst_t module_inst,
                            wasm_valkind_t *result_types);
 
 /**
@@ -1314,7 +1314,7 @@ wasm_runtime_get_export_type(const wasm_module_t module, int32_t export_index,
  * @return the number of parameters for the function type
  */
 WASM_RUNTIME_API_EXTERN uint32_t
-wasm_func_type_get_param_count(wasm_func_type_t const func_type);
+wasm_func_type_get_param_count(const wasm_func_type_t func_type);
 
 /**
  * Get the kind of a parameter for a function type
@@ -1325,7 +1325,7 @@ wasm_func_type_get_param_count(wasm_func_type_t const func_type);
  * @return the kind of the parameter if successful, -1 otherwise
  */
 WASM_RUNTIME_API_EXTERN wasm_valkind_t
-wasm_func_type_get_param_valkind(wasm_func_type_t const func_type,
+wasm_func_type_get_param_valkind(const wasm_func_type_t func_type,
                                  uint32_t param_index);
 
 /**
@@ -1336,7 +1336,7 @@ wasm_func_type_get_param_valkind(wasm_func_type_t const func_type,
  * @return the number of results for the function type
  */
 WASM_RUNTIME_API_EXTERN uint32_t
-wasm_func_type_get_result_count(wasm_func_type_t const func_type);
+wasm_func_type_get_result_count(const wasm_func_type_t func_type);
 
 /**
  * Get the kind of a result for a function type
@@ -1347,7 +1347,7 @@ wasm_func_type_get_result_count(wasm_func_type_t const func_type);
  * @return the kind of the result if successful, -1 otherwise
  */
 WASM_RUNTIME_API_EXTERN wasm_valkind_t
-wasm_func_type_get_result_valkind(wasm_func_type_t const func_type,
+wasm_func_type_get_result_valkind(const wasm_func_type_t func_type,
                                   uint32_t result_index);
 
 /**
@@ -1817,7 +1817,7 @@ wasm_runtime_dump_pgo_prof_data_to_buf(wasm_module_inst_t module_inst,
  *         and name string) if found, NULL otherwise
  */
 WASM_RUNTIME_API_EXTERN const uint8_t *
-wasm_runtime_get_custom_section(wasm_module_t const module_comm,
+wasm_runtime_get_custom_section(const wasm_module_t module_comm,
                                 const char *name, uint32_t *len);
 
 /**
