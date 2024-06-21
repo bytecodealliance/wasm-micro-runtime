@@ -179,12 +179,19 @@ strcspn(const char *s, const char *reject)
 void *
 os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
 {
+    void *addr;
+
     if ((uint64)size >= UINT32_MAX)
         return NULL;
+
     if (exec_mem_alloc_func)
-        return exec_mem_alloc_func((uint32)size);
+        addr = exec_mem_alloc_func((uint32)size);
     else
-        return BH_MALLOC(size);
+        addr = BH_MALLOC(size);
+
+    if (addr)
+        memset(addr, 0, size);
+    return addr;
 }
 
 void *

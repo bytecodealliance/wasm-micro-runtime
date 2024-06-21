@@ -200,7 +200,12 @@ os_cond_wait(korp_cond *cond, korp_mutex *mutex)
 void *
 os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
 {
-    return rt_malloc(size);
+    void *addr;
+
+    if ((addr = rt_malloc(size)))
+        memset(addr, 0, size);
+
+    return addr;
 }
 
 void
