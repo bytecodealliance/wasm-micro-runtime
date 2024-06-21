@@ -181,6 +181,26 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             comp_ctx->comp_data->memories[0].init_page_count;
         uint64 mem_data_size = (uint64)num_bytes_per_page * init_page_count;
 
+        if (alignp != NULL) {
+            /*
+             * A note about max_align below:
+             * the assumption here is the base address of a linear memory
+             * has the natural alignment. for platforms using mmap, it can
+             * be even larger. for now, use a conservative value.
+             */
+            const int max_align = 4;
+            int shift = ffs((int)(unsigned int)mem_offset);
+            if (shift == 0) {
+                *alignp = max_align;
+            }
+            else {
+                unsigned int align = 1 << (shift - 1);
+                if (align > max_align) {
+                    align = max_align;
+                }
+                *alignp = align;
+            }
+        }
         if (mem_offset + bytes <= mem_data_size) {
             /* inside memory space */
             if (comp_ctx->pointer_size == sizeof(uint64))
@@ -203,30 +223,10 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                     goto fail;
                 }
             }
-            if (alignp != NULL) {
-                /*
-                 * A note about max_align below:
-                 * the assumption here is the base address of a linear memory
-                 * has the natural alignment. for platforms using mmap, it can
-                 * be even larger. for now, use a conservative value.
-                 */
-                const int max_align = 4;
-                int shift = ffs((int)(unsigned int)mem_offset);
-                if (shift == 0) {
-                    *alignp = max_align;
-                }
-                else {
-                    unsigned int align = 1 << (shift - 1);
-                    if (align > max_align) {
-                        align = max_align;
-                    }
-                    *alignp = align;
-                }
-            }
             return maddr;
         }
     }
-    if (alignp != NULL) {
+    else if (alignp != NULL) {
         *alignp = 1;
     }
 
