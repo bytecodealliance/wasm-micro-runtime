@@ -188,7 +188,7 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
              * has the natural alignment. for platforms using mmap, it can
              * be even larger. for now, use a conservative value.
              */
-            const int max_align = 4;
+            const int max_align = 8;
             int shift = ffs((int)(unsigned int)mem_offset);
             if (shift == 0) {
                 *alignp = max_align;
