@@ -1842,6 +1842,10 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_import_global_linked(const char *module_name,
                                      const char *global_name);
 
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_enlarge_memory(wasm_module_inst_t module_inst,
+                            uint32_t inc_page_count);
+
 typedef enum {
     INTERNAL_ERROR,
     MAX_SIZE_REACHED,
