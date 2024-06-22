@@ -883,6 +883,12 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
     }
 #endif /* end of WASM_MEM_ALLOC_WITH_USAGE */
 
+    /*
+     * AOT compiler assumes at least 8 byte alignment.
+     * see aot_check_memory_overflow.
+     */
+    bh_assert(((uintptr_t)memory->memory_data & 0x7) == 0);
+
     memory->num_bytes_per_page = num_bytes_per_page;
     memory->cur_page_count = total_page_count;
     memory->max_page_count = max_page_count;
@@ -1031,6 +1037,12 @@ wasm_allocate_linear_memory(uint8 **data, bool is_shared_memory,
         }
 #endif
     }
+
+    /*
+     * AOT compiler assumes at least 8 byte alignment.
+     * see aot_check_memory_overflow.
+     */
+    bh_assert(((uintptr_t)*data & 0x7) == 0);
 
     return BHT_OK;
 }
