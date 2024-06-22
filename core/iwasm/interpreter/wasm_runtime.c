@@ -1702,6 +1702,9 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
     WASMModule *module = module_inst->module;
     uint32 i;
 
+    if (wasm_runtime_is_built_in_module(module->name))
+        return true;
+
     for (i = 0; i < module->import_function_count; i++) {
         WASMFunctionImport *func =
             &((module->import_functions + i)->u.function);
