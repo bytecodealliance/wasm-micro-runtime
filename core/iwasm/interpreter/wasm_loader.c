@@ -2883,7 +2883,6 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
     }
 #endif
 
-#if WASM_ENABLE_SPEC_TEST != 0
     /* (memory (export "memory") 1 2) */
     if (!strcmp("spectest", sub_module_name)) {
         uint32 spectest_memory_init_page = 1;
@@ -2905,9 +2904,9 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
         declare_init_page_count = spectest_memory_init_page;
         declare_max_page_count = spectest_memory_max_page;
     }
-#endif
 #if WASM_ENABLE_LIB_WASI_THREADS != 0
-    if (!strcmp("foo", sub_module_name)) {
+    /* a case in wasi-testsuite which imports ("foo" "bar") */
+    else if (!strcmp("foo", sub_module_name)) {
         uint32 spectest_memory_init_page = 1;
         uint32 spectest_memory_max_page = 1;
 
