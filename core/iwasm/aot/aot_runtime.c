@@ -2883,10 +2883,24 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
                                        "create singleton exec_env failed");
             goto fail;
         }
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
+        struct WASMInterpFrame *prev_frame = exec_env->cur_frame;
+
+        if (!aot_alloc_frame(exec_env, func_idx)) {
+            goto fail;
+        }
 #endif
+#endif /* WASM_ENABLE_MULTI_MODULE != 0 */
         ret =
             wasm_runtime_invoke_native(exec_env, func_ptr, func_type, signature,
                                        attachment, argv, argc, argv);
+#if WASM_ENABLE_MULTI_MODULE != 0 && WASM_ENABLE_AOT_STACK_FRAME != 0
+        /* Free all frames allocated, note that some frames
+           may be allocated in AOT code and haven't been
+           freed if exception occurred */
+        while (exec_env->cur_frame != prev_frame)
+            aot_free_frame(exec_env);
+#endif
     }
     else {
         signature = import_func->signature;
