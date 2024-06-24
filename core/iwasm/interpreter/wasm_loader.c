@@ -2533,7 +2533,6 @@ load_function_import(const uint8 **p_buf, const uint8 *buf_end,
     WASMFunction *linked_func = NULL;
 #if WASM_ENABLE_MULTI_MODULE != 0
     WASMModule *sub_module = NULL;
-    bool is_built_in_module = false;
 #endif
     const char *linked_signature = NULL;
     void *linked_attachment = NULL;
@@ -2569,16 +2568,17 @@ load_function_import(const uint8 **p_buf, const uint8 *buf_end,
     }
 #if WASM_ENABLE_MULTI_MODULE != 0
     else {
-        if (!(is_built_in_module =
-                  wasm_runtime_is_built_in_module(sub_module_name))) {
+        if (!wasm_runtime_is_built_in_module(sub_module_name)) {
             sub_module = (WASMModule *)wasm_runtime_load_depended_module(
                 (WASMModuleCommon *)parent_module, sub_module_name, error_buf,
                 error_buf_size);
+            if (!sub_module) {
+                return false;
+            }
         }
-        if (is_built_in_module || sub_module)
-            linked_func = wasm_loader_resolve_function(
-                sub_module_name, function_name, declare_func_type, error_buf,
-                error_buf_size);
+        linked_func = wasm_loader_resolve_function(
+            sub_module_name, function_name, declare_func_type, error_buf,
+            error_buf_size);
     }
 #endif
 
@@ -2691,20 +2691,24 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
         sub_module = (WASMModule *)wasm_runtime_load_depended_module(
             (WASMModuleCommon *)parent_module, sub_module_name, error_buf,
             error_buf_size);
-        if (sub_module) {
-            linked_table = wasm_loader_resolve_table(
-                sub_module_name, table_name, declare_init_size,
-                declare_max_size, error_buf, error_buf_size);
-            if (linked_table) {
-                /* reset with linked table limit */
-                declare_elem_type = linked_table->table_type.elem_type;
-                declare_init_size = linked_table->table_type.init_size;
-                declare_max_size = linked_table->table_type.max_size;
-                declare_max_size_flag = linked_table->table_type.flags;
-                table->import_table_linked = linked_table;
-                table->import_module = sub_module;
-            }
+        if (!sub_module) {
+            return false;
         }
+
+        linked_table = wasm_loader_resolve_table(
+            sub_module_name, table_name, declare_init_size, declare_max_size,
+            error_buf, error_buf_size);
+        if (!linked_table) {
+            return false;
+        }
+
+        /* reset with linked table limit */
+        declare_elem_type = linked_table->table_type.elem_type;
+        declare_init_size = linked_table->table_type.init_size;
+        declare_max_size = linked_table->table_type.max_size;
+        declare_max_size_flag = linked_table->table_type.flags;
+        table->import_table_linked = linked_table;
+        table->import_module = sub_module;
     }
 #endif /* WASM_ENABLE_MULTI_MODULE != 0 */
 
@@ -2866,19 +2870,31 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
         sub_module = (WASMModule *)wasm_runtime_load_depended_module(
             (WASMModuleCommon *)parent_module, sub_module_name, error_buf,
             error_buf_size);
-        if (sub_module) {
+        if (!sub_module) {
+#if WASM_ENABLE_LIB_WASI_THREADS != 0
+            /* Avoid memory import failure when wasi-threads is enabled
+               and the memory is shared */
+            if (!(mem_flag & SHARED_MEMORY_FLAG))
+                return false;
+#else
+            return false;
+#endif /* WASM_ENABLE_LIB_WASI_THREADS */
+        }
+        else {
             linked_memory = wasm_loader_resolve_memory(
                 sub_module_name, memory_name, declare_init_page_count,
                 declare_max_page_count, error_buf, error_buf_size);
-            if (linked_memory) {
-                /**
-                 * reset with linked memory limit
-                 */
-                memory->import_module = sub_module;
-                memory->import_memory_linked = linked_memory;
-                declare_init_page_count = linked_memory->init_page_count;
-                declare_max_page_count = linked_memory->max_page_count;
+            if (!linked_memory) {
+                return false;
             }
+
+            /**
+             * reset with linked memory limit
+             */
+            memory->import_module = sub_module;
+            memory->import_memory_linked = linked_memory;
+            declare_init_page_count = linked_memory->init_page_count;
+            declare_max_page_count = linked_memory->max_page_count;
         }
     }
 #endif
@@ -2967,19 +2983,20 @@ load_tag_import(const uint8 **p_buf, const uint8 *buf_end,
         sub_module = (WASMModule *)wasm_runtime_load_depended_module(
             (WASMModuleCommon *)parent_module, sub_module_name, error_buf,
             error_buf_size);
-        if (sub_module) {
-            /* wasm_loader_resolve_tag checks, that the imported tag
-             * and the declared tag have the same type
-             */
-            uint32 linked_tag_index = 0;
-            WASMTag *linked_tag = wasm_loader_resolve_tag(
-                sub_module_name, tag_name, declare_tag_type,
-                &linked_tag_index /* out */, error_buf, error_buf_size);
-            if (linked_tag) {
-                tag->import_module = sub_module;
-                tag->import_tag_linked = linked_tag;
-                tag->import_tag_index_linked = linked_tag_index;
-            }
+        if (!sub_module) {
+            return false;
+        }
+        /* wasm_loader_resolve_tag checks, that the imported tag
+         * and the declared tag have the same type
+         */
+        uint32 linked_tag_index = 0;
+        WASMTag *linked_tag = wasm_loader_resolve_tag(
+            sub_module_name, tag_name, declare_tag_type,
+            &linked_tag_index /* out */, error_buf, error_buf_size);
+        if (linked_tag) {
+            tag->import_module = sub_module;
+            tag->import_tag_linked = linked_tag;
+            tag->import_tag_index_linked = linked_tag_index;
         }
     }
 #endif
@@ -3078,16 +3095,18 @@ load_global_import(const uint8 **p_buf, const uint8 *buf_end,
         sub_module = (WASMModule *)wasm_runtime_load_depended_module(
             (WASMModuleCommon *)parent_module, sub_module_name, error_buf,
             error_buf_size);
-        if (sub_module) {
-            /* check sub modules */
-            linked_global = wasm_loader_resolve_global(
-                sub_module_name, global_name, declare_type, declare_mutable,
-                error_buf, error_buf_size);
-            if (linked_global) {
-                global->import_module = sub_module;
-                global->import_global_linked = linked_global;
-                global->is_linked = true;
-            }
+        if (!sub_module) {
+            return false;
+        }
+
+        /* check sub modules */
+        linked_global = wasm_loader_resolve_global(
+            sub_module_name, global_name, declare_type, declare_mutable,
+            error_buf, error_buf_size);
+        if (linked_global) {
+            global->import_module = sub_module;
+            global->import_global_linked = linked_global;
+            global->is_linked = true;
         }
     }
 #endif

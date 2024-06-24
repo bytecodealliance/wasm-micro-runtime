@@ -1702,9 +1702,6 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
     WASMModule *module = module_inst->module;
     uint32 i;
 
-    if (wasm_runtime_is_built_in_module(module->name))
-        return true;
-
     for (i = 0; i < module->import_function_count; i++) {
         WASMFunctionImport *func =
             &((module->import_functions + i)->u.function);
@@ -1742,40 +1739,6 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
 #endif /* WASM_ENABLE_SPEC_TEST != 0 */
         }
     }
-
-#if WASM_ENABLE_WAMR_COMPILER == 0 && WASM_ENABLE_MULTI_MODULE != 0
-    for (i = 0; i < module->import_table_count; i++) {
-        WASMTableImport *table = &((module->import_tables + i)->u.table);
-        if (!table->import_table_linked) {
-            set_error_buf_v(error_buf, error_buf_size,
-                            "failed to link import table (%s, %s)",
-                            table->module_name, table->field_name);
-            return false;
-        }
-    }
-
-    for (i = 0; i < module->import_memory_count; i++) {
-        WASMMemoryImport *memory = &((module->import_memories + i)->u.memory);
-        if (!memory->import_memory_linked) {
-            set_error_buf_v(error_buf, error_buf_size,
-                            "failed to link import memory (%s, %s)",
-                            memory->module_name, memory->field_name);
-            return false;
-        }
-    }
-
-#if WASM_ENABLE_TAGS != 0
-    for (i = 0; i < module->import_tag_count; i++) {
-        WASMTagImport *tag = &((module->import_tags + i)->u.tag);
-        if (!tag->import_tag_linked) {
-            set_error_buf_v(error_buf, error_buf_size,
-                            "failed to link import tag (%s, %s)",
-                            tag->module_name, tag->field_name);
-            return false;
-        }
-    }
-#endif /* WASM_ENABLE_TAGS != 0 */
-#endif /* WASM_ENABLE_WAMR_COMPILER == 0 && WASM_ENABLE_MULTI_MODULE != 0 */
 
     return true;
 }
