@@ -660,15 +660,18 @@ load_native_symbol_section(const uint8 *buf, const uint8 *buf_end,
     read_uint32(p, p_end, cnt);
 
     if (cnt > 0) {
-        module->native_symbol_list = wasm_runtime_malloc(cnt * sizeof(void *));
+        uint64 list_size = cnt * (uint64)sizeof(void *);
+        module->native_symbol_list =
+            loader_malloc(list_size, error_buf, error_buf_size);
         if (module->native_symbol_list == NULL) {
-            set_error_buf(error_buf, error_buf_size,
-                          "malloc native symbol list failed");
             goto fail;
         }
 
         for (i = cnt - 1; i >= 0; i--) {
             read_string(p, p_end, symbol);
+            if (!strlen(symbol))
+                continue;
+
             if (!strncmp(symbol, "f32#", 4) || !strncmp(symbol, "i32#", 4)) {
                 uint32 u32;
                 /* Resolve the raw int bits of f32 const */
