@@ -27,7 +27,7 @@ For some historical reasons, there are two sets of functions in the header file.
 
 There is a big difference between the two sets of functions, `tensor_type`.
 
-``` c
+```c
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
 typedef enum { fp16 = 0, fp32, fp64, bf16, u8, i32, i64 } tensor_type;
 #else
@@ -147,39 +147,35 @@ Supported:
 
 ## Smoke test
 
-Use [classification-example](https://github.com/bytecodealliance/wasi-nn/tree/main/rust/examples/classification-example) as a smoke test case to make sure the wasi-nn support in WAMR is working properly.
+### Testing with WasmEdge-WASINN Examples
 
-> [!Important]
-> It requires openvino.
+To ensure everything is set up correctly, use the examples from [WasmEdge-WASINN-examples](https://github.com/second-state/WasmEdge-WASINN-examples/tree/master). These examples help verify that WASI-NN support in WAMR is functioning as expected.
 
-### Prepare the model and the wasm
+> Note: The repository contains two types of examples. Some use the [standard wasi-nn](https://github.com/WebAssembly/wasi-nn), while others use [WasmEdge's version of wasi-nn](https://github.com/second-state/wasmedge-wasi-nn), which is enhanced to meet specific customer needs.
 
-```bash
-$ pwd
-/workspaces/wasm-micro-runtime/core/iwasm/libraries/wasi-nn/test
+The examples test the following machine learning backends:
 
-$ docker build -t wasi-nn-example:v1.0 -f Dockerfile.wasi-nn-example .
-```
+- OpenVINO
+- PyTorch
+- TensorFlow Lite
 
-There are model files(\*mobilenet\**) and wasm files(*wasi-nn-example.wasm*) in the directory */workspaces/wasi-nn/rust/examples/classification-example/build\* in the image of wasi-nn-example:v1.0.
+Due to the different requirements of each backend, we'll use a Docker container for a hassle-free testing environment.
 
-### build iwasm and test
-
-_TODO: May need alternative steps to build the iwasm and test in the container of wasi-nn-example:v1.0_
+#### Prepare the execution environment
 
 ```bash
 $ pwd
-/workspaces/wasm-micro-runtime
+/workspaces/wasm-micro-runtime/
 
-$ docker run --rm -it -v $(pwd):/workspaces/wasm-micro-runtime wasi-nn-example:v1.0 /bin/bash
+$ docker build -t wasi-nn-smoke:v1.0 -f Dockerfile.wasi-nn-smoke .
 ```
 
-> [!Caution]
-> The following steps are executed in the container of wasi-nn-example:v1.0.
+#### Execute
 
 ```bash
-$ cd /workspaces/wasm-micro-runtime/product-mini/platforms/linux
-$ cmake -S . -B build -DWAMR_BUILD_WASI_NN=1 -DWAMR_BUILD_WASI_EPHEMERAL_NN=1
-$ cmake --build build
-$ ./build/iwasm -v=5 --map-dir=/workspaces/wasi-nn/rust/examples/classification-example/build/::fixture /workspaces/wasi-nn/rust/examples/classification-example/build/wasi-nn-example.wasm
+$ docker run --rm wasi-nn-smoke:v1.0
 ```
+
+### Testing with bytecodealliance wasi-nn
+
+For another example, check out [classification-example](https://github.com/bytecodealliance/wasi-nn/tree/main/rust/examples/classification-example), which focuses on OpenVINO. You can run it using the same Docker container mentioned above.

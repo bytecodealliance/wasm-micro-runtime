@@ -1,7 +1,7 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-FROM mcr.microsoft.com/devcontainers/rust:1-1-bullseye
+FROM mcr.microsoft.com/devcontainers/rust:1-1-bullseye@sha256:ddc1ee022d327f024c07484c9333db3fbbfd504bc096cdb66635653a2bebb33e
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asian/Shanghai
@@ -9,10 +9,6 @@ ENV TZ=Asian/Shanghai
 # hadolint ignore=DL3009
 RUN apt-get update \
   && apt-get upgrade -y
-
-#
-# Rust targets
-RUN rustup target add wasm32-wasi wasm32-unknown-unknown
 
 #
 # Openvino
@@ -42,16 +38,43 @@ RUN tar -xf wasmtime-v21.0.0-x86_64-linux.tar.xz \
 
 #
 # wasi-nn
+# compilation requirements
+RUN rustup target add wasm32-wasi wasm32-unknown-unknown
 WORKDIR /workspaces/wasi-nn
 RUN git clone --depth 1 https://github.com/bytecodealliance/wasi-nn.git .
 # hadolint ignore=DL3059
-RUN ./build.sh rust
-
+#RUN ./build.sh rust
 # There are model files(mobilenet*) and wasm files(wasi-nn-example.wasm) in the directory,
 # /workspaces/wasi-nn/rust/examples/classification-example/build
 
-RUN apt-get autoremove -y \
-  && apt-get clean -y \
-  && rm -rf /tmp/*
+#
+# wasmedge
+WORKDIR /tmp
+RUN wget -q https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh \
+  && chmod a+x ./install.sh
+RUN ./install.sh -p /opt/wasmedge --plugins wasi_nn-tensorflowlite
+ENV PATH=/opt/wasmedge/bin:${PATH}
+ENV WASMEDGE_LIB_DIR=/opt/wasmedge/lib
 
-WORKDIR /workspaces
+#
+# wasmedge-wasinn-examples
+WORKDIR /workspaces/wasmedge-wasinn-examples
+RUN git clone --depth 1 https://github.com/second-state/WasmEdge-WASINN-examples.git .
+
+#
+# iwasm. build from source
+WORKDIR /workspaces/wamr
+COPY . .
+
+WORKDIR /workspaces/wamr/product-mini/platforms/linux
+RUN cmake -S . -B build -DWAMR_BUILD_WASI_NN=1 -DWAMR_BUILD_WASI_EPHEMERAL_NN=1 \
+  && cmake --build build
+RUN ln -sf "$(realpath ./build/iwasm)" /usr/local/bin/iwasm
+
+#
+# add smoke test script
+COPY core/iwasm/libraries/wasi-nn/test/run_smoke_test.py /
+
+#
+WORKDIR /workspaces/wasmedge-wasinn-examples
+CMD ["python3", "/run_smoke_test.py"]
