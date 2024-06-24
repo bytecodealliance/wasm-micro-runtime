@@ -107,7 +107,9 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMBasicBlockRef check_succ;
     AOTValue *aot_value_top;
     uint32 local_idx_of_aot_value = 0;
+    uint64 const_value;
     bool is_target_64bit, is_local_of_aot_value = false;
+    bool is_const = false;
 #if WASM_ENABLE_SHARED_MEMORY != 0
     bool is_shared_memory =
         comp_ctx->comp_data->memories[0].flags & SHARED_MEMORY_FLAG;
@@ -162,7 +164,9 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         /* aot_value_top is freed in the following POP_I32(addr),
            so save its fields here for further use */
         is_local_of_aot_value = aot_value_top->is_local;
+        is_const = aot_value_top->is_const;
         local_idx_of_aot_value = aot_value_top->local_idx;
+        const_value = aot_value_top->const_value;
     }
 
     POP_MEM_OFFSET(addr);
@@ -172,9 +176,15 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
      * have been thrown when converting float to integer before
      */
     /* return address directly if constant offset and inside memory space */
-    if (LLVMIsEfficientConstInt(addr)) {
-        uint64 mem_offset =
-            (uint64)LLVMConstIntGetZExtValue(addr) + (uint64)offset;
+    if (LLVMIsEfficientConstInt(addr) || is_const) {
+        uint64 value;
+        if (LLVMIsEfficientConstInt(addr)) {
+            value = (uint64)LLVMConstIntGetZExtValue(addr);
+        }
+        else {
+            value = const_value;
+        }
+        uint64 mem_offset = value + (uint64)offset;
         uint32 num_bytes_per_page =
             comp_ctx->comp_data->memories[0].num_bytes_per_page;
         uint32 init_page_count =

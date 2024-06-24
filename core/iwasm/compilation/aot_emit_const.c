@@ -28,6 +28,7 @@ aot_compile_op_i32_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     PUSH_I32(value);
+    SET_CONST((uint64)(uint32)i32_const);
     return true;
 fail:
     return false;
@@ -55,6 +56,7 @@ aot_compile_op_i64_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     PUSH_I64(value);
+    SET_CONST((uint64)i64_const);
     return true;
 fail:
     return false;
