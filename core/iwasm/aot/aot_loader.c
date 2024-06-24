@@ -2170,6 +2170,9 @@ load_globals(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         read_uint8(buf, buf_end, globals[i].type.val_type);
         read_uint8(buf, buf_end, globals[i].type.is_mutable);
 
+        if (!is_valid_value_type(globals[i].type.val_type))
+            return false;
+
         buf = align_ptr(buf, 4);
 
         if (!load_init_expr(&buf, buf_end, module, &globals[i].init_expr,
