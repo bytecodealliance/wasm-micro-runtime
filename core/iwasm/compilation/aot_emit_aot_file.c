@@ -3038,14 +3038,17 @@ typedef struct elf64_rela {
     elf64_sxword r_addend;
 } elf64_rela;
 
-#define SET_TARGET_INFO(f, v, type, little)     \
-    do {                                        \
-        type tmp = elf_header->v;               \
-        if ((little && !is_little_endian())     \
-            || (!little && is_little_endian())) \
-            exchange_##type((uint8 *)&tmp);     \
-        obj_data->target_info.f = tmp;          \
+#define SET_TARGET_INFO_VALUE(f, val, type, little) \
+    do {                                            \
+        type tmp = val;                             \
+        if ((little && !is_little_endian())         \
+            || (!little && is_little_endian()))     \
+            exchange_##type((uint8 *)&tmp);         \
+        obj_data->target_info.f = tmp;              \
     } while (0)
+
+#define SET_TARGET_INFO_FIELD(f, v, type, little) \
+    SET_TARGET_INFO_VALUE(f, elf_header->v, type, little)
 
 static bool
 aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
@@ -3096,6 +3099,7 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
              || bin_type == LLVMBinaryTypeELF32B) {
         struct elf32_ehdr *elf_header;
         bool is_little_bin = bin_type == LLVMBinaryTypeELF32L;
+        uint16 e_type;
 
         if (!elf_buf || elf_size < sizeof(struct elf32_ehdr)) {
             aot_set_last_error("invalid elf32 buffer.");
@@ -3103,20 +3107,22 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
         }
 
         elf_header = (struct elf32_ehdr *)elf_buf;
+        e_type = elf_header->e_type;
 
         /* Emit eXecute In Place file type while in indirect mode */
         if (comp_ctx->is_indirect_mode)
-            elf_header->e_type = E_TYPE_XIP;
+            e_type = E_TYPE_XIP;
 
-        SET_TARGET_INFO(e_type, e_type, uint16, is_little_bin);
-        SET_TARGET_INFO(e_machine, e_machine, uint16, is_little_bin);
-        SET_TARGET_INFO(e_version, e_version, uint32, is_little_bin);
-        SET_TARGET_INFO(e_flags, e_flags, uint32, is_little_bin);
+        SET_TARGET_INFO_VALUE(e_type, e_type, uint16, is_little_bin);
+        SET_TARGET_INFO_FIELD(e_machine, e_machine, uint16, is_little_bin);
+        SET_TARGET_INFO_FIELD(e_version, e_version, uint32, is_little_bin);
+        SET_TARGET_INFO_FIELD(e_flags, e_flags, uint32, is_little_bin);
     }
     else if (bin_type == LLVMBinaryTypeELF64L
              || bin_type == LLVMBinaryTypeELF64B) {
         struct elf64_ehdr *elf_header;
         bool is_little_bin = bin_type == LLVMBinaryTypeELF64L;
+        uint16 e_type;
 
         if (!elf_buf || elf_size < sizeof(struct elf64_ehdr)) {
             aot_set_last_error("invalid elf64 buffer.");
@@ -3124,15 +3130,16 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
         }
 
         elf_header = (struct elf64_ehdr *)elf_buf;
+        e_type = elf_header->e_type;
 
         /* Emit eXecute In Place file type while in indirect mode */
         if (comp_ctx->is_indirect_mode)
-            elf_header->e_type = E_TYPE_XIP;
+            e_type = E_TYPE_XIP;
 
-        SET_TARGET_INFO(e_type, e_type, uint16, is_little_bin);
-        SET_TARGET_INFO(e_machine, e_machine, uint16, is_little_bin);
-        SET_TARGET_INFO(e_version, e_version, uint32, is_little_bin);
-        SET_TARGET_INFO(e_flags, e_flags, uint32, is_little_bin);
+        SET_TARGET_INFO_VALUE(e_type, e_type, uint16, is_little_bin);
+        SET_TARGET_INFO_FIELD(e_machine, e_machine, uint16, is_little_bin);
+        SET_TARGET_INFO_FIELD(e_version, e_version, uint32, is_little_bin);
+        SET_TARGET_INFO_FIELD(e_flags, e_flags, uint32, is_little_bin);
     }
     else if (bin_type == LLVMBinaryTypeMachO32L
              || bin_type == LLVMBinaryTypeMachO32B) {
