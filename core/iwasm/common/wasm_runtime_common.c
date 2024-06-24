@@ -1268,7 +1268,7 @@ wasm_runtime_is_built_in_module(const char *module_name)
 #if WASM_ENABLE_SPEC_TEST != 0
             || !strcmp("spectest", module_name)
 #endif
-#if WASM_ENABLE_LIB_WASI_THREADS != 0
+#if WASM_ENABLE_WASI_TEST != 0
             || !strcmp("foo", module_name)
 #endif
             || !strcmp("", module_name));

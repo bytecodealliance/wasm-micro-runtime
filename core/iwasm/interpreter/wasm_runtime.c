@@ -1718,8 +1718,7 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
     for (i = 0; i < module->import_global_count; i++) {
         WASMGlobalImport *global = &((module->import_globals + i)->u.global);
 
-        if (!global->is_linked
-            && !wasm_runtime_is_built_in_module(global->module_name)) {
+        if (!global->is_linked) {
 #if WASM_ENABLE_SPEC_TEST != 0
             set_error_buf(error_buf, error_buf_size,
                           "unknown import or incompatible import type");
