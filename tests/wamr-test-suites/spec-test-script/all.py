@@ -14,7 +14,7 @@ import time
 
 """
 The script itself has to be put under the same directory with the "spec".
-To run a single non-GC and non-memory64 case with interpreter mode:
+To run a single non-GC case with interpreter mode:
   cd workspace
   python3 runtest.py --wast2wasm wabt/bin/wat2wasm --interpreter iwasm \
     spec/test/core/xxx.wast
@@ -22,7 +22,7 @@ To run a single non-GC case with aot mode:
   cd workspace
   python3 runtest.py --aot --wast2wasm wabt/bin/wat2wasm --interpreter iwasm \
     --aot-compiler wamrc spec/test/core/xxx.wast
-To run a single GC case or single memory64 case:
+To run a single GC case case:
   cd workspace
   python3 runtest.py --wast2wasm spec/interpreter/wasm --interpreter iwasm \
     --aot-compiler wamrc --gc spec/test/core/xxx.wast
@@ -78,6 +78,7 @@ def ignore_the_case(
     simd_flag=False,
     gc_flag=False,
     memory64_flag=False,
+    multi_memory_flag=False,
     xip_flag=False,
     eh_flag=False,
     qemu_flag=False,
@@ -159,6 +160,7 @@ def test_case(
     verbose_flag=True,
     gc_flag=False,
     memory64_flag=False,
+    multi_memory_flag=False,
     qemu_flag=False,
     qemu_firmware="",
     log="",
@@ -216,6 +218,9 @@ def test_case(
 
     if memory64_flag:
         CMD.append("--memory64")
+
+    if multi_memory_flag:
+        CMD.append("--multi-memory")
 
     if log != "":
         CMD.append("--log-dir")
@@ -284,6 +289,7 @@ def test_suite(
     verbose_flag=True,
     gc_flag=False,
     memory64_flag=False,
+    multi_memory_flag=False,
     parl_flag=False,
     qemu_flag=False,
     qemu_firmware="",
@@ -309,6 +315,10 @@ def test_suite(
         eh_case_list_include = [test for test in eh_case_list if test.stem in ["throw", "tag", "try_catch", "rethrow", "try_delegate"]]
         case_list.extend(eh_case_list_include)
 
+    if multi_memory_flag:
+        multi_memory_list = sorted(suite_path.glob("multi-memory/*.wast"))
+        case_list.extend(multi_memory_list)
+
     # ignore based on command line options
     filtered_case_list = []
     for case_path in case_list:
@@ -323,6 +333,7 @@ def test_suite(
             simd_flag,
             gc_flag,
             memory64_flag,
+            multi_memory_flag,
             xip_flag,
             eh_flag,
             qemu_flag,
@@ -358,6 +369,7 @@ def test_suite(
                         verbose_flag,
                         gc_flag,
                         memory64_flag,
+                        multi_memory_flag,
                         qemu_flag,
                         qemu_firmware,
                         log,
@@ -399,6 +411,7 @@ def test_suite(
                     verbose_flag,
                     gc_flag,
                     memory64_flag,
+                    multi_memory_flag,
                     qemu_flag,
                     qemu_firmware,
                     log,
@@ -532,6 +545,13 @@ def main():
         help="Running with memory64 feature",
     )
     parser.add_argument(
+        "--multi-memory",
+        action="store_true",
+        default=False,
+        dest="multi_memory_flag",
+        help="Running with multi-memory feature",
+    )
+    parser.add_argument(
         "cases",
         metavar="path_to__case",
         type=str,
@@ -574,6 +594,7 @@ def main():
             options.verbose_flag,
             options.gc_flag,
             options.memory64_flag,
+            options.multi_memory_flag,
             options.parl_flag,
             options.qemu_flag,
             options.qemu_firmware,
@@ -601,6 +622,7 @@ def main():
                     options.verbose_flag,
                     options.gc_flag,
                     options.memory64_flag,
+                    options.multi_memory_flag,
                     options.qemu_flag,
                     options.qemu_firmware,
                     options.log,

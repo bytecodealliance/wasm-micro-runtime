@@ -357,7 +357,7 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     }
 #endif
 
-    LOG_VERBOSE("Memory instantiate success.");
+    LOG_VERBOSE("Default memory instantiate success.");
     return memory;
 
 fail2:
@@ -369,6 +369,89 @@ fail1:
 
     return NULL;
 }
+
+/* Only default memory have host managed heap */
+#define default_memory_instantiate memory_instantiate
+#if WASM_ENABLE_MULTI_MEMORY != 0
+static WASMMemoryInstance *
+nondefault_memory_instantiate(WASMModuleInstance *module_inst,
+                              WASMModuleInstance *parent,
+                              WASMMemoryInstance *memory, uint32 memory_idx,
+                              uint32 num_bytes_per_page, uint32 init_page_count,
+                              uint32 max_page_count, uint32 flags,
+                              char *error_buf, uint32 error_buf_size)
+{
+    uint64 memory_data_size, max_memory_data_size;
+
+    bool is_shared_memory = false;
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    is_shared_memory = flags & SHARED_MEMORY_FLAG ? true : false;
+
+    /* shared memory */
+    if (is_shared_memory && parent != NULL) {
+        bh_assert(parent->memory_count > memory_idx);
+        memory = parent->memories[memory_idx];
+        shared_memory_inc_reference(memory);
+        return memory;
+    }
+#else
+    (void)parent;
+    (void)memory_idx;
+    (void)flags;
+#endif /* end of WASM_ENABLE_SHARED_MEMORY */
+
+#if WASM_ENABLE_MEMORY64 != 0
+    if (flags & MEMORY64_FLAG) {
+        memory->is_memory64 = 1;
+    }
+#endif
+
+    LOG_VERBOSE("Memory instantiate:");
+    LOG_VERBOSE("  page bytes: %u, init pages: %u, max pages: %u",
+                num_bytes_per_page, init_page_count, max_page_count);
+
+    max_memory_data_size = (uint64)num_bytes_per_page * max_page_count;
+    bh_assert(max_memory_data_size
+              <= GET_MAX_LINEAR_MEMORY_SIZE(memory->is_memory64));
+    (void)max_memory_data_size;
+
+    bh_assert(memory != NULL);
+
+    if (wasm_allocate_linear_memory(&memory->memory_data, is_shared_memory,
+                                    memory->is_memory64, num_bytes_per_page,
+                                    init_page_count, max_page_count,
+                                    &memory_data_size)
+        != BHT_OK) {
+        set_error_buf(error_buf, error_buf_size,
+                      "allocate linear memory failed");
+        return NULL;
+    }
+
+    memory->module_type = Wasm_Module_Bytecode;
+    memory->num_bytes_per_page = num_bytes_per_page;
+    memory->cur_page_count = init_page_count;
+    memory->max_page_count = max_page_count;
+    memory->memory_data_size = memory_data_size;
+
+    memory->heap_data = NULL;
+    memory->heap_data_end = NULL;
+    memory->memory_data_end = NULL;
+
+    if (memory_data_size > 0) {
+        wasm_runtime_set_mem_bound_check_bytes(memory, memory_data_size);
+    }
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (is_shared_memory) {
+        memory->is_shared_memory = 1;
+        memory->ref_count = 1;
+    }
+#endif
+
+    LOG_VERBOSE("memory instantiate success.");
+    return memory;
+}
+#endif
 
 /**
  * Instantiate memories in a module.
@@ -426,12 +509,29 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         else
 #endif
         {
-            if (!(memories[mem_index] = memory_instantiate(
-                      module_inst, parent, memory, mem_index,
-                      num_bytes_per_page, init_page_count, max_page_count,
-                      actual_heap_size, flags, error_buf, error_buf_size))) {
-                memories_deinstantiate(module_inst, memories, memory_count);
-                return NULL;
+#if WASM_ENABLE_MULTI_MEMORY != 0
+            /* Current assumption is if there doesn't exist a non-import memory,
+             * the first non-import memory would be default memory */
+            if (module->memory_count != 0 && mem_index != 0) {
+                if (!(memories[mem_index] = nondefault_memory_instantiate(
+                          module_inst, parent, memory, mem_index,
+                          num_bytes_per_page, init_page_count, max_page_count,
+                          flags, error_buf, error_buf_size))) {
+                    memories_deinstantiate(module_inst, memories, memory_count);
+                    return NULL;
+                }
+            }
+            else
+#endif
+            {
+                if (!(memories[mem_index] = default_memory_instantiate(
+                          module_inst, parent, memory, mem_index,
+                          num_bytes_per_page, init_page_count, max_page_count,
+                          actual_heap_size, flags, error_buf,
+                          error_buf_size))) {
+                    memories_deinstantiate(module_inst, memories, memory_count);
+                    return NULL;
+                }
             }
             mem_index++;
         }
@@ -442,14 +542,31 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         uint32 max_page_count = wasm_runtime_get_max_mem(
             max_memory_pages, module->memories[i].init_page_count,
             module->memories[i].max_page_count);
-        if (!(memories[mem_index] = memory_instantiate(
-                  module_inst, parent, memory, mem_index,
-                  module->memories[i].num_bytes_per_page,
-                  module->memories[i].init_page_count, max_page_count,
-                  heap_size, module->memories[i].flags, error_buf,
-                  error_buf_size))) {
-            memories_deinstantiate(module_inst, memories, memory_count);
-            return NULL;
+
+#if WASM_ENABLE_MULTI_MEMORY != 0
+        /* the first non import memory would be default memory */
+        if (mem_index != module->import_count) {
+            if (!(memories[mem_index] = nondefault_memory_instantiate(
+                      module_inst, parent, memory, mem_index,
+                      module->memories[i].num_bytes_per_page,
+                      module->memories[i].init_page_count, max_page_count,
+                      module->memories[i].flags, error_buf, error_buf_size))) {
+                memories_deinstantiate(module_inst, memories, memory_count);
+                return NULL;
+            }
+        }
+        else
+#endif
+        {
+            if (!(memories[mem_index] = default_memory_instantiate(
+                      module_inst, parent, memory, mem_index,
+                      module->memories[i].num_bytes_per_page,
+                      module->memories[i].init_page_count, max_page_count,
+                      heap_size, module->memories[i].flags, error_buf,
+                      error_buf_size))) {
+                memories_deinstantiate(module_inst, memories, memory_count);
+                return NULL;
+            }
         }
         mem_index++;
     }
@@ -1351,7 +1468,45 @@ export_globals_instantiate(const WASMModule *module,
     bh_assert((uint32)(export_global - export_globals) == export_glob_count);
     return export_globals;
 }
-#endif
+
+#if WASM_ENABLE_MULTI_MEMORY != 0
+static void
+export_memories_deinstantiate(WASMExportMemInstance *memories)
+{
+    if (memories)
+        wasm_runtime_free(memories);
+}
+
+static WASMExportMemInstance *
+export_memories_instantiate(const WASMModule *module,
+                            WASMModuleInstance *module_inst,
+                            uint32 export_mem_count, char *error_buf,
+                            uint32 error_buf_size)
+{
+    WASMExportMemInstance *export_memories, *export_memory;
+    WASMExport *export = module->exports;
+    uint32 i;
+    uint64 total_size =
+        sizeof(WASMExportMemInstance) * (uint64)export_mem_count;
+
+    if (!(export_memory = export_memories =
+              runtime_malloc(total_size, error_buf, error_buf_size))) {
+        return NULL;
+    }
+
+    for (i = 0; i < module->export_count; i++, export ++)
+        if (export->kind == EXPORT_KIND_MEMORY) {
+            export_memory->name = export->name;
+            export_memory->memory = module_inst->memories[export->index];
+            export_memory++;
+        }
+
+    bh_assert((uint32)(export_memory - export_memories) == export_mem_count);
+    return export_memories;
+}
+#endif /* end of if WASM_ENABLE_MULTI_MEMORY != 0 */
+
+#endif /* end of if WASM_ENABLE_MULTI_MODULE != 0 */
 
 static WASMFunctionInstance *
 lookup_post_instantiate_func(WASMModuleInstance *module_inst,
@@ -2387,6 +2542,12 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                      module, module_inst, module_inst->export_global_count,
                      error_buf, error_buf_size)))
 #endif
+#if WASM_ENABLE_MULTI_MODULE != 0 && WASM_ENABLE_MULTI_MEMORY != 0
+        || (module_inst->export_memory_count > 0
+            && !(module_inst->export_memories = export_memories_instantiate(
+                     module, module_inst, module_inst->export_memory_count,
+                     error_buf, error_buf_size)))
+#endif
 #if WASM_ENABLE_JIT != 0
         || (module_inst->e->function_count > 0
             && !init_func_ptrs(module_inst, module, error_buf, error_buf_size))
@@ -3198,6 +3359,10 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     export_globals_deinstantiate(module_inst->export_globals);
 #endif
 
+#if WASM_ENABLE_MULTI_MODULE != 0 && WASM_ENABLE_MULTI_MEMORY != 0
+    export_memories_deinstantiate(module_inst->export_memories);
+#endif
+
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     wasm_externref_cleanup((WASMModuleInstanceCommon *)module_inst);
 #endif
@@ -3260,12 +3425,16 @@ wasm_lookup_global(const WASMModuleInstance *module_inst, const char *name)
 WASMMemoryInstance *
 wasm_lookup_memory(const WASMModuleInstance *module_inst, const char *name)
 {
-    /**
-     * using a strong assumption that one module instance only has
-     * one memory instance
-     */
+#if WASM_ENABLE_MULTI_MEMORY != 0
+    uint32 i;
+    for (i = 0; i < module_inst->export_memory_count; i++)
+        if (!strcmp(module_inst->export_memories[i].name, name))
+            return module_inst->export_memories[i].memory;
+    return NULL;
+#else
     (void)module_inst->export_memories;
     return module_inst->memories[0];
+#endif
 }
 
 WASMTableInstance *
