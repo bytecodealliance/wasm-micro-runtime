@@ -7322,6 +7322,15 @@ wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
             (WASMModuleInstance *)sub_module_inst;
         sub_module_inst_list_node->module_name =
             sub_module_list_node->module_name;
+
+#if WASM_ENABLE_AOT != 0
+        if (!init_import_func_module_insts(
+                (AOTModuleInstance *)module_inst, (AOTModule *)module,
+                sub_module_inst_list_node, error_buf, error_buf_size)) {
+            return false;
+        }
+#endif
+
         bh_list_status ret =
             bh_list_insert(sub_module_inst_list, sub_module_inst_list_node);
         bh_assert(BH_LIST_SUCCESS == ret);

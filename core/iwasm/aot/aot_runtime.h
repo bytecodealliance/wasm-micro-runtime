@@ -109,7 +109,7 @@ typedef struct AOTModuleInstanceExtra {
 #if WASM_ENABLE_MULTI_MODULE != 0
     bh_list sub_module_inst_list_head;
     bh_list *sub_module_inst_list;
-    WASMModuleInstanceCommon **func_module_insts;
+    WASMModuleInstanceCommon **import_func_module_insts;
 #endif
 } AOTModuleInstanceExtra;
 
@@ -320,6 +320,11 @@ typedef struct AOTModule {
 
 #if WASM_ENABLE_MULTI_MODULE != 0
 #define AOTSubModInstNode WASMSubModInstNode
+
+bool
+init_import_func_module_insts(AOTModuleInstance *module_inst, AOTModule *module,
+                              AOTSubModInstNode *sub_module_inst_node,
+                              char *error_buf, uint32 error_buf_size);
 #endif
 
 /* Target info, read from ELF header of object file */
