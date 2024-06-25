@@ -2012,6 +2012,8 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 #if WASM_ENABLE_MULTI_MODULE != 0
     wasm_runtime_sub_module_deinstantiate(
         (WASMModuleInstanceCommon *)module_inst);
+    if (extra->import_func_module_insts)
+        wasm_runtime_free(extra->import_func_module_insts);
 #endif
 
     if (module_inst->tables)
@@ -2035,9 +2037,6 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 
     if (module_inst->func_ptrs)
         wasm_runtime_free(module_inst->func_ptrs);
-
-    if (extra->import_func_module_insts)
-        wasm_runtime_free(extra->import_func_module_insts);
 
     if (module_inst->func_type_indexes)
         wasm_runtime_free(module_inst->func_type_indexes);
