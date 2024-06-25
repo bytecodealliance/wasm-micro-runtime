@@ -1647,7 +1647,6 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
                  runtime_malloc((uint64)module->import_func_count
                                     * sizeof(WASMModuleInstanceCommon *),
                                 error_buf, error_buf_size))) {
-        wasm_runtime_free(extra->import_func_module_insts);
         goto fail;
     }
 
