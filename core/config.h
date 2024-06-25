@@ -363,6 +363,10 @@
 #define WASM_ENABLE_SPEC_TEST 0
 #endif
 
+#ifndef WASM_ENABLE_WASI_TEST
+#define WASM_ENABLE_WASI_TEST 0
+#endif
+
 /* Global heap pool size in bytes */
 #ifndef WASM_GLOBAL_HEAP_SIZE
 #define WASM_GLOBAL_HEAP_SIZE (10 * 1024 * 1024)

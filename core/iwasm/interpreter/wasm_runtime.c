@@ -1710,35 +1710,72 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
             && !func->import_func_linked
 #endif
         ) {
-#if WASM_ENABLE_WAMR_COMPILER == 0
             LOG_WARNING("warning: failed to link import function (%s, %s)",
                         func->module_name, func->field_name);
-            /* will throw exception only if calling */
-#else
-            /* do nothing to avoid confused message */
-#endif /* WASM_ENABLE_WAMR_COMPILER == 0 */
         }
     }
 
     for (i = 0; i < module->import_global_count; i++) {
         WASMGlobalImport *global = &((module->import_globals + i)->u.global);
+
         if (!global->is_linked) {
 #if WASM_ENABLE_SPEC_TEST != 0
             set_error_buf(error_buf, error_buf_size,
                           "unknown import or incompatible import type");
             return false;
 #else
-#if WASM_ENABLE_WAMR_COMPILER == 0
             set_error_buf_v(error_buf, error_buf_size,
                             "failed to link import global (%s, %s)",
                             global->module_name, global->field_name);
             return false;
-#else
-            /* do nothing to avoid confused message */
-#endif /* WASM_ENABLE_WAMR_COMPILER == 0 */
 #endif /* WASM_ENABLE_SPEC_TEST != 0 */
         }
     }
+
+    for (i = 0; i < module->import_table_count; i++) {
+        WASMTableImport *table = &((module->import_tables + i)->u.table);
+
+        if (!wasm_runtime_is_built_in_module(table->module_name)
+#if WASM_ENABLE_MULTI_MODULE != 0
+            && !table->import_table_linked
+#endif
+        ) {
+            set_error_buf_v(error_buf, error_buf_size,
+                            "failed to link import table (%s, %s)",
+                            table->module_name, table->field_name);
+            return false;
+        }
+    }
+
+    for (i = 0; i < module->import_memory_count; i++) {
+        WASMMemoryImport *memory = &((module->import_memories + i)->u.memory);
+
+        if (!wasm_runtime_is_built_in_module(memory->module_name)
+#if WASM_ENABLE_MULTI_MODULE != 0
+            && !memory->import_memory_linked
+#endif
+        ) {
+            set_error_buf_v(error_buf, error_buf_size,
+                            "failed to link import memory (%s, %s)",
+                            memory->module_name, memory->field_name);
+            return false;
+        }
+    }
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+#if WASM_ENABLE_TAGS != 0
+    for (i = 0; i < module->import_tag_count; i++) {
+        WASMTagImport *tag = &((module->import_tags + i)->u.tag);
+
+        if (!tag->import_tag_linked) {
+            set_error_buf_v(error_buf, error_buf_size,
+                            "failed to link import tag (%s, %s)",
+                            tag->module_name, tag->field_name);
+            return false;
+        }
+    }
+#endif /* WASM_ENABLE_TAGS != 0 */
+#endif
 
     return true;
 }
