@@ -2269,11 +2269,13 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             &import_funcs[i].signature, &import_funcs[i].attachment,
             &import_funcs[i].call_conv_raw);
         if (!linked_func) {
+            sub_module = NULL;
             if (!wasm_runtime_is_built_in_module(module_name)) {
                 sub_module = (AOTModule *)wasm_runtime_load_depended_module(
                     (WASMModuleCommon *)module, module_name, error_buf,
                     error_buf_size);
                 if (!sub_module) {
+                    LOG_ERROR("failed to load sub module: %s", error_buf);
                     return false;
                 }
             }
