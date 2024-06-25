@@ -75,10 +75,12 @@ typedef struct AOTValue {
     struct AOTValue *next;
     struct AOTValue *prev;
     LLVMValueRef value;
+    uint64 const_value; /* valid if is_const is true */
+    uint32 local_idx;
     /* VALUE_TYPE_I32/I64/F32/F64/VOID */
     uint8 type;
     bool is_local;
-    uint32 local_idx;
+    bool is_const;
 } AOTValue;
 
 /**

@@ -605,6 +605,14 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
 #define PUSH_PAGE_COUNT(v) \
     PUSH(v, MEMORY64_COND_VALUE(VALUE_TYPE_I64, VALUE_TYPE_I32))
 
+#define SET_CONST(v)                                                          \
+    do {                                                                      \
+        AOTValue *aot_value =                                                 \
+            func_ctx->block_stack.block_list_end->value_stack.value_list_end; \
+        aot_value->is_const = true;                                           \
+        aot_value->const_value = (v);                                         \
+    } while (0)
+
 #define TO_LLVM_TYPE(wasm_type) \
     wasm_type_to_llvm_type(comp_ctx, &comp_ctx->basic_types, wasm_type)
 
