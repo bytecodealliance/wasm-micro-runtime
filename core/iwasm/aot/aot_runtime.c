@@ -1183,38 +1183,6 @@ init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
     return true;
 }
 
-#if WASM_ENABLE_MULTI_MODULE != 0
-bool
-init_import_func_module_insts(AOTModuleInstance *module_inst, AOTModule *module,
-                              AOTSubModInstNode *sub_module_inst_node,
-                              char *error_buf, uint32 error_buf_size)
-{
-    AOTModuleInstanceExtra *extra = (AOTModuleInstanceExtra *)module_inst->e;
-    uint32 i;
-    AOTImportFunc *import_func;
-
-    /* Allocate memory */
-    if (module->import_func_count > 0
-        && !(extra->import_func_module_insts =
-                 runtime_malloc((uint64)module->import_func_count
-                                    * sizeof(WASMModuleInstanceCommon *),
-                                error_buf, error_buf_size))) {
-        return false;
-    }
-
-    for (i = 0; i < module->import_func_count; i++) {
-        import_func = &module->import_funcs[i];
-        if (strcmp(sub_module_inst_node->module_name, import_func->module_name)
-            == 0) {
-            extra->import_func_module_insts[i] =
-                (WASMModuleInstanceCommon *)sub_module_inst_node->module_inst;
-        }
-    }
-
-    return true;
-}
-#endif
-
 AOTFunctionInstance *
 aot_get_function_instance(AOTModuleInstance *module_inst, uint32 func_idx)
 {
@@ -1672,6 +1640,17 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     extra->sub_module_inst_list = &extra->sub_module_inst_list_head;
+
+    /* Allocate memory for import_func_module_insts*/
+    if (module->import_func_count > 0
+        && !(extra->import_func_module_insts =
+                 runtime_malloc((uint64)module->import_func_count
+                                    * sizeof(WASMModuleInstanceCommon *),
+                                error_buf, error_buf_size))) {
+        wasm_runtime_free(extra->import_func_module_insts);
+        goto fail;
+    }
+
     ret = wasm_runtime_sub_module_instantiate(
         (WASMModuleCommon *)module, (WASMModuleInstanceCommon *)module_inst,
         stack_size, heap_size, max_memory_pages, error_buf, error_buf_size);

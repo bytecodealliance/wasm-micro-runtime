@@ -7324,10 +7324,24 @@ wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
             sub_module_list_node->module_name;
 
 #if WASM_ENABLE_AOT != 0
-        if (!init_import_func_module_insts(
-                (AOTModuleInstance *)module_inst, (AOTModule *)module,
-                sub_module_inst_list_node, error_buf, error_buf_size)) {
-            return false;
+        AOTModuleInstance *aot_module_inst = (AOTModuleInstance *)module_inst;
+        AOTModule *aot_module = (AOTModule *)module;
+        AOTModuleInstanceExtra *aot_extra =
+            (AOTModuleInstanceExtra *)aot_module_inst->e;
+        uint32 i;
+        AOTImportFunc *import_func;
+        for (i = 0; i < aot_module->import_func_count; i++) {
+            if (aot_extra->import_func_module_insts[i])
+                continue;
+
+            import_func = &aot_module->import_funcs[i];
+            if (strcmp(sub_module_inst_list_node->module_name,
+                       import_func->module_name)
+                == 0) {
+                aot_extra->import_func_module_insts[i] =
+                    (WASMModuleInstanceCommon *)
+                        sub_module_inst_list_node->module_inst;
+            }
         }
 #endif
 
