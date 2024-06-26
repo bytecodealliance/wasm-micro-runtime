@@ -921,7 +921,7 @@ return_func:
 
 bool
 wasm_runtime_enlarge_memory(WASMModuleInstanceCommon *module_inst,
-                            uint32_t inc_page_count)
+                            uint64 inc_page_count)
 {
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {

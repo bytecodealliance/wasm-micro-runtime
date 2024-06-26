@@ -1842,9 +1842,17 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_import_global_linked(const char *module_name,
                                      const char *global_name);
 
+/**
+ * Enlarge the memory region for a module instance
+ *
+ * @param module_inst the module instance
+ * @param inc_page_count the number of pages to add
+ *
+ * @return true if success, false otherwise
+ */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_enlarge_memory(wasm_module_inst_t module_inst,
-                            uint32_t inc_page_count);
+                            uint64_t inc_page_count);
 
 typedef enum {
     INTERNAL_ERROR,
