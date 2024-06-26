@@ -2097,6 +2097,10 @@ load_import_globals(const uint8 **p_buf, const uint8 *buf_end,
         read_string(buf, buf_end, import_globals[i].module_name);
         read_string(buf, buf_end, import_globals[i].global_name);
 
+        if (!is_valid_value_type(import_globals[i].type.val_type)) {
+            return false;
+        }
+
 #if WASM_ENABLE_LIBC_BUILTIN != 0
         if (wasm_native_lookup_libc_builtin_global(
                 import_globals[i].module_name, import_globals[i].global_name,
