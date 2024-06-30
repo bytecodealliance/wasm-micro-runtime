@@ -2486,7 +2486,7 @@ load_init_data_section(const uint8 *buf, const uint8 *buf_end,
     /* check start function index */
     if (module->start_func_index != (uint32)-1
         && (module->start_func_index
-            >= module->import_func_count + module->func_count)) {
+            >= (uint64)module->import_func_count + module->func_count)) {
         set_error_buf(error_buf, error_buf_size,
                       "invalid start function index");
         return false;
