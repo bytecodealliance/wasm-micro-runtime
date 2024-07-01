@@ -1139,6 +1139,8 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
 
     bh_assert(func_count == code_count);
 
+    bh_assert(module->import_function_count <= UINT32_MAX - func_count);
+
     if (func_count) {
         module->function_count = func_count;
         total_size = sizeof(WASMFunction *) * (uint64)func_count;
@@ -1320,6 +1322,8 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
     uint8 mutable;
 
     read_leb_uint32(p, p_end, global_count);
+
+    bh_assert(module->import_global_count <= UINT32_MAX - global_count);
 
     module->global_count = 0;
     if (global_count) {

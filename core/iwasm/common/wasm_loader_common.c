@@ -96,3 +96,20 @@ is_valid_func_type(const WASMFuncType *func_type)
 
     return true;
 }
+
+/*
+ * Indices are represented as a u32.
+ */
+bool
+is_indices_overflow(uint32 import, uint32 other, char *error_buf,
+                    uint32 error_buf_size)
+{
+    if (import > UINT32_MAX - other) {
+        snprintf(error_buf, error_buf_size,
+                 "too many items in the index space(%" PRIu32 "+%" PRIu32 ").",
+                 import, other);
+        return true;
+    }
+
+    return false;
+}
