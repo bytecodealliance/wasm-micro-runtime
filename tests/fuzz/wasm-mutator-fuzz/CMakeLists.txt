@@ -3,16 +3,16 @@
 
 cmake_minimum_required (VERSION 2.8)
 
-project(wasm_mutator)
-
-set (CMAKE_BUILD_TYPE Debug)
-
 if (NOT DEFINED CMAKE_C_COMPILER)
 set (CMAKE_C_COMPILER "clang")
 endif ()
 if (NOT DEFINED CMAKE_CXX_COMPILER)
 set (CMAKE_CXX_COMPILER "clang++")
 endif ()
+
+project(wasm_mutator)
+
+set (CMAKE_BUILD_TYPE Debug)
 
 string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
 
