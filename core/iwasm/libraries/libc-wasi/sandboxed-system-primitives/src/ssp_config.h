@@ -42,7 +42,8 @@
 #define CONFIG_HAS_GETRANDOM 0
 #endif
 
-#if defined(__CloudABI__) || defined(BH_PLATFORM_FREERTOS)
+#if defined(__CloudABI__) || defined(BH_PLATFORM_FREERTOS) \
+    || defined(BH_PLATFORM_ZEPHYR)
 #define CONFIG_HAS_CAP_ENTER 1
 #else
 #define CONFIG_HAS_CAP_ENTER 0
@@ -50,20 +51,20 @@
 
 #if !defined(__APPLE__) && !defined(__FreeBSD__) && !defined(__EMSCRIPTEN__) \
     && !defined(ESP_PLATFORM) && !defined(DISABLE_CLOCK_NANOSLEEP)           \
-    && !defined(BH_PLATFORM_FREERTOS)
+    && !defined(BH_PLATFORM_FREERTOS) && !defined(BH_PLATFORM_ZEPHYR)
 #define CONFIG_HAS_CLOCK_NANOSLEEP 1
 #else
 #define CONFIG_HAS_CLOCK_NANOSLEEP 0
 #endif
 
-#if defined(__APPLE__) || defined(__CloudABI__)
+#if defined(__APPLE__) || defined(__CloudABI__) && !defined(BH_PLATFORM_ZEPHYR)
 #define CONFIG_HAS_PTHREAD_COND_TIMEDWAIT_RELATIVE_NP 1
 #else
 #define CONFIG_HAS_PTHREAD_COND_TIMEDWAIT_RELATIVE_NP 0
 #endif
 
 #if !defined(__APPLE__) && !defined(BH_PLATFORM_LINUX_SGX) && !defined(_WIN32) \
-    && !defined(__COSMOPOLITAN__) && !defined(BH_PLATFORM_FREERTOS)
+    && !defined(__COSMOPOLITAN__) && !defined(BH_PLATFORM_FREERTOS) && !defined(BH_PLATFORM_ZEPHYR)
 #define CONFIG_HAS_PTHREAD_CONDATTR_SETCLOCK 1
 #else
 #define CONFIG_HAS_PTHREAD_CONDATTR_SETCLOCK 0

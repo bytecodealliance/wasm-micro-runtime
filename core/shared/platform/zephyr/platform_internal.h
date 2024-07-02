@@ -48,6 +48,7 @@
 #include <zephyr/net/net_ip.h>
 #include <zephyr/net/net_core.h>
 #include <zephyr/net/net_context.h>
+#include <zephyr/net/socket.h>
 #endif /* end of KERNEL_VERSION_NUMBER < 0x030200 */
 
 #if KERNEL_VERSION_NUMBER >= 0x030300 /* version 3.3.0 */
@@ -76,20 +77,23 @@
 typedef struct k_thread korp_thread;
 typedef korp_thread *korp_tid;
 typedef struct k_mutex korp_mutex;
-typedef unsigned int korp_sem;
+// typedef unsigned int korp_sem;
+typedef struct k_sem korp_sem;
 
 /* korp_rwlock is used in platform_api_extension.h,
    we just define the type to make the compiler happy */
-typedef struct {
-    int dummy;
-} korp_rwlock;
-
 struct os_thread_wait_node;
 typedef struct os_thread_wait_node *os_thread_wait_list;
 typedef struct korp_cond {
     struct k_mutex wait_list_lock;
     os_thread_wait_list thread_wait_list;
 } korp_cond;
+
+typedef struct {
+    struct k_mutex mtx;  // Mutex for exclusive access
+    struct k_sem sem;    // Semaphore for shared access
+    int read_count;      // Number of readers
+} korp_rwlock;
 
 #ifndef Z_TIMEOUT_MS
 #define Z_TIMEOUT_MS(ms) ms
@@ -168,6 +172,38 @@ set_exec_mem_alloc_func(exec_mem_alloc_func_t alloc_func,
 typedef int os_file_handle;
 typedef void *os_dir_stream;
 typedef int os_raw_file_handle;
+
+/*********************************************************/
+//try to stub POSIX implementation in sandboxed env.
+
+typedef struct zsock_pollfd os_poll_file_handle;
+typedef unsigned int os_nfds_t;
+
+#define POLLIN ZSOCK_POLLIN
+#define POLLPRI ZSOCK_POLLPRI
+#define POLLOUT ZSOCK_POLLOUT
+#define POLLERR ZSOCK_POLLERR
+#define POLLHUP ZSOCK_POLLHUP
+#define POLLNVAL ZSOCK_POLLNVAL
+
+#define FIONREAD ZFD_IOCTL_FIONREAD
+
+typedef struct {
+        time_t tv_sec;
+        long tv_nsec;
+} os_timespec;
+
+#define CLOCK_REALTIME 1
+#define CLOCK_MONOTONIC 4
+
+// TODO: use it in sandboxed posix.c.
+// int os_sched_yield(void)
+// {    
+//     k_yield();
+//     return 0;
+// }
+
+/*********************************************************/
 
 static inline os_file_handle
 os_get_invalid_handle()
