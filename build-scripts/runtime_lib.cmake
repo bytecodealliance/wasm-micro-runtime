@@ -111,6 +111,10 @@ if (WAMR_BUILD_LIB_PTHREAD EQUAL 1)
     set (WAMR_BUILD_SHARED_MEMORY 1)
 endif ()
 
+if (WAMR_BUILD_SHARED_HEAP EQUAL 1)
+    include (${IWASM_DIR}/libraries/lib-shared-heap/lib_shared_heap.cmake)
+endif ()
+
 if (WAMR_BUILD_LIB_WASI_THREADS EQUAL 1)
     include (${IWASM_DIR}/libraries/lib-wasi-threads/lib_wasi_threads.cmake)
     # Enable the dependent feature if lib wasi threads is enabled
@@ -193,6 +197,7 @@ set (source_all
     ${LIBC_EMCC_SOURCE}
     ${LIB_RATS_SOURCE}
     ${DEBUG_ENGINE_SOURCE}
+    ${LIB_SHARED_HEAP_SOURCE}
 )
 
 set (WAMR_RUNTIME_LIB_SOURCE ${source_all})

@@ -254,6 +254,7 @@ if (WAMR_BUILD_SHARED_MEMORY EQUAL 1)
 else ()
   add_definitions (-DWASM_ENABLE_SHARED_MEMORY=0)
 endif ()
+
 if (WAMR_BUILD_MEMORY64 EQUAL 1)
   # if native is 32-bit or cross-compiled to 32-bit
   if (NOT WAMR_BUILD_TARGET MATCHES ".*64.*")
@@ -281,6 +282,13 @@ endif ()
 if (WAMR_BUILD_LIB_RATS EQUAL 1)
   message ("     Lib rats enabled")
 endif()
+
+if (WAMR_BUILD_SHARED_HEAP EQUAL 1)
+  message ("     Lib shared heap enabled")
+else()
+  message ("     Lib shared heap disabled")
+endif()
+
 if (WAMR_BUILD_MINI_LOADER EQUAL 1)
   add_definitions (-DWASM_ENABLE_MINI_LOADER=1)
   message ("     WASM mini loader enabled")
