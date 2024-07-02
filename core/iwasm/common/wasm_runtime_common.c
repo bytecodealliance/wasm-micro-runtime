@@ -2062,6 +2062,9 @@ wasm_runtime_get_export_global_inst(WASMModuleInstanceCommon *const module_inst,
     return false;
 }
 
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((no_sanitize("undefined")))
+#endif
 bool
 wasm_runtime_get_export_table_inst(WASMModuleInstanceCommon *const module_inst,
                                    char const *name,
@@ -5821,9 +5824,9 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
 #endif
 #endif
                 if (n_ints < MAX_REG_INTS)
-                    ints[n_ints++] = *(uint64 *)argv_src;
+                    memcpy(&ints[n_ints++], argv_src, sizeof(uint64));
                 else
-                    stacks[n_stacks++] = *(uint64 *)argv_src;
+                    memcpy(&stacks[n_stacks++], argv_src, sizeof(uint64));
                 argv_src += 2;
                 break;
             case VALUE_TYPE_F32:

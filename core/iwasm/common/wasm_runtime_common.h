@@ -55,12 +55,12 @@ extern "C" {
 static inline void
 STORE_U32(void *addr, uint32_t value)
 {
-    *(uint32_t *)(addr) = (uint32_t)(value);
+    memcpy(addr, &value, sizeof(uint32_t));
 }
 static inline void
 STORE_U16(void *addr, uint16_t value)
 {
-    *(uint16_t *)(addr) = (uint16_t)(value);
+    memcpy(addr, &value, sizeof(uint16_t));
 }
 static inline void
 STORE_U8(void *addr, uint8_t value)
@@ -76,9 +76,9 @@ STORE_U8(void *addr, uint8_t value)
 #define LOAD_I16(addr) (*(int16 *)(addr))
 #define LOAD_U16(addr) (*(uint16 *)(addr))
 
-#define STORE_PTR(addr, ptr)          \
-    do {                              \
-        *(void **)addr = (void *)ptr; \
+#define STORE_PTR(addr, ptr)               \
+    do {                                   \
+        memcpy(addr, ptr, sizeof(void *)); \
     } while (0)
 
 #else /* WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0 */

@@ -1212,7 +1212,8 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
     }
 
     bh_assert((uint32)(global - globals) == global_count);
-    bh_assert(global_data_offset == module->global_data_size);
+    bh_assert(wasm_pointer_align(global_data_offset)
+              == module->global_data_size);
     (void)module_inst;
     return globals;
 fail:
@@ -2546,7 +2547,8 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                 }
             }
         }
-        bh_assert(global_data == global_data_end);
+        bh_assert(wasm_pointer_align((uintptr_t)global_data)
+                  == global_data_end);
     }
 
     if (!check_linked_symbol(module_inst, error_buf, error_buf_size)) {

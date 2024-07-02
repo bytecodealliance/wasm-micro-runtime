@@ -195,6 +195,12 @@ wasm_exec_env_is_aux_stack_managed_by_runtime(WASMExecEnv *exec_env)
     return exec_env->aux_stack_boundary != 0 || exec_env->aux_stack_bottom != 0;
 }
 
+static inline uintptr_t
+wasm_pointer_align(uintptr_t n)
+{
+    return (n + (_Alignof(void *) - 1)) & ~(_Alignof(void *) - 1);
+}
+
 /**
  * Allocate a WASM frame from the WASM stack.
  *
@@ -208,8 +214,12 @@ static inline void *
 wasm_exec_env_alloc_wasm_frame(WASMExecEnv *exec_env, unsigned size)
 {
     uint8 *addr = exec_env->wasm_stack.top;
+    unsigned aligned_size;
 
     bh_assert(!(size & 3));
+
+    /* ensure that the next frame pointer meets alignment requirements */
+    aligned_size = (unsigned)wasm_pointer_align(size);
 
     /* For classic interpreter, the outs area doesn't contain the const cells,
        its size cannot be larger than the frame size, so here checking stack
@@ -217,13 +227,13 @@ wasm_exec_env_alloc_wasm_frame(WASMExecEnv *exec_env, unsigned size)
        the outs area contains const cells, its size may be larger than current
        frame size, we should check again before putting the function arguments
        into the outs area. */
-    if (size * 2
+    if (aligned_size * 2
         > (uint32)(uintptr_t)(exec_env->wasm_stack.top_boundary - addr)) {
         /* WASM stack overflow. */
         return NULL;
     }
 
-    exec_env->wasm_stack.top += size;
+    exec_env->wasm_stack.top += aligned_size;
 
 #if WASM_ENABLE_MEMORY_PROFILING != 0
     {
