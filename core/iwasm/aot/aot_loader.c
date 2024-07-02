@@ -2217,6 +2217,9 @@ load_global_info(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
     const uint8 *buf = *p_buf;
 
     read_uint32(buf, buf_end, module->global_count);
+    if (is_indices_overflow(module->import_global_count, module->global_count,
+                            error_buf, error_buf_size))
+        return false;
 
     /* load globals */
     if (module->global_count > 0
@@ -2481,6 +2484,10 @@ load_init_data_section(const uint8 *buf, const uint8 *buf_end,
 
     /* load function count and start function index */
     read_uint32(p, p_end, module->func_count);
+    if (is_indices_overflow(module->import_func_count, module->func_count,
+                            error_buf, error_buf_size))
+        return false;
+
     read_uint32(p, p_end, module->start_func_index);
 
     /* check start function index */
