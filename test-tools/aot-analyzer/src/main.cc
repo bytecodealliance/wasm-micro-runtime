@@ -169,8 +169,8 @@ DumpInfo(AoTFile *aot)
            aot->GetExectuionMachineName(target_info.e_machine).c_str());
     printf("Exectuion version: %u\n", target_info.e_version);
     printf("Exectuion flags: %u\n", target_info.e_flags);
-    printf("Feature flags: %ld\n", target_info.feature_flags);
-    printf("Reserved: %ld\n", target_info.reserved);
+    printf("Feature flags: %" PRId64 "\n", target_info.feature_flags);
+    printf("Reserved: %" PRId64 "\n", target_info.reserved);
     printf("Arch: %s\n", target_info.arch);
 }
 
