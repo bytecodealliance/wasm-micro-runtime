@@ -188,6 +188,7 @@ typedef enum RunningMode {
     Mode_Fast_JIT,
     Mode_LLVM_JIT,
     Mode_Multi_Tier_JIT,
+    Mode_AOT,
 } RunningMode;
 
 /* WASM runtime initialize arguments */

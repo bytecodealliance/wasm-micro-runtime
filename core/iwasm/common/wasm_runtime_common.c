@@ -841,6 +841,11 @@ wasm_runtime_is_running_mode_supported(RunningMode running_mode)
         return true;
 #endif
     }
+    else if (running_mode == Mode_AOT) {
+#if WASM_ENABLE_AOT != 0
+        return true;
+#endif
+    }
 
     return false;
 }
@@ -1560,13 +1565,16 @@ wasm_runtime_set_running_mode(wasm_module_inst_t module_inst,
 {
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT)
-        return true;
+        return running_mode == Mode_AOT;
 #endif
 
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
         WASMModuleInstance *module_inst_interp =
             (WASMModuleInstance *)module_inst;
+        if (running_mode == Mode_AOT) {
+            return false;
+        }
 
         return wasm_set_running_mode(module_inst_interp, running_mode);
     }
@@ -1578,6 +1586,11 @@ wasm_runtime_set_running_mode(wasm_module_inst_t module_inst,
 RunningMode
 wasm_runtime_get_running_mode(wasm_module_inst_t module_inst)
 {
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return Mode_AOT;
+    }
+#endif
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
         WASMModuleInstance *module_inst_interp =
