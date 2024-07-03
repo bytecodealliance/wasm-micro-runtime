@@ -96,8 +96,8 @@ if (NOT DEFINED WAMR_BUILD_MINI_LOADER)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_SIMD)
-  # Enable SIMD by default
-  set (WAMR_BUILD_SIMD 1)
+  # Disable SIMD by default
+  set (WAMR_BUILD_SIMD 0)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_REF_TYPES)
