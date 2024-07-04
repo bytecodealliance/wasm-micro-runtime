@@ -15,6 +15,7 @@
 #include <tensorflow/lite/model.h>
 #include <tensorflow/lite/optional_debug_tools.h>
 #include <tensorflow/lite/error_reporter.h>
+#include <tensorflow/lite/c/c_api.h>
 
 #if WASM_ENABLE_WASI_NN_GPU != 0
 #include <tensorflow/lite/delegates/gpu/delegate.h>
@@ -318,6 +319,14 @@ tensorflowlite_set_input(void *tflite_ctx, graph_execution_context ctx,
         return invalid_argument;
     }
 
+    TfLiteStatus status;
+    if (TfLiteStatus::kTfLiteOk
+        != (status = TfLiteTensorCopyFromBuffer(tensor, input_tensor->data,
+                                                input_tensor_size))) {
+        return invalid_argument;
+    }
+
+#if 0 /* the original code */
     if (tensor->quantization.type == kTfLiteNoQuantization) {
         NN_DBG_PRINTF("No quantization information. Using float as default");
         float *it =
@@ -348,6 +357,7 @@ tensorflowlite_set_input(void *tflite_ctx, graph_execution_context ctx,
             it[i] = (uint8_t)(input_tensor_f[i] / scale + zero_point);
         }
     }
+#endif
 
     return success;
 }
@@ -400,6 +410,14 @@ tensorflowlite_get_output(void *tflite_ctx, graph_execution_context ctx,
         return too_large;
     }
 
+    TfLiteStatus status;
+    if (TfLiteStatus::kTfLiteOk
+        != (status = TfLiteTensorCopyToBuffer(tensor, output_tensor,
+                                              model_tensor_size))) {
+        return invalid_argument;
+    }
+
+#if 0 /* the original code */
     if (tensor->quantization.type == kTfLiteNoQuantization) {
         NN_DBG_PRINTF("No quantization information");
         float *ot =
@@ -429,6 +447,7 @@ tensorflowlite_get_output(void *tflite_ctx, graph_execution_context ctx,
             output_tensor_f[i] = (ot[i] - zero_point) * scale;
         }
     }
+#endif
 
     *output_tensor_size = model_tensor_size;
     return success;
