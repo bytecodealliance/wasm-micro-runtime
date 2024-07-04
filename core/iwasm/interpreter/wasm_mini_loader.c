@@ -220,7 +220,7 @@ read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
     } while (0)
 /* Bit 6 indicating the optional memidx, and reset bit 6 for
  * alignment check */
-#define read_leb_align(p, p_end, res)                       \
+#define read_leb_memarg(p, p_end, res)                      \
     do {                                                    \
         read_leb_uint32(p, p_end, res);                     \
         if (res & 0x40) {                                   \
@@ -237,7 +237,7 @@ read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
         bh_assert(memidx == 0);      \
         (void)memidx;                \
     } while (0)
-#define read_leb_align(p, p_end, res) read_leb_uint32(p, p_end, res)
+#define read_leb_memarg(p, p_end, res) read_leb_uint32(p, p_end, res)
 #endif
 
 static void *
@@ -7373,7 +7373,7 @@ re_scan:
                 }
 #endif
                 CHECK_MEMORY();
-                read_leb_align(p, p_end, align);           /* align */
+                read_leb_memarg(p, p_end, align);          /* align */
                 read_leb_mem_offset(p, p_end, mem_offset); /* offset */
 #if WASM_ENABLE_FAST_INTERP != 0
                 emit_uint32(loader_ctx, mem_offset);

@@ -275,7 +275,7 @@ fail:
     } while (0)
 /* Bit 6 indicating the optional memidx, and reset bit 6 for
  * alignment check */
-#define read_leb_align(p, p_end, res)                       \
+#define read_leb_memarg(p, p_end, res)                      \
     do {                                                    \
         read_leb_uint32(p, p_end, res);                     \
         if (res & 0x40) {                                   \
@@ -294,7 +294,7 @@ fail:
             goto fail;                                                      \
         }                                                                   \
     } while (0)
-#define read_leb_align(p, p_end, res) read_leb_uint32(p, p_end, res)
+#define read_leb_memarg(p, p_end, res) read_leb_uint32(p, p_end, res)
 #endif
 
 static char *
@@ -13272,7 +13272,7 @@ re_scan:
                 }
 #endif
                 CHECK_MEMORY();
-                read_leb_align(p, p_end, align);           /* align */
+                read_leb_memarg(p, p_end, align);          /* align */
                 read_leb_mem_offset(p, p_end, mem_offset); /* offset */
                 if (!check_memory_access_align(opcode, align, error_buf,
                                                error_buf_size)) {

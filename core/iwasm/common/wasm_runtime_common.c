@@ -192,16 +192,12 @@ is_sig_addr_oob(void *sig_addr, WASMModuleInstance *module_inst)
     for (i = 0; i < module_inst->memory_count; ++i) {
         /* To be compatible with multi memory, get the ith memory instance */
         memory_inst = wasm_get_memory_i(module_inst, i);
-        if (memory_inst) {
-            mapped_mem_start_addr = memory_inst->memory_data;
-            mapped_mem_end_addr = memory_inst->memory_data + 8 * (uint64)BH_GB;
-        }
-        if (memory_inst
-            && (mapped_mem_start_addr <= (uint8 *)sig_addr
-                && (uint8 *)sig_addr < mapped_mem_end_addr)) {
+        mapped_mem_start_addr = memory_inst->memory_data;
+        mapped_mem_end_addr = memory_inst->memory_data + 8 * (uint64)BH_GB;
+        if (mapped_mem_start_addr <= (uint8 *)sig_addr
+            && (uint8 *)sig_addr < mapped_mem_end_addr) {
             /* The address which causes segmentation fault is inside
                the memory instance's guard regions */
-            wasm_set_exception(module_inst, "out of bounds memory access");
             return true;
         }
     }
@@ -233,6 +229,7 @@ runtime_signal_handler(void *sig_addr)
 #endif
 
         if (is_sig_addr_oob(sig_addr, module_inst)) {
+            wasm_set_exception(module_inst, "out of bounds memory access");
             os_longjmp(jmpbuf_node->jmpbuf, 1);
         }
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
@@ -360,6 +357,7 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                    Set exception and let the wasm func continue to run, when
                    the wasm func returns, the caller will check whether the
                    exception is thrown and return to runtime. */
+                wasm_set_exception(module_inst, "out of bounds memory access");
                 ret = next_action(module_inst, exce_info);
                 if (ret == EXCEPTION_CONTINUE_SEARCH
                     || ret == EXCEPTION_CONTINUE_EXECUTION)

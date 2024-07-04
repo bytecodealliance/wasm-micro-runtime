@@ -170,6 +170,7 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     uint8 *global_addr;
 
     bool is_shared_memory = false;
+    bool is_main_memory = false;
 #if WASM_ENABLE_SHARED_MEMORY != 0
     is_shared_memory = flags & SHARED_MEMORY_FLAG ? true : false;
 
@@ -194,114 +195,127 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     default_max_page =
         memory->is_memory64 ? DEFAULT_MEM64_MAX_PAGES : DEFAULT_MAX_PAGES;
 
-    if (heap_size > 0 && module_inst->module->malloc_function != (uint32)-1
-        && module_inst->module->free_function != (uint32)-1) {
-        /* Disable app heap, use malloc/free function exported
-           by wasm app to allocate/free memory instead */
-        heap_size = 0;
+    /* Current assumption is that:
+     * if there doesn't exist a non-import memory, the first non-import memory
+     * would be main memory */
+    if ((module_inst->module->memory_count > 0
+         && memory_idx == module_inst->module->import_memory_count)
+        || (module_inst->module->memory_count == 0 && memory_idx == 0)) {
+        is_main_memory = true;
     }
 
-    /* If initial memory is the largest size allowed, disallowing insert host
-     * managed heap */
-    if (heap_size > 0
-        && heap_offset == GET_MAX_LINEAR_MEMORY_SIZE(memory->is_memory64)) {
-        set_error_buf(error_buf, error_buf_size,
-                      "failed to insert app heap into linear memory, "
-                      "try using `--heap-size=0` option");
-        return NULL;
-    }
+    if (is_main_memory) {
+        if (heap_size > 0 && module_inst->module->malloc_function != (uint32)-1
+            && module_inst->module->free_function != (uint32)-1) {
+            /* Disable app heap, use malloc/free function exported
+               by wasm app to allocate/free memory instead */
+            heap_size = 0;
+        }
 
-    if (init_page_count == max_page_count && init_page_count == 1) {
-        /* If only one page and at most one page, we just append
-           the app heap to the end of linear memory, enlarge the
-           num_bytes_per_page, and don't change the page count */
-        heap_offset = num_bytes_per_page;
-        num_bytes_per_page += heap_size;
-        if (num_bytes_per_page < heap_size) {
+        /* If initial memory is the largest size allowed, disallowing insert
+         * host managed heap */
+        if (heap_size > 0
+            && heap_offset == GET_MAX_LINEAR_MEMORY_SIZE(memory->is_memory64)) {
             set_error_buf(error_buf, error_buf_size,
                           "failed to insert app heap into linear memory, "
                           "try using `--heap-size=0` option");
             return NULL;
         }
-    }
-    else if (heap_size > 0) {
-        if (init_page_count == max_page_count && init_page_count == 0) {
-            /* If the memory data size is always 0, we resize it to
-               one page for app heap */
-            num_bytes_per_page = heap_size;
-            heap_offset = 0;
-            inc_page_count = 1;
-        }
-        else if (module->aux_heap_base_global_index != (uint32)-1
-                 && module->aux_heap_base
-                        < (uint64)num_bytes_per_page * init_page_count) {
-            /* Insert app heap before __heap_base */
-            aux_heap_base = module->aux_heap_base;
-            bytes_of_last_page = aux_heap_base % num_bytes_per_page;
-            if (bytes_of_last_page == 0)
-                bytes_of_last_page = num_bytes_per_page;
-            bytes_to_page_end = num_bytes_per_page - bytes_of_last_page;
-            inc_page_count =
-                (heap_size - bytes_to_page_end + num_bytes_per_page - 1)
-                / num_bytes_per_page;
-            heap_offset = aux_heap_base;
-            aux_heap_base += heap_size;
 
-            bytes_of_last_page = aux_heap_base % num_bytes_per_page;
-            if (bytes_of_last_page == 0)
-                bytes_of_last_page = num_bytes_per_page;
-            bytes_to_page_end = num_bytes_per_page - bytes_of_last_page;
-            if (bytes_to_page_end < 1 * BH_KB) {
-                aux_heap_base += 1 * BH_KB;
-                inc_page_count++;
+        if (init_page_count == max_page_count && init_page_count == 1) {
+            /* If only one page and at most one page, we just append
+               the app heap to the end of linear memory, enlarge the
+               num_bytes_per_page, and don't change the page count */
+            heap_offset = num_bytes_per_page;
+            num_bytes_per_page += heap_size;
+            if (num_bytes_per_page < heap_size) {
+                set_error_buf(error_buf, error_buf_size,
+                              "failed to insert app heap into linear memory, "
+                              "try using `--heap-size=0` option");
+                return NULL;
             }
+        }
+        else if (heap_size > 0) {
+            if (init_page_count == max_page_count && init_page_count == 0) {
+                /* If the memory data size is always 0, we resize it to
+                   one page for app heap */
+                num_bytes_per_page = heap_size;
+                heap_offset = 0;
+                inc_page_count = 1;
+            }
+            else if (module->aux_heap_base_global_index != (uint32)-1
+                     && module->aux_heap_base
+                            < (uint64)num_bytes_per_page * init_page_count) {
+                /* Insert app heap before __heap_base */
+                aux_heap_base = module->aux_heap_base;
+                bytes_of_last_page = aux_heap_base % num_bytes_per_page;
+                if (bytes_of_last_page == 0)
+                    bytes_of_last_page = num_bytes_per_page;
+                bytes_to_page_end = num_bytes_per_page - bytes_of_last_page;
+                inc_page_count =
+                    (heap_size - bytes_to_page_end + num_bytes_per_page - 1)
+                    / num_bytes_per_page;
+                heap_offset = aux_heap_base;
+                aux_heap_base += heap_size;
 
-            /* Adjust __heap_base global value */
-            global_idx = module->aux_heap_base_global_index;
-            bh_assert(module_inst->e->globals
-                      && global_idx < module_inst->e->global_count);
-            global_addr = module_inst->global_data
-                          + module_inst->e->globals[global_idx].data_offset;
+                bytes_of_last_page = aux_heap_base % num_bytes_per_page;
+                if (bytes_of_last_page == 0)
+                    bytes_of_last_page = num_bytes_per_page;
+                bytes_to_page_end = num_bytes_per_page - bytes_of_last_page;
+                if (bytes_to_page_end < 1 * BH_KB) {
+                    aux_heap_base += 1 * BH_KB;
+                    inc_page_count++;
+                }
+
+                /* Adjust __heap_base global value */
+                global_idx = module->aux_heap_base_global_index;
+                bh_assert(module_inst->e->globals
+                          && global_idx < module_inst->e->global_count);
+                global_addr = module_inst->global_data
+                              + module_inst->e->globals[global_idx].data_offset;
 #if WASM_ENABLE_MEMORY64 != 0
-            if (memory->is_memory64) {
-                /* For memory64, the global value should be i64 */
-                *(uint64 *)global_addr = aux_heap_base;
-            }
-            else
+                if (memory->is_memory64) {
+                    /* For memory64, the global value should be i64 */
+                    *(uint64 *)global_addr = aux_heap_base;
+                }
+                else
 #endif
-            {
-                /* For memory32, the global value should be i32 */
-                *(uint32 *)global_addr = (uint32)aux_heap_base;
+                {
+                    /* For memory32, the global value should be i32 */
+                    *(uint32 *)global_addr = (uint32)aux_heap_base;
+                }
+                LOG_VERBOSE("Reset __heap_base global to %" PRIu64,
+                            aux_heap_base);
             }
-            LOG_VERBOSE("Reset __heap_base global to %" PRIu64, aux_heap_base);
-        }
-        else {
-            /* Insert app heap before new page */
-            inc_page_count =
-                (heap_size + num_bytes_per_page - 1) / num_bytes_per_page;
-            heap_offset = (uint64)num_bytes_per_page * init_page_count;
-            heap_size = (uint64)num_bytes_per_page * inc_page_count;
-            if (heap_size > 0)
-                heap_size -= 1 * BH_KB;
-        }
-        init_page_count += inc_page_count;
-        max_page_count += inc_page_count;
-        if (init_page_count > default_max_page) {
-            set_error_buf(error_buf, error_buf_size,
-                          "failed to insert app heap into linear memory, "
-                          "try using `--heap-size=0` option");
-            return NULL;
-        }
+            else {
+                /* Insert app heap before new page */
+                inc_page_count =
+                    (heap_size + num_bytes_per_page - 1) / num_bytes_per_page;
+                heap_offset = (uint64)num_bytes_per_page * init_page_count;
+                heap_size = (uint64)num_bytes_per_page * inc_page_count;
+                if (heap_size > 0)
+                    heap_size -= 1 * BH_KB;
+            }
+            init_page_count += inc_page_count;
+            max_page_count += inc_page_count;
+            if (init_page_count > default_max_page) {
+                set_error_buf(error_buf, error_buf_size,
+                              "failed to insert app heap into linear memory, "
+                              "try using `--heap-size=0` option");
+                return NULL;
+            }
 
-        if (max_page_count > default_max_page)
-            max_page_count = default_max_page;
+            if (max_page_count > default_max_page)
+                max_page_count = default_max_page;
+        }
     }
 
     LOG_VERBOSE("Memory instantiate:");
     LOG_VERBOSE("  page bytes: %u, init pages: %u, max pages: %u",
                 num_bytes_per_page, init_page_count, max_page_count);
-    LOG_VERBOSE("  heap offset: %" PRIu64 ", heap size: %u\n", heap_offset,
-                heap_size);
+    if (is_main_memory)
+        LOG_VERBOSE("  heap offset: %" PRIu64 ", heap size: %u\n", heap_offset,
+                    heap_size);
 
     max_memory_data_size = (uint64)num_bytes_per_page * max_page_count;
     bh_assert(max_memory_data_size
@@ -326,12 +340,19 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     memory->max_page_count = max_page_count;
     memory->memory_data_size = memory_data_size;
 
-    memory->heap_data = memory->memory_data + heap_offset;
-    memory->heap_data_end = memory->heap_data + heap_size;
-    memory->memory_data_end = memory->memory_data + memory_data_size;
+    if (is_main_memory) {
+        memory->heap_data = memory->memory_data + heap_offset;
+        memory->heap_data_end = memory->heap_data + heap_size;
+        memory->memory_data_end = memory->memory_data + memory_data_size;
+    }
+    else {
+        memory->heap_data = NULL;
+        memory->heap_data_end = NULL;
+        memory->memory_data_end = NULL;
+    }
 
     /* Initialize heap */
-    if (heap_size > 0) {
+    if (is_main_memory && heap_size > 0) {
         uint32 heap_struct_size = mem_allocator_get_heap_struct_size();
 
         if (!(memory->heap_handle = runtime_malloc(
@@ -357,11 +378,11 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     }
 #endif
 
-    LOG_VERBOSE("Default memory instantiate success.");
+    LOG_VERBOSE("Memory instantiate success.");
     return memory;
 
 fail2:
-    if (heap_size > 0)
+    if (is_main_memory && heap_size > 0)
         wasm_runtime_free(memory->heap_handle);
 fail1:
     if (memory->memory_data)
@@ -369,89 +390,6 @@ fail1:
 
     return NULL;
 }
-
-/* Only default memory have host managed heap */
-#define default_memory_instantiate memory_instantiate
-#if WASM_ENABLE_MULTI_MEMORY != 0
-static WASMMemoryInstance *
-nondefault_memory_instantiate(WASMModuleInstance *module_inst,
-                              WASMModuleInstance *parent,
-                              WASMMemoryInstance *memory, uint32 memory_idx,
-                              uint32 num_bytes_per_page, uint32 init_page_count,
-                              uint32 max_page_count, uint32 flags,
-                              char *error_buf, uint32 error_buf_size)
-{
-    uint64 memory_data_size, max_memory_data_size;
-
-    bool is_shared_memory = false;
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    is_shared_memory = flags & SHARED_MEMORY_FLAG ? true : false;
-
-    /* shared memory */
-    if (is_shared_memory && parent != NULL) {
-        bh_assert(parent->memory_count > memory_idx);
-        memory = parent->memories[memory_idx];
-        shared_memory_inc_reference(memory);
-        return memory;
-    }
-#else
-    (void)parent;
-    (void)memory_idx;
-    (void)flags;
-#endif /* end of WASM_ENABLE_SHARED_MEMORY */
-
-#if WASM_ENABLE_MEMORY64 != 0
-    if (flags & MEMORY64_FLAG) {
-        memory->is_memory64 = 1;
-    }
-#endif
-
-    LOG_VERBOSE("Memory instantiate:");
-    LOG_VERBOSE("  page bytes: %u, init pages: %u, max pages: %u",
-                num_bytes_per_page, init_page_count, max_page_count);
-
-    max_memory_data_size = (uint64)num_bytes_per_page * max_page_count;
-    bh_assert(max_memory_data_size
-              <= GET_MAX_LINEAR_MEMORY_SIZE(memory->is_memory64));
-    (void)max_memory_data_size;
-
-    bh_assert(memory != NULL);
-
-    if (wasm_allocate_linear_memory(&memory->memory_data, is_shared_memory,
-                                    memory->is_memory64, num_bytes_per_page,
-                                    init_page_count, max_page_count,
-                                    &memory_data_size)
-        != BHT_OK) {
-        set_error_buf(error_buf, error_buf_size,
-                      "allocate linear memory failed");
-        return NULL;
-    }
-
-    memory->module_type = Wasm_Module_Bytecode;
-    memory->num_bytes_per_page = num_bytes_per_page;
-    memory->cur_page_count = init_page_count;
-    memory->max_page_count = max_page_count;
-    memory->memory_data_size = memory_data_size;
-
-    memory->heap_data = NULL;
-    memory->heap_data_end = NULL;
-    memory->memory_data_end = NULL;
-
-    if (memory_data_size > 0) {
-        wasm_runtime_set_mem_bound_check_bytes(memory, memory_data_size);
-    }
-
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (is_shared_memory) {
-        memory->is_shared_memory = 1;
-        memory->ref_count = 1;
-    }
-#endif
-
-    LOG_VERBOSE("memory instantiate success.");
-    return memory;
-}
-#endif
 
 /**
  * Instantiate memories in a module.
@@ -509,29 +447,12 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         else
 #endif
         {
-#if WASM_ENABLE_MULTI_MEMORY != 0
-            /* Current assumption is if there doesn't exist a non-import memory,
-             * the first non-import memory would be default memory */
-            if (module->memory_count != 0 && mem_index != 0) {
-                if (!(memories[mem_index] = nondefault_memory_instantiate(
-                          module_inst, parent, memory, mem_index,
-                          num_bytes_per_page, init_page_count, max_page_count,
-                          flags, error_buf, error_buf_size))) {
-                    memories_deinstantiate(module_inst, memories, memory_count);
-                    return NULL;
-                }
-            }
-            else
-#endif
-            {
-                if (!(memories[mem_index] = default_memory_instantiate(
-                          module_inst, parent, memory, mem_index,
-                          num_bytes_per_page, init_page_count, max_page_count,
-                          actual_heap_size, flags, error_buf,
-                          error_buf_size))) {
-                    memories_deinstantiate(module_inst, memories, memory_count);
-                    return NULL;
-                }
+            if (!(memories[mem_index] = memory_instantiate(
+                      module_inst, parent, memory, mem_index,
+                      num_bytes_per_page, init_page_count, max_page_count,
+                      actual_heap_size, flags, error_buf, error_buf_size))) {
+                memories_deinstantiate(module_inst, memories, memory_count);
+                return NULL;
             }
             mem_index++;
         }
@@ -542,31 +463,14 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         uint32 max_page_count = wasm_runtime_get_max_mem(
             max_memory_pages, module->memories[i].init_page_count,
             module->memories[i].max_page_count);
-
-#if WASM_ENABLE_MULTI_MEMORY != 0
-        /* the first non import memory would be default memory */
-        if (mem_index != module->import_count) {
-            if (!(memories[mem_index] = nondefault_memory_instantiate(
-                      module_inst, parent, memory, mem_index,
-                      module->memories[i].num_bytes_per_page,
-                      module->memories[i].init_page_count, max_page_count,
-                      module->memories[i].flags, error_buf, error_buf_size))) {
-                memories_deinstantiate(module_inst, memories, memory_count);
-                return NULL;
-            }
-        }
-        else
-#endif
-        {
-            if (!(memories[mem_index] = default_memory_instantiate(
-                      module_inst, parent, memory, mem_index,
-                      module->memories[i].num_bytes_per_page,
-                      module->memories[i].init_page_count, max_page_count,
-                      heap_size, module->memories[i].flags, error_buf,
-                      error_buf_size))) {
-                memories_deinstantiate(module_inst, memories, memory_count);
-                return NULL;
-            }
+        if (!(memories[mem_index] = memory_instantiate(
+                  module_inst, parent, memory, mem_index,
+                  module->memories[i].num_bytes_per_page,
+                  module->memories[i].init_page_count, max_page_count,
+                  heap_size, module->memories[i].flags, error_buf,
+                  error_buf_size))) {
+            memories_deinstantiate(module_inst, memories, memory_count);
+            return NULL;
         }
         mem_index++;
     }
