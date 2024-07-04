@@ -721,12 +721,12 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
         }                                                     \
     } while (0)
 #else
-#define read_leb_memidx(p, p_end, res) read_leb_uint32(p, p_end, res)
 #define read_leb_memarg(p, p_end, res)  \
     do {                                \
         read_leb_uint32(p, p_end, res); \
         (void)res;                      \
     } while (0)
+#define read_leb_memidx(p, p_end, res) read_leb_memarg(p, p_end, res)
 #endif
 
 #if WASM_ENABLE_LABELS_AS_VALUES == 0
