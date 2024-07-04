@@ -721,7 +721,7 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
         }                                                     \
     } while (0)
 #else
-#define read_leb_memidx(p, p_end, res) read_leb_memarg(p, p_end, res)
+#define read_leb_memidx(p, p_end, res) read_leb_uint32(p, p_end, res)
 #define read_leb_memarg(p, p_end, res)  \
     do {                                \
         read_leb_uint32(p, p_end, res); \
@@ -5658,6 +5658,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         /* dst memidx */
                         read_leb_memidx(frame_ip, frame_ip_end, memidx);
 #endif
+#if WASM_ENABLE_THREAD_MGR != 0
+                        linear_mem_size = get_linear_mem_size();
+#endif
                         /* dst boundary check */
 #ifndef OS_ENABLE_HW_BOUND_CHECK
                         CHECK_BULK_MEMORY_OVERFLOW(dst, len, mdst);
@@ -5671,6 +5674,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_MULTI_MEMORY != 0
                         /* src memidx */
                         read_leb_memidx(frame_ip, frame_ip_end, memidx);
+#endif
+#if WASM_ENABLE_THREAD_MGR != 0
+                        linear_mem_size = get_linear_mem_size();
 #endif
                         /* src boundary check */
 #ifndef OS_ENABLE_HW_BOUND_CHECK
