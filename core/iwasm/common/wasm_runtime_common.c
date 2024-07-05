@@ -871,6 +871,25 @@ get_package_type(const uint8 *buf, uint32 size)
     return Package_Type_Unknown;
 }
 
+unsigned int
+wasm_runtime_module_get_package_version(wasm_module_t module)
+{
+    if (!module) {
+        return 0;
+    }
+
+    /* currently only one version of each type is supported */
+    switch (module->module_type) {
+        case Wasm_Module_Bytecode:
+            return WASM_CURRENT_VERSION;
+        case Wasm_Module_AoT:
+            return AOT_CURRENT_VERSION;
+        case Package_Type_Unknown:
+        default:
+            return 0;
+    }
+}
+
 #if WASM_ENABLE_AOT != 0
 static uint8 *
 align_ptr(const uint8 *p, uint32 b)
@@ -7029,6 +7048,20 @@ wasm_runtime_get_version(uint32_t *major, uint32_t *minor, uint32_t *patch)
     *major = WAMR_VERSION_MAJOR;
     *minor = WAMR_VERSION_MINOR;
     *patch = WAMR_VERSION_PATCH;
+}
+
+unsigned int
+wasm_runtime_get_max_package_version(PackageType package_type)
+{
+    switch (package_type) {
+        case Wasm_Module_Bytecode:
+            return WASM_CURRENT_VERSION;
+        case Wasm_Module_AoT:
+            return AOT_CURRENT_VERSION;
+        case Package_Type_Unknown:
+        default:
+            return 0;
+    }
 }
 
 bool

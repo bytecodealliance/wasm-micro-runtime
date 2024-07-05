@@ -420,6 +420,16 @@ WASM_RUNTIME_API_EXTERN package_type_t
 get_package_type(const uint8_t *buf, uint32_t size);
 
 /**
+ * Get the package version of a module
+ *
+ * @param module the module
+ *
+ * @return the package version, or zero if version is unknown
+ */
+WASM_RUNTIME_API_EXTERN unsigned int
+wasm_runtime_module_get_package_version(wasm_module_t module);
+
+/**
  * Check whether a file is an AOT XIP (Execution In Place) file
  *
  * @param buf the package buffer
@@ -1825,6 +1835,12 @@ wasm_runtime_get_custom_section(const wasm_module_t module_comm,
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_get_version(uint32_t *major, uint32_t *minor, uint32_t *patch);
+
+/**
+ * Get max supported version for a package type
+ */
+WASM_RUNTIME_API_EXTERN unsigned int
+wasm_runtime_get_max_package_version(package_type_t package_type);
 
 /**
  * Check whether an import func `(import <module_name> <func_name> (func ...))`
