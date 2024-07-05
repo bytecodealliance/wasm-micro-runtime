@@ -1039,6 +1039,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                         }
 
                         cur_value.type_index = type_idx;
+                        cur_value.data = NULL;
                         wasm_set_refheaptype_typeidx(
                             &cur_ref_type.ref_ht_typeidx, false, type_idx);
                         if (!push_const_expr_stack(
@@ -11201,10 +11202,15 @@ re_scan:
 
                 /* Pass parameters to block */
                 if (BLOCK_HAS_PARAM(block_type)) {
-                    for (i = 0; i < block_type.u.type->param_count; i++) {
+                    WASMFuncType *func_type = block_type.u.type;
+#if WASM_ENABLE_GC != 0
+                    WASMRefType *ref_type;
+                    uint32 j = 0;
+#endif
+                    for (i = 0; i < func_type->param_count; i++) {
 #if WASM_ENABLE_FAST_INTERP != 0
-                        uint32 cell_num = wasm_value_type_cell_num(
-                            block_type.u.type->types[i]);
+                        uint32 cell_num =
+                            wasm_value_type_cell_num(func_type->types[i]);
                         if (i >= available_params) {
                             /* If there isn't enough data on stack, push a dummy
                              * offset to keep the stack consistent with
@@ -11228,7 +11234,17 @@ re_scan:
                             loader_ctx->frame_offset += cell_num;
                         }
 #endif
-                        PUSH_TYPE(block_type.u.type->types[i]);
+#if WASM_ENABLE_GC != 0
+                        if (wasm_is_type_multi_byte_type(func_type->types[i])) {
+                            bh_assert(func_type->ref_type_maps[j].index == i);
+                            ref_type = func_type->ref_type_maps[j].ref_type;
+                            bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
+                                        ref_type,
+                                        wasm_reftype_struct_size(ref_type));
+                            j++;
+                        }
+#endif
+                        PUSH_TYPE(func_type->types[i]);
                     }
                 }
 
@@ -11356,6 +11372,7 @@ re_scan:
                 int32 available_stack_cell =
                     (int32)(loader_ctx->stack_cell_num
                             - cur_block->stack_cell_num);
+                int32 tti;
 
                 /* Check stack values match return types by comparing tag param
                  * types with stack cells */
@@ -11364,19 +11381,21 @@ re_scan:
                 WASMRefTypeMap *frame_reftype_map =
                     loader_ctx->frame_reftype_map;
                 uint32 frame_reftype_map_num = loader_ctx->reftype_map_num;
+
+                /* Temporarily set these values since they may be used in
+                   GET_LOCAL_REFTYPE(), remember they must be restored later */
                 param_reftype_maps = tag_type->ref_type_maps;
                 /* For tag_type function, it shouldn't have result_count = 0 */
                 param_reftype_map_count = tag_type->ref_type_map_count;
-                param_count = (int32)tag_type->param_count;
+                param_count = tag_type->param_count;
 #endif
 
-                for (int tti = (int32)tag_type->param_count - 1; tti >= 0;
-                     tti--) {
+                for (tti = (int32)tag_type->param_count - 1; tti >= 0; tti--) {
 #if WASM_ENABLE_GC != 0
                     local_type = tag_type->types[tti];
                     local_idx = tti;
                     /* Get the wasm_ref_type if the local_type is multibyte
-                     * type */
+                       type */
                     GET_LOCAL_REFTYPE();
 #endif
 
@@ -11405,6 +11424,13 @@ re_scan:
                     available_stack_cell -=
                         wasm_value_type_cell_num(tag_type->types[tti]);
                 }
+
+#if WASM_ENABLE_GC != 0
+                /* Restore the values */
+                param_reftype_maps = func->func_type->ref_type_maps;
+                param_reftype_map_count = func->func_type->ref_type_map_count;
+                param_count = func->func_type->param_count;
+#endif
 
                 /* throw is stack polymorphic */
                 (void)label_type;
@@ -11497,10 +11523,6 @@ re_scan:
                     goto fail;
                 }
 
-                BlockType new_block_type;
-                new_block_type.is_value_type = false;
-                new_block_type.u.type = func_type;
-
                 /*
                  * replace frame_csp by LABEL_TYPE_CATCH
                  */
@@ -11510,10 +11532,24 @@ re_scan:
                  * CATCH Blocks */
                 RESET_STACK();
 
+#if WASM_ENABLE_GC != 0
+                WASMRefType *ref_type;
+                uint32 j = 0;
+#endif
+
                 /* push types on the stack according to caught type */
-                if (BLOCK_HAS_PARAM(new_block_type)) {
-                    for (i = 0; i < new_block_type.u.type->param_count; i++)
-                        PUSH_TYPE(new_block_type.u.type->types[i]);
+                for (i = 0; i < func_type->param_count; i++) {
+#if WASM_ENABLE_GC != 0
+                    if (wasm_is_type_multi_byte_type(func_type->types[i])) {
+                        bh_assert(func_type->ref_type_maps[j].index == i);
+                        ref_type = func_type->ref_type_maps[j].ref_type;
+                        bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
+                                    ref_type,
+                                    wasm_reftype_struct_size(ref_type));
+                        j++;
+                    }
+#endif
+                    PUSH_TYPE(func_type->types[i]);
                 }
                 break;
             }
