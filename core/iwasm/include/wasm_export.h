@@ -81,8 +81,11 @@ typedef struct WASMTableType *wasm_table_type_t;
 struct WASMGlobalType;
 typedef struct WASMGlobalType *wasm_global_type_t;
 
+#ifndef WASM_MEMORY_T_DEFINED
+#define WASM_MEMORY_T_DEFINED
 struct WASMMemory;
 typedef struct WASMMemory WASMMemoryType;
+#endif
 typedef WASMMemoryType *wasm_memory_type_t;
 
 typedef struct wasm_import_t {
