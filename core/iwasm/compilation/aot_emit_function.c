@@ -1412,7 +1412,9 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Get function type */
     if (func_idx < import_func_count) {
         func_type = import_funcs[func_idx].func_type;
-        signature = import_funcs[func_idx].signature;
+        if (import_funcs[func_idx].attachment == NULL) {
+            signature = import_funcs[func_idx].signature;
+        }
     }
     else {
         func_type =
