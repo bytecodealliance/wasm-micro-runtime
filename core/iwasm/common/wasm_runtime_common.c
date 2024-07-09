@@ -872,7 +872,7 @@ get_package_type(const uint8 *buf, uint32 size)
 }
 
 PackageType
-wasm_runtime_module_get_package_type(WASMModuleCommon *module)
+wasm_runtime_get_module_package_type(WASMModuleCommon *module)
 {
     if (!module) {
         return Package_Type_Unknown;

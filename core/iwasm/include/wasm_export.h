@@ -427,7 +427,7 @@ get_package_type(const uint8_t *buf, uint32_t size);
  * @return the package type, return Package_Type_Unknown if the type is unknown
  */
 WASM_RUNTIME_API_EXTERN package_type_t
-wasm_runtime_module_get_package_type(wasm_module_t module);
+wasm_runtime_get_module_package_type(wasm_module_t module);
 
 /**
  * Check whether a file is an AOT XIP (Execution In Place) file
