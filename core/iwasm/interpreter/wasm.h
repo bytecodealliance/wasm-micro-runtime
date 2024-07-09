@@ -94,6 +94,13 @@ extern "C" {
 #define SHARED_MEMORY_FLAG 0x02
 #define MEMORY64_FLAG 0x04
 
+/**
+ * In multi-memory , the memarg in loads and stores
+ * are reinterpreted as a bitfield; if bit 6 is set,
+ * then an i32 memory index follows after the alignment bitfield
+ */
+#define OPT_MEMIDX_FLAG 0x40
+
 #define DEFAULT_NUM_BYTES_PER_PAGE 65536
 #define DEFAULT_MAX_PAGES 65536
 #define DEFAULT_MEM64_MAX_PAGES UINT32_MAX

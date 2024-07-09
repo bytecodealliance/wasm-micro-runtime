@@ -3837,11 +3837,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 addr_ret = GET_OFFSET();
                 delta = (uint32)frame_lp[addr1];
 
-                if (!wasm_enlarge_memory(module,
-#if WASM_ENABLE_MULTI_MEMORY != 0
-                                         0,
-#endif
-                                         delta)) {
+                /* TODO: multi-memory wasm_enlarge_memory_with_idx() */
+                if (!wasm_enlarge_memory(module, delta)) {
                     /* failed to memory.grow, return -1 */
                     frame_lp[addr_ret] = -1;
                 }

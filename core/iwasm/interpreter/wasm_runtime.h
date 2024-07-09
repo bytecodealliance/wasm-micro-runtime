@@ -621,14 +621,14 @@ WASMMemoryInstance *
 wasm_get_default_memory(WASMModuleInstance *module_inst);
 
 WASMMemoryInstance *
-wasm_get_memory_i(WASMModuleInstance *module_inst, uint32 index);
+wasm_get_memory_with_idx(WASMModuleInstance *module_inst, uint32 index);
 
 bool
-wasm_enlarge_memory(WASMModuleInstance *module_inst,
-#if WASM_ENABLE_MULTI_MEMORY != 0
-                    uint32 memidx,
-#endif
-                    uint32 inc_page_count);
+wasm_enlarge_memory(WASMModuleInstance *module_inst, uint32 inc_page_count);
+
+bool
+wasm_enlarge_memory_with_idx(WASMModuleInstance *module_inst,
+                             uint32 inc_page_count, uint32 memidx);
 
 bool
 wasm_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,

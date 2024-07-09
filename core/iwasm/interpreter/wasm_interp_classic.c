@@ -698,27 +698,33 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
 #endif
 
 #if WASM_ENABLE_MULTI_MEMORY != 0
-#define read_leb_memidx(p, p_end, res)                    \
-    do {                                                  \
-        read_leb_uint32(p, p_end, res);                   \
-        memory = wasm_get_memory_i(module, res);          \
-        linear_mem_size = GET_LINEAR_MEMORY_SIZE(memory); \
-    } while (0)
-/* First read the alignment, then if it has flag indicating following memidx,
- * read it and set the memory instance to memories[memidx] for following memory
- * access and boundary check, if it doesn't have flag reset the memory instance
- * to the default memories[0] */
-#define read_leb_memarg(p, p_end, res)                        \
+/* If the current memidx differs than the last cached one,
+ * update memory related information */
+#define read_leb_memidx(p, p_end, res)                        \
     do {                                                      \
         read_leb_uint32(p, p_end, res);                       \
-        if (res & 0x40) {                                     \
-            read_leb_memidx(p, p_end, memidx);                \
-        }                                                     \
-        else if (memidx != 0) {                               \
-            memidx = 0;                                       \
-            memory = wasm_get_default_memory(module);         \
+        if (res != memidx_cached) {                           \
+            memory = wasm_get_memory_with_idx(module, res);   \
             linear_mem_size = GET_LINEAR_MEMORY_SIZE(memory); \
+            memidx_cached = res;                              \
         }                                                     \
+    } while (0)
+/* First read the alignment, then if it has flag indicating following memidx,
+ * read and update memory related information, if it differs than the
+ * last(cached) one. If it doesn't have flag reset the
+ * memory instance to the default memories[0] */
+#define read_leb_memarg(p, p_end, res)                         \
+    do {                                                       \
+        read_leb_uint32(p, p_end, res);                        \
+        if (!(res & OPT_MEMIDX_FLAG))                          \
+            memidx = 0;                                        \
+        else                                                   \
+            read_leb_memidx(p, p_end, memidx);                 \
+        if (memidx != memidx_cached) {                         \
+            memory = wasm_get_memory_with_idx(module, memidx); \
+            linear_mem_size = GET_LINEAR_MEMORY_SIZE(memory);  \
+            memidx_cached = memidx;                            \
+        }                                                      \
     } while (0)
 #else
 #define read_leb_memarg(p, p_end, res)  \
@@ -1571,6 +1577,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
 #if WASM_ENABLE_MULTI_MEMORY != 0
     uint32 memidx = 0;
+    uint32 memidx_cached = (uint32)-1;
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
@@ -4575,11 +4582,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 prev_page_count = memory->cur_page_count;
                 delta = (uint32)POP_PAGE_COUNT();
 
-                if (!wasm_enlarge_memory(module,
-#if WASM_ENABLE_MULTI_MEMORY != 0
-                                         mem_idx,
-#endif
-                                         delta)) {
+                if (!wasm_enlarge_memory_with_idx(module, delta, mem_idx)) {
                     /* failed to memory.grow, return -1 */
                     PUSH_PAGE_COUNT(-1);
                 }

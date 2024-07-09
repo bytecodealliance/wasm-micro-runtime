@@ -137,7 +137,7 @@ check_buf1(const uint8 *buf, const uint8 *buf_end, uint32 length,
 /* Skip the following memidx if applicable */
 #define skip_leb_align(p, p_end)       \
     do {                               \
-        if (*p++ & 0x40)               \
+        if (*p++ & OPT_MEMIDX_FLAG)    \
             skip_leb_uint32(p, p_end); \
     } while (0)
 #endif
@@ -273,13 +273,13 @@ fail:
             goto fail;                                                      \
         }                                                                   \
     } while (0)
-/* Bit 6 indicating the optional memidx, and reset bit 6 for
+/* Bit 6(0x40) indicating the optional memidx, and reset bit 6 for
  * alignment check */
 #define read_leb_memarg(p, p_end, res)                      \
     do {                                                    \
         read_leb_uint32(p, p_end, res);                     \
-        if (res & 0x40) {                                   \
-            res &= 0x3F;                                    \
+        if (res & OPT_MEMIDX_FLAG) {                        \
+            res &= 0xBF;                                    \
             read_leb_uint32(p, p_end, memidx); /* memidx */ \
             check_memidx(module, memidx);                   \
         }                                                   \

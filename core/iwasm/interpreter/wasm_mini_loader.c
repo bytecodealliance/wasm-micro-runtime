@@ -71,7 +71,7 @@ set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 /* Skip the following memidx if applicable */
 #define skip_leb_align(p, p_end)       \
     do {                               \
-        if (*p++ & 0x40)               \
+        if (*p++ & OPT_MEMIDX_FLAG)    \
             skip_leb_uint32(p, p_end); \
     } while (0)
 #endif
@@ -223,8 +223,8 @@ read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
 #define read_leb_memarg(p, p_end, res)                      \
     do {                                                    \
         read_leb_uint32(p, p_end, res);                     \
-        if (res & 0x40) {                                   \
-            res &= 0x3F;                                    \
+        if (res & OPT_MEMIDX_FLAG) {                        \
+            res &= 0xBF;                                    \
             read_leb_uint32(p, p_end, memidx); /* memidx */ \
             check_memidx(module, memidx);                   \
         }                                                   \

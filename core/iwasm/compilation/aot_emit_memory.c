@@ -895,6 +895,7 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     POP_PAGE_COUNT(delta);
 
+    /* TODO: multi-memory aot_enlarge_memory_with_idx() */
     /* Function type of aot_enlarge_memory() */
     param_types[0] = INT8_PTR_TYPE;
     param_types[1] = I32_TYPE;

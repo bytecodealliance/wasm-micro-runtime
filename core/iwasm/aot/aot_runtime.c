@@ -2823,12 +2823,14 @@ aot_module_dup_data(AOTModuleInstance *module_inst, const char *src,
 bool
 aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
 {
-    /* TODO: multi-memory memidx */
-    return wasm_enlarge_memory(module_inst,
-#if WASM_ENABLE_MULTI_MEMORY
-                               0,
-#endif
-                               inc_page_count);
+    return wasm_enlarge_memory(module_inst, inc_page_count);
+}
+
+bool
+aot_enlarge_memory_with_idx(AOTModuleInstance *module_inst,
+                            uint32 inc_page_count, uint32 memidx)
+{
+    return wasm_enlarge_memory_with_idx(module_inst, inc_page_count, memidx);
 }
 
 bool

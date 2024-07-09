@@ -182,7 +182,7 @@ static RunningMode runtime_running_mode = Mode_Default;
 static os_thread_local_attribute WASMExecEnv *exec_env_tls = NULL;
 
 static bool
-is_sig_addr_oob(void *sig_addr, WASMModuleInstance *module_inst)
+is_sig_addr_in_guard_pages(void *sig_addr, WASMModuleInstance *module_inst)
 {
     WASMMemoryInstance *memory_inst;
     uint8 *mapped_mem_start_addr = NULL;
@@ -191,7 +191,7 @@ is_sig_addr_oob(void *sig_addr, WASMModuleInstance *module_inst)
 
     for (i = 0; i < module_inst->memory_count; ++i) {
         /* To be compatible with multi memory, get the ith memory instance */
-        memory_inst = wasm_get_memory_i(module_inst, i);
+        memory_inst = wasm_get_memory_with_idx(module_inst, i);
         mapped_mem_start_addr = memory_inst->memory_data;
         mapped_mem_end_addr = memory_inst->memory_data + 8 * (uint64)BH_GB;
         if (mapped_mem_start_addr <= (uint8 *)sig_addr
@@ -228,7 +228,7 @@ runtime_signal_handler(void *sig_addr)
         stack_min_addr = os_thread_get_stack_boundary();
 #endif
 
-        if (is_sig_addr_oob(sig_addr, module_inst)) {
+        if (is_sig_addr_in_guard_pages(sig_addr, module_inst)) {
             wasm_set_exception(module_inst, "out of bounds memory access");
             os_longjmp(jmpbuf_node->jmpbuf, 1);
         }
@@ -351,7 +351,7 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
         && (jmpbuf_node = exec_env_tls->jmpbuf_stack_top)) {
         module_inst = (WASMModuleInstance *)exec_env_tls->module_inst;
         if (ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
-            if (is_sig_addr_oob(sig_addr, module_inst)) {
+            if (is_sig_addr_in_guard_pages(sig_addr, module_inst)) {
                 /* The address which causes segmentation fault is inside
                    the memory instance's guard regions.
                    Set exception and let the wasm func continue to run, when

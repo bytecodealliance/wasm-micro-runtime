@@ -605,6 +605,10 @@ aot_module_dup_data(AOTModuleInstance *module_inst, const char *src,
 bool
 aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count);
 
+bool
+aot_enlarge_memory_with_idx(AOTModuleInstance *module_inst,
+                            uint32 inc_page_count, uint32 memidx);
+
 /**
  * Invoke native function from aot code
  */

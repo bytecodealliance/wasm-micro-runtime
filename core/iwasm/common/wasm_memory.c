@@ -671,8 +671,9 @@ wasm_get_default_memory(WASMModuleInstance *module_inst)
 }
 
 WASMMemoryInstance *
-wasm_get_memory_i(WASMModuleInstance *module_inst, uint32 index)
+wasm_get_memory_with_idx(WASMModuleInstance *module_inst, uint32 index)
 {
+    bh_assert(index < module_inst->memory_count);
     if (module_inst->memories)
         return module_inst->memories[index];
     else
@@ -756,14 +757,11 @@ wasm_mmap_linear_memory(uint64_t map_size, uint64 commit_size)
 }
 
 bool
-wasm_enlarge_memory_internal(WASMModuleInstance *module,
-#if WASM_ENABLE_MULTI_MEMORY != 0
-                             uint32 memidx,
-#endif
-                             uint32 inc_page_count)
+wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count,
+                             uint32 memidx)
 {
 #if WASM_ENABLE_MULTI_MEMORY != 0
-    WASMMemoryInstance *memory = wasm_get_memory_i(module, memidx);
+    WASMMemoryInstance *memory = wasm_get_memory_with_idx(module, memidx);
 #else
     WASMMemoryInstance *memory = wasm_get_default_memory(module);
 #endif
@@ -969,28 +967,37 @@ wasm_runtime_set_enlarge_mem_error_callback(
 }
 
 bool
-wasm_enlarge_memory(WASMModuleInstance *module,
-#if WASM_ENABLE_MULTI_MEMORY != 0
-                    uint32 memidx,
-#endif
-                    uint32 inc_page_count)
+wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 {
     bool ret = false;
 
-    /*TODO: now use a global memory lock for all memory, so it's fine to only
-     * lock for memories 0 */
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (module->memory_count > 0)
         shared_memory_lock(module->memories[0]);
 #endif
-    ret = wasm_enlarge_memory_internal(module,
-#if WASM_ENABLE_MULTI_MEMORY != 0
-                                       memidx,
-#endif
-                                       inc_page_count);
+    ret = wasm_enlarge_memory_internal(module, inc_page_count, 0);
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (module->memory_count > 0)
         shared_memory_unlock(module->memories[0]);
+#endif
+
+    return ret;
+}
+
+bool
+wasm_enlarge_memory_with_idx(WASMModuleInstance *module, uint32 inc_page_count,
+                             uint32 memidx)
+{
+    bool ret = false;
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (memidx < module->memory_count)
+        shared_memory_lock(module->memories[memidx]);
+#endif
+    ret = wasm_enlarge_memory_internal(module, inc_page_count, memidx);
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (memidx < module->memory_count)
+        shared_memory_unlock(module->memories[memidx]);
 #endif
 
     return ret;
