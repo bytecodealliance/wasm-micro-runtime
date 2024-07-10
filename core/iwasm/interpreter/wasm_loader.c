@@ -334,8 +334,10 @@ is_packed_type(uint8 type)
 static bool
 is_byte_a_type(uint8 type)
 {
-    return (is_valid_value_type(type) || (type == VALUE_TYPE_VOID)) ? true
-                                                                    : false;
+    return (is_valid_value_type_for_interpreter(type)
+            || (type == VALUE_TYPE_VOID))
+               ? true
+               : false;
 }
 
 #if WASM_ENABLE_SIMD != 0
@@ -1443,7 +1445,7 @@ resolve_value_type(const uint8 **p_buf, const uint8 *buf_end,
     }
     else {
         /* type which can be represented by one byte */
-        if (!is_valid_value_type(type)
+        if (!is_valid_value_type_for_interpreter(type)
             && !(allow_packed_type && is_packed_type(type))) {
             set_error_buf(error_buf, error_buf_size, "type mismatch");
             return false;
@@ -1953,7 +1955,7 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 type->types[param_count + j] = read_uint8(p);
             }
             for (j = 0; j < param_count + result_count; j++) {
-                if (!is_valid_value_type(type->types[j])) {
+                if (!is_valid_value_type_for_interpreter(type->types[j])) {
                     set_error_buf(error_buf, error_buf_size,
                                   "unknown value type");
                     return false;
@@ -3049,7 +3051,7 @@ load_global_import(const uint8 **p_buf, const uint8 *buf_end,
     CHECK_BUF(p, p_end, 2);
     /* global type */
     declare_type = read_uint8(p);
-    if (!is_valid_value_type(declare_type)) {
+    if (!is_valid_value_type_for_interpreter(declare_type)) {
         set_error_buf(error_buf, error_buf_size, "type mismatch");
         return false;
     }
@@ -3766,7 +3768,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
                 CHECK_BUF(p_code, buf_code_end, 1);
                 /* 0x7F/0x7E/0x7D/0x7C */
                 type = read_uint8(p_code);
-                if (!is_valid_value_type(type)) {
+                if (!is_valid_value_type_for_interpreter(type)) {
                     if (type == VALUE_TYPE_V128)
                         set_error_buf(error_buf, error_buf_size,
                                       "v128 value type requires simd feature");
@@ -4046,7 +4048,7 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             CHECK_BUF(p, p_end, 2);
             /* global type */
             global->type.val_type = read_uint8(p);
-            if (!is_valid_value_type(global->type.val_type)) {
+            if (!is_valid_value_type_for_interpreter(global->type.val_type)) {
                 set_error_buf(error_buf, error_buf_size, "type mismatch");
                 return false;
             }
@@ -12367,7 +12369,7 @@ re_scan:
 #if WASM_ENABLE_GC == 0
                 CHECK_BUF(p, p_end, 1);
                 type = read_uint8(p);
-                if (!is_valid_value_type(type)) {
+                if (!is_valid_value_type_for_interpreter(type)) {
                     set_error_buf(error_buf, error_buf_size,
                                   "unknown value type");
                     goto fail;
