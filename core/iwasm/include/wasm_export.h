@@ -423,6 +423,28 @@ WASM_RUNTIME_API_EXTERN package_type_t
 get_package_type(const uint8_t *buf, uint32_t size);
 
 /**
+ * Get the package type of a buffer (same as get_package_type).
+ *
+ * @param buf the package buffer
+ * @param size the package buffer size
+ *
+ * @return the package type, return Package_Type_Unknown if the type is unknown
+ */
+WASM_RUNTIME_API_EXTERN package_type_t
+wasm_runtime_get_file_package_type(const uint8_t *buf, uint32_t size);
+
+/**
+ * Get the package type of a module.
+ *
+ * @param module the module
+ *
+ * @return the package type, return Package_Type_Unknown if the type is
+ * unknown
+ */
+WASM_RUNTIME_API_EXTERN package_type_t
+wasm_runtime_get_module_package_type(wasm_module_t module);
+
+/**
  * Check whether a file is an AOT XIP (Execution In Place) file
  *
  * @param buf the package buffer

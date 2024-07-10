@@ -871,6 +871,22 @@ get_package_type(const uint8 *buf, uint32 size)
     return Package_Type_Unknown;
 }
 
+PackageType
+wasm_runtime_get_file_package_type(const uint8 *buf, uint32 size)
+{
+    return get_package_type(buf, size);
+}
+
+PackageType
+wasm_runtime_get_module_package_type(WASMModuleCommon *module)
+{
+    if (!module) {
+        return Package_Type_Unknown;
+    }
+
+    return module->module_type;
+}
+
 #if WASM_ENABLE_AOT != 0
 static uint8 *
 align_ptr(const uint8 *p, uint32 b)
