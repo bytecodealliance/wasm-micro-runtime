@@ -109,6 +109,7 @@ typedef struct AOTModuleInstanceExtra {
 #if WASM_ENABLE_MULTI_MODULE != 0
     bh_list sub_module_inst_list_head;
     bh_list *sub_module_inst_list;
+    WASMModuleInstanceCommon **import_func_module_insts;
 #endif
 } AOTModuleInstanceExtra;
 

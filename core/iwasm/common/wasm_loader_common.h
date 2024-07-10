@@ -21,7 +21,14 @@ bool
 is_valid_value_type(uint8 value_tpye);
 
 bool
+is_valid_value_type_for_interpreter(uint8 value_tpye);
+
+bool
 is_valid_func_type(const WASMFuncType *func_type);
+
+bool
+is_indices_overflow(uint32 import, uint32 other, char *error_buf,
+                    uint32 error_buf_size);
 
 #ifdef __cplusplus
 }

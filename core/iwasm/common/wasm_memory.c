@@ -919,6 +919,30 @@ return_func:
     return ret;
 }
 
+bool
+wasm_runtime_enlarge_memory(WASMModuleInstanceCommon *module_inst,
+                            uint64 inc_page_count)
+{
+    if (inc_page_count > UINT32_MAX) {
+        return false;
+    }
+
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return aot_enlarge_memory((AOTModuleInstance *)module_inst,
+                                  inc_page_count);
+    }
+#endif
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        return wasm_enlarge_memory((WASMModuleInstance *)module_inst,
+                                   inc_page_count);
+    }
+#endif
+
+    return false;
+}
+
 void
 wasm_runtime_set_enlarge_mem_error_callback(
     const enlarge_memory_error_callback_t callback, void *user_data)

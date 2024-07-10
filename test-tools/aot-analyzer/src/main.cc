@@ -169,8 +169,8 @@ DumpInfo(AoTFile *aot)
            aot->GetExectuionMachineName(target_info.e_machine).c_str());
     printf("Exectuion version: %u\n", target_info.e_version);
     printf("Exectuion flags: %u\n", target_info.e_flags);
-    printf("Feature flags: %ld\n", target_info.feature_flags);
-    printf("Reserved: %ld\n", target_info.reserved);
+    printf("Feature flags: %" PRId64 "\n", target_info.feature_flags);
+    printf("Reserved: %" PRId64 "\n", target_info.reserved);
     printf("Arch: %s\n", target_info.arch);
 }
 
@@ -272,8 +272,8 @@ DumpDetails(AoTFile *aot)
         AOTImportMemory memory = import_memories[index];
         printf("    -[%u] num_bytes_per_page:%5u    init_page_count:%5u    "
                "max_page_count:%5u    module_name: %s    memory_name: %s\n",
-               index, memory.memory.num_bytes_per_page,
-               memory.memory.init_page_count, memory.memory.max_page_count,
+               index, memory.mem_type.num_bytes_per_page,
+               memory.mem_type.init_page_count, memory.mem_type.max_page_count,
                memory.module_name, memory.memory_name);
     }
     printf("\n");
@@ -285,14 +285,15 @@ DumpDetails(AoTFile *aot)
         printf("    -[%u] ", index);
         printf("elem_type: ");
 #if WASM_ENABLE_GC != 0
-        wasm_dump_value_type(table.elem_type, table.elem_ref_type);
+        wasm_dump_value_type(table.table_type.elem_type,
+                             table.table_type.elem_ref_type);
 #else
-        dump_value_type(table.elem_type);
+        dump_value_type(table.table_type.elem_type);
 #endif
         printf("    init_size:%5u    max_size:%5u    "
                "module_name: %s    table_name: %s\n",
                table.table_type.init_size, table.table_type.max_size,
-               table.module_name, table.table_type.name);
+               table.module_name, table.table_name);
     }
     printf("\n");
 
@@ -302,7 +303,7 @@ DumpDetails(AoTFile *aot)
         AOTImportGlobal global = import_globals[index];
         printf("    -[%u] ", index);
         printf("type: ");
-        dump_value_type(global.type);
+        dump_value_type(global.type.val_type);
         printf("    module_name: %s    global_name: %s\n", global.module_name,
                global.global_name);
     }
@@ -348,9 +349,10 @@ DumpDetails(AoTFile *aot)
         printf("  -[%u] ", index);
         printf("elem_type: ");
 #if WASM_ENABLE_GC != 0
-        wasm_dump_value_type(table.elem_type, table.elem_ref_type);
+        wasm_dump_value_type(table.table_type.elem_type,
+                             table.table_type.elem_ref_type);
 #else
-        dump_value_type(table.elem_type);
+        dump_value_type(table.table_type.elem_type);
 #endif
         printf("    init_size:%5u    max_size:%5u\n",
                table.table_type.init_size, table.table_type.max_size);
@@ -382,9 +384,9 @@ DumpDetails(AoTFile *aot)
         AOTGlobal global = globals[index];
         printf("  -[%u] ", index);
         printf("type: ");
-        dump_value_type(global.type);
+        dump_value_type(global.type.val_type);
         printf("    is_mutable: %d    size: %u    data_offset: %u\n",
-               global.is_mutable, global.size, global.data_offset);
+               global.type.is_mutable, global.size, global.data_offset);
     }
     printf("\n\n");
 
