@@ -1227,7 +1227,7 @@ wasm_runtime_validate_native_addr(wasm_module_inst_t module_inst,
                                   void *native_ptr, uint64_t size);
 
 /**
- * Convert app address(relative address) to native address(absolute address)
+ * Convert app address (relative address) to native address (absolute address)
  *
  * Note that native addresses to module instance memory can be invalidated
  * on a memory growth. (Except shared memory, whose native addresses are
@@ -1243,7 +1243,7 @@ wasm_runtime_addr_app_to_native(wasm_module_inst_t module_inst,
                                 uint64_t app_offset);
 
 /**
- * Convert native address(absolute address) to app address(relative address)
+ * Convert native address (absolute address) to app address (relative address)
  *
  * @param module_inst the WASM module instance
  * @param native_ptr the native address
