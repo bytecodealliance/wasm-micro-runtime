@@ -81,8 +81,11 @@ typedef struct WASMTableType *wasm_table_type_t;
 struct WASMGlobalType;
 typedef struct WASMGlobalType *wasm_global_type_t;
 
+#ifndef WASM_MEMORY_T_DEFINED
+#define WASM_MEMORY_T_DEFINED
 struct WASMMemory;
 typedef struct WASMMemory WASMMemoryType;
+#endif
 typedef WASMMemoryType *wasm_memory_type_t;
 
 typedef struct wasm_import_t {
@@ -418,6 +421,28 @@ wasm_runtime_get_mem_alloc_info(mem_alloc_info_t *mem_alloc_info);
  */
 WASM_RUNTIME_API_EXTERN package_type_t
 get_package_type(const uint8_t *buf, uint32_t size);
+
+/**
+ * Get the package type of a buffer (same as get_package_type).
+ *
+ * @param buf the package buffer
+ * @param size the package buffer size
+ *
+ * @return the package type, return Package_Type_Unknown if the type is unknown
+ */
+WASM_RUNTIME_API_EXTERN package_type_t
+wasm_runtime_get_file_package_type(const uint8_t *buf, uint32_t size);
+
+/**
+ * Get the package type of a module.
+ *
+ * @param module the module
+ *
+ * @return the package type, return Package_Type_Unknown if the type is
+ * unknown
+ */
+WASM_RUNTIME_API_EXTERN package_type_t
+wasm_runtime_get_module_package_type(wasm_module_t module);
 
 /**
  * Get the package version of a module
@@ -1212,7 +1237,7 @@ wasm_runtime_validate_native_addr(wasm_module_inst_t module_inst,
                                   void *native_ptr, uint64_t size);
 
 /**
- * Convert app address(relative address) to native address(absolute address)
+ * Convert app address (relative address) to native address (absolute address)
  *
  * Note that native addresses to module instance memory can be invalidated
  * on a memory growth. (Except shared memory, whose native addresses are
@@ -1228,7 +1253,7 @@ wasm_runtime_addr_app_to_native(wasm_module_inst_t module_inst,
                                 uint64_t app_offset);
 
 /**
- * Convert native address(absolute address) to app address(relative address)
+ * Convert native address (absolute address) to app address (relative address)
  *
  * @param module_inst the WASM module instance
  * @param native_ptr the native address

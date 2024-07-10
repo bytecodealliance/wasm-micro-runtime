@@ -160,9 +160,9 @@ print_help()
     printf("  --enable-dump-call-stack  Enable stack trace feature\n");
     printf("  --enable-perf-profiling   Enable function performance profiling\n");
     printf("  --enable-memory-profiling Enable memory usage profiling\n");
-    printf("  --xip                     A shorthand of --enalbe-indirect-mode --disable-llvm-intrinsics\n");
-    printf("  --enable-indirect-mode    Enalbe call function through symbol table but not direct call\n");
-    printf("  --enable-gc               Enalbe GC (Garbage Collection) feature\n");
+    printf("  --xip                     A shorthand of --enable-indirect-mode --disable-llvm-intrinsics\n");
+    printf("  --enable-indirect-mode    Enable call function through symbol table but not direct call\n");
+    printf("  --enable-gc               Enable GC (Garbage Collection) feature\n");
     printf("  --disable-llvm-intrinsics Disable the LLVM built-in intrinsics\n");
     printf("  --enable-builtin-intrinsics=<flags>\n");
     printf("                            Enable the specified built-in intrinsics, it will override the default\n");
