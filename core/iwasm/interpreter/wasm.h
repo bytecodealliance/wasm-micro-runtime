@@ -518,7 +518,11 @@ typedef struct WASMMemory {
     uint32 num_bytes_per_page;
     uint32 init_page_count;
     uint32 max_page_count;
-} WASMMemory, WASMMemoryType;
+} WASMMemory;
+#ifndef WASM_MEMORY_T_DEFINED
+#define WASM_MEMORY_T_DEFINED
+typedef struct WASMMemory WASMMemoryType;
+#endif
 
 typedef struct WASMTableImport {
     char *module_name;

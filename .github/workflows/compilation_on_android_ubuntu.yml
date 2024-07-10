@@ -645,7 +645,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set-up OCaml
-        uses: ocaml/setup-ocaml@v2
+        uses: ocaml/setup-ocaml@v3
         if: matrix.test_option == '$GC_TEST_OPTIONS' || matrix.test_option == '$MEMORY64_TEST_OPTIONS'
         with:
           ocaml-compiler: 4.13

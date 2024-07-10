@@ -85,4 +85,4 @@ include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
 add_executable (aot-analyzer src/main.cc src/aot_file.cc src/binary_file.cc src/option_parser.cc src/wasm_file.cc ${UNCOMMON_SHARED_SOURCE})
 
-target_link_libraries (aot-analyzer vmlib -lm -ldl -lpthread -lrt)
+target_link_libraries (aot-analyzer vmlib -lm -ldl -lpthread)

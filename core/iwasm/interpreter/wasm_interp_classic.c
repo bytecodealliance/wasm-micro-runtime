@@ -1424,7 +1424,7 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 #define HANDLE_OP_END()                                            \
     os_mutex_lock(&exec_env->wait_lock);                           \
     if (exec_env->current_status->signal_flag == WAMR_SIG_SINGSTEP \
-        && exec_env->current_status->step_count++ == 2) {          \
+        && exec_env->current_status->step_count++ == 1) {          \
         exec_env->current_status->step_count = 0;                  \
         SYNC_ALL_TO_FRAME();                                       \
         wasm_cluster_thread_waiting_run(exec_env);                 \
