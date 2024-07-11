@@ -5639,7 +5639,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                         /* allowing the destination and source to overlap */
                         bh_memmove_s(mdst, (uint32)(linear_mem_size - dst),
-                                     msrc, len);
+                                     msrc, (uint32)len);
                         break;
                     }
                     case WASM_OP_MEMORY_FILL:

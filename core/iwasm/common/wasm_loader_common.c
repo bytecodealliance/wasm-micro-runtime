@@ -104,7 +104,9 @@ bool
 is_valid_func_type(const WASMFuncType *func_type)
 {
     unsigned i;
-    for (i = 0; i < func_type->param_count + func_type->result_count; i++) {
+    for (i = 0;
+         i < (unsigned)(func_type->param_count + func_type->result_count);
+         i++) {
         if (!is_valid_value_type(func_type->types[i]))
             return false;
     }
