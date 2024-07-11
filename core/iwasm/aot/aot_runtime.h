@@ -312,6 +312,8 @@ typedef struct AOTModule {
 
     /* Whether the underlying wasm binary buffer can be freed */
     bool is_binary_freeable;
+
+    uint32_t package_version;
 } AOTModule;
 
 #define AOTMemoryInstance WASMMemoryInstance
