@@ -7092,20 +7092,6 @@ wasm_runtime_get_version(uint32_t *major, uint32_t *minor, uint32_t *patch)
     *patch = WAMR_VERSION_PATCH;
 }
 
-unsigned int
-wasm_runtime_get_max_package_version(PackageType package_type)
-{
-    switch (package_type) {
-        case Wasm_Module_Bytecode:
-            return WASM_CURRENT_VERSION;
-        case Wasm_Module_AoT:
-            return AOT_CURRENT_VERSION;
-        case Package_Type_Unknown:
-        default:
-            return 0;
-    }
-}
-
 bool
 wasm_runtime_is_import_func_linked(const char *module_name,
                                    const char *func_name)

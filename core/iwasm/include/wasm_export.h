@@ -1883,12 +1883,6 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_get_version(uint32_t *major, uint32_t *minor, uint32_t *patch);
 
 /**
- * Get max supported version for a package type
- */
-WASM_RUNTIME_API_EXTERN unsigned int
-wasm_runtime_get_max_package_version(package_type_t package_type);
-
-/**
  * Check whether an import func `(import <module_name> <func_name> (func ...))`
  * is linked or not with runtime registered native functions
  */
