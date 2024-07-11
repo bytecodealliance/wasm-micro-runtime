@@ -42,5 +42,5 @@ Then compile wasm file to aot file and run:
 ``` shell
 $ cd <wamr dir>/samples/workload/bwa/build
 $ <wamr dir>/wamr-compiler/build/wamrc -o bwa.aot bwa.wasm
-$ <wamr dir>/product-mini/platforms/linux/iwasm --dir=. bwa.aot index hs38DH.fa
+$ <wamr dir>/product-mini/platforms/linux/iwasm --dir=. bwa.aot index hs38DH-extra.fa
 ```
