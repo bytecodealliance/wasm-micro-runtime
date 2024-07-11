@@ -836,6 +836,9 @@ struct WASMModule {
        AOTModule structure. */
     uint32 module_type;
 
+    /* the package version, should be WASM_CURRENT_VERSION */
+    uint32 package_version;
+
     uint32 type_count;
     uint32 import_count;
     uint32 function_count;
@@ -1079,8 +1082,6 @@ struct WASMModule {
 
     /* Whether the underlying wasm binary buffer can be freed */
     bool is_binary_freeable;
-
-    uint32_t package_version;
 };
 
 typedef struct BlockType {
