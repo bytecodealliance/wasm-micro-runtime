@@ -1764,7 +1764,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         aot_get_data_section_addr(module, AOT_STACK_SIZES_SECTION_NAME, NULL);
 
 #if WASM_ENABLE_PERF_PROFILING != 0
-    total_size = (uint64)sizeof(AOTFuncPerfProfInfo)
+    total_size = sizeof(AOTFuncPerfProfInfo)
                  * ((uint64)module->import_func_count + module->func_count);
     if (!(module_inst->func_perf_profilings =
               runtime_malloc(total_size, error_buf, error_buf_size))) {

@@ -2184,7 +2184,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         heap_size = APP_HEAP_SIZE_MAX;
 
     module_inst_mem_inst_size =
-        (uint64)sizeof(WASMMemoryInstance)
+        sizeof(WASMMemoryInstance)
         * ((uint64)module->import_memory_count + module->memory_count);
 
 #if WASM_ENABLE_JIT != 0

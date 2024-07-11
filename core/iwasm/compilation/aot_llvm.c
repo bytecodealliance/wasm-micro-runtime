@@ -748,9 +748,9 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
              * should be ok. We prefer short-call because it's smaller
              * and more importantly doesn't involve relocations.
              */
-            LLVMAttributeRef attr_short_call =
-                LLVMCreateStringAttribute(comp_ctx->context, "short-call",
-                                          (uint32)strlen("short-call"), "", 0);
+            LLVMAttributeRef attr_short_call = LLVMCreateStringAttribute(
+                comp_ctx->context, "short-call", (unsigned)strlen("short-call"),
+                "", 0);
             LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex,
                                     attr_short_call);
         }
