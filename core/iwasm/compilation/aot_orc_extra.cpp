@@ -189,7 +189,7 @@ PartitionFunction(GlobalValueSet Requested)
             auto GVName = GV->getName();         /* get the function name */
             const char *gvname = GVName.begin(); /* C function name */
             const char *wrapper;
-            uint32 prefix_len = strlen(AOT_FUNC_PREFIX);
+            uint32 prefix_len = (uint32)strlen(AOT_FUNC_PREFIX);
 
             LOG_DEBUG("requested func %s", gvname);
             /* Convert "aot_func#n_wrapper" to "aot_func#n" */

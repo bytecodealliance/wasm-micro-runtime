@@ -5644,8 +5644,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
 
                         /* allowing the destination and source to overlap */
+#if WASM_ENABLE_MEMORY64 == 0
                         bh_memmove_s(mdst, (uint32)(linear_mem_size - dst),
-                                     msrc, len);
+                                     msrc, (uint32)len);
+#else
+                        /* use memmove when memory64 is enabled since len
+                           may be larger than UINT32_MAX */
+                        memmove(mdst, msrc, len);
+#endif
                         break;
                     }
                     case WASM_OP_MEMORY_FILL:

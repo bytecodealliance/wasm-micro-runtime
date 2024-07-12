@@ -91,6 +91,23 @@ get_memory_check_bound(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     return mem_check_bound;
 }
 
+#if defined(_WIN32) || defined(_WIN32_)
+static inline int
+ffs(int n)
+{
+    int pos = 0;
+
+    if (n == 0)
+        return 0;
+
+    while (!(n & 1)) {
+        pos++;
+        n >>= 1;
+    }
+    return pos + 1;
+}
+#endif
+
 static LLVMValueRef
 get_memory_curr_page_count(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 
@@ -198,7 +215,7 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
              * has the natural alignment. for platforms using mmap, it can
              * be even larger. for now, use a conservative value.
              */
-            const int max_align = 8;
+            const unsigned int max_align = 8;
             int shift = ffs((int)(unsigned int)mem_offset);
             if (shift == 0) {
                 *alignp = max_align;

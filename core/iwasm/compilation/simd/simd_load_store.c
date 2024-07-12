@@ -281,7 +281,7 @@ aot_compile_simd_load_zero(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 /* data_length in bytes */
 static bool
 simd_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, uint32 align,
-           uint32 offset, uint32 data_length, LLVMValueRef value,
+           mem_offset_t offset, uint32 data_length, LLVMValueRef value,
            LLVMTypeRef value_ptr_type, bool enable_segue)
 {
     LLVMValueRef maddr, result;

@@ -197,7 +197,7 @@ typedef struct AOTBlockStack {
 typedef struct AOTCheckedAddr {
     struct AOTCheckedAddr *next;
     uint32 local_idx;
-    uint32 offset;
+    uint64 offset;
     uint32 bytes;
 } AOTCheckedAddr, *AOTCheckedAddrList;
 
@@ -574,14 +574,14 @@ wasm_type_to_llvm_type(const AOTCompContext *comp_ctx,
 
 bool
 aot_checked_addr_list_add(AOTFuncContext *func_ctx, uint32 local_idx,
-                          uint32 offset, uint32 bytes);
+                          uint64 offset, uint32 bytes);
 
 void
 aot_checked_addr_list_del(AOTFuncContext *func_ctx, uint32 local_idx);
 
 bool
 aot_checked_addr_list_find(AOTFuncContext *func_ctx, uint32 local_idx,
-                           uint32 offset, uint32 bytes);
+                           uint64 offset, uint32 bytes);
 
 void
 aot_checked_addr_list_destroy(AOTFuncContext *func_ctx);
