@@ -859,6 +859,10 @@ PackageType
 get_package_type(const uint8 *buf, uint32 size)
 {
     if (buf && size >= 4) {
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+        uint32 buf32 = *(uint32 *)buf;
+        buf = (const uint8 *)&buf32;
+#endif
         if (buf[0] == '\0' && buf[1] == 'a' && buf[2] == 's' && buf[3] == 'm')
             return Wasm_Module_Bytecode;
         if (buf[0] == '\0' && buf[1] == 'a' && buf[2] == 'o' && buf[3] == 't')
@@ -887,7 +891,12 @@ uint32
 wasm_runtime_get_file_package_version(const uint8 *buf, uint32 size)
 {
     if (buf && size >= 8) {
-        uint32 version = buf[4] | buf[5] << 8 | buf[6] << 16 | buf[7] << 24;
+        uint32 version;
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+        uint32 buf32 = *(uint32 *)(buf + sizeof(uint32));
+        buf = (const uint8 *)&buf32;
+#endif
+        version = buf[4] | buf[5] << 8 | buf[6] << 16 | buf[7] << 24;
         return version;
     }
 
