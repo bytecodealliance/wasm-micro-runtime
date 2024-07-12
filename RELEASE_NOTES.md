@@ -10,6 +10,8 @@
  - Add wasm_runtime_get_module_package_type() and wasm_runtime_get_file_package_type() (#3600)
 
 ### Bug Fixes
+ - wasm_application.c: Avoid null pointer dereference (#3620)
+ - EH: Use the consistent type for EH handlers (#3619)
  - wasm loader: Fix several issues in GC and exception handling (#3586)
  - wasm loader: Fix push_frame_offset when pushing v128 type (#3588)
  - Add integer overflow check for some indices in wasm/aot loader (#3579)
