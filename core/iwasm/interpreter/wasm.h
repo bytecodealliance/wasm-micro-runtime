@@ -836,7 +836,7 @@ struct WASMModule {
        AOTModule structure. */
     uint32 module_type;
 
-    /* the package version, should be WASM_CURRENT_VERSION */
+    /* the package version read from the WASM file */
     uint32 package_version;
 
     uint32 type_count;

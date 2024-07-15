@@ -895,8 +895,10 @@ wasm_runtime_get_file_package_version(const uint8 *buf, uint32 size)
 #if (WASM_ENABLE_WORD_ALIGN_READ != 0)
         uint32 buf32 = *(uint32 *)(buf + sizeof(uint32));
         buf = (const uint8 *)&buf32;
-#endif
+        version = buf[0] | buf[1] << 8 | buf[2] << 16 | buf[3] << 24;
+#else
         version = buf[4] | buf[5] << 8 | buf[6] << 16 | buf[7] << 24;
+#endif
         return version;
     }
 

@@ -130,7 +130,7 @@ typedef struct LocalRefFlag {
 typedef struct AOTModule {
     uint32 module_type;
 
-    /* the package version, should be AOT_CURRENT_VERSION */
+    /* the package version read from the AOT file */
     uint32 package_version;
 
     /* import memories */
