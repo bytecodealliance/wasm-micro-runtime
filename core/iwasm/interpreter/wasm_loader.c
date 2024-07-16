@@ -6542,6 +6542,8 @@ load(const uint8 *buf, uint32 size, WASMModule *module,
         return false;
     }
 
+    module->package_version = version;
+
     if (!create_sections(buf, size, &section_list, error_buf, error_buf_size)
         || !load_from_sections(module, section_list, true, wasm_binary_freeable,
                                error_buf, error_buf_size)) {

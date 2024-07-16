@@ -749,7 +749,8 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
              * and more importantly doesn't involve relocations.
              */
             LLVMAttributeRef attr_short_call = LLVMCreateStringAttribute(
-                comp_ctx->context, "short-call", strlen("short-call"), "", 0);
+                comp_ctx->context, "short-call", (unsigned)strlen("short-call"),
+                "", 0);
             LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex,
                                     attr_short_call);
         }
@@ -3529,7 +3530,7 @@ aot_block_destroy(AOTCompContext *comp_ctx, AOTBlock *block)
 
 bool
 aot_checked_addr_list_add(AOTFuncContext *func_ctx, uint32 local_idx,
-                          uint32 offset, uint32 bytes)
+                          uint64 offset, uint32 bytes)
 {
     AOTCheckedAddr *node = func_ctx->checked_addr_list;
 
@@ -3573,7 +3574,7 @@ aot_checked_addr_list_del(AOTFuncContext *func_ctx, uint32 local_idx)
 
 bool
 aot_checked_addr_list_find(AOTFuncContext *func_ctx, uint32 local_idx,
-                           uint32 offset, uint32 bytes)
+                           uint64 offset, uint32 bytes)
 {
     AOTCheckedAddr *node = func_ctx->checked_addr_list;
 
