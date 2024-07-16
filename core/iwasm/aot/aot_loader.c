@@ -4168,6 +4168,8 @@ load(const uint8 *buf, uint32 size, AOTModule *module,
         return false;
     }
 
+    module->package_version = version;
+
     if (!create_sections(module, buf, size, &section_list, error_buf,
                          error_buf_size))
         return false;
