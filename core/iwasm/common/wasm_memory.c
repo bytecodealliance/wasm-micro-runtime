@@ -930,13 +930,13 @@ wasm_runtime_enlarge_memory(WASMModuleInstanceCommon *module_inst,
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
         return aot_enlarge_memory((AOTModuleInstance *)module_inst,
-                                  inc_page_count);
+                                  (uint32)inc_page_count);
     }
 #endif
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
         return wasm_enlarge_memory((WASMModuleInstance *)module_inst,
-                                   inc_page_count);
+                                   (uint32)inc_page_count);
     }
 #endif
 

@@ -1,3 +1,74 @@
+## WAMR-2.1.1
+
+### Breaking Changes
+ - Sync up with latest wasi-nn spec (#3530)
+
+### New Features
+ - Add APIs to get package version (#3601)
+ - Export API wasm_runtime_enlarge_memory (#3569)
+ - Add table type API support (#3515)
+ - Add wasm_runtime_get_module_package_type() and wasm_runtime_get_file_package_type() (#3600)
+
+### Bug Fixes
+ - wasm_application.c: Avoid null pointer dereference (#3620)
+ - EH: Use the consistent type for EH handlers (#3619)
+ - wasm loader: Fix several issues in GC and exception handling (#3586)
+ - wasm loader: Fix push_frame_offset when pushing v128 type (#3588)
+ - Add integer overflow check for some indices in wasm/aot loader (#3579)
+ - aot-analyzer: Fix a few printf formats (#3590)
+ - aot-analyzer: Fix macos build (#3589)
+ - Fix compilation errors in aot-analyzer tool (#3584)
+ - interp debugger: Fix setting invalid value to step_count (#3583)
+ - aot loader: Check import global value type before using (#3571)
+ - Fix missing stack frame alloc/free in AOT multi-module invoke (#3562)
+ - aot loader: Verify global value type (#3560)
+ - aot loader: Add more checks in load_native_symbol_section() (#3559)
+ - core/shared/platform: Zero memory returned by os_mmap in some platforms (#3551)
+ - dwarf_extractor.cpp: Fix buffer overruns (#3541)
+ - aot loader: Prevent loading multiple native symbol sections (#3538)
+ - Validate func type in aot loader (#3535)
+ - wamrc: Fix truncated DW_AT_producer (#3537)
+ - wasm loader: Fix pop invalid offset count when stack top is ANY (#3516)
+ - Fix two fuzz issues (#3529)
+ - Fix several issues reported by oss-fuzz (#3526)
+
+### Enhancements
+ - Fix compile warnings/error reported in Windows (#3616)
+ - wasm loader: Reject v128 for interpreters (#3611)
+ - Fix typos in wamrc and wasm_export.h (#3609)
+ - Bump ocaml/setup-ocaml from 2 to 3 (#3604)
+ - CMakeLists.txt: Fix Android pthread linkage (#3591)
+ - Add more arm AOT reloc entries (#3587)
+ - wasi-nn: Use numpy v1 in wasi-nn test requirements.txt (#3582)
+ - Optimize for multi-module support in AOT mode (#3563)
+ - aot compiler: Propagate const-ness by ourselves (#3567)
+ - aot_resolve_target_info: Avoid in-place modification of e_type (#3564)
+ - Allow missing imports in wasm loader and report error in wasm instantiation instead (#3539)
+ - aot compiler: Use larger alignment for load/store when possible (#3552)
+ - Consistent const keyword position in wasm_export.h (#3558)
+ - wasm_memory.c: Fix typo: hasn't been initialize -> `hasn't been initialized` (#3547)
+ - dwarf_extractor.cpp: Try to preserve link name (#3542)
+ - dwarf_extractor.cpp: Enable limited support for C++ (#3540)
+ - Sync up with latest wasi-nn spec (#3530)
+ - Expose more functions related to emitting AOT files (#3520)
+ - Make wasi-nn backends as separated shared libraries (#3509)
+ - build_llvm.py: Speed up llvm build with multi procs on windows (#3512)
+ - Fix compilation warnings of wasi-nn (#3497)
+ - Add missing functions to make RIOT work with the 2.x.x version (#3508)
+
+### Others
+ - Update devcontainer.md (#3628)
+ - Fix compile errors on workload bwa and benchmark jetstream (#3617)
+ - wasm-mutator-fuzz: Set compilers earlier (#3585)
+ - wasm-mutator-fuzz: Make compilers overridable (#3578)
+ - wasi-nn: Add wasmedge-wasinn-example as smoke test (#3554)
+ - Add standalone cases (#3536)
+ - wasm-mutator-fuzz: Fix build errors and warnings for macOS (#3519)
+ - wasm-mutator-fuzz: Use another variable to check if in oss-fuzz environment (#3518)
+ - Add wasi-nn example as smoke test case (#3501)
+
+---
+
 ## WAMR-2.1.0
 
 ### Breaking Changes

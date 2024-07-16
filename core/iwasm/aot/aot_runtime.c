@@ -1139,7 +1139,7 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
 
         if (memory_inst->memory_data) {
             bh_memcpy_s((uint8 *)memory_inst->memory_data + base_offset,
-                        (uint32)memory_inst->memory_data_size - base_offset,
+                        (uint32)(memory_inst->memory_data_size - base_offset),
                         data_seg->bytes, length);
         }
     }
@@ -1212,7 +1212,7 @@ aot_get_function_instance(AOTModuleInstance *module_inst, uint32 func_idx)
             return NULL;
         }
 
-        extra->function_count = func_count;
+        extra->function_count = (uint32)func_count;
     }
 
     /* instantiate function if needed */
@@ -1764,8 +1764,8 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         aot_get_data_section_addr(module, AOT_STACK_SIZES_SECTION_NAME, NULL);
 
 #if WASM_ENABLE_PERF_PROFILING != 0
-    total_size = (uint64)sizeof(AOTFuncPerfProfInfo)
-                 * (module->import_func_count + module->func_count);
+    total_size = sizeof(AOTFuncPerfProfInfo)
+                 * ((uint64)module->import_func_count + module->func_count);
     if (!(module_inst->func_perf_profilings =
               runtime_malloc(total_size, error_buf, error_buf_size))) {
         goto fail;
@@ -2536,7 +2536,7 @@ execute_malloc_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
     if (ret) {
 #if WASM_ENABLE_MEMORY64 != 0
         if (is_memory64)
-            *p_result = GET_I64_FROM_ADDR(&argv.u64);
+            *p_result = argv.u64;
         else
 #endif
         {
