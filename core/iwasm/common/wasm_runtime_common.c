@@ -878,7 +878,7 @@ wasm_runtime_get_file_package_type(const uint8 *buf, uint32 size)
 }
 
 PackageType
-wasm_runtime_get_module_package_type(WASMModuleCommon *module)
+wasm_runtime_get_module_package_type(WASMModuleCommon *const module)
 {
     if (!module) {
         return Package_Type_Unknown;
@@ -906,7 +906,7 @@ wasm_runtime_get_file_package_version(const uint8 *buf, uint32 size)
 }
 
 uint32
-wasm_runtime_get_module_package_version(WASMModuleCommon *module)
+wasm_runtime_get_module_package_version(WASMModuleCommon *const module)
 {
     if (!module) {
         return 0;

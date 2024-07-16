@@ -57,6 +57,7 @@
  - Add missing functions to make RIOT work with the 2.x.x version (#3508)
 
 ### Others
+ - Update devcontainer.md (#3628)
  - Fix compile errors on workload bwa and benchmark jetstream (#3617)
  - wasm-mutator-fuzz: Set compilers earlier (#3585)
  - wasm-mutator-fuzz: Make compilers overridable (#3578)
