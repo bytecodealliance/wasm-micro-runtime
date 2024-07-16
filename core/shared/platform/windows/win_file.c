@@ -1792,3 +1792,36 @@ os_realpath(const char *path, char *resolved_path)
 
     return resolved_path;
 }
+
+bool os_compare_file_handle(os_file_handle handle1, os_file_handle handle2) {
+    if (handle1.type != handle2.type) {
+        return false;
+    }
+
+    if (handle1.fdflags != handle2.fdflags || handle1.access_mode != handle2.access_mode) {
+        return false;
+    }
+
+    switch (handle1.type) {
+        case WINDOWS_HANDLE_TYPE_FILE:
+            return handle1.raw.handle == handle2.raw.handle;
+        case WINDOWS_HANDLE_TYPE_SOCKET:
+            return handle1.raw.socket == handle2.raw.socket;
+        default:
+            // Unknown handle type
+            return false;
+    }
+}
+
+__wasi_errno_t
+os_ioctl(os_file_handle handle, int request, ...)
+{
+    return __WASI_ENOSYS;
+}
+
+// Should not be called because locked by ifdef.
+__wasi_errno_t
+os_poll(os_poll_file_handle *fds, os_nfds_t nfs, int timeout)
+{
+    return __WASI_ENOSYS;
+}
