@@ -260,7 +260,7 @@ os_socket_recv_from(bh_socket_t socket, void *buf, unsigned int len, int flags,
                     bh_sockaddr_t *src_addr)
 {
     struct sockaddr_storage sock_addr = { 0 };
-    socklen_t socklen = sizeof(sock_addr);
+    socklen_t socklen = sizeof(struct sockaddr_storage);
     int ret;
 
     ret = recvfrom(socket, buf, len, flags, (struct sockaddr *)&sock_addr,
@@ -276,10 +276,11 @@ os_socket_recv_from(bh_socket_t socket, void *buf, unsigned int len, int flags,
             return -1;
         }
     }
-    else if (src_addr) {
-        memset(src_addr, 0, sizeof(*src_addr));
-    }
-
+    // This else if seem to overwrite src_addr when we don't want it to
+    // else if (src_addr) {
+    //     memset(src_addr, 0, sizeof(*src_addr));
+    // }
+    
     return ret;
 }
 
@@ -1031,4 +1032,42 @@ os_socket_addr_remote(bh_socket_t socket, bh_sockaddr_t *sockaddr)
     }
 
     return sockaddr_to_bh_sockaddr((struct sockaddr *)&addr_storage, sockaddr);
+}
+
+__wasi_errno_t
+os_ioctl(os_file_handle handle, int request, ...)
+{
+    __wasi_errno_t wasi_errno = __WASI_ESUCCESS;
+    va_list args;
+
+    va_start(args, request);
+    if(ioctl(handle, request, args) < 0){
+        wasi_errno = convert_errno(errno);
+    }
+    va_end(args);
+
+    return wasi_errno;
+}
+
+__wasi_errno_t
+os_poll(os_poll_file_handle *fds, os_nfds_t nfs, int timeout)
+{
+    __wasi_errno_t wasi_errno = __WASI_ESUCCESS;
+    int rc = 0;
+
+    rc = poll(fds, nfs, timeout);
+    if(rc < 0){
+        wasi_errno = convert_errno(errno);
+    }
+    switch(rc){
+        case 0:
+            wasi_errno = __WASI_ETIMEDOUT;
+            break;
+        case -1:
+            wasi_errno = convert_errno(errno);
+            break;
+        default:
+            break;
+    }
+    return wasi_errno;
 }

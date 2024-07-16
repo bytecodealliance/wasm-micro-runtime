@@ -22,7 +22,6 @@
 #include "refcount.h"
 #include "rights.h"
 #include "str.h"
-#include "assert.h"
 
 /* Some platforms (e.g. Windows) already define `min()` macro.
  We're undefing it here to make sure the `min` call does exactly
@@ -357,16 +356,20 @@ fd_table_get_entry(struct fd_table *ft, __wasi_fd_t fd,
     REQUIRES_SHARED(ft->lock)
 {
     // Test for file descriptor existence.
-    if (fd >= ft->size)
+    if (fd >= ft->size){
         return __WASI_EBADF;
+    }
+        
     struct fd_entry *fe = &ft->entries[fd];
-    if (fe->object == NULL)
+    if (fe->object == NULL){
         return __WASI_EBADF;
+    }
 
     // Validate rights.
     if ((~fe->rights_base & rights_base) != 0
-        || (~fe->rights_inheriting & rights_inheriting) != 0)
-        return __WASI_ENOTCAPABLE;
+        || (~fe->rights_inheriting & rights_inheriting) != 0){
+            return __WASI_ENOTCAPABLE;
+        }
     *ret = fe;
     return 0;
 }
@@ -427,15 +430,15 @@ fd_table_attach(struct fd_table *ft, __wasi_fd_t fd, struct fd_object *fo,
                 __wasi_rights_t rights_base, __wasi_rights_t rights_inheriting)
     REQUIRES_EXCLUSIVE(ft->lock) CONSUMES(fo->refcount)
 {
-    assert(ft->size > fd && "File descriptor table too small");
+    bh_assert(ft->size > fd && "File descriptor table too small");
     struct fd_entry *fe = &ft->entries[fd];
-    assert(fe->object == NULL
+    bh_assert(fe->object == NULL
            && "Attempted to overwrite an existing descriptor");
     fe->object = fo;
     fe->rights_base = rights_base;
     fe->rights_inheriting = rights_inheriting;
     ++ft->used;
-    assert(ft->size >= ft->used * 2 && "File descriptor too full");
+    bh_assert(ft->size >= ft->used * 2 && "File descriptor too full");
 }
 
 // Detaches a file descriptor from the file descriptor table.
@@ -443,12 +446,12 @@ static void
 fd_table_detach(struct fd_table *ft, __wasi_fd_t fd, struct fd_object **fo)
     REQUIRES_EXCLUSIVE(ft->lock) PRODUCES((*fo)->refcount)
 {
-    assert(ft->size > fd && "File descriptor table too small");
+    bh_assert(ft->size > fd && "File descriptor table too small");
     struct fd_entry *fe = &ft->entries[fd];
     *fo = fe->object;
-    assert(*fo != NULL && "Attempted to detach nonexistent descriptor");
+    bh_assert(*fo != NULL && "Attempted to detach nonexistent descriptor");
     fe->object = NULL;
-    assert(ft->used > 0 && "Reference count mismatch");
+    bh_assert(ft->used > 0 && "Reference count mismatch");
     --ft->used;
 }
 
@@ -618,7 +621,7 @@ fd_table_insert_existing(struct fd_table *ft, __wasi_fd_t in,
 static __wasi_errno_t
 fd_table_unused(struct fd_table *ft, __wasi_fd_t *out) REQUIRES_SHARED(ft->lock)
 {
-    assert(ft->size > ft->used && "File descriptor table has no free slots");
+    bh_assert(ft->size > ft->used && "File descriptor table has no free slots");
     for (;;) {
         uintmax_t random_fd = 0;
         __wasi_errno_t error = random_uniform(ft->size, &random_fd);
@@ -648,7 +651,7 @@ fd_table_insert(wasm_exec_env_t exec_env, struct fd_table *ft,
         fd_object_release(exec_env, fo);
         return convert_errno(errno);
     }
-    
+
     __wasi_errno_t error = fd_table_unused(ft, out);
 
     if (error != __WASI_ESUCCESS)
@@ -674,7 +677,7 @@ fd_table_insert_fd(wasm_exec_env_t exec_env, struct fd_table *ft,
         os_close(in, false);
         return error;
     }
-    
+
     fo->file_handle = in;
     if (type == __WASI_FILETYPE_DIRECTORY) {
         if (!mutex_init(&fo->directory.lock)) {
@@ -779,7 +782,6 @@ fd_object_get_locked(struct fd_object **fo, struct fd_table *ft, __wasi_fd_t fd,
                      __wasi_rights_t rights_inheriting)
     TRYLOCKS_EXCLUSIVE(0, (*fo)->refcount) REQUIRES_EXCLUSIVE(ft->lock)
 {
-    printf("[SSP] fd_object_get_locked\n");
     // Test whether the file descriptor number is valid.
     struct fd_entry *fe;
     __wasi_errno_t error =
@@ -1518,7 +1520,8 @@ path_put(struct path_access *pa) UNLOCKS(pa->fd_object->refcount)
 {
     if (pa->path_start)
         wasm_runtime_free(pa->path_start);
-    if (pa->fd_object->file_handle != pa->fd)
+    /* Can't use `!=` operator when `os_file_handle` is a struct */
+    if (!os_compare_file_handle(pa->fd_object->file_handle, pa->fd))
         os_close(pa->fd, false);
     fd_object_release(NULL, pa->fd_object);
 }
@@ -2417,7 +2420,7 @@ wasi_addr_to_string(const __wasi_addr_t *addr, char *buf, size_t buflen)
     if (addr->kind == IPv4) {
         const char *format = "%u.%u.%u.%u";
 
-        assert(buflen >= 16);
+        bh_assert(buflen >= 16);
 
         snprintf(buf, buflen, format, addr->addr.ip4.addr.n0,
                  addr->addr.ip4.addr.n1, addr->addr.ip4.addr.n2,
@@ -2429,14 +2432,13 @@ wasi_addr_to_string(const __wasi_addr_t *addr, char *buf, size_t buflen)
         const char *format = "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x";
         __wasi_addr_ip6_t ipv6 = addr->addr.ip6.addr;
 
-        assert(buflen >= 40);
+        bh_assert(buflen >= 40);
 
         snprintf(buf, buflen, format, ipv6.n0, ipv6.n1, ipv6.n2, ipv6.n3,
                  ipv6.h0, ipv6.h1, ipv6.h2, ipv6.h3);
 
         return true;
     }
-
     return false;
 }
 
@@ -2533,45 +2535,20 @@ wasi_ssp_sock_connect(wasm_exec_env_t exec_env, struct fd_table *curfds,
     struct fd_object *fo;
     __wasi_errno_t error;
     int ret;
-    printf("[SSP] sock connect\n");
-    
-    uint8_t *adjusted_addr = (uint8_t *)addr + 4;
-    printf("[SSP] wasi addr moved: %u.%u.%u.%u\n", adjusted_addr[0],
-                                                adjusted_addr[1],
-                                                adjusted_addr[2],
-                                                adjusted_addr[3]);
-    // use a copy because addr will be modified
-    uint8_t adjusted_addr_copy[4];
-    memcpy(adjusted_addr_copy, adjusted_addr, 4);
-
-    uint16_t *adjusted_port = (uint16_t *)(adjusted_addr + 4);
-    printf("[SSP] raw addr port %u\n", ntohs(*adjusted_port));
-
-    uint16_t adjusted_port_copy = ntohs(*adjusted_port);
-    
-    // adjust addr
-    addr->addr.ip4.addr.n0 = adjusted_addr_copy[3];
-    addr->addr.ip4.addr.n1 = adjusted_addr_copy[2]; 
-    addr->addr.ip4.addr.n2 = adjusted_addr_copy[1];
-    addr->addr.ip4.addr.n3 = adjusted_addr_copy[0];
-    addr->addr.ip4.port = adjusted_port_copy;
 
     if (!wasi_addr_to_string(addr, buf, sizeof(buf))) {
-        printf("[SSP] wasi addr to string failed\n");
         return __WASI_EPROTONOSUPPORT;
     }
 
     if (!addr_pool_search(addr_pool, buf)) {
-        printf("[SSP] addr pool search failed\n");
         return __WASI_EACCES;
     }
-
     error = fd_object_get(curfds, &fo, fd, __WASI_RIGHT_SOCK_BIND, 0);
     if (error != __WASI_ESUCCESS){
-        printf("[SSP] get fd failed\n"); 
         return error;
     }
     
+    /* Consume __wasi_addr_t */
     ret = blocking_op_socket_connect(exec_env, fo->file_handle, buf,
                                      addr->kind == IPv4 ? addr->addr.ip4.port
                                                         : addr->addr.ip6.port);
@@ -2720,10 +2697,10 @@ wasi_ssp_sock_open(wasm_exec_env_t exec_env, struct fd_table *curfds,
     }
 
     if (SOCKET_DGRAM == socktype) {
-        assert(wasi_type == __WASI_FILETYPE_SOCKET_DGRAM);
+        bh_assert(wasi_type == __WASI_FILETYPE_SOCKET_DGRAM);
     }
     else {
-        assert(wasi_type == __WASI_FILETYPE_SOCKET_STREAM);
+        bh_assert(wasi_type == __WASI_FILETYPE_SOCKET_STREAM);
     }
 
     // TODO: base rights and inheriting rights ?
@@ -2835,42 +2812,24 @@ wasmtime_ssp_sock_recv_from(wasm_exec_env_t exec_env, struct fd_table *curfds,
     __wasi_errno_t error;
     bh_sockaddr_t sockaddr;
     int ret;
-
-    uint8_t *adjusted_addr = (uint8_t *)src_addr + 4;
-    printf("[SSP] wasi addr moved: %u.%u.%u.%u\n", adjusted_addr[0],
-                                                adjusted_addr[1],
-                                                adjusted_addr[2],
-                                                adjusted_addr[3]);
-    // use a copy because addr will be modified
-    uint8_t adjusted_addr_copy[4];
-    memcpy(adjusted_addr_copy, adjusted_addr, 4);
-
-    uint16_t *adjusted_port = (uint16_t *)(adjusted_addr + 4);
-    printf("[SSP] raw addr port %u\n", ntohs(*adjusted_port));
-
-    uint16_t adjusted_port_copy = ntohs(*adjusted_port);
-    
-    // adjust addr
-    src_addr->addr.ip4.addr.n0 = adjusted_addr_copy[3];
-    src_addr->addr.ip4.addr.n1 = adjusted_addr_copy[2]; 
-    src_addr->addr.ip4.addr.n2 = adjusted_addr_copy[1];
-    src_addr->addr.ip4.addr.n3 = adjusted_addr_copy[0];
-    src_addr->addr.ip4.port = adjusted_port_copy;
-
+    /* make a copy because the value pointed seem to be modifed */
+    __wasi_addr_t src_addr_copy;
+    bh_memcpy_s(&src_addr_copy, sizeof(__wasi_addr_t), src_addr, sizeof(__wasi_addr_t));
 
     error = fd_object_get(curfds, &fo, sock, __WASI_RIGHT_FD_READ, 0);
     if (error != 0) {
         return error;
     }
 
+    wasi_addr_to_bh_sockaddr(&src_addr_copy, &sockaddr);
+    
+    /* Consume bh_sockaddr_t instead of __wasi_addr_t */
     ret = blocking_op_socket_recv_from(exec_env, fo->file_handle, buf, buf_len,
                                        0, &sockaddr);
     fd_object_release(exec_env, fo);
     if (-1 == ret) {
         return convert_errno(errno);
     }
-
-    printf("[SSP] message buffer size: %d\n", ret);
 
     bh_sockaddr_to_wasi_addr(&sockaddr, src_addr);
 
@@ -2914,27 +2873,11 @@ wasmtime_ssp_sock_send_to(wasm_exec_env_t exec_env, struct fd_table *curfds,
     __wasi_errno_t error;
     int ret;
     bh_sockaddr_t sockaddr;
+    /* make a copy because the value pointed seem to be modifed */
+    __wasi_addr_t dest_addr_copy; 
+    bh_memcpy_s(&dest_addr_copy, sizeof(__wasi_addr_t), dest_addr, sizeof(__wasi_addr_t));
 
-    __wasi_addr_t adjusted_addr;
-    memcpy(&adjusted_addr, dest_addr, sizeof(__wasi_addr_t));
-
-    uint8_t *ip_addr = (uint8_t *)&adjusted_addr.addr.ip4.addr + 2;
-    printf("[SSP] wasi addr moved: %u.%u.%u.%u\n", ip_addr[0],
-                                                ip_addr[1],
-                                                ip_addr[2],
-                                                ip_addr[3]);
-
-    uint16_t *port = (uint16_t *)(ip_addr + 4);
-    printf("[SSP] raw addr port %u\n", ntohs(*port));
-
-    // adjust addr
-    adjusted_addr.addr.ip4.addr.n0 = ip_addr[3];
-    adjusted_addr.addr.ip4.addr.n1 = ip_addr[2];
-    adjusted_addr.addr.ip4.addr.n2 = ip_addr[1];
-    adjusted_addr.addr.ip4.addr.n3 = ip_addr[0];
-    adjusted_addr.addr.ip4.port = ntohs(*port);
-
-    if (!wasi_addr_to_string(&adjusted_addr, addr_buf, sizeof(addr_buf))) {
+    if (!wasi_addr_to_string(&dest_addr_copy, addr_buf, sizeof(addr_buf))) {
         return __WASI_EPROTONOSUPPORT;
     }
 
@@ -2947,10 +2890,11 @@ wasmtime_ssp_sock_send_to(wasm_exec_env_t exec_env, struct fd_table *curfds,
         return error;
     }
 
-    wasi_addr_to_bh_sockaddr(&adjusted_addr, &sockaddr);
+    wasi_addr_to_bh_sockaddr(&dest_addr_copy, &sockaddr);
 
+    /* Consume bh_sockaddr instead of __wasi_addr_t */
     ret = blocking_op_socket_send_to(exec_env, fo->file_handle, buf, buf_len, 0,
-                                     &adjusted_addr);
+                                     &sockaddr);
     fd_object_release(exec_env, fo);
     if (-1 == ret) {
         return convert_errno(errno);
@@ -3167,8 +3111,6 @@ compare_address(const struct addr_pool *addr_pool_entry,
     size_t addr_size;
     uint8_t max_addr_mask;
 
-    printf("[SSP] compare address\n");
-
     if (addr_pool_entry->type == IPv4) {
         uint32_t addr_ip4 = htonl(addr_pool_entry->addr.ip4);
         bh_memcpy_s(basebuf, sizeof(addr_ip4), &addr_ip4, sizeof(addr_ip4));
@@ -3197,15 +3139,14 @@ compare_address(const struct addr_pool *addr_pool_entry,
     }
 
     init_address_mask(maskbuf, addr_size, addr_pool_entry->mask);
-
     for (size_t i = 0; i < addr_size; i++) {
         uint8_t addr_mask = target->data[i] & maskbuf[i];
-        uint8_t range_mask = basebuf[i] & maskbuf[i];
+        uint8_t range_mask;
+        range_mask = basebuf[i] & maskbuf[i];
         if (addr_mask != range_mask) {
             return false;
         }
     }
-    printf("[SSP] compare address succeed\n");
     return true;
 }
 
@@ -3215,7 +3156,6 @@ addr_pool_search(struct addr_pool *addr_pool, const char *addr)
     struct addr_pool *cur = addr_pool->next;
     bh_ip_addr_buffer_t target;
     __wasi_addr_type_t addr_type;
-    printf("[SSP] addr pool search\n");
 
     if (os_socket_inet_network(true, addr, &target) != BHT_OK) {
         size_t i;
@@ -3235,7 +3175,6 @@ addr_pool_search(struct addr_pool *addr_pool, const char *addr)
 
     while (cur) {
         if (cur->type == addr_type && compare_address(cur, &target)) {
-            printf("[SSP] addr pool search success: target = %d | buf = %s\n", target.ipv4, addr);
             return true;
         }
 

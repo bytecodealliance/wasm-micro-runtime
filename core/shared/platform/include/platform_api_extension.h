@@ -1644,4 +1644,7 @@ os_ioctl(os_file_handle handle, int request, ...);
 __wasi_errno_t
 os_poll(os_poll_file_handle *pfds, os_nfds_t nfs, int timeout);
 
+bool
+os_compare_file_handle(os_file_handle handle1, os_file_handle handle2);
+
 #endif /* #ifndef PLATFORM_API_EXTENSION_H */

@@ -27,7 +27,7 @@
 
 
 #define SSTRLEN(s) (sizeof(s) - 1)
-#define CHECK(r) { if (r == -1) { exit(42); } }
+// #define CHECK(r) { if (r == -1) { printf("Error %d: " #r "\n", errno); exit(1); } }
 
 #define REQUEST "GET " HTTP_PATH " HTTP/1.0\r\nHost: " HTTP_HOST "\r\n\r\n"
 
@@ -44,11 +44,10 @@ int main(int argc, char **argv)
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
-	addr.sin_port = 8000;
-	addr.sin_addr.s_addr = 3221225994; // hard coded IP address for 192.0.2.10
+	addr.sin_port = htons(8000);
+	addr.sin_addr.s_addr = htonl(3221225994); // hard coded IP address for 192.0.2.10
 
 	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-
 	printf("[wasm-mod] sock = %d\n", sock);
 
 	rc = connect(sock, (struct sockaddr*)&addr, sizeof(addr));
@@ -65,7 +64,8 @@ int main(int argc, char **argv)
 	printf("[wasm-mod] Response:\n\n");
 
 	while (1) {
-		int len = recvfrom(sock, response, sizeof(response) - 1, 0, (struct sockaddr *)&addr, (socklen_t *)sizeof(addr));
+		socklen_t socklen = sizeof(struct sockaddr_in);
+		int len = recvfrom(sock, response, sizeof(response) - 1, 0, (struct sockaddr *)&addr, &socklen);
 
 		if (len < 0) {
 			printf("[wasm-mod] Error %d\n", errno);

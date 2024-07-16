@@ -196,12 +196,11 @@ static inline bool
 cond_timedwait(struct cond *cond, struct mutex *lock, uint64_t timeout,
                bool abstime) REQUIRES_EXCLUSIVE(*lock) NO_LOCK_ANALYSIS
 {
-#if defined(BH_PLATFORM_ZEPHYR) 
+#if defined(BH_PLATFORM_ZEPHYR)
+    // TODO: Implement this for Zephyr
     return false;
-}
 #else
     int ret;
-
     os_timespec ts = {
         .tv_sec = (time_t)(timeout / 1000000000),
         .tv_nsec = (long)(timeout % 1000000000),
@@ -265,8 +264,8 @@ cond_timedwait(struct cond *cond, struct mutex *lock, uint64_t timeout,
     bh_assert((ret == 0 || ret == ETIMEDOUT)
               && "pthread_cond_timedwait() failed");
     return ret == ETIMEDOUT;
-}
 #endif /* BH_PLATFORM_ZEPHYR */
+}
 #endif
 
 static inline void

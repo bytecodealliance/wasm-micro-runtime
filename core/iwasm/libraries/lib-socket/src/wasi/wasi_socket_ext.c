@@ -327,6 +327,9 @@ recvfrom(int sockfd, void *buf, size_t len, int flags,
         return recv(sockfd, buf, len, flags);
     }
 
+    error = sockaddr_to_wasi_addr(src_addr, *addrlen, &wasi_addr);
+    HANDLE_ERROR(error);
+
     // Perform system call.
     error = __wasi_sock_recv_from(sockfd, &iov, si_data_len, si_flags,
                                   &wasi_addr, &so_datalen);

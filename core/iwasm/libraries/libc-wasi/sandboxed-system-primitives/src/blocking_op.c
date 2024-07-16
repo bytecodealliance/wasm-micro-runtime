@@ -172,7 +172,7 @@ blocking_op_openat(wasm_exec_env_t exec_env, os_file_handle handle,
     return error;
 }
 
-#if !defined(BH_PLATFORM_WINDOWS)
+#ifndef BH_PLATFORM_WINDOWS
 /* REVISIT: apply the os_file_handle style abstraction for pollfd? */
 __wasi_errno_t
 blocking_op_poll(wasm_exec_env_t exec_env, os_poll_file_handle *pfds, os_nfds_t nfds,

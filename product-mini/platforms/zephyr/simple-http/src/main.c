@@ -41,9 +41,6 @@ int main(void)
     RuntimeInitArgs init_args;
     char error_buf[128];
     const char *exception;
-    // wasm_function_inst_t func;
-    // wasm_exec_env_t exec_env;
-    // unsigned argv[2] = { 0 };
 
     int log_verbose_level = 2;
 
@@ -83,7 +80,6 @@ int main(void)
 #define ADDRESS_POOL_SIZE 1
     const char *addr_pool[ADDRESS_POOL_SIZE] = {
         "192.0.2.10/24",
-        // Add more addresses here if needed
     };
     /* No dir list => No file system 
      * dir_cont = 0
@@ -108,29 +104,12 @@ int main(void)
     }
 
     /* invoke the main function */
-    // if ((func = wasm_runtime_lookup_function(wasm_module_inst, "_start"))) {
     if (wasm_runtime_lookup_function(wasm_module_inst, "_start")
         || wasm_runtime_lookup_function(wasm_module_inst, "__main_argc_argv")) {
 
         printf("main found\n");
         wasm_application_execute_main(wasm_module_inst, 0, NULL);
         printf("main executed\n");
-        // printf("Creating exec_env\n");
-        // exec_env = wasm_runtime_create_exec_env(wasm_module_inst, CONFIG_APP_HEAP_SIZE);
-        // if (!exec_env) {
-        //     printf("Create exec env failed\n");
-        //     return -1;
-        // }
-
-        // printf("Calling main function\n");
-        // bool ret = wasm_runtime_call_wasm(exec_env, func, 2, argv);
-        
-        // if(!ret) {
-        //     printf("Failed to call main function\n");
-        //     goto fail3;
-        // }
-
-        // wasm_runtime_destroy_exec_env(exec_env);
     }
     else {
         printf("Failed to lookup function main\n");
