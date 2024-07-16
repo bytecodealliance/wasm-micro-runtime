@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "aot_compiler.h"
+#include "aot_emit_aot_file.h"
 #include "../aot/aot_runtime.h"
 
 #define PUT_U64_TO_ADDR(addr, value)        \
@@ -113,16 +113,6 @@ is_little_endian_binary(const AOTObjectData *obj_data)
 }
 
 static bool
-need_call_wrapped_indirect(const AOTObjectData *obj_data)
-{
-    const bool need_precheck = obj_data->comp_ctx->enable_stack_bound_check
-                               || obj_data->comp_ctx->enable_stack_estimation;
-
-    return obj_data->comp_ctx->is_indirect_mode && need_precheck
-           && !strncmp(obj_data->comp_ctx->target_arch, "xtensa", 6);
-}
-
-static bool
 str_starts_with(const char *str, const char *prefix)
 {
     size_t len_pre = strlen(prefix), len_str = strlen(str);
@@ -199,7 +189,7 @@ get_import_memory_size(AOTCompData *comp_data)
 static uint32
 get_memory_size(AOTCompData *comp_data)
 {
-    /* memory_count + count * (memory_flags + num_bytes_per_page +
+    /* memory_count + count * (flags + num_bytes_per_page +
                                init_page_count + max_page_count) */
     return (uint32)(sizeof(uint32)
                     + comp_data->memory_count * sizeof(uint32) * 4);
@@ -393,11 +383,11 @@ get_import_table_size(const AOTCompContext *comp_ctx,
      * | import_table_count
      * ------------------------------
      * |                   | U8 elem_type
-     * |                   | U8 table_flags
+     * |                   | U8 flags
      * |                   | U8 possible_grow
      * | AOTImportTable[N] | U8 elem_ref_type.nullable (for GC only)
-     * |                   | U32 table_init_size
-     * |                   | U32 table_max_size
+     * |                   | U32 init_size
+     * |                   | U32 max_size
      * |                   | U32 elem_ref_type.heap_type (for GC only)
      * ------------------------------
      */
@@ -407,7 +397,8 @@ get_import_table_size(const AOTCompContext *comp_ctx,
     for (i = 0; i < comp_data->import_table_count; i++) {
         size += sizeof(uint32) * 3;
 #if WASM_ENABLE_GC != 0
-        if (comp_ctx->enable_gc && comp_data->import_tables[i].elem_ref_type)
+        if (comp_ctx->enable_gc
+            && comp_data->import_tables[i].table_type.elem_ref_type)
             size += sizeof(uint32);
 #endif
     }
@@ -422,11 +413,11 @@ get_table_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data)
      * | table_count
      * ------------------------------
      * |             | U8 elem_type
-     * |             | U8 table_flags
+     * |             | U8 flags
      * |             | U8 possible_grow
      * | AOTTable[N] | U8 elem_ref_type.nullable (for GC only)
-     * |             | U32 table_init_size
-     * |             | U32 table_max_size
+     * |             | U32 init_size
+     * |             | U32 max_size
      * |             | U32 elem_ref_type.heap_type (for GC only)
      * |             | N   init_expr (for GC only)
      * ------------------------------
@@ -438,7 +429,7 @@ get_table_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data)
         size += sizeof(uint32) * 3;
 #if WASM_ENABLE_GC != 0
         if (comp_ctx->enable_gc) {
-            if (comp_data->tables[i].elem_ref_type) {
+            if (comp_data->tables[i].table_type.elem_ref_type) {
                 size += sizeof(uint32);
             }
             size += get_init_expr_size(comp_ctx, comp_data,
@@ -828,10 +819,6 @@ get_func_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
     /* function type indexes */
     size += (uint32)sizeof(uint32) * comp_data->func_count;
 
-    /* aot_func#xxx + aot_func_internal#xxx in XIP mode for xtensa */
-    if (need_call_wrapped_indirect(obj_data))
-        size *= 2;
-
     /* max_local_cell_nums */
     size += (uint32)sizeof(uint32) * comp_data->func_count;
 
@@ -1203,9 +1190,9 @@ get_string_literal_section_size(AOTCompContext *comp_ctx,
 static uint32
 get_custom_sections_size(AOTCompContext *comp_ctx, AOTCompData *comp_data);
 
-static uint32
-get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
-                  AOTObjectData *obj_data)
+uint32
+aot_get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
+                      AOTObjectData *obj_data)
 {
     uint32 size = 0;
     uint32 size_custom_section = 0;
@@ -1776,10 +1763,10 @@ aot_emit_mem_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     EMIT_U32(comp_data->memory_count);
     /* Emit memory items */
     for (i = 0; i < comp_data->memory_count; i++) {
-        EMIT_U32(comp_data->memories[i].memory_flags);
+        EMIT_U32(comp_data->memories[i].flags);
         EMIT_U32(comp_data->memories[i].num_bytes_per_page);
-        EMIT_U32(comp_data->memories[i].mem_init_page_count);
-        EMIT_U32(comp_data->memories[i].mem_max_page_count);
+        EMIT_U32(comp_data->memories[i].init_page_count);
+        EMIT_U32(comp_data->memories[i].max_page_count);
     }
 
     /* Emit mem init data count */
@@ -1969,13 +1956,14 @@ aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
          * EMIT_STR(comp_data->import_tables[i].module_name );
          * EMIT_STR(comp_data->import_tables[i].table_name);
          */
-        EMIT_U8(comp_data->import_tables[i].elem_type);
-        EMIT_U8(comp_data->import_tables[i].table_flags);
-        EMIT_U8(comp_data->import_tables[i].possible_grow);
+        EMIT_U8(comp_data->import_tables[i].table_type.elem_type);
+        EMIT_U8(comp_data->import_tables[i].table_type.flags);
+        EMIT_U8(comp_data->import_tables[i].table_type.possible_grow);
 #if WASM_ENABLE_GC != 0
-        if (comp_ctx->enable_gc && comp_data->import_tables[i].elem_ref_type) {
+        if (comp_ctx->enable_gc
+            && comp_data->import_tables[i].table_type.elem_ref_type) {
             EMIT_U8(comp_data->import_tables[i]
-                        .elem_ref_type->ref_ht_common.nullable);
+                        .table_type.elem_ref_type->ref_ht_common.nullable);
         }
         else
 #endif
@@ -1983,14 +1971,15 @@ aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             /* emit one placeholder to keep the same size */
             EMIT_U8(0);
         }
-        EMIT_U32(comp_data->import_tables[i].table_init_size);
-        EMIT_U32(comp_data->import_tables[i].table_max_size);
+        EMIT_U32(comp_data->import_tables[i].table_type.init_size);
+        EMIT_U32(comp_data->import_tables[i].table_type.max_size);
 #if WASM_ENABLE_GC != 0
-        if (comp_ctx->enable_gc && comp_data->import_tables[i].elem_ref_type) {
+        if (comp_ctx->enable_gc
+            && comp_data->import_tables[i].table_type.elem_ref_type) {
             bh_assert(wasm_is_type_multi_byte_type(
-                comp_data->import_tables[i].elem_type));
+                comp_data->import_tables[i].table_type.elem_type));
             EMIT_U32(comp_data->import_tables[i]
-                         .elem_ref_type->ref_ht_common.heap_type);
+                         .table_type.elem_ref_type->ref_ht_common.heap_type);
         }
 #endif
     }
@@ -1999,12 +1988,14 @@ aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     EMIT_U32(comp_data->table_count);
     /* Emit table items */
     for (i = 0; i < comp_data->table_count; i++) {
-        EMIT_U8(comp_data->tables[i].elem_type);
-        EMIT_U8(comp_data->tables[i].table_flags);
-        EMIT_U8(comp_data->tables[i].possible_grow);
+        EMIT_U8(comp_data->tables[i].table_type.elem_type);
+        EMIT_U8(comp_data->tables[i].table_type.flags);
+        EMIT_U8(comp_data->tables[i].table_type.possible_grow);
 #if WASM_ENABLE_GC != 0
-        if (comp_ctx->enable_gc && comp_data->tables[i].elem_ref_type) {
-            EMIT_U8(comp_data->tables[i].elem_ref_type->ref_ht_common.nullable);
+        if (comp_ctx->enable_gc
+            && comp_data->tables[i].table_type.elem_ref_type) {
+            EMIT_U8(comp_data->tables[i]
+                        .table_type.elem_ref_type->ref_ht_common.nullable);
         }
         else
 #endif
@@ -2012,15 +2003,16 @@ aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             /* emit one placeholder to keep the same size */
             EMIT_U8(0);
         }
-        EMIT_U32(comp_data->tables[i].table_init_size);
-        EMIT_U32(comp_data->tables[i].table_max_size);
+        EMIT_U32(comp_data->tables[i].table_type.init_size);
+        EMIT_U32(comp_data->tables[i].table_type.max_size);
 #if WASM_ENABLE_GC != 0
         if (comp_ctx->enable_gc) {
-            if (comp_data->tables[i].elem_ref_type) {
+            if (comp_data->tables[i].table_type.elem_ref_type) {
                 bh_assert(wasm_is_type_multi_byte_type(
-                    comp_data->tables[i].elem_type));
-                EMIT_U32(comp_data->tables[i]
-                             .elem_ref_type->ref_ht_common.heap_type);
+                    comp_data->tables[i].table_type.elem_type));
+                EMIT_U32(
+                    comp_data->tables[i]
+                        .table_type.elem_ref_type->ref_ht_common.heap_type);
             }
             if (!aot_emit_init_expr(buf, buf_end, &offset, comp_ctx,
                                     &comp_data->tables[i].init_expr)) {
@@ -2241,8 +2233,8 @@ aot_emit_import_global_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
     for (i = 0; i < comp_data->import_global_count; i++, import_global++) {
         offset = align_uint(offset, 2);
-        EMIT_U8(import_global->type);
-        EMIT_U8(import_global->is_mutable);
+        EMIT_U8(import_global->type.val_type);
+        EMIT_U8(import_global->type.is_mutable);
         EMIT_STR(import_global->module_name);
         offset = align_uint(offset, 2);
         EMIT_STR(import_global->global_name);
@@ -2273,8 +2265,8 @@ aot_emit_global_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
     for (i = 0; i < comp_data->global_count; i++, global++) {
         offset = align_uint(offset, 4);
-        EMIT_U8(global->type);
-        EMIT_U8(global->is_mutable);
+        EMIT_U8(global->type.val_type);
+        EMIT_U8(global->type.is_mutable);
 
         offset = align_uint(offset, 4);
         if (!aot_emit_init_expr(buf, buf_end, &offset, comp_ctx,
@@ -2590,29 +2582,8 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             EMIT_U64(func->text_offset);
     }
 
-    if (need_call_wrapped_indirect(obj_data)) {
-        /*
-         * Explicitly emit aot_func_internal#xxx for Xtensa XIP, therefore,
-         * for aot_func#xxx, func_indexes ranged from 0 ~ func_count,
-         * for aot_func_internal#xxxx, from func_count + 1 ~ 2 * func_count.
-         */
-        for (i = 0, func = obj_data->funcs; i < obj_data->func_count;
-             i++, func++) {
-            if (is_32bit_binary(obj_data))
-                EMIT_U32(func->text_offset_of_aot_func_internal);
-            else
-                EMIT_U64(func->text_offset_of_aot_func_internal);
-        }
-    }
-
     for (i = 0; i < comp_data->func_count; i++)
         EMIT_U32(funcs[i]->func_type_index);
-
-    if (need_call_wrapped_indirect(obj_data)) {
-        /* func_type_index for aot_func_internal#xxxx */
-        for (i = 0; i < comp_data->func_count; i++)
-            EMIT_U32(funcs[i]->func_type_index);
-    }
 
     for (i = 0; i < comp_data->func_count; i++) {
         uint32 max_local_cell_num =
@@ -3067,14 +3038,17 @@ typedef struct elf64_rela {
     elf64_sxword r_addend;
 } elf64_rela;
 
-#define SET_TARGET_INFO(f, v, type, little)     \
-    do {                                        \
-        type tmp = elf_header->v;               \
-        if ((little && !is_little_endian())     \
-            || (!little && is_little_endian())) \
-            exchange_##type((uint8 *)&tmp);     \
-        obj_data->target_info.f = tmp;          \
+#define SET_TARGET_INFO_VALUE(f, val, type, little) \
+    do {                                            \
+        type tmp = val;                             \
+        if ((little && !is_little_endian())         \
+            || (!little && is_little_endian()))     \
+            exchange_##type((uint8 *)&tmp);         \
+        obj_data->target_info.f = tmp;              \
     } while (0)
+
+#define SET_TARGET_INFO_FIELD(f, v, type, little) \
+    SET_TARGET_INFO_VALUE(f, elf_header->v, type, little)
 
 static bool
 aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
@@ -3090,7 +3064,7 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
         && bin_type != LLVMBinaryTypeMachO32B
         && bin_type != LLVMBinaryTypeMachO64L
         && bin_type != LLVMBinaryTypeMachO64B) {
-        aot_set_last_error("invaid llvm binary bin_type.");
+        aot_set_last_error("invalid llvm binary bin_type.");
         return false;
     }
 
@@ -3125,6 +3099,7 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
              || bin_type == LLVMBinaryTypeELF32B) {
         struct elf32_ehdr *elf_header;
         bool is_little_bin = bin_type == LLVMBinaryTypeELF32L;
+        uint16 e_type;
 
         if (!elf_buf || elf_size < sizeof(struct elf32_ehdr)) {
             aot_set_last_error("invalid elf32 buffer.");
@@ -3132,20 +3107,22 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
         }
 
         elf_header = (struct elf32_ehdr *)elf_buf;
+        e_type = elf_header->e_type;
 
         /* Emit eXecute In Place file type while in indirect mode */
         if (comp_ctx->is_indirect_mode)
-            elf_header->e_type = E_TYPE_XIP;
+            e_type = E_TYPE_XIP;
 
-        SET_TARGET_INFO(e_type, e_type, uint16, is_little_bin);
-        SET_TARGET_INFO(e_machine, e_machine, uint16, is_little_bin);
-        SET_TARGET_INFO(e_version, e_version, uint32, is_little_bin);
-        SET_TARGET_INFO(e_flags, e_flags, uint32, is_little_bin);
+        SET_TARGET_INFO_VALUE(e_type, e_type, uint16, is_little_bin);
+        SET_TARGET_INFO_FIELD(e_machine, e_machine, uint16, is_little_bin);
+        SET_TARGET_INFO_FIELD(e_version, e_version, uint32, is_little_bin);
+        SET_TARGET_INFO_FIELD(e_flags, e_flags, uint32, is_little_bin);
     }
     else if (bin_type == LLVMBinaryTypeELF64L
              || bin_type == LLVMBinaryTypeELF64B) {
         struct elf64_ehdr *elf_header;
         bool is_little_bin = bin_type == LLVMBinaryTypeELF64L;
+        uint16 e_type;
 
         if (!elf_buf || elf_size < sizeof(struct elf64_ehdr)) {
             aot_set_last_error("invalid elf64 buffer.");
@@ -3153,26 +3130,27 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
         }
 
         elf_header = (struct elf64_ehdr *)elf_buf;
+        e_type = elf_header->e_type;
 
         /* Emit eXecute In Place file type while in indirect mode */
         if (comp_ctx->is_indirect_mode)
-            elf_header->e_type = E_TYPE_XIP;
+            e_type = E_TYPE_XIP;
 
-        SET_TARGET_INFO(e_type, e_type, uint16, is_little_bin);
-        SET_TARGET_INFO(e_machine, e_machine, uint16, is_little_bin);
-        SET_TARGET_INFO(e_version, e_version, uint32, is_little_bin);
-        SET_TARGET_INFO(e_flags, e_flags, uint32, is_little_bin);
+        SET_TARGET_INFO_VALUE(e_type, e_type, uint16, is_little_bin);
+        SET_TARGET_INFO_FIELD(e_machine, e_machine, uint16, is_little_bin);
+        SET_TARGET_INFO_FIELD(e_version, e_version, uint32, is_little_bin);
+        SET_TARGET_INFO_FIELD(e_flags, e_flags, uint32, is_little_bin);
     }
     else if (bin_type == LLVMBinaryTypeMachO32L
              || bin_type == LLVMBinaryTypeMachO32B) {
         /* TODO: parse file type of Mach-O 32 */
-        aot_set_last_error("invaid llvm binary bin_type.");
+        aot_set_last_error("invalid llvm binary bin_type.");
         return false;
     }
     else if (bin_type == LLVMBinaryTypeMachO64L
              || bin_type == LLVMBinaryTypeMachO64B) {
         /* TODO: parse file type of Mach-O 64 */
-        aot_set_last_error("invaid llvm binary bin_type.");
+        aot_set_last_error("invalid llvm binary bin_type.");
         return false;
     }
 
@@ -4263,7 +4241,7 @@ destroy_relocation_symbol_list(AOTSymbolList *symbol_list)
     }
 }
 
-static void
+void
 aot_obj_data_destroy(AOTObjectData *obj_data)
 {
     if (obj_data->binary)
@@ -4296,7 +4274,7 @@ aot_obj_data_destroy(AOTObjectData *obj_data)
     wasm_runtime_free(obj_data);
 }
 
-static AOTObjectData *
+AOTObjectData *
 aot_obj_data_create(AOTCompContext *comp_ctx)
 {
     char *err = NULL;
@@ -4478,25 +4456,48 @@ aot_emit_aot_file_buf(AOTCompContext *comp_ctx, AOTCompData *comp_data,
                       uint32 *p_aot_file_size)
 {
     AOTObjectData *obj_data = aot_obj_data_create(comp_ctx);
-    uint8 *aot_file_buf, *buf, *buf_end;
-    uint32 aot_file_size, offset = 0;
+    uint8 *aot_file_buf;
+    uint32 aot_file_size;
 
     if (!obj_data)
         return NULL;
 
-    aot_file_size = get_aot_file_size(comp_ctx, comp_data, obj_data);
+    aot_file_size = aot_get_aot_file_size(comp_ctx, comp_data, obj_data);
     if (aot_file_size == 0) {
         aot_set_last_error("get aot file size failed");
         goto fail1;
     }
 
-    if (!(buf = aot_file_buf = wasm_runtime_malloc(aot_file_size))) {
+    if (!(aot_file_buf = wasm_runtime_malloc(aot_file_size))) {
         aot_set_last_error("allocate memory failed.");
         goto fail1;
     }
 
     memset(aot_file_buf, 0, aot_file_size);
-    buf_end = buf + aot_file_size;
+    if (!aot_emit_aot_file_buf_ex(comp_ctx, comp_data, obj_data, aot_file_buf,
+                                  aot_file_size))
+        goto fail2;
+
+    *p_aot_file_size = aot_file_size;
+
+    aot_obj_data_destroy(obj_data);
+    return aot_file_buf;
+
+fail2:
+    wasm_runtime_free(aot_file_buf);
+
+fail1:
+    aot_obj_data_destroy(obj_data);
+    return NULL;
+}
+
+bool
+aot_emit_aot_file_buf_ex(AOTCompContext *comp_ctx, AOTCompData *comp_data,
+                         AOTObjectData *obj_data, uint8 *buf,
+                         uint32 aot_file_size)
+{
+    uint8 *buf_end = buf + aot_file_size;
+    uint32 offset = 0;
 
     if (!aot_emit_file_header(buf, buf_end, &offset, comp_data, obj_data)
         || !aot_emit_target_info_section(buf, buf_end, &offset, comp_data,
@@ -4517,7 +4518,7 @@ aot_emit_aot_file_buf(AOTCompContext *comp_ctx, AOTCompData *comp_data,
                                             comp_ctx)
 #endif
     )
-        goto fail2;
+        return false;
 
 #if 0
     dump_buf(buf, offset, "sections");
@@ -4525,20 +4526,10 @@ aot_emit_aot_file_buf(AOTCompContext *comp_ctx, AOTCompData *comp_data,
 
     if (offset != aot_file_size) {
         aot_set_last_error("emit aot file failed.");
-        goto fail2;
+        return false;
     }
 
-    *p_aot_file_size = aot_file_size;
-
-    aot_obj_data_destroy(obj_data);
-    return aot_file_buf;
-
-fail2:
-    wasm_runtime_free(aot_file_buf);
-
-fail1:
-    aot_obj_data_destroy(obj_data);
-    return NULL;
+    return true;
 }
 
 bool

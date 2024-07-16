@@ -70,11 +70,11 @@ Create a corresponding concept for every native structured data type includes
 
 #### Enum types
 
-For example, if there is a `enum wams_mutability_enum` in native.
+For example, if there is a `enum wasm_mutability_enum` in native.
 
 ```c
-typedef uint8_t wams_mutability_t;
-enum wams_mutability_enum {
+typedef uint8_t wasm_mutability_t;
+enum wasm_mutability_enum {
   WASM_CONST,
   WASM_VAR
 };
@@ -83,7 +83,7 @@ enum wams_mutability_enum {
 Use `ctypes.int`(or any integer types in ctypes) to represents its value directly.
 
 ```python
-# represents enum wams_mutability_enum
+# represents enum wasm_mutability_enum
 wasm_mutability_t = c_uint8
 
 WASM_CONST = 0

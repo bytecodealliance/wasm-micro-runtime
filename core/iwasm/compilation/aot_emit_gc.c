@@ -569,7 +569,7 @@ aot_compile_op_struct_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     SET_BUILDER_POS(check_struct_obj_succ);
 
-    /* For WASM_OP_STRUCT_NEW, init filed with poped value */
+    /* For WASM_OP_STRUCT_NEW, init field with poped value */
     if (!init_with_default
         && !struct_new_canon_init_fields(comp_ctx, func_ctx, type_index,
                                          struct_obj)) {

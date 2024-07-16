@@ -47,7 +47,6 @@ IWASM_CMD = get_iwasm_cmd(PLATFORM_NAME)
 IWASM_SGX_CMD = "../../../product-mini/platforms/linux-sgx/enclave-sample/iwasm"
 IWASM_QEMU_CMD = "iwasm"
 SPEC_TEST_DIR = "spec/test/core"
-EXCE_HANDLING_DIR = "exception-handling/test/core"
 WAST2WASM_CMD = exe_file_path("./wabt/out/gcc/Release/wat2wasm")
 SPEC_INTERPRETER_CMD = "spec/interpreter/wasm"
 WAMRC_CMD = "../../../wamr-compiler/build/wamrc"
@@ -87,7 +86,7 @@ def ignore_the_case(
     if case_name in ["comments", "inline-module", "names"]:
         return True
 
-    if not multi_module_flag and case_name in ["imports", "linking"]:
+    if not multi_module_flag and case_name in ["imports", "linking", "simd_linking"]:
         return True
 
     # Note: x87 doesn't preserve sNaN and makes some relevant tests fail.
@@ -143,10 +142,6 @@ def preflight_check(aot_flag, eh_flag):
         print(f"Can not find {WAMRC_CMD}")
         return False
 
-    if eh_flag and not pathlib.Path(EXCE_HANDLING_DIR).resolve().exists():
-        print(f"Can not find {EXCE_HANDLING_DIR}")
-        return False
-
     return True
 
 
@@ -171,7 +166,7 @@ def test_case(
 ):
     CMD = [sys.executable, "runtest.py"]
     CMD.append("--wast2wasm")
-    CMD.append(WAST2WASM_CMD if not gc_flag and not memory64_flag else SPEC_INTERPRETER_CMD)
+    CMD.append(WAST2WASM_CMD if not gc_flag else SPEC_INTERPRETER_CMD)
     CMD.append("--interpreter")
     if sgx_flag:
         CMD.append(IWASM_SGX_CMD)
@@ -310,11 +305,7 @@ def test_suite(
         case_list.extend(gc_case_list)
 
     if eh_flag:
-        eh_path = pathlib.Path(EXCE_HANDLING_DIR).resolve()
-        if not eh_path.exists():
-            print(f"can not find spec test cases at {eh_path}")
-            return False
-        eh_case_list = sorted(eh_path.glob("*.wast"))
+        eh_case_list = sorted(suite_path.glob("*.wast"))
         eh_case_list_include = [test for test in eh_case_list if test.stem in ["throw", "tag", "try_catch", "rethrow", "try_delegate"]]
         case_list.extend(eh_case_list_include)
 
@@ -337,7 +328,9 @@ def test_suite(
             qemu_flag,
         ):
             filtered_case_list.append(case_path)
-    print(f"---> {len(case_list)} --filter--> {len(filtered_case_list)}")
+        else:
+            print(f"---> skip {case_name}")
+    print(f"---> {len(case_list)} ---filter--> {len(filtered_case_list)}")
     case_list = filtered_case_list
 
     case_count = len(case_list)

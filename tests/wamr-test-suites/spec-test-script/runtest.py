@@ -1074,12 +1074,14 @@ def compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
     log("Compiling WASM to '%s'" % wasm_tempfile)
 
     # default arguments
-    if opts.gc or opts.memory64:
+    if opts.gc:
         cmd = [opts.wast2wasm, "-u", "-d", wast_tempfile, "-o", wasm_tempfile]
     elif opts.eh:
-        cmd = [opts.wast2wasm, "--enable-thread", "--no-check", "--enable-exceptions", "--enable-tail-call", wast_tempfile, "-o", wasm_tempfile ]
+        cmd = [opts.wast2wasm, "--enable-threads", "--no-check", "--enable-exceptions", "--enable-tail-call", wast_tempfile, "-o", wasm_tempfile ]
+    elif opts.memory64:
+        cmd = [opts.wast2wasm, "--enable-memory64", "--no-check", wast_tempfile, "-o", wasm_tempfile ]
     else:
-        cmd = [opts.wast2wasm, "--enable-thread", "--no-check",
+        cmd = [opts.wast2wasm, "--enable-threads", "--no-check",
                wast_tempfile, "-o", wasm_tempfile ]
 
     # remove reference-type and bulk-memory enabling options since a WABT
@@ -1119,9 +1121,6 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
         cmd.append("--enable-gc")
         cmd.append("--enable-tail-call")
 
-    if opts.memory64:
-        cmd.append("--enable-memory64")
-
     if output == 'object':
         cmd.append("--format=object")
     elif output == 'ir':
@@ -1134,9 +1133,10 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
 
     # Bounds checks is disabled by default for 64-bit targets, to
     # use the hardware based bounds checks. But it is not supported
-    # in QEMU with NuttX.
-    # Enable bounds checks explicitly for all targets if running in QEMU.
-    if opts.qemu:
+    # in QEMU with NuttX and in memory64 mode.
+    # Enable bounds checks explicitly for all targets if running in QEMU or all targets
+    # running in memory64 mode.
+    if opts.qemu or opts.memory64:
         cmd.append("--bounds-checks=1")
 
     # RISCV64 requires -mcmodel=medany, which can be set by --size-level=1

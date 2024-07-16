@@ -19,6 +19,7 @@ on:
       - "samples/**"
       - "!samples/workload/**"
       - "tests/wamr-test-suites/**"
+      - "tests/unit/**"
       - "wamr-compiler/**"
       - "test-tools/wamr-ide/**"
   # will be triggered on push events
@@ -36,6 +37,7 @@ on:
       - "samples/**"
       - "!samples/workload/**"
       - "tests/wamr-test-suites/**"
+      - "tests/unit/**"
       - "wamr-compiler/**"
       - "test-tools/wamr-ide/**"
   # allow to be triggered manually
@@ -150,8 +152,8 @@ jobs:
         os: [ubuntu-22.04]
         platform: [android, linux]
         exclude:
-          # uncompatiable feature and platform
-          # uncompatiable mode and feature
+          # incompatible feature and platform
+          # incompatible mode and feature
           # MULTI_MODULE only on INTERP mode and AOT mode
           - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
@@ -272,10 +274,73 @@ jobs:
           cmake --build . --config Release --parallel 4
         working-directory: product-mini/platforms/${{ matrix.platform }}
 
+  build_unit_tests:
+    needs:
+      [
+        build_llvm_libraries_on_ubuntu_2204,
+        build_wamrc
+      ]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04]
+        wasi_sdk_release:
+          [
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz",
+          ]
+        wabt_release:
+          [
+            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
+          ]
+        include:
+          - os: ubuntu-22.04
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: Get LLVM libraries
+        id: retrieve_llvm_libs
+        uses: actions/cache@v4
+        with:
+          path: |
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
+          key: ${{ matrix.llvm_cache_key }}
+
+      - name: Quit if cache miss
+        if: (steps.retrieve_llvm_libs.outputs.cache-hit != 'true')
+        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
+
+      - name: download and install wasi-sdk
+        run: |
+          cd /opt
+          sudo wget ${{ matrix.wasi_sdk_release }}
+          sudo tar -xzf wasi-sdk-*.tar.gz
+          sudo ln -sf wasi-sdk-20.0 wasi-sdk
+
+      - name: download and install wabt
+        run: |
+          cd /opt
+          sudo wget ${{ matrix.wabt_release }}
+          sudo tar -xzf wabt-1.0.31-*.tar.gz
+          sudo mv wabt-1.0.31 wabt
+
+      - name: Build wamrc
+        run: |
+          mkdir build && cd build
+          cmake ..
+          cmake --build . --config Release --parallel 4
+        working-directory: wamr-compiler
+
       - name: Build and run unit tests
         run: |
-          mkdir build-unittests && cd build-unittests
-          cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }}
+          mkdir build && cd build
+          cmake ..
           cmake --build . --config Release --parallel 4
           ctest
         working-directory: tests/unit
@@ -491,6 +556,13 @@ jobs:
           ./iwasm wasm-apps/trap.aot | grep "#" > call_stack_aot.txt
           bash -x ../symbolicate.sh
 
+      - name: Build Sample [native-stack-overflow]
+        run: |
+          cd samples/native-stack-overflow
+          ./build.sh
+          ./run.sh test1
+          ./run.sh test2
+
   test:
     needs:
       [
@@ -535,7 +607,7 @@ jobs:
             running_mode: aot
             test_option: $WAMR_COMPILER_TEST_OPTIONS
         exclude:
-          # uncompatiable modes and features
+          # incompatible modes and features
           # classic-interp and fast-interp don't support simd
           - running_mode: "classic-interp"
             test_option: $SIMD_TEST_OPTIONS
@@ -559,9 +631,7 @@ jobs:
             test_option: $GC_TEST_OPTIONS
           - running_mode: "multi-tier-jit"
             test_option: $GC_TEST_OPTIONS
-          # aot, fast-interp, fast-jit, llvm-jit, multi-tier-jit don't support Memory64
-          - running_mode: "aot"
-            test_option: $MEMORY64_TEST_OPTIONS
+          # fast-interp, fast-jit, llvm-jit, multi-tier-jit don't support Memory64
           - running_mode: "fast-interp"
             test_option: $MEMORY64_TEST_OPTIONS
           - running_mode: "fast-jit"
@@ -575,7 +645,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set-up OCaml
-        uses: ocaml/setup-ocaml@v2
+        uses: ocaml/setup-ocaml@v3
         if: matrix.test_option == '$GC_TEST_OPTIONS' || matrix.test_option == '$MEMORY64_TEST_OPTIONS'
         with:
           ocaml-compiler: 4.13
@@ -609,6 +679,7 @@ jobs:
         if: >
           ((matrix.test_option == '$DEFAULT_TEST_OPTIONS' || matrix.test_option == '$THREADS_TEST_OPTIONS'
             || matrix.test_option == '$WASI_TEST_OPTIONS' || matrix.test_option == '$GC_TEST_OPTIONS')
+           && matrix.test_option != '$MEMORY64_TEST_OPTIONS'
            && matrix.running_mode != 'fast-jit' && matrix.running_mode != 'jit' && matrix.running_mode != 'multi-tier-jit')
         run: echo "TEST_ON_X86_32=true" >> $GITHUB_ENV
 

@@ -973,9 +973,9 @@ fail:
                     }                                                      \
                 }                                                          \
                 else if (cells[0] == 2) {                                  \
-                    frame_lp[dst_offsets[0]] = frame_lp[src_offsets[0]];   \
-                    frame_lp[dst_offsets[0] + 1] =                         \
-                        frame_lp[src_offsets[0] + 1];                      \
+                    PUT_I64_TO_ADDR(                                       \
+                        frame_lp + dst_offsets[0],                         \
+                        GET_I64_FROM_ADDR(frame_lp + src_offsets[0]));     \
                     /* Ignore constants because they are not reference */  \
                     if (src_offsets[0] >= 0) {                             \
                         CLEAR_FRAME_REF((unsigned)src_offsets[0]);         \
@@ -1020,9 +1020,9 @@ fail:
                 if (cells[0] == 1)                                          \
                     frame_lp[dst_offsets[0]] = frame_lp[src_offsets[0]];    \
                 else if (cells[0] == 2) {                                   \
-                    frame_lp[dst_offsets[0]] = frame_lp[src_offsets[0]];    \
-                    frame_lp[dst_offsets[0] + 1] =                          \
-                        frame_lp[src_offsets[0] + 1];                       \
+                    PUT_I64_TO_ADDR(                                        \
+                        frame_lp + dst_offsets[0],                          \
+                        GET_I64_FROM_ADDR(frame_lp + src_offsets[0]));      \
                 }                                                           \
             }                                                               \
             else {                                                          \
@@ -1167,6 +1167,10 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
     all_cell_num += (local_cell_num + 3) / 4;
 #endif
 
+    if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
+        return;
+    }
+
     if (!(frame =
               ALLOC_FRAME(exec_env, wasm_interp_interp_frame_size(all_cell_num),
                           prev_frame)))
@@ -1274,6 +1278,14 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
     WASMExecEnv *sub_module_exec_env = NULL;
     uintptr_t aux_stack_origin_boundary = 0;
     uintptr_t aux_stack_origin_bottom = 0;
+
+    /*
+     * perform stack overflow check before calling
+     * wasm_interp_call_func_bytecode recursively.
+     */
+    if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
+        return;
+    }
 
     if (!sub_func_inst) {
         snprintf(buf, sizeof(buf),
@@ -3434,10 +3446,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             {
                 /* clang-format off */
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
-                    local_offset = *frame_ip++;
+                local_offset = *frame_ip++;
 #else
-                    local_offset = *frame_ip;
-                    frame_ip += 2;
+                local_offset = *frame_ip;
+                frame_ip += 2;
 #endif
                 /* clang-format on */
                 *(uint32 *)(frame_lp + local_offset) =
@@ -3451,10 +3463,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             {
                 /* clang-format off */
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
-                    local_offset = *frame_ip++;
+                local_offset = *frame_ip++;
 #else
-                    local_offset = *frame_ip;
-                    frame_ip += 2;
+                local_offset = *frame_ip;
+                frame_ip += 2;
 #endif
                 /* clang-format on */
                 PUT_I64_TO_ADDR((uint32 *)(frame_lp + local_offset),
@@ -4856,8 +4868,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 GET_LOCAL_INDEX_TYPE_AND_OFFSET();
                 addr1 = GET_OFFSET();
 
-                if (local_type == VALUE_TYPE_I32
-                    || local_type == VALUE_TYPE_F32) {
+                if (local_type == VALUE_TYPE_I32 || local_type == VALUE_TYPE_F32
+#if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
+                    || local_type == VALUE_TYPE_FUNCREF
+                    || local_type == VALUE_TYPE_EXTERNREF
+#endif
+                ) {
                     *(int32 *)(frame_lp + local_offset) = frame_lp[addr1];
                 }
                 else if (local_type == VALUE_TYPE_I64
@@ -5893,6 +5909,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         else {
             WASMFunction *cur_wasm_func = cur_func->u.func;
             uint32 cell_num_of_local_stack;
+#if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
+            uint32 i, local_cell_idx;
+#endif
 
             cell_num_of_local_stack = cur_func->param_cell_num
                                       + cur_func->local_cell_num
@@ -5934,6 +5953,19 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             /* Initialize the local variables */
             memset(frame_lp + cur_func->param_cell_num, 0,
                    (uint32)(cur_func->local_cell_num * 4));
+
+#if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
+            /* externref/funcref should be NULL_REF rather than 0 */
+            local_cell_idx = cur_func->param_cell_num;
+            for (i = 0; i < cur_wasm_func->local_count; i++) {
+                if (cur_wasm_func->local_types[i] == VALUE_TYPE_EXTERNREF
+                    || cur_wasm_func->local_types[i] == VALUE_TYPE_FUNCREF) {
+                    *(frame_lp + local_cell_idx) = NULL_REF;
+                }
+                local_cell_idx +=
+                    wasm_value_type_cell_num(cur_wasm_func->local_types[i]);
+            }
+#endif
 
 #if WASM_ENABLE_GC != 0
             /* frame->ip is used during GC root set enumeration, so we must
@@ -6081,12 +6113,13 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     }
     argc = function->param_cell_num;
 
-    RECORD_STACK_USAGE(exec_env, (uint8 *)&prev_frame);
-#if !(defined(OS_ENABLE_HW_BOUND_CHECK) \
-      && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0)
-    if ((uint8 *)&prev_frame < exec_env->native_stack_boundary) {
-        wasm_set_exception((WASMModuleInstance *)exec_env->module_inst,
-                           "native stack overflow");
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
+    /*
+     * wasm_runtime_detect_native_stack_overflow is done by
+     * call_wasm_with_hw_bound_check.
+     */
+#else
+    if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
         return;
     }
 #endif

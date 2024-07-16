@@ -36,10 +36,11 @@ env:
   LLVM_EAGER_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_JIT=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0"
   MULTI_TIER_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=1"
   # For Spec Test
-  DEFAULT_TEST_OPTIONS: "-s spec -b -P"
-  MULTI_MODULES_TEST_OPTIONS: "-s spec -b -M -P"
-  SIMD_TEST_OPTIONS: "-s spec -b -S -P"
-  THREADS_TEST_OPTIONS: "-s spec -b -p -P"
+  # FIXME: use binary release(adding -b) instead of building from source after upgrading to 22.04
+  DEFAULT_TEST_OPTIONS: "-s spec -P"
+  MULTI_MODULES_TEST_OPTIONS: "-s spec -M -P"
+  SIMD_TEST_OPTIONS: "-s spec -S -P"
+  THREADS_TEST_OPTIONS: "-s spec -p -P"
   X86_32_TARGET_TEST_OPTIONS: "-m x86_32 -P"
   WASI_TEST_OPTIONS: "-s wasi_certification -w"
 
@@ -135,8 +136,8 @@ jobs:
         os: [ubuntu-20.04]
         platform: [android, linux]
         exclude:
-          # uncompatiable feature and platform
-          # uncompatiable mode and feature
+          # incompatible feature and platform
+          # incompatible mode and feature
           # MULTI_MODULE only on INTERP mode and AOT mode
           - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
@@ -290,8 +291,8 @@ jobs:
             "-DWAMR_BUILD_MEMORY64=1",
           ]
         exclude:
-          # uncompatiable feature and platform
-          # uncompatiable mode and feature
+          # incompatible feature and platform
+          # incompatible mode and feature
           # MULTI_MODULE only on INTERP mode and AOT mode
           - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
@@ -547,6 +548,34 @@ jobs:
           cd samples/terminate
           ./build.sh
           ./run.sh
+
+      - name: Build Sample [native-stack-overflow]
+        run: |
+          cd samples/native-stack-overflow
+          ./build.sh
+          ./run.sh test1
+          ./run.sh test2
+
+      - name: Build Sample [native-lib]
+        run: |
+          mkdir build && cd build
+          cmake ..
+          cmake --build . --config Release --parallel 4
+          ./iwasm --native-lib=./libtest_add.so --native-lib=./libtest_sqrt.so --native-lib=./libtest_hello.so --native-lib=./libtest_hello2.so wasm-app/test.wasm
+        working-directory: ./samples/native-lib
+
+      - name: checkout wamr-app-framework
+        run: git clone https://github.com/bytecodealliance/wamr-app-framework.git
+      - name: download wamr-app-framework dependencies
+        run: LVGL=0 LV_DRIVERS=0 ./download.sh
+        working-directory: ./wamr-app-framework/deps
+      - name: Build Sample [simple]
+        run: |
+          ./build.sh -p host-interp
+          python3 ./sample_test_run.py $(pwd)/out
+          exit $?
+        working-directory: ./wamr-app-framework/samples/simple
+
   test:
     needs:
       [
@@ -591,7 +620,7 @@ jobs:
             ubuntu_version: "22.04"
 
         exclude:
-          # uncompatiable modes and features
+          # incompatible modes and features
           - os: ubuntu-20.04
             sanitizer: tsan
           # asan works only for aot now
@@ -690,6 +719,9 @@ jobs:
       - name: install jq JSON processor
         if: matrix.running_mode == 'aot' && matrix.test_option == '$WASI_TEST_OPTIONS'
         run: sudo apt-get update && sudo apt install -y jq
+
+      - name: install for wabt compilation
+        run: sudo apt update && sudo apt install -y ninja-build
 
       - name: Build WASI thread tests
         if: matrix.test_option == '$WASI_TEST_OPTIONS'

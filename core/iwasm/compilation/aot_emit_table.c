@@ -147,7 +147,7 @@ aot_check_table_access(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     if (!(tbl_sz = LLVMBuildBitCast(comp_ctx->builder, tbl_sz, INT32_PTR_TYPE,
-                                    "cur_siuze_i32p"))) {
+                                    "cur_size_i32p"))) {
         HANDLE_FAILURE("LLVMBuildBitCast");
         goto fail;
     }

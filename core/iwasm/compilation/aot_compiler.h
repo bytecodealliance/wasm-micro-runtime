@@ -519,6 +519,14 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
         wasm_runtime_free(aot_value);                                        \
     } while (0)
 
+#if WASM_ENABLE_MEMORY64 != 0
+#define IS_MEMORY64 (comp_ctx->comp_data->memories[0].flags & MEMORY64_FLAG)
+#define MEMORY64_COND_VALUE(VAL_IF_ENABLED, VAL_IF_DISABLED) \
+    (IS_MEMORY64 ? VAL_IF_ENABLED : VAL_IF_DISABLED)
+#else
+#define MEMORY64_COND_VALUE(VAL_IF_ENABLED, VAL_IF_DISABLED) (VAL_IF_DISABLED)
+#endif
+
 #define POP_I32(v) POP(v, VALUE_TYPE_I32)
 #define POP_I64(v) POP(v, VALUE_TYPE_I64)
 #define POP_F32(v) POP(v, VALUE_TYPE_F32)
@@ -527,6 +535,10 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
 #define POP_FUNCREF(v) POP(v, VALUE_TYPE_FUNCREF)
 #define POP_EXTERNREF(v) POP(v, VALUE_TYPE_EXTERNREF)
 #define POP_GC_REF(v) POP(v, VALUE_TYPE_GC_REF)
+#define POP_MEM_OFFSET(v) \
+    POP(v, MEMORY64_COND_VALUE(VALUE_TYPE_I64, VALUE_TYPE_I32))
+#define POP_PAGE_COUNT(v) \
+    POP(v, MEMORY64_COND_VALUE(VALUE_TYPE_I64, VALUE_TYPE_I32))
 
 #define POP_COND(llvm_value)                                                   \
     do {                                                                       \
@@ -590,6 +602,16 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
 #define PUSH_FUNCREF(v) PUSH(v, VALUE_TYPE_FUNCREF)
 #define PUSH_EXTERNREF(v) PUSH(v, VALUE_TYPE_EXTERNREF)
 #define PUSH_GC_REF(v) PUSH(v, VALUE_TYPE_GC_REF)
+#define PUSH_PAGE_COUNT(v) \
+    PUSH(v, MEMORY64_COND_VALUE(VALUE_TYPE_I64, VALUE_TYPE_I32))
+
+#define SET_CONST(v)                                                          \
+    do {                                                                      \
+        AOTValue *aot_value =                                                 \
+            func_ctx->block_stack.block_list_end->value_stack.value_list_end; \
+        aot_value->is_const = true;                                           \
+        aot_value->const_value = (v);                                         \
+    } while (0)
 
 #define TO_LLVM_TYPE(wasm_type) \
     wasm_type_to_llvm_type(comp_ctx, &comp_ctx->basic_types, wasm_type)
@@ -603,6 +625,7 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
 #define INT8_TYPE comp_ctx->basic_types.int8_type
 #define INT16_TYPE comp_ctx->basic_types.int16_type
 #define INTPTR_T_TYPE comp_ctx->basic_types.intptr_t_type
+#define SIZE_T_TYPE comp_ctx->basic_types.size_t_type
 #define MD_TYPE comp_ctx->basic_types.meta_data_type
 #define INT8_PTR_TYPE comp_ctx->basic_types.int8_ptr_type
 #define INT16_PTR_TYPE comp_ctx->basic_types.int16_ptr_type
@@ -766,14 +789,6 @@ aot_compile_wasm(AOTCompContext *comp_ctx);
 
 bool
 aot_emit_llvm_file(AOTCompContext *comp_ctx, const char *file_name);
-
-bool
-aot_emit_aot_file(AOTCompContext *comp_ctx, AOTCompData *comp_data,
-                  const char *file_name);
-
-uint8 *
-aot_emit_aot_file_buf(AOTCompContext *comp_ctx, AOTCompData *comp_data,
-                      uint32 *p_aot_file_size);
 
 bool
 aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name);

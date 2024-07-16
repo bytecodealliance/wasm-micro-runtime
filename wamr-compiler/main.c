@@ -160,9 +160,9 @@ print_help()
     printf("  --enable-dump-call-stack  Enable stack trace feature\n");
     printf("  --enable-perf-profiling   Enable function performance profiling\n");
     printf("  --enable-memory-profiling Enable memory usage profiling\n");
-    printf("  --xip                     A shorthand of --enalbe-indirect-mode --disable-llvm-intrinsics\n");
-    printf("  --enable-indirect-mode    Enalbe call function through symbol table but not direct call\n");
-    printf("  --enable-gc               Enalbe GC (Garbage Collection) feature\n");
+    printf("  --xip                     A shorthand of --enable-indirect-mode --disable-llvm-intrinsics\n");
+    printf("  --enable-indirect-mode    Enable call function through symbol table but not direct call\n");
+    printf("  --enable-gc               Enable GC (Garbage Collection) feature\n");
     printf("  --disable-llvm-intrinsics Disable the LLVM built-in intrinsics\n");
     printf("  --enable-builtin-intrinsics=<flags>\n");
     printf("                            Enable the specified built-in intrinsics, it will override the default\n");
@@ -176,7 +176,7 @@ print_help()
     printf("                            Enable the specified LLVM passes, using comma to separate\n");
     printf("  --use-prof-file=<file>    Use profile file collected by LLVM PGO (Profile-Guided Optimization)\n");
     printf("  --enable-segue[=<flags>]  Enable using segment register GS as the base address of linear memory,\n");
-    printf("                            only available on linux/linux-sgx x86-64, which may improve performance,\n");
+    printf("                            only available on linux x86-64, which may improve performance,\n");
     printf("                            flags can be: i32.load, i64.load, f32.load, f64.load, v128.load,\n");
     printf("                                          i32.store, i64.store, f32.store, f64.store, v128.store\n");
     printf("                            Use comma to separate, e.g. --enable-segue=i32.load,i64.store\n");

@@ -13,10 +13,6 @@
 #include "../common/wasm_runtime_common.h"
 #include "../common/wasm_exec_env.h"
 
-#if WASM_ENABLE_WASI_NN != 0
-#include "../libraries/wasi-nn/src/wasi_nn_private.h"
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -112,7 +108,7 @@ struct WASMMemoryInstance {
 
     /* Four-byte paddings to ensure the layout of WASMMemoryInstance is the same
      * in both 64-bit and 32-bit */
-    uint8 __paddings[4];
+    uint8 _paddings[4];
 
     /* Number bytes per page */
     uint32 num_bytes_per_page;
@@ -760,7 +756,7 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
 #if WASM_ENABLE_BULK_MEMORY != 0
 bool
 llvm_jit_memory_init(WASMModuleInstance *module_inst, uint32 seg_index,
-                     uint32 offset, uint32 len, uint32 dst);
+                     uint32 offset, uint32 len, size_t dst);
 
 bool
 llvm_jit_data_drop(WASMModuleInstance *module_inst, uint32 seg_index);

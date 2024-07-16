@@ -9,11 +9,10 @@
 #include "soc/mmu.h"
 #include "rom/cache.h"
 
-#define MEM_DUAL_BUS_OFFSET (IRAM0_CACHE_ADDRESS_LOW - DRAM0_CACHE_ADDRESS_LOW)
+#define MEM_DUAL_BUS_OFFSET (SOC_IROM_LOW - SOC_IROM_HIGH)
 
-#define in_ibus_ext(addr)                      \
-    (((uint32)addr >= IRAM0_CACHE_ADDRESS_LOW) \
-     && ((uint32)addr < IRAM0_CACHE_ADDRESS_HIGH))
+#define in_ibus_ext(addr) \
+    (((uint32)addr >= SOC_IROM_LOW) && ((uint32)addr < SOC_IROM_HIGH))
 
 static portMUX_TYPE s_spinlock = portMUX_INITIALIZER_UNLOCKED;
 #endif
@@ -44,8 +43,10 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
         uintptr_t *addr_field = buf_fixed - sizeof(uintptr_t);
         *addr_field = (uintptr_t)buf_origin;
 #if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+        memset(buf_fixed + MEM_DUAL_BUS_OFFSET, 0, size);
         return buf_fixed + MEM_DUAL_BUS_OFFSET;
 #else
+        memset(buf_fixed, 0, size);
         return buf_fixed;
 #endif
     }
@@ -72,6 +73,7 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
         uintptr_t *addr_field = buf_fixed - sizeof(uintptr_t);
         *addr_field = (uintptr_t)buf_origin;
 
+        memset(buf_fixed, 0, size);
         return buf_fixed;
     }
 }

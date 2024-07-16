@@ -17,7 +17,10 @@ extern "C" {
 
 typedef void *mem_allocator_t;
 
+#ifndef GC_FINALIZER_T_DEFINED
+#define GC_FINALIZER_T_DEFINED
 typedef void (*gc_finalizer_t)(void *obj, void *data);
+#endif
 
 mem_allocator_t
 mem_allocator_create(void *mem, uint32_t size);

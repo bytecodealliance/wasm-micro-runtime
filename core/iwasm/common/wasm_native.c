@@ -33,9 +33,6 @@ get_spectest_export_apis(NativeSymbol **p_libc_builtin_apis);
 uint32
 get_libc_wasi_export_apis(NativeSymbol **p_libc_wasi_apis);
 
-uint32_t
-get_wasi_nn_export_apis(NativeSymbol **p_libc_wasi_apis);
-
 uint32
 get_base_lib_export_apis(NativeSymbol **p_base_lib_apis);
 
@@ -71,7 +68,7 @@ uint32
 get_lib_rats_export_apis(NativeSymbol **p_lib_rats_apis);
 
 static bool
-compare_type_with_signautre(uint8 type, const char signature)
+compare_type_with_signature(uint8 type, const char signature)
 {
     const char num_sig_map[] = { 'F', 'f', 'I', 'i' };
 
@@ -122,10 +119,10 @@ check_symbol_signature(const WASMFuncType *type, const char *signature)
         sig = *p++;
 
         /* a f64/f32/i64/i32/externref parameter */
-        if (compare_type_with_signautre(type->types[i], sig))
+        if (compare_type_with_signature(type->types[i], sig))
             continue;
 
-        /* a pointer/string paramter */
+        /* a pointer/string parameter */
         if (type->types[i] != VALUE_TYPE_I32)
             /* pointer and string must be i32 type */
             return false;
@@ -156,7 +153,7 @@ check_symbol_signature(const WASMFuncType *type, const char *signature)
             return false;
 
         /* result types includes: f64,f32,i64,i32,externref */
-        if (!compare_type_with_signautre(type->types[i], *p))
+        if (!compare_type_with_signature(type->types[i], *p))
             return false;
 
         p++;
@@ -564,18 +561,6 @@ wasm_native_init()
                                          n_native_symbols))
         goto fail;
 #endif /* WASM_ENABLE_LIB_RATS */
-
-#if WASM_ENABLE_WASI_NN != 0
-    n_native_symbols = get_wasi_nn_export_apis(&native_symbols);
-#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-#define wasi_nn_module_name "wasi_ephemeral_nn"
-#else /* WASM_ENABLE_WASI_EPHEMERAL_NN == 0 */
-#define wasi_nn_module_name "wasi_nn"
-#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
-    if (!wasm_native_register_natives(wasi_nn_module_name, native_symbols,
-                                      n_native_symbols))
-        goto fail;
-#endif
 
 #if WASM_ENABLE_QUICK_AOT_ENTRY != 0
     if (!quick_aot_entry_init()) {

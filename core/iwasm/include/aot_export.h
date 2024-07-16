@@ -27,6 +27,9 @@ typedef struct AOTCompData *aot_comp_data_t;
 struct AOTCompContext;
 typedef struct AOTCompContext *aot_comp_context_t;
 
+struct AOTObjectData;
+typedef struct AOTObjectData *aot_obj_data_t;
+
 aot_comp_data_t
 aot_create_comp_data(void *wasm_module, const char *target_arch,
                      bool gc_enabled);
@@ -61,6 +64,25 @@ aot_destroy_comp_context(aot_comp_context_t comp_ctx);
 
 bool
 aot_compile_wasm(aot_comp_context_t comp_ctx);
+
+aot_obj_data_t
+aot_obj_data_create(aot_comp_context_t comp_ctx);
+
+void
+aot_obj_data_destroy(aot_obj_data_t obj_data);
+
+uint32_t
+aot_get_aot_file_size(aot_comp_context_t comp_ctx, aot_comp_data_t comp_data,
+                      aot_obj_data_t obj_data);
+
+uint8_t *
+aot_emit_aot_file_buf(aot_comp_context_t comp_ctx, aot_comp_data_t comp_data,
+                      uint32_t *p_aot_file_size);
+
+bool
+aot_emit_aot_file_buf_ex(aot_comp_context_t comp_ctx, aot_comp_data_t comp_data,
+                         aot_obj_data_t obj_data, uint8_t *aot_file_buf,
+                         uint32_t aot_file_size);
 
 bool
 aot_emit_llvm_file(aot_comp_context_t comp_ctx, const char *file_name);
