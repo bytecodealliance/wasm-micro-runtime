@@ -91,12 +91,30 @@ get_memory_check_bound(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     return mem_check_bound;
 }
 
+#if defined(_WIN32) || defined(_WIN32_)
+static inline int
+ffs(int n)
+{
+    int pos = 0;
+
+    if (n == 0)
+        return 0;
+
+    while (!(n & 1)) {
+        pos++;
+        n >>= 1;
+    }
+    return pos + 1;
+}
+#endif
+
 static LLVMValueRef
 get_memory_curr_page_count(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 
 LLVMValueRef
 aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                          mem_offset_t offset, uint32 bytes, bool enable_segue)
+                          mem_offset_t offset, uint32 bytes, bool enable_segue,
+                          unsigned int *alignp)
 {
     LLVMValueRef offset_const =
         MEMORY64_COND_VALUE(I64_CONST(offset), I32_CONST(offset));
@@ -106,7 +124,9 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMBasicBlockRef check_succ;
     AOTValue *aot_value_top;
     uint32 local_idx_of_aot_value = 0;
+    uint64 const_value;
     bool is_target_64bit, is_local_of_aot_value = false;
+    bool is_const = false;
 #if WASM_ENABLE_SHARED_MEMORY != 0
     bool is_shared_memory =
         comp_ctx->comp_data->memories[0].flags & SHARED_MEMORY_FLAG;
@@ -161,7 +181,9 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         /* aot_value_top is freed in the following POP_I32(addr),
            so save its fields here for further use */
         is_local_of_aot_value = aot_value_top->is_local;
+        is_const = aot_value_top->is_const;
         local_idx_of_aot_value = aot_value_top->local_idx;
+        const_value = aot_value_top->const_value;
     }
 
     POP_MEM_OFFSET(addr);
@@ -171,15 +193,41 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
      * have been thrown when converting float to integer before
      */
     /* return address directly if constant offset and inside memory space */
-    if (LLVMIsEfficientConstInt(addr)) {
-        uint64 mem_offset =
-            (uint64)LLVMConstIntGetZExtValue(addr) + (uint64)offset;
+    if (LLVMIsEfficientConstInt(addr) || is_const) {
+        uint64 value;
+        if (LLVMIsEfficientConstInt(addr)) {
+            value = (uint64)LLVMConstIntGetZExtValue(addr);
+        }
+        else {
+            value = const_value;
+        }
+        uint64 mem_offset = value + (uint64)offset;
         uint32 num_bytes_per_page =
             comp_ctx->comp_data->memories[0].num_bytes_per_page;
         uint32 init_page_count =
             comp_ctx->comp_data->memories[0].init_page_count;
         uint64 mem_data_size = (uint64)num_bytes_per_page * init_page_count;
 
+        if (alignp != NULL) {
+            /*
+             * A note about max_align below:
+             * the assumption here is the base address of a linear memory
+             * has the natural alignment. for platforms using mmap, it can
+             * be even larger. for now, use a conservative value.
+             */
+            const unsigned int max_align = 8;
+            int shift = ffs((int)(unsigned int)mem_offset);
+            if (shift == 0) {
+                *alignp = max_align;
+            }
+            else {
+                unsigned int align = 1 << (shift - 1);
+                if (align > max_align) {
+                    align = max_align;
+                }
+                *alignp = align;
+            }
+        }
         if (mem_offset + bytes <= mem_data_size) {
             /* inside memory space */
             if (comp_ctx->pointer_size == sizeof(uint64))
@@ -204,6 +252,9 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             }
             return maddr;
         }
+    }
+    else if (alignp != NULL) {
+        *alignp = 1;
     }
 
     if (is_target_64bit) {
@@ -324,7 +375,7 @@ fail:
             aot_set_last_error("llvm build load failed.");                \
             goto fail;                                                    \
         }                                                                 \
-        LLVMSetAlignment(value, 1);                                       \
+        LLVMSetAlignment(value, known_align);                             \
     } while (0)
 
 #define BUILD_TRUNC(value, data_type)                                     \
@@ -343,7 +394,7 @@ fail:
             aot_set_last_error("llvm build store failed.");             \
             goto fail;                                                  \
         }                                                               \
-        LLVMSetAlignment(res, 1);                                       \
+        LLVMSetAlignment(res, known_align);                             \
     } while (0)
 
 #define BUILD_SIGN_EXT(dst_type)                                        \
@@ -445,8 +496,9 @@ aot_compile_op_i32_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMTypeRef data_type;
     bool enable_segue = comp_ctx->enable_segue_i32_load;
 
+    unsigned int known_align;
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes,
-                                            enable_segue)))
+                                            enable_segue, &known_align)))
         return false;
 
     switch (bytes) {
@@ -515,8 +567,9 @@ aot_compile_op_i64_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMTypeRef data_type;
     bool enable_segue = comp_ctx->enable_segue_i64_load;
 
+    unsigned int known_align;
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes,
-                                            enable_segue)))
+                                            enable_segue, &known_align)))
         return false;
 
     switch (bytes) {
@@ -591,8 +644,9 @@ aot_compile_op_f32_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef maddr, value;
     bool enable_segue = comp_ctx->enable_segue_f32_load;
 
+    unsigned int known_align;
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, 4,
-                                            enable_segue)))
+                                            enable_segue, &known_align)))
         return false;
 
     if (!enable_segue)
@@ -614,8 +668,9 @@ aot_compile_op_f64_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef maddr, value;
     bool enable_segue = comp_ctx->enable_segue_f64_load;
 
+    unsigned int known_align;
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, 8,
-                                            enable_segue)))
+                                            enable_segue, &known_align)))
         return false;
 
     if (!enable_segue)
@@ -640,8 +695,9 @@ aot_compile_op_i32_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_I32(value);
 
+    unsigned int known_align;
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes,
-                                            enable_segue)))
+                                            enable_segue, &known_align)))
         return false;
 
     switch (bytes) {
@@ -691,8 +747,9 @@ aot_compile_op_i64_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_I64(value);
 
+    unsigned int known_align;
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes,
-                                            enable_segue)))
+                                            enable_segue, &known_align)))
         return false;
 
     switch (bytes) {
@@ -748,8 +805,9 @@ aot_compile_op_f32_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_F32(value);
 
+    unsigned int known_align;
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, 4,
-                                            enable_segue)))
+                                            enable_segue, &known_align)))
         return false;
 
     if (!enable_segue)
@@ -771,8 +829,9 @@ aot_compile_op_f64_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_F64(value);
 
+    unsigned int known_align;
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, 8,
-                                            enable_segue)))
+                                            enable_segue, &known_align)))
         return false;
 
     if (!enable_segue)
@@ -1302,7 +1361,7 @@ aot_compile_op_atomic_rmw(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         POP_I64(value);
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes,
-                                            enable_segue)))
+                                            enable_segue, NULL)))
         return false;
 
     if (!check_memory_alignment(comp_ctx, func_ctx, maddr, align))
@@ -1392,7 +1451,7 @@ aot_compile_op_atomic_cmpxchg(AOTCompContext *comp_ctx,
     }
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes,
-                                            enable_segue)))
+                                            enable_segue, NULL)))
         return false;
 
     if (!check_memory_alignment(comp_ctx, func_ctx, maddr, align))
@@ -1505,7 +1564,7 @@ aot_compile_op_atomic_wait(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     CHECK_LLVM_CONST(is_wait64);
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes,
-                                            false)))
+                                            false, NULL)))
         return false;
 
     if (!check_memory_alignment(comp_ctx, func_ctx, maddr, align))
@@ -1579,7 +1638,7 @@ aot_compiler_op_atomic_notify(AOTCompContext *comp_ctx,
     POP_I32(count);
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes,
-                                            false)))
+                                            false, NULL)))
         return false;
 
     if (!check_memory_alignment(comp_ctx, func_ctx, maddr, align))

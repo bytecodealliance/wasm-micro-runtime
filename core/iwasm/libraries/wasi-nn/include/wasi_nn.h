@@ -29,6 +29,10 @@ load(graph_builder_array *builder, graph_encoding encoding,
      execution_target target, graph *g)
     __attribute__((import_module("wasi_nn")));
 
+wasi_nn_error
+load_by_name(const char *name, graph *g)
+    __attribute__((import_module("wasi_nn")));
+
 /**
  * INFERENCE
  *

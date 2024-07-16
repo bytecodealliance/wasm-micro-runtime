@@ -13,10 +13,6 @@
 #include "../common/wasm_runtime_common.h"
 #include "../common/wasm_exec_env.h"
 
-#if WASM_ENABLE_WASI_NN != 0
-#include "../libraries/wasi-nn/src/wasi_nn_private.h"
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif

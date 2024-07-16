@@ -1722,6 +1722,38 @@
                 "stdout content": "WASM module load failed: data count and data section have inconsistent lengths",
                 "description": "Check data segment count"
             }
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                3513
+            ],
+            "runtime": "iwasm-default-wasi-disabled",
+            "file": "iwasm_poc_04.wasm",
+            "mode": "fast-interp",
+            "options": "-f main",
+            "argument": "",
+            "expected return": {
+                "ret code": 0,
+                "stdout content": "",
+                "description": "no sanitizer 'heap-buffer-overflow'"
+            }
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                3514
+            ],
+            "runtime": "iwasm-default-wasi-disabled",
+            "file": "iwasm_poc_05.wasm",
+            "mode": "fast-interp",
+            "options": "-f main",
+            "argument": "",
+            "expected return": {
+                "ret code": 0,
+                "stdout content": "",
+                "description": "no sanitizer 'heap-buffer-overflow'"
+            }
         }
     ]
 }

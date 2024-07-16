@@ -32,10 +32,10 @@ tensorflowlite_get_output(void *tflite_ctx, graph_execution_context ctx,
                           uint32_t index, tensor_data output_tensor,
                           uint32_t *output_tensor_size);
 
-void
+wasi_nn_error
 tensorflowlite_initialize(void **tflite_ctx);
 
-void
+wasi_nn_error
 tensorflowlite_destroy(void *tflite_ctx);
 
 #ifdef __cplusplus

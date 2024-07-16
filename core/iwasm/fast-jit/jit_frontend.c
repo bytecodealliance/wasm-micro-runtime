@@ -76,11 +76,12 @@ jit_frontend_get_table_inst_offset(const WASMModule *module, uint32 tbl_idx)
 
         offset += (uint32)offsetof(WASMTableInstance, elems);
 #if WASM_ENABLE_MULTI_MODULE != 0
-        offset += (uint32)sizeof(uint32) * import_table->max_size;
+        offset += (uint32)sizeof(uint32) * import_table->table_type.max_size;
 #else
         offset += (uint32)sizeof(uint32)
-                  * (import_table->possible_grow ? import_table->max_size
-                                                 : import_table->init_size);
+                  * (import_table->table_type.possible_grow
+                         ? import_table->table_type.max_size
+                         : import_table->table_type.init_size);
 #endif
 
         i++;
@@ -97,10 +98,13 @@ jit_frontend_get_table_inst_offset(const WASMModule *module, uint32 tbl_idx)
 
         offset += (uint32)offsetof(WASMTableInstance, elems);
 #if WASM_ENABLE_MULTI_MODULE != 0
-        offset += (uint32)sizeof(table_elem_type_t) * table->max_size;
+        offset +=
+            (uint32)sizeof(table_elem_type_t) * table->table_type.max_size;
 #else
-        offset += (uint32)sizeof(table_elem_type_t)
-                  * (table->possible_grow ? table->max_size : table->init_size);
+        offset +=
+            (uint32)sizeof(table_elem_type_t)
+            * (table->table_type.possible_grow ? table->table_type.max_size
+                                               : table->table_type.init_size);
 #endif
 
         i++;
