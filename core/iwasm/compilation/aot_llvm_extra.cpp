@@ -77,12 +77,6 @@ bool
 aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);
 
 void
-aot_add_expand_memory_op_pass(LLVMPassManagerRef pass);
-
-void
-aot_add_simple_loop_unswitch_pass(LLVMPassManagerRef pass);
-
-void
 aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module);
 
 LLVM_C_EXTERN_C_END
@@ -417,7 +411,7 @@ aot_compress_aot_func_names(AOTCompContext *comp_ctx, uint32 *p_size)
         return NULL;
     }
 
-    compressed_str_len = Result.size();
+    compressed_str_len = (uint32)Result.size();
     if (!(compressed_str = (char *)wasm_runtime_malloc(compressed_str_len))) {
         aot_set_last_error("allocate memory failed");
         return NULL;

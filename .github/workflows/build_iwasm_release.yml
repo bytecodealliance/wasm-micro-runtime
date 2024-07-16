@@ -11,7 +11,7 @@ on:
         required: false
         default: x86_64
       cwd:
-        description: workfing directory
+        description: working directory
         type: string
         required: true
       llvm_cache_key:

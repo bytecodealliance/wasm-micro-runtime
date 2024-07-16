@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 /**
- * Object header of a WASM object, as the adddress of allocated memory
+ * Object header of a WASM object, as the address of allocated memory
  * must be 8-byte aligned, the lowest 3 bits are zero, we use them to
  * mark the object:
  *   bits[0] is 1: the object is an externref object
@@ -85,7 +85,7 @@ typedef struct WASMArrayObject {
     /* Must be pointer of WASMRttObject of array type */
     WASMObjectHeader header;
     /* (<array length> << 2) | <array element size>,
-     * elem_count = lenght >> 2
+     * elem_count = length >> 2
      * elem_size = 2 ^ (length & 0x3)
      */
     uint32 length;

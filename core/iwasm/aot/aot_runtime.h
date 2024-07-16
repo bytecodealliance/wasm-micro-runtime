@@ -14,10 +14,6 @@
 #include "gc_export.h"
 #endif
 
-#if WASM_ENABLE_WASI_NN != 0
-#include "../libraries/wasi-nn/src/wasi_nn_private.h"
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -43,7 +39,7 @@ typedef enum AOTSectionType {
     AOT_SECTION_TYPE_FUNCTION = 3,
     AOT_SECTION_TYPE_EXPORT = 4,
     AOT_SECTION_TYPE_RELOCATION = 5,
-    AOT_SECTION_TYPE_SIGANATURE = 6,
+    AOT_SECTION_TYPE_SIGNATURE = 6,
     AOT_SECTION_TYPE_CUSTOM = 100,
 } AOTSectionType;
 
@@ -108,9 +104,12 @@ typedef struct AOTFunctionInstance {
 typedef struct AOTModuleInstanceExtra {
     DefPointer(const uint32 *, stack_sizes);
     WASMModuleInstanceExtraCommon common;
+    AOTFunctionInstance **functions;
+    uint32 function_count;
 #if WASM_ENABLE_MULTI_MODULE != 0
     bh_list sub_module_inst_list_head;
     bh_list *sub_module_inst_list;
+    WASMModuleInstanceCommon **import_func_module_insts;
 #endif
 } AOTModuleInstanceExtra;
 
@@ -130,6 +129,9 @@ typedef struct LocalRefFlag {
 
 typedef struct AOTModule {
     uint32 module_type;
+
+    /* the package version read from the AOT file */
+    uint32 package_version;
 
     /* import memories */
     uint32 import_memory_count;
@@ -310,6 +312,9 @@ typedef struct AOTModule {
 
     /* user defined name */
     char *name;
+
+    /* Whether the underlying wasm binary buffer can be freed */
+    bool is_binary_freeable;
 } AOTModule;
 
 #define AOTMemoryInstance WASMMemoryInstance
@@ -420,7 +425,7 @@ typedef struct LLVMProfileData {
     uint16 num_value_sites[2];
 } LLVMProfileData;
 
-/* The profiling data for writting to the output file, the width of
+/* The profiling data for writing to the output file, the width of
    pointer is 8 bytes suppose we always use wamrc and llvm-profdata
    with 64-bit mode */
 typedef struct LLVMProfileData_64 {
@@ -507,6 +512,17 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst);
  */
 AOTFunctionInstance *
 aot_lookup_function(const AOTModuleInstance *module_inst, const char *name);
+
+/**
+ * Get a function in the AOT module instance.
+ *
+ * @param module_inst the module instance
+ * @param func_idx the index of the function
+ *
+ * @return the function instance found
+ */
+AOTFunctionInstance *
+aot_get_function_instance(AOTModuleInstance *module_inst, uint32_t func_idx);
 
 /**
  * Call the given AOT function of a AOT module instance with
@@ -627,7 +643,7 @@ aot_sqrtf(float x);
 #if WASM_ENABLE_BULK_MEMORY != 0
 bool
 aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index, uint32 offset,
-                uint32 len, uint32 dst);
+                uint32 len, size_t dst);
 
 bool
 aot_data_drop(AOTModuleInstance *module_inst, uint32 seg_index);

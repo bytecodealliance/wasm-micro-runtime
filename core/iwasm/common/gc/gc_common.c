@@ -176,12 +176,6 @@ wasm_defined_type_is_array_type(WASMType *const def_type)
     return wasm_type_is_array_type(def_type);
 }
 
-uint32
-wasm_func_type_get_param_count(WASMFuncType *const func_type)
-{
-    return func_type->param_count;
-}
-
 wasm_ref_type_t
 wasm_func_type_get_param_type(WASMFuncType *const func_type, uint32 param_idx)
 {
@@ -200,12 +194,6 @@ wasm_func_type_get_param_type(WASMFuncType *const func_type, uint32 param_idx)
     }
 
     return ref_type;
-}
-
-uint32
-wasm_func_type_get_result_count(WASMFuncType *const func_type)
-{
-    return (uint32)func_type->result_count;
 }
 
 wasm_ref_type_t

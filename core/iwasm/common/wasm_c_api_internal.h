@@ -71,7 +71,7 @@ struct wasm_memorytype_t {
 
 struct wasm_externtype_t {
     uint32 extern_kind;
-    /* reservered space */
+    /* reserved space */
     uint8 data[1];
 };
 
@@ -205,7 +205,7 @@ struct wasm_extern_t {
     wasm_name_t *module_name;
     wasm_name_t *name;
     wasm_externkind_t kind;
-    /* reservered space */
+    /* reserved space */
     uint8 data[1];
 };
 

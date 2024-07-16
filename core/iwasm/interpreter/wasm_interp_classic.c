@@ -495,6 +495,12 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
     } while (0)
 #endif
 
+#if UINTPTR_MAX == UINT64_MAX
+#define PUSH_PTR(value) PUSH_I64(value)
+#else
+#define PUSH_PTR(value) PUSH_I32(value)
+#endif
+
 /* in exception handling, label_type needs to be stored to lookup exception
  * handlers */
 
@@ -1159,6 +1165,10 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
     uint8 *frame_ref;
 #endif
 
+    if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
+        return;
+    }
+
     all_cell_num = local_cell_num;
 #if WASM_ENABLE_GC != 0
     all_cell_num += (local_cell_num + 3) / 4;
@@ -1290,6 +1300,14 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
     uintptr_t aux_stack_origin_boundary = 0;
     uintptr_t aux_stack_origin_bottom = 0;
 
+    /*
+     * perform stack overflow check before calling
+     * wasm_interp_call_func_bytecode recursively.
+     */
+    if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
+        return;
+    }
+
     if (!sub_func_inst) {
         snprintf(buf, sizeof(buf),
                  "failed to call unlinked import function (%s, %s)",
@@ -1412,7 +1430,7 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 #define HANDLE_OP_END()                                            \
     os_mutex_lock(&exec_env->wait_lock);                           \
     if (exec_env->current_status->signal_flag == WAMR_SIG_SINGSTEP \
-        && exec_env->current_status->step_count++ == 2) {          \
+        && exec_env->current_status->step_count++ == 1) {          \
         exec_env->current_status->step_count = 0;                  \
         SYNC_ALL_TO_FRAME();                                       \
         wasm_cluster_thread_waiting_run(exec_env);                 \
@@ -1572,7 +1590,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 uint32 *tgtframe_sp = tgtframe->frame_sp;
 
-                /* frame sp of tgtframe points to catched exception */
+                /* frame sp of tgtframe points to caught exception */
                 exception_tag_index = *((uint32 *)tgtframe_sp);
                 tgtframe_sp++;
 
@@ -1600,7 +1618,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             /* landing pad for the rethrow ? */
             find_a_catch_handler:
             {
-                WASMType *tag_type = NULL;
+                WASMFuncType *tag_type = NULL;
                 uint32 cell_num_to_copy = 0;
                 if (IS_INVALID_TAGINDEX(exception_tag_index)) {
                     /*
@@ -1643,7 +1661,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                              * BLOCK, IF and LOOP do not contain handlers and
                              * cannot catch exceptions.
                              * blocks marked as CATCH or
-                             * CATCH_ALL did already caugth an exception and can
+                             * CATCH_ALL did already caught an exception and can
                              * only be a target for RETHROW, but cannot catch an
                              * exception again
                              */
@@ -1775,7 +1793,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                 }
                                 handler_number++;
                             }
-                            /* exception not catched in this frame */
+                            /* exception not caught in this frame */
                             break;
                         }
                         case LABEL_TYPE_FUNCTION:
@@ -1880,19 +1898,19 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     switch (handler_opcode) {
                         case WASM_OP_CATCH:
                             skip_leb(lookup_cursor); /* skip tag_index */
-                            PUSH_I64(end_addr);
+                            PUSH_PTR(end_addr);
                             break;
                         case WASM_OP_CATCH_ALL:
-                            PUSH_I64(end_addr);
+                            PUSH_PTR(end_addr);
                             break;
                         case WASM_OP_DELEGATE:
                             skip_leb(lookup_cursor); /* skip depth */
-                            PUSH_I64(end_addr);
+                            PUSH_PTR(end_addr);
                             /* patch target_addr */
                             (frame_csp - 1)->target_addr = lookup_cursor;
                             break;
                         case WASM_OP_END:
-                            PUSH_I64(0);
+                            PUSH_PTR(0);
                             /* patch target_addr */
                             (frame_csp - 1)->target_addr = end_addr;
                             break;
@@ -4202,7 +4220,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 else
 #endif
                 {
-                    *(uint32 *)global_addr = aux_stack_top;
+                    *(uint32 *)global_addr = (uint32)aux_stack_top;
                     frame_sp--;
                 }
 #if WASM_ENABLE_MEMORY_PROFILING != 0
@@ -5626,8 +5644,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
 
                         /* allowing the destination and source to overlap */
+#if WASM_ENABLE_MEMORY64 == 0
                         bh_memmove_s(mdst, (uint32)(linear_mem_size - dst),
-                                     msrc, len);
+                                     msrc, (uint32)len);
+#else
+                        /* use memmove when memory64 is enabled since len
+                           may be larger than UINT32_MAX */
+                        memmove(mdst, msrc, len);
+#endif
                         break;
                     }
                     case WASM_OP_MEMORY_FILL:
@@ -6399,7 +6423,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
                     }
                     /*
-                     * excange the thrown exception (index valid in submodule)
+                     * exchange the thrown exception (index valid in submodule)
                      * with the imported exception index (valid in this module)
                      * if the module did not import the exception,
                      * that results in a "INVALID_TAGINDEX", that triggers
@@ -6456,7 +6480,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     goto find_a_catch_handler;
                 }
 
-                /* when throw hits the end of a function it signalles with a
+                /* when throw hits the end of a function it signals with a
                  * "uncaught wasm exception" trap */
                 if (has_exception
                     && strstr(uncaught_exception, "uncaught wasm exception")) {
@@ -6475,6 +6499,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             WASMFuncType *func_type = cur_wasm_func->func_type;
             uint32 max_stack_cell_num = cur_wasm_func->max_stack_cell_num;
             uint32 cell_num_of_local_stack;
+#if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
+            uint32 local_cell_idx;
+#endif
 
 #if WASM_ENABLE_EXCE_HANDLING != 0
             /* account for exception handlers, bundle them here */
@@ -6533,6 +6560,19 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             /* Initialize the local variables */
             memset(frame_lp + cur_func->param_cell_num, 0,
                    (uint32)(cur_func->local_cell_num * 4));
+
+#if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
+            /* externref/funcref should be NULL_REF rather than 0 */
+            local_cell_idx = cur_func->param_cell_num;
+            for (i = 0; i < cur_wasm_func->local_count; i++) {
+                if (cur_wasm_func->local_types[i] == VALUE_TYPE_EXTERNREF
+                    || cur_wasm_func->local_types[i] == VALUE_TYPE_FUNCREF) {
+                    *(frame_lp + local_cell_idx) = NULL_REF;
+                }
+                local_cell_idx +=
+                    wasm_value_type_cell_num(cur_wasm_func->local_types[i]);
+            }
+#endif
 
             /* Push function block as first block */
             cell_num = func_type->ret_cell_num;
@@ -7108,12 +7148,13 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     }
     argc = function->param_cell_num;
 
-    RECORD_STACK_USAGE(exec_env, (uint8 *)&prev_frame);
-#if !(defined(OS_ENABLE_HW_BOUND_CHECK) \
-      && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0)
-    if ((uint8 *)&prev_frame < exec_env->native_stack_boundary) {
-        wasm_set_exception((WASMModuleInstance *)exec_env->module_inst,
-                           "native stack overflow");
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
+    /*
+     * wasm_runtime_detect_native_stack_overflow is done by
+     * call_wasm_with_hw_bound_check.
+     */
+#else
+    if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
         return;
     }
 #endif

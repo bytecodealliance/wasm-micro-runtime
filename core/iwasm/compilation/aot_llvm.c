@@ -24,8 +24,6 @@ create_native_stack_bound(const AOTCompContext *comp_ctx,
 static bool
 create_native_stack_top_min(const AOTCompContext *comp_ctx,
                             AOTFuncContext *func_ctx);
-static bool
-create_func_ptrs(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 
 LLVMTypeRef
 wasm_type_to_llvm_type(const AOTCompContext *comp_ctx,
@@ -539,51 +537,8 @@ aot_build_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     if (ret_type == VOID_TYPE) {
         name = "";
     }
-
-    LLVMValueRef retval;
-    if (comp_ctx->is_indirect_mode
-        && !strncmp(comp_ctx->target_arch, "xtensa", 6)) {
-        /* call wrapped_func indirectly */
-        if (!create_func_ptrs(comp_ctx, func_ctx)) {
-            goto fail;
-        }
-
-        LLVMTypeRef func_ptr_type;
-        LLVMValueRef wrapped_func_indirect;
-        uint32 import_func_count = comp_ctx->comp_data->import_func_count;
-        uint32 func_count = comp_ctx->func_ctx_count;
-
-        /* Check function index */
-        if (func_index >= import_func_count + func_count) {
-            aot_set_last_error("Function index out of range.");
-            goto fail;
-        }
-
-        /* Get function type */
-        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {
-            aot_set_last_error("create LLVM function type failed.");
-            goto fail;
-        }
-
-        /*
-         * func_index layout :
-         * aot_func#xxx, range from 0 ~ func_conut - 1;
-         * aot_func#internal#xxx,  range from func_conut ~ 2 * func_conut - 1;
-         */
-        if (!(wrapped_func_indirect = aot_get_func_from_table(
-                  comp_ctx, func_ctx->func_ptrs, func_ptr_type,
-                  func_index + func_count + import_func_count))) {
-            goto fail;
-        }
-
-        /* Call the function indirectly */
-        retval = LLVMBuildCall2(b, func_type, wrapped_func_indirect, params,
-                                param_count, name);
-    }
-    else
-        retval = LLVMBuildCall2(b, func_type, wrapped_func, params, param_count,
-                                name);
-
+    LLVMValueRef retval =
+        LLVMBuildCall2(b, func_type, wrapped_func, params, param_count, name);
     if (!retval) {
         goto fail;
     }
@@ -780,9 +735,7 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
     }
 
     if (need_precheck) {
-        if (!comp_ctx->is_jit_mode
-            && !(comp_ctx->is_indirect_mode
-                 && !strncmp(comp_ctx->target_arch, "xtensa", 6)))
+        if (!comp_ctx->is_jit_mode)
             LLVMSetLinkage(func, LLVMInternalLinkage);
         unsigned int kind =
             LLVMGetEnumAttributeKindForName("noinline", strlen("noinline"));
@@ -790,7 +743,17 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
             LLVMCreateEnumAttribute(comp_ctx->context, kind, 0);
         LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex,
                                 attr_noinline);
-
+        if (!strcmp(comp_ctx->target_arch, "xtensa")) {
+            /* Because "func" is only called by "precheck_func", short-call
+             * should be ok. We prefer short-call because it's smaller
+             * and more importantly doesn't involve relocations.
+             */
+            LLVMAttributeRef attr_short_call = LLVMCreateStringAttribute(
+                comp_ctx->context, "short-call", (unsigned)strlen("short-call"),
+                "", 0);
+            LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex,
+                                    attr_short_call);
+        }
         if (!aot_build_precheck_function(comp_ctx, module, precheck_func,
                                          func_index, func_type, func))
             goto fail;
@@ -1242,7 +1205,7 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     func_ctx->mem_space_unchanged = mem_space_unchanged;
 
     memory_count = module->memory_count + module->import_memory_count;
-    /* If the module dosen't have memory, reserve
+    /* If the module doesn't have memory, reserve
         one mem_info space with empty content */
     if (memory_count == 0)
         memory_count = 1;
@@ -1257,7 +1220,7 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Load memory base address */
 #if WASM_ENABLE_SHARED_MEMORY != 0
     is_shared_memory =
-        comp_ctx->comp_data->memories[0].memory_flags & 0x02 ? true : false;
+        comp_ctx->comp_data->memories[0].flags & 0x02 ? true : false;
     if (is_shared_memory) {
         LLVMValueRef shared_mem_addr;
         offset = I32_CONST(offsetof(AOTModuleInstance, memories));
@@ -1973,10 +1936,12 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context,
     if (pointer_size == 4) {
         basic_types->intptr_t_type = basic_types->int32_type;
         basic_types->intptr_t_ptr_type = basic_types->int32_ptr_type;
+        basic_types->size_t_type = basic_types->int32_type;
     }
     else {
         basic_types->intptr_t_type = basic_types->int64_type;
         basic_types->intptr_t_ptr_type = basic_types->int64_ptr_type;
+        basic_types->size_t_type = basic_types->int64_type;
     }
 
     basic_types->gc_ref_type = basic_types->int8_ptr_type;
@@ -2416,7 +2381,7 @@ orc_jit_create(AOTCompContext *comp_ctx)
     }
 
     if (comp_ctx->enable_stack_bound_check || comp_ctx->enable_stack_estimation)
-        LLVMOrcLLJITBuilderSetCompileFuncitonCreatorWithStackSizesCallback(
+        LLVMOrcLLJITBuilderSetCompileFunctionCreatorWithStackSizesCallback(
             builder, jit_stack_size_callback, comp_ctx);
 
     err = LLVMOrcJITTargetMachineBuilderDetectHost(&jtmb);
@@ -3565,7 +3530,7 @@ aot_block_destroy(AOTCompContext *comp_ctx, AOTBlock *block)
 
 bool
 aot_checked_addr_list_add(AOTFuncContext *func_ctx, uint32 local_idx,
-                          uint32 offset, uint32 bytes)
+                          uint64 offset, uint32 bytes)
 {
     AOTCheckedAddr *node = func_ctx->checked_addr_list;
 
@@ -3609,7 +3574,7 @@ aot_checked_addr_list_del(AOTFuncContext *func_ctx, uint32 local_idx)
 
 bool
 aot_checked_addr_list_find(AOTFuncContext *func_ctx, uint32 local_idx,
-                           uint32 offset, uint32 bytes)
+                           uint64 offset, uint32 bytes)
 {
     AOTCheckedAddr *node = func_ctx->checked_addr_list;
 

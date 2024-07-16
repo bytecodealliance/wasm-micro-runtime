@@ -2125,7 +2125,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     if (!(table_size_const =
               LLVMBuildBitCast(comp_ctx->builder, table_size_const,
-                               INT32_PTR_TYPE, "cur_siuze_i32p"))) {
+                               INT32_PTR_TYPE, "cur_size_i32p"))) {
         HANDLE_FAILURE("LLVMBuildBitCast");
         goto fail;
     }

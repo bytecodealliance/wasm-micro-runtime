@@ -61,7 +61,7 @@ class BasicTestSuite(unittest.TestCase):
 
     def test_wasm_valkind(self):
         self.assertEqual(
-            [WASM_I32, WASM_I64, WASM_F32, WASM_F64, WASM_ANYREF, WASM_FUNCREF],
+            [WASM_I32, WASM_I64, WASM_F32, WASM_F64, WASM_EXTERNREF, WASM_FUNCREF],
             [0, 1, 2, 3, 128, 129],
         )
 
