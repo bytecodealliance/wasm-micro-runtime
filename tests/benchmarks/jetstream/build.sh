@@ -16,7 +16,7 @@ mkdir -p ${OUT_DIR}
 
 if [[ $1 != "--no-simd" ]];then
     NATIVE_SIMD_FLAGS="-msse2 -msse3 -msse4"
-    WASM_SIMD_FLAGS="-msimd128 -msse2 -msse3 -msse4"
+    WASM_SIMD_FLAGS="-msimd128"
 else
     NATIVE_SIMD_FLAGS=""
     WASM_SIMD_FLAGS=""

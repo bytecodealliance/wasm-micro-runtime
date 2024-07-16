@@ -858,11 +858,11 @@ wasm_runtime_set_default_running_mode(RunningMode running_mode)
 PackageType
 get_package_type(const uint8 *buf, uint32 size)
 {
-#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
-    uint32 buf32 = *(uint32 *)buf;
-    buf = (const uint8 *)&buf32;
-#endif
     if (buf && size >= 4) {
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+        uint32 buf32 = *(uint32 *)buf;
+        buf = (const uint8 *)&buf32;
+#endif
         if (buf[0] == '\0' && buf[1] == 'a' && buf[2] == 's' && buf[3] == 'm')
             return Wasm_Module_Bytecode;
         if (buf[0] == '\0' && buf[1] == 'a' && buf[2] == 'o' && buf[3] == 't')
@@ -878,13 +878,69 @@ wasm_runtime_get_file_package_type(const uint8 *buf, uint32 size)
 }
 
 PackageType
-wasm_runtime_get_module_package_type(WASMModuleCommon *module)
+wasm_runtime_get_module_package_type(WASMModuleCommon *const module)
 {
     if (!module) {
         return Package_Type_Unknown;
     }
 
     return module->module_type;
+}
+
+uint32
+wasm_runtime_get_file_package_version(const uint8 *buf, uint32 size)
+{
+    if (buf && size >= 8) {
+        uint32 version;
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+        uint32 buf32 = *(uint32 *)(buf + sizeof(uint32));
+        buf = (const uint8 *)&buf32;
+        version = buf[0] | buf[1] << 8 | buf[2] << 16 | buf[3] << 24;
+#else
+        version = buf[4] | buf[5] << 8 | buf[6] << 16 | buf[7] << 24;
+#endif
+        return version;
+    }
+
+    return 0;
+}
+
+uint32
+wasm_runtime_get_module_package_version(WASMModuleCommon *const module)
+{
+    if (!module) {
+        return 0;
+    }
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        WASMModule *wasm_module = (WASMModule *)module;
+        return wasm_module->package_version;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        AOTModule *aot_module = (AOTModule *)module;
+        return aot_module->package_version;
+    }
+#endif
+
+    return 0;
+}
+
+uint32
+wasm_runtime_get_current_package_version(package_type_t package_type)
+{
+    switch (package_type) {
+        case Wasm_Module_Bytecode:
+            return WASM_CURRENT_VERSION;
+        case Wasm_Module_AoT:
+            return AOT_CURRENT_VERSION;
+        case Package_Type_Unknown:
+        default:
+            return 0;
+    }
 }
 
 #if WASM_ENABLE_AOT != 0

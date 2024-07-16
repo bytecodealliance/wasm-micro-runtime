@@ -442,7 +442,38 @@ wasm_runtime_get_file_package_type(const uint8_t *buf, uint32_t size);
  * unknown
  */
 WASM_RUNTIME_API_EXTERN package_type_t
-wasm_runtime_get_module_package_type(wasm_module_t module);
+wasm_runtime_get_module_package_type(const wasm_module_t module);
+
+/**
+ * Get the package version of a buffer.
+ *
+ * @param buf the package buffer
+ * @param size the package buffer size
+ *
+ * @return the package version, return zero if the version is unknown
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_get_file_package_version(const uint8_t *buf, uint32_t size);
+
+/**
+ * Get the package version of a module
+ *
+ * @param module the module
+ *
+ * @return the package version, or zero if version is unknown
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_get_module_package_version(const wasm_module_t module);
+
+/**
+ * Get the currently supported version of the package type
+ *
+ * @param package_type the package type
+ *
+ * @return the currently supported version, or zero if package type is unknown
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_get_current_package_version(package_type_t package_type);
 
 /**
  * Check whether a file is an AOT XIP (Execution In Place) file

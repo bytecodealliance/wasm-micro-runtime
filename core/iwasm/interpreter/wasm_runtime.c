@@ -1608,7 +1608,7 @@ execute_malloc_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     if (ret) {
 #if WASM_ENABLE_MEMORY64 != 0
         if (is_memory64)
-            *p_result = GET_I64_FROM_ADDR(&argv.u64);
+            *p_result = argv.u64;
         else
 #endif
         {
@@ -2184,8 +2184,8 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         heap_size = APP_HEAP_SIZE_MAX;
 
     module_inst_mem_inst_size =
-        (uint64)sizeof(WASMMemoryInstance)
-        * (module->import_memory_count + module->memory_count);
+        sizeof(WASMMemoryInstance)
+        * ((uint64)module->import_memory_count + module->memory_count);
 
 #if WASM_ENABLE_JIT != 0
     /* If the module doesn't have memory, reserve one mem_info space
@@ -2615,7 +2615,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
         if (memory_data) {
             bh_memcpy_s(memory_data + base_offset,
-                        (uint32)memory_size - base_offset, data_seg->data,
+                        (uint32)(memory_size - base_offset), data_seg->data,
                         length);
         }
     }

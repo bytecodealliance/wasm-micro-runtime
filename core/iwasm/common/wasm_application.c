@@ -513,7 +513,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                         bh_memcpy_s(&u.val, sizeof(double), &ud.d,
                                     sizeof(double));
                     }
-                    if (endptr[0] == ':') {
+                    if (endptr && endptr[0] == ':') {
                         uint64 sig;
                         union ieee754_double ud;
                         sig = strtoull(endptr + 1, &endptr, 0);
