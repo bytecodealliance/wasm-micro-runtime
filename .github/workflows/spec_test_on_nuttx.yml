@@ -50,7 +50,7 @@ jobs:
 
   spec_test_on_qemu:
     runs-on: ubuntu-latest
-    needs: [build_llvm_libraries]
+    needs: [build_llvm_libraries, build_llvm_libraries_xtensa]
     container:
       image: ghcr.io/no1wudi/nuttx/apache-nuttx-ci-linux@sha256:8c4e00b607d4d6d66ba8f51c4544819a616eac69d3a2ac669e2af2150e2eb0f9
     strategy:
@@ -84,6 +84,11 @@ jobs:
           {
             config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh64",
             target: "riscv64",
+            fpu_type: "none"
+          },
+          {
+            config: "boards/xtensa/esp32s3/esp32s3-devkit/configs/toywasm",
+            target: "xtensa",
             fpu_type: "none"
           },
         ]
@@ -149,7 +154,7 @@ jobs:
             ./core/deps/llvm/build/lib
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
-          key: ${{ needs.build_llvm_libraries.outputs.cache_key }}
+          key: ${{ matrix.target_config.target == 'xtensa' && needs.build_llvm_libraries_xtensa.outputs.cache_key || needs.build_llvm_libraries.outputs.cache_key }}
 
       - name: Quit if cache miss
         if: contains(matrix.wamr_test_option.mode, 'aot') && steps.retrieve_llvm_libs.outputs.cache-hit != 'true'
@@ -206,15 +211,32 @@ jobs:
           cmake -Bbuild .
           cmake --build build
 
-      - name: Build
-        id: build_firmware
+      - name: Build NuttX
         run: |
           cd nuttx
           tools/configure.sh ${{ matrix.target_config.config }}
           make -j$(nproc)
-          echo "firmware=$PWD/nuttx" >> $GITHUB_OUTPUT
+
+      - name: Post build processing (xtensa)
+        if: matrix.target_config.target == 'xtensa'
+        run: |
+          cd nuttx
+          dd if=/dev/zero of=flash.img bs=1024 count=8192
+          dd if=nuttx of=flash.img conv=notrunc
+          mv flash.img nuttx
+
+      - name: Build firmware path
+        id: build_firmware_path
+        run: |
+          echo "firmware=$PWD/nuttx/nuttx" >> $GITHUB_OUTPUT
       
+      - name: Install QEMU (xtensa)
+        if: matrix.target_config.target == 'xtensa'
+        run: |
+          ./.github/scripts/install_qemu_xtensa.sh
+          qemu-system-xtensa --version
+
       - name: Test
         run: |
           cd apps/interpreters/wamr/wamr/tests/wamr-test-suites
-          ./test_wamr.sh -s spec ${{ matrix.wamr_test_option.mode }} -m ${{ matrix.target_config.target }} -b -Q -P -F ${{ steps.build_firmware.outputs.firmware }} ${{ matrix.wamr_feature_option.mode}}
+          ./test_wamr.sh -s spec ${{ matrix.wamr_test_option.mode }} -m ${{ matrix.target_config.target }} -b -Q -P -F ${{ steps.build_firmware_path.outputs.firmware }} ${{ matrix.wamr_feature_option.mode}}
