@@ -39,6 +39,15 @@ jobs:
       arch: "ARM RISCV AArch64"
       container_image: ghcr.io/no1wudi/nuttx/apache-nuttx-ci-linux@sha256:8c4e00b607d4d6d66ba8f51c4544819a616eac69d3a2ac669e2af2150e2eb0f9
 
+  build_llvm_libraries_xtensa:
+    uses: ./.github/workflows/build_llvm_libraries.yml
+    with:
+      os: "ubuntu-22.04"
+      arch: "Xtensa"
+      extra_build_llvm_options: "--platform xtensa"
+      cache_key_suffix: "-xtensa"
+      container_image: ghcr.io/no1wudi/nuttx/apache-nuttx-ci-linux@sha256:8c4e00b607d4d6d66ba8f51c4544819a616eac69d3a2ac669e2af2150e2eb0f9
+
   spec_test_on_qemu:
     runs-on: ubuntu-latest
     needs: [build_llvm_libraries]
