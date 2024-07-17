@@ -1205,6 +1205,7 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
     r = Runner(cmd, no_pty=opts.no_pty)
 
     if opts.qemu:
+        log(f"Mounting: host {tempfile.gettempdir()}")
         r.read_to_prompt(['nsh> '], 10)
         r.writeline("mount -t hostfs -o fs={} /tmp".format(tempfile.gettempdir()))
         r.read_to_prompt(['nsh> '], 10)
