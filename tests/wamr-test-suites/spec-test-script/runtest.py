@@ -1189,7 +1189,7 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
             cmd = "qemu-system-riscv64 -semihosting -M virt,aclint=on -cpu rv64 -smp 1 -nographic -bios none -kernel".split()
             cmd.append(opts.qemu_firmware)
         elif opts.target.startswith("xtensa"):
-            cmd = f"qemu-system-xtensa -semihosting -serial mon:stdio -machine esp32s3 -drive file={opts.qemu_firmware},if=mtd,format=raw".split()
+            cmd = f"qemu-system-xtensa -semihosting -nographic -serial mon:stdio -machine esp32s3 -drive file={opts.qemu_firmware},if=mtd,format=raw".split()
         else:
             raise Exception("Unknwon target for QEMU: %s" % opts.target)
 
