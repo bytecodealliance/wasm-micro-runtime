@@ -227,7 +227,7 @@ jobs:
         run: |
           cd nuttx
           dd if=/dev/zero of=flash.img bs=1024 count=8192
-          dd if=nuttx of=flash.img conv=notrunc
+          dd if=nuttx.bin of=flash.img conv=notrunc
           mv flash.img nuttx
 
       - name: Build firmware path
