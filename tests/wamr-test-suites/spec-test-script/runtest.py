@@ -1143,6 +1143,9 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
     if test_target.startswith("riscv64"):
         cmd.append("--size-level=1")
 
+    if test_target.startswith("xtensa"):
+        cmd.append("--target=xtensa")
+
     cmd += ["-o", aot_tempfile, wasm_tempfile]
 
     log("Running: %s" % " ".join(cmd))
@@ -1185,6 +1188,8 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
         elif opts.target.startswith("riscv64"):
             cmd = "qemu-system-riscv64 -semihosting -M virt,aclint=on -cpu rv64 -smp 1 -nographic -bios none -kernel".split()
             cmd.append(opts.qemu_firmware)
+        elif opts.target.startswith("xtensa"):
+            cmd = f"qemu-system-xtensa -semihosting -serial mon:stdio -machine esp32s3 -drive file={opts.qemu_firmware},if=mtd,format=raw".split()
         else:
             raise Exception("Unknwon target for QEMU: %s" % opts.target)
 
