@@ -323,16 +323,13 @@ jobs:
           - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MEMORY64=1"
     steps:
-      - name: checkout
-        uses: actions/checkout@v3
-
       - name: Install dependencies
-        uses: nick-fields/retry@v2
-        with:
-          timeout_minutes: 10
-          max_attempts: 3
-          command: apt update && apt install -y make g++-4.8 gcc-4.8 wget git
-          on_retry_command: sudo rm -r /var/lib/apt/lists/*
+        run: |
+          apt update && apt install -y make g++-4.8 gcc-4.8 wget git
+
+      - name: checkout
+        run: |
+          git clone https://github.com/${{ github.repository }} wamr
 
       - name: Install cmake
         run: |
@@ -345,7 +342,7 @@ jobs:
           mkdir build && cd build
           cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }} -DCMAKE_C_COMPILER=gcc-4.8 -DCMAKE_CXX_COMPILER=g++-4.8
           cmake --build . --config Release --parallel 4
-        working-directory: product-mini/platforms/linux
+        working-directory: wamr/product-mini/platforms/linux
 
   build_samples_wasm_c_api:
     needs:
