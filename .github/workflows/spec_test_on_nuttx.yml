@@ -216,6 +216,12 @@ jobs:
           cmake -Bbuild .
           cmake --build build
 
+      - name: Install the latest esptool.py (xtensa)
+        if: matrix.target_config.target == 'xtensa'
+        run: |
+          pip3 install esptool==4.7.0
+          esptool.py version
+
       - name: Build NuttX
         run: |
           cd nuttx
