@@ -244,6 +244,7 @@ jobs:
       - name: Install QEMU (xtensa)
         if: matrix.target_config.target == 'xtensa'
         run: |
+          apt-get update && apt-get install -y libsdl2-2.0-0
           ./.github/scripts/install_qemu_xtensa.sh
           qemu-system-xtensa --version
         working-directory: apps/interpreters/wamr/wamr
