@@ -127,14 +127,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: apache/nuttx
-          ref: releases/12.4
+          ref: ${{ matrix.target_config.target == 'xtensa' && '95a9facf3a952eaf3e630cab923ae13db678c875' || 'releases/12.4' }}
           path: nuttx
 
       - name: Checkout NuttX Apps
         uses: actions/checkout@v4
         with:
           repository: apache/nuttx-apps
-          ref: releases/12.4
+          ref: ${{ matrix.target_config.target == 'xtensa' && '1852731df87e5895e299b74aabdb1984b7e3f795' || 'releases/12.4' }}
           path: apps
 
       - name: Checkout WAMR
