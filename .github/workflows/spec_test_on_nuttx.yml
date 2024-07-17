@@ -87,7 +87,7 @@ jobs:
             fpu_type: "none"
           },
           {
-            config: "boards/xtensa/esp32s3/esp32s3-devkit/configs/toywasm",
+            config: "boards/xtensa/esp32s3/esp32s3-devkit/configs/qemu_debug",
             target: "xtensa",
             fpu_type: "none"
           },
@@ -207,7 +207,7 @@ jobs:
       - name: Tweak NuttX config (xtensa)
         if: matrix.target_config.target == 'xtensa'
         run: |
-          find nuttx/boards -name defconfig | xargs sed -i '$aCONFIG_XTENSA_SEMIHOSTING_HOSTFS=y\\nCONFIG_INTERPRETERS_WAMR_AOT_WORD_ALIGN_READ=y\\n'
+          find nuttx/boards -name defconfig | xargs sed -i '$aCONFIG_INTERPRETERS_WAMR_AOT_WORD_ALIGN_READ=y\\n'
 
       - name: Build wamrc
         if: contains(matrix.wamr_test_option.mode, 'aot')
