@@ -204,6 +204,11 @@ jobs:
         run: |
           find nuttx/boards -name defconfig | xargs sed -i '$a\# CONFIG_ARCH_DPFPU is not set\n'
 
+      - name: Tweak NuttX config (xtensa)
+        if: matrix.target_config.target == 'xtensa'
+        run: |
+          find nuttx/boards -name defconfig | xargs sed -i '$aCONFIG_XTENSA_SEMIHOSTING_HOSTFS=y\\nCONFIG_INTERPRETERS_WAMR_AOT_WORD_ALIGN_READ=y\\n'
+
       - name: Build wamrc
         if: contains(matrix.wamr_test_option.mode, 'aot')
         working-directory: apps/interpreters/wamr/wamr/wamr-compiler
