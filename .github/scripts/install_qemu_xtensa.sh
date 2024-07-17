@@ -7,4 +7,4 @@ URL=https://github.com/espressif/qemu/releases/download/esp-develop-9.0.0-202406
 DIR=$(mktemp -d)
 cd ${DIR}
 curl -fLsS "${URL}" | xzcat | tar -x
-ln -s ${DIR}/qemu/bin/qemu-system-xtensa /usr/local/bin/qemu-system/xtensa
+ln -s ${DIR}/qemu/bin/qemu-system-xtensa /usr/local/bin/qemu-system-xtensa
