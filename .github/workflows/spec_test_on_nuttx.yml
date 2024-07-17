@@ -246,6 +246,7 @@ jobs:
         run: |
           ./.github/scripts/install_qemu_xtensa.sh
           qemu-system-xtensa --version
+        working-directory: apps/interpreters/wamr/wamr
 
       - name: Test
         run: |
