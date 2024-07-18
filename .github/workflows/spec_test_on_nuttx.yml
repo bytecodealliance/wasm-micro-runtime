@@ -276,6 +276,8 @@ jobs:
         if: always()
         run: |
           mkdir log
+          cp $PWD/nuttx/.config log/dot-config
+          cp ${{ steps.build_firmware_path.outputs.firmware }} log
           tar -C apps/interpreters/wamr/wamr/tests/wamr-test-suites/workspace -cvzf log/report.tgz report
 
       - name: upload the log
