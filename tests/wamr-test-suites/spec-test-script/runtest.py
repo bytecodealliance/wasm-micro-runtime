@@ -58,6 +58,7 @@ aot_target_options_map = {
     "riscv64": ["--target=riscv64", "--target-abi=lp64", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c"],
     "riscv64_lp64f": ["--target=riscv64", "--target-abi=lp64f", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c,+f"],
     "riscv64_lp64d": ["--target=riscv64", "--target-abi=lp64d", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c,+f,+d"],
+    "xtensa": ["--target=xtensa"],
 }
 
 def debug(data):
@@ -1142,9 +1143,6 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
     # RISCV64 requires -mcmodel=medany, which can be set by --size-level=1
     if test_target.startswith("riscv64"):
         cmd.append("--size-level=1")
-
-    if test_target.startswith("xtensa"):
-        cmd.append("--target=xtensa")
 
     cmd += ["-o", aot_tempfile, wasm_tempfile]
 
