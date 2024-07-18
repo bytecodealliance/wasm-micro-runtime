@@ -345,11 +345,6 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
         memory->heap_data_end = memory->heap_data + heap_size;
         memory->memory_data_end = memory->memory_data + memory_data_size;
     }
-    else {
-        memory->heap_data = NULL;
-        memory->heap_data_end = NULL;
-        memory->memory_data_end = NULL;
-    }
 
     /* Initialize heap */
     if (is_main_memory && heap_size > 0) {

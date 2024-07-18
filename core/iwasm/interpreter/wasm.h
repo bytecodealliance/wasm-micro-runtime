@@ -95,9 +95,10 @@ extern "C" {
 #define MEMORY64_FLAG 0x04
 
 /**
- * In multi-memory , the memarg in loads and stores
- * are reinterpreted as a bitfield; if bit 6 is set,
- * then an i32 memory index follows after the alignment bitfield
+ * In the multi-memory proposal, the memarg in loads and stores are
+ * reinterpreted as a bitfield, bit 6 serves as a flag indicating the presence
+ * of the optional memory index, if it is set, then an i32 memory index follows
+ * after the alignment bitfield
  */
 #define OPT_MEMIDX_FLAG 0x40
 
