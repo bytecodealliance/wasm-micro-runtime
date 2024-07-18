@@ -121,24 +121,26 @@ set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security -Wshadow -Wno-unused-parameter")
-# set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion -Wsign-conversion")
-
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wformat -Wformat-security -Wno-unused")
+set (WAMR_COMPILE_FLAGS -Wall -Wextra -Wformat -Wformat-security)
+set (WAMR_C_COMPILE_FLAGS ${WAMR_COMPILE_FLAGS} -Wshadow -Wno-unused-parameter)
+# set (WAMR_C_COMPILE_FLAGS ${WAMR_C_COMPILE_FLAGS} -Wconversion -Wsign-conversion)
 
 if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
   if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mindirect-branch-register")
+    set (WAMR_C_COMPILE_FLAGS ${WAMR_C_COMPILE_FLAGS} -mindirect-branch-register)
   endif ()
 endif ()
 
 # The following flags are to enhance security, but it may impact performance,
 # we disable them by default.
 #if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
-#  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ftrapv -D_FORTIFY_SOURCE=2")
+#  set (WAMR_C_COMPILE_FLAGS "${WAMR_C_COMPILE_FLAGS} -ftrapv -D_FORTIFY_SOURCE=2")
 #endif ()
-#set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-strong --param ssp-buffer-size=4")
-#set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-z,noexecstack,-z,relro,-z,now")
+#set (WAMR_C_COMPILE_FLAGS "${WAMR_C_COMPILE_FLAGS} -fstack-protector-strong --param ssp-buffer-size=4")
+#set (WAMR_C_COMPILE_FLAGS "${WAMR_C_COMPILE_FLAGS} -Wl,-z,noexecstack,-z,relro,-z,now")
+
+LIST(JOIN WAMR_COMPILE_FLAGS_STRING " " WAMR_COMPILE_FLAGS)
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${WAMR_COMPILE_FLAGS_STRING} -Wno-unused")
 
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
@@ -150,6 +152,7 @@ if (WAMR_BUILD_STATIC)
     add_library(iwasm_static STATIC ${WAMR_RUNTIME_LIB_SOURCE})
     set_target_properties (iwasm_static PROPERTIES OUTPUT_NAME vmlib)
     target_include_directories(iwasm_static INTERFACE ${WAMR_ROOT_DIR}/core/iwasm/include)
+    target_compile_options(iwasm_static PRIVATE ${WAMR_C_COMPILE_FLAGS})
     target_link_libraries (iwasm_static INTERFACE ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl ${CMAKE_THREAD_LIBS_INIT})
     if (WAMR_BUILD_WASM_CACHE EQUAL 1)
       target_link_libraries(iwasm_static INTERFACE boringssl_crypto)
@@ -163,6 +166,7 @@ if (WAMR_BUILD_SHARED)
     add_library (iwasm_shared SHARED ${WAMR_RUNTIME_LIB_SOURCE})
     set_target_properties (iwasm_shared PROPERTIES OUTPUT_NAME iwasm)
     target_include_directories(iwasm_shared INTERFACE ${WAMR_ROOT_DIR}/core/iwasm/include)
+    target_compile_options(iwasm_shared PRIVATE ${WAMR_C_COMPILE_FLAGS})
     target_link_libraries (iwasm_shared INTERFACE ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl ${CMAKE_THREAD_LIBS_INIT})
     if (WAMR_BUILD_WASM_CACHE EQUAL 1)
       target_link_libraries(iwasm_shared INTERFACE boringssl_crypto)
