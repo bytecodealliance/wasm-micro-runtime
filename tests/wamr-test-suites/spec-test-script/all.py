@@ -66,6 +66,7 @@ AVAILABLE_TARGETS = [
     "RISCV64_LP64D",
     "THUMBV7",
     "THUMBV7_VFP",
+    "XTENSA",
 ]
 
 def ignore_the_case(
