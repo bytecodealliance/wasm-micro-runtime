@@ -129,7 +129,7 @@ def ignore_the_case(
     return False
 
 
-def preflight_check(aot_flag, eh_flag):
+def preflight_check(aot_flag, aot_compiler, eh_flag):
     if not pathlib.Path(SPEC_TEST_DIR).resolve().exists():
         print(f"Can not find {SPEC_TEST_DIR}")
         return False
@@ -138,8 +138,8 @@ def preflight_check(aot_flag, eh_flag):
         print(f"Can not find {WAST2WASM_CMD}")
         return False
 
-    if aot_flag and not pathlib.Path(WAMRC_CMD).resolve().exists():
-        print(f"Can not find {WAMRC_CMD}")
+    if aot_flag and not pathlib.Path(aot_compiler).resolve().exists():
+        print(f"Can not find {aot_compiler}")
         return False
 
     return True
@@ -149,6 +149,7 @@ def test_case(
     case_path,
     target,
     aot_flag=False,
+    aot_compiler=WAMRC_CMD,
     sgx_flag=False,
     multi_module_flag=False,
     multi_thread_flag=False,
@@ -177,7 +178,7 @@ def test_case(
     if no_pty:
         CMD.append("--no-pty")
     CMD.append("--aot-compiler")
-    CMD.append(WAMRC_CMD)
+    CMD.append(aot_compiler)
 
     if aot_flag:
         CMD.append("--aot")
@@ -274,6 +275,7 @@ def test_case(
 def test_suite(
     target,
     aot_flag=False,
+    aot_compiler=WAMRC_CMD,
     sgx_flag=False,
     multi_module_flag=False,
     multi_thread_flag=False,
@@ -348,6 +350,7 @@ def test_suite(
                         str(case_path),
                         target,
                         aot_flag,
+                        aot_compiler,
                         sgx_flag,
                         multi_module_flag,
                         multi_thread_flag,
@@ -389,6 +392,7 @@ def test_suite(
                     str(case_path),
                     target,
                     aot_flag,
+                    aot_compiler,
                     sgx_flag,
                     multi_module_flag,
                     multi_thread_flag,
@@ -471,6 +475,12 @@ def main():
         help="Running with AOT mode",
     )
     parser.add_argument(
+        "--aot-compiler",
+        default=WAMRC_CMD,
+        dest="aot_compiler",
+        help="AOT compiler",
+    )
+    parser.add_argument(
         "-x",
         action="store_true",
         default=False,
@@ -550,7 +560,7 @@ def main():
     if options.target == "x86_32":
         options.target = "i386"
 
-    if not preflight_check(options.aot_flag, options.eh_flag):
+    if not preflight_check(options.aot_flag, options.aot_compiler, options.eh_flag):
         return False
 
     if not options.cases:
@@ -564,6 +574,7 @@ def main():
         ret = test_suite(
             options.target,
             options.aot_flag,
+            options.aot_compiler,
             options.sgx_flag,
             options.multi_module_flag,
             options.multi_thread_flag,
@@ -591,6 +602,7 @@ def main():
                     case,
                     options.target,
                     options.aot_flag,
+                    options.aot_compiler,
                     options.sgx_flag,
                     options.multi_module_flag,
                     options.multi_thread_flag,

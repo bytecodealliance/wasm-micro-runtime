@@ -39,6 +39,7 @@ function help()
     echo "-C enable code coverage collect"
     echo "-j set the platform to test"
     echo "-T set sanitizer to use in tests(ubsan|tsan|asan)"
+    echo "-A use the specified wamrc command instead of building it"
     echo "-r [requirement name] [N [N ...]] specify a requirement name followed by one or more"
     echo "                                  subrequirement IDs, if no subrequirement is specificed,"
     echo "                                  it will run all subrequirements. When this optin is used,"
@@ -75,6 +76,7 @@ fi
 PARALLELISM=0
 ENABLE_QEMU=0
 QEMU_FIRMWARE=""
+WAMRC_CMD=""
 # prod/testsuite-all branch
 WASI_TESTSUITE_COMMIT="ee807fc551978490bf1c277059aabfa1e589a6c2"
 TARGET_LIST=("AARCH64" "AARCH64_VFP" "ARMV7" "ARMV7_VFP" "THUMBV7" "THUMBV7_VFP" \
@@ -83,7 +85,7 @@ REQUIREMENT_NAME=""
 # Initialize an empty array for subrequirement IDs
 SUBREQUIREMENT_IDS=()
 
-while getopts ":s:cabgvt:m:MCpSXexwWPGQF:j:T:r:" opt
+while getopts ":s:cabgvt:m:MCpSXexwWPGQF:j:T:r:A:" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -214,6 +216,10 @@ do
         echo "Only Test requirement name: ${REQUIREMENT_NAME}"
         [[ ${#SUBREQUIREMENT_IDS[@]} -ne 0 ]] && echo "Choose subrequirement IDs: ${SUBREQUIREMENT_IDS[@]}"
         ;;
+        A)
+        echo "Using wamrc ${OPTARG}"
+        WAMRC_CMD=${OPTARG}
+        ;;
         ?)
         help
         exit 1
@@ -251,7 +257,7 @@ else
     readonly IWASM_CMD="${WAMR_DIR}/product-mini/platforms/${PLATFORM}/build/iwasm"
 fi
 
-readonly WAMRC_CMD="${WAMR_DIR}/wamr-compiler/build/wamrc"
+readonly WAMRC_CMD_DEFAULT="${WAMR_DIR}/wamr-compiler/build/wamrc"
 
 readonly CLASSIC_INTERP_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
@@ -550,6 +556,7 @@ function spec_test()
     # require warmc only in aot mode
     if [[ $1 == 'aot' ]]; then
         ARGS_FOR_SPEC_TEST+="-t "
+        ARGS_FOR_SPEC_TEST+="--aot-compiler ${WAMRC_CMD} "
     fi
 
     if [[ ${PARALLELISM} == 1 ]]; then
@@ -1052,7 +1059,10 @@ function trigger()
                 if [[ ${ENABLE_QEMU} == 0 ]]; then
                     build_iwasm_with_cfg $BUILD_FLAGS
                 fi
-                build_wamrc
+                if [ -z "${WAMRC_CMD}" ]; then
+                   build_wamrc
+                   WAMRC_CMD=${WAMRC_CMD_DEFAULT}
+                fi
                 for suite in "${TEST_CASE_ARR[@]}"; do
                     $suite"_test" aot
                 done
