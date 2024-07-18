@@ -92,8 +92,8 @@ do
         # get next suite if there are multiple vaule in -s
         eval "nxarg=\${$((OPTIND))}"
         # just get test cases, loop until the next symbol '-'
-        # IN  ====>  -s spec wasi unit -t fast-classic
-        # GET ====>  spec wasi unit
+        # IN  ====>  -s spec unit -t fast-classic
+        # GET ====>  spec unit
         while [[ "${nxarg}" != -* && ${nxarg} ]];
         do
             TEST_CASE_ARR+=(${nxarg})
@@ -586,22 +586,6 @@ function spec_test()
     cd -
 
     echo -e "\nFinish spec tests" | tee -a ${REPORT_DIR}/spec_test_report.txt
-}
-
-function wasi_test()
-{
-    echo "Now start wasi tests"
-    touch ${REPORT_DIR}/wasi_test_report.txt
-
-    cd ${WORK_DIR}/../../wasi
-    [[ $1 != "aot" ]] && \
-        python wasi_test.py --interpreter ${IWASM_CMD} ${SGX_OPT}\
-                            | tee ${REPORT_DIR}/wasi_test_report.txt \
-    || \
-        python wasi_test.py --aot --aot-compiler ${WAMRC_CMD} ${SGX_OPT}\
-                            --interpreter ${IWASM_CMD} \
-                            | tee ${REPORT_DIR}/wasi_test_report.txt
-    echo "Finish wasi tests"
 }
 
 function wamr_compiler_test()
