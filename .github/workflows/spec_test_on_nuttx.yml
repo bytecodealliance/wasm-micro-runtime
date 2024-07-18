@@ -195,7 +195,7 @@ jobs:
       - name: Set WAMR stack size for NuttX (xtensa)
         if: matrix.target_config.target == 'xtensa'
         run: |
-          find nuttx/boards -name defconfig | xargs sed -i '$aCONFIG_INTERPRETERS_WAMR_STACKSIZE=25600\n'
+          find nuttx/boards -name defconfig | xargs sed -i '$aCONFIG_INTERPRETERS_WAMR_STACKSIZE=16384\n'
 
       - name: Enable hostfs for NuttX
         if: matrix.target_config.target != 'xtensa'
