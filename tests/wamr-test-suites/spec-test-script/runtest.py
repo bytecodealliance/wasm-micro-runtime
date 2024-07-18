@@ -1158,7 +1158,13 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
     tmpfile = aot_tempfile if test_aot else wasm_tempfile
     log("Starting interpreter for module '%s'" % tmpfile)
 
-    cmd_iwasm = [opts.interpreter, "--heap-size=0", "-v=5" if opts.verbose else "-v=0", "--repl", tmpfile]
+    if opts.qemu:
+        tmpfile = f"/tmp/{os.path.basename(tmpfile)}"
+
+    if opts.verbose:
+        cmd_iwasm = [opts.interpreter, "--heap-size=0", "-v=5", "--repl", tmpfile]
+    else:
+        cmd_iwasm = [opts.interpreter, "--heap-size=0", "--repl", tmpfile]
 
     if opts.multi_module:
         cmd_iwasm.insert(1, "--module-path=" + (tempfile.gettempdir() if not opts.qemu else "/tmp" ))
