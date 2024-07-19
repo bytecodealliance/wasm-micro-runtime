@@ -240,11 +240,21 @@ jobs:
           pip3 install esptool==4.7.0
           esptool.py version
 
+      - name: Configure NuttX
+        run: |
+          tools/configure.sh ${{ matrix.target_config.config }}
+        working-directory: nuttx
+
+      - name: Tweak NuttX config
+        run: |
+          kconfig-tweak --set-val CONFIG_NSH_LINELEN 255
+        working-directory: nuttx
+
       - name: Build NuttX
         run: |
-          cd nuttx
-          tools/configure.sh ${{ matrix.target_config.config }}
+          make olddefconfig
           make -j$(nproc)
+        working-directory: nuttx
 
       - name: Post build processing (xtensa)
         if: matrix.target_config.target == 'xtensa'
