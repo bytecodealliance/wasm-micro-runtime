@@ -121,7 +121,7 @@ set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
-set (WAMR_COMPILE_FLAGS -Wall -Wextra -Wformat -Wformat-security)
+set (WAMR_COMPILE_FLAGS -Wall -Wextra -Wformat -Wformat-security -fvisibility=hidden)
 set (WAMR_C_COMPILE_FLAGS ${WAMR_COMPILE_FLAGS} -Wshadow -Wno-unused-parameter)
 # set (WAMR_C_COMPILE_FLAGS ${WAMR_C_COMPILE_FLAGS} -Wconversion -Wsign-conversion)
 
