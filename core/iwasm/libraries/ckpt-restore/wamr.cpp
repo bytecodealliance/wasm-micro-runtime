@@ -1,13 +1,6 @@
 /*
- * The WebAssembly Live Migration Project
- *
- *  By: Aibo Hu
- *      Yiwei Yang
- *      Brian Zhao
- *      Andrew Quinn
- *
- *  Copyright 2024 Regents of the Univeristy of California
- *  UC Santa Cruz Sluglab.
+ * Regents of the Univeristy of California, All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 #include "wamr.h"
@@ -50,8 +43,7 @@ class CountingSemaphore
   public:
     explicit CountingSemaphore(int count)
       : count_(count)
-    {
-    }
+    {}
 
     void acquire()
     {
@@ -265,17 +257,12 @@ WAMRInstance::find_func(const char *name)
         for (int i = 0; i < target_module->function_count; i++) {
             auto cur_func = &target_module->functions[i];
             if (cur_func->is_import_func) {
-                LOG_DEBUG("%s %d", cur_func->u.func_import->field_name, i);
-
                 if (!strcmp(cur_func->u.func_import->field_name, name)) {
-
                     func = ((WASMFunctionInstanceCommon *)cur_func);
                     break;
                 }
             }
             else {
-                LOG_DEBUG("%s %d", cur_func->u.func->field_name, i);
-
                 if (!strcmp(cur_func->u.func->field_name, name)) {
                     func = ((WASMFunctionInstanceCommon *)cur_func);
                     break;
@@ -694,8 +681,6 @@ WAMRInstance::recover(std::vector<std::unique_ptr<WAMRExecEnv>> *e_)
         exec_env = cur_env = main_env;
         module_inst = main_env->module_inst;
 
-        fprintf(stderr, "invoke_init_c\n");
-        fprintf(stderr, "wakeup.release\n");
         wakeup.release(100);
 
         cur_env->is_restore = true;
@@ -734,7 +719,6 @@ WAMRInstance::spawn_child(WASMExecEnv *cur_env, bool main)
         iter = ++(execEnv.begin());
         parent = 0;
     }
-    //    invoke_init_c();
     //  Each thread needs it's own thread arg
     auto thread_arg = ThreadArgs{ cur_env };
     static std::mutex mtx;
@@ -787,8 +771,6 @@ WAMRInstance::spawn_child(WASMExecEnv *cur_env, bool main)
                                    id); // tid_map
         }
         fprintf(stderr, "child spawned %p %p\n\n", cur_env, child_env);
-        // sleep(1);
-        //        thread_init.acquire();
         // advance ptr
         ++iter;
         parent = 0;
@@ -868,8 +850,8 @@ wamr_wait(wasm_exec_env_t exec_env)
     }
     // finished restoring
     exec_env->is_restore = true;
-    fprintf(stderr, "invoke side%p\n",
-            ((WASMModuleInstance *)exec_env->module_inst)->global_data);
+    LOG_DEBUG("invoke side%p\n",
+              ((WASMModuleInstance *)exec_env->module_inst)->global_data);
 }
 
 WASMExecEnv *
@@ -883,7 +865,7 @@ restore_env(WASMModuleInstanceCommon *module_inst)
 
     wamr->cur_thread = ((uint64_t)exec_env->handle);
     exec_env->is_restore = true;
-    fprintf(stderr, "restore_env: %p %p\n", exec_env, s);
+    LOG_DEBUG("restore_env: %p %p\n", exec_env, s);
 
     return exec_env;
 }

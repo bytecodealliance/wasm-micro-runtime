@@ -1,13 +1,6 @@
 /*
- * The WebAssembly Live Migration Project
- *
- *  By: Aibo Hu
- *      Yiwei Yang
- *      Brian Zhao
- *      Andrew Quinn
- *
- *  Copyright 2024 Regents of the Univeristy of California
- *  UC Santa Cruz Sluglab.
+ * Regents of the Univeristy of California, All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 #include "wamr_interp_frame.h"
@@ -47,8 +40,7 @@ void
 WAMRInterpFrame::restore_impl(WASMInterpFrame *env)
 {
     auto module_inst = (WASMModuleInstance *)wamr->get_exec_env()->module_inst;
-    if (0 < function_index
-        && function_index < module_inst->e->function_count) {
+    if (0 < function_index && function_index < module_inst->e->function_count) {
         // LOGV(INFO) << fmt::format("function_index {} restored",
         // function_index);
         env->function = &module_inst->e->functions[function_index];
@@ -83,7 +75,7 @@ WAMRInterpFrame::restore_impl(WASMInterpFrame *env)
     auto cur_func = env->function;
     WASMFunction *cur_wasm_func = cur_func->u.func;
 
-    LOG_DEBUG("ip_offset {} sp_offset {}, code start {}", ip, sp,
+    LOG_DEBUG("ip_offset %d sp_offset %d, code start %p", ip, sp,
               (void *)wasm_get_func_code(env->function));
     env->ip = wasm_get_func_code(env->function) + ip;
     memcpy(env->lp, stack_frame.data(), stack_frame.size() * sizeof(uint32));
@@ -94,7 +86,7 @@ WAMRInterpFrame::restore_impl(WASMInterpFrame *env)
     env->sp_boundary = env->sp_bottom + cur_wasm_func->max_stack_cell_num;
 
     // print_csps(csp);
-    LOG_DEBUG("wasm_replay_csp_bytecode {} {} {}", (void *)wamr->get_exec_env(),
+    LOG_DEBUG("wasm_replay_csp_bytecode %d %d %d", (void *)wamr->get_exec_env(),
               (void *)env, (void *)env->ip);
     env->csp_bottom = (WASMBranchBlock *)env->sp_boundary;
 
@@ -106,7 +98,7 @@ WAMRInterpFrame::restore_impl(WASMInterpFrame *env)
         int i = 0;
         for (auto &&csp_item : csp) {
             restore(csp_item.get(), env->csp_bottom + i);
-            LOG_DEBUG("csp_bottom {}",
+            LOG_DEBUG("csp_bottom %d",
                       ((uint8 *)env->csp_bottom + i)
                           - wamr->get_exec_env()->wasm_stack.bottom);
             i++;
@@ -1008,8 +1000,6 @@ wasm_replay_csp_bytecode(WASMExecEnv *exec_env, WASMInterpFrame *frame,
 #if WASM_ENABLE_SHARED_MEMORY != 0
             case WASM_OP_ATOMIC_PREFIX:
             {
-                LOG_DEBUG("FAULT");
-                exit(-1);
                 /* atomic_op (1 u8) + memarg (2 u32_leb) */
                 opcode = read_uint8(frame_ip);
                 if (opcode != WASM_OP_ATOMIC_FENCE) {

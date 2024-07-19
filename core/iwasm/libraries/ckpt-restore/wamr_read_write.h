@@ -1,13 +1,6 @@
 /*
- * The WebAssembly Live Migration Project
- *
- *  By: Aibo Hu
- *      Yiwei Yang
- *      Brian Zhao
- *      Andrew Quinn
- *
- *  Copyright 2024 Regents of the Univeristy of California
- *  UC Santa Cruz Sluglab.
+ * Regents of the Univeristy of California, All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 #ifndef MVVM_WAMR_READ_WRITE_H
 #define MVVM_WAMR_READ_WRITE_H
@@ -70,10 +63,6 @@ struct FreadStream : public ReadStream {
     {}
     ~FreadStream() override { fclose(file); }
 };
-// static_assert(ReaderStreamTrait<FreadStream, char>,
-//   "Reader must conform to ReaderStreamTrait");
-// static_assert(WriterStreamTrait<FwriteStream, char>,
-//   "Writer must conform to WriterStreamTrait");
 #ifndef BH_PLATFORM_WINDOWS
 struct SocketWriteStream : public WriteStream {
     int sock_fd;

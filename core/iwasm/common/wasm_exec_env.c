@@ -72,7 +72,9 @@ wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
     exec_env->wasm_stack.top_boundary =
         exec_env->wasm_stack.bottom + stack_size;
     exec_env->wasm_stack.top = exec_env->wasm_stack.bottom;
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
     exec_env->is_checkpoint = false;
+#endif
 
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
@@ -86,10 +88,12 @@ wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
     wasm_runtime_dump_exec_env_mem_consumption(exec_env);
 #endif
 
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
     exec_env->is_checkpoint = false;
     exec_env->is_restore = false;
     exec_env->call_chain_size = 0;
     exec_env->restore_call_chain = NULL;
+#endif
     return exec_env;
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK

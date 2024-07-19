@@ -155,13 +155,14 @@ typedef struct WASMExecEnv {
 
     /* The WASM stack size */
     uint32 wasm_stack_size;
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
     /* Whether is checkpoint */
     bool is_checkpoint;
     /* Whether is restore */
     bool is_restore;
     size_t call_chain_size;
     struct AOTFrame **restore_call_chain;
-
+#endif
     /* The WASM stack of current thread */
     union {
         uint64 __make_it_8_byte_aligned_;

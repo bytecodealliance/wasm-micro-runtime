@@ -1,13 +1,6 @@
 /*
- * The WebAssembly Live Migration Project
- *
- *  By: Aibo Hu
- *      Yiwei Yang
- *      Brian Zhao
- *      Andrew Quinn
- *
- *  Copyright 2024 Regents of the Univeristy of California
- *  UC Santa Cruz Sluglab.
+ * Regents of the Univeristy of California, All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 #include "wamr_exec_env.h"
@@ -25,7 +18,7 @@ WAMRExecEnv::dump_impl(WASMExecEnv *env)
     aux_boundary = env->aux_stack_boundary;
     aux_bottom = env->aux_stack_bottom;
     auto cur_frame = env->cur_frame;
-    while (cur_frame) {
+    while (cur_frame && cur_frame->function) {
         auto dumped_frame = new WAMRInterpFrame();
         if (wamr->is_aot) {
             dump(dumped_frame, (AOTFrame *)cur_frame);
@@ -139,18 +132,21 @@ WAMRExecEnv::restore_impl(WASMExecEnv *env)
             else {
                 cur_func = get_function_name(dump_frame->function_name);
             }
-            auto cur_wasm_func = cur_func->u.func;
-            all_cell_num = cur_func->param_cell_num + cur_func->local_cell_num
-                           + cur_wasm_func->max_stack_cell_num
-                           + cur_wasm_func->max_block_num
-                                 * (uint32)sizeof(WASMBranchBlock) / 4;
-            frame_size = wasm_interp_interp_frame_size(all_cell_num);
-            if (!(frame = ALLOC_FRAME(env, frame_size, prev_frame))) {
-                LOG_DEBUG("ALLOC_FRAME failed");
-                exit(-1);
+            if (cur_func) {
+                auto cur_wasm_func = cur_func->u.func;
+                all_cell_num = cur_func->param_cell_num
+                               + cur_func->local_cell_num
+                               + cur_wasm_func->max_stack_cell_num
+                               + cur_wasm_func->max_block_num
+                                     * (uint32)sizeof(WASMBranchBlock) / 4;
+                frame_size = wasm_interp_interp_frame_size(all_cell_num);
+                if (!(frame = ALLOC_FRAME(env, frame_size, prev_frame))) {
+                    LOG_DEBUG("ALLOC_FRAME failed");
+                    exit(-1);
+                }
+                restore(dump_frame.get(), frame);
+                prev_frame = frame;
             }
-            restore(dump_frame.get(), frame);
-            prev_frame = frame;
         }
         env->cur_frame = prev_frame;
     }
