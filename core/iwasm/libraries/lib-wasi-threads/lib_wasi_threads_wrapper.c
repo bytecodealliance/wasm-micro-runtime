@@ -14,6 +14,9 @@
 #if WASM_ENABLE_AOT != 0
 #include "aot_runtime.h"
 #endif
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+#include "../ckpt-restore/ckpt_restore.h"
+#endif
 
 static const char *THREAD_START_FUNCTION = "wasi_thread_start";
 static korp_mutex thread_id_lock;
@@ -57,6 +60,14 @@ thread_start(void *arg)
     argv[0] = thread_arg->thread_id;
     argv[1] = thread_arg->arg;
 
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    insert_tid_start_arg(((uint64_t)exec_env->handle), thread_arg->arg,
+                         thread_arg->thread_id);
+    register_sigtrap();
+    if (exec_env->is_restore) {
+        wamr_wait(exec_env);
+    }
+#endif
     if (!wasm_runtime_call_wasm(exec_env, thread_arg->start_func, 2, argv)) {
         /* Exception has already been spread during throwing */
     }
@@ -69,7 +80,7 @@ thread_start(void *arg)
     return NULL;
 }
 
-static int32
+int32
 thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
 {
     wasm_module_t module = wasm_exec_env_get_module(exec_env);
@@ -116,6 +127,13 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
         LOG_ERROR("Failed to get thread identifier");
         goto thread_preparation_fail;
     }
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    ssize_t parent_handle = 0;
+    if (exec_env->thread_arg) {
+        parent_handle = ((ThreadStartArg *)exec_env->thread_arg)->thread_id;
+    }
+    insert_parent_child(parent_handle, thread_start_arg->thread_id);
+#endif
     thread_start_arg->arg = start_arg;
     thread_start_arg->start_func = start_func;
 

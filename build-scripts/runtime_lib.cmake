@@ -86,6 +86,10 @@ if (WAMR_BUILD_LIBC_BUILTIN EQUAL 1)
     include (${IWASM_DIR}/libraries/libc-builtin/libc_builtin.cmake)
 endif ()
 
+if (WAMR_BUILD_CHECKPOINT_RESTORE EQUAL 1)
+    include (${IWASM_DIR}/libraries/ckpt-restore/ckpt_restore.cmake)
+endif ()
+
 if (WAMR_BUILD_LIBC_UVWASI EQUAL 1)
     include (${IWASM_DIR}/libraries/libc-uvwasi/libc_uvwasi.cmake)
     set (WAMR_BUILD_MODULE_INST_CONTEXT 1)
@@ -193,6 +197,7 @@ set (source_all
     ${LIBC_EMCC_SOURCE}
     ${LIB_RATS_SOURCE}
     ${DEBUG_ENGINE_SOURCE}
+    ${CKPT_RESTORE_SOURCE}
 )
 
 set (WAMR_RUNTIME_LIB_SOURCE ${source_all})

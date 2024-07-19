@@ -115,6 +115,12 @@ uint8 *
 wasm_interp_get_frame_ref(WASMInterpFrame *frame);
 #endif
 
+void
+wasm_interp_call_func_bytecode(struct WASMModuleInstance *module,
+                               struct WASMExecEnv *exec_env,
+                               struct WASMFunctionInstance *cur_func,
+                               struct WASMInterpFrame *prev_frame);
+
 #ifdef __cplusplus
 }
 #endif

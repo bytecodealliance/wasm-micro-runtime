@@ -37,6 +37,7 @@ The WAMR fast interpreter is a clean room development. We would acknowledge the 
 | zydis | unspecified | e14a07895136182a5b53e181eec3b1c6e0b434de | https://github.com/zyantific/zydis | |
 | NuttX ELF headers | 72313301e23f9c2de969fb64b9a0f67bb4c284df | 10.3.0 | https://github.com/apache/nuttx | |
 | Dhrystone | 2.1 | 2.1 | https://fossies.org/linux/privat/old/ | |
+| yalantinglibs | v0.3.2 | v0.3.2 | https://github.com/alibaba/yalantinglibs | |
 
 ## Licenses
 
@@ -103,3 +104,7 @@ The WAMR fast interpreter is a clean room development. We would acknowledge the 
 ### Dhrystone
 
 [LICENSE](./tests/benchmarks/dhrystone/LICENSE)
+
+### yalantinglibs
+
+[LICENSE](./core/iwasm/libraries/ckpt-restore/LICENSE_YALANTINGLIBS)

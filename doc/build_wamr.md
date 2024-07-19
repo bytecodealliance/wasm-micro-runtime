@@ -150,6 +150,10 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 - **WAMR_BUILD_AOT_STACK_FRAME**=1/0, default to disable if not set
 > Note: if it is enabled, the AOT or JIT stack frames (like stack frame of classic interpreter but only necessary data is committed) will be created for AOT or JIT mode in function calls. And please add `--enable-dump-call-stack` option to wamrc during compiling AOT module.
 
+#### **Enable Checkpoint Restore feature**
+- **WAMR_BUILD_CHECKPOINT_RESTORE_FRAME**=1/0, default to disable if not set
+> Note: if it is enabled, the checkpoint restore will be enabled, this feature requires `--enable-dump-call-stack` and `--enable-checkpoint` or `--enable-*-checkpoint` variant options to wamrc during compiling AOT module and `-g` for enableing the custum name section for wasm module. If the WASI or THREAD_MGR is switched on, we can support record and replay for WASI or PTHREAD.
+
 #### **Enable dump call stack feature**
 - **WAMR_BUILD_DUMP_CALL_STACK**=1/0, default to disable if not set
 
