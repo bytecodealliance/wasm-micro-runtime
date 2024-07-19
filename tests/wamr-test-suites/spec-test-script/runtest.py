@@ -273,7 +273,7 @@ parser.add_argument('--rundir',
         help="change to the directory before running tests")
 parser.add_argument('--start-timeout', default=30, type=int,
         help="default timeout for initial prompt")
-parser.add_argument('--start-fail-timeout', default=1, type=int,
+parser.add_argument('--start-fail-timeout', default=2, type=int,
         help="default timeout for initial prompt (when expected to fail)")
 parser.add_argument('--test-timeout', default=20, type=int,
         help="default timeout for each individual test action")
