@@ -136,7 +136,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: apache/nuttx-apps
-          ref: ${{ matrix.target_config.target == 'xtensa' && '1852731df87e5895e299b74aabdb1984b7e3f795' || 'releases/12.4' }}
+          ref: ${{ matrix.target_config.target == 'xtensa' && '2ef3eb25c0cec944b13792185f7e5d5a05990d5f' || 'releases/12.4' }}
           path: apps
 
       - name: Checkout WAMR
@@ -169,6 +169,7 @@ jobs:
       # Inject the config option to NuttX
       # TODO: Merge this into NuttX once GC is generally available
       - name: Modify Kconfig
+        if: matrix.target_config.target != 'xtensa'
         run: |
           echo "\n" >> apps/interpreters/wamr/Kconfig
           echo "config INTERPRETERS_WAMR_GC" >> apps/interpreters/wamr/Kconfig
