@@ -124,6 +124,10 @@ jobs:
           - target_config: { config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh64" }
             wamr_test_option: { mode: "-t aot -X" }
 
+          # Our xtensa environment doesn't have enough memory
+          - target_config: { target: "xtensa" }
+            wamr_feature_option: { mode: "-G" }
+
     steps:
       - name: Checkout NuttX
         uses: actions/checkout@v4
