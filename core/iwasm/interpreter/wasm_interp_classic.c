@@ -5657,8 +5657,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         /* dst memidx */
                         read_leb_memidx(frame_ip, frame_ip_end, memidx);
 #else
-                        /* Skip src and dst memidx */
-                        frame_ip += 2;
+                        /* skip dst memidx */
+                        frame_ip += 1;
 #endif
 #if WASM_ENABLE_THREAD_MGR != 0
                         linear_mem_size = get_linear_mem_size();
@@ -5676,6 +5676,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_MULTI_MEMORY != 0
                         /* src memidx */
                         read_leb_memidx(frame_ip, frame_ip_end, memidx);
+#else
+                        /* skip src memidx */
+                        frame_ip += 1;
 #endif
 #if WASM_ENABLE_THREAD_MGR != 0
                         linear_mem_size = get_linear_mem_size();
@@ -5690,10 +5693,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
 
 #if WASM_ENABLE_MEMORY64 == 0
+                        /* allowing the destination and source to overlap */
                         bh_memmove_s(mdst, (uint32)dlen, msrc, (uint32)len);
 #else
-                        /* use memmove when memory64 is enabled since len may be
-                         * larger than UINT32_MAX */
+                        /* use memmove when memory64 is enabled since len
+                           may be larger than UINT32_MAX */
                         memmove(mdst, msrc, len);
 #endif
                         break;

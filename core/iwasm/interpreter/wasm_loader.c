@@ -279,7 +279,7 @@ fail:
     do {                                                    \
         read_leb_uint32(p, p_end, res);                     \
         if (res & OPT_MEMIDX_FLAG) {                        \
-            res &= 0xBF;                                    \
+            res &= ~OPT_MEMIDX_FLAG;                        \
             read_leb_uint32(p, p_end, memidx); /* memidx */ \
             check_memidx(module, memidx);                   \
         }                                                   \
