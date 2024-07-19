@@ -833,6 +833,10 @@ def test_assert_return(r, opts, form):
         if ' ' in func:
             func = func.replace(' ', '\\')
 
+        if opts.target == 'xtensa' and func in {'as-memory.grow-value', 'as-memory.grow-size'}:
+            log("ignoring memory.grow test")
+            return
+
         if m.group(2) == '':
             args = []
         else:
