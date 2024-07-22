@@ -136,6 +136,8 @@ jobs:
           ref: ${{ matrix.target_config.target == 'xtensa' && '985d395b025cf2012b22f6bb4461959fa6d87645' || 'releases/12.4' }}
           path: nuttx
 
+      # Note: we use an unnreleased version nuttx for xtensa because
+      # 12.4 doesn't contain necessary esp32s3 changes.
       - name: Checkout NuttX Apps
         uses: actions/checkout@v4
         with:
@@ -172,6 +174,10 @@ jobs:
 
       # Inject the config option to NuttX
       # TODO: Merge this into NuttX once GC is generally available
+      #
+      # Note: the version of nuttx-apps we use for xtensa does have
+      # an equivalent. (the default of INTERPRETERS_WAMR_TAIL_CALL is
+      # different though.)
       - name: Modify Kconfig
         if: matrix.target_config.target != 'xtensa'
         run: |
@@ -197,6 +203,8 @@ jobs:
         run: |
           find nuttx/boards -name defconfig | xargs sed -i '$aCONFIG_INTERPRETERS_WAMR_STACKSIZE=327680\n'
 
+      # because qemu doesn't have a proper emulation of esp32s3 psram,
+      # we are limited to the internal ram, which is about 400KB.
       - name: Set WAMR stack size for NuttX (xtensa)
         if: matrix.target_config.target == 'xtensa'
         run: |
@@ -226,6 +234,12 @@ jobs:
         run: |
           find nuttx/boards -name defconfig | xargs sed -i '$a\# CONFIG_ARCH_DPFPU is not set\n'
 
+      # Note: while a real hardware would need
+      # INTERPRETERS_WAMR_MEM_DUAL_BUS_MIRROR=y,
+      # it doesn't work with xtensa qemu which we use on the CI because it
+      # doesn't have a proper emulation of I/D separate mappings.
+      # we work it around by using INTERPRETERS_WAMR_MEM_DUAL_BUS_MIRROR=n.
+      # this configuration won't work on a real hardware.
       - name: Tweak NuttX config (xtensa)
         if: matrix.target_config.target == 'xtensa'
         run: |
@@ -238,6 +252,9 @@ jobs:
           cmake -Bbuild .
           cmake --build build
 
+      # the nuttx version we use for xtensa requires esptool.py newer than
+      # what we have in the version of the apache-nuttx-ci-linux image we
+      # currently use.
       - name: Install the latest esptool.py (xtensa)
         if: matrix.target_config.target == 'xtensa'
         run: |
@@ -249,6 +266,9 @@ jobs:
           tools/configure.sh ${{ matrix.target_config.config }}
         working-directory: nuttx
 
+      # depending on configurations, the iwasm command line generated
+      # by spec-test-script can be longer than the default NSH_LINELEN,
+      # which is 64 or 80.
       - name: Tweak NuttX config
         run: |
           kconfig-tweak --set-val CONFIG_NSH_LINELEN 255
@@ -260,6 +280,9 @@ jobs:
           make -j$(nproc)
         working-directory: nuttx
 
+      # for xtensa, build a 8MB firmware image.
+      # simple boot is assumed. (thus the nuttx.bin offset in the image is 0)
+      # qemu will infer the flash size from the file size.
       - name: Post build processing (xtensa)
         if: matrix.target_config.target == 'xtensa'
         run: |
@@ -273,6 +296,7 @@ jobs:
         run: |
           echo "firmware=$PWD/nuttx/nuttx" >> $GITHUB_OUTPUT
       
+      # for xtensa, use the espressif fork of qemu, which has esp32s3 support.
       - name: Install QEMU (xtensa)
         if: matrix.target_config.target == 'xtensa'
         run: |
