@@ -164,6 +164,10 @@ typedef struct {
 bool
 wasi_nn_register_backend(api_function apis);
 
+void
+wasi_nn_dump_tensor_dimension(tensor_dimensions *dim, int32_t output_len,
+                              char *output);
+
 #ifdef __cplusplus
 }
 #endif

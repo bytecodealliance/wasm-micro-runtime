@@ -1,6 +1,8 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+# hadolint global ignore=DL3003,DL3008,DL3009,DL3059
+
 FROM mcr.microsoft.com/devcontainers/rust:1-1-bullseye@sha256:ddc1ee022d327f024c07484c9333db3fbbfd504bc096cdb66635653a2bebb33e
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -8,7 +10,10 @@ ENV TZ=Asian/Shanghai
 
 # hadolint ignore=DL3009
 RUN apt-get update \
-  && apt-get upgrade -y
+  && apt-get upgrade -y \
+  && apt-get install -y --no-install-recommends cmake
+
+RUN rustup target add wasm32-wasi
 
 #
 # Openvino
@@ -17,33 +22,27 @@ RUN apt-get update \
 #   - https://docs.openvino.ai/2023.3/openvino_docs_install_guides_installing_openvino_from_archive_linux.html
 #   - https://docs.openvino.ai/2024/get-started/install-openvino/install-openvino-archive-linux.html
 #
-# FIXME: upgrade to 2024.1 or latest after wasi-nn(rust binding) is ready
-WORKDIR /opt/intel
-RUN wget -q https://storage.openvinotoolkit.org/repositories/openvino/packages/2022.3.2/linux/l_openvino_toolkit_ubuntu20_2022.3.2.9279.e2c7e4d7b4d_x86_64.tgz
-RUN tar -xf l_openvino_toolkit_ubuntu20_2022.3.2.9279.e2c7e4d7b4d_x86_64.tgz \
-  && rm l_openvino_toolkit_ubuntu20_2022.3.2.9279.e2c7e4d7b4d_x86_64.tgz \
-  && mv l_openvino_toolkit_ubuntu20_2022.3.2.9279.e2c7e4d7b4d_x86_64 /opt/intel/openvino
-
-WORKDIR /opt/intel/openvino
-RUN ./install_dependencies/install_openvino_dependencies.sh -y \
-  && ./setupvars.sh
-
-#
-# wasmtime
-WORKDIR /opt
-RUN wget -q https://github.com/bytecodealliance/wasmtime/releases/download/v21.0.0/wasmtime-v21.0.0-x86_64-linux.tar.xz
-RUN tar -xf wasmtime-v21.0.0-x86_64-linux.tar.xz \
-  && rm wasmtime-v21.0.0-x86_64-linux.tar.xz \
-  && ln -sf "$(realpath ./wasmtime-v21.0.0-x86_64-linux/wasmtime)" /usr/local/bin/wasmtime
+RUN wget -q https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB \
+  && echo "deb https://apt.repos.intel.com/openvino/2023 ubuntu20 main" | tee /etc/apt/sources.list.d/intel-openvino-2023.list
+RUN apt-get update \
+  && apt-get upgrade -y \
+  && apt-get install --no-install-recommends -y openvino-2023.2.0
 
 #
 # wasi-nn
 # compilation requirements
-RUN rustup target add wasm32-wasi wasm32-unknown-unknown
 WORKDIR /workspaces/wasi-nn
 RUN git clone --depth 1 https://github.com/bytecodealliance/wasi-nn.git .
-# hadolint ignore=DL3059
-#RUN ./build.sh rust
+
+WORKDIR /workspaces/wasi-nn/rust/examples/classification-example/
+RUN cargo build --target=wasm32-wasi
+
+WORKDIR /workspaces/wasi-nn/rust/examples/classification-example/build
+RUN cp ../target/wasm32-wasi/debug/wasi-nn-example.wasm . \
+  && wget -q --no-clobber https://github.com/intel/openvino-rs/raw/main/crates/openvino/tests/fixtures/mobilenet/mobilenet.xml \
+  && wget -q --no-clobber https://github.com/intel/openvino-rs/raw/main/crates/openvino/tests/fixtures/mobilenet/mobilenet.bin
 # There are model files(mobilenet*) and wasm files(wasi-nn-example.wasm) in the directory,
 # /workspaces/wasi-nn/rust/examples/classification-example/build
 
@@ -52,14 +51,35 @@ RUN git clone --depth 1 https://github.com/bytecodealliance/wasi-nn.git .
 WORKDIR /tmp
 RUN wget -q https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh \
   && chmod a+x ./install.sh
-RUN ./install.sh -p /opt/wasmedge --plugins wasi_nn-tensorflowlite
+# RUN ./install.sh -p /opt/wasmedge --plugins wasi_nn-tensorflowlite wasi_nn-openvino
+RUN ./install.sh -r yes -D -p /opt/wasmedge --plugins wasi_nn-openvino --dist ubuntu20.04 \
+  && /opt/wasmedge/bin/wasmedge --version
 ENV PATH=/opt/wasmedge/bin:${PATH}
-ENV WASMEDGE_LIB_DIR=/opt/wasmedge/lib
+# ENV WASMEDGE_LIB_DIR=/opt/wasmedge/lib
 
 #
 # wasmedge-wasinn-examples
 WORKDIR /workspaces/wasmedge-wasinn-examples
 RUN git clone --depth 1 https://github.com/second-state/WasmEdge-WASINN-examples.git .
+COPY core/iwasm/libraries/wasi-nn/test/bump_wasi_nn_to_0_6_0.patch .
+RUN git apply ./bump_wasi_nn_to_0_6_0.patch
+# recompile with wasi-nn 0.6.0
+RUN cd openvino-mobilenet-image/rust && cargo build --target=wasm32-wasi
+RUN cd openvino-mobilenet-raw/rust && cargo build --target=wasm32-wasi
+RUN cd openvino-road-segmentation-adas/openvino-road-seg-adas && cargo build --target=wasm32-wasi
+RUN cd tflite-birds_v1-image/rust && cargo build --target=wasm32-wasi
+
+# preparation
+RUN cd openvino-mobilenet-image \
+  && ./download_mobilenet.sh . \
+  && ls -l mobilenet.xml mobilenet.bin
+
+RUN cd openvino-mobilenet-raw \
+  && ./download_mobilenet.sh . \
+  && ls -l mobilenet.xml mobilenet.bin tensor-1x224x224x3-f32.bgr
+
+# RUN apt update \
+#   && apt install -y valgrind
 
 #
 # iwasm. build from source
@@ -67,7 +87,10 @@ WORKDIR /workspaces/wamr
 COPY . .
 
 WORKDIR /workspaces/wamr/product-mini/platforms/linux
-RUN cmake -S . -B build -DWAMR_BUILD_WASI_NN=1 -DWAMR_BUILD_WASI_EPHEMERAL_NN=1 \
+RUN OpenVINO_DIR=/usr/lib/openvino-2023.2.0 \
+    cmake -S . -B build \
+    -DWAMR_BUILD_WASI_NN=1 -DWAMR_BUILD_WASI_EPHEMERAL_NN=1 \
+    -DWAMR_BUILD_WASI_NN_OPENVINO=1 -DWAMR_BUILD_WASI_NN_TFLITE=1 \
   && cmake --build build
 RUN ln -sf "$(realpath ./build/iwasm)" /usr/local/bin/iwasm
 
