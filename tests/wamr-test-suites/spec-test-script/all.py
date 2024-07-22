@@ -247,7 +247,7 @@ def test_case(
                 if verbose_flag:
                     print(output, end="")
                 else:
-                    if len(case_last_words) == 16:
+                    if len(case_last_words) == 1024:
                         case_last_words.pop(0)
                     case_last_words.append(output)
 
