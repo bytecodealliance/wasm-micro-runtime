@@ -47,6 +47,11 @@ os_thread_wrapper(void *arg)
 #ifdef OS_ENABLE_WAKEUP_BLOCKING_OP
     os_end_blocking_op();
 #endif
+#if defined __APPLE__
+    pthread_setname_np("wamr");
+#else
+    pthread_setname_np(pthread_self(), "wamr");
+#endif
     start_func(thread_arg);
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     os_thread_signal_destroy();
