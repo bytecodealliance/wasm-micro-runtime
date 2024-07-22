@@ -1161,13 +1161,19 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
     if opts.qemu:
         tmpfile = f"/tmp/{os.path.basename(tmpfile)}"
 
-    if opts.verbose:
-        cmd_iwasm = [opts.interpreter, "--heap-size=0", "-v=5", "--repl", tmpfile]
-    else:
-        cmd_iwasm = [opts.interpreter, "--heap-size=0", "--repl", tmpfile]
-
+    cmd_iwasm = [opts.interpreter, "--heap-size=0", "--repl"]
     if opts.multi_module:
-        cmd_iwasm.insert(1, "--module-path=" + (tempfile.gettempdir() if not opts.qemu else "/tmp" ))
+        cmd_iwasm.append("--module-path=" + (tempfile.gettempdir() if not opts.qemu else "/tmp" ))
+    if opts.gc:
+        # our tail-call implementation is known broken.
+        # work it around by using a huge stack.
+        # cf. https://github.com/bytecodealliance/wasm-micro-runtime/issues/2231
+        cmd_iwasm.append("--stack-size=10485760")  # 10MB (!)
+    else:
+        cmd_iwasm.append("--stack-size=131072")  # 128KB
+    if opts.verbose:
+        cmd_iwasm.append("-v=5")
+    cmd_iwasm.append(tmpfile)
 
     if opts.qemu:
         if opts.qemu_firmware == '':
