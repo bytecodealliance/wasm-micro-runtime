@@ -507,6 +507,9 @@ function spec_test()
         if [[ ${ENABLE_SIMD} == 1 ]]; then
             git apply ../../spec-test-script/simd_ignore_cases.patch || exit 1
         fi
+        if [[ ${TARGET} = "XTENSA" ]]; then
+            git apply ../../spec-test-script/memory_grow_ignore_cases_on_xtensa.patch || exit 1
+        fi
         if [[ ${ENABLE_MULTI_MODULE} == 1 ]]; then
             git apply ../../spec-test-script/multi_module_ignore_cases.patch || exit 1
 

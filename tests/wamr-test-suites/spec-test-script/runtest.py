@@ -1117,6 +1117,8 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
     if opts.xip:
         cmd.append("--enable-indirect-mode")
         cmd.append("--disable-llvm-intrinsics")
+        if test_target=="xtensa":
+            cmd.append("--size-level=0")
 
     if opts.multi_thread:
         cmd.append("--enable-multi-thread")
