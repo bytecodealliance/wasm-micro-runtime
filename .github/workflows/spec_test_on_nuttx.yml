@@ -129,6 +129,8 @@ jobs:
             wamr_feature_option: { mode: "-G" }
 
     steps:
+      # Note: we use an unreleased version nuttx for xtensa because
+      # 12.4 doesn't contain necessary esp32s3 changes.
       - name: Checkout NuttX
         uses: actions/checkout@v4
         with:
@@ -136,8 +138,6 @@ jobs:
           ref: ${{ matrix.target_config.target == 'xtensa' && '985d395b025cf2012b22f6bb4461959fa6d87645' || 'releases/12.4' }}
           path: nuttx
 
-      # Note: we use an unnreleased version nuttx for xtensa because
-      # 12.4 doesn't contain necessary esp32s3 changes.
       - name: Checkout NuttX Apps
         uses: actions/checkout@v4
         with:
@@ -210,6 +210,8 @@ jobs:
         run: |
           find nuttx/boards -name defconfig | xargs sed -i '$aCONFIG_INTERPRETERS_WAMR_STACKSIZE=25600\n'
 
+      # Note: the nuttx config we happened to use for xtensa already has
+      # hostfs enabled.
       - name: Enable hostfs for NuttX
         if: matrix.target_config.target != 'xtensa'
         run: |
