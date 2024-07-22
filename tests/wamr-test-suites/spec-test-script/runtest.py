@@ -1170,7 +1170,13 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
         # cf. https://github.com/bytecodealliance/wasm-micro-runtime/issues/2231
         cmd_iwasm.append("--stack-size=10485760")  # 10MB (!)
     else:
-        cmd_iwasm.append("--stack-size=131072")  # 128KB
+        if opts.aot:
+            # Note: aot w/o gc doesn't require the interpreter stack at all.
+            # Note: 1 is the minimum value we can specify because 0 means
+            # the default.
+            cmd_iwasm.append("--stack-size=1")
+        else:
+            cmd_iwasm.append("--stack-size=131072")  # 128KB
     if opts.verbose:
         cmd_iwasm.append("-v=5")
     cmd_iwasm.append(tmpfile)
