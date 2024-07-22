@@ -326,14 +326,18 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         /* The string is always terminated with '\0', use it directly.
          * In this case, the file buffer can be referred to after loading.
          */
-        bh_assert(p[str_len - 1] == '\0');
+        if (p[str_len - 1] != '\0')
+            goto fail;
+
         str = (char *)p;
     }
     else {
         /* Load from sections, the file buffer cannot be referred to
            after loading, we must create another string and insert it
            into const string set */
-        bh_assert(p[str_len - 1] == '\0');
+        if (p[str_len - 1] != '\0')
+            goto fail;
+
         if (!(str = aot_const_str_set_insert((uint8 *)p, str_len, module,
 #if (WASM_ENABLE_WORD_ALIGN_READ != 0)
                                              is_vram_word_align,
@@ -568,7 +572,7 @@ get_native_symbol_by_name(const char *name)
 
     sym = get_target_symbol_map(&symnum);
 
-    while (symnum--) {
+    while (symnum && symnum--) {
         if (strcmp(sym->symbol_name, name) == 0) {
             func = sym->symbol_addr;
             break;
@@ -587,15 +591,17 @@ str2uint64(const char *buf, uint64 *p_res);
 
 #if WASM_ENABLE_MULTI_MODULE != 0
 static void *
-aot_loader_resolve_function(const char *module_name, const char *function_name,
+aot_loader_resolve_function(const AOTModule *module, const char *function_name,
                             const AOTFuncType *expected_function_type,
-                            char *error_buf, uint32 error_buf_size)
+                            char *error_buf, uint32 error_buf_size);
+
+static void *
+aot_loader_resolve_function_ex(const char *module_name,
+                               const char *function_name,
+                               const AOTFuncType *expected_function_type,
+                               char *error_buf, uint32 error_buf_size)
 {
     WASMModuleCommon *module_reg;
-    void *function = NULL;
-    AOTExport *export = NULL;
-    AOTModule *module = NULL;
-    AOTFuncType *target_function_type = NULL;
 
     module_reg = wasm_runtime_find_module_registered(module_name);
     if (!module_reg || module_reg->module_type != Wasm_Module_AoT) {
@@ -604,10 +610,23 @@ aot_loader_resolve_function(const char *module_name, const char *function_name,
         set_error_buf(error_buf, error_buf_size, "unknown import");
         return NULL;
     }
+    return aot_loader_resolve_function((AOTModule *)module_reg, function_name,
+                                       expected_function_type, error_buf,
+                                       error_buf_size);
+}
 
-    module = (AOTModule *)module_reg;
-    export = loader_find_export(module_reg, module_name, function_name,
-                                EXPORT_KIND_FUNC, error_buf, error_buf_size);
+static void *
+aot_loader_resolve_function(const AOTModule *module, const char *function_name,
+                            const AOTFuncType *expected_function_type,
+                            char *error_buf, uint32 error_buf_size)
+{
+    void *function = NULL;
+    AOTExport *export = NULL;
+    AOTFuncType *target_function_type = NULL;
+
+    export = loader_find_export((WASMModuleCommon *)module, module->name,
+                                function_name, EXPORT_KIND_FUNC, error_buf,
+                                error_buf_size);
     if (!export) {
         return NULL;
     }
@@ -629,7 +648,7 @@ aot_loader_resolve_function(const char *module_name, const char *function_name,
     if (!wasm_type_equal((WASMType *)expected_function_type,
                          (WASMType *)target_function_type, module->types,
                          module->type_count)) {
-        LOG_DEBUG("%s.%s failed the type check", module_name, function_name);
+        LOG_DEBUG("%s.%s failed the type check", module->name, function_name);
         set_error_buf(error_buf, error_buf_size, "incompatible import type");
         return NULL;
     }
@@ -647,18 +666,27 @@ load_native_symbol_section(const uint8 *buf, const uint8 *buf_end,
     int32 i;
     const char *symbol;
 
+    if (module->native_symbol_list) {
+        set_error_buf(error_buf, error_buf_size,
+                      "duplicated native symbol section");
+        return false;
+    }
+
     read_uint32(p, p_end, cnt);
 
     if (cnt > 0) {
-        module->native_symbol_list = wasm_runtime_malloc(cnt * sizeof(void *));
+        uint64 list_size = cnt * (uint64)sizeof(void *);
+        module->native_symbol_list =
+            loader_malloc(list_size, error_buf, error_buf_size);
         if (module->native_symbol_list == NULL) {
-            set_error_buf(error_buf, error_buf_size,
-                          "malloc native symbol list failed");
             goto fail;
         }
 
         for (i = cnt - 1; i >= 0; i--) {
             read_string(p, p_end, symbol);
+            if (!strlen(symbol))
+                continue;
+
             if (!strncmp(symbol, "f32#", 4) || !strncmp(symbol, "i32#", 4)) {
                 uint32 u32;
                 /* Resolve the raw int bits of f32 const */
@@ -1320,24 +1348,25 @@ load_import_table_list(const uint8 **p_buf, const uint8 *buf_end,
 
     /* keep sync with aot_emit_table_info() aot_emit_aot_file */
     for (i = 0; i < module->import_table_count; i++, import_table++) {
-        read_uint8(buf, buf_end, import_table->elem_type);
-        read_uint8(buf, buf_end, import_table->table_flags);
-        read_uint8(buf, buf_end, import_table->possible_grow);
+        read_uint8(buf, buf_end, import_table->table_type.elem_type);
+        read_uint8(buf, buf_end, import_table->table_type.flags);
+        read_uint8(buf, buf_end, import_table->table_type.possible_grow);
 #if WASM_ENABLE_GC != 0
-        if (wasm_is_type_multi_byte_type(import_table->elem_type)) {
+        if (wasm_is_type_multi_byte_type(import_table->table_type.elem_type)) {
             read_uint8(buf, buf_end, ref_type.ref_ht_common.nullable);
         }
 #endif
-        read_uint32(buf, buf_end, import_table->table_init_size);
-        read_uint32(buf, buf_end, import_table->table_max_size);
+        read_uint32(buf, buf_end, import_table->table_type.init_size);
+        read_uint32(buf, buf_end, import_table->table_type.max_size);
 #if WASM_ENABLE_GC != 0
-        if (wasm_is_type_multi_byte_type(import_table->elem_type)) {
+        if (wasm_is_type_multi_byte_type(import_table->table_type.elem_type)) {
             read_uint32(buf, buf_end, ref_type.ref_ht_common.heap_type);
 
-            ref_type.ref_type = import_table->elem_type;
+            ref_type.ref_type = import_table->table_type.elem_type;
             /* TODO: check ref_type */
-            if (!(import_table->elem_ref_type = wasm_reftype_set_insert(
-                      module->ref_type_set, &ref_type))) {
+            if (!(import_table->table_type.elem_ref_type =
+                      wasm_reftype_set_insert(module->ref_type_set,
+                                              &ref_type))) {
                 set_error_buf(error_buf, error_buf_size,
                               "insert ref type to hash set failed");
                 return false;
@@ -1373,23 +1402,23 @@ load_table_list(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
     /* Create each table data segment */
     for (i = 0; i < module->table_count; i++, table++) {
-        read_uint8(buf, buf_end, table->elem_type);
-        read_uint8(buf, buf_end, table->table_flags);
-        read_uint8(buf, buf_end, table->possible_grow);
+        read_uint8(buf, buf_end, table->table_type.elem_type);
+        read_uint8(buf, buf_end, table->table_type.flags);
+        read_uint8(buf, buf_end, table->table_type.possible_grow);
 #if WASM_ENABLE_GC != 0
-        if (wasm_is_type_multi_byte_type(table->elem_type)) {
+        if (wasm_is_type_multi_byte_type(table->table_type.elem_type)) {
             read_uint8(buf, buf_end, ref_type.ref_ht_common.nullable);
         }
 #endif
-        read_uint32(buf, buf_end, table->table_init_size);
-        read_uint32(buf, buf_end, table->table_max_size);
+        read_uint32(buf, buf_end, table->table_type.init_size);
+        read_uint32(buf, buf_end, table->table_type.max_size);
 #if WASM_ENABLE_GC != 0
-        if (wasm_is_type_multi_byte_type(table->elem_type)) {
+        if (wasm_is_type_multi_byte_type(table->table_type.elem_type)) {
             read_uint32(buf, buf_end, ref_type.ref_ht_common.heap_type);
 
-            ref_type.ref_type = table->elem_type;
+            ref_type.ref_type = table->table_type.elem_type;
             /* TODO: check ref_type */
-            if (!(table->elem_ref_type = wasm_reftype_set_insert(
+            if (!(table->table_type.elem_ref_type = wasm_reftype_set_insert(
                       module->ref_type_set, &ref_type))) {
                 set_error_buf(error_buf, error_buf_size,
                               "insert ref type to hash set failed");
@@ -1679,6 +1708,9 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                             func_type->param_count + func_type->result_count);
 
             func_type->ref_type_map_count = ref_type_map_count;
+
+            if (!is_valid_func_type(func_type))
+                goto fail;
 
             param_cell_num = wasm_get_cell_num(func_type->types, param_count);
             ret_cell_num =
@@ -1984,6 +2016,9 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         func_types[i]->result_count = (uint16)result_count;
         read_byte_array(buf, buf_end, func_types[i]->types, (uint32)size1);
 
+        if (!is_valid_func_type(func_types[i]))
+            goto fail;
+
         param_cell_num = wasm_get_cell_num(func_types[i]->types, param_count);
         ret_cell_num =
             wasm_get_cell_num(func_types[i]->types + param_count, result_count);
@@ -2061,6 +2096,10 @@ load_import_globals(const uint8 **p_buf, const uint8 *buf_end,
         read_uint8(buf, buf_end, import_globals[i].type.is_mutable);
         read_string(buf, buf_end, import_globals[i].module_name);
         read_string(buf, buf_end, import_globals[i].global_name);
+
+        if (!is_valid_value_type(import_globals[i].type.val_type)) {
+            return false;
+        }
 
 #if WASM_ENABLE_LIBC_BUILTIN != 0
         if (wasm_native_lookup_libc_builtin_global(
@@ -2150,6 +2189,9 @@ load_globals(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         read_uint8(buf, buf_end, globals[i].type.val_type);
         read_uint8(buf, buf_end, globals[i].type.is_mutable);
 
+        if (!is_valid_value_type(globals[i].type.val_type))
+            return false;
+
         buf = align_ptr(buf, 4);
 
         if (!load_init_expr(&buf, buf_end, module, &globals[i].init_expr,
@@ -2175,6 +2217,9 @@ load_global_info(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
     const uint8 *buf = *p_buf;
 
     read_uint32(buf, buf_end, module->global_count);
+    if (is_indices_overflow(module->import_global_count, module->global_count,
+                            error_buf, error_buf_size))
+        return false;
 
     /* load globals */
     if (module->global_count > 0
@@ -2237,17 +2282,24 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             &import_funcs[i].signature, &import_funcs[i].attachment,
             &import_funcs[i].call_conv_raw);
         if (!linked_func) {
+            sub_module = NULL;
             if (!wasm_runtime_is_built_in_module(module_name)) {
                 sub_module = (AOTModule *)wasm_runtime_load_depended_module(
                     (WASMModuleCommon *)module, module_name, error_buf,
                     error_buf_size);
                 if (!sub_module) {
+                    LOG_ERROR("failed to load sub module: %s", error_buf);
                     return false;
                 }
             }
-            linked_func = aot_loader_resolve_function(
-                module_name, field_name, declare_func_type, error_buf,
-                error_buf_size);
+            if (!sub_module)
+                linked_func = aot_loader_resolve_function_ex(
+                    module_name, field_name, declare_func_type, error_buf,
+                    error_buf_size);
+            else
+                linked_func = aot_loader_resolve_function(
+                    sub_module, field_name, declare_func_type, error_buf,
+                    error_buf_size);
         }
         import_funcs[i].func_ptr_linked = linked_func;
         import_funcs[i].func_type = declare_func_type;
@@ -2432,6 +2484,10 @@ load_init_data_section(const uint8 *buf, const uint8 *buf_end,
 
     /* load function count and start function index */
     read_uint32(p, p_end, module->func_count);
+    if (is_indices_overflow(module->import_func_count, module->func_count,
+                            error_buf, error_buf_size))
+        return false;
+
     read_uint32(p, p_end, module->start_func_index);
 
     /* check start function index */
@@ -4111,6 +4167,8 @@ load(const uint8 *buf, uint32 size, AOTModule *module,
         set_error_buf(error_buf, error_buf_size, "unknown binary version");
         return false;
     }
+
+    module->package_version = version;
 
     if (!create_sections(module, buf, size, &section_list, error_buf,
                          error_buf_size))

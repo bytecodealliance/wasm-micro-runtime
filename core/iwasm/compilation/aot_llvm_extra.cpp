@@ -411,7 +411,7 @@ aot_compress_aot_func_names(AOTCompContext *comp_ctx, uint32 *p_size)
         return NULL;
     }
 
-    compressed_str_len = Result.size();
+    compressed_str_len = (uint32)Result.size();
     if (!(compressed_str = (char *)wasm_runtime_malloc(compressed_str_len))) {
         aot_set_last_error("allocate memory failed");
         return NULL;

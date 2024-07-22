@@ -48,6 +48,8 @@ typedef WASMArrayType AOTArrayType;
 typedef WASMExport AOTExport;
 typedef WASMMemory AOTMemory;
 typedef WASMMemoryType AOTMemoryType;
+typedef WASMTableType AOTTableType;
+typedef WASMTable AOTTable;
 
 #if WASM_ENABLE_DEBUG_AOT != 0
 typedef void *dwarf_extractor_handle_t;
@@ -110,31 +112,8 @@ typedef struct AOTMemInitData {
 typedef struct AOTImportTable {
     char *module_name;
     char *table_name;
-    uint8 elem_type;
-    uint8 table_flags;
-    bool possible_grow;
-    uint32 table_init_size;
-    uint32 table_max_size;
-#if WASM_ENABLE_GC != 0
-    WASMRefType *elem_ref_type;
-#endif
+    AOTTableType table_type;
 } AOTImportTable;
-
-/**
- * Table
- */
-typedef struct AOTTable {
-    uint8 elem_type;
-    uint8 table_flags;
-    bool possible_grow;
-    uint32 table_init_size;
-    uint32 table_max_size;
-#if WASM_ENABLE_GC != 0
-    WASMRefType *elem_ref_type;
-    /* init expr for the whole table */
-    InitializerExpression init_expr;
-#endif
-} AOTTable;
 
 /**
  * A segment of table init data
@@ -359,11 +338,12 @@ aot_get_imp_tbl_data_slots(const AOTImportTable *tbl, bool is_jit_mode)
 {
 #if WASM_ENABLE_MULTI_MODULE != 0
     if (is_jit_mode)
-        return tbl->table_max_size;
+        return tbl->table_type.max_size;
 #else
     (void)is_jit_mode;
 #endif
-    return tbl->possible_grow ? tbl->table_max_size : tbl->table_init_size;
+    return tbl->table_type.possible_grow ? tbl->table_type.max_size
+                                         : tbl->table_type.init_size;
 }
 
 static inline uint32
@@ -371,11 +351,12 @@ aot_get_tbl_data_slots(const AOTTable *tbl, bool is_jit_mode)
 {
 #if WASM_ENABLE_MULTI_MODULE != 0
     if (is_jit_mode)
-        return tbl->table_max_size;
+        return tbl->table_type.max_size;
 #else
     (void)is_jit_mode;
 #endif
-    return tbl->possible_grow ? tbl->table_max_size : tbl->table_init_size;
+    return tbl->table_type.possible_grow ? tbl->table_type.max_size
+                                         : tbl->table_type.init_size;
 }
 
 #ifdef __cplusplus

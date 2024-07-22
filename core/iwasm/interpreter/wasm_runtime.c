@@ -533,9 +533,9 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 #endif
         {
             /* in order to save memory, alloc resource as few as possible */
-            max_size_fixed = import->u.table.possible_grow
-                                 ? import->u.table.max_size
-                                 : import->u.table.init_size;
+            max_size_fixed = import->u.table.table_type.possible_grow
+                                 ? import->u.table.table_type.max_size
+                                 : import->u.table.table_type.init_size;
 
             /* it is a built-in table, every module has its own */
             total_size = offsetof(WASMTableInstance, elems);
@@ -556,8 +556,8 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 #if WASM_ENABLE_MULTI_MODULE != 0
         *table_linked = table_inst_linked;
         if (table_inst_linked != NULL) {
-#if WASM_ENABLE_GC != 0
             table->elem_type = table_inst_linked->elem_type;
+#if WASM_ENABLE_GC != 0
             table->elem_ref_type = table_inst_linked->elem_ref_type;
 #endif
             table->cur_size = table_inst_linked->cur_size;
@@ -566,11 +566,12 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         else
 #endif
         {
+            table->elem_type = import->u.table.table_type.elem_type;
 #if WASM_ENABLE_GC != 0
-            table->elem_type = import->u.table.elem_type;
-            table->elem_ref_type.elem_ref_type = import->u.table.elem_ref_type;
+            table->elem_ref_type.elem_ref_type =
+                import->u.table.table_type.elem_ref_type;
 #endif
-            table->cur_size = import->u.table.init_size;
+            table->cur_size = import->u.table.table_type.init_size;
             table->max_size = max_size_fixed;
         }
 
@@ -587,11 +588,11 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         total_size = offsetof(WASMTableInstance, elems);
 #if WASM_ENABLE_MULTI_MODULE != 0
         /* in case, a module which imports this table will grow it */
-        max_size_fixed = module->tables[i].max_size;
+        max_size_fixed = module->tables[i].table_type.max_size;
 #else
-        max_size_fixed = module->tables[i].possible_grow
-                             ? module->tables[i].max_size
-                             : module->tables[i].init_size;
+        max_size_fixed = module->tables[i].table_type.possible_grow
+                             ? module->tables[i].table_type.max_size
+                             : module->tables[i].table_type.init_size;
 #endif
 #if WASM_ENABLE_GC == 0
         /* Store function indexes */
@@ -610,11 +611,12 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         /* For GC, all elements have already been set to NULL_REF (0) as
            uninitialized elements */
 #endif
+        table->elem_type = module->tables[i].table_type.elem_type;
 #if WASM_ENABLE_GC != 0
-        table->elem_type = module->tables[i].elem_type;
-        table->elem_ref_type.elem_ref_type = module->tables[i].elem_ref_type;
+        table->elem_ref_type.elem_ref_type =
+            module->tables[i].table_type.elem_ref_type;
 #endif
-        table->cur_size = module->tables[i].init_size;
+        table->cur_size = module->tables[i].table_type.init_size;
         table->max_size = max_size_fixed;
 
         table = (WASMTableInstance *)((uint8 *)table + (uint32)total_size);
@@ -1606,7 +1608,7 @@ execute_malloc_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     if (ret) {
 #if WASM_ENABLE_MEMORY64 != 0
         if (is_memory64)
-            *p_result = GET_I64_FROM_ADDR(&argv.u64);
+            *p_result = argv.u64;
         else
 #endif
         {
@@ -1708,35 +1710,72 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
             && !func->import_func_linked
 #endif
         ) {
-#if WASM_ENABLE_WAMR_COMPILER == 0
             LOG_WARNING("warning: failed to link import function (%s, %s)",
                         func->module_name, func->field_name);
-            /* will throw exception only if calling */
-#else
-            /* do nothing to avoid confused message */
-#endif /* WASM_ENABLE_WAMR_COMPILER == 0 */
         }
     }
 
     for (i = 0; i < module->import_global_count; i++) {
         WASMGlobalImport *global = &((module->import_globals + i)->u.global);
+
         if (!global->is_linked) {
 #if WASM_ENABLE_SPEC_TEST != 0
             set_error_buf(error_buf, error_buf_size,
                           "unknown import or incompatible import type");
             return false;
 #else
-#if WASM_ENABLE_WAMR_COMPILER == 0
             set_error_buf_v(error_buf, error_buf_size,
                             "failed to link import global (%s, %s)",
                             global->module_name, global->field_name);
             return false;
-#else
-            /* do nothing to avoid confused message */
-#endif /* WASM_ENABLE_WAMR_COMPILER == 0 */
 #endif /* WASM_ENABLE_SPEC_TEST != 0 */
         }
     }
+
+    for (i = 0; i < module->import_table_count; i++) {
+        WASMTableImport *table = &((module->import_tables + i)->u.table);
+
+        if (!wasm_runtime_is_built_in_module(table->module_name)
+#if WASM_ENABLE_MULTI_MODULE != 0
+            && !table->import_table_linked
+#endif
+        ) {
+            set_error_buf_v(error_buf, error_buf_size,
+                            "failed to link import table (%s, %s)",
+                            table->module_name, table->field_name);
+            return false;
+        }
+    }
+
+    for (i = 0; i < module->import_memory_count; i++) {
+        WASMMemoryImport *memory = &((module->import_memories + i)->u.memory);
+
+        if (!wasm_runtime_is_built_in_module(memory->module_name)
+#if WASM_ENABLE_MULTI_MODULE != 0
+            && !memory->import_memory_linked
+#endif
+        ) {
+            set_error_buf_v(error_buf, error_buf_size,
+                            "failed to link import memory (%s, %s)",
+                            memory->module_name, memory->field_name);
+            return false;
+        }
+    }
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+#if WASM_ENABLE_TAGS != 0
+    for (i = 0; i < module->import_tag_count; i++) {
+        WASMTagImport *tag = &((module->import_tags + i)->u.tag);
+
+        if (!tag->import_tag_linked) {
+            set_error_buf_v(error_buf, error_buf_size,
+                            "failed to link import tag (%s, %s)",
+                            tag->module_name, tag->field_name);
+            return false;
+        }
+    }
+#endif /* WASM_ENABLE_TAGS != 0 */
+#endif
 
     return true;
 }
@@ -2145,8 +2184,8 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         heap_size = APP_HEAP_SIZE_MAX;
 
     module_inst_mem_inst_size =
-        (uint64)sizeof(WASMMemoryInstance)
-        * (module->import_memory_count + module->memory_count);
+        sizeof(WASMMemoryInstance)
+        * ((uint64)module->import_memory_count + module->memory_count);
 
 #if WASM_ENABLE_JIT != 0
     /* If the module doesn't have memory, reserve one mem_info space
@@ -2164,23 +2203,26 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         WASMTableImport *import_table = &module->import_tables[i].u.table;
         table_size += offsetof(WASMTableInstance, elems);
 #if WASM_ENABLE_MULTI_MODULE != 0
-        table_size +=
-            (uint64)sizeof(table_elem_type_t) * import_table->max_size;
+        table_size += (uint64)sizeof(table_elem_type_t)
+                      * import_table->table_type.max_size;
 #else
         table_size += (uint64)sizeof(table_elem_type_t)
-                      * (import_table->possible_grow ? import_table->max_size
-                                                     : import_table->init_size);
+                      * (import_table->table_type.possible_grow
+                             ? import_table->table_type.max_size
+                             : import_table->table_type.init_size);
 #endif
     }
     for (i = 0; i < module->table_count; i++) {
         WASMTable *table = module->tables + i;
         table_size += offsetof(WASMTableInstance, elems);
 #if WASM_ENABLE_MULTI_MODULE != 0
-        table_size += (uint64)sizeof(table_elem_type_t) * table->max_size;
+        table_size +=
+            (uint64)sizeof(table_elem_type_t) * table->table_type.max_size;
 #else
         table_size +=
             (uint64)sizeof(table_elem_type_t)
-            * (table->possible_grow ? table->max_size : table->init_size);
+            * (table->table_type.possible_grow ? table->table_type.max_size
+                                               : table->table_type.init_size);
 #endif
     }
     total_size += table_size;
@@ -2573,7 +2615,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
         if (memory_data) {
             bh_memcpy_s(memory_data + base_offset,
-                        (uint32)memory_size - base_offset, data_seg->data,
+                        (uint32)(memory_size - base_offset), data_seg->data,
                         length);
         }
     }
@@ -2948,16 +2990,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
     /* Initialize the thread related data */
     if (stack_size == 0)
         stack_size = DEFAULT_WASM_STACK_SIZE;
-#if WASM_ENABLE_SPEC_TEST != 0
-#if WASM_ENABLE_TAIL_CALL == 0
-    if (stack_size < 128 * 1024)
-        stack_size = 128 * 1024;
-#else
-    /* Some tail-call cases require large operand stack */
-    if (stack_size < 10 * 1024 * 1024)
-        stack_size = 10 * 1024 * 1024;
-#endif
-#endif
+
     module_inst->default_wasm_stack_size = stack_size;
 
     if (module->malloc_function != (uint32)-1) {

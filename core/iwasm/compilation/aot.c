@@ -599,34 +599,36 @@ aot_create_comp_data(WASMModule *module, const char *target_arch,
         memset(comp_data->tables, 0, size);
         for (i = 0; i < comp_data->table_count; i++) {
             if (i < module->import_table_count) {
-                comp_data->tables[i].elem_type =
-                    module->import_tables[i].u.table.elem_type;
-                comp_data->tables[i].table_flags =
-                    module->import_tables[i].u.table.flags;
-                comp_data->tables[i].table_init_size =
-                    module->import_tables[i].u.table.init_size;
-                comp_data->tables[i].table_max_size =
-                    module->import_tables[i].u.table.max_size;
+                comp_data->tables[i].table_type.elem_type =
+                    module->import_tables[i].u.table.table_type.elem_type;
+                comp_data->tables[i].table_type.flags =
+                    module->import_tables[i].u.table.table_type.flags;
+                comp_data->tables[i].table_type.init_size =
+                    module->import_tables[i].u.table.table_type.init_size;
+                comp_data->tables[i].table_type.max_size =
+                    module->import_tables[i].u.table.table_type.max_size;
 #if WASM_ENABLE_GC != 0
-                comp_data->tables[i].elem_ref_type =
-                    module->import_tables[i].u.table.elem_ref_type;
+                comp_data->tables[i].table_type.elem_ref_type =
+                    module->import_tables[i].u.table.table_type.elem_ref_type;
 #endif
-                comp_data->tables[i].possible_grow =
-                    module->import_tables[i].u.table.possible_grow;
+                comp_data->tables[i].table_type.possible_grow =
+                    module->import_tables[i].u.table.table_type.possible_grow;
             }
             else {
                 j = i - module->import_table_count;
-                comp_data->tables[i].elem_type = module->tables[j].elem_type;
-                comp_data->tables[i].table_flags = module->tables[j].flags;
-                comp_data->tables[i].table_init_size =
-                    module->tables[j].init_size;
-                comp_data->tables[i].table_max_size =
-                    module->tables[j].max_size;
-                comp_data->tables[i].possible_grow =
-                    module->tables[j].possible_grow;
+                comp_data->tables[i].table_type.elem_type =
+                    module->tables[j].table_type.elem_type;
+                comp_data->tables[i].table_type.flags =
+                    module->tables[j].table_type.flags;
+                comp_data->tables[i].table_type.init_size =
+                    module->tables[j].table_type.init_size;
+                comp_data->tables[i].table_type.max_size =
+                    module->tables[j].table_type.max_size;
+                comp_data->tables[i].table_type.possible_grow =
+                    module->tables[j].table_type.possible_grow;
 #if WASM_ENABLE_GC != 0
-                comp_data->tables[j].elem_ref_type =
-                    module->tables[j].elem_ref_type;
+                comp_data->tables[j].table_type.elem_ref_type =
+                    module->tables[j].table_type.elem_ref_type;
                 /* Note: if the init_expr contains extra data for struct/array
                  * initialization information (init_expr.u.data), the pointer is
                  * copied.

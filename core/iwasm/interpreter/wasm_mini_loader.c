@@ -89,22 +89,10 @@ is_64bit_type(uint8 type)
 }
 
 static bool
-is_value_type(uint8 type)
-{
-    if (type == VALUE_TYPE_I32 || type == VALUE_TYPE_I64
-        || type == VALUE_TYPE_F32 || type == VALUE_TYPE_F64
-#if WASM_ENABLE_REF_TYPES != 0
-        || type == VALUE_TYPE_FUNCREF || type == VALUE_TYPE_EXTERNREF
-#endif
-    )
-        return true;
-    return false;
-}
-
-static bool
 is_byte_a_type(uint8 type)
 {
-    return is_value_type(type) || (type == VALUE_TYPE_VOID);
+    return is_valid_value_type_for_interpreter(type)
+           || (type == VALUE_TYPE_VOID);
 }
 
 static void
@@ -581,7 +569,7 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 type->types[param_count + j] = read_uint8(p);
             }
             for (j = 0; j < param_count + result_count; j++) {
-                bh_assert(is_value_type(type->types[j]));
+                bh_assert(is_valid_value_type_for_interpreter(type->types[j]));
             }
 
             param_cell_num = wasm_get_cell_num(type->types, param_count);
@@ -697,7 +685,7 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
     read_leb_uint32(p, p_end, declare_init_size);
     if (declare_max_size_flag & 1) {
         read_leb_uint32(p, p_end, declare_max_size);
-        bh_assert(table->init_size <= table->max_size);
+        bh_assert(table->table_type.init_size <= table->table_type.max_size);
     }
 
     adjust_table_max_size(declare_init_size, declare_max_size_flag,
@@ -708,10 +696,10 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
         !((declare_max_size_flag & 1) && declare_init_size > declare_max_size));
 
     /* now we believe all declaration are ok */
-    table->elem_type = declare_elem_type;
-    table->init_size = declare_init_size;
-    table->flags = declare_max_size_flag;
-    table->max_size = declare_max_size;
+    table->table_type.elem_type = declare_elem_type;
+    table->table_type.init_size = declare_init_size;
+    table->table_type.flags = declare_max_size_flag;
+    table->table_type.max_size = declare_max_size;
     return true;
 }
 
@@ -818,26 +806,27 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMTable *table,
 
     CHECK_BUF(p, p_end, 1);
     /* 0x70 or 0x6F */
-    table->elem_type = read_uint8(p);
-    bh_assert((VALUE_TYPE_FUNCREF == table->elem_type)
+    table->table_type.elem_type = read_uint8(p);
+    bh_assert((VALUE_TYPE_FUNCREF == table->table_type.elem_type)
 #if WASM_ENABLE_REF_TYPES != 0
-              || VALUE_TYPE_EXTERNREF == table->elem_type
+              || VALUE_TYPE_EXTERNREF == table->table_type.elem_type
 #endif
     );
 
     p_org = p;
-    read_leb_uint32(p, p_end, table->flags);
+    read_leb_uint32(p, p_end, table->table_type.flags);
     bh_assert(p - p_org <= 1);
-    bh_assert(table->flags <= 1);
+    bh_assert(table->table_type.flags <= 1);
     (void)p_org;
 
-    read_leb_uint32(p, p_end, table->init_size);
-    if (table->flags == 1) {
-        read_leb_uint32(p, p_end, table->max_size);
-        bh_assert(table->init_size <= table->max_size);
+    read_leb_uint32(p, p_end, table->table_type.init_size);
+    if (table->table_type.flags == 1) {
+        read_leb_uint32(p, p_end, table->table_type.max_size);
+        bh_assert(table->table_type.init_size <= table->table_type.max_size);
     }
 
-    adjust_table_max_size(table->init_size, table->flags, &table->max_size);
+    adjust_table_max_size(table->table_type.init_size, table->table_type.flags,
+                          &table->table_type.max_size);
 
     *p_buf = p;
     return true;
@@ -1151,6 +1140,8 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
 
     bh_assert(func_count == code_count);
 
+    bh_assert(module->import_function_count <= UINT32_MAX - func_count);
+
     if (func_count) {
         module->function_count = func_count;
         total_size = sizeof(WASMFunction *) * (uint64)func_count;
@@ -1228,7 +1219,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
                 CHECK_BUF(p_code, buf_code_end, 1);
                 /* 0x7F/0x7E/0x7D/0x7C */
                 type = read_uint8(p_code);
-                bh_assert(is_value_type(type));
+                bh_assert(is_valid_value_type_for_interpreter(type));
                 for (k = 0; k < sub_local_count; k++) {
                     func->local_types[local_type_index++] = type;
                 }
@@ -1332,6 +1323,8 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
     uint8 mutable;
 
     read_leb_uint32(p, p_end, global_count);
+
+    bh_assert(module->import_global_count <= UINT32_MAX - global_count);
 
     module->global_count = 0;
     if (global_count) {
@@ -2528,11 +2521,12 @@ get_table_elem_type(const WASMModule *module, uint32 table_idx,
 
     if (p_elem_type) {
         if (table_idx < module->import_table_count)
-            *p_elem_type = module->import_tables[table_idx].u.table.elem_type;
+            *p_elem_type =
+                module->import_tables[table_idx].u.table.table_type.elem_type;
         else
             *p_elem_type =
                 module->tables[module->import_table_count + table_idx]
-                    .elem_type;
+                    .table_type.elem_type;
     }
     return true;
 }
@@ -4876,6 +4870,8 @@ wasm_loader_push_frame_offset(WASMLoaderContext *ctx, uint8 type,
                               bool disable_emit, int16 operand_offset,
                               char *error_buf, uint32 error_buf_size)
 {
+    uint32 cell_num_to_push, i;
+
     if (type == VALUE_TYPE_VOID)
         return true;
 
@@ -4900,19 +4896,23 @@ wasm_loader_push_frame_offset(WASMLoaderContext *ctx, uint8 type,
     if (is_32bit_type(type))
         return true;
 
-    if (ctx->p_code_compiled == NULL) {
-        if (!check_offset_push(ctx, error_buf, error_buf_size))
-            return false;
-    }
+    cell_num_to_push = wasm_value_type_cell_num(type) - 1;
+    for (i = 0; i < cell_num_to_push; i++) {
+        if (ctx->p_code_compiled == NULL) {
+            if (!check_offset_push(ctx, error_buf, error_buf_size))
+                return false;
+        }
 
-    ctx->frame_offset++;
-    if (!disable_emit) {
-        ctx->dynamic_offset++;
-        if (ctx->dynamic_offset > ctx->max_dynamic_offset) {
-            ctx->max_dynamic_offset = ctx->dynamic_offset;
-            bh_assert(ctx->max_dynamic_offset < INT16_MAX);
+        ctx->frame_offset++;
+        if (!disable_emit) {
+            ctx->dynamic_offset++;
+            if (ctx->dynamic_offset > ctx->max_dynamic_offset) {
+                ctx->max_dynamic_offset = ctx->dynamic_offset;
+                bh_assert(ctx->max_dynamic_offset < INT16_MAX);
+            }
         }
     }
+
     return true;
 }
 
@@ -4924,43 +4924,45 @@ wasm_loader_pop_frame_offset(WASMLoaderContext *ctx, uint8 type,
                              char *error_buf, uint32 error_buf_size)
 {
     /* if ctx->frame_csp equals ctx->frame_csp_bottom,
-        then current block is the function block */
+       then current block is the function block */
     uint32 depth = ctx->frame_csp > ctx->frame_csp_bottom ? 1 : 0;
     BranchBlock *cur_block = ctx->frame_csp - depth;
     int32 available_stack_cell =
         (int32)(ctx->stack_cell_num - cur_block->stack_cell_num);
+    uint32 cell_num_to_pop;
 
     /* Directly return success if current block is in stack
-     * polymorphic state while stack is empty. */
+       polymorphic state while stack is empty. */
     if (available_stack_cell <= 0 && cur_block->is_stack_polymorphic)
         return true;
 
     if (type == VALUE_TYPE_VOID)
         return true;
 
-    if (is_32bit_type(type)) {
-        /* Check the offset stack bottom to ensure the frame offset
-            stack will not go underflow. But we don't thrown error
-            and return true here, because the error msg should be
-            given in wasm_loader_pop_frame_ref */
-        if (!check_offset_pop(ctx, 1))
-            return true;
+    /* Change type to ANY when the stack top is ANY, so as to avoid
+       popping unneeded offsets, e.g. if type is I64/F64, we may pop
+       two offsets */
+    if (available_stack_cell > 0 && *(ctx->frame_ref - 1) == VALUE_TYPE_ANY)
+        type = VALUE_TYPE_ANY;
 
-        ctx->frame_offset -= 1;
-        if ((*(ctx->frame_offset) > ctx->start_dynamic_offset)
-            && (*(ctx->frame_offset) < ctx->max_dynamic_offset))
-            ctx->dynamic_offset -= 1;
-    }
-    else {
-        if (!check_offset_pop(ctx, 2))
-            return true;
+    cell_num_to_pop = wasm_value_type_cell_num(type);
 
-        ctx->frame_offset -= 2;
-        if ((*(ctx->frame_offset) > ctx->start_dynamic_offset)
-            && (*(ctx->frame_offset) < ctx->max_dynamic_offset))
-            ctx->dynamic_offset -= 2;
-    }
+    /* Check the offset stack bottom to ensure the frame offset
+       stack will not go underflow. But we don't thrown error
+       and return true here, because the error msg should be
+       given in wasm_loader_pop_frame_ref */
+    if (!check_offset_pop(ctx, cell_num_to_pop))
+        return true;
+
+    ctx->frame_offset -= cell_num_to_pop;
+    if ((*(ctx->frame_offset) > ctx->start_dynamic_offset)
+        && (*(ctx->frame_offset) < ctx->max_dynamic_offset))
+        ctx->dynamic_offset -= cell_num_to_pop;
+
     emit_operand(ctx, *(ctx->frame_offset));
+
+    (void)error_buf;
+    (void)error_buf_size;
     return true;
 }
 
@@ -6827,7 +6829,7 @@ re_scan:
 
                 CHECK_BUF(p, p_end, 1);
                 ref_type = read_uint8(p);
-                if (!is_value_type(ref_type)) {
+                if (!is_valid_value_type_for_interpreter(ref_type)) {
                     set_error_buf(error_buf, error_buf_size,
                                   "unknown value type");
                     goto fail;
@@ -7928,13 +7930,13 @@ re_scan:
                         if (opcode1 == WASM_OP_TABLE_GROW) {
                             if (table_idx < module->import_table_count) {
                                 module->import_tables[table_idx]
-                                    .u.table.possible_grow = true;
+                                    .u.table.table_type.possible_grow = true;
                             }
                             else {
                                 module
                                     ->tables[table_idx
                                              - module->import_table_count]
-                                    .possible_grow = true;
+                                    .table_type.possible_grow = true;
                             }
                         }
 

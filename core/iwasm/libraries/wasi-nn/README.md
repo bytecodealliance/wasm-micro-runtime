@@ -19,11 +19,36 @@ $ cmake -DWAMR_BUILD_WASI_NN=1 <other options> ...
 > ![Caution]
 > If enable `WAMR_BUID_WASI_NN`, iwasm will link a shared WAMR library instead of a static one. Wasi-nn backends will be loaded dynamically at runtime. Users shall specify the path of the backend library and register it to the iwasm runtime with `--native-lib=<path of backend library>`. All shared libraries should be placed in the `LD_LIBRARY_PATH`.
 
+#### Compilation options
+
+- `WAMR_BUILD_WASI_NN`. enable wasi-nn support. can't work alone. need to identify a backend. Match legacy wasi-nn spec naming convention. use `wasi_nn` as import module names.
+- `WAMR_BUILD_WASI_EPHEMERAL_NN`. Match latest wasi-nn spec naming convention. use `wasi_ephemeral_nn` as import module names.
+- `WAMR_BUILD_WASI_NN_TFLITE`. identify the backend as TensorFlow Lite.
+- `WAMR_BUILD_WASI_NN_OPENVINO`. identify the backend as OpenVINO.
+
 ### Wasm
 
-The definition of functions provided by WASI-NN (Wasm imports) is in the header file _core/iwasm/libraries/wasi-nn/wasi_nn.h_.
+The definition of functions provided by WASI-NN (Wasm imports) is in the header file [wasi_nn.h](_core/iwasm/libraries/wasi-nn/wasi_nn.h_). By only including this file in a WASM application you will bind WASI-NN into your module.
 
-By only including this file in a WASM application you will bind WASI-NN into your module.
+For some historical reasons, there are two sets of functions in the header file. The first set is the original one, and the second set is the new one. The new set is recommended to use. In code, `WASM_ENABLE_WASI_EPHEMERAL_NN` is used to control which set of functions to use. If `WASM_ENABLE_WASI_EPHEMERAL_NN` is defined, the new set of functions will be used. Otherwise, the original set of functions will be used.
+
+There is a big difference between the two sets of functions, `tensor_type`.
+
+```c
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+typedef enum { fp16 = 0, fp32, fp64, bf16, u8, i32, i64 } tensor_type;
+#else
+typedef enum { fp16 = 0, fp32, up8, ip32 } tensor_type;
+#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
+```
+
+It is required to recompile the Wasm application if you want to switch between the two sets of functions.
+
+#### Openvino
+
+If you're planning to use OpenVINO backends, the first step is to install OpenVINO on your computer. To do this correctly, please follow the official installation guide which you can find at this link: https://docs.openvino.ai/2024/get-started/install-openvino/install-openvino-archive-linux.html.
+
+After you've installed OpenVINO, you'll need to let cmake system know where to find it. You can do this by setting an environment variable named `OpenVINO_DIR`. This variable should point to the place on your computer where OpenVINO is installed. By setting this variable, your system will be able to locate and use OpenVINO when needed. You can find installation path by running the following command if using APT `$dpkg -L openvino`. The path should be _/opt/intel/openvino/_ or _/usr/lib/openvino_.
 
 ## Tests
 
@@ -41,7 +66,10 @@ Build the runtime image for your execution target type.
 - `tpu`
 
 ```bash
-EXECUTION_TYPE=cpu docker build -t wasi-nn-${EXECUTION_TYPE} -f core/iwasm/libraries/wasi-nn/test/Dockerfile.${EXECUTION_TYPE} .
+$ pwd
+<somewhere>/wasm-micro-runtime
+
+$ EXECUTION_TYPE=cpu docker build -t wasi-nn-${EXECUTION_TYPE} -f core/iwasm/libraries/wasi-nn/test/Dockerfile.${EXECUTION_TYPE} .
 ```
 
 ### Build wasm app
@@ -132,39 +160,35 @@ Supported:
 
 ## Smoke test
 
-Use [classification-example](https://github.com/bytecodealliance/wasi-nn/tree/main/rust/examples/classification-example) as a smoke test case to make sure the wasi-nn support in WAMR is working properly.
+### Testing with WasmEdge-WASINN Examples
 
-> [!Important]
-> It requires openvino.
+To ensure everything is set up correctly, use the examples from [WasmEdge-WASINN-examples](https://github.com/second-state/WasmEdge-WASINN-examples/tree/master). These examples help verify that WASI-NN support in WAMR is functioning as expected.
 
-### Prepare the model and the wasm
+> Note: The repository contains two types of examples. Some use the [standard wasi-nn](https://github.com/WebAssembly/wasi-nn), while others use [WasmEdge's version of wasi-nn](https://github.com/second-state/wasmedge-wasi-nn), which is enhanced to meet specific customer needs.
 
-```bash
-$ pwd
-/workspaces/wasm-micro-runtime/core/iwasm/libraries/wasi-nn/test
+The examples test the following machine learning backends:
 
-$ docker build -t wasi-nn-example:v1.0 -f Dockerfile.wasi-nn-example .
-```
+- OpenVINO
+- PyTorch
+- TensorFlow Lite
 
-There are model files(\*mobilenet\**) and wasm files(*wasi-nn-example.wasm*) in the directory */workspaces/wasi-nn/rust/examples/classification-example/build\* in the image of wasi-nn-example:v1.0.
+Due to the different requirements of each backend, we'll use a Docker container for a hassle-free testing environment.
 
-### build iwasm and test
-
-_TODO: May need alternative steps to build the iwasm and test in the container of wasi-nn-example:v1.0_
+#### Prepare the execution environment
 
 ```bash
 $ pwd
-/workspaces/wasm-micro-runtime
+/workspaces/wasm-micro-runtime/
 
-$ docker run --rm -it -v $(pwd):/workspaces/wasm-micro-runtime wasi-nn-example:v1.0 /bin/bash
+$ docker build -t wasi-nn-smoke:v1.0 -f ./core/iwasm/libraries/wasi-nn/test/Dockerfile.wasi-nn-smoke .
 ```
 
-> [!Caution]
-> The following steps are executed in the container of wasi-nn-example:v1.0.
+#### Execute
 
 ```bash
-$ cd /workspaces/wasm-micro-runtime/product-mini/platforms/linux
-$ cmake -S . -B build -DWAMR_BUILD_WASI_NN=1 -DWAMR_BUILD_WASI_EPHEMERAL_NN=1
-$ cmake --build build
-$ ./build/iwasm -v=5 --map-dir=/workspaces/wasi-nn/rust/examples/classification-example/build/::fixture /workspaces/wasi-nn/rust/examples/classification-example/build/wasi-nn-example.wasm
+$ docker run --rm wasi-nn-smoke:v1.0
 ```
+
+### Testing with bytecodealliance wasi-nn
+
+For another example, check out [classification-example](https://github.com/bytecodealliance/wasi-nn/tree/main/rust/examples/classification-example), which focuses on OpenVINO. You can run it using the same Docker container mentioned above.

@@ -43,26 +43,28 @@ index b1e1239..a0f6967 100644
  
  
 diff --git a/test/core/elem.wast b/test/core/elem.wast
-index 33b3f67..c72431c 100644
+index 33b3f67..a4c1a2d 100644
 --- a/test/core/elem.wast
 +++ b/test/core/elem.wast
-@@ -595,9 +595,11 @@
-   (func $const-i32-d (type $out-i32) (i32.const 68))
- )
+@@ -586,6 +586,7 @@
+ (assert_return (invoke $module1 "call-8") (i32.const 65))
+ (assert_return (invoke $module1 "call-9") (i32.const 66))
  
 +(;
+ (module $module2
+   (type $out-i32 (func (result i32)))
+   (import "module1" "shared-table" (table 10 funcref))
+@@ -598,7 +599,9 @@
  (assert_return (invoke $module1 "call-7") (i32.const 67))
  (assert_return (invoke $module1 "call-8") (i32.const 68))
  (assert_return (invoke $module1 "call-9") (i32.const 66))
 +;)
  
++(;
  (module $module3
    (type $out-i32 (func (result i32)))
-@@ -608,9 +610,11 @@
-   (func $const-i32-f (type $out-i32) (i32.const 70))
- )
- 
-+(;
+   (import "module1" "shared-table" (table 10 funcref))
+@@ -611,6 +614,7 @@
  (assert_return (invoke $module1 "call-7") (i32.const 67))
  (assert_return (invoke $module1 "call-8") (i32.const 69))
  (assert_return (invoke $module1 "call-9") (i32.const 70))
@@ -95,7 +97,6 @@ index 33b3f67..c72431c 100644
  
  (assert_return (invoke "call_imported_elem") (i32.const 42))
 +;)
-\ No newline at end of file
 diff --git a/test/core/if.wast b/test/core/if.wast
 index 2ea45f6..6f07304 100644
 --- a/test/core/if.wast

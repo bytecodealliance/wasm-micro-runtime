@@ -495,6 +495,12 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
     } while (0)
 #endif
 
+#if UINTPTR_MAX == UINT64_MAX
+#define PUSH_PTR(value) PUSH_I64(value)
+#else
+#define PUSH_PTR(value) PUSH_I32(value)
+#endif
+
 /* in exception handling, label_type needs to be stored to lookup exception
  * handlers */
 
@@ -1424,7 +1430,7 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 #define HANDLE_OP_END()                                            \
     os_mutex_lock(&exec_env->wait_lock);                           \
     if (exec_env->current_status->signal_flag == WAMR_SIG_SINGSTEP \
-        && exec_env->current_status->step_count++ == 2) {          \
+        && exec_env->current_status->step_count++ == 1) {          \
         exec_env->current_status->step_count = 0;                  \
         SYNC_ALL_TO_FRAME();                                       \
         wasm_cluster_thread_waiting_run(exec_env);                 \
@@ -1892,19 +1898,19 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     switch (handler_opcode) {
                         case WASM_OP_CATCH:
                             skip_leb(lookup_cursor); /* skip tag_index */
-                            PUSH_I64(end_addr);
+                            PUSH_PTR(end_addr);
                             break;
                         case WASM_OP_CATCH_ALL:
-                            PUSH_I64(end_addr);
+                            PUSH_PTR(end_addr);
                             break;
                         case WASM_OP_DELEGATE:
                             skip_leb(lookup_cursor); /* skip depth */
-                            PUSH_I64(end_addr);
+                            PUSH_PTR(end_addr);
                             /* patch target_addr */
                             (frame_csp - 1)->target_addr = lookup_cursor;
                             break;
                         case WASM_OP_END:
-                            PUSH_I64(0);
+                            PUSH_PTR(0);
                             /* patch target_addr */
                             (frame_csp - 1)->target_addr = end_addr;
                             break;
@@ -5638,8 +5644,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
 
                         /* allowing the destination and source to overlap */
+#if WASM_ENABLE_MEMORY64 == 0
                         bh_memmove_s(mdst, (uint32)(linear_mem_size - dst),
-                                     msrc, len);
+                                     msrc, (uint32)len);
+#else
+                        /* use memmove when memory64 is enabled since len
+                           may be larger than UINT32_MAX */
+                        memmove(mdst, msrc, len);
+#endif
                         break;
                     }
                     case WASM_OP_MEMORY_FILL:

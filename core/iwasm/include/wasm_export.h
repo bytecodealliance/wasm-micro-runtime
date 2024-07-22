@@ -75,11 +75,17 @@ typedef enum {
 struct WASMFuncType;
 typedef struct WASMFuncType *wasm_func_type_t;
 
+struct WASMTableType;
+typedef struct WASMTableType *wasm_table_type_t;
+
 struct WASMGlobalType;
 typedef struct WASMGlobalType *wasm_global_type_t;
 
+#ifndef WASM_MEMORY_T_DEFINED
+#define WASM_MEMORY_T_DEFINED
 struct WASMMemory;
 typedef struct WASMMemory WASMMemoryType;
+#endif
 typedef WASMMemoryType *wasm_memory_type_t;
 
 typedef struct wasm_import_t {
@@ -89,6 +95,7 @@ typedef struct wasm_import_t {
     bool linked;
     union {
         wasm_func_type_t func_type;
+        wasm_table_type_t table_type;
         wasm_global_type_t global_type;
         wasm_memory_type_t memory_type;
     } u;
@@ -99,6 +106,7 @@ typedef struct wasm_export_t {
     wasm_import_export_kind_t kind;
     union {
         wasm_func_type_t func_type;
+        wasm_table_type_t table_type;
         wasm_global_type_t global_type;
         wasm_memory_type_t memory_type;
     } u;
@@ -295,6 +303,15 @@ typedef struct wasm_global_inst_t {
     void *global_data;
 } wasm_global_inst_t;
 
+/* Table instance*/
+typedef struct wasm_table_inst_t {
+    wasm_valkind_t elem_kind;
+    uint32_t cur_size;
+    uint32_t max_size;
+    /* represents the elements of the table, for internal use only */
+    void *elems;
+} wasm_table_inst_t;
+
 typedef enum {
     WASM_LOG_LEVEL_FATAL = 0,
     WASM_LOG_LEVEL_ERROR = 1,
@@ -404,6 +421,59 @@ wasm_runtime_get_mem_alloc_info(mem_alloc_info_t *mem_alloc_info);
  */
 WASM_RUNTIME_API_EXTERN package_type_t
 get_package_type(const uint8_t *buf, uint32_t size);
+
+/**
+ * Get the package type of a buffer (same as get_package_type).
+ *
+ * @param buf the package buffer
+ * @param size the package buffer size
+ *
+ * @return the package type, return Package_Type_Unknown if the type is unknown
+ */
+WASM_RUNTIME_API_EXTERN package_type_t
+wasm_runtime_get_file_package_type(const uint8_t *buf, uint32_t size);
+
+/**
+ * Get the package type of a module.
+ *
+ * @param module the module
+ *
+ * @return the package type, return Package_Type_Unknown if the type is
+ * unknown
+ */
+WASM_RUNTIME_API_EXTERN package_type_t
+wasm_runtime_get_module_package_type(const wasm_module_t module);
+
+/**
+ * Get the package version of a buffer.
+ *
+ * @param buf the package buffer
+ * @param size the package buffer size
+ *
+ * @return the package version, return zero if the version is unknown
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_get_file_package_version(const uint8_t *buf, uint32_t size);
+
+/**
+ * Get the package version of a module
+ *
+ * @param module the module
+ *
+ * @return the package version, or zero if version is unknown
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_get_module_package_version(const wasm_module_t module);
+
+/**
+ * Get the currently supported version of the package type
+ *
+ * @param package_type the package type
+ *
+ * @return the currently supported version, or zero if package type is unknown
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_get_current_package_version(package_type_t package_type);
 
 /**
  * Check whether a file is an AOT XIP (Execution In Place) file
@@ -698,7 +768,7 @@ wasm_runtime_get_wasi_exit_code(wasm_module_inst_t module_inst);
  * @return the function instance found, NULL if not found
  */
 WASM_RUNTIME_API_EXTERN wasm_function_inst_t
-wasm_runtime_lookup_function(wasm_module_inst_t const module_inst,
+wasm_runtime_lookup_function(const wasm_module_inst_t module_inst,
                              const char *name);
 
 /**
@@ -710,8 +780,8 @@ wasm_runtime_lookup_function(wasm_module_inst_t const module_inst,
  * @return the parameter count of the function instance
  */
 WASM_RUNTIME_API_EXTERN uint32_t
-wasm_func_get_param_count(wasm_function_inst_t const func_inst,
-                          wasm_module_inst_t const module_inst);
+wasm_func_get_param_count(const wasm_function_inst_t func_inst,
+                          const wasm_module_inst_t module_inst);
 
 /**
  * Get result count of the function instance
@@ -722,8 +792,8 @@ wasm_func_get_param_count(wasm_function_inst_t const func_inst,
  * @return the result count of the function instance
  */
 WASM_RUNTIME_API_EXTERN uint32_t
-wasm_func_get_result_count(wasm_function_inst_t const func_inst,
-                           wasm_module_inst_t const module_inst);
+wasm_func_get_result_count(const wasm_function_inst_t func_inst,
+                           const wasm_module_inst_t module_inst);
 
 /**
  * Get parameter types of the function instance
@@ -733,8 +803,8 @@ wasm_func_get_result_count(wasm_function_inst_t const func_inst,
  * @param param_types the parameter types returned
  */
 WASM_RUNTIME_API_EXTERN void
-wasm_func_get_param_types(wasm_function_inst_t const func_inst,
-                          wasm_module_inst_t const module_inst,
+wasm_func_get_param_types(const wasm_function_inst_t func_inst,
+                          const wasm_module_inst_t module_inst,
                           wasm_valkind_t *param_types);
 
 /**
@@ -745,8 +815,8 @@ wasm_func_get_param_types(wasm_function_inst_t const func_inst,
  * @param result_types the result types returned
  */
 WASM_RUNTIME_API_EXTERN void
-wasm_func_get_result_types(wasm_function_inst_t const func_inst,
-                           wasm_module_inst_t const module_inst,
+wasm_func_get_result_types(const wasm_function_inst_t func_inst,
+                           const wasm_module_inst_t module_inst,
                            wasm_valkind_t *result_types);
 
 /**
@@ -1188,7 +1258,7 @@ wasm_runtime_validate_native_addr(wasm_module_inst_t module_inst,
                                   void *native_ptr, uint64_t size);
 
 /**
- * Convert app address(relative address) to native address(absolute address)
+ * Convert app address (relative address) to native address (absolute address)
  *
  * Note that native addresses to module instance memory can be invalidated
  * on a memory growth. (Except shared memory, whose native addresses are
@@ -1204,7 +1274,7 @@ wasm_runtime_addr_app_to_native(wasm_module_inst_t module_inst,
                                 uint64_t app_offset);
 
 /**
- * Convert native address(absolute address) to app address(relative address)
+ * Convert native address (absolute address) to app address (relative address)
  *
  * @param module_inst the WASM module instance
  * @param native_ptr the native address
@@ -1300,7 +1370,7 @@ wasm_runtime_get_export_type(const wasm_module_t module, int32_t export_index,
  * @return the number of parameters for the function type
  */
 WASM_RUNTIME_API_EXTERN uint32_t
-wasm_func_type_get_param_count(wasm_func_type_t const func_type);
+wasm_func_type_get_param_count(const wasm_func_type_t func_type);
 
 /**
  * Get the kind of a parameter for a function type
@@ -1311,7 +1381,7 @@ wasm_func_type_get_param_count(wasm_func_type_t const func_type);
  * @return the kind of the parameter if successful, -1 otherwise
  */
 WASM_RUNTIME_API_EXTERN wasm_valkind_t
-wasm_func_type_get_param_valkind(wasm_func_type_t const func_type,
+wasm_func_type_get_param_valkind(const wasm_func_type_t func_type,
                                  uint32_t param_index);
 
 /**
@@ -1322,7 +1392,7 @@ wasm_func_type_get_param_valkind(wasm_func_type_t const func_type,
  * @return the number of results for the function type
  */
 WASM_RUNTIME_API_EXTERN uint32_t
-wasm_func_type_get_result_count(wasm_func_type_t const func_type);
+wasm_func_type_get_result_count(const wasm_func_type_t func_type);
 
 /**
  * Get the kind of a result for a function type
@@ -1333,7 +1403,7 @@ wasm_func_type_get_result_count(wasm_func_type_t const func_type);
  * @return the kind of the result if successful, -1 otherwise
  */
 WASM_RUNTIME_API_EXTERN wasm_valkind_t
-wasm_func_type_get_result_valkind(wasm_func_type_t const func_type,
+wasm_func_type_get_result_valkind(const wasm_func_type_t func_type,
                                   uint32_t result_index);
 
 /**
@@ -1385,6 +1455,46 @@ wasm_memory_type_get_init_page_count(const wasm_memory_type_t memory_type);
  */
 WASM_RUNTIME_API_EXTERN uint32_t
 wasm_memory_type_get_max_page_count(const wasm_memory_type_t memory_type);
+
+/**
+ * Get the element kind for a table type
+ *
+ * @param table_type the table type
+ *
+ * @return the element kind
+ */
+WASM_RUNTIME_API_EXTERN wasm_valkind_t
+wasm_table_type_get_elem_kind(const wasm_table_type_t table_type);
+
+/**
+ * Get the sharing setting for a table type
+ *
+ * @param table_type the table type
+ *
+ * @return true if shared, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_table_type_get_shared(const wasm_table_type_t table_type);
+
+/**
+ * Get the initial size for a table type
+ *
+ * @param table_type the table type
+ *
+ * @return the initial table size
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_table_type_get_init_size(const wasm_table_type_t table_type);
+
+/**
+ * Get the maximum size for a table type
+ *
+ * @param table_type the table type
+ *
+ * @return the maximum table size
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_table_type_get_max_size(const wasm_table_type_t table_type);
 
 /**
  * Register native functions with same module name
@@ -1471,6 +1581,34 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_get_export_global_inst(const wasm_module_inst_t module_inst,
                                     const char *name,
                                     wasm_global_inst_t *global_inst);
+
+/**
+ * Get an export table instance
+ *
+ * @param module_inst the module instance
+ * @param name the export table name
+ * @param table_inst location to store the table instance
+ *
+ * @return true if success, false otherwise
+ *
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_get_export_table_inst(const wasm_module_inst_t module_inst,
+                                   const char *name,
+                                   wasm_table_inst_t *table_inst);
+
+/**
+ * Get a function instance from a table.
+ *
+ * @param module_inst the module instance
+ * @param table_inst the table instance
+ * @param idx the index in the table
+ *
+ * @return the function instance if successful, NULL otherwise
+ */
+WASM_RUNTIME_API_EXTERN wasm_function_inst_t
+wasm_table_get_func_inst(const wasm_module_inst_t module_inst,
+                         const wasm_table_inst_t *table_inst, uint32_t idx);
 
 /**
  * Get attachment of native function from execution environment
@@ -1735,7 +1873,7 @@ wasm_runtime_dump_pgo_prof_data_to_buf(wasm_module_inst_t module_inst,
  *         and name string) if found, NULL otherwise
  */
 WASM_RUNTIME_API_EXTERN const uint8_t *
-wasm_runtime_get_custom_section(wasm_module_t const module_comm,
+wasm_runtime_get_custom_section(const wasm_module_t module_comm,
                                 const char *name, uint32_t *len);
 
 /**
@@ -1759,6 +1897,18 @@ wasm_runtime_is_import_func_linked(const char *module_name,
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_import_global_linked(const char *module_name,
                                      const char *global_name);
+
+/**
+ * Enlarge the memory region for a module instance
+ *
+ * @param module_inst the module instance
+ * @param inc_page_count the number of pages to add
+ *
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_enlarge_memory(wasm_module_inst_t module_inst,
+                            uint64_t inc_page_count);
 
 typedef enum {
     INTERNAL_ERROR,

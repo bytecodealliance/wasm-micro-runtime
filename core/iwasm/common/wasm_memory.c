@@ -189,7 +189,7 @@ wasm_runtime_malloc_internal(unsigned int size)
 {
     if (memory_mode == MEMORY_MODE_UNKNOWN) {
         LOG_WARNING(
-            "wasm_runtime_malloc failed: memory hasn't been initialize.\n");
+            "wasm_runtime_malloc failed: memory hasn't been initialized.\n");
         return NULL;
     }
     else if (memory_mode == MEMORY_MODE_POOL) {
@@ -215,7 +215,7 @@ wasm_runtime_realloc_internal(void *ptr, unsigned int size)
 {
     if (memory_mode == MEMORY_MODE_UNKNOWN) {
         LOG_WARNING(
-            "wasm_runtime_realloc failed: memory hasn't been initialize.\n");
+            "wasm_runtime_realloc failed: memory hasn't been initialized.\n");
         return NULL;
     }
     else if (memory_mode == MEMORY_MODE_POOL) {
@@ -883,6 +883,12 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
     }
 #endif /* end of WASM_MEM_ALLOC_WITH_USAGE */
 
+    /*
+     * AOT compiler assumes at least 8 byte alignment.
+     * see aot_check_memory_overflow.
+     */
+    bh_assert(((uintptr_t)memory->memory_data & 0x7) == 0);
+
     memory->num_bytes_per_page = num_bytes_per_page;
     memory->cur_page_count = total_page_count;
     memory->max_page_count = max_page_count;
@@ -911,6 +917,30 @@ return_func:
     }
 
     return ret;
+}
+
+bool
+wasm_runtime_enlarge_memory(WASMModuleInstanceCommon *module_inst,
+                            uint64 inc_page_count)
+{
+    if (inc_page_count > UINT32_MAX) {
+        return false;
+    }
+
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return aot_enlarge_memory((AOTModuleInstance *)module_inst,
+                                  (uint32)inc_page_count);
+    }
+#endif
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        return wasm_enlarge_memory((WASMModuleInstance *)module_inst,
+                                   (uint32)inc_page_count);
+    }
+#endif
+
+    return false;
 }
 
 void
@@ -1031,6 +1061,12 @@ wasm_allocate_linear_memory(uint8 **data, bool is_shared_memory,
         }
 #endif
     }
+
+    /*
+     * AOT compiler assumes at least 8 byte alignment.
+     * see aot_check_memory_overflow.
+     */
+    bh_assert(((uintptr_t)*data & 0x7) == 0);
 
     return BHT_OK;
 }

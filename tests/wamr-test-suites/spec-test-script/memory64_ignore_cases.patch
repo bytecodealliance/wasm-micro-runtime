@@ -70,10 +70,10 @@ index 4090b2c..18f66b4 100644
  ;; Start section
  (module binary
 diff --git a/test/core/data.wast b/test/core/data.wast
-index b1e1239..74a7b04 100644
+index 4f339be..0b5b3e6 100644
 --- a/test/core/data.wast
 +++ b/test/core/data.wast
-@@ -312,9 +312,10 @@
+@@ -306,9 +306,10 @@
      "\02\01\41\00\0b"                       ;; active data segment 0 for memory 1
      "\00"                                   ;; empty vec(byte)
    )
@@ -85,7 +85,7 @@ index b1e1239..74a7b04 100644
  ;; Data segment with memory index 0 (no memory section)
  (assert_invalid
    (module binary
-@@ -323,7 +324,7 @@
+@@ -317,7 +318,7 @@
      "\00\41\00\0b"                          ;; active data segment 0 for memory 0
      "\00"                                   ;; empty vec(byte)
    )
@@ -94,7 +94,7 @@ index b1e1239..74a7b04 100644
  )
  
  ;; Data segment with memory index 1 (no memory section)
-@@ -334,7 +335,7 @@
+@@ -328,7 +329,7 @@
      "\02\01\41\00\0b"                       ;; active data segment 0 for memory 1
      "\00"                                   ;; empty vec(byte)
    )
@@ -103,7 +103,7 @@ index b1e1239..74a7b04 100644
  )
  
  ;; Data segment with memory index 1 and vec(byte) as above,
-@@ -354,7 +355,7 @@
+@@ -348,7 +349,7 @@
      "\20\21\22\23\24\25\26\27\28\29\2a\2b\2c\2d\2e\2f"
      "\30\31\32\33\34\35\36\37\38\39\3a\3b\3c\3d"
    )
@@ -112,7 +112,7 @@ index b1e1239..74a7b04 100644
  )
  
  ;; Data segment with memory index 1 and specially crafted vec(byte) after.
-@@ -374,8 +375,9 @@
+@@ -368,8 +369,9 @@
      "\20\21\22\23\24\25\26\27\28\29\2a\2b\2c\2d\2e\2f"
      "\30\31\32\33\34\35\36\37\38\39\3a\3b\3c\3d"
    )
@@ -124,26 +124,28 @@ index b1e1239..74a7b04 100644
  
  ;; Invalid offsets
 diff --git a/test/core/elem.wast b/test/core/elem.wast
-index 575ecef..6eecab9 100644
+index 575ecef..dd1106c 100644
 --- a/test/core/elem.wast
 +++ b/test/core/elem.wast
-@@ -571,9 +571,11 @@
-   (func $const-i32-d (type $out-i32) (i32.const 68))
- )
+@@ -562,6 +562,7 @@
+ (assert_return (invoke $module1 "call-8") (i32.const 65))
+ (assert_return (invoke $module1 "call-9") (i32.const 66))
  
 +(;
+ (module $module2
+   (type $out-i32 (func (result i32)))
+   (import "module1" "shared-table" (table 10 funcref))
+@@ -574,7 +575,9 @@
  (assert_return (invoke $module1 "call-7") (i32.const 67))
  (assert_return (invoke $module1 "call-8") (i32.const 68))
  (assert_return (invoke $module1 "call-9") (i32.const 66))
 +;)
  
++(;
  (module $module3
    (type $out-i32 (func (result i32)))
-@@ -584,6 +586,8 @@
-   (func $const-i32-f (type $out-i32) (i32.const 70))
- )
- 
-+(;
+   (import "module1" "shared-table" (table 10 funcref))
+@@ -587,3 +590,4 @@
  (assert_return (invoke $module1 "call-7") (i32.const 67))
  (assert_return (invoke $module1 "call-8") (i32.const 69))
  (assert_return (invoke $module1 "call-9") (i32.const 70))

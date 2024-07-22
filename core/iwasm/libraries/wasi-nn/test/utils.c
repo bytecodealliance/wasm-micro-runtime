@@ -23,14 +23,14 @@ wasm_load(char *model_name, graph *g, execution_target target)
     buffer = (uint8_t *)malloc(sizeof(uint8_t) * MAX_MODEL_SIZE);
     if (buffer == NULL) {
         fclose(pFile);
-        return missing_memory;
+        return too_large;
     }
 
     result = fread(buffer, 1, MAX_MODEL_SIZE, pFile);
     if (result <= 0) {
         fclose(pFile);
         free(buffer);
-        return missing_memory;
+        return too_large;
     }
 
     graph_builder_array arr;
@@ -40,7 +40,7 @@ wasm_load(char *model_name, graph *g, execution_target target)
     if (arr.buf == NULL) {
         fclose(pFile);
         free(buffer);
-        return missing_memory;
+        return too_large;
     }
 
     arr.buf[0].size = result;
@@ -51,6 +51,13 @@ wasm_load(char *model_name, graph *g, execution_target target)
     fclose(pFile);
     free(buffer);
     free(arr.buf);
+    return res;
+}
+
+wasi_nn_error
+wasm_load_by_name(const char *model_name, graph *g)
+{
+    wasm_nn_error res = load_by_name(model_name, g);
     return res;
 }
 
@@ -67,7 +74,7 @@ wasm_set_input(graph_execution_context ctx, float *input_tensor, uint32_t *dim)
     dims.size = INPUT_TENSOR_DIMS;
     dims.buf = (uint32_t *)malloc(dims.size * sizeof(uint32_t));
     if (dims.buf == NULL)
-        return missing_memory;
+        return too_large;
 
     tensor tensor;
     tensor.dimensions = &dims;

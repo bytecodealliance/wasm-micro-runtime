@@ -100,7 +100,8 @@ TEST_F(compilation_aot_emit_memory_test, aot_check_memory_overflow)
 
     for (uint32 i = 0; i < DEFAULT_CYCLE_TIMES; i++) {
         offset = (1 + (rand() % (DEFAULT_MAX_RAND_NUM - 1 + 1)));
-        aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes, false);
+        aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes, false,
+                                  NULL);
     }
 }
 

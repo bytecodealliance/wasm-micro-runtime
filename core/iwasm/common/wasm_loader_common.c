@@ -4,7 +4,9 @@
  */
 #include "wasm_loader_common.h"
 #include "bh_log.h"
-#include "../interpreter/wasm.h"
+#if WASM_ENABLE_GC != 0
+#include "../common/gc/gc_type.h"
+#endif
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string,
@@ -55,4 +57,76 @@ wasm_memory_check_flags(const uint8 mem_flag, char *error_buf,
     }
 
     return true;
+}
+
+/*
+ * compare with a bigger type set in `wasm_value_type_size_internal()`,
+ * this function will only cover global value type, function's param
+ * value type and function's result value type.
+ *
+ * please feel free to add more if there are more requirements
+ */
+bool
+is_valid_value_type(uint8 type)
+{
+    if (/* I32/I64/F32/F64, 0x7C to 0x7F */
+        (type >= VALUE_TYPE_F64 && type <= VALUE_TYPE_I32)
+#if WASM_ENABLE_GC != 0
+        /* reference types, 0x65 to 0x70 */
+        || wasm_is_type_reftype(type)
+#elif WASM_ENABLE_REF_TYPES != 0
+        || (type == VALUE_TYPE_FUNCREF || type == VALUE_TYPE_EXTERNREF)
+#endif
+#if WASM_ENABLE_SIMD != 0
+        || type == VALUE_TYPE_V128 /* 0x7B */
+#endif
+    )
+        return true;
+    return false;
+}
+
+bool
+is_valid_value_type_for_interpreter(uint8 value_type)
+{
+#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
+    /*
+     * Note: regardless of WASM_ENABLE_SIMD, our interpreters don't have
+     * SIMD implemented. It's safer to reject v128, especially for the
+     * fast interpreter.
+     */
+    if (value_type == VALUE_TYPE_V128)
+        return false;
+#endif
+    return is_valid_value_type(value_type);
+}
+
+bool
+is_valid_func_type(const WASMFuncType *func_type)
+{
+    unsigned i;
+    for (i = 0;
+         i < (unsigned)(func_type->param_count + func_type->result_count);
+         i++) {
+        if (!is_valid_value_type(func_type->types[i]))
+            return false;
+    }
+
+    return true;
+}
+
+/*
+ * Indices are represented as a u32.
+ */
+bool
+is_indices_overflow(uint32 import, uint32 other, char *error_buf,
+                    uint32 error_buf_size)
+{
+    if (import > UINT32_MAX - other) {
+        snprintf(error_buf, error_buf_size,
+                 "too many items in the index space(%" PRIu32 "+%" PRIu32 ").",
+                 import, other);
+        return true;
+    }
+
+    return false;
 }
