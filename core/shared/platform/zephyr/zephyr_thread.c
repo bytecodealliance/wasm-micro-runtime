@@ -602,13 +602,13 @@ int
 os_cond_broadcast(korp_cond *cond)
 {
     os_thread_wait_node *node;
-    k_mutex_lock(&cond->wait_list_lock, K_FOREVER);
+    mutex_lock(&cond->wait_list_lock, K_FOREVER);
     node = cond->thread_wait_list;
     while (node) {
         os_thread_wait_node *next = node->next;
-        k_sem_give(&node->sem);
+        sem_give(&node->sem);
         node = next;
     }
-    k_mutex_unlock(&cond->wait_list_lock);
+    mutex_unlock(&cond->wait_list_lock);
     return BHT_OK;
 }
