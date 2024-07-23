@@ -9,6 +9,8 @@
 #include "wasm_export.h"
 #include "aot_export.h"
 
+#include <llvm-c/Support.h>
+
 #if BH_HAS_DLFCN
 #include <dlfcn.h>
 
@@ -195,6 +197,7 @@ print_help()
 #if WASM_ENABLE_LINUX_PERF != 0
     printf("  --enable-linux-perf       Enable linux perf support\n");
 #endif
+    printf("  --mllvm=<option>          Add the LLVM command line option\n");
     printf("  -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log\n");
     printf("  --version                 Show version information\n");
     printf("Examples: wamrc -o test.aot test.wasm\n");
@@ -315,6 +318,8 @@ int
 main(int argc, char *argv[])
 {
     char *wasm_file_name = NULL, *out_file_name = NULL;
+    char **llvm_options = NULL;
+    size_t llvm_options_count = 0;
     uint8 *wasm_file = NULL;
     uint32 wasm_file_size;
     wasm_module_t wasm_module = NULL;
@@ -550,6 +555,24 @@ main(int argc, char *argv[])
             enable_linux_perf = true;
         }
 #endif
+        else if (!strncmp(argv[0], "--mllvm=", 8)) {
+            void *np;
+            if (argv[0][8] == '\0')
+                PRINT_HELP_AND_EXIT();
+            if (llvm_options_count == 0)
+                llvm_options_count += 2;
+            else
+                llvm_options_count++;
+            np = realloc(llvm_options, llvm_options_count * sizeof(char *));
+            if (np == NULL) {
+                printf("Memory allocation failure\n");
+                goto fail0;
+            }
+            llvm_options = np;
+            if (llvm_options_count == 2)
+                llvm_options[llvm_options_count - 2] = "wamrc";
+            llvm_options[llvm_options_count - 1] = argv[0] + 8;
+        }
         else if (!strcmp(argv[0], "--version")) {
             uint32 major, minor, patch;
             wasm_runtime_get_version(&major, &minor, &patch);
@@ -624,6 +647,10 @@ main(int argc, char *argv[])
     native_handle_count = load_and_register_native_libs(
         native_lib_list, native_lib_count, native_handle_list);
 #endif
+
+    if (llvm_options_count > 0)
+        LLVMParseCommandLineOptions(llvm_options_count,
+                                    (const char **)llvm_options, "wamrc");
 
     bh_print_time("Begin to load wasm file");
 
@@ -738,6 +765,7 @@ fail0:
     if (option.custom_sections) {
         free(option.custom_sections);
     }
+    free(llvm_options);
 
     bh_print_time("wamrc return");
     return exit_status;
