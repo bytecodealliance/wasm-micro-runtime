@@ -7,7 +7,6 @@
 
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
-#include "bh_log.h"
 
 /* function pointers for executable memory management */
 static exec_mem_alloc_func_t exec_mem_alloc_func = NULL;
