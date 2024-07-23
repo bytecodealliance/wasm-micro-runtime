@@ -100,10 +100,10 @@ jobs:
             mode: "-t aot",
             option: "CONFIG_INTERPRETERS_WAMR_AOT=y\\n"
           },
-          # {
-          #   mode: "-t aot -X",
-          #   option: "CONFIG_INTERPRETERS_WAMR_AOT=y\\n"
-          # },
+          {
+            mode: "-t aot -X",
+            option: "CONFIG_INTERPRETERS_WAMR_AOT=y\\n"
+          },
           # {
           #   mode: "-t classic-interp",
           #   option: "CONFIG_INTERPRETERS_WAMR_CLASSIC=y\\n"
