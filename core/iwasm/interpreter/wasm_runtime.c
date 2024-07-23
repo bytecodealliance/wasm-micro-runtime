@@ -170,7 +170,6 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     uint8 *global_addr;
 
     bool is_shared_memory = false;
-    bool is_main_memory = false;
 #if WASM_ENABLE_SHARED_MEMORY != 0
     is_shared_memory = flags & SHARED_MEMORY_FLAG ? true : false;
 
@@ -195,16 +194,8 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     default_max_page =
         memory->is_memory64 ? DEFAULT_MEM64_MAX_PAGES : DEFAULT_MAX_PAGES;
 
-    /* Current assumption is that:
-     * if there doesn't exist a non-import memory, the first non-import memory
-     * would be main memory */
-    if ((module_inst->module->memory_count > 0
-         && memory_idx == module_inst->module->import_memory_count)
-        || (module_inst->module->memory_count == 0 && memory_idx == 0)) {
-        is_main_memory = true;
-    }
-
-    if (is_main_memory) {
+    /* The app heap should be in the default memory */
+    if (memory_idx == 0) {
         if (heap_size > 0 && module_inst->module->malloc_function != (uint32)-1
             && module_inst->module->free_function != (uint32)-1) {
             /* Disable app heap, use malloc/free function exported
@@ -313,7 +304,7 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     LOG_VERBOSE("Memory instantiate:");
     LOG_VERBOSE("  page bytes: %u, init pages: %u, max pages: %u",
                 num_bytes_per_page, init_page_count, max_page_count);
-    if (is_main_memory)
+    if (memory_idx == 0)
         LOG_VERBOSE("  heap offset: %" PRIu64 ", heap size: %u\n", heap_offset,
                     heap_size);
 
@@ -340,14 +331,14 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     memory->max_page_count = max_page_count;
     memory->memory_data_size = memory_data_size;
 
-    if (is_main_memory) {
+    if (memory_idx == 0) {
         memory->heap_data = memory->memory_data + heap_offset;
         memory->heap_data_end = memory->heap_data + heap_size;
         memory->memory_data_end = memory->memory_data + memory_data_size;
     }
 
     /* Initialize heap */
-    if (is_main_memory && heap_size > 0) {
+    if (memory_idx == 0 && heap_size > 0) {
         uint32 heap_struct_size = mem_allocator_get_heap_struct_size();
 
         if (!(memory->heap_handle = runtime_malloc(
@@ -377,7 +368,7 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     return memory;
 
 fail2:
-    if (is_main_memory && heap_size > 0)
+    if (memory_idx == 0 && heap_size > 0)
         wasm_runtime_free(memory->heap_handle);
 fail1:
     if (memory->memory_data)
