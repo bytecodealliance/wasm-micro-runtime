@@ -181,15 +181,36 @@ static RunningMode runtime_running_mode = Mode_Default;
    of signal handler */
 static os_thread_local_attribute WASMExecEnv *exec_env_tls = NULL;
 
+static bool
+is_sig_addr_in_guard_pages(void *sig_addr, WASMModuleInstance *module_inst)
+{
+    WASMMemoryInstance *memory_inst;
+    uint8 *mapped_mem_start_addr = NULL;
+    uint8 *mapped_mem_end_addr = NULL;
+    uint32 i;
+
+    for (i = 0; i < module_inst->memory_count; ++i) {
+        /* To be compatible with multi memory, get the ith memory instance */
+        memory_inst = wasm_get_memory_with_idx(module_inst, i);
+        mapped_mem_start_addr = memory_inst->memory_data;
+        mapped_mem_end_addr = memory_inst->memory_data + 8 * (uint64)BH_GB;
+        if (mapped_mem_start_addr <= (uint8 *)sig_addr
+            && (uint8 *)sig_addr < mapped_mem_end_addr) {
+            /* The address which causes segmentation fault is inside
+               the memory instance's guard regions */
+            return true;
+        }
+    }
+
+    return false;
+}
+
 #ifndef BH_PLATFORM_WINDOWS
 static void
 runtime_signal_handler(void *sig_addr)
 {
     WASMModuleInstance *module_inst;
-    WASMMemoryInstance *memory_inst;
     WASMJmpBuf *jmpbuf_node;
-    uint8 *mapped_mem_start_addr = NULL;
-    uint8 *mapped_mem_end_addr = NULL;
     uint32 page_size = os_getpagesize();
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
     uint8 *stack_min_addr;
@@ -201,23 +222,13 @@ runtime_signal_handler(void *sig_addr)
         && (jmpbuf_node = exec_env_tls->jmpbuf_stack_top)) {
         /* Get mapped mem info of current instance */
         module_inst = (WASMModuleInstance *)exec_env_tls->module_inst;
-        /* Get the default memory instance */
-        memory_inst = wasm_get_default_memory(module_inst);
-        if (memory_inst) {
-            mapped_mem_start_addr = memory_inst->memory_data;
-            mapped_mem_end_addr = memory_inst->memory_data + 8 * (uint64)BH_GB;
-        }
 
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
         /* Get stack info of current thread */
         stack_min_addr = os_thread_get_stack_boundary();
 #endif
 
-        if (memory_inst
-            && (mapped_mem_start_addr <= (uint8 *)sig_addr
-                && (uint8 *)sig_addr < mapped_mem_end_addr)) {
-            /* The address which causes segmentation fault is inside
-               the memory instance's guard regions */
+        if (is_sig_addr_in_guard_pages(sig_addr, module_inst)) {
             wasm_set_exception(module_inst, "out of bounds memory access");
             os_longjmp(jmpbuf_node->jmpbuf, 1);
         }
@@ -340,16 +351,7 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
         && (jmpbuf_node = exec_env_tls->jmpbuf_stack_top)) {
         module_inst = (WASMModuleInstance *)exec_env_tls->module_inst;
         if (ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
-            /* Get the default memory instance */
-            memory_inst = wasm_get_default_memory(module_inst);
-            if (memory_inst) {
-                mapped_mem_start_addr = memory_inst->memory_data;
-                mapped_mem_end_addr =
-                    memory_inst->memory_data + 8 * (uint64)BH_GB;
-            }
-
-            if (memory_inst && mapped_mem_start_addr <= (uint8 *)sig_addr
-                && (uint8 *)sig_addr < mapped_mem_end_addr) {
+            if (is_sig_addr_in_guard_pages(sig_addr, module_inst)) {
                 /* The address which causes segmentation fault is inside
                    the memory instance's guard regions.
                    Set exception and let the wasm func continue to run, when
