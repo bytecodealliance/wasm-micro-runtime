@@ -55,9 +55,11 @@ aot_target_options_map = {
     "riscv32": ["--target=riscv32", "--target-abi=ilp32", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c"],
     "riscv32_ilp32f": ["--target=riscv32", "--target-abi=ilp32f", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c,+f"],
     "riscv32_ilp32d": ["--target=riscv32", "--target-abi=ilp32d", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c,+f,+d"],
-    "riscv64": ["--target=riscv64", "--target-abi=lp64", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c"],
-    "riscv64_lp64f": ["--target=riscv64", "--target-abi=lp64f", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c,+f"],
-    "riscv64_lp64d": ["--target=riscv64", "--target-abi=lp64d", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c,+f,+d"],
+    # RISCV64 requires -mcmodel=medany, which can be set by --size-level=1
+    "riscv64": ["--target=riscv64", "--target-abi=lp64", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c", "--size-level=1"],
+    "riscv64_lp64f": ["--target=riscv64", "--target-abi=lp64f", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c,+f", "--size-level=1"],
+    "riscv64_lp64d": ["--target=riscv64", "--target-abi=lp64d", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c,+f,+d", "--size-level=1"],
+    "xtensa": ["--target=xtensa"],
 }
 
 def debug(data):
@@ -271,6 +273,8 @@ parser.add_argument('--rundir',
         help="change to the directory before running tests")
 parser.add_argument('--start-timeout', default=30, type=int,
         help="default timeout for initial prompt")
+parser.add_argument('--start-fail-timeout', default=2, type=int,
+        help="default timeout for initial prompt (when expected to fail)")
 parser.add_argument('--test-timeout', default=20, type=int,
         help="default timeout for each individual test action")
 parser.add_argument('--no-pty', action='store_true',
@@ -1139,10 +1143,6 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
     if opts.qemu or opts.memory64:
         cmd.append("--bounds-checks=1")
 
-    # RISCV64 requires -mcmodel=medany, which can be set by --size-level=1
-    if test_target.startswith("riscv64"):
-        cmd.append("--size-level=1")
-
     cmd += ["-o", aot_tempfile, wasm_tempfile]
 
     log("Running: %s" % " ".join(cmd))
@@ -1158,10 +1158,28 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
     tmpfile = aot_tempfile if test_aot else wasm_tempfile
     log("Starting interpreter for module '%s'" % tmpfile)
 
-    cmd_iwasm = [opts.interpreter, "--heap-size=0", "-v=5" if opts.verbose else "-v=0", "--repl", tmpfile]
+    if opts.qemu:
+        tmpfile = f"/tmp/{os.path.basename(tmpfile)}"
 
+    cmd_iwasm = [opts.interpreter, "--heap-size=0", "--repl"]
     if opts.multi_module:
-        cmd_iwasm.insert(1, "--module-path=" + (tempfile.gettempdir() if not opts.qemu else "/tmp" ))
+        cmd_iwasm.append("--module-path=" + (tempfile.gettempdir() if not opts.qemu else "/tmp" ))
+    if opts.gc:
+        # our tail-call implementation is known broken.
+        # work it around by using a huge stack.
+        # cf. https://github.com/bytecodealliance/wasm-micro-runtime/issues/2231
+        cmd_iwasm.append("--stack-size=10485760")  # 10MB (!)
+    else:
+        if opts.aot:
+            # Note: aot w/o gc doesn't require the interpreter stack at all.
+            # Note: 1 is the minimum value we can specify because 0 means
+            # the default.
+            cmd_iwasm.append("--stack-size=1")
+        else:
+            cmd_iwasm.append("--stack-size=131072")  # 128KB
+    if opts.verbose:
+        cmd_iwasm.append("-v=5")
+    cmd_iwasm.append(tmpfile)
 
     if opts.qemu:
         if opts.qemu_firmware == '':
@@ -1179,6 +1197,8 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
         elif opts.target.startswith("riscv64"):
             cmd = "qemu-system-riscv64 -semihosting -M virt,aclint=on -cpu rv64 -smp 1 -nographic -bios none -kernel".split()
             cmd.append(opts.qemu_firmware)
+        elif opts.target.startswith("xtensa"):
+            cmd = f"qemu-system-xtensa -semihosting -nographic -serial mon:stdio -machine esp32s3 -drive file={opts.qemu_firmware},if=mtd,format=raw".split()
         else:
             raise Exception("Unknwon target for QEMU: %s" % opts.target)
 
@@ -1224,7 +1244,7 @@ def test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile,
     if test_aot:
         r = compile_wasm_to_aot(wasm_tempfile, aot_tempfile, True, opts, r)
         try:
-            assert_prompt(r, ['Compile success'], opts.start_timeout, True)
+            assert_prompt(r, ['Compile success'], opts.start_fail_timeout, True)
         except:
             _, exc, _ = sys.exc_info()
             if (r.buf.find(expected) >= 0):
@@ -1245,7 +1265,7 @@ def test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile,
     if loadable:
         # Wait for the initial prompt
         try:
-            assert_prompt(r, ['webassembly> '], opts.start_timeout, True)
+            assert_prompt(r, ['webassembly> '], opts.start_fail_timeout, True)
         except:
             _, exc, _ = sys.exc_info()
             if (r.buf.find(expected) >= 0):
@@ -1325,7 +1345,7 @@ if __name__ == "__main__":
                     if test_aot:
                         r = compile_wasm_to_aot(wasm_tempfile, aot_tempfile, True, opts, r)
                         try:
-                            assert_prompt(r, ['Compile success'], opts.start_timeout, True)
+                            assert_prompt(r, ['Compile success'], opts.start_fail_timeout, True)
                         except:
                             _, exc, _ = sys.exc_info()
                             if (r.buf.find(error_msg) >= 0):

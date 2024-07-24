@@ -88,7 +88,7 @@ graph_builder_array_app_native(wasm_module_inst_t instance,
         }
 
         NN_DBG_PRINTF("Graph builder %d contains %d elements", i,
-                      builder->size);
+                      builder[i].size);
     }
 
     builder_array->buf = builder;

@@ -691,6 +691,11 @@ WASM_API_EXTERN own wasm_instance_t* wasm_instance_new_with_args_ex(
 
 WASM_API_EXTERN void wasm_instance_exports(const wasm_instance_t*, own wasm_extern_vec_t* out);
 
+// Return total wasm functions' execution time in ms
+WASM_API_EXTERN double wasm_instance_sum_wasm_exec_time(const wasm_instance_t*);
+// Return execution time in ms of a given wasm function with
+// func_name. If the function is not found, return 0.
+WASM_API_EXTERN double wasm_instance_get_wasm_func_exec_time(const wasm_instance_t*, const char *);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Convenience
