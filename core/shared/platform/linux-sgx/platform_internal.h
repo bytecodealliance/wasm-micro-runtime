@@ -21,7 +21,6 @@
 #include <errno.h>
 #include <sgx_thread.h>
 #include <pthread.h>
-#include <poll.h>
 
 #include "sgx_error.h"
 #include "sgx_file.h"
@@ -74,9 +73,14 @@ typedef int os_file_handle;
 typedef DIR *os_dir_stream;
 typedef int os_raw_file_handle;
 
-// TODO: implement os_poll and os_ioctl if needed
-typedef struct pollfd os_poll_file_handle;
-typedef nfds_t os_nfds_t;
+struct _pollfd {
+    int fd;
+    short events;
+    short revents;
+};
+
+typedef struct _pollfd os_poll_file_handle;
+typedef unsigned long os_nfds_t;
 typedef struct timespec os_timespec;
 
 
