@@ -7,6 +7,8 @@
 #include "sgx_error.h"
 #include "sgx_file.h"
 
+#include <stdarg.h>
+
 #if WASM_ENABLE_SGX_IPFS != 0
 #include "sgx_ipfs.h"
 #endif
@@ -1112,6 +1114,49 @@ get_errno(void)
         return -1;
     }
     return ret;
+}
+
+// For compatibility in sandboxed primitives
+__wasi_errno_t
+os_ioctl(os_file_handle handle, int request, ...)
+{
+    __wasi_errno_t wasi_errno = __WASI_ESUCCESS;
+    va_list args;
+
+    va_start(args, request);
+    if(ioctl(handle, request, args) < 0){
+        wasi_errno = convert_errno(errno);
+    }
+    va_end(args);
+
+    return wasi_errno;
+}
+
+__wasi_errno_t
+os_poll(os_poll_file_handle *fds, os_nfds_t nfs, int timeout)
+{
+    __wasi_errno_t wasi_errno = __WASI_ESUCCESS;
+    int rc = 0;
+
+    rc = poll(fds, nfs, timeout);
+    if(rc < 0){
+        wasi_errno = convert_errno(errno);
+    }
+    switch(rc){
+        case 0:
+            wasi_errno = __WASI_ETIMEDOUT;
+            break;
+        case -1:
+            wasi_errno = convert_errno(errno);
+            break;
+        default:
+            break;
+    }
+    return wasi_errno;
+}
+
+bool os_compare_file_handle(os_file_handle handle1, os_file_handle handle2) {
+    return handle1 == handle2;
 }
 
 #endif
