@@ -44,7 +44,7 @@
 #endif /* WASM_ENABLE_AOT */
 
 /* Use rt-thread's definition as default */
-#if 0//defined(RT_USING_PTHREADS)
+#if 0 // defined(RT_USING_PTHREADS)
 typedef pthread_t korp_tid;
 typedef pthread_mutex_t korp_mutex;
 typedef pthread_cond_t korp_cond;
@@ -62,27 +62,27 @@ typedef uint32_t socklen_t;
 #endif
 
 #if !defined(SOL_SOCKET)
-#define SOL_SOCKET  1
+#define SOL_SOCKET 1
 #endif
 
 #if !defined(SO_TYPE)
-#define SO_TYPE	    3
+#define SO_TYPE 3
 #endif
 
 #if !defined(SOCK_DGRAM)
-#define SOCK_DGRAM  2
+#define SOCK_DGRAM 2
 #endif
 
 #if !defined(SOCK_STREAM)
-#define SOCK_STREAM  1
+#define SOCK_STREAM 1
 #endif
 
 #if !defined(UTIME_NOW)
-#define UTIME_NOW	-2L
+#define UTIME_NOW -2L
 #endif
 
 #if !defined(UTIME_OMIT)
-#define UTIME_OMIT	-1L
+#define UTIME_OMIT -1L
 #endif
 
 #if !defined(AT_SYMLINK_NOFOLLOW)
@@ -90,18 +90,18 @@ typedef uint32_t socklen_t;
 #endif
 
 #if !defined(AT_SYMLINK_FOLLOW)
-#define AT_SYMLINK_FOLLOW   4
+#define AT_SYMLINK_FOLLOW 4
 #endif
 
 #if !defined(AT_REMOVEDIR)
-#define AT_REMOVEDIR        8
+#define AT_REMOVEDIR 8
 #endif
 
-#define DT_BLK                     0x06
-#define DT_CHR                     0x02
-#define DT_LNK                     0x0A
+#define DT_BLK 0x06
+#define DT_CHR 0x02
+#define DT_LNK 0x0A
 
-#define PTHREAD_STACK_MIN          1024
+#define PTHREAD_STACK_MIN 1024
 #define BH_THREAD_DEFAULT_PRIORITY 30
 
 /* korp_rwlock is used in platform_api_extension.h,

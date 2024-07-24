@@ -1,8 +1,8 @@
 /*
-* Copyright 2024 Sony Semiconductor Solutions Corporation.
-* 
-* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-*/
+ * Copyright 2024 Sony Semiconductor Solutions Corporation.
+ *
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
 
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
@@ -27,52 +27,46 @@ readv(int fd, const struct iovec *iov, int iovcnt)
     uint8_t *buffer;
     int i;
 
-  /* Process each entry in the struct iovec array */
+    /* Process each entry in the struct iovec array */
 
-  for (i = 0, ntotal = 0; i < iovcnt; i++)
-    {
-      /* Ignore zero-length reads */
+    for (i = 0, ntotal = 0; i < iovcnt; i++) {
+        /* Ignore zero-length reads */
 
-      if (iov[i].iov_len > 0)
-        {
-          buffer    = iov[i].iov_base;
-          remaining = iov[i].iov_len;
+        if (iov[i].iov_len > 0) {
+            buffer = iov[i].iov_base;
+            remaining = iov[i].iov_len;
 
-          /* Read repeatedly as necessary to fill buffer */
+            /* Read repeatedly as necessary to fill buffer */
 
-          do
-            {
-              /* NOTE:  read() is a cancellation point */
+            do {
+                /* NOTE:  read() is a cancellation point */
 
-              nread = read(fd, buffer, remaining);
+                nread = read(fd, buffer, remaining);
 
-              /* Check for a read error */
+                /* Check for a read error */
 
-              if (nread < 0)
-                {
-                  return nread;
+                if (nread < 0) {
+                    return nread;
                 }
 
-              /* Check for an end-of-file condition */
+                /* Check for an end-of-file condition */
 
-              else if (nread == 0)
-                {
-                  return ntotal;
+                else if (nread == 0) {
+                    return ntotal;
                 }
 
-              /* Update pointers and counts in order to handle partial
-               * buffer reads.
-               */
+                /* Update pointers and counts in order to handle partial
+                 * buffer reads.
+                 */
 
-              buffer    += nread;
-              remaining -= nread;
-              ntotal    += nread;
-            }
-          while (remaining > 0);
+                buffer += nread;
+                remaining -= nread;
+                ntotal += nread;
+            } while (remaining > 0);
         }
     }
 
-  return ntotal;
+    return ntotal;
 }
 
 ssize_t
@@ -81,7 +75,7 @@ writev(int fd, const struct iovec *iov, int iovcnt)
     uint16_t i, num;
 
     num = 0;
-    for(i = 0; i < iovcnt; i ++) {
+    for (i = 0; i < iovcnt; i++) {
         write(fd, iov[i].iov_base, iov[i].iov_len);
         num += iov[i].iov_len;
     }
@@ -158,7 +152,6 @@ fdatasync(int fd)
     return -1;
 }
 
-
 ssize_t
 preadv(int fd, const struct iovec *iov, int iovcnt, off_t offset)
 {
@@ -173,7 +166,8 @@ pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset)
     return 0;
 }
 
-char *realpath(char *path, char *resolved_path)
+char *
+realpath(char *path, char *resolved_path)
 {
     errno = ENOSYS;
     return NULL;

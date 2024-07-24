@@ -191,7 +191,7 @@ rt_uint8_t *
 my_read_file_to_buffer(char *filename, rt_uint32_t *size)
 {
     struct stat f_stat;
-    
+
     rt_uint8_t *buff = rt_malloc(f_stat.st_size);
     *size = 0;
     if (!buff) {
@@ -215,7 +215,7 @@ my_read_file_to_buffer(char *filename, rt_uint32_t *size)
         rt_set_errno(-EBADF);
         return RT_NULL;
     }
-    
+
     return buff;
 }
 
@@ -227,9 +227,10 @@ iwasm_help(void)
     rt_kputs("options:\n");
     rt_kputs("  -t                       Show time taking to run this app.\n");
     rt_kputs("  -m                       Show memory taking to run this app\n");
-    rt_kputs("  -f|--function name       Specify a function name of the module to run rather\n"
-           "                           than main\n");
-    rt_kputs("  --max-threads=n          Set maximum thread number per cluster, default is 4\n");
+    rt_kputs("  -f|--function name       Specify a function name of the module "
+             "to run rather than main\n");
+    rt_kputs("  --max-threads=n          Set maximum thread number per "
+             "cluster, default is 4\n");
 #else
     rt_kputs("Usage: iwasm wasm_file [args...]\n");
 #endif /* WAMR_ENABLE_PARAMS */
@@ -331,7 +332,7 @@ iwasm(int argc, char **argv)
     if (show_stack) {
         tid = rt_thread_self();
         rt_kprintf("thread stack addr: %p, size: %u, sp: %p\n", tid->stack_addr,
-               tid->stack_size, tid->sp);
+                   tid->stack_size, tid->sp);
     }
 #endif /* WAMR_ENABLE_PARAMS */
 
@@ -395,8 +396,8 @@ iwasm(int argc, char **argv)
 #ifdef WAMR_ENABLE_IWASM_PARAMS
     if (show_time_exec) {
         ticks_exec = rt_tick_get() - ticks_exec;
-        rt_kprintf("[iwasm] execute ticks took: %u [ticks/s = %u]\n", ticks_exec,
-               RT_TICK_PER_SECOND);
+        rt_kprintf("[iwasm] execute ticks took: %u [ticks/s = %u]\n",
+                   ticks_exec, RT_TICK_PER_SECOND);
     }
 #if defined(RT_USING_HEAP) && defined(RT_USING_MEMHEAP_AS_HEAP)
     if (show_mem) {
@@ -411,7 +412,7 @@ iwasm(int argc, char **argv)
 #endif
     if (show_stack) {
         rt_kprintf("[iwasm] thread stack addr: %p, size: %u, sp: %p\n",
-               tid->stack_addr, tid->stack_size, tid->sp);
+                   tid->stack_addr, tid->stack_size, tid->sp);
     }
 
 #endif /* WAMR_ENABLE_PARAMS */

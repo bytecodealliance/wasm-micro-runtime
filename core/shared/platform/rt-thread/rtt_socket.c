@@ -1,8 +1,8 @@
 /*
-* Copyright 2024 Sony Semiconductor Solutions Corporation.
-* 
-* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-*/
+ * Copyright 2024 Sony Semiconductor Solutions Corporation.
+ *
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
 
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
@@ -169,7 +169,6 @@ os_socket_get_keep_alive(bh_socket_t socket, bool *is_enabled)
     return BHT_ERROR;
 }
 
-
 int
 os_socket_set_reuse_addr(bh_socket_t socket, bool is_enabled)
 {
@@ -254,7 +253,6 @@ os_socket_get_tcp_keep_intvl(bh_socket_t socket, uint32 *time_s)
     return BHT_ERROR;
 }
 
-
 int
 os_socket_set_tcp_fastopen_connect(bh_socket_t socket, bool is_enabled)
 {
@@ -295,7 +293,6 @@ os_socket_set_ip_drop_membership(bh_socket_t socket,
     return BHT_ERROR;
 }
 
-
 int
 os_socket_set_ip_ttl(bh_socket_t socket, uint8_t ttl_s)
 {
@@ -320,7 +317,6 @@ os_socket_get_ip_multicast_ttl(bh_socket_t socket, uint8_t *ttl_s)
     return BHT_ERROR;
 }
 
-
 int
 os_socket_set_ipv6_only(bh_socket_t socket, bool is_enabled)
 {
@@ -332,7 +328,6 @@ os_socket_get_ipv6_only(bh_socket_t socket, bool *is_enabled)
 {
     return BHT_ERROR;
 }
-
 
 static void
 swap16(uint8 *pData)

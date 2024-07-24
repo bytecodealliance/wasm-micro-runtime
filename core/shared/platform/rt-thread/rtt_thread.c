@@ -1,8 +1,8 @@
 /*
-* Copyright 2024 Sony Semiconductor Solutions Corporation.
-* 
-* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-*/
+ * Copyright 2024 Sony Semiconductor Solutions Corporation.
+ *
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
 
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
@@ -140,13 +140,15 @@ os_thread_sys_init()
     if (is_thread_sys_inited)
         return BHT_OK;
 
-    if (!(thread_data_lock = rt_mutex_create("thread_data_lock_mutex", RT_IPC_FLAG_FIFO)))
+    if (!(thread_data_lock =
+              rt_mutex_create("thread_data_lock_mutex", RT_IPC_FLAG_FIFO)))
         return BHT_ERROR;
 
     /* Initialize supervisor thread data */
     memset(&supervisor_thread_data, 0, sizeof(supervisor_thread_data));
 
-    if (!(supervisor_thread_data.wait_node.sem = rt_sem_create("spvr", 0, RT_IPC_FLAG_PRIO))) {
+    if (!(supervisor_thread_data.wait_node.sem =
+              rt_sem_create("spvr", 0, RT_IPC_FLAG_PRIO))) {
         rt_mutex_delete(thread_data_lock);
         return BHT_ERROR;
     }
@@ -296,24 +298,28 @@ os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
     thread_data->start_routine = start;
     thread_data->arg = arg;
 
-    if (!(thread_data->wait_node.sem = rt_sem_create("sem", 0, RT_IPC_FLAG_PRIO)))
+    if (!(thread_data->wait_node.sem =
+              rt_sem_create("sem", 0, RT_IPC_FLAG_PRIO)))
         goto fail1;
 
-    if (!(thread_data->wait_list_lock = rt_mutex_create("wait_list_lock_mutex", RT_IPC_FLAG_FIFO)))
+    if (!(thread_data->wait_list_lock =
+              rt_mutex_create("wait_list_lock_mutex", RT_IPC_FLAG_FIFO)))
         goto fail2;
 
     snprintf(thread_name, sizeof(thread_name), "%s%d", "wasm-thread-",
              ++thread_name_index);
 
-    thread_data->handle = rt_thread_create(thread_name, os_thread_wrapper, thread_data, stack_size, 15, 5);
-    if(thread_data->handle == RT_NULL) {
-        rt_kprintf("os_thread_create_with_prio failed, tid=%d\n", thread_data->handle);
+    thread_data->handle = rt_thread_create(thread_name, os_thread_wrapper,
+                                           thread_data, stack_size, 15, 5);
+    if (thread_data->handle == RT_NULL) {
+        rt_kprintf("os_thread_create_with_prio failed, tid=%d\n",
+                   thread_data->handle);
         goto fail3;
     }
 
     thread_data_list_add(thread_data);
     *p_tid = thread_data->handle;
-    rt_thread_startup(*p_tid );
+    rt_thread_startup(*p_tid);
     return BHT_OK;
 
 fail3:
@@ -381,7 +387,7 @@ os_thread_cleanup(void)
     rt_mutex_t wait_list_lock;
     rt_sem_t wait_node_sem;
 
-    //bh_assert(thread_data != NULL);
+    // bh_assert(thread_data != NULL);
     wait_list_lock = thread_data->wait_list_lock;
     thread_wait_list = thread_data->thread_wait_list;
     wait_node_sem = thread_data->wait_node.sem;
@@ -411,10 +417,11 @@ os_thread_exit(void *retval)
 {
     (void)retval;
     os_thread_cleanup();
-    //vTaskDelete(NULL);
+    // vTaskDelete(NULL);
 }
 
-int os_thread_kill(korp_tid tid, int sig)
+int
+os_thread_kill(korp_tid tid, int sig)
 {
     return rt_thread_kill(tid, sig);
 }

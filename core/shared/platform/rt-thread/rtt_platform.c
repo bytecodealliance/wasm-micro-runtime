@@ -149,7 +149,7 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
 
     addr_field = buf_fixed - sizeof(rt_ubase_t);
     *addr_field = (rt_ubase_t)buf_origin;
-    
+
     memset(buf_origin, 0, size + 8 + sizeof(rt_ubase_t));
     return buf_fixed;
 }
@@ -182,7 +182,8 @@ void
 os_icache_flush(void *start, size_t len)
 {}
 
-int os_getpagesize(void)
+int
+os_getpagesize(void)
 {
     return 4096;
 }
@@ -192,7 +193,6 @@ os_mremap(void *in, size_t old_size, size_t new_size)
 {
     return os_realloc(in, new_size);
 }
-
 
 __wasi_errno_t
 os_clock_time_get(__wasi_clockid_t clock_id, __wasi_timestamp_t precision,
@@ -207,4 +207,3 @@ os_clock_res_get(__wasi_clockid_t clock_id, __wasi_timestamp_t *resolution)
 {
     return 0;
 }
-
