@@ -1158,8 +1158,4 @@ os_poll(os_poll_file_handle *fds, os_nfds_t nfs, int timeout)
     return wasi_errno;
 }
 
-bool os_compare_file_handle(os_file_handle handle1, os_file_handle handle2) {
-    return handle1 == handle2;
-}
-
 #endif
