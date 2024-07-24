@@ -17,74 +17,75 @@
 #include <wasi_socket_ext.h>
 #endif
 
-
 /* HTTP server to connect to */
-#define HTTP_HOST "192.0.2.10" 
+#define HTTP_HOST "192.0.2.10"
 /* Port to connect to, as string */
 #define HTTP_PORT "8000"
 /* HTTP path to request */
 #define HTTP_PATH "/"
 
-
 #define SSTRLEN(s) (sizeof(s) - 1)
-// #define CHECK(r) { if (r == -1) { printf("Error %d: " #r "\n", errno); exit(1); } }
+// #define CHECK(r) { if (r == -1) { printf("Error %d: " #r "\n", errno);
+// exit(1); } }
 
 #define REQUEST "GET " HTTP_PATH " HTTP/1.0\r\nHost: " HTTP_HOST "\r\n\r\n"
 
 static char response[1024];
 
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
-	int st, sock;
-	struct sockaddr_in addr;
-	int rc = 0;
+    int st, sock;
+    struct sockaddr_in addr;
+    int rc = 0;
 
-	printf("[wasm-mod] Preparing HTTP GET request for http://" HTTP_HOST
-	       ":" HTTP_PORT HTTP_PATH "\n");
+    printf("[wasm-mod] Preparing HTTP GET request for http://" HTTP_HOST
+           ":" HTTP_PORT HTTP_PATH "\n");
 
-	memset(&addr, 0, sizeof(addr));
-	addr.sin_family = AF_INET;
-	addr.sin_port = htons(8000);
-	addr.sin_addr.s_addr = htonl(3221225994); // hard coded IP address for 192.0.2.10
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(8000);
+    addr.sin_addr.s_addr =
+        htonl(3221225994); // hard coded IP address for 192.0.2.10
 
-	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	printf("[wasm-mod] sock = %d\n", sock);
+    sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    printf("[wasm-mod] sock = %d\n", sock);
 
-	rc = connect(sock, (struct sockaddr*)&addr, sizeof(addr));
-	printf("[wasm-mod] connect rc = %d\n", rc);
+    rc = connect(sock, (struct sockaddr *)&addr, sizeof(addr));
+    printf("[wasm-mod] connect rc = %d\n", rc);
 
-	rc = sendto(sock, (const void *)REQUEST, SSTRLEN(REQUEST), 0,
-                      (struct sockaddr *)&addr, sizeof(addr));
-	printf("[wasm-mod] send rc = %d\n", rc);
-	if (rc < 0) {
-		printf("[wasm-mod] Error %d\n", errno);
-		return 0;
-	}
+    rc = sendto(sock, (const void *)REQUEST, SSTRLEN(REQUEST), 0,
+                (struct sockaddr *)&addr, sizeof(addr));
+    printf("[wasm-mod] send rc = %d\n", rc);
+    if (rc < 0) {
+        printf("[wasm-mod] Error %d\n", errno);
+        return 0;
+    }
 
-	printf("[wasm-mod] Response:\n\n");
+    printf("[wasm-mod] Response:\n\n");
 
-	while (1) {
-		socklen_t socklen = sizeof(struct sockaddr_in);
-		int len = recvfrom(sock, response, sizeof(response) - 1, 0, (struct sockaddr *)&addr, &socklen);
+    while (1) {
+        socklen_t socklen = sizeof(struct sockaddr_in);
+        int len = recvfrom(sock, response, sizeof(response) - 1, 0,
+                           (struct sockaddr *)&addr, &socklen);
 
-		if (len < 0) {
-			printf("[wasm-mod] Error %d\n", errno);
-			return 0;
-		}
+        if (len < 0) {
+            printf("[wasm-mod] Error %d\n", errno);
+            return 0;
+        }
 
-		response[len] = 0;
-		printf("%s", response);
+        response[len] = 0;
+        printf("%s", response);
 
-		if (len == 0) {
-			printf("[wasm-mod] len = 0 break\n");
-			break;
-		}
+        if (len == 0) {
+            printf("[wasm-mod] len = 0 break\n");
+            break;
+        }
+    }
 
-	}
+    printf("\n");
 
-	printf("\n");
-
-	(void)close(sock);
-	printf("[wasm-mod] Connection closed\n");
-	return 0;
+    (void)close(sock);
+    printf("[wasm-mod] Connection closed\n");
+    return 0;
 }

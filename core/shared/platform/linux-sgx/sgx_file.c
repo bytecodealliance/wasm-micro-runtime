@@ -1125,7 +1125,7 @@ os_ioctl(os_file_handle handle, int request, ...)
     va_list args;
 
     va_start(args, request);
-    if(ioctl(handle, request, args) < 0){
+    if (ioctl(handle, request, args) < 0) {
         wasi_errno = convert_errno(errno);
     }
     va_end(args);
@@ -1139,13 +1139,13 @@ os_poll(os_poll_file_handle *fds, os_nfds_t nfs, int timeout)
     __wasi_errno_t wasi_errno = __WASI_ESUCCESS;
     int rc = 0;
 
-    // poll take `pollfd` as input, but `os_poll_file_handle` is typedef'd 
+    // poll take `pollfd` as input, but `os_poll_file_handle` is typedef'd
     // to `_pollfd` which is the same as the `pollfd` struct.
     rc = poll((struct pollfd *)fds, nfs, timeout);
-    if(rc < 0){
+    if (rc < 0) {
         wasi_errno = convert_errno(errno);
     }
-    switch(rc){
+    switch (rc) {
         case 0:
             wasi_errno = __WASI_ETIMEDOUT;
             break;

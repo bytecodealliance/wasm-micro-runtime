@@ -150,7 +150,6 @@ typedef int os_poll_file_handle;
 typedef unsigned int os_nfds_t;
 typedef int os_timespec;
 
-
 static inline os_file_handle
 os_get_invalid_handle()
 {

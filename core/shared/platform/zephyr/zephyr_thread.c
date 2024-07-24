@@ -582,10 +582,10 @@ os_thread_jit_write_protect_np(bool enabled)
 int
 os_rwlock_init(korp_rwlock *lock)
 {
-    if(!lock){
+    if (!lock) {
         return BHT_ERROR;
     }
-        
+
     k_mutex_init(&lock->mtx);
     k_sem_init(&lock->sem, 0, K_SEM_MAX_LIMIT);
     lock->read_count = 0;
@@ -603,7 +603,7 @@ os_rwlock_rdlock(korp_rwlock *lock)
 int
 os_rwlock_wrlock(korp_rwlock *lock)
 {
-   // Acquire the mutex to ensure exclusive access
+    // Acquire the mutex to ensure exclusive access
     if (k_mutex_lock(&lock->mtx, K_FOREVER) != 0) {
         return BHT_ERROR;
     }
@@ -621,7 +621,8 @@ os_rwlock_wrlock(korp_rwlock *lock)
             return BHT_ERROR;
         }
     }
-    // At this point, we hold the mutex and there are no readers, so we have the write lock
+    // At this point, we hold the mutex and there are no readers, so we have the
+    // write lock
     return BHT_OK;
 }
 
@@ -668,7 +669,6 @@ os_cond_broadcast(korp_cond *cond)
     k_mutex_unlock(&cond->wait_list_lock);
     return BHT_OK;
 }
-
 
 korp_sem *
 os_sem_open(const char *name, int oflags, int mode, int val)

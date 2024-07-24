@@ -280,7 +280,7 @@ os_socket_recv_from(bh_socket_t socket, void *buf, unsigned int len, int flags,
     // else if (src_addr) {
     //     memset(src_addr, 0, sizeof(*src_addr));
     // }
-    
+
     return ret;
 }
 
@@ -1041,7 +1041,7 @@ os_ioctl(os_file_handle handle, int request, ...)
     va_list args;
 
     va_start(args, request);
-    if(ioctl(handle, request, args) < 0){
+    if (ioctl(handle, request, args) < 0) {
         wasi_errno = convert_errno(errno);
     }
     va_end(args);
@@ -1056,10 +1056,10 @@ os_poll(os_poll_file_handle *fds, os_nfds_t nfs, int timeout)
     int rc = 0;
 
     rc = poll(fds, nfs, timeout);
-    if(rc < 0){
+    if (rc < 0) {
         wasi_errno = convert_errno(errno);
     }
-    switch(rc){
+    switch (rc) {
         case 0:
             wasi_errno = __WASI_ETIMEDOUT;
             break;

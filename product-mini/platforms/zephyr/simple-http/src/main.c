@@ -13,7 +13,6 @@
 #include "wasm_export.h"
 #include "http_get.h"
 
-
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
@@ -22,7 +21,7 @@
 #include <zephyr/net/http/client.h>
 
 #define CONFIG_HEAP_MEM_POOL_SIZE WASM_GLOBAL_HEAP_SIZE
-#define CONFIG_APP_STACK_SIZE 8192 
+#define CONFIG_APP_STACK_SIZE 8192
 #define CONFIG_APP_HEAP_SIZE 8192
 
 static char global_heap_buf[CONFIG_HEAP_MEM_POOL_SIZE] = { 0 };
@@ -30,7 +29,8 @@ static char global_heap_buf[CONFIG_HEAP_MEM_POOL_SIZE] = { 0 };
 static int app_argc;
 static char **app_argv;
 
-int main(void)
+int
+main(void)
 {
     int start, end;
     start = k_uptime_get_32();
@@ -81,14 +81,14 @@ int main(void)
     const char *addr_pool[ADDRESS_POOL_SIZE] = {
         "192.0.2.10/24",
     };
-    /* No dir list => No file system 
+    /* No dir list => No file system
      * dir_cont = 0
-     * No mapped dir list => No file system 
+     * No mapped dir list => No file system
      * map_dir_cont = 0
      * No environment variables
      * env_count = 0
      * No command line arguments
-     * argv  0 
+     * argv  0
      */
     wasm_runtime_set_wasi_args(wasm_module, NULL, 0, NULL, 0, NULL, 0, NULL, 0);
     wasm_runtime_set_wasi_addr_pool(wasm_module, addr_pool, ADDRESS_POOL_SIZE);

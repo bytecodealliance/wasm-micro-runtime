@@ -51,7 +51,7 @@ textual_addr_to_sockaddr(const char *textual, int port, struct sockaddr *out,
 }
 
 static int
-sockaddr_to_bh_sockaddr(const struct sockaddr *sockaddr,    
+sockaddr_to_bh_sockaddr(const struct sockaddr *sockaddr,
                         bh_sockaddr_t *bh_sockaddr)
 {
     switch (sockaddr->sa_family) {
@@ -156,7 +156,8 @@ os_socket_setbooloption(bh_socket_t socket, int level, int optname,
 {
     int option = (int)is_enabled;
 
-    if (zsock_setsockopt(socket->fd, level, optname, &option, sizeof(option)) != 0) {
+    if (zsock_setsockopt(socket->fd, level, optname, &option, sizeof(option))
+        != 0) {
         return BHT_ERROR;
     }
 
@@ -172,7 +173,8 @@ os_socket_getbooloption(bh_socket_t socket, int level, int optname,
     int optval;
     socklen_t optval_size = sizeof(optval);
 
-    if (zsock_setsockopt(socket->fd, level, optname, &optval, optval_size) != 0) {
+    if (zsock_setsockopt(socket->fd, level, optname, &optval, optval_size)
+        != 0) {
         return BHT_ERROR;
     }
     *is_enabled = (bool)optval;
@@ -184,19 +186,20 @@ int
 os_socket_create(bh_socket_t *sock, bool is_ipv4, bool is_tcp)
 {
     int af = is_ipv4 ? AF_INET : AF_INET6;
-    // now socket is a struct try  *(sock)->fd 
+    // now socket is a struct try  *(sock)->fd
 
     *(sock) = BH_MALLOC(sizeof(zephyr_handle));
 
     if (!sock) {
         return BHT_ERROR;
     }
-    
+
     if (is_tcp) {
         (*sock)->fd = zsock_socket(af, SOCK_STREAM, IPPROTO_TCP);
     }
     else {
-        (*sock)->fd = zsock_socket(af, SOCK_DGRAM, IPPROTO_UDP); // IPPROTO_UDP or 0 ?
+        (*sock)->fd =
+            zsock_socket(af, SOCK_DGRAM, IPPROTO_UDP); // IPPROTO_UDP or 0 ?
     }
 
     (*sock)->is_sock = true;
@@ -206,7 +209,7 @@ os_socket_create(bh_socket_t *sock, bool is_ipv4, bool is_tcp)
 
 int
 os_socket_bind(bh_socket_t socket, const char *host, int *port)
-{    
+{
     struct sockaddr_storage addr = { 0 };
     socklen_t socklen;
     int ret;
@@ -274,7 +277,7 @@ os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr,
                  unsigned int *addrlen)
 {
     *sock = BH_MALLOC(sizeof(zephyr_handle));
-    if(!sock){
+    if (!sock) {
         return BHT_ERROR;
     }
 
@@ -288,7 +291,6 @@ os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr,
 
     return BHT_OK;
 }
-            
 
 int
 os_socket_connect(bh_socket_t socket, const char *addr, int port)
@@ -323,7 +325,7 @@ os_socket_recv_from(bh_socket_t socket, void *buf, unsigned int len, int flags,
                     bh_sockaddr_t *src_addr)
 {
     struct sockaddr_storage addr = { 0 };
-    struct sockaddr *temp_addr = (struct sockaddr *)&addr; 
+    struct sockaddr *temp_addr = (struct sockaddr *)&addr;
     socklen_t socklen = sizeof(addr);
     int ret;
     ret = zsock_recvfrom(socket->fd, buf, len, flags, (struct sockaddr *)&addr,
@@ -337,14 +339,12 @@ os_socket_recv_from(bh_socket_t socket, void *buf, unsigned int len, int flags,
     temp_addr->sa_family = src_addr->is_ipv4 == true ? AF_INET : AF_INET6;
 
     if (src_addr && socklen > 0) {
-        if (sockaddr_to_bh_sockaddr(temp_addr, src_addr)
-            == BHT_ERROR) {
+        if (sockaddr_to_bh_sockaddr(temp_addr, src_addr) == BHT_ERROR) {
             return BHT_ERROR;
         }
     }
 
     return ret;
-
 }
 
 int
@@ -360,7 +360,8 @@ os_socket_send_to(bh_socket_t socket, const void *buf, unsigned int len,
     struct sockaddr_storage addr = { 0 };
     socklen_t socklen;
 
-    (void)bh_sockaddr_to_sockaddr(dest_addr, (struct sockaddr *)&addr, &socklen);
+    (void)bh_sockaddr_to_sockaddr(dest_addr, (struct sockaddr *)&addr,
+                                  &socklen);
 
     return zsock_sendto(socket->fd, buf, len, flags, (struct sockaddr *)&addr,
                         socklen);
@@ -382,7 +383,8 @@ os_socket_shutdown(bh_socket_t socket)
     if (zsock_shutdown(socket->fd, ZSOCK_SHUT_RDWR) == -1) {
         return convert_errno(errno);
     }
-    return __WASI_ESUCCESS;;
+    return __WASI_ESUCCESS;
+    ;
 }
 
 int
@@ -436,7 +438,7 @@ os_socket_addr_resolve(const char *host, const char *service,
     }
 
     ret = zsock_getaddrinfo(host, strlen(service) == 0 ? NULL : service,
-                      hints_enabled ? &hints : NULL, &result);
+                            hints_enabled ? &hints : NULL, &result);
     if (ret != BHT_OK) {
         errno = getaddrinfo_error_to_errno(ret);
         return BHT_ERROR;
@@ -479,7 +481,8 @@ os_socket_addr_local(bh_socket_t socket, bh_sockaddr_t *sockaddr)
     socklen_t addr_len = sizeof(addr_storage);
     int ret;
 
-    ret = zsock_getsockname(socket->fd, (struct sockaddr *)&addr_storage, &addr_len);
+    ret = zsock_getsockname(socket->fd, (struct sockaddr *)&addr_storage,
+                            &addr_len);
 
     if (ret != BHT_OK) {
         return BHT_ERROR;
@@ -495,7 +498,8 @@ os_socket_addr_remote(bh_socket_t socket, bh_sockaddr_t *sockaddr)
     socklen_t addr_len = sizeof(addr_storage);
     int ret;
 
-    ret = zsock_getpeername(socket->fd, (struct sockaddr *)&addr_storage, &addr_len);
+    ret = zsock_getpeername(socket->fd, (struct sockaddr *)&addr_storage,
+                            &addr_len);
 
     if (ret != BHT_OK) {
         return BHT_ERROR;
@@ -510,7 +514,7 @@ os_socket_set_send_buf_size(bh_socket_t socket, size_t bufsiz)
     int buf_size_int = (int)bufsiz;
 
     if (zsock_setsockopt(socket->fd, SOL_SOCKET, SO_SNDBUF, &buf_size_int,
-                   sizeof(buf_size_int))
+                         sizeof(buf_size_int))
         != 0) {
         return BHT_ERROR;
     }
@@ -527,7 +531,7 @@ os_socket_get_send_buf_size(bh_socket_t socket, size_t *bufsiz)
     socklen_t bufsiz_len = sizeof(buf_size_int);
 
     if (zsock_getsockopt(socket->fd, SOL_SOCKET, SO_SNDBUF, &buf_size_int,
-                   &bufsiz_len)
+                         &bufsiz_len)
         != 0) {
         return BHT_ERROR;
     }
@@ -538,11 +542,11 @@ os_socket_get_send_buf_size(bh_socket_t socket, size_t *bufsiz)
 
 int
 os_socket_set_recv_buf_size(bh_socket_t socket, size_t bufsiz)
-{    
+{
     int buf_size_int = (int)bufsiz;
 
     if (zsock_getsockopt(socket->fd, SOL_SOCKET, SO_RCVBUF, &buf_size_int,
-                   sizeof(buf_size_int))
+                         sizeof(buf_size_int))
         != 0) {
         return BHT_ERROR;
     }
@@ -558,7 +562,8 @@ os_socket_get_recv_buf_size(bh_socket_t socket, size_t *bufsiz)
     int buf_size_int;
     socklen_t bufsiz_len = sizeof(buf_size_int);
 
-    if (zsock_getsockopt(socket->fd, SOL_SOCKET, SO_RCVBUF, &buf_size_int, &bufsiz_len)
+    if (zsock_getsockopt(socket->fd, SOL_SOCKET, SO_RCVBUF, &buf_size_int,
+                         &bufsiz_len)
         != 0) {
         return BHT_ERROR;
     }
@@ -577,7 +582,7 @@ os_socket_set_keep_alive(bh_socket_t socket, bool is_enabled)
 int
 os_socket_get_keep_alive(bh_socket_t socket, bool *is_enabled)
 {
-        return os_socket_getbooloption(socket, SOL_SOCKET, SO_KEEPALIVE,
+    return os_socket_getbooloption(socket, SOL_SOCKET, SO_KEEPALIVE,
                                    is_enabled);
 }
 
@@ -588,10 +593,11 @@ os_socket_set_send_timeout(bh_socket_t socket, uint64 timeout_us)
     tv.tv_sec = timeout_us / 1000000UL;
     tv.tv_usec = timeout_us % 1000000UL;
 
-    if (zsock_setsockopt(socket->fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv)) != 0) {
+    if (zsock_setsockopt(socket->fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv))
+        != 0) {
         return BHT_ERROR;
     }
-    return BHT_OK;  
+    return BHT_OK;
 }
 
 int
@@ -599,8 +605,9 @@ os_socket_get_send_timeout(bh_socket_t socket, uint64 *timeout_us)
 {
     struct timeval tv;
     socklen_t tv_len = sizeof(tv);
-    
-    if (zsock_setsockopt(socket->fd, SOL_SOCKET, SO_SNDTIMEO, &tv, tv_len) != 0) {
+
+    if (zsock_setsockopt(socket->fd, SOL_SOCKET, SO_SNDTIMEO, &tv, tv_len)
+        != 0) {
         return BHT_ERROR;
     }
     *timeout_us = (tv.tv_sec * 1000000UL) + tv.tv_usec;
@@ -615,7 +622,8 @@ os_socket_set_recv_timeout(bh_socket_t socket, uint64 timeout_us)
     tv.tv_sec = timeout_us / 1000000UL;
     tv.tv_usec = timeout_us % 1000000UL;
 
-    if (zsock_setsockopt(socket->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) != 0) {
+    if (zsock_setsockopt(socket->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv))
+        != 0) {
         return BHT_ERROR;
     }
 
@@ -628,7 +636,8 @@ os_socket_get_recv_timeout(bh_socket_t socket, uint64 *timeout_us)
     struct timeval tv;
     socklen_t tv_len = sizeof(tv);
 
-    if (zsock_setsockopt(socket->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, tv_len) != 0) {
+    if (zsock_setsockopt(socket->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, tv_len)
+        != 0) {
         return BHT_ERROR;
     }
     *timeout_us = (tv.tv_sec * 1000000UL) + tv.tv_usec;
@@ -721,14 +730,14 @@ os_socket_set_tcp_keep_idle(bh_socket_t socket, uint32_t time_s)
 
 #ifdef TCP_KEEPIDLE
     if (zsock_setsockopt(socket->fd, IPPROTO_TCP, TCP_KEEPIDLE, &time_s_int,
-                   sizeof(time_s_int))
+                         sizeof(time_s_int))
         != 0) {
         return BHT_ERROR;
     }
     return BHT_OK;
 #elif defined(TCP_KEEPALIVE)
     if (zsock_setsockopt(socket->fd, IPPROTO_TCP, TCP_KEEPALIVE, &time_s_int,
-                   sizeof(time_s_int))
+                         sizeof(time_s_int))
         != 0) {
         return BHT_ERROR;
     }
@@ -748,7 +757,8 @@ os_socket_get_tcp_keep_idle(bh_socket_t socket, uint32_t *time_s)
     socklen_t time_s_len = sizeof(time_s_int);
 
 #ifdef TCP_KEEPIDLE
-    if (zsock_setsockopt(socket->fd, IPPROTO_TCP, TCP_KEEPIDLE, &time_s_int, time_s_len)
+    if (zsock_setsockopt(socket->fd, IPPROTO_TCP, TCP_KEEPIDLE, &time_s_int,
+                         time_s_len)
         != 0) {
         return BHT_ERROR;
     }
@@ -756,7 +766,8 @@ os_socket_get_tcp_keep_idle(bh_socket_t socket, uint32_t *time_s)
 
     return BHT_OK;
 #elif defined(TCP_KEEPALIVE)
-    if (zsock_setsockopt(socket->fd, IPPROTO_TCP, TCP_KEEPALIVE, &time_s_int, time_s_len)
+    if (zsock_setsockopt(socket->fd, IPPROTO_TCP, TCP_KEEPALIVE, &time_s_int,
+                         time_s_len)
         != 0) {
         return BHT_ERROR;
     }
@@ -777,7 +788,7 @@ os_socket_set_tcp_keep_intvl(bh_socket_t socket, uint32_t time_s)
 
 #ifdef TCP_KEEPINTVL
     if (zsock_setsockopt(socket->fd, IPPROTO_TCP, TCP_KEEPINTVL, &time_s_int,
-                   sizeof(time_s_int))
+                         sizeof(time_s_int))
         != 0) {
         return BHT_ERROR;
     }
@@ -798,7 +809,8 @@ os_socket_get_tcp_keep_intvl(bh_socket_t socket, uint32_t *time_s)
     int time_s_int;
     socklen_t time_s_len = sizeof(time_s_int);
 
-    if (zsock_setsockopt(socket->fd, IPPROTO_TCP, TCP_KEEPINTVL, &time_s_int, &time_s_len)
+    if (zsock_setsockopt(socket->fd, IPPROTO_TCP, TCP_KEEPINTVL, &time_s_int,
+                         &time_s_len)
         != 0) {
         return BHT_ERROR;
     }
@@ -827,24 +839,21 @@ os_socket_get_tcp_fastopen_connect(bh_socket_t socket, bool *is_enabled)
 
     return BHT_ERROR;
 }
- 
+
 int
 os_socket_set_ip_multicast_loop(bh_socket_t socket, bool ipv6, bool is_enabled)
 {
     errno = ENOSYS;
 
-    return BHT_ERROR;    
+    return BHT_ERROR;
 }
 
 int
-os_socket_get_ip_multicast_loop(bh_socket_t socket, bool ipv6,
-                                bool *is_enabled)
+os_socket_get_ip_multicast_loop(bh_socket_t socket, bool ipv6, bool *is_enabled)
 {
     errno = ENOSYS;
 
     return BHT_ERROR;
-
-
 }
 
 int
@@ -854,7 +863,7 @@ os_socket_set_ip_add_membership(bh_socket_t socket,
 {
     assert(imr_multiaddr);
 
-    if(is_ipv6){
+    if (is_ipv6) {
 #if defined(IPPROTO_IPV6) && !defined(BH_PLATFORM_COSMOPOLITAN)
         struct ipv6_mreq mreq;
 
@@ -874,20 +883,19 @@ os_socket_set_ip_add_membership(bh_socket_t socket,
         return BHT_ERROR;
 #endif
     }
-    else{
+    else {
         struct ip_mreqn mreq;
         mreq.imr_multiaddr.s_addr = imr_multiaddr->ipv4;
         mreq.imr_address.s_addr = imr_interface;
 
         if (zsock_setsockopt(socket->fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq,
-                       sizeof(mreq))
+                             sizeof(mreq))
             != 0) {
             return BHT_ERROR;
         }
     }
     return BHT_OK;
 }
-
 
 int
 os_socket_set_ip_drop_membership(bh_socket_t socket,
@@ -896,7 +904,7 @@ os_socket_set_ip_drop_membership(bh_socket_t socket,
 {
     assert(imr_multiaddr);
 
-    if(is_ipv6){
+    if (is_ipv6) {
 #if defined(IPPROTO_IPV6) && !defined(BH_PLATFORM_COSMOPOLITAN)
         struct ipv6_mreq mreq;
 
@@ -906,8 +914,8 @@ os_socket_set_ip_drop_membership(bh_socket_t socket,
         }
         mreq.ipv6mr_interface = imr_interface;
 
-        if (zsock_setsockopt(socket->fd, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, &mreq,
-                       sizeof(mreq))
+        if (zsock_setsockopt(socket->fd, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP,
+                             &mreq, sizeof(mreq))
             != 0) {
             return BHT_ERROR;
         }
@@ -922,7 +930,7 @@ os_socket_set_ip_drop_membership(bh_socket_t socket,
         mreq.imr_address.s_addr = imr_interface;
 
         if (zsock_setsockopt(socket->fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreq,
-                       sizeof(mreq))
+                             sizeof(mreq))
             != 0) {
             return BHT_ERROR;
         }
@@ -933,7 +941,8 @@ os_socket_set_ip_drop_membership(bh_socket_t socket,
 int
 os_socket_set_ip_ttl(bh_socket_t socket, uint8_t ttl_s)
 {
-    if (zsock_setsockopt(socket->fd, IPPROTO_IP, IP_TTL, &ttl_s, sizeof(ttl_s)) != 0) {
+    if (zsock_setsockopt(socket->fd, IPPROTO_IP, IP_TTL, &ttl_s, sizeof(ttl_s))
+        != 0) {
         return BHT_ERROR;
     }
 
@@ -945,7 +954,8 @@ os_socket_get_ip_ttl(bh_socket_t socket, uint8_t *ttl_s)
 {
     socklen_t opt_len = sizeof(*ttl_s);
 
-    if (zsock_setsockopt(socket->fd, IPPROTO_IP, IP_MULTICAST_TTL, ttl_s, opt_len)
+    if (zsock_setsockopt(socket->fd, IPPROTO_IP, IP_MULTICAST_TTL, ttl_s,
+                         opt_len)
         != 0) {
         return BHT_ERROR;
     }
@@ -956,20 +966,8 @@ os_socket_get_ip_ttl(bh_socket_t socket, uint8_t *ttl_s)
 int
 os_socket_set_ip_multicast_ttl(bh_socket_t socket, uint8_t ttl_s)
 {
-    if (zsock_setsockopt(socket->fd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl_s, sizeof(ttl_s)) != 0) {
-        return BHT_ERROR;
-    }
-
-    return BHT_OK;
-}
-
-
-int
-os_socket_get_ip_multicast_ttl(bh_socket_t socket, uint8_t *ttl_s)
-{
-    socklen_t opt_len = sizeof(*ttl_s);
-
-    if (zsock_setsockopt(socket->fd, IPPROTO_IP, IP_MULTICAST_TTL, ttl_s, opt_len)
+    if (zsock_setsockopt(socket->fd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl_s,
+                         sizeof(ttl_s))
         != 0) {
         return BHT_ERROR;
     }
@@ -977,6 +975,19 @@ os_socket_get_ip_multicast_ttl(bh_socket_t socket, uint8_t *ttl_s)
     return BHT_OK;
 }
 
+int
+os_socket_get_ip_multicast_ttl(bh_socket_t socket, uint8_t *ttl_s)
+{
+    socklen_t opt_len = sizeof(*ttl_s);
+
+    if (zsock_setsockopt(socket->fd, IPPROTO_IP, IP_MULTICAST_TTL, ttl_s,
+                         opt_len)
+        != 0) {
+        return BHT_ERROR;
+    }
+
+    return BHT_OK;
+}
 
 int
 os_socket_set_ipv6_only(bh_socket_t socket, bool is_enabled)
@@ -990,7 +1001,6 @@ os_socket_set_ipv6_only(bh_socket_t socket, bool is_enabled)
 #endif
 }
 
-
 int
 os_socket_get_ipv6_only(bh_socket_t socket, bool *is_enabled)
 {
@@ -1003,20 +1013,18 @@ os_socket_get_ipv6_only(bh_socket_t socket, bool *is_enabled)
 #endif
 }
 
-
 int
 os_socket_set_broadcast(bh_socket_t socket, bool is_enabled)
 {
     return os_socket_setbooloption(socket, SOL_SOCKET, SO_BROADCAST,
-                                is_enabled);
+                                   is_enabled);
 }
-
 
 int
 os_socket_get_broadcast(bh_socket_t socket, bool *is_enabled)
 {
     return os_socket_getbooloption(socket, SOL_SOCKET, SO_BROADCAST,
-                                is_enabled);
+                                   is_enabled);
 }
 
 // Experimental :
@@ -1027,7 +1035,7 @@ os_ioctl(os_file_handle handle, int request, ...)
     va_list args;
 
     va_start(args, request);
-    if(zsock_ioctl(handle->fd, request, args) < 0){
+    if (zsock_ioctl(handle->fd, request, args) < 0) {
         wasi_errno = convert_errno(errno);
     }
     va_end(args);
@@ -1042,10 +1050,10 @@ os_poll(os_poll_file_handle *fds, os_nfds_t nfs, int timeout)
     int rc = 0;
 
     rc = zsock_poll(fds, nfs, timeout);
-    if(rc < 0){
+    if (rc < 0) {
         wasi_errno = convert_errno(errno);
     }
-    switch(rc){
+    switch (rc) {
         case 0:
             wasi_errno = __WASI_ETIMEDOUT;
             break;

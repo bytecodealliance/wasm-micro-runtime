@@ -90,9 +90,9 @@ typedef struct korp_cond {
 } korp_cond;
 
 typedef struct {
-    struct k_mutex mtx;  // Mutex for exclusive access
-    struct k_sem sem;    // Semaphore for shared access
-    int read_count;      // Number of readers
+    struct k_mutex mtx; // Mutex for exclusive access
+    struct k_sem sem;   // Semaphore for shared access
+    int read_count;     // Number of readers
 } korp_rwlock;
 
 // TODO: Conform to Zephyr POSIX definition of rwlock:
@@ -189,13 +189,13 @@ typedef struct zephyr_fs_desc {
     };
     bool is_dir;
     bool used;
-}zephyr_fs_desc;
+} zephyr_fs_desc;
 
-// definition of zephyr_handle 
+// definition of zephyr_handle
 typedef struct zephyr_handle {
     int fd;
     bool is_sock;
-}zephyr_handle;
+} zephyr_handle;
 
 typedef struct zephyr_handle *os_file_handle;
 #define bh_socket_t zephyr_handle *
@@ -218,8 +218,8 @@ typedef unsigned int os_nfds_t;
 #define FIONREAD ZFD_IOCTL_FIONREAD
 
 typedef struct {
-        time_t tv_sec;
-        long tv_nsec;
+    time_t tv_sec;
+    long tv_nsec;
 } os_timespec;
 
 #define CLOCK_REALTIME 1
@@ -227,13 +227,14 @@ typedef struct {
 
 // TODO: use it in sandboxed posix.c.
 // int os_sched_yield(void)
-// {    
+// {
 //     k_yield();
 //     return 0;
 // }
 
 static inline os_file_handle
-os_get_invalid_handle() {
+os_get_invalid_handle()
+{
     return NULL;
 }
 

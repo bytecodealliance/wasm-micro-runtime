@@ -83,7 +83,6 @@ typedef struct _pollfd os_poll_file_handle;
 typedef unsigned long os_nfds_t;
 typedef struct timespec os_timespec;
 
-
 static inline os_file_handle
 os_get_invalid_handle()
 {
