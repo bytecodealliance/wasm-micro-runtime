@@ -8,6 +8,7 @@
 #include "sgx_file.h"
 
 #include <stdarg.h>
+#include "libc_errno.h"
 
 #if WASM_ENABLE_SGX_IPFS != 0
 #include "sgx_ipfs.h"
@@ -1138,7 +1139,9 @@ os_poll(os_poll_file_handle *fds, os_nfds_t nfs, int timeout)
     __wasi_errno_t wasi_errno = __WASI_ESUCCESS;
     int rc = 0;
 
-    rc = poll(fds, nfs, timeout);
+    // poll take `pollfd` as input, but `os_poll_file_handle` is typedef'd 
+    // to `_pollfd` which is the same as the `pollfd` struct.
+    rc = poll((struct pollfd *)fds, nfs, timeout);
     if(rc < 0){
         wasi_errno = convert_errno(errno);
     }
