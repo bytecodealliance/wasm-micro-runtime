@@ -125,6 +125,9 @@ jobs:
             wamr_test_option: { mode: "-t aot -X" }
           - target_config: { config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh" }
             wamr_test_option: { mode: "-t aot -X" }
+          - target_config: { config: "boards/arm/imx6/sabre-6quad/configs/nsh" }
+            wamr_test_option: { mode: "-t aot -X" }
+
 
           # Our xtensa environment doesn't have enough memory
           - target_config: { target: "xtensa" }
