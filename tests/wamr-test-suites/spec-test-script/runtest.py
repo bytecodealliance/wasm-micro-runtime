@@ -833,6 +833,12 @@ def test_assert_return(r, opts, form):
         if ' ' in func:
             func = func.replace(' ', '\\')
 
+        # Note: 'as-memory.grow-first' doesn't actually grow memory.
+        # (thus not in this list)
+        if opts.qemu and opts.target == 'xtensa' and func in {'as-memory.grow-value', 'as-memory.grow-size', 'as-memory.grow-last', 'as-memory.grow-everywhere'}:
+            log("ignoring memory.grow test")
+            return
+
         if m.group(2) == '':
             args = []
         else:
