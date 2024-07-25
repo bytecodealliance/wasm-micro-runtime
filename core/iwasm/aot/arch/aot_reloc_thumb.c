@@ -16,32 +16,47 @@
 /* clang-format off */
 void __adddf3();
 void __addsf3();
+void __aeabi_d2f();
 void __aeabi_d2iz();
 void __aeabi_d2lz();
 void __aeabi_d2uiz();
 void __aeabi_d2ulz();
 void __aeabi_dadd();
+void __aeabi_dcmpeq();
 void __aeabi_dcmpge();
 void __aeabi_dcmpgt();
 void __aeabi_dcmple();
 void __aeabi_dcmplt();
 void __aeabi_dcmpun();
 void __aeabi_ddiv();
+void __aeabi_dmul();
+void __aeabi_dsub();
 void __aeabi_f2d();
 void __aeabi_f2iz();
 void __aeabi_f2lz();
 void __aeabi_f2ulz();
+void __aeabi_fadd();
+void __aeabi_fcmpeq();
 void __aeabi_fcmpge();
+void __aeabi_fcmpgt();
 void __aeabi_fcmple();
 void __aeabi_fcmplt();
 void __aeabi_fcmpun();
+void __aeabi_fdiv();
+void __aeabi_fmul();
+void __aeabi_fsub();
 void __aeabi_i2d();
+void __aeabi_i2f();
 void __aeabi_idiv();
 void __aeabi_idivmod();
 void __aeabi_l2d();
 void __aeabi_l2f();
 void __aeabi_ldivmod();
+void __aeabi_llsl();
+void __aeabi_llsr();
+void __aeabi_lmul();
 void __aeabi_ui2d();
+void __aeabi_ui2f();
 void __aeabi_uidiv();
 void __aeabi_uidivmod();
 void __aeabi_ul2d();
@@ -120,32 +135,47 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__unordsf2),
 #endif
     /* clang-format on */
+    REG_SYM(__aeabi_d2f),
     REG_SYM(__aeabi_d2iz),
     REG_SYM(__aeabi_d2lz),
     REG_SYM(__aeabi_d2uiz),
     REG_SYM(__aeabi_d2ulz),
     REG_SYM(__aeabi_dadd),
+    REG_SYM(__aeabi_dcmpeq),
     REG_SYM(__aeabi_dcmpge),
     REG_SYM(__aeabi_dcmpgt),
     REG_SYM(__aeabi_dcmple),
     REG_SYM(__aeabi_dcmplt),
     REG_SYM(__aeabi_dcmpun),
     REG_SYM(__aeabi_ddiv),
+    REG_SYM(__aeabi_dmul),
+    REG_SYM(__aeabi_dsub),
     REG_SYM(__aeabi_f2d),
     REG_SYM(__aeabi_f2iz),
     REG_SYM(__aeabi_f2lz),
     REG_SYM(__aeabi_f2ulz),
+    REG_SYM(__aeabi_fadd),
+    REG_SYM(__aeabi_fcmpeq),
     REG_SYM(__aeabi_fcmpge),
+    REG_SYM(__aeabi_fcmpgt),
     REG_SYM(__aeabi_fcmple),
     REG_SYM(__aeabi_fcmplt),
     REG_SYM(__aeabi_fcmpun),
+    REG_SYM(__aeabi_fdiv),
+    REG_SYM(__aeabi_fmul),
+    REG_SYM(__aeabi_fsub),
     REG_SYM(__aeabi_i2d),
+    REG_SYM(__aeabi_i2f),
     REG_SYM(__aeabi_idiv),
     REG_SYM(__aeabi_idivmod),
     REG_SYM(__aeabi_l2d),
     REG_SYM(__aeabi_l2f),
     REG_SYM(__aeabi_ldivmod),
+    REG_SYM(__aeabi_llsl),
+    REG_SYM(__aeabi_llsr),
+    REG_SYM(__aeabi_lmul),
     REG_SYM(__aeabi_ui2d),
+    REG_SYM(__aeabi_ui2f),
     REG_SYM(__aeabi_uidiv),
     REG_SYM(__aeabi_uidivmod),
     REG_SYM(__aeabi_ul2d),
