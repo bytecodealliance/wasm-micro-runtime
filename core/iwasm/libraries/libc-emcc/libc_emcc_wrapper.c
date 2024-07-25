@@ -496,6 +496,12 @@ emscripten_notify_memory_growth_wrapper(wasm_exec_env_t exec_env, int i)
 }
 
 static void
+emscripten_sleep_wrapper(wasm_exec_env_t exec_env, int timeout_ms)
+{
+    usleep(timeout_ms * 1000);
+}
+
+static void
 emscripten_thread_sleep_wrapper(wasm_exec_env_t exec_env, double timeout_ms)
 {
     uint64 ms = (uint64)timeout_ms;
@@ -544,6 +550,7 @@ static NativeSymbol native_symbols_libc_emcc[] = {
     REG_NATIVE_FUNC(__sys_getcwd, "(*~)i"),
     REG_NATIVE_FUNC(__sys_uname, "(*)i"),
     REG_NATIVE_FUNC(emscripten_notify_memory_growth, "(i)"),
+    REG_NATIVE_FUNC(emscripten_sleep, "(i)"),
     REG_NATIVE_FUNC(emscripten_thread_sleep, "(F)"),
 #endif /* end of BH_PLATFORM_LINUX_SGX */
 };
