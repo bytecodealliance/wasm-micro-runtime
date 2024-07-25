@@ -255,8 +255,7 @@ jobs:
           cmake --build build
 
       # the nuttx version we use for xtensa requires esptool.py newer than
-      # what we have in the version of the apache-nuttx-ci-linux image we
-      # currently use.
+      # what we have in our version of the apache-nuttx-ci-linux image.
       - name: Install the latest esptool.py (xtensa)
         if: matrix.target_config.target == 'xtensa'
         run: |
