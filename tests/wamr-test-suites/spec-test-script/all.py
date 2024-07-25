@@ -94,6 +94,10 @@ def ignore_the_case(
     if "i386" == target and case_name in ["float_exprs", "conversions"]:
         return True
 
+    # esp32s3 qemu doesn't have PSRAM emulation
+    if qemu_flag and target == 'xtensa' and case_name in ["memory_size"]:
+        return True
+
     if gc_flag:
         if case_name in ["array_init_elem", "array_init_data"]:
             return True
