@@ -356,20 +356,20 @@ fd_table_get_entry(struct fd_table *ft, __wasi_fd_t fd,
     REQUIRES_SHARED(ft->lock)
 {
     // Test for file descriptor existence.
-    if (fd >= ft->size){
+    if (fd >= ft->size) {
         return __WASI_EBADF;
     }
-        
+
     struct fd_entry *fe = &ft->entries[fd];
-    if (fe->object == NULL){
+    if (fe->object == NULL) {
         return __WASI_EBADF;
     }
 
     // Validate rights.
     if ((~fe->rights_base & rights_base) != 0
-        || (~fe->rights_inheriting & rights_inheriting) != 0){
-            return __WASI_ENOTCAPABLE;
-        }
+        || (~fe->rights_inheriting & rights_inheriting) != 0) {
+        return __WASI_ENOTCAPABLE;
+    }
     *ret = fe;
     return 0;
 }
@@ -433,7 +433,7 @@ fd_table_attach(struct fd_table *ft, __wasi_fd_t fd, struct fd_object *fo,
     bh_assert(ft->size > fd && "File descriptor table too small");
     struct fd_entry *fe = &ft->entries[fd];
     bh_assert(fe->object == NULL
-           && "Attempted to overwrite an existing descriptor");
+              && "Attempted to overwrite an existing descriptor");
     fe->object = fo;
     fe->rights_base = rights_base;
     fe->rights_inheriting = rights_inheriting;
@@ -2062,7 +2062,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
                          size_t nsubscriptions,
                          size_t *nevents) NO_LOCK_ANALYSIS
 {
-#if defined(BH_PLATFORM_WINDOWS) || defined(BH_PLATFORM_ZEPHYR) 
+#if defined(BH_PLATFORM_WINDOWS) || defined(BH_PLATFORM_ZEPHYR)
     return __WASI_ENOSYS;
 #else
     // Sleeping.
@@ -2546,10 +2546,10 @@ wasi_ssp_sock_connect(wasm_exec_env_t exec_env, struct fd_table *curfds,
         return __WASI_EACCES;
     }
     error = fd_object_get(curfds, &fo, fd, __WASI_RIGHT_SOCK_BIND, 0);
-    if (error != __WASI_ESUCCESS){
+    if (error != __WASI_ESUCCESS) {
         return error;
     }
-    
+
     /* Consume __wasi_addr_t */
     ret = blocking_op_socket_connect(exec_env, fo->file_handle, buf,
                                      addr->kind == IPv4 ? addr->addr.ip4.port
@@ -2816,7 +2816,8 @@ wasmtime_ssp_sock_recv_from(wasm_exec_env_t exec_env, struct fd_table *curfds,
     int ret;
     /* make a copy because the value pointed seem to be modifed */
     __wasi_addr_t src_addr_copy;
-    bh_memcpy_s(&src_addr_copy, sizeof(__wasi_addr_t), src_addr, sizeof(__wasi_addr_t));
+    bh_memcpy_s(&src_addr_copy, sizeof(__wasi_addr_t), src_addr,
+                sizeof(__wasi_addr_t));
 
     error = fd_object_get(curfds, &fo, sock, __WASI_RIGHT_FD_READ, 0);
     if (error != 0) {
@@ -2824,7 +2825,7 @@ wasmtime_ssp_sock_recv_from(wasm_exec_env_t exec_env, struct fd_table *curfds,
     }
 
     wasi_addr_to_bh_sockaddr(&src_addr_copy, &sockaddr);
-    
+
     /* Consume bh_sockaddr_t instead of __wasi_addr_t */
     ret = blocking_op_socket_recv_from(exec_env, fo->file_handle, buf, buf_len,
                                        0, &sockaddr);
@@ -2876,8 +2877,9 @@ wasmtime_ssp_sock_send_to(wasm_exec_env_t exec_env, struct fd_table *curfds,
     int ret;
     bh_sockaddr_t sockaddr;
     /* make a copy because the value pointed seem to be modifed */
-    __wasi_addr_t dest_addr_copy; 
-    bh_memcpy_s(&dest_addr_copy, sizeof(__wasi_addr_t), dest_addr, sizeof(__wasi_addr_t));
+    __wasi_addr_t dest_addr_copy;
+    bh_memcpy_s(&dest_addr_copy, sizeof(__wasi_addr_t), dest_addr,
+                sizeof(__wasi_addr_t));
 
     if (!wasi_addr_to_string(&dest_addr_copy, addr_buf, sizeof(addr_buf))) {
         return __WASI_EPROTONOSUPPORT;
@@ -2928,7 +2930,7 @@ wasmtime_ssp_sched_yield(void)
 {
 #if defined(BH_PLATFORM_WINDOWS)
     SwitchToThread();
-#elif defined(BH_PLATFORM_ZEPHYR) 
+#elif defined(BH_PLATFORM_ZEPHYR)
     k_yield();
 #else
     if (sched_yield() < 0)

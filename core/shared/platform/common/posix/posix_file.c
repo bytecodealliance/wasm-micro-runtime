@@ -1013,6 +1013,47 @@ os_realpath(const char *path, char *resolved_path)
     return realpath(path, resolved_path);
 }
 
+// Better to define the function here, as Linux-SGX will
+// use this file to implement the `_os` functions.
+// So we don't need to define them in the Linux-SGX platform.
+__wasi_errno_t
+os_ioctl(os_file_handle handle, int request, ...)
+{
+    __wasi_errno_t wasi_errno = __WASI_ESUCCESS;
+    va_list args;
+
+    va_start(args, request);
+    if (ioctl(handle, request, args) < 0) {
+        wasi_errno = convert_errno(errno);
+    }
+    va_end(args);
+
+    return wasi_errno;
+}
+
+__wasi_errno_t
+os_poll(os_poll_file_handle *fds, os_nfds_t nfs, int timeout)
+{
+    __wasi_errno_t wasi_errno = __WASI_ESUCCESS;
+    int rc = 0;
+
+    rc = poll(fds, nfs, timeout);
+    if (rc < 0) {
+        wasi_errno = convert_errno(errno);
+    }
+    switch (rc) {
+        case 0:
+            wasi_errno = __WASI_ETIMEDOUT;
+            break;
+        case -1:
+            wasi_errno = convert_errno(errno);
+            break;
+        default:
+            break;
+    }
+    return wasi_errno;
+}
+
 bool
 os_compare_file_handle(os_file_handle handle1, os_file_handle handle2)
 {
