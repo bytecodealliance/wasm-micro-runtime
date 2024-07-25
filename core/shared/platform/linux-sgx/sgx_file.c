@@ -7,9 +7,6 @@
 #include "sgx_error.h"
 #include "sgx_file.h"
 
-#include <stdarg.h>
-#include "libc_errno.h"
-
 #if WASM_ENABLE_SGX_IPFS != 0
 #include "sgx_ipfs.h"
 #endif
