@@ -29,7 +29,9 @@ env:
   LLVM_CACHE_SUFFIX: "build-llvm_libraries_ex"
   WASI_SDK_PATH: "/opt/wasi-sdk"
   WAMR_COMMON_OPTION:
-    "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_STACKSIZE=327680\\nCONFIG_INTERPRETERS_WAMR_LOG=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\\nCONFIG_INTERPRETERS_WAMR_REF_TYPES=y\\nCONFIG_INTERPRETERS_WAMR_ENABLE_SPEC_TEST=y\\nCONFIG_INTERPRETERS_WAMR_SHARED_MEMORY=y\\nCONFIG_INTERPRETERS_WAMR_BULK_MEMORY=y\\nCONFIG_EOL_IS_LF=y\\nCONFIG_ARM_SEMIHOSTING_HOSTFS=y\\nCONFIG_ARM_SEMIHOSTING_HOSTFS_CACHE_COHERENCE=y\\nCONFIG_RISCV_SEMIHOSTING_HOSTFS=y\\nCONFIG_FS_HOSTFS=y\\nCONFIG_LIBC_FLOATINGPOINT=y\\nCONFIG_INTERPRETERS_WAMR_STACK_GUARD_SIZE=1024\\n"
+    "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_LOG=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\\nCONFIG_INTERPRETERS_WAMR_REF_TYPES=y\\nCONFIG_INTERPRETERS_WAMR_ENABLE_SPEC_TEST=y\\nCONFIG_INTERPRETERS_WAMR_SHARED_MEMORY=y\\nCONFIG_INTERPRETERS_WAMR_BULK_MEMORY=y\\nCONFIG_EOL_IS_LF=y\\nCONFIG_LIBC_FLOATINGPOINT=y\\nCONFIG_INTERPRETERS_WAMR_STACK_GUARD_SIZE=1024\\n"
+  HOSTFS_OPTION:
+    "CONFIG_ARM_SEMIHOSTING_HOSTFS=y\\nCONFIG_ARM_SEMIHOSTING_HOSTFS_CACHE_COHERENCE=y\\nCONFIG_RISCV_SEMIHOSTING_HOSTFS=y\\nCONFIG_FS_HOSTFS=y\\n"
 
 jobs:
   build_llvm_libraries:
@@ -50,7 +52,7 @@ jobs:
 
   spec_test_on_qemu:
     runs-on: ubuntu-latest
-    needs: [build_llvm_libraries]
+    needs: [build_llvm_libraries, build_llvm_libraries_xtensa]
     container:
       image: ghcr.io/no1wudi/nuttx/apache-nuttx-ci-linux@sha256:8c4e00b607d4d6d66ba8f51c4544819a616eac69d3a2ac669e2af2150e2eb0f9
     strategy:
@@ -86,6 +88,11 @@ jobs:
             target: "riscv64",
             fpu_type: "none"
           },
+          {
+            config: "boards/xtensa/esp32s3/esp32s3-devkit/configs/qemu_debug",
+            target: "xtensa",
+            fpu_type: "none"
+          },
         ]
 
         wamr_test_option: [
@@ -117,19 +124,25 @@ jobs:
           - target_config: { config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh64" }
             wamr_test_option: { mode: "-t aot -X" }
 
+          # Our xtensa environment doesn't have enough memory
+          - target_config: { target: "xtensa" }
+            wamr_feature_option: { mode: "-G" }
+
     steps:
+      # Note: we use an unreleased version nuttx for xtensa because
+      # 12.4 doesn't contain necessary esp32s3 changes.
       - name: Checkout NuttX
         uses: actions/checkout@v4
         with:
           repository: apache/nuttx
-          ref: releases/12.4
+          ref: ${{ matrix.target_config.target == 'xtensa' && '985d395b025cf2012b22f6bb4461959fa6d87645' || 'releases/12.4' }}
           path: nuttx
 
       - name: Checkout NuttX Apps
         uses: actions/checkout@v4
         with:
           repository: apache/nuttx-apps
-          ref: releases/12.4
+          ref: ${{ matrix.target_config.target == 'xtensa' && '2ef3eb25c0cec944b13792185f7e5d5a05990d5f' || 'releases/12.4' }}
           path: apps
 
       - name: Checkout WAMR
@@ -149,7 +162,7 @@ jobs:
             ./core/deps/llvm/build/lib
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
-          key: ${{ needs.build_llvm_libraries.outputs.cache_key }}
+          key: ${{ matrix.target_config.target == 'xtensa' && needs.build_llvm_libraries_xtensa.outputs.cache_key || needs.build_llvm_libraries.outputs.cache_key }}
 
       - name: Quit if cache miss
         if: contains(matrix.wamr_test_option.mode, 'aot') && steps.retrieve_llvm_libs.outputs.cache-hit != 'true'
@@ -161,7 +174,12 @@ jobs:
 
       # Inject the config option to NuttX
       # TODO: Merge this into NuttX once GC is generally available
+      #
+      # Note: the version of nuttx-apps we use for xtensa does have
+      # an equivalent. (the default of INTERPRETERS_WAMR_TAIL_CALL is
+      # different though.)
       - name: Modify Kconfig
+        if: matrix.target_config.target != 'xtensa'
         run: |
           echo "\n" >> apps/interpreters/wamr/Kconfig
           echo "config INTERPRETERS_WAMR_GC" >> apps/interpreters/wamr/Kconfig
@@ -179,6 +197,25 @@ jobs:
       - name: Enable WAMR for NuttX
         run: |
           find nuttx/boards -name defconfig | xargs sed -i '$a\${{ env.WAMR_COMMON_OPTION }}'
+
+      - name: Set WAMR stack size for NuttX
+        if: matrix.target_config.target != 'xtensa'
+        run: |
+          find nuttx/boards -name defconfig | xargs sed -i '$aCONFIG_INTERPRETERS_WAMR_STACKSIZE=327680\n'
+
+      # because qemu doesn't have a proper emulation of esp32s3 psram,
+      # we are limited to the internal ram, which is about 400KB.
+      - name: Set WAMR stack size for NuttX (xtensa)
+        if: matrix.target_config.target == 'xtensa'
+        run: |
+          find nuttx/boards -name defconfig | xargs sed -i '$aCONFIG_INTERPRETERS_WAMR_STACKSIZE=25600\n'
+
+      # Note: the nuttx config we happened to use for xtensa already has
+      # hostfs enabled.
+      - name: Enable hostfs for NuttX
+        if: matrix.target_config.target != 'xtensa'
+        run: |
+          find nuttx/boards -name defconfig | xargs sed -i '$a\${{ env.HOSTFS_OPTION }}'
       
       - name: Enable WAMR Interpreter for NuttX
         run: |
@@ -199,6 +236,17 @@ jobs:
         run: |
           find nuttx/boards -name defconfig | xargs sed -i '$a\# CONFIG_ARCH_DPFPU is not set\n'
 
+      # Note: while a real hardware would need
+      # INTERPRETERS_WAMR_MEM_DUAL_BUS_MIRROR=y,
+      # it doesn't work with xtensa qemu which we use on the CI because it
+      # doesn't have a proper emulation of I/D separate mappings.
+      # we work it around by using INTERPRETERS_WAMR_MEM_DUAL_BUS_MIRROR=n.
+      # this configuration won't work on a real hardware.
+      - name: Tweak NuttX config (xtensa)
+        if: matrix.target_config.target == 'xtensa'
+        run: |
+          find nuttx/boards -name defconfig | xargs sed -i '$aCONFIG_INTERPRETERS_WAMR_AOT_WORD_ALIGN_READ=y\n\# CONFIG_INTERPRETERS_WAMR_MEM_DUAL_BUS_MIRROR is not set\n'
+
       - name: Build wamrc
         if: contains(matrix.wamr_test_option.mode, 'aot')
         working-directory: apps/interpreters/wamr/wamr/wamr-compiler
@@ -206,15 +254,73 @@ jobs:
           cmake -Bbuild .
           cmake --build build
 
-      - name: Build
-        id: build_firmware
+      # the nuttx version we use for xtensa requires esptool.py newer than
+      # what we have in our version of the apache-nuttx-ci-linux image.
+      - name: Install the latest esptool.py (xtensa)
+        if: matrix.target_config.target == 'xtensa'
+        run: |
+          pip3 install esptool==4.7.0
+          esptool.py version
+
+      - name: Configure NuttX
+        run: |
+          tools/configure.sh ${{ matrix.target_config.config }}
+        working-directory: nuttx
+
+      # depending on configurations, the iwasm command line generated
+      # by spec-test-script can be longer than the default NSH_LINELEN,
+      # which is 64 or 80.
+      - name: Tweak NuttX config
+        run: |
+          kconfig-tweak --set-val CONFIG_NSH_LINELEN 255
+        working-directory: nuttx
+
+      - name: Build NuttX
+        run: |
+          make olddefconfig
+          make -j$(nproc)
+        working-directory: nuttx
+
+      # for xtensa, build a 8MB firmware image.
+      # simple boot is assumed. (thus the nuttx.bin offset in the image is 0)
+      # qemu will infer the flash size from the file size.
+      - name: Post build processing (xtensa)
+        if: matrix.target_config.target == 'xtensa'
         run: |
           cd nuttx
-          tools/configure.sh ${{ matrix.target_config.config }}
-          make -j$(nproc)
-          echo "firmware=$PWD/nuttx" >> $GITHUB_OUTPUT
+          dd if=/dev/zero of=flash.img bs=1024 count=8192
+          dd if=nuttx.bin of=flash.img conv=notrunc
+          mv flash.img nuttx
+
+      - name: Build firmware path
+        id: build_firmware_path
+        run: |
+          echo "firmware=$PWD/nuttx/nuttx" >> $GITHUB_OUTPUT
       
+      # for xtensa, use the espressif fork of qemu, which has esp32s3 support.
+      - name: Install QEMU (xtensa)
+        if: matrix.target_config.target == 'xtensa'
+        run: |
+          apt-get remove -y qemu-system-misc
+          apt-get update && apt-get install -y libsdl2-2.0-0
+          ./.github/scripts/install_qemu_xtensa.sh
+          qemu-system-xtensa --version
+        working-directory: apps/interpreters/wamr/wamr
+
       - name: Test
+        if: matrix.target_config.target != 'xtensa'
         run: |
           cd apps/interpreters/wamr/wamr/tests/wamr-test-suites
-          ./test_wamr.sh -s spec ${{ matrix.wamr_test_option.mode }} -m ${{ matrix.target_config.target }} -b -Q -P -F ${{ steps.build_firmware.outputs.firmware }} ${{ matrix.wamr_feature_option.mode}}
+          ./test_wamr.sh -s spec ${{ matrix.wamr_test_option.mode }} -m ${{ matrix.target_config.target }} -b -Q -P -F ${{ steps.build_firmware_path.outputs.firmware }} ${{ matrix.wamr_feature_option.mode}}
+
+      # for xtensa, for some reasons, when running the tests
+      # with test_wamr.sh -P, nuttx occasionally hangs after
+      # "total segments stored 6" on the CI.
+      # i (yamamoto) couldn't reproduce it locally (macOS) even
+      # with the identical flash image.
+      # for now, run the tests without -P.
+      - name: Test
+        if: matrix.target_config.target == 'xtensa'
+        run: |
+          cd apps/interpreters/wamr/wamr/tests/wamr-test-suites
+          ./test_wamr.sh -s spec ${{ matrix.wamr_test_option.mode }} -m ${{ matrix.target_config.target }} -b -Q -F ${{ steps.build_firmware_path.outputs.firmware }} ${{ matrix.wamr_feature_option.mode}}
