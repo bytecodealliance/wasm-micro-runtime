@@ -380,7 +380,7 @@ iwasm(int argc, char **argv)
     else {
         exception = app_instance_main(wasm_module_inst, argc - i_arg_begin,
                                       &argv[i_arg_begin]);
-        printf("finshed run app_instance_main\n");
+        rt_kprintf("finshed run app_instance_main\n");
     }
 
     if (exception)

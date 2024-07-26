@@ -73,11 +73,17 @@ ssize_t
 writev(int fd, const struct iovec *iov, int iovcnt)
 {
     uint16_t i, num;
+    int length;
 
     num = 0;
     for (i = 0; i < iovcnt; i++) {
-        write(fd, iov[i].iov_base, iov[i].iov_len);
-        num += iov[i].iov_len;
+        if (iov[i].iov_len > 0) {
+            length = write(fd, iov[i].iov_base, iov[i].iov_len);
+            if (length != iov[i].iov_len)
+                return errno;
+
+            num += iov[i].iov_len;
+        }
     }
     return num;
 }

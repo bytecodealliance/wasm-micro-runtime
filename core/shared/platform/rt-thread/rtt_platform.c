@@ -142,6 +142,9 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
     rt_ubase_t *addr_field;
 
     buf_origin = rt_malloc(size + 8 + sizeof(rt_ubase_t));
+    if (!buf_origin)
+        return NULL;
+
     buf_fixed = buf_origin + sizeof(void *);
     if ((rt_ubase_t)buf_fixed & 0x7) {
         buf_fixed = (void *)((rt_ubase_t)(buf_fixed + 8) & (~7));
