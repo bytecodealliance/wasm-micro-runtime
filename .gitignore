@@ -12,6 +12,7 @@
 *.so
 .clangd
 .DS_Store
+*.o
 
 core/deps/**
 core/shared/mem-alloc/tlsf
