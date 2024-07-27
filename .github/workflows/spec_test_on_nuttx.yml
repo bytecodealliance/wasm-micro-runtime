@@ -324,3 +324,18 @@ jobs:
         run: |
           cd apps/interpreters/wamr/wamr/tests/wamr-test-suites
           ./test_wamr.sh -s spec ${{ matrix.wamr_test_option.mode }} -m ${{ matrix.target_config.target }} -b -Q -F ${{ steps.build_firmware_path.outputs.firmware }} ${{ matrix.wamr_feature_option.mode}}
+
+      - name: pack the log
+        if: always()
+        run: |
+          mkdir log
+          cp $PWD/nuttx/.config log/dot-config
+          cp ${{ steps.build_firmware_path.outputs.firmware }} log
+          tar -C apps/interpreters/wamr/wamr/tests/wamr-test-suites/workspace -cvzf log/report.tgz report
+
+      - name: upload the log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spec-test-log-${{ github.run_id }}-${{ strategy.job-index }}-${{ matrix.target_config.target }}
+          path: log
