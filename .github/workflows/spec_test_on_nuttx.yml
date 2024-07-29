@@ -28,10 +28,6 @@ on:
 env:
   LLVM_CACHE_SUFFIX: "build-llvm_libraries_ex"
   WASI_SDK_PATH: "/opt/wasi-sdk"
-  WAMR_COMMON_OPTION:
-    "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_LOG=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\\nCONFIG_INTERPRETERS_WAMR_REF_TYPES=y\\nCONFIG_INTERPRETERS_WAMR_ENABLE_SPEC_TEST=y\\nCONFIG_INTERPRETERS_WAMR_SHARED_MEMORY=y\\nCONFIG_INTERPRETERS_WAMR_BULK_MEMORY=y\\nCONFIG_EOL_IS_LF=y\\nCONFIG_LIBC_FLOATINGPOINT=y\\nCONFIG_INTERPRETERS_WAMR_STACK_GUARD_SIZE=1024\\n"
-  HOSTFS_OPTION:
-    "CONFIG_ARM_SEMIHOSTING_HOSTFS=y\\nCONFIG_ARM_SEMIHOSTING_HOSTFS_CACHE_COHERENCE=y\\nCONFIG_RISCV_SEMIHOSTING_HOSTFS=y\\nCONFIG_FS_HOSTFS=y\\n"
 
 jobs:
   build_llvm_libraries:
@@ -98,26 +94,26 @@ jobs:
         wamr_test_option: [
           {
             mode: "-t aot",
-            option: "CONFIG_INTERPRETERS_WAMR_AOT=y\\n"
+            option: "CONFIG_INTERPRETERS_WAMR_AOT"
           },
           {
             mode: "-t aot -X",
-            option: "CONFIG_INTERPRETERS_WAMR_AOT=y\\n"
+            option: "CONFIG_INTERPRETERS_WAMR_AOT"
           },
           # {
           #   mode: "-t classic-interp",
-          #   option: "CONFIG_INTERPRETERS_WAMR_CLASSIC=y\\n"
+          #   option: "CONFIG_INTERPRETERS_WAMR_CLASSIC"
           # },
           # {
           #   mode: "-t fast-interp",
-          #   option: "CONFIG_INTERPRETERS_WAMR_FAST=y\\n"
+          #   option: "CONFIG_INTERPRETERS_WAMR_FAST"
           # },
         ]
 
         wamr_feature_option:
           # Empty option for default
           - { option: "", mode: "" }
-          - { option: "CONFIG_INTERPRETERS_WAMR_GC=y\\nCONFIG_INTERPRETERS_WAMR_AOT_STACK_FRAME=y\\n", mode: "-G" }
+          - { option: "CONFIG_INTERPRETERS_WAMR_GC CONFIG_INTERPRETERS_WAMR_AOT_STACK_FRAME", mode: "-G" }
 
         exclude:
           # XIP is not fully supported yet on RISCV64, some relocations can not be resolved
@@ -194,59 +190,6 @@ jobs:
           echo "\tbool \"Enable Tail Call\"" >> apps/interpreters/wamr/Kconfig
           echo "\tdefault y" >> apps/interpreters/wamr/Kconfig
 
-      - name: Enable WAMR for NuttX
-        run: |
-          find nuttx/boards -name defconfig | xargs sed -i '$a\${{ env.WAMR_COMMON_OPTION }}'
-
-      - name: Set WAMR stack size for NuttX
-        if: matrix.target_config.target != 'xtensa'
-        run: |
-          find nuttx/boards -name defconfig | xargs sed -i '$aCONFIG_INTERPRETERS_WAMR_STACKSIZE=327680\n'
-
-      # because qemu doesn't have a proper emulation of esp32s3 psram,
-      # we are limited to the internal ram, which is about 400KB.
-      - name: Set WAMR stack size for NuttX (xtensa)
-        if: matrix.target_config.target == 'xtensa'
-        run: |
-          find nuttx/boards -name defconfig | xargs sed -i '$aCONFIG_INTERPRETERS_WAMR_STACKSIZE=25600\n'
-
-      # Note: the nuttx config we happened to use for xtensa already has
-      # hostfs enabled.
-      - name: Enable hostfs for NuttX
-        if: matrix.target_config.target != 'xtensa'
-        run: |
-          find nuttx/boards -name defconfig | xargs sed -i '$a\${{ env.HOSTFS_OPTION }}'
-      
-      - name: Enable WAMR Interpreter for NuttX
-        run: |
-          find nuttx/boards -name defconfig | xargs sed -i '$a\${{ matrix.wamr_test_option.option }}'
-
-      - name: Enable WAMR Feature for NuttX
-        if: matrix.wamr_feature_option.option != ''
-        run: |
-          find nuttx/boards -name defconfig | xargs sed -i '$a\${{ matrix.wamr_feature_option.option }}'
-
-      - name: Disable FPU for NuttX
-        if: matrix.target_config.fpu_type == 'none'
-        run: |
-          find nuttx/boards -name defconfig | xargs sed -i '$a\# CONFIG_ARCH_FPU is not set\n'
-
-      - name: Disable DPFPU for NuttX
-        if: matrix.target_config.fpu_type == 'fp'
-        run: |
-          find nuttx/boards -name defconfig | xargs sed -i '$a\# CONFIG_ARCH_DPFPU is not set\n'
-
-      # Note: while a real hardware would need
-      # INTERPRETERS_WAMR_MEM_DUAL_BUS_MIRROR=y,
-      # it doesn't work with xtensa qemu which we use on the CI because it
-      # doesn't have a proper emulation of I/D separate mappings.
-      # we work it around by using INTERPRETERS_WAMR_MEM_DUAL_BUS_MIRROR=n.
-      # this configuration won't work on a real hardware.
-      - name: Tweak NuttX config (xtensa)
-        if: matrix.target_config.target == 'xtensa'
-        run: |
-          find nuttx/boards -name defconfig | xargs sed -i '$aCONFIG_INTERPRETERS_WAMR_AOT_WORD_ALIGN_READ=y\n\# CONFIG_INTERPRETERS_WAMR_MEM_DUAL_BUS_MIRROR is not set\n'
-
       - name: Build wamrc
         if: contains(matrix.wamr_test_option.mode, 'aot')
         working-directory: apps/interpreters/wamr/wamr/wamr-compiler
@@ -270,9 +213,81 @@ jobs:
       # depending on configurations, the iwasm command line generated
       # by spec-test-script can be longer than the default NSH_LINELEN,
       # which is 64 or 80.
-      - name: Tweak NuttX config
+      - name: Enable WAMR for NuttX
         run: |
+          kconfig-tweak --enable CONFIG_INTERPRETERS_WAMR
+          kconfig-tweak --enable CONFIG_INTERPRETERS_WAMR_LOG
+          kconfig-tweak --enable CONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN
+          kconfig-tweak --enable CONFIG_INTERPRETERS_WAMR_REF_TYPES
+          kconfig-tweak --enable CONFIG_INTERPRETERS_WAMR_ENABLE_SPEC_TEST
+          kconfig-tweak --enable CONFIG_INTERPRETERS_WAMR_SHARED_MEMORY
+          kconfig-tweak --enable CONFIG_INTERPRETERS_WAMR_BULK_MEMORY
+          kconfig-tweak --set-val CONFIG_INTERPRETERS_WAMR_STACK_GUARD_SIZE 1024
+          kconfig-tweak --enable CONFIG_FS_HOSTFS
+          kconfig-tweak --enable CONFIG_ARM_SEMIHOSTING_HOSTFS
+          kconfig-tweak --enable CONFIG_ARM_SEMIHOSTING_HOSTFS_CACHE_COHERENCE
+          kconfig-tweak --enable CONFIG_RISCV_SEMIHOSTING_HOSTFS
+          kconfig-tweak --enable CONFIG_RISCV_SEMIHOSTING_HOSTFS_CACHE_COHERENCE
+          kconfig-tweak --enable CONFIG_XTENSA_SEMIHOSTING_HOSTFS
+          kconfig-tweak --enable CONFIG_XTENSA_SEMIHOSTING_HOSTFS_CACHE_COHERENCE
+          kconfig-tweak --enable CONFIG_EOL_IS_LF
+          kconfig-tweak --enable CONFIG_LIBC_FLOATINGPOINT
           kconfig-tweak --set-val CONFIG_NSH_LINELEN 255
+        working-directory: nuttx
+
+      - name: Set WAMR stack size for NuttX
+        if: matrix.target_config.target != 'xtensa'
+        run: |
+          kconfig-tweak --set-val CONFIG_INTERPRETERS_WAMR_STACKSIZE 327680
+        working-directory: nuttx
+
+      # because qemu doesn't have a proper emulation of esp32s3 psram,
+      # we are limited to the internal ram, which is about 400KB.
+      - name: Set WAMR stack size for NuttX (xtensa)
+        if: matrix.target_config.target == 'xtensa'
+        run: |
+          kconfig-tweak --set-val CONFIG_INTERPRETERS_WAMR_STACKSIZE 25600
+        working-directory: nuttx
+      
+      - name: Enable WAMR interpreter/aot runtime for NuttX
+        if: matrix.wamr_test_option.option != ''
+        run: |
+          for x in ${{ matrix.wamr_test_option.option }}; do
+            kconfig-tweak --enable $x
+          done
+        working-directory: nuttx
+
+      - name: Enable WAMR Features for NuttX
+        if: matrix.wamr_feature_option.option != ''
+        run: |
+          for x in ${{ matrix.wamr_feature_option.option }}; do
+            kconfig-tweak --enable $x
+          done
+        working-directory: nuttx
+
+      - name: Disable FPU for NuttX
+        if: matrix.target_config.fpu_type == 'none'
+        run: |
+          kconfig-tweak --disable CONFIG_ARCH_FPU
+        working-directory: nuttx
+
+      - name: Disable DPFPU for NuttX
+        if: matrix.target_config.fpu_type == 'fp'
+        run: |
+          kconfig-tweak --disable CONFIG_ARCH_DPFPU
+        working-directory: nuttx
+
+      # Note: while a real hardware would need
+      # INTERPRETERS_WAMR_MEM_DUAL_BUS_MIRROR=y,
+      # it doesn't work with xtensa qemu which we use on the CI because it
+      # doesn't have a proper emulation of I/D separate mappings.
+      # we work it around by using INTERPRETERS_WAMR_MEM_DUAL_BUS_MIRROR=n.
+      # this configuration won't work on a real hardware.
+      - name: Tweak NuttX config (xtensa)
+        if: matrix.target_config.target == 'xtensa'
+        run: |
+          kconfig-tweak --enable CONFIG_INTERPRETERS_WAMR_AOT_WORD_ALIGN_READ
+          kconfig-tweak --disable CONFIG_INTERPRETERS_WAMR_MEM_DUAL_BUS_MIRROR
         working-directory: nuttx
 
       - name: Build NuttX
