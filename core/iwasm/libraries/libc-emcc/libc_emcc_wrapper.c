@@ -498,7 +498,19 @@ emscripten_notify_memory_growth_wrapper(wasm_exec_env_t exec_env, int i)
 static void
 emscripten_sleep_wrapper(wasm_exec_env_t exec_env, int timeout_ms)
 {
-    usleep(timeout_ms * 1000);
+    unsigned int sec;
+    useconds_t us;
+
+    if (timeout_ms <= 0)
+        return;
+
+    sec = timeout_ms / 1000;
+    us = (timeout_ms % 1000) * 1000;
+
+    if (sec > 0)
+        sleep(sec);
+    if (us > 0)
+        usleep(us);
 }
 
 static void
