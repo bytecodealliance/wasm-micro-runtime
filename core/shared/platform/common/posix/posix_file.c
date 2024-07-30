@@ -1035,11 +1035,11 @@ __wasi_errno_t
 os_poll(os_poll_file_handle *fds, os_nfds_t nfs, int timeout)
 {
     /* Higher level API:
-    * __wasi_errno_t
-    * blocking_op_poll(wasm_exec_env_t exec_env, os_poll_file_handle *pfds,
-    *             os_nfds_t nfds, int timeout_ms, int *retp)
-    * Already format the errno and expect the return code of poll() directly.
-    */
+     * __wasi_errno_t
+     * blocking_op_poll(wasm_exec_env_t exec_env, os_poll_file_handle *pfds,
+     *             os_nfds_t nfds, int timeout_ms, int *retp)
+     * Already format the errno and expect the return code of poll() directly.
+     */
     return poll(fds, nfs, timeout);
 }
 
