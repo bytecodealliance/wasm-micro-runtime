@@ -26,7 +26,7 @@
  * (platform_internal.h)
  */
 #if !defined(CONFIG_HAS_D_INO)
-#if !defined(__NuttX__)
+#if !defined(__NuttX__) && !defined(__RTTHREAD__)
 #define CONFIG_HAS_D_INO 1
 #define CONFIG_HAS_ISATTY 1
 #else

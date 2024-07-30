@@ -134,84 +134,41 @@ os_time_thread_cputime_us(void)
     return os_time_get_boot_us();
 }
 
-korp_tid
-os_self_thread(void)
-{
-    return rt_thread_self();
-}
-
-uint8 *
-os_thread_get_stack_boundary(void)
-{
-    rt_thread_t tid = rt_thread_self();
-    return tid->stack_addr;
-}
-
-void
-os_thread_jit_write_protect_np(bool enabled)
-{}
-
-int
-os_mutex_init(korp_mutex *mutex)
-{
-    return rt_mutex_init(mutex, "wamr0", RT_IPC_FLAG_FIFO);
-}
-
-int
-os_mutex_destroy(korp_mutex *mutex)
-{
-    return rt_mutex_detach(mutex);
-}
-
-int
-os_mutex_lock(korp_mutex *mutex)
-{
-    return rt_mutex_take(mutex, RT_WAITING_FOREVER);
-}
-
-int
-os_mutex_unlock(korp_mutex *mutex)
-{
-    return rt_mutex_release(mutex);
-}
-
-/*
- * functions below was not implement
- */
-
-int
-os_cond_init(korp_cond *cond)
-{
-    return 0;
-}
-
-int
-os_cond_destroy(korp_cond *cond)
-{
-    return 0;
-}
-
-int
-os_cond_wait(korp_cond *cond, korp_mutex *mutex)
-{
-    return 0;
-}
-
 void *
 os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
 {
-    void *addr;
+    void *buf_origin;
+    void *buf_fixed;
+    rt_ubase_t *addr_field;
 
-    if ((addr = rt_malloc(size)))
-        memset(addr, 0, size);
+    buf_origin = rt_malloc(size + 8 + sizeof(rt_ubase_t));
+    if (!buf_origin)
+        return NULL;
 
-    return addr;
+    buf_fixed = buf_origin + sizeof(void *);
+    if ((rt_ubase_t)buf_fixed & 0x7) {
+        buf_fixed = (void *)((rt_ubase_t)(buf_fixed + 8) & (~7));
+    }
+
+    addr_field = buf_fixed - sizeof(rt_ubase_t);
+    *addr_field = (rt_ubase_t)buf_origin;
+
+    memset(buf_origin, 0, size + 8 + sizeof(rt_ubase_t));
+    return buf_fixed;
 }
 
 void
 os_munmap(void *addr, size_t size)
 {
-    rt_free(addr);
+    void *mem_origin;
+    rt_ubase_t *addr_field;
+
+    if (addr) {
+        addr_field = addr - sizeof(rt_ubase_t);
+        mem_origin = (void *)(*addr_field);
+
+        rt_free(mem_origin);
+    }
 }
 
 int
@@ -227,3 +184,29 @@ os_dcache_flush(void)
 void
 os_icache_flush(void *start, size_t len)
 {}
+
+int
+os_getpagesize(void)
+{
+    return 4096;
+}
+
+void *
+os_mremap(void *in, size_t old_size, size_t new_size)
+{
+    return os_realloc(in, new_size);
+}
+
+__wasi_errno_t
+os_clock_time_get(__wasi_clockid_t clock_id, __wasi_timestamp_t precision,
+                  __wasi_timestamp_t *time)
+{
+    *time = rt_tick_get() * 1000ll * 1000ll;
+    return 0;
+}
+
+__wasi_errno_t
+os_clock_res_get(__wasi_clockid_t clock_id, __wasi_timestamp_t *resolution)
+{
+    return 0;
+}
