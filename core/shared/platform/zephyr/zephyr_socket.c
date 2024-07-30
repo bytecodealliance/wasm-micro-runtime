@@ -1046,22 +1046,11 @@ os_ioctl(os_file_handle handle, int request, ...)
 __wasi_errno_t
 os_poll(os_poll_file_handle *fds, os_nfds_t nfs, int timeout)
 {
-    __wasi_errno_t wasi_errno = __WASI_ESUCCESS;
-    int rc = 0;
-
-    rc = zsock_poll(fds, nfs, timeout);
-    if (rc < 0) {
-        wasi_errno = convert_errno(errno);
-    }
-    switch (rc) {
-        case 0:
-            wasi_errno = __WASI_ETIMEDOUT;
-            break;
-        case -1:
-            wasi_errno = convert_errno(errno);
-            break;
-        default:
-            break;
-    }
-    return wasi_errno;
+    /* Higher level API:
+    * __wasi_errno_t
+    * blocking_op_poll(wasm_exec_env_t exec_env, os_poll_file_handle *pfds,
+    *             os_nfds_t nfds, int timeout_ms, int *retp)
+    * Already format the errno and expect the return code of poll() directly.
+    */
+    return zsock_poll(fds, nfs, timeout);
 }
