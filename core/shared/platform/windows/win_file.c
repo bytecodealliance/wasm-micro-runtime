@@ -1806,9 +1806,9 @@ os_compare_file_handle(os_file_handle handle1, os_file_handle handle2)
     }
 
     switch (handle1->type) {
-        case WINDOWS_HANDLE_TYPE_FILE:
+        case windows_handle_type_file:
             return handle1->raw.handle == handle2->raw.handle;
-        case WINDOWS_HANDLE_TYPE_SOCKET:
+        case windows_handle_type_socket:
             return handle1->raw.socket == handle2->raw.socket;
         default:
             // Unknown handle type
