@@ -230,7 +230,6 @@ jobs:
           kconfig-tweak --enable CONFIG_RISCV_SEMIHOSTING_HOSTFS_CACHE_COHERENCE
           kconfig-tweak --enable CONFIG_XTENSA_SEMIHOSTING_HOSTFS
           kconfig-tweak --enable CONFIG_XTENSA_SEMIHOSTING_HOSTFS_CACHE_COHERENCE
-          kconfig-tweak --enable CONFIG_EOL_IS_LF
           kconfig-tweak --enable CONFIG_LIBC_FLOATINGPOINT
           kconfig-tweak --set-val CONFIG_NSH_LINELEN 255
         working-directory: nuttx
