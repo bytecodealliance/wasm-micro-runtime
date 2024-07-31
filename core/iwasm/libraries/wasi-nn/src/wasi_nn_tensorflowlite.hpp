@@ -12,31 +12,33 @@
 extern "C" {
 #endif
 
-wasi_nn_error
-tensorflowlite_load(void *tflite_ctx, graph_builder_array *builder,
-                    graph_encoding encoding, execution_target target, graph *g);
+__attribute__((visibility("default"))) wasi_nn_error
+load(void *tflite_ctx, graph_builder_array *builder, graph_encoding encoding,
+     execution_target target, graph *g);
 
-wasi_nn_error
-tensorflowlite_init_execution_context(void *tflite_ctx, graph g,
-                                      graph_execution_context *ctx);
+__attribute__((visibility("default"))) wasi_nn_error
+load_by_name(void *tflite_ctx, const char *filename, uint32_t filename_len,
+             graph *g);
 
-wasi_nn_error
-tensorflowlite_set_input(void *tflite_ctx, graph_execution_context ctx,
-                         uint32_t index, tensor *input_tensor);
+__attribute__((visibility("default"))) wasi_nn_error
+init_execution_context(void *tflite_ctx, graph g, graph_execution_context *ctx);
 
-wasi_nn_error
-tensorflowlite_compute(void *tflite_ctx, graph_execution_context ctx);
+__attribute__((visibility("default"))) wasi_nn_error
+set_input(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
+          tensor *input_tensor);
 
-wasi_nn_error
-tensorflowlite_get_output(void *tflite_ctx, graph_execution_context ctx,
-                          uint32_t index, tensor_data output_tensor,
-                          uint32_t *output_tensor_size);
+__attribute__((visibility("default"))) wasi_nn_error
+compute(void *tflite_ctx, graph_execution_context ctx);
 
-wasi_nn_error
-tensorflowlite_initialize(void **tflite_ctx);
+__attribute__((visibility("default"))) wasi_nn_error
+get_output(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
+           tensor_data output_tensor, uint32_t *output_tensor_size);
 
-wasi_nn_error
-tensorflowlite_destroy(void *tflite_ctx);
+__attribute__((visibility("default"))) wasi_nn_error
+init_backend(void **tflite_ctx);
+
+__attribute__((visibility("default"))) wasi_nn_error
+deinit_backend(void *tflite_ctx);
 
 #ifdef __cplusplus
 }
