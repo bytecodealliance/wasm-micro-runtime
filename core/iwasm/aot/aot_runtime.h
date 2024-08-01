@@ -315,6 +315,10 @@ typedef struct AOTModule {
 
     /* Whether the underlying wasm binary buffer can be freed */
     bool is_binary_freeable;
+
+    /* `data` and `text` sections merged to one large mmaped sections */
+    uint8 *merged_sections;
+    uint32 merged_sections_size;
 } AOTModule;
 
 #define AOTMemoryInstance WASMMemoryInstance

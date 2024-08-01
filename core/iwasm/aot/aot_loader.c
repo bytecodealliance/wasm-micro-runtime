@@ -2353,7 +2353,7 @@ fail:
 
 static void
 destroy_object_data_sections(AOTObjectDataSection *data_sections,
-                             uint32 data_section_count)
+                             uint32 data_section_count, bool merged_data)
 {
     uint32 i;
     AOTObjectDataSection *data_section = data_sections;
@@ -2378,6 +2378,9 @@ destroy_object_data_sections(AOTObjectDataSection *data_sections,
                 }
             }
 #endif
+            if (merged_data) {
+                continue;
+            }
             os_munmap(data_section->data, data_section->size);
         }
     wasm_runtime_free(data_sections);
@@ -2531,6 +2534,62 @@ load_init_data_section(const uint8 *buf, const uint8 *buf_end,
 fail:
     return false;
 }
+
+#if defined(BUILD_TARGET_AARCH64)
+static bool
+merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
+                    char *error_buf, uint32 error_buf_size)
+{
+    uint8 *old_buf = (uint8 *)*buf;
+    uint8 *old_end = (uint8 *)*buf_end;
+    uint32 code_size = (uint32)(uint64)(old_end - old_buf);
+    uint32 k_page_size = os_getpagesize();
+    bool need_merge = false;
+    uint32 total = 0, i;
+    uint8 *sections;
+    if (code_size == 0) {
+        return true;
+    }
+    /* calc total memory needed */
+    total += (code_size + k_page_size - 1) & ~(k_page_size - 1);
+    for (i = 0; i < module->data_section_count; ++i) {
+        AOTObjectDataSection *data_section = module->data_sections + i;
+        total += (data_section->size + k_page_size - 1) & ~(k_page_size - 1);
+        uint64 diff =
+            old_end < data_section->data
+                ? (uint64)(data_section->data + data_section->size - old_end)
+                : (uint64)(old_buf - data_section->data);
+        if (diff > ((int64)4 * BH_GB)) {
+            need_merge = true;
+        }
+    }
+    if (need_merge) {
+        int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC;
+        int map_flags = MMAP_MAP_NONE;
+        sections = module->merged_sections =
+            os_mmap(NULL, total, map_prot, map_flags, os_get_invalid_handle());
+        if (!sections) {
+            return false;
+        }
+        /* data first */
+        for (i = 0; i < module->data_section_count; ++i) {
+            AOTObjectDataSection *data_section = module->data_sections + i;
+            uint8 *old_data = data_section->data;
+            data_section->data = sections;
+            sections +=
+                (data_section->size + k_page_size - 1) & ~(k_page_size - 1);
+            memcpy(data_section->data, old_data, data_section->size);
+            os_munmap(old_data, data_section->size);
+        }
+        /* remain is code */
+        *buf = sections;
+        *buf_end = sections + code_size;
+        memcpy(sections, old_buf, code_size);
+        os_munmap(old_buf, code_size);
+    }
+    return true;
+}
+#endif // BUILD_TARGET_AARCH64
 
 static bool
 load_text_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
@@ -3749,6 +3808,11 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                     return false;
                 break;
             case AOT_SECTION_TYPE_TEXT:
+#if defined(BUILD_TARGET_AARCH64)
+                if (!merge_data_and_text(&buf, &buf_end, module, error_buf,
+                                         error_buf_size))
+                    return false;
+#endif // BUILD_TARGET_AARCH64
                 if (!load_text_section(buf, buf_end, module, error_buf,
                                        error_buf_size))
                     return false;
@@ -4179,7 +4243,9 @@ load(const uint8 *buf, uint32 size, AOTModule *module,
     if (!ret) {
         /* If load_from_sections() fails, then aot text is destroyed
            in destroy_sections() */
-        destroy_sections(section_list, module->is_indirect_mode ? false : true);
+        destroy_sections(
+            section_list,
+            module->is_indirect_mode || module->merged_sections ? false : true);
         /* aot_unload() won't destroy aot text again */
         module->code = NULL;
     }
@@ -4329,7 +4395,7 @@ aot_unload(AOTModule *module)
     }
 #endif
 
-    if (module->code && !module->is_indirect_mode) {
+    if (module->code && !module->is_indirect_mode && !module->merged_sections) {
         /* The layout is: literal size + literal + code (with plt table) */
         uint8 *mmap_addr = module->literal - sizeof(uint32);
         uint32 total_size =
@@ -4362,7 +4428,11 @@ aot_unload(AOTModule *module)
 
     if (module->data_sections)
         destroy_object_data_sections(module->data_sections,
-                                     module->data_section_count);
+                                     module->data_section_count,
+                                     module->merged_sections);
+
+    if (module->merged_sections)
+        os_munmap(module->merged_sections, module->merged_sections_size);
 
 #if WASM_ENABLE_DEBUG_AOT != 0
     jit_code_entry_destroy(module->elf_hdr);
