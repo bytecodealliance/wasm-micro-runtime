@@ -1121,8 +1121,7 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
         cmd.append("--disable-simd")
 
     if opts.xip:
-        cmd.append("--enable-indirect-mode")
-        cmd.append("--disable-llvm-intrinsics")
+        cmd.append("--xip")
 
         # avoid l32r relocations for xtensa
         if opts.target == "xtensa":
