@@ -3287,7 +3287,7 @@ insert_native_symbol(AOTCompContext *comp_ctx, const char *symbol, int32 idx)
     memset(sym, 0, sizeof(AOTNativeSymbol));
     bh_assert(strlen(symbol) <= sizeof(sym->symbol));
     ret = snprintf(sym->symbol, sizeof(sym->symbol), "%s", symbol);
-    if (ret < 0 || ret + 1 > sizeof(sym->symbol)) {
+    if (ret < 0 || ret + 1 > (int)sizeof(sym->symbol)) {
         aot_set_last_error_v("symbol name too long: %s", symbol);
         return false;
     }
