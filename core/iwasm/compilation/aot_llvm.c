@@ -2790,6 +2790,15 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
                 bh_assert(vendor_sys);
                 bh_memcpy_s(default_arch, sizeof(default_arch), default_triple,
                             (uint32)(vendor_sys - default_triple));
+                /**
+                 * On Mac M[1-9]+ LLVM will report arm64 as the
+                 * architecture, for the purposes of wamr this is the
+                 * same as aarch64v8 so we'll normalize it here.
+                 */
+                if (!strcmp(default_arch, "arm64")) {
+                    bh_strcpy_s(default_arch, sizeof(default_arch),
+                                "aarch64v8");
+                }
                 arch1 = default_arch;
 
                 LLVMDisposeMessage(default_triple);

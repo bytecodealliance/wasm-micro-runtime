@@ -579,6 +579,10 @@ load_target_info_section(const uint8 *buf, const uint8 *buf_end,
         return false;
     }
 
+    /* for backwards compatibility with previous wamrc aot files */
+    if (!strcmp(target_info.arch, "arm64"))
+        bh_strcpy_s(target_info.arch, sizeof(target_info.arch), "aarch64v8");
+
     /* Check machine info */
     if (!check_machine_info(&target_info, error_buf, error_buf_size)) {
         return false;
