@@ -2589,13 +2589,14 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
             data_section->data = sections;
             sections += ((uint64)data_section->size + k_page_size - 1)
                         & ~(k_page_size - 1);
-            memcpy(data_section->data, old_data, data_section->size);
+            bh_memcpy_s(data_section->data, data_section->size, old_data,
+                        data_section->size);
             os_munmap(old_data, data_section->size);
         }
         /* remain is code */
         *buf = sections;
         *buf_end = sections + code_size;
-        memcpy(sections, old_buf, code_size);
+        bh_memcpy_s(sections, code_size, old_buf, code_size);
         os_munmap(old_buf, code_size);
     }
     return true;
