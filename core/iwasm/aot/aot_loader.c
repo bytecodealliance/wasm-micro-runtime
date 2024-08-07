@@ -2564,7 +2564,7 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
             ((uint64)data_section->size + k_page_size - 1) & ~(k_page_size - 1);
     }
     if (need_merge) {
-        int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC;
+        int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE;
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
     || defined(BUILD_TARGET_RISCV64_LP64D)                       \
     || defined(BUILD_TARGET_RISCV64_LP64)
@@ -2587,6 +2587,7 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
         *buf = sections;
         *buf_end = sections + code_size;
         bh_memcpy_s(sections, code_size, old_buf, code_size);
+        os_mprotect(sections, code_size, map_prot | MMAP_PROT_EXEC);
         os_munmap(old_buf, code_size);
         sections += ((uint64)code_size + k_page_size - 1) & ~(k_page_size - 1);
         /* then .data sections */
