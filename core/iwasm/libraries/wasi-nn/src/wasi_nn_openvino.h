@@ -8,29 +8,28 @@
 
 #include "wasi_nn_types.h"
 
-wasi_nn_error
-openvino_load(void *ctx, graph_builder_array *builder, graph_encoding encoding,
-              execution_target target, graph *g);
+__attribute__((visibility("default"))) wasi_nn_error
+load(void *ctx, graph_builder_array *builder, graph_encoding encoding,
+     execution_target target, graph *g);
 
-wasi_nn_error
-openvino_init_execution_context(void *ctx, graph g,
-                                graph_execution_context *exec_ctx);
+__attribute__((visibility("default"))) wasi_nn_error
+init_execution_context(void *ctx, graph g, graph_execution_context *exec_ctx);
 
-wasi_nn_error
-openvino_set_input(void *ctx, graph_execution_context exec_ctx, uint32_t index,
-                   tensor *input_tensor);
+__attribute__((visibility("default"))) wasi_nn_error
+set_input(void *ctx, graph_execution_context exec_ctx, uint32_t index,
+          tensor *input_tensor);
 
-wasi_nn_error
-openvino_compute(void *ctx, graph_execution_context exec_ctx);
+__attribute__((visibility("default"))) wasi_nn_error
+compute(void *ctx, graph_execution_context exec_ctx);
 
-wasi_nn_error
-openvino_get_output(void *ctx, graph_execution_context exec_ctx, uint32_t index,
-                    tensor_data output_tensor, uint32_t *output_tensor_size);
+__attribute__((visibility("default"))) wasi_nn_error
+get_output(void *ctx, graph_execution_context exec_ctx, uint32_t index,
+           tensor_data output_tensor, uint32_t *output_tensor_size);
 
-wasi_nn_error
-openvino_initialize(void **ctx);
+__attribute__((visibility("default"))) wasi_nn_error
+init_backend(void **ctx);
 
-wasi_nn_error
-openvino_destroy(void *ctx);
+__attribute__((visibility("default"))) wasi_nn_error
+deinit_backend(void *ctx);
 
 #endif /* WASI_NN_OPENVINO_HPP */

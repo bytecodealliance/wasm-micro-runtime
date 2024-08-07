@@ -78,23 +78,22 @@ RUN cd openvino-mobilenet-raw \
   && ./download_mobilenet.sh . \
   && ls -l mobilenet.xml mobilenet.bin tensor-1x224x224x3-f32.bgr
 
-# RUN apt update \
-#   && apt install -y valgrind
-
 #
 # iwasm. build from source
 WORKDIR /workspaces/wamr
 COPY . .
 
 WORKDIR /workspaces/wamr/product-mini/platforms/linux
+
 RUN OpenVINO_DIR=/usr/lib/openvino-2023.2.0 \
     cmake -S . -B build \
     -DWAMR_BUILD_WASI_NN=1 -DWAMR_BUILD_WASI_EPHEMERAL_NN=1 \
     -DWAMR_BUILD_WASI_NN_OPENVINO=1 -DWAMR_BUILD_WASI_NN_TFLITE=1 \
   && cmake --build build
-RUN ln -sf "$(realpath ./build/iwasm)" /usr/local/bin/iwasm
 
-#
+ENV PATH=/workspaces/wamr/product-mini/platforms/linux/build:${PATH}
+ENV LD_LIBRARY_PATH=/workspaces/wamr/product-mini/platforms/linux/build
+
 # add smoke test script
 COPY core/iwasm/libraries/wasi-nn/test/run_smoke_test.py /
 
