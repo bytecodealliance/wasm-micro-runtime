@@ -2557,6 +2557,8 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
             old_end < data_section->data
                 ? (uint64)(data_section->data + data_section->size - old_end)
                 : (uint64)(old_buf - data_section->data);
+        /* distance between .data and .text should not greater than 4GB for some
+         * targets as arm64 reloc need < 4G distance */
         if (diff > ((int64)4 * BH_GB)) {
             need_merge = true;
         }
