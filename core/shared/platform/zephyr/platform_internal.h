@@ -50,6 +50,7 @@
 #include <zephyr/net/net_ip.h>
 #include <zephyr/net/net_core.h>
 #include <zephyr/net/net_context.h>
+#include <zephyr/net/socket.h>
 #endif /* end of KERNEL_VERSION_NUMBER < 0x030200 */
 
 #ifdef CONFIG_USERSPACE
@@ -116,16 +117,26 @@ typedef unsigned int korp_sem;
 
 /* korp_rwlock is used in platform_api_extension.h,
    we just define the type to make the compiler happy */
-typedef struct {
-    int dummy;
-} korp_rwlock;
-
 struct os_thread_wait_node;
 typedef struct os_thread_wait_node *os_thread_wait_list;
 typedef struct korp_cond {
     mutex_t wait_list_lock;
     os_thread_wait_list thread_wait_list;
 } korp_cond;
+
+typedef struct {
+    struct k_mutex mtx; // Mutex for exclusive access
+    struct k_sem sem;   // Semaphore for shared access
+    int read_count;     // Number of readers
+} korp_rwlock;
+
+// TODO: Conform to Zephyr POSIX definition of rwlock:
+// struct posix_rwlock {
+// 	struct k_sem rd_sem;
+// 	struct k_sem wr_sem;
+// 	struct k_sem reader_active; /* blocks WR till reader has acquired lock */
+// 	k_tid_t wr_owner;
+// };
 
 #ifndef Z_TIMEOUT_MS
 #define Z_TIMEOUT_MS(ms) ms
@@ -204,14 +215,65 @@ set_exec_mem_alloc_func(exec_mem_alloc_func_t alloc_func,
 
 /* The below types are used in platform_api_extension.h,
    we just define them to make the compiler happy */
-typedef int os_file_handle;
-typedef void *os_dir_stream;
+typedef int os_dir_stream;
 typedef int os_raw_file_handle;
+
+// handle for file system descriptor
+typedef struct zephyr_fs_desc {
+    char *path;
+    union {
+        struct fs_file_t file;
+        struct fs_dir_t dir;
+    };
+    bool is_dir;
+    bool used;
+} zephyr_fs_desc;
+
+// definition of zephyr_handle
+typedef struct zephyr_handle {
+    int fd;
+    bool is_sock;
+} zephyr_handle;
+
+typedef struct zephyr_handle *os_file_handle;
+#define bh_socket_t zephyr_handle *
+
+typedef struct zsock_pollfd os_poll_file_handle;
+typedef unsigned int os_nfds_t;
+
+// Some of these definitions will throw warning for macros
+// redefinition if CONFIG_POSIX_API=y, but it's fine.
+// Warning: the CONFIG_POSIX_API will surely be deprecated and
+// split into more macros, so we may use some ifdefs to avoid
+// the warning in the future.
+#define POLLIN ZSOCK_POLLIN
+#define POLLPRI ZSOCK_POLLPRI
+#define POLLOUT ZSOCK_POLLOUT
+#define POLLERR ZSOCK_POLLERR
+#define POLLHUP ZSOCK_POLLHUP
+#define POLLNVAL ZSOCK_POLLNVAL
+
+#define FIONREAD ZFD_IOCTL_FIONREAD
+
+typedef struct {
+    time_t tv_sec;
+    long tv_nsec;
+} os_timespec;
+
+#define CLOCK_REALTIME 1
+#define CLOCK_MONOTONIC 4
+
+// TODO: use it in sandboxed posix.c.
+// int os_sched_yield(void)
+// {
+//     k_yield();
+//     return 0;
+// }
 
 static inline os_file_handle
 os_get_invalid_handle()
 {
-    return -1;
+    return NULL;
 }
 
 static inline int
