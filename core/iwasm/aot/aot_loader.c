@@ -2540,19 +2540,19 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
 {
     uint8 *old_buf = (uint8 *)*buf;
     uint8 *old_end = (uint8 *)*buf_end;
-    uint32 code_size = (uint32)(uint64)(old_end - old_buf);
+    size_t code_size = (size_t)(old_end - old_buf);
     uint32 k_page_size = os_getpagesize();
     bool need_merge = false;
-    uint32 total = 0, i;
+    uint64 total_size = 0;
+    uint32 i;
     uint8 *sections;
     if (code_size == 0) {
         return true;
     }
     /* calc total memory needed */
-    total += (code_size + k_page_size - 1) & ~(k_page_size - 1);
+    total_size += ((uint64)code_size + k_page_size - 1) & ~(k_page_size - 1);
     for (i = 0; i < module->data_section_count; ++i) {
         AOTObjectDataSection *data_section = module->data_sections + i;
-        total += (data_section->size + k_page_size - 1) & ~(k_page_size - 1);
         uint64 diff =
             old_end < data_section->data
                 ? (uint64)(data_section->data + data_section->size - old_end)
@@ -2560,12 +2560,14 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
         if (diff > ((int64)4 * BH_GB)) {
             need_merge = true;
         }
+        total_size +=
+            ((uint64)data_section->size + k_page_size - 1) & ~(k_page_size - 1);
     }
     if (need_merge) {
         int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC;
         int map_flags = MMAP_MAP_NONE;
-        sections = module->merged_sections =
-            os_mmap(NULL, total, map_prot, map_flags, os_get_invalid_handle());
+        sections = module->merged_sections = os_mmap(
+            NULL, total_size, map_prot, map_flags, os_get_invalid_handle());
         if (!sections) {
             return false;
         }
@@ -2574,8 +2576,8 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
             AOTObjectDataSection *data_section = module->data_sections + i;
             uint8 *old_data = data_section->data;
             data_section->data = sections;
-            sections +=
-                (data_section->size + k_page_size - 1) & ~(k_page_size - 1);
+            sections += ((uint64)data_section->size + k_page_size - 1)
+                        & ~(k_page_size - 1);
             memcpy(data_section->data, old_data, data_section->size);
             os_munmap(old_data, data_section->size);
         }
