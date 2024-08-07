@@ -128,6 +128,10 @@ print_help()
     printf("                            Use --cpu-features=+help to list all the features supported\n");
     printf("  --opt-level=n             Set the optimization level (0 to 3, default is 3)\n");
     printf("  --size-level=n            Set the code size level (0 to 3, default is 3)\n");
+    printf("                              0 - Large code model\n");
+    printf("                              1 - Medium code model\n");
+    printf("                              2 - Kernel code model\n");
+    printf("                              3 - Small code model\n");
     printf("  -sgx                      Generate code for SGX platform (Intel Software Guard Extensions)\n");
     printf("  --bounds-checks=1/0       Enable or disable the bounds checks for memory access:\n");
     printf("                              by default it is disabled in all 64-bit platforms except SGX and\n");
