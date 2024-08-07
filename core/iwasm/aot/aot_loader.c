@@ -2583,22 +2583,23 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
             set_error_buf(error_buf, error_buf_size, "allocate memory failed");
             return false;
         }
-        /* data first */
-        for (i = 0; i < module->data_section_count; ++i) {
-            AOTObjectDataSection *data_section = module->data_sections + i;
-            uint8 *old_data = data_section->data;
-            data_section->data = sections;
-            sections += ((uint64)data_section->size + k_page_size - 1)
-                        & ~(k_page_size - 1);
-            bh_memcpy_s(data_section->data, data_section->size, old_data,
-                        data_section->size);
-            os_munmap(old_data, data_section->size);
-        }
-        /* remain is code */
+        /* as compilers do: .text section first */
         *buf = sections;
         *buf_end = sections + code_size;
         bh_memcpy_s(sections, code_size, old_buf, code_size);
         os_munmap(old_buf, code_size);
+        sections += ((uint64)code_size + k_page_size - 1) & ~(k_page_size - 1);
+        /* then .data sections */
+        for (i = 0; i < module->data_section_count; ++i) {
+            AOTObjectDataSection *data_section = module->data_sections + i;
+            uint8 *old_data = data_section->data;
+            data_section->data = sections;
+            bh_memcpy_s(data_section->data, data_section->size, old_data,
+                        data_section->size);
+            os_munmap(old_data, data_section->size);
+            sections += ((uint64)data_section->size + k_page_size - 1)
+                        & ~(k_page_size - 1);
+        }
     }
     return true;
 }
