@@ -2558,7 +2558,7 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
                 ? (uint64)(data_section->data + data_section->size - old_end)
                 : (uint64)(old_buf - data_section->data);
         /* distance between .data and .text should not greater than 4GB for some
-         * targets as arm64 reloc need < 4G distance */
+         * targets (as arm64 reloc need < 4G distance) */
         if (diff > ((int64)4 * BH_GB)) {
             need_merge = true;
         }
@@ -3826,6 +3826,9 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                 break;
             case AOT_SECTION_TYPE_TEXT:
 #if defined(BUILD_TARGET_AARCH64)
+                /* distance between .data and .text should not greater than 4GB
+                 * for some targets (as arm64 reloc need < 4G distance) so we
+                 * need to merge sections to keep distance smaller */
                 if (!merge_data_and_text(&buf, &buf_end, module, error_buf,
                                          error_buf_size))
                     return false;
