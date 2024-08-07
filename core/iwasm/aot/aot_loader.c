@@ -2574,6 +2574,9 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
 #else
         int map_flags = MMAP_MAP_NONE;
 #endif
+        if (total_size > UINT32_MAX) {
+            return false;
+        }
         sections = module->merged_sections = os_mmap(
             NULL, total_size, map_prot, map_flags, os_get_invalid_handle());
         if (!sections) {
