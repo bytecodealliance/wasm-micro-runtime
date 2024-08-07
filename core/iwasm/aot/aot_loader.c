@@ -2378,10 +2378,8 @@ destroy_object_data_sections(AOTObjectDataSection *data_sections,
                 }
             }
 #endif
-            if (merged_data) {
-                continue;
-            }
-            os_munmap(data_section->data, data_section->size);
+            if (!merged_data)
+                os_munmap(data_section->data, data_section->size);
         }
     wasm_runtime_free(data_sections);
 }
