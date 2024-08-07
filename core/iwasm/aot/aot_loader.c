@@ -2565,7 +2565,15 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
     }
     if (need_merge) {
         int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC;
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
+    || defined(BUILD_TARGET_RISCV64_LP64D)                       \
+    || defined(BUILD_TARGET_RISCV64_LP64)
+        /* aot code and data in x86_64 must be in range 0 to 2G due
+           to relocation for R_X86_64_32/32S/PC32 */
+        int map_flags = MMAP_MAP_32BIT;
+#else
         int map_flags = MMAP_MAP_NONE;
+#endif
         sections = module->merged_sections = os_mmap(
             NULL, total_size, map_prot, map_flags, os_get_invalid_handle());
         if (!sections) {
