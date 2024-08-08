@@ -2437,6 +2437,7 @@ load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
             set_error_buf(error_buf, error_buf_size, "allocate memory failed");
             return false;
         }
+        module->merged_data_sections_size = total_size;
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
 #if !defined(BH_PLATFORM_LINUX_SGX) && !defined(BH_PLATFORM_WINDOWS) \
     && !defined(BH_PLATFORM_DARWIN)
@@ -2551,7 +2552,6 @@ fail:
     return false;
 }
 
-#if defined(BUILD_TARGET_AARCH64)
 static bool
 merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
                     char *error_buf, uint32 error_buf_size)
@@ -2560,7 +2560,6 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
     uint8 *old_end = (uint8 *)*buf_end;
     size_t code_size = (size_t)(old_end - old_buf);
     uint32 page_size = os_getpagesize();
-    bool need_merge = false;
     uint64 total_size = 0;
     uint32 i;
     uint8 *sections;
@@ -2575,15 +2574,10 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
             old_end < data_section->data
                 ? (uint64)(data_section->data + data_section->size - old_end)
                 : (uint64)(old_buf - data_section->data);
-        /* distance between .data and .text should not greater than 4GB for some
-         * targets (eg. arm64 reloc need < 4G distance) */
-        if (diff > ((int64)4 * BH_GB)) {
-            need_merge = true;
-        }
         total_size +=
             ((uint64)data_section->size + page_size - 1) & ~(page_size - 1);
     }
-    if (need_merge) {
+    if (total_size > (uint64)code_size) {
         int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE;
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
     || defined(BUILD_TARGET_RISCV64_LP64D)                       \
@@ -2594,15 +2588,19 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
 #else
         int map_flags = MMAP_MAP_NONE;
 #endif
+        /* distance between .data and .text should not greater than 4GB for some
+         * targets (eg. arm64 reloc need < 4G distance) */
         if (total_size > UINT32_MAX) {
             return false;
         }
-        sections = module->merged_sections = os_mmap(
+        sections = module->merged_data_text_sections = os_mmap(
             NULL, total_size, map_prot, map_flags, os_get_invalid_handle());
         if (!sections) {
+            /* merge failed but maybe not critical for some targes */
             return false;
         }
-        /* as compilers do: .text section first */
+        module->merged_data_text_sections_size = total_size;
+        /* order not essential just as compilers do: .text section first */
         *buf = sections;
         *buf_end = sections + code_size;
         bh_memcpy_s(sections, code_size, old_buf, code_size);
@@ -2616,14 +2614,20 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
             data_section->data = sections;
             bh_memcpy_s(data_section->data, data_section->size, old_data,
                         data_section->size);
-            os_munmap(old_data, data_section->size);
+            if (!module->merged_data_sections)
+                os_munmap(old_data, data_section->size);
             sections +=
                 ((uint64)data_section->size + page_size - 1) & ~(page_size - 1);
+        }
+        if (module->merged_data_sections) {
+            os_munmap(module->merged_data_sections,
+                      module->merged_data_sections_size);
+            module->merged_data_sections = NULL;
+            module->merged_data_sections_size = 0;
         }
     }
     return true;
 }
-#endif // BUILD_TARGET_AARCH64
 
 static bool
 load_text_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
@@ -3842,14 +3846,13 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                     return false;
                 break;
             case AOT_SECTION_TYPE_TEXT:
-#if defined(BUILD_TARGET_AARCH64)
-                /* distance between .data and .text should not greater than 4GB
-                 * for some targets (eg. arm64 reloc need < 4G distance) so we
-                 * need to merge sections to keep distance smaller */
-                if (!merge_data_and_text(&buf, &buf_end, module, error_buf,
-                                         error_buf_size))
-                    LOG_WARNING("merge .data and .text sections failed");
-#endif // BUILD_TARGET_AARCH64
+                /* try to merge .data and .text, with two exceptions:
+                 * 1. XIP mode
+                 * 2. pre-mmapped module load from aot_load_from_sections() */
+                if (!module->is_indirect_mode && is_load_from_file_buf)
+                    if (!merge_data_and_text(&buf, &buf_end, module, error_buf,
+                                             error_buf_size))
+                        LOG_WARNING("merge .data and .text sections failed");
                 if (!load_text_section(buf, buf_end, module, error_buf,
                                        error_buf_size))
                     return false;
