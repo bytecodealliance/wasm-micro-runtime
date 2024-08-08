@@ -1005,7 +1005,7 @@ print_i32_wrapper(wasm_exec_env_t exec_env, int32 i32)
 static void
 print_i64_wrapper(wasm_exec_env_t exec_env, int64 i64)
 {
-    os_printf("in specttest.print_i64(%" PRId32 ")\n", i64);
+    os_printf("in specttest.print_i64(%" PRId64 ")\n", i64);
 }
 
 static void

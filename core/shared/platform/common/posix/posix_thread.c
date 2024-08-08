@@ -4,7 +4,9 @@
  */
 
 #ifndef _GNU_SOURCE
+#if !defined(__RTTHREAD__)
 #define _GNU_SOURCE
+#endif
 #endif
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
@@ -46,6 +48,13 @@ os_thread_wrapper(void *arg)
 #endif
 #ifdef OS_ENABLE_WAKEUP_BLOCKING_OP
     os_end_blocking_op();
+#endif
+#if BH_DEBUG != 0
+#if defined __APPLE__
+    pthread_setname_np("wamr");
+#else
+    pthread_setname_np(pthread_self(), "wamr");
+#endif
 #endif
     start_func(thread_arg);
 #ifdef OS_ENABLE_HW_BOUND_CHECK
@@ -448,7 +457,7 @@ os_thread_get_stack_boundary()
         addr += guard_size;
     }
     (void)stack_size;
-#elif defined(__APPLE__) || defined(__NuttX__)
+#elif defined(__APPLE__) || defined(__NuttX__) || defined(__RTTHREAD__)
     if ((addr = (uint8 *)pthread_get_stackaddr_np(self))) {
         stack_size = pthread_get_stacksize_np(self);
 

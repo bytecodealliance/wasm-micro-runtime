@@ -86,14 +86,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: apache/nuttx
-          ref: releases/12.4
+          ref: releases/12.6
           path: nuttx
 
       - name: Checkout NuttX Apps
         uses: actions/checkout@v4
         with:
           repository: apache/nuttx-apps
-          ref: releases/12.4
+          ref: releases/12.6
           path: apps
 
       - name: Checkout WAMR

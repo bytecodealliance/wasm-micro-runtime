@@ -14,6 +14,14 @@ on:
       container_image:
         required: false
         type: string
+      extra_build_llvm_options:
+        required: false
+        type: string
+        default: ""
+      cache_key_suffix:
+        required: false
+        type: string
+        default: ""
     outputs:
       cache_key:
         description: "A cached key of LLVM libraries"
@@ -45,7 +53,7 @@ jobs:
 
       - name: retrieve the last commit ID
         id: get_last_commit
-        run: echo "last_commit=$(GH_TOKEN=${{ secrets.GITHUB_TOKEN }} /usr/bin/env python3 ./build_llvm.py --llvm-ver)" >> $GITHUB_OUTPUT
+        run: echo "last_commit=$(GH_TOKEN=${{ secrets.GITHUB_TOKEN }} /usr/bin/env python3 ./build_llvm.py ${{ inputs.extra_build_llvm_options }} --llvm-ver)" >> $GITHUB_OUTPUT
         working-directory: build-scripts
 
       # Bump the prefix number to evict all previous caches and
@@ -54,7 +62,7 @@ jobs:
       # suspect.
       - name: form the cache key of libraries
         id: create_lib_cache_key
-        run: echo "key=0-llvm-libraries-${{ inputs.os }}-${{ inputs.arch }}-${{ steps.get_last_commit.outputs.last_commit }}" >> $GITHUB_OUTPUT
+        run: echo "key=0-llvm-libraries-${{ inputs.os }}-${{ inputs.arch }}-${{ steps.get_last_commit.outputs.last_commit }}${{ inputs.cache_key_suffix }}" >> $GITHUB_OUTPUT
 
       - name: Cache LLVM libraries
         id: retrieve_llvm_libs
@@ -101,5 +109,5 @@ jobs:
 
       - name: Build LLVM libraries
         if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true'
-        run: /usr/bin/env python3 ./build_llvm.py --arch ${{ inputs.arch }}
+        run: /usr/bin/env python3 ./build_llvm.py ${{ inputs.extra_build_llvm_options }} --arch ${{ inputs.arch }}
         working-directory: build-scripts
