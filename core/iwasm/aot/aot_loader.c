@@ -2353,7 +2353,7 @@ fail:
 
 static void
 destroy_object_data_sections(AOTObjectDataSection *data_sections,
-                             uint32 data_section_count, bool merged_data)
+                             uint32 data_section_count)
 {
     uint32 i;
     AOTObjectDataSection *data_section = data_sections;
@@ -2378,8 +2378,6 @@ destroy_object_data_sections(AOTObjectDataSection *data_sections,
                 }
             }
 #endif
-            if (!merged_data)
-                os_munmap(data_section->data, data_section->size);
         }
     wasm_runtime_free(data_sections);
 }
@@ -2395,7 +2393,7 @@ load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
     uint32 i;
     uint64 total_size = 0;
     uint32 page_size = os_getpagesize();
-    uint64 *merged_sections = NULL;
+    uint8 *merged_sections = NULL;
 
     /* Allocate memory */
     size = sizeof(AOTObjectDataSection) * (uint64)module->data_section_count;
@@ -2408,8 +2406,9 @@ load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
     for (i = 0; i < module->data_section_count; i++) {
         read_string(buf, buf_end, data_sections[i].name);
         read_uint32(buf, buf_end, data_sections[i].size);
-        CHECK_BUF(buf, buf_end, data_sections[i].data);
-        data_sections[i].data = buf;
+        CHECK_BUF(buf, buf_end, data_sections[i].size);
+        /* temporary record data ptr for merge, will be replaced after mmaped */
+        data_sections[i].data = (uint8 *)buf;
         buf += data_sections[i].size;
 
         total_size +=
@@ -2614,8 +2613,6 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
             data_section->data = sections;
             bh_memcpy_s(data_section->data, data_section->size, old_data,
                         data_section->size);
-            if (!module->merged_data_sections)
-                os_munmap(old_data, data_section->size);
             sections +=
                 ((uint64)data_section->size + page_size - 1) & ~(page_size - 1);
         }
@@ -4470,9 +4467,8 @@ aot_unload(AOTModule *module)
 #endif
 
     if (module->data_sections)
-        destroy_object_data_sections(
-            module->data_sections, module->data_section_count,
-            module->merged_data_sections || module->merged_data_text_sections);
+        destroy_object_data_sections(module->data_sections,
+                                     module->data_section_count);
 
     if (module->merged_data_sections)
         os_munmap(module->merged_data_sections,
