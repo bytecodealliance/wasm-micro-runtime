@@ -2570,13 +2570,8 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
     /* calc total memory needed */
     total_size += ((uint64)code_size + page_size - 1) & ~(page_size - 1);
     for (i = 0; i < module->data_section_count; ++i) {
-        AOTObjectDataSection *data_section = module->data_sections + i;
-        uint64 diff =
-            old_end < data_section->data
-                ? (uint64)(data_section->data + data_section->size - old_end)
-                : (uint64)(old_buf - data_section->data);
-        total_size +=
-            ((uint64)data_section->size + page_size - 1) & ~(page_size - 1);
+        total_size += ((uint64)module->data_sections[i].size + page_size - 1)
+                      & ~(page_size - 1);
     }
     if (total_size > (uint64)code_size) {
         int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE;
