@@ -2449,8 +2449,8 @@ load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
 
     /* Second iteration: Create each data section */
     for (i = 0; i < module->data_section_count; i++) {
-        b_memcpy_s(merged_sections, data_sections[i].size,
-                   data_sections[i].data, data_sections[i].size);
+        bh_memcpy_s(merged_sections, data_sections[i].size,
+                    data_sections[i].data, data_sections[i].size);
         data_sections[i].data = merged_sections;
         merged_sections +=
             ((size_t)data_sections[i].size + page_size - 1) & ~(page_size - 1);
