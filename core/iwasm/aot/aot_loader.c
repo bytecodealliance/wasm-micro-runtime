@@ -2408,9 +2408,9 @@ load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
         read_uint32(buf, buf_end, data_sections[i].size);
         CHECK_BUF(buf, buf_end, data_sections[i].size);
         /* temporary record data ptr for merge, will be replaced after mmaped */
-        data_sections[i].data = (uint8 *)buf;
+        if (data_sections[i].size > 0)
+            data_sections[i].data = (uint8 *)buf;
         buf += data_sections[i].size;
-
         total_size +=
             ((uint64)data_sections[i].size + page_size - 1) & ~(page_size - 1);
     }
@@ -2449,11 +2449,13 @@ load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
 
     /* Second iteration: Create each data section */
     for (i = 0; i < module->data_section_count; i++) {
-        bh_memcpy_s(merged_sections, data_sections[i].size,
-                    data_sections[i].data, data_sections[i].size);
-        data_sections[i].data = merged_sections;
-        merged_sections +=
-            ((size_t)data_sections[i].size + page_size - 1) & ~(page_size - 1);
+        if (data_sections[i].size > 0) {
+            bh_memcpy_s(merged_sections, data_sections[i].size,
+                        data_sections[i].data, data_sections[i].size);
+            data_sections[i].data = merged_sections;
+            merged_sections += ((size_t)data_sections[i].size + page_size - 1)
+                               & ~(page_size - 1);
+        }
     }
 
     *p_buf = buf;
