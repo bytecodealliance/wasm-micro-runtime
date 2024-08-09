@@ -1307,6 +1307,12 @@ if __name__ == "__main__":
     wasm_tempfile = create_tmp_file(".wasm")
     if test_aot:
         aot_tempfile = create_tmp_file(".aot")
+        # could be potientially compiled to aot
+        # with the future following call test_assert_xxx, 
+        # add them to temp_file_repo now even if no actual following file, 
+        # it will be simple ignore during final deletion if not exist
+        prefix = wasm_tempfile.split(".wasm")[0]
+        temp_file_repo.append(prefix + ".aot")
 
     ret_code = 0
     try:
@@ -1429,6 +1435,12 @@ if __name__ == "__main__":
 
                         if test_aot:
                             r = compile_wasm_to_aot(temp_files[1], temp_files[2], True, opts, r)
+                            # could be potientially compiled to aot
+                            # with the future following call test_assert_xxx, 
+                            # add them to temp_file_repo now even if no actual following file, 
+                            # it will be simple ignore during final deletion if not exist
+                            prefix = temp_files[1].split(".wasm")[0]
+                            temp_file_repo.append(prefix + ".aot")
                             try:
                                 assert_prompt(r, ['Compile success'], opts.start_timeout, False)
                             except:
