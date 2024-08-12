@@ -2411,8 +2411,7 @@ load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
         if (data_sections[i].size > 0)
             data_sections[i].data = (uint8 *)buf;
         buf += data_sections[i].size;
-        total_size +=
-            ((uint64)data_sections[i].size + page_size - 1) & ~(page_size - 1);
+        total_size += align_uint64((uint64)data_sections[i].size, page_size);
     }
     if (total_size > UINT32_MAX) {
         set_error_buf(error_buf, error_buf_size, "data sections too large");
@@ -2430,13 +2429,14 @@ load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
         int map_flags = MMAP_MAP_NONE;
 #endif
         /* Allocate memory for data */
-        merged_sections = module->merged_data_sections = os_mmap(
-            NULL, total_size, map_prot, map_flags, os_get_invalid_handle());
+        merged_sections = module->merged_data_sections =
+            os_mmap(NULL, (uint32)total_size, map_prot, map_flags,
+                    os_get_invalid_handle());
         if (!merged_sections) {
             set_error_buf(error_buf, error_buf_size, "allocate memory failed");
             return false;
         }
-        module->merged_data_sections_size = total_size;
+        module->merged_data_sections_size = (uint32)total_size;
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
 #if !defined(BH_PLATFORM_LINUX_SGX) && !defined(BH_PLATFORM_WINDOWS) \
     && !defined(BH_PLATFORM_DARWIN)
@@ -2453,8 +2453,7 @@ load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
             bh_memcpy_s(merged_sections, data_sections[i].size,
                         data_sections[i].data, data_sections[i].size);
             data_sections[i].data = merged_sections;
-            merged_sections += ((size_t)data_sections[i].size + page_size - 1)
-                               & ~(page_size - 1);
+            merged_sections += align_uint(data_sections[i].size, page_size);
         }
     }
 
@@ -2564,16 +2563,17 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
     uint64 total_size = 0;
     uint32 i;
     uint8 *sections;
+
     if (code_size == 0) {
         return true;
     }
     /* calc total memory needed */
-    total_size += ((uint64)code_size + page_size - 1) & ~(page_size - 1);
+    total_size += align_uint64((uint64)code_size, page_size);
     for (i = 0; i < module->data_section_count; ++i) {
-        total_size += ((uint64)module->data_sections[i].size + page_size - 1)
-                      & ~(page_size - 1);
+        total_size +=
+            align_uint64((uint64)module->data_sections[i].size, page_size);
     }
-    if (total_size > (uint64)code_size) {
+    if (total_size != 0) {
         int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE;
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
     || defined(BUILD_TARGET_RISCV64_LP64D)                       \
@@ -2589,20 +2589,21 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
         if (total_size > UINT32_MAX) {
             return false;
         }
-        sections = module->merged_data_text_sections = os_mmap(
-            NULL, total_size, map_prot, map_flags, os_get_invalid_handle());
+        sections = module->merged_data_text_sections =
+            os_mmap(NULL, (uint32)total_size, map_prot, map_flags,
+                    os_get_invalid_handle());
         if (!sections) {
             /* merge failed but maybe not critical for some targes */
             return false;
         }
-        module->merged_data_text_sections_size = total_size;
+        module->merged_data_text_sections_size = (uint32)total_size;
         /* order not essential just as compilers do: .text section first */
         *buf = sections;
         *buf_end = sections + code_size;
         bh_memcpy_s(sections, code_size, old_buf, code_size);
         os_mprotect(sections, code_size, map_prot | MMAP_PROT_EXEC);
         os_munmap(old_buf, code_size);
-        sections += ((uint64)code_size + page_size - 1) & ~(page_size - 1);
+        sections += align_uint((uint32)code_size, page_size);
         /* then .data sections */
         for (i = 0; i < module->data_section_count; ++i) {
             AOTObjectDataSection *data_section = module->data_sections + i;
@@ -2610,8 +2611,7 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
             data_section->data = sections;
             bh_memcpy_s(data_section->data, data_section->size, old_data,
                         data_section->size);
-            sections +=
-                ((uint64)data_section->size + page_size - 1) & ~(page_size - 1);
+            sections += align_uint(data_section->size, page_size);
         }
         if (module->merged_data_sections) {
             os_munmap(module->merged_data_sections,
