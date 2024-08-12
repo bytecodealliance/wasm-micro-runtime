@@ -292,6 +292,11 @@
 #define WASM_ENABLE_MULTI_MODULE 0
 #endif
 
+/* Support a dynamic linking */
+#ifndef WASM_ENABLE_DYNAMIC_LINKING
+#define WASM_ENABLE_DYNAMIC_LINKING 0
+#endif
+
 /* Enable wasm mini loader or not */
 #ifndef WASM_ENABLE_MINI_LOADER
 #define WASM_ENABLE_MINI_LOADER 0
