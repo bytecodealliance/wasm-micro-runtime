@@ -4887,7 +4887,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                     /* use int regs firstly if available */
                     if (n_ints & 1)
                         n_ints++;
-                    ints += 2;
+                    n_ints += 2;
                 }
                 else {
                     /* 64-bit data in stack must be 8 bytes aligned in riscv32
