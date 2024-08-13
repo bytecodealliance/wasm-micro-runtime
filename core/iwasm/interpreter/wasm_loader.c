@@ -26,6 +26,9 @@
 #if WASM_ENABLE_JIT != 0
 #include "../compilation/aot_llvm.h"
 #endif
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+#include "dynlink_section_loader.h"
+#endif
 
 #ifndef TRACE_WASM_LOADER
 #define TRACE_WASM_LOADER 0
@@ -5236,6 +5239,14 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
     }
 #endif
 
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    if (!dynlink_try_load_dylink0_section(p, p_end, name_len, module,
+                                          is_load_from_file_buf, error_buf,
+                                          error_buf_size)) {
+        return false;
+    }
+#endif
+
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
     {
         WASMCustomSection *section =
@@ -6935,6 +6946,10 @@ wasm_loader_unload(WASMModule *module)
 
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
     wasm_runtime_destroy_custom_sections(module->custom_section_list);
+#endif
+
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    dynlink_sections_deinit(&module->dynlink_sections);
 #endif
 
 #if WASM_ENABLE_FAST_JIT != 0
