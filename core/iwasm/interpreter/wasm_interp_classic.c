@@ -1399,6 +1399,23 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 #endif /* WASM_ENABLE_DEBUG_INTERP */
 #endif /* WASM_ENABLE_THREAD_MGR */
 
+#if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_INTERP != 0
+#if BH_ATOMIC_32_IS_ATOMIC != 0
+#define GET_SIGNAL_FLAG()                                             \
+    do {                                                              \
+        signal_flag =                                                 \
+            BH_ATOMIC_32_LOAD(exec_env->current_status->signal_flag); \
+    } while (0)
+#else
+#define GET_SIGNAL_FLAG()                                    \
+    do {                                                     \
+        os_mutex_lock(&exec_env->wait_lock);                 \
+        signal_flag = exec_env->current_status->signal_flag; \
+        os_mutex_unlock(&exec_env->wait_lock);               \
+    } while (0)
+#endif
+#endif
+
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
 
 #define HANDLE_OP(opcode) HANDLE_##opcode:
@@ -1410,10 +1427,10 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
         /* Record the current frame_ip, so when exception occurs,             \
            debugger can know the exact opcode who caused the exception */     \
         frame_ip_orig = frame_ip;                                             \
-        /* atomic load the signal_flag first, and handle more with lock       \
-           if it is WAMR_SIG_SINGSTEP */                                      \
-        if (BH_ATOMIC_32_LOAD(exec_env->current_status->signal_flag)          \
-            == WAMR_SIG_SINGSTEP) {                                           \
+        /* Atomic load the exec_env's signal_flag first, and then handle      \
+           more with lock if it is WAMR_SIG_SINGSTEP */                       \
+        GET_SIGNAL_FLAG();                                                    \
+        if (signal_flag == WAMR_SIG_SINGSTEP) {                               \
             os_mutex_lock(&exec_env->wait_lock);                              \
             while (exec_env->current_status->signal_flag == WAMR_SIG_SINGSTEP \
                    && exec_env->current_status->step_count++ == 1) {          \
@@ -1436,10 +1453,10 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
     /* Record the current frame_ip, so when exception occurs,             \
        debugger can know the exact opcode who caused the exception */     \
     frame_ip_orig = frame_ip;                                             \
-    /* atomic load the signal_flag first, and handle more with lock       \
-       if it is WAMR_SIG_SINGSTEP */                                      \
-    if (BH_ATOMIC_32_LOAD(exec_env->current_status->signal_flag)          \
-        == WAMR_SIG_SINGSTEP) {                                           \
+    /* Atomic load the exec_env's signal_flag first, and then handle      \
+       more with lock if it is WAMR_SIG_SINGSTEP */                       \
+    GET_SIGNAL_FLAG();                                                    \
+    if (signal_flag == WAMR_SIG_SINGSTEP) {                               \
         os_mutex_lock(&exec_env->wait_lock);                              \
         while (exec_env->current_status->signal_flag == WAMR_SIG_SINGSTEP \
                && exec_env->current_status->step_count++ == 1) {          \
@@ -1558,6 +1575,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         debug_instance ? &debug_instance->watch_point_list_read : NULL;
     bh_list *watch_point_list_write =
         debug_instance ? &debug_instance->watch_point_list_write : NULL;
+#if WASM_ENABLE_THREAD_MGR != 0
+    uint32 signal_flag;
+#endif
 #endif
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
