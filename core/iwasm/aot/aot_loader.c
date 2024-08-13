@@ -2552,9 +2552,11 @@ fail:
     return false;
 }
 
+#if !defined(BH_PLATFORM_NUTTX) && !defined(BH_PLATFORM_ESP_IDF)
 static bool
-merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
-                    char *error_buf, uint32 error_buf_size)
+try_merge_data_and_text(const uint8 **buf, const uint8 **buf_end,
+                        AOTModule *module, char *error_buf,
+                        uint32 error_buf_size)
 {
     uint8 *old_buf = (uint8 *)*buf;
     uint8 *old_end = (uint8 *)*buf_end;
@@ -2581,11 +2583,8 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
     }
 
     if (total_size != 0) {
-#if defined(BH_PLATFORM_NUTTX) || defined(BH_PLATFORM_ESP_IDF)
-        int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC;
-#else
         int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE;
-#endif
+
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
     || defined(BUILD_TARGET_RISCV64_LP64D)                       \
     || defined(BUILD_TARGET_RISCV64_LP64)
@@ -2602,12 +2601,11 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
             /* merge failed but maybe not critical for some targes */
             return false;
         }
-#if !defined(BH_PLATFORM_NUTTX) && !defined(BH_PLATFORM_ESP_IDF)
         if (os_mprotect(sections, code_size, map_prot | MMAP_PROT_EXEC) != 0) {
             os_munmap(sections, (uint32)total_size);
             return false;
         }
-#endif
+
         module->merged_data_text_sections = sections;
         module->merged_data_text_sections_size = (uint32)total_size;
 
@@ -2636,6 +2634,7 @@ merge_data_and_text(const uint8 **buf, const uint8 **buf_end, AOTModule *module,
     }
     return true;
 }
+#endif //! defined(BH_PLATFORM_NUTTX) && !defined(BH_PLATFORM_ESP_IDF)
 
 static bool
 load_text_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
@@ -3854,13 +3853,17 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                     return false;
                 break;
             case AOT_SECTION_TYPE_TEXT:
-                /* try to merge .data and .text, with two exceptions:
+#if !defined(BH_PLATFORM_NUTTX) && !defined(BH_PLATFORM_ESP_IDF)
+                /* try to merge .data and .text, with exceptions:
                  * 1. XIP mode
-                 * 2. pre-mmapped module load from aot_load_from_sections() */
+                 * 2. pre-mmapped module load from aot_load_from_sections()
+                 * 3. nuttx & esp-idf: have separate region for MMAP_PROT_EXEC
+                 */
                 if (!module->is_indirect_mode && is_load_from_file_buf)
-                    if (!merge_data_and_text(&buf, &buf_end, module, error_buf,
-                                             error_buf_size))
+                    if (!try_merge_data_and_text(&buf, &buf_end, module,
+                                                 error_buf, error_buf_size))
                         LOG_WARNING("merge .data and .text sections failed");
+#endif //! defined(BH_PLATFORM_NUTTX) && !defined(BH_PLATFORM_ESP_IDF)
                 if (!load_text_section(buf, buf_end, module, error_buf,
                                        error_buf_size))
                     return false;
