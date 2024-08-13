@@ -572,7 +572,8 @@ def main():
         if options.parl_flag:
             # several cases might share the same workspace/tempfile at the same time
             # so, disable it while running parallelly
-            options.clean_up_flag = False
+            if options.multi_module_flag:
+                options.clean_up_flag = False
             options.verbose_flag = False
 
         start = time.time_ns()
