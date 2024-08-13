@@ -16,7 +16,7 @@ WAMR project reused some components from other open source project:
 - **asmjit**: for the Fast JIT x86-64 codegen implementation
 - **zydis**: for the Fast JIT x86-64 codegen implementation
 - **NuttX ELF headers**: used in core/iwasm/aot/debug/elf_parser.c
-- **Dhrystone**: for the test benchmakr dhrystone
+- **Dhrystone**: for the test benchmark dhrystone
 
 The WAMR fast interpreter is a clean room development. We would acknowledge the inspirations by [WASM3](https://github.com/wasm3/wasm3) open source project for the approach of pre-calculated operand stack location.
 
