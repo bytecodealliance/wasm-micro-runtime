@@ -306,7 +306,7 @@ loader_mmap(uint32 size, bool prot_exec, bool map_32bit, char *error_buf,
     if (!(mem = os_mmap(NULL, size, map_prot, map_flags,
                         os_get_invalid_handle()))) {
         set_error_buf(error_buf, error_buf_size, "allocate memory failed");
-        return false;
+        return NULL;
     }
 
     if (map_32bit) {
