@@ -295,42 +295,36 @@ loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
 }
 
 static void *
-loader_mmap(uint32 size, bool prot_exec, bool map_32bit, char *error_buf,
-            uint32 error_buf_size)
+loader_mmap(uint32 size, bool prot_exec, char *error_buf, uint32 error_buf_size)
 {
     int map_prot =
         MMAP_PROT_READ | MMAP_PROT_WRITE | (prot_exec ? MMAP_PROT_EXEC : 0);
-    int map_flags = map_32bit ? MMAP_MAP_32BIT : MMAP_MAP_NONE;
+    int map_flags;
     void *mem;
 
+#if UINTPTR_MAX == UINT64_MAX
+    /* The mmapped AOT data and code in 64-bit targets had better be in
+       range 0 to 2G, or aot loader may fail to apply some relocations,
+       e.g., R_X86_64_32/R_X86_64_32S/R_X86_64_PC32/R_RISCV_32.
+       We try to mmap with MMAP_MAP_32BIT flag first, and if fails, mmap
+       again without the flag. */
+    map_flags = MMAP_MAP_32BIT;
+    if ((mem = os_mmap(NULL, size, map_prot, map_flags,
+                       os_get_invalid_handle()))) {
+        /* The mmapped memory must be in the first 2 Gigabytes of the
+           process address space */
+        bh_assert((uintptr_t)mem < INT32_MAX);
+        return mem;
+    }
+#endif
+
+    map_flags = MMAP_MAP_NONE;
     if (!(mem = os_mmap(NULL, size, map_prot, map_flags,
                         os_get_invalid_handle()))) {
         set_error_buf(error_buf, error_buf_size, "allocate memory failed");
         return NULL;
     }
-
-    if (map_32bit) {
-        /* address must be in the first 2 Gigabytes of
-           the process address space */
-        bh_assert((uintptr_t)mem < INT32_MAX);
-    }
-
     return mem;
-}
-
-static inline bool
-is_mmap_32bit_needed()
-{
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
-    || defined(BUILD_TARGET_RISCV64_LP64D)                       \
-    || defined(BUILD_TARGET_RISCV64_LP64)
-    /* The mmapped AOT data and code in x86_64/riscv64 had better be in
-       range 0 to 2G, or loader may fail to apply some relocations, e.g.,
-       R_X86_64_32/32S/PC32 */
-    return true;
-#else
-    return false;
-#endif
 }
 
 static char *
@@ -2460,8 +2454,7 @@ load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
     if (total_size > 0) {
         /* Allocate memory for data */
         merged_sections = module->merged_data_sections =
-            loader_mmap((uint32)total_size, false, is_mmap_32bit_needed(),
-                        error_buf, error_buf_size);
+            loader_mmap((uint32)total_size, false, error_buf, error_buf_size);
         if (!merged_sections) {
             return false;
         }
@@ -2605,8 +2598,7 @@ try_merge_data_and_text(const uint8 **buf, const uint8 **buf_end,
     /* code_size was checked and must be larger than 0 here */
     bh_assert(total_size > 0);
 
-    sections =
-        loader_mmap((uint32)total_size, false, is_mmap_32bit_needed(), NULL, 0);
+    sections = loader_mmap((uint32)total_size, false, NULL, 0);
     if (!sections) {
         /* merge failed but may be not critical for some targets */
         return false;
@@ -3511,7 +3503,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
     if (size > 0) {
         if (size > UINT32_MAX
             || !(module->extra_plt_data = loader_mmap(
-                     (uint32)size, true, true, error_buf, error_buf_size))) {
+                     (uint32)size, true, error_buf, error_buf_size))) {
             goto fail;
         }
         module->extra_plt_data_size = (uint32)size;
@@ -3628,7 +3620,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
         size = (uint64)sizeof(void *) * got_item_count;
         if (size > UINT32_MAX
             || !(module->got_func_ptrs = loader_mmap(
-                     (uint32)size, false, true, error_buf, error_buf_size))) {
+                     (uint32)size, false, error_buf, error_buf_size))) {
             goto fail;
         }
 
@@ -4186,8 +4178,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
                     if (total_size >= UINT32_MAX
                         || !(aot_text =
                                  loader_mmap((uint32)total_size, true,
-                                             is_mmap_32bit_needed(), error_buf,
-                                             error_buf_size))) {
+                                             error_buf, error_buf_size))) {
                         wasm_runtime_free(section);
                         goto fail;
                     }
