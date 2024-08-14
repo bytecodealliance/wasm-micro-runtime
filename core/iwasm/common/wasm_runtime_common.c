@@ -3289,6 +3289,38 @@ wasm_runtime_module_dup_data(WASMModuleInstanceCommon *module_inst,
     return 0;
 }
 
+#if WASM_ENABLE_SHARED_HEAP != 0
+uint64
+wasm_runtime_module_shared_malloc(WASMModuleInstanceCommon *module_inst,
+                                  uint64 size, void **p_native_addr)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode)
+        return wasm_module_shared_malloc((WASMModuleInstance *)module_inst,
+                                         size, p_native_addr);
+#endif
+#if WASM_ENABLE_AOT != 0
+        // TODO
+#endif
+    return 0;
+}
+
+void
+wasm_runtime_module_shared_free(WASMModuleInstanceCommon *module_inst,
+                                uint64 ptr)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        wasm_module_shared_free((WASMModuleInstance *)module_inst, ptr);
+        return;
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    // TODO
+#endif
+}
+#endif
+
 #if WASM_ENABLE_LIBC_WASI != 0
 
 static WASIArguments *

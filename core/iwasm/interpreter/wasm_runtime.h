@@ -353,6 +353,10 @@ typedef struct WASMModuleInstanceExtra {
     uint32 max_aux_stack_used;
 #endif
 
+#if WASM_ENABLE_SHARED_HEAP != 0
+    WASMSharedHeap *shared_heap;
+#endif
+
 #if WASM_ENABLE_DEBUG_INTERP != 0                         \
     || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
         && WASM_ENABLE_LAZY_JIT != 0)
@@ -608,6 +612,13 @@ uint64
 wasm_module_dup_data(WASMModuleInstance *module_inst, const char *src,
                      uint64 size);
 
+#if WASM_ENABLE_SHARED_HEAP != 0
+uint64
+wasm_module_shared_malloc(WASMModuleInstance *module_inst, uint64 size,
+                          void **p_native_addr);
+void
+wasm_module_shared_free(WASMModuleInstance *module_inst, uint64 ptr);
+#endif
 /**
  * Check whether the app address and the buf is inside the linear memory,
  * and convert the app address into native address

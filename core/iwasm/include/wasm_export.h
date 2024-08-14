@@ -193,6 +193,22 @@ typedef enum RunningMode {
     Mode_Multi_Tier_JIT,
 } RunningMode;
 
+typedef enum {
+    /* heap type */
+    Shared_heap_alloc_With_Pool = 0,
+    Shared_heap_alloc_With_MMAP,
+} shared_heap_alloc_type_t;
+
+// todo: add field "name"  to WASMSharedHeap?
+typedef struct WASMSharedHeap {
+    void *heap_handle;
+    uint8_t *base_addr;
+    uint32_t size;
+    mem_alloc_type_t alloc_type;
+    MemAllocOption alloc_option;
+    struct WASMSharedHeap *next;
+} WASMSharedHeap;
+
 /* WASM runtime initialize arguments */
 typedef struct RuntimeInitArgs {
     mem_alloc_type_t mem_alloc_type;
@@ -226,6 +242,7 @@ typedef struct RuntimeInitArgs {
     uint32_t llvm_jit_size_level;
     /* Segue optimization flags for LLVM JIT */
     uint32_t segue_flags;
+
     /**
      * If enabled
      * - llvm-jit will output a jitdump file for `perf inject`
