@@ -102,6 +102,7 @@ $(NAME)_SOURCES := ${SHARED_ROOT}/platform/alios/alios_platform.c \
                    ${SHARED_ROOT}/utils/bh_common.c \
                    ${SHARED_ROOT}/utils/bh_hashmap.c \
                    ${SHARED_ROOT}/utils/bh_list.c \
+                   ${SHARED_ROOT}/utils/bh_leb128.c \
                    ${SHARED_ROOT}/utils/bh_log.c \
                    ${SHARED_ROOT}/utils/bh_queue.c \
                    ${SHARED_ROOT}/utils/bh_vector.c \

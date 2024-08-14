@@ -44,9 +44,7 @@ has_module_memory64(WASMModule *module)
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
-    if (error_buf != NULL)
-        snprintf(error_buf, error_buf_size, "WASM module load failed: %s",
-                 string);
+    wasm_loader_set_error_buf(error_buf, error_buf_size, string, false);
 }
 
 #define CHECK_BUF(buf, buf_end, length)                            \
@@ -93,71 +91,6 @@ is_byte_a_type(uint8 type)
 {
     return is_valid_value_type_for_interpreter(type)
            || (type == VALUE_TYPE_VOID);
-}
-
-static void
-read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
-         uint64 *p_result, char *error_buf, uint32 error_buf_size)
-{
-    const uint8 *buf = *p_buf;
-    uint64 result = 0;
-    uint32 shift = 0;
-    uint32 offset = 0, bcnt = 0;
-    uint64 byte;
-
-    while (true) {
-        bh_assert(bcnt + 1 <= (maxbits + 6) / 7);
-        CHECK_BUF(buf, buf_end, offset + 1);
-        byte = buf[offset];
-        offset += 1;
-        result |= ((byte & 0x7f) << shift);
-        shift += 7;
-        bcnt += 1;
-        if ((byte & 0x80) == 0) {
-            break;
-        }
-    }
-
-    if (!sign && maxbits == 32 && shift >= maxbits) {
-        /* The top bits set represent values > 32 bits */
-        bh_assert(!(((uint8)byte) & 0xf0));
-    }
-    else if (sign && maxbits == 32) {
-        if (shift < maxbits) {
-            /* Sign extend, second-highest bit is the sign bit */
-            if ((uint8)byte & 0x40)
-                result |= (~((uint64)0)) << shift;
-        }
-        else {
-            /* The top bits should be a sign-extension of the sign bit */
-            bool sign_bit_set = ((uint8)byte) & 0x8;
-            int top_bits = ((uint8)byte) & 0xf0;
-            bh_assert(!((sign_bit_set && top_bits != 0x70)
-                        || (!sign_bit_set && top_bits != 0)));
-            (void)top_bits;
-            (void)sign_bit_set;
-        }
-    }
-    else if (sign && maxbits == 64) {
-        if (shift < maxbits) {
-            /* Sign extend, second-highest bit is the sign bit */
-            if ((uint8)byte & 0x40)
-                result |= (~((uint64)0)) << shift;
-        }
-        else {
-            /* The top bits should be a sign-extension of the sign bit */
-            bool sign_bit_set = ((uint8)byte) & 0x1;
-            int top_bits = ((uint8)byte) & 0xfe;
-
-            bh_assert(!((sign_bit_set && top_bits != 0x7e)
-                        || (!sign_bit_set && top_bits != 0)));
-            (void)top_bits;
-            (void)sign_bit_set;
-        }
-    }
-
-    *p_buf += offset;
-    *p_result = result;
 }
 
 #define read_uint8(p) TEMPLATE_READ_VALUE(uint8, p)
