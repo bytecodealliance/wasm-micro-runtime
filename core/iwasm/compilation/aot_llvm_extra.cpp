@@ -41,6 +41,9 @@
 #include <llvm/Target/CodeGenCWrappers.h>
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Target/TargetOptions.h>
+#if LLVM_VERSION_MAJOR >= 17
+#include <llvm/TargetParser/Triple.h>
+#endif
 #include <llvm/Transforms/Utils/LowerMemIntrinsics.h>
 #include <llvm/Transforms/Vectorize/LoopVectorize.h>
 #include <llvm/Transforms/Vectorize/LoadStoreVectorizer.h>
