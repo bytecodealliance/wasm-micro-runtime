@@ -3121,7 +3121,8 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
 #endif
 
     if (option->enable_simd && strcmp(comp_ctx->target_arch, "x86_64") != 0
-        && strncmp(comp_ctx->target_arch, "aarch64", 7) != 0) {
+        && strncmp(comp_ctx->target_arch, "aarch64", 7) != 0
+        && strcmp(comp_ctx->target_arch, "arc") != 0) {
         /* Disable simd if it isn't supported by target arch */
         option->enable_simd = false;
     }
