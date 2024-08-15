@@ -101,10 +101,10 @@ else ifeq (${WAMR_BUILD_TARGET}, RISCV32)
 
 ifeq (${CONFIG_ARCH_DPFPU},y)
   CFLAGS += -DBUILD_TARGET_RISCV32_ILP32D
-else ifneq (${CONFIG_ARCH_FPU},y)
-  CFLAGS += -DBUILD_TARGET_RISCV32_ILP32
+else ifeq (${CONFIG_ARCH_FPU},y)
+  CFLAGS += -DBUILD_TARGET_RISCV32_ILP32F
 else
-  $(error riscv32 ilp32f is unsupported)
+  CFLAGS += -DBUILD_TARGET_RISCV32_ILP32
 endif
 
   INVOKE_NATIVE += invokeNative_riscv.S
