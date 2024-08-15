@@ -11,8 +11,7 @@
 
 typedef struct {
     bool is_model_loaded;
-    // Optional
-    graph_encoding current_encoding;
+    graph_encoding backend;
     void *backend_ctx;
 } WASINNContext;
 

@@ -5,7 +5,7 @@
 
 #include "wasi_nn_types.h"
 #include "wasi_nn_openvino.h"
-#include "logger.h"
+#include "utils/logger.h"
 #include "bh_platform.h"
 
 #include "openvino/c/openvino.h"
@@ -82,7 +82,7 @@ dump_ov_shape_t(const ov_shape_t *shape, int32_t output_len, char *output)
 static void
 print_model_input_output_info(ov_model_t *model)
 {
-    wasi_nn_error ov_error;
+    wasi_nn_error ov_error = success;
     char *friendly_name = NULL;
     size_t input_size = 0;
     ov_output_const_port_t *input_port = NULL;
@@ -136,6 +136,7 @@ print_model_input_output_info(ov_model_t *model)
         output_port = NULL;
     }
 
+    ov_error = ov_error;
 fail:
     if (friendly_name)
         ov_free(friendly_name);
@@ -157,16 +158,23 @@ wasi_nn_tensor_type_to_openvino_element_type(tensor_type wasi_nn_type)
             return F16;
         case fp32:
             return F32;
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
         case fp64:
             return F64;
         case bf16:
             return BF16;
+        case i64:
+            return I64;
         case u8:
             return U8;
         case i32:
             return I32;
-        case i64:
-            return I64;
+#else
+        case up8:
+            return U8;
+        case ip32:
+            return I32;
+#endif
         default:
             break;
     }
@@ -178,7 +186,7 @@ wasi_nn_tensor_type_to_openvino_element_type(tensor_type wasi_nn_type)
 static wasi_nn_error
 uint32_array_to_int64_array(uint32_t array_size, uint32_t *src, int64_t **dst)
 {
-    *dst = malloc(array_size * sizeof(int64_t));
+    *dst = os_malloc(array_size * sizeof(int64_t));
     if (!(*dst))
         return runtime_error;
 
@@ -189,9 +197,9 @@ uint32_array_to_int64_array(uint32_t array_size, uint32_t *src, int64_t **dst)
     return success;
 }
 
-wasi_nn_error
-openvino_load(void *ctx, graph_builder_array *builder, graph_encoding encoding,
-              execution_target target, graph *g)
+__attribute__((visibility("default"))) wasi_nn_error
+load(void *ctx, graph_builder_array *builder, graph_encoding encoding,
+     execution_target target, graph *g)
 {
     OpenVINOContext *ov_ctx = (OpenVINOContext *)ctx;
     wasi_nn_error ret = unsupported_operation;
@@ -227,7 +235,7 @@ openvino_load(void *ctx, graph_builder_array *builder, graph_encoding encoding,
 
     /* transfer weight to an ov tensor */
     {
-        ov_ctx->weight_data = malloc(weight.size);
+        ov_ctx->weight_data = os_malloc(weight.size);
         if (!ov_ctx->weight_data)
             goto fail;
         memcpy(ov_ctx->weight_data, weight.buf, weight.size);
@@ -255,9 +263,8 @@ fail:
     return ret;
 }
 
-wasi_nn_error
-openvino_load_by_name(void *ctx, const char *filename, uint32_t filename_len,
-                      graph *g)
+__attribute__((visibility("default"))) wasi_nn_error
+load_by_name(void *ctx, const char *filename, uint32_t filename_len, graph *g)
 {
     OpenVINOContext *ov_ctx = (OpenVINOContext *)ctx;
     wasi_nn_error ret = unsupported_operation;
@@ -270,16 +277,15 @@ fail:
     return ret;
 }
 
-wasi_nn_error
-openvino_init_execution_context(void *ctx, graph g,
-                                graph_execution_context *exec_ctx)
+__attribute__((visibility("default"))) wasi_nn_error
+init_execution_context(void *ctx, graph g, graph_execution_context *exec_ctx)
 {
     return success;
 }
 
-wasi_nn_error
-openvino_set_input(void *ctx, graph_execution_context exec_ctx, uint32_t index,
-                   tensor *wasi_nn_tensor)
+__attribute__((visibility("default"))) wasi_nn_error
+set_input(void *ctx, graph_execution_context exec_ctx, uint32_t index,
+          tensor *wasi_nn_tensor)
 {
     OpenVINOContext *ov_ctx = (OpenVINOContext *)ctx;
     wasi_nn_error ret = unsupported_operation;
@@ -405,7 +411,7 @@ openvino_set_input(void *ctx, graph_execution_context exec_ctx, uint32_t index,
 
 fail:
     if (ov_dims)
-        free(ov_dims);
+        os_free(ov_dims);
     ov_shape_free(&input_shape);
     if (ppp)
         ov_preprocess_prepostprocessor_free(ppp);
@@ -429,8 +435,8 @@ fail:
     return ret;
 }
 
-wasi_nn_error
-openvino_compute(void *ctx, graph_execution_context exec_ctx)
+__attribute__((visibility("default"))) wasi_nn_error
+compute(void *ctx, graph_execution_context exec_ctx)
 {
     OpenVINOContext *ov_ctx = (OpenVINOContext *)ctx;
     wasi_nn_error ret = unsupported_operation;
@@ -441,9 +447,9 @@ fail:
     return ret;
 }
 
-wasi_nn_error
-openvino_get_output(void *ctx, graph_execution_context exec_ctx, uint32_t index,
-                    tensor_data output_tensor, uint32_t *output_tensor_size)
+__attribute__((visibility("default"))) wasi_nn_error
+get_output(void *ctx, graph_execution_context exec_ctx, uint32_t index,
+           tensor_data output_tensor, uint32_t *output_tensor_size)
 {
     OpenVINOContext *ov_ctx = (OpenVINOContext *)ctx;
     wasi_nn_error ret = unsupported_operation;
@@ -471,8 +477,8 @@ fail:
     return ret;
 }
 
-wasi_nn_error
-openvino_initialize(void **ctx)
+__attribute__((visibility("default"))) wasi_nn_error
+init_backend(void **ctx)
 {
     ov_version_t version;
     OpenVINOContext *ov_ctx = NULL;
@@ -509,8 +515,8 @@ fail:
     return ret;
 }
 
-wasi_nn_error
-openvino_destroy(void *ctx)
+__attribute__((visibility("default"))) wasi_nn_error
+deinit_backend(void *ctx)
 {
     OpenVINOContext *ov_ctx = (OpenVINOContext *)ctx;
 
@@ -518,7 +524,7 @@ openvino_destroy(void *ctx)
         return invalid_argument;
 
     if (ov_ctx->weight_data)
-        free(ov_ctx->weight_data);
+        os_free(ov_ctx->weight_data);
 
     if (ov_ctx->weights_tensor)
         ov_tensor_free(ov_ctx->weights_tensor);
@@ -540,20 +546,4 @@ openvino_destroy(void *ctx)
 
     os_free(ov_ctx);
     return success;
-}
-
-__attribute__((constructor(200))) void
-openvino_register_backend()
-{
-    api_function apis = {
-        .load = openvino_load,
-        .load_by_name = openvino_load_by_name,
-        .init_execution_context = openvino_init_execution_context,
-        .set_input = openvino_set_input,
-        .compute = openvino_compute,
-        .get_output = openvino_get_output,
-        .init = openvino_initialize,
-        .deinit = openvino_destroy,
-    };
-    wasi_nn_register_backend(apis);
 }

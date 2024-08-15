@@ -21,12 +21,6 @@ else ifeq ($(CONFIG_ARCH_X86_64),y)
 WAMR_BUILD_TARGET := X86_64
 else ifeq ($(CONFIG_ARCH_XTENSA),y)
 WAMR_BUILD_TARGET := XTENSA
-# RV64GC and RV32IM used in older
-# version NuttX
-else ifeq ($(CONFIG_ARCH_RV64GC),y)
-WAMR_BUILD_TARGET := RISCV64
-else ifeq ($(CONFIG_ARCH_RV32IM),y)
-WAMR_BUILD_TARGET := RISCV32
 else ifeq ($(CONFIG_ARCH_RV64),y)
 WAMR_BUILD_TARGET := RISCV64
 else ifeq ($(CONFIG_ARCH_RV32),y)
@@ -107,10 +101,10 @@ else ifeq (${WAMR_BUILD_TARGET}, RISCV32)
 
 ifeq (${CONFIG_ARCH_DPFPU},y)
   CFLAGS += -DBUILD_TARGET_RISCV32_ILP32D
-else ifneq (${CONFIG_ARCH_FPU},y)
-  CFLAGS += -DBUILD_TARGET_RISCV32_ILP32
+else ifeq (${CONFIG_ARCH_FPU},y)
+  CFLAGS += -DBUILD_TARGET_RISCV32_ILP32F
 else
-  $(error riscv32 ilp32f is unsupported)
+  CFLAGS += -DBUILD_TARGET_RISCV32_ILP32
 endif
 
   INVOKE_NATIVE += invokeNative_riscv.S
@@ -441,6 +435,7 @@ CSRCS += nuttx_platform.c \
          bh_common.c \
          bh_hashmap.c \
          bh_list.c \
+         bh_leb128.c \
          bh_log.c \
          bh_queue.c \
          bh_vector.c \

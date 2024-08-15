@@ -184,9 +184,9 @@ wasm_cluster_is_thread_terminated(WASMExecEnv *exec_env);
     ((signo) == WAMR_SIG_STOP || (signo) == WAMR_SIG_TRAP)
 
 struct WASMCurrentEnvStatus {
-    uint64 signal_flag : 32;
-    uint64 step_count : 16;
-    uint64 running_status : 16;
+    uint32 signal_flag;
+    uint16 step_count;
+    uint16 running_status;
 };
 
 WASMCurrentEnvStatus *
