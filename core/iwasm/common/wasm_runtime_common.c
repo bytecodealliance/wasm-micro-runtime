@@ -4773,12 +4773,11 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     bool is_aot_func = (NULL == signature);
 #endif
+
+    /* ARC and RISCV32_ILP32 don't have FPU */
 #if !defined(BUILD_TARGET_RISCV32_ILP32) && !defined(BUILD_TARGET_ARC)
     uint32 *fps;
     int n_fps = 0;
-#else
-#define fps ints
-#define n_fps n_ints
 #endif
 
     n_ints++; /* exec env */
