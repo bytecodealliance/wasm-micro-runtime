@@ -105,6 +105,7 @@ jobs:
         working-directory: nuttx
         run: |
           tools/configure.sh ${{ matrix.nuttx_board_config }}
+          kconfig-tweak --enable CONFIG_PSEUDOFS_SOFTLINKS
           kconfig-tweak --enable CONFIG_INTERPRETERS_WAMR
           kconfig-tweak --enable CONFIG_INTERPRETERS_IWASM_TASK
           kconfig-tweak --set-val CONFIG_INTERPRETERS_WAMR_PRIORITY 100
