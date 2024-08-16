@@ -29,12 +29,20 @@ if(WAMR_BUILD_WASI_NN_TFLITE EQUAL 1)
       ${WASI_NN_ROOT}/src/wasi_nn_tensorflowlite.cpp
   )
 
+  target_include_directories(
+    wasi_nn_tflite
+    PUBLIC
+      ${tensorflow_lite_SOURCE_DIR}
+  )
+
   target_link_libraries(
     wasi_nn_tflite
     PUBLIC
       libiwasm
       tensorflow-lite
   )
+
+  install(TARGETS wasi_nn_tflite DESTINATION lib)
 endif()
 
 # - openvino
@@ -66,11 +74,14 @@ if(WAMR_BUILD_WASI_NN_OPENVINO EQUAL 1)
       openvino::runtime
       openvino::runtime::c
   )
+
+  install(TARGETS wasi_nn_openvino DESTINATION lib)
 endif()
 
 # - llamacpp
 
 if(WAMR_BUILD_WASI_NN_LLAMACPP EQUAL 1)
+  find_package(cjson REQUIRED)
   find_package(llamacpp REQUIRED)
 
   add_library(
@@ -81,21 +92,19 @@ if(WAMR_BUILD_WASI_NN_LLAMACPP EQUAL 1)
 
   target_include_directories(
     wasi_nn_llamacpp
-    PRIVATE
-      ${LLAMA_INCLUDE_DIR}
-  )
-
-  target_link_directories(
-    wasi_nn_llamacpp
     PUBLIC
-      ${LLAMA_INSTALL_DIR}/lib
+      ${cjson_SOURCE_DIR}
   )
 
   target_link_libraries(
     wasi_nn_llamacpp
     PUBLIC
       libiwasm
-      llama
+      cjson
+      common
       ggml
+      llama
   )
+
+  install(TARGETS wasi_nn_llamacpp DESTINATION lib)
 endif()
