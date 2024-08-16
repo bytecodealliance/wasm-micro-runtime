@@ -12004,6 +12004,14 @@ re_scan:
 
                 read_leb_uint32(p, p_end, type_idx);
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
+#if WASM_ENABLE_WAMR_COMPILER != 0
+                if (*p != 0x00) {
+                    // Any non-0x00 byte requires the ref types proposal.
+                    // This is different from checking the table_idx value
+                    // since `0x80 0x00` etc. are all valid encodings of zero.
+                    module->is_ref_types_used = true;
+                }
+#endif
                 read_leb_uint32(p, p_end, table_idx);
 #else
                 CHECK_BUF(p, p_end, 1);
