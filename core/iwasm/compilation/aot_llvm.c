@@ -3121,7 +3121,8 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
 #endif
 
     if (option->enable_simd && strcmp(comp_ctx->target_arch, "x86_64") != 0
-        && strncmp(comp_ctx->target_arch, "aarch64", 7) != 0) {
+        && strncmp(comp_ctx->target_arch, "aarch64", 7) != 0
+        && strcmp(comp_ctx->target_arch, "arc") != 0) {
         /* Disable simd if it isn't supported by target arch */
         option->enable_simd = false;
     }
@@ -3288,6 +3289,7 @@ insert_native_symbol(AOTCompContext *comp_ctx, const char *symbol, int32 idx)
     bh_assert(strlen(symbol) <= sizeof(sym->symbol));
     ret = snprintf(sym->symbol, sizeof(sym->symbol), "%s", symbol);
     if (ret < 0 || ret + 1 > (int)sizeof(sym->symbol)) {
+        wasm_runtime_free(sym);
         aot_set_last_error_v("symbol name too long: %s", symbol);
         return false;
     }
