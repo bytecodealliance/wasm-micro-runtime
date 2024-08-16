@@ -104,8 +104,9 @@ os_thread_exit(void *retval);
 #endif
 
 /* Clang's __GNUC_PREREQ macro has a different meaning than GCC one,
-   so we have to handle this case specially */
-#if defined(__clang__)
+   so we have to handle this case specially(except the CCAC compiler
+   provided by MetaWare, which doesn't support atomic operations) */
+#if defined(__clang__) && !defined(__CCAC__)
 /* Clang provides stdatomic.h since 3.6.0
    See https://releases.llvm.org/3.6.0/tools/clang/docs/ReleaseNotes.html */
 #if __clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 6)
