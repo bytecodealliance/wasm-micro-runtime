@@ -65,9 +65,12 @@ BH_LOG(uint32 log_level, const char *file, int line, const char *fmt, ...);
     bh_log(BH_LOG_LEVEL_FATAL, __FUNCTION__, __LINE__, __VA_ARGS__)
 #endif
 
-#define LOG_ERROR(...) bh_log(BH_LOG_LEVEL_ERROR, NULL, 0, __VA_ARGS__)
-#define LOG_WARNING(...) bh_log(BH_LOG_LEVEL_WARNING, NULL, 0, __VA_ARGS__)
-#define LOG_VERBOSE(...) bh_log(BH_LOG_LEVEL_VERBOSE, NULL, 0, __VA_ARGS__)
+#define LOG_ERROR(...) \
+    bh_log(BH_LOG_LEVEL_ERROR, __FILE__, __LINE__, __VA_ARGS__)
+#define LOG_WARNING(...) \
+    bh_log(BH_LOG_LEVEL_WARNING, __FILE__, __LINE__, __VA_ARGS__)
+#define LOG_VERBOSE(...) \
+    bh_log(BH_LOG_LEVEL_VERBOSE, __FILE__, __LINE__, __VA_ARGS__)
 
 #if BH_DEBUG != 0
 #define LOG_DEBUG(...) \
