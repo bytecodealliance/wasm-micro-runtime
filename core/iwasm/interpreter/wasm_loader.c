@@ -7149,10 +7149,10 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             case WASM_OP_RETURN_CALL_INDIRECT:
 #endif
                 skip_leb_uint32(p, p_end); /* typeidx */
-#if WASM_ENABLE_REF_TYPES == 0 && WASM_ENABLE_GC == 0
-                u8 = read_uint8(p); /* 0x00 */
-#else
+#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
                 skip_leb_uint32(p, p_end); /* tableidx */
+#else
+                u8 = read_uint8(p); /* 0x00 */
 #endif
                 break;
 
@@ -12005,10 +12005,12 @@ re_scan:
                 read_leb_uint32(p, p_end, type_idx);
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
 #if WASM_ENABLE_WAMR_COMPILER != 0
-                if (*p != 0x00) {
-                    // Any non-0x00 byte requires the ref types proposal.
-                    // This is different from checking the table_idx value
-                    // since `0x80 0x00` etc. are all valid encodings of zero.
+                if (p + 1 < p_end && *p != 0x00) {
+                    /*
+                     * Any non-0x00 byte requires the ref types proposal.
+                     * This is different from checking the table_idx value
+                     * since `0x80 0x00` etc. are all valid encodings of zero.
+                     */
                     module->is_ref_types_used = true;
                 }
 #endif
