@@ -6,10 +6,13 @@
 ### New Features
  - [wasi-nn] Add a new wasi-nn backend openvino (#3603)
  - Add APIs into wasm_c_api.h to summary wasm function execution duration (#3639)
+ - Add support for RISCV32 ILP32F (#3708)
 
 ### Bug Fixes
  - libc-builtin: Fix function prototype for wasm_runtime_module_realloc (#3702)
  - Fix potential memory leak in insert_native_symbol (#3712)
+ - aot compiler: Fix NaN handling for opcode f32/f64.const in XIP mode (#3721)
+ - Fix table idx resolving in op call_indirect/return_call_indirect (#3726)
 
 ### Enhancements
  - Remove a few hardcoded spec test knowledge from the core library (#3648)
@@ -33,6 +36,9 @@
  - [refactoring] Extract read leb to a separate file, share the code between loader and mini loader (#3701)
  - debug-interp: Only add lock when signal_flag is SIG_SINGSTEP (#3704)
  - Fix compilation warnings (#3707)
+ - Add missing headers in bh_atomic.h and aot_llvm_extra.cpp (#3715)
+ - Update std atomic check and simd compatibility check for arc compiler (#3716)
+ - aot compiler: Track non-0x00 tableindex as ref types use (#3695)
 
 ### Others
  - Fix night run CI (#3640)
@@ -57,6 +63,10 @@
  - CI: Bump NuttX version to 12.6 (#3684)
  - wamr-test-suites: Clean up generated tmp files after spec test (#3700)
  - test_wamr.sh: Fix build wabt tool (#3703)
+ - NuttX: Retire CONFIG_ARCH_RV32IM and CONFIG_ARCH_RV64GC (#3717)
+ - runtest.py: Normallize option handling for XIP mode (#3722)
+ - CI: Enable XIP spectest for RISCV32 ILP32F (#3727)
+ - CI: Unify configuration stage for NuttX (#3725)
 
 ---
 
