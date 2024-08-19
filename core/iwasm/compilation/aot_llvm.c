@@ -3108,6 +3108,16 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
         goto fail;
     }
 
+    /* Return error if ref-types and GC are disabled by command line but
+       ref-types instructions are used */
+    if (!option->enable_ref_types && !option->enable_gc
+        && wasm_module->is_ref_types_used) {
+        aot_set_last_error("ref-types instruction was found, "
+                           "try removing --disable-ref-types option "
+                           "or adding --enable-gc option.");
+        goto fail;
+    }
+
     /* Disable features when they are not actually used */
     if (!wasm_module->is_simd_used) {
         option->enable_simd = comp_ctx->enable_simd = false;

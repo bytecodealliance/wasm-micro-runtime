@@ -2281,8 +2281,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 bh_assert(tidx < module->module->type_count);
                 cur_type = wasm_types[tidx];
 
+                /* clang-format off */
+#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
                 read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
+#else
+                frame_ip++;
+                tbl_idx = 0;
+#endif
                 bh_assert(tbl_idx < module->table_count);
+                /* clang-format on */
 
                 tbl_inst = wasm_get_table_inst(module, tbl_idx);
 

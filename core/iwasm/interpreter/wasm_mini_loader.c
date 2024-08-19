@@ -3501,8 +3501,11 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             case WASM_OP_RETURN_CALL_INDIRECT:
 #endif
                 skip_leb_uint32(p, p_end); /* typeidx */
-                CHECK_BUF(p, p_end, 1);
+#if WASM_ENABLE_REF_TYPES != 0
+                skip_leb_uint32(p, p_end); /* tableidx */
+#else
                 u8 = read_uint8(p); /* 0x00 */
+#endif
                 break;
 
 #if WASM_ENABLE_EXCE_HANDLING != 0
