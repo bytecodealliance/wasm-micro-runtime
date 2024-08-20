@@ -1690,7 +1690,15 @@ aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
      * avoid creating extra relocations in the precheck functions.
      */
     LLVMSetLinkage(stack_sizes, LLVMInternalLinkage);
-    LLVMSetSection(stack_sizes, aot_stack_sizes_section_name);
+    /*
+     * for AOT, place it into a dedicated section for the convenience
+     * of the AOT file generation and symbol resolutions.
+     *
+     * for JIT, it doesn't matter.
+     */
+    if (!comp_ctx->is_jit_mode) {
+        LLVMSetSection(stack_sizes, aot_stack_sizes_section_name);
+    }
     comp_ctx->stack_sizes_type = stack_sizes_type;
     comp_ctx->stack_sizes = stack_sizes;
     return true;
