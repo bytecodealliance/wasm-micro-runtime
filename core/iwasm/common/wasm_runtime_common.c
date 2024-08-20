@@ -1417,12 +1417,39 @@ wasm_runtime_load_ex(uint8 *buf, uint32 size, const LoadArgs *args,
                      char *error_buf, uint32 error_buf_size)
 {
     WASMModuleCommon *module_common = NULL;
+    uint32 package_type;
+    bool magic_header_detected = false;
 
     if (!args) {
+        set_error_buf(error_buf, error_buf_size,
+                      "WASM module load failed: null load arguments");
         return NULL;
     }
 
-    if (get_package_type(buf, size) == Wasm_Module_Bytecode) {
+    if (size < 4) {
+        set_error_buf(error_buf, error_buf_size,
+                      "WASM module load failed: unexpected end");
+        return NULL;
+    }
+
+    package_type = get_package_type(buf, size);
+    if (package_type == Wasm_Module_Bytecode) {
+#if WASM_ENABLE_INTERP != 0
+        magic_header_detected = true;
+#endif
+    }
+    else if (package_type == Wasm_Module_AoT) {
+#if WASM_ENABLE_AOT != 0
+        magic_header_detected = true;
+#endif
+    }
+    if (!magic_header_detected) {
+        set_error_buf(error_buf, error_buf_size,
+                      "WASM module load failed: magic header not detected");
+        return NULL;
+    }
+
+    if (package_type == Wasm_Module_Bytecode) {
 #if WASM_ENABLE_INTERP != 0
         module_common =
             (WASMModuleCommon *)wasm_load(buf, size,
@@ -1435,7 +1462,7 @@ wasm_runtime_load_ex(uint8 *buf, uint32 size, const LoadArgs *args,
                 args->wasm_binary_freeable;
 #endif
     }
-    else if (get_package_type(buf, size) == Wasm_Module_AoT) {
+    else if (package_type == Wasm_Module_AoT) {
 #if WASM_ENABLE_AOT != 0
         module_common = (WASMModuleCommon *)aot_load_from_aot_file(
             buf, size, args, error_buf, error_buf_size);
@@ -1444,15 +1471,7 @@ wasm_runtime_load_ex(uint8 *buf, uint32 size, const LoadArgs *args,
                 args->wasm_binary_freeable;
 #endif
     }
-    else {
-        if (size < 4)
-            set_error_buf(error_buf, error_buf_size,
-                          "WASM module load failed: unexpected end");
-        else
-            set_error_buf(error_buf, error_buf_size,
-                          "WASM module load failed: magic header not detected");
-        return NULL;
-    }
+
     if (!module_common) {
         LOG_DEBUG("WASM module load failed");
         return NULL;
