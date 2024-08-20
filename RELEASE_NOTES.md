@@ -39,6 +39,8 @@
  - Add missing headers in bh_atomic.h and aot_llvm_extra.cpp (#3715)
  - Update std atomic check and simd compatibility check for arc compiler (#3716)
  - aot compiler: Track non-0x00 tableindex as ref types use (#3695)
+ - compilation: Use the dedicated stack-sizes section only for AOT (#3732)
+ - riscv: Add missing relocation intrinsics for __fixdfsi/__ltdf2 (#3733)
 
 ### Others
  - Fix night run CI (#3640)
