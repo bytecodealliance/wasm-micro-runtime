@@ -284,6 +284,7 @@ os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr,
     (*sock)->fd = zsock_accept(server_sock->fd, addr, addrlen);
 
     if ((*sock)->fd < 0) {
+        BH_FREE(*sock);
         return BHT_ERROR;
     }
 

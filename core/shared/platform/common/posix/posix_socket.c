@@ -260,7 +260,7 @@ os_socket_recv_from(bh_socket_t socket, void *buf, unsigned int len, int flags,
                     bh_sockaddr_t *src_addr)
 {
     struct sockaddr_storage sock_addr = { 0 };
-    socklen_t socklen = sizeof(struct sockaddr_storage);
+    socklen_t socklen = sizeof(sock_addr);
     int ret;
 
     ret = recvfrom(socket, buf, len, flags, (struct sockaddr *)&sock_addr,
@@ -276,10 +276,9 @@ os_socket_recv_from(bh_socket_t socket, void *buf, unsigned int len, int flags,
             return -1;
         }
     }
-    // This else if seem to overwrite src_addr when we don't want it to
-    // else if (src_addr) {
-    //     memset(src_addr, 0, sizeof(*src_addr));
-    // }
+    else if (src_addr) {
+        memset(src_addr, 0, sizeof(*src_addr));
+    }
 
     return ret;
 }

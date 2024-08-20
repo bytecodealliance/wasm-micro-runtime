@@ -173,8 +173,7 @@ typedef uint8_t __wasi_eventtype_t;
 
 typedef uint32_t __wasi_exitcode_t;
 
-// typedef uint32_t __wasi_fd_t;
-typedef int __wasi_fd_t;
+typedef int32_t __wasi_fd_t;
 
 typedef uint16_t __wasi_fdflags_t;
 #define __WASI_FDFLAG_APPEND   (0x0001)
@@ -540,8 +539,8 @@ typedef enum {
 
 typedef uint16_t __wasi_ip_port_t;
 
-// Ensure that __wasi_addr_type_t has a size of 4 byte (I32).
-// However, it will not have the type safety of enum.
+/* Ensure that __wasi_addr_type_t has a size of 4 byte (I32).
+   However, it will not have the type safety of enum. */
 typedef uint32_t __wasi_addr_type_t;
 enum { IPv4 = 0, IPv6 };
 

@@ -2545,6 +2545,7 @@ wasi_ssp_sock_connect(wasm_exec_env_t exec_env, struct fd_table *curfds,
     if (!addr_pool_search(addr_pool, buf)) {
         return __WASI_EACCES;
     }
+
     error = fd_object_get(curfds, &fo, fd, __WASI_RIGHT_SOCK_BIND, 0);
     if (error != __WASI_ESUCCESS) {
         return error;
@@ -2814,17 +2815,13 @@ wasmtime_ssp_sock_recv_from(wasm_exec_env_t exec_env, struct fd_table *curfds,
     __wasi_errno_t error;
     bh_sockaddr_t sockaddr;
     int ret;
-    /* make a copy because the value pointed seem to be modifed */
-    __wasi_addr_t src_addr_copy;
-    bh_memcpy_s(&src_addr_copy, sizeof(__wasi_addr_t), src_addr,
-                sizeof(__wasi_addr_t));
 
     error = fd_object_get(curfds, &fo, sock, __WASI_RIGHT_FD_READ, 0);
     if (error != 0) {
         return error;
     }
 
-    wasi_addr_to_bh_sockaddr(&src_addr_copy, &sockaddr);
+    wasi_addr_to_bh_sockaddr(src_addr, &sockaddr);
 
     /* Consume bh_sockaddr_t instead of __wasi_addr_t */
     ret = blocking_op_socket_recv_from(exec_env, fo->file_handle, buf, buf_len,
@@ -2876,12 +2873,8 @@ wasmtime_ssp_sock_send_to(wasm_exec_env_t exec_env, struct fd_table *curfds,
     __wasi_errno_t error;
     int ret;
     bh_sockaddr_t sockaddr;
-    /* make a copy because the value pointed seem to be modifed */
-    __wasi_addr_t dest_addr_copy;
-    bh_memcpy_s(&dest_addr_copy, sizeof(__wasi_addr_t), dest_addr,
-                sizeof(__wasi_addr_t));
 
-    if (!wasi_addr_to_string(&dest_addr_copy, addr_buf, sizeof(addr_buf))) {
+    if (!wasi_addr_to_string(dest_addr, addr_buf, sizeof(addr_buf))) {
         return __WASI_EPROTONOSUPPORT;
     }
 
@@ -2894,7 +2887,7 @@ wasmtime_ssp_sock_send_to(wasm_exec_env_t exec_env, struct fd_table *curfds,
         return error;
     }
 
-    wasi_addr_to_bh_sockaddr(&dest_addr_copy, &sockaddr);
+    wasi_addr_to_bh_sockaddr(dest_addr, &sockaddr);
 
     /* Consume bh_sockaddr instead of __wasi_addr_t */
     ret = blocking_op_socket_send_to(exec_env, fo->file_handle, buf, buf_len, 0,
@@ -3143,14 +3136,15 @@ compare_address(const struct addr_pool *addr_pool_entry,
     }
 
     init_address_mask(maskbuf, addr_size, addr_pool_entry->mask);
+
     for (size_t i = 0; i < addr_size; i++) {
         uint8_t addr_mask = target->data[i] & maskbuf[i];
-        uint8_t range_mask;
-        range_mask = basebuf[i] & maskbuf[i];
+        uint8_t range_mask = basebuf[i] & maskbuf[i];
         if (addr_mask != range_mask) {
             return false;
         }
     }
+
     return true;
 }
 

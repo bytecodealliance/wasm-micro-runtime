@@ -46,11 +46,15 @@
 #define CONFIG_WASI_MAX_OPEN_FILES 16
 
 // Macro to retrieve a file system descriptor and check it's validity.
-#define GET_FILE_SYSTEM_DESCRIPTOR(fd, ptr) \
-    do {                                    \
-        ptr = &desc_array[(int)fd];         \
-        if (!ptr)                           \
-            return __WASI_EBADF;            \
+#define GET_FILE_SYSTEM_DESCRIPTOR(fd, ptr)         \
+    do {                                            \
+        k_mutex_lock(&desc_array_mutex, K_FOREVER); \
+        ptr = &desc_array[(int)fd];                 \
+        if (!ptr) {                                 \
+            k_mutex_unlock(&desc_array_mutex);      \
+            return __WASI_EBADF;                    \
+        }                                           \
+        k_mutex_unlock(&desc_array_mutex);          \
     } while (0)
 
 // Array to keep track of file system descriptors.
@@ -75,6 +79,11 @@ zephyr_fs_alloc_obj(bool is_dir, const char *path, int *index)
             ptr->used = true;
             ptr->is_dir = is_dir;
             ptr->path = strdup(path);
+            if (ptr->path == NULL) {
+                ptr->used = false;
+                k_mutex_unlock(&desc_array_mutex);
+                return NULL;
+            }
             *index = i;
             break;
         }
@@ -274,6 +283,7 @@ os_open_preopendir(const char *path, os_file_handle *out)
 
     ptr = zephyr_fs_alloc_obj(true, path, &index);
     if (ptr == NULL) {
+        BH_FREE(*out);
         return __WASI_EMFILE;
     }
 
@@ -282,6 +292,7 @@ os_open_preopendir(const char *path, os_file_handle *out)
     rc = fs_opendir(&ptr->dir, path);
     if (rc < 0) {
         zephyr_fs_free_obj(ptr);
+        BH_FREE(*out);
         return convert_errno(-rc);
     }
 
@@ -371,6 +382,7 @@ os_openat(os_file_handle handle, const char *path, __wasi_oflags_t oflags,
 
     ptr = zephyr_fs_alloc_obj(false, abs_path, &index);
     if (!ptr && (index < 0)) {
+        BH_FREE(*out);
         return __WASI_EMFILE;
     }
 
@@ -378,12 +390,12 @@ os_openat(os_file_handle handle, const char *path, __wasi_oflags_t oflags,
     rc = fs_open(&ptr->file, abs_path, zmode);
     if (rc < 0) {
         zephyr_fs_free_obj(ptr);
+        BH_FREE(*out);
         return convert_errno(-rc);
     }
 
     (*out)->fd = index;
     (*out)->is_sock = false;
-    // debug_zephyr_fs_desc(ptr);
 
     return __WASI_ESUCCESS;
 }
@@ -553,8 +565,7 @@ os_writev(os_file_handle handle, const struct __wasi_ciovec_t *iov, int iovcnt,
 
     GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
 
-    if (3 < strlen(ptr->path) && ptr->path[0] == 's' && ptr->path[1] == 't'
-        && ptr->path[2] == 'd') {
+    if (strncmp(ptr->path, "std", 3) == 0) {
         // for std[in/out/err] we don't write because they are not real opened
         // files. Instead we emulate a write operation to make it work with
         // printf.
@@ -795,10 +806,9 @@ os_convert_stdin_handle(os_raw_file_handle raw_stdin)
     if (handle == NULL) {
         return NULL;
     }
-    struct zephyr_fs_desc *ptr = NULL;
 
     /* We allocate a fake stdin reference */
-    ptr = zephyr_fs_alloc_obj(false, "stdin", &handle->fd);
+    zephyr_fs_alloc_obj(false, "stdin", &handle->fd);
 
     handle->is_sock = false;
     return handle;
@@ -814,10 +824,9 @@ os_convert_stdout_handle(os_raw_file_handle raw_stdout)
     if (handle == NULL) {
         return NULL;
     }
-    struct zephyr_fs_desc *ptr = NULL;
 
     /* We allocate a fake stdin reference */
-    ptr = zephyr_fs_alloc_obj(false, "stdout", &handle->fd);
+    zephyr_fs_alloc_obj(false, "stdout", &handle->fd);
 
     handle->is_sock = false;
     return handle;
@@ -833,10 +842,9 @@ os_convert_stderr_handle(os_raw_file_handle raw_stderr)
     if (handle == NULL) {
         return NULL;
     }
-    struct zephyr_fs_desc *ptr = NULL;
 
     /* We allocate a fake stdin reference */
-    ptr = zephyr_fs_alloc_obj(false, "stderr", &handle->fd);
+    zephyr_fs_alloc_obj(false, "stderr", &handle->fd);
 
     handle->is_sock = false;
     return handle;

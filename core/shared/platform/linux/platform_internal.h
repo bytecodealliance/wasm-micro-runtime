@@ -64,10 +64,6 @@ typedef sem_t korp_sem;
 
 #define bh_socket_t int
 
-typedef struct pollfd os_poll_file_handle;
-typedef nfds_t os_nfds_t;
-typedef struct timespec os_timespec;
-
 #if WASM_DISABLE_WRITE_GS_BASE == 0
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
 #define os_writegsbase(base_addr)                                 \
