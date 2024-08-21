@@ -1690,7 +1690,15 @@ aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
      * avoid creating extra relocations in the precheck functions.
      */
     LLVMSetLinkage(stack_sizes, LLVMInternalLinkage);
-    LLVMSetSection(stack_sizes, aot_stack_sizes_section_name);
+    /*
+     * for AOT, place it into a dedicated section for the convenience
+     * of the AOT file generation and symbol resolutions.
+     *
+     * for JIT, it doesn't matter.
+     */
+    if (!comp_ctx->is_jit_mode) {
+        LLVMSetSection(stack_sizes, aot_stack_sizes_section_name);
+    }
     comp_ctx->stack_sizes_type = stack_sizes_type;
     comp_ctx->stack_sizes = stack_sizes;
     return true;
@@ -3108,6 +3116,16 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
         goto fail;
     }
 
+    /* Return error if ref-types and GC are disabled by command line but
+       ref-types instructions are used */
+    if (!option->enable_ref_types && !option->enable_gc
+        && wasm_module->is_ref_types_used) {
+        aot_set_last_error("ref-types instruction was found, "
+                           "try removing --disable-ref-types option "
+                           "or adding --enable-gc option.");
+        goto fail;
+    }
+
     /* Disable features when they are not actually used */
     if (!wasm_module->is_simd_used) {
         option->enable_simd = comp_ctx->enable_simd = false;
@@ -3121,7 +3139,8 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
 #endif
 
     if (option->enable_simd && strcmp(comp_ctx->target_arch, "x86_64") != 0
-        && strncmp(comp_ctx->target_arch, "aarch64", 7) != 0) {
+        && strncmp(comp_ctx->target_arch, "aarch64", 7) != 0
+        && strcmp(comp_ctx->target_arch, "arc") != 0) {
         /* Disable simd if it isn't supported by target arch */
         option->enable_simd = false;
     }
@@ -3277,6 +3296,7 @@ static bool
 insert_native_symbol(AOTCompContext *comp_ctx, const char *symbol, int32 idx)
 {
     AOTNativeSymbol *sym = wasm_runtime_malloc(sizeof(AOTNativeSymbol));
+    int ret;
 
     if (!sym) {
         aot_set_last_error("alloc native symbol failed.");
@@ -3285,7 +3305,12 @@ insert_native_symbol(AOTCompContext *comp_ctx, const char *symbol, int32 idx)
 
     memset(sym, 0, sizeof(AOTNativeSymbol));
     bh_assert(strlen(symbol) <= sizeof(sym->symbol));
-    snprintf(sym->symbol, sizeof(sym->symbol), "%s", symbol);
+    ret = snprintf(sym->symbol, sizeof(sym->symbol), "%s", symbol);
+    if (ret < 0 || ret + 1 > (int)sizeof(sym->symbol)) {
+        wasm_runtime_free(sym);
+        aot_set_last_error_v("symbol name too long: %s", symbol);
+        return false;
+    }
     sym->index = idx;
 
     if (BH_LIST_ERROR == bh_list_insert(&comp_ctx->native_symbols, sym)) {

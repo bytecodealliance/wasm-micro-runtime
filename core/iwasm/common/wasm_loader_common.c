@@ -3,14 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 #include "wasm_loader_common.h"
+#include "bh_leb128.h"
 #include "bh_log.h"
 #if WASM_ENABLE_GC != 0
 #include "../common/gc/gc_type.h"
 #endif
 
-static void
-set_error_buf(char *error_buf, uint32 error_buf_size, const char *string,
-              bool is_aot)
+void
+wasm_loader_set_error_buf(char *error_buf, uint32 error_buf_size,
+                          const char *string, bool is_aot)
 {
     if (error_buf != NULL) {
         snprintf(error_buf, error_buf_size, "%s module load failed: %s",
@@ -29,30 +30,30 @@ wasm_memory_check_flags(const uint8 mem_flag, char *error_buf,
         if (mem_flag & SHARED_MEMORY_FLAG) {
             LOG_VERBOSE("shared memory flag was found, please enable shared "
                         "memory, lib-pthread or lib-wasi-threads");
-            set_error_buf(error_buf, error_buf_size, "invalid limits flags",
-                          is_aot);
+            wasm_loader_set_error_buf(error_buf, error_buf_size,
+                                      "invalid limits flags", is_aot);
             return false;
         }
 #endif
 #if WASM_ENABLE_MEMORY64 == 0
         if (mem_flag & MEMORY64_FLAG) {
             LOG_VERBOSE("memory64 flag was found, please enable memory64");
-            set_error_buf(error_buf, error_buf_size, "invalid limits flags",
-                          is_aot);
+            wasm_loader_set_error_buf(error_buf, error_buf_size,
+                                      "invalid limits flags", is_aot);
             return false;
         }
 #endif
     }
 
     if (mem_flag > MAX_PAGE_COUNT_FLAG + SHARED_MEMORY_FLAG + MEMORY64_FLAG) {
-        set_error_buf(error_buf, error_buf_size, "invalid limits flags",
-                      is_aot);
+        wasm_loader_set_error_buf(error_buf, error_buf_size,
+                                  "invalid limits flags", is_aot);
         return false;
     }
     else if ((mem_flag & SHARED_MEMORY_FLAG)
              && !(mem_flag & MAX_PAGE_COUNT_FLAG)) {
-        set_error_buf(error_buf, error_buf_size,
-                      "shared memory must have maximum", is_aot);
+        wasm_loader_set_error_buf(error_buf, error_buf_size,
+                                  "shared memory must have maximum", is_aot);
         return false;
     }
 
@@ -129,4 +130,34 @@ is_indices_overflow(uint32 import, uint32 other, char *error_buf,
     }
 
     return false;
+}
+
+bool
+read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
+         uint64 *p_result, char *error_buf, uint32 error_buf_size)
+{
+    size_t offset = 0;
+    bh_leb_read_status_t status =
+        bh_leb_read(*p_buf, buf_end, maxbits, sign, p_result, &offset);
+
+    switch (status) {
+        case BH_LEB_READ_SUCCESS:
+            *p_buf += offset;
+            return true;
+        case BH_LEB_READ_TOO_LONG:
+            wasm_loader_set_error_buf(error_buf, error_buf_size,
+                                      "integer representation too long", false);
+            return false;
+        case BH_LEB_READ_OVERFLOW:
+            wasm_loader_set_error_buf(error_buf, error_buf_size,
+                                      "integer too large", false);
+            return false;
+        case BH_LEB_READ_UNEXPECTED_END:
+            wasm_loader_set_error_buf(error_buf, error_buf_size,
+                                      "unexpected end", false);
+            return false;
+        default:
+            bh_assert(false);
+            return false;
+    }
 }

@@ -300,7 +300,7 @@ typedef struct AOTCompData {
 
 typedef struct AOTNativeSymbol {
     bh_list_link link;
-    char symbol[32];
+    char symbol[48];
     int32 index;
 } AOTNativeSymbol;
 

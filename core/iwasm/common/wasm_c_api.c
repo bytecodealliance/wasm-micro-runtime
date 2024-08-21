@@ -5379,3 +5379,24 @@ wasm_extern_new_empty(wasm_store_t *store, wasm_externkind_t extern_kind)
     LOG_ERROR("Don't support linking table and memory for now");
     return NULL;
 }
+
+double
+wasm_instance_sum_wasm_exec_time(const wasm_instance_t *instance)
+{
+#if WASM_ENABLE_PERF_PROFILING != 0
+    return wasm_runtime_sum_wasm_exec_time(instance->inst_comm_rt);
+#else
+    return -1.0;
+#endif
+}
+
+double
+wasm_instance_get_wasm_func_exec_time(const wasm_instance_t *instance,
+                                      const char *name)
+{
+#if WASM_ENABLE_PERF_PROFILING != 0
+    return wasm_runtime_get_wasm_func_exec_time(instance->inst_comm_rt, name);
+#else
+    return -1.0;
+#endif
+}

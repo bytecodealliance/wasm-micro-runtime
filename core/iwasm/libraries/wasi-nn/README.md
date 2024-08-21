@@ -19,6 +19,13 @@ $ cmake -DWAMR_BUILD_WASI_NN=1 <other options> ...
 > ![Caution]
 > If enable `WAMR_BUID_WASI_NN`, iwasm will link a shared WAMR library instead of a static one. Wasi-nn backends will be loaded dynamically at runtime. Users shall specify the path of the backend library and register it to the iwasm runtime with `--native-lib=<path of backend library>`. All shared libraries should be placed in the `LD_LIBRARY_PATH`.
 
+#### Compilation options
+
+- `WAMR_BUILD_WASI_NN`. enable wasi-nn support. can't work alone. need to identify a backend. Match legacy wasi-nn spec naming convention. use `wasi_nn` as import module names.
+- `WAMR_BUILD_WASI_EPHEMERAL_NN`. Match latest wasi-nn spec naming convention. use `wasi_ephemeral_nn` as import module names.
+- `WAMR_BUILD_WASI_NN_TFLITE`. identify the backend as TensorFlow Lite.
+- `WAMR_BUILD_WASI_NN_OPENVINO`. identify the backend as OpenVINO.
+
 ### Wasm
 
 The definition of functions provided by WASI-NN (Wasm imports) is in the header file [wasi_nn.h](_core/iwasm/libraries/wasi-nn/wasi_nn.h_). By only including this file in a WASM application you will bind WASI-NN into your module.
@@ -36,6 +43,12 @@ typedef enum { fp16 = 0, fp32, up8, ip32 } tensor_type;
 ```
 
 It is required to recompile the Wasm application if you want to switch between the two sets of functions.
+
+#### Openvino
+
+If you're planning to use OpenVINO backends, the first step is to install OpenVINO on your computer. To do this correctly, please follow the official installation guide which you can find at this link: https://docs.openvino.ai/2024/get-started/install-openvino/install-openvino-archive-linux.html.
+
+After you've installed OpenVINO, you'll need to let cmake system know where to find it. You can do this by setting an environment variable named `OpenVINO_DIR`. This variable should point to the place on your computer where OpenVINO is installed. By setting this variable, your system will be able to locate and use OpenVINO when needed. You can find installation path by running the following command if using APT `$dpkg -L openvino`. The path should be _/opt/intel/openvino/_ or _/usr/lib/openvino_.
 
 ## Tests
 
@@ -167,7 +180,7 @@ Due to the different requirements of each backend, we'll use a Docker container 
 $ pwd
 /workspaces/wasm-micro-runtime/
 
-$ docker build -t wasi-nn-smoke:v1.0 -f Dockerfile.wasi-nn-smoke .
+$ docker build -t wasi-nn-smoke:v1.0 -f ./core/iwasm/libraries/wasi-nn/test/Dockerfile.wasi-nn-smoke .
 ```
 
 #### Execute

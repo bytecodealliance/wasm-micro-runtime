@@ -16,7 +16,7 @@
 void
 wasm_runtime_set_exception(wasm_module_inst_t module, const char *exception);
 
-uint32
+uint64
 wasm_runtime_module_realloc(wasm_module_inst_t module, uint64 ptr, uint64 size,
                             void **p_native_addr);
 
@@ -683,9 +683,12 @@ calloc_wrapper(wasm_exec_env_t exec_env, uint32 nmemb, uint32 size)
 static uint32
 realloc_wrapper(wasm_exec_env_t exec_env, uint32 ptr, uint32 new_size)
 {
+    uint64 ret_offset = 0;
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
 
-    return wasm_runtime_module_realloc(module_inst, ptr, new_size, NULL);
+    ret_offset = wasm_runtime_module_realloc(module_inst, ptr, new_size, NULL);
+    bh_assert(ret_offset < UINT32_MAX);
+    return (uint32)ret_offset;
 }
 
 static void
@@ -1005,7 +1008,7 @@ print_i32_wrapper(wasm_exec_env_t exec_env, int32 i32)
 static void
 print_i64_wrapper(wasm_exec_env_t exec_env, int64 i64)
 {
-    os_printf("in specttest.print_i64(%" PRId32 ")\n", i64);
+    os_printf("in specttest.print_i64(%" PRId64 ")\n", i64);
 }
 
 static void

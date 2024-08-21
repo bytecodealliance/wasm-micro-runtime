@@ -30,6 +30,14 @@ bool
 is_indices_overflow(uint32 import, uint32 other, char *error_buf,
                     uint32 error_buf_size);
 
+bool
+read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
+         uint64 *p_result, char *error_buf, uint32 error_buf_size);
+
+void
+wasm_loader_set_error_buf(char *error_buf, uint32 error_buf_size,
+                          const char *string, bool is_aot);
+
 #ifdef __cplusplus
 }
 #endif
