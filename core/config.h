@@ -344,6 +344,11 @@
 #define WASM_ENABLE_AOT_STACK_FRAME 0
 #endif
 
+/* Checkpoint Restore */
+#ifndef WASM_ENABLE_CHECKPOINT_RESTORE
+#define WASM_ENABLE_CHECKPOINT_RESTORE 0
+#endif
+
 /* Heap verification */
 #ifndef BH_ENABLE_GC_VERIFY
 #define BH_ENABLE_GC_VERIFY 0

@@ -4,6 +4,7 @@
  */
 
 #include "aot_emit_function.h"
+#include "aot_compiler.h"
 #include "aot_emit_exception.h"
 #include "aot_emit_control.h"
 #include "aot_emit_table.h"
@@ -192,6 +193,7 @@ call_aot_invoke_native_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return false;
         }
     }
+    // indirect mode here
     else if (comp_ctx->is_indirect_mode) {
         int32 func_index;
         if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {
@@ -502,9 +504,6 @@ call_aot_alloc_frame_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef param_values[2], ret_value, value, func;
     LLVMTypeRef param_types[2], ret_type, func_type, func_ptr_type;
-    LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
-    LLVMBasicBlockRef frame_alloc_fail, frame_alloc_success;
-    AOTFuncType *aot_func_type = func_ctx->aot_func->func_type;
 
     param_types[0] = comp_ctx->exec_env_type;
     param_types[1] = I32_TYPE;
@@ -526,33 +525,6 @@ call_aot_alloc_frame_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         aot_set_last_error("llvm build call failed.");
         return false;
     }
-
-    if (!(ret_value = LLVMBuildICmp(comp_ctx->builder, LLVMIntUGT, ret_value,
-                                    I8_ZERO, "frame_alloc_ret"))) {
-        aot_set_last_error("llvm build icmp failed.");
-        return false;
-    }
-
-    ADD_BASIC_BLOCK(frame_alloc_fail, "frame_alloc_fail");
-    ADD_BASIC_BLOCK(frame_alloc_success, "frame_alloc_success");
-
-    LLVMMoveBasicBlockAfter(frame_alloc_fail, block_curr);
-    LLVMMoveBasicBlockAfter(frame_alloc_success, block_curr);
-
-    if (!LLVMBuildCondBr(comp_ctx->builder, ret_value, frame_alloc_success,
-                         frame_alloc_fail)) {
-        aot_set_last_error("llvm build cond br failed.");
-        return false;
-    }
-
-    /* If frame alloc failed, return this function
-        so the runtime can catch the exception */
-    LLVMPositionBuilderAtEnd(comp_ctx->builder, frame_alloc_fail);
-    if (!aot_build_zero_function_ret(comp_ctx, func_ctx, aot_func_type)) {
-        return false;
-    }
-
-    LLVMPositionBuilderAtEnd(comp_ctx->builder, frame_alloc_success);
 
     return true;
 
@@ -1638,6 +1610,8 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             }
         }
         else { /* call native func directly */
+               // calculate all
+            // know which function's id
             LLVMTypeRef native_func_type, func_ptr_type;
             LLVMValueRef func_ptr;
 

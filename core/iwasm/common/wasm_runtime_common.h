@@ -1097,6 +1097,14 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
                                const char *signature, void *attachment,
                                uint32 *argv, uint32 argc, uint32 *ret);
 
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+#define wasm_runtime_invoke_native wasm_runtime_invoke_native_shim
+bool
+wasm_runtime_invoke_native_shim(WASMExecEnv *exec_env, void *func_ptr,
+                                const WASMType *func_type,
+                                const char *signature, void *attachment,
+                                uint32 *argv, uint32 argc, uint32 *argv_ret);
+#endif
 void
 wasm_runtime_read_v128(const uint8 *bytes, uint64 *ret1, uint64 *ret2);
 
@@ -1201,6 +1209,19 @@ wasm_runtime_detect_native_stack_overflow_size(WASMExecEnv *exec_env,
 
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_underlying_binary_freeable(WASMModuleCommon *const module);
+
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+bool
+wasm_runtime_checkpoint(wasm_module_inst_t module_inst, char *file);
+bool
+wasm_runtime_restore(wasm_module_inst_t module_inst, char *file, char *file1);
+#endif
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_detect_native_stack_overflow(WASMExecEnv *exec_env);
+
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_detect_native_stack_overflow_size(WASMExecEnv *exec_env,
+                                               uint32 requested_size);
 
 #if WASM_ENABLE_LINUX_PERF != 0
 bool

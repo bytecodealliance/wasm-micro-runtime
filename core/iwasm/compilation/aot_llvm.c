@@ -30,6 +30,8 @@ wasm_type_to_llvm_type(const AOTCompContext *comp_ctx,
                        const AOTLLVMTypes *llvm_types, uint8 wasm_type)
 {
     switch (wasm_type) {
+        case VALUE_TYPE_I1:
+            return llvm_types->int1_type;
         case VALUE_TYPE_I32:
             return llvm_types->int32_type;
         case VALUE_TYPE_FUNCREF:
@@ -2513,6 +2515,12 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
         goto fail;
     }
 
+    if (!(comp_ctx->aot_frame_alloca_builder =
+              LLVMCreateBuilderInContext(comp_ctx->context))) {
+        aot_set_last_error("create LLVM builder failed.");
+        goto fail;
+    }
+
     /* Create LLVM module for each jit function, note:
        different from non ORC JIT mode, no need to dispose it,
        it will be disposed when the thread safe context is disposed */
@@ -2579,6 +2587,22 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
 
     if (option->enable_aux_stack_frame)
         comp_ctx->enable_aux_stack_frame = true;
+
+    if (option->enable_checkpoint)
+        comp_ctx->enable_checkpoint = true;
+
+    if (option->enable_loop_checkpoint)
+        comp_ctx->enable_loop_checkpoint = true;
+
+    if (option->enable_br_checkpoint)
+        comp_ctx->enable_br_checkpoint = true;
+
+    if (option->enable_every_checkpoint)
+        comp_ctx->enable_every_checkpoint = true;
+
+    if (option->enable_counter_loop_checkpoint) {
+        comp_ctx->enable_counter_loop_checkpoint = true;
+    }
 
     if (option->enable_perf_profiling)
         comp_ctx->enable_perf_profiling = true;

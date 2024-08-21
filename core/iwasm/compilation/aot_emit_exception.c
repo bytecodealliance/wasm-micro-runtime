@@ -225,3 +225,53 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 fail:
     return false;
 }
+
+bool
+aot_compile_emit_fence_nop(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    LLVMValueRef value, inline_asm;
+#if defined(BH_PLATFORM_WINDOWS)
+    LLVMTypeRef param_types[] = { comp_ctx->exec_env_type, LLVMInt32Type() };
+    LLVMTypeRef ret_type = LLVMInt32Type();
+    LLVMValueRef param_values[2], func;
+
+    LLVMTypeRef func_type, func_ptr_type;
+    GET_AOT_FUNCTION(aot_raise, 2);
+    LLVMValueRef arg = LLVMConstInt(LLVMInt32Type(), 4, false);
+    LLVMValueRef args[] = { func_ctx->exec_env, arg };
+    if (!(value = LLVMBuildCall2(comp_ctx->builder, func_type, func, args, 2,
+                                 "call_aot_raise"))) {
+        aot_set_last_error("llvm build call nop failed.");
+        return false;
+    }
+#else
+    if (!(value = LLVMBuildFence(comp_ctx->builder,
+                                 LLVMAtomicOrderingSequentiallyConsistent,
+                                 false, ""))) {
+        aot_set_last_error("llvm build fence failed.");
+        return false;
+    }
+    LLVMTypeRef ty = LLVMFunctionType(LLVMVoidType(), NULL, 0, false);
+    char *asm_string;
+    if (!strcmp(comp_ctx->target_arch, "x86_64")
+        || !strcmp(comp_ctx->target_arch, "i386")) {
+        asm_string = strdup("int $$3");
+    }
+    else {
+        asm_string = strdup("svc 0");
+    }
+    if (!(inline_asm = LLVMGetInlineAsm(
+              ty, asm_string, strlen(asm_string), "~{dirflag},~{fpsr},~{flags}",
+              27, true, false, LLVMInlineAsmDialectATT, false))) {
+        aot_set_last_error("llvm build nop asm failed.");
+        return false;
+    }
+    free(asm_string);
+    if (!(value =
+              LLVMBuildCall2(comp_ctx->builder, ty, inline_asm, NULL, 0, ""))) {
+        aot_set_last_error("llvm build call nop failed.");
+        return false;
+    }
+#endif
+    return true;
+}

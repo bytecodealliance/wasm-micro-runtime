@@ -12,7 +12,6 @@
 #include "llvm-c/Target.h"
 #include "llvm-c/Core.h"
 #include "llvm-c/Object.h"
-#include "llvm-c/OrcEE.h"
 #include "llvm-c/ExecutionEngine.h"
 #include "llvm-c/Analysis.h"
 #include "llvm-c/BitWriter.h"
@@ -35,7 +34,6 @@
 #endif
 
 #include "aot_orc_extra.h"
-#include "aot_comp_option.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -109,27 +107,31 @@ typedef struct AOTValueSlot {
     uint32 ref : 1;
 
     /* Committed reference flag:
-         0: uncommitted, 1: not-reference, 2: reference */
+         0: unknown, 1: not-reference, 2: reference */
     uint32 committed_ref : 2;
 } AOTValueSlot;
 
 /* Frame information for translation */
 typedef struct AOTCompFrame {
+    /* The current wasm module */
+    WASMModule *cur_wasm_module;
+    /* The current wasm function */
+    WASMFunction *cur_wasm_func;
+    /* The current wasm function index */
+    uint32 cur_wasm_func_idx;
     /* The current compilation context */
     struct AOTCompContext *comp_ctx;
     /* The current function context */
     struct AOTFuncContext *func_ctx;
-    /* The current instruction pointer which is being compiled */
     const uint8 *frame_ip;
 
+    /* Size of current AOTFrame/WASMInterpFrame */
+    uint32 cur_frame_size;
     /* Max local slot number */
     uint32 max_local_cell_num;
 
     /* Max operand stack slot number */
     uint32 max_stack_cell_num;
-
-    /* Size of current AOTFrame/WASMInterpFrame */
-    uint32 cur_frame_size;
 
     /* Stack top pointer */
     AOTValueSlot *sp;
@@ -251,6 +253,8 @@ typedef struct AOTFuncContext {
 #if WASM_ENABLE_DEBUG_AOT != 0
     LLVMMetadataRef debug_func;
 #endif
+
+    LLVMValueRef restore_switch;
 
     unsigned int stack_consumption_for_func_call;
 
@@ -394,17 +398,21 @@ typedef struct AOTCompContext {
     /* Bulk memory feature */
     bool enable_bulk_memory;
 
-    /* Boundary Check */
+    /* Bounday Check */
     bool enable_bound_check;
 
-    /* Native stack boundary Check */
+    /* Native stack bounday Check */
     bool enable_stack_bound_check;
 
     /* Native stack usage estimation */
     bool enable_stack_estimation;
-
+    bool enable_perf_profiling;
+    bool enable_memory_profiling;
+    bool quick_invoke_c_api_import;
     /* 128-bit SIMD */
     bool enable_simd;
+    /* 128-bit GC */
+    bool enable_gc;
 
     /* Auxiliary stack overflow/underflow check */
     bool enable_aux_stack_check;
@@ -412,11 +420,19 @@ typedef struct AOTCompContext {
     /* Generate auxiliary stack frame */
     bool enable_aux_stack_frame;
 
-    /* Function performance profiling */
-    bool enable_perf_profiling;
-
-    /* Memory usage profiling */
-    bool enable_memory_profiling;
+    bool enable_checkpoint;
+    bool enable_loop_checkpoint;
+    bool enable_br_checkpoint;
+    bool enable_every_checkpoint;
+    bool inst_checkpointed;
+    bool enable_aux_stack_dirty_bit;
+    bool enable_counter_loop_checkpoint;
+    const char *aot_file_name;
+    bool exp_disable_stack_commit_before_block;
+    bool exp_disable_gen_fence_int3;
+    bool exp_disable_commit_sp_ip;
+    bool exp_disable_local_commit;
+    bool exp_disable_restore_jump;
 
     /* Thread Manager */
     bool enable_thread_mgr;
@@ -436,10 +452,6 @@ typedef struct AOTCompContext {
     /* Enable LLVM PGO (Profile-Guided Optimization) */
     bool enable_llvm_pgo;
 
-    /* Treat unknown import function as wasm-c-api import function
-       and allow to directly invoke it from AOT/JIT code */
-    bool quick_invoke_c_api_import;
-
     /* Use profile file collected by LLVM PGO */
     char *use_prof_file;
 
@@ -458,12 +470,7 @@ typedef struct AOTCompContext {
 
     /* Whether optimize the JITed code */
     bool optimize;
-
     bool emit_frame_pointer;
-
-    /* Enable GC */
-    bool enable_gc;
-
     uint32 opt_level;
     uint32 size_level;
 
@@ -513,6 +520,9 @@ typedef struct AOTCompContext {
 
     /* Current frame information for translation */
     AOTCompFrame *aot_frame;
+    LLVMBuilderRef aot_frame_alloca_builder;
+
+    int checkpoint_type; /* 0 - func, 1 - loop, 2 - br, 3 - every*/
 } AOTCompContext;
 
 enum {
@@ -521,6 +531,55 @@ enum {
     AOT_LLVMIR_UNOPT_FILE,
     AOT_LLVMIR_OPT_FILE,
 };
+
+typedef struct AOTCompOption {
+    bool is_jit_mode;
+    bool is_indirect_mode;
+    char *target_arch;
+    char *target_abi;
+    char *target_cpu;
+    char *cpu_features;
+    bool is_sgx_platform;
+    bool enable_bulk_memory;
+    bool enable_thread_mgr;
+    bool enable_tail_call;
+    bool enable_simd;
+    bool enable_gc;
+    bool enable_ref_types;
+    bool enable_aux_stack_check;
+    bool enable_aux_stack_frame;
+    bool enable_checkpoint;
+    bool enable_loop_checkpoint;
+    bool enable_br_checkpoint;
+    bool enable_every_checkpoint;
+    bool enable_perf_profiling;
+    bool enable_memory_profiling;
+    bool enable_aux_stack_dirty_bit;
+    bool enable_counter_loop_checkpoint;
+    const char *aot_file_name;
+    bool exp_disable_stack_commit_before_block;
+    bool exp_disable_gen_fence_int3;
+    bool exp_disable_commit_sp_ip;
+    bool exp_disable_local_commit;
+    bool exp_disable_restore_jump;
+    bool disable_llvm_intrinsics;
+    bool disable_llvm_lto;
+    bool enable_llvm_pgo;
+    bool enable_stack_estimation;
+    bool quick_invoke_c_api_import;
+    char *use_prof_file;
+    uint32 opt_level;
+    uint32 size_level;
+    uint32 output_format;
+    uint32 bounds_checks;
+    uint32 stack_bounds_checks;
+    uint32 segue_flags;
+    char **custom_sections;
+    uint32 custom_sections_count;
+    const char *stack_usage_file;
+    const char *llvm_passes;
+    const char *builtin_intrinsics;
+} AOTCompOption, *aot_comp_option_t;
 
 bool
 aot_compiler_init(void);
@@ -615,6 +674,9 @@ aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);
 
 void
 aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module);
+
+void
+aot_apply_mvvm_pass(AOTCompContext *comp_ctx, LLVMModuleRef module);
 
 void
 aot_handle_llvm_errmsg(const char *string, LLVMErrorRef err);

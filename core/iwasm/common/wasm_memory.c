@@ -592,7 +592,6 @@ wasm_runtime_get_native_addr_range(WASMModuleInstanceCommon *module_inst_comm,
     SHARED_MEMORY_UNLOCK(memory_inst);
     return false;
 }
-
 bool
 wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
                                 uint64 app_buf_addr, uint64 app_buf_size,

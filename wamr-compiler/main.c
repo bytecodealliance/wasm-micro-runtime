@@ -165,6 +165,12 @@ print_help()
     printf("  --disable-aux-stack-check Disable auxiliary stack overflow/underflow check\n");
     printf("  --enable-dump-call-stack  Enable stack trace feature\n");
     printf("  --enable-perf-profiling   Enable function performance profiling\n");
+    printf("  --enable-aux-stack-dirty-bit   Enable function level auxiliary stack dirty bit checkpoint restore\n");
+    printf("  --enable-checkpoint   Enable function level checkpoint restore\n");
+    printf("  --enable-br-checkpoint   Enable branch level checkpoint restore\n");
+    printf("  --enable-loop-checkpoint   Enable loop level checkpoint restore\n");
+    printf("  --enable-every-checkpoint   Enable instruction level checkpoint restore\n");
+    printf("  --enable-perf-profiling   Enable function performance profiling\n");
     printf("  --enable-memory-profiling Enable memory usage profiling\n");
     printf("  --xip                     A shorthand of --enable-indirect-mode --disable-llvm-intrinsics\n");
     printf("  --enable-indirect-mode    Enable call function through symbol table but not direct call\n");
@@ -471,6 +477,28 @@ main(int argc, char *argv[])
         }
         else if (!strcmp(argv[0], "--enable-dump-call-stack")) {
             option.enable_aux_stack_frame = true;
+        }
+        else if (!strcmp(argv[0], "--enable-checkpoint")) {
+            option.enable_aux_stack_frame = true;
+            option.enable_checkpoint = true;
+        }
+        else if (!strcmp(argv[0], "--enable-loop-checkpoint")) {
+            option.enable_aux_stack_frame = true;
+            option.enable_checkpoint = true;
+            option.enable_loop_checkpoint = true;
+        }
+        else if (!strcmp(argv[0], "--enable-br-checkpoint")) {
+            option.enable_aux_stack_frame = true;
+            option.enable_checkpoint = true;
+            option.enable_br_checkpoint = true;
+        }
+        else if (!strcmp(argv[0], "--enable-every-checkpoint")) {
+            option.enable_aux_stack_frame = true;
+            option.enable_checkpoint = true;
+            option.enable_every_checkpoint = true;
+        }
+        else if (!strcmp(argv[0], "--enable-aux-stack-dirty-bit")) {
+            option.enable_aux_stack_dirty_bit = true;
         }
         else if (!strcmp(argv[0], "--enable-perf-profiling")) {
             option.enable_aux_stack_frame = true;

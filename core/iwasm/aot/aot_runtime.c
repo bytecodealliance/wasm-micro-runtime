@@ -15,6 +15,9 @@
 #if WASM_ENABLE_THREAD_MGR != 0
 #include "../libraries/thread-mgr/thread_manager.h"
 #endif
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+#include "../libraries/ckpt-restore/ckpt_restore.h"
+#endif
 
 /*
  * Note: These offsets need to match the values hardcoded in
@@ -2949,6 +2952,15 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
     }
 
     tbl_elem_val = ((table_elem_type_t *)tbl_inst->elems)[table_elem_idx];
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    if (exec_env->is_restore && exec_env->restore_call_chain) {
+        struct AOTFrame *rcc = *(exec_env->restore_call_chain);
+        while (rcc->prev_frame) {
+            rcc = rcc->prev_frame;
+        }
+        func_idx = rcc->func_index;
+    }
+#endif
     if (tbl_elem_val == NULL_REF) {
         aot_set_exception_with_id(module_inst, EXCE_UNINITIALIZED_ELEMENT);
         goto fail;
@@ -3621,6 +3633,12 @@ get_func_name_from_index(const AOTModuleInstance *module_inst,
 #endif /* end of WASM_ENABLE_DUMP_CALL_STACK != 0 || \
           WASM_ENABLE_PERF_PROFILING != 0 */
 
+void
+aot_raise(WASMExecEnv *exec_env, int sig)
+{
+    raise(sig);
+}
+
 #if WASM_ENABLE_GC == 0
 bool
 aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
@@ -3700,6 +3718,9 @@ aot_free_frame(WASMExecEnv *exec_env)
 bool
 aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
 {
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    LOG_DEBUG("aot_alloc_frame %u thread %d\n", func_index, exec_env->handle);
+#endif
     AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
     AOTModule *module = (AOTModule *)module_inst->module;
 #if WASM_ENABLE_PERF_PROFILING != 0
@@ -3709,6 +3730,27 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     AOTFrame *frame;
     uint32 max_local_cell_num, max_stack_cell_num, all_cell_num;
     uint32 aot_func_idx, frame_size;
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    if (exec_env->restore_call_chain) {
+        frame = exec_env->restore_call_chain[exec_env->call_chain_size - 1];
+        LOG_DEBUG("frame restored, func idx %zu\n", frame->func_index);
+        exec_env->call_chain_size--;
+        frame->prev_frame = (AOTFrame *)exec_env->cur_frame;
+        exec_env->cur_frame = (struct WASMInterpFrame *)frame;
+        if (exec_env->call_chain_size == 0) {
+            // TODO: fix memory leak
+            exec_env->restore_call_chain = NULL;
+        }
+        LOG_DEBUG("restore call chain %zu==%u, %p, %p, %d\n",
+                  ((AOTFrame *)exec_env->cur_frame)->func_index, func_index,
+                  exec_env, exec_env->restore_call_chain, exec_env->handle);
+        if (((AOTFrame *)exec_env->cur_frame)->func_index != func_index) {
+            LOG_DEBUG("NOT MATCH!!!\n");
+            exit(1);
+        }
+        return true;
+    }
+#endif
 
     if (func_index >= module->import_func_count) {
         aot_func_idx = func_index - module->import_func_count;
@@ -3740,6 +3782,11 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     frame->time_started = (uintptr_t)os_time_thread_cputime_us();
     frame->func_perf_prof_info = func_perf_prof;
 #endif
+    frame->ip_offset = 0;
+    frame->sp = frame->lp + max_local_cell_num;
+#if WASM_ENABLE_GC != 0
+    frame->frame_ref = frame->sp + max_stack_cell_num;
+#endif
 
 #if WASM_ENABLE_GC != 0
     frame->sp = frame->lp + max_local_cell_num;
@@ -3756,6 +3803,10 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
 static inline void
 aot_free_frame_internal(WASMExecEnv *exec_env)
 {
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+    int func_index = ((AOTFrame *)exec_env->cur_frame)->func_index;
+    LOG_DEBUG("aot_free_frame %zu %d\n", func_index, exec_env->handle);
+#endif
     AOTFrame *cur_frame = (AOTFrame *)exec_env->cur_frame;
     AOTFrame *prev_frame = cur_frame->prev_frame;
 
