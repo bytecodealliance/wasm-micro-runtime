@@ -315,6 +315,13 @@ typedef struct AOTModule {
 
     /* Whether the underlying wasm binary buffer can be freed */
     bool is_binary_freeable;
+
+    /* `.data` sections merged into one mmaped to reduce the tlb cache miss */
+    uint8 *merged_data_sections;
+    uint32 merged_data_sections_size;
+    /* `.data` and `.text` sections merged into one large mmaped section */
+    uint8 *merged_data_text_sections;
+    uint32 merged_data_text_sections_size;
 } AOTModule;
 
 #define AOTMemoryInstance WASMMemoryInstance
@@ -604,6 +611,10 @@ aot_module_dup_data(AOTModuleInstance *module_inst, const char *src,
 
 bool
 aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count);
+
+bool
+aot_enlarge_memory_with_idx(AOTModuleInstance *module_inst,
+                            uint32 inc_page_count, uint32 memidx);
 
 /**
  * Invoke native function from aot code

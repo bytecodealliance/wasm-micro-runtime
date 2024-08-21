@@ -181,15 +181,36 @@ static RunningMode runtime_running_mode = Mode_Default;
    of signal handler */
 static os_thread_local_attribute WASMExecEnv *exec_env_tls = NULL;
 
+static bool
+is_sig_addr_in_guard_pages(void *sig_addr, WASMModuleInstance *module_inst)
+{
+    WASMMemoryInstance *memory_inst;
+    uint8 *mapped_mem_start_addr = NULL;
+    uint8 *mapped_mem_end_addr = NULL;
+    uint32 i;
+
+    for (i = 0; i < module_inst->memory_count; ++i) {
+        /* To be compatible with multi memory, get the ith memory instance */
+        memory_inst = wasm_get_memory_with_idx(module_inst, i);
+        mapped_mem_start_addr = memory_inst->memory_data;
+        mapped_mem_end_addr = memory_inst->memory_data + 8 * (uint64)BH_GB;
+        if (mapped_mem_start_addr <= (uint8 *)sig_addr
+            && (uint8 *)sig_addr < mapped_mem_end_addr) {
+            /* The address which causes segmentation fault is inside
+               the memory instance's guard regions */
+            return true;
+        }
+    }
+
+    return false;
+}
+
 #ifndef BH_PLATFORM_WINDOWS
 static void
 runtime_signal_handler(void *sig_addr)
 {
     WASMModuleInstance *module_inst;
-    WASMMemoryInstance *memory_inst;
     WASMJmpBuf *jmpbuf_node;
-    uint8 *mapped_mem_start_addr = NULL;
-    uint8 *mapped_mem_end_addr = NULL;
     uint32 page_size = os_getpagesize();
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
     uint8 *stack_min_addr;
@@ -201,23 +222,13 @@ runtime_signal_handler(void *sig_addr)
         && (jmpbuf_node = exec_env_tls->jmpbuf_stack_top)) {
         /* Get mapped mem info of current instance */
         module_inst = (WASMModuleInstance *)exec_env_tls->module_inst;
-        /* Get the default memory instance */
-        memory_inst = wasm_get_default_memory(module_inst);
-        if (memory_inst) {
-            mapped_mem_start_addr = memory_inst->memory_data;
-            mapped_mem_end_addr = memory_inst->memory_data + 8 * (uint64)BH_GB;
-        }
 
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
         /* Get stack info of current thread */
         stack_min_addr = os_thread_get_stack_boundary();
 #endif
 
-        if (memory_inst
-            && (mapped_mem_start_addr <= (uint8 *)sig_addr
-                && (uint8 *)sig_addr < mapped_mem_end_addr)) {
-            /* The address which causes segmentation fault is inside
-               the memory instance's guard regions */
+        if (is_sig_addr_in_guard_pages(sig_addr, module_inst)) {
             wasm_set_exception(module_inst, "out of bounds memory access");
             os_longjmp(jmpbuf_node->jmpbuf, 1);
         }
@@ -340,16 +351,7 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
         && (jmpbuf_node = exec_env_tls->jmpbuf_stack_top)) {
         module_inst = (WASMModuleInstance *)exec_env_tls->module_inst;
         if (ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
-            /* Get the default memory instance */
-            memory_inst = wasm_get_default_memory(module_inst);
-            if (memory_inst) {
-                mapped_mem_start_addr = memory_inst->memory_data;
-                mapped_mem_end_addr =
-                    memory_inst->memory_data + 8 * (uint64)BH_GB;
-            }
-
-            if (memory_inst && mapped_mem_start_addr <= (uint8 *)sig_addr
-                && (uint8 *)sig_addr < mapped_mem_end_addr) {
+            if (is_sig_addr_in_guard_pages(sig_addr, module_inst)) {
                 /* The address which causes segmentation fault is inside
                    the memory instance's guard regions.
                    Set exception and let the wasm func continue to run, when
@@ -1417,12 +1419,39 @@ wasm_runtime_load_ex(uint8 *buf, uint32 size, const LoadArgs *args,
                      char *error_buf, uint32 error_buf_size)
 {
     WASMModuleCommon *module_common = NULL;
+    uint32 package_type;
+    bool magic_header_detected = false;
 
     if (!args) {
+        set_error_buf(error_buf, error_buf_size,
+                      "WASM module load failed: null load arguments");
         return NULL;
     }
 
-    if (get_package_type(buf, size) == Wasm_Module_Bytecode) {
+    if (size < 4) {
+        set_error_buf(error_buf, error_buf_size,
+                      "WASM module load failed: unexpected end");
+        return NULL;
+    }
+
+    package_type = get_package_type(buf, size);
+    if (package_type == Wasm_Module_Bytecode) {
+#if WASM_ENABLE_INTERP != 0
+        magic_header_detected = true;
+#endif
+    }
+    else if (package_type == Wasm_Module_AoT) {
+#if WASM_ENABLE_AOT != 0
+        magic_header_detected = true;
+#endif
+    }
+    if (!magic_header_detected) {
+        set_error_buf(error_buf, error_buf_size,
+                      "WASM module load failed: magic header not detected");
+        return NULL;
+    }
+
+    if (package_type == Wasm_Module_Bytecode) {
 #if WASM_ENABLE_INTERP != 0
         module_common =
             (WASMModuleCommon *)wasm_load(buf, size,
@@ -1435,7 +1464,7 @@ wasm_runtime_load_ex(uint8 *buf, uint32 size, const LoadArgs *args,
                 args->wasm_binary_freeable;
 #endif
     }
-    else if (get_package_type(buf, size) == Wasm_Module_AoT) {
+    else if (package_type == Wasm_Module_AoT) {
 #if WASM_ENABLE_AOT != 0
         module_common = (WASMModuleCommon *)aot_load_from_aot_file(
             buf, size, args, error_buf, error_buf_size);
@@ -1444,15 +1473,7 @@ wasm_runtime_load_ex(uint8 *buf, uint32 size, const LoadArgs *args,
                 args->wasm_binary_freeable;
 #endif
     }
-    else {
-        if (size < 4)
-            set_error_buf(error_buf, error_buf_size,
-                          "WASM module load failed: unexpected end");
-        else
-            set_error_buf(error_buf, error_buf_size,
-                          "WASM module load failed: magic header not detected");
-        return NULL;
-    }
+
     if (!module_common) {
         LOG_DEBUG("WASM module load failed");
         return NULL;

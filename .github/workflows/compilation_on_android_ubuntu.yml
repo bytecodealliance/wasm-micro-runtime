@@ -68,6 +68,7 @@ env:
   WAMR_COMPILER_TEST_OPTIONS: "-s wamr_compiler -S -b -P"
   GC_TEST_OPTIONS: "-s spec -G -b -P"
   MEMORY64_TEST_OPTIONS: "-s spec -W -b -P"
+  MULTI_MEMORY_TEST_OPTIONS: "-s spec -E -b -P"
 
 jobs:
   build_llvm_libraries_on_ubuntu_2204:
@@ -148,6 +149,7 @@ jobs:
             "-DWAMR_BUILD_TAIL_CALL=1",
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
             "-DWAMR_BUILD_MEMORY64=1",
+            "-DWAMR_BUILD_MULTI_MEMORY=1",
           ]
         os: [ubuntu-22.04]
         platform: [android, linux]
@@ -206,11 +208,9 @@ jobs:
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
           - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
-          # Memory64 only on CLASSIC INTERP mode, and only on 64-bit platform
+          # Memory64 only on CLASSIC INTERP and AOT mode, and only on 64-bit platform
           - make_options_feature: "-DWAMR_BUILD_MEMORY64=1"
             platform: android
-          - make_options_run_mode: $AOT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_MEMORY64=1"
           - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MEMORY64=1"
           - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
@@ -221,6 +221,21 @@ jobs:
             make_options_feature: "-DWAMR_BUILD_MEMORY64=1"
           - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MEMORY64=1"
+          # Multi memory only on CLASSIC INTERP mode, and only on 64-bit platform
+          - make_options_feature: "-DWAMR_BUILD_MEMORY64=1"
+            platform: android
+          - make_options_run_mode: $AOT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MULTI_MEMORY=1"
+          - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MULTI_MEMORY=1"
+          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MULTI_MEMORY=1"
+          - make_options_run_mode: $LLVM_LAZY_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MULTI_MEMORY=1"
+          - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MULTI_MEMORY=1"
+          - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MULTI_MEMORY=1"
           # Fast-JIT and Multi-Tier-JIT mode don't support android
           - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
             platform: android
@@ -593,6 +608,7 @@ jobs:
             $WASI_TEST_OPTIONS,
             $GC_TEST_OPTIONS,
             $MEMORY64_TEST_OPTIONS,
+            $MULTI_MEMORY_TEST_OPTIONS,
           ]
         wasi_sdk_release:
           [
@@ -640,18 +656,30 @@ jobs:
             test_option: $MEMORY64_TEST_OPTIONS
           - running_mode: "multi-tier-jit"
             test_option: $MEMORY64_TEST_OPTIONS
+          # aot, fast-interp, fast-jit, llvm-jit, multi-tier-jit don't support Multi Memory 
+          - running_mode: "aot"
+            test_option: $MULTI_MEMORY_TEST_OPTIONS
+          - running_mode: "fast-interp"
+            test_option: $MULTI_MEMORY_TEST_OPTIONS
+          - running_mode: "fast-jit"
+            test_option: $MULTI_MEMORY_TEST_OPTIONS
+          - running_mode: "jit"
+            test_option: $MULTI_MEMORY_TEST_OPTIONS
+          - running_mode: "multi-tier-jit"
+            test_option: $MULTI_MEMORY_TEST_OPTIONS
+
     steps:
       - name: checkout
         uses: actions/checkout@v4
 
       - name: Set-up OCaml
         uses: ocaml/setup-ocaml@v3
-        if: matrix.test_option == '$GC_TEST_OPTIONS' || matrix.test_option == '$MEMORY64_TEST_OPTIONS'
+        if: matrix.test_option == '$GC_TEST_OPTIONS'
         with:
           ocaml-compiler: 4.13
 
       - name: Set-up Ocamlbuild
-        if: matrix.test_option == '$GC_TEST_OPTIONS' || matrix.test_option == '$MEMORY64_TEST_OPTIONS'
+        if: matrix.test_option == '$GC_TEST_OPTIONS'
         run: opam install ocamlbuild dune menhir
 
       - name: download and install wasi-sdk
@@ -717,13 +745,13 @@ jobs:
 
       - name: run tests
         timeout-minutes: 30
-        if: matrix.test_option != '$GC_TEST_OPTIONS' && matrix.test_option != '$MEMORY64_TEST_OPTIONS'
+        if: matrix.test_option != '$GC_TEST_OPTIONS'
         run: ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
 
-      - name: run gc or memory64 tests
+      - name: run gc tests
         timeout-minutes: 20
-        if: matrix.test_option == '$GC_TEST_OPTIONS' || matrix.test_option == '$MEMORY64_TEST_OPTIONS'
+        if: matrix.test_option == '$GC_TEST_OPTIONS'
         run: |
           eval $(opam env)
           ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}

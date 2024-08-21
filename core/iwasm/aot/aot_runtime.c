@@ -2818,6 +2818,13 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
 }
 
 bool
+aot_enlarge_memory_with_idx(AOTModuleInstance *module_inst,
+                            uint32 inc_page_count, uint32 memidx)
+{
+    return wasm_enlarge_memory_with_idx(module_inst, inc_page_count, memidx);
+}
+
+bool
 aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
                   uint32 *argv)
 {
