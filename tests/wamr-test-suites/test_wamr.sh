@@ -409,12 +409,13 @@ function setup_wabt()
             git clone --recursive https://github.com/WebAssembly/wabt
         fi
         echo "upate wabt"
-        cd wabt
-        git fetch origin
-        git reset --hard origin/main
-        git checkout tags/${WABT_VERSION} -B ${WABT_VERSION}
-        cd ..
-        make -C wabt gcc-release -j 4 || exit 1
+        cd wabt \
+        && git fetch origin \
+        && git reset --hard origin/main \
+        && git checkout tags/${WABT_VERSION} -B ${WABT_VERSION} \
+        && git submodule update --init \
+        && cd .. \
+        && make -C wabt gcc-release -j 4 || exit 1
     fi
 }
 

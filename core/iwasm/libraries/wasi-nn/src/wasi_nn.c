@@ -10,39 +10,36 @@
 #include <errno.h>
 #include <string.h>
 #include <stdint.h>
+#include <dlfcn.h>
 
 #include "wasi_nn_private.h"
-#include "wasi_nn_app_native.h"
-#include "logger.h"
+#include "utils/wasi_nn_app_native.h"
+#include "utils/logger.h"
 
 #include "bh_platform.h"
 #include "wasi_nn_types.h"
 #include "wasm_export.h"
 
 #define HASHMAP_INITIAL_SIZE 20
+#define TFLITE_BACKEND_LIB "libwasi_nn_tflite.so"
+#define OPENVINO_BACKEND_LIB "libwasi_nn_openvino.so"
+#define LLAMACPP_BACKEND_LIB "libwasi_nn_llamacpp.so"
 
 /* Global variables */
-// if using `load_by_name`, there is no known `encoding` at the time of loading
-// so, just keep one `api_function` is enough
-static api_function lookup = { 0 };
+struct backends_api_functions {
+    void *backend_handle;
+    api_function functions;
+} lookup[autodetect] = { 0 };
 
-#define call_wasi_nn_func(wasi_error, func, ...)                  \
-    do {                                                          \
-        if (lookup.func) {                                        \
-            wasi_error = lookup.func(__VA_ARGS__);                \
-            if (wasi_error != success)                            \
-                NN_ERR_PRINTF("Error %s: %d", #func, wasi_error); \
-        }                                                         \
-        else {                                                    \
-            NN_ERR_PRINTF("Error %s is not registered", #func);   \
-            wasi_error = unsupported_operation;                   \
-        }                                                         \
+#define call_wasi_nn_func(backend_encoding, func, wasi_error, ...)         \
+    do {                                                                   \
+        wasi_error = lookup[backend_encoding].functions.func(__VA_ARGS__); \
+        if (wasi_error != success)                                         \
+            NN_ERR_PRINTF("Error %s() -> %d", #func, wasi_error);          \
     } while (0)
 
+/* HashMap utils */
 static HashMap *hashmap;
-
-static void
-wasi_nn_ctx_destroy(WASINNContext *wasi_nn_ctx);
 
 static uint32
 hash_func(const void *key)
@@ -75,9 +72,48 @@ key_destroy_func(void *key1)
 }
 
 static void
+wasi_nn_ctx_destroy(WASINNContext *wasi_nn_ctx)
+{
+    NN_DBG_PRINTF("[WASI NN] DEINIT...");
+
+    if (wasi_nn_ctx == NULL) {
+        NN_ERR_PRINTF(
+            "Error when deallocating memory. WASI-NN context is NULL");
+        return;
+    }
+    NN_DBG_PRINTF("Freeing wasi-nn");
+    NN_DBG_PRINTF("-> is_model_loaded: %d", wasi_nn_ctx->is_model_loaded);
+    NN_DBG_PRINTF("-> current_encoding: %d", wasi_nn_ctx->backend);
+
+    /* deinit() the backend */
+    wasi_nn_error res;
+    call_wasi_nn_func(wasi_nn_ctx->backend, deinit, res,
+                      wasi_nn_ctx->backend_ctx);
+
+    wasm_runtime_free(wasi_nn_ctx);
+}
+
+static void
 value_destroy_func(void *value)
 {
     wasi_nn_ctx_destroy((WASINNContext *)value);
+}
+
+bool
+wasi_nn_initialize()
+{
+    NN_DBG_PRINTF("[WASI NN General] Initializing wasi-nn");
+
+    // hashmap { instance: wasi_nn_ctx }
+    hashmap = bh_hash_map_create(HASHMAP_INITIAL_SIZE, true, hash_func,
+                                 key_equal_func, key_destroy_func,
+                                 value_destroy_func);
+    if (hashmap == NULL) {
+        NN_ERR_PRINTF("Error while initializing hashmap");
+        return false;
+    }
+
+    return true;
 }
 
 static WASINNContext *
@@ -91,32 +127,9 @@ wasi_nn_initialize_context()
         NN_ERR_PRINTF("Error when allocating memory for WASI-NN context");
         return NULL;
     }
-    wasi_nn_ctx->is_model_loaded = false;
 
-    /* only one backend can be registered */
-    wasi_nn_error res;
-    call_wasi_nn_func(res, init, &wasi_nn_ctx->backend_ctx);
-    if (res != success) {
-        wasm_runtime_free(wasi_nn_ctx);
-        return NULL;
-    }
-
+    memset(wasi_nn_ctx, 0, sizeof(WASINNContext));
     return wasi_nn_ctx;
-}
-
-static bool
-wasi_nn_initialize()
-{
-    NN_DBG_PRINTF("[WASI NN General] Initializing wasi-nn");
-    // hashmap { instance: wasi_nn_ctx }
-    hashmap = bh_hash_map_create(HASHMAP_INITIAL_SIZE, true, hash_func,
-                                 key_equal_func, key_destroy_func,
-                                 value_destroy_func);
-    if (hashmap == NULL) {
-        NN_ERR_PRINTF("Error while initializing hashmap");
-        return false;
-    }
-    return true;
 }
 
 /* Get wasi-nn context from module instance */
@@ -129,6 +142,7 @@ wasm_runtime_get_wasi_nn_ctx(wasm_module_inst_t instance)
         wasi_nn_ctx = wasi_nn_initialize_context();
         if (wasi_nn_ctx == NULL)
             return NULL;
+
         bool ok =
             bh_hash_map_insert(hashmap, (void *)instance, (void *)wasi_nn_ctx);
         if (!ok) {
@@ -141,36 +155,31 @@ wasm_runtime_get_wasi_nn_ctx(wasm_module_inst_t instance)
     return wasi_nn_ctx;
 }
 
-static void
-wasi_nn_ctx_destroy(WASINNContext *wasi_nn_ctx)
-{
-    NN_DBG_PRINTF("[WASI NN] DEINIT...");
-
-    if (wasi_nn_ctx == NULL) {
-        NN_ERR_PRINTF(
-            "Error when deallocating memory. WASI-NN context is NULL");
-        return;
-    }
-    NN_DBG_PRINTF("Freeing wasi-nn");
-    NN_DBG_PRINTF("-> is_model_loaded: %d", wasi_nn_ctx->is_model_loaded);
-    NN_DBG_PRINTF("-> current_encoding: %d", wasi_nn_ctx->current_encoding);
-
-    /* only one backend can be registered */
-    wasi_nn_error res;
-    call_wasi_nn_func(res, deinit, wasi_nn_ctx->backend_ctx);
-
-    wasm_runtime_free(wasi_nn_ctx);
-}
-
 void
 wasi_nn_destroy()
 {
     // destroy hashmap will destroy keys and values
     bh_hash_map_destroy(hashmap);
+
+    // close backends' libraries and registered functions
+    for (unsigned i = 0; i < sizeof(lookup) / sizeof(lookup[0]); i++) {
+        if (lookup[i].backend_handle) {
+            dlclose(lookup[i].backend_handle);
+            lookup[i].backend_handle = NULL;
+        }
+
+        lookup[i].functions.init = NULL;
+        lookup[i].functions.deinit = NULL;
+        lookup[i].functions.load = NULL;
+        lookup[i].functions.load_by_name = NULL;
+        lookup[i].functions.init_execution_context = NULL;
+        lookup[i].functions.set_input = NULL;
+        lookup[i].functions.compute = NULL;
+        lookup[i].functions.get_output = NULL;
+    }
 }
 
 /* Utils */
-
 static wasi_nn_error
 is_model_initialized(WASINNContext *wasi_nn_ctx)
 {
@@ -181,8 +190,169 @@ is_model_initialized(WASINNContext *wasi_nn_ctx)
     return success;
 }
 
-/* WASI-NN implementation */
+/*
+ *TODO: choose a proper backend based on
+ * - hardware
+ * - model file format
+ * - on device ML framework
+ */
+static graph_encoding
+choose_a_backend()
+{
+    void *handle;
 
+    handle = dlopen(LLAMACPP_BACKEND_LIB, RTLD_LAZY);
+    if (handle) {
+        NN_INFO_PRINTF("Using llama.cpp backend");
+        dlclose(handle);
+        return ggml;
+    }
+
+    handle = dlopen(OPENVINO_BACKEND_LIB, RTLD_LAZY);
+    if (handle) {
+        NN_INFO_PRINTF("Using openvino backend");
+        dlclose(handle);
+        return openvino;
+    }
+
+    handle = dlopen(TFLITE_BACKEND_LIB, RTLD_LAZY);
+    if (handle) {
+        NN_INFO_PRINTF("Using tflite backend");
+        dlclose(handle);
+        return tensorflowlite;
+    }
+
+    return unknown_backend;
+}
+
+static bool
+register_backend(void *handle, api_function *functions)
+{
+    BACKEND_INITIALIZE init = (BACKEND_INITIALIZE)dlsym(handle, "init_backend");
+    if (!init) {
+        NN_WARN_PRINTF("init_backend() not found");
+        return false;
+    }
+    functions->init = init;
+
+    BACKEND_DEINITIALIZE deinit =
+        (BACKEND_DEINITIALIZE)dlsym(handle, "deinit_backend");
+    if (!deinit) {
+        NN_WARN_PRINTF("deinit_backend() not found");
+        return false;
+    }
+    functions->deinit = deinit;
+
+    LOAD load = (LOAD)dlsym(handle, "load");
+    if (!load) {
+        NN_WARN_PRINTF("load() not found");
+        return false;
+    }
+    functions->load = load;
+
+    LOAD_BY_NAME load_by_name = (LOAD_BY_NAME)dlsym(handle, "load_by_name");
+    if (!load_by_name) {
+        NN_WARN_PRINTF("load_by_name() not found");
+        return false;
+    }
+    functions->load_by_name = load_by_name;
+
+    INIT_EXECUTION_CONTEXT init_execution_context =
+        (INIT_EXECUTION_CONTEXT)dlsym(handle, "init_execution_context");
+    if (!init_execution_context) {
+        NN_WARN_PRINTF("init_execution_context() not found");
+        return false;
+    }
+    functions->init_execution_context = init_execution_context;
+
+    SET_INPUT set_input = (SET_INPUT)dlsym(handle, "set_input");
+    if (!set_input) {
+        NN_WARN_PRINTF("set_input() not found");
+        return false;
+    }
+    functions->set_input = set_input;
+
+    COMPUTE compute = (COMPUTE)dlsym(handle, "compute");
+    if (!compute) {
+        NN_WARN_PRINTF("compute() not found");
+        return false;
+    }
+    functions->compute = compute;
+
+    GET_OUTPUT get_output = (GET_OUTPUT)dlsym(handle, "get_output");
+    if (!get_output) {
+        NN_WARN_PRINTF("get_output() not found");
+        return false;
+    }
+    functions->get_output = get_output;
+
+    return true;
+}
+
+static bool
+prepare_backend(const char *lib_name, struct backends_api_functions *backend)
+{
+    NN_DBG_PRINTF("[Native Register] prepare_backend %s", lib_name);
+
+    void *handle;
+    handle = dlopen(lib_name, RTLD_LAZY);
+    if (!handle) {
+        NN_ERR_PRINTF("Error loading %s. %s", lib_name, dlerror());
+        return false;
+    }
+
+    if (!register_backend(handle, &(backend->functions))) {
+        NN_ERR_PRINTF("Error when registering functions of %s", lib_name);
+        dlclose(handle);
+        return false;
+    }
+
+    backend->backend_handle = handle;
+    return true;
+}
+
+static const char *
+graph_encoding_to_backend_lib_name(graph_encoding encoding)
+{
+    switch (encoding) {
+        case openvino:
+            return OPENVINO_BACKEND_LIB;
+        case tensorflowlite:
+            return TFLITE_BACKEND_LIB;
+        case ggml:
+            return LLAMACPP_BACKEND_LIB;
+        default:
+            return NULL;
+    }
+}
+
+static bool
+detect_and_load_backend(graph_encoding backend_hint,
+                        struct backends_api_functions *backends,
+                        graph_encoding *loaded_backed)
+{
+    if (backend_hint >= autodetect)
+        return false;
+
+    if (backend_hint == autodetect)
+        backend_hint = choose_a_backend();
+
+    /* if already loaded */
+    if (lookup[backend_hint].backend_handle) {
+        *loaded_backed = backend_hint;
+        return true;
+    }
+
+    *loaded_backed = backend_hint;
+    const char *backend_lib_name =
+        graph_encoding_to_backend_lib_name(backend_hint);
+    if (!backend_lib_name)
+        return false;
+
+    return prepare_backend(backend_lib_name, backends + backend_hint);
+}
+
+/* WASI-NN implementation */
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
 wasi_nn_error
 wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_wasm *builder,
@@ -222,13 +392,28 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
         goto fail;
     }
 
+    graph_encoding loaded_backed = autodetect;
+    if (!detect_and_load_backend(encoding, lookup, &loaded_backed)) {
+        res = invalid_encoding;
+        NN_ERR_PRINTF("load backend failed");
+        goto fail;
+    }
+
     WASINNContext *wasi_nn_ctx = wasm_runtime_get_wasi_nn_ctx(instance);
-    call_wasi_nn_func(res, load, wasi_nn_ctx->backend_ctx, &builder_native,
-                      encoding, target, g);
+    wasi_nn_ctx->backend = loaded_backed;
+
+    /* init() the backend */
+    call_wasi_nn_func(wasi_nn_ctx->backend, init, res,
+                      &wasi_nn_ctx->backend_ctx);
     if (res != success)
         goto fail;
 
-    wasi_nn_ctx->current_encoding = encoding;
+    call_wasi_nn_func(wasi_nn_ctx->backend, load, res, wasi_nn_ctx->backend_ctx,
+                      &builder_native, encoding, target, g);
+    if (res != success)
+        goto fail;
+
+    wasi_nn_ctx->backend = loaded_backed;
     wasi_nn_ctx->is_model_loaded = true;
 
 fail:
@@ -251,22 +436,37 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
     }
 
     if (!wasm_runtime_validate_native_addr(instance, name, name_len)) {
+        NN_ERR_PRINTF("name is invalid");
         return invalid_argument;
     }
 
     if (!wasm_runtime_validate_native_addr(instance, g,
                                            (uint64)sizeof(graph))) {
+        NN_ERR_PRINTF("graph is invalid");
         return invalid_argument;
+    }
+
+    graph_encoding loaded_backed = autodetect;
+    if (detect_and_load_backend(autodetect, lookup, &loaded_backed)) {
+        NN_ERR_PRINTF("load backend failed");
+        return invalid_encoding;
     }
 
     WASINNContext *wasi_nn_ctx = wasm_runtime_get_wasi_nn_ctx(instance);
     wasi_nn_error res;
-    call_wasi_nn_func(res, load_by_name, wasi_nn_ctx->backend_ctx, name,
-                      name_len, g);
+
+    /* init() the backend */
+    call_wasi_nn_func(wasi_nn_ctx->backend, init, res,
+                      &wasi_nn_ctx->backend_ctx);
     if (res != success)
         return res;
 
-    wasi_nn_ctx->current_encoding = autodetect;
+    call_wasi_nn_func(wasi_nn_ctx->backend, load_by_name, res,
+                      wasi_nn_ctx->backend_ctx, name, name_len, g);
+    if (res != success)
+        return res;
+
+    wasi_nn_ctx->backend = loaded_backed;
     wasi_nn_ctx->is_model_loaded = true;
     return success;
 }
@@ -294,8 +494,8 @@ wasi_nn_init_execution_context(wasm_exec_env_t exec_env, graph g,
         return invalid_argument;
     }
 
-    call_wasi_nn_func(res, init_execution_context, wasi_nn_ctx->backend_ctx, g,
-                      ctx);
+    call_wasi_nn_func(wasi_nn_ctx->backend, init_execution_context, res,
+                      wasi_nn_ctx->backend_ctx, g, ctx);
     return res;
 }
 
@@ -322,7 +522,8 @@ wasi_nn_set_input(wasm_exec_env_t exec_env, graph_execution_context ctx,
                                     &input_tensor_native)))
         return res;
 
-    call_wasi_nn_func(res, set_input, wasi_nn_ctx->backend_ctx, ctx, index,
+    call_wasi_nn_func(wasi_nn_ctx->backend, set_input, res,
+                      wasi_nn_ctx->backend_ctx, ctx, index,
                       &input_tensor_native);
     // XXX: Free intermediate structure pointers
     if (input_tensor_native.dimensions)
@@ -347,7 +548,8 @@ wasi_nn_compute(wasm_exec_env_t exec_env, graph_execution_context ctx)
     if (success != (res = is_model_initialized(wasi_nn_ctx)))
         return res;
 
-    call_wasi_nn_func(res, compute, wasi_nn_ctx->backend_ctx, ctx);
+    call_wasi_nn_func(wasi_nn_ctx->backend, compute, res,
+                      wasi_nn_ctx->backend_ctx, ctx);
     return res;
 }
 
@@ -383,12 +585,14 @@ wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
     }
 
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-    call_wasi_nn_func(res, get_output, wasi_nn_ctx->backend_ctx, ctx, index,
-                      output_tensor, &output_tensor_len);
+    call_wasi_nn_func(wasi_nn_ctx->backend, get_output, res,
+                      wasi_nn_ctx->backend_ctx, ctx, index, output_tensor,
+                      &output_tensor_len);
     *output_tensor_size = output_tensor_len;
 #else  /* WASM_ENABLE_WASI_EPHEMERAL_NN == 0 */
-    call_wasi_nn_func(res, get_output, wasi_nn_ctx->backend_ctx, ctx, index,
-                      output_tensor, output_tensor_size);
+    call_wasi_nn_func(wasi_nn_ctx->backend, get_output, res,
+                      wasi_nn_ctx->backend_ctx, ctx, index, output_tensor,
+                      output_tensor_size);
 #endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
     return res;
 }
@@ -422,45 +626,4 @@ get_wasi_nn_export_apis(NativeSymbol **p_native_symbols)
 {
     *p_native_symbols = native_symbols_wasi_nn;
     return sizeof(native_symbols_wasi_nn) / sizeof(NativeSymbol);
-}
-
-__attribute__((used)) uint32_t
-get_native_lib(char **p_module_name, NativeSymbol **p_native_symbols)
-{
-    NN_DBG_PRINTF("[Native Register] get_native_lib");
-
-#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-    *p_module_name = "wasi_ephemeral_nn";
-#else  /* WASM_ENABLE_WASI_EPHEMERAL_NN == 0 */
-    *p_module_name = "wasi_nn";
-#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
-
-    return get_wasi_nn_export_apis(p_native_symbols);
-}
-
-__attribute__((used)) int
-init_native_lib()
-{
-    NN_DBG_PRINTF("[Native Register] init_native_lib");
-
-    if (!wasi_nn_initialize())
-        return 1;
-
-    return 0;
-}
-
-__attribute__((used)) void
-deinit_native_lib()
-{
-    NN_DBG_PRINTF("[Native Register] deinit_native_lib");
-
-    wasi_nn_destroy();
-}
-
-__attribute__((used)) bool
-wasi_nn_register_backend(api_function apis)
-{
-    NN_DBG_PRINTF("[Native Register] wasi_nn_register_backend");
-    lookup = apis;
-    return true;
 }
