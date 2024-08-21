@@ -82,7 +82,7 @@ WAMRC_CMD=""
 # prod/testsuite-all branch
 WASI_TESTSUITE_COMMIT="ee807fc551978490bf1c277059aabfa1e589a6c2"
 TARGET_LIST=("AARCH64" "AARCH64_VFP" "ARMV7" "ARMV7_VFP" "THUMBV7" "THUMBV7_VFP" \
-             "RISCV32" "RISCV32_ILP32F" "RISCV32_ILP32D" "RISCV64" "RISCV64_LP64F" "RISCV64_LP64D")
+             "RISCV32" "RISCV32_ILP32F" "RISCV32_ILP32D" "RISCV64" "RISCV64_LP64F" "RISCV64_LP64D" "XTENSA")
 REQUIREMENT_NAME=""
 # Initialize an empty array for subrequirement IDs
 SUBREQUIREMENT_IDS=()
@@ -416,12 +416,13 @@ function setup_wabt()
             git clone --recursive https://github.com/WebAssembly/wabt
         fi
         echo "upate wabt"
-        cd wabt
-        git fetch origin
-        git reset --hard origin/main
-        git checkout tags/${WABT_VERSION} -B ${WABT_VERSION}
-        cd ..
-        make -C wabt gcc-release -j 4 || exit 1
+        cd wabt \
+        && git fetch origin \
+        && git reset --hard origin/main \
+        && git checkout tags/${WABT_VERSION} -B ${WABT_VERSION} \
+        && git submodule update --init \
+        && cd .. \
+        && make -C wabt gcc-release -j 4 || exit 1
     fi
 }
 
@@ -820,9 +821,14 @@ function build_wamrc()
         return
     fi
 
+    BUILD_LLVM_SH=build_llvm.sh
+    if [ ${TARGET} = "XTENSA" ]; then
+        BUILD_LLVM_SH=build_llvm_xtensa.sh
+    fi
+
     echo "Build wamrc for spec test under aot compile type"
     cd ${WAMR_DIR}/wamr-compiler \
-        && ./build_llvm.sh \
+        && ./${BUILD_LLVM_SH} \
         && if [ -d build ]; then rm -r build/*; else mkdir build; fi \
         && cd build \
         && cmake .. -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE} \

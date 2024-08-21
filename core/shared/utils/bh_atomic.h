@@ -6,6 +6,7 @@
 #ifndef _BH_ATOMIC_H
 #define _BH_ATOMIC_H
 
+#include "bh_platform.h"
 #include "gnuc.h"
 
 #ifdef __cplusplus

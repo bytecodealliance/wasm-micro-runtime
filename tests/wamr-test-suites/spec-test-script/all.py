@@ -66,6 +66,7 @@ AVAILABLE_TARGETS = [
     "RISCV64_LP64D",
     "THUMBV7",
     "THUMBV7_VFP",
+    "XTENSA",
 ]
 
 def ignore_the_case(
@@ -92,6 +93,10 @@ def ignore_the_case(
 
     # Note: x87 doesn't preserve sNaN and makes some relevant tests fail.
     if "i386" == target and case_name in ["float_exprs", "conversions"]:
+        return True
+
+    # esp32s3 qemu doesn't have PSRAM emulation
+    if qemu_flag and target == 'xtensa' and case_name in ["memory_size"]:
         return True
 
     if gc_flag:
@@ -251,7 +256,7 @@ def test_case(
                 if verbose_flag:
                     print(output, end="")
                 else:
-                    if len(case_last_words) == 16:
+                    if len(case_last_words) == 1024:
                         case_last_words.pop(0)
                     case_last_words.append(output)
 
@@ -587,7 +592,8 @@ def main():
         if options.parl_flag:
             # several cases might share the same workspace/tempfile at the same time
             # so, disable it while running parallelly
-            options.clean_up_flag = False
+            if options.multi_module_flag:
+                options.clean_up_flag = False
             options.verbose_flag = False
 
         start = time.time_ns()

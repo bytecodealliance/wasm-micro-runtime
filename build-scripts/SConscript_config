@@ -109,7 +109,27 @@ if GetDepend(['WAMR_BUILD_CUSTOM_NAME_SECTION']):
 
 if GetDepend(['WAMR_BUILD_TAIL_CALL']):
     CPPDEFINES += ['WASM_ENABLE_TAIL_CALL=1']
-    print('[WAMR] Tail call enabledd')
+    print('[WAMR] Tail call enabled')
+
+if GetDepend(['WAMR_BUILD_THREAD_MGR']):
+    CPPDEFINES += ['WASM_ENABLE_THREAD_MGR=1']
+    print('[WAMR] Thread manager enabled')
+
+if GetDepend(['WAMR_BUILD_LIBC_WASI']):
+    CPPDEFINES += ['WASM_ENABLE_LIBC_WASI=1']
+    CPPDEFINES += ['WASM_ENABLE_MODULE_INST_CONTEXT=1']
+    print('[WAMR] Libc wasi enabled')
+
+if GetDepend(['WAMR_BUILD_LIB_WASI_THREADS']):
+    CPPDEFINES += ['WASM_ENABLE_LIB_WASI_THREADS=1']
+    print('[WAMR] Lib wasi threads enabled')
+
+if GetDepend(['WAMR_BUILD_REF_TYPES']):
+    CPPDEFINES += ['WASM_ENABLE_REF_TYPES=1']
+    print('[WAMR] enable ref types')
+
+CPPDEFINES += ['BH_MALLOC=wasm_runtime_malloc']
+CPPDEFINES += ['BH_FREE=wasm_runtime_free']
 
 LIBS = ['m']
 

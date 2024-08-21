@@ -20,6 +20,7 @@
     && !defined(BUILD_TARGET_RISCV64_LP64D) \
     && !defined(BUILD_TARGET_RISCV64_LP64) \
     && !defined(BUILD_TARGET_RISCV32_ILP32D) \
+    && !defined(BUILD_TARGET_RISCV32_ILP32F) \
     && !defined(BUILD_TARGET_RISCV32_ILP32) \
     && !defined(BUILD_TARGET_ARC)
 /* clang-format on */
@@ -43,7 +44,11 @@
 #define BUILD_TARGET_XTENSA
 #elif defined(__riscv) && (__riscv_xlen == 64)
 #define BUILD_TARGET_RISCV64_LP64D
-#elif defined(__riscv) && (__riscv_xlen == 32)
+#elif defined(__riscv) && (__riscv_xlen == 32) && !defined(__riscv_flen)
+#define BUILD_TARGET_RISCV32_ILP32
+#elif defined(__riscv) && (__riscv_xlen == 32) && (__riscv_flen == 32)
+#define BUILD_TARGET_RISCV32_ILP32F
+#elif defined(__riscv) && (__riscv_xlen == 32) && (__riscv_flen == 64)
 #define BUILD_TARGET_RISCV32_ILP32D
 #elif defined(__arc__)
 #define BUILD_TARGET_ARC

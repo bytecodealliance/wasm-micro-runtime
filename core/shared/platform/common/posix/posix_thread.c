@@ -4,7 +4,9 @@
  */
 
 #ifndef _GNU_SOURCE
+#if !defined(__RTTHREAD__)
 #define _GNU_SOURCE
+#endif
 #endif
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
@@ -46,6 +48,13 @@ os_thread_wrapper(void *arg)
 #endif
 #ifdef OS_ENABLE_WAKEUP_BLOCKING_OP
     os_end_blocking_op();
+#endif
+#if BH_DEBUG != 0
+#if defined __APPLE__
+    pthread_setname_np("wamr");
+#else
+    pthread_setname_np(pthread_self(), "wamr");
+#endif
 #endif
     start_func(thread_arg);
 #ifdef OS_ENABLE_HW_BOUND_CHECK
@@ -448,7 +457,7 @@ os_thread_get_stack_boundary()
         addr += guard_size;
     }
     (void)stack_size;
-#elif defined(__APPLE__) || defined(__NuttX__)
+#elif defined(__APPLE__) || defined(__NuttX__) || defined(__RTTHREAD__)
     if ((addr = (uint8 *)pthread_get_stackaddr_np(self))) {
         stack_size = pthread_get_stacksize_np(self);
 
@@ -495,6 +504,8 @@ static os_thread_local_attribute bool thread_signal_inited = false;
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
 /* The signal alternate stack base addr */
 static os_thread_local_attribute uint8 *sigalt_stack_base_addr;
+/* The previous signal alternate stack */
+static os_thread_local_attribute stack_t prev_sigalt_stack;
 
 /*
  * ASAN is not designed to work with custom stack unwind or other low-level
@@ -674,7 +685,9 @@ os_thread_signal_init(os_signal_handler handler)
     sigalt_stack_info.ss_sp = map_addr;
     sigalt_stack_info.ss_size = map_size;
     sigalt_stack_info.ss_flags = 0;
-    if (sigaltstack(&sigalt_stack_info, NULL) != 0) {
+    memset(&prev_sigalt_stack, 0, sizeof(stack_t));
+    /* Set signal alternate stack and save the previous one */
+    if (sigaltstack(&sigalt_stack_info, &prev_sigalt_stack) != 0) {
         os_printf("Failed to init signal alternate stack\n");
         goto fail2;
     }
@@ -720,19 +733,12 @@ fail1:
 void
 os_thread_signal_destroy()
 {
-#if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
-    stack_t sigalt_stack_info;
-#endif
-
     if (!thread_signal_inited)
         return;
 
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
-    /* Disable signal alternate stack */
-    memset(&sigalt_stack_info, 0, sizeof(stack_t));
-    sigalt_stack_info.ss_flags = SS_DISABLE;
-    sigalt_stack_info.ss_size = SIG_ALT_STACK_SIZE;
-    sigaltstack(&sigalt_stack_info, NULL);
+    /* Restore the previous signal alternate stack */
+    sigaltstack(&prev_sigalt_stack, NULL);
 
     os_munmap(sigalt_stack_base_addr, SIG_ALT_STACK_SIZE);
 

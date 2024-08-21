@@ -67,6 +67,7 @@ void __divdi3();
 void __divsf3();
 void __divsi3();
 void __eqdf2();
+void __eqsf2();
 void __extendsfdf2();
 void __fixdfdi();
 void __fixdfsi();
@@ -169,6 +170,7 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__divsf3),
     REG_SYM(__divsi3),
     REG_SYM(__eqdf2),
+    REG_SYM(__eqsf2),
     REG_SYM(__extendsfdf2),
     REG_SYM(__fixdfdi),
     REG_SYM(__fixdfsi),

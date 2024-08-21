@@ -41,6 +41,9 @@
 #include <llvm/Target/CodeGenCWrappers.h>
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Target/TargetOptions.h>
+#if LLVM_VERSION_MAJOR >= 17
+#include <llvm/TargetParser/Triple.h>
+#endif
 #include <llvm/Transforms/Utils/LowerMemIntrinsics.h>
 #include <llvm/Transforms/Vectorize/LoopVectorize.h>
 #include <llvm/Transforms/Vectorize/LoadStoreVectorizer.h>
@@ -172,6 +175,9 @@ aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str)
     }
     else if (targetArch == llvm::Triple::aarch64) {
         return subTargetInfo->checkFeatures("+neon");
+    }
+    else if (targetArch == llvm::Triple::arc) {
+        return true;
     }
     else {
         return false;
