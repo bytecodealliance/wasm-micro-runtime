@@ -104,8 +104,9 @@ os_thread_exit(void *retval);
 #endif
 
 /* Clang's __GNUC_PREREQ macro has a different meaning than GCC one,
-   so we have to handle this case specially */
-#if defined(__clang__)
+   so we have to handle this case specially(except the CCAC compiler
+   provided by MetaWare, which doesn't support atomic operations) */
+#if defined(__clang__) && !defined(__CCAC__)
 /* Clang provides stdatomic.h since 3.6.0
    See https://releases.llvm.org/3.6.0/tools/clang/docs/ReleaseNotes.html */
 #if __clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 6)
@@ -1501,6 +1502,33 @@ os_convert_stdout_handle(os_raw_file_handle raw_stdout);
  */
 os_file_handle
 os_convert_stderr_handle(os_raw_file_handle raw_stderr);
+
+/**
+ *
+ * @param fd a file handle
+ *
+ * @return true if it is stdin
+ */
+bool
+os_is_stdin_handle(os_file_handle fd);
+
+/**
+ *
+ * @param fd a file handle
+ *
+ * @return true if it is stdout
+ */
+bool
+os_is_stdout_handle(os_file_handle fd);
+
+/**
+ *
+ * @param fd a file handle
+ *
+ * @return true if it is stderr
+ */
+bool
+os_is_stderr_handle(os_file_handle fd);
 
 /**
  * Open a directory stream for the provided directory handle. The returned

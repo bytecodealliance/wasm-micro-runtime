@@ -1,3 +1,77 @@
+## WAMR-2.1.2
+
+### Breaking Changes
+ - wasi-nn: Apply new architecture (#3692)
+
+### New Features
+ - [wasi-nn] Add a new wasi-nn backend openvino (#3603)
+ - Add APIs into wasm_c_api.h to summary wasm function execution duration (#3639)
+ - Add support for RISCV32 ILP32F (#3708)
+
+### Bug Fixes
+ - libc-builtin: Fix function prototype for wasm_runtime_module_realloc (#3702)
+ - Fix potential memory leak in insert_native_symbol (#3712)
+ - aot compiler: Fix NaN handling for opcode f32/f64.const in XIP mode (#3721)
+ - Fix table idx resolving in op call_indirect/return_call_indirect (#3726)
+
+### Enhancements
+ - Remove a few hardcoded spec test knowledge from the core library (#3648)
+ - Change log of import function to be consistent (#3656)
+ - libc-builtin: Fix a printf format (#3652)
+ - Set compile symbol visibility to hidden in cmake (#3655)
+ - wamrc: Add --mllvm= option (#3658)
+ - wamr-compiler: Avoid size-level tweak if target is specified (#3659)
+ - aot runtime: Add missing arm/thumb relocations (#3660)
+ - aot compiler: Enlarge AOTNativeSymbol->symbol (#3662)
+ - aot compiler: Bail out on too long native symbol names (#3663)
+ - Support more features for rt-thread (#3661)
+ - Zephyr User Mode Support (#3650)
+ - Set posix thread name for debug build (#3657)
+ - Add emscripten_sleep() wrapper to libc-emcc (#3669)
+ - Fix a compilation warning (#3682)
+ - wamrc: Add some help text for --size-level (#3689)
+ - Restore linux iwasm default visibility (#3691)
+ - posix_thread.c: Restore old signal alternate stack before thread exit (#3693)
+ - libc-wasi: Make rights of STDIN/STDOUT/STDERR fixed and overlook their access modes (#3694)
+ - [refactoring] Extract read leb to a separate file, share the code between loader and mini loader (#3701)
+ - debug-interp: Only add lock when signal_flag is SIG_SINGSTEP (#3704)
+ - Fix compilation warnings (#3707)
+ - Add missing headers in bh_atomic.h and aot_llvm_extra.cpp (#3715)
+ - Update std atomic check and simd compatibility check for arc compiler (#3716)
+ - aot compiler: Track non-0x00 tableindex as ref types use (#3695)
+ - compilation: Use the dedicated stack-sizes section only for AOT (#3732)
+ - riscv: Add missing relocation intrinsics for __fixdfsi/__ltdf2 (#3733)
+
+### Others
+ - Fix night run CI (#3640)
+ - spec-test-script/runtest.py: Don't assume the tmp dir path (#3632)
+ - wamr-test-suites: Remove dead code (wasi_test) (#3634)
+ - wamr-test-suites/test_wamr.sh: Add an option to specify wamrc binary (#3635)
+ - CI: Build llvm for xtensa (#3637)
+ - spec-test-script/runtest.py: Avoid specifying -v=0 unnecessarily (#3642)
+ - spec-test-script: Add xtensa case (#3643)
+ - spec-test-script/runtest.py: Move "--size-level=1" to common place for RISCV64 (#3644)
+ - spec-test-script/runtest.py: Use a shorter timeout when expected to fail (#3647)
+ - spec-test-script: Make case_last_words larger (#3651)
+ - spec-test-script/runtest.py: Reduce stack size for aot w/o gc (#3653)
+ - spec-test-script: Skip a few tests for xtensa qemu (#3664)
+ - spec-test-script: Use -mtext-section-literals for xtensa xip (#3666)
+ - spec_test_on_nuttx.yml: Add xtensa (#3665)
+ - spec_test_on_nuttx.yml: Enable xip (#3671)
+ - spec_test_on_nuttx.yml: Record more logs (#3670)
+ - spec_test_on_nuttx.yml: Replace sed with kconfig-tweak (#3672)
+ - spec_test_on_nuttx.yml: Retire CONFIG_EOL_IS_LF (#3676)
+ - spec-test-script/runtest.py: Use wamrc --xip option for xip (#3683)
+ - CI: Bump NuttX version to 12.6 (#3684)
+ - wamr-test-suites: Clean up generated tmp files after spec test (#3700)
+ - test_wamr.sh: Fix build wabt tool (#3703)
+ - NuttX: Retire CONFIG_ARCH_RV32IM and CONFIG_ARCH_RV64GC (#3717)
+ - runtest.py: Normallize option handling for XIP mode (#3722)
+ - CI: Enable XIP spectest for RISCV32 ILP32F (#3727)
+ - CI: Unify configuration stage for NuttX (#3725)
+
+---
+
 ## WAMR-2.1.1
 
 ### Breaking Changes

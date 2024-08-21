@@ -1748,16 +1748,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     /* Initialize the thread related data */
     if (stack_size == 0)
         stack_size = DEFAULT_WASM_STACK_SIZE;
-#if WASM_ENABLE_SPEC_TEST != 0
-#if WASM_ENABLE_TAIL_CALL == 0
-    if (stack_size < 128 * 1024)
-        stack_size = 128 * 1024;
-#else
-    /* Some tail-call cases require large operand stack */
-    if (stack_size < 10 * 1024 * 1024)
-        stack_size = 10 * 1024 * 1024;
-#endif
-#endif
+
     module_inst->default_wasm_stack_size = stack_size;
 
     extra->stack_sizes =
@@ -2824,6 +2815,13 @@ bool
 aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
 {
     return wasm_enlarge_memory(module_inst, inc_page_count);
+}
+
+bool
+aot_enlarge_memory_with_idx(AOTModuleInstance *module_inst,
+                            uint32 inc_page_count, uint32 memidx)
+{
+    return wasm_enlarge_memory_with_idx(module_inst, inc_page_count, memidx);
 }
 
 bool

@@ -181,15 +181,36 @@ static RunningMode runtime_running_mode = Mode_Default;
    of signal handler */
 static os_thread_local_attribute WASMExecEnv *exec_env_tls = NULL;
 
+static bool
+is_sig_addr_in_guard_pages(void *sig_addr, WASMModuleInstance *module_inst)
+{
+    WASMMemoryInstance *memory_inst;
+    uint8 *mapped_mem_start_addr = NULL;
+    uint8 *mapped_mem_end_addr = NULL;
+    uint32 i;
+
+    for (i = 0; i < module_inst->memory_count; ++i) {
+        /* To be compatible with multi memory, get the ith memory instance */
+        memory_inst = wasm_get_memory_with_idx(module_inst, i);
+        mapped_mem_start_addr = memory_inst->memory_data;
+        mapped_mem_end_addr = memory_inst->memory_data + 8 * (uint64)BH_GB;
+        if (mapped_mem_start_addr <= (uint8 *)sig_addr
+            && (uint8 *)sig_addr < mapped_mem_end_addr) {
+            /* The address which causes segmentation fault is inside
+               the memory instance's guard regions */
+            return true;
+        }
+    }
+
+    return false;
+}
+
 #ifndef BH_PLATFORM_WINDOWS
 static void
 runtime_signal_handler(void *sig_addr)
 {
     WASMModuleInstance *module_inst;
-    WASMMemoryInstance *memory_inst;
     WASMJmpBuf *jmpbuf_node;
-    uint8 *mapped_mem_start_addr = NULL;
-    uint8 *mapped_mem_end_addr = NULL;
     uint32 page_size = os_getpagesize();
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
     uint8 *stack_min_addr;
@@ -201,23 +222,13 @@ runtime_signal_handler(void *sig_addr)
         && (jmpbuf_node = exec_env_tls->jmpbuf_stack_top)) {
         /* Get mapped mem info of current instance */
         module_inst = (WASMModuleInstance *)exec_env_tls->module_inst;
-        /* Get the default memory instance */
-        memory_inst = wasm_get_default_memory(module_inst);
-        if (memory_inst) {
-            mapped_mem_start_addr = memory_inst->memory_data;
-            mapped_mem_end_addr = memory_inst->memory_data + 8 * (uint64)BH_GB;
-        }
 
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
         /* Get stack info of current thread */
         stack_min_addr = os_thread_get_stack_boundary();
 #endif
 
-        if (memory_inst
-            && (mapped_mem_start_addr <= (uint8 *)sig_addr
-                && (uint8 *)sig_addr < mapped_mem_end_addr)) {
-            /* The address which causes segmentation fault is inside
-               the memory instance's guard regions */
+        if (is_sig_addr_in_guard_pages(sig_addr, module_inst)) {
             wasm_set_exception(module_inst, "out of bounds memory access");
             os_longjmp(jmpbuf_node->jmpbuf, 1);
         }
@@ -340,16 +351,7 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
         && (jmpbuf_node = exec_env_tls->jmpbuf_stack_top)) {
         module_inst = (WASMModuleInstance *)exec_env_tls->module_inst;
         if (ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
-            /* Get the default memory instance */
-            memory_inst = wasm_get_default_memory(module_inst);
-            if (memory_inst) {
-                mapped_mem_start_addr = memory_inst->memory_data;
-                mapped_mem_end_addr =
-                    memory_inst->memory_data + 8 * (uint64)BH_GB;
-            }
-
-            if (memory_inst && mapped_mem_start_addr <= (uint8 *)sig_addr
-                && (uint8 *)sig_addr < mapped_mem_end_addr) {
+            if (is_sig_addr_in_guard_pages(sig_addr, module_inst)) {
                 /* The address which causes segmentation fault is inside
                    the memory instance's guard regions.
                    Set exception and let the wasm func continue to run, when
@@ -1417,12 +1419,39 @@ wasm_runtime_load_ex(uint8 *buf, uint32 size, const LoadArgs *args,
                      char *error_buf, uint32 error_buf_size)
 {
     WASMModuleCommon *module_common = NULL;
+    uint32 package_type;
+    bool magic_header_detected = false;
 
     if (!args) {
+        set_error_buf(error_buf, error_buf_size,
+                      "WASM module load failed: null load arguments");
         return NULL;
     }
 
-    if (get_package_type(buf, size) == Wasm_Module_Bytecode) {
+    if (size < 4) {
+        set_error_buf(error_buf, error_buf_size,
+                      "WASM module load failed: unexpected end");
+        return NULL;
+    }
+
+    package_type = get_package_type(buf, size);
+    if (package_type == Wasm_Module_Bytecode) {
+#if WASM_ENABLE_INTERP != 0
+        magic_header_detected = true;
+#endif
+    }
+    else if (package_type == Wasm_Module_AoT) {
+#if WASM_ENABLE_AOT != 0
+        magic_header_detected = true;
+#endif
+    }
+    if (!magic_header_detected) {
+        set_error_buf(error_buf, error_buf_size,
+                      "WASM module load failed: magic header not detected");
+        return NULL;
+    }
+
+    if (package_type == Wasm_Module_Bytecode) {
 #if WASM_ENABLE_INTERP != 0
         module_common =
             (WASMModuleCommon *)wasm_load(buf, size,
@@ -1435,7 +1464,7 @@ wasm_runtime_load_ex(uint8 *buf, uint32 size, const LoadArgs *args,
                 args->wasm_binary_freeable;
 #endif
     }
-    else if (get_package_type(buf, size) == Wasm_Module_AoT) {
+    else if (package_type == Wasm_Module_AoT) {
 #if WASM_ENABLE_AOT != 0
         module_common = (WASMModuleCommon *)aot_load_from_aot_file(
             buf, size, args, error_buf, error_buf_size);
@@ -1444,15 +1473,7 @@ wasm_runtime_load_ex(uint8 *buf, uint32 size, const LoadArgs *args,
                 args->wasm_binary_freeable;
 #endif
     }
-    else {
-        if (size < 4)
-            set_error_buf(error_buf, error_buf_size,
-                          "WASM module load failed: unexpected end");
-        else
-            set_error_buf(error_buf, error_buf_size,
-                          "WASM module load failed: magic header not detected");
-        return NULL;
-    }
+
     if (!module_common) {
         LOG_DEBUG("WASM module load failed");
         return NULL;
@@ -4718,9 +4739,13 @@ fail:
  * Implementation of wasm_runtime_invoke_native()
  */
 
-/* The invoke native implementation on ARM platform with VFP co-processor */
+/**
+ * The invoke native implementation on ARM platform with VFP co-processor,
+ * RISCV32 platform with/without FPU/DPFPU and ARC platform.
+ */
 #if defined(BUILD_TARGET_ARM_VFP) || defined(BUILD_TARGET_THUMB_VFP) \
     || defined(BUILD_TARGET_RISCV32_ILP32D)                          \
+    || defined(BUILD_TARGET_RISCV32_ILP32F)                          \
     || defined(BUILD_TARGET_RISCV32_ILP32) || defined(BUILD_TARGET_ARC)
 typedef void (*GenericFunctionPointer)();
 void
@@ -4821,7 +4846,8 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
 #endif
                     n_ints += 2;
                 }
-#if defined(BUILD_TARGET_RISCV32_ILP32) \
+#if defined(BUILD_TARGET_RISCV32_ILP32)     \
+    || defined(BUILD_TARGET_RISCV32_ILP32F) \
     || defined(BUILD_TARGET_RISCV32_ILP32D) || defined(BUILD_TARGET_ARC)
                 /* part in register, part in stack */
                 else if (n_ints == MAX_REG_INTS - 1) {
@@ -4843,19 +4869,32 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
             case VALUE_TYPE_F32:
                 if (n_fps < MAX_REG_FLOATS)
                     n_fps++;
+#if defined(BUILD_TARGET_RISCV32_ILP32F)
+                else if (n_ints < MAX_REG_INTS) {
+                    n_ints++;
+                }
+#endif
                 else
                     n_stacks++;
                 break;
             case VALUE_TYPE_F64:
+#if defined(BUILD_TARGET_RISCV32_ILP32) \
+    || defined(BUILD_TARGET_RISCV32_ILP32F) || defined(BUILD_TARGET_ARC)
+                if (n_ints < MAX_REG_INTS - 1) {
+                    n_ints += 2;
+                }
+                else if (n_ints == MAX_REG_INTS - 1) {
+                    n_ints++;
+                    n_stacks++;
+                }
+#endif
+#if defined(BUILD_TARGET_ARM_VFP) || defined(BUILD_TARGET_THUMB_VFP)
                 if (n_fps < MAX_REG_FLOATS - 1) {
-#if !defined(BUILD_TARGET_RISCV32_ILP32) && !defined(BUILD_TARGET_ARC)
                     /* 64-bit data must be 8 bytes aligned in arm */
                     if (n_fps & 1)
                         n_fps++;
-#endif
                     n_fps += 2;
                 }
-#if defined(BUILD_TARGET_RISCV32_ILP32) || defined(BUILD_TARGET_ARC)
                 else if (n_fps == MAX_REG_FLOATS - 1) {
                     n_fps++;
                     n_stacks++;
@@ -4887,7 +4926,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                     /* use int regs firstly if available */
                     if (n_ints & 1)
                         n_ints++;
-                    ints += 2;
+                    n_ints += 2;
                 }
                 else {
                     /* 64-bit data in stack must be 8 bytes aligned in riscv32
@@ -4911,7 +4950,8 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
             n_stacks++;
     }
 
-#if defined(BUILD_TARGET_ARM_VFP) || defined(BUILD_TARGET_THUMB_VFP)
+#if defined(BUILD_TARGET_ARM_VFP) || defined(BUILD_TARGET_THUMB_VFP) \
+    || defined(BUILD_TARGET_RISCV32_ILP32F)
     argc1 = MAX_REG_INTS + MAX_REG_FLOATS + n_stacks;
 #elif defined(BUILD_TARGET_RISCV32_ILP32) || defined(BUILD_TARGET_ARC)
     argc1 = MAX_REG_INTS + n_stacks;
@@ -4928,7 +4968,8 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     }
 
     ints = argv1;
-#if defined(BUILD_TARGET_ARM_VFP) || defined(BUILD_TARGET_THUMB_VFP)
+#if defined(BUILD_TARGET_ARM_VFP) || defined(BUILD_TARGET_THUMB_VFP) \
+    || defined(BUILD_TARGET_RISCV32_ILP32F)
     fps = ints + MAX_REG_INTS;
     stacks = fps + MAX_REG_FLOATS;
 #elif defined(BUILD_TARGET_RISCV32_ILP32) || defined(BUILD_TARGET_ARC)
@@ -5018,7 +5059,8 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                     ints[n_ints++] = *argv_src++;
                     ints[n_ints++] = *argv_src++;
                 }
-#if defined(BUILD_TARGET_RISCV32_ILP32) \
+#if defined(BUILD_TARGET_RISCV32_ILP32)     \
+    || defined(BUILD_TARGET_RISCV32_ILP32F) \
     || defined(BUILD_TARGET_RISCV32_ILP32D) || defined(BUILD_TARGET_ARC)
                 else if (n_ints == MAX_REG_INTS - 1) {
                     ints[n_ints++] = *argv_src++;
@@ -5042,22 +5084,36 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
             {
                 if (n_fps < MAX_REG_FLOATS)
                     *(float32 *)&fps[n_fps++] = *(float32 *)argv_src++;
+#if defined(BUILD_TARGET_RISCV32_ILP32F)
+                else if (n_ints < MAX_REG_INTS) {
+                    ints[n_ints++] = *argv_src++;
+                }
+#endif
                 else
                     *(float32 *)&stacks[n_stacks++] = *(float32 *)argv_src++;
                 break;
             }
             case VALUE_TYPE_F64:
             {
+#if defined(BUILD_TARGET_RISCV32_ILP32) \
+    || defined(BUILD_TARGET_RISCV32_ILP32F) || defined(BUILD_TARGET_ARC)
+                if (n_ints < MAX_REG_INTS - 1) {
+                    ints[n_ints++] = *argv_src++;
+                    ints[n_ints++] = *argv_src++;
+                }
+                else if (n_ints == MAX_REG_INTS - 1) {
+                    ints[n_ints++] = *argv_src++;
+                    stacks[n_stacks++] = *argv_src++;
+                }
+#endif
+#if defined(BUILD_TARGET_ARM_VFP) || defined(BUILD_TARGET_THUMB_VFP)
                 if (n_fps < MAX_REG_FLOATS - 1) {
-#if !defined(BUILD_TARGET_RISCV32_ILP32) && !defined(BUILD_TARGET_ARC)
                     /* 64-bit data must be 8 bytes aligned in arm */
                     if (n_fps & 1)
                         n_fps++;
-#endif
                     fps[n_fps++] = *argv_src++;
                     fps[n_fps++] = *argv_src++;
                 }
-#if defined(BUILD_TARGET_RISCV32_ILP32) || defined(BUILD_TARGET_ARC)
                 else if (n_fps == MAX_REG_FLOATS - 1) {
                     fps[n_fps++] = *argv_src++;
                     stacks[n_stacks++] = *argv_src++;
@@ -5249,6 +5305,7 @@ fail:
 #endif /* end of defined(BUILD_TARGET_ARM_VFP)    \
           || defined(BUILD_TARGET_THUMB_VFP)      \
           || defined(BUILD_TARGET_RISCV32_ILP32D) \
+          || defined(BUILD_TARGET_RISCV32_ILP32F) \
           || defined(BUILD_TARGET_RISCV32_ILP32)  \
           || defined(BUILD_TARGET_ARC) */
 

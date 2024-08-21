@@ -670,6 +670,16 @@ wasm_get_default_memory(WASMModuleInstance *module_inst)
         return NULL;
 }
 
+WASMMemoryInstance *
+wasm_get_memory_with_idx(WASMModuleInstance *module_inst, uint32 index)
+{
+    bh_assert(index < module_inst->memory_count);
+    if (module_inst->memories)
+        return module_inst->memories[index];
+    else
+        return NULL;
+}
+
 void
 wasm_runtime_set_mem_bound_check_bytes(WASMMemoryInstance *memory,
                                        uint64 memory_data_size)
@@ -747,9 +757,14 @@ wasm_mmap_linear_memory(uint64_t map_size, uint64 commit_size)
 }
 
 bool
-wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
+wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count,
+                             uint32 memidx)
 {
+#if WASM_ENABLE_MULTI_MEMORY != 0
+    WASMMemoryInstance *memory = wasm_get_memory_with_idx(module, memidx);
+#else
     WASMMemoryInstance *memory = wasm_get_default_memory(module);
+#endif
     uint8 *memory_data_old, *memory_data_new, *heap_data_old;
     uint32 num_bytes_per_page, heap_size;
     uint32 cur_page_count, max_page_count, total_page_count;
@@ -960,10 +975,29 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     if (module->memory_count > 0)
         shared_memory_lock(module->memories[0]);
 #endif
-    ret = wasm_enlarge_memory_internal(module, inc_page_count);
+    ret = wasm_enlarge_memory_internal(module, inc_page_count, 0);
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (module->memory_count > 0)
         shared_memory_unlock(module->memories[0]);
+#endif
+
+    return ret;
+}
+
+bool
+wasm_enlarge_memory_with_idx(WASMModuleInstance *module, uint32 inc_page_count,
+                             uint32 memidx)
+{
+    bool ret = false;
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (memidx < module->memory_count)
+        shared_memory_lock(module->memories[memidx]);
+#endif
+    ret = wasm_enlarge_memory_internal(module, inc_page_count, memidx);
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (memidx < module->memory_count)
+        shared_memory_unlock(module->memories[memidx]);
 #endif
 
     return ret;

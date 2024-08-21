@@ -4,7 +4,7 @@
  */
 
 #include "wasi_nn_tensorflowlite.hpp"
-#include "logger.h"
+#include "utils/logger.h"
 
 #include "bh_platform.h"
 #include "wasi_nn_types.h"
@@ -113,10 +113,9 @@ is_valid_graph_execution_context(TFLiteContext *tfl_ctx,
 }
 
 /* WASI-NN (tensorflow) implementation */
-
-wasi_nn_error
-tensorflowlite_load(void *tflite_ctx, graph_builder_array *builder,
-                    graph_encoding encoding, execution_target target, graph *g)
+__attribute__((visibility("default"))) wasi_nn_error
+load(void *tflite_ctx, graph_builder_array *builder, graph_encoding encoding,
+     execution_target target, graph *g)
 {
     TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
 
@@ -168,9 +167,9 @@ tensorflowlite_load(void *tflite_ctx, graph_builder_array *builder,
     return success;
 }
 
-wasi_nn_error
-tensorflowlite_load_by_name(void *tflite_ctx, const char *filename,
-                            uint32_t filename_len, graph *g)
+__attribute__((visibility("default"))) wasi_nn_error
+load_by_name(void *tflite_ctx, const char *filename, uint32_t filename_len,
+             graph *g)
 {
     TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
 
@@ -192,9 +191,8 @@ tensorflowlite_load_by_name(void *tflite_ctx, const char *filename,
     return success;
 }
 
-wasi_nn_error
-tensorflowlite_init_execution_context(void *tflite_ctx, graph g,
-                                      graph_execution_context *ctx)
+__attribute__((visibility("default"))) wasi_nn_error
+init_execution_context(void *tflite_ctx, graph g, graph_execution_context *ctx)
 {
     TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
 
@@ -281,9 +279,9 @@ tensorflowlite_init_execution_context(void *tflite_ctx, graph g,
     return success;
 }
 
-wasi_nn_error
-tensorflowlite_set_input(void *tflite_ctx, graph_execution_context ctx,
-                         uint32_t index, tensor *input_tensor)
+__attribute__((visibility("default"))) wasi_nn_error
+set_input(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
+          tensor *input_tensor)
 {
     TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
 
@@ -352,8 +350,8 @@ tensorflowlite_set_input(void *tflite_ctx, graph_execution_context ctx,
     return success;
 }
 
-wasi_nn_error
-tensorflowlite_compute(void *tflite_ctx, graph_execution_context ctx)
+__attribute__((visibility("default"))) wasi_nn_error
+compute(void *tflite_ctx, graph_execution_context ctx)
 {
     TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
 
@@ -365,10 +363,9 @@ tensorflowlite_compute(void *tflite_ctx, graph_execution_context ctx)
     return success;
 }
 
-wasi_nn_error
-tensorflowlite_get_output(void *tflite_ctx, graph_execution_context ctx,
-                          uint32_t index, tensor_data output_tensor,
-                          uint32_t *output_tensor_size)
+__attribute__((visibility("default"))) wasi_nn_error
+get_output(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
+           tensor_data output_tensor, uint32_t *output_tensor_size)
 {
     TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
 
@@ -434,8 +431,8 @@ tensorflowlite_get_output(void *tflite_ctx, graph_execution_context ctx,
     return success;
 }
 
-wasi_nn_error
-tensorflowlite_initialize(void **tflite_ctx)
+__attribute__((visibility("default"))) wasi_nn_error
+init_backend(void **tflite_ctx)
 {
     TFLiteContext *tfl_ctx = new TFLiteContext();
     if (tfl_ctx == NULL) {
@@ -461,8 +458,8 @@ tensorflowlite_initialize(void **tflite_ctx)
     return success;
 }
 
-wasi_nn_error
-tensorflowlite_destroy(void *tflite_ctx)
+__attribute__((visibility("default"))) wasi_nn_error
+deinit_backend(void *tflite_ctx)
 {
     /*
         TensorFlow Lite memory is internally managed by tensorflow
@@ -512,20 +509,4 @@ tensorflowlite_destroy(void *tflite_ctx)
     delete tfl_ctx;
     NN_DBG_PRINTF("Memory free'd.");
     return success;
-}
-
-__attribute__((constructor(200))) void
-tflite_register_backend()
-{
-    api_function apis = {
-        .load = tensorflowlite_load,
-        .load_by_name = tensorflowlite_load_by_name,
-        .init_execution_context = tensorflowlite_init_execution_context,
-        .set_input = tensorflowlite_set_input,
-        .compute = tensorflowlite_compute,
-        .get_output = tensorflowlite_get_output,
-        .init = tensorflowlite_initialize,
-        .deinit = tensorflowlite_destroy,
-    };
-    wasi_nn_register_backend(apis);
 }
