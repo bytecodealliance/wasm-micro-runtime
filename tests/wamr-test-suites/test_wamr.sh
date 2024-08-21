@@ -25,6 +25,7 @@ function help()
     echo "-S enable SIMD feature"
     echo "-G enable GC feature"
     echo "-W enable memory64 feature"
+    echo "-E enable multi memory feature"
     echo "-X enable XIP feature"
     echo "-e enable exception handling"
     echo "-x test SGX"
@@ -59,6 +60,7 @@ COLLECT_CODE_COVERAGE=0
 ENABLE_SIMD=0
 ENABLE_GC=0
 ENABLE_MEMORY64=0
+ENABLE_MULTI_MEMORY=0
 ENABLE_XIP=0
 ENABLE_EH=0
 ENABLE_DEBUG_VERSION=0
@@ -85,7 +87,7 @@ REQUIREMENT_NAME=""
 # Initialize an empty array for subrequirement IDs
 SUBREQUIREMENT_IDS=()
 
-while getopts ":s:cabgvt:m:MCpSXexwWPGQF:j:T:r:A:" opt
+while getopts ":s:cabgvt:m:MCpSXexwWEPGQF:j:T:r:A:" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -147,6 +149,11 @@ do
         W)
         echo "enable wasm64(memory64) feature"
         ENABLE_MEMORY64=1
+        ;;
+        E)
+        echo "enable multi memory feature(auto enable multi module)"
+        ENABLE_MULTI_MEMORY=1
+        ENABLE_MULTI_MODULE=1
         ;;
         C)
         echo "enable code coverage"
@@ -496,6 +503,20 @@ function spec_test()
         git reset --hard 48e69f394869c55b7bbe14ac963c09f4605490b6
         git checkout 044d0d2e77bdcbe891f7e0b9dd2ac01d56435f0b -- test/core/elem.wast test/core/data.wast
         git apply ../../spec-test-script/memory64_ignore_cases.patch || exit 1
+    elif [[ ${ENABLE_MULTI_MEMORY} == 1 ]]; then
+        echo "checkout spec for multi memory proposal"
+
+        # check spec test cases for multi memory
+        git clone -b main --single-branch https://github.com/WebAssembly/multi-memory.git spec
+        pushd spec
+
+        # Reset to commit: "Merge pull request #48 from backes/specify-memcpy-immediate-order"
+        git reset --hard 48e69f394869c55b7bbe14ac963c09f4605490b6
+        git checkout 044d0d2e77bdcbe891f7e0b9dd2ac01d56435f0b -- test/core/elem.wast
+        git apply ../../spec-test-script/multi_memory_ignore_cases.patch || exit 1
+        if [[ ${RUNNING_MODE} == "aot" ]]; then
+            git apply ../../spec-test-script/multi_module_aot_ignore_cases.patch || exit 1
+        fi
     else
         echo "checkout spec for default proposal"
 
@@ -570,6 +591,13 @@ function spec_test()
 
     if [[ 1 == ${ENABLE_MEMORY64} ]]; then
         ARGS_FOR_SPEC_TEST+="--memory64 "
+    fi
+
+    # multi memory is only enabled in interp and aot mode
+    if [[ 1 == ${ENABLE_MULTI_MEMORY} ]]; then
+        if [[ $1 == 'classic-interp' || $1 == 'aot' ]]; then
+            ARGS_FOR_SPEC_TEST+="--multi-memory "
+        fi
     fi
 
     if [[ ${ENABLE_QEMU} == 1 ]]; then
@@ -852,6 +880,14 @@ function do_execute_in_running_mode()
 {
     local RUNNING_MODE="$1"
 
+    if [[ ${ENABLE_MULTI_MEMORY} -eq 1 ]]; then
+        if [[ "${RUNNING_MODE}" != "classic-interp" \
+                && "${RUNNING_MODE}" != "aot" ]]; then
+            echo "support multi-memory in classic-interp mode and aot mode"
+            return 0
+        fi
+    fi
+
     if [[ ${ENABLE_MEMORY64} -eq 1 ]]; then
         if [[ "${RUNNING_MODE}" != "classic-interp" \
                 && "${RUNNING_MODE}" != "aot" ]]; then
@@ -939,6 +975,12 @@ function trigger()
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MEMORY64=1"
     else
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MEMORY64=0"
+    fi
+
+    if [[ ${ENABLE_MULTI_MEMORY} == 1 ]];then
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MEMORY=1"
+    else
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MEMORY=0"
     fi
 
     if [[ ${ENABLE_MULTI_THREAD} == 1 ]];then

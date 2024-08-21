@@ -540,6 +540,7 @@ aot_create_comp_data(WASMModule *module, const char *target_arch,
     /* TODO: create import memories */
 
     /* Allocate memory for memory array, reserve one AOTMemory space at least */
+    /* TODO: multi-memory */
     if (!comp_data->memory_count)
         comp_data->memory_count = 1;
 
