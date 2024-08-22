@@ -375,6 +375,9 @@ os_openat(os_file_handle handle, const char *path, __wasi_oflags_t oflags,
     char abs_path[MAX_FILE_NAME + 1];
 
     *out = BH_MALLOC(sizeof(struct zephyr_handle));
+    if (*out == NULL) {
+        return __WASI_ENOMEM;
+    }
 
     snprintf(abs_path, MAX_FILE_NAME, "%s/%s", prestat_dir, path);
     int zmode =
