@@ -1,6 +1,8 @@
 # Socket sample 
 this sample demonstrates the use of WASI API to interact with sockets.
 
+> ❗ **Important:** This sample was ported/adapted from the http_get zephyr sample. The original sample can be found [here]( https://github.com/zephyrproject-rtos/zephyr/blob/main/samples/net/sockets/http_get/src/http_get.c).
+
 > 🛠️ **Work in progress:** The sample is functional but be aware that just a small part of WASI socket API was tested.
 > Actual Zephyr APIs: 
 > * socket creation = `zsock_socket`

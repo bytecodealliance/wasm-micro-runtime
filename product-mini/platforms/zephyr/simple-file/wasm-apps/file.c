@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2024 Grenoble INP - ESISAR.  All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>

@@ -1,9 +1,20 @@
+# Copyright (C) 2024 Grenoble INP - ESISAR.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 # Python script to convert wasm file to byte array in a .h file
 import os
 
 CWD = os.getcwd()
 CMAKE_CURRENT_BINARY_DIR = os.getenv('CMAKE_CURRENT_BINARY_DIR', CWD)
 CMAKE_CURRENT_SOURCE_DIR = os.getenv('CMAKE_CURRENT_SOURCE_DIR', f'{CWD}/../src')
+
+LICENCE_HEADER = """/*
+ * Copyright (c) 2017 Linaro Limited
+ * Copyright (C) 2024 Grenoble INP - ESISAR Limited
+ * 
+ * SPDX-License-Identifier: Apache-2.0
+ */
+"""
 
 print('CMAKE_CURRENT_BINARY_DIR:', CMAKE_CURRENT_BINARY_DIR)
 print('CMAKE_CURRENT_SOURCE_DIR:', CMAKE_CURRENT_SOURCE_DIR)
