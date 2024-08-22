@@ -1029,29 +1029,21 @@ os_socket_get_broadcast(bh_socket_t socket, bool *is_enabled)
 }
 
 // Experimental :
-__wasi_errno_t
+int
 os_ioctl(os_file_handle handle, int request, ...)
 {
-    __wasi_errno_t wasi_errno = __WASI_ESUCCESS;
+    int ret = -1;
     va_list args;
 
     va_start(args, request);
-    if (zsock_ioctl(handle->fd, request, args) < 0) {
-        wasi_errno = convert_errno(errno);
-    }
+    ret = zsock_ioctl(handle->fd, request, args);
     va_end(args);
 
-    return wasi_errno;
+    return ret;
 }
 
-__wasi_errno_t
+int
 os_poll(os_poll_file_handle *fds, os_nfds_t nfs, int timeout)
 {
-    /* Higher level API:
-     * __wasi_errno_t
-     * blocking_op_poll(wasm_exec_env_t exec_env, os_poll_file_handle *pfds,
-     *             os_nfds_t nfds, int timeout_ms, int *retp)
-     * Already format the errno and expect the return code of poll() directly.
-     */
     return zsock_poll(fds, nfs, timeout);
 }

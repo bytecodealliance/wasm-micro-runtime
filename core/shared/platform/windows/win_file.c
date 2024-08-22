@@ -1816,15 +1816,15 @@ os_compare_file_handle(os_file_handle handle1, os_file_handle handle2)
     }
 }
 
-__wasi_errno_t
+int
 os_ioctl(os_file_handle handle, int request, ...)
 {
-    return __WASI_ENOSYS;
+    return BHT_ERROR;
 }
 
 // Should not be called because locked by ifdef.
-__wasi_errno_t
+int
 os_poll(os_poll_file_handle *fds, os_nfds_t nfs, int timeout)
 {
-    return __WASI_ENOSYS;
+    return BHT_ERROR;
 }
