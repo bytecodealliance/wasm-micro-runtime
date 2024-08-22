@@ -70,7 +70,10 @@ typedef enum {
     GC_STAT_MAX
 } GC_STAT_INDEX;
 
+#ifndef GC_FINALIZER_T_DEFINED
+#define GC_FINALIZER_T_DEFINED
 typedef void (*gc_finalizer_t)(void *obj, void *data);
+#endif
 
 #ifndef EXTRA_INFO_NORMAL_NODE_CNT
 #define EXTRA_INFO_NORMAL_NODE_CNT 32
@@ -306,10 +309,10 @@ void
 wasm_runtime_set_wasm_object_extra_info_flag(gc_object_t obj, bool set);
 
 void
-wasm_runtime_gc_prepare();
+wasm_runtime_gc_prepare(void *exec_env);
 
 void
-wasm_runtime_gc_finalize();
+wasm_runtime_gc_finalize(void *exec_env);
 #endif /* end of WASM_ENABLE_GC != 0 */
 
 #define GC_HEAP_STAT_SIZE (128 / 4)

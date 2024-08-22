@@ -11,6 +11,10 @@
 #include <dfs_file.h>
 #include <dfs_fs.h>
 
+#if WASM_ENABLE_LIBC_WASI != 0
+#include "../common/libc_wasi.c"
+#endif
+
 #ifdef WAMR_ENABLE_RTT_EXPORT
 
 #ifdef WAMR_RTT_EXPORT_VPRINTF
@@ -160,6 +164,15 @@ static NativeSymbol native_export_symbols[] = {
 
 #endif /* WAMR_ENABLE_RTT_EXPORT */
 
+static void *
+app_instance_func(wasm_module_inst_t module_inst, const char *func_name,
+                  int app_argc, char **app_argv)
+{
+    wasm_application_execute_func(module_inst, func_name, app_argc - 1,
+                                  app_argv + 1);
+    return wasm_runtime_get_exception(module_inst);
+}
+
 /**
  * run WASM module instance.
  * @param module_inst instance of wasm module
@@ -170,12 +183,8 @@ static NativeSymbol native_export_symbols[] = {
 static void *
 app_instance_main(wasm_module_inst_t module_inst, int app_argc, char **app_argv)
 {
-    const char *exception;
-
     wasm_application_execute_main(module_inst, app_argc, app_argv);
-    if ((exception = wasm_runtime_get_exception(module_inst)))
-        rt_kprintf("%s\n", exception);
-    return NULL;
+    return wasm_runtime_get_exception(module_inst);
 }
 
 rt_uint8_t *
@@ -214,28 +223,36 @@ void
 iwasm_help(void)
 {
 #ifdef WAMR_ENABLE_IWASM_PARAMS
-    rt_kputs("wrong input: iwasm [-t] [-m] [-s] <*.wasm> <wasm_args ...>\n"
-             "             iwasm [-h]\n");
-    rt_kputs("\t -h: show this tips.\n");
-    rt_kputs("\t -t: show time taking to run this app.\n");
-    rt_kputs("\t -m: show memory taking to run this app\n");
-    rt_kputs("\t wasm file name and exec params must behind of all vm-param\n");
+    rt_kputs("Usage: iwasm [-options] wasm_file [args...]\n");
+    rt_kputs("options:\n");
+    rt_kputs("  -t                       Show time taking to run this app.\n");
+    rt_kputs("  -m                       Show memory taking to run this app\n");
+    rt_kputs("  -f|--function name       Specify a function name of the module "
+             "to run rather than main\n");
+    rt_kputs("  --max-threads=n          Set maximum thread number per "
+             "cluster, default is 4\n");
 #else
-    rt_kputs("wrong input: iwasm <*.wasm> <wasm_args ...>\n");
+    rt_kputs("Usage: iwasm wasm_file [args...]\n");
 #endif /* WAMR_ENABLE_PARAMS */
 }
 
 int
 iwasm(int argc, char **argv)
 {
+    const char *exception = NULL;
+    const char *func_name = NULL;
     rt_uint8_t *wasm_file_buf = NULL;
     rt_uint32_t wasm_file_size;
-    rt_uint32_t stack_size = 4 * 1024, heap_size = 4 * 1024;
+    rt_uint32_t stack_size = 64 * 1024, heap_size = 256 * 1024;
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
     RuntimeInitArgs init_args;
     static char error_buf[128] = { 0 };
     /* avoid stack overflow */
+#if WASM_ENABLE_LIBC_WASI != 0
+    libc_wasi_parse_context_t wasi_parse_ctx;
+    memset(&wasi_parse_ctx, 0, sizeof(wasi_parse_ctx));
+#endif
 
 #ifdef WAMR_ENABLE_IWASM_PARAMS
     int i_arg_begin;
@@ -259,6 +276,17 @@ iwasm(int argc, char **argv)
         else if (argv[i_arg_begin][1] == 'h') {
             iwasm_help();
             return 0;
+        }
+        else if (argv[i_arg_begin][1] == 'f') {
+            func_name = argv[++i_arg_begin];
+        }
+        else if (!strncmp(argv[i_arg_begin], "--max-threads=", 14)) {
+            if (argv[0][14] != '\0')
+                wasm_runtime_set_max_thread_num(atoi(argv[0] + 14));
+            else {
+                iwasm_help();
+                return 0;
+            }
         }
         else if (argv[i_arg_begin][1] == 0x00) {
             continue;
@@ -303,8 +331,8 @@ iwasm(int argc, char **argv)
     rt_thread_t tid;
     if (show_stack) {
         tid = rt_thread_self();
-        printf("thread stack addr: %p, size: %u, sp: %p\n", tid->stack_addr,
-               tid->stack_size, tid->sp);
+        rt_kprintf("thread stack addr: %p, size: %u, sp: %p\n", tid->stack_addr,
+                   tid->stack_size, tid->sp);
     }
 #endif /* WAMR_ENABLE_PARAMS */
 
@@ -326,6 +354,10 @@ iwasm(int argc, char **argv)
         rt_kprintf("%s\n", error_buf);
         goto fail2;
     }
+#if WASM_ENABLE_LIBC_WASI != 0
+    libc_wasi_init(wasm_module, argc, argv, &wasi_parse_ctx);
+#endif
+
     rt_memset(error_buf, 0x00, sizeof(error_buf));
     wasm_module_inst = wasm_runtime_instantiate(
         wasm_module, stack_size, heap_size, error_buf, sizeof(error_buf));
@@ -341,13 +373,31 @@ iwasm(int argc, char **argv)
     }
 #endif /* WAMR_ENABLE_PARAMS */
 
-    app_instance_main(wasm_module_inst, argc - i_arg_begin, &argv[i_arg_begin]);
+    if (func_name) {
+        exception = app_instance_func(wasm_module_inst, func_name,
+                                      argc - i_arg_begin, &argv[i_arg_begin]);
+    }
+    else {
+        exception = app_instance_main(wasm_module_inst, argc - i_arg_begin,
+                                      &argv[i_arg_begin]);
+        rt_kprintf("finshed run app_instance_main\n");
+    }
+
+    if (exception)
+        rt_kprintf("%s\n", exception);
+
+#if WASM_ENABLE_LIBC_WASI != 0
+    if (!exception) {
+        /* propagate wasi exit code. */
+        wasm_runtime_get_wasi_exit_code(wasm_module_inst);
+    }
+#endif
 
 #ifdef WAMR_ENABLE_IWASM_PARAMS
     if (show_time_exec) {
         ticks_exec = rt_tick_get() - ticks_exec;
-        printf("[iwasm] execute ticks took: %u [ticks/s = %u]\n", ticks_exec,
-               RT_TICK_PER_SECOND);
+        rt_kprintf("[iwasm] execute ticks took: %u [ticks/s = %u]\n",
+                   ticks_exec, RT_TICK_PER_SECOND);
     }
 #if defined(RT_USING_HEAP) && defined(RT_USING_MEMHEAP_AS_HEAP)
     if (show_mem) {
@@ -361,8 +411,8 @@ iwasm(int argc, char **argv)
     }
 #endif
     if (show_stack) {
-        printf("[iwasm] thread stack addr: %p, size: %u, sp: %p\n",
-               tid->stack_addr, tid->stack_size, tid->sp);
+        rt_kprintf("[iwasm] thread stack addr: %p, size: %u, sp: %p\n",
+                   tid->stack_addr, tid->stack_size, tid->sp);
     }
 
 #endif /* WAMR_ENABLE_PARAMS */

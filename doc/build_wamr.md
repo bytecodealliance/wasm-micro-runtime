@@ -28,7 +28,7 @@ The script `runtime_lib.cmake` defines a number of variables for configuring the
   - For ARM and THUMB, the format is \<arch>\[\<sub-arch>]\[_VFP], where \<sub-arch> is the ARM sub-architecture and the "_VFP" suffix means using VFP coprocessor registers s0-s15 (d0-d7) for passing arguments or returning results in standard procedure-call. Both \<sub-arch> and "_VFP" are optional, e.g. ARMV7, ARMV7_VFP, THUMBV7, THUMBV7_VFP and so on.
   - For AARCH64, the format is\<arch>[\<sub-arch>], VFP is enabled by default. \<sub-arch> is optional, e.g. AARCH64, AARCH64V8, AARCH64V8.1 and so on.
   - For RISCV64, the format is \<arch\>[_abi], where "_abi" is optional, currently the supported formats are RISCV64, RISCV64_LP64D and RISCV64_LP64: RISCV64 and RISCV64_LP64D are identical, using [LP64D](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc#named-abis) as abi (LP64 with hardware floating-point calling convention for FLEN=64). And RISCV64_LP64 uses [LP64](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc#named-abis) as abi (Integer calling-convention only, and hardware floating-point calling convention is not used).
-  - For RISCV32, the format is \<arch\>[_abi], where "_abi" is optional, currently the supported formats are RISCV32, RISCV32_ILP32D and RISCV32_ILP32: RISCV32 and RISCV32_ILP32D are identical, using [ILP32D](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc#named-abis) as abi (ILP32 with hardware floating-point calling convention for FLEN=64). And RISCV32_ILP32 uses [ILP32](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc#named-abis) as abi (Integer calling-convention only, and hardware floating-point calling convention is not used).
+  - For RISCV32, the format is \<arch\>[_abi], where "_abi" is optional, currently the supported formats are RISCV32, RISCV32_ILP32D, RISCV32_ILP32F and RISCV32_ILP32: RISCV32 and RISCV32_ILP32D are identical, using [ILP32D](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc#named-abis) as abi (ILP32 with hardware floating-point calling convention for FLEN=64). RISCV32_ILP32F uses [ILP32F](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc#named-abis) as abi (ILP32 with hardware floating-point calling convention for FLEN=32). And RISCV32_ILP32 uses [ILP32](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc#named-abis) as abi (Integer calling-convention only, and hardware floating-point calling convention is not used).
 
 ```bash
 cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
@@ -79,7 +79,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 #### **Enable memory64 feature**
 - **WAMR_BUILD_MEMORY64**=1/0, default to disable if not set
 
-> Note: Currently, the memory64 feature is only supported in classic interpreter running mode. 
+> Note: Currently, the memory64 feature is only supported in classic interpreter running mode and AOT mode.
 
 #### **Enable thread manager**
 - **WAMR_BUILD_THREAD_MGR**=1/0, default to disable if not set
@@ -137,7 +137,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 #### **Enable Exception Handling**
 - **WAMR_BUILD_EXCE_HANDLING**=1/0, default to disable if not set
 
-> Note: Currently, the exception handling feature is only supported in classic interpreter running mode. 
+> Note: Currently, the exception handling feature is only supported in classic interpreter running mode.
 
 #### **Enable Garbage Collection**
 - **WAMR_BUILD_GC**=1/0, default to disable if not set
@@ -210,7 +210,7 @@ Currently we only profile the memory consumption of module, module_instance and 
 > }
 > ```
 >
-> and then use `cmake -DWAMR_BH_VPRINTF=my_vprintf ..` to pass the callback function, or add `BH_VPRINTF=my_vprintf` macro for the compiler, e.g. add line `add_defintions(-DBH_VPRINTF=my_vprintf)` in CMakeListst.txt. See [basic sample](../samples/basic/src/main.c) for a usage example.
+> and then use `cmake -DWAMR_BH_VPRINTF=my_vprintf ..` to pass the callback function, or add `BH_VPRINTF=my_vprintf` macro for the compiler, e.g. add line `add_definitions(-DBH_VPRINTF=my_vprintf)` in CMakeLists.txt. See [basic sample](../samples/basic/src/main.c) for a usage example.
 
 #### **WAMR_BH_LOG**=<log_callback>, default to disable if not set
 > Note: if the log_callback function is provided by the developer, WAMR logs are redirected to such callback. For example:
@@ -285,8 +285,8 @@ Currently we only profile the memory consumption of module, module_instance and 
 - **WAMR_BUILD_AOT_INTRINSICS**=1/0, enable the AOT intrinsic functions, default to enable if not set. These functions can be called from the AOT code when `--disable-llvm-intrinsics` flag or `--enable-builtin-intrinsics=<intr1,intr2,...>` flag is used by wamrc to generate the AOT file.
 > Note: See [Tuning the XIP intrinsic functions](./xip.md#tuning-the-xip-intrinsic-functions) for more details.
 
-#### **Configurale memory access boundary check**
-- **WAMR_CONFIGUABLE_BOUNDS_CHECKS**=1/0, default to disable if not set
+#### **Configurable memory access boundary check**
+- **WAMR_CONFIGURABLE_BOUNDS_CHECKS**=1/0, default to disable if not set
 > Note: If it is enabled, allow to run `iwasm --disable-bounds-checks` to disable the memory access boundary checks for interpreter mode.
 
 #### **Module instance context APIs**

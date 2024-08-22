@@ -2,7 +2,7 @@
 
 We all know Docker containers and may use them a lot in school or work. It resolves dependency management for our projects/applications, prevents package version confusion and conflict, and contamination of the local environment. 
 
-Now WAMR has a Dockerfile  under path `.devontainer` to create a container image, dev container images that you could easily use in VS Code. In case you prefer other IDE like Clion, you can also build it and use for the IDE you like.
+Now WAMR has a Dockerfile  under path `.devcontainer` to create a container image, dev container images that you could easily use in VS Code. In case you prefer other IDE like Clion, you can also build it and use for the IDE you like.
 
 ## How to use it 
 

@@ -1488,7 +1488,7 @@ wait_for_thread_visitor(void *node, void *user_data)
 }
 
 void
-wams_cluster_wait_for_all(WASMCluster *cluster)
+wasm_cluster_wait_for_all(WASMCluster *cluster)
 {
     WASMExecEnv *self = get_exec_env_of_current_thread();
 

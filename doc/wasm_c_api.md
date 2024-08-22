@@ -31,7 +31,7 @@ are helpful.
   - call `wasm_engine_new` or `wasm_engine_delete` multiple times in
     different threads
 
-## unspported list
+## unsupported list
 
 Currently WAMR supports most of the APIs, the unsupported APIs are listed as below:
 

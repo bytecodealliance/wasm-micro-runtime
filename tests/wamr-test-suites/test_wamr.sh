@@ -8,13 +8,14 @@
 function DEBUG() {
   [[ -n $(env | grep "\<DEBUG\>") ]] && $@
 }
-DEBUG set -xv pipefail
+DEBUG set -exv pipefail
 
 function help()
 {
     echo "test_wamr.sh [options]"
     echo "-c clean previous test results, not start test"
-    echo "-s {suite_name} test only one suite (spec|wasi_certification|wamr_compiler)"
+    echo "-s {suite_name} test only one suite (spec|standalone|malformed|wasi_certification|"
+    echo "                                     unit|wamr_compiler)"
     echo "-m set compile target of iwasm(x86_64|x86_32|armv7|armv7_vfp|thumbv7|thumbv7_vfp|"
     echo "                               riscv32|riscv32_ilp32f|riscv32_ilp32d|riscv64|"
     echo "                               riscv64_lp64f|riscv64_lp64d|aarch64|aarch64_vfp)"
@@ -24,10 +25,12 @@ function help()
     echo "-S enable SIMD feature"
     echo "-G enable GC feature"
     echo "-W enable memory64 feature"
+    echo "-E enable multi memory feature"
     echo "-X enable XIP feature"
     echo "-e enable exception handling"
     echo "-x test SGX"
     echo "-w enable WASI threads"
+    echo "-a test all runtimes in sightglass suite"
     echo "-b use the wabt binary release package instead of compiling from the source code"
     echo "-g build iwasm with debug version"
     echo "-v enable GC heap verification"
@@ -37,6 +40,11 @@ function help()
     echo "-C enable code coverage collect"
     echo "-j set the platform to test"
     echo "-T set sanitizer to use in tests(ubsan|tsan|asan)"
+    echo "-A use the specified wamrc command instead of building it"
+    echo "-r [requirement name] [N [N ...]] specify a requirement name followed by one or more"
+    echo "                                  subrequirement IDs, if no subrequirement is specificed,"
+    echo "                                  it will run all subrequirements. When this optin is used,"
+    echo "                                  only run requirement tests"
 }
 
 OPT_PARSED=""
@@ -52,6 +60,7 @@ COLLECT_CODE_COVERAGE=0
 ENABLE_SIMD=0
 ENABLE_GC=0
 ENABLE_MEMORY64=0
+ENABLE_MULTI_MEMORY=0
 ENABLE_XIP=0
 ENABLE_EH=0
 ENABLE_DEBUG_VERSION=0
@@ -69,12 +78,16 @@ fi
 PARALLELISM=0
 ENABLE_QEMU=0
 QEMU_FIRMWARE=""
+WAMRC_CMD=""
 # prod/testsuite-all branch
 WASI_TESTSUITE_COMMIT="ee807fc551978490bf1c277059aabfa1e589a6c2"
 TARGET_LIST=("AARCH64" "AARCH64_VFP" "ARMV7" "ARMV7_VFP" "THUMBV7" "THUMBV7_VFP" \
-             "RISCV32" "RISCV32_ILP32F" "RISCV32_ILP32D" "RISCV64" "RISCV64_LP64F" "RISCV64_LP64D")
+             "RISCV32" "RISCV32_ILP32F" "RISCV32_ILP32D" "RISCV64" "RISCV64_LP64F" "RISCV64_LP64D" "XTENSA")
+REQUIREMENT_NAME=""
+# Initialize an empty array for subrequirement IDs
+SUBREQUIREMENT_IDS=()
 
-while getopts ":s:cabgvt:m:MCpSXexwWPGQF:j:T:" opt
+while getopts ":s:cabgvt:m:MCpSXexwWEPGQF:j:T:r:A:" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -83,8 +96,8 @@ do
         # get next suite if there are multiple vaule in -s
         eval "nxarg=\${$((OPTIND))}"
         # just get test cases, loop until the next symbol '-'
-        # IN  ====>  -s spec wasi unit -t fast-classic
-        # GET ====>  spec wasi unit
+        # IN  ====>  -s spec unit -t fast-classic
+        # GET ====>  spec unit
         while [[ "${nxarg}" != -* && ${nxarg} ]];
         do
             TEST_CASE_ARR+=(${nxarg})
@@ -136,6 +149,11 @@ do
         W)
         echo "enable wasm64(memory64) feature"
         ENABLE_MEMORY64=1
+        ;;
+        E)
+        echo "enable multi memory feature(auto enable multi module)"
+        ENABLE_MULTI_MEMORY=1
+        ENABLE_MULTI_MODULE=1
         ;;
         C)
         echo "enable code coverage"
@@ -192,6 +210,23 @@ do
         echo "sanitizer is " ${OPTARG}
         WAMR_BUILD_SANITIZER=${OPTARG}
         ;;
+        r)
+        REQUIREMENT_NAME=$OPTARG
+        # get next arg if there are multiple values after -r
+        eval "nxarg=\${$((OPTIND))}"
+        # loop until the next symbol '-' or the end of arguments
+        while [[ "${nxarg}" =~ ^[0-9]+$ ]]; do
+            SUBREQUIREMENT_IDS+=("$nxarg")
+            OPTIND=$((OPTIND+1))
+            eval "nxarg=\${$((OPTIND))}"
+        done
+        echo "Only Test requirement name: ${REQUIREMENT_NAME}"
+        [[ ${#SUBREQUIREMENT_IDS[@]} -ne 0 ]] && echo "Choose subrequirement IDs: ${SUBREQUIREMENT_IDS[@]}"
+        ;;
+        A)
+        echo "Using wamrc ${OPTARG}"
+        WAMRC_CMD=${OPTARG}
+        ;;
         ?)
         help
         exit 1
@@ -219,6 +254,7 @@ readonly REPORT_DIR=${WORK_DIR}/report/${DATE}
 mkdir -p ${REPORT_DIR}
 
 readonly WAMR_DIR=${WORK_DIR}/../../..
+readonly REQUIREMENT_SCRIPT_DIR=${WORK_DIR}/../requirement-engineering-test-script
 
 if [[ ${SGX_OPT} == "--sgx" ]];then
     readonly IWASM_LINUX_ROOT_DIR="${WAMR_DIR}/product-mini/platforms/linux-sgx"
@@ -228,7 +264,7 @@ else
     readonly IWASM_CMD="${WAMR_DIR}/product-mini/platforms/${PLATFORM}/build/iwasm"
 fi
 
-readonly WAMRC_CMD="${WAMR_DIR}/wamr-compiler/build/wamrc"
+readonly WAMRC_CMD_DEFAULT="${WAMR_DIR}/wamr-compiler/build/wamrc"
 
 readonly CLASSIC_INTERP_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
@@ -339,6 +375,7 @@ function sightglass_test()
 
 function setup_wabt()
 {
+    WABT_VERSION=1.0.34
     if [ ${WABT_BINARY_RELEASE} == "YES" ]; then
         echo "download a binary release and install"
         local WAT2WASM=${WORK_DIR}/wabt/out/gcc/Release/wat2wasm
@@ -360,16 +397,16 @@ function setup_wabt()
                     exit 1
                     ;;
             esac
-            if [ ! -f /tmp/wabt-1.0.31-${WABT_PLATFORM}.tar.gz ]; then
+            if [ ! -f /tmp/wabt-${WABT_VERSION}-${WABT_PLATFORM}.tar.gz ]; then
                 curl -L \
-                    https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-${WABT_PLATFORM}.tar.gz \
-                    -o /tmp/wabt-1.0.31-${WABT_PLATFORM}.tar.gz
+                    https://github.com/WebAssembly/wabt/releases/download/${WABT_VERSION}/wabt-${WABT_VERSION}-${WABT_PLATFORM}.tar.gz \
+                    -o /tmp/wabt-${WABT_VERSION}-${WABT_PLATFORM}.tar.gz
             fi
 
             cd /tmp \
-            && tar zxf wabt-1.0.31-${WABT_PLATFORM}.tar.gz \
+            && tar zxf wabt-${WABT_VERSION}-${WABT_PLATFORM}.tar.gz \
             && mkdir -p ${WORK_DIR}/wabt/out/gcc/Release/ \
-            && install wabt-1.0.31/bin/wa* ${WORK_DIR}/wabt/out/gcc/Release/ \
+            && install wabt-${WABT_VERSION}/bin/* ${WORK_DIR}/wabt/out/gcc/Release/ \
             && cd -
         fi
     else
@@ -379,132 +416,126 @@ function setup_wabt()
             git clone --recursive https://github.com/WebAssembly/wabt
         fi
         echo "upate wabt"
-        cd wabt
-        git pull
-        git reset --hard origin/main
-        cd ..
-        make -C wabt gcc-release -j 4
+        cd wabt \
+        && git fetch origin \
+        && git reset --hard origin/main \
+        && git checkout tags/${WABT_VERSION} -B ${WABT_VERSION} \
+        && git submodule update --init \
+        && cd .. \
+        && make -C wabt gcc-release -j 4 || exit 1
     fi
+}
+
+function compile_reference_interpreter()
+{
+    echo "compile the reference intepreter"
+    pushd interpreter
+    make
+    if [ $? -ne 0 ]
+    then
+        echo "Failed to compile the reference interpreter"
+        exit 1
+    fi
+    popd
 }
 
 # TODO: with iwasm only
 function spec_test()
 {
+    local RUNNING_MODE="$1"
+
     echo "Now start spec tests"
     touch ${REPORT_DIR}/spec_test_report.txt
 
     cd ${WORK_DIR}
-    if [ ! -d "spec" ];then
-        echo "spec not exist, clone it from github"
-        git clone -b master --single-branch https://github.com/WebAssembly/spec
-    fi
-
-    pushd spec
-
-    # restore and clean everything
-    git reset --hard HEAD
 
     # update basic test cases
-    echo "update spec test cases"
-    git fetch origin main
-    # restore from XX_ignore_cases.patch
-    # resotre branch
-    git checkout -B main
-    # [spec] Update note on module initialization trapping (#1493)
-    git reset --hard 044d0d2e77bdcbe891f7e0b9dd2ac01d56435f0b
-    git apply ../../spec-test-script/ignore_cases.patch
-    if [[ ${ENABLE_SIMD} == 1 ]]; then
-        git apply ../../spec-test-script/simd_ignore_cases.patch
-    fi
-    if [[ ${ENABLE_MULTI_MODULE} == 1 && $1 == 'aot'  ]]; then
-        git apply ../../spec-test-script/multi_module_aot_ignore_cases.patch
-    fi
+    echo "downloading spec test cases..."
 
-    # udpate thread cases
+    rm -rf spec
     if [ ${ENABLE_MULTI_THREAD} == 1 ]; then
-        echo "checkout spec for threads proposal"
-        if [[ -z $(git remote -v | grep "\<threads\>") ]]; then
-            git remote add threads https://github.com/WebAssembly/threads
-        fi
+        echo "checkout spec from threads proposal"
 
-        # fetch spec for threads proposal
-        git fetch threads
-        # Fix error in Web embedding desc for atomic.notify (#185)
-        git reset --hard 85b562cd6805947876ec5e8b975ab0127c55a0a2
-        git checkout threads/main
+        # check spec test cases for threads
+        git clone -b main --single-branch https://github.com/WebAssembly/threads.git spec
+        pushd spec
 
-        git apply ../../spec-test-script/thread_proposal_ignore_cases.patch
-        git apply ../../spec-test-script/thread_proposal_fix_atomic_case.patch
-    fi
-
-    if [ ${ENABLE_EH} == 1 ]; then
+        # May 31, 2012 [interpreter] implement atomic.wait and atomic.notify (#194)
+        git reset --hard 09f2831349bf409187abb6f7868482a8079f2264
+        git apply ../../spec-test-script/thread_proposal_ignore_cases.patch || exit 1
+        git apply ../../spec-test-script/thread_proposal_fix_atomic_case.patch || exit 1
+        git apply ../../spec-test-script/thread_proposal_remove_memory64_flag_case.patch
+    elif [ ${ENABLE_EH} == 1 ]; then
         echo "checkout exception-handling test cases"
-        popd
-        if [ ! -d "exception-handling" ];then
-            echo "exception-handling not exist, clone it from github"
-            git clone -b master --single-branch https://github.com/WebAssembly/exception-handling 
-        fi
-        pushd exception-handling
 
-        # restore and clean everything
+        git clone -b main --single-branch https://github.com/WebAssembly/exception-handling spec
+        pushd spec
+
+        # Jun 6, 2023 Merge branch 'upstream' into merge-upstream
         git reset --hard 51c721661b671bb7dc4b3a3acb9e079b49778d36
-        
-        if [[ ${ENABLE_MULTI_MODULE} == 0 ]]; then
-            git apply ../../spec-test-script/exception_handling.patch
-        fi
-        
-        popd
-        echo $(pwd)
-    fi
-
-    # update GC cases
-    if [[ ${ENABLE_GC} == 1 ]]; then
+        git apply ../../spec-test-script/exception_handling.patch || exit 1
+    elif [[ ${ENABLE_GC} == 1 ]]; then
         echo "checkout spec for GC proposal"
 
-        popd
-        rm -fr spec
         # check spec test cases for GC
         git clone -b main --single-branch https://github.com/WebAssembly/gc.git spec
         pushd spec
 
-        git restore . && git clean -ffd .
         # Reset to commit: "[test] Unify the error message."
         git reset --hard 0caaadc65b5e1910512d8ae228502edcf9d60390
-        git apply ../../spec-test-script/gc_ignore_cases.patch
+        git apply ../../spec-test-script/gc_ignore_cases.patch || exit 1
 
         if [[ ${ENABLE_QEMU} == 1 ]]; then
             # Decrease the recursive count for tail call cases as nuttx qemu's
             # native stack size is much smaller
-            git apply ../../spec-test-script/gc_nuttx_tail_call.patch
+            git apply ../../spec-test-script/gc_nuttx_tail_call.patch || exit 1
         fi
 
-        echo "compile the reference intepreter"
-        pushd interpreter
-        make
-        popd
-    fi
-
-    # update memory64 cases
-    if [[ ${ENABLE_MEMORY64} == 1 ]]; then
+        compile_reference_interpreter
+    elif [[ ${ENABLE_MEMORY64} == 1 ]]; then
         echo "checkout spec for memory64 proposal"
 
-        popd
-        rm -fr spec
         # check spec test cases for memory64
         git clone -b main --single-branch https://github.com/WebAssembly/memory64.git spec
         pushd spec
 
-        git restore . && git clean -ffd .
         # Reset to commit: "Merge remote-tracking branch 'upstream/main' into merge2"
         git reset --hard 48e69f394869c55b7bbe14ac963c09f4605490b6
-        git checkout 044d0d2e77bdcbe891f7e0b9dd2ac01d56435f0b -- test/core/elem.wast
-        git apply ../../spec-test-script/ignore_cases.patch
-        git apply ../../spec-test-script/memory64.patch
+        git checkout 044d0d2e77bdcbe891f7e0b9dd2ac01d56435f0b -- test/core/elem.wast test/core/data.wast
+        git apply ../../spec-test-script/memory64_ignore_cases.patch || exit 1
+    elif [[ ${ENABLE_MULTI_MEMORY} == 1 ]]; then
+        echo "checkout spec for multi memory proposal"
 
-        echo "compile the reference intepreter"
-        pushd interpreter
-        make
-        popd
+        # check spec test cases for multi memory
+        git clone -b main --single-branch https://github.com/WebAssembly/multi-memory.git spec
+        pushd spec
+
+        # Reset to commit: "Merge pull request #48 from backes/specify-memcpy-immediate-order"
+        git reset --hard 48e69f394869c55b7bbe14ac963c09f4605490b6
+        git checkout 044d0d2e77bdcbe891f7e0b9dd2ac01d56435f0b -- test/core/elem.wast
+        git apply ../../spec-test-script/multi_memory_ignore_cases.patch || exit 1
+        if [[ ${RUNNING_MODE} == "aot" ]]; then
+            git apply ../../spec-test-script/multi_module_aot_ignore_cases.patch || exit 1
+        fi
+    else
+        echo "checkout spec for default proposal"
+
+        git clone -b main --single-branch https://github.com/WebAssembly/spec
+        pushd spec
+
+        # Apr 3, 2024 [js-api] Integrate with the ResizableArrayBuffer proposal (#1300)
+        git reset --hard bc76fd79cfe61033d7f4ad4a7e8fc4f996dc5ba8
+        git apply ../../spec-test-script/ignore_cases.patch || exit 1
+        if [[ ${ENABLE_SIMD} == 1 ]]; then
+            git apply ../../spec-test-script/simd_ignore_cases.patch || exit 1
+        fi
+        if [[ ${ENABLE_MULTI_MODULE} == 1 ]]; then
+            git apply ../../spec-test-script/multi_module_ignore_cases.patch || exit 1
+
+            if [[ ${RUNNING_MODE} == "aot" ]]; then
+                git apply ../../spec-test-script/multi_module_aot_ignore_cases.patch || exit 1
+            fi
+        fi
     fi
 
     popd
@@ -517,29 +548,20 @@ function spec_test()
 
     local ARGS_FOR_SPEC_TEST=""
 
-    # multi-module only enable in interp mode and aot mode
     if [[ 1 == ${ENABLE_MULTI_MODULE} ]]; then
-        if [[ $1 == 'classic-interp' || $1 == 'fast-interp' || $1 == 'aot' ]]; then
-            ARGS_FOR_SPEC_TEST+="-M "
-        fi
+        ARGS_FOR_SPEC_TEST+="-M "
     fi
 
     if [[ 1 == ${ENABLE_EH} ]]; then
         ARGS_FOR_SPEC_TEST+="-e "
     fi
 
-    # sgx only enable in interp mode and aot mode
     if [[ ${SGX_OPT} == "--sgx" ]];then
-        if [[ $1 == 'classic-interp' || $1 == 'fast-interp' || $1 == 'aot' || $1 == 'fast-jit' ]]; then
-          ARGS_FOR_SPEC_TEST+="-x "
-        fi
+        ARGS_FOR_SPEC_TEST+="-x "
     fi
 
-    # simd only enable in jit mode and aot mode
     if [[ ${ENABLE_SIMD} == 1 ]]; then
-        if [[ $1 == 'jit' || $1 == 'aot' ]]; then
-          ARGS_FOR_SPEC_TEST+="-S "
-        fi
+        ARGS_FOR_SPEC_TEST+="-S "
     fi
 
     if [[ ${ENABLE_MULTI_THREAD} == 1 ]]; then
@@ -556,6 +578,7 @@ function spec_test()
     # require warmc only in aot mode
     if [[ $1 == 'aot' ]]; then
         ARGS_FOR_SPEC_TEST+="-t "
+        ARGS_FOR_SPEC_TEST+="--aot-compiler ${WAMRC_CMD} "
     fi
 
     if [[ ${PARALLELISM} == 1 ]]; then
@@ -566,10 +589,14 @@ function spec_test()
         ARGS_FOR_SPEC_TEST+="--gc "
     fi
 
-    # wasm64(memory64) is only enabled in interp and aot mode
     if [[ 1 == ${ENABLE_MEMORY64} ]]; then
+        ARGS_FOR_SPEC_TEST+="--memory64 "
+    fi
+
+    # multi memory is only enabled in interp and aot mode
+    if [[ 1 == ${ENABLE_MULTI_MEMORY} ]]; then
         if [[ $1 == 'classic-interp' || $1 == 'aot' ]]; then
-            ARGS_FOR_SPEC_TEST+="--memory64 "
+            ARGS_FOR_SPEC_TEST+="--multi-memory "
         fi
     fi
 
@@ -595,22 +622,6 @@ function spec_test()
     cd -
 
     echo -e "\nFinish spec tests" | tee -a ${REPORT_DIR}/spec_test_report.txt
-}
-
-function wasi_test()
-{
-    echo "Now start wasi tests"
-    touch ${REPORT_DIR}/wasi_test_report.txt
-
-    cd ${WORK_DIR}/../../wasi
-    [[ $1 != "aot" ]] && \
-        python wasi_test.py --interpreter ${IWASM_CMD} ${SGX_OPT}\
-                            | tee ${REPORT_DIR}/wasi_test_report.txt \
-    || \
-        python wasi_test.py --aot --aot-compiler ${WAMRC_CMD} ${SGX_OPT}\
-                            --interpreter ${IWASM_CMD} \
-                            | tee ${REPORT_DIR}/wasi_test_report.txt
-    echo "Finish wasi tests"
 }
 
 function wamr_compiler_test()
@@ -731,6 +742,8 @@ function collect_standalone()
         ./collect_coverage.sh "${CODE_COV_FILE}" "${STANDALONE_DIR}/test-running-modes/c-embed/build"
         echo "Collect code coverage of standalone test-ts2"
         ./collect_coverage.sh "${CODE_COV_FILE}" "${STANDALONE_DIR}/test-ts2/build"
+        echo "Collect code coverage of standalone test-module-malloc"
+        ./collect_coverage.sh "${CODE_COV_FILE}" "${STANDALONE_DIR}/test-module-malloc/build"
 
         popd > /dev/null 2>&1
     fi
@@ -808,9 +821,14 @@ function build_wamrc()
         return
     fi
 
+    BUILD_LLVM_SH=build_llvm.sh
+    if [ ${TARGET} = "XTENSA" ]; then
+        BUILD_LLVM_SH=build_llvm_xtensa.sh
+    fi
+
     echo "Build wamrc for spec test under aot compile type"
     cd ${WAMR_DIR}/wamr-compiler \
-        && ./build_llvm.sh \
+        && ./${BUILD_LLVM_SH} \
         && if [ -d build ]; then rm -r build/*; else mkdir build; fi \
         && cd build \
         && cmake .. -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE} \
@@ -856,12 +874,96 @@ function collect_coverage()
     fi
 }
 
+# decide whether execute test cases in current running mode based on the current configuration or not
+# return 1 if the test case should be executed, otherwise return 0
+function do_execute_in_running_mode()
+{
+    local RUNNING_MODE="$1"
+
+    if [[ ${ENABLE_MULTI_MEMORY} -eq 1 ]]; then
+        if [[ "${RUNNING_MODE}" != "classic-interp" \
+                && "${RUNNING_MODE}" != "aot" ]]; then
+            echo "support multi-memory in classic-interp mode and aot mode"
+            return 0
+        fi
+    fi
+
+    if [[ ${ENABLE_MEMORY64} -eq 1 ]]; then
+        if [[ "${RUNNING_MODE}" != "classic-interp" \
+                && "${RUNNING_MODE}" != "aot" ]]; then
+            echo "support memory64(wasm64) in classic-interp mode and aot mode"
+            return 0
+        fi
+    fi
+
+    if [[ ${ENABLE_MULTI_MODULE} -eq 1 ]]; then
+        if [[ "${RUNNING_MODE}" != "classic-interp" \
+                && "${RUNNING_MODE}" != "fast-interp" \
+                && "${RUNNING_MODE}" != "aot" ]]; then
+            echo "support multi-module in both interp modes"
+            return 0
+        fi
+    fi
+
+    if [[ ${SGX_OPT} == "--sgx" ]]; then
+        if [[ "${RUNNING_MODE}" != "classic-interp" \
+                && "${RUNNING_MODE}" != "fast-interp" \
+                && "${RUNNING_MODE}" != "aot" \
+                && "${RUNNING_MODE}" != "fast-jit" ]]; then
+            echo "support sgx in both interp modes, fast-jit mode and aot mode"
+            return 0
+        fi
+    fi
+
+    if [[ ${ENABLE_SIMD} -eq 1 ]]; then
+        if [[ "${RUNNING_MODE}" != "jit" && "${RUNNING_MODE}" != "aot" ]]; then
+            echo "support simd in llvm-jit mode and aot mode"
+            return 0;
+        fi
+    fi
+
+    if [[ ${TARGET} == "X86_32" ]]; then
+        if [[ "${RUNNING_MODE}" == "jit" || "${RUNNING_MODE}" == "fast-jit" ]]; then
+            echo "both llvm-jit mode and fast-jit mode do not support X86_32 target"
+            return 0;
+        fi
+    fi
+
+    if [[ ${ENABLE_GC} -eq 1 ]]; then
+        if [[ "${RUNNING_MODE}" != "classic-interp" \
+                && "${RUNNING_MODE}" != "fast-interp" \
+                && "${RUNNING_MODE}" != "jit" \
+                && "${RUNNING_MODE}" != "aot" ]]; then
+            echo "support gc in both interp modes, llvm-jit mode and aot mode"
+            return 0;
+        fi
+    fi
+
+    if [[ ${ENABLE_EH} -eq 1 ]]; then
+        if [[ "${RUNNING_MODE}" != "classic-interp" ]]; then
+            echo "support exception handling in classic-interp"
+            return 0;
+        fi
+    fi
+
+    # by default, always execute the test case
+    return 1
+}
+
 function trigger()
 {
+    # Check if REQUIREMENT_NAME is set, if set, only calling requirement test and early return
+    if [[ -n $REQUIREMENT_NAME ]]; then
+        python ${REQUIREMENT_SCRIPT_DIR}/run_requirement.py -o ${REPORT_DIR}/ -r "$REQUIREMENT_NAME" "${SUBREQUIREMENT_IDS[@]}"
+        # early return with the python script exit status
+        return $?
+    fi
+
     local EXTRA_COMPILE_FLAGS=""
     # default enabled features
     EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_BULK_MEMORY=1"
     EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=1"
+    EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_LIBC_WASI=0"
 
     if [[ ${ENABLE_MULTI_MODULE} == 1 ]];then
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MODULE=1"
@@ -873,6 +975,12 @@ function trigger()
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MEMORY64=1"
     else
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MEMORY64=0"
+    fi
+
+    if [[ ${ENABLE_MULTI_MEMORY} == 1 ]];then
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MEMORY=1"
+    else
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MEMORY=0"
     fi
 
     if [[ ${ENABLE_MULTI_THREAD} == 1 ]];then
@@ -907,6 +1015,7 @@ function trigger()
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_EXCE_HANDLING=1"
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_TAIL_CALL=1"
     fi
+
     echo "SANITIZER IS" $WAMR_BUILD_SANITIZER
 
     if [[ "$WAMR_BUILD_SANITIZER" == "ubsan" ]]; then
@@ -929,6 +1038,10 @@ function trigger()
     if [[ $TEST_CASE_ARR ]]; then
         for test in "${TEST_CASE_ARR[@]}"; do
             if [[ "$test" == "wasi_certification" ]]; then
+                EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_WASI_TEST=1"
+            fi
+            if [[ "$test" == "wasi_certification"
+                  || "$test" == "standalone" ]]; then
                 EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_LIBC_UVWASI=0 -DWAMR_BUILD_LIBC_WASI=1"
                 break
             fi
@@ -936,14 +1049,16 @@ function trigger()
     fi
 
     for t in "${TYPE[@]}"; do
+        do_execute_in_running_mode $t
+        if [[ $? -eq 1 ]]; then
+            echo "execute in running mode" $t
+        else
+            echo "skip in running mode" $t
+            continue
+        fi
+
         case $t in
             "classic-interp")
-                if [[ ${ENABLE_SIMD} == 1 ]]; then
-                    echo "does not support SIMD in interp mode, bypass"
-                    continue
-                fi
-
-                echo "work in classic-interp mode"
                 # classic-interp
                 BUILD_FLAGS="$CLASSIC_INTERP_COMPILE_FLAGS $EXTRA_COMPILE_FLAGS"
                 if [[ ${ENABLE_QEMU} == 0 ]]; then
@@ -956,12 +1071,6 @@ function trigger()
             ;;
 
             "fast-interp")
-                if [[ ${ENABLE_SIMD} == 1 ]]; then
-                    echo "does not support SIMD in interp mode, bypass"
-                    continue
-                fi
-
-                echo "work in fast-interp mode"
                 # fast-interp
                 BUILD_FLAGS="$FAST_INTERP_COMPILE_FLAGS $EXTRA_COMPILE_FLAGS"
                 if [[ ${ENABLE_QEMU} == 0 ]]; then
@@ -974,11 +1083,6 @@ function trigger()
             ;;
 
             "jit")
-                if [[ ${TARGET} == "X86_32" ]]; then
-                    echo "does not support an X86_32 target in JIT mode, bypass"
-                    continue
-                fi
-
                 echo "work in orc jit eager compilation mode"
                 BUILD_FLAGS="$ORC_EAGER_JIT_COMPILE_FLAGS $EXTRA_COMPILE_FLAGS"
                 build_iwasm_with_cfg $BUILD_FLAGS
@@ -1003,7 +1107,10 @@ function trigger()
                 if [[ ${ENABLE_QEMU} == 0 ]]; then
                     build_iwasm_with_cfg $BUILD_FLAGS
                 fi
-                build_wamrc
+                if [ -z "${WAMRC_CMD}" ]; then
+                   build_wamrc
+                   WAMRC_CMD=${WAMRC_CMD_DEFAULT}
+                fi
                 for suite in "${TEST_CASE_ARR[@]}"; do
                     $suite"_test" aot
                 done
@@ -1044,7 +1151,7 @@ if [[ $TEST_CASE_ARR ]];then
     trigger || (echo "TEST FAILED"; exit 1)
 else
     # test all suite, ignore polybench and libsodium because of long time cost
-    TEST_CASE_ARR=("spec")
+    TEST_CASE_ARR=("spec" "malformed" "standalone")
     : '
     if [[ $COLLECT_CODE_COVERAGE == 1 ]];then
         # add polybench if collecting code coverage data
@@ -1058,6 +1165,6 @@ else
 fi
 
 echo -e "Test finish. Reports are under ${REPORT_DIR}"
-DEBUG set +xv pipefail
+DEBUG set +exv pipefail
 echo "TEST SUCCESSFUL"
 exit 0

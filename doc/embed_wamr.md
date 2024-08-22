@@ -207,7 +207,7 @@ There are two runtime APIs available for this purpose.
 /**
  * malloc a buffer from instance's private memory space.
  *
- * return: the buffer address in instance's memory space (pass to the WASM funciton)
+ * return: the buffer address in instance's memory space (pass to the WASM function)
  * p_native_addr: return the native address of allocated memory
  * size: the buffer size to allocate
  */
@@ -219,7 +219,7 @@ wasm_runtime_module_malloc(wasm_module_inst_t module_inst,
  * malloc a buffer from instance's private memory space,
  * and copy the data from another native buffer to it.
  *
- * return: the buffer address in instance's memory space (pass to the WASM funciton)
+ * return: the buffer address in instance's memory space (pass to the WASM function)
  * src: the native buffer address
  * size: the size of buffer to be allocated and copy data
  */

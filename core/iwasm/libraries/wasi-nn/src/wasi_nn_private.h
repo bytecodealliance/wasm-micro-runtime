@@ -11,16 +11,8 @@
 
 typedef struct {
     bool is_model_loaded;
-    graph_encoding current_encoding;
-    void *tflite_ctx;
+    graph_encoding backend;
+    void *backend_ctx;
 } WASINNContext;
-
-/**
- * @brief Destroy wasi-nn on app exists
- *
- */
-
-void
-wasi_nn_destroy(wasm_module_inst_t instance);
 
 #endif

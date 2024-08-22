@@ -602,6 +602,7 @@ jit_compile_op_memory_grow(JitCompContext *cc, uint32 mem_idx)
     args[0] = get_module_inst_reg(cc->jit_frame);
     args[1] = inc_page_count;
 
+    /* TODO: multi-memory wasm_enlarge_memory_with_idx() */
     if (!jit_emit_callnative(cc, wasm_enlarge_memory, grow_res, args, 2)) {
         goto fail;
     }

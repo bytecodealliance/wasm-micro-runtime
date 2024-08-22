@@ -15,6 +15,9 @@
 #if WASM_ENABLE_THREAD_MGR != 0
 #include "../libraries/thread-mgr/thread_manager.h"
 #endif
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+#include "wasi_nn_host.h"
+#endif
 
 static NativeSymbolsList g_native_symbols_list = NULL;
 
@@ -32,9 +35,6 @@ get_spectest_export_apis(NativeSymbol **p_libc_builtin_apis);
 
 uint32
 get_libc_wasi_export_apis(NativeSymbol **p_libc_wasi_apis);
-
-uint32_t
-get_wasi_nn_export_apis(NativeSymbol **p_libc_wasi_apis);
 
 uint32
 get_base_lib_export_apis(NativeSymbol **p_base_lib_apis);
@@ -71,7 +71,7 @@ uint32
 get_lib_rats_export_apis(NativeSymbol **p_lib_rats_apis);
 
 static bool
-compare_type_with_signautre(uint8 type, const char signature)
+compare_type_with_signature(uint8 type, const char signature)
 {
     const char num_sig_map[] = { 'F', 'f', 'I', 'i' };
 
@@ -122,10 +122,10 @@ check_symbol_signature(const WASMFuncType *type, const char *signature)
         sig = *p++;
 
         /* a f64/f32/i64/i32/externref parameter */
-        if (compare_type_with_signautre(type->types[i], sig))
+        if (compare_type_with_signature(type->types[i], sig))
             continue;
 
-        /* a pointer/string paramter */
+        /* a pointer/string parameter */
         if (type->types[i] != VALUE_TYPE_I32)
             /* pointer and string must be i32 type */
             return false;
@@ -156,7 +156,7 @@ check_symbol_signature(const WASMFuncType *type, const char *signature)
             return false;
 
         /* result types includes: f64,f32,i64,i32,externref */
-        if (!compare_type_with_signautre(type->types[i], *p))
+        if (!compare_type_with_signature(type->types[i], *p))
             return false;
 
         p++;
@@ -233,7 +233,7 @@ wasm_native_resolve_symbol(const char *module_name, const char *field_name,
 #if WASM_ENABLE_WAMR_COMPILER == 0
                 /* Output warning except running aot compiler */
                 LOG_WARNING("failed to check signature '%s' and resolve "
-                            "pointer params for import function (%s %s)\n",
+                            "pointer params for import function (%s, %s)\n",
                             signature, module_name, field_name);
 #endif
                 return NULL;
@@ -475,11 +475,12 @@ quick_aot_entry_init();
 bool
 wasm_native_init()
 {
-#if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_LIBC_BUILTIN != 0     \
-    || WASM_ENABLE_BASE_LIB != 0 || WASM_ENABLE_LIBC_EMCC != 0      \
-    || WASM_ENABLE_LIB_RATS != 0 || WASM_ENABLE_WASI_NN != 0        \
-    || WASM_ENABLE_APP_FRAMEWORK != 0 || WASM_ENABLE_LIBC_WASI != 0 \
-    || WASM_ENABLE_LIB_PTHREAD != 0 || WASM_ENABLE_LIB_WASI_THREADS != 0
+#if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_LIBC_BUILTIN != 0          \
+    || WASM_ENABLE_BASE_LIB != 0 || WASM_ENABLE_LIBC_EMCC != 0           \
+    || WASM_ENABLE_LIB_RATS != 0 || WASM_ENABLE_WASI_NN != 0             \
+    || WASM_ENABLE_APP_FRAMEWORK != 0 || WASM_ENABLE_LIBC_WASI != 0      \
+    || WASM_ENABLE_LIB_PTHREAD != 0 || WASM_ENABLE_LIB_WASI_THREADS != 0 \
+    || WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
     NativeSymbol *native_symbols;
     uint32 n_native_symbols;
 #endif
@@ -565,25 +566,30 @@ wasm_native_init()
         goto fail;
 #endif /* WASM_ENABLE_LIB_RATS */
 
-#if WASM_ENABLE_WASI_NN != 0
-    n_native_symbols = get_wasi_nn_export_apis(&native_symbols);
-#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-#define wasi_nn_module_name "wasi_ephemeral_nn"
-#else /* WASM_ENABLE_WASI_EPHEMERAL_NN == 0 */
-#define wasi_nn_module_name "wasi_nn"
-#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
-    if (!wasm_native_register_natives(wasi_nn_module_name, native_symbols,
-                                      n_native_symbols))
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+    if (!wasi_nn_initialize())
         goto fail;
-#endif
+
+    n_native_symbols = get_wasi_nn_export_apis(&native_symbols);
+    if (n_native_symbols > 0
+        && !wasm_native_register_natives(
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+            "wasi_ephemeral_nn",
+#else
+            "wasi_nn",
+#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
+            native_symbols, n_native_symbols))
+        goto fail;
+#endif /* WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
 
 #if WASM_ENABLE_QUICK_AOT_ENTRY != 0
     if (!quick_aot_entry_init()) {
-#if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_LIBC_BUILTIN != 0     \
-    || WASM_ENABLE_BASE_LIB != 0 || WASM_ENABLE_LIBC_EMCC != 0      \
-    || WASM_ENABLE_LIB_RATS != 0 || WASM_ENABLE_WASI_NN != 0        \
-    || WASM_ENABLE_APP_FRAMEWORK != 0 || WASM_ENABLE_LIBC_WASI != 0 \
-    || WASM_ENABLE_LIB_PTHREAD != 0 || WASM_ENABLE_LIB_WASI_THREADS != 0
+#if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_LIBC_BUILTIN != 0          \
+    || WASM_ENABLE_BASE_LIB != 0 || WASM_ENABLE_LIBC_EMCC != 0           \
+    || WASM_ENABLE_LIB_RATS != 0 || WASM_ENABLE_WASI_NN != 0             \
+    || WASM_ENABLE_APP_FRAMEWORK != 0 || WASM_ENABLE_LIBC_WASI != 0      \
+    || WASM_ENABLE_LIB_PTHREAD != 0 || WASM_ENABLE_LIB_WASI_THREADS != 0 \
+    || WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
         goto fail;
 #else
         return false;
@@ -592,11 +598,12 @@ wasm_native_init()
 #endif
 
     return true;
-#if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_LIBC_BUILTIN != 0     \
-    || WASM_ENABLE_BASE_LIB != 0 || WASM_ENABLE_LIBC_EMCC != 0      \
-    || WASM_ENABLE_LIB_RATS != 0 || WASM_ENABLE_WASI_NN != 0        \
-    || WASM_ENABLE_APP_FRAMEWORK != 0 || WASM_ENABLE_LIBC_WASI != 0 \
-    || WASM_ENABLE_LIB_PTHREAD != 0 || WASM_ENABLE_LIB_WASI_THREADS != 0
+#if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_LIBC_BUILTIN != 0          \
+    || WASM_ENABLE_BASE_LIB != 0 || WASM_ENABLE_LIBC_EMCC != 0           \
+    || WASM_ENABLE_LIB_RATS != 0 || WASM_ENABLE_WASI_NN != 0             \
+    || WASM_ENABLE_APP_FRAMEWORK != 0 || WASM_ENABLE_LIBC_WASI != 0      \
+    || WASM_ENABLE_LIB_PTHREAD != 0 || WASM_ENABLE_LIB_WASI_THREADS != 0 \
+    || WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
 fail:
     wasm_native_destroy();
     return false;
@@ -614,12 +621,17 @@ wasm_native_destroy()
         g_wasi_context_key = NULL;
     }
 #endif
+
 #if WASM_ENABLE_LIB_PTHREAD != 0
     lib_pthread_destroy();
 #endif
 
 #if WASM_ENABLE_LIB_WASI_THREADS != 0
     lib_wasi_threads_destroy();
+#endif
+
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+    wasi_nn_destroy();
 #endif
 
     node = g_native_symbols_list;

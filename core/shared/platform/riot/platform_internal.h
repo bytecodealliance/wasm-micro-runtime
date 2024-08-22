@@ -94,4 +94,12 @@ os_get_invalid_handle()
     return -1;
 }
 
+/* There is no MMU in RIOT so the function return 1024 to make the compiler
+   happy */
+static inline int
+os_getpagesize()
+{
+    return 1024;
+}
+
 #endif /* end of _BH_PLATFORM_H */

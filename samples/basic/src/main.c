@@ -175,7 +175,7 @@ main(int argc, char *argv_main[])
            ret_val);
 
     // Next we will pass a buffer to the WASM function
-    uint32 argv2[5];
+    uint32 argv2[4];
 
     // must allocate buffer from wasm instance memory space (never use pointer
     // from host runtime)
@@ -184,8 +184,8 @@ main(int argc, char *argv_main[])
 
     memcpy(argv2, &ret_val, sizeof(float)); // the first argument
     argv2[1] = wasm_buffer; // the second argument is the wasm buffer address
-    argv2[3] = 100;         //  the third argument is the wasm buffer size
-    argv2[4] = 3; //  the last argument is the digits after decimal point for
+    argv2[2] = 100;         //  the third argument is the wasm buffer size
+    argv2[3] = 3; //  the last argument is the digits after decimal point for
                   //  converting float to string
 
     if (!(func2 =

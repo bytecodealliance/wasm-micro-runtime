@@ -156,11 +156,15 @@ def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_fl
             CONFIG_CMD += " -A x64"
     else:
         CONFIG_CMD += " -G'Ninja'"
+    print(f"Config command: {CONFIG_CMD}")
     subprocess.check_call(shlex.split(CONFIG_CMD), cwd=build_dir)
 
     BUILD_CMD = "cmake --build . --target package" + (
         " --config Release" if "windows" == platform else ""
     )
+    if "windows" == platform:
+        BUILD_CMD += " --parallel " + str(os.cpu_count())
+    print(f"Build command: {BUILD_CMD}")
     subprocess.check_call(shlex.split(BUILD_CMD), cwd=build_dir)
 
     return build_dir
@@ -261,7 +265,7 @@ def main():
         "xtensa": {
             "repo": "https://github.com/espressif/llvm-project.git",
             "repo_ssh": "git@github.com:espressif/llvm-project.git",
-            "branch": "xtensa_release_15.x",
+            "branch": "xtensa_release_17.0.1",
         },
         "default": {
             "repo": "https://github.com/llvm/llvm-project.git",

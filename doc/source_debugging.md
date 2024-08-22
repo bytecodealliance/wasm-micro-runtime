@@ -13,8 +13,8 @@ llvm-dwarfdump-12 test.wasm
 
 ## Debugging with interpreter
 
-See [Debuggging with interpreter](source_debugging_interpreter.md).
+See [Debugging with interpreter](source_debugging_interpreter.md).
 
 ## Debugging with AOT
 
-See [Debuggging with AOT](source_debugging_aot.md).
+See [Debugging with AOT](source_debugging_aot.md).

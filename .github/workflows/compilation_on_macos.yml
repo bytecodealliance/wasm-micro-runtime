@@ -134,8 +134,8 @@ jobs:
         os: [macos-13]
         platform: [darwin]
         exclude:
-          # uncompatiable feature and platform
-          # uncompatiable mode and feature
+          # incompatible feature and platform
+          # incompatible mode and feature
           # MULTI_MODULE only on INTERP mode and AOT mode
           - make_options_run_mode: $LLVM_LAZY_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"

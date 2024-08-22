@@ -2,7 +2,7 @@
 
 iwasm is the executable binary built with WAMR VMcore supports WASI and command line interface. Refer to [**how to build wamr vmcore**](../doc/build_wamr.md) for all the supported CMAKE compilation variables.
 
-If you are building for ARM architecture on a X86 development machine, you can use the `CMAKE_TOOLCHAIN_FILE`  to set the toolchain file for cross compling.
+If you are building for ARM architecture on a X86 development machine, you can use the `CMAKE_TOOLCHAIN_FILE`  to set the toolchain file for cross compiling.
 
 ```
 cmake .. -DCMAKE_TOOLCHAIN_FILE=$TOOL_CHAIN_FILE  \

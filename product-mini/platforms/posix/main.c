@@ -295,7 +295,8 @@ load_native_lib(const char *name)
     /* open the native library */
     if (!(lib->handle = dlopen(name, RTLD_NOW | RTLD_GLOBAL))
         && !(lib->handle = dlopen(name, RTLD_LAZY))) {
-        LOG_WARNING("warning: failed to load native library %s", name);
+        LOG_WARNING("warning: failed to load native library %s. %s", name,
+                    dlerror());
         goto fail;
     }
 
@@ -429,7 +430,7 @@ module_reader_callback(package_type_t module_type, const char *module_name,
 }
 
 static void
-moudle_destroyer(uint8 *buffer, uint32 size)
+module_destroyer_callback(uint8 *buffer, uint32 size)
 {
     if (!buffer) {
         return;
@@ -535,21 +536,23 @@ void *
 timeout_thread(void *vp)
 {
     const struct timeout_arg *arg = vp;
-    uint32 left = arg->timeout_ms;
+    const uint64 end_time =
+        os_time_get_boot_us() + (uint64)arg->timeout_ms * 1000;
     while (!arg->cancel) {
-        uint32 ms;
-        if (left >= 100) {
-            ms = 100;
-        }
-        else {
-            ms = left;
-        }
-        os_usleep((uint64)ms * 1000);
-        left -= ms;
-        if (left == 0) {
+        const uint64 now = os_time_get_boot_us();
+        if ((int64)(now - end_time) > 0) {
             wasm_runtime_terminate(arg->inst);
             break;
         }
+        const uint64 left_us = end_time - now;
+        uint32 us;
+        if (left_us >= 100 * 1000) {
+            us = 100 * 1000;
+        }
+        else {
+            us = left_us;
+        }
+        os_usleep(us);
     }
     return NULL;
 }
@@ -887,6 +890,7 @@ main(int argc, char *argv[])
 #if WASM_ENABLE_AOT != 0
     if (wasm_runtime_is_xip_file(wasm_file_buf, wasm_file_size)) {
         uint8 *wasm_file_mapped;
+        uint8 *daddr;
         int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC;
         int map_flags = MMAP_MAP_32BIT;
 
@@ -897,8 +901,15 @@ main(int argc, char *argv[])
             goto fail1;
         }
 
-        bh_memcpy_s(wasm_file_mapped, wasm_file_size, wasm_file_buf,
-                    wasm_file_size);
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+        daddr = os_get_dbus_mirror(wasm_file_mapped);
+#else
+        daddr = wasm_file_mapped;
+#endif
+        bh_memcpy_s(daddr, wasm_file_size, wasm_file_buf, wasm_file_size);
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+        os_dcache_flush();
+#endif
         wasm_runtime_free(wasm_file_buf);
         wasm_file_buf = wasm_file_mapped;
         is_xip_file = true;
@@ -906,7 +917,8 @@ main(int argc, char *argv[])
 #endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
-    wasm_runtime_set_module_reader(module_reader_callback, moudle_destroyer);
+    wasm_runtime_set_module_reader(module_reader_callback,
+                                   module_destroyer_callback);
 #endif
 
     /* load WASM module */

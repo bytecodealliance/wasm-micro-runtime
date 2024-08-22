@@ -362,6 +362,9 @@ LOAD_I16(void *addr)
 #define SHARED_MEMORY_UNLOCK(memory) (void)0
 #endif
 
+#define CLAMP_U64_TO_U32(value) \
+    ((value) > UINT32_MAX ? UINT32_MAX : (uint32)(value))
+
 typedef struct WASMModuleCommon {
     /* Module type, for module loaded from WASM bytecode binary,
        this field is Wasm_Module_Bytecode, and this structure should
@@ -909,7 +912,7 @@ WASMExport *
 loader_find_export(const WASMModuleCommon *module, const char *module_name,
                    const char *field_name, uint8 export_kind, char *error_buf,
                    uint32 error_buf_size);
-#endif /* WASM_ENALBE_MULTI_MODULE */
+#endif /* WASM_ENABLE_MULTI_MODULE */
 
 bool
 wasm_runtime_is_built_in_module(const char *module_name);
@@ -1201,6 +1204,9 @@ wasm_runtime_detect_native_stack_overflow(WASMExecEnv *exec_env);
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_detect_native_stack_overflow_size(WASMExecEnv *exec_env,
                                                uint32 requested_size);
+
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_is_underlying_binary_freeable(WASMModuleCommon *const module);
 
 #if WASM_ENABLE_LINUX_PERF != 0
 bool
