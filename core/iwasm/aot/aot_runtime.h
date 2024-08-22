@@ -39,6 +39,10 @@ typedef enum AOTSectionType {
     AOT_SECTION_TYPE_FUNCTION = 3,
     AOT_SECTION_TYPE_EXPORT = 4,
     AOT_SECTION_TYPE_RELOCATION = 5,
+    /*
+     * Note: We haven't had anything to use AOT_SECTION_TYPE_SIGNATURE.
+     * It's just reserved for possible module signing features.
+     */
     AOT_SECTION_TYPE_SIGNATURE = 6,
     AOT_SECTION_TYPE_CUSTOM = 100,
 } AOTSectionType;
