@@ -808,7 +808,10 @@ os_convert_stdin_handle(os_raw_file_handle raw_stdin)
     }
 
     /* We allocate a fake stdin reference */
-    zephyr_fs_alloc_obj(false, "stdin", &handle->fd);
+    if (zephyr_fs_alloc_obj(false, "stdin", &handle->fd) == NULL) {
+        BH_FREE(handle);
+        return NULL;
+    }
 
     handle->is_sock = false;
     return handle;
@@ -826,7 +829,10 @@ os_convert_stdout_handle(os_raw_file_handle raw_stdout)
     }
 
     /* We allocate a fake stdin reference */
-    zephyr_fs_alloc_obj(false, "stdout", &handle->fd);
+    if (zephyr_fs_alloc_obj(false, "stdout", &handle->fd) == NULL) {
+        BH_FREE(handle);
+        return NULL;
+    }
 
     handle->is_sock = false;
     return handle;
@@ -844,7 +850,10 @@ os_convert_stderr_handle(os_raw_file_handle raw_stderr)
     }
 
     /* We allocate a fake stdin reference */
-    zephyr_fs_alloc_obj(false, "stderr", &handle->fd);
+    if (zephyr_fs_alloc_obj(false, "stderr", &handle->fd) == NULL) {
+        BH_FREE(handle);
+        return NULL;
+    }
 
     handle->is_sock = false;
     return handle;
@@ -947,6 +956,9 @@ os_is_dir_stream_valid(os_dir_stream *dir_stream)
 bool
 os_is_handle_valid(os_file_handle *handle)
 {
+    if (handle == NULL || *handle == NULL) {
+        return false;
+    }
     return (*handle)->fd > -1;
 }
 
