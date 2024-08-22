@@ -100,8 +100,7 @@ else
     && install_binaryen \
     && install_cmake \
     && install_emsdk \
-    && install_wabt \
-    && install_wasi-sdk
+    && install_wabt
 fi
 cd - > /dev/null || exit
 DEBUG && set +xevu

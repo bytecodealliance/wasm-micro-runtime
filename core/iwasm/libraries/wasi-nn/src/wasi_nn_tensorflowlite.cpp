@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "wasi_nn.h"
 #include "wasi_nn_tensorflowlite.hpp"
-#include "logger.h"
+#include "utils/logger.h"
 
 #include "bh_platform.h"
+#include "wasi_nn_types.h"
 #include "wasm_export.h"
 
 #include <tensorflow/lite/interpreter.h>
@@ -50,7 +50,7 @@ typedef struct {
 
 /* Utils */
 
-static error
+static wasi_nn_error
 initialize_g(TFLiteContext *tfl_ctx, graph *g)
 {
     os_mutex_lock(&tfl_ctx->g_lock);
@@ -63,7 +63,7 @@ initialize_g(TFLiteContext *tfl_ctx, graph *g)
     os_mutex_unlock(&tfl_ctx->g_lock);
     return success;
 }
-static error
+static wasi_nn_error
 initialize_graph_ctx(TFLiteContext *tfl_ctx, graph g,
                      graph_execution_context *ctx)
 {
@@ -78,7 +78,7 @@ initialize_graph_ctx(TFLiteContext *tfl_ctx, graph g,
     return success;
 }
 
-static error
+static wasi_nn_error
 is_valid_graph(TFLiteContext *tfl_ctx, graph g)
 {
     if (g >= MAX_GRAPHS_PER_INST) {
@@ -96,7 +96,7 @@ is_valid_graph(TFLiteContext *tfl_ctx, graph g)
     return success;
 }
 
-static error
+static wasi_nn_error
 is_valid_graph_execution_context(TFLiteContext *tfl_ctx,
                                  graph_execution_context ctx)
 {
@@ -113,10 +113,9 @@ is_valid_graph_execution_context(TFLiteContext *tfl_ctx,
 }
 
 /* WASI-NN (tensorflow) implementation */
-
-error
-tensorflowlite_load(void *tflite_ctx, graph_builder_array *builder,
-                    graph_encoding encoding, execution_target target, graph *g)
+__attribute__((visibility("default"))) wasi_nn_error
+load(void *tflite_ctx, graph_builder_array *builder, graph_encoding encoding,
+     execution_target target, graph *g)
 {
     TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
 
@@ -135,7 +134,7 @@ tensorflowlite_load(void *tflite_ctx, graph_builder_array *builder,
         return invalid_argument;
     }
 
-    error res;
+    wasi_nn_error res;
     if (success != (res = initialize_g(tfl_ctx, g)))
         return res;
 
@@ -145,7 +144,7 @@ tensorflowlite_load(void *tflite_ctx, graph_builder_array *builder,
     tfl_ctx->models[*g].model_pointer = (char *)wasm_runtime_malloc(size);
     if (tfl_ctx->models[*g].model_pointer == NULL) {
         NN_ERR_PRINTF("Error when allocating memory for model.");
-        return missing_memory;
+        return too_large;
     }
 
     bh_memcpy_s(tfl_ctx->models[*g].model_pointer, size, builder->buf[0].buf,
@@ -160,7 +159,7 @@ tensorflowlite_load(void *tflite_ctx, graph_builder_array *builder,
         NN_ERR_PRINTF("Loading model error.");
         wasm_runtime_free(tfl_ctx->models[*g].model_pointer);
         tfl_ctx->models[*g].model_pointer = NULL;
-        return missing_memory;
+        return too_large;
     }
 
     // Save target
@@ -168,13 +167,36 @@ tensorflowlite_load(void *tflite_ctx, graph_builder_array *builder,
     return success;
 }
 
-error
-tensorflowlite_init_execution_context(void *tflite_ctx, graph g,
-                                      graph_execution_context *ctx)
+__attribute__((visibility("default"))) wasi_nn_error
+load_by_name(void *tflite_ctx, const char *filename, uint32_t filename_len,
+             graph *g)
 {
     TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
 
-    error res;
+    wasi_nn_error res = initialize_g(tfl_ctx, g);
+    if (success != res)
+        return res;
+
+    // Load model
+    tfl_ctx->models[*g].model =
+        std::move(tflite::FlatBufferModel::BuildFromFile(filename, NULL));
+
+    if (tfl_ctx->models[*g].model == NULL) {
+        NN_ERR_PRINTF("Loading model error.");
+        return too_large;
+    }
+
+    // Use CPU as default
+    tfl_ctx->models[*g].target = cpu;
+    return success;
+}
+
+__attribute__((visibility("default"))) wasi_nn_error
+init_execution_context(void *tflite_ctx, graph g, graph_execution_context *ctx)
+{
+    TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
+
+    wasi_nn_error res;
     if (success != (res = is_valid_graph(tfl_ctx, g)))
         return res;
 
@@ -188,7 +210,7 @@ tensorflowlite_init_execution_context(void *tflite_ctx, graph g,
     tflite_builder(&tfl_ctx->interpreters[*ctx].interpreter);
     if (tfl_ctx->interpreters[*ctx].interpreter == NULL) {
         NN_ERR_PRINTF("Error when generating the interpreter.");
-        return missing_memory;
+        return too_large;
     }
 
     bool use_default = false;
@@ -208,7 +230,7 @@ tensorflowlite_init_execution_context(void *tflite_ctx, graph g,
             if (tfl_ctx->delegate == NULL) {
                 NN_ERR_PRINTF("Error when generating GPU delegate.");
                 use_default = true;
-                return missing_memory;
+                return too_large;
             }
             if (tfl_ctx->interpreters[*ctx]
                     .interpreter->ModifyGraphWithDelegate(tfl_ctx->delegate)
@@ -233,7 +255,7 @@ tensorflowlite_init_execution_context(void *tflite_ctx, graph g,
             if (tfl_ctx->delegate == NULL) {
                 NN_ERR_PRINTF("Error when generating External delegate.");
                 use_default = true;
-                return missing_memory;
+                return too_large;
             }
             if (tfl_ctx->interpreters[*ctx]
                     .interpreter->ModifyGraphWithDelegate(tfl_ctx->delegate)
@@ -257,13 +279,13 @@ tensorflowlite_init_execution_context(void *tflite_ctx, graph g,
     return success;
 }
 
-error
-tensorflowlite_set_input(void *tflite_ctx, graph_execution_context ctx,
-                         uint32_t index, tensor *input_tensor)
+__attribute__((visibility("default"))) wasi_nn_error
+set_input(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
+          tensor *input_tensor)
 {
     TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
 
-    error res;
+    wasi_nn_error res;
     if (success != (res = is_valid_graph_execution_context(tfl_ctx, ctx)))
         return res;
 
@@ -277,7 +299,7 @@ tensorflowlite_set_input(void *tflite_ctx, graph_execution_context ctx,
     auto tensor = tfl_ctx->interpreters[ctx].interpreter->input_tensor(index);
     if (tensor == NULL) {
         NN_ERR_PRINTF("Missing memory");
-        return missing_memory;
+        return too_large;
     }
 
     uint32_t model_tensor_size = 1;
@@ -328,12 +350,12 @@ tensorflowlite_set_input(void *tflite_ctx, graph_execution_context ctx,
     return success;
 }
 
-error
-tensorflowlite_compute(void *tflite_ctx, graph_execution_context ctx)
+__attribute__((visibility("default"))) wasi_nn_error
+compute(void *tflite_ctx, graph_execution_context ctx)
 {
     TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
 
-    error res;
+    wasi_nn_error res;
     if (success != (res = is_valid_graph_execution_context(tfl_ctx, ctx)))
         return res;
 
@@ -341,14 +363,13 @@ tensorflowlite_compute(void *tflite_ctx, graph_execution_context ctx)
     return success;
 }
 
-error
-tensorflowlite_get_output(void *tflite_ctx, graph_execution_context ctx,
-                          uint32_t index, tensor_data output_tensor,
-                          uint32_t *output_tensor_size)
+__attribute__((visibility("default"))) wasi_nn_error
+get_output(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
+           tensor_data output_tensor, uint32_t *output_tensor_size)
 {
     TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
 
-    error res;
+    wasi_nn_error res;
     if (success != (res = is_valid_graph_execution_context(tfl_ctx, ctx)))
         return res;
 
@@ -364,7 +385,7 @@ tensorflowlite_get_output(void *tflite_ctx, graph_execution_context ctx,
     auto tensor = tfl_ctx->interpreters[ctx].interpreter->output_tensor(index);
     if (tensor == NULL) {
         NN_ERR_PRINTF("Missing memory");
-        return missing_memory;
+        return too_large;
     }
 
     uint32_t model_tensor_size = 1;
@@ -373,7 +394,7 @@ tensorflowlite_get_output(void *tflite_ctx, graph_execution_context ctx,
 
     if (*output_tensor_size < model_tensor_size) {
         NN_ERR_PRINTF("Insufficient memory to copy tensor %d", index);
-        return missing_memory;
+        return too_large;
     }
 
     if (tensor->quantization.type == kTfLiteNoQuantization) {
@@ -410,13 +431,13 @@ tensorflowlite_get_output(void *tflite_ctx, graph_execution_context ctx,
     return success;
 }
 
-void
-tensorflowlite_initialize(void **tflite_ctx)
+__attribute__((visibility("default"))) wasi_nn_error
+init_backend(void **tflite_ctx)
 {
     TFLiteContext *tfl_ctx = new TFLiteContext();
     if (tfl_ctx == NULL) {
         NN_ERR_PRINTF("Error when allocating memory for tensorflowlite.");
-        return;
+        return runtime_error;
     }
 
     NN_DBG_PRINTF("Initializing models.");
@@ -434,10 +455,11 @@ tensorflowlite_initialize(void **tflite_ctx)
     tfl_ctx->delegate = NULL;
 
     *tflite_ctx = (void *)tfl_ctx;
+    return success;
 }
 
-void
-tensorflowlite_destroy(void *tflite_ctx)
+__attribute__((visibility("default"))) wasi_nn_error
+deinit_backend(void *tflite_ctx)
 {
     /*
         TensorFlow Lite memory is internally managed by tensorflow
@@ -472,6 +494,8 @@ tensorflowlite_destroy(void *tflite_ctx)
 #endif
                         break;
                     }
+                    default:
+                        break;
                 }
             }
             wasm_runtime_free(tfl_ctx->models[i].model_pointer);
@@ -484,4 +508,5 @@ tensorflowlite_destroy(void *tflite_ctx)
     os_mutex_destroy(&tfl_ctx->g_lock);
     delete tfl_ctx;
     NN_DBG_PRINTF("Memory free'd.");
+    return success;
 }

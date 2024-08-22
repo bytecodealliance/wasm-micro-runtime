@@ -221,16 +221,16 @@ aot_create_import_globals(const WASMModule *module, bool gc_enabled,
         WASMGlobalImport *import_global = &module->import_globals[i].u.global;
         import_globals[i].module_name = import_global->module_name;
         import_globals[i].global_name = import_global->field_name;
-        import_globals[i].type = import_global->type;
-        import_globals[i].is_mutable = import_global->is_mutable;
+        import_globals[i].type.val_type = import_global->type.val_type;
+        import_globals[i].type.is_mutable = import_global->type.is_mutable;
         import_globals[i].global_data_linked =
             import_global->global_data_linked;
 
         import_globals[i].data_offset_64bit = data_offset_64bit;
         import_globals[i].data_offset_32bit = data_offset_32bit;
 
-        get_value_type_size(import_global->type, gc_enabled, &value_size_64bit,
-                            &value_size_32bit);
+        get_value_type_size(import_global->type.val_type, gc_enabled,
+                            &value_size_64bit, &value_size_32bit);
 
         import_globals[i].size_64bit = value_size_64bit;
         import_globals[i].size_32bit = value_size_32bit;
@@ -269,16 +269,16 @@ aot_create_globals(const WASMModule *module, bool gc_enabled,
     /* Create each global */
     for (i = 0; i < module->global_count; i++) {
         WASMGlobal *global = &module->globals[i];
-        globals[i].type = global->type;
-        globals[i].is_mutable = global->is_mutable;
+        globals[i].type.val_type = global->type.val_type;
+        globals[i].type.is_mutable = global->type.is_mutable;
         memcpy(&globals[i].init_expr, &global->init_expr,
                sizeof(global->init_expr));
 
         globals[i].data_offset_64bit = data_offset_64bit;
         globals[i].data_offset_32bit = data_offset_32bit;
 
-        get_value_type_size(global->type, gc_enabled, &value_size_64bit,
-                            &value_size_32bit);
+        get_value_type_size(global->type.val_type, gc_enabled,
+                            &value_size_64bit, &value_size_32bit);
 
         globals[i].size_64bit = value_size_64bit;
         globals[i].size_32bit = value_size_32bit;
@@ -540,6 +540,7 @@ aot_create_comp_data(WASMModule *module, const char *target_arch,
     /* TODO: create import memories */
 
     /* Allocate memory for memory array, reserve one AOTMemory space at least */
+    /* TODO: multi-memory */
     if (!comp_data->memory_count)
         comp_data->memory_count = 1;
 
@@ -558,28 +559,24 @@ aot_create_comp_data(WASMModule *module, const char *target_arch,
     /* Set memory page count */
     for (i = 0; i < module->import_memory_count + module->memory_count; i++) {
         if (i < module->import_memory_count) {
-            comp_data->memories[i].memory_flags =
-                module->import_memories[i].u.memory.flags;
+            comp_data->memories[i].flags =
+                module->import_memories[i].u.memory.mem_type.flags;
             comp_data->memories[i].num_bytes_per_page =
-                module->import_memories[i].u.memory.num_bytes_per_page;
-            comp_data->memories[i].mem_init_page_count =
-                module->import_memories[i].u.memory.init_page_count;
-            comp_data->memories[i].mem_max_page_count =
-                module->import_memories[i].u.memory.max_page_count;
-            comp_data->memories[i].num_bytes_per_page =
-                module->import_memories[i].u.memory.num_bytes_per_page;
+                module->import_memories[i].u.memory.mem_type.num_bytes_per_page;
+            comp_data->memories[i].init_page_count =
+                module->import_memories[i].u.memory.mem_type.init_page_count;
+            comp_data->memories[i].max_page_count =
+                module->import_memories[i].u.memory.mem_type.max_page_count;
         }
         else {
             j = i - module->import_memory_count;
-            comp_data->memories[i].memory_flags = module->memories[j].flags;
+            comp_data->memories[i].flags = module->memories[j].flags;
             comp_data->memories[i].num_bytes_per_page =
                 module->memories[j].num_bytes_per_page;
-            comp_data->memories[i].mem_init_page_count =
+            comp_data->memories[i].init_page_count =
                 module->memories[j].init_page_count;
-            comp_data->memories[i].mem_max_page_count =
+            comp_data->memories[i].max_page_count =
                 module->memories[j].max_page_count;
-            comp_data->memories[i].num_bytes_per_page =
-                module->memories[j].num_bytes_per_page;
         }
     }
 
@@ -603,34 +600,36 @@ aot_create_comp_data(WASMModule *module, const char *target_arch,
         memset(comp_data->tables, 0, size);
         for (i = 0; i < comp_data->table_count; i++) {
             if (i < module->import_table_count) {
-                comp_data->tables[i].elem_type =
-                    module->import_tables[i].u.table.elem_type;
-                comp_data->tables[i].table_flags =
-                    module->import_tables[i].u.table.flags;
-                comp_data->tables[i].table_init_size =
-                    module->import_tables[i].u.table.init_size;
-                comp_data->tables[i].table_max_size =
-                    module->import_tables[i].u.table.max_size;
+                comp_data->tables[i].table_type.elem_type =
+                    module->import_tables[i].u.table.table_type.elem_type;
+                comp_data->tables[i].table_type.flags =
+                    module->import_tables[i].u.table.table_type.flags;
+                comp_data->tables[i].table_type.init_size =
+                    module->import_tables[i].u.table.table_type.init_size;
+                comp_data->tables[i].table_type.max_size =
+                    module->import_tables[i].u.table.table_type.max_size;
 #if WASM_ENABLE_GC != 0
-                comp_data->tables[i].elem_ref_type =
-                    module->import_tables[i].u.table.elem_ref_type;
+                comp_data->tables[i].table_type.elem_ref_type =
+                    module->import_tables[i].u.table.table_type.elem_ref_type;
 #endif
-                comp_data->tables[i].possible_grow =
-                    module->import_tables[i].u.table.possible_grow;
+                comp_data->tables[i].table_type.possible_grow =
+                    module->import_tables[i].u.table.table_type.possible_grow;
             }
             else {
                 j = i - module->import_table_count;
-                comp_data->tables[i].elem_type = module->tables[j].elem_type;
-                comp_data->tables[i].table_flags = module->tables[j].flags;
-                comp_data->tables[i].table_init_size =
-                    module->tables[j].init_size;
-                comp_data->tables[i].table_max_size =
-                    module->tables[j].max_size;
-                comp_data->tables[i].possible_grow =
-                    module->tables[j].possible_grow;
+                comp_data->tables[i].table_type.elem_type =
+                    module->tables[j].table_type.elem_type;
+                comp_data->tables[i].table_type.flags =
+                    module->tables[j].table_type.flags;
+                comp_data->tables[i].table_type.init_size =
+                    module->tables[j].table_type.init_size;
+                comp_data->tables[i].table_type.max_size =
+                    module->tables[j].table_type.max_size;
+                comp_data->tables[i].table_type.possible_grow =
+                    module->tables[j].table_type.possible_grow;
 #if WASM_ENABLE_GC != 0
-                comp_data->tables[j].elem_ref_type =
-                    module->tables[j].elem_ref_type;
+                comp_data->tables[j].table_type.elem_ref_type =
+                    module->tables[j].table_type.elem_ref_type;
                 /* Note: if the init_expr contains extra data for struct/array
                  * initialization information (init_expr.u.data), the pointer is
                  * copied.

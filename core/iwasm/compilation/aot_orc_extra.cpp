@@ -189,7 +189,7 @@ PartitionFunction(GlobalValueSet Requested)
             auto GVName = GV->getName();         /* get the function name */
             const char *gvname = GVName.begin(); /* C function name */
             const char *wrapper;
-            uint32 prefix_len = strlen(AOT_FUNC_PREFIX);
+            uint32 prefix_len = (uint32)strlen(AOT_FUNC_PREFIX);
 
             LOG_DEBUG("requested func %s", gvname);
             /* Convert "aot_func#n_wrapper" to "aot_func#n" */
@@ -203,7 +203,7 @@ PartitionFunction(GlobalValueSet Requested)
                  * if the jit wrapper (which has "_wrapper" suffix in
                  * the name) is requested, compile others in the group too.
                  * otherwise, only compile the requested one.
-                 * (and possibly the correspondig wrapped function,
+                 * (and possibly the corresponding wrapped function,
                  * which has AOT_FUNC_INTERNAL_PREFIX.)
                  */
                 wrapper = strstr(gvname + prefix_len, "_wrapper");

@@ -37,8 +37,9 @@ typedef struct dwarf_extractor {
 
 #define TO_HANDLE(extractor) (dwarf_extractor_handle_t)(extractor)
 
-#define TO_EXTACTOR(handle) (dwarf_extractor *)(handle)
+#define TO_EXTRACTOR(handle) (dwarf_extractor *)(handle)
 
+static const char *compiler_name = "WAMR AoT compiler";
 static bool is_debugger_initialized;
 
 dwarf_extractor_handle_t
@@ -103,7 +104,7 @@ fail3:
 void
 destroy_dwarf_extractor(dwarf_extractor_handle_t handle)
 {
-    dwarf_extractor *extractor = TO_EXTACTOR(handle);
+    dwarf_extractor *extractor = TO_EXTRACTOR(handle);
     if (!extractor)
         return;
     extractor->debugger.DeleteTarget(extractor->target);
@@ -122,7 +123,7 @@ dwarf_gen_file_info(const AOTCompContext *comp_ctx)
     const char *file_name;
     const char *dir_name;
 
-    if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
+    if (!(extractor = TO_EXTRACTOR(comp_ctx->comp_data->extractor)))
         return NULL;
 
     units_number = extractor->module.GetNumCompileUnits();
@@ -198,7 +199,7 @@ dwarf_gen_comp_unit_info(const AOTCompContext *comp_ctx)
     int units_number;
     LLVMMetadataRef comp_unit = NULL;
 
-    if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
+    if (!(extractor = TO_EXTRACTOR(comp_ctx->comp_data->extractor)))
         return NULL;
 
     units_number = extractor->module.GetNumCompileUnits();
@@ -209,8 +210,8 @@ dwarf_gen_comp_unit_info(const AOTCompContext *comp_ctx)
 
         comp_unit = LLVMDIBuilderCreateCompileUnit(
             comp_ctx->debug_builder, LLDB_TO_LLVM_LANG_TYPE(lang_type),
-            comp_ctx->debug_file, "WAMR AoT compiler", 12, 0, NULL, 0, 1, NULL,
-            0, LLVMDWARFEmissionFull, 0, 0, 0, "/", 1, "", 0);
+            comp_ctx->debug_file, compiler_name, strlen(compiler_name), 0, NULL,
+            0, 1, NULL, 0, LLVMDWARFEmissionFull, 0, 0, 0, "/", 1, "", 0);
     }
     return comp_unit;
 }
@@ -289,7 +290,7 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
 {
     SBFunction function(sc.GetFunction());
     const char *function_name = function.GetName();
-    const char *link_name = function.GetName();
+    const char *link_name = function.GetMangledName();
     SBTypeList function_args = function.GetType().GetFunctionArgumentTypes();
     SBType return_type = function.GetType().GetFunctionReturnType();
     const size_t num_function_args = function_args.GetSize();
@@ -304,6 +305,7 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
      * https://github.com/bytecodealliance/wasm-micro-runtime/issues/3163
      */
     LanguageType language_type = function.GetLanguage();
+    bool cplusplus = false;
     switch (language_type) {
         case eLanguageTypeC89:
         case eLanguageTypeC:
@@ -311,41 +313,53 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
         case eLanguageTypeC11:
         case eLanguageTypeC17:
             break;
+        case eLanguageTypeC_plus_plus:
+        case eLanguageTypeC_plus_plus_03:
+        case eLanguageTypeC_plus_plus_11:
+        case eLanguageTypeC_plus_plus_14:
+        case eLanguageTypeC_plus_plus_17:
+        case eLanguageTypeC_plus_plus_20:
+            cplusplus = true;
+            break;
         default:
-            LOG_WARNING("func %s has unsuppoted language_type 0x%x",
+            LOG_WARNING("func %s has unsupported language_type 0x%x",
                         function_name, (int)language_type);
             return NULL;
     }
 
-    if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
+    if (!(extractor = TO_EXTRACTOR(comp_ctx->comp_data->extractor)))
         return NULL;
 
     LLVMDIBuilderRef DIB = comp_ctx->debug_builder;
     LLVMMetadataRef File = comp_ctx->debug_file; /* a fallback */
 
     LLVMMetadataRef ParamTypes[num_function_args + 1];
+    size_t num_param_types = 0;
 
-    ParamTypes[0] = lldb_type_to_type_dbi(comp_ctx, return_type);
+    if (!cplusplus) {
+        num_param_types = num_function_args + 1;
+        ParamTypes[0] = lldb_type_to_type_dbi(comp_ctx, return_type);
 
-    for (uint32_t function_arg_idx = 0; function_arg_idx < num_function_args;
-         ++function_arg_idx) {
-        SBType function_arg_type =
-            function_args.GetTypeAtIndex(function_arg_idx);
+        for (uint32_t function_arg_idx = 0;
+             function_arg_idx < num_function_args; ++function_arg_idx) {
+            SBType function_arg_type =
+                function_args.GetTypeAtIndex(function_arg_idx);
 
-        if (function_arg_type.IsValid()) {
-            ParamTypes[function_arg_idx + 1] =
-                lldb_type_to_type_dbi(comp_ctx, function_arg_type);
-            if (ParamTypes[function_arg_idx + 1] == NULL) {
-                LOG_WARNING(
-                    "func %s arg %" PRIu32
-                    " has a type not implemented by lldb_type_to_type_dbi",
-                    function_name, function_arg_idx);
-            }
-        }
-        else {
-            LOG_WARNING("func %s arg %" PRIu32 ": GetTypeAtIndex failed",
+            if (function_arg_type.IsValid()) {
+                ParamTypes[function_arg_idx + 1] =
+                    lldb_type_to_type_dbi(comp_ctx, function_arg_type);
+                if (ParamTypes[function_arg_idx + 1] == NULL) {
+                    LOG_WARNING(
+                        "func %s arg %" PRIu32
+                        " has a type not implemented by lldb_type_to_type_dbi",
                         function_name, function_arg_idx);
-            ParamTypes[function_arg_idx + 1] = NULL;
+                }
+            }
+            else {
+                LOG_WARNING("func %s arg %" PRIu32 ": GetTypeAtIndex failed",
+                            function_name, function_arg_idx);
+                ParamTypes[function_arg_idx + 1] = NULL;
+            }
         }
     }
 
@@ -365,7 +379,7 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
     }
 
     LLVMMetadataRef FunctionTy = LLVMDIBuilderCreateSubroutineType(
-        DIB, File, ParamTypes, num_function_args + 1, LLVMDIFlagZero);
+        DIB, File, ParamTypes, num_param_types, LLVMDIFlagZero);
 
     auto line_entry = sc.GetLineEntry();
     LLVMMetadataRef ReplaceableFunctionMetadata =
@@ -375,8 +389,8 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
 
     LLVMMetadataRef FunctionMetadata = LLVMDIBuilderCreateFunction(
         DIB, File, function_name, strlen(function_name), link_name,
-        strlen(link_name), File, line_entry.GetLine(), FunctionTy, true, true,
-        line_entry.GetLine(), LLVMDIFlagZero, false);
+        link_name != NULL ? strlen(link_name) : 0, File, line_entry.GetLine(),
+        FunctionTy, true, true, line_entry.GetLine(), LLVMDIFlagZero, false);
 
     LLVMMetadataReplaceAllUsesWith(ReplaceableFunctionMetadata,
                                    FunctionMetadata);
@@ -385,13 +399,6 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
 
     LLVMMetadataRef ParamExpression =
         LLVMDIBuilderCreateExpression(DIB, NULL, 0);
-    auto variable_list =
-        function.GetBlock().GetVariables(extractor->target, true, false, false);
-    if (num_function_args != variable_list.GetSize()) {
-        LOG_ERROR(
-            "function args number dismatch!:value number=%d, function args=%d",
-            variable_list.GetSize(), num_function_args);
-    }
 
     LLVMMetadataRef ParamLocation = LLVMDIBuilderCreateDebugLocation(
         comp_ctx->context, line_entry.GetLine(), 0, FunctionMetadata, NULL);
@@ -399,39 +406,63 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
     // TODO:change to void *  or WasmExenv * ？
     LLVMMetadataRef voidtype =
         LLVMDIBuilderCreateBasicType(DIB, "void", 4, 0, 0, LLVMDIFlagZero);
-    LLVMMetadataRef voidpionter =
+    LLVMMetadataRef voidpointer =
         LLVMDIBuilderCreatePointerType(DIB, voidtype, 64, 0, 0, "void *", 6);
 
     LLVMMetadataRef ParamVar = LLVMDIBuilderCreateParameterVariable(
         DIB, FunctionMetadata, "exenv", 5, 1,
         File, // starts form 1, and 1 is exenv,
-        line_entry.GetLine(), voidpionter, true, LLVMDIFlagZero);
+        line_entry.GetLine(), voidpointer, true, LLVMDIFlagZero);
     LLVMValueRef Param = LLVMGetParam(func_ctx->func, 0);
     LLVMBasicBlockRef block_curr = LLVMGetEntryBasicBlock(func_ctx->func);
     LLVMDIBuilderInsertDbgValueAtEnd(DIB, Param, ParamVar, ParamExpression,
                                      ParamLocation, block_curr);
 
-    for (uint32_t function_arg_idx = 0;
-         function_arg_idx < variable_list.GetSize(); ++function_arg_idx) {
-        SBValue variable(variable_list.GetValueAtIndex(function_arg_idx));
-        if (variable.IsValid() && ParamTypes[function_arg_idx + 1] != NULL) {
-            SBDeclaration dec(variable.GetDeclaration());
-            auto valtype = variable.GetType();
-            LLVMMetadataRef ParamLocation = LLVMDIBuilderCreateDebugLocation(
-                comp_ctx->context, dec.GetLine(), dec.GetColumn(),
-                FunctionMetadata, NULL);
-            const char *varname = variable.GetName();
-            LLVMMetadataRef ParamVar = LLVMDIBuilderCreateParameterVariable(
-                DIB, FunctionMetadata, varname, varname ? strlen(varname) : 0,
-                function_arg_idx + 1 + 1,
-                File, // starts form 1, and 1 is exenv,
-                dec.GetLine(), ParamTypes[function_arg_idx + 1], true,
-                LLVMDIFlagZero);
-            LLVMValueRef Param =
-                LLVMGetParam(func_ctx->func, function_arg_idx + 1);
-            LLVMDIBuilderInsertDbgValueAtEnd(DIB, Param, ParamVar,
-                                             ParamExpression, ParamLocation,
-                                             block_curr);
+    if (num_function_args != func_ctx->aot_func->func_type->param_count) {
+        // for C, this happens when the compiler optimized out some of
+        // function parameters.
+        //
+        // for C++, this mismatch is normal because of the "this" pointer.
+        if (!cplusplus) {
+            LOG_WARNING("function args number mismatch! num_function_args: %d, "
+                        "wasm func params: %d, func: %s",
+                        num_function_args,
+                        func_ctx->aot_func->func_type->param_count,
+                        function_name);
+        }
+    }
+    else if (!cplusplus) {
+        auto variable_list = function.GetBlock().GetVariables(
+            extractor->target, true, false, false);
+        if (num_function_args != variable_list.GetSize()) {
+            LOG_ERROR("function args number mismatch!:value number=%d, "
+                      "function args=%d",
+                      variable_list.GetSize(), num_function_args);
+        }
+        for (uint32_t function_arg_idx = 0;
+             function_arg_idx < variable_list.GetSize(); ++function_arg_idx) {
+            SBValue variable(variable_list.GetValueAtIndex(function_arg_idx));
+            if (variable.IsValid()
+                && ParamTypes[function_arg_idx + 1] != NULL) {
+                SBDeclaration dec(variable.GetDeclaration());
+                auto valtype = variable.GetType();
+                LLVMMetadataRef ParamLocation =
+                    LLVMDIBuilderCreateDebugLocation(
+                        comp_ctx->context, dec.GetLine(), dec.GetColumn(),
+                        FunctionMetadata, NULL);
+                const char *varname = variable.GetName();
+                LLVMMetadataRef ParamVar = LLVMDIBuilderCreateParameterVariable(
+                    DIB, FunctionMetadata, varname,
+                    varname ? strlen(varname) : 0, function_arg_idx + 1 + 1,
+                    File, // starts form 1, and 1 is exenv,
+                    dec.GetLine(), ParamTypes[function_arg_idx + 1], true,
+                    LLVMDIFlagZero);
+                LLVMValueRef Param =
+                    LLVMGetParam(func_ctx->func, function_arg_idx + 1);
+                LLVMDIBuilderInsertDbgValueAtEnd(DIB, Param, ParamVar,
+                                                 ParamExpression, ParamLocation,
+                                                 block_curr);
+            }
         }
     }
 
@@ -447,13 +478,13 @@ dwarf_gen_func_info(const AOTCompContext *comp_ctx,
     uint64_t vm_offset;
     AOTFunc *func = func_ctx->aot_func;
 
-    if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
+    if (!(extractor = TO_EXTRACTOR(comp_ctx->comp_data->extractor)))
         return NULL;
 
     // A code address in DWARF for WebAssembly is the offset of an
     // instruction relative within the Code section of the WebAssembly file.
     // For this reason Section::GetFileAddress() must return zero for the
-    // Code section. (refert to ObjectFileWasm.cpp)
+    // Code section. (refer to ObjectFileWasm.cpp)
     vm_offset = func->code - comp_ctx->comp_data->wasm_module->buf_code;
 
     auto sbaddr = extractor->target.ResolveFileAddress(vm_offset);
@@ -479,13 +510,13 @@ dwarf_get_func_name(const AOTCompContext *comp_ctx,
 
     name[0] = '\0';
 
-    if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
+    if (!(extractor = TO_EXTRACTOR(comp_ctx->comp_data->extractor)))
         return;
 
     // A code address in DWARF for WebAssembly is the offset of an
     // instruction relative within the Code section of the WebAssembly file.
     // For this reason Section::GetFileAddress() must return zero for the
-    // Code section. (refert to ObjectFileWasm.cpp)
+    // Code section. (refer to ObjectFileWasm.cpp)
     vm_offset = func->code - comp_ctx->comp_data->wasm_module->buf_code;
 
     auto sbaddr = extractor->target.ResolveFileAddress(vm_offset);
@@ -509,7 +540,7 @@ dwarf_gen_location(const AOTCompContext *comp_ctx,
 
     if (func_ctx->debug_func == NULL)
         return NULL;
-    if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
+    if (!(extractor = TO_EXTRACTOR(comp_ctx->comp_data->extractor)))
         return NULL;
 
     auto sbaddr = extractor->target.ResolveFileAddress(vm_offset);
@@ -550,13 +581,13 @@ dwarf_gen_func_ret_location(const AOTCompContext *comp_ctx,
     AOTFunc *func = func_ctx->aot_func;
     LLVMMetadataRef location_info = NULL;
 
-    if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
+    if (!(extractor = TO_EXTRACTOR(comp_ctx->comp_data->extractor)))
         return NULL;
 
     // A code address in DWARF for WebAssembly is the offset of an
     // instruction relative within the Code section of the WebAssembly file.
     // For this reason Section::GetFileAddress() must return zero for the
-    // Code section. (refert to ObjectFileWasm.cpp)
+    // Code section. (refer to ObjectFileWasm.cpp)
     vm_offset = (func->code + func->code_size - 1)
                 - comp_ctx->comp_data->wasm_module->buf_code;
     location_info = dwarf_gen_location(comp_ctx, func_ctx, vm_offset);

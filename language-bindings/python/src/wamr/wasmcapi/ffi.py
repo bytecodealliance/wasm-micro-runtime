@@ -180,7 +180,7 @@ def __repr_wasm_valtype_t(self):
     elif WASM_FUNCREF == val_kind:
         return "funcref"
     else:
-        return "anyref"
+        return "externref"
 
 
 wasm_valtype_t.__eq__ = __compare_wasm_valtype_t
@@ -406,7 +406,7 @@ def __compare_wasm_val_t(self, other):
         return self.of.f32 == other.of.f32
     elif WASM_F64 == self.kind:
         return self.of.f64 == other.of.f63
-    elif WASM_ANYREF == self.kind:
+    elif WASM_EXTERNREF == self.kind:
         raise RuntimeError("FIXME")
     else:
         raise RuntimeError("not a valid val kind")
@@ -421,8 +421,8 @@ def __repr_wasm_val_t(self):
         return f"f32 {self.of.f32}"
     elif WASM_F64 == self.kind:
         return f"f64 {self.of.f64}"
-    elif WASM_ANYREF == self.kind:
-        return f"anyref {self.of.ref}"
+    elif WASM_EXTERNREF == self.kind:
+        return f"externref {self.of.ref}"
     else:
         raise RuntimeError("not a valid val kind")
 

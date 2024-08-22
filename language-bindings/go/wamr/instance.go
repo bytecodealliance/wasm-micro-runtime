@@ -211,7 +211,7 @@ func (self *Instance) CallFuncV(funcName string,
             case int32:
                 if (param_types[i] != C.WASM_I32 &&
                     param_types[i] != C.WASM_FUNCREF &&
-                    param_types[i] != C.WASM_ANYREF) {
+                    param_types[i] != C.WASM_EXTERNREF) {
                     str := "CallFunc error: invalid param type %d, " +
                            "expect i32 but got other"
                     return fmt.Errorf(str, param_types[i])
@@ -273,7 +273,7 @@ func (self *Instance) CallFuncV(funcName string,
                 fallthrough
             case C.WASM_FUNCREF:
                 fallthrough
-            case C.WASM_ANYREF:
+            case C.WASM_EXTERNREF:
                 i32 := (int32)(argv[argc])
                 results[i] = i32
                 argc++

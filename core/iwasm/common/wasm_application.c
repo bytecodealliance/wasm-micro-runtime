@@ -127,7 +127,7 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
 #if WASM_ENABLE_THREAD_MGR != 0
         if (ret) {
             /* On a successful return from the `_start` function,
-               we terminate other threads by mimicing wasi:proc_exit(0).
+               we terminate other threads by mimicking wasi:proc_exit(0).
 
                Note:
                - A return from the `main` function is an equivalent of
@@ -201,9 +201,23 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
     if (func_type->param_count) {
         for (i = 0; i < argc; i++)
             total_argv_size += (uint32)(strlen(argv[i]) + 1);
-        total_argv_size = align_uint(total_argv_size, 4);
+#if WASM_ENABLE_MEMORY64 != 0
+        if (is_memory64)
+            /* `char **argv` is an array of 64-bit elements in memory64 */
+            total_argv_size = align_uint(total_argv_size, 8);
+        else
+#endif
+            total_argv_size = align_uint(total_argv_size, 4);
 
-        total_size = (uint64)total_argv_size + sizeof(int32) * (uint64)argc;
+#if WASM_ENABLE_MEMORY64 != 0
+        if (is_memory64)
+            /* `char **argv` is an array of 64-bit elements in memory64 */
+            total_size =
+                (uint64)total_argv_size + sizeof(uint64) * (uint64)argc;
+        else
+#endif
+            total_size =
+                (uint64)total_argv_size + sizeof(uint32) * (uint64)argc;
 
         if (total_size >= UINT32_MAX
             || !(argv_buf_offset = wasm_runtime_module_malloc(
@@ -219,7 +233,15 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
         for (i = 0; i < argc; i++) {
             bh_memcpy_s(p, (uint32)(p_end - p), argv[i],
                         (uint32)(strlen(argv[i]) + 1));
-            argv_offsets[i] = (uint32)argv_buf_offset + (uint32)(p - argv_buf);
+#if WASM_ENABLE_MEMORY64 != 0
+            if (is_memory64)
+                /* `char **argv` is an array of 64-bit elements in memory64 */
+                ((uint64 *)argv_offsets)[i] =
+                    (uint32)argv_buf_offset + (uint32)(p - argv_buf);
+            else
+#endif
+                argv_offsets[i] =
+                    (uint32)argv_buf_offset + (uint32)(p - argv_buf);
             p += strlen(argv[i]) + 1;
         }
 
@@ -491,7 +513,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                         bh_memcpy_s(&u.val, sizeof(double), &ud.d,
                                     sizeof(double));
                     }
-                    if (endptr[0] == ':') {
+                    if (endptr && endptr[0] == ':') {
                         uint64 sig;
                         union ieee754_double ud;
                         sig = strtoull(endptr + 1, &endptr, 0);
@@ -516,11 +538,11 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
             case VALUE_TYPE_V128:
             {
                 /* it likes 0x123\0x234 or 123\234 */
-                /* retrive first i64 */
+                /* retrieve first i64 */
                 *(uint64 *)(argv1 + p) = strtoull(argv[i], &endptr, 0);
                 /* skip \ */
                 endptr++;
-                /* retrive second i64 */
+                /* retrieve second i64 */
                 *(uint64 *)(argv1 + p + 2) = strtoull(endptr, &endptr, 0);
                 p += 4;
                 break;

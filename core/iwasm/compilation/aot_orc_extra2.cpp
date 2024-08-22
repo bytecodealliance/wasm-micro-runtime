@@ -130,7 +130,7 @@ DEFINE_SIMPLE_CONVERSION_FUNCTIONS(llvm::orc::LLLazyJITBuilder,
                                    LLVMOrcLLLazyJITBuilderRef)
 
 void
-LLVMOrcLLJITBuilderSetCompileFuncitonCreatorWithStackSizesCallback(
+LLVMOrcLLJITBuilderSetCompileFunctionCreatorWithStackSizesCallback(
     LLVMOrcLLLazyJITBuilderRef Builder,
     void (*cb)(void *, const char *, size_t, size_t), void *cb_data)
 {
