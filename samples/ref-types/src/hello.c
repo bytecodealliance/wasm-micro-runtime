@@ -93,7 +93,7 @@ wasm_get_externref(wasm_exec_env_t exec_env, wasm_module_inst_t inst,
         return false;
     }
 
-    if (WASM_ANYREF != results[0].kind) {
+    if (WASM_EXTERNREF != results[0].kind) {
         return false;
     }
 
@@ -108,7 +108,7 @@ wasm_cmp_externref(wasm_exec_env_t exec_env, wasm_module_inst_t inst,
     wasm_val_t results[1] = { 0 };
     wasm_val_t arguments[2] = {
         { .kind = WASM_I32, .of.i32 = index },
-        { .kind = WASM_ANYREF, .of.foreign = externref },
+        { .kind = WASM_EXTERNREF, .of.foreign = externref },
     };
 
     if (!exec_env || !wasm_cmp_externref_ptr || !ret_result) {

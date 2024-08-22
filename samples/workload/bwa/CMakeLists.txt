@@ -35,9 +35,8 @@ ExternalProject_Add(libz_src
 ################ bwa ################
 ExternalProject_Add(bwa
   GIT_REPOSITORY https://github.com/lh3/bwa.git
-  GIT_TAG        139f68fc4c3747813783a488aef2adc86626b01b
+  GIT_TAG        v0.7.18
   GIT_PROGRESS   ON
-  GIT_SHALLOW    ON
   SOURCE_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/bwa
   DEPENDS        libz_src
   UPDATE_COMMAND git clean -ffdx && git checkout -- *

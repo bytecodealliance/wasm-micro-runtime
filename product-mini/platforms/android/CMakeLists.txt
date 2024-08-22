@@ -105,6 +105,8 @@ set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
+add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
+
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections -pie -fPIE")
 
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security")

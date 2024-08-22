@@ -1,51 +1,52 @@
-# Copyright (C) 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 3.14)
+cmake_minimum_required(VERSION 2.9)
 
-project (wamr_unit_tests)
+project(unit-test)
 
-include (CTest)
+SET(CMAKE_BUILD_TYPE Debug)
 
-if (NOT DEFINED WAMR_BUILD_INTERP)
-  # Enable Interpreter by default
-  set (WAMR_BUILD_INTERP 1)
-endif ()
+# add_definitions (-m32)
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
 
-if (NOT DEFINED WAMR_BUILD_PLATFORM)
-  string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
-endif ()
+if(WAMR_BUILD_TARGET STREQUAL "X86_32")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32")
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
+endif()
 
-set (WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
-include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
-add_library (vmlib ${WAMR_RUNTIME_LIB_SOURCE})
+# Prevent overriding the parent project's compiler/linker
+# settings on Windows
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
+# Fetch Google test
 include (FetchContent)
 FetchContent_Declare (
     googletest
     URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
 )
-# For Windows: Prevent overriding the parent project's compiler/linker settings
-set (gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable (googletest)
 
-include (GoogleTest)
+SET(GOOGLETEST_INCLUDED 1)
 
-add_library (wamr_gtest_main main.cpp)
-target_link_libraries (wamr_gtest_main PUBLIC gtest vmlib)
+include(GoogleTest)
+enable_testing()
 
-function (create_wamr_unit_test test_name)
-    set (sources ${ARGN})
-    add_executable (${test_name} ${sources})
-    target_link_libraries (
-        ${test_name}
-        wamr_gtest_main
-        vmlib
-        ${LLVM_AVAILABLE_LIBS}
-    )
-    gtest_discover_tests (${test_name})
-    endfunction ()
-
-if (WAMR_BUILD_LIB_WASI_THREADS EQUAL 1)
-    include (${IWASM_DIR}/libraries/lib-wasi-threads/unit-test/lib_wasi_threads_unit_tests.cmake)
-endif ()
+add_subdirectory(wasm-vm)
+add_subdirectory(interpreter)
+add_subdirectory(aot)
+add_subdirectory(wasm-c-api)
+add_subdirectory(libc-builtin)
+add_subdirectory(shared-utils)
+add_subdirectory(running-modes)
+add_subdirectory(runtime-common)
+add_subdirectory(custom-section)
+add_subdirectory(compilation)
+add_subdirectory(linear-memory-wasm)
+add_subdirectory(linear-memory-aot)
+add_subdirectory(aot-stack-frame)
+add_subdirectory(linux-perf)
+add_subdirectory(gc)
+add_subdirectory(memory64)
+add_subdirectory(tid-allocator)

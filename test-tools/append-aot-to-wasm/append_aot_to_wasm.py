@@ -125,7 +125,7 @@ def create_custom_section_aligned(
     return full_content_bin
 
 
-def main(wasm_file: str, aot_file: str, output: str) -> None:
+def main(wasm_file: str, aot_file: str, output: str, ver_str: str) -> None:
     cwd = Path.cwd()
     wasm_file = cwd.joinpath(wasm_file).resolve()
     aot_file = cwd.joinpath(aot_file).resolve()
@@ -146,7 +146,10 @@ def main(wasm_file: str, aot_file: str, output: str) -> None:
             f_out.write(wasm_content)
             wasm_content = f_in.read(1024)
 
-        f_out.write(create_custom_section_aligned(f_out.tell(), "aot", aot_content, 4))
+        section_name = f"wamr-aot-{ver_str}" if ver_str else "wamr-aot"
+        f_out.write(
+            create_custom_section_aligned(f_out.tell(), section_name, aot_content, 4)
+        )
 
     print(f"{wasm_file.name} + {aot_file.name} ==> {output}")
 
@@ -155,7 +158,10 @@ if __name__ == "__main__":
     argparse = argparse.ArgumentParser()
     argparse.add_argument("--wasm", help="a .wasm")
     argparse.add_argument("--aot", help="a .aot")
+    argparse.add_argument(
+        "--ver-str", help="a version string will be used to construct section name"
+    )
     argparse.add_argument("-o", "--output", help="the output, still be a .wasm")
 
     args = argparse.parse_args()
-    main(args.wasm, args.aot, args.output)
+    main(args.wasm, args.aot, args.output, args.ver_str)

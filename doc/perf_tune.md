@@ -84,7 +84,7 @@ Developer can refer to the `test_pgo.sh` files under each benchmark folder for m
 
 Please notice that this method is not a general solution since it may lead to security issues. And only boost the performance for some platforms in AOT mode and don't support hardware trap for memory boundary check.
 
-1. Build WAMR with `-DWAMR_CONFIGUABLE_BOUNDS_CHECKS=1` option.
+1. Build WAMR with `-DWAMR_CONFIGURABLE_BOUNDS_CHECKS=1` option.
 
 2. Compile AOT module by wamrc with `--bounds-check=0` option.
 

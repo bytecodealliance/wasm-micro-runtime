@@ -86,8 +86,8 @@ fail:
 }
 
 static bool
-interger_vector_compare(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                        IntCond cond, LLVMTypeRef vector_type)
+integer_vector_compare(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                       IntCond cond, LLVMTypeRef vector_type)
 {
     LLVMValueRef vec1, vec2, result;
     LLVMIntPredicate int_pred;
@@ -138,28 +138,28 @@ bool
 aot_compile_simd_i8x16_compare(AOTCompContext *comp_ctx,
                                AOTFuncContext *func_ctx, IntCond cond)
 {
-    return interger_vector_compare(comp_ctx, func_ctx, cond, V128_i8x16_TYPE);
+    return integer_vector_compare(comp_ctx, func_ctx, cond, V128_i8x16_TYPE);
 }
 
 bool
 aot_compile_simd_i16x8_compare(AOTCompContext *comp_ctx,
                                AOTFuncContext *func_ctx, IntCond cond)
 {
-    return interger_vector_compare(comp_ctx, func_ctx, cond, V128_i16x8_TYPE);
+    return integer_vector_compare(comp_ctx, func_ctx, cond, V128_i16x8_TYPE);
 }
 
 bool
 aot_compile_simd_i32x4_compare(AOTCompContext *comp_ctx,
                                AOTFuncContext *func_ctx, IntCond cond)
 {
-    return interger_vector_compare(comp_ctx, func_ctx, cond, V128_i32x4_TYPE);
+    return integer_vector_compare(comp_ctx, func_ctx, cond, V128_i32x4_TYPE);
 }
 
 bool
 aot_compile_simd_i64x2_compare(AOTCompContext *comp_ctx,
                                AOTFuncContext *func_ctx, IntCond cond)
 {
-    return interger_vector_compare(comp_ctx, func_ctx, cond, V128_i64x2_TYPE);
+    return integer_vector_compare(comp_ctx, func_ctx, cond, V128_i64x2_TYPE);
 }
 
 static bool

@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-error
+wasi_nn_error
 wasm_load(char *model_name, graph *g, execution_target target)
 {
     FILE *pFile = fopen(model_name, "r");
@@ -23,14 +23,14 @@ wasm_load(char *model_name, graph *g, execution_target target)
     buffer = (uint8_t *)malloc(sizeof(uint8_t) * MAX_MODEL_SIZE);
     if (buffer == NULL) {
         fclose(pFile);
-        return missing_memory;
+        return too_large;
     }
 
     result = fread(buffer, 1, MAX_MODEL_SIZE, pFile);
     if (result <= 0) {
         fclose(pFile);
         free(buffer);
-        return missing_memory;
+        return too_large;
     }
 
     graph_builder_array arr;
@@ -40,13 +40,13 @@ wasm_load(char *model_name, graph *g, execution_target target)
     if (arr.buf == NULL) {
         fclose(pFile);
         free(buffer);
-        return missing_memory;
+        return too_large;
     }
 
     arr.buf[0].size = result;
     arr.buf[0].buf = buffer;
 
-    error res = load(&arr, tensorflowlite, target, g);
+    wasi_nn_error res = load(&arr, tensorflowlite, target, g);
 
     fclose(pFile);
     free(buffer);
@@ -54,20 +54,27 @@ wasm_load(char *model_name, graph *g, execution_target target)
     return res;
 }
 
-error
+wasi_nn_error
+wasm_load_by_name(const char *model_name, graph *g)
+{
+    wasm_nn_error res = load_by_name(model_name, g);
+    return res;
+}
+
+wasi_nn_error
 wasm_init_execution_context(graph g, graph_execution_context *ctx)
 {
     return init_execution_context(g, ctx);
 }
 
-error
+wasi_nn_error
 wasm_set_input(graph_execution_context ctx, float *input_tensor, uint32_t *dim)
 {
     tensor_dimensions dims;
     dims.size = INPUT_TENSOR_DIMS;
     dims.buf = (uint32_t *)malloc(dims.size * sizeof(uint32_t));
     if (dims.buf == NULL)
-        return missing_memory;
+        return too_large;
 
     tensor tensor;
     tensor.dimensions = &dims;
@@ -75,19 +82,19 @@ wasm_set_input(graph_execution_context ctx, float *input_tensor, uint32_t *dim)
         tensor.dimensions->buf[i] = dim[i];
     tensor.type = fp32;
     tensor.data = (uint8_t *)input_tensor;
-    error err = set_input(ctx, 0, &tensor);
+    wasi_nn_error err = set_input(ctx, 0, &tensor);
 
     free(dims.buf);
     return err;
 }
 
-error
+wasi_nn_error
 wasm_compute(graph_execution_context ctx)
 {
     return compute(ctx);
 }
 
-error
+wasi_nn_error
 wasm_get_output(graph_execution_context ctx, uint32_t index, float *out_tensor,
                 uint32_t *out_size)
 {
