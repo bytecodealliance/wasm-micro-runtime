@@ -846,12 +846,6 @@ wasm_is_reftype_supers_of_func(uint8 type)
     return (type == REF_TYPE_FUNCREF) ? true : false;
 }
 
-inline static bool
-wasm_is_reftype_supers_of_extern(uint8 type)
-{
-    return (type == REF_TYPE_EXTERNREF) ? true : false;
-}
-
 #if WASM_ENABLE_STRINGREF != 0
 inline static bool
 wasm_is_reftype_supers_of_string(uint8 type)

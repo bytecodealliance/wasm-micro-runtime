@@ -86,7 +86,7 @@ typedef enum WASMOpcode {
     WASM_OP_I32_STORE8 = 0x3a,   /* i32.store8 */
     WASM_OP_I32_STORE16 = 0x3b,  /* i32.store16 */
     WASM_OP_I64_STORE8 = 0x3c,   /* i64.store8 */
-    WASM_OP_I64_STORE16 = 0x3d,  /* i64.sotre16 */
+    WASM_OP_I64_STORE16 = 0x3d,  /* i64.store16 */
     WASM_OP_I64_STORE32 = 0x3e,  /* i64.store32 */
     WASM_OP_MEMORY_SIZE = 0x3f,  /* memory.size */
     WASM_OP_MEMORY_GROW = 0x40,  /* memory.grow */
@@ -325,7 +325,7 @@ typedef enum WASMGCEXTOpcode {
     WASM_OP_I31_GET_S = 0x1D, /* i31.get_s */
     WASM_OP_I31_GET_U = 0x1E, /* i31.get_u */
 
-    /* stringref related opcoded */
+    /* stringref related opcodes */
     WASM_OP_STRING_NEW_UTF8 = 0x80,          /* string.new_utf8 */
     WASM_OP_STRING_NEW_WTF16 = 0x81,         /* string.new_wtf16 */
     WASM_OP_STRING_CONST = 0x82,             /* string.const */

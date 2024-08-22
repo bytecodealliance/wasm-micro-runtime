@@ -36,7 +36,7 @@ void foo2(wasm_exec_env_t exec_env, char * msg, uint8 * buffer, int buf_len)
 }
 ```
 
-The first parameter exec_env must be defined using type **wasm_exec_env_t** which is the calling convention  by WAMR. 
+The first parameter exec_env must be defined using type **wasm_exec_env_t** which is the calling convention  by WAMR.
 
 The rest parameters should be in the same types as the parameters of WASM function foo(), but there are a few special cases that are explained in section "Buffer address conversion and boundary check".  Regarding the parameter names, they don't have to be the same, but we would suggest using the same names for easy maintenance.
 
@@ -47,10 +47,10 @@ The rest parameters should be in the same types as the parameters of WASM functi
 Register the native APIs in the runtime, then everything is fine. It is ready to build the runtime software.
 
 ``` C
-// Define an array of NativeSymbol for the APIs to be exported. 
+// Define an array of NativeSymbol for the APIs to be exported.
 // Note: the array must be static defined since runtime
 //       will keep it after registration
-static NativeSymbol native_symbols[] = 
+static NativeSymbol native_symbols[] =
 {
     {
         "foo", 		// the name of WASM function name
@@ -61,7 +61,7 @@ static NativeSymbol native_symbols[] =
         "foo2", 		// the name of WASM function name
      	foo2, 			// the native function pointer
         "($*~)"			// the function prototype signature
-    }    
+    }
 };
 
 // initialize the runtime before registering the native functions
@@ -69,12 +69,12 @@ wasm_runtime_init();
 
 int n_native_symbols = sizeof(native_symbols) / sizeof(NativeSymbol);
 if (!wasm_runtime_register_natives("env",
-                                   native_symbols, 
+                                   native_symbols,
                                    n_native_symbols)) {
     goto fail1;
 }
 
-// natives registeration must be done before loading WASM modules
+// natives registration must be done before loading WASM modules
 module = wasm_runtime_load(buffer, size, error_buf, sizeof(error_buf));
 
 ```
@@ -86,7 +86,7 @@ The function signature field in **NativeSymbol** structure is a string for descr
 Each letter in the "()" represents a parameter type, and the one following after ")" represents the return value type. The meaning of each letter:
 
 - '**i**': i32
-- '**I**': i64 
+- '**I**': i64
 - '**f**': f32
 - '**F**': f64
 - '**r**': externref (has to be the value of a `uintptr_t` variable), or all kinds of GC reference types when GC feature is enabled
@@ -101,13 +101,13 @@ The signature can defined as NULL, then all function parameters are assumed as i
 The `NativeSymbol` element for `foo2 ` above can be also defined with macro EXPORT_WASM_API_WITH_SIG. This macro can be used when the native function name is the same as the WASM symbol name.
 
 ```c
-static NativeSymbol native_symbols[] = 
+static NativeSymbol native_symbols[] =
 {
 	EXPORT_WASM_API_WITH_SIG(foo2, "($*~)")   // wasm symbol name will be "foo2"
 };
 ```
 
-​    
+​
 
 ## Call exported API in WASM application
 
@@ -124,7 +124,7 @@ int main(int argc, char **argv)
 
     int c = foo(a, b);   				// call into native foo_native()
     foo2(msg, buffer, sizeof(buffer));   // call into native foo2()
-    
+
     return 0;
 }
 ```
@@ -157,9 +157,9 @@ As function parameters are always passed in 32 bits numbers, you can also use 'i
 // for buffer address or string parameters, here
 // is how to do address conversion and boundary check manually
 //
-void foo2(wasm_exec_env_t exec_env, 
-          uint32 msg_offset, 
-          uint32 buffer_offset, 
+void foo2(wasm_exec_env_t exec_env,
+          uint32 msg_offset,
+          uint32 buffer_offset,
           int32 buf_len)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
@@ -169,7 +169,7 @@ void foo2(wasm_exec_env_t exec_env,
     // do boundary check
     if (!wasm_runtime_validate_app_str_add(msg_offset))
         return 0;
-    
+
     if (!wasm_runtime_validate_app_addr((uint64)buffer_offset, (uint64)buf_len))
         return;
 
@@ -187,7 +187,7 @@ void foo2(wasm_exec_env_t exec_env,
 
 ## Sandbox security attention
 
-The runtime builder should ensure not broking the memory sandbox when exporting the native function to WASM. 
+The runtime builder should ensure not broking the memory sandbox when exporting the native function to WASM.
 
 A ground rule:
 
@@ -196,7 +196,7 @@ A ground rule:
 A few recommendations:
 
 - Never pass any structure/class object pointer to native (do data serialization instead)
-- Never pass a function pointer to the native 
+- Never pass a function pointer to the native
 
 Note: while not recommended here, nothing prevents you from passing
 structure/function pointers as far as the native API is aware of

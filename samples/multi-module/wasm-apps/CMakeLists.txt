@@ -57,6 +57,7 @@ function(COMPILE_WITH_CLANG SOURCE_FILE COMMAND)
 
   add_executable(${MAIN_TARGET_NAME} ${SOURCE_FILE})
   set_target_properties(${MAIN_TARGET_NAME} PROPERTIES OUTPUT_NAME ${WASM_MODULE})
+  target_compile_options (${MAIN_TARGET_NAME} PRIVATE -fno-exceptions)
 
   if(${COMMAND})
     message(STATUS "Generating ${WASM_MODULE} as COMMAND...")

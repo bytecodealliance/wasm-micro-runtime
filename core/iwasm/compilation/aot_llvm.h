@@ -75,10 +75,12 @@ typedef struct AOTValue {
     struct AOTValue *next;
     struct AOTValue *prev;
     LLVMValueRef value;
+    uint64 const_value; /* valid if is_const is true */
+    uint32 local_idx;
     /* VALUE_TYPE_I32/I64/F32/F64/VOID */
     uint8 type;
     bool is_local;
-    uint32 local_idx;
+    bool is_const;
 } AOTValue;
 
 /**
@@ -195,7 +197,7 @@ typedef struct AOTBlockStack {
 typedef struct AOTCheckedAddr {
     struct AOTCheckedAddr *next;
     uint32 local_idx;
-    uint32 offset;
+    uint64 offset;
     uint32 bytes;
 } AOTCheckedAddr, *AOTCheckedAddrList;
 
@@ -262,6 +264,7 @@ typedef struct AOTLLVMTypes {
     LLVMTypeRef int32_type;
     LLVMTypeRef int64_type;
     LLVMTypeRef intptr_t_type;
+    LLVMTypeRef size_t_type;
     LLVMTypeRef float32_type;
     LLVMTypeRef float64_type;
     LLVMTypeRef void_type;
@@ -373,7 +376,7 @@ typedef struct AOTCompContext {
     char target_arch[16];
     unsigned pointer_size;
 
-    /* Hardware intrinsic compability flags */
+    /* Hardware intrinsic compatibility flags */
     uint64 flags[8];
 
     /* required by JIT */
@@ -440,7 +443,7 @@ typedef struct AOTCompContext {
     /* Use profile file collected by LLVM PGO */
     char *use_prof_file;
 
-    /* Enable to use segument register as the base addr
+    /* Enable to use segment register as the base addr
        of linear memory for load/store operations */
     bool enable_segue_i32_load;
     bool enable_segue_i64_load;
@@ -571,14 +574,14 @@ wasm_type_to_llvm_type(const AOTCompContext *comp_ctx,
 
 bool
 aot_checked_addr_list_add(AOTFuncContext *func_ctx, uint32 local_idx,
-                          uint32 offset, uint32 bytes);
+                          uint64 offset, uint32 bytes);
 
 void
 aot_checked_addr_list_del(AOTFuncContext *func_ctx, uint32 local_idx);
 
 bool
 aot_checked_addr_list_find(AOTFuncContext *func_ctx, uint32 local_idx,
-                           uint32 offset, uint32 bytes);
+                           uint64 offset, uint32 bytes);
 
 void
 aot_checked_addr_list_destroy(AOTFuncContext *func_ctx);
@@ -609,12 +612,6 @@ aot_load_const_from_table(AOTCompContext *comp_ctx, LLVMValueRef base,
 
 bool
 aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);
-
-void
-aot_add_expand_memory_op_pass(LLVMPassManagerRef pass);
-
-void
-aot_add_simple_loop_unswitch_pass(LLVMPassManagerRef pass);
 
 void
 aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module);

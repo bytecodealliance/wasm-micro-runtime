@@ -5,29 +5,25 @@ FROM ubuntu:20.04 AS base
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# hadolint ignore=DL3008
-RUN apt-get update && apt-get install -y \
-    cmake build-essential git --no-install-recommends
+# hadolint ignore=DL3008,DL3009
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends\
+       ca-certificates cmake build-essential git wget
+
+WORKDIR /usr/local/share/ca-certificates/cacert.org
+RUN wget -qP /usr/local/share/ca-certificates/cacert.org http://www.cacert.org/certs/root.crt http://www.cacert.org/certs/class3.crt \
+  && update-ca-certificates
 
 WORKDIR /home/wamr
-
 COPY . .
+RUN git config --global http.sslCAinfo /etc/ssl/certs/ca-certificates.crt
 
 WORKDIR /home/wamr/product-mini/platforms/linux/build
-
-# hadolint ignore=DL3008
-RUN apt-get install -y wget ca-certificates --no-install-recommends \
-  && mkdir /usr/local/share/ca-certificates/cacert.org \
-  && wget -qP /usr/local/share/ca-certificates/cacert.org http://www.cacert.org/certs/root.crt http://www.cacert.org/certs/class3.crt \
-  && update-ca-certificates \
-  && git config --global http.sslCAinfo /etc/ssl/certs/ca-certificates.crt
-
-RUN cmake \
-    -DWAMR_BUILD_WASI_NN=1 \
-    -DWAMR_BUILD_WASI_NN_ENABLE_GPU=1 \
-    ..
-
-RUN make -j "$(grep -c ^processor /proc/cpuinfo)"
+RUN rm -rf build \
+  && cmake -S . -B build \
+       -DWAMR_BUILD_WASI_NN=1 \
+       -DWAMR_BUILD_WASI_NN_ENABLE_GPU=1 \
+  && cmake --build build -j "$(grep -c ^processor /proc/cpuinfo)"
 
 FROM nvidia/cuda:11.3.0-runtime-ubuntu20.04
 
@@ -44,6 +40,8 @@ RUN mkdir -p /etc/OpenCL/vendors && \
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
-COPY --from=base /home/wamr/product-mini/platforms/linux/build/iwasm /iwasm
+COPY --from=base /home/wamr/product-mini/platforms/linux/build/iwasm /usr/bin/iwasm
+COPY --from=base /home/wamr/product-mini/platforms/linux/build/libiwasm.so /lib/libiwasm.so
+COPY --from=base /home/wamr/product-mini/platforms/linux/build/libwasi-nn-*.so /lib/
 
-ENTRYPOINT [ "/iwasm" ]
+ENTRYPOINT [ "iwasm" ]

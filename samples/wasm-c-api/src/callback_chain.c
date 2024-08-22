@@ -252,10 +252,10 @@ main(int argc, const char *argv[])
         return 1;
     }
 
-#define DESTROY_WASM_FUNCITON(name, index, ...) \
+#define DESTROY_WASM_FUNCTION(name, index, ...) \
     wasm_func_delete(function_##name);
-    IMPORT_FUNCTION_LIST(DESTROY_WASM_FUNCITON)
-#undef DESTROY_WASM_FUNCITON
+    IMPORT_FUNCTION_LIST(DESTROY_WASM_FUNCTION)
+#undef DESTROY_WASM_FUNCTION
 
     // Extract export.
     printf("Extracting export...\n");

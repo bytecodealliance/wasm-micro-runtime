@@ -13,13 +13,13 @@
 /* data_length in bytes */
 static LLVMValueRef
 simd_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, uint32 align,
-          uint32 offset, uint32 data_length, LLVMTypeRef ptr_type,
+          mem_offset_t offset, uint32 data_length, LLVMTypeRef ptr_type,
           LLVMTypeRef data_type, bool enable_segue)
 {
     LLVMValueRef maddr, data;
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset,
-                                            data_length, enable_segue))) {
+                                            data_length, enable_segue, NULL))) {
         HANDLE_FAILURE("aot_check_memory_overflow");
         return NULL;
     }
@@ -42,7 +42,7 @@ simd_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, uint32 align,
 
 bool
 aot_compile_simd_v128_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                           uint32 align, uint32 offset)
+                           uint32 align, mem_offset_t offset)
 {
     bool enable_segue = comp_ctx->enable_segue_v128_load;
     LLVMTypeRef v128_ptr_type = enable_segue ? V128_PTR_TYPE_GS : V128_PTR_TYPE;
@@ -62,7 +62,7 @@ fail:
 
 bool
 aot_compile_simd_load_extend(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                             uint8 opcode, uint32 align, uint32 offset)
+                             uint8 opcode, uint32 align, mem_offset_t offset)
 {
     LLVMValueRef sub_vector, result;
     uint32 opcode_index = opcode - SIMD_v128_load8x8_s;
@@ -117,7 +117,7 @@ aot_compile_simd_load_extend(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
 bool
 aot_compile_simd_load_splat(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                            uint8 opcode, uint32 align, uint32 offset)
+                            uint8 opcode, uint32 align, mem_offset_t offset)
 {
     uint32 opcode_index = opcode - SIMD_v128_load8_splat;
     LLVMValueRef element, result;
@@ -173,7 +173,7 @@ aot_compile_simd_load_splat(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
 bool
 aot_compile_simd_load_lane(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                           uint8 opcode, uint32 align, uint32 offset,
+                           uint8 opcode, uint32 align, mem_offset_t offset,
                            uint8 lane_id)
 {
     LLVMValueRef element, vector;
@@ -218,7 +218,7 @@ aot_compile_simd_load_lane(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
 bool
 aot_compile_simd_load_zero(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                           uint8 opcode, uint32 align, uint32 offset)
+                           uint8 opcode, uint32 align, mem_offset_t offset)
 {
     LLVMValueRef element, result, mask;
     uint32 opcode_index = opcode - SIMD_v128_load32_zero;
@@ -281,13 +281,13 @@ aot_compile_simd_load_zero(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 /* data_length in bytes */
 static bool
 simd_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, uint32 align,
-           uint32 offset, uint32 data_length, LLVMValueRef value,
+           mem_offset_t offset, uint32 data_length, LLVMValueRef value,
            LLVMTypeRef value_ptr_type, bool enable_segue)
 {
     LLVMValueRef maddr, result;
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset,
-                                            data_length, enable_segue)))
+                                            data_length, enable_segue, NULL)))
         return false;
 
     if (!(maddr = LLVMBuildBitCast(comp_ctx->builder, maddr, value_ptr_type,
@@ -308,7 +308,7 @@ simd_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, uint32 align,
 
 bool
 aot_compile_simd_v128_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                            uint32 align, uint32 offset)
+                            uint32 align, mem_offset_t offset)
 {
     bool enable_segue = comp_ctx->enable_segue_v128_store;
     LLVMTypeRef v128_ptr_type = enable_segue ? V128_PTR_TYPE_GS : V128_PTR_TYPE;
@@ -324,7 +324,7 @@ fail:
 
 bool
 aot_compile_simd_store_lane(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                            uint8 opcode, uint32 align, uint32 offset,
+                            uint8 opcode, uint32 align, mem_offset_t offset,
                             uint8 lane_id)
 {
     LLVMValueRef element, vector;

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
+ * SPDX-FileCopyrightText: 2024 Siemens AG (For Zephyr usermode changes)
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
@@ -18,7 +19,6 @@
 #include <misc/printk.h>
 #endif
 #else /* else of KERNEL_VERSION_NUMBER < 0x030200 */
-#include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
 #endif /* end of KERNEL_VERSION_NUMBER < 0x030200 */
 
@@ -37,18 +37,25 @@
 #endif
 
 #if KERNEL_VERSION_NUMBER < 0x030200 /* version 3.2.0 */
+#include <zephyr.h>
 #include <net/net_pkt.h>
 #include <net/net_if.h>
 #include <net/net_ip.h>
 #include <net/net_core.h>
 #include <net/net_context.h>
 #else /* else of KERNEL_VERSION_NUMBER < 0x030200 */
+#include <zephyr/kernel.h>
 #include <zephyr/net/net_pkt.h>
 #include <zephyr/net/net_if.h>
 #include <zephyr/net/net_ip.h>
 #include <zephyr/net/net_core.h>
 #include <zephyr/net/net_context.h>
 #endif /* end of KERNEL_VERSION_NUMBER < 0x030200 */
+
+#ifdef CONFIG_USERSPACE
+#include <zephyr/sys/mutex.h>
+#include <zephyr/sys/sem.h>
+#endif /* end of CONFIG_USERSPACE */
 
 #if KERNEL_VERSION_NUMBER >= 0x030300 /* version 3.3.0 */
 #include <zephyr/cache.h>
@@ -64,9 +71,38 @@
 #endif
 #endif
 
+#ifdef signbit /* probably since Zephyr v3.5.0 a new picolib is included */
+#define BH_HAS_SIGNBIT 1
+#endif
+
 #ifndef BH_PLATFORM_ZEPHYR
 #define BH_PLATFORM_ZEPHYR
 #endif
+
+// Synchronization primitives for usermode
+#ifdef CONFIG_USERSPACE
+#define mutex_t struct sys_mutex
+#define mutex_init(mtx) sys_mutex_init(mtx)
+#define mutex_lock(mtx, timeout) sys_mutex_lock(mtx, timeout)
+#define mutex_unlock(mtx) sys_mutex_unlock(mtx)
+
+#define sem_t struct sys_sem
+#define sem_init(sem, init_count, limit) sys_sem_init(sem, init_count, limit)
+#define sem_give(sem) sys_sem_give(sem)
+#define sem_take(sem, timeout) sys_sem_take(sem, timeout)
+#define sem_count_get(sem) sys_sem_count_get(sem)
+#else /* else of CONFIG_USERSPACE */
+#define mutex_t struct k_mutex
+#define mutex_init(mtx) k_mutex_init(mtx)
+#define mutex_lock(mtx, timeout) k_mutex_lock(mtx, timeout)
+#define mutex_unlock(mtx) k_mutex_unlock(mtx)
+
+#define sem_t struct k_sem
+#define sem_init(sem, init_count, limit) k_sem_init(sem, init_count, limit)
+#define sem_give(sem) k_sem_give(sem)
+#define sem_take(sem, timeout) k_sem_take(sem, timeout)
+#define sem_count_get(sem) k_sem_count_get(sem)
+#endif /* end of CONFIG_USERSPACE */
 
 #define BH_APPLET_PRESERVED_STACK_SIZE (2 * BH_KB)
 
@@ -75,7 +111,7 @@
 
 typedef struct k_thread korp_thread;
 typedef korp_thread *korp_tid;
-typedef struct k_mutex korp_mutex;
+typedef mutex_t korp_mutex;
 typedef unsigned int korp_sem;
 
 /* korp_rwlock is used in platform_api_extension.h,
@@ -87,7 +123,7 @@ typedef struct {
 struct os_thread_wait_node;
 typedef struct os_thread_wait_node *os_thread_wait_list;
 typedef struct korp_cond {
-    struct k_mutex wait_list_lock;
+    mutex_t wait_list_lock;
     os_thread_wait_list thread_wait_list;
 } korp_cond;
 
@@ -120,10 +156,13 @@ float fmaxf(float x, float y);
 float rintf(float x);
 float fabsf(float x);
 float truncf(float x);
-int signbit(double x);
 int isnan(double x);
 double pow(double x, double y);
 double scalbn(double x, int n);
+
+#ifndef BH_HAS_SIGNBIT
+int signbit(double x);
+#endif
 
 unsigned long long int strtoull(const char *nptr, char **endptr, int base);
 double strtod(const char *nptr, char **endptr);

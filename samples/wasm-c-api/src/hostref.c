@@ -193,7 +193,7 @@ int main(int argc, const char* argv[]) {
   // Create external callback function.
   printf("Creating callback...\n");
   own wasm_functype_t* callback_type = wasm_functype_new_1_1(
-    wasm_valtype_new(WASM_ANYREF), wasm_valtype_new(WASM_ANYREF));
+    wasm_valtype_new(WASM_EXTERNREF), wasm_valtype_new(WASM_EXTERNREF));
   own wasm_func_t* callback_func =
     wasm_func_new(store, callback_type, callback);
 
@@ -245,7 +245,7 @@ int main(int argc, const char* argv[]) {
   wasm_ref_delete(host2_cp);
 
   own wasm_val_t val;
-  val.kind = WASM_ANYREF;
+  val.kind = WASM_EXTERNREF;
   val.of.ref = wasm_ref_copy(host1);
   wasm_ref_t *ref_cp = wasm_ref_copy(val.of.ref);
   check(ref_cp, host1);
@@ -264,12 +264,12 @@ int main(int argc, const char* argv[]) {
   check(call_v_r(global_get), NULL);
 
   wasm_global_get(global, &val);
-  assert(val.kind == WASM_ANYREF);
+  assert(val.kind == WASM_EXTERNREF);
   assert(val.of.ref == NULL);
   val.of.ref = host2;
   wasm_global_set(global, &val);
   wasm_global_get(global, &val);
-  assert(val.kind == WASM_ANYREF);
+  assert(val.kind == WASM_EXTERNREF);
   assert(val.of.ref == host2);
 
   printf("Accessing table...\n");

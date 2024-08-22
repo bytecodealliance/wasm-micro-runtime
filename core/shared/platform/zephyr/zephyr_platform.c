@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
+ * SPDX-FileCopyrightText: 2024 Siemens AG (For Zephyr usermode changes)
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
@@ -35,12 +36,14 @@ disable_mpu_rasr_xn(void)
 #endif /* end of CONFIG_ARM_MPU */
 #endif
 
+#ifndef CONFIG_USERSPACE
 static int
 _stdout_hook_iwasm(int c)
 {
     printk("%c", (char)c);
     return 1;
 }
+#endif
 
 int
 os_thread_sys_init();
@@ -51,9 +54,11 @@ os_thread_sys_destroy();
 int
 bh_platform_init()
 {
+#ifndef CONFIG_USERSPACE
     extern void __stdout_hook_install(int (*hook)(int));
     /* Enable printf() in Zephyr */
     __stdout_hook_install(_stdout_hook_iwasm);
+#endif
 
 #if WASM_ENABLE_AOT != 0
 #ifdef CONFIG_ARM_MPU
@@ -179,12 +184,19 @@ strcspn(const char *s, const char *reject)
 void *
 os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
 {
+    void *addr;
+
     if ((uint64)size >= UINT32_MAX)
         return NULL;
+
     if (exec_mem_alloc_func)
-        return exec_mem_alloc_func((uint32)size);
+        addr = exec_mem_alloc_func((uint32)size);
     else
-        return BH_MALLOC(size);
+        addr = BH_MALLOC(size);
+
+    if (addr)
+        memset(addr, 0, size);
+    return addr;
 }
 
 void *

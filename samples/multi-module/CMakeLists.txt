@@ -49,6 +49,12 @@ endif ()
 if (NOT DEFINED WAMR_BUILD_JIT)
   set(WAMR_BUILD_JIT 0)
 endif ()
+if (NOT DEFINED WAMR_BUILD_DUMP_CALL_STACK)
+  set(WAMR_BUILD_DUMP_CALL_STACK 0)
+endif ()
+if (NOT DEFINED WAMR_BUILD_GC)
+  set(WAMR_BUILD_GC 0)
+endif ()
 set(WAMR_BUILD_SIMD 1)
 set(WAMR_BUILD_REF_TYPES 1)
 set(WAMR_BUILD_LIBC_BUILTIN 1)
@@ -141,6 +147,7 @@ ExternalProject_Add(WASM_MODULE
                        -DWASI_SDK_PREFIX=${WASI_SDK_DIR}
                        -DCMAKE_TOOLCHAIN_FILE=${WASI_TOOLCHAIN_FILE}
                        -DCMAKE_SYSROOT=${WASI_SYS_ROOT}
+                       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                        -S ${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps
   BUILD_COMMAND      ${CMAKE_COMMAND} --build .
   INSTALL_COMMAND    ${CMAKE_COMMAND} -E copy
@@ -172,17 +179,24 @@ if (WAMR_BUILD_AOT EQUAL 1)
     message(STATUS "WAMR_COMPILER is ${WAMR_COMPILER}")
   endif()
 
+  if (WAMR_BUILD_DUMP_CALL_STACK EQUAL 1)
+    list(APPEND WAMR_AOT_COMPILE_OPTIONS "--enable-dump-call-stack")
+  endif ()
+  if (WAMR_BUILD_GC EQUAL 1)
+    list(APPEND WAMR_AOT_COMPILE_OPTIONS "--enable-gc")
+  endif ()
+
   add_custom_target(
     wasm_to_aot
     ALL
     DEPENDS
     WASM_MODULE ${WAMR_COMPILER}
     COMMAND
-    ${WAMR_COMPILER} -o mA.aot ./mA.wasm
+    ${WAMR_COMPILER} ${WAMR_AOT_COMPILE_OPTIONS} -o mA.aot ./mA.wasm
     COMMAND
-    ${WAMR_COMPILER} -o mB.aot ./mB.wasm
+    ${WAMR_COMPILER} ${WAMR_AOT_COMPILE_OPTIONS} -o mB.aot ./mB.wasm
     COMMAND
-    ${WAMR_COMPILER} -o mC.aot ./mC.wasm
+    ${WAMR_COMPILER} ${WAMR_AOT_COMPILE_OPTIONS} -o mC.aot ./mC.wasm
     WORKING_DIRECTORY
     ${CMAKE_BINARY_DIR}
   )

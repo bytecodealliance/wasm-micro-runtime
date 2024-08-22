@@ -14,7 +14,7 @@ docker build \
       --cap-add=SYS_PTRACE \
       --cpus=".5" \
       --memory=4G \
-      --mount type=bind,src="${ROOT}",dst=/workspace \
+      --mount type=bind,src="${ROOT}",dst=/workspaces \
       --name wamr_build_env \
       --security-opt=seccomp=unconfined \
       wamr_dev_${VARIANT}:0.1 \
