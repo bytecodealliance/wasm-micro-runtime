@@ -46,7 +46,7 @@ main(int argc, char **argv)
     addr.sin_family = AF_INET;
     addr.sin_port = htons(8000);
     addr.sin_addr.s_addr =
-        htonl(3221225994); // hard coded IP address for 192.0.2.10
+        htonl(0xC000020A); // hard coded IP address for 192.0.2.10
 
     sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     printf("[wasm-mod] sock = %d\n", sock);

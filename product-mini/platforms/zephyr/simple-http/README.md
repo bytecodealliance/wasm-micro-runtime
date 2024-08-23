@@ -28,6 +28,38 @@ this sample demonstrates the use of WASI API to interact with sockets.
     ```
 4. Disable any firewall that may block the connection.
 
+## Configuration
+To configure the server side IP address and port modify the following lines in the `http_get.c` file.
+
+1. The `HTTP_HOST` and `HTTP_PORT` macros define the server IP address and port.
+    ```c
+    /* HTTP server to connect to */
+    #define HTTP_HOST "192.0.2.10"
+    /* Port to connect to, as string */
+    #define HTTP_PORT "8000"
+    /* HTTP path to request */
+    #define HTTP_PATH "/"
+
+    // ...
+
+    #define REQUEST "GET " HTTP_PATH " HTTP/1.0\r\nHost: " HTTP_HOST "\r\n\r\n"
+    ```
+    > 📄 **Notes:** These macros are used to build the request string, but they are not used to instantiate the address structure. Because at one point we didn't want to use `inet_pton` to convert the string to an address and it remained like this.
+
+2. The `addr` structure is used to store the server address.
+    ```c
+    addr.sin_port = htons(8000);
+        addr.sin_addr.s_addr =
+            htonl(0xC000020A); // hard coded IP address for 192.0.2.10
+    ```
+
+To configure the authorized IP address(es) modify the following lines in the `main.c` file. WAMR will only allow the IP addresses in the pool to connect to the server.
+```c
+#define ADDRESS_POOL_SIZE 1
+    const char *addr_pool[ADDRESS_POOL_SIZE] = {
+        "192.0.2.10/24",
+    };
+```
 ## Run Command
 * **Zephyr Build**
     1. **Build:** Replace `nucleo_h743zi` with your board name and the `WAMR_BUILD_TARGET` in `CMakeList.txt` with your target architecture.
