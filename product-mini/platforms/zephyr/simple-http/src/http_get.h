@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2017 Linaro Limited
  * Copyright (C) 2024 Grenoble INP - ESISAR Limited
- * 
+ *
  * SPDX-License-Identifier: Apache-2.0
  */
 

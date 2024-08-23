@@ -1023,7 +1023,8 @@ os_ioctl(os_file_handle handle, int request, ...)
     va_list args;
 
     va_start(args, request);
-    ret = ioctl(handle, request, args) va_end(args);
+    ret = ioctl(handle, request, args);
+    va_end(args);
 
     return ret;
 }
