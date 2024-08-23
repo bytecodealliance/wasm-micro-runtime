@@ -601,8 +601,8 @@ main(int argc, char *argv[])
             LOG_VERBOSE("Set size level to 1 for Windows AOT file");
             option.size_level = 1;
         }
-#if defined(_WIN32) || defined(_WIN32_) || defined(__APPLE__) \
-    || defined(__MACH__)
+#if defined(_WIN32) || defined(_WIN32_) \
+    || ((defined(__APPLE__) || defined(__MACH__)) && !defined(__arm64__))
         if (!option.target_arch && !option.target_abi) {
             LOG_VERBOSE("Set size level to 1 for Windows or MacOS AOT file");
             option.size_level = 1;
