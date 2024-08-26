@@ -227,8 +227,10 @@ wasm_runtime_attach_shared_heap(WASMModuleInstanceCommon *module_inst,
     WASMModuleInstance *wasm_module_inst = (WASMModuleInstance *)module_inst;
     if (wasm_module_inst->e->shared_heap
         && wasm_module_inst->e->shared_heap != heap) {
-        wasm_runtime_detach_shared_heap(module_inst);
+        LOG_WARNING("A shared heap is already attached");
+        return false;
     }
+
     wasm_module_inst->e->shared_heap = heap;
 
     return true;
