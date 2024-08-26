@@ -195,11 +195,17 @@ wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args, char *error_buf,
     }
 
     if (shared_heap_list == NULL) {
-        shared_heap_list = heap;
+        os_mutex_lock(&shared_heap_list_lock);
+        if (shared_heap_list == NULL) {
+            shared_heap_list = heap;
+        }
+        os_mutex_unlock(&shared_heap_list_lock);
     }
     else {
+        os_mutex_lock(&shared_heap_list_lock);
         heap->next = shared_heap_list;
         shared_heap_list = heap;
+        os_mutex_unlock(&shared_heap_list_lock);
     }
     return heap;
 
@@ -272,6 +278,11 @@ bool
 wasm_runtime_memory_init(mem_alloc_type_t mem_alloc_type,
                          const MemAllocOption *alloc_option)
 {
+#if WASM_ENABLE_SHARED_HEAP != 0
+    if (os_mutex_init(&shared_heap_list_lock)) {
+        return false;
+    }
+#endif
     if (mem_alloc_type == Alloc_With_Pool) {
         return wasm_memory_init_with_pool(alloc_option->pool.heap_buf,
                                           alloc_option->pool.heap_size);
