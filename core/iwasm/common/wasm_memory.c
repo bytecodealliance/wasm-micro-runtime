@@ -141,7 +141,8 @@ is_bounds_checks_enabled(WASMModuleInstanceCommon *module_inst)
 static void *
 wasm_mmap_linear_memory(uint64_t map_size, uint64 commit_size);
 static void
-wasm_munmap_linear_memory(void *mapped_mem, uint64 commit_size, uint64 map_size);
+wasm_munmap_linear_memory(void *mapped_mem, uint64 commit_size,
+                          uint64 map_size);
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)

@@ -59,11 +59,12 @@ bool
 wasm_runtime_detach_shared_heap(WASMModuleInstanceCommon *module_inst);
 
 uint64
-wasm_runtime_shared_heap_malloc(WASMModuleInstanceCommon *module_inst, uint64 size,
-                                void **p_native_addr);
+wasm_runtime_shared_heap_malloc(WASMModuleInstanceCommon *module_inst,
+                                uint64 size, void **p_native_addr);
 
 void
-wasm_runtime_shared_heap_free(WASMModuleInstanceCommon *module_inst, uint64 ptr);
+wasm_runtime_shared_heap_free(WASMModuleInstanceCommon *module_inst,
+                              uint64 ptr);
 
 void
 wasm_runtime_shared_heap_destroy();
