@@ -199,12 +199,17 @@ os_socket_create(bh_socket_t *sock, bool is_ipv4, bool is_tcp)
     }
     else {
         (*sock)->fd =
-            zsock_socket(af, SOCK_DGRAM, IPPROTO_UDP); // IPPROTO_UDP or 0 ?
+            zsock_socket(af, SOCK_DGRAM, IPPROTO_UDP); // IPPROTO_UDP or 0
     }
 
     (*sock)->is_sock = true;
 
-    return ((*sock)->fd == -1) ? BHT_ERROR : BHT_OK;
+    if ((*sock)->fd == -1) {
+        BH_FREE(*sock);
+        return BHT_ERROR;
+    }
+
+    return BHT_OK;
 }
 
 int
@@ -219,7 +224,7 @@ os_socket_bind(bh_socket_t socket, const char *host, int *port)
 
     if (!textual_addr_to_sockaddr(host, *port, (struct sockaddr *)&addr,
                                   &socklen)) {
-        goto fail;
+        return BHT_ERROR;
     }
 
     // F_SETF_SETFD and FD_CLOEXEC are not defined in zephyr.
@@ -227,12 +232,12 @@ os_socket_bind(bh_socket_t socket, const char *host, int *port)
 
     ret = zsock_bind(socket->fd, (struct sockaddr *)&addr, socklen);
     if (ret < 0) {
-        goto fail;
+        return BHT_ERROR;
     }
 
     socklen = sizeof(addr);
     if (zsock_getsockname(socket->fd, (void *)&addr, &socklen) == -1) {
-        goto fail;
+        return BHT_ERROR;
     }
 
     if (addr.ss_family == AF_INET) { // addr.sin_family
@@ -242,16 +247,11 @@ os_socket_bind(bh_socket_t socket, const char *host, int *port)
 #ifdef IPPROTO_IPV6
         *port = ntohs(((struct sockaddr_in *)&addr)->sin6_port);
 #else
-        goto fail;
+        return BHT_ERROR;
 #endif
     }
 
     return BHT_OK;
-
-fail:
-    // Close the fd because FD_CLOEXEC isn't implemented.
-    os_socket_close(socket);
-    return BHT_ERROR;
 }
 
 int
@@ -385,7 +385,6 @@ os_socket_shutdown(bh_socket_t socket)
         return convert_errno(errno);
     }
     return __WASI_ESUCCESS;
-    ;
 }
 
 int

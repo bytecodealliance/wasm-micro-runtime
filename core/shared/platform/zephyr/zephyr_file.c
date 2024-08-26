@@ -686,6 +686,7 @@ os_mkdirat(os_file_handle handle, const char *path)
 
     ptr = zephyr_fs_alloc_obj(true, abs_path, &index);
     if (!ptr) {
+        fs_unlink(abs_path);
         return __WASI_EMFILE;
     }
     fs_dir_t_init(&ptr->dir);
@@ -721,8 +722,12 @@ os_renameat(os_file_handle old_handle, const char *old_path,
     GET_FILE_SYSTEM_DESCRIPTOR(old_handle->fd, ptr);
 
     ptr->path = strdup(new_path);
+    if (ptr->path == NULL) {
+        ptr->path = old_path;
+        return __WASI_ENOMEM;
+    }
 
-    return __WASI_ENOSYS;
+    return __WASI_ESUCCESS;
 }
 
 __wasi_errno_t
@@ -802,9 +807,6 @@ os_isatty(os_file_handle handle)
 os_file_handle
 os_convert_stdin_handle(os_raw_file_handle raw_stdin)
 {
-#ifndef STDIN_FILENO
-#define STDIN_FILENO 0
-#endif
     os_file_handle handle = BH_MALLOC(sizeof(struct zephyr_handle));
     if (handle == NULL) {
         return NULL;
@@ -823,9 +825,6 @@ os_convert_stdin_handle(os_raw_file_handle raw_stdin)
 os_file_handle
 os_convert_stdout_handle(os_raw_file_handle raw_stdout)
 {
-#ifndef STDOUT_FILENO
-#define STDOUT_FILENO 1
-#endif
     os_file_handle handle = BH_MALLOC(sizeof(struct zephyr_handle));
     if (handle == NULL) {
         return NULL;
@@ -844,9 +843,6 @@ os_convert_stdout_handle(os_raw_file_handle raw_stdout)
 os_file_handle
 os_convert_stderr_handle(os_raw_file_handle raw_stderr)
 {
-#ifndef STDERR_FILENO
-#define STDERR_FILENO 2
-#endif
     os_file_handle handle = BH_MALLOC(sizeof(struct zephyr_handle));
     if (handle == NULL) {
         return NULL;
