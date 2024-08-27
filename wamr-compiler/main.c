@@ -142,9 +142,7 @@ print_help()
     printf("                              with a runtime without the hardware bounds checks.\n");
     printf("  --stack-bounds-checks=1/0 Enable or disable the bounds checks for native stack:\n");
     printf("                              if the option isn't set, the status is same as `--bounds-check`,\n");
-    printf("                              if the option is set:\n");
-    printf("                                (1) it is always enabled when `--bounds-checks` is enabled,\n");
-    printf("                                (2) else it is enabled/disabled according to the option value\n");
+    printf("                              if the option is set, the status is same as the option value\n");
     printf("  --stack-usage=<file>      Generate a stack-usage file.\n");
     printf("                              Similarly to `clang -fstack-usage`.\n");
     printf("  --format=<format>         Specifies the format of the output file\n");

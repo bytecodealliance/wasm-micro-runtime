@@ -2969,12 +2969,12 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
                                     sizeof(comp_ctx->target_arch));
 
         if (option->bounds_checks == 1 || option->bounds_checks == 0) {
-            /* Set by user */
+            /* Set by the user */
             comp_ctx->enable_bound_check =
                 (option->bounds_checks == 1) ? true : false;
         }
         else {
-            /* Unset by user, use default value */
+            /* Unset by the user, use the default value */
             if (strstr(comp_ctx->target_arch, "64")
                 && !option->is_sgx_platform) {
                 comp_ctx->enable_bound_check = false;
@@ -2984,16 +2984,16 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
             }
         }
 
-        if (comp_ctx->enable_bound_check) {
-            /* Always enable stack boundary check if `bounds-checks`
-               is enabled */
-            comp_ctx->enable_stack_bound_check = true;
-        }
-        else {
-            /* When `bounds-checks` is disabled, we set stack boundary
-               check status according to the input option */
+        if (option->stack_bounds_checks == 1
+            || option->stack_bounds_checks == 0) {
+            /* Set by the user */
             comp_ctx->enable_stack_bound_check =
                 (option->stack_bounds_checks == 1) ? true : false;
+        }
+        else {
+            /* Unset by the user, use the default value, it will be the same
+             * value as the bound check */
+            comp_ctx->enable_stack_bound_check = comp_ctx->enable_bound_check;
         }
 
         if ((comp_ctx->enable_stack_bound_check
