@@ -226,11 +226,30 @@ wasm_runtime_attach_shared_heap(WASMModuleInstanceCommon *module_inst,
                                 WASMSharedHeap *heap)
 {
     WASMModuleInstance *wasm_module_inst = (WASMModuleInstance *)module_inst;
+    uint32 linear_mem_size = 0;
+    WASMMemoryInstance *memory = NULL;
     if (wasm_module_inst->e->shared_heap
         && wasm_module_inst->e->shared_heap != heap) {
         LOG_WARNING("A shared heap is already attached");
         return false;
     }
+
+    // check if linear memory and shared heap are overlapped
+
+    memory = wasm_get_default_memory(wasm_module_inst);
+    linear_mem_size += memory->num_bytes_per_page * memory->cur_page_count;
+
+#if WASM_ENABLE_MEMORY64 != 0
+    if (linear_mem_size > UINT64_MAX - heap->size) {
+        LOG_WARNING("Linear memory address is overlapped with shared heap");
+        return false;
+    }
+#else
+    if (linear_mem_size > UINT32_MAX - heap->size) {
+        LOG_WARNING("Linear memory address is overlapped with shared heap");
+        return false;
+    }
+#endif
 
     wasm_module_inst->e->shared_heap = heap;
 
@@ -1035,6 +1054,11 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count,
 #else
     WASMMemoryInstance *memory = wasm_get_default_memory(module);
 #endif
+
+#if WASM_ENABLE_SHARED_HEAP != 0
+    WASMSharedHeap *heap;
+#endif
+
     uint8 *memory_data_old, *memory_data_new, *heap_data_old;
     uint32 num_bytes_per_page, heap_size;
     uint32 cur_page_count, max_page_count, total_page_count;
@@ -1067,6 +1091,18 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count,
     total_page_count = inc_page_count + cur_page_count;
     total_size_new = num_bytes_per_page * (uint64)total_page_count;
 
+#if WASM_ENABLE_SHARED_HEAP != 0
+    heap = module->e->shared_heap;
+#if WASM_ENABLE_MEMORY64 != 0
+    if (total_size_new > UINT64_MAX - heap->size) {
+        LOG_WARNING("Linear memory address is overlapped with shared heap");
+    }
+#else
+    if (total_size_new > UINT32_MAX - heap->size) {
+        LOG_WARNING("Linear memory address is overlapped with shared heap");
+    }
+#endif
+#endif
     if (inc_page_count <= 0)
         /* No need to enlarge memory */
         return true;
