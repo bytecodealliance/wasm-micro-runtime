@@ -124,6 +124,7 @@ jobs:
           repository: google/bloaty
           submodules: recursive
           path: bloaty
+          ref: 34f4a66559ad4938c1e629e9b5f54630b2b4d7b0
 
       - name: Build Bloaty
         run: |
