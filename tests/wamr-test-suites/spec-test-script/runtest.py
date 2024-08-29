@@ -327,6 +327,9 @@ parser.add_argument('--gc', default=False, action='store_true',
 parser.add_argument('--memory64', default=False, action='store_true',
         help='Test with Memory64')
 
+parser.add_argument('--multi-memory', default=False, action='store_true',
+        help='Test with multi-memory(with multi-module auto enabled)')
+
 parser.add_argument('--qemu', default=False, action='store_true',
         help="Enable QEMU")
 
@@ -1097,6 +1100,8 @@ def compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
         cmd = [opts.wast2wasm, "--enable-threads", "--no-check", "--enable-exceptions", "--enable-tail-call", wast_tempfile, "-o", wasm_tempfile ]
     elif opts.memory64:
         cmd = [opts.wast2wasm, "--enable-memory64", "--no-check", wast_tempfile, "-o", wasm_tempfile ]
+    elif opts.multi_memory:
+        cmd = [opts.wast2wasm, "--enable-multi-memory", "--no-check", wast_tempfile, "-o", wasm_tempfile ]
     else:
         cmd = [opts.wast2wasm, "--enable-threads", "--no-check",
                wast_tempfile, "-o", wasm_tempfile ]

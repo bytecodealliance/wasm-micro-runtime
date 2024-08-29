@@ -664,6 +664,11 @@
 #define WASM_ENABLE_MEMORY64 0
 #endif
 
+/* Disable multi-memory by default */
+#ifndef WASM_ENABLE_MULTI_MEMORY
+#define WASM_ENABLE_MULTI_MEMORY 0
+#endif
+
 #ifndef WASM_TABLE_MAX_SIZE
 #define WASM_TABLE_MAX_SIZE 1024
 #endif

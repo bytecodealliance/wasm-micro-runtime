@@ -39,6 +39,10 @@ typedef enum AOTSectionType {
     AOT_SECTION_TYPE_FUNCTION = 3,
     AOT_SECTION_TYPE_EXPORT = 4,
     AOT_SECTION_TYPE_RELOCATION = 5,
+    /*
+     * Note: We haven't had anything to use AOT_SECTION_TYPE_SIGNATURE.
+     * It's just reserved for possible module signing features.
+     */
     AOT_SECTION_TYPE_SIGNATURE = 6,
     AOT_SECTION_TYPE_CUSTOM = 100,
 } AOTSectionType;
@@ -611,6 +615,10 @@ aot_module_dup_data(AOTModuleInstance *module_inst, const char *src,
 
 bool
 aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count);
+
+bool
+aot_enlarge_memory_with_idx(AOTModuleInstance *module_inst,
+                            uint32 inc_page_count, uint32 memidx);
 
 /**
  * Invoke native function from aot code
