@@ -302,7 +302,10 @@ loader_mmap(uint32 size, bool prot_exec, char *error_buf, uint32 error_buf_size)
     int map_flags;
     void *mem;
 
-#if UINTPTR_MAX == UINT64_MAX
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
+    || defined(BUILD_TARGET_RISCV64_LP64D)                       \
+    || defined(BUILD_TARGET_RISCV64_LP64)
+#ifndef __APPLE__
     /* The mmapped AOT data and code in 64-bit targets had better be in
        range 0 to 2G, or aot loader may fail to apply some relocations,
        e.g., R_X86_64_32/R_X86_64_32S/R_X86_64_PC32/R_RISCV_32.
@@ -316,6 +319,7 @@ loader_mmap(uint32 size, bool prot_exec, char *error_buf, uint32 error_buf_size)
         bh_assert((uintptr_t)mem < INT32_MAX);
         return mem;
     }
+#endif
 #endif
 
     map_flags = MMAP_MAP_NONE;
