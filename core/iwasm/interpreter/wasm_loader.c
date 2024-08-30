@@ -6060,6 +6060,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     module->malloc_function = export->index;
                     LOG_VERBOSE("Found malloc function, name: %s, index: %u",
                                 export->name, export->index);
+		    printf("Found malloc function, name: %s, index: %u\n", export->name, export->index); //modified
                 }
             }
             else if (!strcmp(export->name, "__new")

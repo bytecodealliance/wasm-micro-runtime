@@ -2200,6 +2200,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
 
                 cur_func = module->e->functions + fidx;
+		printf("fidx: %u \n",fidx);
                 goto call_func_from_interp;
             }
 
@@ -6356,10 +6357,17 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
     call_func_from_interp:
     {
-        /* Only do the copy when it's called from interpreter.  */
+        /* Only do the copy when it's called from interpreter. */
         WASMInterpFrame *outs_area = wasm_exec_env_wasm_stack_top(exec_env);
         if (cur_func->param_cell_num > 0) {
             POP(cur_func->param_cell_num);
+	    printf("original args: %d\n",*frame_sp); //modified
+	    /* GO: when the function is allocator, double argument */
+	    if(module->module->malloc_function == fidx) {
+		    *frame_sp *= 2;
+	    }
+	    printf("argc changed: %d\n",*frame_sp); //modified
+	    /* GO: finished */
             word_copy(outs_area->lp, frame_sp, cur_func->param_cell_num);
         }
         SYNC_ALL_TO_FRAME();
