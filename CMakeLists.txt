@@ -153,6 +153,8 @@ include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 set (THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
+add_definitions(-DCOMPILING_WASM_RUNTIME_API=1)
+
 # STATIC LIBRARY
 if (WAMR_BUILD_STATIC)
     add_library(iwasm_static STATIC ${WAMR_RUNTIME_LIB_SOURCE})
@@ -164,11 +166,11 @@ if (WAMR_BUILD_STATIC)
     endif ()
 
     if (MINGW)
-      target_link_libraries (iwasm_static INTERFACE ws2_32)
+      target_link_libraries (iwasm_static PRIVATE ws2_32)
     endif ()
 
     if (WIN32)
-      target_link_libraries(iwasm_static INTERFACE ntdll)  
+      target_link_libraries(iwasm_static PRIVATE ntdll)  
     endif()
 
     install (TARGETS iwasm_static ARCHIVE DESTINATION lib)
@@ -185,11 +187,12 @@ if (WAMR_BUILD_SHARED)
     endif ()
 
     if (MINGW)
-      target_link_libraries (iwasm_shared INTERFACE -lWs2_32 -lwsock32 ws2_32)
+      target_link_libraries(iwasm_shared INTERFACE -lWs2_32 -lwsock32)
+      target_link_libraries(iwasm_shared PRIVATE ws2_32)
     endif ()
 
     if (WIN32)
-      target_link_libraries(iwasm_shared INTERFACE ntdll)  
+      target_link_libraries(iwasm_shared PRIVATE ntdll)  
     endif()
 
     install (TARGETS iwasm_shared LIBRARY DESTINATION lib)
