@@ -48,6 +48,10 @@ if (NOT DEFINED WAMR_BUILD_TARGET)
   endif ()
 endif ()
 
+if (NOT COMPILING_WASM_RUNTIME_API)
+  set(COMPILING_WASM_RUNTIME_API 1)
+endif ()
+
 if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif ()
@@ -159,6 +163,16 @@ if (WAMR_BUILD_STATIC)
       target_link_libraries(iwasm_static INTERFACE boringssl_crypto)
     endif ()
 
+    if (MINGW)
+      target_link_libraries (libiwasm ws2_32)
+    endif ()
+
+    if (WIN32)
+      target_link_libraries(libiwasm ntdll)
+
+      target_link_libraries(iwasm_static ntdll)  
+    endif()
+
     install (TARGETS iwasm_static ARCHIVE DESTINATION lib)
 endif ()
 
@@ -174,7 +188,15 @@ if (WAMR_BUILD_SHARED)
 
     if (MINGW)
       target_link_libraries (iwasm_shared INTERFACE -lWs2_32 -lwsock32)
+
+      target_link_libraries (libiwasm ws2_32)
     endif ()
+
+    if (WIN32)
+      target_link_libraries(libiwasm ntdll)
+
+      target_link_libraries(iwasm_shared ntdll)  
+    endif()
 
     install (TARGETS iwasm_shared LIBRARY DESTINATION lib)
 endif ()
