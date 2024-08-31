@@ -164,13 +164,11 @@ if (WAMR_BUILD_STATIC)
     endif ()
 
     if (MINGW)
-      target_link_libraries (libiwasm ws2_32)
+      target_link_libraries (iwasm_static INTERFACE ws2_32)
     endif ()
 
     if (WIN32)
-      target_link_libraries(libiwasm ntdll)
-
-      target_link_libraries(iwasm_static ntdll)  
+      target_link_libraries(iwasm_static INTERFACE ntdll)  
     endif()
 
     install (TARGETS iwasm_static ARCHIVE DESTINATION lib)
@@ -187,15 +185,11 @@ if (WAMR_BUILD_SHARED)
     endif ()
 
     if (MINGW)
-      target_link_libraries (iwasm_shared INTERFACE -lWs2_32 -lwsock32)
-
-      target_link_libraries (libiwasm ws2_32)
+      target_link_libraries (iwasm_shared INTERFACE -lWs2_32 -lwsock32 ws2_32)
     endif ()
 
     if (WIN32)
-      target_link_libraries(libiwasm ntdll)
-
-      target_link_libraries(iwasm_shared ntdll)  
+      target_link_libraries(iwasm_shared INTERFACE ntdll)  
     endif()
 
     install (TARGETS iwasm_shared LIBRARY DESTINATION lib)
