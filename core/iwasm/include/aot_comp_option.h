@@ -6,6 +6,23 @@
 #ifndef __AOT_COMP_OPTION_H__
 #define __AOT_COMP_OPTION_H__
 
+typedef struct {
+    /* Enables or disables bounds checks for stack frames. When enabled, the AOT
+     * compiler generates code to check if the stack pointer is within the
+     * bounds of the current stack frame (and if not, traps). */
+    bool bounds_checks;
+
+    /*  Enables or disables instruction pointer (IP) tracking.*/
+    bool ip;
+
+    /* Enables or disables tracking instruction pointer of a trap. Only takes
+     * effect when `ip` is enabled.*/
+    bool trap_ip;
+
+    /* Enables or disables parameters, locals and stack operands. */
+    bool values;
+} AOTCallStackFeatures;
+
 typedef struct AOTCompOption {
     bool is_jit_mode;
     bool is_indirect_mode;
@@ -22,6 +39,7 @@ typedef struct AOTCompOption {
     bool enable_gc;
     bool enable_aux_stack_check;
     bool enable_aux_stack_frame;
+    AOTCallStackFeatures call_stack_features;
     bool enable_perf_profiling;
     bool enable_memory_profiling;
     bool disable_llvm_intrinsics;

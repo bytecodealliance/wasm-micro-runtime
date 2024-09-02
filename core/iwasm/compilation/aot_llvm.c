@@ -2580,6 +2580,8 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     if (option->enable_aux_stack_frame)
         comp_ctx->enable_aux_stack_frame = true;
 
+    comp_ctx->call_stack_features = option->call_stack_features;
+
     if (option->enable_perf_profiling)
         comp_ctx->enable_perf_profiling = true;
 

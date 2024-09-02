@@ -682,24 +682,29 @@ alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     new_frame = wasm_stack_top;
 
-    if (!(check_wasm_stack_succ = LLVMAppendBasicBlockInContext(
-              comp_ctx->context, func_ctx->func, "check_wasm_stack_succ"))) {
-        aot_set_last_error("llvm add basic block failed.");
-        return false;
-    }
+    if (comp_ctx->call_stack_features.bounds_checks) {
+        if (!(check_wasm_stack_succ = LLVMAppendBasicBlockInContext(
+                  comp_ctx->context, func_ctx->func,
+                  "check_wasm_stack_succ"))) {
+            aot_set_last_error("llvm add basic block failed.");
+            return false;
+        }
 
-    LLVMMoveBasicBlockAfter(check_wasm_stack_succ,
-                            LLVMGetInsertBlock(comp_ctx->builder));
+        LLVMMoveBasicBlockAfter(check_wasm_stack_succ,
+                                LLVMGetInsertBlock(comp_ctx->builder));
 
-    if (!(cmp = LLVMBuildICmp(comp_ctx->builder, LLVMIntUGT, wasm_stack_top_max,
-                              wasm_stack_top_bound, "cmp"))) {
-        aot_set_last_error("llvm build icmp failed");
-        return false;
-    }
+        if (!(cmp = LLVMBuildICmp(comp_ctx->builder, LLVMIntUGT,
+                                  wasm_stack_top_max, wasm_stack_top_bound,
+                                  "cmp"))) {
+            aot_set_last_error("llvm build icmp failed");
+            return false;
+        }
 
-    if (!(aot_emit_exception(comp_ctx, func_ctx, EXCE_OPERAND_STACK_OVERFLOW,
-                             true, cmp, check_wasm_stack_succ))) {
-        return false;
+        if (!(aot_emit_exception(comp_ctx, func_ctx,
+                                 EXCE_OPERAND_STACK_OVERFLOW, true, cmp,
+                                 check_wasm_stack_succ))) {
+            return false;
+        }
     }
 
 #if WASM_ENABLE_GC != 0
@@ -1284,6 +1289,10 @@ commit_params_to_frame_of_import_func(AOTCompContext *comp_ctx,
                                       const LLVMValueRef *param_values)
 {
     uint32 i, n;
+
+    if (!comp_ctx->call_stack_features.values) {
+        return true;
+    }
 
     for (i = 0, n = 0; i < func_type->param_count; i++, n++) {
         switch (func_type->types[i]) {

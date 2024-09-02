@@ -162,6 +162,12 @@ print_help()
     printf("                              GC is enabled\n");
     printf("  --disable-aux-stack-check Disable auxiliary stack overflow/underflow check\n");
     printf("  --enable-dump-call-stack  Enable stack trace feature\n");
+    printf("  --call-stack-features=<features>\n");
+    printf("                            A comma-separated list of features when generating call stacks.\n");
+    printf("                            By default, all features are enabled. To disable all features,\n");
+    printf("                            provide an empty list (i.e. --call-stack-features=). This flag\n");
+    printf("                            only only takes effect when --enable-dump-call-stack is set.\n");
+    printf("                            Available features: bounds-checks, ip, trap-ip, values.\n");
     printf("  --enable-perf-profiling   Enable function performance profiling\n");
     printf("  --enable-memory-profiling Enable memory usage profiling\n");
     printf("  --xip                     A shorthand of --enable-indirect-mode --disable-llvm-intrinsics\n");
@@ -257,6 +263,48 @@ split_string(char *str, int *count, const char *delimer)
         *count = idx - 1;
     }
     return res;
+}
+
+static bool
+parse_call_stack_features(char *features_str,
+                          AOTCallStackFeatures *out_features)
+{
+    int size = 0;
+    char **features;
+    bool ret = true;
+
+    bh_assert(features_str);
+    bh_assert(out_features);
+
+    /* non-empty feature list */
+    features = split_string(features_str, &size, ",");
+    if (!features) {
+        return false;
+    }
+
+    while (size--) {
+        if (!strcmp(features[size], "bounds-checks")) {
+            out_features->bounds_checks = true;
+        }
+        else if (!strcmp(features[size], "ip")) {
+            out_features->ip = true;
+        }
+        else if (!strcmp(features[size], "trap-ip")) {
+            out_features->trap_ip = true;
+        }
+        else if (!strcmp(features[size], "values")) {
+            out_features->values = true;
+        }
+        else {
+            ret = false;
+            printf("Unsupported feature %s\n", features[size]);
+            goto finish;
+        }
+    }
+
+finish:
+    free(features);
+    return ret;
 }
 
 static uint32
@@ -355,6 +403,9 @@ main(int argc, char *argv[])
     option.enable_bulk_memory = true;
     option.enable_ref_types = true;
     option.enable_gc = false;
+
+    /* Set all the features to true by default */
+    memset(&option.call_stack_features, 1, sizeof(AOTCallStackFeatures));
 
     /* Process options */
     for (argc--, argv++; argc > 0 && argv[0][0] == '-'; argc--, argv++) {
@@ -469,6 +520,19 @@ main(int argc, char *argv[])
         }
         else if (!strcmp(argv[0], "--enable-dump-call-stack")) {
             option.enable_aux_stack_frame = true;
+        }
+        else if (!strncmp(argv[0], "--call-stack-features=", 22)) {
+            /* Reset all the features, only enable the user-defined ones */
+            memset(&option.call_stack_features, 0,
+                   sizeof(AOTCallStackFeatures));
+
+            if (argv[0][22] != '\0') {
+                if (!parse_call_stack_features(argv[0] + 22,
+                                               &option.call_stack_features)) {
+                    printf("Failed to parse call-stack-features\n");
+                    PRINT_HELP_AND_EXIT();
+                }
+            }
         }
         else if (!strcmp(argv[0], "--enable-perf-profiling")) {
             option.enable_aux_stack_frame = true;
@@ -606,6 +670,12 @@ main(int argc, char *argv[])
             option.size_level = 1;
         }
 #endif
+    }
+
+    if (option.enable_gc && !option.call_stack_features.values) {
+        LOG_WARNING("Call stack feature 'values' must be enabled for GC. The "
+                    "feature will be enabled automatically.");
+        option.call_stack_features.values = true;
     }
 
     if (sgx_mode) {
