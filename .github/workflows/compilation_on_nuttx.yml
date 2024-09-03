@@ -119,7 +119,7 @@ jobs:
         run: make -j$(nproc) EXTRAFLAGS=-Werror
 
       - name: Checkout Bloaty
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: google/bloaty
           submodules: recursive
