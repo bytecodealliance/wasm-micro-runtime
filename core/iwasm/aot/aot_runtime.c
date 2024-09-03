@@ -3668,33 +3668,6 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     return true;
 }
 
-static inline void
-aot_free_frame_internal(WASMExecEnv *exec_env)
-{
-    AOTFrame *cur_frame = (AOTFrame *)exec_env->cur_frame;
-    AOTFrame *prev_frame = cur_frame->prev_frame;
-
-#if WASM_ENABLE_PERF_PROFILING != 0
-    uint64 time_elapsed =
-        (uintptr_t)os_time_thread_cputime_us() - cur_frame->time_started;
-
-    cur_frame->func_perf_prof_info->total_exec_time += time_elapsed;
-    cur_frame->func_perf_prof_info->total_exec_cnt++;
-
-    /* parent function */
-    if (prev_frame)
-        prev_frame->func_perf_prof_info->children_exec_time += time_elapsed;
-#endif
-
-    exec_env->cur_frame = (struct WASMInterpFrame *)prev_frame;
-}
-
-void
-aot_free_frame(WASMExecEnv *exec_env)
-{
-    aot_free_frame_internal(exec_env);
-}
-
 #else /* else of WASM_ENABLE_GC == 0 */
 
 bool
@@ -3752,6 +3725,7 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     frame->func_index = func_index;
     return true;
 }
+#endif /* end of WASM_ENABLE_GC == 0 */
 
 static inline void
 aot_free_frame_internal(WASMExecEnv *exec_env)
@@ -3771,7 +3745,9 @@ aot_free_frame_internal(WASMExecEnv *exec_env)
         prev_frame->func_perf_prof_info->children_exec_time += time_elapsed;
 #endif
 
+#if WASM_ENABLE_GC != 0
     wasm_exec_env_free_wasm_frame(exec_env, cur_frame);
+#endif
     exec_env->cur_frame = (struct WASMInterpFrame *)prev_frame;
 }
 
@@ -3781,7 +3757,6 @@ aot_free_frame(WASMExecEnv *exec_env)
     aot_free_frame_internal(exec_env);
 }
 
-#endif /* end of WASM_ENABLE_GC == 0 */
 
 void
 aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame)
