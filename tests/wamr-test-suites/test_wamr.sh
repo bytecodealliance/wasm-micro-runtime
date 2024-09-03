@@ -511,7 +511,7 @@ function spec_test()
         pushd spec
 
         # Reset to commit: "Merge pull request #48 from backes/specify-memcpy-immediate-order"
-        git reset --hard 48e69f394869c55b7bbe14ac963c09f4605490b6
+        git reset --hard fbc99efd7a788db300aec3dd62a14577ec404f1b
         git checkout 044d0d2e77bdcbe891f7e0b9dd2ac01d56435f0b -- test/core/elem.wast
         git apply ../../spec-test-script/multi_memory_ignore_cases.patch || exit 1
         if [[ ${RUNNING_MODE} == "aot" ]]; then
