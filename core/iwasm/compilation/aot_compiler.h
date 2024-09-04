@@ -195,6 +195,15 @@ aot_gen_commit_values(AOTCompFrame *frame);
 bool
 aot_gen_commit_sp_ip(AOTCompFrame *frame, bool commit_sp, bool commit_ip);
 
+/**
+ * Generate instructions to commit IP pointer to the frame.
+ *
+ * @param frame the frame information
+ */
+bool
+aot_gen_commit_ip(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                  LLVMValueRef ip_value, bool is_64bit);
+
 bool
 aot_frame_store_value(AOTCompContext *comp_ctx, LLVMValueRef value,
                       uint8 value_type, LLVMValueRef cur_frame, uint32 offset);
