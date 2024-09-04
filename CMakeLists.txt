@@ -48,10 +48,6 @@ if (NOT DEFINED WAMR_BUILD_TARGET)
   endif ()
 endif ()
 
-if (NOT COMPILING_WASM_RUNTIME_API)
-  set(COMPILING_WASM_RUNTIME_API 1)
-endif ()
-
 if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif ()
@@ -123,9 +119,11 @@ endif ()
 
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
-include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
+if (MSVC)
+  include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
+endif ()
 
-if (NOT MSVC)
+if (NOT WIN32)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security \
                                        -ffunction-sections -fdata-sections \
                                        -Wno-unused-parameter -Wno-pedantic")
