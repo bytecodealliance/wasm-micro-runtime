@@ -21,7 +21,23 @@ typedef struct {
 
     /* Enables or disables parameters, locals and stack operands. */
     bool values;
+
+    /* If enabled, stack frame is generated at the beginning of each
+     * function (frame-per-function mode). Otherwise, stack frame is
+     * generated before each call of a function (frame-per-call mode). */
+    bool frame_per_function;
 } AOTCallStackFeatures;
+
+void
+aot_call_stack_features_init_default(AOTCallStackFeatures *features);
+
+typedef enum {
+    AOT_STACK_FRAME_OFF = 0,
+    /* Use a small stack frame data structure (AOTTinyFrame) */
+    AOT_STACK_FRAME_TYPE_TINY,
+    /* Use a regular stack frame data structure (AOTFrame) */
+    AOT_STACK_FRAME_TYPE_STANDARD,
+} AOTStackFrameType;
 
 typedef struct AOTCompOption {
     bool is_jit_mode;
@@ -38,7 +54,7 @@ typedef struct AOTCompOption {
     bool enable_ref_types;
     bool enable_gc;
     bool enable_aux_stack_check;
-    bool enable_aux_stack_frame;
+    AOTStackFrameType aux_stack_frame_type;
     AOTCallStackFeatures call_stack_features;
     bool enable_perf_profiling;
     bool enable_memory_profiling;

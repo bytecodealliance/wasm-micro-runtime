@@ -6,6 +6,7 @@
 #include "aot_emit_control.h"
 #include "aot_compiler.h"
 #include "aot_emit_exception.h"
+#include "aot_stack_frame_comp.h"
 #if WASM_ENABLE_GC != 0
 #include "aot_emit_gc.h"
 #endif
@@ -814,6 +815,13 @@ aot_compile_op_end(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         if ((next_llvm_end_block = find_next_llvm_end_block(block)))
             MOVE_BLOCK_BEFORE(block->llvm_end_block, next_llvm_end_block);
     }
+    if (block->label_type == LABEL_TYPE_FUNCTION
+        && comp_ctx->aux_stack_frame_type
+        && comp_ctx->call_stack_features.frame_per_function
+        && !aot_free_frame_per_function_frame_for_aot_func(comp_ctx,
+                                                           func_ctx)) {
+        return false;
+    }
 
     if (comp_ctx->aot_frame) {
         if (block->label_type != LABEL_TYPE_FUNCTION && comp_ctx->enable_gc
@@ -1360,6 +1368,13 @@ aot_compile_op_return(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         comp_ctx, func_ctx,
         (*p_frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code);
 #endif
+
+    if (comp_ctx->aux_stack_frame_type
+        && comp_ctx->call_stack_features.frame_per_function
+        && !aot_free_frame_per_function_frame_for_aot_func(comp_ctx,
+                                                           func_ctx)) {
+        return false;
+    }
 
     if (block_func->result_count) {
         /* Store extra result values to function parameters */

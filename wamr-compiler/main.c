@@ -307,6 +307,13 @@ finish:
     return ret;
 }
 
+static bool
+can_enable_tiny_frame(const AOTCompOption *opt)
+{
+    return !opt->call_stack_features.values && !opt->enable_gc
+           && !opt->enable_perf_profiling;
+}
+
 static uint32
 resolve_segue_flags(char *str_flags)
 {
@@ -403,9 +410,7 @@ main(int argc, char *argv[])
     option.enable_bulk_memory = true;
     option.enable_ref_types = true;
     option.enable_gc = false;
-
-    /* Set all the features to true by default */
-    memset(&option.call_stack_features, 1, sizeof(AOTCallStackFeatures));
+    aot_call_stack_features_init_default(&option.call_stack_features);
 
     /* Process options */
     for (argc--, argv++; argc > 0 && argv[0][0] == '-'; argc--, argv++) {
@@ -519,7 +524,7 @@ main(int argc, char *argv[])
             option.enable_aux_stack_check = false;
         }
         else if (!strcmp(argv[0], "--enable-dump-call-stack")) {
-            option.enable_aux_stack_frame = true;
+            option.aux_stack_frame_type = AOT_STACK_FRAME_TYPE_STANDARD;
         }
         else if (!strncmp(argv[0], "--call-stack-features=", 22)) {
             /* Reset all the features, only enable the user-defined ones */
@@ -535,7 +540,7 @@ main(int argc, char *argv[])
             }
         }
         else if (!strcmp(argv[0], "--enable-perf-profiling")) {
-            option.enable_aux_stack_frame = true;
+            option.aux_stack_frame_type = AOT_STACK_FRAME_TYPE_STANDARD;
             option.enable_perf_profiling = true;
         }
         else if (!strcmp(argv[0], "--enable-memory-profiling")) {
@@ -550,7 +555,7 @@ main(int argc, char *argv[])
             option.is_indirect_mode = true;
         }
         else if (!strcmp(argv[0], "--enable-gc")) {
-            option.enable_aux_stack_frame = true;
+            option.aux_stack_frame_type = AOT_STACK_FRAME_TYPE_STANDARD;
             option.enable_gc = true;
         }
         else if (!strcmp(argv[0], "--disable-llvm-intrinsics")) {
@@ -651,6 +656,14 @@ main(int argc, char *argv[])
 
     if (!use_dummy_wasm && (argc == 0 || !out_file_name))
         PRINT_HELP_AND_EXIT();
+
+    if (option.aux_stack_frame_type == AOT_STACK_FRAME_TYPE_STANDARD
+        && can_enable_tiny_frame(&option)) {
+        LOG_VERBOSE("Use tiny frame mode for stack frames");
+        option.aux_stack_frame_type = AOT_STACK_FRAME_TYPE_TINY;
+        /* for now we only enable frame per function for a TINY frame mode */
+        option.call_stack_features.frame_per_function = true;
+    }
 
     if (!size_level_set) {
         /**
