@@ -119,9 +119,7 @@ endif ()
 
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
-if (MSVC)
-  include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
-endif ()
+include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
 if (NOT WIN32)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security \
