@@ -337,6 +337,10 @@ aot_gen_commit_values(AOTCompFrame *frame)
     LLVMValueRef value;
     uint32 n;
 
+    if (!frame->comp_ctx->call_stack_features.values) {
+        return true;
+    }
+
     /* First, commit reference flags
      * For LLVM JIT, iterate all local and stack ref flags
      * For AOT, ignore local(params + locals) ref flags */
@@ -629,7 +633,7 @@ aot_gen_commit_sp_ip(AOTCompFrame *frame, bool commit_sp, bool commit_ip)
         offset_sp = offsetof(WASMInterpFrame, sp);
     }
 
-    if (commit_ip) {
+    if (commit_ip && comp_ctx->call_stack_features.ip) {
         if (!comp_ctx->is_jit_mode) {
             WASMModule *module = comp_ctx->comp_data->wasm_module;
             if (is_64bit)
@@ -654,7 +658,7 @@ aot_gen_commit_sp_ip(AOTCompFrame *frame, bool commit_sp, bool commit_ip)
         }
     }
 
-    if (commit_sp) {
+    if (commit_sp && comp_ctx->call_stack_features.values) {
         n = (uint32)(sp - frame->lp);
         value = I32_CONST(offset_of_local(comp_ctx, n));
         if (!value) {

@@ -41,7 +41,7 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return false;
         }
 
-        if (comp_ctx->aot_frame) {
+        if (comp_ctx->aot_frame && comp_ctx->call_stack_features.trap_ip) {
             /* Create exception ip phi */
             if (!(func_ctx->exception_ip_phi = LLVMBuildPhi(
                       comp_ctx->builder, is_64bit ? I64_TYPE : I32_TYPE,
@@ -134,7 +134,7 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Add phi incoming value to got_exception block */
     LLVMAddIncoming(func_ctx->exception_id_phi, &exce_id, &block_curr, 1);
 
-    if (comp_ctx->aot_frame) {
+    if (comp_ctx->aot_frame && comp_ctx->call_stack_features.trap_ip) {
         const uint8 *ip = comp_ctx->aot_frame->frame_ip;
         LLVMValueRef exce_ip = NULL;
 
