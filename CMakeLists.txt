@@ -149,7 +149,9 @@ include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 set (THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
-add_definitions(-DCOMPILING_WASM_RUNTIME_API=1)
+if (MSVC)
+  add_definitions(-DCOMPILING_WASM_RUNTIME_API=1)
+endif ()
 
 # STATIC LIBRARY
 if (WAMR_BUILD_STATIC)
