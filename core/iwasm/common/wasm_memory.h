@@ -53,10 +53,15 @@ wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args, char *error_buf,
 
 bool
 wasm_runtime_attach_shared_heap(WASMModuleInstanceCommon *module_inst,
-                                WASMSharedHeap *shared_heap);
+                                void *shared_heap);
+bool
+wasm_runtime_attach_shared_heap_internal(WASMModuleInstanceCommon *module_inst,
+                                         void *shared_heap);
 
 bool
 wasm_runtime_detach_shared_heap(WASMModuleInstanceCommon *module_inst);
+bool
+wasm_runtime_detach_shared_heap_internal(WASMModuleInstanceCommon *module_inst);
 
 uint64
 wasm_runtime_shared_heap_malloc(WASMModuleInstanceCommon *module_inst,
@@ -65,9 +70,6 @@ wasm_runtime_shared_heap_malloc(WASMModuleInstanceCommon *module_inst,
 void
 wasm_runtime_shared_heap_free(WASMModuleInstanceCommon *module_inst,
                               uint64 ptr);
-
-void
-wasm_runtime_shared_heap_destroy();
 #endif
 
 bool

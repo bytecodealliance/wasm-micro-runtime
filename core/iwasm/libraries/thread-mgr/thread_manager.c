@@ -17,6 +17,10 @@
 #include "debug_engine.h"
 #endif
 
+#if WASM_ENABLE_SHARED_HEAP != 0
+#include "../common/wasm_memory.h"
+#endif
+
 typedef struct {
     bh_list_link l;
     void (*destroy_cb)(WASMCluster *);
@@ -1401,6 +1405,72 @@ wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
         os_mutex_unlock(&cluster->lock);
     }
 }
+
+#if WASM_ENABLE_SHARED_HEAP != 0
+static void
+attach_shared_heap_visitor(void *node, void *heap)
+{
+    WASMExecEnv *curr_exec_env = (WASMExecEnv *)node;
+    WASMModuleInstanceCommon *module_inst = get_module_inst(curr_exec_env);
+
+    wasm_runtime_attach_shared_heap_internal(module_inst, heap);
+}
+
+static void
+detach_shared_heap_visitor(void *node, void *heap)
+{
+    WASMExecEnv *curr_exec_env = (WASMExecEnv *)node;
+    WASMModuleInstanceCommon *module_inst = get_module_inst(curr_exec_env);
+
+    (void)heap;
+    wasm_runtime_detach_shared_heap_internal(module_inst);
+}
+
+void
+wasm_cluster_attach_shared_heap(WASMModuleInstanceCommon *module_inst,
+                                void *heap)
+{
+    WASMExecEnv *exec_env = wasm_clusters_search_exec_env(module_inst);
+
+    if (exec_env == NULL) {
+        /* Maybe threads have not been started yet. */
+        wasm_runtime_attach_shared_heap_internal(module_inst, heap);
+    }
+    else {
+        WASMCluster *cluster;
+
+        cluster = wasm_exec_env_get_cluster(exec_env);
+        bh_assert(cluster);
+
+        os_mutex_lock(&cluster->lock);
+        traverse_list(&cluster->exec_env_list, attach_shared_heap_visitor,
+                      heap);
+        os_mutex_unlock(&cluster->lock);
+    }
+}
+
+void
+wasm_cluster_detach_shared_heap(WASMModuleInstanceCommon *module_inst)
+{
+    WASMExecEnv *exec_env = wasm_clusters_search_exec_env(module_inst);
+
+    if (exec_env == NULL) {
+        /* Maybe threads have not been started yet. */
+        wasm_runtime_detach_shared_heap_internal(module_inst);
+    }
+    else {
+        WASMCluster *cluster;
+
+        cluster = wasm_exec_env_get_cluster(exec_env);
+        bh_assert(cluster);
+
+        os_mutex_lock(&cluster->lock);
+        traverse_list(&cluster->exec_env_list, detach_shared_heap_visitor,
+                      NULL);
+        os_mutex_unlock(&cluster->lock);
+    }
+}
+#endif
 
 #if WASM_ENABLE_MODULE_INST_CONTEXT != 0
 struct inst_set_context_data {

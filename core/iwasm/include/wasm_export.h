@@ -204,8 +204,6 @@ typedef struct WASMSharedHeap {
     void *heap_handle;
     uint8_t *base_addr;
     uint32_t size;
-    mem_alloc_type_t alloc_type;
-    MemAllocOption alloc_option;
     struct WASMSharedHeap *next;
 } WASMSharedHeap;
 
