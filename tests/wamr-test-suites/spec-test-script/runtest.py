@@ -1323,6 +1323,9 @@ if __name__ == "__main__":
         # it will be simple ignore during final deletion if not exist
         prefix = wasm_tempfile.split(".wasm")[0]
         temp_file_repo.append(prefix + ".aot")
+        if opts.qemu:
+            # increase fail timeout in QEMU testing
+            opts.start_fail_timeout = 3
 
     ret_code = 0
     try:
