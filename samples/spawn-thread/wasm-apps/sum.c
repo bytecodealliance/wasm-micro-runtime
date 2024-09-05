@@ -7,6 +7,8 @@
  * have something in bss so that llvm synthesizes
  * wasm start function for this module.
  */
+#include <stdio.h>
+
 char *
 return_bss()
 {
@@ -22,6 +24,7 @@ sum(int start, int length)
     for (i = start; i < start + length; i++) {
         sum += i;
     }
+    printf("From WASM sum is: %d\n", sum);
 
     return sum;
 }

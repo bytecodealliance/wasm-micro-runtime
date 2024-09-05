@@ -157,7 +157,8 @@ struct WASMMemoryInstance {
 struct WASMTableInstance {
     /* The element type */
     uint8 elem_type;
-    uint8 __padding__[7];
+    uint8 is_table64;
+    uint8 __padding__[6];
     union {
 #if WASM_ENABLE_GC != 0
         WASMRefType *elem_ref_type;
