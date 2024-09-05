@@ -1325,7 +1325,7 @@ if __name__ == "__main__":
         temp_file_repo.append(prefix + ".aot")
         if opts.qemu:
             # increase fail timeout in QEMU testing
-            opts.start_fail_timeout = 3
+            opts.start_fail_timeout = 4
 
     ret_code = 0
     try:
