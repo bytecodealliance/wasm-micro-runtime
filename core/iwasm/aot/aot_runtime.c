@@ -3864,33 +3864,6 @@ aot_free_frame(WASMExecEnv *exec_env)
     }
 }
 
-/**
- * Releases a frame from the top of the stack only if the top frame
- * describes imported function.
- *
- * This function is used for a frame-per-function in the call_indirect
- * implementation; it's not possible to know at compile time if the the
- * opcode calls to imported function (where the frame must be released,
- * because frame allocation is not part of the function) or the function
- * within the module (in that case the function itself is responsible for
- * allocating / freeing the frame), so we need to check it at runtime.
- */
-void
-aot_free_import_frame(WASMExecEnv *exec_env)
-{
-    void *frame = get_top_frame(exec_env);
-    if (frame) {
-        AOTModule *module =
-            (AOTModule *)((AOTModuleInstance *)exec_env->module_inst)->module;
-        uint32 func_idx = is_tiny_frame(exec_env)
-                              ? ((AOTTinyFrame *)frame)->func_index
-                              : ((AOTFrame *)frame)->func_index;
-        if (func_idx < module->import_func_count) {
-            aot_free_frame(exec_env);
-        }
-    }
-}
-
 void
 aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame)
 {

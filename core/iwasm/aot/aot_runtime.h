@@ -717,9 +717,6 @@ void
 aot_free_frame(WASMExecEnv *exec_env);
 
 void
-aot_free_import_frame(WASMExecEnv *exec_env);
-
-void
 aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame);
 
 bool

@@ -562,39 +562,6 @@ fail:
 }
 
 static bool
-call_aot_free_import_frame_func(AOTCompContext *comp_ctx,
-                                AOTFuncContext *func_ctx)
-{
-    LLVMValueRef param_values[1], ret_value, value, func;
-    LLVMTypeRef param_types[1], ret_type, func_type, func_ptr_type;
-
-    param_types[0] = comp_ctx->exec_env_type;
-    ret_type = VOID_TYPE;
-
-#if WASM_ENABLE_JIT != 0
-    if (comp_ctx->is_jit_mode) {
-        aot_set_last_error("JIT mode is unsupported yet");
-        return false;
-    }
-    else
-#endif
-        GET_AOT_FUNCTION(aot_free_import_frame, 1);
-
-    param_values[0] = func_ctx->exec_env;
-
-    if (!(ret_value = LLVMBuildCall2(comp_ctx->builder, func_type, func,
-                                     param_values, 1, ""))) {
-        aot_set_last_error("llvm build call failed.");
-        return false;
-    }
-
-    return true;
-
-fail:
-    return false;
-}
-
-static bool
 alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 func_idx)
 {
@@ -1486,7 +1453,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         if (func_idx < import_func_count
             && comp_ctx->call_stack_features.frame_per_function) {
             if (!aot_alloc_frame_per_function_frame_for_aot_func(
-                    comp_ctx, func_ctx, func_idx)) {
+                    comp_ctx, func_ctx, I32_CONST(func_idx))) {
                 return false;
             }
         }
@@ -2502,7 +2469,8 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    if (comp_ctx->aux_stack_frame_type) {
+    if (comp_ctx->aux_stack_frame_type
+        && !comp_ctx->call_stack_features.frame_per_function) {
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
         /*  TODO: use current frame instead of allocating new frame
                   for WASM_OP_RETURN_CALL_INDIRECT */
@@ -2597,6 +2565,12 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
+    if (comp_ctx->aot_frame
+        && comp_ctx->call_stack_features.frame_per_function) {
+        aot_alloc_frame_per_function_frame_for_aot_func(comp_ctx, func_ctx,
+                                                        func_idx);
+    }
+
     if (!call_aot_call_indirect_func(
             comp_ctx, func_ctx, func_type, ftype_idx, tbl_idx_value, elem_idx,
             param_types + 1, param_values + 1, func_param_count, param_cell_num,
@@ -2607,6 +2581,11 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if ((comp_ctx->enable_bound_check || is_win_platform(comp_ctx))
         && !check_call_return(comp_ctx, func_ctx, res))
         goto fail;
+
+    if (comp_ctx->aot_frame
+        && comp_ctx->call_stack_features.frame_per_function) {
+        aot_free_frame_per_function_frame_for_aot_func(comp_ctx, func_ctx);
+    }
 
     block_curr = LLVMGetInsertBlock(comp_ctx->builder);
     for (i = 0; i < func_result_count; i++) {
@@ -2692,17 +2671,11 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         PUSH(result_phis[i], func_type->types[func_param_count + i]);
     }
 
-    if (comp_ctx->aux_stack_frame_type) {
+    if (comp_ctx->aux_stack_frame_type
+        && !comp_ctx->call_stack_features.frame_per_function) {
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
-        if (comp_ctx->call_stack_features.frame_per_function) {
-            if (!call_aot_free_import_frame_func(comp_ctx, func_ctx)) {
-                goto fail;
-            }
-        }
-        else {
-            if (!free_frame_for_aot_func(comp_ctx, func_ctx))
-                goto fail;
-        }
+        if (!free_frame_for_aot_func(comp_ctx, func_ctx))
+            goto fail;
 #endif
     }
 

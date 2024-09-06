@@ -34,7 +34,8 @@
 
 static bool
 aot_alloc_tiny_frame_for_aot_func(AOTCompContext *comp_ctx,
-                                  AOTFuncContext *func_ctx, uint32 func_index)
+                                  AOTFuncContext *func_ctx,
+                                  LLVMValueRef func_index)
 {
     LLVMValueRef wasm_stack_top_ptr = func_ctx->wasm_stack_top_ptr,
                  wasm_stack_top_bound = func_ctx->wasm_stack_top_bound,
@@ -69,7 +70,7 @@ aot_alloc_tiny_frame_for_aot_func(AOTCompContext *comp_ctx,
     }
 
     /* Save the func_idx on the top of the stack */
-    ADD_STORE(I32_CONST(func_index), wasm_stack_top);
+    ADD_STORE(func_index, wasm_stack_top);
 
     /* increment the stack pointer */
     offset = I32_CONST(sizeof(AOTTinyFrame));
@@ -119,7 +120,7 @@ aot_tiny_frame_gen_commit_ip(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 bool
 aot_alloc_frame_per_function_frame_for_aot_func(AOTCompContext *comp_ctx,
                                                 AOTFuncContext *func_ctx,
-                                                uint32 func_index)
+                                                LLVMValueRef func_index)
 {
     switch (comp_ctx->aux_stack_frame_type) {
         case AOT_STACK_FRAME_TYPE_TINY:

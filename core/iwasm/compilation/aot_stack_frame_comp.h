@@ -16,7 +16,7 @@ extern "C" {
 bool
 aot_alloc_frame_per_function_frame_for_aot_func(AOTCompContext *comp_ctx,
                                                 AOTFuncContext *func_ctx,
-                                                uint32 func_index);
+                                                LLVMValueRef func_index);
 
 bool
 aot_free_frame_per_function_frame_for_aot_func(AOTCompContext *comp_ctx,

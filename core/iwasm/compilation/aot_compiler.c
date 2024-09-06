@@ -1020,7 +1020,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
         && comp_ctx->call_stack_features.frame_per_function
         && !aot_alloc_frame_per_function_frame_for_aot_func(
             comp_ctx, func_ctx,
-            func_index + comp_ctx->comp_data->import_func_count)) {
+            I32_CONST(func_index + comp_ctx->comp_data->import_func_count))) {
         return false;
     }
     if (comp_ctx->aux_stack_frame_type) {
