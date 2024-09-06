@@ -511,9 +511,9 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
 #endif
 
 #if WASM_ENABLE_MEMORY64 != 0
-#define PUSH_MEM_OFFSET(value)                     \
+#define COND_PUSH_TEMPLATE(cond, value)            \
     do {                                           \
-        if (is_memory64) {                         \
+        if (cond) {                                \
             PUT_I64_TO_ADDR(frame_sp, value);      \
             frame_sp += 2;                         \
         }                                          \
@@ -521,16 +521,8 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
             *(int32 *)frame_sp++ = (int32)(value); \
         }                                          \
     } while (0)
-#define PUSH_TBL_ELEM_IDX(value)                   \
-    do {                                           \
-        if (is_table64) {                          \
-            PUT_I64_TO_ADDR(frame_sp, value);      \
-            frame_sp += 2;                         \
-        }                                          \
-        else {                                     \
-            *(int32 *)frame_sp++ = (int32)(value); \
-        }                                          \
-    } while (0)
+#define PUSH_MEM_OFFSET(value) COND_PUSH_TEMPLATE(is_memory64, value)
+#define PUSH_TBL_ELEM_IDX(value) COND_PUSH_TEMPLATE(is_table64, value)
 #else
 #define PUSH_MEM_OFFSET(value) PUSH_I32(value)
 #define PUSH_TBL_ELEM_IDX(value) PUSH_I32(value)
@@ -1656,10 +1648,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 goto got_exception;
             }
 
-            HANDLE_OP(WASM_OP_NOP)
-            {
-                HANDLE_OP_END();
-            }
+            HANDLE_OP(WASM_OP_NOP) { HANDLE_OP_END(); }
 
 #if WASM_ENABLE_EXCE_HANDLING != 0
             HANDLE_OP(WASM_OP_RETHROW)
@@ -5574,10 +5563,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_I32_REINTERPRET_F32)
             HANDLE_OP(WASM_OP_I64_REINTERPRET_F64)
             HANDLE_OP(WASM_OP_F32_REINTERPRET_I32)
-            HANDLE_OP(WASM_OP_F64_REINTERPRET_I64)
-            {
-                HANDLE_OP_END();
-            }
+            HANDLE_OP(WASM_OP_F64_REINTERPRET_I64) { HANDLE_OP_END(); }
 
             HANDLE_OP(WASM_OP_I32_EXTEND8_S)
             {

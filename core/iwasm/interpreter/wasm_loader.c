@@ -4416,6 +4416,7 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                            uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf_end;
+    uint8 table_elem_idx_type = VALUE_TYPE_I32;
     uint32 table_segment_count, i;
     uint64 total_size;
     WASMTableSeg *table_segment;
@@ -4473,9 +4474,17 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                     if (!check_table_index(module, table_segment->table_index,
                                            error_buf, error_buf_size))
                         return false;
-                    if (!load_init_expr(
-                            module, &p, p_end, &table_segment->base_offset,
-                            VALUE_TYPE_I32, NULL, error_buf, error_buf_size))
+
+#if WASM_ENABLE_MEMORY64 != 0
+                    table_elem_idx_type =
+                        is_table_64bit(module, table_segment->table_index)
+                            ? VALUE_TYPE_I64
+                            : VALUE_TYPE_I32;
+#endif
+                    if (!load_init_expr(module, &p, p_end,
+                                        &table_segment->base_offset,
+                                        table_elem_idx_type, NULL, error_buf,
+                                        error_buf_size))
                         return false;
 
                     if (table_segment->mode == 0) {
@@ -4523,9 +4532,16 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                                           &table_segment->table_index,
                                           error_buf, error_buf_size))
                         return false;
-                    if (!load_init_expr(
-                            module, &p, p_end, &table_segment->base_offset,
-                            VALUE_TYPE_I32, NULL, error_buf, error_buf_size))
+#if WASM_ENABLE_MEMORY64 != 0
+                    table_elem_idx_type =
+                        is_table_64bit(module, table_segment->table_index)
+                            ? VALUE_TYPE_I64
+                            : VALUE_TYPE_I32;
+#endif
+                    if (!load_init_expr(module, &p, p_end,
+                                        &table_segment->base_offset,
+                                        table_elem_idx_type, NULL, error_buf,
+                                        error_buf_size))
                         return false;
                     if (!load_elem_type(module, &p, p_end,
                                         &table_segment->elem_type,
@@ -4577,7 +4593,7 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                                   "unknown element segment kind");
                     return false;
             }
-#else  /* else of WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0 */
+#else /* else of WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0 */
             /*
              * like:      00  41 05 0b               04 00 01 00 01
              * for: (elem 0   (offset (i32.const 5)) $f1 $f2 $f1 $f2)
@@ -4586,8 +4602,14 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                                   &table_segment->table_index, error_buf,
                                   error_buf_size))
                 return false;
+#if WASM_ENABLE_MEMORY64 != 0
+            table_elem_idx_type =
+                is_table_64bit(module, table_segment->table_index)
+                    ? VALUE_TYPE_I64
+                    : VALUE_TYPE_I32;
+#endif
             if (!load_init_expr(module, &p, p_end, &table_segment->base_offset,
-                                VALUE_TYPE_I32, NULL, error_buf,
+                                table_elem_idx_type, NULL, error_buf,
                                 error_buf_size))
                 return false;
             if (!load_func_index_vec(&p, p_end, module, table_segment,
@@ -9628,7 +9650,7 @@ fail:
 #define POP_REF(Type) TEMPLATE_POP_REF(Type)
 #define PUSH_MEM_OFFSET() TEMPLATE_PUSH_REF(mem_offset_type)
 #define PUSH_PAGE_COUNT() PUSH_MEM_OFFSET()
-#define PUSH_TBL_ELEM_IDX() TEMPLATE_PUSH_REF(table_idx_type)
+#define PUSH_TBL_ELEM_IDX() TEMPLATE_PUSH_REF(table_elem_idx_type)
 
 #define POP_I32() TEMPLATE_POP(I32)
 #define POP_F32() TEMPLATE_POP(F32)
@@ -9639,7 +9661,7 @@ fail:
 #define POP_EXTERNREF() TEMPLATE_POP(EXTERNREF)
 #define POP_STRINGREF() TEMPLATE_POP(STRINGREF)
 #define POP_MEM_OFFSET() TEMPLATE_POP_REF(mem_offset_type)
-#define POP_TBL_ELEM_IDX() TEMPLATE_POP_REF(table_idx_type)
+#define POP_TBL_ELEM_IDX() TEMPLATE_POP_REF(table_elem_idx_type)
 
 #if WASM_ENABLE_FAST_INTERP != 0
 
@@ -10826,7 +10848,7 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
     uint8 *p = func->code, *p_end = func->code + func->code_size, *p_org;
     uint32 param_count, local_count, global_count;
     uint8 *param_types, *local_types, local_type, global_type, mem_offset_type,
-        table_idx_type;
+        table_elem_idx_type;
     BlockType func_block_type;
     uint16 *local_offsets, local_offset;
     uint32 type_idx, func_idx, local_idx, global_idx, table_idx;
@@ -10861,7 +10883,7 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
     mem_offset_type = is_memory64 ? VALUE_TYPE_I64 : VALUE_TYPE_I32;
 #else
     mem_offset_type = VALUE_TYPE_I32;
-    table_idx_type = VALUE_TYPE_I32;
+    table_elem_idx_type = VALUE_TYPE_I32;
 #endif
     uint32 memidx;
 
@@ -12022,9 +12044,9 @@ re_scan:
 #endif
 
 #if WASM_ENABLE_MEMORY64 != 0
-                table_idx_type = is_table_64bit(module, table_idx)
-                                     ? VALUE_TYPE_I64
-                                     : VALUE_TYPE_I32;
+                table_elem_idx_type = is_table_64bit(module, table_idx)
+                                          ? VALUE_TYPE_I64
+                                          : VALUE_TYPE_I32;
 #endif
                 /* skip elem idx */
                 POP_TBL_ELEM_IDX();
@@ -12437,9 +12459,9 @@ re_scan:
 #endif
 
 #if WASM_ENABLE_MEMORY64 != 0
-                table_idx_type = is_table_64bit(module, table_idx)
-                                     ? VALUE_TYPE_I64
-                                     : VALUE_TYPE_I32;
+                table_elem_idx_type = is_table_64bit(module, table_idx)
+                                          ? VALUE_TYPE_I64
+                                          : VALUE_TYPE_I32;
 #endif
                 if (opcode == WASM_OP_TABLE_GET) {
                     POP_TBL_ELEM_IDX();
@@ -14737,9 +14759,9 @@ re_scan:
                         POP_I32();
                         POP_I32();
 #if WASM_ENABLE_MEMORY64 != 0
-                        table_idx_type = is_table_64bit(module, table_idx)
-                                             ? VALUE_TYPE_I64
-                                             : VALUE_TYPE_I32;
+                        table_elem_idx_type = is_table_64bit(module, table_idx)
+                                                  ? VALUE_TYPE_I64
+                                                  : VALUE_TYPE_I32;
 #endif
                         POP_TBL_ELEM_IDX();
 
@@ -14832,11 +14854,11 @@ re_scan:
                         min_tbl_idx_type = VALUE_TYPE_I32;
 #endif
 
-                        table_idx_type = min_tbl_idx_type;
+                        table_elem_idx_type = min_tbl_idx_type;
                         POP_TBL_ELEM_IDX();
-                        table_idx_type = src_tbl_idx_type;
+                        table_elem_idx_type = src_tbl_idx_type;
                         POP_TBL_ELEM_IDX();
-                        table_idx_type = dst_tbl_idx_type;
+                        table_elem_idx_type = dst_tbl_idx_type;
                         POP_TBL_ELEM_IDX();
 
 #if WASM_ENABLE_WAMR_COMPILER != 0
@@ -14858,9 +14880,9 @@ re_scan:
 #endif
 
 #if WASM_ENABLE_MEMORY64 != 0
-                        table_idx_type = is_table_64bit(module, table_idx)
-                                             ? VALUE_TYPE_I64
-                                             : VALUE_TYPE_I32;
+                        table_elem_idx_type = is_table_64bit(module, table_idx)
+                                                  ? VALUE_TYPE_I64
+                                                  : VALUE_TYPE_I32;
 #endif
                         PUSH_TBL_ELEM_IDX();
 
@@ -14912,9 +14934,9 @@ re_scan:
 #endif
 
 #if WASM_ENABLE_MEMORY64 != 0
-                        table_idx_type = is_table_64bit(module, table_idx)
-                                             ? VALUE_TYPE_I64
-                                             : VALUE_TYPE_I32;
+                        table_elem_idx_type = is_table_64bit(module, table_idx)
+                                                  ? VALUE_TYPE_I64
+                                                  : VALUE_TYPE_I32;
 #endif
                         POP_TBL_ELEM_IDX();
 #if WASM_ENABLE_FAST_INTERP != 0
