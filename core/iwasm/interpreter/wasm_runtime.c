@@ -3738,22 +3738,6 @@ wasm_module_dup_data(WASMModuleInstance *module_inst, const char *src,
     return buffer_offset;
 }
 
-#if WASM_ENABLE_SHARED_HEAP != 0
-uint64
-wasm_module_shared_malloc(WASMModuleInstance *module_inst, uint64 size,
-                          void **p_native_addr)
-{
-    return wasm_runtime_shared_heap_malloc(
-        (WASMModuleInstanceCommon *)module_inst, size, p_native_addr);
-}
-
-void
-wasm_module_shared_free(WASMModuleInstance *module_inst, uint64 ptr)
-{
-    wasm_runtime_shared_heap_free((WASMModuleInstanceCommon *)module_inst, ptr);
-}
-#endif
-
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
 bool
 wasm_enlarge_table(WASMModuleInstance *module_inst, uint32 table_idx,

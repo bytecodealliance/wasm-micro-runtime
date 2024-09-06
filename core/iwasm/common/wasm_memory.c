@@ -153,7 +153,7 @@ set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
     if (error_buf != NULL) {
         snprintf(error_buf, error_buf_size,
-                 "WASM module instantiate failed: %s", string);
+                 "Operation of shared heap failed: %s", string);
     }
 }
 
@@ -252,7 +252,7 @@ wasm_runtime_attach_shared_heap_internal(WASMModuleInstanceCommon *module_inst,
 
     // check if linear memory and shared heap are overlapped
     memory = wasm_get_default_memory(wasm_module_inst);
-    linear_mem_size = linear_mem_size + memory->memory_data_size;
+    linear_mem_size = memory->memory_data_size;
 
     if (
 #if WASM_ENABLE_MEMORY64 != 0
@@ -292,20 +292,31 @@ uint64
 wasm_runtime_shared_heap_malloc(wasm_module_inst_t module_inst, uint64_t size,
                                 void **p_native_addr)
 {
-    WASMModuleInstance *wasm_module_inst = (WASMModuleInstance *)module_inst;
-    WASMSharedHeap *heap = wasm_module_inst->e->shared_heap;
+    WASMSharedHeap *heap = NULL;
+    WASMMemoryInstance *memory = NULL;
+
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        heap = ((WASMModuleInstance *)module_inst)->e->shared_heap;
+        memory = wasm_get_default_memory((WASMModuleInstance *)module_inst);
+    }
+    else if (module_inst->module_type == Wasm_Module_AoT) {
+        // TODO
+    }
+
     if (heap) {
         *p_native_addr = mem_allocator_malloc(heap->heap_handle, size);
 
         if (*p_native_addr == NULL)
             return 0;
-#if WASM_ENABLE_MEMORY64 != 0
-        if (memory->is_memory64)
+
+        if (memory && memory->is_memory64) {
             return UINT64_MAX - heap->size + 1
                    + ((uint8 *)*p_native_addr - heap->base_addr);
-#endif
-        return UINT32_MAX - heap->size + 1
-               + ((uint8 *)*p_native_addr - heap->base_addr);
+        }
+        else if (memory && !memory->is_memory64) {
+            return UINT32_MAX - heap->size + 1
+                   + ((uint8 *)*p_native_addr - heap->base_addr);
+        }
     }
     else {
         LOG_WARNING("Wasm module doesn't attach to a shared heap");
@@ -316,11 +327,32 @@ wasm_runtime_shared_heap_malloc(wasm_module_inst_t module_inst, uint64_t size,
 void
 wasm_runtime_shared_heap_free(wasm_module_inst_t module_inst, uint64 ptr)
 {
-    WASMModuleInstance *wasm_module_inst = (WASMModuleInstance *)module_inst;
+    WASMSharedHeap *heap = NULL;
+    WASMMemoryInstance *memory = NULL;
+    uint8 *addr = NULL;
 
-    if (wasm_module_inst->e->shared_heap) {
-        return mem_allocator_free(wasm_module_inst->e->shared_heap->base_addr,
-                                  addr_app_to_native(ptr));
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        heap = ((WASMModuleInstance *)module_inst)->e->shared_heap;
+        memory = wasm_get_default_memory((WASMModuleInstance *)module_inst);
+    }
+    else if (module_inst->module_type == Wasm_Module_AoT) {
+        // TODO
+    }
+
+    if (!heap) {
+        LOG_WARNING("Wasm module doesn't attach to a shared heap");
+        return;
+    }
+
+    if (memory && memory->is_memory64 && ptr > UINT64_MAX - heap->size + 1) {
+        addr = heap->base_addr + (ptr - (UINT64_MAX - heap->size + 1));
+    }
+    else if (memory && !memory->is_memory64 && ptr > UINT32_MAX - heap->size + 1
+             && ptr <= UINT32_MAX)
+        addr = heap->base_addr + (ptr - (UINT32_MAX - heap->size + 1));
+
+    if (heap) {
+        mem_allocator_free(heap->base_addr, addr);
     }
 }
 #endif
@@ -765,21 +797,27 @@ wasm_runtime_addr_app_to_native(WASMModuleInstanceCommon *module_inst_comm,
         }
 #if WASM_ENABLE_SHARED_HEAP != 0
 #if WASM_ENABLE_MEMORY64 == 0
-        else if (app_offset >= UINT32_MAX - module_inst->e->shared_heap->size
+        else if (!memory_inst->is_memory64
+                 && app_offset
+                        >= UINT32_MAX - module_inst->e->shared_heap->size + 1
                  && app_offset <= UINT32_MAX - 1) {
             uint64 heap_start = (uint64)(UINT32_MAX)
-                                - (uint64)module_inst->e->shared_heap->size;
+                                - (uint64)module_inst->e->shared_heap->size + 1;
             uint64 heap_offset = (uint64)app_offset - heap_start;
             addr = module_inst->e->shared_heap->base_addr + heap_offset;
+            SHARED_MEMORY_UNLOCK(memory_inst);
             return addr;
         }
 #else
-        else if (app_offset >= UINT64_MAX - module_inst->e->shared_heap->size
+        else if (memory_inst->is_memory64
+                 && app_offset
+                        >= UINT64_MAX - module_inst->e->shared_heap->size + 1
                  && app_offset <= UINT64_MAX - 1) {
             uint64 heap_start =
-                UINT64_MAX - (uint64)module_inst->e->shared_heap->size;
+                UINT64_MAX - (uint64)module_inst->e->shared_heap->size + 1;
             uint64 heap_offset = (uint64)app_offset - heap_start;
-            addr = module_inst->e->shared_heap->data + heap_offset;
+            addr = module_inst->e->shared_heap->base_addr + heap_offset;
+            SHARED_MEMORY_UNLOCK(memory_inst);
             return addr;
         }
 #endif
@@ -830,13 +868,14 @@ wasm_runtime_addr_native_to_app(WASMModuleInstanceCommon *module_inst_comm,
         else {
 #if WASM_ENABLE_SHARED_HEAP != 0
             uint64 shared_heap_start = 0;
-#if WASM_ENABLE_MEMORY64 == 0
-            shared_heap_start =
-                UINT32_MAX - (uint64)module_inst->e->shared_heap->size;
-#else
-            shared_heap_start =
-                UINT64_MAX - (uint64)module_inst->e->shared_heap->size;
-#endif
+            if (!memory_inst->is_memory64) {
+                shared_heap_start =
+                    UINT32_MAX - (uint64)module_inst->e->shared_heap->size + 1;
+            }
+            else {
+                shared_heap_start =
+                    UINT64_MAX - (uint64)module_inst->e->shared_heap->size + 1;
+            }
             ret =
                 (uint64)(addr - (uint8 *)module_inst->e->shared_heap->base_addr)
                 + shared_heap_start;
@@ -1135,15 +1174,16 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count,
 
 #if WASM_ENABLE_SHARED_HEAP != 0
     heap = module->e->shared_heap;
-#if WASM_ENABLE_MEMORY64 != 0
-    if (total_size_new > UINT64_MAX - heap->size) {
+    if (memory->is_memory64 && total_size_new > UINT64_MAX - heap->size + 1) {
         LOG_WARNING("Linear memory address is overlapped with shared heap");
+        ret = false;
+        goto return_func;
     }
-#else
-    if (total_size_new > UINT32_MAX - heap->size) {
+    else if (!memory->is_memory64 && total_size_new > UINT32_MAX - heap->size + 1) {
         LOG_WARNING("Linear memory address is overlapped with shared heap");
+        ret = false;
+        goto return_func;
     }
-#endif
 #endif
     if (inc_page_count <= 0)
         /* No need to enlarge memory */

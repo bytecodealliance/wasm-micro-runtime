@@ -3296,8 +3296,8 @@ wasm_runtime_module_shared_malloc(WASMModuleInstanceCommon *module_inst,
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode)
-        return wasm_module_shared_malloc((WASMModuleInstance *)module_inst,
-                                         size, p_native_addr);
+        return wasm_runtime_shared_heap_malloc(module_inst, size,
+                                               p_native_addr);
 #endif
 #if WASM_ENABLE_AOT != 0
         // TODO
@@ -3311,7 +3311,7 @@ wasm_runtime_module_shared_free(WASMModuleInstanceCommon *module_inst,
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
-        wasm_module_shared_free((WASMModuleInstance *)module_inst, ptr);
+        wasm_runtime_shared_heap_free(module_inst, ptr);
         return;
     }
 #endif
