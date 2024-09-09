@@ -2532,7 +2532,7 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
 
 #if WASM_ENABLE_FAST_INTERP != 0 && WASM_ENABLE_LABELS_AS_VALUES != 0
 void **
-wasm_interp_get_handle_table();
+wasm_interp_get_handle_table(void);
 
 static void **handle_table;
 #endif
