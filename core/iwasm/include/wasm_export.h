@@ -199,14 +199,6 @@ typedef enum {
     Shared_heap_alloc_With_MMAP,
 } shared_heap_alloc_type_t;
 
-// todo: add field "name"  to WASMSharedHeap?
-typedef struct WASMSharedHeap {
-    void *heap_handle;
-    uint8_t *base_addr;
-    uint32_t size;
-    struct WASMSharedHeap *next;
-} WASMSharedHeap;
-
 /* WASM runtime initialize arguments */
 typedef struct RuntimeInitArgs {
     mem_alloc_type_t mem_alloc_type;

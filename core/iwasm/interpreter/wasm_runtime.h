@@ -92,6 +92,17 @@ typedef union {
     uint32 u32[2];
 } MemBound;
 
+#if WASM_ENABLE_SHARED_HEAP != 0
+typedef struct WASMSharedHeap {
+    void *heap_handle;
+    uint8_t *base_addr;
+    uint32_t size;
+    struct WASMSharedHeap *next;
+    uint64 start_off_mem64;
+    uint64 start_off_mem32;
+} WASMSharedHeap;
+#endif
+
 struct WASMMemoryInstance {
     /* Module type */
     uint32 module_type;

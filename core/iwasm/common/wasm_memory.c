@@ -187,11 +187,13 @@ wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args, char *error_buf,
                              error_buf_size))) {
         goto fail2;
     }
+    heap->start_off_mem64 = UINT64_MAX - heap->size + 1;
+    heap->start_off_mem32 = UINT32_MAX - heap->size + 1;
 
     size = align_uint(size, os_getpagesize());
-    if (size > UINT32_MAX - APP_HEAP_SIZE_MAX + 1 || size < APP_HEAP_SIZE_MIN) {
+    if (size > APP_HEAP_SIZE_MAX || size < APP_HEAP_SIZE_MIN) {
         set_error_buf(error_buf, error_buf_size, "invalid size of shared heap");
-        goto fail1;
+        goto fail3;
     }
 
     if (!(heap->base_addr = wasm_mmap_linear_memory(size, size))) {
@@ -255,11 +257,8 @@ wasm_runtime_attach_shared_heap_internal(WASMModuleInstanceCommon *module_inst,
     // check if linear memory and shared heap are overlapped
     linear_mem_size = memory->memory_data_size;
 
-    if (
-#if WASM_ENABLE_MEMORY64 != 0
-        (memory->is_memory64 && linear_mem_size > UINT64_MAX - heap->size) ||
-#endif
-        (!memory->is_memory64 && linear_mem_size > UINT32_MAX - heap->size)) {
+    if ((memory->is_memory64 && linear_mem_size > heap->start_off_mem64)
+        || (!memory->is_memory64 && linear_mem_size > heap->start_off_mem32)) {
         LOG_WARNING("Linear memory address is overlapped with shared heap");
         return false;
     }
@@ -314,14 +313,18 @@ is_app_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst_comm, bool is_m
         // TODO
     }
 
+    if (!heap) {
+        return false;
+    }
+
     if (!is_memory64) {
-        if (app_offset >= UINT32_MAX - heap->size + 1
+        if (app_offset >= heap->start_off_mem32
             && app_offset <= UINT32_MAX - bytes + 1) {
             return true;
         }
     }
     else {
-        if (app_offset >= UINT64_MAX - heap->size + 1
+        if (app_offset >= heap->start_off_mem64
             && app_offset <= UINT64_MAX - bytes + 1) {
             return true;
         }
@@ -338,7 +341,7 @@ is_native_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst_comm,
               || module_inst_comm->module_type == Wasm_Module_AoT);
     WASMSharedHeap *heap = module_inst->e->shared_heap;
 
-    if (heap && heap->base_addr && addr >= heap->base_addr
+    if (heap && addr >= heap->base_addr
         && addr + bytes <= heap->base_addr + heap->size
         && addr + bytes > addr) {
         return true;
@@ -367,15 +370,17 @@ shared_heap_addr_native_to_app(WASMModuleInstanceCommon *module_inst,
         return 0;
 
     if (memory && memory->is_memory64) {
-        return UINT64_MAX - heap->size + 1 + ((uint8 *)addr - heap->base_addr);
+        return heap->start_off_mem64 + ((uint8 *)addr - heap->base_addr);
     }
     else if (memory && !memory->is_memory64) {
-        return UINT32_MAX - heap->size + 1 + ((uint8 *)addr - heap->base_addr);
+        return heap->start_off_mem32 + ((uint8 *)addr - heap->base_addr);
     }
     return 0;
 }
 
-static void *shared_heap_addr_app_to_native(WASMModuleInstanceCommon *module_inst, WASMMemoryInstance *memory, uint64 ptr)
+static void *
+shared_heap_addr_app_to_native(WASMModuleInstanceCommon *module_inst,
+                               WASMMemoryInstance *memory, uint64 ptr)
 {
     void *addr = NULL;
     WASMSharedHeap *heap = NULL;
@@ -399,10 +404,10 @@ static void *shared_heap_addr_app_to_native(WASMModuleInstanceCommon *module_ins
 
     if (is_app_addr_in_shared_heap(module_inst, memory->is_memory64, ptr, 1)) {
         if (memory->is_memory64) {
-            addr = heap->base_addr + (ptr - (UINT64_MAX - heap->size + 1));
+            addr = heap->base_addr + (ptr - heap->start_off_mem64);
         }
         else {
-            addr = heap->base_addr + (ptr - (UINT32_MAX - heap->size + 1));
+            addr = heap->base_addr + (ptr - heap->start_off_mem32);
         }
     }
 
@@ -413,13 +418,12 @@ static uint64
 shared_heap_get_addr_start(WASMSharedHeap *heap, WASMMemoryInstance *memory)
 {
     uint64 shared_heap_start = 0;
-    uint64 heap_size = heap->size;
 
     if (memory && !memory->is_memory64) {
-        shared_heap_start = UINT32_MAX - heap_size + 1;
+        shared_heap_start = heap->start_off_mem32;
     }
     else if (memory && memory->is_memory64) {
-        shared_heap_start = UINT64_MAX - heap_size + 1;
+        shared_heap_start = heap->start_off_mem64;
     }
 
     return shared_heap_start;
@@ -1232,12 +1236,12 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count,
 
 #if WASM_ENABLE_SHARED_HEAP != 0
     heap = module->e->shared_heap;
-    if (memory->is_memory64 && total_size_new > UINT64_MAX - heap->size + 1) {
+    if (memory->is_memory64 && total_size_new > heap->start_off_mem64) {
         LOG_WARNING("Linear memory address is overlapped with shared heap");
         ret = false;
         goto return_func;
     }
-    else if (!memory->is_memory64 && total_size_new > UINT32_MAX - heap->size + 1) {
+    else if (!memory->is_memory64 && total_size_new > heap->start_off_mem32) {
         LOG_WARNING("Linear memory address is overlapped with shared heap");
         ret = false;
         goto return_func;
