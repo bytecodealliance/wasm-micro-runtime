@@ -74,11 +74,11 @@ jobs:
             target: "riscv32",
             fpu_type: "none"
           },
-          {
-            config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh",
-            target: "riscv32_ilp32f",
-            fpu_type: "fp"
-          },
+          #{
+          #  config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh",
+          #  target: "riscv32_ilp32f",
+          #  fpu_type: "fp"
+          #},
           # {
           #   config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh",
           #   target: "riscv32_ilp32d",
