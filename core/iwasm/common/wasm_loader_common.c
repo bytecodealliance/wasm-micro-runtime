@@ -22,7 +22,7 @@ wasm_loader_set_error_buf(char *error_buf, uint32 error_buf_size,
 #if WASM_ENABLE_MEMORY64 != 0
 bool
 check_memory64_flags_consistency(WASMModule *module, char *error_buf,
-                               uint32 error_buf_size, bool is_aot)
+                                 uint32 error_buf_size, bool is_aot)
 {
     uint32 i;
     bool wasm64_flag, all_wasm64 = true, non_wasm64 = true;
@@ -41,8 +41,9 @@ check_memory64_flags_consistency(WASMModule *module, char *error_buf,
     }
 
     if (!(all_wasm64 || non_wasm64)) {
-        set_error_buf(error_buf, error_buf_size,
-                      "inconsistent limits wasm64 flags for memory sections", is_aot);
+        wasm_loader_set_error_buf(
+            error_buf, error_buf_size,
+            "inconsistent limits wasm64 flags for memory sections", is_aot);
         return false;
     }
     return true;
@@ -98,8 +99,8 @@ wasm_table_check_flags(const uint8 table_flag, char *error_buf,
      * runtime */
     if (table_flag > MAX_TABLE_SIZE_FLAG) {
         if (table_flag & SHARED_TABLE_FLAG) {
-            set_error_buf(error_buf, error_buf_size, "tables cannot be shared",
-                          is_aot);
+            wasm_loader_set_error_buf(error_buf, error_buf_size,
+                                      "tables cannot be shared", is_aot);
         }
 #if WASM_ENABLE_MEMORY64 == 0
         if (table_flag & TABLE64_FLAG) {
@@ -112,8 +113,8 @@ wasm_table_check_flags(const uint8 table_flag, char *error_buf,
     }
 
     if (table_flag > MAX_TABLE_SIZE_FLAG + TABLE64_FLAG) {
-        set_error_buf(error_buf, error_buf_size, "invalid limits flags",
-                      is_aot);
+        wasm_loader_set_error_buf(error_buf, error_buf_size,
+                                  "invalid limits flags", is_aot);
         return false;
     }
 

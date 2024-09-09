@@ -4416,7 +4416,7 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                            uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf_end;
-    uint8 table_elem_idx_type = VALUE_TYPE_I32;
+    uint8 table_elem_idx_type;
     uint32 table_segment_count, i;
     uint64 total_size;
     WASMTableSeg *table_segment;
@@ -4439,6 +4439,7 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                               "invalid elements segment kind");
                 return false;
             }
+            table_elem_idx_type = VALUE_TYPE_I32;
 
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
             read_leb_uint32(p, p_end, table_segment->mode);
@@ -4623,6 +4624,16 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                                        error_buf_size))
                 return false;
 #endif /* end of WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0 */
+
+#if WASM_ENABLE_MEMORY64 != 0
+            if (table_elem_idx_type == VALUE_TYPE_I64
+                && table_segment->base_offset.u.u64 > UINT32_MAX) {
+                set_error_buf(error_buf, error_buf_size,
+                              "In table64, table base offset can't be "
+                              "larger than UINT32_MAX");
+                return false;
+            }
+#endif
 
 #if WASM_ENABLE_WAMR_COMPILER != 0
             if (table_segment->elem_type == VALUE_TYPE_EXTERNREF)

@@ -4633,13 +4633,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
             HANDLE_OP(WASM_OP_MEMORY_GROW)
             {
-                uint32 mem_idx, delta, prev_page_count;
+                uint32 mem_idx, prev_page_count;
+                mem_offset_t delta;
 
                 read_leb_memidx(frame_ip, frame_ip_end, mem_idx);
                 prev_page_count = memory->cur_page_count;
-                delta = (uint32)POP_PAGE_COUNT();
+                delta = POP_PAGE_COUNT();
 
-                if (!wasm_enlarge_memory_with_idx(module, delta, mem_idx)) {
+                if (delta > UINT32_MAX
+                    || !wasm_enlarge_memory_with_idx(module, (uint32)delta,
+                                                     mem_idx)) {
                     /* failed to memory.grow, return -1 */
                     PUSH_PAGE_COUNT(-1);
                 }
@@ -5964,7 +5967,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         init_val = POP_REF();
 #endif
 
-                        if (!wasm_enlarge_table(module, tbl_idx, n, init_val)) {
+                        if (n > UINT32_MAX
+                            || !wasm_enlarge_table(module, tbl_idx, (uint32)n,
+                                                   init_val)) {
                             PUSH_TBL_ELEM_IDX(-1);
                         }
                         else {
