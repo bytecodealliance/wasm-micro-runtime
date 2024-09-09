@@ -4747,7 +4747,7 @@ fail:
     || defined(BUILD_TARGET_RISCV32_ILP32D)                          \
     || defined(BUILD_TARGET_RISCV32_ILP32F)                          \
     || defined(BUILD_TARGET_RISCV32_ILP32) || defined(BUILD_TARGET_ARC)
-typedef void (*GenericFunctionPointer)();
+typedef void (*GenericFunctionPointer)(void);
 void
 invokeNative(GenericFunctionPointer f, uint32 *args, uint32 n_stacks);
 
@@ -5597,7 +5597,7 @@ typedef uint32x4_t __m128i;
 
 #endif /* end of WASM_ENABLE_SIMD != 0 */
 
-typedef void (*GenericFunctionPointer)();
+typedef void (*GenericFunctionPointer)(void);
 void
 invokeNative(GenericFunctionPointer f, uint64 *args, uint64 n_stacks);
 
