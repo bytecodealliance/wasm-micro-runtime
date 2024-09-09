@@ -73,7 +73,7 @@ aot_alloc_tiny_frame_for_aot_func(AOTCompContext *comp_ctx,
     ADD_STORE(func_index, wasm_stack_top);
 
     /* increment the stack pointer */
-    offset = I32_CONST(sizeof(AOTTinyFrame));
+    INT_CONST(offset, sizeof(AOTTinyFrame), I32_TYPE, true);
     ADD_IN_BOUNDS_GEP(wasm_stack_top, INT8_TYPE, wasm_stack_top, &offset, 1);
     ADD_STORE(wasm_stack_top, wasm_stack_top_ptr);
 
@@ -90,7 +90,8 @@ aot_free_tiny_frame_for_aot_func(AOTCompContext *comp_ctx,
 
     ADD_LOAD(wasm_stack_top, INT8_PTR_TYPE, wasm_stack_top_ptr);
 
-    offset = I32_CONST(-sizeof(AOTTinyFrame));
+    INT_CONST(offset, -sizeof(AOTTinyFrame),
+              comp_ctx->pointer_size == 8 ? I64_TYPE : I32_TYPE, true);
     ADD_IN_BOUNDS_GEP(wasm_stack_top, INT8_TYPE, wasm_stack_top, &offset, 1);
     ADD_STORE(wasm_stack_top, wasm_stack_top_ptr);
 
@@ -99,7 +100,7 @@ aot_free_tiny_frame_for_aot_func(AOTCompContext *comp_ctx,
 
 bool
 aot_tiny_frame_gen_commit_ip(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                             LLVMValueRef ip_value, bool is_64bit)
+                             LLVMValueRef ip_value)
 {
     LLVMValueRef wasm_stack_top_ptr = func_ctx->wasm_stack_top_ptr,
                  wasm_stack_top;
@@ -109,7 +110,8 @@ aot_tiny_frame_gen_commit_ip(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     ADD_LOAD(wasm_stack_top, INT8_PTR_TYPE, wasm_stack_top_ptr);
 
-    offset = I32_CONST(-4);
+    INT_CONST(offset, -4, comp_ctx->pointer_size == 8 ? I64_TYPE : I32_TYPE,
+              true);
     ADD_IN_BOUNDS_GEP(ip_addr, INT8_TYPE, wasm_stack_top, &offset, 1);
 
     ADD_STORE(ip_value, ip_addr);

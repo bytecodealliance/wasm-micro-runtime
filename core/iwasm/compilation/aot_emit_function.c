@@ -1404,6 +1404,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef *param_values = NULL, value_ret = NULL, func;
     LLVMValueRef import_func_idx, res;
     LLVMValueRef ext_ret, ext_ret_ptr, ext_ret_idx;
+    LLVMValueRef func_idx_ref;
     int32 i, j = 0, param_count, result_count, ext_ret_count;
     uint64 total_size;
     uint8 wasm_ret_type;
@@ -1452,8 +1453,9 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (comp_ctx->aux_stack_frame_type) {
         if (func_idx < import_func_count
             && comp_ctx->call_stack_features.frame_per_function) {
+            INT_CONST(func_idx_ref, func_idx, I32_TYPE, true);
             if (!aot_alloc_frame_per_function_frame_for_aot_func(
-                    comp_ctx, func_ctx, I32_CONST(func_idx))) {
+                    comp_ctx, func_ctx, func_idx_ref)) {
                 return false;
             }
         }
@@ -2539,6 +2541,12 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Translate call import block */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, block_call_import);
 
+    if (comp_ctx->aot_frame && comp_ctx->call_stack_features.frame_per_function
+        && !aot_alloc_frame_per_function_frame_for_aot_func(comp_ctx, func_ctx,
+                                                            func_idx)) {
+        goto fail;
+    }
+
     if (comp_ctx->aux_stack_frame_type == AOT_STACK_FRAME_TYPE_STANDARD
         && !commit_params_to_frame_of_import_func(comp_ctx, func_ctx, func_type,
                                                   param_values + 1)) {
@@ -2565,12 +2573,6 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    if (comp_ctx->aot_frame
-        && comp_ctx->call_stack_features.frame_per_function) {
-        aot_alloc_frame_per_function_frame_for_aot_func(comp_ctx, func_ctx,
-                                                        func_idx);
-    }
-
     if (!call_aot_call_indirect_func(
             comp_ctx, func_ctx, func_type, ftype_idx, tbl_idx_value, elem_idx,
             param_types + 1, param_values + 1, func_param_count, param_cell_num,
@@ -2582,9 +2584,10 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         && !check_call_return(comp_ctx, func_ctx, res))
         goto fail;
 
-    if (comp_ctx->aot_frame
-        && comp_ctx->call_stack_features.frame_per_function) {
-        aot_free_frame_per_function_frame_for_aot_func(comp_ctx, func_ctx);
+    if (comp_ctx->aot_frame && comp_ctx->call_stack_features.frame_per_function
+        && !aot_free_frame_per_function_frame_for_aot_func(comp_ctx,
+                                                           func_ctx)) {
+        goto fail;
     }
 
     block_curr = LLVMGetInsertBlock(comp_ctx->builder);
@@ -3177,7 +3180,8 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         PUSH(result_phis[i], func_type->types[func_param_count + i]);
     }
 
-    if (comp_ctx->aux_stack_frame_type == AOT_STACK_FRAME_TYPE_STANDARD) {
+    if (comp_ctx->aux_stack_frame_type
+        && !comp_ctx->call_stack_features.frame_per_function) {
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
         if (!free_frame_for_aot_func(comp_ctx, func_ctx))
             goto fail;

@@ -24,7 +24,7 @@ aot_free_frame_per_function_frame_for_aot_func(AOTCompContext *comp_ctx,
 
 bool
 aot_tiny_frame_gen_commit_ip(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                             LLVMValueRef ip_value, bool is_64bit);
+                             LLVMValueRef ip_value);
 
 #ifdef __cplusplus
 }

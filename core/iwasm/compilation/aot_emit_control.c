@@ -39,13 +39,24 @@ format_block_name(char *name, uint32 name_size, uint32 block_index,
         snprintf(name, name_size, "%s", "func_end");
 }
 
-#define CREATE_BLOCK(new_llvm_block, name)                      \
-    do {                                                        \
-        if (!(new_llvm_block = LLVMAppendBasicBlockInContext(   \
-                  comp_ctx->context, func_ctx->func, name))) {  \
-            aot_set_last_error("add LLVM basic block failed."); \
-            goto fail;                                          \
-        }                                                       \
+#define CREATE_BLOCK(new_llvm_block, name)                                   \
+    do {                                                                     \
+        if (!(new_llvm_block = LLVMAppendBasicBlockInContext(                \
+                  comp_ctx->context, func_ctx->func, name))) {               \
+            aot_set_last_error("add LLVM basic block failed.");              \
+            goto fail;                                                       \
+        }                                                                    \
+        if (!strcmp(name, "func_end") && comp_ctx->aux_stack_frame_type      \
+            && comp_ctx->call_stack_features.frame_per_function) {           \
+            LLVMBasicBlockRef cur_block =                                    \
+                LLVMGetInsertBlock(comp_ctx->builder);                       \
+            SET_BUILDER_POS(new_llvm_block);                                 \
+            if (!aot_free_frame_per_function_frame_for_aot_func(comp_ctx,    \
+                                                                func_ctx)) { \
+                goto fail;                                                   \
+            }                                                                \
+            SET_BUILDER_POS(cur_block);                                      \
+        }                                                                    \
     } while (0)
 
 #define CURR_BLOCK() LLVMGetInsertBlock(comp_ctx->builder)
@@ -94,6 +105,11 @@ format_block_name(char *name, uint32 name_size, uint32 block_index,
                 goto fail;                                                  \
             }                                                               \
             SET_BUILDER_POS(block->llvm_end_block);                         \
+            LLVMValueRef first_instr =                                      \
+                get_first_non_phi(block->llvm_end_block);                   \
+            if (first_instr) {                                              \
+                LLVMPositionBuilderBefore(comp_ctx->builder, first_instr);  \
+            }                                                               \
             for (_i = 0; _i < block->result_count; _i++) {                  \
                 if (!(block->result_phis[_i] = LLVMBuildPhi(                \
                           comp_ctx->builder,                                \
@@ -157,6 +173,18 @@ get_target_block(AOTFuncContext *func_ctx, uint32 br_depth)
         return NULL;
     }
     return block;
+}
+
+LLVMValueRef
+get_first_non_phi(LLVMBasicBlockRef block)
+{
+    LLVMValueRef instr = LLVMGetFirstInstruction(block);
+
+    while (instr && LLVMIsAPHINode(instr)) {
+        instr = LLVMGetNextInstruction(instr);
+    }
+
+    return instr;
 }
 
 static void
@@ -814,13 +842,6 @@ aot_compile_op_end(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         CREATE_BLOCK(block->llvm_end_block, name);
         if ((next_llvm_end_block = find_next_llvm_end_block(block)))
             MOVE_BLOCK_BEFORE(block->llvm_end_block, next_llvm_end_block);
-    }
-    if (block->label_type == LABEL_TYPE_FUNCTION
-        && comp_ctx->aux_stack_frame_type
-        && comp_ctx->call_stack_features.frame_per_function
-        && !aot_free_frame_per_function_frame_for_aot_func(comp_ctx,
-                                                           func_ctx)) {
-        return false;
     }
 
     if (comp_ctx->aot_frame) {

@@ -631,8 +631,7 @@ aot_gen_commit_ip(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return aot_standard_frame_gen_commit_ip(comp_ctx, func_ctx,
                                                     ip_value, is_64bit);
         case AOT_STACK_FRAME_TYPE_TINY:
-            return aot_tiny_frame_gen_commit_ip(comp_ctx, func_ctx, ip_value,
-                                                is_64bit);
+            return aot_tiny_frame_gen_commit_ip(comp_ctx, func_ctx, ip_value);
         default:
             aot_set_last_error(
                 "unsupported mode when generating commit_ip code");
@@ -989,6 +988,7 @@ static bool
 aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 {
     AOTFuncContext *func_ctx = comp_ctx->func_ctxes[func_index];
+    LLVMValueRef func_index_ref;
     uint8 *frame_ip = func_ctx->aot_func->code, opcode, *p_f32, *p_f64;
     uint8 *frame_ip_end = frame_ip + func_ctx->aot_func->code_size;
     uint8 *param_types = NULL;
@@ -1017,11 +1017,14 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
         func_ctx->block_stack.block_list_head->llvm_entry_block);
 
     if (comp_ctx->aux_stack_frame_type
-        && comp_ctx->call_stack_features.frame_per_function
-        && !aot_alloc_frame_per_function_frame_for_aot_func(
-            comp_ctx, func_ctx,
-            I32_CONST(func_index + comp_ctx->comp_data->import_func_count))) {
-        return false;
+        && comp_ctx->call_stack_features.frame_per_function) {
+        INT_CONST(func_index_ref,
+                  func_index + comp_ctx->comp_data->import_func_count, I32_TYPE,
+                  true);
+        if (!aot_alloc_frame_per_function_frame_for_aot_func(comp_ctx, func_ctx,
+                                                             func_index_ref)) {
+            return false;
+        }
     }
     if (comp_ctx->aux_stack_frame_type) {
         if (!init_comp_frame(comp_ctx, func_ctx, func_index)) {
