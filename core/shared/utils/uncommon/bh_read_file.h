@@ -12,6 +12,10 @@
 extern "C" {
 #endif
 
+#if WASM_ENABLE_WAMR_AOT_DEBUG != 0
+extern const char *module_filename;
+#endif
+
 char *
 bh_read_file_to_buffer(const char *filename, uint32 *ret_size);
 

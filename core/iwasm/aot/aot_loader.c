@@ -25,6 +25,137 @@
 #define XMM_PLT_PREFIX "__xmm@"
 #define REAL_PLT_PREFIX "__real@"
 
+/* supoort WAMR AOT module debug  -------------- */
+#if WASM_ENABLE_WAMR_AOT_DEBUG != 0
+#include "uncommon/bh_read_file.h"
+#define AOT_LOADABLE_MODULE_DESCRIPTOR_COUNT 4
+
+typedef enum {
+    LOADABLE_MODULE_NOACTION = 0,
+    LOADABLE_MODULE_REGISTER_FN,
+    LOADABLE_MODULE_UNREGISTER_FN
+} loadable_module_actions_t;
+
+struct loadable_module_descriptor {
+    uint32_t action_flag;
+    const char *symfile_name;
+    void *text_addr;
+    void *data_addr;
+};
+
+static korp_mutex g_loadable_module_lock;
+static int num_modules = 0;
+
+/* global array save aot module info */
+struct loadable_module_descriptor
+    g_loadable_module_descriptor[AOT_LOADABLE_MODULE_DESCRIPTOR_COUNT];
+
+void __attribute__((noinline)) __loadable_wamr_module_register_code(void)
+{
+    /* empty implementation. */
+}
+
+void (*__loadable_wamr_module_register_code_ptr)(void) =
+    __loadable_wamr_module_register_code;
+
+static bool
+load_aot_module_create(const char *symfile_name, void *text_addr,
+                       void *data_addr)
+{
+    struct loadable_module_descriptor *ptr;
+    if (os_mutex_init(&g_loadable_module_lock) != 0)
+        return NULL;
+
+    os_mutex_lock(&g_loadable_module_lock);
+
+    /* *
+     * return NULL if same module name are already loaded in
+     * g_loadable_module_descriptor array.
+     */
+
+    for (int i = 0; i < num_modules; i++) {
+        if (strcmp(g_loadable_module_descriptor[i].symfile_name, symfile_name)
+            == 0) {
+            LOG_ERROR("ERROR: module with same name are already loaded in"
+                      "g_loadable_module_descriptor array: no need to be "
+                      "loaded again");
+            os_mutex_unlock(&g_loadable_module_lock);
+            return false;
+        }
+    }
+
+    if (num_modules >= AOT_LOADABLE_MODULE_DESCRIPTOR_COUNT) {
+        LOG_ERROR("ERROR: g_loadable_module_descriptor array size not enough:"
+                  "need resize array");
+        os_mutex_unlock(&g_loadable_module_lock);
+        return false;
+    }
+
+    /* *
+     * Add module if g_loadable_module_descriptor element action_flag is
+     * LOADABLE_MODULE_UNREGISTER_FN.
+     */
+
+    for (int i = 0; i < AOT_LOADABLE_MODULE_DESCRIPTOR_COUNT; i++) {
+        ptr = &g_loadable_module_descriptor[i];
+        if (ptr->action_flag == LOADABLE_MODULE_UNREGISTER_FN
+            || ptr->action_flag == LOADABLE_MODULE_NOACTION) {
+            ptr->symfile_name = strdup(symfile_name);
+            ptr->text_addr = text_addr;
+            ptr->data_addr = data_addr;
+            ptr->action_flag = LOADABLE_MODULE_REGISTER_FN;
+            num_modules++;
+            break;
+        }
+    }
+
+    (*__loadable_wamr_module_register_code_ptr)();
+    os_mutex_unlock(&g_loadable_module_lock);
+
+    return true;
+}
+
+static void
+load_aot_module_destroy(const char *symfile_name)
+{
+    os_mutex_lock(&g_loadable_module_lock);
+    struct loadable_module_descriptor *ptr = NULL;
+
+    if (num_modules == 0 || symfile_name == NULL) {
+        LOG_ERROR("ERROR: destroy loadable module error: num_modules is"
+                  "null or symfile_name is none");
+        os_mutex_unlock(&g_loadable_module_lock);
+        return;
+    }
+
+    for (int i = 0; i < num_modules; i++) {
+        if (strcmp(g_loadable_module_descriptor[i].symfile_name, symfile_name)
+            == 0) {
+            ptr = &g_loadable_module_descriptor[i];
+            break;
+        }
+    }
+
+    ptr->action_flag = LOADABLE_MODULE_UNREGISTER_FN;
+
+    (*__loadable_wamr_module_register_code_ptr)();
+
+    if (ptr->symfile_name != NULL) {
+        free((void *)ptr->symfile_name);
+        ptr->symfile_name = NULL;
+    }
+
+    if (symfile_name != NULL) {
+        free((void *)symfile_name);
+        symfile_name = NULL;
+    }
+
+    num_modules--;
+    wasm_runtime_free(ptr);
+    os_mutex_unlock(&g_loadable_module_lock);
+}
+#endif /* supoort WAMR AOT module debug  -------------- */
+
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
@@ -4014,6 +4145,17 @@ load_from_sections(AOTModule *module, AOTSection *sections,
         return false;
     }
 #endif
+
+/* enbale WAMR AOT debug mode */
+#if WASM_ENABLE_WAMR_AOT_DEBUG != 0
+    /* load aot module when enable wamr aot debug mode */
+    if (module->code && module_filename && strlen(module_filename) > 0) {
+        if (!load_aot_module_create(module_filename, module->code, NULL)) {
+            printf("load aot module failed when enable wamr aot debug mode!\n");
+            return false;
+        }
+    }
+#endif
     return true;
 }
 
@@ -4473,6 +4615,11 @@ aot_unload(AOTModule *module)
 
 #if WASM_ENABLE_DEBUG_AOT != 0
     jit_code_entry_destroy(module->elf_hdr);
+#endif
+
+#if WASM_ENABLE_WAMR_AOT_DEBUG != 0
+    if (module_filename && strlen(module_filename) > 0)
+        load_aot_module_destroy(module_filename);
 #endif
 
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0

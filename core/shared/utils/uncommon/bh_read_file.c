@@ -27,6 +27,10 @@ bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
         return NULL;
     }
 
+#if WASM_ENABLE_WAMR_AOT_DEBUG != 0
+    const char *module_filename = filename;
+#endif
+
     if (_sopen_s(&file, filename, _O_RDONLY | _O_BINARY, _SH_DENYNO, 0)) {
         printf("Read file to buffer failed: open file %s failed.\n", filename);
         return NULL;
@@ -76,6 +80,10 @@ bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
         printf("Read file to buffer failed: invalid filename or ret size.\n");
         return NULL;
     }
+
+#if WASM_ENABLE_WAMR_AOT_DEBUG != 0
+    const char *module_filename = filename;
+#endif
 
     if ((file = open(filename, O_RDONLY, 0)) == -1) {
         printf("Read file to buffer failed: open file %s failed.\n", filename);
