@@ -27,7 +27,7 @@ static char **app_argv;
 
 /* clang-format off */
 static int
-print_help()
+print_help(void)
 {
     printf("Usage: iwasm [-options] wasm_file [args...]\n");
     printf("options:\n");

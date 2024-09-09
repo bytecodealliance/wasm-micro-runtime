@@ -226,7 +226,7 @@ SymbolMap *
 get_target_symbol_map(uint32 *sym_num);
 
 uint32
-get_plt_table_size();
+get_plt_table_size(void);
 
 void
 init_plt_table(uint8 *plt);

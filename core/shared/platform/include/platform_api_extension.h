@@ -379,19 +379,19 @@ os_sem_unlink(const char *name);
  * Initialize process-global state for os_wakeup_blocking_op.
  */
 int
-os_blocking_op_init();
+os_blocking_op_init(void);
 
 /**
  * Start accepting os_wakeup_blocking_op requests for the calling thread.
  */
 void
-os_begin_blocking_op();
+os_begin_blocking_op(void);
 
 /**
  * Stop accepting os_wakeup_blocking_op requests for the calling thread.
  */
 void
-os_end_blocking_op();
+os_end_blocking_op(void);
 
 /**
  * Wake up the specified thread.
@@ -1586,7 +1586,7 @@ os_closedir(os_dir_stream dir_stream);
  * @return the invalid directory stream
  */
 os_dir_stream
-os_get_invalid_dir_stream();
+os_get_invalid_dir_stream(void);
 
 /**
  * Checks whether the given directory stream is valid. An invalid directory
@@ -1605,7 +1605,7 @@ os_is_dir_stream_valid(os_dir_stream *dir_stream);
  * @return the invalid handle
  */
 os_file_handle
-os_get_invalid_handle();
+os_get_invalid_handle(void);
 
 /**
  * Checks whether the given file handle is valid. An invalid handle is

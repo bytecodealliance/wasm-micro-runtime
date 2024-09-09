@@ -1168,7 +1168,7 @@ wasm_runtime_quick_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
                                        uint32 result_count);
 
 void
-wasm_runtime_show_app_heap_corrupted_prompt();
+wasm_runtime_show_app_heap_corrupted_prompt(void);
 
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
 void
