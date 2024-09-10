@@ -526,16 +526,6 @@ uint32
 wasm_runtime_get_gc_heap_size_default(void);
 #endif
 
-#if WASM_ENABLE_SHARED_HEAP != 0
-/* Internal API */
-uint64
-wasm_runtime_module_shared_malloc(WASMModuleInstanceCommon *module_inst,
-                                  uint64 size, void **p_native_addr);
-void
-wasm_runtime_module_shared_free(WASMModuleInstanceCommon *module_inst,
-                                uint64 ptr);
-#endif
-
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_full_init(RuntimeInitArgs *init_args);

@@ -13,10 +13,10 @@
     wasm_runtime_validate_native_addr(module_inst, addr, size)
 
 #define module_shared_malloc(size, p_native_addr) \
-    wasm_runtime_module_shared_malloc(module_inst, size, p_native_addr)
+    wasm_runtime_shared_heap_malloc(module_inst, size, p_native_addr)
 
 #define module_shared_free(offset) \
-    wasm_runtime_module_shared_free(module_inst, offset)
+    wasm_runtime_shared_heap_free(module_inst, offset)
 /* clang-format on */
 
 static uint32

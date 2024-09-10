@@ -135,6 +135,9 @@ typedef struct wasm_section_t {
 struct WASMExecEnv;
 typedef struct WASMExecEnv *wasm_exec_env_t;
 
+struct WASMSharedHeap;
+typedef struct WASMSharedHeap *wasm_shared_heap_t;
+
 /* Package Type */
 typedef enum {
     Wasm_Module_Bytecode = 0,
@@ -2123,7 +2126,7 @@ wasm_runtime_is_underlying_binary_freeable(const wasm_module_t module);
  * @param error_buf buffer to output the error info if failed
  * @param error_buf_size the size of the error buffer
  */
-WASM_RUNTIME_API_EXTERN WASMSharedHeap *
+WASM_RUNTIME_API_EXTERN wasm_shared_heap_t
 wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args, char *error_buf,
                                 uint32 error_buf_size);
 
@@ -2133,7 +2136,7 @@ wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args, char *error_buf,
  * @param shared_heap the shared heap
  */
 WASM_RUNTIME_API_EXTERN bool
-wasm_runtime_attach_shared_heap(WASMModuleInstanceCommon *module_inst,
+wasm_runtime_attach_shared_heap(wasm_module_inst_t module_inst,
                                 void *shared_heap);
 
 /**
@@ -2141,7 +2144,7 @@ wasm_runtime_attach_shared_heap(WASMModuleInstanceCommon *module_inst,
  * @param module_inst the module instance
  */
 WASM_RUNTIME_API_EXTERN void
-wasm_runtime_detach_shared_heap(WASMModuleInstanceCommon *module_inst);
+wasm_runtime_detach_shared_heap(wasm_module_inst_t module_inst);
 
 /**
  * Allocate memory from a shared heap
@@ -2150,8 +2153,8 @@ wasm_runtime_detach_shared_heap(WASMModuleInstanceCommon *module_inst);
  * @param p_native_addr native address of allocated memory
  */
 WASM_RUNTIME_API_EXTERN uint64
-wasm_runtime_shared_heap_malloc(WASMModuleInstanceCommon *module_inst,
-                                uint64 size, void **p_native_addr);
+wasm_runtime_shared_heap_malloc(wasm_module_inst_t module_inst, uint64 size,
+                                void **p_native_addr);
 
 /**
  * Free the memory allocated from shared heap
@@ -2159,8 +2162,7 @@ wasm_runtime_shared_heap_malloc(WASMModuleInstanceCommon *module_inst,
  * @param ptr the offset in wasm app
  */
 WASM_RUNTIME_API_EXTERN void
-wasm_runtime_shared_heap_free(WASMModuleInstanceCommon *module_inst,
-                              uint64 ptr);
+wasm_runtime_shared_heap_free(wasm_module_inst_t module_inst, uint64 ptr);
 #endif
 
 #ifdef __cplusplus

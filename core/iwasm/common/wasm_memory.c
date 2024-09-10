@@ -367,8 +367,10 @@ shared_heap_addr_native_to_app(WASMModuleInstanceCommon *module_inst,
         LOG_WARNING("Wasm module doesn't attach to a shared heap");
         return 0;
     }
-    if (addr == NULL)
+    if (!addr) {
+        LOG_WARNING("Invalid address");
         return 0;
+    }
 
     if (memory && memory->is_memory64) {
         return heap->start_off_mem64 + ((uint8 *)addr - heap->base_addr);
@@ -417,6 +419,11 @@ static uint64
 shared_heap_get_addr_start(WASMSharedHeap *heap, WASMMemoryInstance *memory)
 {
     uint64 shared_heap_start = 0;
+
+    if (!heap || !memory) {
+        LOG_ERROR("Invalid heap or memory");
+        return 0;
+    }
 
     if (memory && !memory->is_memory64) {
         shared_heap_start = heap->start_off_mem32;

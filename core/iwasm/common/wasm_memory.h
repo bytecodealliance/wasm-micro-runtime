@@ -42,10 +42,6 @@ SET_LINEAR_MEMORY_SIZE(WASMMemoryInstance *memory, uint64 size)
 #endif
 
 #if WASM_ENABLE_SHARED_HEAP != 0
-typedef struct SharedHeapInitArgs {
-    uint32 size;
-} SharedHeapInitArgs;
-
 WASMSharedHeap *
 wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args, char *error_buf,
                                 uint32 error_buf_size);
