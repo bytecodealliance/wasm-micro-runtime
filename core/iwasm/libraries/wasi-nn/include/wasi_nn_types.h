@@ -43,6 +43,11 @@ typedef enum {
     security,
     // The operation failed for an unspecified reason.
     unknown,
+    // for WasmEdge-wasi-nn
+    end_of_sequence = 100,  // End of Sequence Found.
+    context_full = 101,     // Context Full.
+    prompt_tool_long = 102, // Prompt Too Long.
+    model_not_found = 103,  // Model Not Found.
 } wasi_nn_error;
 
 /**
@@ -140,6 +145,9 @@ typedef uint32_t graph_execution_context;
 typedef wasi_nn_error (*LOAD)(void *, graph_builder_array *, graph_encoding,
                               execution_target, graph *);
 typedef wasi_nn_error (*LOAD_BY_NAME)(void *, const char *, uint32_t, graph *);
+typedef wasi_nn_error (*LOAD_BY_NAME_WITH_CONFIG)(void *, const char *,
+                                                  uint32_t, void *, uint32_t,
+                                                  graph *);
 typedef wasi_nn_error (*INIT_EXECUTION_CONTEXT)(void *, graph,
                                                 graph_execution_context *);
 typedef wasi_nn_error (*SET_INPUT)(void *, graph_execution_context, uint32_t,
@@ -154,6 +162,7 @@ typedef wasi_nn_error (*BACKEND_DEINITIALIZE)(void *);
 typedef struct {
     LOAD load;
     LOAD_BY_NAME load_by_name;
+    LOAD_BY_NAME_WITH_CONFIG load_by_name_with_config;
     INIT_EXECUTION_CONTEXT init_execution_context;
     SET_INPUT set_input;
     COMPUTE compute;

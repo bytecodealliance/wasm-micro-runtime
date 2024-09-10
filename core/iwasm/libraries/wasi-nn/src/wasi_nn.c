@@ -29,7 +29,7 @@
 struct backends_api_functions {
     void *backend_handle;
     api_function functions;
-} lookup[autodetect] = { 0 };
+} lookup[autodetect + 1] = { 0 };
 
 #define call_wasi_nn_func(backend_encoding, func, wasi_error, ...)         \
     do {                                                                   \
@@ -168,14 +168,7 @@ wasi_nn_destroy()
             lookup[i].backend_handle = NULL;
         }
 
-        lookup[i].functions.init = NULL;
-        lookup[i].functions.deinit = NULL;
-        lookup[i].functions.load = NULL;
-        lookup[i].functions.load_by_name = NULL;
-        lookup[i].functions.init_execution_context = NULL;
-        lookup[i].functions.set_input = NULL;
-        lookup[i].functions.compute = NULL;
-        lookup[i].functions.get_output = NULL;
+        memset(&lookup[i].functions, 0, sizeof(api_function));
     }
 }
 
@@ -208,12 +201,20 @@ choose_a_backend()
         return ggml;
     }
 
+#ifndef NDEBUG
+    NN_WARN_PRINTF("%s", dlerror());
+#endif
+
     handle = dlopen(OPENVINO_BACKEND_LIB, RTLD_LAZY);
     if (handle) {
         NN_INFO_PRINTF("Using openvino backend");
         dlclose(handle);
         return openvino;
     }
+
+#ifndef NDEBUG
+    NN_WARN_PRINTF("%s", dlerror());
+#endif
 
     handle = dlopen(TFLITE_BACKEND_LIB, RTLD_LAZY);
     if (handle) {
@@ -222,6 +223,11 @@ choose_a_backend()
         return tensorflowlite;
     }
 
+#ifndef NDEBUG
+    NN_WARN_PRINTF("%s", dlerror());
+#endif
+
+    NN_WARN_PRINTF("No backend found");
     return unknown_backend;
 }
 
@@ -256,6 +262,14 @@ register_backend(void *handle, api_function *functions)
         return false;
     }
     functions->load_by_name = load_by_name;
+
+    LOAD_BY_NAME_WITH_CONFIG load_by_name_with_config =
+        (LOAD_BY_NAME_WITH_CONFIG)dlsym(handle, "load_by_name_with_config");
+    if (!load_by_name_with_config) {
+        NN_WARN_PRINTF("load_by_name_with_config() not found");
+        // since only llama.cpp backend need to support this function
+    }
+    functions->load_by_name_with_config = load_by_name_with_config;
 
     INIT_EXECUTION_CONTEXT init_execution_context =
         (INIT_EXECUTION_CONTEXT)dlsym(handle, "init_execution_context");
@@ -329,21 +343,23 @@ graph_encoding_to_backend_lib_name(graph_encoding encoding)
 static bool
 detect_and_load_backend(graph_encoding backend_hint,
                         struct backends_api_functions *backends,
-                        graph_encoding *loaded_backed)
+                        graph_encoding *loaded_backend)
 {
-    if (backend_hint >= autodetect)
+    if (backend_hint > autodetect)
         return false;
 
     if (backend_hint == autodetect)
         backend_hint = choose_a_backend();
 
-    /* if already loaded */
-    if (lookup[backend_hint].backend_handle) {
-        *loaded_backed = backend_hint;
-        return true;
-    }
+    if (backend_hint == unknown_backend)
+        return false;
 
-    *loaded_backed = backend_hint;
+    *loaded_backend = backend_hint;
+
+    /* if already loaded */
+    if (lookup[backend_hint].backend_handle)
+        return true;
+
     const char *backend_lib_name =
         graph_encoding_to_backend_lib_name(backend_hint);
     if (!backend_lib_name)
@@ -353,6 +369,7 @@ detect_and_load_backend(graph_encoding backend_hint,
 }
 
 /* WASI-NN implementation */
+
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
 wasi_nn_error
 wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_wasm *builder,
@@ -392,15 +409,15 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
         goto fail;
     }
 
-    graph_encoding loaded_backed = autodetect;
-    if (!detect_and_load_backend(encoding, lookup, &loaded_backed)) {
+    graph_encoding loaded_backend = autodetect;
+    if (!detect_and_load_backend(encoding, lookup, &loaded_backend)) {
         res = invalid_encoding;
         NN_ERR_PRINTF("load backend failed");
         goto fail;
     }
 
     WASINNContext *wasi_nn_ctx = wasm_runtime_get_wasi_nn_ctx(instance);
-    wasi_nn_ctx->backend = loaded_backed;
+    wasi_nn_ctx->backend = loaded_backend;
 
     /* init() the backend */
     call_wasi_nn_func(wasi_nn_ctx->backend, init, res,
@@ -413,7 +430,6 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
     if (res != success)
         goto fail;
 
-    wasi_nn_ctx->backend = loaded_backed;
     wasi_nn_ctx->is_model_loaded = true;
 
 fail:
@@ -428,8 +444,6 @@ wasi_nn_error
 wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
                      graph *g)
 {
-    NN_DBG_PRINTF("[WASI NN] LOAD_BY_NAME %s...", name);
-
     wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
     if (!instance) {
         return runtime_error;
@@ -446,15 +460,23 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
         return invalid_argument;
     }
 
-    graph_encoding loaded_backed = autodetect;
-    if (detect_and_load_backend(autodetect, lookup, &loaded_backed)) {
+    if (name_len == 0 || name[name_len] != '\0') {
+        NN_ERR_PRINTF("Invalid filename");
+        return invalid_argument;
+    }
+
+    NN_DBG_PRINTF("[WASI NN] LOAD_BY_NAME %s...", name);
+
+    graph_encoding loaded_backend = autodetect;
+    if (!detect_and_load_backend(autodetect, lookup, &loaded_backend)) {
         NN_ERR_PRINTF("load backend failed");
         return invalid_encoding;
     }
 
     WASINNContext *wasi_nn_ctx = wasm_runtime_get_wasi_nn_ctx(instance);
-    wasi_nn_error res;
+    wasi_nn_ctx->backend = loaded_backend;
 
+    wasi_nn_error res;
     /* init() the backend */
     call_wasi_nn_func(wasi_nn_ctx->backend, init, res,
                       &wasi_nn_ctx->backend_ctx);
@@ -466,7 +488,67 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
     if (res != success)
         return res;
 
-    wasi_nn_ctx->backend = loaded_backed;
+    wasi_nn_ctx->backend = loaded_backend;
+    wasi_nn_ctx->is_model_loaded = true;
+    return success;
+}
+
+wasi_nn_error
+wasi_nn_load_by_name_with_config(wasm_exec_env_t exec_env, char *name,
+                                 int32_t name_len, char *config,
+                                 int32_t config_len, graph *g)
+{
+    wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
+    if (!instance) {
+        return runtime_error;
+    }
+
+    if (!wasm_runtime_validate_native_addr(instance, name, name_len)) {
+        NN_ERR_PRINTF("name is invalid");
+        return invalid_argument;
+    }
+
+    if (!wasm_runtime_validate_native_addr(instance, g,
+                                           (uint64)sizeof(graph))) {
+        NN_ERR_PRINTF("graph is invalid");
+        return invalid_argument;
+    }
+
+    if (name_len == 0 || name[name_len] != '\0') {
+        NN_ERR_PRINTF("Invalid filename");
+        return invalid_argument;
+    }
+
+    if (!config || config_len == 0 || config[config_len] != '\0') {
+        NN_ERR_PRINTF("Invalid config");
+        return invalid_argument;
+    }
+
+    NN_DBG_PRINTF("[WASI NN] LOAD_BY_NAME_WITH_CONFIG %s %s...", name, config);
+
+    graph_encoding loaded_backend = autodetect;
+    if (!detect_and_load_backend(autodetect, lookup, &loaded_backend)) {
+        NN_ERR_PRINTF("load backend failed");
+        return invalid_encoding;
+    }
+
+    WASINNContext *wasi_nn_ctx = wasm_runtime_get_wasi_nn_ctx(instance);
+    wasi_nn_ctx->backend = loaded_backend;
+
+    wasi_nn_error res;
+    /* init() the backend */
+    call_wasi_nn_func(wasi_nn_ctx->backend, init, res,
+                      &wasi_nn_ctx->backend_ctx);
+    if (res != success)
+        return res;
+
+    call_wasi_nn_func(wasi_nn_ctx->backend, load_by_name_with_config, res,
+                      wasi_nn_ctx->backend_ctx, name, name_len, config,
+                      config_len, g);
+    if (res != success)
+        return res;
+
+    wasi_nn_ctx->backend = loaded_backend;
     wasi_nn_ctx->is_model_loaded = true;
     return success;
 }
@@ -608,6 +690,7 @@ static NativeSymbol native_symbols_wasi_nn[] = {
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
     REG_NATIVE_FUNC(load, "(*iii*)i"),
     REG_NATIVE_FUNC(load_by_name, "(*i*)i"),
+    REG_NATIVE_FUNC(load_by_name_with_config, "(*i*i*)i"),
     REG_NATIVE_FUNC(init_execution_context, "(i*)i"),
     REG_NATIVE_FUNC(set_input, "(ii*)i"),
     REG_NATIVE_FUNC(compute, "(i)i"),
