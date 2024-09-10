@@ -16,6 +16,7 @@
 #include "aot_emit_parametric.h"
 #include "aot_emit_table.h"
 #include "aot_emit_gc.h"
+#include "aot_stack_frame_comp.h"
 #include "simd/simd_access_lanes.h"
 #include "simd/simd_bitmask_extracts.h"
 #include "simd/simd_bit_shifts.h"
@@ -251,6 +252,13 @@ store_value(AOTCompContext *comp_ctx, LLVMValueRef value, uint8 value_type,
     LLVMSetAlignment(res, 4);
 
     return true;
+}
+
+void
+aot_call_stack_features_init_default(AOTCallStackFeatures *features)
+{
+    memset(features, 1, sizeof(AOTCallStackFeatures));
+    features->frame_per_function = false;
 }
 
 bool
@@ -573,9 +581,10 @@ aot_gen_commit_values(AOTCompFrame *frame)
     return true;
 }
 
-bool
-aot_gen_commit_ip(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                  LLVMValueRef ip_value, bool is_64bit)
+static bool
+aot_standard_frame_gen_commit_ip(AOTCompContext *comp_ctx,
+                                 AOTFuncContext *func_ctx,
+                                 LLVMValueRef ip_value, bool is_64bit)
 {
     LLVMValueRef cur_frame = func_ctx->cur_frame;
     LLVMValueRef value_offset, value_addr, value_ptr;
@@ -611,6 +620,23 @@ aot_gen_commit_ip(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     return true;
+}
+
+bool
+aot_gen_commit_ip(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                  LLVMValueRef ip_value, bool is_64bit)
+{
+    switch (comp_ctx->aux_stack_frame_type) {
+        case AOT_STACK_FRAME_TYPE_STANDARD:
+            return aot_standard_frame_gen_commit_ip(comp_ctx, func_ctx,
+                                                    ip_value, is_64bit);
+        case AOT_STACK_FRAME_TYPE_TINY:
+            return aot_tiny_frame_gen_commit_ip(comp_ctx, func_ctx, ip_value);
+        default:
+            aot_set_last_error(
+                "unsupported mode when generating commit_ip code");
+            return false;
+    }
 }
 
 bool
@@ -962,6 +988,7 @@ static bool
 aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 {
     AOTFuncContext *func_ctx = comp_ctx->func_ctxes[func_index];
+    LLVMValueRef func_index_ref;
     uint8 *frame_ip = func_ctx->aot_func->code, opcode, *p_f32, *p_f64;
     uint8 *frame_ip_end = frame_ip + func_ctx->aot_func->code_size;
     uint8 *param_types = NULL;
@@ -984,16 +1011,27 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
     LLVMMetadataRef location;
 #endif
 
-    if (comp_ctx->enable_aux_stack_frame) {
+    /* Start to translate the opcodes */
+    LLVMPositionBuilderAtEnd(
+        comp_ctx->builder,
+        func_ctx->block_stack.block_list_head->llvm_entry_block);
+
+    if (comp_ctx->aux_stack_frame_type
+        && comp_ctx->call_stack_features.frame_per_function) {
+        INT_CONST(func_index_ref,
+                  func_index + comp_ctx->comp_data->import_func_count, I32_TYPE,
+                  true);
+        if (!aot_alloc_frame_per_function_frame_for_aot_func(comp_ctx, func_ctx,
+                                                             func_index_ref)) {
+            return false;
+        }
+    }
+    if (comp_ctx->aux_stack_frame_type) {
         if (!init_comp_frame(comp_ctx, func_ctx, func_index)) {
             return false;
         }
     }
 
-    /* Start to translate the opcodes */
-    LLVMPositionBuilderAtEnd(
-        comp_ctx->builder,
-        func_ctx->block_stack.block_list_head->llvm_entry_block);
     while (frame_ip < frame_ip_end) {
         opcode = *frame_ip++;
 

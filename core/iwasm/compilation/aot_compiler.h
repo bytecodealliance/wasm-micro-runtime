@@ -661,6 +661,15 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
 #define F64_CONST(v) LLVMConstReal(F64_TYPE, v)
 #define I8_CONST(v) LLVMConstInt(INT8_TYPE, v, true)
 
+#define INT_CONST(variable, value, type, is_signed)        \
+    do {                                                   \
+        variable = LLVMConstInt(type, value, is_signed);   \
+        if (!variable) {                                   \
+            aot_set_last_error("llvm build const failed"); \
+            return false;                                  \
+        }                                                  \
+    } while (0)
+
 #define LLVM_CONST(name) (comp_ctx->llvm_consts.name)
 #define I1_ZERO LLVM_CONST(i1_zero)
 #define I1_ONE LLVM_CONST(i1_one)

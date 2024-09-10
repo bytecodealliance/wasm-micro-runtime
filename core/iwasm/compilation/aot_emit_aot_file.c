@@ -4433,6 +4433,12 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
     if (comp_ctx->enable_gc) {
         obj_data->target_info.feature_flags |= WASM_FEATURE_GARBAGE_COLLECTION;
     }
+    if (comp_ctx->aux_stack_frame_type == AOT_STACK_FRAME_TYPE_TINY) {
+        obj_data->target_info.feature_flags |= WASM_FEATURE_TINY_STACK_FRAME;
+    }
+    if (comp_ctx->call_stack_features.frame_per_function) {
+        obj_data->target_info.feature_flags |= WASM_FEATURE_FRAME_PER_FUNCTION;
+    }
 
     bh_print_time("Begin to resolve object file info");
 
