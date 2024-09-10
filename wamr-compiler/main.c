@@ -167,7 +167,7 @@ print_help()
     printf("                            By default, all features are enabled. To disable all features,\n");
     printf("                            provide an empty list (i.e. --call-stack-features=). This flag\n");
     printf("                            only only takes effect when --enable-dump-call-stack is set.\n");
-    printf("                            Available features: bounds-checks, ip, trap-ip, values.\n");
+    printf("                            Available features: bounds-checks, ip, func-idx, trap-ip, values.\n");
     printf("  --enable-perf-profiling   Enable function performance profiling\n");
     printf("  --enable-memory-profiling Enable memory usage profiling\n");
     printf("  --xip                     A shorthand of --enable-indirect-mode --disable-llvm-intrinsics\n");
@@ -294,6 +294,9 @@ parse_call_stack_features(char *features_str,
         }
         else if (!strcmp(features[size], "values")) {
             out_features->values = true;
+        }
+        else if (!strcmp(features[size], "func-idx")) {
+            out_features->func_idx = true;
         }
         else {
             ret = false;
@@ -663,6 +666,12 @@ main(int argc, char *argv[])
         option.aux_stack_frame_type = AOT_STACK_FRAME_TYPE_TINY;
         /* for now we only enable frame per function for a TINY frame mode */
         option.call_stack_features.frame_per_function = true;
+    }
+    if (!option.call_stack_features.func_idx
+        && (option.enable_gc || option.enable_perf_profiling)) {
+        LOG_WARNING("'func-idx' call stack feature will be automatically "
+                    "enabled for GC and perf profiling mode");
+        option.call_stack_features.func_idx = true;
     }
 
     if (!size_level_set) {

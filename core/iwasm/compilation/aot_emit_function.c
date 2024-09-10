@@ -885,25 +885,28 @@ alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     if (!comp_ctx->is_jit_mode) {
-        /* aot mode: new_frame->func_idx = func_idx */
-        func_idx_val = comp_ctx->pointer_size == sizeof(uint64)
-                           ? I64_CONST(func_idx)
-                           : I32_CONST(func_idx);
-        offset = I32_CONST(comp_ctx->pointer_size);
-        CHECK_LLVM_CONST(func_idx_val);
-        CHECK_LLVM_CONST(offset);
-        if (!(func_idx_ptr =
-                  LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, new_frame,
-                                        &offset, 1, "func_idx_addr"))
-            || !(func_idx_ptr =
-                     LLVMBuildBitCast(comp_ctx->builder, func_idx_ptr,
-                                      INTPTR_T_PTR_TYPE, "func_idx_ptr"))) {
-            aot_set_last_error("llvm get func_idx_ptr failed");
-            return false;
-        }
-        if (!LLVMBuildStore(comp_ctx->builder, func_idx_val, func_idx_ptr)) {
-            aot_set_last_error("llvm build store failed");
-            return false;
+        if (comp_ctx->call_stack_features.func_idx) {
+            /* aot mode: new_frame->func_idx = func_idx */
+            func_idx_val = comp_ctx->pointer_size == sizeof(uint64)
+                               ? I64_CONST(func_idx)
+                               : I32_CONST(func_idx);
+            offset = I32_CONST(comp_ctx->pointer_size);
+            CHECK_LLVM_CONST(func_idx_val);
+            CHECK_LLVM_CONST(offset);
+            if (!(func_idx_ptr = LLVMBuildInBoundsGEP2(
+                      comp_ctx->builder, INT8_TYPE, new_frame, &offset, 1,
+                      "func_idx_addr"))
+                || !(func_idx_ptr =
+                         LLVMBuildBitCast(comp_ctx->builder, func_idx_ptr,
+                                          INTPTR_T_PTR_TYPE, "func_idx_ptr"))) {
+                aot_set_last_error("llvm get func_idx_ptr failed");
+                return false;
+            }
+            if (!LLVMBuildStore(comp_ctx->builder, func_idx_val,
+                                func_idx_ptr)) {
+                aot_set_last_error("llvm build store failed");
+                return false;
+            }
         }
     }
     else {

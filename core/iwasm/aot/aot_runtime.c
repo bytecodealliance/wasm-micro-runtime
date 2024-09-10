@@ -134,6 +134,15 @@ is_frame_per_function(WASMExecEnv *exec_env)
     return module->feature_flags & WASM_FEATURE_FRAME_PER_FUNCTION;
 }
 
+static bool
+is_frame_func_idx_disabled(WASMExecEnv *exec_env)
+{
+    AOTModule *module =
+        (AOTModule *)((AOTModuleInstance *)exec_env->module_inst)->module;
+
+    return module->feature_flags & WASM_FEATURE_FRAME_NO_FUNC_IDX;
+}
+
 static void *
 get_top_frame(WASMExecEnv *exec_env)
 {
@@ -3952,7 +3961,7 @@ aot_create_call_stack(struct WASMExecEnv *exec_env)
 #endif
         }
         WASMCApiFrame frame = { 0 };
-        uint32 max_local_cell_num, max_stack_cell_num;
+        uint32 max_local_cell_num = 0, max_stack_cell_num = 0;
         uint32 all_cell_num, lp_size;
 
         frame.instance = module_inst;
@@ -3961,16 +3970,20 @@ aot_create_call_stack(struct WASMExecEnv *exec_env)
         frame.func_offset = ip_offset;
         frame.func_name_wp = get_func_name_from_index(module_inst, func_index);
 
-        if (func_index >= module->import_func_count) {
-            uint32 aot_func_idx = func_index - module->import_func_count;
-            max_local_cell_num = module->max_local_cell_nums[aot_func_idx];
-            max_stack_cell_num = module->max_stack_cell_nums[aot_func_idx];
-        }
-        else {
-            AOTFuncType *func_type = module->import_funcs[func_index].func_type;
-            max_local_cell_num =
-                func_type->param_cell_num > 2 ? func_type->param_cell_num : 2;
-            max_stack_cell_num = 0;
+        if (!is_frame_func_idx_disabled(exec_env)) {
+            if (func_index >= module->import_func_count) {
+                uint32 aot_func_idx = func_index - module->import_func_count;
+                max_local_cell_num = module->max_local_cell_nums[aot_func_idx];
+                max_stack_cell_num = module->max_stack_cell_nums[aot_func_idx];
+            }
+            else {
+                AOTFuncType *func_type =
+                    module->import_funcs[func_index].func_type;
+                max_local_cell_num = func_type->param_cell_num > 2
+                                         ? func_type->param_cell_num
+                                         : 2;
+                max_stack_cell_num = 0;
+            }
         }
 
         all_cell_num = max_local_cell_num + max_stack_cell_num;

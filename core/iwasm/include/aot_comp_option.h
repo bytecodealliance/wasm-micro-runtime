@@ -12,11 +12,19 @@ typedef struct {
      * bounds of the current stack frame (and if not, traps). */
     bool bounds_checks;
 
-    /*  Enables or disables instruction pointer (IP) tracking.*/
+    /* Enables or disables instruction pointer (IP) tracking. */
     bool ip;
 
+    /* Enables or disables function index in the stack trace. Please note that
+     * function index can be recovered from the instruction pointer using
+     * ip2function.py script, so enabling this feature along with `ip` might
+     * often be redundant.
+     * This option will automatically be enabled for GC and Perf Profiling mode.
+     */
+    bool func_idx;
+
     /* Enables or disables tracking instruction pointer of a trap. Only takes
-     * effect when `ip` is enabled.*/
+     * effect when `ip` is enabled. */
     bool trap_ip;
 
     /* Enables or disables parameters, locals and stack operands. */

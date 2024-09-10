@@ -34,6 +34,7 @@ extern "C" {
 /* Stack frame is created at the beginning of the function,
  * and not at the beginning of each function call */
 #define WASM_FEATURE_FRAME_PER_FUNCTION (1 << 12)
+#define WASM_FEATURE_FRAME_NO_FUNC_IDX (1 << 13)
 
 typedef enum AOTSectionType {
     AOT_SECTION_TYPE_TARGET_INFO = 0,
