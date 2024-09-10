@@ -400,7 +400,7 @@ CFLAGS += -DWASM_ENABLE_EXCE_HANDLING=0
 CFLAGS += -DWASM_ENABLE_TAGS=0
 endif
 
-CFLAGS += -Wno-strict-prototypes -Wno-shadow -Wno-unused-variable
+CFLAGS += -Wno-shadow -Wno-unused-variable
 CFLAGS += -Wno-int-conversion -Wno-implicit-function-declaration
 
 CFLAGS += -I${CORE_ROOT} \

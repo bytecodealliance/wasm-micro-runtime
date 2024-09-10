@@ -197,7 +197,7 @@ include(${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 # NuttX wamr lib complie required: `WAMR_SOURCES` `WAMR_CFLAGS` `WAMR_INCDIRS`
 # `WAMR_DEFINITIONS`
 set(WAMR_SOURCES ${WAMR_RUNTIME_LIB_SOURCE})
-set(WAMR_CFLAGS -Wno-strict-prototypes -Wno-shadow -Wno-unused-variable
+set(WAMR_CFLAGS -Wno-shadow -Wno-unused-variable
                 -Wno-int-conversion -Wno-implicit-function-declaration)
 get_directory_property(WAMR_INCDIRS INCLUDE_DIRECTORIES)
 get_directory_property(WAMR_DEFINITIONS COMPILE_DEFINITIONS)

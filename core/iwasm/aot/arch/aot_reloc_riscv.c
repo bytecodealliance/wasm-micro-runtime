@@ -49,58 +49,58 @@
 #endif
 
 /* clang-format off */
-void __adddf3();
-void __addsf3();
-void __divdf3();
-void __divdi3();
-void __divsf3();
-void __divsi3();
-void __eqdf2();
-void __eqsf2();
-void __extendsfdf2();
-void __fixdfdi();
-void __fixdfsi();
-void __fixsfdi();
-void __fixsfsi();
-void __fixunsdfdi();
-void __fixunsdfsi();
-void __fixunssfdi();
-void __fixunssfsi();
-void __floatdidf();
-void __floatdisf();
-void __floatsidf();
-void __floatsisf();
-void __floatundidf();
-void __floatundisf();
-void __floatunsidf();
-void __floatunsisf();
-void __gedf2();
-void __gesf2();
-void __gtdf2();
-void __gtsf2();
-void __ledf2();
-void __lesf2();
-void __ltdf2();
-void __ltsf2();
-void __moddi3();
-void __modsi3();
-void __muldf3();
-void __muldi3();
-void __mulsf3();
-void __mulsi3();
-void __nedf2();
-void __negdf2();
-void __negsf2();
-void __nesf2();
-void __subdf3();
-void __subsf3();
-void __truncdfsf2();
-void __udivdi3();
-void __udivsi3();
-void __umoddi3();
-void __umodsi3();
-void __unorddf2();
-void __unordsf2();
+void __adddf3(void);
+void __addsf3(void);
+void __divdf3(void);
+void __divdi3(void);
+void __divsf3(void);
+void __divsi3(void);
+void __eqdf2(void);
+void __eqsf2(void);
+void __extendsfdf2(void);
+void __fixdfdi(void);
+void __fixdfsi(void);
+void __fixsfdi(void);
+void __fixsfsi(void);
+void __fixunsdfdi(void);
+void __fixunsdfsi(void);
+void __fixunssfdi(void);
+void __fixunssfsi(void);
+void __floatdidf(void);
+void __floatdisf(void);
+void __floatsidf(void);
+void __floatsisf(void);
+void __floatundidf(void);
+void __floatundisf(void);
+void __floatunsidf(void);
+void __floatunsisf(void);
+void __gedf2(void);
+void __gesf2(void);
+void __gtdf2(void);
+void __gtsf2(void);
+void __ledf2(void);
+void __lesf2(void);
+void __ltdf2(void);
+void __ltsf2(void);
+void __moddi3(void);
+void __modsi3(void);
+void __muldf3(void);
+void __muldi3(void);
+void __mulsf3(void);
+void __mulsi3(void);
+void __nedf2(void);
+void __negdf2(void);
+void __negsf2(void);
+void __nesf2(void);
+void __subdf3(void);
+void __subsf3(void);
+void __truncdfsf2(void);
+void __udivdi3(void);
+void __udivsi3(void);
+void __umoddi3(void);
+void __umodsi3(void);
+void __unorddf2(void);
+void __unordsf2(void);
 /* clang-format on */
 
 static SymbolMap target_sym_map[] = {
@@ -193,7 +193,7 @@ get_current_target(char *target_buf, uint32 target_buf_size)
 }
 
 uint32
-get_plt_item_size()
+get_plt_item_size(void)
 {
 #if __riscv_xlen == 64
     /* auipc + ld + jalr + nop + addr */

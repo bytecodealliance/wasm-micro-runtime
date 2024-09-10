@@ -302,7 +302,10 @@ loader_mmap(uint32 size, bool prot_exec, char *error_buf, uint32 error_buf_size)
     int map_flags;
     void *mem;
 
-#if UINTPTR_MAX == UINT64_MAX
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
+    || defined(BUILD_TARGET_RISCV64_LP64D)                       \
+    || defined(BUILD_TARGET_RISCV64_LP64)
+#ifndef __APPLE__
     /* The mmapped AOT data and code in 64-bit targets had better be in
        range 0 to 2G, or aot loader may fail to apply some relocations,
        e.g., R_X86_64_32/R_X86_64_32S/R_X86_64_PC32/R_RISCV_32.
@@ -316,6 +319,7 @@ loader_mmap(uint32 size, bool prot_exec, char *error_buf, uint32 error_buf_size)
         bh_assert((uintptr_t)mem < INT32_MAX);
         return mem;
     }
+#endif
 #endif
 
     map_flags = MMAP_MAP_NONE;
@@ -579,6 +583,10 @@ load_target_info_section(const uint8 *buf, const uint8 *buf_end,
         return false;
     }
 
+    /* for backwards compatibility with previous wamrc aot files */
+    if (!strcmp(target_info.arch, "arm64"))
+        bh_strcpy_s(target_info.arch, sizeof(target_info.arch), "aarch64v8");
+
     /* Check machine info */
     if (!check_machine_info(&target_info, error_buf, error_buf_size)) {
         return false;
@@ -588,6 +596,10 @@ load_target_info_section(const uint8 *buf, const uint8 *buf_end,
         set_error_buf(error_buf, error_buf_size, "invalid elf file version");
         return false;
     }
+
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+    module->feature_flags = target_info.feature_flags;
+#endif
 
     /* Finally, check feature flags */
     return check_feature_flags(error_buf, error_buf_size,

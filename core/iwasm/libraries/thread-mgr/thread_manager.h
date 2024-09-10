@@ -64,10 +64,10 @@ void
 wasm_cluster_set_max_thread_num(uint32 num);
 
 bool
-thread_manager_init();
+thread_manager_init(void);
 
 void
-thread_manager_destroy();
+thread_manager_destroy(void);
 
 /* Create cluster */
 WASMCluster *
@@ -109,7 +109,7 @@ bool
 wasm_cluster_register_destroy_callback(void (*callback)(WASMCluster *));
 
 void
-wasm_cluster_cancel_all_callbacks();
+wasm_cluster_cancel_all_callbacks(void);
 
 void
 wasm_cluster_suspend_all(WASMCluster *cluster);
@@ -190,7 +190,7 @@ struct WASMCurrentEnvStatus {
 };
 
 WASMCurrentEnvStatus *
-wasm_cluster_create_exenv_status();
+wasm_cluster_create_exenv_status(void);
 
 void
 wasm_cluster_destroy_exenv_status(WASMCurrentEnvStatus *status);

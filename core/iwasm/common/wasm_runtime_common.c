@@ -86,7 +86,7 @@ static bh_list registered_module_list_head;
 static bh_list *const registered_module_list = &registered_module_list_head;
 static korp_mutex registered_module_list_lock;
 static void
-wasm_runtime_destroy_registered_module_list();
+wasm_runtime_destroy_registered_module_list(void);
 #endif /* WASM_ENABLE_MULTI_MODULE */
 
 #define E_TYPE_XIP 4
@@ -97,11 +97,11 @@ val_type_to_val_kind(uint8 value_type);
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
 /* Initialize externref hashmap */
 static bool
-wasm_externref_map_init();
+wasm_externref_map_init(void);
 
 /* Destroy externref hashmap */
 static void
-wasm_externref_map_destroy();
+wasm_externref_map_destroy(void);
 #endif /* end of WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0 */
 
 static void
@@ -438,7 +438,7 @@ wasm_runtime_get_exec_env_tls()
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
 static bool
-wasm_runtime_env_init()
+wasm_runtime_env_init(void)
 {
     if (bh_platform_init() != 0)
         return false;
@@ -584,7 +584,7 @@ static korp_mutex runtime_lock = OS_THREAD_MUTEX_INITIALIZER;
 static int32 runtime_ref_count = 0;
 
 static bool
-wasm_runtime_init_internal()
+wasm_runtime_init_internal(void)
 {
     if (!wasm_runtime_memory_init(Alloc_With_System_Allocator, NULL))
         return false;
@@ -622,7 +622,7 @@ wasm_runtime_init()
 }
 
 static void
-wasm_runtime_destroy_internal()
+wasm_runtime_destroy_internal(void)
 {
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     wasm_externref_map_destroy();
@@ -4747,7 +4747,7 @@ fail:
     || defined(BUILD_TARGET_RISCV32_ILP32D)                          \
     || defined(BUILD_TARGET_RISCV32_ILP32F)                          \
     || defined(BUILD_TARGET_RISCV32_ILP32) || defined(BUILD_TARGET_ARC)
-typedef void (*GenericFunctionPointer)();
+typedef void (*GenericFunctionPointer)(void);
 void
 invokeNative(GenericFunctionPointer f, uint32 *args, uint32 n_stacks);
 
@@ -5312,7 +5312,7 @@ fail:
 #if defined(BUILD_TARGET_X86_32) || defined(BUILD_TARGET_ARM)    \
     || defined(BUILD_TARGET_THUMB) || defined(BUILD_TARGET_MIPS) \
     || defined(BUILD_TARGET_XTENSA)
-typedef void (*GenericFunctionPointer)();
+typedef void (*GenericFunctionPointer)(void);
 void
 invokeNative(GenericFunctionPointer f, uint32 *args, uint32 sz);
 
@@ -5597,7 +5597,7 @@ typedef uint32x4_t __m128i;
 
 #endif /* end of WASM_ENABLE_SIMD != 0 */
 
-typedef void (*GenericFunctionPointer)();
+typedef void (*GenericFunctionPointer)(void);
 void
 invokeNative(GenericFunctionPointer f, uint64 *args, uint64 n_stacks);
 
