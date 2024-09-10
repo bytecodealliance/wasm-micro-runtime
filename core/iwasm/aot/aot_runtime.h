@@ -25,12 +25,15 @@ extern "C" {
 #define WASM_FEATURE_REF_TYPES (1 << 3)
 #define WASM_FEATURE_GARBAGE_COLLECTION (1 << 4)
 #define WASM_FEATURE_EXCEPTION_HANDLING (1 << 5)
-#define WASM_FEATURE_MEMORY64 (1 << 6)
+#define WASM_FEATURE_TINY_STACK_FRAME (1 << 6)
 #define WASM_FEATURE_MULTI_MEMORY (1 << 7)
 #define WASM_FEATURE_DYNAMIC_LINKING (1 << 8)
 #define WASM_FEATURE_COMPONENT_MODEL (1 << 9)
 #define WASM_FEATURE_RELAXED_SIMD (1 << 10)
 #define WASM_FEATURE_FLEXIBLE_VECTORS (1 << 11)
+/* Stack frame is created at the beginning of the function,
+ * and not at the beginning of each function call */
+#define WASM_FEATURE_FRAME_PER_FUNCTION (1 << 12)
 
 typedef enum AOTSectionType {
     AOT_SECTION_TYPE_TARGET_INFO = 0,
@@ -326,6 +329,10 @@ typedef struct AOTModule {
     /* `.data` and `.text` sections merged into one large mmaped section */
     uint8 *merged_data_text_sections;
     uint32 merged_data_text_sections_size;
+
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
+    uint32 feature_flags;
+#endif
 } AOTModule;
 
 #define AOTMemoryInstance WASMMemoryInstance
