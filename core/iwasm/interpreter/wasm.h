@@ -12,6 +12,9 @@
 #if WASM_ENABLE_GC != 0
 #include "gc_export.h"
 #endif
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+#include "dynlink_types.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -1006,6 +1009,10 @@ struct WASMModule {
 
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
     WASMCustomSection *custom_section_list;
+#endif
+
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    DynLinkSections dynlink_sections;
 #endif
 
 #if WASM_ENABLE_FAST_JIT != 0

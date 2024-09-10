@@ -19,6 +19,9 @@
 #if WASM_ENABLE_JIT != 0
 #include "../compilation/aot_llvm.h"
 #endif
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+#include "dynlink_section_loader.h"
+#endif
 
 /* Read a value of given type from the address pointed to by the given
    pointer and increase the pointer to the position just after the
@@ -2009,6 +2012,15 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
         }
     }
 #endif
+
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    if (!dynlink_try_load_dylink0_section(p, p_end, name_len, module,
+                                          is_load_from_file_buf, error_buf,
+                                          error_buf_size)) {
+        return false;
+    }
+#endif
+
     LOG_VERBOSE("Load custom section success.\n");
     (void)name_len;
     return true;
@@ -3369,6 +3381,10 @@ wasm_loader_unload(WASMModule *module)
             node = node_next;
         }
     }
+#endif
+
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    dynlink_sections_deinit(&module->dynlink_sections);
 #endif
 
 #if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \

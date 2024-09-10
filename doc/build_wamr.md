@@ -64,6 +64,10 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 - **WAMR_BUILD_MULTI_MODULE**=1/0, default to disable if not set
 > Note: See [Multiple Modules as Dependencies](./multi_module.md) for more details.
 
+#### **Enable Dynamic Linking feature**
+
+- **WAMR_BUILD_DYNAMIC_LINKING**=1/0, build the [Dynamic Linking](https://github.com/WebAssembly/tool-conventions/blob/main/DynamicLinking.md) support, default to disable if not set
+
 #### **Enable WASM mini loader**
 
 - **WAMR_BUILD_MINI_LOADER**=1/0, default to disable if not set

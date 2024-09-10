@@ -119,6 +119,10 @@ if (WAMR_BUILD_LIB_WASI_THREADS EQUAL 1)
     set (WAMR_BUILD_SHARED_MEMORY 1)
 endif ()
 
+if (WAMR_BUILD_DYNAMIC_LINKING EQUAL 1)
+    include (${IWASM_DIR}/libraries/lib-dynlink/lib_dynlink.cmake)
+endif ()
+
 if (WAMR_BUILD_DEBUG_INTERP EQUAL 1)
     set (WAMR_BUILD_THREAD_MGR 1)
     include (${IWASM_DIR}/libraries/debug-engine/debug_engine.cmake)
@@ -189,6 +193,7 @@ set (source_all
     ${IWASM_GC_SOURCE}
     ${LIB_WASI_THREADS_SOURCE}
     ${LIB_PTHREAD_SOURCE}
+    ${LIB_DYNLINK_SOURCE}
     ${THREAD_MGR_SOURCE}
     ${LIBC_EMCC_SOURCE}
     ${LIB_RATS_SOURCE}
