@@ -57,9 +57,9 @@ bool
 wasm_runtime_attach_shared_heap_internal(WASMModuleInstanceCommon *module_inst,
                                          void *shared_heap);
 
-bool
+void
 wasm_runtime_detach_shared_heap(WASMModuleInstanceCommon *module_inst);
-bool
+void
 wasm_runtime_detach_shared_heap_internal(WASMModuleInstanceCommon *module_inst);
 
 uint64

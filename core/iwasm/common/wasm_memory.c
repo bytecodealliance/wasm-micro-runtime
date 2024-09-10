@@ -266,7 +266,7 @@ wasm_runtime_attach_shared_heap_internal(WASMModuleInstanceCommon *module_inst,
     if (module_inst->module_type == Wasm_Module_Bytecode) {
         if (((WASMModuleInstance *)module_inst)->e->shared_heap) {
             LOG_WARNING("A shared heap is already attached");
-            return true;
+            return false;
         }
         ((WASMModuleInstance *)module_inst)->e->shared_heap = heap;
     }
@@ -277,18 +277,17 @@ wasm_runtime_attach_shared_heap_internal(WASMModuleInstanceCommon *module_inst,
     return true;
 }
 
-bool
+void
 wasm_runtime_detach_shared_heap(WASMModuleInstanceCommon *module_inst)
 {
 #if WASM_ENABLE_THREAD_MGR != 0
     wasm_cluster_detach_shared_heap(module_inst);
-    return true;
 #else
-    return wasm_runtime_detach_shared_heap_internal(module_inst);
+    wasm_runtime_detach_shared_heap_internal(module_inst);
 #endif
 }
 
-bool
+void
 wasm_runtime_detach_shared_heap_internal(WASMModuleInstanceCommon *module_inst)
 {
     if (module_inst->module_type == Wasm_Module_Bytecode) {
@@ -297,8 +296,6 @@ wasm_runtime_detach_shared_heap_internal(WASMModuleInstanceCommon *module_inst)
     else if (module_inst->module_type == Wasm_Module_AoT) {
         // TODO
     }
-
-    return true;
 }
 
 bool
@@ -336,10 +333,14 @@ bool
 is_native_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst_comm,
                               uint8 *addr, uint32 bytes)
 {
-    WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
-    bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
-              || module_inst_comm->module_type == Wasm_Module_AoT);
-    WASMSharedHeap *heap = module_inst->e->shared_heap;
+    WASMSharedHeap *heap = NULL;
+
+    if (module_inst_comm->module_type == Wasm_Module_Bytecode) {
+        heap = ((WASMModuleInstance *)module_inst_comm)->e->shared_heap;
+    }
+    else if (module_inst_comm->module_type == Wasm_Module_AoT) {
+        // TODO
+    }
 
     if (heap && addr >= heap->base_addr
         && addr + bytes <= heap->base_addr + heap->size
@@ -402,13 +403,11 @@ shared_heap_addr_app_to_native(WASMModuleInstanceCommon *module_inst,
         return NULL;
     }
 
-    if (is_app_addr_in_shared_heap(module_inst, memory->is_memory64, ptr, 1)) {
-        if (memory->is_memory64) {
-            addr = heap->base_addr + (ptr - heap->start_off_mem64);
-        }
-        else {
-            addr = heap->base_addr + (ptr - heap->start_off_mem32);
-        }
+    if (memory->is_memory64) {
+        addr = heap->base_addr + (ptr - heap->start_off_mem64);
+    }
+    else {
+        addr = heap->base_addr + (ptr - heap->start_off_mem32);
     }
 
     return addr;
