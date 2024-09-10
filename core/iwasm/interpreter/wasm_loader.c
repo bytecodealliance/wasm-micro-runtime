@@ -2474,7 +2474,8 @@ wasm_loader_resolve_tag(const char *module_name, const char *tag_name,
     }
 
     /* check function type */
-    if (!wasm_type_equal(expected_tag_type, tag->tag_type)) {
+    if (!wasm_type_equal(expected_tag_type, tag->tag_type, module->types,
+                         module->type_count)) {
         LOG_DEBUG("%s.%s failed the type check", module_name, tag_name);
         set_error_buf(error_buf, error_buf_size, "incompatible import type");
         return NULL;
