@@ -79,7 +79,7 @@ get_current_target(char *target_buf, uint32 target_buf_size)
 }
 
 static uint32
-get_plt_item_size()
+get_plt_item_size(void)
 {
     /* 6*4 bytes instructions and 8 bytes symbol address */
     return 32;

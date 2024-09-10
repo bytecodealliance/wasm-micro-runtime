@@ -469,7 +469,7 @@ wasi_context_dtor(WASMModuleInstanceCommon *inst, void *ctx)
 
 #if WASM_ENABLE_QUICK_AOT_ENTRY != 0
 static bool
-quick_aot_entry_init();
+quick_aot_entry_init(void);
 #endif
 
 bool
@@ -1461,7 +1461,7 @@ quick_aot_entry_cmp(const void *quick_aot_entry1, const void *quick_aot_entry2)
 }
 
 static bool
-quick_aot_entry_init()
+quick_aot_entry_init(void)
 {
     qsort(quick_aot_entries, sizeof(quick_aot_entries) / sizeof(QuickAOTEntry),
           sizeof(QuickAOTEntry), quick_aot_entry_cmp);

@@ -159,7 +159,7 @@ wasm_runtime_memory_init(mem_alloc_type_t mem_alloc_type,
 }
 
 void
-wasm_runtime_memory_destroy()
+wasm_runtime_memory_destroy(void)
 {
     if (memory_mode == MEMORY_MODE_POOL) {
 #if BH_ENABLE_GC_VERIFY == 0
@@ -176,7 +176,7 @@ wasm_runtime_memory_destroy()
 }
 
 unsigned
-wasm_runtime_memory_pool_size()
+wasm_runtime_memory_pool_size(void)
 {
     if (memory_mode == MEMORY_MODE_POOL)
         return global_pool_size;

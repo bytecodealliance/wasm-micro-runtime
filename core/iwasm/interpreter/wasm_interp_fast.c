@@ -6030,7 +6030,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
 void **
-wasm_interp_get_handle_table()
+wasm_interp_get_handle_table(void)
 {
     WASMModuleInstance module;
     memset(&module, 0, sizeof(WASMModuleInstance));

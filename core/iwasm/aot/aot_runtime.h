@@ -648,7 +648,7 @@ aot_check_app_addr_and_convert(AOTModuleInstance *module_inst, bool is_str,
                                void **p_native_addr);
 
 uint32
-aot_get_plt_table_size();
+aot_get_plt_table_size(void);
 
 void *
 aot_memmove(void *dest, const void *src, size_t n);

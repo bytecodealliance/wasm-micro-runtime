@@ -852,10 +852,10 @@ wasm_runtime_set_module_reader(const module_reader reader,
                                const module_destroyer destroyer);
 
 module_reader
-wasm_runtime_get_module_reader();
+wasm_runtime_get_module_reader(void);
 
 module_destroyer
-wasm_runtime_get_module_destroyer();
+wasm_runtime_get_module_destroyer(void);
 
 bool
 wasm_runtime_register_module_internal(const char *module_name,
@@ -881,7 +881,7 @@ bool
 wasm_runtime_is_loading_module(const char *module_name);
 
 void
-wasm_runtime_destroy_loading_module_list();
+wasm_runtime_destroy_loading_module_list(void);
 
 WASMModuleCommon *
 wasm_runtime_search_sub_module(const WASMModuleCommon *parent_module,
@@ -1168,7 +1168,7 @@ wasm_runtime_quick_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
                                        uint32 result_count);
 
 void
-wasm_runtime_show_app_heap_corrupted_prompt();
+wasm_runtime_show_app_heap_corrupted_prompt(void);
 
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
 void
