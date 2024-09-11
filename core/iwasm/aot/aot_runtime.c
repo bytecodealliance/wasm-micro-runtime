@@ -1049,11 +1049,36 @@ fail1:
     return NULL;
 }
 
-static AOTMemoryInstance *
+AOTMemoryInstance *
+aot_lookup_memory(AOTModuleInstance *module_inst, char const *name)
+{
+#if WASM_ENABLE_MULTI_MEMORY != 0
+    uint32 i;
+    for (i = 0; i < module_inst->export_memory_count; i++)
+        if (!strcmp(module_inst->export_memories[i].name, name))
+            return module_inst->export_memories[i].memory;
+    return NULL;
+#else
+    (void)module_inst->export_memories;
+    return module_inst->memories[0];
+#endif
+}
+
+AOTMemoryInstance *
 aot_get_default_memory(AOTModuleInstance *module_inst)
 {
     if (module_inst->memories)
         return module_inst->memories[0];
+    else
+        return NULL;
+}
+
+AOTMemoryInstance *
+aot_get_memory_with_index(AOTModuleInstance *module_inst, uint32 index)
+{
+    bh_assert(index < module_inst->memory_count);
+    if (module_inst->memories)
+        return module_inst->memories[index];
     else
         return NULL;
 }
