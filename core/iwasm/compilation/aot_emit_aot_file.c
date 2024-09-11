@@ -4439,6 +4439,9 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
     if (comp_ctx->call_stack_features.frame_per_function) {
         obj_data->target_info.feature_flags |= WASM_FEATURE_FRAME_PER_FUNCTION;
     }
+    if (!comp_ctx->call_stack_features.func_idx) {
+        obj_data->target_info.feature_flags |= WASM_FEATURE_FRAME_NO_FUNC_IDX;
+    }
 
     bh_print_time("Begin to resolve object file info");
 
