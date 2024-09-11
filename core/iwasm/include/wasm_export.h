@@ -2137,7 +2137,7 @@ wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args, char *error_buf,
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_attach_shared_heap(wasm_module_inst_t module_inst,
-                                void *shared_heap);
+                                wasm_shared_heap_t shared_heap);
 
 /**
  * Detach a shared heap from a module instance

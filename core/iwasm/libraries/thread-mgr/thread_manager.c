@@ -17,10 +17,6 @@
 #include "debug_engine.h"
 #endif
 
-#if WASM_ENABLE_SHARED_HEAP != 0
-#include "../common/wasm_memory.h"
-#endif
-
 typedef struct {
     bh_list_link l;
     void (*destroy_cb)(WASMCluster *);
@@ -1426,15 +1422,25 @@ detach_shared_heap_visitor(void *node, void *heap)
     wasm_runtime_detach_shared_heap_internal(module_inst);
 }
 
-void
+bool
 wasm_cluster_attach_shared_heap(WASMModuleInstanceCommon *module_inst,
-                                void *heap)
+                                WASMSharedHeap *heap)
 {
     WASMExecEnv *exec_env = wasm_clusters_search_exec_env(module_inst);
 
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        if (((WASMModuleInstance *)module_inst)->e->shared_heap) {
+            LOG_WARNING("A shared heap is already attached");
+            return false;
+        }
+    }
+    else if (module_inst->module_type == Wasm_Module_AoT) {
+        // TODO
+    }
+
     if (exec_env == NULL) {
         /* Maybe threads have not been started yet. */
-        wasm_runtime_attach_shared_heap_internal(module_inst, heap);
+        return wasm_runtime_attach_shared_heap_internal(module_inst, heap);
     }
     else {
         WASMCluster *cluster;
@@ -1447,6 +1453,7 @@ wasm_cluster_attach_shared_heap(WASMModuleInstanceCommon *module_inst,
                       heap);
         os_mutex_unlock(&cluster->lock);
     }
+    return true;
 }
 
 void

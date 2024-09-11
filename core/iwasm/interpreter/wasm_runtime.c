@@ -3164,9 +3164,6 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
            of current module instance after it is deinstantiated. */
         wasm_exec_env_destroy(module_inst->exec_env_singleton);
     }
-#if WASM_ENABLE_SHARED_HEAP != 0
-    wasm_runtime_detach_shared_heap((WASMModuleInstanceCommon *)module_inst);
-#endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0                         \
     || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \

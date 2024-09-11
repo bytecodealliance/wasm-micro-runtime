@@ -229,11 +229,10 @@ fail1:
 
 bool
 wasm_runtime_attach_shared_heap(WASMModuleInstanceCommon *module_inst,
-                                void *shared_heap)
+                                WASMSharedHeap *shared_heap)
 {
 #if WASM_ENABLE_THREAD_MGR != 0
-    wasm_cluster_attach_shared_heap(module_inst, shared_heap);
-    return true;
+    return wasm_cluster_attach_shared_heap(module_inst, shared_heap);
 #else
     return wasm_runtime_attach_shared_heap_internal(module_inst, shared_heap);
 #endif
@@ -241,7 +240,7 @@ wasm_runtime_attach_shared_heap(WASMModuleInstanceCommon *module_inst,
 
 bool
 wasm_runtime_attach_shared_heap_internal(WASMModuleInstanceCommon *module_inst,
-                                         void *shared_heap)
+                                         WASMSharedHeap *shared_heap)
 {
     uint64 linear_mem_size = 0;
     WASMMemoryInstance *memory = NULL;
@@ -298,7 +297,7 @@ wasm_runtime_detach_shared_heap_internal(WASMModuleInstanceCommon *module_inst)
     }
 }
 
-bool
+static bool
 is_app_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst_comm, bool is_memory64,
                            uint64 app_offset, uint32 bytes)
 {
@@ -329,7 +328,7 @@ is_app_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst_comm, bool is_m
     return false;
 }
 
-bool
+static bool
 is_native_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst_comm,
                               uint8 *addr, uint32 bytes)
 {

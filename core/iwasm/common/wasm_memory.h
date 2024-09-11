@@ -48,10 +48,10 @@ wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args, char *error_buf,
 
 bool
 wasm_runtime_attach_shared_heap(WASMModuleInstanceCommon *module_inst,
-                                void *shared_heap);
+                                WASMSharedHeap *shared_heap);
 bool
 wasm_runtime_attach_shared_heap_internal(WASMModuleInstanceCommon *module_inst,
-                                         void *shared_heap);
+                                         WASMSharedHeap *shared_heap);
 
 void
 wasm_runtime_detach_shared_heap(WASMModuleInstanceCommon *module_inst);

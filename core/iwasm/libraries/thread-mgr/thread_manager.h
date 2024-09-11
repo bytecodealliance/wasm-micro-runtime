@@ -11,6 +11,9 @@
 #include "wasm_export.h"
 #include "../interpreter/wasm.h"
 #include "../common/wasm_runtime_common.h"
+#if WASM_ENABLE_SHARED_HEAP != 0
+#include "../common/wasm_memory.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -168,9 +171,9 @@ bool
 wasm_cluster_is_thread_terminated(WASMExecEnv *exec_env);
 
 #if WASM_ENABLE_SHARED_HEAP != 0
-void
+bool
 wasm_cluster_attach_shared_heap(WASMModuleInstanceCommon *module_inst,
-                                void *heap);
+                                WASMSharedHeap *heap);
 
 void
 wasm_cluster_detach_shared_heap(WASMModuleInstanceCommon *module_inst);
