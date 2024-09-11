@@ -2214,11 +2214,13 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
 #if WASM_ENABLE_MEMORY64 != 0
-    if (!(cmp_elem_idx =
-              LLVMBuildOr(comp_ctx->builder, cmp_elem_idx, u32_cmp_result,
-                          "larger_than_u32_max_or_cur_size"))) {
-        aot_set_last_error("llvm build or failed.");
-        goto fail;
+    if (IS_TABLE64(tbl_idx)) {
+        if (!(cmp_elem_idx =
+                  LLVMBuildOr(comp_ctx->builder, cmp_elem_idx, u32_cmp_result,
+                              "larger_than_u32_max_or_cur_size"))) {
+            aot_set_last_error("llvm build or failed.");
+            goto fail;
+        }
     }
 #endif
 
