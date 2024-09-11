@@ -252,6 +252,11 @@ typedef struct LoadArgs {
     const strings), making it possible to free the wasm binary buffer after
     loading. */
     bool wasm_binary_freeable;
+
+    /* false by default, if true, don't resolve the symbols yet. The
+       wasm_runtime_load_ex has to be followed by a wasm_runtime_resolve_symbols
+       call */
+    bool no_resolve;
     /* TODO: more fields? */
 } LoadArgs;
 #endif /* LOAD_ARGS_OPTION_DEFINED */
@@ -569,6 +574,12 @@ WASM_RUNTIME_API_EXTERN wasm_module_t
 wasm_runtime_load_ex(uint8_t *buf, uint32_t size, const LoadArgs *args,
                      char *error_buf, uint32_t error_buf_size);
 
+/**
+ * Resolve symbols for a previously loaded WASM module. Only useful when the
+ * module was loaded with LoadArgs::no_resolve set to true
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_resolve_symbols(wasm_module_t module);
 /**
  * Load a WASM module from a specified WASM or AOT section list.
  *

@@ -83,6 +83,124 @@ wasm_unload(WASMModule *module)
     wasm_loader_unload(module);
 }
 
+bool
+wasm_resolve_symbols(WASMModule *module)
+{
+    bool ret = true;
+    uint32 idx;
+    for (idx = 0; idx < module->import_function_count; ++idx) {
+        WASMFunctionImport *import = &module->import_functions[idx].u.function;
+        bool linked = import->func_ptr_linked;
+#if WASM_ENABLE_MULTI_MODULE != 0
+        if (import->import_func_linked) {
+            linked = true;
+        }
+#endif
+        if (!linked && !wasm_resolve_import_func(module, import)) {
+            ret = false;
+        }
+    }
+    return ret;
+}
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+static WASMFunction *
+wasm_resolve_function(const char *module_name, const char *function_name,
+                      const WASMFuncType *expected_function_type,
+                      char *error_buf, uint32 error_buf_size)
+{
+    WASMModuleCommon *module_reg;
+    WASMFunction *function = NULL;
+    WASMExport *export = NULL;
+    WASMModule *module = NULL;
+    WASMFuncType *target_function_type = NULL;
+
+    module_reg = wasm_runtime_find_module_registered(module_name);
+    if (!module_reg || module_reg->module_type != Wasm_Module_Bytecode) {
+        LOG_DEBUG("can not find a module named %s for function %s", module_name,
+                  function_name);
+        set_error_buf(error_buf, error_buf_size, "unknown import");
+        return NULL;
+    }
+
+    module = (WASMModule *)module_reg;
+    export = loader_find_export((WASMModuleCommon *)module, module_name,
+                                function_name, EXPORT_KIND_FUNC, error_buf,
+                                error_buf_size);
+    if (!export) {
+        return NULL;
+    }
+
+    /* resolve function type and function */
+    if (export->index < module->import_function_count) {
+        target_function_type =
+            module->import_functions[export->index].u.function.func_type;
+        function = module->import_functions[export->index]
+                       .u.function.import_func_linked;
+    }
+    else {
+        target_function_type =
+            module->functions[export->index - module->import_function_count]
+                ->func_type;
+        function =
+            module->functions[export->index - module->import_function_count];
+    }
+
+    /* check function type */
+    if (!wasm_type_equal((WASMType *)expected_function_type,
+                         (WASMType *)target_function_type, module->types,
+                         module->type_count)) {
+        LOG_DEBUG("%s.%s failed the type check", module_name, function_name);
+        set_error_buf(error_buf, error_buf_size, "incompatible import type");
+        return NULL;
+    }
+
+    return function;
+}
+#endif
+
+bool
+wasm_resolve_import_func(const WASMModule *module, WASMFunctionImport *function)
+{
+#if WASM_ENABLE_MULTI_MODULE != 0
+    char error_buf[128];
+    WASMModule *sub_module = NULL;
+#endif
+    function->func_ptr_linked = wasm_native_resolve_symbol(
+        function->module_name, function->field_name, function->func_type,
+        &function->signature, &function->attachment, &function->call_conv_raw);
+
+    if (function->func_ptr_linked) {
+        return true;
+    }
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+    if (!wasm_runtime_is_built_in_module(function->module_name)) {
+        sub_module = (WASMModule *)wasm_runtime_load_depended_module(
+            (WASMModuleCommon *)module, function->module_name, error_buf,
+            sizeof(error_buf));
+        if (!sub_module) {
+            LOG_WARNING("failed to load sub module: %s", error_buf);
+            return false;
+        }
+    }
+    function->import_func_linked = wasm_resolve_function(
+        function->module_name, function->field_name, function->func_type,
+        error_buf, sizeof(error_buf));
+
+    if (function->import_func_linked) {
+        function->import_module = sub_module;
+        return true;
+    }
+    else {
+        LOG_WARNING("failed to link function (%s, %s): %s",
+                    function->module_name, function->field_name, error_buf);
+    }
+#endif
+
+    return false;
+}
+
 static void *
 runtime_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
 {

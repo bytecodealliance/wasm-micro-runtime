@@ -493,6 +493,18 @@ void
 aot_unload(AOTModule *module);
 
 /**
+ * Resolve symbols for an AOT module
+ */
+bool
+aot_resolve_symbols(AOTModule *module);
+
+/**
+ * Helper function to resolve a single function
+ */
+bool
+aot_resolve_import_func(AOTModule *module, AOTImportFunc *import_func);
+
+/**
  * Instantiate a AOT module.
  *
  * @param module the AOT module to instantiate

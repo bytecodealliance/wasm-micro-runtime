@@ -513,6 +513,13 @@ wasm_load_from_sections(WASMSection *section_list, char *error_buf,
 void
 wasm_unload(WASMModule *module);
 
+bool
+wasm_resolve_symbols(WASMModule *module);
+
+bool
+wasm_resolve_import_func(const WASMModule *module,
+                         WASMFunctionImport *function);
+
 WASMModuleInstance *
 wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                  WASMExecEnv *exec_env_main, uint32 stack_size,

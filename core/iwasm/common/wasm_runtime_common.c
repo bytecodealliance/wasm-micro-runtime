@@ -1484,6 +1484,22 @@ wasm_runtime_load_ex(uint8 *buf, uint32 size, const LoadArgs *args,
                                           error_buf_size);
 }
 
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_resolve_symbols(WASMModuleCommon *module)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        return wasm_resolve_symbols((WASMModule *)module);
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        return aot_resolve_symbols((AOTModule *)module);
+    }
+#endif
+    return false;
+}
+
 WASMModuleCommon *
 wasm_runtime_load(uint8 *buf, uint32 size, char *error_buf,
                   uint32 error_buf_size)
