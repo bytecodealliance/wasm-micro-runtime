@@ -921,8 +921,7 @@ return_func:
 #endif
 
         enlarge_memory_error_cb(inc_page_count, total_size_old, 0,
-                                failure_reason,
-                                (WASMModuleInstanceCommon *)module, exec_env,
+                                failure_reason, module, exec_env,
                                 enlarge_memory_error_user_data);
     }
 
@@ -970,8 +969,8 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     if (module->memory_count > 0)
         shared_memory_lock(module->memories[0]);
 #endif
-    ret = wasm_enlarge_memory_internal(module, module->memories[0],
-                                       inc_page_count);
+    ret = wasm_enlarge_memory_internal((WASMModuleInstanceCommon *)module,
+                                       module->memories[0], inc_page_count);
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (module->memory_count > 0)
         shared_memory_unlock(module->memories[0]);
@@ -990,8 +989,9 @@ wasm_enlarge_memory_with_idx(WASMModuleInstance *module, uint32 inc_page_count,
     if (memidx < module->memory_count)
         shared_memory_lock(module->memories[memidx]);
 #endif
-    ret = wasm_enlarge_memory_internal(module, module->memories[memidx],
-                                       inc_page_count);
+    ret =
+        wasm_enlarge_memory_internal((WASMModuleInstanceCommon *)module,
+                                     module->memories[memidx], inc_page_count);
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (memidx < module->memory_count)
         shared_memory_unlock(module->memories[memidx]);
