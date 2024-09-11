@@ -13,6 +13,7 @@
 .clangd
 .DS_Store
 *.o
+.aider*
 
 core/deps/**
 core/shared/mem-alloc/tlsf
