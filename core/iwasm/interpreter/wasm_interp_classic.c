@@ -6025,8 +6025,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             goto got_exception;
                         }
 
-                        for (; n != 0; i++, n--) {
-                            tbl_inst->elems[i] = fill_val;
+                        for (; n != 0; elem_idx++, n--) {
+                            tbl_inst->elems[elem_idx] = fill_val;
                         }
                         break;
                     }

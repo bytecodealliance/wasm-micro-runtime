@@ -654,7 +654,14 @@ aot_compile_op_table_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    PUSH_I32(ret);
+#if WASM_ENABLE_MEMORY64 != 0
+    if (IS_TABLE64(tbl_idx)) {
+        if (!zero_extend_u64(comp_ctx, &ret, "table_size64")) {
+            return false;
+        }
+    }
+#endif
+    PUSH_TBL_ELEM_LEN(ret);
 
     return true;
 fail:

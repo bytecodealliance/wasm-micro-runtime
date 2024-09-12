@@ -623,6 +623,7 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
     PUSH(v, MEMORY64_COND_VALUE(VALUE_TYPE_I64, VALUE_TYPE_I32))
 #define PUSH_TBL_ELEM_IDX(v) \
     PUSH(v, TABLE64_COND_VALUE(tbl_idx, VALUE_TYPE_I64, VALUE_TYPE_I32))
+#define PUSH_TBL_ELEM_LEN(v) PUSH_TBL_ELEM_IDX(v)
 
 #define SET_CONST(v)                                                          \
     do {                                                                      \

@@ -2617,12 +2617,17 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
 #endif /* WASM_ENABLE_MULTI_MODULE != 0 */
 
     /* (table (export "table") 10 20 funcref) */
+    /* (table (export "table64") 10 20 funcref) */
     /* we need this section working in wamrc */
     if (!strcmp("spectest", sub_module_name)) {
         const uint32 spectest_table_init_size = 10;
         const uint32 spectest_table_max_size = 20;
 
-        if (strcmp("table", table_name)) {
+        if (strcmp("table", table_name)
+#if WASM_ENABLE_MEMORY64 != 0
+            && strcmp("table64", table_name)
+#endif
+        ) {
             set_error_buf(error_buf, error_buf_size,
                           "incompatible import type or unknown import");
             return false;
