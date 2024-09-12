@@ -60,7 +60,7 @@ class read_g_dynamic_aot_module(gdb.Command):
                         aot_module_info["name"] = var.string()
                         found_name = True
                     elif field == "code":
-                        aot_module_info["code"] = var.address
+                        aot_module_info["code"] = str(var)
                         found_code = True
                     if found_code == True and found_name == True:
                         break
