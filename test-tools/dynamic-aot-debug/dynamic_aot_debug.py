@@ -7,78 +7,94 @@
 import os
 import gdb
 
-# get object file path from env，set default value "~/objects/"
-# exp: export OBJ_PATH=~/work/data/debug/
+# Get object file path from environment variable or use default value
 path_objs = os.getenv("OBJ_PATH", "~/objects/")
-# us os.path.expand user expand user path symbol（such as ~）
+
+# Expand user directory symbol (~)
 path_objs = os.path.expanduser(path_objs)
 print(f"Object files will be loaded from: {path_objs} on localhost")
 
-aot_module_info = {}
-
 
 def add_symbol_with_aot_info(aot_module_info):
-    """add symbol with aot info"""
-    text_addr = aot_module_info["code"]
-    file_name = aot_module_info["name"]
+    """Add symbol file with AOT information to GDB and list current breakpoints."""
+    try:
+        text_addr = aot_module_info.get("code")
+        file_name = aot_module_info.get("name")
 
-    file_name_without_extension, file_extension = os.path.splitext(file_name)
+        if not text_addr or not file_name:
+            print("Error: 'code' or 'name' missing in AOT module info.")
+            return
 
-    if os.path.sep in file_name_without_extension:
+        # Extract base file name without extension
+        file_name_without_extension, _ = os.path.splitext(file_name)
+
+        # Remove directory part if present
         file_name = os.path.basename(file_name_without_extension)
-    else:
-        file_name = file_name_without_extension
 
-    path_symfile = os.path.join(path_objs, file_name)
+        # Construct the path for the symbol file
+        path_symfile = os.path.join(path_objs, file_name)
 
-    cmd = f"add-symbol-file {path_symfile} {text_addr}"
-    gdb.execute(cmd)
+        # Construct the command to add the symbol file
+        cmd = f"add-symbol-file {path_symfile} {text_addr}"
+        gdb.execute(cmd)
 
-    breakpoints = gdb.execute("info breakpoints", to_string=True)
-    print("Current breakpoints:", breakpoints)
+        # Print current breakpoints
+        breakpoints = gdb.execute("info breakpoints", to_string=True)
+        print("Current breakpoints:", breakpoints)
+
+    except gdb.error as e:
+        print(f"GDB error: {e}")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
 
 
-class read_g_dynamic_aot_module(gdb.Command):
-    """read_g_dynamic_aot_module"""
+class ReadGDynamicAotModule(gdb.Command):
+    """Command to read the g_dynamic_aot_module structure and extract information."""
 
     def __init__(self):
         super(self.__class__, self).__init__("read_gda", gdb.COMMAND_USER)
 
     def invoke(self, args, from_tty):
-        """invoke"""
-        Aot_module = gdb.parse_and_eval("g_dynamic_aot_module")
-        found_code = False
-        found_name = False
-        Aot_module_fields = []
-        if Aot_module.type.code == gdb.TYPE_CODE_PTR:
-            Aot_module = Aot_module.dereference()
-            if Aot_module.type.strip_typedefs().code == gdb.TYPE_CODE_STRUCT:
-                Aot_module_fields = [f.name for f in Aot_module.type.fields()]
-                for field in Aot_module_fields:
-                    var = Aot_module[field]
-                    if field == "name":
-                        aot_module_info["name"] = var.string()
-                        found_name = True
-                    elif field == "code":
-                        aot_module_info["code"] = str(var)
-                        found_code = True
-                    if found_code == True and found_name == True:
-                        break
-            else:
-                print("Aot_module not struct type!")
-        else:
-            print("Aot_module not struct point type!")
+        """Retrieve and process the g_dynamic_aot_module structure."""
+        try:
+            aot_module = gdb.parse_and_eval("g_dynamic_aot_module")
+            aot_module_info = {}
 
-        add_symbol_with_aot_info(aot_module_info)
+            # Ensure aot_module is a pointer and dereference it
+            if aot_module.type.code == gdb.TYPE_CODE_PTR:
+                aot_module = aot_module.dereference()
+
+                # Check if it's a structure type
+                if aot_module.type.strip_typedefs().code == gdb.TYPE_CODE_STRUCT:
+                    for field in aot_module.type.fields():
+                        field_name = field.name
+                        var = aot_module[field_name]
+
+                        if field_name == "name":
+                            aot_module_info["name"] = var.string()
+                        elif field_name == "code":
+                            aot_module_info["code"] = str(var)
+
+                    if "name" in aot_module_info and "code" in aot_module_info:
+                        add_symbol_with_aot_info(aot_module_info)
+                    else:
+                        print("Could not find 'name' or 'code' in Aot_module.")
+                else:
+                    print("Aot_module is not of struct type.")
+            else:
+                print("Aot_module is not a pointer type.")
+        except gdb.error as e:
+            print(f"An error occurred: {e}")
 
 
 def init():
-    """init"""
-    # register the command to gdb
-    read_g_dynamic_aot_module()
-    # set a breakpoint at function __enable_dynamic_aot_debug
+    """Initialize environment and set up debugger."""
+    # Register the command to gdb
+    ReadGDynamicAotModule()
+
+    # Set a breakpoint at function __enable_dynamic_aot_debug
     breakpoint = gdb.Breakpoint("__enable_dynamic_aot_debug")
-    # attach the self-defined command to the created breakpoint
+    # Attach the self-defined command to the created breakpoint
     breakpoint.commands = "read_gda"
 
 
