@@ -298,8 +298,8 @@ wasm_runtime_detach_shared_heap_internal(WASMModuleInstanceCommon *module_inst)
 }
 
 static bool
-is_app_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst_comm, bool is_memory64,
-                           uint64 app_offset, uint32 bytes)
+is_app_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst_comm,
+                           bool is_memory64, uint64 app_offset, uint32 bytes)
 {
     WASMSharedHeap *heap = NULL;
     if (module_inst_comm->module_type == Wasm_Module_Bytecode) {
@@ -452,7 +452,8 @@ wasm_runtime_shared_heap_malloc(WASMModuleInstanceCommon *module_inst,
     if (heap) {
         *p_native_addr = mem_allocator_malloc(heap->heap_handle, size);
 
-        return shared_heap_addr_native_to_app(module_inst, memory, *p_native_addr);
+        return shared_heap_addr_native_to_app(module_inst, memory,
+                                              *p_native_addr);
     }
     else {
         LOG_WARNING("Wasm module doesn't attach to a shared heap");
