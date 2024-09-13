@@ -121,8 +121,8 @@ typedef void WASMFunctionInstanceCommon;
 typedef WASMFunctionInstanceCommon *wasm_function_inst_t;
 
 /* Memory instance */
-typedef struct WASMMemoryInstance WASMMemoryInstance;
-typedef WASMMemoryInstance *wasm_memory_inst_t;
+struct WASMMemoryInstance;
+typedef struct WASMMemoryInstance *wasm_memory_inst_t;
 
 /* WASM section */
 typedef struct wasm_section_t {
