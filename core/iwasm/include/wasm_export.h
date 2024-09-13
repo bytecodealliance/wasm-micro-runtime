@@ -952,8 +952,8 @@ wasm_runtime_set_module_inst(wasm_exec_env_t exec_env,
  * @return The memory instance if found, NULL otherwise
  */
 WASM_RUNTIME_API_EXTERN wasm_memory_inst_t
-wasm_runtime_memory_inst_lookup(const wasm_module_inst_t module_inst,
-                                const char *name);
+wasm_runtime_lookup_memory(const wasm_module_inst_t module_inst,
+                           const char *name);
 
 /**
  * @brief Get the default memory instance
@@ -963,7 +963,7 @@ wasm_runtime_memory_inst_lookup(const wasm_module_inst_t module_inst,
  * @return The memory instance if found, NULL otherwise
  */
 WASM_RUNTIME_API_EXTERN wasm_memory_inst_t
-wasm_runtime_memory_inst_get_default(const wasm_module_inst_t module_inst);
+wasm_runtime_get_default_memory(const wasm_module_inst_t module_inst);
 
 /**
  * @brief Get a memory instance by index
@@ -974,8 +974,7 @@ wasm_runtime_memory_inst_get_default(const wasm_module_inst_t module_inst);
  * @return The memory instance if found, NULL otherwise
  */
 WASM_RUNTIME_API_EXTERN wasm_memory_inst_t
-wasm_runtime_memory_inst_get(const wasm_module_inst_t module_inst,
-                             uint32_t index);
+wasm_runtime_get_memory(const wasm_module_inst_t module_inst, uint32_t index);
 
 /**
  * @brief Get the current number of pages for a memory instance
@@ -985,7 +984,7 @@ wasm_runtime_memory_inst_get(const wasm_module_inst_t module_inst,
  * @return The current number of pages
  */
 WASM_RUNTIME_API_EXTERN uint64_t
-wasm_memory_inst_get_cur_page_count(const wasm_memory_inst_t memory_inst);
+wasm_memory_get_cur_page_count(const wasm_memory_inst_t memory_inst);
 
 /**
  * @brief Get the maximum number of pages for a memory instance
@@ -995,7 +994,7 @@ wasm_memory_inst_get_cur_page_count(const wasm_memory_inst_t memory_inst);
  * @return The maximum number of pages
  */
 WASM_RUNTIME_API_EXTERN uint64_t
-wasm_memory_inst_get_max_page_count(const wasm_memory_inst_t memory_inst);
+wasm_memory_get_max_page_count(const wasm_memory_inst_t memory_inst);
 
 /**
  * @brief Get the number of bytes per page for a memory instance
@@ -1005,7 +1004,7 @@ wasm_memory_inst_get_max_page_count(const wasm_memory_inst_t memory_inst);
  * @return The number of bytes per page
  */
 WASM_RUNTIME_API_EXTERN uint64_t
-wasm_memory_inst_get_bytes_per_page(const wasm_memory_inst_t memory_inst);
+wasm_memory_get_bytes_per_page(const wasm_memory_inst_t memory_inst);
 
 /**
  * @brief Get the shared status for a memory instance
@@ -1015,7 +1014,7 @@ wasm_memory_inst_get_bytes_per_page(const wasm_memory_inst_t memory_inst);
  * @return True if shared, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
-wasm_memory_inst_get_shared(const wasm_memory_inst_t memory_inst);
+wasm_memory_get_shared(const wasm_memory_inst_t memory_inst);
 
 /**
  * @brief Get the base address for a memory instance
@@ -1025,7 +1024,7 @@ wasm_memory_inst_get_shared(const wasm_memory_inst_t memory_inst);
  * @return The base address on success, false otherwise
  */
 WASM_RUNTIME_API_EXTERN void *
-wasm_memory_inst_get_base_address(const wasm_memory_inst_t memory_inst);
+wasm_memory_get_base_address(const wasm_memory_inst_t memory_inst);
 
 /**
  * @brief Enlarge a memory instance by a number of pages
@@ -1036,8 +1035,7 @@ wasm_memory_inst_get_base_address(const wasm_memory_inst_t memory_inst);
  * @return True if successful, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
-wasm_memory_inst_enlarge(wasm_memory_inst_t memory_inst,
-                         uint64_t inc_page_count);
+wasm_memory_enlarge(wasm_memory_inst_t memory_inst, uint64_t inc_page_count);
 
 /**
  * Call the given WASM function of a WASM module instance with

@@ -1001,8 +1001,8 @@ wasm_enlarge_memory_with_idx(WASMModuleInstance *module, uint32 inc_page_count,
 }
 
 WASMMemoryInstance *
-wasm_runtime_memory_inst_lookup(WASMModuleInstanceCommon *module_inst,
-                                const char *name)
+wasm_runtime_lookup_memory(WASMModuleInstanceCommon *module_inst,
+                           const char *name)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode)
@@ -1018,7 +1018,7 @@ wasm_runtime_memory_inst_lookup(WASMModuleInstanceCommon *module_inst,
 }
 
 WASMMemoryInstance *
-wasm_runtime_memory_inst_get_default(WASMModuleInstanceCommon *module_inst)
+wasm_runtime_get_default_memory(WASMModuleInstanceCommon *module_inst)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode)
@@ -1034,8 +1034,7 @@ wasm_runtime_memory_inst_get_default(WASMModuleInstanceCommon *module_inst)
 }
 
 WASMMemoryInstance *
-wasm_runtime_memory_inst_get(WASMModuleInstanceCommon *module_inst,
-                             uint32 index)
+wasm_runtime_get_memory(WASMModuleInstanceCommon *module_inst, uint32 index)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode)
@@ -1053,37 +1052,37 @@ wasm_runtime_memory_inst_get(WASMModuleInstanceCommon *module_inst,
 }
 
 uint64
-wasm_memory_inst_get_cur_page_count(WASMMemoryInstance *memory)
+wasm_memory_get_cur_page_count(WASMMemoryInstance *memory)
 {
     return memory->cur_page_count;
 }
 
 uint64
-wasm_memory_inst_get_max_page_count(WASMMemoryInstance *memory)
+wasm_memory_get_max_page_count(WASMMemoryInstance *memory)
 {
     return memory->max_page_count;
 }
 
 uint64
-wasm_memory_inst_get_bytes_per_page(WASMMemoryInstance *memory)
+wasm_memory_get_bytes_per_page(WASMMemoryInstance *memory)
 {
     return memory->num_bytes_per_page;
 }
 
 bool
-wasm_memory_inst_get_shared(WASMMemoryInstance *memory)
+wasm_memory_get_shared(WASMMemoryInstance *memory)
 {
     return memory->is_shared_memory;
 }
 
 void *
-wasm_memory_inst_get_base_address(WASMMemoryInstance *memory)
+wasm_memory_get_base_address(WASMMemoryInstance *memory)
 {
     return memory->memory_data;
 }
 
 bool
-wasm_memory_inst_enlarge(WASMMemoryInstance *memory, uint64 inc_page_count)
+wasm_memory_enlarge(WASMMemoryInstance *memory, uint64 inc_page_count)
 {
     bool ret;
 
