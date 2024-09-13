@@ -1407,7 +1407,9 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef *param_values = NULL, value_ret = NULL, func;
     LLVMValueRef import_func_idx, res;
     LLVMValueRef ext_ret, ext_ret_ptr, ext_ret_idx;
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
     LLVMValueRef func_idx_ref;
+#endif
     int32 i, j = 0, param_count, result_count, ext_ret_count;
     uint64 total_size;
     uint8 wasm_ret_type;
