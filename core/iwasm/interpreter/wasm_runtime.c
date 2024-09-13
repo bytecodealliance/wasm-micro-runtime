@@ -3305,6 +3305,8 @@ wasm_lookup_memory(const WASMModuleInstance *module_inst, const char *name)
     return NULL;
 #else
     (void)module_inst->export_memories;
+    if (!module_inst->memories)
+        return NULL;
     return module_inst->memories[0];
 #endif
 }

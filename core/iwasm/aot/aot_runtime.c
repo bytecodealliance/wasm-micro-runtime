@@ -1060,6 +1060,8 @@ aot_lookup_memory(AOTModuleInstance *module_inst, char const *name)
     return NULL;
 #else
     (void)module_inst->export_memories;
+    if (!module_inst->memories)
+        return NULL;
     return module_inst->memories[0];
 #endif
 }
