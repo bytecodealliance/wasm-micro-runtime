@@ -933,7 +933,7 @@ main(int argc, char *argv[])
                                       sizeof(error_buf))) {
         printf("set aot module name failed in dynamic aot debug mode, %s\n",
                error_buf);
-        goto fail2;
+        goto fail3;
     }
 #endif
 

@@ -94,7 +94,7 @@ def init():
 
     # Set a breakpoint at function __enable_dynamic_aot_debug
     breakpoint = gdb.Breakpoint("__enable_dynamic_aot_debug")
-    # Attach the self-defined command to the created breakpoint
+    # Attach the self-defined command to the created breakpoint, read_gda means read global dynamic aot info.
     breakpoint.commands = "read_gda"
 
 

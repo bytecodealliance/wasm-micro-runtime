@@ -10,8 +10,8 @@ To enable dynamic AOT debugging, set the following
 compile macro switch:
 
 ```
-WASM_ENABLE_AOT=1
-WASM_ENABLE_DYNAMIC_AOT_DEBUG=1
+cmake -DWASM_ENABLE_AOT=1
+cmake -DWAMR_BUILD_DYNAMIC_AOT_DEBUG=1
 ```
 
 ### 2. Build AOT and Object Files
