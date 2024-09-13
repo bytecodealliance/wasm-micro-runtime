@@ -151,7 +151,7 @@ jobs:
           ]
         wabt_release:
           [
-            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
+            "https://github.com/WebAssembly/wabt/releases/download/1.0.36/wabt-1.0.36-ubuntu-20.04.tar.gz",
           ]
         iwasm_make_options_feature: [
             # Features to be tested: IPFS
@@ -177,8 +177,8 @@ jobs:
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
-          sudo tar -xzf wabt-1.0.31-*.tar.gz
-          sudo mv wabt-1.0.31 wabt
+          sudo tar -xzf wabt-1.0.36-*.tar.gz
+          sudo mv wabt-1.0.36 wabt
 
       - name: build wasi-libc (needed for wasi-threads)
         run: |

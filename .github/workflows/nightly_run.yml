@@ -393,7 +393,7 @@ jobs:
           ]
         wabt_release:
           [
-            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
+            "https://github.com/WebAssembly/wabt/releases/download/1.0.36/wabt-1.0.36-ubuntu-20.04.tar.gz",
           ]
         include:
           - os: ubuntu-20.04
@@ -426,8 +426,8 @@ jobs:
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
-          sudo tar -xzf wabt-1.0.31-*.tar.gz
-          sudo mv wabt-1.0.31 wabt
+          sudo tar -xzf wabt-1.0.36-*.tar.gz
+          sudo mv wabt-1.0.36 wabt
       - name: Build wamrc
         if: (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS'))
         run: |
@@ -463,7 +463,7 @@ jobs:
           ]
         wabt_release:
           [
-            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
+            "https://github.com/WebAssembly/wabt/releases/download/1.0.36/wabt-1.0.36-ubuntu-20.04.tar.gz",
           ]
         include:
           - os: ubuntu-20.04
@@ -482,8 +482,8 @@ jobs:
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
-          sudo tar -xzf wabt-1.0.31-*.tar.gz
-          sudo ln -sf wabt-1.0.31 wabt
+          sudo tar -xzf wabt-1.0.36-*.tar.gz
+          sudo ln -sf wabt-1.0.36 wabt
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs

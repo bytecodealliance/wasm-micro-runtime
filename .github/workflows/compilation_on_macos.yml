@@ -225,7 +225,7 @@ jobs:
           ]
         wabt_release:
           [
-            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-macos-12.tar.gz",
+            "https://github.com/WebAssembly/wabt/releases/download/1.0.36/wabt-1.0.36-macos-12.tar.gz",
           ]
     steps:
       - name: checkout
@@ -235,8 +235,8 @@ jobs:
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
-          sudo tar -xzf wabt-1.0.31-*.tar.gz
-          sudo mv wabt-1.0.31 wabt
+          sudo tar -xzf wabt-1.0.36-*.tar.gz
+          sudo mv wabt-1.0.36 wabt
 
       - name: Build Sample [wasm-c-api]
         run: |
@@ -257,7 +257,7 @@ jobs:
           ]
         wabt_release:
           [
-            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-macos-12.tar.gz",
+            "https://github.com/WebAssembly/wabt/releases/download/1.0.36/wabt-1.0.36-macos-12.tar.gz",
           ]
         include:
           - os: macos-13
@@ -279,8 +279,8 @@ jobs:
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
-          sudo tar -xzf wabt-1.0.31-*.tar.gz
-          sudo ln -sf wabt-1.0.31 wabt
+          sudo tar -xzf wabt-1.0.36-*.tar.gz
+          sudo ln -sf wabt-1.0.36 wabt
 
       - name: Build Sample [basic]
         run: |
