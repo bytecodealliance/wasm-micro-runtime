@@ -384,7 +384,7 @@ function setup_wabt()
                 cosmopolitan)
                     ;;
                 linux)
-                    WABT_PLATFORM=ubuntu
+                    WABT_PLATFORM=ubuntu-20.04
                     ;;
                 darwin)
                     WABT_PLATFORM=macos-12
