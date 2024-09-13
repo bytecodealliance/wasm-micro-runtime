@@ -673,11 +673,9 @@ wasm_get_default_memory(WASMModuleInstance *module_inst)
 WASMMemoryInstance *
 wasm_get_memory_with_idx(WASMModuleInstance *module_inst, uint32 index)
 {
-    bh_assert(index < module_inst->memory_count);
-    if (module_inst->memories)
-        return module_inst->memories[index];
-    else
+    if ((index >= module_inst->memory_count) || !module_inst->memories)
         return NULL;
+    return module_inst->memories[index];
 }
 
 void

@@ -1078,11 +1078,9 @@ aot_get_default_memory(AOTModuleInstance *module_inst)
 AOTMemoryInstance *
 aot_get_memory_with_index(AOTModuleInstance *module_inst, uint32 index)
 {
-    bh_assert(index < module_inst->memory_count);
-    if (module_inst->memories)
-        return module_inst->memories[index];
-    else
+    if ((index >= module_inst->memory_count) || !module_inst->memories)
         return NULL;
+    return module_inst->memories[index];
 }
 
 static bool
