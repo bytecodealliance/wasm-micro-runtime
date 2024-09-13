@@ -1064,7 +1064,7 @@ wasm_memory_inst_get_max_page_count(WASMMemoryInstance *memory)
     return memory->max_page_count;
 }
 
-uint32
+uint64
 wasm_memory_inst_get_bytes_per_page(WASMMemoryInstance *memory)
 {
     return memory->num_bytes_per_page;

@@ -1004,7 +1004,7 @@ wasm_memory_inst_get_max_page_count(const wasm_memory_inst_t memory_inst);
  *
  * @return The number of bytes per page
  */
-WASM_RUNTIME_API_EXTERN uint32_t
+WASM_RUNTIME_API_EXTERN uint64_t
 wasm_memory_inst_get_bytes_per_page(const wasm_memory_inst_t memory_inst);
 
 /**
