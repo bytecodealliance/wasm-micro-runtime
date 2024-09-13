@@ -912,11 +912,11 @@ return_func:
         WASMExecEnv *exec_env = NULL;
 
 #if WASM_ENABLE_INTERP != 0
-        if (memory->module_type == Wasm_Module_Bytecode)
+        if (module->module_type == Wasm_Module_Bytecode)
             exec_env = ((WASMModuleInstance *)module)->cur_exec_env;
 #endif
 #if WASM_ENABLE_AOT != 0
-        if (memory->module_type == Wasm_Module_AoT)
+        if (module->module_type == Wasm_Module_AoT)
             exec_env = ((AOTModuleInstance *)module)->cur_exec_env;
 #endif
 
