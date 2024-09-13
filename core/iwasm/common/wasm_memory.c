@@ -756,7 +756,7 @@ wasm_mmap_linear_memory(uint64_t map_size, uint64 commit_size)
     return wasm_mremap_linear_memory(NULL, 0, map_size, commit_size);
 }
 
-bool
+static bool
 wasm_enlarge_memory_internal(WASMModuleInstanceCommon *module,
                              WASMMemoryInstance *memory, uint32 inc_page_count)
 {
