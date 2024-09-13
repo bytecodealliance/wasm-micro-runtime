@@ -10,15 +10,14 @@ To enable dynamic AOT debugging, set the following
 compile macro switch:
 
 ```
-cmake -DWASM_ENABLE_AOT=1
-cmake -DWAMR_BUILD_DYNAMIC_AOT_DEBUG=1
+cmake -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_DYNAMIC_AOT_DEBUG=1
 ```
 
 ### 2. Build AOT and Object Files
 
 #### 2.1 Build wamrc Compiler
 
-Ensure that wamrc is built with the WAMR_BUILD_DEBUG_AOT flag enabled. You can find the wamrc compiler [here](https://github.com/bytecodealliance/wasm-micro-runtime/tree/main/wamr-compiler)
+Ensure that wamrc is built with the WAMR_BUILD_DEBUG_AOT flag enabled. Please refer to the first two steps in [doc/source_debugging_aot.md](../../doc/source_debugging_aot.md).
 
 #### 2.2 Compile Source Code to WebAssembly (WASM)
 
