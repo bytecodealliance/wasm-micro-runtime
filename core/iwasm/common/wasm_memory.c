@@ -1082,15 +1082,18 @@ wasm_memory_get_base_address(WASMMemoryInstance *memory)
 bool
 wasm_memory_enlarge(WASMMemoryInstance *memory, uint64 inc_page_count)
 {
-    bool ret;
+    bool ret = false;
 
+    if (memory) {
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    shared_memory_lock(memory);
+        shared_memory_lock(memory);
 #endif
-    ret = wasm_enlarge_memory_internal(NULL, memory, (uint32)inc_page_count);
+        ret =
+            wasm_enlarge_memory_internal(NULL, memory, (uint32)inc_page_count);
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    shared_memory_unlock(memory);
+        shared_memory_unlock(memory);
 #endif
+    }
 
     return ret;
 }
