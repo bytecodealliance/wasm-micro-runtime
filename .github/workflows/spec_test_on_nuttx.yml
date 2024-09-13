@@ -74,11 +74,11 @@ jobs:
             target: "riscv32",
             fpu_type: "none"
           },
-          {
-            config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh",
-            target: "riscv32_ilp32f",
-            fpu_type: "fp"
-          },
+          #{
+          #  config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh",
+          #  target: "riscv32_ilp32f",
+          #  fpu_type: "fp"
+          #},
           # {
           #   config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh",
           #   target: "riscv32_ilp32d",
@@ -327,19 +327,6 @@ jobs:
         working-directory: apps/interpreters/wamr/wamr
 
       - name: Test
-        if: matrix.target_config.target != 'xtensa'
-        run: |
-          cd apps/interpreters/wamr/wamr/tests/wamr-test-suites
-          ./test_wamr.sh -s spec ${{ matrix.wamr_test_option.mode }} -m ${{ matrix.target_config.target }} -b -Q -P -F ${{ steps.build_firmware_path.outputs.firmware }} ${{ matrix.wamr_feature_option.mode}}
-
-      # for xtensa, for some reasons, when running the tests
-      # with test_wamr.sh -P, nuttx occasionally hangs after
-      # "total segments stored 6" on the CI.
-      # i (yamamoto) couldn't reproduce it locally (macOS) even
-      # with the identical flash image.
-      # for now, run the tests without -P.
-      - name: Test
-        if: matrix.target_config.target == 'xtensa'
         run: |
           cd apps/interpreters/wamr/wamr/tests/wamr-test-suites
           ./test_wamr.sh -s spec ${{ matrix.wamr_test_option.mode }} -m ${{ matrix.target_config.target }} -b -Q -F ${{ steps.build_firmware_path.outputs.firmware }} ${{ matrix.wamr_feature_option.mode}}

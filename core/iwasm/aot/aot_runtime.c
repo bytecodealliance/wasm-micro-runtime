@@ -4,6 +4,7 @@
  */
 
 #include "aot_runtime.h"
+#include "../compilation/aot_stack_frame.h"
 #include "bh_log.h"
 #include "mem_alloc.h"
 #include "../common/wasm_runtime_common.h"
@@ -72,6 +73,10 @@ bh_static_assert(offsetof(AOTFrame, sp) == sizeof(uintptr_t) * 5);
 bh_static_assert(offsetof(AOTFrame, frame_ref) == sizeof(uintptr_t) * 6);
 bh_static_assert(offsetof(AOTFrame, lp) == sizeof(uintptr_t) * 7);
 
+bh_static_assert(offsetof(AOTTinyFrame, func_index) == sizeof(uint32) * 0);
+bh_static_assert(offsetof(AOTTinyFrame, ip_offset) == sizeof(uint32) * 1);
+bh_static_assert(sizeof(AOTTinyFrame) == sizeof(uint32) * 2);
+
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
@@ -109,6 +114,64 @@ runtime_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
     memset(mem, 0, (uint32)size);
     return mem;
 }
+
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
+static bool
+is_tiny_frame(WASMExecEnv *exec_env)
+{
+    AOTModule *module =
+        (AOTModule *)((AOTModuleInstance *)exec_env->module_inst)->module;
+
+    return module->feature_flags & WASM_FEATURE_TINY_STACK_FRAME;
+}
+
+static bool
+is_frame_per_function(WASMExecEnv *exec_env)
+{
+    AOTModule *module =
+        (AOTModule *)((AOTModuleInstance *)exec_env->module_inst)->module;
+
+    return module->feature_flags & WASM_FEATURE_FRAME_PER_FUNCTION;
+}
+
+static bool
+is_frame_func_idx_disabled(WASMExecEnv *exec_env)
+{
+    AOTModule *module =
+        (AOTModule *)((AOTModuleInstance *)exec_env->module_inst)->module;
+
+    return module->feature_flags & WASM_FEATURE_FRAME_NO_FUNC_IDX;
+}
+
+static void *
+get_top_frame(WASMExecEnv *exec_env)
+{
+    if (is_tiny_frame(exec_env)) {
+        return exec_env->wasm_stack.top > exec_env->wasm_stack.bottom
+                   ? exec_env->wasm_stack.top - sizeof(AOTTinyFrame)
+                   : NULL;
+    }
+    else {
+        return exec_env->cur_frame;
+    }
+}
+
+static void *
+get_prev_frame(WASMExecEnv *exec_env, void *cur_frame)
+{
+    bh_assert(cur_frame);
+
+    if (is_tiny_frame(exec_env)) {
+        if ((uint8 *)cur_frame == exec_env->wasm_stack.bottom) {
+            return NULL;
+        }
+        return ((AOTTinyFrame *)cur_frame) - 1;
+    }
+    else {
+        return ((AOTFrame *)cur_frame)->prev_frame;
+    }
+}
+#endif
 
 static bool
 check_global_init_expr(const AOTModule *module, uint32 global_index,
@@ -2265,7 +2328,7 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         uint32 ext_ret_cell = wasm_get_cell_num(ext_ret_types, ext_ret_count);
         uint64 size;
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
-        struct WASMInterpFrame *prev_frame = exec_env->cur_frame;
+        void *prev_frame = get_top_frame(exec_env);
 #endif
 
         /* Allocate memory all arguments */
@@ -2296,7 +2359,8 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         }
 
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
-        if (!aot_alloc_frame(exec_env, function->func_index)) {
+        if (!is_frame_per_function(exec_env)
+            && !aot_alloc_frame(exec_env, function->func_index)) {
             if (argv1 != argv1_buf)
                 wasm_runtime_free(argv1);
             return false;
@@ -2324,7 +2388,7 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         /* Free all frames allocated, note that some frames
            may be allocated in AOT code and haven't been
            freed if exception occurred */
-        while (exec_env->cur_frame != prev_frame)
+        while (get_top_frame(exec_env) != prev_frame)
             aot_free_frame(exec_env);
 #endif
         if (!ret) {
@@ -2367,9 +2431,12 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
     }
     else {
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
-        struct WASMInterpFrame *prev_frame = exec_env->cur_frame;
-
-        if (!aot_alloc_frame(exec_env, function->func_index)) {
+        void *prev_frame = get_top_frame(exec_env);
+        /* Only allocate frame for frame-per-call mode; in the
+           frame-per-function mode the frame is allocated at the
+           beginning of the function. */
+        if (!is_frame_per_function(exec_env)
+            && !aot_alloc_frame(exec_env, function->func_index)) {
             return false;
         }
 #endif
@@ -2394,7 +2461,7 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         /* Free all frames allocated, note that some frames
            may be allocated in AOT code and haven't been
            freed if exception occurred */
-        while (exec_env->cur_frame != prev_frame)
+        while (get_top_frame(exec_env) != prev_frame)
             aot_free_frame(exec_env);
 #endif
 
@@ -2880,7 +2947,7 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
             goto fail;
         }
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
-        struct WASMInterpFrame *prev_frame = exec_env->cur_frame;
+        void *prev_frame = get_top_frame(exec_env);
 
         if (!aot_alloc_frame(exec_env, func_idx)) {
             goto fail;
@@ -2894,7 +2961,7 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
         /* Free all frames allocated, note that some frames
            may be allocated in AOT code and haven't been
            freed if exception occurred */
-        while (exec_env->cur_frame != prev_frame)
+        while (get_top_frame(exec_env) != prev_frame)
             aot_free_frame(exec_env);
 #endif
     }
@@ -3622,8 +3689,8 @@ get_func_name_from_index(const AOTModuleInstance *module_inst,
           WASM_ENABLE_PERF_PROFILING != 0 */
 
 #if WASM_ENABLE_GC == 0
-bool
-aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
+static bool
+aot_alloc_standard_frame(WASMExecEnv *exec_env, uint32 func_index)
 {
     AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
 #if WASM_ENABLE_PERF_PROFILING != 0
@@ -3668,37 +3735,10 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     return true;
 }
 
-static inline void
-aot_free_frame_internal(WASMExecEnv *exec_env)
-{
-    AOTFrame *cur_frame = (AOTFrame *)exec_env->cur_frame;
-    AOTFrame *prev_frame = cur_frame->prev_frame;
-
-#if WASM_ENABLE_PERF_PROFILING != 0
-    uint64 time_elapsed =
-        (uintptr_t)os_time_thread_cputime_us() - cur_frame->time_started;
-
-    cur_frame->func_perf_prof_info->total_exec_time += time_elapsed;
-    cur_frame->func_perf_prof_info->total_exec_cnt++;
-
-    /* parent function */
-    if (prev_frame)
-        prev_frame->func_perf_prof_info->children_exec_time += time_elapsed;
-#endif
-
-    exec_env->cur_frame = (struct WASMInterpFrame *)prev_frame;
-}
-
-void
-aot_free_frame(WASMExecEnv *exec_env)
-{
-    aot_free_frame_internal(exec_env);
-}
-
 #else /* else of WASM_ENABLE_GC == 0 */
 
-bool
-aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
+static bool
+aot_alloc_standard_frame(WASMExecEnv *exec_env, uint32 func_index)
 {
     AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
     AOTModule *module = (AOTModule *)module_inst->module;
@@ -3752,12 +3792,50 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     frame->func_index = func_index;
     return true;
 }
+#endif /* end of WASM_ENABLE_GC == 0 */
+
+static bool
+aot_alloc_tiny_frame(WASMExecEnv *exec_env, uint32 func_index)
+{
+    AOTTinyFrame *new_frame = (AOTTinyFrame *)exec_env->wasm_stack.top;
+
+    if ((uint8 *)new_frame > exec_env->wasm_stack.top_boundary) {
+        aot_set_exception((WASMModuleInstance *)exec_env->module_inst,
+                          "wasm operand stack overflow");
+        return false;
+    }
+
+    new_frame->func_index = func_index;
+    exec_env->wasm_stack.top += sizeof(AOTTinyFrame);
+    return true;
+}
+
+bool
+aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
+{
+    AOTModule *module =
+        (AOTModule *)((AOTModuleInstance *)exec_env->module_inst)->module;
+
+    if (is_frame_per_function(exec_env)
+        && func_index >= module->import_func_count) {
+        /* in frame per function mode the frame is allocated at
+        the beginning of each frame, so we only need to allocate
+        the frame for imported functions */
+        return true;
+    }
+    if (is_tiny_frame(exec_env)) {
+        return aot_alloc_tiny_frame(exec_env, func_index);
+    }
+    else {
+        return aot_alloc_standard_frame(exec_env, func_index);
+    }
+}
 
 static inline void
-aot_free_frame_internal(WASMExecEnv *exec_env)
+aot_free_standard_frame(WASMExecEnv *exec_env)
 {
     AOTFrame *cur_frame = (AOTFrame *)exec_env->cur_frame;
-    AOTFrame *prev_frame = cur_frame->prev_frame;
+    AOTFrame *prev_frame = (AOTFrame *)cur_frame->prev_frame;
 
 #if WASM_ENABLE_PERF_PROFILING != 0
     uint64 time_elapsed =
@@ -3771,17 +3849,29 @@ aot_free_frame_internal(WASMExecEnv *exec_env)
         prev_frame->func_perf_prof_info->children_exec_time += time_elapsed;
 #endif
 
+#if WASM_ENABLE_GC != 0
     wasm_exec_env_free_wasm_frame(exec_env, cur_frame);
+#endif
     exec_env->cur_frame = (struct WASMInterpFrame *)prev_frame;
+}
+
+static inline void
+aot_free_tiny_frame(WASMExecEnv *exec_env)
+{
+    exec_env->wasm_stack.top =
+        get_prev_frame(exec_env, exec_env->wasm_stack.top);
 }
 
 void
 aot_free_frame(WASMExecEnv *exec_env)
 {
-    aot_free_frame_internal(exec_env);
+    if (is_tiny_frame(exec_env)) {
+        aot_free_tiny_frame(exec_env);
+    }
+    else {
+        aot_free_standard_frame(exec_env);
+    }
 }
-
-#endif /* end of WASM_ENABLE_GC == 0 */
 
 void
 aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame)
@@ -3831,14 +3921,13 @@ aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame)
 bool
 aot_create_call_stack(struct WASMExecEnv *exec_env)
 {
-    AOTFrame *cur_frame = (AOTFrame *)exec_env->cur_frame,
-             *first_frame = cur_frame;
     AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
     AOTModule *module = (AOTModule *)module_inst->module;
     uint32 n = 0;
 
-    while (cur_frame) {
-        cur_frame = cur_frame->prev_frame;
+    void *top_frame = get_top_frame(exec_env);
+    while (top_frame) {
+        top_frame = get_prev_frame(exec_env, top_frame);
         n++;
     }
 
@@ -3848,31 +3937,53 @@ aot_create_call_stack(struct WASMExecEnv *exec_env)
         return false;
     }
 
-    cur_frame = first_frame;
-    while (cur_frame) {
+    top_frame = get_top_frame(exec_env);
+    while (n-- > 0) {
+        uint32 func_index, ip_offset;
+        uint32 *lp = NULL;
+#if WASM_ENABLE_GC != 0
+        uint32 *sp = NULL;
+        uint8 *frame_ref = NULL;
+#endif
+        if (is_tiny_frame(exec_env)) {
+            AOTTinyFrame *frame = (AOTTinyFrame *)top_frame;
+            func_index = (uint32)frame->func_index;
+            ip_offset = (uint32)frame->ip_offset;
+        }
+        else {
+            AOTFrame *frame = (AOTFrame *)top_frame;
+            func_index = (uint32)frame->func_index;
+            ip_offset = (uint32)frame->ip_offset;
+            lp = frame->lp;
+#if WASM_ENABLE_GC != 0
+            sp = frame->sp;
+            frame_ref = frame->frame_ref;
+#endif
+        }
         WASMCApiFrame frame = { 0 };
-        uint32 max_local_cell_num, max_stack_cell_num;
+        uint32 max_local_cell_num = 0, max_stack_cell_num = 0;
         uint32 all_cell_num, lp_size;
 
         frame.instance = module_inst;
         frame.module_offset = 0;
-        frame.func_index = (uint32)cur_frame->func_index;
-        frame.func_offset = (uint32)cur_frame->ip_offset;
-        frame.func_name_wp = get_func_name_from_index(
-            module_inst, (uint32)cur_frame->func_index);
+        frame.func_index = func_index;
+        frame.func_offset = ip_offset;
+        frame.func_name_wp = get_func_name_from_index(module_inst, func_index);
 
-        if (cur_frame->func_index >= module->import_func_count) {
-            uint32 aot_func_idx =
-                (uint32)(cur_frame->func_index - module->import_func_count);
-            max_local_cell_num = module->max_local_cell_nums[aot_func_idx];
-            max_stack_cell_num = module->max_stack_cell_nums[aot_func_idx];
-        }
-        else {
-            AOTFuncType *func_type =
-                module->import_funcs[cur_frame->func_index].func_type;
-            max_local_cell_num =
-                func_type->param_cell_num > 2 ? func_type->param_cell_num : 2;
-            max_stack_cell_num = 0;
+        if (!is_frame_func_idx_disabled(exec_env)) {
+            if (func_index >= module->import_func_count) {
+                uint32 aot_func_idx = func_index - module->import_func_count;
+                max_local_cell_num = module->max_local_cell_nums[aot_func_idx];
+                max_stack_cell_num = module->max_stack_cell_nums[aot_func_idx];
+            }
+            else {
+                AOTFuncType *func_type =
+                    module->import_funcs[func_index].func_type;
+                max_local_cell_num = func_type->param_cell_num > 2
+                                         ? func_type->param_cell_num
+                                         : 2;
+                max_stack_cell_num = 0;
+            }
         }
 
         all_cell_num = max_local_cell_num + max_stack_cell_num;
@@ -3881,12 +3992,12 @@ aot_create_call_stack(struct WASMExecEnv *exec_env)
 #else
         lp_size = align_uint(all_cell_num * 5, 4);
 #endif
-        if (lp_size > 0) {
+        if (lp_size > 0 && !is_tiny_frame(exec_env)) {
             if (!(frame.lp = wasm_runtime_malloc(lp_size))) {
                 destroy_c_api_frames(module_inst->frames);
                 return false;
             }
-            bh_memcpy_s(frame.lp, lp_size, cur_frame->lp, lp_size);
+            bh_memcpy_s(frame.lp, lp_size, lp, lp_size);
 
 #if WASM_ENABLE_GC != 0
             uint32 local_ref_flags_cell_num =
@@ -3894,9 +4005,8 @@ aot_create_call_stack(struct WASMExecEnv *exec_env)
                     .local_ref_flag_cell_num;
             uint8 *local_ref_flags =
                 module->func_local_ref_flags[frame.func_index].local_ref_flags;
-            frame.sp = frame.lp + (cur_frame->sp - cur_frame->lp);
-            frame.frame_ref = (uint8 *)frame.lp
-                              + (cur_frame->frame_ref - (uint8 *)cur_frame->lp);
+            frame.sp = frame.lp + (sp - lp);
+            frame.frame_ref = (uint8 *)frame.lp + (frame_ref - (uint8 *)lp);
             /* copy local ref flags from AOT module */
             bh_memcpy_s(frame.frame_ref, local_ref_flags_cell_num,
                         local_ref_flags, lp_size);
@@ -3910,7 +4020,7 @@ aot_create_call_stack(struct WASMExecEnv *exec_env)
             return false;
         }
 
-        cur_frame = cur_frame->prev_frame;
+        top_frame = get_prev_frame(exec_env, top_frame);
     }
 
     return true;

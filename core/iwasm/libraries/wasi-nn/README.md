@@ -4,7 +4,7 @@
 
 ### Host
 
-Enable WASI-NN in the WAMR by spefiying it in the cmake building configuration as follows,
+Enable WASI-NN in the WAMR by specifying it in the cmake building configuration as follows,
 
 ```cmake
 set (WAMR_BUILD_WASI_NN  1)
@@ -17,14 +17,15 @@ $ cmake -DWAMR_BUILD_WASI_NN=1 <other options> ...
 ```
 
 > ![Caution]
-> If enable `WAMR_BUID_WASI_NN`, iwasm will link a shared WAMR library instead of a static one. Wasi-nn backends will be loaded dynamically at runtime. Users shall specify the path of the backend library and register it to the iwasm runtime with `--native-lib=<path of backend library>`. All shared libraries should be placed in the `LD_LIBRARY_PATH`.
+> Enabling WAMR_BUILD_WASI_NN will cause the IWASM to link to a shared WAMR library instead of a static one. The WASI-NN backends will then be loaded dynamically when the program is run. You must ensure that all shared libraries are included in the `LD_LIBRARY_PATH`.
 
 #### Compilation options
 
-- `WAMR_BUILD_WASI_NN`. enable wasi-nn support. can't work alone. need to identify a backend. Match legacy wasi-nn spec naming convention. use `wasi_nn` as import module names.
-- `WAMR_BUILD_WASI_EPHEMERAL_NN`. Match latest wasi-nn spec naming convention. use `wasi_ephemeral_nn` as import module names.
-- `WAMR_BUILD_WASI_NN_TFLITE`. identify the backend as TensorFlow Lite.
-- `WAMR_BUILD_WASI_NN_OPENVINO`. identify the backend as OpenVINO.
+- `WAMR_BUILD_WASI_NN`. This option enables support for WASI-NN. It cannot function independently and requires specifying a backend. It follows the original WASI-NN specification for naming conventions and uses wasi_nn for import module names.
+- `WAMR_BUILD_WASI_EPHEMERAL_NN`. This option adheres to the most recent WASI-NN specification for naming conventions and uses wasi_ephemeral_nn for import module names.
+- `WAMR_BUILD_WASI_NN_TFLITE`. This option designates TensorFlow Lite as the backend.
+- `WAMR_BUILD_WASI_NN_OPENVINO`. This option designates OpenVINO as the backend.
+- `WAMR_BUILD_WASI_NN_LLAMACPP`. This option designates Llama.cpp as the backend.
 
 ### Wasm
 
@@ -44,7 +45,7 @@ typedef enum { fp16 = 0, fp32, up8, ip32 } tensor_type;
 
 It is required to recompile the Wasm application if you want to switch between the two sets of functions.
 
-#### Openvino
+#### Openvino installation
 
 If you're planning to use OpenVINO backends, the first step is to install OpenVINO on your computer. To do this correctly, please follow the official installation guide which you can find at this link: https://docs.openvino.ai/2024/get-started/install-openvino/install-openvino-archive-linux.html.
 
@@ -162,17 +163,9 @@ Supported:
 
 ### Testing with WasmEdge-WASINN Examples
 
-To ensure everything is set up correctly, use the examples from [WasmEdge-WASINN-examples](https://github.com/second-state/WasmEdge-WASINN-examples/tree/master). These examples help verify that WASI-NN support in WAMR is functioning as expected.
+To make sure everything is configured properly, refer to the examples provided at [WasmEdge-WASINN-examples](https://github.com/second-state/WasmEdge-WASINN-examples/tree/master). These examples are useful for confirming that the WASI-NN support in WAMR is working correctly.
 
-> Note: The repository contains two types of examples. Some use the [standard wasi-nn](https://github.com/WebAssembly/wasi-nn), while others use [WasmEdge's version of wasi-nn](https://github.com/second-state/wasmedge-wasi-nn), which is enhanced to meet specific customer needs.
-
-The examples test the following machine learning backends:
-
-- OpenVINO
-- PyTorch
-- TensorFlow Lite
-
-Due to the different requirements of each backend, we'll use a Docker container for a hassle-free testing environment.
+Because each backend has its own set of requirements, we recommend using a Docker container to create a straightforward testing environment without complications.
 
 #### Prepare the execution environment
 
@@ -186,9 +179,20 @@ $ docker build -t wasi-nn-smoke:v1.0 -f ./core/iwasm/libraries/wasi-nn/test/Dock
 #### Execute
 
 ```bash
+$ pwd
+/workspaces/wasm-micro-runtime/
 $ docker run --rm wasi-nn-smoke:v1.0
 ```
 
-### Testing with bytecodealliance wasi-nn
+It should be noted that the qwen example is selected as the default one about the Llama.cpp backend because it uses a small model and is easy to run.
+
+```bash
+- openvino_mobile_image. PASS
+- openvino_mobile_raw. PASS
+- openvino_road_segmentation_adas. PASS
+- wasmedge_ggml_qwen. PASS
+```
+
+### Testing with bytecodealliance WASI-NN
 
 For another example, check out [classification-example](https://github.com/bytecodealliance/wasi-nn/tree/main/rust/examples/classification-example), which focuses on OpenVINO. You can run it using the same Docker container mentioned above.

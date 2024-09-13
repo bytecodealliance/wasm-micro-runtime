@@ -58,7 +58,7 @@ get_current_target(char *target_buf, uint32 target_buf_size)
 }
 
 static uint32
-get_plt_item_size()
+get_plt_item_size(void)
 {
     /* size of mov instruction and jmp instruction */
     return 12;

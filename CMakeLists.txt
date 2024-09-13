@@ -121,10 +121,14 @@ set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security -Wshadow -Wno-unused-parameter -fvisibility=hidden")
-# set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion -Wsign-conversion")
-
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wformat -Wformat-security -Wno-unused")
+if (NOT WIN32)
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security \
+                                       -ffunction-sections -fdata-sections \
+                                       -Wno-unused-parameter -Wno-pedantic")
+  # Remove the extra spaces for better make log
+  string (REGEX REPLACE "  *" " " CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wformat -Wformat-security -Wno-unused")
+endif()
 
 if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
   if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
@@ -145,6 +149,10 @@ include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 set (THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
+if (MSVC)
+  add_definitions(-DCOMPILING_WASM_RUNTIME_API=1)
+endif ()
+
 # STATIC LIBRARY
 if (WAMR_BUILD_STATIC)
     add_library(iwasm_static STATIC ${WAMR_RUNTIME_LIB_SOURCE})
@@ -154,6 +162,14 @@ if (WAMR_BUILD_STATIC)
     if (WAMR_BUILD_WASM_CACHE EQUAL 1)
       target_link_libraries(iwasm_static INTERFACE boringssl_crypto)
     endif ()
+
+    if (MINGW)
+      target_link_libraries (iwasm_static PRIVATE ws2_32)
+    endif ()
+
+    if (WIN32)
+      target_link_libraries(iwasm_static PRIVATE ntdll)  
+    endif()
 
     install (TARGETS iwasm_static ARCHIVE DESTINATION lib)
 endif ()
@@ -169,8 +185,13 @@ if (WAMR_BUILD_SHARED)
     endif ()
 
     if (MINGW)
-      target_link_libraries (iwasm_shared INTERFACE -lWs2_32 -lwsock32)
+      target_link_libraries(iwasm_shared INTERFACE -lWs2_32 -lwsock32)
+      target_link_libraries(iwasm_shared PRIVATE ws2_32)
     endif ()
+
+    if (WIN32)
+      target_link_libraries(iwasm_shared PRIVATE ntdll)  
+    endif()
 
     install (TARGETS iwasm_shared LIBRARY DESTINATION lib)
 endif ()

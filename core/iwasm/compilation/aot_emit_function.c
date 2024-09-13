@@ -7,6 +7,7 @@
 #include "aot_emit_exception.h"
 #include "aot_emit_control.h"
 #include "aot_emit_table.h"
+#include "aot_stack_frame_comp.h"
 #include "../aot/aot_runtime.h"
 #if WASM_ENABLE_GC != 0
 #include "aot_emit_gc.h"
@@ -682,24 +683,29 @@ alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     new_frame = wasm_stack_top;
 
-    if (!(check_wasm_stack_succ = LLVMAppendBasicBlockInContext(
-              comp_ctx->context, func_ctx->func, "check_wasm_stack_succ"))) {
-        aot_set_last_error("llvm add basic block failed.");
-        return false;
-    }
+    if (comp_ctx->call_stack_features.bounds_checks) {
+        if (!(check_wasm_stack_succ = LLVMAppendBasicBlockInContext(
+                  comp_ctx->context, func_ctx->func,
+                  "check_wasm_stack_succ"))) {
+            aot_set_last_error("llvm add basic block failed.");
+            return false;
+        }
 
-    LLVMMoveBasicBlockAfter(check_wasm_stack_succ,
-                            LLVMGetInsertBlock(comp_ctx->builder));
+        LLVMMoveBasicBlockAfter(check_wasm_stack_succ,
+                                LLVMGetInsertBlock(comp_ctx->builder));
 
-    if (!(cmp = LLVMBuildICmp(comp_ctx->builder, LLVMIntUGT, wasm_stack_top_max,
-                              wasm_stack_top_bound, "cmp"))) {
-        aot_set_last_error("llvm build icmp failed");
-        return false;
-    }
+        if (!(cmp = LLVMBuildICmp(comp_ctx->builder, LLVMIntUGT,
+                                  wasm_stack_top_max, wasm_stack_top_bound,
+                                  "cmp"))) {
+            aot_set_last_error("llvm build icmp failed");
+            return false;
+        }
 
-    if (!(aot_emit_exception(comp_ctx, func_ctx, EXCE_OPERAND_STACK_OVERFLOW,
-                             true, cmp, check_wasm_stack_succ))) {
-        return false;
+        if (!(aot_emit_exception(comp_ctx, func_ctx,
+                                 EXCE_OPERAND_STACK_OVERFLOW, true, cmp,
+                                 check_wasm_stack_succ))) {
+            return false;
+        }
     }
 
 #if WASM_ENABLE_GC != 0
@@ -879,25 +885,28 @@ alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     if (!comp_ctx->is_jit_mode) {
-        /* aot mode: new_frame->func_idx = func_idx */
-        func_idx_val = comp_ctx->pointer_size == sizeof(uint64)
-                           ? I64_CONST(func_idx)
-                           : I32_CONST(func_idx);
-        offset = I32_CONST(comp_ctx->pointer_size);
-        CHECK_LLVM_CONST(func_idx_val);
-        CHECK_LLVM_CONST(offset);
-        if (!(func_idx_ptr =
-                  LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, new_frame,
-                                        &offset, 1, "func_idx_addr"))
-            || !(func_idx_ptr =
-                     LLVMBuildBitCast(comp_ctx->builder, func_idx_ptr,
-                                      INTPTR_T_PTR_TYPE, "func_idx_ptr"))) {
-            aot_set_last_error("llvm get func_idx_ptr failed");
-            return false;
-        }
-        if (!LLVMBuildStore(comp_ctx->builder, func_idx_val, func_idx_ptr)) {
-            aot_set_last_error("llvm build store failed");
-            return false;
+        if (comp_ctx->call_stack_features.func_idx) {
+            /* aot mode: new_frame->func_idx = func_idx */
+            func_idx_val = comp_ctx->pointer_size == sizeof(uint64)
+                               ? I64_CONST(func_idx)
+                               : I32_CONST(func_idx);
+            offset = I32_CONST(comp_ctx->pointer_size);
+            CHECK_LLVM_CONST(func_idx_val);
+            CHECK_LLVM_CONST(offset);
+            if (!(func_idx_ptr = LLVMBuildInBoundsGEP2(
+                      comp_ctx->builder, INT8_TYPE, new_frame, &offset, 1,
+                      "func_idx_addr"))
+                || !(func_idx_ptr =
+                         LLVMBuildBitCast(comp_ctx->builder, func_idx_ptr,
+                                          INTPTR_T_PTR_TYPE, "func_idx_ptr"))) {
+                aot_set_last_error("llvm get func_idx_ptr failed");
+                return false;
+            }
+            if (!LLVMBuildStore(comp_ctx->builder, func_idx_val,
+                                func_idx_ptr)) {
+                aot_set_last_error("llvm build store failed");
+                return false;
+            }
         }
     }
     else {
@@ -1285,6 +1294,10 @@ commit_params_to_frame_of_import_func(AOTCompContext *comp_ctx,
 {
     uint32 i, n;
 
+    if (!comp_ctx->call_stack_features.values) {
+        return true;
+    }
+
     for (i = 0, n = 0; i < func_type->param_count; i++, n++) {
         switch (func_type->types[i]) {
             case VALUE_TYPE_I32:
@@ -1394,6 +1407,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef *param_values = NULL, value_ret = NULL, func;
     LLVMValueRef import_func_idx, res;
     LLVMValueRef ext_ret, ext_ret_ptr, ext_ret_idx;
+    LLVMValueRef func_idx_ref;
     int32 i, j = 0, param_count, result_count, ext_ret_count;
     uint64 total_size;
     uint8 wasm_ret_type;
@@ -1438,12 +1452,28 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return false;
     }
 
-    if (comp_ctx->enable_aux_stack_frame) {
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
-        if (!alloc_frame_for_aot_func(comp_ctx, func_ctx, func_idx))
-            return false;
-#endif
+    if (comp_ctx->aux_stack_frame_type) {
+        if (func_idx < import_func_count
+            && comp_ctx->call_stack_features.frame_per_function) {
+            INT_CONST(func_idx_ref, func_idx, I32_TYPE, true);
+            if (!aot_alloc_frame_per_function_frame_for_aot_func(
+                    comp_ctx, func_ctx, func_idx_ref)) {
+                return false;
+            }
+        }
+        else if (!comp_ctx->call_stack_features.frame_per_function) {
+            if (comp_ctx->aux_stack_frame_type
+                != AOT_STACK_FRAME_TYPE_STANDARD) {
+                aot_set_last_error("unsupported mode");
+                return false;
+            }
+            if (!alloc_frame_for_aot_func(comp_ctx, func_ctx, func_idx)) {
+                return false;
+            }
+        }
     }
+#endif
 
     /* Get param cell number */
     param_cell_num = func_type->param_cell_num;
@@ -1513,7 +1543,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     if (func_idx < import_func_count) {
-        if (comp_ctx->enable_aux_stack_frame
+        if (comp_ctx->aux_stack_frame_type == AOT_STACK_FRAME_TYPE_STANDARD
             && !commit_params_to_frame_of_import_func(
                 comp_ctx, func_ctx, func_type, param_values + 1)) {
             goto fail;
@@ -1804,12 +1834,26 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
 
-    if (comp_ctx->enable_aux_stack_frame) {
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
-        if (!free_frame_for_aot_func(comp_ctx, func_ctx))
-            goto fail;
-#endif
+    if (comp_ctx->aux_stack_frame_type) {
+        if (func_idx < import_func_count
+            && comp_ctx->call_stack_features.frame_per_function) {
+            if (!aot_free_frame_per_function_frame_for_aot_func(comp_ctx,
+                                                                func_ctx)) {
+                goto fail;
+            }
+        }
+        else if (!comp_ctx->call_stack_features.frame_per_function) {
+            if (comp_ctx->aux_stack_frame_type
+                != AOT_STACK_FRAME_TYPE_STANDARD) {
+                aot_set_last_error("unsupported mode");
+            }
+            if (!free_frame_for_aot_func(comp_ctx, func_ctx)) {
+                goto fail;
+            }
+        }
     }
+#endif
 
     /* Insert suspend check point */
     if (comp_ctx->enable_thread_mgr) {
@@ -2430,7 +2474,8 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    if (comp_ctx->enable_aux_stack_frame) {
+    if (comp_ctx->aux_stack_frame_type
+        && !comp_ctx->call_stack_features.frame_per_function) {
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
         /*  TODO: use current frame instead of allocating new frame
                   for WASM_OP_RETURN_CALL_INDIRECT */
@@ -2499,7 +2544,13 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Translate call import block */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, block_call_import);
 
-    if (comp_ctx->enable_aux_stack_frame
+    if (comp_ctx->aot_frame && comp_ctx->call_stack_features.frame_per_function
+        && !aot_alloc_frame_per_function_frame_for_aot_func(comp_ctx, func_ctx,
+                                                            func_idx)) {
+        goto fail;
+    }
+
+    if (comp_ctx->aux_stack_frame_type == AOT_STACK_FRAME_TYPE_STANDARD
         && !commit_params_to_frame_of_import_func(comp_ctx, func_ctx, func_type,
                                                   param_values + 1)) {
         goto fail;
@@ -2535,6 +2586,12 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if ((comp_ctx->enable_bound_check || is_win_platform(comp_ctx))
         && !check_call_return(comp_ctx, func_ctx, res))
         goto fail;
+
+    if (comp_ctx->aot_frame && comp_ctx->call_stack_features.frame_per_function
+        && !aot_free_frame_per_function_frame_for_aot_func(comp_ctx,
+                                                           func_ctx)) {
+        goto fail;
+    }
 
     block_curr = LLVMGetInsertBlock(comp_ctx->builder);
     for (i = 0; i < func_result_count; i++) {
@@ -2620,7 +2677,8 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         PUSH(result_phis[i], func_type->types[func_param_count + i]);
     }
 
-    if (comp_ctx->enable_aux_stack_frame) {
+    if (comp_ctx->aux_stack_frame_type
+        && !comp_ctx->call_stack_features.frame_per_function) {
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
         if (!free_frame_for_aot_func(comp_ctx, func_ctx))
             goto fail;
@@ -2927,7 +2985,8 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    if (comp_ctx->enable_aux_stack_frame) {
+    if (comp_ctx->aux_stack_frame_type
+        && !comp_ctx->call_stack_features.frame_per_function) {
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
         /*  TODO: use current frame instead of allocating new frame
                   for WASM_OP_RETURN_CALL_REF */
@@ -2996,7 +3055,7 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Translate call import block */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, block_call_import);
 
-    if (comp_ctx->enable_aux_stack_frame
+    if (comp_ctx->aux_stack_frame_type == AOT_STACK_FRAME_TYPE_STANDARD
         && !commit_params_to_frame_of_import_func(comp_ctx, func_ctx, func_type,
                                                   param_values + 1)) {
         goto fail;
@@ -3124,7 +3183,8 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         PUSH(result_phis[i], func_type->types[func_param_count + i]);
     }
 
-    if (comp_ctx->enable_aux_stack_frame) {
+    if (comp_ctx->aux_stack_frame_type
+        && !comp_ctx->call_stack_features.frame_per_function) {
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
         if (!free_frame_for_aot_func(comp_ctx, func_ctx))
             goto fail;

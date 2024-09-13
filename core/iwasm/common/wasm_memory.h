@@ -46,10 +46,10 @@ wasm_runtime_memory_init(mem_alloc_type_t mem_alloc_type,
                          const MemAllocOption *alloc_option);
 
 void
-wasm_runtime_memory_destroy();
+wasm_runtime_memory_destroy(void);
 
 unsigned
-wasm_runtime_memory_pool_size();
+wasm_runtime_memory_pool_size(void);
 
 void
 wasm_runtime_set_mem_bound_check_bytes(WASMMemoryInstance *memory,

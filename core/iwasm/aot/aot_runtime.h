@@ -25,12 +25,16 @@ extern "C" {
 #define WASM_FEATURE_REF_TYPES (1 << 3)
 #define WASM_FEATURE_GARBAGE_COLLECTION (1 << 4)
 #define WASM_FEATURE_EXCEPTION_HANDLING (1 << 5)
-#define WASM_FEATURE_MEMORY64 (1 << 6)
+#define WASM_FEATURE_TINY_STACK_FRAME (1 << 6)
 #define WASM_FEATURE_MULTI_MEMORY (1 << 7)
 #define WASM_FEATURE_DYNAMIC_LINKING (1 << 8)
 #define WASM_FEATURE_COMPONENT_MODEL (1 << 9)
 #define WASM_FEATURE_RELAXED_SIMD (1 << 10)
 #define WASM_FEATURE_FLEXIBLE_VECTORS (1 << 11)
+/* Stack frame is created at the beginning of the function,
+ * and not at the beginning of each function call */
+#define WASM_FEATURE_FRAME_PER_FUNCTION (1 << 12)
+#define WASM_FEATURE_FRAME_NO_FUNC_IDX (1 << 13)
 
 typedef enum AOTSectionType {
     AOT_SECTION_TYPE_TARGET_INFO = 0,
@@ -39,6 +43,10 @@ typedef enum AOTSectionType {
     AOT_SECTION_TYPE_FUNCTION = 3,
     AOT_SECTION_TYPE_EXPORT = 4,
     AOT_SECTION_TYPE_RELOCATION = 5,
+    /*
+     * Note: We haven't had anything to use AOT_SECTION_TYPE_SIGNATURE.
+     * It's just reserved for possible module signing features.
+     */
     AOT_SECTION_TYPE_SIGNATURE = 6,
     AOT_SECTION_TYPE_CUSTOM = 100,
 } AOTSectionType;
@@ -322,6 +330,10 @@ typedef struct AOTModule {
     /* `.data` and `.text` sections merged into one large mmaped section */
     uint8 *merged_data_text_sections;
     uint32 merged_data_text_sections_size;
+
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
+    uint32 feature_flags;
+#endif
 } AOTModule;
 
 #define AOTMemoryInstance WASMMemoryInstance
@@ -637,7 +649,7 @@ aot_check_app_addr_and_convert(AOTModuleInstance *module_inst, bool is_str,
                                void **p_native_addr);
 
 uint32
-aot_get_plt_table_size();
+aot_get_plt_table_size(void);
 
 void *
 aot_memmove(void *dest, const void *src, size_t n);
