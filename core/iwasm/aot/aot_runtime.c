@@ -1436,7 +1436,7 @@ create_exports(AOTModuleInstance *module_inst, AOTModule *module,
     }
 
 #if WASM_ENABLE_MULTI_MEMORY == 0
-    assert(module_inst->export_memory_count <= 1);
+    bh_assert(module_inst->export_memory_count <= 1);
 #else
     if (module_inst->export_memory_count) {
         module_inst->export_memories = export_memories_instantiate(
