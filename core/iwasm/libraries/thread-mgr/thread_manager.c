@@ -1449,10 +1449,19 @@ wasm_cluster_attach_shared_heap(WASMModuleInstanceCommon *module_inst,
         bh_assert(cluster);
 
         os_mutex_lock(&cluster->lock);
+        /* Try attaching shared heap to this module instance first
+           to ensure that we can attach it to all other instances. */
+        if (!wasm_runtime_attach_shared_heap_internal(module_inst, heap)) {
+            os_mutex_unlock(&cluster->lock);
+            return false;
+        }
+        /* Detach the shared heap so it can be attached again. */
+        wasm_runtime_detach_shared_heap_internal(module_inst);
         traverse_list(&cluster->exec_env_list, attach_shared_heap_visitor,
                       heap);
         os_mutex_unlock(&cluster->lock);
     }
+
     return true;
 }
 
