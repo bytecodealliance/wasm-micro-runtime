@@ -31,6 +31,9 @@ def add_symbol_with_aot_info(aot_module_info):
         # Remove directory part if present
         file_name = os.path.basename(file_name_without_extension)
 
+        # Add .obj extension to the file name
+        file_name = file_name + ".obj"
+
         # Construct the path for the symbol file
         path_symfile = os.path.join(path_objs, file_name)
 
