@@ -102,14 +102,12 @@ typedef float64 CellType_F64;
     do {                                                \
         uint64 offset1 = (uint64)offset + (uint64)addr; \
         maddr = memory->memory_data + offset1;          \
-        CHECK_MEMORY_SHARED_HEAP_OVERFLOW(bytes);       \
     } while (0)
 
 #define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr) \
     do {                                                \
         maddr = memory->memory_data + (uint32)(start);  \
         uint64 offset1 = start;                         \
-        CHECK_MEMORY_SHARED_HEAP_OVERFLOW(bytes);       \
     } while (0)
 #endif /* end of !defined(OS_ENABLE_HW_BOUND_CHECK) || \
           WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 */
