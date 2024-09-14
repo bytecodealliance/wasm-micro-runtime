@@ -5092,10 +5092,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         linear_mem_size = get_linear_mem_size();
 #endif
 
+                        dlen = linear_mem_size - dst;
+
 #ifndef OS_ENABLE_HW_BOUND_CHECK
                         CHECK_BULK_MEMORY_OVERFLOW(src, len, msrc);
                         CHECK_BULK_MEMORY_OVERFLOW(dst, len, mdst);
-#else
+#if WASM_ENABLE_SHARED_HEAP != 0
+                        if (app_addr_in_shared_heap((uint64)dst, len))
+                            dlen = shared_heap_end_off - dst + 1;
+#endif
+#else /* else of OS_ENABLE_HW_BOUND_CHECK */
 #if WASM_ENABLE_SHARED_HEAP != 0
                         if (app_addr_in_shared_heap((uint64)src, len))
                             shared_heap_addr_app_to_native((uint64)src, msrc);
@@ -5118,7 +5124,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             if ((uint64)(uint32)dst + len > linear_mem_size)
                                 goto out_of_bounds;
                             mdst = memory->memory_data + (uint32)dst;
-                            dlen = linear_mem_size - dst;
                         }
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
