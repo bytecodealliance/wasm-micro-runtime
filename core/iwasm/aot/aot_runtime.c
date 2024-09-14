@@ -1413,6 +1413,36 @@ create_export_funcs(AOTModuleInstance *module_inst, AOTModule *module,
     return true;
 }
 
+#if WASM_ENABLE_MULTI_MEMORY != 0
+static WASMExportMemInstance *
+export_memories_instantiate(const AOTModule *module,
+                            AOTModuleInstance *module_inst,
+                            uint32 export_mem_count, char *error_buf,
+                            uint32 error_buf_size)
+{
+    WASMExportMemInstance *export_memories, *export_memory;
+    AOTExport *export = module->exports;
+    uint32 i;
+    uint64 total_size =
+        sizeof(WASMExportMemInstance) * (uint64)export_mem_count;
+
+    if (!(export_memory = export_memories =
+              runtime_malloc(total_size, error_buf, error_buf_size))) {
+        return NULL;
+    }
+
+    for (i = 0; i < module->export_count; i++, export ++)
+        if (export->kind == EXPORT_KIND_MEMORY) {
+            export_memory->name = export->name;
+            export_memory->memory = module_inst->memories[export->index];
+            export_memory++;
+        }
+
+    bh_assert((uint32)(export_memory - export_memories) == export_mem_count);
+    return export_memories;
+}
+#endif /* end of if WASM_ENABLE_MULTI_MEMORY != 0 */
+
 static bool
 create_exports(AOTModuleInstance *module_inst, AOTModule *module,
                char *error_buf, uint32 error_buf_size)
@@ -1438,6 +1468,19 @@ create_exports(AOTModuleInstance *module_inst, AOTModule *module,
                 return false;
         }
     }
+
+#if WASM_ENABLE_MULTI_MEMORY == 0
+    bh_assert(module_inst->export_memory_count <= 1);
+#else
+    if (module_inst->export_memory_count) {
+        module_inst->export_memories = export_memories_instantiate(
+            module, module_inst, module_inst->export_memory_count, error_buf,
+            error_buf_size);
+        if (!module_inst->export_memories) {
+            return false;
+        }
+    }
+#endif
 
     return create_export_funcs(module_inst, module, error_buf, error_buf_size);
 }
@@ -2081,6 +2124,11 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 
     if (module_inst->export_functions)
         wasm_runtime_free(module_inst->export_functions);
+
+#if WASM_ENABLE_MULTI_MEMORY != 0
+    if (module_inst->export_memories)
+        wasm_runtime_free(module_inst->export_memories);
+#endif
 
     if (extra->functions) {
         uint32 func_idx;
