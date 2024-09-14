@@ -1323,42 +1323,6 @@ export_tags_instantiate(const WASMModule *module,
 }
 #endif /* end of WASM_ENABLE_TAGS != 0 */
 
-#if WASM_ENABLE_MULTI_MODULE != 0
-static void
-export_globals_deinstantiate(WASMExportGlobInstance *globals)
-{
-    if (globals)
-        wasm_runtime_free(globals);
-}
-
-static WASMExportGlobInstance *
-export_globals_instantiate(const WASMModule *module,
-                           WASMModuleInstance *module_inst,
-                           uint32 export_glob_count, char *error_buf,
-                           uint32 error_buf_size)
-{
-    WASMExportGlobInstance *export_globals, *export_global;
-    WASMExport *export = module->exports;
-    uint32 i;
-    uint64 total_size =
-        sizeof(WASMExportGlobInstance) * (uint64)export_glob_count;
-
-    if (!(export_global = export_globals =
-              runtime_malloc(total_size, error_buf, error_buf_size))) {
-        return NULL;
-    }
-
-    for (i = 0; i < module->export_count; i++, export ++)
-        if (export->kind == EXPORT_KIND_GLOBAL) {
-            export_global->name = export->name;
-            export_global->global = &module_inst->e->globals[export->index];
-            export_global++;
-        }
-
-    bh_assert((uint32)(export_global - export_globals) == export_glob_count);
-    return export_globals;
-}
-
 #if WASM_ENABLE_MULTI_MEMORY != 0
 static void
 export_memories_deinstantiate(WASMExportMemInstance *memories)
@@ -1395,6 +1359,42 @@ export_memories_instantiate(const WASMModule *module,
     return export_memories;
 }
 #endif /* end of if WASM_ENABLE_MULTI_MEMORY != 0 */
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+static void
+export_globals_deinstantiate(WASMExportGlobInstance *globals)
+{
+    if (globals)
+        wasm_runtime_free(globals);
+}
+
+static WASMExportGlobInstance *
+export_globals_instantiate(const WASMModule *module,
+                           WASMModuleInstance *module_inst,
+                           uint32 export_glob_count, char *error_buf,
+                           uint32 error_buf_size)
+{
+    WASMExportGlobInstance *export_globals, *export_global;
+    WASMExport *export = module->exports;
+    uint32 i;
+    uint64 total_size =
+        sizeof(WASMExportGlobInstance) * (uint64)export_glob_count;
+
+    if (!(export_global = export_globals =
+              runtime_malloc(total_size, error_buf, error_buf_size))) {
+        return NULL;
+    }
+
+    for (i = 0; i < module->export_count; i++, export ++)
+        if (export->kind == EXPORT_KIND_GLOBAL) {
+            export_global->name = export->name;
+            export_global->global = &module_inst->e->globals[export->index];
+            export_global++;
+        }
+
+    bh_assert((uint32)(export_global - export_globals) == export_glob_count);
+    return export_globals;
+}
 
 #endif /* end of if WASM_ENABLE_MULTI_MODULE != 0 */
 
@@ -2388,11 +2388,13 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
     /* export */
     module_inst->export_func_count = get_export_count(module, EXPORT_KIND_FUNC);
+#if WASM_ENABLE_MULTI_MEMORY != 0
+    module_inst->export_memory_count =
+        get_export_count(module, EXPORT_KIND_MEMORY);
+#endif
 #if WASM_ENABLE_MULTI_MODULE != 0
     module_inst->export_table_count =
         get_export_count(module, EXPORT_KIND_TABLE);
-    module_inst->export_memory_count =
-        get_export_count(module, EXPORT_KIND_MEMORY);
 #if WASM_ENABLE_TAGS != 0
     module_inst->e->export_tag_count =
         get_export_count(module, EXPORT_KIND_TAG);
@@ -2432,7 +2434,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                      module, module_inst, module_inst->export_global_count,
                      error_buf, error_buf_size)))
 #endif
-#if WASM_ENABLE_MULTI_MODULE != 0 && WASM_ENABLE_MULTI_MEMORY != 0
+#if WASM_ENABLE_MULTI_MEMORY != 0
         || (module_inst->export_memory_count > 0
             && !(module_inst->export_memories = export_memories_instantiate(
                      module, module_inst, module_inst->export_memory_count,
@@ -3240,7 +3242,7 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     export_globals_deinstantiate(module_inst->export_globals);
 #endif
 
-#if WASM_ENABLE_MULTI_MODULE != 0 && WASM_ENABLE_MULTI_MEMORY != 0
+#if WASM_ENABLE_MULTI_MEMORY != 0
     export_memories_deinstantiate(module_inst->export_memories);
 #endif
 
@@ -3292,17 +3294,6 @@ wasm_lookup_function(const WASMModuleInstance *module_inst, const char *name)
     return NULL;
 }
 
-#if WASM_ENABLE_MULTI_MODULE != 0
-WASMGlobalInstance *
-wasm_lookup_global(const WASMModuleInstance *module_inst, const char *name)
-{
-    uint32 i;
-    for (i = 0; i < module_inst->export_global_count; i++)
-        if (!strcmp(module_inst->export_globals[i].name, name))
-            return module_inst->export_globals[i].global;
-    return NULL;
-}
-
 WASMMemoryInstance *
 wasm_lookup_memory(const WASMModuleInstance *module_inst, const char *name)
 {
@@ -3314,8 +3305,21 @@ wasm_lookup_memory(const WASMModuleInstance *module_inst, const char *name)
     return NULL;
 #else
     (void)module_inst->export_memories;
+    if (!module_inst->memories)
+        return NULL;
     return module_inst->memories[0];
 #endif
+}
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+WASMGlobalInstance *
+wasm_lookup_global(const WASMModuleInstance *module_inst, const char *name)
+{
+    uint32 i;
+    for (i = 0; i < module_inst->export_global_count; i++)
+        if (!strcmp(module_inst->export_globals[i].name, name))
+            return module_inst->export_globals[i].global;
+    return NULL;
 }
 
 WASMTableInstance *

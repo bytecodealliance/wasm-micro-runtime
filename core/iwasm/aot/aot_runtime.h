@@ -532,6 +532,15 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst);
 AOTFunctionInstance *
 aot_lookup_function(const AOTModuleInstance *module_inst, const char *name);
 
+AOTMemoryInstance *
+aot_lookup_memory(AOTModuleInstance *module_inst, char const *name);
+
+AOTMemoryInstance *
+aot_get_default_memory(AOTModuleInstance *module_inst);
+
+AOTMemoryInstance *
+aot_get_memory_with_index(AOTModuleInstance *module_inst, uint32 index);
+
 /**
  * Get a function in the AOT module instance.
  *
