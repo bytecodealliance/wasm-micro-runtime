@@ -37,6 +37,31 @@ typedef float64 CellType_F64;
 #define get_linear_mem_size() GET_LINEAR_MEMORY_SIZE(memory)
 #endif
 
+#if !defined(OS_ENABLE_HW_BOUND_CHECK)              \
+    || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
+    || WASM_ENABLE_BULK_MEMORY != 0
+#define GOTO_OUT_OF_BOUNDS goto out_of_bounds;
+#else
+#define GOTO_OUT_OF_BOUNDS
+#endif
+
+#if WASM_ENABLE_SHARED_HEAP != 0
+#define CHECK_MEMORY_SHARED_HEAP_OVERFLOW(bytes)                           \
+    do {                                                                   \
+        if (offset1 + bytes >= UINT32_MAX - module->e->shared_heap->size   \
+            && offset1 + bytes <= UINT32_MAX) {                            \
+            uint64 heap_start = UINT32_MAX - module->e->shared_heap->size; \
+            uint64 heap_offset = (uint64)offset1 - heap_start;             \
+            maddr = module->e->shared_heap->base_addr + heap_offset;       \
+        }                                                                  \
+        else {                                                             \
+            GOTO_OUT_OF_BOUNDS;                                            \
+        }                                                                  \
+    } while (0)
+#else
+#define CHECK_MEMORY_SHARED_HEAP_OVERFLOW(bytes) GOTO_OUT_OF_BOUNDS
+#endif
+
 #if !defined(OS_ENABLE_HW_BOUND_CHECK) \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
 #define CHECK_MEMORY_OVERFLOW(bytes)                                           \
@@ -47,7 +72,7 @@ typedef float64 CellType_F64;
                 be in valid range, no need to check it again. */               \
             maddr = memory->memory_data + offset1;                             \
         else                                                                   \
-            goto out_of_bounds;                                                \
+            CHECK_MEMORY_SHARED_HEAP_OVERFLOW(byets);                          \
     } while (0)
 
 #define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr)                        \
@@ -58,7 +83,7 @@ typedef float64 CellType_F64;
                bulk memory operation */                                        \
             maddr = memory->memory_data + offset1;                             \
         else                                                                   \
-            goto out_of_bounds;                                                \
+            CHECK_MEMORY_SHARED_HEAP_OVERFLOW(byets);                          \
     } while (0)
 #else
 #define CHECK_MEMORY_OVERFLOW(bytes)                    \
@@ -70,6 +95,7 @@ typedef float64 CellType_F64;
 #define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr) \
     do {                                                \
         maddr = memory->memory_data + (uint32)(start);  \
+        uint64 offset1 = start;                         \
     } while (0)
 #endif /* !defined(OS_ENABLE_HW_BOUND_CHECK) \
           || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 */

@@ -688,4 +688,8 @@
 #endif
 #endif /* WASM_ENABLE_FUZZ_TEST != 0 */
 
+#ifndef WASM_ENABLE_SHARED_HEAP
+#define WASM_ENABLE_SHARED_HEAP 0
+#endif
+
 #endif /* end of _CONFIG_H_ */
