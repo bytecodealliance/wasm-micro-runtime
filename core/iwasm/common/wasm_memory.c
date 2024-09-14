@@ -394,13 +394,17 @@ wasm_runtime_shared_heap_free(WASMModuleInstanceCommon *module_inst, uint64 ptr)
     }
 
     if (memory->is_memory64) {
-        if (ptr < shared_heap->start_off_mem64)
+        if (ptr < shared_heap->start_off_mem64) { /* ptr can not > UINT64_MAX */
+            LOG_WARNING("The address to free isn't in shared heap");
             return;
+        }
         addr = shared_heap->base_addr + (ptr - shared_heap->start_off_mem64);
     }
     else {
-        if (ptr < shared_heap->start_off_mem32 || ptr > UINT32_MAX)
+        if (ptr < shared_heap->start_off_mem32 || ptr > UINT32_MAX) {
+            LOG_WARNING("The address to free isn't in shared heap");
             return;
+        }
         addr = shared_heap->base_addr + (ptr - shared_heap->start_off_mem32);
     }
 
@@ -649,6 +653,13 @@ wasm_runtime_validate_app_addr(WASMModuleInstanceCommon *module_inst_comm,
         goto fail;
     }
 
+#if WASM_ENABLE_SHARED_HEAP != 0
+    if (is_app_addr_in_shared_heap(module_inst_comm, memory_inst->is_memory64,
+                                   app_offset, size)) {
+        return true;
+    }
+#endif
+
 #if WASM_ENABLE_MEMORY64 != 0
     if (memory_inst->is_memory64)
         max_linear_memory_size = MAX_LINEAR_MEM64_MEMORY_SIZE;
@@ -658,13 +669,6 @@ wasm_runtime_validate_app_addr(WASMModuleInstanceCommon *module_inst_comm,
         || app_offset > max_linear_memory_size - size) {
         goto fail;
     }
-
-#if WASM_ENABLE_SHARED_HEAP != 0
-    if (is_app_addr_in_shared_heap(module_inst_comm, memory_inst->is_memory64,
-                                   app_offset, size)) {
-        return true;
-    }
-#endif
 
     SHARED_MEMORY_LOCK(memory_inst);
 
