@@ -4294,8 +4294,9 @@ wasm_memory_new_internal(wasm_store_t *store, uint16 memory_idx_rt,
 
 #if WASM_ENABLE_INTERP != 0
     if (inst_comm_rt->module_type == Wasm_Module_Bytecode) {
-        WASMMemoryInstance *memory_interp =
-            ((WASMModuleInstance *)inst_comm_rt)->memories[memory_idx_rt];
+        WASMMemoryInstance *memory_interp = ((WASMModuleInstance *)inst_comm_rt)
+                                                ->memories[memory_idx_rt]
+                                                .memory;
         min_pages = memory_interp->cur_page_count;
         max_pages = memory_interp->max_page_count;
         init_flag = true;
@@ -4379,7 +4380,7 @@ wasm_memory_data(wasm_memory_t *memory)
         WASMModuleInstance *module_inst =
             (WASMModuleInstance *)module_inst_comm;
         WASMMemoryInstance *memory_inst =
-            module_inst->memories[memory->memory_idx_rt];
+            module_inst->memories[memory->memory_idx_rt].memory;
         return (byte_t *)memory_inst->memory_data;
     }
 #endif
@@ -4416,7 +4417,7 @@ wasm_memory_data_size(const wasm_memory_t *memory)
         WASMModuleInstance *module_inst =
             (WASMModuleInstance *)module_inst_comm;
         WASMMemoryInstance *memory_inst =
-            module_inst->memories[memory->memory_idx_rt];
+            module_inst->memories[memory->memory_idx_rt].memory;
         return (size_t)memory_inst->cur_page_count
                * memory_inst->num_bytes_per_page;
     }
@@ -4455,7 +4456,7 @@ wasm_memory_size(const wasm_memory_t *memory)
         WASMModuleInstance *module_inst =
             (WASMModuleInstance *)module_inst_comm;
         WASMMemoryInstance *memory_inst =
-            module_inst->memories[memory->memory_idx_rt];
+            module_inst->memories[memory->memory_idx_rt].memory;
         return memory_inst->cur_page_count;
     }
 #endif

@@ -117,12 +117,12 @@ get_sub_module_inst(const WASMModuleInstance *parent_module_inst,
  */
 static void
 memories_deinstantiate(WASMModuleInstance *module_inst,
-                       WASMMemoryInstance **memories, uint32 count)
+                       WASMMemoryWrapper *memories, uint32 count)
 {
     uint32 i;
     if (memories) {
         for (i = 0; i < count; i++) {
-            if (memories[i]) {
+            if (memories[i].memory) {
 #if WASM_ENABLE_MULTI_MODULE != 0
                 WASMModule *module = module_inst->module;
                 if (i < module->import_memory_count
@@ -131,21 +131,22 @@ memories_deinstantiate(WASMModuleInstance *module_inst,
                 }
 #endif
 #if WASM_ENABLE_SHARED_MEMORY != 0
-                if (shared_memory_is_shared(memories[i])) {
-                    uint32 ref_count = shared_memory_dec_reference(memories[i]);
+                if (shared_memory_is_shared(memories[i].memory)) {
+                    uint32 ref_count =
+                        shared_memory_dec_reference(memories[i].memory);
                     /* if the reference count is not zero,
                         don't free the memory */
                     if (ref_count > 0)
                         continue;
                 }
 #endif
-                if (memories[i]->heap_handle) {
-                    mem_allocator_destroy(memories[i]->heap_handle);
-                    wasm_runtime_free(memories[i]->heap_handle);
-                    memories[i]->heap_handle = NULL;
+                if (memories[i].memory->heap_handle) {
+                    mem_allocator_destroy(memories[i].memory->heap_handle);
+                    wasm_runtime_free(memories[i].memory->heap_handle);
+                    memories[i].memory->heap_handle = NULL;
                 }
-                if (memories[i]->memory_data) {
-                    wasm_deallocate_linear_memory(memories[i]);
+                if (memories[i].memory->memory_data) {
+                    wasm_deallocate_linear_memory(memories[i].memory);
                 }
             }
         }
@@ -176,7 +177,7 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     /* shared memory */
     if (is_shared_memory && parent != NULL) {
         bh_assert(parent->memory_count > memory_idx);
-        memory = parent->memories[memory_idx];
+        memory = parent->memories[memory_idx].memory;
         shared_memory_inc_reference(memory);
         return memory;
     }
@@ -380,19 +381,21 @@ fail1:
 /**
  * Instantiate memories in a module.
  */
-static WASMMemoryInstance **
+static WASMMemoryWrapper *
 memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                      WASMModuleInstance *parent, uint32 heap_size,
-                     uint32 max_memory_pages, char *error_buf,
+                     uint32 max_memory_pages, uint32 import_count,
+                     const WASMImportInst *imports, char *error_buf,
                      uint32 error_buf_size)
 {
     WASMImport *import;
     uint32 mem_index = 0, i,
            memory_count = module->import_memory_count + module->memory_count;
     uint64 total_size;
-    WASMMemoryInstance **memories, *memory;
+    WASMMemoryWrapper *memories;
+    WASMMemoryInstance *memory;
 
-    total_size = sizeof(WASMMemoryInstance *) * (uint64)memory_count;
+    total_size = sizeof(WASMMemoryWrapper) * (uint64)memory_count;
 
     if (!(memories = runtime_malloc(total_size, error_buf, error_buf_size))) {
         return NULL;
@@ -403,14 +406,27 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
     /* instantiate memories from import section */
     import = module->import_memories;
     for (i = 0; i < module->import_memory_count; i++, import++, memory++) {
-        uint32 num_bytes_per_page =
-            import->u.memory.mem_type.num_bytes_per_page;
-        uint32 init_page_count = import->u.memory.mem_type.init_page_count;
-        uint32 max_page_count = wasm_runtime_get_max_mem(
-            max_memory_pages, import->u.memory.mem_type.init_page_count,
-            import->u.memory.mem_type.max_page_count);
-        uint32 flags = import->u.memory.mem_type.flags;
-        uint32 actual_heap_size = heap_size;
+        bool found = false;
+        for (uint32 j = 0; j < import_count; j++) {
+            if (import->kind != WASM_IMPORT_EXPORT_KIND_MEMORY) {
+                continue;
+            }
+            if (strcmp(import->u.memory.module_name, imports[j].module_name)) {
+                continue;
+            }
+            if (strcmp(import->u.memory.field_name, imports[j].name)) {
+                continue;
+            }
+
+            memories[mem_index].memory = imports[j].u.memory_inst;
+            memories[mem_index].memory_import = &import->u.memory;
+            mem_index++;
+            found = true;
+            break;
+        }
+        if (found) {
+            continue;
+        }
 
 #if WASM_ENABLE_MULTI_MODULE != 0
         if (import->u.memory.import_module != NULL) {
@@ -423,23 +439,37 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                 return NULL;
             }
 
-            if (!(memories[mem_index++] = wasm_lookup_memory(
+            if (!(memories[mem_index].memory = wasm_lookup_memory(
                       module_inst_linked, import->u.memory.field_name))) {
                 set_error_buf(error_buf, error_buf_size, "unknown memory");
                 memories_deinstantiate(module_inst, memories, memory_count);
                 return NULL;
             }
+
+            memories[mem_index].memory_import = &import->u.memory;
+            mem_index++;
+            continue;
         }
-        else
 #endif
+
         {
-            if (!(memories[mem_index] = memory_instantiate(
+            uint32 num_bytes_per_page =
+                import->u.memory.mem_type.num_bytes_per_page;
+            uint32 init_page_count = import->u.memory.mem_type.init_page_count;
+            uint32 max_page_count = wasm_runtime_get_max_mem(
+                max_memory_pages, import->u.memory.mem_type.init_page_count,
+                import->u.memory.mem_type.max_page_count);
+            uint32 flags = import->u.memory.mem_type.flags;
+            uint32 actual_heap_size = heap_size;
+
+            if (!(memories[mem_index].memory = memory_instantiate(
                       module_inst, parent, memory, mem_index,
                       num_bytes_per_page, init_page_count, max_page_count,
                       actual_heap_size, flags, error_buf, error_buf_size))) {
                 memories_deinstantiate(module_inst, memories, memory_count);
                 return NULL;
             }
+            memories[mem_index].memory_import = &import->u.memory;
             mem_index++;
         }
     }
@@ -449,7 +479,7 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         uint32 max_page_count = wasm_runtime_get_max_mem(
             max_memory_pages, module->memories[i].init_page_count,
             module->memories[i].max_page_count);
-        if (!(memories[mem_index] = memory_instantiate(
+        if (!(memories[mem_index].memory = memory_instantiate(
                   module_inst, parent, memory, mem_index,
                   module->memories[i].num_bytes_per_page,
                   module->memories[i].init_page_count, max_page_count,
@@ -1351,7 +1381,7 @@ export_memories_instantiate(const WASMModule *module,
     for (i = 0; i < module->export_count; i++, export ++)
         if (export->kind == EXPORT_KIND_MEMORY) {
             export_memory->name = export->name;
-            export_memory->memory = module_inst->memories[export->index];
+            export_memory->memory = module_inst->memories[export->index].memory;
             export_memory++;
         }
 
@@ -1577,7 +1607,7 @@ execute_malloc_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     uint32 argc;
     bool ret;
 #if WASM_ENABLE_MEMORY64 != 0
-    bool is_memory64 = module_inst->memories[0]->is_memory64;
+    bool is_memory64 = module_inst->memories[0].memory->is_memory64;
     if (is_memory64) {
         argc = 2;
         PUT_I64_TO_ADDR(&argv.u64, size);
@@ -1680,7 +1710,7 @@ execute_free_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     bool ret;
 
 #if WASM_ENABLE_MEMORY64 != 0
-    if (module_inst->memories[0]->is_memory64) {
+    if (module_inst->memories[0].memory->is_memory64) {
         PUT_I64_TO_ADDR(&argv.u64, offset);
         argc = 2;
     }
@@ -1795,11 +1825,15 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
     for (i = 0; i < module->import_memory_count; i++) {
         WASMMemoryImport *memory = &((module->import_memories + i)->u.memory);
 
-        if (!wasm_runtime_is_built_in_module(memory->module_name)
-#if WASM_ENABLE_MULTI_MODULE != 0
-            && !memory->import_memory_linked
-#endif
-        ) {
+        bool found = false;
+        for (uint32 j = 0; j < module_inst->memory_count; j++) {
+            if (module_inst->memories[j].memory_import == memory) {
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
             set_error_buf_v(error_buf, error_buf_size,
                             "failed to link import memory (%s, %s)",
                             memory->module_name, memory->field_name);
@@ -2201,7 +2235,8 @@ wasm_set_running_mode(WASMModuleInstance *module_inst, RunningMode running_mode)
 WASMModuleInstance *
 wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                  WASMExecEnv *exec_env_main, uint32 stack_size,
-                 uint32 heap_size, uint32 max_memory_pages, char *error_buf,
+                 uint32 heap_size, uint32 max_memory_pages, uint32 import_count,
+                 const WASMImportInst *imports, char *error_buf,
                  uint32 error_buf_size)
 {
     WASMModuleInstance *module_inst;
@@ -2407,7 +2442,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
     if ((module_inst->memory_count > 0
          && !(module_inst->memories = memories_instantiate(
                   module, module_inst, parent, heap_size, max_memory_pages,
-                  error_buf, error_buf_size)))
+                  import_count, imports, error_buf, error_buf_size)))
         || (module_inst->table_count > 0
             && !(module_inst->tables =
                      tables_instantiate(module, module_inst, first_table,
@@ -2570,7 +2605,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
             continue;
 
         /* has check it in loader */
-        memory = module_inst->memories[data_seg->memory_index];
+        memory = module_inst->memories[data_seg->memory_index].memory;
         bh_assert(memory);
 
         memory_data = memory->memory_data;
@@ -3307,7 +3342,7 @@ wasm_lookup_memory(const WASMModuleInstance *module_inst, const char *name)
     (void)module_inst->export_memories;
     if (!module_inst->memories)
         return NULL;
-    return module_inst->memories[0];
+    return module_inst->memories[0].memory;
 #endif
 }
 
@@ -4004,7 +4039,7 @@ wasm_get_module_inst_mem_consumption(const WASMModuleInstance *module_inst,
     mem_conspn->memories_size =
         sizeof(WASMMemoryInstance *) * module_inst->memory_count;
     for (i = 0; i < module_inst->memory_count; i++) {
-        WASMMemoryInstance *memory = module_inst->memories[i];
+        WASMMemoryInstance *memory = module_inst->memories[i].memory;
         size = memory->num_bytes_per_page * memory->cur_page_count;
         mem_conspn->memories_size += size;
         mem_conspn->app_heap_size += memory->heap_data_end - memory->heap_data;

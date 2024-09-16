@@ -362,6 +362,11 @@ typedef struct WASMModuleInstanceExtra {
 
 struct AOTFuncPerfProfInfo;
 
+typedef struct WASMMemoryWrapper {
+    WASMMemoryInstance *memory;
+    WASMMemoryImport *memory_import;
+} WASMMemoryWrapper;
+
 struct WASMModuleInstance {
     /* Module instance type, for module instance loaded from
        WASM bytecode binary, this field is Wasm_Module_Bytecode;
@@ -371,7 +376,7 @@ struct WASMModuleInstance {
     uint32 module_type;
 
     uint32 memory_count;
-    DefPointer(WASMMemoryInstance **, memories);
+    DefPointer(WASMMemoryWrapper *, memories);
 
     /* global and table info */
     uint32 global_data_size;
@@ -516,7 +521,8 @@ wasm_unload(WASMModule *module);
 WASMModuleInstance *
 wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                  WASMExecEnv *exec_env_main, uint32 stack_size,
-                 uint32 heap_size, uint32 max_memory_pages, char *error_buf,
+                 uint32 heap_size, uint32 max_memory_pages, uint32 import_count,
+                 const WASMImportInst *imports, char *error_buf,
                  uint32 error_buf_size);
 
 void

@@ -265,20 +265,20 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
     }
 
     /* Currently we have only one memory instance */
-    if (!shared_memory_is_shared(module_inst->memories[0])) {
+    if (!shared_memory_is_shared(module_inst->memories[0].memory)) {
         wasm_runtime_set_exception(module, "expected shared memory");
         return -1;
     }
 
-    shared_memory_lock(module_inst->memories[0]);
-    if ((uint8 *)address < module_inst->memories[0]->memory_data
+    shared_memory_lock(module_inst->memories[0].memory);
+    if ((uint8 *)address < module_inst->memories[0].memory->memory_data
         || (uint8 *)address + (wait64 ? 8 : 4)
-               > module_inst->memories[0]->memory_data_end) {
-        shared_memory_unlock(module_inst->memories[0]);
+               > module_inst->memories[0].memory->memory_data_end) {
+        shared_memory_unlock(module_inst->memories[0].memory);
         wasm_runtime_set_exception(module, "out of bounds memory access");
         return -1;
     }
-    shared_memory_unlock(module_inst->memories[0]);
+    shared_memory_unlock(module_inst->memories[0].memory);
 
 #if WASM_ENABLE_THREAD_MGR != 0
     exec_env =
@@ -286,7 +286,7 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
     bh_assert(exec_env);
 #endif
 
-    lock = shared_memory_get_lock_pointer(module_inst->memories[0]);
+    lock = shared_memory_get_lock_pointer(module_inst->memories[0].memory);
 
     /* Lock the shared_mem_lock for the whole atomic wait process,
        and use it to os_cond_reltimedwait */
@@ -395,11 +395,12 @@ wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
     bh_assert(module->module_type == Wasm_Module_Bytecode
               || module->module_type == Wasm_Module_AoT);
 
-    shared_memory_lock(module_inst->memories[0]);
+    shared_memory_lock(module_inst->memories[0].memory);
     out_of_bounds =
-        ((uint8 *)address < module_inst->memories[0]->memory_data
-         || (uint8 *)address + 4 > module_inst->memories[0]->memory_data_end);
-    shared_memory_unlock(module_inst->memories[0]);
+        ((uint8 *)address < module_inst->memories[0].memory->memory_data
+         || (uint8 *)address + 4
+                > module_inst->memories[0].memory->memory_data_end);
+    shared_memory_unlock(module_inst->memories[0].memory);
 
     if (out_of_bounds) {
         wasm_runtime_set_exception(module, "out of bounds memory access");
@@ -407,13 +408,13 @@ wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
     }
 
     /* Currently we have only one memory instance */
-    if (!shared_memory_is_shared(module_inst->memories[0])) {
+    if (!shared_memory_is_shared(module_inst->memories[0].memory)) {
         /* Always return 0 for ushared linear memory since there is
            no way to create a waiter on it */
         return 0;
     }
 
-    lock = shared_memory_get_lock_pointer(module_inst->memories[0]);
+    lock = shared_memory_get_lock_pointer(module_inst->memories[0].memory);
 
     /* Lock the shared_mem_lock for the whole atomic notify process,
        and use it to os_cond_signal */

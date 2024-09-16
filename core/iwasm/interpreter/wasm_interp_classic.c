@@ -3455,7 +3455,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         str_obj = (WASMString)wasm_stringref_obj_get_value(
                             stringref_obj);
 
-                        memory_inst = module->memories[mem_idx];
+                        memory_inst = module->memories[mem_idx].memory;
                         maddr = memory_inst->memory_data + addr;
 
                         if (opcode == WASM_OP_STRING_ENCODE_WTF16) {
@@ -3623,7 +3623,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         addr = POP_I32();
                         stringview_wtf8_obj = POP_REF();
 
-                        memory_inst = module->memories[mem_idx];
+                        memory_inst = module->memories[mem_idx].memory;
                         maddr = memory_inst->memory_data + addr;
 
                         bytes_written = wasm_string_encode(

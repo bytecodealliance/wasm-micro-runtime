@@ -256,6 +256,15 @@ typedef struct LoadArgs {
 } LoadArgs;
 #endif /* LOAD_ARGS_OPTION_DEFINED */
 
+typedef struct WASMImportInst {
+    const char *module_name;
+    const char *name;
+    wasm_import_export_kind_t kind;
+    union {
+        wasm_memory_inst_t memory_inst;
+    } u;
+} WASMImportInst;
+
 #ifndef INSTANTIATION_ARGS_OPTION_DEFINED
 #define INSTANTIATION_ARGS_OPTION_DEFINED
 /* WASM module instantiation arguments */
@@ -263,6 +272,8 @@ typedef struct InstantiationArgs {
     uint32_t default_stack_size;
     uint32_t host_managed_heap_size;
     uint32_t max_memory_pages;
+    uint32_t import_count;
+    const WASMImportInst *imports;
 } InstantiationArgs;
 #endif /* INSTANTIATION_ARGS_OPTION_DEFINED */
 
@@ -942,6 +953,27 @@ wasm_runtime_get_module_inst(wasm_exec_env_t exec_env);
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_module_inst(wasm_exec_env_t exec_env,
                              const wasm_module_inst_t module_inst);
+
+/**
+ * Create a memory instance
+ *
+ * @param initial_pages The initial number of pages
+ * @param max_pages The maximum number of pages, or zero for no maximum
+ * @param shared Whether the memory is shared
+ *
+ * @return The created memory instance if successful, NULL otherwise
+ */
+WASM_RUNTIME_API_EXTERN wasm_memory_inst_t
+wasm_runtime_memory_create(uint64_t initial_pages, uint64_t max_pages,
+                           bool shared);
+
+/**
+ * @brief Destroy a memory instance
+ *
+ * @param memory_inst The memory instance to destroy
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_memory_destroy(wasm_memory_inst_t memory_inst);
 
 /**
  * @brief Lookup a memory instance by name
