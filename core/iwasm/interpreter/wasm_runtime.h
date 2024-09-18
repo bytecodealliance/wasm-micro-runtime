@@ -96,8 +96,8 @@ typedef union {
 typedef struct WASMSharedHeap {
     struct WASMSharedHeap *next;
     void *heap_handle;
-    uint8_t *base_addr;
-    uint32_t size;
+    uint8 *base_addr;
+    uint32 size;
     uint64 start_off_mem64;
     uint64 start_off_mem32;
 } WASMSharedHeap;

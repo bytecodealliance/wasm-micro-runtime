@@ -243,6 +243,29 @@ map_try_release_wait_info(HashMap *wait_hash_map, AtomicWaitInfo *wait_info,
     destroy_wait_info(wait_info);
 }
 
+#if WASM_ENABLE_SHARED_HEAP != 0
+static bool
+is_native_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
+                              uint8 *addr, uint32 bytes)
+{
+    WASMSharedHeap *shared_heap = NULL;
+
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        shared_heap = ((WASMModuleInstance *)module_inst)->e->shared_heap;
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        // TODO
+    }
+#endif
+
+    return shared_heap && addr >= shared_heap->base_addr
+           && addr + bytes <= shared_heap->base_addr + shared_heap->size;
+}
+#endif
+
 uint32
 wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
                          uint64 expect, int64 timeout, bool wait64)
@@ -271,9 +294,17 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
     }
 
     shared_memory_lock(module_inst->memories[0]);
-    if ((uint8 *)address < module_inst->memories[0]->memory_data
-        || (uint8 *)address + (wait64 ? 8 : 4)
-               > module_inst->memories[0]->memory_data_end) {
+    if (
+#if WASM_ENABLE_SHARED_HEAP != 0
+        /* not in shared heap */
+        !is_native_addr_in_shared_heap((WASMModuleInstanceCommon *)module_inst,
+                                       address, wait64 ? 8 : 4)
+        &&
+#endif
+        /* and not in linear memory */
+        ((uint8 *)address < module_inst->memories[0]->memory_data
+         || (uint8 *)address + (wait64 ? 8 : 4)
+                > module_inst->memories[0]->memory_data_end)) {
         shared_memory_unlock(module_inst->memories[0]);
         wasm_runtime_set_exception(module, "out of bounds memory access");
         return -1;
@@ -397,6 +428,11 @@ wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
 
     shared_memory_lock(module_inst->memories[0]);
     out_of_bounds =
+#if WASM_ENABLE_SHARED_HEAP != 0
+        /* not in shared heap */
+        !is_native_addr_in_shared_heap(module, address, 4) &&
+#endif
+        /* and not in linear memory */
         ((uint8 *)address < module_inst->memories[0]->memory_data
          || (uint8 *)address + 4 > module_inst->memories[0]->memory_data_end);
     shared_memory_unlock(module_inst->memories[0]);
