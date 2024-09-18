@@ -5072,6 +5072,18 @@ aot_const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
     return c_str;
 }
 
+#if WASM_ENABLE_DYNAMIC_AOT_DEBUG != 0
+AOTModule *g_dynamic_aot_module = NULL;
+
+void __attribute__((noinline)) __enable_dynamic_aot_debug(void)
+{
+    /* empty implementation. */
+}
+
+void (*__enable_dynamic_aot_debug_ptr)(void)
+    __attribute__((visibility("default"))) = __enable_dynamic_aot_debug;
+#endif
+
 bool
 aot_set_module_name(AOTModule *module, const char *name, char *error_buf,
                     uint32_t error_buf_size)
@@ -5085,6 +5097,12 @@ aot_set_module_name(AOTModule *module, const char *name, char *error_buf,
                                             false,
 #endif
                                             error_buf, error_buf_size);
+#if WASM_ENABLE_DYNAMIC_AOT_DEBUG != 0
+    /* export g_dynamic_aot_module for dynamic aot debug */
+    g_dynamic_aot_module = module;
+    /* trigger breakpoint __enable_dynamic_aot_debug */
+    (*__enable_dynamic_aot_debug_ptr)();
+#endif
     return module->name != NULL;
 }
 
