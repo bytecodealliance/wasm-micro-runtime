@@ -148,22 +148,13 @@ static void
 wasm_munmap_linear_memory(void *mapped_mem, uint64 commit_size,
                           uint64 map_size);
 
-static void
-set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
-{
-    if (error_buf != NULL) {
-        snprintf(error_buf, error_buf_size,
-                 "Operation of shared heap failed: %s", string);
-    }
-}
-
 static void *
-runtime_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
+runtime_malloc(uint64 size)
 {
     void *mem;
 
     if (size >= UINT32_MAX || !(mem = wasm_runtime_malloc((uint32)size))) {
-        set_error_buf(error_buf, error_buf_size, "allocate memory failed");
+        LOG_WARNING("Allocate memory failed");
         return NULL;
     }
 
@@ -172,27 +163,32 @@ runtime_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
 }
 
 WASMSharedHeap *
-wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args, char *error_buf,
-                                uint32 error_buf_size)
+wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args)
 {
     uint64 heap_struct_size = sizeof(WASMSharedHeap);
     uint32 size = init_args->size;
     WASMSharedHeap *heap;
 
-    if (!(heap = runtime_malloc(heap_struct_size, error_buf, error_buf_size))) {
+    if (size == 0) {
         goto fail1;
     }
+
+    if (!(heap = runtime_malloc(heap_struct_size))) {
+        goto fail1;
+    }
+
     if (!(heap->heap_handle =
-              runtime_malloc(mem_allocator_get_heap_struct_size(), error_buf,
-                             error_buf_size))) {
+              runtime_malloc(mem_allocator_get_heap_struct_size()))) {
         goto fail2;
     }
+
+    size = align_uint(size, os_getpagesize());
+    heap->size = size;
     heap->start_off_mem64 = UINT64_MAX - heap->size + 1;
     heap->start_off_mem32 = UINT32_MAX - heap->size + 1;
 
-    size = align_uint(size, os_getpagesize());
     if (size > APP_HEAP_SIZE_MAX || size < APP_HEAP_SIZE_MIN) {
-        set_error_buf(error_buf, error_buf_size, "invalid size of shared heap");
+        LOG_WARNING("Invalid size of shared heap");
         goto fail3;
     }
 
@@ -201,7 +197,7 @@ wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args, char *error_buf,
     }
     if (!mem_allocator_create_with_struct_and_pool(
             heap->heap_handle, heap_struct_size, heap->base_addr, size)) {
-        set_error_buf(error_buf, error_buf_size, "init share heap failed");
+        LOG_WARNING("init share heap failed");
         goto fail4;
     }
 
@@ -365,20 +361,25 @@ wasm_runtime_shared_heap_malloc(WASMModuleInstanceCommon *module_inst,
     WASMMemoryInstance *memory =
         wasm_get_default_memory((WASMModuleInstance *)module_inst);
     WASMSharedHeap *shared_heap = get_shared_heap(module_inst);
+    void *native_addr = NULL;
 
     if (!memory || !shared_heap)
         return 0;
 
-    *p_native_addr = mem_allocator_malloc(shared_heap->heap_handle, size);
-    if (!*p_native_addr)
+    native_addr = mem_allocator_malloc(shared_heap->heap_handle, size);
+    if (!native_addr)
         return 0;
+
+    if (p_native_addr) {
+        *p_native_addr = native_addr;
+    }
 
     if (memory->is_memory64)
         return shared_heap->start_off_mem64
-               + ((uint8 *)*p_native_addr - shared_heap->base_addr);
+               + ((uint8 *)native_addr - shared_heap->base_addr);
     else
         return shared_heap->start_off_mem32
-               + ((uint8 *)*p_native_addr - shared_heap->base_addr);
+               + ((uint8 *)native_addr - shared_heap->base_addr);
 }
 
 void
