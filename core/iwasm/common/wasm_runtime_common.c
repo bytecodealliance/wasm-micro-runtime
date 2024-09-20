@@ -4498,6 +4498,11 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
                                uint32 *argv, uint32 argc, uint32 *argv_ret)
 {
     WASMModuleInstanceCommon *module = wasm_runtime_get_module_inst(exec_env);
+#if WASM_ENABLE_MEMORY64 != 0
+    WASMMemoryInstance *memory =
+        wasm_get_default_memory((WASMModuleInstance *)module);
+    bool is_memory64 = memory ? memory->is_memory64 : false;
+#endif
     typedef void (*NativeRawFuncPtr)(WASMExecEnv *, uint64 *);
     NativeRawFuncPtr invoke_native_raw = (NativeRawFuncPtr)func_ptr;
     uint64 argv_buf[16] = { 0 }, *argv1 = argv_buf, *argv_dst, size, arg_i64;
@@ -4525,11 +4530,11 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
 #endif
             {
                 *(uint32 *)argv_dst = arg_i32 = *argv_src++;
-                /* TODO: memory64 if future there is a way for supporting
-                 * wasm64 and wasm32 in libc at the same time, remove the
-                 * macro control */
-#if WASM_ENABLE_MEMORY64 == 0
-                if (signature) {
+                if (signature
+#if WASM_ENABLE_MEMORY64 != 0
+                    && !is_memory64
+#endif
+                ) {
                     if (signature[i + 1] == '*') {
                         /* param is a pointer */
                         if (signature[i + 2] == '~')
@@ -4558,7 +4563,6 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
                                 module, (uint64)arg_i32);
                     }
                 }
-#endif
                 break;
             }
             case VALUE_TYPE_I64:
@@ -4568,7 +4572,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
                                 GET_I64_FROM_ADDR(argv_src));
                 argv_src += 2;
                 arg_i64 = *argv_dst;
-                if (signature) {
+                if (signature && is_memory64) {
                     /* TODO: memory64 pointer with length need a new symbol
                      * to represent type i64, with '~' still represent i32
                      * length */
@@ -4729,9 +4733,6 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
 fail:
     if (argv1 != argv_buf)
         wasm_runtime_free(argv1);
-#if WASM_ENABLE_MEMORY64 == 0
-    (void)arg_i64;
-#endif
     return ret;
 }
 
@@ -5655,6 +5656,11 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                            uint32 *argv_ret)
 {
     WASMModuleInstanceCommon *module = wasm_runtime_get_module_inst(exec_env);
+#if WASM_ENABLE_MEMORY64 != 0
+    WASMMemoryInstance *memory =
+        wasm_get_default_memory((WASMModuleInstance *)module);
+    bool is_memory64 = memory ? memory->is_memory64 : false;
+#endif
     uint64 argv_buf[32] = { 0 }, *argv1 = argv_buf, *ints, *stacks, size,
            arg_i64;
     uint32 *argv_src = argv, i, argc1, n_ints = 0, n_stacks = 0;
@@ -5720,11 +5726,11 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
             {
                 arg_i32 = *argv_src++;
                 arg_i64 = arg_i32;
-                /* TODO: memory64 if future there is a way for supporting
-                 * wasm64 and wasm32 in libc at the same time, remove the
-                 * macro control */
-#if WASM_ENABLE_MEMORY64 == 0
-                if (signature) {
+                if (signature
+#if WASM_ENABLE_MEMORY64 != 0
+                    && !is_memory64
+#endif
+                ) {
                     if (signature[i + 1] == '*') {
                         /* param is a pointer */
                         if (signature[i + 2] == '~')
@@ -5751,7 +5757,6 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                             module, (uint64)arg_i32);
                     }
                 }
-#endif
                 if (n_ints < MAX_REG_INTS)
                     ints[n_ints++] = arg_i64;
                 else
@@ -5763,7 +5768,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
             {
                 arg_i64 = GET_I64_FROM_ADDR(argv_src);
                 argv_src += 2;
-                if (signature) {
+                if (signature && is_memory64) {
                     /* TODO: memory64 pointer with length need a new symbol
                      * to represent type i64, with '~' still represent i32
                      * length */

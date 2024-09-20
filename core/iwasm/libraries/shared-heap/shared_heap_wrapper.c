@@ -31,11 +31,7 @@ shared_free_wrapper(wasm_exec_env_t exec_env, void *ptr)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
 
-#if WASM_ENABLE_MEMORY64 != 0
-    ptr = wasm_runtime_addr_app_to_native(module_inst, (uint64)ptr);
-#endif
-
-    if (!validate_native_addr(ptr, (uint64)sizeof(uint32))) {
+    if (!validate_native_addr(ptr, (uint64)sizeof(uintptr_t))) {
         LOG_WARNING("Invalid app address");
         return;
     }
