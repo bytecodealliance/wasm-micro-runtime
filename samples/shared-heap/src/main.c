@@ -57,7 +57,7 @@ thread1_callback(void *arg)
         printf("wasm app1 send buf: %s\n\n", buf);
         if (!bh_post_msg(queue, 1, buf, 1024 * i)) {
             printf("Failed to post message to queue\n");
-            wasm_runtime_shared_heap_free(module_inst, argv[0]);
+            wasm_runtime_shared_heap_free(module_inst, offset);
             break;
         }
     }
