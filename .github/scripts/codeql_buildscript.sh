@@ -126,6 +126,16 @@ if [[ $? != 0 ]]; then
     exit 1;
 fi
 
+# build iwasm with multi-memory enabled
+cd ${WAMR_DIR}/product-mini/platforms/linux
+rm -rf build && mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Debug -DWAMR_BUILD_MULTI_MEMORY=1
+make -j
+if [[ $? != 0 ]]; then
+    echo "Failed to build iwasm with multi-memory enabled!"
+    exit 1;
+fi
+
 # build iwasm with hardware boundary check disabled
 cd ${WAMR_DIR}/product-mini/platforms/linux
 rm -rf build && mkdir build && cd build
@@ -278,5 +288,25 @@ cmake .. -DCMAKE_BUILD_TYPE=Debug -DWAMR_BUILD_LINUX_PERF=1
 make -j
 if [[ $? != 0 ]]; then
     echo "Failed to build iwasm with linux perf support enabled!"
+    exit 1;
+fi
+
+# build iwasm with shared heap enabled
+cd ${WAMR_DIR}/product-mini/platforms/linux
+rm -rf build && mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Debug -DWAMR_BUILD_SHARED_HEAP=1
+make -j
+if [[ $? != 0 ]]; then
+    echo "Failed to build iwasm with shared heap enabled!"
+    exit 1;
+fi
+
+# build iwasm with dynamic aot debug enabled
+cd ${WAMR_DIR}/product-mini/platforms/linux
+rm -rf build && mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Debug -DWAMR_BUILD_DYNAMIC_AOT_DEBUG=1
+make -j
+if [[ $? != 0 ]];
+    echo "Failed to build iwasm dynamic aot debug enabled!"
     exit 1;
 fi

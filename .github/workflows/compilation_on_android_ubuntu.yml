@@ -584,7 +584,7 @@ jobs:
           mkdir build && cd build
           cmake ..
           cmake --build . --config Debug --parallel 4
-          ./shared_heap
+          ./shared_heap_test
 
   test:
     needs:
