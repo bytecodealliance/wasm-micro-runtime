@@ -15,6 +15,9 @@ set(WAMR_BUILD_JIT 0)
 set(WAMR_BUILD_MEMORY64 1)
 set(WAMR_BUILD_SHARED_HEAP 1)
 
+# Compile wasm modules
+add_subdirectory(wasm-apps)
+
 # if only load this CMake other than load it as subdirectory
 include(../unit_common.cmake)
 
@@ -52,12 +55,5 @@ set(unit_test_sources
 add_executable(shared_heap_test ${unit_test_sources})
 
 target_link_libraries(shared_heap_test ${LLVM_AVAILABLE_LIBS} gtest_main)
-
-add_custom_command(TARGET shared_heap_test POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy
-        ${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps/*.wasm
-        ${CMAKE_CURRENT_BINARY_DIR}/
-        COMMENT "Copy test wasm files to the directory of google test"
-        )
 
 gtest_discover_tests(shared_heap_test)
