@@ -1484,6 +1484,22 @@ wasm_runtime_load_ex(uint8 *buf, uint32 size, const LoadArgs *args,
                                           error_buf_size);
 }
 
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_resolve_symbols(WASMModuleCommon *module)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        return wasm_resolve_symbols((WASMModule *)module);
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        return aot_resolve_symbols((AOTModule *)module);
+    }
+#endif
+    return false;
+}
+
 WASMModuleCommon *
 wasm_runtime_load(uint8 *buf, uint32 size, char *error_buf,
                   uint32 error_buf_size)
@@ -4505,7 +4521,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
 #endif
     typedef void (*NativeRawFuncPtr)(WASMExecEnv *, uint64 *);
     NativeRawFuncPtr invoke_native_raw = (NativeRawFuncPtr)func_ptr;
-    uint64 argv_buf[16] = { 0 }, *argv1 = argv_buf, *argv_dst, size, arg_i64;
+    uint64 argv_buf[16] = { 0 }, *argv1 = argv_buf, *argv_dst, size;
     uint32 *argv_src = argv, i, argc1, ptr_len;
     uint32 arg_i32;
     bool ret = false;
@@ -4568,6 +4584,8 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
             case VALUE_TYPE_I64:
 #if WASM_ENABLE_MEMORY64 != 0
             {
+                uint64 arg_i64;
+
                 PUT_I64_TO_ADDR((uint32 *)argv_dst,
                                 GET_I64_FROM_ADDR(argv_src));
                 argv_src += 2;

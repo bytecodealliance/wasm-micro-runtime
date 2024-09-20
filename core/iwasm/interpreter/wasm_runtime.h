@@ -528,6 +528,13 @@ wasm_load_from_sections(WASMSection *section_list, char *error_buf,
 void
 wasm_unload(WASMModule *module);
 
+bool
+wasm_resolve_symbols(WASMModule *module);
+
+bool
+wasm_resolve_import_func(const WASMModule *module,
+                         WASMFunctionImport *function);
+
 WASMModuleInstance *
 wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                  WASMExecEnv *exec_env_main, uint32 stack_size,
@@ -554,12 +561,12 @@ wasm_set_running_mode(WASMModuleInstance *module_inst,
 WASMFunctionInstance *
 wasm_lookup_function(const WASMModuleInstance *module_inst, const char *name);
 
+WASMMemoryInstance *
+wasm_lookup_memory(const WASMModuleInstance *module_inst, const char *name);
+
 #if WASM_ENABLE_MULTI_MODULE != 0
 WASMGlobalInstance *
 wasm_lookup_global(const WASMModuleInstance *module_inst, const char *name);
-
-WASMMemoryInstance *
-wasm_lookup_memory(const WASMModuleInstance *module_inst, const char *name);
 
 WASMTableInstance *
 wasm_lookup_table(const WASMModuleInstance *module_inst, const char *name);

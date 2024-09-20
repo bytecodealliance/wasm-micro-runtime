@@ -2246,60 +2246,6 @@ wasm_loader_find_export(const WASMModule *module, const char *module_name,
 #endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
-static WASMFunction *
-wasm_loader_resolve_function(const char *module_name, const char *function_name,
-                             const WASMFuncType *expected_function_type,
-                             char *error_buf, uint32 error_buf_size)
-{
-    WASMModuleCommon *module_reg;
-    WASMFunction *function = NULL;
-    WASMExport *export = NULL;
-    WASMModule *module = NULL;
-    WASMFuncType *target_function_type = NULL;
-
-    module_reg = wasm_runtime_find_module_registered(module_name);
-    if (!module_reg || module_reg->module_type != Wasm_Module_Bytecode) {
-        LOG_DEBUG("can not find a module named %s for function %s", module_name,
-                  function_name);
-        set_error_buf(error_buf, error_buf_size, "unknown import");
-        return NULL;
-    }
-
-    module = (WASMModule *)module_reg;
-    export =
-        wasm_loader_find_export(module, module_name, function_name,
-                                EXPORT_KIND_FUNC, error_buf, error_buf_size);
-    if (!export) {
-        return NULL;
-    }
-
-    /* resolve function type and function */
-    if (export->index < module->import_function_count) {
-        target_function_type =
-            module->import_functions[export->index].u.function.func_type;
-        function = module->import_functions[export->index]
-                       .u.function.import_func_linked;
-    }
-    else {
-        target_function_type =
-            module->functions[export->index - module->import_function_count]
-                ->func_type;
-        function =
-            module->functions[export->index - module->import_function_count];
-    }
-
-    /* check function type */
-    if (!wasm_type_equal((WASMType *)expected_function_type,
-                         (WASMType *)target_function_type, module->types,
-                         module->type_count)) {
-        LOG_DEBUG("%s.%s failed the type check", module_name, function_name);
-        set_error_buf(error_buf, error_buf_size, "incompatible import type");
-        return NULL;
-    }
-
-    return function;
-}
-
 static WASMTable *
 wasm_loader_resolve_table(const char *module_name, const char *table_name,
                           uint32 init_size, uint32 max_size, char *error_buf,
@@ -2494,21 +2440,11 @@ static bool
 load_function_import(const uint8 **p_buf, const uint8 *buf_end,
                      const WASMModule *parent_module,
                      const char *sub_module_name, const char *function_name,
-                     WASMFunctionImport *function, char *error_buf,
-                     uint32 error_buf_size)
+                     WASMFunctionImport *function, bool no_resolve,
+                     char *error_buf, uint32 error_buf_size)
 {
     const uint8 *p = *p_buf, *p_end = buf_end;
     uint32 declare_type_index = 0;
-    WASMFuncType *declare_func_type = NULL;
-    WASMFunction *linked_func = NULL;
-#if WASM_ENABLE_MULTI_MODULE != 0
-    WASMModule *sub_module = NULL;
-    bool is_built_in_module = false;
-#endif
-    const char *linked_signature = NULL;
-    void *linked_attachment = NULL;
-    bool linked_call_conv_raw = false;
-    bool is_native_symbol = false;
 
     read_leb_uint32(p, p_end, declare_type_index);
     *p_buf = p;
@@ -2527,43 +2463,19 @@ load_function_import(const uint8 **p_buf, const uint8 *buf_end,
         parent_module->types, parent_module->type_count, declare_type_index);
 #endif
 
-    declare_func_type =
+    function->func_type =
         (WASMFuncType *)parent_module->types[declare_type_index];
-
-    /* lookup registered native symbols first */
-    linked_func = wasm_native_resolve_symbol(
-        sub_module_name, function_name, declare_func_type, &linked_signature,
-        &linked_attachment, &linked_call_conv_raw);
-    if (linked_func) {
-        is_native_symbol = true;
-    }
-#if WASM_ENABLE_MULTI_MODULE != 0
-    else {
-        if (!(is_built_in_module =
-                  wasm_runtime_is_built_in_module(sub_module_name))) {
-            sub_module = (WASMModule *)wasm_runtime_load_depended_module(
-                (WASMModuleCommon *)parent_module, sub_module_name, error_buf,
-                error_buf_size);
-        }
-        if (is_built_in_module || sub_module)
-            linked_func = wasm_loader_resolve_function(
-                sub_module_name, function_name, declare_func_type, error_buf,
-                error_buf_size);
-    }
-#endif
 
     function->module_name = (char *)sub_module_name;
     function->field_name = (char *)function_name;
-    function->func_type = declare_func_type;
-    /* func_ptr_linked is for native registered symbol */
-    function->func_ptr_linked = is_native_symbol ? linked_func : NULL;
-    function->signature = linked_signature;
-    function->attachment = linked_attachment;
-    function->call_conv_raw = linked_call_conv_raw;
-#if WASM_ENABLE_MULTI_MODULE != 0
-    function->import_module = is_native_symbol ? NULL : sub_module;
-    function->import_func_linked = is_native_symbol ? NULL : linked_func;
-#endif
+    function->attachment = NULL;
+    function->signature = NULL;
+    function->call_conv_raw = false;
+
+    /* lookup registered native symbols first */
+    if (!no_resolve) {
+        wasm_resolve_import_func(parent_module, function);
+    }
     return true;
 fail:
     return false;
@@ -3258,8 +3170,8 @@ fail:
 
 static bool
 load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
-                    bool is_load_from_file_buf, char *error_buf,
-                    uint32 error_buf_size)
+                    bool is_load_from_file_buf, bool no_resolve,
+                    char *error_buf, uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf_end, *p_old;
     uint32 import_count, name_len, type_index, i, u32, flags;
@@ -3442,9 +3354,10 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 case IMPORT_KIND_FUNC: /* import function */
                     bh_assert(import_functions);
                     import = import_functions++;
-                    if (!load_function_import(
-                            &p, p_end, module, sub_module_name, field_name,
-                            &import->u.function, error_buf, error_buf_size)) {
+                    if (!load_function_import(&p, p_end, module,
+                                              sub_module_name, field_name,
+                                              &import->u.function, no_resolve,
+                                              error_buf, error_buf_size)) {
                         return false;
                     }
                     break;
@@ -5760,7 +5673,7 @@ static void **handle_table;
 static bool
 load_from_sections(WASMModule *module, WASMSection *sections,
                    bool is_load_from_file_buf, bool wasm_binary_freeable,
-                   char *error_buf, uint32 error_buf_size)
+                   bool no_resolve, char *error_buf, uint32 error_buf_size)
 {
     WASMExport *export;
     WASMSection *section = sections;
@@ -5817,8 +5730,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                 break;
             case SECTION_TYPE_IMPORT:
                 if (!load_import_section(buf, buf_end, module,
-                                         reuse_const_strings, error_buf,
-                                         error_buf_size))
+                                         reuse_const_strings, no_resolve,
+                                         error_buf, error_buf_size))
                     return false;
                 break;
             case SECTION_TYPE_FUNC:
@@ -6343,7 +6256,7 @@ wasm_loader_load_from_sections(WASMSection *section_list, char *error_buf,
     if (!module)
         return NULL;
 
-    if (!load_from_sections(module, section_list, false, true, error_buf,
+    if (!load_from_sections(module, section_list, false, true, false, error_buf,
                             error_buf_size)) {
         wasm_loader_unload(module);
         return NULL;
@@ -6488,7 +6401,8 @@ static union {
 
 static bool
 load(const uint8 *buf, uint32 size, WASMModule *module,
-     bool wasm_binary_freeable, char *error_buf, uint32 error_buf_size)
+     bool wasm_binary_freeable, bool no_resolve, char *error_buf,
+     uint32 error_buf_size)
 {
     const uint8 *buf_end = buf + size;
     const uint8 *p = buf, *p_end = buf_end;
@@ -6519,7 +6433,7 @@ load(const uint8 *buf, uint32 size, WASMModule *module,
 
     if (!create_sections(buf, size, &section_list, error_buf, error_buf_size)
         || !load_from_sections(module, section_list, true, wasm_binary_freeable,
-                               error_buf, error_buf_size)) {
+                               no_resolve, error_buf, error_buf_size)) {
         destroy_sections(section_list);
         return false;
     }
@@ -6695,8 +6609,8 @@ wasm_loader_load(uint8 *buf, uint32 size,
     module->load_size = size;
 #endif
 
-    if (!load(buf, size, module, args->wasm_binary_freeable, error_buf,
-              error_buf_size)) {
+    if (!load(buf, size, module, args->wasm_binary_freeable, args->no_resolve,
+              error_buf, error_buf_size)) {
         goto fail;
     }
 
