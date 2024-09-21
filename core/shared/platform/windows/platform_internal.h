@@ -168,12 +168,13 @@ typedef struct windows_dir_stream {
     windows_handle *handle;
 } windows_dir_stream;
 
-typedef windows_handle *os_file_handle;
 typedef windows_dir_stream *os_dir_stream;
 
-#if WASM_ENABLE_UVWASI != 1
+#if WASM_ENABLE_UVWASI == 0
+typedef windows_handle *os_file_handle;
 typedef HANDLE os_raw_file_handle;
 #else
+typedef uint32_t os_file_handle;
 typedef uint32_t os_raw_file_handle;
 #endif
 
@@ -190,7 +191,11 @@ typedef uint32_t os_raw_file_handle;
 static inline os_file_handle
 os_get_invalid_handle(void)
 {
+#if WASM_ENABLE_UVWASI == 0
     return NULL;
+#else
+    return -1;
+#endif
 }
 
 #ifdef __cplusplus

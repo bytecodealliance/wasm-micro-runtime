@@ -2520,7 +2520,7 @@ try_merge_data_and_text(const uint8 **buf, const uint8 **buf_end,
     /* order not essential just as compiler does: .text section first */
     *buf = sections;
     *buf_end = sections + code_size;
-    bh_memcpy_s(sections, code_size, old_buf, code_size);
+    bh_memcpy_s(sections, (uint32)code_size, old_buf, (uint32)code_size);
     os_munmap(old_buf, code_size);
     sections += align_uint((uint32)code_size, page_size);
 
