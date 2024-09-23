@@ -27,7 +27,7 @@ set (DEFINED_SYMBOLS
 "${WAMR_ROOT_DIR}/wamr-sdk/app/libc-builtin-sysroot/share/defined-symbols.txt")
 
 set (CMAKE_EXE_LINKER_FLAGS
-    "-Wl,--max-memory=131072,       \
+    "-Wl,--shared-memory,--max-memory=131072,       \
     -Wl,--no-entry,--strip-all,--export=sum,        \
     -Wl,--export=return_bss,        \
     -Wl,--export=__heap_base,--export=__data_end    \
