@@ -182,8 +182,8 @@ os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr,
     (*sock)->type = windows_handle_type_socket;
     (*sock)->access_mode = windows_access_mode_read | windows_access_mode_write;
     (*sock)->fdflags = 0;
-    (*sock)->raw.socket =
-        accept(server_sock->raw.socket, (struct sockaddr *)&addr_tmp, &len);
+    (*sock)->raw.socket = accept(server_sock->raw.socket,
+                                 (struct sockaddr *)&addr_tmp, (int *)&len);
 
     if ((*sock)->raw.socket == INVALID_SOCKET) {
         BH_FREE(*sock);
