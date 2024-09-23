@@ -44,11 +44,10 @@ has_module_memory64(WASMModule *module)
     /* TODO: multi-memories for now assuming the memory idx type is consistent
      * across multi-memories */
     if (module->import_memory_count > 0)
-        return (module->import_memories[0].u.memory.mem_type.flags
-                & MEMORY64_FLAG)
-               != 0;
+        return !!(module->import_memories[0].u.memory.mem_type.flags
+                  & MEMORY64_FLAG);
     else if (module->memory_count > 0)
-        return (module->memories[0].flags & MEMORY64_FLAG) != 0;
+        return !!(module->memories[0].flags & MEMORY64_FLAG);
 
     return false;
 }
