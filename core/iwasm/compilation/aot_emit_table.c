@@ -24,7 +24,7 @@ zero_extend_u64(AOTCompContext *comp_ctx, LLVMValueRef *value, const char *name)
     return true;
 }
 
-/* check whether an i64 value is greater than UINT32_MAX, if so, throw
+/* check whether a table64 elem idx is greater than UINT32_MAX, if so, throw
  * exception, otherwise trunc it to uint32 */
 static bool
 check_tbl_elem_idx_and_trunc(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
@@ -510,9 +510,8 @@ aot_compile_op_table_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* In table64, the length should be i32 type if any one of src/dst table
-     * is i32 type, set the table index to the table that at least not larger
-     * when popping length
-     * n */
+     * is i32 type, set the table index to the lesser-or-equal table when
+     * popping length n */
     if (!(comp_ctx->comp_data->tables[src_tbl_idx].table_type.flags
           & TABLE64_FLAG))
         tbl_idx = src_tbl_idx;

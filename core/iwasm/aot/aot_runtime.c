@@ -733,7 +733,6 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         bh_assert(table_seg->table_index < module_inst->table_count);
 
         tbl_inst = module_inst->tables[table_seg->table_index];
-
         bh_assert(tbl_inst);
 
 #if WASM_ENABLE_REF_TYPES != 0

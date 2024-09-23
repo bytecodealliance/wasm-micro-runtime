@@ -25,22 +25,22 @@ check_memory64_flags_consistency(WASMModule *module, char *error_buf,
                                  uint32 error_buf_size, bool is_aot)
 {
     uint32 i;
-    bool wasm64_flag, all_wasm64 = true, non_wasm64 = true;
+    bool wasm64_flag, all_wasm64 = true, none_wasm64 = true;
 
     for (i = 0; i < module->import_memory_count; ++i) {
         wasm64_flag =
             module->import_memories[i].u.memory.mem_type.flags & MEMORY64_FLAG;
         all_wasm64 &= wasm64_flag;
-        non_wasm64 &= !wasm64_flag;
+        none_wasm64 &= !wasm64_flag;
     }
 
     for (i = 0; i < module->memory_count; ++i) {
         wasm64_flag = module->memories[i].flags & MEMORY64_FLAG;
         all_wasm64 &= wasm64_flag;
-        non_wasm64 &= !wasm64_flag;
+        none_wasm64 &= !wasm64_flag;
     }
 
-    if (!(all_wasm64 || non_wasm64)) {
+    if (!(all_wasm64 || none_wasm64)) {
         wasm_loader_set_error_buf(
             error_buf, error_buf_size,
             "inconsistent limits wasm64 flags for memory sections", is_aot);
