@@ -5279,11 +5279,25 @@ fail:
     } while (0)
 #define PUSH_PAGE_COUNT() PUSH_MEM_OFFSET()
 
+#define PUSH_TBL_ELEM_IDX()                                               \
+    do {                                                                  \
+        if (!(wasm_loader_push_frame_ref(loader_ctx, table_elem_idx_type, \
+                                         error_buf, error_buf_size)))     \
+            goto fail;                                                    \
+    } while (0)
+
 #define POP_MEM_OFFSET()                                                   \
     do {                                                                   \
         if (!wasm_loader_pop_frame_ref_offset(loader_ctx, mem_offset_type, \
                                               error_buf, error_buf_size))  \
             goto fail;                                                     \
+    } while (0)
+
+#define POP_TBL_ELEM_IDX()                                               \
+    do {                                                                 \
+        if (!(wasm_loader_pop_frame_ref(loader_ctx, table_elem_idx_type, \
+                                        error_buf, error_buf_size)))     \
+            goto fail;                                                   \
     } while (0)
 
 #define POP_AND_PUSH(type_pop, type_push)                         \
