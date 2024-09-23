@@ -673,6 +673,11 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
     );
 
     read_leb_uint32(p, p_end, table_flag);
+
+    if (!wasm_table_check_flags(table_flag, error_buf, error_buf_size, false)) {
+        return false;
+    }
+
     read_leb_uint32(p, p_end, declare_init_size);
     if (table_flag & MAX_TABLE_SIZE_FLAG) {
         read_leb_uint32(p, p_end, declare_max_size);
@@ -807,12 +812,12 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMTable *table,
     p_org = p;
     read_leb_uint32(p, p_end, table->table_type.flags);
     bh_assert(p - p_org <= 1);
-#if WASM_ENABLE_MEMORY64 != 0
-    bh_assert(table->table_type.flags <= MAX_TABLE_SIZE_FLAG + TABLE64_FLAG);
-#else
-    bh_assert(table->table_type.flags <= MAX_TABLE_SIZE_FLAG);
-#endif
     (void)p_org;
+
+    if (!wasm_table_check_flags(table->table_type.flags, error_buf,
+                                error_buf_size, false)) {
+        return false;
+    }
 
     read_leb_uint32(p, p_end, table->table_type.init_size);
     if (table->table_type.flags == MAX_TABLE_SIZE_FLAG) {

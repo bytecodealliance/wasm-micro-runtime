@@ -2224,7 +2224,8 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 #endif
 
-    /* Throw exception if elem index >= table size or elem index >= UINT32_MAX */
+    /* Throw exception if elem index >= table size or elem index >= UINT32_MAX
+     */
     if (!(check_elem_idx_succ = LLVMAppendBasicBlockInContext(
               comp_ctx->context, func_ctx->func, "check_elem_idx_succ"))) {
         aot_set_last_error("llvm add basic block failed.");
