@@ -111,6 +111,7 @@ typedef struct AOTFunctionInstance {
 
 typedef struct AOTModuleInstanceExtra {
     DefPointer(const uint32 *, stack_sizes);
+    DefPointer(WASMSharedHeap *, shared_heap);
     WASMModuleInstanceExtraCommon common;
     AOTFunctionInstance **functions;
     uint32 function_count;
@@ -118,10 +119,6 @@ typedef struct AOTModuleInstanceExtra {
     bh_list sub_module_inst_list_head;
     bh_list *sub_module_inst_list;
     WASMModuleInstanceCommon **import_func_module_insts;
-#endif
-
-#if WASM_ENABLE_SHARED_HEAP != 0
-    WASMSharedHeap *shared_heap;
 #endif
 } AOTModuleInstanceExtra;
 

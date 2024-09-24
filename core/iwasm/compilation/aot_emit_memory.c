@@ -118,10 +118,10 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef offset_const =
         MEMORY64_COND_VALUE(I64_CONST(offset), I32_CONST(offset));
-    LLVMValueRef addr, maddr, offset1, cmp1, cmp2, cmp;
+    LLVMValueRef addr, maddr, maddr_phi = NULL, offset1, cmp1, cmp2, cmp;
     LLVMValueRef mem_base_addr, mem_check_bound;
     LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
-    LLVMBasicBlockRef check_succ;
+    LLVMBasicBlockRef check_succ, block_maddr_phi = NULL;
     AOTValue *aot_value_top;
     uint32 local_idx_of_aot_value = 0;
     uint64 const_value;
@@ -130,6 +130,11 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 #if WASM_ENABLE_SHARED_MEMORY != 0
     bool is_shared_memory =
         comp_ctx->comp_data->memories[0].flags & SHARED_MEMORY_FLAG;
+#endif
+#if WASM_ENABLE_MEMORY64 == 0
+    bool is_memory64 = false;
+#else
+    bool is_memory64 = IS_MEMORY64;
 #endif
 
     is_target_64bit = (comp_ctx->pointer_size == sizeof(uint64)) ? true : false;
@@ -270,6 +275,98 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* offset1 = offset + addr; */
     BUILD_OP(Add, offset_const, addr, offset1, "offset1");
 
+    if (comp_ctx->enable_shared_heap) {
+        LLVMBasicBlockRef app_addr_in_shared_heap, app_addr_in_linear_mem;
+        LLVMValueRef is_in_shared_heap, shared_heap_bound;
+        LLVMValueRef offset_in_shared_heap, maddr_p;
+
+        ADD_BASIC_BLOCK(app_addr_in_shared_heap, "app_addr_in_shared_heap");
+        ADD_BASIC_BLOCK(app_addr_in_linear_mem, "app_addr_in_linear_mem");
+        ADD_BASIC_BLOCK(block_maddr_phi, "maddr_phi");
+
+        LLVMMoveBasicBlockAfter(app_addr_in_shared_heap, block_curr);
+        LLVMMoveBasicBlockAfter(app_addr_in_linear_mem,
+                                app_addr_in_shared_heap);
+        LLVMMoveBasicBlockAfter(block_maddr_phi, app_addr_in_linear_mem);
+
+        LLVMPositionBuilderAtEnd(comp_ctx->builder, block_maddr_phi);
+        if (!(maddr_phi = LLVMBuildPhi(comp_ctx->builder, INT8_PTR_TYPE,
+                                       "maddr_phi"))) {
+            aot_set_last_error("llvm build phi failed");
+            goto fail;
+        }
+
+        LLVMPositionBuilderAtEnd(comp_ctx->builder, block_curr);
+
+        if (!is_memory64) {
+            if (comp_ctx->pointer_size == sizeof(uint64)) {
+                BUILD_ICMP(LLVMIntUGE, offset1, func_ctx->shared_heap_start_off,
+                           cmp1, "cmp1");
+                shared_heap_bound = I64_CONST(UINT32_MAX - bytes + 1);
+                CHECK_LLVM_CONST(shared_heap_bound);
+                BUILD_ICMP(LLVMIntULE, offset1, shared_heap_bound, cmp2,
+                           "cmp2");
+                BUILD_OP(And, func_ctx->shared_heap_is_not_null, cmp1, cmp,
+                         "cmp");
+                BUILD_OP(And, cmp, cmp2, is_in_shared_heap,
+                         "is_in_shared_heap");
+            }
+            else {
+                BUILD_ICMP(LLVMIntUGE, offset1, func_ctx->shared_heap_start_off,
+                           cmp1, "cmp1");
+                shared_heap_bound = I32_CONST(UINT32_MAX - bytes + 1);
+                CHECK_LLVM_CONST(shared_heap_bound);
+                BUILD_ICMP(LLVMIntULE, offset1, shared_heap_bound, cmp2,
+                           "cmp2");
+                BUILD_OP(And, func_ctx->shared_heap_is_not_null, cmp1, cmp,
+                         "cmp");
+                BUILD_OP(And, cmp, cmp2, is_in_shared_heap,
+                         "is_in_shared_heap");
+            }
+        }
+        else {
+            BUILD_ICMP(LLVMIntUGE, offset1, func_ctx->shared_heap_start_off,
+                       cmp1, "cmp1");
+            shared_heap_bound = I64_CONST(UINT64_MAX - bytes + 1);
+            CHECK_LLVM_CONST(shared_heap_bound);
+            BUILD_ICMP(LLVMIntULE, offset1, shared_heap_bound, cmp2, "cmp2");
+            BUILD_OP(And, func_ctx->shared_heap_is_not_null, cmp1, cmp, "cmp");
+            BUILD_OP(And, cmp, cmp2, is_in_shared_heap, "is_in_shared_heap");
+        }
+
+        if (!LLVMBuildCondBr(comp_ctx->builder, is_in_shared_heap,
+                             app_addr_in_shared_heap, app_addr_in_linear_mem)) {
+            aot_set_last_error("llvm build cond br failed");
+            goto fail;
+        }
+
+        LLVMPositionBuilderAtEnd(comp_ctx->builder, app_addr_in_shared_heap);
+
+        BUILD_OP(Sub, offset1, func_ctx->shared_heap_start_off,
+                 offset_in_shared_heap, "offset_shared_heap");
+
+        if (!(maddr_p = LLVMBuildInBoundsGEP2(
+                  comp_ctx->builder, INT8_TYPE, func_ctx->shared_heap_base_addr,
+                  &offset_in_shared_heap, 1, "maddr_p"))) {
+            aot_set_last_error("llvm build inbounds gep failed");
+            goto fail;
+        }
+        if (!(maddr = LLVMBuildLoad2(comp_ctx->builder, INT8_PTR_TYPE, maddr_p,
+                                     "maddr_shared_heap"))) {
+            aot_set_last_error("llvm build load failed");
+            goto fail;
+        }
+        LLVMAddIncoming(maddr_phi, &maddr, &app_addr_in_shared_heap, 1);
+
+        if (!LLVMBuildBr(comp_ctx->builder, block_maddr_phi)) {
+            aot_set_last_error("llvm build br failed");
+            goto fail;
+        }
+
+        LLVMPositionBuilderAtEnd(comp_ctx->builder, app_addr_in_linear_mem);
+        block_curr = LLVMGetInsertBlock(comp_ctx->builder);
+    }
+
     if (comp_ctx->enable_bound_check
         && !(is_local_of_aot_value
              && aot_checked_addr_list_find(func_ctx, local_idx_of_aot_value,
@@ -354,7 +451,19 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             goto fail;
         }
     }
-    return maddr;
+
+    if (comp_ctx->enable_shared_heap) {
+        block_curr = LLVMGetInsertBlock(comp_ctx->builder);
+        LLVMAddIncoming(maddr_phi, &maddr, &block_curr, 1);
+        if (!LLVMBuildBr(comp_ctx->builder, block_maddr_phi)) {
+            aot_set_last_error("llvm build br failed");
+            goto fail;
+        }
+        LLVMPositionBuilderAtEnd(comp_ctx->builder, block_maddr_phi);
+        return maddr_phi;
+    }
+    else
+        return maddr;
 fail:
     return NULL;
 }

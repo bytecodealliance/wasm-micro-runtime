@@ -1519,6 +1519,166 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 }
 
 static bool
+create_shared_heap_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    LLVMBasicBlockRef block_curr, load_start_off, load_start_off_end;
+    LLVMValueRef offset, shared_heap_p, cmp;
+    LLVMValueRef base_addr_p, base_addr;
+    uint32 offset_u32;
+#if WASM_ENABLE_MEMORY64 == 0
+    bool is_memory64 = false;
+#else
+    bool is_memory64 = IS_MEMORY64;
+#endif
+
+    offset_u32 = get_module_inst_extra_offset(comp_ctx);
+    offset_u32 += offsetof(AOTModuleInstanceExtra, shared_heap);
+    offset = I32_CONST(offset_u32);
+    CHECK_LLVM_CONST(offset);
+
+    if (!(shared_heap_p = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
+                                                func_ctx->aot_inst, &offset, 1,
+                                                "shared_heap_p"))) {
+        aot_set_last_error("llvm build inbounds gep failed");
+        return false;
+    }
+    if (!(func_ctx->shared_heap =
+              LLVMBuildLoad2(comp_ctx->builder, INT64_PTR_TYPE, shared_heap_p,
+                             "shared_heap"))) {
+        aot_set_last_error("llvm build load failed");
+        return false;
+    }
+
+    block_curr = LLVMGetInsertBlock(comp_ctx->builder);
+    if (!(load_start_off = LLVMAppendBasicBlockInContext(
+              comp_ctx->context, func_ctx->func, "load_start_off"))
+        || !(load_start_off_end = LLVMAppendBasicBlockInContext(
+                 comp_ctx->context, func_ctx->func, "load_start_off_end"))) {
+        aot_set_last_error("add LLVM basic block failed");
+        return false;
+    }
+    LLVMMoveBasicBlockAfter(load_start_off, block_curr);
+    LLVMMoveBasicBlockAfter(load_start_off_end, load_start_off);
+
+    LLVMPositionBuilderAtEnd(comp_ctx->builder, load_start_off_end);
+
+    if (!(func_ctx->shared_heap_base_addr = LLVMBuildPhi(
+              comp_ctx->builder, INT8_PTR_TYPE, "shared_heap_base_addr"))) {
+        aot_set_last_error("llvm build phi failed");
+        return false;
+    }
+    if (!(func_ctx->shared_heap_start_off = LLVMBuildPhi(
+              comp_ctx->builder,
+              comp_ctx->pointer_size == sizeof(uint64) ? I64_TYPE : I32_TYPE,
+              "shared_heap_start_off"))) {
+        aot_set_last_error("llvm build phi failed");
+        return false;
+    }
+
+    LLVMPositionBuilderAtEnd(comp_ctx->builder, block_curr);
+
+    if (!(cmp = LLVMBuildIsNotNull(comp_ctx->builder, func_ctx->shared_heap,
+                                   "is_shared_heap"))) {
+        aot_set_last_error("llvm build is null failed");
+        return false;
+    }
+    func_ctx->shared_heap_is_not_null = cmp;
+
+    if (!LLVMBuildCondBr(comp_ctx->builder, cmp, load_start_off,
+                         load_start_off_end)) {
+        aot_set_last_error("llvm build condbr failed");
+        return false;
+    }
+
+    LLVMAddIncoming(func_ctx->shared_heap_base_addr, &I8_PTR_NULL, &block_curr,
+                    1);
+    LLVMAddIncoming(func_ctx->shared_heap_start_off,
+                    comp_ctx->pointer_size == sizeof(uint64) ? &I64_ZERO
+                                                             : &I32_ZERO,
+                    &block_curr, 1);
+
+    LLVMPositionBuilderAtEnd(comp_ctx->builder, load_start_off);
+
+    if (!is_memory64) {
+        LLVMValueRef start_off_mem32_p, start_off_mem32;
+
+        if (!(start_off_mem32_p = LLVMBuildInBoundsGEP2(
+                  comp_ctx->builder, I64_TYPE, func_ctx->shared_heap, &I32_ONE,
+                  1, "start_off_mem32_p"))) {
+            aot_set_last_error("llvm build inbounds gep failed");
+            return false;
+        }
+
+        if (!(start_off_mem32 =
+                  LLVMBuildLoad2(comp_ctx->builder, I64_TYPE, start_off_mem32_p,
+                                 "start_off_mem32"))) {
+            aot_set_last_error("llvm build load failed");
+            return false;
+        }
+
+        if (comp_ctx->pointer_size == sizeof(uint64)) {
+            LLVMAddIncoming(func_ctx->shared_heap_start_off, &start_off_mem32,
+                            &load_start_off, 1);
+        }
+        else {
+            if (!(start_off_mem32 =
+                      LLVMBuildTrunc(comp_ctx->builder, start_off_mem32,
+                                     I32_TYPE, "start_off_mem32_trunc"))) {
+                aot_set_last_error("llvm build trunc failed");
+                return false;
+            }
+            LLVMAddIncoming(func_ctx->shared_heap_start_off, &start_off_mem32,
+                            &load_start_off, 1);
+        }
+    }
+    else {
+        LLVMValueRef start_off_mem64_p, start_off_mem64;
+
+        if (!(start_off_mem64_p = LLVMBuildInBoundsGEP2(
+                  comp_ctx->builder, I64_TYPE, func_ctx->shared_heap, &I32_TWO,
+                  1, "start_off_mem64_p"))) {
+            aot_set_last_error("llvm build inbounds gep failed");
+            return false;
+        }
+
+        if (!(start_off_mem64 =
+                  LLVMBuildLoad2(comp_ctx->builder, I64_TYPE, start_off_mem64_p,
+                                 "start_off_mem64"))) {
+            aot_set_last_error("llvm build load failed");
+            return false;
+        }
+        LLVMAddIncoming(func_ctx->shared_heap_start_off, &start_off_mem64,
+                        &load_start_off, 1);
+    }
+
+    if (!(base_addr_p = LLVMBuildInBoundsGEP2(comp_ctx->builder, I64_TYPE,
+                                              func_ctx->shared_heap, &I32_THREE,
+                                              1, "base_addr_p"))) {
+        aot_set_last_error("llvm build inbounds gep failed");
+        return false;
+    }
+    if (!(base_addr = LLVMBuildLoad2(comp_ctx->builder, INT8_PTR_TYPE,
+                                     base_addr_p, "shared_heap_base_addr"))) {
+        aot_set_last_error("llvm build load failed");
+        return false;
+    }
+    LLVMAddIncoming(func_ctx->shared_heap_base_addr, &base_addr,
+                    &load_start_off, 1);
+
+    if (!LLVMBuildBr(comp_ctx->builder, load_start_off_end)) {
+        aot_set_last_error("llvm build br failed");
+        return false;
+    }
+
+    LLVMPositionBuilderAtEnd(comp_ctx->builder, load_start_off_end);
+    func_ctx->block_to_translate = load_start_off_end;
+
+    return true;
+fail:
+    return false;
+}
+
+static bool
 create_cur_exception(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef offset;
@@ -1746,6 +1906,7 @@ aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
               aot_create_func_block(comp_ctx, func_ctx, func, aot_func_type))) {
         goto fail;
     }
+    func_ctx->block_to_translate = aot_block->llvm_entry_block;
 
 #if WASM_ENABLE_DEBUG_AOT != 0
     func_ctx->debug_func = dwarf_gen_func_info(comp_ctx, func_ctx);
@@ -1805,6 +1966,12 @@ aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
     /* Load function pointers */
     if (!create_func_ptrs(comp_ctx, func_ctx)) {
+        goto fail;
+    }
+
+    /* Load shared heap, shared heap start off mem32 or mem64 */
+    if (comp_ctx->enable_shared_heap
+        && !create_shared_heap_info(comp_ctx, func_ctx)) {
         goto fail;
     }
 
@@ -2619,6 +2786,9 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     if (option->enable_gc)
         comp_ctx->enable_gc = true;
 
+    if (option->enable_shared_heap)
+        comp_ctx->enable_shared_heap = true;
+
     comp_ctx->opt_level = option->opt_level;
     comp_ctx->size_level = option->size_level;
 
@@ -3089,6 +3259,10 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
         goto fail;
     }
     if (strstr(triple, "linux") && !strcmp(comp_ctx->target_arch, "x86_64")) {
+        if (option->segue_flags && option->enable_shared_heap) {
+            LOG_WARNING("Segue is disabled when shared heap is enabled.");
+            option->segue_flags = 0;
+        }
         if (option->segue_flags) {
             if (option->segue_flags & (1 << 0))
                 comp_ctx->enable_segue_i32_load = true;

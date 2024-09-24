@@ -245,16 +245,24 @@ wasm_runtime_attach_shared_heap_internal(WASMModuleInstanceCommon *module_inst,
 
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
-        if (((WASMModuleInstance *)module_inst)->e->shared_heap) {
+        WASMModuleInstanceExtra *e =
+            (WASMModuleInstanceExtra *)((WASMModuleInstance *)module_inst)->e;
+        if (e->shared_heap) {
             LOG_WARNING("A shared heap is already attached");
             return false;
         }
-        ((WASMModuleInstance *)module_inst)->e->shared_heap = shared_heap;
+        e->shared_heap = shared_heap;
     }
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
-        // TODO
+        AOTModuleInstanceExtra *e =
+            (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e;
+        if (e->shared_heap) {
+            LOG_WARNING("A shared heap is already attached");
+            return false;
+        }
+        e->shared_heap = shared_heap;
     }
 #endif
 
@@ -282,7 +290,9 @@ wasm_runtime_detach_shared_heap_internal(WASMModuleInstanceCommon *module_inst)
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
-        // TODO
+        AOTModuleInstanceExtra *e =
+            (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e;
+        e->shared_heap = NULL;
     }
 #endif
 }
@@ -307,8 +317,10 @@ get_shared_heap(WASMModuleInstanceCommon *module_inst_comm)
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst_comm->module_type == Wasm_Module_AoT) {
-        // TODO
-        return NULL;
+        AOTModuleInstanceExtra *e =
+            (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst_comm)
+                ->e;
+        return e->shared_heap;
     }
 #endif
     return NULL;
