@@ -93,12 +93,12 @@ typedef union {
 } MemBound;
 
 typedef struct WASMSharedHeap {
-    uint64 size;
-    uint64 start_off_mem32;
-    uint64 start_off_mem64;
-    DefPointer(uint8 *, base_addr);
-    void *heap_handle;
     struct WASMSharedHeap *next;
+    void *heap_handle;
+    uint8 *base_addr;
+    uint64 size;
+    uint64 start_off_mem64;
+    uint64 start_off_mem32;
 } WASMSharedHeap;
 
 struct WASMMemoryInstance {

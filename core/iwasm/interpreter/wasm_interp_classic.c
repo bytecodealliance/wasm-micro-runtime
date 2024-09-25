@@ -48,6 +48,7 @@ typedef float64 CellType_F64;
 
 #if WASM_ENABLE_SHARED_HEAP != 0
 #if WASM_ENABLE_MULTI_MEMORY != 0
+/* Only enable shared heap for the default memory */
 #define is_default_memory (memidx == 0)
 #else
 #define is_default_memory true

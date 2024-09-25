@@ -242,14 +242,9 @@ typedef struct AOTFuncContext {
     bool mem_space_unchanged;
     AOTCheckedAddrList checked_addr_list;
 
-    LLVMValueRef shared_heap;
-    LLVMValueRef shared_heap_is_not_null;
-    LLVMValueRef shared_heap_base_addr;
+    LLVMValueRef shared_heap_base_addr_adj;
     LLVMValueRef shared_heap_start_off;
 
-    /* The label to start translating bytecodes after creating
-       the function context */
-    LLVMBasicBlockRef block_to_translate;
     LLVMBasicBlockRef got_exception_block;
     LLVMBasicBlockRef func_return_block;
     LLVMValueRef exception_id_phi;

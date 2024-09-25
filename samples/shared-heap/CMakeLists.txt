@@ -48,6 +48,7 @@ if (NOT CMAKE_BUILD_TYPE)
 endif ()
 
 set (WAMR_BUILD_INTERP 1)
+set (WAMR_BUILD_FAST_INTERP 1)
 set (WAMR_BUILD_AOT 1)
 set (WAMR_BUILD_JIT 0)
 set (WAMR_BUILD_LIBC_BUILTIN 1)
@@ -90,3 +91,33 @@ else ()
 endif ()
 
 add_subdirectory(wasm-apps)
+
+if (WAMR_BUILD_AOT EQUAL 1)
+  set (WAMR_COMPILER_DIR ${CMAKE_CURRENT_LIST_DIR}/../../wamr-compiler/build)
+  message (CHECK_START "Detecting WAMR_COMPILER at ${WAMR_COMPILER_DIR}")
+  find_file (WAMR_COMPILER
+    wamrc
+    PATHS "${CMAKE_CURRENT_LIST_DIR}/../../wamr-compiler/build"
+    NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
+  )
+  if (WAMR_COMPILER)
+    message (CHECK_PASS "found")
+  else()
+    message (CHECK_FAIL "not found")
+  endif()
+  if (NOT EXISTS ${WAMR_COMPILER})
+    message (FATAL_ERROR "Please build wamrc under ${WAMR_ROOT_DIR}/wamr-compiler")
+  else()
+    message (STATUS "WAMR_COMPILER is ${WAMR_COMPILER}")
+  endif()
+
+  add_custom_target(
+    wasm_to_aot
+    ALL
+    DEPENDS wasm-apps/test1.wasm wasm-apps/test2.wasm ${WAMR_COMPILER}
+    COMMAND ${WAMR_COMPILER} --enable-shared-heap -o wasm-apps/test1.aot wasm-apps/test1.wasm
+    COMMAND ${WAMR_COMPILER} --enable-shared-heap -o wasm-apps/test2.aot wasm-apps/test2.wasm
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+  )
+endif()

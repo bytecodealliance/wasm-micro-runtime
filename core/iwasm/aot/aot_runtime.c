@@ -57,11 +57,9 @@ bh_static_assert(sizeof(AOTMemoryInstance) == 120);
 bh_static_assert(offsetof(AOTTableInstance, elems) == 24);
 
 bh_static_assert(offsetof(AOTModuleInstanceExtra, stack_sizes) == 0);
-bh_static_assert(offsetof(AOTModuleInstanceExtra, shared_heap) == 8);
-
-bh_static_assert(offsetof(WASMSharedHeap, start_off_mem32) == 8);
-bh_static_assert(offsetof(WASMSharedHeap, start_off_mem64) == 16);
-bh_static_assert(offsetof(WASMSharedHeap, base_addr) == 24);
+bh_static_assert(offsetof(AOTModuleInstanceExtra, shared_heap_base_addr_adj)
+                 == 8);
+bh_static_assert(offsetof(AOTModuleInstanceExtra, shared_heap_start_off) == 16);
 
 bh_static_assert(sizeof(CApiFuncImport) == sizeof(uintptr_t) * 3);
 
@@ -1889,6 +1887,15 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
 
     extra->stack_sizes =
         aot_get_data_section_addr(module, AOT_STACK_SIZES_SECTION_NAME, NULL);
+
+#if UINTPTR_MAX == UINT64_MAX
+    if (module_inst->memories[0]->is_memory64)
+        extra->shared_heap_start_off.u64 = UINT64_MAX;
+    else
+        extra->shared_heap_start_off.u64 = UINT32_MAX;
+#else
+    extra->shared_heap_start_off.u32[0] = UINT32_MAX;
+#endif
 
 #if WASM_ENABLE_PERF_PROFILING != 0
     total_size = sizeof(AOTFuncPerfProfInfo)

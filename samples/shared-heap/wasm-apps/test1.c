@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 extern void *
 shared_malloc(uint32_t size);
@@ -14,12 +15,41 @@ shared_free(void *ptr);
 void *
 my_shared_malloc(uint32_t size, uint32_t index)
 {
-    char *buf = shared_malloc(size);
+    char *buf1 = NULL, *buf2 = NULL, *buf;
 
-    if (buf)
-        snprintf(buf, 1024, "Hello, this is buf %u allocated from shared heap",
-                 index);
+    buf1 = shared_malloc(128);
+    if (!buf1)
+        return NULL;
 
+    buf1[0] = 'H';
+    buf1[1] = 'e';
+    buf1[2] = 'l';
+    buf1[3] = 'l';
+    buf1[4] = 'o';
+    buf1[5] = ',';
+    buf1[6] = ' ';
+
+    buf2 = shared_malloc(128);
+    if (!buf2) {
+        shared_free(buf1);
+        return NULL;
+    }
+
+    snprintf(buf2, 128, "this is buf %u allocated from shared heap", index);
+
+    buf = shared_malloc(size);
+    if (!buf) {
+        shared_free(buf1);
+        shared_free(buf2);
+        return NULL;
+    }
+
+    memset(buf, 0, size);
+    memcpy(buf, buf1, strlen(buf1));
+    memcpy(buf + strlen(buf1), buf2, strlen(buf2));
+
+    shared_free(buf1);
+    shared_free(buf2);
     return buf;
 }
 

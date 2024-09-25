@@ -263,6 +263,18 @@ wasm_runtime_attach_shared_heap_internal(WASMModuleInstanceCommon *module_inst,
             return false;
         }
         e->shared_heap = shared_heap;
+#if UINTPTR_MAX == UINT64_MAX
+        if (memory->is_memory64)
+            e->shared_heap_start_off.u64 = shared_heap->start_off_mem64;
+        else
+            e->shared_heap_start_off.u64 = shared_heap->start_off_mem32;
+        e->shared_heap_base_addr_adj =
+            shared_heap->base_addr - e->shared_heap_start_off.u64;
+#else
+        e->shared_heap_start_off.u32[0] = (uint32)shared_heap->start_off_mem32;
+        e->shared_heap_base_addr_adj =
+            shared_heap->base_addr - e->shared_heap_start_off.u32[0];
+#endif
     }
 #endif
 
@@ -293,6 +305,15 @@ wasm_runtime_detach_shared_heap_internal(WASMModuleInstanceCommon *module_inst)
         AOTModuleInstanceExtra *e =
             (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e;
         e->shared_heap = NULL;
+#if UINTPTR_MAX == UINT64_MAX
+        if (((AOTModuleInstance *)module_inst)->memories[0]->is_memory64)
+            e->shared_heap_start_off.u64 = UINT64_MAX;
+        else
+            e->shared_heap_start_off.u64 = UINT32_MAX;
+#else
+        e->shared_heap_start_off.u32[0] = UINT32_MAX;
+#endif
+        e->shared_heap_base_addr_adj = NULL;
     }
 #endif
 }
@@ -334,6 +355,10 @@ is_app_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
 
     if (!heap) {
         return false;
+    }
+
+    if (bytes == 0) {
+        bytes = 1;
     }
 
     if (!is_memory64) {

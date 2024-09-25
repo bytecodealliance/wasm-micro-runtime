@@ -600,6 +600,7 @@ jobs:
           cmake ..
           cmake --build . --config Debug --parallel 4
           ./shared_heap_test
+          ./shared_heap_test --aot
 
   test:
     needs:

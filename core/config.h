@@ -396,7 +396,9 @@
 #define APP_HEAP_SIZE_DEFAULT (8 * 1024)
 #endif
 #define APP_HEAP_SIZE_MIN (256)
-#define APP_HEAP_SIZE_MAX (512 * 1024 * 1024)
+/* The ems memory allocator supports maximal heap size 1GB,
+   see ems_gc_internal.h */
+#define APP_HEAP_SIZE_MAX (1024 * 1024 * 1024)
 
 /* Default min/max gc heap size of each app */
 #ifndef GC_HEAP_SIZE_DEFAULT

@@ -1012,7 +1012,9 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 #endif
 
     /* Start to translate the opcodes */
-    LLVMPositionBuilderAtEnd(comp_ctx->builder, func_ctx->block_to_translate);
+    LLVMPositionBuilderAtEnd(
+        comp_ctx->builder,
+        func_ctx->block_stack.block_list_head->llvm_entry_block);
 
     if (comp_ctx->aux_stack_frame_type
         && comp_ctx->call_stack_features.frame_per_function) {
