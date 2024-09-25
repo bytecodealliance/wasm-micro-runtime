@@ -1238,6 +1238,9 @@ wasm_value_type_size_internal(uint8 value_type, uint8 pointer_size)
     else {
         bh_assert(0);
     }
+#if WASM_ENABLE_GC == 0
+    (void)pointer_size;
+#endif
     return 0;
 }
 
