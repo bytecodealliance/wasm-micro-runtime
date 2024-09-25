@@ -340,7 +340,6 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
     PEXCEPTION_RECORD ExceptionRecord = exce_info->ExceptionRecord;
     uint8 *sig_addr = (uint8 *)ExceptionRecord->ExceptionInformation[1];
     WASMModuleInstance *module_inst;
-    WASMMemoryInstance *memory_inst;
     WASMJmpBuf *jmpbuf_node;
     uint8 *mapped_mem_start_addr = NULL;
     uint8 *mapped_mem_end_addr = NULL;
