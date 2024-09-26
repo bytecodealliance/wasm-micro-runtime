@@ -1521,9 +1521,13 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 static bool
 create_shared_heap_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
-    LLVMValueRef offset;
-    LLVMValueRef base_addr_p, start_off_p;
+    LLVMValueRef offset, base_addr_p, start_off_p, cmp;
     uint32 offset_u32;
+#if WASM_ENABLE_MEMORY64 == 0
+    bool is_memory64 = false;
+#else
+    bool is_memory64 = IS_MEMORY64;
+#endif
 
     /* Load aot_inst->e->shared_heap_base_addr_adj */
     offset_u32 = get_module_inst_extra_offset(comp_ctx);
@@ -1561,6 +1565,36 @@ create_shared_heap_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
               start_off_p, "shared_heap_start_off"))) {
         aot_set_last_error("llvm build load failed");
         return false;
+    }
+
+    if (!(cmp = LLVMBuildIsNotNull(comp_ctx->builder,
+                                   func_ctx->shared_heap_base_addr_adj,
+                                   "has_shared_heap"))) {
+        aot_set_last_error("llvm build is not null failed");
+        return false;
+    }
+
+    if (is_memory64) {
+        if (!(func_ctx->shared_heap_bound_check_1byte =
+                  LLVMBuildSelect(comp_ctx->builder, cmp, I64_NEG_ONE, I64_ZERO,
+                                  "shared_heap_bound_check_1byte"))) {
+            aot_set_last_error("llvm build select failed");
+            return false;
+        }
+    }
+    else {
+        if (comp_ctx->pointer_size == sizeof(uint64)) {
+            func_ctx->shared_heap_bound_check_1byte = I64_CONST(UINT32_MAX);
+            CHECK_LLVM_CONST(func_ctx->shared_heap_bound_check_1byte);
+        }
+        else {
+            if (!(func_ctx->shared_heap_bound_check_1byte = LLVMBuildSelect(
+                      comp_ctx->builder, cmp, I32_NEG_ONE, I32_ONE,
+                      "shared_heap_bound_check_1byte"))) {
+                aot_set_last_error("llvm build select failed");
+                return false;
+            }
+        }
     }
 
     return true;

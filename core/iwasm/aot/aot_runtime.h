@@ -112,7 +112,7 @@ typedef struct AOTFunctionInstance {
 typedef struct AOTModuleInstanceExtra {
     DefPointer(const uint32 *, stack_sizes);
     /*
-     * Ajusted shared heap based addr to simple the calculation
+     * Adjusted shared heap based addr to simple the calculation
      * in the aot code. The value is:
      *   shared_heap->base_addr - shared_heap->start_off
      */

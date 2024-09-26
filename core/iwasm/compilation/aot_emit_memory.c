@@ -273,6 +273,8 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* offset1 = offset + addr; */
+    /* TODO: check whether integer overflow occurs when memory is 64-bit
+             and boundary check is enabled */
     BUILD_OP(Add, offset_const, addr, offset1, "offset1");
 
     if (comp_ctx->enable_shared_heap /* TODO: && mem_idx == 0 */) {
@@ -316,9 +318,10 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
         switch (bytes) {
             case 1:
+                shared_heap_check_bound =
+                    func_ctx->shared_heap_bound_check_1byte;
+                break;
             case 2:
-                /* To simplify the check, we assume that the last byte
-                   of the shared heap can not be accessed */
                 shared_heap_check_bound =
                     is_memory64 ? I64_CONST(UINT64_MAX - 1)
                                 : (comp_ctx->pointer_size == sizeof(uint64)
@@ -1118,9 +1121,9 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                            LLVMValueRef offset, LLVMValueRef bytes)
 {
     LLVMValueRef maddr, max_addr, cmp;
-    LLVMValueRef mem_base_addr;
+    LLVMValueRef mem_base_addr, maddr_phi = NULL;
     LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
-    LLVMBasicBlockRef check_succ;
+    LLVMBasicBlockRef check_succ, block_maddr_phi = NULL;
     LLVMValueRef mem_size;
 
     /* Get memory base address and memory data size */
@@ -1180,17 +1183,100 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
 
-    /* TODO: check whether the bytes to access are in shared heap */
-
     ADD_BASIC_BLOCK(check_succ, "check_succ");
     LLVMMoveBasicBlockAfter(check_succ, block_curr);
 
     offset =
         LLVMBuildZExt(comp_ctx->builder, offset, I64_TYPE, "extend_offset");
     bytes = LLVMBuildZExt(comp_ctx->builder, bytes, I64_TYPE, "extend_len");
+    if (!offset || !bytes) {
+        aot_set_last_error("llvm build zext failed.");
+        goto fail;
+    }
 
+    /* TODO: check whether integer overflow occurs when memory is 64-bit
+             and boundary check is enabled */
     BUILD_OP(Add, offset, bytes, max_addr, "max_addr");
+
+    if (comp_ctx->enable_shared_heap /* TODO: && mem_idx == 0 */) {
+        LLVMBasicBlockRef app_addr_in_shared_heap, app_addr_in_linear_mem;
+        LLVMValueRef shared_heap_start_off, shared_heap_check_bound;
+        LLVMValueRef max_offset, cmp1, cmp2, is_in_shared_heap;
+
+        /* Add basic blocks */
+        ADD_BASIC_BLOCK(app_addr_in_shared_heap, "app_addr_in_shared_heap");
+        ADD_BASIC_BLOCK(app_addr_in_linear_mem, "app_addr_in_linear_mem");
+        ADD_BASIC_BLOCK(block_maddr_phi, "maddr_phi");
+
+        LLVMMoveBasicBlockAfter(app_addr_in_shared_heap, block_curr);
+        LLVMMoveBasicBlockAfter(app_addr_in_linear_mem,
+                                app_addr_in_shared_heap);
+        LLVMMoveBasicBlockAfter(block_maddr_phi, check_succ);
+
+        LLVMPositionBuilderAtEnd(comp_ctx->builder, block_maddr_phi);
+        if (!(maddr_phi = LLVMBuildPhi(comp_ctx->builder, INT8_PTR_TYPE,
+                                       "maddr_phi"))) {
+            aot_set_last_error("llvm build phi failed");
+            goto fail;
+        }
+
+        LLVMPositionBuilderAtEnd(comp_ctx->builder, block_curr);
+
+        shared_heap_start_off = func_ctx->shared_heap_start_off;
+        if (comp_ctx->pointer_size == sizeof(uint32)) {
+            if (!(shared_heap_start_off =
+                      LLVMBuildZExt(comp_ctx->builder, shared_heap_start_off,
+                                    I64_TYPE, "shared_heap_start_off_u64"))) {
+                aot_set_last_error("llvm build zext failed");
+                goto fail;
+            }
+        }
+        shared_heap_check_bound = func_ctx->shared_heap_bound_check_1byte;
+        if (comp_ctx->pointer_size == sizeof(uint32)) {
+            if (!(shared_heap_check_bound =
+                      LLVMBuildZExt(comp_ctx->builder, shared_heap_check_bound,
+                                    I64_TYPE, "shared_heap_check_bound"))) {
+                aot_set_last_error("llvm build zext failed");
+                goto fail;
+            }
+        }
+
+        /* Check whether the bytes to access are in shared heap */
+        BUILD_ICMP(LLVMIntUGE, offset, func_ctx->shared_heap_start_off, cmp1,
+                   "cmp1");
+        BUILD_OP(Add, max_addr, I64_NEG_ONE, max_offset, "max_offset");
+        BUILD_ICMP(LLVMIntULE, max_offset, shared_heap_check_bound, cmp2,
+                   "cmp2");
+        BUILD_OP(And, cmp1, cmp2, is_in_shared_heap, "is_in_shared_heap");
+
+        if (!LLVMBuildCondBr(comp_ctx->builder, is_in_shared_heap,
+                             app_addr_in_shared_heap, app_addr_in_linear_mem)) {
+            aot_set_last_error("llvm build cond br failed");
+            goto fail;
+        }
+
+        LLVMPositionBuilderAtEnd(comp_ctx->builder, app_addr_in_shared_heap);
+
+        /* Get native address inside shared heap */
+        if (!(maddr = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
+                                            func_ctx->shared_heap_base_addr_adj,
+                                            &offset, 1, "maddr_shared_heap"))) {
+            aot_set_last_error("llvm build inbounds gep failed");
+            goto fail;
+        }
+        LLVMAddIncoming(maddr_phi, &maddr, &app_addr_in_shared_heap, 1);
+
+        if (!LLVMBuildBr(comp_ctx->builder, block_maddr_phi)) {
+            aot_set_last_error("llvm build br failed");
+            goto fail;
+        }
+
+        LLVMPositionBuilderAtEnd(comp_ctx->builder, app_addr_in_linear_mem);
+        block_curr = LLVMGetInsertBlock(comp_ctx->builder);
+    }
+
     BUILD_ICMP(LLVMIntUGT, max_addr, mem_size, cmp, "cmp_max_mem_addr");
+
     if (!aot_emit_exception(comp_ctx, func_ctx,
                             EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS, true, cmp,
                             check_succ)) {
@@ -1203,7 +1289,19 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         aot_set_last_error("llvm build add failed.");
         goto fail;
     }
-    return maddr;
+
+    if (comp_ctx->enable_shared_heap /* TODO: && mem_idx == 0 */) {
+        block_curr = LLVMGetInsertBlock(comp_ctx->builder);
+        LLVMAddIncoming(maddr_phi, &maddr, &block_curr, 1);
+        if (!LLVMBuildBr(comp_ctx->builder, block_maddr_phi)) {
+            aot_set_last_error("llvm build br failed");
+            goto fail;
+        }
+        LLVMPositionBuilderAtEnd(comp_ctx->builder, block_maddr_phi);
+        return maddr_phi;
+    }
+    else
+        return maddr;
 fail:
     return NULL;
 }

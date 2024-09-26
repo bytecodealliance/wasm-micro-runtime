@@ -1888,11 +1888,22 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     extra->stack_sizes =
         aot_get_data_section_addr(module, AOT_STACK_SIZES_SECTION_NAME, NULL);
 
+    /*
+     * The AOT code checks whether the n bytes to access are in shared heap
+     * by checking whether the beginning address meets:
+     *   addr >= start_off && addr <= end_off - n-bytes + 1
+     * where n is 1/2/4/8/16 and `end_off - n-bytes + 1` is constant, e.g.,
+     *   UINT32_MAX, UINT32_MAX-1, UINT32_MAX-3 for n = 1, 2 or 4 in 32-bit
+     * target. To simplify the check, when shared heap is disabled, we set
+     * the start off to UINT64_MAX in 64-bit target and UINT32_MAX in 32-bit
+     * target, so in the checking, the above formula will be false, we don't
+     * need to check whether the shared heap is enabled or not in the AOT
+     * code. An exception is to access 1-byte when memory is 64-bit, or
+     * when both memory and target are 32-bit, we handle them specially in
+     * the AOT code.
+     */
 #if UINTPTR_MAX == UINT64_MAX
-    if (module_inst->memories[0]->is_memory64)
-        extra->shared_heap_start_off.u64 = UINT64_MAX;
-    else
-        extra->shared_heap_start_off.u64 = UINT32_MAX;
+    extra->shared_heap_start_off.u64 = UINT64_MAX;
 #else
     extra->shared_heap_start_off.u32[0] = UINT32_MAX;
 #endif

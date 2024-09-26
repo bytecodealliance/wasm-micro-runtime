@@ -306,10 +306,7 @@ wasm_runtime_detach_shared_heap_internal(WASMModuleInstanceCommon *module_inst)
             (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e;
         e->shared_heap = NULL;
 #if UINTPTR_MAX == UINT64_MAX
-        if (((AOTModuleInstance *)module_inst)->memories[0]->is_memory64)
-            e->shared_heap_start_off.u64 = UINT64_MAX;
-        else
-            e->shared_heap_start_off.u64 = UINT32_MAX;
+        e->shared_heap_start_off.u64 = UINT64_MAX;
 #else
         e->shared_heap_start_off.u32[0] = UINT32_MAX;
 #endif
