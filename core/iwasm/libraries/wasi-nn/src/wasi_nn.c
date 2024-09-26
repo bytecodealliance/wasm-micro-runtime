@@ -710,3 +710,10 @@ get_wasi_nn_export_apis(NativeSymbol **p_native_symbols)
     *p_native_symbols = native_symbols_wasi_nn;
     return sizeof(native_symbols_wasi_nn) / sizeof(NativeSymbol);
 }
+
+uint32_t
+get_native_lib(char **p_module_name, NativeSymbol **p_native_symbols)
+{
+    *p_module_name = "env";
+    return get_wasi_nn_export_apis(p_native_symbols);
+}
