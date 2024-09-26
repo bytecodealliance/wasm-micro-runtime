@@ -37,6 +37,10 @@ extern "C" {
     do {                                   \
         *(int64 *)(addr) = (int64)(value); \
     } while (0)
+#define PUT_V128_TO_ADDR(addr, value) \
+    do {                              \
+        *(V128 *)(addr) = (value);    \
+    } while (0)
 #define PUT_F64_TO_ADDR(addr, value)           \
     do {                                       \
         *(float64 *)(addr) = (float64)(value); \
@@ -49,6 +53,7 @@ extern "C" {
 #define GET_I64_FROM_ADDR(addr) (*(int64 *)(addr))
 #define GET_F64_FROM_ADDR(addr) (*(float64 *)(addr))
 #define GET_REF_FROM_ADDR(addr) (*(void **)(addr))
+#define GET_V128_FROM_ADDR(addr) (*(V128 *)(addr))
 
 /* For STORE opcodes */
 #define STORE_I64 PUT_I64_TO_ADDR
@@ -82,6 +87,15 @@ STORE_U8(void *addr, uint8_t value)
     } while (0)
 
 #else /* WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0 */
+
+#define PUT_V128_TO_ADDR(addr, value)        \
+    do {                                     \
+        uint32 *addr_u32 = (uint32 *)(addr); \
+        addr_u32[0] = (value).i32x4[0];      \
+        addr_u32[1] = (value).i32x4[1];      \
+        addr_u32[2] = (value).i32x4[2];      \
+        addr_u32[3] = (value).i32x4[3];      \
+    } while (0)
 
 #define PUT_I64_TO_ADDR(addr, value)         \
     do {                                     \
@@ -123,6 +137,17 @@ STORE_U8(void *addr, uint8_t value)
         *(void **)(addr) = (void *)(value); \
     } while (0)
 #endif
+
+static inline V128
+GET_V128_FROM_ADDR(uint32 *addr)
+{
+    V128 ret;
+    ret.i32x4[0] = addr[0];
+    ret.i32x4[1] = addr[1];
+    ret.i32x4[2] = addr[2];
+    ret.i32x4[3] = addr[3];
+    return ret;
+}
 
 static inline int64
 GET_I64_FROM_ADDR(uint32 *addr)
