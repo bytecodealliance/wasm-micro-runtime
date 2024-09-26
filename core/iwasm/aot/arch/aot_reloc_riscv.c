@@ -49,21 +49,8 @@
 #define NEED_SOFT_I64_DIV
 #endif
 
-#if !defined(__riscv_atomic)                              \
-    || (defined(ARCH_RISCV_COMPILE_AOT_WITHOUT_FEATURE_A) \
-        && ARCH_RISCV_COMPILE_AOT_WITHOUT_FEATURE_A != 0)
-/* clang-format off */
-void __atomic_compare_exchange_4(void);
-void __atomic_store_4(void);
-/* clang-format on */
+#ifndef __riscv_atomic
 #define NEED_SOFT_ATOMIC
-#endif
-
-#if (!defined(NEED_SOFT_I32_DIV) || !defined(NEED_SOFT_I32_MUL)) \
-    && (defined(ARCH_RISCV_COMPILE_AOT_WITHOUT_FEATURE_M)        \
-        && ARCH_RISCV_COMPILE_AOT_WITHOUT_FEATURE_M != 0)
-#define NEED_SOFT_I32_DIV
-#define NEED_SOFT_I32_MUL
 #endif
 
 /* clang-format off */
@@ -119,6 +106,8 @@ void __umoddi3(void);
 void __umodsi3(void);
 void __unorddf2(void);
 void __unordsf2(void);
+void __atomic_compare_exchange_4(void);
+void __atomic_store_4(void);
 /* clang-format on */
 
 static SymbolMap target_sym_map[] = {
@@ -146,7 +135,6 @@ static SymbolMap target_sym_map[] = {
      */
     REG_SYM(__floatundisf),
     REG_SYM(__floatdisf),
-    REG_SYM(__floatdidf),
 #endif
 #ifdef NEED_SOFT_DP
     REG_SYM(__adddf3),

@@ -692,18 +692,4 @@
 #endif
 #endif /* WASM_ENABLE_FUZZ_TEST != 0 */
 
-#if WASM_ENABLE_AOT != 0
-#if defined(BUILD_TARGET_RISCV64_LP64D) || defined(BUILD_TARGET_RISCV64_LP64) \
-    || defined(BUILD_TARGET_RISCV32_ILP32D)                                   \
-    || defined(BUILD_TARGET_RISCV32_ILP32F)                                   \
-    || defined(BUILD_TARGET_RISCV32_ILP32)
-#ifndef ARCH_RISCV_COMPILE_AOT_WITHOUT_FEATURE_A
-#define ARCH_RISCV_COMPILE_AOT_WITHOUT_FEATURE_A 0
-#endif
-#ifndef ARCH_RISCV_COMPILE_AOT_WITHOUT_FEATURE_M
-#define ARCH_RISCV_COMPILE_AOT_WITHOUT_FEATURE_M 0
-#endif
-#endif
-#endif /* WASM_ENABLE_AOT != 0 */
-
 #endif /* end of _CONFIG_H_ */
