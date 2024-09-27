@@ -11,8 +11,9 @@ on:
   branch_protection_rule:
   # To guarantee Maintained check is occasionally updated. See
   # https://github.com/ossf/scorecard/blob/main/docs/checks.md#maintained
+  # midnight UTC
   schedule:
-    - cron: '38 20 * * *'
+    - cron: "0 0 * * *"
   # allow to be triggered manually
   workflow_dispatch:
 
@@ -24,8 +25,7 @@ jobs:
   analysis:
     name: Scorecard analysis
     runs-on: ubuntu-latest
-    # TODO: change to BA after test
-    if: github.repository == 'TianlongLiang/wasm-micro-runtime'
+    if: github.repository == 'bytecodealliance/wasm-micro-runtime'
     permissions:
       # Needed to upload the results to code-scanning dashboard.
       security-events: write
