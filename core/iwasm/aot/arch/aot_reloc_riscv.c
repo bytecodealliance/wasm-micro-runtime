@@ -106,8 +106,9 @@ void __umoddi3(void);
 void __umodsi3(void);
 void __unorddf2(void);
 void __unordsf2(void);
-void __atomic_compare_exchange_4(void);
-void __atomic_store_4(void);
+bool __atomic_compare_exchange_4(volatile void *, void *, unsigned int,
+                                 bool, int, int);
+void __atomic_store_4(volatile void *, unsigned int, int);
 /* clang-format on */
 
 static SymbolMap target_sym_map[] = {
