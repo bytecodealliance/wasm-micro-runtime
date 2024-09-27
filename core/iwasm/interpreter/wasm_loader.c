@@ -307,7 +307,8 @@ is_byte_a_type(uint8 type)
 }
 
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) \
+    || (WASM_ENABLE_FAST_INTERP != 0)
 static V128
 read_i8x16(uint8 *p_buf, char *error_buf, uint32 error_buf_size)
 {
@@ -320,7 +321,8 @@ read_i8x16(uint8 *p_buf, char *error_buf, uint32 error_buf_size)
 
     return result;
 }
-#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
+#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) || \
+          (WASM_ENABLE_FAST_INTERP != 0) */
 #endif /* end of WASM_ENABLE_SIMD */
 
 static void *
@@ -707,7 +709,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                     goto fail;
                 break;
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) \
+    || (WASM_ENABLE_FAST_INTERP != 0)
             /* v128.const */
             case INIT_EXPR_TYPE_V128_CONST:
             {
@@ -736,7 +739,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 #endif
                 break;
             }
-#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
+#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) || \
+          (WASM_ENABLE_FAST_INTERP != 0) */
 #endif /* end of WASM_ENABLE_SIMD */
 
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
@@ -4105,7 +4109,8 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                         return false;
                     }
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) \
+    || (WASM_ENABLE_FAST_INTERP != 0)
                     /* TODO: check func type, if it has v128 param or result,
                              report error */
 #endif
@@ -7566,7 +7571,8 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             }
 
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) \
+    || (WASM_ENABLE_FAST_INTERP != 0)
             case WASM_OP_SIMD_PREFIX:
             {
                 uint32 opcode1;
@@ -7659,7 +7665,8 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                 }
                 break;
             }
-#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
+#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) || \
+          (WASM_ENABLE_FAST_INTERP != 0) */
 #endif /* end of WASM_ENABLE_SIMD */
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -9903,7 +9910,8 @@ check_memory_access_align(uint8 opcode, uint32 align, char *error_buf,
 }
 
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) \
+    || (WASM_ENABLE_FAST_INTERP != 0)
 static bool
 check_simd_memory_access_align(uint8 opcode, uint32 align, char *error_buf,
                                uint32 error_buf_size)
@@ -12120,10 +12128,20 @@ re_scan:
 #endif
                     }
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) \
+    || (WASM_ENABLE_FAST_INTERP != 0)
                     else if (*(loader_ctx->frame_ref - 1) == VALUE_TYPE_V128) {
                         loader_ctx->frame_ref -= 4;
                         loader_ctx->stack_cell_num -= 4;
+#if WASM_ENABLE_FAST_INTERP != 0
+                        skip_label();
+                        loader_ctx->frame_offset -= 4;
+                        if ((*(loader_ctx->frame_offset)
+                             > loader_ctx->start_dynamic_offset)
+                            && (*(loader_ctx->frame_offset)
+                                < loader_ctx->max_dynamic_offset))
+                            loader_ctx->dynamic_offset -= 4;
+#endif
                     }
 #endif
 #endif
@@ -12210,10 +12228,12 @@ re_scan:
 #endif /* end of WASM_ENABLE_FAST_INTERP */
                             break;
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) \
+    || (WASM_ENABLE_FAST_INTERP != 0)
                         case VALUE_TYPE_V128:
                             break;
-#endif /* (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
+#endif /* (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) || \
+          (WASM_ENABLE_FAST_INTERP != 0) */
 #endif /* WASM_ENABLE_SIMD != 0 */
                         default:
                         {
@@ -12308,8 +12328,9 @@ re_scan:
                     uint8 opcode_tmp = WASM_OP_SELECT;
 
                     if (type == VALUE_TYPE_V128) {
-#if (WASM_ENABLE_SIMD == 0) \
-    || ((WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0))
+#if (WASM_ENABLE_SIMD == 0)                                        \
+    || ((WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0) \
+        && (WASM_ENABLE_FAST_INTERP == 0))
                         set_error_buf(error_buf, error_buf_size,
                                       "SIMD v128 type isn't supported");
                         goto fail;
@@ -14870,7 +14891,8 @@ re_scan:
             }
 
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) \
+    || (WASM_ENABLE_FAST_INTERP != 0)
             case WASM_OP_SIMD_PREFIX:
             {
                 uint32 opcode1;
@@ -14881,6 +14903,10 @@ re_scan:
 #endif
 
                 read_leb_uint32(p, p_end, opcode1);
+
+#if WASM_ENABLE_FAST_INTERP != 0
+                emit_byte(loader_ctx, opcode1);
+#endif
 
                 /* follow the order of enum WASMSimdEXTOpcode in wasm_opcode.h
                  */
@@ -14938,7 +14964,13 @@ re_scan:
                     /* basic operation */
                     case SIMD_v128_const:
                     {
+                        uint64 high, low;
                         CHECK_BUF1(p, p_end, 16);
+#if WASM_ENABLE_FAST_INTERP != 0
+                        wasm_runtime_read_v128(p, &high, &low);
+                        emit_uint64(loader_ctx, high);
+                        emit_uint64(loader_ctx, low);
+#endif
                         p += 16;
                         PUSH_V128();
                         break;
@@ -15524,7 +15556,8 @@ re_scan:
                 }
                 break;
             }
-#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
+#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) || \
+          (WASM_ENABLE_FAST_INTERP != 0) */
 #endif /* end of WASM_ENABLE_SIMD */
 
 #if WASM_ENABLE_SHARED_MEMORY != 0

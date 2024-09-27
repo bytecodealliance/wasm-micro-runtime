@@ -433,6 +433,8 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
     (type) GET_I64_FROM_ADDR(frame_lp + *(int16 *)(frame_ip + off))
 #define GET_OPERAND_F64(type, off) \
     (type) GET_F64_FROM_ADDR(frame_lp + *(int16 *)(frame_ip + off))
+#define GET_OPERAND_V128(off) \
+    GET_V128_FROM_ADDR(frame_lp + *(int16 *)(frame_ip + off))
 #define GET_OPERAND_REF(type, off) \
     (type) GET_REF_FROM_ADDR(frame_lp + *(int16 *)(frame_ip + off))
 
@@ -5642,7 +5644,37 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
                 goto call_func_from_entry;
             }
+#if WASM_ENABLE_SIMD != 0
+            HANDLE_OP(WASM_OP_SIMD_PREFIX)
+            {
+                GET_OPCODE();
 
+                switch (opcode) {
+                    case SIMD_v128_const:
+                    {
+                        uint8 *orig_ip = frame_ip;
+
+                        frame_ip += sizeof(V128);
+                        addr_ret = GET_OFFSET();
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, *(V128 *)orig_ip);
+                        break;
+                    }
+                    case SIMD_v128_any_true:
+                    {
+                        V128 value = GET_OPERAND_V128(0);
+                        frame_ip += 2;
+                        addr_ret = GET_OFFSET();
+                        frame_lp[addr_ret] =
+                            value.i64x2[0] != 0 || value.i64x2[1] != 0;
+                        break;
+                    }
+                    default:
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                }
+                HANDLE_OP_END();
+            }
+#endif
             HANDLE_OP(WASM_OP_CALL)
             {
 #if WASM_ENABLE_THREAD_MGR != 0
