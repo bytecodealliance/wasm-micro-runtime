@@ -1531,7 +1531,7 @@ create_shared_heap_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     /* Load aot_inst->e->shared_heap_base_addr_adj */
     offset_u32 = get_module_inst_extra_offset(comp_ctx);
-#if WASM_ENABLE_JIT != 0
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_SHARED_HEAP != 0
     if (comp_ctx->is_jit_mode)
         offset_u32 +=
             offsetof(WASMModuleInstanceExtra, shared_heap_base_addr_adj);
@@ -1557,7 +1557,7 @@ create_shared_heap_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     /* Load aot_inst->e->shared_heap_start_off */
     offset_u32 = get_module_inst_extra_offset(comp_ctx);
-#if WASM_ENABLE_JIT != 0
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_SHARED_HEAP != 0
     if (comp_ctx->is_jit_mode)
         offset_u32 += offsetof(WASMModuleInstanceExtra, shared_heap_start_off);
     else
