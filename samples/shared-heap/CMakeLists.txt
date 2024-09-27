@@ -73,7 +73,11 @@ endif ()
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
-add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
+add_library(vmlib STATIC ${WAMR_RUNTIME_LIB_SOURCE})
+if (MSVC)
+  target_compile_definitions(vmlib PRIVATE WASM_API_EXTERN=)
+endif()
+target_link_libraries(vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
 
 ################  application related  ################
 include_directories(${CMAKE_CURRENT_LIST_DIR}/src)

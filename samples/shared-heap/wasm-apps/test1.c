@@ -8,16 +8,16 @@
 #include <string.h>
 
 extern void *
-shared_malloc(uint32_t size);
+shared_heap_malloc(uint32_t size);
 extern void
-shared_free(void *ptr);
+shared_heap_free(void *ptr);
 
 void *
-my_shared_malloc(uint32_t size, uint32_t index)
+my_shared_heap_malloc(uint32_t size, uint32_t index)
 {
     char *buf1 = NULL, *buf2 = NULL, *buf;
 
-    buf1 = shared_malloc(128);
+    buf1 = shared_heap_malloc(128);
     if (!buf1)
         return NULL;
 
@@ -29,18 +29,18 @@ my_shared_malloc(uint32_t size, uint32_t index)
     buf1[5] = ',';
     buf1[6] = ' ';
 
-    buf2 = shared_malloc(128);
+    buf2 = shared_heap_malloc(128);
     if (!buf2) {
-        shared_free(buf1);
+        shared_heap_free(buf1);
         return NULL;
     }
 
     snprintf(buf2, 128, "this is buf %u allocated from shared heap", index);
 
-    buf = shared_malloc(size);
+    buf = shared_heap_malloc(size);
     if (!buf) {
-        shared_free(buf1);
-        shared_free(buf2);
+        shared_heap_free(buf1);
+        shared_heap_free(buf2);
         return NULL;
     }
 
@@ -48,13 +48,13 @@ my_shared_malloc(uint32_t size, uint32_t index)
     memcpy(buf, buf1, strlen(buf1));
     memcpy(buf + strlen(buf1), buf2, strlen(buf2));
 
-    shared_free(buf1);
-    shared_free(buf2);
+    shared_heap_free(buf1);
+    shared_heap_free(buf2);
     return buf;
 }
 
 void
-my_shared_free(void *ptr)
+my_shared_heap_free(void *ptr)
 {
-    shared_free(ptr);
+    shared_heap_free(ptr);
 }

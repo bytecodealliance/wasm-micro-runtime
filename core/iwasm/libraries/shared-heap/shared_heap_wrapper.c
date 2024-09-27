@@ -20,14 +20,14 @@
 /* clang-format on */
 
 static uint32
-shared_malloc_wrapper(wasm_exec_env_t exec_env, uint32 size)
+shared_heap_malloc_wrapper(wasm_exec_env_t exec_env, uint32 size)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     return (uint32)module_shared_malloc((uint64)size, NULL);
 }
 
 static void
-shared_free_wrapper(wasm_exec_env_t exec_env, void *ptr)
+shared_heap_free_wrapper(wasm_exec_env_t exec_env, void *ptr)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
 
@@ -45,8 +45,8 @@ shared_free_wrapper(wasm_exec_env_t exec_env, void *ptr)
 /* clang-format on */
 
 static NativeSymbol native_symbols_shared_heap[] = {
-    REG_NATIVE_FUNC(shared_malloc, "(i)i"),
-    REG_NATIVE_FUNC(shared_free, "(*)"),
+    REG_NATIVE_FUNC(shared_heap_malloc, "(i)i"),
+    REG_NATIVE_FUNC(shared_heap_free, "(*)"),
 };
 
 uint32

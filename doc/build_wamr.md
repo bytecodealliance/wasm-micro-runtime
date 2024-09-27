@@ -312,8 +312,8 @@ Currently we only profile the memory consumption of module, module_instance and 
 ```
 And the wasm app can calls below APIs to allocate/free memory from/to the shared heap if it is attached to the app's module instance:
 ```C
-   void *shared_malloc();
-   void shared_free(void *ptr);
+   void *shared_heap_malloc();
+   void shared_heap_free(void *ptr);
 ```
 
 **Combination of configurations:**

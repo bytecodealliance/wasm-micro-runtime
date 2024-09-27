@@ -6,17 +6,17 @@
 #include <stdio.h>
 
 extern void *
-shared_malloc(int size);
+shared_heap_malloc(int size);
 extern void
-shared_free(void *offset);
+shared_heap_free(void *offset);
 
 int
 test()
 {
-    int *ptr = (int *)shared_malloc(10);
+    int *ptr = (int *)shared_heap_malloc(10);
 
     *ptr = 10;
     int a = *ptr;
-    shared_free(ptr);
+    shared_heap_free(ptr);
     return a;
 }
