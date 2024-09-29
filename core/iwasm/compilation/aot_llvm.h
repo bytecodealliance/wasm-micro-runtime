@@ -244,7 +244,6 @@ typedef struct AOTFuncContext {
 
     LLVMValueRef shared_heap_base_addr_adj;
     LLVMValueRef shared_heap_start_off;
-    LLVMValueRef shared_heap_bound_check_1byte;
 
     LLVMBasicBlockRef got_exception_block;
     LLVMBasicBlockRef func_return_block;

@@ -1898,9 +1898,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
      * the start off to UINT64_MAX in 64-bit target and UINT32_MAX in 32-bit
      * target, so in the checking, the above formula will be false, we don't
      * need to check whether the shared heap is enabled or not in the AOT
-     * code. An exception is to access 1-byte when memory is 64-bit, or
-     * when both memory and target are 32-bit, we handle them specially in
-     * the AOT code.
+     * code.
      */
 #if UINTPTR_MAX == UINT64_MAX
     extra->shared_heap_start_off.u64 = UINT64_MAX;

@@ -165,7 +165,7 @@ runtime_malloc(uint64 size)
 WASMSharedHeap *
 wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args)
 {
-    uint64 heap_struct_size = sizeof(WASMSharedHeap);
+    uint64 heap_struct_size = sizeof(WASMSharedHeap), map_size;
     uint32 size = init_args->size;
     WASMSharedHeap *heap;
 
@@ -192,7 +192,18 @@ wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args)
         goto fail3;
     }
 
-    if (!(heap->base_addr = wasm_mmap_linear_memory(size, size))) {
+#ifndef OS_ENABLE_HW_BOUND_CHECK
+    map_size = size;
+#else
+    /* Totally 8G is mapped, the opcode load/store address range is 0 to 8G:
+     *   ea = i + memarg.offset
+     * both i and memarg.offset are u32 in range 0 to 4G
+     * so the range of ea is 0 to 8G
+     */
+    map_size = 8 * (uint64)BH_GB;
+#endif
+
+    if (!(heap->base_addr = wasm_mmap_linear_memory(map_size, size))) {
         goto fail3;
     }
     if (!mem_allocator_create_with_struct_and_pool(
@@ -213,7 +224,7 @@ wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args)
     return heap;
 
 fail4:
-    wasm_munmap_linear_memory(heap->base_addr, size, size);
+    wasm_munmap_linear_memory(heap->base_addr, size, map_size);
 fail3:
     wasm_runtime_free(heap->heap_handle);
 fail2:
@@ -368,6 +379,12 @@ get_shared_heap(WASMModuleInstanceCommon *module_inst_comm)
     return NULL;
 }
 
+WASMSharedHeap *
+wasm_runtime_get_shared_heap(WASMModuleInstanceCommon *module_inst_comm)
+{
+    return get_shared_heap(module_inst_comm);
+}
+
 static bool
 is_app_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
                            bool is_memory64, uint64 app_offset, uint32 bytes)
@@ -515,17 +532,23 @@ wasm_runtime_memory_init(mem_alloc_type_t mem_alloc_type,
 
 #if WASM_ENABLE_SHARED_HEAP != 0
 static void
-wasm_runtime_destroy_shared_heaps()
+destroy_shared_heaps()
 {
     WASMSharedHeap *heap = shared_heap_list;
     WASMSharedHeap *cur;
+    uint64 map_size;
 
     while (heap) {
         cur = heap;
         heap = heap->next;
         mem_allocator_destroy(cur->heap_handle);
         wasm_runtime_free(cur->heap_handle);
-        wasm_munmap_linear_memory(cur->base_addr, cur->size, cur->size);
+#ifndef OS_ENABLE_HW_BOUND_CHECK
+        map_size = cur->size;
+#else
+        map_size = 8 * (uint64)BH_GB;
+#endif
+        wasm_munmap_linear_memory(cur->base_addr, cur->size, map_size);
         wasm_runtime_free(cur);
     }
 }
@@ -535,7 +558,7 @@ void
 wasm_runtime_memory_destroy(void)
 {
 #if WASM_ENABLE_SHARED_HEAP != 0
-    wasm_runtime_destroy_shared_heaps();
+    destroy_shared_heaps();
 #endif
 
     if (memory_mode == MEMORY_MODE_POOL) {
@@ -1236,7 +1259,7 @@ wasm_mremap_linear_memory(void *mapped_mem, uint64 old_size, uint64 new_size,
 }
 
 static void *
-wasm_mmap_linear_memory(uint64_t map_size, uint64 commit_size)
+wasm_mmap_linear_memory(uint64 map_size, uint64 commit_size)
 {
     return wasm_mremap_linear_memory(NULL, 0, map_size, commit_size);
 }
