@@ -54,8 +54,12 @@ wasm_runtime_attach_shared_heap_internal(WASMModuleInstanceCommon *module_inst,
 
 void
 wasm_runtime_detach_shared_heap(WASMModuleInstanceCommon *module_inst);
+
 void
 wasm_runtime_detach_shared_heap_internal(WASMModuleInstanceCommon *module_inst);
+
+WASMSharedHeap *
+wasm_runtime_get_shared_heap(WASMModuleInstanceCommon *module_inst_comm);
 
 uint64
 wasm_runtime_shared_heap_malloc(WASMModuleInstanceCommon *module_inst,

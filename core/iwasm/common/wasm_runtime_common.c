@@ -185,6 +185,9 @@ static bool
 is_sig_addr_in_guard_pages(void *sig_addr, WASMModuleInstance *module_inst)
 {
     WASMMemoryInstance *memory_inst;
+#if WASM_ENABLE_SHARED_HEAP != 0
+    WASMSharedHeap *shared_heap;
+#endif
     uint8 *mapped_mem_start_addr = NULL;
     uint8 *mapped_mem_end_addr = NULL;
     uint32 i;
@@ -201,6 +204,21 @@ is_sig_addr_in_guard_pages(void *sig_addr, WASMModuleInstance *module_inst)
             return true;
         }
     }
+
+#if WASM_ENABLE_SHARED_HEAP != 0
+    shared_heap =
+        wasm_runtime_get_shared_heap((WASMModuleInstanceCommon *)module_inst);
+    if (shared_heap) {
+        mapped_mem_start_addr = shared_heap->base_addr;
+        mapped_mem_end_addr = shared_heap->base_addr + 8 * (uint64)BH_GB;
+        if (mapped_mem_start_addr <= (uint8 *)sig_addr
+            && (uint8 *)sig_addr < mapped_mem_end_addr) {
+            /* The address which causes segmentation fault is inside
+               the shared heap's guard regions */
+            return true;
+        }
+    }
+#endif
 
     return false;
 }

@@ -47,8 +47,14 @@ typedef float64 CellType_F64;
 #endif
 
 #if WASM_ENABLE_SHARED_HEAP != 0
-#define app_addr_in_shared_heap(app_addr, bytes)        \
-    (shared_heap && (app_addr) >= shared_heap_start_off \
+#if WASM_ENABLE_MULTI_MEMORY != 0
+/* Only enable shared heap for the default memory */
+#define is_default_memory (memidx == 0)
+#else
+#define is_default_memory true
+#endif
+#define app_addr_in_shared_heap(app_addr, bytes)                             \
+    (shared_heap && is_default_memory && (app_addr) >= shared_heap_start_off \
      && (app_addr) <= shared_heap_end_off - bytes + 1)
 
 #define shared_heap_addr_app_to_native(app_addr, native_addr) \

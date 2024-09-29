@@ -26,12 +26,12 @@ set (CMAKE_C_COMPILER "${WASI_SDK_DIR}/bin/clang")
 set (DEFINED_SYMBOLS "${WAMR_ROOT_DIR}/wamr-sdk/app/libc-builtin-sysroot/share/defined-symbols.txt")
 
 set (CMAKE_EXE_LINKER_FLAGS
-     "-Wl,--initial-memory=65536,                  \
+     "-O0 -Wl,--initial-memory=65536,              \
       -Wl,--no-entry,--strip-all,                  \
       -Wl,--export=__heap_base,--export=__data_end \
       -Wl,--export=__wasm_call_ctors               \
-      -Wl,--export=my_shared_malloc                \
-      -Wl,--export=my_shared_free                  \
+      -Wl,--export=my_shared_heap_malloc           \
+      -Wl,--export=my_shared_heap_free             \
       -Wl,--export=print_buf                       \
       -Wl,--allow-undefined"
 )

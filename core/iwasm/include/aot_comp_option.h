@@ -71,6 +71,7 @@ typedef struct AOTCompOption {
     bool enable_llvm_pgo;
     bool enable_stack_estimation;
     bool quick_invoke_c_api_import;
+    bool enable_shared_heap;
     char *use_prof_file;
     uint32_t opt_level;
     uint32_t size_level;

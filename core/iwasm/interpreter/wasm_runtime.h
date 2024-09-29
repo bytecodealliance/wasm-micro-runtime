@@ -92,7 +92,6 @@ typedef union {
     uint32 u32[2];
 } MemBound;
 
-#if WASM_ENABLE_SHARED_HEAP != 0
 typedef struct WASMSharedHeap {
     struct WASMSharedHeap *next;
     void *heap_handle;
@@ -101,7 +100,6 @@ typedef struct WASMSharedHeap {
     uint64 start_off_mem64;
     uint64 start_off_mem32;
 } WASMSharedHeap;
-#endif
 
 struct WASMMemoryInstance {
     /* Module type */
@@ -366,6 +364,15 @@ typedef struct WASMModuleInstanceExtra {
 
 #if WASM_ENABLE_SHARED_HEAP != 0
     WASMSharedHeap *shared_heap;
+#if WASM_ENABLE_JIT != 0
+    /*
+     * Adjusted shared heap based addr to simple the calculation
+     * in the aot code. The value is:
+     *   shared_heap->base_addr - shared_heap->start_off
+     */
+    uint8 *shared_heap_base_addr_adj;
+    MemBound shared_heap_start_off;
+#endif
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0                         \

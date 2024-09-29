@@ -1428,16 +1428,6 @@ wasm_cluster_attach_shared_heap(WASMModuleInstanceCommon *module_inst,
 {
     WASMExecEnv *exec_env = wasm_clusters_search_exec_env(module_inst);
 
-    if (module_inst->module_type == Wasm_Module_Bytecode) {
-        if (((WASMModuleInstance *)module_inst)->e->shared_heap) {
-            LOG_WARNING("A shared heap is already attached");
-            return false;
-        }
-    }
-    else if (module_inst->module_type == Wasm_Module_AoT) {
-        // TODO
-    }
-
     if (exec_env == NULL) {
         /* Maybe threads have not been started yet. */
         return wasm_runtime_attach_shared_heap_internal(module_inst, heap);

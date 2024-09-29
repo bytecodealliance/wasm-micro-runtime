@@ -19,15 +19,15 @@ thread1_callback(void *arg)
     wasm_module_inst_t module_inst = targ->module_inst;
     bh_queue *queue = targ->queue;
     wasm_exec_env_t exec_env;
-    wasm_function_inst_t my_shared_malloc_func;
-    wasm_function_inst_t my_shared_free_func;
+    wasm_function_inst_t my_shared_heap_malloc_func;
+    wasm_function_inst_t my_shared_heap_free_func;
     uint32 i, argv[2];
 
     /* lookup wasm functions */
-    if (!(my_shared_malloc_func =
-              wasm_runtime_lookup_function(module_inst, "my_shared_malloc"))
-        || !(my_shared_free_func =
-                 wasm_runtime_lookup_function(module_inst, "my_shared_free"))) {
+    if (!(my_shared_heap_malloc_func = wasm_runtime_lookup_function(
+              module_inst, "my_shared_heap_malloc"))
+        || !(my_shared_heap_free_func = wasm_runtime_lookup_function(
+                 module_inst, "my_shared_heap_free"))) {
         printf("Failed to lookup function.\n");
     }
 
@@ -62,17 +62,17 @@ thread1_callback(void *arg)
         }
     }
 
-    /* allocate memory by calling my_shared_malloc function and send it
+    /* allocate memory by calling my_shared_heap_malloc function and send it
        to wasm app2 */
     for (i = 5; i < 10; i++) {
         uint8 *buf;
 
         argv[0] = 1024 * (i + 1);
         argv[1] = i + 1;
-        wasm_runtime_call_wasm(exec_env, my_shared_malloc_func, 2, argv);
+        wasm_runtime_call_wasm(exec_env, my_shared_heap_malloc_func, 2, argv);
 
         if (wasm_runtime_get_exception(module_inst)) {
-            printf("Failed to call 'my_shared_malloc` function: %s\n",
+            printf("Failed to call 'my_shared_heap_malloc' function: %s\n",
                    wasm_runtime_get_exception(module_inst));
             break;
         }
@@ -118,6 +118,10 @@ queue_callback(void *message, void *arg)
     /* call wasm function */
     argv[0] = wasm_runtime_addr_native_to_app(module_inst, buf);
     wasm_runtime_call_wasm(exec_env, print_buf_func, 1, argv);
+    if (wasm_runtime_get_exception(module_inst)) {
+        printf("Failed to call 'print_buf' function: %s\n",
+               wasm_runtime_get_exception(module_inst));
+    }
 }
 
 static void *
@@ -159,7 +163,16 @@ main(int argc, char **argv)
     RuntimeInitArgs init_args;
     SharedHeapInitArgs heap_init_args;
     char error_buf[128] = { 0 };
+    bool aot_mode = false;
     int ret = -1;
+
+    if (argc > 1 && !strcmp(argv[1], "--aot"))
+        aot_mode = true;
+
+    if (!aot_mode)
+        printf("Test shared heap in interpreter mode\n\n");
+    else
+        printf("Test shared heap in AOT mode\n\n");
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
@@ -180,7 +193,10 @@ main(int argc, char **argv)
     }
 
     /* read wasm file */
-    wasm_file1 = "./wasm-apps/test1.wasm";
+    if (!aot_mode)
+        wasm_file1 = "./wasm-apps/test1.wasm";
+    else
+        wasm_file1 = "./wasm-apps/test1.aot";
     if (!(wasm_file1_buf =
               bh_read_file_to_buffer(wasm_file1, &wasm_file1_size))) {
         printf("Open wasm file %s failed.\n", wasm_file1);
@@ -204,7 +220,10 @@ main(int argc, char **argv)
     }
 
     /* read wasm file */
-    wasm_file2 = "./wasm-apps/test2.wasm";
+    if (!aot_mode)
+        wasm_file2 = "./wasm-apps/test2.wasm";
+    else
+        wasm_file2 = "./wasm-apps/test2.aot";
     if (!(wasm_file2_buf =
               bh_read_file_to_buffer(wasm_file2, &wasm_file2_size))) {
         printf("Open wasm file %s failed.\n", wasm_file1);
@@ -273,7 +292,7 @@ main(int argc, char **argv)
 
     /* wait until all messages are post to wasm app2 and wasm app2
        handles all of them, then exit the queue message loop */
-    usleep(2000);
+    usleep(10000);
     bh_queue_exit_loop_run(queue);
 
     os_thread_join(tid1, NULL);

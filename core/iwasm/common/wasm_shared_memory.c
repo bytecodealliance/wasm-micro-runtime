@@ -8,6 +8,9 @@
 #if WASM_ENABLE_THREAD_MGR != 0
 #include "../libraries/thread-mgr/thread_manager.h"
 #endif
+#if WASM_ENABLE_AOT != 0
+#include "../aot/aot_runtime.h"
+#endif
 
 /*
  * Note: this lock can be per memory.
@@ -257,7 +260,9 @@ is_native_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
-        // TODO
+        AOTModuleInstanceExtra *e =
+            (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e;
+        shared_heap = e->shared_heap;
     }
 #endif
 
