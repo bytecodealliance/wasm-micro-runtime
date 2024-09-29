@@ -575,6 +575,8 @@ wasm_runtime_instantiate_internal(WASMModuleCommon *module,
                                   WASMModuleInstanceCommon *parent,
                                   WASMExecEnv *exec_env_main, uint32 stack_size,
                                   uint32 heap_size, uint32 max_memory_pages,
+                                  uint32 import_count,
+                                  const struct WasmExternalInstance *imports,
                                   char *error_buf, uint32 error_buf_size);
 
 /* Internal API */

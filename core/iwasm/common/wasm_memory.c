@@ -1536,6 +1536,19 @@ wasm_enlarge_memory_with_idx(WASMModuleInstance *module, uint32 inc_page_count,
 }
 
 WASMMemoryInstance *
+wasm_runtime_create_memory(WASMModuleCommon *module, WASMMemoryType *type)
+{
+    bh_assert(false && "Unsupported operation");
+    return NULL;
+}
+
+void
+wasm_runtime_destroy_memory(wasm_memory_inst_t memory_inst)
+{
+    bh_assert(false && "Unsupported operation");
+}
+
+WASMMemoryInstance *
 wasm_runtime_lookup_memory(WASMModuleInstanceCommon *module_inst,
                            const char *name)
 {
