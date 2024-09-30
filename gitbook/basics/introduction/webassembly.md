@@ -2,13 +2,36 @@
 
 In this section, you will learn the basics of WebAssembly. More details about WebAssembly can be found in [Appendix B](../../appendix/webassembly_details.md)
 
-## The origin story of WebAssembly
+## Overview
 
-Like its name suggest, in a sense, it is related to the Web and Assembly. Web means that it, like many other forerunners, like asm.js, trying to improve JavaScript's performance in Browsers. And the Assembly means that the format of WebAssembly is not a human-readable format but a compact binary format that is more efficient for Browsers to use.
+Like its name suggest, in a sense, it is related to the Web and Assembly. Web means that it, like many other forerunners, like asm.js, trying to improve JavaScript's performance in Browsers. And the Assembly means that the format of WebAssembly is not a human-readable format but a compact binary format that is more efficient for Browsers to use. To conclude, WebAssembly (Wasm) is a compact, binary instruction format tailored for a stack-based virtual machine. It serves as a portable compilation target for various programming languages, enabling smooth deployment across both client and server environments on the web. It aims to provide benefits such as:
 
-## The other benefits of WebAssembly
+- High Performance
+  
+  Wasm is built for fast execution and compact encoding, allowing programs to be efficiently transmitted and quickly loaded. By leveraging the common hardware capabilities across platforms, WebAssembly can run at near-native speeds.
 
-Other than aiming for performance improvement, the other WebAssembly could benefit us by reusing the code in your preferred programming language other than JavaScript. Many programmers from the C/C++ world are excited to utilize the existing code base of their apps or libraries and bring them onto the Web.
+- Secure Execution Environment
+  
+  Wasm operates within a memory-safe, sandboxed environment, which can be implemented even inside existing JavaScript engines. When integrated into web applications, it adheres to the same-origin policy and browser-based permission models, ensuring robust security.
+
+- Open and Debuggable Format
+  
+  Wasm is designed with a textual representation that aids in debugging, testing, and optimization. This human-readable format allows developers to experiment, learn, and even hand-code Wasm modules. When viewed on the web, this text format makes Wasm modules easily accessible for inspection.
+
+- A Core Part of the Open Web
+  
+  Built to uphold the versionless and backward-compatible nature of the web, WebAssembly seamlessly interacts with JavaScript and can access web APIs. Beyond web applications, Wasm is versatile and supports other non-web environments as well.
+
+In [The State of WebAssembly 2023](https://www.cncf.io/reports/the-state-of-webassembly-2023/) from SlashData, Linux Foundation, and the Cloud Native Computing Foundation, some key insights into the current status and adoption of WebAssembly can be found. Including the top reason why people want to use WebAssembly:
+
+- Faster loading times 23%
+- Exploring new use cases and technologies 22%
+- Sharing code between projects 20%
+- Improved performance over JavaScript 20%
+- Efficient execution of computationally intensive tasks 19%
+- Binaries run anywhere 18%
+- Sandboxed security 18%
+- Language agnostic 18%
 
 What makes it even better is that, like Javascript, shortly after the appearance of WebAssembly, it is not limited to the browser. It could also be used server-side. Many WebAssembly runtimes are out there, including our project WAMR.
 
