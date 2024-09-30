@@ -102,7 +102,7 @@ jobs:
 
     - name: Upload CodeQL results as an artifact
       if: success() || failure()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v4.4.0
       with:
         name: codeql-results
         path: ${{ steps.step1.outputs.sarif-output }}
