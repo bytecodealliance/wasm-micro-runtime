@@ -7,6 +7,7 @@
 * [Introduction](gitbook/basics/introduction/README.md)
   * [WebAssembly](gitbook/basics/introduction/webassembly.md)
   * [WAMR Project](gitbook/basics/introduction/wamr_project.md)
+  * [Security Feature](gitbook/basics/introduction/security_feature.md)
 
 * [Getting Started](gitbook/basics/getting-started/README.md)
   * [Host Environment Preparation](gitbook/basics/getting-started/host_prerequsites.md)
