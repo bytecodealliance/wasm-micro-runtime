@@ -487,6 +487,8 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
 
 #define POP_F64() (GET_F64_FROM_ADDR(frame_lp + GET_OFFSET()))
 
+#define POP_V128() (GET_V128_FROM_ADDR(frame_lp + GET_OFFSET()))
+
 #define POP_REF()                                                    \
     (opnd_off = GET_OFFSET(), CLEAR_FRAME_REF((unsigned)(opnd_off)), \
      GET_REF_FROM_ADDR(frame_lp + opnd_off))
@@ -5720,6 +5722,20 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                     // i8x16 comparison operations
                     case SIMD_i8x16_eq:
+                    {
+                        V128 v1 = POP_V128();
+                        V128 v2 = POP_V128();
+                        int i;
+                        addr_ret = GET_OFFSET();
+
+                        V128 result;
+                        for (i = 0; i < 16; i++) {
+                            result.i8x16[i] =
+                                v1.i8x16[i] == v2.i8x16[i] ? 0xff : 0;
+                        }
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
                     case SIMD_i8x16_ne:
                     case SIMD_i8x16_lt_s:
                     case SIMD_i8x16_lt_u:
@@ -5792,10 +5808,72 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                     // v128 comparison operations
                     case SIMD_v128_not:
+                    {
+                        V128 value = POP_V128();
+                        addr_ret = GET_OFFSET();
+
+                        V128 result;
+                        result.i64x2[0] = ~value.i64x2[0];
+                        result.i64x2[1] = ~value.i64x2[1];
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
                     case SIMD_v128_and:
+                    {
+                        V128 v1 = POP_V128();
+                        V128 v2 = POP_V128();
+                        addr_ret = GET_OFFSET();
+
+                        V128 result;
+                        result.i64x2[0] = v1.i64x2[0] & v2.i64x2[0];
+                        result.i64x2[1] = v1.i64x2[1] & v2.i64x2[1];
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
+
                     case SIMD_v128_andnot:
+                    {
+                        V128 v1 = POP_V128();
+                        V128 v2 = POP_V128();
+                        addr_ret = GET_OFFSET();
+
+                        V128 result;
+                        result.i64x2[0] = v1.i64x2[0] & (~v2.i64x2[0]);
+                        result.i64x2[1] = v1.i64x2[1] & (~v2.i64x2[1]);
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
+
                     case SIMD_v128_or:
+                    {
+                        V128 v1 = POP_V128();
+                        V128 v2 = POP_V128();
+                        addr_ret = GET_OFFSET();
+
+                        V128 result;
+                        result.i64x2[0] = v1.i64x2[0] | v2.i64x2[0];
+                        result.i64x2[1] = v1.i64x2[1] | v2.i64x2[1];
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
+
                     case SIMD_v128_xor:
+                    {
+                        V128 v1 = POP_V128();
+                        V128 v2 = POP_V128();
+                        addr_ret = GET_OFFSET();
+
+                        V128 result;
+                        result.i64x2[0] = v1.i64x2[0] ^ v2.i64x2[0];
+                        result.i64x2[1] = v1.i64x2[1] ^ v2.i64x2[1];
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
                     case SIMD_v128_bitselect:
                     {
                         wasm_set_exception(module, "unsupported SIMD opcode");
