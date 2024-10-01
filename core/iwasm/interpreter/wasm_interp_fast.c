@@ -5722,6 +5722,20 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                     /* i8x16 comparison operations */
                     case SIMD_i8x16_eq:
+                    {
+                        V128 v1 = POP_V128();
+                        V128 v2 = POP_V128();
+                        int i;
+                        addr_ret = GET_OFFSET();
+
+                        V128 result;
+                        for (i = 0; i < 16; i++) {
+                            result.i8x16[i] =
+                                v1.i8x16[i] == v2.i8x16[i] ? 0xff : 0;
+                        }
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
                     case SIMD_i8x16_ne:
                     case SIMD_i8x16_lt_s:
                     case SIMD_i8x16_lt_u:
@@ -5792,12 +5806,56 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         break;
                     }
 
-                    /* v128 comparison operations */
+                    /* v128 bitwise operations */
+#define SIMD_V128_BITWISE_OP_COMMON(result_expr_0, result_expr_1) \
+    do {                                                          \
+        V128 result;                                              \
+        result.i64x2[0] = (result_expr_0);                        \
+        result.i64x2[1] = (result_expr_1);                        \
+        addr_ret = GET_OFFSET();                                  \
+        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);            \
+    } while (0)
+
                     case SIMD_v128_not:
+                    {
+                        V128 value = POP_V128();
+                        SIMD_V128_BITWISE_OP_COMMON(~value.i64x2[0],
+                                                    ~value.i64x2[1]);
+                        break;
+                    }
                     case SIMD_v128_and:
+                    {
+                        V128 v2 = POP_V128();
+                        V128 v1 = POP_V128();
+                        SIMD_V128_BITWISE_OP_COMMON(v1.i64x2[0] & v2.i64x2[0],
+                                                    v1.i64x2[1] & v2.i64x2[1]);
+                        break;
+                    }
                     case SIMD_v128_andnot:
+                    {
+                        V128 v2 = POP_V128();
+                        V128 v1 = POP_V128();
+                        SIMD_V128_BITWISE_OP_COMMON(
+                            v1.i64x2[0] & (~v2.i64x2[0]),
+                            v1.i64x2[1] & (~v2.i64x2[1]));
+                        break;
+                    }
                     case SIMD_v128_or:
+                    {
+                        V128 v2 = POP_V128();
+                        V128 v1 = POP_V128();
+                        SIMD_V128_BITWISE_OP_COMMON(v1.i64x2[0] | v2.i64x2[0],
+                                                    v1.i64x2[1] | v2.i64x2[1]);
+                        break;
+                    }
                     case SIMD_v128_xor:
+                    {
+                        V128 v2 = POP_V128();
+                        V128 v1 = POP_V128();
+                        SIMD_V128_BITWISE_OP_COMMON(v1.i64x2[0] ^ v2.i64x2[0],
+                                                    v1.i64x2[1] ^ v2.i64x2[1]);
+                        break;
+                    }
                     case SIMD_v128_bitselect:
                     {
                         wasm_set_exception(module, "unsupported SIMD opcode");
@@ -5841,6 +5899,22 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case SIMD_i8x16_neg:
                     case SIMD_i8x16_popcnt:
                     case SIMD_i8x16_all_true:
+                    {
+                        V128 v = POP_V128();
+                        uint8_t *bytes = (uint8_t *)&v;
+                        bool all_true = true;
+
+                        for (int i = 0; i < 16; i++) {
+                            if (bytes[i] == 0) {
+                                all_true = false;
+                                break;
+                            }
+                        }
+
+                        PUSH_I32(all_true ? 1 : 0);
+                        break;
+                    }
+
                     case SIMD_i8x16_bitmask:
                     case SIMD_i8x16_narrow_i16x8_s:
                     case SIMD_i8x16_narrow_i16x8_u:
