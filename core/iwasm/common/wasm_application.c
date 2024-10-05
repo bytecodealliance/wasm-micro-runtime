@@ -685,6 +685,10 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
         goto fail;
     }
 
+    if (argv && type->result_count == 1 && type->types[type->param_count] == VALUE_TYPE_I32)
+        /* copy the return value */
+        *(int *)argv = (int)argv1[0];
+
 #if WASM_ENABLE_GC != 0
     ref_type_map = type->result_ref_type_maps;
 #endif
