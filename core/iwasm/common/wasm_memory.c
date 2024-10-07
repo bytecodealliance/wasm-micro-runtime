@@ -1536,16 +1536,30 @@ wasm_enlarge_memory_with_idx(WASMModuleInstance *module, uint32 inc_page_count,
 }
 
 WASMMemoryInstance *
-wasm_runtime_create_memory(WASMModuleCommon *module, WASMMemoryType *type)
+wasm_runtime_create_memory(WASMModuleCommon *module, WASMMemoryType *type,
+                           uint32 index)
 {
+#if WASM_ENABLE_INTERP != 0
+    return wasm_create_memory((WASMModule *)module, type, index);
+#endif
+
+#if WASM_ENABLE_AOT != 0
     bh_assert(false && "Unsupported operation");
+#endif
+
     return NULL;
 }
 
 void
-wasm_runtime_destroy_memory(wasm_memory_inst_t memory_inst)
+wasm_runtime_destroy_memory(wasm_memory_inst_t memory)
 {
+#if WASM_ENABLE_INTERP != 0
+    return wasm_destroy_memory(memory);
+#endif
+
+#if WASM_ENABLE_AOT != 0
     bh_assert(false && "Unsupported operation");
+#endif
 }
 
 WASMMemoryInstance *

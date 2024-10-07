@@ -55,7 +55,8 @@ main(int argc, char *argv_main[])
 
     /* host memory */
     wasm_memory_type_t memory_type = import_type.u.memory_type;
-    wasm_memory_inst_t memory = wasm_runtime_create_memory(module, memory_type);
+    wasm_memory_inst_t memory =
+        wasm_runtime_create_memory(module, memory_type, 0);
     if (!memory) {
         printf("Create memory failed.\n");
         goto unload_module;

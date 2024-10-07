@@ -567,6 +567,10 @@ bool
 wasm_set_running_mode(WASMModuleInstance *module_inst,
                       RunningMode running_mode);
 
+WASMMemoryInstance *
+wasm_create_memory(const WASMModule *module, const WASMMemoryType *type,
+                   uint32 index);
+
 WASMFunctionInstance *
 wasm_lookup_function(const WASMModuleInstance *module_inst, const char *name);
 
@@ -585,8 +589,10 @@ WASMTagInstance *
 wasm_lookup_tag(const WASMModuleInstance *module_inst, const char *name,
                 const char *signature);
 #endif
+#endif /* WASM_ENABLE_MULTI_MODULE != 0 */
 
-#endif
+void
+wasm_destroy_memory(WASMMemoryInstance *memory);
 
 bool
 wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
