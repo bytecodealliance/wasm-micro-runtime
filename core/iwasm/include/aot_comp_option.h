@@ -6,6 +6,8 @@
 #ifndef __AOT_COMP_OPTION_H__
 #define __AOT_COMP_OPTION_H__
 
+#include <stdint.h>
+
 typedef struct {
     /* Enables or disables bounds checks for stack frames. When enabled, the AOT
      * compiler generates code to check if the stack pointer is within the
