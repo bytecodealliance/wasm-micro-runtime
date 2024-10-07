@@ -20,6 +20,9 @@
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
 #endif
+#if ENABLE_NEON != 0
+#include <arm_neon.h>
+#endif
 
 typedef int32 CellType_I32;
 typedef int64 CellType_I64;
@@ -5682,6 +5685,44 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         break;
                     }
                     case SIMD_v8x16_shuffle:
+#if ENABLE_NEON == 1
+                    {
+                        // use wasm_runtime_read_v128(frame_ip, (uint64 *)imm,
+                        // (uint64 *)(imm + 8)); ?
+                        uint8x16_t indices = vld1q_u8(frame_ip);
+                        frame_ip += 16; // 16 for indices
+                        V128 v1 = POP_V128();
+                        V128 v2 = POP_V128();
+                        addr_ret = GET_OFFSET();
+
+                        int8x16_t a =
+                            vreinterpretq_s8_u64(vld1q_u64((uint64_t *)&v1));
+                        int8x16_t b =
+                            vreinterpretq_s8_u64(vld1q_u64((uint64_t *)&v2));
+
+                        uint8x16_t mask = vcgeq_u8(indices, vdupq_n_u8(16));
+
+                        indices =
+                            vsubq_u8(indices, vandq_u8(mask, vdupq_n_u8(16)));
+
+                        int8x16_t result_a = vqtbl1q_s8(a, indices);
+                        int8x16_t result_b = vqtbl1q_s8(b, indices);
+
+                        int8x16_t result = vbslq_s8(mask, result_a, result_b);
+
+                        V128 v128_result;
+                        vst1q_u64((uint64_t *)&v128_result,
+                                  vreinterpretq_u64_s8(result));
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, v128_result);
+                        break;
+                    }
+#else
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+#endif
                     case SIMD_v8x16_swizzle:
                     {
                         wasm_set_exception(module, "unsupported SIMD opcode");

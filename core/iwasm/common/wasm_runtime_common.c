@@ -5605,7 +5605,7 @@ typedef union __declspec(intrin_type) __declspec(align(8)) v128 {
     || defined(BUILD_TARGET_RISCV64_LP64)
 typedef long long v128
     __attribute__((__vector_size__(16), __may_alias__, __aligned__(1)));
-#elif defined(BUILD_TARGET_AARCH64)
+#elif defined(BUILD_TARGET_AARCH64) || defined(ENABLE_NEON)
 #include <arm_neon.h>
 typedef uint32x4_t __m128i;
 #define v128 __m128i
