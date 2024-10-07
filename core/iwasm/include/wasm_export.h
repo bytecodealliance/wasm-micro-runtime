@@ -984,7 +984,7 @@ wasm_runtime_set_module_inst(wasm_exec_env_t exec_env,
  */
 WASM_RUNTIME_API_EXTERN wasm_memory_inst_t
 wasm_runtime_create_memory(const wasm_module_t module,
-                           const wasm_memory_type_t type);
+                           const wasm_memory_type_t type, uint32_t index);
 
 /**
  * @brief Destroy a memory instance
