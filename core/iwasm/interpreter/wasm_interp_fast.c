@@ -485,6 +485,8 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
 
 #define POP_I64() (GET_I64_FROM_ADDR(frame_lp + GET_OFFSET()))
 
+#define POP_V128() (GET_V128_FROM_ADDR(frame_lp + GET_OFFSET()))
+
 #define POP_F64() (GET_F64_FROM_ADDR(frame_lp + GET_OFFSET()))
 
 #define POP_REF()                                                    \
@@ -5662,8 +5664,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     }
                     case SIMD_v128_any_true:
                     {
-                        V128 value = GET_OPERAND_V128(0);
-                        frame_ip += 2;
+                        V128 value = POP_V128();
                         addr_ret = GET_OFFSET();
                         frame_lp[addr_ret] =
                             value.i64x2[0] != 0 || value.i64x2[1] != 0;
