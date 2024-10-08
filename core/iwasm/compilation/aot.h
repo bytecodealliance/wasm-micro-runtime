@@ -312,7 +312,7 @@ void
 aot_destroy_comp_data(AOTCompData *comp_data);
 
 char *
-aot_get_last_error();
+aot_get_last_error(void);
 
 void
 aot_set_last_error(const char *error);

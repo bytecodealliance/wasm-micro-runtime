@@ -195,6 +195,15 @@ aot_gen_commit_values(AOTCompFrame *frame);
 bool
 aot_gen_commit_sp_ip(AOTCompFrame *frame, bool commit_sp, bool commit_ip);
 
+/**
+ * Generate instructions to commit IP pointer to the frame.
+ *
+ * @param frame the frame information
+ */
+bool
+aot_gen_commit_ip(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                  LLVMValueRef ip_value, bool is_64bit);
+
 bool
 aot_frame_store_value(AOTCompContext *comp_ctx, LLVMValueRef value,
                       uint8 value_type, LLVMValueRef cur_frame, uint32 offset);
@@ -651,6 +660,15 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
 #define F32_CONST(v) LLVMConstReal(F32_TYPE, v)
 #define F64_CONST(v) LLVMConstReal(F64_TYPE, v)
 #define I8_CONST(v) LLVMConstInt(INT8_TYPE, v, true)
+
+#define INT_CONST(variable, value, type, is_signed)        \
+    do {                                                   \
+        variable = LLVMConstInt(type, value, is_signed);   \
+        if (!variable) {                                   \
+            aot_set_last_error("llvm build const failed"); \
+            return false;                                  \
+        }                                                  \
+    } while (0)
 
 #define LLVM_CONST(name) (comp_ctx->llvm_consts.name)
 #define I1_ZERO LLVM_CONST(i1_zero)

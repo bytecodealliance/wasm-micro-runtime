@@ -4,48 +4,9 @@
  */
 
 #include "aot_emit_exception.h"
+#include "aot_compiler.h"
 #include "../interpreter/wasm_runtime.h"
 #include "../aot/aot_runtime.h"
-
-static bool
-commit_ip(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-          LLVMValueRef exce_ip, bool is_64bit)
-{
-    LLVMValueRef cur_frame = func_ctx->cur_frame;
-    LLVMValueRef value_offset, value_addr, value_ptr;
-    uint32 offset_ip;
-
-    if (!comp_ctx->is_jit_mode)
-        offset_ip = comp_ctx->pointer_size * 4;
-    else
-        offset_ip = offsetof(WASMInterpFrame, ip);
-
-    if (!(value_offset = I32_CONST(offset_ip))) {
-        aot_set_last_error("llvm build const failed");
-        return false;
-    }
-
-    if (!(value_addr =
-              LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, cur_frame,
-                                    &value_offset, 1, "ip_addr"))) {
-        aot_set_last_error("llvm build in bounds gep failed");
-        return false;
-    }
-
-    if (!(value_ptr = LLVMBuildBitCast(
-              comp_ctx->builder, value_addr,
-              is_64bit ? INT64_PTR_TYPE : INT32_PTR_TYPE, "ip_ptr"))) {
-        aot_set_last_error("llvm build bit cast failed");
-        return false;
-    }
-
-    if (!LLVMBuildStore(comp_ctx->builder, exce_ip, value_ptr)) {
-        aot_set_last_error("llvm build store failed");
-        return false;
-    }
-
-    return true;
-}
 
 bool
 aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
@@ -80,7 +41,7 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return false;
         }
 
-        if (comp_ctx->aot_frame) {
+        if (comp_ctx->aot_frame && comp_ctx->call_stack_features.trap_ip) {
             /* Create exception ip phi */
             if (!(func_ctx->exception_ip_phi = LLVMBuildPhi(
                       comp_ctx->builder, is_64bit ? I64_TYPE : I32_TYPE,
@@ -90,8 +51,8 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             }
 
             /* Commit ip to current frame */
-            if (!commit_ip(comp_ctx, func_ctx, func_ctx->exception_ip_phi,
-                           is_64bit)) {
+            if (!aot_gen_commit_ip(comp_ctx, func_ctx,
+                                   func_ctx->exception_ip_phi, is_64bit)) {
                 return false;
             }
         }
@@ -173,7 +134,7 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Add phi incoming value to got_exception block */
     LLVMAddIncoming(func_ctx->exception_id_phi, &exce_id, &block_curr, 1);
 
-    if (comp_ctx->aot_frame) {
+    if (comp_ctx->aot_frame && comp_ctx->call_stack_features.trap_ip) {
         const uint8 *ip = comp_ctx->aot_frame->frame_ip;
         LLVMValueRef exce_ip = NULL;
 

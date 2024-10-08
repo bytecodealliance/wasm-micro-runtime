@@ -976,8 +976,9 @@ struct WASMModule {
     uint64 buf_code_size;
 #endif
 
-#if WASM_ENABLE_DEBUG_INTERP != 0 || WASM_ENABLE_FAST_JIT != 0 \
-    || WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_JIT != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0 || WASM_ENABLE_FAST_JIT != 0  \
+    || WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_JIT != 0 \
+    || WASM_ENABLE_WAMR_COMPILER != 0
     uint8 *load_addr;
     uint64 load_size;
 #endif
@@ -1238,6 +1239,9 @@ wasm_value_type_size_internal(uint8 value_type, uint8 pointer_size)
     else {
         bh_assert(0);
     }
+#if WASM_ENABLE_GC == 0
+    (void)pointer_size;
+#endif
     return 0;
 }
 

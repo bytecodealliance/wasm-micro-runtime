@@ -5683,9 +5683,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     {
                         mem_offset_t dst, src, len;
                         uint8 *mdst, *msrc;
-#if WASM_ENABLE_MEMORY64 == 0
                         uint64 dlen;
-#endif
 
                         len = POP_MEM_OFFSET();
                         src = POP_MEM_OFFSET();
@@ -5709,9 +5707,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             goto out_of_bounds;
                         mdst = memory->memory_data + dst;
 #endif
-#if WASM_ENABLE_MEMORY64 == 0
                         dlen = linear_mem_size - dst;
-#endif
 
 #if WASM_ENABLE_MULTI_MEMORY != 0
                         /* src memidx */
@@ -5739,6 +5735,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         /* use memmove when memory64 is enabled since len
                            may be larger than UINT32_MAX */
                         memmove(mdst, msrc, len);
+                        (void)dlen;
 #endif
                         break;
                     }

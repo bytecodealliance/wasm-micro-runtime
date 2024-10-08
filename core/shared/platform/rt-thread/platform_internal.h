@@ -124,7 +124,7 @@ typedef void *os_dir_stream;
 typedef int os_raw_file_handle;
 
 static inline os_file_handle
-os_get_invalid_handle()
+os_get_invalid_handle(void)
 {
     return -1;
 }

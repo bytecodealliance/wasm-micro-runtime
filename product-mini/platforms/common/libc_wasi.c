@@ -28,7 +28,7 @@ typedef enum {
 } libc_wasi_parse_result_t;
 
 static void
-libc_wasi_print_help()
+libc_wasi_print_help(void)
 {
     printf("  --env=<env>              Pass wasi environment variables with "
            "\"key=value\"\n");
