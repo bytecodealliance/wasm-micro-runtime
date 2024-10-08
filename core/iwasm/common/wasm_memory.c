@@ -379,7 +379,7 @@ wasm_runtime_validate_app_str_addr(WASMModuleInstanceCommon *module_inst_comm,
         goto fail;
 
 #if WASM_ENABLE_MEMORY64 != 0
-    if (module_inst->memories[0]->is_memory64)
+    if (module_inst->memories[0].memory->is_memory64)
         max_linear_memory_size = MAX_LINEAR_MEM64_MEMORY_SIZE;
 #endif
     /* boundary overflow check, max start offset can only be size - 1, while end
@@ -665,7 +665,7 @@ WASMMemoryInstance *
 wasm_get_default_memory(WASMModuleInstance *module_inst)
 {
     if (module_inst->memories)
-        return module_inst->memories[0];
+        return module_inst->memories[0].memory;
     else
         return NULL;
 }
@@ -675,7 +675,7 @@ wasm_get_memory_with_idx(WASMModuleInstance *module_inst, uint32 index)
 {
     if ((index >= module_inst->memory_count) || !module_inst->memories)
         return NULL;
-    return module_inst->memories[index];
+    return module_inst->memories[index].memory;
 }
 
 void
@@ -965,12 +965,13 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 
     if (module->memory_count > 0) {
 #if WASM_ENABLE_SHARED_MEMORY != 0
-        shared_memory_lock(module->memories[0]);
+        shared_memory_lock(module->memories[0].memory);
 #endif
         ret = wasm_enlarge_memory_internal((WASMModuleInstanceCommon *)module,
-                                           module->memories[0], inc_page_count);
+                                           module->memories[0].memory,
+                                           inc_page_count);
 #if WASM_ENABLE_SHARED_MEMORY != 0
-        shared_memory_unlock(module->memories[0]);
+        shared_memory_unlock(module->memories[0].memory);
 #endif
     }
 
@@ -985,17 +986,73 @@ wasm_enlarge_memory_with_idx(WASMModuleInstance *module, uint32 inc_page_count,
 
     if (memidx < module->memory_count) {
 #if WASM_ENABLE_SHARED_MEMORY != 0
-        shared_memory_lock(module->memories[memidx]);
+        shared_memory_lock(module->memories[memidx].memory);
 #endif
         ret = wasm_enlarge_memory_internal((WASMModuleInstanceCommon *)module,
-                                           module->memories[memidx],
+                                           module->memories[memidx].memory,
                                            inc_page_count);
 #if WASM_ENABLE_SHARED_MEMORY != 0
-        shared_memory_unlock(module->memories[memidx]);
+        shared_memory_unlock(module->memories[memidx].memory);
 #endif
     }
 
     return ret;
+}
+
+WASMMemoryInstance *
+wasm_runtime_memory_create(uint64 initial_pages, uint64 max_pages, bool shared)
+{
+    WASMMemoryInstance *memory;
+
+    if (!initial_pages || (max_pages && (max_pages < initial_pages))) {
+        return NULL;
+    }
+
+    if (!(memory = wasm_runtime_malloc(sizeof(WASMMemoryInstance)))) {
+        return NULL;
+    }
+
+    memset(memory, 0, sizeof(WASMMemoryInstance));
+
+    memory->module_type = Package_Type_Unknown;
+    memory->num_bytes_per_page = 64 * 1024;
+    memory->cur_page_count = (uint32)initial_pages;
+    memory->max_page_count = (uint32)max_pages;
+    memory->memory_data_size =
+        (uint64)memory->num_bytes_per_page * memory->max_page_count;
+    bh_assert(memory->memory_data_size
+              <= GET_MAX_LINEAR_MEMORY_SIZE(memory->is_memory64));
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (shared) {
+        memory->is_shared_memory = 1;
+        memory->ref_count = 1;
+    }
+#endif
+
+    if (wasm_allocate_linear_memory(
+            &memory->memory_data, memory->is_shared_memory, memory->is_memory64,
+            memory->num_bytes_per_page, memory->cur_page_count,
+            memory->max_page_count, &memory->memory_data_size)
+        != BHT_OK) {
+        wasm_runtime_free(memory);
+        return NULL;
+    }
+
+    if (memory->memory_data_size > 0) {
+        wasm_runtime_set_mem_bound_check_bytes(memory,
+                                               memory->memory_data_size);
+    }
+
+    return memory;
+}
+
+void
+wasm_memory_destroy(WASMMemoryInstance *memory_inst)
+{
+    if (memory_inst) {
+        wasm_runtime_free(memory_inst);
+    }
 }
 
 WASMMemoryInstance *
