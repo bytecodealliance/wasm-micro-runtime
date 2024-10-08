@@ -55,13 +55,11 @@ has_module_memory64(WASMModule *module)
 static bool
 is_table_64bit(WASMModule *module, uint32 table_idx)
 {
-    if (module->import_table_count > 0
-        && table_idx < module->import_table_count)
-        return (module->import_tables[table_idx].u.table.table_type.flags
-                & TABLE64_FLAG)
-               != 0;
-    else if (module->table_count > 0)
-        return (module->tables[table_idx].table_type.flags & TABLE64_FLAG) != 0;
+    if (table_idx < module->import_table_count)
+        return !!(module->import_tables[table_idx].u.table.table_type.flags
+                  & TABLE64_FLAG);
+    else
+        return !!(module->tables[table_idx].table_type.flags & TABLE64_FLAG);
 
     return false;
 }

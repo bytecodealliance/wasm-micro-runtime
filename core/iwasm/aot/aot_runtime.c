@@ -753,7 +753,7 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 #endif
 
         /* Resolve table data base offset */
-        /* TODO: The table64 current implementation assume table max size
+        /* TODO: The table64 current implementation assumes table max size
          * UINT32_MAX, so the offset conversion here is safe */
         if (table_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
             global_index = table_seg->offset.u.global_index;

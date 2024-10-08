@@ -4640,9 +4640,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 prev_page_count = memory->cur_page_count;
                 delta = POP_PAGE_COUNT();
 
-                if (delta > UINT32_MAX
-                    || !wasm_enlarge_memory_with_idx(module, (uint32)delta,
-                                                     mem_idx)) {
+                if (
+#if WASM_ENABLE_MEMORY64 != 0
+                    delta > UINT32_MAX ||
+#endif
+                    !wasm_enlarge_memory_with_idx(module, (uint32)delta,
+                                                  mem_idx)) {
                     /* failed to memory.grow, return -1 */
                     PUSH_PAGE_COUNT(-1);
                 }
@@ -5834,9 +5837,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
 
                         /* TODO: memory64 current implementation of table64
-                         * still assume the max table size UINT32_MAX
+                         * still assumes the max table size UINT32_MAX
                          */
-                        if (d > UINT32_MAX
+                        if (
+#if WASM_ENABLE_MEMORY64 != 0
+                            d > UINT32_MAX ||
+#endif
                             || offset_len_out_of_bounds(s, n, tbl_seg_len)
                             || offset_len_out_of_bounds((uint32)d, n,
                                                         tbl_inst->cur_size)) {
@@ -5919,7 +5925,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
                         d = (tbl_elem_idx_t)POP_TBL_ELEM_IDX();
 
-                        if (n > UINT32_MAX || s > UINT32_MAX || d > UINT32_MAX
+                        if (
+#if WASM_ENABLE_MEMORY64 != 0
+                            n > UINT32_MAX || s > UINT32_MAX || d > UINT32_MAX
+#endif
                             || offset_len_out_of_bounds((uint32)d, (uint32)n,
                                                         dst_tbl_inst->cur_size)
                             || offset_len_out_of_bounds(
