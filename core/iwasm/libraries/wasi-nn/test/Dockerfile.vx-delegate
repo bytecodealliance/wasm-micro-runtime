@@ -21,6 +21,18 @@ RUN apt-get update && apt-get install -y wget ca-certificates --no-install-recom
     && update-ca-certificates \
     && git config --global http.sslCAinfo /etc/ssl/certs/ca-certificates.crt
 
+# need a newer cmake
+RUN apt-get purge -y cmake
+
+ARG CMAKE_VER=3.27.0
+RUN wget https://github.com/Kitware/CMake/releases/download/v${CMAKE_VER}/cmake-${CMAKE_VER}-Linux-x86_64.sh \
+  -q -O /tmp/cmake-install.sh \
+  && chmod u+x /tmp/cmake-install.sh \
+  && mkdir /opt/cmake-${CMAKE_VER} \
+  && /tmp/cmake-install.sh --skip-license --prefix=/opt/cmake-${CMAKE_VER} \
+  && rm /tmp/cmake-install.sh \
+  && ln -s /opt/cmake-${CMAKE_VER}/bin/* /usr/local/bin
+
 # Build TensorFlow Lite VX delegate default built for x86-64 simulator
 WORKDIR /tmp
 RUN git clone https://github.com/VeriSilicon/TIM-VX.git tim-vx \
@@ -89,7 +101,6 @@ ENV VSIMULATOR_CONFIG=czl
 
 ENV LD_LIBRARY_PATH=/tmp/tim-vx/prebuilt-sdk/x86_64_linux/lib:/usr/local/lib:/lib/x86_64-linux-gnu/:/lib64/:/usr/lib:$LD_LIBRARY_PATH 
 
-
 # Build WASI-NN
 WORKDIR /home/wamr
 
@@ -102,12 +113,14 @@ RUN cmake \
     -DCMAKE_LIBRARY_PATH=${CMAKE_LIBRARY_PATH}:/usr/local/lib/ \
     -DCMAKE_INCLUDE_PATH=${CMAKE_INCLUDE_PATH}:/usr/local/include/ \
     -DWAMR_BUILD_WASI_NN=1 \
+    -DWAMR_BUILD_WASI_NN_TFLITE=1\
     -DWAMR_BUILD_WASI_NN_ENABLE_EXT=1 \
     -DWASI_NN_EXT_DELEGATE_PATH="/usr/lib/libvx_delegate.so" \
     ..
 
 RUN make -j "$(grep -c ^processor /proc/cpuinfo)"
 
-RUN cp /home/wamr/core/iwasm/libraries/wasi-nn/test/build/iwasm /run/iwasm
+RUN cp /home/wamr/core/iwasm/libraries/wasi-nn/test/build/iwasm /run/iwasm \
+  && cp /home/wamr/product-mini/platforms/linux/build/lib*.so /usr/lib
 
 ENTRYPOINT [ "/run/iwasm" ]

@@ -5,6 +5,7 @@
 
 #include "utils.h"
 #include "logger.h"
+#include "wasi_nn.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -57,7 +58,7 @@ wasm_load(char *model_name, graph *g, execution_target target)
 wasi_nn_error
 wasm_load_by_name(const char *model_name, graph *g)
 {
-    wasm_nn_error res = load_by_name(model_name, g);
+    wasi_nn_error res = load_by_name(model_name, g);
     return res;
 }
 
