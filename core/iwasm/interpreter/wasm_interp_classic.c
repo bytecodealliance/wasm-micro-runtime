@@ -5843,7 +5843,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_MEMORY64 != 0
                             d > UINT32_MAX ||
 #endif
-                            || offset_len_out_of_bounds(s, n, tbl_seg_len)
+                            offset_len_out_of_bounds(s, n, tbl_seg_len)
                             || offset_len_out_of_bounds((uint32)d, n,
                                                         tbl_inst->cur_size)) {
                             wasm_set_exception(module,
@@ -5928,9 +5928,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         if (
 #if WASM_ENABLE_MEMORY64 != 0
                             n > UINT32_MAX || s > UINT32_MAX || d > UINT32_MAX
+                            ||
 #endif
-                            || offset_len_out_of_bounds((uint32)d, (uint32)n,
-                                                        dst_tbl_inst->cur_size)
+                            offset_len_out_of_bounds((uint32)d, (uint32)n,
+                                                     dst_tbl_inst->cur_size)
                             || offset_len_out_of_bounds(
                                 (uint32)s, (uint32)n, src_tbl_inst->cur_size)) {
                             wasm_set_exception(module,
@@ -5976,9 +5977,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         init_val = POP_REF();
 #endif
 
-                        if (n > UINT32_MAX
-                            || !wasm_enlarge_table(module, tbl_idx, (uint32)n,
-                                                   init_val)) {
+                        if (
+#if WASM_ENABLE_MEMORY64 != 0
+                            n > UINT32_MAX ||
+#endif
+                            !wasm_enlarge_table(module, tbl_idx, (uint32)n,
+                                                init_val)) {
                             PUSH_TBL_ELEM_IDX(-1);
                         }
                         else {
@@ -6025,10 +6029,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
                         elem_idx = POP_TBL_ELEM_IDX();
 
-                        if (n > UINT32_MAX || elem_idx > UINT32_MAX
-                            || offset_len_out_of_bounds((uint32)elem_idx,
-                                                        (uint32)n,
-                                                        tbl_inst->cur_size)) {
+                        if (
+#if WASM_ENABLE_MEMORY64 != 0
+                            n > UINT32_MAX || elem_idx > UINT32_MAX ||
+#endif
+                            offset_len_out_of_bounds((uint32)elem_idx,
+                                                     (uint32)n,
+                                                     tbl_inst->cur_size)) {
                             wasm_set_exception(module,
                                                "out of bounds table access");
                             goto got_exception;
