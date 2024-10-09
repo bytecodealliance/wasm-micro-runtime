@@ -83,7 +83,7 @@ init_plt_table(uint8 *plt)
         /* mov symbol_addr, rax */
         *p++ = 0x48;
         *p++ = 0xB8;
-        *(uint64 *)p = (uint64)(uintptr_t)target_sym_map[i].symbol_addr;
+        memcpy(p, &target_sym_map[i].symbol_addr, sizeof(uint64));
         p += sizeof(uint64);
         /* jmp rax */
         *p++ = 0xFF;
@@ -167,7 +167,8 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                 return false;
             }
 
-            *(int32 *)(target_section_addr + reloc_offset) = (int32)target_addr;
+            memcpy(target_section_addr + reloc_offset, &target_addr,
+                   sizeof(int32));
             break;
         }
         case R_X86_64_PC64:
@@ -203,7 +204,8 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                 return false;
             }
 
-            *(int32 *)(target_section_addr + reloc_offset) = (int32)target_addr;
+            memcpy(target_section_addr + reloc_offset, &target_addr,
+                   sizeof(int32));
             break;
         }
 #endif
@@ -248,7 +250,8 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                     "Try using wamrc with --size-level=1 or 0 option.");
                 return false;
             }
-            *(int32 *)(target_section_addr + reloc_offset) = (int32)target_addr;
+            memcpy(target_section_addr + reloc_offset, &target_addr,
+                   sizeof(int32));
             break;
         }
 
