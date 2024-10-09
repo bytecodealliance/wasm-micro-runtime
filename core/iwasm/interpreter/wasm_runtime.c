@@ -233,42 +233,57 @@ get_sub_module_inst(const WASMModuleInstance *parent_module_inst,
 /**
  * Destroy memory instances.
  */
+
+static void
+memory_deinstantiate(WASMMemoryInstance *memory)
+{
+    if (!memory)
+        return;
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (shared_memory_is_shared(memory)) {
+        uint32 ref_count = shared_memory_dec_reference(memory);
+        /* if the reference count is not zero,
+            don't free the memory */
+        if (ref_count > 0)
+            return;
+    }
+#endif
+
+    if (memory->heap_handle) {
+        mem_allocator_destroy(memory->heap_handle);
+        wasm_runtime_free(memory->heap_handle);
+        memory->heap_handle = NULL;
+    }
+    if (memory->memory_data) {
+        wasm_deallocate_linear_memory(memory);
+    }
+}
+
 static void
 memories_deinstantiate(WASMModuleInstance *module_inst,
                        WASMMemoryInstance **memories, uint32 count)
 {
-    uint32 i;
-    if (memories) {
-        for (i = 0; i < count; i++) {
-            if (memories[i]) {
 #if WASM_ENABLE_MULTI_MODULE != 0
-                WASMModule *module = module_inst->module;
-                if (i < module->import_memory_count
-                    && module->import_memories[i].u.memory.import_module) {
-                    continue;
-                }
+    WASMModule *module = module_inst->module;
 #endif
-#if WASM_ENABLE_SHARED_MEMORY != 0
-                if (shared_memory_is_shared(memories[i])) {
-                    uint32 ref_count = shared_memory_dec_reference(memories[i]);
-                    /* if the reference count is not zero,
-                        don't free the memory */
-                    if (ref_count > 0)
-                        continue;
-                }
-#endif
-                if (memories[i]->heap_handle) {
-                    mem_allocator_destroy(memories[i]->heap_handle);
-                    wasm_runtime_free(memories[i]->heap_handle);
-                    memories[i]->heap_handle = NULL;
-                }
-                if (memories[i]->memory_data) {
-                    wasm_deallocate_linear_memory(memories[i]);
-                }
-            }
+    uint32 i;
+
+    if (!memories)
+        return;
+
+    for (i = 0; i < count; i++) {
+#if WASM_ENABLE_MULTI_MODULE != 0
+        if (i < module->import_memory_count
+            && module->import_memories[i].u.memory.import_module) {
+            continue;
         }
-        wasm_runtime_free(memories);
+#endif
+
+        memory_deinstantiate(memories[i]);
     }
+
+    wasm_runtime_free(memories);
     (void)module_inst;
 }
 
@@ -612,9 +627,8 @@ wasm_create_memory(const WASMModule *module, const WASMMemoryType *type,
 void
 wasm_destroy_memory(WASMMemoryInstance *memory)
 {
-    // TODO: fix me
-    return;
-    bh_assert(false && "Unsupported operation");
+    memory_deinstantiate(memory);
+    wasm_runtime_free(memory);
 }
 
 /**
