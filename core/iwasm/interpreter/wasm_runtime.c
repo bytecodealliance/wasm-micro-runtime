@@ -538,16 +538,8 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
     /* instantiate memories from import section */
     import = module->import_memories;
     for (i = 0; i < module->import_memory_count; i++, import++, memory++) {
-        uint32 num_bytes_per_page =
-            import->u.memory.mem_type.num_bytes_per_page;
-        uint32 init_page_count = import->u.memory.mem_type.init_page_count;
-        uint32 max_page_count = wasm_runtime_get_max_mem(
-            max_memory_pages, import->u.memory.mem_type.init_page_count,
-            import->u.memory.mem_type.max_page_count);
-        uint32 flags = import->u.memory.mem_type.flags;
-        uint32 actual_heap_size = heap_size;
-
 #if WASM_ENABLE_MULTI_MODULE != 0
+        // TODO: ? make sure import->u.memory.import_module is set properly
         if (import->u.memory.import_module != NULL) {
             WASMModuleInstance *module_inst_linked;
 
@@ -565,21 +557,11 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                 return NULL;
             }
         }
-        else
 #endif
-        {
-            if (!(memories[mem_index] = memory_instantiate(
-                      module, parent, memory, mem_index, num_bytes_per_page,
-                      init_page_count, max_page_count, actual_heap_size, flags,
-                      aux_heap_base_global_data, error_buf, error_buf_size))) {
-                memories_deinstantiate(module_inst, memories, memory_count);
-                return NULL;
-            }
-            mem_index++;
-        }
     }
 
     /* instantiate memories from memory section */
+    mem_index = module->import_memory_count;
     for (i = 0; i < module->memory_count; i++, memory++) {
         uint32 max_page_count = wasm_runtime_get_max_mem(
             max_memory_pages, module->memories[i].init_page_count,
@@ -2550,7 +2532,10 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 #endif
 
     /* Instantiate global firstly to get the mutable data size */
-    /* memory_instantiate() might change the value of __heap_base */
+    /*
+     * memory_instantiate() might change the value of __heap_base
+     * so, globals_instantiate() has to be called firstly
+     */
     global_count = module->import_global_count + module->global_count;
     if (global_count
         && !(globals = globals_instantiate(module, module_inst, error_buf,
@@ -2576,11 +2561,8 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
     /* export */
     module_inst->export_func_count = get_export_count(module, EXPORT_KIND_FUNC);
-#if WASM_ENABLE_MULTI_MEMORY != 0
     module_inst->export_memory_count =
         get_export_count(module, EXPORT_KIND_MEMORY);
-#endif
-#if WASM_ENABLE_MULTI_MODULE != 0
     module_inst->export_table_count =
         get_export_count(module, EXPORT_KIND_TABLE);
 #if WASM_ENABLE_TAGS != 0
@@ -2589,7 +2571,6 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 #endif
     module_inst->export_global_count =
         get_export_count(module, EXPORT_KIND_GLOBAL);
-#endif
 
     /* Instantiate memories/tables/functions/tags */
     uint8 *aux_heap_base_global_data = NULL;
@@ -2647,6 +2628,29 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
     ) {
         goto fail;
     }
+
+    /* imports */
+    /*
+     * const struct WasmExternalInstance *imports should have the same order
+     * with import section content in .wasm.
+     */
+    {
+        uint32 import_memory_index = 0;
+        uint32 import_index = 0;
+        for (; import_index < import_count; import_index++) {
+            const struct WasmExternalInstance *import = imports + import_index;
+            if (import->kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
+                if (import_memory_index >= module->import_memory_count) {
+                    LOG_ERROR("provided import memory not match requirement");
+                    goto fail;
+                }
+
+                module_inst->memories[import_memory_index] = import->u.memory;
+                import_memory_index++;
+            }
+        }
+    }
+
     if (global_count > 0) {
         /* Initialize the global data */
         global_data = module_inst->global_data;
