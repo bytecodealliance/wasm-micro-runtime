@@ -534,9 +534,14 @@ wasm_runtime_memory_init(mem_alloc_type_t mem_alloc_type,
 static void
 destroy_shared_heaps()
 {
-    WASMSharedHeap *heap = shared_heap_list;
+    WASMSharedHeap *heap;
     WASMSharedHeap *cur;
     uint64 map_size;
+
+    os_mutex_lock(&shared_heap_list_lock);
+    heap = shared_heap_list;
+    shared_heap_list = NULL;
+    os_mutex_unlock(&shared_heap_list_lock);
 
     while (heap) {
         cur = heap;
@@ -551,6 +556,7 @@ destroy_shared_heaps()
         wasm_munmap_linear_memory(cur->base_addr, cur->size, map_size);
         wasm_runtime_free(cur);
     }
+    os_mutex_destroy(&shared_heap_list_lock);
 }
 #endif
 
