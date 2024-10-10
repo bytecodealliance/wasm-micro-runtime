@@ -68,11 +68,11 @@ jobs:
       # Bump the prefix number to evict all previous caches and
       # enforce a clean build, in the unlikely case that some
       # weird build error occur and llvm/build becomes a potential
-      # suspect. TODO: Use Python script for cross-platform compatibility.
+      # suspect. Use Python script for cross-platform compatibility.
       - name: form the cache key of libraries
         id: create_lib_cache_key
         run: |
-          python ./.github/scripts/create_llvm_lib_cache_key "key=0-llvm-libraries-${{ inputs.os }}-${{ inputs.arch }}-${{ steps.get_last_commit.outputs.last_commit }}${{ inputs.cache_key_suffix }}"
+          python ./.github/scripts/create_llvm_lib_cache_key "0-llvm-libraries-${{ inputs.os }}-${{ inputs.arch }}-${{ steps.get_last_commit.outputs.last_commit }}${{ inputs.cache_key_suffix }}"
 
       - name: Cache LLVM libraries
         id: retrieve_llvm_libs
