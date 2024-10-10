@@ -41,12 +41,14 @@ jobs:
         id: retrieve_llvm_libs
         uses: actions/cache@v4
         with:
+          # llvm/llvm/cmake/modules is needed for Windows
           path: |
             ./core/deps/llvm/build/bin
             ./core/deps/llvm/build/include
             ./core/deps/llvm/build/lib
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
+            ./core/deps/llvm/llvm/cmake/modules
           key: ${{ inputs.llvm_cache_key }}
           fail-on-cache-miss: true
 
