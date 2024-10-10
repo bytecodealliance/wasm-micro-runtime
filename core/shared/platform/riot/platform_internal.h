@@ -63,6 +63,9 @@ typedef struct korp_cond {
 typedef int os_file_handle;
 typedef void *os_dir_stream;
 typedef int os_raw_file_handle;
+typedef int os_poll_file_handle;
+typedef unsigned int os_nfds_t;
+typedef int os_timespec;
 
 #if WA_MATH
 /* clang-format off */
