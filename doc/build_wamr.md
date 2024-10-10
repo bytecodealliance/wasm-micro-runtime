@@ -300,6 +300,22 @@ Currently we only profile the memory consumption of module, module_instance and 
     wasm_runtime_get_context
 ```
 
+#### **Shared heap among wasm apps and host native**
+- **WAMR_BUILD_SHARED_HEAP**=1/0, default to disable if not set
+> Note: If it is enabled, allow to create one or more shared heaps, and attach one to a module instance, the belows APIs ared provided:
+```C
+   wasm_runtime_create_shared_heap
+   wasm_runtime_attach_shared_heap
+   wasm_runtime_detach_shared_heap
+   wasm_runtime_shared_heap_malloc
+   wasm_runtime_shared_heap_free
+```
+And the wasm app can calls below APIs to allocate/free memory from/to the shared heap if it is attached to the app's module instance:
+```C
+   void *shared_heap_malloc();
+   void shared_heap_free(void *ptr);
+```
+
 **Combination of configurations:**
 
 We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:

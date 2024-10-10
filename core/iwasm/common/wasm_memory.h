@@ -41,6 +41,35 @@ SET_LINEAR_MEMORY_SIZE(WASMMemoryInstance *memory, uint64 size)
 #define SET_LINEAR_MEMORY_SIZE(memory, size) memory->memory_data_size = size
 #endif
 
+#if WASM_ENABLE_SHARED_HEAP != 0
+WASMSharedHeap *
+wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args);
+
+bool
+wasm_runtime_attach_shared_heap(WASMModuleInstanceCommon *module_inst,
+                                WASMSharedHeap *shared_heap);
+bool
+wasm_runtime_attach_shared_heap_internal(WASMModuleInstanceCommon *module_inst,
+                                         WASMSharedHeap *shared_heap);
+
+void
+wasm_runtime_detach_shared_heap(WASMModuleInstanceCommon *module_inst);
+
+void
+wasm_runtime_detach_shared_heap_internal(WASMModuleInstanceCommon *module_inst);
+
+WASMSharedHeap *
+wasm_runtime_get_shared_heap(WASMModuleInstanceCommon *module_inst_comm);
+
+uint64
+wasm_runtime_shared_heap_malloc(WASMModuleInstanceCommon *module_inst,
+                                uint64 size, void **p_native_addr);
+
+void
+wasm_runtime_shared_heap_free(WASMModuleInstanceCommon *module_inst,
+                              uint64 ptr);
+#endif
+
 bool
 wasm_runtime_memory_init(mem_alloc_type_t mem_alloc_type,
                          const MemAllocOption *alloc_option);

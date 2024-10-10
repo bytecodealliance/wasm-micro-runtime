@@ -206,6 +206,7 @@ print_help()
     printf("  --enable-linux-perf       Enable linux perf support\n");
 #endif
     printf("  --mllvm=<option>          Add the LLVM command line option\n");
+    printf("  --enable-shared-heap      Enable shared heap feature\n");
     printf("  -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log\n");
     printf("  --version                 Show version information\n");
     printf("Examples: wamrc -o test.aot test.wasm\n");
@@ -646,6 +647,9 @@ main(int argc, char *argv[])
             if (llvm_options_count == 2)
                 llvm_options[llvm_options_count - 2] = "wamrc";
             llvm_options[llvm_options_count - 1] = argv[0] + 8;
+        }
+        else if (!strcmp(argv[0], "--enable-shared-heap")) {
+            option.enable_shared_heap = true;
         }
         else if (!strcmp(argv[0], "--version")) {
             uint32 major, minor, patch;
