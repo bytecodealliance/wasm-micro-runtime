@@ -117,9 +117,10 @@ jobs:
       - name: Compress the binary on Windows
         if: inputs.runner == 'windows-latest'
         run: |
-          tar -czf iwasm-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz iwasm
-          Compress-Archive -Path iwasm -DestinationPath iwasm-${{ inputs.ver_num }}-${{ inputs.runner }}.zip
-        working-directory: ${{ inputs.cwd }}/build
+          tar -czf iwasm-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz iwasm.exe
+          Compress-Archive -Path iwasm.exe -DestinationPath iwasm-${{ inputs.ver_num }}-${{ inputs.runner }}.zip
+          mv iwasm-${{ inputs.ver_num }}-${{ inputs.runner }}.* ../
+        working-directory: ${{ inputs.cwd }}/build/Release
 
       - name: compress the binary on non-Windows
         if: inputs.runner != 'windows-latest'
