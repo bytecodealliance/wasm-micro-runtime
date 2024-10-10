@@ -375,7 +375,7 @@ function sightglass_test()
 
 function setup_wabt()
 {
-    WABT_VERSION=1.0.34
+    WABT_VERSION=1.0.36
     if [ ${WABT_BINARY_RELEASE} == "YES" ]; then
         echo "download a binary release and install"
         local WAT2WASM=${WORK_DIR}/wabt/out/gcc/Release/wat2wasm
@@ -384,7 +384,7 @@ function setup_wabt()
                 cosmopolitan)
                     ;;
                 linux)
-                    WABT_PLATFORM=ubuntu
+                    WABT_PLATFORM=ubuntu-20.04
                     ;;
                 darwin)
                     WABT_PLATFORM=macos-12
@@ -502,6 +502,8 @@ function spec_test()
         # Reset to commit: "Merge remote-tracking branch 'upstream/main' into merge2"
         git reset --hard 48e69f394869c55b7bbe14ac963c09f4605490b6
         git checkout 044d0d2e77bdcbe891f7e0b9dd2ac01d56435f0b -- test/core/elem.wast test/core/data.wast
+        # Patch table64 extension 
+        git checkout 940398cd4823522a9b36bec4984be4b153dedb81 -- test/core/call_indirect.wast test/core/table.wast test/core/table_copy.wast test/core/table_copy_mixed.wast test/core/table_fill.wast test/core/table_get.wast test/core/table_grow.wast test/core/table_init.wast test/core/table_set.wast test/core/table_size.wast
         git apply ../../spec-test-script/memory64_ignore_cases.patch || exit 1
     elif [[ ${ENABLE_MULTI_MEMORY} == 1 ]]; then
         echo "checkout spec for multi memory proposal"

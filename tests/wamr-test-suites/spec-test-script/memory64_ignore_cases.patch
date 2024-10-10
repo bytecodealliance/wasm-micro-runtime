@@ -1,5 +1,5 @@
 diff --git a/test/core/address.wast b/test/core/address.wast
-index 8e52030..de0d0cb 100644
+index 8e52030e..de0d0cb9 100644
 --- a/test/core/address.wast
 +++ b/test/core/address.wast
 @@ -210,7 +210,7 @@
@@ -12,7 +12,7 @@ index 8e52030..de0d0cb 100644
      "(memory 1)"
      "(func (drop (i32.load offset=4294967296 (i32.const 0))))"
 diff --git a/test/core/binary.wast b/test/core/binary.wast
-index 4090b2c..18f66b4 100644
+index 4090b2cd..18f66b42 100644
 --- a/test/core/binary.wast
 +++ b/test/core/binary.wast
 @@ -206,7 +206,7 @@
@@ -70,7 +70,7 @@ index 4090b2c..18f66b4 100644
  ;; Start section
  (module binary
 diff --git a/test/core/data.wast b/test/core/data.wast
-index 4f339be..0b5b3e6 100644
+index 4f339bed..0b5b3e6b 100644
 --- a/test/core/data.wast
 +++ b/test/core/data.wast
 @@ -306,9 +306,10 @@
@@ -124,7 +124,7 @@ index 4f339be..0b5b3e6 100644
  
  ;; Invalid offsets
 diff --git a/test/core/elem.wast b/test/core/elem.wast
-index 575ecef..dd1106c 100644
+index 575ecef8..dd1106c7 100644
 --- a/test/core/elem.wast
 +++ b/test/core/elem.wast
 @@ -562,6 +562,7 @@
@@ -151,7 +151,7 @@ index 575ecef..dd1106c 100644
  (assert_return (invoke $module1 "call-9") (i32.const 70))
 +;)
 diff --git a/test/core/global.wast b/test/core/global.wast
-index e40a305..8f8f25b 100644
+index e40a305f..8f8f25bb 100644
 --- a/test/core/global.wast
 +++ b/test/core/global.wast
 @@ -328,10 +328,12 @@
@@ -168,7 +168,7 @@ index e40a305..8f8f25b 100644
  (assert_invalid
    (module (global (import "test" "global-i32") i32) (global i32 (global.get 0) (global.get 0)))
 diff --git a/test/core/if.wast b/test/core/if.wast
-index 2ea45f6..b6dd504 100644
+index 2ea45f6f..b6dd5044 100644
 --- a/test/core/if.wast
 +++ b/test/core/if.wast
 @@ -527,11 +527,12 @@
@@ -199,7 +199,7 @@ index 2ea45f6..b6dd504 100644
  (assert_malformed
    (module quote
 diff --git a/test/core/imports.wast b/test/core/imports.wast
-index 69f76a0..a3844c6 100644
+index 69f76a0b..a3844c65 100644
 --- a/test/core/imports.wast
 +++ b/test/core/imports.wast
 @@ -572,6 +572,7 @@
@@ -219,7 +219,7 @@ index 69f76a0..a3844c6 100644
  
  ;; Syntax errors
 diff --git a/test/core/linking.wast b/test/core/linking.wast
-index 994e0f4..d0bfb5f 100644
+index 994e0f49..d0bfb5f6 100644
 --- a/test/core/linking.wast
 +++ b/test/core/linking.wast
 @@ -64,6 +64,7 @@
@@ -376,7 +376,7 @@ index 994e0f4..d0bfb5f 100644
  (assert_return (invoke $Ms "get table[0]") (i32.const 0xdead))
 +;)
 diff --git a/test/core/memory.wast b/test/core/memory.wast
-index 1dd5b84..497b69f 100644
+index 1dd5b845..497b69fc 100644
 --- a/test/core/memory.wast
 +++ b/test/core/memory.wast
 @@ -76,17 +76,17 @@
@@ -404,7 +404,7 @@ index 1dd5b84..497b69f 100644
  
  (module
 diff --git a/test/core/ref_func.wast b/test/core/ref_func.wast
-index adb5cb7..590f626 100644
+index adb5cb78..590f6262 100644
 --- a/test/core/ref_func.wast
 +++ b/test/core/ref_func.wast
 @@ -4,7 +4,8 @@
@@ -417,8 +417,65 @@ index adb5cb7..590f626 100644
    (func $g (param $x i32) (result i32)
      (i32.add (local.get $x) (i32.const 1))
    )
+diff --git a/test/core/table.wast b/test/core/table.wast
+index 1b6afe9b..45dd1145 100644
+--- a/test/core/table.wast
++++ b/test/core/table.wast
+@@ -8,16 +8,20 @@
+ (module (table 0 65536 funcref))
+ (module (table 0 0xffff_ffff funcref))
+ 
++(; TODO: wabt not unsupported gc yet
+ (module (table 1 (ref null func)))
+ (module (table 1 (ref null extern)))
+ (module (table 1 (ref null $t)) (type $t (func)))
++;)
+ 
+ (module (table 0 funcref) (table 0 funcref))
+ (module (table (import "spectest" "table") 0 funcref) (table 0 funcref))
+ 
++(; TODO: wabt not unsupported gc yet
+ (module (table 0 funcref (ref.null func)))
+ (module (table 1 funcref (ref.null func)))
+ (module (table 1 (ref null func) (ref.null func)))
++;)
+ 
+ (assert_invalid (module (elem (i32.const 0))) "unknown table")
+ (assert_invalid (module (elem (i32.const 0) $f) (func $f)) "unknown table")
+@@ -31,6 +35,7 @@
+   "size minimum must not be greater than maximum"
+ )
+ 
++(; TODO: wabt not unsupported gc yet
+ (assert_invalid
+   (module quote "(table 0x1_0000_0000 funcref)")
+   "table size must be at most 2^32-1"
+@@ -43,6 +48,7 @@
+   (module quote "(table 0 0x1_0000_0000 funcref)")
+   "table size must be at most 2^32-1"
+ )
++;)
+ 
+ ;; Same as above but with i64 index types
+ 
+@@ -71,6 +77,7 @@
+ (assert_invalid (module (elem (i32.const 0))) "unknown table")
+ (assert_invalid (module (elem (i32.const 0) $f) (func $f)) "unknown table")
+ 
++(; TODO: wabt not unsupported gc yet
+ (assert_invalid
+   (module (table 1 (ref null func) (i32.const 0)))
+   "type mismatch"
+@@ -159,6 +166,7 @@
+   )
+   "type mismatch"
+ )
++;)
+ 
+ 
+ ;; Duplicate table identifiers
 diff --git a/test/core/table_copy.wast b/test/core/table_copy.wast
-index 380e84e..f37e745 100644
+index 613fc529..abeca22c 100644
 --- a/test/core/table_copy.wast
 +++ b/test/core/table_copy.wast
 @@ -14,11 +14,12 @@
@@ -728,8 +785,46 @@ index 380e84e..f37e745 100644
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
    (elem (table $t1) (i32.const 2) func 3 1 4 1)
+diff --git a/test/core/table_grow.wast b/test/core/table_grow.wast
+index e0872d78..6a84f239 100644
+--- a/test/core/table_grow.wast
++++ b/test/core/table_grow.wast
+@@ -147,19 +147,20 @@
+ )
+ (register "grown-table" $Tgt)
+ (assert_return (invoke $Tgt "grow") (i32.const 1)) ;; now size is 2
+-(module $Tgit1
+-  ;; imported table limits should match, because external table size is 2 now
+-  (table (export "table") (import "grown-table" "table") 2 funcref)
+-  (func (export "grow") (result i32) (table.grow (ref.null func) (i32.const 1)))
+-)
+-(register "grown-imported-table" $Tgit1)
+-(assert_return (invoke $Tgit1 "grow") (i32.const 2)) ;; now size is 3
+-(module $Tgit2
+-  ;; imported table limits should match, because external table size is 3 now
+-  (import "grown-imported-table" "table" (table 3 funcref))
+-  (func (export "size") (result i32) (table.size))
+-)
+-(assert_return (invoke $Tgit2 "size") (i32.const 3))
++;; TODO: No dynnamic linking yet
++;; (module $Tgit1
++;;   ;; imported table limits should match, because external table size is 2 now
++;;   (table (export "table") (import "grown-table" "table") 2 funcref)
++;;   (func (export "grow") (result i32) (table.grow (ref.null func) (i32.const 1)))
++;; )
++;; (register "grown-imported-table" $Tgit1)
++;; (assert_return (invoke $Tgit1 "grow") (i32.const 2)) ;; now size is 3
++;; (module $Tgit2
++;;   ;; imported table limits should match, because external table size is 3 now
++;;   (import "grown-imported-table" "table" (table 3 funcref))
++;;   (func (export "size") (result i32) (table.size))
++;; )
++;; (assert_return (invoke $Tgit2 "size") (i32.const 3))
+ 
+ 
+ ;; Type errors
 diff --git a/test/core/table_init.wast b/test/core/table_init.wast
-index 0b2d26f..bdab6a0 100644
+index 5c3679ab..76782794 100644
 --- a/test/core/table_init.wast
 +++ b/test/core/table_init.wast
 @@ -14,11 +14,12 @@
@@ -749,8 +844,8 @@ index 0b2d26f..bdab6a0 100644
 +  (func (result i32) (i32.const 4))    ;; index 4
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
-   (elem (table $t0) (i32.const 2) func 3 1 4 1)
-@@ -72,11 +73,12 @@
+   (table $t2 i64 30 30 funcref)
+@@ -73,11 +74,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -767,8 +862,8 @@ index 0b2d26f..bdab6a0 100644
 +  (func (result i32) (i32.const 4))    ;; index 4
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
-   (elem (table $t0) (i32.const 2) func 3 1 4 1)
-@@ -130,11 +132,12 @@
+   (table $t2 i64 30 30 funcref)
+@@ -132,11 +134,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -785,8 +880,8 @@ index 0b2d26f..bdab6a0 100644
 +  (func (result i32) (i32.const 4))    ;; index 4
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
-   (elem (table $t0) (i32.const 2) func 3 1 4 1)
-@@ -196,11 +199,12 @@
+   (table $t2 i64 30 30 funcref)
+@@ -199,11 +202,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -803,8 +898,8 @@ index 0b2d26f..bdab6a0 100644
 +  (func (result i32) (i32.const 4))    ;; index 4
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
-   (elem (table $t1) (i32.const 2) func 3 1 4 1)
-@@ -254,11 +258,12 @@
+   (table $t2 i64 30 30 funcref)
+@@ -258,11 +262,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -821,8 +916,8 @@ index 0b2d26f..bdab6a0 100644
 +  (func (result i32) (i32.const 4))    ;; index 4
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
-   (elem (table $t1) (i32.const 2) func 3 1 4 1)
-@@ -312,11 +317,12 @@
+   (table $t2 i64 30 30 funcref)
+@@ -317,11 +322,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -839,9 +934,63 @@ index 0b2d26f..bdab6a0 100644
 +  (func (result i32) (i32.const 4))    ;; index 4
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
-   (elem (table $t1) (i32.const 2) func 3 1 4 1)
+   (table $t2 i64 30 30 funcref)
+@@ -384,11 +390,12 @@
+ 
+ (module
+   (type (func (result i32)))  ;; type #0
+-  (import "a" "ef0" (func (result i32)))    ;; index 0
+-  (import "a" "ef1" (func (result i32)))
+-  (import "a" "ef2" (func (result i32)))
+-  (import "a" "ef3" (func (result i32)))
+-  (import "a" "ef4" (func (result i32)))    ;; index 4
++  ;; aot mode does not support module linking
++  (func (result i32) (i32.const 0))    ;; index 0
++  (func (result i32) (i32.const 1))
++  (func (result i32) (i32.const 2))
++  (func (result i32) (i32.const 3))
++  (func (result i32) (i32.const 4))    ;; index 4
+   (table $t0 30 30 funcref)
+   (table $t1 30 30 funcref)
+   (table $t2 i64 30 30 funcref)
+@@ -443,11 +450,12 @@
+ 
+ (module
+   (type (func (result i32)))  ;; type #0
+-  (import "a" "ef0" (func (result i32)))    ;; index 0
+-  (import "a" "ef1" (func (result i32)))
+-  (import "a" "ef2" (func (result i32)))
+-  (import "a" "ef3" (func (result i32)))
+-  (import "a" "ef4" (func (result i32)))    ;; index 4
++  ;; aot mode does not support module linking
++  (func (result i32) (i32.const 0))    ;; index 0
++  (func (result i32) (i32.const 1))
++  (func (result i32) (i32.const 2))
++  (func (result i32) (i32.const 3))
++  (func (result i32) (i32.const 4))    ;; index 4
+   (table $t0 30 30 funcref)
+   (table $t1 30 30 funcref)
+   (table $t2 i64 30 30 funcref)
+@@ -502,11 +510,12 @@
+ 
+ (module
+   (type (func (result i32)))  ;; type #0
+-  (import "a" "ef0" (func (result i32)))    ;; index 0
+-  (import "a" "ef1" (func (result i32)))
+-  (import "a" "ef2" (func (result i32)))
+-  (import "a" "ef3" (func (result i32)))
+-  (import "a" "ef4" (func (result i32)))    ;; index 4
++  ;; aot mode does not support module linking
++  (func (result i32) (i32.const 0))    ;; index 0
++  (func (result i32) (i32.const 1))
++  (func (result i32) (i32.const 2))
++  (func (result i32) (i32.const 3))
++  (func (result i32) (i32.const 4))    ;; index 4
+   (table $t0 30 30 funcref)
+   (table $t1 30 30 funcref)
+   (table $t2 i64 30 30 funcref)
 diff --git a/test/core/unreached-valid.wast b/test/core/unreached-valid.wast
-index b7ebabf..4f2abfb 100644
+index b7ebabfd..4f2abfbf 100644
 --- a/test/core/unreached-valid.wast
 +++ b/test/core/unreached-valid.wast
 @@ -46,6 +46,7 @@

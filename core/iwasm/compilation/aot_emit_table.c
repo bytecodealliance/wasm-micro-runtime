@@ -10,6 +10,72 @@
 #include "aot_emit_gc.h"
 #endif
 
+static bool
+zero_extend_u64(AOTCompContext *comp_ctx, LLVMValueRef *value, const char *name)
+{
+    if (comp_ctx->pointer_size == sizeof(uint64)) {
+        /* zero extend to uint64 if the target is 64-bit */
+        *value = LLVMBuildZExt(comp_ctx->builder, *value, I64_TYPE, name);
+        if (!*value) {
+            aot_set_last_error("llvm build zero extend failed.");
+            return false;
+        }
+    }
+    return true;
+}
+
+/* check whether a table64 elem idx is greater than UINT32_MAX, if so, throw
+ * exception, otherwise trunc it to uint32 */
+static bool
+check_tbl_elem_idx_and_trunc(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                             LLVMValueRef *elem_idx, uint32 tbl_idx)
+{
+    LLVMValueRef u32_max, u32_cmp_result;
+    LLVMBasicBlockRef check_elem_idx_succ;
+
+#if WASM_ENABLE_MEMORY64 != 0
+    if (!IS_TABLE64(tbl_idx)) {
+        return true;
+    }
+
+    /* Check if elem index >= UINT32_MAX */
+    if (!(u32_max = I64_CONST(UINT32_MAX))) {
+        aot_set_last_error("llvm build const failed");
+        goto fail;
+    }
+    if (!(u32_cmp_result =
+              LLVMBuildICmp(comp_ctx->builder, LLVMIntUGE, *elem_idx, u32_max,
+                            "cmp_elem_idx_u32_max"))) {
+        aot_set_last_error("llvm build icmp failed.");
+        goto fail;
+    }
+    if (!(*elem_idx = LLVMBuildTrunc(comp_ctx->builder, *elem_idx, I32_TYPE,
+                                     "elem_idx_i32"))) {
+        aot_set_last_error("llvm build trunc failed.");
+        goto fail;
+    }
+
+    /* Throw exception if elem index >= UINT32_MAX*/
+    if (!(check_elem_idx_succ = LLVMAppendBasicBlockInContext(
+              comp_ctx->context, func_ctx->func, "check_elem_idx_succ"))) {
+        aot_set_last_error("llvm add basic block failed.");
+        goto fail;
+    }
+
+    LLVMMoveBasicBlockAfter(check_elem_idx_succ,
+                            LLVMGetInsertBlock(comp_ctx->builder));
+
+    if (!(aot_emit_exception(comp_ctx, func_ctx,
+                             EXCE_OUT_OF_BOUNDS_TABLE_ACCESS, true,
+                             u32_cmp_result, check_elem_idx_succ)))
+        goto fail;
+#endif
+
+    return true;
+fail:
+    return false;
+}
+
 uint64
 get_tbl_inst_offset(const AOTCompContext *comp_ctx,
                     const AOTFuncContext *func_ctx, uint32 tbl_idx)
@@ -158,6 +224,10 @@ aot_check_table_access(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
+    if (!check_tbl_elem_idx_and_trunc(comp_ctx, func_ctx, &elem_idx, tbl_idx)) {
+        goto fail;
+    }
+
     /* Check if (uint32)elem index >= table size */
     if (!(cmp_elem_idx = LLVMBuildICmp(comp_ctx->builder, LLVMIntUGE, elem_idx,
                                        tbl_sz, "cmp_elem_idx"))) {
@@ -192,7 +262,7 @@ aot_compile_op_table_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef elem_idx, offset, func_idx;
     LLVMValueRef table_elem_base, table_elem_addr, table_elem;
 
-    POP_I32(elem_idx);
+    POP_TBL_ELEM_IDX(elem_idx);
 
     if (!aot_check_table_access(comp_ctx, func_ctx, tbl_idx, elem_idx)) {
         goto fail;
@@ -289,7 +359,7 @@ aot_compile_op_table_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
 
-    POP_I32(elem_idx);
+    POP_TBL_ELEM_IDX(elem_idx);
 
     if (!aot_check_table_access(comp_ctx, func_ctx, tbl_idx, elem_idx)) {
         goto fail;
@@ -388,7 +458,11 @@ aot_compile_op_table_init(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* s */
     POP_I32(param_values[4]);
     /* d */
-    POP_I32(param_values[5]);
+    POP_TBL_ELEM_IDX(param_values[5]);
+    if (!check_tbl_elem_idx_and_trunc(comp_ctx, func_ctx, &param_values[5],
+                                      tbl_idx)) {
+        goto fail;
+    }
 
     /* "" means return void */
     if (!(LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values, 6,
@@ -408,6 +482,7 @@ aot_compile_op_table_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMTypeRef param_types[6], ret_type, func_type, func_ptr_type;
     LLVMValueRef func, param_values[6], value;
+    uint32 tbl_idx;
 
     param_types[0] = INT8_PTR_TYPE;
     param_types[1] = I32_TYPE;
@@ -434,12 +509,34 @@ aot_compile_op_table_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
+    /* In table64, the length should be i32 type if any one of src/dst table
+     * is i32 type, set the table index to the lesser-or-equal table when
+     * popping length n */
+    if (!(comp_ctx->comp_data->tables[src_tbl_idx].table_type.flags
+          & TABLE64_FLAG))
+        tbl_idx = src_tbl_idx;
+    else
+        tbl_idx = dst_tbl_idx;
     /* n */
-    POP_I32(param_values[3]);
+    POP_TBL_ELEM_LEN(param_values[3]);
+    if (!check_tbl_elem_idx_and_trunc(comp_ctx, func_ctx, &param_values[3],
+                                      tbl_idx)) {
+        goto fail;
+    }
     /* s */
-    POP_I32(param_values[4]);
+    tbl_idx = src_tbl_idx;
+    POP_TBL_ELEM_IDX(param_values[4]);
+    if (!check_tbl_elem_idx_and_trunc(comp_ctx, func_ctx, &param_values[4],
+                                      tbl_idx)) {
+        goto fail;
+    }
     /* d */
-    POP_I32(param_values[5]);
+    tbl_idx = dst_tbl_idx;
+    POP_TBL_ELEM_IDX(param_values[5]);
+    if (!check_tbl_elem_idx_and_trunc(comp_ctx, func_ctx, &param_values[5],
+                                      tbl_idx)) {
+        goto fail;
+    }
 
     /* "" means return void */
     if (!(LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values, 6,
@@ -484,7 +581,14 @@ aot_compile_op_table_size(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    PUSH_I32(tbl_sz);
+#if WASM_ENABLE_MEMORY64 != 0
+    if (IS_TABLE64(tbl_idx)) {
+        if (!zero_extend_u64(comp_ctx, &tbl_sz, "length64")) {
+            goto fail;
+        }
+    }
+#endif
+    PUSH_TBL_ELEM_IDX(tbl_sz);
 
     return true;
 fail:
@@ -517,7 +621,11 @@ aot_compile_op_table_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* n */
-    POP_I32(param_values[2]);
+    POP_TBL_ELEM_LEN(param_values[2]);
+    if (!check_tbl_elem_idx_and_trunc(comp_ctx, func_ctx, &param_values[2],
+                                      tbl_idx)) {
+        goto fail;
+    }
     /* v */
 
     if (comp_ctx->enable_gc) {
@@ -545,7 +653,14 @@ aot_compile_op_table_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    PUSH_I32(ret);
+#if WASM_ENABLE_MEMORY64 != 0
+    if (IS_TABLE64(tbl_idx)) {
+        if (!zero_extend_u64(comp_ctx, &ret, "table_size64")) {
+            goto fail;
+        }
+    }
+#endif
+    PUSH_TBL_ELEM_LEN(ret);
 
     return true;
 fail:
@@ -579,7 +694,11 @@ aot_compile_op_table_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* n */
-    POP_I32(param_values[2]);
+    POP_TBL_ELEM_LEN(param_values[2]);
+    if (!check_tbl_elem_idx_and_trunc(comp_ctx, func_ctx, &param_values[2],
+                                      tbl_idx)) {
+        goto fail;
+    }
     /* v */
 
     if (comp_ctx->enable_gc) {
@@ -601,7 +720,11 @@ aot_compile_op_table_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
     /* i */
-    POP_I32(param_values[4]);
+    POP_TBL_ELEM_IDX(param_values[4]);
+    if (!check_tbl_elem_idx_and_trunc(comp_ctx, func_ctx, &param_values[4],
+                                      tbl_idx)) {
+        goto fail;
+    }
 
     /* "" means return void */
     if (!(LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values, 5,

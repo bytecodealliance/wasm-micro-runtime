@@ -737,18 +737,24 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
 #if WASM_ENABLE_REF_TYPES != 0
         bh_assert(
-            table_seg->offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
+            table_seg->offset.init_expr_type
+                == (tbl_inst->is_table64 ? INIT_EXPR_TYPE_I64_CONST
+                                         : INIT_EXPR_TYPE_I32_CONST)
             || table_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL
             || table_seg->offset.init_expr_type == INIT_EXPR_TYPE_FUNCREF_CONST
             || table_seg->offset.init_expr_type
                    == INIT_EXPR_TYPE_REFNULL_CONST);
 #else
-        bh_assert(table_seg->offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
+        bh_assert(table_seg->offset.init_expr_type
+                      == (tbl_inst->is_table64 ? INIT_EXPR_TYPE_I64_CONST
+                                               : INIT_EXPR_TYPE_I32_CONST)
                   || table_seg->offset.init_expr_type
                          == INIT_EXPR_TYPE_GET_GLOBAL);
 #endif
 
         /* Resolve table data base offset */
+        /* TODO: The table64 current implementation assumes table max size
+         * UINT32_MAX, so the offset conversion here is safe */
         if (table_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
             global_index = table_seg->offset.u.global_index;
 
