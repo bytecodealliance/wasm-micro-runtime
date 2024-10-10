@@ -125,9 +125,7 @@ def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_fl
     if not llvm_dir.exists():
         raise Exception(f"{llvm_dir} doesn't exist")
 
-    build_dir = llvm_dir.joinpath(
-        "win32build" if "windows" == platform else "build"
-    ).resolve()
+    build_dir = llvm_dir.joinpath("build").resolve()
     build_dir.mkdir(exist_ok=True)
 
     lib_llvm_core_library = build_dir.joinpath("lib/libLLVMCore.a").resolve()
