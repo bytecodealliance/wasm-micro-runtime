@@ -216,13 +216,24 @@ include_directories (${SHARED_DIR}/include
 
 enable_language (ASM)
 
-if ((NOT DEFINED WAMR_BUILD_LIBC_WASI) AND (NOT DEFINED WAMR_BUILD_LIBC_UVWASI))
-  set (WAMR_BUILD_LIBC_WASI 1)
-endif ()
+if (NOT MINGW AND NOT MSVC)
+  if ((NOT DEFINED WAMR_BUILD_LIBC_WASI) AND (NOT DEFINED WAMR_BUILD_LIBC_UVWASI))
+    set (WAMR_BUILD_LIBC_WASI 1)
+  endif ()
 
-if ((WAMR_BUILD_LIBC_WASI EQUAL 1) AND (WAMR_BUILD_LIBC_UVWASI EQUAL 1))
-  message (WARNING "-- pick WAMR_BULID_LIBC_WASI when both are enabled")
-  set (WAMR_BUILD_LIBC_UVWASI 0)
+  if ((WAMR_BUILD_LIBC_WASI EQUAL 1) AND (WAMR_BUILD_LIBC_UVWASI EQUAL 1))
+    message (WARNING "-- pick WAMR_BULID_LIBC_UVWASI when both are enabled")
+    set (WAMR_BUILD_LIBC_WASI 0)
+  endif ()
+else ()
+  if (NOT DEFINED WAMR_BUILD_LIBC_UVWASI)
+    set (WAMR_BUILD_LIBC_UVWASI 1)
+  endif ()
+
+  if (WAMR_BUILD_LIBC_WASI EQUAL 1)
+    message (WARNING "-- don't accept WAMR_BUILD_LIBC_WASI=1 on MINGW or MSVC")
+    set (WAMR_BUILD_LIBC_WASI 0)
+  endif ()
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_LIBC_BUILTIN)
