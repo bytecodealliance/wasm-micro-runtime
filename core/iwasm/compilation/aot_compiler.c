@@ -146,9 +146,20 @@ aot_validate_wasm(AOTCompContext *comp_ctx)
     }
 
 #if WASM_ENABLE_MEMORY64 != 0
-    if (comp_ctx->pointer_size < sizeof(uint64) && IS_MEMORY64) {
-        aot_set_last_error("Compiling wasm64 to 32bit platform is not allowed");
-        return false;
+    if (comp_ctx->pointer_size < sizeof(uint64)) {
+        if (IS_MEMORY64) {
+            aot_set_last_error("Compiling wasm64(contains i64 memory section) "
+                               "to 32bit platform is not allowed");
+            return false;
+        }
+
+        for (uint32 i = 0; i < comp_ctx->comp_data->table_count; ++i) {
+            if (IS_TABLE64(i)) {
+                aot_set_last_error("Compiling wasm64(contains i64 table "
+                                   "section) to 32bit platform is not allowed");
+                return false;
+            }
+        }
     }
 #endif
 
