@@ -11,8 +11,10 @@
 
 #if WASM_ENABLE_THREAD_MGR != 0 && defined(OS_ENABLE_WAKEUP_BLOCKING_OP)
 
-#define LOCK(env) WASM_SUSPEND_FLAGS_LOCK((env)->wait_lock)
-#define UNLOCK(env) WASM_SUSPEND_FLAGS_UNLOCK((env)->wait_lock)
+#include "../libraries/thread-mgr/thread_manager.h"
+
+#define LOCK(env) WASM_SUSPEND_FLAGS_LOCK((env)->cluster->thread_state_lock)
+#define UNLOCK(env) WASM_SUSPEND_FLAGS_UNLOCK((env)->cluster->thread_state_lock)
 
 #define ISSET(env, bit)                                                       \
     ((WASM_SUSPEND_FLAGS_GET((env)->suspend_flags) & WASM_SUSPEND_FLAG_##bit) \

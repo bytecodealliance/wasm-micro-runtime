@@ -17,6 +17,17 @@
 #include "debug_engine.h"
 #endif
 
+#define SUSPEND_FLAGS_ISSET(exec_env, bit)              \
+    ((WASM_SUSPEND_FLAGS_GET((exec_env)->suspend_flags) \
+      & WASM_SUSPEND_FLAG_##bit)                        \
+     != 0)
+#define SUSPEND_FLAGS_SET(exec_env, bit)                   \
+    WASM_SUSPEND_FLAGS_FETCH_OR((exec_env)->suspend_flags, \
+                                WASM_SUSPEND_FLAG_##bit)
+#define SUSPEND_FLAGS_CLR(exec_env, bit)                    \
+    WASM_SUSPEND_FLAGS_FETCH_AND((exec_env)->suspend_flags, \
+                                 ~WASM_SUSPEND_FLAG_##bit)
+
 typedef struct {
     bh_list_link l;
     void (*destroy_cb)(WASMCluster *);
@@ -181,24 +192,21 @@ get_exec_env_of_current_thread()
     return global_exec_env_list_find_with_tid(handle);
 }
 
+/* Check whether the exec_env is in exec_env_list, or, whehter it is
+   a valid exec_env. The caller must lock global_exec_env_list_lock. */
 static bool
 global_exec_env_list_has_exec_env(WASMExecEnv *exec_env)
 {
     GlobalExecEnvNode *exec_env_node;
 
-    os_mutex_lock(&global_exec_env_list_lock);
-
     exec_env_node = global_exec_env_list;
 
     while (exec_env_node) {
         if (exec_env_node->exec_env == exec_env) {
-            os_mutex_unlock(&global_exec_env_list_lock);
             return true;
         }
         exec_env_node = exec_env_node->next;
     }
-
-    os_mutex_unlock(&global_exec_env_list_lock);
 
     return false;
 }
@@ -963,7 +971,7 @@ thread_manager_start_routine(void *arg)
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     os_mutex_lock(&cluster->thread_state_lock);
-    if (exec_env->suspend_flags.flags & WASM_SUSPEND_FLAG_EXIT)
+    if (SUSPEND_FLAGS_ISSET(exec_env, EXIT))
         ret = exec_env->thread_ret_value;
     os_mutex_unlock(&cluster->thread_state_lock);
 #endif
@@ -1248,11 +1256,8 @@ wasm_cluster_set_debug_inst(WASMCluster *cluster, WASMDebugInstance *inst)
 #endif /* end of WASM_ENABLE_DEBUG_INTERP */
 
 /* Check whether the exec_env is in one of all clusters */
-static bool
-clusters_have_exec_env(WASMExecEnv *exec_env)
-{
-    return global_exec_env_list_has_exec_env(exec_env);
-}
+#define clusters_have_exec_env(exec_env) \
+    global_exec_env_list_has_exec_env(exec_env)
 
 int32
 wasm_cluster_join_thread(WASMExecEnv *exec_env, WASMExecEnv *self,
@@ -1261,10 +1266,13 @@ wasm_cluster_join_thread(WASMExecEnv *exec_env, WASMExecEnv *self,
     korp_tid handle;
     int32 ret;
 
+    os_mutex_lock(&global_exec_env_list_lock);
+
     if (!clusters_have_exec_env(exec_env)) {
         /* Invalid thread or thread has exited */
         if (ret_val)
             *ret_val = NULL;
+        os_mutex_unlock(&global_exec_env_list_lock);
         return 0;
     }
 
@@ -1275,6 +1283,7 @@ wasm_cluster_join_thread(WASMExecEnv *exec_env, WASMExecEnv *self,
         if (ret_val)
             *ret_val = NULL;
         os_mutex_unlock(&exec_env->wait_lock);
+        os_mutex_unlock(&global_exec_env_list_lock);
         return 0;
     }
 
@@ -1282,6 +1291,8 @@ wasm_cluster_join_thread(WASMExecEnv *exec_env, WASMExecEnv *self,
     handle = exec_env->handle;
 
     os_mutex_unlock(&exec_env->wait_lock);
+
+    os_mutex_unlock(&global_exec_env_list_lock);
 
     if (self)
         wasm_thread_change_to_safe(self, WASM_THREAD_VMWAIT);
@@ -1299,8 +1310,11 @@ wasm_cluster_detach_thread(WASMExecEnv *exec_env)
 {
     int32 ret = 0;
 
+    os_mutex_lock(&global_exec_env_list_lock);
+
     if (!clusters_have_exec_env(exec_env)) {
         /* Invalid thread or the thread has exited */
+        os_mutex_unlock(&global_exec_env_list_lock);
         return 0;
     }
 
@@ -1317,6 +1331,8 @@ wasm_cluster_detach_thread(WASMExecEnv *exec_env)
         os_mutex_unlock(&exec_env->cluster->thread_state_lock);
     }
     os_mutex_unlock(&exec_env->wait_lock);
+
+    os_mutex_unlock(&global_exec_env_list_lock);
 
     return ret;
 }
@@ -1335,7 +1351,7 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
         os_mutex_lock(&cluster->thread_state_lock);
         /* Store the return value in exec_env */
         exec_env->thread_ret_value = retval;
-        exec_env->suspend_flags.flags |= WASM_SUSPEND_FLAG_EXIT;
+        SUSPEND_FLAGS_SET(exec_env, EXIT);
         os_mutex_unlock(&cluster->thread_state_lock);
 
 #ifndef BH_PLATFORM_WINDOWS
@@ -1401,7 +1417,7 @@ set_thread_cancel_flags(WASMExecEnv *exec_env)
 #if WASM_ENABLE_DEBUG_INTERP != 0
     wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TERM);
 #endif
-    exec_env->suspend_flags.flags |= WASM_SUSPEND_FLAG_TERMINATE;
+    SUSPEND_FLAGS_SET(exec_env, TERMINATE);
 
     os_mutex_unlock(&exec_env->cluster->thread_state_lock);
 
@@ -1417,7 +1433,7 @@ clear_thread_cancel_flags(WASMExecEnv *exec_env)
 
     os_mutex_lock(&exec_env->cluster->thread_state_lock);
 
-    exec_env->suspend_flags.flags &= ~WASM_SUSPEND_FLAG_TERMINATE;
+    SUSPEND_FLAGS_CLR(exec_env, TERMINATE);
 
     os_mutex_unlock(&exec_env->cluster->thread_state_lock);
 }
@@ -1425,12 +1441,17 @@ clear_thread_cancel_flags(WASMExecEnv *exec_env)
 int32
 wasm_cluster_cancel_thread(WASMExecEnv *exec_env)
 {
+    os_mutex_lock(&global_exec_env_list_lock);
+
     if (!clusters_have_exec_env(exec_env) || !exec_env->cluster) {
         /* Invalid thread or the thread has exited */
+        os_mutex_unlock(&global_exec_env_list_lock);
         return 0;
     }
 
     set_thread_cancel_flags(exec_env);
+
+    os_mutex_unlock(&global_exec_env_list_lock);
 
     return 0;
 }
@@ -1559,7 +1580,7 @@ wasm_cluster_suspend_thread(WASMExecEnv *exec_env, WASMExecEnv *self)
     os_mutex_lock(&cluster->thread_state_lock);
     exec_env->suspend_count++;
     /* Set the suspend flag */
-    exec_env->suspend_flags.flags |= WASM_SUSPEND_FLAG_SUSPEND;
+    SUSPEND_FLAGS_SET(exec_env, SUSPEND);
     os_mutex_unlock(&cluster->thread_state_lock);
 
     wait_for_thread_suspend(exec_env);
@@ -1585,7 +1606,7 @@ wasm_cluster_suspend_all_except_self(WASMCluster *cluster, WASMExecEnv *self)
     while (exec_env) {
         if (exec_env != self) {
             exec_env->suspend_count++;
-            exec_env->suspend_flags.flags |= WASM_SUSPEND_FLAG_SUSPEND;
+            SUSPEND_FLAGS_SET(exec_env, SUSPEND);
         }
         exec_env = bh_list_elem_next(exec_env);
     }
@@ -1622,7 +1643,7 @@ wasm_cluster_resume_thread(WASMExecEnv *exec_env)
         exec_env->suspend_count--;
 
         if (exec_env->suspend_count == 0) {
-            exec_env->suspend_flags.flags &= ~WASM_SUSPEND_FLAG_SUSPEND;
+            SUSPEND_FLAGS_CLR(exec_env, SUSPEND);
             os_cond_broadcast(&cluster->thread_resume_cond);
         }
     }
@@ -1647,7 +1668,7 @@ wasm_cluster_resume_all_except_self(WASMCluster *cluster, WASMExecEnv *self)
             exec_env->suspend_count--;
 
             if (exec_env->suspend_count == 0) {
-                exec_env->suspend_flags.flags &= ~WASM_SUSPEND_FLAG_SUSPEND;
+                SUSPEND_FLAGS_CLR(exec_env, SUSPEND);
                 os_cond_broadcast(&cluster->thread_resume_cond);
             }
         }
@@ -1823,15 +1844,18 @@ wasm_cluster_is_thread_terminated(WASMExecEnv *exec_env)
 {
     bool is_thread_terminated;
 
+    os_mutex_lock(&global_exec_env_list_lock);
+
     if (!clusters_have_exec_env(exec_env)) {
+        os_mutex_unlock(&global_exec_env_list_lock);
         return true;
     }
 
     os_mutex_lock(&exec_env->cluster->thread_state_lock);
-    is_thread_terminated =
-        (exec_env->suspend_flags.flags & WASM_SUSPEND_FLAG_TERMINATE) ? true
-                                                                      : false;
+    is_thread_terminated = SUSPEND_FLAGS_ISSET(exec_env, TERMINATE);
     os_mutex_unlock(&exec_env->cluster->thread_state_lock);
+
+    os_mutex_unlock(&global_exec_env_list_lock);
 
     return is_thread_terminated;
 }
