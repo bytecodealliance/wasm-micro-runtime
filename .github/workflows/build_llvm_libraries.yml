@@ -41,8 +41,9 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
 
-      - name: install dependencies for non macos-14 and non Windows
-        if: inputs.os != 'macos-14' && inputs.os != 'windows-latest'
+      - name: install dependencies for non macos-14
+        if: inputs.os != 'macos-14'
+        shell: bash
         run: /usr/bin/env python3 -m pip install -r requirements.txt
         working-directory: build-scripts
 
@@ -51,19 +52,14 @@ jobs:
         run: /usr/bin/env python3 -m pip install -r requirements.txt --break-system-packages
         working-directory: build-scripts
 
-      - name: install dependencies (Windows)
-        if: inputs.os == 'windows-latest'
-        run: python -m pip install -r requirements.txt
-        working-directory: build-scripts
-
       # Retrieve the last commit ID using a Python script for cross-platform compatibility
       - name: Retrieve the last commit ID
         id: get_last_commit
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
         run: |
-          python ./.github/scripts/get_llvm_last_commit.py ${{ inputs.extra_build_llvm_options }}
-
+          /usr/bin/env python ./.github/scripts/get_llvm_last_commit.py ${{ inputs.extra_build_llvm_options }}
 
       # Bump the prefix number to evict all previous caches and
       # enforce a clean build, in the unlikely case that some
@@ -71,13 +67,15 @@ jobs:
       # suspect. Use Python script for cross-platform compatibility.
       - name: form the cache key of libraries
         id: create_lib_cache_key
+        shell: bash
         run: |
-          python ./.github/scripts/create_llvm_lib_cache_key "0-llvm-libraries-${{ inputs.os }}-${{ inputs.arch }}-${{ steps.get_last_commit.outputs.last_commit }}${{ inputs.cache_key_suffix }}"
+          /usr/bin/env python ./.github/scripts/create_llvm_lib_cache_key "0-llvm-libraries-${{ inputs.os }}-${{ inputs.arch }}-${{ steps.get_last_commit.outputs.last_commit }}${{ inputs.cache_key_suffix }}"
 
       - name: Cache LLVM libraries
         id: retrieve_llvm_libs
         uses: actions/cache@v4
         with:
+          # llvm/llvm/cmake/modules is needed for Windows
           path: |
             ./core/deps/llvm/build/bin
             ./core/deps/llvm/build/include
@@ -130,12 +128,14 @@ jobs:
       - run: choco install -y ccache ninja
         if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true' && inputs.os == 'windows-latest'
 
-      - name: Build LLVM libraries on non Windows
-        if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true' && inputs.os != 'windows-latest'
+      - name: Build LLVM libraries
+        if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true'
+        shell: bash
         run: /usr/bin/env python3 ./build_llvm.py ${{ inputs.extra_build_llvm_options }} --arch ${{ inputs.arch }}
         working-directory: build-scripts
 
-      - name: Build LLVM libraries on Windows
+      - name: Copy include/llvm-c to build directory on Windows
         if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true' && inputs.os == 'windows-latest'
-        run: python3 ./build_llvm.py ${{ inputs.extra_build_llvm_options }} --arch ${{ inputs.arch }}
-        working-directory: build-scripts
+        shell: bash
+        run: cp -r llvm/include/llvm-c build/include/llvm-c
+        working-directory: core/deps/llvm

@@ -217,13 +217,12 @@ include_directories (${SHARED_DIR}/include
 enable_language (ASM)
 
 if ((NOT DEFINED WAMR_BUILD_LIBC_WASI) AND (NOT DEFINED WAMR_BUILD_LIBC_UVWASI))
-  # Enable WAMR_BUILD_LIBC_WASI if both are not set
   set (WAMR_BUILD_LIBC_WASI 1)
 endif ()
 
 if ((WAMR_BUILD_LIBC_WASI EQUAL 1) AND (WAMR_BUILD_LIBC_UVWASI EQUAL 1))
-  message (WARNING "-- pick WAMR_BULID_LIBC_UVWASI when both are enabled")
-  set (WAMR_BUILD_LIBC_WASI 0)
+  message (WARNING "-- pick WAMR_BULID_LIBC_WASI when both are enabled")
+  set (WAMR_BUILD_LIBC_UVWASI 0)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_LIBC_BUILTIN)
