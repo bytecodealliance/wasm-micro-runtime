@@ -2569,9 +2569,8 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
     read_leb_uint32(p, p_end, table_flag);
     is_table64 = table_flag & TABLE64_FLAG;
     if (p - p_org > 1) {
-        set_error_buf(
-            error_buf, error_buf_size,
-            "invalid table limits flags(integer representation too long)");
+        LOG_VERBOSE("integer representation too long(import table)");
+        set_error_buf(error_buf, error_buf_size, "invalid limits flags");
         return false;
     }
 
@@ -2738,7 +2737,7 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
     read_leb_uint32(p, p_end, mem_flag);
     is_memory64 = mem_flag & MEMORY64_FLAG;
     if (p - p_org > 1) {
-        LOG_VERBOSE("integer representation too long");
+        LOG_VERBOSE("integer representation too long(import memory)");
         set_error_buf(error_buf, error_buf_size, "invalid limits flags");
         return false;
     }
@@ -3093,9 +3092,8 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
     read_leb_uint32(p, p_end, table->table_type.flags);
     is_table64 = table->table_type.flags & TABLE64_FLAG;
     if (p - p_org > 1) {
-        set_error_buf(
-            error_buf, error_buf_size,
-            "invalid table limits flags(integer representation too long)");
+        LOG_VERBOSE("integer representation too long(table)");
+        set_error_buf(error_buf, error_buf_size, "invalid limits flags");
         return false;
     }
 
@@ -3146,7 +3144,7 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
     read_leb_uint32(p, p_end, memory->flags);
     is_memory64 = memory->flags & MEMORY64_FLAG;
     if (p - p_org > 1) {
-        LOG_VERBOSE("integer representation too long");
+        LOG_VERBOSE("integer representation too long(memory)");
         set_error_buf(error_buf, error_buf_size, "invalid limits flags");
         return false;
     }
