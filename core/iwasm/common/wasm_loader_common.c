@@ -105,7 +105,9 @@ wasm_table_check_flags(const uint8 table_flag, char *error_buf,
 #if WASM_ENABLE_MEMORY64 == 0
         if (table_flag & TABLE64_FLAG) {
             wasm_loader_set_error_buf(error_buf, error_buf_size,
-                                      "invalid limits flags(table64 flag was found, please enable memory64)", is_aot);
+                                      "invalid limits flags(table64 flag was "
+                                      "found, please enable memory64)",
+                                      is_aot);
             return false;
         }
 #endif
