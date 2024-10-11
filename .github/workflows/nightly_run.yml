@@ -84,6 +84,7 @@ jobs:
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
             ./core/deps/llvm/llvm/cmake/modules
+            ./core/deps/llvm/llvm/include
           key: ${{ matrix.llvm_cache_key }}
 
       - name: Quit if cache miss
@@ -252,6 +253,7 @@ jobs:
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
             ./core/deps/llvm/llvm/cmake/modules
+            ./core/deps/llvm/llvm/include
           key: ${{ matrix.llvm_cache_key }}
 
       - name: Quit if cache miss
@@ -419,6 +421,7 @@ jobs:
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
             ./core/deps/llvm/llvm/cmake/modules
+            ./core/deps/llvm/llvm/include
           key: ${{ matrix.llvm_cache_key }}
 
       - name: Quit if cache miss
@@ -499,6 +502,7 @@ jobs:
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
             ./core/deps/llvm/llvm/cmake/modules
+            ./core/deps/llvm/llvm/include
           key: ${{ matrix.llvm_cache_key }}
 
       - name: Build wamrc
@@ -741,6 +745,7 @@ jobs:
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
             ./core/deps/llvm/llvm/cmake/modules
+            ./core/deps/llvm/llvm/include
           key: ${{ matrix.llvm_cache_key }}
 
       - name: Quit if cache miss

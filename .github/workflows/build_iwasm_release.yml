@@ -48,6 +48,7 @@ jobs:
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
             ./core/deps/llvm/llvm/cmake/modules
+            ./core/deps/llvm/llvm/include
           key: ${{ inputs.llvm_cache_key }}
           fail-on-cache-miss: true
 
