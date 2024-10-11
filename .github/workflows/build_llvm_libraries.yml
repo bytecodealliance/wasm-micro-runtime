@@ -52,24 +52,23 @@ jobs:
         run: /usr/bin/env python3 -m pip install -r requirements.txt --break-system-packages
         working-directory: build-scripts
 
-      # Retrieve the last commit ID using a Python script for cross-platform compatibility
       - name: Retrieve the last commit ID
         id: get_last_commit
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          /usr/bin/env python ./.github/scripts/get_llvm_last_commit.py ${{ inputs.extra_build_llvm_options }}
+          echo "last_commit=$(GH_TOKEN=${{ secrets.GITHUB_TOKEN }} /usr/bin/env python3 ./build_llvm.py ${{ inputs.extra_build_llvm_options }} --llvm-ver)" >> $GITHUB_OUTPUT
 
       # Bump the prefix number to evict all previous caches and
       # enforce a clean build, in the unlikely case that some
       # weird build error occur and llvm/build becomes a potential
-      # suspect. Use Python script for cross-platform compatibility.
+      # suspect.
       - name: form the cache key of libraries
         id: create_lib_cache_key
         shell: bash
         run: |
-          /usr/bin/env python ./.github/scripts/create_llvm_lib_cache_key "0-llvm-libraries-${{ inputs.os }}-${{ inputs.arch }}-${{ steps.get_last_commit.outputs.last_commit }}${{ inputs.cache_key_suffix }}"
+          echo "key=0-llvm-libraries-${{ inputs.os }}-${{ inputs.arch }}-${{ steps.get_last_commit.outputs.last_commit }}${{ inputs.cache_key_suffix }}" >> $GITHUB_OUTPUT
 
       - name: Cache LLVM libraries
         id: retrieve_llvm_libs
