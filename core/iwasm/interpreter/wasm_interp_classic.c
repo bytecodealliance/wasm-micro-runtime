@@ -4561,7 +4561,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 if (opcode == WASM_OP_I32_STORE8) {
                     CHECK_MEMORY_OVERFLOW(1);
-                    *(uint8 *)maddr = (uint8)sval;
+                    STORE_U8(maddr, (uint8)sval);
                 }
                 else {
                     CHECK_MEMORY_OVERFLOW(2);
@@ -4587,7 +4587,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 if (opcode == WASM_OP_I64_STORE8) {
                     CHECK_MEMORY_OVERFLOW(1);
-                    *(uint8 *)maddr = (uint8)sval;
+                    STORE_U8(maddr, (uint8)sval);
                 }
                 else if (opcode == WASM_OP_I64_STORE16) {
                     CHECK_MEMORY_OVERFLOW(2);
@@ -6354,9 +6354,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_DEBUG_INTERP != 0
             HANDLE_OP(DEBUG_OP_BREAK)
             {
+                WASM_SUSPEND_FLAGS_LOCK(exec_env->cluster->thread_state_lock);
                 wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TRAP);
                 WASM_SUSPEND_FLAGS_FETCH_OR(exec_env->suspend_flags,
                                             WASM_SUSPEND_FLAG_SUSPEND);
+                WASM_SUSPEND_FLAGS_UNLOCK(exec_env->cluster->thread_state_lock);
                 frame_ip--;
                 SYNC_ALL_TO_FRAME();
                 CHECK_SUSPEND_FLAGS();
