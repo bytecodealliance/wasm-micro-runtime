@@ -1554,7 +1554,7 @@ void
 wasm_runtime_destroy_memory(wasm_memory_inst_t memory)
 {
 #if WASM_ENABLE_INTERP != 0
-    return wasm_destroy_memory(memory);
+    wasm_destroy_memory(memory);
 #endif
 
 #if WASM_ENABLE_AOT != 0
