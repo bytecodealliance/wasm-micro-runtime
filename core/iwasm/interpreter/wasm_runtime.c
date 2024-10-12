@@ -560,7 +560,8 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         else
 #endif
         {
-#if WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0
+#if WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0 \
+    || WASM_ENABLE_MULTI_MODULE != 0
             uint32 num_bytes_per_page =
                 import->u.memory.mem_type.num_bytes_per_page;
             uint32 init_page_count = import->u.memory.mem_type.init_page_count;
@@ -2651,7 +2652,8 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         goto fail;
     }
 
-#if WASM_ENABLE_LIB_WASI_THREADS == 0 && WASM_ENABLE_THREAD_MGR == 0
+#if WASM_ENABLE_LIB_WASI_THREADS == 0 && WASM_ENABLE_THREAD_MGR == 0 \
+    && WASM_ENABLE_MULTI_MODULE == 0
     /* imports */
     /*
      * const struct WasmExternalInstance *imports should have the same order

@@ -942,7 +942,7 @@ main(int argc, char *argv[])
 #endif
 
     /* instantiate the module */
-#if WASM_ENABLE_SPEC_TEST != 0
+#if WASM_ENABLE_SPEC_TEST != 0 && WASM_ENABLE_MULTI_MODULE == 0
     {
         int32_t import_count = wasm_runtime_get_import_count(wasm_module);
         struct WasmExternalInstance *imports = wasm_runtime_malloc(
