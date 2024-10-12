@@ -825,7 +825,7 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
     AOTMemoryInstance *memory_inst;
 
     for (i = 0; i < module_inst->memory_count; i++) {
-        memory_inst = module_inst->memories[i];
+        memory_inst = module_inst->memories[i].memory;
         if (memory_inst) {
 #if WASM_ENABLE_SHARED_MEMORY != 0
             if (shared_memory_is_shared(memory_inst)) {
@@ -878,7 +878,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         AOTMemoryInstance *shared_memory_instance;
         bh_assert(memory_idx == 0);
         bh_assert(parent->memory_count > memory_idx);
-        shared_memory_instance = parent->memories[memory_idx];
+        shared_memory_instance = parent->memories[memory_idx].memory;
         shared_memory_inc_reference(shared_memory_instance);
         return shared_memory_instance;
     }
@@ -1077,7 +1077,7 @@ aot_lookup_memory(AOTModuleInstance *module_inst, char const *name)
     (void)module_inst->export_memories;
     if (!module_inst->memories)
         return NULL;
-    return module_inst->memories[0];
+    return module_inst->memories[0].memory;
 #endif
 }
 
@@ -1085,7 +1085,7 @@ AOTMemoryInstance *
 aot_get_default_memory(AOTModuleInstance *module_inst)
 {
     if (module_inst->memories)
-        return module_inst->memories[0];
+        return module_inst->memories[0].memory;
     else
         return NULL;
 }
@@ -1095,7 +1095,7 @@ aot_get_memory_with_index(AOTModuleInstance *module_inst, uint32 index)
 {
     if ((index >= module_inst->memory_count) || !module_inst->memories)
         return NULL;
-    return module_inst->memories[index];
+    return module_inst->memories[index].memory;
 }
 
 static bool
@@ -1112,7 +1112,7 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     mem_offset_t base_offset;
 
     module_inst->memory_count = memory_count;
-    total_size = sizeof(AOTMemoryInstance *) * (uint64)memory_count;
+    total_size = sizeof(AOTMemoryWrapper *) * (uint64)memory_count;
     if (!(module_inst->memories =
               runtime_malloc(total_size, error_buf, error_buf_size))) {
         return false;
@@ -1127,7 +1127,7 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
             return false;
         }
 
-        module_inst->memories[i] = memory_inst;
+        module_inst->memories[i].memory = memory_inst;
     }
 
     /* Get default memory instance */
@@ -1440,7 +1440,7 @@ export_memories_instantiate(const AOTModule *module,
     for (i = 0; i < module->export_count; i++, export ++)
         if (export->kind == EXPORT_KIND_MEMORY) {
             export_memory->name = export->name;
-            export_memory->memory = module_inst->memories[export->index];
+            export_memory->memory = module_inst->memories[export->index].memory;
             export_memory++;
         }
 
@@ -1694,7 +1694,9 @@ check_linked_symbol(AOTModule *module, char *error_buf, uint32 error_buf_size)
 AOTModuleInstance *
 aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
                 WASMExecEnv *exec_env_main, uint32 stack_size, uint32 heap_size,
-                uint32 max_memory_pages, char *error_buf, uint32 error_buf_size)
+                uint32 max_memory_pages, uint32 import_count,
+                const WASMImportInst *imports, char *error_buf,
+                uint32 error_buf_size)
 {
     AOTModuleInstance *module_inst;
 #if WASM_ENABLE_BULK_MEMORY != 0 || WASM_ENABLE_REF_TYPES != 0
@@ -2601,7 +2603,7 @@ execute_malloc_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
     bool ret;
 
 #if WASM_ENABLE_MEMORY64 != 0
-    bool is_memory64 = module_inst->memories[0]->is_memory64;
+    bool is_memory64 = module_inst->memories[0].memory->is_memory64;
     if (is_memory64) {
         argc = 2;
         PUT_I64_TO_ADDR(&argv.u64, size);
@@ -2704,7 +2706,7 @@ execute_free_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
     bool ret;
 
 #if WASM_ENABLE_MEMORY64 != 0
-    if (module_inst->memories[0]->is_memory64) {
+    if (module_inst->memories[0].memory->is_memory64) {
         PUT_I64_TO_ADDR(&argv.u64, offset);
         argc = 2;
     }
@@ -3500,7 +3502,7 @@ aot_get_module_inst_mem_consumption(const AOTModuleInstance *module_inst,
         sizeof(void *) * module_inst->memory_count
         + sizeof(AOTMemoryInstance) * module_inst->memory_count;
     for (i = 0; i < module_inst->memory_count; i++) {
-        AOTMemoryInstance *mem_inst = module_inst->memories[i];
+        AOTMemoryInstance *mem_inst = module_inst->memories[i].memory;
         mem_conspn->memories_size +=
             mem_inst->num_bytes_per_page * mem_inst->cur_page_count;
         mem_conspn->app_heap_size =
