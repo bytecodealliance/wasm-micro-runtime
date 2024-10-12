@@ -557,7 +557,29 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                 return NULL;
             }
         }
+        else
 #endif
+        {
+#if WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0
+            uint32 num_bytes_per_page =
+                import->u.memory.mem_type.num_bytes_per_page;
+            uint32 init_page_count = import->u.memory.mem_type.init_page_count;
+            uint32 max_page_count = wasm_runtime_get_max_mem(
+                max_memory_pages, import->u.memory.mem_type.init_page_count,
+                import->u.memory.mem_type.max_page_count);
+            uint32 flags = import->u.memory.mem_type.flags;
+            uint32 actual_heap_size = heap_size;
+
+            if (!(memories[mem_index] = memory_instantiate(
+                      module, parent, memory, mem_index, num_bytes_per_page,
+                      init_page_count, max_page_count, actual_heap_size, flags,
+                      aux_heap_base_global_data, error_buf, error_buf_size))) {
+                memories_deinstantiate(module_inst, memories, memory_count);
+                return NULL;
+            }
+            mem_index++;
+#endif
+        }
     }
 
     /* instantiate memories from memory section */
@@ -2629,6 +2651,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         goto fail;
     }
 
+#if WASM_ENABLE_LIB_WASI_THREADS == 0 && WASM_ENABLE_THREAD_MGR == 0
     /* imports */
     /*
      * const struct WasmExternalInstance *imports should have the same order
@@ -2650,6 +2673,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
             }
         }
     }
+#endif
 
     if (global_count > 0) {
         /* Initialize the global data */
