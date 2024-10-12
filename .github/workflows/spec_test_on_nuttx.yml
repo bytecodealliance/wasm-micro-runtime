@@ -163,8 +163,6 @@ jobs:
             ./core/deps/llvm/build/lib
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
-            ./core/deps/llvm/llvm/cmake/modules
-            ./core/deps/llvm/llvm/include
           key: ${{ matrix.target_config.target == 'xtensa' && needs.build_llvm_libraries_xtensa.outputs.cache_key || needs.build_llvm_libraries.outputs.cache_key }}
 
       - name: Quit if cache miss
