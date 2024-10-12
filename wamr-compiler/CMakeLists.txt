@@ -223,24 +223,14 @@ include_directories (${SHARED_DIR}/include
 
 enable_language (ASM)
 
-if (NOT MINGW AND NOT MSVC)
-  if ((NOT DEFINED WAMR_BUILD_LIBC_WASI) AND (NOT DEFINED WAMR_BUILD_LIBC_UVWASI))
-    set (WAMR_BUILD_LIBC_WASI 1)
-  endif ()
+if ((NOT DEFINED WAMR_BUILD_LIBC_WASI) AND (NOT DEFINED WAMR_BUILD_LIBC_UVWASI))
+  # Enable WAMR_BUILD_LIBC_WASI if both are not set
+  set (WAMR_BUILD_LIBC_WASI 1)
+endif ()
 
-  if ((WAMR_BUILD_LIBC_WASI EQUAL 1) AND (WAMR_BUILD_LIBC_UVWASI EQUAL 1))
-    message (WARNING "-- pick WAMR_BULID_LIBC_UVWASI when both are enabled")
-    set (WAMR_BUILD_LIBC_WASI 0)
-  endif ()
-else ()
-  if (NOT DEFINED WAMR_BUILD_LIBC_UVWASI)
-    set (WAMR_BUILD_LIBC_UVWASI 1)
-  endif ()
-
-  if (WAMR_BUILD_LIBC_WASI EQUAL 1)
-    message (WARNING "-- don't accept WAMR_BUILD_LIBC_WASI=1 on MINGW or MSVC")
-    set (WAMR_BUILD_LIBC_WASI 0)
-  endif ()
+if ((WAMR_BUILD_LIBC_WASI EQUAL 1) AND (WAMR_BUILD_LIBC_UVWASI EQUAL 1))
+  message (WARNING "-- pick WAMR_BULID_LIBC_UVWASI when both are enabled")
+  set (WAMR_BUILD_LIBC_WASI 0)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_LIBC_BUILTIN)
@@ -307,6 +297,16 @@ endif ()
 if (WAMR_BUILD_LIBC_WASI EQUAL 1)
   include (${IWASM_DIR}/libraries/libc-wasi/libc_wasi.cmake)
 endif ()
+
+if (WAMR_BUILD_LIBC_WASI EQUAL 1)
+  # Enable _Static_assert
+  set (CMAKE_C_STANDARD 11)
+  if (MSVC)
+    add_compile_options(/experimental:c11atomics)
+  endif()
+else()
+  set (CMAKE_C_STANDARD 99)
+endif()
 
 if (WAMR_BUILD_LIB_PTHREAD EQUAL 1)
   include (${IWASM_DIR}/libraries/lib-pthread/lib_pthread.cmake)
