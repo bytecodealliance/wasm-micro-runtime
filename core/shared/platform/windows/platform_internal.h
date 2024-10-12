@@ -11,7 +11,7 @@
  * winbase.h: warning C5105: macro expansion producing 'defined' has
  * undefined behavior
  */
-#pragma warning(disable: 5105)
+#pragma warning(disable : 5105)
 #include <inttypes.h>
 #include <stdbool.h>
 #include <assert.h>
