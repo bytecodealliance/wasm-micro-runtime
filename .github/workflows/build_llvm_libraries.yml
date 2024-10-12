@@ -83,11 +83,12 @@ jobs:
         shell: bash
         run: |
           echo "LLVM_LIBS_PATH<<EOF" >> $GITHUB_ENV
-          echo "./core/deps/llvm/build/Release/bin" >> $GITHUB_ENV
           echo "./core/deps/llvm/build/include" >> $GITHUB_ENV
-          echo "./core/deps/llvm/build/Release/lib" >> $GITHUB_ENV
+          echo "./core/deps/llvm/build/lib" >> $GITHUB_ENV
           echo "./core/deps/llvm/build/libexec" >> $GITHUB_ENV
           echo "./core/deps/llvm/build/share" >> $GITHUB_ENV
+          echo "./core/deps/llvm/build/Release/bin" >> $GITHUB_ENV
+          echo "./core/deps/llvm/build/Release/lib" >> $GITHUB_ENV
           echo "./core/deps/llvm/llvm/cmake/modules" >> $GITHUB_ENV
           echo "./core/deps/llvm/llvm/include" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
@@ -148,9 +149,3 @@ jobs:
         shell: bash
         run: /usr/bin/env python3 ./build_llvm.py ${{ inputs.extra_build_llvm_options }} --arch ${{ inputs.arch }}
         working-directory: build-scripts
-
-      - name: Copy include/llvm-c to build directory on Windows
-        if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true' && inputs.os == 'windows-latest'
-        shell: bash
-        run: cp -r llvm/include/llvm-c build/include/llvm-c
-        working-directory: core/deps/llvm
