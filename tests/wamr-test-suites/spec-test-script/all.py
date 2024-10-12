@@ -28,10 +28,12 @@ To run a single GC case case:
     --aot-compiler wamrc --gc spec/test/core/xxx.wast
 """
 
+
 def exe_file_path(base_path: str) -> str:
     if platform.system().lower() == "windows":
         base_path += ".exe"
     return base_path
+
 
 def get_iwasm_cmd(platform: str) -> str:
     build_path = "../../../product-mini/platforms/" + platform + "/build/"
@@ -41,6 +43,7 @@ def get_iwasm_cmd(platform: str) -> str:
         build_path += "RelWithDebInfo/"
 
     return exe_file_path(build_path + exe_name)
+
 
 PLATFORM_NAME = platform.uname().system.lower()
 IWASM_CMD = get_iwasm_cmd(PLATFORM_NAME)
@@ -69,6 +72,7 @@ AVAILABLE_TARGETS = [
     "XTENSA",
 ]
 
+
 def ignore_the_case(
     case_name,
     target,
@@ -84,11 +88,23 @@ def ignore_the_case(
     eh_flag=False,
     qemu_flag=False,
 ):
-
     if case_name in ["comments", "inline-module", "names"]:
         return True
 
-    if not multi_module_flag and case_name in ["imports", "linking", "simd_linking"]:
+    if not multi_module_flag and case_name in [
+        "imports",
+        "linking",
+        "simd_linking",
+        # from multi-memory
+        "imports0",
+        "imports1",
+        "imports2",
+        "imports4",
+        "linking0",
+        "linking1",
+        "linking2",
+        "linking3",
+    ]:
         return True
 
     # Note: x87 doesn't preserve sNaN and makes some relevant tests fail.
@@ -96,7 +112,7 @@ def ignore_the_case(
         return True
 
     # esp32s3 qemu doesn't have PSRAM emulation
-    if qemu_flag and target == 'xtensa' and case_name in ["memory_size"]:
+    if qemu_flag and target == "xtensa" and case_name in ["memory_size"]:
         return True
 
     if gc_flag:
@@ -170,7 +186,7 @@ def test_case(
     qemu_flag=False,
     qemu_firmware="",
     log="",
-    no_pty=False
+    no_pty=False,
 ):
     CMD = [sys.executable, "runtest.py"]
     CMD.append("--wast2wasm")
@@ -238,6 +254,7 @@ def test_case(
     CMD.append(str(case_path))
     # print(f"============> use {' '.join(CMD)}")
     print(f"============> run {case_name} ", end="")
+
     with subprocess.Popen(
         CMD,
         bufsize=1,
@@ -319,7 +336,11 @@ def test_suite(
 
     if eh_flag:
         eh_case_list = sorted(suite_path.glob("*.wast"))
-        eh_case_list_include = [test for test in eh_case_list if test.stem in ["throw", "tag", "try_catch", "rethrow", "try_delegate"]]
+        eh_case_list_include = [
+            test
+            for test in eh_case_list
+            if test.stem in ["throw", "tag", "try_catch", "rethrow", "try_delegate"]
+        ]
         case_list.extend(eh_case_list_include)
 
     if multi_memory_flag:
@@ -573,8 +594,9 @@ def main():
         nargs="*",
         help=f"Specify all wanted cases. If not the script will go through all cases under {SPEC_TEST_DIR}",
     )
-    parser.add_argument('--no-pty', action='store_true',
-        help="Use direct pipes instead of pseudo-tty")
+    parser.add_argument(
+        "--no-pty", action="store_true", help="Use direct pipes instead of pseudo-tty"
+    )
 
     options = parser.parse_args()
 
@@ -616,7 +638,7 @@ def main():
             options.qemu_flag,
             options.qemu_firmware,
             options.log,
-            options.no_pty
+            options.no_pty,
         )
         end = time.time_ns()
         print(
