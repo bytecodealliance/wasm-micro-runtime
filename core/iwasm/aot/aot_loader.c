@@ -2512,6 +2512,15 @@ try_merge_data_and_text(const uint8 **buf, const uint8 **buf_end,
         /* merge failed but may be not critical for some targets */
         return false;
     }
+
+#ifdef BH_PLATFORM_WINDOWS
+    if (!os_mem_commit(sections, code_size,
+                       MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC)) {
+        os_munmap(sections, (uint32)total_size);
+        return false;
+    }
+#endif
+
     /* change the code part to be executable */
     if (os_mprotect(sections, code_size,
                     MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC)

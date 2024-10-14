@@ -10,6 +10,10 @@
 #define NANOSECONDS_PER_SECOND 1000000000ULL
 #define NANOSECONDS_PER_TICK 100
 
+extern NTSTATUS
+NtQueryTimerResolution(PULONG MinimumResolution, PULONG MaximumResolution,
+                       PULONG CurrentResolution);
+
 static __wasi_errno_t
 calculate_monotonic_clock_frequency(uint64 *out_frequency)
 {
