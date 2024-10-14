@@ -134,6 +134,7 @@ is_frame_per_function(WASMExecEnv *exec_env)
     return module->feature_flags & WASM_FEATURE_FRAME_PER_FUNCTION;
 }
 
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
 static bool
 is_frame_func_idx_disabled(WASMExecEnv *exec_env)
 {
@@ -142,6 +143,7 @@ is_frame_func_idx_disabled(WASMExecEnv *exec_env)
 
     return module->feature_flags & WASM_FEATURE_FRAME_NO_FUNC_IDX;
 }
+#endif
 
 static void *
 get_top_frame(WASMExecEnv *exec_env)
