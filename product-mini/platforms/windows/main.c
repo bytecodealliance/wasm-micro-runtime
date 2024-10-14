@@ -540,12 +540,61 @@ main(int argc, char *argv[])
 #endif
 
     /* instantiate the module */
+#if WASM_ENABLE_SPEC_TEST != 0 && WASM_ENABLE_MULTI_MODULE == 0
+    {
+        int32_t import_count = wasm_runtime_get_import_count(wasm_module);
+        struct WasmExternalInstance *imports = wasm_runtime_malloc(
+            sizeof(struct WasmExternalInstance) * import_count);
+        if (!imports) {
+            printf("Failed to allocate memory for imports\n");
+            goto fail3;
+        }
+
+        for (int32_t i = 0; i < import_count; i++) {
+            wasm_import_t import_type = { 0 };
+            wasm_runtime_get_import_type(wasm_module, i, &import_type);
+            if (strncmp(import_type.module_name, "spectest", 8) != 0) {
+                continue;
+            }
+
+            struct WasmExternalInstance *extern_instance = imports + i;
+            extern_instance->module_name = import_type.module_name;
+            extern_instance->field_name = import_type.name;
+            extern_instance->kind = import_type.kind;
+
+            // create external instance for spectest.XXX
+            if (import_type.kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
+                extern_instance->u.memory = wasm_runtime_create_memory(
+                    NULL, import_type.u.memory_type, 0);
+            }
+            else {
+                LOG_WARNING("unimplemented import kind %d\n", import_type.kind);
+            }
+        }
+
+        InstantiationArgs inst_args = {
+            .default_stack_size = stack_size,
+            .host_managed_heap_size = heap_size,
+            .max_memory_pages = 0, // ?
+            .import_count = import_count,
+            .imports = imports,
+        };
+
+        wasm_module_inst = wasm_runtime_instantiate_ex(
+            wasm_module, &inst_args, error_buf, sizeof(error_buf));
+        if (!wasm_module_inst) {
+            printf("%s\n", error_buf);
+            goto fail3;
+        }
+    }
+#else
     if (!(wasm_module_inst =
               wasm_runtime_instantiate(wasm_module, stack_size, heap_size,
                                        error_buf, sizeof(error_buf)))) {
         printf("%s\n", error_buf);
         goto fail3;
     }
+#endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
     if (ip_addr != NULL) {
