@@ -77,7 +77,7 @@ check_tbl_elem_idx_and_trunc(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 fail:
     return false;
 #else
-    return false;
+    return true;
 #endif
 }
 #endif /* WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC !=0 */
