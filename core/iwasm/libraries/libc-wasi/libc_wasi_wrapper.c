@@ -1022,8 +1022,8 @@ execute_interruptible_poll_oneoff(
     uint32 i;
 
     const __wasi_timestamp_t timeout = get_timeout_for_poll_oneoff(
-                                 in, nsubscriptions),
-                             time_quant = 1e9;
+                                 in, (uint32)nsubscriptions),
+                             time_quant = (__wasi_timestamp_t)1e9;
     const uint64 size_to_copy =
         nsubscriptions * (uint64)sizeof(wasi_subscription_t);
     __wasi_subscription_t *in_copy = NULL;
@@ -1034,12 +1034,13 @@ execute_interruptible_poll_oneoff(
         return __WASI_ENOMEM;
     }
 
-    bh_memcpy_s(in_copy, size_to_copy, in, size_to_copy);
+    bh_memcpy_s(in_copy, (uint32)size_to_copy, in, (uint32)size_to_copy);
 
     while (timeout == (__wasi_timestamp_t)-1 || elapsed <= timeout) {
         /* update timeout for clock subscription events */
         update_clock_subscription_data(
-            in_copy, nsubscriptions, min_uint64(time_quant, timeout - elapsed));
+            in_copy, (uint32)nsubscriptions,
+            min_uint64(time_quant, timeout - elapsed));
         err = wasmtime_ssp_poll_oneoff(exec_env, curfds, in_copy, out,
                                        nsubscriptions, nevents);
         elapsed += time_quant;
