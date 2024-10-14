@@ -52,7 +52,7 @@ jobs:
       # Upload the results as artifacts (optional). Commenting out will disable uploads of run results in SARIF
       # format to the repository Actions tab.
       - name: "Upload artifact"
-        uses: actions/upload-artifact@3eadd8b791cabf7cd572f194da82158c24125bd8 # v3.1.0
+        uses: actions/upload-artifact@184d73b71b93c222403b2e7f1ffebe4508014249 # v3.1.0
         with:
           name: SARIF file
           path: results.sarif
