@@ -49,9 +49,8 @@ endif ()
 
 # Disable Fast JIT on Windows for now
 set (WAMR_BUILD_FAST_JIT 0)
-# Disable Pthreads on Windows
+# Disable Pthreads semaphore on Windows
 set (WAMR_BUILD_LIB_PTHREAD_SEMAPHORE 0)
-set (WAMR_BUILD_LIB_PTHREAD 0)
 
 if (NOT DEFINED WAMR_BUILD_LIBC_BUILTIN)
   # Enable libc builtin support by default
