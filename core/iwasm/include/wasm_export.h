@@ -139,6 +139,9 @@ typedef struct wasm_section_t {
 struct WASMExecEnv;
 typedef struct WASMExecEnv *wasm_exec_env_t;
 
+struct WASMSharedHeap;
+typedef struct WASMSharedHeap *wasm_shared_heap_t;
+
 /* Package Type */
 typedef enum {
     Wasm_Module_Bytecode = 0,
@@ -328,6 +331,10 @@ typedef enum {
     WASM_LOG_LEVEL_DEBUG = 3,
     WASM_LOG_LEVEL_VERBOSE = 4
 } log_level_t;
+
+typedef struct SharedHeapInitArgs {
+    uint32_t size;
+} SharedHeapInitArgs;
 
 /**
  * Initialize the WASM runtime environment, and also initialize
@@ -2218,6 +2225,60 @@ wasm_runtime_detect_native_stack_overflow_size(wasm_exec_env_t exec_env,
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_underlying_binary_freeable(const wasm_module_t module);
+
+/**
+ * Create a shared heap
+ *
+ * @param init_args the initialization arguments
+ * @return the shared heap created
+ */
+WASM_RUNTIME_API_EXTERN wasm_shared_heap_t
+wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args);
+
+/**
+ * Attach a shared heap to a module instance
+ *
+ * @param module_inst the module instance
+ * @param shared_heap the shared heap
+ * @return true if success, false if failed
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_attach_shared_heap(wasm_module_inst_t module_inst,
+                                wasm_shared_heap_t shared_heap);
+
+/**
+ * Detach a shared heap from a module instance
+ *
+ * @param module_inst the module instance
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_detach_shared_heap(wasm_module_inst_t module_inst);
+
+/**
+ * Allocate memory from a shared heap
+ *
+ * @param module_inst the module instance
+ * @param size required memory size
+ * @param p_native_addr native address of allocated memory
+ *
+ * @return return the allocated memory address, which re-uses part of the wasm
+ * address space and is in the range of [UINT32 - shared_heap_size + 1, UINT32]
+ * (when the wasm memory is 32-bit) or [UINT64 - shared_heap_size + 1, UINT64]
+ * (when the wasm memory is 64-bit). Note that it is not an absolute address.
+ *         Return non-zero if success, zero if failed.
+ */
+WASM_RUNTIME_API_EXTERN uint64_t
+wasm_runtime_shared_heap_malloc(wasm_module_inst_t module_inst, uint64_t size,
+                                void **p_native_addr);
+
+/**
+ * Free the memory allocated from shared heap
+ *
+ * @param module_inst the module instance
+ * @param ptr the offset in wasm app
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_shared_heap_free(wasm_module_inst_t module_inst, uint64_t ptr);
 
 #ifdef __cplusplus
 }

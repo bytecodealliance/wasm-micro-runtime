@@ -386,3 +386,12 @@ jobs:
           ./build.sh
           ./run.sh test1
           ./run.sh test2
+
+      - name: Build Sample [shared-heap]
+        run: |
+          cd samples/shared-heap
+          mkdir build && cd build
+          cmake ..
+          cmake --build . --config Debug --parallel 4
+          ./shared_heap_test
+          ./shared_heap_test --aot

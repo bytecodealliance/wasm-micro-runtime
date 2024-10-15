@@ -2798,6 +2798,14 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         }
     }
 
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_SHARED_HEAP != 0
+#if UINTPTR_MAX == UINT64_MAX
+    module_inst->e->shared_heap_start_off.u64 = UINT64_MAX;
+#else
+    module_inst->e->shared_heap_start_off.u32[0] = UINT32_MAX;
+#endif
+#endif
+
 #if WASM_ENABLE_GC != 0
     /* Initialize the table data with init expr */
     for (i = 0; i < module->table_count; i++) {

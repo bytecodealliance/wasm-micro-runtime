@@ -46,6 +46,28 @@ typedef float64 CellType_F64;
 #define get_linear_mem_size() GET_LINEAR_MEMORY_SIZE(memory)
 #endif
 
+#if WASM_ENABLE_SHARED_HEAP != 0
+#if WASM_ENABLE_MULTI_MEMORY != 0
+/* Only enable shared heap for the default memory */
+#define is_default_memory (memidx == 0)
+#else
+#define is_default_memory true
+#endif
+#define app_addr_in_shared_heap(app_addr, bytes)                             \
+    (shared_heap && is_default_memory && (app_addr) >= shared_heap_start_off \
+     && (app_addr) <= shared_heap_end_off - bytes + 1)
+
+#define shared_heap_addr_app_to_native(app_addr, native_addr) \
+    native_addr = shared_heap_base_addr + ((app_addr)-shared_heap_start_off)
+
+#define CHECK_SHARED_HEAP_OVERFLOW(app_addr, bytes, native_addr) \
+    if (app_addr_in_shared_heap(app_addr, bytes))                \
+        shared_heap_addr_app_to_native(app_addr, native_addr);   \
+    else
+#else
+#define CHECK_SHARED_HEAP_OVERFLOW(app_addr, bytes, native_addr)
+#endif
+
 #if WASM_ENABLE_MEMORY64 == 0
 
 #if (!defined(OS_ENABLE_HW_BOUND_CHECK) \
@@ -53,6 +75,7 @@ typedef float64 CellType_F64;
 #define CHECK_MEMORY_OVERFLOW(bytes)                                           \
     do {                                                                       \
         uint64 offset1 = (uint64)offset + (uint64)addr;                        \
+        CHECK_SHARED_HEAP_OVERFLOW(offset1, bytes, maddr)                      \
         if (disable_bounds_checks || offset1 + bytes <= get_linear_mem_size()) \
             /* If offset1 is in valid range, maddr must also                   \
                be in valid range, no need to check it again. */                \
@@ -64,6 +87,7 @@ typedef float64 CellType_F64;
 #define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr)                        \
     do {                                                                       \
         uint64 offset1 = (uint32)(start);                                      \
+        CHECK_SHARED_HEAP_OVERFLOW(offset1, bytes, maddr)                      \
         if (disable_bounds_checks || offset1 + bytes <= get_linear_mem_size()) \
             /* App heap space is not valid space for                           \
              bulk memory operation */                                          \
@@ -71,18 +95,24 @@ typedef float64 CellType_F64;
         else                                                                   \
             goto out_of_bounds;                                                \
     } while (0)
+
 #else /* else of !defined(OS_ENABLE_HW_BOUND_CHECK) || \
          WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 */
-#define CHECK_MEMORY_OVERFLOW(bytes)                    \
-    do {                                                \
-        uint64 offset1 = (uint64)offset + (uint64)addr; \
-        maddr = memory->memory_data + offset1;          \
+
+#define CHECK_MEMORY_OVERFLOW(bytes)                      \
+    do {                                                  \
+        uint64 offset1 = (uint64)offset + (uint64)addr;   \
+        CHECK_SHARED_HEAP_OVERFLOW(offset1, bytes, maddr) \
+        maddr = memory->memory_data + offset1;            \
     } while (0)
 
-#define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr) \
-    do {                                                \
-        maddr = memory->memory_data + (uint32)(start);  \
+#define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr)   \
+    do {                                                  \
+        uint64 offset1 = (uint32)(start);                 \
+        CHECK_SHARED_HEAP_OVERFLOW(offset1, bytes, maddr) \
+        maddr = memory->memory_data + offset1;            \
     } while (0)
+
 #endif /* end of !defined(OS_ENABLE_HW_BOUND_CHECK) || \
           WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 */
 
@@ -91,6 +121,7 @@ typedef float64 CellType_F64;
 #define CHECK_MEMORY_OVERFLOW(bytes)                                        \
     do {                                                                    \
         uint64 offset1 = (uint64)offset + (uint64)addr;                     \
+        CHECK_SHARED_HEAP_OVERFLOW(offset1, bytes, maddr)                   \
         /* If memory64 is enabled, offset1, offset1 + bytes can overflow */ \
         if (disable_bounds_checks                                           \
             || (offset1 >= offset && offset1 + bytes >= offset1             \
@@ -99,9 +130,11 @@ typedef float64 CellType_F64;
         else                                                                \
             goto out_of_bounds;                                             \
     } while (0)
+
 #define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr)            \
     do {                                                           \
         uint64 offset1 = (uint64)(start);                          \
+        CHECK_SHARED_HEAP_OVERFLOW(offset1, bytes, maddr)          \
         /* If memory64 is enabled, offset1 + bytes can overflow */ \
         if (disable_bounds_checks                                  \
             || (offset1 + bytes >= offset1                         \
@@ -1611,6 +1644,22 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     if (memory)
         is_memory64 = memory->is_memory64;
 #endif
+#if WASM_ENABLE_SHARED_HEAP != 0
+    WASMSharedHeap *shared_heap = module->e->shared_heap;
+    uint8 *shared_heap_base_addr = shared_heap ? shared_heap->base_addr : NULL;
+#if WASM_ENABLE_MEMORY64 != 0
+    uint64 shared_heap_start_off =
+        shared_heap ? (is_memory64 ? shared_heap->start_off_mem64
+                                   : shared_heap->start_off_mem32)
+                    : 0;
+    uint64 shared_heap_end_off =
+        shared_heap ? (is_memory64 ? UINT64_MAX : UINT32_MAX) : 0;
+#else
+    uint64 shared_heap_start_off =
+        shared_heap ? shared_heap->start_off_mem32 : 0;
+    uint64 shared_heap_end_off = shared_heap ? UINT32_MAX : 0;
+#endif
+#endif /* end of WASM_ENABLE_SHARED_HEAP != 0 */
 #if WASM_ENABLE_MULTI_MEMORY != 0
     uint32 memidx = 0;
     uint32 memidx_cached = (uint32)-1;
@@ -3472,8 +3521,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         str_obj = (WASMString)wasm_stringref_obj_get_value(
                             stringref_obj);
 
-                        memory_inst = module->memories[mem_idx];
-                        maddr = memory_inst->memory_data + addr;
+#if WASM_ENABLE_SHARED_HEAP != 0
+                        if (app_addr_in_shared_heap((uint64)addr, 1))
+                            shared_heap_addr_app_to_native((uint64)addr, maddr);
+                        else
+#endif
+                        {
+                            memory_inst = module->memories[mem_idx];
+                            maddr = memory_inst->memory_data + addr;
+                        }
 
                         if (opcode == WASM_OP_STRING_ENCODE_WTF16) {
                             flag = WTF16;
@@ -3640,8 +3696,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         addr = POP_I32();
                         stringview_wtf8_obj = POP_REF();
 
-                        memory_inst = module->memories[mem_idx];
-                        maddr = memory_inst->memory_data + addr;
+#if WASM_ENABLE_SHARED_HEAP != 0
+                        if (app_addr_in_shared_heap((uint64)addr, 1))
+                            shared_heap_addr_app_to_native((uint64)addr, maddr);
+                        else
+#endif
+                        {
+                            memory_inst = module->memories[mem_idx];
+                            maddr = memory_inst->memory_data + addr;
+                        }
 
                         bytes_written = wasm_string_encode(
                             (WASMString)wasm_stringview_wtf8_obj_get_value(
@@ -5674,9 +5737,18 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #ifndef OS_ENABLE_HW_BOUND_CHECK
                         CHECK_BULK_MEMORY_OVERFLOW(addr, bytes, maddr);
 #else
-                        if ((uint64)(uint32)addr + bytes > linear_mem_size)
-                            goto out_of_bounds;
-                        maddr = memory->memory_data + (uint32)addr;
+#if WASM_ENABLE_SHARED_HEAP != 0
+                        if (app_addr_in_shared_heap((uint64)(uint32)addr,
+                                                    bytes))
+                            shared_heap_addr_app_to_native((uint64)(uint32)addr,
+                                                           maddr);
+                        else
+#endif
+                        {
+                            if ((uint64)(uint32)addr + bytes > linear_mem_size)
+                                goto out_of_bounds;
+                            maddr = memory->memory_data + (uint32)addr;
+                        }
 #endif
 
                         if (bh_bitmap_get_bit(module->e->common.data_dropped,
@@ -5726,15 +5798,30 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_THREAD_MGR != 0
                         linear_mem_size = get_linear_mem_size();
 #endif
+
+                        dlen = linear_mem_size - dst;
+
                         /* dst boundary check */
 #ifndef OS_ENABLE_HW_BOUND_CHECK
                         CHECK_BULK_MEMORY_OVERFLOW(dst, len, mdst);
-#else
-                        if ((uint64)dst + len > linear_mem_size)
-                            goto out_of_bounds;
-                        mdst = memory->memory_data + dst;
+#if WASM_ENABLE_SHARED_HEAP != 0
+                        if (app_addr_in_shared_heap((uint64)dst, len))
+                            dlen = shared_heap_end_off - dst + 1;
 #endif
-                        dlen = linear_mem_size - dst;
+#else /* else of OS_ENABLE_HW_BOUND_CHECK */
+#if WASM_ENABLE_SHARED_HEAP != 0
+                        if (app_addr_in_shared_heap((uint64)dst, len)) {
+                            shared_heap_addr_app_to_native((uint64)dst, mdst);
+                            dlen = shared_heap_end_off - dst + 1;
+                        }
+                        else
+#endif
+                        {
+                            if ((uint64)dst + len > linear_mem_size)
+                                goto out_of_bounds;
+                            mdst = memory->memory_data + dst;
+                        }
+#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
 #if WASM_ENABLE_MULTI_MEMORY != 0
                         /* src memidx */
@@ -5750,9 +5837,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #ifndef OS_ENABLE_HW_BOUND_CHECK
                         CHECK_BULK_MEMORY_OVERFLOW(src, len, msrc);
 #else
-                        if ((uint64)src + len > linear_mem_size)
-                            goto out_of_bounds;
-                        msrc = memory->memory_data + src;
+#if WASM_ENABLE_SHARED_HEAP != 0
+                        if (app_addr_in_shared_heap((uint64)src, len))
+                            shared_heap_addr_app_to_native((uint64)src, msrc);
+                        else
+#endif
+                        {
+                            if ((uint64)src + len > linear_mem_size)
+                                goto out_of_bounds;
+                            msrc = memory->memory_data + src;
+                        }
 #endif
 
 #if WASM_ENABLE_MEMORY64 == 0
@@ -5789,9 +5883,17 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #ifndef OS_ENABLE_HW_BOUND_CHECK
                         CHECK_BULK_MEMORY_OVERFLOW(dst, len, mdst);
 #else
-                        if ((uint64)(uint32)dst + len > linear_mem_size)
-                            goto out_of_bounds;
-                        mdst = memory->memory_data + (uint32)dst;
+#if WASM_ENABLE_SHARED_HEAP != 0
+                        if (app_addr_in_shared_heap((uint64)(uint32)dst, len))
+                            shared_heap_addr_app_to_native((uint64)(uint32)dst,
+                                                           mdst);
+                        else
+#endif
+                        {
+                            if ((uint64)(uint32)dst + len > linear_mem_size)
+                                goto out_of_bounds;
+                            mdst = memory->memory_data + (uint32)dst;
+                        }
 #endif
 
                         memset(mdst, fill_val, len);

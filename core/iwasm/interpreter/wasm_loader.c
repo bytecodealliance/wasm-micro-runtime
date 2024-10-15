@@ -5379,6 +5379,9 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
     option.enable_memory_profiling = true;
     option.enable_stack_estimation = true;
 #endif
+#if WASM_ENABLE_SHARED_HEAP != 0
+    option.enable_shared_heap = true;
+#endif
 
     module->comp_ctx = aot_create_comp_context(module->comp_data, &option);
     if (!module->comp_ctx) {
