@@ -2090,7 +2090,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef *param_values = NULL, *value_rets = NULL;
     LLVMValueRef *result_phis = NULL, value_ret, import_func_count;
 #if WASM_ENABLE_MEMORY64 != 0
-    LLVMValueRef u32_max, u32_cmp_result;
+    LLVMValueRef u32_max, u32_cmp_result = NULL;
 #endif
     LLVMTypeRef *param_types = NULL, ret_type;
     LLVMTypeRef llvm_func_type, llvm_func_ptr_type;

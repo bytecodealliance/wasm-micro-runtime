@@ -10,6 +10,8 @@
 #include "aot_emit_gc.h"
 #endif
 
+#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
+#if WASM_ENABLE_MEMORY64 != 0
 static bool
 zero_extend_u64(AOTCompContext *comp_ctx, LLVMValueRef *value, const char *name)
 {
@@ -23,6 +25,7 @@ zero_extend_u64(AOTCompContext *comp_ctx, LLVMValueRef *value, const char *name)
     }
     return true;
 }
+#endif
 
 /* check whether a table64 elem idx is greater than UINT32_MAX, if so, throw
  * exception, otherwise trunc it to uint32 */
@@ -30,10 +33,10 @@ static bool
 check_tbl_elem_idx_and_trunc(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              LLVMValueRef *elem_idx, uint32 tbl_idx)
 {
+#if WASM_ENABLE_MEMORY64 != 0
     LLVMValueRef u32_max, u32_cmp_result;
     LLVMBasicBlockRef check_elem_idx_succ;
 
-#if WASM_ENABLE_MEMORY64 != 0
     if (!IS_TABLE64(tbl_idx)) {
         return true;
     }
@@ -69,12 +72,15 @@ check_tbl_elem_idx_and_trunc(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              EXCE_OUT_OF_BOUNDS_TABLE_ACCESS, true,
                              u32_cmp_result, check_elem_idx_succ)))
         goto fail;
-#endif
 
     return true;
 fail:
     return false;
+#else
+    return true;
+#endif
 }
+#endif /* WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC !=0 */
 
 uint64
 get_tbl_inst_offset(const AOTCompContext *comp_ctx,
@@ -738,4 +744,4 @@ fail:
     return false;
 }
 
-#endif /*  WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC !=0 */
+#endif /* WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC !=0 */

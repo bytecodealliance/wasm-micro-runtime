@@ -137,6 +137,7 @@ is_frame_per_function(WASMExecEnv *exec_env)
     return module->feature_flags & WASM_FEATURE_FRAME_PER_FUNCTION;
 }
 
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
 static bool
 is_frame_func_idx_disabled(WASMExecEnv *exec_env)
 {
@@ -145,6 +146,7 @@ is_frame_func_idx_disabled(WASMExecEnv *exec_env)
 
     return module->feature_flags & WASM_FEATURE_FRAME_NO_FUNC_IDX;
 }
+#endif
 
 static void *
 get_top_frame(WASMExecEnv *exec_env)
@@ -1478,9 +1480,7 @@ create_exports(AOTModuleInstance *module_inst, AOTModule *module,
         }
     }
 
-#if WASM_ENABLE_MULTI_MEMORY == 0
-    bh_assert(module_inst->export_memory_count <= 1);
-#else
+#if WASM_ENABLE_MULTI_MEMORY != 0
     if (module_inst->export_memory_count) {
         module_inst->export_memories = export_memories_instantiate(
             module, module_inst, module_inst->export_memory_count, error_buf,

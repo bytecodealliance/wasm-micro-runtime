@@ -1166,8 +1166,8 @@ wasm_application_execute_main(wasm_module_inst_t module_inst, int32_t argc,
                               char *argv[]);
 
 /**
- * Find the specified function in argv[0] from a WASM module instance
- * and execute that function.
+ * Find the specified function from a WASM module instance and execute
+ * that function.
  *
  * @param module_inst the WASM module instance
  * @param name the name of the function to execute.

@@ -3610,7 +3610,8 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         char mapping_copy_buf[256];
         char *mapping_copy = mapping_copy_buf;
         char *map_mapped = NULL, *map_host = NULL;
-        const unsigned long max_len = strlen(map_dir_list[i]) * 2 + 3;
+        const unsigned long max_len =
+            (unsigned long)strlen(map_dir_list[i]) * 2 + 3;
 
         /* Allocation limit for runtime environments with reduced stack size */
         if (max_len > 256) {
