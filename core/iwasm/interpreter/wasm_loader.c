@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include <stdlib.h>
+
 #include "wasm_loader.h"
 #include "bh_common.h"
 #include "bh_log.h"
@@ -3184,6 +3186,12 @@ fail:
     return false;
 }
 
+static int
+cmp_export_name(const void *a, const void *b)
+{
+    return strcmp(((WASMExport *)a)->name, ((WASMExport *)b)->name);
+}
+
 static bool
 load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     bool is_load_from_file_buf, bool no_resolve,
@@ -4090,15 +4098,6 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             read_leb_uint32(p, p_end, str_len);
             CHECK_BUF(p, p_end, str_len);
 
-            for (j = 0; j < i; j++) {
-                name = module->exports[j].name;
-                if (strlen(name) == str_len && memcmp(name, p, str_len) == 0) {
-                    set_error_buf(error_buf, error_buf_size,
-                                  "duplicate export name");
-                    return false;
-                }
-            }
-
             if (!(export->name = wasm_const_str_list_insert(
                       p, str_len, module, is_load_from_file_buf, error_buf,
                       error_buf_size))) {
@@ -4170,6 +4169,16 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                                   "invalid export kind");
                     return false;
             }
+        }
+    }
+
+    qsort(module->exports, module->export_count, sizeof(WASMExport),
+          cmp_export_name);
+
+    for (i = 0; i < module->export_count - 1; i++) {
+        if (!strcmp(module->exports[i].name, module->exports[i + 1].name)) {
+            set_error_buf(error_buf, error_buf_size, "duplicate export name");
+            return false;
         }
     }
 
