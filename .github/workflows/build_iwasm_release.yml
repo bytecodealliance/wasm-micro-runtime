@@ -44,6 +44,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # llvm lib paths are different for Windows
       - name: Set LLVM Build Suffix and extra llvm directories on Windows
         if: inputs.runner == 'windows-latest'
         shell: bash

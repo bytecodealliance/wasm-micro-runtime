@@ -77,7 +77,7 @@ jobs:
         run: |
           echo "key=0-llvm-libraries-${{ inputs.os }}-${{ inputs.arch }}-${{ steps.get_last_commit.outputs.last_commit }}${{ inputs.cache_key_suffix }}" >> $GITHUB_OUTPUT
 
-      # llvm lib paths is different for Windows
+      # llvm lib paths are different for Windows
       - name: Set LLVM Build Suffix and extra llvm directories on Windows
         if: inputs.os == 'windows-latest'
         shell: bash
