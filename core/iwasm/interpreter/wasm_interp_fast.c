@@ -20,6 +20,9 @@
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
 #endif
+#if ENABLE_NEON != 0
+#include <arm_neon.h>
+#endif
 
 typedef int32 CellType_I32;
 typedef int64 CellType_I64;
@@ -5654,19 +5657,163 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 switch (opcode) {
                     /* Memory */
                     case SIMD_v128_load:
+                    {
+                        uint32 offset, addr;
+                        offset =
+                            read_uint32(frame_ip); // TODO Check with an offset!
+                        addr = GET_OPERAND(uint32, I32, 0);
+                        frame_ip += 2;
+                        addr_ret = GET_OFFSET();
+                        CHECK_MEMORY_OVERFLOW(16);
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, LOAD_V128(maddr));
+                        break;
+                    }
                     case SIMD_v128_load8x8_s:
+#if ENABLE_NEON == 1
+                    {
+                        uint32 offset, addr;
+                        offset = read_uint32(frame_ip);
+                        addr = GET_OPERAND(uint32, I32, 0);
+                        frame_ip += 2;
+                        addr_ret = GET_OFFSET();
+                        CHECK_MEMORY_OVERFLOW(16);
+
+                        int8x8_t v8 = vld1_s8((const int8_t *)maddr);
+                        v8 = vrev64_s8(v8);
+                        int16x8_t v16 = vmovl_s8(v8);
+
+                        V128 result;
+                        vst1q_s16((int16_t *)&result, v16);
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
+#endif
                     case SIMD_v128_load8x8_u:
+#if ENABLE_NEON == 1
+                    {
+                        uint32 offset, addr;
+                        offset = read_uint32(frame_ip);
+                        addr = GET_OPERAND(uint32, I32, 0);
+                        frame_ip += 2;
+                        addr_ret = GET_OFFSET();
+                        CHECK_MEMORY_OVERFLOW(16);
+
+                        uint8x8_t v8 = vld1_u8((const uint8_t *)maddr);
+                        v8 = vrev64_u8(v8);
+                        uint16x8_t v16 = vmovl_u8(v8);
+
+                        V128 result;
+                        vst1q_u16((uint16_t *)&result, v16);
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
+#endif
                     case SIMD_v128_load16x4_s:
+#if ENABLE_NEON == 1
+                    {
+                        uint32 offset, addr;
+                        offset = read_uint32(frame_ip);
+                        addr = GET_OPERAND(uint32, I32, 0);
+                        frame_ip += 2;
+                        addr_ret = GET_OFFSET();
+                        CHECK_MEMORY_OVERFLOW(16);
+
+                        int16x4_t v16 = vld1_s16((const int16_t *)maddr);
+                        v16 = vrev64_s16(v16);
+                        int32x4_t v32 = vmovl_s16(v16);
+
+                        V128 result;
+                        vst1q_s32((int32_t *)&result, v32);
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
+#endif
                     case SIMD_v128_load16x4_u:
+#if ENABLE_NEON == 1
+                    {
+                        uint32 offset, addr;
+                        offset = read_uint32(frame_ip);
+                        addr = GET_OPERAND(uint32, I32, 0);
+                        frame_ip += 2;
+                        addr_ret = GET_OFFSET();
+                        CHECK_MEMORY_OVERFLOW(16);
+
+                        uint16x4_t v16 = vld1_u16((const uint16_t *)maddr);
+                        v16 = vrev64_u16(v16);
+                        uint32x4_t v32 = vmovl_u16(v16);
+
+                        V128 result;
+                        vst1q_u32((uint32_t *)&result, v32);
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
+#endif
                     case SIMD_v128_load32x2_s:
+#if ENABLE_NEON == 1
+                    {
+                        uint32 offset, addr;
+                        offset = read_uint32(frame_ip);
+                        addr = GET_OPERAND(uint32, I32, 0);
+                        frame_ip += 2;
+                        addr_ret = GET_OFFSET();
+                        CHECK_MEMORY_OVERFLOW(16);
+
+                        int32x2_t v32 = vld1_s32((const int32_t *)maddr);
+                        v32 = vrev64_s32(v32);
+                        int64x2_t v64 = vmovl_s32(v32);
+
+                        V128 result;
+                        vst1q_s64((int64_t *)&result, v64);
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
+#endif
                     case SIMD_v128_load32x2_u:
+#if ENABLE_NEON == 1
+                    {
+                        uint32 offset, addr;
+                        offset = read_uint32(frame_ip);
+                        addr = GET_OPERAND(uint32, I32, 0);
+                        frame_ip += 2;
+                        addr_ret = GET_OFFSET();
+                        CHECK_MEMORY_OVERFLOW(16);
+
+                        uint32x2_t v32 = vld1_u32((const uint32_t *)maddr);
+                        v32 = vrev64_u32(v32);
+                        uint64x2_t v64 = vmovl_u32(v32);
+
+                        V128 result;
+                        vst1q_u64((uint64_t *)&result, v64);
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
+#endif
                     case SIMD_v128_load8_splat:
                     case SIMD_v128_load16_splat:
                     case SIMD_v128_load32_splat:
                     case SIMD_v128_load64_splat:
-                    case SIMD_v128_store:
                     {
                         wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+                    case SIMD_v128_store:
+                    {
+                        uint32 offset, addr;
+                        offset = read_uint32(frame_ip);
+                        addr = GET_OPERAND(uint32, I32, 2);
+
+                        V128 data;
+                        data = POP_V128();
+                        frame_ip += 2;
+
+                        CHECK_MEMORY_OVERFLOW(16);
+                        STORE_V128(maddr, data);
                         break;
                     }
 
@@ -5682,6 +5829,44 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         break;
                     }
                     case SIMD_v8x16_shuffle:
+#if ENABLE_NEON == 1
+                    {
+                        // use wasm_runtime_read_v128(frame_ip, (uint64 *)imm,
+                        // (uint64 *)(imm + 8)); ?
+                        uint8x16_t indices = vld1q_u8(frame_ip);
+                        frame_ip += 16;
+                        V128 v1 = POP_V128();
+                        V128 v2 = POP_V128();
+                        addr_ret = GET_OFFSET();
+
+                        int8x16_t a =
+                            vreinterpretq_s8_u64(vld1q_u64((uint64_t *)&v1));
+                        int8x16_t b =
+                            vreinterpretq_s8_u64(vld1q_u64((uint64_t *)&v2));
+
+                        uint8x16_t mask = vcgeq_u8(indices, vdupq_n_u8(16));
+
+                        indices =
+                            vsubq_u8(indices, vandq_u8(mask, vdupq_n_u8(16)));
+
+                        int8x16_t result_a = vqtbl1q_s8(a, indices);
+                        int8x16_t result_b = vqtbl1q_s8(b, indices);
+
+                        int8x16_t result = vbslq_s8(mask, result_a, result_b);
+
+                        V128 v128_result;
+                        vst1q_u64((uint64_t *)&v128_result,
+                                  vreinterpretq_u64_s8(result));
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, v128_result);
+                        break;
+                    }
+#else
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+#endif
                     case SIMD_v8x16_swizzle:
                     {
                         wasm_set_exception(module, "unsupported SIMD opcode");
@@ -5752,6 +5937,20 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                     /* i16x8 comparison operations */
                     case SIMD_i16x8_eq:
+                    {
+                        V128 v1 = POP_V128();
+                        V128 v2 = POP_V128();
+                        int i;
+                        addr_ret = GET_OFFSET();
+
+                        V128 result;
+                        for (i = 0; i < 8; i++) {
+                            result.i16x8[i] =
+                                v1.i16x8[i] == v2.i16x8[i] ? 0xffff : 0;
+                        }
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
                     case SIMD_i16x8_ne:
                     case SIMD_i16x8_lt_s:
                     case SIMD_i16x8_lt_u:
@@ -5768,6 +5967,24 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                     /*  i32x4 comparison operations */
                     case SIMD_i32x4_eq:
+#if ENABLE_NEON == 1
+                    {
+                        V128 v1 = POP_V128();
+                        V128 v2 = POP_V128();
+                        addr_ret = GET_OFFSET();
+
+                        int32x4_t simd_v1 = vld1q_s32((const int32_t *)&v1);
+                        int32x4_t simd_v2 = vld1q_s32((const int32_t *)&v2);
+
+                        uint32x4_t result = vceqq_s32(simd_v1, simd_v2);
+
+                        V128 v128_result;
+                        vst1q_u32((uint32_t *)&v128_result, result);
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, v128_result);
+                        break;
+                    }
+#endif
                     case SIMD_i32x4_ne:
                     case SIMD_i32x4_lt_s:
                     case SIMD_i32x4_lt_u:
@@ -6030,6 +6247,22 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case SIMD_i64x2_sub:
                     case SIMD_i64x2_mul:
                     case SIMD_i64x2_eq:
+                    {
+                        V128 v1 = POP_V128();
+                        V128 v2 = POP_V128();
+                        addr_ret = GET_OFFSET();
+
+                        int64x2_t simd1_v1 = vld1q_s64((const int64_t *)&v1);
+                        int64x2_t simd1_v2 = vld1q_s64((const int64_t *)&v2);
+
+                        uint64x2_t result = vceqq_s64(simd1_v1, simd1_v2);
+
+                        V128 v128_result;
+                        vst1q_u64((uint64_t *)&v128_result, result);
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, v128_result);
+                        break;
+                    }
                     case SIMD_i64x2_ne:
                     case SIMD_i64x2_lt_s:
                     case SIMD_i64x2_gt_s:
