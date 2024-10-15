@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include <stdlib.h>
+
 #include "wasm_loader.h"
 #include "bh_common.h"
 #include "bh_log.h"
@@ -3184,6 +3186,12 @@ fail:
     return false;
 }
 
+static int
+cmp_export_name(const void *a, const void *b)
+{
+    return strcmp(*(const char **)a, *(const char **)b);
+}
+
 static bool
 load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     bool is_load_from_file_buf, bool no_resolve,
@@ -4055,16 +4063,46 @@ fail:
 }
 
 static bool
+check_duplicate_exports(WASMModule *module, char *error_buf,
+                        uint32 error_buf_size)
+{
+    char **names = loader_malloc(module->export_count * sizeof(char *),
+                                 error_buf, error_buf_size);
+    bool result = false;
+
+    if (!names) {
+        return result;
+    }
+
+    for (uint32 i = 0; i < module->export_count; i++) {
+        names[i] = module->exports[i].name;
+    }
+
+    qsort(names, module->export_count, sizeof(char *), cmp_export_name);
+
+    for (uint32 i = 1; i < module->export_count; i++) {
+        if (!strcmp(names[i], names[i - 1])) {
+            set_error_buf(error_buf, error_buf_size, "duplicate export name");
+            goto cleanup;
+        }
+    }
+
+    result = true;
+cleanup:
+    wasm_runtime_free(names);
+    return result;
+}
+
+static bool
 load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     bool is_load_from_file_buf, char *error_buf,
                     uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf_end;
-    uint32 export_count, i, j, index;
+    uint32 export_count, i, index;
     uint64 total_size;
     uint32 str_len;
     WASMExport *export;
-    const char *name;
 
     read_leb_uint32(p, p_end, export_count);
 
@@ -4089,15 +4127,6 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 #endif
             read_leb_uint32(p, p_end, str_len);
             CHECK_BUF(p, p_end, str_len);
-
-            for (j = 0; j < i; j++) {
-                name = module->exports[j].name;
-                if (strlen(name) == str_len && memcmp(name, p, str_len) == 0) {
-                    set_error_buf(error_buf, error_buf_size,
-                                  "duplicate export name");
-                    return false;
-                }
-            }
 
             if (!(export->name = wasm_const_str_list_insert(
                       p, str_len, module, is_load_from_file_buf, error_buf,
@@ -4171,6 +4200,10 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     return false;
             }
         }
+    }
+
+    if (!check_duplicate_exports(module, error_buf, error_buf_size)) {
+        return false;
     }
 
     if (p != p_end) {
