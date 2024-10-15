@@ -34,13 +34,6 @@ jobs:
     # Otherwise, it will be ignored by the runner.
     container:
       image: ${{ inputs.container_image }}
-    env:
-      LLVM_LIBS_PATH: |
-        ./core/deps/llvm/build/bin
-        ./core/deps/llvm/build/include
-        ./core/deps/llvm/build/lib
-        ./core/deps/llvm/build/libexec
-        ./core/deps/llvm/build/share
     outputs:
       key: ${{ steps.create_lib_cache_key.outputs.key}}
 
@@ -77,28 +70,16 @@ jobs:
         run: |
           echo "key=0-llvm-libraries-${{ inputs.os }}-${{ inputs.arch }}-${{ steps.get_last_commit.outputs.last_commit }}${{ inputs.cache_key_suffix }}" >> $GITHUB_OUTPUT
 
-      # llvm lib paths are different for Windows
-      - name: Set LLVM Build Suffix and extra llvm directories on Windows
-        if: inputs.os == 'windows-latest'
-        shell: bash
-        run: |
-          echo "LLVM_LIBS_PATH<<EOF" >> $GITHUB_ENV
-          echo "./core/deps/llvm/build/include" >> $GITHUB_ENV
-          echo "./core/deps/llvm/build/lib" >> $GITHUB_ENV
-          echo "./core/deps/llvm/build/libexec" >> $GITHUB_ENV
-          echo "./core/deps/llvm/build/share" >> $GITHUB_ENV
-          echo "./core/deps/llvm/build/Release/bin" >> $GITHUB_ENV
-          echo "./core/deps/llvm/build/Release/lib" >> $GITHUB_ENV
-          echo "./core/deps/llvm/llvm/cmake/modules" >> $GITHUB_ENV
-          echo "./core/deps/llvm/llvm/include" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-
       - name: Cache LLVM libraries
         id: retrieve_llvm_libs
         uses: actions/cache@v4
         with:
           path: |
-            ${{ env.LLVM_LIBS_PATH }}
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
           key: ${{ steps.create_lib_cache_key.outputs.key}}
 
       - uses: actions/cache@v4
