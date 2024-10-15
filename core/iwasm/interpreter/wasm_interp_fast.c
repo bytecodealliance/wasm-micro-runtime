@@ -5652,6 +5652,25 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 GET_OPCODE();
 
                 switch (opcode) {
+                    /* Memory */
+                    case SIMD_v128_load:
+                    case SIMD_v128_load8x8_s:
+                    case SIMD_v128_load8x8_u:
+                    case SIMD_v128_load16x4_s:
+                    case SIMD_v128_load16x4_u:
+                    case SIMD_v128_load32x2_s:
+                    case SIMD_v128_load32x2_u:
+                    case SIMD_v128_load8_splat:
+                    case SIMD_v128_load16_splat:
+                    case SIMD_v128_load32_splat:
+                    case SIMD_v128_load64_splat:
+                    case SIMD_v128_store:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+
+                    /* Basic */
                     case SIMD_v128_const:
                     {
                         uint8 *orig_ip = frame_ip;
@@ -5662,6 +5681,186 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         PUT_V128_TO_ADDR(frame_lp + addr_ret, *(V128 *)orig_ip);
                         break;
                     }
+                    case SIMD_v8x16_shuffle:
+                    case SIMD_v8x16_swizzle:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+
+                    /* Splat */
+                    case SIMD_i8x16_splat:
+                    case SIMD_i16x8_splat:
+                    case SIMD_i32x4_splat:
+                    case SIMD_i64x2_splat:
+                    case SIMD_f32x4_splat:
+                    case SIMD_f64x2_splat:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+
+                    /* Lane */
+                    case SIMD_i8x16_extract_lane_s:
+                    case SIMD_i8x16_extract_lane_u:
+                    case SIMD_i8x16_replace_lane:
+                    case SIMD_i16x8_extract_lane_s:
+                    case SIMD_i16x8_extract_lane_u:
+                    case SIMD_i16x8_replace_lane:
+                    case SIMD_i32x4_extract_lane:
+                    case SIMD_i32x4_replace_lane:
+                    case SIMD_i64x2_extract_lane:
+                    case SIMD_i64x2_replace_lane:
+                    case SIMD_f32x4_extract_lane:
+                    case SIMD_f32x4_replace_lane:
+                    case SIMD_f64x2_extract_lane:
+                    case SIMD_f64x2_replace_lane:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+
+                    /* i8x16 comparison operations */
+                    case SIMD_i8x16_eq:
+                    {
+                        V128 v1 = POP_V128();
+                        V128 v2 = POP_V128();
+                        int i;
+                        addr_ret = GET_OFFSET();
+
+                        V128 result;
+                        for (i = 0; i < 16; i++) {
+                            result.i8x16[i] =
+                                v1.i8x16[i] == v2.i8x16[i] ? 0xff : 0;
+                        }
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
+                    case SIMD_i8x16_ne:
+                    case SIMD_i8x16_lt_s:
+                    case SIMD_i8x16_lt_u:
+                    case SIMD_i8x16_gt_s:
+                    case SIMD_i8x16_gt_u:
+                    case SIMD_i8x16_le_s:
+                    case SIMD_i8x16_le_u:
+                    case SIMD_i8x16_ge_s:
+                    case SIMD_i8x16_ge_u:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+
+                    /* i16x8 comparison operations */
+                    case SIMD_i16x8_eq:
+                    case SIMD_i16x8_ne:
+                    case SIMD_i16x8_lt_s:
+                    case SIMD_i16x8_lt_u:
+                    case SIMD_i16x8_gt_s:
+                    case SIMD_i16x8_gt_u:
+                    case SIMD_i16x8_le_s:
+                    case SIMD_i16x8_le_u:
+                    case SIMD_i16x8_ge_s:
+                    case SIMD_i16x8_ge_u:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+
+                    /*  i32x4 comparison operations */
+                    case SIMD_i32x4_eq:
+                    case SIMD_i32x4_ne:
+                    case SIMD_i32x4_lt_s:
+                    case SIMD_i32x4_lt_u:
+                    case SIMD_i32x4_gt_s:
+                    case SIMD_i32x4_gt_u:
+                    case SIMD_i32x4_le_s:
+                    case SIMD_i32x4_le_u:
+                    case SIMD_i32x4_ge_s:
+                    case SIMD_i32x4_ge_u:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+
+                    /* f32x4 comparison operations */
+                    case SIMD_f32x4_eq:
+                    case SIMD_f32x4_ne:
+                    case SIMD_f32x4_lt:
+                    case SIMD_f32x4_gt:
+                    case SIMD_f32x4_le:
+                    case SIMD_f32x4_ge:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+
+                    /* f64x2 comparison operations */
+                    case SIMD_f64x2_eq:
+                    case SIMD_f64x2_ne:
+                    case SIMD_f64x2_lt:
+                    case SIMD_f64x2_gt:
+                    case SIMD_f64x2_le:
+                    case SIMD_f64x2_ge:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+
+                    /* v128 bitwise operations */
+#define SIMD_V128_BITWISE_OP_COMMON(result_expr_0, result_expr_1) \
+    do {                                                          \
+        V128 result;                                              \
+        result.i64x2[0] = (result_expr_0);                        \
+        result.i64x2[1] = (result_expr_1);                        \
+        addr_ret = GET_OFFSET();                                  \
+        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);            \
+    } while (0)
+
+                    case SIMD_v128_not:
+                    {
+                        V128 value = POP_V128();
+                        SIMD_V128_BITWISE_OP_COMMON(~value.i64x2[0],
+                                                    ~value.i64x2[1]);
+                        break;
+                    }
+                    case SIMD_v128_and:
+                    {
+                        V128 v2 = POP_V128();
+                        V128 v1 = POP_V128();
+                        SIMD_V128_BITWISE_OP_COMMON(v1.i64x2[0] & v2.i64x2[0],
+                                                    v1.i64x2[1] & v2.i64x2[1]);
+                        break;
+                    }
+                    case SIMD_v128_andnot:
+                    {
+                        V128 v2 = POP_V128();
+                        V128 v1 = POP_V128();
+                        SIMD_V128_BITWISE_OP_COMMON(
+                            v1.i64x2[0] & (~v2.i64x2[0]),
+                            v1.i64x2[1] & (~v2.i64x2[1]));
+                        break;
+                    }
+                    case SIMD_v128_or:
+                    {
+                        V128 v2 = POP_V128();
+                        V128 v1 = POP_V128();
+                        SIMD_V128_BITWISE_OP_COMMON(v1.i64x2[0] | v2.i64x2[0],
+                                                    v1.i64x2[1] | v2.i64x2[1]);
+                        break;
+                    }
+                    case SIMD_v128_xor:
+                    {
+                        V128 v2 = POP_V128();
+                        V128 v1 = POP_V128();
+                        SIMD_V128_BITWISE_OP_COMMON(v1.i64x2[0] ^ v2.i64x2[0],
+                                                    v1.i64x2[1] ^ v2.i64x2[1]);
+                        break;
+                    }
+                    case SIMD_v128_bitselect:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
                     case SIMD_v128_any_true:
                     {
                         V128 value = POP_V128();
@@ -5670,6 +5869,229 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             value.i64x2[0] != 0 || value.i64x2[1] != 0;
                         break;
                     }
+
+                    /* load lane operations */
+                    case SIMD_v128_load8_lane:
+                    case SIMD_v128_load16_lane:
+                    case SIMD_v128_load32_lane:
+                    case SIMD_v128_load64_lane:
+                    case SIMD_v128_store8_lane:
+                    case SIMD_v128_store16_lane:
+                    case SIMD_v128_store32_lane:
+                    case SIMD_v128_store64_lane:
+                    case SIMD_v128_load32_zero:
+                    case SIMD_v128_load64_zero:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+
+                    /* Float conversion */
+                    case SIMD_f32x4_demote_f64x2_zero:
+                    case SIMD_f64x2_promote_low_f32x4_zero:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+
+                    /* i8x16 operations */
+                    case SIMD_i8x16_abs:
+                    case SIMD_i8x16_neg:
+                    case SIMD_i8x16_popcnt:
+                    case SIMD_i8x16_all_true:
+                    {
+                        V128 v = POP_V128();
+                        uint8_t *bytes = (uint8_t *)&v;
+                        bool all_true = true;
+
+                        for (int i = 0; i < 16; i++) {
+                            if (bytes[i] == 0) {
+                                all_true = false;
+                                break;
+                            }
+                        }
+
+                        PUSH_I32(all_true ? 1 : 0);
+                        break;
+                    }
+
+                    case SIMD_i8x16_bitmask:
+                    case SIMD_i8x16_narrow_i16x8_s:
+                    case SIMD_i8x16_narrow_i16x8_u:
+                    case SIMD_f32x4_ceil:
+                    case SIMD_f32x4_floor:
+                    case SIMD_f32x4_trunc:
+                    case SIMD_f32x4_nearest:
+                    case SIMD_i8x16_shl:
+                    case SIMD_i8x16_shr_s:
+                    case SIMD_i8x16_shr_u:
+                    case SIMD_i8x16_add:
+                    case SIMD_i8x16_add_sat_s:
+                    case SIMD_i8x16_add_sat_u:
+                    case SIMD_i8x16_sub:
+                    case SIMD_i8x16_sub_sat_s:
+                    case SIMD_i8x16_sub_sat_u:
+                    case SIMD_f64x2_ceil:
+                    case SIMD_f64x2_floor:
+                    case SIMD_i8x16_min_s:
+                    case SIMD_i8x16_min_u:
+                    case SIMD_i8x16_max_s:
+                    case SIMD_i8x16_max_u:
+                    case SIMD_f64x2_trunc:
+                    case SIMD_i8x16_avgr_u:
+                    case SIMD_i16x8_extadd_pairwise_i8x16_s:
+                    case SIMD_i16x8_extadd_pairwise_i8x16_u:
+                    case SIMD_i32x4_extadd_pairwise_i16x8_s:
+                    case SIMD_i32x4_extadd_pairwise_i16x8_u:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+
+                    /* i16x8 operations */
+                    case SIMD_i16x8_abs:
+                    case SIMD_i16x8_neg:
+                    case SIMD_i16x8_q15mulr_sat_s:
+                    case SIMD_i16x8_all_true:
+                    case SIMD_i16x8_bitmask:
+                    case SIMD_i16x8_narrow_i32x4_s:
+                    case SIMD_i16x8_narrow_i32x4_u:
+                    case SIMD_i16x8_extend_low_i8x16_s:
+                    case SIMD_i16x8_extend_high_i8x16_s:
+                    case SIMD_i16x8_extend_low_i8x16_u:
+                    case SIMD_i16x8_extend_high_i8x16_u:
+                    case SIMD_i16x8_shl:
+                    case SIMD_i16x8_shr_s:
+                    case SIMD_i16x8_shr_u:
+                    case SIMD_i16x8_add:
+                    case SIMD_i16x8_add_sat_s:
+                    case SIMD_i16x8_add_sat_u:
+                    case SIMD_i16x8_sub:
+                    case SIMD_i16x8_sub_sat_s:
+                    case SIMD_i16x8_sub_sat_u:
+                    case SIMD_f64x2_nearest:
+                    case SIMD_i16x8_mul:
+                    case SIMD_i16x8_min_s:
+                    case SIMD_i16x8_min_u:
+                    case SIMD_i16x8_max_s:
+                    case SIMD_i16x8_max_u:
+                    case SIMD_i16x8_avgr_u:
+                    case SIMD_i16x8_extmul_low_i8x16_s:
+                    case SIMD_i16x8_extmul_high_i8x16_s:
+                    case SIMD_i16x8_extmul_low_i8x16_u:
+                    case SIMD_i16x8_extmul_high_i8x16_u:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+
+                    /* i32x4 operations */
+                    case SIMD_i32x4_abs:
+                    case SIMD_i32x4_neg:
+                    case SIMD_i32x4_all_true:
+                    case SIMD_i32x4_bitmask:
+                    case SIMD_i32x4_extend_low_i16x8_s:
+                    case SIMD_i32x4_extend_high_i16x8_s:
+                    case SIMD_i32x4_extend_low_i16x8_u:
+                    case SIMD_i32x4_extend_high_i16x8_u:
+                    case SIMD_i32x4_shl:
+                    case SIMD_i32x4_shr_s:
+                    case SIMD_i32x4_shr_u:
+                    case SIMD_i32x4_add:
+                    case SIMD_i32x4_sub:
+                    case SIMD_i32x4_mul:
+                    case SIMD_i32x4_min_s:
+                    case SIMD_i32x4_min_u:
+                    case SIMD_i32x4_max_s:
+                    case SIMD_i32x4_max_u:
+                    case SIMD_i32x4_dot_i16x8_s:
+                    case SIMD_i32x4_extmul_low_i16x8_s:
+                    case SIMD_i32x4_extmul_high_i16x8_s:
+                    case SIMD_i32x4_extmul_low_i16x8_u:
+                    case SIMD_i32x4_extmul_high_i16x8_u:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+
+                    /* i64x2 operations */
+                    case SIMD_i64x2_abs:
+                    case SIMD_i64x2_neg:
+                    case SIMD_i64x2_all_true:
+                    case SIMD_i64x2_bitmask:
+                    case SIMD_i64x2_extend_low_i32x4_s:
+                    case SIMD_i64x2_extend_high_i32x4_s:
+                    case SIMD_i64x2_extend_low_i32x4_u:
+                    case SIMD_i64x2_extend_high_i32x4_u:
+                    case SIMD_i64x2_shl:
+                    case SIMD_i64x2_shr_s:
+                    case SIMD_i64x2_shr_u:
+                    case SIMD_i64x2_add:
+                    case SIMD_i64x2_sub:
+                    case SIMD_i64x2_mul:
+                    case SIMD_i64x2_eq:
+                    case SIMD_i64x2_ne:
+                    case SIMD_i64x2_lt_s:
+                    case SIMD_i64x2_gt_s:
+                    case SIMD_i64x2_le_s:
+                    case SIMD_i64x2_ge_s:
+                    case SIMD_i64x2_extmul_low_i32x4_s:
+                    case SIMD_i64x2_extmul_high_i32x4_s:
+                    case SIMD_i64x2_extmul_low_i32x4_u:
+                    case SIMD_i64x2_extmul_high_i32x4_u:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+
+                    /* f32x4 opertions */
+                    case SIMD_f32x4_abs:
+                    case SIMD_f32x4_neg:
+                    case SIMD_f32x4_sqrt:
+                    case SIMD_f32x4_add:
+                    case SIMD_f32x4_sub:
+                    case SIMD_f32x4_mul:
+                    case SIMD_f32x4_div:
+                    case SIMD_f32x4_min:
+                    case SIMD_f32x4_max:
+                    case SIMD_f32x4_pmin:
+                    case SIMD_f32x4_pmax:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+
+                    /* f64x2 operations */
+                    case SIMD_f64x2_abs:
+                    case SIMD_f64x2_neg:
+                    case SIMD_f64x2_sqrt:
+                    case SIMD_f64x2_add:
+                    case SIMD_f64x2_sub:
+                    case SIMD_f64x2_mul:
+                    case SIMD_f64x2_div:
+                    case SIMD_f64x2_min:
+                    case SIMD_f64x2_max:
+                    case SIMD_f64x2_pmin:
+                    case SIMD_f64x2_pmax:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+
+                    /* Conversion operations */
+                    case SIMD_i32x4_trunc_sat_f32x4_s:
+                    case SIMD_i32x4_trunc_sat_f32x4_u:
+                    case SIMD_f32x4_convert_i32x4_s:
+                    case SIMD_f32x4_convert_i32x4_u:
+                    case SIMD_i32x4_trunc_sat_f64x2_s_zero:
+                    case SIMD_i32x4_trunc_sat_f64x2_u_zero:
+                    case SIMD_f64x2_convert_low_i32x4_s:
+                    case SIMD_f64x2_convert_low_i32x4_u:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+
                     default:
                         wasm_set_exception(module, "unsupported SIMD opcode");
                 }
