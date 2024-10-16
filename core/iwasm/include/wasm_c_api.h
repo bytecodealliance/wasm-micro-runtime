@@ -200,7 +200,7 @@ typedef struct InstantiationArgs {
     uint32_t host_managed_heap_size;
     uint32_t max_memory_pages;
     uint32_t import_count;
-    const struct WasmExternalInstance *imports;
+    const struct WasmExternInstance *imports;
 } InstantiationArgs;
 #endif /* INSTANTIATION_ARGS_OPTION_DEFINED */
 

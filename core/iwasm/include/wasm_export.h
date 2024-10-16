@@ -264,7 +264,7 @@ typedef struct LoadArgs {
 } LoadArgs;
 #endif /* LOAD_ARGS_OPTION_DEFINED */
 
-struct WasmExternalInstance {
+struct WasmExternInstance {
     const char *module_name;
     const char *field_name;
     wasm_import_export_kind_t kind;
@@ -272,7 +272,7 @@ struct WasmExternalInstance {
         wasm_memory_inst_t memory;
     } u;
 };
-typedef struct WasmExternalInstance wasm_external_inst_t;
+typedef struct WasmExternInstance wasm_extern_inst_t;
 
 #ifndef INSTANTIATION_ARGS_OPTION_DEFINED
 #define INSTANTIATION_ARGS_OPTION_DEFINED
@@ -282,7 +282,7 @@ typedef struct InstantiationArgs {
     uint32_t host_managed_heap_size;
     uint32_t max_memory_pages;
     uint32_t import_count;
-    const struct WasmExternalInstance *imports;
+    const wasm_extern_inst_t *imports;
 } InstantiationArgs;
 #endif /* INSTANTIATION_ARGS_OPTION_DEFINED */
 

@@ -543,8 +543,8 @@ main(int argc, char *argv[])
 #if WASM_ENABLE_SPEC_TEST != 0 && WASM_ENABLE_MULTI_MODULE == 0
     {
         int32_t import_count = wasm_runtime_get_import_count(wasm_module);
-        struct WasmExternalInstance *imports = wasm_runtime_malloc(
-            sizeof(struct WasmExternalInstance) * import_count);
+        struct WasmExternInstance *imports = wasm_runtime_malloc(
+            sizeof(struct WasmExternInstance) * import_count);
         if (!imports) {
             printf("Failed to allocate memory for imports\n");
             goto fail3;
@@ -557,7 +557,7 @@ main(int argc, char *argv[])
                 continue;
             }
 
-            struct WasmExternalInstance *extern_instance = imports + i;
+            struct WasmExternInstance *extern_instance = imports + i;
             extern_instance->module_name = import_type.module_name;
             extern_instance->field_name = import_type.name;
             extern_instance->kind = import_type.kind;
