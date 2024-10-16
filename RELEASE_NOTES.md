@@ -1,3 +1,85 @@
+## WAMR-2.2.0
+
+### Breaking changes 
+
+### New features 
+- Add support for multi-memory proposal in classic interpreter (#3742) 
+- wasi-nn: Add a new target for llama.cpp as a wasi-nn backend (#3709)
+- Add memory instance support apis (#3786) 
+- Implement a first version of shared heap feature (#3789) 
+- Support dynamic aot debug (#3788) 
+- Implement shared heap for AOT (#3815)
+- Support table64 extension in classic-interp and AOT running modes (#3811)
+  
+
+### Bug fixes
+- Enable merged os_mmap for aot data sections (#3681) 
+- Fix arm64 issues on mac (#3688) 
+- aot loader: Call os_mmap with MMAP_MAP_32BIT only when target is x86-64 or riscv64 (#3755)
+- Fix building iwasm_shared and iwasm_static libs on win32 (#3762) 
+- Fix compile error when multi-module and tags are enabled (#3781)
+- Fix aot multi export memory support (#3791)
+- Fix Windows compile error when uvwasi is enabled (#3810)
+- Fix missing symbols when using aot mode on riscv platforms (#3812)
+- Fix mac build of libc_emcc_wrapper.c (#3836)
+- aot_comp_option.h: Add missing stdint.h header (#3834)
+- Fix compilation error found in tflite test (#3820) 
+- Fix exec_env_tls assertion in module instantiation (#3844) 
+- Fix issues of destroy_shared_heaps (#3847)
+
+### Enhancements
+- aot loader: Refine os_mmap related code (#3711)
+- Enable merged os_mmap for aot data sections and aot text (#3743)
+- Improve posix mmap retry logic (#3714)
+- Remove unnecessary code duplication in aot runtime (#3767)
+- Add wamrc parameter to configure stack frame features (#3763) 
+- refactoring: Re-use commit IP functionality between exception handling and other cases (#3768)
+- AOT call stack optimizations (#3773) 
+- Appease GCC strict prototypes warning (#3775)
+- Appease GCC -Wformat (#3783)
+- Fix compiler warnings (#3784)
+- Implement option for skipping function index in the callstack (#3785)
+- Fix a compile warning in aot_emit_function.c (#3793) 
+- Restore cmake hidden compile symbol visibility (#3796)
+- Refactor shared heap feature for interpreter mode (#3794)
+- Add no_resolve to LoadArgs and wasm_runtime_resolve_symbols (#3790)
+- shared heap: Fix some issues and add basic unit test case (#3801)
+- Add shared heap sample (#3806)
+- Fix unused param warning when GC is enabled (#3814)
+- Add scoreboard CI for supply-chain security (#3819)
+- Emit load_addr and load_size if WAMR_ENABLE_COMPILER is set (#3835)
+- libc-emcc: Use alternate method to check getrandom support (#3848)
+- Enable libc-wasi for windows msvc build (#3852) 
+- Remove unused folder samples/gui and samples/littlevgl (#3853) 
+- Fix some compile warnings and typos (#3854)
+- Allow to set native stack boundary to exec_env (#3862)
+- Refine wasm/aot function instance lookup (#3865)
+- Fix quadratic runtime for duplicate export name detection (#3861)
+
+  
+### Others
+- Add a comment on AOT_SECTION_TYPE_SIGNATURE (#3746) 
+- CI: Freeze version of bloaty for NuttX compilation (#3756)
+- aot compiler: Allow to control stack boundary check when boundary check is enabled (#3754)
+- Update ref to the multi-memory tests (#3764)
+- compilation_on_nuttx.yml: Update checkout action to suppress warnings (#3765)
+- CI: Disable parallel test in spectest for NuttX (#3780)
+- spec_test_on_nuttx.yml: Disable riscv32_ilp32f for now (#3777) 
+- Ignore temporary file from aider (#3787)
+- Add CODEOWNERS (#3822)
+- build(deps): bump github/codeql-action from 2.2.4 to 3.26.9 (#3826)
+- build(deps): bump actions/upload-artifact from 3.1.0 to 4.4.0 (#3827)
+- build(deps): bump ossf/scorecard-action from 2.3.1 to 2.4.0 (#3828)
+- build(deps): bump github/codeql-action from 3.26.9 to 3.26.11 (#3843) 
+- build(deps): bump actions/upload-artifact from 4.4.0 to 4.4.3 (#3855)
+- build(deps): bump github/codeql-action from 3.26.11 to 3.26.12 (#3856)
+- Add Windows wamrc and iwasm build in release CI (#3857)
+- Fix syntax error in codeql_buildscript.sh (#3864)
+- release CI: Add another iwasm binary that supports Garbage Collection and Exception Handling (#3866)
+- Fix lookup function issue reported in nightly run (#3868)
+ 
+---
+
 ## WAMR-2.1.2
 
 ### Breaking Changes
