@@ -389,9 +389,4 @@ else()
                          ${UV_A_LIBS})
 endif()
 
-if(WIN32)
-    # Link against ntdll.lib if on Windows
-    target_link_libraries(wamrc ntdll)
-endif()
-
 install (TARGETS wamrc DESTINATION bin)
