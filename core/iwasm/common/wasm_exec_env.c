@@ -283,6 +283,8 @@ wasm_exec_env_set_thread_info(WASMExecEnv *exec_env)
 #endif
     exec_env->handle = os_self_thread();
     if (exec_env->user_native_stack_boundary)
+        /* WASM_STACK_GUARD_SIZE isn't added for flexibility to developer,
+           he must ensure that enough guard bytes are kept. */
         exec_env->native_stack_boundary = exec_env->user_native_stack_boundary;
     else
         exec_env->native_stack_boundary =
