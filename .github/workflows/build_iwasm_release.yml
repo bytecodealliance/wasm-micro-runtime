@@ -31,9 +31,72 @@ on:
         type: string
         required: false
 
+env:
+  DEFAULT_BUILD_OPTIONS: 
+    "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1 \
+     -DWAMR_BUILD_CUSTOM_NAME_SECTION=0 \
+     -DWAMR_BUILD_DEBUG_INTERP=0 \
+     -DWAMR_BUILD_DEBUG_AOT=0 \
+     -DWAMR_BUILD_DUMP_CALL_STACK=0 \
+     -DWAMR_BUILD_LIBC_UVWASI=0 \
+     -DWAMR_BUILD_LIBC_EMCC=0 \
+     -DWAMR_BUILD_LIB_RATS=0 \
+     -DWAMR_BUILD_LOAD_CUSTOM_SECTION=0 \
+     -DWAMR_BUILD_MEMORY_PROFILING=0 \
+     -DWAMR_BUILD_MINI_LOADER=0 \
+     -DWAMR_BUILD_MULTI_MODULE=0 \
+     -DWAMR_BUILD_PERF_PROFILING=0 \
+     -DWAMR_BUILD_SPEC_TEST=0 \
+     -DWAMR_BUILD_BULK_MEMORY=1 \
+     -DWAMR_BUILD_LIB_PTHREAD=1 \
+     -DWAMR_BUILD_LIB_PTHREAD_SEMAPHORE=1 \
+     -DWAMR_BUILD_LIB_WASI_THREADS=1 \
+     -DWAMR_BUILD_LIBC_BUILTIN=1 \
+     -DWAMR_BUILD_LIBC_WASI=1 \
+     -DWAMR_BUILD_REF_TYPES=1 \
+     -DWAMR_BUILD_SIMD=1 \
+     -DWAMR_BUILD_SHARED_MEMORY=1 \
+     -DWAMR_BUILD_TAIL_CALL=1 \
+     -DWAMR_BUILD_THREAD_MGR=1"
+  GC_EH_BUILD_OPTIONS:
+    "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_FAST_JIT=0 -DWAMR_BUILD_JIT=0 \
+     -DWAMR_BUILD_CUSTOM_NAME_SECTION=0 \
+     -DWAMR_BUILD_DEBUG_INTERP=0 \
+     -DWAMR_BUILD_DEBUG_AOT=0 \
+     -DWAMR_BUILD_DUMP_CALL_STACK=0 \
+     -DWAMR_BUILD_LIBC_UVWASI=0 \
+     -DWAMR_BUILD_LIBC_EMCC=0 \
+     -DWAMR_BUILD_LIB_RATS=0 \
+     -DWAMR_BUILD_LOAD_CUSTOM_SECTION=0 \
+     -DWAMR_BUILD_MEMORY_PROFILING=0 \
+     -DWAMR_BUILD_MINI_LOADER=0 \
+     -DWAMR_BUILD_MULTI_MODULE=0 \
+     -DWAMR_BUILD_PERF_PROFILING=0 \
+     -DWAMR_BUILD_SPEC_TEST=0 \
+     -DWAMR_BUILD_BULK_MEMORY=1 \
+     -DWAMR_BUILD_LIB_PTHREAD=1 \
+     -DWAMR_BUILD_LIB_PTHREAD_SEMAPHORE=1 \
+     -DWAMR_BUILD_LIB_WASI_THREADS=1 \
+     -DWAMR_BUILD_LIBC_BUILTIN=1 \
+     -DWAMR_BUILD_LIBC_WASI=1 \
+     -DWAMR_BUILD_REF_TYPES=1 \
+     -DWAMR_BUILD_SIMD=1 \
+     -DWAMR_BUILD_SHARED_MEMORY=1 \
+     -DWAMR_BUILD_TAIL_CALL=1 \
+     -DWAMR_BUILD_THREAD_MGR=1 \
+     -DWAMR_BUILD_EXCE_HANDLING=1 \
+     -DWAMR_BUILD_GC=1"
+
 jobs:
   build:
     runs-on: ${{ inputs.runner }}
+    strategy:
+      matrix:
+        include:
+          - build_options: $DEFAULT_BUILD_OPTIONS
+            suffix: ''
+          - build_options: $GC_EH_BUILD_OPTIONS
+            suffix: '-gc-eh'
     steps:
       - uses: actions/checkout@v4
 
@@ -53,48 +116,23 @@ jobs:
       - name: generate iwasm binary release
         shell: bash
         run: |
-          cmake -S . -B build \
-            -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1 \
-            -DWAMR_BUILD_CUSTOM_NAME_SECTION=0 \
-            -DWAMR_BUILD_DEBUG_INTERP=0 \
-            -DWAMR_BUILD_DEBUG_AOT=0 \
-            -DWAMR_BUILD_DUMP_CALL_STACK=0 \
-            -DWAMR_BUILD_LIBC_UVWASI=0 \
-            -DWAMR_BUILD_LIBC_EMCC=0 \
-            -DWAMR_BUILD_LIB_RATS=0 \
-            -DWAMR_BUILD_LOAD_CUSTOM_SECTION=0 \
-            -DWAMR_BUILD_MEMORY_PROFILING=0 \
-            -DWAMR_BUILD_MINI_LOADER=0 \
-            -DWAMR_BUILD_MULTI_MODULE=0 \
-            -DWAMR_BUILD_PERF_PROFILING=0 \
-            -DWAMR_BUILD_SPEC_TEST=0 \
-            -DWAMR_BUILD_BULK_MEMORY=1 \
-            -DWAMR_BUILD_LIB_PTHREAD=1 \
-            -DWAMR_BUILD_LIB_PTHREAD_SEMAPHORE=1 \
-            -DWAMR_BUILD_LIB_WASI_THREADS=1 \
-            -DWAMR_BUILD_LIBC_BUILTIN=1 \
-            -DWAMR_BUILD_LIBC_WASI=1 \
-            -DWAMR_BUILD_REF_TYPES=1 \
-            -DWAMR_BUILD_SIMD=1 \
-            -DWAMR_BUILD_SHARED_MEMORY=1 \
-            -DWAMR_BUILD_TAIL_CALL=1 \
-            -DWAMR_BUILD_THREAD_MGR=1
+          cmake -S . -B build ${{ matrix.build_options }}
           cmake --build build --config Release --parallel 4
         working-directory: ${{ inputs.cwd }}
 
       - name: Compress the binary on Windows
         if: inputs.runner == 'windows-latest'
         run: |
-          tar -czf iwasm-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz iwasm.exe
-          Compress-Archive -Path iwasm.exe -DestinationPath iwasm-${{ inputs.ver_num }}-${{ inputs.runner }}.zip
-          mv iwasm-${{ inputs.ver_num }}-${{ inputs.runner }}.* ../
+          tar -czf iwasm${{ matrix.suffix }}-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz iwasm.exe
+          Compress-Archive -Path iwasm.exe -DestinationPath iwasm${{ matrix.suffix }}-${{ inputs.ver_num }}-${{ inputs.runner }}.zip
+          mv iwasm${{ matrix.suffix }}-${{ inputs.ver_num }}-${{ inputs.runner }}.* ../
         working-directory: ${{ inputs.cwd }}/build/Release
 
       - name: compress the binary on non-Windows
         if: inputs.runner != 'windows-latest'
         run: |
-          tar czf iwasm-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz iwasm
-          zip iwasm-${{ inputs.ver_num }}-${{ inputs.runner }}.zip iwasm
+          tar czf iwasm${{ matrix.suffix }}-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz iwasm
+          zip iwasm${{ matrix.suffix }}-${{ inputs.ver_num }}-${{ inputs.runner }}.zip iwasm
         working-directory: ${{ inputs.cwd }}/build
 
       - name: upload release tar.gz
@@ -103,8 +141,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ inputs.upload_url }}
-          asset_path: ${{ inputs.cwd }}/build/iwasm-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz
-          asset_name: iwasm-${{ inputs.ver_num }}-${{ inputs.arch }}-${{ inputs.runner }}.tar.gz
+          asset_path: ${{ inputs.cwd }}/build/iwasm${{ matrix.suffix }}-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz
+          asset_name: iwasm${{ matrix.suffix }}-${{ inputs.ver_num }}-${{ inputs.arch }}-${{ inputs.runner }}.tar.gz
           asset_content_type: application/x-gzip
 
       - name: upload release zip
@@ -113,6 +151,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ inputs.upload_url }}
-          asset_path: ${{ inputs.cwd }}/build/iwasm-${{ inputs.ver_num }}-${{ inputs.runner }}.zip
-          asset_name: iwasm-${{ inputs.ver_num }}-${{ inputs.arch }}-${{ inputs.runner }}.zip
+          asset_path: ${{ inputs.cwd }}/build/iwasm${{ matrix.suffix }}-${{ inputs.ver_num }}-${{ inputs.runner }}.zip
+          asset_name: iwasm${{ matrix.suffix }}-${{ inputs.ver_num }}-${{ inputs.arch }}-${{ inputs.runner }}.zip
           asset_content_type: application/zip
