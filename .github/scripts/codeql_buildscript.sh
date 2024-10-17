@@ -306,7 +306,7 @@ cd ${WAMR_DIR}/product-mini/platforms/linux
 rm -rf build && mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Debug -DWAMR_BUILD_DYNAMIC_AOT_DEBUG=1
 make -j
-if [[ $? != 0 ]];
+if [[ $? != 0 ]]; then
     echo "Failed to build iwasm dynamic aot debug enabled!"
     exit 1;
 fi
