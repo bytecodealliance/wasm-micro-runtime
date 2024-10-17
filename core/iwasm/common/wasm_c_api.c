@@ -3390,9 +3390,8 @@ wasm_func_call(const wasm_func_t *func, const wasm_val_vec_t *params,
                 AOTExport *export = module_aot->exports + export_i;
                 if (export->kind == EXPORT_KIND_FUNC) {
                     if (export->index == func->func_idx_rt) {
-                        func_comm_rt =
-                            (AOTFunctionInstance *)inst_aot->export_functions
-                            + export_func_j;
+                        func_comm_rt = aot_lookup_function(
+                            (AOTModuleInstance *)inst_aot, export->name);
                         ((wasm_func_t *)func)->func_comm_rt = func_comm_rt;
                         break;
                     }
