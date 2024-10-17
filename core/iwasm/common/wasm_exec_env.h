@@ -136,6 +136,10 @@ typedef struct WASMExecEnv {
 
     void *user_data;
 
+    /* The boundary of native stack set by host embedder. It is used
+       if it is not NULL when calling wasm functions. */
+    uint8 *user_native_stack_boundary;
+
     /* The native thread handle of current thread */
     korp_tid handle;
 

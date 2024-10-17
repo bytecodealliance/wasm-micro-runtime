@@ -2225,6 +2225,13 @@ wasm_runtime_get_user_data(WASMExecEnv *exec_env)
     return exec_env->user_data;
 }
 
+void
+wasm_runtime_set_native_stack_boundary(WASMExecEnv *exec_env,
+                                       uint8 *native_stack_boundary)
+{
+    exec_env->user_native_stack_boundary = native_stack_boundary;
+}
+
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 void
 wasm_runtime_access_exce_check_guard_page()
