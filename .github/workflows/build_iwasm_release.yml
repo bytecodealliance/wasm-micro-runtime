@@ -51,6 +51,7 @@ jobs:
           fail-on-cache-miss: true
 
       - name: generate iwasm binary release
+        shell: bash
         run: |
           cmake -S . -B build \
             -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1 \
@@ -81,7 +82,16 @@ jobs:
           cmake --build build --config Release --parallel 4
         working-directory: ${{ inputs.cwd }}
 
-      - name: compress the binary
+      - name: Compress the binary on Windows
+        if: inputs.runner == 'windows-latest'
+        run: |
+          tar -czf iwasm-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz iwasm.exe
+          Compress-Archive -Path iwasm.exe -DestinationPath iwasm-${{ inputs.ver_num }}-${{ inputs.runner }}.zip
+          mv iwasm-${{ inputs.ver_num }}-${{ inputs.runner }}.* ../
+        working-directory: ${{ inputs.cwd }}/build/Release
+
+      - name: compress the binary on non-Windows
+        if: inputs.runner != 'windows-latest'
         run: |
           tar czf iwasm-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz iwasm
           zip iwasm-${{ inputs.ver_num }}-${{ inputs.runner }}.zip iwasm

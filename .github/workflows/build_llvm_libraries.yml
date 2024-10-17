@@ -43,6 +43,7 @@ jobs:
 
       - name: install dependencies for non macos-14
         if: inputs.os != 'macos-14'
+        shell: bash
         run: /usr/bin/env python3 -m pip install -r requirements.txt
         working-directory: build-scripts
 
@@ -51,10 +52,13 @@ jobs:
         run: /usr/bin/env python3 -m pip install -r requirements.txt --break-system-packages
         working-directory: build-scripts
 
-      - name: retrieve the last commit ID
+      - name: Retrieve the last commit ID
         id: get_last_commit
-        run: echo "last_commit=$(GH_TOKEN=${{ secrets.GITHUB_TOKEN }} /usr/bin/env python3 ./build_llvm.py ${{ inputs.extra_build_llvm_options }} --llvm-ver)" >> $GITHUB_OUTPUT
-        working-directory: build-scripts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          echo "last_commit=$(GH_TOKEN=${{ secrets.GITHUB_TOKEN }} /usr/bin/env python3 ./build_llvm.py ${{ inputs.extra_build_llvm_options }} --llvm-ver)" >> $GITHUB_OUTPUT
 
       # Bump the prefix number to evict all previous caches and
       # enforce a clean build, in the unlikely case that some
@@ -62,7 +66,9 @@ jobs:
       # suspect.
       - name: form the cache key of libraries
         id: create_lib_cache_key
-        run: echo "key=0-llvm-libraries-${{ inputs.os }}-${{ inputs.arch }}-${{ steps.get_last_commit.outputs.last_commit }}${{ inputs.cache_key_suffix }}" >> $GITHUB_OUTPUT
+        shell: bash
+        run: |
+          echo "key=0-llvm-libraries-${{ inputs.os }}-${{ inputs.arch }}-${{ steps.get_last_commit.outputs.last_commit }}${{ inputs.cache_key_suffix }}" >> $GITHUB_OUTPUT
 
       - name: Cache LLVM libraries
         id: retrieve_llvm_libs
@@ -107,7 +113,20 @@ jobs:
       - run: brew install ccache ninja
         if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true' && startsWith(inputs.os, 'macos')
 
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: 0-ccache-${{ inputs.os }}-${{ steps.get_last_commit.outputs.last_commit }}
+          restore-keys: |
+            0-ccache-${{ inputs.os }}
+        if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true' && inputs.os == 'windows-latest'
+
+      # Install tools on Windows
+      - run: choco install -y ccache ninja
+        if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true' && inputs.os == 'windows-latest'
+
       - name: Build LLVM libraries
         if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true'
+        shell: bash
         run: /usr/bin/env python3 ./build_llvm.py ${{ inputs.extra_build_llvm_options }} --arch ${{ inputs.arch }}
         working-directory: build-scripts

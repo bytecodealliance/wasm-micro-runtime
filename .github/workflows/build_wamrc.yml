@@ -56,8 +56,16 @@ jobs:
           cmake --build build --config Release --parallel 4
         working-directory: wamr-compiler
 
-      - name: compress the binary
-        if: inputs.release
+      - name: Compress the binary on Windows
+        if: inputs.runner == 'windows-latest' && inputs.release
+        run: |
+          tar -czf wamrc-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz wamrc.exe
+          Compress-Archive -Path wamrc.exe -DestinationPath wamrc-${{ inputs.ver_num }}-${{ inputs.runner }}.zip
+          mv wamrc-${{ inputs.ver_num }}-${{ inputs.runner }}.* ../
+        working-directory: wamr-compiler/build/Release
+
+      - name: compress the binary on non-Windows
+        if: inputs.runner != 'windows-latest' && inputs.release
         run: |
           tar czf wamrc-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz wamrc
           zip wamrc-${{ inputs.ver_num }}-${{ inputs.runner }}.zip wamrc
