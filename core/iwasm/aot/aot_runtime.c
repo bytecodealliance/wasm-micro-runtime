@@ -1379,6 +1379,15 @@ init_func_type_indexes(AOTModuleInstance *module_inst, AOTModule *module,
     return true;
 }
 
+static int
+cmp_func_inst(const void *a, const void *b)
+{
+    const AOTFunctionInstance *func_inst1 = (const AOTFunctionInstance *)a;
+    const AOTFunctionInstance *func_inst2 = (const AOTFunctionInstance *)b;
+
+    return strcmp(func_inst1->func_name, func_inst2->func_name);
+}
+
 static bool
 create_export_funcs(AOTModuleInstance *module_inst, AOTModule *module,
                     char *error_buf, uint32 error_buf_size)
@@ -1419,6 +1428,9 @@ create_export_funcs(AOTModuleInstance *module_inst, AOTModule *module,
                 export_func++;
             }
         }
+
+        qsort(module_inst->export_functions, module_inst->export_func_count,
+              sizeof(AOTFunctionInstance), cmp_func_inst);
     }
 
     return true;
@@ -2206,14 +2218,12 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 AOTFunctionInstance *
 aot_lookup_function(const AOTModuleInstance *module_inst, const char *name)
 {
-    uint32 i;
     AOTFunctionInstance *export_funcs =
         (AOTFunctionInstance *)module_inst->export_functions;
+    AOTFunctionInstance key = { .func_name = (char *)name };
 
-    for (i = 0; i < module_inst->export_func_count; i++)
-        if (!strcmp(export_funcs[i].func_name, name))
-            return &export_funcs[i];
-    return NULL;
+    return bsearch(&key, export_funcs, module_inst->export_func_count,
+                   sizeof(AOTFunctionInstance), cmp_func_inst);
 }
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
