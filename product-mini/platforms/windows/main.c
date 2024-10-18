@@ -45,6 +45,10 @@ print_help()
 #endif
     printf("  --stack-size=n         Set maximum stack size in bytes, default is 64 KB\n");
     printf("  --heap-size=n          Set maximum heap size in bytes, default is 16 KB\n");
+#if WASM_ENABLE_GC != 0
+    printf("  --gc-heap-size=n         Set maximum gc heap size in bytes,\n");
+    printf("                           default is %u KB\n", GC_HEAP_SIZE_DEFAULT / 1024);
+#endif
 #if WASM_ENABLE_JIT != 0
     printf("  --llvm-jit-size-level=n  Set LLVM JIT size level, default is 3\n");
     printf("  --llvm-jit-opt-level=n   Set LLVM JIT optimization level, default is 3\n");
@@ -271,6 +275,9 @@ main(int argc, char *argv[])
 #else
     uint32 heap_size = 16 * 1024;
 #endif
+#if WASM_ENABLE_GC != 0
+    uint32 gc_heap_size = GC_HEAP_SIZE_DEFAULT;
+#endif
 #if WASM_ENABLE_JIT != 0
     uint32 llvm_jit_size_level = 3;
     uint32 llvm_jit_opt_level = 3;
@@ -346,6 +353,13 @@ main(int argc, char *argv[])
                 return print_help();
             heap_size = atoi(argv[0] + 12);
         }
+#if WASM_ENABLE_GC != 0
+        else if (!strncmp(argv[0], "--gc-heap-size=", 15)) {
+            if (argv[0][15] == '\0')
+                return print_help();
+            gc_heap_size = atoi(argv[0] + 15);
+        }
+#endif
 #if WASM_ENABLE_JIT != 0
         else if (!strncmp(argv[0], "--llvm-jit-size-level=", 22)) {
             if (argv[0][22] == '\0')
@@ -454,6 +468,10 @@ main(int argc, char *argv[])
     init_args.mem_alloc_option.allocator.malloc_func = malloc_func;
     init_args.mem_alloc_option.allocator.realloc_func = realloc_func;
     init_args.mem_alloc_option.allocator.free_func = free_func;
+#endif
+
+#if WASM_ENABLE_GC != 0
+    init_args.gc_heap_size = gc_heap_size;
 #endif
 
 #if WASM_ENABLE_JIT != 0
