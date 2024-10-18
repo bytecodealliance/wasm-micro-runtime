@@ -87,6 +87,9 @@ env:
      -DWAMR_BUILD_EXCE_HANDLING=1 \
      -DWAMR_BUILD_GC=1"
 
+permissions:
+  contents: write # for uploading release artifacts
+
 jobs:
   build:
     runs-on: ${{ inputs.runner }}

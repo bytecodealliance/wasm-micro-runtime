@@ -31,6 +31,9 @@ on:
         type: string
         required: false
 
+permissions:
+  contents: write # for uploading release artifacts
+
 jobs:
   build:
     runs-on: ${{ inputs.runner }}
