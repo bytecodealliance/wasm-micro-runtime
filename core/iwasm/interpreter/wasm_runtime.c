@@ -560,8 +560,7 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         else
 #endif
         {
-#if WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0 \
-    || WASM_ENABLE_MULTI_MODULE != 0
+#if WASM_ENABLE_MULTI_MODULE != 0
             uint32 num_bytes_per_page =
                 import->u.memory.mem_type.num_bytes_per_page;
             uint32 init_page_count = import->u.memory.mem_type.init_page_count;
@@ -623,9 +622,9 @@ wasm_create_memory(const WASMModule *module, const WASMMemoryType *type,
     return memory_instantiate(module, NULL, memory, index,
                               type->num_bytes_per_page, type->init_page_count,
                               type->max_page_count,
-                              0,    // heap_size
-                              0,    // flags
-                              NULL, // aux_heap_base_global_data
+                              0,           // heap_size
+                              type->flags, // flags
+                              NULL,        // aux_heap_base_global_data
                               error_buf, sizeof(error_buf));
 }
 
@@ -1984,16 +1983,12 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
     }
 
     for (i = 0; i < module->import_memory_count; i++) {
-        WASMMemoryImport *memory = &((module->import_memories + i)->u.memory);
-
-        if (!wasm_runtime_is_built_in_module(memory->module_name)
-#if WASM_ENABLE_MULTI_MODULE != 0
-            && !memory->import_memory_linked
-#endif
-        ) {
+        WASMMemoryInstance *memory = module_inst->memories[i];
+        if (memory == NULL) {
+            WASMMemoryImport *type = &((module->import_memories + i)->u.memory);
             set_error_buf_v(error_buf, error_buf_size,
                             "failed to link import memory (%s, %s)",
-                            memory->module_name, memory->field_name);
+                            type->module_name, type->field_name);
             return false;
         }
     }
@@ -2393,7 +2388,7 @@ WASMModuleInstance *
 wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                  WASMExecEnv *exec_env_main, uint32 stack_size,
                  uint32 heap_size, uint32 max_memory_pages, uint32 import_count,
-                 const struct WasmExternalInstance *imports, char *error_buf,
+                 const struct WasmExternInstance *imports, char *error_buf,
                  uint32 error_buf_size)
 {
     WASMModuleInstance *module_inst;
@@ -2652,18 +2647,17 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         goto fail;
     }
 
-#if WASM_ENABLE_LIB_WASI_THREADS == 0 && WASM_ENABLE_THREAD_MGR == 0 \
-    && WASM_ENABLE_MULTI_MODULE == 0
+#if WASM_ENABLE_MULTI_MODULE == 0
     /* imports */
     /*
-     * const struct WasmExternalInstance *imports should have the same order
+     * const struct WasmExternInstance *imports should have the same order
      * with import section content in .wasm.
      */
     {
         uint32 import_memory_index = 0;
         uint32 import_index = 0;
         for (; import_index < import_count; import_index++) {
-            const struct WasmExternalInstance *import = imports + import_index;
+            const struct WasmExternInstance *import = imports + import_index;
             if (import->kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
                 if (import_memory_index >= module->import_memory_count) {
                     LOG_ERROR("provided import memory not match requirement");
@@ -5119,3 +5113,42 @@ wasm_get_module_name(WASMModule *module)
 {
     return module->name;
 }
+
+#if WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0
+bool
+wasm_runtime_inherit_imports(WASMModule *module, WASMModuleInstance *inst,
+                             struct WasmExternInstance *out, int32_t out_len)
+{
+    int32_t spawned_import_count = module->import_count;
+    if (spawned_import_count > out_len) {
+        LOG_WARNING("The number of imported functions is more than the "
+                    "length of provided buffer ");
+        return false;
+    }
+
+    for (int32_t i = 0, import_memory_index = 0; i < spawned_import_count;
+         i++) {
+        wasm_import_t import_type = { 0 };
+
+        wasm_runtime_get_import_type((WASMModuleCommon *)module, i,
+                                     &import_type);
+
+        out[i].module_name = import_type.module_name;
+        out[i].field_name = import_type.name;
+        out[i].kind = import_type.kind;
+
+        if (import_type.kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
+            out[i].u.memory = inst->memories[import_memory_index];
+            shared_memory_inc_reference(inst->memories[import_memory_index]);
+            import_memory_index++;
+        }
+        else {
+            LOG_WARNING("for spawned, unimplemented import(%s,%s) kind %d\n",
+                        import_type.module_name, import_type.name,
+                        import_type.kind);
+        }
+    }
+
+    return true;
+}
+#endif

@@ -86,14 +86,34 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
 
     stack_size = ((WASMModuleInstance *)module_inst)->default_wasm_stack_size;
 
-    if (!(new_module_inst = wasm_runtime_instantiate_internal(
-              module, module_inst, exec_env, stack_size,
-              0,    // heap_size
-              0,    // max_memory_pages
-              0,    // import_count
-              NULL, // imports
-              NULL, 0)))
+    /*
+     * build a imports list(struct WASMExternInstance[]) from parent's imports
+     */
+    int32_t spawned_import_count = ((WASMModule *)module)->import_count;
+    struct WasmExternInstance *spawned_imports = wasm_runtime_malloc(
+        sizeof(struct WasmExternInstance) * spawned_import_count);
+    if (spawned_imports == NULL) {
+        LOG_ERROR("Failed to allocate memory for imports");
         return -1;
+    }
+
+#if WASM_ENABLE_INTERP != 0
+    wasm_runtime_inherit_imports((WASMModule *)module,
+                                 (WASMModuleInstance *)module_inst,
+                                 spawned_imports, spawned_import_count);
+#endif
+
+    new_module_inst = wasm_runtime_instantiate_internal(
+        module, module_inst, exec_env, stack_size,
+        0,                    // heap_size
+        0,                    // max_memory_pages
+        spawned_import_count, // import_count
+        spawned_imports,      // imports
+        NULL, 0);
+    wasm_runtime_free(spawned_imports);
+    if (new_module_inst == NULL) {
+        return -1;
+    }
 
     wasm_runtime_set_custom_data_internal(
         new_module_inst, wasm_runtime_get_custom_data(module_inst));
@@ -135,7 +155,6 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
 
 thread_spawn_fail:
     deallocate_thread_id(thread_id);
-
 thread_preparation_fail:
     if (new_module_inst)
         wasm_runtime_deinstantiate_internal(new_module_inst, true);
