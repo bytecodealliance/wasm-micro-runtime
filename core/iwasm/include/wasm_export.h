@@ -1756,6 +1756,26 @@ WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_get_user_data(wasm_exec_env_t exec_env);
 
 /**
+ * Set native stack boundary to execution environment, if it is set,
+ * it will be used instead of getting the boundary with the platform
+ * layer API when calling wasm functions. This is useful for some
+ * fiber cases.
+ *
+ * Note: unlike setting the boundary by runtime, this API doesn't add
+ * the WASM_STACK_GUARD_SIZE(see comments in core/config.h) to the
+ * exec_env's native_stack_boundary to reserve bytes to the native
+ * thread stack boundary, which is used to throw native stack overflow
+ * exception if the guard boundary is reached. Developer should ensure
+ * that enough guard bytes are kept.
+ *
+ * @param exec_env the execution environment
+ * @param native_stack_boundary the user data to be set
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_native_stack_boundary(wasm_exec_env_t exec_env,
+                                       uint8_t *native_stack_boundary);
+
+/**
  * Dump runtime memory consumption, including:
  *     Exec env memory consumption
  *     WASM module memory consumption
