@@ -1367,6 +1367,17 @@ export_functions_deinstantiate(WASMExportFuncInstance *functions)
         wasm_runtime_free(functions);
 }
 
+static int
+cmp_export_func_inst(const void *a, const void *b)
+{
+    const WASMExportFuncInstance *export_func1 =
+        (const WASMExportFuncInstance *)a;
+    const WASMExportFuncInstance *export_func2 =
+        (const WASMExportFuncInstance *)b;
+
+    return strcmp(export_func1->name, export_func2->name);
+}
+
 /**
  * Instantiate export functions in a module.
  */
@@ -1395,6 +1406,9 @@ export_functions_instantiate(const WASMModule *module,
         }
 
     bh_assert((uint32)(export_func - export_funcs) == export_func_count);
+
+    qsort(export_funcs, export_func_count, sizeof(WASMExportFuncInstance),
+          cmp_export_func_inst);
     return export_funcs;
 }
 
@@ -3420,11 +3434,17 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
 WASMFunctionInstance *
 wasm_lookup_function(const WASMModuleInstance *module_inst, const char *name)
 {
-    uint32 i;
-    for (i = 0; i < module_inst->export_func_count; i++)
-        if (!strcmp(module_inst->export_functions[i].name, name))
-            return module_inst->export_functions[i].function;
-    return NULL;
+    WASMExportFuncInstance key = { .name = (char *)name };
+    WASMExportFuncInstance *export_func_inst;
+
+    export_func_inst = bsearch(
+        &key, module_inst->export_functions, module_inst->export_func_count,
+        sizeof(WASMExportFuncInstance), cmp_export_func_inst);
+
+    if (!export_func_inst)
+        return NULL;
+
+    return export_func_inst->function;
 }
 
 WASMMemoryInstance *

@@ -3908,23 +3908,18 @@ wasm_runtime_is_wasi_mode(WASMModuleInstanceCommon *module_inst)
 WASMFunctionInstanceCommon *
 wasm_runtime_lookup_wasi_start_function(WASMModuleInstanceCommon *module_inst)
 {
-    uint32 i;
-
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
         WASMModuleInstance *wasm_inst = (WASMModuleInstance *)module_inst;
-        WASMFunctionInstance *func;
-        for (i = 0; i < wasm_inst->export_func_count; i++) {
-            if (!strcmp(wasm_inst->export_functions[i].name, "_start")) {
-                func = wasm_inst->export_functions[i].function;
-                if (func->u.func->func_type->param_count != 0
-                    || func->u.func->func_type->result_count != 0) {
-                    LOG_ERROR("Lookup wasi _start function failed: "
-                              "invalid function type.\n");
-                    return NULL;
-                }
-                return (WASMFunctionInstanceCommon *)func;
+        WASMFunctionInstance *func = wasm_lookup_function(wasm_inst, "_start");
+        if (func) {
+            if (func->u.func->func_type->param_count != 0
+                || func->u.func->func_type->result_count != 0) {
+                LOG_ERROR("Lookup wasi _start function failed: "
+                          "invalid function type.\n");
+                return NULL;
             }
+            return (WASMFunctionInstanceCommon *)func;
         }
         return NULL;
     }
@@ -3933,19 +3928,15 @@ wasm_runtime_lookup_wasi_start_function(WASMModuleInstanceCommon *module_inst)
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
         AOTModuleInstance *aot_inst = (AOTModuleInstance *)module_inst;
-        AOTFunctionInstance *export_funcs =
-            (AOTFunctionInstance *)aot_inst->export_functions;
-        for (i = 0; i < aot_inst->export_func_count; i++) {
-            if (!strcmp(export_funcs[i].func_name, "_start")) {
-                AOTFuncType *func_type = export_funcs[i].u.func.func_type;
-                if (func_type->param_count != 0
-                    || func_type->result_count != 0) {
-                    LOG_ERROR("Lookup wasi _start function failed: "
-                              "invalid function type.\n");
-                    return NULL;
-                }
-                return (WASMFunctionInstanceCommon *)&export_funcs[i];
+        AOTFunctionInstance *func = aot_lookup_function(aot_inst, "_start");
+        if (func) {
+            AOTFuncType *func_type = func->u.func.func_type;
+            if (func_type->param_count != 0 || func_type->result_count != 0) {
+                LOG_ERROR("Lookup wasi _start function failed: "
+                          "invalid function type.\n");
+                return NULL;
             }
+            return func;
         }
         return NULL;
     }
