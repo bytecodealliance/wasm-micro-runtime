@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include <stdlib.h>
+
 #include "aot_runtime.h"
 #include "bh_common.h"
 #include "bh_log.h"
@@ -2753,6 +2755,44 @@ destroy_exports(AOTExport *exports)
     wasm_runtime_free(exports);
 }
 
+static int
+cmp_export_name(const void *a, const void *b)
+{
+    return strcmp(((WASMExport *)a)->name, ((WASMExport *)b)->name);
+}
+
+static bool
+check_duplicate_exports(AOTModule *module, char *error_buf,
+                        uint32 error_buf_size)
+{
+    uint32 i;
+    char **names = loader_malloc(module->export_count * sizeof(char *),
+                                 error_buf, error_buf_size);
+    bool result = false;
+
+    if (!names) {
+        return result;
+    }
+
+    for (i = 0; i < module->export_count; i++) {
+        names[i] = module->exports[i].name;
+    }
+
+    qsort(names, module->export_count, sizeof(char *), cmp_export_name);
+
+    for (i = 1; i < module->export_count; i++) {
+        if (!strcmp(names[i], names[i - 1])) {
+            set_error_buf(error_buf, error_buf_size, "duplicate export name");
+            goto cleanup;
+        }
+    }
+
+    result = true;
+cleanup:
+    wasm_runtime_free(names);
+    return result;
+}
+
 static bool
 load_exports(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
              bool is_load_from_file_buf, char *error_buf, uint32 error_buf_size)
@@ -2760,7 +2800,7 @@ load_exports(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
     const uint8 *buf = *p_buf;
     AOTExport *exports;
     uint64 size;
-    uint32 i, j;
+    uint32 i;
 
     /* Allocate memory */
     size = sizeof(AOTExport) * (uint64)module->export_count;
@@ -2774,14 +2814,6 @@ load_exports(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         read_uint32(buf, buf_end, exports[i].index);
         read_uint8(buf, buf_end, exports[i].kind);
         read_string(buf, buf_end, exports[i].name);
-
-        for (j = 0; j < i; j++) {
-            if (!strcmp(exports[i].name, exports[j].name)) {
-                set_error_buf(error_buf, error_buf_size,
-                              "duplicate export name");
-                return false;
-            }
-        }
 
         /* Check export kind and index */
         switch (exports[i].kind) {
@@ -2827,6 +2859,12 @@ load_exports(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             default:
                 set_error_buf(error_buf, error_buf_size, "invalid export kind");
                 return false;
+        }
+    }
+
+    if (module->export_count > 0) {
+        if (!check_duplicate_exports(module, error_buf, error_buf_size)) {
+            return false;
         }
     }
 
