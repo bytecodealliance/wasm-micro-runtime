@@ -20,6 +20,7 @@ concurrency:
 
 permissions:
   contents: write # for creating realease and uploading release artifacts
+  actions: write
 
 jobs:
   create_tag:

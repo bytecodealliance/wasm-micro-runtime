@@ -54,6 +54,7 @@ env:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   build_llvm_libraries_on_intel_macos:
