@@ -22,6 +22,9 @@ on:
       result:
         value: ${{ jobs.build.outputs.result }}
 
+permissions:
+  contents: write # for creating realease and uploading release artifacts
+
 jobs:
   reuse:
     runs-on: ubuntu-latest

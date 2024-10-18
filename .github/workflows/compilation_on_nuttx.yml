@@ -46,6 +46,9 @@ concurrency:
 env:
   WASI_SDK_PATH: "/opt/wasi-sdk"
 
+permissions:
+  contents: read
+
 jobs:
   build_iwasm_on_nuttx:
     runs-on: ubuntu-latest

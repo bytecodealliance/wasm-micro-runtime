@@ -15,6 +15,9 @@ on:
         type: string
         required: true
 
+permissions:
+  contents: write # for uploading release artifacts
+
 jobs:
   build-and-push-images:
     runs-on: ubuntu-22.04

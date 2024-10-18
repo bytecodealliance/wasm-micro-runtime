@@ -18,6 +18,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write # for creating realease and uploading release artifacts
+
 jobs:
   create_tag:
     uses: ./.github/workflows/create_tag.yml

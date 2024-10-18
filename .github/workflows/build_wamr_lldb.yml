@@ -28,6 +28,9 @@ on:
         required: false
         default: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz"
 
+permissions:
+  contents: write # for uploading release artifacts
+
 jobs:
   try_reuse:
     uses: ./.github/workflows/reuse_latest_release_binaries.yml

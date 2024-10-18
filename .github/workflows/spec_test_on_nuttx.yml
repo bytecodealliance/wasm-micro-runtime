@@ -29,6 +29,9 @@ env:
   LLVM_CACHE_SUFFIX: "build-llvm_libraries_ex"
   WASI_SDK_PATH: "/opt/wasi-sdk"
 
+permissions:
+  contents: read
+
 jobs:
   build_llvm_libraries:
     uses: ./.github/workflows/build_llvm_libraries.yml
