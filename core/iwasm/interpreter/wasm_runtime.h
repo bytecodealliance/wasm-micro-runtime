@@ -896,6 +896,12 @@ wasm_set_module_name(WASMModule *module, const char *name, char *error_buf,
 const char *
 wasm_get_module_name(WASMModule *module);
 
+#if WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0
+bool
+wasm_runtime_inherit_imports(WASMModule *module, WASMModuleInstance *inst,
+                             struct WasmExternInstance *out, int32_t out_len);
+#endif
+
 #ifdef __cplusplus
 }
 #endif
