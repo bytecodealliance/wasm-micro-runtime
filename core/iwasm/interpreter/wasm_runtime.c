@@ -3437,6 +3437,9 @@ wasm_lookup_function(const WASMModuleInstance *module_inst, const char *name)
     WASMExportFuncInstance key = { .name = (char *)name };
     WASMExportFuncInstance *export_func_inst;
 
+    if (!module_inst->export_functions)
+        return NULL;
+
     export_func_inst = bsearch(
         &key, module_inst->export_functions, module_inst->export_func_count,
         sizeof(WASMExportFuncInstance), cmp_export_func_inst);
