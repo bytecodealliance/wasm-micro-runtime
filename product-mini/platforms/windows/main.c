@@ -540,7 +540,8 @@ main(int argc, char *argv[])
 #endif
 
     /* instantiate the module */
-#if WASM_ENABLE_SPEC_TEST != 0 && WASM_ENABLE_MULTI_MODULE == 0
+#if (WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_WASI_TEST != 0) \
+    && WASM_ENABLE_MULTI_MODULE == 0
     {
         int32_t import_count = wasm_runtime_get_import_count(wasm_module);
         struct WasmExternInstance *imports = wasm_runtime_malloc(
@@ -553,7 +554,9 @@ main(int argc, char *argv[])
         for (int32_t i = 0; i < import_count; i++) {
             wasm_import_t import_type = { 0 };
             wasm_runtime_get_import_type(wasm_module, i, &import_type);
-            if (strncmp(import_type.module_name, "spectest", 8) != 0) {
+            if (strncmp(import_type.module_name, "spectest", 8) != 0
+                && strncmp(import_type.module_name, "foo", 3) != 0
+                && strncmp(import_type.module_name, "env", 3) != 0) {
                 continue;
             }
 
