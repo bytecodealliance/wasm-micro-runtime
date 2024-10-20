@@ -77,9 +77,11 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
     wasm_module_inst_t new_module_inst = NULL;
     ThreadStartArg *thread_start_arg = NULL;
     wasm_function_inst_t start_func;
-    int32 thread_id;
+    int32 thread_id = -1;
     uint32 stack_size = 8192;
     int32 ret = -1;
+    int32_t spawned_import_count = ((WASMModule *)module)->import_count;
+    struct WasmExternInstance *spawned_imports = NULL;
 
     bh_assert(module);
     bh_assert(module_inst);
@@ -89,18 +91,26 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
     /*
      * build a imports list(struct WASMExternInstance[]) from parent's imports
      */
-    int32_t spawned_import_count = ((WASMModule *)module)->import_count;
-    struct WasmExternInstance *spawned_imports = wasm_runtime_malloc(
-        sizeof(struct WasmExternInstance) * spawned_import_count);
+    spawned_imports = wasm_runtime_malloc(sizeof(struct WasmExternInstance)
+                                          * spawned_import_count);
     if (spawned_imports == NULL) {
         LOG_ERROR("Failed to allocate memory for imports");
         return -1;
     }
 
 #if WASM_ENABLE_INTERP != 0
-    wasm_runtime_inherit_imports((WASMModule *)module,
-                                 (WASMModuleInstance *)module_inst,
-                                 spawned_imports, spawned_import_count);
+    ret = wasm_runtime_inherit_imports((WASMModule *)module,
+                                       (WASMModuleInstance *)module_inst,
+                                       spawned_imports, spawned_import_count);
+    if (ret != 0) {
+        LOG_ERROR("Failed to inherit imports");
+        goto free_imports;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    // TODO:
+    // bh_assert(false && "Unsupported operation");
 #endif
 
     new_module_inst = wasm_runtime_instantiate_internal(
@@ -110,9 +120,9 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
         spawned_import_count, // import_count
         spawned_imports,      // imports
         NULL, 0);
-    wasm_runtime_free(spawned_imports);
     if (new_module_inst == NULL) {
-        return -1;
+        LOG_ERROR("Failed to instantiate new module");
+        goto free_imports;
     }
 
     wasm_runtime_set_custom_data_internal(
@@ -151,6 +161,7 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
         goto thread_spawn_fail;
     }
 
+    wasm_runtime_free(spawned_imports);
     return thread_id;
 
 thread_spawn_fail:
@@ -160,6 +171,8 @@ thread_preparation_fail:
         wasm_runtime_deinstantiate_internal(new_module_inst, true);
     if (thread_start_arg)
         wasm_runtime_free(thread_start_arg);
+free_imports:
+    wasm_runtime_free(spawned_imports);
 
     return -1;
 }

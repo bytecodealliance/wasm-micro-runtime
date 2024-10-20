@@ -942,41 +942,19 @@ main(int argc, char *argv[])
 #endif
 
     /* instantiate the module */
-#if (WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_WASI_TEST != 0) \
-    && WASM_ENABLE_MULTI_MODULE == 0
+#if WASM_ENABLE_MULTI_MODULE == 0
     {
         int32_t import_count = wasm_runtime_get_import_count(wasm_module);
-        struct WasmExternInstance *imports = wasm_runtime_malloc(
-            sizeof(struct WasmExternInstance) * import_count);
-        if (!imports) {
-            printf("Failed to allocate memory for imports\n");
-            goto fail3;
-        }
+        struct WasmExternInstance *imports = NULL;
 
-        for (int32_t i = 0; i < import_count; i++) {
-            wasm_import_t import_type = { 0 };
-            wasm_runtime_get_import_type(wasm_module, i, &import_type);
-            if (strncmp(import_type.module_name, "spectest", 8) != 0
-                && strncmp(import_type.module_name, "foo", 3) != 0
-                && strncmp(import_type.module_name, "env", 3) != 0) {
-                continue;
-            }
+#if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_WASI_TEST != 0 \
+    || WASM_ENABLE_LIBC_BUILTIN != 0
+        imports = wasm_runtime_create_imports_with_builtin(wasm_module);
+#endif
 
-            struct WasmExternInstance *extern_instance = imports + i;
-            extern_instance->module_name = import_type.module_name;
-            extern_instance->field_name = import_type.name;
-            extern_instance->kind = import_type.kind;
-
-            // create external instance for spectest.XXX
-            if (import_type.kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
-                extern_instance->u.memory = wasm_runtime_create_memory(
-                    NULL, import_type.u.memory_type, 0);
-            }
-            else {
-                LOG_WARNING("unimplemented import(%s,%s) kind %d\n",
-                            import_type.module_name, import_type.name,
-                            import_type.kind);
-            }
+        if (import_count > 0 && imports == NULL) {
+            printf("Need to provide %" PRId32 "imported objects:\n",
+                   import_count);
         }
 
         InstantiationArgs inst_args = {
@@ -989,6 +967,7 @@ main(int argc, char *argv[])
 
         wasm_module_inst = wasm_runtime_instantiate_ex(
             wasm_module, &inst_args, error_buf, sizeof(error_buf));
+        wasm_runtime_release_imports(imports);
         if (!wasm_module_inst) {
             printf("%s\n", error_buf);
             goto fail3;
