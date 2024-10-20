@@ -272,7 +272,7 @@ struct WasmExternInstance {
         wasm_memory_inst_t memory;
     } u;
 };
-typedef struct WasmExternInstance wasm_extern_inst_t;
+typedef struct WasmExternInstance *wasm_extern_inst_t;
 
 #ifndef INSTANTIATION_ARGS_OPTION_DEFINED
 #define INSTANTIATION_ARGS_OPTION_DEFINED
@@ -282,7 +282,7 @@ typedef struct InstantiationArgs {
     uint32_t host_managed_heap_size;
     uint32_t max_memory_pages;
     uint32_t import_count;
-    const wasm_extern_inst_t *imports;
+    const wasm_extern_inst_t imports;
 } InstantiationArgs;
 #endif /* INSTANTIATION_ARGS_OPTION_DEFINED */
 
@@ -2332,6 +2332,20 @@ wasm_runtime_shared_heap_malloc(wasm_module_inst_t module_inst, uint64_t size,
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_shared_heap_free(wasm_module_inst_t module_inst, uint64_t ptr);
+
+/*TODO: take me out when have a linker */
+/**
+ * @return NULL if failed and if there is no import
+ */
+WASM_RUNTIME_API_EXTERN wasm_extern_inst_t
+wasm_runtime_create_imports_with_builtin(wasm_module_t module);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_release_imports(wasm_extern_inst_t imports);
+
+WASM_RUNTIME_API_EXTERN wasm_extern_inst_t
+wasm_runtime_create_imports(wasm_module_t module,
+                            bool (*module_name_filter)(const char *));
 
 #ifdef __cplusplus
 }

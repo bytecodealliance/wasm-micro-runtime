@@ -33,7 +33,7 @@ main(int argc, char *argv_main[])
                                              error_buf, sizeof(error_buf));
     if (!module) {
         printf("Load wasm file failed: %s\n", error_buf);
-        goto destroy_runtime;
+        goto release_file_buffer;
     }
 
     /* import type */
@@ -63,7 +63,7 @@ main(int argc, char *argv_main[])
     }
 
     /* import list */
-    wasm_external_inst_t import_list[10] = { 0 };
+    wasm_extern_inst_t import_list[10] = { 0 };
     import_list[import_memory_index].module_name = "env";
     import_list[import_memory_index].field_name = "memory";
     import_list[import_memory_index].kind = WASM_IMPORT_EXPORT_KIND_MEMORY;
@@ -110,6 +110,8 @@ destroy_memory:
     wasm_runtime_destroy_memory(memory);
 unload_module:
     wasm_runtime_unload(module);
+release_file_buffer:
+    wasm_runtime_free(buffer);
 destroy_runtime:
     wasm_runtime_destroy();
 
