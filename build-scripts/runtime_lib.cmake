@@ -142,6 +142,10 @@ if (WAMR_BUILD_LIB_RATS EQUAL 1)
     include (${IWASM_DIR}/libraries/lib-rats/lib_rats.cmake)
 endif ()
 
+if (WAMR_BUILD_SIMDE EQUAL 1)
+    include (${IWASM_DIR}/libraries/simde/simde.cmake)
+endif ()
+
 if (WAMR_BUILD_WASM_CACHE EQUAL 1)
     include (${WAMR_ROOT_DIR}/build-scripts/involve_boringssl.cmake)
 endif ()

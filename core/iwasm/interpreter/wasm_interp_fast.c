@@ -21,6 +21,10 @@
 #include "../common/wasm_shared_memory.h"
 #endif
 
+#if WASM_ENABLE_SIMD != 0
+#include "simde/wasm/simd128.h"
+#endif
+
 typedef int32 CellType_I32;
 typedef int64 CellType_I64;
 typedef float32 CellType_F32;
@@ -5647,6 +5651,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 goto call_func_from_entry;
             }
 #if WASM_ENABLE_SIMD != 0
+/* TODO: Add x86 with additional #if */
+#define SIMD_V128_TO_SIMDE_V128(v) \
+    vreinterpretq_s32_u8(vld1q_u8((uint8_t *)&(v)))
+
+#define SIMDE_V128_TO_SIMD_V128(sv, v)              \
+    do {                                            \
+        uint8x16_t temp = vreinterpretq_u8_s32(sv); \
+        vst1q_u8((uint8_t *)&(v), temp);            \
+    } while (0)
+
             HANDLE_OP(WASM_OP_SIMD_PREFIX)
             {
                 GET_OPCODE();
@@ -5682,10 +5696,24 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         break;
                     }
                     case SIMD_v8x16_shuffle:
-                    case SIMD_v8x16_swizzle:
                     {
                         wasm_set_exception(module, "unsupported SIMD opcode");
                         break;
+                    }
+                    case SIMD_v8x16_swizzle:
+                    {
+                        V128 v2 = POP_V128();
+                        V128 v1 = POP_V128();
+                        addr_ret = GET_OFFSET();
+
+                        simde_v128_t simde_result = simde_wasm_i8x16_swizzle(
+                            SIMD_V128_TO_SIMDE_V128(v1),
+                            SIMD_V128_TO_SIMDE_V128(v2));
+
+                        V128 result;
+                        SIMDE_V128_TO_SIMD_V128(simde_result, result);
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
                     }
 
                     /* Splat */

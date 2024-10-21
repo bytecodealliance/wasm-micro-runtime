@@ -68,6 +68,11 @@ if (NOT DEFINED WAMR_BUILD_LIB_RATS)
   set (WAMR_BUILD_LIB_RATS 0)
 endif()
 
+if (NOT DEFINED WAMR_BUILD_SIMDE)
+  # Disable lib simde by default
+  set (WAMR_BUILD_SIMDE 0)
+endif()
+
 if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
   # Enable fast interpreter
   set (WAMR_BUILD_FAST_INTERP 1)
