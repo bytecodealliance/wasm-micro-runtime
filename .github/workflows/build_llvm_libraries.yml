@@ -29,7 +29,6 @@ on:
 
 permissions:
   contents: read
-  actions: write # for uploading cached artifact
 
 jobs:
   build_llvm_libraries:
@@ -40,6 +39,9 @@ jobs:
       image: ${{ inputs.container_image }}
     outputs:
       key: ${{ steps.create_lib_cache_key.outputs.key}}
+    permissions:
+      contents: read
+      actions: write # for uploading cached artifact
 
     steps:
       - name: checkout

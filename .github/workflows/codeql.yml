@@ -20,9 +20,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  actions: read
   contents: read
-  security-events: write
 
 jobs:
   analyze:
@@ -41,6 +39,11 @@ jobs:
       matrix:
         language: [ 'cpp' ]
         # CodeQL supports [ 'cpp', 'csharp', 'go', 'java', 'javascript', 'python', 'ruby', 'swift' ]
+
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
 
     steps:
     - name: Checkout repository

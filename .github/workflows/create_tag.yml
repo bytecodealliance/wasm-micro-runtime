@@ -16,7 +16,7 @@ on:
         value: ${{ jobs.create_tag.outputs.new_tag}}
 
 permissions:
-  contents: write # create and push tags
+  contents: read
 
 jobs:
   create_tag:
@@ -25,6 +25,8 @@ jobs:
       minor_version: ${{ steps.preparation.outputs.minor_version }}
       new_ver: ${{ steps.preparation.outputs.new_ver }}
       new_tag: ${{ steps.preparation.outputs.new_tag }}
+    permissions:
+      contents: write # create and push tags
 
     steps:
       - uses: actions/checkout@v4

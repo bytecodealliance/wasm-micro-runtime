@@ -56,10 +56,12 @@ env:
 
 permissions:
   contents: read
-  actions: write
 
 jobs:
   build_llvm_libraries:
+    permissions:
+      contents: read
+      actions: write
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
       os: "ubuntu-20.04"

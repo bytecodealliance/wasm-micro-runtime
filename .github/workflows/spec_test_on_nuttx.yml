@@ -31,10 +31,12 @@ env:
 
 permissions:
   contents: read
-  actions: write
 
 jobs:
   build_llvm_libraries:
+    permissions:
+      contents: read
+      actions: write
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
       os: "ubuntu-22.04"
@@ -42,6 +44,9 @@ jobs:
       container_image: ghcr.io/no1wudi/nuttx/apache-nuttx-ci-linux@sha256:8c4e00b607d4d6d66ba8f51c4544819a616eac69d3a2ac669e2af2150e2eb0f9
 
   build_llvm_libraries_xtensa:
+    permissions:
+      contents: read
+      actions: write
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
       os: "ubuntu-22.04"

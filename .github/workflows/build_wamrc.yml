@@ -32,11 +32,14 @@ on:
         required: false
 
 permissions:
-  contents: write # for uploading release artifacts
+  contents: read
 
 jobs:
   build:
     runs-on: ${{ inputs.runner }}
+    permissions:
+      contents: write # for uploading release artifacts
+
     steps:
       - uses: actions/checkout@v4
 

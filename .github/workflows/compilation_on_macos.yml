@@ -54,15 +54,20 @@ env:
 
 permissions:
   contents: read
-  actions: write
 
 jobs:
   build_llvm_libraries_on_intel_macos:
+    permissions:
+      contents: read
+      actions: write
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
       os: "macos-13"
       arch: "X86"
   build_llvm_libraries_on_arm_macos:
+    permissions:
+      contents: read
+      actions: write
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
       os: "macos-14"
