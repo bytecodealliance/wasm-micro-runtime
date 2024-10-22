@@ -5651,14 +5651,18 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 goto call_func_from_entry;
             }
 #if WASM_ENABLE_SIMD != 0
-/* TODO: Add x86 with additional #if */
-#define SIMD_V128_TO_SIMDE_V128(v) \
-    vreinterpretq_s32_u8(vld1q_u8((uint8_t *)&(v)))
+#define SIMD_V128_TO_SIMDE_V128(v)                                      \
+    ({                                                                  \
+        bh_assert(sizeof(V128) == sizeof(simde_v128_t));                \
+        simde_v128_t result;                                            \
+        bh_memcpy_s(&result, sizeof(simde_v128_t), &(v), sizeof(V128)); \
+        result;                                                         \
+    })
 
-#define SIMDE_V128_TO_SIMD_V128(sv, v)              \
-    do {                                            \
-        uint8x16_t temp = vreinterpretq_u8_s32(sv); \
-        vst1q_u8((uint8_t *)&(v), temp);            \
+#define SIMDE_V128_TO_SIMD_V128(sv, v)                                \
+    do {                                                              \
+        bh_assert(sizeof(V128) == sizeof(simde_v128_t));              \
+        bh_memcpy_s(&(v), sizeof(V128), &(sv), sizeof(simde_v128_t)); \
     } while (0)
 
             HANDLE_OP(WASM_OP_SIMD_PREFIX)
@@ -5725,7 +5729,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         V128 v2 = POP_V128();
                         V128 v1 = POP_V128();
                         addr_ret = GET_OFFSET();
-
                         simde_v128_t simde_result = simde_wasm_i8x16_swizzle(
                             SIMD_V128_TO_SIMDE_V128(v1),
                             SIMD_V128_TO_SIMDE_V128(v2));
