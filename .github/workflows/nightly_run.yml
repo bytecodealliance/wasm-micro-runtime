@@ -44,13 +44,22 @@ env:
   X86_32_TARGET_TEST_OPTIONS: "-m x86_32 -P"
   WASI_TEST_OPTIONS: "-s wasi_certification -w"
 
+permissions:
+  contents: read
+
 jobs:
   build_llvm_libraries_on_ubuntu_2004:
+    permissions:
+      contents: read
+      actions: write
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
       os: "ubuntu-20.04"
       arch: "X86"
   build_llvm_libraries_on_ubuntu_2204:
+    permissions:
+      contents: read
+      actions: write
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
       os: "ubuntu-22.04"

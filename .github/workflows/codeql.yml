@@ -19,6 +19,9 @@ on:
   # allow to be triggered manually
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   analyze:
     if: github.repository == 'bytecodealliance/wasm-micro-runtime'
@@ -30,16 +33,17 @@ jobs:
     # Consider using larger runners for possible analysis time improvements.
     runs-on: ${{ (matrix.language == 'swift' && 'macos-13') || 'ubuntu-22.04' }}
     timeout-minutes: ${{ (matrix.language == 'swift' && 120) || 360 }}
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
 
     strategy:
       fail-fast: false
       matrix:
         language: [ 'cpp' ]
         # CodeQL supports [ 'cpp', 'csharp', 'go', 'java', 'javascript', 'python', 'ruby', 'swift' ]
+
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
 
     steps:
     - name: Checkout repository

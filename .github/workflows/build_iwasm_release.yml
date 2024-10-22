@@ -87,6 +87,9 @@ env:
      -DWAMR_BUILD_EXCE_HANDLING=1 \
      -DWAMR_BUILD_GC=1"
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ${{ inputs.runner }}
@@ -97,6 +100,9 @@ jobs:
             suffix: ''
           - build_options: $GC_EH_BUILD_OPTIONS
             suffix: '-gc-eh'
+    permissions:
+      contents: write # for uploading release artifacts
+
     steps:
       - uses: actions/checkout@v4
 

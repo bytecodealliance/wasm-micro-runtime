@@ -18,11 +18,18 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   create_tag:
+    permissions:
+      contents: write # create and push tags
     uses: ./.github/workflows/create_tag.yml
 
   create_release:
+    permissions:
+      contents: write # create release
     needs: [create_tag]
     runs-on: ubuntu-latest
     outputs:
@@ -52,6 +59,9 @@ jobs:
   #
   # LLVM_LIBRARIES
   build_llvm_libraries_on_ubuntu_2004:
+    permissions:
+      contents: read
+      actions: write
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
@@ -59,6 +69,9 @@ jobs:
       arch: "AArch64 ARM Mips RISCV X86"
 
   build_llvm_libraries_on_ubuntu_2204:
+    permissions:
+      contents: read
+      actions: write
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
@@ -66,6 +79,9 @@ jobs:
       arch: "AArch64 ARM Mips RISCV X86"
 
   build_llvm_libraries_on_macos:
+    permissions:
+      contents: read
+      actions: write
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
@@ -73,6 +89,9 @@ jobs:
       arch: "AArch64 ARM Mips RISCV X86"
 
   build_llvm_libraries_on_windows:
+    permissions:
+      contents: read
+      actions: write
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
@@ -82,6 +101,8 @@ jobs:
   #
   # WAMRC
   release_wamrc_on_ubuntu_2004:
+    permissions:
+      contents: write # upload release artifact
     needs: [create_tag, create_release, build_llvm_libraries_on_ubuntu_2004]
     uses: ./.github/workflows/build_wamrc.yml
     with:
@@ -92,6 +113,8 @@ jobs:
       ver_num: ${{ needs.create_tag.outputs.new_ver}}
 
   release_wamrc_on_ubuntu_2204:
+    permissions:
+      contents: write # upload release artifact
     needs: [create_tag, create_release, build_llvm_libraries_on_ubuntu_2204 ]
     uses: ./.github/workflows/build_wamrc.yml
     with:
@@ -102,6 +125,8 @@ jobs:
       ver_num: ${{ needs.create_tag.outputs.new_ver }}
 
   release_wamrc_on_ubuntu_macos:
+    permissions:
+      contents: write # upload release artifact
     needs: [create_tag, create_release, build_llvm_libraries_on_macos]
     uses: ./.github/workflows/build_wamrc.yml
     with:
@@ -112,6 +137,8 @@ jobs:
       ver_num: ${{ needs.create_tag.outputs.new_ver }}
   
   release_wamrc_on_windows:
+    permissions:
+      contents: write # upload release artifact
     needs: [create_tag, create_release, build_llvm_libraries_on_windows]
     uses: ./.github/workflows/build_wamrc.yml
     with:
@@ -124,6 +151,8 @@ jobs:
   #
   # IWASM
   release_iwasm_on_ubuntu_2004:
+    permissions:
+      contents: write # upload release artifact
     needs: [create_tag, create_release, build_llvm_libraries_on_ubuntu_2004]
     uses: ./.github/workflows/build_iwasm_release.yml
     with:
@@ -134,6 +163,8 @@ jobs:
       ver_num: ${{ needs.create_tag.outputs.new_ver}}
 
   release_iwasm_on_ubuntu_2204:
+    permissions:
+      contents: write # upload release artifact
     needs: [create_tag, create_release, build_llvm_libraries_on_ubuntu_2204]
     uses: ./.github/workflows/build_iwasm_release.yml
     with:
@@ -144,6 +175,8 @@ jobs:
       ver_num: ${{ needs.create_tag.outputs.new_ver}}
 
   release_iwasm_on_macos:
+    permissions:
+      contents: write # upload release artifact
     needs: [create_tag, create_release, build_llvm_libraries_on_macos]
     uses: ./.github/workflows/build_iwasm_release.yml
     with:
@@ -154,6 +187,8 @@ jobs:
       ver_num: ${{ needs.create_tag.outputs.new_ver}}
 
   release_iwasm_on_windows:
+    permissions:
+      contents: write # upload release artifact
     needs: [create_tag, create_release, build_llvm_libraries_on_windows]
     uses: ./.github/workflows/build_iwasm_release.yml
     with:
@@ -166,6 +201,8 @@ jobs:
   #
   # WAMR_SDK
   release_wamr_sdk_on_ubuntu_2004:
+    permissions:
+      contents: write # upload release artifact
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_wamr_sdk.yml
     with:
@@ -177,6 +214,8 @@ jobs:
       wamr_app_framework_url: https://github.com/bytecodealliance/wamr-app-framework.git
 
   release_wamr_sdk_on_ubuntu_2204:
+    permissions:
+      contents: write # upload release artifact
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_wamr_sdk.yml
     with:
@@ -188,6 +227,8 @@ jobs:
       wamr_app_framework_url: https://github.com/bytecodealliance/wamr-app-framework.git
 
   release_wamr_sdk_on_macos:
+    permissions:
+      contents: write # upload release artifact
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_wamr_sdk.yml
     with:
@@ -201,6 +242,8 @@ jobs:
   #
   # vscode extension cross-platform
   release_wamr_ide_vscode_ext:
+    permissions:
+      contents: write # upload release artifact
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_wamr_vscode_ext.yml
     secrets: inherit
@@ -211,6 +254,8 @@ jobs:
   #
   # vscode extension docker images package
   release_wamr_ide_docker_images_package:
+    permissions:
+      contents: write # upload release artifact
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_docker_images.yml
     with:
@@ -220,6 +265,8 @@ jobs:
   #
   # WAMR_LLDB
   release_wamr_lldb_on_ubuntu_2004:
+    permissions:
+      contents: write # upload release artifact
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_wamr_lldb.yml
     with:
@@ -228,6 +275,8 @@ jobs:
       ver_num: ${{ needs.create_tag.outputs.new_ver}}
 
   release_wamr_lldb_on_ubuntu_2204:
+    permissions:
+      contents: write # upload release artifact
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_wamr_lldb.yml
     with:
@@ -236,6 +285,8 @@ jobs:
       ver_num: ${{ needs.create_tag.outputs.new_ver}}
 
   release_wamr_lldb_on_macos_universal:
+    permissions:
+      contents: write # upload release artifact
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_wamr_lldb.yml
     with:

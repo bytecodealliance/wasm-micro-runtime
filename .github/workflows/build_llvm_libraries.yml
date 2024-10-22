@@ -27,6 +27,9 @@ on:
         description: "A cached key of LLVM libraries"
         value: ${{ jobs.build_llvm_libraries.outputs.key}}
 
+permissions:
+  contents: read
+
 jobs:
   build_llvm_libraries:
     runs-on: ${{ inputs.os }}
@@ -36,6 +39,9 @@ jobs:
       image: ${{ inputs.container_image }}
     outputs:
       key: ${{ steps.create_lib_cache_key.outputs.key}}
+    permissions:
+      contents: read
+      actions: write # for uploading cached artifact
 
     steps:
       - name: checkout

@@ -70,8 +70,14 @@ env:
   MEMORY64_TEST_OPTIONS: "-s spec -W -b -P"
   MULTI_MEMORY_TEST_OPTIONS: "-s spec -E -b -P"
 
+permissions:
+  contents: read
+
 jobs:
   build_llvm_libraries_on_ubuntu_2204:
+    permissions:
+      contents: read
+      actions: write
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
       os: "ubuntu-22.04"
