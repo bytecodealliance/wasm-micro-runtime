@@ -6580,7 +6580,7 @@ check_wasi_abi_compatibility(const WASMModule *module,
      */
     /* clang-format on */
 
-    WASMExport *initialize = NULL, *memory = NULL, *start = NULL;
+    WASMExport *initialize = NULL, *start = NULL;
     uint32 import_function_count = module->import_function_count;
     WASMFuncType *func_type;
 
@@ -6654,32 +6654,6 @@ check_wasi_abi_compatibility(const WASMModule *module,
         return false;
     }
 #endif
-
-    /*
-     * it is ok a reactor acts as a main module,
-     * so skip the check about (with `_initialize`)
-     */
-
-    memory = wasm_loader_find_export(module, "", "memory", EXPORT_KIND_MEMORY,
-                                     error_buf, error_buf_size);
-    if (!memory
-#if WASM_ENABLE_LIB_WASI_THREADS != 0
-        /*
-         * with wasi-threads, it's still an open question if a memory
-         * should be exported.
-         *
-         * https://github.com/WebAssembly/wasi-threads/issues/22
-         * https://github.com/WebAssembly/WASI/issues/502
-         *
-         * Note: this code assumes the number of memories is at most 1.
-         */
-        && module->import_memory_count == 0
-#endif
-    ) {
-        set_error_buf(error_buf, error_buf_size,
-                      "a module with WASI apis must export memory by default");
-        return false;
-    }
 
     return true;
 }

@@ -561,6 +561,8 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     uint32 aux_stack_size;
     uint64 aux_stack_start = 0;
     int32 ret = -1;
+    int32_t spawned_import_count = ((WASMModule *)module)->import_count;
+    struct WasmExternInstance *spawned_imports = NULL;
 
     bh_assert(module);
     bh_assert(module_inst);
@@ -579,8 +581,38 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     }
 #endif
 
+    /*
+     * build a imports list(struct WASMExternInstance[]) from parent's imports
+     */
+    spawned_imports = wasm_runtime_malloc(sizeof(struct WasmExternInstance)
+                                          * spawned_import_count);
+    if (spawned_imports == NULL) {
+        LOG_ERROR("Failed to allocate memory for imports");
+        goto fail;
+    }
+
+#if WASM_ENABLE_INTERP != 0
+    ret = wasm_runtime_inherit_imports((WASMModule *)module,
+                                       (WASMModuleInstance *)module_inst,
+                                       spawned_imports, spawned_import_count);
+    if (ret != 0) {
+        LOG_ERROR("Failed to inherit imports");
+        goto fail;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    // TODO:
+    // bh_assert(false && "Unsupported operation");
+#endif
+
     if (!(new_module_inst = wasm_runtime_instantiate_internal(
-              module, module_inst, exec_env, stack_size, 0, 0, NULL, 0)))
+              module, module_inst, exec_env, stack_size,
+              0,                    // heap_size
+              0,                    // max_memory_pages
+              spawned_import_count, // import_count
+              spawned_imports,      // imports
+              NULL, 0)))
         return -1;
 
     /* Set custom_data to new module instance */
@@ -641,9 +673,12 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     if (thread)
         *thread = thread_handle;
 
+    wasm_runtime_free(spawned_imports);
     return 0;
 
 fail:
+    if (spawned_imports)
+        wasm_runtime_free(spawned_imports);
     if (new_module_inst)
         wasm_runtime_deinstantiate_internal(new_module_inst, true);
     if (info_node)

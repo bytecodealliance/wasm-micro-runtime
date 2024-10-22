@@ -264,6 +264,16 @@ typedef struct LoadArgs {
 } LoadArgs;
 #endif /* LOAD_ARGS_OPTION_DEFINED */
 
+struct WasmExternInstance {
+    const char *module_name;
+    const char *field_name;
+    wasm_import_export_kind_t kind;
+    union {
+        wasm_memory_inst_t memory;
+    } u;
+};
+typedef struct WasmExternInstance *wasm_extern_inst_t;
+
 #ifndef INSTANTIATION_ARGS_OPTION_DEFINED
 #define INSTANTIATION_ARGS_OPTION_DEFINED
 /* WASM module instantiation arguments */
@@ -271,6 +281,8 @@ typedef struct InstantiationArgs {
     uint32_t default_stack_size;
     uint32_t host_managed_heap_size;
     uint32_t max_memory_pages;
+    uint32_t import_count;
+    const wasm_extern_inst_t imports;
 } InstantiationArgs;
 #endif /* INSTANTIATION_ARGS_OPTION_DEFINED */
 
@@ -960,6 +972,27 @@ wasm_runtime_get_module_inst(wasm_exec_env_t exec_env);
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_module_inst(wasm_exec_env_t exec_env,
                              const wasm_module_inst_t module_inst);
+
+/**
+ * Create a memory instance
+ *
+ * @param initial_pages The initial number of pages
+ * @param max_pages The maximum number of pages, or zero for no maximum
+ * @param shared Whether the memory is shared
+ *
+ * @return The created memory instance if successful, NULL otherwise
+ */
+WASM_RUNTIME_API_EXTERN wasm_memory_inst_t
+wasm_runtime_create_memory(const wasm_module_t module,
+                           const wasm_memory_type_t type, uint32_t index);
+
+/**
+ * @brief Destroy a memory instance
+ *
+ * @param memory_inst The memory instance to destroy
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_destroy_memory(wasm_memory_inst_t memory_inst);
 
 /**
  * @brief Lookup a memory instance by name
@@ -2299,6 +2332,20 @@ wasm_runtime_shared_heap_malloc(wasm_module_inst_t module_inst, uint64_t size,
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_shared_heap_free(wasm_module_inst_t module_inst, uint64_t ptr);
+
+/*TODO: take me out when have a linker */
+/**
+ * @return NULL if failed and if there is no import
+ */
+WASM_RUNTIME_API_EXTERN wasm_extern_inst_t
+wasm_runtime_create_imports_with_builtin(wasm_module_t module);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_release_imports(wasm_extern_inst_t imports);
+
+WASM_RUNTIME_API_EXTERN wasm_extern_inst_t
+wasm_runtime_create_imports(wasm_module_t module,
+                            bool (*module_name_filter)(const char *));
 
 #ifdef __cplusplus
 }

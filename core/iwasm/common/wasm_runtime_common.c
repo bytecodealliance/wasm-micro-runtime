@@ -1351,6 +1351,7 @@ wasm_runtime_destroy_loading_module_list()
 }
 #endif /* WASM_ENABLE_MULTI_MODULE */
 
+/*TODO: may need to merge with wasm_native. Even do more classification work */
 bool
 wasm_runtime_is_built_in_module(const char *module_name)
 {
@@ -1622,13 +1623,16 @@ wasm_runtime_instantiate_internal(WASMModuleCommon *module,
                                   WASMModuleInstanceCommon *parent,
                                   WASMExecEnv *exec_env_main, uint32 stack_size,
                                   uint32 heap_size, uint32 max_memory_pages,
+                                  uint32 import_count,
+                                  const struct WasmExternInstance *imports,
                                   char *error_buf, uint32 error_buf_size)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode)
         return (WASMModuleInstanceCommon *)wasm_instantiate(
             (WASMModule *)module, (WASMModuleInstance *)parent, exec_env_main,
-            stack_size, heap_size, max_memory_pages, error_buf, error_buf_size);
+            stack_size, heap_size, max_memory_pages, import_count, imports,
+            error_buf, error_buf_size);
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module->module_type == Wasm_Module_AoT)
@@ -1647,7 +1651,7 @@ wasm_runtime_instantiate(WASMModuleCommon *module, uint32 stack_size,
                          uint32 error_buf_size)
 {
     return wasm_runtime_instantiate_internal(module, NULL, NULL, stack_size,
-                                             heap_size, 0, error_buf,
+                                             heap_size, 0, 0, NULL, error_buf,
                                              error_buf_size);
 }
 
@@ -1658,8 +1662,8 @@ wasm_runtime_instantiate_ex(WASMModuleCommon *module,
 {
     return wasm_runtime_instantiate_internal(
         module, NULL, NULL, args->default_stack_size,
-        args->host_managed_heap_size, args->max_memory_pages, error_buf,
-        error_buf_size);
+        args->host_managed_heap_size, args->max_memory_pages,
+        args->import_count, args->imports, error_buf, error_buf_size);
 }
 
 void
@@ -7473,8 +7477,8 @@ wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
         WASMModuleCommon *sub_module = sub_module_list_node->module;
         WASMModuleInstanceCommon *sub_module_inst = NULL;
         sub_module_inst = wasm_runtime_instantiate_internal(
-            sub_module, NULL, NULL, stack_size, heap_size, max_memory_pages,
-            error_buf, error_buf_size);
+            sub_module, NULL, NULL, stack_size, heap_size, max_memory_pages, 0,
+            NULL, error_buf, error_buf_size);
         if (!sub_module_inst) {
             LOG_DEBUG("instantiate %s failed",
                       sub_module_list_node->module_name);
@@ -7738,4 +7742,71 @@ wasm_runtime_is_underlying_binary_freeable(WASMModuleCommon *const module)
 #endif /* WASM_ENABLE_AOT != 0 */
 
     return true;
+}
+
+/*TODO: take us(below) out when have a linker */
+void
+wasm_runtime_release_imports(struct WasmExternInstance *extern_inst)
+{
+    if (extern_inst == NULL)
+        return;
+
+    wasm_runtime_free(extern_inst);
+}
+
+struct WasmExternInstance *
+wasm_runtime_create_imports(WASMModuleCommon *module,
+                            bool (*module_name_filter)(const char *))
+{
+    int32_t import_count = wasm_runtime_get_import_count(module);
+    struct WasmExternInstance *imports = NULL;
+
+    if (import_count == 0)
+        return NULL;
+
+    imports =
+        wasm_runtime_malloc(sizeof(struct WasmExternInstance) * import_count);
+    if (!imports) {
+        LOG_ERROR("allocate memory failed: %s", strerror(errno));
+        return NULL;
+    }
+
+    memset(imports, 0, sizeof(struct WasmExternInstance) * import_count);
+    for (int32_t i = 0; i < import_count; i++) {
+        wasm_import_t import_type = { 0 };
+        wasm_runtime_get_import_type(module, i, &import_type);
+
+        if (module_name_filter
+            && !module_name_filter(import_type.module_name)) {
+            LOG_DEBUG("skip import(%s,%s)\n", import_type.module_name,
+                      import_type.name);
+            continue;
+        }
+
+        LOG_DEBUG("create import(%s,%s) kind %d\n", import_type.module_name,
+                  import_type.name, import_type.kind);
+        struct WasmExternInstance *extern_instance = imports + i;
+        extern_instance->module_name = import_type.module_name;
+        extern_instance->field_name = import_type.name;
+        extern_instance->kind = import_type.kind;
+
+        if (import_type.kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
+            extern_instance->u.memory =
+                wasm_runtime_create_memory(NULL, import_type.u.memory_type, 0);
+        }
+        else {
+            LOG_DEBUG("unimplemented import(%s,%s) kind %d\n",
+                      import_type.module_name, import_type.name,
+                      import_type.kind);
+        }
+    }
+
+    return imports;
+}
+
+struct WasmExternInstance *
+wasm_runtime_create_imports_with_builtin(WASMModuleCommon *module)
+{
+    LOG_DEBUG("create imports with builtin\n");
+    return wasm_runtime_create_imports(module, wasm_runtime_is_built_in_module);
 }

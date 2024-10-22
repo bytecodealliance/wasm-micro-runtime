@@ -233,59 +233,73 @@ get_sub_module_inst(const WASMModuleInstance *parent_module_inst,
 /**
  * Destroy memory instances.
  */
+
+static void
+memory_deinstantiate(WASMMemoryInstance *memory)
+{
+    if (!memory)
+        return;
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (shared_memory_is_shared(memory)) {
+        uint32 ref_count = shared_memory_dec_reference(memory);
+        /* if the reference count is not zero,
+            don't free the memory */
+        if (ref_count > 0)
+            return;
+    }
+#endif
+
+    if (memory->heap_handle) {
+        mem_allocator_destroy(memory->heap_handle);
+        wasm_runtime_free(memory->heap_handle);
+        memory->heap_handle = NULL;
+    }
+    if (memory->memory_data) {
+        wasm_deallocate_linear_memory(memory);
+    }
+}
+
 static void
 memories_deinstantiate(WASMModuleInstance *module_inst,
                        WASMMemoryInstance **memories, uint32 count)
 {
-    uint32 i;
-    if (memories) {
-        for (i = 0; i < count; i++) {
-            if (memories[i]) {
 #if WASM_ENABLE_MULTI_MODULE != 0
-                WASMModule *module = module_inst->module;
-                if (i < module->import_memory_count
-                    && module->import_memories[i].u.memory.import_module) {
-                    continue;
-                }
+    WASMModule *module = module_inst->module;
 #endif
-#if WASM_ENABLE_SHARED_MEMORY != 0
-                if (shared_memory_is_shared(memories[i])) {
-                    uint32 ref_count = shared_memory_dec_reference(memories[i]);
-                    /* if the reference count is not zero,
-                        don't free the memory */
-                    if (ref_count > 0)
-                        continue;
-                }
-#endif
-                if (memories[i]->heap_handle) {
-                    mem_allocator_destroy(memories[i]->heap_handle);
-                    wasm_runtime_free(memories[i]->heap_handle);
-                    memories[i]->heap_handle = NULL;
-                }
-                if (memories[i]->memory_data) {
-                    wasm_deallocate_linear_memory(memories[i]);
-                }
-            }
+    uint32 i;
+
+    if (!memories)
+        return;
+
+    for (i = 0; i < count; i++) {
+#if WASM_ENABLE_MULTI_MODULE != 0
+        if (i < module->import_memory_count
+            && module->import_memories[i].u.memory.import_module) {
+            continue;
         }
-        wasm_runtime_free(memories);
+#endif
+
+        memory_deinstantiate(memories[i]);
     }
+
+    wasm_runtime_free(memories);
     (void)module_inst;
 }
 
 static WASMMemoryInstance *
-memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
+memory_instantiate(const WASMModule *module, WASMModuleInstance *parent,
                    WASMMemoryInstance *memory, uint32 memory_idx,
                    uint32 num_bytes_per_page, uint32 init_page_count,
                    uint32 max_page_count, uint32 heap_size, uint32 flags,
-                   char *error_buf, uint32 error_buf_size)
+                   uint8 *aux_heap_base_global_data, char *error_buf,
+                   uint32 error_buf_size)
 {
-    WASMModule *module = module_inst->module;
-    uint32 inc_page_count, global_idx, default_max_page;
+    uint32 inc_page_count, default_max_page;
     uint32 bytes_of_last_page, bytes_to_page_end;
     uint64 aux_heap_base,
         heap_offset = (uint64)num_bytes_per_page * init_page_count;
     uint64 memory_data_size, max_memory_data_size;
-    uint8 *global_addr;
 
     bool is_shared_memory = false;
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -314,8 +328,8 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
 
     /* The app heap should be in the default memory */
     if (memory_idx == 0) {
-        if (heap_size > 0 && module_inst->module->malloc_function != (uint32)-1
-            && module_inst->module->free_function != (uint32)-1) {
+        if (heap_size > 0 && module->malloc_function != (uint32)-1
+            && module->free_function != (uint32)-1) {
             /* Disable app heap, use malloc/free function exported
                by wasm app to allocate/free memory instead */
             heap_size = 0;
@@ -377,21 +391,24 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
                 }
 
                 /* Adjust __heap_base global value */
-                global_idx = module->aux_heap_base_global_index;
-                bh_assert(module_inst->e->globals
-                          && global_idx < module_inst->e->global_count);
-                global_addr = module_inst->global_data
-                              + module_inst->e->globals[global_idx].data_offset;
+                if (aux_heap_base_global_data == NULL) {
+                    set_error_buf(
+                        error_buf, error_buf_size,
+                        "auxiliary heap base global data should not be NULL");
+                    return NULL;
+                }
+
 #if WASM_ENABLE_MEMORY64 != 0
                 if (memory->is_memory64) {
                     /* For memory64, the global value should be i64 */
-                    *(uint64 *)global_addr = aux_heap_base;
+                    *(uint64 *)aux_heap_base_global_data = aux_heap_base;
                 }
                 else
 #endif
                 {
                     /* For memory32, the global value should be i32 */
-                    *(uint32 *)global_addr = (uint32)aux_heap_base;
+                    *(uint32 *)aux_heap_base_global_data =
+                        (uint32)aux_heap_base;
                 }
                 LOG_VERBOSE("Reset __heap_base global to %" PRIu64,
                             aux_heap_base);
@@ -501,10 +518,9 @@ fail1:
 static WASMMemoryInstance **
 memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                      WASMModuleInstance *parent, uint32 heap_size,
-                     uint32 max_memory_pages, char *error_buf,
-                     uint32 error_buf_size)
+                     uint32 max_memory_pages, uint8 *aux_heap_base_global_data,
+                     char *error_buf, uint32 error_buf_size)
 {
-    WASMImport *import;
     uint32 mem_index = 0, i,
            memory_count = module->import_memory_count + module->memory_count;
     uint64 total_size;
@@ -519,18 +535,10 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
     memory = module_inst->global_table_data.memory_instances;
 
     /* instantiate memories from import section */
-    import = module->import_memories;
-    for (i = 0; i < module->import_memory_count; i++, import++, memory++) {
-        uint32 num_bytes_per_page =
-            import->u.memory.mem_type.num_bytes_per_page;
-        uint32 init_page_count = import->u.memory.mem_type.init_page_count;
-        uint32 max_page_count = wasm_runtime_get_max_mem(
-            max_memory_pages, import->u.memory.mem_type.init_page_count,
-            import->u.memory.mem_type.max_page_count);
-        uint32 flags = import->u.memory.mem_type.flags;
-        uint32 actual_heap_size = heap_size;
-
 #if WASM_ENABLE_MULTI_MODULE != 0
+    WASMImport *import = module->import_memories;
+    for (i = 0; i < module->import_memory_count; i++, import++, memory++) {
+        // TODO: ? make sure import->u.memory.import_module is set properly
         if (import->u.memory.import_module != NULL) {
             WASMModuleInstance *module_inst_linked;
 
@@ -548,13 +556,22 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                 return NULL;
             }
         }
-        else
-#endif
-        {
+        else {
+            // TODO: Although it is for inherited memory, it misses a situation
+            // where the memory is imported from host or other modules
+            uint32 num_bytes_per_page =
+                import->u.memory.mem_type.num_bytes_per_page;
+            uint32 init_page_count = import->u.memory.mem_type.init_page_count;
+            uint32 max_page_count = wasm_runtime_get_max_mem(
+                max_memory_pages, import->u.memory.mem_type.init_page_count,
+                import->u.memory.mem_type.max_page_count);
+            uint32 flags = import->u.memory.mem_type.flags;
+            uint32 actual_heap_size = heap_size;
+
             if (!(memories[mem_index] = memory_instantiate(
-                      module_inst, parent, memory, mem_index,
-                      num_bytes_per_page, init_page_count, max_page_count,
-                      actual_heap_size, flags, error_buf, error_buf_size))) {
+                      module, parent, memory, mem_index, num_bytes_per_page,
+                      init_page_count, max_page_count, actual_heap_size, flags,
+                      aux_heap_base_global_data, error_buf, error_buf_size))) {
                 memories_deinstantiate(module_inst, memories, memory_count);
                 return NULL;
             }
@@ -562,17 +579,27 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         }
     }
 
+    bh_assert(mem_index == module->import_memory_count);
+    bh_assert(memory
+              == module_inst->global_table_data.memory_instances
+                     + module->import_memory_count);
+#else
+    mem_index = module->import_memory_count;
+    memory = module_inst->global_table_data.memory_instances
+             + module->import_memory_count;
+#endif /* WASM_ENABLE_MULTI_MODULE != 0 */
+
     /* instantiate memories from memory section */
     for (i = 0; i < module->memory_count; i++, memory++) {
         uint32 max_page_count = wasm_runtime_get_max_mem(
             max_memory_pages, module->memories[i].init_page_count,
             module->memories[i].max_page_count);
         if (!(memories[mem_index] = memory_instantiate(
-                  module_inst, parent, memory, mem_index,
+                  module, parent, memory, mem_index,
                   module->memories[i].num_bytes_per_page,
                   module->memories[i].init_page_count, max_page_count,
-                  heap_size, module->memories[i].flags, error_buf,
-                  error_buf_size))) {
+                  heap_size, module->memories[i].flags,
+                  aux_heap_base_global_data, error_buf, error_buf_size))) {
             memories_deinstantiate(module_inst, memories, memory_count);
             return NULL;
         }
@@ -582,6 +609,36 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
     bh_assert(mem_index == memory_count);
     (void)module_inst;
     return memories;
+}
+
+WASMMemoryInstance *
+wasm_create_memory(const WASMModule *module, const WASMMemoryType *type,
+                   uint32 index)
+{
+    WASMMemoryInstance *memory = NULL;
+    char error_buf[64] = { 0 };
+
+    memory = runtime_malloc(sizeof(WASMMemoryInstance), error_buf,
+                            sizeof(error_buf));
+    if (!memory) {
+        LOG_ERROR("Failed to create WASMMemoryInstance: %s", error_buf);
+        return NULL;
+    }
+
+    return memory_instantiate(module, NULL, memory, index,
+                              type->num_bytes_per_page, type->init_page_count,
+                              type->max_page_count,
+                              0,           // heap_size
+                              type->flags, // flags
+                              NULL,        // aux_heap_base_global_data
+                              error_buf, sizeof(error_buf));
+}
+
+void
+wasm_destroy_memory(WASMMemoryInstance *memory)
+{
+    memory_deinstantiate(memory);
+    wasm_runtime_free(memory);
 }
 
 /**
@@ -1879,6 +1936,12 @@ execute_free_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     return ret;
 }
 
+/*
+ * all imported WASMXXXInstance shall be linked and NOT NULL
+ *
+ * TODO: not sure if MULTI_MODULE can be used under the same conditions
+ * for checking.
+ */
 static bool
 check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
                     uint32 error_buf_size)
@@ -1932,16 +1995,12 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
     }
 
     for (i = 0; i < module->import_memory_count; i++) {
-        WASMMemoryImport *memory = &((module->import_memories + i)->u.memory);
-
-        if (!wasm_runtime_is_built_in_module(memory->module_name)
-#if WASM_ENABLE_MULTI_MODULE != 0
-            && !memory->import_memory_linked
-#endif
-        ) {
+        WASMMemoryInstance *memory = module_inst->memories[i];
+        if (memory == NULL) {
+            WASMMemoryImport *type = &((module->import_memories + i)->u.memory);
             set_error_buf_v(error_buf, error_buf_size,
                             "failed to link import memory (%s, %s)",
-                            memory->module_name, memory->field_name);
+                            type->module_name, type->field_name);
             return false;
         }
     }
@@ -2340,7 +2399,8 @@ wasm_set_running_mode(WASMModuleInstance *module_inst, RunningMode running_mode)
 WASMModuleInstance *
 wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                  WASMExecEnv *exec_env_main, uint32 stack_size,
-                 uint32 heap_size, uint32 max_memory_pages, char *error_buf,
+                 uint32 heap_size, uint32 max_memory_pages, uint32 import_count,
+                 const struct WasmExternInstance *imports, char *error_buf,
                  uint32 error_buf_size)
 {
     WASMModuleInstance *module_inst;
@@ -2361,6 +2421,17 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
     if (!module)
         return NULL;
+
+    /* TODO: turn me on if the entire instantiation linking feature is complete
+     */
+    // #if WASM_ENABLE_MULTI_MODULE == 0
+    //     if (module->import_count > 0 && !imports) {
+    //         set_error_buf(error_buf, error_buf_size,
+    //                       "argument imports is NULL while module has
+    //                       imports");
+    //         return NULL;
+    //     }
+    // #endif
 
     /* Check the heap size */
     heap_size = align_uint(heap_size, 8);
@@ -2502,6 +2573,10 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 #endif
 
     /* Instantiate global firstly to get the mutable data size */
+    /*
+     * memory_instantiate() might change the value of __heap_base
+     * so, globals_instantiate() has to be called firstly
+     */
     global_count = module->import_global_count + module->global_count;
     if (global_count
         && !(globals = globals_instantiate(module, module_inst, error_buf,
@@ -2527,11 +2602,8 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
     /* export */
     module_inst->export_func_count = get_export_count(module, EXPORT_KIND_FUNC);
-#if WASM_ENABLE_MULTI_MEMORY != 0
     module_inst->export_memory_count =
         get_export_count(module, EXPORT_KIND_MEMORY);
-#endif
-#if WASM_ENABLE_MULTI_MODULE != 0
     module_inst->export_table_count =
         get_export_count(module, EXPORT_KIND_TABLE);
 #if WASM_ENABLE_TAGS != 0
@@ -2540,13 +2612,20 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 #endif
     module_inst->export_global_count =
         get_export_count(module, EXPORT_KIND_GLOBAL);
-#endif
 
     /* Instantiate memories/tables/functions/tags */
+    uint8 *aux_heap_base_global_data = NULL;
+    if (module_inst->e->globals
+        && module->aux_heap_base_global_index < module->global_count) {
+        aux_heap_base_global_data =
+            module_inst->global_data
+            + module_inst->e->globals[module->aux_heap_base_global_index]
+                  .data_offset;
+    }
     if ((module_inst->memory_count > 0
          && !(module_inst->memories = memories_instantiate(
                   module, module_inst, parent, heap_size, max_memory_pages,
-                  error_buf, error_buf_size)))
+                  aux_heap_base_global_data, error_buf, error_buf_size)))
         || (module_inst->table_count > 0
             && !(module_inst->tables =
                      tables_instantiate(module, module_inst, first_table,
@@ -2590,6 +2669,36 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
     ) {
         goto fail;
     }
+
+#if WASM_ENABLE_MULTI_MODULE == 0
+    /* imports */
+    /*
+     * const struct WasmExternInstance *imports should have the same order
+     * with import section content in .wasm.
+     */
+    {
+        uint32 import_memory_index = 0;
+        uint32 import_index = 0;
+        for (; import_index < import_count; import_index++) {
+            /* TODO: remove me if the entire instantiation linking feature is
+             * complete */
+            if (imports == NULL)
+                break;
+
+            const struct WasmExternInstance *import = imports + import_index;
+            if (import->kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
+                if (import_memory_index >= module->import_memory_count) {
+                    LOG_ERROR("provided import memory not match requirement");
+                    goto fail;
+                }
+
+                module_inst->memories[import_memory_index] = import->u.memory;
+                import_memory_index++;
+            }
+        }
+    }
+#endif
+
     if (global_count > 0) {
         /* Initialize the global data */
         global_data = module_inst->global_data;
@@ -5032,3 +5141,48 @@ wasm_get_module_name(WASMModule *module)
 {
     return module->name;
 }
+
+#if WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0
+/*
+ * The function is used to create a new struct WasmExternInstance list
+ * for a spawned thread.
+ */
+int32
+wasm_runtime_inherit_imports(WASMModule *module, WASMModuleInstance *inst,
+                             struct WasmExternInstance *out, int32_t out_len)
+{
+    int32_t spawned_import_count = module->import_count;
+    if (spawned_import_count > out_len) {
+        LOG_WARNING("The number of imported functions is more than the "
+                    "length of provided buffer ");
+        return -1;
+    }
+
+    for (int32_t i = 0, import_memory_index = 0; i < spawned_import_count;
+         i++) {
+        wasm_import_t import_type = { 0 };
+
+        wasm_runtime_get_import_type((WASMModuleCommon *)module, i,
+                                     &import_type);
+
+        out[i].module_name = import_type.module_name;
+        out[i].field_name = import_type.name;
+        out[i].kind = import_type.kind;
+
+        if (import_type.kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
+            out[i].u.memory = inst->memories[import_memory_index];
+#if WASM_ENABLE_SHARED_MEMORY != 0
+            shared_memory_inc_reference(inst->memories[import_memory_index]);
+#endif
+            import_memory_index++;
+        }
+        else {
+            LOG_WARNING("for spawned, unimplemented import(%s,%s) kind %d\n",
+                        import_type.module_name, import_type.name,
+                        import_type.kind);
+        }
+    }
+
+    return 0;
+}
+#endif
