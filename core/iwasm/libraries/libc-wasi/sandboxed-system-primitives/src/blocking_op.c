@@ -175,14 +175,14 @@ blocking_op_openat(wasm_exec_env_t exec_env, os_file_handle handle,
 #ifndef BH_PLATFORM_WINDOWS
 /* REVISIT: apply the os_file_handle style abstraction for pollfd? */
 __wasi_errno_t
-blocking_op_poll(wasm_exec_env_t exec_env, struct pollfd *pfds, nfds_t nfds,
-                 int timeout_ms, int *retp)
+blocking_op_poll(wasm_exec_env_t exec_env, os_poll_file_handle *pfds,
+                 os_nfds_t nfds, int timeout_ms, int *retp)
 {
     int ret;
     if (!wasm_runtime_begin_blocking_op(exec_env)) {
         return __WASI_EINTR;
     }
-    ret = poll(pfds, nfds, timeout_ms);
+    ret = os_poll(pfds, nfds, timeout_ms);
     wasm_runtime_end_blocking_op(exec_env);
     if (ret == -1) {
         return convert_errno(errno);

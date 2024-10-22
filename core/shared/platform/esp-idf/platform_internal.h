@@ -144,6 +144,12 @@ typedef int os_file_handle;
 typedef DIR *os_dir_stream;
 typedef int os_raw_file_handle;
 
+/* The below types are used in platform_api_extension.h,
+   we just define them to make the compiler happy */
+typedef int os_poll_file_handle;
+typedef unsigned int os_nfds_t;
+typedef int os_timespec;
+
 static inline os_file_handle
 os_get_invalid_handle(void)
 {
