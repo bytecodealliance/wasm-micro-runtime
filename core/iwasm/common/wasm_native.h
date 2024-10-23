@@ -100,10 +100,10 @@ wasm_native_inherit_contexts(struct WASMModuleInstanceCommon *child,
 #endif /* WASM_ENABLE_MODULE_INST_CONTEXT */
 
 bool
-wasm_native_init();
+wasm_native_init(void);
 
 void
-wasm_native_destroy();
+wasm_native_destroy(void);
 
 #if WASM_ENABLE_QUICK_AOT_ENTRY != 0
 void *

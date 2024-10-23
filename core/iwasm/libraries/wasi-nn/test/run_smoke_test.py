@@ -260,6 +260,63 @@ def execute_openvino_road_segmentation_adas(
     print("------------------------------------------------------------")
 
 
+def execute_wasmedge_ggml_qwen(iwasm_bin: str, wasmedge_bin: str, cwd: Path):
+    iwasm_args = ["--dir=."]
+    wasm_file = ["./target/wasm32-wasi/debug/wasmedge-ggml-qwen.wasm"]
+    wasm_args = ["./qwen1_5-0_5b-chat-q2_k.gguf"]
+
+    cmd = [iwasm_bin]
+    cmd.extend(iwasm_args)
+    cmd.extend(wasm_file)
+    cmd.extend(wasm_args)
+
+    # print(f'Execute: {" ".join(cmd)}')
+
+    prompt = "what is the capital of Pakistan"
+
+    with subprocess.Popen(
+        cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=cwd,
+    ) as p:
+        # USER
+        p.stdout.readline()
+
+        p.stdin.write(b"hi\n")
+        p.stdin.flush()
+        # ASSITANT
+        p.stdout.readline()
+        # xxx
+        p.stdout.readline()
+        # USER
+        p.stdout.readline()
+
+        p.stdin.write(prompt.encode())
+        p.stdin.write(b"\n")
+        p.stdin.flush()
+        # ASSITANT
+        p.stdout.readline()
+        # xxx
+        answer = p.stdout.readline().decode("utf-8")
+        # USER
+        p.stdout.readline()
+
+        p.terminate()
+
+    if "Karachi" in answer:
+        print(f"- wasmedge_ggml_qwen. PASS")
+        return
+
+    print(f"- wasmedge_ggml_qwen. FAILED")
+    print("------------------------------------------------------------")
+    pprint(answer)
+    print("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+    pprint("Karachi")
+    print("------------------------------------------------------------")
+
+
 def execute_wasmedge_wasinn_examples(iwasm_bin: str, wasmedge_bin: str):
     assert Path.cwd().name == "wasmedge-wasinn-examples"
     assert shutil.which(iwasm_bin)
@@ -281,6 +338,9 @@ def execute_wasmedge_wasinn_examples(iwasm_bin: str, wasmedge_bin: str):
     execute_openvino_road_segmentation_adas(
         iwasm_bin, wasmedge_bin, openvino_road_segmentation_adas_dir
     )
+
+    wasmedge_ggml_qwem_dir = Path.cwd().joinpath("./wasmedge-ggml/qwen")
+    execute_wasmedge_ggml_qwen(iwasm_bin, wasmedge_bin, wasmedge_ggml_qwem_dir)
 
 
 if __name__ == "__main__":

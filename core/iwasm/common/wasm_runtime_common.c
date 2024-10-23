@@ -86,7 +86,7 @@ static bh_list registered_module_list_head;
 static bh_list *const registered_module_list = &registered_module_list_head;
 static korp_mutex registered_module_list_lock;
 static void
-wasm_runtime_destroy_registered_module_list();
+wasm_runtime_destroy_registered_module_list(void);
 #endif /* WASM_ENABLE_MULTI_MODULE */
 
 #define E_TYPE_XIP 4
@@ -97,11 +97,11 @@ val_type_to_val_kind(uint8 value_type);
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
 /* Initialize externref hashmap */
 static bool
-wasm_externref_map_init();
+wasm_externref_map_init(void);
 
 /* Destroy externref hashmap */
 static void
-wasm_externref_map_destroy();
+wasm_externref_map_destroy(void);
 #endif /* end of WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0 */
 
 static void
@@ -185,6 +185,9 @@ static bool
 is_sig_addr_in_guard_pages(void *sig_addr, WASMModuleInstance *module_inst)
 {
     WASMMemoryInstance *memory_inst;
+#if WASM_ENABLE_SHARED_HEAP != 0
+    WASMSharedHeap *shared_heap;
+#endif
     uint8 *mapped_mem_start_addr = NULL;
     uint8 *mapped_mem_end_addr = NULL;
     uint32 i;
@@ -201,6 +204,21 @@ is_sig_addr_in_guard_pages(void *sig_addr, WASMModuleInstance *module_inst)
             return true;
         }
     }
+
+#if WASM_ENABLE_SHARED_HEAP != 0
+    shared_heap =
+        wasm_runtime_get_shared_heap((WASMModuleInstanceCommon *)module_inst);
+    if (shared_heap) {
+        mapped_mem_start_addr = shared_heap->base_addr;
+        mapped_mem_end_addr = shared_heap->base_addr + 8 * (uint64)BH_GB;
+        if (mapped_mem_start_addr <= (uint8 *)sig_addr
+            && (uint8 *)sig_addr < mapped_mem_end_addr) {
+            /* The address which causes segmentation fault is inside
+               the shared heap's guard regions */
+            return true;
+        }
+    }
+#endif
 
     return false;
 }
@@ -340,7 +358,6 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
     PEXCEPTION_RECORD ExceptionRecord = exce_info->ExceptionRecord;
     uint8 *sig_addr = (uint8 *)ExceptionRecord->ExceptionInformation[1];
     WASMModuleInstance *module_inst;
-    WASMMemoryInstance *memory_inst;
     WASMJmpBuf *jmpbuf_node;
     uint8 *mapped_mem_start_addr = NULL;
     uint8 *mapped_mem_end_addr = NULL;
@@ -438,7 +455,7 @@ wasm_runtime_get_exec_env_tls()
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
 static bool
-wasm_runtime_env_init()
+wasm_runtime_env_init(void)
 {
     if (bh_platform_init() != 0)
         return false;
@@ -584,7 +601,7 @@ static korp_mutex runtime_lock = OS_THREAD_MUTEX_INITIALIZER;
 static int32 runtime_ref_count = 0;
 
 static bool
-wasm_runtime_init_internal()
+wasm_runtime_init_internal(void)
 {
     if (!wasm_runtime_memory_init(Alloc_With_System_Allocator, NULL))
         return false;
@@ -622,7 +639,7 @@ wasm_runtime_init()
 }
 
 static void
-wasm_runtime_destroy_internal()
+wasm_runtime_destroy_internal(void)
 {
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     wasm_externref_map_destroy();
@@ -1484,6 +1501,22 @@ wasm_runtime_load_ex(uint8 *buf, uint32 size, const LoadArgs *args,
                                           error_buf_size);
 }
 
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_resolve_symbols(WASMModuleCommon *module)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        return wasm_resolve_symbols((WASMModule *)module);
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        return aot_resolve_symbols((AOTModule *)module);
+    }
+#endif
+    return false;
+}
+
 WASMModuleCommon *
 wasm_runtime_load(uint8 *buf, uint32 size, char *error_buf,
                   uint32 error_buf_size)
@@ -2190,6 +2223,13 @@ void *
 wasm_runtime_get_user_data(WASMExecEnv *exec_env)
 {
     return exec_env->user_data;
+}
+
+void
+wasm_runtime_set_native_stack_boundary(WASMExecEnv *exec_env,
+                                       uint8 *native_stack_boundary)
+{
+    exec_env->user_native_stack_boundary = native_stack_boundary;
 }
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
@@ -3577,7 +3617,8 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         char mapping_copy_buf[256];
         char *mapping_copy = mapping_copy_buf;
         char *map_mapped = NULL, *map_host = NULL;
-        const unsigned long max_len = strlen(map_dir_list[i]) * 2 + 3;
+        const unsigned long max_len =
+            (unsigned long)strlen(map_dir_list[i]) * 2 + 3;
 
         /* Allocation limit for runtime environments with reduced stack size */
         if (max_len > 256) {
@@ -3867,23 +3908,18 @@ wasm_runtime_is_wasi_mode(WASMModuleInstanceCommon *module_inst)
 WASMFunctionInstanceCommon *
 wasm_runtime_lookup_wasi_start_function(WASMModuleInstanceCommon *module_inst)
 {
-    uint32 i;
-
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
         WASMModuleInstance *wasm_inst = (WASMModuleInstance *)module_inst;
-        WASMFunctionInstance *func;
-        for (i = 0; i < wasm_inst->export_func_count; i++) {
-            if (!strcmp(wasm_inst->export_functions[i].name, "_start")) {
-                func = wasm_inst->export_functions[i].function;
-                if (func->u.func->func_type->param_count != 0
-                    || func->u.func->func_type->result_count != 0) {
-                    LOG_ERROR("Lookup wasi _start function failed: "
-                              "invalid function type.\n");
-                    return NULL;
-                }
-                return (WASMFunctionInstanceCommon *)func;
+        WASMFunctionInstance *func = wasm_lookup_function(wasm_inst, "_start");
+        if (func) {
+            if (func->u.func->func_type->param_count != 0
+                || func->u.func->func_type->result_count != 0) {
+                LOG_ERROR("Lookup wasi _start function failed: "
+                          "invalid function type.\n");
+                return NULL;
             }
+            return (WASMFunctionInstanceCommon *)func;
         }
         return NULL;
     }
@@ -3892,19 +3928,15 @@ wasm_runtime_lookup_wasi_start_function(WASMModuleInstanceCommon *module_inst)
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
         AOTModuleInstance *aot_inst = (AOTModuleInstance *)module_inst;
-        AOTFunctionInstance *export_funcs =
-            (AOTFunctionInstance *)aot_inst->export_functions;
-        for (i = 0; i < aot_inst->export_func_count; i++) {
-            if (!strcmp(export_funcs[i].func_name, "_start")) {
-                AOTFuncType *func_type = export_funcs[i].u.func.func_type;
-                if (func_type->param_count != 0
-                    || func_type->result_count != 0) {
-                    LOG_ERROR("Lookup wasi _start function failed: "
-                              "invalid function type.\n");
-                    return NULL;
-                }
-                return (WASMFunctionInstanceCommon *)&export_funcs[i];
+        AOTFunctionInstance *func = aot_lookup_function(aot_inst, "_start");
+        if (func) {
+            AOTFuncType *func_type = func->u.func.func_type;
+            if (func_type->param_count != 0 || func_type->result_count != 0) {
+                LOG_ERROR("Lookup wasi _start function failed: "
+                          "invalid function type.\n");
+                return NULL;
             }
+            return func;
         }
         return NULL;
     }
@@ -4498,9 +4530,14 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
                                uint32 *argv, uint32 argc, uint32 *argv_ret)
 {
     WASMModuleInstanceCommon *module = wasm_runtime_get_module_inst(exec_env);
+#if WASM_ENABLE_MEMORY64 != 0
+    WASMMemoryInstance *memory =
+        wasm_get_default_memory((WASMModuleInstance *)module);
+    bool is_memory64 = memory ? memory->is_memory64 : false;
+#endif
     typedef void (*NativeRawFuncPtr)(WASMExecEnv *, uint64 *);
     NativeRawFuncPtr invoke_native_raw = (NativeRawFuncPtr)func_ptr;
-    uint64 argv_buf[16] = { 0 }, *argv1 = argv_buf, *argv_dst, size, arg_i64;
+    uint64 argv_buf[16] = { 0 }, *argv1 = argv_buf, *argv_dst, size;
     uint32 *argv_src = argv, i, argc1, ptr_len;
     uint32 arg_i32;
     bool ret = false;
@@ -4525,11 +4562,11 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
 #endif
             {
                 *(uint32 *)argv_dst = arg_i32 = *argv_src++;
-                /* TODO: memory64 if future there is a way for supporting
-                 * wasm64 and wasm32 in libc at the same time, remove the
-                 * macro control */
-#if WASM_ENABLE_MEMORY64 == 0
-                if (signature) {
+                if (signature
+#if WASM_ENABLE_MEMORY64 != 0
+                    && !is_memory64
+#endif
+                ) {
                     if (signature[i + 1] == '*') {
                         /* param is a pointer */
                         if (signature[i + 2] == '~')
@@ -4558,17 +4595,18 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
                                 module, (uint64)arg_i32);
                     }
                 }
-#endif
                 break;
             }
             case VALUE_TYPE_I64:
 #if WASM_ENABLE_MEMORY64 != 0
             {
+                uint64 arg_i64;
+
                 PUT_I64_TO_ADDR((uint32 *)argv_dst,
                                 GET_I64_FROM_ADDR(argv_src));
                 argv_src += 2;
                 arg_i64 = *argv_dst;
-                if (signature) {
+                if (signature && is_memory64) {
                     /* TODO: memory64 pointer with length need a new symbol
                      * to represent type i64, with '~' still represent i32
                      * length */
@@ -4729,9 +4767,6 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
 fail:
     if (argv1 != argv_buf)
         wasm_runtime_free(argv1);
-#if WASM_ENABLE_MEMORY64 == 0
-    (void)arg_i64;
-#endif
     return ret;
 }
 
@@ -4747,7 +4782,7 @@ fail:
     || defined(BUILD_TARGET_RISCV32_ILP32D)                          \
     || defined(BUILD_TARGET_RISCV32_ILP32F)                          \
     || defined(BUILD_TARGET_RISCV32_ILP32) || defined(BUILD_TARGET_ARC)
-typedef void (*GenericFunctionPointer)();
+typedef void (*GenericFunctionPointer)(void);
 void
 invokeNative(GenericFunctionPointer f, uint32 *args, uint32 n_stacks);
 
@@ -5312,7 +5347,7 @@ fail:
 #if defined(BUILD_TARGET_X86_32) || defined(BUILD_TARGET_ARM)    \
     || defined(BUILD_TARGET_THUMB) || defined(BUILD_TARGET_MIPS) \
     || defined(BUILD_TARGET_XTENSA)
-typedef void (*GenericFunctionPointer)();
+typedef void (*GenericFunctionPointer)(void);
 void
 invokeNative(GenericFunctionPointer f, uint32 *args, uint32 sz);
 
@@ -5597,7 +5632,7 @@ typedef uint32x4_t __m128i;
 
 #endif /* end of WASM_ENABLE_SIMD != 0 */
 
-typedef void (*GenericFunctionPointer)();
+typedef void (*GenericFunctionPointer)(void);
 void
 invokeNative(GenericFunctionPointer f, uint64 *args, uint64 n_stacks);
 
@@ -5655,6 +5690,11 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                            uint32 *argv_ret)
 {
     WASMModuleInstanceCommon *module = wasm_runtime_get_module_inst(exec_env);
+#if WASM_ENABLE_MEMORY64 != 0
+    WASMMemoryInstance *memory =
+        wasm_get_default_memory((WASMModuleInstance *)module);
+    bool is_memory64 = memory ? memory->is_memory64 : false;
+#endif
     uint64 argv_buf[32] = { 0 }, *argv1 = argv_buf, *ints, *stacks, size,
            arg_i64;
     uint32 *argv_src = argv, i, argc1, n_ints = 0, n_stacks = 0;
@@ -5720,11 +5760,11 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
             {
                 arg_i32 = *argv_src++;
                 arg_i64 = arg_i32;
-                /* TODO: memory64 if future there is a way for supporting
-                 * wasm64 and wasm32 in libc at the same time, remove the
-                 * macro control */
-#if WASM_ENABLE_MEMORY64 == 0
-                if (signature) {
+                if (signature
+#if WASM_ENABLE_MEMORY64 != 0
+                    && !is_memory64
+#endif
+                ) {
                     if (signature[i + 1] == '*') {
                         /* param is a pointer */
                         if (signature[i + 2] == '~')
@@ -5751,7 +5791,6 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                             module, (uint64)arg_i32);
                     }
                 }
-#endif
                 if (n_ints < MAX_REG_INTS)
                     ints[n_ints++] = arg_i64;
                 else
@@ -5763,7 +5802,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
             {
                 arg_i64 = GET_I64_FROM_ADDR(argv_src);
                 argv_src += 2;
-                if (signature) {
+                if (signature && is_memory64) {
                     /* TODO: memory64 pointer with length need a new symbol
                      * to represent type i64, with '~' still represent i32
                      * length */

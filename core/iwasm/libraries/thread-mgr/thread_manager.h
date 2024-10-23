@@ -11,6 +11,9 @@
 #include "wasm_export.h"
 #include "../interpreter/wasm.h"
 #include "../common/wasm_runtime_common.h"
+#if WASM_ENABLE_SHARED_HEAP != 0
+#include "../common/wasm_memory.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -64,10 +67,10 @@ void
 wasm_cluster_set_max_thread_num(uint32 num);
 
 bool
-thread_manager_init();
+thread_manager_init(void);
 
 void
-thread_manager_destroy();
+thread_manager_destroy(void);
 
 /* Create cluster */
 WASMCluster *
@@ -109,7 +112,7 @@ bool
 wasm_cluster_register_destroy_callback(void (*callback)(WASMCluster *));
 
 void
-wasm_cluster_cancel_all_callbacks();
+wasm_cluster_cancel_all_callbacks(void);
 
 void
 wasm_cluster_suspend_all(WASMCluster *cluster);
@@ -167,6 +170,15 @@ wasm_cluster_set_context(WASMModuleInstanceCommon *module_inst, void *key,
 bool
 wasm_cluster_is_thread_terminated(WASMExecEnv *exec_env);
 
+#if WASM_ENABLE_SHARED_HEAP != 0
+bool
+wasm_cluster_attach_shared_heap(WASMModuleInstanceCommon *module_inst,
+                                WASMSharedHeap *heap);
+
+void
+wasm_cluster_detach_shared_heap(WASMModuleInstanceCommon *module_inst);
+#endif
+
 #if WASM_ENABLE_DEBUG_INTERP != 0
 #define WAMR_SIG_TRAP (5)
 #define WAMR_SIG_STOP (19)
@@ -190,7 +202,7 @@ struct WASMCurrentEnvStatus {
 };
 
 WASMCurrentEnvStatus *
-wasm_cluster_create_exenv_status();
+wasm_cluster_create_exenv_status(void);
 
 void
 wasm_cluster_destroy_exenv_status(WASMCurrentEnvStatus *status);
