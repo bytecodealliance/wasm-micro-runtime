@@ -132,6 +132,35 @@ refcount_release(struct refcount *r)
 #error "Reference counter isn't implemented"
 #endif /* end of __GNUC_PREREQ (4.7) */
 
+#elif defined(_MSC_VER)
+
+/* Simple reference counter. */
+struct LOCKABLE refcount {
+    LONG count;
+};
+
+/* Initialize the reference counter. */
+static inline void
+refcount_init(struct refcount *r, unsigned int count)
+{
+    InterlockedExchange(&r->count, (LONG)count);
+}
+
+/* Increment the reference counter. */
+static inline void
+refcount_acquire(struct refcount *r)
+{
+    InterlockedIncrement(&r->count);
+}
+
+/* Decrement the reference counter, returning whether the reference
+   dropped to zero. */
+static inline bool
+refcount_release(struct refcount *r)
+{
+    return InterlockedDecrement(&r->count) == 0 ? true : false;
+}
+
 #else /* else of CONFIG_HAS_STD_ATOMIC */
 #error "Reference counter isn't implemented"
 #endif /* end of CONFIG_HAS_STD_ATOMIC */

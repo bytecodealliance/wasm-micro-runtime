@@ -138,18 +138,25 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
 
     /* memory hasn't been mapped or was mapped failed previously */
     if (addr == MAP_FAILED) {
-        /* try 5 times */
-        for (i = 0; i < 5; i++) {
+        /* try 5 times on EAGAIN or ENOMEM, and keep retrying on EINTR */
+        i = 0;
+        while (i < 5) {
             addr = mmap(hint, request_size, map_prot, map_flags, file, 0);
             if (addr != MAP_FAILED)
                 break;
+            if (errno == EINTR)
+                continue;
+            if (errno != EAGAIN && errno != ENOMEM) {
+                break;
+            }
+            i++;
         }
     }
 
     if (addr == MAP_FAILED) {
-#if BH_ENABLE_TRACE_MMAP != 0
-        os_printf("mmap failed\n");
-#endif
+        os_printf("mmap failed with errno: %d, hint: %p, size: %" PRIu64
+                  ", prot: %d, flags: %d",
+                  errno, hint, request_size, map_prot, map_flags);
         return NULL;
     }
 

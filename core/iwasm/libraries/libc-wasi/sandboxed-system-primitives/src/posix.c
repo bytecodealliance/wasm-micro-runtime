@@ -3130,7 +3130,7 @@ compare_address(const struct addr_pool *addr_pool_entry,
         }
         addr_size = 16;
     }
-    max_addr_mask = addr_size * 8;
+    max_addr_mask = (uint8)(addr_size * 8);
 
     /* IPv4 0.0.0.0 or IPv6 :: means any address */
     if (basebuf[0] == 0 && !memcmp(basebuf, basebuf + 1, addr_size - 1)) {

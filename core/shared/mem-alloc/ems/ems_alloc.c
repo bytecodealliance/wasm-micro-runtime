@@ -992,8 +992,8 @@ gci_dump(gc_heap_t *heap)
 
         os_printf("#%d %08" PRIx32 " %" PRIx32 " %d %d"
                   " %c %" PRId32 "\n",
-                  i, (int32)((char *)cur - (char *)heap->base_addr), (int32)ut,
-                  p, mark, inuse, (int32)hmu_obj_size(size));
+                  i, (uint32)((char *)cur - (char *)heap->base_addr),
+                  (uint32)ut, p, mark, inuse, (int32)hmu_obj_size(size));
 #if BH_ENABLE_GC_VERIFY != 0
         if (inuse == 'V') {
             gc_object_prefix_t *prefix = (gc_object_prefix_t *)(cur + 1);

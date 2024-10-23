@@ -53,12 +53,6 @@ get_target_symbol_map(uint32 *sym_num)
     return target_sym_map;
 }
 
-#if (defined(__APPLE__) || defined(__MACH__)) && defined(__arm64__)
-#define BUILD_TARGET_AARCH64_DEFAULT "arm64"
-#else
-#define BUILD_TARGET_AARCH64_DEFAULT "aarch64v8"
-#endif
-
 void
 get_current_target(char *target_buf, uint32 target_buf_size)
 {
@@ -68,8 +62,8 @@ get_current_target(char *target_buf, uint32 target_buf_size)
 
     /* Set to "aarch64v8" by default if sub version isn't specified */
     if (strcmp(s, "AARCH64") == 0) {
-        s = BUILD_TARGET_AARCH64_DEFAULT;
-        s_size = sizeof(BUILD_TARGET_AARCH64_DEFAULT);
+        s = "aarch64v8";
+        s_size = 9; /* strlen("aarch64v8"); */
     }
     if (target_buf_size < s_size) {
         s_size = target_buf_size;
@@ -83,10 +77,9 @@ get_current_target(char *target_buf, uint32 target_buf_size)
     /* Ensure the string is null byte ('\0') terminated */
     *d = '\0';
 }
-#undef BUILD_TARGET_AARCH64_DEFAULT
 
 static uint32
-get_plt_item_size()
+get_plt_item_size(void)
 {
     /* 6*4 bytes instructions and 8 bytes symbol address */
     return 32;

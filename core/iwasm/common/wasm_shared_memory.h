@@ -17,10 +17,10 @@ extern "C" {
 extern korp_mutex g_shared_memory_lock;
 
 bool
-wasm_shared_memory_init();
+wasm_shared_memory_init(void);
 
 void
-wasm_shared_memory_destroy();
+wasm_shared_memory_destroy(void);
 
 uint16
 shared_memory_inc_reference(WASMMemoryInstance *memory);
