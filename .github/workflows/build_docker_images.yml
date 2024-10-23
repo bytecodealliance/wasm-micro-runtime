@@ -15,9 +15,14 @@ on:
         type: string
         required: true
 
+permissions:
+  contents: read
+
 jobs:
   build-and-push-images:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write # for uploading release artifacts
 
     steps:
       - name: Checkout repository

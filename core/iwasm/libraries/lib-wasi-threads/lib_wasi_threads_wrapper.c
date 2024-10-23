@@ -29,7 +29,7 @@ typedef struct {
 } ThreadStartArg;
 
 static int32
-allocate_thread_id()
+allocate_thread_id(void)
 {
     os_mutex_lock(&thread_id_lock);
     int32 id = tid_allocator_get_tid(&tid_allocator);

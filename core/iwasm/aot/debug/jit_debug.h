@@ -11,10 +11,10 @@ extern "C" {
 #endif
 
 bool
-jit_debug_engine_init();
+jit_debug_engine_init(void);
 
 void
-jit_debug_engine_destroy();
+jit_debug_engine_destroy(void);
 
 bool
 jit_code_entry_create(const uint8 *symfile_addr, uint64 symfile_size);
