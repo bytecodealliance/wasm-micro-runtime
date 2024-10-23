@@ -21,6 +21,10 @@
 #include "../common/wasm_shared_memory.h"
 #endif
 
+#if WASM_ENABLE_SIMD != 0
+#include "simde/wasm/simd128.h"
+#endif
+
 typedef int32 CellType_I32;
 typedef int64 CellType_I64;
 typedef float32 CellType_F32;
@@ -5739,6 +5743,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 goto call_func_from_entry;
             }
 #if WASM_ENABLE_SIMD != 0
+/* TODO: Add x86 with additional #if */
+#define SIMD_V128_TO_SIMDE_V128(v) \
+    vreinterpretq_s32_u8(vld1q_u8((uint8_t *)&(v)))
+
+#define SIMDE_V128_TO_SIMD_V128(sv, v)              \
+    do {                                            \
+        uint8x16_t temp = vreinterpretq_u8_s32(sv); \
+        vst1q_u8((uint8_t *)&(v), temp);            \
+    } while (0)
+
             HANDLE_OP(WASM_OP_SIMD_PREFIX)
             {
                 GET_OPCODE();
@@ -5746,6 +5760,17 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 switch (opcode) {
                     /* Memory */
                     case SIMD_v128_load:
+                    {
+                        uint32 offset, addr;
+                        offset = read_uint32(
+                            frame_ip); // TODO: Check with an offset!
+                        addr = GET_OPERAND(uint32, I32, 0);
+                        frame_ip += 2;
+                        addr_ret = GET_OFFSET();
+                        CHECK_MEMORY_OVERFLOW(16);
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, LOAD_V128(maddr));
+                        break;
+                    }
                     case SIMD_v128_load8x8_s:
                     case SIMD_v128_load8x8_u:
                     case SIMD_v128_load16x4_s:
@@ -5758,7 +5783,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case SIMD_v128_load64_splat:
                     case SIMD_v128_store:
                     {
-                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        uint32 offset, addr;
+                        offset = read_uint32(frame_ip);
+                        addr = GET_OPERAND(uint32, I32, 2);
+
+                        V128 data;
+                        data = POP_V128();
+                        frame_ip += 2;
+
+                        CHECK_MEMORY_OVERFLOW(16);
+                        STORE_V128(maddr, data);
                         break;
                     }
 
@@ -5774,10 +5808,24 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         break;
                     }
                     case SIMD_v8x16_shuffle:
-                    case SIMD_v8x16_swizzle:
                     {
                         wasm_set_exception(module, "unsupported SIMD opcode");
                         break;
+                    }
+                    case SIMD_v8x16_swizzle:
+                    {
+                        V128 v2 = POP_V128();
+                        V128 v1 = POP_V128();
+                        addr_ret = GET_OFFSET();
+
+                        simde_v128_t simde_result = simde_wasm_i8x16_swizzle(
+                            SIMD_V128_TO_SIMDE_V128(v1),
+                            SIMD_V128_TO_SIMDE_V128(v2));
+
+                        V128 result;
+                        SIMDE_V128_TO_SIMD_V128(simde_result, result);
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
                     }
 
                     /* Splat */
@@ -5815,6 +5863,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     /* i8x16 comparison operations */
                     case SIMD_i8x16_eq:
                     {
+                        // TODO: Use simde
                         V128 v1 = POP_V128();
                         V128 v2 = POP_V128();
                         int i;
@@ -5844,6 +5893,21 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                     /* i16x8 comparison operations */
                     case SIMD_i16x8_eq:
+                    {
+                        // TODO: Use simde
+                        V128 v1 = POP_V128();
+                        V128 v2 = POP_V128();
+                        int i;
+                        addr_ret = GET_OFFSET();
+
+                        V128 result;
+                        for (i = 0; i < 8; i++) {
+                            result.i16x8[i] =
+                                v1.i16x8[i] == v2.i16x8[i] ? 0xffff : 0;
+                        }
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
                     case SIMD_i16x8_ne:
                     case SIMD_i16x8_lt_s:
                     case SIMD_i16x8_lt_u:
