@@ -57,6 +57,9 @@ bh_static_assert(sizeof(AOTMemoryInstance) == 120);
 bh_static_assert(offsetof(AOTTableInstance, elems) == 24);
 
 bh_static_assert(offsetof(AOTModuleInstanceExtra, stack_sizes) == 0);
+bh_static_assert(offsetof(AOTModuleInstanceExtra, shared_heap_base_addr_adj)
+                 == 8);
+bh_static_assert(offsetof(AOTModuleInstanceExtra, shared_heap_start_off) == 16);
 
 bh_static_assert(sizeof(CApiFuncImport) == sizeof(uintptr_t) * 3);
 
@@ -134,6 +137,7 @@ is_frame_per_function(WASMExecEnv *exec_env)
     return module->feature_flags & WASM_FEATURE_FRAME_PER_FUNCTION;
 }
 
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
 static bool
 is_frame_func_idx_disabled(WASMExecEnv *exec_env)
 {
@@ -142,6 +146,7 @@ is_frame_func_idx_disabled(WASMExecEnv *exec_env)
 
     return module->feature_flags & WASM_FEATURE_FRAME_NO_FUNC_IDX;
 }
+#endif
 
 static void *
 get_top_frame(WASMExecEnv *exec_env)
@@ -737,18 +742,24 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
 #if WASM_ENABLE_REF_TYPES != 0
         bh_assert(
-            table_seg->offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
+            table_seg->offset.init_expr_type
+                == (tbl_inst->is_table64 ? INIT_EXPR_TYPE_I64_CONST
+                                         : INIT_EXPR_TYPE_I32_CONST)
             || table_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL
             || table_seg->offset.init_expr_type == INIT_EXPR_TYPE_FUNCREF_CONST
             || table_seg->offset.init_expr_type
                    == INIT_EXPR_TYPE_REFNULL_CONST);
 #else
-        bh_assert(table_seg->offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
+        bh_assert(table_seg->offset.init_expr_type
+                      == (tbl_inst->is_table64 ? INIT_EXPR_TYPE_I64_CONST
+                                               : INIT_EXPR_TYPE_I32_CONST)
                   || table_seg->offset.init_expr_type
                          == INIT_EXPR_TYPE_GET_GLOBAL);
 #endif
 
         /* Resolve table data base offset */
+        /* TODO: The table64 current implementation assumes table max size
+         * UINT32_MAX, so the offset conversion here is safe */
         if (table_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
             global_index = table_seg->offset.u.global_index;
 
@@ -1368,6 +1379,15 @@ init_func_type_indexes(AOTModuleInstance *module_inst, AOTModule *module,
     return true;
 }
 
+static int
+cmp_func_inst(const void *a, const void *b)
+{
+    const AOTFunctionInstance *func_inst1 = (const AOTFunctionInstance *)a;
+    const AOTFunctionInstance *func_inst2 = (const AOTFunctionInstance *)b;
+
+    return strcmp(func_inst1->func_name, func_inst2->func_name);
+}
+
 static bool
 create_export_funcs(AOTModuleInstance *module_inst, AOTModule *module,
                     char *error_buf, uint32 error_buf_size)
@@ -1408,6 +1428,9 @@ create_export_funcs(AOTModuleInstance *module_inst, AOTModule *module,
                 export_func++;
             }
         }
+
+        qsort(module_inst->export_functions, module_inst->export_func_count,
+              sizeof(AOTFunctionInstance), cmp_func_inst);
     }
 
     return true;
@@ -1469,9 +1492,7 @@ create_exports(AOTModuleInstance *module_inst, AOTModule *module,
         }
     }
 
-#if WASM_ENABLE_MULTI_MEMORY == 0
-    bh_assert(module_inst->export_memory_count <= 1);
-#else
+#if WASM_ENABLE_MULTI_MEMORY != 0
     if (module_inst->export_memory_count) {
         module_inst->export_memories = export_memories_instantiate(
             module, module_inst, module_inst->export_memory_count, error_buf,
@@ -1889,6 +1910,24 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     extra->stack_sizes =
         aot_get_data_section_addr(module, AOT_STACK_SIZES_SECTION_NAME, NULL);
 
+    /*
+     * The AOT code checks whether the n bytes to access are in shared heap
+     * by checking whether the beginning address meets:
+     *   addr >= start_off && addr <= end_off - n-bytes + 1
+     * where n is 1/2/4/8/16 and `end_off - n-bytes + 1` is constant, e.g.,
+     *   UINT32_MAX, UINT32_MAX-1, UINT32_MAX-3 for n = 1, 2 or 4 in 32-bit
+     * target. To simplify the check, when shared heap is disabled, we set
+     * the start off to UINT64_MAX in 64-bit target and UINT32_MAX in 32-bit
+     * target, so in the checking, the above formula will be false, we don't
+     * need to check whether the shared heap is enabled or not in the AOT
+     * code.
+     */
+#if UINTPTR_MAX == UINT64_MAX
+    extra->shared_heap_start_off.u64 = UINT64_MAX;
+#else
+    extra->shared_heap_start_off.u32[0] = UINT32_MAX;
+#endif
+
 #if WASM_ENABLE_PERF_PROFILING != 0
     total_size = sizeof(AOTFuncPerfProfInfo)
                  * ((uint64)module->import_func_count + module->func_count);
@@ -2179,14 +2218,15 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 AOTFunctionInstance *
 aot_lookup_function(const AOTModuleInstance *module_inst, const char *name)
 {
-    uint32 i;
     AOTFunctionInstance *export_funcs =
         (AOTFunctionInstance *)module_inst->export_functions;
+    AOTFunctionInstance key = { .func_name = (char *)name };
 
-    for (i = 0; i < module_inst->export_func_count; i++)
-        if (!strcmp(export_funcs[i].func_name, name))
-            return &export_funcs[i];
-    return NULL;
+    if (!export_funcs)
+        return NULL;
+
+    return bsearch(&key, export_funcs, module_inst->export_func_count,
+                   sizeof(AOTFunctionInstance), cmp_func_inst);
 }
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK

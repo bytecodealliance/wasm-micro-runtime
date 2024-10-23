@@ -678,6 +678,8 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
            uninitialized elements */
 #endif
 
+        table->is_table64 = import->u.table.table_type.flags & TABLE64_FLAG;
+
 #if WASM_ENABLE_MULTI_MODULE != 0
         *table_linked = table_inst_linked;
         if (table_inst_linked != NULL) {
@@ -736,6 +738,7 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         /* For GC, all elements have already been set to NULL_REF (0) as
            uninitialized elements */
 #endif
+        table->is_table64 = module->tables[i].table_type.flags & TABLE64_FLAG;
         table->elem_type = module->tables[i].table_type.elem_type;
 #if WASM_ENABLE_GC != 0
         table->elem_ref_type.elem_ref_type =
@@ -1364,6 +1367,17 @@ export_functions_deinstantiate(WASMExportFuncInstance *functions)
         wasm_runtime_free(functions);
 }
 
+static int
+cmp_export_func_inst(const void *a, const void *b)
+{
+    const WASMExportFuncInstance *export_func1 =
+        (const WASMExportFuncInstance *)a;
+    const WASMExportFuncInstance *export_func2 =
+        (const WASMExportFuncInstance *)b;
+
+    return strcmp(export_func1->name, export_func2->name);
+}
+
 /**
  * Instantiate export functions in a module.
  */
@@ -1392,6 +1406,9 @@ export_functions_instantiate(const WASMModule *module,
         }
 
     bh_assert((uint32)(export_func - export_funcs) == export_func_count);
+
+    qsort(export_funcs, export_func_count, sizeof(WASMExportFuncInstance),
+          cmp_export_func_inst);
     return export_funcs;
 }
 
@@ -2795,6 +2812,14 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         }
     }
 
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_SHARED_HEAP != 0
+#if UINTPTR_MAX == UINT64_MAX
+    module_inst->e->shared_heap_start_off.u64 = UINT64_MAX;
+#else
+    module_inst->e->shared_heap_start_off.u32[0] = UINT32_MAX;
+#endif
+#endif
+
 #if WASM_ENABLE_GC != 0
     /* Initialize the table data with init expr */
     for (i = 0; i < module->table_count; i++) {
@@ -3409,11 +3434,20 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
 WASMFunctionInstance *
 wasm_lookup_function(const WASMModuleInstance *module_inst, const char *name)
 {
-    uint32 i;
-    for (i = 0; i < module_inst->export_func_count; i++)
-        if (!strcmp(module_inst->export_functions[i].name, name))
-            return module_inst->export_functions[i].function;
-    return NULL;
+    WASMExportFuncInstance key = { .name = (char *)name };
+    WASMExportFuncInstance *export_func_inst;
+
+    if (!module_inst->export_functions)
+        return NULL;
+
+    export_func_inst = bsearch(
+        &key, module_inst->export_functions, module_inst->export_func_count,
+        sizeof(WASMExportFuncInstance), cmp_export_func_inst);
+
+    if (!export_func_inst)
+        return NULL;
+
+    return export_func_inst->function;
 }
 
 WASMMemoryInstance *

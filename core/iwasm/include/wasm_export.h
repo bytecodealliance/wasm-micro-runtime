@@ -139,6 +139,9 @@ typedef struct wasm_section_t {
 struct WASMExecEnv;
 typedef struct WASMExecEnv *wasm_exec_env_t;
 
+struct WASMSharedHeap;
+typedef struct WASMSharedHeap *wasm_shared_heap_t;
+
 /* Package Type */
 typedef enum {
     Wasm_Module_Bytecode = 0,
@@ -328,6 +331,10 @@ typedef enum {
     WASM_LOG_LEVEL_DEBUG = 3,
     WASM_LOG_LEVEL_VERBOSE = 4
 } log_level_t;
+
+typedef struct SharedHeapInitArgs {
+    uint32_t size;
+} SharedHeapInitArgs;
 
 /**
  * Initialize the WASM runtime environment, and also initialize
@@ -1159,8 +1166,8 @@ wasm_application_execute_main(wasm_module_inst_t module_inst, int32_t argc,
                               char *argv[]);
 
 /**
- * Find the specified function in argv[0] from a WASM module instance
- * and execute that function.
+ * Find the specified function from a WASM module instance and execute
+ * that function.
  *
  * @param module_inst the WASM module instance
  * @param name the name of the function to execute.
@@ -1749,6 +1756,26 @@ WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_get_user_data(wasm_exec_env_t exec_env);
 
 /**
+ * Set native stack boundary to execution environment, if it is set,
+ * it will be used instead of getting the boundary with the platform
+ * layer API when calling wasm functions. This is useful for some
+ * fiber cases.
+ *
+ * Note: unlike setting the boundary by runtime, this API doesn't add
+ * the WASM_STACK_GUARD_SIZE(see comments in core/config.h) to the
+ * exec_env's native_stack_boundary to reserve bytes to the native
+ * thread stack boundary, which is used to throw native stack overflow
+ * exception if the guard boundary is reached. Developer should ensure
+ * that enough guard bytes are kept.
+ *
+ * @param exec_env the execution environment
+ * @param native_stack_boundary the user data to be set
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_native_stack_boundary(wasm_exec_env_t exec_env,
+                                       uint8_t *native_stack_boundary);
+
+/**
  * Dump runtime memory consumption, including:
  *     Exec env memory consumption
  *     WASM module memory consumption
@@ -2218,6 +2245,60 @@ wasm_runtime_detect_native_stack_overflow_size(wasm_exec_env_t exec_env,
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_underlying_binary_freeable(const wasm_module_t module);
+
+/**
+ * Create a shared heap
+ *
+ * @param init_args the initialization arguments
+ * @return the shared heap created
+ */
+WASM_RUNTIME_API_EXTERN wasm_shared_heap_t
+wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args);
+
+/**
+ * Attach a shared heap to a module instance
+ *
+ * @param module_inst the module instance
+ * @param shared_heap the shared heap
+ * @return true if success, false if failed
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_attach_shared_heap(wasm_module_inst_t module_inst,
+                                wasm_shared_heap_t shared_heap);
+
+/**
+ * Detach a shared heap from a module instance
+ *
+ * @param module_inst the module instance
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_detach_shared_heap(wasm_module_inst_t module_inst);
+
+/**
+ * Allocate memory from a shared heap
+ *
+ * @param module_inst the module instance
+ * @param size required memory size
+ * @param p_native_addr native address of allocated memory
+ *
+ * @return return the allocated memory address, which re-uses part of the wasm
+ * address space and is in the range of [UINT32 - shared_heap_size + 1, UINT32]
+ * (when the wasm memory is 32-bit) or [UINT64 - shared_heap_size + 1, UINT64]
+ * (when the wasm memory is 64-bit). Note that it is not an absolute address.
+ *         Return non-zero if success, zero if failed.
+ */
+WASM_RUNTIME_API_EXTERN uint64_t
+wasm_runtime_shared_heap_malloc(wasm_module_inst_t module_inst, uint64_t size,
+                                void **p_native_addr);
+
+/**
+ * Free the memory allocated from shared heap
+ *
+ * @param module_inst the module instance
+ * @param ptr the offset in wasm app
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_shared_heap_free(wasm_module_inst_t module_inst, uint64_t ptr);
 
 #ifdef __cplusplus
 }

@@ -10,6 +10,10 @@
 #define NANOSECONDS_PER_SECOND 1000000000ULL
 #define NANOSECONDS_PER_TICK 100
 
+extern NTSTATUS
+NtQueryTimerResolution(PULONG MinimumResolution, PULONG MaximumResolution,
+                       PULONG CurrentResolution);
+
 static __wasi_errno_t
 calculate_monotonic_clock_frequency(uint64 *out_frequency)
 {
@@ -54,7 +58,7 @@ os_clock_res_get(__wasi_clockid_t clock_id, __wasi_timestamp_t *resolution)
         case __WASI_CLOCK_PROCESS_CPUTIME_ID:
         case __WASI_CLOCK_THREAD_CPUTIME_ID:
         {
-#if WINAPI_PARTITION_DESKTOP
+#if WINAPI_PARTITION_DESKTOP && WASM_ENABLE_WAMR_COMPILER == 0
             ULONG maximum_time;
             ULONG minimum_time;
             ULONG current_time;

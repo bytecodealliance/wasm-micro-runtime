@@ -912,7 +912,7 @@ check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         aot_set_last_error("llvm build LOAD failed");
         return false;
     }
-    /* Set terminate_flags memory accecc to volatile, so that the value
+    /* Set terminate_flags memory access to volatile, so that the value
         will always be loaded from memory rather than register */
     LLVMSetVolatile(terminate_flags, true);
 

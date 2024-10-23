@@ -60,7 +60,7 @@ The WAMR fast interpreter is a clean room development. We would acknowledge the 
 
 ### llvm
 
-[LICENSE](./LICENCE.txt)
+[LICENSE](./LICENSE)
 
 ### wasm-c-api
 
