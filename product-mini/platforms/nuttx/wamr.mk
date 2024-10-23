@@ -148,6 +148,12 @@ else
 CFLAGS += -DWASM_ENABLE_WORD_ALIGN_READ=0
 endif
 
+ifeq ($(CONFIG_INTERPRETERS_WAMR_DYNAMIC_AOT_DEBUG),y)
+CFLAGS += -DWASM_ENABLE_DYNAMIC_AOT_DEBUG=1
+else
+CFLAGS += -DWASM_ENABLE_DYNAMIC_AOT_DEBUG=0
+endif
+
 ifeq ($(CONFIG_INTERPRETERS_WAMR_MEM_DUAL_BUS_MIRROR),y)
 CFLAGS += -DWASM_MEM_DUAL_BUS_MIRROR=1
 else
@@ -400,7 +406,7 @@ CFLAGS += -DWASM_ENABLE_EXCE_HANDLING=0
 CFLAGS += -DWASM_ENABLE_TAGS=0
 endif
 
-CFLAGS += -Wno-strict-prototypes -Wno-shadow -Wno-unused-variable
+CFLAGS += -Wno-shadow -Wno-unused-variable
 CFLAGS += -Wno-int-conversion -Wno-implicit-function-declaration
 
 CFLAGS += -I${CORE_ROOT} \

@@ -7,8 +7,13 @@
 #include "bh_log.h"
 #include "wasm_export.h"
 #include "../interpreter/wasm.h"
-#if !defined(_DEFAULT_SOURCE) && !defined(BH_PLATFORM_LINUX_SGX)
-#include "sys/syscall.h"
+
+#if defined(__linux__)
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
+#define HAVE_SYSCALL_GETRANDOM
+#include <sys/syscall.h>
+#endif
 #endif
 
 /* clang-format off */
@@ -168,12 +173,21 @@ statbuf_native2app(const struct stat *statbuf_native,
     statbuf_app->st_blksize = (unsigned)statbuf_native->st_blksize;
     statbuf_app->st_blocks = (unsigned)statbuf_native->st_blocks;
     statbuf_app->st_ino = (int64)statbuf_native->st_ino;
+#if defined(__APPLE__)
+    statbuf_app->st_atim.tv_sec = (int)statbuf_native->st_atimespec.tv_sec;
+    statbuf_app->st_atim.tv_nsec = (int)statbuf_native->st_atimespec.tv_nsec;
+    statbuf_app->st_mtim.tv_sec = (int)statbuf_native->st_mtimespec.tv_sec;
+    statbuf_app->st_mtim.tv_nsec = (int)statbuf_native->st_mtimespec.tv_nsec;
+    statbuf_app->st_ctim.tv_sec = (int)statbuf_native->st_ctimespec.tv_sec;
+    statbuf_app->st_ctim.tv_nsec = (int)statbuf_native->st_ctimespec.tv_nsec;
+#else
     statbuf_app->st_atim.tv_sec = (int)statbuf_native->st_atim.tv_sec;
     statbuf_app->st_atim.tv_nsec = (int)statbuf_native->st_atim.tv_nsec;
     statbuf_app->st_mtim.tv_sec = (int)statbuf_native->st_mtim.tv_sec;
     statbuf_app->st_mtim.tv_nsec = (int)statbuf_native->st_mtim.tv_nsec;
     statbuf_app->st_ctim.tv_sec = (int)statbuf_native->st_ctim.tv_sec;
     statbuf_app->st_ctim.tv_nsec = (int)statbuf_native->st_ctim.tv_nsec;
+#endif
 }
 
 static int
@@ -261,10 +275,10 @@ getentropy_wrapper(wasm_exec_env_t exec_env, void *buffer, uint32 length)
 {
     if (buffer == NULL)
         return -1;
-#if defined(_DEFAULT_SOURCE) || defined(BH_PLATFORM_LINUX_SGX)
-    return getentropy(buffer, length);
-#else
+#if defined(HAVE_SYSCALL_GETRANDOM)
     return syscall(SYS_getrandom, buffer, length, 0);
+#else
+    return getentropy(buffer, length);
 #endif
 }
 

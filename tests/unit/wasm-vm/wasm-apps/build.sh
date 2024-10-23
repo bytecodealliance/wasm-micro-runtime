@@ -1,6 +1,17 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+readonly CURR_DIR=$PWD
+readonly BINARYDUMP_DIR=$PWD/../../../../test-tools/binarydump-tool
+
+# build binarydump
+cd $BINARYDUMP_DIR
+mkdir -p build && cd build
+cmake .. && make -j
+cp -a binarydump $CURR_DIR
+
+cd $CURR_DIR
+
 ## build app1
 /opt/wasi-sdk/bin/clang -O3 \
     -z stack-size=4096 -Wl,--initial-memory=65536 \

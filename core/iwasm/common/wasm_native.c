@@ -33,6 +33,11 @@ uint32
 get_spectest_export_apis(NativeSymbol **p_libc_builtin_apis);
 #endif
 
+#if WASM_ENABLE_SHARED_HEAP != 0
+uint32
+get_lib_shared_heap_export_apis(NativeSymbol **p_shared_heap_apis);
+#endif
+
 uint32
 get_libc_wasi_export_apis(NativeSymbol **p_libc_wasi_apis);
 
@@ -469,7 +474,7 @@ wasi_context_dtor(WASMModuleInstanceCommon *inst, void *ctx)
 
 #if WASM_ENABLE_QUICK_AOT_ENTRY != 0
 static bool
-quick_aot_entry_init();
+quick_aot_entry_init(void);
 #endif
 
 bool
@@ -509,6 +514,14 @@ wasm_native_init()
         goto fail;
     if (!wasm_native_register_natives("wasi_snapshot_preview1", native_symbols,
                                       n_native_symbols))
+        goto fail;
+#endif
+
+#if WASM_ENABLE_SHARED_HEAP != 0
+    n_native_symbols = get_lib_shared_heap_export_apis(&native_symbols);
+    if (n_native_symbols > 0
+        && !wasm_native_register_natives("env", native_symbols,
+                                         n_native_symbols))
         goto fail;
 #endif
 
@@ -1461,7 +1474,7 @@ quick_aot_entry_cmp(const void *quick_aot_entry1, const void *quick_aot_entry2)
 }
 
 static bool
-quick_aot_entry_init()
+quick_aot_entry_init(void)
 {
     qsort(quick_aot_entries, sizeof(quick_aot_entries) / sizeof(QuickAOTEntry),
           sizeof(QuickAOTEntry), quick_aot_entry_cmp);

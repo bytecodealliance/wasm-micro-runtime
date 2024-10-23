@@ -125,9 +125,7 @@ def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_fl
     if not llvm_dir.exists():
         raise Exception(f"{llvm_dir} doesn't exist")
 
-    build_dir = llvm_dir.joinpath(
-        "win32build" if "windows" == platform else "build"
-    ).resolve()
+    build_dir = llvm_dir.joinpath("build").resolve()
     build_dir.mkdir(exist_ok=True)
 
     lib_llvm_core_library = build_dir.joinpath("lib/libLLVMCore.a").resolve()
@@ -178,6 +176,7 @@ def repackage_llvm(llvm_dir):
         raise Exception("Find more than one LLVM-*.tar.gz")
 
     if not packs:
+        raise Exception("Didn't find any LLVM-* package")
         return
 
     llvm_package = packs[0].name
@@ -193,6 +192,31 @@ def repackage_llvm(llvm_dir):
     # rm ./LLVM-1*.gz
     os.remove(llvm_dir.joinpath(llvm_package).resolve())
 
+def repackage_llvm_windows(llvm_dir):
+    build_dir = llvm_dir.joinpath("./build").resolve()
+
+    packs_path = [f for f in build_dir.glob("./_CPack_Packages/win64/NSIS/LLVM-*-win64")]
+    if len(packs_path) > 1:
+        raise Exception("Find more than one LLVM-* package")
+
+    if not packs_path:
+        raise Exception("Didn't find any LLVM-* package")
+        return
+    
+    llvm_package_path = f"_CPack_Packages/win64/NSIS/{packs_path[0].name}"
+    windows_package_dir = build_dir.joinpath(llvm_package_path).resolve()
+
+    # mv package dir outside of build 
+    shutil.move(str(windows_package_dir), str(llvm_dir))
+    # rm -r build
+    shutil.rmtree(str(build_dir))
+    # mkdir build
+    build_dir.mkdir()
+    # move back all the subdiretories under cpack directory(bin/include/lib) to build dir
+    moved_package_dir = llvm_dir.joinpath(packs_path[0].name)
+    for sub_dir in moved_package_dir.iterdir():
+        shutil.move(str(sub_dir), str(build_dir))
+    moved_package_dir.rmdir()  
 
 def main():
     parser = argparse.ArgumentParser(description="build necessary LLVM libraries")
@@ -304,7 +328,11 @@ def main():
             )
             is not None
         ):
-            repackage_llvm(llvm_dir)
+            # TODO: repackage process may change in the future, this work for LLVM 15.x
+            if "windows" == platform:
+                repackage_llvm_windows(llvm_dir)
+            else:
+                repackage_llvm(llvm_dir)
 
         return True
     except subprocess.CalledProcessError:
