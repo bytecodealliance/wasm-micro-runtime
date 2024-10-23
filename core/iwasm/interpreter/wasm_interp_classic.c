@@ -46,6 +46,28 @@ typedef float64 CellType_F64;
 #define get_linear_mem_size() GET_LINEAR_MEMORY_SIZE(memory)
 #endif
 
+#if WASM_ENABLE_SHARED_HEAP != 0
+#if WASM_ENABLE_MULTI_MEMORY != 0
+/* Only enable shared heap for the default memory */
+#define is_default_memory (memidx == 0)
+#else
+#define is_default_memory true
+#endif
+#define app_addr_in_shared_heap(app_addr, bytes)                             \
+    (shared_heap && is_default_memory && (app_addr) >= shared_heap_start_off \
+     && (app_addr) <= shared_heap_end_off - bytes + 1)
+
+#define shared_heap_addr_app_to_native(app_addr, native_addr) \
+    native_addr = shared_heap_base_addr + ((app_addr)-shared_heap_start_off)
+
+#define CHECK_SHARED_HEAP_OVERFLOW(app_addr, bytes, native_addr) \
+    if (app_addr_in_shared_heap(app_addr, bytes))                \
+        shared_heap_addr_app_to_native(app_addr, native_addr);   \
+    else
+#else
+#define CHECK_SHARED_HEAP_OVERFLOW(app_addr, bytes, native_addr)
+#endif
+
 #if WASM_ENABLE_MEMORY64 == 0
 
 #if (!defined(OS_ENABLE_HW_BOUND_CHECK) \
@@ -53,6 +75,7 @@ typedef float64 CellType_F64;
 #define CHECK_MEMORY_OVERFLOW(bytes)                                           \
     do {                                                                       \
         uint64 offset1 = (uint64)offset + (uint64)addr;                        \
+        CHECK_SHARED_HEAP_OVERFLOW(offset1, bytes, maddr)                      \
         if (disable_bounds_checks || offset1 + bytes <= get_linear_mem_size()) \
             /* If offset1 is in valid range, maddr must also                   \
                be in valid range, no need to check it again. */                \
@@ -64,6 +87,7 @@ typedef float64 CellType_F64;
 #define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr)                        \
     do {                                                                       \
         uint64 offset1 = (uint32)(start);                                      \
+        CHECK_SHARED_HEAP_OVERFLOW(offset1, bytes, maddr)                      \
         if (disable_bounds_checks || offset1 + bytes <= get_linear_mem_size()) \
             /* App heap space is not valid space for                           \
              bulk memory operation */                                          \
@@ -71,18 +95,24 @@ typedef float64 CellType_F64;
         else                                                                   \
             goto out_of_bounds;                                                \
     } while (0)
+
 #else /* else of !defined(OS_ENABLE_HW_BOUND_CHECK) || \
          WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 */
-#define CHECK_MEMORY_OVERFLOW(bytes)                    \
-    do {                                                \
-        uint64 offset1 = (uint64)offset + (uint64)addr; \
-        maddr = memory->memory_data + offset1;          \
+
+#define CHECK_MEMORY_OVERFLOW(bytes)                      \
+    do {                                                  \
+        uint64 offset1 = (uint64)offset + (uint64)addr;   \
+        CHECK_SHARED_HEAP_OVERFLOW(offset1, bytes, maddr) \
+        maddr = memory->memory_data + offset1;            \
     } while (0)
 
-#define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr) \
-    do {                                                \
-        maddr = memory->memory_data + (uint32)(start);  \
+#define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr)   \
+    do {                                                  \
+        uint64 offset1 = (uint32)(start);                 \
+        CHECK_SHARED_HEAP_OVERFLOW(offset1, bytes, maddr) \
+        maddr = memory->memory_data + offset1;            \
     } while (0)
+
 #endif /* end of !defined(OS_ENABLE_HW_BOUND_CHECK) || \
           WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 */
 
@@ -91,6 +121,7 @@ typedef float64 CellType_F64;
 #define CHECK_MEMORY_OVERFLOW(bytes)                                        \
     do {                                                                    \
         uint64 offset1 = (uint64)offset + (uint64)addr;                     \
+        CHECK_SHARED_HEAP_OVERFLOW(offset1, bytes, maddr)                   \
         /* If memory64 is enabled, offset1, offset1 + bytes can overflow */ \
         if (disable_bounds_checks                                           \
             || (offset1 >= offset && offset1 + bytes >= offset1             \
@@ -99,9 +130,11 @@ typedef float64 CellType_F64;
         else                                                                \
             goto out_of_bounds;                                             \
     } while (0)
+
 #define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr)            \
     do {                                                           \
         uint64 offset1 = (uint64)(start);                          \
+        CHECK_SHARED_HEAP_OVERFLOW(offset1, bytes, maddr)          \
         /* If memory64 is enabled, offset1 + bytes can overflow */ \
         if (disable_bounds_checks                                  \
             || (offset1 + bytes >= offset1                         \
@@ -511,9 +544,9 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
 #endif
 
 #if WASM_ENABLE_MEMORY64 != 0
-#define PUSH_MEM_OFFSET(value)                     \
+#define COND_PUSH_TEMPLATE(cond, value)            \
     do {                                           \
-        if (is_memory64) {                         \
+        if (cond) {                                \
             PUT_I64_TO_ADDR(frame_sp, value);      \
             frame_sp += 2;                         \
         }                                          \
@@ -521,8 +554,11 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
             *(int32 *)frame_sp++ = (int32)(value); \
         }                                          \
     } while (0)
+#define PUSH_MEM_OFFSET(value) COND_PUSH_TEMPLATE(is_memory64, value)
+#define PUSH_TBL_ELEM_IDX(value) COND_PUSH_TEMPLATE(is_table64, value)
 #else
 #define PUSH_MEM_OFFSET(value) PUSH_I32(value)
+#define PUSH_TBL_ELEM_IDX(value) PUSH_I32(value)
 #endif
 
 #define PUSH_PAGE_COUNT(value) PUSH_MEM_OFFSET(value)
@@ -558,8 +594,10 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
 
 #if WASM_ENABLE_MEMORY64 != 0
 #define POP_MEM_OFFSET() (is_memory64 ? POP_I64() : POP_I32())
+#define POP_TBL_ELEM_IDX() (is_table64 ? POP_I64() : POP_I32())
 #else
 #define POP_MEM_OFFSET() POP_I32()
+#define POP_TBL_ELEM_IDX() POP_I32()
 #endif
 
 #define POP_PAGE_COUNT() POP_MEM_OFFSET()
@@ -1562,7 +1600,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint8 opcode;
     uint32 i, depth, cond, count, fidx, tidx, lidx, frame_size = 0;
     uint32 all_cell_num = 0;
-    int32 val;
+    tbl_elem_idx_t val;
     uint8 *else_addr, *end_addr, *maddr = NULL;
     uint32 local_idx, local_offset, global_idx;
     uint8 local_type, *global_addr;
@@ -1602,9 +1640,26 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     /* TODO: multi-memories for now assuming the memory idx type is consistent
      * across multi-memories */
     bool is_memory64 = false;
+    bool is_table64 = false;
     if (memory)
         is_memory64 = memory->is_memory64;
 #endif
+#if WASM_ENABLE_SHARED_HEAP != 0
+    WASMSharedHeap *shared_heap = module->e->shared_heap;
+    uint8 *shared_heap_base_addr = shared_heap ? shared_heap->base_addr : NULL;
+#if WASM_ENABLE_MEMORY64 != 0
+    uint64 shared_heap_start_off =
+        shared_heap ? (is_memory64 ? shared_heap->start_off_mem64
+                                   : shared_heap->start_off_mem32)
+                    : 0;
+    uint64 shared_heap_end_off =
+        shared_heap ? (is_memory64 ? UINT64_MAX : UINT32_MAX) : 0;
+#else
+    uint64 shared_heap_start_off =
+        shared_heap ? shared_heap->start_off_mem32 : 0;
+    uint64 shared_heap_end_off = shared_heap ? UINT32_MAX : 0;
+#endif
+#endif /* end of WASM_ENABLE_SHARED_HEAP != 0 */
 #if WASM_ENABLE_MULTI_MEMORY != 0
     uint32 memidx = 0;
     uint32 memidx_cached = (uint32)-1;
@@ -2315,7 +2370,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 /**
                  * type check. compiler will make sure all like
-                 * (call_indirect (type $x) (i32.const 1))
+                 * (call_indirect (type $x) (it.const 1))
                  * the function type has to be defined in the module also
                  * no matter it is used or not
                  */
@@ -2334,9 +2389,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 /* clang-format on */
 
                 tbl_inst = wasm_get_table_inst(module, tbl_idx);
+#if WASM_ENABLE_MEMORY64 != 0
+                is_table64 = tbl_inst->is_table64;
+#endif
 
-                val = POP_I32();
-                if ((uint32)val >= tbl_inst->cur_size) {
+                val = POP_TBL_ELEM_IDX();
+                if (val >= tbl_inst->cur_size) {
                     wasm_set_exception(module, "undefined element");
                     goto got_exception;
                 }
@@ -2482,15 +2540,19 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
             HANDLE_OP(WASM_OP_TABLE_GET)
             {
-                uint32 tbl_idx, elem_idx;
+                uint32 tbl_idx;
+                tbl_elem_idx_t elem_idx;
                 WASMTableInstance *tbl_inst;
 
                 read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
                 bh_assert(tbl_idx < module->table_count);
 
                 tbl_inst = wasm_get_table_inst(module, tbl_idx);
+#if WASM_ENABLE_MEMORY64 != 0
+                is_table64 = tbl_inst->is_table64;
+#endif
 
-                elem_idx = POP_I32();
+                elem_idx = POP_TBL_ELEM_IDX();
                 if (elem_idx >= tbl_inst->cur_size) {
                     wasm_set_exception(module, "out of bounds table access");
                     goto got_exception;
@@ -2507,20 +2569,24 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_TABLE_SET)
             {
                 WASMTableInstance *tbl_inst;
-                uint32 tbl_idx, elem_idx;
+                uint32 tbl_idx;
+                tbl_elem_idx_t elem_idx;
                 table_elem_type_t elem_val;
 
                 read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
                 bh_assert(tbl_idx < module->table_count);
 
                 tbl_inst = wasm_get_table_inst(module, tbl_idx);
+#if WASM_ENABLE_MEMORY64 != 0
+                is_table64 = tbl_inst->is_table64;
+#endif
 
 #if WASM_ENABLE_GC == 0
                 elem_val = POP_I32();
 #else
                 elem_val = POP_REF();
 #endif
-                elem_idx = POP_I32();
+                elem_idx = POP_TBL_ELEM_IDX();
                 if (elem_idx >= tbl_inst->cur_size) {
                     wasm_set_exception(module, "out of bounds table access");
                     goto got_exception;
@@ -3455,8 +3521,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         str_obj = (WASMString)wasm_stringref_obj_get_value(
                             stringref_obj);
 
-                        memory_inst = module->memories[mem_idx];
-                        maddr = memory_inst->memory_data + addr;
+#if WASM_ENABLE_SHARED_HEAP != 0
+                        if (app_addr_in_shared_heap((uint64)addr, 1))
+                            shared_heap_addr_app_to_native((uint64)addr, maddr);
+                        else
+#endif
+                        {
+                            memory_inst = module->memories[mem_idx];
+                            maddr = memory_inst->memory_data + addr;
+                        }
 
                         if (opcode == WASM_OP_STRING_ENCODE_WTF16) {
                             flag = WTF16;
@@ -3623,8 +3696,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         addr = POP_I32();
                         stringview_wtf8_obj = POP_REF();
 
-                        memory_inst = module->memories[mem_idx];
-                        maddr = memory_inst->memory_data + addr;
+#if WASM_ENABLE_SHARED_HEAP != 0
+                        if (app_addr_in_shared_heap((uint64)addr, 1))
+                            shared_heap_addr_app_to_native((uint64)addr, maddr);
+                        else
+#endif
+                        {
+                            memory_inst = module->memories[mem_idx];
+                            maddr = memory_inst->memory_data + addr;
+                        }
 
                         bytes_written = wasm_string_encode(
                             (WASMString)wasm_stringview_wtf8_obj_get_value(
@@ -4616,13 +4696,19 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
             HANDLE_OP(WASM_OP_MEMORY_GROW)
             {
-                uint32 mem_idx, delta, prev_page_count;
+                uint32 mem_idx, prev_page_count;
+                mem_offset_t delta;
 
                 read_leb_memidx(frame_ip, frame_ip_end, mem_idx);
                 prev_page_count = memory->cur_page_count;
-                delta = (uint32)POP_PAGE_COUNT();
+                delta = POP_PAGE_COUNT();
 
-                if (!wasm_enlarge_memory_with_idx(module, delta, mem_idx)) {
+                if (
+#if WASM_ENABLE_MEMORY64 != 0
+                    delta > UINT32_MAX ||
+#endif
+                    !wasm_enlarge_memory_with_idx(module, (uint32)delta,
+                                                  mem_idx)) {
                     /* failed to memory.grow, return -1 */
                     PUSH_PAGE_COUNT(-1);
                 }
@@ -5651,9 +5737,18 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #ifndef OS_ENABLE_HW_BOUND_CHECK
                         CHECK_BULK_MEMORY_OVERFLOW(addr, bytes, maddr);
 #else
-                        if ((uint64)(uint32)addr + bytes > linear_mem_size)
-                            goto out_of_bounds;
-                        maddr = memory->memory_data + (uint32)addr;
+#if WASM_ENABLE_SHARED_HEAP != 0
+                        if (app_addr_in_shared_heap((uint64)(uint32)addr,
+                                                    bytes))
+                            shared_heap_addr_app_to_native((uint64)(uint32)addr,
+                                                           maddr);
+                        else
+#endif
+                        {
+                            if ((uint64)(uint32)addr + bytes > linear_mem_size)
+                                goto out_of_bounds;
+                            maddr = memory->memory_data + (uint32)addr;
+                        }
 #endif
 
                         if (bh_bitmap_get_bit(module->e->common.data_dropped,
@@ -5703,15 +5798,30 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_THREAD_MGR != 0
                         linear_mem_size = get_linear_mem_size();
 #endif
+
+                        dlen = linear_mem_size - dst;
+
                         /* dst boundary check */
 #ifndef OS_ENABLE_HW_BOUND_CHECK
                         CHECK_BULK_MEMORY_OVERFLOW(dst, len, mdst);
-#else
-                        if ((uint64)dst + len > linear_mem_size)
-                            goto out_of_bounds;
-                        mdst = memory->memory_data + dst;
+#if WASM_ENABLE_SHARED_HEAP != 0
+                        if (app_addr_in_shared_heap((uint64)dst, len))
+                            dlen = shared_heap_end_off - dst + 1;
 #endif
-                        dlen = linear_mem_size - dst;
+#else /* else of OS_ENABLE_HW_BOUND_CHECK */
+#if WASM_ENABLE_SHARED_HEAP != 0
+                        if (app_addr_in_shared_heap((uint64)dst, len)) {
+                            shared_heap_addr_app_to_native((uint64)dst, mdst);
+                            dlen = shared_heap_end_off - dst + 1;
+                        }
+                        else
+#endif
+                        {
+                            if ((uint64)dst + len > linear_mem_size)
+                                goto out_of_bounds;
+                            mdst = memory->memory_data + dst;
+                        }
+#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
 #if WASM_ENABLE_MULTI_MEMORY != 0
                         /* src memidx */
@@ -5727,9 +5837,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #ifndef OS_ENABLE_HW_BOUND_CHECK
                         CHECK_BULK_MEMORY_OVERFLOW(src, len, msrc);
 #else
-                        if ((uint64)src + len > linear_mem_size)
-                            goto out_of_bounds;
-                        msrc = memory->memory_data + src;
+#if WASM_ENABLE_SHARED_HEAP != 0
+                        if (app_addr_in_shared_heap((uint64)src, len))
+                            shared_heap_addr_app_to_native((uint64)src, msrc);
+                        else
+#endif
+                        {
+                            if ((uint64)src + len > linear_mem_size)
+                                goto out_of_bounds;
+                            msrc = memory->memory_data + src;
+                        }
 #endif
 
 #if WASM_ENABLE_MEMORY64 == 0
@@ -5766,9 +5883,17 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #ifndef OS_ENABLE_HW_BOUND_CHECK
                         CHECK_BULK_MEMORY_OVERFLOW(dst, len, mdst);
 #else
-                        if ((uint64)(uint32)dst + len > linear_mem_size)
-                            goto out_of_bounds;
-                        mdst = memory->memory_data + (uint32)dst;
+#if WASM_ENABLE_SHARED_HEAP != 0
+                        if (app_addr_in_shared_heap((uint64)(uint32)dst, len))
+                            shared_heap_addr_app_to_native((uint64)(uint32)dst,
+                                                           mdst);
+                        else
+#endif
+                        {
+                            if ((uint64)(uint32)dst + len > linear_mem_size)
+                                goto out_of_bounds;
+                            mdst = memory->memory_data + (uint32)dst;
+                        }
 #endif
 
                         memset(mdst, fill_val, len);
@@ -5778,8 +5903,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
                     case WASM_OP_TABLE_INIT:
                     {
-                        uint32 tbl_idx, elem_idx;
-                        uint32 n, s, d;
+                        uint32 tbl_idx;
+                        tbl_elem_idx_t elem_idx, d;
+                        uint32 n, s;
                         WASMTableInstance *tbl_inst;
                         table_elem_type_t *table_elems;
                         InitializerExpression *tbl_seg_init_values = NULL,
@@ -5793,10 +5919,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         bh_assert(tbl_idx < module->module->table_count);
 
                         tbl_inst = wasm_get_table_inst(module, tbl_idx);
+#if WASM_ENABLE_MEMORY64 != 0
+                        is_table64 = tbl_inst->is_table64;
+#endif
 
                         n = (uint32)POP_I32();
                         s = (uint32)POP_I32();
-                        d = (uint32)POP_I32();
+                        d = (tbl_elem_idx_t)POP_TBL_ELEM_IDX();
 
                         if (!bh_bitmap_get_bit(module->e->common.elem_dropped,
                                                elem_idx)) {
@@ -5809,8 +5938,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                     .value_count;
                         }
 
-                        if (offset_len_out_of_bounds(s, n, tbl_seg_len)
-                            || offset_len_out_of_bounds(d, n,
+                        /* TODO: memory64 current implementation of table64
+                         * still assumes the max table size UINT32_MAX
+                         */
+                        if (
+#if WASM_ENABLE_MEMORY64 != 0
+                            d > UINT32_MAX ||
+#endif
+                            offset_len_out_of_bounds(s, n, tbl_seg_len)
+                            || offset_len_out_of_bounds((uint32)d, n,
                                                         tbl_inst->cur_size)) {
                             wasm_set_exception(module,
                                                "out of bounds table access");
@@ -5864,7 +6000,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_TABLE_COPY:
                     {
                         uint32 src_tbl_idx, dst_tbl_idx;
-                        uint32 n, s, d;
+                        tbl_elem_idx_t n, s, d;
                         WASMTableInstance *src_tbl_inst, *dst_tbl_inst;
 
                         read_leb_uint32(frame_ip, frame_ip_end, dst_tbl_idx);
@@ -5877,14 +6013,29 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                         src_tbl_inst = wasm_get_table_inst(module, src_tbl_idx);
 
-                        n = (uint32)POP_I32();
-                        s = (uint32)POP_I32();
-                        d = (uint32)POP_I32();
+#if WASM_ENABLE_MEMORY64 != 0
+                        is_table64 = src_tbl_inst->is_table64
+                                     && dst_tbl_inst->is_table64;
+#endif
+                        n = (tbl_elem_idx_t)POP_TBL_ELEM_IDX();
+#if WASM_ENABLE_MEMORY64 != 0
+                        is_table64 = src_tbl_inst->is_table64;
+#endif
+                        s = (tbl_elem_idx_t)POP_TBL_ELEM_IDX();
+#if WASM_ENABLE_MEMORY64 != 0
+                        is_table64 = dst_tbl_inst->is_table64;
+#endif
+                        d = (tbl_elem_idx_t)POP_TBL_ELEM_IDX();
 
-                        if (offset_len_out_of_bounds(d, n,
+                        if (
+#if WASM_ENABLE_MEMORY64 != 0
+                            n > UINT32_MAX || s > UINT32_MAX || d > UINT32_MAX
+                            ||
+#endif
+                            offset_len_out_of_bounds((uint32)d, (uint32)n,
                                                      dst_tbl_inst->cur_size)
                             || offset_len_out_of_bounds(
-                                s, n, src_tbl_inst->cur_size)) {
+                                (uint32)s, (uint32)n, src_tbl_inst->cur_size)) {
                             wasm_set_exception(module,
                                                "out of bounds table access");
                             goto got_exception;
@@ -5907,28 +6058,37 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_TABLE_GROW:
                     {
                         WASMTableInstance *tbl_inst;
-                        uint32 tbl_idx, n, orig_tbl_sz;
+                        uint32 tbl_idx, orig_tbl_sz;
+                        tbl_elem_idx_t n;
                         table_elem_type_t init_val;
 
                         read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
                         bh_assert(tbl_idx < module->table_count);
 
                         tbl_inst = wasm_get_table_inst(module, tbl_idx);
+#if WASM_ENABLE_MEMORY64 != 0
+                        is_table64 = tbl_inst->is_table64;
+#endif
 
                         orig_tbl_sz = tbl_inst->cur_size;
 
-                        n = POP_I32();
+                        n = POP_TBL_ELEM_IDX();
 #if WASM_ENABLE_GC == 0
                         init_val = POP_I32();
 #else
                         init_val = POP_REF();
 #endif
 
-                        if (!wasm_enlarge_table(module, tbl_idx, n, init_val)) {
-                            PUSH_I32(-1);
+                        if (
+#if WASM_ENABLE_MEMORY64 != 0
+                            n > UINT32_MAX ||
+#endif
+                            !wasm_enlarge_table(module, tbl_idx, (uint32)n,
+                                                init_val)) {
+                            PUSH_TBL_ELEM_IDX(-1);
                         }
                         else {
-                            PUSH_I32(orig_tbl_sz);
+                            PUSH_TBL_ELEM_IDX(orig_tbl_sz);
                         }
                         break;
                     }
@@ -5941,13 +6101,17 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         bh_assert(tbl_idx < module->table_count);
 
                         tbl_inst = wasm_get_table_inst(module, tbl_idx);
+#if WASM_ENABLE_MEMORY64 != 0
+                        is_table64 = tbl_inst->is_table64;
+#endif
 
-                        PUSH_I32(tbl_inst->cur_size);
+                        PUSH_TBL_ELEM_IDX(tbl_inst->cur_size);
                         break;
                     }
                     case WASM_OP_TABLE_FILL:
                     {
-                        uint32 tbl_idx, n;
+                        uint32 tbl_idx;
+                        tbl_elem_idx_t n, elem_idx;
                         WASMTableInstance *tbl_inst;
                         table_elem_type_t fill_val;
 
@@ -5955,24 +6119,32 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         bh_assert(tbl_idx < module->table_count);
 
                         tbl_inst = wasm_get_table_inst(module, tbl_idx);
+#if WASM_ENABLE_MEMORY64 != 0
+                        is_table64 = tbl_inst->is_table64;
+#endif
 
-                        n = POP_I32();
+                        n = POP_TBL_ELEM_IDX();
 #if WASM_ENABLE_GC == 0
                         fill_val = POP_I32();
 #else
                         fill_val = POP_REF();
 #endif
-                        i = POP_I32();
+                        elem_idx = POP_TBL_ELEM_IDX();
 
-                        if (offset_len_out_of_bounds(i, n,
+                        if (
+#if WASM_ENABLE_MEMORY64 != 0
+                            n > UINT32_MAX || elem_idx > UINT32_MAX ||
+#endif
+                            offset_len_out_of_bounds((uint32)elem_idx,
+                                                     (uint32)n,
                                                      tbl_inst->cur_size)) {
                             wasm_set_exception(module,
                                                "out of bounds table access");
                             goto got_exception;
                         }
 
-                        for (; n != 0; i++, n--) {
-                            tbl_inst->elems[i] = fill_val;
+                        for (; n != 0; elem_idx++, n--) {
+                            tbl_inst->elems[elem_idx] = fill_val;
                         }
                         break;
                     }
@@ -6555,7 +6727,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
     || WASM_ENABLE_BULK_MEMORY != 0
             if (memory)
-                linear_mem_size = get_linear_mem_size();
+                linear_mem_size = GET_LINEAR_MEMORY_SIZE(memory);
 #endif
             if (wasm_copy_exception(module, NULL)) {
 #if WASM_ENABLE_EXCE_HANDLING != 0

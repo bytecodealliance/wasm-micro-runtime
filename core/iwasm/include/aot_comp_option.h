@@ -6,17 +6,27 @@
 #ifndef __AOT_COMP_OPTION_H__
 #define __AOT_COMP_OPTION_H__
 
+#include <stdint.h>
+
 typedef struct {
     /* Enables or disables bounds checks for stack frames. When enabled, the AOT
      * compiler generates code to check if the stack pointer is within the
      * bounds of the current stack frame (and if not, traps). */
     bool bounds_checks;
 
-    /*  Enables or disables instruction pointer (IP) tracking.*/
+    /* Enables or disables instruction pointer (IP) tracking. */
     bool ip;
 
+    /* Enables or disables function index in the stack trace. Please note that
+     * function index can be recovered from the instruction pointer using
+     * ip2function.py script, so enabling this feature along with `ip` might
+     * often be redundant.
+     * This option will automatically be enabled for GC and Perf Profiling mode.
+     */
+    bool func_idx;
+
     /* Enables or disables tracking instruction pointer of a trap. Only takes
-     * effect when `ip` is enabled.*/
+     * effect when `ip` is enabled. */
     bool trap_ip;
 
     /* Enables or disables parameters, locals and stack operands. */
@@ -63,6 +73,7 @@ typedef struct AOTCompOption {
     bool enable_llvm_pgo;
     bool enable_stack_estimation;
     bool quick_invoke_c_api_import;
+    bool enable_shared_heap;
     char *use_prof_file;
     uint32_t opt_level;
     uint32_t size_level;

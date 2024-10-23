@@ -7,7 +7,13 @@
 #define _WIN_UTIL_H
 
 #include "platform_wasi_types.h"
-#include "windows.h"
+/*
+ * Suppress the noisy warnings:
+ * winbase.h: warning C5105: macro expansion producing 'defined' has
+ * undefined behavior
+ */
+#pragma warning(disable : 5105)
+#include <windows.h>
 
 __wasi_timestamp_t
 convert_filetime_to_wasi_timestamp(LPFILETIME filetime);

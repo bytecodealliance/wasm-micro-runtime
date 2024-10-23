@@ -928,6 +928,15 @@ main(int argc, char *argv[])
         goto fail2;
     }
 
+#if WASM_ENABLE_DYNAMIC_AOT_DEBUG != 0
+    if (!wasm_runtime_set_module_name(wasm_module, wasm_file, error_buf,
+                                      sizeof(error_buf))) {
+        printf("set aot module name failed in dynamic aot debug mode, %s\n",
+               error_buf);
+        goto fail3;
+    }
+#endif
+
 #if WASM_ENABLE_LIBC_WASI != 0
     libc_wasi_init(wasm_module, argc, argv, &wasi_parse_ctx);
 #endif

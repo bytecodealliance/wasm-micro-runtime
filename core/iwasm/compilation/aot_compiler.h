@@ -532,8 +532,13 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
 #define IS_MEMORY64 (comp_ctx->comp_data->memories[0].flags & MEMORY64_FLAG)
 #define MEMORY64_COND_VALUE(VAL_IF_ENABLED, VAL_IF_DISABLED) \
     (IS_MEMORY64 ? VAL_IF_ENABLED : VAL_IF_DISABLED)
+#define IS_TABLE64(i) \
+    (comp_ctx->comp_data->tables[i].table_type.flags & TABLE64_FLAG)
+#define TABLE64_COND_VALUE(i, VAL_IF_ENABLED, VAL_IF_DISABLED) \
+    (IS_TABLE64(i) ? VAL_IF_ENABLED : VAL_IF_DISABLED)
 #else
 #define MEMORY64_COND_VALUE(VAL_IF_ENABLED, VAL_IF_DISABLED) (VAL_IF_DISABLED)
+#define TABLE64_COND_VALUE(i, VAL_IF_ENABLED, VAL_IF_DISABLED) (VAL_IF_DISABLED)
 #endif
 
 #define POP_I32(v) POP(v, VALUE_TYPE_I32)
@@ -548,6 +553,9 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
     POP(v, MEMORY64_COND_VALUE(VALUE_TYPE_I64, VALUE_TYPE_I32))
 #define POP_PAGE_COUNT(v) \
     POP(v, MEMORY64_COND_VALUE(VALUE_TYPE_I64, VALUE_TYPE_I32))
+#define POP_TBL_ELEM_IDX(v) \
+    POP(v, TABLE64_COND_VALUE(tbl_idx, VALUE_TYPE_I64, VALUE_TYPE_I32))
+#define POP_TBL_ELEM_LEN(v) POP_TBL_ELEM_IDX(v)
 
 #define POP_COND(llvm_value)                                                   \
     do {                                                                       \
@@ -613,6 +621,9 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
 #define PUSH_GC_REF(v) PUSH(v, VALUE_TYPE_GC_REF)
 #define PUSH_PAGE_COUNT(v) \
     PUSH(v, MEMORY64_COND_VALUE(VALUE_TYPE_I64, VALUE_TYPE_I32))
+#define PUSH_TBL_ELEM_IDX(v) \
+    PUSH(v, TABLE64_COND_VALUE(tbl_idx, VALUE_TYPE_I64, VALUE_TYPE_I32))
+#define PUSH_TBL_ELEM_LEN(v) PUSH_TBL_ELEM_IDX(v)
 
 #define SET_CONST(v)                                                          \
     do {                                                                      \

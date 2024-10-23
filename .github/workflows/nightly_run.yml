@@ -44,13 +44,22 @@ env:
   X86_32_TARGET_TEST_OPTIONS: "-m x86_32 -P"
   WASI_TEST_OPTIONS: "-s wasi_certification -w"
 
+permissions:
+  contents: read
+
 jobs:
   build_llvm_libraries_on_ubuntu_2004:
+    permissions:
+      contents: read
+      actions: write
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
       os: "ubuntu-20.04"
       arch: "X86"
   build_llvm_libraries_on_ubuntu_2204:
+    permissions:
+      contents: read
+      actions: write
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
       os: "ubuntu-22.04"
@@ -592,6 +601,15 @@ jobs:
           python3 ./sample_test_run.py $(pwd)/out
           exit $?
         working-directory: ./wamr-app-framework/samples/simple
+
+      - name: Build Sample [shared-heap]
+        run: |
+          cd samples/shared-heap
+          mkdir build && cd build
+          cmake ..
+          cmake --build . --config Debug --parallel 4
+          ./shared_heap_test
+          ./shared_heap_test --aot
 
   test:
     needs:

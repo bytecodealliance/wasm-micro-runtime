@@ -8,9 +8,9 @@ CURR_PATH=$(cd $(dirname $0) && pwd -P)
 # WASM application that uses WASI-NN
 
 /opt/wasi-sdk/bin/clang \
+    --target=wasm32-wasi \
+    -DNN_LOG_LEVEL=1 \
     -Wl,--allow-undefined \
-    -Wl,--strip-all,--no-entry \
-    --sysroot=/opt/wasi-sdk/share/wasi-sysroot \
     -I../include -I../src/utils \
     -o test_tensorflow.wasm \
     test_tensorflow.c utils.c
@@ -28,9 +28,9 @@ python3 sum.py
 
 cd ${CURR_PATH}
 /opt/wasi-sdk/bin/clang \
+    --target=wasm32-wasi \
+    -DNN_LOG_LEVEL=1 \
     -Wl,--allow-undefined \
-    -Wl,--strip-all,--no-entry \
-    --sysroot=/opt/wasi-sdk/share/wasi-sysroot \
     -I../include -I../src/utils \
     -o test_tensorflow_quantized.wasm \
     test_tensorflow_quantized.c utils.c

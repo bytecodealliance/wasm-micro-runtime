@@ -34,6 +34,7 @@ extern "C" {
 /* Stack frame is created at the beginning of the function,
  * and not at the beginning of each function call */
 #define WASM_FEATURE_FRAME_PER_FUNCTION (1 << 12)
+#define WASM_FEATURE_FRAME_NO_FUNC_IDX (1 << 13)
 
 typedef enum AOTSectionType {
     AOT_SECTION_TYPE_TARGET_INFO = 0,
@@ -110,6 +111,14 @@ typedef struct AOTFunctionInstance {
 
 typedef struct AOTModuleInstanceExtra {
     DefPointer(const uint32 *, stack_sizes);
+    /*
+     * Adjusted shared heap based addr to simple the calculation
+     * in the aot code. The value is:
+     *   shared_heap->base_addr - shared_heap->start_off
+     */
+    DefPointer(uint8 *, shared_heap_base_addr_adj);
+    MemBound shared_heap_start_off;
+
     WASMModuleInstanceExtraCommon common;
     AOTFunctionInstance **functions;
     uint32 function_count;
@@ -117,6 +126,10 @@ typedef struct AOTModuleInstanceExtra {
     bh_list sub_module_inst_list_head;
     bh_list *sub_module_inst_list;
     WASMModuleInstanceCommon **import_func_module_insts;
+#endif
+
+#if WASM_ENABLE_SHARED_HEAP != 0
+    WASMSharedHeap *shared_heap;
 #endif
 } AOTModuleInstanceExtra;
 
@@ -492,6 +505,18 @@ void
 aot_unload(AOTModule *module);
 
 /**
+ * Resolve symbols for an AOT module
+ */
+bool
+aot_resolve_symbols(AOTModule *module);
+
+/**
+ * Helper function to resolve a single function
+ */
+bool
+aot_resolve_import_func(AOTModule *module, AOTImportFunc *import_func);
+
+/**
  * Instantiate a AOT module.
  *
  * @param module the AOT module to instantiate
@@ -530,6 +555,15 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst);
  */
 AOTFunctionInstance *
 aot_lookup_function(const AOTModuleInstance *module_inst, const char *name);
+
+AOTMemoryInstance *
+aot_lookup_memory(AOTModuleInstance *module_inst, char const *name);
+
+AOTMemoryInstance *
+aot_get_default_memory(AOTModuleInstance *module_inst);
+
+AOTMemoryInstance *
+aot_get_memory_with_index(AOTModuleInstance *module_inst, uint32 index);
 
 /**
  * Get a function in the AOT module instance.

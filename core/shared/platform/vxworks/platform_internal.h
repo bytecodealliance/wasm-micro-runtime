@@ -101,7 +101,7 @@ os_sigreturn();
 #define os_getpagesize getpagesize
 
 static inline os_file_handle
-os_get_invalid_handle()
+os_get_invalid_handle(void)
 {
     return -1;
 }

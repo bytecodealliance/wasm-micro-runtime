@@ -885,25 +885,28 @@ alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     if (!comp_ctx->is_jit_mode) {
-        /* aot mode: new_frame->func_idx = func_idx */
-        func_idx_val = comp_ctx->pointer_size == sizeof(uint64)
-                           ? I64_CONST(func_idx)
-                           : I32_CONST(func_idx);
-        offset = I32_CONST(comp_ctx->pointer_size);
-        CHECK_LLVM_CONST(func_idx_val);
-        CHECK_LLVM_CONST(offset);
-        if (!(func_idx_ptr =
-                  LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, new_frame,
-                                        &offset, 1, "func_idx_addr"))
-            || !(func_idx_ptr =
-                     LLVMBuildBitCast(comp_ctx->builder, func_idx_ptr,
-                                      INTPTR_T_PTR_TYPE, "func_idx_ptr"))) {
-            aot_set_last_error("llvm get func_idx_ptr failed");
-            return false;
-        }
-        if (!LLVMBuildStore(comp_ctx->builder, func_idx_val, func_idx_ptr)) {
-            aot_set_last_error("llvm build store failed");
-            return false;
+        if (comp_ctx->call_stack_features.func_idx) {
+            /* aot mode: new_frame->func_idx = func_idx */
+            func_idx_val = comp_ctx->pointer_size == sizeof(uint64)
+                               ? I64_CONST(func_idx)
+                               : I32_CONST(func_idx);
+            offset = I32_CONST(comp_ctx->pointer_size);
+            CHECK_LLVM_CONST(func_idx_val);
+            CHECK_LLVM_CONST(offset);
+            if (!(func_idx_ptr = LLVMBuildInBoundsGEP2(
+                      comp_ctx->builder, INT8_TYPE, new_frame, &offset, 1,
+                      "func_idx_addr"))
+                || !(func_idx_ptr =
+                         LLVMBuildBitCast(comp_ctx->builder, func_idx_ptr,
+                                          INTPTR_T_PTR_TYPE, "func_idx_ptr"))) {
+                aot_set_last_error("llvm get func_idx_ptr failed");
+                return false;
+            }
+            if (!LLVMBuildStore(comp_ctx->builder, func_idx_val,
+                                func_idx_ptr)) {
+                aot_set_last_error("llvm build store failed");
+                return false;
+            }
         }
     }
     else {
@@ -1404,7 +1407,9 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef *param_values = NULL, value_ret = NULL, func;
     LLVMValueRef import_func_idx, res;
     LLVMValueRef ext_ret, ext_ret_ptr, ext_ret_idx;
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
     LLVMValueRef func_idx_ref;
+#endif
     int32 i, j = 0, param_count, result_count, ext_ret_count;
     uint64 total_size;
     uint8 wasm_ret_type;
@@ -2084,6 +2089,9 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef ext_ret_offset, ext_ret_ptr, ext_ret, res;
     LLVMValueRef *param_values = NULL, *value_rets = NULL;
     LLVMValueRef *result_phis = NULL, value_ret, import_func_count;
+#if WASM_ENABLE_MEMORY64 != 0
+    LLVMValueRef u32_max, u32_cmp_result = NULL;
+#endif
     LLVMTypeRef *param_types = NULL, ret_type;
     LLVMTypeRef llvm_func_type, llvm_func_ptr_type;
     LLVMTypeRef ext_ret_ptr_type;
@@ -2148,7 +2156,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     func_param_count = func_type->param_count;
     func_result_count = func_type->result_count;
 
-    POP_I32(elem_idx);
+    POP_TBL_ELEM_IDX(elem_idx);
 
     /* get the cur size of the table instance */
     if (!(offset = I32_CONST(get_tbl_inst_offset(comp_ctx, func_ctx, tbl_idx)
@@ -2177,6 +2185,27 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
+#if WASM_ENABLE_MEMORY64 != 0
+    /* Check if elem index >= UINT32_MAX */
+    if (IS_TABLE64(tbl_idx)) {
+        if (!(u32_max = I64_CONST(UINT32_MAX))) {
+            aot_set_last_error("llvm build const failed");
+            goto fail;
+        }
+        if (!(u32_cmp_result =
+                  LLVMBuildICmp(comp_ctx->builder, LLVMIntUGE, elem_idx,
+                                u32_max, "cmp_elem_idx_u32_max"))) {
+            aot_set_last_error("llvm build icmp failed.");
+            goto fail;
+        }
+        if (!(elem_idx = LLVMBuildTrunc(comp_ctx->builder, elem_idx, I32_TYPE,
+                                        "elem_idx_i32"))) {
+            aot_set_last_error("llvm build trunc failed.");
+            goto fail;
+        }
+    }
+#endif
+
     /* Check if (uint32)elem index >= table size */
     if (!(cmp_elem_idx = LLVMBuildICmp(comp_ctx->builder, LLVMIntUGE, elem_idx,
                                        table_size_const, "cmp_elem_idx"))) {
@@ -2184,7 +2213,19 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    /* Throw exception if elem index >= table size */
+#if WASM_ENABLE_MEMORY64 != 0
+    if (IS_TABLE64(tbl_idx)) {
+        if (!(cmp_elem_idx =
+                  LLVMBuildOr(comp_ctx->builder, cmp_elem_idx, u32_cmp_result,
+                              "larger_than_u32_max_or_cur_size"))) {
+            aot_set_last_error("llvm build or failed.");
+            goto fail;
+        }
+    }
+#endif
+
+    /* Throw exception if elem index >= table size or elem index >= UINT32_MAX
+     */
     if (!(check_elem_idx_succ = LLVMAppendBasicBlockInContext(
               comp_ctx->context, func_ctx->func, "check_elem_idx_succ"))) {
         aot_set_last_error("llvm add basic block failed.");

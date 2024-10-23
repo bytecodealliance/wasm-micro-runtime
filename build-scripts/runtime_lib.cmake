@@ -59,7 +59,12 @@ if (WAMR_BUILD_INTERP EQUAL 1)
 endif ()
 
 if (WAMR_BUILD_FAST_JIT EQUAL 1)
-    include (${IWASM_DIR}/fast-jit/iwasm_fast_jit.cmake)
+    if (WAMR_BUILD_PLATFORM STREQUAL "windows")
+        message ("Fast JIT currently not supported on Windows")
+        set (WAMR_BUILD_FAST_JIT 0)
+    else ()
+        include (${IWASM_DIR}/fast-jit/iwasm_fast_jit.cmake)
+    endif ()
 endif ()
 
 if (WAMR_BUILD_JIT EQUAL 1)
@@ -104,6 +109,10 @@ if (WAMR_BUILD_WASI_NN EQUAL 1)
 endif ()
 
 if (WAMR_BUILD_LIB_PTHREAD EQUAL 1)
+    if (WAMR_BUILD_PLATFORM STREQUAL "windows")
+        set (WAMR_BUILD_LIB_PTHREAD_SEMAPHORE 0)
+        message ("Lib pthread semaphore currently not supported on Windows")
+    endif ()
     include (${IWASM_DIR}/libraries/lib-pthread/lib_pthread.cmake)
     # Enable the dependent feature if lib pthread is enabled
     set (WAMR_BUILD_THREAD_MGR 1)
@@ -121,6 +130,10 @@ endif ()
 
 if (WAMR_BUILD_DYNAMIC_LINKING EQUAL 1)
     include (${IWASM_DIR}/libraries/lib-dynlink/lib_dynlink.cmake)
+endif ()
+
+if (WAMR_BUILD_SHARED_HEAP EQUAL 1)
+    include (${IWASM_DIR}/libraries/shared-heap/shared_heap.cmake)
 endif ()
 
 if (WAMR_BUILD_DEBUG_INTERP EQUAL 1)
@@ -198,6 +211,7 @@ set (source_all
     ${LIBC_EMCC_SOURCE}
     ${LIB_RATS_SOURCE}
     ${DEBUG_ENGINE_SOURCE}
+    ${LIB_SHARED_HEAP_SOURCE}
 )
 
 set (WAMR_RUNTIME_LIB_SOURCE ${source_all})

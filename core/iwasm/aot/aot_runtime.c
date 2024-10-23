@@ -57,6 +57,9 @@ bh_static_assert(sizeof(AOTMemoryInstance) == 120);
 bh_static_assert(offsetof(AOTTableInstance, elems) == 24);
 
 bh_static_assert(offsetof(AOTModuleInstanceExtra, stack_sizes) == 0);
+bh_static_assert(offsetof(AOTModuleInstanceExtra, shared_heap_base_addr_adj)
+                 == 8);
+bh_static_assert(offsetof(AOTModuleInstanceExtra, shared_heap_start_off) == 16);
 
 bh_static_assert(sizeof(CApiFuncImport) == sizeof(uintptr_t) * 3);
 
@@ -133,6 +136,17 @@ is_frame_per_function(WASMExecEnv *exec_env)
 
     return module->feature_flags & WASM_FEATURE_FRAME_PER_FUNCTION;
 }
+
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+static bool
+is_frame_func_idx_disabled(WASMExecEnv *exec_env)
+{
+    AOTModule *module =
+        (AOTModule *)((AOTModuleInstance *)exec_env->module_inst)->module;
+
+    return module->feature_flags & WASM_FEATURE_FRAME_NO_FUNC_IDX;
+}
+#endif
 
 static void *
 get_top_frame(WASMExecEnv *exec_env)
@@ -728,18 +742,24 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
 #if WASM_ENABLE_REF_TYPES != 0
         bh_assert(
-            table_seg->offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
+            table_seg->offset.init_expr_type
+                == (tbl_inst->is_table64 ? INIT_EXPR_TYPE_I64_CONST
+                                         : INIT_EXPR_TYPE_I32_CONST)
             || table_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL
             || table_seg->offset.init_expr_type == INIT_EXPR_TYPE_FUNCREF_CONST
             || table_seg->offset.init_expr_type
                    == INIT_EXPR_TYPE_REFNULL_CONST);
 #else
-        bh_assert(table_seg->offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
+        bh_assert(table_seg->offset.init_expr_type
+                      == (tbl_inst->is_table64 ? INIT_EXPR_TYPE_I64_CONST
+                                               : INIT_EXPR_TYPE_I32_CONST)
                   || table_seg->offset.init_expr_type
                          == INIT_EXPR_TYPE_GET_GLOBAL);
 #endif
 
         /* Resolve table data base offset */
+        /* TODO: The table64 current implementation assumes table max size
+         * UINT32_MAX, so the offset conversion here is safe */
         if (table_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
             global_index = table_seg->offset.u.global_index;
 
@@ -1049,13 +1069,38 @@ fail1:
     return NULL;
 }
 
-static AOTMemoryInstance *
+AOTMemoryInstance *
+aot_lookup_memory(AOTModuleInstance *module_inst, char const *name)
+{
+#if WASM_ENABLE_MULTI_MEMORY != 0
+    uint32 i;
+    for (i = 0; i < module_inst->export_memory_count; i++)
+        if (!strcmp(module_inst->export_memories[i].name, name))
+            return module_inst->export_memories[i].memory;
+    return NULL;
+#else
+    (void)module_inst->export_memories;
+    if (!module_inst->memories)
+        return NULL;
+    return module_inst->memories[0];
+#endif
+}
+
+AOTMemoryInstance *
 aot_get_default_memory(AOTModuleInstance *module_inst)
 {
     if (module_inst->memories)
         return module_inst->memories[0];
     else
         return NULL;
+}
+
+AOTMemoryInstance *
+aot_get_memory_with_index(AOTModuleInstance *module_inst, uint32 index)
+{
+    if ((index >= module_inst->memory_count) || !module_inst->memories)
+        return NULL;
+    return module_inst->memories[index];
 }
 
 static bool
@@ -1334,6 +1379,15 @@ init_func_type_indexes(AOTModuleInstance *module_inst, AOTModule *module,
     return true;
 }
 
+static int
+cmp_func_inst(const void *a, const void *b)
+{
+    const AOTFunctionInstance *func_inst1 = (const AOTFunctionInstance *)a;
+    const AOTFunctionInstance *func_inst2 = (const AOTFunctionInstance *)b;
+
+    return strcmp(func_inst1->func_name, func_inst2->func_name);
+}
+
 static bool
 create_export_funcs(AOTModuleInstance *module_inst, AOTModule *module,
                     char *error_buf, uint32 error_buf_size)
@@ -1374,10 +1428,43 @@ create_export_funcs(AOTModuleInstance *module_inst, AOTModule *module,
                 export_func++;
             }
         }
+
+        qsort(module_inst->export_functions, module_inst->export_func_count,
+              sizeof(AOTFunctionInstance), cmp_func_inst);
     }
 
     return true;
 }
+
+#if WASM_ENABLE_MULTI_MEMORY != 0
+static WASMExportMemInstance *
+export_memories_instantiate(const AOTModule *module,
+                            AOTModuleInstance *module_inst,
+                            uint32 export_mem_count, char *error_buf,
+                            uint32 error_buf_size)
+{
+    WASMExportMemInstance *export_memories, *export_memory;
+    AOTExport *export = module->exports;
+    uint32 i;
+    uint64 total_size =
+        sizeof(WASMExportMemInstance) * (uint64)export_mem_count;
+
+    if (!(export_memory = export_memories =
+              runtime_malloc(total_size, error_buf, error_buf_size))) {
+        return NULL;
+    }
+
+    for (i = 0; i < module->export_count; i++, export ++)
+        if (export->kind == EXPORT_KIND_MEMORY) {
+            export_memory->name = export->name;
+            export_memory->memory = module_inst->memories[export->index];
+            export_memory++;
+        }
+
+    bh_assert((uint32)(export_memory - export_memories) == export_mem_count);
+    return export_memories;
+}
+#endif /* end of if WASM_ENABLE_MULTI_MEMORY != 0 */
 
 static bool
 create_exports(AOTModuleInstance *module_inst, AOTModule *module,
@@ -1404,6 +1491,17 @@ create_exports(AOTModuleInstance *module_inst, AOTModule *module,
                 return false;
         }
     }
+
+#if WASM_ENABLE_MULTI_MEMORY != 0
+    if (module_inst->export_memory_count) {
+        module_inst->export_memories = export_memories_instantiate(
+            module, module_inst, module_inst->export_memory_count, error_buf,
+            error_buf_size);
+        if (!module_inst->export_memories) {
+            return false;
+        }
+    }
+#endif
 
     return create_export_funcs(module_inst, module, error_buf, error_buf_size);
 }
@@ -1483,8 +1581,12 @@ execute_post_instantiate_functions(AOTModuleInstance *module_inst,
     if (is_sub_inst) {
         bh_assert(exec_env_main);
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-        bh_assert(exec_env_tls == exec_env_main);
-        (void)exec_env_tls;
+        /* May come from pthread_create_wrapper, thread_spawn_wrapper and
+           wasm_cluster_spawn_exec_env. If it comes from the former two,
+           the exec_env_tls must be not NULL and equal to exec_env_main,
+           else if it comes from the last one, it may be NULL. */
+        if (exec_env_tls)
+            bh_assert(exec_env_tls == exec_env_main);
 #endif
         exec_env = exec_env_main;
 
@@ -1808,6 +1910,24 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     extra->stack_sizes =
         aot_get_data_section_addr(module, AOT_STACK_SIZES_SECTION_NAME, NULL);
 
+    /*
+     * The AOT code checks whether the n bytes to access are in shared heap
+     * by checking whether the beginning address meets:
+     *   addr >= start_off && addr <= end_off - n-bytes + 1
+     * where n is 1/2/4/8/16 and `end_off - n-bytes + 1` is constant, e.g.,
+     *   UINT32_MAX, UINT32_MAX-1, UINT32_MAX-3 for n = 1, 2 or 4 in 32-bit
+     * target. To simplify the check, when shared heap is disabled, we set
+     * the start off to UINT64_MAX in 64-bit target and UINT32_MAX in 32-bit
+     * target, so in the checking, the above formula will be false, we don't
+     * need to check whether the shared heap is enabled or not in the AOT
+     * code.
+     */
+#if UINTPTR_MAX == UINT64_MAX
+    extra->shared_heap_start_off.u64 = UINT64_MAX;
+#else
+    extra->shared_heap_start_off.u32[0] = UINT32_MAX;
+#endif
+
 #if WASM_ENABLE_PERF_PROFILING != 0
     total_size = sizeof(AOTFuncPerfProfInfo)
                  * ((uint64)module->import_func_count + module->func_count);
@@ -2048,6 +2168,11 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
     if (module_inst->export_functions)
         wasm_runtime_free(module_inst->export_functions);
 
+#if WASM_ENABLE_MULTI_MEMORY != 0
+    if (module_inst->export_memories)
+        wasm_runtime_free(module_inst->export_memories);
+#endif
+
     if (extra->functions) {
         uint32 func_idx;
         for (func_idx = 0; func_idx < extra->function_count; ++func_idx) {
@@ -2093,14 +2218,15 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 AOTFunctionInstance *
 aot_lookup_function(const AOTModuleInstance *module_inst, const char *name)
 {
-    uint32 i;
     AOTFunctionInstance *export_funcs =
         (AOTFunctionInstance *)module_inst->export_functions;
+    AOTFunctionInstance key = { .func_name = (char *)name };
 
-    for (i = 0; i < module_inst->export_func_count; i++)
-        if (!strcmp(export_funcs[i].func_name, name))
-            return &export_funcs[i];
-    return NULL;
+    if (!export_funcs)
+        return NULL;
+
+    return bsearch(&key, export_funcs, module_inst->export_func_count,
+                   sizeof(AOTFunctionInstance), cmp_func_inst);
 }
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
@@ -3952,7 +4078,7 @@ aot_create_call_stack(struct WASMExecEnv *exec_env)
 #endif
         }
         WASMCApiFrame frame = { 0 };
-        uint32 max_local_cell_num, max_stack_cell_num;
+        uint32 max_local_cell_num = 0, max_stack_cell_num = 0;
         uint32 all_cell_num, lp_size;
 
         frame.instance = module_inst;
@@ -3961,16 +4087,20 @@ aot_create_call_stack(struct WASMExecEnv *exec_env)
         frame.func_offset = ip_offset;
         frame.func_name_wp = get_func_name_from_index(module_inst, func_index);
 
-        if (func_index >= module->import_func_count) {
-            uint32 aot_func_idx = func_index - module->import_func_count;
-            max_local_cell_num = module->max_local_cell_nums[aot_func_idx];
-            max_stack_cell_num = module->max_stack_cell_nums[aot_func_idx];
-        }
-        else {
-            AOTFuncType *func_type = module->import_funcs[func_index].func_type;
-            max_local_cell_num =
-                func_type->param_cell_num > 2 ? func_type->param_cell_num : 2;
-            max_stack_cell_num = 0;
+        if (!is_frame_func_idx_disabled(exec_env)) {
+            if (func_index >= module->import_func_count) {
+                uint32 aot_func_idx = func_index - module->import_func_count;
+                max_local_cell_num = module->max_local_cell_nums[aot_func_idx];
+                max_stack_cell_num = module->max_stack_cell_nums[aot_func_idx];
+            }
+            else {
+                AOTFuncType *func_type =
+                    module->import_funcs[func_index].func_type;
+                max_local_cell_num = func_type->param_cell_num > 2
+                                         ? func_type->param_cell_num
+                                         : 2;
+                max_stack_cell_num = 0;
+            }
         }
 
         all_cell_num = max_local_cell_num + max_stack_cell_num;
@@ -4986,6 +5116,18 @@ aot_const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
     return c_str;
 }
 
+#if WASM_ENABLE_DYNAMIC_AOT_DEBUG != 0
+AOTModule *g_dynamic_aot_module = NULL;
+
+void __attribute__((noinline)) __enable_dynamic_aot_debug(void)
+{
+    /* empty implementation. */
+}
+
+void (*__enable_dynamic_aot_debug_ptr)(void)
+    __attribute__((visibility("default"))) = __enable_dynamic_aot_debug;
+#endif
+
 bool
 aot_set_module_name(AOTModule *module, const char *name, char *error_buf,
                     uint32_t error_buf_size)
@@ -4999,6 +5141,12 @@ aot_set_module_name(AOTModule *module, const char *name, char *error_buf,
                                             false,
 #endif
                                             error_buf, error_buf_size);
+#if WASM_ENABLE_DYNAMIC_AOT_DEBUG != 0
+    /* export g_dynamic_aot_module for dynamic aot debug */
+    g_dynamic_aot_module = module;
+    /* trigger breakpoint __enable_dynamic_aot_debug */
+    (*__enable_dynamic_aot_debug_ptr)();
+#endif
     return module->name != NULL;
 }
 
@@ -5006,4 +5154,126 @@ const char *
 aot_get_module_name(AOTModule *module)
 {
     return module->name;
+}
+
+bool
+aot_resolve_symbols(AOTModule *module)
+{
+    bool ret = true;
+    uint32 idx;
+    for (idx = 0; idx < module->import_func_count; ++idx) {
+        AOTImportFunc *aot_import_func = &module->import_funcs[idx];
+        if (!aot_import_func->func_ptr_linked) {
+            if (!aot_resolve_import_func(module, aot_import_func)) {
+                LOG_WARNING("Failed to link function (%s, %s)",
+                            aot_import_func->module_name,
+                            aot_import_func->func_name);
+                ret = false;
+            }
+        }
+    }
+    return ret;
+}
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+static void *
+aot_resolve_function(const AOTModule *module, const char *function_name,
+                     const AOTFuncType *expected_function_type, char *error_buf,
+                     uint32 error_buf_size);
+
+static void *
+aot_resolve_function_ex(const char *module_name, const char *function_name,
+                        const AOTFuncType *expected_function_type,
+                        char *error_buf, uint32 error_buf_size)
+{
+    WASMModuleCommon *module_reg;
+
+    module_reg = wasm_runtime_find_module_registered(module_name);
+    if (!module_reg || module_reg->module_type != Wasm_Module_AoT) {
+        LOG_DEBUG("can not find a module named %s for function %s", module_name,
+                  function_name);
+        set_error_buf(error_buf, error_buf_size, "unknown import");
+        return NULL;
+    }
+    return aot_resolve_function((AOTModule *)module_reg, function_name,
+                                expected_function_type, error_buf,
+                                error_buf_size);
+}
+
+static void *
+aot_resolve_function(const AOTModule *module, const char *function_name,
+                     const AOTFuncType *expected_function_type, char *error_buf,
+                     uint32 error_buf_size)
+{
+    void *function = NULL;
+    AOTExport *export = NULL;
+    AOTFuncType *target_function_type = NULL;
+
+    export = loader_find_export((WASMModuleCommon *)module, module->name,
+                                function_name, EXPORT_KIND_FUNC, error_buf,
+                                error_buf_size);
+    if (!export) {
+        return NULL;
+    }
+
+    /* resolve function type and function */
+    if (export->index < module->import_func_count) {
+        target_function_type = module->import_funcs[export->index].func_type;
+        function = module->import_funcs[export->index].func_ptr_linked;
+    }
+    else {
+        target_function_type =
+            (AOTFuncType *)module
+                ->types[module->func_type_indexes[export->index
+                                                  - module->import_func_count]];
+        function =
+            (module->func_ptrs[export->index - module->import_func_count]);
+    }
+    /* check function type */
+    if (!wasm_type_equal((WASMType *)expected_function_type,
+                         (WASMType *)target_function_type, module->types,
+                         module->type_count)) {
+        LOG_DEBUG("%s.%s failed the type check", module->name, function_name);
+        set_error_buf(error_buf, error_buf_size, "incompatible import type");
+        return NULL;
+    }
+    return function;
+}
+#endif /* end of WASM_ENABLE_MULTI_MODULE */
+
+bool
+aot_resolve_import_func(AOTModule *module, AOTImportFunc *import_func)
+{
+#if WASM_ENABLE_MULTI_MODULE != 0
+    char error_buf[128];
+    AOTModule *sub_module = NULL;
+#endif
+    import_func->func_ptr_linked = wasm_native_resolve_symbol(
+        import_func->module_name, import_func->func_name,
+        import_func->func_type, &import_func->signature,
+        &import_func->attachment, &import_func->call_conv_raw);
+#if WASM_ENABLE_MULTI_MODULE != 0
+    if (!import_func->func_ptr_linked) {
+        if (!wasm_runtime_is_built_in_module(import_func->module_name)) {
+            sub_module = (AOTModule *)wasm_runtime_load_depended_module(
+                (WASMModuleCommon *)module, import_func->module_name, error_buf,
+                sizeof(error_buf));
+            if (!sub_module) {
+                LOG_WARNING("Failed to load sub module: %s", error_buf);
+            }
+            if (!sub_module)
+                import_func->func_ptr_linked = aot_resolve_function_ex(
+                    import_func->module_name, import_func->func_name,
+                    import_func->func_type, error_buf, sizeof(error_buf));
+            else
+                import_func->func_ptr_linked = aot_resolve_function(
+                    sub_module, import_func->func_name, import_func->func_type,
+                    error_buf, sizeof(error_buf));
+            if (!import_func->func_ptr_linked) {
+                LOG_WARNING("Failed to link function: %s", error_buf);
+            }
+        }
+    }
+#endif
+    return import_func->func_ptr_linked != NULL;
 }

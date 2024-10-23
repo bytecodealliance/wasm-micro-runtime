@@ -70,7 +70,9 @@ aot_alloc_tiny_frame_for_aot_func(AOTCompContext *comp_ctx,
     }
 
     /* Save the func_idx on the top of the stack */
-    ADD_STORE(func_index, wasm_stack_top);
+    if (comp_ctx->call_stack_features.func_idx) {
+        ADD_STORE(func_index, wasm_stack_top);
+    }
 
     /* increment the stack pointer */
     INT_CONST(offset, sizeof(AOTTinyFrame), I32_TYPE, true);

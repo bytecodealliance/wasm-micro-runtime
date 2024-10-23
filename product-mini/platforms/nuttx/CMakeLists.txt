@@ -49,6 +49,12 @@ else()
   add_definitions(-DWASM_ENABLE_WORD_ALIGN_READ=0)
 endif()
 
+if(CONFIG_INTERPRETERS_WAMR_DYNAMIC_AOT_DEBUG)
+  add_definitions(-DWASM_ENABLE_DYNAMIC_AOT_DEBUG=1)
+else()
+  add_definitions(-DWASM_ENABLE_DYNAMIC_AOT_DEBUG=0)
+endif()
+
 if(CONFIG_INTERPRETERS_WAMR_STACK_GUARD_SIZE)
   add_definitions(-DWASM_STACK_GUARD_SIZE=0)
 else()

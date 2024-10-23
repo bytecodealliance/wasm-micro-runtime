@@ -124,7 +124,8 @@ include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 if (NOT WIN32)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security \
                                        -ffunction-sections -fdata-sections \
-                                       -Wno-unused-parameter -Wno-pedantic")
+                                       -Wno-unused-parameter -Wno-pedantic \
+                                       -fvisibility=hidden")
   # Remove the extra spaces for better make log
   string (REGEX REPLACE "  *" " " CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wformat -Wformat-security -Wno-unused")
@@ -168,7 +169,7 @@ if (WAMR_BUILD_STATIC)
     endif ()
 
     if (WIN32)
-      target_link_libraries(iwasm_static PRIVATE ntdll)  
+      target_link_libraries(iwasm_static PRIVATE ntdll)
     endif()
 
     install (TARGETS iwasm_static ARCHIVE DESTINATION lib)
@@ -190,7 +191,7 @@ if (WAMR_BUILD_SHARED)
     endif ()
 
     if (WIN32)
-      target_link_libraries(iwasm_shared PRIVATE ntdll)  
+      target_link_libraries(iwasm_shared PRIVATE ntdll)
     endif()
 
     install (TARGETS iwasm_shared LIBRARY DESTINATION lib)
