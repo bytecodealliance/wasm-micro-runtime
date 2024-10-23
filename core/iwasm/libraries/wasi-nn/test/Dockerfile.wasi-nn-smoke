@@ -63,20 +63,34 @@ WORKDIR /workspaces/wasmedge-wasinn-examples
 RUN git clone --depth 1 https://github.com/second-state/WasmEdge-WASINN-examples.git .
 COPY core/iwasm/libraries/wasi-nn/test/bump_wasi_nn_to_0_6_0.patch .
 RUN git apply ./bump_wasi_nn_to_0_6_0.patch
-# recompile with wasi-nn 0.6.0
-RUN cd openvino-mobilenet-image/rust && cargo build --target=wasm32-wasi
-RUN cd openvino-mobilenet-raw/rust && cargo build --target=wasm32-wasi
-RUN cd openvino-road-segmentation-adas/openvino-road-seg-adas && cargo build --target=wasm32-wasi
-RUN cd tflite-birds_v1-image/rust && cargo build --target=wasm32-wasi
 
-# preparation
-RUN cd openvino-mobilenet-image \
+# recompile with wasi-nn 0.6.0
+WORKDIR /workspaces/wasmedge-wasinn-examples/openvino-mobilenet-image/
+RUN pushd rust \
+  && cargo build --target=wasm32-wasi \
+  && popd \
   && ./download_mobilenet.sh . \
   && ls -l mobilenet.xml mobilenet.bin
 
-RUN cd openvino-mobilenet-raw \
+WORKDIR /workspaces/wasmedge-wasinn-examples/openvino-mobilenet-raw/
+RUN pushd rust \
+  && cargo build --target=wasm32-wasi \
+  && popd \
   && ./download_mobilenet.sh . \
   && ls -l mobilenet.xml mobilenet.bin tensor-1x224x224x3-f32.bgr
+
+WORKDIR /workspaces/wasmedge-wasinn-examples/openvino-road-segmentation-adas/
+RUN pushd openvino-road-seg-adas \
+  && cargo build --target=wasm32-wasi
+
+WORKDIR /workspaces/wasmedge-wasinn-examples/tflite-birds_v1-image/
+RUN pushd rust \
+  && cargo build --target=wasm32-wasi
+
+# mount models when running
+WORKDIR /workspaces/wasmedge-wasinn-examples/wasmedge-ggml/qwen
+RUN wget --progress=dot:giga https://www.modelscope.cn/models/qwen/Qwen1.5-0.5B-Chat-GGUF/resolve/master/qwen1_5-0_5b-chat-q2_k.gguf
+RUN cargo build --target=wasm32-wasi
 
 #
 # iwasm. build from source
@@ -88,15 +102,16 @@ WORKDIR /workspaces/wamr/product-mini/platforms/linux
 RUN OpenVINO_DIR=/usr/lib/openvino-2023.2.0 \
     cmake -S . -B build \
     -DWAMR_BUILD_WASI_NN=1 -DWAMR_BUILD_WASI_EPHEMERAL_NN=1 \
-    -DWAMR_BUILD_WASI_NN_OPENVINO=1 -DWAMR_BUILD_WASI_NN_TFLITE=1 \
-  && cmake --build build
-
-ENV PATH=/workspaces/wamr/product-mini/platforms/linux/build:${PATH}
-ENV LD_LIBRARY_PATH=/workspaces/wamr/product-mini/platforms/linux/build
+    -DWAMR_BUILD_WASI_NN_OPENVINO=1 \
+    -DWAMR_BUILD_WASI_NN_TFLITE=1 \
+    -DWAMR_BUILD_WASI_NN_LLAMACPP=1 \
+  && cmake --build build \
+  && cmake --install build
+ 
+ENV LD_LIBRARY_PATH=/usr/local/lib
 
 # add smoke test script
 COPY core/iwasm/libraries/wasi-nn/test/run_smoke_test.py /
 
-#
 WORKDIR /workspaces/wasmedge-wasinn-examples
 CMD ["python3", "/run_smoke_test.py"]

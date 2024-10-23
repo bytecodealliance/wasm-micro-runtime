@@ -15,6 +15,9 @@ file (GLOB_RECURSE source_all ${PLATFORM_SHARED_DIR}/*.c
 
 if (NOT WAMR_BUILD_LIBC_WASI EQUAL 1)
     list(REMOVE_ITEM source_all ${PLATFORM_SHARED_DIR}/win_file.c)
+elseif (WAMR_BUILD_LIBC_UVWASI EQUAL 1)
+    # uvwasi doesn't need to compile win_file.c
+    list(REMOVE_ITEM source_all ${PLATFORM_SHARED_DIR}/win_file.c)
 else()
     include (${CMAKE_CURRENT_LIST_DIR}/../common/libc-util/platform_common_libc_util.cmake)
     set(source_all ${source_all} ${PLATFORM_COMMON_LIBC_UTIL_SOURCE})

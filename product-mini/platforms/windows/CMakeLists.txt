@@ -52,9 +52,9 @@ if (NOT DEFINED WAMR_BUILD_LIBC_BUILTIN)
   set (WAMR_BUILD_LIBC_BUILTIN 1)
 endif ()
 
-if (NOT DEFINED WAMR_BUILD_LIBC_UVWASI)
-  # Enable libc uvwasi support by default
-  set (WAMR_BUILD_LIBC_UVWASI 1)
+if (NOT DEFINED WAMR_BUILD_LIBC_WASI)
+  # Enable libc wasi support by default
+  set (WAMR_BUILD_LIBC_WASI 1)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_FAST_INTERP)

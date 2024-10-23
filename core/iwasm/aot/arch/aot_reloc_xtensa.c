@@ -10,44 +10,44 @@
 
 /* clang-format off */
 /* for soft-float */
-void __floatsidf();
-void __divdf3();
-void __ltdf2();
+void __floatsidf(void);
+void __divdf3(void);
+void __ltdf2(void);
 
 /* for mul32 */
-void __mulsi3();
-void __muldi3();
+void __mulsi3(void);
+void __muldi3(void);
 
-void __modsi3();
+void __modsi3(void);
 
-void __divdi3();
+void __divdi3(void);
 
-void __udivdi3();
-void __unorddf2();
-void __adddf3();
-void __eqdf2();
-void __muldf3();
-void __gedf2();
-void __ledf2();
-void __fixunsdfsi();
-void __floatunsidf();
-void __subdf3();
-void __nedf2();
-void __fixdfsi();
-void __moddi3();
-void __extendsfdf2();
-void __truncdfsf2();
-void __gtdf2();
-void __umoddi3();
-void __floatdidf();
-void __divsf3();
-void __fixdfdi();
-void __floatundidf();
-void __fixsfdi();
-void __fixunssfdi();
-void __fixunsdfdi();
-void __floatdisf();
-void __floatundisf();
+void __udivdi3(void);
+void __unorddf2(void);
+void __adddf3(void);
+void __eqdf2(void);
+void __muldf3(void);
+void __gedf2(void);
+void __ledf2(void);
+void __fixunsdfsi(void);
+void __floatunsidf(void);
+void __subdf3(void);
+void __nedf2(void);
+void __fixdfsi(void);
+void __moddi3(void);
+void __extendsfdf2(void);
+void __truncdfsf2(void);
+void __gtdf2(void);
+void __umoddi3(void);
+void __floatdidf(void);
+void __divsf3(void);
+void __fixdfdi(void);
+void __floatundidf(void);
+void __fixsfdi(void);
+void __fixunssfdi(void);
+void __fixunsdfdi(void);
+void __floatdisf(void);
+void __floatundisf(void);
 
 
 static SymbolMap target_sym_map[] = {
@@ -119,7 +119,7 @@ get_current_target(char *target_buf, uint32 target_buf_size)
 }
 
 static uint32
-get_plt_item_size()
+get_plt_item_size(void)
 {
     return 0;
 }

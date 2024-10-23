@@ -1519,6 +1519,75 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 }
 
 static bool
+create_shared_heap_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    LLVMValueRef offset, base_addr_p, start_off_p, cmp;
+    uint32 offset_u32;
+
+    /* Load aot_inst->e->shared_heap_base_addr_adj */
+    offset_u32 = get_module_inst_extra_offset(comp_ctx);
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_SHARED_HEAP != 0
+    if (comp_ctx->is_jit_mode)
+        offset_u32 +=
+            offsetof(WASMModuleInstanceExtra, shared_heap_base_addr_adj);
+    else
+#endif
+        offset_u32 +=
+            offsetof(AOTModuleInstanceExtra, shared_heap_base_addr_adj);
+    offset = I32_CONST(offset_u32);
+    CHECK_LLVM_CONST(offset);
+
+    if (!(base_addr_p = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
+                                              func_ctx->aot_inst, &offset, 1,
+                                              "shared_heap_base_addr_adj_p"))) {
+        aot_set_last_error("llvm build inbounds gep failed");
+        return false;
+    }
+    if (!(func_ctx->shared_heap_base_addr_adj =
+              LLVMBuildLoad2(comp_ctx->builder, INT8_PTR_TYPE, base_addr_p,
+                             "shared_heap_base_addr_adj"))) {
+        aot_set_last_error("llvm build load failed");
+        return false;
+    }
+
+    /* Load aot_inst->e->shared_heap_start_off */
+    offset_u32 = get_module_inst_extra_offset(comp_ctx);
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_SHARED_HEAP != 0
+    if (comp_ctx->is_jit_mode)
+        offset_u32 += offsetof(WASMModuleInstanceExtra, shared_heap_start_off);
+    else
+#endif
+        offset_u32 += offsetof(AOTModuleInstanceExtra, shared_heap_start_off);
+    offset = I32_CONST(offset_u32);
+    CHECK_LLVM_CONST(offset);
+
+    if (!(start_off_p = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
+                                              func_ctx->aot_inst, &offset, 1,
+                                              "shared_heap_start_off_p"))) {
+        aot_set_last_error("llvm build inbounds gep failed");
+        return false;
+    }
+    if (!(func_ctx->shared_heap_start_off = LLVMBuildLoad2(
+              comp_ctx->builder,
+              comp_ctx->pointer_size == sizeof(uint64) ? I64_TYPE : I32_TYPE,
+              start_off_p, "shared_heap_start_off"))) {
+        aot_set_last_error("llvm build load failed");
+        return false;
+    }
+
+    if (!(cmp = LLVMBuildIsNotNull(comp_ctx->builder,
+                                   func_ctx->shared_heap_base_addr_adj,
+                                   "has_shared_heap"))) {
+        aot_set_last_error("llvm build is not null failed");
+        return false;
+    }
+
+    return true;
+fail:
+    return false;
+}
+
+static bool
 create_cur_exception(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef offset;
@@ -1771,7 +1840,7 @@ aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
         goto fail;
     }
 
-    if (comp_ctx->enable_aux_stack_frame
+    if (comp_ctx->aux_stack_frame_type
         && !create_aux_stack_frame(comp_ctx, func_ctx)) {
         goto fail;
     }
@@ -1805,6 +1874,12 @@ aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
     /* Load function pointers */
     if (!create_func_ptrs(comp_ctx, func_ctx)) {
+        goto fail;
+    }
+
+    /* Load shared heap, shared heap start off mem32 or mem64 */
+    if (comp_ctx->enable_shared_heap
+        && !create_shared_heap_info(comp_ctx, func_ctx)) {
         goto fail;
     }
 
@@ -2577,8 +2652,8 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     if (option->enable_ref_types)
         comp_ctx->enable_ref_types = true;
 
-    if (option->enable_aux_stack_frame)
-        comp_ctx->enable_aux_stack_frame = true;
+    comp_ctx->aux_stack_frame_type = option->aux_stack_frame_type;
+    comp_ctx->call_stack_features = option->call_stack_features;
 
     if (option->enable_perf_profiling)
         comp_ctx->enable_perf_profiling = true;
@@ -2618,6 +2693,9 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
 
     if (option->enable_gc)
         comp_ctx->enable_gc = true;
+
+    if (option->enable_shared_heap)
+        comp_ctx->enable_shared_heap = true;
 
     comp_ctx->opt_level = option->opt_level;
     comp_ctx->size_level = option->size_level;
@@ -2790,6 +2868,15 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
                 bh_assert(vendor_sys);
                 bh_memcpy_s(default_arch, sizeof(default_arch), default_triple,
                             (uint32)(vendor_sys - default_triple));
+                /**
+                 * On Mac M[1-9]+ LLVM will report arm64 as the
+                 * architecture, for the purposes of wamr this is the
+                 * same as aarch64v8 so we'll normalize it here.
+                 */
+                if (!strcmp(default_arch, "arm64")) {
+                    bh_strcpy_s(default_arch, sizeof(default_arch),
+                                "aarch64v8");
+                }
                 arch1 = default_arch;
 
                 LLVMDisposeMessage(default_triple);
@@ -2960,12 +3047,12 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
                                     sizeof(comp_ctx->target_arch));
 
         if (option->bounds_checks == 1 || option->bounds_checks == 0) {
-            /* Set by user */
+            /* Set by the user */
             comp_ctx->enable_bound_check =
                 (option->bounds_checks == 1) ? true : false;
         }
         else {
-            /* Unset by user, use default value */
+            /* Unset by the user, use the default value */
             if (strstr(comp_ctx->target_arch, "64")
                 && !option->is_sgx_platform) {
                 comp_ctx->enable_bound_check = false;
@@ -2975,16 +3062,16 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
             }
         }
 
-        if (comp_ctx->enable_bound_check) {
-            /* Always enable stack boundary check if `bounds-checks`
-               is enabled */
-            comp_ctx->enable_stack_bound_check = true;
-        }
-        else {
-            /* When `bounds-checks` is disabled, we set stack boundary
-               check status according to the input option */
+        if (option->stack_bounds_checks == 1
+            || option->stack_bounds_checks == 0) {
+            /* Set by the user */
             comp_ctx->enable_stack_bound_check =
                 (option->stack_bounds_checks == 1) ? true : false;
+        }
+        else {
+            /* Unset by the user, use the default value, it will be the same
+             * value as the bound check */
+            comp_ctx->enable_stack_bound_check = comp_ctx->enable_bound_check;
         }
 
         if ((comp_ctx->enable_stack_bound_check

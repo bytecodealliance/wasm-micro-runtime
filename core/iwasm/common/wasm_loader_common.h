@@ -13,9 +13,21 @@
 extern "C" {
 #endif
 
+#if WASM_ENABLE_MEMORY64 != 0
+/* check consistency of memory64 flags across all memories,
+ * they must be either all wasm64 or all wasm32 */
+bool
+check_memory64_flags_consistency(WASMModule *module, char *error_buf,
+                                 uint32 error_buf_size, bool is_aot);
+#endif
+
 bool
 wasm_memory_check_flags(const uint8 mem_flag, char *error_buf,
                         uint32 error_buf_size, bool is_aot);
+
+bool
+wasm_table_check_flags(const uint8 table_flag, char *error_buf,
+                       uint32 error_buf_size, bool is_aot);
 
 bool
 is_valid_value_type(uint8 value_tpye);
