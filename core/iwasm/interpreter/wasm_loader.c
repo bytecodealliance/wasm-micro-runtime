@@ -15066,7 +15066,6 @@ re_scan:
                                                     error_buf_size)) {
                             goto fail;
                         }
-
                         if (replace[opcode1 - SIMD_i8x16_extract_lane_s]) {
                             if (!(wasm_loader_pop_frame_ref(
                                     loader_ctx,

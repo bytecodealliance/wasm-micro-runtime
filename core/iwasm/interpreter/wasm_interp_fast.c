@@ -5684,15 +5684,213 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         break;
                     }
                     case SIMD_v128_load8x8_s:
+                    {
+                        uint32 offset, addr;
+                        offset = read_uint32(frame_ip);
+                        addr = GET_OPERAND(uint32, I32, 0);
+                        frame_ip += 2;
+                        addr_ret = GET_OFFSET();
+                        CHECK_MEMORY_OVERFLOW(16);
+
+                        simde_v128_t simde_result =
+                            simde_wasm_i16x8_load8x8(maddr);
+
+                        V128 result;
+                        SIMDE_V128_TO_SIMD_V128(simde_result, result);
+
+                        V128 reversed_result;
+                        for (int i = 0; i < 8; i++) {
+                            reversed_result.i16x8[i] = result.i16x8[7 - i];
+                        }
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, reversed_result);
+                        break;
+                    }
                     case SIMD_v128_load8x8_u:
+                    {
+                        uint32 offset, addr;
+                        offset = read_uint32(frame_ip);
+                        addr = GET_OPERAND(uint32, I32, 0);
+                        frame_ip += 2;
+                        addr_ret = GET_OFFSET();
+                        CHECK_MEMORY_OVERFLOW(16);
+
+                        simde_v128_t simde_result =
+                            simde_wasm_u16x8_load8x8(maddr);
+
+                        V128 result;
+                        SIMDE_V128_TO_SIMD_V128(simde_result, result);
+
+                        V128 reversed_result;
+                        for (int i = 0; i < 8; i++) {
+                            reversed_result.i16x8[i] = result.i16x8[7 - i];
+                        }
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, reversed_result);
+                        break;
+                    }
                     case SIMD_v128_load16x4_s:
+                    {
+                        uint32 offset, addr;
+                        offset = read_uint32(frame_ip);
+                        addr = GET_OPERAND(uint32, I32, 0);
+                        frame_ip += 2;
+                        addr_ret = GET_OFFSET();
+                        CHECK_MEMORY_OVERFLOW(16);
+
+                        simde_v128_t simde_result =
+                            simde_wasm_i32x4_load16x4(maddr);
+
+                        V128 result;
+                        SIMDE_V128_TO_SIMD_V128(simde_result, result);
+
+                        V128 reversed_result;
+                        for (int i = 0; i < 4; i++) {
+                            reversed_result.i32x4[i] = result.i32x4[3 - i];
+                        }
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, reversed_result);
+                        break;
+                    }
                     case SIMD_v128_load16x4_u:
+                    {
+                        uint32 offset, addr;
+                        offset = read_uint32(frame_ip);
+                        addr = GET_OPERAND(uint32, I32, 0);
+                        frame_ip += 2;
+                        addr_ret = GET_OFFSET();
+                        CHECK_MEMORY_OVERFLOW(16);
+
+                        simde_v128_t simde_result =
+                            simde_wasm_u32x4_load16x4(maddr);
+
+                        V128 result;
+                        SIMDE_V128_TO_SIMD_V128(simde_result, result);
+
+                        V128 reversed_result;
+                        for (int i = 0; i < 4; i++) {
+                            reversed_result.i32x4[i] = result.i32x4[3 - i];
+                        }
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, reversed_result);
+                        break;
+                    }
                     case SIMD_v128_load32x2_s:
+                    {
+                        uint32 offset, addr;
+                        offset = read_uint32(frame_ip);
+                        addr = GET_OPERAND(uint32, I32, 0);
+                        frame_ip += 2;
+                        addr_ret = GET_OFFSET();
+                        CHECK_MEMORY_OVERFLOW(16);
+
+                        simde_v128_t simde_result =
+                            simde_wasm_i64x2_load32x2(maddr);
+
+                        V128 result;
+                        SIMDE_V128_TO_SIMD_V128(simde_result, result);
+
+                        int32 temp = result.i64x2[0];
+                        result.i64x2[0] = result.i64x2[1];
+                        result.i64x2[1] = temp;
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
                     case SIMD_v128_load32x2_u:
+                    {
+                        uint32 offset, addr;
+                        offset = read_uint32(frame_ip);
+                        addr = GET_OPERAND(uint32, I32, 0);
+                        frame_ip += 2;
+                        addr_ret = GET_OFFSET();
+                        CHECK_MEMORY_OVERFLOW(16);
+
+                        simde_v128_t simde_result =
+                            simde_wasm_u64x2_load32x2(maddr);
+
+                        V128 result;
+                        SIMDE_V128_TO_SIMD_V128(simde_result, result);
+
+                        int32 temp = result.i64x2[0];
+                        result.i64x2[0] = result.i64x2[1];
+                        result.i64x2[1] = temp;
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
                     case SIMD_v128_load8_splat:
+                    {
+                        uint32 offset, addr;
+                        offset = read_uint32(frame_ip);
+                        addr = GET_OPERAND(uint32, I32, 0);
+                        frame_ip += 2;
+                        addr_ret = GET_OFFSET();
+                        CHECK_MEMORY_OVERFLOW(16);
+
+                        simde_v128_t simde_result =
+                            simde_wasm_v128_load8_splat(maddr);
+
+                        V128 result;
+                        SIMDE_V128_TO_SIMD_V128(simde_result, result);
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
                     case SIMD_v128_load16_splat:
+                    {
+                        uint32 offset, addr;
+                        offset = read_uint32(frame_ip);
+                        addr = GET_OPERAND(uint32, I32, 0);
+                        frame_ip += 2;
+                        addr_ret = GET_OFFSET();
+                        CHECK_MEMORY_OVERFLOW(16);
+
+                        simde_v128_t simde_result =
+                            simde_wasm_v128_load16_splat(maddr);
+
+                        V128 result;
+                        SIMDE_V128_TO_SIMD_V128(simde_result, result);
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
                     case SIMD_v128_load32_splat:
+                    {
+                        uint32 offset, addr;
+                        offset = read_uint32(frame_ip);
+                        addr = GET_OPERAND(uint32, I32, 0);
+                        frame_ip += 2;
+                        addr_ret = GET_OFFSET();
+                        CHECK_MEMORY_OVERFLOW(16);
+
+                        simde_v128_t simde_result =
+                            simde_wasm_v128_load32_splat(maddr);
+
+                        V128 result;
+                        SIMDE_V128_TO_SIMD_V128(simde_result, result);
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
                     case SIMD_v128_load64_splat:
+                    {
+                        uint32 offset, addr;
+                        offset = read_uint32(frame_ip);
+                        addr = GET_OPERAND(uint32, I32, 0);
+                        frame_ip += 2;
+                        addr_ret = GET_OFFSET();
+                        CHECK_MEMORY_OVERFLOW(16);
+
+                        simde_v128_t simde_result =
+                            simde_wasm_v128_load64_splat(maddr);
+
+                        V128 result;
+                        SIMDE_V128_TO_SIMD_V128(simde_result, result);
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
                     case SIMD_v128_store:
                     {
                         uint32 offset, addr;
@@ -5740,14 +5938,54 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     }
 
                     /* Splat */
+#define SIMD_SPLAT_OP(simde_func, pop_func, val_type)  \
+    do {                                               \
+        val_type val = pop_func();                     \
+        addr_ret = GET_OFFSET();                       \
+                                                       \
+        simde_v128_t simde_result = simde_func(val);   \
+                                                       \
+        V128 result;                                   \
+        SIMDE_V128_TO_SIMD_V128(simde_result, result); \
+                                                       \
+        PUT_V128_TO_ADDR(frame_lp + addr_ret, result); \
+    } while (0)
+
+#define SIMD_SPLAT_OP_I32(simde_func) SIMD_SPLAT_OP(simde_func, POP_I32, uint32)
+#define SIMD_SPLAT_OP_I64(simde_func) SIMD_SPLAT_OP(simde_func, POP_I64, uint64)
+#define SIMD_SPLAT_OP_F32(simde_func) \
+    SIMD_SPLAT_OP(simde_func, POP_F32, float32)
+#define SIMD_SPLAT_OP_F64(simde_func) \
+    SIMD_SPLAT_OP(simde_func, POP_F64, float64)
+
                     case SIMD_i8x16_splat:
+                    {
+                        SIMD_SPLAT_OP_I32(simde_wasm_i8x16_splat);
+                        break;
+                    }
                     case SIMD_i16x8_splat:
+                    {
+                        SIMD_SPLAT_OP_I32(simde_wasm_i16x8_splat);
+                        break;
+                    }
                     case SIMD_i32x4_splat:
+                    {
+                        SIMD_SPLAT_OP_I32(simde_wasm_i32x4_splat);
+                        break;
+                    }
                     case SIMD_i64x2_splat:
+                    {
+                        SIMD_SPLAT_OP_I64(simde_wasm_i64x2_splat);
+                        break;
+                    }
                     case SIMD_f32x4_splat:
+                    {
+                        SIMD_SPLAT_OP_F32(simde_wasm_f32x4_splat);
+                        break;
+                    }
                     case SIMD_f64x2_splat:
                     {
-                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        SIMD_SPLAT_OP_F64(simde_wasm_f64x2_splat);
                         break;
                     }
 
@@ -5770,6 +6008,21 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         wasm_set_exception(module, "unsupported SIMD opcode");
                         break;
                     }
+
+#define SIMD_COMPARISON_OP(simde_func)                                       \
+    do {                                                                     \
+        V128 v1 = POP_V128();                                                \
+        V128 v2 = POP_V128();                                                \
+        addr_ret = GET_OFFSET();                                             \
+                                                                             \
+        simde_v128_t simde_result = simde_func(SIMD_V128_TO_SIMDE_V128(v1),  \
+                                               SIMD_V128_TO_SIMDE_V128(v2)); \
+                                                                             \
+        V128 result;                                                         \
+        SIMDE_V128_TO_SIMD_V128(simde_result, result);                       \
+                                                                             \
+        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);                       \
+    } while (0)
 
                     /* i8x16 comparison operations */
                     case SIMD_i8x16_eq:
@@ -5835,7 +6088,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                     /*  i32x4 comparison operations */
                     case SIMD_i32x4_eq:
+                    {
+                        SIMD_COMPARISON_OP(simde_wasm_i32x4_eq);
+                        break;
+                    }
                     case SIMD_i32x4_ne:
+                    {
+                        SIMD_COMPARISON_OP(simde_wasm_i32x4_ne);
+                        break;
+                    }
                     case SIMD_i32x4_lt_s:
                     case SIMD_i32x4_lt_u:
                     case SIMD_i32x4_gt_s:
@@ -5851,25 +6112,65 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                     /* f32x4 comparison operations */
                     case SIMD_f32x4_eq:
+                    {
+                        SIMD_COMPARISON_OP(simde_wasm_f32x4_eq);
+                        break;
+                    }
                     case SIMD_f32x4_ne:
+                    {
+                        SIMD_COMPARISON_OP(simde_wasm_f32x4_ne);
+                        break;
+                    }
                     case SIMD_f32x4_lt:
+                    {
+                        SIMD_COMPARISON_OP(simde_wasm_f32x4_lt);
+                        break;
+                    }
                     case SIMD_f32x4_gt:
+                    {
+                        SIMD_COMPARISON_OP(simde_wasm_f32x4_gt);
+                        break;
+                    }
                     case SIMD_f32x4_le:
+                    {
+                        SIMD_COMPARISON_OP(simde_wasm_f32x4_le);
+                        break;
+                    }
                     case SIMD_f32x4_ge:
                     {
-                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        SIMD_COMPARISON_OP(simde_wasm_f32x4_ge);
                         break;
                     }
 
                     /* f64x2 comparison operations */
                     case SIMD_f64x2_eq:
+                    {
+                        SIMD_COMPARISON_OP(simde_wasm_f32x4_eq);
+                        break;
+                    }
                     case SIMD_f64x2_ne:
+                    {
+                        SIMD_COMPARISON_OP(simde_wasm_f32x4_ne);
+                        break;
+                    }
                     case SIMD_f64x2_lt:
+                    {
+                        SIMD_COMPARISON_OP(simde_wasm_f32x4_lt);
+                        break;
+                    }
                     case SIMD_f64x2_gt:
+                    {
+                        SIMD_COMPARISON_OP(simde_wasm_f32x4_gt);
+                        break;
+                    }
                     case SIMD_f64x2_le:
+                    {
+                        SIMD_COMPARISON_OP(simde_wasm_f32x4_le);
+                        break;
+                    }
                     case SIMD_f64x2_ge:
                     {
-                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        SIMD_COMPARISON_OP(simde_wasm_f32x4_ge);
                         break;
                     }
 
@@ -6097,6 +6398,20 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case SIMD_i64x2_sub:
                     case SIMD_i64x2_mul:
                     case SIMD_i64x2_eq:
+                    {
+                        V128 v1 = POP_V128();
+                        V128 v2 = POP_V128();
+                        addr_ret = GET_OFFSET();
+
+                        V128 result;
+                        for (int i = 0; i < 2; i++) {
+                            result.i64x2[i] = (v1.i64x2[i] == v2.i64x2[i])
+                                                  ? 0xffffffffffffffffULL
+                                                  : 0;
+                        }
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
+                    }
                     case SIMD_i64x2_ne:
                     case SIMD_i64x2_lt_s:
                     case SIMD_i64x2_gt_s:
