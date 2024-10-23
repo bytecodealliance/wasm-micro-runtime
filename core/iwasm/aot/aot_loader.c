@@ -4,9 +4,8 @@
  */
 
 #include "aot_runtime.h"
-#include "bh_common.h"
-#include "bh_log.h"
 #include "aot_reloc.h"
+#include "bh_platform.h"
 #include "../common/wasm_runtime_common.h"
 #include "../common/wasm_native.h"
 #include "../common/wasm_loader_common.h"
@@ -1382,6 +1381,12 @@ load_table_list(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
     for (i = 0; i < module->table_count; i++, table++) {
         read_uint8(buf, buf_end, table->table_type.elem_type);
         read_uint8(buf, buf_end, table->table_type.flags);
+
+        if (!wasm_table_check_flags(table->table_type.flags, error_buf,
+                                    error_buf_size, true)) {
+            return false;
+        }
+
         read_uint8(buf, buf_end, table->table_type.possible_grow);
 #if WASM_ENABLE_GC != 0
         if (wasm_is_type_multi_byte_type(table->table_type.elem_type)) {
@@ -2506,6 +2511,15 @@ try_merge_data_and_text(const uint8 **buf, const uint8 **buf_end,
         /* merge failed but may be not critical for some targets */
         return false;
     }
+
+#ifdef BH_PLATFORM_WINDOWS
+    if (!os_mem_commit(sections, code_size,
+                       MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC)) {
+        os_munmap(sections, (uint32)total_size);
+        return false;
+    }
+#endif
+
     /* change the code part to be executable */
     if (os_mprotect(sections, code_size,
                     MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC)
@@ -2520,7 +2534,7 @@ try_merge_data_and_text(const uint8 **buf, const uint8 **buf_end,
     /* order not essential just as compiler does: .text section first */
     *buf = sections;
     *buf_end = sections + code_size;
-    bh_memcpy_s(sections, code_size, old_buf, code_size);
+    bh_memcpy_s(sections, (uint32)code_size, old_buf, (uint32)code_size);
     os_munmap(old_buf, code_size);
     sections += align_uint((uint32)code_size, page_size);
 
@@ -2738,6 +2752,48 @@ destroy_exports(AOTExport *exports)
     wasm_runtime_free(exports);
 }
 
+static int
+cmp_export_name(const void *a, const void *b)
+{
+    return strcmp(*(char **)a, *(char **)b);
+}
+
+static bool
+check_duplicate_exports(AOTModule *module, char *error_buf,
+                        uint32 error_buf_size)
+{
+    uint32 i;
+    bool result = false;
+    char *names_buf[32], **names = names_buf;
+    if (module->export_count > 32) {
+        names = loader_malloc(module->export_count * sizeof(char *), error_buf,
+                              error_buf_size);
+        if (!names) {
+            return result;
+        }
+    }
+
+    for (i = 0; i < module->export_count; i++) {
+        names[i] = module->exports[i].name;
+    }
+
+    qsort(names, module->export_count, sizeof(char *), cmp_export_name);
+
+    for (i = 1; i < module->export_count; i++) {
+        if (!strcmp(names[i], names[i - 1])) {
+            set_error_buf(error_buf, error_buf_size, "duplicate export name");
+            goto cleanup;
+        }
+    }
+
+    result = true;
+cleanup:
+    if (module->export_count > 32) {
+        wasm_runtime_free(names);
+    }
+    return result;
+}
+
 static bool
 load_exports(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
              bool is_load_from_file_buf, char *error_buf, uint32 error_buf_size)
@@ -2759,14 +2815,58 @@ load_exports(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         read_uint32(buf, buf_end, exports[i].index);
         read_uint8(buf, buf_end, exports[i].kind);
         read_string(buf, buf_end, exports[i].name);
-#if 0 /* TODO: check kind and index */
-        if (export_funcs[i].index >=
-              module->func_count + module->import_func_count) {
-            set_error_buf(error_buf, error_buf_size,
-                          "function index is out of range");
+
+        /* Check export kind and index */
+        switch (exports[i].kind) {
+            case EXPORT_KIND_FUNC:
+                if (exports[i].index
+                    >= module->import_func_count + module->func_count) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "unknown function");
+                    return false;
+                }
+                break;
+            case EXPORT_KIND_TABLE:
+                if (exports[i].index
+                    >= module->import_table_count + module->table_count) {
+                    set_error_buf(error_buf, error_buf_size, "unknown table");
+                    return false;
+                }
+                break;
+            case EXPORT_KIND_MEMORY:
+                if (exports[i].index
+                    >= module->import_memory_count + module->memory_count) {
+                    set_error_buf(error_buf, error_buf_size, "unknown memory");
+                    return false;
+                }
+                break;
+            case EXPORT_KIND_GLOBAL:
+                if (exports[i].index
+                    >= module->import_global_count + module->global_count) {
+                    set_error_buf(error_buf, error_buf_size, "unknown global");
+                    return false;
+                }
+                break;
+#if WASM_ENABLE_TAGS != 0
+                /* TODO
+                case EXPORT_KIND_TAG:
+                    if (index >= module->import_tag_count + module->tag_count) {
+                        set_error_buf(error_buf, error_buf_size, "unknown tag");
+                        return false;
+                    }
+                    break;
+                */
+#endif
+            default:
+                set_error_buf(error_buf, error_buf_size, "invalid export kind");
+                return false;
+        }
+    }
+
+    if (module->export_count > 0) {
+        if (!check_duplicate_exports(module, error_buf, error_buf_size)) {
             return false;
         }
-#endif
     }
 
     *p_buf = buf;

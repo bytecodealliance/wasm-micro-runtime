@@ -242,6 +242,9 @@ typedef struct AOTFuncContext {
     bool mem_space_unchanged;
     AOTCheckedAddrList checked_addr_list;
 
+    LLVMValueRef shared_heap_base_addr_adj;
+    LLVMValueRef shared_heap_start_off;
+
     LLVMBasicBlockRef got_exception_block;
     LLVMBasicBlockRef func_return_block;
     LLVMValueRef exception_id_phi;
@@ -466,6 +469,8 @@ typedef struct AOTCompContext {
 
     /* Enable GC */
     bool enable_gc;
+
+    bool enable_shared_heap;
 
     uint32 opt_level;
     uint32 size_level;

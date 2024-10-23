@@ -24,6 +24,7 @@
 #undef NEED_SOFT_I32_DIV
 #undef NEED_SOFT_I64_MUL
 #undef NEED_SOFT_I64_DIV
+#undef NEED_SOFT_ATOMIC
 
 #ifdef __riscv_flen
 #if __riscv_flen == 32
@@ -46,6 +47,10 @@
 #define NEED_SOFT_I64_DIV
 #elif __riscv_xlen == 32
 #define NEED_SOFT_I64_DIV
+#endif
+
+#ifndef __riscv_atomic
+#define NEED_SOFT_ATOMIC
 #endif
 
 /* clang-format off */
@@ -101,6 +106,9 @@ void __umoddi3(void);
 void __umodsi3(void);
 void __unorddf2(void);
 void __unordsf2(void);
+bool __atomic_compare_exchange_4(volatile void *, void *, unsigned int,
+                                 bool, int, int);
+void __atomic_store_4(volatile void *, unsigned int, int);
 /* clang-format on */
 
 static SymbolMap target_sym_map[] = {
@@ -127,6 +135,7 @@ static SymbolMap target_sym_map[] = {
      * to convert float and long long
      */
     REG_SYM(__floatundisf),
+    REG_SYM(__floatdisf),
 #endif
 #ifdef NEED_SOFT_DP
     REG_SYM(__adddf3),
@@ -175,6 +184,10 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__moddi3),
     REG_SYM(__udivdi3),
     REG_SYM(__umoddi3),
+#endif
+#ifdef NEED_SOFT_ATOMIC
+    REG_SYM(__atomic_compare_exchange_4),
+    REG_SYM(__atomic_store_4),
 #endif
     /* clang-format on */
 };
