@@ -962,6 +962,8 @@ function trigger()
     fi
 
     local EXTRA_COMPILE_FLAGS=""
+    # enable assertions
+    EXTRA_COMPILE_FLAGS+=" -DCMAKE_BUILD_TYPE=Debug"
     # default enabled features
     EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_BULK_MEMORY=1"
     EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=1"
