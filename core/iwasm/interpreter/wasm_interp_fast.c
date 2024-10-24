@@ -6296,11 +6296,23 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                                     v1.i64x2[1] ^ v2.i64x2[1]);
                         break;
                     }
-                    // TODO:
+                    // TODO: Test
                     case SIMD_v128_bitselect:
                     {
-                        wasm_set_exception(module, "unsupported SIMD opcode");
-                        break;
+                        V128 v1 = POP_V128();
+                        V128 v2 = POP_V128();
+                        V128 v3 = POP_V128();
+                        addr_ret = GET_OFFSET();
+
+                        simde_v128_t simde_result = simde_wasm_v128_bitselect(
+                            SIMD_V128_TO_SIMDE_V128(v1),
+                            SIMD_V128_TO_SIMDE_V128(v2),
+                            SIMD_V128_TO_SIMDE_V128(v3));
+
+                        V128 result;
+                        SIMDE_V128_TO_SIMD_V128(simde_result, result);
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
                     }
                     case SIMD_v128_any_true:
                     {
@@ -6373,7 +6385,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     {
                         V128 v1 = POP_V128();
 
-                        uint32_t result = simde_wasm_i8x16_all_true(
+                        bool result = simde_wasm_i8x16_all_true(
                             SIMD_V128_TO_SIMDE_V128(v1));
 
                         addr_ret = GET_OFFSET();
@@ -6422,12 +6434,34 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         SIMD_SINGLE_OP(simde_wasm_f32x4_nearest);
                         break;
                     }
-                    // TODO:
+// TODO: Check count?
+#define SIMD_LANE_SHIFT(simde_func)                         \
+    do {                                                    \
+        int32 count = POP_I32();                            \
+        V128 v1 = POP_V128();                               \
+        addr_ret = GET_OFFSET();                            \
+                                                            \
+        simde_v128_t simde_result =                         \
+            simde_func(SIMD_V128_TO_SIMDE_V128(v1), count); \
+                                                            \
+        V128 result;                                        \
+        SIMDE_V128_TO_SIMD_V128(simde_result, result);      \
+                                                            \
+        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);      \
+    } while (0)
                     case SIMD_i8x16_shl:
+                    {
+                        SIMD_LANE_SHIFT(simde_wasm_i8x16_shl);
+                        break;
+                    }
                     case SIMD_i8x16_shr_s:
+                    {
+                        SIMD_LANE_SHIFT(simde_wasm_i8x16_shr);
+                        break;
+                    }
                     case SIMD_i8x16_shr_u:
                     {
-                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        SIMD_LANE_SHIFT(simde_wasm_i8x16_shr);
                         break;
                     }
                     case SIMD_i8x16_add:
@@ -6537,10 +6571,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         SIMD_DOUBLE_OP(simde_wasm_i16x8_q15mulr_sat);
                         break;
                     }
-                    // TODO:
                     case SIMD_i16x8_all_true:
                     {
-                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        V128 v1 = POP_V128();
+
+                        bool result = simde_wasm_i16x8_all_true(
+                            SIMD_V128_TO_SIMDE_V128(v1));
+
+                        addr_ret = GET_OFFSET();
+                        frame_lp[addr_ret] = result;
                         break;
                     }
                     case SIMD_i16x8_bitmask:
@@ -6584,12 +6623,19 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         SIMD_SINGLE_OP(simde_wasm_i16x8_extend_high_i8x16);
                         break;
                     }
-                    // TODO:
                     case SIMD_i16x8_shl:
+                    {
+                        SIMD_LANE_SHIFT(simde_wasm_i16x8_shl);
+                        break;
+                    }
                     case SIMD_i16x8_shr_s:
+                    {
+                        SIMD_LANE_SHIFT(simde_wasm_i16x8_shr);
+                        break;
+                    }
                     case SIMD_i16x8_shr_u:
                     {
-                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        SIMD_LANE_SHIFT(simde_wasm_i16x8_shr);
                         break;
                     }
                     case SIMD_i16x8_add:
@@ -6689,10 +6735,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         SIMD_SINGLE_OP(simde_wasm_i32x4_neg);
                         break;
                     }
-                    // TODO:
                     case SIMD_i32x4_all_true:
                     {
-                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        V128 v1 = POP_V128();
+
+                        bool result = simde_wasm_i32x4_all_true(
+                            SIMD_V128_TO_SIMDE_V128(v1));
+
+                        addr_ret = GET_OFFSET();
+                        frame_lp[addr_ret] = result;
                         break;
                     }
                     case SIMD_i32x4_bitmask:
@@ -6726,12 +6777,19 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         SIMD_SINGLE_OP(simde_wasm_i32x4_extend_high_i16x8);
                         break;
                     }
-                    // TODO:
                     case SIMD_i32x4_shl:
+                    {
+                        SIMD_LANE_SHIFT(simde_wasm_i32x4_shl);
+                        break;
+                    }
                     case SIMD_i32x4_shr_s:
+                    {
+                        SIMD_LANE_SHIFT(simde_wasm_i32x4_shr);
+                        break;
+                    }
                     case SIMD_i32x4_shr_u:
                     {
-                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        SIMD_LANE_SHIFT(simde_wasm_i32x4_shr);
                         break;
                     }
                     case SIMD_i32x4_add:
@@ -6806,10 +6864,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         SIMD_SINGLE_OP(simde_wasm_i64x2_neg);
                         break;
                     }
-                    // TODO:
                     case SIMD_i64x2_all_true:
                     {
-                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        V128 v1 = POP_V128();
+
+                        bool result = simde_wasm_i64x2_all_true(
+                            SIMD_V128_TO_SIMDE_V128(v1));
+
+                        addr_ret = GET_OFFSET();
+                        frame_lp[addr_ret] = result;
                         break;
                     }
                     case SIMD_i64x2_bitmask:
@@ -6843,12 +6906,21 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         SIMD_SINGLE_OP(simde_wasm_i64x2_extend_high_i32x4);
                         break;
                     }
-                    // TODO:
+
+                    // TODO: Verify count works
                     case SIMD_i64x2_shl:
+                    {
+                        SIMD_LANE_SHIFT(simde_wasm_i64x2_shl);
+                        break;
+                    }
                     case SIMD_i64x2_shr_s:
+                    {
+                        SIMD_LANE_SHIFT(simde_wasm_i64x2_shr);
+                        break;
+                    }
                     case SIMD_i64x2_shr_u:
                     {
-                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        SIMD_LANE_SHIFT(simde_wasm_i64x2_shr);
                         break;
                     }
                     case SIMD_i64x2_add:
