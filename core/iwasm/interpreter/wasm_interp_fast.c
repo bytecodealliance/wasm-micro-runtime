@@ -5917,6 +5917,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         PUT_V128_TO_ADDR(frame_lp + addr_ret, *(V128 *)orig_ip);
                         break;
                     }
+                    // TODO:
                     case SIMD_v8x16_shuffle:
                     {
                         wasm_set_exception(module, "unsupported SIMD opcode");
@@ -5989,6 +5990,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         break;
                     }
 
+                    // TODO:
                     /* Lane */
                     case SIMD_i8x16_extract_lane_s:
                     case SIMD_i8x16_extract_lane_u:
@@ -6009,7 +6011,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         break;
                     }
 
-#define SIMD_COMPARISON_OP(simde_func)                                       \
+#define SIMD_DOUBLE_OP(simde_func)                                           \
     do {                                                                     \
         V128 v1 = POP_V128();                                                \
         V128 v2 = POP_V128();                                                \
@@ -6027,220 +6029,220 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     /* i8x16 comparison operations */
                     case SIMD_i8x16_eq:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i8x16_eq);
+                        SIMD_DOUBLE_OP(simde_wasm_i8x16_eq);
                         break;
                     }
                     case SIMD_i8x16_ne:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i8x16_ne);
+                        SIMD_DOUBLE_OP(simde_wasm_i8x16_ne);
                         break;
                     }
                     case SIMD_i8x16_lt_s:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i8x16_lt);
+                        SIMD_DOUBLE_OP(simde_wasm_i8x16_lt);
                         break;
                     }
                     case SIMD_i8x16_lt_u:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i8x16_lt);
+                        SIMD_DOUBLE_OP(simde_wasm_i8x16_lt);
                         break;
                     }
                     case SIMD_i8x16_gt_s:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i8x16_gt);
+                        SIMD_DOUBLE_OP(simde_wasm_i8x16_gt);
                         break;
                     }
                     case SIMD_i8x16_gt_u:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i8x16_gt);
+                        SIMD_DOUBLE_OP(simde_wasm_i8x16_gt);
                         break;
                     }
                     case SIMD_i8x16_le_s:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i8x16_le);
+                        SIMD_DOUBLE_OP(simde_wasm_i8x16_le);
                         break;
                     }
                     case SIMD_i8x16_le_u:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i8x16_le);
+                        SIMD_DOUBLE_OP(simde_wasm_i8x16_le);
                         break;
                     }
                     case SIMD_i8x16_ge_s:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i8x16_ge);
+                        SIMD_DOUBLE_OP(simde_wasm_i8x16_ge);
                         break;
                     }
                     case SIMD_i8x16_ge_u:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i8x16_ge);
+                        SIMD_DOUBLE_OP(simde_wasm_i8x16_ge);
                         break;
                     }
 
                     /* i16x8 comparison operations */
                     case SIMD_i16x8_eq:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i16x8_eq);
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_eq);
                         break;
                     }
                     case SIMD_i16x8_ne:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i16x8_ne);
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_ne);
                         break;
                     }
                     case SIMD_i16x8_lt_s:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i16x8_lt);
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_lt);
                         break;
                     }
                     case SIMD_i16x8_lt_u:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i16x8_lt);
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_lt);
                         break;
                     }
                     case SIMD_i16x8_gt_s:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i16x8_gt);
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_gt);
                         break;
                     }
                     case SIMD_i16x8_gt_u:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i16x8_gt);
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_gt);
                         break;
                     }
                     case SIMD_i16x8_le_s:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i16x8_le);
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_le);
                         break;
                     }
                     case SIMD_i16x8_le_u:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i16x8_le);
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_le);
                         break;
                     }
                     case SIMD_i16x8_ge_s:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i16x8_ge);
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_ge);
                         break;
                     }
                     case SIMD_i16x8_ge_u:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i16x8_ge);
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_ge);
                         break;
                     }
 
                     /*  i32x4 comparison operations */
                     case SIMD_i32x4_eq:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i32x4_eq);
+                        SIMD_DOUBLE_OP(simde_wasm_i32x4_eq);
                         break;
                     }
                     case SIMD_i32x4_ne:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i32x4_ne);
+                        SIMD_DOUBLE_OP(simde_wasm_i32x4_ne);
                         break;
                     }
                     case SIMD_i32x4_lt_s:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i32x4_lt);
+                        SIMD_DOUBLE_OP(simde_wasm_i32x4_lt);
                         break;
                     }
                     case SIMD_i32x4_lt_u:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i32x4_lt);
+                        SIMD_DOUBLE_OP(simde_wasm_i32x4_lt);
                         break;
                     }
                     case SIMD_i32x4_gt_s:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i32x4_gt);
+                        SIMD_DOUBLE_OP(simde_wasm_i32x4_gt);
                         break;
                     }
                     case SIMD_i32x4_gt_u:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i32x4_gt);
+                        SIMD_DOUBLE_OP(simde_wasm_i32x4_gt);
                         break;
                     }
                     case SIMD_i32x4_le_s:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i32x4_le);
+                        SIMD_DOUBLE_OP(simde_wasm_i32x4_le);
                         break;
                     }
                     case SIMD_i32x4_le_u:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i32x4_le);
+                        SIMD_DOUBLE_OP(simde_wasm_i32x4_le);
                         break;
                     }
                     case SIMD_i32x4_ge_s:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i32x4_ge);
+                        SIMD_DOUBLE_OP(simde_wasm_i32x4_ge);
                         break;
                     }
                     case SIMD_i32x4_ge_u:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_i32x4_ge);
+                        SIMD_DOUBLE_OP(simde_wasm_i32x4_ge);
                         break;
                     }
 
                     /* f32x4 comparison operations */
                     case SIMD_f32x4_eq:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_f32x4_eq);
+                        SIMD_DOUBLE_OP(simde_wasm_f32x4_eq);
                         break;
                     }
                     case SIMD_f32x4_ne:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_f32x4_ne);
+                        SIMD_DOUBLE_OP(simde_wasm_f32x4_ne);
                         break;
                     }
                     case SIMD_f32x4_lt:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_f32x4_lt);
+                        SIMD_DOUBLE_OP(simde_wasm_f32x4_lt);
                         break;
                     }
                     case SIMD_f32x4_gt:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_f32x4_gt);
+                        SIMD_DOUBLE_OP(simde_wasm_f32x4_gt);
                         break;
                     }
                     case SIMD_f32x4_le:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_f32x4_le);
+                        SIMD_DOUBLE_OP(simde_wasm_f32x4_le);
                         break;
                     }
                     case SIMD_f32x4_ge:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_f32x4_ge);
+                        SIMD_DOUBLE_OP(simde_wasm_f32x4_ge);
                         break;
                     }
 
                     /* f64x2 comparison operations */
                     case SIMD_f64x2_eq:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_f32x4_eq);
+                        SIMD_DOUBLE_OP(simde_wasm_f32x4_eq);
                         break;
                     }
                     case SIMD_f64x2_ne:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_f32x4_ne);
+                        SIMD_DOUBLE_OP(simde_wasm_f32x4_ne);
                         break;
                     }
                     case SIMD_f64x2_lt:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_f32x4_lt);
+                        SIMD_DOUBLE_OP(simde_wasm_f32x4_lt);
                         break;
                     }
                     case SIMD_f64x2_gt:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_f32x4_gt);
+                        SIMD_DOUBLE_OP(simde_wasm_f32x4_gt);
                         break;
                     }
                     case SIMD_f64x2_le:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_f32x4_le);
+                        SIMD_DOUBLE_OP(simde_wasm_f32x4_le);
                         break;
                     }
                     case SIMD_f64x2_ge:
                     {
-                        SIMD_COMPARISON_OP(simde_wasm_f32x4_ge);
+                        SIMD_DOUBLE_OP(simde_wasm_f32x4_ge);
                         break;
                     }
 
@@ -6294,6 +6296,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                                     v1.i64x2[1] ^ v2.i64x2[1]);
                         break;
                     }
+                    // TODO:
                     case SIMD_v128_bitselect:
                     {
                         wasm_set_exception(module, "unsupported SIMD opcode");
@@ -6308,6 +6311,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         break;
                     }
 
+                    // TODO:
                     /* load lane operations */
                     case SIMD_v128_load8_lane:
                     case SIMD_v128_load16_lane:
@@ -6367,209 +6371,705 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     }
                     case SIMD_i8x16_all_true:
                     {
-                        V128 v = POP_V128();
-                        uint8_t *bytes = (uint8_t *)&v;
-                        bool all_true = true;
+                        V128 v1 = POP_V128();
 
-                        for (int i = 0; i < 16; i++) {
-                            if (bytes[i] == 0) {
-                                all_true = false;
-                                break;
-                            }
-                        }
+                        uint32_t result = simde_wasm_i8x16_all_true(
+                            SIMD_V128_TO_SIMDE_V128(v1));
 
-                        PUSH_I32(all_true ? 1 : 0);
+                        addr_ret = GET_OFFSET();
+                        frame_lp[addr_ret] = result;
                         break;
                     }
 
                     case SIMD_i8x16_bitmask:
+                    {
+                        V128 v1 = POP_V128();
+
+                        uint32_t result = simde_wasm_i8x16_bitmask(
+                            SIMD_V128_TO_SIMDE_V128(v1));
+
+                        addr_ret = GET_OFFSET();
+                        frame_lp[addr_ret] = result;
+                        break;
+                    }
                     case SIMD_i8x16_narrow_i16x8_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i8x16_narrow_i16x8);
+                        break;
+                    }
                     case SIMD_i8x16_narrow_i16x8_u:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i8x16_narrow_i16x8);
+                        break;
+                    }
                     case SIMD_f32x4_ceil:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_f32x4_ceil);
+                        break;
+                    }
                     case SIMD_f32x4_floor:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_f32x4_floor);
+                        break;
+                    }
                     case SIMD_f32x4_trunc:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_f32x4_trunc);
+                        break;
+                    }
                     case SIMD_f32x4_nearest:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_f32x4_nearest);
+                        break;
+                    }
+                    // TODO:
                     case SIMD_i8x16_shl:
                     case SIMD_i8x16_shr_s:
                     case SIMD_i8x16_shr_u:
-                    case SIMD_i8x16_add:
-                    case SIMD_i8x16_add_sat_s:
-                    case SIMD_i8x16_add_sat_u:
-                    case SIMD_i8x16_sub:
-                    case SIMD_i8x16_sub_sat_s:
-                    case SIMD_i8x16_sub_sat_u:
-                    case SIMD_f64x2_ceil:
-                    case SIMD_f64x2_floor:
-                    case SIMD_i8x16_min_s:
-                    case SIMD_i8x16_min_u:
-                    case SIMD_i8x16_max_s:
-                    case SIMD_i8x16_max_u:
-                    case SIMD_f64x2_trunc:
-                    case SIMD_i8x16_avgr_u:
-                    case SIMD_i16x8_extadd_pairwise_i8x16_s:
-                    case SIMD_i16x8_extadd_pairwise_i8x16_u:
-                    case SIMD_i32x4_extadd_pairwise_i16x8_s:
-                    case SIMD_i32x4_extadd_pairwise_i16x8_u:
                     {
                         wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+                    case SIMD_i8x16_add:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i8x16_add);
+                        break;
+                    }
+                    case SIMD_i8x16_add_sat_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i8x16_add_sat);
+                        break;
+                    }
+                    case SIMD_i8x16_add_sat_u:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i8x16_add_sat);
+                        break;
+                    }
+                    case SIMD_i8x16_sub:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i8x16_sub);
+                        break;
+                    }
+                    case SIMD_i8x16_sub_sat_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i8x16_sub_sat);
+                        break;
+                    }
+                    case SIMD_i8x16_sub_sat_u:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i8x16_sub_sat);
+                        break;
+                    }
+                    case SIMD_f64x2_ceil:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_f64x2_ceil);
+                        break;
+                    }
+                    case SIMD_f64x2_floor:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_f64x2_floor);
+                        break;
+                    }
+                    case SIMD_i8x16_min_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i8x16_min);
+                        break;
+                    }
+                    case SIMD_i8x16_min_u:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i8x16_min);
+                        break;
+                    }
+                    case SIMD_i8x16_max_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i8x16_max);
+                        break;
+                    }
+                    case SIMD_i8x16_max_u:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i8x16_max);
+                        break;
+                    }
+                    case SIMD_f64x2_trunc:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_f64x2_trunc);
+                        break;
+                    }
+                    case SIMD_i8x16_avgr_u:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_u8x16_avgr);
+                        break;
+                    }
+                    case SIMD_i16x8_extadd_pairwise_i8x16_s:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i16x8_extadd_pairwise_i8x16);
+                        break;
+                    }
+                    case SIMD_i16x8_extadd_pairwise_i8x16_u:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i16x8_extadd_pairwise_i8x16);
+                        break;
+                    }
+                    case SIMD_i32x4_extadd_pairwise_i16x8_s:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i32x4_extadd_pairwise_i16x8);
+                        break;
+                    }
+                    case SIMD_i32x4_extadd_pairwise_i16x8_u:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i32x4_extadd_pairwise_i16x8);
                         break;
                     }
 
                     /* i16x8 operations */
                     case SIMD_i16x8_abs:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i16x8_abs);
+                        break;
+                    }
                     case SIMD_i16x8_neg:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i16x8_neg);
+                        break;
+                    }
                     case SIMD_i16x8_q15mulr_sat_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_q15mulr_sat);
+                        break;
+                    }
+                    // TODO:
                     case SIMD_i16x8_all_true:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
                     case SIMD_i16x8_bitmask:
+                    {
+                        V128 v1 = POP_V128();
+
+                        uint32_t result = simde_wasm_i16x8_bitmask(
+                            SIMD_V128_TO_SIMDE_V128(v1));
+
+                        addr_ret = GET_OFFSET();
+                        frame_lp[addr_ret] = result;
+                        break;
+                    }
                     case SIMD_i16x8_narrow_i32x4_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_narrow_i32x4);
+                        break;
+                    }
                     case SIMD_i16x8_narrow_i32x4_u:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_narrow_i32x4);
+                        break;
+                    }
                     case SIMD_i16x8_extend_low_i8x16_s:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i16x8_extend_low_i8x16);
+                        break;
+                    }
                     case SIMD_i16x8_extend_high_i8x16_s:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i16x8_extend_high_i8x16);
+                        break;
+                    }
                     case SIMD_i16x8_extend_low_i8x16_u:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i16x8_extend_low_i8x16);
+                        break;
+                    }
                     case SIMD_i16x8_extend_high_i8x16_u:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i16x8_extend_high_i8x16);
+                        break;
+                    }
+                    // TODO:
                     case SIMD_i16x8_shl:
                     case SIMD_i16x8_shr_s:
                     case SIMD_i16x8_shr_u:
-                    case SIMD_i16x8_add:
-                    case SIMD_i16x8_add_sat_s:
-                    case SIMD_i16x8_add_sat_u:
-                    case SIMD_i16x8_sub:
-                    case SIMD_i16x8_sub_sat_s:
-                    case SIMD_i16x8_sub_sat_u:
-                    case SIMD_f64x2_nearest:
-                    case SIMD_i16x8_mul:
-                    case SIMD_i16x8_min_s:
-                    case SIMD_i16x8_min_u:
-                    case SIMD_i16x8_max_s:
-                    case SIMD_i16x8_max_u:
-                    case SIMD_i16x8_avgr_u:
-                    case SIMD_i16x8_extmul_low_i8x16_s:
-                    case SIMD_i16x8_extmul_high_i8x16_s:
-                    case SIMD_i16x8_extmul_low_i8x16_u:
-                    case SIMD_i16x8_extmul_high_i8x16_u:
                     {
                         wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+                    case SIMD_i16x8_add:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_add);
+                        break;
+                    }
+                    case SIMD_i16x8_add_sat_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_add_sat);
+                        break;
+                    }
+                    case SIMD_i16x8_add_sat_u:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_add_sat);
+                        break;
+                    }
+                    case SIMD_i16x8_sub:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_sub);
+                        break;
+                    }
+                    case SIMD_i16x8_sub_sat_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_sub_sat);
+                        break;
+                    }
+                    case SIMD_i16x8_sub_sat_u:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_sub_sat);
+                        break;
+                    }
+                    case SIMD_f64x2_nearest:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_f64x2_nearest);
+                        break;
+                    }
+                    case SIMD_i16x8_mul:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_mul);
+                        break;
+                    }
+                    case SIMD_i16x8_min_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_min);
+                        break;
+                    }
+                    case SIMD_i16x8_min_u:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_min);
+                        break;
+                    }
+                    case SIMD_i16x8_max_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_max);
+                        break;
+                    }
+                    case SIMD_i16x8_max_u:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_max);
+                        break;
+                    }
+                    case SIMD_i16x8_avgr_u:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_u16x8_avgr);
+                        break;
+                    }
+                    case SIMD_i16x8_extmul_low_i8x16_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_extmul_low_i8x16);
+                        break;
+                    }
+                    case SIMD_i16x8_extmul_high_i8x16_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_extmul_high_i8x16);
+                        break;
+                    }
+                    case SIMD_i16x8_extmul_low_i8x16_u:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_extmul_low_i8x16);
+                        break;
+                    }
+                    case SIMD_i16x8_extmul_high_i8x16_u:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i16x8_extmul_high_i8x16);
                         break;
                     }
 
                     /* i32x4 operations */
                     case SIMD_i32x4_abs:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i32x4_abs);
+                        break;
+                    }
                     case SIMD_i32x4_neg:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i32x4_neg);
+                        break;
+                    }
+                    // TODO:
                     case SIMD_i32x4_all_true:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
                     case SIMD_i32x4_bitmask:
+                    {
+                        V128 v1 = POP_V128();
+
+                        uint32_t result = simde_wasm_i32x4_bitmask(
+                            SIMD_V128_TO_SIMDE_V128(v1));
+
+                        addr_ret = GET_OFFSET();
+                        frame_lp[addr_ret] = result;
+                        break;
+                    }
                     case SIMD_i32x4_extend_low_i16x8_s:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i32x4_extend_low_i16x8);
+                        break;
+                    }
                     case SIMD_i32x4_extend_high_i16x8_s:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i32x4_extend_high_i16x8);
+                        break;
+                    }
                     case SIMD_i32x4_extend_low_i16x8_u:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i32x4_extend_low_i16x8);
+                        break;
+                    }
                     case SIMD_i32x4_extend_high_i16x8_u:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i32x4_extend_high_i16x8);
+                        break;
+                    }
+                    // TODO:
                     case SIMD_i32x4_shl:
                     case SIMD_i32x4_shr_s:
                     case SIMD_i32x4_shr_u:
-                    case SIMD_i32x4_add:
-                    case SIMD_i32x4_sub:
-                    case SIMD_i32x4_mul:
-                    case SIMD_i32x4_min_s:
-                    case SIMD_i32x4_min_u:
-                    case SIMD_i32x4_max_s:
-                    case SIMD_i32x4_max_u:
-                    case SIMD_i32x4_dot_i16x8_s:
-                    case SIMD_i32x4_extmul_low_i16x8_s:
-                    case SIMD_i32x4_extmul_high_i16x8_s:
-                    case SIMD_i32x4_extmul_low_i16x8_u:
-                    case SIMD_i32x4_extmul_high_i16x8_u:
                     {
                         wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+                    case SIMD_i32x4_add:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i32x4_add);
+                        break;
+                    }
+                    case SIMD_i32x4_sub:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i32x4_sub);
+                        break;
+                    }
+                    case SIMD_i32x4_mul:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i32x4_mul);
+                        break;
+                    }
+                    case SIMD_i32x4_min_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i32x4_min);
+                        break;
+                    }
+                    case SIMD_i32x4_min_u:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i32x4_min);
+                        break;
+                    }
+                    case SIMD_i32x4_max_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i32x4_max);
+                        break;
+                    }
+                    case SIMD_i32x4_max_u:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i32x4_max);
+                        break;
+                    }
+                    case SIMD_i32x4_dot_i16x8_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i32x4_dot_i16x8);
+                        break;
+                    }
+                    case SIMD_i32x4_extmul_low_i16x8_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i32x4_extmul_low_i16x8);
+                        break;
+                    }
+                    case SIMD_i32x4_extmul_high_i16x8_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i32x4_extmul_high_i16x8);
+                        break;
+                    }
+                    case SIMD_i32x4_extmul_low_i16x8_u:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i32x4_extmul_low_i16x8);
+                        break;
+                    }
+                    case SIMD_i32x4_extmul_high_i16x8_u:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i32x4_extmul_high_i16x8);
                         break;
                     }
 
                     /* i64x2 operations */
                     case SIMD_i64x2_abs:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i64x2_abs);
+                        break;
+                    }
                     case SIMD_i64x2_neg:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i64x2_neg);
+                        break;
+                    }
+                    // TODO:
                     case SIMD_i64x2_all_true:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
                     case SIMD_i64x2_bitmask:
+                    {
+                        V128 v1 = POP_V128();
+
+                        uint32_t result = simde_wasm_i64x2_bitmask(
+                            SIMD_V128_TO_SIMDE_V128(v1));
+
+                        addr_ret = GET_OFFSET();
+                        frame_lp[addr_ret] = result;
+                        break;
+                    }
                     case SIMD_i64x2_extend_low_i32x4_s:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i64x2_extend_low_i32x4);
+                        break;
+                    }
                     case SIMD_i64x2_extend_high_i32x4_s:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i64x2_extend_high_i32x4);
+                        break;
+                    }
                     case SIMD_i64x2_extend_low_i32x4_u:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i64x2_extend_low_i32x4);
+                        break;
+                    }
                     case SIMD_i64x2_extend_high_i32x4_u:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i64x2_extend_high_i32x4);
+                        break;
+                    }
+                    // TODO:
                     case SIMD_i64x2_shl:
                     case SIMD_i64x2_shr_s:
                     case SIMD_i64x2_shr_u:
+                    {
+                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
                     case SIMD_i64x2_add:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i64x2_add);
+                        break;
+                    }
                     case SIMD_i64x2_sub:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i64x2_sub);
+                        break;
+                    }
                     case SIMD_i64x2_mul:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i64x2_mul);
+                        break;
+                    }
                     case SIMD_i64x2_eq:
                     {
-                        V128 v1 = POP_V128();
-                        V128 v2 = POP_V128();
-                        addr_ret = GET_OFFSET();
-
-                        V128 result;
-                        for (int i = 0; i < 2; i++) {
-                            result.i64x2[i] = (v1.i64x2[i] == v2.i64x2[i])
-                                                  ? 0xffffffffffffffffULL
-                                                  : 0;
-                        }
-                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        SIMD_DOUBLE_OP(simde_wasm_i64x2_eq);
                         break;
                     }
                     case SIMD_i64x2_ne:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i64x2_ne);
+                        break;
+                    }
                     case SIMD_i64x2_lt_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i64x2_lt);
+                        break;
+                    }
                     case SIMD_i64x2_gt_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i64x2_gt);
+                        break;
+                    }
                     case SIMD_i64x2_le_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i64x2_le);
+                        break;
+                    }
                     case SIMD_i64x2_ge_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i64x2_ge);
+                        break;
+                    }
                     case SIMD_i64x2_extmul_low_i32x4_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i64x2_extmul_low_i32x4);
+                        break;
+                    }
                     case SIMD_i64x2_extmul_high_i32x4_s:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i64x2_extmul_high_i32x4);
+                        break;
+                    }
                     case SIMD_i64x2_extmul_low_i32x4_u:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_i64x2_extmul_low_i32x4);
+                        break;
+                    }
                     case SIMD_i64x2_extmul_high_i32x4_u:
                     {
-                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        SIMD_DOUBLE_OP(simde_wasm_i64x2_extmul_high_i32x4);
                         break;
                     }
 
                     /* f32x4 opertions */
                     case SIMD_f32x4_abs:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_f32x4_abs);
+                        break;
+                    }
                     case SIMD_f32x4_neg:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_f32x4_neg);
+                        break;
+                    }
                     case SIMD_f32x4_sqrt:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_f32x4_sqrt);
+                        break;
+                    }
                     case SIMD_f32x4_add:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_f32x4_add);
+                        break;
+                    }
                     case SIMD_f32x4_sub:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_f32x4_sub);
+                        break;
+                    }
                     case SIMD_f32x4_mul:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_f32x4_mul);
+                        break;
+                    }
                     case SIMD_f32x4_div:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_f32x4_div);
+                        break;
+                    }
                     case SIMD_f32x4_min:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_f32x4_min);
+                        break;
+                    }
                     case SIMD_f32x4_max:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_f32x4_max);
+                        break;
+                    }
                     case SIMD_f32x4_pmin:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_f32x4_pmin);
+                        break;
+                    }
                     case SIMD_f32x4_pmax:
                     {
-                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        SIMD_DOUBLE_OP(simde_wasm_f32x4_pmax);
                         break;
                     }
 
                     /* f64x2 operations */
                     case SIMD_f64x2_abs:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_f64x2_abs);
+                        break;
+                    }
                     case SIMD_f64x2_neg:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_f64x2_neg);
+                        break;
+                    }
                     case SIMD_f64x2_sqrt:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_f64x2_sqrt);
+                        break;
+                    }
                     case SIMD_f64x2_add:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_f64x2_add);
+                        break;
+                    }
                     case SIMD_f64x2_sub:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_f64x2_sub);
+                        break;
+                    }
                     case SIMD_f64x2_mul:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_f64x2_mul);
+                        break;
+                    }
                     case SIMD_f64x2_div:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_f64x2_div);
+                        break;
+                    }
                     case SIMD_f64x2_min:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_f64x2_min);
+                        break;
+                    }
                     case SIMD_f64x2_max:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_f64x2_max);
+                        break;
+                    }
                     case SIMD_f64x2_pmin:
+                    {
+                        SIMD_DOUBLE_OP(simde_wasm_f64x2_pmin);
+                        break;
+                    }
                     case SIMD_f64x2_pmax:
                     {
-                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        SIMD_DOUBLE_OP(simde_wasm_f64x2_pmax);
                         break;
                     }
 
                     /* Conversion operations */
                     case SIMD_i32x4_trunc_sat_f32x4_s:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i32x4_trunc_sat_f32x4);
+                        break;
+                    }
                     case SIMD_i32x4_trunc_sat_f32x4_u:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i32x4_trunc_sat_f32x4);
+                        break;
+                    }
                     case SIMD_f32x4_convert_i32x4_s:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_f32x4_convert_i32x4);
+                        break;
+                    }
                     case SIMD_f32x4_convert_i32x4_u:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_f32x4_convert_i32x4);
+                        break;
+                    }
                     case SIMD_i32x4_trunc_sat_f64x2_s_zero:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i32x4_trunc_sat_f64x2_zero);
+                        break;
+                    }
                     case SIMD_i32x4_trunc_sat_f64x2_u_zero:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_i32x4_trunc_sat_f64x2_zero);
+                        break;
+                    }
                     case SIMD_f64x2_convert_low_i32x4_s:
+                    {
+                        SIMD_SINGLE_OP(simde_wasm_f64x2_convert_low_i32x4);
+                        break;
+                    }
                     case SIMD_f64x2_convert_low_i32x4_u:
                     {
-                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        SIMD_SINGLE_OP(simde_wasm_f64x2_convert_low_i32x4);
                         break;
                     }
 
