@@ -142,7 +142,7 @@ if (WAMR_BUILD_LIB_RATS EQUAL 1)
     include (${IWASM_DIR}/libraries/lib-rats/lib_rats.cmake)
 endif ()
 
-if (WAMR_BUILD_SIMDE EQUAL 1)
+if ((WAMR_BUILD_SIMDE EQUAL 1) AND (WAMR_BUILD_FAST_INTERP EQUAL 1))
     include (${IWASM_DIR}/libraries/simde/simde.cmake)
 endif ()
 

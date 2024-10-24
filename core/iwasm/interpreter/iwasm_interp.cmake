@@ -19,10 +19,6 @@ else ()
     set (LOADER          "wasm_loader.c")
 endif ()
 
-if (WAMR_BUILD_SIMD)
-    set (WAMR_BUILD_SIMDE 1)
-endif()
-
 file (GLOB_RECURSE source_all
     ${IWASM_INTERP_DIR}/${LOADER}
     ${IWASM_INTERP_DIR}/wasm_runtime.c
