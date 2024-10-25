@@ -5917,10 +5917,30 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         PUT_V128_TO_ADDR(frame_lp + addr_ret, *(V128 *)orig_ip);
                         break;
                     }
-                    // TODO:
+                    // TODO: Add a faster SIMD implementation
                     case SIMD_v8x16_shuffle:
                     {
-                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        V128 indices;
+                        V128 v2 = POP_V128();
+                        V128 v1 = POP_V128();
+                        addr_ret = GET_OFFSET();
+
+                        bh_memcpy_s(&indices, sizeof(V128), frame_ip,
+                                    sizeof(V128));
+                        frame_ip += sizeof(V128);
+
+                        V128 result;
+                        for (int i = 0; i < 16; i++) {
+                            uint8_t index = indices.i8x16[i];
+                            if (index < 16) {
+                                result.i8x16[i] = v1.i8x16[index];
+                            }
+                            else {
+                                result.i8x16[i] = v2.i8x16[index - 16];
+                            }
+                        }
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
                         break;
                     }
                     case SIMD_v8x16_swizzle:
