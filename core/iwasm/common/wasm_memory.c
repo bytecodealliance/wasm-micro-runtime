@@ -423,7 +423,7 @@ is_native_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
 
     if (heap && addr >= heap->base_addr
         && addr + bytes <= heap->base_addr + heap->size
-        && addr + bytes > addr) {
+        && (size_t)bytes <= heap->base_addr + heap->size - addr) {
         return true;
     }
     return false;
