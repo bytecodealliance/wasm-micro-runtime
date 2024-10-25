@@ -129,9 +129,9 @@ typedef struct AOTModuleInstanceExtra {
     WASMModuleInstanceExtraCommon common;
 
     /**
-     * maps of func indexes to export func indexes, and
-     * is sorted by func indexes for a quick lookup.
-     * It is created only when it is first time used.
+     * maps of func indexes to export func indexes, which
+     * is sorted by func index for a quick lookup and is
+     * created only when first time used.
      */
     ExportFuncMap *export_func_maps;
     AOTFunctionInstance **functions;
