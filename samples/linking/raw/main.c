@@ -21,7 +21,13 @@ main(int argc, char *argv_main[])
     /* wasm module file */
     char *buffer;
     uint32 buf_size;
+#if WASM_ENABLE_AOT != 0
+    printf("Loading AOT file...\n");
+    buffer = bh_read_file_to_buffer("import_memory.aot", &buf_size);
+#else
+    printf("Loading WASM file...\n");
     buffer = bh_read_file_to_buffer("import_memory.wasm", &buf_size);
+#endif
     if (!buffer) {
         printf("Open wasm file failed.\n");
         goto destroy_runtime;
