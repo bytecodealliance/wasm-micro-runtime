@@ -576,7 +576,7 @@ wasm_runtime_instantiate_internal(WASMModuleCommon *module,
                                   WASMExecEnv *exec_env_main, uint32 stack_size,
                                   uint32 heap_size, uint32 max_memory_pages,
                                   uint32 import_count,
-                                  const struct WasmExternInstance *imports,
+                                  const WASMExternInstance *imports,
                                   char *error_buf, uint32 error_buf_size);
 
 /* Internal API */
@@ -1215,6 +1215,22 @@ wasm_runtime_get_linux_perf(void);
 
 void
 wasm_runtime_set_linux_perf(bool flag);
+#endif
+
+#if WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0
+/*
+ * The function is used to create a new WASMExternInstance list
+ * for a spawned thread.
+ */
+int32
+wasm_runtime_inherit_imports(WASMModuleCommon *module,
+                             WASMModuleInstanceCommon *inst,
+                             WASMExternInstance *out, int32 out_len);
+
+void
+wasm_runtime_disinherit_imports(WASMModuleCommon *module,
+                                WASMExternInstance *imports,
+                                int32 import_count);
 #endif
 
 #ifdef __cplusplus

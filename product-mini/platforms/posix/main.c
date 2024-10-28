@@ -885,7 +885,7 @@ main(int argc, char *argv[])
     /* load WASM byte buffer from WASM bin file */
     if (!(wasm_file_buf =
               (uint8 *)bh_read_file_to_buffer(wasm_file, &wasm_file_size)))
-        goto fail1;
+        goto unregister_native;
 
 #if WASM_ENABLE_AOT != 0
     if (wasm_runtime_is_xip_file(wasm_file_buf, wasm_file_size)) {
@@ -898,7 +898,7 @@ main(int argc, char *argv[])
                                          map_flags, os_get_invalid_handle()))) {
             printf("mmap memory failed\n");
             wasm_runtime_free(wasm_file_buf);
-            goto fail1;
+            goto unregister_native;
         }
 
 #if (WASM_MEM_DUAL_BUS_MIRROR != 0)
@@ -925,7 +925,7 @@ main(int argc, char *argv[])
     if (!(wasm_module = wasm_runtime_load(wasm_file_buf, wasm_file_size,
                                           error_buf, sizeof(error_buf)))) {
         printf("%s\n", error_buf);
-        goto fail2;
+        goto unmap_file;
     }
 
 #if WASM_ENABLE_DYNAMIC_AOT_DEBUG != 0
@@ -933,7 +933,7 @@ main(int argc, char *argv[])
                                       sizeof(error_buf))) {
         printf("set aot module name failed in dynamic aot debug mode, %s\n",
                error_buf);
-        goto fail3;
+        goto unload_module;
     }
 #endif
 
@@ -943,44 +943,41 @@ main(int argc, char *argv[])
 
     /* instantiate the module */
 #if WASM_ENABLE_MULTI_MODULE == 0
-    {
-        int32_t import_count = wasm_runtime_get_import_count(wasm_module);
-        struct WasmExternInstance *imports = NULL;
+    int32_t import_count = wasm_runtime_get_import_count(wasm_module);
+    WASMExternInstance *imports = NULL;
 
 #if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_WASI_TEST != 0 \
     || WASM_ENABLE_LIBC_BUILTIN != 0
-        imports = wasm_runtime_create_imports_with_builtin(wasm_module);
+    imports = wasm_runtime_create_imports_with_builtin(wasm_module);
 #endif
 
-        if (import_count > 0 && imports == NULL) {
-            printf("Need to provide %" PRId32 "imported objects:\n",
-                   import_count);
-        }
-
-        InstantiationArgs inst_args = {
-            .default_stack_size = stack_size,
-            .host_managed_heap_size = heap_size,
-            .max_memory_pages = 0, // ?
-            .import_count = import_count,
-            .imports = imports,
-        };
-
-        wasm_module_inst = wasm_runtime_instantiate_ex(
-            wasm_module, &inst_args, error_buf, sizeof(error_buf));
-        wasm_runtime_release_imports(imports);
-        if (!wasm_module_inst) {
-            printf("%s\n", error_buf);
-            goto fail3;
-        }
+    if (import_count > 0 && imports == NULL) {
+        printf("Need to provide %" PRId32 "imported objects:\n", import_count);
+        goto unload_module;
     }
-#else
+
+    InstantiationArgs inst_args = {
+        .default_stack_size = stack_size,
+        .host_managed_heap_size = heap_size,
+        .max_memory_pages = 0, // ?
+        .import_count = import_count,
+        .imports = imports,
+    };
+
+    wasm_module_inst = wasm_runtime_instantiate_ex(
+        wasm_module, &inst_args, error_buf, sizeof(error_buf));
+    if (!wasm_module_inst) {
+        printf("%s\n", error_buf);
+        goto destroy_imports;
+    }
+#else /* WASM_ENABLE_MULTI_MODULE == 0 */
     if (!(wasm_module_inst =
               wasm_runtime_instantiate(wasm_module, stack_size, heap_size,
                                        error_buf, sizeof(error_buf)))) {
         printf("%s\n", error_buf);
-        goto fail3;
+        goto unload_module;
     }
-#endif
+#endif /* WASM_ENABLE_MULTI_MODULE == 0 */
 
 #if WASM_CONFIGURABLE_BOUNDS_CHECKS != 0
     if (disable_bounds_checks) {
@@ -1070,21 +1067,27 @@ fail5:
 #if WASM_ENABLE_DEBUG_INTERP != 0
 fail4:
 #endif
+
     /* destroy the module instance */
     wasm_runtime_deinstantiate(wasm_module_inst);
 
-fail3:
+#if WASM_ENABLE_MULTI_MODULE == 0
+destroy_imports:
+    wasm_runtime_destroy_imports(wasm_module, imports);
+#endif
+
+unload_module:
     /* unload the module */
     wasm_runtime_unload(wasm_module);
 
-fail2:
+unmap_file:
     /* free the file buffer */
     if (!is_xip_file)
         wasm_runtime_free(wasm_file_buf);
     else
         os_munmap(wasm_file_buf, wasm_file_size);
 
-fail1:
+unregister_native:
 #if BH_HAS_DLFCN
     /* unload the native libraries */
     unregister_and_unload_native_libs(native_lib_loaded_count,

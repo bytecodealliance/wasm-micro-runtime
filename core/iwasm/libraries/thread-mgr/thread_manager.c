@@ -501,39 +501,30 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
     uint64 aux_stack_start;
     uint32 stack_size = 8192;
     int32 ret = -1;
-    int32_t spawned_import_count = 0;
-    struct WasmExternInstance *spawned_imports = NULL;
+    int32 spawned_import_count = 0;
+    WASMExternInstance *spawned_imports = NULL;
 
     if (!module_inst || !(module = wasm_exec_env_get_module(exec_env))) {
         return NULL;
     }
 
     /*
-     * build a imports list(struct WASMExternInstance[]) from parent's imports
+     * build a imports list(WASMExternInstance[]) from parent's imports
      */
     spawned_import_count = ((WASMModule *)module)->import_count;
-    spawned_imports = wasm_runtime_malloc(sizeof(struct WasmExternInstance)
-                                          * spawned_import_count);
+    spawned_imports =
+        wasm_runtime_malloc(sizeof(WASMExternInstance) * spawned_import_count);
     if (spawned_imports == NULL) {
         LOG_ERROR("Failed to allocate memory for imports");
-        goto fail;
+        return NULL;
     }
 
-#if WASM_ENABLE_INTERP != 0
-    ret = wasm_runtime_inherit_imports((WASMModule *)module,
-                                       (WASMModuleInstance *)module_inst,
-                                       spawned_imports, spawned_import_count);
+    ret = wasm_runtime_inherit_imports(module, module_inst, spawned_imports,
+                                       spawned_import_count);
     if (ret != 0) {
         LOG_ERROR("Failed to inherit imports");
-        goto fail;
+        goto release_imports;
     }
-#endif
-
-#if WASM_ENABLE_AOT != 0
-    // TODO:
-    // bh_assert(false && "Unsupported operation");
-    (void)ret;
-#endif
 
     if (!(new_module_inst = wasm_runtime_instantiate_internal(
               module, module_inst, exec_env, stack_size,
@@ -542,7 +533,7 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
               spawned_import_count, // import_count
               spawned_imports,      // imports
               NULL, 0))) {
-        return NULL;
+        goto disinherit_imports;
     }
 
     /* Set custom_data to new module instance */
@@ -605,6 +596,8 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
 
     os_mutex_unlock(&cluster->lock);
 
+    wasm_runtime_disinherit_imports(module, spawned_imports,
+                                    spawned_import_count);
     wasm_runtime_free(spawned_imports);
     return new_exec_env;
 
@@ -616,7 +609,10 @@ fail2:
     wasm_cluster_free_aux_stack(exec_env, aux_stack_start);
 fail1:
     wasm_runtime_deinstantiate_internal(new_module_inst, true);
-fail:
+disinherit_imports:
+    wasm_runtime_disinherit_imports(module, spawned_imports,
+                                    spawned_import_count);
+release_imports:
     wasm_runtime_free(spawned_imports);
 
     return NULL;

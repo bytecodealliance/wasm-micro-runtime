@@ -547,7 +547,7 @@ WASMModuleInstance *
 wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                  WASMExecEnv *exec_env_main, uint32 stack_size,
                  uint32 heap_size, uint32 max_memory_pages, uint32 import_count,
-                 const struct WasmExternInstance *imports, char *error_buf,
+                 const WASMExternInstance *imports, char *error_buf,
                  uint32 error_buf_size);
 
 void
@@ -568,8 +568,7 @@ wasm_set_running_mode(WASMModuleInstance *module_inst,
                       RunningMode running_mode);
 
 WASMMemoryInstance *
-wasm_create_memory(const WASMModule *module, const WASMMemoryType *type,
-                   uint32 index);
+wasm_create_memory(const WASMModule *module, const WASMMemoryType *type);
 
 WASMFunctionInstance *
 wasm_lookup_function(const WASMModuleInstance *module_inst, const char *name);
@@ -898,9 +897,13 @@ wasm_get_module_name(WASMModule *module);
 
 #if WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0
 int32
-wasm_runtime_inherit_imports(WASMModule *module, WASMModuleInstance *inst,
-                             struct WasmExternInstance *out, int32_t out_len);
-#endif
+wasm_inherit_imports(WASMModule *module, WASMModuleInstance *inst,
+                     WASMExternInstance *out, int32 out_len);
+
+void
+wasm_disinherit_imports(WASMModule *module, WASMExternInstance *imports,
+                        int32 import_count);
+#endif /* WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0 */
 
 #ifdef __cplusplus
 }

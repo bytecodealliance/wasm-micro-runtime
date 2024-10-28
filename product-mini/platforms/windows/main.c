@@ -541,32 +541,30 @@ main(int argc, char *argv[])
 
     /* instantiate the module */
 #if WASM_ENABLE_MULTI_MODULE == 0
-    {
-        int32_t import_count = wasm_runtime_get_import_count(wasm_module);
-        struct WasmExternInstance *imports = NULL;
+    int32_t import_count = wasm_runtime_get_import_count(wasm_module);
+    WASMExternInstance *imports = NULL;
 
 #if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_WASI_TEST != 0
-        imports = wasm_runtime_create_imports_with_builtin(wasm_module);
+    imports = wasm_runtime_create_imports_with_builtin(wasm_module);
 #endif
-        if (import_count > 0 && imports == NULL) {
-            printf("Need to provide %d imported objects:\n", import_count);
-        }
+    if (import_count > 0 && imports == NULL) {
+        printf("Need to provide %d imported objects:\n", import_count);
+        goto fail3;
+    }
 
-        InstantiationArgs inst_args = {
-            .default_stack_size = stack_size,
-            .host_managed_heap_size = heap_size,
-            .max_memory_pages = 0, // ?
-            .import_count = import_count,
-            .imports = imports,
-        };
+    InstantiationArgs inst_args = {
+        .default_stack_size = stack_size,
+        .host_managed_heap_size = heap_size,
+        .max_memory_pages = 0, // ?
+        .import_count = import_count,
+        .imports = imports,
+    };
 
-        wasm_module_inst = wasm_runtime_instantiate_ex(
-            wasm_module, &inst_args, error_buf, sizeof(error_buf));
-        wasm_runtime_release_imports(imports);
-        if (!wasm_module_inst) {
-            printf("%s\n", error_buf);
-            goto fail3;
-        }
+    wasm_module_inst = wasm_runtime_instantiate_ex(
+        wasm_module, &inst_args, error_buf, sizeof(error_buf));
+    if (!wasm_module_inst) {
+        printf("%s\n", error_buf);
+        goto fail4;
     }
 #else
     if (!(wasm_module_inst =
@@ -584,12 +582,12 @@ main(int argc, char *argv[])
         uint32_t debug_port;
         if (exec_env == NULL) {
             printf("%s\n", wasm_runtime_get_exception(wasm_module_inst));
-            goto fail4;
+            goto fail5;
         }
         debug_port = wasm_runtime_start_debug_instance(exec_env);
         if (debug_port == 0) {
             printf("Failed to start debug instance\n");
-            goto fail4;
+            goto fail5;
         }
     }
 #endif
@@ -625,10 +623,13 @@ main(int argc, char *argv[])
         printf("%s\n", exception);
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
-fail4:
+fail5:
 #endif
     /* destroy the module instance */
     wasm_runtime_deinstantiate(wasm_module_inst);
+
+fail4:
+    wasm_runtime_destroy_imports(wasm_module, imports);
 
 fail3:
     /* unload the module */

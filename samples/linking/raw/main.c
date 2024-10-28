@@ -55,15 +55,14 @@ main(int argc, char *argv_main[])
 
     /* host memory */
     wasm_memory_type_t memory_type = import_type.u.memory_type;
-    wasm_memory_inst_t memory =
-        wasm_runtime_create_memory(module, memory_type, 0);
+    wasm_memory_inst_t memory = wasm_runtime_create_memory(module, memory_type);
     if (!memory) {
         printf("Create memory failed.\n");
         goto unload_module;
     }
 
     /* import list */
-    struct WasmExternInstance import_list[10] = { 0 };
+    WASMExternInstance import_list[10] = { 0 };
     import_list[import_memory_index].module_name = "env";
     import_list[import_memory_index].field_name = "memory";
     import_list[import_memory_index].kind = WASM_IMPORT_EXPORT_KIND_MEMORY;
@@ -106,7 +105,7 @@ destroy_exec_env:
 destroy_inst:
     wasm_runtime_deinstantiate(inst);
 destroy_memory:
-    wasm_runtime_destroy_memory(memory);
+    wasm_runtime_destroy_memory(module, memory);
 unload_module:
     wasm_runtime_unload(module);
 release_file_buffer:
