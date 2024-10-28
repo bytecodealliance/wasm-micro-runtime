@@ -545,6 +545,12 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
 void
 aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst);
 
+AOTMemoryInstance *
+aot_create_memory(const AOTModule *module, const AOTMemoryType *type,
+                  uint32 index);
+
+void
+aot_destroy_memory(AOTMemoryInstance *memory);
 /**
  * Lookup an exported function in the AOT module instance.
  *

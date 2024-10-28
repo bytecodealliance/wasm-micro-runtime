@@ -445,6 +445,10 @@ memory_instantiate(const WASMModule *module, WASMModuleInstance *parent,
     LOG_VERBOSE("Memory instantiate:");
     LOG_VERBOSE("  page bytes: %u, init pages: %u, max pages: %u",
                 num_bytes_per_page, init_page_count, max_page_count);
+    LOG_VERBOSE("  data offset: %" PRIu64 ", stack size: %d",
+                module->aux_data_end, module->aux_stack_size);
+    LOG_VERBOSE("  heap offset: %" PRIu64 ", heap size: %u\n", heap_offset,
+                heap_size);
 
 #ifndef NDEBUG
     {

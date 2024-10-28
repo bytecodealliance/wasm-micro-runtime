@@ -824,169 +824,192 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 }
 
 static void
+memory_deinstantiate(AOTMemoryInstance *memory)
+{
+    if (!memory) {
+        return;
+    }
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (shared_memory_is_shared(memory)) {
+        uint32 ref_count = shared_memory_dec_reference(memory);
+        /* if the reference count is not zero,
+            don't free the memory */
+        if (ref_count > 0) {
+            return;
+        }
+    }
+#endif
+
+    if (memory->heap_handle) {
+        mem_allocator_destroy(memory->heap_handle);
+        wasm_runtime_free(memory->heap_handle);
+        memory->heap_handle = NULL;
+    }
+
+    if (memory->memory_data) {
+        wasm_deallocate_linear_memory(memory);
+        memory->memory_data = NULL;
+    }
+}
+
+static void
 memories_deinstantiate(AOTModuleInstance *module_inst)
 {
-    uint32 i;
-    AOTMemoryInstance *memory_inst;
-
-    for (i = 0; i < module_inst->memory_count; i++) {
-        memory_inst = module_inst->memories[i];
-        if (memory_inst) {
-#if WASM_ENABLE_SHARED_MEMORY != 0
-            if (shared_memory_is_shared(memory_inst)) {
-                uint32 ref_count = shared_memory_dec_reference(memory_inst);
-                /* if the reference count is not zero,
-                    don't free the memory */
-                if (ref_count > 0)
-                    continue;
-            }
-#endif
-            if (memory_inst->heap_handle) {
-                mem_allocator_destroy(memory_inst->heap_handle);
-                wasm_runtime_free(memory_inst->heap_handle);
-            }
-
-            if (memory_inst->memory_data) {
-                wasm_deallocate_linear_memory(memory_inst);
-            }
-        }
+    /* import memories created by host or linker. released by them too */
+    for (uint32 i = module_inst->module->import_memory_count;
+         i < module_inst->memory_count; i++) {
+        memory_deinstantiate(module_inst->memories[i]);
     }
     wasm_runtime_free(module_inst->memories);
 }
 
 static AOTMemoryInstance *
-memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
-                   AOTModule *module, AOTMemoryInstance *memory_inst,
-                   AOTMemory *memory, uint32 memory_idx, uint32 heap_size,
-                   uint32 max_memory_pages, char *error_buf,
+memory_instantiate(const AOTModule *module, AOTModuleInstance *parent,
+                   AOTMemoryInstance *memory, uint32 memory_idx,
+                   uint32 num_bytes_per_page, uint32 init_page_count,
+                   uint32 max_page_count, uint32 heap_size, uint32 flags,
+                   uint8 *aux_heap_base_global_data, char *error_buf,
                    uint32 error_buf_size)
 {
-    void *heap_handle;
-    uint32 num_bytes_per_page = memory->num_bytes_per_page;
-    uint32 init_page_count = memory->init_page_count;
-    uint32 max_page_count = wasm_runtime_get_max_mem(
-        max_memory_pages, memory->init_page_count, memory->max_page_count);
-    uint32 default_max_pages;
-    uint32 inc_page_count, global_idx;
+    uint32 inc_page_count, default_max_pages;
     uint32 bytes_of_last_page, bytes_to_page_end;
     uint64 aux_heap_base,
         heap_offset = (uint64)num_bytes_per_page * init_page_count;
     uint64 memory_data_size, max_memory_data_size;
-    uint8 *p = NULL, *global_addr;
-    bool is_memory64 = memory->flags & MEMORY64_FLAG;
 
     bool is_shared_memory = false;
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    is_shared_memory = memory->flags & SHARED_MEMORY_FLAG ? true : false;
+    is_shared_memory = flags & SHARED_MEMORY_FLAG ? true : false;
+
     /* Shared memory */
     if (is_shared_memory && parent != NULL) {
-        AOTMemoryInstance *shared_memory_instance;
-        bh_assert(memory_idx == 0);
         bh_assert(parent->memory_count > memory_idx);
-        shared_memory_instance = parent->memories[memory_idx];
-        shared_memory_inc_reference(shared_memory_instance);
-        return shared_memory_instance;
+        memory = parent->memories[memory_idx];
+        shared_memory_inc_reference(memory);
+        return memory;
     }
-#endif
+#else
+    (void)parent;
+    (void)memory_idx;
+    (void)flags;
+#endif /* #if WASM_ENABLE_SHARED_MEMORY != 0 */
 
 #if WASM_ENABLE_MEMORY64 != 0
-    if (is_memory64) {
-        default_max_pages = DEFAULT_MEM64_MAX_PAGES;
+    if (flags & MEMORY64_FLAG) {
+        memory->is_memory64 = 1;
     }
-    else
 #endif
-    {
-        default_max_pages = DEFAULT_MAX_PAGES;
-    }
 
-    if (heap_size > 0 && module->malloc_func_index != (uint32)-1
-        && module->free_func_index != (uint32)-1) {
-        /* Disable app heap, use malloc/free function exported
-           by wasm app to allocate/free memory instead */
-        heap_size = 0;
-    }
+    default_max_pages =
+        memory->is_memory64 ? DEFAULT_MEM64_MAX_PAGES : DEFAULT_MAX_PAGES;
 
-    /* If initial memory is the largest size allowed, disallowing insert host
-     * managed heap */
-    if (heap_size > 0 && heap_offset == MAX_LINEAR_MEMORY_SIZE) {
-        set_error_buf(error_buf, error_buf_size,
-                      "failed to insert app heap into linear memory, "
-                      "try using `--heap-size=0` option");
-        return NULL;
-    }
+    /* The app heap should be in the default memory */
+    if (memory_idx == 0) {
+        if (heap_size > 0 && module->malloc_func_index != (uint32)-1
+            && module->free_func_index != (uint32)-1) {
+            /* Disable app heap, use malloc/free function exported
+               by wasm app to allocate/free memory instead */
+            heap_size = 0;
+        }
 
-    if (init_page_count == max_page_count && init_page_count == 1) {
-        /* If only one page and at most one page, we just append
-           the app heap to the end of linear memory, enlarge the
-           num_bytes_per_page, and don't change the page count */
-        heap_offset = num_bytes_per_page;
-        num_bytes_per_page += heap_size;
-        if (num_bytes_per_page < heap_size) {
+        /* If initial memory is the largest size allowed, disallowing insert
+         * host managed heap */
+        if (heap_size > 0 && heap_offset == MAX_LINEAR_MEMORY_SIZE) {
             set_error_buf(error_buf, error_buf_size,
                           "failed to insert app heap into linear memory, "
                           "try using `--heap-size=0` option");
             return NULL;
         }
-    }
-    else if (heap_size > 0) {
-        if (init_page_count == max_page_count && init_page_count == 0) {
-            /* If the memory data size is always 0, we resize it to
-               one page for app heap */
-            num_bytes_per_page = heap_size;
-            heap_offset = 0;
-            inc_page_count = 1;
-        }
-        else if (module->aux_heap_base_global_index != (uint32)-1
-                 && module->aux_heap_base
-                        < (uint64)num_bytes_per_page * init_page_count) {
-            /* Insert app heap before __heap_base */
-            aux_heap_base = module->aux_heap_base;
-            bytes_of_last_page = aux_heap_base % num_bytes_per_page;
-            if (bytes_of_last_page == 0)
-                bytes_of_last_page = num_bytes_per_page;
-            bytes_to_page_end = num_bytes_per_page - bytes_of_last_page;
-            inc_page_count =
-                (heap_size - bytes_to_page_end + num_bytes_per_page - 1)
-                / num_bytes_per_page;
-            heap_offset = aux_heap_base;
-            aux_heap_base += heap_size;
 
-            bytes_of_last_page = aux_heap_base % num_bytes_per_page;
-            if (bytes_of_last_page == 0)
-                bytes_of_last_page = num_bytes_per_page;
-            bytes_to_page_end = num_bytes_per_page - bytes_of_last_page;
-            if (bytes_to_page_end < 1 * BH_KB) {
-                aux_heap_base += 1 * BH_KB;
-                inc_page_count++;
+        if (init_page_count == max_page_count && init_page_count == 1) {
+            /* If only one page and at most one page, we just append
+               the app heap to the end of linear memory, enlarge the
+               num_bytes_per_page, and don't change the page count */
+            heap_offset = num_bytes_per_page;
+            num_bytes_per_page += heap_size;
+            if (num_bytes_per_page < heap_size) {
+                set_error_buf(error_buf, error_buf_size,
+                              "failed to insert app heap into linear memory, "
+                              "try using `--heap-size=0` option");
+                return NULL;
             }
+        }
+        else if (heap_size > 0) {
+            if (init_page_count == max_page_count && init_page_count == 0) {
+                /* If the memory data size is always 0, we resize it to
+                   one page for app heap */
+                num_bytes_per_page = heap_size;
+                heap_offset = 0;
+                inc_page_count = 1;
+            }
+            else if (module->aux_heap_base_global_index != (uint32)-1
+                     && module->aux_heap_base
+                            < (uint64)num_bytes_per_page * init_page_count) {
+                /* Insert app heap before __heap_base */
+                aux_heap_base = module->aux_heap_base;
+                bytes_of_last_page = aux_heap_base % num_bytes_per_page;
+                if (bytes_of_last_page == 0)
+                    bytes_of_last_page = num_bytes_per_page;
+                bytes_to_page_end = num_bytes_per_page - bytes_of_last_page;
+                inc_page_count =
+                    (heap_size - bytes_to_page_end + num_bytes_per_page - 1)
+                    / num_bytes_per_page;
+                heap_offset = aux_heap_base;
+                aux_heap_base += heap_size;
 
-            /* Adjust __heap_base global value */
-            global_idx = module->aux_heap_base_global_index
-                         - module->import_global_count;
-            global_addr = module_inst->global_data
-                          + module->globals[global_idx].data_offset;
-            *(uint32 *)global_addr = (uint32)aux_heap_base;
-            LOG_VERBOSE("Reset __heap_base global to %" PRIu64, aux_heap_base);
+                bytes_of_last_page = aux_heap_base % num_bytes_per_page;
+                if (bytes_of_last_page == 0)
+                    bytes_of_last_page = num_bytes_per_page;
+                bytes_to_page_end = num_bytes_per_page - bytes_of_last_page;
+                if (bytes_to_page_end < 1 * BH_KB) {
+                    aux_heap_base += 1 * BH_KB;
+                    inc_page_count++;
+                }
+
+                /* Adjust __heap_base global value */
+                if (aux_heap_base_global_data == NULL) {
+                    set_error_buf(
+                        error_buf, error_buf_size,
+                        "auxiliary heap base global data should not be NULL");
+                    return NULL;
+                }
+
+#if WASM_ENABLE_MEMORY64 != 0
+                if (memory->is_memory64) {
+                    /* For memory64, the global value should be i64 */
+                    *(uint64 *)aux_heap_base_global_data = aux_heap_base;
+                }
+                else
+#endif
+                {
+                    /* For memory32, the global value should be i32 */
+                    *(uint32 *)aux_heap_base_global_data =
+                        (uint32)aux_heap_base;
+                }
+                LOG_VERBOSE("Reset __heap_base global to %" PRIu64,
+                            aux_heap_base);
+            }
+            else {
+                /* Insert app heap before new page */
+                inc_page_count =
+                    (heap_size + num_bytes_per_page - 1) / num_bytes_per_page;
+                heap_offset = (uint64)num_bytes_per_page * init_page_count;
+                heap_size = (uint64)num_bytes_per_page * inc_page_count;
+                if (heap_size > 0)
+                    heap_size -= 1 * BH_KB;
+            }
+            init_page_count += inc_page_count;
+            max_page_count += inc_page_count;
+            if (init_page_count > default_max_pages) {
+                set_error_buf(error_buf, error_buf_size,
+                              "failed to insert app heap into linear memory, "
+                              "try using `--heap-size=0` option");
+                return NULL;
+            }
+            if (max_page_count > default_max_pages)
+                max_page_count = default_max_pages;
         }
-        else {
-            /* Insert app heap before new page */
-            inc_page_count =
-                (heap_size + num_bytes_per_page - 1) / num_bytes_per_page;
-            heap_offset = (uint64)num_bytes_per_page * init_page_count;
-            heap_size = (uint64)num_bytes_per_page * inc_page_count;
-            if (heap_size > 0)
-                heap_size -= 1 * BH_KB;
-        }
-        init_page_count += inc_page_count;
-        max_page_count += inc_page_count;
-        if (init_page_count > default_max_pages) {
-            set_error_buf(error_buf, error_buf_size,
-                          "failed to insert app heap into linear memory, "
-                          "try using `--heap-size=0` option");
-            return NULL;
-        }
-        if (max_page_count > default_max_pages)
-            max_page_count = default_max_pages;
     }
 
     LOG_VERBOSE("Memory instantiate:");
@@ -998,49 +1021,46 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
                 heap_size);
 
     max_memory_data_size = (uint64)num_bytes_per_page * max_page_count;
-    bh_assert(max_memory_data_size <= GET_MAX_LINEAR_MEMORY_SIZE(is_memory64));
+    bh_assert(max_memory_data_size
+              <= GET_MAX_LINEAR_MEMORY_SIZE(memory->is_memory64));
     (void)max_memory_data_size;
 
-    /* TODO: memory64 uses is_memory64 flag */
-    if (wasm_allocate_linear_memory(&p, is_shared_memory, is_memory64,
-                                    num_bytes_per_page, init_page_count,
-                                    max_page_count, &memory_data_size)
+    bh_assert(memory != NULL);
+
+    if (wasm_allocate_linear_memory(&memory->memory_data, is_shared_memory,
+                                    memory->is_memory64, num_bytes_per_page,
+                                    init_page_count, max_page_count,
+                                    &memory_data_size)
         != BHT_OK) {
         set_error_buf(error_buf, error_buf_size,
                       "allocate linear memory failed");
         return NULL;
     }
 
-    memory_inst->module_type = Wasm_Module_AoT;
-    memory_inst->num_bytes_per_page = num_bytes_per_page;
-    memory_inst->cur_page_count = init_page_count;
-    memory_inst->max_page_count = max_page_count;
-    memory_inst->memory_data_size = memory_data_size;
-#if WASM_ENABLE_MEMORY64 != 0
-    if (is_memory64) {
-        memory_inst->is_memory64 = 1;
-    }
-#endif
+    memory->module_type = Wasm_Module_AoT;
+    memory->num_bytes_per_page = num_bytes_per_page;
+    memory->cur_page_count = init_page_count;
+    memory->max_page_count = max_page_count;
+    memory->memory_data_size = memory_data_size;
 
     /* Init memory info */
-    memory_inst->memory_data = p;
-    memory_inst->memory_data_end = p + memory_data_size;
+    if (memory_idx == 0) {
+        memory->heap_data = memory->memory_data + heap_offset;
+        memory->heap_data_end = memory->heap_data + heap_size;
+        memory->memory_data_end = memory->memory_data + memory_data_size;
+    }
 
     /* Initialize heap info */
-    memory_inst->heap_data = p + heap_offset;
-    memory_inst->heap_data_end = p + heap_offset + heap_size;
-    if (heap_size > 0) {
+    if (memory_idx == 0 && heap_size > 0) {
         uint32 heap_struct_size = mem_allocator_get_heap_struct_size();
 
-        if (!(heap_handle = runtime_malloc((uint64)heap_struct_size, error_buf,
-                                           error_buf_size))) {
+        if (!(memory->heap_handle = runtime_malloc(
+                  (uint64)heap_struct_size, error_buf, error_buf_size))) {
             goto fail1;
         }
 
-        memory_inst->heap_handle = heap_handle;
-
         if (!mem_allocator_create_with_struct_and_pool(
-                heap_handle, heap_struct_size, memory_inst->heap_data,
+                memory->heap_handle, heap_struct_size, memory->heap_data,
                 heap_size)) {
             set_error_buf(error_buf, error_buf_size, "init app heap failed");
             goto fail2;
@@ -1048,23 +1068,25 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     }
 
     if (memory_data_size > 0) {
-        wasm_runtime_set_mem_bound_check_bytes(memory_inst, memory_data_size);
+        wasm_runtime_set_mem_bound_check_bytes(memory, memory_data_size);
     }
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (is_shared_memory) {
-        memory_inst->is_shared_memory = 1;
-        memory_inst->ref_count = 1;
+        memory->is_shared_memory = 1;
+        memory->ref_count = 1;
     }
 #endif
 
-    return memory_inst;
+    LOG_VERBOSE("Memory instantiate success.");
+    return memory;
 
 fail2:
-    if (heap_size > 0)
-        wasm_runtime_free(memory_inst->heap_handle);
+    if (memory_idx == 0 && heap_size > 0)
+        wasm_runtime_free(memory->heap_handle);
 fail1:
-    wasm_deallocate_linear_memory(memory_inst);
+    if (memory->memory_data)
+        wasm_deallocate_linear_memory(memory);
 
     return NULL;
 }
@@ -1104,17 +1126,18 @@ aot_get_memory_with_index(AOTModuleInstance *module_inst, uint32 index)
 }
 
 static bool
-memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
-                     AOTModule *module, uint32 heap_size,
-                     uint32 max_memory_pages, char *error_buf,
-                     uint32 error_buf_size)
+memories_instantiate(const AOTModule *module, AOTModuleInstance *module_inst,
+                     AOTModuleInstance *parent, uint32 heap_size,
+                     uint32 max_memory_pages, uint8 *aux_heap_base_global_data,
+                     char *error_buf, uint32 error_buf_size)
 {
     uint32 global_index, global_data_offset, length;
-    uint32 i, memory_count = module->memory_count;
-    AOTMemoryInstance *memories, *memory_inst;
+    uint32 i, memory_count = module->import_memory_count + module->memory_count;
+    AOTMemoryInstance *memory;
     AOTMemInitData *data_seg;
     uint64 total_size;
     mem_offset_t base_offset;
+    uint32 mem_index = 0;
 
     module_inst->memory_count = memory_count;
     total_size = sizeof(AOTMemoryInstance *) * (uint64)memory_count;
@@ -1123,20 +1146,27 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         return false;
     }
 
-    memories = module_inst->global_table_data.memory_instances;
-    for (i = 0; i < memory_count; i++, memories++) {
-        memory_inst = memory_instantiate(
-            module_inst, parent, module, memories, &module->memories[i], i,
-            heap_size, max_memory_pages, error_buf, error_buf_size);
-        if (!memory_inst) {
+    for (i = 0, mem_index = module->import_memory_count,
+        memory = module_inst->global_table_data.memory_instances
+                 + module->import_memory_count;
+         i < memory_count; i++, memory++, mem_index++) {
+        AOTMemory *memory_type = module->memories + i;
+        uint32 max_page_count = wasm_runtime_get_max_mem(
+            max_memory_pages, memory_type->init_page_count,
+            memory_type->max_page_count);
+
+        module_inst->memories[mem_index] = memory_instantiate(
+            module, parent, memory, mem_index, memory_type->num_bytes_per_page,
+            memory_type->init_page_count, max_page_count, heap_size,
+            memory_type->flags, aux_heap_base_global_data, error_buf,
+            error_buf_size);
+        if (!module_inst->memories[i]) {
             return false;
         }
-
-        module_inst->memories[i] = memory_inst;
     }
 
     /* Get default memory instance */
-    memory_inst = aot_get_default_memory(module_inst);
+    AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
     if (!memory_inst) {
         /* Ignore setting memory init data if no memory inst is created */
         return true;
@@ -1244,6 +1274,21 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     }
 
     return true;
+}
+
+AOTMemoryInstance *
+aot_create_memory(const AOTModule *module, const AOTMemoryType *type,
+                  uint32 index)
+{
+    bh_assert(false && "Unsupported operation");
+    return NULL;
+}
+
+void
+aot_destroy_memory(AOTMemoryInstance *memory)
+{
+    memory_deinstantiate(memory);
+    wasm_runtime_free(memory);
 }
 
 static bool
@@ -2168,10 +2213,14 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
     if (module_inst->export_functions)
         wasm_runtime_free(module_inst->export_functions);
 
-#if WASM_ENABLE_MULTI_MEMORY != 0
+    if (module_inst->export_globals)
+        wasm_runtime_free(module_inst->export_globals);
+
     if (module_inst->export_memories)
         wasm_runtime_free(module_inst->export_memories);
-#endif
+
+    if (module_inst->export_tables)
+        wasm_runtime_free(module_inst->export_tables);
 
     if (extra->functions) {
         uint32 func_idx;
