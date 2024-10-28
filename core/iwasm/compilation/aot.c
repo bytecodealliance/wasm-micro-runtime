@@ -31,6 +31,82 @@ aot_set_last_error(const char *error)
         aot_error[0] = '\0';
 }
 
+static AOTImportMemory *
+aot_create_import_memories(const WASMModule *module, uint32 import_memory_count)
+{
+    uint64 size;
+    AOTImportMemory *import_memories;
+    unsigned i;
+
+    bh_assert(import_memory_count == module->import_memory_count);
+
+    size = sizeof(AOTImportMemory) * (uint64)import_memory_count;
+    if (size >= UINT32_MAX) {
+        aot_set_last_error("too big allocate size");
+        return NULL;
+    }
+
+    import_memories = wasm_runtime_malloc((uint32)size);
+    if (!module->import_memories) {
+        aot_set_last_error("allocate memory failed.");
+        return NULL;
+    }
+
+    memset(import_memories, 0, (uint32)size);
+
+    for (i = 0; i < module->import_memory_count; i++) {
+        AOTImportMemory *memory_aot = import_memories + i;
+        WASMImport *memory_wasm = module->import_memories + i;
+
+        memory_aot->module_name = memory_wasm->u.memory.module_name;
+        memory_aot->memory_name = memory_wasm->u.memory.field_name;
+        memory_aot->mem_type.flags = memory_wasm->u.memory.mem_type.flags;
+        memory_aot->mem_type.init_page_count =
+            memory_wasm->u.memory.mem_type.init_page_count;
+        memory_aot->mem_type.max_page_count =
+            memory_wasm->u.memory.mem_type.max_page_count;
+        memory_aot->mem_type.num_bytes_per_page =
+            memory_wasm->u.memory.mem_type.num_bytes_per_page;
+    }
+
+    return import_memories;
+}
+
+static AOTMemory *
+aot_create_memories(const WASMModule *module, uint32 memory_count)
+{
+    uint64 size;
+    AOTMemory *memories;
+    unsigned i;
+
+    size = (uint64)memory_count * sizeof(AOTMemory);
+    if (size >= UINT32_MAX) {
+        aot_set_last_error("too big allocate size");
+        return NULL;
+    }
+
+    memories = wasm_runtime_malloc((uint32)size);
+    if (!memories) {
+        aot_set_last_error("create memories array failed.\n");
+        return NULL;
+    }
+
+    memset(memories, 0, size);
+
+    /* in reserved case, assign nothing */
+    for (i = 0; i < module->memory_count; i++) {
+        AOTMemory *memory_aot = memories + i;
+        WASMMemory *memory_wasm = module->memories + i;
+
+        memory_aot->flags = memory_wasm->flags;
+        memory_aot->init_page_count = memory_wasm->init_page_count;
+        memory_aot->max_page_count = memory_wasm->max_page_count;
+        memory_aot->num_bytes_per_page = memory_wasm->num_bytes_per_page;
+    }
+
+    return memories;
+}
+
 static void
 aot_destroy_mem_init_data_list(AOTMemInitData **data_list, uint32 count)
 {
@@ -534,50 +610,30 @@ aot_create_comp_data(WASMModule *module, const char *target_arch,
 
     memset(comp_data, 0, sizeof(AOTCompData));
 
-    comp_data->memory_count =
-        module->import_memory_count + module->memory_count;
+    /* Create import memories */
+    comp_data->import_memory_count = module->import_memory_count;
+    if (comp_data->import_memory_count) {
+        comp_data->import_memories =
+            aot_create_import_memories(module, comp_data->import_memory_count);
+        if (!comp_data->import_memories)
+            goto fail;
+    }
 
-    /* TODO: create import memories */
+    /* Create memories */
+    comp_data->memory_count = module->memory_count;
 
     /* Allocate memory for memory array, reserve one AOTMemory space at least */
     /* TODO: multi-memory */
-    if (!comp_data->memory_count)
+    if (comp_data->memory_count == 0)
         comp_data->memory_count = 1;
 
-    size = (uint64)comp_data->memory_count * sizeof(AOTMemory);
-    if (size >= UINT32_MAX
-        || !(comp_data->memories = wasm_runtime_malloc((uint32)size))) {
-        aot_set_last_error("create memories array failed.\n");
+    comp_data->memories = aot_create_memories(module, comp_data->memory_count);
+    if (!comp_data->memories)
         goto fail;
-    }
-    memset(comp_data->memories, 0, size);
 
-    if (!(module->import_memory_count + module->memory_count)) {
+    /* inherit reserved memory. keep it in memories[] */
+    if (!module->memory_count) {
         comp_data->memories[0].num_bytes_per_page = DEFAULT_NUM_BYTES_PER_PAGE;
-    }
-
-    /* Set memory page count */
-    for (i = 0; i < module->import_memory_count + module->memory_count; i++) {
-        if (i < module->import_memory_count) {
-            comp_data->memories[i].flags =
-                module->import_memories[i].u.memory.mem_type.flags;
-            comp_data->memories[i].num_bytes_per_page =
-                module->import_memories[i].u.memory.mem_type.num_bytes_per_page;
-            comp_data->memories[i].init_page_count =
-                module->import_memories[i].u.memory.mem_type.init_page_count;
-            comp_data->memories[i].max_page_count =
-                module->import_memories[i].u.memory.mem_type.max_page_count;
-        }
-        else {
-            j = i - module->import_memory_count;
-            comp_data->memories[i].flags = module->memories[j].flags;
-            comp_data->memories[i].num_bytes_per_page =
-                module->memories[j].num_bytes_per_page;
-            comp_data->memories[i].init_page_count =
-                module->memories[j].init_page_count;
-            comp_data->memories[i].max_page_count =
-                module->memories[j].max_page_count;
-        }
     }
 
     /* Create memory data segments */
