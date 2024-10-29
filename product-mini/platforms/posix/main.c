@@ -947,12 +947,12 @@ main(int argc, char *argv[])
     WASMExternInstance *imports = NULL;
 
 #if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_WASI_TEST != 0 \
-    || WASM_ENABLE_LIBC_BUILTIN != 0
+    || WASM_ENABLE_LIBC_BUILTIN != 0 || WASM_ENABLE_LIBC_WASI != 0
     imports = wasm_runtime_create_imports_with_builtin(wasm_module);
 #endif
 
     if (import_count > 0 && imports == NULL) {
-        printf("Need to provide %" PRId32 "imported objects:\n", import_count);
+        printf("Need to provide %" PRId32 " imported objects:\n", import_count);
         goto unload_module;
     }
 
@@ -970,7 +970,7 @@ main(int argc, char *argv[])
         printf("%s\n", error_buf);
         goto destroy_imports;
     }
-#else /* WASM_ENABLE_MULTI_MODULE == 0 */
+#else
     if (!(wasm_module_inst =
               wasm_runtime_instantiate(wasm_module, stack_size, heap_size,
                                        error_buf, sizeof(error_buf)))) {

@@ -7788,9 +7788,6 @@ wasm_runtime_destroy_extern_inst(WASMModuleCommon *module,
     if (!extern_inst)
         return;
 
-    extern_inst->module_name = NULL;
-    extern_inst->field_name = NULL;
-
     if (extern_inst->kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
         wasm_runtime_destroy_memory(module, extern_inst->u.memory);
         extern_inst->u.memory = NULL;
@@ -7800,6 +7797,9 @@ wasm_runtime_destroy_extern_inst(WASMModuleCommon *module,
                   extern_inst->module_name, extern_inst->field_name,
                   extern_inst->kind);
     }
+
+    extern_inst->module_name = NULL;
+    extern_inst->field_name = NULL;
 }
 
 /*
@@ -7841,7 +7841,7 @@ void
 wasm_runtime_destroy_imports(WASMModuleCommon *module,
                              WASMExternInstance *extern_inst_list)
 {
-    if (!module && !extern_inst_list)
+    if (!module || !extern_inst_list)
         return;
 
     for (int32 i = 0, import_count = wasm_runtime_get_import_count(module);

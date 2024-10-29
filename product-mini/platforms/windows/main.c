@@ -544,7 +544,8 @@ main(int argc, char *argv[])
     int32_t import_count = wasm_runtime_get_import_count(wasm_module);
     WASMExternInstance *imports = NULL;
 
-#if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_WASI_TEST != 0
+#if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_WASI_TEST != 0 \
+    || WASM_ENABLE_LIBC_BUILTIN != 0 || WASM_ENABLE_LIBC_WASI != 0
     imports = wasm_runtime_create_imports_with_builtin(wasm_module);
 #endif
     if (import_count > 0 && imports == NULL) {
@@ -628,8 +629,10 @@ fail5:
     /* destroy the module instance */
     wasm_runtime_deinstantiate(wasm_module_inst);
 
+#if WASM_ENABLE_MULTI_MODULE == 0
 fail4:
     wasm_runtime_destroy_imports(wasm_module, imports);
+#endif
 
 fail3:
     /* unload the module */

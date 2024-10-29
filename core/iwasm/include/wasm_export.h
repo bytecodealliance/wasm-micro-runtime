@@ -973,7 +973,8 @@ wasm_runtime_set_module_inst(wasm_exec_env_t exec_env,
                              const wasm_module_inst_t module_inst);
 
 /**
- * Create a memory instance
+ * Create a memory instance.
+ * don't have a app heap
  *
  * @return The created memory instance if successful, NULL otherwise
  */

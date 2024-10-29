@@ -390,7 +390,7 @@ handle_cmd_instantiate_module(uint64 *args, uint32 argc)
         WASMExternInstance *imports = NULL;
 
 #if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_WASI_TEST != 0 \
-    || WASM_ENABLE_LIBC_BUILTIN != 0
+    || WASM_ENABLE_LIBC_BUILTIN != 0 || WASM_ENABLE_LIBC_WASI != 0
         imports =
             wasm_runtime_create_imports_with_builtin(enclave_module->module);
 #endif
@@ -846,7 +846,7 @@ ecall_iwasm_main(uint8_t *wasm_file_buf, uint32_t wasm_file_size)
         int32_t import_count = wasm_runtime_get_import_count(wasm_module);
 
 #if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_WASI_TEST != 0 \
-    || WASM_ENABLE_LIBC_BUILTIN != 0
+    || WASM_ENABLE_LIBC_BUILTIN != 0 || WASM_ENABLE_LIBC_WASI != 0
         imports = wasm_runtime_create_imports_with_builtin(wasm_module);
 #endif
         if (import_count > 0 && imports == NULL) {
