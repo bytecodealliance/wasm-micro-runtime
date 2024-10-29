@@ -1579,8 +1579,7 @@ wasm_runtime_get_memory(WASMModuleInstanceCommon *module_inst, uint32 index)
 
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT)
-        return aot_get_memory_with_index((AOTModuleInstance *)module_inst,
-                                         index);
+        return aot_get_memory_with_idx((AOTModuleInstance *)module_inst, index);
 #endif
 
     return NULL;

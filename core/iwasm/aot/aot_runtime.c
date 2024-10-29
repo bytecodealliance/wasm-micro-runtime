@@ -1096,11 +1096,11 @@ aot_get_default_memory(AOTModuleInstance *module_inst)
 }
 
 AOTMemoryInstance *
-aot_get_memory_with_index(AOTModuleInstance *module_inst, uint32 index)
+aot_get_memory_with_idx(AOTModuleInstance *module_inst, uint32 mem_idx)
 {
-    if ((index >= module_inst->memory_count) || !module_inst->memories)
+    if ((mem_idx >= module_inst->memory_count) || !module_inst->memories)
         return NULL;
-    return module_inst->memories[index];
+    return module_inst->memories[mem_idx];
 }
 
 static bool
@@ -1282,20 +1282,77 @@ init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
     return true;
 }
 
+static int
+cmp_export_func_map(const void *a, const void *b)
+{
+    uint32 func_idx1 = ((const ExportFuncMap *)a)->func_idx;
+    uint32 func_idx2 = ((const ExportFuncMap *)b)->func_idx;
+    return func_idx1 < func_idx2 ? -1 : (func_idx1 > func_idx2 ? 1 : 0);
+}
+
+AOTFunctionInstance *
+aot_lookup_function_with_idx(AOTModuleInstance *module_inst, uint32 func_idx)
+{
+    AOTModuleInstanceExtra *extra = (AOTModuleInstanceExtra *)module_inst->e;
+    AOTFunctionInstance *export_funcs =
+        (AOTFunctionInstance *)module_inst->export_functions;
+    AOTFunctionInstance *func_inst = NULL;
+    ExportFuncMap *export_func_maps, *export_func_map, key;
+    uint64 size;
+    uint32 i;
+
+    if (module_inst->export_func_count == 0)
+        return NULL;
+
+    exception_lock(module_inst);
+
+    /* create the func_idx to export_idx maps if it hasn't been created */
+    if (!extra->export_func_maps) {
+        size = sizeof(ExportFuncMap) * (uint64)module_inst->export_func_count;
+        if (!(export_func_maps = extra->export_func_maps =
+                  runtime_malloc(size, NULL, 0))) {
+            /* allocate memory failed, lookup the export function one by one */
+            for (i = 0; i < module_inst->export_func_count; i++) {
+                if (export_funcs[i].func_index == func_idx) {
+                    func_inst = &export_funcs[i];
+                    break;
+                }
+            }
+            goto unlock_and_return;
+        }
+
+        for (i = 0; i < module_inst->export_func_count; i++) {
+            export_func_maps[i].func_idx = export_funcs[i].func_index;
+            export_func_maps[i].export_idx = i;
+        }
+
+        qsort(export_func_maps, module_inst->export_func_count,
+              sizeof(ExportFuncMap), cmp_export_func_map);
+    }
+
+    /* lookup the map to get the export_idx of the func_idx */
+    key.func_idx = func_idx;
+    export_func_map =
+        bsearch(&key, extra->export_func_maps, module_inst->export_func_count,
+                sizeof(ExportFuncMap), cmp_export_func_map);
+    if (export_func_map)
+        func_inst = &export_funcs[export_func_map->export_idx];
+
+unlock_and_return:
+    exception_unlock(module_inst);
+    return func_inst;
+}
+
 AOTFunctionInstance *
 aot_get_function_instance(AOTModuleInstance *module_inst, uint32 func_idx)
 {
     AOTModule *module = (AOTModule *)module_inst->module;
     AOTModuleInstanceExtra *extra = (AOTModuleInstanceExtra *)module_inst->e;
-    AOTFunctionInstance *export_funcs =
-        (AOTFunctionInstance *)module_inst->export_functions;
-    uint32 i;
+    AOTFunctionInstance *func_inst;
 
-    /* export functions are pre-instantiated */
-    for (i = 0; i < module_inst->export_func_count; i++) {
-        if (export_funcs[i].func_index == func_idx)
-            return &export_funcs[i];
-    }
+    /* lookup from export functions first */
+    if ((func_inst = aot_lookup_function_with_idx(module_inst, func_idx)))
+        return func_inst;
 
     exception_lock(module_inst);
 
@@ -2167,6 +2224,9 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 
     if (module_inst->export_functions)
         wasm_runtime_free(module_inst->export_functions);
+
+    if (extra->export_func_maps)
+        wasm_runtime_free(extra->export_func_maps);
 
 #if WASM_ENABLE_MULTI_MEMORY != 0
     if (module_inst->export_memories)
