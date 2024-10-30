@@ -304,12 +304,13 @@ loader_mmap(uint32 size, bool prot_exec, char *error_buf, uint32 error_buf_size)
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
     || defined(BUILD_TARGET_RISCV64_LP64D)                       \
     || defined(BUILD_TARGET_RISCV64_LP64)
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(BH_PLATFORM_LINUX_SGX)
     /* The mmapped AOT data and code in 64-bit targets had better be in
        range 0 to 2G, or aot loader may fail to apply some relocations,
        e.g., R_X86_64_32/R_X86_64_32S/R_X86_64_PC32/R_RISCV_32.
        We try to mmap with MMAP_MAP_32BIT flag first, and if fails, mmap
        again without the flag. */
+    /* sgx_tprotect_rsrv_mem() and sgx_alloc_rsrv_mem() will ignore flags */
     map_flags = MMAP_MAP_32BIT;
     if ((mem = os_mmap(NULL, size, map_prot, map_flags,
                        os_get_invalid_handle()))) {
