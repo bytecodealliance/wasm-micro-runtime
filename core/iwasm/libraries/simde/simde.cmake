@@ -1,3 +1,5 @@
+# Copyright (C) 2024 Amazon Inc.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # simde is a header only library
 
 set (LIB_SIMDE_DIR ${CMAKE_CURRENT_LIST_DIR})
