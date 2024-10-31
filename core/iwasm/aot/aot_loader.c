@@ -996,6 +996,13 @@ load_mem_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
     uint64 size;
     uint32 i;
 
+    read_uint32(buf, buf_end, module->mem_init_data_count);
+
+    if (module->mem_init_data_count == 0) {
+        *p_buf = buf;
+        return true;
+    }
+
     /* Allocate memory */
     size = sizeof(AOTMemInitData *) * (uint64)module->mem_init_data_count;
     if (!(module->mem_init_data_list = data_list =
@@ -1097,7 +1104,10 @@ load_memory_info(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
     read_uint32(buf, buf_end, module->memory_count);
 
-    /* because of reserved. memory_count always >= 1*/
+    if (module->memory_count == 0) {
+        *p_buf = buf;
+        return true;
+    }
 
     total_size = sizeof(AOTMemory) * (uint64)module->memory_count;
     if (!(module->memories =
@@ -1117,14 +1127,6 @@ load_memory_info(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         read_uint32(buf, buf_end, module->memories[i].init_page_count);
         read_uint32(buf, buf_end, module->memories[i].max_page_count);
     }
-
-    read_uint32(buf, buf_end, module->mem_init_data_count);
-
-    /* load memory init data list */
-    if (module->mem_init_data_count > 0
-        && !load_mem_init_data_list(&buf, buf_end, module, error_buf,
-                                    error_buf_size))
-        return false;
 
     *p_buf = buf;
     return true;
@@ -2467,6 +2469,8 @@ load_init_data_section(const uint8 *buf, const uint8 *buf_end,
     if (!load_import_memory_info(&p, p_end, module, is_load_from_file_buf,
                                  error_buf, error_buf_size)
         || !load_memory_info(&p, p_end, module, error_buf, error_buf_size)
+        || !load_mem_init_data_list(&p, p_end, module, error_buf,
+                                    error_buf_size)
         || !load_table_info(&p, p_end, module, error_buf, error_buf_size)
         || !load_type_info(&p, p_end, module, error_buf, error_buf_size)
         || !load_import_global_info(&p, p_end, module, is_load_from_file_buf,

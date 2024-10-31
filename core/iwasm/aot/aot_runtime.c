@@ -178,6 +178,27 @@ get_prev_frame(WASMExecEnv *exec_env, void *cur_frame)
 }
 #endif
 
+static const WASMExternInstance *
+get_extern_instance_from_imports(const WASMExternInstance *imports,
+                                 uint32 import_count,
+                                 wasm_import_export_kind_t kind, uint32 index)
+{
+    for (uint32 i = 0, target_kind_index = 0; i < import_count; i++) {
+        if (imports[i].kind != kind) {
+            continue;
+        }
+
+        if (target_kind_index != index) {
+            target_kind_index++;
+            continue;
+        }
+
+        return imports + i;
+    }
+
+    return NULL;
+}
+
 static bool
 check_global_init_expr(const AOTModule *module, uint32 global_index,
                        char *error_buf, uint32 error_buf_size)
@@ -879,7 +900,6 @@ memory_instantiate(const AOTModule *module, AOTModuleInstance *parent,
     uint32 default_max_pages;
     uint32 bytes_of_last_page, bytes_to_page_end;
     uint64 aux_heap_base;
-    uint64 max_memory_data_size;
 
     bh_assert(memory != NULL);
 
@@ -1030,7 +1050,8 @@ memory_instantiate(const AOTModule *module, AOTModuleInstance *parent,
 
 #ifndef NDEBUG
     {
-        max_memory_data_size = (uint64)num_bytes_per_page * max_page_count;
+        uint64 max_memory_data_size =
+            (uint64)num_bytes_per_page * max_page_count;
         bh_assert(max_memory_data_size
                   <= GET_MAX_LINEAR_MEMORY_SIZE(memory->is_memory64));
         (void)max_memory_data_size;
@@ -1118,16 +1139,15 @@ aot_lookup_memory(AOTModuleInstance *module_inst, char const *name)
     return NULL;
 #else
     (void)module_inst->export_memories;
-    if (!module_inst->memories)
-        return NULL;
-    return module_inst->memories[0];
+    return aot_get_default_memory(module_inst);
 #endif
 }
 
 /*
  * [0] could be internal or external
  *
- * Because the reserved memory(aot_create_comp_data() in
+ * it won't be NULL because of the reserved
+ * memory(aot_create_comp_data() in
  * core/iwasm/compilation/aot.c),
  */
 AOTMemoryInstance *
@@ -1158,14 +1178,11 @@ static bool
 memories_instantiate(const AOTModule *module, AOTModuleInstance *module_inst,
                      AOTModuleInstance *parent, uint32 heap_size,
                      uint32 max_memory_pages, uint8 *aux_heap_base_global_data,
+                     const WASMExternInstance *imports, uint32 import_count,
                      char *error_buf, uint32 error_buf_size)
 {
-    uint32 global_index, global_data_offset, length;
-    uint32 i, memory_count = module->import_memory_count + module->memory_count;
-    AOTMemoryInstance *memory;
-    AOTMemInitData *data_seg;
+    uint32 memory_count = module->import_memory_count + module->memory_count;
     uint64 total_size;
-    mem_offset_t base_offset;
     uint32 mem_index = 0;
 
     module_inst->memory_count = memory_count;
@@ -1175,10 +1192,37 @@ memories_instantiate(const AOTModule *module, AOTModuleInstance *module_inst,
         return false;
     }
 
-    for (i = 0, mem_index = module->import_memory_count,
-        memory = module_inst->global_table_data.memory_instances
-                 + module->import_memory_count;
-         i < memory_count; i++, memory++, mem_index++) {
+    /* process imported memories */
+    for (mem_index = 0; mem_index < module->import_memory_count; mem_index++) {
+        AOTImportMemory *memory_type = module->import_memories + mem_index;
+
+        const WASMExternInstance *extern_inst =
+            get_extern_instance_from_imports(imports, import_count,
+                                             WASM_IMPORT_EXPORT_KIND_MEMORY,
+                                             mem_index);
+        if (!extern_inst) {
+            LOG_ERROR("missing a import memory(%s, %s)",
+                      memory_type->module_name, memory_type->memory_name);
+            return false;
+        }
+
+        /* just in case */
+#ifndef NDEBUG
+        if (strcmp(memory_type->memory_name, extern_inst->field_name)) {
+            LOG_ERROR(
+                "mismatched import memory name: expect \"%s\", got \"%s\"",
+                memory_type->memory_name, extern_inst->field_name);
+            return false;
+        }
+#endif
+        module_inst->memories[mem_index] = extern_inst->u.memory;
+    }
+
+    /* process internal memories */
+    AOTMemoryInstance *memory = module_inst->global_table_data.memory_instances;
+    for (uint32 i = 0; mem_index < memory_count; mem_index++, memory++) {
+        bh_assert(i == mem_index - module->import_memory_count);
+
         AOTMemory *memory_type = module->memories + i;
         uint32 max_page_count = wasm_runtime_get_max_mem(
             max_memory_pages, memory_type->init_page_count,
@@ -1203,8 +1247,9 @@ memories_instantiate(const AOTModule *module, AOTModuleInstance *module_inst,
         return false;
     }
 
-    for (i = 0; i < module->mem_init_data_count; i++) {
-        data_seg = module->mem_init_data_list[i];
+    for (uint32 i = 0; i < module->mem_init_data_count; i++) {
+        AOTMemInitData *data_seg = module->mem_init_data_list[i];
+        mem_offset_t base_offset;
 #if WASM_ENABLE_BULK_MEMORY != 0
         if (data_seg->is_passive)
             continue;
@@ -1222,7 +1267,8 @@ memories_instantiate(const AOTModule *module, AOTModuleInstance *module_inst,
 
         /* Resolve memory data base offset */
         if (data_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
-            global_index = data_seg->offset.u.global_index;
+            uint32 global_index = data_seg->offset.u.global_index;
+            uint32 global_data_offset = 0;
 
             if (!check_global_init_expr(module, global_index, error_buf,
                                         error_buf_size)) {
@@ -1282,7 +1328,7 @@ memories_instantiate(const AOTModule *module, AOTModuleInstance *module_inst,
         }
 
         /* check offset + length(could be zero) */
-        length = data_seg->byte_count;
+        uint32 length = data_seg->byte_count;
         if (base_offset + length > memory_inst->memory_data_size) {
             LOG_DEBUG("base_offset(%" PR_MEM_OFFSET
                       ") + length(%d) > memory_data_size(%" PRIu64 ")",
@@ -1308,8 +1354,7 @@ memories_instantiate(const AOTModule *module, AOTModuleInstance *module_inst,
 }
 
 AOTMemoryInstance *
-aot_create_memory(const AOTModule *module, const AOTMemoryType *type,
-                  uint32 index)
+aot_create_memory(const AOTModule *module, const AOTMemoryType *type)
 {
     if (!module || !type)
         return NULL;
@@ -1840,9 +1885,12 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
 #endif
 
 #if WASM_ENABLE_MULTI_MODULE == 0
-    if (module->import_count > 0 && !imports) {
+    uint32 total_import_count =
+        module->import_func_count + module->import_global_count
+        + module->import_memory_count + module->import_table_count;
+    if (total_import_count > 0 && !imports) {
         set_error_buf(error_buf, error_buf_size,
-                      "argument imports is NULL while module has imports");
+                      "imports is NULL while module has imports");
         return NULL;
     }
 #endif
@@ -1981,6 +2029,16 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     if (!global_instantiate(module_inst, module, error_buf, error_buf_size))
         goto fail;
 
+    /* __heap_base */
+    uint8 *aux_heap_base_global_data = NULL;
+    if (module_inst->e->globals
+        && module->aux_heap_base_global_index < module->global_count) {
+        aux_heap_base_global_data =
+            module_inst->global_data
+            + module_inst->e->globals[module->aux_heap_base_global_index]
+                  .data_offset;
+    }
+
     /* Initialize table info */
     p += module->global_data_size;
     module_inst->table_count = module->table_count + module->import_table_count;
@@ -1989,8 +2047,9 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         goto fail;
 
     /* Initialize memory space */
-    if (!memories_instantiate(module_inst, parent, module, heap_size,
-                              max_memory_pages, error_buf, error_buf_size))
+    if (!memories_instantiate(module, module_inst, parent, heap_size,
+                              max_memory_pages, aux_heap_base_global_data,
+                              imports, import_count, error_buf, error_buf_size))
         goto fail;
 
     /* Initialize function pointers */

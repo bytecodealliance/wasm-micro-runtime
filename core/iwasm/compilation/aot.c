@@ -615,24 +615,28 @@ aot_create_comp_data(WASMModule *module, const char *target_arch,
     if (comp_data->import_memory_count) {
         comp_data->import_memories =
             aot_create_import_memories(module, comp_data->import_memory_count);
-        if (!comp_data->import_memories)
+        if (!comp_data->import_memories) {
             goto fail;
+        }
     }
 
     /* Create memories */
     comp_data->memory_count = module->memory_count;
 
     /* Allocate memory for memory array, reserve one AOTMemory space at least */
-    /* TODO: multi-memory */
-    if (comp_data->memory_count == 0)
+    if (module->import_memory_count + module->memory_count == 0)
         comp_data->memory_count = 1;
 
-    comp_data->memories = aot_create_memories(module, comp_data->memory_count);
-    if (!comp_data->memories)
-        goto fail;
+    if (comp_data->memory_count) {
+        comp_data->memories =
+            aot_create_memories(module, comp_data->memory_count);
+        if (!comp_data->memories) {
+            goto fail;
+        }
+    }
 
     /* inherit reserved memory. keep it in memories[] */
-    if (!module->memory_count) {
+    if (module->import_memory_count + module->memory_count == 0) {
         comp_data->memories[0].num_bytes_per_page = DEFAULT_NUM_BYTES_PER_PAGE;
     }
 

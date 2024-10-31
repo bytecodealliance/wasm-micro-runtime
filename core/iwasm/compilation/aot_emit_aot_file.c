@@ -165,17 +165,15 @@ get_mem_init_data_size(AOTCompContext *comp_ctx, AOTMemInitData *mem_init_data)
 }
 
 static uint32
-get_mem_init_data_list_size(AOTCompContext *comp_ctx,
-                            AOTMemInitData **mem_init_data_list,
-                            uint32 mem_init_data_count)
+get_mem_init_data_list_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
 {
-    AOTMemInitData **mem_init_data = mem_init_data_list;
+    AOTMemInitData **mem_init_data = comp_data->mem_init_data_list;
     uint32 size = 0, i;
 
     /* mem_init_data_count */
     size = (uint32)sizeof(uint32);
 
-    for (i = 0; i < mem_init_data_count; i++, mem_init_data++) {
+    for (i = 0; i < comp_data->mem_init_data_count; i++, mem_init_data++) {
         size = align_uint(size, 4);
         size += get_mem_init_data_size(comp_ctx, *mem_init_data);
     }
@@ -210,50 +208,12 @@ get_import_memory_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
 }
 
 static uint32
-get_memory_size(AOTCompData *comp_data)
+get_memory_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
 {
     /* memory_count + count * (flags + num_bytes_per_page +
                                init_page_count + max_page_count) */
     return (uint32)(sizeof(uint32)
                     + comp_data->memory_count * sizeof(uint32) * 4);
-}
-
-static uint32
-get_mem_info_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
-{
-    /*
-     * -------------------------------------------------------
-     * | u32 import_memory_count
-     * -------------------------------------------------------
-     * |                                      |  u8 module_name
-     * |                                      |  u8 field_name
-     * |                                      | u32 flags
-     * | AOTImportMemory[import_memory_count] | u32 num_bytes_per_page
-     * |                                      | u32 init_page_count
-     * |                                      | u32 max_page_count
-     * -------------------------------------------------------
-     * | u32 memory_count
-     * -------------------------------------------------------
-     * |                             | u32 flags
-     * | AOTMemoryType[memory_count] | u32 num_bytes_per_page
-     * |                             | u32 init_page_count
-     * |                             | u32 max_page_count
-     * -------------------------------------------------------
-     * | u32 mem_init_data_count
-     * -------------------------------------------------------
-     * |                                     | u32 init expr type
-     * | AOTMemInitData[mem_init_data_count] | u32 init expr value
-     * |                                     | u32 byte count
-     * |                                     | u8* bytes
-     * -------------------------------------------------------
-     */
-    /* import_memory_size + memory_size
-       + init_data_count + init_data_list */
-    return get_import_memory_size(comp_ctx, comp_data)
-           + get_memory_size(comp_data)
-           + get_mem_init_data_list_size(comp_ctx,
-                                         comp_data->mem_init_data_list,
-                                         comp_data->mem_init_data_count);
 }
 
 static uint32
@@ -816,7 +776,43 @@ get_init_data_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
 {
     uint32 size = 0;
 
-    size += get_mem_info_size(comp_ctx, comp_data);
+    /*
+     * -------------------------------------------------------
+     * | u32 import_memory_count
+     * -------------------------------------------------------
+     * |                                      |  u8 module_name
+     * |                                      |  u8 field_name
+     * |                                      | u32 flags
+     * | AOTImportMemory[import_memory_count] | u32 num_bytes_per_page
+     * |                                      | u32 init_page_count
+     * |                                      | u32 max_page_count
+     * -------------------------------------------------------
+     * | padding
+     * -------------------------------------------------------
+     * | u32 memory_count
+     * -------------------------------------------------------
+     * |                             | u32 flags
+     * | AOTMemoryType[memory_count] | u32 num_bytes_per_page
+     * |                             | u32 init_page_count
+     * |                             | u32 max_page_count
+     * -------------------------------------------------------
+     * | padding (TBC: previous aot doesn't have this padding by design)
+     * -------------------------------------------------------
+     * | u32 mem_init_data_count
+     * -------------------------------------------------------
+     * |                                     | u32 init expr type
+     * | AOTMemInitData[mem_init_data_count] | u32 init expr value
+     * |                                     | u32 byte count
+     * |                                     | u8* bytes
+     * -------------------------------------------------------
+     */
+    size += get_import_memory_size(comp_ctx, comp_data);
+
+    size = align_uint(size, 4);
+    size += get_memory_size(comp_ctx, comp_data);
+
+    size = align_uint(size, 4);
+    size += get_mem_init_data_list_size(comp_ctx, comp_data);
 
     size = align_uint(size, 4);
     size += get_table_info_size(comp_ctx, comp_data);
@@ -1852,7 +1848,7 @@ aot_emit_memory_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         EMIT_U32(memory->max_page_count);
     }
 
-    if (offset - *p_offset != get_memory_size(comp_data)) {
+    if (offset - *p_offset != get_memory_size(comp_ctx, comp_data)) {
         aot_set_last_error("emit memory info failed.");
         return false;
     }
@@ -1896,8 +1892,7 @@ aot_emit_memory_init_data_list(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     }
 
     if (offset - *p_offset
-        != get_mem_init_data_list_size(comp_ctx, comp_data->mem_init_data_list,
-                                       comp_data->mem_init_data_count)) {
+        != get_mem_init_data_list_size(comp_ctx, comp_data)) {
         aot_set_last_error("emit memory init data list failed.");
         return false;
     }

@@ -533,7 +533,8 @@ aot_resolve_import_func(AOTModule *module, AOTImportFunc *import_func);
 AOTModuleInstance *
 aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
                 WASMExecEnv *exec_env_main, uint32 stack_size, uint32 heap_size,
-                uint32 max_memory_pages, char *error_buf,
+                uint32 max_memory_pages, uint32 import_count,
+                const WASMExternInstance *imports, char *error_buf,
                 uint32 error_buf_size);
 
 /**
@@ -546,8 +547,7 @@ void
 aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst);
 
 AOTMemoryInstance *
-aot_create_memory(const AOTModule *module, const AOTMemoryType *type,
-                  uint32 index);
+aot_create_memory(const AOTModule *module, const AOTMemoryType *type);
 
 void
 aot_destroy_memory(AOTMemoryInstance *memory);

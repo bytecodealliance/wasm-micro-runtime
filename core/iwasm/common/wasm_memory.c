@@ -1548,7 +1548,7 @@ wasm_runtime_create_memory(WASMModuleCommon *module, WASMMemoryType *type)
 
 #if WASM_ENABLE_AOT != 0
     if (module->module_type == Wasm_Module_AoT) {
-        return aot_create_memory((AOTModule *)module, type, index);
+        return aot_create_memory((AOTModule *)module, type);
     }
 #endif
 

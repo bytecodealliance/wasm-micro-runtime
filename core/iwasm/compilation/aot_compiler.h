@@ -528,8 +528,28 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
         wasm_runtime_free(aot_value);                                        \
     } while (0)
 
+/* requires comp_ctx */
+#define DEFAULT_MEMORY_TYPE                                 \
+    (comp_ctx->comp_data->import_memory_count               \
+         ? comp_ctx->comp_data->import_memories[0].mem_type \
+         : comp_ctx->comp_data->memories[0])
+
+#define DEFAULT_MEMORY_TYPE_FLAG (DEFAULT_MEMORY_TYPE.flags)
+
+#define DEFAULT_MEMORY_TYPE_NUM_BYTES_PER_PAGE \
+    (DEFAULT_MEMORY_TYPE.num_bytes_per_page)
+
+#define DEFAULT_MEMORY_TYPE_INIT_PAGE_COUNT \
+    (DEFAULT_MEMORY_TYPE.init_page_count)
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+#define IS_SHARED_MEMORY (DEFAULT_MEMORY_TYPE_FLAG & SHARED_MEMORY_FLAG)
+#else
+#define IS_SHARED_MEMORY 0
+#endif
+
 #if WASM_ENABLE_MEMORY64 != 0
-#define IS_MEMORY64 (comp_ctx->comp_data->memories[0].flags & MEMORY64_FLAG)
+#define IS_MEMORY64 (DEFAULT_MEMORY_TYPE_FLAG & MEMORY64_FLAG)
 #define MEMORY64_COND_VALUE(VAL_IF_ENABLED, VAL_IF_DISABLED) \
     (IS_MEMORY64 ? VAL_IF_ENABLED : VAL_IF_DISABLED)
 #define IS_TABLE64(i) \

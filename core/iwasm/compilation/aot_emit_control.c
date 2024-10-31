@@ -881,8 +881,7 @@ check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef terminate_addr, terminate_flags, flag, offset, res;
     LLVMBasicBlockRef terminate_block, non_terminate_block;
     AOTFuncType *aot_func_type = func_ctx->aot_func->func_type;
-    bool is_shared_memory =
-        comp_ctx->comp_data->memories[0].flags & 0x02 ? true : false;
+    bool is_shared_memory = IS_SHARED_MEMORY;
 
     /* Only need to check the suspend flags when memory is shared since
        shared memory must be enabled for multi-threading */

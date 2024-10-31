@@ -1638,7 +1638,8 @@ wasm_runtime_instantiate_internal(WASMModuleCommon *module,
     if (module->module_type == Wasm_Module_AoT)
         return (WASMModuleInstanceCommon *)aot_instantiate(
             (AOTModule *)module, (AOTModuleInstance *)parent, exec_env_main,
-            stack_size, heap_size, max_memory_pages, error_buf, error_buf_size);
+            stack_size, heap_size, max_memory_pages, import_count, imports,
+            error_buf, error_buf_size);
 #endif
     set_error_buf(error_buf, error_buf_size,
                   "Instantiate module failed, invalid module type");

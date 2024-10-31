@@ -128,8 +128,7 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     bool is_target_64bit, is_local_of_aot_value = false;
     bool is_const = false;
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    bool is_shared_memory =
-        comp_ctx->comp_data->memories[0].flags & SHARED_MEMORY_FLAG;
+    bool is_shared_memory = IS_SHARED_MEMORY;
 #endif
 #if WASM_ENABLE_MEMORY64 == 0
     bool is_memory64 = false;
@@ -207,10 +206,8 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             value = const_value;
         }
         uint64 mem_offset = value + (uint64)offset;
-        uint32 num_bytes_per_page =
-            comp_ctx->comp_data->memories[0].num_bytes_per_page;
-        uint32 init_page_count =
-            comp_ctx->comp_data->memories[0].init_page_count;
+        uint32 num_bytes_per_page = DEFAULT_MEMORY_TYPE_NUM_BYTES_PER_PAGE;
+        uint32 init_page_count = DEFAULT_MEMORY_TYPE_INIT_PAGE_COUNT;
         uint64 mem_data_size = (uint64)num_bytes_per_page * init_page_count;
 
         if (alignp != NULL) {
@@ -408,8 +405,7 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         && !(is_local_of_aot_value
              && aot_checked_addr_list_find(func_ctx, local_idx_of_aot_value,
                                            offset, bytes))) {
-        uint32 init_page_count =
-            comp_ctx->comp_data->memories[0].init_page_count;
+        uint32 init_page_count = DEFAULT_MEMORY_TYPE_INIT_PAGE_COUNT;
         if (init_page_count == 0) {
             LLVMValueRef mem_size;
 
@@ -1149,7 +1145,7 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* Get memory base address and memory data size */
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    bool is_shared_memory = comp_ctx->comp_data->memories[0].flags & 0x02;
+    bool is_shared_memory = IS_SHARED_MEMORY;
 
     if (func_ctx->mem_space_unchanged || is_shared_memory) {
 #else
@@ -1174,10 +1170,8 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (LLVMIsEfficientConstInt(offset) && LLVMIsEfficientConstInt(bytes)) {
         uint64 mem_offset = (uint64)LLVMConstIntGetZExtValue(offset);
         uint64 mem_len = (uint64)LLVMConstIntGetZExtValue(bytes);
-        uint32 num_bytes_per_page =
-            comp_ctx->comp_data->memories[0].num_bytes_per_page;
-        uint32 init_page_count =
-            comp_ctx->comp_data->memories[0].init_page_count;
+        uint32 num_bytes_per_page = DEFAULT_MEMORY_TYPE_NUM_BYTES_PER_PAGE;
+        uint32 init_page_count = DEFAULT_MEMORY_TYPE_INIT_PAGE_COUNT;
         uint64 mem_data_size = (uint64)num_bytes_per_page * init_page_count;
         if (mem_data_size > 0 && mem_offset + mem_len <= mem_data_size) {
             /* inside memory space */

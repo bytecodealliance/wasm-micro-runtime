@@ -300,15 +300,15 @@ memory_instantiate(const WASMModule *module, WASMModuleInstance *parent,
                    uint8 *aux_heap_base_global_data, char *error_buf,
                    uint32 error_buf_size)
 {
+    bh_assert(memory != NULL);
+
     bool is_shared_memory = false;
 #if WASM_ENABLE_SHARED_MEMORY != 0
     is_shared_memory = flags & SHARED_MEMORY_FLAG ? true : false;
 
-    bh_assert(memory != NULL);
-
     /* shared memory */
     if (is_shared_memory && parent != NULL) {
-        bh_assert(parent->memory_count > 0);
+        bh_assert(parent_memory != NULL);
         memory = parent_memory;
         shared_memory_inc_reference(memory);
         return memory;
@@ -360,6 +360,7 @@ memory_instantiate(const WASMModule *module, WASMModuleInstance *parent,
         }
         else if (heap_size > 0) {
             uint32 inc_page_count = 0;
+
             if (init_page_count == max_page_count && init_page_count == 0) {
                 /* If the memory data size is always 0, we resize it to
                    one page for app heap */
@@ -447,8 +448,6 @@ memory_instantiate(const WASMModule *module, WASMModuleInstance *parent,
                 num_bytes_per_page, init_page_count, max_page_count);
     LOG_VERBOSE("  data offset: %" PRIu64 ", stack size: %d",
                 module->aux_data_end, module->aux_stack_size);
-    LOG_VERBOSE("  heap offset: %" PRIu64 ", heap size: %u\n", heap_offset,
-                heap_size);
 
 #ifndef NDEBUG
     {
@@ -613,6 +612,7 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         uint32 max_page_count = wasm_runtime_get_max_mem(
             max_memory_pages, module->memories[i].init_page_count,
             module->memories[i].max_page_count);
+
         if (!(memories[mem_index] = memory_instantiate(
                   module, parent, memory,
                   parent ? parent->memories[mem_index] : NULL,
@@ -635,6 +635,9 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 WASMMemoryInstance *
 wasm_create_memory(const WASMModule *module, const WASMMemoryType *type)
 {
+    if (!module || !type)
+        return NULL;
+
     WASMMemoryInstance *memory = NULL;
     char error_buf[64] = { 0 };
 
@@ -655,7 +658,7 @@ wasm_create_memory(const WASMModule *module, const WASMMemoryType *type)
                             NULL, // parent_memory
                             type->num_bytes_per_page, type->init_page_count,
                             type->max_page_count,
-                            0, // no heap_size from host side
+                            0, // no app heap for host
                             type->flags,
                             NULL, // aux_heap_base_global_data
                             error_buf, sizeof(error_buf))) {
