@@ -1192,8 +1192,11 @@ memories_instantiate(const AOTModule *module, AOTModuleInstance *module_inst,
         return false;
     }
 
+    AOTMemoryInstance *memory = module_inst->global_table_data.memory_instances;
+
     /* process imported memories */
-    for (mem_index = 0; mem_index < module->import_memory_count; mem_index++) {
+    for (mem_index = 0; mem_index < module->import_memory_count;
+         mem_index++, memory++) {
         AOTImportMemory *memory_type = module->import_memories + mem_index;
 
         const WASMExternInstance *extern_inst =
@@ -1215,11 +1218,20 @@ memories_instantiate(const AOTModule *module, AOTModuleInstance *module_inst,
             return false;
         }
 #endif
+        /*
+         *TODO:
+         * - either memories[x] points to an external AOTMemoryInstance.
+         * - or memories[x] points to an internal AOTMemoryInstance in
+         *   global_table_data
+         *
+         * the first case is simple for maintaining resource management
+         */
         module_inst->memories[mem_index] = extern_inst->u.memory;
+        bh_memcpy_s(memory, sizeof(AOTMemoryInstance), extern_inst->u.memory,
+                    sizeof(AOTMemoryInstance));
     }
 
     /* process internal memories */
-    AOTMemoryInstance *memory = module_inst->global_table_data.memory_instances;
     for (uint32 i = 0; mem_index < memory_count; mem_index++, memory++) {
         bh_assert(i == mem_index - module->import_memory_count);
 
@@ -1875,7 +1887,8 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     const uint32 module_inst_struct_size =
         offsetof(AOTModuleInstance, global_table_data.bytes);
     const uint64 module_inst_mem_inst_size =
-        (uint64)module->memory_count * sizeof(AOTMemoryInstance);
+        (uint64)(module->memory_count + module->import_memory_count)
+        * sizeof(AOTMemoryInstance);
     uint64 total_size, table_size = 0;
     uint8 *p;
     uint32 i, extra_info_offset;
@@ -3648,7 +3661,9 @@ aot_get_module_mem_consumption(const AOTModule *module,
 
     mem_conspn->tables_size = sizeof(AOTTable) * module->table_count;
 
-    mem_conspn->memories_size = sizeof(AOTMemory) * module->memory_count;
+    mem_conspn->memories_size =
+        sizeof(AOTMemory)
+        * (module->memory_count + moudle->import_memory_count);
     mem_conspn->globals_size = sizeof(AOTGlobal) * module->global_count;
     mem_conspn->exports_size = sizeof(AOTExport) * module->export_count;
 

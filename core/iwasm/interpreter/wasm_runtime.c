@@ -2741,6 +2741,24 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                 }
 
                 module_inst->memories[import_memory_index] = import->u.memory;
+                {
+                    /*
+                     *TODO:
+                     * - either memories[x] points to an external
+                     *AOTMemoryInstance.
+                     * - or memories[x] points to an internal AOTMemoryInstance
+                     *in global_table_data
+                     *
+                     * the first case is simple for maintaining resource
+                     *management
+                     */
+                    WASMMemoryInstance *memory =
+                        module_inst->global_table_data.memory_instances
+                        + import_memory_index;
+                    bh_memcpy_s(memory, sizeof(WASMMemoryInstance),
+                                import->u.memory, sizeof(WASMMemoryInstance));
+                }
+
                 import_memory_index++;
             }
         }
