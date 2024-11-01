@@ -2468,7 +2468,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
          */
         set_error_buf(error_buf, error_buf_size,
                       "argument imports is NULL while module has imports");
-        return NULL;
+        // return NULL;
     }
 #endif
 
@@ -5221,7 +5221,7 @@ wasm_inherit_imports(WASMModule *module, WASMModuleInstance *inst,
             import_memory_index++;
         }
         else {
-            LOG_WARNING("for spawned, unimplemented import(%s,%s) kind %d",
+            LOG_WARNING("for spawned, inherit() import(%s,%s) kind %d",
                         import_type.module_name, import_type.name,
                         import_type.kind);
         }
@@ -5256,7 +5256,7 @@ wasm_disinherit_imports(WASMModule *module, WASMExternInstance *imports,
 #endif
         }
         else {
-            LOG_WARNING("for spawned, unimplemented import(%s,%s) kind %d",
+            LOG_WARNING("for spawned, disinherit() import(%s,%s) kind %d",
                         import->module_name, import->field_name, import->kind);
         }
     }
