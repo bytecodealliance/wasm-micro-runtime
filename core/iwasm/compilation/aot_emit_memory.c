@@ -124,7 +124,7 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMBasicBlockRef check_succ, block_maddr_phi = NULL;
     AOTValue *aot_value_top;
     uint32 local_idx_of_aot_value = 0;
-    uint64 const_value;
+    uint64 const_value = 0;
     bool is_target_64bit, is_local_of_aot_value = false;
     bool is_const = false;
 #if WASM_ENABLE_SHARED_MEMORY != 0

@@ -1881,6 +1881,10 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         module->import_func_count + module->import_global_count
         + module->import_memory_count + module->import_table_count;
     if (total_import_count > 0 && !imports) {
+        /*
+         * TODO: might be too strict
+         * might wasm_runtime_create_imports_with_builtin() here by default
+         */
         set_error_buf(error_buf, error_buf_size,
                       "imports is NULL while module has imports");
         return NULL;
@@ -5453,3 +5457,84 @@ aot_resolve_import_func(AOTModule *module, AOTImportFunc *import_func)
 #endif
     return import_func->func_ptr_linked != NULL;
 }
+
+#if WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0
+/*
+ * The function is used to create a new WASMExternInstance list
+ * for a spawned thread.
+ */
+int32
+aot_inherit_imports(AOTModule *module, AOTModuleInstance *inst,
+                    WASMExternInstance *out, int32 out_len)
+{
+    if (!module || !inst || !out)
+        return -1;
+
+    int32 spawned_import_count =
+        wasm_runtime_get_import_count((WASMModuleCommon *)module);
+    if (spawned_import_count > out_len) {
+        LOG_WARNING("The number of imported functions is more than the "
+                    "length of provided buffer ");
+        return -1;
+    }
+
+    for (int32 i = 0, import_memory_index = 0; i < spawned_import_count; i++) {
+        wasm_import_t import_type = { 0 };
+
+        wasm_runtime_get_import_type((WASMModuleCommon *)module, i,
+                                     &import_type);
+
+        out[i].module_name = import_type.module_name;
+        out[i].field_name = import_type.name;
+        out[i].kind = import_type.kind;
+
+        if (import_type.kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
+            out[i].u.memory = inst->memories[import_memory_index];
+#if WASM_ENABLE_SHARED_MEMORY != 0
+            shared_memory_inc_reference(inst->memories[import_memory_index]);
+#endif
+            import_memory_index++;
+        }
+        else {
+            LOG_WARNING("for spawned, inherit() skips import(%s,%s) kind %d",
+                        import_type.module_name, import_type.name,
+                        import_type.kind);
+        }
+    }
+
+    return 0;
+}
+
+void
+aot_disinherit_imports(AOTModule *module, WASMExternInstance *imports,
+                       int32 import_count)
+{
+    if (!module || !imports)
+        return;
+
+    int32 spawned_import_count =
+        wasm_runtime_get_import_count((WASMModuleCommon *)module);
+    if (spawned_import_count > import_count) {
+        LOG_WARNING("The number of imported functions is more than the "
+                    "length of provided buffer ");
+        return;
+    }
+
+    for (int32 i = 0; i < import_count; i++) {
+        WASMExternInstance *import = imports + i;
+
+        if (import->kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
+            if (!import->u.memory)
+                continue;
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+            shared_memory_dec_reference(import->u.memory);
+#endif
+        }
+        else {
+            LOG_WARNING("for spawned, disinherit() skips import(%s,%s) kind %d",
+                        import->module_name, import->field_name, import->kind);
+        }
+    }
+}
+#endif /* WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0 */

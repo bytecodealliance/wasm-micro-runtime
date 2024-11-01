@@ -7919,7 +7919,8 @@ wasm_runtime_inherit_imports(WASMModuleCommon *module,
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module->module_type == Wasm_Module_AoT) {
-        bh_assert(false && "Unsupported operation");
+        return aot_inherit_imports((AOTModule *)module,
+                                   (AOTModuleInstance *)inst, out, out_len);
     }
 #endif
     LOG_ERROR("inherit imports failed, invalid module type");
@@ -7938,7 +7939,8 @@ wasm_runtime_disinherit_imports(WASMModuleCommon *module,
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module->module_type == Wasm_Module_AoT) {
-        bh_assert(false && "Unsupported operation");
+        return aot_disinherit_imports((AOTModule *)module, imports,
+                                      import_count);
     }
 #endif
     LOG_ERROR("disinherit imports failed, invalid module type");

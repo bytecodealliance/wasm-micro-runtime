@@ -40,4 +40,5 @@ tests/benchmarks/coremark/coremark*
 samples/workload/include/**
 !samples/workload/include/.gitkeep
 
-# core/iwasm/libraries/wasi-threads
+core/iwasm/libraries/lib-wasi-threads/**/*.aot
+core/iwasm/libraries/lib-wasi-threads/**/*.wasm
