@@ -82,6 +82,7 @@ wasi_ctx_get_curfds(wasi_ctx_t wasi_ctx)
 static inline struct argv_environ_values *
 wasi_ctx_get_argv_environ(wasm_module_inst_t module_inst, wasi_ctx_t wasi_ctx)
 {
+    (void)module_inst;
     if (!wasi_ctx)
         return NULL;
     return wasi_ctx->argv_environ;
@@ -2171,6 +2172,8 @@ wasi_sock_send(wasm_exec_env_t exec_env, wasi_fd_t sock,
     wasi_errno_t err;
     size_t send_bytes = 0;
 
+    (void)si_flags;
+
     if (!wasi_ctx) {
         return __WASI_EINVAL;
     }
@@ -2240,6 +2243,8 @@ wasi_sock_shutdown(wasm_exec_env_t exec_env, wasi_fd_t sock, wasi_sdflags_t how)
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = wasi_ctx_get_curfds(wasi_ctx);
+
+    (void)how;
 
     if (!wasi_ctx)
         return __WASI_EINVAL;

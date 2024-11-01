@@ -1065,8 +1065,6 @@ load_import_memory_info(const uint8 **p_buf, const uint8 *buf_end,
     AOTImportMemory *import_memories =
         loader_malloc(size, error_buf, error_buf_size);
     if (!import_memories) {
-        set_error_buf(error_buf, error_buf_size,
-                      "allocate import_memories failed");
         return false;
     }
 

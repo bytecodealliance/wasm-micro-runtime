@@ -570,7 +570,7 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                 return NULL;
             }
 
-            if (!(memories[mem_index++] = wasm_lookup_memory(
+            if (!(memories[mem_index] = wasm_lookup_memory(
                       module_inst_linked, memory_type->field_name))) {
                 set_error_buf(error_buf, error_buf_size, "unknown memory");
                 memories_deinstantiate(module_inst, memories, memory_count);
@@ -598,7 +598,6 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                 memories_deinstantiate(module_inst, memories, memory_count);
                 return NULL;
             }
-            mem_index++;
         }
 #else
 
@@ -609,7 +608,7 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         if (!extern_inst) {
             LOG_ERROR("missing a import memory(%s, %s)",
                       memory_type->module_name, memory_type->field_name);
-            return false;
+            return NULL;
         }
 
         /* just in case */
@@ -618,7 +617,7 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
             LOG_ERROR(
                 "mismatched import memory name: expect \"%s\", got \"%s\"",
                 memory_type->field_name, extern_inst->field_name);
-            return false;
+            return NULL;
         }
 #endif
         /*
@@ -2068,6 +2067,7 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
     for (i = 0; i < module->import_memory_count; i++) {
         WASMMemoryImport *type = &((module->import_memories + i)->u.memory);
         WASMMemoryInstance *memory = module_inst->memories[i];
+        (void)memory;
         if (
 #if WASM_ENABLE_MULTI_MODULE != 0
             !wasm_runtime_is_built_in_module(type->module_name)
