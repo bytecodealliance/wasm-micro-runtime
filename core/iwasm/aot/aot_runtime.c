@@ -1938,13 +1938,9 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         module->import_func_count + module->import_global_count
         + module->import_memory_count + module->import_table_count;
     if (total_import_count > 0 && !imports) {
-        /*
-         * TODO: might be too strict
-         * might wasm_runtime_create_imports_with_builtin() here by default
-         */
         set_error_buf(error_buf, error_buf_size,
                       "imports is NULL while module has imports");
-        // return NULL;
+        return NULL;
     }
 #endif
 

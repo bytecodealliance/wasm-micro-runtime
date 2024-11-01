@@ -2502,13 +2502,9 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
 #if WASM_ENABLE_MULTI_MODULE == 0
     if (module->import_count > 0 && !imports) {
-        /*
-         * TODO: might be too strict
-         * might wasm_runtime_create_imports_with_builtin() here by default
-         */
         set_error_buf(error_buf, error_buf_size,
                       "argument imports is NULL while module has imports");
-        // return NULL;
+        return NULL;
     }
 #endif
 
