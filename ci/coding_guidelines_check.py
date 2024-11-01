@@ -180,7 +180,6 @@ def check_file_name(path: Path) -> bool:
         "docker-compose",
         "package-lock",
         "vite-env.d",
-        "osv-scanner",
     ]:
         return True
 
