@@ -2026,9 +2026,16 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
     }
 
     for (i = 0; i < module->import_memory_count; i++) {
+        WASMMemoryImport *type = &((module->import_memories + i)->u.memory);
         WASMMemoryInstance *memory = module_inst->memories[i];
-        if (memory == NULL) {
-            WASMMemoryImport *type = &((module->import_memories + i)->u.memory);
+        if (
+#if WASM_ENABLE_MULTI_MODULE != 0
+            !wasm_runtime_is_built_in_module(type->module_name)
+            && !type->import_memory_linked
+#else
+            !memory
+#endif
+        ) {
             set_error_buf_v(error_buf, error_buf_size,
                             "failed to link import memory (%s, %s)",
                             type->module_name, type->field_name);
@@ -2453,16 +2460,13 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
     if (!module)
         return NULL;
 
-    /* TODO: turn me on if the entire instantiation linking feature is complete
-     */
-    // #if WASM_ENABLE_MULTI_MODULE == 0
-    //     if (module->import_count > 0 && !imports) {
-    //         set_error_buf(error_buf, error_buf_size,
-    //                       "argument imports is NULL while module has
-    //                       imports");
-    //         return NULL;
-    //     }
-    // #endif
+#if WASM_ENABLE_MULTI_MODULE == 0
+    if (module->import_count > 0 && !imports) {
+        set_error_buf(error_buf, error_buf_size,
+                      "argument imports is NULL while module has imports");
+        return NULL;
+    }
+#endif
 
     /* Check the heap size */
     heap_size = align_uint(heap_size, 8);
