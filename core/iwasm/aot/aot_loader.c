@@ -4237,6 +4237,16 @@ fail:
 }
 
 static bool
+aot_compatible_version(uint32 version)
+{
+    /*
+     * refer to "AoT-compiled module compatibility among WAMR versions" in
+     * ./doc/biuld_wasm_app.md
+     */
+    return version == 4 || version == 3;
+}
+
+static bool
 load(const uint8 *buf, uint32 size, AOTModule *module,
      bool wasm_binary_freeable, bool no_resolve, char *error_buf,
      uint32 error_buf_size)
@@ -4254,7 +4264,7 @@ load(const uint8 *buf, uint32 size, AOTModule *module,
     }
 
     read_uint32(p, p_end, version);
-    if (version != AOT_CURRENT_VERSION) {
+    if (!aot_compatible_version(version)) {
         set_error_buf(error_buf, error_buf_size, "unknown binary version");
         return false;
     }
