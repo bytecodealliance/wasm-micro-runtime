@@ -959,9 +959,9 @@ main(int argc, char *argv[])
     InstantiationArgs inst_args = {
         .default_stack_size = stack_size,
         .host_managed_heap_size = heap_size,
-        .max_memory_pages = 0, // ?
-        .import_count = import_count,
+        .max_memory_pages = 0,
         .imports = imports,
+        .import_count = import_count,
     };
 
     wasm_module_inst = wasm_runtime_instantiate_ex(

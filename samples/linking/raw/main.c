@@ -69,8 +69,10 @@ main(int argc, char *argv_main[])
     import_list[import_memory_index].u.memory = memory;
 
     /* wasm instance */
-    InstantiationArgs inst_args = { .import_count = 10,
-                                    .imports = import_list };
+    InstantiationArgs inst_args = {
+        .imports = import_list,
+        .import_count = 10,
+    };
     wasm_module_inst_t inst = wasm_runtime_instantiate_ex(
         module, &inst_args, error_buf, sizeof(error_buf));
     if (!inst) {

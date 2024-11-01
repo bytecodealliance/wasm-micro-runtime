@@ -280,8 +280,8 @@ typedef struct InstantiationArgs {
     uint32_t default_stack_size;
     uint32_t host_managed_heap_size;
     uint32_t max_memory_pages;
-    uint32_t import_count;
     const wasm_extern_inst_t imports;
+    uint32_t import_count;
 } InstantiationArgs;
 #endif /* INSTANTIATION_ARGS_OPTION_DEFINED */
 

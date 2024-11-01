@@ -602,8 +602,8 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
               module, module_inst, exec_env, stack_size,
               0,                    // heap_size
               0,                    // max_memory_pages
-              spawned_import_count, // import_count
               spawned_imports,      // imports
+              spawned_import_count, // import_count
               NULL, 0)))
         goto fail;
 

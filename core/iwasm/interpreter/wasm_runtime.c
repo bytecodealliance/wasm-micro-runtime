@@ -2430,9 +2430,9 @@ wasm_set_running_mode(WASMModuleInstance *module_inst, RunningMode running_mode)
 WASMModuleInstance *
 wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                  WASMExecEnv *exec_env_main, uint32 stack_size,
-                 uint32 heap_size, uint32 max_memory_pages, uint32 import_count,
-                 const WASMExternInstance *imports, char *error_buf,
-                 uint32 error_buf_size)
+                 uint32 heap_size, uint32 max_memory_pages,
+                 const WASMExternInstance *imports, uint32 import_count,
+                 char *error_buf, uint32 error_buf_size)
 {
     WASMModuleInstance *module_inst;
     WASMGlobalInstance *globals = NULL, *global;

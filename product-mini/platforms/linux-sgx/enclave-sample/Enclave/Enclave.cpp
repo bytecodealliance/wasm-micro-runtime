@@ -403,8 +403,8 @@ handle_cmd_instantiate_module(uint64 *args, uint32 argc)
             .default_stack_size = stack_size,
             .host_managed_heap_size = heap_size,
             .max_memory_pages = 0,
-            .import_count = (uint32_t)import_count,
             .imports = imports,
+            .import_count = (uint32_t)import_count,
         };
 
         module_inst = wasm_runtime_instantiate_ex(
@@ -859,8 +859,8 @@ ecall_iwasm_main(uint8_t *wasm_file_buf, uint32_t wasm_file_size)
             .default_stack_size = stack_size,
             .host_managed_heap_size = heap_size,
             .max_memory_pages = 0,
-            .import_count = (uint32_t)import_count,
             .imports = imports,
+            .import_count = (uint32_t)import_count,
         };
 
         wasm_module_inst = wasm_runtime_instantiate_ex(

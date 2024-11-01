@@ -1623,15 +1623,15 @@ wasm_runtime_instantiate_internal(WASMModuleCommon *module,
                                   WASMModuleInstanceCommon *parent,
                                   WASMExecEnv *exec_env_main, uint32 stack_size,
                                   uint32 heap_size, uint32 max_memory_pages,
-                                  uint32 import_count,
                                   const WASMExternInstance *imports,
-                                  char *error_buf, uint32 error_buf_size)
+                                  uint32 import_count, char *error_buf,
+                                  uint32 error_buf_size)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode)
         return (WASMModuleInstanceCommon *)wasm_instantiate(
             (WASMModule *)module, (WASMModuleInstance *)parent, exec_env_main,
-            stack_size, heap_size, max_memory_pages, import_count, imports,
+            stack_size, heap_size, max_memory_pages, imports, import_count,
             error_buf, error_buf_size);
 #endif
 #if WASM_ENABLE_AOT != 0
@@ -1653,8 +1653,8 @@ wasm_runtime_instantiate(WASMModuleCommon *module, uint32 stack_size,
     return wasm_runtime_instantiate_internal(module, NULL, NULL, stack_size,
                                              heap_size,
                                              0,    // max_memory_pages
-                                             0,    // import_count
                                              NULL, // imports
+                                             0,    // import_count
                                              error_buf, error_buf_size);
 }
 
@@ -1665,8 +1665,8 @@ wasm_runtime_instantiate_ex(WASMModuleCommon *module,
 {
     return wasm_runtime_instantiate_internal(
         module, NULL, NULL, args->default_stack_size,
-        args->host_managed_heap_size, args->max_memory_pages,
-        args->import_count, args->imports, error_buf, error_buf_size);
+        args->host_managed_heap_size, args->max_memory_pages, args->imports,
+        args->import_count, error_buf, error_buf_size);
 }
 
 void
@@ -7481,8 +7481,8 @@ wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
         WASMModuleInstanceCommon *sub_module_inst = NULL;
         sub_module_inst = wasm_runtime_instantiate_internal(
             sub_module, NULL, NULL, stack_size, heap_size, max_memory_pages,
-            0,    // import_count
             NULL, // imports
+            0,    // import_count
             error_buf, error_buf_size);
         if (!sub_module_inst) {
             LOG_DEBUG("instantiate %s failed",
