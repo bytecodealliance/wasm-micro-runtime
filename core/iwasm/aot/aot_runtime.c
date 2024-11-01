@@ -178,27 +178,6 @@ get_prev_frame(WASMExecEnv *exec_env, void *cur_frame)
 }
 #endif
 
-static const WASMExternInstance *
-get_extern_instance_from_imports(const WASMExternInstance *imports,
-                                 uint32 import_count,
-                                 wasm_import_export_kind_t kind, uint32 index)
-{
-    for (uint32 i = 0, target_kind_index = 0; i < import_count; i++) {
-        if (imports[i].kind != kind) {
-            continue;
-        }
-
-        if (target_kind_index != index) {
-            target_kind_index++;
-            continue;
-        }
-
-        return imports + i;
-    }
-
-    return NULL;
-}
-
 static bool
 check_global_init_expr(const AOTModule *module, uint32 global_index,
                        char *error_buf, uint32 error_buf_size)
@@ -1187,6 +1166,7 @@ memories_instantiate(const AOTModule *module, AOTModuleInstance *module_inst,
 
     module_inst->memory_count = memory_count;
     total_size = sizeof(AOTMemoryInstance *) * (uint64)memory_count;
+
     if (!(module_inst->memories =
               runtime_malloc(total_size, error_buf, error_buf_size))) {
         return false;
@@ -1200,7 +1180,7 @@ memories_instantiate(const AOTModule *module, AOTModuleInstance *module_inst,
         AOTImportMemory *memory_type = module->import_memories + mem_index;
 
         const WASMExternInstance *extern_inst =
-            get_extern_instance_from_imports(imports, import_count,
+            wasm_runtime_get_extern_instance(imports, import_count,
                                              WASM_IMPORT_EXPORT_KIND_MEMORY,
                                              mem_index);
         if (!extern_inst) {
@@ -1232,10 +1212,10 @@ memories_instantiate(const AOTModule *module, AOTModuleInstance *module_inst,
     }
 
     /* process internal memories */
-    for (uint32 i = 0; mem_index < memory_count; mem_index++, memory++) {
-        bh_assert(i == mem_index - module->import_memory_count);
+    for (; mem_index < memory_count; mem_index++, memory++) {
+        AOTMemory *memory_type =
+            module->memories + mem_index - module->import_memory_count;
 
-        AOTMemory *memory_type = module->memories + i;
         uint32 max_page_count = wasm_runtime_get_max_mem(
             max_memory_pages, memory_type->init_page_count,
             memory_type->max_page_count);
@@ -1247,7 +1227,7 @@ memories_instantiate(const AOTModule *module, AOTModuleInstance *module_inst,
             /* only inst->memories[0] will have a app heap */
             mem_index == 0 ? heap_size : 0, memory_type->flags,
             aux_heap_base_global_data, error_buf, error_buf_size);
-        if (!module_inst->memories[i]) {
+        if (!module_inst->memories[mem_index]) {
             return false;
         }
     }

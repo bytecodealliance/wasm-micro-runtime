@@ -7944,3 +7944,24 @@ wasm_runtime_disinherit_imports(WASMModuleCommon *module,
     LOG_ERROR("disinherit imports failed, invalid module type");
 }
 #endif /* WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0 */
+
+const WASMExternInstance *
+wasm_runtime_get_extern_instance(const WASMExternInstance *imports,
+                                 uint32 import_count,
+                                 wasm_import_export_kind_t kind, uint32 index)
+{
+    for (uint32 i = 0, target_kind_index = 0; i < import_count; i++) {
+        if (imports[i].kind != kind) {
+            continue;
+        }
+
+        if (target_kind_index != index) {
+            target_kind_index++;
+            continue;
+        }
+
+        return imports + i;
+    }
+
+    return NULL;
+}
