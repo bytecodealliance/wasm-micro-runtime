@@ -3610,6 +3610,17 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
 #endif
             }
 
+            /* Code size in code entry can't be smaller than size of vec(locals)
+             * + expr(at least 1 for opcode end). And expressions are encoded by
+             * their instruction sequence terminated with an explicit 0x0B
+             * opcode for end. */
+            if (p_code_end - 1 < p_code || *(p_code_end - 1) != WASM_OP_END) {
+                set_error_buf(
+                    error_buf, error_buf_size,
+                    "section size mismatch: function body END opcode expected");
+                return false;
+            }
+
             /* Alloc memory, layout: function structure + local types */
             code_size = (uint32)(p_code_end - p_code);
 
