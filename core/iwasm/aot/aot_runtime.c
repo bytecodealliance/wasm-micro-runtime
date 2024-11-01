@@ -1875,9 +1875,8 @@ check_linked_symbol(AOTModule *module, char *error_buf, uint32 error_buf_size)
 AOTModuleInstance *
 aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
                 WASMExecEnv *exec_env_main, uint32 stack_size, uint32 heap_size,
-                uint32 max_memory_pages, uint32 import_count,
-                const WASMExternInstance *imports, char *error_buf,
-                uint32 error_buf_size)
+                uint32 max_memory_pages, const WASMExternInstance *imports,
+                uint32 import_count, char *error_buf, uint32 error_buf_size)
 {
     AOTModuleInstance *module_inst;
 #if WASM_ENABLE_BULK_MEMORY != 0 || WASM_ENABLE_REF_TYPES != 0

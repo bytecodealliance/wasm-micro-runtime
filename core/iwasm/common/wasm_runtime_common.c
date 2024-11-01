@@ -1638,7 +1638,7 @@ wasm_runtime_instantiate_internal(WASMModuleCommon *module,
     if (module->module_type == Wasm_Module_AoT)
         return (WASMModuleInstanceCommon *)aot_instantiate(
             (AOTModule *)module, (AOTModuleInstance *)parent, exec_env_main,
-            stack_size, heap_size, max_memory_pages, import_count, imports,
+            stack_size, heap_size, max_memory_pages, imports, import_count,
             error_buf, error_buf_size);
 #endif
     set_error_buf(error_buf, error_buf_size,
