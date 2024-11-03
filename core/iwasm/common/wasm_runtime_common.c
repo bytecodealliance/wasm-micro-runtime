@@ -7971,25 +7971,6 @@ wasm_runtime_inherit_imports(WASMModuleCommon *module,
     LOG_ERROR("inherit imports failed, invalid module type");
     return 0;
 }
-
-void
-wasm_runtime_disinherit_imports(WASMModuleCommon *module,
-                                WASMExternInstance *imports, int32 import_count)
-{
-#if WASM_ENABLE_INTERP != 0
-    if (module->module_type == Wasm_Module_Bytecode) {
-        wasm_disinherit_imports((WASMModule *)module, imports, import_count);
-        return;
-    }
-#endif
-#if WASM_ENABLE_AOT != 0
-    if (module->module_type == Wasm_Module_AoT) {
-        return aot_disinherit_imports((AOTModule *)module, imports,
-                                      import_count);
-    }
-#endif
-    LOG_ERROR("disinherit imports failed, invalid module type");
-}
 #endif /* WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0 */
 
 const WASMExternInstance *

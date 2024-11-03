@@ -533,7 +533,7 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
               spawned_imports,      // imports
               spawned_import_count, // import_count
               NULL, 0))) {
-        goto disinherit_imports;
+        goto release_imports;
     }
 
     /* Set custom_data to new module instance */
@@ -596,8 +596,6 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
 
     os_mutex_unlock(&cluster->lock);
 
-    wasm_runtime_disinherit_imports(module, spawned_imports,
-                                    spawned_import_count);
     wasm_runtime_free(spawned_imports);
     return new_exec_env;
 
@@ -609,9 +607,6 @@ fail2:
     wasm_cluster_free_aux_stack(exec_env, aux_stack_start);
 fail1:
     wasm_runtime_deinstantiate_internal(new_module_inst, true);
-disinherit_imports:
-    wasm_runtime_disinherit_imports(module, spawned_imports,
-                                    spawned_import_count);
 release_imports:
     wasm_runtime_free(spawned_imports);
 

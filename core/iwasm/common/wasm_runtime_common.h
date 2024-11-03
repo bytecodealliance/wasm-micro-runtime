@@ -1226,11 +1226,6 @@ int32
 wasm_runtime_inherit_imports(WASMModuleCommon *module,
                              WASMModuleInstanceCommon *inst,
                              WASMExternInstance *out, int32 out_len);
-
-void
-wasm_runtime_disinherit_imports(WASMModuleCommon *module,
-                                WASMExternInstance *imports,
-                                int32 import_count);
 #endif /* WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0 */
 
 const WASMExternInstance *

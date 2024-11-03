@@ -856,11 +856,13 @@ memory_deinstantiate(AOTMemoryInstance *memory)
 static void
 memories_deinstantiate(AOTModuleInstance *module_inst)
 {
-    /* import memories created by host or linker. released by them too */
-    for (uint32 i = ((AOTModule *)module_inst->module)->import_memory_count;
-         i < module_inst->memory_count; i++) {
+    if (!module_inst->memories)
+        return;
+
+    for (uint32 i = 0; i < module_inst->memory_count; i++) {
         memory_deinstantiate(module_inst->memories[i]);
     }
+
     wasm_runtime_free(module_inst->memories);
 }
 

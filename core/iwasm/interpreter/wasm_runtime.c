@@ -266,23 +266,19 @@ static void
 memories_deinstantiate(WASMModuleInstance *module_inst,
                        WASMMemoryInstance **memories, uint32 count)
 {
-    WASMModule *module = module_inst->module;
 
     if (!memories)
         return;
 
-    /*
-     * If created by host or linker, import memories should also be released by
-     * host or linker
-     */
     for (uint32 i = 0; i < count; i++) {
-        if (i < module->import_memory_count
 #if WASM_ENABLE_MULTI_MODULE != 0
-            && module->import_memories[i].u.memory.import_module
-#endif
-        ) {
+        WASMModule *module = module_inst->module;
+
+        if (i < module->import_memory_count
+            && module->import_memories[i].u.memory.import_module) {
             continue;
         }
+#endif
 
         memory_deinstantiate(memories[i]);
     }

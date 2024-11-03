@@ -154,8 +154,6 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
         goto thread_spawn_fail;
     }
 
-    wasm_runtime_disinherit_imports(module, spawned_imports,
-                                    spawned_import_count);
     wasm_runtime_free(spawned_imports);
     return thread_id;
 
@@ -167,8 +165,6 @@ thread_preparation_fail:
     if (thread_start_arg)
         wasm_runtime_free(thread_start_arg);
 free_imports:
-    wasm_runtime_disinherit_imports(module, spawned_imports,
-                                    spawned_import_count);
     wasm_runtime_free(spawned_imports);
 
     return -1;

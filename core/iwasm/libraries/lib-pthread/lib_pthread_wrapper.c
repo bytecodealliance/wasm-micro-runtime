@@ -666,15 +666,11 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     if (thread)
         *thread = thread_handle;
 
-    wasm_runtime_disinherit_imports(module, spawned_imports,
-                                    spawned_import_count);
     wasm_runtime_free(spawned_imports);
     return 0;
 
 fail:
     if (spawned_imports) {
-        wasm_runtime_disinherit_imports(module, spawned_imports,
-                                        spawned_import_count);
         wasm_runtime_free(spawned_imports);
     }
     if (new_module_inst)
