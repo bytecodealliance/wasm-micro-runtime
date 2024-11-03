@@ -964,11 +964,6 @@ fail:
 static void
 destroy_import_memories(AOTImportMemory *import_memories)
 {
-    if (!import_memories)
-        return;
-
-    import_memories->module_name = NULL;
-    import_memories->memory_name = NULL;
     wasm_runtime_free(import_memories);
 }
 

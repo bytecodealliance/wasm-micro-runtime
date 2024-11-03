@@ -7947,11 +7947,12 @@ wasm_runtime_create_imports_with_builtin(WASMModuleCommon *module,
 }
 
 #if WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0
+
 /*
  * The function is used to create a new WASMExternInstance list
  * for a spawned thread.
  */
-int32
+static int32
 wasm_runtime_inherit_imports(WASMModuleCommon *module,
                              WASMModuleInstanceCommon *inst,
                              WASMExternInstance *out, int32 out_len)
@@ -7971,6 +7972,43 @@ wasm_runtime_inherit_imports(WASMModuleCommon *module,
     LOG_ERROR("inherit imports failed, invalid module type");
     return 0;
 }
+
+WASMModuleInstanceCommon *
+wasm_runtime_instantiate_with_inheritance(
+    WASMModuleCommon *module, WASMModuleInstanceCommon *parent_inst,
+    WASMExecEnv *exec_env, uint32 stack_size, uint32 heap_size,
+    uint32 max_memory_pages, char *error_buf, uint32 error_buf_size)
+{
+    int spawned_import_count = wasm_runtime_get_import_count(module);
+    WASMExternInstance *spawned_imports =
+        runtime_malloc(sizeof(WASMExternInstance) * spawned_import_count, NULL,
+                       error_buf, error_buf_size);
+    if (spawned_imports == NULL) {
+        LOG_ERROR("Failed to allocate memory for imports");
+        return NULL;
+    }
+
+    int ret = wasm_runtime_inherit_imports(module, parent_inst, spawned_imports,
+                                           spawned_import_count);
+    if (ret != 0) {
+        LOG_ERROR("Failed to inherit imports");
+        wasm_runtime_free(spawned_imports);
+        return NULL;
+    }
+
+    wasm_module_inst_t child_inst = wasm_runtime_instantiate_internal(
+        module, parent_inst, exec_env, stack_size,
+        0,                    // heap_size
+        0,                    // max_memory_pages
+        spawned_imports,      // imports
+        spawned_import_count, // import_count
+        error_buf, error_buf_size);
+
+    wasm_runtime_free(spawned_imports);
+
+    return child_inst;
+}
+
 #endif /* WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0 */
 
 const WASMExternInstance *
