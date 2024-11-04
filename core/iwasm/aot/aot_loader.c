@@ -989,25 +989,17 @@ load_mem_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
 {
     const uint8 *buf = *p_buf;
     AOTMemInitData **data_list;
-    uint64 size;
-    uint32 i;
-
-    read_uint32(buf, buf_end, module->mem_init_data_count);
-
-    if (module->mem_init_data_count == 0) {
-        *p_buf = buf;
-        return true;
-    }
 
     /* Allocate memory */
-    size = sizeof(AOTMemInitData *) * (uint64)module->mem_init_data_count;
+    uint64 size =
+        sizeof(AOTMemInitData *) * (uint64)module->mem_init_data_count;
     if (!(module->mem_init_data_list = data_list =
               loader_malloc(size, error_buf, error_buf_size))) {
         return false;
     }
 
     /* Create each memory data segment */
-    for (i = 0; i < module->mem_init_data_count; i++) {
+    for (uint32 i = 0; i < module->mem_init_data_count; i++) {
         uint32 byte_count;
         uint32 is_passive;
         uint32 memory_index;
@@ -1044,18 +1036,11 @@ fail:
 }
 
 static bool
-load_import_memory_info(const uint8 **p_buf, const uint8 *buf_end,
+load_import_memory_list(const uint8 **p_buf, const uint8 *buf_end,
                         AOTModule *module, bool is_load_from_file_buf,
                         char *error_buf, uint32 error_buf_size)
 {
     const uint8 *buf = *p_buf;
-
-    read_uint32(buf, buf_end, module->import_memory_count);
-
-    if (module->import_memory_count == 0) {
-        *p_buf = buf;
-        return true;
-    }
 
     uint64 size = sizeof(AOTImportMemory) * (uint64)module->import_memory_count;
     AOTImportMemory *import_memories =
@@ -1089,27 +1074,17 @@ fail:
 }
 
 static bool
-load_memory_info(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
+load_memory_list(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                  char *error_buf, uint32 error_buf_size)
 {
-    uint32 i;
-    uint64 total_size;
-    const uint8 *buf = *p_buf;
-
-    read_uint32(buf, buf_end, module->memory_count);
-
-    if (module->memory_count == 0) {
-        *p_buf = buf;
-        return true;
-    }
-
-    total_size = sizeof(AOTMemory) * (uint64)module->memory_count;
+    uint64 total_size = sizeof(AOTMemory) * (uint64)module->memory_count;
     if (!(module->memories =
               loader_malloc(total_size, error_buf, error_buf_size))) {
         return false;
     }
 
-    for (i = 0; i < module->memory_count; i++) {
+    const uint8 *buf = *p_buf;
+    for (uint32 i = 0; i < module->memory_count; i++) {
         read_uint32(buf, buf_end, module->memories[i].flags);
 
         if (!wasm_memory_check_flags(module->memories[i].flags, error_buf,
@@ -1120,6 +1095,44 @@ load_memory_info(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         read_uint32(buf, buf_end, module->memories[i].num_bytes_per_page);
         read_uint32(buf, buf_end, module->memories[i].init_page_count);
         read_uint32(buf, buf_end, module->memories[i].max_page_count);
+    }
+
+    *p_buf = buf;
+    return true;
+fail:
+    return false;
+}
+
+static bool
+load_memory_info(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
+                 bool is_load_from_file_buf, char *error_buf,
+                 uint32 error_buf_size)
+{
+    const uint8 *buf = *p_buf;
+
+    read_uint32(buf, buf_end, module->import_memory_count);
+    if (module->import_memory_count > 0) {
+        if (!load_import_memory_list(&buf, buf_end, module,
+                                     is_load_from_file_buf, error_buf,
+                                     error_buf_size)) {
+            return false;
+        }
+    }
+
+    read_uint32(buf, buf_end, module->memory_count);
+    if (module->memory_count > 0) {
+        if (!load_memory_list(&buf, buf_end, module, error_buf,
+                              error_buf_size)) {
+            return false;
+        }
+    }
+
+    read_uint32(buf, buf_end, module->mem_init_data_count);
+    if (module->mem_init_data_count > 0) {
+        if (!load_mem_init_data_list(&buf, buf_end, module, error_buf,
+                                     error_buf_size)) {
+            return false;
+        }
     }
 
     *p_buf = buf;
@@ -2460,11 +2473,8 @@ load_init_data_section(const uint8 *buf, const uint8 *buf_end,
 {
     const uint8 *p = buf, *p_end = buf_end;
 
-    if (!load_import_memory_info(&p, p_end, module, is_load_from_file_buf,
-                                 error_buf, error_buf_size)
-        || !load_memory_info(&p, p_end, module, error_buf, error_buf_size)
-        || !load_mem_init_data_list(&p, p_end, module, error_buf,
-                                    error_buf_size)
+    if (!load_memory_info(&p, p_end, module, is_load_from_file_buf, error_buf,
+                          error_buf_size)
         || !load_table_info(&p, p_end, module, error_buf, error_buf_size)
         || !load_type_info(&p, p_end, module, error_buf, error_buf_size)
         || !load_import_global_info(&p, p_end, module, is_load_from_file_buf,
