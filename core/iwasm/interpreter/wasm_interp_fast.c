@@ -21,7 +21,7 @@
 #include "../common/wasm_shared_memory.h"
 #endif
 
-#if WASM_ENABLE_SIMDE != 0
+#if defined(WASM_ENABLE_SIMDE) && WASM_ENABLE_SIMDE != 0
 #include "simde/wasm/simd128.h"
 #endif
 
@@ -5650,7 +5650,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
                 goto call_func_from_entry;
             }
-#if WASM_ENABLE_SIMDE != 0
+#if defined(WASM_ENABLE_SIMDE) && WASM_ENABLE_SIMDE != 0
 #define SIMD_V128_TO_SIMDE_V128(v)                                      \
     ({                                                                  \
         bh_assert(sizeof(V128) == sizeof(simde_v128_t));                \

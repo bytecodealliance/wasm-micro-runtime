@@ -782,8 +782,9 @@ typedef enum WASMAtomicEXTOpcode {
 
 #define SET_GOTO_TABLE_ELEM(opcode) [opcode] = HANDLE_OPCODE(opcode)
 
-#if (WASM_ENABLE_JIT != 0                                         \
-     || (WASM_ENABLE_FAST_INTERP != 0 && WASM_ENABLE_SIMDE != 0)) \
+#if (WASM_ENABLE_JIT != 0                                           \
+     || (WASM_ENABLE_FAST_INTERP != 0 && defined(WASM_ENABLE_SIMDE) \
+         && WASM_ENABLE_SIMDE != 0))                                \
     && WASM_ENABLE_SIMD != 0
 #define SET_GOTO_TABLE_SIMD_PREFIX_ELEM() \
     SET_GOTO_TABLE_ELEM(WASM_OP_SIMD_PREFIX),
