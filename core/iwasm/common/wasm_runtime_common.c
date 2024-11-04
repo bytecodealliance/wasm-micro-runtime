@@ -1361,7 +1361,7 @@ wasm_runtime_is_built_in_module(const char *module_name)
             || !strcmp("spectest", module_name)
 #endif
 #if WASM_ENABLE_WASI_TEST != 0
-            || !strcmp("foo", module_name) || !strcmp("wasi", module_name)
+            || !strcmp("foo", module_name) || !strncmp("wasi", module_name, 4)
 #endif
             || !strcmp("", module_name));
 }
@@ -7931,8 +7931,8 @@ wasm_runtime_disinherit_imports(WASMModuleCommon *module,
 {
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode) {
-        return wasm_disinherit_imports((WASMModule *)module, imports,
-                                       import_count);
+        wasm_disinherit_imports((WASMModule *)module, imports, import_count);
+        return;
     }
 #endif
 #if WASM_ENABLE_AOT != 0

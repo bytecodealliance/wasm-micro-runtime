@@ -1,3 +1,7 @@
+/*
+ * Copyright (C) 2019 Intel Corporation.  All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -14,8 +18,17 @@ struct Buffer *
 new_buffer(int size)
 {
     struct Buffer *buffer = calloc(1, sizeof(struct Buffer));
+    if (!buffer) {
+        return NULL;
+    }
+
     buffer->size = size;
     buffer->data = calloc(1, size);
+    if (!buffer->data) {
+        free(buffer);
+        return NULL;
+    }
+
     return buffer;
 }
 
@@ -31,7 +44,7 @@ __attribute__((export_name("goodhart_law"))) void
 goodhart_law()
 {
     struct Buffer *buffer = new_buffer(64);
-    assert(buffer->data != NULL);
+    assert(buffer);
 
     snprintf(buffer->data, 60, "%s",
              "When a measure becomes a target, it ceases to be a good measure");

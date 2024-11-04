@@ -584,7 +584,7 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                       module, parent, memory,
                       parent ? parent->memories[mem_index] : NULL,
                       num_bytes_per_page, init_page_count, max_page_count,
-                      /* only inst->memories[0] will have a app heap */
+                      /* only inst->memories[0] will have an app heap */
                       mem_index == 0 ? heap_size : 0, flags,
                       aux_heap_base_global_data, error_buf, error_buf_size))) {
                 memories_deinstantiate(module_inst, memories, memory_count);

@@ -1563,8 +1563,10 @@ wasm_runtime_destroy_memory(WASMModuleCommon *const module,
         return;
 
 #if WASM_ENABLE_INTERP != 0
-    if (module->module_type == Wasm_Module_Bytecode)
-        return wasm_destroy_memory(memory);
+    if (module->module_type == Wasm_Module_Bytecode) {
+        wasm_destroy_memory(memory);
+        return;
+    }
 #endif
 
 #if WASM_ENABLE_AOT != 0
