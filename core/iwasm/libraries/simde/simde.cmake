@@ -4,7 +4,9 @@
 
 set (LIB_SIMDE_DIR ${CMAKE_CURRENT_LIST_DIR})
 
-add_definitions (-DWASM_ENABLE_LIB_SIMDE=1)
+if (WAMR_BUILD_TARGET MATCHES "AARCH64.*" OR "ARM.*")
+  add_definitions (-DWASM_ENABLE_SIMDE=1)
+endif()
 
 include_directories(${LIB_SIMDE_DIR} ${LIB_SIMDE_DIR}/simde)
 
@@ -16,9 +18,6 @@ FetchContent_Declare(
     GIT_TAG v0.8.2
 )
 
-FetchContent_GetProperties(simde)
-if (NOT simde_POPULATED)
-    message("-- Fetching simde ..")
-    FetchContent_MakeAvailable(simde)
-    include_directories("${simde_SOURCE_DIR}")
-endif()
+message("-- Fetching simde ..")
+FetchContent_MakeAvailable(simde)
+include_directories("${simde_SOURCE_DIR}")

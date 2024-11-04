@@ -7064,19 +7064,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             }
 #endif
 
-#if (WASM_ENABLE_SIMD != 0) && defined(WASM_ENABLE_SIMDE) \
-    && (WASM_ENABLE_SIMDE != 1)
-            HANDLE_OP(WASM_OP_SIMD_PREFIX)
-            {
-                GET_OPCODE();
-                switch (opcode) {
-                    wasm_set_exception(module, "unsupported SIMD opcode");
-                    break;
-                }
-
-                HANDLE_OP_END();
-            }
-#endif
             HANDLE_OP(WASM_OP_CALL)
             {
 #if WASM_ENABLE_THREAD_MGR != 0
