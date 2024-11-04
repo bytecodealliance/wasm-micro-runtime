@@ -662,73 +662,144 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     return true;
 }
 
+/**
+ * Destroy table instances.
+ */
+static void
+tables_deinstantiate(AOTModuleInstance *inst)
+{
+    if (!inst || !inst->tables) {
+        return;
+    }
+
+    AOTModule *module = (AOTModule *)inst->module;
+    /* only imported tables */
+    for (uint32 i = 0; i < module->import_table_count; i++) {
+        WASMTableInstance *table = inst->tables[i];
+        if (!table) {
+            continue;
+        }
+
+        table_elem_type_t *table_elems =
+            aot_locate_table_elems(module, table, i);
+        void *table_imported =
+            ((uint8 *)(table_elems)) - offsetof(WASMTableInstance, elems);
+
+        wasm_runtime_free(table_imported);
+    }
+
+    wasm_runtime_free(inst->tables);
+}
+
 static bool
 tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
-                   AOTTableInstance *first_tbl_inst, char *error_buf,
-                   uint32 error_buf_size)
+                   AOTTableInstance *tables_data,
+                   const WASMExternInstance *imports, uint32 import_count,
+                   char *error_buf, uint32 error_buf_size)
 {
-    uint32 i, global_index, global_data_offset, base_offset, length;
-    uint64 total_size;
-    AOTTableInitData *table_seg;
-    AOTTableInstance *tbl_inst = first_tbl_inst;
-
-    total_size = (uint64)sizeof(AOTTableInstance *) * module_inst->table_count;
+    uint64 total_size =
+        (uint64)sizeof(AOTTableInstance *) * module_inst->table_count;
     if (total_size > 0
         && !(module_inst->tables =
                  runtime_malloc(total_size, error_buf, error_buf_size))) {
         return false;
     }
 
-    /*
-     * treat import table like a local one until we enable module linking
-     * in AOT mode
-     */
-    for (i = 0; i != module_inst->table_count; ++i) {
-        if (i < module->import_table_count) {
-            AOTImportTable *import_table = module->import_tables + i;
-            tbl_inst->cur_size = import_table->table_type.init_size;
-            tbl_inst->max_size =
-                aot_get_imp_tbl_data_slots(import_table, false);
-            tbl_inst->elem_type = module->tables[i].table_type.elem_type;
+    AOTTableInstance *table = tables_data;
+    uint32 table_index;
+    for (table_index = 0; table_index < module->import_table_count;
+         table_index++) {
+        AOTTableType *table_type =
+            &((module->import_tables + table_index)->table_type);
+
+        table->cur_size = table_type->init_size;
+        table->max_size = aot_get_tbl_data_slots(table_type, false);
+        table->elem_type = table_type->elem_type;
 #if WASM_ENABLE_GC != 0
-            tbl_inst->elem_ref_type.elem_ref_type =
-                module->tables[i].table_type.elem_ref_type;
+        table->elem_ref_type.elem_ref_type = table_type->elem_ref_type;
 #endif
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+        /* Set all elements to -1 or NULL_REF to mark them as uninitialized
+         * elements */
+        memset(table->elems,
+#if WASM_ENABLE_GC == 0
+               0xff,
+#else
+               0x00,
+#endif
+               sizeof(table_elem_type_t) * table->max_size);
+
+#else
+        /* use import table elem */
+        AOTImportTable *import_table_type = module->import_tables + table_index;
+        const WASMExternInstance *extern_inst =
+            wasm_runtime_get_extern_instance(imports, import_count,
+                                             WASM_IMPORT_EXPORT_KIND_TABLE,
+                                             table_index);
+        if (!extern_inst) {
+            LOG_ERROR("missing an import table(%s, %s)",
+                      import_table_type->module_name,
+                      import_table_type->table_name);
+            return false;
         }
-        else {
-            AOTTable *table = module->tables + (i - module->import_table_count);
-            tbl_inst->cur_size = table->table_type.init_size;
-            tbl_inst->max_size = aot_get_tbl_data_slots(table, false);
-            tbl_inst->elem_type = module->tables[i].table_type.elem_type;
+
+        /* just in case */
+#ifndef NDEBUG
+        if (strcmp(import_table_type->table_name, extern_inst->field_name)) {
+            LOG_ERROR("mismatched import table name: expect \"%s\", got \"%s\"",
+                      import_table_type->table_name, extern_inst->field_name);
+            return false;
+        }
+#endif
+
+        /* store the pointer value */
+        table->elems[0] = (table_elem_type_t)extern_inst->u.table->elems;
+#endif /* WASM_ENABLE_MULTI_MODULE != 0 */
+
+        module_inst->tables[table_index] = table;
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+        table =
+            (AOTTableInstance *)((uint8 *)table
+                                 + offsetof(AOTTableInstance, elems)
+                                 + sizeof(table_elem_type_t) * table->max_size);
+#else
+        table = (AOTTableInstance *)((uint8 *)table
+                                     + offsetof(AOTTableInstance, elems)
+                                     + sizeof(table_elem_type_t));
+#endif
+    }
+
+    for (table_index = 0; table_index < module->table_count; table_index++) {
+        AOTTableType *table_type =
+            &((module->tables + table_index)->table_type);
+
+        table->cur_size = table_type->init_size;
+        table->max_size = aot_get_tbl_data_slots(table_type, false);
+        table->elem_type = table_type->elem_type;
 #if WASM_ENABLE_GC != 0
-            tbl_inst->elem_ref_type.elem_ref_type =
-                module->tables[i].table_type.elem_ref_type;
+        table->elem_ref_type.elem_ref_type = table_type->elem_ref_type;
 #endif
-        }
 
         /* Set all elements to -1 or NULL_REF to mark them as uninitialized
          * elements */
 #if WASM_ENABLE_GC == 0
-        memset(tbl_inst->elems, 0xff,
-               sizeof(table_elem_type_t) * tbl_inst->max_size);
+        memset(table->elems, 0xff, sizeof(table_elem_type_t) * table->max_size);
 #else
-        memset(tbl_inst->elems, 0x00,
-               sizeof(table_elem_type_t) * tbl_inst->max_size);
+        memset(table->elems, 0x00, sizeof(table_elem_type_t) * table->max_size);
 #endif
 
-        module_inst->tables[i] = tbl_inst;
-        tbl_inst = (AOTTableInstance *)((uint8 *)tbl_inst
-                                        + offsetof(AOTTableInstance, elems)
-                                        + sizeof(table_elem_type_t)
-                                              * tbl_inst->max_size);
+        module_inst->tables[table_index] = table;
+        table =
+            (AOTTableInstance *)((uint8 *)table
+                                 + offsetof(AOTTableInstance, elems)
+                                 + sizeof(table_elem_type_t) * table->max_size);
     }
 
     /* fill table with element segment content */
-    for (i = 0; i < module->table_init_data_count; i++) {
-#if WASM_ENABLE_GC == 0
-        uint32 j;
-#endif
-        table_seg = module->table_init_data_list[i];
+    for (uint32 i = 0; i < module->table_init_data_count; i++) {
+        AOTTableInitData *table_seg = module->table_init_data_list[i];
 
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
         if (!wasm_elem_is_active(table_seg->mode))
@@ -737,31 +808,32 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
         bh_assert(table_seg->table_index < module_inst->table_count);
 
-        tbl_inst = module_inst->tables[table_seg->table_index];
-        bh_assert(tbl_inst);
-
+        table = module_inst->tables[table_seg->table_index];
 #if WASM_ENABLE_REF_TYPES != 0
         bh_assert(
             table_seg->offset.init_expr_type
-                == (tbl_inst->is_table64 ? INIT_EXPR_TYPE_I64_CONST
-                                         : INIT_EXPR_TYPE_I32_CONST)
+                == (table->is_table64 ? INIT_EXPR_TYPE_I64_CONST
+                                      : INIT_EXPR_TYPE_I32_CONST)
             || table_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL
             || table_seg->offset.init_expr_type == INIT_EXPR_TYPE_FUNCREF_CONST
             || table_seg->offset.init_expr_type
                    == INIT_EXPR_TYPE_REFNULL_CONST);
 #else
         bh_assert(table_seg->offset.init_expr_type
-                      == (tbl_inst->is_table64 ? INIT_EXPR_TYPE_I64_CONST
-                                               : INIT_EXPR_TYPE_I32_CONST)
+                      == (table->is_table64 ? INIT_EXPR_TYPE_I64_CONST
+                                            : INIT_EXPR_TYPE_I32_CONST)
                   || table_seg->offset.init_expr_type
                          == INIT_EXPR_TYPE_GET_GLOBAL);
 #endif
+        bh_assert(table);
 
         /* Resolve table data base offset */
         /* TODO: The table64 current implementation assumes table max size
          * UINT32_MAX, so the offset conversion here is safe */
+        uint32 base_offset;
         if (table_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
-            global_index = table_seg->offset.u.global_index;
+            uint32 global_index = table_seg->offset.u.global_index;
+            uint32 global_data_offset;
 
             if (!check_global_init_expr(module, global_index, error_buf,
                                         error_buf_size)) {
@@ -784,7 +856,7 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
         /* Copy table data */
         /* base_offset only since length might negative */
-        if (base_offset > tbl_inst->cur_size) {
+        if (base_offset > table->cur_size) {
 #if WASM_ENABLE_REF_TYPES != 0
             set_error_buf(error_buf, error_buf_size,
                           "out of bounds table access");
@@ -796,8 +868,8 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         }
 
         /* base_offset + length(could be zero) */
-        length = table_seg->value_count;
-        if (base_offset + length > tbl_inst->cur_size) {
+        uint32 length = table_seg->value_count;
+        if (base_offset + length > table->cur_size) {
 #if WASM_ENABLE_REF_TYPES != 0
             set_error_buf(error_buf, error_buf_size,
                           "out of bounds table access");
@@ -813,8 +885,10 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
          * will check the linked table inst owner in future
          */
 #if WASM_ENABLE_GC == 0
-        for (j = 0; j < length; j++) {
-            tbl_inst->elems[base_offset + j] =
+        table_elem_type_t *table_elems =
+            aot_locate_table_elems(module, table, table_seg->table_index);
+        for (uint32 j = 0; j < length; j++) {
+            table_elems[base_offset + j] =
                 table_seg->init_values[j].u.ref_index;
         }
 #endif
@@ -856,11 +930,19 @@ memory_deinstantiate(AOTMemoryInstance *memory)
 static void
 memories_deinstantiate(AOTModuleInstance *module_inst)
 {
-    if (!module_inst->memories)
+    if (!module_inst->memories) {
         return;
+    }
 
-    for (uint32 i = 0; i < module_inst->memory_count; i++) {
-        memory_deinstantiate(module_inst->memories[i]);
+    uint32 mem_index = 0;
+    AOTModule *module = (AOTModule *)module_inst->module;
+    for (; mem_index < module->import_memory_count; mem_index++) {
+        memory_deinstantiate(module_inst->memories[mem_index]);
+        wasm_runtime_free(module_inst->memories[mem_index]);
+    }
+
+    for (; mem_index < module->memory_count; mem_index++) {
+        memory_deinstantiate(module_inst->memories[mem_index]);
     }
 
     wasm_runtime_free(module_inst->memories);
@@ -958,7 +1040,7 @@ memory_instantiate(const AOTModule *module, AOTModuleInstance *parent,
                         < (uint64)num_bytes_per_page * init_page_count) {
             /* Insert app heap before __heap_base */
             aux_heap_base = module->aux_heap_base;
-            bytes_of_last_page = aux_heap_base % num_bytes_per_page;
+            bytes_of_last_page = (uint32)(aux_heap_base % num_bytes_per_page);
             if (bytes_of_last_page == 0)
                 bytes_of_last_page = num_bytes_per_page;
             bytes_to_page_end = num_bytes_per_page - bytes_of_last_page;
@@ -968,7 +1050,7 @@ memory_instantiate(const AOTModule *module, AOTModuleInstance *parent,
             heap_offset = aux_heap_base;
             aux_heap_base += heap_size;
 
-            bytes_of_last_page = aux_heap_base % num_bytes_per_page;
+            bytes_of_last_page = (uint32)(aux_heap_base % num_bytes_per_page);
             if (bytes_of_last_page == 0)
                 bytes_of_last_page = num_bytes_per_page;
             bytes_to_page_end = num_bytes_per_page - bytes_of_last_page;
@@ -1959,21 +2041,26 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
      */
     for (i = 0; i != module->import_table_count; ++i) {
         table_size += offsetof(AOTTableInstance, elems);
+#if WASM_ENABLE_MULTI_MODULE != 0
         table_size += (uint64)sizeof(table_elem_type_t)
-                      * (uint64)aot_get_imp_tbl_data_slots(
-                          module->import_tables + i, false);
+                      * (uint64)aot_get_tbl_data_slots(
+                          &(module->import_tables + i)->table_type, false);
+#else
+        /* keep a reference to the imported table's elem */
+        table_size += sizeof(void *);
+#endif
     }
 
     for (i = 0; i != module->table_count; ++i) {
         table_size += offsetof(AOTTableInstance, elems);
-        table_size +=
-            (uint64)sizeof(table_elem_type_t)
-            * (uint64)aot_get_tbl_data_slots(module->tables + i, false);
+        table_size += (uint64)sizeof(table_elem_type_t)
+                      * (uint64)aot_get_tbl_data_slots(
+                          &((module->tables + i)->table_type), false);
     }
     total_size += table_size;
 
     /* The offset of AOTModuleInstanceExtra, make it 8-byte aligned */
-    total_size = (total_size + 7LL) & ~7LL;
+    total_size = (total_size + 7ULL) & ~7ULL;
     extra_info_offset = (uint32)total_size;
     total_size += sizeof(AOTModuleInstanceExtra);
 
@@ -2093,8 +2180,8 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     /* Initialize table info */
     p += module->global_data_size;
     module_inst->table_count = module->table_count + module->import_table_count;
-    if (!tables_instantiate(module_inst, module, (AOTTableInstance *)p,
-                            error_buf, error_buf_size))
+    if (!tables_instantiate(module_inst, module, (AOTTableInstance *)p, imports,
+                            import_count, error_buf, error_buf_size))
         goto fail;
 
     /* Initialize memory space */
@@ -2187,7 +2274,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         table_inst = module_inst->tables[i];
         bh_assert(table_inst);
 
-        table_data = table_inst->elems;
+        table_data = aot_locate_table_elems(module, table_inst, i);
         bh_assert(table_data);
 
         for (j = 0; j < table_inst->cur_size; j++) {
@@ -2217,7 +2304,8 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         table = module_inst->tables[table_init_data->table_index];
         bh_assert(table);
 
-        table_data = table->elems;
+        table_data =
+            aot_locate_table_elems(module, table, table_init_data->table_index);
         bh_assert(table_data);
 
         wasm_runtime_get_table_inst_elem_type(
@@ -2392,8 +2480,7 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
         wasm_runtime_free(extra->import_func_module_insts);
 #endif
 
-    if (module_inst->tables)
-        wasm_runtime_free(module_inst->tables);
+    tables_deinstantiate(module_inst);
 
     if (module_inst->memories)
         memories_deinstantiate(module_inst);
@@ -3372,7 +3459,10 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
         goto fail;
     }
 
-    tbl_elem_val = ((table_elem_type_t *)tbl_inst->elems)[table_elem_idx];
+    table_elem_type_t *table_elems =
+        aot_locate_table_elems(aot_module, tbl_inst, tbl_idx);
+
+    tbl_elem_val = table_elems[table_elem_idx];
     if (tbl_elem_val == NULL_REF) {
         aot_set_exception_with_id(module_inst, EXCE_UNINITIALIZED_ELEMENT);
         goto fail;
@@ -3793,6 +3883,7 @@ aot_get_module_inst_mem_consumption(const AOTModuleInstance *module_inst,
     for (i = 0; i < module_inst->table_count; i++) {
         tbl_inst = module_inst->tables[i];
         mem_conspn->tables_size += offsetof(AOTTableInstance, elems);
+        /*TODO: correct import tables' elems */
         mem_conspn->tables_size += sizeof(uint32) * tbl_inst->max_size;
     }
 
@@ -3834,7 +3925,6 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
     AOTTableInstance *tbl_inst;
     AOTTableInitData *tbl_seg;
     const AOTModule *module = (AOTModule *)module_inst->module;
-    table_elem_type_t *table_elems;
     InitializerExpression *tbl_seg_init_values = NULL, *init_values;
     uint32 i, tbl_seg_len = 0;
 #if WASM_ENABLE_GC != 0
@@ -3865,7 +3955,9 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
         return;
     }
 
-    table_elems = tbl_inst->elems + dst_offset;
+    table_elem_type_t *table_elems =
+        aot_locate_table_elems(module, tbl_inst, tbl_idx);
+    table_elems += dst_offset;
     init_values = tbl_seg_init_values + src_offset;
 
     for (i = 0; i < length; i++) {
@@ -3909,16 +4001,21 @@ aot_table_copy(AOTModuleInstance *module_inst, uint32 src_tbl_idx,
         return;
     }
 
+    table_elem_type_t *src_table_elems = aot_locate_table_elems(
+        (AOTModule *)module_inst->module, src_tbl_inst, src_tbl_idx);
+    src_table_elems += src_offset;
+
+    table_elem_type_t *dst_table_elems = aot_locate_table_elems(
+        (AOTModule *)module_inst->module, dst_tbl_inst, dst_tbl_idx);
+    dst_table_elems += dst_offset;
+
     /* if src_offset >= dst_offset, copy from front to back */
     /* if src_offset < dst_offset, copy from back to front */
     /* merge all together */
-    bh_memmove_s((uint8 *)dst_tbl_inst + offsetof(AOTTableInstance, elems)
-                     + dst_offset * sizeof(table_elem_type_t),
+    bh_memmove_s(dst_table_elems,
                  (dst_tbl_inst->cur_size - dst_offset)
                      * sizeof(table_elem_type_t),
-                 (uint8 *)src_tbl_inst + offsetof(AOTTableInstance, elems)
-                     + src_offset * sizeof(table_elem_type_t),
-                 length * sizeof(table_elem_type_t));
+                 src_table_elems, length * sizeof(table_elem_type_t));
 }
 
 void
@@ -3935,8 +4032,11 @@ aot_table_fill(AOTModuleInstance *module_inst, uint32 tbl_idx, uint32 length,
         return;
     }
 
+    table_elem_type_t *table_elems = aot_locate_table_elems(
+        (AOTModule *)module_inst->module, tbl_inst, tbl_idx);
+
     for (; length != 0; data_offset++, length--) {
-        tbl_inst->elems[data_offset] = val;
+        table_elems[data_offset] = val;
     }
 }
 
@@ -3978,8 +4078,11 @@ aot_table_grow(AOTModuleInstance *module_inst, uint32 tbl_idx, uint32 inc_size,
     }
 
     /* fill in */
+    table_elem_type_t *table_elems = aot_locate_table_elems(
+        (AOTModule *)module_inst->module, tbl_inst, tbl_idx);
+
     for (i = 0; i < inc_size; ++i) {
-        tbl_inst->elems[tbl_inst->cur_size + i] = init_val;
+        table_elems[tbl_inst->cur_size + i] = init_val;
     }
 
     tbl_inst->cur_size = total_size;
@@ -5199,6 +5302,7 @@ aot_global_traverse_gc_rootset(AOTModuleInstance *module_inst, void *heap)
 static bool
 aot_table_traverse_gc_rootset(WASMModuleInstance *module_inst, void *heap)
 {
+    AOTModule *module = (AOTModule *)module_inst->module;
     AOTTableInstance **tables = (AOTTableInstance **)module_inst->tables;
     AOTTableInstance *table;
     uint32 table_count = module_inst->table_count, i, j;
@@ -5206,7 +5310,9 @@ aot_table_traverse_gc_rootset(WASMModuleInstance *module_inst, void *heap)
 
     for (i = 0; i < table_count; i++) {
         table = tables[i];
-        table_elems = (WASMObjectRef *)table->elems;
+
+        table_elems = (WASMObjectRef *)aot_locate_table_elems(module, table, i);
+
         for (j = 0; j < table->cur_size; j++) {
             gc_obj = table_elems[j];
             if (wasm_obj_is_created_from_heap(gc_obj)) {
@@ -5343,7 +5449,7 @@ aot_const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
     else
 #endif
     {
-        bh_memcpy_s(c_str, len, str, (uint32)len);
+        bh_memcpy_s(c_str, (uint32)len, str, (uint32)len);
     }
 
     if ((value = bh_hash_map_find(set, c_str))) {
@@ -5381,7 +5487,7 @@ aot_set_module_name(AOTModule *module, const char *name, char *error_buf,
         return false;
 
     module->name = aot_const_str_set_insert((const uint8 *)name,
-                                            (uint32)(strlen(name) + 1), module,
+                                            (int32)(strlen(name) + 1), module,
 #if (WASM_ENABLE_WORD_ALIGN_READ != 0)
                                             false,
 #endif
@@ -5542,13 +5648,14 @@ aot_inherit_imports(AOTModule *module, AOTModuleInstance *inst,
 
     int32 spawned_import_count =
         wasm_runtime_get_import_count((WASMModuleCommon *)module);
-    if (spawned_import_count > out_len) {
+    if (spawned_import_count < 0 || spawned_import_count > out_len) {
         LOG_WARNING("The number of imported functions is more than the "
                     "length of provided buffer ");
         return -1;
     }
 
-    for (int32 i = 0, import_memory_index = 0; i < spawned_import_count; i++) {
+    for (uint32 i = 0, import_memory_index = 0;
+         i < (uint32)spawned_import_count; i++) {
         wasm_import_t import_type = { 0 };
 
         wasm_runtime_get_import_type((WASMModuleCommon *)module, i,
@@ -5608,3 +5715,42 @@ aot_disinherit_imports(AOTModule *module, WASMExternInstance *imports,
     }
 }
 #endif /* WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0 */
+
+AOTTableInstance *
+aot_create_table(const AOTModule *module, const AOTTableType *type)
+{
+    uint32 max_size = aot_get_tbl_data_slots(type, false);
+    uint64 table_size = offsetof(AOTTableInstance, elems)
+                        + sizeof(table_elem_type_t) * (uint64)max_size;
+
+    AOTTableInstance *table = runtime_malloc(table_size, NULL, 0);
+    if (!table) {
+        return NULL;
+    }
+
+    table->cur_size = type->init_size;
+    table->elem_type = type->elem_type;
+    table->max_size = max_size;
+#if WASM_ENABLE_GC != 0
+    table->elem_ref_type.elem_ref_type = type->elem_ref_type;
+#endif
+
+    /* Set all elements to -1 or NULL_REF to mark them as uninitialized
+     * elements */
+#if WASM_ENABLE_GC == 0
+    memset(table->elems, 0xff, sizeof(table_elem_type_t) * table->max_size);
+#else
+    memset(table->elems, 0x00, sizeof(table_elem_type_t) * table->max_size);
+#endif
+
+    return table;
+}
+
+void
+aot_destroy_table(AOTTableInstance *table)
+{
+    if (!table)
+        return;
+
+    wasm_runtime_free(table);
+}

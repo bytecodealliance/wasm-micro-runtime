@@ -56,6 +56,10 @@ LLVMValueRef
 aot_compile_get_tbl_inst(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 tbl_idx);
 
+LLVMValueRef
+aot_compile_get_table_elem_base(AOTCompContext *comp_ctx,
+                                AOTFuncContext *func_ctx, uint32 table_index);
+
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif

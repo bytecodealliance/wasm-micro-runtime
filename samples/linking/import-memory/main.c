@@ -44,10 +44,13 @@ main(int argc, char *argv_main[])
 
     /* import type */
     int32_t import_count = wasm_runtime_get_import_count(module);
+    if (import_count < 0)
+        goto unload_module;
+
     wasm_import_t import_type = { 0 };
     int32_t import_memory_index = -1;
-    for (int i = 0; i < import_count; i++) {
-        wasm_runtime_get_import_type(module, i, &import_type);
+    for (int32_t i = 0; i < import_count; i++) {
+        wasm_runtime_get_import_type(module, (uint32_t)i, &import_type);
         if (import_type.kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
             import_memory_index = i;
             break;
@@ -83,7 +86,9 @@ main(int argc, char *argv_main[])
         module, &inst_args, error_buf, sizeof(error_buf));
     if (!inst) {
         printf("Instantiate wasm file failed: %s\n", error_buf);
-        goto destroy_memory;
+        wasm_runtime_destroy_memory(module, memory);
+        memory = NULL;
+        goto unload_module;
     }
 
     /* export function */
@@ -112,8 +117,6 @@ destroy_exec_env:
     wasm_runtime_destroy_exec_env(exec_env);
 destroy_inst:
     wasm_runtime_deinstantiate(inst);
-destroy_memory:
-    wasm_runtime_destroy_memory(module, memory);
 unload_module:
     wasm_runtime_unload(module);
 release_file_buffer:

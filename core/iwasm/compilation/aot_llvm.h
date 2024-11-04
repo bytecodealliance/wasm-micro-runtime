@@ -484,6 +484,8 @@ typedef struct AOTCompContext {
 
     bool enable_shared_heap;
 
+    bool enable_multi_module;
+
     uint32 opt_level;
     uint32 size_level;
 

@@ -534,6 +534,13 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
          ? comp_ctx->comp_data->import_memories[0].mem_type \
          : comp_ctx->comp_data->memories[0])
 
+#define TABLE_TYPE(i)                                                \
+    (i < comp_ctx->comp_data->import_table_count                     \
+         ? comp_ctx->comp_data->import_tables[i].table_type          \
+         : comp_ctx->comp_data                                       \
+               ->tables[i - comp_ctx->comp_data->import_table_count] \
+               .table_type)
+
 #define DEFAULT_MEMORY_TYPE_FLAG (DEFAULT_MEMORY_TYPE.flags)
 
 #define DEFAULT_MEMORY_TYPE_NUM_BYTES_PER_PAGE \
@@ -552,14 +559,14 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
 #define IS_MEMORY64 (DEFAULT_MEMORY_TYPE_FLAG & MEMORY64_FLAG)
 #define MEMORY64_COND_VALUE(VAL_IF_ENABLED, VAL_IF_DISABLED) \
     (IS_MEMORY64 ? VAL_IF_ENABLED : VAL_IF_DISABLED)
-#define IS_TABLE64(i) \
-    (comp_ctx->comp_data->tables[i].table_type.flags & TABLE64_FLAG)
+#define IS_TABLE64(i) (TABLE_TYPE(i).flags & TABLE64_FLAG)
 #define TABLE64_COND_VALUE(i, VAL_IF_ENABLED, VAL_IF_DISABLED) \
     (IS_TABLE64(i) ? VAL_IF_ENABLED : VAL_IF_DISABLED)
 #else
 #define MEMORY64_COND_VALUE(VAL_IF_ENABLED, VAL_IF_DISABLED) (VAL_IF_DISABLED)
 #define TABLE64_COND_VALUE(i, VAL_IF_ENABLED, VAL_IF_DISABLED) (VAL_IF_DISABLED)
-#endif
+#define IS_TABLE64(i) false
+#endif /* WASM_ENABLE_MEMORY64 != 0 */
 
 #define POP_I32(v) POP(v, VALUE_TYPE_I32)
 #define POP_I64(v) POP(v, VALUE_TYPE_I64)

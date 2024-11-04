@@ -1260,7 +1260,8 @@ wasm_value_type_size_internal(uint8 value_type, uint8 pointer_size)
 inline static uint16
 wasm_value_type_cell_num_internal(uint8 value_type, uint8 pointer_size)
 {
-    return wasm_value_type_size_internal(value_type, pointer_size) / 4;
+    return (uint16)(wasm_value_type_size_internal(value_type, pointer_size)
+                    / 4);
 }
 
 /**
@@ -1275,7 +1276,7 @@ wasm_value_type_size(uint8 value_type)
 inline static uint16
 wasm_value_type_cell_num(uint8 value_type)
 {
-    return wasm_value_type_size(value_type) / 4;
+    return (uint16)(wasm_value_type_size(value_type) / 4);
 }
 
 inline static uint32

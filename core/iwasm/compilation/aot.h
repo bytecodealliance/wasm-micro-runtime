@@ -334,29 +334,19 @@ aot_set_last_error_v(const char *format, ...);
 #endif
 
 static inline uint32
-aot_get_imp_tbl_data_slots(const AOTImportTable *tbl, bool is_jit_mode)
+aot_get_tbl_data_slots(const AOTTableType *type, bool is_jit_mode)
 {
 #if WASM_ENABLE_MULTI_MODULE != 0
     if (is_jit_mode)
-        return tbl->table_type.max_size;
+        return type->max_size;
 #else
     (void)is_jit_mode;
 #endif
-    return tbl->table_type.possible_grow ? tbl->table_type.max_size
-                                         : tbl->table_type.init_size;
-}
-
-static inline uint32
-aot_get_tbl_data_slots(const AOTTable *tbl, bool is_jit_mode)
-{
-#if WASM_ENABLE_MULTI_MODULE != 0
-    if (is_jit_mode)
-        return tbl->table_type.max_size;
-#else
-    (void)is_jit_mode;
-#endif
-    return tbl->table_type.possible_grow ? tbl->table_type.max_size
-                                         : tbl->table_type.init_size;
+    /*
+     * TODO: if it is a host created table or a to be exported table, might need
+     * to ignore possible_grow
+     */
+    return type->possible_grow ? type->max_size : type->init_size;
 }
 
 #ifdef __cplusplus

@@ -2239,17 +2239,8 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              cmp_elem_idx, check_elem_idx_succ)))
         goto fail;
 
-    /* load data as i32* */
-    if (!(offset = I32_CONST(get_tbl_inst_offset(comp_ctx, func_ctx, tbl_idx)
-                             + offsetof(AOTTableInstance, elems)))) {
-        HANDLE_FAILURE("LLVMConstInt");
-        goto fail;
-    }
-
-    if (!(table_elem_base = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
-                                                  func_ctx->aot_inst, &offset,
-                                                  1, "table_elem_base_i8p"))) {
-        aot_set_last_error("llvm build add failed.");
+    if (!(table_elem_base =
+              aot_compile_get_table_elem_base(comp_ctx, func_ctx, tbl_idx))) {
         goto fail;
     }
 

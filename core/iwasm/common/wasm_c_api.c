@@ -4011,24 +4011,34 @@ wasm_table_get(const wasm_table_t *table, wasm_table_size_t index)
 
 #if WASM_ENABLE_INTERP != 0
     if (table->inst_comm_rt->module_type == Wasm_Module_Bytecode) {
-        WASMTableInstance *table_interp =
-            ((WASMModuleInstance *)table->inst_comm_rt)
-                ->tables[table->table_idx_rt];
-        if (index >= table_interp->cur_size) {
+        WASMModuleInstance *inst_wasm =
+            (WASMModuleInstance *)table->inst_comm_rt;
+        WASMModule *module_wasm = inst_wasm->module;
+        WASMTableInstance *table_wasm = inst_wasm->tables[table->table_idx_rt];
+
+        if (index >= table_wasm->cur_size) {
             return NULL;
         }
-        ref_idx = (uint32)table_interp->elems[index];
+
+        table_elem_type_t *table_elems = wasm_locate_table_elems(
+            module_wasm, table_wasm, table->table_idx_rt);
+        ref_idx = (uint32)table_elems[index];
     }
 #endif
 
 #if WASM_ENABLE_AOT != 0
     if (table->inst_comm_rt->module_type == Wasm_Module_AoT) {
         AOTModuleInstance *inst_aot = (AOTModuleInstance *)table->inst_comm_rt;
+        AOTModule *module_aot = (AOTModule *)inst_aot->module;
         AOTTableInstance *table_aot = inst_aot->tables[table->table_idx_rt];
+
         if (index >= table_aot->cur_size) {
             return NULL;
         }
-        ref_idx = (uint32)table_aot->elems[index];
+
+        table_elem_type_t *table_elems =
+            aot_locate_table_elems(module_aot, table_aot, table->table_idx_rt);
+        ref_idx = (uint32)table_elems[index];
     }
 #endif
 
@@ -4080,17 +4090,19 @@ wasm_table_set(wasm_table_t *table, wasm_table_size_t index,
 
 #if WASM_ENABLE_INTERP != 0
     if (table->inst_comm_rt->module_type == Wasm_Module_Bytecode) {
-        WASMTableInstance *table_interp =
-            ((WASMModuleInstance *)table->inst_comm_rt)
-                ->tables[table->table_idx_rt];
+        WASMModuleInstance *inst_wasm =
+            (WASMModuleInstance *)table->inst_comm_rt;
+        WASMModule *module_wasm = inst_wasm->module;
+        WASMTableInstance *table_wasm = inst_wasm->tables[table->table_idx_rt];
 
-        if (index >= table_interp->cur_size) {
+        if (index >= table_wasm->cur_size) {
             return false;
         }
 
-        p_ref_idx = (uint32 *)(table_interp->elems + index);
-        function_count =
-            ((WASMModuleInstance *)table->inst_comm_rt)->e->function_count;
+        table_elem_type_t *table_elems = wasm_locate_table_elems(
+            module_wasm, table_wasm, table->table_idx_rt);
+        p_ref_idx = (uint32 *)(table_elems + index);
+        function_count = inst_wasm->e->function_count;
     }
 #endif
 
@@ -4104,7 +4116,9 @@ wasm_table_set(wasm_table_t *table, wasm_table_size_t index,
             return false;
         }
 
-        p_ref_idx = (uint32 *)(table_aot->elems + index);
+        table_elem_type_t *table_elems =
+            aot_locate_table_elems(module_aot, table_aot, table->table_idx_rt);
+        p_ref_idx = (uint32 *)(table_elems + index);
         function_count = module_aot->func_count;
     }
 #endif
