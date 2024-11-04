@@ -77,18 +77,45 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
     wasm_module_inst_t new_module_inst = NULL;
     ThreadStartArg *thread_start_arg = NULL;
     wasm_function_inst_t start_func;
-    int32 thread_id;
+    int32 thread_id = -1;
     uint32 stack_size = 8192;
     int32 ret = -1;
+    int32 spawned_import_count = ((WASMModule *)module)->import_count;
+    WASMExternInstance *spawned_imports = NULL;
 
     bh_assert(module);
     bh_assert(module_inst);
 
     stack_size = ((WASMModuleInstance *)module_inst)->default_wasm_stack_size;
 
-    if (!(new_module_inst = wasm_runtime_instantiate_internal(
-              module, module_inst, exec_env, stack_size, 0, 0, NULL, 0)))
+    /*
+     * build a imports list(WASMExternInstance[]) from parent's imports
+     */
+    spawned_imports =
+        wasm_runtime_malloc(sizeof(WASMExternInstance) * spawned_import_count);
+    if (spawned_imports == NULL) {
+        LOG_ERROR("Failed to allocate memory for imports");
         return -1;
+    }
+
+    ret = wasm_runtime_inherit_imports(module, module_inst, spawned_imports,
+                                       spawned_import_count);
+    if (ret != 0) {
+        LOG_ERROR("Failed to inherit imports");
+        goto free_imports;
+    }
+
+    new_module_inst = wasm_runtime_instantiate_internal(
+        module, module_inst, exec_env, stack_size,
+        0,                    // heap_size
+        0,                    // max_memory_pages
+        spawned_imports,      // imports
+        spawned_import_count, // import_count
+        NULL, 0);
+    if (new_module_inst == NULL) {
+        LOG_ERROR("Failed to instantiate new module");
+        goto free_imports;
+    }
 
     wasm_runtime_set_custom_data_internal(
         new_module_inst, wasm_runtime_get_custom_data(module_inst));
@@ -126,16 +153,22 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
         goto thread_spawn_fail;
     }
 
+    wasm_runtime_disinherit_imports(module, spawned_imports,
+                                    spawned_import_count);
+    wasm_runtime_free(spawned_imports);
     return thread_id;
 
 thread_spawn_fail:
     deallocate_thread_id(thread_id);
-
 thread_preparation_fail:
     if (new_module_inst)
         wasm_runtime_deinstantiate_internal(new_module_inst, true);
     if (thread_start_arg)
         wasm_runtime_free(thread_start_arg);
+free_imports:
+    wasm_runtime_disinherit_imports(module, spawned_imports,
+                                    spawned_import_count);
+    wasm_runtime_free(spawned_imports);
 
     return -1;
 }

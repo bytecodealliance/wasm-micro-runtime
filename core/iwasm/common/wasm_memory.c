@@ -1536,6 +1536,48 @@ wasm_enlarge_memory_with_idx(WASMModuleInstance *module, uint32 inc_page_count,
 }
 
 WASMMemoryInstance *
+wasm_runtime_create_memory(WASMModuleCommon *module, WASMMemoryType *type)
+{
+    if (!module)
+        return NULL;
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode)
+        return wasm_create_memory((WASMModule *)module, type);
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT)
+        bh_assert(false && "Unsupported operation");
+#endif
+
+    LOG_ERROR("create memory failed, invalid module type");
+    return NULL;
+}
+
+void
+wasm_runtime_destroy_memory(WASMModuleCommon *const module,
+                            WASMMemoryInstance *memory)
+{
+    if (!module)
+        return;
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        wasm_destroy_memory(memory);
+        return;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT)
+        bh_assert(false && "Unsupported operation");
+#endif
+
+    LOG_ERROR("destroy memory failed, invalid module type");
+}
+
+WASMMemoryInstance *
 wasm_runtime_lookup_memory(WASMModuleInstanceCommon *module_inst,
                            const char *name)
 {

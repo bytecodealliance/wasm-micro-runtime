@@ -3384,7 +3384,7 @@ wasm_func_call(const wasm_func_t *func, const wasm_val_vec_t *params,
             AOTModuleInstance *inst_aot =
                 (AOTModuleInstance *)func->inst_comm_rt;
             AOTModule *module_aot = (AOTModule *)inst_aot->module;
-            uint32 export_i = 0, export_func_j = 0;
+            uint32 export_i = 0;
 
             for (; export_i < module_aot->export_count; ++export_i) {
                 AOTExport *export = module_aot->exports + export_i;
@@ -3395,7 +3395,6 @@ wasm_func_call(const wasm_func_t *func, const wasm_val_vec_t *params,
                         ((wasm_func_t *)func)->func_comm_rt = func_comm_rt;
                         break;
                     }
-                    export_func_j++;
                 }
             }
         }
