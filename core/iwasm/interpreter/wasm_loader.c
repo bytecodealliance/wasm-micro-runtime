@@ -15080,6 +15080,10 @@ re_scan:
 
                         read_leb_mem_offset(p, p_end, mem_offset); /* offset */
 
+#if WASM_ENABLE_FAST_INTERP != 0
+                        emit_uint32(loader_ctx, mem_offset);
+#endif
+
                         POP_AND_PUSH(mem_offset_type, VALUE_TYPE_V128);
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
@@ -15098,6 +15102,10 @@ re_scan:
                         }
 
                         read_leb_mem_offset(p, p_end, mem_offset); /* offset */
+
+#if WASM_ENABLE_FAST_INTERP != 0
+                        emit_uint32(loader_ctx, mem_offset);
+#endif
 
                         POP_V128();
                         POP_MEM_OFFSET();
@@ -15128,12 +15136,17 @@ re_scan:
 
                         CHECK_BUF1(p, p_end, 16);
                         mask = read_i8x16(p, error_buf, error_buf_size);
-                        p += 16;
                         if (!check_simd_shuffle_mask(mask, error_buf,
                                                      error_buf_size)) {
                             goto fail;
                         }
-
+#if WASM_ENABLE_FAST_INTERP != 0
+                        uint64 high, low;
+                        wasm_runtime_read_v128(p, &high, &low);
+                        emit_uint64(loader_ctx, high);
+                        emit_uint64(loader_ctx, low);
+#endif
+                        p += 16;
                         POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
                         break;
                     }
@@ -15204,7 +15217,6 @@ re_scan:
                                                     error_buf_size)) {
                             goto fail;
                         }
-
                         if (replace[opcode1 - SIMD_i8x16_extract_lane_s]) {
                             if (!(wasm_loader_pop_frame_ref(
                                     loader_ctx,

@@ -73,6 +73,12 @@ STORE_U8(void *addr, uint8_t value)
     *(uint8 *)addr = value;
 }
 
+static inline void
+STORE_V128(void *addr, V128 value)
+{
+    *(V128 *)addr = value;
+}
+
 /* For LOAD opcodes */
 #define LOAD_I64(addr) (*(int64 *)(addr))
 #define LOAD_F64(addr) (*(float64 *)(addr))
@@ -80,6 +86,7 @@ STORE_U8(void *addr, uint8_t value)
 #define LOAD_U32(addr) (*(uint32 *)(addr))
 #define LOAD_I16(addr) (*(int16 *)(addr))
 #define LOAD_U16(addr) (*(uint16 *)(addr))
+#define LOAD_V128(addr) (*(V128 *)(addr))
 
 #define STORE_PTR(addr, ptr)          \
     do {                              \
@@ -264,7 +271,67 @@ STORE_U16(void *addr, uint16_t value)
     ((uint8_t *)(addr))[0] = u.u8[0];
     ((uint8_t *)(addr))[1] = u.u8[1];
 }
+
+static inline void
+STORE_V128(void *addr, V128 value)
+{
+    uintptr_t addr_ = (uintptr_t)(addr);
+    union {
+        V128 val;
+        uint64 u64[2];
+        uint32 u32[4];
+        uint16 u16[8];
+        uint8 u8[16];
+    } u;
+
+    if ((addr_ & (uintptr_t)15) == 0) {
+        *(V128 *)addr = value;
+    }
+    else {
+        u.val = value;
+        if ((addr_ & (uintptr_t)7) == 0) {
+            ((uint64 *)(addr))[0] = u.u64[0];
+            ((uint64 *)(addr))[1] = u.u64[1];
+        }
+        else {
+            bh_assert((addr_ & (uintptr_t)3) == 0);
+            ((uint32 *)addr)[0] = u.u32[0];
+            ((uint32 *)addr)[1] = u.u32[1];
+            ((uint32 *)addr)[2] = u.u32[2];
+            ((uint32 *)addr)[3] = u.u32[3];
+        }
+    }
+}
+
 /* For LOAD opcodes */
+static inline V128
+LOAD_V128(void *addr)
+{
+    uintptr_t addr1 = (uintptr_t)addr;
+    union {
+        V128 val;
+        uint64 u64[2];
+        uint32 u32[4];
+        uint16 u16[8];
+        uint8 u8[16];
+    } u;
+    if ((addr1 & (uintptr_t)15) == 0)
+        return *(V128 *)addr;
+
+    if ((addr1 & (uintptr_t)7) == 0) {
+        u.u64[0] = ((uint64 *)addr)[0];
+        u.u64[1] = ((uint64 *)addr)[1];
+    }
+    else {
+        bh_assert((addr1 & (uintptr_t)3) == 0);
+        u.u32[0] = ((uint32 *)addr)[0];
+        u.u32[1] = ((uint32 *)addr)[1];
+        u.u32[2] = ((uint32 *)addr)[2];
+        u.u32[3] = ((uint32 *)addr)[3];
+    }
+    return u.val;
+}
+
 static inline int64
 LOAD_I64(void *addr)
 {
