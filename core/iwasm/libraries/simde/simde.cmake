@@ -6,10 +6,6 @@ set (LIB_SIMDE_DIR ${CMAKE_CURRENT_LIST_DIR})
 
 if (WAMR_BUILD_TARGET MATCHES "AARCH64.*" OR "ARM.*")
   add_definitions (-DWASM_ENABLE_SIMDE=1)
-endif()
-else ()
-  add_definitions (-DWASM_ENABLE_SIMDE=0)
-  message ("     SIMDE disabled on current platform")
 endif ()
 
 include_directories(${LIB_SIMDE_DIR} ${LIB_SIMDE_DIR}/simde)
