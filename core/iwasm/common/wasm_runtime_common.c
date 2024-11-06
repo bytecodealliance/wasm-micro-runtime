@@ -454,55 +454,6 @@ wasm_runtime_get_exec_env_tls()
 }
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
-/* FIXME: remove when merging wasm_table_inst_t with WASMTableInstance and
- * AOTTableInstance */
-#if WASM_ENABLE_INTERP != 0
-static void
-WASMTableInstance_to_wasm_table_inst_t(const WASMModule *module,
-                                       const WASMTableInstance *table_rt,
-                                       int64 table_index,
-                                       wasm_table_inst_t *out)
-{
-    out->elem_kind = val_type_to_val_kind(table_rt->elem_type);
-    out->max_size = table_rt->max_size;
-    out->cur_size = table_rt->cur_size;
-
-    /* table_index < 0, it means it is created by host */
-    uintptr_t tmp = (uintptr_t)table_rt->elems;
-    if (table_index > 0 && table_index < (int64)module->import_table_count) {
-        out->elems = *(void **)tmp;
-    }
-    else {
-        out->elems = (void *)tmp;
-    }
-
-    bh_assert(out->elems);
-}
-#endif
-
-#if WASM_ENABLE_AOT != 0
-static void
-AOTTableInstance_to_wasm_table_inst_t(const AOTModule *module,
-                                      const AOTTableInstance *table_rt,
-                                      int64 table_index, wasm_table_inst_t *out)
-{
-    out->elem_kind = val_type_to_val_kind(table_rt->elem_type);
-    out->max_size = table_rt->max_size;
-    out->cur_size = table_rt->cur_size;
-
-    /* table_index < 0, it means it is created by host */
-    uintptr_t tmp = (uintptr_t)table_rt->elems;
-    if (table_index > 0 && table_index < (int64)module->import_table_count) {
-        out->elems = *(void **)tmp;
-    }
-    else {
-        out->elems = (void *)tmp;
-    }
-
-    bh_assert(out->elems);
-}
-#endif
-
 static bool
 wasm_runtime_env_init(void)
 {
@@ -2161,11 +2112,14 @@ wasm_runtime_get_export_global_inst(WASMModuleInstanceCommon *const module_inst,
     return false;
 }
 
-bool
+WASMTableInstance *
 wasm_runtime_get_export_table_inst(WASMModuleInstanceCommon *const module_inst,
-                                   char const *name,
-                                   wasm_table_inst_t *table_inst)
+                                   const char *name)
 {
+    if (!module_inst || !name) {
+        return NULL;
+    }
+
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
         const WASMModuleInstance *wasm_module_inst =
@@ -2175,22 +2129,19 @@ wasm_runtime_get_export_table_inst(WASMModuleInstanceCommon *const module_inst,
         for (uint32 i = 0; i < wasm_module->export_count; i++) {
             const WASMExport *wasm_export = &wasm_module->exports[i];
 
-            if (wasm_export->kind != WASM_IMPORT_EXPORT_KIND_TABLE) {
+            if (wasm_export->kind != WASM_IMPORT_EXPORT_KIND_TABLE)
                 continue;
-            }
 
-            if (strcmp(wasm_export->name, name)) {
+            if (strcmp(wasm_export->name, name))
                 continue;
-            }
 
-            const WASMTableInstance *wasm_table_inst =
-                wasm_module_inst->tables[wasm_export->index];
-            WASMTableInstance_to_wasm_table_inst_t(
-                wasm_module, wasm_table_inst, wasm_export->index, table_inst);
-            return true;
+            return wasm_module_inst->tables[wasm_export->index];
         }
+
+        return NULL;
     }
 #endif
+
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
         const AOTModuleInstance *aot_module_inst =
@@ -2200,29 +2151,26 @@ wasm_runtime_get_export_table_inst(WASMModuleInstanceCommon *const module_inst,
         for (uint32 i = 0; i < aot_module->export_count; i++) {
             const AOTExport *aot_export = &aot_module->exports[i];
 
-            if (aot_export->kind != WASM_IMPORT_EXPORT_KIND_TABLE) {
+            if (aot_export->kind == WASM_IMPORT_EXPORT_KIND_TABLE)
                 continue;
-            }
 
-            if (strcmp(aot_export->name, name)) {
+            if (strcmp(aot_export->name, name))
                 continue;
-            }
 
-            const AOTTableInstance *aot_table_inst =
-                aot_module_inst->tables[aot_export->index];
-            AOTTableInstance_to_wasm_table_inst_t(
-                aot_module, aot_table_inst, aot_export->index, table_inst);
-            return true;
+            return aot_module_inst->tables[aot_export->index];
         }
+
+        return NULL;
     }
 #endif
 
-    return false;
+    LOG_ERROR("Unsupported module type: %d", module_inst->module_type);
+    return NULL;
 }
 
 WASMFunctionInstanceCommon *
 wasm_table_get_func_inst(struct WASMModuleInstanceCommon *const module_inst,
-                         const wasm_table_inst_t *table_inst, uint32_t idx)
+                         WASMTableInstance *const table_inst, uint32_t idx)
 {
     if (!table_inst) {
         bh_assert(0);
@@ -4302,6 +4250,84 @@ wasm_runtime_get_export_count(WASMModuleCommon *const module)
     return -1;
 }
 
+#if WASM_ENABLE_AOT != 0
+static void
+populate_export_type_from_aot(const AOTModule *module, const AOTExport *export,
+                              wasm_export_t *out)
+{
+    if (!module || !export || !out)
+        return;
+
+    out->name = export->name;
+    out->kind = export->kind;
+
+    switch (out->kind) {
+        case WASM_IMPORT_EXPORT_KIND_FUNC:
+            out->u.func_type =
+                (AOTFuncType *)module
+                    ->types[module->func_type_indexes
+                                [export->index - module->import_func_count]];
+            break;
+        case WASM_IMPORT_EXPORT_KIND_GLOBAL:
+            out->u.global_type =
+                &module->globals[export->index - module->import_global_count]
+                     .type;
+            break;
+        case WASM_IMPORT_EXPORT_KIND_TABLE:
+            out->u.table_type =
+                &module->tables[export->index - module->import_table_count]
+                     .table_type;
+            break;
+        case WASM_IMPORT_EXPORT_KIND_MEMORY:
+            out->u.memory_type =
+                &module->memories[export->index - module->import_memory_count];
+            break;
+        default:
+            bh_assert(0);
+            return;
+    }
+}
+#endif
+
+#if WASM_ENABLE_INTERP != 0
+static void
+populate_export_type_from_wasm(const WASMModule *module,
+                               const WASMExport *export, wasm_export_t *out)
+{
+    if (!out || !module || !export) {
+        return;
+    }
+
+    out->name = export->name;
+    out->kind = export->kind;
+
+    switch (out->kind) {
+        case WASM_IMPORT_EXPORT_KIND_FUNC:
+            out->u.func_type =
+                module->functions[export->index - module->import_function_count]
+                    ->func_type;
+            break;
+        case WASM_IMPORT_EXPORT_KIND_GLOBAL:
+            out->u.global_type =
+                &module->globals[export->index - module->import_global_count]
+                     .type;
+            break;
+        case WASM_IMPORT_EXPORT_KIND_TABLE:
+            out->u.table_type =
+                &module->tables[export->index - module->import_table_count]
+                     .table_type;
+            break;
+        case WASM_IMPORT_EXPORT_KIND_MEMORY:
+            out->u.memory_type =
+                &module->memories[export->index - module->import_memory_count];
+            break;
+        default:
+            bh_assert(0);
+            return;
+    }
+}
+#endif
+
 void
 wasm_runtime_get_export_type(WASMModuleCommon *const module, int32 export_index,
                              wasm_export_t *export_type)
@@ -4328,39 +4354,7 @@ wasm_runtime_get_export_type(WASMModuleCommon *const module, int32 export_index,
         }
 
         const AOTExport *aot_export = &aot_module->exports[export_index];
-        export_type->name = aot_export->name;
-        export_type->kind = aot_export->kind;
-        switch (export_type->kind) {
-            case WASM_IMPORT_EXPORT_KIND_FUNC:
-                export_type->u.func_type =
-                    (AOTFuncType *)aot_module
-                        ->types[aot_module->func_type_indexes
-                                    [aot_export->index
-                                     - aot_module->import_func_count]];
-                break;
-            case WASM_IMPORT_EXPORT_KIND_GLOBAL:
-                export_type->u.global_type =
-                    &aot_module
-                         ->globals[aot_export->index
-                                   - aot_module->import_global_count]
-                         .type;
-                break;
-            case WASM_IMPORT_EXPORT_KIND_TABLE:
-                export_type->u.table_type =
-                    &aot_module
-                         ->tables[aot_export->index
-                                  - aot_module->import_table_count]
-                         .table_type;
-                break;
-            case WASM_IMPORT_EXPORT_KIND_MEMORY:
-                export_type->u.memory_type =
-                    &aot_module->memories[aot_export->index
-                                          - aot_module->import_memory_count];
-                break;
-            default:
-                bh_assert(0);
-                break;
-        }
+        populate_export_type_from_aot(aot_module, aot_export, export_type);
         return;
     }
 #endif
@@ -4374,40 +4368,61 @@ wasm_runtime_get_export_type(WASMModuleCommon *const module, int32 export_index,
         }
 
         const WASMExport *wasm_export = &wasm_module->exports[export_index];
-        export_type->name = wasm_export->name;
-        export_type->kind = wasm_export->kind;
-        switch (export_type->kind) {
-            case WASM_IMPORT_EXPORT_KIND_FUNC:
-                export_type->u.func_type =
-                    wasm_module
-                        ->functions[wasm_export->index
-                                    - wasm_module->import_function_count]
-                        ->func_type;
-                break;
-            case WASM_IMPORT_EXPORT_KIND_GLOBAL:
-                export_type->u.global_type =
-                    &wasm_module
-                         ->globals[wasm_export->index
-                                   - wasm_module->import_global_count]
-                         .type;
-                break;
-            case WASM_IMPORT_EXPORT_KIND_TABLE:
-                export_type->u.table_type =
-                    &wasm_module
-                         ->tables[wasm_export->index
-                                  - wasm_module->import_table_count]
-                         .table_type;
-                break;
-            case WASM_IMPORT_EXPORT_KIND_MEMORY:
-                export_type->u.memory_type =
-                    &wasm_module->memories[wasm_export->index
-                                           - wasm_module->import_memory_count];
-                break;
-            default:
-                bh_assert(0);
-                break;
-        }
+        populate_export_type_from_wasm(wasm_module, wasm_export, export_type);
         return;
+    }
+#endif
+}
+
+void
+wasm_runtime_get_export_type_by_name(WASMModuleCommon *const module,
+                                     const char *name,
+                                     wasm_export_t *export_type)
+{
+    if (!export_type) {
+        bh_assert(0);
+        return;
+    }
+
+    memset(export_type, 0, sizeof(wasm_export_t));
+
+    if (!module) {
+        bh_assert(0);
+        return;
+    }
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        const WASMModule *wasm_module = (const WASMModule *)module;
+
+        for (uint32 i = 0; i < wasm_module->export_count; i++) {
+            WASMExport *wasm_export = &wasm_module->exports[i];
+
+            if (strcmp(name, wasm_export->name)) {
+                continue;
+            }
+
+            populate_export_type_from_wasm(wasm_module, wasm_export,
+                                           export_type);
+            return;
+        }
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        const AOTModule *aot_module = (const AOTModule *)module;
+
+        for (uint32 i = 0; i < aot_module->export_count; i++) {
+            AOTExport *aot_export = &aot_module->exports[i];
+
+            if (strcmp(name, aot_export->name)) {
+                continue;
+            }
+
+            populate_export_type_from_aot(aot_module, aot_export, export_type);
+            return;
+        }
     }
 #endif
 }
@@ -4551,7 +4566,7 @@ wasm_table_type_get_shared(WASMTableType *const table_type)
 {
     bh_assert(table_type);
 
-    return (table_type->flags & 2) ? true : false;
+    return (table_type->flags & SHARED_TABLE_FLAG) ? true : false;
 }
 
 uint32
@@ -7818,7 +7833,7 @@ wasm_runtime_is_underlying_binary_freeable(WASMModuleCommon *const module)
     return true;
 }
 
-wasm_table_inst_t *
+wasm_table_inst_t
 wasm_runtime_create_table(WASMModuleCommon *const module,
                           wasm_table_type_t const type)
 {
@@ -7827,11 +7842,6 @@ wasm_runtime_create_table(WASMModuleCommon *const module,
 
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode) {
-        wasm_table_inst_t *out_table =
-            runtime_malloc(sizeof(wasm_table_inst_t), NULL, NULL, 0);
-        if (!out_table)
-            return NULL;
-
         WASMTableInstance *wasm_table =
             wasm_create_table((WASMModule *)module, type);
         if (!wasm_table) {
@@ -7839,20 +7849,12 @@ wasm_runtime_create_table(WASMModuleCommon *const module,
             return NULL;
         }
 
-        WASMTableInstance_to_wasm_table_inst_t((WASMModule *)module, wasm_table,
-                                               -1, out_table);
-        /* TODO: wasm_table ownership ?*/
-        return out_table;
+        return wasm_table;
     }
 #endif
 
 #if WASM_ENABLE_AOT != 0
     if (module->module_type == Wasm_Module_AoT) {
-        wasm_table_inst_t *out_table =
-            runtime_malloc(sizeof(wasm_table_inst_t), NULL, NULL, 0);
-        if (!out_table)
-            return NULL;
-
         AOTTableInstance *aot_table =
             aot_create_table((AOTModule *)module, type);
         if (!aot_table) {
@@ -7860,10 +7862,7 @@ wasm_runtime_create_table(WASMModuleCommon *const module,
             return NULL;
         }
 
-        AOTTableInstance_to_wasm_table_inst_t((AOTModule *)module, aot_table,
-                                              -1, out_table);
-        /* TODO: aot_table ownership ?*/
-        return out_table;
+        return aot_table;
     }
 #endif
 
@@ -7873,7 +7872,7 @@ wasm_runtime_create_table(WASMModuleCommon *const module,
 
 void
 wasm_runtime_destroy_table(WASMModuleCommon *const module,
-                           wasm_table_inst_t *table)
+                           wasm_table_inst_t table)
 {
     if (!module || !table)
         return;
@@ -7993,7 +7992,7 @@ wasm_runtime_create_extern_inst(WASMModuleCommon *module,
         }
     }
     else if (import_type->kind == WASM_IMPORT_EXPORT_KIND_TABLE) {
-        wasm_table_inst_t *table =
+        wasm_table_inst_t table =
             wasm_runtime_create_table(module, import_type->u.table_type);
         out->u.table = table;
         if (!out->u.table) {

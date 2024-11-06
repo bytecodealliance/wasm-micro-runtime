@@ -725,6 +725,7 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 #if WASM_ENABLE_GC != 0
         table->elem_ref_type.elem_ref_type = table_type->elem_ref_type;
 #endif
+        table->is_table64 = table_type->flags & TABLE64_FLAG;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
         /* Set all elements to -1 or NULL_REF to mark them as uninitialized
@@ -788,6 +789,7 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 #if WASM_ENABLE_GC != 0
         table->elem_ref_type.elem_ref_type = table_type->elem_ref_type;
 #endif
+        table->is_table64 = table_type->flags & TABLE64_FLAG;
 
         /* Set all elements to -1 or NULL_REF to mark them as uninitialized
          * elements */
@@ -5493,7 +5495,8 @@ aot_const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
 #if WASM_ENABLE_DYNAMIC_AOT_DEBUG != 0
 AOTModule *g_dynamic_aot_module = NULL;
 
-void __attribute__((noinline)) __enable_dynamic_aot_debug(void)
+void __attribute__((noinline))
+__enable_dynamic_aot_debug(void)
 {
     /* empty implementation. */
 }

@@ -64,7 +64,7 @@ main(int argc, char *argv_main[])
 
     /* host table */
     wasm_table_type_t table_type = import_type.u.table_type;
-    wasm_table_inst_t *table = wasm_runtime_create_table(module, table_type);
+    wasm_table_inst_t table = wasm_runtime_create_table(module, table_type);
     if (!table) {
         printf("Create table failed.\n");
         goto unload_module;
