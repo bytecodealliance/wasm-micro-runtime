@@ -3610,6 +3610,17 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
 #endif
             }
 
+            /* Code size in code entry can't be smaller than size of vec(locals)
+             * + expr(at least 1 for opcode end). And expressions are encoded by
+             * their instruction sequence terminated with an explicit 0x0B
+             * opcode for end. */
+            if (p_code_end <= p_code || *(p_code_end - 1) != WASM_OP_END) {
+                set_error_buf(
+                    error_buf, error_buf_size,
+                    "section size mismatch: function body END opcode expected");
+                return false;
+            }
+
             /* Alloc memory, layout: function structure + local types */
             code_size = (uint32)(p_code_end - p_code);
 
@@ -15837,15 +15848,12 @@ re_scan:
     }
 
     if (loader_ctx->csp_num > 0) {
-        if (cur_func_idx < module->function_count - 1)
-            /* Function with missing end marker (between two functions) */
-            set_error_buf(error_buf, error_buf_size, "END opcode expected");
-        else
-            /* Function with missing end marker
-               (at EOF or end of code sections) */
-            set_error_buf(error_buf, error_buf_size,
-                          "unexpected end of section or function, "
-                          "or section size mismatch");
+        /* unmatched end opcodes result from unbalanced control flow structures,
+         * for example, br_table with inconsistent target count (1 declared, 2
+         * given), or simply superfluous end opcodes */
+        set_error_buf(
+            error_buf, error_buf_size,
+            "unexpected end opcodes from unbalanced control flow structures");
         goto fail;
     }
 

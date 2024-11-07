@@ -1183,6 +1183,8 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
                 local_count += sub_local_count;
             }
 
+            bh_assert(p_code_end > p_code && *(p_code_end - 1) == WASM_OP_END);
+
             /* Alloc memory, layout: function structure + local types */
             code_size = (uint32)(p_code_end - p_code);
 
