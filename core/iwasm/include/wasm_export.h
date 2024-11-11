@@ -2357,8 +2357,7 @@ wasm_runtime_create_imports_with_builtin(wasm_module_t module,
                                          wasm_extern_inst_t out,
                                          int32_t out_len);
 
-WASM_RUNTIME_API_EXTERN
-void
+WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_imports(wasm_module_t module, wasm_extern_inst_t imports);
 
 WASM_RUNTIME_API_EXTERN bool
