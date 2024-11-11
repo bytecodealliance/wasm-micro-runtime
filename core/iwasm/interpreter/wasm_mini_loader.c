@@ -5595,8 +5595,10 @@ fail:
 #define RESERVE_BLOCK_RET()                                                 \
     do {                                                                    \
         if (!reserve_block_ret(loader_ctx, opcode, disable_emit, error_buf, \
-                               error_buf_size))                             \
+                               error_buf_size)) {                           \
+            free_label_patch_list(loader_ctx->frame_csp);                   \
             goto fail;                                                      \
+        }                                                                   \
     } while (0)
 
 #define PUSH_TYPE(type)                                               \
