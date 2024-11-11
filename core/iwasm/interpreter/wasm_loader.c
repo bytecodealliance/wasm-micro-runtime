@@ -9892,6 +9892,15 @@ fail:
             goto fail;                                                      \
     } while (0)
 
+#define RESERVE_BLOCK_RET_V2()                                              \
+    do {                                                                    \
+        if (!reserve_block_ret(loader_ctx, opcode, disable_emit, error_buf, \
+                               error_buf_size)) {                           \
+            free_label_patch_list(loader_ctx->frame_csp);                   \
+            goto fail;                                                      \
+        }                                                                   \
+    } while (0)
+
 #define PUSH_TYPE(type)                                               \
     do {                                                              \
         if (!(wasm_loader_push_frame_ref(loader_ctx, type, error_buf, \
@@ -11672,7 +11681,7 @@ re_scan:
 #if WASM_ENABLE_FAST_INTERP != 0
                 skip_label();
                 /* copy the result to the block return address */
-                RESERVE_BLOCK_RET();
+                RESERVE_BLOCK_RET_V2();
 
                 apply_label_patch(loader_ctx, 0, PATCH_END);
                 free_label_patch_list(loader_ctx->frame_csp);
