@@ -1785,7 +1785,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     bool ret = false;
 #endif
 
-    /* Check heap size */
+    /* Align and validate heap size */
     heap_size = align_uint(heap_size, 8);
     if (heap_size > APP_HEAP_SIZE_MAX)
         heap_size = APP_HEAP_SIZE_MAX;
@@ -2001,7 +2001,11 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         AOTTableInstance *table_inst;
         table_elem_type_t *table_data;
 
-        table = &module->tables[i];
+        /* bypass imported table since AOTImportTable doesn't have init_expr */
+        if (i < module->import_table_count)
+            continue;
+
+        table = &module->tables[i - module->import_table_count];
         bh_assert(table);
 
         if (table->init_expr.init_expr_type == INIT_EXPR_NONE) {
