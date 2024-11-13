@@ -15225,7 +15225,9 @@ re_scan:
                                     error_buf, error_buf_size)))
                                 goto fail;
                         }
-
+#if WASM_ENABLE_FAST_INTERP != 0
+                        emit_byte(loader_ctx, lane);
+#endif
                         POP_AND_PUSH(
                             VALUE_TYPE_V128,
                             push_type[opcode1 - SIMD_i8x16_extract_lane_s]);
