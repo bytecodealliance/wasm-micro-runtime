@@ -5592,13 +5592,6 @@ fail:
 
 #endif /* WASM_ENABLE_FAST_INTERP */
 
-#define RESERVE_BLOCK_RET()                                                 \
-    do {                                                                    \
-        if (!reserve_block_ret(loader_ctx, opcode, disable_emit, error_buf, \
-                               error_buf_size))                             \
-            goto fail;                                                      \
-    } while (0)
-
 #define PUSH_TYPE(type)                                               \
     do {                                                              \
         if (!(wasm_loader_push_frame_ref(loader_ctx, type, error_buf, \
@@ -6366,7 +6359,10 @@ re_scan:
 #if WASM_ENABLE_FAST_INTERP != 0
                 /* if the result of if branch is in local or const area, add a
                  * copy op */
-                RESERVE_BLOCK_RET();
+                if (!reserve_block_ret(loader_ctx, opcode, disable_emit,
+                                       error_buf, error_buf_size)) {
+                    goto fail;
+                }
 
                 emit_empty_label_addr_and_frame_ip(PATCH_END);
                 apply_label_patch(loader_ctx, 1, PATCH_ELSE);
@@ -6426,7 +6422,11 @@ re_scan:
 #if WASM_ENABLE_FAST_INTERP != 0
                 skip_label();
                 /* copy the result to the block return address */
-                RESERVE_BLOCK_RET();
+                if (!reserve_block_ret(loader_ctx, opcode, disable_emit,
+                                       error_buf, error_buf_size)) {
+                    free_label_patch_list(loader_ctx->frame_csp);
+                    goto fail;
+                }
 
                 apply_label_patch(loader_ctx, 0, PATCH_END);
                 free_label_patch_list(loader_ctx->frame_csp);
