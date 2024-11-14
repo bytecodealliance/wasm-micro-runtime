@@ -4227,7 +4227,6 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
 
     bh_print_time("Begin to emit object file");
 
-#if !(defined(_WIN32) || defined(_WIN32_))
     if (comp_ctx->external_llc_compiler || comp_ctx->external_asm_compiler) {
         char cmd[1024];
         int ret;
@@ -4270,7 +4269,11 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
                      file_name, bc_file_name);
             LOG_VERBOSE("invoking external LLC compiler:\n\t%s", cmd);
 
+#if !(defined(_WIN32) || defined(_WIN32_))
             ret = system(cmd);
+#else
+            ret = _spawnlp(_P_WAIT, "cmd.exe", "/c", cmd, NULL);
+#endif
             /* remove temp bitcode file */
             unlink(bc_file_name);
 
@@ -4323,7 +4326,11 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
                      file_name, asm_file_name);
             LOG_VERBOSE("invoking external ASM compiler:\n\t%s", cmd);
 
+#if !(defined(_WIN32) || defined(_WIN32_))
             ret = system(cmd);
+#else
+            ret = _spawnlp(_P_WAIT, "cmd.exe", "/c", cmd, NULL);
+#endif
             /* remove temp assembly file */
             unlink(asm_file_name);
 
@@ -4336,7 +4343,6 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
 
         return true;
     }
-#endif /* end of !(defined(_WIN32) || defined(_WIN32_)) */
 
     if (!strncmp(LLVMGetTargetName(target), "arc", 3))
         /* Emit to assembly file instead for arc target
