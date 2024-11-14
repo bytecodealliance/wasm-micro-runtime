@@ -45,7 +45,7 @@
 #ifdef X_OK
 #undef X_OK
 #endif
-#define X_OK F_OK
+#define X_OK 00
 #define unlink _unlink
 #endif
 

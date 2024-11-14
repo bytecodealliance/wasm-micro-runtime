@@ -102,11 +102,18 @@ def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_fl
         "default": [],
     }
 
+    normal_backends = [s for s in backends if s != "ARC"]
+    expeirmental_backends = [s for s in backends if s == "ARC"]
+
     LLVM_TARGETS_TO_BUILD = [
-        '-DLLVM_TARGETS_TO_BUILD:STRING="' + ";".join(backends) + '"'
-        if backends
+        '-DLLVM_TARGETS_TO_BUILD:STRING="' + ";".join(normal_backends) + '"'
+        if normal_backends
         else '-DLLVM_TARGETS_TO_BUILD:STRING="AArch64;ARM;Mips;RISCV;X86"'
     ]
+
+    # if not on ARC platform, but want to add expeirmental backend ARC as target
+    if platform != expeirmental_backend:
+        LLVM_TARGETS_TO_BUILD.extend(LLVM_EXTRA_COMPILE_OPTIONS[expeirmental_backend.lower()])
 
     LLVM_PROJECTS_TO_BUILD = [
         '-DLLVM_ENABLE_PROJECTS:STRING="' + ";".join(projects) + '"' if projects else ""
