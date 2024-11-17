@@ -37,6 +37,11 @@ extern "C" {
 #define WASM_FEATURE_FRAME_NO_FUNC_IDX (1 << 13)
 #define WASM_FEATURE_MULTI_MODULE (1 << 14)
 
+#define AOTGlobalInstance WASMGlobalInstance
+#define AOTMemoryInstance WASMMemoryInstance
+#define AOTTableInstance WASMTableInstance
+#define AOTModuleInstance WASMModuleInstance
+
 typedef enum AOTSectionType {
     AOT_SECTION_TYPE_TARGET_INFO = 0,
     AOT_SECTION_TYPE_INIT_DATA = 1,
@@ -137,6 +142,9 @@ typedef struct AOTModuleInstanceExtra {
     ExportFuncMap *export_func_maps;
     AOTFunctionInstance **functions;
     uint32 function_count;
+
+    AOTGlobalInstance *globals;
+    uint32 global_count;
 #if WASM_ENABLE_MULTI_MODULE != 0
     bh_list sub_module_inst_list_head;
     bh_list *sub_module_inst_list;
@@ -362,10 +370,6 @@ typedef struct AOTModule {
     uint32 feature_flags;
 #endif
 } AOTModule;
-
-#define AOTMemoryInstance WASMMemoryInstance
-#define AOTTableInstance WASMTableInstance
-#define AOTModuleInstance WASMModuleInstance
 
 #if WASM_ENABLE_MULTI_MODULE != 0
 #define AOTSubModInstNode WASMSubModInstNode

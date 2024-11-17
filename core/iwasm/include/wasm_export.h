@@ -149,6 +149,11 @@ typedef struct wasm_table_inst_t {
     void *elems;
 } wasm_table_inst_t;
 
+/*TODO: remove me when rebasing*/
+/* Global instance*/
+struct WASMGlobalInstance;
+typedef struct WASMGlobalInstance *wasm_global_inst_t;
+
 /* WASM section */
 typedef struct wasm_section_t {
     struct wasm_section_t *next;
@@ -296,6 +301,7 @@ typedef struct WASMExternInstance {
     union {
         wasm_memory_inst_t memory;
         wasm_table_inst_t *table;
+        wasm_global_inst_t global;
     } u;
 } WASMExternInstance, *wasm_extern_inst_t;
 
@@ -341,13 +347,6 @@ typedef struct wasm_val_t {
     } of;
 } wasm_val_t;
 #endif
-
-/* Global instance*/
-typedef struct wasm_global_inst_t {
-    wasm_valkind_t kind;
-    bool is_mutable;
-    void *global_data;
-} wasm_global_inst_t;
 
 typedef enum {
     WASM_LOG_LEVEL_FATAL = 0,
@@ -1744,10 +1743,9 @@ wasm_runtime_unregister_natives(const char *module_name,
  * @return true if success, false otherwise
  *
  */
-WASM_RUNTIME_API_EXTERN bool
+WASM_RUNTIME_API_EXTERN wasm_global_inst_t
 wasm_runtime_get_export_global_inst(const wasm_module_inst_t module_inst,
-                                    const char *name,
-                                    wasm_global_inst_t *global_inst);
+                                    const char *name);
 
 /**
  * Get an export table instance
