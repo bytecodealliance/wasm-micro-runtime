@@ -287,6 +287,7 @@ typedef struct LoadArgs {
 } LoadArgs;
 #endif /* LOAD_ARGS_OPTION_DEFINED */
 
+/*TODO: move it to wasm_runtime_common.h? */
 typedef struct WASMExternInstance {
     const char *module_name;
     const char *field_name;
@@ -296,6 +297,12 @@ typedef struct WASMExternInstance {
         wasm_table_inst_t table;
         wasm_global_inst_t global;
     } u;
+
+    /*
+     * to handle imports properly,
+     * especially for wasm_global_inst_t and wasm_func_inst_t
+     */
+    wasm_module_inst_t dep_inst;
 } WASMExternInstance, *wasm_extern_inst_t;
 
 #ifndef INSTANTIATION_ARGS_OPTION_DEFINED
@@ -1097,6 +1104,11 @@ wasm_memory_get_base_address(const wasm_memory_inst_t memory_inst);
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_memory_enlarge(wasm_memory_inst_t memory_inst, uint64_t inc_page_count);
+
+WASM_RUNTIME_API_EXTERN wasm_global_inst_t
+wasm_runtime_create_immutable_global(const wasm_module_t module,
+                                     const wasm_global_type_t type,
+                                     const wasm_val_t *value);
 
 /**
  * Call the given WASM function of a WASM module instance with

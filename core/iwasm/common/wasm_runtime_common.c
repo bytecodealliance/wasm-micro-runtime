@@ -7899,6 +7899,115 @@ wasm_runtime_destroy_table(WASMModuleCommon *const module,
     LOG_ERROR("destroy table failed, invalid module type");
 }
 
+WASMGlobalInstance *
+wasm_runtime_create_global_internal(WASMModuleCommon *const module,
+                                    WASMModuleInstanceCommon *dep_inst,
+                                    WASMGlobalType *const type)
+{
+    if (!module || !type)
+        return NULL;
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        return wasm_create_global((WASMModule *)module,
+                                  (WASMModuleInstance *)dep_inst, type);
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        return aot_create_global((AOTModule *)module,
+                                 (AOTModuleInstance *)dep_inst, type);
+    }
+#endif
+
+    return NULL;
+}
+
+WASMGlobalInstance *
+wasm_runtime_create_global(WASMModuleCommon *const module,
+                           WASMGlobalType *const type, const wasm_val_t *value)
+{
+    WASMGlobalInstance *global =
+        wasm_runtime_create_global_internal(module, NULL, type);
+    if (!global)
+        return NULL;
+
+    /* TODO: make a small function about conversion */
+    WASMValue init_value = { 0 };
+    /* wasm_val_t to WASMValue */
+    switch (value->kind) {
+        case WASM_I32:
+        {
+            init_value.i32 = value->of.i32;
+            break;
+        }
+        case WASM_I64:
+        {
+            init_value.i64 = value->of.i64;
+            break;
+        }
+        case WASM_F32:
+        {
+            init_value.f32 = value->of.f32;
+            break;
+        }
+        case WASM_F64:
+        {
+            init_value.f64 = value->of.f64;
+            break;
+        }
+        // case WASM_V128:
+        // {
+        //     bh_assert(false && "V128 not supported yet");
+        //     break;
+        // }
+        // case WASM_EXTERNREF:
+        // case WASM_FUNCREF:
+        default:
+        {
+            bh_assert(false && "unsupported value type");
+            break;
+        }
+    }
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        wasm_set_global_value(global, &init_value);
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        aot_set_global_value(global, &init_value);
+    }
+#endif
+
+    return global;
+}
+
+void
+wasm_runtime_destroy_global(WASMModuleCommon *const module,
+                            WASMGlobalInstance *global)
+{
+    if (!module)
+        return;
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        wasm_destroy_global(global);
+        return;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        aot_destroy_global(global);
+        return;
+    }
+#endif
+}
+
 /*TODO: take us(below) out when have a linker */
 WASMModuleInstanceCommon *
 wasm_runtime_instantiate_with_builtin_linker(WASMModuleCommon *module,
@@ -7989,6 +8098,14 @@ wasm_runtime_create_extern_inst(WASMModuleCommon *module,
             return false;
         }
     }
+    else if (import_type->kind == WASM_IMPORT_EXPORT_KIND_GLOBAL) {
+        out->u.global = wasm_runtime_create_global_internal(
+            module, NULL, import_type->u.global_type);
+        if (!out->u.global) {
+            LOG_ERROR("create global failed\n");
+            return false;
+        }
+    }
     else {
         LOG_DEBUG("unimplemented import(%s,%s) kind %d",
                   import_type->module_name, import_type->name,
@@ -8068,12 +8185,38 @@ wasm_runtime_create_imports(WASMModuleCommon *module,
         }
 
         WASMExternInstance *extern_instance = out + i;
+        /* create empty extern_inst */
         if (!wasm_runtime_create_extern_inst(module, &import_type,
                                              extern_instance)) {
             wasm_runtime_destroy_imports(module, out);
             LOG_ERROR("create import failed");
             return false;
         }
+
+        /* assign values */
+#if WASM_ENABLE_SPEC_TEST != 0
+        if (import_type.kind != WASM_IMPORT_EXPORT_KIND_GLOBAL
+            && import_type.kind != WASM_IMPORT_EXPORT_KIND_FUNC) {
+            continue;
+        }
+
+        if (!strncmp(import_type.name, "global_i32", 10)) {
+            WASMValue value = { .i32 = 666 };
+            wasm_set_global_value(extern_instance->u.global, &value);
+        }
+        else if (!strncmp(import_type.name, "global_i64", 10)) {
+            WASMValue value = { .i64 = 666 };
+            wasm_set_global_value(extern_instance->u.global, &value);
+        }
+        else if (!strncmp(import_type.name, "global_f32", 10)) {
+            WASMValue value = { .f32 = 666.6f };
+            wasm_set_global_value(extern_instance->u.global, &value);
+        }
+        else if (!strncmp(import_type.name, "global_f64", 10)) {
+            WASMValue value = { .f64 = 666.6 };
+            wasm_set_global_value(extern_instance->u.global, &value);
+        }
+#endif
     }
 
     return true;
