@@ -102,8 +102,8 @@ def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_fl
         "default": [],
     }
 
-    normal_backends = [s for s in backends if s != "ARC" and s != "Xtensa"]
-    experimental_backends = [s for s in backends if s == "ARC" or s == "Xtensa"]
+    experimental_backends = ["ARC", "Xtensa"]
+    normal_backends = [s for s in backends if s not in experimental_backends]
 
     LLVM_TARGETS_TO_BUILD = [
         '-DLLVM_TARGETS_TO_BUILD:STRING="' + ";".join(normal_backends) + '"'
@@ -111,17 +111,17 @@ def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_fl
         else '-DLLVM_TARGETS_TO_BUILD:STRING="AArch64;ARM;Mips;RISCV;X86"'
     ]
 
-    for experimental_backend in experimental_backends:
-        # if not on ARC platform, but want to add expeirmental backend ARC as target
-        if platform != "ARC" and experimental_backend == "ARC":
-            LLVM_TARGETS_TO_BUILD.extend(
-                LLVM_EXTRA_COMPILE_OPTIONS[experimental_backend.lower()]
-            )
-        elif platform != "Xtensa" and experimental_backend == "Xtensa":
-            print(
-                "Currently it's not supported to build Xtensa backend on non-Xtensa platform"
-            )
-            return None
+    # if not on ARC platform, but want to add expeirmental backend ARC as target
+    if platform != "ARC" and "ARC" in backends: 
+        LLVM_TARGETS_TO_BUILD.extend(
+            LLVM_EXTRA_COMPILE_OPTIONS["arc"]
+        )
+
+    if platform != "Xtensa" and "Xtensa" in backends:
+        print(
+            "Currently it's not supported to build Xtensa backend on non-Xtensa platform"
+        )
+        return None
 
     LLVM_PROJECTS_TO_BUILD = [
         '-DLLVM_ENABLE_PROJECTS:STRING="' + ";".join(projects) + '"' if projects else ""
@@ -255,6 +255,7 @@ def main():
             "X86",
             "Xtensa",
         ],
+        default=[],
         help="identify LLVM supported backends, separate by space, like '--arch ARM Mips X86'",
     )
     parser.add_argument(
@@ -282,10 +283,6 @@ def main():
         help="custom extra cmake flags",
     )
     options = parser.parse_args()
-
-    # Ensure options.arch is always a list
-    if options.arch is None:
-        options.arch = []
 
     # if the "platform" is not identified in the command line option,
     # detect it
