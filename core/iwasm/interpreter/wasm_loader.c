@@ -2991,7 +2991,9 @@ load_global_import(const uint8 **p_buf, const uint8 *buf_end,
         return false;
     }
 
+#if WASM_ENABLE_MULTI_MODULE != 0
 #if WASM_ENABLE_LIBC_BUILTIN != 0
+    /* link with libc-builtin provided */
     ret = wasm_native_lookup_libc_builtin_global(sub_module_name, global_name,
                                                  global);
     if (ret) {
@@ -3004,7 +3006,8 @@ load_global_import(const uint8 **p_buf, const uint8 *buf_end,
         global->is_linked = true;
     }
 #endif
-#if WASM_ENABLE_MULTI_MODULE != 0
+
+    /* link with other modules' */
     if (!global->is_linked
         && !wasm_runtime_is_built_in_module(sub_module_name)) {
         sub_module = (WASMModule *)wasm_runtime_load_depended_module(
@@ -3022,7 +3025,7 @@ load_global_import(const uint8 **p_buf, const uint8 *buf_end,
             }
         }
     }
-#endif
+#endif /* WASM_ENABLE_MULTI_MODULE != 0 */
 
     global->module_name = sub_module_name;
     global->field_name = global_name;
