@@ -1099,17 +1099,10 @@ fail1:
 AOTMemoryInstance *
 aot_lookup_memory(AOTModuleInstance *module_inst, char const *name)
 {
-#if WASM_ENABLE_MULTI_MEMORY != 0
-    uint32 i;
-    for (i = 0; i < module_inst->export_memory_count; i++)
+    for (uint32 i = 0; i < module_inst->export_memory_count; i++)
         if (!strcmp(module_inst->export_memories[i].name, name))
             return module_inst->export_memories[i].memory;
     return NULL;
-#else
-    (void)name;
-    (void)module_inst->export_memories;
-    return aot_get_default_memory(module_inst);
-#endif
 }
 
 /*
