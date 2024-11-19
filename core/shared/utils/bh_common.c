@@ -187,7 +187,7 @@ _mktemp_s(char *nameTemplate, size_t sizeInChars);
 #endif
 
 bool
-bh_mkstmp(char *file_name, size_t name_len)
+bh_mkstemp(char *file_name, size_t name_len)
 {
     int fd;
 

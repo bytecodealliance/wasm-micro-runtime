@@ -4326,7 +4326,7 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
         char file_name[] = "wasm-XXXXXX", buf[128];
         int ret;
 
-        if (!bh_mkstmp(file_name, sizeof(file_name))) {
+        if (!bh_mkstemp(file_name, sizeof(file_name))) {
             aot_set_last_error("make temp file failed.");
             goto fail;
         }
