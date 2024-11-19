@@ -780,12 +780,12 @@ get_init_data_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
      * -------------------------------------------------------
      * | u32 import_memory_count
      * -------------------------------------------------------
-     * |                                      |  u8 module_name
-     * |                                      |  u8 field_name
      * |                                      | u32 flags
      * | AOTImportMemory[import_memory_count] | u32 num_bytes_per_page
      * |                                      | u32 init_page_count
      * |                                      | u32 max_page_count
+     * |                                      | str module_name
+     * |                                      | str field_name
      * -------------------------------------------------------
      * | padding
      * -------------------------------------------------------
@@ -800,6 +800,8 @@ get_init_data_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
      * -------------------------------------------------------
      * | u32 mem_init_data_count
      * -------------------------------------------------------
+     * |                                     | u32 is_passive/placeholder
+     * |                                     | u32 memory_index/placeholder
      * |                                     | u32 init expr type
      * | AOTMemInitData[mem_init_data_count] | u32 init expr value
      * |                                     | u32 byte count

@@ -47,7 +47,7 @@ aot_create_import_memories(const WASMModule *module, uint32 import_memory_count)
     }
 
     import_memories = wasm_runtime_malloc((uint32)size);
-    if (!module->import_memories) {
+    if (!import_memories) {
         aot_set_last_error("allocate memory failed.");
         return NULL;
     }
