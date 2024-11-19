@@ -165,3 +165,53 @@ wa_strdup(const char *s)
     }
     return s1;
 }
+
+int
+bh_system(const char *cmd)
+{
+    int ret;
+
+#if !(defined(_WIN32) || defined(_WIN32_))
+    ret = system(cmd);
+#else
+    ret = _spawnlp(_P_WAIT, "cmd.exe", "/c", cmd, NULL);
+#endif
+
+    return ret;
+}
+
+#if defined(_WIN32) || defined(_WIN32_)
+errno_t
+_mktemp_s(char *nameTemplate, size_t sizeInChars);
+#endif
+
+bool
+bh_mkstmp(const char *file_name, size_t name_len)
+{
+    int fd;
+
+#if !(defined(_WIN32) || defined(_WIN32_))
+    (void)size;
+    /* On Linux, it generates a unique temporary filename from template, creates
+     * and opens the file, and returns an open file descriptor for the file. */
+    if ((fd = mkstemp(file_name)) <= 0) {
+        aot_set_last_error("make temp file failed.");
+        goto fail;
+    }
+
+    /* close and remove temp file */
+    close(fd);
+    unlink(file_name);
+#else
+    /* On Windows, it generates a unique temporary file name but does not create
+     * or open the file */
+    if (_mktemp_s(file_name, size)) {
+        aot_set_last_error("make temp file failed.");
+        goto fail;
+    }
+#endif
+
+    return true;
+fail:
+    return false;
+}

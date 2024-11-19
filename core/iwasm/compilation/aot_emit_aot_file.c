@@ -4324,23 +4324,10 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
         /* Emit to assembly file instead for arc target
            as it cannot emit to object file */
         char file_name[] = "wasm-XXXXXX", buf[128];
-        int fd, ret;
+        int ret;
 
-#if !(defined(_WIN32) || defined(_WIN32_))
-        if ((fd = mkstemp(file_name)) <= 0) {
-            aot_set_last_error("make temp file failed.");
+        if (!bh_mkstmp(file_name, sizeof(file_name)))
             goto fail;
-        }
-
-        /* close and remove temp file */
-        close(fd);
-        unlink(file_name);
-#else
-        if (_mktemp_s(file_name, sizeof(file_name))) {
-            aot_set_last_error("make temp file failed.");
-            goto fail;
-        }
-#endif
 
         snprintf(buf, sizeof(buf), "%s%s", file_name, ".s");
         if (LLVMTargetMachineEmitToFile(comp_ctx->target_machine,
@@ -4362,11 +4349,7 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
                  "/opt/zephyr-sdk/arc-zephyr-elf/bin/arc-zephyr-elf-gcc ",
                  "-mcpu=arcem -o ", file_name, ".o -c ", file_name, ".s");
         /* TODO: use try..catch to handle possible exceptions */
-#if !(defined(_WIN32) || defined(_WIN32_))
-        ret = system(buf);
-#else
-        ret = _spawnlp(_P_WAIT, "cmd.exe", "/c", buf, NULL);
-#endif
+        ret = bh_system(buf);
         /* remove temp assembly file */
         snprintf(buf, sizeof(buf), "%s%s", file_name, ".s");
         unlink(buf);

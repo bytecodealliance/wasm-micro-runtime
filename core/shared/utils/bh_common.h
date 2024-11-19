@@ -66,6 +66,14 @@ bh_strdup(const char *s);
 char *
 wa_strdup(const char *s);
 
+/* Executes a system command in bash/cmd.exe */
+int
+bh_system(const char *cmd);
+
+/* Tests whether can create a temporary file with the given name */
+bool
+bh_mkstmp(const char *filename, size_t name_len);
+
 #ifdef __cplusplus
 }
 #endif
