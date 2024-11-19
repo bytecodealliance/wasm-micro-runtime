@@ -166,7 +166,7 @@ wa_strdup(const char *s)
     return s1;
 }
 
-#if WASM_ENABLE_WAMR_COMPILER != 0
+#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0
 int
 bh_system(const char *cmd)
 {
@@ -214,4 +214,4 @@ bh_mkstmp(char *file_name, size_t name_len)
 fail:
     return false;
 }
-#endif /* End of WASM_ENABLE_WAMR_COMPILER != 0 */
+#endif /* End of WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0 */
