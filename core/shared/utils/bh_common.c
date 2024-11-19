@@ -166,6 +166,7 @@ wa_strdup(const char *s)
     return s1;
 }
 
+#if WASM_ENABLE_WAMR_COMPILER != 0
 int
 bh_system(const char *cmd)
 {
@@ -205,7 +206,7 @@ bh_mkstmp(const char *file_name, size_t name_len)
 #else
     /* On Windows, it generates a unique temporary file name but does not create
      * or open the file */
-    if (_mktemp_s(file_name, size)) {
+    if (_mktemp_s(file_name, name_len)) {
         aot_set_last_error("make temp file failed.");
         goto fail;
     }
@@ -215,3 +216,4 @@ bh_mkstmp(const char *file_name, size_t name_len)
 fail:
     return false;
 }
+#endif /* End of WASM_ENABLE_WAMR_COMPILER != 0 */
