@@ -2034,26 +2034,6 @@ fail:
     return ret;
 }
 
-static bool
-check_linked_symbol(AOTModule *module, char *error_buf, uint32 error_buf_size)
-{
-    uint32 i;
-
-    /* init_func_ptrs() will go through import functions */
-
-    for (i = 0; i < module->import_global_count; i++) {
-        AOTImportGlobal *global = module->import_globals + i;
-        if (!global->is_linked) {
-            set_error_buf_v(error_buf, error_buf_size,
-                            "failed to link import global (%s, %s)",
-                            global->module_name, global->global_name);
-            return false;
-        }
-    }
-
-    return true;
-}
-
 AOTModuleInstance *
 aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
                 WASMExecEnv *exec_env_main, uint32 stack_size, uint32 heap_size,
@@ -2259,9 +2239,6 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     /* Initialize function pointers */
     if (!init_func_ptrs(module_inst, module, error_buf, error_buf_size))
         goto fail;
-
-    // if (!check_linked_symbol(module, error_buf, error_buf_size))
-    //     goto fail;
 
     if (!create_exports(module_inst, module, error_buf, error_buf_size))
         goto fail;
