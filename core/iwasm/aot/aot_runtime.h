@@ -132,6 +132,9 @@ typedef struct AOTModuleInstanceExtra {
     DefPointer(uint8 *, shared_heap_base_addr_adj);
     MemBound shared_heap_start_off;
 
+    DefPointer(AOTGlobalInstance *, globals);
+    uint32 global_count;
+
     WASMModuleInstanceExtraCommon common;
 
     /**
@@ -143,8 +146,6 @@ typedef struct AOTModuleInstanceExtra {
     AOTFunctionInstance **functions;
     uint32 function_count;
 
-    AOTGlobalInstance *globals;
-    uint32 global_count;
 #if WASM_ENABLE_MULTI_MODULE != 0
     bh_list sub_module_inst_list_head;
     bh_list *sub_module_inst_list;

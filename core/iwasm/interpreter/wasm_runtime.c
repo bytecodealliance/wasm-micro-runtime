@@ -1435,7 +1435,7 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
             LOG_ERROR("missing an import global(%s, %s)",
                       import_global_type->module_name,
                       import_global_type->field_name);
-            return NULL;
+            goto fail;
         }
 
         /* just in case */
@@ -1444,7 +1444,7 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
             LOG_ERROR(
                 "mismatched import global name: expect \"%s\", got \"%s\"",
                 import_global_type->field_name, extern_inst->field_name);
-            return NULL;
+            goto fail;
         }
 #endif
 
@@ -1457,21 +1457,22 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
     }
 
     /* instantiate globals from global section */
-    for (i = 0; i < module->global_count; i++) {
-        InitializerExpression *init_expr = &(module->globals[i].init_expr);
-        uint8 flag = init_expr->init_expr_type;
-
+    for (i = 0; i < module->global_count; i++, global++) {
         global->type = module->globals[i].type.val_type;
         global->is_mutable = module->globals[i].type.is_mutable;
+
+#if WASM_ENABLE_GC != 0
+        global->ref_type = module->globals[i].ref_type;
+#endif
+
 #if WASM_ENABLE_FAST_JIT != 0
         bh_assert(global_data_offset == module->globals[i].data_offset);
 #endif
         global->data_offset = global_data_offset;
         global_data_offset += wasm_value_type_size(global->type);
-#if WASM_ENABLE_GC != 0
-        global->ref_type = module->globals[i].ref_type;
-#endif
 
+        InitializerExpression *init_expr = &(module->globals[i].init_expr);
+        uint8 flag = init_expr->init_expr_type;
         switch (flag) {
             case INIT_EXPR_TYPE_GET_GLOBAL:
             {
@@ -1480,10 +1481,9 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
                     goto fail;
                 }
 
-                bh_memcpy_s(
-                    &(global->initial_value), sizeof(WASMValue),
-                    &(globals[init_expr->u.global_index].initial_value),
-                    sizeof(globals[init_expr->u.global_index].initial_value));
+                bh_memcpy_s(&(global->initial_value), sizeof(WASMValue),
+                            &(globals[init_expr->u.global_index].initial_value),
+                            sizeof(WASMValue));
                 break;
             }
 #if WASM_ENABLE_GC != 0
@@ -1552,11 +1552,9 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
 #endif /* end of WASM_ENABLE_GC != 0 */
             default:
                 bh_memcpy_s(&(global->initial_value), sizeof(WASMValue),
-                            &(init_expr->u), sizeof(init_expr->u));
+                            &(init_expr->u), sizeof(WASMValue));
                 break;
         }
-
-        global++;
     }
 
     bh_assert((uint32)(global - globals) == global_count);
@@ -2840,6 +2838,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         goto fail;
     }
 
+    /*TODO: init_global_data() ?*/
     /* WASMGlobalInstance->initial_value => WASMModuleInstance->global_data*/
     if (global_count > 0) {
         /* Initialize the global data */

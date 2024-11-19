@@ -204,13 +204,11 @@ struct WASMGlobalInstance {
      */
     WASMValue initial_value;
 
-#if WASM_ENABLE_GC != 0
-    WASMRefType *ref_type;
-#endif
-
     /* just for import, keep the reference here */
-    WASMModuleInstance *import_module_inst;
-    WASMGlobalInstance *import_global_inst;
+    DefPointer(WASMModuleInstance *, import_module_inst);
+    DefPointer(WASMGlobalInstance *, import_global_inst);
+    /* WASMRefType *ref_type */
+    DefPointer(void *, ref_type);
 };
 
 struct WASMFunctionInstance {
@@ -315,7 +313,6 @@ typedef struct CApiFuncImport {
 } CApiFuncImport;
 
 /* The common part of WASMModuleInstanceExtra and AOTModuleInstanceExtra */
-/* but different size */
 typedef struct WASMModuleInstanceExtraCommon {
 #if WASM_ENABLE_MODULE_INST_CONTEXT != 0
     void *contexts[WASM_MAX_INSTANCE_CONTEXTS];
