@@ -283,18 +283,11 @@ assign_table_init_value(AOTModuleInstance *module_inst, AOTModule *module,
                                         error_buf, error_buf_size)) {
                 return false;
             }
-            if (init_expr->u.global_index < module->import_global_count) {
-                PUT_REF_TO_ADDR(
-                    addr, module->import_globals[init_expr->u.global_index]
-                              .global_data_linked.gc_obj);
-            }
-            else {
-                uint32 global_idx =
-                    init_expr->u.global_index - module->import_global_count;
-                return assign_table_init_value(
-                    module_inst, module, &module->globals[global_idx].init_expr,
-                    addr, error_buf, error_buf_size);
-            }
+
+            AOTModuleInstanceExtra *e =
+                (AOTModuleInstanceExtra *)module_inst->e;
+            AOTGlobalInstance *global = e->globals + init_expr->u.global_index;
+            PUT_REF_TO_ADDR(addr, global->initial_value.gc_obj);
             break;
         }
         case INIT_EXPR_TYPE_REFNULL_CONST:
@@ -444,58 +437,90 @@ assign_table_init_value(AOTModuleInstance *module_inst, AOTModule *module,
 }
 #endif /* end of WASM_ENABLE_GC != 0 */
 
-static bool
-global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
-                   char *error_buf, uint32 error_buf_size)
+static AOTGlobalInstance *
+globals_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
+                    const WASMExternInstance *imports, uint32 import_count,
+                    char *error_buf, uint32 error_buf_size)
 {
     uint32 i;
-    InitializerExpression *init_expr;
     uint8 *p = module_inst->global_data;
-    AOTImportGlobal *import_global = module->import_globals;
-    AOTGlobal *global = module->globals;
+
+    uint64 total_size =
+        sizeof(AOTGlobalInstance)
+        * (uint64)(module->global_count + module->import_global_count);
+    AOTGlobalInstance *globals =
+        runtime_malloc(total_size, error_buf, error_buf_size);
+    if (!globals) {
+        return NULL;
+    }
 
     /* Initialize import global data */
-    for (i = 0; i < module->import_global_count; i++, import_global++) {
-        bh_assert(import_global->data_offset
+    AOTGlobalInstance *global = globals;
+    AOTImportGlobal *import_global_type = module->import_globals;
+    for (i = 0; i < module->import_global_count;
+         i++, import_global_type++, global++) {
+        global->type = import_global_type->type.val_type;
+        global->is_mutable = import_global_type->type.is_mutable;
+
+        bh_assert(import_global_type->data_offset
                   == (uint32)(p - module_inst->global_data));
-        init_global_data(p, import_global->type.val_type,
-                         &import_global->global_data_linked);
-        p += import_global->size;
+        global->data_offset = import_global_type->data_offset;
+
+        const WASMExternInstance *extern_inst =
+            wasm_runtime_get_extern_instance(imports, import_count,
+                                             WASM_IMPORT_EXPORT_KIND_GLOBAL, i);
+        if (!extern_inst) {
+            LOG_ERROR("missing an import global(%s, %s)",
+                      import_global_type->module_name,
+                      import_global_type->global_name);
+            goto fail;
+        }
+
+        /* just in case */
+#ifndef NDEBUG
+        if (strcmp(import_global_type->global_name, extern_inst->field_name)) {
+            LOG_ERROR(
+                "mismatched import global name: expect \"%s\", got \"%s\"",
+                import_global_type->global_name, extern_inst->field_name);
+            goto fail;
+        }
+#endif
+
+        bh_memcpy_s(&global->initial_value, sizeof(WASMValue),
+                    &extern_inst->u.global->initial_value, sizeof(WASMValue));
+        global->import_module_inst =
+            (WASMModuleInstance *)extern_inst->dep_inst;
+        /* write into global_data */
+        init_global_data(p, global->type, &global->initial_value);
+
+        p += import_global_type->size;
     }
 
     /* Initialize defined global data */
-    for (i = 0; i < module->global_count; i++, global++) {
-        uint8 flag;
-        bh_assert(global->data_offset
+    AOTGlobal *global_type = module->globals;
+    for (i = 0; i < module->global_count; i++, global_type++, global++) {
+        global->type = global_type->type.val_type;
+        global->is_mutable = global_type->type.is_mutable;
+
+        bh_assert(global_type->data_offset
                   == (uint32)(p - module_inst->global_data));
-        init_expr = &global->init_expr;
-        flag = init_expr->init_expr_type;
+        global->data_offset = global_type->data_offset;
+
+        InitializerExpression *init_expr = &global_type->init_expr;
+        uint8 flag = init_expr->init_expr_type;
         switch (flag) {
             case INIT_EXPR_TYPE_GET_GLOBAL:
             {
                 if (!check_global_init_expr(module, init_expr->u.global_index,
                                             error_buf, error_buf_size)) {
-                    return false;
+                    goto fail;
                 }
-#if WASM_ENABLE_GC == 0
-                init_global_data(
-                    p, global->type.val_type,
-                    &module->import_globals[init_expr->u.global_index]
-                         .global_data_linked);
-#else
-                if (init_expr->u.global_index < module->import_global_count) {
-                    init_global_data(
-                        p, global->type.val_type,
-                        &module->import_globals[init_expr->u.global_index]
-                             .global_data_linked);
-                }
-                else {
-                    uint32 global_idx =
-                        init_expr->u.global_index - module->import_global_count;
-                    init_global_data(p, global->type.val_type,
-                                     &module->globals[global_idx].init_expr.u);
-                }
-#endif
+
+                bh_memcpy_s(&(global->initial_value), sizeof(WASMValue),
+                            &(globals[init_expr->u.global_index].initial_value),
+                            sizeof(WASMValue));
+
+                init_global_data(p, global->type, &global->initial_value);
                 break;
             }
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
@@ -522,7 +547,7 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                     if (!(func_obj =
                               aot_create_func_obj(module_inst, func_idx, false,
                                                   error_buf, error_buf_size))) {
-                        return false;
+                        goto fail;
                     }
                 }
 
@@ -559,7 +584,7 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                           module->type_count, &module->rtt_type_lock))) {
                     set_error_buf(error_buf, error_buf_size,
                                   "create rtt object failed");
-                    return false;
+                    goto fail;
                 }
 
                 if (!(struct_obj = wasm_struct_obj_new_internal(
@@ -568,7 +593,7 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                           rtt_type))) {
                     set_error_buf(error_buf, error_buf_size,
                                   "create struct object failed");
-                    return false;
+                    goto fail;
                 }
 
                 if (flag == INIT_EXPR_TYPE_STRUCT_NEW) {
@@ -620,7 +645,7 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                           module->type_count, &module->rtt_type_lock))) {
                     set_error_buf(error_buf, error_buf_size,
                                   "create rtt object failed");
-                    return false;
+                    goto fail;
                 }
 
                 if (!(array_obj = wasm_array_obj_new_internal(
@@ -629,7 +654,7 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                           rtt_type, len, arr_init_val))) {
                     set_error_buf(error_buf, error_buf_size,
                                   "create array object failed");
-                    return false;
+                    goto fail;
                 }
 
                 if (flag == INIT_EXPR_TYPE_ARRAY_NEW_FIXED) {
@@ -650,16 +675,23 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 #endif /* end of WASM_ENABLE_GC != 0 */
             default:
             {
-                init_global_data(p, global->type.val_type, &init_expr->u);
+                bh_memcpy_s(&global->initial_value, sizeof(WASMValue),
+                            &init_expr->u, sizeof(WASMValue));
+                init_global_data(p, global->type, &global->initial_value);
                 break;
             }
         }
-        p += global->size;
+
+        p += global_type->size;
     }
 
     bh_assert(module_inst->global_data_size
               == (uint32)(p - module_inst->global_data));
-    return true;
+
+    return globals;
+fail:
+    wasm_runtime_free(globals);
+    return NULL;
 }
 
 /**
@@ -2193,8 +2225,13 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         + module_inst_mem_inst_size;
     module_inst->global_data = p;
     module_inst->global_data_size = module->global_data_size;
-    if (!global_instantiate(module_inst, module, error_buf, error_buf_size))
-        goto fail;
+    if (module->import_global_count + module->global_count > 0) {
+        extra->globals =
+            globals_instantiate(module_inst, module, imports, import_count,
+                                error_buf, error_buf_size);
+        if (!extra->globals)
+            goto fail;
+    }
 
     /* __heap_base */
     uint8 *aux_heap_base_global_data = NULL;
@@ -2223,8 +2260,8 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     if (!init_func_ptrs(module_inst, module, error_buf, error_buf_size))
         goto fail;
 
-    if (!check_linked_symbol(module, error_buf, error_buf_size))
-        goto fail;
+    // if (!check_linked_symbol(module, error_buf, error_buf_size))
+    //     goto fail;
 
     if (!create_exports(module_inst, module, error_buf, error_buf_size))
         goto fail;

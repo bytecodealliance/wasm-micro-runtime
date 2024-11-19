@@ -7924,6 +7924,26 @@ wasm_runtime_create_global_internal(WASMModuleCommon *const module,
     return NULL;
 }
 
+void
+wasm_runtime_set_global_value(WASMModuleCommon *module,
+                              WASMGlobalInstance *global, WASMValue *value)
+{
+    if (!global || !value)
+        return;
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        wasm_set_global_value(global, value);
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        aot_set_global_value(global, value);
+    }
+#endif
+}
+
 WASMGlobalInstance *
 wasm_runtime_create_global(WASMModuleCommon *const module,
                            WASMGlobalType *const type, const wasm_val_t *value)
@@ -7971,17 +7991,7 @@ wasm_runtime_create_global(WASMModuleCommon *const module,
         }
     }
 
-#if WASM_ENABLE_INTERP != 0
-    if (module->module_type == Wasm_Module_Bytecode) {
-        wasm_set_global_value(global, &init_value);
-    }
-#endif
-
-#if WASM_ENABLE_AOT != 0
-    if (module->module_type == Wasm_Module_AoT) {
-        aot_set_global_value(global, &init_value);
-    }
-#endif
+    wasm_runtime_set_global_value(module, global, &init_value);
 
     return global;
 }
@@ -8202,19 +8212,23 @@ wasm_runtime_create_imports(WASMModuleCommon *module,
 
         if (!strncmp(import_type.name, "global_i32", 10)) {
             WASMValue value = { .i32 = 666 };
-            wasm_set_global_value(extern_instance->u.global, &value);
+            wasm_runtime_set_global_value(module, extern_instance->u.global,
+                                          &value);
         }
         else if (!strncmp(import_type.name, "global_i64", 10)) {
             WASMValue value = { .i64 = 666 };
-            wasm_set_global_value(extern_instance->u.global, &value);
+            wasm_runtime_set_global_value(module, extern_instance->u.global,
+                                          &value);
         }
         else if (!strncmp(import_type.name, "global_f32", 10)) {
             WASMValue value = { .f32 = 666.6f };
-            wasm_set_global_value(extern_instance->u.global, &value);
+            wasm_runtime_set_global_value(module, extern_instance->u.global,
+                                          &value);
         }
         else if (!strncmp(import_type.name, "global_f64", 10)) {
             WASMValue value = { .f64 = 666.6 };
-            wasm_set_global_value(extern_instance->u.global, &value);
+            wasm_runtime_set_global_value(module, extern_instance->u.global,
+                                          &value);
         }
 #endif
     }
