@@ -187,16 +187,15 @@ _mktemp_s(char *nameTemplate, size_t sizeInChars);
 #endif
 
 bool
-bh_mkstmp(const char *file_name, size_t name_len)
+bh_mkstmp(char *file_name, size_t name_len)
 {
     int fd;
 
 #if !(defined(_WIN32) || defined(_WIN32_))
-    (void)size;
+    (void)name_len;
     /* On Linux, it generates a unique temporary filename from template, creates
      * and opens the file, and returns an open file descriptor for the file. */
     if ((fd = mkstemp(file_name)) <= 0) {
-        aot_set_last_error("make temp file failed.");
         goto fail;
     }
 
@@ -207,7 +206,6 @@ bh_mkstmp(const char *file_name, size_t name_len)
     /* On Windows, it generates a unique temporary file name but does not create
      * or open the file */
     if (_mktemp_s(file_name, name_len)) {
-        aot_set_last_error("make temp file failed.");
         goto fail;
     }
 #endif

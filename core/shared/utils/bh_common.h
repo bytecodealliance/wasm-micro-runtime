@@ -73,7 +73,7 @@ bh_system(const char *cmd);
 
 /* Tests whether can create a temporary file with the given name */
 bool
-bh_mkstmp(const char *filename, size_t name_len);
+bh_mkstmp(char *filename, size_t name_len);
 #endif
 
 #ifdef __cplusplus
