@@ -315,6 +315,7 @@ typedef struct CApiFuncImport {
 } CApiFuncImport;
 
 /* The common part of WASMModuleInstanceExtra and AOTModuleInstanceExtra */
+/* but different size */
 typedef struct WASMModuleInstanceExtraCommon {
 #if WASM_ENABLE_MODULE_INST_CONTEXT != 0
     void *contexts[WASM_MAX_INSTANCE_CONTEXTS];
