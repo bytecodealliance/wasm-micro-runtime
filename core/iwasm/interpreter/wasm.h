@@ -608,18 +608,23 @@ typedef struct WASMGlobalImport {
     char *module_name;
     char *field_name;
     WASMGlobalType type;
+
+    /*TODO: not necessary if WASM_ENABLE_MULTI_MODULE == 0*/
     bool is_linked;
     /* global data after linked */
     WASMValue global_data_linked;
+
 #if WASM_ENABLE_GC != 0
     WASMRefType *ref_type;
 #endif
+
 #if WASM_ENABLE_MULTI_MODULE != 0
     /* imported function pointer after linked */
     /* TODO: remove if not needed */
     WASMModule *import_module;
     WASMGlobal *import_global_linked;
 #endif
+
 #if WASM_ENABLE_FAST_JIT != 0
     /* The data offset of current global in global data */
     uint32 data_offset;

@@ -921,6 +921,16 @@ aot_set_table_elem(const AOTModule *module, AOTTableInstance *table,
 void
 aot_destroy_table(AOTTableInstance *table);
 
+AOTGlobalInstance *
+aot_create_global(const AOTModule *module, AOTModuleInstance *dep_inst,
+                  WASMGlobalType *type);
+
+void
+aot_set_global_value(AOTGlobalInstance *global, const WASMValue *value);
+
+void
+aot_destroy_global(AOTGlobalInstance *global);
+
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif

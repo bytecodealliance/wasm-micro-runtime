@@ -5789,3 +5789,36 @@ aot_destroy_table(AOTTableInstance *table)
 
     wasm_runtime_free(table);
 }
+
+AOTGlobalInstance *
+aot_create_global(const AOTModule *module, AOTModuleInstance *dep_inst,
+                  WASMGlobalType *type)
+{
+    AOTGlobalInstance *global =
+        runtime_malloc(sizeof(AOTGlobalInstance), NULL, 0);
+    if (!global) {
+        return NULL;
+    }
+
+    global->type = type->val_type;
+    global->is_mutable = type->is_mutable;
+    global->import_module_inst = dep_inst;
+    /* empty global. set value later by wasm_set_global_value */
+    return global;
+}
+
+void
+aot_set_global_value(AOTGlobalInstance *global, const WASMValue *value)
+{
+    bh_memcpy_s(&global->initial_value, sizeof(WASMValue), value,
+                sizeof(WASMValue));
+}
+
+void
+aot_destroy_global(AOTGlobalInstance *global)
+{
+    if (!global)
+        return;
+
+    wasm_runtime_free(global);
+}

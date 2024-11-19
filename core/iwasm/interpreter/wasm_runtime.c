@@ -5436,7 +5436,7 @@ wasm_create_global(const WASMModule *module, WASMModuleInstance *dep_inst,
 
     global->type = type->val_type;
     global->is_mutable = type->is_mutable;
-    global->import_global_inst = dep_inst;
+    global->import_module_inst = dep_inst;
     /* empty global. set value later by wasm_set_global_value */
     return global;
 }

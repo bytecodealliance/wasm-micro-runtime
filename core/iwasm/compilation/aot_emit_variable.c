@@ -6,6 +6,7 @@
 #include "aot_emit_variable.h"
 #include "aot_emit_exception.h"
 #include "../aot/aot_runtime.h"
+#include "aot_emit_table.h"
 
 #define CHECK_LOCAL(idx)                                      \
     do {                                                      \
@@ -149,6 +150,132 @@ aot_compile_op_tee_local(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     return aot_compile_op_set_or_tee_local(comp_ctx, func_ctx, local_idx, true);
 }
 
+/*TODO: should be optimized by moving globals to WASMModuleInstance */
+LLVMValueRef
+get_global_from_wasm_inst(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                          uint32 global_idx)
+{
+    /* WASMModuleInstance->e */
+    uint32 e_offset_val = offsetof(WASMModuleInstance, e);
+    LLVMValueRef e_offset = I32_CONST(e_offset_val);
+    LLVMValueRef e_ptr_u8 =
+        LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, func_ctx->aot_inst,
+                              &e_offset, 1, "e_ptr");
+    LLVMValueRef e_ptr =
+        LLVMBuildBitCast(comp_ctx->builder, e_ptr_u8, OPQ_PTR_TYPE, "e_ptr");
+    LLVMValueRef e =
+        LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE, e_ptr, "e");
+
+    uint32 globals_offset_val;
+    if (comp_ctx->is_jit_mode) {
+        /* WASMModuleInstanceExtra->globals */
+        globals_offset_val = offsetof(WASMModuleInstanceExtra, globals);
+    }
+    else {
+        /* AOTModuleInstanceExtra->globals */
+        globals_offset_val = offsetof(AOTModuleInstanceExtra, globals);
+    }
+    LLVMValueRef globals_offset = I32_CONST(globals_offset_val);
+    LLVMValueRef globals_ptr = LLVMBuildInBoundsGEP2(
+        comp_ctx->builder, INT8_TYPE, e, &globals_offset, 1, "globals_ptr");
+
+    LLVMValueRef globals =
+        LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE, globals_ptr, "globals");
+
+    /* WASMGlobalInstance[global_idx] */
+    uint32 global_offset_val = global_idx * sizeof(WASMGlobalInstance);
+    LLVMValueRef global_offset = I32_CONST(global_offset_val);
+    LLVMValueRef global_ptr = LLVMBuildInBoundsGEP2(
+        comp_ctx->builder, INT8_TYPE, globals, &global_offset, 1, "global_ptr");
+
+    return global_ptr;
+}
+
+static LLVMValueRef
+get_global_value_addr(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                      uint32 global_idx)
+{
+    /* WASMGlobalInstance[global_idx] */
+    LLVMValueRef global_ptr =
+        get_global_from_wasm_inst(comp_ctx, func_ctx, global_idx);
+
+    /* WASMGlobalInstance->import_module_inst */
+    uint32 import_inst_offset_val =
+        offsetof(WASMGlobalInstance, import_module_inst);
+    LLVMValueRef import_inst_offset = I32_CONST(import_inst_offset_val);
+    LLVMValueRef import_inst_ptr_u8 =
+        LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, global_ptr,
+                              &import_inst_offset, 1, "import_inst_u8_ptr");
+    LLVMValueRef import_inst_ptr = LLVMBuildBitCast(
+        comp_ctx->builder, import_inst_ptr_u8, OPQ_PTR_TYPE, "import_inst_ptr");
+    LLVMValueRef import_inst = LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE,
+                                              import_inst_ptr, "import_inst");
+
+    /* WASMGlobalInstance->data_offset */
+    uint32 data_offset_offset_val = offsetof(WASMGlobalInstance, data_offset);
+    LLVMValueRef data_offset_offset = I32_CONST(data_offset_offset_val);
+    LLVMValueRef data_offset_ptr =
+        LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, global_ptr,
+                              &data_offset_offset, 1, "data_offset_ptr");
+    LLVMValueRef data_offset = LLVMBuildLoad2(comp_ctx->builder, I32_TYPE,
+                                              data_offset_ptr, "data_offset");
+
+    /* WASMModuleInstance->global_data preparation */
+    uint32 global_data_offset_val =
+        offsetof(WASMModuleInstance, global_table_data.bytes)
+        + sizeof(AOTMemoryInstance)
+              * (comp_ctx->comp_data->memory_count
+                 + comp_ctx->comp_data->import_memory_count);
+    LLVMValueRef global_data_offset = I32_CONST(global_data_offset_val);
+
+    // Check if import_module_inst is NULL
+    LLVMBasicBlockRef then_block = LLVMAppendBasicBlockInContext(
+        comp_ctx->context, func_ctx->func, "then");
+    LLVMBasicBlockRef else_block = LLVMAppendBasicBlockInContext(
+        comp_ctx->context, func_ctx->func, "else");
+    LLVMBasicBlockRef merge_block = LLVMAppendBasicBlockInContext(
+        comp_ctx->context, func_ctx->func, "merge");
+
+    LLVMBuildCondBr(comp_ctx->builder,
+                    LLVMBuildIsNull(comp_ctx->builder, import_inst, "is_null"),
+                    then_block, else_block);
+
+    // If import_module_inst is NULL
+    LLVMPositionBuilderAtEnd(comp_ctx->builder, then_block);
+    // load global_data from local module instance
+    LLVMValueRef local_global_data =
+        LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, func_ctx->aot_inst,
+                              &global_data_offset, 1, "local_global_data");
+    // global value pointer
+    LLVMValueRef local_global_value_ptr =
+        LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, local_global_data,
+                              &data_offset, 1, "local_global_value_ptr");
+
+    LLVMBuildBr(comp_ctx->builder, merge_block);
+
+    // If import_module_inst is not NULL
+    LLVMPositionBuilderAtEnd(comp_ctx->builder, else_block);
+    // load global_data in import module instance
+    LLVMValueRef import_global_data =
+        LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, import_inst,
+                              &global_data_offset, 1, "import_global_data");
+
+    LLVMValueRef import_global_value_ptr =
+        LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, import_global_data,
+                              &data_offset, 1, "import_global_value_ptr");
+
+    LLVMBuildBr(comp_ctx->builder, merge_block);
+
+    // Merge block
+    LLVMPositionBuilderAtEnd(comp_ctx->builder, merge_block);
+    LLVMValueRef phi =
+        LLVMBuildPhi(comp_ctx->builder, OPQ_PTR_TYPE, "global_value_addr");
+    LLVMAddIncoming(phi, &local_global_value_ptr, &then_block, 1);
+    LLVMAddIncoming(phi, &import_global_value_ptr, &else_block, 1);
+
+    return phi;
+}
+
 static bool
 compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                uint32 global_idx, bool is_set, bool is_aux_stack)
@@ -169,23 +296,9 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     bh_assert(global_idx < import_global_count + comp_data->global_count);
 
     if (global_idx < import_global_count) {
-        global_offset =
-            global_base_offset
-            /* Get global data offset according to target info */
-            + (comp_ctx->pointer_size == sizeof(uint64)
-                   ? comp_data->import_globals[global_idx].data_offset_64bit
-                   : comp_data->import_globals[global_idx].data_offset_32bit);
         global_type = comp_data->import_globals[global_idx].type.val_type;
     }
     else {
-        global_offset =
-            global_base_offset
-            /* Get global data offset according to target info */
-            + (comp_ctx->pointer_size == sizeof(uint64)
-                   ? comp_data->globals[global_idx - import_global_count]
-                         .data_offset_64bit
-                   : comp_data->globals[global_idx - import_global_count]
-                         .data_offset_32bit);
         global_type =
             comp_data->globals[global_idx - import_global_count].type.val_type;
     }
@@ -193,13 +306,40 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (comp_ctx->enable_gc && aot_is_type_gc_reftype(global_type))
         global_type = VALUE_TYPE_GC_REF;
 
-    offset = I32_CONST(global_offset);
-    if (!(global_ptr = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
-                                             func_ctx->aot_inst, &offset, 1,
-                                             "global_ptr_tmp"))) {
-        aot_set_last_error("llvm build in bounds gep failed.");
-        return false;
-    }
+    // if (comp_ctx->is_jit_mode) {
+    global_ptr = get_global_value_addr(comp_ctx, func_ctx, global_idx);
+    // }
+    // else {
+    //     if (global_idx < import_global_count) {
+    //         global_offset =
+    //             global_base_offset
+    //             /* Get global data offset according to target info */
+    //             + (comp_ctx->pointer_size == sizeof(uint64)
+    //                    ?
+    //                    comp_data->import_globals[global_idx].data_offset_64bit
+    //                    : comp_data->import_globals[global_idx]
+    //                          .data_offset_32bit);
+    //     }
+    //     else {
+    //         global_offset =
+    //             global_base_offset
+    //             /* Get global data offset according to target info */
+    //             + (comp_ctx->pointer_size == sizeof(uint64)
+    //                    ? comp_data->globals[global_idx - import_global_count]
+    //                          .data_offset_64bit
+    //                    : comp_data->globals[global_idx - import_global_count]
+    //                          .data_offset_32bit);
+    //     }
+
+    //     offset = I32_CONST(global_offset);
+    //     if (!(global_ptr = LLVMBuildInBoundsGEP2(comp_ctx->builder,
+    //     INT8_TYPE,
+    //                                              func_ctx->aot_inst, &offset,
+    //                                              1, "global_ptr_tmp"))) {
+    //         aot_set_last_error("llvm build in bounds gep failed.");
+    //         return false;
+    //     }
+    // }
 
     switch (global_type) {
         case VALUE_TYPE_I32:
