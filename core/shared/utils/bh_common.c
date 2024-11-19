@@ -205,7 +205,7 @@ bh_mkstemp(char *file_name, size_t name_len)
 #else
     /* On Windows, it generates a unique temporary file name but does not create
      * or open the file */
-    if (_mktemp_s(file_name, name_len)) {
+    if (_mktemp_s(file_name, name_len) != 0) {
         goto fail;
     }
 #endif

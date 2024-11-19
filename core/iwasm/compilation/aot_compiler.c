@@ -4101,7 +4101,7 @@ aot_generate_tempfile_name(const char *prefix, const char *extension,
 
     name_len = snprintf(buffer, len, "%s-XXXXXX", prefix);
 
-    if (bh_mkstemp(buffer, name_len + 1) != 0) {
+    if (!bh_mkstemp(buffer, name_len + 1)) {
         aot_set_last_error("make temp file failed.");
         return NULL;
     }
