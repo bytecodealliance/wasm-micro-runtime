@@ -193,7 +193,7 @@ get_import_memory_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
     /* AOTImportMemory[] */
     for (i = 0, import_memory = comp_data->import_memories;
          i < comp_data->import_memory_count; i++, import_memory++) {
-        size = align_uint(size, 2);
+        size = align_uint(size, 4);
 
         /* u32 * 4 */
         size += (uint32)sizeof(uint32) * 4;
@@ -1806,7 +1806,7 @@ aot_emit_import_memory_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
     for (i = 0, import_memory = comp_data->import_memories;
          i < comp_data->import_memory_count; i++, import_memory++) {
-        offset = align_uint(offset, 2);
+        offset = align_uint(offset, 4);
 
         EMIT_U32(import_memory->mem_type.flags);
         EMIT_U32(import_memory->mem_type.num_bytes_per_page);
