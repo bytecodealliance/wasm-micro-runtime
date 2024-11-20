@@ -282,16 +282,9 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     const AOTCompData *comp_data = comp_ctx->comp_data;
     uint32 import_global_count = comp_data->import_global_count;
-    uint32 global_base_offset;
-    uint32 global_offset;
     uint8 global_type;
-    LLVMValueRef offset, global_ptr, global, res;
+    LLVMValueRef global_ptr, global, res;
     LLVMTypeRef ptr_type = NULL;
-
-    global_base_offset = offsetof(AOTModuleInstance, global_table_data.bytes)
-                         + sizeof(AOTMemoryInstance)
-                               * (comp_ctx->comp_data->memory_count
-                                  + comp_ctx->comp_data->import_memory_count);
 
     bh_assert(global_idx < import_global_count + comp_data->global_count);
 
@@ -306,40 +299,7 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (comp_ctx->enable_gc && aot_is_type_gc_reftype(global_type))
         global_type = VALUE_TYPE_GC_REF;
 
-    // if (comp_ctx->is_jit_mode) {
     global_ptr = get_global_value_addr(comp_ctx, func_ctx, global_idx);
-    // }
-    // else {
-    //     if (global_idx < import_global_count) {
-    //         global_offset =
-    //             global_base_offset
-    //             /* Get global data offset according to target info */
-    //             + (comp_ctx->pointer_size == sizeof(uint64)
-    //                    ?
-    //                    comp_data->import_globals[global_idx].data_offset_64bit
-    //                    : comp_data->import_globals[global_idx]
-    //                          .data_offset_32bit);
-    //     }
-    //     else {
-    //         global_offset =
-    //             global_base_offset
-    //             /* Get global data offset according to target info */
-    //             + (comp_ctx->pointer_size == sizeof(uint64)
-    //                    ? comp_data->globals[global_idx - import_global_count]
-    //                          .data_offset_64bit
-    //                    : comp_data->globals[global_idx - import_global_count]
-    //                          .data_offset_32bit);
-    //     }
-
-    //     offset = I32_CONST(global_offset);
-    //     if (!(global_ptr = LLVMBuildInBoundsGEP2(comp_ctx->builder,
-    //     INT8_TYPE,
-    //                                              func_ctx->aot_inst, &offset,
-    //                                              1, "global_ptr_tmp"))) {
-    //         aot_set_last_error("llvm build in bounds gep failed.");
-    //         return false;
-    //     }
-    // }
 
     switch (global_type) {
         case VALUE_TYPE_I32:
