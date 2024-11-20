@@ -280,6 +280,17 @@ typedef struct InstantiationArgs {
     uint32_t default_stack_size;
     uint32_t host_managed_heap_size;
     uint32_t max_memory_pages;
+    /*
+     * Callers need to create a list of wasm_extern_inst_t that follows the
+     * sequence specified by the import section.
+     *
+     * The usual way to determine the sequence is by calling
+     * wasm_runtime_get_import_type().
+     *
+     * The runtime will complete the import list with known elements,
+     * such as functions from wasi_snapshot_preview1 and registered native
+     * functions. The caller must handle the parts that are not known.
+     */
     const wasm_extern_inst_t imports;
     uint32_t import_count;
 } InstantiationArgs;

@@ -1638,7 +1638,8 @@ wasm_runtime_instantiate_internal(WASMModuleCommon *module,
     if (module->module_type == Wasm_Module_AoT)
         return (WASMModuleInstanceCommon *)aot_instantiate(
             (AOTModule *)module, (AOTModuleInstance *)parent, exec_env_main,
-            stack_size, heap_size, max_memory_pages, error_buf, error_buf_size);
+            stack_size, heap_size, max_memory_pages, imports, import_count,
+            error_buf, error_buf_size);
 #endif
     set_error_buf(error_buf, error_buf_size,
                   "Instantiate module failed, invalid module type");
@@ -7918,7 +7919,8 @@ wasm_runtime_inherit_imports(WASMModuleCommon *module,
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module->module_type == Wasm_Module_AoT) {
-        bh_assert(false && "Unsupported operation");
+        return aot_inherit_imports((AOTModule *)module,
+                                   (AOTModuleInstance *)inst, out, out_len);
     }
 #endif
     LOG_ERROR("inherit imports failed, invalid module type");
@@ -7937,9 +7939,31 @@ wasm_runtime_disinherit_imports(WASMModuleCommon *module,
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module->module_type == Wasm_Module_AoT) {
-        bh_assert(false && "Unsupported operation");
+        return aot_disinherit_imports((AOTModule *)module, imports,
+                                      import_count);
     }
 #endif
     LOG_ERROR("disinherit imports failed, invalid module type");
 }
 #endif /* WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0 */
+
+const WASMExternInstance *
+wasm_runtime_get_extern_instance(const WASMExternInstance *imports,
+                                 uint32 import_count,
+                                 wasm_import_export_kind_t kind, uint32 index)
+{
+    for (uint32 i = 0, target_kind_index = 0; i < import_count; i++) {
+        if (imports[i].kind != kind) {
+            continue;
+        }
+
+        if (target_kind_index != index) {
+            target_kind_index++;
+            continue;
+        }
+
+        return imports + i;
+    }
+
+    return NULL;
+}

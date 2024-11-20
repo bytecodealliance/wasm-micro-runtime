@@ -165,14 +165,15 @@ get_mem_init_data_size(AOTCompContext *comp_ctx, AOTMemInitData *mem_init_data)
 }
 
 static uint32
-get_mem_init_data_list_size(AOTCompContext *comp_ctx,
-                            AOTMemInitData **mem_init_data_list,
-                            uint32 mem_init_data_count)
+get_mem_init_data_list_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
 {
-    AOTMemInitData **mem_init_data = mem_init_data_list;
+    AOTMemInitData **mem_init_data = comp_data->mem_init_data_list;
     uint32 size = 0, i;
 
-    for (i = 0; i < mem_init_data_count; i++, mem_init_data++) {
+    /* mem_init_data_count */
+    size = (uint32)sizeof(uint32);
+
+    for (i = 0; i < comp_data->mem_init_data_count; i++, mem_init_data++) {
         size = align_uint(size, 4);
         size += get_mem_init_data_size(comp_ctx, *mem_init_data);
     }
@@ -180,31 +181,39 @@ get_mem_init_data_list_size(AOTCompContext *comp_ctx,
 }
 
 static uint32
-get_import_memory_size(AOTCompData *comp_data)
+get_import_memory_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
 {
-    /* currently we only emit import_memory_count = 0 */
-    return sizeof(uint32);
+    AOTImportMemory *import_memory = NULL;
+    uint32 i = 0;
+    uint32 size = 0;
+
+    /* import_memory_count */
+    size = (uint32)sizeof(uint32);
+
+    /* AOTImportMemory[] */
+    for (i = 0, import_memory = comp_data->import_memories;
+         i < comp_data->import_memory_count; i++, import_memory++) {
+        size = align_uint(size, 4);
+
+        /* u32 * 4 */
+        size += (uint32)sizeof(uint32) * 4;
+        /* module_name */
+        size += get_string_size(comp_ctx, import_memory->module_name);
+        size = align_uint(size, 2);
+        /* field_name */
+        size += get_string_size(comp_ctx, import_memory->memory_name);
+    }
+
+    return size;
 }
 
 static uint32
-get_memory_size(AOTCompData *comp_data)
+get_memory_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
 {
     /* memory_count + count * (flags + num_bytes_per_page +
                                init_page_count + max_page_count) */
     return (uint32)(sizeof(uint32)
                     + comp_data->memory_count * sizeof(uint32) * 4);
-}
-
-static uint32
-get_mem_info_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
-{
-    /* import_memory_size + memory_size
-       + init_data_count + init_data_list */
-    return get_import_memory_size(comp_data) + get_memory_size(comp_data)
-           + (uint32)sizeof(uint32)
-           + get_mem_init_data_list_size(comp_ctx,
-                                         comp_data->mem_init_data_list,
-                                         comp_data->mem_init_data_count);
 }
 
 static uint32
@@ -767,7 +776,45 @@ get_init_data_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
 {
     uint32 size = 0;
 
-    size += get_mem_info_size(comp_ctx, comp_data);
+    /*
+     * -------------------------------------------------------
+     * | u32 import_memory_count
+     * -------------------------------------------------------
+     * |                                      | u32 flags
+     * | AOTImportMemory[import_memory_count] | u32 num_bytes_per_page
+     * |                                      | u32 init_page_count
+     * |                                      | u32 max_page_count
+     * |                                      | str module_name
+     * |                                      | str field_name
+     * -------------------------------------------------------
+     * | padding
+     * -------------------------------------------------------
+     * | u32 memory_count
+     * -------------------------------------------------------
+     * |                             | u32 flags
+     * | AOTMemoryType[memory_count] | u32 num_bytes_per_page
+     * |                             | u32 init_page_count
+     * |                             | u32 max_page_count
+     * -------------------------------------------------------
+     * | padding (TBC: previous aot doesn't have this padding by design)
+     * -------------------------------------------------------
+     * | u32 mem_init_data_count
+     * -------------------------------------------------------
+     * |                                     | u32 is_passive/placeholder
+     * |                                     | u32 memory_index/placeholder
+     * |                                     | u32 init expr type
+     * | AOTMemInitData[mem_init_data_count] | u32 init expr value
+     * |                                     | u32 byte count
+     * |                                     | u8* bytes
+     * -------------------------------------------------------
+     */
+    size += get_import_memory_size(comp_ctx, comp_data);
+
+    size = align_uint(size, 4);
+    size += get_memory_size(comp_ctx, comp_data);
+
+    size = align_uint(size, 4);
+    size += get_mem_init_data_list_size(comp_ctx, comp_data);
 
     size = align_uint(size, 4);
     size += get_table_info_size(comp_ctx, comp_data);
@@ -1745,29 +1792,82 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                    AOTCompContext *comp_ctx, InitializerExpression *expr);
 
 static bool
-aot_emit_mem_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
-                  AOTCompContext *comp_ctx, AOTCompData *comp_data,
-                  AOTObjectData *obj_data)
+aot_emit_import_memory_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
+                            AOTCompContext *comp_ctx, AOTCompData *comp_data,
+                            AOTObjectData *obj_data)
+{
+    uint32 offset = *p_offset, i;
+    AOTImportMemory *import_memory = NULL;
+
+    *p_offset = offset = align_uint(offset, 4);
+
+    /* Emit import memory count */
+    EMIT_U32(comp_data->import_memory_count);
+
+    for (i = 0, import_memory = comp_data->import_memories;
+         i < comp_data->import_memory_count; i++, import_memory++) {
+        offset = align_uint(offset, 4);
+
+        EMIT_U32(import_memory->mem_type.flags);
+        EMIT_U32(import_memory->mem_type.num_bytes_per_page);
+        EMIT_U32(import_memory->mem_type.init_page_count);
+        EMIT_U32(import_memory->mem_type.max_page_count);
+
+        EMIT_STR(import_memory->module_name);
+        offset = align_uint(offset, 2);
+
+        EMIT_STR(import_memory->memory_name);
+    }
+
+    if (offset - *p_offset != get_import_memory_size(comp_ctx, comp_data)) {
+        aot_set_last_error("emit import memory info failed.");
+        return false;
+    }
+
+    *p_offset = offset;
+    return true;
+}
+
+static bool
+aot_emit_memory_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
+                     AOTCompContext *comp_ctx, AOTCompData *comp_data,
+                     AOTObjectData *obj_data)
+{
+    uint32 offset = *p_offset, i;
+    AOTMemory *memory = NULL;
+
+    *p_offset = offset = align_uint(offset, 4);
+
+    /* Emit memory count */
+    EMIT_U32(comp_data->memory_count);
+
+    /* Emit memory items */
+    for (i = 0, memory = comp_data->memories; i < comp_data->memory_count;
+         i++, memory++) {
+        EMIT_U32(memory->flags);
+        EMIT_U32(memory->num_bytes_per_page);
+        EMIT_U32(memory->init_page_count);
+        EMIT_U32(memory->max_page_count);
+    }
+
+    if (offset - *p_offset != get_memory_size(comp_ctx, comp_data)) {
+        aot_set_last_error("emit memory info failed.");
+        return false;
+    }
+
+    *p_offset = offset;
+    return true;
+}
+
+static bool
+aot_emit_memory_init_data_list(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
+                               AOTCompContext *comp_ctx, AOTCompData *comp_data,
+                               AOTObjectData *obj_data)
 {
     uint32 offset = *p_offset, i;
     AOTMemInitData **init_datas = comp_data->mem_init_data_list;
 
     *p_offset = offset = align_uint(offset, 4);
-
-    /* Emit import memory count, only emit 0 currently.
-       TODO: emit the actual import memory count and
-             the full import memory info. */
-    EMIT_U32(0);
-
-    /* Emit memory count */
-    EMIT_U32(comp_data->memory_count);
-    /* Emit memory items */
-    for (i = 0; i < comp_data->memory_count; i++) {
-        EMIT_U32(comp_data->memories[i].flags);
-        EMIT_U32(comp_data->memories[i].num_bytes_per_page);
-        EMIT_U32(comp_data->memories[i].init_page_count);
-        EMIT_U32(comp_data->memories[i].max_page_count);
-    }
 
     /* Emit mem init data count */
     EMIT_U32(comp_data->mem_init_data_count);
@@ -1793,8 +1893,9 @@ aot_emit_mem_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         EMIT_BUF(init_datas[i]->bytes, init_datas[i]->byte_count);
     }
 
-    if (offset - *p_offset != get_mem_info_size(comp_ctx, comp_data)) {
-        aot_set_last_error("emit memory info failed.");
+    if (offset - *p_offset
+        != get_mem_init_data_list_size(comp_ctx, comp_data)) {
+        aot_set_last_error("emit memory init data list failed.");
         return false;
     }
 
@@ -2383,7 +2484,12 @@ aot_emit_init_data_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     EMIT_U32(AOT_SECTION_TYPE_INIT_DATA);
     EMIT_U32(section_size);
 
-    if (!aot_emit_mem_info(buf, buf_end, &offset, comp_ctx, comp_data, obj_data)
+    if (!aot_emit_import_memory_info(buf, buf_end, &offset, comp_ctx, comp_data,
+                                     obj_data)
+        || !aot_emit_memory_info(buf, buf_end, &offset, comp_ctx, comp_data,
+                                 obj_data)
+        || !aot_emit_memory_init_data_list(buf, buf_end, &offset, comp_ctx,
+                                           comp_data, obj_data)
         || !aot_emit_table_info(buf, buf_end, &offset, comp_ctx, comp_data,
                                 obj_data)
         || !aot_emit_type_info(buf, buf_end, &offset, comp_ctx, comp_data,

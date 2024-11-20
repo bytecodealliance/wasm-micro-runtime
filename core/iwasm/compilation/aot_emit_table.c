@@ -90,13 +90,14 @@ get_tbl_inst_offset(const AOTCompContext *comp_ctx,
     AOTImportTable *imp_tbls = comp_ctx->comp_data->import_tables;
     AOTTable *tbls = comp_ctx->comp_data->tables;
 
-    offset =
-        offsetof(AOTModuleInstance, global_table_data.bytes)
-        + (uint64)comp_ctx->comp_data->memory_count * sizeof(AOTMemoryInstance)
-        /* Get global data size according to target info */
-        + (comp_ctx->pointer_size == sizeof(uint64)
-               ? comp_ctx->comp_data->global_data_size_64bit
-               : comp_ctx->comp_data->global_data_size_32bit);
+    offset = offsetof(AOTModuleInstance, global_table_data.bytes)
+             + (uint64)(comp_ctx->comp_data->memory_count
+                        + comp_ctx->comp_data->import_memory_count)
+                   * sizeof(AOTMemoryInstance)
+             /* Get global data size according to target info */
+             + (comp_ctx->pointer_size == sizeof(uint64)
+                    ? comp_ctx->comp_data->global_data_size_64bit
+                    : comp_ctx->comp_data->global_data_size_32bit);
 
     while (i < tbl_idx && i < comp_ctx->comp_data->import_table_count) {
         offset += offsetof(AOTTableInstance, elems);

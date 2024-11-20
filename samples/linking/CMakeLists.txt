@@ -14,7 +14,9 @@ string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
 include(CheckPIESupported)
 
 # AOT and JIT byd default
-set(WAMR_BUILD_AOT 0)
+if(NOT WAMR_BUILD_AOT)
+  set(WAMR_BUILD_AOT 0)
+endif()
 set(WAMR_BUILD_INTERP 1)
 set(WAMR_BUILD_JIT 0)
 # wasm32-wasi
@@ -33,7 +35,7 @@ set(WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
 include(${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 add_library(vmlib SHARED ${WAMR_RUNTIME_LIB_SOURCE})
 target_include_directories(vmlib INTERFACE ${WAMR_ROOT_DIR}/core/iwasm/include)
-target_link_libraries (vmlib ${LLVM_AVAILABLE_LIBS} -lm -ldl)
+target_link_libraries(vmlib ${LLVM_AVAILABLE_LIBS} -lm -ldl)
 
 ################  samples  ################
 add_subdirectory(raw)
@@ -45,6 +47,7 @@ ExternalProject_Add(wasm
   CONFIGURE_COMMAND ${CMAKE_COMMAND} -S ${CMAKE_CURRENT_SOURCE_DIR}/wasm -B build
                       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                       -DCMAKE_TOOLCHAIN_FILE=${WASISDK_TOOLCHAIN}
+                      -DWAMR_BUILD_AOT=${WAMR_BUILD_AOT}
   BUILD_COMMAND     ${CMAKE_COMMAND} --build build
   INSTALL_COMMAND   ${CMAKE_COMMAND} --install build --prefix ${CMAKE_CURRENT_BINARY_DIR}
   EXCLUDE_FROM_ALL  NO

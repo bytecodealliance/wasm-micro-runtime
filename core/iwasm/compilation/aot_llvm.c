@@ -1204,11 +1204,10 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     func_ctx->mem_space_unchanged = mem_space_unchanged;
 
-    memory_count = module->memory_count + module->import_memory_count;
-    /* If the module doesn't have memory, reserve
-        one mem_info space with empty content */
-    if (memory_count == 0)
-        memory_count = 1;
+    /* comp_data contains processed reservation */
+    memory_count = comp_ctx->comp_data->import_memory_count
+                   + comp_ctx->comp_data->memory_count;
+    bh_assert(memory_count > 0);
 
     if (!(func_ctx->mem_info =
               wasm_runtime_malloc(sizeof(AOTMemInfo) * memory_count))) {
@@ -1219,8 +1218,7 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Currently we only create memory info for memory 0 */
     /* Load memory base address */
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    is_shared_memory =
-        comp_ctx->comp_data->memories[0].flags & 0x02 ? true : false;
+    is_shared_memory = IS_SHARED_MEMORY;
     if (is_shared_memory) {
         LLVMValueRef shared_mem_addr;
         offset = I32_CONST(offsetof(AOTModuleInstance, memories));

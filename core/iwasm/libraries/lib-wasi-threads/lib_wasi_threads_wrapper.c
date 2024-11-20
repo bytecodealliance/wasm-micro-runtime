@@ -80,7 +80,7 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
     int32 thread_id = -1;
     uint32 stack_size = 8192;
     int32 ret = -1;
-    int32 spawned_import_count = ((WASMModule *)module)->import_count;
+    int32 spawned_import_count = 0;
     WASMExternInstance *spawned_imports = NULL;
 
     bh_assert(module);
@@ -91,6 +91,7 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
     /*
      * build a imports list(WASMExternInstance[]) from parent's imports
      */
+    spawned_import_count = wasm_runtime_get_import_count(module);
     spawned_imports =
         wasm_runtime_malloc(sizeof(WASMExternInstance) * spawned_import_count);
     if (spawned_imports == NULL) {

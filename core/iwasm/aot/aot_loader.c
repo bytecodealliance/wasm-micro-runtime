@@ -963,6 +963,11 @@ fail:
 static void
 destroy_import_memories(AOTImportMemory *import_memories)
 {
+    if (!import_memories)
+        return;
+
+    import_memories->module_name = NULL;
+    import_memories->memory_name = NULL;
     wasm_runtime_free(import_memories);
 }
 
@@ -990,6 +995,13 @@ load_mem_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
     AOTMemInitData **data_list;
     uint64 size;
     uint32 i;
+
+    read_uint32(buf, buf_end, module->mem_init_data_count);
+
+    if (module->mem_init_data_count == 0) {
+        *p_buf = buf;
+        return true;
+    }
 
     /* Allocate memory */
     size = sizeof(AOTMemInitData *) * (uint64)module->mem_init_data_count;
@@ -1036,6 +1048,51 @@ fail:
 }
 
 static bool
+load_import_memory_info(const uint8 **p_buf, const uint8 *buf_end,
+                        AOTModule *module, bool is_load_from_file_buf,
+                        char *error_buf, uint32 error_buf_size)
+{
+    const uint8 *buf = *p_buf;
+
+    read_uint32(buf, buf_end, module->import_memory_count);
+
+    if (module->import_memory_count == 0) {
+        *p_buf = buf;
+        return true;
+    }
+
+    uint64 size = sizeof(AOTImportMemory) * (uint64)module->import_memory_count;
+    AOTImportMemory *import_memories =
+        loader_malloc(size, error_buf, error_buf_size);
+    if (!import_memories) {
+        return false;
+    }
+
+    module->import_memories = import_memories;
+    for (uint32 i = 0; i < module->import_memory_count; i++) {
+        AOTImportMemory *import_memory = import_memories + i;
+
+        read_uint32(buf, buf_end, import_memory->mem_type.flags);
+        if (!wasm_memory_check_flags(import_memory->mem_type.flags, error_buf,
+                                     error_buf_size, true)) {
+            set_error_buf(error_buf, error_buf_size, "invalid memory flags");
+            return false;
+        }
+
+        read_uint32(buf, buf_end, import_memory->mem_type.num_bytes_per_page);
+        read_uint32(buf, buf_end, import_memory->mem_type.init_page_count);
+        read_uint32(buf, buf_end, import_memory->mem_type.max_page_count);
+        read_string(buf, buf_end, import_memory->module_name);
+        read_string(buf, buf_end, import_memory->memory_name);
+    }
+
+    *p_buf = buf;
+    return true;
+fail:
+    return false;
+}
+
+static bool
 load_memory_info(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                  char *error_buf, uint32 error_buf_size)
 {
@@ -1043,12 +1100,13 @@ load_memory_info(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
     uint64 total_size;
     const uint8 *buf = *p_buf;
 
-    read_uint32(buf, buf_end, module->import_memory_count);
-    /* We don't support import_memory_count > 0 currently */
-    if (module->import_memory_count > 0)
-        return false;
-
     read_uint32(buf, buf_end, module->memory_count);
+
+    if (module->memory_count == 0) {
+        *p_buf = buf;
+        return true;
+    }
+
     total_size = sizeof(AOTMemory) * (uint64)module->memory_count;
     if (!(module->memories =
               loader_malloc(total_size, error_buf, error_buf_size))) {
@@ -1067,14 +1125,6 @@ load_memory_info(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         read_uint32(buf, buf_end, module->memories[i].init_page_count);
         read_uint32(buf, buf_end, module->memories[i].max_page_count);
     }
-
-    read_uint32(buf, buf_end, module->mem_init_data_count);
-
-    /* load memory init data list */
-    if (module->mem_init_data_count > 0
-        && !load_mem_init_data_list(&buf, buf_end, module, error_buf,
-                                    error_buf_size))
-        return false;
 
     *p_buf = buf;
     return true;
@@ -2414,7 +2464,11 @@ load_init_data_section(const uint8 *buf, const uint8 *buf_end,
 {
     const uint8 *p = buf, *p_end = buf_end;
 
-    if (!load_memory_info(&p, p_end, module, error_buf, error_buf_size)
+    if (!load_import_memory_info(&p, p_end, module, is_load_from_file_buf,
+                                 error_buf, error_buf_size)
+        || !load_memory_info(&p, p_end, module, error_buf, error_buf_size)
+        || !load_mem_init_data_list(&p, p_end, module, error_buf,
+                                    error_buf_size)
         || !load_table_info(&p, p_end, module, error_buf, error_buf_size)
         || !load_type_info(&p, p_end, module, error_buf, error_buf_size)
         || !load_import_global_info(&p, p_end, module, is_load_from_file_buf,
@@ -3799,6 +3853,7 @@ has_module_memory64(AOTModule *module)
 {
     /* TODO: multi-memories for now assuming the memory idx type is consistent
      * across multi-memories */
+    /*FIXME: support import memory */
     if (module->import_memory_count > 0)
         return !!(module->import_memories[0].mem_type.flags & MEMORY64_FLAG);
     else if (module->memory_count > 0)

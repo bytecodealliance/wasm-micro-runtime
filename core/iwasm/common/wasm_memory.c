@@ -1547,8 +1547,9 @@ wasm_runtime_create_memory(WASMModuleCommon *module, WASMMemoryType *type)
 #endif
 
 #if WASM_ENABLE_AOT != 0
-    if (module->module_type == Wasm_Module_AoT)
-        bh_assert(false && "Unsupported operation");
+    if (module->module_type == Wasm_Module_AoT) {
+        return aot_create_memory((AOTModule *)module, type);
+    }
 #endif
 
     LOG_ERROR("create memory failed, invalid module type");
@@ -1570,8 +1571,10 @@ wasm_runtime_destroy_memory(WASMModuleCommon *const module,
 #endif
 
 #if WASM_ENABLE_AOT != 0
-    if (module->module_type == Wasm_Module_AoT)
-        bh_assert(false && "Unsupported operation");
+    if (module->module_type == Wasm_Module_AoT) {
+        aot_destroy_memory(memory);
+        return;
+    }
 #endif
 
     LOG_ERROR("destroy memory failed, invalid module type");
