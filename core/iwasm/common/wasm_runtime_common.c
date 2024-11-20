@@ -7766,15 +7766,20 @@ wasm_runtime_instantiate_with_builtin_linker(WASMModuleCommon *module,
                                              uint32 heap_size, char *error_buf,
                                              uint32 error_buf_size)
 {
-    int32_t import_count = 0;
+    int32 import_count = 0;
     WASMExternInstance *imports = NULL;
 
     import_count = wasm_runtime_get_import_count(module);
+    if (import_count < 0) {
+        return NULL;
+    }
+
     if (import_count) {
-        imports = runtime_malloc(sizeof(WASMExternInstance) * import_count,
-                                 NULL, error_buf, error_buf_size);
+        imports =
+            runtime_malloc(sizeof(WASMExternInstance) * (uint64)import_count,
+                           NULL, error_buf, error_buf_size);
         if (!imports) {
-            set_error_buf(error_buf, error_buf_size, "allocate imports failed");
+            LOG_ERROR("allocate imports failed");
             return NULL;
         }
 
@@ -7790,7 +7795,7 @@ wasm_runtime_instantiate_with_builtin_linker(WASMModuleCommon *module,
     WASMModuleInstanceCommon *inst = wasm_runtime_instantiate_internal(
         module, NULL, NULL, stack_size, heap_size,
         0, // max_memory_pages
-        imports, import_count, error_buf, error_buf_size);
+        imports, (uint32)import_count, error_buf, error_buf_size);
 
     if (imports) {
         wasm_runtime_free(imports);
@@ -7906,6 +7911,9 @@ wasm_runtime_create_imports(WASMModuleCommon *module,
 {
     int32 import_count = wasm_runtime_get_import_count(module);
 
+    if (import_count < 0)
+        return false;
+
     if (import_count == 0)
         return true;
 
@@ -7914,6 +7922,7 @@ wasm_runtime_create_imports(WASMModuleCommon *module,
         return false;
     }
 
+    memset(out, 0, sizeof(WASMExternInstance) * (uint32)import_count);
     for (int32 i = 0; i < import_count; i++) {
         wasm_import_t import_type = { 0 };
         wasm_runtime_get_import_type(module, i, &import_type);
@@ -7979,10 +7988,14 @@ wasm_runtime_instantiate_with_inheritance(
     WASMExecEnv *exec_env, uint32 stack_size, uint32 heap_size,
     uint32 max_memory_pages, char *error_buf, uint32 error_buf_size)
 {
-    int spawned_import_count = wasm_runtime_get_import_count(module);
-    WASMExternInstance *spawned_imports =
-        runtime_malloc(sizeof(WASMExternInstance) * spawned_import_count, NULL,
-                       error_buf, error_buf_size);
+    int32 spawned_import_count = wasm_runtime_get_import_count(module);
+    if (spawned_import_count < 0) {
+        return NULL;
+    }
+
+    WASMExternInstance *spawned_imports = runtime_malloc(
+        sizeof(WASMExternInstance) * (uint64)spawned_import_count, NULL,
+        error_buf, error_buf_size);
     if (spawned_imports == NULL) {
         LOG_ERROR("Failed to allocate memory for imports");
         return NULL;
@@ -7998,10 +8011,10 @@ wasm_runtime_instantiate_with_inheritance(
 
     wasm_module_inst_t child_inst = wasm_runtime_instantiate_internal(
         module, parent_inst, exec_env, stack_size,
-        0,                    // heap_size
-        0,                    // max_memory_pages
-        spawned_imports,      // imports
-        spawned_import_count, // import_count
+        0,                            // heap_size
+        0,                            // max_memory_pages
+        spawned_imports,              // imports
+        (uint32)spawned_import_count, // import_count
         error_buf, error_buf_size);
 
     wasm_runtime_free(spawned_imports);
