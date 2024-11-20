@@ -546,8 +546,9 @@ wasm_resolve_import_func(const WASMModule *module,
 WASMModuleInstance *
 wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                  WASMExecEnv *exec_env_main, uint32 stack_size,
-                 uint32 heap_size, uint32 max_memory_pages, char *error_buf,
-                 uint32 error_buf_size);
+                 uint32 heap_size, uint32 max_memory_pages,
+                 const WASMExternInstance *imports, uint32 import_count,
+                 char *error_buf, uint32 error_buf_size);
 
 void
 wasm_dump_perf_profiling(const WASMModuleInstance *module_inst);
@@ -565,6 +566,9 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst);
 bool
 wasm_set_running_mode(WASMModuleInstance *module_inst,
                       RunningMode running_mode);
+
+WASMMemoryInstance *
+wasm_create_memory(const WASMModule *module, const WASMMemoryType *type);
 
 WASMFunctionInstance *
 wasm_lookup_function(const WASMModuleInstance *module_inst, const char *name);
@@ -584,8 +588,10 @@ WASMTagInstance *
 wasm_lookup_tag(const WASMModuleInstance *module_inst, const char *name,
                 const char *signature);
 #endif
+#endif /* WASM_ENABLE_MULTI_MODULE != 0 */
 
-#endif
+void
+wasm_destroy_memory(WASMMemoryInstance *memory);
 
 bool
 wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
@@ -888,6 +894,16 @@ wasm_set_module_name(WASMModule *module, const char *name, char *error_buf,
 
 const char *
 wasm_get_module_name(WASMModule *module);
+
+#if WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0
+int32
+wasm_inherit_imports(WASMModule *module, WASMModuleInstance *inst,
+                     WASMExternInstance *out, int32 out_len);
+
+void
+wasm_disinherit_imports(WASMModule *module, WASMExternInstance *imports,
+                        int32 import_count);
+#endif /* WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0 */
 
 #ifdef __cplusplus
 }

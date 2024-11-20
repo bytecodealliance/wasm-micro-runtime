@@ -547,8 +547,8 @@ aot_resolve_import_func(AOTModule *module, AOTImportFunc *import_func);
 AOTModuleInstance *
 aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
                 WASMExecEnv *exec_env_main, uint32 stack_size, uint32 heap_size,
-                uint32 max_memory_pages, char *error_buf,
-                uint32 error_buf_size);
+                uint32 max_memory_pages, const WASMExternInstance *imports,
+                uint32 import_count, char *error_buf, uint32 error_buf_size);
 
 /**
  * Deinstantiate a AOT module instance, destroy the resources.
@@ -559,6 +559,11 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
 void
 aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst);
 
+AOTMemoryInstance *
+aot_create_memory(const AOTModule *module, const AOTMemoryType *type);
+
+void
+aot_destroy_memory(AOTMemoryInstance *memory);
 /**
  * Lookup an exported function in the AOT module instance.
  *
@@ -875,6 +880,16 @@ aot_set_module_name(AOTModule *module, const char *name, char *error_buf,
 
 const char *
 aot_get_module_name(AOTModule *module);
+
+#if WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0
+int32
+aot_inherit_imports(AOTModule *module, AOTModuleInstance *inst,
+                    WASMExternInstance *out, int32 out_len);
+
+void
+aot_disinherit_imports(AOTModule *module, WASMExternInstance *imports,
+                       int32 import_count);
+#endif /* WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0 */
 
 #ifdef __cplusplus
 } /* end of extern "C" */

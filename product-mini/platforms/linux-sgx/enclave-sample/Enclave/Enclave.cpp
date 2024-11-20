@@ -377,17 +377,56 @@ handle_cmd_instantiate_module(uint64 *args, uint32 argc)
 
     bh_assert(argc == 5);
 
+    *(void **)args_org = NULL;
+
     if (!runtime_inited) {
-        *(void **)args_org = NULL;
         return;
     }
 
+#if WASM_ENABLE_MULTI_MODULE == 0
+    {
+        int32_t import_count =
+            wasm_runtime_get_import_count(enclave_module->module);
+        WASMExternInstance *imports = NULL;
+
+#if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_WASI_TEST != 0 \
+    || WASM_ENABLE_LIBC_BUILTIN != 0 || WASM_ENABLE_LIBC_WASI != 0
+        imports =
+            wasm_runtime_create_imports_with_builtin(enclave_module->module);
+#endif
+        if (import_count > 0 && imports == NULL) {
+            LOG_WARNING("Need to provide necessary imported objects");
+            return;
+        }
+
+        InstantiationArgs inst_args = {
+            .default_stack_size = stack_size,
+            .host_managed_heap_size = heap_size,
+            .max_memory_pages = 0,
+            .imports = imports,
+            .import_count = (uint32_t)import_count,
+        };
+
+        module_inst = wasm_runtime_instantiate_ex(
+            enclave_module->module, &inst_args, error_buf, error_buf_size);
+        if (!module_inst) {
+            wasm_runtime_destroy_imports(enclave_module->module, imports);
+            return;
+        }
+
+        /*
+         * FIXME: how to relese imports.
+         * if there will be spawned thread, need to release when the thread is
+         * done.
+         */
+    }
+#else  /* WASM_ENABLE_MULTI_MODULE == 0 */
     if (!(module_inst =
               wasm_runtime_instantiate(enclave_module->module, stack_size,
                                        heap_size, error_buf, error_buf_size))) {
-        *(void **)args_org = NULL;
         return;
     }
+#endif /* WASM_ENABLE_MULTI_MODULE == 0 */
 
     *(wasm_module_inst_t *)args_org = module_inst;
 
@@ -763,6 +802,11 @@ ecall_iwasm_main(uint8_t *wasm_file_buf, uint32_t wasm_file_size)
     RuntimeInitArgs init_args;
     char error_buf[128];
     const char *exception;
+    uint32 stack_size = 16 * 1024;
+    uint32 heap_size = 16 * 1024;
+#if WASM_ENABLE_MULTI_MODULE == 0
+    WASMExternInstance *imports = NULL;
+#endif
 
     /* avoid duplicated init */
     if (runtime_inited) {
@@ -797,13 +841,45 @@ ecall_iwasm_main(uint8_t *wasm_file_buf, uint32_t wasm_file_size)
     }
 
     /* instantiate the module */
+#if WASM_ENABLE_MULTI_MODULE == 0
+    {
+        int32_t import_count = wasm_runtime_get_import_count(wasm_module);
+
+#if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_WASI_TEST != 0 \
+    || WASM_ENABLE_LIBC_BUILTIN != 0 || WASM_ENABLE_LIBC_WASI != 0
+        imports = wasm_runtime_create_imports_with_builtin(wasm_module);
+#endif
+        if (import_count > 0 && imports == NULL) {
+            enclave_print("Need to provide necessary imported objects");
+            enclave_print("\n");
+            goto fail2;
+        }
+
+        InstantiationArgs inst_args = {
+            .default_stack_size = stack_size,
+            .host_managed_heap_size = heap_size,
+            .max_memory_pages = 0,
+            .imports = imports,
+            .import_count = (uint32_t)import_count,
+        };
+
+        wasm_module_inst = wasm_runtime_instantiate_ex(
+            wasm_module, &inst_args, error_buf, sizeof(error_buf));
+        if (!wasm_module_inst) {
+            enclave_print(error_buf);
+            enclave_print("\n");
+            goto fail3;
+        }
+    }
+#else  /* WASM_ENABLE_MULTI_MODULE == 0 */
     if (!(wasm_module_inst =
-              wasm_runtime_instantiate(wasm_module, 16 * 1024, 16 * 1024,
+              wasm_runtime_instantiate(wasm_module, stack_size, heap_size,
                                        error_buf, sizeof(error_buf)))) {
         enclave_print(error_buf);
         enclave_print("\n");
         goto fail2;
     }
+#endif /* WASM_ENABLE_MULTI_MODULE == 0 */
 
     /* execute the main function of wasm app */
     wasm_application_execute_main(wasm_module_inst, 0, NULL);
@@ -814,6 +890,12 @@ ecall_iwasm_main(uint8_t *wasm_file_buf, uint32_t wasm_file_size)
 
     /* destroy the module instance */
     wasm_runtime_deinstantiate(wasm_module_inst);
+
+#if WASM_ENABLE_MULTI_MODULE == 0
+fail3:
+    /* destory imports */
+    wasm_runtime_destroy_imports(wasm_module, imports);
+#endif /* WASM_ENABLE_MULTI_MODULE == 0*/
 
 fail2:
     /* unload the module */
