@@ -273,9 +273,23 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* offset1 = offset + addr; */
-    /* TODO: check whether integer overflow occurs when memory is 64-bit
-             and boundary check is enabled */
     BUILD_OP(Add, offset_const, addr, offset1, "offset1");
+
+    if (is_target_64bit && comp_ctx->enable_bound_check) {
+        /* Check whether integer overflow occurs in offset + addr */
+        LLVMBasicBlockRef check_integer_overflow_end;
+        ADD_BASIC_BLOCK(check_integer_overflow_end,
+                        "check_integer_overflow_end");
+        LLVMMoveBasicBlockAfter(check_integer_overflow_end, block_curr);
+
+        BUILD_ICMP(LLVMIntULT, offset1, offset_const, cmp1, "cmp1");
+        if (!aot_emit_exception(comp_ctx, func_ctx,
+                                EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS, true, cmp1,
+                                check_integer_overflow_end)) {
+            goto fail;
+        }
+        SET_BUILD_POS(check_integer_overflow_end);
+    }
 
     if (comp_ctx->enable_shared_heap /* TODO: && mem_idx == 0 */) {
         LLVMBasicBlockRef app_addr_in_shared_heap, app_addr_in_linear_mem;
@@ -303,7 +317,7 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         LLVMPositionBuilderAtEnd(comp_ctx->builder, block_curr);
 
         if (!is_target_64bit) {
-            /* Check whether interger overflow occurs in addr + offset */
+            /* Check whether integer overflow occurs in addr + offset */
             LLVMBasicBlockRef check_integer_overflow_end;
             ADD_BASIC_BLOCK(check_integer_overflow_end,
                             "check_integer_overflow_end");
@@ -1141,11 +1155,13 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
     LLVMBasicBlockRef check_succ, block_maddr_phi = NULL;
     LLVMValueRef mem_size;
+    bool is_target_64bit;
 #if WASM_ENABLE_MEMORY64 == 0
     bool is_memory64 = false;
 #else
     bool is_memory64 = IS_MEMORY64;
 #endif
+    is_target_64bit = (comp_ctx->pointer_size == sizeof(uint64)) ? true : false;
 
     /* Get memory base address and memory data size */
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -1215,9 +1231,23 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    /* TODO: check whether integer overflow occurs when memory is 64-bit
-             and boundary check is enabled */
     BUILD_OP(Add, offset, bytes, max_addr, "max_addr");
+
+    if (is_target_64bit && comp_ctx->enable_bound_check) {
+        /* Check whether integer overflow occurs in offset + addr */
+        LLVMBasicBlockRef check_integer_overflow_end;
+        ADD_BASIC_BLOCK(check_integer_overflow_end,
+                        "check_integer_overflow_end");
+        LLVMMoveBasicBlockAfter(check_integer_overflow_end, block_curr);
+
+        BUILD_ICMP(LLVMIntULT, max_addr, offset, cmp, "cmp");
+        if (!aot_emit_exception(comp_ctx, func_ctx,
+                                EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS, true, cmp,
+                                check_integer_overflow_end)) {
+            goto fail;
+        }
+        SET_BUILD_POS(check_integer_overflow_end);
+    }
 
     if (comp_ctx->enable_shared_heap /* TODO: && mem_idx == 0 */) {
         LLVMBasicBlockRef app_addr_in_shared_heap, app_addr_in_linear_mem;
