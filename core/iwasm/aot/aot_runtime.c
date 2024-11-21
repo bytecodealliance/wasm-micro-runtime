@@ -937,8 +937,13 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
     uint32 mem_index = 0;
     AOTModule *module = (AOTModule *)module_inst->module;
     for (; mem_index < module->import_memory_count; mem_index++) {
-        memory_deinstantiate(module_inst->memories[mem_index]);
-        wasm_runtime_free(module_inst->memories[mem_index]);
+        AOTMemoryInstance *memory = module_inst->memories[mem_index];
+
+        memory_deinstantiate(memory);
+        uint16 rc = BH_ATOMIC_16_FETCH_OR(memory->ref_count, 0);
+        if (rc == 0) {
+            wasm_runtime_free(memory);
+        }
     }
 
     for (; mem_index < module->memory_count; mem_index++) {
@@ -5641,21 +5646,25 @@ aot_resolve_import_func(AOTModule *module, AOTImportFunc *import_func)
  */
 int32
 aot_inherit_imports(AOTModule *module, AOTModuleInstance *inst,
-                    WASMExternInstance *out, int32 out_len)
+                    WASMExternInstance *out, uint32 out_len)
 {
     if (!module || !inst || !out)
         return -1;
 
-    int32 spawned_import_count =
+    int32 spawned_import_count_s =
         wasm_runtime_get_import_count((WASMModuleCommon *)module);
-    if (spawned_import_count < 0 || spawned_import_count > out_len) {
+    if (spawned_import_count_s < 0) {
+        return -1;
+    }
+
+    uint32 spawned_import_count = spawned_import_count_s;
+    if (spawned_import_count > out_len) {
         LOG_WARNING("The number of imported functions is more than the "
                     "length of provided buffer ");
         return -1;
     }
 
-    for (uint32 i = 0, import_memory_index = 0;
-         i < (uint32)spawned_import_count; i++) {
+    for (uint32 i = 0, import_memory_index = 0; i < spawned_import_count; i++) {
         wasm_import_t import_type = { 0 };
 
         wasm_runtime_get_import_type((WASMModuleCommon *)module, i,
@@ -5684,20 +5693,21 @@ aot_inherit_imports(AOTModule *module, AOTModuleInstance *inst,
 
 void
 aot_disinherit_imports(AOTModule *module, WASMExternInstance *imports,
-                       int32 import_count)
+                       uint32 import_count)
 {
     if (!module || !imports)
         return;
 
     int32 spawned_import_count =
         wasm_runtime_get_import_count((WASMModuleCommon *)module);
-    if (spawned_import_count > import_count) {
+    if (spawned_import_count < 0
+        || (uint32)spawned_import_count > import_count) {
         LOG_WARNING("The number of imported functions is more than the "
                     "length of provided buffer ");
         return;
     }
 
-    for (int32 i = 0; i < import_count; i++) {
+    for (uint32 i = 0; i < import_count; i++) {
         WASMExternInstance *import = imports + i;
 
         if (import->kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {

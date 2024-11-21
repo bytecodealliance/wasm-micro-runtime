@@ -8110,7 +8110,7 @@ wasm_runtime_create_imports_with_builtin(WASMModuleCommon *module,
 static int32
 wasm_runtime_inherit_imports(WASMModuleCommon *module,
                              WASMModuleInstanceCommon *inst,
-                             WASMExternInstance *out, int32 out_len)
+                             WASMExternInstance *out, uint32 out_len)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode) {

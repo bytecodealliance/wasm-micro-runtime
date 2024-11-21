@@ -273,15 +273,19 @@ memories_deinstantiate(WASMModuleInstance *module_inst)
     WASMModule *module = module_inst->module;
     WASMMemoryInstance **memories = module_inst->memories;
     for (; mem_index < module->import_memory_count; mem_index++) {
+        WASMMemoryInstance *memory = memories[mem_index];
 #if WASM_ENABLE_MULTI_MODULE != 0
         if (module->import_memories[mem_index].u.memory.import_module) {
             continue;
         }
 
-        memory_deinstantiate(memories[mem_index]);
+        memory_deinstantiate(memory);
 #else
-        memory_deinstantiate(memories[mem_index]);
-        wasm_runtime_free(memories[mem_index]);
+        memory_deinstantiate(memory);
+        uint16 rc = BH_ATOMIC_16_FETCH_OR(memory->ref_count, 0);
+        if (rc == 0) {
+            wasm_runtime_free(memory);
+        }
 #endif
     }
 
@@ -751,10 +755,12 @@ tables_deinstantiate(WASMModuleInstance *module_inst)
 #else
     if (module_inst->e->table_insts_linked) {
         wasm_runtime_free(module_inst->e->table_insts_linked);
+        module_inst->e->table_insts_linked = NULL;
     }
 #endif
 
     wasm_runtime_free(module_inst->tables);
+    module_inst->tables = NULL;
 }
 
 /**
@@ -5251,20 +5257,19 @@ wasm_get_module_name(WASMModule *module)
  */
 int32
 wasm_inherit_imports(WASMModule *module, WASMModuleInstance *inst,
-                     WASMExternInstance *out, int32 out_len)
+                     WASMExternInstance *out, uint32 out_len)
 {
     if (!module || !inst || !out)
         return -1;
 
-    int32 spawned_import_count = module->import_count;
-    if (spawned_import_count < 0 || spawned_import_count > out_len) {
+    uint32 spawned_import_count = module->import_count;
+    if (spawned_import_count > out_len) {
         LOG_WARNING("The number of imported functions is more than the "
                     "length of provided buffer ");
         return -1;
     }
 
-    for (uint32 i = 0, import_memory_index = 0;
-         i < (uint32)spawned_import_count; i++) {
+    for (uint32 i = 0, import_memory_index = 0; i < spawned_import_count; i++) {
         wasm_import_t import_type = { 0 };
 
         wasm_runtime_get_import_type((WASMModuleCommon *)module, i,
@@ -5281,6 +5286,7 @@ wasm_inherit_imports(WASMModule *module, WASMModuleInstance *inst,
 #endif
             import_memory_index++;
         }
+        /*TODO: shared_table, shared_global ?*/
         else {
             LOG_WARNING("for spawned, inherit() import(%s,%s) kind %d",
                         import_type.module_name, import_type.name,
@@ -5293,19 +5299,19 @@ wasm_inherit_imports(WASMModule *module, WASMModuleInstance *inst,
 
 void
 wasm_disinherit_imports(WASMModule *module, WASMExternInstance *imports,
-                        int32 import_count)
+                        uint32 import_count)
 {
     if (!module || !imports)
         return;
 
-    int32 spawned_import_count = module->import_count;
+    uint32 spawned_import_count = module->import_count;
     if (spawned_import_count > import_count) {
         LOG_WARNING("The number of imported functions is more than the "
                     "length of provided buffer ");
         return;
     }
 
-    for (int32 i = 0; i < import_count; i++) {
+    for (uint32 i = 0; i < import_count; i++) {
         WASMExternInstance *import = imports + i;
 
         if (import->kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
