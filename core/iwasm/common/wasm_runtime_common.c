@@ -8070,6 +8070,12 @@ wasm_runtime_instantiate_with_builtin_linker(WASMModuleCommon *module,
      * WASMExternInstance->u.global
      */
     if (imports) {
+        for (uint32 i = 0; i < import_count; i++) {
+            if (imports[i].kind == WASM_IMPORT_EXPORT_KIND_GLOBAL) {
+                wasm_runtime_destroy_global(module, imports[i].u.global);
+            }
+        }
+
         wasm_runtime_free(imports);
     }
 

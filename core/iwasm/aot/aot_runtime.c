@@ -2553,6 +2553,10 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
         wasm_runtime_free(extra->functions);
     }
 
+    if (extra->globals) {
+        wasm_runtime_free(extra->globals);
+    }
+
     if (module_inst->func_ptrs)
         wasm_runtime_free(module_inst->func_ptrs);
 
@@ -2582,6 +2586,21 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
     bh_bitmap_delete(common->elem_dropped);
 #endif
     (void)common;
+
+#if WASM_ENABLE_MULTI_MODULE == 0
+    AOTModule *module = (AOTModule *)module_inst->module;
+    for (uint32 i = 0; i < module->import_table_count; i++) {
+        AOTTableInstance *table = module_inst->tables[i];
+
+        if (!table)
+            continue;
+
+        void *table_imported =
+            (void *)((uint8 *)(table)-offsetof(AOTTableInstance, elems));
+
+        wasm_runtime_free(table_imported);
+    }
+#endif
 
     wasm_runtime_free(module_inst);
 }
