@@ -940,10 +940,13 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
         AOTMemoryInstance *memory = module_inst->memories[mem_index];
 
         memory_deinstantiate(memory);
+
+#if WASM_ENABLE_MULTI_MODULE == 0
         uint16 rc = BH_ATOMIC_16_FETCH_OR(memory->ref_count, 0);
         if (rc == 0) {
             wasm_runtime_free(memory);
         }
+#endif
     }
 
     for (; mem_index < module->memory_count; mem_index++) {

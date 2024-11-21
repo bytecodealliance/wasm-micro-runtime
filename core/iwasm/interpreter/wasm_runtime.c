@@ -821,30 +821,20 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                 set_error_buf(error_buf, error_buf_size, "unknown table");
                 goto fail;
             }
-
-            /* just in case */
-            {
-                bh_assert(table_inst_linked->elem_type
-                          == import_table_type->table_type.elem_type);
-                bh_assert(table_inst_linked->max_size
-                          == import_table_type->table_type.max_size);
-                bh_assert(table_inst_linked->cur_size
-                          == import_table_type->table_type.init_size);
-                bh_assert(
-                    table_inst_linked->is_table64
-                    == (import_table_type->table_type.flags & TABLE64_FLAG));
-            }
-
-            *table_linked = table_inst_linked;
-            table_linked++;
         }
+        else {
+            /* in order to save memory, alloc resource as few as possible */
+            max_size_fixed = import_table_type->table_type.possible_grow
+                                 ? import_table_type->table_type.max_size
+                                 : import_table_type->table_type.init_size;
 
-        /* it is a built-in table, every module has its own */
-        /* store function indexes for non-gc, object pointers for gc */
-        total_size += (uint64)sizeof(table_elem_type_t) * max_size_fixed;
+            /* it is a built-in table, every module has its own */
+            /* store function indexes for non-gc, object pointers for gc */
+            total_size += (uint64)sizeof(table_elem_type_t) * max_size_fixed;
+        }
 #else
         total_size += sizeof(table_elem_type_t *);
-#endif
+#endif /* WASM_ENABLE_MULTI_MODULE != 0 */
 
         tables[table_index++] = table;
 
@@ -857,6 +847,30 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 #endif
 
         table->is_table64 = import_table_type->table_type.flags & TABLE64_FLAG;
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+        *table_linked = table_inst_linked;
+
+        if (table_inst_linked != NULL) {
+            table->elem_type = table_inst_linked->elem_type;
+#if WASM_ENABLE_GC != 0
+            table->elem_ref_type = table_inst_linked->elem_ref_type;
+#endif
+            table->cur_size = table_inst_linked->cur_size;
+            table->max_size = table_inst_linked->max_size;
+        }
+        else {
+            table->elem_type = import_table_type->table_type.elem_type;
+#if WASM_ENABLE_GC != 0
+            table->elem_ref_type.elem_ref_type =
+                import_table_type->table_type.elem_ref_type;
+#endif
+            table->cur_size = import_table_type->table_type.init_size;
+            table->max_size = max_size_fixed;
+        }
+
+#else
+
         table->elem_type = import_table_type->table_type.elem_type;
 #if WASM_ENABLE_GC != 0
         table->elem_ref_type.elem_ref_type =
@@ -865,7 +879,6 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         table->cur_size = import_table_type->table_type.init_size;
         table->max_size = max_size_fixed;
 
-#if WASM_ENABLE_MULTI_MODULE == 0
         /* use import table elem */
         const WASMExternInstance *extern_inst =
             wasm_runtime_get_extern_instance(imports, import_count,
