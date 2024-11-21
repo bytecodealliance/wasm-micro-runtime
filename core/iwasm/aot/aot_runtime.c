@@ -1905,7 +1905,9 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
             goto fail;
         }
         for (i = 0; i < module->table_init_data_count; i++) {
-            if (wasm_elem_is_active(module->table_init_data_list[i]->mode))
+            if (wasm_elem_is_active(module->table_init_data_list[i]->mode)
+                || wasm_elem_is_declarative(
+                    module->table_init_data_list[i]->mode))
                 bh_bitmap_set_bit(common->elem_dropped, i);
         }
     }
