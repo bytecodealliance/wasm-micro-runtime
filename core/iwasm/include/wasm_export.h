@@ -2342,18 +2342,28 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_shared_heap_free(wasm_module_inst_t module_inst, uint64_t ptr);
 
 /*TODO: take me out when have a linker */
+WASM_RUNTIME_API_EXTERN wasm_module_inst_t
+wasm_runtime_instantiate_with_builtin_linker(wasm_module_t module,
+                                             uint32_t stack_size,
+                                             uint32_t heap_size,
+                                             char *error_buf,
+                                             uint32_t error_buf_size);
+
 /**
  * @return NULL if failed and if there is no import
  */
-WASM_RUNTIME_API_EXTERN wasm_extern_inst_t
-wasm_runtime_create_imports_with_builtin(wasm_module_t module);
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_create_imports_with_builtin(wasm_module_t module,
+                                         wasm_extern_inst_t out,
+                                         int32_t out_len);
 
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_imports(wasm_module_t module, wasm_extern_inst_t imports);
 
-WASM_RUNTIME_API_EXTERN wasm_extern_inst_t
+WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_create_imports(wasm_module_t module,
-                            bool (*module_name_filter)(const char *));
+                            bool (*module_name_filter)(const char *),
+                            wasm_extern_inst_t out, int32_t out_len);
 
 #ifdef __cplusplus
 }

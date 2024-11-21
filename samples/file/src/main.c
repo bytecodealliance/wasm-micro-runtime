@@ -18,7 +18,7 @@ int
 main(int argc, char *argv_main[])
 {
     static char global_heap_buf[512 * 1024];
-    char *buffer, error_buf[128] = { 0 };
+    char *buffer, error_buf[128];
     const char *wasm_path = NULL, *wasi_dir = NULL;
     int opt, main_result = 1;
 
@@ -26,10 +26,6 @@ main(int argc, char *argv_main[])
     wasm_module_inst_t module_inst = NULL;
     wasm_exec_env_t exec_env = NULL;
     uint32 buf_size, stack_size = 8092, heap_size = 8092;
-
-#if WASM_ENABLE_MULTI_MODULE == 0
-    WASMExternInstance *imports = NULL;
-#endif
 
     RuntimeInitArgs init_args;
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
@@ -80,37 +76,8 @@ main(int argc, char *argv_main[])
     wasm_runtime_set_wasi_args_ex(module, &wasi_dir, 1, NULL, 0, NULL, 0, NULL,
                                   0, 0, 1, 2);
 
-#if WASM_ENABLE_MULTI_MODULE == 0
-    int32_t import_count = wasm_runtime_get_import_count(module);
-
-#if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_WASI_TEST != 0 \
-    || WASM_ENABLE_LIBC_BUILTIN != 0 || WASM_ENABLE_LIBC_WASI != 0
-    imports = wasm_runtime_create_imports_with_builtin(module);
-#endif
-
-    if (import_count > 0 && imports == NULL) {
-        printf("Need to provide %" PRId32 " imported objects:\n", import_count);
-        goto fail;
-    }
-
-    InstantiationArgs inst_args = {
-        .default_stack_size = stack_size,
-        .host_managed_heap_size = heap_size,
-        .max_memory_pages = 0,
-        .imports = imports,
-        .import_count = import_count,
-    };
-
-    module_inst = wasm_runtime_instantiate_ex(module, &inst_args, error_buf,
-                                              sizeof(error_buf));
-    if (!module_inst) {
-        printf("%s\n", error_buf);
-        goto fail;
-    }
-#else
     module_inst = wasm_runtime_instantiate(module, stack_size, heap_size,
                                            error_buf, sizeof(error_buf));
-#endif
 
     if (!module_inst) {
         printf("Instantiate wasm module failed. error: %s\n", error_buf);
@@ -137,10 +104,6 @@ fail:
         wasm_runtime_destroy_exec_env(exec_env);
     if (module_inst)
         wasm_runtime_deinstantiate(module_inst);
-#if WASM_ENABLE_MULTI_MODULE == 0
-    if (imports)
-        wasm_runtime_destroy_imports(module, imports);
-#endif
     if (module)
         wasm_runtime_unload(module);
     if (buffer)

@@ -856,11 +856,13 @@ memory_deinstantiate(AOTMemoryInstance *memory)
 static void
 memories_deinstantiate(AOTModuleInstance *module_inst)
 {
-    /* import memories created by host or linker. released by them too */
-    for (uint32 i = ((AOTModule *)module_inst->module)->import_memory_count;
-         i < module_inst->memory_count; i++) {
+    if (!module_inst->memories)
+        return;
+
+    for (uint32 i = 0; i < module_inst->memory_count; i++) {
         memory_deinstantiate(module_inst->memories[i]);
     }
+
     wasm_runtime_free(module_inst->memories);
 }
 
@@ -1938,13 +1940,9 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         module->import_func_count + module->import_global_count
         + module->import_memory_count + module->import_table_count;
     if (total_import_count > 0 && !imports) {
-        /*
-         * TODO: might be too strict
-         * might wasm_runtime_create_imports_with_builtin() here by default
-         */
         set_error_buf(error_buf, error_buf_size,
                       "imports is NULL while module has imports");
-        // return NULL;
+        return NULL;
     }
 #endif
 
