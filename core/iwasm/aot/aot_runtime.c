@@ -672,6 +672,7 @@ tables_deinstantiate(AOTModuleInstance *inst)
         return;
     }
 
+#if WASM_ENABLE_MULTI_MODULE == 0
     AOTModule *module = (AOTModule *)inst->module;
     /* only imported tables */
     for (uint32 i = 0; i < module->import_table_count; i++) {
@@ -687,6 +688,7 @@ tables_deinstantiate(AOTModuleInstance *inst)
 
         wasm_runtime_free(table_imported);
     }
+#endif
 
     wasm_runtime_free(inst->tables);
 }

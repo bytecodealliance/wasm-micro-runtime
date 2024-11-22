@@ -1425,6 +1425,7 @@ load_import_table_list(const uint8 **p_buf, const uint8 *buf_end,
         }
 #endif
 
+        /* TBC: sync up with AOT_CURRENT_VERSION in config.h */
         /* v3 doesn't emit names */
         if (module->package_version >= 4) {
             read_string(buf, buf_end, import_table->module_name);
