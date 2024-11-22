@@ -1208,9 +1208,8 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
 
             /* The linked global instance has been initialized, we
                just need to copy the value. */
-            bh_memcpy_s(&(global->initial_value), sizeof(WASMValue),
-                        &(global_import->import_global_linked->init_expr.u),
-                        sizeof(WASMValue));
+            global->initial_value =
+                global_import->import_global_linked->init_expr.u;
         }
         else
 #endif
