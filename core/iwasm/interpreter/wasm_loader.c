@@ -15217,17 +15217,27 @@ re_scan:
                                                     error_buf_size)) {
                             goto fail;
                         }
+#if WASM_ENABLE_FAST_INTERP != 0
+                        emit_byte(loader_ctx, lane);
+#endif
                         if (replace[opcode1 - SIMD_i8x16_extract_lane_s]) {
+#if WASM_ENABLE_FAST_INTERP != 0
+                            if (!(wasm_loader_pop_frame_ref_offset(
+                                    loader_ctx,
+                                    replace[opcode1
+                                            - SIMD_i8x16_extract_lane_s],
+                                    error_buf, error_buf_size)))
+                                goto fail;
+#else
                             if (!(wasm_loader_pop_frame_ref(
                                     loader_ctx,
                                     replace[opcode1
                                             - SIMD_i8x16_extract_lane_s],
                                     error_buf, error_buf_size)))
                                 goto fail;
+#endif /* end of WASM_ENABLE_FAST_INTERP != 0 */
                         }
-#if WASM_ENABLE_FAST_INTERP != 0
-                        emit_byte(loader_ctx, lane);
-#endif
+
                         POP_AND_PUSH(
                             VALUE_TYPE_V128,
                             push_type[opcode1 - SIMD_i8x16_extract_lane_s]);
