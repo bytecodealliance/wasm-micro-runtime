@@ -3639,10 +3639,6 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
             map_mapped = mapping_copy;
             map_host = delim_pos + strlen(delim);
         }
-        else {
-            map_mapped = NULL;
-            map_host = NULL;
-        }
 
         if (!map_mapped || !map_host) {
             if (error_buf)
