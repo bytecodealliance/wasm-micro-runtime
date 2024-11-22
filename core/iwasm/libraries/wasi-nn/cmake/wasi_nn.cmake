@@ -22,6 +22,7 @@ add_compile_definitions(
 # - tflite
 if(WAMR_BUILD_WASI_NN_TFLITE EQUAL 1)
   find_package(tensorflow_lite REQUIRED)
+  enable_language(CXX)
 
   add_library(
     wasi_nn_tflite
