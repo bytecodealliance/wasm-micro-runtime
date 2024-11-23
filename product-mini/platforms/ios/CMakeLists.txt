@@ -3,8 +3,6 @@
 
 cmake_minimum_required (VERSION 3.21)
 
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard")
-
 project (iwasm)
 
 set (WAMR_BUILD_PLATFORM "darwin")
