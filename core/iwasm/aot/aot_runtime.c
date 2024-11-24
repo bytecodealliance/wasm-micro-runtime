@@ -940,6 +940,9 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
     AOTModule *module = (AOTModule *)module_inst->module;
     for (; mem_index < module->import_memory_count; mem_index++) {
         AOTMemoryInstance *memory = module_inst->memories[mem_index];
+        if (!memory) {
+            continue;
+        }
 
         memory_deinstantiate(memory);
 

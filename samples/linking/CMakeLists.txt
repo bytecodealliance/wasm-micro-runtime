@@ -34,7 +34,9 @@ set(WAMR_BUILD_THREAD_MGR 0)
 set(WAMR_BUILD_LIB_WASI_THREADS 0)
 
 ## below two prevent valgrind from crashing
-set(WAMR_DISABLE_HW_BOUND_CHECK 1)
+#TODO: there is a crash if turn it on
+set(WAMR_DISABLE_HW_BOUND_CHECK 0)
+set(WAMR_DISABLE_STACK_HW_BOUND_CHECK 1)
 set(WAMR_DISABLE_WRITE_GS_BASE 1)
 
 # vmlib

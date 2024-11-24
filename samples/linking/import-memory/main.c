@@ -79,6 +79,7 @@ main(int argc, char *argv_main[])
 
     /* wasm instance */
     InstantiationArgs inst_args = {
+        .default_stack_size = 65536,
         .imports = import_list,
         .import_count = 10,
     };
@@ -99,7 +100,7 @@ main(int argc, char *argv_main[])
         goto destroy_inst;
     }
 
-    wasm_exec_env_t exec_env = wasm_runtime_create_exec_env(inst, 8192);
+    wasm_exec_env_t exec_env = wasm_runtime_create_exec_env(inst, 65536);
     if (!exec_env) {
         printf("Create wasm execution environment failed.\n");
         goto destroy_inst;
