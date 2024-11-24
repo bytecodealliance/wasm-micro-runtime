@@ -3688,20 +3688,6 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     bh_bitmap_delete(module_inst->e->common.elem_dropped);
 #endif
 
-#if WASM_ENABLE_MULTI_MODULE == 0
-    for (uint32 i = 0; i < module_inst->module->import_table_count; i++) {
-        WASMTableInstance *table = module_inst->tables[i];
-
-        if (!table)
-            continue;
-
-        void *table_imported =
-            (void *)((uint8 *)table - offsetof(WASMTableInstance, elems));
-
-        wasm_runtime_free(table_imported);
-    }
-#endif
-
     wasm_runtime_free(module_inst);
 }
 

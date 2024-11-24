@@ -284,10 +284,25 @@ assign_table_init_value(AOTModuleInstance *module_inst, AOTModule *module,
                 return false;
             }
 
+#if WASM_ENABLE_MULTI_MODULE != 0
+            if (init_expr->u.global_index < module->import_global_count) {
+                PUT_REF_TO_ADDR(
+                    addr, module->import_globals[init_expr->u.global_index]
+                              .global_data_linked.gc_obj);
+            }
+            else {
+                uint32 global_idx =
+                    init_expr->u.global_index - module->import_global_count;
+                return assign_table_init_value(
+                    module_inst, module, &module->globals[global_idx].init_expr,
+                    addr, error_buf, error_buf_size);
+            }
+#else
             AOTModuleInstanceExtra *e =
                 (AOTModuleInstanceExtra *)module_inst->e;
             AOTGlobalInstance *global = e->globals + init_expr->u.global_index;
             PUT_REF_TO_ADDR(addr, global->initial_value.gc_obj);
+#endif
             break;
         }
         case INIT_EXPR_TYPE_REFNULL_CONST:
@@ -466,6 +481,10 @@ globals_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                   == (uint32)(p - module_inst->global_data));
         global->data_offset = import_global_type->data_offset;
 
+#if WASM_ENABLE_MULTI_MODULE != 0
+        init_global_data(p, import_global_type->type.val_type,
+                         &import_global_type->global_data_linked);
+#else
         const WASMExternInstance *extern_inst =
             wasm_runtime_get_extern_instance(imports, import_count,
                                              WASM_IMPORT_EXPORT_KIND_GLOBAL, i);
@@ -492,6 +511,7 @@ globals_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
             (WASMModuleInstance *)extern_inst->dep_inst;
         /* write into global_data */
         init_global_data(p, global->type, &global->initial_value);
+#endif /* WASM_ENABLE_MULTI_MODULE != 0 */
 
         p += import_global_type->size;
     }
@@ -516,11 +536,39 @@ globals_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                     goto fail;
                 }
 
-                bh_memcpy_s(&(global->initial_value), sizeof(WASMValue),
-                            &(globals[init_expr->u.global_index].initial_value),
-                            sizeof(WASMValue));
+                uint32 global_index_in_expr = init_expr->u.global_index;
+                if (global_index_in_expr < module->import_global_count) {
+#if WASM_ENABLE_MULTI_MODULE != 0
+                    /* from WASMImportGlobal or WASMGlobal to global_data */
+                    init_global_data(
+                        p, global_type->type.val_type,
+                        &module->import_globals[global_index_in_expr]
+                             .global_data_linked);
+#else
+                    /*
+                     * from WASMImportGlobal or WASMGlobal to WASMGlobalInstance
+                     * to global_data
+                     */
+                    global->initial_value =
+                        globals[init_expr->u.global_index].initial_value;
+                    init_global_data(p, global_type->type.val_type,
+                                     &global->initial_value);
+#endif /* WASM_ENABLE_MULTI_MODULE != 0*/
+                }
+                else {
+#if WASM_ENABLE_GC == 0
+                    bh_assert(false
+                              && "only GC mode support using non-import global "
+                                 "in a constant expression");
+#endif
+                    uint32 adjusted_global_index_in_expr =
+                        global_index_in_expr - module->import_global_count;
+                    init_global_data(
+                        p, global_type->type.val_type,
+                        &module->globals[adjusted_global_index_in_expr]
+                             .init_expr.u);
+                }
 
-                init_global_data(p, global->type, &global->initial_value);
                 break;
             }
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
@@ -675,8 +723,7 @@ globals_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 #endif /* end of WASM_ENABLE_GC != 0 */
             default:
             {
-                bh_memcpy_s(&global->initial_value, sizeof(WASMValue),
-                            &init_expr->u, sizeof(WASMValue));
+                global->initial_value = init_expr->u;
                 init_global_data(p, global->type, &global->initial_value);
                 break;
             }
@@ -2586,21 +2633,6 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
     bh_bitmap_delete(common->elem_dropped);
 #endif
     (void)common;
-
-#if WASM_ENABLE_MULTI_MODULE == 0
-    AOTModule *module = (AOTModule *)module_inst->module;
-    for (uint32 i = 0; i < module->import_table_count; i++) {
-        AOTTableInstance *table = module_inst->tables[i];
-
-        if (!table)
-            continue;
-
-        void *table_imported =
-            (void *)((uint8 *)(table)-offsetof(AOTTableInstance, elems));
-
-        wasm_runtime_free(table_imported);
-    }
-#endif
 
     wasm_runtime_free(module_inst);
 }
@@ -5843,8 +5875,7 @@ aot_create_global(const AOTModule *module, AOTModuleInstance *dep_inst,
 void
 aot_set_global_value(AOTGlobalInstance *global, const WASMValue *value)
 {
-    bh_memcpy_s(&global->initial_value, sizeof(WASMValue), value,
-                sizeof(WASMValue));
+    global->initial_value = *value;
 }
 
 void
