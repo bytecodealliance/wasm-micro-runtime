@@ -2467,7 +2467,8 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
             goto fail;
         }
         for (i = 0; i < module->table_seg_count; i++) {
-            if (wasm_elem_is_active(module->table_segments[i].mode))
+            if (wasm_elem_is_active(module->table_segments[i].mode)
+                || wasm_elem_is_declarative(module->table_segments[i].mode))
                 bh_bitmap_set_bit(module_inst->e->common.elem_dropped, i);
         }
     }
