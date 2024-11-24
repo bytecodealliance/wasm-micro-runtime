@@ -2144,6 +2144,11 @@ load_import_globals(const uint8 **p_buf, const uint8 *buf_end,
     AOTImportGlobal *import_globals;
     uint64 size;
     uint32 i, data_offset = 0;
+#if WASM_ENABLE_MULTI_MODULE != 0
+#if WASM_ENABLE_LIBC_BUILTIN != 0
+    WASMGlobalImport tmp_global;
+#endif
+#endif /* WASM_ENABLE_MULTI_MODULE != 0 */
 
     /* Allocate memory */
     size = sizeof(AOTImportGlobal) * (uint64)module->import_global_count;
@@ -2162,6 +2167,29 @@ load_import_globals(const uint8 **p_buf, const uint8 *buf_end,
 
         if (!is_valid_value_type(import_globals[i].type.val_type)) {
             return false;
+        }
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+#if WASM_ENABLE_LIBC_BUILTIN != 0
+        if (wasm_native_lookup_libc_builtin_global(
+                import_globals[i].module_name, import_globals[i].global_name,
+                &tmp_global)) {
+            if (tmp_global.type.val_type != import_globals[i].type.val_type
+                || tmp_global.type.is_mutable
+                       != import_globals[i].type.is_mutable) {
+                set_error_buf(error_buf, error_buf_size,
+                              "incompatible import type");
+                return false;
+            }
+            import_globals[i].global_data_linked =
+                tmp_global.global_data_linked;
+            import_globals[i].is_linked = true;
+        }
+        else
+#endif
+#endif /* WASM_ENABLE_MULTI_MODULE != 0 */
+        {
+            import_globals[i].is_linked = false;
         }
 
         import_globals[i].size =
