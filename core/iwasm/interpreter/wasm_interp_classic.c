@@ -593,8 +593,8 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
 #endif
 
 #if WASM_ENABLE_MEMORY64 != 0
-#define POP_MEM_OFFSET() (is_memory64 ? POP_I64() : POP_I32())
-#define POP_TBL_ELEM_IDX() (is_table64 ? POP_I64() : POP_I32())
+#define POP_MEM_OFFSET() (is_memory64 ? POP_I64() : (uint32)POP_I32())
+#define POP_TBL_ELEM_IDX() (is_table64 ? POP_I64() : (uint32)POP_I32())
 #else
 #define POP_MEM_OFFSET() POP_I32()
 #define POP_TBL_ELEM_IDX() POP_I32()
