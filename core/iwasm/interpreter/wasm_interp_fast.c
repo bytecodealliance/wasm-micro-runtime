@@ -5993,25 +5993,89 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         SIMD_SPLAT_OP_F64(simde_wasm_f64x2_splat);
                         break;
                     }
-
-                    // TODO:
-                    /* Lane */
+#define SIMD_EXTRACT_LANE_OP(register, return_type, push_elem) \
+    do {                                                       \
+        uint8 lane = *frame_ip++;                              \
+        V128 v = POP_V128();                                   \
+        push_elem((return_type)(v.register[lane]));            \
+    } while (0)
+#define SIMD_REPLACE_LANE_OP(register, return_type, pop_elem) \
+    do {                                                      \
+        uint8 lane = *frame_ip++;                             \
+        return_type replacement = pop_elem();                 \
+        V128 v = POP_V128();                                  \
+        v.register[lane] = replacement;                       \
+        addr_ret = GET_OFFSET();                              \
+        PUT_V128_TO_ADDR(frame_lp + addr_ret, v);             \
+    } while (0)
                     case SIMD_i8x16_extract_lane_s:
+                    {
+                        SIMD_EXTRACT_LANE_OP(i8x16, int8, PUSH_I32);
+                        break;
+                    }
                     case SIMD_i8x16_extract_lane_u:
+                    {
+                        SIMD_EXTRACT_LANE_OP(i8x16, uint8, PUSH_I32);
+                        break;
+                    }
                     case SIMD_i8x16_replace_lane:
+                    {
+                        SIMD_REPLACE_LANE_OP(i8x16, int8, POP_I32);
+                        break;
+                    }
                     case SIMD_i16x8_extract_lane_s:
+                    {
+                        SIMD_EXTRACT_LANE_OP(i16x8, int16, PUSH_I32);
+                        break;
+                    }
                     case SIMD_i16x8_extract_lane_u:
+                    {
+                        SIMD_EXTRACT_LANE_OP(i16x8, uint16, PUSH_I32);
+                        break;
+                    }
                     case SIMD_i16x8_replace_lane:
+                    {
+                        SIMD_REPLACE_LANE_OP(i16x8, int16, POP_I32);
+                        break;
+                    }
                     case SIMD_i32x4_extract_lane:
+                    {
+                        SIMD_EXTRACT_LANE_OP(i32x4, int32, PUSH_I32);
+                        break;
+                    }
                     case SIMD_i32x4_replace_lane:
+                    {
+                        SIMD_REPLACE_LANE_OP(i32x4, int32, POP_I32);
+                        break;
+                    }
                     case SIMD_i64x2_extract_lane:
+                    {
+                        SIMD_EXTRACT_LANE_OP(i64x2, int64, PUSH_I64);
+                        break;
+                    }
                     case SIMD_i64x2_replace_lane:
+                    {
+                        SIMD_REPLACE_LANE_OP(i64x2, int64, POP_I64);
+                        break;
+                    }
                     case SIMD_f32x4_extract_lane:
+                    {
+                        SIMD_EXTRACT_LANE_OP(f32x4, float32, PUSH_F32);
+                        break;
+                    }
                     case SIMD_f32x4_replace_lane:
+                    {
+                        SIMD_REPLACE_LANE_OP(f32x4, float32, POP_F32);
+                        break;
+                    }
                     case SIMD_f64x2_extract_lane:
+                    {
+                        SIMD_EXTRACT_LANE_OP(f64x2, float64, PUSH_F64);
+                        break;
+                    }
                     case SIMD_f64x2_replace_lane:
                     {
-                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        SIMD_REPLACE_LANE_OP(f64x2, float64, POP_F64);
                         break;
                     }
 
