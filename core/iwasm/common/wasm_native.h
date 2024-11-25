@@ -110,6 +110,24 @@ void *
 wasm_native_lookup_quick_aot_entry(const WASMFuncType *func_type);
 #endif
 
+wasm_global_inst_t
+wasm_native_create_spec_test_builtin_global(wasm_module_t module,
+                                            const char *module_name,
+                                            const char *name,
+                                            wasm_global_type_t type);
+
+wasm_table_inst_t *
+wasm_native_create_spec_test_builtin_table(wasm_module_t module,
+                                           const char *module_name,
+                                           const char *name,
+                                           wasm_table_type_t type);
+
+wasm_memory_inst_t
+wasm_native_create_spec_test_builtin_memory(wasm_module_t module,
+                                            const char *module_name,
+                                            const char *name,
+                                            wasm_memory_type_t type);
+
 #ifdef __cplusplus
 }
 #endif
