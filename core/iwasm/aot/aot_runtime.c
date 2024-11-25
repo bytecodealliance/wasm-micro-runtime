@@ -284,11 +284,19 @@ assign_table_init_value(AOTModuleInstance *module_inst, AOTModule *module,
                 return false;
             }
 
-#if WASM_ENABLE_MULTI_MODULE != 0
+            /*TODO: via WASMGlobalInstance->init_value ? */
             if (init_expr->u.global_index < module->import_global_count) {
+#if WASM_ENABLE_MULTI_MODULE != 0
                 PUT_REF_TO_ADDR(
                     addr, module->import_globals[init_expr->u.global_index]
                               .global_data_linked.gc_obj);
+#else
+                AOTModuleInstanceExtra *e =
+                    (AOTModuleInstanceExtra *)module_inst->e;
+                AOTGlobalInstance *global =
+                    e->globals + init_expr->u.global_index;
+                PUT_REF_TO_ADDR(addr, global->initial_value.gc_obj);
+#endif
             }
             else {
                 uint32 global_idx =
@@ -297,12 +305,6 @@ assign_table_init_value(AOTModuleInstance *module_inst, AOTModule *module,
                     module_inst, module, &module->globals[global_idx].init_expr,
                     addr, error_buf, error_buf_size);
             }
-#else
-            AOTModuleInstanceExtra *e =
-                (AOTModuleInstanceExtra *)module_inst->e;
-            AOTGlobalInstance *global = e->globals + init_expr->u.global_index;
-            PUT_REF_TO_ADDR(addr, global->initial_value.gc_obj);
-#endif
             break;
         }
         case INIT_EXPR_TYPE_REFNULL_CONST:
@@ -546,11 +548,11 @@ globals_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                              .global_data_linked);
 #else
                     /*
-                     * from WASMImportGlobal or WASMGlobal to WASMGlobalInstance
+                     * from WASMImportGlobal to WASMGlobalInstance
                      * to global_data
                      */
                     global->initial_value =
-                        globals[init_expr->u.global_index].initial_value;
+                        globals[global_index_in_expr].initial_value;
                     init_global_data(p, global_type->type.val_type,
                                      &global->initial_value);
 #endif /* WASM_ENABLE_MULTI_MODULE != 0*/
@@ -563,10 +565,16 @@ globals_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 #endif
                     uint32 adjusted_global_index_in_expr =
                         global_index_in_expr - module->import_global_count;
-                    init_global_data(
-                        p, global_type->type.val_type,
-                        &module->globals[adjusted_global_index_in_expr]
-                             .init_expr.u);
+
+                    /*
+                     * from WASMGlobal to WASMGlobalInstance
+                     * to global_data
+                     */
+                    global->initial_value =
+                        module->globals[adjusted_global_index_in_expr]
+                            .init_expr.u;
+                    init_global_data(p, global_type->type.val_type,
+                                     &global->initial_value);
                 }
 
                 break;
@@ -574,12 +582,14 @@ globals_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case INIT_EXPR_TYPE_REFNULL_CONST:
             {
+                /* no need to assign global->initial_value */
                 *(uint32 *)p = NULL_REF;
                 break;
             }
 #elif WASM_ENABLE_GC != 0
             case INIT_EXPR_TYPE_REFNULL_CONST:
             {
+                /* no need to assign global->initial_value */
                 WASMObjectRef gc_obj = NULL_REF;
                 PUT_REF_TO_ADDR(p, gc_obj);
                 break;
@@ -918,7 +928,7 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         /* Resolve table data base offset */
         /* TODO: The table64 current implementation assumes table max size
          * UINT32_MAX, so the offset conversion here is safe */
-        uint32 base_offset;
+        uint32 base_offset = 0;
         if (table_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
             uint32 global_index = table_seg->offset.u.global_index;
             uint32 global_data_offset;
@@ -928,13 +938,10 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                 return false;
             }
 
-            if (global_index < module->import_global_count)
-                global_data_offset =
-                    module->import_globals[global_index].data_offset;
-            else
-                global_data_offset =
-                    module->globals[global_index - module->import_global_count]
-                        .data_offset;
+            /* since we have transfer data_offset into WASMGlobalInstance */
+            AOTModuleInstanceExtra *e =
+                (AOTModuleInstanceExtra *)module_inst->e;
+            global_data_offset = e->globals[global_index].data_offset;
 
             base_offset =
                 *(uint32 *)(module_inst->global_data + global_data_offset);
@@ -2252,7 +2259,8 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         + module_inst_mem_inst_size;
     module_inst->global_data = p;
     module_inst->global_data_size = module->global_data_size;
-    if (module->import_global_count + module->global_count > 0) {
+    extra->global_count = module->import_global_count + module->global_count;
+    if (extra->global_count > 0) {
         extra->globals =
             globals_instantiate(module_inst, module, imports, import_count,
                                 error_buf, error_buf_size);
@@ -2404,10 +2412,11 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
             &tbl_init_size, &tbl_max_size);
 
         if (!wasm_elem_is_declarative(table_init_data->mode)
-            && !wasm_reftype_is_subtype_of(
-                table_init_data->elem_type, table_init_data->elem_ref_type,
-                table->elem_type, table->elem_ref_type.elem_ref_type,
-                module->types, module->type_count)) {
+            && !wasm_reftype_is_subtype_of((uint8)table_init_data->elem_type,
+                                           table_init_data->elem_ref_type,
+                                           table->elem_type,
+                                           table->elem_ref_type.elem_ref_type,
+                                           module->types, module->type_count)) {
             set_error_buf(error_buf, error_buf_size,
                           "type mismatch: elements segment does not fit");
             goto fail;
@@ -2432,30 +2441,21 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         /* init vec(funcidx) or vec(expr) */
         if (table_init_data->offset.init_expr_type
             == INIT_EXPR_TYPE_GET_GLOBAL) {
-            uint32 data_offset;
+            uint32 data_offset = 0;
             if (!check_global_init_expr(module,
                                         table_init_data->offset.u.global_index,
                                         error_buf, error_buf_size)) {
                 goto fail;
             }
 
-            if (table_init_data->offset.u.global_index
-                < module->import_global_count) {
-                data_offset =
-                    module
-                        ->import_globals[table_init_data->offset.u.global_index]
-                        .data_offset;
-            }
-            else {
-                data_offset =
-                    module
-                        ->globals[table_init_data->offset.u.global_index
-                                  - module->import_global_count]
-                        .data_offset;
-            }
+            /* since we have transfer data_offset into WASMGlobalInstance */
+            AOTModuleInstanceExtra *e =
+                (AOTModuleInstanceExtra *)module_inst->e;
+            data_offset =
+                e->globals[table_init_data->offset.u.global_index].data_offset;
 
             table_init_data->offset.u.i32 =
-                *(uint32 *)(module_inst->global_data + data_offset);
+                *(int32 *)(module_inst->global_data + data_offset);
         }
 
         /* check offset since length might negative */
@@ -2477,7 +2477,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
             goto fail;
         }
 
-        for (j = 0; j < module->table_init_data_list[i]->value_count; j++) {
+        for (j = 0; j < table_init_data->value_count; j++) {
             if (!assign_table_init_value(
                     module_inst, module, &table_init_data->init_values[j],
                     table_data + table_init_data->offset.u.i32 + j, error_buf,

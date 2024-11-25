@@ -7,6 +7,7 @@
 #include "bh_log.h"
 #include "wasm_export.h"
 #include "../interpreter/wasm.h"
+#include "../common/wasm_runtime_common.h"
 
 #if defined(_WIN32) || defined(_WIN32_)
 #define strncasecmp _strnicmp
@@ -1153,8 +1154,10 @@ static WASMNativeGlobalDef native_global_defs[] = {
     { "M", "g", REF_TYPE_HT_NON_NULLABLE, false, .value.gc_obj = 0 },
 #endif
 #endif
-    { "global", "NaN", VALUE_TYPE_F64, .value.u64 = 0x7FF8000000000000LL },
-    { "global", "Infinity", VALUE_TYPE_F64, .value.u64 = 0x7FF0000000000000LL }
+    { "global", "NaN", VALUE_TYPE_F64, false,
+      .value.u64 = 0x7FF8000000000000LL },
+    { "global", "Infinity", VALUE_TYPE_F64, false,
+      .value.u64 = 0x7FF0000000000000LL }
 };
 
 bool

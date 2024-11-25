@@ -2394,14 +2394,6 @@ wasm_runtime_create_imports_with_builtin(wasm_module_t module,
                                          wasm_extern_inst_t out,
                                          uint32_t out_len);
 
-WASM_RUNTIME_API_EXTERN void
-wasm_runtime_destroy_imports(wasm_module_t module, wasm_extern_inst_t imports);
-
-WASM_RUNTIME_API_EXTERN bool
-wasm_runtime_create_imports(wasm_module_t module,
-                            bool (*module_name_filter)(const char *),
-                            wasm_extern_inst_t out, uint32_t out_len);
-
 #ifdef __cplusplus
 }
 #endif

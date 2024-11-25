@@ -772,8 +772,10 @@ tables_deinstantiate(WASMModuleInstance *module_inst)
     }
 #endif
 
-    wasm_runtime_free(module_inst->tables);
-    module_inst->tables = NULL;
+    if (module_inst->tables) {
+        wasm_runtime_free(module_inst->tables);
+        module_inst->tables = NULL;
+    }
 }
 
 /**
@@ -1265,7 +1267,7 @@ instantiate_struct_global_recursive(WASMModule *module,
                         (WASMStructNewInitValues *)wasm_value->data;
                     WASMStructObjectRef field =
                         instantiate_struct_global_recursive(
-                            module, module_inst, heap_type,
+                            module, module_inst, (uint32)heap_type,
                             init_values1 ? INIT_EXPR_TYPE_STRUCT_NEW
                                          : INIT_EXPR_TYPE_STRUCT_NEW_DEFAULT,
                             init_values1, error_buf, error_buf_size);
@@ -2177,9 +2179,7 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
             return false;
         }
     }
-#endif /* WASM_ENABLE_MULTI_MODULE != 0 */
 
-#if WASM_ENABLE_MULTI_MODULE != 0
 #if WASM_ENABLE_TAGS != 0
     for (i = 0; i < module->import_tag_count; i++) {
         WASMTagImport *tag = &((module->import_tags + i)->u.tag);
@@ -2192,7 +2192,7 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
         }
     }
 #endif /* WASM_ENABLE_TAGS != 0 */
-#endif
+#endif /* WASM_ENABLE_MULTI_MODULE != 0 */
 
     return true;
 }
@@ -2918,7 +2918,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                         /* UINT32_MAX indicates that it is a null reference */
                         if ((uint32)global->initial_value.i32 != UINT32_MAX) {
                             if (!(func_obj = wasm_create_func_obj(
-                                      module_inst, global->initial_value.i32,
+                                      module_inst, global->initial_value.u32,
                                       false, error_buf, error_buf_size)))
                                 goto fail;
                         }
@@ -3436,7 +3436,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                 }
                 case INIT_EXPR_TYPE_I31_NEW:
                 {
-                    ref = (wasm_obj_t)wasm_i31_obj_new(init_expr->u.i32);
+                    ref = (wasm_obj_t)wasm_i31_obj_new(init_expr->u.u32);
                     break;
                 }
 #endif /* end of WASM_ENABLE_GC != 0 */
