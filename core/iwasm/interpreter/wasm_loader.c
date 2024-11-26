@@ -9855,7 +9855,12 @@ reserve_block_ret(WASMLoaderContext *loader_ctx, uint8 opcode,
             else {
                 loader_ctx->frame_offset = frame_offset;
                 loader_ctx->dynamic_offset = dynamic_offset;
-                PUSH_OFFSET_TYPE(return_types[i]);
+                if (!(wasm_loader_push_frame_offset(
+                        loader_ctx, return_types[i], disable_emit,
+                        operand_offset, error_buf, error_buf_size))) {
+                    wasm_runtime_free(emit_data);
+                    goto fail;
+                }
                 wasm_loader_emit_backspace(loader_ctx, sizeof(int16));
                 loader_ctx->frame_offset = frame_offset_org;
                 loader_ctx->dynamic_offset = dynamic_offset_org;
