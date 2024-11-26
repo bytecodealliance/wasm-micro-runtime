@@ -68,6 +68,10 @@ create_spec_test_global(wasm_module_t module, const char *module_name,
 /*************************************
  * Tables
  *************************************/
+static WASMNativeTableDef builtin_table_defs[] = {
+    { "spectest", "table", VALUE_TYPE_FUNCREF },
+    { "spectest", "table64", VALUE_TYPE_FUNCREF },
+};
 
 /*TODO: fix me*/
 static wasm_table_inst_t *
@@ -78,15 +82,23 @@ create_spec_test_table(wasm_module_t module, const char *module_name,
         return NULL;
     }
 
-    if (strcmp(module_name, "spectest") != 0) {
-        return NULL;
+    WASMNativeTableDef *table_def = builtin_table_defs;
+    size_t count = sizeof(builtin_table_defs) / sizeof(WASMNativeTableDef);
+    WASMNativeTableDef *table_def_end = builtin_table_defs + count;
+
+    for (; table_def < table_def_end; table_def++) {
+        if (strcmp(table_def->module_name, module_name) != 0) {
+            continue;
+        }
+
+        if (strcmp(table_def->name, name) != 0) {
+            continue;
+        }
+
+        return wasm_runtime_create_table(module, type);
     }
 
-    if (strcmp(name, "table") != 0) {
-        return NULL;
-    }
-
-    return wasm_runtime_create_table(module, type);
+    return NULL;
 }
 
 /*************************************
