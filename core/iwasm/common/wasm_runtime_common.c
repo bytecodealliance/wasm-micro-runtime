@@ -8132,6 +8132,7 @@ wasm_runtime_destroy_extern_inst(WASMModuleCommon *module,
     extern_inst->field_name = NULL;
 }
 
+#if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_WASI_TEST != 0
 /*
  * Be aware that it will remove all items in the list, regardless of whether
  * they were created by the runtime (for built-ins) or by users.
@@ -8148,6 +8149,7 @@ wasm_runtime_destroy_imports(WASMModuleCommon *module,
         wasm_runtime_destroy_extern_inst(module, extern_inst_list + i);
     }
 }
+#endif /* WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_WASI_TEST != 0 */
 
 bool
 wasm_runtime_create_imports_with_builtin(WASMModuleCommon *module,
