@@ -10,6 +10,8 @@ cwd     = GetCurrentDir()
 
 #src = Split('''
 #libc_builtin_wrapper.c
+#spec_test_builtin_wrapper.c
+#wasi_test_builtin_wrapper.c
 #''')
 
 src = Glob('*.c')
