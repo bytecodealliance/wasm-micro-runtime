@@ -27,11 +27,9 @@ static WASMNativeMemoryDef builtin_memory_defs[] = {
     { "env", "memory" },
 };
 
-wasm_memory_inst_t
-wasm_native_create_wasi_test_builtin_memory(wasm_module_t module,
-                                            const char *module_name,
-                                            const char *name,
-                                            wasm_memory_type_t type)
+static wasm_memory_inst_t
+create_wasi_test_memory(wasm_module_t module, const char *module_name,
+                        const char *name, wasm_memory_type_t type)
 {
     if (!module || !module_name || !name || !type) {
         return NULL;
@@ -82,9 +80,9 @@ wasm_runtime_create_extern_inst_for_wasi_test(wasm_module_t module,
         return true;
     }
 
-    out->u.memory = wasm_native_create_wasi_test_builtin_memory(
-        module, import_type->module_name, import_type->name,
-        import_type->u.memory_type);
+    out->u.memory =
+        create_wasi_test_memory(module, import_type->module_name,
+                                import_type->name, import_type->u.memory_type);
     if (!out->u.memory) {
         LOG_ERROR("create memory failed\n");
         return false;

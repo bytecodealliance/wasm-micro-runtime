@@ -32,18 +32,16 @@ static WASMNativeGlobalDef native_global_defs[] = {
 #endif
 };
 
-wasm_global_inst_t
-wasm_native_create_spec_test_builtin_global(wasm_module_t module,
-                                            const char *module_name,
-                                            const char *name,
-                                            wasm_global_type_t type)
+static wasm_global_inst_t
+create_spec_test_global(wasm_module_t module, const char *module_name,
+                        const char *name, wasm_global_type_t type)
 {
     if (!module || !module_name || !name || !type) {
         return NULL;
     }
 
-    uint32 size = sizeof(native_global_defs) / sizeof(WASMNativeGlobalDef);
     WASMNativeGlobalDef *global_def = native_global_defs;
+    uint32 size = sizeof(native_global_defs) / sizeof(WASMNativeGlobalDef);
     WASMNativeGlobalDef *global_def_end = global_def + size;
     for (; global_def < global_def_end; global_def++) {
         if (strcmp(global_def->module_name, module_name) != 0) {
@@ -72,11 +70,9 @@ wasm_native_create_spec_test_builtin_global(wasm_module_t module,
  *************************************/
 
 /*TODO: fix me*/
-wasm_table_inst_t *
-wasm_native_create_spec_test_builtin_table(wasm_module_t module,
-                                           const char *module_name,
-                                           const char *name,
-                                           wasm_table_type_t type)
+static wasm_table_inst_t *
+create_spec_test_table(wasm_module_t module, const char *module_name,
+                       const char *name, wasm_table_type_t type)
 {
     if (!module || !module_name || !name || !type) {
         return NULL;
@@ -100,11 +96,9 @@ wasm_native_create_spec_test_builtin_table(wasm_module_t module,
 /*
  * no predefined memory for spec test
  */
-wasm_memory_inst_t
-wasm_native_create_spec_test_builtin_memory(wasm_module_t module,
-                                            const char *module_name,
-                                            const char *name,
-                                            wasm_memory_type_t type)
+static wasm_memory_inst_t
+create_spec_test_memory(wasm_module_t module, const char *module_name,
+                        const char *name, wasm_memory_type_t type)
 {
     if (!module || !module_name || !name || !type) {
         return NULL;
@@ -141,7 +135,7 @@ wasm_runtime_create_extern_inst_for_spec_test(wasm_module_t module,
     out->kind = import_type->kind;
 
     if (import_type->kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
-        out->u.memory = wasm_native_create_spec_test_builtin_memory(
+        out->u.memory = create_spec_test_memory(
             module, import_type->module_name, import_type->name,
             import_type->u.memory_type);
         if (!out->u.memory) {
@@ -150,16 +144,16 @@ wasm_runtime_create_extern_inst_for_spec_test(wasm_module_t module,
         }
     }
     else if (import_type->kind == WASM_IMPORT_EXPORT_KIND_TABLE) {
-        out->u.table = wasm_native_create_spec_test_builtin_table(
-            module, import_type->module_name, import_type->name,
-            import_type->u.table_type);
+        out->u.table = create_spec_test_table(module, import_type->module_name,
+                                              import_type->name,
+                                              import_type->u.table_type);
         if (!out->u.table) {
             LOG_ERROR("create table failed\n");
             return false;
         }
     }
     else if (import_type->kind == WASM_IMPORT_EXPORT_KIND_GLOBAL) {
-        out->u.global = wasm_native_create_spec_test_builtin_global(
+        out->u.global = create_spec_test_global(
             module, import_type->module_name, import_type->name,
             import_type->u.global_type);
         if (!out->u.global) {
