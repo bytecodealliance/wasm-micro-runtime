@@ -5,9 +5,7 @@
 
 #include "bh_common.h"
 #include "bh_log.h"
-#include "wasm_export.h"
-#include "../interpreter/wasm.h"
-#include "../common/wasm_runtime_common.h"
+#include "builtin_wrapper.h"
 
 #if defined(_WIN32) || defined(_WIN32_)
 #define strncasecmp _strnicmp
@@ -1130,14 +1128,6 @@ get_spectest_export_apis(NativeSymbol **p_libc_builtin_apis)
  * Global Variables                  *
  *************************************/
 
-typedef struct WASMNativeGlobalDef {
-    const char *module_name;
-    const char *global_name;
-    uint8 type;
-    bool is_mutable;
-    WASMValue value;
-} WASMNativeGlobalDef;
-
 static WASMNativeGlobalDef native_global_defs[] = {
 #if WASM_ENABLE_SPEC_TEST != 0
     { "spectest", "global_i32", VALUE_TYPE_I32, false, .value.i32 = 666 },
@@ -1175,7 +1165,7 @@ wasm_native_lookup_libc_builtin_global(const char *module_name,
     /* Lookup constant globals which can be defined by table */
     while (global_def < global_def_end) {
         if (!strcmp(global_def->module_name, module_name)
-            && !strcmp(global_def->global_name, global_name)) {
+            && !strcmp(global_def->name, global_name)) {
             global->type.val_type = global_def->type;
             global->type.is_mutable = global_def->is_mutable;
             global->global_data_linked = global_def->value;

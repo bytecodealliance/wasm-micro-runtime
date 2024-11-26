@@ -8087,59 +8087,6 @@ wasm_runtime_instantiate_with_builtin_linker(WASMModuleCommon *module,
     return inst;
 }
 
-#if WASM_ENABLE_SPEC_TEST != 0
-bool
-wasm_runtime_create_extern_inst_for_spec_test(WASMModuleCommon *module,
-                                              wasm_import_t *import_type,
-                                              WASMExternInstance *out)
-{
-    if (!out)
-        return false;
-
-    LOG_DEBUG("create import(%s,%s) kind %d", import_type->module_name,
-              import_type->name, import_type->kind);
-
-    out->module_name = import_type->module_name;
-    out->field_name = import_type->name;
-    out->kind = import_type->kind;
-
-    if (import_type->kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
-        out->u.memory = wasm_native_create_spec_test_builtin_memory(
-            module, import_type->module_name, import_type->name,
-            import_type->u.memory_type);
-        if (!out->u.memory) {
-            LOG_ERROR("create memory failed\n");
-            return false;
-        }
-    }
-    else if (import_type->kind == WASM_IMPORT_EXPORT_KIND_TABLE) {
-        out->u.table = wasm_native_create_spec_test_builtin_table(
-            module, import_type->module_name, import_type->name,
-            import_type->u.table_type);
-        if (!out->u.table) {
-            LOG_ERROR("create table failed\n");
-            return false;
-        }
-    }
-    else if (import_type->kind == WASM_IMPORT_EXPORT_KIND_GLOBAL) {
-        out->u.global = wasm_native_create_spec_test_builtin_global(
-            module, import_type->module_name, import_type->name,
-            import_type->u.global_type);
-        if (!out->u.global) {
-            LOG_ERROR("create global failed\n");
-            return false;
-        }
-    }
-    else {
-        LOG_DEBUG("unimplemented import(%s,%s) kind %d",
-                  import_type->module_name, import_type->name,
-                  import_type->kind);
-    }
-
-    return true;
-}
-#endif
-
 void
 wasm_runtime_destroy_extern_inst(WASMModuleCommon *module,
                                  WASMExternInstance *extern_inst)
@@ -8213,14 +8160,26 @@ wasm_runtime_create_imports_with_builtin(WASMModuleCommon *module,
         wasm_runtime_get_import_type(module, i, &import_type);
 
         WASMExternInstance *extern_instance = out + i;
+
 #if WASM_ENABLE_SPEC_TEST != 0
         if (!wasm_runtime_create_extern_inst_for_spec_test(module, &import_type,
                                                            extern_instance)) {
             wasm_runtime_destroy_imports(module, out);
-            LOG_ERROR("create import failed");
+            LOG_ERROR("create imports for spec test failed");
             return false;
         }
 #endif
+
+#if WASM_ENABLE_WASI_TEST != 0
+        if (!wasm_runtime_create_extern_inst_for_wasi_test(module, &import_type,
+                                                           extern_instance)) {
+            wasm_runtime_destroy_imports(module, out);
+            LOG_ERROR("create imports for wasi test failed");
+            return false;
+        }
+#endif
+
+        (void)extern_instance;
     }
 
     return true;
