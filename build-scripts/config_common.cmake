@@ -131,6 +131,9 @@ else ()
   unset (LLVM_AVAILABLE_LIBS)
 endif ()
 
+# Version
+include (${WAMR_ROOT_DIR}/build-scripts/version.cmake)
+
 # Sanitizers
 
 if (NOT DEFINED WAMR_BUILD_SANITIZER)
