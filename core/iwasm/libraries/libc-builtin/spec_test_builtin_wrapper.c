@@ -4,8 +4,7 @@
  */
 
 #include "bh_log.h"
-#include "wasm_export.h"
-#include "../common/wasm_runtime_common.h"
+#include "builtin_wrapper.h"
 
 /*************************************
  * Functions
@@ -14,14 +13,6 @@
 /*************************************
  * Globals
  *************************************/
-
-typedef struct WASMNativeGlobalDef {
-    const char *module_name;
-    const char *name;
-    uint8 type;
-    bool is_mutable;
-    WASMValue value;
-} WASMNativeGlobalDef;
 
 static WASMNativeGlobalDef native_global_defs[] = {
     /* for standard spec test */
@@ -80,13 +71,6 @@ wasm_native_create_spec_test_builtin_global(wasm_module_t module,
  * Tables
  *************************************/
 
-typedef struct WASMNativeTableDef {
-    const char *module_name;
-    const char *name;
-    uint8 elem_type;
-
-} WASMNativeTableDef;
-
 /*TODO: fix me*/
 wasm_table_inst_t *
 wasm_native_create_spec_test_builtin_table(wasm_module_t module,
@@ -113,11 +97,6 @@ wasm_native_create_spec_test_builtin_table(wasm_module_t module,
  * Memories
  *************************************/
 
-typedef struct WASMNativeMemoryDef {
-    const char *module_name;
-    const char *name;
-} WASMNativeMemoryDef;
-
 /*
  * no predefined memory for spec test
  */
@@ -140,4 +119,59 @@ wasm_native_create_spec_test_builtin_memory(wasm_module_t module,
     }
 
     return wasm_runtime_create_memory(module, type);
+}
+
+/*************************************
+ * Extern
+ *************************************/
+
+bool
+wasm_runtime_create_extern_inst_for_spec_test(wasm_module_t module,
+                                              wasm_import_t *import_type,
+                                              WASMExternInstance *out)
+{
+    if (!module || !import_type || !out)
+        return false;
+
+    LOG_DEBUG("create import(%s,%s) kind %d", import_type->module_name,
+              import_type->name, import_type->kind);
+
+    out->module_name = import_type->module_name;
+    out->field_name = import_type->name;
+    out->kind = import_type->kind;
+
+    if (import_type->kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
+        out->u.memory = wasm_native_create_spec_test_builtin_memory(
+            module, import_type->module_name, import_type->name,
+            import_type->u.memory_type);
+        if (!out->u.memory) {
+            LOG_ERROR("create memory failed\n");
+            return false;
+        }
+    }
+    else if (import_type->kind == WASM_IMPORT_EXPORT_KIND_TABLE) {
+        out->u.table = wasm_native_create_spec_test_builtin_table(
+            module, import_type->module_name, import_type->name,
+            import_type->u.table_type);
+        if (!out->u.table) {
+            LOG_ERROR("create table failed\n");
+            return false;
+        }
+    }
+    else if (import_type->kind == WASM_IMPORT_EXPORT_KIND_GLOBAL) {
+        out->u.global = wasm_native_create_spec_test_builtin_global(
+            module, import_type->module_name, import_type->name,
+            import_type->u.global_type);
+        if (!out->u.global) {
+            LOG_ERROR("create global failed\n");
+            return false;
+        }
+    }
+    else {
+        LOG_DEBUG("unimplemented import(%s,%s) kind %d for spec test",
+                  import_type->module_name, import_type->name,
+                  import_type->kind);
+    }
+
+    return true;
 }

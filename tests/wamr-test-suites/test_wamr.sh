@@ -1048,7 +1048,7 @@ function trigger()
     if [[ $TEST_CASE_ARR ]]; then
         for test in "${TEST_CASE_ARR[@]}"; do
             if [[ "$test" == "wasi_certification" ]]; then
-                EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_WASI_TEST=1"
+                EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_WASI_TEST=1 -DWAMR_BUILD_SPEC_TEST=0"
             fi
             if [[ "$test" == "wasi_certification"
                   || "$test" == "standalone" ]]; then
