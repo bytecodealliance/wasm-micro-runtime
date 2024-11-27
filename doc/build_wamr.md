@@ -223,7 +223,7 @@ Currently we only profile the memory consumption of module, module_instance and 
 > See [basic sample](../samples/basic/src/main.c) for a usage example.
 
 #### **Enable reference types feature**
-- **WAMR_BUILD_REF_TYPES**=1/0, default to disable if not set
+- **WAMR_BUILD_REF_TYPES**=1/0, default to enable if not set
 
 #### **Exclude WAMR application entry functions**
 - **WAMR_DISABLE_APP_ENTRY**=1/0, default to disable if not set
