@@ -1785,7 +1785,7 @@ lookup_post_instantiate_func(WASMModuleInstance *module_inst,
 
 static bool
 execute_post_instantiate_functions(WASMModuleInstance *module_inst,
-                                   bool is_sub_inst, WASMExecEnv *exec_env_main)
+                                   bool is_spawned, WASMExecEnv *exec_env_main)
 {
     WASMFunctionInstance *start_func = module_inst->e->start_function;
     WASMFunctionInstance *initialize_func = NULL;
@@ -1807,7 +1807,7 @@ execute_post_instantiate_functions(WASMModuleInstance *module_inst,
      * the environment at most once, and that none of their other exports
      * are accessed before that call.
      */
-    if (!is_sub_inst && module->import_wasi_api) {
+    if (!is_spawned && module->import_wasi_api) {
         initialize_func =
             lookup_post_instantiate_func(module_inst, "_initialize");
     }
@@ -1815,7 +1815,7 @@ execute_post_instantiate_functions(WASMModuleInstance *module_inst,
 
     /* Execute possible "__post_instantiate" function if wasm app is
        compiled by emsdk's early version */
-    if (!is_sub_inst) {
+    if (!is_spawned) {
         post_inst_func =
             lookup_post_instantiate_func(module_inst, "__post_instantiate");
     }
@@ -1823,7 +1823,7 @@ execute_post_instantiate_functions(WASMModuleInstance *module_inst,
 #if WASM_ENABLE_BULK_MEMORY != 0
     /* Only execute the memory init function for main instance since
        the data segments will be dropped once initialized */
-    if (!is_sub_inst
+    if (!is_spawned
 #if WASM_ENABLE_LIBC_WASI != 0
         && !module->import_wasi_api
 #endif
@@ -1839,7 +1839,7 @@ execute_post_instantiate_functions(WASMModuleInstance *module_inst,
         return true;
     }
 
-    if (is_sub_inst) {
+    if (is_spawned) {
         bh_assert(exec_env_main);
 #ifdef OS_ENABLE_HW_BOUND_CHECK
         /* May come from pthread_create_wrapper, thread_spawn_wrapper and
@@ -1914,7 +1914,7 @@ execute_post_instantiate_functions(WASMModuleInstance *module_inst,
     ret = true;
 
 fail:
-    if (is_sub_inst) {
+    if (is_spawned) {
         /* Restore the parent exec_env's module inst */
         wasm_exec_env_restore_module_inst(exec_env_main, module_inst_main);
     }
@@ -2591,7 +2591,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 #if WASM_ENABLE_MULTI_MODULE != 0
     bool ret = false;
 #endif
-    const bool is_sub_inst = parent != NULL;
+    const bool is_spawned = parent != NULL;
 
     if (!module)
         return NULL;
@@ -2713,7 +2713,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 #endif
 
 #if WASM_ENABLE_GC != 0
-    if (!is_sub_inst) {
+    if (!is_spawned) {
         uint32 gc_heap_size = wasm_runtime_get_gc_heap_size_default();
 
         if (gc_heap_size < GC_HEAP_SIZE_MIN)
@@ -2957,7 +2957,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         if (data_seg->is_passive)
             continue;
 #endif
-        if (is_sub_inst)
+        if (is_spawned)
             /* Ignore setting memory init data if the memory has been
                initialized */
             continue;
@@ -3470,7 +3470,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
 #if WASM_ENABLE_LIBC_WASI != 0
     /* The sub-instance will get the wasi_ctx from main-instance */
-    if (!is_sub_inst) {
+    if (!is_spawned) {
         if (!wasm_runtime_init_wasi(
                 (WASMModuleInstanceCommon *)module_inst,
                 module->wasi_args.dir_list, module->wasi_args.dir_count,
@@ -3488,7 +3488,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
-    if (!is_sub_inst) {
+    if (!is_spawned) {
         /* Add module instance into module's instance list */
         os_mutex_lock(&module->instance_list_lock);
         if (module->instance_list) {
@@ -3517,7 +3517,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                 &module_inst->e->functions[module->start_function];
     }
 
-    if (!execute_post_instantiate_functions(module_inst, is_sub_inst,
+    if (!execute_post_instantiate_functions(module_inst, is_spawned,
                                             exec_env_main)) {
         set_error_buf(error_buf, error_buf_size, module_inst->cur_exception);
         goto fail;
@@ -3560,7 +3560,7 @@ destroy_c_api_frames(Vector *frames)
 #endif
 
 void
-wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
+wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_spawned)
 {
     if (!module_inst)
         return;
@@ -3658,7 +3658,7 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
 #endif
 
 #if WASM_ENABLE_GC != 0
-    if (!is_sub_inst) {
+    if (!is_spawned) {
         if (module_inst->e->common.gc_heap_handle)
             mem_allocator_destroy(module_inst->e->common.gc_heap_handle);
         if (module_inst->e->common.gc_heap_pool)
@@ -3677,7 +3677,7 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     if (module_inst->c_api_func_imports)
         wasm_runtime_free(module_inst->c_api_func_imports);
 
-    if (!is_sub_inst) {
+    if (!is_spawned) {
         wasm_native_call_context_dtors((WASMModuleInstanceCommon *)module_inst);
     }
 

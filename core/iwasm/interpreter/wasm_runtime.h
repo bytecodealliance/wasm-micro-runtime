@@ -624,7 +624,7 @@ wasm_get_wasm_func_exec_time(const WASMModuleInstance *inst,
                              const char *func_name);
 
 void
-wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst);
+wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_spawned);
 
 bool
 wasm_set_running_mode(WASMModuleInstance *module_inst,

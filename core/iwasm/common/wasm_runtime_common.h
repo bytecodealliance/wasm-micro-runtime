@@ -582,7 +582,7 @@ wasm_runtime_instantiate_internal(WASMModuleCommon *module,
 /* Internal API */
 void
 wasm_runtime_deinstantiate_internal(WASMModuleInstanceCommon *module_inst,
-                                    bool is_sub_inst);
+                                    bool is_spawned);
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN WASMModuleInstanceCommon *
