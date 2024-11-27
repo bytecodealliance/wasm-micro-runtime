@@ -1392,8 +1392,10 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
         return;
     }
 
-    /* Switch exec_env but keep using the same one by replacing necessary
-     * variables */
+    /*
+     * Switch the WASMExecEnv while retaining the same content
+     * by updating the necessary variables
+     */
     sub_module_exec_env = wasm_runtime_get_exec_env_singleton(
         (WASMModuleInstanceCommon *)sub_module_inst);
     if (!sub_module_exec_env) {

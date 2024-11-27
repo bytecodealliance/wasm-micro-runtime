@@ -5703,11 +5703,6 @@ aot_resolve_function(const AOTModule *module, const char *function_name,
 bool
 aot_resolve_import_func(AOTModule *module, AOTImportFunc *import_func)
 {
-#if WASM_ENABLE_MULTI_MODULE != 0
-    char error_buf[128];
-    AOTModule *sub_module = NULL;
-#endif
-
     import_func->func_ptr_linked = wasm_native_resolve_symbol(
         import_func->module_name, import_func->func_name,
         import_func->func_type, &import_func->signature,
@@ -5715,24 +5710,37 @@ aot_resolve_import_func(AOTModule *module, AOTImportFunc *import_func)
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     if (!import_func->func_ptr_linked) {
-        if (!wasm_runtime_is_built_in_module(import_func->module_name)) {
-            sub_module = (AOTModule *)wasm_runtime_load_depended_module(
-                (WASMModuleCommon *)module, import_func->module_name, error_buf,
-                sizeof(error_buf));
-            if (!sub_module) {
-                LOG_WARNING("Failed to load sub module: %s", error_buf);
-            }
-            if (!sub_module)
-                import_func->func_ptr_linked = aot_resolve_function_ex(
-                    import_func->module_name, import_func->func_name,
-                    import_func->func_type, error_buf, sizeof(error_buf));
-            else
-                import_func->func_ptr_linked = aot_resolve_function(
-                    sub_module, import_func->func_name, import_func->func_type,
-                    error_buf, sizeof(error_buf));
-            if (!import_func->func_ptr_linked) {
-                LOG_WARNING("Failed to link function: %s", error_buf);
-            }
+        char error_buf[128];
+        AOTModule *sub_module = NULL;
+        /*
+         * after wasm_native_resolve_symbol(),
+         * wasm_runtime_is_built_in_module isn't necessary
+         */
+        bh_assert(!wasm_runtime_is_built_in_module(import_func->module_name));
+
+        sub_module = (AOTModule *)wasm_runtime_load_depended_module(
+            (WASMModuleCommon *)module, import_func->module_name, error_buf,
+            sizeof(error_buf));
+
+        if (!sub_module) {
+            LOG_DEBUG("Failed to load sub module: %s", error_buf);
+            /*
+             * TOOD: call in  wasm_runtime_find_module_registered()
+             * in aot_resolve_function_ex() is not necessary
+             * since wasm_runtime_load_depended_module() has been called
+             */
+            import_func->func_ptr_linked = aot_resolve_function_ex(
+                import_func->module_name, import_func->func_name,
+                import_func->func_type, error_buf, sizeof(error_buf));
+        }
+        else {
+            import_func->func_ptr_linked = aot_resolve_function(
+                sub_module, import_func->func_name, import_func->func_type,
+                error_buf, sizeof(error_buf));
+        }
+
+        if (!import_func->func_ptr_linked) {
+            LOG_WARNING("Failed to link function: %s", error_buf);
         }
     }
 #else

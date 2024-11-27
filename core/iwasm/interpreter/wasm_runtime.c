@@ -162,10 +162,7 @@ wasm_resolve_function(const char *module_name, const char *function_name,
 bool
 wasm_resolve_import_func(const WASMModule *module, WASMFunctionImport *function)
 {
-#if WASM_ENABLE_MULTI_MODULE != 0
-    char error_buf[128];
-    WASMModule *sub_module = NULL;
-#endif
+    /* from builtin functions */
     function->func_ptr_linked = wasm_native_resolve_symbol(
         function->module_name, function->field_name, function->func_type,
         &function->signature, &function->attachment, &function->call_conv_raw);
@@ -175,27 +172,34 @@ wasm_resolve_import_func(const WASMModule *module, WASMFunctionImport *function)
     }
 
 #if WASM_ENABLE_MULTI_MODULE != 0
-    if (!wasm_runtime_is_built_in_module(function->module_name)) {
-        sub_module = (WASMModule *)wasm_runtime_load_depended_module(
-            (WASMModuleCommon *)module, function->module_name, error_buf,
-            sizeof(error_buf));
-        if (!sub_module) {
-            LOG_WARNING("failed to load sub module: %s", error_buf);
-            return false;
-        }
+    /* from other .wasms' export functions */
+    char error_buf[128];
+    WASMModule *sub_module = NULL;
+
+    /*
+     * after wasm_native_resolve_symbol(),
+     * wasm_runtime_is_built_in_module isn't necessary
+     */
+    bh_assert(!wasm_runtime_is_built_in_module(function->module_name));
+
+    sub_module = (WASMModule *)wasm_runtime_load_depended_module(
+        (WASMModuleCommon *)module, function->module_name, error_buf,
+        sizeof(error_buf));
+    if (!sub_module) {
+        LOG_WARNING("failed to load sub module: %s", error_buf);
+        return false;
     }
+
     function->import_func_linked = wasm_resolve_function(
         function->module_name, function->field_name, function->func_type,
         error_buf, sizeof(error_buf));
-
     if (function->import_func_linked) {
         function->import_module = sub_module;
         return true;
     }
-    else {
-        LOG_WARNING("failed to link function (%s, %s): %s",
-                    function->module_name, function->field_name, error_buf);
-    }
+
+    LOG_WARNING("failed to link function (%s, %s): %s", function->module_name,
+                function->field_name, error_buf);
 #endif
 
     return false;
