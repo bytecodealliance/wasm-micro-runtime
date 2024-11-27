@@ -2798,10 +2798,10 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
     uint32 result_count = func_type->result_count;
     uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     bool ret;
-    void *func_ptr = function->is_import_func
-                         ? function->u.func_import->func_ptr_linked
-                         : function->u.func.func_ptr;
+    /* init_func_ptrs() has already copied func_ptr_linked value*/
+    void *func_ptr = function->u.func.func_ptr;
     void *attachment = NULL;
+
 #if WASM_ENABLE_MULTI_MODULE != 0
     bh_list *sub_module_list_node = NULL;
     const char *sub_inst_name = NULL;
