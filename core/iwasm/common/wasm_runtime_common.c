@@ -1681,17 +1681,17 @@ wasm_runtime_instantiate_ex(WASMModuleCommon *module,
 
 void
 wasm_runtime_deinstantiate_internal(WASMModuleInstanceCommon *module_inst,
-                                    bool is_sub_inst)
+                                    bool is_spawned)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
-        wasm_deinstantiate((WASMModuleInstance *)module_inst, is_sub_inst);
+        wasm_deinstantiate((WASMModuleInstance *)module_inst, is_spawned);
         return;
     }
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
-        aot_deinstantiate((AOTModuleInstance *)module_inst, is_sub_inst);
+        aot_deinstantiate((AOTModuleInstance *)module_inst, is_spawned);
         return;
     }
 #endif

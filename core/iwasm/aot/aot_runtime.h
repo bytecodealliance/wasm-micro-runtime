@@ -575,10 +575,10 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
  * Deinstantiate a AOT module instance, destroy the resources.
  *
  * @param module_inst the AOT module instance to destroy
- * @param is_sub_inst the flag of sub instance
+ * @param is_spawned the flag of sub instance
  */
 void
-aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst);
+aot_deinstantiate(AOTModuleInstance *module_inst, bool is_spawned);
 
 AOTMemoryInstance *
 aot_create_memory(const AOTModule *module, const AOTMemoryType *type);

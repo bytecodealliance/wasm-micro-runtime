@@ -1938,7 +1938,7 @@ lookup_post_instantiate_func(AOTModuleInstance *module_inst,
 
 static bool
 execute_post_instantiate_functions(AOTModuleInstance *module_inst,
-                                   bool is_sub_inst, WASMExecEnv *exec_env_main)
+                                   bool is_spawned, WASMExecEnv *exec_env_main)
 {
     AOTModule *module = (AOTModule *)module_inst->module;
     AOTFunctionInstance *initialize_func = NULL;
@@ -1957,7 +1957,7 @@ execute_post_instantiate_functions(AOTModuleInstance *module_inst,
      * the environment at most once, and that none of their other exports
      * are accessed before that call.
      */
-    if (!is_sub_inst && module->import_wasi_api) {
+    if (!is_spawned && module->import_wasi_api) {
         initialize_func =
             lookup_post_instantiate_func(module_inst, "_initialize");
     }
@@ -1965,7 +1965,7 @@ execute_post_instantiate_functions(AOTModuleInstance *module_inst,
 
     /* Execute possible "__post_instantiate" function if wasm app is
        compiled by emsdk's early version */
-    if (!is_sub_inst) {
+    if (!is_spawned) {
         post_inst_func =
             lookup_post_instantiate_func(module_inst, "__post_instantiate");
     }
@@ -1973,7 +1973,7 @@ execute_post_instantiate_functions(AOTModuleInstance *module_inst,
 #if WASM_ENABLE_BULK_MEMORY != 0
     /* Only execute the memory init function for main instance since
        the data segments will be dropped once initialized */
-    if (!is_sub_inst
+    if (!is_spawned
 #if WASM_ENABLE_LIBC_WASI != 0
         && !module->import_wasi_api
 #endif
@@ -1989,7 +1989,7 @@ execute_post_instantiate_functions(AOTModuleInstance *module_inst,
         return true;
     }
 
-    if (is_sub_inst) {
+    if (is_spawned) {
         bh_assert(exec_env_main);
 #ifdef OS_ENABLE_HW_BOUND_CHECK
         /* May come from pthread_create_wrapper, thread_spawn_wrapper and
@@ -2082,7 +2082,7 @@ execute_post_instantiate_functions(AOTModuleInstance *module_inst,
     ret = true;
 
 fail:
-    if (is_sub_inst) {
+    if (is_spawned) {
         /* Restore the parent exec_env's module inst */
         wasm_exec_env_restore_module_inst(exec_env_main, module_inst_main);
     }
@@ -2116,7 +2116,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     uint64 total_size, table_size = 0;
     uint8 *p;
     uint32 i, extra_info_offset;
-    const bool is_sub_inst = parent != NULL;
+    const bool is_spawned = parent != NULL;
 #if WASM_ENABLE_MULTI_MODULE != 0
     bool ret = false;
 #endif
@@ -2183,7 +2183,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
 #if WASM_ENABLE_GC != 0
     /* Initialize gc heap first since it may be used when initializing
        globals and others */
-    if (!is_sub_inst) {
+    if (!is_spawned) {
         uint32 gc_heap_size = wasm_runtime_get_gc_heap_size_default();
 
         if (gc_heap_size < GC_HEAP_SIZE_MIN)
@@ -2308,7 +2308,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         goto fail;
 
 #if WASM_ENABLE_LIBC_WASI != 0
-    if (!is_sub_inst) {
+    if (!is_spawned) {
         if (!wasm_runtime_init_wasi(
                 (WASMModuleInstanceCommon *)module_inst,
                 module->wasi_args.dir_list, module->wasi_args.dir_count,
@@ -2504,7 +2504,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     }
 #endif
 
-    if (!execute_post_instantiate_functions(module_inst, is_sub_inst,
+    if (!execute_post_instantiate_functions(module_inst, is_spawned,
                                             exec_env_main)) {
         set_error_buf(error_buf, error_buf_size, module_inst->cur_exception);
         goto fail;
@@ -2518,7 +2518,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     return module_inst;
 
 fail:
-    aot_deinstantiate(module_inst, is_sub_inst);
+    aot_deinstantiate(module_inst, is_spawned);
     return NULL;
 }
 
@@ -2546,7 +2546,7 @@ destroy_c_api_frames(Vector *frames)
 #endif
 
 void
-aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
+aot_deinstantiate(AOTModuleInstance *module_inst, bool is_spawned)
 {
     AOTModuleInstanceExtra *extra = (AOTModuleInstanceExtra *)module_inst->e;
     WASMModuleInstanceExtraCommon *common = &extra->common;
@@ -2623,7 +2623,7 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
         wasm_runtime_free(module_inst->c_api_func_imports);
 
 #if WASM_ENABLE_GC != 0
-    if (!is_sub_inst) {
+    if (!is_spawned) {
         if (common->gc_heap_handle)
             mem_allocator_destroy(common->gc_heap_handle);
         if (common->gc_heap_pool)
@@ -2631,7 +2631,7 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
     }
 #endif
 
-    if (!is_sub_inst) {
+    if (!is_spawned) {
         wasm_native_call_context_dtors((WASMModuleInstanceCommon *)module_inst);
     }
 
@@ -2836,6 +2836,10 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         snprintf(buf, sizeof(buf),
                  "invalid argument count %u, must be no smaller than %u", argc,
                  func_type->param_cell_num);
+        /*
+         * TODO: might need to roll back to the original module_inst
+         * if has been changed to sub module instance
+         */
         aot_set_exception(module_inst, buf);
         return false;
     }
