@@ -14,6 +14,17 @@ os_time_get_boot_us()
 uint64
 os_time_thread_cputime_us(void)
 {
-    /* FIXME if u know the right api */
-    return os_time_get_boot_us();
+    k_tid_t tid;
+    struct k_thread_runtime_stats stats;
+    uint32 clock_freq;
+    uint64 cpu_cycles, time_in_us = 0;
+
+    tid = k_current_get();
+    if (k_thread_runtime_stats_get(tid, &stats) == 0) {
+        cpu_cycles = stats.execution_cycles;
+        clock_freq = CONFIG_SYS_CLOCK_HW_CYCLES_PER_SEC;
+        time_in_us = (cpu_cycles * 1000000) / clock_freq;
+    }
+
+    return time_in_us;
 }
