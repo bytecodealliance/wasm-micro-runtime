@@ -3442,6 +3442,8 @@ wasm_func_call(const wasm_func_t *func, const wasm_val_vec_t *params,
     if (result_count) {
         if (!argv_to_results(argv, wasm_functype_results(func->type),
                              results)) {
+            wasm_runtime_set_exception(func->inst_comm_rt,
+                                       "argv_to_results failed");
             goto failed;
         }
         results->num_elems = result_count;
