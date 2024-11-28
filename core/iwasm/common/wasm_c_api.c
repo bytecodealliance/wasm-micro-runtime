@@ -3330,6 +3330,7 @@ argv_to_results(const uint32 *argv, const wasm_valtype_vec_t *result_defs,
                 break;
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case WASM_EXTERNREF:
+            case WASM_FUNCREF:
                 result->of.ref = (struct wasm_ref_t *)(*(uintptr_t *)argv);
                 argv += sizeof(uintptr_t) / sizeof(uint32);
                 break;
