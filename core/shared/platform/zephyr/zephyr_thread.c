@@ -402,7 +402,14 @@ os_thread_join(korp_tid thread, void **value_ptr)
 
     /* Get thread data */
     thread_data = thread_data_list_lookup(thread);
-    bh_assert(thread_data != NULL);
+
+    if (thread_data == NULL) {
+        os_printf(
+            "Can't join thread %p, probably already exited or does not exist",
+            thread);
+        BH_FREE(node);
+        return BHT_OK;
+    }
 
     mutex_lock(&thread_data->wait_list_lock, K_FOREVER);
     if (!thread_data->thread_wait_list)
@@ -580,7 +587,8 @@ os_thread_get_stack_boundary()
 
 void
 os_thread_jit_write_protect_np(bool enabled)
-{}
+{
+}
 
 int
 os_thread_detach(korp_tid thread)
