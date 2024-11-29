@@ -2803,6 +2803,10 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
     void *attachment = NULL;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
+    /*
+     * TODO: this searching for sub_module_inst
+     * should have been done during loading)
+     */
     bh_list *sub_module_list_node = NULL;
     const char *sub_inst_name = NULL;
     const char *func_name = function->u.func_import->module_name;
