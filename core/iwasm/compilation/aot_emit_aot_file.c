@@ -388,13 +388,13 @@ get_import_table_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
     uint32 size = (uint32)sizeof(uint32);
 
     for (uint32 i = 0; i < comp_data->import_table_count; i++) {
-        size = align_uint(size, 2);
+        size = align_uint(size, 4);
         /*
          *   u8 elem_type + u8 flags
          *   + u8 possible_grow + u8 elem_ref_type.nullable
          * ------------------------------ =u32
          *   + u32 init_size + u32 max_size
-         *   + u32 elem_ref_type.heap_type
+         *   + u32 elem_ref_type.heap_type (Optional)
          */
         size += sizeof(uint32) * 3;
 #if WASM_ENABLE_GC != 0
@@ -778,15 +778,15 @@ get_init_data_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
      * -------------------------------------------------------
      * | u32 import_table_count
      * -------------------------------------------------------
-     * |                         | str module_name
-     * |                         | str field_name
      * |                         |  u8 elem_type
-     * | AOTImportTable[N]       |  u8 flags
+     * |                         |  u8 flags
      * |                         |  u8 possible_grow
      * |                         |  u8 elem_ref_type.nullable(GC)
-     * |                         | u32 init_size
+     * |  AOTImportTable[N]      | u32 init_size
      * |                         | u32 max_size
      * |                         | u32 elem_ref_type.heap_type(GC)
+     * |                         | str module_name
+     * |                         | str field_name
      * -------------------------------------------------------
      * | padding
      * | previous version doesn't have it by design.
@@ -2062,7 +2062,7 @@ aot_emit_import_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
     AOTImportTable *import_table = comp_data->import_tables;
     for (uint32 i = 0; i < comp_data->import_table_count; i++, import_table++) {
-        offset = align_uint(offset, 2);
+        offset = align_uint(offset, 4);
 
         EMIT_U8(import_table->table_type.elem_type);
         EMIT_U8(import_table->table_type.flags);
