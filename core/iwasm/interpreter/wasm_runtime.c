@@ -172,17 +172,16 @@ wasm_resolve_import_func(const WASMModule *module, WASMFunctionImport *function)
     }
 
 #if WASM_ENABLE_MULTI_MODULE != 0
+    if (!function->module_name) {
+        LOG_VERBOSE(
+            "does't have module name for function %s. host should provide link",
+            function->field_name);
+        return false;
+    }
+
     /* from other .wasms' export functions */
     char error_buf[128];
-    WASMModule *sub_module = NULL;
-
-    /*
-     * after wasm_native_resolve_symbol(),
-     * wasm_runtime_is_built_in_module isn't necessary
-     */
-    bh_assert(!wasm_runtime_is_built_in_module(function->module_name));
-
-    sub_module = (WASMModule *)wasm_runtime_load_depended_module(
+    WASMModule *sub_module = (WASMModule *)wasm_runtime_load_depended_module(
         (WASMModuleCommon *)module, function->module_name, error_buf,
         sizeof(error_buf));
     if (!sub_module) {

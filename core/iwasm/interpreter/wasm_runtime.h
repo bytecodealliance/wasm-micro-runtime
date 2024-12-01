@@ -436,6 +436,9 @@ struct WASMModuleInstance {
     DefPointer(WASMModule *, module);
 
     DefPointer(WASMExecEnv *, exec_env_singleton);
+    /*
+     * TODO: is able to be merged with func_ptrs
+     */
     /* Array of function pointers to import functions,
        not available in AOTModuleInstance */
     DefPointer(void **, import_func_ptrs);
