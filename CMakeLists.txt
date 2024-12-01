@@ -8,7 +8,7 @@ if(ESP_PLATFORM)
   return()
 endif()
 
-project (iwasm)
+project (iwasm LANGUAGES C)
 
 set (CMAKE_VERBOSE_MAKEFILE OFF)
 
@@ -25,7 +25,6 @@ endif ()
 
 # Reset default linker flags
 set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
-set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
 set (CMAKE_C_STANDARD 99)
 
@@ -128,7 +127,6 @@ if (NOT WIN32)
                                        -fvisibility=hidden")
   # Remove the extra spaces for better make log
   string (REGEX REPLACE "  *" " " CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wformat -Wformat-security -Wno-unused")
 endif()
 
 if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
