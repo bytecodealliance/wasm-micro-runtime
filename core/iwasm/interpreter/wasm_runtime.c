@@ -281,9 +281,12 @@ memories_deinstantiate(WASMModuleInstance *module_inst)
 
         memory_deinstantiate(memory);
 #else
-        memory_deinstantiate(memory);
-        uint16 rc = BH_ATOMIC_16_FETCH_OR(memory->ref_count, 0);
-        if (rc == 0) {
+        /* for spawned only */
+        if (!shared_memory_is_shared(memory)) {
+            continue;
+        }
+
+        if (shared_memory_get_reference(memory) == 0) {
             wasm_runtime_free(memory);
         }
 #endif
@@ -744,11 +747,13 @@ tables_deinstantiate(WASMModuleInstance *module_inst)
 
         table_elem_type_t *table_elems =
             wasm_locate_table_elems(module, table, i);
-        void *table_imported =
-            ((uint8 *)(table_elems)) - offsetof(WASMTableInstance, elems);
-        if (!table_imported) {
+
+        if (!table_elems) {
             continue;
         }
+
+        void *table_imported =
+            ((uint8 *)(table_elems)) - offsetof(WASMTableInstance, elems);
 
         wasm_runtime_free(table_imported);
     }

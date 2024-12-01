@@ -683,6 +683,11 @@ tables_deinstantiate(AOTModuleInstance *inst)
 
         table_elem_type_t *table_elems =
             aot_locate_table_elems(module, table, i);
+
+        if (!table_elems) {
+            continue;
+        }
+
         void *table_imported =
             ((uint8 *)(table_elems)) - offsetof(WASMTableInstance, elems);
 
@@ -947,8 +952,12 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
         memory_deinstantiate(memory);
 
 #if WASM_ENABLE_MULTI_MODULE == 0
-        uint16 rc = BH_ATOMIC_16_FETCH_OR(memory->ref_count, 0);
-        if (rc == 0) {
+        /* for spawned only */
+        if (!shared_memory_is_shared(memory)) {
+            continue;
+        }
+
+        if (shared_memory_get_reference(memory) == 0) {
             wasm_runtime_free(memory);
         }
 #endif

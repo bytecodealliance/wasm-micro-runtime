@@ -709,9 +709,8 @@ get_table_elems_reg(JitFrame *frame, uint32 tbl_idx)
 
     if (tbl_idx < cc->cur_wasm_module->import_table_count) {
         /*
-         * If the table is imported, the table_elems is a pointer to the
-         * imported table's table_elems.
-         * need to load the real one from the
+         * If the table is imported, table_elems is a pointer to the
+         * imported table's elements. We need to load the actual elements.
          */
         /* table_elems = *(void**)table_elems */
         JitReg tmp = jit_cc_new_reg_ptr(cc);

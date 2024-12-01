@@ -28,6 +28,9 @@ shared_memory_inc_reference(WASMMemoryInstance *memory);
 uint16
 shared_memory_dec_reference(WASMMemoryInstance *memory);
 
+uint16
+shared_memory_get_reference(WASMMemoryInstance *memory);
+
 #define shared_memory_is_shared(memory) memory->is_shared_memory
 
 #define shared_memory_lock(memory)                                            \
