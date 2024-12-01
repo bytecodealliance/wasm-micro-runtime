@@ -280,7 +280,9 @@ memories_deinstantiate(WASMModuleInstance *module_inst)
         }
 
         memory_deinstantiate(memory);
-#else
+#endif
+
+#if WASM_ENABLE_MULTI_MODULE == 0 && WASM_ENABLE_SHARED_MEMORY != 0
         /* for spawned only */
         if (!shared_memory_is_shared(memory)) {
             continue;
@@ -1041,7 +1043,7 @@ functions_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         function->local_offsets = function->u.func->local_offsets;
 
 #if WASM_ENABLE_FAST_INTERP != 0
-        function->const_cell_num = function->u.func->const_cell_num;
+        function->const_cell_num = (uint16)function->u.func->const_cell_num;
 #endif
 
         function++;

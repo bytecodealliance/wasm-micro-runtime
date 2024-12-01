@@ -951,7 +951,7 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
 
         memory_deinstantiate(memory);
 
-#if WASM_ENABLE_MULTI_MODULE == 0
+#if WASM_ENABLE_MULTI_MODULE == 0 && WASM_ENABLE_SHARED_MEMORY != 0
         /* for spawned only */
         if (!shared_memory_is_shared(memory)) {
             continue;
@@ -2560,6 +2560,7 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 #if WASM_ENABLE_REF_TYPES != 0
     bh_bitmap_delete(common->elem_dropped);
 #endif
+    (void)common;
 
     wasm_runtime_free(module_inst);
 }
