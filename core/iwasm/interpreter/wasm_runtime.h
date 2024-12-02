@@ -437,7 +437,8 @@ struct WASMModuleInstance {
 
     DefPointer(WASMExecEnv *, exec_env_singleton);
     /*
-     * TODO: is able to be merged with func_ptrs
+     * TODO: is able to be removed.
+     * interp and fast-jit can use func_ptrs instead of this.
      */
     /* Array of function pointers to import functions,
        not available in AOTModuleInstance */
