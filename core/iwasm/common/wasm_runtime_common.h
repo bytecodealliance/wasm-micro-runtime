@@ -1243,6 +1243,12 @@ struct WASMTableInstance *
 wasm_runtime_create_table_internal(WASMModuleCommon *const module,
                                    WASMTableType *const type);
 
+wasm_function_inst_t
+wasm_runtime_create_function_internal(wasm_module_t const module,
+                                      wasm_module_inst_t dep_inst,
+                                      wasm_func_type_t const type,
+                                      bool from_wasm_c_api, void *callback);
+
 #ifdef __cplusplus
 }
 #endif

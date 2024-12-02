@@ -6639,7 +6639,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     call_func_from_entry:
     {
         if (cur_func->is_import_func) {
-#if WASM_ENABLE_MULTI_MODULE != 0
+            /* from other .wasm */
             if (cur_func->import_func_inst) {
                 wasm_interp_call_func_import(module, exec_env, cur_func,
                                              prev_frame);
@@ -6700,9 +6700,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 }
 #endif /* end of WASM_ENABLE_EXCE_HANDLING != 0 */
             }
-            else
-#endif /* end of WASM_ENABLE_MULTI_MODULE != 0 */
-            {
+            else {
                 wasm_interp_call_func_native(module, exec_env, cur_func,
                                              prev_frame);
 #if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0

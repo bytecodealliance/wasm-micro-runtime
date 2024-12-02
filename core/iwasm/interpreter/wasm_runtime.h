@@ -233,14 +233,18 @@ struct WASMFunctionInstance {
     uint8 *param_types;
     /* local types, NULL for import function */
     uint8 *local_types;
+
     union {
+        /* from wasm_native and wasm_import (interp) */
         WASMFunctionImport *func_import;
+        /* locate bytecode */
         WASMFunction *func;
     } u;
-#if WASM_ENABLE_MULTI_MODULE != 0
+
+    /* only for wasm functions of other .wasm */
     WASMModuleInstance *import_module_inst;
     WASMFunctionInstance *import_func_inst;
-#endif
+
 #if WASM_ENABLE_PERF_PROFILING != 0
     /* total execution time */
     uint64 total_exec_time;
@@ -991,6 +995,13 @@ wasm_set_global_value(WASMGlobalInstance *global, const WASMValue *value);
 
 void
 wasm_destroy_global(WASMGlobalInstance *global);
+
+WASMFunctionInstance *
+wasm_create_function(const WASMModule *module, WASMModuleInstance *dep_inst,
+                     WASMFuncType *type, void *callback);
+
+void
+wasm_destroy_function(WASMFunctionInstance *function);
 
 #ifdef __cplusplus
 }
