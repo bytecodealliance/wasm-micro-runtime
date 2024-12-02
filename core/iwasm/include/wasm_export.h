@@ -296,6 +296,7 @@ typedef struct WASMExternInstance {
         wasm_memory_inst_t memory;
         wasm_table_inst_t table;
         wasm_global_inst_t global;
+        wasm_function_inst_t function;
     } u;
 
     /*
@@ -2377,6 +2378,14 @@ wasm_runtime_create_table(const wasm_module_t module,
 
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_table(const wasm_module_t module, wasm_table_inst_t table);
+
+WASM_RUNTIME_API_EXTERN wasm_function_inst_t
+wasm_runtime_create_function(const wasm_module_t module,
+                             const wasm_func_type_t type, void *callback);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_destroy_function(const wasm_module_t module,
+                              wasm_function_inst_t func);
 
 /*TODO: take me out when have a linker */
 WASM_RUNTIME_API_EXTERN wasm_module_inst_t

@@ -8111,6 +8111,71 @@ wasm_runtime_destroy_extern_inst(WASMModuleCommon *module,
     extern_inst->field_name = NULL;
 }
 
+WASMFunctionInstanceCommon *
+wasm_runtime_create_function_internal(struct WASMModuleCommon *const module,
+                                      WASMModuleInstanceCommon *dep_inst,
+                                      struct WASMFuncType *const type,
+                                      bool from_wasm_c_api, void *callback)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        WASMFunctionInstance *func = wasm_create_function(
+            (WASMModule *)module, (WASMModuleInstance *)dep_inst, type,
+            callback);
+
+        if (!func) {
+            return NULL;
+        }
+
+        func->u.func_import->call_conv_wasm_c_api = from_wasm_c_api;
+        return (WASMFunctionInstanceCommon *)func;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        // return aot_create_function((AOTModuleInstance *)module, type);
+        bh_assert(false && "not supported yet");
+    }
+#endif
+
+    LOG_ERROR("create function failed, invalid module type %d",
+              module->module_type);
+    return NULL;
+}
+
+WASMFunctionInstanceCommon *
+wasm_runtime_create_function(struct WASMModuleCommon *const module,
+                             struct WASMFuncType *const type, void *callback)
+{
+    return wasm_runtime_create_function_internal(module, NULL, type, false,
+                                                 callback);
+}
+
+void
+wasm_runtime_destroy_function(struct WASMModuleCommon *const module,
+                              WASMFunctionInstanceCommon *func)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        wasm_destroy_function(func);
+        return;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        bh_assert(false && "not supported yet");
+        // aot_destroy_function(func);
+        return;
+    }
+#endif
+
+    LOG_ERROR("destroy function failed, invalid module type %d",
+              module->module_type);
+    return;
+}
+
 #if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_WASI_TEST != 0
 /*
  * Be aware that it will remove all items in the list, regardless of whether

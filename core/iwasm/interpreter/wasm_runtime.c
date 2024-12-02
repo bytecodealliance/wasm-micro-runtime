@@ -980,6 +980,7 @@ functions_deinstantiate(WASMFunctionInstance *functions)
  */
 static WASMFunctionInstance *
 functions_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
+                      const WASMExternInstance *imports, uint32 import_count,
                       char *error_buf, uint32 error_buf_size)
 {
     WASMImport *import;
@@ -1003,9 +1004,30 @@ functions_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
     /* instantiate functions from import section */
     function = functions;
     import = module->import_functions;
-    for (i = 0; i < module->import_function_count; i++, import++) {
+    for (i = 0; i < module->import_function_count; i++, import++, function++) {
         function->is_import_func = true;
 
+        WASMFunctionImport *import_func_type = &(import->u.function);
+        function->u.func_import = import_func_type;
+        function->param_cell_num = import_func_type->func_type->param_cell_num;
+        function->ret_cell_num = import_func_type->func_type->ret_cell_num;
+        function->param_count =
+            (uint16)import_func_type->func_type->param_count;
+        function->param_types = import_func_type->func_type->types;
+        function->local_cell_num = 0;
+        function->local_count = 0;
+        function->local_types = NULL;
+
+        /* Copy the function pointer to current instance
+         *
+         * both
+         * - from wasm_native
+         * - from wasm_c_api
+         *
+         * WASM_ENABLE_MULTI_MODULE == 0
+         * - other .wasm
+         * - from wasm_export
+         */
 #if WASM_ENABLE_MULTI_MODULE != 0
         if (import->u.function.import_module) {
             function->import_module_inst = get_sub_module_inst(
@@ -1017,22 +1039,39 @@ functions_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                                          import->u.function.field_name);
             }
         }
-#endif /* WASM_ENABLE_MULTI_MODULE */
-        function->u.func_import = &import->u.function;
-        function->param_cell_num = import->u.function.func_type->param_cell_num;
-        function->ret_cell_num = import->u.function.func_type->ret_cell_num;
-        function->param_count =
-            (uint16)function->u.func_import->func_type->param_count;
-        function->param_types = function->u.func_import->func_type->types;
-        function->local_cell_num = 0;
-        function->local_count = 0;
-        function->local_types = NULL;
 
-        /* Copy the function pointer to current instance */
-        module_inst->import_func_ptrs[i] =
-            function->u.func_import->func_ptr_linked;
+        module_inst->import_func_ptrs[i] = import_func_type->func_ptr_linked;
+#else
+        const WASMExternInstance *extern_inst =
+            wasm_runtime_get_extern_instance(imports, import_count,
+                                             WASM_IMPORT_EXPORT_KIND_FUNC, i);
+        if (!extern_inst) {
+            LOG_ERROR("no import function(%s, %s) from imports list, might "
+                      "provied by wasm_native",
+                      import_func_type->module_name,
+                      import_func_type->field_name);
+            /* so it's from wasm_native */
+            module_inst->import_func_ptrs[i] =
+                import_func_type->func_ptr_linked;
+        }
+        else {
+            /* don't allow wrong matchment */
+            if (strcmp(import_func_type->field_name, extern_inst->field_name)) {
+                LOG_ERROR(
+                    "mismatched import memory name: expect \"%s\", got \"%s\"",
+                    import_func_type->field_name, extern_inst->field_name);
+                return NULL;
+            }
 
-        function++;
+            /* if extern_inst is about a wasm function from other .wasm */
+            WASMFunctionInstance *extern_inst_func =
+                (WASMFunctionInstance *)extern_inst->u.function;
+            function->import_module_inst = extern_inst_func->import_module_inst;
+            function->import_func_inst = extern_inst_func->import_func_inst;
+            module_inst->import_func_ptrs[i] =
+                extern_inst_func->u.func_import->func_ptr_linked;
+        }
+#endif
     }
 
     /* instantiate functions from function section */
@@ -2808,7 +2847,8 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                      error_buf, error_buf_size)))
         || (module_inst->e->function_count > 0
             && !(module_inst->e->functions = functions_instantiate(
-                     module, module_inst, error_buf, error_buf_size)))
+                     module, module_inst, imports, import_count, error_buf,
+                     error_buf_size)))
         || (module_inst->export_func_count > 0
             && !(module_inst->export_functions = export_functions_instantiate(
                      module, module_inst, module_inst->export_func_count,
@@ -5427,6 +5467,7 @@ wasm_destroy_table(WASMTableInstance *table)
     wasm_runtime_free(table);
 }
 
+/*TODO: add init_value */
 WASMGlobalInstance *
 wasm_create_global(const WASMModule *module, WASMModuleInstance *dep_inst,
                    WASMGlobalType *type)
@@ -5458,4 +5499,42 @@ wasm_destroy_global(WASMGlobalInstance *global)
         return;
 
     wasm_runtime_free(global);
+}
+
+WASMFunctionInstance *
+wasm_create_function(const WASMModule *module, WASMModuleInstance *dep_inst,
+                     WASMFuncType *type, void *callback)
+{
+    WASMFunctionInstance *function =
+        runtime_malloc(sizeof(WASMFunctionInstance) + sizeof(WASMFunctionImport)
+                           + sizeof(WASMFuncType),
+                       NULL, 0);
+    if (!function) {
+        return NULL;
+    }
+
+    /* initialize carefully */
+    function->is_import_func = true;
+
+    WASMFunctionImport *func_import = (WASMFunctionImport *)(function + 1);
+    func_import->func_ptr_linked = callback;
+
+    WASMFuncType *func_type = (WASMFuncType *)(func_import + 1);
+    *func_type = *type;
+
+    /* connect all three parts */
+    function->u.func_import = func_import;
+    function->u.func_import->func_type = func_type;
+    function->import_module_inst = dep_inst;
+
+    return function;
+}
+
+void
+wasm_destroy_function(WASMFunctionInstance *function)
+{
+    if (!function)
+        return;
+
+    wasm_runtime_free(function);
 }
