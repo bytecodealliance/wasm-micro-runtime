@@ -301,7 +301,7 @@ typedef struct WASMExternInstance {
 
     /*
      * to handle imports properly,
-     * especially for wasm_global_inst_t and wasm_func_inst_t
+     * especially for wasm_global_inst_t and wasm_function_inst_t
      */
     wasm_module_inst_t dep_inst;
 } WASMExternInstance, *wasm_extern_inst_t;

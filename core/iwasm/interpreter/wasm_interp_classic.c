@@ -1354,7 +1354,6 @@ fast_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
 }
 #endif
 
-#if WASM_ENABLE_MULTI_MODULE != 0
 static void
 wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                WASMExecEnv *exec_env,
@@ -1428,7 +1427,6 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
     wasm_exec_env_restore_module_inst(exec_env,
                                       (WASMModuleInstanceCommon *)module_inst);
 }
-#endif
 
 #if WASM_ENABLE_THREAD_MGR != 0
 #if WASM_ENABLE_DEBUG_INTERP != 0
@@ -7485,14 +7483,11 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
 #endif
 
     if (function->is_import_func) {
-#if WASM_ENABLE_MULTI_MODULE != 0
         if (function->import_module_inst) {
             wasm_interp_call_func_import(module_inst, exec_env, function,
                                          frame);
         }
-        else
-#endif
-        {
+        else {
             /* it is a native function */
             wasm_interp_call_func_native(module_inst, exec_env, function,
                                          frame);

@@ -1070,6 +1070,13 @@ functions_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
             /* if extern_inst is about a wasm function from other .wasm */
             WASMFunctionInstance *extern_inst_func =
                 (WASMFunctionInstance *)extern_inst->u.function;
+            if (!extern_inst_func) {
+                LOG_ERROR("function(%s, %s) is not found in extern_inst(empty)",
+                          import_func_type->module_name,
+                          import_func_type->field_name);
+                return NULL;
+            }
+
             function->import_module_inst = extern_inst_func->import_module_inst;
             function->import_func_inst = extern_inst_func->import_func_inst;
 

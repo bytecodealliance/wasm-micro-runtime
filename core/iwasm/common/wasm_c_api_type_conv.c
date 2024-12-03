@@ -106,17 +106,18 @@ extern_t_to_WASMExternInstance(const wasm_module_t *module, wasm_extern_t *src,
         {
             wasm_func_t *function_in = wasm_extern_as_func(src);
 
-            WASMFuncType type = { 0 };
+            WASMFuncType func_type = { 0 };
             /*TODO: fill more fields? */
-            type.param_count = (uint16)wasm_func_param_arity(function_in);
-            type.result_count = (uint16)wasm_func_result_arity(function_in);
+            func_type.param_count = (uint16)wasm_func_param_arity(function_in);
+            func_type.result_count =
+                (uint16)wasm_func_result_arity(function_in);
 
             void *function_host_ptr = function_in->with_env
                                           ? (void *)function_in->u.cb_env.cb
                                           : (void *)function_in->u.cb;
 
             dst->u.function = wasm_runtime_create_function_internal(
-                *module, NULL, &type, true, function_host_ptr);
+                *module, NULL, &func_type, true, function_host_ptr);
             if (!dst->u.function) {
                 return false;
             }
@@ -127,14 +128,14 @@ extern_t_to_WASMExternInstance(const wasm_module_t *module, wasm_extern_t *src,
         {
             wasm_global_t *global_in = wasm_extern_as_global(src);
 
-            WASMGlobalType type = { 0 };
+            WASMGlobalType global_type = { 0 };
             if (!globaltype_to_WASMGlobalType(wasm_global_type(global_in),
-                                              &type)) {
+                                              &global_type)) {
                 return false;
             }
 
-            dst->u.global =
-                wasm_runtime_create_global_internal(*module, NULL, &type);
+            dst->u.global = wasm_runtime_create_global_internal(*module, NULL,
+                                                                &global_type);
             if (!dst->u.global) {
                 return false;
             }
