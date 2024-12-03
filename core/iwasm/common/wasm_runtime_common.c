@@ -7844,7 +7844,7 @@ wasm_runtime_create_table(WASMModuleCommon *const module,
             return NULL;
         }
 
-        /* host created table */
+        /* pass table ownership to out_table */
         WASMTableInstance_to_wasm_table_inst_t((WASMModule *)module, table, -1,
                                                out_table);
         return out_table;
@@ -7866,6 +7866,7 @@ wasm_runtime_create_table(WASMModuleCommon *const module,
             return NULL;
         }
 
+        /* pass table ownership to out_table */
         AOTTableInstance_to_wasm_table_inst_t((AOTModule *)module, table, -1,
                                               out_table);
         return out_table;
@@ -8110,7 +8111,11 @@ wasm_runtime_destroy_extern_inst(WASMModuleCommon *module,
     if (!extern_inst)
         return;
 
-    if (extern_inst->kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
+    if (extern_inst->kind == WASM_IMPORT_EXPORT_KIND_FUNC) {
+        wasm_runtime_destroy_function(module, extern_inst->u.function);
+        extern_inst->u.function = NULL;
+    }
+    else if (extern_inst->kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
         wasm_runtime_destroy_memory(module, extern_inst->u.memory);
         extern_inst->u.memory = NULL;
     }
@@ -8197,24 +8202,22 @@ wasm_runtime_destroy_function(struct WASMModuleCommon *const module,
     return;
 }
 
-#if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_WASI_TEST != 0
 /*
  * Be aware that it will remove all items in the list, regardless of whether
  * they were created by the runtime (for built-ins) or by users.
  */
-static void
+void
 wasm_runtime_destroy_imports(WASMModuleCommon *module,
                              WASMExternInstance *extern_inst_list)
 {
     if (!module || !extern_inst_list)
         return;
 
-    for (int32 i = 0, import_count = wasm_runtime_get_import_count(module);
-         i < import_count; i++) {
+    int32 import_count = wasm_runtime_get_import_count(module);
+    for (int32 i = 0; i < import_count; i++) {
         wasm_runtime_destroy_extern_inst(module, extern_inst_list + i);
     }
 }
-#endif /* WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_WASI_TEST != 0 */
 
 bool
 wasm_runtime_create_imports_with_builtin(WASMModuleCommon *module,

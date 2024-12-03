@@ -194,12 +194,13 @@ struct wasm_config_t {
 
 #ifndef INSTANTIATION_ARGS_OPTION_DEFINED
 #define INSTANTIATION_ARGS_OPTION_DEFINED
+struct WASMExternInstance;
 /* WASM module instantiation arguments */
 typedef struct InstantiationArgs {
     uint32_t default_stack_size;
     uint32_t host_managed_heap_size;
     uint32_t max_memory_pages;
-    const struct WasmExternInstance *imports;
+    const struct WASMExternInstance * imports;
     uint32_t import_count;
 } InstantiationArgs;
 #endif /* INSTANTIATION_ARGS_OPTION_DEFINED */

@@ -578,6 +578,7 @@ typedef struct WASMFunctionImport {
     /* the type index of this function's func_type */
     uint32 type_idx;
 #endif
+    /* TODO: both can be variant per instance */
     bool call_conv_raw;
     bool call_conv_wasm_c_api;
 
