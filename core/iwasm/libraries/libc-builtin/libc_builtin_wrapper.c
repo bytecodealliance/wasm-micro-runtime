@@ -991,55 +991,6 @@ clock_wrapper(wasm_exec_env_t exec_env)
     return os_time_get_boot_us() * 1000;
 }
 
-#if WASM_ENABLE_SPEC_TEST != 0
-static void
-print_wrapper(wasm_exec_env_t exec_env)
-{
-    os_printf("in specttest.print()\n");
-}
-
-static void
-print_i32_wrapper(wasm_exec_env_t exec_env, int32 i32)
-{
-    os_printf("in specttest.print_i32(%" PRId32 ")\n", i32);
-}
-
-static void
-print_i64_wrapper(wasm_exec_env_t exec_env, int64 i64)
-{
-    os_printf("in specttest.print_i64(%" PRId64 ")\n", i64);
-}
-
-static void
-print_i32_f32_wrapper(wasm_exec_env_t exec_env, int32 i32, float f32)
-{
-    os_printf("in specttest.print_i32_f32(%" PRId32 ", %f)\n", i32, f32);
-}
-
-static void
-print_f64_f64_wrapper(wasm_exec_env_t exec_env, double f64_1, double f64_2)
-{
-    os_printf("in specttest.print_f64_f64(%f, %f)\n", f64_1, f64_2);
-}
-
-static void
-print_f32_wrapper(wasm_exec_env_t exec_env, float f32)
-{
-    os_printf("in specttest.print_f32(%f)\n", f32);
-}
-
-static void
-print_f64_wrapper(wasm_exec_env_t exec_env, double f64)
-{
-    os_printf("in specttest.print_f64(%f)\n", f64);
-}
-#endif /* WASM_ENABLE_SPEC_TEST */
-
-/* clang-format off */
-#define REG_NATIVE_FUNC(func_name, signature) \
-    { #func_name, func_name##_wrapper, signature, NULL }
-/* clang-format on */
-
 static NativeSymbol native_symbols_libc_builtin[] = {
     REG_NATIVE_FUNC(printf, "($*)i"),
     REG_NATIVE_FUNC(sprintf, "($$*)i"),
