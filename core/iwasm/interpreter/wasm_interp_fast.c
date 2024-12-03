@@ -6391,12 +6391,46 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         break;
                     }
 
-                    // TODO:
-                    /* load lane operations */
+#define SIMD_LOAD_LANE_OP(register, width)                 \
+    do {                                                   \
+        uint32 offset, addr;                               \
+        offset = read_uint32(frame_ip);                    \
+        V128 vec = POP_V128();                             \
+        int32 base = POP_I32();                            \
+        offset += base;                                    \
+        int lane = *frame_ip++;                            \
+        addr = GET_OPERAND(uint32, I32, 0);                \
+        addr_ret = GET_OFFSET();                           \
+        CHECK_MEMORY_OVERFLOW(width / 8);                  \
+        if (width == 64) {                                 \
+            vec.register[lane] = GET_I64_FROM_ADDR(maddr); \
+        }                                                  \
+        else {                                             \
+            vec.register[lane] = *(uint##width *)(maddr);  \
+        }                                                  \
+        PUT_V128_TO_ADDR(frame_lp + addr_ret, vec);        \
+    } while (0)
+
                     case SIMD_v128_load8_lane:
+                    {
+                        SIMD_LOAD_LANE_OP(i8x16, 8);
+                        break;
+                    }
                     case SIMD_v128_load16_lane:
+                    {
+                        SIMD_LOAD_LANE_OP(i16x8, 16);
+                        break;
+                    }
                     case SIMD_v128_load32_lane:
+                    {
+                        SIMD_LOAD_LANE_OP(i32x4, 32);
+                        break;
+                    }
                     case SIMD_v128_load64_lane:
+                    {
+                        SIMD_LOAD_LANE_OP(i64x2, 64);
+                        break;
+                    }
                     case SIMD_v128_store8_lane:
                     case SIMD_v128_store16_lane:
                     case SIMD_v128_store32_lane:

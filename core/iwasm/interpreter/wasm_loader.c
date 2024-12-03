@@ -15368,9 +15368,14 @@ re_scan:
                                                     error_buf_size)) {
                             goto fail;
                         }
-
+#if WASM_ENABLE_FAST_INTERP != 0
+                        emit_uint32(loader_ctx, mem_offset);
+#endif
                         POP_V128();
                         POP_MEM_OFFSET();
+#if WASM_ENABLE_FAST_INTERP != 0
+                        emit_byte(loader_ctx, lane);
+#endif
                         if (opcode1 < SIMD_v128_store8_lane) {
                             PUSH_V128();
                         }
