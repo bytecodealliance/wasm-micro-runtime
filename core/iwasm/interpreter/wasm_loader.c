@@ -15397,7 +15397,9 @@ re_scan:
                         }
 
                         read_leb_mem_offset(p, p_end, mem_offset); /* offset */
-
+#if WASM_ENABLE_FAST_INTERP != 0
+                        emit_uint32(loader_ctx, mem_offset);
+#endif
                         POP_AND_PUSH(mem_offset_type, VALUE_TYPE_V128);
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;

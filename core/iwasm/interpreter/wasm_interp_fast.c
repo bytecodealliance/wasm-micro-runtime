@@ -6435,10 +6435,38 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case SIMD_v128_store16_lane:
                     case SIMD_v128_store32_lane:
                     case SIMD_v128_store64_lane:
-                    case SIMD_v128_load32_zero:
-                    case SIMD_v128_load64_zero:
                     {
                         wasm_set_exception(module, "unsupported SIMD opcode");
+                        break;
+                    }
+#define SIMD_LOAD_ZERO_OP(width)                   \
+    do {                                           \
+        uint32 offset, addr;                       \
+        offset = read_uint32(frame_ip);            \
+        int32 base = POP_I32();                    \
+        offset += base;                            \
+        addr = GET_OPERAND(uint32, I32, 0);        \
+        addr_ret = GET_OFFSET();                   \
+        CHECK_MEMORY_OVERFLOW(width / 8);          \
+        V128 v;                                    \
+        memset(&v, 0, sizeof(v));                  \
+        if (width == 64) {                         \
+            v.i64x2[0] = GET_I64_FROM_ADDR(maddr); \
+        }                                          \
+        else {                                     \
+            v.i32x4[0] = *(uint32_t *)(maddr);     \
+        }                                          \
+        PUT_V128_TO_ADDR(frame_lp + addr_ret, v);  \
+    } while (0)
+
+                    case SIMD_v128_load32_zero:
+                    {
+                        SIMD_LOAD_ZERO_OP(32);
+                        break;
+                    }
+                    case SIMD_v128_load64_zero:
+                    {
+                        SIMD_LOAD_ZERO_OP(64);
                         break;
                     }
 
