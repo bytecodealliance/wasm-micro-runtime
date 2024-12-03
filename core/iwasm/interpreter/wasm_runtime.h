@@ -245,6 +245,11 @@ struct WASMFunctionInstance {
     WASMModuleInstance *import_module_inst;
     WASMFunctionInstance *import_func_inst;
 
+    /* copy it from WASMFunctionImport */
+    bool call_conv_raw;
+    /* write it from wasm_c_api */
+    bool call_conv_wasm_c_api;
+
 #if WASM_ENABLE_PERF_PROFILING != 0
     /* total execution time */
     uint64 total_exec_time;
@@ -552,6 +557,15 @@ wasm_locate_table_elems(const WASMModule *module, WASMTableInstance *table,
     }
 #endif
     return table->elems;
+}
+
+static inline WASMFunctionInstance *
+wasm_locate_function_instance(const WASMModuleInstance *module_inst,
+                              uint32 func_idx)
+{
+    WASMModuleInstanceExtra *e = (WASMModuleInstanceExtra *)module_inst->e;
+    WASMFunctionInstance *func = e->functions + func_idx;
+    return func;
 }
 
 static inline uint32

@@ -1268,7 +1268,7 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
 
     cur_func_index = (uint32)(cur_func - module_inst->e->functions);
     bh_assert(cur_func_index < module_inst->module->import_function_count);
-    if (!func_import->call_conv_wasm_c_api) {
+    if (!cur_func->call_conv_wasm_c_api) {
         native_func_pointer = module_inst->import_func_ptrs[cur_func_index];
     }
     else if (module_inst->c_api_func_imports) {
@@ -1284,7 +1284,7 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
         return;
     }
 
-    if (func_import->call_conv_wasm_c_api) {
+    if (cur_func->call_conv_wasm_c_api) {
         ret = wasm_runtime_invoke_c_api_native(
             (WASMModuleInstanceCommon *)module_inst, native_func_pointer,
             func_import->func_type, cur_func->param_cell_num, frame->lp,
@@ -1294,7 +1294,7 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
             argv_ret[1] = frame->lp[1];
         }
     }
-    else if (!func_import->call_conv_raw) {
+    else if (!cur_func->call_conv_raw) {
         ret = wasm_runtime_invoke_native(
             exec_env, native_func_pointer, func_import->func_type,
             func_import->signature, func_import->attachment, frame->lp,

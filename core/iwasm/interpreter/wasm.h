@@ -578,11 +578,13 @@ typedef struct WASMFunctionImport {
     /* the type index of this function's func_type */
     uint32 type_idx;
 #endif
-    /* TODO: both can be variant per instance */
+
+    /* from wasm_native. shared in all instances of a module */
     bool call_conv_raw;
-    bool call_conv_wasm_c_api;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
+    bool call_conv_wasm_c_api;
+
     WASMModule *import_module;
     WASMFunction *import_func_linked;
 #endif
