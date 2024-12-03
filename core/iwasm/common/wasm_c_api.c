@@ -744,27 +744,6 @@ wasm_store_delete(wasm_store_t *store)
 }
 
 /* Type Representations */
-static inline wasm_valkind_t
-val_type_rt_2_valkind(uint8 val_type_rt)
-{
-    switch (val_type_rt) {
-#define WAMR_VAL_TYPE_2_WASM_VAL_KIND(name) \
-    case VALUE_TYPE_##name:                 \
-        return WASM_##name;
-
-        WAMR_VAL_TYPE_2_WASM_VAL_KIND(I32)
-        WAMR_VAL_TYPE_2_WASM_VAL_KIND(I64)
-        WAMR_VAL_TYPE_2_WASM_VAL_KIND(F32)
-        WAMR_VAL_TYPE_2_WASM_VAL_KIND(F64)
-        WAMR_VAL_TYPE_2_WASM_VAL_KIND(V128)
-        WAMR_VAL_TYPE_2_WASM_VAL_KIND(FUNCREF)
-#undef WAMR_VAL_TYPE_2_WASM_VAL_KIND
-
-        default:
-            return WASM_EXTERNREF;
-    }
-}
-
 static wasm_valtype_t *
 wasm_valtype_new_internal(uint8 val_type_rt)
 {
@@ -3104,7 +3083,7 @@ wasm_func_new_with_env(wasm_store_t *store, const wasm_functype_t *type,
 }
 
 wasm_func_t *
-wasm_func_new_internal(wasm_store_t *store, uint16 func_idx_rt,
+wasm_func_new_internal(wasm_store_t *store, uint32 func_idx_rt,
                        WASMModuleInstanceCommon *inst_comm_rt)
 {
     wasm_func_t *func = NULL;
@@ -3605,7 +3584,7 @@ wasm_global_delete(wasm_global_t *global)
 
 #if WASM_ENABLE_INTERP != 0
 static bool
-interp_global_set(const WASMModuleInstance *inst_interp, uint16 global_idx_rt,
+interp_global_set(const WASMModuleInstance *inst_interp, uint32 global_idx_rt,
                   const wasm_val_t *v)
 {
     const WASMGlobalInstance *global_interp =
@@ -3625,7 +3604,7 @@ interp_global_set(const WASMModuleInstance *inst_interp, uint16 global_idx_rt,
 }
 
 static bool
-interp_global_get(const WASMModuleInstance *inst_interp, uint16 global_idx_rt,
+interp_global_get(const WASMModuleInstance *inst_interp, uint32 global_idx_rt,
                   wasm_val_t *out)
 {
     WASMGlobalInstance *global_interp = inst_interp->e->globals + global_idx_rt;
@@ -3645,7 +3624,7 @@ interp_global_get(const WASMModuleInstance *inst_interp, uint16 global_idx_rt,
 
 #if WASM_ENABLE_AOT != 0
 static bool
-aot_global_set(const AOTModuleInstance *inst_aot, uint16 global_idx_rt,
+aot_global_set(const AOTModuleInstance *inst_aot, uint32 global_idx_rt,
                const wasm_val_t *v)
 {
     AOTModule *module_aot = (AOTModule *)inst_aot->module;
@@ -3672,7 +3651,7 @@ aot_global_set(const AOTModuleInstance *inst_aot, uint16 global_idx_rt,
 }
 
 static bool
-aot_global_get(const AOTModuleInstance *inst_aot, uint16 global_idx_rt,
+aot_global_get(const AOTModuleInstance *inst_aot, uint32 global_idx_rt,
                wasm_val_t *out)
 {
     AOTModule *module_aot = (AOTModule *)inst_aot->module;
@@ -3765,7 +3744,7 @@ wasm_global_get(const wasm_global_t *global, wasm_val_t *out)
 }
 
 wasm_global_t *
-wasm_global_new_internal(wasm_store_t *store, uint16 global_idx_rt,
+wasm_global_new_internal(wasm_store_t *store, uint32 global_idx_rt,
                          WASMModuleInstanceCommon *inst_comm_rt)
 {
     wasm_global_t *global = NULL;
@@ -3892,7 +3871,7 @@ wasm_table_new_basic(wasm_store_t *store, const wasm_tabletype_t *type)
 }
 
 wasm_table_t *
-wasm_table_new_internal(wasm_store_t *store, uint16 table_idx_rt,
+wasm_table_new_internal(wasm_store_t *store, uint32 table_idx_rt,
                         WASMModuleInstanceCommon *inst_comm_rt)
 {
     wasm_table_t *table = NULL;
@@ -4272,7 +4251,7 @@ wasm_memory_copy(const wasm_memory_t *src)
 }
 
 wasm_memory_t *
-wasm_memory_new_internal(wasm_store_t *store, uint16 memory_idx_rt,
+wasm_memory_new_internal(wasm_store_t *store, uint32 memory_idx_rt,
                          WASMModuleInstanceCommon *inst_comm_rt)
 {
     wasm_memory_t *memory = NULL;
@@ -4490,7 +4469,7 @@ wasm_memory_grow(wasm_memory_t *memory, wasm_memory_pages_t delta)
 #if WASM_ENABLE_INTERP != 0
 static bool
 interp_link_func(const wasm_instance_t *inst, const WASMModule *module_interp,
-                 uint16 func_idx_rt, wasm_func_t *import)
+                 uint32 func_idx_rt, wasm_func_t *import)
 {
     WASMImport *imported_func_interp = NULL;
 
@@ -4512,6 +4491,7 @@ interp_link_func(const wasm_instance_t *inst, const WASMModule *module_interp,
         return false;
 
     imported_func_interp->u.function.call_conv_wasm_c_api = true;
+    /*TODO: we can avoid this step */
     /* only set func_ptr_linked to avoid unlink warning during instantiation,
        func_ptr_linked, with_env and env will be stored in module instance's
        c_api_func_imports later and used when calling import function */
@@ -4528,7 +4508,7 @@ interp_link_func(const wasm_instance_t *inst, const WASMModule *module_interp,
 }
 
 static bool
-interp_link_global(const WASMModule *module_interp, uint16 global_idx_rt,
+interp_link_global(const WASMModule *module_interp, uint32 global_idx_rt,
                    wasm_global_t *import)
 {
     WASMImport *imported_global_interp = NULL;
@@ -4702,7 +4682,7 @@ aot_link_func(const wasm_instance_t *inst, const AOTModule *module_aot,
 }
 
 static bool
-aot_link_global(const AOTModule *module_aot, uint16 global_idx_rt,
+aot_link_global(const AOTModule *module_aot, uint32 global_idx_rt,
                 wasm_global_t *import)
 {
     AOTImportGlobal *import_aot_global = NULL;
@@ -4953,6 +4933,70 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
                                           &inst_args);
 }
 
+bool
+wasm_instance_create_import_list(const wasm_module_t *module,
+                                 const wasm_extern_vec_t *imports_src,
+                                 WASMExternInstance **imports_dst,
+                                 uint32 *imports_dst_count)
+{
+    *imports_dst = NULL;
+    *imports_dst_count = 0;
+
+    if (!imports_src) {
+        LOG_VERBOSE("doesn't provide imports\n");
+        *imports_dst_count = 0;
+        return true;
+    }
+
+    wasm_importtype_vec_t import_types = { 0 };
+    wasm_module_imports(module, &import_types);
+
+    if (import_types.num_elems == 0) {
+        LOG_VERBOSE("module has no imports\n");
+        return true;
+    }
+
+    if (import_types.num_elems > imports_src->num_elems) {
+        LOG_ERROR("module has %d imports but only %d provided. Placeholders "
+                  "are even allowed.\n",
+                  import_types.num_elems, imports_src->num_elems);
+        return false;
+    }
+
+    *imports_dst =
+        malloc_internal(sizeof(WASMExternInstance) * imports_src->num_elems);
+    if (!*imports_dst) {
+        return false;
+    }
+
+    *imports_dst_count = (uint32)imports_src->num_elems;
+
+    uint32 i = 0;
+    WASMExternInstance *import_out = *imports_dst;
+    for (; i < imports_src->num_elems; i++, import_out++) {
+        wasm_importtype_t *import_type = import_types.data[i];
+        wasm_extern_t *import_in = imports_src->data[i];
+
+        if (!import_in) {
+            LOG_VERBOSE("imports[%d] is NULL and wasm_native may provide it\n",
+                        i);
+            continue;
+        }
+
+        if (!extern_t_to_WASMExternInstance(module, import_in, import_type,
+                                            import_out)) {
+            wasm_runtime_destroy_imports(*module, *imports_dst);
+            wasm_runtime_free(*imports_dst);
+
+            *imports_dst = NULL;
+            *imports_dst_count = 0;
+            return false;
+        }
+    }
+
+    return true;
+}
+
 wasm_instance_t *
 wasm_instance_new_with_args_ex(wasm_store_t *store, const wasm_module_t *module,
                                const wasm_extern_vec_t *imports,
@@ -4986,19 +5030,25 @@ wasm_instance_new_with_args_ex(wasm_store_t *store, const wasm_module_t *module,
     }
 
     /* executes the instantiate-time linking if provided */
-    if (imports) {
-        if (!do_link(instance, module, imports)) {
-            snprintf(sub_error_buf, sizeof(sub_error_buf),
-                     "Failed to validate imports");
-            goto failed;
-        }
+    struct WASMExternInstance *imports_out = NULL;
+    uint32 imports_out_count = 0;
+    if (!wasm_instance_create_import_list(module, imports, &imports_out,
+                                          &imports_out_count)) {
+        snprintf(sub_error_buf, sizeof(sub_error_buf),
+                 "Failed to create import list");
+        goto failed;
     }
-    /*
-     * will do the linking result check at the end of wasm_runtime_instantiate
-     */
 
+    InstantiationArgs inst_args_w_imports = *inst_args;
+    inst_args_w_imports.imports = imports_out;
+    inst_args_w_imports.import_count = imports_out_count;
+
+    /*
+     * will do the linking result check at the end of
+     * wasm_runtime_instantiate
+     */
     instance->inst_comm_rt = wasm_runtime_instantiate_ex(
-        *module, inst_args, sub_error_buf, sizeof(sub_error_buf));
+        *module, &inst_args_w_imports, sub_error_buf, sizeof(sub_error_buf));
     if (!instance->inst_comm_rt) {
         goto failed;
     }

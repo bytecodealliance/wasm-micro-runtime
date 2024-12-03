@@ -2167,13 +2167,11 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
     uint32 i;
 
     for (i = 0; i < module->import_function_count; i++) {
-        WASMFunctionImport *func =
-            &((module->import_functions + i)->u.function);
-        if (!func->func_ptr_linked
-#if WASM_ENABLE_MULTI_MODULE != 0
-            && !func->import_func_linked
-#endif
-        ) {
+        void *func_ptr_linked = module_inst->import_func_ptrs[i];
+        if (!func_ptr_linked) {
+            WASMFunctionImport *func =
+                &((module->import_functions + i)->u.function);
+
             LOG_WARNING("warning: failed to link import function (%s, %s)",
                         func->module_name, func->field_name);
         }
@@ -4691,14 +4689,14 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env, bool print, char *buf,
             /* function name not exported, print number instead */
             if (frame.func_name_wp == NULL) {
                 line_length =
-                    snprintf(line_buf, sizeof(line_buf),
-                             "#%02" PRIu32 ": 0x%04x - $f%" PRIu32 "\n", n,
-                             frame.func_offset, frame.func_index);
+                    (uint32)snprintf(line_buf, sizeof(line_buf),
+                                     "#%02" PRIu32 ": 0x%04x - $f%" PRIu32 "\n",
+                                     n, frame.func_offset, frame.func_index);
             }
             else {
-                line_length = snprintf(line_buf, sizeof(line_buf),
-                                       "#%02" PRIu32 ": 0x%04x - %s\n", n,
-                                       frame.func_offset, frame.func_name_wp);
+                line_length = (uint32)snprintf(
+                    line_buf, sizeof(line_buf), "#%02" PRIu32 ": 0x%04x - %s\n",
+                    n, frame.func_offset, frame.func_name_wp);
             }
         }
 
@@ -5519,8 +5517,11 @@ wasm_create_function(const WASMModule *module, WASMModuleInstance *dep_inst,
     WASMFunctionImport *func_import = (WASMFunctionImport *)(function + 1);
     func_import->func_ptr_linked = callback;
 
+    /* actually we don't consume type later */
     WASMFuncType *func_type = (WASMFuncType *)(func_import + 1);
-    *func_type = *type;
+    if (type) {
+        *func_type = *type;
+    }
 
     /* connect all three parts */
     function->u.func_import = func_import;
