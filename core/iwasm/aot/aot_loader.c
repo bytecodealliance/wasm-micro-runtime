@@ -1399,14 +1399,14 @@ load_import_table_list(const uint8 **p_buf, const uint8 *buf_end,
         if (wasm_is_type_multi_byte_type(import_table->table_type.elem_type)) {
             read_uint8(buf, buf_end, ref_type.ref_ht_common.nullable);
         }
-#else
+#endif
         {
             /* TBC: placeholder */
             uint8 placeholder;
             read_uint8(buf, buf_end, placeholder);
             (void)placeholder;
         }
-#endif
+
         read_uint32(buf, buf_end, import_table->table_type.init_size);
         read_uint32(buf, buf_end, import_table->table_type.max_size);
 #if WASM_ENABLE_GC != 0
@@ -1426,6 +1426,11 @@ load_import_table_list(const uint8 **p_buf, const uint8 *buf_end,
 #endif
 
         /* TBC: sync up with AOT_CURRENT_VERSION in config.h */
+        /*
+         * TODO: be sure the compatible with old ones
+         * If the import table isn't used in the old version,
+         * we might be able to skip the following version check.
+         */
         /* v3 doesn't emit names */
         if (module->package_version >= 4) {
             read_string(buf, buf_end, import_table->module_name);
@@ -1473,14 +1478,14 @@ load_table_list(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         if (wasm_is_type_multi_byte_type(table->table_type.elem_type)) {
             read_uint8(buf, buf_end, ref_type.ref_ht_common.nullable);
         }
-#else
+#endif
         {
             /* TBC: placeholder */
             uint8 placeholder;
             read_uint8(buf, buf_end, placeholder);
             (void)placeholder;
         }
-#endif
+
         read_uint32(buf, buf_end, table->table_type.init_size);
         read_uint32(buf, buf_end, table->table_type.max_size);
 #if WASM_ENABLE_GC != 0
