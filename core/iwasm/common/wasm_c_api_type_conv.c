@@ -93,45 +93,6 @@ globaltype_to_WASMGlobalType(wasm_globaltype_t *src, WASMGlobalType *dst)
 }
 
 bool
-val_to_WASMValue(wasm_val_t *src, WASMValue *dst)
-{
-    switch (src->kind) {
-        case WASM_I32:
-        {
-            dst->i32 = src->of.i32;
-            break;
-        }
-        case WASM_I64:
-        {
-            dst->i64 = src->of.i64;
-            break;
-        }
-        case WASM_F32:
-        {
-            dst->f32 = src->of.f32;
-            break;
-        }
-        case WASM_F64:
-        {
-            dst->f64 = src->of.f64;
-            break;
-        }
-        case WASM_FUNCREF:
-        case WASM_EXTERNREF:
-        {
-            LOG_WARNING("Unsupported value type: %d", src->kind);
-            return false;
-        }
-        default:
-        {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-bool
 extern_t_to_WASMExternInstance(const wasm_module_t *module, wasm_extern_t *src,
                                wasm_importtype_t *type, WASMExternInstance *dst)
 {
@@ -154,11 +115,12 @@ extern_t_to_WASMExternInstance(const wasm_module_t *module, wasm_extern_t *src,
                                           ? (void *)function_in->u.cb_env.cb
                                           : (void *)function_in->u.cb;
 
-            dst->u.function =
-                wasm_runtime_create_function(*module, &type, function_host_ptr);
+            dst->u.function = wasm_runtime_create_function_internal(
+                *module, NULL, &type, true, function_host_ptr);
             if (!dst->u.function) {
                 return false;
             }
+
             break;
         }
         case WASM_EXTERN_GLOBAL:
@@ -177,15 +139,38 @@ extern_t_to_WASMExternInstance(const wasm_module_t *module, wasm_extern_t *src,
                 return false;
             }
 
-            wasm_val_t val_in = { 0 };
-            wasm_global_get(global_in, &val_in);
-
-            WASMValue val_out = { 0 };
-            if (!val_to_WASMValue(&val_in, &val_out)) {
-                return false;
+            /* set init value */
+            switch (global_in->init->kind) {
+                case WASM_I32:
+                {
+                    WASMValue val = { .i32 = global_in->init->of.i32 };
+                    wasm_runtime_set_global_value(*module, dst->u.global, &val);
+                    break;
+                }
+                case WASM_I64:
+                {
+                    WASMValue val = { .i64 = global_in->init->of.i64 };
+                    wasm_runtime_set_global_value(*module, dst->u.global, &val);
+                    break;
+                }
+                case WASM_F32:
+                {
+                    WASMValue val = { .f32 = global_in->init->of.f32 };
+                    wasm_runtime_set_global_value(*module, dst->u.global, &val);
+                    break;
+                }
+                case WASM_F64:
+                {
+                    WASMValue val = { .f64 = global_in->init->of.f64 };
+                    wasm_runtime_set_global_value(*module, dst->u.global, &val);
+                    break;
+                }
+                default:
+                {
+                    return false;
+                }
             }
 
-            wasm_runtime_set_global_value(*module, dst->u.global, &val_out);
             break;
         }
         case WASM_EXTERN_MEMORY:

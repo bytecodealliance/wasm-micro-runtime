@@ -3590,14 +3590,11 @@ interp_global_set(const WASMModuleInstance *inst_interp, uint32 global_idx_rt,
     const WASMGlobalInstance *global_interp =
         inst_interp->e->globals + global_idx_rt;
     uint8 val_type_rt = global_interp->type;
-#if WASM_ENABLE_MULTI_MODULE != 0
-    uint8 *data = global_interp->import_global_inst
+
+    uint8 *data = global_interp->import_module_inst
                       ? global_interp->import_module_inst->global_data
                             + global_interp->import_global_inst->data_offset
                       : inst_interp->global_data + global_interp->data_offset;
-#else
-    uint8 *data = inst_interp->global_data + global_interp->data_offset;
-#endif
 
     return wasm_val_to_rt_val((WASMModuleInstanceCommon *)inst_interp,
                               val_type_rt, v, data);
@@ -3609,20 +3606,18 @@ interp_global_get(const WASMModuleInstance *inst_interp, uint32 global_idx_rt,
 {
     WASMGlobalInstance *global_interp = inst_interp->e->globals + global_idx_rt;
     uint8 val_type_rt = global_interp->type;
-#if WASM_ENABLE_MULTI_MODULE != 0
-    uint8 *data = global_interp->import_global_inst
+
+    uint8 *data = global_interp->import_module_inst
                       ? global_interp->import_module_inst->global_data
                             + global_interp->import_global_inst->data_offset
                       : inst_interp->global_data + global_interp->data_offset;
-#else
-    uint8 *data = inst_interp->global_data + global_interp->data_offset;
-#endif
 
     return rt_val_to_wasm_val(data, val_type_rt, out);
 }
 #endif
 
 #if WASM_ENABLE_AOT != 0
+/*TODO: get_global_addr() */
 static bool
 aot_global_set(const AOTModuleInstance *inst_aot, uint32 global_idx_rt,
                const wasm_val_t *v)
@@ -4490,7 +4485,10 @@ interp_link_func(const wasm_instance_t *inst, const WASMModule *module_interp,
             import->type, imported_func_interp->u.function.func_type))
         return false;
 
+#if WASM_ENABLE_MULTI_MODULE != 0
     imported_func_interp->u.function.call_conv_wasm_c_api = true;
+#endif
+
     /*TODO: we can avoid this step */
     /* only set func_ptr_linked to avoid unlink warning during instantiation,
        func_ptr_linked, with_env and env will be stored in module instance's
@@ -5029,6 +5027,7 @@ wasm_instance_new_with_args_ex(wasm_store_t *store, const wasm_module_t *module,
         goto failed;
     }
 
+#if WASM_ENABLE_MULTI_MODULE == 0
     /* executes the instantiate-time linking if provided */
     struct WASMExternInstance *imports_out = NULL;
     uint32 imports_out_count = 0;
@@ -5052,6 +5051,26 @@ wasm_instance_new_with_args_ex(wasm_store_t *store, const wasm_module_t *module,
     if (!instance->inst_comm_rt) {
         goto failed;
     }
+#else
+    /* mimic the instantiate-time linking if provided */
+    if (imports) {
+        if (!do_link(instance, module, imports)) {
+            snprintf(sub_error_buf, sizeof(sub_error_buf),
+                     "Failed to validate imports");
+            goto failed;
+        }
+    }
+
+    /*
+     * will do the linking result check at the end of
+     * wasm_runtime_instantiate
+     */
+    instance->inst_comm_rt = wasm_runtime_instantiate_ex(
+        *module, inst_args, sub_error_buf, sizeof(sub_error_buf));
+    if (!instance->inst_comm_rt) {
+        goto failed;
+    }
+#endif /*WASM_ENABLE_MULTI_MODULE != 0*/
 
     if (!wasm_runtime_create_exec_env_singleton(instance->inst_comm_rt)) {
         snprintf(sub_error_buf, sizeof(sub_error_buf),
@@ -5116,28 +5135,44 @@ wasm_instance_new_with_args_ex(wasm_store_t *store, const wasm_module_t *module,
         func_import++;
     }
 
-    /* fill with inst */
+    /* fill with inst and index in space(X) */
+    uint32 function_idx_rt = 0;
+    uint32 global_idx_rt = 0;
+    uint32 memory_idx_rt = 0;
+    uint32 table_idx_rt = 0;
     for (i = 0; imports && imports->data && i < imports->num_elems; ++i) {
         wasm_extern_t *import = imports->data[i];
         bh_assert(import);
 
         switch (import->kind) {
             case WASM_EXTERN_FUNC:
+            {
                 wasm_extern_as_func(import)->inst_comm_rt =
                     instance->inst_comm_rt;
+                wasm_extern_as_func(import)->func_idx_rt = function_idx_rt++;
                 break;
+            }
             case WASM_EXTERN_GLOBAL:
+            {
                 wasm_extern_as_global(import)->inst_comm_rt =
                     instance->inst_comm_rt;
+                wasm_extern_as_global(import)->global_idx_rt = global_idx_rt++;
                 break;
+            }
             case WASM_EXTERN_MEMORY:
+            {
                 wasm_extern_as_memory(import)->inst_comm_rt =
                     instance->inst_comm_rt;
+                wasm_extern_as_memory(import)->memory_idx_rt = memory_idx_rt++;
                 break;
+            }
             case WASM_EXTERN_TABLE:
+            {
                 wasm_extern_as_table(import)->inst_comm_rt =
                     instance->inst_comm_rt;
+                wasm_extern_as_table(import)->table_idx_rt = table_idx_rt++;
                 break;
+            }
             default:
                 snprintf(sub_error_buf, sizeof(sub_error_buf),
                          "Unknown import kind");

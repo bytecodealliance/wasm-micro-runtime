@@ -8131,7 +8131,7 @@ wasm_runtime_create_function_internal(struct WASMModuleCommon *const module,
             return NULL;
         }
 
-        func->u.func_import->call_conv_wasm_c_api = from_wasm_c_api;
+        func->call_conv_wasm_c_api = from_wasm_c_api;
         return (WASMFunctionInstanceCommon *)func;
     }
 #endif

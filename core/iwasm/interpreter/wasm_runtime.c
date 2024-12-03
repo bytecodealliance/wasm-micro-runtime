@@ -1017,6 +1017,8 @@ functions_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         function->local_cell_num = 0;
         function->local_count = 0;
         function->local_types = NULL;
+        /* pass value from module to inst */
+        function->call_conv_raw = import_func_type->call_conv_raw;
 
         /* Copy the function pointer to current instance
          *
@@ -1040,6 +1042,8 @@ functions_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
             }
         }
 
+        /* call_conv_wasm_c_api is setup by c_api */
+        function->call_conv_wasm_c_api = import_func_type->call_conv_wasm_c_api;
         module_inst->import_func_ptrs[i] = import_func_type->func_ptr_linked;
 #else
         const WASMExternInstance *extern_inst =
@@ -1068,6 +1072,9 @@ functions_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                 (WASMFunctionInstance *)extern_inst->u.function;
             function->import_module_inst = extern_inst_func->import_module_inst;
             function->import_func_inst = extern_inst_func->import_func_inst;
+
+            function->call_conv_wasm_c_api =
+                extern_inst_func->call_conv_wasm_c_api;
             module_inst->import_func_ptrs[i] =
                 extern_inst_func->u.func_import->func_ptr_linked;
         }
@@ -4808,7 +4815,10 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     bh_assert(func_idx < module->import_function_count);
 
     import_func = &module->import_functions[func_idx].u.function;
-    if (import_func->call_conv_wasm_c_api) {
+
+    WASMFunctionInstance *func_inst =
+        wasm_locate_function_instance(module_inst, func_idx);
+    if (func_inst->call_conv_wasm_c_api) {
         if (module_inst->c_api_func_imports) {
             c_api_func_import = module_inst->c_api_func_imports + func_idx;
             func_ptr = c_api_func_import->func_ptr_linked;
@@ -4828,22 +4838,22 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     }
 
     attachment = import_func->attachment;
-    if (import_func->call_conv_wasm_c_api) {
+    if (func_inst->call_conv_wasm_c_api) {
         ret = wasm_runtime_invoke_c_api_native(
             (WASMModuleInstanceCommon *)module_inst, func_ptr, func_type, argc,
             argv, c_api_func_import->with_env_arg, c_api_func_import->env_arg);
     }
-    else if (!import_func->call_conv_raw) {
-        signature = import_func->signature;
-        ret =
-            wasm_runtime_invoke_native(exec_env, func_ptr, func_type, signature,
-                                       attachment, argv, argc, argv);
-    }
-    else {
+    else if (func_inst->call_conv_raw) {
         signature = import_func->signature;
         ret = wasm_runtime_invoke_native_raw(exec_env, func_ptr, func_type,
                                              signature, attachment, argv, argc,
                                              argv);
+    }
+    else {
+        signature = import_func->signature;
+        ret =
+            wasm_runtime_invoke_native(exec_env, func_ptr, func_type, signature,
+                                       attachment, argv, argc, argv);
     }
 
 fail:
