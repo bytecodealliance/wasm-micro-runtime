@@ -201,6 +201,10 @@ wasm_resolve_import_func(const WASMModule *module, WASMFunctionImport *function)
                 function->field_name, error_buf);
 #endif
 
+    LOG_DEBUG("can't resolve import function %s durning loading. wait for "
+              "instantiation linking",
+              function->field_name);
+
     return false;
 }
 
@@ -1050,41 +1054,44 @@ functions_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
             wasm_runtime_get_extern_instance(imports, import_count,
                                              WASM_IMPORT_EXPORT_KIND_FUNC, i);
         if (!extern_inst) {
-            LOG_ERROR("no import function(%s, %s) from imports list, might "
+            LOG_DEBUG("no import function(%s, %s) from imports list, might "
                       "provied by wasm_native",
                       import_func_type->module_name,
                       import_func_type->field_name);
             /* so it's from wasm_native */
             module_inst->import_func_ptrs[i] =
                 import_func_type->func_ptr_linked;
+            continue;
         }
-        else {
-            /* don't allow wrong matchment */
-            if (strcmp(import_func_type->field_name, extern_inst->field_name)) {
-                LOG_ERROR(
-                    "mismatched import memory name: expect \"%s\", got \"%s\"",
-                    import_func_type->field_name, extern_inst->field_name);
-                return NULL;
-            }
 
-            /* if extern_inst is about a wasm function from other .wasm */
-            WASMFunctionInstance *extern_inst_func =
-                (WASMFunctionInstance *)extern_inst->u.function;
-            if (!extern_inst_func) {
-                LOG_ERROR("function(%s, %s) is not found in extern_inst(empty)",
-                          import_func_type->module_name,
-                          import_func_type->field_name);
-                return NULL;
-            }
-
-            function->import_module_inst = extern_inst_func->import_module_inst;
-            function->import_func_inst = extern_inst_func->import_func_inst;
-
-            function->call_conv_wasm_c_api =
-                extern_inst_func->call_conv_wasm_c_api;
+        /* if extern_inst is about a wasm function from other .wasm */
+        WASMFunctionInstance *extern_inst_func =
+            (WASMFunctionInstance *)extern_inst->u.function;
+        if (!extern_inst_func) {
+            LOG_DEBUG("empty extern_inst_func for import function(%s, %s)",
+                      "might provided by wasm_native",
+                      import_func_type->module_name,
+                      import_func_type->field_name);
+            /* so it's from wasm_native */
             module_inst->import_func_ptrs[i] =
-                extern_inst_func->u.func_import->func_ptr_linked;
+                import_func_type->func_ptr_linked;
+            continue;
         }
+
+        /* don't allow wrong matchment */
+        if (strcmp(import_func_type->field_name, extern_inst->field_name)) {
+            LOG_ERROR(
+                "mismatched import memory name: expect \"%s\", got \"%s\"",
+                import_func_type->field_name, extern_inst->field_name);
+            return NULL;
+        }
+
+        function->import_module_inst = extern_inst_func->import_module_inst;
+        function->import_func_inst = extern_inst_func->import_func_inst;
+
+        function->call_conv_wasm_c_api = extern_inst_func->call_conv_wasm_c_api;
+        module_inst->import_func_ptrs[i] =
+            extern_inst_func->u.func_import->func_ptr_linked;
 #endif
     }
 

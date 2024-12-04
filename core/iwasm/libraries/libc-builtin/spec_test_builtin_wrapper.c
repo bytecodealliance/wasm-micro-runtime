@@ -10,66 +10,6 @@
  * Functions
  *************************************/
 
-static NativeSymbol native_symbols_spectest[] = {
-    REG_NATIVE_FUNC(print, "()"),
-    REG_NATIVE_FUNC(print_i32, "(i)"),
-    REG_NATIVE_FUNC(print_i64, "(I)"),
-    REG_NATIVE_FUNC(print_i32_f32, "(if)"),
-    REG_NATIVE_FUNC(print_f64_f64, "(FF)"),
-    REG_NATIVE_FUNC(print_f32, "(f)"),
-    REG_NATIVE_FUNC(print_f64, "(F)")
-};
-
-static void
-print_wrapper(wasm_exec_env_t exec_env)
-{
-    os_printf("in specttest.print()\n");
-}
-
-static void
-print_i32_wrapper(wasm_exec_env_t exec_env, int32 i32)
-{
-    os_printf("in specttest.print_i32(%" PRId32 ")\n", i32);
-}
-
-static void
-print_i64_wrapper(wasm_exec_env_t exec_env, int64 i64)
-{
-    os_printf("in specttest.print_i64(%" PRId64 ")\n", i64);
-}
-
-static void
-print_i32_f32_wrapper(wasm_exec_env_t exec_env, int32 i32, float f32)
-{
-    os_printf("in specttest.print_i32_f32(%" PRId32 ", %f)\n", i32, f32);
-}
-
-static void
-print_f64_f64_wrapper(wasm_exec_env_t exec_env, double f64_1, double f64_2)
-{
-    os_printf("in specttest.print_f64_f64(%f, %f)\n", f64_1, f64_2);
-}
-
-static void
-print_f32_wrapper(wasm_exec_env_t exec_env, float f32)
-{
-    os_printf("in specttest.print_f32(%f)\n", f32);
-}
-
-static void
-print_f64_wrapper(wasm_exec_env_t exec_env, double f64)
-{
-    os_printf("in specttest.print_f64(%f)\n", f64);
-}
-
-static wasm_function_inst_t
-create_spec_test_function(wasm_module_t module, const char *module_name,
-                          const char *name, wasm_func_type_t type)
-{
-    bh_assert(false && "not implemented");
-    return NULL;
-}
-
 /*************************************
  * Globals
  *************************************/
@@ -198,6 +138,13 @@ wasm_runtime_create_extern_inst_for_spec_test(wasm_module_t module,
     if (!module || !import_type || !out)
         return false;
 
+    if (import_type->kind == WASM_IMPORT_EXPORT_KIND_FUNC) {
+        /* Let wasm_native inject wrappers into WASMFunctionImport */
+        LOG_DEBUG("skip import(%s,%s) kind %d", import_type->module_name,
+                  import_type->name, import_type->kind);
+        return true;
+    }
+
     LOG_DEBUG("create import(%s,%s) kind %d", import_type->module_name,
               import_type->name, import_type->kind);
 
@@ -205,16 +152,7 @@ wasm_runtime_create_extern_inst_for_spec_test(wasm_module_t module,
     out->field_name = import_type->name;
     out->kind = import_type->kind;
 
-    if (import_type->kind == WASM_IMPORT_EXPORT_KIND_FUNC) {
-        out->u.function = create_spec_test_function(
-            module, import_type->module_name, import_type->name,
-            import_type->u.func_type);
-        if (!out->u.function) {
-            LOG_ERROR("create function failed\n");
-            return false;
-        }
-    }
-    else if (import_type->kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
+    if (import_type->kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
         out->u.memory = create_spec_test_memory(
             module, import_type->module_name, import_type->name,
             import_type->u.memory_type);
