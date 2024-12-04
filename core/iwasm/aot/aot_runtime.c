@@ -694,7 +694,7 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                 import_table->table_type.flags & TABLE64_FLAG;
 #if WASM_ENABLE_GC != 0
             tbl_inst->elem_ref_type.elem_ref_type =
-                module->tables[i].table_type.elem_ref_type;
+                import_table->table_type.elem_ref_type;
 #endif
         }
         else {
