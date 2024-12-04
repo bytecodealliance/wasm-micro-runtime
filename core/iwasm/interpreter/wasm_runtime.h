@@ -236,40 +236,10 @@ struct WASMFunctionInstance {
 
     union {
         WASMFunctionImport *func_import;
-        /* locate bytecode */
+        /* local bytecode */
         WASMFunction *func;
     } u;
 
-    /*
-     * for an import funciton,
-     * - from wasm_natvie,
-     *   - WASMFunctionImport.func_ptr_linked != NULL
-     *   - import_module_inst == NULL
-     *   - import_func_inst == NULL
-     *   - call_conv_wasm_c_api == false
-     *   - call_conv_raw == true or false
-     *
-     * - from wasm_c_api,
-     *   - WASMFunctionImport.func_ptr_linked == NULL
-     *   - import_module_inst == NULL
-     *   - import_func_inst != NULL
-     *   - call_conv_wasm_c_api == true
-     *   - call_conv_raw == false
-     *
-     * - from wasm_export,
-     *   - WASMFunctionImport.func_ptr_linked != NULL
-     *   - import_module_inst == NULL
-     *   - import_func_inst != NULL
-     *   - call_conv_wasm_c_api == false
-     *   - call_conv_raw == false
-     *
-     * - from other .wasm
-     *   - WASMFunctionImport.func_ptr_linked == NULL
-     *   - import_module_inst != NULL
-     *   - import_func_inst != NULL
-     *   - call_conv_wasm_c_api == false
-     *   - call_conv_raw == false
-     */
     WASMModuleInstance *import_module_inst;
     WASMFunctionInstance *import_func_inst;
 
@@ -277,6 +247,8 @@ struct WASMFunctionInstance {
     bool call_conv_raw;
     /* write it from wasm_c_api */
     bool call_conv_wasm_c_api;
+    /* write it from wasm_c_api */
+    CApiFuncImport *import_func_c_api;
 
 #if WASM_ENABLE_PERF_PROFILING != 0
     /* total execution time */
