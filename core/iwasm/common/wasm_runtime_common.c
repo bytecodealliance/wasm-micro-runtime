@@ -7590,6 +7590,10 @@ wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
         sub_module_inst_list_node->module_name =
             sub_module_list_node->module_name;
 
+        /*
+         * TODO: this is wired. It might be the reason
+         * why need aot_resolve_function_ex()
+         */
 #if WASM_ENABLE_AOT != 0
         if (module_inst->module_type == Wasm_Module_AoT) {
             AOTModuleInstance *aot_module_inst =

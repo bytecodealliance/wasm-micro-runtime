@@ -1602,6 +1602,7 @@ aot_destroy_memory(AOTMemoryInstance *memory)
 
 static bool
 init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
+               const WASMExternInstance *imports, uint32 import_count,
                char *error_buf, uint32 error_buf_size)
 {
     uint32 i;
@@ -1621,13 +1622,43 @@ init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
     /* Set import function pointers */
     func_ptrs = (void **)module_inst->func_ptrs;
     for (i = 0; i < module->import_func_count; i++, func_ptrs++) {
-        *func_ptrs = (void *)module->import_funcs[i].func_ptr_linked;
-        if (!*func_ptrs) {
-            const char *module_name = module->import_funcs[i].module_name;
-            const char *field_name = module->import_funcs[i].func_name;
-            LOG_WARNING("warning: failed to link import function (%s, %s)",
-                        module_name, field_name);
+        AOTImportFunc *import_func = module->import_funcs + i;
+        /*
+         * if WASM_ENABLE_MULTI_MODULE != 0, to see if
+         *  - it is from wasm_native
+         *  - it is from another module
+         * else, to see if
+         *  - it is from wasm_native
+         */
+        LOG_DEBUG("use loading phase linked functions for (%s,%s)",
+                  import_func->module_name, import_func->func_name);
+        *func_ptrs = import_func->func_ptr_linked;
+        if (*func_ptrs) {
+            continue;
         }
+
+#if WASM_ENABLE_MULTI_MODULE == 0
+        LOG_DEBUG("use instantiation phase linked for function (%s, %s)",
+                  import_func->module_name, import_func->func_name);
+        const WASMExternInstance *extern_inst =
+            wasm_runtime_get_extern_instance(imports, import_count,
+                                             WASM_IMPORT_EXPORT_KIND_FUNC, i);
+        if (!extern_inst) {
+            LOG_ERROR("missing an import function(%s, %s)",
+                      import_func->module_name, import_func->func_name);
+            return false;
+        }
+
+        AOTFunctionInstance *extern_inst_func =
+            (AOTFunctionInstance *)extern_inst->u.function;
+        if (!extern_inst_func) {
+            LOG_ERROR("empty WASMExternInstance for (%s, %s)",
+                      import_func->module_name, import_func->func_name);
+            return false;
+        }
+
+        *func_ptrs = (void *)extern_inst_func->u.func_import->func_ptr_linked;
+#endif
     }
 
     /* Set defined function pointers */
@@ -2301,7 +2332,8 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         goto fail;
 
     /* Initialize function pointers */
-    if (!init_func_ptrs(module_inst, module, error_buf, error_buf_size))
+    if (!init_func_ptrs(module_inst, module, imports, import_count, error_buf,
+                        error_buf_size))
         goto fail;
 
     if (!create_exports(module_inst, module, error_buf, error_buf_size))
@@ -5707,6 +5739,7 @@ aot_resolve_function(const AOTModule *module, const char *function_name,
 bool
 aot_resolve_import_func(AOTModule *module, AOTImportFunc *import_func)
 {
+    /* from wasm_native */
     import_func->func_ptr_linked = wasm_native_resolve_symbol(
         import_func->module_name, import_func->func_name,
         import_func->func_type, &import_func->signature,
@@ -5724,6 +5757,7 @@ aot_resolve_import_func(AOTModule *module, AOTImportFunc *import_func)
         return false;
     }
 
+    /* from other .wasms' export functions */
     char error_buf[128];
     AOTModule *sub_module = (AOTModule *)wasm_runtime_load_depended_module(
         (WASMModuleCommon *)module, import_func->module_name, error_buf,
@@ -5732,9 +5766,9 @@ aot_resolve_import_func(AOTModule *module, AOTImportFunc *import_func)
     if (!sub_module) {
         LOG_DEBUG("Failed to load sub module: %s", error_buf);
         /*
-         * TOOD: call in  wasm_runtime_find_module_registered()
-         * in aot_resolve_function_ex() is not necessary
-         * since wasm_runtime_load_depended_module() has been called
+         * TOOD: seems aot_resolve_function_ex()'s only purpose is use
+         * wasm_runtime_find_module_registered() again, after
+         * wasm_runtime_load_depended_module() called.
          */
         import_func->func_ptr_linked = aot_resolve_function_ex(
             import_func->module_name, import_func->func_name,
@@ -5747,11 +5781,17 @@ aot_resolve_import_func(AOTModule *module, AOTImportFunc *import_func)
     }
 
     if (!import_func->func_ptr_linked) {
-        LOG_WARNING("Failed to link function: %s", error_buf);
+        LOG_WARNING("failed to link function (%s, %s): %s",
+                    import_func->module_name, import_func->func_name,
+                    error_buf);
     }
 #else
     (void)module;
 #endif
+
+    LOG_DEBUG("can't resolve import function %s durning loading. wait for "
+              "instantiation linking",
+              import_func->func_name);
 
     return import_func->func_ptr_linked != NULL;
 }

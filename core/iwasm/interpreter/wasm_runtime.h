@@ -235,13 +235,41 @@ struct WASMFunctionInstance {
     uint8 *local_types;
 
     union {
-        /* from wasm_native and wasm_import (interp) */
         WASMFunctionImport *func_import;
         /* locate bytecode */
         WASMFunction *func;
     } u;
 
-    /* only for wasm functions of other .wasm */
+    /*
+     * for an import funciton,
+     * - from wasm_natvie,
+     *   - WASMFunctionImport.func_ptr_linked != NULL
+     *   - import_module_inst == NULL
+     *   - import_func_inst == NULL
+     *   - call_conv_wasm_c_api == false
+     *   - call_conv_raw == true or false
+     *
+     * - from wasm_c_api,
+     *   - WASMFunctionImport.func_ptr_linked == NULL
+     *   - import_module_inst == NULL
+     *   - import_func_inst != NULL
+     *   - call_conv_wasm_c_api == true
+     *   - call_conv_raw == false
+     *
+     * - from wasm_export,
+     *   - WASMFunctionImport.func_ptr_linked != NULL
+     *   - import_module_inst == NULL
+     *   - import_func_inst != NULL
+     *   - call_conv_wasm_c_api == false
+     *   - call_conv_raw == false
+     *
+     * - from other .wasm
+     *   - WASMFunctionImport.func_ptr_linked == NULL
+     *   - import_module_inst != NULL
+     *   - import_func_inst != NULL
+     *   - call_conv_wasm_c_api == false
+     *   - call_conv_raw == false
+     */
     WASMModuleInstance *import_module_inst;
     WASMFunctionInstance *import_func_inst;
 

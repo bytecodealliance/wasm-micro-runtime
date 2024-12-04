@@ -90,7 +90,7 @@ wasm_resolve_symbols(WASMModule *module)
     uint32 idx;
     for (idx = 0; idx < module->import_function_count; ++idx) {
         WASMFunctionImport *import = &module->import_functions[idx].u.function;
-        bool linked = import->func_ptr_linked;
+        bool linked = import->func_ptr_linked != NULL;
 #if WASM_ENABLE_MULTI_MODULE != 0
         if (import->import_func_linked) {
             linked = true;
@@ -162,7 +162,7 @@ wasm_resolve_function(const char *module_name, const char *function_name,
 bool
 wasm_resolve_import_func(const WASMModule *module, WASMFunctionImport *function)
 {
-    /* from builtin functions */
+    /* from wasm_native functions */
     function->func_ptr_linked = wasm_native_resolve_symbol(
         function->module_name, function->field_name, function->func_type,
         &function->signature, &function->attachment, &function->call_conv_raw);
@@ -199,6 +199,8 @@ wasm_resolve_import_func(const WASMModule *module, WASMFunctionImport *function)
 
     LOG_WARNING("failed to link function (%s, %s): %s", function->module_name,
                 function->field_name, error_buf);
+#else
+    (void)module;
 #endif
 
     LOG_DEBUG("can't resolve import function %s durning loading. wait for "
@@ -2278,10 +2280,12 @@ init_func_ptrs(WASMModuleInstance *module_inst, WASMModule *module,
         WASMFunctionImport *import_func =
             &module->import_functions[i].u.function;
         /*
-         * if WASM_ENABLE_MULTI_MODULE != 0, to see if
+         * if WASM_ENABLE_MULTI_MODULE != 0, if
          *  - it is from wasm_native
+         *  - if is from wasm_c_api
          *  - it is from another module
-         * else, to see if
+         *
+         * otherwise, if
          *  - it is from wasm_native
          */
         LOG_DEBUG("use loading phase linked functions for (%s,%s)",
@@ -4869,6 +4873,7 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
 
     WASMFunctionInstance *func_inst =
         wasm_locate_function_instance(module_inst, func_idx);
+
     if (func_inst->call_conv_wasm_c_api) {
         if (module_inst->c_api_func_imports) {
             c_api_func_import = module_inst->c_api_func_imports + func_idx;
@@ -4890,17 +4895,35 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
 
     attachment = import_func->attachment;
     if (func_inst->call_conv_wasm_c_api) {
+        /* from wasm_c_api */
         ret = wasm_runtime_invoke_c_api_native(
             (WASMModuleInstanceCommon *)module_inst, func_ptr, func_type, argc,
             argv, c_api_func_import->with_env_arg, c_api_func_import->env_arg);
     }
     else if (func_inst->call_conv_raw) {
+        /* from wasm_native raw */
         signature = import_func->signature;
         ret = wasm_runtime_invoke_native_raw(exec_env, func_ptr, func_type,
                                              signature, attachment, argv, argc,
                                              argv);
     }
     else {
+        if (func_inst->import_module_inst) {
+            /* from other .wasm */
+            exec_env = wasm_runtime_get_exec_env_singleton(
+                (WASMModuleInstanceCommon *)func_inst->import_module_inst);
+            if (!exec_env) {
+                wasm_runtime_set_exception(
+                    (WASMModuleInstanceCommon *)module_inst,
+                    "create singleton exec_env failed");
+                goto fail;
+            }
+        }
+
+        /*
+         * from wasm_native
+         * from wasm_export
+         */
         signature = import_func->signature;
         ret =
             wasm_runtime_invoke_native(exec_env, func_ptr, func_type, signature,
