@@ -198,8 +198,7 @@ typedef struct AOTImportFunc {
     /* attachment */
     void *attachment;
     bool call_conv_raw;
-    bool call_conv_wasm_c_api;
-    bool wasm_c_api_with_env;
+
 } AOTImportFunc;
 
 /**

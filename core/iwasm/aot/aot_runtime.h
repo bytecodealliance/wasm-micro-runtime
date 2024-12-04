@@ -113,6 +113,16 @@ typedef struct AOTFunctionInstance {
         } func;
         AOTImportFunc *func_import;
     } u;
+
+    WASMModuleInstance *import_module_inst;
+    WASMFunctionInstance *import_func_inst;
+
+    /* copy it from AOTImportFunc */
+    bool call_conv_raw;
+    /* write it from wasm_c_api */
+    bool call_conv_wasm_c_api;
+    /* write it from wasm_c_api */
+    CApiFuncImport *import_func_c_api;
 } AOTFunctionInstance;
 
 /* Map of a function index to the element ith in
@@ -149,6 +159,8 @@ typedef struct AOTModuleInstanceExtra {
 #if WASM_ENABLE_MULTI_MODULE != 0
     bh_list sub_module_inst_list_head;
     bh_list *sub_module_inst_list;
+
+    /*TODO: remove*/
     WASMModuleInstanceCommon **import_func_module_insts;
 #endif
 
