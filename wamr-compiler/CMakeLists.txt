@@ -398,4 +398,5 @@ else()
                          ${UV_A_LIBS})
 endif()
 
-install (TARGETS wamrc DESTINATION bin)
+include (GNUInstallDirs)
+install (TARGETS wamrc)
