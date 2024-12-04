@@ -2260,6 +2260,7 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
 #if WASM_ENABLE_JIT != 0
 static bool
 init_func_ptrs(WASMModuleInstance *module_inst, WASMModule *module,
+               const WASMExternInstance *imports, uint32 import_count,
                char *error_buf, uint32 error_buf_size)
 {
     uint32 i;
@@ -2276,8 +2277,43 @@ init_func_ptrs(WASMModuleInstance *module_inst, WASMModule *module,
     for (i = 0; i < module->import_function_count; i++, func_ptrs++) {
         WASMFunctionImport *import_func =
             &module->import_functions[i].u.function;
-        /* TODO: handle multi module */
+        /*
+         * if WASM_ENABLE_MULTI_MODULE != 0, to see if
+         *  - it is from wasm_native
+         *  - it is from another module
+         * else, to see if
+         *  - it is from wasm_native
+         */
+        LOG_DEBUG("use loading phase linked functions for (%s,%s)",
+                  import_func->module_name, import_func->field_name);
         *func_ptrs = import_func->func_ptr_linked;
+        if (*func_ptrs) {
+            continue;
+        }
+
+#if WASM_ENABLE_MULTI_MODULE == 0
+        LOG_DEBUG("use instantiation phase linked for function (%s, %s)",
+                  import_func->module_name, import_func->field_name);
+
+        const WASMExternInstance *extern_inst =
+            wasm_runtime_get_extern_instance(imports, import_count,
+                                             WASM_IMPORT_EXPORT_KIND_FUNC, i);
+        if (!extern_inst) {
+            LOG_ERROR("missing an import function(%s, %s)",
+                      import_func->module_name, import_func->field_name);
+            return false;
+        }
+
+        WASMFunctionInstance *extern_inst_func =
+            (WASMFunctionInstance *)extern_inst->u.function;
+        if (!extern_inst_func) {
+            LOG_ERROR("empty WASMExternInstance for (%s, %s)",
+                      import_func->module_name, import_func->field_name);
+            return false;
+        }
+
+        *func_ptrs = (void *)extern_inst_func->u.func_import->func_ptr_linked;
+#endif
     }
 
     /* The defined function pointers will be set in
@@ -2895,7 +2931,8 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 #endif
 #if WASM_ENABLE_JIT != 0
         || (module_inst->e->function_count > 0
-            && !init_func_ptrs(module_inst, module, error_buf, error_buf_size))
+            && !init_func_ptrs(module_inst, module, imports, import_count,
+                               error_buf, error_buf_size))
 #endif
 #if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
         || (module_inst->e->function_count > 0
