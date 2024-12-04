@@ -949,6 +949,7 @@ wasm_functype_results(const wasm_functype_t *func_type)
     return func_type->results;
 }
 
+#if WASM_ENABLE_MULTI_MODULE != 0
 static bool
 cmp_val_kind_with_val_type(wasm_valkind_t v_k, uint8 v_t)
 {
@@ -991,6 +992,7 @@ wasm_functype_same_internal(const wasm_functype_t *type,
 
     return true;
 }
+#endif /* WASM_ENABLE_MULTI_MODULE != 0 */
 
 wasm_globaltype_t *
 wasm_globaltype_new(own wasm_valtype_t *val_type, wasm_mutability_t mut)
@@ -4462,6 +4464,7 @@ wasm_memory_grow(wasm_memory_t *memory, wasm_memory_pages_t delta)
 }
 
 #if WASM_ENABLE_INTERP != 0
+#if WASM_ENABLE_MULTI_MODULE != 0
 static bool
 interp_link_func(const wasm_instance_t *inst, const WASMModule *module_interp,
                  uint32 func_idx_rt, wasm_func_t *import)
@@ -4485,9 +4488,7 @@ interp_link_func(const wasm_instance_t *inst, const WASMModule *module_interp,
             import->type, imported_func_interp->u.function.func_type))
         return false;
 
-#if WASM_ENABLE_MULTI_MODULE != 0
     imported_func_interp->u.function.call_conv_wasm_c_api = true;
-#endif
 
     /*TODO: we can avoid this step */
     /* only set func_ptr_linked to avoid unlink warning during instantiation,
@@ -4556,6 +4557,7 @@ interp_link_global(const WASMModule *module_interp, uint32 global_idx_rt,
     imported_global_interp->u.global.is_linked = true;
     return true;
 }
+#endif /* WASM_ENABLE_MULTI_MODULE != 0 */
 
 static bool
 interp_process_export(wasm_store_t *store,
@@ -4645,6 +4647,7 @@ failed:
 #endif /* WASM_ENABLE_INTERP */
 
 #if WASM_ENABLE_AOT != 0
+#if WASM_ENABLE_MULTI_MODULE != 0
 static bool
 aot_link_func(const wasm_instance_t *inst, const AOTModule *module_aot,
               uint32 import_func_idx_rt, wasm_func_t *import)
@@ -4727,6 +4730,7 @@ failed:
     LOG_DEBUG("%s failed", __FUNCTION__);
     return false;
 }
+#endif /* WASM_ENABLE_MULTI_MODULE != 0*/
 
 static bool
 aot_process_export(wasm_store_t *store, const AOTModuleInstance *inst_aot,
@@ -4821,6 +4825,7 @@ failed:
 }
 #endif /* WASM_ENABLE_AOT */
 
+#if WASM_ENABLE_MULTI_MODULE != 0
 static bool
 do_link(const wasm_instance_t *inst, const wasm_module_t *module,
         const wasm_extern_vec_t *imports)
@@ -4909,6 +4914,7 @@ failed:
     LOG_DEBUG("%s failed", __FUNCTION__);
     return false;
 }
+#endif /* WASM_ENABLE_MULTI_MODULE != 0 */
 
 wasm_instance_t *
 wasm_instance_new(wasm_store_t *store, const wasm_module_t *module,

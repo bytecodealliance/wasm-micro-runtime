@@ -567,7 +567,6 @@ typedef struct WASMFunctionImport {
      * native function pointer after linked
      *   - native functions via wasm_native
      *   - native functions via wasm_c_api. just indicators.
-     *   - wasm function in other modules. jitted
      */
     void *func_ptr_linked;
     /* signature from registered native symbols */

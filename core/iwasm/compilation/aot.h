@@ -191,6 +191,7 @@ typedef struct AOTImportFunc {
     AOTFuncType *func_type;
     uint32 func_type_index;
     /* function pointer after linked */
+
     void *func_ptr_linked;
     /* signature from registered native symbols */
     const char *signature;
