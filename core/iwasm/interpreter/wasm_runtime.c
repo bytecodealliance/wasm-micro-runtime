@@ -2293,7 +2293,8 @@ init_func_ptrs(WASMModuleInstance *module_inst, WASMModule *module,
 
     /* Set import function pointers */
     for (i = 0; i < module->import_function_count; i++, func_ptrs++) {
-        WASMFunctionInstance *func = wasm_locate_function_instance(module, i);
+        WASMFunctionInstance *func =
+            wasm_locate_function_instance(module_inst, i);
         bh_assert(func->is_import_func);
 
         if (func->call_conv_wasm_c_api) {
