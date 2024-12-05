@@ -519,12 +519,44 @@ aot_locate_table_elems(const AOTModule *module, AOTTableInstance *table,
 }
 
 static inline AOTFunctionInstance *
-aot_locate_function_instance(const AOTModuleInstance *module_inst,
-                             uint32 func_idx)
+aot_locate_function_instance(const AOTModuleInstance *inst, uint32 func_idx)
 {
-    AOTModuleInstanceExtra *e = (AOTModuleInstanceExtra *)module_inst->e;
+    AOTModuleInstanceExtra *e = (AOTModuleInstanceExtra *)inst->e;
     AOTFunctionInstance *func = e->functions + func_idx;
     return func;
+}
+
+static inline void *
+aot_get_function_pointer(const AOTModuleInstance *module_inst, uint32 func_idx,
+                         const AOTFunctionInstance *func_inst)
+{
+    void **func_ptrs = module_inst->func_ptrs;
+    void *func_ptr = NULL;
+    CApiFuncImport *c_api_func_import = NULL;
+
+    if (func_inst->call_conv_wasm_c_api) {
+        c_api_func_import = module_inst->c_api_func_imports
+                                ? module_inst->c_api_func_imports + func_idx
+                                : NULL;
+        func_ptr =
+            c_api_func_import ? c_api_func_import->func_ptr_linked : NULL;
+    }
+    else if (func_inst->call_conv_raw) {
+        func_ptr = func_ptrs[func_idx];
+    }
+    else {
+        if (func_inst->import_module_inst) {
+            uint32 funx_idx_of_import_func =
+                func_inst->import_func_inst->func_index;
+            func_ptr = func_inst->import_module_inst
+                           ->func_ptrs[funx_idx_of_import_func];
+        }
+        else {
+            func_ptr = func_ptrs[func_idx];
+        }
+    }
+
+    return func_ptr;
 }
 
 /**

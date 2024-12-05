@@ -4863,7 +4863,6 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     func_type_indexes = module_inst->func_type_indexes;
     func_type_idx = func_type_indexes[func_idx];
     func_type = (WASMFuncType *)module->types[func_type_idx];
-    func_ptr = module_inst->func_ptrs[func_idx];
 
     bh_assert(func_idx < module->import_function_count);
 
@@ -4878,6 +4877,20 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
                                 : NULL;
         func_ptr =
             c_api_func_import ? c_api_func_import->func_ptr_linked : NULL;
+    }
+    else if (func_inst->call_conv_raw) {
+        func_ptr = module_inst->func_ptrs[func_idx];
+    }
+    else {
+        if (func_inst->import_module_inst) {
+            uint32 funx_idx_of_import_func = wasm_calc_function_index(
+                func_inst->import_module_inst, func_inst->import_func_inst);
+            func_ptr = func_inst->import_module_inst
+                           ->func_ptrs[funx_idx_of_import_func];
+        }
+        else {
+            func_ptr = module_inst->func_ptrs[func_idx];
+        }
     }
 
     if (!func_ptr) {
@@ -4913,9 +4926,6 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
                     "create singleton exec_env failed");
                 goto fail;
             }
-
-            func_ptr = func_inst->import_module_inst->func_ptrs[func_idx];
-            bh_assert(func_ptr);
         }
 
         /* from wasm_native */

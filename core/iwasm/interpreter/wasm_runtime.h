@@ -551,6 +551,14 @@ wasm_locate_function_instance(const WASMModuleInstance *module_inst,
 }
 
 static inline uint32
+wasm_calc_function_index(const WASMModuleInstance *module_inst,
+                         const WASMFunctionInstance *func)
+{
+    return (uint32)(func
+                    - ((WASMModuleInstanceExtra *)module_inst->e)->functions);
+}
+
+static inline uint32
 wasm_get_tbl_data_slots(const WASMTableType *table_type,
                         const WASMTableImport *import_type)
 {

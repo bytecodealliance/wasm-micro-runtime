@@ -820,6 +820,12 @@ functions_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
             function->import_func_inst = aot_lookup_function(
                 function->import_module_inst, import->func_name);
+            if (!function->import_func_inst) {
+                set_error_buf_v(error_buf, error_buf_size,
+                                "unknown import function \"%s\"",
+                                import->func_name);
+                return NULL;
+            }
         }
 
         /* from c_api (loading) */
@@ -1888,6 +1894,7 @@ cmp_func_inst(const void *a, const void *b)
     return strcmp(func_inst1->func_name, func_inst2->func_name);
 }
 
+/* TODO: Can I reuse the AOTFunctionInstance ?*/
 static bool
 create_export_funcs(AOTModuleInstance *module_inst, AOTModule *module,
                     char *error_buf, uint32 error_buf_size)
@@ -1908,23 +1915,16 @@ create_export_funcs(AOTModuleInstance *module_inst, AOTModule *module,
 
         for (i = 0; i < module->export_count; i++) {
             if (exports[i].kind == EXPORT_KIND_FUNC) {
+                AOTFunctionInstance *function =
+                    aot_locate_function_instance(module_inst, exports[i].index);
+                if (!function) {
+                    set_error_buf_v(error_buf, error_buf_size,
+                                    "unknown function %s", exports[i].name);
+                    return false;
+                }
+
+                *export_func = *function;
                 export_func->func_name = exports[i].name;
-                export_func->func_index = exports[i].index;
-                if (export_func->func_index < module->import_func_count) {
-                    export_func->is_import_func = true;
-                    export_func->u.func_import =
-                        &module->import_funcs[export_func->func_index];
-                }
-                else {
-                    export_func->is_import_func = false;
-                    func_index =
-                        export_func->func_index - module->import_func_count;
-                    ftype_index = module->func_type_indexes[func_index];
-                    export_func->u.func.func_type =
-                        (AOTFuncType *)module->types[ftype_index];
-                    export_func->u.func.func_ptr =
-                        module->func_ptrs[func_index];
-                }
                 export_func++;
             }
         }
@@ -2875,8 +2875,11 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
     uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     bool ret;
     /* init_func_ptrs() has already copied func_ptr_linked value*/
-    void *func_ptr = function->u.func.func_ptr;
+    // bh_assert(false);
     void *attachment = NULL;
+
+    void *func_ptr =
+        aot_get_function_pointer(module_inst, function->func_index, function);
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     /*
@@ -3535,7 +3538,7 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     uint32 func_type_idx = func_type_indexes[func_idx];
     AOTFuncType *func_type = (AOTFuncType *)aot_module->types[func_type_idx];
     void **func_ptrs = module_inst->func_ptrs;
-    void *func_ptr = func_ptrs[func_idx];
+    void *func_ptr = NULL;
     AOTImportFunc *import_func;
     const char *signature;
     void *attachment;
@@ -3548,14 +3551,7 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     AOTFunctionInstance *func_inst =
         aot_locate_function_instance(module_inst, func_idx);
 
-    if (func_inst->call_conv_wasm_c_api) {
-        c_api_func_import = module_inst->c_api_func_imports
-                                ? module_inst->c_api_func_imports + func_idx
-                                : NULL;
-        func_ptr =
-            c_api_func_import ? c_api_func_import->func_ptr_linked : NULL;
-    }
-
+    func_ptr = aot_get_function_pointer(module_inst, func_idx, func_inst);
     if (!func_ptr) {
         snprintf(buf, sizeof(buf),
                  "failed to call unlinked import function (%s, %s)",
@@ -3589,9 +3585,6 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
                     "create singleton exec_env failed");
                 goto fail;
             }
-
-            func_ptr = func_inst->import_module_inst->func_ptrs[func_idx];
-            bh_assert(func_ptr);
         }
 
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
