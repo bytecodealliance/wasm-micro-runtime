@@ -497,6 +497,16 @@ typedef struct WASMSignalInfo {
 #endif
 } WASMSignalInfo;
 
+/* wasm-c-api import function info */
+typedef struct CApiFuncImport {
+    /* host func pointer after linked */
+    void *func_ptr_linked;
+    /* whether the host func has env argument */
+    bool with_env_arg;
+    /* the env argument of the host func */
+    void *env_arg;
+} CApiFuncImport;
+
 /* Set exec_env of thread local storage */
 void
 wasm_runtime_set_exec_env_tls(WASMExecEnv *exec_env);
@@ -1240,14 +1250,12 @@ wasm_runtime_set_global_value(wasm_module_t const module,
                               wasm_global_inst_t global, WASMValue *value);
 
 struct WASMTableInstance *
-wasm_runtime_create_table_internal(WASMModuleCommon *const module,
+wasm_runtime_create_table_internal(const wasm_module_t module,
                                    WASMTableType *const type);
 
 wasm_function_inst_t
-wasm_runtime_create_function_internal(wasm_module_t const module,
-                                      wasm_module_inst_t dep_inst,
-                                      wasm_func_type_t const type,
-                                      bool from_wasm_c_api, void *callback);
+wasm_runtime_create_function_c_api(const wasm_module_t module,
+                                   CApiFuncImport *c_api_info);
 
 #ifdef __cplusplus
 }

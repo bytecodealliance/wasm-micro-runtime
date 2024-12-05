@@ -1268,7 +1268,9 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
 
     cur_func_index = (uint32)(cur_func - module_inst->e->functions);
     bh_assert(cur_func_index < module_inst->module->import_function_count);
+
     if (!cur_func->call_conv_wasm_c_api) {
+        /*TODO: use func_ptrs instead */
         native_func_pointer = module_inst->import_func_ptrs[cur_func_index];
     }
     else if (module_inst->c_api_func_imports) {
@@ -1294,14 +1296,14 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
             argv_ret[1] = frame->lp[1];
         }
     }
-    else if (!cur_func->call_conv_raw) {
-        ret = wasm_runtime_invoke_native(
+    else if (cur_func->call_conv_raw) {
+        ret = wasm_runtime_invoke_native_raw(
             exec_env, native_func_pointer, func_import->func_type,
             func_import->signature, func_import->attachment, frame->lp,
             cur_func->param_cell_num, argv_ret);
     }
     else {
-        ret = wasm_runtime_invoke_native_raw(
+        ret = wasm_runtime_invoke_native(
             exec_env, native_func_pointer, func_import->func_type,
             func_import->signature, func_import->attachment, frame->lp,
             cur_func->param_cell_num, argv_ret);
@@ -6637,8 +6639,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     call_func_from_entry:
     {
         if (cur_func->is_import_func) {
-            /* from other .wasm */
-            if (cur_func->import_func_inst) {
+            if (cur_func->import_module_inst) {
+                /* from other .wasm */
                 wasm_interp_call_func_import(module, exec_env, cur_func,
                                              prev_frame);
 #if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0
@@ -6699,6 +6701,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif /* end of WASM_ENABLE_EXCE_HANDLING != 0 */
             }
             else {
+                /* from wasm_native or c_api */
                 wasm_interp_call_func_native(module, exec_env, cur_func,
                                              prev_frame);
 #if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0

@@ -8120,29 +8120,81 @@ wasm_runtime_destroy_extern_inst(WASMModuleCommon *module,
 }
 
 WASMFunctionInstanceCommon *
-wasm_runtime_create_function_internal(struct WASMModuleCommon *const module,
-                                      WASMModuleInstanceCommon *dep_inst,
-                                      struct WASMFuncType *const type,
-                                      bool from_wasm_c_api, void *callback)
+wasm_runtime_create_function_wasm(struct WASMModuleCommon *const module,
+                                  WASMModuleInstanceCommon *dep_inst,
+                                  WASMFunctionInstanceCommon *dep_func)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode) {
-        WASMFunctionInstance *func = wasm_create_function(
-            (WASMModule *)module, (WASMModuleInstance *)dep_inst, type,
-            callback);
+        WASMFunctionInstance *func_empty =
+            wasm_create_function_empty((const WASMModule *)module);
+        func_empty->is_import_func = true;
 
-        if (!func) {
-            return NULL;
-        }
-
-        func->call_conv_wasm_c_api = from_wasm_c_api;
-        return (WASMFunctionInstanceCommon *)func;
+        func_empty->import_module_inst = (WASMModuleInstance *)dep_inst;
+        func_empty->import_func_inst = (WASMFunctionInstance *)dep_func;
+        return (WASMFunctionInstanceCommon *)func_empty;
     }
 #endif
 
 #if WASM_ENABLE_AOT != 0
     if (module->module_type == Wasm_Module_AoT) {
-        // return aot_create_function((AOTModuleInstance *)module, type);
+        bh_assert(false && "not supported yet");
+    }
+#endif
+
+    LOG_ERROR("create function failed, invalid module type %d",
+              module->module_type);
+    return NULL;
+}
+
+WASMFunctionInstanceCommon *
+wasm_runtime_create_function_c_api(struct WASMModuleCommon *const module,
+                                   CApiFuncImport *c_api_info)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        WASMFunctionInstance *func_empty =
+            wasm_create_function_empty((const WASMModule *)module);
+        func_empty->is_import_func = true;
+
+        func_empty->import_func_c_api = *c_api_info;
+        func_empty->call_conv_wasm_c_api = true;
+        return (WASMFunctionInstanceCommon *)func_empty;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        bh_assert(false && "not supported yet");
+    }
+#endif
+
+    LOG_ERROR("create function failed, invalid module type %d",
+              module->module_type);
+    return NULL;
+}
+
+/*might be unused*/
+WASMFunctionInstanceCommon *
+wasm_runtime_create_function_native(struct WASMModuleCommon *const module,
+                                    void *callback)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        WASMFunctionInstance *func_empty =
+            wasm_create_function_empty((const WASMModule *)module);
+        func_empty->is_import_func = true;
+
+        func_empty->u.func_import->func_ptr_linked = callback;
+        /*TBC: ?*/
+        func_empty->call_conv_raw = false;
+
+        return (WASMFunctionInstanceCommon *)func_empty;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
         bh_assert(false && "not supported yet");
     }
 #endif
@@ -8156,8 +8208,8 @@ WASMFunctionInstanceCommon *
 wasm_runtime_create_function(struct WASMModuleCommon *const module,
                              struct WASMFuncType *const type, void *callback)
 {
-    return wasm_runtime_create_function_internal(module, NULL, type, false,
-                                                 callback);
+    bh_assert(false && "unimplemented");
+    return NULL;
 }
 
 void
