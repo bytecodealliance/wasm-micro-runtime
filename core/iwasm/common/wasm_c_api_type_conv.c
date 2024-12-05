@@ -6,6 +6,7 @@
 #include "bh_log.h"
 #include "wasm_c_api_internal.h"
 #include "wasm_export.h"
+#include "wasm_runtime_common.h"
 
 /* wasm_export.h types -> wasm_c_api.h types*/
 
@@ -93,6 +94,16 @@ globaltype_to_WASMGlobalType(wasm_globaltype_t *src, WASMGlobalType *dst)
 }
 
 bool
+func_to_CApiFuncImport(wasm_func_t *src, CApiFuncImport *dst)
+{
+    dst->func_ptr_linked =
+        src->with_env ? (void *)src->u.cb_env.cb : (void *)src->u.cb;
+    dst->with_env_arg = src->with_env;
+    dst->env_arg = src->u.cb_env.env;
+    return true;
+}
+
+bool
 extern_t_to_WASMExternInstance(const wasm_module_t *module, wasm_extern_t *src,
                                wasm_importtype_t *type, WASMExternInstance *dst)
 {
@@ -106,18 +117,11 @@ extern_t_to_WASMExternInstance(const wasm_module_t *module, wasm_extern_t *src,
         {
             wasm_func_t *function_in = wasm_extern_as_func(src);
 
-            WASMFuncType func_type = { 0 };
-            /*TODO: fill more fields? */
-            func_type.param_count = (uint16)wasm_func_param_arity(function_in);
-            func_type.result_count =
-                (uint16)wasm_func_result_arity(function_in);
+            CApiFuncImport c_api_info = { 0 };
+            func_to_CApiFuncImport(function_in, &c_api_info);
 
-            void *function_host_ptr = function_in->with_env
-                                          ? (void *)function_in->u.cb_env.cb
-                                          : (void *)function_in->u.cb;
-
-            dst->u.function = wasm_runtime_create_function_internal(
-                *module, NULL, &func_type, true, function_host_ptr);
+            dst->u.function =
+                wasm_runtime_create_function_c_api(*module, &c_api_info);
             if (!dst->u.function) {
                 return false;
             }

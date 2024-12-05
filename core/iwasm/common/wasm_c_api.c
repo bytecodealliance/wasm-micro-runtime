@@ -5034,7 +5034,7 @@ wasm_instance_new_with_args_ex(wasm_store_t *store, const wasm_module_t *module,
     }
 
 #if WASM_ENABLE_MULTI_MODULE == 0
-    /* executes the instantiate-time linking if provided */
+    /* do instantiation-linking */
     struct WASMExternInstance *imports_out = NULL;
     uint32 imports_out_count = 0;
     if (!wasm_instance_create_import_list(module, imports, &imports_out,
@@ -5057,8 +5057,9 @@ wasm_instance_new_with_args_ex(wasm_store_t *store, const wasm_module_t *module,
     if (!instance->inst_comm_rt) {
         goto failed;
     }
+    wasm_runtime_destroy_imports(*module, imports_out);
 #else
-    /* mimic the instantiate-time linking if provided */
+    /* do loading-linking */
     if (imports) {
         if (!do_link(instance, module, imports)) {
             snprintf(sub_error_buf, sizeof(sub_error_buf),
@@ -5076,7 +5077,7 @@ wasm_instance_new_with_args_ex(wasm_store_t *store, const wasm_module_t *module,
     if (!instance->inst_comm_rt) {
         goto failed;
     }
-#endif /*WASM_ENABLE_MULTI_MODULE != 0*/
+#endif
 
     if (!wasm_runtime_create_exec_env_singleton(instance->inst_comm_rt)) {
         snprintf(sub_error_buf, sizeof(sub_error_buf),
