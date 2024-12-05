@@ -7562,8 +7562,12 @@ wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
             bh_list_first_elem(((WASMModule *)module)->import_module_list);
     }
 #endif
+    if (!sub_module_inst_list) {
+        LOG_ERROR("unknown module type %d", module->module_type);
+        return false;
+    }
+
     while (sub_module_list_node) {
-        WASMSubModInstNode *sub_module_inst_list_node = NULL;
         WASMModuleCommon *sub_module = sub_module_list_node->module;
         WASMModuleInstanceCommon *sub_module_inst = NULL;
         sub_module_inst = wasm_runtime_instantiate_internal(
@@ -7576,8 +7580,10 @@ wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
                       sub_module_list_node->module_name);
             return false;
         }
-        sub_module_inst_list_node = loader_malloc(sizeof(WASMSubModInstNode),
-                                                  error_buf, error_buf_size);
+
+        WASMSubModInstNode *sub_module_inst_list_node = loader_malloc(
+            sizeof(WASMSubModInstNode), error_buf, error_buf_size);
+
         if (!sub_module_inst_list_node) {
             LOG_DEBUG("Malloc WASMSubModInstNode failed, SZ: %zu",
                       sizeof(WASMSubModInstNode));
@@ -7585,39 +7591,9 @@ wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
                 wasm_runtime_deinstantiate_internal(sub_module_inst, false);
             return false;
         }
-        sub_module_inst_list_node->module_inst =
-            (WASMModuleInstance *)sub_module_inst;
+        sub_module_inst_list_node->module_inst = sub_module_inst;
         sub_module_inst_list_node->module_name =
             sub_module_list_node->module_name;
-
-        /*
-         * TODO: this is wired. It might be the reason
-         * why need aot_resolve_function_ex()
-         */
-#if WASM_ENABLE_AOT != 0
-        if (module_inst->module_type == Wasm_Module_AoT) {
-            AOTModuleInstance *aot_module_inst =
-                (AOTModuleInstance *)module_inst;
-            AOTModule *aot_module = (AOTModule *)module;
-            AOTModuleInstanceExtra *aot_extra =
-                (AOTModuleInstanceExtra *)aot_module_inst->e;
-            uint32 i;
-            AOTImportFunc *import_func;
-            for (i = 0; i < aot_module->import_func_count; i++) {
-                if (aot_extra->import_func_module_insts[i])
-                    continue;
-
-                import_func = &aot_module->import_funcs[i];
-                if (strcmp(sub_module_inst_list_node->module_name,
-                           import_func->module_name)
-                    == 0) {
-                    aot_extra->import_func_module_insts[i] =
-                        (WASMModuleInstanceCommon *)
-                            sub_module_inst_list_node->module_inst;
-                }
-            }
-        }
-#endif
 
         bh_list_status ret =
             bh_list_insert(sub_module_inst_list, sub_module_inst_list_node);
@@ -8165,7 +8141,13 @@ wasm_runtime_create_function_c_api(struct WASMModuleCommon *const module,
 
 #if WASM_ENABLE_AOT != 0
     if (module->module_type == Wasm_Module_AoT) {
-        bh_assert(false && "not supported yet");
+        AOTFunctionInstance *func_empty =
+            aot_create_function_empty((const AOTModule *)module);
+        func_empty->is_import_func = true;
+
+        func_empty->import_func_c_api = *c_api_info;
+        func_empty->call_conv_wasm_c_api = true;
+        return (AOTFunctionInstance *)func_empty;
     }
 #endif
 

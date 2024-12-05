@@ -127,6 +127,28 @@ runtime_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
     return mem;
 }
 
+#if WASM_ENABLE_MULTI_MODULE != 0
+static AOTModuleInstance *
+get_sub_module_inst(const AOTModuleInstance *parent_module_inst,
+                    const AOTModule *sub_module)
+{
+    bh_list *sub_module_inst_list = parent_module_inst->e->sub_module_inst_list;
+    WASMSubModInstNode *node = bh_list_first_elem(sub_module_inst_list);
+
+    AOTModuleInstance *inst = (AOTModuleInstance *)node->module_inst;
+    while (node && sub_module != (AOTModule *)inst->module) {
+        node = bh_list_elem_next(node);
+        inst = (AOTModuleInstance *)node->module_inst;
+    }
+
+    if (!node) {
+        LOG_DEBUG("fail to find sub module instance");
+    }
+
+    return node ? inst : NULL;
+}
+#endif
+
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
 static bool
 is_tiny_frame(WASMExecEnv *exec_env)
@@ -758,6 +780,111 @@ globals_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 fail:
     wasm_runtime_free(globals);
     return NULL;
+}
+
+static AOTFunctionInstance *
+functions_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
+                      const WASMExternInstance *imports, uint32 import_count,
+                      char *error_buf, uint32 error_buf_size)
+{
+    uint32 function_count = module->import_func_count + module->func_count;
+    uint64 total_size = sizeof(AOTFunctionInstance) * (uint64)function_count;
+
+    AOTFunctionInstance *functions =
+        runtime_malloc(total_size, error_buf, error_buf_size);
+    if (!functions) {
+        return NULL;
+    }
+
+    AOTFunctionInstance *function = functions;
+    for (uint32 i = 0; i < module->import_func_count; i++, function++) {
+        function->is_import_func = true;
+        function->func_index = i;
+
+        AOTImportFunc *import = module->import_funcs + i;
+        /*TODO: use name section content? */
+        function->func_name = import->func_name;
+        function->u.func_import = import;
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+        if (import->import_module) {
+            /* from other .wasm */
+            function->import_module_inst =
+                get_sub_module_inst(module_inst, import->import_module);
+            if (!function->import_module_inst) {
+                set_error_buf_v(error_buf, error_buf_size,
+                                "unknown import module \"%s\"",
+                                import->module_name);
+                return NULL;
+            }
+
+            function->import_func_inst = aot_lookup_function(
+                function->import_module_inst, import->func_name);
+        }
+
+        /* from c_api (loading) */
+        function->call_conv_wasm_c_api = import->call_conv_wasm_c_api;
+#else
+        const WASMExternInstance *extern_inst =
+            wasm_runtime_get_extern_instance(imports, import_count,
+                                             WASM_IMPORT_EXPORT_KIND_FUNC, i);
+        if (!extern_inst) {
+            LOG_DEBUG("no import function(%s, %s) from imports list, might "
+                      "provied by wasm_native",
+                      import->module_name, import->func_name);
+            /* so it's from wasm_native */
+            module_inst->import_func_ptrs[i] = import->func_ptr_linked;
+            continue;
+        }
+
+        /* if extern_inst is about a wasm function from other .wasm */
+        WASMFunctionInstance *extern_inst_func =
+            (WASMFunctionInstance *)extern_inst->u.function;
+        if (!extern_inst_func) {
+            LOG_DEBUG("empty extern_inst_func for import function(%s, %s)",
+                      "might provided by wasm_native", import->module_name,
+                      import->func_name);
+            /* so it's from wasm_native */
+            module_inst->import_func_ptrs[i] = import->func_ptr_linked;
+            continue;
+        }
+
+        bh_assert(extern_inst_func->is_import_func);
+
+        /* don't allow wrong matchment */
+        if (strcmp(import->func_name, extern_inst->field_name)) {
+            LOG_ERROR(
+                "mismatched import memory name: expect \"%s\", got \"%s\"",
+                import->func_name, extern_inst->field_name);
+            return NULL;
+        }
+
+        /* from other .wasm */
+        function->import_module_inst = extern_inst_func->import_module_inst;
+        function->import_func_inst = extern_inst_func->import_func_inst;
+
+        /* from c_api (instantiation)*/
+        function->call_conv_wasm_c_api = extern_inst_func->call_conv_wasm_c_api;
+        /* TODO: for now, let c_api finish this. Will move it to wasm_runtime
+         * later */
+        /*module_inst->c_api_func_imports[i] =
+         * extern_inst_func->import_func_c_api;*/
+
+#endif
+    }
+
+    for (uint32 i = 0; i < module->func_count; i++, function++) {
+        function->is_import_func = false;
+        function->func_index = i + module->import_func_count;
+
+        uint32 ftype_index = module->func_type_indexes[i];
+        function->u.func.func_type = (AOTFuncType *)module->types[ftype_index];
+        function->u.func.func_ptr = module->func_ptrs[i];
+    }
+
+    bh_assert((uint32)(function - functions) == function_count);
+
+    return functions;
 }
 
 /**
@@ -1622,43 +1749,29 @@ init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
     /* Set import function pointers */
     func_ptrs = (void **)module_inst->func_ptrs;
     for (i = 0; i < module->import_func_count; i++, func_ptrs++) {
-        AOTImportFunc *import_func = module->import_funcs + i;
-        /*
-         * if WASM_ENABLE_MULTI_MODULE != 0, to see if
-         *  - it is from wasm_native
-         *  - it is from another module
-         * else, to see if
-         *  - it is from wasm_native
-         */
-        LOG_DEBUG("use loading phase linked functions for (%s,%s)",
-                  import_func->module_name, import_func->func_name);
-        *func_ptrs = import_func->func_ptr_linked;
-        if (*func_ptrs) {
+        AOTFunctionInstance *func =
+            aot_locate_function_instance(module_inst, i);
+        bh_assert(func->is_import_func);
+
+        if (func->call_conv_wasm_c_api) {
+            /* when execution, goes to invoke_native() and use
+             * c_api_func_imports*/
             continue;
         }
 
-#if WASM_ENABLE_MULTI_MODULE == 0
-        LOG_DEBUG("use instantiation phase linked for function (%s, %s)",
+        if (func->import_module_inst) {
+            /* when execution, goes to invoke_native() and switch to another
+             * .wasm */
+            continue;
+        }
+
+        AOTImportFunc *import_func = func->u.func_import;
+
+        LOG_DEBUG("use wasm_native linked functions for (%s,%s)",
                   import_func->module_name, import_func->func_name);
-        const WASMExternInstance *extern_inst =
-            wasm_runtime_get_extern_instance(imports, import_count,
-                                             WASM_IMPORT_EXPORT_KIND_FUNC, i);
-        if (!extern_inst) {
-            LOG_ERROR("missing an import function(%s, %s)",
-                      import_func->module_name, import_func->func_name);
-            return false;
-        }
 
-        AOTFunctionInstance *extern_inst_func =
-            (AOTFunctionInstance *)extern_inst->u.function;
-        if (!extern_inst_func) {
-            LOG_ERROR("empty WASMExternInstance for (%s, %s)",
-                      import_func->module_name, import_func->func_name);
-            return false;
-        }
-
-        *func_ptrs = (void *)extern_inst_func->u.func_import->func_ptr_linked;
-#endif
+        *func_ptrs = func->u.func_import->func_ptr_linked;
+        bh_assert(*func_ptrs);
     }
 
     /* Set defined function pointers */
@@ -1728,69 +1841,16 @@ unlock_and_return:
     return func_inst;
 }
 
+/*TODO: */
 AOTFunctionInstance *
 aot_get_function_instance(AOTModuleInstance *module_inst, uint32 func_idx)
 {
-    AOTModule *module = (AOTModule *)module_inst->module;
     AOTModuleInstanceExtra *extra = (AOTModuleInstanceExtra *)module_inst->e;
-    AOTFunctionInstance *func_inst;
+    AOTFunctionInstance *functions = extra->functions;
 
-    /* lookup from export functions first */
-    if ((func_inst = aot_lookup_function_with_idx(module_inst, func_idx)))
-        return func_inst;
+    bh_assert(functions);
 
-    exception_lock(module_inst);
-
-    /* allocate functions array if needed */
-    if (!extra->functions) {
-        uint64 func_count =
-            ((uint64)module->import_func_count + module->func_count);
-        uint64 total_size = func_count * (uint64)sizeof(AOTFunctionInstance *);
-
-        if ((func_count == 0)
-            || !(extra->functions = runtime_malloc(total_size, NULL, 0))) {
-            exception_unlock(module_inst);
-            return NULL;
-        }
-
-        extra->function_count = (uint32)func_count;
-    }
-
-    /* instantiate function if needed */
-    bh_assert(func_idx < extra->function_count);
-    if (!extra->functions[func_idx]) {
-        AOTFunctionInstance *function = (AOTFunctionInstance *)runtime_malloc(
-            sizeof(AOTFunctionInstance), NULL, 0);
-        if (!function) {
-            exception_unlock(module_inst);
-            return NULL;
-        }
-
-        if (func_idx < module->import_func_count) {
-            /* instantiate function from import section */
-            function->is_import_func = true;
-            function->func_name = module->import_funcs[func_idx].func_name;
-            function->func_index = func_idx;
-            function->u.func_import = &module->import_funcs[func_idx];
-        }
-        else {
-            /* instantiate non-import function */
-            uint32 ftype_index =
-                module->func_type_indexes[func_idx - module->import_func_count];
-            function->is_import_func = false;
-            function->func_index = func_idx;
-            function->u.func.func_type =
-                (AOTFuncType *)module->types[ftype_index];
-            function->u.func.func_ptr =
-                module->func_ptrs[func_idx - module->import_func_count];
-        }
-
-        extra->functions[func_idx] = function;
-    }
-
-    exception_unlock(module_inst);
-
-    return extra->functions[func_idx];
+    return functions + func_idx;
 }
 
 static bool
@@ -2236,16 +2296,6 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     extra->sub_module_inst_list = &extra->sub_module_inst_list_head;
-
-    /* Allocate memory for import_func_module_insts*/
-    if (module->import_func_count > 0
-        && !(extra->import_func_module_insts =
-                 runtime_malloc((uint64)module->import_func_count
-                                    * sizeof(WASMModuleInstanceCommon *),
-                                error_buf, error_buf_size))) {
-        goto fail;
-    }
-
     ret = wasm_runtime_sub_module_instantiate(
         (WASMModuleCommon *)module, (WASMModuleInstanceCommon *)module_inst,
         stack_size, heap_size, max_memory_pages, error_buf, error_buf_size);
@@ -2330,6 +2380,15 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
                               max_memory_pages, aux_heap_base_global_data,
                               imports, import_count, error_buf, error_buf_size))
         goto fail;
+
+    extra->function_count = module->import_func_count + module->func_count;
+    if (extra->function_count > 0) {
+        extra->functions =
+            functions_instantiate(module_inst, module, imports, import_count,
+                                  error_buf, error_buf_size);
+        if (!extra->functions)
+            goto fail;
+    }
 
     /* Initialize function pointers */
     if (!init_func_ptrs(module_inst, module, imports, import_count, error_buf,
@@ -2604,13 +2663,6 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_spawned)
     }
 #endif
 
-#if WASM_ENABLE_MULTI_MODULE != 0
-    wasm_runtime_sub_module_deinstantiate(
-        (WASMModuleInstanceCommon *)module_inst);
-    if (extra->import_func_module_insts)
-        wasm_runtime_free(extra->import_func_module_insts);
-#endif
-
     tables_deinstantiate(module_inst);
 
     if (module_inst->memories)
@@ -2632,12 +2684,6 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_spawned)
         wasm_runtime_free(module_inst->export_tables);
 
     if (extra->functions) {
-        uint32 func_idx;
-        for (func_idx = 0; func_idx < extra->function_count; ++func_idx) {
-            if (extra->functions[func_idx]) {
-                wasm_runtime_free(extra->functions[func_idx]);
-            }
-        }
         wasm_runtime_free(extra->functions);
     }
 
@@ -3486,10 +3532,7 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     AOTModuleInstance *module_inst =
         (AOTModuleInstance *)wasm_runtime_get_module_inst(exec_env);
     AOTModule *aot_module = (AOTModule *)module_inst->module;
-    CApiFuncImport *c_api_func_import =
-        module_inst->c_api_func_imports
-            ? module_inst->c_api_func_imports + func_idx
-            : NULL;
+    CApiFuncImport *c_api_func_import = NULL;
     uint32 *func_type_indexes = module_inst->func_type_indexes;
     uint32 func_type_idx = func_type_indexes[func_idx];
     AOTFuncType *func_type = (AOTFuncType *)aot_module->types[func_type_idx];
@@ -3503,9 +3546,17 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     bh_assert(func_idx < aot_module->import_func_count);
 
     import_func = aot_module->import_funcs + func_idx;
-    if (import_func->call_conv_wasm_c_api)
+
+    AOTFunctionInstance *func_inst =
+        aot_locate_function_instance(module_inst, func_idx);
+
+    if (func_inst->call_conv_wasm_c_api) {
+        c_api_func_import = module_inst->c_api_func_imports
+                                ? module_inst->c_api_func_imports + func_idx
+                                : NULL;
         func_ptr =
             c_api_func_import ? c_api_func_import->func_ptr_linked : NULL;
+    }
 
     if (!func_ptr) {
         snprintf(buf, sizeof(buf),
@@ -3516,24 +3567,35 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     }
 
     attachment = import_func->attachment;
-    if (import_func->call_conv_wasm_c_api) {
+    if (func_inst->call_conv_wasm_c_api) {
+        /* from c_api */
         ret = wasm_runtime_invoke_c_api_native(
             (WASMModuleInstanceCommon *)module_inst, func_ptr, func_type, argc,
             argv, c_api_func_import->with_env_arg, c_api_func_import->env_arg);
     }
-    else if (!import_func->call_conv_raw) {
+    else if (func_inst->call_conv_raw) {
+        /* from wasm_native raw */
         signature = import_func->signature;
-#if WASM_ENABLE_MULTI_MODULE != 0
-        WASMModuleInstanceCommon *sub_inst = NULL;
-        if ((sub_inst = ((AOTModuleInstanceExtra *)module_inst->e)
-                            ->import_func_module_insts[func_idx])) {
-            exec_env = wasm_runtime_get_exec_env_singleton(sub_inst);
+        ret = wasm_runtime_invoke_native_raw(exec_env, func_ptr, func_type,
+                                             signature, attachment, argv, argc,
+                                             argv);
+    }
+    else {
+        if (func_inst->import_module_inst) {
+            /* from other .wasm. switch */
+            exec_env = wasm_runtime_get_exec_env_singleton(
+                (WASMModuleInstanceCommon *)func_inst->import_module_inst);
+            if (exec_env == NULL) {
+                wasm_runtime_set_exception(
+                    (WASMModuleInstanceCommon *)module_inst,
+                    "create singleton exec_env failed");
+                goto fail;
+            }
+
+            func_ptr = func_inst->import_module_inst->func_ptrs[func_idx];
+            bh_assert(func_ptr);
         }
-        if (exec_env == NULL) {
-            wasm_runtime_set_exception((WASMModuleInstanceCommon *)module_inst,
-                                       "create singleton exec_env failed");
-            goto fail;
-        }
+
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
         void *prev_frame = get_top_frame(exec_env);
 
@@ -3541,23 +3603,20 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
             goto fail;
         }
 #endif
-#endif /* WASM_ENABLE_MULTI_MODULE != 0 */
+
+        /* from wasm_native */
+        signature = import_func->signature;
         ret =
             wasm_runtime_invoke_native(exec_env, func_ptr, func_type, signature,
                                        attachment, argv, argc, argv);
-#if WASM_ENABLE_MULTI_MODULE != 0 && WASM_ENABLE_AOT_STACK_FRAME != 0
+
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
         /* Free all frames allocated, note that some frames
            may be allocated in AOT code and haven't been
            freed if exception occurred */
         while (get_top_frame(exec_env) != prev_frame)
             aot_free_frame(exec_env);
 #endif
-    }
-    else {
-        signature = import_func->signature;
-        ret = wasm_runtime_invoke_native_raw(exec_env, func_ptr, func_type,
-                                             signature, attachment, argv, argc,
-                                             argv);
     }
 
 fail:
@@ -5764,27 +5823,28 @@ aot_resolve_import_func(AOTModule *module, AOTImportFunc *import_func)
         sizeof(error_buf));
 
     if (!sub_module) {
-        LOG_DEBUG("Failed to load sub module: %s", error_buf);
-        /*
-         * TOOD: seems aot_resolve_function_ex()'s only purpose is use
-         * wasm_runtime_find_module_registered() again, after
-         * wasm_runtime_load_depended_module() called.
-         */
-        import_func->func_ptr_linked = aot_resolve_function_ex(
-            import_func->module_name, import_func->func_name,
-            import_func->func_type, error_buf, sizeof(error_buf));
-    }
-    else {
-        import_func->func_ptr_linked = aot_resolve_function(
-            sub_module, import_func->func_name, import_func->func_type,
-            error_buf, sizeof(error_buf));
+        LOG_DEBUG("failed to load sub module: %s", error_buf);
+        // /*
+        //  * TOOD: seems aot_resolve_function_ex()'s only purpose is use
+        //  * wasm_runtime_find_module_registered() again, after
+        //  * wasm_runtime_load_depended_module() called.
+        //  */
+        // import_func->func_ptr_linked = aot_resolve_function_ex(
+        //     import_func->module_name, import_func->func_name,
+        //     import_func->func_type, error_buf, sizeof(error_buf));
+        return false;
     }
 
-    if (!import_func->func_ptr_linked) {
-        LOG_WARNING("failed to link function (%s, %s): %s",
-                    import_func->module_name, import_func->func_name,
-                    error_buf);
+    import_func->func_ptr_linked = aot_resolve_function(
+        sub_module, import_func->func_name, import_func->func_type, error_buf,
+        sizeof(error_buf));
+    if (import_func->func_ptr_linked) {
+        import_func->import_module = sub_module;
+        return true;
     }
+
+    LOG_WARNING("failed to link function (%s, %s): %s",
+                import_func->module_name, import_func->func_name, error_buf);
 #else
     (void)module;
 #endif
@@ -5793,7 +5853,7 @@ aot_resolve_import_func(AOTModule *module, AOTImportFunc *import_func)
               "instantiation linking",
               import_func->func_name);
 
-    return import_func->func_ptr_linked != NULL;
+    return false;
 }
 
 #if WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0
@@ -5952,4 +6012,26 @@ aot_destroy_global(AOTGlobalInstance *global)
         return;
 
     wasm_runtime_free(global);
+}
+
+AOTFunctionInstance *
+aot_create_function_empty(const AOTModule *module)
+{
+    AOTFunctionInstance *function = runtime_malloc(
+        sizeof(AOTFunctionInstance) + sizeof(AOTImportFunc), NULL, 0);
+    if (!function) {
+        return NULL;
+    }
+
+    function->u.func_import = (AOTImportFunc *)(function + 1);
+    return function;
+}
+
+void
+aot_destroy_function(AOTFunctionInstance *function)
+{
+    if (!function)
+        return;
+
+    wasm_runtime_free(function);
 }
