@@ -235,7 +235,7 @@ struct WASMFunctionInstance {
     uint8 *local_types;
 
     union {
-        /* func_ptr_linked setup by wasm_native */
+        /* setup by wasm_native */
         WASMFunctionImport *func_import;
         /* local bytecode */
         WASMFunction *func;
@@ -488,15 +488,6 @@ struct WASMModuleInstance {
 
 struct WASMInterpFrame;
 typedef struct WASMInterpFrame WASMRuntimeFrame;
-
-#if WASM_ENABLE_MULTI_MODULE != 0
-typedef struct WASMSubModInstNode {
-    bh_list_link l;
-    /* point to a string pool */
-    const char *module_name;
-    WASMModuleInstance *module_inst;
-} WASMSubModInstNode;
-#endif
 
 /**
  * Return the code block of a function.

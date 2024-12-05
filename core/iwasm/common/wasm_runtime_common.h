@@ -507,6 +507,15 @@ typedef struct CApiFuncImport {
     void *env_arg;
 } CApiFuncImport;
 
+#if WASM_ENABLE_MULTI_MODULE != 0
+typedef struct WASMSubModInstNode {
+    bh_list_link l;
+    /* point to a string pool */
+    const char *module_name;
+    WASMModuleInstanceCommon *module_inst;
+} WASMSubModInstNode;
+#endif
+
 /* Set exec_env of thread local storage */
 void
 wasm_runtime_set_exec_env_tls(WASMExecEnv *exec_env);
