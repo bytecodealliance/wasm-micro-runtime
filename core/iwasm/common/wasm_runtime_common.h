@@ -497,6 +497,15 @@ typedef struct WASMSignalInfo {
 #endif
 } WASMSignalInfo;
 
+/* Set exec_env of thread local storage */
+void
+wasm_runtime_set_exec_env_tls(WASMExecEnv *exec_env);
+
+/* Get exec_env of thread local storage */
+WASMExecEnv *
+wasm_runtime_get_exec_env_tls(void);
+#endif /* OS_ENABLE_HW_BOUND_CHECK */
+
 /* wasm-c-api import function info */
 typedef struct CApiFuncImport {
     /* host func pointer after linked */
@@ -514,15 +523,6 @@ typedef struct WASMSubModInstNode {
     const char *module_name;
     WASMModuleInstanceCommon *module_inst;
 } WASMSubModInstNode;
-#endif
-
-/* Set exec_env of thread local storage */
-void
-wasm_runtime_set_exec_env_tls(WASMExecEnv *exec_env);
-
-/* Get exec_env of thread local storage */
-WASMExecEnv *
-wasm_runtime_get_exec_env_tls(void);
 #endif
 
 /* See wasm_export.h for description */
@@ -1183,12 +1183,11 @@ wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
                                  uint32 argc, uint32 *argv, bool with_env,
                                  void *wasm_c_api_env);
 
-struct CApiFuncImport;
 /* A quick version of wasm_runtime_invoke_c_api_native to directly invoke
    wasm-c-api import function from jitted code to improve performance */
 bool
 wasm_runtime_quick_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
-                                       struct CApiFuncImport *c_api_import,
+                                       CApiFuncImport *c_api_import,
                                        wasm_val_t *params, uint32 param_count,
                                        wasm_val_t *results,
                                        uint32 result_count);

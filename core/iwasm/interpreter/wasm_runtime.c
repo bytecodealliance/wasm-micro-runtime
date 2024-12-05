@@ -2312,6 +2312,7 @@ init_func_ptrs(WASMModuleInstance *module_inst, WASMModule *module,
 
         LOG_DEBUG("use wasm_native linked functions for (%s,%s)",
                   import_func->module_name, import_func->field_name);
+
         *func_ptrs = import_func->func_ptr_linked;
         bh_assert(*func_ptrs);
     }

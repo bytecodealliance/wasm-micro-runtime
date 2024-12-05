@@ -838,8 +838,8 @@ functions_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         }
 
         /* if extern_inst is about a wasm function from other .wasm */
-        WASMFunctionInstance *extern_inst_func =
-            (WASMFunctionInstance *)extern_inst->u.function;
+        AOTFunctionInstance *extern_inst_func =
+            (AOTFunctionInstance *)extern_inst->u.function;
         if (!extern_inst_func) {
             LOG_DEBUG("empty extern_inst_func for import function(%s, %s)",
                       "might provided by wasm_native", import->module_name,
@@ -1770,7 +1770,7 @@ init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
         LOG_DEBUG("use wasm_native linked functions for (%s,%s)",
                   import_func->module_name, import_func->func_name);
 
-        *func_ptrs = func->u.func_import->func_ptr_linked;
+        *func_ptrs = import_func->func_ptr_linked;
         bh_assert(*func_ptrs);
     }
 
