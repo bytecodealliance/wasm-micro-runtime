@@ -88,6 +88,7 @@ thread_data_list_remove(os_thread_data *thread_data)
         p = p->next;
 
     if (p && p->next) {
+        bh_assert(p->next == thread_data);
         p->next = p->next->next;
         /* Release the resources in thread_data */
         os_cond_destroy(&thread_data->wait_cond);
