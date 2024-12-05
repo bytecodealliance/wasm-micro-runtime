@@ -824,7 +824,6 @@ functions_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                       "provied by wasm_native",
                       import->module_name, import->func_name);
             /* so it's from wasm_native */
-            module_inst->import_func_ptrs[i] = import->func_ptr_linked;
             continue;
         }
 
@@ -836,7 +835,6 @@ functions_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                       "might provided by wasm_native", import->module_name,
                       import->func_name);
             /* so it's from wasm_native */
-            module_inst->import_func_ptrs[i] = import->func_ptr_linked;
             continue;
         }
 
