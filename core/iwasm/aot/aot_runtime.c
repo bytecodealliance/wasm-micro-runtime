@@ -953,7 +953,8 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
 
         memory_deinstantiate(memory);
 
-#if WASM_ENABLE_MULTI_MODULE == 0 && WASM_ENABLE_SHARED_MEMORY != 0
+#if WASM_ENABLE_MULTI_MODULE == 0
+#if WASM_ENABLE_SHARED_MEMORY != 0
         /* for spawned only */
         if (!shared_memory_is_shared(memory)) {
             continue;
@@ -962,6 +963,9 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
         if (shared_memory_get_reference(memory) == 0) {
             wasm_runtime_free(memory);
         }
+#else
+        wasm_runtime_free(memory);
+#endif
 #endif
     }
 
@@ -1292,8 +1296,8 @@ memories_instantiate(const AOTModule *module, AOTModuleInstance *module_inst,
 #endif
         /*
          *TODO:
-         * - either memories[x] points to an external AOTMemoryInstance.
-         * - or memories[x] points to an internal AOTMemoryInstance in
+         * - either memories[x] points to an external WASM/AOTMemoryInstance.
+         * - or memories[x] points to an internal WASM/AOTMemoryInstance in
          *   global_table_data
          *
          * the first case is simple for maintaining resource management
@@ -5495,8 +5499,7 @@ aot_const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
 #if WASM_ENABLE_DYNAMIC_AOT_DEBUG != 0
 AOTModule *g_dynamic_aot_module = NULL;
 
-void __attribute__((noinline))
-__enable_dynamic_aot_debug(void)
+void __attribute__((noinline)) __enable_dynamic_aot_debug(void)
 {
     /* empty implementation. */
 }

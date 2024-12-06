@@ -7953,7 +7953,7 @@ wasm_runtime_instantiate_with_builtin_linker(WASMModuleCommon *module,
      * during wasm_instantiate()/aot_instantiate()
      *
      * WASModuleInstance->memories[i] takes the ownership of
-     * WASMExternInstance->u.memory
+     * WASMExternInstance->u.memory content
      *
      * WASModuleInstance->tables[i].elems takes
      * the ownership of WASMExternInstance->u.table
