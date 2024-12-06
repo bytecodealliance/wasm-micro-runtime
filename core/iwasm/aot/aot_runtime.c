@@ -689,20 +689,23 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
             tbl_inst->cur_size = import_table->table_type.init_size;
             tbl_inst->max_size =
                 aot_get_imp_tbl_data_slots(import_table, false);
-            tbl_inst->elem_type = module->tables[i].table_type.elem_type;
+            tbl_inst->elem_type = import_table->table_type.elem_type;
+            tbl_inst->is_table64 =
+                import_table->table_type.flags & TABLE64_FLAG;
 #if WASM_ENABLE_GC != 0
             tbl_inst->elem_ref_type.elem_ref_type =
-                module->tables[i].table_type.elem_ref_type;
+                import_table->table_type.elem_ref_type;
 #endif
         }
         else {
             AOTTable *table = module->tables + (i - module->import_table_count);
             tbl_inst->cur_size = table->table_type.init_size;
             tbl_inst->max_size = aot_get_tbl_data_slots(table, false);
-            tbl_inst->elem_type = module->tables[i].table_type.elem_type;
+            tbl_inst->elem_type = table->table_type.elem_type;
+            tbl_inst->is_table64 = table->table_type.flags & TABLE64_FLAG;
 #if WASM_ENABLE_GC != 0
             tbl_inst->elem_ref_type.elem_ref_type =
-                module->tables[i].table_type.elem_ref_type;
+                table->table_type.elem_ref_type;
 #endif
         }
 
