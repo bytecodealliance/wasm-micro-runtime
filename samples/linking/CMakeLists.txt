@@ -9,6 +9,9 @@ set(CMAKE_BUILD_TYPE Debug)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 find_package(WASISDK REQUIRED)
 
+include(CTest)
+enable_testing()
+
 ################  runtime settings  ################
 string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
 include(CheckPIESupported)
@@ -30,6 +33,12 @@ set(WAMR_BUILD_TAIL_CALL 1)
 set(WAMR_BUILD_THREAD_MGR 0)
 set(WAMR_BUILD_LIB_WASI_THREADS 0)
 
+## below two prevent valgrind from crashing
+#TODO: there is a crash if turn it on
+set(WAMR_DISABLE_HW_BOUND_CHECK 0)
+set(WAMR_DISABLE_STACK_HW_BOUND_CHECK 1)
+set(WAMR_DISABLE_WRITE_GS_BASE 1)
+
 # vmlib
 set(WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
 include(${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
@@ -38,7 +47,8 @@ target_include_directories(vmlib INTERFACE ${WAMR_ROOT_DIR}/core/iwasm/include)
 target_link_libraries(vmlib ${LLVM_AVAILABLE_LIBS} -lm -ldl)
 
 ################  samples  ################
-add_subdirectory(raw)
+add_subdirectory(import-memory)
+add_subdirectory(import-table)
 
 ################ wasm and/or aot ################
 include(ExternalProject)

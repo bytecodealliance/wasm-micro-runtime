@@ -290,8 +290,10 @@ wasm_fill_table(WASMModuleInstance *inst, uint32 tbl_idx, uint32 dst_offset,
     if (offset_len_out_of_bounds(dst_offset, len, tbl_sz))
         goto out_of_bounds;
 
+    table_elem_type_t *table_elems =
+        wasm_locate_table_elems(inst->module, tbl, tbl_idx);
     for (; len != 0; dst_offset++, len--) {
-        tbl->elems[dst_offset] = val;
+        table_elems[dst_offset] = val;
     }
 
     return 0;

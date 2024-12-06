@@ -2695,6 +2695,9 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     if (option->enable_shared_heap)
         comp_ctx->enable_shared_heap = true;
 
+    if (option->enable_multi_module)
+        comp_ctx->enable_multi_module = true;
+
     comp_ctx->opt_level = option->opt_level;
     comp_ctx->size_level = option->size_level;
 

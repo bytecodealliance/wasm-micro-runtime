@@ -1745,15 +1745,17 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     goto got_exception;
                 }
 
+                table_elem_type_t *table_elems =
+                    wasm_locate_table_elems(module->module, tbl_inst, tbl_idx);
                 /* clang-format off */
 #if WASM_ENABLE_GC == 0
-                fidx = (uint32)tbl_inst->elems[val];
+                fidx = (uint32)table_elems[val];
                 if (fidx == (uint32)-1) {
                     wasm_set_exception(module, "uninitialized element");
                     goto got_exception;
                 }
 #else
-                func_obj = (WASMFuncObjectRef)tbl_inst->elems[val];
+                func_obj = (WASMFuncObjectRef)table_elems[val];
                 if (!func_obj) {
                     wasm_set_exception(module, "uninitialized element");
                     goto got_exception;
@@ -1908,10 +1910,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     goto got_exception;
                 }
 
+                table_elem_type_t *table_elems =
+                    wasm_locate_table_elems(module->module, tbl_inst, tbl_idx);
 #if WASM_ENABLE_GC == 0
-                PUSH_I32(tbl_inst->elems[elem_idx]);
+                PUSH_I32(table_elems[elem_idx]);
 #else
-                PUSH_REF(tbl_inst->elems[elem_idx]);
+                PUSH_REF(table_elems[elem_idx]);
 #endif
                 HANDLE_OP_END();
             }
@@ -1938,7 +1942,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     goto got_exception;
                 }
 
-                tbl_inst->elems[elem_idx] = elem_val;
+                table_elem_type_t *table_elems =
+                    wasm_locate_table_elems(module->module, tbl_inst, tbl_idx);
+                table_elems[elem_idx] = elem_val;
                 HANDLE_OP_END();
             }
 
@@ -5170,7 +5176,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         uint32 tbl_idx, elem_idx;
                         uint32 n, s, d;
                         WASMTableInstance *tbl_inst;
-                        table_elem_type_t *table_elems;
                         InitializerExpression *tbl_seg_init_values = NULL,
                                               *init_values;
                         uint64 i;
@@ -5211,7 +5216,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             break;
                         }
 
-                        table_elems = tbl_inst->elems + d;
+                        table_elem_type_t *table_elems =
+                            wasm_locate_table_elems(module->module, tbl_inst,
+                                                    tbl_idx);
+                        table_elems = table_elems + d;
                         init_values = tbl_seg_init_values + s;
 #if WASM_ENABLE_GC != 0
                         SYNC_ALL_TO_FRAME();
@@ -5361,8 +5369,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             goto got_exception;
                         }
 
+                        table_elem_type_t *table_elems =
+                            wasm_locate_table_elems(module->module, tbl_inst,
+                                                    tbl_idx);
                         for (; n != 0; i++, n--) {
-                            tbl_inst->elems[i] = fill_val;
+                            table_elems[i] = fill_val;
                         }
 
                         break;

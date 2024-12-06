@@ -263,24 +263,39 @@ memory_deinstantiate(WASMMemoryInstance *memory)
 }
 
 static void
-memories_deinstantiate(WASMModuleInstance *module_inst,
-                       WASMMemoryInstance **memories, uint32 count)
+memories_deinstantiate(WASMModuleInstance *module_inst)
 {
-
-    if (!memories)
+    if (!module_inst->memories) {
         return;
+    }
 
-    for (uint32 i = 0; i < count; i++) {
+    uint32 mem_index = 0;
+    WASMModule *module = module_inst->module;
+    WASMMemoryInstance **memories = module_inst->memories;
+    for (; mem_index < module->import_memory_count; mem_index++) {
+        WASMMemoryInstance *memory = memories[mem_index];
 #if WASM_ENABLE_MULTI_MODULE != 0
-        WASMModule *module = module_inst->module;
-
-        if (i < module->import_memory_count
-            && module->import_memories[i].u.memory.import_module) {
+        if (module->import_memories[mem_index].u.memory.import_module) {
             continue;
         }
+
+        memory_deinstantiate(memory);
 #endif
 
-        memory_deinstantiate(memories[i]);
+#if WASM_ENABLE_MULTI_MODULE == 0 && WASM_ENABLE_SHARED_MEMORY != 0
+        /* for spawned only */
+        if (!shared_memory_is_shared(memory)) {
+            continue;
+        }
+
+        if (shared_memory_get_reference(memory) == 0) {
+            wasm_runtime_free(memory);
+        }
+#endif
+    }
+
+    for (; mem_index < module->memory_count; mem_index++) {
+        memory_deinstantiate(memories[mem_index]);
     }
 
     wasm_runtime_free(memories);
@@ -369,7 +384,8 @@ memory_instantiate(const WASMModule *module, WASMModuleInstance *parent,
                             < (uint64)num_bytes_per_page * init_page_count) {
                 /* Insert app heap before __heap_base */
                 uint64 aux_heap_base = module->aux_heap_base;
-                uint32 bytes_of_last_page = aux_heap_base % num_bytes_per_page;
+                uint32 bytes_of_last_page =
+                    (uint32)(aux_heap_base % num_bytes_per_page);
                 if (bytes_of_last_page == 0)
                     bytes_of_last_page = num_bytes_per_page;
                 uint32 bytes_to_page_end =
@@ -380,7 +396,8 @@ memory_instantiate(const WASMModule *module, WASMModuleInstance *parent,
                 heap_offset = aux_heap_base;
                 aux_heap_base += heap_size;
 
-                bytes_of_last_page = aux_heap_base % num_bytes_per_page;
+                bytes_of_last_page =
+                    (uint32)(aux_heap_base % num_bytes_per_page);
                 if (bytes_of_last_page == 0)
                     bytes_of_last_page = num_bytes_per_page;
                 bytes_to_page_end = num_bytes_per_page - bytes_of_last_page;
@@ -562,14 +579,14 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
             if (!(module_inst_linked = get_sub_module_inst(
                       module_inst, memory_type->import_module))) {
                 set_error_buf(error_buf, error_buf_size, "unknown memory");
-                memories_deinstantiate(module_inst, memories, memory_count);
+                memories_deinstantiate(module_inst);
                 return NULL;
             }
 
             if (!(memories[mem_index] = wasm_lookup_memory(
                       module_inst_linked, memory_type->field_name))) {
                 set_error_buf(error_buf, error_buf_size, "unknown memory");
-                memories_deinstantiate(module_inst, memories, memory_count);
+                memories_deinstantiate(module_inst);
                 return NULL;
             }
         }
@@ -591,7 +608,7 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                       /* only inst->memories[0] will have an app heap */
                       mem_index == 0 ? heap_size : 0, flags,
                       aux_heap_base_global_data, error_buf, error_buf_size))) {
-                memories_deinstantiate(module_inst, memories, memory_count);
+                memories_deinstantiate(module_inst);
                 return NULL;
             }
         }
@@ -649,7 +666,7 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                   /* only inst->memories[0] will have a app heap */
                   mem_index == 0 ? heap_size : 0, module->memories[i].flags,
                   aux_heap_base_global_data, error_buf, error_buf_size))) {
-            memories_deinstantiate(module_inst, memories, memory_count);
+            memories_deinstantiate(module_inst);
             return NULL;
         }
         mem_index++;
@@ -713,14 +730,44 @@ wasm_destroy_memory(WASMMemoryInstance *memory)
 static void
 tables_deinstantiate(WASMModuleInstance *module_inst)
 {
-    if (module_inst->tables) {
-        wasm_runtime_free(module_inst->tables);
+    if (!module_inst) {
+        return;
     }
-#if WASM_ENABLE_MULTI_MODULE != 0
+
+#if WASM_ENABLE_MULTI_MODULE == 0
+    if (!module_inst->tables) {
+        return;
+    }
+
+    WASMModule *module = module_inst->module;
+    /* only imported tables */
+    for (uint32 i = 0; i < module->import_table_count; i++) {
+        WASMTableInstance *table = module_inst->tables[i];
+        if (!table) {
+            continue;
+        }
+
+        table_elem_type_t *table_elems =
+            wasm_locate_table_elems(module, table, i);
+
+        if (!table_elems) {
+            continue;
+        }
+
+        void *table_imported =
+            ((uint8 *)(table_elems)) - offsetof(WASMTableInstance, elems);
+
+        wasm_runtime_free(table_imported);
+    }
+#else
     if (module_inst->e->table_insts_linked) {
         wasm_runtime_free(module_inst->e->table_insts_linked);
+        module_inst->e->table_insts_linked = NULL;
     }
 #endif
+
+    wasm_runtime_free(module_inst->tables);
+    module_inst->tables = NULL;
 }
 
 /**
@@ -728,14 +775,15 @@ tables_deinstantiate(WASMModuleInstance *module_inst)
  */
 static WASMTableInstance **
 tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
-                   WASMTableInstance *first_table, char *error_buf,
-                   uint32 error_buf_size)
+                   WASMTableInstance *table_data,
+                   const WASMExternInstance *imports, uint32 import_count,
+                   char *error_buf, uint32 error_buf_size)
 {
     WASMImport *import;
     uint32 table_index = 0, i;
     uint32 table_count = module->import_table_count + module->table_count;
     uint64 total_size = (uint64)sizeof(WASMTableInstance *) * table_count;
-    WASMTableInstance **tables, *table = first_table;
+    WASMTableInstance **tables, *table = table_data;
 #if WASM_ENABLE_MULTI_MODULE != 0
     uint64 total_size_of_tables_linked =
         (uint64)sizeof(WASMTableInstance *) * module->import_table_count;
@@ -757,39 +805,43 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
     /* instantiate tables from import section */
     import = module->import_tables;
     for (i = 0; i < module->import_table_count; i++, import++) {
-        uint32 max_size_fixed = 0;
+        WASMTableImport *import_table_type = &(module->import_tables->u.table);
+        uint32 max_size_fixed = wasm_get_tbl_data_slots(
+            &import_table_type->table_type, import_table_type);
+
+        /* sync up with table_size in wasm_instantiate() */
+        total_size = offsetof(WASMTableInstance, elems);
+
 #if WASM_ENABLE_MULTI_MODULE != 0
         WASMTableInstance *table_inst_linked = NULL;
         WASMModuleInstance *module_inst_linked = NULL;
 
-        if (import->u.table.import_module) {
+        if (import_table_type->import_module) {
             if (!(module_inst_linked = get_sub_module_inst(
-                      module_inst, import->u.table.import_module))) {
+                      module_inst, import_table_type->import_module))) {
                 set_error_buf(error_buf, error_buf_size, "unknown table");
                 goto fail;
             }
 
             if (!(table_inst_linked = wasm_lookup_table(
-                      module_inst_linked, import->u.table.field_name))) {
+                      module_inst_linked, import_table_type->field_name))) {
                 set_error_buf(error_buf, error_buf_size, "unknown table");
                 goto fail;
             }
-
-            total_size = offsetof(WASMTableInstance, elems);
         }
-        else
-#endif
-        {
+        else {
             /* in order to save memory, alloc resource as few as possible */
-            max_size_fixed = import->u.table.table_type.possible_grow
-                                 ? import->u.table.table_type.max_size
-                                 : import->u.table.table_type.init_size;
+            max_size_fixed = import_table_type->table_type.possible_grow
+                                 ? import_table_type->table_type.max_size
+                                 : import_table_type->table_type.init_size;
 
             /* it is a built-in table, every module has its own */
-            total_size = offsetof(WASMTableInstance, elems);
             /* store function indexes for non-gc, object pointers for gc */
             total_size += (uint64)sizeof(table_elem_type_t) * max_size_fixed;
         }
+#else
+        total_size += sizeof(table_elem_type_t *);
+#endif /* WASM_ENABLE_MULTI_MODULE != 0 */
 
         tables[table_index++] = table;
 
@@ -801,10 +853,11 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
            uninitialized elements */
 #endif
 
-        table->is_table64 = import->u.table.table_type.flags & TABLE64_FLAG;
+        table->is_table64 = import_table_type->table_type.flags & TABLE64_FLAG;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
         *table_linked = table_inst_linked;
+
         if (table_inst_linked != NULL) {
             table->elem_type = table_inst_linked->elem_type;
 #if WASM_ENABLE_GC != 0
@@ -813,44 +866,61 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
             table->cur_size = table_inst_linked->cur_size;
             table->max_size = table_inst_linked->max_size;
         }
-        else
-#endif
-        {
-            table->elem_type = import->u.table.table_type.elem_type;
+        else {
+            table->elem_type = import_table_type->table_type.elem_type;
 #if WASM_ENABLE_GC != 0
             table->elem_ref_type.elem_ref_type =
-                import->u.table.table_type.elem_ref_type;
+                import_table_type->table_type.elem_ref_type;
 #endif
-            table->cur_size = import->u.table.table_type.init_size;
+            table->cur_size = import_table_type->table_type.init_size;
             table->max_size = max_size_fixed;
         }
 
-        table = (WASMTableInstance *)((uint8 *)table + (uint32)total_size);
-#if WASM_ENABLE_MULTI_MODULE != 0
-        table_linked++;
+#else
+
+        table->elem_type = import_table_type->table_type.elem_type;
+#if WASM_ENABLE_GC != 0
+        table->elem_ref_type.elem_ref_type =
+            import_table_type->table_type.elem_ref_type;
 #endif
+        table->cur_size = import_table_type->table_type.init_size;
+        table->max_size = max_size_fixed;
+
+        /* use import table elem */
+        const WASMExternInstance *extern_inst =
+            wasm_runtime_get_extern_instance(imports, import_count,
+                                             WASM_IMPORT_EXPORT_KIND_TABLE, i);
+        if (!extern_inst) {
+            LOG_ERROR("missing an import table(%s, %s)",
+                      import_table_type->module_name,
+                      import_table_type->field_name);
+            return NULL;
+        }
+
+        /* just in case */
+#ifndef NDEBUG
+        if (strcmp(import_table_type->field_name, extern_inst->field_name)) {
+            LOG_ERROR("mismatched import table name: expect \"%s\", got \"%s\"",
+                      import_table_type->field_name, extern_inst->field_name);
+            return NULL;
+        }
+#endif
+
+        /* store the pointer value */
+        table->elems[0] = (table_elem_type_t)extern_inst->u.table->elems;
+#endif /* WASM_ENABLE_MULTI_MODULE == 0 */
+
+        table = (WASMTableInstance *)((uint8 *)table + (uint32)total_size);
     }
 
     /* instantiate tables from table section */
     for (i = 0; i < module->table_count; i++) {
-        uint32 max_size_fixed = 0;
+        uint32 max_size_fixed =
+            wasm_get_tbl_data_slots(&module->tables[i].table_type, NULL);
 
         total_size = offsetof(WASMTableInstance, elems);
-#if WASM_ENABLE_MULTI_MODULE != 0
-        /* in case, a module which imports this table will grow it */
-        max_size_fixed = module->tables[i].table_type.max_size;
-#else
-        max_size_fixed = module->tables[i].table_type.possible_grow
-                             ? module->tables[i].table_type.max_size
-                             : module->tables[i].table_type.init_size;
-#endif
-#if WASM_ENABLE_GC == 0
-        /* Store function indexes */
-        total_size += sizeof(uintptr_t) * (uint64)max_size_fixed;
-#else
-        /* Store object pointers */
-        total_size += sizeof(uintptr_t) * (uint64)max_size_fixed;
-#endif
+        /* Store function indexes or object pointer */
+        total_size += sizeof(table_elem_type_t) * (uint64)max_size_fixed;
 
         tables[table_index++] = table;
 
@@ -876,6 +946,7 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
     bh_assert(table_index == table_count);
     (void)module_inst;
     return tables;
+
 #if WASM_ENABLE_MULTI_MODULE != 0
 fail:
     wasm_runtime_free(tables);
@@ -972,7 +1043,7 @@ functions_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         function->local_offsets = function->u.func->local_offsets;
 
 #if WASM_ENABLE_FAST_INTERP != 0
-        function->const_cell_num = function->u.func->const_cell_num;
+        function->const_cell_num = (uint16)function->u.func->const_cell_num;
 #endif
 
         function++;
@@ -2241,13 +2312,15 @@ wasm_global_traverse_gc_rootset(WASMModuleInstance *module_inst, void *heap)
 static bool
 wasm_table_traverse_gc_rootset(WASMModuleInstance *module_inst, void *heap)
 {
-    WASMTableInstance **tables = module_inst->tables, *table;
+    WASMTableInstance **tables = module_inst->tables;
     uint32 table_count = module_inst->table_count, i, j;
-    WASMObjectRef gc_obj, *table_elems;
+    WASMObjectRef gc_obj;
 
     for (i = 0; i < table_count; i++) {
-        table = tables[i];
-        table_elems = (WASMObjectRef *)table->elems;
+        WASMTableInstance *table = tables[i];
+        WASMObjectRef *table_elems = (WASMObjectRef *)wasm_locate_table_elems(
+            module_inst->module, table, i);
+
         for (j = 0; j < table->cur_size; j++) {
             gc_obj = table_elems[j];
             if (wasm_obj_is_created_from_heap(gc_obj)) {
@@ -2526,35 +2599,32 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
     /* Calculate the size of table data */
     for (i = 0; i < module->import_table_count; i++) {
-        WASMTableImport *import_table = &module->import_tables[i].u.table;
         table_size += offsetof(WASMTableInstance, elems);
+
 #if WASM_ENABLE_MULTI_MODULE != 0
+        WASMTableImport *import_table = &module->import_tables[i].u.table;
+        /* all tables have its own elems. */
         table_size += (uint64)sizeof(table_elem_type_t)
                       * import_table->table_type.max_size;
 #else
-        table_size += (uint64)sizeof(table_elem_type_t)
-                      * (import_table->table_type.possible_grow
-                             ? import_table->table_type.max_size
-                             : import_table->table_type.init_size);
+        /* refer to the imported table's elems */
+        table_size += (uint64)sizeof(table_elem_type_t);
 #endif
     }
+
     for (i = 0; i < module->table_count; i++) {
         WASMTable *table = module->tables + i;
+
+        uint32 max_size_fixed =
+            wasm_get_tbl_data_slots(&table->table_type, NULL);
+
         table_size += offsetof(WASMTableInstance, elems);
-#if WASM_ENABLE_MULTI_MODULE != 0
-        table_size +=
-            (uint64)sizeof(table_elem_type_t) * table->table_type.max_size;
-#else
-        table_size +=
-            (uint64)sizeof(table_elem_type_t)
-            * (table->table_type.possible_grow ? table->table_type.max_size
-                                               : table->table_type.init_size);
-#endif
+        table_size += (uint64)sizeof(table_elem_type_t) * max_size_fixed;
     }
     total_size += table_size;
 
     /* The offset of WASMModuleInstanceExtra, make it 8-byte aligned */
-    total_size = (total_size + 7LL) & ~7LL;
+    total_size = (total_size + 7ULL) & ~7ULL;
     extra_info_offset = (uint32)total_size;
     total_size += sizeof(WASMModuleInstanceExtra);
 
@@ -2701,9 +2771,9 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                   aux_heap_base_global_data, imports, import_count, error_buf,
                   error_buf_size)))
         || (module_inst->table_count > 0
-            && !(module_inst->tables =
-                     tables_instantiate(module, module_inst, first_table,
-                                        error_buf, error_buf_size)))
+            && !(module_inst->tables = tables_instantiate(
+                     module, module_inst, first_table, imports, import_count,
+                     error_buf, error_buf_size)))
         || (module_inst->e->function_count > 0
             && !(module_inst->e->functions = functions_instantiate(
                      module, module_inst, error_buf, error_buf_size)))
@@ -2976,10 +3046,12 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
 #if WASM_ENABLE_GC != 0
     /* Initialize the table data with init expr */
+    /* bypass WASMTableImport */
     for (i = 0; i < module->table_count; i++) {
         WASMTable *table = module->tables + i;
-        WASMTableInstance *table_inst = module_inst->tables[i];
-        table_elem_type_t *table_data;
+        /*TBC: confirm*/
+        WASMTableInstance *table_inst =
+            module_inst->tables[i + module->import_table_count];
         uint32 j;
 
         if (table->init_expr.init_expr_type == 0) {
@@ -2987,7 +3059,8 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
             continue;
         }
 
-        table_data = table_inst->elems;
+        table_elem_type_t *table_data =
+            wasm_locate_table_elems(module, table_inst, i);
 
         bh_assert(
             table->init_expr.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL
@@ -3035,7 +3108,6 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         WASMTableSeg *table_seg = module->table_segments + i;
         /* has check it in loader */
         WASMTableInstance *table = module_inst->tables[table_seg->table_index];
-        table_elem_type_t *table_data;
         uint32 j;
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
         uint8 tbl_elem_type;
@@ -3078,7 +3150,9 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         (void)tbl_max_size;
 #endif /* end of WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0 */
 
-        table_data = table->elems;
+        table_elem_type_t *table_data =
+            wasm_locate_table_elems(module, table, table_seg->table_index);
+
 #if WASM_ENABLE_MULTI_MODULE != 0
         if (table_seg->table_index < module->import_table_count
             && module_inst->e->table_insts_linked[table_seg->table_index]) {
@@ -3521,8 +3595,7 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
 #endif
 
     if (module_inst->memory_count > 0) {
-        memories_deinstantiate(module_inst, module_inst->memories,
-                               module_inst->memory_count);
+        memories_deinstantiate(module_inst);
     }
 
     if (module_inst->import_func_ptrs) {
@@ -4079,7 +4152,9 @@ wasm_enlarge_table(WASMModuleInstance *module_inst, uint32 table_idx,
     }
 
     /* fill in */
-    new_table_data_start = table_inst->elems + table_inst->cur_size;
+    table_elem_type_t *table_elems =
+        wasm_locate_table_elems(module_inst->module, table_inst, table_idx);
+    new_table_data_start = table_elems + table_inst->cur_size;
     for (i = 0; i < inc_size; ++i) {
         new_table_data_start[i] = init_val;
     }
@@ -4113,7 +4188,9 @@ call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 tbl_elem_idx,
         goto got_exception;
     }
 
-    tbl_elem_val = ((table_elem_type_t *)table_inst->elems)[tbl_elem_idx];
+    table_elem_type_t *table_elems =
+        wasm_locate_table_elems(module_inst->module, table_inst, tbl_idx);
+    tbl_elem_val = table_elems[tbl_elem_idx];
     if (tbl_elem_val == NULL_REF) {
         wasm_set_exception(module_inst, "uninitialized element");
         goto got_exception;
@@ -4774,7 +4851,6 @@ llvm_jit_table_init(WASMModuleInstance *module_inst, uint32 tbl_idx,
 {
     WASMTableInstance *tbl_inst;
     WASMTableSeg *tbl_seg;
-    table_elem_type_t *table_elems;
     InitializerExpression *tbl_seg_init_values = NULL, *init_values;
     uint32 i, tbl_seg_len = 0;
 #if WASM_ENABLE_GC != 0
@@ -4805,7 +4881,9 @@ llvm_jit_table_init(WASMModuleInstance *module_inst, uint32 tbl_idx,
         return;
     }
 
-    table_elems = tbl_inst->elems + dst_offset;
+    table_elem_type_t *table_elems =
+        wasm_locate_table_elems(module_inst->module, tbl_inst, tbl_idx);
+    table_elems = table_elems + dst_offset;
     init_values = tbl_seg_init_values + src_offset;
 
     for (i = 0; i < length; i++) {
@@ -4879,8 +4957,10 @@ llvm_jit_table_fill(WASMModuleInstance *module_inst, uint32 tbl_idx,
         return;
     }
 
+    table_elem_type_t *table_elems =
+        wasm_locate_table_elems(module_inst->module, tbl_inst, tbl_idx);
     for (; length != 0; data_offset++, length--) {
-        tbl_inst->elems[data_offset] = (table_elem_type_t)val;
+        table_elems[data_offset] = (table_elem_type_t)val;
     }
 }
 
@@ -4924,8 +5004,10 @@ llvm_jit_table_grow(WASMModuleInstance *module_inst, uint32 tbl_idx,
     }
 
     /* fill in */
+    table_elem_type_t *table_elems =
+        wasm_locate_table_elems(module_inst->module, tbl_inst, tbl_idx);
     for (i = 0; i < inc_size; ++i) {
-        tbl_inst->elems[tbl_inst->cur_size + i] = (table_elem_type_t)init_val;
+        table_elems[tbl_inst->cur_size + i] = (table_elem_type_t)init_val;
     }
 
     tbl_inst->cur_size = total_size;
@@ -5195,19 +5277,19 @@ wasm_get_module_name(WASMModule *module)
  */
 int32
 wasm_inherit_imports(WASMModule *module, WASMModuleInstance *inst,
-                     WASMExternInstance *out, int32 out_len)
+                     WASMExternInstance *out, uint32 out_len)
 {
     if (!module || !inst || !out)
         return -1;
 
-    int32 spawned_import_count = module->import_count;
+    uint32 spawned_import_count = module->import_count;
     if (spawned_import_count > out_len) {
         LOG_WARNING("The number of imported functions is more than the "
                     "length of provided buffer ");
         return -1;
     }
 
-    for (int32 i = 0, import_memory_index = 0; i < spawned_import_count; i++) {
+    for (uint32 i = 0, import_memory_index = 0; i < spawned_import_count; i++) {
         wasm_import_t import_type = { 0 };
 
         wasm_runtime_get_import_type((WASMModuleCommon *)module, i,
@@ -5224,6 +5306,7 @@ wasm_inherit_imports(WASMModule *module, WASMModuleInstance *inst,
 #endif
             import_memory_index++;
         }
+        /*TODO: shared_table, shared_global ?*/
         else {
             LOG_WARNING("for spawned, inherit() import(%s,%s) kind %d",
                         import_type.module_name, import_type.name,
@@ -5236,19 +5319,19 @@ wasm_inherit_imports(WASMModule *module, WASMModuleInstance *inst,
 
 void
 wasm_disinherit_imports(WASMModule *module, WASMExternInstance *imports,
-                        int32 import_count)
+                        uint32 import_count)
 {
     if (!module || !imports)
         return;
 
-    int32 spawned_import_count = module->import_count;
+    uint32 spawned_import_count = module->import_count;
     if (spawned_import_count > import_count) {
         LOG_WARNING("The number of imported functions is more than the "
                     "length of provided buffer ");
         return;
     }
 
-    for (int32 i = 0; i < import_count; i++) {
+    for (uint32 i = 0; i < import_count; i++) {
         WASMExternInstance *import = imports + i;
 
         if (import->kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
@@ -5266,3 +5349,44 @@ wasm_disinherit_imports(WASMModule *module, WASMExternInstance *imports,
     }
 }
 #endif /* WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0 */
+
+WASMTableInstance *
+wasm_create_table(const WASMModule *module, const WASMTableType *type)
+{
+    /* not an import table for sure */
+    uint32 max_size = wasm_get_tbl_data_slots(type, NULL);
+
+    uint64 table_size = offsetof(WASMTableInstance, elems);
+    table_size += sizeof(table_elem_type_t) * (uint64)max_size;
+
+    WASMTableInstance *table = runtime_malloc(table_size, NULL, 0);
+    if (!table) {
+        return NULL;
+    }
+
+    table->cur_size = type->init_size;
+    table->elem_type = type->elem_type;
+    table->max_size = max_size;
+#if WASM_ENABLE_GC != 0
+    table->elem_ref_type.elem_ref_type = type->elem_ref_type;
+#endif
+
+    /* Set all elements to -1 or NULL_REF to mark them as uninitialized
+     * elements */
+#if WASM_ENABLE_GC == 0
+    memset(table->elems, 0xff, sizeof(table_elem_type_t) * table->max_size);
+#else
+    memset(table->elems, 0x00, sizeof(table_elem_type_t) * table->max_size);
+#endif
+
+    return table;
+}
+
+void
+wasm_destroy_table(WASMTableInstance *table)
+{
+    if (!table)
+        return;
+
+    wasm_runtime_free(table);
+}

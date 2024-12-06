@@ -35,6 +35,7 @@ extern "C" {
  * and not at the beginning of each function call */
 #define WASM_FEATURE_FRAME_PER_FUNCTION (1 << 12)
 #define WASM_FEATURE_FRAME_NO_FUNC_IDX (1 << 13)
+#define WASM_FEATURE_MULTI_MODULE (1 << 14)
 
 typedef enum AOTSectionType {
     AOT_SECTION_TYPE_TARGET_INFO = 0,
@@ -484,6 +485,21 @@ typedef struct LLVMProfileData_64 {
 } LLVMProfileData_64;
 #endif /* end of WASM_ENABLE_STATIC_PGO != 0 */
 
+static inline table_elem_type_t *
+aot_locate_table_elems(const AOTModule *module, AOTTableInstance *table,
+                       uint32 table_index)
+{
+#if WASM_ENABLE_MULTI_MODULE == 0
+    if (table_index < module->import_table_count) {
+        table_elem_type_t **table_elems =
+            (table_elem_type_t **)(uintptr_t)table->elems;
+
+        return *table_elems;
+    }
+#endif
+    return table->elems;
+}
+
 /**
  * Load a AOT module from aot file buffer
  * @param buf the byte buffer which contains the AOT file data
@@ -884,12 +900,22 @@ aot_get_module_name(AOTModule *module);
 #if WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0
 int32
 aot_inherit_imports(AOTModule *module, AOTModuleInstance *inst,
-                    WASMExternInstance *out, int32 out_len);
+                    WASMExternInstance *out, uint32 out_len);
 
 void
 aot_disinherit_imports(AOTModule *module, WASMExternInstance *imports,
-                       int32 import_count);
+                       uint32 import_count);
 #endif /* WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0 */
+
+AOTTableInstance *
+aot_create_table(const AOTModule *module, const AOTTableType *type);
+
+bool
+aot_set_table_elem(const AOTModule *module, AOTTableInstance *table,
+                   uint32 index, uint32 func_idx);
+
+void
+aot_destroy_table(AOTTableInstance *table);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

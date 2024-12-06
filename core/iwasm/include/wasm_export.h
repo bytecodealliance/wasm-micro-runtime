@@ -112,6 +112,20 @@ typedef struct wasm_export_t {
     } u;
 } wasm_export_t;
 
+#ifndef WASM_VALKIND_T_DEFINED
+#define WASM_VALKIND_T_DEFINED
+typedef uint8_t wasm_valkind_t;
+enum wasm_valkind_enum {
+    WASM_I32,
+    WASM_I64,
+    WASM_F32,
+    WASM_F64,
+    WASM_V128,
+    WASM_EXTERNREF = 128,
+    WASM_FUNCREF,
+};
+#endif
+
 /* Instantiated WASM module */
 struct WASMModuleInstanceCommon;
 typedef struct WASMModuleInstanceCommon *wasm_module_inst_t;
@@ -123,6 +137,17 @@ typedef WASMFunctionInstanceCommon *wasm_function_inst_t;
 /* Memory instance */
 struct WASMMemoryInstance;
 typedef struct WASMMemoryInstance *wasm_memory_inst_t;
+
+/* Table instance*/
+/*TODO: better to use WASMTableInstance and AOTTableInstance directly */
+typedef struct wasm_table_inst_t {
+    wasm_valkind_t elem_kind;
+    uint32_t cur_size;
+    uint32_t max_size;
+    /* represents the elements of the table, for internal use only */
+    /* always a table_elem_type_t elems[] */
+    void *elems;
+} wasm_table_inst_t;
 
 /* WASM section */
 typedef struct wasm_section_t {
@@ -270,6 +295,7 @@ typedef struct WASMExternInstance {
     wasm_import_export_kind_t kind;
     union {
         wasm_memory_inst_t memory;
+        wasm_table_inst_t *table;
     } u;
 } WASMExternInstance, *wasm_extern_inst_t;
 
@@ -295,20 +321,6 @@ typedef struct InstantiationArgs {
     uint32_t import_count;
 } InstantiationArgs;
 #endif /* INSTANTIATION_ARGS_OPTION_DEFINED */
-
-#ifndef WASM_VALKIND_T_DEFINED
-#define WASM_VALKIND_T_DEFINED
-typedef uint8_t wasm_valkind_t;
-enum wasm_valkind_enum {
-    WASM_I32,
-    WASM_I64,
-    WASM_F32,
-    WASM_F64,
-    WASM_V128,
-    WASM_EXTERNREF = 128,
-    WASM_FUNCREF,
-};
-#endif
 
 #ifndef WASM_VAL_T_DEFINED
 #define WASM_VAL_T_DEFINED
@@ -336,15 +348,6 @@ typedef struct wasm_global_inst_t {
     bool is_mutable;
     void *global_data;
 } wasm_global_inst_t;
-
-/* Table instance*/
-typedef struct wasm_table_inst_t {
-    wasm_valkind_t elem_kind;
-    uint32_t cur_size;
-    uint32_t max_size;
-    /* represents the elements of the table, for internal use only */
-    void *elems;
-} wasm_table_inst_t;
 
 typedef enum {
     WASM_LOG_LEVEL_FATAL = 0,
@@ -733,6 +736,13 @@ wasm_runtime_instantiate(const wasm_module_t module,
  *
  * Same as wasm_runtime_instantiate, but it also allows overwriting maximum
  * memory
+ *
+ * The ownership of `imports.u`, globals and tables and memories, from `args`
+ * will be transferred to the runtime. You only need to worry about
+ * releasing them if the instantiate() fails.
+ *
+ * TODO: for now, wasm_table_inst still needs to be managed by the caller.
+ * but only the shell
  */
 WASM_RUNTIME_API_EXTERN wasm_module_inst_t
 wasm_runtime_instantiate_ex(const wasm_module_t module,
@@ -1000,7 +1010,7 @@ wasm_runtime_create_memory(const wasm_module_t module,
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_memory(const wasm_module_t module,
-                            wasm_memory_inst_t memory_inst);
+                            wasm_memory_inst_t memory);
 
 /**
  * @brief Lookup a memory instance by name
@@ -1495,7 +1505,7 @@ wasm_runtime_get_import_count(const wasm_module_t module);
  * @param import_type the location to store information about the import
  */
 WASM_RUNTIME_API_EXTERN void
-wasm_runtime_get_import_type(const wasm_module_t module, int32_t import_index,
+wasm_runtime_get_import_type(const wasm_module_t module, uint32_t import_index,
                              wasm_import_t *import_type);
 
 /**
@@ -2341,6 +2351,14 @@ wasm_runtime_shared_heap_malloc(wasm_module_inst_t module_inst, uint64_t size,
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_shared_heap_free(wasm_module_inst_t module_inst, uint64_t ptr);
 
+WASM_RUNTIME_API_EXTERN wasm_table_inst_t *
+wasm_runtime_create_table(const wasm_module_t module,
+                          const wasm_table_type_t type);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_destroy_table(const wasm_module_t module,
+                           wasm_table_inst_t *table);
+
 /*TODO: take me out when have a linker */
 WASM_RUNTIME_API_EXTERN wasm_module_inst_t
 wasm_runtime_instantiate_with_builtin_linker(wasm_module_t module,
@@ -2355,7 +2373,7 @@ wasm_runtime_instantiate_with_builtin_linker(wasm_module_t module,
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_create_imports_with_builtin(wasm_module_t module,
                                          wasm_extern_inst_t out,
-                                         int32_t out_len);
+                                         uint32_t out_len);
 
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_imports(wasm_module_t module, wasm_extern_inst_t imports);
@@ -2363,7 +2381,7 @@ wasm_runtime_destroy_imports(wasm_module_t module, wasm_extern_inst_t imports);
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_create_imports(wasm_module_t module,
                             bool (*module_name_filter)(const char *),
-                            wasm_extern_inst_t out, int32_t out_len);
+                            wasm_extern_inst_t out, uint32_t out_len);
 
 #ifdef __cplusplus
 }

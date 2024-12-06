@@ -86,25 +86,30 @@ uint64
 get_tbl_inst_offset(const AOTCompContext *comp_ctx,
                     const AOTFuncContext *func_ctx, uint32 tbl_idx)
 {
-    uint64 offset = 0, i = 0;
-    AOTImportTable *imp_tbls = comp_ctx->comp_data->import_tables;
-    AOTTable *tbls = comp_ctx->comp_data->tables;
+    uint64 offset = offsetof(AOTModuleInstance, global_table_data.bytes)
+                    + (uint64)(comp_ctx->comp_data->memory_count
+                               + comp_ctx->comp_data->import_memory_count)
+                          * sizeof(AOTMemoryInstance)
+                    /* Get global data size according to target info */
+                    + (comp_ctx->pointer_size == sizeof(uint64)
+                           ? comp_ctx->comp_data->global_data_size_64bit
+                           : comp_ctx->comp_data->global_data_size_32bit);
 
-    offset = offsetof(AOTModuleInstance, global_table_data.bytes)
-             + (uint64)(comp_ctx->comp_data->memory_count
-                        + comp_ctx->comp_data->import_memory_count)
-                   * sizeof(AOTMemoryInstance)
-             /* Get global data size according to target info */
-             + (comp_ctx->pointer_size == sizeof(uint64)
-                    ? comp_ctx->comp_data->global_data_size_64bit
-                    : comp_ctx->comp_data->global_data_size_32bit);
-
+    uint64 i = 0;
     while (i < tbl_idx && i < comp_ctx->comp_data->import_table_count) {
         offset += offsetof(AOTTableInstance, elems);
-        /* avoid loading from current AOTTableInstance */
-        offset +=
-            (uint64)comp_ctx->pointer_size
-            * aot_get_imp_tbl_data_slots(imp_tbls + i, comp_ctx->is_jit_mode);
+        if (comp_ctx->enable_multi_module) {
+            AOTImportTable *imp_tbls = comp_ctx->comp_data->import_tables;
+            /* avoid loading from current AOTTableInstance */
+            offset += (uint64)comp_ctx->pointer_size
+                      * aot_get_tbl_data_slots(&(imp_tbls + i)->table_type,
+                                               comp_ctx->is_jit_mode);
+        }
+        else {
+            /* there is only one pointer for imported elem */
+            offset += (uint64)comp_ctx->pointer_size;
+        }
+
         ++i;
     }
 
@@ -112,13 +117,15 @@ get_tbl_inst_offset(const AOTCompContext *comp_ctx,
         return offset;
     }
 
+    AOTTable *tbls = comp_ctx->comp_data->tables;
     tbl_idx -= comp_ctx->comp_data->import_table_count;
     i -= comp_ctx->comp_data->import_table_count;
     while (i < tbl_idx && i < comp_ctx->comp_data->table_count) {
         offset += offsetof(AOTTableInstance, elems);
         /* avoid loading from current AOTTableInstance */
         offset += (uint64)comp_ctx->pointer_size
-                  * aot_get_tbl_data_slots(tbls + i, comp_ctx->is_jit_mode);
+                  * aot_get_tbl_data_slots(&(tbls + i)->table_type,
+                                           comp_ctx->is_jit_mode);
         ++i;
     }
 
@@ -135,6 +142,70 @@ get_module_inst_extra_offset(AOTCompContext *comp_ctx)
     bh_assert(offset <= UINT32_MAX);
     offset_32 = align_uint(offset_32, 8);
     return offset_32;
+}
+
+LLVMValueRef
+aot_compile_get_table_elem_base(AOTCompContext *comp_ctx,
+                                AOTFuncContext *func_ctx, uint32 table_index)
+{
+    /* locate elems of a AOTTableInstance in a AOTModuleInstance */
+    LLVMValueRef offset =
+        I32_CONST(get_tbl_inst_offset(comp_ctx, func_ctx, table_index)
+                  + offsetof(AOTTableInstance, elems));
+    if (!offset) {
+        HANDLE_FAILURE("LLVMConstInt");
+        goto fail;
+    }
+
+    /*
+     * for local table,
+     *   table_elem_base = (*(uint8*)WASMModuleInstance) + offset
+     *
+     * if for import table, if enable_multi_module == true
+     *   table_elem_base = (*(uint8*)WASMModuleInstance) + offset
+     *   table_elem_base = *(uintptr_t*)(table_elem_base)
+     */
+    LLVMValueRef table_elem_base =
+        LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, func_ctx->aot_inst,
+                              &offset, 1, "table_elem_base_i8p");
+    if (!table_elem_base) {
+        HANDLE_FAILURE("LLVMBuildInBoundsGEP");
+        goto fail;
+    }
+
+    if (comp_ctx->enable_multi_module) {
+        return table_elem_base;
+    }
+
+    if (table_index < comp_ctx->comp_data->import_table_count) {
+        table_elem_base =
+            LLVMBuildIntToPtr(comp_ctx->builder, table_elem_base,
+                              INTPTR_T_PTR_TYPE, "import_table_elem_base_pp");
+        if (!table_elem_base) {
+            HANDLE_FAILURE("LLVMBuildBitCast");
+            goto fail;
+        }
+
+        table_elem_base =
+            LLVMBuildLoad2(comp_ctx->builder, INTPTR_T_TYPE, table_elem_base,
+                           "import_table_elem_base_p_addr");
+        if (!table_elem_base) {
+            HANDLE_FAILURE("LLVMBuildLoad");
+            goto fail;
+        }
+
+        table_elem_base =
+            LLVMBuildIntToPtr(comp_ctx->builder, table_elem_base,
+                              INTPTR_T_PTR_TYPE, "import_table_elem_base_p");
+        if (!table_elem_base) {
+            HANDLE_FAILURE("LLVMBuildBitCast");
+            goto fail;
+        }
+    }
+
+    return table_elem_base;
+fail:
+    return NULL;
 }
 
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
@@ -266,7 +337,7 @@ bool
 aot_compile_op_table_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 tbl_idx)
 {
-    LLVMValueRef elem_idx, offset, func_idx;
+    LLVMValueRef elem_idx, func_idx;
     LLVMValueRef table_elem_base, table_elem_addr, table_elem;
 
     POP_TBL_ELEM_IDX(elem_idx);
@@ -275,17 +346,9 @@ aot_compile_op_table_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    /* load data as i32* */
-    if (!(offset = I32_CONST(get_tbl_inst_offset(comp_ctx, func_ctx, tbl_idx)
-                             + offsetof(AOTTableInstance, elems)))) {
-        HANDLE_FAILURE("LLVMConstInt");
-        goto fail;
-    }
-
-    if (!(table_elem_base = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
-                                                  func_ctx->aot_inst, &offset,
-                                                  1, "table_elem_base_i8p"))) {
-        aot_set_last_error("llvm build add failed.");
+    if (!(table_elem_base =
+              aot_compile_get_table_elem_base(comp_ctx, func_ctx, tbl_idx))) {
+        aot_set_last_error("llvm build table_elem_base failed.");
         goto fail;
     }
 
@@ -352,7 +415,7 @@ bool
 aot_compile_op_table_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 tbl_idx)
 {
-    LLVMValueRef val = NULL, elem_idx, offset, table_elem_base, table_elem_addr;
+    LLVMValueRef val = NULL, elem_idx, table_elem_base, table_elem_addr;
 
     if (comp_ctx->enable_gc)
         POP_GC_REF(val);
@@ -372,17 +435,9 @@ aot_compile_op_table_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    /* load data as gc_obj_ref* or i32* */
-    if (!(offset = I32_CONST(get_tbl_inst_offset(comp_ctx, func_ctx, tbl_idx)
-                             + offsetof(AOTTableInstance, elems)))) {
-        HANDLE_FAILURE("LLVMConstInt");
-        goto fail;
-    }
-
-    if (!(table_elem_base = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
-                                                  func_ctx->aot_inst, &offset,
-                                                  1, "table_elem_base_i8p"))) {
-        HANDLE_FAILURE("LLVMBuildInBoundsGEP");
+    if (!(table_elem_base =
+              aot_compile_get_table_elem_base(comp_ctx, func_ctx, tbl_idx))) {
+        aot_set_last_error("llvm build table_elem_base failed.");
         goto fail;
     }
 
@@ -519,8 +574,7 @@ aot_compile_op_table_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* In table64, the length should be i32 type if any one of src/dst table
      * is i32 type, set the table index to the lesser-or-equal table when
      * popping length n */
-    if (!(comp_ctx->comp_data->tables[src_tbl_idx].table_type.flags
-          & TABLE64_FLAG))
+    if (!IS_TABLE64(src_tbl_idx))
         tbl_idx = src_tbl_idx;
     else
         tbl_idx = dst_tbl_idx;

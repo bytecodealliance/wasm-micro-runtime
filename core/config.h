@@ -84,6 +84,7 @@
 #endif
 
 #define AOT_MAGIC_NUMBER 0x746f6100
+/* FIXME: maybe 5? need a discussion */
 #define AOT_CURRENT_VERSION 4
 
 #ifndef WASM_ENABLE_JIT

@@ -1148,6 +1148,9 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
         cmd.append("--format=object")
     elif output == 'ir':
         cmd.append("--format=llvmir-opt")
+    
+    if opts.multi_module:
+        cmd.append("--enable-multi-module")
 
     # disable llvm link time optimization as it might convert
     # code of tail call into code of dead loop, and stack overflow

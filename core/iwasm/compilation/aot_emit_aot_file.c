@@ -353,9 +353,7 @@ get_table_init_data_size(AOTCompContext *comp_ctx,
 }
 
 static uint32
-get_table_init_data_list_size(AOTCompContext *comp_ctx,
-                              AOTTableInitData **table_init_data_list,
-                              uint32 table_init_data_count)
+get_table_init_data_list_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
 {
     /*
      * ------------------------------
@@ -370,13 +368,13 @@ get_table_init_data_list_size(AOTCompContext *comp_ctx,
      * |                     | UINTPTR [func_index_count] / [elem_count]
      * ------------------------------
      */
-    AOTTableInitData **table_init_data = table_init_data_list;
+    AOTTableInitData **table_init_data = comp_data->table_init_data_list;
     uint32 size = 0, i;
 
     /* table_init_data_count(4 bytes) */
     size = (uint32)sizeof(uint32);
 
-    for (i = 0; i < table_init_data_count; i++, table_init_data++) {
+    for (i = 0; i < comp_data->table_init_data_count; i++, table_init_data++) {
         size = align_uint(size, 4);
         size += get_table_init_data_size(comp_ctx, *table_init_data);
     }
@@ -384,57 +382,44 @@ get_table_init_data_list_size(AOTCompContext *comp_ctx,
 }
 
 static uint32
-get_import_table_size(const AOTCompContext *comp_ctx,
-                      const AOTCompData *comp_data)
+get_import_table_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
 {
-    /*
-     * ------------------------------
-     * | import_table_count
-     * ------------------------------
-     * |                   | U8 elem_type
-     * |                   | U8 flags
-     * |                   | U8 possible_grow
-     * | AOTImportTable[N] | U8 elem_ref_type.nullable (for GC only)
-     * |                   | U32 init_size
-     * |                   | U32 max_size
-     * |                   | U32 elem_ref_type.heap_type (for GC only)
-     * ------------------------------
-     */
-    uint32 size = 0, i;
+    /* import_table_count */
+    uint32 size = (uint32)sizeof(uint32);
 
-    size = (uint32)sizeof(uint32);
-    for (i = 0; i < comp_data->import_table_count; i++) {
+    for (uint32 i = 0; i < comp_data->import_table_count; i++) {
+        size = align_uint(size, 4);
+        /*
+         *   u8 elem_type + u8 flags
+         *   + u8 possible_grow + u8 elem_ref_type.nullable
+         * ------------------------------ =u32
+         *   + u32 init_size + u32 max_size
+         *   + u32 elem_ref_type.heap_type (Optional)
+         */
         size += sizeof(uint32) * 3;
 #if WASM_ENABLE_GC != 0
         if (comp_ctx->enable_gc
             && comp_data->import_tables[i].table_type.elem_ref_type)
             size += sizeof(uint32);
 #endif
+        /* module_name */
+        size +=
+            get_string_size(comp_ctx, comp_data->import_tables[i].module_name);
+        size = align_uint(size, 2);
+        /* field_name */
+        size +=
+            get_string_size(comp_ctx, comp_data->import_tables[i].table_name);
     }
     return size;
 }
 
 static uint32
-get_table_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data)
+get_table_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
 {
-    /*
-     * ------------------------------
-     * | table_count
-     * ------------------------------
-     * |             | U8 elem_type
-     * |             | U8 flags
-     * |             | U8 possible_grow
-     * | AOTTable[N] | U8 elem_ref_type.nullable (for GC only)
-     * |             | U32 init_size
-     * |             | U32 max_size
-     * |             | U32 elem_ref_type.heap_type (for GC only)
-     * |             | N   init_expr (for GC only)
-     * ------------------------------
-     */
-    uint32 size = 0, i;
+    /* table_count */
+    uint32 size = (uint32)sizeof(uint32);
 
-    size = (uint32)sizeof(uint32);
-    for (i = 0; i < comp_data->table_count; i++) {
+    for (uint32 i = 0; i < comp_data->table_count; i++) {
         size += sizeof(uint32) * 3;
 #if WASM_ENABLE_GC != 0
         if (comp_ctx->enable_gc) {
@@ -447,37 +432,6 @@ get_table_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data)
 #endif
     }
     return size;
-}
-
-static uint32
-get_table_info_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
-{
-    /*
-     * ------------------------------
-     * | import_table_count
-     * ------------------------------
-     * |
-     * | AOTImportTable[import_table_count]
-     * |
-     * ------------------------------
-     * | table_count
-     * ------------------------------
-     * |
-     * | AOTTable[table_count]
-     * |
-     * ------------------------------
-     * | table_init_data_count
-     * ------------------------------
-     * |
-     * | AOTTableInitData*[table_init_data_count]
-     * |
-     * ------------------------------
-     */
-    return get_import_table_size(comp_ctx, comp_data)
-           + get_table_size(comp_ctx, comp_data)
-           + get_table_init_data_list_size(comp_ctx,
-                                           comp_data->table_init_data_list,
-                                           comp_data->table_init_data_count);
 }
 
 static uint32
@@ -780,32 +734,36 @@ get_init_data_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
      * -------------------------------------------------------
      * | u32 import_memory_count
      * -------------------------------------------------------
-     * |                                      | u32 flags
-     * | AOTImportMemory[import_memory_count] | u32 num_bytes_per_page
-     * |                                      | u32 init_page_count
-     * |                                      | u32 max_page_count
-     * |                                      | str module_name
-     * |                                      | str field_name
+     * |                            | u32 flags
+     * | AOTImportMemory[N]         | u32 num_bytes_per_page
+     * |                            | u32 init_page_count
+     * |                            | u32 max_page_count
+     * |                            | str module_name
+     * |                            | str field_name
      * -------------------------------------------------------
      * | padding
+     * | previous version doesn't have it by design.
+     * | But alignment will make it 0
      * -------------------------------------------------------
      * | u32 memory_count
      * -------------------------------------------------------
-     * |                             | u32 flags
-     * | AOTMemoryType[memory_count] | u32 num_bytes_per_page
-     * |                             | u32 init_page_count
-     * |                             | u32 max_page_count
+     * |                            | u32 flags
+     * | AOTMemoryType[N]           | u32 num_bytes_per_page
+     * |                            | u32 init_page_count
+     * |                            | u32 max_page_count
      * -------------------------------------------------------
-     * | padding (TBC: previous aot doesn't have this padding by design)
+     * | padding
+     * | previous version doesn't have it by design.
+     * | But alignment will make it 0
      * -------------------------------------------------------
      * | u32 mem_init_data_count
      * -------------------------------------------------------
-     * |                                     | u32 is_passive/placeholder
-     * |                                     | u32 memory_index/placeholder
-     * |                                     | u32 init expr type
-     * | AOTMemInitData[mem_init_data_count] | u32 init expr value
-     * |                                     | u32 byte count
-     * |                                     | u8* bytes
+     * |                            | u32 is_passive/placeholder
+     * |                            | u32 memory_index/placeholder
+     * |                            | u32 init expr type
+     * | AOTMemInitData[N]          | u32 init expr value
+     * |                            | u32 byte count
+     * |                            | u8* bytes
      * -------------------------------------------------------
      */
     size += get_import_memory_size(comp_ctx, comp_data);
@@ -816,8 +774,60 @@ get_init_data_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
     size = align_uint(size, 4);
     size += get_mem_init_data_list_size(comp_ctx, comp_data);
 
+    /*
+     * -------------------------------------------------------
+     * | u32 import_table_count
+     * -------------------------------------------------------
+     * |                         |  u8 elem_type
+     * |                         |  u8 flags
+     * |                         |  u8 possible_grow
+     * |                         |  u8 elem_ref_type.nullable(GC)
+     * |  AOTImportTable[N]      | u32 init_size
+     * |                         | u32 max_size
+     * |                         | u32 elem_ref_type.heap_type(GC)
+     * |                         | str module_name
+     * |                         | str field_name
+     * -------------------------------------------------------
+     * | padding
+     * | previous version doesn't have it by design.
+     * | but import_table_count used to be 0
+     * -------------------------------------------------------
+     * | u32 table_count
+     * -------------------------------------------------------
+     * |                         |  u8 elem_type
+     * |                         |  u8 flags
+     * |                         |  u8 possible_grow
+     * |                         |  u8 elem_ref_type.nullable(GC)
+     * |  AOTTable[N]            | u32 init_size
+     * |                         | u32 max_size
+     * |                         | u32 elem_ref_type.heap_type(GC)
+     * |                         |   N init_expr(GC)
+     * -------------------------------------------------------
+     * | padding
+     * | previous version doesn't have it by design.
+     * | But alignment will make it 0
+     * | table_init_data_count
+     * -------------------------------------------------------
+     * | u32 table_init_data_count
+     * -------------------------------------------------------
+     * |                         | U32 mode
+     * | AOTTableInitData[N]     | U32 elem_type
+     * |                         | U32 table_index
+     * |                         | U32 offset.init_expr_type
+     * |                         | U64 offset.u.i64
+     * |                         | U32 func_index_count / elem_count
+     * |                         | UINTPTR [func_index_count] / [elem_count]
+     * -------------------------------------------------------
+     */
+
     size = align_uint(size, 4);
-    size += get_table_info_size(comp_ctx, comp_data);
+    size += get_import_table_size(comp_ctx, comp_data);
+
+    size = align_uint(size, 4);
+    size += get_table_size(comp_ctx, comp_data);
+
+    size = align_uint(size, 4);
+    size += get_table_init_data_list_size(comp_ctx, comp_data);
 
     size = align_uint(size, 4);
     size += get_type_info_size(comp_ctx, comp_data);
@@ -2040,31 +2050,27 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 }
 
 static bool
-aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
-                    AOTCompContext *comp_ctx, AOTCompData *comp_data,
-                    AOTObjectData *obj_data)
+aot_emit_import_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
+                           AOTCompContext *comp_ctx, AOTCompData *comp_data,
+                           AOTObjectData *obj_data)
 {
-    uint32 offset = *p_offset, i, j;
-    AOTTableInitData **init_datas = comp_data->table_init_data_list;
+    uint32 offset = *p_offset;
 
     *p_offset = offset = align_uint(offset, 4);
 
-    /* Emit import table count */
     EMIT_U32(comp_data->import_table_count);
-    /* Emit table items */
-    for (i = 0; i < comp_data->import_table_count; i++) {
-        /* TODO:
-         * EMIT_STR(comp_data->import_tables[i].module_name );
-         * EMIT_STR(comp_data->import_tables[i].table_name);
-         */
-        EMIT_U8(comp_data->import_tables[i].table_type.elem_type);
-        EMIT_U8(comp_data->import_tables[i].table_type.flags);
-        EMIT_U8(comp_data->import_tables[i].table_type.possible_grow);
+
+    AOTImportTable *import_table = comp_data->import_tables;
+    for (uint32 i = 0; i < comp_data->import_table_count; i++, import_table++) {
+        offset = align_uint(offset, 4);
+
+        EMIT_U8(import_table->table_type.elem_type);
+        EMIT_U8(import_table->table_type.flags);
+        EMIT_U8(import_table->table_type.possible_grow);
 #if WASM_ENABLE_GC != 0
-        if (comp_ctx->enable_gc
-            && comp_data->import_tables[i].table_type.elem_ref_type) {
-            EMIT_U8(comp_data->import_tables[i]
-                        .table_type.elem_ref_type->ref_ht_common.nullable);
+        if (comp_ctx->enable_gc && import_table->table_type.elem_ref_type) {
+            EMIT_U8(
+                import_table->table_type.elem_ref_type->ref_ht_common.nullable);
         }
         else
 #endif
@@ -2072,23 +2078,46 @@ aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             /* emit one placeholder to keep the same size */
             EMIT_U8(0);
         }
-        EMIT_U32(comp_data->import_tables[i].table_type.init_size);
-        EMIT_U32(comp_data->import_tables[i].table_type.max_size);
+
+        EMIT_U32(import_table->table_type.init_size);
+        EMIT_U32(import_table->table_type.max_size);
+
 #if WASM_ENABLE_GC != 0
-        if (comp_ctx->enable_gc
-            && comp_data->import_tables[i].table_type.elem_ref_type) {
+        if (comp_ctx->enable_gc && import_table->table_type.elem_ref_type) {
             bh_assert(wasm_is_type_multi_byte_type(
-                comp_data->import_tables[i].table_type.elem_type));
-            EMIT_U32(comp_data->import_tables[i]
-                         .table_type.elem_ref_type->ref_ht_common.heap_type);
+                import_table->table_type.elem_type));
+            EMIT_U32(import_table->table_type.elem_ref_type->ref_ht_common
+                         .heap_type);
         }
 #endif
+
+        EMIT_STR(import_table->module_name);
+        offset = align_uint(offset, 2);
+
+        EMIT_STR(import_table->table_name);
     }
 
-    /* Emit table count */
+    if (offset - *p_offset != get_import_table_size(comp_ctx, comp_data)) {
+        aot_set_last_error("emit import table info failed.");
+        return false;
+    }
+
+    *p_offset = offset;
+    return true;
+}
+
+static bool
+aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
+                    AOTCompContext *comp_ctx, AOTCompData *comp_data,
+                    AOTObjectData *obj_data)
+{
+    uint32 offset = *p_offset;
+
+    *p_offset = offset = align_uint(offset, 4);
+
     EMIT_U32(comp_data->table_count);
-    /* Emit table items */
-    for (i = 0; i < comp_data->table_count; i++) {
+
+    for (uint32 i = 0; i < comp_data->table_count; i++) {
         EMIT_U8(comp_data->tables[i].table_type.elem_type);
         EMIT_U8(comp_data->tables[i].table_type.flags);
         EMIT_U8(comp_data->tables[i].table_type.possible_grow);
@@ -2104,8 +2133,10 @@ aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             /* emit one placeholder to keep the same size */
             EMIT_U8(0);
         }
+
         EMIT_U32(comp_data->tables[i].table_type.init_size);
         EMIT_U32(comp_data->tables[i].table_type.max_size);
+
 #if WASM_ENABLE_GC != 0
         if (comp_ctx->enable_gc) {
             if (comp_data->tables[i].table_type.elem_ref_type) {
@@ -2123,16 +2154,37 @@ aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 #endif
     }
 
-    /* Emit table init data count */
+    if (offset - *p_offset != get_table_size(comp_ctx, comp_data)) {
+        aot_set_last_error("emit table info failed.");
+        return false;
+    }
+
+    *p_offset = offset;
+
+    return true;
+}
+
+static bool
+aot_emit_table_init_data_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
+                              AOTCompContext *comp_ctx, AOTCompData *comp_data,
+                              AOTObjectData *obj_data)
+{
+    uint32 offset = *p_offset;
+
+    *p_offset = offset = align_uint(offset, 4);
+
     EMIT_U32(comp_data->table_init_data_count);
-    /* Emit table init data items */
-    for (i = 0; i < comp_data->table_init_data_count; i++) {
+
+    AOTTableInitData **init_datas = comp_data->table_init_data_list;
+    for (uint32 i = 0; i < comp_data->table_init_data_count; i++) {
         offset = align_uint(offset, 4);
+
         EMIT_U32(init_datas[i]->mode);
         EMIT_U32(init_datas[i]->elem_type);
         EMIT_U32(init_datas[i]->table_index);
         EMIT_U32(init_datas[i]->offset.init_expr_type);
         EMIT_U64(init_datas[i]->offset.u.i64);
+
 #if WASM_ENABLE_GC != 0
         if (comp_ctx->enable_gc && init_datas[i]->elem_ref_type) {
             EMIT_U16(init_datas[i]->elem_ref_type->ref_ht_common.ref_type);
@@ -2146,21 +2198,23 @@ aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             EMIT_U16(0);
             EMIT_U32(0);
         }
+
         EMIT_U32(init_datas[i]->value_count);
-        for (j = 0; j < init_datas[i]->value_count; j++) {
+
+        for (uint j = 0; j < init_datas[i]->value_count; j++) {
             if (!aot_emit_init_expr(buf, buf_end, &offset, comp_ctx,
                                     &init_datas[i]->init_values[j]))
                 return false;
         }
     }
 
-    if (offset - *p_offset != get_table_info_size(comp_ctx, comp_data)) {
-        aot_set_last_error("emit table info failed.");
+    if (offset - *p_offset
+        != get_table_init_data_list_size(comp_ctx, comp_data)) {
+        aot_set_last_error("emit table init data info failed.");
         return false;
     }
 
     *p_offset = offset;
-
     return true;
 }
 
@@ -2490,8 +2544,12 @@ aot_emit_init_data_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                                  obj_data)
         || !aot_emit_memory_init_data_list(buf, buf_end, &offset, comp_ctx,
                                            comp_data, obj_data)
+        || !aot_emit_import_table_info(buf, buf_end, &offset, comp_ctx,
+                                       comp_data, obj_data)
         || !aot_emit_table_info(buf, buf_end, &offset, comp_ctx, comp_data,
                                 obj_data)
+        || !aot_emit_table_init_data_info(buf, buf_end, &offset, comp_ctx,
+                                          comp_data, obj_data)
         || !aot_emit_type_info(buf, buf_end, &offset, comp_ctx, comp_data,
                                obj_data)
         || !aot_emit_import_global_info(buf, buf_end, &offset, comp_ctx,
@@ -4533,6 +4591,9 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
     }
     if (!comp_ctx->call_stack_features.func_idx) {
         obj_data->target_info.feature_flags |= WASM_FEATURE_FRAME_NO_FUNC_IDX;
+    }
+    if (comp_ctx->enable_multi_module) {
+        obj_data->target_info.feature_flags |= WASM_FEATURE_MULTI_MODULE;
     }
 
     bh_print_time("Begin to resolve object file info");

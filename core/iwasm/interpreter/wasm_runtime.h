@@ -166,6 +166,7 @@ struct WASMMemoryInstance {
 struct WASMTableInstance {
     /* The element type */
     uint8 elem_type;
+    /* TODO: may not used in AOTTableInstance */
     uint8 is_table64;
     uint8 __padding__[6];
     union {
@@ -179,6 +180,10 @@ struct WASMTableInstance {
     /* Maximum size */
     uint32 max_size;
     /* Table elements */
+    /*
+     * if imported tables, it is table_elem_type_t[0][cur_size]
+     * if local tables, it is table_elem_type_t[cur_size]
+     */
     table_elem_type_t elems[1];
 };
 
@@ -519,6 +524,42 @@ wasm_get_func_code_end(WASMFunctionInstance *func)
     return func->is_import_func
                ? NULL
                : func->u.func->code_compiled + func->u.func->code_compiled_size;
+#endif
+}
+
+static inline table_elem_type_t *
+wasm_locate_table_elems(const WASMModule *module, WASMTableInstance *table,
+                        uint32 table_index)
+{
+#if WASM_ENABLE_MULTI_MODULE == 0
+    if (table_index < module->import_table_count) {
+        table_elem_type_t **table_elems =
+            (table_elem_type_t **)(uintptr_t)table->elems;
+
+        return *table_elems;
+    }
+#endif
+    return table->elems;
+}
+
+static inline uint32
+wasm_get_tbl_data_slots(const WASMTableType *table_type,
+                        const WASMTableImport *import_type)
+{
+#if WASM_ENABLE_MULTI_MODULE != 0
+    if (import_type) {
+        if (import_type->import_module) {
+            /* linked with other modules */
+            return table_type->max_size;
+        }
+
+        /* else linked with built-ins */
+    }
+    return table_type->max_size;
+#else
+    /* in order to save memory, alloc resource as few as possible */
+    return table_type->possible_grow ? table_type->max_size
+                                     : table_type->init_size;
 #endif
 }
 
@@ -898,12 +939,22 @@ wasm_get_module_name(WASMModule *module);
 #if WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0
 int32
 wasm_inherit_imports(WASMModule *module, WASMModuleInstance *inst,
-                     WASMExternInstance *out, int32 out_len);
+                     WASMExternInstance *out, uint32 out_len);
 
 void
 wasm_disinherit_imports(WASMModule *module, WASMExternInstance *imports,
-                        int32 import_count);
+                        uint32 import_count);
 #endif /* WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0 */
+
+WASMTableInstance *
+wasm_create_table(const WASMModule *module, const WASMTableType *type);
+
+bool
+wasm_set_table_elem(const WASMModule *module, WASMTableInstance *table,
+                    uint32 index, uint32 func_idx);
+
+void
+wasm_destroy_table(WASMTableInstance *table);
 
 #ifdef __cplusplus
 }

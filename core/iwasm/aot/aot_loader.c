@@ -507,6 +507,14 @@ check_feature_flags(char *error_buf, uint32 error_buf_size,
     }
 #endif
 
+#if WASM_ENABLE_MULTI_MODULE == 0
+    if (feature_flags & WASM_FEATURE_MULTI_MODULE) {
+        set_error_buf(error_buf, error_buf_size,
+                      "multi-module is not enabled in this build");
+        return false;
+    }
+#endif
+
     return true;
 }
 
@@ -530,7 +538,7 @@ load_target_info_section(const uint8 *buf, const uint8 *buf_end,
                          AOTModule *module, char *error_buf,
                          uint32 error_buf_size)
 {
-    AOTTargetInfo target_info;
+    AOTTargetInfo target_info = { 0 };
     const uint8 *p = buf, *p_end = buf_end;
     bool is_target_little_endian, is_target_64_bit;
 
@@ -1364,8 +1372,8 @@ fail:
 
 static bool
 load_import_table_list(const uint8 **p_buf, const uint8 *buf_end,
-                       AOTModule *module, char *error_buf,
-                       uint32 error_buf_size)
+                       AOTModule *module, bool is_load_from_file_buf,
+                       char *error_buf, uint32 error_buf_size)
 {
     const uint8 *buf = *p_buf;
     AOTImportTable *import_table;
@@ -1382,7 +1390,7 @@ load_import_table_list(const uint8 **p_buf, const uint8 *buf_end,
         return false;
     }
 
-    /* keep sync with aot_emit_table_info() aot_emit_aot_file */
+    /* keep sync with aot_emit_import_table_info() aot_emit_aot_file */
     for (i = 0; i < module->import_table_count; i++, import_table++) {
         read_uint8(buf, buf_end, import_table->table_type.elem_type);
         read_uint8(buf, buf_end, import_table->table_type.flags);
@@ -1391,7 +1399,13 @@ load_import_table_list(const uint8 **p_buf, const uint8 *buf_end,
         if (wasm_is_type_multi_byte_type(import_table->table_type.elem_type)) {
             read_uint8(buf, buf_end, ref_type.ref_ht_common.nullable);
         }
+        else
 #endif
+        {
+            /* Skip 1 byte */
+            buf += 1;
+        }
+
         read_uint32(buf, buf_end, import_table->table_type.init_size);
         read_uint32(buf, buf_end, import_table->table_type.max_size);
 #if WASM_ENABLE_GC != 0
@@ -1409,6 +1423,9 @@ load_import_table_list(const uint8 **p_buf, const uint8 *buf_end,
             }
         }
 #endif
+
+        read_string(buf, buf_end, import_table->module_name);
+        read_string(buf, buf_end, import_table->table_name);
     }
 
     *p_buf = buf;
@@ -1451,7 +1468,13 @@ load_table_list(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         if (wasm_is_type_multi_byte_type(table->table_type.elem_type)) {
             read_uint8(buf, buf_end, ref_type.ref_ht_common.nullable);
         }
+        else
 #endif
+        {
+            /* Skip 1 byte */
+            buf += 1;
+        }
+
         read_uint32(buf, buf_end, table->table_type.init_size);
         read_uint32(buf, buf_end, table->table_type.max_size);
 #if WASM_ENABLE_GC != 0
@@ -1582,14 +1605,15 @@ fail:
 
 static bool
 load_table_info(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
-                char *error_buf, uint32 error_buf_size)
+                bool is_load_from_file_buf, char *error_buf,
+                uint32 error_buf_size)
 {
     const uint8 *buf = *p_buf;
 
     read_uint32(buf, buf_end, module->import_table_count);
     if (module->import_table_count > 0
-        && !load_import_table_list(&buf, buf_end, module, error_buf,
-                                   error_buf_size))
+        && !load_import_table_list(&buf, buf_end, module, is_load_from_file_buf,
+                                   error_buf, error_buf_size))
         return false;
 
     read_uint32(buf, buf_end, module->table_count);
@@ -2475,7 +2499,8 @@ load_init_data_section(const uint8 *buf, const uint8 *buf_end,
 
     if (!load_memory_info(&p, p_end, module, is_load_from_file_buf, error_buf,
                           error_buf_size)
-        || !load_table_info(&p, p_end, module, error_buf, error_buf_size)
+        || !load_table_info(&p, p_end, module, is_load_from_file_buf, error_buf,
+                            error_buf_size)
         || !load_type_info(&p, p_end, module, error_buf, error_buf_size)
         || !load_import_global_info(&p, p_end, module, is_load_from_file_buf,
                                     error_buf, error_buf_size)

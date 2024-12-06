@@ -671,12 +671,12 @@ main(int argc, char *argv[])
         else if (!strncmp(argv[0], "--stack-size=", 13)) {
             if (argv[0][13] == '\0')
                 return print_help();
-            stack_size = atoi(argv[0] + 13);
+            stack_size = (uint32)atoi(argv[0] + 13);
         }
         else if (!strncmp(argv[0], "--heap-size=", 12)) {
             if (argv[0][12] == '\0')
                 return print_help();
-            heap_size = atoi(argv[0] + 12);
+            heap_size = (uint32)atoi(argv[0] + 12);
         }
 #if WASM_ENABLE_FAST_JIT != 0
         else if (!strncmp(argv[0], "--jit-codecache-size=", 21)) {
@@ -874,7 +874,7 @@ main(int argc, char *argv[])
     }
 
 #if WASM_ENABLE_LOG != 0
-    bh_log_set_verbose_level(log_verbose_level);
+    bh_log_set_verbose_level((uint32)log_verbose_level);
 #endif
 
 #if BH_HAS_DLFCN

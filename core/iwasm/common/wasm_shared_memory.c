@@ -110,6 +110,24 @@ shared_memory_dec_reference(WASMMemoryInstance *memory)
     return old - 1;
 }
 
+uint16
+shared_memory_get_reference(WASMMemoryInstance *memory)
+{
+    bh_assert(shared_memory_is_shared(memory));
+
+#if BH_ATOMIC_16_IS_ATOMIC == 0
+    os_mutex_lock(&g_shared_memory_lock);
+#endif
+
+    uint16 old = BH_ATOMIC_16_FETCH_OR(memory->ref_count, 0);
+
+#if BH_ATOMIC_16_IS_ATOMIC == 0
+    os_mutex_unlock(&g_shared_memory_lock);
+#endif
+
+    return old;
+}
+
 static korp_mutex *
 shared_memory_get_lock_pointer(WASMMemoryInstance *memory)
 {
