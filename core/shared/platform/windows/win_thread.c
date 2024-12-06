@@ -60,6 +60,63 @@ static DWORD thread_data_key;
 static void(WINAPI *GetCurrentThreadStackLimits_Kernel32)(PULONG_PTR,
                                                           PULONG_PTR) = NULL;
 
+static void
+thread_data_list_add(os_thread_data *thread_data)
+{
+    os_mutex_lock(&thread_data_list_lock);
+    /* If already in list, just return */
+    os_thread_data *p = &supervisor_thread_data;
+    while (p) {
+        if (p == thread_data) {
+            os_mutex_unlock(&thread_data_list_lock);
+            return;
+        }
+        p = p->next;
+    }
+    thread_data->next = supervisor_thread_data.next;
+    supervisor_thread_data.next = thread_data;
+    os_mutex_unlock(&thread_data_list_lock);
+}
+
+static void
+thread_data_list_remove(os_thread_data *thread_data)
+{
+    os_mutex_lock(&thread_data_list_lock);
+    /* Search and remove it from list */
+    os_thread_data *p = &supervisor_thread_data;
+    while (p && p->next != thread_data)
+        p = p->next;
+
+    if (p && p->next) {
+        bh_assert(p->next == thread_data);
+        p->next = p->next->next;
+        /* Release the resources in thread_data */
+        os_cond_destroy(&thread_data->wait_cond);
+        os_mutex_destroy(&thread_data->wait_lock);
+        os_sem_destroy(&thread_data->wait_node.sem);
+        BH_FREE(thread_data);
+    }
+    os_mutex_unlock(&thread_data_list_lock);
+}
+
+static os_thread_data *
+thread_data_list_lookup(korp_tid tid)
+{
+    os_thread_data *thread_data = (os_thread_data *)tid;
+    os_mutex_lock(&thread_data_list_lock);
+    os_thread_data *p = supervisor_thread_data.next;
+    while (p) {
+        if (p == thread_data) {
+            /* Found */
+            os_mutex_unlock(&thread_data_list_lock);
+            return p;
+        }
+        p = p->next;
+    }
+    os_mutex_unlock(&thread_data_list_lock);
+    return NULL;
+}
+
 int
 os_sem_init(korp_sem *sem);
 int
@@ -254,10 +311,7 @@ os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
     }
 
     /* Add thread data into thread data list */
-    os_mutex_lock(&thread_data_list_lock);
-    thread_data->next = supervisor_thread_data.next;
-    supervisor_thread_data.next = thread_data;
-    os_mutex_unlock(&thread_data_list_lock);
+    thread_data_list_add(thread_data);
 
     /* Wait for the thread routine to set thread_data's tid
        and add thread_data to thread data list */
@@ -302,8 +356,12 @@ os_thread_join(korp_tid thread, void **p_retval)
     curr_thread_data->wait_node.next = NULL;
 
     /* Get thread data of thread to join */
-    thread_data = (os_thread_data *)thread;
-    bh_assert(thread_data);
+    thread_data = thread_data_list_lookup(thread);
+
+    if (thread_data == NULL) {
+        os_printf("Can't join thread %p, it does not exist", thread);
+        return BHT_ERROR;
+    }
 
     os_mutex_lock(&thread_data->wait_lock);
 
@@ -312,6 +370,7 @@ os_thread_join(korp_tid thread, void **p_retval)
         if (p_retval)
             *p_retval = thread_data->thread_retval;
         os_mutex_unlock(&thread_data->wait_lock);
+        thread_data_list_remove(thread_data);
         return BHT_OK;
     }
 
@@ -332,6 +391,7 @@ os_thread_join(korp_tid thread, void **p_retval)
     os_sem_wait(&curr_thread_data->wait_node.sem);
     if (p_retval)
         *p_retval = curr_thread_data->wait_node.retval;
+    thread_data_list_remove(thread_data);
     return BHT_OK;
 }
 
