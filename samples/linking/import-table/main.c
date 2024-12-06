@@ -64,7 +64,7 @@ main(int argc, char *argv_main[])
 
     /* host table */
     wasm_table_type_t table_type = import_type.u.table_type;
-    wasm_table_inst_t *table = wasm_runtime_create_table(module, table_type);
+    wasm_table_inst_t table = wasm_runtime_create_table(module, table_type);
     if (!table) {
         printf("Create table failed.\n");
         goto unload_module;
@@ -86,7 +86,9 @@ main(int argc, char *argv_main[])
         module, &inst_args, error_buf, sizeof(error_buf));
     if (!inst) {
         printf("Instantiate wasm file failed: %s\n", error_buf);
-        goto destroy_table;
+        wasm_runtime_destroy_table(module, table);
+        table = NULL;
+        goto unload_module;
     }
 
     /* export function */
@@ -100,8 +102,6 @@ main(int argc, char *argv_main[])
 
 destroy_inst:
     wasm_runtime_deinstantiate(inst);
-destroy_table:
-    wasm_runtime_destroy_table(module, table);
 unload_module:
     wasm_runtime_unload(module);
 release_file_buffer:

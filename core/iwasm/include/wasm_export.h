@@ -138,16 +138,9 @@ typedef WASMFunctionInstanceCommon *wasm_function_inst_t;
 struct WASMMemoryInstance;
 typedef struct WASMMemoryInstance *wasm_memory_inst_t;
 
-/* Table instance*/
-/*TODO: better to use WASMTableInstance and AOTTableInstance directly */
-typedef struct wasm_table_inst_t {
-    wasm_valkind_t elem_kind;
-    uint32_t cur_size;
-    uint32_t max_size;
-    /* represents the elements of the table, for internal use only */
-    /* always a table_elem_type_t elems[] */
-    void *elems;
-} wasm_table_inst_t;
+/* Table instance */
+struct WASMTableInstance;
+typedef struct WASMTableInstance *wasm_table_inst_t;
 
 /* WASM section */
 typedef struct wasm_section_t {
@@ -295,7 +288,7 @@ typedef struct WASMExternInstance {
     wasm_import_export_kind_t kind;
     union {
         wasm_memory_inst_t memory;
-        wasm_table_inst_t *table;
+        wasm_table_inst_t table;
     } u;
 } WASMExternInstance, *wasm_extern_inst_t;
 
@@ -1530,6 +1523,23 @@ wasm_runtime_get_export_type(const wasm_module_t module, int32_t export_index,
                              wasm_export_t *export_type);
 
 /**
+ * @brief Retrieves the export type of a given name from the specified WASM
+ * module.
+ *
+ * This function searches for an export with the specified name within the
+ * provided WebAssembly module and returns its type information.
+ *
+ * @param module The WebAssembly module to search within.
+ * @param name The name of the export to find.
+ * @param export_type A pointer to a wasm_export_t structure where the export
+ * type information will be stored if found.
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_get_export_type_by_name(const wasm_module_t module,
+                                     const char *name,
+                                     wasm_export_t *export_type);
+
+/**
  * Get the number of parameters for a function type
  *
  * @param func_type the function type
@@ -1750,19 +1760,19 @@ wasm_runtime_get_export_global_inst(const wasm_module_inst_t module_inst,
                                     wasm_global_inst_t *global_inst);
 
 /**
- * Get an export table instance
+ * @brief Retrieves the table instance exported from a WebAssembly module
+ * instance.
  *
- * @param module_inst the module instance
- * @param name the export table name
- * @param table_inst location to store the table instance
+ * This function looks up a table instance by its export name from the given
+ * WebAssembly module instance.
  *
- * @return true if success, false otherwise
- *
+ * @param module_inst The WebAssembly module instance.
+ * @param name The name of the exported table.
+ * @return The table instance if found, otherwise NULL.
  */
-WASM_RUNTIME_API_EXTERN bool
+WASM_RUNTIME_API_EXTERN wasm_table_inst_t
 wasm_runtime_get_export_table_inst(const wasm_module_inst_t module_inst,
-                                   const char *name,
-                                   wasm_table_inst_t *table_inst);
+                                   const char *name);
 
 /**
  * Get a function instance from a table.
@@ -1775,7 +1785,7 @@ wasm_runtime_get_export_table_inst(const wasm_module_inst_t module_inst,
  */
 WASM_RUNTIME_API_EXTERN wasm_function_inst_t
 wasm_table_get_func_inst(const wasm_module_inst_t module_inst,
-                         const wasm_table_inst_t *table_inst, uint32_t idx);
+                         const wasm_table_inst_t table_inst, uint32_t idx);
 
 /**
  * Get attachment of native function from execution environment
@@ -2351,13 +2361,12 @@ wasm_runtime_shared_heap_malloc(wasm_module_inst_t module_inst, uint64_t size,
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_shared_heap_free(wasm_module_inst_t module_inst, uint64_t ptr);
 
-WASM_RUNTIME_API_EXTERN wasm_table_inst_t *
+WASM_RUNTIME_API_EXTERN wasm_table_inst_t
 wasm_runtime_create_table(const wasm_module_t module,
                           const wasm_table_type_t type);
 
 WASM_RUNTIME_API_EXTERN void
-wasm_runtime_destroy_table(const wasm_module_t module,
-                           wasm_table_inst_t *table);
+wasm_runtime_destroy_table(const wasm_module_t module, wasm_table_inst_t table);
 
 /*TODO: take me out when have a linker */
 WASM_RUNTIME_API_EXTERN wasm_module_inst_t
