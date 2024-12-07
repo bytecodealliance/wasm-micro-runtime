@@ -563,7 +563,7 @@ typedef struct WASMFunctionImport {
     char *field_name;
     /* function type */
     WASMFuncType *func_type;
-    /* native function pointer after linked */
+    /* from wasm_native */
     void *func_ptr_linked;
     /* signature from registered native symbols */
     const char *signature;
@@ -573,9 +573,12 @@ typedef struct WASMFunctionImport {
     /* the type index of this function's func_type */
     uint32 type_idx;
 #endif
+
+    /* via wasm_native */
     bool call_conv_raw;
-    bool call_conv_wasm_c_api;
 #if WASM_ENABLE_MULTI_MODULE != 0
+    /* by loading-link */
+    bool call_conv_wasm_c_api;
     WASMModule *import_module;
     WASMFunction *import_func_linked;
 #endif
@@ -608,18 +611,23 @@ typedef struct WASMGlobalImport {
     char *module_name;
     char *field_name;
     WASMGlobalType type;
+
+    /*TODO: not necessary if WASM_ENABLE_MULTI_MODULE == 0*/
     bool is_linked;
     /* global data after linked */
     WASMValue global_data_linked;
+
 #if WASM_ENABLE_GC != 0
     WASMRefType *ref_type;
 #endif
+
 #if WASM_ENABLE_MULTI_MODULE != 0
     /* imported function pointer after linked */
     /* TODO: remove if not needed */
     WASMModule *import_module;
     WASMGlobal *import_global_linked;
 #endif
+
 #if WASM_ENABLE_FAST_JIT != 0
     /* The data offset of current global in global data */
     uint32 data_offset;

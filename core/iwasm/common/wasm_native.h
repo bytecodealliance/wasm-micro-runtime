@@ -110,6 +110,20 @@ void *
 wasm_native_lookup_quick_aot_entry(const WASMFuncType *func_type);
 #endif
 
+#if WASM_ENABLE_SPEC_TEST != 0
+bool
+wasm_runtime_create_extern_inst_for_spec_test(wasm_module_t module,
+                                              wasm_import_t *import_type,
+                                              WASMExternInstance *out);
+#endif
+
+#if WASM_ENABLE_WASI_TEST != 0
+bool
+wasm_runtime_create_extern_inst_for_wasi_test(wasm_module_t module,
+                                              wasm_import_t *import_type,
+                                              WASMExternInstance *out);
+#endif
+
 #ifdef __cplusplus
 }
 #endif
