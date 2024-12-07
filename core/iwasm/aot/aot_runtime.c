@@ -3563,6 +3563,11 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     attachment = import_func->attachment;
     if (func_inst->call_conv_wasm_c_api) {
         /* from c_api */
+        c_api_func_import = module_inst->c_api_func_imports
+                                ? module_inst->c_api_func_imports + func_idx
+                                : NULL;
+        bh_assert(c_api_func_import
+                  && "c_api_func_imports should be set in c_api");
         ret = wasm_runtime_invoke_c_api_native(
             (WASMModuleInstanceCommon *)module_inst, func_ptr, func_type, argc,
             argv, c_api_func_import->with_env_arg, c_api_func_import->env_arg);
