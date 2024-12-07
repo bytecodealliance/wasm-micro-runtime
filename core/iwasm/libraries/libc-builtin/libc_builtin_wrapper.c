@@ -1129,21 +1129,6 @@ get_spectest_export_apis(NativeSymbol **p_libc_builtin_apis)
  *************************************/
 
 static WASMNativeGlobalDef native_global_defs[] = {
-#if WASM_ENABLE_SPEC_TEST != 0
-    { "spectest", "global_i32", VALUE_TYPE_I32, false, .value.i32 = 666 },
-    { "spectest", "global_i64", VALUE_TYPE_I64, false, .value.i64 = 666 },
-    { "spectest", "global_f32", VALUE_TYPE_F32, false, .value.f32 = 666.6 },
-    { "spectest", "global_f64", VALUE_TYPE_F64, false, .value.f64 = 666.6 },
-    { "test", "global-i32", VALUE_TYPE_I32, false, .value.i32 = 0 },
-    { "test", "global-f32", VALUE_TYPE_F32, false, .value.f32 = 0 },
-    { "test", "global-mut-i32", VALUE_TYPE_I32, true, .value.i32 = 0 },
-    { "test", "global-mut-i64", VALUE_TYPE_I64, true, .value.i64 = 0 },
-    { "test", "g", VALUE_TYPE_I32, true, .value.i32 = 0 },
-#if WASM_ENABLE_GC != 0
-    { "G", "g", VALUE_TYPE_I32, false, .value.i32 = 4 },
-    { "M", "g", REF_TYPE_HT_NON_NULLABLE, false, .value.gc_obj = 0 },
-#endif
-#endif
     { "global", "NaN", VALUE_TYPE_F64, false,
       .value.u64 = 0x7FF8000000000000LL },
     { "global", "Infinity", VALUE_TYPE_F64, false,
@@ -1176,3 +1161,15 @@ wasm_native_lookup_libc_builtin_global(const char *module_name,
 
     return false;
 }
+
+/*
+ * it is a workaround to fix undefined reference to
+ * `wasm_runtime_create_extern_inst_for_spec_test'
+ */
+#if defined(__NuttX__)
+
+#if WASM_ENABLE_SPEC_TEST != 0
+#include "./spec_test_builtin_wrapper.c"
+#endif
+
+#endif

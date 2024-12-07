@@ -2,6 +2,8 @@
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
+#ifndef _BUILTIN_WRAPPER_H_
+#define _BUILTIN_WRAPPER_H_
 
 #include "wasm_export.h"
 #include "../interpreter/wasm.h"
@@ -41,3 +43,5 @@ typedef struct WASMNativeMemoryDef {
     const char *module_name;
     const char *name;
 } WASMNativeMemoryDef;
+
+#endif
