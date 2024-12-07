@@ -1037,7 +1037,8 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
 
         memory_deinstantiate(memory);
 
-#if WASM_ENABLE_MULTI_MODULE == 0 && WASM_ENABLE_SHARED_MEMORY != 0
+#if WASM_ENABLE_MULTI_MODULE == 0
+#if WASM_ENABLE_SHARED_MEMORY != 0
         /* for spawned only */
         if (!shared_memory_is_shared(memory)) {
             continue;
@@ -1046,7 +1047,10 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
         if (shared_memory_get_reference(memory) == 0) {
             wasm_runtime_free(memory);
         }
+#else
+        wasm_runtime_free(memory);
 #endif
+#endif /* WASM_ENABLE_MULTI_MODULE == 0 */
     }
 
     for (; mem_index < module->memory_count; mem_index++) {
