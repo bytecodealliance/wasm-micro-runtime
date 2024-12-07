@@ -2144,9 +2144,11 @@ load_import_globals(const uint8 **p_buf, const uint8 *buf_end,
     AOTImportGlobal *import_globals;
     uint64 size;
     uint32 i, data_offset = 0;
+#if WASM_ENABLE_MULTI_MODULE != 0
 #if WASM_ENABLE_LIBC_BUILTIN != 0
     WASMGlobalImport tmp_global;
 #endif
+#endif /* WASM_ENABLE_MULTI_MODULE != 0 */
 
     /* Allocate memory */
     size = sizeof(AOTImportGlobal) * (uint64)module->import_global_count;
@@ -2167,6 +2169,7 @@ load_import_globals(const uint8 **p_buf, const uint8 *buf_end,
             return false;
         }
 
+#if WASM_ENABLE_MULTI_MODULE != 0
 #if WASM_ENABLE_LIBC_BUILTIN != 0
         if (wasm_native_lookup_libc_builtin_global(
                 import_globals[i].module_name, import_globals[i].global_name,
@@ -2182,9 +2185,12 @@ load_import_globals(const uint8 **p_buf, const uint8 *buf_end,
                 tmp_global.global_data_linked;
             import_globals[i].is_linked = true;
         }
-#else
-        import_globals[i].is_linked = false;
+        else
 #endif
+#endif /* WASM_ENABLE_MULTI_MODULE != 0 */
+        {
+            import_globals[i].is_linked = false;
+        }
 
         import_globals[i].size =
             wasm_value_type_size(import_globals[i].type.val_type);

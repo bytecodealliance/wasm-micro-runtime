@@ -101,6 +101,7 @@ main(int argc, char *argv_main[])
 destroy_inst:
     wasm_runtime_deinstantiate(inst);
 destroy_table:
+    /*TODO: fix me after merging the optimization of wasm_table_ins_t */
     wasm_runtime_destroy_table(module, table);
 unload_module:
     wasm_runtime_unload(module);

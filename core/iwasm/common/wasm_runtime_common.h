@@ -1230,6 +1230,19 @@ wasm_runtime_get_extern_instance(const WASMExternInstance *imports,
                                  uint32 import_count,
                                  wasm_import_export_kind_t kind, uint32 index);
 
+struct WASMGlobalInstance *
+wasm_runtime_create_global_internal(wasm_module_t const module,
+                                    wasm_module_inst_t dep_inst,
+                                    wasm_global_type_t type);
+
+void
+wasm_runtime_set_global_value(wasm_module_t const module,
+                              wasm_global_inst_t global, WASMValue *value);
+
+struct WASMTableInstance *
+wasm_runtime_create_table_internal(WASMModuleCommon *const module,
+                                   WASMTableType *const type);
+
 #ifdef __cplusplus
 }
 #endif
