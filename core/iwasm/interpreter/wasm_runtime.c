@@ -296,8 +296,7 @@ memories_deinstantiate(WASMModuleInstance *module_inst)
 #else
         wasm_runtime_free(memory);
 #endif
-#endif
-        (void)memory;
+#endif /* WASM_ENABLE_MULTI_MODULE == 0 */
     }
 
     for (; mem_index < module->memory_count; mem_index++) {

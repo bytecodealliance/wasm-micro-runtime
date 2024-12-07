@@ -8163,6 +8163,7 @@ wasm_runtime_create_imports_with_builtin(WASMModuleCommon *module,
 
         WASMExternInstance *extern_instance = out + i;
 
+#if WASM_ENABLE_LIBC_BUILTIN != 0
 #if WASM_ENABLE_SPEC_TEST != 0
         if (!wasm_runtime_create_extern_inst_for_spec_test(module, &import_type,
                                                            extern_instance)) {
@@ -8180,8 +8181,9 @@ wasm_runtime_create_imports_with_builtin(WASMModuleCommon *module,
             return false;
         }
 #endif
-
+#else
         (void)extern_instance;
+#endif
     }
 
     return true;
