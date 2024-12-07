@@ -14,7 +14,7 @@
  * Globals
  *************************************/
 
-static WASMNativeGlobalDef native_global_defs[] = {
+static WASMNativeGlobalDef spec_test_global_defs[] = {
     /* for standard spec test */
     { "spectest", "global_i32", VALUE_TYPE_I32, false, .value.i32 = 666 },
     { "spectest", "global_i64", VALUE_TYPE_I64, false, .value.i64 = 666 },
@@ -40,8 +40,8 @@ create_spec_test_global(wasm_module_t module, const char *module_name,
         return NULL;
     }
 
-    WASMNativeGlobalDef *global_def = native_global_defs;
-    uint32 size = sizeof(native_global_defs) / sizeof(WASMNativeGlobalDef);
+    WASMNativeGlobalDef *global_def = spec_test_global_defs;
+    uint32 size = sizeof(spec_test_global_defs) / sizeof(WASMNativeGlobalDef);
     WASMNativeGlobalDef *global_def_end = global_def + size;
     for (; global_def < global_def_end; global_def++) {
         if (strcmp(global_def->module_name, module_name) != 0) {
