@@ -33,7 +33,8 @@ function try_generate_wasm()
 
     local try_i=0
     until [[ -f $GENERATED_WASM_NAME ]]; do
-        head -c 100 /dev/urandom | wasm-tools smith $SMITH_OPTIONS -o $GENERATED_WASM_NAME  >/dev/null 2>&1
+        # Larger input seeds tend to generate larger WebAssembly modules. (256KB)
+        head -c 262144 /dev/urandom | wasm-tools smith $SMITH_OPTIONS -o $GENERATED_WASM_NAME  >/dev/null 2>&1
         try_i=$((try_i+1))
     done
 
