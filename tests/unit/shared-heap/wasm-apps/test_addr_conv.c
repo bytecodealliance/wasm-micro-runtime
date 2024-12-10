@@ -9,26 +9,24 @@ extern void *
 shared_heap_malloc(int size);
 extern void
 shared_heap_free(void *offset);
+extern void *
+test_addr_conv(void *ptr);
 
 int
 test()
 {
-    int *ptr = (int *)shared_heap_malloc(4);
+    int *ptr = NULL;
+    int *ptr2 = NULL;
 
-    *ptr = 10;
-    int a = *ptr;
-    shared_heap_free(ptr);
-    return a;
-}
-
-int
-test_malloc_fail()
-{
-    int *ptr = (int *)shared_heap_malloc(8192);
+    ptr = (int *)shared_heap_malloc(4);
 
     if (ptr == NULL) {
-        return 1;
+        return 0;
+    }
+    ptr2 = test_addr_conv(ptr);
+    if (ptr2 != ptr) {
+        return 0;
     }
     shared_heap_free(ptr);
-    return 0;
+    return 1;
 }

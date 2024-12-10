@@ -3631,8 +3631,14 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
 
         bh_memcpy_s(mapping_copy, max_len, map_dir_list[i],
                     (uint32)(strlen(map_dir_list[i]) + 1));
-        map_mapped = strtok(mapping_copy, "::");
-        map_host = strtok(NULL, "::");
+
+        const char *delim = "::";
+        char *delim_pos = strstr(mapping_copy, delim);
+        if (delim_pos) {
+            *delim_pos = '\0';
+            map_mapped = mapping_copy;
+            map_host = delim_pos + strlen(delim);
+        }
 
         if (!map_mapped || !map_host) {
             if (error_buf)
