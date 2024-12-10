@@ -7842,27 +7842,13 @@ wasm_runtime_create_table(WASMModuleCommon *const module,
 
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode) {
-        WASMTableInstance *wasm_table =
-            wasm_create_table((WASMModule *)module, type);
-        if (!wasm_table) {
-            wasm_runtime_free(wasm_table);
-            return NULL;
-        }
-
-        return wasm_table;
+        return wasm_create_table((WASMModule *)module, type);
     }
 #endif
 
 #if WASM_ENABLE_AOT != 0
     if (module->module_type == Wasm_Module_AoT) {
-        AOTTableInstance *aot_table =
-            aot_create_table((AOTModule *)module, type);
-        if (!aot_table) {
-            wasm_runtime_free(aot_table);
-            return NULL;
-        }
-
-        return aot_table;
+        return aot_create_table((AOTModule *)module, type);
     }
 #endif
 

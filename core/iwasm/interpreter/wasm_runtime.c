@@ -285,8 +285,8 @@ memories_deinstantiate(WASMModuleInstance *module_inst)
 
 #if WASM_ENABLE_MULTI_MODULE == 0
 #if WASM_ENABLE_SHARED_MEMORY != 0
-        /* for spawned only */
         if (!shared_memory_is_shared(memory)) {
+            wasm_runtime_free(memory);
             continue;
         }
 
