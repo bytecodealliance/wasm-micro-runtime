@@ -132,9 +132,14 @@ fdopendir(int fd);
 void
 os_set_signal_number_for_blocking_op(int signo);
 
+/* The below types are used in platform_api_extension.h,
+   we just define them to make the compiler happy */
 typedef int os_file_handle;
 typedef DIR *os_dir_stream;
 typedef int os_raw_file_handle;
+typedef struct pollfd os_poll_file_handle;
+typedef nfds_t os_nfds_t;
+typedef struct timespec os_timespec;
 
 static inline os_file_handle
 os_get_invalid_handle(void)
