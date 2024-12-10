@@ -725,6 +725,7 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 #if WASM_ENABLE_GC != 0
         table->elem_ref_type.elem_ref_type = table_type->elem_ref_type;
 #endif
+        table->is_table64 = table_type->flags & TABLE64_FLAG;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
         /* Set all elements to -1 or NULL_REF to mark them as uninitialized
@@ -788,6 +789,7 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 #if WASM_ENABLE_GC != 0
         table->elem_ref_type.elem_ref_type = table_type->elem_ref_type;
 #endif
+        table->is_table64 = table_type->flags & TABLE64_FLAG;
 
         /* Set all elements to -1 or NULL_REF to mark them as uninitialized
          * elements */
@@ -951,15 +953,20 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
 
         memory_deinstantiate(memory);
 
-#if WASM_ENABLE_MULTI_MODULE == 0 && WASM_ENABLE_SHARED_MEMORY != 0
+#if WASM_ENABLE_MULTI_MODULE == 0
+#if WASM_ENABLE_SHARED_MEMORY != 0
         /* for spawned only */
         if (!shared_memory_is_shared(memory)) {
+            wasm_runtime_free(memory);
             continue;
         }
 
         if (shared_memory_get_reference(memory) == 0) {
             wasm_runtime_free(memory);
         }
+#else
+        wasm_runtime_free(memory);
+#endif
 #endif
     }
 
@@ -1290,8 +1297,8 @@ memories_instantiate(const AOTModule *module, AOTModuleInstance *module_inst,
 #endif
         /*
          *TODO:
-         * - either memories[x] points to an external AOTMemoryInstance.
-         * - or memories[x] points to an internal AOTMemoryInstance in
+         * - either memories[x] points to an external WASM/AOTMemoryInstance.
+         * - or memories[x] points to an internal WASM/AOTMemoryInstance in
          *   global_table_data
          *
          * the first case is simple for maintaining resource management

@@ -274,6 +274,7 @@ memories_deinstantiate(WASMModuleInstance *module_inst)
     WASMMemoryInstance **memories = module_inst->memories;
     for (; mem_index < module->import_memory_count; mem_index++) {
         WASMMemoryInstance *memory = memories[mem_index];
+
 #if WASM_ENABLE_MULTI_MODULE != 0
         if (module->import_memories[mem_index].u.memory.import_module) {
             continue;
@@ -282,16 +283,21 @@ memories_deinstantiate(WASMModuleInstance *module_inst)
         memory_deinstantiate(memory);
 #endif
 
-#if WASM_ENABLE_MULTI_MODULE == 0 && WASM_ENABLE_SHARED_MEMORY != 0
-        /* for spawned only */
+#if WASM_ENABLE_MULTI_MODULE == 0
+#if WASM_ENABLE_SHARED_MEMORY != 0
         if (!shared_memory_is_shared(memory)) {
+            wasm_runtime_free(memory);
             continue;
         }
 
         if (shared_memory_get_reference(memory) == 0) {
             wasm_runtime_free(memory);
         }
+#else
+        wasm_runtime_free(memory);
 #endif
+#endif
+        (void)memory;
     }
 
     for (; mem_index < module->memory_count; mem_index++) {
@@ -635,8 +641,8 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 #endif
         /*
          *TODO:
-         * - either memories[x] points to an external AOTMemoryInstance.
-         * - or memories[x] points to an internal AOTMemoryInstance in
+         * - either memories[x] points to an external WASM/AOTMemoryInstance.
+         * - or memories[x] points to an internal WASM/AOTMemoryInstance in
          *   global_table_data
          *
          * the first case is simple for maintaining resource management
@@ -5308,7 +5314,7 @@ wasm_inherit_imports(WASMModule *module, WASMModuleInstance *inst,
         }
         /*TODO: shared_table, shared_global ?*/
         else {
-            LOG_WARNING("for spawned, inherit() import(%s,%s) kind %d",
+            LOG_WARNING("for spawned, skip inherit() import(%s,%s) kind %d",
                         import_type.module_name, import_type.name,
                         import_type.kind);
         }
