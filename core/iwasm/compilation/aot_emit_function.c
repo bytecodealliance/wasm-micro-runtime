@@ -1832,6 +1832,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 aot_set_last_error("llvm build load failed.");
                 goto fail;
             }
+            LLVMSetAlignment(ext_ret, 4);
             PUSH(ext_ret, ext_ret_types[i]);
         }
     }
