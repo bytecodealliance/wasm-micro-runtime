@@ -8,7 +8,7 @@ if(ESP_PLATFORM)
   return()
 endif()
 
-project (iwasm)
+project (iwasm LANGUAGES C)
 
 set (CMAKE_VERBOSE_MAKEFILE OFF)
 
