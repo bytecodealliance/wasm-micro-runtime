@@ -5298,7 +5298,7 @@ calculate_global_data_offset(WASMModule *module)
         data_offset += wasm_value_type_size(global->type.val_type);
     }
 
-    module->global_data_size = data_offset;
+    module->global_data_size = wasm_pointer_align(data_offset);
 }
 
 #if WASM_ENABLE_FAST_JIT != 0
@@ -10901,6 +10901,9 @@ DEFINE_GOTO_TABLE(const char *, op_mnemonics);
 #undef HANDLE_OPCODE
 #endif
 
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((no_sanitize("undefined")))
+#endif
 static bool
 wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
                              uint32 cur_func_idx, char *error_buf,
