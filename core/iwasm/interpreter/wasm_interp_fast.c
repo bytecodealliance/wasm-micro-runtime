@@ -1450,19 +1450,6 @@ wasm_interp_dump_op_count()
 static void **global_handle_table;
 #endif
 
-static inline uint8 *
-get_global_addr(uint8 *global_data, WASMGlobalInstance *global)
-{
-#if WASM_ENABLE_MULTI_MODULE == 0
-    return global_data + global->data_offset;
-#else
-    return global->import_global_inst
-               ? global->import_module_inst->global_data
-                     + global->import_global_inst->data_offset
-               : global_data + global->data_offset;
-#endif
-}
-
 static void
 wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                WASMExecEnv *exec_env,
