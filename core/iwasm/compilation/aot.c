@@ -36,8 +36,11 @@ aot_destroy_mem_init_data_list(AOTMemInitData **data_list, uint32 count)
 {
     uint32 i;
     for (i = 0; i < count; i++)
-        if (data_list[i])
+        if (data_list[i]) {
+            if (data_list[i]->bytes)
+                wasm_runtime_free(data_list[i]->bytes);
             wasm_runtime_free(data_list[i]);
+        }
     wasm_runtime_free(data_list);
 }
 
@@ -60,8 +63,7 @@ aot_create_mem_init_data_list(const WASMModule *module)
 
     /* Create each memory data segment */
     for (i = 0; i < module->data_seg_count; i++) {
-        size = offsetof(AOTMemInitData, bytes)
-               + (uint64)module->data_segments[i]->data_length;
+        size = sizeof(AOTMemInitData);
         if (size >= UINT32_MAX
             || !(data_list[i] = wasm_runtime_malloc((uint32)size))) {
             aot_set_last_error("allocate memory failed.");
@@ -69,18 +71,31 @@ aot_create_mem_init_data_list(const WASMModule *module)
         }
 
 #if WASM_ENABLE_BULK_MEMORY != 0
+        /* Set bulk memory specific properties if enabled */
         data_list[i]->is_passive = module->data_segments[i]->is_passive;
         data_list[i]->memory_index = module->data_segments[i]->memory_index;
 #endif
         data_list[i]->offset = module->data_segments[i]->base_offset;
         data_list[i]->byte_count = module->data_segments[i]->data_length;
-        memcpy(data_list[i]->bytes, module->data_segments[i]->data,
-               module->data_segments[i]->data_length);
+        data_list[i]->bytes = NULL;
+        /* Allocate memory for AOT compiler is OK, because the data segment
+         * is small and the host memory is enough */
+        if (data_list[i]->byte_count > 0) {
+            data_list[i]->bytes = wasm_runtime_malloc(data_list[i]->byte_count);
+            if (!data_list[i]->bytes) {
+                aot_set_last_error("allocate memory failed.");
+                goto fail;
+            }
+            /* Copy the actual data bytes from the WASM module */
+            memcpy(data_list[i]->bytes, module->data_segments[i]->data,
+                   module->data_segments[i]->data_length);
+        }
     }
 
     return data_list;
 
 fail:
+    /* Clean up allocated memory in case of failure */
     aot_destroy_mem_init_data_list(data_list, module->data_seg_count);
     return NULL;
 }
