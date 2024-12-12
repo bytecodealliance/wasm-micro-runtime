@@ -8065,7 +8065,6 @@ wasm_runtime_instantiate_with_builtin_linker(WASMModuleCommon *module,
      *
      * WASModuleInstance->tables[i].elems takes
      * the ownership of WASMExternInstance->u.table as WASMTableInstance
-     * BUT, there is a shell table wasm_table_inst_t
      *
      * WASMModuleInstance->e->globals[i] copies the content of
      * WASMExternInstance->u.global
@@ -8074,10 +8073,6 @@ wasm_runtime_instantiate_with_builtin_linker(WASMModuleCommon *module,
         for (uint32 i = 0; i < import_count; i++) {
             if (imports[i].kind == WASM_IMPORT_EXPORT_KIND_GLOBAL) {
                 wasm_runtime_destroy_global(module, imports[i].u.global);
-            }
-            /* FIXME: with reusing WASMTableInstance */
-            if (imports[i].kind == WASM_IMPORT_EXPORT_KIND_TABLE) {
-                wasm_runtime_free(imports[i].u.table);
             }
         }
 
