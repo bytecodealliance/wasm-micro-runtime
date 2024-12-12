@@ -968,12 +968,16 @@ destroy_import_memories(AOTImportMemory *import_memories)
 }
 
 static void
-destroy_mem_init_data_list(AOTMemInitData **data_list, uint32 count)
+destroy_mem_init_data_list(AOTModule *module, AOTMemInitData **data_list,
+                           uint32 count)
 {
     uint32 i;
     for (i = 0; i < count; i++)
-        if (data_list[i])
+        if (data_list[i]) {
+            if (module->is_binary_freeable && data_list[i]->bytes)
+                wasm_runtime_free(data_list[i]->bytes);
             wasm_runtime_free(data_list[i]);
+        }
     wasm_runtime_free(data_list);
 }
 
@@ -1013,8 +1017,8 @@ load_mem_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
             return false;
         }
         read_uint32(buf, buf_end, byte_count);
-        size = offsetof(AOTMemInitData, bytes) + (uint64)byte_count;
-        if (!(data_list[i] = loader_malloc(size, error_buf, error_buf_size))) {
+        if (!(data_list[i] = loader_malloc(sizeof(AOTMemInitData), error_buf,
+                                           error_buf_size))) {
             return false;
         }
 
@@ -1026,8 +1030,21 @@ load_mem_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
         data_list[i]->offset.init_expr_type = init_value.init_expr_type;
         data_list[i]->offset.u = init_value.u;
         data_list[i]->byte_count = byte_count;
-        read_byte_array(buf, buf_end, data_list[i]->bytes,
-                        data_list[i]->byte_count);
+        data_list[i]->bytes = NULL;
+        if (module->is_binary_freeable) {
+            if (byte_count > 0) {
+                if (!(data_list[i]->bytes = loader_malloc(byte_count, error_buf,
+                                                          error_buf_size))) {
+                    return false;
+                }
+                read_byte_array(buf, buf_end, data_list[i]->bytes,
+                                data_list[i]->byte_count);
+            }
+        }
+        else {
+            data_list[i]->bytes = (uint8 *)buf;
+            buf += byte_count;
+        }
     }
 
     *p_buf = buf;
@@ -4356,7 +4373,7 @@ aot_unload(AOTModule *module)
         wasm_runtime_free(module->memories);
 
     if (module->mem_init_data_list)
-        destroy_mem_init_data_list(module->mem_init_data_list,
+        destroy_mem_init_data_list(module, module->mem_init_data_list,
                                    module->mem_init_data_count);
 
     if (module->native_symbol_list)
