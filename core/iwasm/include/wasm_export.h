@@ -23,6 +23,8 @@
 #else
 #define WASM_RUNTIME_API_EXTERN __declspec(dllimport)
 #endif
+#elif defined(__GNUC__) || defined(__clang__)
+#define WASM_RUNTIME_API_EXTERN __attribute__((visibility("default")))
 #else
 #define WASM_RUNTIME_API_EXTERN
 #endif
