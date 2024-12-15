@@ -27,7 +27,7 @@ LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size)
     wasm_module_t module =
         wasm_runtime_load((uint8_t *)myData.data(), Size, error_buf, 120);
     if (!module) {
-        std::cout << "loading failed. " << error_buf << std::endl;
+        std::cout << "[LOADING] " << error_buf << std::endl;
         wasm_runtime_destroy();
         /* return SUCCESS because the failure has been handled */
         return 0;
@@ -36,12 +36,14 @@ LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size)
     wasm_module_inst_t inst = wasm_runtime_instantiate(
         module, 8 * 1024 * 1024, 16 * 1024 * 1024, error_buf, 120);
     if (!inst) {
-        std::cout << "instantiate failed. " << error_buf << std::endl;
+        std::cout << "[INSTANTIATE] " << error_buf << std::endl;
         wasm_runtime_unload(module);
         wasm_runtime_destroy();
         /* return SUCCESS because the failure has been handled */
         return 0;
     }
+
+    std::cout << "PASS" << std::endl;
 
     wasm_runtime_deinstantiate(inst);
     wasm_runtime_unload(module);
