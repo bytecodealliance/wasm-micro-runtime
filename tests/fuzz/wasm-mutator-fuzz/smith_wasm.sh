@@ -42,6 +42,7 @@ function try_generate_wasm()
 }
 
 WASM_SHAPE=" --allow-invalid-funcs true \
+--export-everything true \
 --generate-custom-sections true \
 --min-funcs 5 \
 --max-instructions 1024 \
