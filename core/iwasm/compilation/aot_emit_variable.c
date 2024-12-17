@@ -155,38 +155,51 @@ LLVMValueRef
 get_global_from_wasm_inst(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                           uint32 global_idx)
 {
-    /* WASMModuleInstance->e */
-    uint32 e_offset_val = offsetof(WASMModuleInstance, e);
-    LLVMValueRef e_offset = I32_CONST(e_offset_val);
-    LLVMValueRef e_ptr_u8 =
-        LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, func_ctx->aot_inst,
-                              &e_offset, 1, "e_ptr");
-    LLVMValueRef e_ptr =
-        LLVMBuildBitCast(comp_ctx->builder, e_ptr_u8, OPQ_PTR_TYPE, "e_ptr");
-    LLVMValueRef e =
-        LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE, e_ptr, "e");
+    /* WASMModuleInstance->e->globals */
+    uint32 e_offset_val = get_module_inst_extra_offset(comp_ctx);
+    uint32 globals_offset_val = e_offset_val;
+#if WASM_ENABLE_JIT != 0
+    if (comp_ctx->is_jit_mode)
+        globals_offset_val += offsetof(WASMModuleInstanceExtra, globals);
+    else
+#endif
+        globals_offset_val += offsetof(AOTModuleInstanceExtra, globals);
 
-    uint32 globals_offset_val;
-    if (comp_ctx->is_jit_mode) {
-        /* WASMModuleInstanceExtra->globals */
-        globals_offset_val = offsetof(WASMModuleInstanceExtra, globals);
-    }
-    else {
-        /* AOTModuleInstanceExtra->globals */
-        globals_offset_val = offsetof(AOTModuleInstanceExtra, globals);
-    }
     LLVMValueRef globals_offset = I32_CONST(globals_offset_val);
-    LLVMValueRef globals_ptr = LLVMBuildInBoundsGEP2(
-        comp_ctx->builder, INT8_TYPE, e, &globals_offset, 1, "globals_ptr");
+    if (!globals_offset) {
+        aot_set_last_error("I32_CONST failed for globals_offset");
+        return NULL;
+    }
+
+    LLVMValueRef globals_ptr =
+        LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, func_ctx->aot_inst,
+                              &globals_offset, 1, "globals_ptr");
+    if (!globals_ptr) {
+        aot_set_last_error("LLVMBuildInBoundsGEP2 failed for globals_ptr");
+        return NULL;
+    }
 
     LLVMValueRef globals =
         LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE, globals_ptr, "globals");
+    if (!globals) {
+        aot_set_last_error("LLVMBuildLoad2 failed for globals");
+        return NULL;
+    }
 
     /* WASMGlobalInstance[global_idx] */
     uint32 global_offset_val = global_idx * sizeof(WASMGlobalInstance);
     LLVMValueRef global_offset = I32_CONST(global_offset_val);
+    if (!global_offset) {
+        aot_set_last_error("I32_CONST failed for global_offset");
+        return NULL;
+    }
+
     LLVMValueRef global_ptr = LLVMBuildInBoundsGEP2(
         comp_ctx->builder, INT8_TYPE, globals, &global_offset, 1, "global_ptr");
+    if (!global_ptr) {
+        aot_set_last_error("LLVMBuildInBoundsGEP2 failed for global_ptr");
+        return NULL;
+    }
 
     return global_ptr;
 }
@@ -198,27 +211,65 @@ get_global_value_addr(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* WASMGlobalInstance[global_idx] */
     LLVMValueRef global_ptr =
         get_global_from_wasm_inst(comp_ctx, func_ctx, global_idx);
+    if (!global_ptr) {
+        aot_set_last_error("get_global_from_wasm_inst failed");
+        return NULL;
+    }
 
     /* WASMGlobalInstance->import_module_inst */
     uint32 import_inst_offset_val =
         offsetof(WASMGlobalInstance, import_module_inst);
     LLVMValueRef import_inst_offset = I32_CONST(import_inst_offset_val);
+    if (!import_inst_offset) {
+        aot_set_last_error("I32_CONST failed for import_inst_offset");
+        return NULL;
+    }
+
     LLVMValueRef import_inst_ptr_u8 =
         LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, global_ptr,
                               &import_inst_offset, 1, "import_inst_u8_ptr");
+    if (!import_inst_ptr_u8) {
+        aot_set_last_error(
+            "LLVMBuildInBoundsGEP2 failed for import_inst_ptr_u8");
+        return NULL;
+    }
+
     LLVMValueRef import_inst_ptr = LLVMBuildBitCast(
         comp_ctx->builder, import_inst_ptr_u8, OPQ_PTR_TYPE, "import_inst_ptr");
+    if (!import_inst_ptr) {
+        aot_set_last_error("LLVMBuildBitCast failed for import_inst_ptr");
+        return NULL;
+    }
+
     LLVMValueRef import_inst = LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE,
                                               import_inst_ptr, "import_inst");
+    if (!import_inst) {
+        aot_set_last_error("LLVMBuildLoad2 failed for import_inst");
+        return NULL;
+    }
 
     /* WASMGlobalInstance->data_offset */
     uint32 data_offset_offset_val = offsetof(WASMGlobalInstance, data_offset);
     LLVMValueRef data_offset_offset = I32_CONST(data_offset_offset_val);
+    if (!data_offset_offset) {
+        aot_set_last_error("I32_CONST failed for data_offset_offset");
+        return NULL;
+    }
+
     LLVMValueRef data_offset_ptr =
         LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, global_ptr,
                               &data_offset_offset, 1, "data_offset_ptr");
+    if (!data_offset_ptr) {
+        aot_set_last_error("LLVMBuildInBoundsGEP2 failed for data_offset_ptr");
+        return NULL;
+    }
+
     LLVMValueRef data_offset = LLVMBuildLoad2(comp_ctx->builder, I32_TYPE,
                                               data_offset_ptr, "data_offset");
+    if (!data_offset) {
+        aot_set_last_error("LLVMBuildLoad2 failed for data_offset");
+        return NULL;
+    }
 
     /* WASMModuleInstance->global_data preparation */
     uint32 global_data_offset_val =
@@ -227,18 +278,44 @@ get_global_value_addr(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
               * (comp_ctx->comp_data->memory_count
                  + comp_ctx->comp_data->import_memory_count);
     LLVMValueRef global_data_offset = I32_CONST(global_data_offset_val);
+    if (!global_data_offset) {
+        aot_set_last_error("I32_CONST failed for global_data_offset");
+        return NULL;
+    }
 
     // Check if import_module_inst is NULL
     LLVMBasicBlockRef then_block = LLVMAppendBasicBlockInContext(
         comp_ctx->context, func_ctx->func, "then");
+    if (!then_block) {
+        aot_set_last_error(
+            "LLVMAppendBasicBlockInContext failed for then_block");
+        return NULL;
+    }
+
     LLVMBasicBlockRef else_block = LLVMAppendBasicBlockInContext(
         comp_ctx->context, func_ctx->func, "else");
+    if (!else_block) {
+        aot_set_last_error(
+            "LLVMAppendBasicBlockInContext failed for else_block");
+        return NULL;
+    }
+
     LLVMBasicBlockRef merge_block = LLVMAppendBasicBlockInContext(
         comp_ctx->context, func_ctx->func, "merge");
+    if (!merge_block) {
+        aot_set_last_error(
+            "LLVMAppendBasicBlockInContext failed for merge_block");
+        return NULL;
+    }
 
-    LLVMBuildCondBr(comp_ctx->builder,
-                    LLVMBuildIsNull(comp_ctx->builder, import_inst, "is_null"),
-                    then_block, else_block);
+    LLVMValueRef terminator = LLVMBuildCondBr(
+        comp_ctx->builder,
+        LLVMBuildIsNull(comp_ctx->builder, import_inst, "is_null"), then_block,
+        else_block);
+    if (!terminator) {
+        aot_set_last_error("LLVMBuildCondBr failed");
+        return NULL;
+    }
 
     // If import_module_inst is NULL
     LLVMPositionBuilderAtEnd(comp_ctx->builder, then_block);
@@ -246,12 +323,27 @@ get_global_value_addr(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef local_global_data =
         LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, func_ctx->aot_inst,
                               &global_data_offset, 1, "local_global_data");
+    if (!local_global_data) {
+        aot_set_last_error(
+            "LLVMBuildInBoundsGEP2 failed for local_global_data");
+        return NULL;
+    }
+
     // global value pointer
     LLVMValueRef local_global_value_ptr =
         LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, local_global_data,
                               &data_offset, 1, "local_global_value_ptr");
+    if (!local_global_value_ptr) {
+        aot_set_last_error(
+            "LLVMBuildInBoundsGEP2 failed for local_global_value_ptr");
+        return NULL;
+    }
 
-    LLVMBuildBr(comp_ctx->builder, merge_block);
+    terminator = LLVMBuildBr(comp_ctx->builder, merge_block);
+    if (!terminator) {
+        aot_set_last_error("LLVMBuildBr failed");
+        return NULL;
+    }
 
     // If import_module_inst is not NULL
     LLVMPositionBuilderAtEnd(comp_ctx->builder, else_block);
@@ -259,17 +351,36 @@ get_global_value_addr(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef import_global_data =
         LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, import_inst,
                               &global_data_offset, 1, "import_global_data");
+    if (!import_global_data) {
+        aot_set_last_error(
+            "LLVMBuildInBoundsGEP2 failed for import_global_data");
+        return NULL;
+    }
 
     LLVMValueRef import_global_value_ptr =
         LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, import_global_data,
                               &data_offset, 1, "import_global_value_ptr");
+    if (!import_global_value_ptr) {
+        aot_set_last_error(
+            "LLVMBuildInBoundsGEP2 failed for import_global_value_ptr");
+        return NULL;
+    }
 
-    LLVMBuildBr(comp_ctx->builder, merge_block);
+    terminator = LLVMBuildBr(comp_ctx->builder, merge_block);
+    if (!terminator) {
+        aot_set_last_error("LLVMBuildBr failed");
+        return NULL;
+    }
 
     // Merge block
     LLVMPositionBuilderAtEnd(comp_ctx->builder, merge_block);
     LLVMValueRef phi =
         LLVMBuildPhi(comp_ctx->builder, OPQ_PTR_TYPE, "global_value_addr");
+    if (!phi) {
+        aot_set_last_error("LLVMBuildPhi failed for global_value_addr");
+        return NULL;
+    }
+
     LLVMAddIncoming(phi, &local_global_value_ptr, &then_block, 1);
     LLVMAddIncoming(phi, &import_global_value_ptr, &else_block, 1);
 

@@ -60,6 +60,7 @@ bh_static_assert(offsetof(AOTModuleInstanceExtra, stack_sizes) == 0);
 bh_static_assert(offsetof(AOTModuleInstanceExtra, shared_heap_base_addr_adj)
                  == 8);
 bh_static_assert(offsetof(AOTModuleInstanceExtra, shared_heap_start_off) == 16);
+bh_static_assert(offsetof(AOTModuleInstanceExtra, globals) == 24);
 
 bh_static_assert(sizeof(CApiFuncImport) == sizeof(uintptr_t) * 3);
 
@@ -79,6 +80,14 @@ bh_static_assert(offsetof(AOTFrame, lp) == sizeof(uintptr_t) * 7);
 bh_static_assert(offsetof(AOTTinyFrame, func_index) == sizeof(uint32) * 0);
 bh_static_assert(offsetof(AOTTinyFrame, ip_offset) == sizeof(uint32) * 1);
 bh_static_assert(sizeof(AOTTinyFrame) == sizeof(uint32) * 2);
+
+bh_static_assert(offsetof(AOTGlobalInstance, initial_value) == 8);
+bh_static_assert(offsetof(AOTGlobalInstance, import_module_inst)
+                 == 8 + sizeof(WASMValue));
+bh_static_assert(offsetof(AOTGlobalInstance, import_global_inst)
+                 == 8 + sizeof(WASMValue) + sizeof(uintptr_t));
+bh_static_assert(offsetof(AOTGlobalInstance, ref_type)
+                 == 8 + sizeof(WASMValue) + sizeof(uintptr_t) * 2);
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
