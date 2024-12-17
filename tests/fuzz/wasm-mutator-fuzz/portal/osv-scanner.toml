@@ -50,3 +50,10 @@ name = "vite"
 ecosystem = "npm"
 ignore = true
 reason = "Development server not exposed to untrusted networks"
+
+# GHSA-mwcw-c2x4-8c55
+[[PackageOverrides]]
+name = "nanoid"
+ecosystem = "npm"
+ignore = true
+reason = "Accepted known vulnerabilities for testing purposes"
