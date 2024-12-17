@@ -85,9 +85,9 @@ bh_static_assert(offsetof(AOTGlobalInstance, initial_value) == 8);
 bh_static_assert(offsetof(AOTGlobalInstance, import_module_inst)
                  == 8 + sizeof(WASMValue));
 bh_static_assert(offsetof(AOTGlobalInstance, import_global_inst)
-                 == 8 + sizeof(WASMValue) + sizeof(uintptr_t));
+                 == 8 + sizeof(WASMValue) + 8);
 bh_static_assert(offsetof(AOTGlobalInstance, ref_type)
-                 == 8 + sizeof(WASMValue) + sizeof(uintptr_t) * 2);
+                 == 8 + sizeof(WASMValue) + 16);
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)

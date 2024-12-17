@@ -73,8 +73,7 @@ static WASMNativeTableDef builtin_table_defs[] = {
     { "spectest", "table64", VALUE_TYPE_FUNCREF },
 };
 
-/*TODO: fix me*/
-static wasm_table_inst_t *
+static wasm_table_inst_t
 create_spec_test_table(wasm_module_t module, const char *module_name,
                        const char *name, wasm_table_type_t type)
 {
