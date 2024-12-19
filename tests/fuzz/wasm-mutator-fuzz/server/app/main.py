@@ -56,7 +56,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 
-app.secret_key = "hwhefsewljfejrlesjfl"
+app.secret_key = os.urandom(12).hex()
 
 db = SQLAlchemy(app)
 
