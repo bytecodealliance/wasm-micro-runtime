@@ -296,8 +296,7 @@ memories_deinstantiate(WASMModuleInstance *module_inst)
 #else
         wasm_runtime_free(memory);
 #endif
-#endif
-        (void)memory;
+#endif /* WASM_ENABLE_MULTI_MODULE == 0 */
     }
 
     for (; mem_index < module->memory_count; mem_index++) {
@@ -772,8 +771,10 @@ tables_deinstantiate(WASMModuleInstance *module_inst)
     }
 #endif
 
-    wasm_runtime_free(module_inst->tables);
-    module_inst->tables = NULL;
+    if (module_inst->tables) {
+        wasm_runtime_free(module_inst->tables);
+        module_inst->tables = NULL;
+    }
 }
 
 /**
@@ -1265,7 +1266,7 @@ instantiate_struct_global_recursive(WASMModule *module,
                         (WASMStructNewInitValues *)wasm_value->data;
                     WASMStructObjectRef field =
                         instantiate_struct_global_recursive(
-                            module, module_inst, heap_type,
+                            module, module_inst, (uint32)heap_type,
                             init_values1 ? INIT_EXPR_TYPE_STRUCT_NEW
                                          : INIT_EXPR_TYPE_STRUCT_NEW_DEFAULT,
                             init_values1, error_buf, error_buf_size);
@@ -1370,6 +1371,7 @@ instantiate_array_global_recursive(WASMModule *module,
  */
 static WASMGlobalInstance *
 globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
+                    const WASMExternInstance *imports, uint32 import_count,
                     char *error_buf, uint32 error_buf_size)
 {
     WASMImport *import;
@@ -1385,66 +1387,99 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
     /* instantiate globals from import section */
     global = globals;
     import = module->import_globals;
-    for (i = 0; i < module->import_global_count; i++, import++) {
-        WASMGlobalImport *global_import = &import->u.global;
-        global->type = global_import->type.val_type;
-        global->is_mutable = global_import->type.is_mutable;
+    for (i = 0; i < module->import_global_count; i++, import++, global++) {
+        WASMGlobalImport *import_global_type = &import->u.global;
+
+        global->type = import_global_type->type.val_type;
+        global->is_mutable = import_global_type->type.is_mutable;
 #if WASM_ENABLE_GC != 0
-        global->ref_type = global_import->ref_type;
+        global->ref_type = import_global_type->ref_type;
 #endif
+#if WASM_ENABLE_FAST_JIT != 0
+        bh_assert(global_data_offset == import_global_type->data_offset);
+#endif
+        global->data_offset = global_data_offset;
+        global_data_offset += wasm_value_type_size(global->type);
+
 #if WASM_ENABLE_MULTI_MODULE != 0
-        if (global_import->import_module) {
+        if (import_global_type->import_module) {
             if (!(global->import_module_inst = get_sub_module_inst(
-                      module_inst, global_import->import_module))) {
+                      module_inst, import_global_type->import_module))) {
                 set_error_buf(error_buf, error_buf_size, "unknown global");
                 goto fail;
             }
 
-            if (!(global->import_global_inst = wasm_lookup_global(
-                      global->import_module_inst, global_import->field_name))) {
+            if (!(global->import_global_inst =
+                      wasm_lookup_global(global->import_module_inst,
+                                         import_global_type->field_name))) {
                 set_error_buf(error_buf, error_buf_size, "unknown global");
                 goto fail;
             }
 
             /* The linked global instance has been initialized, we
                just need to copy the value. */
-            bh_memcpy_s(&(global->initial_value), sizeof(WASMValue),
-                        &(global_import->import_global_linked->init_expr.u),
-                        sizeof(WASMValue));
+            bh_memcpy_s(
+                &(global->initial_value), sizeof(WASMValue),
+                &(import_global_type->import_global_linked->init_expr.u),
+                sizeof(WASMValue));
         }
-        else
-#endif
-        {
+#if WASM_ENABLE_LIBC_BUILTIN != 0
+        else {
             /* native globals share their initial_values in one module */
             bh_memcpy_s(&(global->initial_value), sizeof(WASMValue),
-                        &(global_import->global_data_linked),
+                        &(import_global_type->global_data_linked),
                         sizeof(WASMValue));
         }
-#if WASM_ENABLE_FAST_JIT != 0
-        bh_assert(global_data_offset == global_import->data_offset);
 #endif
-        global->data_offset = global_data_offset;
-        global_data_offset += wasm_value_type_size(global->type);
 
-        global++;
+#else
+
+        /* refer to the imported global */
+        const WASMExternInstance *extern_inst =
+            wasm_runtime_get_extern_instance(imports, import_count,
+                                             WASM_IMPORT_EXPORT_KIND_GLOBAL, i);
+        if (!extern_inst) {
+            LOG_ERROR("missing an import global(%s, %s)",
+                      import_global_type->module_name,
+                      import_global_type->field_name);
+            goto fail;
+        }
+
+        /* just in case */
+#ifndef NDEBUG
+        if (strcmp(import_global_type->field_name, extern_inst->field_name)) {
+            LOG_ERROR(
+                "mismatched import global name: expect \"%s\", got \"%s\"",
+                import_global_type->field_name, extern_inst->field_name);
+            goto fail;
+        }
+#endif
+
+        bh_memcpy_s(&(global->initial_value), sizeof(WASMValue),
+                    &(extern_inst->u.global->initial_value), sizeof(WASMValue));
+        global->import_module_inst =
+            (WASMModuleInstance *)extern_inst->dep_inst;
+        global->import_global_inst = extern_inst->u.global;
+#endif /* WASM_ENABLE_MULTI_MODULE != 0 */
     }
 
     /* instantiate globals from global section */
-    for (i = 0; i < module->global_count; i++) {
-        InitializerExpression *init_expr = &(module->globals[i].init_expr);
-        uint8 flag = init_expr->init_expr_type;
-
+    for (i = 0; i < module->global_count; i++, global++) {
         global->type = module->globals[i].type.val_type;
         global->is_mutable = module->globals[i].type.is_mutable;
+
+#if WASM_ENABLE_GC != 0
+        global->ref_type = module->globals[i].ref_type;
+#endif
+
 #if WASM_ENABLE_FAST_JIT != 0
         bh_assert(global_data_offset == module->globals[i].data_offset);
 #endif
         global->data_offset = global_data_offset;
         global_data_offset += wasm_value_type_size(global->type);
-#if WASM_ENABLE_GC != 0
-        global->ref_type = module->globals[i].ref_type;
-#endif
 
+        InitializerExpression *init_expr = &(module->globals[i].init_expr);
+        uint8 flag = init_expr->init_expr_type;
         switch (flag) {
             case INIT_EXPR_TYPE_GET_GLOBAL:
             {
@@ -1453,10 +1488,9 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
                     goto fail;
                 }
 
-                bh_memcpy_s(
-                    &(global->initial_value), sizeof(WASMValue),
-                    &(globals[init_expr->u.global_index].initial_value),
-                    sizeof(globals[init_expr->u.global_index].initial_value));
+                bh_memcpy_s(&(global->initial_value), sizeof(WASMValue),
+                            &(globals[init_expr->u.global_index].initial_value),
+                            sizeof(WASMValue));
                 break;
             }
 #if WASM_ENABLE_GC != 0
@@ -1525,11 +1559,9 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
 #endif /* end of WASM_ENABLE_GC != 0 */
             default:
                 bh_memcpy_s(&(global->initial_value), sizeof(WASMValue),
-                            &(init_expr->u), sizeof(init_expr->u));
+                            &(init_expr->u), sizeof(WASMValue));
                 break;
         }
-
-        global++;
     }
 
     bh_assert((uint32)(global - globals) == global_count);
@@ -2105,6 +2137,7 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
         }
     }
 
+#if WASM_ENABLE_MULTI_MODULE != 0
     for (i = 0; i < module->import_global_count; i++) {
         WASMGlobalImport *global = &((module->import_globals + i)->u.global);
 
@@ -2126,10 +2159,7 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
         WASMTableImport *table = &((module->import_tables + i)->u.table);
 
         if (!wasm_runtime_is_built_in_module(table->module_name)
-#if WASM_ENABLE_MULTI_MODULE != 0
-            && !table->import_table_linked
-#endif
-        ) {
+            && !table->import_table_linked) {
             set_error_buf_v(error_buf, error_buf_size,
                             "failed to link import table (%s, %s)",
                             table->module_name, table->field_name);
@@ -2138,25 +2168,17 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
     }
 
     for (i = 0; i < module->import_memory_count; i++) {
-        WASMMemoryImport *type = &((module->import_memories + i)->u.memory);
-        WASMMemoryInstance *memory = module_inst->memories[i];
-        (void)memory;
-        if (
-#if WASM_ENABLE_MULTI_MODULE != 0
-            !wasm_runtime_is_built_in_module(type->module_name)
-            && !type->import_memory_linked
-#else
-            !memory
-#endif
-        ) {
+        WASMMemoryImport *memory = &((module->import_memories + i)->u.memory);
+
+        if (!wasm_runtime_is_built_in_module(memory->module_name)
+            && !memory->import_memory_linked) {
             set_error_buf_v(error_buf, error_buf_size,
                             "failed to link import memory (%s, %s)",
-                            type->module_name, type->field_name);
+                            memory->module_name, memory->field_name);
             return false;
         }
     }
 
-#if WASM_ENABLE_MULTI_MODULE != 0
 #if WASM_ENABLE_TAGS != 0
     for (i = 0; i < module->import_tag_count; i++) {
         WASMTagImport *tag = &((module->import_tags + i)->u.tag);
@@ -2169,7 +2191,7 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
         }
     }
 #endif /* WASM_ENABLE_TAGS != 0 */
-#endif
+#endif /* WASM_ENABLE_MULTI_MODULE != 0 */
 
     return true;
 }
@@ -2726,8 +2748,9 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
      */
     global_count = module->import_global_count + module->global_count;
     if (global_count
-        && !(globals = globals_instantiate(module, module_inst, error_buf,
-                                           error_buf_size))) {
+        && !(globals =
+                 globals_instantiate(module, module_inst, imports, import_count,
+                                     error_buf, error_buf_size))) {
         goto fail;
     }
     module_inst->e->global_count = global_count;
@@ -2820,6 +2843,8 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         goto fail;
     }
 
+    /*TODO: init_global_data() ?*/
+    /* WASMGlobalInstance->initial_value => WASMModuleInstance->global_data*/
     if (global_count > 0) {
         /* Initialize the global data */
         global_data = module_inst->global_data;
@@ -2892,7 +2917,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                         /* UINT32_MAX indicates that it is a null reference */
                         if ((uint32)global->initial_value.i32 != UINT32_MAX) {
                             if (!(func_obj = wasm_create_func_obj(
-                                      module_inst, global->initial_value.i32,
+                                      module_inst, global->initial_value.u32,
                                       false, error_buf, error_buf_size)))
                                 goto fail;
                         }
@@ -3175,19 +3200,21 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 #endif
 
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
-        bh_assert(table_seg->base_offset.init_expr_type
-                      == INIT_EXPR_TYPE_I32_CONST
-                  || table_seg->base_offset.init_expr_type
-                         == INIT_EXPR_TYPE_GET_GLOBAL
-                  || table_seg->base_offset.init_expr_type
-                         == INIT_EXPR_TYPE_FUNCREF_CONST
-                  || table_seg->base_offset.init_expr_type
-                         == INIT_EXPR_TYPE_REFNULL_CONST);
+        bh_assert(
+            table_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
+            || table_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_I64_CONST
+            || table_seg->base_offset.init_expr_type
+                   == INIT_EXPR_TYPE_GET_GLOBAL
+            || table_seg->base_offset.init_expr_type
+                   == INIT_EXPR_TYPE_FUNCREF_CONST
+            || table_seg->base_offset.init_expr_type
+                   == INIT_EXPR_TYPE_REFNULL_CONST);
 #else
-        bh_assert(table_seg->base_offset.init_expr_type
-                      == INIT_EXPR_TYPE_I32_CONST
-                  || table_seg->base_offset.init_expr_type
-                         == INIT_EXPR_TYPE_GET_GLOBAL);
+        bh_assert(
+            table_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
+            || table_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_I64_CONST
+            || table_seg->base_offset.init_expr_type
+                   == INIT_EXPR_TYPE_GET_GLOBAL);
 #endif
 
         /* init vec(funcidx) or vec(expr) */
@@ -3410,7 +3437,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                 }
                 case INIT_EXPR_TYPE_I31_NEW:
                 {
-                    ref = (wasm_obj_t)wasm_i31_obj_new(init_expr->u.i32);
+                    ref = (wasm_obj_t)wasm_i31_obj_new(init_expr->u.u32);
                     break;
                 }
 #endif /* end of WASM_ENABLE_GC != 0 */
@@ -5395,4 +5422,37 @@ wasm_destroy_table(WASMTableInstance *table)
         return;
 
     wasm_runtime_free(table);
+}
+
+WASMGlobalInstance *
+wasm_create_global(const WASMModule *module, WASMModuleInstance *dep_inst,
+                   WASMGlobalType *type)
+{
+    WASMGlobalInstance *global =
+        runtime_malloc(sizeof(WASMGlobalInstance), NULL, 0);
+    if (!global) {
+        return NULL;
+    }
+
+    global->type = type->val_type;
+    global->is_mutable = type->is_mutable;
+    global->import_module_inst = dep_inst;
+    /* empty global. set value later by wasm_set_global_value */
+    return global;
+}
+
+void
+wasm_set_global_value(WASMGlobalInstance *global, const WASMValue *value)
+{
+    bh_memcpy_s(&global->initial_value, sizeof(WASMValue), value,
+                sizeof(WASMValue));
+}
+
+void
+wasm_destroy_global(WASMGlobalInstance *global)
+{
+    if (!global)
+        return;
+
+    wasm_runtime_free(global);
 }

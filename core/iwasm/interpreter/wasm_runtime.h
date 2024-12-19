@@ -192,19 +192,23 @@ struct WASMGlobalInstance {
     uint8 type;
     /* mutable or constant */
     bool is_mutable;
+
     /* data offset to the address of initial_value, started from the end of
      * WASMMemoryInstance(start of WASMGlobalInstance)*/
     uint32 data_offset;
-    /* initial value */
+
+    /*
+     * initial value (before instantiation stage)
+     *   - host creation. store initial value directly. no init expr
+     *   - as a temp value before storing in global_data
+     */
     WASMValue initial_value;
-#if WASM_ENABLE_GC != 0
-    WASMRefType *ref_type;
-#endif
-#if WASM_ENABLE_MULTI_MODULE != 0
+
     /* just for import, keep the reference here */
-    WASMModuleInstance *import_module_inst;
-    WASMGlobalInstance *import_global_inst;
-#endif
+    DefPointer(WASMModuleInstance *, import_module_inst);
+    DefPointer(WASMGlobalInstance *, import_global_inst);
+    /* WASMRefType *ref_type */
+    DefPointer(void *, ref_type);
 };
 
 struct WASMFunctionInstance {
@@ -561,6 +565,24 @@ wasm_get_tbl_data_slots(const WASMTableType *table_type,
     return table_type->possible_grow ? table_type->max_size
                                      : table_type->init_size;
 #endif
+}
+
+static inline uint8 *
+get_global_addr(uint8 *global_data, WASMGlobalInstance *global)
+{
+    /*
+     * global->import_global_inst != NULL means the global is imported
+     * from another module.
+     * global->import_module_isnt != NULL means the data is stored in
+     * local module instance.
+     *
+     * A host created global doesn't have its own global_data need to
+     * be maintained.
+     */
+    return global->import_module_inst
+               ? global->import_module_inst->global_data
+                     + global->import_global_inst->data_offset
+               : global_data + global->data_offset;
 }
 
 WASMModule *
@@ -955,6 +977,16 @@ wasm_set_table_elem(const WASMModule *module, WASMTableInstance *table,
 
 void
 wasm_destroy_table(WASMTableInstance *table);
+
+WASMGlobalInstance *
+wasm_create_global(const WASMModule *module, WASMModuleInstance *dep_inst,
+                   WASMGlobalType *type);
+
+void
+wasm_set_global_value(WASMGlobalInstance *global, const WASMValue *value);
+
+void
+wasm_destroy_global(WASMGlobalInstance *global);
 
 #ifdef __cplusplus
 }

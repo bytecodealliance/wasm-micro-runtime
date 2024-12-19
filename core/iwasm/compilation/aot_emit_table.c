@@ -132,6 +132,7 @@ get_tbl_inst_offset(const AOTCompContext *comp_ctx,
     return offset;
 }
 
+/*TODO: move it to aot_llvm.c/h */
 uint32
 get_module_inst_extra_offset(AOTCompContext *comp_ctx)
 {

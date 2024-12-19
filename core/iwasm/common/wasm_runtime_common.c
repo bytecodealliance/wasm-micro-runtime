@@ -2051,40 +2051,38 @@ wasm_runtime_set_module_inst(WASMExecEnv *exec_env,
     wasm_exec_env_set_module_inst(exec_env, module_inst);
 }
 
-bool
+WASMGlobalInstance *
 wasm_runtime_get_export_global_inst(WASMModuleInstanceCommon *const module_inst,
-                                    char const *name,
-                                    wasm_global_inst_t *global_inst)
+                                    char const *name)
 {
+    if (!module_inst || !name) {
+        return NULL;
+    }
+
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
         const WASMModuleInstance *wasm_module_inst =
             (const WASMModuleInstance *)module_inst;
         const WASMModule *wasm_module = wasm_module_inst->module;
-        uint32 i;
-        for (i = 0; i < wasm_module->export_count; i++) {
+
+        for (uint32 i = 0; i < wasm_module->export_count; i++) {
             const WASMExport *wasm_export = &wasm_module->exports[i];
-            if ((wasm_export->kind == WASM_IMPORT_EXPORT_KIND_GLOBAL)
-                && !strcmp(wasm_export->name, name)) {
-                const WASMModuleInstanceExtra *e =
-                    (WASMModuleInstanceExtra *)wasm_module_inst->e;
-                const WASMGlobalInstance *global =
-                    &e->globals[wasm_export->index];
-                global_inst->kind = val_type_to_val_kind(global->type);
-                global_inst->is_mutable = global->is_mutable;
-#if WASM_ENABLE_MULTI_MODULE == 0
-                global_inst->global_data =
-                    wasm_module_inst->global_data + global->data_offset;
-#else
-                global_inst->global_data =
-                    global->import_global_inst
-                        ? global->import_module_inst->global_data
-                              + global->import_global_inst->data_offset
-                        : wasm_module_inst->global_data + global->data_offset;
-#endif
-                return true;
+
+            if (wasm_export->kind != WASM_IMPORT_EXPORT_KIND_GLOBAL) {
+                continue;
             }
+
+            if (strcmp(wasm_export->name, name)) {
+                continue;
+            }
+
+            WASMModuleInstanceExtra *e =
+                (WASMModuleInstanceExtra *)wasm_module_inst->e;
+            WASMGlobalInstance *global = &e->globals[wasm_export->index];
+            return global;
         }
+
+        return NULL;
     }
 #endif
 #if WASM_ENABLE_AOT != 0
@@ -2095,21 +2093,26 @@ wasm_runtime_get_export_global_inst(WASMModuleInstanceCommon *const module_inst,
         uint32 i;
         for (i = 0; i < aot_module->export_count; i++) {
             const AOTExport *aot_export = &aot_module->exports[i];
-            if ((aot_export->kind == WASM_IMPORT_EXPORT_KIND_GLOBAL)
-                && !strcmp(aot_export->name, name)) {
-                const AOTGlobal *global =
-                    &aot_module->globals[aot_export->index];
-                global_inst->kind = val_type_to_val_kind(global->type.val_type);
-                global_inst->is_mutable = global->type.is_mutable;
-                global_inst->global_data =
-                    aot_module_inst->global_data + global->data_offset;
-                return true;
+
+            if (aot_export->kind != WASM_IMPORT_EXPORT_KIND_GLOBAL) {
+                continue;
             }
+
+            if (strcmp(aot_export->name, name)) {
+                continue;
+            }
+
+            AOTModuleInstanceExtra *e =
+                (AOTModuleInstanceExtra *)aot_module_inst->e;
+            AOTGlobalInstance *global = &e->globals[aot_export->index];
+            return global;
         }
+
+        return NULL;
     }
 #endif
 
-    return false;
+    return NULL;
 }
 
 WASMTableInstance *
@@ -7837,8 +7840,9 @@ wasm_table_inst_t
 wasm_runtime_create_table(WASMModuleCommon *const module,
                           wasm_table_type_t const type)
 {
-    if (!module || !type)
+    if (!module || !type) {
         return NULL;
+    }
 
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode) {
@@ -7852,7 +7856,6 @@ wasm_runtime_create_table(WASMModuleCommon *const module,
     }
 #endif
 
-    LOG_ERROR("create table failed, invalid module type");
     return NULL;
 }
 
@@ -7894,6 +7897,125 @@ wasm_runtime_destroy_table(WASMModuleCommon *const module,
 #endif
 
     LOG_ERROR("destroy table failed, invalid module type");
+}
+
+WASMGlobalInstance *
+wasm_runtime_create_global_internal(WASMModuleCommon *const module,
+                                    WASMModuleInstanceCommon *dep_inst,
+                                    WASMGlobalType *const type)
+{
+    if (!module || !type)
+        return NULL;
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        return wasm_create_global((WASMModule *)module,
+                                  (WASMModuleInstance *)dep_inst, type);
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        return aot_create_global((AOTModule *)module,
+                                 (AOTModuleInstance *)dep_inst, type);
+    }
+#endif
+
+    return NULL;
+}
+
+void
+wasm_runtime_set_global_value(WASMModuleCommon *module,
+                              WASMGlobalInstance *global, WASMValue *value)
+{
+    if (!global || !value)
+        return;
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        wasm_set_global_value(global, value);
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        aot_set_global_value(global, value);
+    }
+#endif
+}
+
+WASMGlobalInstance *
+wasm_runtime_create_global(WASMModuleCommon *const module,
+                           WASMGlobalType *const type, const wasm_val_t *value)
+{
+    WASMGlobalInstance *global =
+        wasm_runtime_create_global_internal(module, NULL, type);
+    if (!global)
+        return NULL;
+
+    /* TODO: make a small function about conversion */
+    WASMValue init_value = { 0 };
+    /* wasm_val_t to WASMValue */
+    switch (value->kind) {
+        case WASM_I32:
+        {
+            init_value.i32 = value->of.i32;
+            break;
+        }
+        case WASM_I64:
+        {
+            init_value.i64 = value->of.i64;
+            break;
+        }
+        case WASM_F32:
+        {
+            init_value.f32 = value->of.f32;
+            break;
+        }
+        case WASM_F64:
+        {
+            init_value.f64 = value->of.f64;
+            break;
+        }
+        // case WASM_V128:
+        // {
+        //     bh_assert(false && "V128 not supported yet");
+        //     break;
+        // }
+        // case WASM_EXTERNREF:
+        // case WASM_FUNCREF:
+        default:
+        {
+            bh_assert(false && "unsupported value type");
+            break;
+        }
+    }
+
+    wasm_runtime_set_global_value(module, global, &init_value);
+
+    return global;
+}
+
+void
+wasm_runtime_destroy_global(WASMModuleCommon *const module,
+                            WASMGlobalInstance *global)
+{
+    if (!module)
+        return;
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        wasm_destroy_global(global);
+        return;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        aot_destroy_global(global);
+        return;
+    }
+#endif
 }
 
 /*TODO: take us(below) out when have a linker */
@@ -7942,57 +8064,22 @@ wasm_runtime_instantiate_with_builtin_linker(WASMModuleCommon *module,
      * WASMExternInstance->u.memory content
      *
      * WASModuleInstance->tables[i].elems takes
-     * the ownership of WASMExternInstance->u.table
+     * the ownership of WASMExternInstance->u.table as WASMTableInstance
      *
      * WASMModuleInstance->e->globals[i] copies the content of
      * WASMExternInstance->u.global
      */
     if (imports) {
+        for (uint32 i = 0; i < import_count; i++) {
+            if (imports[i].kind == WASM_IMPORT_EXPORT_KIND_GLOBAL) {
+                wasm_runtime_destroy_global(module, imports[i].u.global);
+            }
+        }
+
         wasm_runtime_free(imports);
     }
 
     return inst;
-}
-
-bool
-wasm_runtime_create_extern_inst(WASMModuleCommon *module,
-                                wasm_import_t *import_type,
-                                WASMExternInstance *out)
-{
-    if (!out)
-        return false;
-
-    LOG_DEBUG("create import(%s,%s) kind %d", import_type->module_name,
-              import_type->name, import_type->kind);
-
-    out->module_name = import_type->module_name;
-    out->field_name = import_type->name;
-    out->kind = import_type->kind;
-
-    if (import_type->kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
-        out->u.memory =
-            wasm_runtime_create_memory(module, import_type->u.memory_type);
-        if (!out->u.memory) {
-            LOG_ERROR("create memory failed\n");
-            return false;
-        }
-    }
-    else if (import_type->kind == WASM_IMPORT_EXPORT_KIND_TABLE) {
-        wasm_table_inst_t table =
-            wasm_runtime_create_table(module, import_type->u.table_type);
-        out->u.table = table;
-        if (!out->u.table) {
-            LOG_ERROR("create table failed\n");
-            return false;
-        }
-    }
-    else {
-        LOG_DEBUG("unimplemented import(%s,%s) kind %d",
-                  import_type->module_name, import_type->name,
-                  import_type->kind);
-    }
-
-    return true;
 }
 
 void
@@ -8006,6 +8093,14 @@ wasm_runtime_destroy_extern_inst(WASMModuleCommon *module,
         wasm_runtime_destroy_memory(module, extern_inst->u.memory);
         extern_inst->u.memory = NULL;
     }
+    else if (extern_inst->kind == WASM_IMPORT_EXPORT_KIND_TABLE) {
+        wasm_runtime_destroy_table(module, extern_inst->u.table);
+        extern_inst->u.table = NULL;
+    }
+    else if (extern_inst->kind == WASM_IMPORT_EXPORT_KIND_GLOBAL) {
+        wasm_runtime_destroy_global(module, extern_inst->u.global);
+        extern_inst->u.global = NULL;
+    }
     else {
         LOG_DEBUG("unimplemented import(%s,%s) kind %d",
                   extern_inst->module_name, extern_inst->field_name,
@@ -8016,11 +8111,12 @@ wasm_runtime_destroy_extern_inst(WASMModuleCommon *module,
     extern_inst->field_name = NULL;
 }
 
+#if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_WASI_TEST != 0
 /*
  * Be aware that it will remove all items in the list, regardless of whether
  * they were created by the runtime (for built-ins) or by users.
  */
-void
+static void
 wasm_runtime_destroy_imports(WASMModuleCommon *module,
                              WASMExternInstance *extern_inst_list)
 {
@@ -8032,12 +8128,15 @@ wasm_runtime_destroy_imports(WASMModuleCommon *module,
         wasm_runtime_destroy_extern_inst(module, extern_inst_list + i);
     }
 }
+#endif /* WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_WASI_TEST != 0 */
 
 bool
-wasm_runtime_create_imports(WASMModuleCommon *module,
-                            bool (*module_name_filter)(const char *),
-                            WASMExternInstance *out, uint32 out_len)
+wasm_runtime_create_imports_with_builtin(WASMModuleCommon *module,
+                                         WASMExternInstance *out,
+                                         uint32 out_len)
 {
+    LOG_DEBUG("create imports with builtin");
+
     int32 import_count_s = wasm_runtime_get_import_count(module);
 
     if (import_count_s < 0)
@@ -8057,33 +8156,30 @@ wasm_runtime_create_imports(WASMModuleCommon *module,
         wasm_import_t import_type = { 0 };
         wasm_runtime_get_import_type(module, i, &import_type);
 
-        if (module_name_filter
-            && !module_name_filter(import_type.module_name)) {
-            LOG_DEBUG("skip import(%s,%s)", import_type.module_name,
-                      import_type.name);
-            continue;
-        }
-
+#if WASM_ENABLE_LIBC_BUILTIN != 0
         WASMExternInstance *extern_instance = out + i;
-        if (!wasm_runtime_create_extern_inst(module, &import_type,
-                                             extern_instance)) {
+#if WASM_ENABLE_SPEC_TEST != 0
+        if (!wasm_runtime_create_extern_inst_for_spec_test(module, &import_type,
+                                                           extern_instance)) {
             wasm_runtime_destroy_imports(module, out);
-            LOG_ERROR("create import failed");
+            LOG_ERROR("create imports for spec test failed");
             return false;
         }
+#endif
+
+#if WASM_ENABLE_WASI_TEST != 0
+        if (!wasm_runtime_create_extern_inst_for_wasi_test(module, &import_type,
+                                                           extern_instance)) {
+            wasm_runtime_destroy_imports(module, out);
+            LOG_ERROR("create imports for wasi test failed");
+            return false;
+        }
+#endif
+        (void)extern_instance;
+#endif
     }
 
     return true;
-}
-
-bool
-wasm_runtime_create_imports_with_builtin(WASMModuleCommon *module,
-                                         WASMExternInstance *out,
-                                         uint32 out_len)
-{
-    LOG_DEBUG("create imports with builtin");
-    return wasm_runtime_create_imports(module, wasm_runtime_is_built_in_module,
-                                       out, out_len);
 }
 
 #if WASM_ENABLE_LIB_WASI_THREADS != 0 || WASM_ENABLE_THREAD_MGR != 0

@@ -37,6 +37,11 @@ extern "C" {
 #define WASM_FEATURE_FRAME_NO_FUNC_IDX (1 << 13)
 #define WASM_FEATURE_MULTI_MODULE (1 << 14)
 
+#define AOTGlobalInstance WASMGlobalInstance
+#define AOTMemoryInstance WASMMemoryInstance
+#define AOTTableInstance WASMTableInstance
+#define AOTModuleInstance WASMModuleInstance
+
 typedef enum AOTSectionType {
     AOT_SECTION_TYPE_TARGET_INFO = 0,
     AOT_SECTION_TYPE_INIT_DATA = 1,
@@ -127,6 +132,9 @@ typedef struct AOTModuleInstanceExtra {
     DefPointer(uint8 *, shared_heap_base_addr_adj);
     MemBound shared_heap_start_off;
 
+    DefPointer(AOTGlobalInstance *, globals);
+    uint32 global_count;
+
     WASMModuleInstanceExtraCommon common;
 
     /**
@@ -137,6 +145,7 @@ typedef struct AOTModuleInstanceExtra {
     ExportFuncMap *export_func_maps;
     AOTFunctionInstance **functions;
     uint32 function_count;
+
 #if WASM_ENABLE_MULTI_MODULE != 0
     bh_list sub_module_inst_list_head;
     bh_list *sub_module_inst_list;
@@ -362,10 +371,6 @@ typedef struct AOTModule {
     uint32 feature_flags;
 #endif
 } AOTModule;
-
-#define AOTMemoryInstance WASMMemoryInstance
-#define AOTTableInstance WASMTableInstance
-#define AOTModuleInstance WASMModuleInstance
 
 #if WASM_ENABLE_MULTI_MODULE != 0
 #define AOTSubModInstNode WASMSubModInstNode
@@ -916,6 +921,16 @@ aot_set_table_elem(const AOTModule *module, AOTTableInstance *table,
 
 void
 aot_destroy_table(AOTTableInstance *table);
+
+AOTGlobalInstance *
+aot_create_global(const AOTModule *module, AOTModuleInstance *dep_inst,
+                  WASMGlobalType *type);
+
+void
+aot_set_global_value(AOTGlobalInstance *global, const WASMValue *value);
+
+void
+aot_destroy_global(AOTGlobalInstance *global);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

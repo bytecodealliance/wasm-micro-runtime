@@ -7,6 +7,7 @@
 #include "aot_llvm_extra2.h"
 #include "aot_compiler.h"
 #include "aot_emit_exception.h"
+// TODO: remove me if get_module_inst_extra_offset() has been moved out
 #include "aot_emit_table.h"
 #include "../aot/aot_runtime.h"
 #include "../aot/aot_intrinsic.h"

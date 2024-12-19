@@ -142,6 +142,11 @@ typedef struct WASMMemoryInstance *wasm_memory_inst_t;
 struct WASMTableInstance;
 typedef struct WASMTableInstance *wasm_table_inst_t;
 
+/*TODO: remove me when rebasing*/
+/* Global instance*/
+struct WASMGlobalInstance;
+typedef struct WASMGlobalInstance *wasm_global_inst_t;
+
 /* WASM section */
 typedef struct wasm_section_t {
     struct wasm_section_t *next;
@@ -282,6 +287,7 @@ typedef struct LoadArgs {
 } LoadArgs;
 #endif /* LOAD_ARGS_OPTION_DEFINED */
 
+/*TODO: move it to wasm_runtime_common.h? */
 typedef struct WASMExternInstance {
     const char *module_name;
     const char *field_name;
@@ -289,7 +295,14 @@ typedef struct WASMExternInstance {
     union {
         wasm_memory_inst_t memory;
         wasm_table_inst_t table;
+        wasm_global_inst_t global;
     } u;
+
+    /*
+     * to handle imports properly,
+     * especially for wasm_global_inst_t and wasm_func_inst_t
+     */
+    wasm_module_inst_t dep_inst;
 } WASMExternInstance, *wasm_extern_inst_t;
 
 #ifndef INSTANTIATION_ARGS_OPTION_DEFINED
@@ -334,13 +347,6 @@ typedef struct wasm_val_t {
     } of;
 } wasm_val_t;
 #endif
-
-/* Global instance*/
-typedef struct wasm_global_inst_t {
-    wasm_valkind_t kind;
-    bool is_mutable;
-    void *global_data;
-} wasm_global_inst_t;
 
 typedef enum {
     WASM_LOG_LEVEL_FATAL = 0,
@@ -1099,6 +1105,11 @@ wasm_memory_get_base_address(const wasm_memory_inst_t memory_inst);
 WASM_RUNTIME_API_EXTERN bool
 wasm_memory_enlarge(wasm_memory_inst_t memory_inst, uint64_t inc_page_count);
 
+WASM_RUNTIME_API_EXTERN wasm_global_inst_t
+wasm_runtime_create_immutable_global(const wasm_module_t module,
+                                     const wasm_global_type_t type,
+                                     const wasm_val_t *value);
+
 /**
  * Call the given WASM function of a WASM module instance with
  * arguments (bytecode and AoT).
@@ -1754,10 +1765,9 @@ wasm_runtime_unregister_natives(const char *module_name,
  * @return true if success, false otherwise
  *
  */
-WASM_RUNTIME_API_EXTERN bool
+WASM_RUNTIME_API_EXTERN wasm_global_inst_t
 wasm_runtime_get_export_global_inst(const wasm_module_inst_t module_inst,
-                                    const char *name,
-                                    wasm_global_inst_t *global_inst);
+                                    const char *name);
 
 /**
  * @brief Retrieves the table instance exported from a WebAssembly module
@@ -2383,14 +2393,6 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_create_imports_with_builtin(wasm_module_t module,
                                          wasm_extern_inst_t out,
                                          uint32_t out_len);
-
-WASM_RUNTIME_API_EXTERN void
-wasm_runtime_destroy_imports(wasm_module_t module, wasm_extern_inst_t imports);
-
-WASM_RUNTIME_API_EXTERN bool
-wasm_runtime_create_imports(wasm_module_t module,
-                            bool (*module_name_filter)(const char *),
-                            wasm_extern_inst_t out, uint32_t out_len);
 
 #ifdef __cplusplus
 }
