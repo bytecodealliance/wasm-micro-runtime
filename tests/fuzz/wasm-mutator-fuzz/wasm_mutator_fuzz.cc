@@ -13,31 +13,41 @@
 
 using namespace std;
 
-extern "C" WASMModuleCommon *
-wasm_runtime_load(uint8 *buf, uint32 size, char *error_buf,
-                  uint32 error_buf_size);
-
-extern "C" WASMModuleInstanceCommon *
-wasm_runtime_instantiate(WASMModuleCommon *module, uint32 stack_size,
-                         uint32 heap_size, char *error_buf,
-                         uint32 error_buf_size);
-
 extern "C" int
 LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size)
 {
     /* libfuzzer don't allow us to modify the given Data, so we copy the data
      * here */
     std::vector<uint8_t> myData(Data, Data + Size);
+
     /* init runtime environment */
     wasm_runtime_init();
-    wasm_module_t module =
-        wasm_runtime_load((uint8_t *)myData.data(), Size, nullptr, 0);
-    if (module) {
-        wasm_runtime_unload(module);
-    }
-    /* destroy runtime environment */
-    wasm_runtime_destroy();
 
+    char error_buf[128] = { 0 };
+    wasm_module_t module =
+        wasm_runtime_load((uint8_t *)myData.data(), Size, error_buf, 120);
+    if (!module) {
+        std::cout << "[LOADING] " << error_buf << std::endl;
+        wasm_runtime_destroy();
+        /* return SUCCESS because the failure has been handled */
+        return 0;
+    }
+
+    wasm_module_inst_t inst = wasm_runtime_instantiate(
+        module, 8 * 1024 * 1024, 16 * 1024 * 1024, error_buf, 120);
+    if (!inst) {
+        std::cout << "[INSTANTIATE] " << error_buf << std::endl;
+        wasm_runtime_unload(module);
+        wasm_runtime_destroy();
+        /* return SUCCESS because the failure has been handled */
+        return 0;
+    }
+
+    std::cout << "PASS" << std::endl;
+
+    wasm_runtime_deinstantiate(inst);
+    wasm_runtime_unload(module);
+    wasm_runtime_destroy();
     return 0; /* Values other than 0 and -1 are reserved for future use. */
 }
 

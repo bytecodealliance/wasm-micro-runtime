@@ -33,36 +33,36 @@ function try_generate_wasm()
 
     local try_i=0
     until [[ -f $GENERATED_WASM_NAME ]]; do
-        head -c 100 /dev/urandom | wasm-tools smith $SMITH_OPTIONS -o $GENERATED_WASM_NAME  >/dev/null 2>&1
+        # Larger input seeds tend to generate larger WebAssembly modules. (256KB)
+        head -c 262144 /dev/urandom | wasm-tools smith $SMITH_OPTIONS -o $GENERATED_WASM_NAME  >/dev/null 2>&1
         try_i=$((try_i+1))
     done
 
     printf -- "-- output ${GENERATED_WASM_NAME} in %d retries\n" $try_i
 }
 
-# try_generate_wasm "--min-memories=1 --min-tables=1" "test_min.wasm"
+WASM_SHAPE=" --allow-invalid-funcs true \
+--generate-custom-sections true \
+--min-funcs 5 \
+--max-instructions 1024 \
+--min-globals 10"
+
+WASM_MVP_FEATURES=" --bulk-memory-enabled true \
+--multi-value-enabled true \
+--reference-types-enabled true \
+--simd-enabled true \
+--tail-call-enabled true"
 
 for i in $(seq 1 $EXPECTED_NUM)
 do
-    # by default
-    try_generate_wasm "" test_$i.wasm
-
-    # with different features
     # mvp
-    try_generate_wasm "--min-memories=1 --min-tables=1" test_min_$i.wasm
-    try_generate_wasm "--min-memories=1 --min-tables=1 --bulk-memory-enabled true" test_bulk_$i.wasm
-    try_generate_wasm "--min-memories=1 --min-tables=1 --reference-types-enabled true" test_ref_$i.wasm
-    try_generate_wasm "--min-memories=1 --min-tables=1 --multi-value-enabled true" test_multi_$i.wasm
-    try_generate_wasm "--min-memories=1 --min-tables=1 --simd-enabled true" test_simd_$i.wasm
-    try_generate_wasm "--min-memories=1 --min-tables=1 --tail-call-enabled true " test_tail_$i.wasm
+    try_generate_wasm "${WASM_SHAPE} ${WASM_MVP_FEATURES}" test_mvp_$i.wasm
 
-    # enable me when compiling iwasm with those features
-    #try_generate_wasm "--min-memories=1 --min-tables=1 --threads-enabled true" test_thread_$i.wasm
-    #try_generate_wasm "--min-memories=1 --min-tables=1 --memory64-enabled true" test_memory64_$i.wasm
-    #try_generate_wasm "--min-memories=1 --min-tables=1 --exceptions-enabled true" test_exception_$i.wasm
-    #try_generate_wasm "--min-memories=1 --min-tables=1 --gc-enabled true" test_gc_$i.wasm
-    # with custom-section
-    try_generate_wasm "--min-memories=1 --min-tables=1 --generate-custom-sections true" test_custom_$i.wasm
+    # other proposals
+    try_generate_wasm "${WASM_SHAPE} --exceptions-enabled true" test_exception_$i.wasm
+    try_generate_wasm "${WASM_SHAPE} --gc-enabled true" test_gc_$i.wasm
+    try_generate_wasm "${WASM_SHAPE} --memory64-enabled true" test_memory64_$i.wasm
+    try_generate_wasm "${WASM_SHAPE} --threads-enabled true" test_threads_$i.wasm
 done
 
 printf "Done\n"
