@@ -1,6 +1,7 @@
 set (IWASM_COMPL_DIR ${CMAKE_CURRENT_LIST_DIR})
 
 include_directories(${IWASM_COMPL_DIR})
+enable_language(CXX)
 
 if (WAMR_BUILD_DEBUG_AOT EQUAL 1)
     file (GLOB_RECURSE source_all
