@@ -35,6 +35,7 @@ env:
   LLVM_LAZY_JIT_BUILD_OPTIONS: " -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_JIT=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=1"
   LLVM_EAGER_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_JIT=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0"
   MULTI_TIER_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=1"
+  SHARED_BUILD_OPTIONS: "        -DWAMR_BUILD_STATIC=0 -DWAMR_BUILD_SHARED=1"
   # For Spec Test
   # FIXME: use binary release(adding -b) instead of building from source after upgrading to 22.04
   DEFAULT_TEST_OPTIONS: "-s spec -P"
@@ -122,6 +123,7 @@ jobs:
             $LLVM_LAZY_JIT_BUILD_OPTIONS,
             $LLVM_EAGER_JIT_BUILD_OPTIONS,
             $MULTI_TIER_JIT_BUILD_OPTIONS,
+            $SHARED_BUILD_OPTIONS,
           ]
         make_options_feature: [
             # Features
@@ -174,6 +176,8 @@ jobs:
           - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
           - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
+          - make_options_run_mode: $SHARED_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
           # DEBUG_AOT only on JIT/AOT mode
           - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
