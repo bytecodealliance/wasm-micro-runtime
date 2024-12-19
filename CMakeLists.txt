@@ -10,6 +10,8 @@ endif()
 
 project (iwasm)
 
+set(CMAKE_CXX_STANDARD 17)
+
 set (CMAKE_VERBOSE_MAKEFILE OFF)
 
 if (NOT DEFINED WAMR_BUILD_PLATFORM)
