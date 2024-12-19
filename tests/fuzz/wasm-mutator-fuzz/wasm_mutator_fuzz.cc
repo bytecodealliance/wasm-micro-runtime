@@ -10,17 +10,104 @@
 #include <string.h>
 #include <iostream>
 #include <vector>
+#include <random>
 
 using namespace std;
 
-extern "C" WASMModuleCommon *
-wasm_runtime_load(uint8 *buf, uint32 size, char *error_buf,
-                  uint32 error_buf_size);
+/* use std generation */
+static wasm_val_t
+random_gen_val(wasm_valkind_t kind)
+{
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    if (kind == WASM_I32) {
+        std::uniform_int_distribution<int32_t> dis;
+        return wasm_val_t{ .kind = WASM_I32, .of = { .i32 = dis(gen) } };
+    }
+    else if (kind == WASM_I64) {
+        std::uniform_int_distribution<int64_t> dis;
+        return wasm_val_t{ .kind = WASM_I64, .of = { .i64 = dis(gen) } };
+    }
+    else if (kind == WASM_F32) {
+        std::uniform_real_distribution<float> dis;
+        return wasm_val_t{ .kind = WASM_F32, .of = { .f32 = dis(gen) } };
+    }
+    else if (kind == WASM_F64) {
+        std::uniform_real_distribution<double> dis;
+        return wasm_val_t{ .kind = WASM_F64, .of = { .f64 = dis(gen) } };
+    }
+    else if (kind == WASM_EXTERNREF) {
+        // TODO:
+        return wasm_val_t{ .kind = WASM_EXTERNREF, .of = { .foreign = 0 } };
+    }
+    else if (kind == WASM_FUNCREF) {
+        // TODO:
+        return wasm_val_t{ .kind = WASM_FUNCREF, .of = { .ref = nullptr } };
+    }
+    else {
+        assert(0);
+    }
+}
 
-extern "C" WASMModuleInstanceCommon *
-wasm_runtime_instantiate(WASMModuleCommon *module, uint32 stack_size,
-                         uint32 heap_size, char *error_buf,
-                         uint32 error_buf_size);
+static bool
+execute_export_functions(wasm_module_t module, wasm_module_inst_t inst)
+{
+    int32_t export_count = wasm_runtime_get_export_count(module);
+
+    for (int e_i = 0; e_i < export_count; e_i++) {
+        wasm_export_t export_type = { 0 };
+        wasm_runtime_get_export_type(module, e_i, &export_type);
+
+        if (export_type.kind != WASM_IMPORT_EXPORT_KIND_FUNC) {
+            continue;
+        }
+
+        wasm_function_inst_t func =
+            wasm_runtime_lookup_function(inst, export_type.name);
+        if (!func) {
+            std::cout << "Failed to lookup function: " << export_type.name
+                      << std::endl;
+            continue;
+        }
+
+        wasm_func_type_t func_type = export_type.u.func_type;
+        uint32_t param_count = wasm_func_type_get_param_count(func_type);
+
+        /* build arguments */
+        std::vector<wasm_val_t> args;
+        for (unsigned p_i = 0; p_i < param_count; p_i++) {
+            wasm_valkind_t param_type =
+                wasm_func_type_get_param_valkind(func_type, p_i);
+            wasm_val_t arg = random_gen_val(param_type);
+            args.push_back(arg);
+        }
+
+        /* build results storage */
+        uint32_t result_count = wasm_func_type_get_result_count(func_type);
+        std::vector<wasm_val_t> results = std::vector<wasm_val_t>(result_count);
+
+        /* execute the function */
+        wasm_exec_env_t exec_env = wasm_runtime_get_exec_env_singleton(inst);
+        bool ret =
+            wasm_runtime_call_wasm_a(exec_env, func, result_count,
+                                     results.data(), param_count, args.data());
+        if (!ret) {
+            const char *exception = wasm_runtime_get_exception(inst);
+            if (!exception) {
+                std::cout << "Failed to execute function: " << export_type.name
+                          << ". No exception info." << std::endl;
+            }
+            else {
+                std::cout << "Failed to execute function: " << export_type.name
+                          << ". " << exception << std::endl;
+            }
+        }
+
+        wasm_runtime_clear_exception(inst);
+    }
+
+    return true;
+}
 
 extern "C" int
 LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size)
@@ -28,16 +115,37 @@ LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size)
     /* libfuzzer don't allow us to modify the given Data, so we copy the data
      * here */
     std::vector<uint8_t> myData(Data, Data + Size);
+
     /* init runtime environment */
     wasm_runtime_init();
-    wasm_module_t module =
-        wasm_runtime_load((uint8_t *)myData.data(), Size, nullptr, 0);
-    if (module) {
-        wasm_runtime_unload(module);
-    }
-    /* destroy runtime environment */
-    wasm_runtime_destroy();
 
+    char error_buf[128] = { 0 };
+    wasm_module_t module =
+        wasm_runtime_load((uint8_t *)myData.data(), Size, error_buf, 120);
+    if (!module) {
+        std::cout << "[LOADING] " << error_buf << std::endl;
+        wasm_runtime_destroy();
+        /* return SUCCESS because the failure has been handled */
+        return 0;
+    }
+
+    wasm_module_inst_t inst = wasm_runtime_instantiate(
+        module, 8 * 1024 * 1024, 16 * 1024 * 1024, error_buf, 120);
+    if (!inst) {
+        std::cout << "[INSTANTIATE] " << error_buf << std::endl;
+        wasm_runtime_unload(module);
+        wasm_runtime_destroy();
+        /* return SUCCESS because the failure has been handled */
+        return 0;
+    }
+
+    execute_export_functions(module, inst);
+
+    std::cout << "PASS" << std::endl;
+
+    wasm_runtime_deinstantiate(inst);
+    wasm_runtime_unload(module);
+    wasm_runtime_destroy();
     return 0; /* Values other than 0 and -1 are reserved for future use. */
 }
 
