@@ -60,6 +60,14 @@ wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
 #endif
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (!os_thread_signal_inited()) {
+        goto fail5;
+    }
+
+    /* Set thread handle and stack boundary if they haven't been set */
+    wasm_exec_env_set_thread_info(exec_env);
+    wasm_runtime_set_exec_env_tls(exec_env);
+
     if (!(exec_env->exce_check_guard_page =
               os_mmap(NULL, os_getpagesize(), MMAP_PROT_NONE, MMAP_MAP_NONE,
                       os_get_invalid_handle())))
