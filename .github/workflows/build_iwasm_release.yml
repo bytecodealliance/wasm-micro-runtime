@@ -32,7 +32,7 @@ on:
         required: false
 
 env:
-  DEFAULT_BUILD_OPTIONS: 
+  DEFAULT_BUILD_OPTIONS:
     "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1 \
      -DWAMR_BUILD_CUSTOM_NAME_SECTION=0 \
      -DWAMR_BUILD_DEBUG_INTERP=0 \
@@ -86,6 +86,9 @@ env:
      -DWAMR_BUILD_THREAD_MGR=1 \
      -DWAMR_BUILD_EXCE_HANDLING=1 \
      -DWAMR_BUILD_GC=1"
+  SHARED_BUILD_OPTIONS:
+    "-DWAMR_BUILD_SHARED=1 \
+    "-DWAMR_BUILD_STATIC=0 ""
 
 permissions:
   contents: read
@@ -100,6 +103,8 @@ jobs:
             suffix: ''
           - build_options: $GC_EH_BUILD_OPTIONS
             suffix: '-gc-eh'
+          - build_options: $SHARED_BUILD_OPTIONS
+            suffix: '-shared'
     permissions:
       contents: write # for uploading release artifacts
 
