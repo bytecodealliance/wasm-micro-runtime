@@ -8,7 +8,7 @@ if(ESP_PLATFORM)
   return()
 endif()
 
-project (iwasm)
+project (iwasm LANGUAGES C)
 
 set(CMAKE_CXX_STANDARD 17)
 
