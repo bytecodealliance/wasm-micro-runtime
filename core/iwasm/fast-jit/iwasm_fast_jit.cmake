@@ -9,6 +9,7 @@ if (WAMR_BUILD_FAST_JIT_DUMP EQUAL 1)
 endif ()
 
 include_directories (${IWASM_FAST_JIT_DIR})
+enable_language(CXX)
 
 if (WAMR_BUILD_TARGET STREQUAL "X86_64" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
     include(FetchContent)
