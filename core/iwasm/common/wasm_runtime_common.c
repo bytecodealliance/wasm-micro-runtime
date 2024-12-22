@@ -1681,17 +1681,17 @@ wasm_runtime_instantiate_ex(WASMModuleCommon *module,
 
 void
 wasm_runtime_deinstantiate_internal(WASMModuleInstanceCommon *module_inst,
-                                    bool is_sub_inst)
+                                    bool is_spawned)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
-        wasm_deinstantiate((WASMModuleInstance *)module_inst, is_sub_inst);
+        wasm_deinstantiate((WASMModuleInstance *)module_inst, is_spawned);
         return;
     }
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
-        aot_deinstantiate((AOTModuleInstance *)module_inst, is_sub_inst);
+        aot_deinstantiate((AOTModuleInstance *)module_inst, is_spawned);
         return;
     }
 #endif
@@ -7562,8 +7562,12 @@ wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
             bh_list_first_elem(((WASMModule *)module)->import_module_list);
     }
 #endif
+    if (!sub_module_inst_list) {
+        LOG_ERROR("unknown module type %d", module->module_type);
+        return false;
+    }
+
     while (sub_module_list_node) {
-        WASMSubModInstNode *sub_module_inst_list_node = NULL;
         WASMModuleCommon *sub_module = sub_module_list_node->module;
         WASMModuleInstanceCommon *sub_module_inst = NULL;
         sub_module_inst = wasm_runtime_instantiate_internal(
@@ -7576,8 +7580,10 @@ wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
                       sub_module_list_node->module_name);
             return false;
         }
-        sub_module_inst_list_node = loader_malloc(sizeof(WASMSubModInstNode),
-                                                  error_buf, error_buf_size);
+
+        WASMSubModInstNode *sub_module_inst_list_node = loader_malloc(
+            sizeof(WASMSubModInstNode), error_buf, error_buf_size);
+
         if (!sub_module_inst_list_node) {
             LOG_DEBUG("Malloc WASMSubModInstNode failed, SZ: %zu",
                       sizeof(WASMSubModInstNode));
@@ -7585,35 +7591,9 @@ wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
                 wasm_runtime_deinstantiate_internal(sub_module_inst, false);
             return false;
         }
-        sub_module_inst_list_node->module_inst =
-            (WASMModuleInstance *)sub_module_inst;
+        sub_module_inst_list_node->module_inst = sub_module_inst;
         sub_module_inst_list_node->module_name =
             sub_module_list_node->module_name;
-
-#if WASM_ENABLE_AOT != 0
-        if (module_inst->module_type == Wasm_Module_AoT) {
-            AOTModuleInstance *aot_module_inst =
-                (AOTModuleInstance *)module_inst;
-            AOTModule *aot_module = (AOTModule *)module;
-            AOTModuleInstanceExtra *aot_extra =
-                (AOTModuleInstanceExtra *)aot_module_inst->e;
-            uint32 i;
-            AOTImportFunc *import_func;
-            for (i = 0; i < aot_module->import_func_count; i++) {
-                if (aot_extra->import_func_module_insts[i])
-                    continue;
-
-                import_func = &aot_module->import_funcs[i];
-                if (strcmp(sub_module_inst_list_node->module_name,
-                           import_func->module_name)
-                    == 0) {
-                    aot_extra->import_func_module_insts[i] =
-                        (WASMModuleInstanceCommon *)
-                            sub_module_inst_list_node->module_inst;
-                }
-            }
-        }
-#endif
 
         bh_list_status ret =
             bh_list_insert(sub_module_inst_list, sub_module_inst_list_node);
@@ -8089,7 +8069,11 @@ wasm_runtime_destroy_extern_inst(WASMModuleCommon *module,
     if (!extern_inst)
         return;
 
-    if (extern_inst->kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
+    if (extern_inst->kind == WASM_IMPORT_EXPORT_KIND_FUNC) {
+        wasm_runtime_destroy_function(module, extern_inst->u.function);
+        extern_inst->u.function = NULL;
+    }
+    else if (extern_inst->kind == WASM_IMPORT_EXPORT_KIND_MEMORY) {
         wasm_runtime_destroy_memory(module, extern_inst->u.memory);
         extern_inst->u.memory = NULL;
     }
@@ -8111,24 +8095,145 @@ wasm_runtime_destroy_extern_inst(WASMModuleCommon *module,
     extern_inst->field_name = NULL;
 }
 
-#if WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_WASI_TEST != 0
+WASMFunctionInstanceCommon *
+wasm_runtime_create_function_wasm(struct WASMModuleCommon *const module,
+                                  WASMModuleInstanceCommon *dep_inst,
+                                  WASMFunctionInstanceCommon *dep_func)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        WASMFunctionInstance *func_empty =
+            wasm_create_function_empty((const WASMModule *)module);
+        func_empty->is_import_func = true;
+
+        func_empty->import_module_inst = (WASMModuleInstance *)dep_inst;
+        func_empty->import_func_inst = (WASMFunctionInstance *)dep_func;
+        return (WASMFunctionInstanceCommon *)func_empty;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        bh_assert(false && "not supported yet");
+    }
+#endif
+
+    LOG_ERROR("create function failed, invalid module type %d",
+              module->module_type);
+    return NULL;
+}
+
+WASMFunctionInstanceCommon *
+wasm_runtime_create_function_c_api(struct WASMModuleCommon *const module,
+                                   CApiFuncImport *c_api_info)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        WASMFunctionInstance *func_empty =
+            wasm_create_function_empty((const WASMModule *)module);
+        func_empty->is_import_func = true;
+
+        func_empty->import_func_c_api = *c_api_info;
+        func_empty->call_conv_wasm_c_api = true;
+        return (WASMFunctionInstanceCommon *)func_empty;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        AOTFunctionInstance *func_empty =
+            aot_create_function_empty((const AOTModule *)module);
+        func_empty->is_import_func = true;
+
+        func_empty->import_func_c_api = *c_api_info;
+        func_empty->call_conv_wasm_c_api = true;
+        return (AOTFunctionInstance *)func_empty;
+    }
+#endif
+
+    LOG_ERROR("create function failed, invalid module type %d",
+              module->module_type);
+    return NULL;
+}
+
+/*might be unused*/
+WASMFunctionInstanceCommon *
+wasm_runtime_create_function_native(struct WASMModuleCommon *const module,
+                                    void *callback)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        WASMFunctionInstance *func_empty =
+            wasm_create_function_empty((const WASMModule *)module);
+        func_empty->is_import_func = true;
+
+        func_empty->u.func_import->func_ptr_linked = callback;
+        /*TBC: ?*/
+        func_empty->call_conv_raw = false;
+
+        return (WASMFunctionInstanceCommon *)func_empty;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        bh_assert(false && "not supported yet");
+    }
+#endif
+
+    LOG_ERROR("create function failed, invalid module type %d",
+              module->module_type);
+    return NULL;
+}
+
+WASMFunctionInstanceCommon *
+wasm_runtime_create_function(struct WASMModuleCommon *const module,
+                             struct WASMFuncType *const type, void *callback)
+{
+    bh_assert(false && "unimplemented");
+    return NULL;
+}
+
+void
+wasm_runtime_destroy_function(struct WASMModuleCommon *const module,
+                              WASMFunctionInstanceCommon *func)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        wasm_destroy_function(func);
+        return;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        bh_assert(false && "not supported yet");
+        // aot_destroy_function(func);
+        return;
+    }
+#endif
+
+    LOG_ERROR("destroy function failed, invalid module type %d",
+              module->module_type);
+    return;
+}
+
 /*
  * Be aware that it will remove all items in the list, regardless of whether
  * they were created by the runtime (for built-ins) or by users.
  */
-static void
+void
 wasm_runtime_destroy_imports(WASMModuleCommon *module,
                              WASMExternInstance *extern_inst_list)
 {
     if (!module || !extern_inst_list)
         return;
 
-    for (int32 i = 0, import_count = wasm_runtime_get_import_count(module);
-         i < import_count; i++) {
+    int32 import_count = wasm_runtime_get_import_count(module);
+    for (int32 i = 0; i < import_count; i++) {
         wasm_runtime_destroy_extern_inst(module, extern_inst_list + i);
     }
 }
-#endif /* WASM_ENABLE_SPEC_TEST != 0 || WASM_ENABLE_WASI_TEST != 0 */
 
 bool
 wasm_runtime_create_imports_with_builtin(WASMModuleCommon *module,

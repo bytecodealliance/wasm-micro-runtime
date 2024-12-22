@@ -563,7 +563,7 @@ typedef struct WASMFunctionImport {
     char *field_name;
     /* function type */
     WASMFuncType *func_type;
-    /* native function pointer after linked */
+    /* from wasm_native */
     void *func_ptr_linked;
     /* signature from registered native symbols */
     const char *signature;
@@ -573,9 +573,12 @@ typedef struct WASMFunctionImport {
     /* the type index of this function's func_type */
     uint32 type_idx;
 #endif
+
+    /* via wasm_native */
     bool call_conv_raw;
-    bool call_conv_wasm_c_api;
 #if WASM_ENABLE_MULTI_MODULE != 0
+    /* by loading-link */
+    bool call_conv_wasm_c_api;
     WASMModule *import_module;
     WASMFunction *import_func_linked;
 #endif

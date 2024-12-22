@@ -51,6 +51,9 @@ typedef WASMMemoryType AOTMemoryType;
 typedef WASMTableType AOTTableType;
 typedef WASMTable AOTTable;
 
+struct AOTModule;
+struct AOTFunc;
+
 #if WASM_ENABLE_DEBUG_AOT != 0
 typedef void *dwarf_extractor_handle_t;
 #endif
@@ -191,14 +194,21 @@ typedef struct AOTImportFunc {
     AOTFuncType *func_type;
     uint32 func_type_index;
     /* function pointer after linked */
+
     void *func_ptr_linked;
     /* signature from registered native symbols */
     const char *signature;
     /* attachment */
     void *attachment;
+
+    /* via wasm_native */
     bool call_conv_raw;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    /* by loading-link */
     bool call_conv_wasm_c_api;
-    bool wasm_c_api_with_env;
+    struct AOTModule *import_module;
+    struct AOTFunc *import_func_linked;
+#endif
 } AOTImportFunc;
 
 /**

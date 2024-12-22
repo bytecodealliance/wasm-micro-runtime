@@ -105,14 +105,25 @@ typedef struct AOTFunctionInstance {
     char *func_name;
     uint32 func_index;
     bool is_import_func;
+
     union {
         struct {
             AOTFuncType *func_type;
-            /* function pointer linked */
             void *func_ptr;
         } func;
+        /* setup by wasm_native */
         AOTImportFunc *func_import;
     } u;
+
+    /* from other .wasm */
+    AOTModuleInstance *import_module_inst;
+    struct AOTFunctionInstance *import_func_inst;
+    /* copy it from AOTImportFunc */
+    bool call_conv_raw;
+    /* write it from wasm_c_api */
+    bool call_conv_wasm_c_api;
+    /* AOTModuleInstance collects it to form c_api_func_imports */
+    CApiFuncImport import_func_c_api;
 } AOTFunctionInstance;
 
 /* Map of a function index to the element ith in
@@ -143,13 +154,15 @@ typedef struct AOTModuleInstanceExtra {
      * created only when first time used.
      */
     ExportFuncMap *export_func_maps;
-    AOTFunctionInstance **functions;
+    AOTFunctionInstance *functions;
     uint32 function_count;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     bh_list sub_module_inst_list_head;
     bh_list *sub_module_inst_list;
-    WASMModuleInstanceCommon **import_func_module_insts;
+
+    /*TODO: remove*/
+    // WASMModuleInstanceCommon **import_func_module_insts;
 #endif
 
 #if WASM_ENABLE_SHARED_HEAP != 0
@@ -505,6 +518,47 @@ aot_locate_table_elems(const AOTModule *module, AOTTableInstance *table,
     return table->elems;
 }
 
+static inline AOTFunctionInstance *
+aot_locate_function_instance(const AOTModuleInstance *inst, uint32 func_idx)
+{
+    AOTModuleInstanceExtra *e = (AOTModuleInstanceExtra *)inst->e;
+    AOTFunctionInstance *func = e->functions + func_idx;
+    return func;
+}
+
+static inline void *
+aot_get_function_pointer(const AOTModuleInstance *module_inst, uint32 func_idx,
+                         const AOTFunctionInstance *func_inst)
+{
+    void **func_ptrs = module_inst->func_ptrs;
+    void *func_ptr = NULL;
+    CApiFuncImport *c_api_func_import = NULL;
+
+    if (func_inst->call_conv_wasm_c_api) {
+        c_api_func_import = module_inst->c_api_func_imports
+                                ? module_inst->c_api_func_imports + func_idx
+                                : NULL;
+        func_ptr =
+            c_api_func_import ? c_api_func_import->func_ptr_linked : NULL;
+    }
+    else if (func_inst->call_conv_raw) {
+        func_ptr = func_ptrs[func_idx];
+    }
+    else {
+        if (func_inst->import_module_inst) {
+            uint32 funx_idx_of_import_func =
+                func_inst->import_func_inst->func_index;
+            func_ptr = func_inst->import_module_inst
+                           ->func_ptrs[funx_idx_of_import_func];
+        }
+        else {
+            func_ptr = func_ptrs[func_idx];
+        }
+    }
+
+    return func_ptr;
+}
+
 /**
  * Load a AOT module from aot file buffer
  * @param buf the byte buffer which contains the AOT file data
@@ -575,10 +629,10 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
  * Deinstantiate a AOT module instance, destroy the resources.
  *
  * @param module_inst the AOT module instance to destroy
- * @param is_sub_inst the flag of sub instance
+ * @param is_spawned the flag of sub instance
  */
 void
-aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst);
+aot_deinstantiate(AOTModuleInstance *module_inst, bool is_spawned);
 
 AOTMemoryInstance *
 aot_create_memory(const AOTModule *module, const AOTMemoryType *type);
@@ -931,6 +985,35 @@ aot_set_global_value(AOTGlobalInstance *global, const WASMValue *value);
 
 void
 aot_destroy_global(AOTGlobalInstance *global);
+
+AOTFunctionInstance *
+aot_create_function_empty(const AOTModule *module);
+
+void
+aot_destroy_function(AOTFunctionInstance *function);
+
+static inline void
+aot_function_import_from_wasm(AOTFunctionInstance *func,
+                              AOTModuleInstance *dep_inst,
+                              AOTFunctionInstance *dep_func)
+{
+    func->import_module_inst = dep_inst;
+    func->import_func_inst = dep_func;
+}
+
+static inline void
+aot_function_import_from_c_api(AOTFunctionInstance *func,
+                               CApiFuncImport *c_api_func_import)
+{
+    func->import_func_c_api = *c_api_func_import;
+}
+
+/*might be unused*/
+static inline void
+aot_function_import_from_native(AOTFunctionInstance *func, void *callback)
+{
+    func->u.func_import->func_ptr_linked = callback;
+}
 
 #ifdef __cplusplus
 } /* end of extern "C" */

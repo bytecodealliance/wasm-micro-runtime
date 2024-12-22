@@ -233,14 +233,24 @@ struct WASMFunctionInstance {
     uint8 *param_types;
     /* local types, NULL for import function */
     uint8 *local_types;
+
     union {
+        /* setup by wasm_native */
         WASMFunctionImport *func_import;
+        /* local bytecode */
         WASMFunction *func;
     } u;
-#if WASM_ENABLE_MULTI_MODULE != 0
+
+    /* from other .wasm */
     WASMModuleInstance *import_module_inst;
     WASMFunctionInstance *import_func_inst;
-#endif
+    /* copy it from WASMFunctionImport */
+    bool call_conv_raw;
+    /* write it from wasm_c_api */
+    bool call_conv_wasm_c_api;
+    /* WASMModuleInstance collects it to form c_api_func_imports */
+    CApiFuncImport import_func_c_api;
+
 #if WASM_ENABLE_PERF_PROFILING != 0
     /* total execution time */
     uint64 total_exec_time;
@@ -301,16 +311,6 @@ typedef struct WASMExportTagInstance {
     WASMTagInstance *tag;
 } WASMExportTagInstance;
 #endif
-
-/* wasm-c-api import function info */
-typedef struct CApiFuncImport {
-    /* host func pointer after linked */
-    void *func_ptr_linked;
-    /* whether the host func has env argument */
-    bool with_env_arg;
-    /* the env argument of the host func */
-    void *env_arg;
-} CApiFuncImport;
 
 /* The common part of WASMModuleInstanceExtra and AOTModuleInstanceExtra */
 typedef struct WASMModuleInstanceExtraCommon {
@@ -436,6 +436,10 @@ struct WASMModuleInstance {
     DefPointer(WASMModule *, module);
 
     DefPointer(WASMExecEnv *, exec_env_singleton);
+    /*
+     * TODO: is able to be removed.
+     * interp and fast-jit can use func_ptrs instead of this.
+     */
     /* Array of function pointers to import functions,
        not available in AOTModuleInstance */
     DefPointer(void **, import_func_ptrs);
@@ -484,15 +488,6 @@ struct WASMModuleInstance {
 
 struct WASMInterpFrame;
 typedef struct WASMInterpFrame WASMRuntimeFrame;
-
-#if WASM_ENABLE_MULTI_MODULE != 0
-typedef struct WASMSubModInstNode {
-    bh_list_link l;
-    /* point to a string pool */
-    const char *module_name;
-    WASMModuleInstance *module_inst;
-} WASMSubModInstNode;
-#endif
 
 /**
  * Return the code block of a function.
@@ -544,6 +539,23 @@ wasm_locate_table_elems(const WASMModule *module, WASMTableInstance *table,
     }
 #endif
     return table->elems;
+}
+
+static inline WASMFunctionInstance *
+wasm_locate_function_instance(const WASMModuleInstance *module_inst,
+                              uint32 func_idx)
+{
+    WASMModuleInstanceExtra *e = (WASMModuleInstanceExtra *)module_inst->e;
+    WASMFunctionInstance *func = e->functions + func_idx;
+    return func;
+}
+
+static inline uint32
+wasm_calc_function_index(const WASMModuleInstance *module_inst,
+                         const WASMFunctionInstance *func)
+{
+    return (uint32)(func
+                    - ((WASMModuleInstanceExtra *)module_inst->e)->functions);
 }
 
 static inline uint32
@@ -624,7 +636,7 @@ wasm_get_wasm_func_exec_time(const WASMModuleInstance *inst,
                              const char *func_name);
 
 void
-wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst);
+wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_spawned);
 
 bool
 wasm_set_running_mode(WASMModuleInstance *module_inst,
@@ -987,6 +999,35 @@ wasm_set_global_value(WASMGlobalInstance *global, const WASMValue *value);
 
 void
 wasm_destroy_global(WASMGlobalInstance *global);
+
+WASMFunctionInstance *
+wasm_create_function_empty(const WASMModule *module);
+
+void
+wasm_destroy_function(WASMFunctionInstance *function);
+
+static inline void
+wasm_function_import_from_wasm(WASMFunctionInstance *func,
+                               WASMModuleInstance *dep_inst,
+                               WASMFunctionInstance *dep_func)
+{
+    func->import_module_inst = dep_inst;
+    func->import_func_inst = dep_func;
+}
+
+static inline void
+wasm_function_import_from_c_api(WASMFunctionInstance *func,
+                                CApiFuncImport *c_api_func_import)
+{
+    func->import_func_c_api = *c_api_func_import;
+}
+
+/*might be unused*/
+static inline void
+wasm_function_import_from_native(WASMFunctionInstance *func, void *callback)
+{
+    func->u.func_import->func_ptr_linked = callback;
+}
 
 #ifdef __cplusplus
 }

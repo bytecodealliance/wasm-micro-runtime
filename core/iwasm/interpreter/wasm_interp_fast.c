@@ -1209,7 +1209,9 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
 
     cur_func_index = (uint32)(cur_func - module_inst->e->functions);
     bh_assert(cur_func_index < module_inst->module->import_function_count);
-    if (!func_import->call_conv_wasm_c_api) {
+
+    if (!cur_func->call_conv_wasm_c_api) {
+        /*TODO: use func_ptrs instead */
         native_func_pointer = module_inst->import_func_ptrs[cur_func_index];
     }
     else if (module_inst->c_api_func_imports) {
@@ -1226,7 +1228,7 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
         return;
     }
 
-    if (func_import->call_conv_wasm_c_api) {
+    if (cur_func->call_conv_wasm_c_api) {
         ret = wasm_runtime_invoke_c_api_native(
             (WASMModuleInstanceCommon *)module_inst, native_func_pointer,
             func_import->func_type, cur_func->param_cell_num, frame->lp,
@@ -1236,14 +1238,14 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
             argv_ret[1] = frame->lp[1];
         }
     }
-    else if (!func_import->call_conv_raw) {
-        ret = wasm_runtime_invoke_native(
+    else if (cur_func->call_conv_raw) {
+        ret = wasm_runtime_invoke_native_raw(
             exec_env, native_func_pointer, func_import->func_type,
             func_import->signature, func_import->attachment, frame->lp,
             cur_func->param_cell_num, argv_ret);
     }
     else {
-        ret = wasm_runtime_invoke_native_raw(
+        ret = wasm_runtime_invoke_native(
             exec_env, native_func_pointer, func_import->func_type,
             func_import->signature, func_import->attachment, frame->lp,
             cur_func->param_cell_num, argv_ret);
@@ -1278,7 +1280,6 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
     wasm_exec_env_set_cur_frame(exec_env, prev_frame);
 }
 
-#if WASM_ENABLE_MULTI_MODULE != 0
 static void
 wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                WASMExecEnv *exec_env,
@@ -1350,7 +1351,6 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
     wasm_exec_env_restore_module_inst(exec_env,
                                       (WASMModuleInstanceCommon *)module_inst);
 }
-#endif
 
 #if WASM_ENABLE_THREAD_MGR != 0
 #define CHECK_SUSPEND_FLAGS()                               \
@@ -6253,15 +6253,12 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
 #endif
 
     if (function->is_import_func) {
-#if WASM_ENABLE_MULTI_MODULE != 0
         if (function->import_module_inst) {
             LOG_DEBUG("it is a function of a sub module");
             wasm_interp_call_func_import(module_inst, exec_env, function,
                                          frame);
         }
-        else
-#endif
-        {
+        else {
             LOG_DEBUG("it is an native function");
             wasm_interp_call_func_native(module_inst, exec_env, function,
                                          frame);
