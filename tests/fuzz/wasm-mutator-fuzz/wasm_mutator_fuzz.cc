@@ -37,15 +37,16 @@ random_gen_val(wasm_valkind_t kind)
         return wasm_val_t{ .kind = WASM_F64, .of = { .f64 = dis(gen) } };
     }
     else if (kind == WASM_EXTERNREF) {
-        // TODO:
-        return wasm_val_t{ .kind = WASM_EXTERNREF, .of = { .foreign = 0 } };
+        std::uniform_int_distribution<uintptr_t> dis;
+        return wasm_val_t{ .kind = WASM_EXTERNREF,
+                           .of = { .foreign = dis(gen) } };
     }
     else if (kind == WASM_FUNCREF) {
-        // TODO:
         return wasm_val_t{ .kind = WASM_FUNCREF, .of = { .ref = nullptr } };
     }
+    // TODO:v128
     else {
-        assert(0);
+        assert(0 && "unsupported value kind");
     }
 }
 
@@ -88,18 +89,53 @@ execute_export_functions(wasm_module_t module, wasm_module_inst_t inst)
 
         /* execute the function */
         wasm_exec_env_t exec_env = wasm_runtime_get_exec_env_singleton(inst);
+
+        {
+            std::cout << "[EXECUTION] " << export_type.name << "(";
+            for (unsigned p_i = 0; p_i < param_count; p_i++) {
+                if (p_i != 0) {
+                    std::cout << ", ";
+                }
+
+                if (args[p_i].kind == WASM_I32) {
+                    std::cout << "i32:" << args[p_i].of.i32;
+                }
+                else if (args[p_i].kind == WASM_I64) {
+                    std::cout << "i64:" << args[p_i].of.i64;
+                }
+                else if (args[p_i].kind == WASM_F32) {
+                    std::cout << "f32:" << args[p_i].of.f32;
+                }
+                else if (args[p_i].kind == WASM_F64) {
+                    std::cout << "f64:" << args[p_i].of.f64;
+                }
+                else if (args[p_i].kind == WASM_EXTERNREF) {
+                    std::cout << "externref:" << args[p_i].of.foreign;
+                }
+                else if (args[p_i].kind == WASM_FUNCREF) {
+                    std::cout << "funcref:" << args[p_i].of.ref;
+                }
+                // TODO:v128
+                else {
+                    assert(0 && "unsupported value kind");
+                }
+            }
+
+            std::cout << ")";
+        }
+
         bool ret =
             wasm_runtime_call_wasm_a(exec_env, func, result_count,
                                      results.data(), param_count, args.data());
         if (!ret) {
             const char *exception = wasm_runtime_get_exception(inst);
             if (!exception) {
-                std::cout << "Failed to execute function: " << export_type.name
-                          << ". No exception info." << std::endl;
+                std::cout << "[EXECUTION] " << export_type.name
+                          << "() failed. No exception info." << std::endl;
             }
             else {
-                std::cout << "Failed to execute function: " << export_type.name
-                          << ". " << exception << std::endl;
+                std::cout << "[EXECUTION] " << export_type.name << "() failed. "
+                          << exception << std::endl;
             }
         }
 
@@ -140,8 +176,6 @@ LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size)
     }
 
     execute_export_functions(module, inst);
-
-    std::cout << "PASS" << std::endl;
 
     wasm_runtime_deinstantiate(inst);
     wasm_runtime_unload(module);
