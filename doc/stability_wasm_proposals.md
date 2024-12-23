@@ -26,7 +26,7 @@ Users can turn those features on or off by using compilation options. If a relev
 | Legacy Exception handling[^2]         | Yes     | `WAMR_BUILD_EXCE_HANDLING` |
 | WebAssembly C and C++ API             | No      | N/A                        |
 
-[^1]: jit and aot only
+[^1]: llvm-jit and aot only
 [^2]: interpreter only
 
 ## Off-by-default Wasm Proposals
