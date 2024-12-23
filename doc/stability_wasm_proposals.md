@@ -8,7 +8,7 @@ Normally, the document tracks proposals that are in phase 4. However, if a propo
 
 The _status_ represents the configuration _product-mini/platforms/linux/CMakeLists.txt_. There may be minor differences between the top-level CMakeLists and platform-specific CMakeLists.
 
-Users can turn those features on or off using compilation options. If a relevant compilation option is not available(`N/A`), it indicates that the feature is permanently enabled.
+Users can turn those features on or off by using compilation options. If a relevant compilation option is not available(`N/A`), it indicates that the feature is permanently enabled.
 
 ## On-by-default Wasm Proposals
 
@@ -23,7 +23,7 @@ Users can turn those features on or off using compilation options. If a relevant
 | Extended Constant Expressions         | Yes     | N/A                        |
 | Typed Function References             | Yes     | `WAMR_BUILD_GC`            |
 | Thread                                | Yes     | `WAMR_BUILD_SHARED_MEMORY` |
-| Exception handling[^2]                | Yes     | `WAMR_BUILD_EXCE_HANDLING` |
+| Legacy Exception handling[^2]         | Yes     | `WAMR_BUILD_EXCE_HANDLING` |
 | WebAssembly C and C++ API             | No      | N/A                        |
 
 [^1]: jit and aot only
@@ -49,6 +49,7 @@ Users can turn those features on or off using compilation options. If a relevant
 | Custom Annotation Syntax in the Text Format | Yes     |
 | Branch Hinting                              | Yes     |
 | JS String Builtins                          | Yes     |
+| Exception handling                          | Yes     |
 
 ## On-by-default WASI Proposals
 
