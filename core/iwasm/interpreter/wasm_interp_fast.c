@@ -740,6 +740,9 @@ TRUNC_FUNCTION(trunc_f32_to_i64, float32, uint64, int64)
 TRUNC_FUNCTION(trunc_f64_to_i32, float64, uint32, int32)
 TRUNC_FUNCTION(trunc_f64_to_i64, float64, uint64, int64)
 
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((no_sanitize("undefined")))
+#endif
 static bool
 trunc_f32_to_int(WASMModuleInstance *module, uint8 *frame_ip, uint32 *frame_lp,
                  float32 src_min, float32 src_max, bool saturating, bool is_i32,
@@ -777,6 +780,9 @@ trunc_f32_to_int(WASMModuleInstance *module, uint8 *frame_ip, uint32 *frame_lp,
     return true;
 }
 
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((no_sanitize("undefined")))
+#endif
 static bool
 trunc_f64_to_int(WASMModuleInstance *module, uint8 *frame_ip, uint32 *frame_lp,
                  float64 src_min, float64 src_max, bool saturating, bool is_i32,
@@ -1463,6 +1469,9 @@ get_global_addr(uint8 *global_data, WASMGlobalInstance *global)
 #endif
 }
 
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((no_sanitize("undefined")))
+#endif
 static void
 wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                WASMExecEnv *exec_env,

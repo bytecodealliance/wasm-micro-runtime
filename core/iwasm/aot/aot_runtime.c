@@ -662,6 +662,9 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     return true;
 }
 
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((no_sanitize("undefined")))
+#endif
 static bool
 tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                    AOTTableInstance *first_tbl_inst, char *error_buf,
@@ -3166,6 +3169,9 @@ fail:
     return ret;
 }
 
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((no_sanitize("undefined")))
+#endif
 bool
 aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
                   uint32 argc, uint32 *argv)

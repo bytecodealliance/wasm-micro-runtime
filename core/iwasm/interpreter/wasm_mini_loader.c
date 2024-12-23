@@ -2097,7 +2097,7 @@ calculate_global_data_offset(WASMModule *module)
         data_offset += wasm_value_type_size(global->type.val_type);
     }
 
-    module->global_data_size = data_offset;
+    module->global_data_size = wasm_pointer_align(data_offset);
 }
 
 #if WASM_ENABLE_FAST_JIT != 0
