@@ -7929,12 +7929,6 @@ typedef struct WASMLoaderContext {
     /* preserved local offset */
     int16 preserved_local_offset;
 
-    /* const buffer */
-    uint8 *const_buf;
-    uint16 num_const;
-    uint16 const_cell_num;
-    uint32 const_buf_size;
-
     /* processed code */
     uint8 *p_code_compiled;
     uint8 *p_code_compiled_end;
@@ -8169,8 +8163,6 @@ wasm_loader_ctx_destroy(WASMLoaderContext *ctx)
 #if WASM_ENABLE_FAST_INTERP != 0
         if (ctx->frame_offset_bottom)
             wasm_runtime_free(ctx->frame_offset_bottom);
-        if (ctx->const_buf)
-            wasm_runtime_free(ctx->const_buf);
 #endif
         wasm_runtime_free(ctx);
     }
@@ -8217,12 +8209,6 @@ wasm_loader_ctx_init(WASMFunction *func, char *error_buf, uint32 error_buf_size)
                             error_buf_size)))
         goto fail;
     loader_ctx->frame_offset_boundary = loader_ctx->frame_offset_bottom + 32;
-
-    loader_ctx->num_const = 0;
-    loader_ctx->const_buf_size = sizeof(Const) * 8;
-    if (!(loader_ctx->const_buf = loader_malloc(loader_ctx->const_buf_size,
-                                                error_buf, error_buf_size)))
-        goto fail;
 
     if (func->param_cell_num >= (int32)INT16_MAX - func->local_cell_num) {
         set_error_buf(error_buf, error_buf_size,
@@ -8848,30 +8834,6 @@ fail:
         || (last_op == WASM_OP_F64_REINTERPRET_I64)                            \
         || (last_op == EXT_OP_COPY_STACK_TOP_I64)
 
-#define GET_CONST_OFFSET(type, val)                                    \
-    do {                                                               \
-        if (!(wasm_loader_get_const_offset(loader_ctx, type, &val,     \
-                                           &operand_offset, error_buf, \
-                                           error_buf_size)))           \
-            goto fail;                                                 \
-    } while (0)
-
-#define GET_CONST_F32_OFFSET(type, fval)                               \
-    do {                                                               \
-        if (!(wasm_loader_get_const_offset(loader_ctx, type, &fval,    \
-                                           &operand_offset, error_buf, \
-                                           error_buf_size)))           \
-            goto fail;                                                 \
-    } while (0)
-
-#define GET_CONST_F64_OFFSET(type, fval)                               \
-    do {                                                               \
-        if (!(wasm_loader_get_const_offset(loader_ctx, type, &fval,    \
-                                           &operand_offset, error_buf, \
-                                           error_buf_size)))           \
-            goto fail;                                                 \
-    } while (0)
-
 #define emit_operand(ctx, offset)            \
     do {                                     \
         wasm_loader_emit_int16(ctx, offset); \
@@ -9467,112 +9429,6 @@ wasm_loader_push_pop_frame_ref_offset(WASMLoaderContext *ctx, uint8 pop_cnt,
         return false;
 
     return true;
-}
-
-static bool
-wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
-                             int16 *offset, char *error_buf,
-                             uint32 error_buf_size)
-{
-    int8 bytes_to_increase;
-    int16 operand_offset = 0;
-    Const *c;
-
-    /* Search existing constant */
-    for (c = (Const *)ctx->const_buf;
-         (uint8 *)c < ctx->const_buf + ctx->num_const * sizeof(Const); c++) {
-        /* TODO: handle v128 type? */
-        if ((type == c->value_type)
-            && ((type == VALUE_TYPE_I64 && *(int64 *)value == c->value.i64)
-                || (type == VALUE_TYPE_I32 && *(int32 *)value == c->value.i32)
-#if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
-                || (type == VALUE_TYPE_FUNCREF
-                    && *(int32 *)value == c->value.i32)
-                || (type == VALUE_TYPE_EXTERNREF
-                    && *(int32 *)value == c->value.i32)
-#endif
-                || (type == VALUE_TYPE_F64
-                    && (0 == memcmp(value, &(c->value.f64), sizeof(float64))))
-                || (type == VALUE_TYPE_F32
-                    && (0
-                        == memcmp(value, &(c->value.f32), sizeof(float32)))))) {
-            operand_offset = c->slot_index;
-            break;
-        }
-        if (is_32bit_type(c->value_type))
-            operand_offset += 1;
-        else
-            operand_offset += 2;
-    }
-
-    if ((uint8 *)c == ctx->const_buf + ctx->num_const * sizeof(Const)) {
-        /* New constant, append to the const buffer */
-        if ((type == VALUE_TYPE_F64) || (type == VALUE_TYPE_I64)) {
-            bytes_to_increase = 2;
-        }
-        else {
-            bytes_to_increase = 1;
-        }
-
-        /* The max cell num of const buffer is 32768 since the valid index range
-         * is -32768 ~ -1. Return an invalid index 0 to indicate the buffer is
-         * full */
-        if (ctx->const_cell_num > INT16_MAX - bytes_to_increase + 1) {
-            *offset = 0;
-            return true;
-        }
-
-        if ((uint8 *)c == ctx->const_buf + ctx->const_buf_size) {
-            MEM_REALLOC(ctx->const_buf, ctx->const_buf_size,
-                        ctx->const_buf_size + 4 * sizeof(Const));
-            ctx->const_buf_size += 4 * sizeof(Const);
-            c = (Const *)(ctx->const_buf + ctx->num_const * sizeof(Const));
-        }
-        c->value_type = type;
-        switch (type) {
-            case VALUE_TYPE_F64:
-                bh_memcpy_s(&(c->value.f64), sizeof(WASMValue), value,
-                            sizeof(float64));
-                ctx->const_cell_num += 2;
-                /* The const buf will be reversed, we use the second cell */
-                /* of the i64/f64 const so the final offset is correct */
-                operand_offset++;
-                break;
-            case VALUE_TYPE_I64:
-                c->value.i64 = *(int64 *)value;
-                ctx->const_cell_num += 2;
-                operand_offset++;
-                break;
-            case VALUE_TYPE_F32:
-                bh_memcpy_s(&(c->value.f32), sizeof(WASMValue), value,
-                            sizeof(float32));
-                ctx->const_cell_num++;
-                break;
-            case VALUE_TYPE_I32:
-                c->value.i32 = *(int32 *)value;
-                ctx->const_cell_num++;
-                break;
-#if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
-            case VALUE_TYPE_EXTERNREF:
-            case VALUE_TYPE_FUNCREF:
-                c->value.i32 = *(int32 *)value;
-                ctx->const_cell_num++;
-                break;
-#endif
-            default:
-                break;
-        }
-        c->slot_index = operand_offset;
-        ctx->num_const++;
-        LOG_OP("#### new const [%d]: %ld\n", ctx->num_const,
-               (int64)c->value.i64);
-    }
-    /* use negative index for const */
-    operand_offset = -(operand_offset + 1);
-    *offset = operand_offset;
-    return true;
-fail:
-    return false;
 }
 
 /*
@@ -10929,7 +10785,6 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
     bool need_ref_type_map;
 #endif
 #if WASM_ENABLE_FAST_INTERP != 0
-    uint8 *func_const_end, *func_const = NULL;
     int16 operand_offset = 0;
     uint8 last_op = 0;
     bool disable_emit, preserve_local = false, if_condition_available = true;
@@ -13343,14 +13198,9 @@ re_scan:
                 read_leb_int32(p, p_end, i32_const);
 #if WASM_ENABLE_FAST_INTERP != 0
                 skip_label();
-                disable_emit = true;
-                GET_CONST_OFFSET(VALUE_TYPE_I32, i32_const);
-
-                if (operand_offset == 0) {
-                    disable_emit = false;
-                    emit_label(WASM_OP_I32_CONST);
-                    emit_uint32(loader_ctx, i32_const);
-                }
+                disable_emit = false;
+                emit_label(WASM_OP_I32_CONST);
+                emit_uint32(loader_ctx, i32_const);
 #else
                 (void)i32_const;
 #endif
@@ -13361,14 +13211,9 @@ re_scan:
                 read_leb_int64(p, p_end, i64_const);
 #if WASM_ENABLE_FAST_INTERP != 0
                 skip_label();
-                disable_emit = true;
-                GET_CONST_OFFSET(VALUE_TYPE_I64, i64_const);
-
-                if (operand_offset == 0) {
-                    disable_emit = false;
-                    emit_label(WASM_OP_I64_CONST);
-                    emit_uint64(loader_ctx, i64_const);
-                }
+                disable_emit = false;
+                emit_label(WASM_OP_I64_CONST);
+                emit_uint64(loader_ctx, i64_const);
 #endif
                 PUSH_I64();
                 break;
@@ -13378,16 +13223,11 @@ re_scan:
                 p += sizeof(float32);
 #if WASM_ENABLE_FAST_INTERP != 0
                 skip_label();
-                disable_emit = true;
                 bh_memcpy_s((uint8 *)&f32_const, sizeof(float32), p_org,
                             sizeof(float32));
-                GET_CONST_F32_OFFSET(VALUE_TYPE_F32, f32_const);
-
-                if (operand_offset == 0) {
-                    disable_emit = false;
-                    emit_label(WASM_OP_F32_CONST);
-                    emit_float32(loader_ctx, f32_const);
-                }
+                disable_emit = false;
+                emit_label(WASM_OP_F32_CONST);
+                emit_float32(loader_ctx, f32_const);
 #endif
                 PUSH_F32();
                 break;
@@ -13397,17 +13237,12 @@ re_scan:
                 p += sizeof(float64);
 #if WASM_ENABLE_FAST_INTERP != 0
                 skip_label();
-                disable_emit = true;
                 /* Some MCU may require 8-byte align */
                 bh_memcpy_s((uint8 *)&f64_const, sizeof(float64), p_org,
                             sizeof(float64));
-                GET_CONST_F64_OFFSET(VALUE_TYPE_F64, f64_const);
-
-                if (operand_offset == 0) {
-                    disable_emit = false;
-                    emit_label(WASM_OP_F64_CONST);
-                    emit_float64(loader_ctx, f64_const);
-                }
+                disable_emit = false;
+                emit_label(WASM_OP_F64_CONST);
+                emit_float64(loader_ctx, f64_const);
 #endif
                 PUSH_F64();
                 break;
@@ -15869,32 +15704,6 @@ re_scan:
 #if WASM_ENABLE_FAST_INTERP != 0
     if (loader_ctx->p_code_compiled == NULL)
         goto re_scan;
-
-    func->const_cell_num = loader_ctx->const_cell_num;
-    if (func->const_cell_num > 0) {
-        int32 j;
-
-        if (!(func->consts = func_const = loader_malloc(
-                  func->const_cell_num * 4, error_buf, error_buf_size)))
-            goto fail;
-
-        func_const_end = func->consts + func->const_cell_num * 4;
-        /* reverse the const buf */
-        for (j = loader_ctx->num_const - 1; j >= 0; j--) {
-            Const *c = (Const *)(loader_ctx->const_buf + j * sizeof(Const));
-            if (c->value_type == VALUE_TYPE_F64
-                || c->value_type == VALUE_TYPE_I64) {
-                bh_memcpy_s(func_const, (uint32)(func_const_end - func_const),
-                            &(c->value.f64), (uint32)sizeof(int64));
-                func_const += sizeof(int64);
-            }
-            else {
-                bh_memcpy_s(func_const, (uint32)(func_const_end - func_const),
-                            &(c->value.f32), (uint32)sizeof(int32));
-                func_const += sizeof(int32);
-            }
-        }
-    }
 
     func->max_stack_cell_num = loader_ctx->preserved_local_offset
                                - loader_ctx->start_dynamic_offset + 1;
