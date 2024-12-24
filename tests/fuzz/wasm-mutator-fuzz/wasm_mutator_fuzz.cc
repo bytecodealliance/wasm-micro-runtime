@@ -10,36 +10,66 @@
 #include <string.h>
 #include <iostream>
 #include <vector>
-#include <random>
+#include <bits/stdc++.h>
 
 using namespace std;
 
-/* use std generation */
+/*
+ * there is a unsigned integer overflow in
+ * /usr/bin/../lib/gcc/x86_64-linux-gnu/12/../../../../include/c++/12/bits/random.tcc:416
+ *
+ * use srand() and rand() instead
+ */
+
+static int32_t
+generate_random_int32()
+{
+    return (int32_t)rand();
+}
+
+static int64_t
+generate_random_int64()
+{
+    return ((int64_t)rand() << 32) | rand();
+}
+
+static float
+generate_random_float()
+{
+    return (float)rand() / (float)RAND_MAX;
+}
+
+static double
+generate_random_double()
+{
+    return (double)rand() / (double)RAND_MAX;
+}
+
 static wasm_val_t
 random_gen_val(wasm_valkind_t kind)
 {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
+    srand(1024);
+
     if (kind == WASM_I32) {
-        std::uniform_int_distribution<int32_t> dis;
-        return wasm_val_t{ .kind = WASM_I32, .of = { .i32 = dis(gen) } };
+        return wasm_val_t{ .kind = WASM_I32,
+                           .of = { .i32 = generate_random_int32() } };
     }
     else if (kind == WASM_I64) {
-        std::uniform_int_distribution<int64_t> dis;
-        return wasm_val_t{ .kind = WASM_I64, .of = { .i64 = dis(gen) } };
+        return wasm_val_t{ .kind = WASM_I64,
+                           .of = { .i64 = generate_random_int64() } };
     }
     else if (kind == WASM_F32) {
-        std::uniform_real_distribution<float> dis;
-        return wasm_val_t{ .kind = WASM_F32, .of = { .f32 = dis(gen) } };
+        return wasm_val_t{ .kind = WASM_F32,
+                           .of = { .f32 = generate_random_float() } };
     }
     else if (kind == WASM_F64) {
-        std::uniform_real_distribution<double> dis;
-        return wasm_val_t{ .kind = WASM_F64, .of = { .f64 = dis(gen) } };
+        return wasm_val_t{ .kind = WASM_F64,
+                           .of = { .f64 = generate_random_double() } };
     }
     else if (kind == WASM_EXTERNREF) {
-        std::uniform_int_distribution<uintptr_t> dis;
         return wasm_val_t{ .kind = WASM_EXTERNREF,
-                           .of = { .foreign = dis(gen) } };
+                           .of = { .foreign =
+                                       (uintptr_t)generate_random_int64() } };
     }
     else if (kind == WASM_FUNCREF) {
         return wasm_val_t{ .kind = WASM_FUNCREF, .of = { .ref = nullptr } };
@@ -124,9 +154,8 @@ execute_export_functions(wasm_module_t module, wasm_module_inst_t inst)
             std::cout << ")";
         }
 
-        bool ret =
-            wasm_runtime_call_wasm_a(exec_env, func, result_count,
-                                     results.data(), param_count, args.data());
+        bool ret = wasm_runtime_call_wasm_a(exec_env, func, result_count,
+                                            &results[0], param_count, &args[0]);
         if (!ret) {
             const char *exception = wasm_runtime_get_exception(inst);
             if (!exception) {
