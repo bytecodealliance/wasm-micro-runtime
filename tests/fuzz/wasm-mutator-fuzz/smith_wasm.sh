@@ -41,7 +41,7 @@ function try_generate_wasm()
     printf -- "-- output ${GENERATED_WASM_NAME} in %d retries\n" $try_i
 }
 
-WASM_SHAPE=" --allow-invalid-funcs true \
+WASM_SHAPE=" --ensure-termination \
 --export-everything true \
 --generate-custom-sections true \
 --min-funcs 5 \
