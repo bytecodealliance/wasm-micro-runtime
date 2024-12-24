@@ -170,6 +170,7 @@ endif ()
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
 add_executable (iwasm main.c ${UNCOMMON_SHARED_SOURCE})
+
 set_version_info (iwasm)
 
 set_target_properties (iwasm PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -186,6 +187,7 @@ target_link_libraries(iwasm
 install (TARGETS iwasm DESTINATION bin)
 
 add_library (libiwasm SHARED ${WAMR_RUNTIME_LIB_SOURCE})
+
 set_version_info (libiwasm)
 
 install (TARGETS libiwasm DESTINATION lib)

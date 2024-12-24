@@ -376,6 +376,7 @@ add_library (aotclib ${IWASM_COMPL_SOURCE})
 add_executable (wamrc main.c)
 check_pie_supported()
 set_target_properties (wamrc PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_version_info (wamrc)
 
 if (LLVM_LINK_LLVM_DYLIB)
   set(WAMRC_LINK_LLVM_LIBS LLVM)
