@@ -36,8 +36,11 @@ aot_destroy_mem_init_data_list(AOTMemInitData **data_list, uint32 count)
 {
     uint32 i;
     for (i = 0; i < count; i++)
-        if (data_list[i])
+        if (data_list[i]) {
+            if (data_list[i]->bytes)
+                wasm_runtime_free(data_list[i]->bytes);
             wasm_runtime_free(data_list[i]);
+        }
     wasm_runtime_free(data_list);
 }
 
@@ -74,8 +77,16 @@ aot_create_mem_init_data_list(const WASMModule *module)
 #endif
         data_list[i]->offset = module->data_segments[i]->base_offset;
         data_list[i]->byte_count = module->data_segments[i]->data_length;
-        memcpy(data_list[i]->bytes, module->data_segments[i]->data,
-               module->data_segments[i]->data_length);
+        data_list[i]->bytes = NULL;
+        if (data_list[i]->byte_count > 0) {
+            data_list[i]->bytes = wasm_runtime_malloc(data_list[i]->byte_count);
+            if (!data_list[i]->bytes) {
+                aot_set_last_error("allocate memory failed.");
+                goto fail;
+            }
+            memcpy(data_list[i]->bytes, module->data_segments[i]->data,
+                   module->data_segments[i]->data_length);
+        }
     }
 
     return data_list;
