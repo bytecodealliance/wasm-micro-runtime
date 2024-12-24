@@ -150,7 +150,7 @@ execute_export_functions(wasm_module_t module, wasm_module_inst_t inst)
                 }
             }
 
-            std::cout << ")";
+            std::cout << ")" << std::endl;
         }
 
         bool ret = wasm_runtime_call_wasm_a(exec_env, func, result_count,
