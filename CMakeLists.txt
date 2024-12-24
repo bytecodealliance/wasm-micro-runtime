@@ -174,6 +174,7 @@ if (WAMR_BUILD_STATIC)
       target_link_libraries(iwasm_static PRIVATE ntdll)
     endif()
 
+    set_version_info (iwasm_static)
     install (TARGETS iwasm_static ARCHIVE DESTINATION lib)
 endif ()
 
@@ -196,6 +197,7 @@ if (WAMR_BUILD_SHARED)
       target_link_libraries(iwasm_shared PRIVATE ntdll)
     endif()
 
+    set_version_info (iwasm_shared)
     install (TARGETS iwasm_shared LIBRARY DESTINATION lib)
 endif ()
 
@@ -204,4 +206,5 @@ install (FILES
     ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_c_api.h
     ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_export.h
     ${WAMR_ROOT_DIR}/core/iwasm/include/lib_export.h
+    ${WAMR_ROOT_DIR}/core/version.h
     DESTINATION include)
