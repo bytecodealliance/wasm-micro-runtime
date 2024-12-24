@@ -139,6 +139,7 @@ endif()
 
 set (distribution_DIR ${CMAKE_BINARY_DIR}/distribution)
 set_target_properties (iwasm PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${distribution_DIR}/wasm/lib")
+set_version_info (iwasm)
 
 add_custom_command (TARGET iwasm POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E copy_directory "${WAMR_ROOT_DIR}/core/iwasm/include" "${distribution_DIR}/wasm/include/"

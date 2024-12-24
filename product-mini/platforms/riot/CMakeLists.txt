@@ -62,3 +62,5 @@ include_directories(SYSTEM ${RIOT_INCLUDES_LIST})
 # executable linking is done by RIOT build system
 
 add_library( wamr ${WAMR_RUNTIME_LIB_SOURCE})
+
+set_version_info (wamr)

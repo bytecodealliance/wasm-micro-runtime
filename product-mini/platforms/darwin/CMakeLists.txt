@@ -116,10 +116,13 @@ set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
+set_version_info (vmlib)
 
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
 add_executable (iwasm main.c ${UNCOMMON_SHARED_SOURCE})
+
+set_version_info (iwasm)
 
 install (TARGETS iwasm DESTINATION bin)
 
@@ -130,6 +133,8 @@ add_library (libiwasm SHARED ${WAMR_RUNTIME_LIB_SOURCE})
 install (TARGETS libiwasm DESTINATION lib)
 
 set_target_properties (libiwasm PROPERTIES OUTPUT_NAME iwasm)
+
+set_version_info (libiwasm)
 
 target_link_libraries (libiwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
 
