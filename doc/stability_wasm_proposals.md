@@ -14,16 +14,15 @@ Users can turn those features on or off by using compilation options. If a relev
 
 | Proposal                              | Phase 4 | Compilation Option         |
 | ------------------------------------- | ------- | -------------------------- |
-| Non-trapping float-to-int conversions | Yes     | N/A                        |
-| Sign-extension operators              | Yes     | N/A                        |
-| Multi-value                           | Yes     | N/A                        |
-| Reference Types                       | Yes     | `WAMR_BUILD_REF_TYPES`     |
 | Bulk memory operations                | Yes     | `WAMR_BUILD_BULK_MEMORY`   |
-| Fixed-width SIMD[^1]                  | Yes     | `WAMR_BUILD_SIMD`          |
 | Extended Constant Expressions         | Yes     | N/A                        |
-| Typed Function References             | Yes     | `WAMR_BUILD_GC`            |
-| Thread                                | Yes     | `WAMR_BUILD_SHARED_MEMORY` |
+| Fixed-width SIMD[^1]                  | Yes     | `WAMR_BUILD_SIMD`          |
 | Legacy Exception handling[^2]         | Yes     | `WAMR_BUILD_EXCE_HANDLING` |
+| Multi-value                           | Yes     | N/A                        |
+| Non-trapping float-to-int conversions | Yes     | N/A                        |
+| Reference Types                       | Yes     | `WAMR_BUILD_REF_TYPES`     |
+| Sign-extension operators              | Yes     | N/A                        |
+| Thread                                | Yes     | `WAMR_BUILD_SHARED_MEMORY` |
 | WebAssembly C and C++ API             | No      | N/A                        |
 
 [^1]: llvm-jit and aot only
@@ -31,12 +30,14 @@ Users can turn those features on or off by using compilation options. If a relev
 
 ## Off-by-default Wasm Proposals
 
-| Proposal              | Phase 4 | Compilation Option        |
-| --------------------- | ------- | ------------------------- |
-| Tail call             | Yes     | `WAMR_BUILD_TAIL_CALL`    |
-| Garbage collection    | Yes     | `WAMR_BUILD_GC`           |
-| Multiple memories[^3] | Yes     | `WAMR_BUILD_MULTI_MEMORY` |
-| Memory64              | Yes     | `WAMR_BUILD_MEMORY64`     |
+| Proposal                  | Phase 4 | Compilation Option        |
+| ------------------------- | ------- | ------------------------- |
+| Garbage collection        | Yes     | `WAMR_BUILD_GC`           |
+| Memory64                  | Yes     | `WAMR_BUILD_MEMORY64`     |
+| Multiple memories[^3]     | Yes     | `WAMR_BUILD_MULTI_MEMORY` |
+| Reference-Typed Strings   | No      | `WAMR_BUILD_STRINGREF`    |
+| Tail call                 | Yes     | `WAMR_BUILD_TAIL_CALL`    |
+| Typed Function References | Yes     | `WAMR_BUILD_GC`           |
 
 [^3]: interpreter only
 
@@ -44,12 +45,12 @@ Users can turn those features on or off by using compilation options. If a relev
 
 | Proposal                                    | Phase 4 |
 | ------------------------------------------- | ------- |
-| Import/Export of Mutable Globals            | Yes     |
-| Relaxed SIMD                                | Yes     |
-| Custom Annotation Syntax in the Text Format | Yes     |
 | Branch Hinting                              | Yes     |
-| JS String Builtins                          | Yes     |
+| Custom Annotation Syntax in the Text Format | Yes     |
 | Exception handling                          | Yes     |
+| Import/Export of Mutable Globals            | Yes     |
+| JS String Builtins                          | Yes     |
+| Relaxed SIMD                                | Yes     |
 
 ## On-by-default WASI Proposals
 
