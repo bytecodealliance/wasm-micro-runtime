@@ -285,6 +285,7 @@ include (${IWASM_DIR}/common/gc/iwasm_gc.cmake)
 include (${IWASM_DIR}/interpreter/iwasm_interp.cmake)
 include (${IWASM_DIR}/aot/iwasm_aot.cmake)
 include (${IWASM_DIR}/compilation/iwasm_compl.cmake)
+include (${PROJECT_SOURCE_DIR}/../build-scripts/version.cmake)
 
 if (WAMR_BUILD_LIBC_BUILTIN EQUAL 1)
   include (${IWASM_DIR}/libraries/libc-builtin/libc_builtin.cmake)
