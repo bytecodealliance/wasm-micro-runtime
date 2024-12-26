@@ -18,6 +18,8 @@
 #include "../common/libc_wasi.c"
 #endif
 
+#include "../common/wasm_proposal.c"
+
 #if BH_HAS_DLFCN
 #include <dlfcn.h>
 #endif
@@ -798,6 +800,8 @@ main(int argc, char *argv[])
             wasm_runtime_get_version(&major, &minor, &patch);
             printf("iwasm %" PRIu32 ".%" PRIu32 ".%" PRIu32 "\n", major, minor,
                    patch);
+            printf("\n");
+            wasm_proposal_print_status();
             return 0;
         }
         else {
