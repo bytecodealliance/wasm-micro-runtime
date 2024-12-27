@@ -8,6 +8,7 @@
 #include "bh_platform.h"
 #include "bh_assert.h"
 #include "bh_log.h"
+#include "bh_queue.h"
 #include "wasm_export.h"
 #if defined(BUILD_TARGET_RISCV64_LP64) || defined(BUILD_TARGET_RISCV32_ILP32)
 #include "test_wasm_riscv64.h"
@@ -90,8 +91,8 @@ static char global_heap_buf[CONFIG_GLOBAL_HEAP_BUF_SIZE] = { 0 };
 void
 iwasm_main(void *arg1, void *arg2, void *arg3)
 {
-    // int start, end;
-    // start = k_uptime_get_32();
+    int start, end;
+    start = k_uptime_get_32();
     uint8 *wasm_file_buf = NULL;
     uint32 wasm_file_size;
     wasm_module_t wasm_module = NULL;
@@ -106,7 +107,7 @@ iwasm_main(void *arg1, void *arg2, void *arg3)
     (void)arg2;
     (void)arg3;
 
-    os_printf("User mode thread start\n");
+    os_printf("User mode thread: start\n");
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
@@ -154,8 +155,6 @@ iwasm_main(void *arg1, void *arg2, void *arg3)
     /* invoke the main function */
     app_instance_main(wasm_module_inst);
 
-    os_printf("User mode thread finish\n");
-
     /* destroy the module instance */
     wasm_runtime_deinstantiate(wasm_module_inst);
 
@@ -167,8 +166,7 @@ fail1:
     /* destroy runtime environment */
     wasm_runtime_destroy();
 
-    // end = k_uptime_get_32();
+    end = k_uptime_get_32();
 
-    // printf("elapsed: %d\n", (end - start));
+    os_printf("User mode thread: elapsed %d\n", (end - start));
 }
-

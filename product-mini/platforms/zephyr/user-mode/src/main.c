@@ -1,6 +1,5 @@
 #include <stdio.h>
 
-#include <zephyr/kernel.h>
 #include <zephyr/app_memory/app_memdomain.h>
 
 #define MAIN_THREAD_STACK_SIZE 2048
@@ -24,24 +23,20 @@ iwasm_user_mode(void)
     struct k_mem_partition *wamr_domain_parts[] = { &wamr_partition,
                                                     &z_libc_partition };
 
-    printk("Native: wamr_partition start addr: %p, size: %zu\n", wamr_partition.start,
+    printk("wamr_partition start addr: %p, size: %zu\n", wamr_partition.start,
            wamr_partition.size);
 
     /* Initialize the memory domain with single WAMR partition */
     k_mem_domain_init(&wamr_domain, 2, wamr_domain_parts);
 
-    printk("Native: finish domain init\n");
-
     k_tid_t tid =
         k_thread_create(&iwasm_user_mode_thread, iwasm_user_mode_thread_stack,
                         MAIN_THREAD_STACK_SIZE, iwasm_main, NULL, NULL, NULL,
-                        MAIN_THREAD_PRIORITY, K_USER, K_NO_WAIT);
+                        MAIN_THREAD_PRIORITY, K_USER, K_FOREVER);
 
-    printk("Native: add domain to thread start\n");
     /* Grant WAMR memory domain access to user mode thread */
     k_mem_domain_add_thread(&wamr_domain, tid);
-    // printk("add domain to thread %p finish\n", tid);
-    k_thread_start(&tid);
+    k_thread_start(tid);
 
     return tid ? true : false;
 }
@@ -51,7 +46,6 @@ void
 main(void)
 {
     iwasm_user_mode();
-    printk("Native: Hello, world from main thread\n");
 }
 #else
 int

@@ -45,18 +45,11 @@ if (NOT DEFINED WAMR_BUILD_GLOBAL_HEAP_SIZE)
   set (WAMR_BUILD_GLOBAL_HEAP_SIZE 40960) # 40 KB
 endif ()
 
-# Changes to thread manager
-# set (WAMR_BUILD_LIB_PTHREAD 1)
-
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../..)
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
-# Allocate from WAMR memory pool instead of system malloc
-add_definitions(-DBH_MALLOC=wasm_runtime_malloc)
-add_definitions(-DBH_FREE=wasm_runtime_free)
-
-# Define a new Zephyr library
+# Embed WAMR as a Zephyr library
 zephyr_library_named (wamr_lib)
 
 # Add source files to the library
@@ -65,5 +58,7 @@ zephyr_library_sources (
   wamr_lib.c
 )
 
-# Specify the memory partition where all globals in the library should be placed.
+# Specify the memory partition where all globals(including the WAMR global heap buffer)
+# in the library should be placed. This partition will be defined in the app source code
+# and added to the use-mode thread that uses the WAMR library.
 zephyr_library_app_memory (wamr_partition)
