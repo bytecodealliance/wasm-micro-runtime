@@ -4266,31 +4266,68 @@ wasm_runtime_get_export_type(WASMModuleCommon *const module, int32 export_index,
         export_type->kind = aot_export->kind;
         switch (export_type->kind) {
             case WASM_IMPORT_EXPORT_KIND_FUNC:
-                export_type->u.func_type =
-                    (AOTFuncType *)aot_module
-                        ->types[aot_module->func_type_indexes
-                                    [aot_export->index
-                                     - aot_module->import_func_count]];
+            {
+                if (aot_export->index < aot_module->import_func_count) {
+                    export_type->u.func_type =
+                        (AOTFuncType *)aot_module
+                            ->import_funcs[aot_export->index]
+                            .func_type;
+                }
+                else {
+                    export_type->u.func_type =
+                        (AOTFuncType *)aot_module
+                            ->types[aot_module->func_type_indexes
+                                        [aot_export->index
+                                         - aot_module->import_func_count]];
+                }
                 break;
+            }
             case WASM_IMPORT_EXPORT_KIND_GLOBAL:
-                export_type->u.global_type =
-                    &aot_module
-                         ->globals[aot_export->index
-                                   - aot_module->import_global_count]
-                         .type;
+            {
+                if (aot_export->index < aot_module->import_global_count) {
+                    export_type->u.global_type =
+                        &aot_module->import_globals[aot_export->index].type;
+                }
+                else {
+                    export_type->u.global_type =
+                        &aot_module
+                             ->globals[aot_export->index
+                                       - aot_module->import_global_count]
+                             .type;
+                }
                 break;
+            }
             case WASM_IMPORT_EXPORT_KIND_TABLE:
-                export_type->u.table_type =
-                    &aot_module
-                         ->tables[aot_export->index
-                                  - aot_module->import_table_count]
-                         .table_type;
+            {
+                if (aot_export->index < aot_module->import_table_count) {
+                    export_type->u.table_type =
+                        &aot_module->import_tables[aot_export->index]
+                             .table_type;
+                }
+                else {
+                    export_type->u.table_type =
+                        &aot_module
+                             ->tables[aot_export->index
+                                      - aot_module->import_table_count]
+                             .table_type;
+                }
                 break;
+            }
             case WASM_IMPORT_EXPORT_KIND_MEMORY:
-                export_type->u.memory_type =
-                    &aot_module->memories[aot_export->index
-                                          - aot_module->import_memory_count];
+            {
+                if (aot_export->index < aot_module->import_memory_count) {
+                    export_type->u.memory_type =
+                        &aot_module->import_memories[aot_export->index]
+                             .mem_type;
+                }
+                else {
+                    export_type->u.memory_type =
+                        &aot_module
+                             ->memories[aot_export->index
+                                        - aot_module->import_memory_count];
+                }
                 break;
+            }
             default:
                 bh_assert(0);
                 break;
@@ -4312,31 +4349,76 @@ wasm_runtime_get_export_type(WASMModuleCommon *const module, int32 export_index,
         export_type->kind = wasm_export->kind;
         switch (export_type->kind) {
             case WASM_IMPORT_EXPORT_KIND_FUNC:
-                export_type->u.func_type =
-                    wasm_module
-                        ->functions[wasm_export->index
-                                    - wasm_module->import_function_count]
-                        ->func_type;
+            {
+                if (wasm_export->index < wasm_module->import_function_count) {
+                    export_type->u.func_type =
+                        (WASMFuncType *)wasm_module
+                            ->import_functions[wasm_export->index]
+                            .u.function.func_type;
+                }
+                else {
+                    export_type->u.func_type =
+                        wasm_module
+                            ->functions[wasm_export->index
+                                        - wasm_module->import_function_count]
+                            ->func_type;
+                }
+
                 break;
+            }
             case WASM_IMPORT_EXPORT_KIND_GLOBAL:
-                export_type->u.global_type =
-                    &wasm_module
-                         ->globals[wasm_export->index
-                                   - wasm_module->import_global_count]
-                         .type;
+            {
+                if (wasm_export->index < wasm_module->import_global_count) {
+                    export_type->u.global_type =
+                        (WASMGlobalType *)&wasm_module
+                            ->import_globals[wasm_export->index]
+                            .u.global.type;
+                }
+                else {
+                    export_type->u.global_type =
+                        &wasm_module
+                             ->globals[wasm_export->index
+                                       - wasm_module->import_global_count]
+                             .type;
+                }
+
                 break;
+            }
             case WASM_IMPORT_EXPORT_KIND_TABLE:
-                export_type->u.table_type =
-                    &wasm_module
-                         ->tables[wasm_export->index
-                                  - wasm_module->import_table_count]
-                         .table_type;
+            {
+                if (wasm_export->index < wasm_module->import_table_count) {
+                    export_type->u.table_type =
+                        (WASMTableType *)&wasm_module
+                            ->import_tables[wasm_export->index]
+                            .u.table.table_type;
+                }
+                else {
+                    export_type->u.table_type =
+                        &wasm_module
+                             ->tables[wasm_export->index
+                                      - wasm_module->import_table_count]
+                             .table_type;
+                }
+
                 break;
+            }
             case WASM_IMPORT_EXPORT_KIND_MEMORY:
-                export_type->u.memory_type =
-                    &wasm_module->memories[wasm_export->index
-                                           - wasm_module->import_memory_count];
+            {
+                if (wasm_export->index < wasm_module->import_memory_count) {
+                    export_type->u.memory_type =
+                        (WASMMemoryType *)&wasm_module
+                            ->import_memories[wasm_export->index]
+                            .u.memory.mem_type;
+                }
+                else {
+                    export_type->u.memory_type =
+                        &wasm_module
+                             ->memories[wasm_export->index
+                                        - wasm_module->import_memory_count];
+                }
+
                 break;
+            }
             default:
                 bh_assert(0);
                 break;
