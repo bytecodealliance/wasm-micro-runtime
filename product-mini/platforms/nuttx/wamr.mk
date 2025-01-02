@@ -126,7 +126,8 @@ CFLAGS += -DWASM_ENABLE_AOT=1
 CSRCS += aot_loader.c \
          $(AOT_RELOC) \
          aot_intrinsic.c \
-         aot_runtime.c
+         aot_runtime.c \
+         aot_validator.c
 ifeq ($(CONFIG_INTERPRETERS_WAMR_DEBUG_AOT),y)
 CFLAGS += -DWASM_ENABLE_DEBUG_AOT=1
 CSRCS += elf_parser.c \
