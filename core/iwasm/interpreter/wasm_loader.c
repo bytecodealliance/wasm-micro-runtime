@@ -12083,6 +12083,9 @@ re_scan:
             {
                 int32 idx;
                 WASMFuncType *func_type;
+#if WASM_ENABLE_GC == 0
+                uint32 tbl_elem_type;
+#endif
 
                 read_leb_uint32(p, p_end, type_idx);
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
@@ -12105,6 +12108,22 @@ re_scan:
                                        error_buf_size)) {
                     goto fail;
                 }
+#if WASM_ENABLE_GC == 0
+                tbl_elem_type =
+                    table_idx < module->import_table_count
+                        ? module->import_tables[table_idx]
+                              .u.table.table_type.elem_type
+                        : module->tables[table_idx - module->import_table_count]
+                              .table_type.elem_type;
+
+                if (tbl_elem_type != VALUE_TYPE_FUNCREF) {
+                    set_error_buf_v(error_buf, error_buf_size,
+                                    "type mismatch: instruction requires table "
+                                    "of functions but table %u has externref",
+                                    table_idx);
+                    goto fail;
+                }
+#endif
 
 #if WASM_ENABLE_FAST_INTERP != 0
                 /* we need to emit before arguments */
