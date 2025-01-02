@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 
+#include <zephyr/version.h>
 #include <zephyr/app_memory/app_memdomain.h>
 
 #define MAIN_THREAD_STACK_SIZE 2048
@@ -28,11 +29,14 @@ iwasm_user_mode(void)
     struct k_mem_partition *wamr_domain_parts[] = { &wamr_partition,
                                                     &z_libc_partition };
 
-    printk("wamr_partition start addr: %p, size: %zu\n", wamr_partition.start,
+    printk("wamr_partition start addr: %ld, size: %zu\n", wamr_partition.start,
            wamr_partition.size);
 
     /* Initialize the memory domain with single WAMR partition */
-    k_mem_domain_init(&wamr_domain, 2, wamr_domain_parts);
+    if (k_mem_domain_init(&wamr_domain, 2, wamr_domain_parts) != 0) {
+        printk("Failed to initialize memory domain.\n");
+        return false;
+    }
 
     k_tid_t tid =
         k_thread_create(&iwasm_user_mode_thread, iwasm_user_mode_thread_stack,
@@ -40,8 +44,20 @@ iwasm_user_mode(void)
                         MAIN_THREAD_PRIORITY, K_USER, K_FOREVER);
 
     /* Grant WAMR memory domain access to user mode thread */
-    k_mem_domain_add_thread(&wamr_domain, tid);
+    if (k_mem_domain_add_thread(&wamr_domain, tid) != 0) {
+        printk("Failed to add memory domain to thread.\n");
+        return false;
+    }
+
+#if KERNEL_VERSION_NUMBER < 0x040000 /* version 4.0.0 */
+    /* k_thread_start is a legacy API for compatibility. Modern Zephyr threads
+     * are initialized in the "sleeping" state and do not need special handling
+     * for "start".*/
     k_thread_start(tid);
+#else
+    /* wakes up thread from sleeping */
+    k_wakeup(tid);
+#endif
 
     return tid ? true : false;
 }

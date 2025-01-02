@@ -26,19 +26,15 @@ if (NOT DEFINED WAMR_BUILD_LIBC_BUILTIN)
   set (WAMR_BUILD_LIBC_BUILTIN 1)
 endif ()
 
-if (NOT DEFINED WAMR_BUILD_LIBC_WASI)
-  # Disable libc wasi support by default
-  set (WAMR_BUILD_LIBC_WASI 0)
-endif ()
+# Disable libc wasi support on Zephyr
+set (WAMR_BUILD_LIBC_WASI 0)
 
 if (WAMR_BUILD_TARGET STREQUAL "RISCV64_LP64" OR WAMR_BUILD_TARGET STREQUAL "RISCV32_ILP32")
   set (WAMR_BUILD_FAST_INTERP 1)
 endif ()
 
-# Override the global heap usage
-if (NOT DEFINED WAMR_BUILD_GLOBAL_HEAP_POOL)
-  set (WAMR_BUILD_GLOBAL_HEAP_POOL 1)
-endif ()
+# Limited to global heap usage in Zephyr user mode
+set (WAMR_BUILD_GLOBAL_HEAP_POOL 1)
 
 # Override the global heap size for small devices
 if (NOT DEFINED WAMR_BUILD_GLOBAL_HEAP_SIZE)
