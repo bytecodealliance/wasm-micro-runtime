@@ -6436,12 +6436,46 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         SIMD_LOAD_LANE_OP(i64x2, 64);
                         break;
                     }
+#define SIMD_STORE_LANE_OP(register, width)               \
+    do {                                                  \
+        uint32 offset, addr;                              \
+        offset = read_uint32(frame_ip);                   \
+        V128 vec = POP_V128();                            \
+        int32 base = POP_I32();                           \
+        offset += base;                                   \
+        int lane = *frame_ip++;                           \
+        addr = GET_OPERAND(uint32, I32, 0);               \
+        addr_ret = GET_OFFSET();                          \
+        CHECK_MEMORY_OVERFLOW(width / 8);                 \
+        if (width == 64) {                                \
+            STORE_I64(maddr, vec.register[lane]);         \
+        }                                                 \
+        else {                                            \
+            *(uint##width *)(maddr) = vec.register[lane]; \
+        }                                                 \
+    } while (0)
+
                     case SIMD_v128_store8_lane:
+                    {
+                        SIMD_STORE_LANE_OP(i8x16, 8);
+                        break;
+                    }
+
                     case SIMD_v128_store16_lane:
+                    {
+                        SIMD_STORE_LANE_OP(i16x8, 16);
+                        break;
+                    }
+
                     case SIMD_v128_store32_lane:
+                    {
+                        SIMD_STORE_LANE_OP(i32x4, 32);
+                        break;
+                    }
+
                     case SIMD_v128_store64_lane:
                     {
-                        wasm_set_exception(module, "unsupported SIMD opcode");
+                        SIMD_STORE_LANE_OP(i64x2, 64);
                         break;
                     }
 #define SIMD_LOAD_ZERO_OP(register, width)                 \
