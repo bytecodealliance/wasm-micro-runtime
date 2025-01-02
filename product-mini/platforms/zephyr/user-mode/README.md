@@ -6,7 +6,44 @@ This example demonstrates how to build and run a WebAssembly application in user
 
 ## Setup
 
-Please refer to the [this README.md](../simple/README.md) for general Zephyr setup instructions.
+Please refer to the [previous WAMR Zephyr README.md](../simple/README.md) for general Zephyr setup instructions.
+
+And refer to [official documentation of Zephyr user mode](https://docs.zephyrproject.org/latest/kernel/usermode/index.html) for more information about Zephyr user mode.
+
+### Enable user mode
+
+To enable Zephyr user mode, set the `CONFIG_USERSPACE` option to yes in the Zephyr configuration.
+
+```conf
+CONFIG_USERSPACE=y
+```
+
+And link the WAMR runtime as a separate library in CMakelists.txt.
+
+```cmake
+...WAMR CMake set up...
+
+zephyr_library_named (wamr_lib)
+
+zephyr_library_sources (
+  ${WAMR_RUNTIME_LIB_SOURCE} 
+  wamr_lib.c
+)
+
+zephyr_library_app_memory (wamr_partition)
+```
+
+The `wamr_partition` is a memory partition that will be granted to the WAMR runtime. It is defined in the Zephyr application code.
+
+```C
+K_APPMEM_PARTITION_DEFINE(wamr_partition);
+```
+
+When creating a Zephyr thread, set the thread option to `K_USER` and the timeout to `K_FOREVER`. This can ensure that the `wamr_partition` is granted access to the thread before starting it with `k_thread_start`.
+
+### Advantage of using WAMR runtime in Zephyr user mode thread
+
+In a user-mode Zephyr thread, the application can only access a restricted partition of memory it granted to. It creates a sandbox for the WAMR runtime to run in, and the WAMR runtime can only access that memory space, meaning that all global variables in the WAMR runtime and both runtime and wasm app heap memory will allocated from it. In this way, an extra layer of security is added to the wasm application on top of the wasm sandbox provided by WAMR.
 
 ### Example Targets
 
