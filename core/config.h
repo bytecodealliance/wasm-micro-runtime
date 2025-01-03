@@ -698,4 +698,8 @@
 #define WASM_ENABLE_SHARED_HEAP 0
 #endif
 
+#ifndef WASM_ENABLE_AOT_VALIDATOR
+#define WASM_ENABLE_AOT_VALIDATOR 0
+#endif
+
 #endif /* end of _CONFIG_H_ */
