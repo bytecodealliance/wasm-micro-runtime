@@ -3,11 +3,6 @@
 
 cmake_minimum_required(VERSION 3.8.2)
 
-find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
-project(wamr)
-
-enable_language (ASM)
-
 set (WAMR_BUILD_PLATFORM "zephyr")
 
 # Build as X86_32 by default, change to "AARCH64[sub]", "ARM[sub]", "THUMB[sub]", "MIPS" or "XTENSA"
@@ -41,21 +36,28 @@ if (WAMR_BUILD_TARGET STREQUAL "RISCV64_LP64" OR WAMR_BUILD_TARGET STREQUAL "RIS
   set (WAMR_BUILD_FAST_INTERP 1)
 endif ()
 
-# Override the global heap usage
-if (NOT DEFINED WAMR_BUILD_GLOBAL_HEAP_POOL)
-  set (WAMR_BUILD_GLOBAL_HEAP_POOL 1)
-endif ()
+# Limited to global heap usage in Zephyr user mode
+set (WAMR_BUILD_GLOBAL_HEAP_POOL 1)
 
 # Override the global heap size for small devices
 if (NOT DEFINED WAMR_BUILD_GLOBAL_HEAP_SIZE)
-  set (WAMR_BUILD_GLOBAL_HEAP_SIZE 131072) # 128 KB
+  set (WAMR_BUILD_GLOBAL_HEAP_SIZE 40960) # 40 KB
 endif ()
 
-set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../..)
+set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../..)
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
-target_sources(app PRIVATE
-               ${WAMR_RUNTIME_LIB_SOURCE}
-               src/main.c)
+# Embed WAMR as a Zephyr library
+zephyr_library_named (wamr_lib)
 
+# Add source files to the library
+zephyr_library_sources (
+  ${WAMR_RUNTIME_LIB_SOURCE} 
+  wamr_lib.c
+)
+
+# Specify the memory partition where all globals(including the WAMR global heap buffer)
+# in the library should be placed. This partition will be defined in the app source code
+# and added to the use-mode thread that uses the WAMR library.
+zephyr_library_app_memory (wamr_partition)
