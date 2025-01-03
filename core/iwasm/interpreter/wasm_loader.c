@@ -12083,8 +12083,11 @@ re_scan:
             {
                 int32 idx;
                 WASMFuncType *func_type;
-#if WASM_ENABLE_GC == 0
                 uint32 tbl_elem_type;
+#if WASM_ENABLE_GC != 0
+                WASMRefType *elem_ref_type = NULL;
+                WASMType *concrete_heap_type = NULL;
+                bool is_valid_heap_type = false;
 #endif
 
                 read_leb_uint32(p, p_end, type_idx);
@@ -12108,7 +12111,6 @@ re_scan:
                                        error_buf_size)) {
                     goto fail;
                 }
-#if WASM_ENABLE_GC == 0
                 tbl_elem_type =
                     table_idx < module->import_table_count
                         ? module->import_tables[table_idx]
@@ -12116,10 +12118,49 @@ re_scan:
                         : module->tables[table_idx - module->import_table_count]
                               .table_type.elem_type;
 
+#if WASM_ENABLE_GC == 0 && WASM_ENALBE_REF_TYPES != 0
                 if (tbl_elem_type != VALUE_TYPE_FUNCREF) {
                     set_error_buf_v(error_buf, error_buf_size,
                                     "type mismatch: instruction requires table "
                                     "of functions but table %u has externref",
+                                    table_idx);
+                    goto fail;
+                }
+#elif WASM_ENABLE_GC != 0
+                /* For call_indirect, if table element is heaptype, then it's
+                 * valid only if it's (ref null? func) or (ref null? $t) where t
+                 * is a concrete heap type that match funcref */
+                if (tbl_elem_type == REF_TYPE_HT_NON_NULLABLE
+                    || tbl_elem_type == REF_TYPE_HT_NULLABLE) {
+                    elem_ref_type =
+                        table_idx < module->import_table_count
+                            ? module->import_tables[table_idx]
+                                  .u.table.table_type.elem_ref_type
+                            : module
+                                  ->tables[table_idx
+                                           - module->import_table_count]
+                                  .table_type.elem_ref_type;
+
+                    if (elem_ref_type->ref_ht_common.heap_type
+                        == HEAP_TYPE_FUNC) {
+                        /* ref null? func */
+                        is_valid_heap_type = true;
+                    }
+                    else if (elem_ref_type->ref_ht_common.heap_type > 0) {
+                        /* ref null? $t */
+                        concrete_heap_type =
+                            module
+                                ->types[elem_ref_type->ref_ht_common.heap_type];
+                        is_valid_heap_type =
+                            concrete_heap_type->type_flag == WASM_TYPE_FUNC;
+                    }
+                }
+
+                if (tbl_elem_type != REF_TYPE_FUNCREF && !is_valid_heap_type) {
+                    set_error_buf_v(error_buf, error_buf_size,
+                                    "type mismatch: instruction requires "
+                                    "reference type t match type ref null func"
+                                    "in table %u",
                                     table_idx);
                     goto fail;
                 }
