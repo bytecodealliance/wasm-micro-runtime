@@ -1699,6 +1699,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                         GET_OPERAND(uint64, I64, off));
                         ret_offset += 2;
                     }
+#if WASM_ENABLE_SIMDE != 0
+                    else if (ret_types[ret_idx] == VALUE_TYPE_V128) {
+                        PUT_V128_TO_ADDR(prev_frame->lp + ret_offset,
+                                         GET_OPERAND_V128(off));
+                        ret_offset += 4;
+                    }
+#endif
 #if WASM_ENABLE_GC != 0
                     else if (wasm_is_type_reftype(ret_types[ret_idx])) {
                         PUT_REF_TO_ADDR(prev_frame->lp + ret_offset,
@@ -3536,6 +3543,24 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 HANDLE_OP_END();
             }
 
+#if WASM_ENABLE_SIMDE != 0
+            HANDLE_OP(EXT_OP_SET_LOCAL_FAST_V128)
+            HANDLE_OP(EXT_OP_TEE_LOCAL_FAST_V128)
+            {
+                /* clang-format off */
+#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
+                local_offset = *frame_ip++;
+#else
+                local_offset = *frame_ip;
+                frame_ip += 2;
+#endif
+                /* clang-format on */
+                PUT_V128_TO_ADDR((uint32 *)(frame_lp + local_offset),
+                                 GET_OPERAND_V128(0));
+                frame_ip += 2;
+                HANDLE_OP_END();
+            }
+#endif
             HANDLE_OP(WASM_OP_GET_GLOBAL)
             {
                 global_idx = read_uint32(frame_ip);
@@ -4884,6 +4909,28 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 HANDLE_OP_END();
             }
+#if WASM_ENABLE_SIMDE != 0
+            HANDLE_OP(EXT_OP_COPY_STACK_TOP_V128)
+            {
+                addr1 = GET_OFFSET();
+                addr2 = GET_OFFSET();
+
+                PUT_V128_TO_ADDR(frame_lp + addr2,
+                                 GET_V128_FROM_ADDR(frame_lp + addr1));
+
+#if WASM_ENABLE_GC != 0
+                /* Ignore constants because they are not reference */
+                if (addr1 >= 0) {
+                    if (*FRAME_REF(addr1)) {
+                        CLEAR_FRAME_REF(addr1);
+                        SET_FRAME_REF(addr2);
+                    }
+                }
+#endif
+
+                HANDLE_OP_END();
+            }
+#endif
 
             HANDLE_OP(EXT_OP_COPY_STACK_VALUES)
             {
@@ -6081,8 +6128,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
 #define SIMD_DOUBLE_OP(simde_func)                                           \
     do {                                                                     \
-        V128 v1 = POP_V128();                                                \
         V128 v2 = POP_V128();                                                \
+        V128 v1 = POP_V128();                                                \
         addr_ret = GET_OFFSET();                                             \
                                                                              \
         simde_v128_t simde_result = simde_func(SIMD_V128_TO_SIMDE_V128(v1),  \
@@ -7442,6 +7489,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                     2 * (cur_func->param_count - i - 1)));
                 lp += 2;
             }
+#if WASM_ENABLE_SIMDE != 0
+            else if (cur_func->param_types[i] == VALUE_TYPE_V128) {
+                PUT_V128_TO_ADDR(
+                    outs_area->lp,
+                    GET_OPERAND_V128(2 * (cur_func->param_count - i - 1)));
+                lp += 4;
+            }
+#endif
             else {
                 *lp = GET_OPERAND(uint32, I32,
                                   (2 * (cur_func->param_count - i - 1)));
@@ -7496,6 +7551,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                 2 * (cur_func->param_count - i - 1)));
                 outs_area->lp += 2;
             }
+#if WASM_ENABLE_SIMDE != 0
+            else if (cur_func->param_types[i] == VALUE_TYPE_V128) {
+                PUT_V128_TO_ADDR(
+                    outs_area->lp,
+                    GET_OPERAND_V128(2 * (cur_func->param_count - i - 1)));
+                outs_area->lp += 4;
+            }
+#endif
+
 #if WASM_ENABLE_GC != 0
             else if (wasm_is_type_reftype(cur_func->param_types[i])) {
                 PUT_REF_TO_ADDR(
