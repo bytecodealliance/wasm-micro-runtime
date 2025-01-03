@@ -4237,7 +4237,10 @@ check_table_index(const WASMModule *module, uint32 table_index, char *error_buf,
 {
 #if WASM_ENABLE_REF_TYPES == 0 && WASM_ENABLE_GC == 0
     if (table_index != 0) {
-        set_error_buf(error_buf, error_buf_size, "zero byte expected");
+        set_error_buf(
+            error_buf, error_buf_size,
+            "zero byte expected. The module uses reference types feature "
+            "which is disabled in the runtime.");
         return false;
     }
 #endif
