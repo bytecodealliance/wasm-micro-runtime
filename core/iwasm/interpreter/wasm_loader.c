@@ -12164,6 +12164,8 @@ re_scan:
                                     table_idx);
                     goto fail;
                 }
+#else
+                (void)tbl_elem_type;
 #endif
 
 #if WASM_ENABLE_FAST_INTERP != 0
