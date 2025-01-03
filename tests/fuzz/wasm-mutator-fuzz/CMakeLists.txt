@@ -72,7 +72,7 @@ endif ()
 
 if (NOT DEFINED WAMR_BUILD_LIBC_WASI)
   # Enable libc wasi support by default
-  set (WAMR_BUILD_LIBC_WASI 1)
+  set (WAMR_BUILD_LIBC_WASI 0)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
