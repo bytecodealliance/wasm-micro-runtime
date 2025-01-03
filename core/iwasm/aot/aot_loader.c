@@ -10,7 +10,9 @@
 #include "../common/wasm_native.h"
 #include "../common/wasm_loader_common.h"
 #include "../compilation/aot.h"
+#if WASM_ENABLE_AOT_VALIDATOR != 0
 #include "aot_validator.h"
+#endif
 
 #if WASM_ENABLE_DEBUG_AOT != 0
 #include "debug/elf_parser.h"
@@ -4401,11 +4403,12 @@ aot_load_from_aot_file(const uint8 *buf, uint32 size, const LoadArgs *args,
     os_thread_jit_write_protect_np(true); /* Make memory executable */
     os_icache_flush(module->code, module->code_size);
 
-    /*TODO: use a CLI option to control? */
+#if WASM_ENABLE_AOT_VALIDATOR != 0
     if (!aot_module_validate(module, error_buf, error_buf_size)) {
         aot_unload(module);
         return NULL;
     }
+#endif /* WASM_ENABLE_AOT_VALIDATOR != 0 */
 
     LOG_VERBOSE("Load module success.\n");
     return module;

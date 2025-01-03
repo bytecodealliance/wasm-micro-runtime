@@ -14,7 +14,6 @@ src = Split('''
 aot_loader.c
 aot_runtime.c
 aot_intrinsic.c
-aot_validator.c
 ''')
 
 if rtconfig.ARCH == 'arm':

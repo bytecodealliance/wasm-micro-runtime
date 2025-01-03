@@ -7,7 +7,6 @@
 #include "bh_log.h"
 #include "bh_platform.h"
 
-#if WASM_ENABLE_LINUX_PERF != 0
 struct func_info {
     uint32 idx;
     void *ptr;
@@ -117,4 +116,3 @@ quit:
 
     return ret;
 }
-#endif /* WASM_ENABLE_LINUX_PERF != 0 */
