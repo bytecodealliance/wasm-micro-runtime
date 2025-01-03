@@ -48,7 +48,9 @@ is_table_64bit(WASMModule *module, uint32 table_idx)
         return !!(module->import_tables[table_idx].u.table.table_type.flags
                   & TABLE64_FLAG);
     else
-        return !!(module->tables[table_idx].table_type.flags & TABLE64_FLAG);
+        return !!(module->tables[table_idx - module->import_table_count]
+                      .table_type.flags
+                  & TABLE64_FLAG);
 
     return false;
 }
@@ -2566,7 +2568,7 @@ get_table_elem_type(const WASMModule *module, uint32 table_idx,
                 module->import_tables[table_idx].u.table.table_type.elem_type;
         else
             *p_elem_type =
-                module->tables[module->import_table_count + table_idx]
+                module->tables[table_idx - module->import_table_count]
                     .table_type.elem_type;
     }
     return true;

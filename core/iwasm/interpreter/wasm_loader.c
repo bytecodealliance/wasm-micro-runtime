@@ -58,7 +58,9 @@ is_table_64bit(WASMModule *module, uint32 table_idx)
         return !!(module->import_tables[table_idx].u.table.table_type.flags
                   & TABLE64_FLAG);
     else
-        return !!(module->tables[table_idx].table_type.flags & TABLE64_FLAG);
+        return !!(module->tables[table_idx - module->import_table_count]
+                      .table_type.flags
+                  & TABLE64_FLAG);
 
     return false;
 }
@@ -4285,7 +4287,8 @@ check_table_elem_type(WASMModule *module, uint32 table_index,
             module->import_tables[table_index].u.table.table_type.elem_type;
     else
         table_declared_elem_type =
-            (module->tables + table_index)->table_type.elem_type;
+            module->tables[table_index - module->import_table_count]
+                .table_type.elem_type;
 
     if (table_declared_elem_type == type_from_elem_seg)
         return true;
@@ -10854,12 +10857,12 @@ get_table_elem_type(const WASMModule *module, uint32 table_idx,
     else {
         if (p_elem_type)
             *p_elem_type =
-                module->tables[module->import_table_count + table_idx]
+                module->tables[table_idx - module->import_table_count]
                     .table_type.elem_type;
 #if WASM_ENABLE_GC != 0
         if (p_ref_type)
             *((WASMRefType **)p_ref_type) =
-                module->tables[module->import_table_count + table_idx]
+                module->tables[table_idx - module->import_table_count]
                     .table_type.elem_ref_type;
 #endif
     }
