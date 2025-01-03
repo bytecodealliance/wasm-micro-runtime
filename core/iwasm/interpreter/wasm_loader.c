@@ -12944,9 +12944,20 @@ re_scan:
                             emit_label(EXT_OP_SET_LOCAL_FAST);
                             emit_byte(loader_ctx, (uint8)local_offset);
                         }
-                        else {
+                        else if (is_64bit_type(local_type)) {
                             emit_label(EXT_OP_SET_LOCAL_FAST_I64);
                             emit_byte(loader_ctx, (uint8)local_offset);
+                        }
+#if WASM_ENABLE_SIMDE != 0
+                        else if (local_type == VALUE_TYPE_V128) {
+                            emit_label(EXT_OP_SET_LOCAL_FAST_V128);
+                            emit_byte(loader_ctx, (uint8)local_offset);
+                        }
+#endif
+                        else {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "unknown local type");
+                            goto fail;
                         }
                         POP_OFFSET_TYPE(local_type);
                     }
