@@ -43,7 +43,7 @@ When creating a Zephyr thread, set the thread option to `K_USER` and the timeout
 
 ### Advantage of using WAMR runtime in Zephyr user mode thread
 
-In a user-mode Zephyr thread, the application can only access a restricted partition of memory it granted to. It creates a sandbox for the WAMR runtime to run in, and the WAMR runtime can only access that memory space, meaning that all global variables in the WAMR runtime and both runtime and wasm app heap memory will allocated from it. In this way, an extra layer of security is added to the wasm application on top of the wasm sandbox provided by WAMR.
+In a user-mode Zephyr thread, the application can only access a restricted partition of memory it granted to. It creates a sandbox for the WAMR runtime to run in, and the WAMR runtime can only access that memory space, meaning that all global variables in the WAMR runtime and both runtime and wasm app heap memory will be allocated from it. In this way, an extra layer of security is added to the wasm application on top of the wasm sandbox provided by WAMR.
 
 ### Example Targets
 
