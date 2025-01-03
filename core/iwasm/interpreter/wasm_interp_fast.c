@@ -1682,7 +1682,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 ret_offset = prev_frame->ret_offset;
 
                 for (ret_idx = 0,
-                    off = sizeof(int16) * (func_type->result_count - 1);
+                    off = func_type->result_count
+                              ? sizeof(int16) * (func_type->result_count - 1)
+                              : 0;
                      ret_idx < func_type->result_count;
                      ret_idx++, off -= sizeof(int16)) {
                     if (ret_types[ret_idx] == VALUE_TYPE_I64
