@@ -2736,6 +2736,12 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     for (i = 0; i < module->export_count; i++, export ++) {
         if (export->kind == EXPORT_KIND_GLOBAL) {
             if (!strcmp(export->name, "__heap_base")) {
+                if (export->index < module->import_global_count) {
+                    LOG_DEBUG("Skip the process if __heap_base is imported "
+                              "instead of being a local global");
+                    continue;
+                }
+
                 global_index = export->index - module->import_global_count;
                 global = module->globals + global_index;
                 if (global->type.val_type == VALUE_TYPE_I32
@@ -2750,6 +2756,12 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                 }
             }
             else if (!strcmp(export->name, "__data_end")) {
+                if (export->index < module->import_global_count) {
+                    LOG_DEBUG("Skip the process if __data_end is imported "
+                              "instead of being a local global");
+                    continue;
+                }
+
                 global_index = export->index - module->import_global_count;
                 global = module->globals + global_index;
                 if (global->type.val_type == VALUE_TYPE_I32
