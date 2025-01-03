@@ -12118,7 +12118,7 @@ re_scan:
                         : module->tables[table_idx - module->import_table_count]
                               .table_type.elem_type;
 
-#if WASM_ENABLE_GC == 0 && WASM_ENALBE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
                 if (tbl_elem_type != VALUE_TYPE_FUNCREF) {
                     set_error_buf_v(error_buf, error_buf_size,
                                     "type mismatch: instruction requires table "
