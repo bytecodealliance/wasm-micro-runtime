@@ -12,62 +12,62 @@ Users can turn those features on or off by using compilation options. If a relev
 
 ## On-by-default Wasm Proposals
 
-| Proposal                              | Phase 4 | Compilation Option         |
-| ------------------------------------- | ------- | -------------------------- |
-| Bulk memory operations                | Yes     | `WAMR_BUILD_BULK_MEMORY`   |
-| Extended Constant Expressions         | Yes     | N/A                        |
-| Fixed-width SIMD[^1]                  | Yes     | `WAMR_BUILD_SIMD`          |
-| Legacy Exception handling[^2]         | Yes     | `WAMR_BUILD_EXCE_HANDLING` |
-| Multi-value                           | Yes     | N/A                        |
-| Non-trapping float-to-int conversions | Yes     | N/A                        |
-| Reference Types                       | Yes     | `WAMR_BUILD_REF_TYPES`     |
-| Sign-extension operators              | Yes     | N/A                        |
-| Thread                                | Yes     | `WAMR_BUILD_SHARED_MEMORY` |
-| WebAssembly C and C++ API             | No      | N/A                        |
+| Proposal                              | >= Phase 4 | Compilation Option         |
+| ------------------------------------- | ---------- | -------------------------- |
+| Bulk memory operations                | Yes        | `WAMR_BUILD_BULK_MEMORY`   |
+| Extended Constant Expressions         | Yes        | N/A                        |
+| Fixed-width SIMD[^1]                  | Yes        | `WAMR_BUILD_SIMD`          |
+| Legacy Exception handling[^2]         | Yes        | `WAMR_BUILD_EXCE_HANDLING` |
+| Multi-value                           | Yes        | N/A                        |
+| Non-trapping float-to-int conversions | Yes        | N/A                        |
+| Reference Types                       | Yes        | `WAMR_BUILD_REF_TYPES`     |
+| Sign-extension operators              | Yes        | N/A                        |
+| Thread                                | Yes        | `WAMR_BUILD_SHARED_MEMORY` |
+| WebAssembly C and C++ API             | No         | N/A                        |
 
 [^1]: llvm-jit and aot only
 [^2]: interpreter only
 
 ## Off-by-default Wasm Proposals
 
-| Proposal                  | Phase 4 | Compilation Option        |
-| ------------------------- | ------- | ------------------------- |
-| Garbage collection        | Yes     | `WAMR_BUILD_GC`           |
-| Memory64                  | Yes     | `WAMR_BUILD_MEMORY64`     |
-| Multiple memories[^3]     | Yes     | `WAMR_BUILD_MULTI_MEMORY` |
-| Reference-Typed Strings   | No      | `WAMR_BUILD_STRINGREF`    |
-| Tail call                 | Yes     | `WAMR_BUILD_TAIL_CALL`    |
-| Typed Function References | Yes     | `WAMR_BUILD_GC`           |
+| Proposal                  | >= Phase 4 | Compilation Option        |
+| ------------------------- | ---------- | ------------------------- |
+| Garbage collection        | Yes        | `WAMR_BUILD_GC`           |
+| Memory64                  | Yes        | `WAMR_BUILD_MEMORY64`     |
+| Multiple memories[^3]     | Yes        | `WAMR_BUILD_MULTI_MEMORY` |
+| Reference-Typed Strings   | No         | `WAMR_BUILD_STRINGREF`    |
+| Tail call                 | Yes        | `WAMR_BUILD_TAIL_CALL`    |
+| Typed Function References | Yes        | `WAMR_BUILD_GC`           |
 
 [^3]: interpreter only
 
 ## Unimplemented Wasm Proposals
 
-| Proposal                                    | Phase 4 |
-| ------------------------------------------- | ------- |
-| Branch Hinting                              | Yes     |
-| Custom Annotation Syntax in the Text Format | Yes     |
-| Exception handling                          | Yes     |
-| Import/Export of Mutable Globals            | Yes     |
-| JS String Builtins                          | Yes     |
-| Relaxed SIMD                                | Yes     |
+| Proposal                                    | >= Phase 4 |
+| ------------------------------------------- | ---------- |
+| Branch Hinting                              | Yes        |
+| Custom Annotation Syntax in the Text Format | Yes        |
+| Exception handling                          | Yes        |
+| Import/Export of Mutable Globals            | Yes        |
+| JS String Builtins                          | Yes        |
+| Relaxed SIMD                                | Yes        |
 
 ## On-by-default WASI Proposals
 
-| Proposal | Phase 4 | Compilation Option |
-| -------- | ------- | ------------------ |
+| Proposal | >= Phase 4 | Compilation Option |
+| -------- | ---------- | ------------------ |
 
 ## Off-by-default WASI Proposals
 
-| Proposal                   | Phase 4 | Compilation Option            |
-| -------------------------- | ------- | ----------------------------- |
-| Machine Learning (wasi-nn) | No      | `WAMR_BUILD_WASI_NN`          |
-| Threads                    | No      | `WAMR_BUILD_LIB_WASI_THREADS` |
+| Proposal                   | >= Phase 4 | Compilation Option            |
+| -------------------------- | ---------- | ----------------------------- |
+| Machine Learning (wasi-nn) | No         | `WAMR_BUILD_WASI_NN`          |
+| Threads                    | No         | `WAMR_BUILD_LIB_WASI_THREADS` |
 
 ## Unimplemented WASI Proposals
 
-| Proposal | Phase 4 |
-| -------- | ------- |
+| Proposal | >= Phase 4 |
+| -------- | ---------- |
 
 ## WAMR features
 
