@@ -6700,6 +6700,15 @@ re_scan:
                     goto fail;
                 }
 
+                bh_assert(
+                    (table_idx < module->import_table_count
+                         ? module->import_tables[table_idx]
+                               .u.table.table_type.elem_type
+                         : module
+                               ->tables[table_idx - module->import_table_count]
+                               .table_type.elem_type)
+                    == VALUE_TYPE_FUNCREF);
+
 #if WASM_ENABLE_FAST_INTERP != 0
                 /* we need to emit before arguments */
                 emit_uint32(loader_ctx, type_idx);
