@@ -2965,6 +2965,22 @@ wasm_runtime_get_exec_env_singleton(WASMModuleInstanceCommon *module_inst_comm)
 static void
 wasm_set_exception_local(WASMModuleInstance *module_inst, const char *exception)
 {
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    WASMExecEnv *exec_env_tls = wasm_runtime_get_exec_env_tls();
+    // Prefer setting the exception in the current thread's exec env.
+    if (exec_env_tls) {
+        if (exception) {
+            snprintf(exec_env_tls->cur_exception,
+                     sizeof(module_inst->cur_exception),
+                     "Exception: %s", exception);
+        } else {
+            exec_env_tls->cur_exception[0] = '\0';
+        }
+        // Return early and not touching module instance.
+        return;
+    }
+#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
+
     exception_lock(module_inst);
     if (exception) {
         snprintf(module_inst->cur_exception, sizeof(module_inst->cur_exception),
@@ -3046,6 +3062,17 @@ wasm_set_exception_with_id(WASMModuleInstance *module_inst, uint32 id)
 const char *
 wasm_get_exception(WASMModuleInstance *module_inst)
 {
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    WASMExecEnv *exec_env_tls = wasm_runtime_get_exec_env_tls();
+    // Prefer getting the exception in the current thread's exec env.
+    if (exec_env_tls) {
+        if (exec_env_tls->cur_exception[0] != '\0') {
+            return exec_env_tls->cur_exception;
+        }
+        return NULL;
+    }
+#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
+
     if (module_inst->cur_exception[0] == '\0')
         return NULL;
     else
@@ -3055,6 +3082,22 @@ wasm_get_exception(WASMModuleInstance *module_inst)
 bool
 wasm_copy_exception(WASMModuleInstance *module_inst, char *exception_buf)
 {
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    WASMExecEnv *exec_env_tls = wasm_runtime_get_exec_env_tls();
+    // Prefer getting the exception in the current thread's exec env.
+    if (exec_env_tls) {
+        if (exec_env_tls->cur_exception[0] != '\0') {
+            if (exception_buf != NULL) {
+                bh_memcpy_s(exception_buf, sizeof(exec_env_tls->cur_exception),
+                            exec_env_tls->cur_exception,
+                            sizeof(exec_env_tls->cur_exception));
+            }
+            return true;
+        }
+        return false;
+    }
+#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
+
     bool has_exception = false;
 
     exception_lock(module_inst);

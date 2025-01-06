@@ -33,6 +33,8 @@ typedef struct WASMJmpBuf {
 } WASMJmpBuf;
 #endif
 
+#define EXCEPTION_BUF_LEN 128
+
 /* Execution environment */
 typedef struct WASMExecEnv {
     /* Next thread's exec env of a WASM module instance. */
@@ -166,6 +168,9 @@ typedef struct WASMExecEnv {
         /* The WASM stack. */
         uint8 bottom[1];
     } wasm_stack_u;
+
+    /* The exception buffer for current execution environment. */
+    char cur_exception[EXCEPTION_BUF_LEN];
 } WASMExecEnv;
 
 #if WASM_ENABLE_MEMORY_PROFILING != 0
