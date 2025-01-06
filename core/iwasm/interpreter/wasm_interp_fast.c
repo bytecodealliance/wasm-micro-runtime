@@ -6364,7 +6364,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                                     v1.i64x2[1] ^ v2.i64x2[1]);
                         break;
                     }
-                    // TODO: Test
                     case SIMD_v128_bitselect:
                     {
                         V128 v1 = POP_V128();
@@ -6373,14 +6372,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         addr_ret = GET_OFFSET();
 
                         simde_v128_t simde_result = simde_wasm_v128_bitselect(
-                            SIMD_V128_TO_SIMDE_V128(v1),
+                            SIMD_V128_TO_SIMDE_V128(v3),
                             SIMD_V128_TO_SIMDE_V128(v2),
-                            SIMD_V128_TO_SIMDE_V128(v3));
+                            SIMD_V128_TO_SIMDE_V128(v1));
 
                         V128 result;
                         SIMDE_V128_TO_SIMD_V128(simde_result, result);
 
                         PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
                     }
                     case SIMD_v128_any_true:
                     {
