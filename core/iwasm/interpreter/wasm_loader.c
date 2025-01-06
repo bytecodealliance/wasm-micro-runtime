@@ -6159,6 +6159,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
         WASMMemoryImport *memory_import;
         WASMMemory *memory;
 
+#if WASM_ENABLE_SHRUNK_MEMORY != 0
         if (aux_data_end_global && aux_heap_base_global
             && aux_stack_top_global) {
             uint64 init_memory_size;
@@ -6196,6 +6197,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                 }
             }
         }
+#endif
 
 #if WASM_ENABLE_MULTI_MODULE == 0
         if (module->import_memory_count) {
