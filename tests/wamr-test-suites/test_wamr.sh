@@ -819,7 +819,9 @@ function build_wamrc()
         && ./${BUILD_LLVM_SH} \
         && if [ -d build ]; then rm -r build/*; else mkdir build; fi \
         && cd build \
-        && cmake .. -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE} \
+        && cmake .. \
+             -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE} \
+             -DWAMR_BUILD_SHRUNK_MEMORY=0 \
         && make -j 4
 }
 

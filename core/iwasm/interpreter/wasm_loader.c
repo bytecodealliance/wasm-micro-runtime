@@ -10023,7 +10023,8 @@ check_memory_access_align(uint8 opcode, uint32 align, char *error_buf,
     bh_assert(opcode >= WASM_OP_I32_LOAD && opcode <= WASM_OP_I64_STORE32);
     if (align > mem_access_aligns[opcode - WASM_OP_I32_LOAD]) {
         set_error_buf(error_buf, error_buf_size,
-                      "alignment must not be larger than natural");
+                      "invalid memop flags: alignment must not be larger "
+                      "than natural");
         return false;
     }
     return true;
@@ -10062,7 +10063,8 @@ check_simd_memory_access_align(uint8 opcode, uint32 align, char *error_buf,
             && align > mem_access_aligns_load_lane[opcode
                                                    - SIMD_v128_load8_lane])) {
         set_error_buf(error_buf, error_buf_size,
-                      "alignment must not be larger than natural");
+                      "invalid memop flags: alignment must not be larger "
+                      "than natural");
         return false;
     }
 
