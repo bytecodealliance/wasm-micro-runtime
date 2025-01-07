@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include <limits.h>
+
 #include "wasm_loader.h"
 #include "bh_platform.h"
 #include "wasm.h"
@@ -7902,6 +7904,11 @@ typedef struct BranchBlock {
     bool is_stack_polymorphic;
 } BranchBlock;
 
+typedef struct Const {
+    WASMValue value;
+    uint8 value_type;
+} Const;
+
 typedef struct WASMLoaderContext {
     /* frame ref stack */
     uint8 *frame_ref;
@@ -7950,10 +7957,9 @@ typedef struct WASMLoaderContext {
     int16 preserved_local_offset;
 
     /* const buffer */
-    uint8 *const_buf;
-    uint16 num_const;
-    uint16 const_cell_num;
-    uint32 const_buf_size;
+    Vector const_buf;
+    HashMap *const_map;
+    uint32 const_cell_num;
 
     /* processed code */
     uint8 *p_code_compiled;
@@ -7965,12 +7971,6 @@ typedef struct WASMLoaderContext {
     uint32 code_compiled_peak_size;
 #endif
 } WASMLoaderContext;
-
-typedef struct Const {
-    WASMValue value;
-    uint16 slot_index;
-    uint8 value_type;
-} Const;
 
 #define CHECK_CSP_PUSH()                                                  \
     do {                                                                  \
@@ -8189,11 +8189,76 @@ wasm_loader_ctx_destroy(WASMLoaderContext *ctx)
 #if WASM_ENABLE_FAST_INTERP != 0
         if (ctx->frame_offset_bottom)
             wasm_runtime_free(ctx->frame_offset_bottom);
-        if (ctx->const_buf)
-            wasm_runtime_free(ctx->const_buf);
+        (void)bh_vector_destroy(&ctx->const_buf);
+        (void)bh_hash_map_destroy(ctx->const_map);
 #endif
         wasm_runtime_free(ctx);
     }
+}
+
+static bool
+const_equal(void *k1, void *k2) {
+    Const *c1 = k1;
+    Const *c2 = k2;
+
+    if (k1 == k2) {
+        return true;
+    }
+
+    if (c1->value_type != c2->value_type) {
+        return false;
+    }
+
+    switch (c1->value_type) {
+    case VALUE_TYPE_I32:
+#if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
+    case VALUE_TYPE_FUNCREF:
+    case VALUE_TYPE_EXTERNREF:
+#endif
+        return c1->value.i32 == c2->value.i32;
+    case VALUE_TYPE_I64:
+        return c1->value.i64 == c2->value.i64;
+    case VALUE_TYPE_F32:
+        return 0 == memcmp(&c1->value.f32, &c2->value.f32, sizeof(float));
+    case VALUE_TYPE_F64:
+        return 0 == memcmp(&c1->value.f64, &c2->value.f64, sizeof(double));
+    default:
+        return false;
+    }
+}
+
+static uint32
+const_hash(const void *k)
+{
+    const Const *c = k;
+
+    uint32 result = 31;
+    result ^= c->value_type;
+
+    switch (c->value_type) {
+    case VALUE_TYPE_I32:
+#if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
+    case VALUE_TYPE_FUNCREF:
+    case VALUE_TYPE_EXTERNREF:
+#endif
+        result ^= c->value.i32;
+        break;
+    case VALUE_TYPE_I64:
+        result ^= ((uint32*)&c->value.i64)[0];
+        result ^= ((uint32*)&c->value.i64)[1];
+        break;
+    case VALUE_TYPE_F32:
+        result ^= *(uint32*)&c->value.f32;
+        break;
+    case VALUE_TYPE_F64:
+        result ^= ((uint32*)&c->value.f64)[0];
+        result ^= ((uint32*)&c->value.f64)[1];
+        break;
+    default:
+        break;
+    }
+
+    return result;
 }
 
 static WASMLoaderContext *
@@ -8238,11 +8303,19 @@ wasm_loader_ctx_init(WASMFunction *func, char *error_buf, uint32 error_buf_size)
         goto fail;
     loader_ctx->frame_offset_boundary = loader_ctx->frame_offset_bottom + 32;
 
-    loader_ctx->num_const = 0;
-    loader_ctx->const_buf_size = sizeof(Const) * 8;
-    if (!(loader_ctx->const_buf = loader_malloc(loader_ctx->const_buf_size,
-                                                error_buf, error_buf_size)))
+    loader_ctx->const_cell_num = 0;
+    if (!bh_vector_init(&loader_ctx->const_buf, 8, sizeof(Const), false)) {
+        set_error_buf(error_buf, error_buf_size, "couldn't allocate const_buf");
         goto fail;
+    }
+
+    if (!(loader_ctx->const_map = bh_hash_map_create(8, false, const_hash,
+                                                     const_equal,
+                                                     wasm_runtime_free,
+                                                     wasm_runtime_free))) {
+        set_error_buf(error_buf, error_buf_size, "couldn't create const_map");
+        goto fail;
+    }
 
     if (func->param_cell_num >= (int32)INT16_MAX - func->local_cell_num) {
         set_error_buf(error_buf, error_buf_size,
@@ -9490,109 +9563,83 @@ wasm_loader_push_pop_frame_ref_offset(WASMLoaderContext *ctx, uint8 pop_cnt,
 }
 
 static bool
+const_from_value(uint8 type, void* value, Const* c)
+{
+    c->value_type = type;
+
+    switch (type) {
+    case VALUE_TYPE_I32:
+#if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
+    case VALUE_TYPE_FUNCREF:
+    case VALUE_TYPE_EXTERNREF:
+#endif
+        c->value.i32 = *(int32 *)value;
+        return true;
+    case VALUE_TYPE_I64:
+        c->value.i64 = *(int64 *)value;
+        return true;
+    case VALUE_TYPE_F32:
+        c->value.f32 = *(float *)value;
+        return true;
+    case VALUE_TYPE_F64:
+        c->value.f64 = *(double *)value;
+        return true;
+    }
+
+    return false;
+}
+
+static bool
 wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
                              int16 *offset, char *error_buf,
                              uint32 error_buf_size)
 {
-    int8 bytes_to_increase;
-    int16 operand_offset = 0;
-    Const *c;
-
-    /* Search existing constant */
-    for (c = (Const *)ctx->const_buf;
-         (uint8 *)c < ctx->const_buf + ctx->num_const * sizeof(Const); c++) {
-        /* TODO: handle v128 type? */
-        if ((type == c->value_type)
-            && ((type == VALUE_TYPE_I64 && *(int64 *)value == c->value.i64)
-                || (type == VALUE_TYPE_I32 && *(int32 *)value == c->value.i32)
-#if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
-                || (type == VALUE_TYPE_FUNCREF
-                    && *(int32 *)value == c->value.i32)
-                || (type == VALUE_TYPE_EXTERNREF
-                    && *(int32 *)value == c->value.i32)
-#endif
-                || (type == VALUE_TYPE_F64
-                    && (0 == memcmp(value, &(c->value.f64), sizeof(float64))))
-                || (type == VALUE_TYPE_F32
-                    && (0
-                        == memcmp(value, &(c->value.f32), sizeof(float32)))))) {
-            operand_offset = c->slot_index;
-            break;
-        }
-        if (is_32bit_type(c->value_type))
-            operand_offset += 1;
-        else
-            operand_offset += 2;
+    Const search_key;
+    if (!const_from_value(type, value, &search_key)) {
+        strncpy(error_buf, "could not create search key from value",
+                error_buf_size);
     }
 
-    if ((uint8 *)c == ctx->const_buf + ctx->num_const * sizeof(Const)) {
-        /* New constant, append to the const buffer */
-        if ((type == VALUE_TYPE_F64) || (type == VALUE_TYPE_I64)) {
-            bytes_to_increase = 2;
-        }
-        else {
-            bytes_to_increase = 1;
-        }
-
-        /* The max cell num of const buffer is 32768 since the valid index range
-         * is -32768 ~ -1. Return an invalid index 0 to indicate the buffer is
-         * full */
-        if (ctx->const_cell_num > INT16_MAX - bytes_to_increase + 1) {
-            *offset = 0;
-            return true;
-        }
-
-        if ((uint8 *)c == ctx->const_buf + ctx->const_buf_size) {
-            MEM_REALLOC(ctx->const_buf, ctx->const_buf_size,
-                        ctx->const_buf_size + 4 * sizeof(Const));
-            ctx->const_buf_size += 4 * sizeof(Const);
-            c = (Const *)(ctx->const_buf + ctx->num_const * sizeof(Const));
-        }
-        c->value_type = type;
-        switch (type) {
-            case VALUE_TYPE_F64:
-                bh_memcpy_s(&(c->value.f64), sizeof(WASMValue), value,
-                            sizeof(float64));
-                ctx->const_cell_num += 2;
-                /* The const buf will be reversed, we use the second cell */
-                /* of the i64/f64 const so the final offset is correct */
-                operand_offset++;
-                break;
-            case VALUE_TYPE_I64:
-                c->value.i64 = *(int64 *)value;
-                ctx->const_cell_num += 2;
-                operand_offset++;
-                break;
-            case VALUE_TYPE_F32:
-                bh_memcpy_s(&(c->value.f32), sizeof(WASMValue), value,
-                            sizeof(float32));
-                ctx->const_cell_num++;
-                break;
-            case VALUE_TYPE_I32:
-                c->value.i32 = *(int32 *)value;
-                ctx->const_cell_num++;
-                break;
-#if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
-            case VALUE_TYPE_EXTERNREF:
-            case VALUE_TYPE_FUNCREF:
-                c->value.i32 = *(int32 *)value;
-                ctx->const_cell_num++;
-                break;
-#endif
-            default:
-                break;
-        }
-        c->slot_index = operand_offset;
-        ctx->num_const++;
-        LOG_OP("#### new const [%d]: %ld\n", ctx->num_const,
-               (int64)c->value.i64);
+    // If the constant is already in the buffer, return its offset.
+    void *entry = bh_hash_map_find(ctx->const_map, &search_key);
+    if (entry != NULL) {
+        *offset = *(int16*)entry;
+        return true;
     }
-    /* use negative index for const */
-    operand_offset = -(operand_offset + 1);
-    *offset = operand_offset;
+
+    // Check for a full buffer.
+    if (bh_vector_size(&ctx->const_buf) > SHRT_MAX) {
+        *offset = 0;
+        return true;
+    }
+
+    // Otherwise, add the const to the buffer.
+    if (!bh_vector_append(&ctx->const_buf, &search_key)) {
+        strncpy(error_buf, "could not append const to const_buf",
+                error_buf_size);
+        return false;
+    }
+
+    ctx->const_cell_num += is_32bit_type(type) ? 1 : 2;
+
+    Const *new_key = loader_malloc(sizeof(Const), error_buf, error_buf_size);
+    if (new_key == NULL) {
+        return false;
+    }
+
+    int16 *new_value = loader_malloc(sizeof(int16), error_buf, error_buf_size);
+    if (new_value == NULL) {
+        return false;
+    }
+
+    *new_key = search_key;
+    *new_value = *offset = -(int16) ctx->const_cell_num;
+    if (!bh_hash_map_insert(ctx->const_map, new_key, new_value)) {
+        strncpy(error_buf, "could not insert const into const_map", error_buf_size);
+        return false;
+    }
+
     return true;
-fail:
-    return false;
 }
 
 /*
@@ -15933,7 +15980,8 @@ re_scan:
 
     func->const_cell_num = loader_ctx->const_cell_num;
     if (func->const_cell_num > 0) {
-        int32 j;
+        size_t j;
+        size_t num_const = bh_vector_size(&loader_ctx->const_buf);
 
         if (!(func->consts = func_const = loader_malloc(
                   func->const_cell_num * 4, error_buf, error_buf_size)))
@@ -15941,8 +15989,8 @@ re_scan:
 
         func_const_end = func->consts + func->const_cell_num * 4;
         /* reverse the const buf */
-        for (j = loader_ctx->num_const - 1; j >= 0; j--) {
-            Const *c = (Const *)(loader_ctx->const_buf + j * sizeof(Const));
+        for (j = num_const - 1; j < num_const; j--) {
+            Const *c = &((Const *)(loader_ctx->const_buf.data))[j];
             if (c->value_type == VALUE_TYPE_F64
                 || c->value_type == VALUE_TYPE_I64) {
                 bh_memcpy_s(func_const, (uint32)(func_const_end - func_const),
