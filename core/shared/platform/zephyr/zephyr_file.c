@@ -16,9 +16,9 @@
 
 /* Notes:
  * This is the implementation of a POSIX-like file system interface for Zephyr.
- * To manage our file descriptors, we a struct `zephyr_fs_desc` is created that
- * represents a zephyr file descriptor and holds useful information.
- * A file descriptor table is also created to keep track of all the file
+ * To manage our file descriptors, we created a struct `zephyr_fs_desc` that
+ * represent a zephyr file descriptor and hold useful informations.
+ * We also created a file descriptor table to keep track of all the file
  * descriptors.
  *
  * To pass the file descriptor reference to the higher level abstraction, we
