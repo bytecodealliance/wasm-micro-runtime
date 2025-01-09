@@ -11228,21 +11228,23 @@ re_scan:
                         uint32 cell_num =
                             wasm_value_type_cell_num(func_type->types[i]);
                         if (i >= available_params) {
+                            /* make sure enough space */
+                            if (loader_ctx->p_code_compiled == NULL) {
+                                loader_ctx->frame_offset += cell_num;
+                                if (!check_offset_push(loader_ctx, error_buf,
+                                                       error_buf_size))
+                                    goto fail;
+                                /* for following dummy value assignemnt */
+                                loader_ctx->frame_offset -= cell_num;
+                            }
+
                             /* If there isn't enough data on stack, push a dummy
                              * offset to keep the stack consistent with
                              * frame_ref.
                              * Since the stack is already in polymorphic state,
                              * the opcode will not be executed, so the dummy
                              * offset won't cause any error */
-                            uint32 n;
-
-                            for (n = 0; n < cell_num; n++) {
-                                if (loader_ctx->p_code_compiled == NULL) {
-                                    if (!check_offset_push(loader_ctx,
-                                                           error_buf,
-                                                           error_buf_size))
-                                        goto fail;
-                                }
+                            for (uint32 n = 0; n < cell_num; n++) {
                                 *loader_ctx->frame_offset++ = 0;
                             }
                         }
