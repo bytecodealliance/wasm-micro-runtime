@@ -9538,12 +9538,31 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
                              uint32 error_buf_size)
 {
     if (!ctx->p_code_compiled) {
-        /* TODO: handle when total const cell num is overflow */
         if (type == VALUE_TYPE_I64 || type == VALUE_TYPE_F64) {
-            I64ConstNode *i64_const_node =
-                loader_malloc(sizeof(I64ConstNode), error_buf, error_buf_size);
-            if (!i64_const_node)
+            I64ConstNode *i64_const_node;
+
+            /* No slot left, emit const instead */
+            if (ctx->i64_const_num * 2 + ctx->i32_const_num > INT16_MAX - 2) {
+                *offset = 0;
+                return true;
+            }
+
+            /* Traverse the list if the const num is small */
+            if (ctx->i64_const_num > 0 && ctx->i64_const_num < 10) {
+                i64_const_node = ctx->i64_const_list;
+                while (i64_const_node) {
+                    if (i64_const_node->value == *(int64 *)value) {
+                        *offset = -1;
+                        return true;
+                    }
+                    i64_const_node = i64_const_node->next;
+                }
+            }
+
+            if (!(i64_const_node = loader_malloc(sizeof(I64ConstNode),
+                                                 error_buf, error_buf_size))) {
                 return false;
+            }
             i64_const_node->value = *(int64 *)value;
             i64_const_node->next = ctx->i64_const_list;
             ctx->i64_const_list = i64_const_node;
@@ -9551,10 +9570,31 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
         }
         else {
             bh_assert(type == VALUE_TYPE_I32 || type == VALUE_TYPE_F32);
-            I32ConstNode *i32_const_node =
-                loader_malloc(sizeof(I32ConstNode), error_buf, error_buf_size);
-            if (!i32_const_node)
+
+            I32ConstNode *i32_const_node;
+
+            /* No slot left, emit const instead */
+            if (ctx->i64_const_num * 2 + ctx->i32_const_num > INT16_MAX - 1) {
+                *offset = 0;
+                return true;
+            }
+
+            /* Traverse the list if the const num is small */
+            if (ctx->i32_const_num > 0 && ctx->i32_const_num < 10) {
+                i32_const_node = ctx->i32_const_list;
+                while (i32_const_node) {
+                    if (i32_const_node->value == *(int32 *)value) {
+                        *offset = -1;
+                        return true;
+                    }
+                    i32_const_node = i32_const_node->next;
+                }
+            }
+
+            if (!(i32_const_node = loader_malloc(sizeof(I32ConstNode),
+                                                 error_buf, error_buf_size))) {
                 return false;
+            }
             i32_const_node->value = *(int32 *)value;
             i32_const_node->next = ctx->i32_const_list;
             ctx->i32_const_list = i32_const_node;
@@ -9569,7 +9609,10 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
             int64 key = *(int64 *)value, *i64_const;
             i64_const = bsearch(&key, ctx->i64_consts, ctx->i64_const_num,
                                 sizeof(int64), cmp_i64_const);
-            bh_assert(i64_const);
+            if (!i64_const) { /* not found, emit const instead */
+                *offset = 0;
+                return true;
+            }
             *offset = -(uint32)(ctx->i64_const_num * 2 + ctx->i32_const_num)
                       + (uint32)(i64_const - ctx->i64_consts) * 2;
         }
@@ -9577,10 +9620,14 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
             int32 key = *(int32 *)value, *i32_const;
             i32_const = bsearch(&key, ctx->i32_consts, ctx->i32_const_num,
                                 sizeof(int32), cmp_i32_const);
-            bh_assert(i32_const);
+            if (!i32_const) { /* not found, emit const instead */
+                *offset = 0;
+                return true;
+            }
             *offset = -(uint32)(ctx->i32_const_num)
                       + (uint32)(i32_const - ctx->i32_consts);
         }
+
         return true;
     }
 }
