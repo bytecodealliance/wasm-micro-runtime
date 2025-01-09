@@ -7902,6 +7902,16 @@ typedef struct BranchBlock {
     bool is_stack_polymorphic;
 } BranchBlock;
 
+typedef struct I64ConstNode {
+    int64 value;
+    struct I64ConstNode *next;
+} I64ConstNode, *I64ConstList;
+
+typedef struct I32ConstNode {
+    int32 value;
+    struct I32ConstNode *next;
+} I32ConstNode, *I32ConstList;
+
 typedef struct WASMLoaderContext {
     /* frame ref stack */
     uint8 *frame_ref;
@@ -7950,10 +7960,12 @@ typedef struct WASMLoaderContext {
     int16 preserved_local_offset;
 
     /* const buffer */
-    uint8 *const_buf;
-    uint16 num_const;
-    uint16 const_cell_num;
-    uint32 const_buf_size;
+    I64ConstList i64_const_list;
+    I32ConstList i32_const_list;
+    int64 *i64_consts;
+    int32 *i32_consts;
+    uint32 i64_const_num;
+    uint32 i32_const_num;
 
     /* processed code */
     uint8 *p_code_compiled;
@@ -8189,8 +8201,27 @@ wasm_loader_ctx_destroy(WASMLoaderContext *ctx)
 #if WASM_ENABLE_FAST_INTERP != 0
         if (ctx->frame_offset_bottom)
             wasm_runtime_free(ctx->frame_offset_bottom);
-        if (ctx->const_buf)
-            wasm_runtime_free(ctx->const_buf);
+
+        if (ctx->i64_const_list) {
+            I64ConstNode *node = ctx->i64_const_list, *node_next;
+            while (node) {
+                node_next = node->next;
+                wasm_runtime_free(node);
+                node = node_next;
+            }
+        }
+        if (ctx->i32_const_list) {
+            I32ConstNode *node = ctx->i32_const_list, *node_next;
+            while (node) {
+                node_next = node->next;
+                wasm_runtime_free(node);
+                node = node_next;
+            }
+        }
+        if (ctx->i64_consts)
+            wasm_runtime_free(ctx->i64_consts);
+        if (ctx->i32_consts)
+            wasm_runtime_free(ctx->i32_consts);
 #endif
         wasm_runtime_free(ctx);
     }
@@ -8237,12 +8268,6 @@ wasm_loader_ctx_init(WASMFunction *func, char *error_buf, uint32 error_buf_size)
                             error_buf_size)))
         goto fail;
     loader_ctx->frame_offset_boundary = loader_ctx->frame_offset_bottom + 32;
-
-    loader_ctx->num_const = 0;
-    loader_ctx->const_buf_size = sizeof(Const) * 8;
-    if (!(loader_ctx->const_buf = loader_malloc(loader_ctx->const_buf_size,
-                                                error_buf, error_buf_size)))
-        goto fail;
 
     if (func->param_cell_num >= (int32)INT16_MAX - func->local_cell_num) {
         set_error_buf(error_buf, error_buf_size,
@@ -9489,110 +9514,75 @@ wasm_loader_push_pop_frame_ref_offset(WASMLoaderContext *ctx, uint8 pop_cnt,
     return true;
 }
 
+static int
+cmp_i64_const(const void *p_i64_const1, const void *p_i64_const2)
+{
+    int64 i64_const1 = *(int64 *)p_i64_const1;
+    int64 i64_const2 = *(int64 *)p_i64_const2;
+
+    return (i64_const1 < i64_const2) ? -1 : (i64_const1 > i64_const2) ? 1 : 0;
+}
+
+static int
+cmp_i32_const(const void *p_i32_const1, const void *p_i32_const2)
+{
+    int32 i32_const1 = *(int32 *)p_i32_const1;
+    int32 i32_const2 = *(int32 *)p_i32_const2;
+
+    return (i32_const1 < i32_const2) ? -1 : (i32_const1 > i32_const2) ? 1 : 0;
+}
+
 static bool
 wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
                              int16 *offset, char *error_buf,
                              uint32 error_buf_size)
 {
-    int8 bytes_to_increase;
-    int16 operand_offset = 0;
-    Const *c;
-
-    /* Search existing constant */
-    for (c = (Const *)ctx->const_buf;
-         (uint8 *)c < ctx->const_buf + ctx->num_const * sizeof(Const); c++) {
-        /* TODO: handle v128 type? */
-        if ((type == c->value_type)
-            && ((type == VALUE_TYPE_I64 && *(int64 *)value == c->value.i64)
-                || (type == VALUE_TYPE_I32 && *(int32 *)value == c->value.i32)
-#if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
-                || (type == VALUE_TYPE_FUNCREF
-                    && *(int32 *)value == c->value.i32)
-                || (type == VALUE_TYPE_EXTERNREF
-                    && *(int32 *)value == c->value.i32)
-#endif
-                || (type == VALUE_TYPE_F64
-                    && (0 == memcmp(value, &(c->value.f64), sizeof(float64))))
-                || (type == VALUE_TYPE_F32
-                    && (0
-                        == memcmp(value, &(c->value.f32), sizeof(float32)))))) {
-            operand_offset = c->slot_index;
-            break;
-        }
-        if (is_32bit_type(c->value_type))
-            operand_offset += 1;
-        else
-            operand_offset += 2;
-    }
-
-    if ((uint8 *)c == ctx->const_buf + ctx->num_const * sizeof(Const)) {
-        /* New constant, append to the const buffer */
-        if ((type == VALUE_TYPE_F64) || (type == VALUE_TYPE_I64)) {
-            bytes_to_increase = 2;
+    if (!ctx->p_code_compiled) {
+        /* TODO: handle when total const cell num is overflow */
+        if (type == VALUE_TYPE_I64 || type == VALUE_TYPE_F64) {
+            I64ConstNode *i64_const_node =
+                loader_malloc(sizeof(I64ConstNode), error_buf, error_buf_size);
+            if (!i64_const_node)
+                return false;
+            i64_const_node->value = *(int64 *)value;
+            i64_const_node->next = ctx->i64_const_list;
+            ctx->i64_const_list = i64_const_node;
+            ctx->i64_const_num++;
         }
         else {
-            bytes_to_increase = 1;
+            bh_assert(type == VALUE_TYPE_I32 || type == VALUE_TYPE_F32);
+            I32ConstNode *i32_const_node =
+                loader_malloc(sizeof(I32ConstNode), error_buf, error_buf_size);
+            if (!i32_const_node)
+                return false;
+            i32_const_node->value = *(int32 *)value;
+            i32_const_node->next = ctx->i32_const_list;
+            ctx->i32_const_list = i32_const_node;
+            ctx->i32_const_num++;
         }
 
-        /* The max cell num of const buffer is 32768 since the valid index range
-         * is -32768 ~ -1. Return an invalid index 0 to indicate the buffer is
-         * full */
-        if (ctx->const_cell_num > INT16_MAX - bytes_to_increase + 1) {
-            *offset = 0;
-            return true;
-        }
-
-        if ((uint8 *)c == ctx->const_buf + ctx->const_buf_size) {
-            MEM_REALLOC(ctx->const_buf, ctx->const_buf_size,
-                        ctx->const_buf_size + 4 * sizeof(Const));
-            ctx->const_buf_size += 4 * sizeof(Const);
-            c = (Const *)(ctx->const_buf + ctx->num_const * sizeof(Const));
-        }
-        c->value_type = type;
-        switch (type) {
-            case VALUE_TYPE_F64:
-                bh_memcpy_s(&(c->value.f64), sizeof(WASMValue), value,
-                            sizeof(float64));
-                ctx->const_cell_num += 2;
-                /* The const buf will be reversed, we use the second cell */
-                /* of the i64/f64 const so the final offset is correct */
-                operand_offset++;
-                break;
-            case VALUE_TYPE_I64:
-                c->value.i64 = *(int64 *)value;
-                ctx->const_cell_num += 2;
-                operand_offset++;
-                break;
-            case VALUE_TYPE_F32:
-                bh_memcpy_s(&(c->value.f32), sizeof(WASMValue), value,
-                            sizeof(float32));
-                ctx->const_cell_num++;
-                break;
-            case VALUE_TYPE_I32:
-                c->value.i32 = *(int32 *)value;
-                ctx->const_cell_num++;
-                break;
-#if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
-            case VALUE_TYPE_EXTERNREF:
-            case VALUE_TYPE_FUNCREF:
-                c->value.i32 = *(int32 *)value;
-                ctx->const_cell_num++;
-                break;
-#endif
-            default:
-                break;
-        }
-        c->slot_index = operand_offset;
-        ctx->num_const++;
-        LOG_OP("#### new const [%d]: %ld\n", ctx->num_const,
-               (int64)c->value.i64);
+        *offset = -1;
+        return true;
     }
-    /* use negative index for const */
-    operand_offset = -(operand_offset + 1);
-    *offset = operand_offset;
-    return true;
-fail:
-    return false;
+    else {
+        if (type == VALUE_TYPE_I64 || type == VALUE_TYPE_F64) {
+            int64 key = *(int64 *)value, *i64_const;
+            i64_const = bsearch(&key, ctx->i64_consts, ctx->i64_const_num,
+                                sizeof(int64), cmp_i64_const);
+            bh_assert(i64_const);
+            *offset = -(uint32)(ctx->i64_const_num * 2 + ctx->i32_const_num)
+                      + (uint32)(i64_const - ctx->i64_consts) * 2;
+        }
+        else {
+            int32 key = *(int32 *)value, *i32_const;
+            i32_const = bsearch(&key, ctx->i32_consts, ctx->i32_const_num,
+                                sizeof(int32), cmp_i32_const);
+            bh_assert(i32_const);
+            *offset = -(uint32)(ctx->i32_const_num)
+                      + (uint32)(i32_const - ctx->i32_consts);
+        }
+        return true;
+    }
 }
 
 /*
@@ -10949,7 +10939,6 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
     bool need_ref_type_map;
 #endif
 #if WASM_ENABLE_FAST_INTERP != 0
-    uint8 *func_const_end, *func_const = NULL;
     int16 operand_offset = 0;
     uint8 last_op = 0;
     bool disable_emit, preserve_local = false, if_condition_available = true;
@@ -11016,6 +11005,90 @@ re_scan:
         p = func->code;
         func->code_compiled = loader_ctx->p_code_compiled;
         func->code_compiled_size = loader_ctx->code_compiled_size;
+
+        if (loader_ctx->i64_const_num > 0) {
+            I64ConstNode *node, *node_next;
+            int64 *i64_consts;
+
+            if (!(i64_consts = loader_malloc((uint64)sizeof(int64)
+                                                 * loader_ctx->i64_const_num,
+                                             error_buf, error_buf_size))) {
+                goto fail;
+            }
+
+            i = 0;
+            node = loader_ctx->i64_const_list;
+            while (node) {
+                node_next = node->next;
+                i64_consts[i++] = node->value;
+                wasm_runtime_free(node);
+                node = node_next;
+            }
+            bh_assert(i = loader_ctx->i64_const_num);
+            loader_ctx->i64_const_list = NULL;
+
+            qsort(i64_consts, loader_ctx->i64_const_num, sizeof(int64),
+                  cmp_i64_const);
+
+            uint32 k = 1;
+            for (i = 1; i < loader_ctx->i64_const_num; i++) {
+                if (i64_consts[i] != i64_consts[i - 1]) {
+                    i64_consts[k++] = i64_consts[i];
+                }
+            }
+
+            if (!(loader_ctx->i64_consts = loader_malloc(
+                      (uint64)sizeof(int64) * k, error_buf, error_buf_size))) {
+                wasm_runtime_free(i64_consts);
+                goto fail;
+            }
+            bh_memcpy_s(loader_ctx->i64_consts, (uint32)sizeof(int64) * k,
+                        i64_consts, (uint32)sizeof(int64) * k);
+            wasm_runtime_free(i64_consts);
+            loader_ctx->i64_const_num = k;
+        }
+
+        if (loader_ctx->i32_const_num > 0) {
+            I32ConstNode *node, *node_next;
+            int32 *i32_consts;
+
+            if (!(i32_consts = loader_malloc((uint64)sizeof(int32)
+                                                 * loader_ctx->i32_const_num,
+                                             error_buf, error_buf_size))) {
+                goto fail;
+            }
+
+            i = 0;
+            node = loader_ctx->i32_const_list;
+            while (node) {
+                node_next = node->next;
+                i32_consts[i++] = node->value;
+                wasm_runtime_free(node);
+                node = node_next;
+            }
+            bh_assert(i = loader_ctx->i32_const_num);
+            loader_ctx->i32_const_list = NULL;
+
+            qsort(i32_consts, loader_ctx->i32_const_num, sizeof(int32),
+                  cmp_i32_const);
+
+            uint32 k = 1;
+            for (i = 1; i < loader_ctx->i32_const_num; i++) {
+                if (i32_consts[i] != i32_consts[i - 1]) {
+                    i32_consts[k++] = i32_consts[i];
+                }
+            }
+
+            if (!(loader_ctx->i32_consts = loader_malloc(
+                      (uint64)sizeof(int32) * k, error_buf, error_buf_size))) {
+                wasm_runtime_free(i32_consts);
+                goto fail;
+            }
+            bh_memcpy_s(loader_ctx->i32_consts, (uint32)sizeof(int32) * k,
+                        i32_consts, (uint32)sizeof(int32) * k);
+            wasm_runtime_free(i32_consts);
+            loader_ctx->i32_const_num = k;
+        }
     }
 #endif
 
@@ -15931,29 +16004,25 @@ re_scan:
     if (loader_ctx->p_code_compiled == NULL)
         goto re_scan;
 
-    func->const_cell_num = loader_ctx->const_cell_num;
+    func->const_cell_num =
+        loader_ctx->i64_const_num * 2 + loader_ctx->i32_const_num;
     if (func->const_cell_num > 0) {
-        int32 j;
-
-        if (!(func->consts = func_const = loader_malloc(
-                  func->const_cell_num * 4, error_buf, error_buf_size)))
+        if (!(func->consts =
+                  loader_malloc((uint64)sizeof(uint32) * func->const_cell_num,
+                                error_buf, error_buf_size)))
             goto fail;
-
-        func_const_end = func->consts + func->const_cell_num * 4;
-        /* reverse the const buf */
-        for (j = loader_ctx->num_const - 1; j >= 0; j--) {
-            Const *c = (Const *)(loader_ctx->const_buf + j * sizeof(Const));
-            if (c->value_type == VALUE_TYPE_F64
-                || c->value_type == VALUE_TYPE_I64) {
-                bh_memcpy_s(func_const, (uint32)(func_const_end - func_const),
-                            &(c->value.f64), (uint32)sizeof(int64));
-                func_const += sizeof(int64);
-            }
-            else {
-                bh_memcpy_s(func_const, (uint32)(func_const_end - func_const),
-                            &(c->value.f32), (uint32)sizeof(int32));
-                func_const += sizeof(int32);
-            }
+        if (loader_ctx->i64_const_num > 0) {
+            bh_memcpy_s(func->consts,
+                        (uint32)sizeof(int64) * loader_ctx->i64_const_num,
+                        loader_ctx->i64_consts,
+                        (uint32)sizeof(int64) * loader_ctx->i64_const_num);
+        }
+        if (loader_ctx->i32_const_num > 0) {
+            bh_memcpy_s(func->consts
+                            + sizeof(int64) * loader_ctx->i64_const_num,
+                        (uint32)sizeof(int32) * loader_ctx->i32_const_num,
+                        loader_ctx->i32_consts,
+                        (uint32)sizeof(int32) * loader_ctx->i32_const_num);
         }
     }
 
