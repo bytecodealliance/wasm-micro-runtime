@@ -197,7 +197,6 @@ check_buf1(const uint8 *buf, const uint8 *buf_end, uint32 length,
         res = (int32)res64;                                             \
     } while (0)
 
-#define read_leb_memidx(p, p_end, res) read_leb_uint32(p, p_end, res)
 #if WASM_ENABLE_MULTI_MEMORY != 0
 #define check_memidx(module, memidx)                                        \
     do {                                                                    \
@@ -11039,17 +11038,18 @@ re_scan:
             }
 
             if (k < loader_ctx->i64_const_num) {
-                /* Reallocate memory with a smaller size */
-                if (!(loader_ctx->i64_consts =
-                          loader_malloc((uint64)sizeof(int64) * k, error_buf,
-                                        error_buf_size))) {
-                    goto fail;
+                int64 *i64_consts_new;
+                /* Try to reallocate memory with a smaller size */
+                if ((i64_consts_new =
+                         wasm_runtime_malloc((uint32)sizeof(int64) * k))) {
+                    bh_memcpy_s(i64_consts_new, (uint32)sizeof(int64) * k,
+                                i64_consts_old, (uint32)sizeof(int64) * k);
+                    /* Free the old memory */
+                    wasm_runtime_free(i64_consts_old);
+                    loader_ctx->i64_consts = i64_consts_new;
+                    loader_ctx->i64_const_size = k;
                 }
-                bh_memcpy_s(loader_ctx->i64_consts, (uint32)sizeof(int64) * k,
-                            i64_consts_old, (uint32)sizeof(int64) * k);
-                /* Free the old memory */
-                wasm_runtime_free(i64_consts_old);
-                loader_ctx->i64_const_num = loader_ctx->i64_const_size = k;
+                loader_ctx->i64_const_num = k;
             }
         }
 
@@ -11069,17 +11069,18 @@ re_scan:
             }
 
             if (k < loader_ctx->i32_const_num) {
-                /* Reallocate memory with a smaller size */
-                if (!(loader_ctx->i32_consts =
-                          loader_malloc((uint64)sizeof(int32) * k, error_buf,
-                                        error_buf_size))) {
-                    goto fail;
+                int32 *i32_consts_new;
+                /* Try to reallocate memory with a smaller size */
+                if ((i32_consts_new =
+                         wasm_runtime_malloc((uint32)sizeof(int32) * k))) {
+                    bh_memcpy_s(i32_consts_new, (uint32)sizeof(int32) * k,
+                                i32_consts_old, (uint32)sizeof(int32) * k);
+                    /* Free the old memory */
+                    wasm_runtime_free(i32_consts_old);
+                    loader_ctx->i32_consts = i32_consts_new;
+                    loader_ctx->i32_const_size = k;
                 }
-                bh_memcpy_s(loader_ctx->i32_consts, (uint32)sizeof(int32) * k,
-                            i32_consts_old, (uint32)sizeof(int32) * k);
-                /* Free the old memory */
-                wasm_runtime_free(i32_consts_old);
-                loader_ctx->i32_const_num = loader_ctx->i32_const_size = k;
+                loader_ctx->i32_const_num = k;
             }
         }
     }
