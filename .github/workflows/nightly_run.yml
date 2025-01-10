@@ -142,6 +142,7 @@ jobs:
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
             "-DWAMR_BUILD_MEMORY64=1",
             "-DWAMR_BUILD_MULTI_MEMORY=1",
+            "-DWAMR_BUILD_SHARED=1",
           ]
         os: [ubuntu-20.04]
         platform: [android, linux]
