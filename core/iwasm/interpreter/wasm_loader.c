@@ -6195,7 +6195,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                 }
             }
         }
-#endif
+#endif /* WASM_ENABLE_SHRUNK_MEMORY != 0 */
 
 #if WASM_ENABLE_MULTI_MODULE == 0
         if (module->import_memory_count) {

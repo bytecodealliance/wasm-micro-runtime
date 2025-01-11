@@ -2958,9 +2958,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     }
 
     if (!module->possible_memory_grow) {
-        WASMMemoryImport *memory_import;
-        WASMMemory *memory;
-
+#if WASM_ENABLE_SHRUNK_MEMORY != 0
         if (aux_data_end_global && aux_heap_base_global
             && aux_stack_top_global) {
             uint64 init_memory_size;
@@ -2970,7 +2968,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
              * valid range of uint32 */
             if (shrunk_memory_size <= UINT32_MAX) {
                 if (module->import_memory_count) {
-                    memory_import = &module->import_memories[0].u.memory;
+                    WASMMemoryImport *memory_import =
+                        &module->import_memories[0].u.memory;
                     init_memory_size =
                         (uint64)memory_import->mem_type.num_bytes_per_page
                         * memory_import->mem_type.init_page_count;
@@ -2985,7 +2984,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                 }
 
                 if (module->memory_count) {
-                    memory = &module->memories[0];
+                    WASMMemory *memory = &module->memories[0];
                     init_memory_size = (uint64)memory->num_bytes_per_page
                                        * memory->init_page_count;
                     if (shrunk_memory_size <= init_memory_size) {
@@ -2998,9 +2997,11 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                 }
             }
         }
+#endif /* WASM_ENABLE_SHRUNK_MEMORY != 0 */
 
         if (module->import_memory_count) {
-            memory_import = &module->import_memories[0].u.memory;
+            WASMMemoryImport *memory_import =
+                &module->import_memories[0].u.memory;
             if (memory_import->mem_type.init_page_count < DEFAULT_MAX_PAGES) {
                 memory_import->mem_type.num_bytes_per_page *=
                     memory_import->mem_type.init_page_count;
@@ -3014,7 +3015,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
         }
 
         if (module->memory_count) {
-            memory = &module->memories[0];
+            WASMMemory *memory = &module->memories[0];
             if (memory->init_page_count < DEFAULT_MAX_PAGES) {
                 memory->num_bytes_per_page *= memory->init_page_count;
                 if (memory->init_page_count > 0)
