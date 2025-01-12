@@ -6156,9 +6156,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     }
 
     if (!module->possible_memory_grow) {
-        WASMMemoryImport *memory_import;
-        WASMMemory *memory;
-
+#if WASM_ENABLE_SHRUNK_MEMORY != 0
         if (aux_data_end_global && aux_heap_base_global
             && aux_stack_top_global) {
             uint64 init_memory_size;
@@ -6168,7 +6166,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
              * valid range of uint32 */
             if (shrunk_memory_size <= UINT32_MAX) {
                 if (module->import_memory_count) {
-                    memory_import = &module->import_memories[0].u.memory;
+                    WASMMemoryImport *memory_import =
+                        &module->import_memories[0].u.memory;
                     init_memory_size =
                         (uint64)memory_import->mem_type.num_bytes_per_page
                         * memory_import->mem_type.init_page_count;
@@ -6183,7 +6182,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                 }
 
                 if (module->memory_count) {
-                    memory = &module->memories[0];
+                    WASMMemory *memory = &module->memories[0];
                     init_memory_size = (uint64)memory->num_bytes_per_page
                                        * memory->init_page_count;
                     if (shrunk_memory_size <= init_memory_size) {
@@ -6196,10 +6195,12 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                 }
             }
         }
+#endif /* WASM_ENABLE_SHRUNK_MEMORY != 0 */
 
 #if WASM_ENABLE_MULTI_MODULE == 0
         if (module->import_memory_count) {
-            memory_import = &module->import_memories[0].u.memory;
+            WASMMemoryImport *memory_import =
+                &module->import_memories[0].u.memory;
             /* Only resize the memory to one big page if num_bytes_per_page is
              * in valid range of uint32 */
             if (memory_import->mem_type.init_page_count < DEFAULT_MAX_PAGES) {
@@ -6215,7 +6216,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
             }
         }
         if (module->memory_count) {
-            memory = &module->memories[0];
+            WASMMemory *memory = &module->memories[0];
             /* Only resize(shrunk) the memory size if num_bytes_per_page is in
              * valid range of uint32 */
             if (memory->init_page_count < DEFAULT_MAX_PAGES) {
@@ -10021,7 +10022,8 @@ check_memory_access_align(uint8 opcode, uint32 align, char *error_buf,
     bh_assert(opcode >= WASM_OP_I32_LOAD && opcode <= WASM_OP_I64_STORE32);
     if (align > mem_access_aligns[opcode - WASM_OP_I32_LOAD]) {
         set_error_buf(error_buf, error_buf_size,
-                      "alignment must not be larger than natural");
+                      "invalid memop flags: alignment must not be larger "
+                      "than natural");
         return false;
     }
     return true;
@@ -10060,7 +10062,8 @@ check_simd_memory_access_align(uint8 opcode, uint32 align, char *error_buf,
             && align > mem_access_aligns_load_lane[opcode
                                                    - SIMD_v128_load8_lane])) {
         set_error_buf(error_buf, error_buf_size,
-                      "alignment must not be larger than natural");
+                      "invalid memop flags: alignment must not be larger "
+                      "than natural");
         return false;
     }
 
