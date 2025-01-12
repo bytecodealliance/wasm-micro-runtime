@@ -22,6 +22,11 @@
     && !defined(BUILD_TARGET_RISCV32_ILP32D) \
     && !defined(BUILD_TARGET_RISCV32_ILP32F) \
     && !defined(BUILD_TARGET_RISCV32_ILP32) \
+    && !defined(BUILD_TARGET_LOONGARCH64_LP64D) \
+    && !defined(BUILD_TARGET_LOONGARCH64_LP64) \
+    && !defined(BUILD_TARGET_LOONGARCH32_ILP32D) \
+    && !defined(BUILD_TARGET_LOONGARCH32_ILP32F) \
+    && !defined(BUILD_TARGET_LOONGARCH32_ILP32) \
     && !defined(BUILD_TARGET_ARC)
 /* clang-format on */
 #if defined(__x86_64__) || defined(__x86_64)
@@ -50,6 +55,17 @@
 #define BUILD_TARGET_RISCV32_ILP32F
 #elif defined(__riscv) && (__riscv_xlen == 32) && (__riscv_flen == 64)
 #define BUILD_TARGET_RISCV32_ILP32D
+#elif defined(__loongarch) && (__loongarch_grlen == 64)
+#define BUILD_TARGET_LOONGARCH64_LP64D
+#elif defined(__loongarch) && (__loongarch_grlen == 32) \
+    && (__loongarch_frlen == 0)
+#define BUILD_TARGET_LOONGARCH32_ILP32
+#elif defined(__loongarch) && (__loongarch_grlen == 32) \
+    && (__loongarch_frlen == 32)
+#define BUILD_TARGET_LOONGARCH32_ILP32F
+#elif defined(__loongarch) && (__loongarch_grlen == 32) \
+    && (__loongarch_frlen == 64)
+#define BUILD_TARGET_LOONGARCH32_ILP32D
 #elif defined(__arc__)
 #define BUILD_TARGET_ARC
 #else
