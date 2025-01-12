@@ -31,7 +31,7 @@ endif ()
 # Set WAMR_BUILD_TARGET, currently values supported:
 # "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]",
 # "MIPS", "XTENSA", "RISCV64[sub]", "RISCV32[sub]"
-# "LOONGARCH64[sub]", "LOONGARCH32[sub]"
+# "LOONGARCH64[sub]"
 if (NOT DEFINED WAMR_BUILD_TARGET)
     if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)")
         set (WAMR_BUILD_TARGET "AARCH64")

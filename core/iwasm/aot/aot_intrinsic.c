@@ -876,9 +876,6 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
         add_f32_common_intrinsics(comp_ctx);
         add_f64_common_intrinsics(comp_ctx);
         add_common_float_integer_conversion(comp_ctx);
-        if (!strncmp(comp_ctx->target_arch, "loongarch32", 11)) {
-            add_i64_common_intrinsics(comp_ctx);
-        }
     }
     else if (!strncmp(comp_ctx->target_arch, "xtensa", 6)) {
         /*

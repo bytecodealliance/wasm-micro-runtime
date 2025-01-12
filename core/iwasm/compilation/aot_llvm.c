@@ -2214,7 +2214,6 @@ static ArchItem valid_archs[] = {
     { "riscv64", true },
     { "arc", true },
     { "loongarch64", true },
-    { "loongarch32", true }
 };
 
 static const char *valid_abis[] = {
@@ -2829,7 +2828,7 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
         if (arch && !abi) {
             if (!strcmp(arch, "riscv64") || !strcmp(arch, "loongarch64"))
                 abi = "lp64d";
-            else if (!strcmp(arch, "riscv32") || !strcmp(arch, "loongarch32"))
+            else if (!strcmp(arch, "riscv32"))
                 abi = "ilp32d";
         }
 
