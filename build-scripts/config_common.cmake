@@ -162,6 +162,11 @@ if (WAMR_BUILD_LINUX_PERF EQUAL 1)
   endif ()
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_SHRUNK_MEMORY)
+  # Enable shrunk memory by default
+  set (WAMR_BUILD_SHRUNK_MEMORY 1)
+endif ()
+
 ########################################
 
 message ("-- Build Configurations:")
@@ -598,4 +603,11 @@ if (WAMR_BUILD_ALLOC_WITH_USAGE EQUAL 1)
 endif()
 if (NOT WAMR_BUILD_SANITIZER STREQUAL "")
   message ("     Sanitizer ${WAMR_BUILD_SANITIZER} enabled")
+endif ()
+if (WAMR_BUILD_SHRUNK_MEMORY EQUAL 1)
+  add_definitions (-DWASM_ENABLE_SHRUNK_MEMORY=1)
+  message ("     Shrunk memory enabled")
+else ()
+  add_definitions (-DWASM_ENABLE_SHRUNK_MEMORY=0)
+  message ("     Shrunk memory disabled")
 endif ()

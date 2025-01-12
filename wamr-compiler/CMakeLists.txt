@@ -238,6 +238,12 @@ if (NOT DEFINED WAMR_BUILD_LIB_WASI_THREADS)
   set (WAMR_BUILD_LIB_WASI_THREADS 1)
 endif ()
 
+# Enable by default
+if (NOT DEFINED WAMR_BUILD_SHRUNK_MEMORY)
+  set (WAMR_BUILD_SHRUNK_MEMORY 1)
+endif ()
+add_definitions (-DWASM_ENABLE_SHRUNK_MEMORY=${WAMR_BUILD_SHRUNK_MEMORY})
+
 if (WAMR_BUILD_LIBC_UVWASI EQUAL 1)
   message ("-- Libc WASI enabled with uvwasi implementation")
 endif ()

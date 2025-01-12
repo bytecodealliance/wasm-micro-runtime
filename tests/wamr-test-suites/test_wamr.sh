@@ -269,16 +269,12 @@ readonly WAMRC_CMD_DEFAULT="${WAMR_DIR}/wamr-compiler/build/wamrc"
 readonly CLASSIC_INTERP_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=0 \
-    -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0"
 
 readonly FAST_INTERP_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=1 \
-    -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0"
 
 # jit: report linking error if set COLLECT_CODE_COVERAGE,
 #      now we don't collect code coverage of jit type
@@ -286,39 +282,29 @@ readonly ORC_EAGER_JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_AOT=1 \
-    -DWAMR_BUILD_LAZY_JIT=0 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    -DWAMR_BUILD_LAZY_JIT=0"
 
 readonly ORC_LAZY_JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_AOT=1 \
-    -DWAMR_BUILD_LAZY_JIT=1 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    -DWAMR_BUILD_LAZY_JIT=1"
 
 readonly AOT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
-    -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=1 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=1"
 
 readonly FAST_JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0 \
-    -DWAMR_BUILD_FAST_JIT=1 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    -DWAMR_BUILD_FAST_JIT=1"
 
 readonly MULTI_TIER_JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=0 \
-    -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1"
 
 readonly COMPILE_FLAGS=(
         "${CLASSIC_INTERP_COMPILE_FLAGS}"
@@ -525,8 +511,8 @@ function spec_test()
         git clone -b main --single-branch https://github.com/WebAssembly/spec
         pushd spec
 
-        # Apr 3, 2024 [js-api] Integrate with the ResizableArrayBuffer proposal (#1300)
-        git reset --hard bc76fd79cfe61033d7f4ad4a7e8fc4f996dc5ba8
+        # Dec 20, 2024. Use WPT version of test harness for HTML core test conversion (#1859)
+        git reset --hard f3a0e06235d2d84bb0f3b5014da4370613886965
         git apply ../../spec-test-script/ignore_cases.patch || exit 1
         if [[ ${ENABLE_SIMD} == 1 ]]; then
             git apply ../../spec-test-script/simd_ignore_cases.patch || exit 1
@@ -833,7 +819,9 @@ function build_wamrc()
         && ./${BUILD_LLVM_SH} \
         && if [ -d build ]; then rm -r build/*; else mkdir build; fi \
         && cd build \
-        && cmake .. -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE} \
+        && cmake .. \
+             -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE} \
+             -DWAMR_BUILD_SHRUNK_MEMORY=0 \
         && make -j 4
 }
 
@@ -962,6 +950,11 @@ function trigger()
     fi
 
     local EXTRA_COMPILE_FLAGS=""
+    # for spec test
+    EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SPEC_TEST=1"
+    EXTRA_COMPILE_FLAGS+=" -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SHRUNK_MEMORY=0"
+
     # default enabled features
     EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_BULK_MEMORY=1"
     EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=1"

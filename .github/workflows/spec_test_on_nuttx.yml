@@ -208,7 +208,7 @@ jobs:
         if: contains(matrix.wamr_test_option.mode, 'aot')
         working-directory: apps/interpreters/wamr/wamr/wamr-compiler
         run: |
-          cmake -Bbuild .
+          cmake -B build -DWAMR_BUILD_SHRUNK_MEMORY=0 -S .
           cmake --build build
 
       # the nuttx version we use for xtensa requires esptool.py newer than
