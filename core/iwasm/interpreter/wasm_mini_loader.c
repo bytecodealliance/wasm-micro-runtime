@@ -208,9 +208,14 @@ memory_realloc(void *mem_old, uint32 size_old, uint32 size_new, char *error_buf,
 {
     uint8 *mem_new;
     bh_assert(size_new > size_old);
+
+    if ((mem_new = wasm_runtime_realloc(mem_old, size_new))) {
+        memset(mem_new + size_old, 0, size_new - size_old);
+        return mem_new;
+    }
+
     if ((mem_new = loader_malloc(size_new, error_buf, error_buf_size))) {
         bh_memcpy_s(mem_new, size_new, mem_old, size_old);
-        memset(mem_new + size_old, 0, size_new - size_old);
         wasm_runtime_free(mem_old);
     }
     return mem_new;
