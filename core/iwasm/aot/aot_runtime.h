@@ -154,7 +154,7 @@ typedef struct AOTModuleInstanceExtra {
      * created only when first time used.
      */
     ExportFuncMap *export_func_maps;
-    AOTFunctionInstance *functions;
+    AOTFunctionInstance *import_functions;
     uint32 function_count;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -238,7 +238,7 @@ typedef struct AOTModule {
 
     /* function info */
     uint32 func_count;
-    /* func pointers of AOTed (un-imported) functions */
+    /* func pointers of AOTed (imported + local) functions */
     void **func_ptrs;
     /* func type indexes of AOTed (un-imported) functions */
     uint32 *func_type_indexes;
@@ -519,41 +519,61 @@ aot_locate_table_elems(const AOTModule *module, AOTTableInstance *table,
 }
 
 static inline AOTFunctionInstance *
-aot_locate_function_instance(const AOTModuleInstance *inst, uint32 func_idx)
+aot_locate_import_function_instance(const AOTModuleInstance *inst,
+                                    uint32 func_idx)
 {
+    AOTModule *module = (AOTModule *)inst->module;
+    if (func_idx >= module->import_func_count) {
+        LOG_ERROR("You can only locate import function instance by func_idx "
+                  "with this function.");
+        bh_assert(0);
+        return NULL;
+    }
+
     AOTModuleInstanceExtra *e = (AOTModuleInstanceExtra *)inst->e;
-    AOTFunctionInstance *func = e->functions + func_idx;
+    AOTFunctionInstance *func = e->import_functions + func_idx;
+    bh_assert(func && "func is NULL");
     return func;
 }
 
 static inline void *
-aot_get_function_pointer(const AOTModuleInstance *module_inst, uint32 func_idx,
-                         const AOTFunctionInstance *func_inst)
+aot_get_function_pointer(const AOTModuleInstance *module_inst, uint32 func_idx)
 {
     void **func_ptrs = module_inst->func_ptrs;
     void *func_ptr = NULL;
-    CApiFuncImport *c_api_func_import = NULL;
 
-    if (func_inst->call_conv_wasm_c_api) {
-        c_api_func_import = module_inst->c_api_func_imports
-                                ? module_inst->c_api_func_imports + func_idx
-                                : NULL;
-        func_ptr =
-            c_api_func_import ? c_api_func_import->func_ptr_linked : NULL;
-    }
-    else if (func_inst->call_conv_raw) {
-        func_ptr = func_ptrs[func_idx];
-    }
-    else {
-        if (func_inst->import_module_inst) {
-            uint32 funx_idx_of_import_func =
-                func_inst->import_func_inst->func_index;
-            func_ptr = func_inst->import_module_inst
-                           ->func_ptrs[funx_idx_of_import_func];
+    AOTModule *module = (AOTModule *)module_inst->module;
+    if (func_idx < module->import_func_count) {
+        const AOTFunctionInstance *func_inst =
+            aot_locate_import_function_instance(module_inst, func_idx);
+
+        if (func_inst->call_conv_wasm_c_api) {
+            CApiFuncImport *c_api_func_import =
+                module_inst->c_api_func_imports
+                    ? module_inst->c_api_func_imports + func_idx
+                    : NULL;
+            func_ptr =
+                c_api_func_import ? c_api_func_import->func_ptr_linked : NULL;
         }
-        else {
+        else if (func_inst->call_conv_raw) {
             func_ptr = func_ptrs[func_idx];
         }
+        else {
+            if (func_inst->import_module_inst) {
+                /* from other module */
+                uint32 funx_idx_of_import_func =
+                    func_inst->import_func_inst->func_index;
+                func_ptr = func_inst->import_module_inst
+                               ->func_ptrs[funx_idx_of_import_func];
+            }
+            else {
+                /* from host APIs, like wasm_export.h, in the future */
+                func_ptr = func_ptrs[func_idx];
+            }
+        }
+    }
+    else {
+        func_ptr = func_ptrs[func_idx];
     }
 
     return func_ptr;
