@@ -2649,7 +2649,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 read_leb_uint32(frame_ip, frame_ip_end, type_index);
                 func_obj = POP_REF();
                 if (!func_obj) {
-                    wasm_set_exception(module, "null function object");
+                    wasm_set_exception(module, "null function reference");
                     goto got_exception;
                 }
 
@@ -2666,7 +2666,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 read_leb_uint32(frame_ip, frame_ip_end, type_index);
                 func_obj = POP_REF();
                 if (!func_obj) {
-                    wasm_set_exception(module, "null function object");
+                    wasm_set_exception(module, "null function reference");
                     goto got_exception;
                 }
 
@@ -2813,7 +2813,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         struct_obj = POP_REF();
 
                         if (!struct_obj) {
-                            wasm_set_exception(module, "null structure object");
+                            wasm_set_exception(module,
+                                               "null structure reference");
                             goto got_exception;
                         }
 
@@ -2869,7 +2870,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                         struct_obj = POP_REF();
                         if (!struct_obj) {
-                            wasm_set_exception(module, "null structure object");
+                            wasm_set_exception(module,
+                                               "null structure reference");
                             goto got_exception;
                         }
 
