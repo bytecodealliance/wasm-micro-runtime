@@ -689,20 +689,23 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
             tbl_inst->cur_size = import_table->table_type.init_size;
             tbl_inst->max_size =
                 aot_get_imp_tbl_data_slots(import_table, false);
-            tbl_inst->elem_type = module->tables[i].table_type.elem_type;
+            tbl_inst->elem_type = import_table->table_type.elem_type;
+            tbl_inst->is_table64 =
+                import_table->table_type.flags & TABLE64_FLAG;
 #if WASM_ENABLE_GC != 0
             tbl_inst->elem_ref_type.elem_ref_type =
-                module->tables[i].table_type.elem_ref_type;
+                import_table->table_type.elem_ref_type;
 #endif
         }
         else {
             AOTTable *table = module->tables + (i - module->import_table_count);
             tbl_inst->cur_size = table->table_type.init_size;
             tbl_inst->max_size = aot_get_tbl_data_slots(table, false);
-            tbl_inst->elem_type = module->tables[i].table_type.elem_type;
+            tbl_inst->elem_type = table->table_type.elem_type;
+            tbl_inst->is_table64 = table->table_type.flags & TABLE64_FLAG;
 #if WASM_ENABLE_GC != 0
             tbl_inst->elem_ref_type.elem_ref_type =
-                module->tables[i].table_type.elem_ref_type;
+                table->table_type.elem_ref_type;
 #endif
         }
 
@@ -1785,7 +1788,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     bool ret = false;
 #endif
 
-    /* Check heap size */
+    /* Align and validate heap size */
     heap_size = align_uint(heap_size, 8);
     if (heap_size > APP_HEAP_SIZE_MAX)
         heap_size = APP_HEAP_SIZE_MAX;
@@ -1905,7 +1908,9 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
             goto fail;
         }
         for (i = 0; i < module->table_init_data_count; i++) {
-            if (wasm_elem_is_active(module->table_init_data_list[i]->mode))
+            if (wasm_elem_is_active(module->table_init_data_list[i]->mode)
+                || wasm_elem_is_declarative(
+                    module->table_init_data_list[i]->mode))
                 bh_bitmap_set_bit(common->elem_dropped, i);
         }
     }
@@ -2001,7 +2006,11 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         AOTTableInstance *table_inst;
         table_elem_type_t *table_data;
 
-        table = &module->tables[i];
+        /* bypass imported table since AOTImportTable doesn't have init_expr */
+        if (i < module->import_table_count)
+            continue;
+
+        table = &module->tables[i - module->import_table_count];
         bh_assert(table);
 
         if (table->init_expr.init_expr_type == INIT_EXPR_NONE) {
