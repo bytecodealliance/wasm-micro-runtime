@@ -20,10 +20,12 @@
  * represent a zephyr file descriptor and hold useful informations.
  * We also created a file descriptor table to keep track of all the file
  * descriptors.
+ *
  * To pass the file descriptor reference to the higher level abstraction, we
  * pass the index of the fd table to an `os_file_handle` struct.
  * Then in the WASI implementation layer we can retrieve the file descriptor
  * reference.
+ *
  * We also fake the stdin, stdout and stderr file descriptors.
  * We redirect the write operation on stdin, stdout and stderr to `os_printf`.
  * We do not handle write on stdin and read on stdin, stdout and stderr.
@@ -43,7 +45,7 @@
 
 // We will take the maximum number of open files
 // from the Zephyr POSIX configuration
-#define CONFIG_WASI_MAX_OPEN_FILES 16
+#define CONFIG_WASI_MAX_OPEN_FILES CONFIG_POSIX_MAX_FDS
 
 // Macro to retrieve a file system descriptor and check it's validity.
 #define GET_FILE_SYSTEM_DESCRIPTOR(fd, ptr)         \
@@ -711,22 +713,24 @@ os_renameat(os_file_handle old_handle, const char *old_path,
     char abs_old_path[MAX_FILE_NAME + 1];
     char abs_new_path[MAX_FILE_NAME + 1];
 
+    GET_FILE_SYSTEM_DESCRIPTOR(old_handle->fd, ptr);
+
+    char *path = strdup(new_path);
+    if (path == NULL) {
+        return __WASI_ENOMEM;
+    }
+
     snprintf(abs_old_path, MAX_FILE_NAME, "%s/%s", prestat_dir, old_path);
     snprintf(abs_new_path, MAX_FILE_NAME, "%s/%s", prestat_dir, new_path);
 
     int rc = fs_rename(abs_old_path, abs_new_path);
     if (rc < 0) {
+        free(path);
         return convert_errno(-rc);
     }
 
-    GET_FILE_SYSTEM_DESCRIPTOR(old_handle->fd, ptr);
-
-    ptr->path = strdup(new_path);
-    if (ptr->path == NULL) {
-        ptr->path = old_path;
-        return __WASI_ENOMEM;
-    }
-
+    free(ptr->path);
+    ptr->path = path;
     return __WASI_ESUCCESS;
 }
 
@@ -983,4 +987,22 @@ bool
 os_compare_file_handle(os_file_handle handle1, os_file_handle handle2)
 {
     return handle1->fd == handle2->fd && handle1->is_sock == handle2->is_sock;
+}
+
+bool
+os_is_stdin_handle(os_file_handle fd)
+{
+    return fd == stdin;
+}
+
+bool
+os_is_stdout_handle(os_file_handle fd)
+{
+    return fd == stdout;
+}
+
+bool
+os_is_stderr_handle(os_file_handle fd)
+{
+    return fd == stderr;
 }
