@@ -1767,7 +1767,11 @@ init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
                   import_func->module_name, import_func->func_name);
 
         *func_ptrs = import_func->func_ptr_linked;
-        bh_assert(*func_ptrs);
+
+        if (!func_ptrs) {
+            LOG_WARNING("warning: failed to link import function (%s,%s)",
+                      import_func->module_name, import_func->func_name);
+        }
     }
 
     /* Set defined function pointers */

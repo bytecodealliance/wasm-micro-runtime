@@ -4968,7 +4968,7 @@ wasm_instance_create_import_list(const wasm_module_t *module,
     }
 
     *imports_dst =
-        malloc_internal(sizeof(WASMExternInstance) * imports_src->num_elems);
+        malloc_internal((uint64)sizeof(WASMExternInstance) * imports_src->num_elems);
     if (!*imports_dst) {
         return false;
     }
