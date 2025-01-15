@@ -783,9 +783,10 @@ fail:
 }
 
 static AOTFunctionInstance *
-functions_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
-                      const WASMExternInstance *imports, uint32 import_count,
-                      char *error_buf, uint32 error_buf_size)
+import_functions_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
+                             const WASMExternInstance *imports,
+                             uint32 import_count, char *error_buf,
+                             uint32 error_buf_size)
 {
     uint64 total_size = sizeof(AOTFunctionInstance) * module->import_func_count;
 
@@ -835,7 +836,7 @@ functions_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                                              WASM_IMPORT_EXPORT_KIND_FUNC, i);
         if (!extern_inst) {
             LOG_DEBUG("no import function(%s, %s) from imports list, might "
-                      "provied by wasm_native",
+                      "provided by wasm_native",
                       import->module_name, import->func_name);
             /* so it's from wasm_native */
             continue;
@@ -2386,9 +2387,9 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
 
     extra->function_count = module->import_func_count + module->func_count;
     if (extra->function_count > 0) {
-        extra->import_functions =
-            functions_instantiate(module_inst, module, imports, import_count,
-                                  error_buf, error_buf_size);
+        extra->import_functions = import_functions_instantiate(
+            module_inst, module, imports, import_count, error_buf,
+            error_buf_size);
         if (!extra->import_functions)
             goto fail;
     }
@@ -6018,6 +6019,7 @@ aot_destroy_global(AOTGlobalInstance *global)
 AOTFunctionInstance *
 aot_create_function_empty(const AOTModule *module)
 {
+    /*TODO: might remove tailed AOTImportFunc */
     AOTFunctionInstance *function = runtime_malloc(
         sizeof(AOTFunctionInstance) + sizeof(AOTImportFunc), NULL, 0);
     if (!function) {

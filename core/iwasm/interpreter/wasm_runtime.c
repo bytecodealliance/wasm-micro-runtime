@@ -994,9 +994,11 @@ functions_deinstantiate(WASMFunctionInstance *functions)
  * Instantiate functions in a module.
  */
 static WASMFunctionInstance *
-functions_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
-                      const WASMExternInstance *imports, uint32 import_count,
-                      char *error_buf, uint32 error_buf_size)
+import_functions_instantiate(const WASMModule *module,
+                             WASMModuleInstance *module_inst,
+                             const WASMExternInstance *imports,
+                             uint32 import_count, char *error_buf,
+                             uint32 error_buf_size)
 {
     WASMImport *import;
     uint32 i,
@@ -2903,7 +2905,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                      module, module_inst, first_table, imports, import_count,
                      error_buf, error_buf_size)))
         || (module_inst->e->function_count > 0
-            && !(module_inst->e->functions = functions_instantiate(
+            && !(module_inst->e->functions = import_functions_instantiate(
                      module, module_inst, imports, import_count, error_buf,
                      error_buf_size)))
         || (module_inst->export_func_count > 0
