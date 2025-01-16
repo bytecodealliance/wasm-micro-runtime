@@ -1770,7 +1770,7 @@ init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
 
         if (!func_ptrs) {
             LOG_WARNING("warning: failed to link import function (%s,%s)",
-                      import_func->module_name, import_func->func_name);
+                        import_func->module_name, import_func->func_name);
         }
     }
 
