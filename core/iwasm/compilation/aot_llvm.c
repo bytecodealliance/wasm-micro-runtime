@@ -1934,7 +1934,7 @@ aot_create_func_contexts(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
 
     memset(func_ctxes, 0, size);
 
-    /* Create each function context */
+    /* Create each function(non-import) context */
     for (i = 0; i < comp_data->func_count; i++) {
         AOTFunc *func = comp_data->funcs[i];
         if (!(func_ctxes[i] =

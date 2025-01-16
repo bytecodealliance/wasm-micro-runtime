@@ -296,11 +296,12 @@ typedef struct WASMExternInstance {
         wasm_memory_inst_t memory;
         wasm_table_inst_t table;
         wasm_global_inst_t global;
+        wasm_function_inst_t function;
     } u;
 
     /*
      * to handle imports properly,
-     * especially for wasm_global_inst_t and wasm_func_inst_t
+     * especially for wasm_global_inst_t and wasm_function_inst_t
      */
     wasm_module_inst_t dep_inst;
 } WASMExternInstance, *wasm_extern_inst_t;
@@ -2378,6 +2379,14 @@ wasm_runtime_create_table(const wasm_module_t module,
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_table(const wasm_module_t module, wasm_table_inst_t table);
 
+WASM_RUNTIME_API_EXTERN wasm_function_inst_t
+wasm_runtime_create_function(const wasm_module_t module,
+                             const wasm_func_type_t type, void *callback);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_destroy_function(const wasm_module_t module,
+                              wasm_function_inst_t func);
+
 /*TODO: take me out when have a linker */
 WASM_RUNTIME_API_EXTERN wasm_module_inst_t
 wasm_runtime_instantiate_with_builtin_linker(wasm_module_t module,
@@ -2393,6 +2402,10 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_create_imports_with_builtin(wasm_module_t module,
                                          wasm_extern_inst_t out,
                                          uint32_t out_len);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_destroy_imports(wasm_module_t module,
+                             wasm_extern_inst_t extern_inst_list);
 
 #ifdef __cplusplus
 }

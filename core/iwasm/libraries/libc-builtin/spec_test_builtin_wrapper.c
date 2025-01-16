@@ -138,6 +138,13 @@ wasm_runtime_create_extern_inst_for_spec_test(wasm_module_t module,
     if (!module || !import_type || !out)
         return false;
 
+    if (import_type->kind == WASM_IMPORT_EXPORT_KIND_FUNC) {
+        /* Let wasm_native inject wrappers into WASMFunctionImport */
+        LOG_DEBUG("skip import(%s,%s) kind %d", import_type->module_name,
+                  import_type->name, import_type->kind);
+        return true;
+    }
+
     LOG_DEBUG("create import(%s,%s) kind %d", import_type->module_name,
               import_type->name, import_type->kind);
 

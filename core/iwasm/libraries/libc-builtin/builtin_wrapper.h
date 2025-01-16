@@ -12,6 +12,10 @@
 /*************************************
  * Functions
  *************************************/
+/* clang-format off */
+#define REG_NATIVE_FUNC(func_name, signature) \
+    { #func_name, func_name##_wrapper, signature, NULL }
+/* clang-format on */
 
 /*************************************
  * Globals
