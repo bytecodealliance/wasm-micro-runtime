@@ -126,6 +126,9 @@ typedef WASMFunctionInstanceCommon *wasm_function_inst_t;
 struct WASMMemoryInstance;
 typedef struct WASMMemoryInstance *wasm_memory_inst_t;
 
+struct wasm_frame_t;
+typedef struct wasm_frame_t * wasm_frame_ptr_t;
+
 /* WASM section */
 typedef struct wasm_section_t {
     struct wasm_section_t *next;
@@ -863,6 +866,37 @@ wasm_runtime_create_exec_env(wasm_module_inst_t module_inst,
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_exec_env(wasm_exec_env_t exec_env);
+
+
+typedef bool (*wasm_frame_callback)(void*, wasm_frame_ptr_t);
+
+/**
+ * @brief Iterate over callstack frames and execute callback on it.
+ *
+ * Caution: This is not a thread-safe function. Ensure the exec_env 
+ * is suspended before calling it from another thread.
+ *
+ * Usage: In the callback to read frames fields use APIs 
+ * for wasm_frame_t from wasm_c_api.h
+ *
+ * Note: The function is async-signal-safe if called with verified arguments. 
+ * Meaning it's safe to call it from a signal handler even on a signal interruption
+ * from another thread if next variables hold valid pointers
+ * - exec_env
+ * - exec_env->module_inst
+ * - exec_env->module_inst->module
+ *
+ * Note for devs: please refrain from such modifications inside of this call
+ * - any allocations/freeing memory
+ * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
+ * exec_env->module_inst->module, pointers between stack's bottom and top_boundary
+ *
+ * @param exec_env the execution environment that containes frames
+ * @param callback the callback function provided by the user
+ * @param user_data context for callback provided by the user
+ */
+WASM_RUNTIME_API_EXTERN void 
+wasm_iterate_callstack(const wasm_exec_env_t exec_env, const wasm_frame_callback callback, void *user_data);
 
 /**
  * Get the singleton execution environment for the instance.
