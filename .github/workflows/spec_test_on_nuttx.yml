@@ -335,6 +335,14 @@ jobs:
           qemu-system-xtensa --version
         working-directory: apps/interpreters/wamr/wamr
 
+      - name: Set-up OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: 4.13
+
+      - name: Set-up Ocamlbuild
+        run: opam install ocamlbuild dune menhir
+
       - name: Test
         run: |
           cd apps/interpreters/wamr/wamr/tests/wamr-test-suites
