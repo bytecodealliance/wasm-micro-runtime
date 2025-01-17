@@ -23,6 +23,11 @@ Once a release decision has been made:
 
 - Create a PR that:
   1. Modifies *build-scripts/version.cmake*.
-  2. Updates *RELEASE.md*.
+  2. Executes cmake configuration to update the version.
+  3. Updates *RELEASE_NOTES.md*.
+- A checklist of the PR includes
+  - [ ] *build-scripts/version.cmake*
+  - [ ] *core/version.h*
+  - [ ] *RELEASE_NOTES.md*
 - Once the PR is merged, create a new tag.
 - Initiate the release process by triggering *the binary release processes* in *Actions*.
