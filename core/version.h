@@ -16,9 +16,9 @@
 #define _WAMR_VERSION_H_
 
 /* clang-format off */
-#define WAMR_VERSION_MAJOR @WAMR_VERSION_MAJOR@
-#define WAMR_VERSION_MINOR @WAMR_VERSION_MINOR@
-#define WAMR_VERSION_PATCH @WAMR_VERSION_PATCH@
+#define WAMR_VERSION_MAJOR 2
+#define WAMR_VERSION_MINOR 2
+#define WAMR_VERSION_PATCH 0
 /* clang-format on */
 
 #endif
