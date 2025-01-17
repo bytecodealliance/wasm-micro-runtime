@@ -127,7 +127,8 @@ jobs:
         wamr_feature_option:
           # Empty option for default
           - { option: "", mode: "" }
-          - { option: "CONFIG_INTERPRETERS_WAMR_GC CONFIG_INTERPRETERS_WAMR_AOT_STACK_FRAME", mode: "-G" }
+          # need to install menhir
+          # - { option: "CONFIG_INTERPRETERS_WAMR_GC CONFIG_INTERPRETERS_WAMR_AOT_STACK_FRAME", mode: "-G" }
 
         exclude:
           # XIP is not fully supported yet on RISCV64, some relocations can not be resolved
@@ -334,14 +335,6 @@ jobs:
           ./.github/scripts/install_qemu_xtensa.sh
           qemu-system-xtensa --version
         working-directory: apps/interpreters/wamr/wamr
-
-      - name: Set-up OCaml
-        uses: ocaml/setup-ocaml@v3
-        with:
-          ocaml-compiler: 4.13
-
-      - name: Set-up Ocamlbuild
-        run: opam install ocamlbuild dune menhir
 
       - name: Test
         run: |
