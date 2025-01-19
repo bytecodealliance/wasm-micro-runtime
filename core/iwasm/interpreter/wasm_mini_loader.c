@@ -4051,12 +4051,15 @@ typedef struct WASMLoaderContext {
     /* preserved local offset */
     int16 preserved_local_offset;
 
-    /* const buffer */
+    /* const buffer for i64 and f64 consts, note that the raw bytes
+     * of i64 and f64 are the same, so we read an i64 value from an
+     * f64 const with its raw bytes, something like `*(int64 *)&f64 */
     int64 *i64_consts;
-    uint32 i64_const_size;
+    uint32 i64_const_max_num;
     uint32 i64_const_num;
+    /* const buffer for i32 and f32 consts */
     int32 *i32_consts;
-    uint32 i32_const_size;
+    uint32 i32_const_max_num;
     uint32 i32_const_num;
 
     /* processed code */
@@ -4261,14 +4264,14 @@ wasm_loader_ctx_init(WASMFunction *func, char *error_buf, uint32 error_buf_size)
         goto fail;
     loader_ctx->frame_offset_boundary = loader_ctx->frame_offset_bottom + 32;
 
-    loader_ctx->i64_const_size = 8;
+    loader_ctx->i64_const_max_num = 8;
     if (!(loader_ctx->i64_consts =
-              loader_malloc(sizeof(int64) * loader_ctx->i64_const_size,
+              loader_malloc(sizeof(int64) * loader_ctx->i64_const_max_num,
                             error_buf, error_buf_size)))
         goto fail;
-    loader_ctx->i32_const_size = 8;
+    loader_ctx->i32_const_max_num = 8;
     if (!(loader_ctx->i32_consts =
-              loader_malloc(sizeof(int32) * loader_ctx->i32_const_size,
+              loader_malloc(sizeof(int32) * loader_ctx->i32_const_max_num,
                             error_buf, error_buf_size)))
         goto fail;
 
@@ -5116,6 +5119,8 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
                              uint32 error_buf_size)
 {
     if (!ctx->p_code_compiled) {
+        /* Treat i64 and f64 as the same by reading i64 value from
+           the raw bytes */
         if (type == VALUE_TYPE_I64 || type == VALUE_TYPE_F64) {
             /* No slot left, emit const instead */
             if (ctx->i64_const_num * 2 + ctx->i32_const_num > INT16_MAX - 2) {
@@ -5133,15 +5138,17 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
                 }
             }
 
-            if (ctx->i64_const_num >= ctx->i64_const_size) {
+            if (ctx->i64_const_num >= ctx->i64_const_max_num) {
                 MEM_REALLOC(ctx->i64_consts,
-                            sizeof(int64) * ctx->i64_const_size,
-                            sizeof(int64) * (ctx->i64_const_size * 2));
-                ctx->i64_const_size *= 2;
+                            sizeof(int64) * ctx->i64_const_max_num,
+                            sizeof(int64) * (ctx->i64_const_max_num * 2));
+                ctx->i64_const_max_num *= 2;
             }
             ctx->i64_consts[ctx->i64_const_num++] = *(int64 *)value;
         }
         else {
+            /* Treat i32 and f32 as the same by reading i32 value from
+               the raw bytes */
             bh_assert(type == VALUE_TYPE_I32 || type == VALUE_TYPE_F32);
 
             /* No slot left, emit const instead */
@@ -5160,11 +5167,11 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
                 }
             }
 
-            if (ctx->i32_const_num >= ctx->i32_const_size) {
+            if (ctx->i32_const_num >= ctx->i32_const_max_num) {
                 MEM_REALLOC(ctx->i32_consts,
-                            sizeof(int32) * ctx->i32_const_size,
-                            sizeof(int32) * (ctx->i32_const_size * 2));
-                ctx->i32_const_size *= 2;
+                            sizeof(int32) * ctx->i32_const_max_num,
+                            sizeof(int32) * (ctx->i32_const_max_num * 2));
+                ctx->i32_const_max_num *= 2;
             }
             ctx->i32_consts[ctx->i32_const_num++] = *(int32 *)value;
         }
@@ -6162,7 +6169,7 @@ re_scan:
                     /* Free the old memory */
                     wasm_runtime_free(i64_consts_old);
                     loader_ctx->i64_consts = i64_consts_new;
-                    loader_ctx->i64_const_size = k;
+                    loader_ctx->i64_const_max_num = k;
                 }
                 loader_ctx->i64_const_num = k;
             }
@@ -6193,7 +6200,7 @@ re_scan:
                     /* Free the old memory */
                     wasm_runtime_free(i32_consts_old);
                     loader_ctx->i32_consts = i32_consts_new;
-                    loader_ctx->i32_const_size = k;
+                    loader_ctx->i32_const_max_num = k;
                 }
                 loader_ctx->i32_const_num = k;
             }
