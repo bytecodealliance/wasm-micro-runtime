@@ -5926,6 +5926,15 @@ load_from_sections(WASMModule *module, WASMSection *sections,
         section = section->next;
     }
 
+#if WASM_ENABLE_BULK_MEMORY != 0
+    if (has_datacount_section
+        && module->data_seg_count != module->data_seg_count1) {
+        set_error_buf(error_buf, error_buf_size,
+                      "data count and data section have inconsistent lengths");
+        return false;
+    }
+#endif
+
     module->aux_data_end_global_index = (uint32)-1;
     module->aux_heap_base_global_index = (uint32)-1;
     module->aux_stack_top_global_index = (uint32)-1;
