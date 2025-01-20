@@ -74,6 +74,12 @@ permissions:
   contents: read
 
 jobs:
+  check_version_h:
+    permissions:
+      contents: read
+      actions: write
+    uses: ./.github/workflows/check_version_h.yml
+
   build_llvm_libraries_on_ubuntu_2204:
     permissions:
       contents: read
