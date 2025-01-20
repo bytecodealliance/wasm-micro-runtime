@@ -467,8 +467,8 @@ function spec_test()
         git clone -b main --single-branch https://github.com/WebAssembly/gc.git spec
         pushd spec
 
-        # Reset to commit: "[test] Unify the error message."
-        git reset --hard 0caaadc65b5e1910512d8ae228502edcf9d60390
+        #  Dec 9, 2024. Merge branch 'funcref'
+        git reset --hard 756060f5816c7e2159f4817fbdee76cf52f9c923
         git apply ../../spec-test-script/gc_ignore_cases.patch || exit 1
 
         if [[ ${ENABLE_QEMU} == 1 ]]; then
@@ -477,6 +477,13 @@ function spec_test()
             git apply ../../spec-test-script/gc_nuttx_tail_call.patch || exit 1
         fi
 
+        # As of version 1.0.36, wabt is still unable to correctly handle the GC proposal.
+        # 
+        # $ $ /opt/wabt-1.0.36/bin/wast2json --enable-all ../spec/test/core/br_if.wast
+        # 
+        # ../spec/test/core/br_if.wast:670:26: error: unexpected token "null", expected a numeric index or a name (e.g. 12 or $foo).
+        #     (func $f (param (ref null $t)) (result funcref) (local.get 0))
+        #
         compile_reference_interpreter
     elif [[ ${ENABLE_MEMORY64} == 1 ]]; then
         echo "checkout spec for memory64 proposal"

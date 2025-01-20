@@ -127,7 +127,8 @@ jobs:
         wamr_feature_option:
           # Empty option for default
           - { option: "", mode: "" }
-          - { option: "CONFIG_INTERPRETERS_WAMR_GC CONFIG_INTERPRETERS_WAMR_AOT_STACK_FRAME", mode: "-G" }
+          # need to install menhir
+          # - { option: "CONFIG_INTERPRETERS_WAMR_GC CONFIG_INTERPRETERS_WAMR_AOT_STACK_FRAME", mode: "-G" }
 
         exclude:
           # XIP is not fully supported yet on RISCV64, some relocations can not be resolved

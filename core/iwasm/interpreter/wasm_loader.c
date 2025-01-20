@@ -2139,8 +2139,9 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     if (!wasm_type_is_subtype_of(cur_type, parent_type,
                                                  module->types,
                                                  module->type_count)) {
-                        set_error_buf(error_buf, error_buf_size,
-                                      "sub type does not match super type");
+                        set_error_buf_v(error_buf, error_buf_size,
+                                        "sub type %u does not match super type",
+                                        processed_type_count + j);
                         return false;
                     }
                 }
