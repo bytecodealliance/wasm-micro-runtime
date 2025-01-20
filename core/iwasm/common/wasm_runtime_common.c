@@ -7,6 +7,7 @@
 #include "bh_common.h"
 #include "bh_assert.h"
 #include "bh_log.h"
+#include "wasm_export.h"
 #include "wasm_native.h"
 #include "wasm_runtime_common.h"
 #include "wasm_memory.h"
@@ -1738,6 +1739,33 @@ void
 wasm_runtime_destroy_exec_env(WASMExecEnv *exec_env)
 {
     wasm_exec_env_destroy(exec_env);
+}
+
+void 
+wasm_iterate_callstack(const wasm_exec_env_t exec_env, const wasm_frame_callback frame_callback, void* user_data)
+{
+/*
+* Note for devs: please refrain from such modifications inside of wasm_iterate_callstack
+ * - any allocations/freeing memory
+ * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
+ * exec_env->module_inst->module, pointers between stack's bottom and top_boundary
+ * For more details check wasm_iterate_callstack in wasm_export.h
+*/
+    #if WASM_ENABLE_DUMP_CALL_STACK
+    WASMModuleInstance* module_inst = (WASMModuleInstance *)get_module_inst(exec_env);
+
+    #if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        wasm_interp_iterate_callstack(exec_env, frame_callback, user_data);
+    }
+    #endif
+
+    #if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        aot_iterate_callstack(exec_env, frame_callback, user_data);
+    }
+    #endif
+    #endif
 }
 
 bool
