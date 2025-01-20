@@ -1,0 +1,34 @@
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+name: confirm version.h stay in sync
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  confirm_version:
+    runs-on: ubuntu-latest
+    outputs:
+      key: ${{ steps.create_version_h_cache_key.outputs.key}}
+    permissions:
+      contents: read
+      actions: write # for uploading cached artifact
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: cmake execute to generate version.h
+        run: cmake -B build_version -S .
+
+      - name: confirm version.h
+        run: |
+          if [ -z "$(git status --porcelain | grep version.h)" ]; then
+            echo "version.h is in sync"
+          else
+            echo "version.h is not in sync"
+            exit 1
+          fi
