@@ -100,7 +100,12 @@ def ignore_the_case(
         return True
 
     if gc_flag:
-        if case_name in ["array_init_elem", "array_init_data"]:
+        if case_name in [
+            "array_init_elem",
+            "array_init_data",
+            "array_new_data",
+            "array_new_elem"
+        ]:
             return True
 
     if sgx_flag:
