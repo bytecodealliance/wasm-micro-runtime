@@ -4719,7 +4719,7 @@ check_data_count_consistency(bool has_datacount_section, int datacount_len,
                              int data_seg_len, char *error_buf,
                              uint32 error_buf_size)
 {
-    if (has_datacount_section && data_seg_len != data_seg_len) {
+    if (has_datacount_section && datacount_len != data_seg_len) {
         set_error_buf(error_buf, error_buf_size,
                       "data count and data section have inconsistent lengths");
         return false;
