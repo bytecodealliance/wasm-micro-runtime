@@ -9125,6 +9125,9 @@ preserve_referenced_local(WASMLoaderContext *loader_ctx, uint8 opcode,
 
         if (is_32bit_type(cur_type))
             i++;
+        else if (cur_type == VALUE_TYPE_V128) {
+            i += 4;
+        }
         else
             i += 2;
     }
@@ -9155,7 +9158,10 @@ preserve_local_for_block(WASMLoaderContext *loader_ctx, uint8 opcode,
                 return false;
         }
 
-        if (is_32bit_type(cur_type)) {
+        if (cur_type == VALUE_TYPE_V128) {
+            i += 4;
+        }
+        else if (is_32bit_type(cur_type)) {
             i++;
         }
         else {
@@ -9498,6 +9504,8 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
                 || (type == VALUE_TYPE_EXTERNREF
                     && *(int32 *)value == c->value.i32)
 #endif
+                || (type == VALUE_TYPE_V128
+                    && (0 == memcmp(value, &(c->value.v128), sizeof(V128))))
                 || (type == VALUE_TYPE_F64
                     && (0 == memcmp(value, &(c->value.f64), sizeof(float64))))
                 || (type == VALUE_TYPE_F32
@@ -9508,6 +9516,9 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
         }
         if (is_32bit_type(c->value_type))
             operand_offset += 1;
+        else if (c->value_type == VALUE_TYPE_V128) {
+            operand_offset += 4;
+        }
         else
             operand_offset += 2;
     }
@@ -9559,6 +9570,10 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
                 c->value.i32 = *(int32 *)value;
                 ctx->const_cell_num++;
                 break;
+            case VALUE_TYPE_V128:
+                bh_memcpy_s(&(c->value.v128), sizeof(WASMValue), value,
+                            sizeof(V128));
+                ctx->const_cell_num++;
 #if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
             case VALUE_TYPE_EXTERNREF:
             case VALUE_TYPE_FUNCREF:
@@ -9760,17 +9775,22 @@ reserve_block_ret(WASMLoaderContext *loader_ctx, uint8 opcode,
         block_type, &return_types, &reftype_maps, &reftype_map_count);
 #endif
 
-    /* If there is only one return value, use EXT_OP_COPY_STACK_TOP/_I64 instead
-     * of EXT_OP_COPY_STACK_VALUES for interpreter performance. */
+    /* If there is only one return value, use EXT_OP_COPY_STACK_TOP/_I64/V128
+     * instead of EXT_OP_COPY_STACK_VALUES for interpreter performance. */
     if (return_count == 1) {
         uint8 cell = (uint8)wasm_value_type_cell_num(return_types[0]);
-        if (cell <= 2 /* V128 isn't supported whose cell num is 4 */
-            && block->dynamic_offset != *(loader_ctx->frame_offset - cell)) {
+        if (block->dynamic_offset != *(loader_ctx->frame_offset - cell)) {
             /* insert op_copy before else opcode */
             if (opcode == WASM_OP_ELSE)
                 skip_label();
-            emit_label(cell == 1 ? EXT_OP_COPY_STACK_TOP
-                                 : EXT_OP_COPY_STACK_TOP_I64);
+
+            if (cell == 4) {
+                emit_label(EXT_OP_COPY_STACK_TOP_V128);
+            }
+            else {
+                emit_label(cell == 1 ? EXT_OP_COPY_STACK_TOP
+                                     : EXT_OP_COPY_STACK_TOP_I64);
+            }
             emit_operand(loader_ctx, *(loader_ctx->frame_offset - cell));
             emit_operand(loader_ctx, block->dynamic_offset);
 
@@ -9805,11 +9825,37 @@ reserve_block_ret(WASMLoaderContext *loader_ctx, uint8 opcode,
     for (i = (int32)return_count - 1; i >= 0; i--) {
         uint8 cells = (uint8)wasm_value_type_cell_num(return_types[i]);
 
-        frame_offset -= cells;
-        dynamic_offset -= cells;
-        if (dynamic_offset != *frame_offset) {
-            value_count++;
-            total_cel_num += cells;
+        if (frame_offset - cells < loader_ctx->frame_offset_bottom) {
+            set_error_buf(error_buf, error_buf_size, "frame offset underflow");
+            goto fail;
+        }
+
+        if (cells == 4) {
+            bool needs_copy = false;
+            int16 v128_dynamic = dynamic_offset - cells;
+
+            for (int j = 0; j < 4; j++) {
+                if (*(frame_offset - j - 1) != (v128_dynamic + j)) {
+                    needs_copy = true;
+                    break;
+                }
+            }
+
+            if (needs_copy) {
+                value_count++;
+                total_cel_num += cells;
+            }
+
+            frame_offset -= cells;
+            dynamic_offset = v128_dynamic;
+        }
+        else {
+            frame_offset -= cells;
+            dynamic_offset -= cells;
+            if (dynamic_offset != *frame_offset) {
+                value_count++;
+                total_cel_num += cells;
+            }
         }
     }
 
@@ -9845,19 +9891,50 @@ reserve_block_ret(WASMLoaderContext *loader_ctx, uint8 opcode,
         dynamic_offset = dynamic_offset_org;
         for (i = (int32)return_count - 1, j = 0; i >= 0; i--) {
             uint8 cell = (uint8)wasm_value_type_cell_num(return_types[i]);
-            frame_offset -= cell;
-            dynamic_offset -= cell;
-            if (dynamic_offset != *frame_offset) {
-                /* cell num */
-                cells[j] = cell;
-                /* src offset */
-                src_offsets[j] = *frame_offset;
-                /* dst offset */
-                dst_offsets[j] = dynamic_offset;
-                j++;
+
+            if (cell == 4) {
+                bool needs_copy = false;
+                int16 v128_dynamic = dynamic_offset - cell;
+
+                for (int k = 0; k < 4; k++) {
+                    if (*(frame_offset - k - 1) != (v128_dynamic + k)) {
+                        needs_copy = true;
+                        break;
+                    }
+                }
+
+                if (needs_copy) {
+                    cells[j] = cell;
+                    src_offsets[j] = *(frame_offset - cell);
+                    dst_offsets[j] = v128_dynamic;
+                    j++;
+                }
+
+                frame_offset -= cell;
+                dynamic_offset = v128_dynamic;
             }
+            else {
+                frame_offset -= cell;
+                dynamic_offset -= cell;
+                if (dynamic_offset != *frame_offset) {
+                    cells[j] = cell;
+                    /* src offset */
+                    src_offsets[j] = *frame_offset;
+                    /* dst offset */
+                    dst_offsets[j] = dynamic_offset;
+                    j++;
+                }
+            }
+
             if (opcode == WASM_OP_ELSE) {
-                *frame_offset = dynamic_offset;
+                if (cell == 4) {
+                    for (int k = 0; k < cell; k++) {
+                        *(frame_offset + k) = dynamic_offset + k;
+                    }
+                }
+                else {
+                    *frame_offset = dynamic_offset;
+                }
             }
             else {
                 loader_ctx->frame_offset = frame_offset;
@@ -13029,6 +13106,10 @@ re_scan:
                     skip_label();
                     if (is_32bit_type(local_type)) {
                         emit_label(EXT_OP_TEE_LOCAL_FAST);
+                        emit_byte(loader_ctx, (uint8)local_offset);
+                    }
+                    else if (local_type == VALUE_TYPE_V128) {
+                        emit_label(EXT_OP_TEE_LOCAL_FAST_V128);
                         emit_byte(loader_ctx, (uint8)local_offset);
                     }
                     else {
