@@ -284,6 +284,8 @@ typedef enum WASMOpcode {
     EXT_OP_SET_LOCAL_FAST_V128 = 0xdd,
     EXT_OP_TEE_LOCAL_FAST_V128 = 0xde,
     EXT_OP_COPY_STACK_TOP_V128 = 0xdf,
+    WASM_OP_GET_GLOBAL_128 = 0xe0,
+    WASM_OP_SET_GLOBAL_128 = 0xe1,
 #endif
 
     /* Post-MVP extend op prefix */
@@ -803,7 +805,10 @@ typedef enum WASMAtomicEXTOpcode {
 #define DEF_EXT_V128_HANDLE()                            \
     SET_GOTO_TABLE_ELEM(EXT_OP_SET_LOCAL_FAST_V128),     \
         SET_GOTO_TABLE_ELEM(EXT_OP_TEE_LOCAL_FAST_V128), \
-        SET_GOTO_TABLE_ELEM(EXT_OP_COPY_STACK_TOP_V128),
+        SET_GOTO_TABLE_ELEM(EXT_OP_COPY_STACK_TOP_V128), \
+        SET_GOTO_TABLE_ELEM(WASM_OP_GET_GLOBAL_128),     \
+        SET_GOTO_TABLE_ELEM(WASM_OP_SET_GLOBAL_128),     \
+
 #else
 #define DEF_EXT_V128_HANDLE()
 #endif

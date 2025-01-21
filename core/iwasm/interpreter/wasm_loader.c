@@ -7300,6 +7300,8 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             case WASM_OP_SET_GLOBAL:
             case WASM_OP_GET_GLOBAL_64:
             case WASM_OP_SET_GLOBAL_64:
+            case WASM_OP_GET_GLOBAL_128:
+            case WASM_OP_SET_GLOBAL_128:
             case WASM_OP_SET_GLOBAL_AUX_STACK:
                 skip_leb_uint32(p, p_end); /* local index */
                 break;
@@ -9110,6 +9112,11 @@ preserve_referenced_local(WASMLoaderContext *loader_ctx, uint8 opcode,
                     if (loader_ctx->p_code_compiled)
                         loader_ctx->preserved_local_offset++;
                     emit_label(EXT_OP_COPY_STACK_TOP);
+                }
+                else if (local_type == VALUE_TYPE_V128) {
+                    if (loader_ctx->p_code_compiled)
+                        loader_ctx->preserved_local_offset += 4;
+                    emit_label(EXT_OP_COPY_STACK_TOP_V128);
                 }
                 else {
                     if (loader_ctx->p_code_compiled)
@@ -13206,9 +13213,14 @@ re_scan:
                     skip_label();
                     emit_label(WASM_OP_GET_GLOBAL_64);
                 }
+
+                if (global_type == VALUE_TYPE_V128) {
+                    skip_label();
+                    emit_label(WASM_OP_GET_GLOBAL_128);
+                }
+#endif /* end of WASM_ENABLE_SIMDE */
                 emit_uint32(loader_ctx, global_idx);
                 PUSH_OFFSET_TYPE(global_type);
-#endif /* end of WASM_ENABLE_FAST_INTERP */
                 break;
             }
 
@@ -13300,6 +13312,12 @@ re_scan:
                     skip_label();
                     emit_label(WASM_OP_SET_GLOBAL_AUX_STACK);
                 }
+#if WASM_ENABLE_SIMDE != 0
+                else if (global_type == VALUE_TYPE_V128) {
+                    skip_label();
+                    emit_label(WASM_OP_SET_GLOBAL_128);
+                }
+#endif /* end of WASM_ENABLE_SIMDE */
                 emit_uint32(loader_ctx, global_idx);
                 POP_OFFSET_TYPE(global_type);
 #endif /* end of WASM_ENABLE_FAST_INTERP */

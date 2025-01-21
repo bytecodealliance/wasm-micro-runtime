@@ -3595,7 +3595,19 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                 GET_I64_FROM_ADDR((uint32 *)global_addr));
                 HANDLE_OP_END();
             }
-
+#if WASM_ENABLE_SIMDE != 0
+            HANDLE_OP(WASM_OP_GET_GLOBAL_128)
+            {
+                global_idx = read_uint32(frame_ip);
+                bh_assert(global_idx < module->e->global_count);
+                global = globals + global_idx;
+                global_addr = get_global_addr(global_data, global);
+                addr_ret = GET_OFFSET();
+                PUT_V128_TO_ADDR(frame_lp + addr_ret,
+                                GET_V128_FROM_ADDR((uint32 *)global_addr));
+                HANDLE_OP_END();
+            }
+#endif
             HANDLE_OP(WASM_OP_SET_GLOBAL)
             {
                 global_idx = read_uint32(frame_ip);
@@ -3662,6 +3674,19 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                 GET_I64_FROM_ADDR(frame_lp + addr1));
                 HANDLE_OP_END();
             }
+#if WASM_ENABLE_SIMDE != 0
+            HANDLE_OP(WASM_OP_SET_GLOBAL_128)
+            {
+                global_idx = read_uint32(frame_ip);
+                bh_assert(global_idx < module->e->global_count);
+                global = globals + global_idx;
+                global_addr = get_global_addr(global_data, global);
+                addr1 = GET_OFFSET();
+                PUT_V128_TO_ADDR((uint32 *)global_addr,
+                                GET_V128_FROM_ADDR(frame_lp + addr1));
+                HANDLE_OP_END();
+            }
+#endif
 
             /* memory load instructions */
             HANDLE_OP(WASM_OP_I32_LOAD)
