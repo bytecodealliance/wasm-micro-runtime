@@ -11,11 +11,6 @@ permissions:
 jobs:
   confirm_version:
     runs-on: ubuntu-latest
-    outputs:
-      key: ${{ steps.create_version_h_cache_key.outputs.key}}
-    permissions:
-      contents: read
-      actions: write # for uploading cached artifact
 
     steps:
       - name: checkout
