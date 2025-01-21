@@ -4713,6 +4713,21 @@ fail:
     return false;
 }
 
+#if WASM_ENABLE_BULK_MEMORY != 0
+static bool
+check_data_count_consistency(bool has_datacount_section, int datacount_len,
+                             int data_seg_len, char *error_buf,
+                             uint32 error_buf_size)
+{
+    if (has_datacount_section && datacount_len != data_seg_len) {
+        set_error_buf(error_buf, error_buf_size,
+                      "data count and data section have inconsistent lengths");
+        return false;
+    }
+    return true;
+}
+#endif
+
 static bool
 load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
                           WASMModule *module,
@@ -4736,9 +4751,9 @@ load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
     read_leb_uint32(p, p_end, data_seg_count);
 
 #if WASM_ENABLE_BULK_MEMORY != 0
-    if (has_datacount_section && data_seg_count != module->data_seg_count1) {
-        set_error_buf(error_buf, error_buf_size,
-                      "data count and data section have inconsistent lengths");
+    if (!check_data_count_consistency(has_datacount_section,
+                                      module->data_seg_count1, data_seg_count,
+                                      error_buf, error_buf_size)) {
         return false;
     }
 #endif
@@ -5925,6 +5940,14 @@ load_from_sections(WASMModule *module, WASMSection *sections,
 
         section = section->next;
     }
+
+#if WASM_ENABLE_BULK_MEMORY != 0
+    if (!check_data_count_consistency(
+            has_datacount_section, module->data_seg_count1,
+            module->data_seg_count, error_buf, error_buf_size)) {
+        return false;
+    }
+#endif
 
     module->aux_data_end_global_index = (uint32)-1;
     module->aux_heap_base_global_index = (uint32)-1;
