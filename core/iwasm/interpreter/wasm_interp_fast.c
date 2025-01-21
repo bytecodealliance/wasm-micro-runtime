@@ -47,7 +47,7 @@ typedef float64 CellType_F64;
      && (app_addr) <= shared_heap_end_off - bytes + 1)
 
 #define shared_heap_addr_app_to_native(app_addr, native_addr) \
-    native_addr = shared_heap_base_addr + ((app_addr)-shared_heap_start_off)
+    native_addr = shared_heap_base_addr + ((app_addr) - shared_heap_start_off)
 
 #define CHECK_SHARED_HEAP_OVERFLOW(app_addr, bytes, native_addr) \
     if (app_addr_in_shared_heap(app_addr, bytes))                \
@@ -1793,7 +1793,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 else
                     cur_func_type = cur_func->u.func->func_type;
 
-                    /* clang-format off */
+                /* clang-format off */
 #if WASM_ENABLE_GC == 0
                 if (cur_type != cur_func_type) {
                     wasm_set_exception(module, "indirect call type mismatch");
@@ -5923,12 +5923,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         uint32 offset, addr;
                         offset = read_uint32(frame_ip);
                         V128 data = POP_V128();
-                        addr = POP_I32();
+                        int32 base = POP_I32();
+                        offset += base;
+                        addr = GET_OPERAND(uint32, I32, 0);
 
-                        V128 data;
-                        data = POP_V128();
-
-                        CHECK_MEMORY_OVERFLOW(16);
+                        CHECK_MEMORY_OVERFLOW(32);
                         STORE_V128(maddr, data);
                         break;
                     }
@@ -5948,13 +5947,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case SIMD_v8x16_shuffle:
                     {
                         V128 indices;
-                        V128 v2 = POP_V128();
-                        V128 v1 = POP_V128();
-                        addr_ret = GET_OFFSET();
-
                         bh_memcpy_s(&indices, sizeof(V128), frame_ip,
                                     sizeof(V128));
                         frame_ip += sizeof(V128);
+
+                        V128 v2 = POP_V128();
+                        V128 v1 = POP_V128();
+                        addr_ret = GET_OFFSET();
 
                         V128 result;
                         for (int i = 0; i < 16; i++) {
@@ -5983,6 +5982,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         SIMDE_V128_TO_SIMD_V128(simde_result, result);
 
                         PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
+                        break;
                     }
 
                     /* Splat */
@@ -6008,7 +6008,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                     case SIMD_i8x16_splat:
                     {
-                        SIMD_SPLAT_OP_I32(simde_wasm_i8x16_splat);
+                        uint32 val = POP_I32();
+                        addr_ret = GET_OFFSET();
+
+                        simde_v128_t simde_result = simde_wasm_i8x16_splat(val);
+
+                        V128 result;
+                        SIMDE_V128_TO_SIMD_V128(simde_result, result);
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
                         break;
                     }
                     case SIMD_i16x8_splat:
@@ -6140,7 +6148,18 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     /* i8x16 comparison operations */
                     case SIMD_i8x16_eq:
                     {
-                        SIMD_DOUBLE_OP(simde_wasm_i8x16_eq);
+                        V128 v2 = POP_V128();
+                        V128 v1 = POP_V128();
+                        addr_ret = GET_OFFSET();
+
+                        simde_v128_t simde_result =
+                            simde_wasm_i8x16_eq(SIMD_V128_TO_SIMDE_V128(v1),
+                                                SIMD_V128_TO_SIMDE_V128(v2));
+
+                        V128 result;
+                        SIMDE_V128_TO_SIMD_V128(simde_result, result);
+
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);
                         break;
                     }
                     case SIMD_i8x16_ne:
