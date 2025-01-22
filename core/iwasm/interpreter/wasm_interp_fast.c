@@ -3604,7 +3604,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 global_addr = get_global_addr(global_data, global);
                 addr_ret = GET_OFFSET();
                 PUT_V128_TO_ADDR(frame_lp + addr_ret,
-                                GET_V128_FROM_ADDR((uint32 *)global_addr));
+                                 GET_V128_FROM_ADDR((uint32 *)global_addr));
                 HANDLE_OP_END();
             }
 #endif
@@ -3683,7 +3683,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 global_addr = get_global_addr(global_data, global);
                 addr1 = GET_OFFSET();
                 PUT_V128_TO_ADDR((uint32 *)global_addr,
-                                GET_V128_FROM_ADDR(frame_lp + addr1));
+                                 GET_V128_FROM_ADDR(frame_lp + addr1));
                 HANDLE_OP_END();
             }
 #endif
@@ -5843,66 +5843,54 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         PUT_V128_TO_ADDR(frame_lp + addr_ret, LOAD_V128(maddr));
                         break;
                     }
-#define SIMD_LOAD_OP(op_name, simde_func, element_size, num_elements)          \
-    do {                                                                       \
-        uint32 offset, addr;                                                   \
-        offset = read_uint32(frame_ip);                                        \
-        addr = GET_OPERAND(uint32, I32, 0);                                    \
-        frame_ip += 2;                                                         \
-        addr_ret = GET_OFFSET();                                               \
-        CHECK_MEMORY_OVERFLOW(16);                                             \
-                                                                               \
-        simde_v128_t simde_result = simde_func(maddr);                         \
-                                                                               \
-        V128 result;                                                           \
-        SIMDE_V128_TO_SIMD_V128(simde_result, result);                         \
-                                                                               \
-        V128 reversed_result;                                                  \
-        for (int i = 0; i < num_elements; i++) {                               \
-            reversed_result.i##element_size##x##num_elements[i] =              \
-                result.i##element_size##x##num_elements[num_elements - 1 - i]; \
-        }                                                                      \
-        PUT_V128_TO_ADDR(frame_lp + addr_ret, reversed_result);                \
-                                                                               \
-        break;                                                                 \
+#define SIMD_LOAD_OP(simde_func, element_size, num_elements) \
+    do {                                                     \
+        uint32 offset, addr;                                 \
+        offset = read_uint32(frame_ip);                      \
+        addr = GET_OPERAND(uint32, I32, 0);                  \
+        frame_ip += 2;                                       \
+        addr_ret = GET_OFFSET();                             \
+        CHECK_MEMORY_OVERFLOW(4);                            \
+                                                             \
+        simde_v128_t simde_result = simde_func(maddr);       \
+                                                             \
+        V128 result;                                         \
+        SIMDE_V128_TO_SIMD_V128(simde_result, result);       \
+        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);       \
+                                                             \
+        break;                                               \
     } while (0)
                     case SIMD_v128_load8x8_s:
                     {
-                        SIMD_LOAD_OP(SIMD_v128_load8x8_s,
-                                     simde_wasm_i16x8_load8x8, 16, 8);
+                        SIMD_LOAD_OP(simde_wasm_i16x8_load8x8, 16, 8);
                         break;
                     }
                     case SIMD_v128_load8x8_u:
                     {
-                        SIMD_LOAD_OP(SIMD_v128_load8x8_u,
-                                     simde_wasm_u16x8_load8x8, 16, 8);
+                        SIMD_LOAD_OP(simde_wasm_u16x8_load8x8, 16, 8);
                         break;
                     }
                     case SIMD_v128_load16x4_s:
                     {
-                        SIMD_LOAD_OP(SIMD_v128_load16x4_s,
-                                     simde_wasm_i32x4_load16x4, 32, 4);
+                        SIMD_LOAD_OP(simde_wasm_i32x4_load16x4, 32, 4);
                         break;
                     }
                     case SIMD_v128_load16x4_u:
                     {
-                        SIMD_LOAD_OP(SIMD_v128_load16x4_u,
-                                     simde_wasm_u32x4_load16x4, 32, 4);
+                        SIMD_LOAD_OP(simde_wasm_u32x4_load16x4, 32, 4);
                         break;
                     }
                     case SIMD_v128_load32x2_s:
                     {
-                        SIMD_LOAD_OP(SIMD_v128_load32x2_s,
-                                     simde_wasm_i64x2_load32x2, 64, 2);
+                        SIMD_LOAD_OP(simde_wasm_i64x2_load32x2, 64, 2);
                         break;
                     }
                     case SIMD_v128_load32x2_u:
                     {
-                        SIMD_LOAD_OP(SIMD_v128_load32x2_u,
-                                     simde_wasm_u64x2_load32x2, 64, 2);
+                        SIMD_LOAD_OP(simde_wasm_u64x2_load32x2, 64, 2);
                         break;
                     }
-#define SIMD_LOAD_SPLAT_OP(op_name, simde_func)        \
+#define SIMD_LOAD_SPLAT_OP(simde_func)                 \
     do {                                               \
         uint32 offset, addr;                           \
         offset = read_uint32(frame_ip);                \
@@ -5921,26 +5909,22 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                     case SIMD_v128_load8_splat:
                     {
-                        SIMD_LOAD_SPLAT_OP(SIMD_v128_load8_splat,
-                                           simde_wasm_v128_load8_splat);
+                        SIMD_LOAD_SPLAT_OP(simde_wasm_v128_load8_splat);
                         break;
                     }
                     case SIMD_v128_load16_splat:
                     {
-                        SIMD_LOAD_SPLAT_OP(SIMD_v128_load16_splat,
-                                           simde_wasm_v128_load16_splat);
+                        SIMD_LOAD_SPLAT_OP(simde_wasm_v128_load16_splat);
                         break;
                     }
                     case SIMD_v128_load32_splat:
                     {
-                        SIMD_LOAD_SPLAT_OP(SIMD_v128_load32_splat,
-                                           simde_wasm_v128_load32_splat);
+                        SIMD_LOAD_SPLAT_OP(simde_wasm_v128_load32_splat);
                         break;
                     }
                     case SIMD_v128_load64_splat:
                     {
-                        SIMD_LOAD_SPLAT_OP(SIMD_v128_load64_splat,
-                                           simde_wasm_v128_load64_splat);
+                        SIMD_LOAD_SPLAT_OP(simde_wasm_v128_load64_splat);
                         break;
                     }
                     case SIMD_v128_store:
