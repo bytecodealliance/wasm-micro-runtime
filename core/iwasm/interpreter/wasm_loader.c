@@ -9135,13 +9135,15 @@ preserve_referenced_local(WASMLoaderContext *loader_ctx, uint8 opcode,
             loader_ctx->frame_offset_bottom[i] = preserved_offset;
         }
 
-        if (is_32bit_type(cur_type))
-            i++;
-        else if (cur_type == VALUE_TYPE_V128) {
+        if (cur_type == VALUE_TYPE_V128) {
             i += 4;
         }
-        else
+        else if (is_32bit_type(cur_type)) {
+            i++;
+        }
+        else {
             i += 2;
+        }
     }
 
     (void)error_buf;
@@ -13310,7 +13312,7 @@ re_scan:
                     func->has_op_set_global_aux_stack = true;
 #endif
                 }
-#else  /* else of WASM_ENABLE_FAST_INTERP */
+#else /* else of WASM_ENABLE_FAST_INTERP */
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {
                     skip_label();
