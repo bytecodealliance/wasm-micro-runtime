@@ -251,7 +251,7 @@ WASMSharedHeap *
 wasm_runtime_chain_shared_heaps(WASMSharedHeap *head, WASMSharedHeap *body)
 {
     WASMSharedHeap *cur;
-    bool heap_handle_exist = false;
+    bool heap_handle_exist = head->heap_handle != NULL;
 
     if (!head || !body) {
         LOG_WARNING("Invalid shared heap to chain.");
@@ -265,8 +265,15 @@ wasm_runtime_chain_shared_heaps(WASMSharedHeap *head, WASMSharedHeap *body)
         os_mutex_unlock(&shared_heap_list_lock);
         return NULL;
     }
-
-    for (cur = head; cur; cur = cur->chain_next) {
+    for (cur = shared_heap_list; cur; cur = cur->next) {
+        if (cur->chain_next == body) {
+            LOG_WARNING("To create shared heap chain, the `body` shared heap "
+                        "can't already be in a chain");
+            os_mutex_unlock(&shared_heap_list_lock);
+            return NULL;
+        }
+    }
+    for (cur = body; cur; cur = cur->chain_next) {
         if (cur->heap_handle && heap_handle_exist) {
             LOG_WARNING(
                 "To create shared heap chain, only one of shared heap can "
@@ -310,7 +317,6 @@ wasm_runtime_unchain_shared_heaps(WASMSharedHeap *head, bool entire_chain)
         if (!entire_chain)
             break;
     }
-
     os_mutex_unlock(&shared_heap_list_lock);
     return cur;
 }
