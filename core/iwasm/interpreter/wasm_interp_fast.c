@@ -5837,8 +5837,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     {
                         uint32 offset, addr;
                         offset = read_uint32(frame_ip);
-                        addr = GET_OPERAND(uint32, I32, 0);
-                        frame_ip += 2;
+                        addr = POP_I32();
                         addr_ret = GET_OFFSET();
                         CHECK_MEMORY_OVERFLOW(16);
                         PUT_V128_TO_ADDR(frame_lp + addr_ret, LOAD_V128(maddr));
@@ -5932,9 +5931,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         uint32 offset, addr;
                         offset = read_uint32(frame_ip);
                         V128 data = POP_V128();
-                        int32 base = POP_I32();
-                        offset += base;
-                        addr = GET_OPERAND(uint32, I32, 0);
+                        addr = POP_I32();
+
+                        V128 data;
+                        data = POP_V128();
 
                         CHECK_MEMORY_OVERFLOW(16);
                         STORE_V128(maddr, data);
