@@ -15362,10 +15362,6 @@ re_scan:
 
                         read_leb_mem_offset(p, p_end, mem_offset); /* offset */
 
-#if WASM_ENABLE_FAST_INTERP != 0
-                        emit_uint32(loader_ctx, mem_offset);
-#endif
-
                         CHECK_BUF(p, p_end, 1);
                         lane = read_uint8(p);
                         if (!check_simd_access_lane(opcode1, lane, error_buf,
