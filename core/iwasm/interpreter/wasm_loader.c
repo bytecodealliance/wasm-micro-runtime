@@ -7300,8 +7300,10 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             case WASM_OP_SET_GLOBAL:
             case WASM_OP_GET_GLOBAL_64:
             case WASM_OP_SET_GLOBAL_64:
+#if WASM_ENABLE_SIMDE != 0
             case WASM_OP_GET_GLOBAL_128:
             case WASM_OP_SET_GLOBAL_128:
+#endif
             case WASM_OP_SET_GLOBAL_AUX_STACK:
                 skip_leb_uint32(p, p_end); /* local index */
                 break;
@@ -9090,6 +9092,7 @@ preserve_referenced_local(WASMLoaderContext *loader_ctx, uint8 opcode,
                           bool *preserved, char *error_buf,
                           uint32 error_buf_size)
 {
+
     uint32 i = 0;
     int16 preserved_offset = (int16)local_index;
 
@@ -9113,11 +9116,13 @@ preserve_referenced_local(WASMLoaderContext *loader_ctx, uint8 opcode,
                         loader_ctx->preserved_local_offset++;
                     emit_label(EXT_OP_COPY_STACK_TOP);
                 }
+#if WASM_ENABLE_SIMDE != 0
                 else if (local_type == VALUE_TYPE_V128) {
                     if (loader_ctx->p_code_compiled)
                         loader_ctx->preserved_local_offset += 4;
                     emit_label(EXT_OP_COPY_STACK_TOP_V128);
                 }
+#endif
                 else {
                     if (loader_ctx->p_code_compiled)
                         loader_ctx->preserved_local_offset += 2;
@@ -9790,11 +9795,12 @@ reserve_block_ret(WASMLoaderContext *loader_ctx, uint8 opcode,
             /* insert op_copy before else opcode */
             if (opcode == WASM_OP_ELSE)
                 skip_label();
-
+#if WASM_ENABLE_SIMDE != 0
             if (cell == 4) {
                 emit_label(EXT_OP_COPY_STACK_TOP_V128);
             }
-            else {
+#endif
+            if (cell <= 2) {
                 emit_label(cell == 1 ? EXT_OP_COPY_STACK_TOP
                                      : EXT_OP_COPY_STACK_TOP_I64);
             }
@@ -13115,10 +13121,12 @@ re_scan:
                         emit_label(EXT_OP_TEE_LOCAL_FAST);
                         emit_byte(loader_ctx, (uint8)local_offset);
                     }
+#if WASM_ENABLE_SIMDE != 0
                     else if (local_type == VALUE_TYPE_V128) {
                         emit_label(EXT_OP_TEE_LOCAL_FAST_V128);
                         emit_byte(loader_ctx, (uint8)local_offset);
                     }
+#endif
                     else {
                         emit_label(EXT_OP_TEE_LOCAL_FAST_I64);
                         emit_byte(loader_ctx, (uint8)local_offset);
@@ -13213,11 +13221,12 @@ re_scan:
                     skip_label();
                     emit_label(WASM_OP_GET_GLOBAL_64);
                 }
-
+#if WASM_ENABLE_SIMDE != 0
                 if (global_type == VALUE_TYPE_V128) {
                     skip_label();
                     emit_label(WASM_OP_GET_GLOBAL_128);
                 }
+#endif
 #endif /* end of WASM_ENABLE_SIMDE */
                 emit_uint32(loader_ctx, global_idx);
                 PUSH_OFFSET_TYPE(global_type);

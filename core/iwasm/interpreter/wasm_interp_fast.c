@@ -5909,7 +5909,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         addr = GET_OPERAND(uint32, I32, 0);            \
         frame_ip += 2;                                 \
         addr_ret = GET_OFFSET();                       \
-        CHECK_MEMORY_OVERFLOW(16);                     \
+        CHECK_MEMORY_OVERFLOW(4);                     \
                                                        \
         simde_v128_t simde_result = simde_func(maddr); \
                                                        \
@@ -5952,7 +5952,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         offset += base;
                         addr = GET_OPERAND(uint32, I32, 0);
 
-                        CHECK_MEMORY_OVERFLOW(32);
+                        CHECK_MEMORY_OVERFLOW(4);
                         STORE_V128(maddr, data);
                         break;
                     }
