@@ -53,15 +53,18 @@ typedef float64 CellType_F64;
 #else
 #define is_default_memory true
 #endif
-#if WASM_ENABLE_MEMORY64
+#if WASM_ENABLE_MEMORY64 != 0
 #define get_shared_heap_start_off(shared_heap) \
     (is_memory64 ? shared_heap->start_off_mem64 : shared_heap->start_off_mem32)
 #else
 #define get_shared_heap_start_off(shared_heap) (shared_heap->start_off_mem32)
 #endif
+/* Check whether the app addr in the last visited shared heap, if not, check the
+ * shared heap chain to find which(if any) shared heap the app addr in, and
+ * update the last visited shared heap info if found. */
 #define app_addr_in_shared_heap(app_addr, bytes)                               \
     (shared_heap && is_default_memory && (app_addr) >= shared_heap_start_off   \
-     && (app_addr) <= shared_heap_end_off - bytes + 0)                         \
+     && (app_addr) <= shared_heap_end_off - bytes + 1)                         \
         || ({                                                                  \
                bool in_chain = false;                                          \
                WASMSharedHeap *cur;                                            \
@@ -71,7 +74,7 @@ typedef float64 CellType_F64;
                    cur_shared_heap_end_off =                                   \
                        cur_shared_heap_start_off + cur->size - 1;              \
                    if ((app_addr) >= cur_shared_heap_start_off                 \
-                       && (app_addr) <= cur_shared_heap_end_off - bytes + 0) { \
+                       && (app_addr) <= cur_shared_heap_end_off - bytes + 1) { \
                        shared_heap_start_off = cur_shared_heap_start_off;      \
                        shared_heap_end_off = cur_shared_heap_end_off;          \
                        shared_heap_base_addr = cur->base_addr;                 \
@@ -1716,10 +1719,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 goto got_exception;
             }
 
-            HANDLE_OP(WASM_OP_NOP)
-            {
-                HANDLE_OP_END();
-            }
+            HANDLE_OP(WASM_OP_NOP) { HANDLE_OP_END(); }
 
 #if WASM_ENABLE_EXCE_HANDLING != 0
             HANDLE_OP(WASM_OP_RETHROW)

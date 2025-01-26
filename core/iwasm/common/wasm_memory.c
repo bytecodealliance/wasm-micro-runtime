@@ -504,7 +504,7 @@ is_app_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
 
     for (cur = heap; cur; cur = cur->chain_next) {
         shared_heap_start =
-            cur->start_off_mem64 ? is_memory64 : cur->start_off_mem32;
+            is_memory64 ? cur->start_off_mem64 : cur->start_off_mem32;
         shared_heap_end = shared_heap_start + cur->size;
         if (app_offset >= shared_heap_start && app_offset <= shared_heap_end) {
             if (target_heap)

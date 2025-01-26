@@ -93,12 +93,21 @@ typedef union {
 } MemBound;
 
 typedef struct WASMSharedHeap {
+    /* The global shared heap list maintained in runtime, used for runtime
+     * destroy */
     struct WASMSharedHeap *next;
+    /* The logical shared heap chain the shared heap in */
+    struct WASMSharedHeap *chain_next;
+    /* Will be null if shared heap is created from pre allocated memory chunk
+     * and don't need to dynamic malloc and free */
     void *heap_handle;
     uint8 *base_addr;
     uint64 size;
     uint64 start_off_mem64;
     uint64 start_off_mem32;
+    /* The number of wasm apps it attached to, for a shared heap chain, only the
+     * list head need to maintain the valid attached_count */
+    uint8 attached_count;
 } WASMSharedHeap;
 
 struct WASMMemoryInstance {
