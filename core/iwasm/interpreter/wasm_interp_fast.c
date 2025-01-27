@@ -7019,7 +7019,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     }
                     case SIMD_i32x4_add:
                     {
-
                         SIMD_DOUBLE_OP(simde_wasm_i32x4_add);
                         break;
                     }
