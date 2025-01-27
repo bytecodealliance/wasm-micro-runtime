@@ -4,8 +4,7 @@
  */
 
 #include <stdio.h>
-
-#include <stdio.h>
+#include <stdint.h>
 
 extern void
 shared_heap_free(void *ptr);
@@ -15,4 +14,10 @@ print_buf(char *buf)
 {
     printf("wasm app2's wasm func received buf: %s\n\n", buf);
     shared_heap_free(buf);
+}
+
+void
+consume_str(char *buf)
+{
+    printf("wasm app2's wasm func received buf: %s\n\n", buf);
 }

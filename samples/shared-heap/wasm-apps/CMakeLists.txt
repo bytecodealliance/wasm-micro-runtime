@@ -33,6 +33,8 @@ set (CMAKE_EXE_LINKER_FLAGS
       -Wl,--export=my_shared_heap_malloc           \
       -Wl,--export=my_shared_heap_free             \
       -Wl,--export=print_buf                       \
+      -Wl,--export=produce_str                     \
+      -Wl,--export=consume_str                     \
       -Wl,--allow-undefined"
 )
 

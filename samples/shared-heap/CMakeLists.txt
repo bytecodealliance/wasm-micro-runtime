@@ -83,7 +83,12 @@ target_link_libraries(vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthre
 include_directories(${CMAKE_CURRENT_LIST_DIR}/src)
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
-add_executable (shared_heap_test src/main.c ${UNCOMMON_SHARED_SOURCE})
+option (USE_SHARED_HEAP_CHAIN "Example use preallocated shared heap and shared heap instead of main.c" OFF)
+if (USE_SHARED_HEAP_CHAIN)
+  add_executable (shared_heap_test src/shared_heap_chain.c ${UNCOMMON_SHARED_SOURCE})
+else()
+  add_executable (shared_heap_test src/main.c ${UNCOMMON_SHARED_SOURCE})
+endif()
 
 check_pie_supported()
 set_target_properties (shared_heap_test PROPERTIES POSITION_INDEPENDENT_CODE ON)
