@@ -652,8 +652,10 @@ wasm_runtime_create_exec_env(WASMModuleInstanceCommon *module_inst,
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_exec_env(WASMExecEnv *exec_env);
 
-WASM_RUNTIME_API_EXTERN void 
-wasm_iterate_callstack(const wasm_exec_env_t exec_env, const wasm_frame_callback frame_handler, void* user_data);
+WASM_RUNTIME_API_EXTERN void
+wasm_iterate_callstack(const wasm_exec_env_t exec_env,
+                       const wasm_frame_callback frame_handler,
+                       void *user_data);
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN WASMModuleInstanceCommon *
