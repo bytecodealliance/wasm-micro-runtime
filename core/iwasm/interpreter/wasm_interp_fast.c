@@ -47,7 +47,7 @@ typedef float64 CellType_F64;
      && (app_addr) <= shared_heap_end_off - bytes + 1)
 
 #define shared_heap_addr_app_to_native(app_addr, native_addr) \
-    native_addr = shared_heap_base_addr + ((app_addr) - shared_heap_start_off)
+    native_addr = shared_heap_base_addr + ((app_addr)-shared_heap_start_off)
 
 #define CHECK_SHARED_HEAP_OVERFLOW(app_addr, bytes, native_addr) \
     if (app_addr_in_shared_heap(app_addr, bytes))                \
@@ -1793,7 +1793,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 else
                     cur_func_type = cur_func->u.func->func_type;
 
-                /* clang-format off */
+                    /* clang-format off */
 #if WASM_ENABLE_GC == 0
                 if (cur_type != cur_func_type) {
                     wasm_set_exception(module, "indirect call type mismatch");
@@ -5897,7 +5897,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         addr = GET_OPERAND(uint32, I32, 0);            \
         frame_ip += 2;                                 \
         addr_ret = GET_OFFSET();                       \
-        CHECK_MEMORY_OVERFLOW(4);                     \
+        CHECK_MEMORY_OVERFLOW(4);                      \
                                                        \
         simde_v128_t simde_result = simde_func(maddr); \
                                                        \

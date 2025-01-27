@@ -13217,7 +13217,7 @@ re_scan:
 #endif
                     *p_org = WASM_OP_GET_GLOBAL_64;
                 }
-#else  /* else of WASM_ENABLE_FAST_INTERP */
+#else /* else of WASM_ENABLE_FAST_INTERP */
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {
                     skip_label();
