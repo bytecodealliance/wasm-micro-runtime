@@ -13228,10 +13228,10 @@ re_scan:
                     skip_label();
                     emit_label(WASM_OP_GET_GLOBAL_128);
                 }
-#endif
 #endif /* end of WASM_ENABLE_SIMDE */
                 emit_uint32(loader_ctx, global_idx);
                 PUSH_OFFSET_TYPE(global_type);
+#endif /* end of WASM_ENABLE_FAST_INTERP */
                 break;
             }
 
