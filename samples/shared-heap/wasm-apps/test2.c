@@ -19,5 +19,7 @@ print_buf(char *buf)
 void
 consume_str(char *buf)
 {
-    printf("wasm app2's wasm func received buf: %s\n\n", buf);
+    printf("wasm app2's wasm func received buf in pre-allocated shared buf: "
+           "%s\n\n",
+           buf);
 }

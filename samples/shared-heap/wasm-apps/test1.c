@@ -62,6 +62,6 @@ my_shared_heap_free(void *ptr)
 void *
 produce_str(char *addr, uint32_t index)
 {
-    snprintf(addr, 512, "Data: %u stores to shared heap", index);
+    snprintf(addr, 512, "Data: %u stores to pre-allocated shared heap", index);
     return addr;
 }

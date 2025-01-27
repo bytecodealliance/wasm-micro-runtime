@@ -10,17 +10,43 @@
 #define BUF_SIZE 4096
 static char preallocated_buf[BUF_SIZE];
 
-typedef struct thread_arg {
-    bh_queue *queue;
-    wasm_module_inst_t module_inst;
-} thread_arg;
+static bool
+produce_data(wasm_module_inst_t module_inst, wasm_exec_env_t exec_env,
+             bh_queue *queue, wasm_function_inst_t func, uint32 *argv,
+             uint32 buf_size)
+{
+    uint8 *buf;
+
+    wasm_runtime_call_wasm(exec_env, func, 2, argv);
+
+    if (wasm_runtime_get_exception(module_inst)) {
+        printf("Failed to call function: %s\n",
+               wasm_runtime_get_exception(module_inst));
+        return false;
+    }
+    if (argv[0] == 0) {
+        printf("Failed to allocate memory from shared heap or incorrect "
+               "pre-allocated shared heap addr\n");
+        return false;
+    }
+
+    buf = wasm_runtime_addr_app_to_native(module_inst, argv[0]);
+    printf("wasm app1 send buf: %s\n\n", buf);
+
+    /* Passes wasm address directly between wasm apps since memory in shared
+     * heap chain is viewed as single address space in wasm's perspective */
+    buf = (uint8 *)(uint64)argv[0];
+    if (!bh_post_msg(queue, 1, buf, buf_size)) {
+        printf("Failed to post message to queue\n");
+        return false;
+    }
+
+    return true;
+}
 
 static void *
-thread1_callback(void *arg)
+wasm_producer(wasm_module_inst_t module_inst, bh_queue *queue)
 {
-    thread_arg *targ = arg;
-    wasm_module_inst_t module_inst = targ->module_inst;
-    bh_queue *queue = targ->queue;
     wasm_exec_env_t exec_env;
     wasm_function_inst_t my_shared_heap_malloc_func, my_shared_heap_free_func,
         produce_str_func;
@@ -45,59 +71,23 @@ thread1_callback(void *arg)
     /* allocate memory by calling my_shared_heap_malloc function and send it
        to wasm app2 */
     for (i = 0; i < 8; i++) {
-        uint8 *buf;
-
         argv[0] = 1024 * (i + 1);
         argv[1] = i + 1;
-        wasm_runtime_call_wasm(exec_env, my_shared_heap_malloc_func, 2, argv);
-
-        if (wasm_runtime_get_exception(module_inst)) {
-            printf("Failed to call 'my_shared_heap_malloc' function: %s\n",
-                   wasm_runtime_get_exception(module_inst));
-            break;
-        }
-        if (argv[0] == 0) {
-            printf("Failed to allocate memory from shared heap\n");
-            break;
-        }
-
-        buf = wasm_runtime_addr_app_to_native(module_inst, argv[0]);
-        printf("%p : %p\n\n", buf, (uint8 *)(uint64)argv[0]);
-
-        printf("wasm app1 send buf: %s\n\n", buf);
-        buf = (uint8 *)(uint64)argv[0];
-        printf("wasm addr: %p\n\n", buf);
-        if (!bh_post_msg(queue, 1, buf, 1024 * (i + 1))) {
-            printf("Failed to post message to queue\n");
+        if (!produce_data(module_inst, exec_env, queue,
+                          my_shared_heap_malloc_func, argv, 1024 * (i + 1))) {
             break;
         }
     }
 
-    uint32 wasm_start_addr = UINT32_MAX - BUF_SIZE + 1;
     /* use pre-allocated shared heap memory by calling produce_str function and
-       send it to wasm app2 */
+       send it to wasm app2, the pre-allocated shared heap is the last one in
+       chain, so its end address is calculated from UIN32_MAX */
+    uint32 wasm_start_addr = UINT32_MAX - BUF_SIZE + 1;
     for (i = 8; i < 16; i++) {
-        uint8 *buf;
-
         argv[0] = wasm_start_addr + 512 * (i - 8);
         argv[1] = i + 1;
-        printf("wasm addr: %p\n\n",
-               (uint8 *)(wasm_start_addr + 512 * (i - 8)));
-        wasm_runtime_call_wasm(exec_env, produce_str_func, 2, argv);
-
-        if (wasm_runtime_get_exception(module_inst)) {
-            printf("Failed to call 'produce_str' function %s\n",
-                   wasm_runtime_get_exception(module_inst));
-            break;
-        }
-
-        buf = wasm_runtime_addr_app_to_native(module_inst, argv[0]);
-        printf("%p : %p\n\n", buf, (uint8 *)(uint64)argv[0]);
-
-        printf("wasm app1 send buf: %s\n\n", buf);
-        buf = (uint8 *)(uint64)argv[0];
-        if (!bh_post_msg(queue, 1, buf, 512)) {
-            printf("Failed to post message to queue\n");
+        if (!produce_data(module_inst, exec_env, queue, produce_str_func, argv,
+                          512)) {
             wasm_runtime_shared_heap_free(module_inst, argv[0]);
             break;
         }
@@ -109,13 +99,13 @@ thread1_callback(void *arg)
 }
 
 static void
-queue_callback(void *message, void *arg)
+wasm_consumer(wasm_module_inst_t module_inst, bh_queue *queue)
 {
-    bh_message_t msg = (bh_message_t)message;
-    wasm_exec_env_t exec_env = arg;
-    wasm_module_inst_t module_inst = wasm_runtime_get_module_inst(exec_env);
     wasm_function_inst_t print_buf_func, consume_str_func;
-    uint32 argv[2];
+    wasm_exec_env_t exec_env;
+    uint32 argv[2], i;
+    bh_message_t msg;
+    char *buf;
 
     /* lookup wasm function */
     if (!(print_buf_func =
@@ -126,48 +116,32 @@ queue_callback(void *message, void *arg)
         return;
     }
 
-    char *buf = bh_message_payload(msg);
-    uint32 len = bh_message_payload_len(msg);
-
-    /* call wasm function */
-    argv[0] = (uint32)buf;
-    if (len != 512) {
-        wasm_runtime_call_wasm(exec_env, print_buf_func, 1, argv);
-        if (wasm_runtime_get_exception(module_inst)) {
-            printf("Failed to call 'print_buf' function: %s\n",
-                   wasm_runtime_get_exception(module_inst));
-        }
-    }
-    else {
-        wasm_runtime_call_wasm(exec_env, consume_str_func, 1, argv);
-        if (wasm_runtime_get_exception(module_inst)) {
-            printf("Failed to call 'consume_str' function: %s\n",
-                   wasm_runtime_get_exception(module_inst));
-        }
-    }
-}
-
-static void *
-thread2_callback(void *arg)
-{
-    thread_arg *targ = arg;
-    bh_queue *queue = targ->queue;
-    wasm_module_inst_t module_inst = targ->module_inst;
-    wasm_exec_env_t exec_env;
-
     /* create exec env */
     if (!(exec_env = wasm_runtime_create_exec_env(module_inst, 32768))) {
         printf("Failed to create exec env.\n");
-        return NULL;
+        return;
     }
 
-    /* enter queue's message loop until bh_queue_exit_loop_run
-       is called */
-    bh_queue_enter_loop_run(queue, queue_callback, exec_env);
+    for (i = 0; i < 16; i++) {
+        msg = bh_get_msg(queue, BHT_WAIT_FOREVER);
+        if (!msg)
+            return;
+        buf = bh_message_payload(msg);
+        /* call wasm function */
+        argv[0] = (uint32)(uint64)buf;
+        if (i < 8)
+            wasm_runtime_call_wasm(exec_env, print_buf_func, 1, argv);
+        else
+            wasm_runtime_call_wasm(exec_env, consume_str_func, 1, argv);
+        if (wasm_runtime_get_exception(module_inst)) {
+            printf(
+                "Failed to call 'print_buf' or 'consumer_str' function: %s\n",
+                wasm_runtime_get_exception(module_inst));
+        }
+        bh_free_msg(msg);
+    }
 
     wasm_runtime_destroy_exec_env(exec_env);
-
-    return NULL;
 }
 
 static char global_heap_buf[512 * 1024];
@@ -305,37 +279,11 @@ main(int argc, char **argv)
         goto fail;
     }
 
-    /* create thread 1 */
-    thread_arg targ1 = { 0 };
-    korp_tid tid1;
-    targ1.queue = queue;
-    targ1.module_inst = module_inst1;
-    if (os_thread_create(&tid1, thread1_callback, &targ1,
-                         APP_THREAD_STACK_SIZE_DEFAULT)) {
-        printf("Failed to create thread 1\n");
-        goto fail;
-    }
+    /* wasm 1 produce shared data */
+    wasm_producer(module_inst1, queue);
 
-    /* create thread 2 */
-    thread_arg targ2 = { 0 };
-    korp_tid tid2;
-    targ2.queue = queue;
-    targ2.module_inst = module_inst2;
-    if (os_thread_create(&tid2, thread2_callback, &targ2,
-                         APP_THREAD_STACK_SIZE_DEFAULT)) {
-        printf("Failed to create thread 2\n");
-        os_thread_join(tid1, NULL);
-        goto fail;
-    }
-
-    /* wait until all messages are post to wasm app2 and wasm app2
-       handles all of them, then exit the queue message loop */
-    usleep(10000);
-    bh_queue_exit_loop_run(queue);
-
-    os_thread_join(tid1, NULL);
-    os_thread_join(tid2, NULL);
-
+    /* wasm 2 consume shared data */
+    wasm_consumer(module_inst2, queue);
     ret = 0;
 
 fail:
