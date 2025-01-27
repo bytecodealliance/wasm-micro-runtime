@@ -892,12 +892,6 @@ typedef bool (*wasm_frame_callback)(void *, wasm_frame_ptr_t);
  * - exec_env->module_inst
  * - exec_env->module_inst->module
  *
- * Note for devs: please refrain from such modifications inside of this call
- * - any allocations/freeing memory
- * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
- * exec_env->module_inst->module, pointers between stack's bottom and
- * top_boundary
- *
  * @param exec_env the execution environment that containes frames
  * @param callback the callback function provided by the user
  * @param user_data context for callback provided by the user

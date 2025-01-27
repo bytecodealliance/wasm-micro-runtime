@@ -1748,7 +1748,7 @@ wasm_iterate_callstack(const wasm_exec_env_t exec_env,
 {
     /*
      * Note for devs: please refrain from such modifications inside of
-     * wasm_iterate_callstack
+     * wasm_iterate_callstack to preserve async-signal-safety
      * - any allocations/freeing memory
      * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
      * exec_env->module_inst->module, pointers between stack's bottom and
