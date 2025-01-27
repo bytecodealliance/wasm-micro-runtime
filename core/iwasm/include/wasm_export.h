@@ -867,6 +867,13 @@ wasm_runtime_create_exec_env(wasm_module_inst_t module_inst,
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_exec_env(wasm_exec_env_t exec_env);
 
+
+/**
+ * Callback to be called on wasm_frame_t*.
+ * It accepts void* as a context that can be used for closures.
+ * It returns bool so the iterating can stop when the callback returns false.
+ * E.g. callback that returns false after processing 100 frames
+ */
 typedef bool (*wasm_frame_callback)(void *, wasm_frame_ptr_t);
 
 /**
