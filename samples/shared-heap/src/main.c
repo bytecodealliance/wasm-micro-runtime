@@ -55,7 +55,7 @@ thread1_callback(void *arg)
                  i + 1);
 
         printf("wasm app1 send buf: %s\n\n", buf);
-        if (!bh_post_msg(queue, 1, buf, 1024 * i)) {
+        if (!bh_post_msg(queue, 1, buf, 1024 * (i + 1))) {
             printf("Failed to post message to queue\n");
             wasm_runtime_shared_heap_free(module_inst, offset);
             break;
@@ -84,7 +84,7 @@ thread1_callback(void *arg)
         buf = wasm_runtime_addr_app_to_native(module_inst, argv[0]);
 
         printf("wasm app1 send buf: %s\n\n", buf);
-        if (!bh_post_msg(queue, 1, buf, 1024 * i)) {
+        if (!bh_post_msg(queue, 1, buf, 1024 * (i+1))) {
             printf("Failed to post message to queue\n");
             wasm_runtime_shared_heap_free(module_inst, argv[0]);
             break;
@@ -268,7 +268,7 @@ main(int argc, char **argv)
     }
 
     /* create thread 1 */
-    struct thread_arg targ1 = { 0 };
+    thread_arg targ1 = { 0 };
     korp_tid tid1;
     targ1.queue = queue;
     targ1.module_inst = module_inst1;
@@ -279,7 +279,7 @@ main(int argc, char **argv)
     }
 
     /* create thread 2 */
-    struct thread_arg targ2 = { 0 };
+    thread_arg targ2 = { 0 };
     korp_tid tid2;
     targ2.queue = queue;
     targ2.module_inst = module_inst2;

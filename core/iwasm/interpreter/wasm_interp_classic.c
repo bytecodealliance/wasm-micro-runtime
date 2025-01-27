@@ -72,7 +72,7 @@ typedef float64 CellType_F64;
                for (cur = shared_heap; cur; cur = cur->chain_next) {           \
                    cur_shared_heap_start_off = get_shared_heap_start_off(cur); \
                    cur_shared_heap_end_off =                                   \
-                       cur_shared_heap_start_off + cur->size - 1;              \
+                       cur_shared_heap_start_off - 1 + cur->size;              \
                    if ((app_addr) >= cur_shared_heap_start_off                 \
                        && (app_addr) <= cur_shared_heap_end_off - bytes + 1) { \
                        shared_heap_start_off = cur_shared_heap_start_off;      \
@@ -1679,7 +1679,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         shared_heap ? get_shared_heap_start_off(shared_heap) : 0;
     uint64 shared_heap_end_off =
         shared_heap
-            ? (get_shared_heap_start_off(shared_heap) + shared_heap->size - 1)
+            ? (get_shared_heap_start_off(shared_heap) - 1 + shared_heap->size)
             : 0;
 #endif /* end of WASM_ENABLE_SHARED_HEAP != 0 */
 #if WASM_ENABLE_MULTI_MEMORY != 0
@@ -1719,7 +1719,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 goto got_exception;
             }
 
-            HANDLE_OP(WASM_OP_NOP) { HANDLE_OP_END(); }
+            HANDLE_OP(WASM_OP_NOP)
+            {
+                HANDLE_OP_END();
+            }
 
 #if WASM_ENABLE_EXCE_HANDLING != 0
             HANDLE_OP(WASM_OP_RETHROW)
@@ -5656,7 +5659,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_I32_REINTERPRET_F32)
             HANDLE_OP(WASM_OP_I64_REINTERPRET_F64)
             HANDLE_OP(WASM_OP_F32_REINTERPRET_I32)
-            HANDLE_OP(WASM_OP_F64_REINTERPRET_I64) { HANDLE_OP_END(); }
+            HANDLE_OP(WASM_OP_F64_REINTERPRET_I64)
+            {
+                HANDLE_OP_END();
+            }
 
             HANDLE_OP(WASM_OP_I32_EXTEND8_S)
             {
