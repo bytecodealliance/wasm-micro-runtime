@@ -4197,32 +4197,36 @@ wasm_get_module_inst_mem_consumption(const WASMModuleInstance *module_inst,
                  || (WASM_ENABLE_MEMORY_TRACING != 0) */
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
-uint32 
-wasm_interp_iterate_callstack(WASMExecEnv *exec_env, const wasm_frame_callback frame_handler, void* user_data)
+uint32
+wasm_interp_iterate_callstack(WASMExecEnv *exec_env,
+                              const wasm_frame_callback frame_handler,
+                              void *user_data)
 {
-/*
-* Note for devs: please refrain from such modifications inside of wasm_interp_iterate_callstack
- * - any allocations/freeing memory
- * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
- * exec_env->module_inst->module, pointers between stack's bottom and top_boundary
- * For more details check wasm_iterate_callstack in wasm_export.h
-*/
-    WASMModuleInstance *module_inst = (WASMModuleInstance *)wasm_exec_env_get_module_inst(exec_env);
-    WASMInterpFrame* cur_frame = wasm_exec_env_get_cur_frame(exec_env);
-    uint8* top_boundary = exec_env->wasm_stack.top_boundary;
-    uint8* bottom = exec_env->wasm_stack.bottom;
+    /*
+     * Note for devs: please refrain from such modifications inside of
+     * wasm_interp_iterate_callstack
+     * - any allocations/freeing memory
+     * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
+     * exec_env->module_inst->module, pointers between stack's bottom and
+     * top_boundary For more details check wasm_iterate_callstack in
+     * wasm_export.h
+     */
+    WASMModuleInstance *module_inst =
+        (WASMModuleInstance *)wasm_exec_env_get_module_inst(exec_env);
+    WASMInterpFrame *cur_frame = wasm_exec_env_get_cur_frame(exec_env);
+    uint8 *top_boundary = exec_env->wasm_stack.top_boundary;
+    uint8 *bottom = exec_env->wasm_stack.bottom;
 
     WASMCApiFrame record_frame;
-    while (cur_frame &&
-        (uint8_t*)cur_frame >= bottom &&
-        (uint8_t*)cur_frame + sizeof(WASMInterpFrame) <= top_boundary) {
-            record_frame.instance = module_inst;
-            record_frame.module_offset = 0;
-            record_frame.func_index = cur_frame->func_index;
-            if (!frame_handler(user_data, &record_frame)) {
-                break;
-            }
-            cur_frame = cur_frame->prev_frame;
+    while (cur_frame && (uint8_t *)cur_frame >= bottom
+           && (uint8_t *)cur_frame + sizeof(WASMInterpFrame) <= top_boundary) {
+        record_frame.instance = module_inst;
+        record_frame.module_offset = 0;
+        record_frame.func_index = cur_frame->func_index;
+        if (!frame_handler(user_data, &record_frame)) {
+            break;
+        }
+        cur_frame = cur_frame->prev_frame;
     }
 }
 

@@ -777,8 +777,9 @@ aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame);
 bool
 aot_create_call_stack(struct WASMExecEnv *exec_env);
 
-void 
-aot_iterate_callstack(WASMExecEnv *exec_env, const wasm_frame_callback frame_handler, void* user_data);
+void
+aot_iterate_callstack(WASMExecEnv *exec_env,
+                      const wasm_frame_callback frame_handler, void *user_data);
 
 /**
  * @brief Dump wasm call stack or get the size
