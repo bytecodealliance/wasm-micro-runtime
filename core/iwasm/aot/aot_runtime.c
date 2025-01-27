@@ -10,7 +10,6 @@
 #include "../common/wasm_runtime_common.h"
 #include "../common/wasm_memory.h"
 #include "../interpreter/wasm_runtime.h"
-#include <stdbool.h>
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
 #endif
