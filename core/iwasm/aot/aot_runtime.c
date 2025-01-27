@@ -4105,32 +4105,37 @@ aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame)
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
 void
-aot_iterate_callstack_tiny_frame(WASMExecEnv *exec_env, const wasm_frame_callback frame_handler, void* user_data)
+aot_iterate_callstack_tiny_frame(WASMExecEnv *exec_env,
+                                 const wasm_frame_callback frame_handler,
+                                 void *user_data)
 {
-/*
- * Note for devs: please refrain from such modifications inside of aot_iterate_callstack
- * - any allocations/freeing memory
- * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
- * exec_env->module_inst->module, pointers between stack's bottom and top_boundary
- * For more details check wasm_iterate_callstack in wasm_export.h
-*/
-    uint8* top_boundary = exec_env->wasm_stack.top_boundary;
-    uint8* top = exec_env->wasm_stack.top;
-    uint8* bottom = exec_env->wasm_stack.bottom;
+    /*
+     * Note for devs: please refrain from such modifications inside of
+     * aot_iterate_callstack
+     * - any allocations/freeing memory
+     * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
+     * exec_env->module_inst->module, pointers between stack's bottom and
+     * top_boundary For more details check wasm_iterate_callstack in
+     * wasm_export.h
+     */
+    uint8 *top_boundary = exec_env->wasm_stack.top_boundary;
+    uint8 *top = exec_env->wasm_stack.top;
+    uint8 *bottom = exec_env->wasm_stack.bottom;
 
-    bool is_top_index_in_range = top_boundary >= top && top >= (bottom + sizeof(AOTTinyFrame));
+    bool is_top_index_in_range =
+        top_boundary >= top && top >= (bottom + sizeof(AOTTinyFrame));
     if (!is_top_index_in_range) {
         return;
     }
-    bool is_top_aligned_with_bottom = (unsigned long)(top - bottom) % sizeof(AOTTinyFrame) == 0;
+    bool is_top_aligned_with_bottom =
+        (unsigned long)(top - bottom) % sizeof(AOTTinyFrame) == 0;
     if (!is_top_aligned_with_bottom) {
         return;
     }
 
-    AOTTinyFrame* frame = (AOTTinyFrame*)(top - sizeof(AOTTinyFrame));
+    AOTTinyFrame *frame = (AOTTinyFrame *)(top - sizeof(AOTTinyFrame));
     WASMCApiFrame record_frame;
-    while (frame &&
-        (uint8_t*)frame >= bottom) {
+    while (frame && (uint8_t *)frame >= bottom) {
         record_frame.instance = exec_env->module_inst;
         record_frame.module_offset = 0;
         record_frame.func_index = frame->func_index;
@@ -4143,48 +4148,57 @@ aot_iterate_callstack_tiny_frame(WASMExecEnv *exec_env, const wasm_frame_callbac
 }
 
 void
-aot_iterate_callstack_standard_frame(WASMExecEnv *exec_env, const wasm_frame_callback frame_handler, void* user_data)
+aot_iterate_callstack_standard_frame(WASMExecEnv *exec_env,
+                                     const wasm_frame_callback frame_handler,
+                                     void *user_data)
 {
-/*
- * Note for devs: please refrain from such modifications inside of aot_iterate_callstack
- * - any allocations/freeing memory
- * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
- * exec_env->module_inst->module, pointers between stack's bottom and top_boundary
- * For more details check wasm_iterate_callstack in wasm_export.h
-*/
-    WASMModuleInstance *module_inst = (WASMModuleInstance *)wasm_exec_env_get_module_inst(exec_env);
-    AOTFrame* cur_frame = (AOTFrame *)wasm_exec_env_get_cur_frame(exec_env);
-    uint8* top_boundary = exec_env->wasm_stack.top_boundary;
-    uint8* bottom = exec_env->wasm_stack.bottom;
+    /*
+     * Note for devs: please refrain from such modifications inside of
+     * aot_iterate_callstack
+     * - any allocations/freeing memory
+     * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
+     * exec_env->module_inst->module, pointers between stack's bottom and
+     * top_boundary For more details check wasm_iterate_callstack in
+     * wasm_export.h
+     */
+    WASMModuleInstance *module_inst =
+        (WASMModuleInstance *)wasm_exec_env_get_module_inst(exec_env);
+    AOTFrame *cur_frame = (AOTFrame *)wasm_exec_env_get_cur_frame(exec_env);
+    uint8 *top_boundary = exec_env->wasm_stack.top_boundary;
+    uint8 *bottom = exec_env->wasm_stack.bottom;
 
     WASMCApiFrame record_frame;
-    while (cur_frame &&
-        (uint8_t*)cur_frame >= bottom &&
-        (uint8_t*)cur_frame + sizeof(AOTFrame) <= top_boundary) {
-            record_frame.instance = module_inst;
-            record_frame.module_offset = 0;
-            record_frame.func_index = (uint32)cur_frame->func_index;
-            record_frame.func_offset = (uint32)cur_frame->ip_offset;
-            if (!frame_handler(user_data, &record_frame)) {
-                break;
-            }
-            cur_frame = cur_frame->prev_frame;
+    while (cur_frame && (uint8_t *)cur_frame >= bottom
+           && (uint8_t *)cur_frame + sizeof(AOTFrame) <= top_boundary) {
+        record_frame.instance = module_inst;
+        record_frame.module_offset = 0;
+        record_frame.func_index = (uint32)cur_frame->func_index;
+        record_frame.func_offset = (uint32)cur_frame->ip_offset;
+        if (!frame_handler(user_data, &record_frame)) {
+            break;
+        }
+        cur_frame = cur_frame->prev_frame;
     }
 }
 
 void
-aot_iterate_callstack(WASMExecEnv *exec_env, const wasm_frame_callback frame_handler, void* user_data)
+aot_iterate_callstack(WASMExecEnv *exec_env,
+                      const wasm_frame_callback frame_handler, void *user_data)
 {
-/*
-* Note for devs: please refrain from such modifications inside of aot_iterate_callstack
- * - any allocations/freeing memory
- * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
- * exec_env->module_inst->module, pointers between stack's bottom and top_boundary
- * For more details check wasm_iterate_callstack in wasm_export.h
-*/
+    /*
+     * Note for devs: please refrain from such modifications inside of
+     * aot_iterate_callstack
+     * - any allocations/freeing memory
+     * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
+     * exec_env->module_inst->module, pointers between stack's bottom and
+     * top_boundary For more details check wasm_iterate_callstack in
+     * wasm_export.h
+     */
     if (!is_tiny_frame(exec_env)) {
-        aot_iterate_callstack_standard_frame(exec_env, frame_handler, user_data);
-    } else {
+        aot_iterate_callstack_standard_frame(exec_env, frame_handler,
+                                             user_data);
+    }
+    else {
         aot_iterate_callstack_tiny_frame(exec_env, frame_handler, user_data);
     }
 }
