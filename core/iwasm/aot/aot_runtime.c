@@ -4166,10 +4166,11 @@ aot_iterate_callstack_standard_frame(WASMExecEnv *exec_env,
     AOTFrame *cur_frame = (AOTFrame *)wasm_exec_env_get_cur_frame(exec_env);
     uint8 *top_boundary = exec_env->wasm_stack.top_boundary;
     uint8 *bottom = exec_env->wasm_stack.bottom;
+    uint32 frame_size = (uint32)offsetof(AOTFrame, lp);
 
     WASMCApiFrame record_frame;
     while (cur_frame && (uint8_t *)cur_frame >= bottom
-           && (uint8_t *)cur_frame + sizeof(AOTFrame) <= top_boundary) {
+           && (uint8_t *)cur_frame + frame_size <= top_boundary) {
         record_frame.instance = module_inst;
         record_frame.module_offset = 0;
         record_frame.func_index = (uint32)cur_frame->func_index;
