@@ -7301,8 +7301,8 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             case WASM_OP_GET_GLOBAL_64:
             case WASM_OP_SET_GLOBAL_64:
 #if WASM_ENABLE_SIMDE != 0
-            case WASM_OP_GET_GLOBAL_128:
-            case WASM_OP_SET_GLOBAL_128:
+            case WASM_OP_GET_GLOBAL_V128:
+            case WASM_OP_SET_GLOBAL_V128:
 #endif
             case WASM_OP_SET_GLOBAL_AUX_STACK:
                 skip_leb_uint32(p, p_end); /* local index */
@@ -9588,6 +9588,7 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
                 bh_memcpy_s(&(c->value.v128), sizeof(WASMValue), value,
                             sizeof(V128));
                 ctx->const_cell_num++;
+                break;
 #if WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0
             case VALUE_TYPE_EXTERNREF:
             case VALUE_TYPE_FUNCREF:
@@ -13226,7 +13227,7 @@ re_scan:
 #if WASM_ENABLE_SIMDE != 0
                 if (global_type == VALUE_TYPE_V128) {
                     skip_label();
-                    emit_label(WASM_OP_GET_GLOBAL_128);
+                    emit_label(WASM_OP_GET_GLOBAL_V128);
                 }
 #endif /* end of WASM_ENABLE_SIMDE */
                 emit_uint32(loader_ctx, global_idx);
@@ -13326,7 +13327,7 @@ re_scan:
 #if WASM_ENABLE_SIMDE != 0
                 else if (global_type == VALUE_TYPE_V128) {
                     skip_label();
-                    emit_label(WASM_OP_SET_GLOBAL_128);
+                    emit_label(WASM_OP_SET_GLOBAL_V128);
                 }
 #endif /* end of WASM_ENABLE_SIMDE */
                 emit_uint32(loader_ctx, global_idx);

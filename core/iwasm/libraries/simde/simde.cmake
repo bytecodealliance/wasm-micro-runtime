@@ -4,12 +4,7 @@
 
 set (LIB_SIMDE_DIR ${CMAKE_CURRENT_LIST_DIR})
 
-if (WAMR_BUILD_TARGET MATCHES "AARCH64.*" OR WAMR_BUILD_TARGET MATCHES "ARM.*")
-  add_definitions (-DWASM_ENABLE_SIMDE=1)
-else()
-  message(WARNING "Disabling SIMD for fast interpreter as the target is not supported")
-  set(WAMR_BUILD_SIMD 0)
-endif()
+add_definitions (-DWASM_ENABLE_SIMDE=1)
 
 include_directories(${LIB_SIMDE_DIR} ${LIB_SIMDE_DIR}/simde)
 
