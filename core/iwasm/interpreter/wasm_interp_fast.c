@@ -3541,7 +3541,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 HANDLE_OP_END();
             }
 
-#if WASM_ENABLE_SIMDE != 0
+#if WASM_ENABLE_SIMD != 0
             HANDLE_OP(EXT_OP_SET_LOCAL_FAST_V128)
             HANDLE_OP(EXT_OP_TEE_LOCAL_FAST_V128)
             {
@@ -3595,8 +3595,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                 GET_I64_FROM_ADDR((uint32 *)global_addr));
                 HANDLE_OP_END();
             }
-#if WASM_ENABLE_SIMDE != 0
-            HANDLE_OP(WASM_OP_GET_GLOBAL_128)
+#if WASM_ENABLE_SIMD != 0
+            HANDLE_OP(WASM_OP_GET_GLOBAL_V128)
             {
                 global_idx = read_uint32(frame_ip);
                 bh_assert(global_idx < module->e->global_count);
@@ -3675,7 +3675,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 HANDLE_OP_END();
             }
 #if WASM_ENABLE_SIMDE != 0
-            HANDLE_OP(WASM_OP_SET_GLOBAL_128)
+            HANDLE_OP(WASM_OP_SET_GLOBAL_V128)
             {
                 global_idx = read_uint32(frame_ip);
                 bh_assert(global_idx < module->e->global_count);
@@ -4932,7 +4932,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 HANDLE_OP_END();
             }
-#if WASM_ENABLE_SIMDE != 0
+#if WASM_ENABLE_SIMD != 0
             HANDLE_OP(EXT_OP_COPY_STACK_TOP_V128)
             {
                 addr1 = GET_OFFSET();
@@ -5837,7 +5837,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     {
                         uint32 offset, addr;
                         offset = read_uint32(frame_ip);
-                        addr = POP_I32();
+                        addr = GET_OPERAND(uint32, I32, 0);
+                        frame_ip += 2;
                         addr_ret = GET_OFFSET();
                         CHECK_MEMORY_OVERFLOW(16);
                         PUT_V128_TO_ADDR(frame_lp + addr_ret, LOAD_V128(maddr));
@@ -5850,7 +5851,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         addr = GET_OPERAND(uint32, I32, 0);                  \
         frame_ip += 2;                                       \
         addr_ret = GET_OFFSET();                             \
-        CHECK_MEMORY_OVERFLOW(4);                            \
+        CHECK_MEMORY_OVERFLOW(16);                           \
                                                              \
         simde_v128_t simde_result = simde_func(maddr);       \
                                                              \
@@ -5858,7 +5859,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         SIMDE_V128_TO_SIMD_V128(simde_result, result);       \
         PUT_V128_TO_ADDR(frame_lp + addr_ret, result);       \
                                                              \
-        break;                                               \
     } while (0)
                     case SIMD_v128_load8x8_s:
                     {
@@ -5936,7 +5936,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         offset += base;
                         addr = GET_OPERAND(uint32, I32, 0);
 
-                        CHECK_MEMORY_OVERFLOW(4);
+                        CHECK_MEMORY_OVERFLOW(16);
                         STORE_V128(maddr, data);
                         break;
                     }
