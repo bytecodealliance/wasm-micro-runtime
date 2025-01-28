@@ -4701,7 +4701,7 @@ llvm_jit_table_init(WASMModuleInstance *module_inst, uint32 tbl_idx,
             if (!(func_obj = wasm_create_func_obj(module_inst,
                                                   init_values[i].u.ref_index,
                                                   true, NULL, 0))) {
-                wasm_set_exception(module_inst, "null function object");
+                wasm_set_exception(module_inst, "null function reference");
                 return;
             }
             table_elems[i] = func_obj;
