@@ -731,7 +731,7 @@ wasm_get_table_inst(const WASMModuleInstance *module_inst, uint32 tbl_idx)
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
 
-uint32
+void
 wasm_interp_iterate_callstack(WASMExecEnv *exec_env,
                               const wasm_frame_callback frame_handler,
                               void *user_data);

@@ -4197,7 +4197,7 @@ wasm_get_module_inst_mem_consumption(const WASMModuleInstance *module_inst,
                  || (WASM_ENABLE_MEMORY_TRACING != 0) */
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
-uint32
+void
 wasm_interp_iterate_callstack(WASMExecEnv *exec_env,
                               const wasm_frame_callback frame_handler,
                               void *user_data)
