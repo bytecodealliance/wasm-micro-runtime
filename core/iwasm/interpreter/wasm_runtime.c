@@ -4222,7 +4222,8 @@ wasm_interp_iterate_callstack(WASMExecEnv *exec_env,
            && (uint8_t *)cur_frame + sizeof(WASMInterpFrame) <= top_boundary) {
         record_frame.instance = module_inst;
         record_frame.module_offset = 0;
-        record_frame.func_index = cur_frame->func_index;
+        // It's safe to dereference module_inst->e because "e" is asigned only once in wasm_instantiate
+        record_frame.func_index = (uint32)(cur_frame->function - module_inst->e->functions);
         if (!frame_handler(user_data, &record_frame)) {
             break;
         }
