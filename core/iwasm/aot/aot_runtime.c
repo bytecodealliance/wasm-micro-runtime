@@ -4111,7 +4111,7 @@ aot_iterate_callstack_tiny_frame(WASMExecEnv *exec_env,
 {
     /*
      * Note for devs: please refrain from such modifications inside of
-     * aot_iterate_callstack
+     * aot_iterate_callstack_tiny_frame
      * - any allocations/freeing memory
      * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
      * exec_env->module_inst->module, pointers between stack's bottom and
@@ -4154,7 +4154,7 @@ aot_iterate_callstack_standard_frame(WASMExecEnv *exec_env,
 {
     /*
      * Note for devs: please refrain from such modifications inside of
-     * aot_iterate_callstack
+     * aot_iterate_callstack_standard_frame
      * - any allocations/freeing memory
      * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
      * exec_env->module_inst->module, pointers between stack's bottom and
