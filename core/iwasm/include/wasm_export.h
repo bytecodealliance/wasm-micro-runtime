@@ -1778,6 +1778,14 @@ wasm_runtime_set_native_stack_boundary(wasm_exec_env_t exec_env,
                                        uint8_t *native_stack_boundary);
 
 /**
+ * Disable native stack boundary check.
+ *
+ * @param exec_env the execution environment
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_disable_native_stack_boundary_check(wasm_exec_env_t exec_env);
+
+/**
  * Dump runtime memory consumption, including:
  *     Exec env memory consumption
  *     WASM module memory consumption

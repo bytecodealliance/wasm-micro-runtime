@@ -282,7 +282,9 @@ wasm_exec_env_set_thread_info(WASMExecEnv *exec_env)
     os_mutex_lock(&exec_env->wait_lock);
 #endif
     exec_env->handle = os_self_thread();
-    if (exec_env->user_native_stack_boundary)
+    if (exec_env->user_native_stack_boundary == (void *)UINTPTR_MAX)
+        exec_env->native_stack_boundary = NULL;
+    else if (exec_env->user_native_stack_boundary)
         /* WASM_STACK_GUARD_SIZE isn't added for flexibility to developer,
            he must ensure that enough guard bytes are kept. */
         exec_env->native_stack_boundary = exec_env->user_native_stack_boundary;
