@@ -16,24 +16,24 @@ For [AssemblyScript](https://github.com/AssemblyScript/assemblyscript), please r
 
 For Rust, please refer to [Install Rust and Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) to install *cargo*, *rustc* and *rustup*. By default they are under ~/.cargo/bin.
 
-And then run such a command to install `wasm32-wasi` target.
+And then run such a command to install `wasm32-wasip1` target.
 
 ``` bash
-$ rustup target add wasm32-wasi
+$ rustup target add wasm32-wasip1
 ```
 
 To build WASM applications, run
 
 ``` bash
-$ cargo build --target wasm32-wasi
+$ cargo build --target wasm32-wasip1
 ```
 
-The output files are under `target/wasm32-wasi`.
+The output files are under `target/wasm32-wasip1`.
 
 To build a release version
 
 ``` bash
-$ cargo build --release --target wasm32-wasi
+$ cargo build --release --target wasm32-wasip1
 ```
 
 
