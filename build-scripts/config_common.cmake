@@ -212,6 +212,7 @@ endif ()
 message ("-- Build Configurations:")
 message ("     Build as target ${WAMR_BUILD_TARGET}")
 message ("     CMAKE_BUILD_TYPE " ${CMAKE_BUILD_TYPE})
+message ("     BUILD_SHARED_LIBS " ${BUILD_SHARED_LIBS})
 ################## running mode ##################
 if (WAMR_BUILD_INTERP EQUAL 1)
   message ("     WAMR Interpreter enabled")
