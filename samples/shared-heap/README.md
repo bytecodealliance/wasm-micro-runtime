@@ -13,7 +13,7 @@ cmake -S . -B build
 cmake --build build
 ```
 
-For the shared heap chain sample. It chains a pre-allocated heap and a normal shared heap to one chain as a whole and attaches/detaches all together, and pass the WASM address directly bewteen two WASM instances. Use the following commands to build the sample:
+For the shared heap chain sample. It chains a pre-allocated heap and a normal shared heap to one chain as a whole and attaches/detaches all together, and pass the WASM address directly between two WASM instances. Use the following commands to build the sample:
 
 ```bash
 cmake -S . -DUSE_SHARED_HEAP_CHAIN=1 -B build

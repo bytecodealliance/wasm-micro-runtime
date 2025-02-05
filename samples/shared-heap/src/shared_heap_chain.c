@@ -13,7 +13,7 @@ static char preallocated_buf[BUF_SIZE];
 static bool
 produce_data(wasm_module_inst_t module_inst, wasm_exec_env_t exec_env,
              bh_queue *queue, wasm_function_inst_t func, uint32 *argv,
-             uint32 buf_size)
+             uint32 buf_size, bool free_on_fail)
 {
     uint8 *buf;
 
@@ -24,9 +24,8 @@ produce_data(wasm_module_inst_t module_inst, wasm_exec_env_t exec_env,
                wasm_runtime_get_exception(module_inst));
         return false;
     }
-    if (argv[0] == 0) {
-        printf("Failed to allocate memory from shared heap or incorrect "
-               "pre-allocated shared heap addr\n");
+    if (free_on_fail && argv[0] == 0) {
+        printf("Failed to allocate memory from shared heap\n");
         return false;
     }
 
@@ -38,6 +37,8 @@ produce_data(wasm_module_inst_t module_inst, wasm_exec_env_t exec_env,
     buf = (uint8 *)(uint64)argv[0];
     if (!bh_post_msg(queue, 1, buf, buf_size)) {
         printf("Failed to post message to queue\n");
+        if (free_on_fail)
+            wasm_runtime_shared_heap_free(module_inst, argv[0]);
         return false;
     }
 
@@ -74,7 +75,8 @@ wasm_producer(wasm_module_inst_t module_inst, bh_queue *queue)
         argv[0] = 1024 * (i + 1);
         argv[1] = i + 1;
         if (!produce_data(module_inst, exec_env, queue,
-                          my_shared_heap_malloc_func, argv, 1024 * (i + 1))) {
+                          my_shared_heap_malloc_func, argv, 1024 * (i + 1),
+                          true)) {
             break;
         }
     }
@@ -87,8 +89,7 @@ wasm_producer(wasm_module_inst_t module_inst, bh_queue *queue)
         argv[0] = wasm_start_addr + 512 * (i - 8);
         argv[1] = i + 1;
         if (!produce_data(module_inst, exec_env, queue, produce_str_func, argv,
-                          512)) {
-            wasm_runtime_shared_heap_free(module_inst, argv[0]);
+                          512, false)) {
             break;
         }
     }
@@ -127,17 +128,20 @@ wasm_consumer(wasm_module_inst_t module_inst, bh_queue *queue)
         if (!msg)
             return;
         buf = bh_message_payload(msg);
+
         /* call wasm function */
         argv[0] = (uint32)(uint64)buf;
         if (i < 8)
             wasm_runtime_call_wasm(exec_env, print_buf_func, 1, argv);
         else
             wasm_runtime_call_wasm(exec_env, consume_str_func, 1, argv);
+
         if (wasm_runtime_get_exception(module_inst)) {
             printf(
                 "Failed to call 'print_buf' or 'consumer_str' function: %s\n",
                 wasm_runtime_get_exception(module_inst));
         }
+
         bh_free_msg(msg);
     }
 
