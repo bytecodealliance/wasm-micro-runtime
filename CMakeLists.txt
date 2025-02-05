@@ -153,7 +153,11 @@ endif ()
 
 add_library (vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 set_target_properties (vmlib PROPERTIES OUTPUT_NAME iwasm)
-target_include_directories(vmlib INTERFACE ${WAMR_ROOT_DIR}/core/iwasm/include)
+target_include_directories(vmlib INTERFACE
+  $<BUILD_INTERFACE:${WAMR_ROOT_DIR}/core/iwasm/include>
+  $<INSTALL_INTERFACE:include/iwasm>
+)
+
 target_link_libraries (vmlib PUBLIC ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl ${CMAKE_THREAD_LIBS_INIT})
 if (WAMR_BUILD_WASM_CACHE EQUAL 1)
   target_link_libraries(vmlib INTERFACE boringssl_crypto)
@@ -168,12 +172,16 @@ if (WIN32)
   target_link_libraries(vmlib PRIVATE ntdll)
 endif()
 
-set_version_info (vmlib)
-install (TARGETS vmlib LIBRARY DESTINATION lib)
+set (WAMR_PUBLIC_HEADERS
+  ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_c_api.h
+  ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_export.h
+  ${WAMR_ROOT_DIR}/core/iwasm/include/lib_export.h
+)
+set_target_properties (vmlib PROPERTIES PUBLIC_HEADER "${WAMR_PUBLIC_HEADERS}")
 
-# HEADERS
-install (FILES
-    ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_c_api.h
-    ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_export.h
-    ${WAMR_ROOT_DIR}/core/iwasm/include/lib_export.h
-    DESTINATION include)
+set_version_info (vmlib)
+
+install (TARGETS vmlib
+  LIBRARY DESTINATION lib
+  PUBLIC_HEADER DESTINATION include/iwasm
+)

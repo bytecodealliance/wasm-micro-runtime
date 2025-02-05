@@ -176,11 +176,25 @@ add_library (vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 
 set_version_info (vmlib)
 
+target_include_directories(vmlib INTERFACE
+  $<INSTALL_INTERFACE:include/iwasm>
+)
+
+set (WAMR_PUBLIC_HEADERS
+  ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_c_api.h
+  ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_export.h
+  ${WAMR_ROOT_DIR}/core/iwasm/include/lib_export.h
+)
+
 set_target_properties (vmlib PROPERTIES
   OUTPUT_NAME iwasm
+  PUBLIC_HEADER "${WAMR_PUBLIC_HEADERS}"
   POSITION_INDEPENDENT_CODE ON
 )
 
-install (TARGETS vmlib DESTINATION lib)
+install (TARGETS vmlib
+  DESTINATION lib
+  PUBLIC_HEADER DESTINATION include/iwasm
+)
 
 target_link_libraries (vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
