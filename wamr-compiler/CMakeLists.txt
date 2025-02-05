@@ -58,6 +58,7 @@ if (WAMR_BUILD_LLVM_LEGACY_PM EQUAL 1)
 endif ()
 
 if (LINUX)
+  set(WAMR_BUILD_LINUX_PERF 1)
   add_definitions(-DWASM_ENABLE_LINUX_PERF=1)
 endif ()
 
