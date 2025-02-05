@@ -675,7 +675,7 @@ jobs:
             test_option: $MEMORY64_TEST_OPTIONS
           - running_mode: "multi-tier-jit"
             test_option: $MEMORY64_TEST_OPTIONS
-          # aot, fast-interp, fast-jit, llvm-jit, multi-tier-jit don't support Multi Memory 
+          # aot, fast-interp, fast-jit, llvm-jit, multi-tier-jit don't support Multi Memory
           - running_mode: "aot"
             test_option: $MULTI_MEMORY_TEST_OPTIONS
           - running_mode: "fast-interp"
