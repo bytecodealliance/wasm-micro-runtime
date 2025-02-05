@@ -35,7 +35,7 @@ Users can turn those features on or off by using compilation options. If a relev
 | Multiple memories[^3]         | Yes        | `WAMR_BUILD_MULTI_MEMORY`  |
 | Reference-Typed Strings       | No         | `WAMR_BUILD_STRINGREF`     |
 | Tail call                     | Yes        | `WAMR_BUILD_TAIL_CALL`     |
-| Thread[^4]                    | Yes        | `WAMR_BUILD_SHARED_MEMORY` |
+| Threads[^4]                   | Yes        | `WAMR_BUILD_SHARED_MEMORY` |
 | Typed Function References     | Yes        | `WAMR_BUILD_GC`            |
 
 [^2]:
