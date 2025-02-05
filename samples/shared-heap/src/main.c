@@ -84,7 +84,7 @@ thread1_callback(void *arg)
         buf = wasm_runtime_addr_app_to_native(module_inst, argv[0]);
 
         printf("wasm app1 send buf: %s\n\n", buf);
-        if (!bh_post_msg(queue, 1, buf, 1024 * (i+1))) {
+        if (!bh_post_msg(queue, 1, buf, 1024 * (i + 1))) {
             printf("Failed to post message to queue\n");
             wasm_runtime_shared_heap_free(module_inst, argv[0]);
             break;

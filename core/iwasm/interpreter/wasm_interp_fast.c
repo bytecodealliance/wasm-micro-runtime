@@ -67,7 +67,7 @@ typedef float64 CellType_F64;
            })
 
 #define shared_heap_addr_app_to_native(app_addr, native_addr) \
-    native_addr = shared_heap_base_addr + ((app_addr) - shared_heap_start_off)
+    native_addr = shared_heap_base_addr + ((app_addr)-shared_heap_start_off)
 
 #define CHECK_SHARED_HEAP_OVERFLOW(app_addr, bytes, native_addr) \
     if (app_addr_in_shared_heap(app_addr, bytes))                \
