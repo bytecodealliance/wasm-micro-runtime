@@ -58,6 +58,7 @@ if (WAMR_BUILD_LLVM_LEGACY_PM EQUAL 1)
 endif ()
 
 if (LINUX)
+  set(WAMR_BUILD_LINUX_PERF 1)
   add_definitions(-DWASM_ENABLE_LINUX_PERF=1)
 endif ()
 
@@ -284,6 +285,7 @@ include (${IWASM_DIR}/common/gc/iwasm_gc.cmake)
 include (${IWASM_DIR}/interpreter/iwasm_interp.cmake)
 include (${IWASM_DIR}/aot/iwasm_aot.cmake)
 include (${IWASM_DIR}/compilation/iwasm_compl.cmake)
+include (${PROJECT_SOURCE_DIR}/../build-scripts/version.cmake)
 
 if (WAMR_BUILD_LIBC_BUILTIN EQUAL 1)
   include (${IWASM_DIR}/libraries/libc-builtin/libc_builtin.cmake)
@@ -375,6 +377,7 @@ add_library (aotclib ${IWASM_COMPL_SOURCE})
 add_executable (wamrc main.c)
 check_pie_supported()
 set_target_properties (wamrc PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_version_info (wamrc)
 
 if (LLVM_LINK_LLVM_DYLIB)
   set(WAMRC_LINK_LLVM_LIBS LLVM)

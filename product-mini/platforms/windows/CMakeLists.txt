@@ -106,6 +106,7 @@ set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
+set_version_info(vmlib)
 
 #set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DWIN32_LEAN_AND_MEAN")
 if (NOT MINGW)
@@ -134,6 +135,8 @@ include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
 add_executable (iwasm main.c ${UNCOMMON_SHARED_SOURCE})
 
+set_version_info (iwasm)
+
 install (TARGETS iwasm DESTINATION bin)
 
 target_link_libraries (iwasm vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS})
@@ -143,6 +146,8 @@ if (MINGW)
 endif ()
 
 add_library (libiwasm SHARED ${WAMR_RUNTIME_LIB_SOURCE})
+
+set_version_info (libiwasm)
 
 install (TARGETS libiwasm DESTINATION lib)
 

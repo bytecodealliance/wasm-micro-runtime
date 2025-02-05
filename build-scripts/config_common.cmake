@@ -131,6 +131,9 @@ else ()
   unset (LLVM_AVAILABLE_LIBS)
 endif ()
 
+# Version
+include (${WAMR_ROOT_DIR}/build-scripts/version.cmake)
+
 # Sanitizers
 
 if (NOT DEFINED WAMR_BUILD_SANITIZER)
@@ -168,14 +171,59 @@ if (NOT DEFINED WAMR_BUILD_SHRUNK_MEMORY)
 endif ()
 
 ########################################
+# Default values
+########################################
+if (NOT DEFINED WAMR_BUILD_BULK_MEMORY)
+  set (WAMR_BUILD_BULK_MEMORY 1)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_EXCE_HANDLING)
+  set (WAMR_BUILD_EXCE_HANDLING 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_GC)
+  set (WAMR_BUILD_GC 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_MEMORY64)
+  set (WAMR_BUILD_MEMORY64 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_MULTI_MEMORY)
+  set (WAMR_BUILD_MULTI_MEMORY 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_SHARED_MEMORY)
+  set(WAMR_BUILD_SHARED_MEMORY 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_STRINGREF)
+  set(WAMR_BUILD_STRINGREF 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_TAIL_CALL)
+  set (WAMR_BUILD_TAIL_CALL 0)
+endif ()
+
+########################################
+# Compilation options to marco
+########################################
 
 message ("-- Build Configurations:")
 message ("     Build as target ${WAMR_BUILD_TARGET}")
 message ("     CMAKE_BUILD_TYPE " ${CMAKE_BUILD_TYPE})
+################## running mode ##################
 if (WAMR_BUILD_INTERP EQUAL 1)
   message ("     WAMR Interpreter enabled")
 else ()
   message ("     WAMR Interpreter disabled")
+endif ()
+if ((WAMR_BUILD_FAST_INTERP EQUAL 1) AND (WAMR_BUILD_INTERP EQUAL 1))
+  add_definitions (-DWASM_ENABLE_FAST_INTERP=1)
+  message ("     Fast interpreter enabled")
+else ()
+  add_definitions (-DWASM_ENABLE_FAST_INTERP=0)
+  message ("     Fast interpreter disabled")
 endif ()
 if (WAMR_BUILD_AOT EQUAL 1)
   message ("     WAMR AOT enabled")
@@ -207,6 +255,16 @@ if (WAMR_BUILD_FAST_JIT EQUAL 1 AND WAMR_BUILD_JIT EQUAL 1
     AND WAMR_BUILD_LAZY_JIT EQUAL 1)
   message ("     Multi-tier JIT enabled")
 endif ()
+################## test modes ##################
+if (WAMR_BUILD_SPEC_TEST EQUAL 1)
+  add_definitions (-DWASM_ENABLE_SPEC_TEST=1)
+  message ("     spec test compatible mode is on")
+endif ()
+if (WAMR_BUILD_WASI_TEST EQUAL 1)
+  add_definitions (-DWASM_ENABLE_WASI_TEST=1)
+  message ("     wasi test compatible mode is on")
+endif ()
+################## native ##################
 if (WAMR_BUILD_LIBC_BUILTIN EQUAL 1)
   message ("     Libc builtin enabled")
 else ()
@@ -218,64 +276,6 @@ elseif (WAMR_BUILD_LIBC_WASI EQUAL 1)
   message ("     Libc WASI enabled")
 else ()
   message ("     Libc WASI disabled")
-endif ()
-if ((WAMR_BUILD_FAST_INTERP EQUAL 1) AND (WAMR_BUILD_INTERP EQUAL 1))
-  add_definitions (-DWASM_ENABLE_FAST_INTERP=1)
-  message ("     Fast interpreter enabled")
-else ()
-  add_definitions (-DWASM_ENABLE_FAST_INTERP=0)
-  message ("     Fast interpreter disabled")
-endif ()
-if (WAMR_BUILD_MULTI_MODULE EQUAL 1)
-  add_definitions (-DWASM_ENABLE_MULTI_MODULE=1)
-  message ("     Multiple modules enabled")
-else ()
-  add_definitions (-DWASM_ENABLE_MULTI_MODULE=0)
-  message ("     Multiple modules disabled")
-endif ()
-if (WAMR_BUILD_SPEC_TEST EQUAL 1)
-  add_definitions (-DWASM_ENABLE_SPEC_TEST=1)
-  message ("     spec test compatible mode is on")
-endif ()
-if (WAMR_BUILD_WASI_TEST EQUAL 1)
-  add_definitions (-DWASM_ENABLE_WASI_TEST=1)
-  message ("     wasi test compatible mode is on")
-endif ()
-if (NOT DEFINED WAMR_BUILD_BULK_MEMORY)
-  # Enable bulk memory by default
-  set (WAMR_BUILD_BULK_MEMORY 1)
-endif ()
-if (WAMR_BUILD_BULK_MEMORY EQUAL 1)
-  add_definitions (-DWASM_ENABLE_BULK_MEMORY=1)
-  message ("     Bulk memory feature enabled")
-else ()
-  add_definitions (-DWASM_ENABLE_BULK_MEMORY=0)
-  message ("     Bulk memory feature disabled")
-endif ()
-if (WAMR_BUILD_SHARED_MEMORY EQUAL 1)
-  add_definitions (-DWASM_ENABLE_SHARED_MEMORY=1)
-  message ("     Shared memory enabled")
-else ()
-  add_definitions (-DWASM_ENABLE_SHARED_MEMORY=0)
-endif ()
-if (WAMR_BUILD_SHARED_HEAP EQUAL 1)
-  add_definitions (-DWASM_ENABLE_SHARED_HEAP=1)
-  message ("     Shared heap enabled")
-endif()
-
-if (WAMR_BUILD_MEMORY64 EQUAL 1)
-  # if native is 32-bit or cross-compiled to 32-bit
-  if (NOT WAMR_BUILD_TARGET MATCHES ".*64.*")
-    message (FATAL_ERROR "-- Memory64 is only available on the 64-bit platform/target")
-  endif()
-  add_definitions (-DWASM_ENABLE_MEMORY64=1)
-  set (WAMR_DISABLE_HW_BOUND_CHECK 1)
-  message ("     Memory64 memory enabled")
-endif ()
-if (WAMR_BUILD_MULTI_MEMORY EQUAL 1)
-  add_definitions (-DWASM_ENABLE_MULTI_MEMORY=1)
-  message ("     Multi memory enabled")
-  set (WAMR_BUILD_DEBUG_INTERP 0)
 endif ()
 if (WAMR_BUILD_THREAD_MGR EQUAL 1)
   message ("     Thread manager enabled")
@@ -295,6 +295,42 @@ endif ()
 if (WAMR_BUILD_LIB_RATS EQUAL 1)
   message ("     Lib rats enabled")
 endif()
+################## WAMR features ##################
+if (WAMR_BUILD_MULTI_MODULE EQUAL 1)
+  add_definitions (-DWASM_ENABLE_MULTI_MODULE=1)
+  message ("     Multiple modules enabled")
+else ()
+  add_definitions (-DWASM_ENABLE_MULTI_MODULE=0)
+  message ("     Multiple modules disabled")
+endif ()
+if (WAMR_BUILD_BULK_MEMORY EQUAL 1)
+  add_definitions (-DWASM_ENABLE_BULK_MEMORY=1)
+else ()
+  add_definitions (-DWASM_ENABLE_BULK_MEMORY=0)
+endif ()
+if (WAMR_BUILD_SHARED_MEMORY EQUAL 1)
+  add_definitions (-DWASM_ENABLE_SHARED_MEMORY=1)
+  message ("     Shared memory enabled")
+else ()
+  add_definitions (-DWASM_ENABLE_SHARED_MEMORY=0)
+endif ()
+if (WAMR_BUILD_SHARED_HEAP EQUAL 1)
+  add_definitions (-DWASM_ENABLE_SHARED_HEAP=1)
+  message ("     Shared heap enabled")
+endif()
+
+if (WAMR_BUILD_MEMORY64 EQUAL 1)
+  # if native is 32-bit or cross-compiled to 32-bit
+  if (NOT WAMR_BUILD_TARGET MATCHES ".*64.*")
+    message (FATAL_ERROR "-- Memory64 is only available on the 64-bit platform/target")
+  endif()
+  add_definitions (-DWASM_ENABLE_MEMORY64=1)
+  set (WAMR_DISABLE_HW_BOUND_CHECK 1)
+endif ()
+if (WAMR_BUILD_MULTI_MEMORY EQUAL 1)
+  add_definitions (-DWASM_ENABLE_MULTI_MEMORY=1)
+  set (WAMR_BUILD_DEBUG_INTERP 0)
+endif ()
 if (WAMR_BUILD_MINI_LOADER EQUAL 1)
   add_definitions (-DWASM_ENABLE_MINI_LOADER=1)
   message ("     WASM mini loader enabled")
@@ -324,7 +360,6 @@ endif ()
 if (WAMR_BUILD_SIMD EQUAL 1)
   if (NOT WAMR_BUILD_TARGET MATCHES "RISCV64.*")
     add_definitions (-DWASM_ENABLE_SIMD=1)
-    message ("     SIMD enabled")
   else ()
     message ("     SIMD disabled due to not supported on target RISCV64")
   endif ()
@@ -354,16 +389,11 @@ if (WAMR_BUILD_DUMP_CALL_STACK EQUAL 1)
 endif ()
 if (WAMR_BUILD_TAIL_CALL EQUAL 1)
   add_definitions (-DWASM_ENABLE_TAIL_CALL=1)
-  message ("     Tail call enabled")
 endif ()
 if (WAMR_BUILD_REF_TYPES EQUAL 1)
   add_definitions (-DWASM_ENABLE_REF_TYPES=1)
-  message ("     Reference types enabled")
-else ()
-  message ("     Reference types disabled")
 endif ()
 if (WAMR_BUILD_GC EQUAL 1)
-  message ("     GC enabled")
   if (WAMR_TEST_GC EQUAL 1)
     message("      GC testing enabled")
   endif()
@@ -375,7 +405,6 @@ else ()
   message ("     GC performance profiling disabled")
 endif ()
 if (WAMR_BUILD_STRINGREF EQUAL 1)
-  message ("     Stringref enabled")
   if (NOT DEFINED WAMR_STRINGREF_IMPL_SOURCE)
     message ("       Using WAMR builtin implementation for stringref")
   else ()
@@ -610,4 +639,41 @@ if (WAMR_BUILD_SHRUNK_MEMORY EQUAL 1)
 else ()
   add_definitions (-DWASM_ENABLE_SHRUNK_MEMORY=0)
   message ("     Shrunk memory disabled")
+endif()
+if (WAMR_BUILD_AOT_VALIDATOR EQUAL 1)
+  message ("     AOT validator enabled")
+  add_definitions (-DWASM_ENABLE_AOT_VALIDATOR=1)
 endif ()
+
+########################################
+# Show Phase4 Wasm proposals status.
+########################################
+
+message (
+"-- About Wasm Proposals:\n"
+"     Always-on:\n"
+"       \"Extended Constant Expressions\"\n"
+"       \"Multi-value\"\n"
+"       \"Non-trapping float-to-int conversions\"\n"
+"       \"Sign-extension operators\"\n"
+"       \"WebAssembly C and C++ API\"\n"
+"     Configurable. 0 is OFF. 1 is ON:\n"
+"       \"Bulk Memory Operation\" via WAMR_BUILD_BULK_MEMORY: ${WAMR_BUILD_BULK_MEMORY}\n"
+"       \"Fixed-width SIMD\" via WAMR_BUILD_SIMD: ${WAMR_BUILD_SIMD}\n"
+"       \"Garbage collection\" via WAMR_BUILD_GC: ${WAMR_BUILD_GC}\n"
+"       \"Legacy Exception handling\" via WAMR_BUILD_EXCE_HANDLING: ${WAMR_BUILD_EXCE_HANDLING}\n"
+"       \"Memory64\" via WAMR_BUILD_MEMORY64: ${WAMR_BUILD_MEMORY64}\n"
+"       \"Multiple memories\" via WAMR_BUILD_MULTI_MEMORY: ${WAMR_BUILD_MULTI_MEMORY}\n"
+"       \"Reference Types\" via WAMR_BUILD_REF_TYPES: ${WAMR_BUILD_REF_TYPES}\n"
+"       \"Reference-Typed Strings\" via WAMR_BUILD_STRINGREF: ${WAMR_BUILD_STRINGREF}\n"
+"       \"Tail call\" via WAMR_BUILD_TAIL_CALL: ${WAMR_BUILD_TAIL_CALL}\n"
+"       \"Threads\" via WAMR_BUILD_SHARED_MEMORY: ${WAMR_BUILD_SHARED_MEMORY}\n"
+"       \"Typed Function References\" via WAMR_BUILD_GC: ${WAMR_BUILD_GC}\n"
+"     Unsupported (>= Phase4):\n"
+"       \"Branch Hinting\"\n"
+"       \"Custom Annotation Syntax in the Text Format\"\n"
+"       \"Exception handling\"\n"
+"       \"Import/Export of Mutable Globals\"\n"
+"       \"JS String Builtins\"\n"
+"       \"Relaxed SIMD\"\n"
+)
