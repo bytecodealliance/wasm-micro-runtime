@@ -496,25 +496,38 @@ is_app_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
     uint64 shared_heap_start, shared_heap_end;
 
     if (!heap) {
-        return false;
+        goto fail;
     }
 
     if (bytes == 0) {
         bytes = 1;
     }
 
-    for (cur = heap; cur; cur = cur->chain_next) {
-        shared_heap_start =
-            is_memory64 ? cur->start_off_mem64 : cur->start_off_mem32;
-        shared_heap_end = shared_heap_start - 1 + cur->size;
-        if (app_offset >= shared_heap_start
-            && app_offset <= shared_heap_end - bytes + 1) {
-            if (target_heap)
+    /* Early stop for app start address not in the shared heap(chain) at all */
+    shared_heap_start =
+        is_memory64 ? heap->start_off_mem64 : heap->start_off_mem32;
+    shared_heap_end = is_memory64 ? UINT64_MAX : UINT32_MAX;
+    if (app_offset < shared_heap_start
+        || app_offset > shared_heap_end - bytes + 1) {
+        goto fail;
+    }
+
+    /* Find the exact shared heap that app addr is in */
+    if (target_heap) {
+        for (cur = heap; cur; cur = cur->chain_next) {
+            shared_heap_start =
+                is_memory64 ? cur->start_off_mem64 : cur->start_off_mem32;
+            shared_heap_end = shared_heap_start - 1 + cur->size;
+            if (app_offset >= shared_heap_start
+                && app_offset <= shared_heap_end - bytes + 1) {
                 *target_heap = cur;
-            return true;
+                return true;
+            }
         }
     }
 
+    return true;
+fail:
     if (target_heap)
         *target_heap = NULL;
     return false;
@@ -529,7 +542,7 @@ is_native_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
     uintptr_t base_addr, addr_int, end_addr;
 
     if (!heap_head) {
-        return false;
+        goto fail;
     }
 
     /* Iterate through shared heap chain to find whether native addr in one of
@@ -553,6 +566,7 @@ is_native_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
         return true;
     }
 
+fail:
     if (target_heap)
         *target_heap = NULL;
     return false;
