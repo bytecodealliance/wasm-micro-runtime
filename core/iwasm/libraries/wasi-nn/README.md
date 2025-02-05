@@ -103,7 +103,6 @@ docker run \
     wasi-nn-cpu \
     --dir=/ \
     --env="TARGET=cpu" \
-    --native-lib=/lib/libwasi-nn-tflite.so \
     /assets/test_tensorflow.wasm
 ```
 
@@ -119,7 +118,6 @@ docker run \
     wasi-nn-nvidia-gpu \
     --dir=/ \
     --env="TARGET=gpu" \
-    --native-lib=/lib/libwasi-nn-tflite.so \
     /assets/test_tensorflow.wasm
 ```
 
@@ -131,7 +129,6 @@ docker run \
     wasi-nn-vx-delegate \
     --dir=/ \
     --env="TARGET=gpu" \
-    --native-lib=/lib/libwasi-nn-tflite.so \
     /assets/test_tensorflow_quantized.wasm
 ```
 
@@ -147,7 +144,6 @@ docker run \
     wasi-nn-tpu \
     --dir=/ \
     --env="TARGET=tpu" \
-    --native-lib=/lib/libwasi-nn-tflite.so \
     /assets/test_tensorflow_quantized.wasm
 ```
 
@@ -155,8 +151,8 @@ docker run \
 
 Supported:
 
-- Graph encoding: `tensorflowlite`.
-- Execution target: `cpu`, `gpu` and `tpu`.
+- Graph encoding: `tensorflowlite`, `openvino` and `ggml`
+- Execution target: `cpu` for all. `gpu` and `tpu` for `tensorflowlite`.
 - Tensor type: `fp32`.
 
 ## Smoke test

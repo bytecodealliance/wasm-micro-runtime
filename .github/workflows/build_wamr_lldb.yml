@@ -28,8 +28,13 @@ on:
         required: false
         default: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz"
 
+permissions:
+  contents: read
+
 jobs:
   try_reuse:
+    permissions:
+      contents: write # for uploading release artifacts
     uses: ./.github/workflows/reuse_latest_release_binaries.yml
     with:
       binary_name_stem: "wamr-lldb-${{ inputs.ver_num }}-${{ inputs.arch }}-${{ inputs.runner }}"
@@ -46,6 +51,9 @@ jobs:
       PYTHON_VERSION: '3.10'
       PYTHON_UBUNTU_STANDALONE_BUILD: https://github.com/indygreg/python-build-standalone/releases/download/20230507/cpython-3.10.11+20230507-x86_64-unknown-linux-gnu-install_only.tar.gz
       PYTHON_MACOS_STANDALONE_BUILD: https://github.com/indygreg/python-build-standalone/releases/download/20230507/cpython-3.10.11+20230507-x86_64-apple-darwin-install_only.tar.gz
+    permissions:
+      contents: write # for uploading release artifacts
+
     steps:
       - uses: actions/checkout@v4
 

@@ -420,13 +420,31 @@ is_native_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
                               uint8 *addr, uint32 bytes)
 {
     WASMSharedHeap *heap = get_shared_heap(module_inst);
+    uintptr_t base_addr;
+    uintptr_t addr_int;
+    uintptr_t end_addr;
 
-    if (heap && addr >= heap->base_addr
-        && addr + bytes <= heap->base_addr + heap->size
-        && addr + bytes > addr) {
-        return true;
+    if (!heap) {
+        return false;
     }
-    return false;
+
+    base_addr = (uintptr_t)heap->base_addr;
+    addr_int = (uintptr_t)addr;
+    if (addr_int < base_addr) {
+        return false;
+    }
+
+    end_addr = addr_int + bytes;
+    /* Check for overflow */
+    if (end_addr <= addr_int) {
+        return false;
+    }
+
+    if (end_addr > base_addr + heap->size) {
+        return false;
+    }
+
+    return true;
 }
 
 uint64
@@ -1579,8 +1597,7 @@ wasm_runtime_get_memory(WASMModuleInstanceCommon *module_inst, uint32 index)
 
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT)
-        return aot_get_memory_with_index((AOTModuleInstance *)module_inst,
-                                         index);
+        return aot_get_memory_with_idx((AOTModuleInstance *)module_inst, index);
 #endif
 
     return NULL;

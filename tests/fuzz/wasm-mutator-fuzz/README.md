@@ -19,6 +19,7 @@ $ wasm-tools help
 mkdir build && cd build
 # Without custom mutator (libfuzzer modify the buffer randomly)
 cmake ..
+# TODO: TBC. `wasm-tools mutate` is not supported yet
 # With custom mutator (wasm-tools mutate)
 cmake .. -DCUSTOM_MUTATOR=1
 make -j$(nproc)

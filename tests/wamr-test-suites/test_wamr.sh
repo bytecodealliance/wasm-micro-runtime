@@ -269,16 +269,12 @@ readonly WAMRC_CMD_DEFAULT="${WAMR_DIR}/wamr-compiler/build/wamrc"
 readonly CLASSIC_INTERP_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=0 \
-    -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0"
 
 readonly FAST_INTERP_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=1 \
-    -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0"
 
 # jit: report linking error if set COLLECT_CODE_COVERAGE,
 #      now we don't collect code coverage of jit type
@@ -286,39 +282,29 @@ readonly ORC_EAGER_JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_AOT=1 \
-    -DWAMR_BUILD_LAZY_JIT=0 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    -DWAMR_BUILD_LAZY_JIT=0"
 
 readonly ORC_LAZY_JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_AOT=1 \
-    -DWAMR_BUILD_LAZY_JIT=1 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    -DWAMR_BUILD_LAZY_JIT=1"
 
 readonly AOT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
-    -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=1 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=1"
 
 readonly FAST_JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0 \
-    -DWAMR_BUILD_FAST_JIT=1 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    -DWAMR_BUILD_FAST_JIT=1"
 
 readonly MULTI_TIER_JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=0 \
-    -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1"
 
 readonly COMPILE_FLAGS=(
         "${CLASSIC_INTERP_COMPILE_FLAGS}"
@@ -375,7 +361,7 @@ function sightglass_test()
 
 function setup_wabt()
 {
-    WABT_VERSION=1.0.34
+    WABT_VERSION=1.0.36
     if [ ${WABT_BINARY_RELEASE} == "YES" ]; then
         echo "download a binary release and install"
         local WAT2WASM=${WORK_DIR}/wabt/out/gcc/Release/wat2wasm
@@ -384,7 +370,7 @@ function setup_wabt()
                 cosmopolitan)
                     ;;
                 linux)
-                    WABT_PLATFORM=ubuntu
+                    WABT_PLATFORM=ubuntu-20.04
                     ;;
                 darwin)
                     WABT_PLATFORM=macos-12
@@ -481,8 +467,8 @@ function spec_test()
         git clone -b main --single-branch https://github.com/WebAssembly/gc.git spec
         pushd spec
 
-        # Reset to commit: "[test] Unify the error message."
-        git reset --hard 0caaadc65b5e1910512d8ae228502edcf9d60390
+        #  Dec 9, 2024. Merge branch 'funcref'
+        git reset --hard 756060f5816c7e2159f4817fbdee76cf52f9c923
         git apply ../../spec-test-script/gc_ignore_cases.patch || exit 1
 
         if [[ ${ENABLE_QEMU} == 1 ]]; then
@@ -491,6 +477,13 @@ function spec_test()
             git apply ../../spec-test-script/gc_nuttx_tail_call.patch || exit 1
         fi
 
+        # As of version 1.0.36, wabt is still unable to correctly handle the GC proposal.
+        # 
+        # $ $ /opt/wabt-1.0.36/bin/wast2json --enable-all ../spec/test/core/br_if.wast
+        # 
+        # ../spec/test/core/br_if.wast:670:26: error: unexpected token "null", expected a numeric index or a name (e.g. 12 or $foo).
+        #     (func $f (param (ref null $t)) (result funcref) (local.get 0))
+        #
         compile_reference_interpreter
     elif [[ ${ENABLE_MEMORY64} == 1 ]]; then
         echo "checkout spec for memory64 proposal"
@@ -502,6 +495,8 @@ function spec_test()
         # Reset to commit: "Merge remote-tracking branch 'upstream/main' into merge2"
         git reset --hard 48e69f394869c55b7bbe14ac963c09f4605490b6
         git checkout 044d0d2e77bdcbe891f7e0b9dd2ac01d56435f0b -- test/core/elem.wast test/core/data.wast
+        # Patch table64 extension
+        git checkout 940398cd4823522a9b36bec4984be4b153dedb81 -- test/core/call_indirect.wast test/core/table.wast test/core/table_copy.wast test/core/table_copy_mixed.wast test/core/table_fill.wast test/core/table_get.wast test/core/table_grow.wast test/core/table_init.wast test/core/table_set.wast test/core/table_size.wast
         git apply ../../spec-test-script/memory64_ignore_cases.patch || exit 1
     elif [[ ${ENABLE_MULTI_MEMORY} == 1 ]]; then
         echo "checkout spec for multi memory proposal"
@@ -523,8 +518,8 @@ function spec_test()
         git clone -b main --single-branch https://github.com/WebAssembly/spec
         pushd spec
 
-        # Apr 3, 2024 [js-api] Integrate with the ResizableArrayBuffer proposal (#1300)
-        git reset --hard bc76fd79cfe61033d7f4ad4a7e8fc4f996dc5ba8
+        # Dec 20, 2024. Use WPT version of test harness for HTML core test conversion (#1859)
+        git reset --hard f3a0e06235d2d84bb0f3b5014da4370613886965
         git apply ../../spec-test-script/ignore_cases.patch || exit 1
         if [[ ${ENABLE_SIMD} == 1 ]]; then
             git apply ../../spec-test-script/simd_ignore_cases.patch || exit 1
@@ -831,7 +826,9 @@ function build_wamrc()
         && ./${BUILD_LLVM_SH} \
         && if [ -d build ]; then rm -r build/*; else mkdir build; fi \
         && cd build \
-        && cmake .. -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE} \
+        && cmake .. \
+             -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE} \
+             -DWAMR_BUILD_SHRUNK_MEMORY=0 \
         && make -j 4
 }
 
@@ -960,6 +957,11 @@ function trigger()
     fi
 
     local EXTRA_COMPILE_FLAGS=""
+    # for spec test
+    EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SPEC_TEST=1"
+    EXTRA_COMPILE_FLAGS+=" -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SHRUNK_MEMORY=0"
+
     # default enabled features
     EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_BULK_MEMORY=1"
     EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=1"

@@ -92,37 +92,28 @@ destroy_module_env(struct ret_env module_env)
     }
 }
 
-TEST_F(shared_heap_test, test_shared_heap)
+static void test_shared_heap(WASMSharedHeap *shared_heap, const char *file, const char *func_name, uint32 argc, uint32 argv[])
 {
     struct ret_env tmp_module_env;
     WASMFunctionInstanceCommon *func_test = nullptr;
     bool ret = false;
-    uint32 argv[1] = { 65535 };
     const char *exception = nullptr;
-    SharedHeapInitArgs args;
-    WASMSharedHeap *shared_heap = nullptr;
 
-    args.size = 1024;
-    shared_heap = wasm_runtime_create_shared_heap(&args);
-    tmp_module_env = load_wasm((char *)"test.wasm", 0);
+    tmp_module_env = load_wasm((char *)file, 0);
 
-    if (!shared_heap) {
-        printf("Failed to create shared heap\n");
-        goto test_failed;
-    }
     if (!wasm_runtime_attach_shared_heap(tmp_module_env.wasm_module_inst, shared_heap)) {
         printf("Failed to attach shared heap\n");
         goto test_failed;
     }
-    func_test = wasm_runtime_lookup_function(
-        tmp_module_env.wasm_module_inst, "test");
+    func_test = wasm_runtime_lookup_function(tmp_module_env.wasm_module_inst,
+                                             func_name);
     if (!func_test) {
         printf("\nFailed to wasm_runtime_lookup_function!\n");
         goto test_failed;
     }
 
     ret =
-        wasm_runtime_call_wasm(tmp_module_env.exec_env, func_test, 1, argv);
+        wasm_runtime_call_wasm(tmp_module_env.exec_env, func_test, argc, argv);
     if (!ret) {
         printf("\nFailed to wasm_runtime_call_wasm!\n");
         const char *s = wasm_runtime_get_exception(tmp_module_env.wasm_module_inst);
@@ -131,12 +122,119 @@ TEST_F(shared_heap_test, test_shared_heap)
     }
 
     wasm_runtime_detach_shared_heap(tmp_module_env.wasm_module_inst);
-
-    EXPECT_EQ(10, argv[0]);
-
     destroy_module_env(tmp_module_env);
     return;
 test_failed:
     destroy_module_env(tmp_module_env);
     EXPECT_EQ(1, 0);
+}
+
+TEST_F(shared_heap_test, test_shared_heap_basic)
+{
+    SharedHeapInitArgs args;
+    WASMSharedHeap *shared_heap = nullptr;
+    uint32 argv[1] = { 0 };
+
+    args.size = 1024;
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+
+    if (!shared_heap) {
+        printf("Failed to create shared heap\n");
+        EXPECT_EQ(1, 0);
+    }
+
+    // test wasm
+    test_shared_heap(shared_heap, "test.wasm", "test", 1, argv);
+    EXPECT_EQ(10, argv[0]);
+
+    // test aot
+    test_shared_heap(shared_heap, "test.aot", "test", 1, argv);
+    EXPECT_EQ(10, argv[0]);
+
+}
+
+TEST_F(shared_heap_test, test_shared_heap_malloc_fail)
+{
+    SharedHeapInitArgs args;
+    WASMSharedHeap *shared_heap = nullptr;
+    uint32 argv[1] = { 0 };
+
+    args.size = 1024;
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+
+    if (!shared_heap) {
+        printf("Failed to create shared heap\n");
+        EXPECT_EQ(1, 0);
+    }
+
+    // test wasm
+    test_shared_heap(shared_heap, "test.wasm", "test_malloc_fail", 1, argv);
+    EXPECT_EQ(1, argv[0]);
+
+    // test aot
+    test_shared_heap(shared_heap, "test.aot", "test_malloc_fail", 1, argv);
+    EXPECT_EQ(1, argv[0]);
+}
+
+#ifndef native_function
+#define native_function(func_name, signature) \
+    { #func_name, (void *)glue_##func_name, signature, NULL }
+
+#endif
+#ifndef nitems
+#define nitems(_a) (sizeof(_a) / sizeof(0 [(_a)]))
+#endif /* nitems */
+uintptr_t glue_test_addr_conv(wasm_exec_env_t env, uintptr_t addr)
+{
+  wasm_module_inst_t module_inst = get_module_inst(env);
+  uintptr_t ret;
+  void *native_addr = (void *)addr;
+  uintptr_t app_addr = addr_native_to_app(native_addr);
+
+  native_addr = addr_app_to_native(app_addr);
+  if (native_addr != (void *)addr)
+  {
+    EXPECT_EQ(1, 0);
+  }
+  return app_addr;
+}
+
+static NativeSymbol g_test_native_symbols[] =
+{
+  native_function(test_addr_conv,"(*)i"),
+};
+
+TEST_F(shared_heap_test, test_addr_conv)
+{
+    SharedHeapInitArgs args;
+    WASMSharedHeap *shared_heap = nullptr;
+    uint32 argv[1] = { 0 };
+    struct ret_env tmp_module_env;
+    WASMFunctionInstanceCommon *func_test = nullptr;
+    bool ret = false;
+    const char *exception = nullptr;
+    wasm_module_inst_t module_inst = tmp_module_env.wasm_module_inst;
+
+    ret = wasm_native_register_natives("env", g_test_native_symbols,
+                                       nitems(g_test_native_symbols));
+    if (!ret)
+    {
+        EXPECT_EQ(1, 0);
+        return;
+    }
+
+    args.size = 1024;
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+    if (!shared_heap) {
+        printf("Failed to create shared heap\n");
+        EXPECT_EQ(1, 0);
+    }
+
+    // test wasm
+    test_shared_heap(shared_heap, "test_addr_conv.wasm", "test", 1, argv);
+    EXPECT_EQ(1, argv[0]);
+
+    // test aot
+    test_shared_heap(shared_heap, "test_addr_conv.aot", "test", 1, argv);
+    EXPECT_EQ(1, argv[0]);
 }

@@ -358,7 +358,6 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
     PEXCEPTION_RECORD ExceptionRecord = exce_info->ExceptionRecord;
     uint8 *sig_addr = (uint8 *)ExceptionRecord->ExceptionInformation[1];
     WASMModuleInstance *module_inst;
-    WASMMemoryInstance *memory_inst;
     WASMJmpBuf *jmpbuf_node;
     uint8 *mapped_mem_start_addr = NULL;
     uint8 *mapped_mem_end_addr = NULL;
@@ -2226,6 +2225,13 @@ wasm_runtime_get_user_data(WASMExecEnv *exec_env)
     return exec_env->user_data;
 }
 
+void
+wasm_runtime_set_native_stack_boundary(WASMExecEnv *exec_env,
+                                       uint8 *native_stack_boundary)
+{
+    exec_env->user_native_stack_boundary = native_stack_boundary;
+}
+
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 void
 wasm_runtime_access_exce_check_guard_page()
@@ -3008,9 +3014,9 @@ static const char *exception_msgs[] = {
     "wasm operand stack overflow",    /* EXCE_OPERAND_STACK_OVERFLOW */
     "failed to compile fast jit function", /* EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC */
     /* GC related exceptions */
-    "null function object",           /* EXCE_NULL_FUNC_OBJ */
-    "null structure object",          /* EXCE_NULL_STRUCT_OBJ */
-    "null array reference",              /* EXCE_NULL_ARRAY_OBJ */
+    "null function reference",        /* EXCE_NULL_FUNC_OBJ */
+    "null structure reference",       /* EXCE_NULL_STRUCT_OBJ */
+    "null array reference",           /* EXCE_NULL_ARRAY_OBJ */
     "null i31 reference",             /* EXCE_NULL_I31_OBJ */
     "null reference",                 /* EXCE_NULL_REFERENCE */
     "create rtt type failed",         /* EXCE_FAILED_TO_CREATE_RTT_TYPE */
@@ -3018,7 +3024,7 @@ static const char *exception_msgs[] = {
     "create array object failed",     /* EXCE_FAILED_TO_CREATE_ARRAY_OBJ */
     "create externref object failed", /* EXCE_FAILED_TO_CREATE_EXTERNREF_OBJ */
     "cast failure",                   /* EXCE_CAST_FAILURE */
-    "out of bounds array access",      /* EXCE_ARRAY_IDX_OOB */
+    "out of bounds array access",     /* EXCE_ARRAY_IDX_OOB */
     /* stringref related exceptions */
     "create string object failed",    /* EXCE_FAILED_TO_CREATE_STRING */
     "create stringref failed",        /* EXCE_FAILED_TO_CREATE_STRINGREF */
@@ -3611,7 +3617,8 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         char mapping_copy_buf[256];
         char *mapping_copy = mapping_copy_buf;
         char *map_mapped = NULL, *map_host = NULL;
-        const unsigned long max_len = strlen(map_dir_list[i]) * 2 + 3;
+        const unsigned long max_len =
+            (unsigned long)strlen(map_dir_list[i]) * 2 + 3;
 
         /* Allocation limit for runtime environments with reduced stack size */
         if (max_len > 256) {
@@ -3624,8 +3631,14 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
 
         bh_memcpy_s(mapping_copy, max_len, map_dir_list[i],
                     (uint32)(strlen(map_dir_list[i]) + 1));
-        map_mapped = strtok(mapping_copy, "::");
-        map_host = strtok(NULL, "::");
+
+        const char *delim = "::";
+        char *delim_pos = strstr(mapping_copy, delim);
+        if (delim_pos) {
+            *delim_pos = '\0';
+            map_mapped = mapping_copy;
+            map_host = delim_pos + strlen(delim);
+        }
 
         if (!map_mapped || !map_host) {
             if (error_buf)
@@ -3901,23 +3914,18 @@ wasm_runtime_is_wasi_mode(WASMModuleInstanceCommon *module_inst)
 WASMFunctionInstanceCommon *
 wasm_runtime_lookup_wasi_start_function(WASMModuleInstanceCommon *module_inst)
 {
-    uint32 i;
-
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
         WASMModuleInstance *wasm_inst = (WASMModuleInstance *)module_inst;
-        WASMFunctionInstance *func;
-        for (i = 0; i < wasm_inst->export_func_count; i++) {
-            if (!strcmp(wasm_inst->export_functions[i].name, "_start")) {
-                func = wasm_inst->export_functions[i].function;
-                if (func->u.func->func_type->param_count != 0
-                    || func->u.func->func_type->result_count != 0) {
-                    LOG_ERROR("Lookup wasi _start function failed: "
-                              "invalid function type.\n");
-                    return NULL;
-                }
-                return (WASMFunctionInstanceCommon *)func;
+        WASMFunctionInstance *func = wasm_lookup_function(wasm_inst, "_start");
+        if (func) {
+            if (func->u.func->func_type->param_count != 0
+                || func->u.func->func_type->result_count != 0) {
+                LOG_ERROR("Lookup wasi _start function failed: "
+                          "invalid function type.\n");
+                return NULL;
             }
+            return (WASMFunctionInstanceCommon *)func;
         }
         return NULL;
     }
@@ -3926,19 +3934,15 @@ wasm_runtime_lookup_wasi_start_function(WASMModuleInstanceCommon *module_inst)
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
         AOTModuleInstance *aot_inst = (AOTModuleInstance *)module_inst;
-        AOTFunctionInstance *export_funcs =
-            (AOTFunctionInstance *)aot_inst->export_functions;
-        for (i = 0; i < aot_inst->export_func_count; i++) {
-            if (!strcmp(export_funcs[i].func_name, "_start")) {
-                AOTFuncType *func_type = export_funcs[i].u.func.func_type;
-                if (func_type->param_count != 0
-                    || func_type->result_count != 0) {
-                    LOG_ERROR("Lookup wasi _start function failed: "
-                              "invalid function type.\n");
-                    return NULL;
-                }
-                return (WASMFunctionInstanceCommon *)&export_funcs[i];
+        AOTFunctionInstance *func = aot_lookup_function(aot_inst, "_start");
+        if (func) {
+            AOTFuncType *func_type = func->u.func.func_type;
+            if (func_type->param_count != 0 || func_type->result_count != 0) {
+                LOG_ERROR("Lookup wasi _start function failed: "
+                          "invalid function type.\n");
+                return NULL;
             }
+            return func;
         }
         return NULL;
     }
@@ -4262,31 +4266,68 @@ wasm_runtime_get_export_type(WASMModuleCommon *const module, int32 export_index,
         export_type->kind = aot_export->kind;
         switch (export_type->kind) {
             case WASM_IMPORT_EXPORT_KIND_FUNC:
-                export_type->u.func_type =
-                    (AOTFuncType *)aot_module
-                        ->types[aot_module->func_type_indexes
-                                    [aot_export->index
-                                     - aot_module->import_func_count]];
+            {
+                if (aot_export->index < aot_module->import_func_count) {
+                    export_type->u.func_type =
+                        (AOTFuncType *)aot_module
+                            ->import_funcs[aot_export->index]
+                            .func_type;
+                }
+                else {
+                    export_type->u.func_type =
+                        (AOTFuncType *)aot_module
+                            ->types[aot_module->func_type_indexes
+                                        [aot_export->index
+                                         - aot_module->import_func_count]];
+                }
                 break;
+            }
             case WASM_IMPORT_EXPORT_KIND_GLOBAL:
-                export_type->u.global_type =
-                    &aot_module
-                         ->globals[aot_export->index
-                                   - aot_module->import_global_count]
-                         .type;
+            {
+                if (aot_export->index < aot_module->import_global_count) {
+                    export_type->u.global_type =
+                        &aot_module->import_globals[aot_export->index].type;
+                }
+                else {
+                    export_type->u.global_type =
+                        &aot_module
+                             ->globals[aot_export->index
+                                       - aot_module->import_global_count]
+                             .type;
+                }
                 break;
+            }
             case WASM_IMPORT_EXPORT_KIND_TABLE:
-                export_type->u.table_type =
-                    &aot_module
-                         ->tables[aot_export->index
-                                  - aot_module->import_table_count]
-                         .table_type;
+            {
+                if (aot_export->index < aot_module->import_table_count) {
+                    export_type->u.table_type =
+                        &aot_module->import_tables[aot_export->index]
+                             .table_type;
+                }
+                else {
+                    export_type->u.table_type =
+                        &aot_module
+                             ->tables[aot_export->index
+                                      - aot_module->import_table_count]
+                             .table_type;
+                }
                 break;
+            }
             case WASM_IMPORT_EXPORT_KIND_MEMORY:
-                export_type->u.memory_type =
-                    &aot_module->memories[aot_export->index
-                                          - aot_module->import_memory_count];
+            {
+                if (aot_export->index < aot_module->import_memory_count) {
+                    export_type->u.memory_type =
+                        &aot_module->import_memories[aot_export->index]
+                             .mem_type;
+                }
+                else {
+                    export_type->u.memory_type =
+                        &aot_module
+                             ->memories[aot_export->index
+                                        - aot_module->import_memory_count];
+                }
                 break;
+            }
             default:
                 bh_assert(0);
                 break;
@@ -4308,31 +4349,76 @@ wasm_runtime_get_export_type(WASMModuleCommon *const module, int32 export_index,
         export_type->kind = wasm_export->kind;
         switch (export_type->kind) {
             case WASM_IMPORT_EXPORT_KIND_FUNC:
-                export_type->u.func_type =
-                    wasm_module
-                        ->functions[wasm_export->index
-                                    - wasm_module->import_function_count]
-                        ->func_type;
+            {
+                if (wasm_export->index < wasm_module->import_function_count) {
+                    export_type->u.func_type =
+                        (WASMFuncType *)wasm_module
+                            ->import_functions[wasm_export->index]
+                            .u.function.func_type;
+                }
+                else {
+                    export_type->u.func_type =
+                        wasm_module
+                            ->functions[wasm_export->index
+                                        - wasm_module->import_function_count]
+                            ->func_type;
+                }
+
                 break;
+            }
             case WASM_IMPORT_EXPORT_KIND_GLOBAL:
-                export_type->u.global_type =
-                    &wasm_module
-                         ->globals[wasm_export->index
-                                   - wasm_module->import_global_count]
-                         .type;
+            {
+                if (wasm_export->index < wasm_module->import_global_count) {
+                    export_type->u.global_type =
+                        (WASMGlobalType *)&wasm_module
+                            ->import_globals[wasm_export->index]
+                            .u.global.type;
+                }
+                else {
+                    export_type->u.global_type =
+                        &wasm_module
+                             ->globals[wasm_export->index
+                                       - wasm_module->import_global_count]
+                             .type;
+                }
+
                 break;
+            }
             case WASM_IMPORT_EXPORT_KIND_TABLE:
-                export_type->u.table_type =
-                    &wasm_module
-                         ->tables[wasm_export->index
-                                  - wasm_module->import_table_count]
-                         .table_type;
+            {
+                if (wasm_export->index < wasm_module->import_table_count) {
+                    export_type->u.table_type =
+                        (WASMTableType *)&wasm_module
+                            ->import_tables[wasm_export->index]
+                            .u.table.table_type;
+                }
+                else {
+                    export_type->u.table_type =
+                        &wasm_module
+                             ->tables[wasm_export->index
+                                      - wasm_module->import_table_count]
+                             .table_type;
+                }
+
                 break;
+            }
             case WASM_IMPORT_EXPORT_KIND_MEMORY:
-                export_type->u.memory_type =
-                    &wasm_module->memories[wasm_export->index
-                                           - wasm_module->import_memory_count];
+            {
+                if (wasm_export->index < wasm_module->import_memory_count) {
+                    export_type->u.memory_type =
+                        (WASMMemoryType *)&wasm_module
+                            ->import_memories[wasm_export->index]
+                            .u.memory.mem_type;
+                }
+                else {
+                    export_type->u.memory_type =
+                        &wasm_module
+                             ->memories[wasm_export->index
+                                        - wasm_module->import_memory_count];
+                }
+
                 break;
+            }
             default:
                 bh_assert(0);
                 break;

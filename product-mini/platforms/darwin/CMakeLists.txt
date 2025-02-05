@@ -91,6 +91,11 @@ if (NOT DEFINED WAMR_BUILD_SIMD)
   set (WAMR_BUILD_SIMD 1)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_REF_TYPES)
+  # Enable reference types by default
+  set (WAMR_BUILD_REF_TYPES 1)
+endif ()
+
 if (NOT DEFINED WAMR_BUILD_DEBUG_INTERP)
   # Disable Debug feature by default
   set (WAMR_BUILD_DEBUG_INTERP 0)

@@ -2746,10 +2746,6 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
         /* verify external llc compiler */
         comp_ctx->external_llc_compiler = getenv("WAMRC_LLC_COMPILER");
         if (comp_ctx->external_llc_compiler) {
-#if defined(_WIN32) || defined(_WIN32_)
-            comp_ctx->external_llc_compiler = NULL;
-            LOG_WARNING("External LLC compiler not supported on Windows.");
-#else
             if (access(comp_ctx->external_llc_compiler, X_OK) != 0) {
                 LOG_WARNING("WAMRC_LLC_COMPILER [%s] not found, fallback to "
                             "default pipeline",
@@ -2761,17 +2757,12 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
                 LOG_VERBOSE("Using external LLC compiler [%s]",
                             comp_ctx->external_llc_compiler);
             }
-#endif
         }
 
         /* verify external asm compiler */
         if (!comp_ctx->external_llc_compiler) {
             comp_ctx->external_asm_compiler = getenv("WAMRC_ASM_COMPILER");
             if (comp_ctx->external_asm_compiler) {
-#if defined(_WIN32) || defined(_WIN32_)
-                comp_ctx->external_asm_compiler = NULL;
-                LOG_WARNING("External ASM compiler not supported on Windows.");
-#else
                 if (access(comp_ctx->external_asm_compiler, X_OK) != 0) {
                     LOG_WARNING(
                         "WAMRC_ASM_COMPILER [%s] not found, fallback to "
@@ -2784,7 +2775,6 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
                     LOG_VERBOSE("Using external ASM compiler [%s]",
                                 comp_ctx->external_asm_compiler);
                 }
-#endif
             }
         }
 

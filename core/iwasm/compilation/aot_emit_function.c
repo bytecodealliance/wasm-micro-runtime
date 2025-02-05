@@ -1832,6 +1832,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 aot_set_last_error("llvm build load failed.");
                 goto fail;
             }
+            LLVMSetAlignment(ext_ret, 4);
             PUSH(ext_ret, ext_ret_types[i]);
         }
     }
@@ -2068,6 +2069,7 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             aot_set_last_error("llvm build load failed.");
             return false;
         }
+        LLVMSetAlignment(value_rets[i], 4);
         cell_num += wasm_value_type_cell_num_internal(wasm_ret_types[i],
                                                       comp_ctx->pointer_size);
     }
@@ -2089,6 +2091,9 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef ext_ret_offset, ext_ret_ptr, ext_ret, res;
     LLVMValueRef *param_values = NULL, *value_rets = NULL;
     LLVMValueRef *result_phis = NULL, value_ret, import_func_count;
+#if WASM_ENABLE_MEMORY64 != 0
+    LLVMValueRef u32_max, u32_cmp_result = NULL;
+#endif
     LLVMTypeRef *param_types = NULL, ret_type;
     LLVMTypeRef llvm_func_type, llvm_func_ptr_type;
     LLVMTypeRef ext_ret_ptr_type;
@@ -2153,7 +2158,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     func_param_count = func_type->param_count;
     func_result_count = func_type->result_count;
 
-    POP_I32(elem_idx);
+    POP_TBL_ELEM_IDX(elem_idx);
 
     /* get the cur size of the table instance */
     if (!(offset = I32_CONST(get_tbl_inst_offset(comp_ctx, func_ctx, tbl_idx)
@@ -2182,6 +2187,27 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
+#if WASM_ENABLE_MEMORY64 != 0
+    /* Check if elem index >= UINT32_MAX */
+    if (IS_TABLE64(tbl_idx)) {
+        if (!(u32_max = I64_CONST(UINT32_MAX))) {
+            aot_set_last_error("llvm build const failed");
+            goto fail;
+        }
+        if (!(u32_cmp_result =
+                  LLVMBuildICmp(comp_ctx->builder, LLVMIntUGE, elem_idx,
+                                u32_max, "cmp_elem_idx_u32_max"))) {
+            aot_set_last_error("llvm build icmp failed.");
+            goto fail;
+        }
+        if (!(elem_idx = LLVMBuildTrunc(comp_ctx->builder, elem_idx, I32_TYPE,
+                                        "elem_idx_i32"))) {
+            aot_set_last_error("llvm build trunc failed.");
+            goto fail;
+        }
+    }
+#endif
+
     /* Check if (uint32)elem index >= table size */
     if (!(cmp_elem_idx = LLVMBuildICmp(comp_ctx->builder, LLVMIntUGE, elem_idx,
                                        table_size_const, "cmp_elem_idx"))) {
@@ -2189,7 +2215,19 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    /* Throw exception if elem index >= table size */
+#if WASM_ENABLE_MEMORY64 != 0
+    if (IS_TABLE64(tbl_idx)) {
+        if (!(cmp_elem_idx =
+                  LLVMBuildOr(comp_ctx->builder, cmp_elem_idx, u32_cmp_result,
+                              "larger_than_u32_max_or_cur_size"))) {
+            aot_set_last_error("llvm build or failed.");
+            goto fail;
+        }
+    }
+#endif
+
+    /* Throw exception if elem index >= table size or elem index >= UINT32_MAX
+     */
     if (!(check_elem_idx_succ = LLVMAppendBasicBlockInContext(
               comp_ctx->context, func_ctx->func, "check_elem_idx_succ"))) {
         aot_set_last_error("llvm add basic block failed.");
@@ -2663,6 +2701,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 aot_set_last_error("llvm build load failed.");
                 goto fail;
             }
+            LLVMSetAlignment(ext_ret, 4);
             LLVMAddIncoming(result_phis[i], &ext_ret, &block_curr, 1);
         }
     }
@@ -3094,6 +3133,7 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 aot_set_last_error("llvm build load failed.");
                 goto fail;
             }
+            LLVMSetAlignment(ext_ret, 4);
             LLVMAddIncoming(result_phis[i], &ext_ret, &block_curr, 1);
         }
     }
@@ -3169,6 +3209,7 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 aot_set_last_error("llvm build load failed.");
                 goto fail;
             }
+            LLVMSetAlignment(ext_ret, 4);
             LLVMAddIncoming(result_phis[i], &ext_ret, &block_curr, 1);
         }
     }

@@ -109,6 +109,13 @@ typedef struct AOTFunctionInstance {
     } u;
 } AOTFunctionInstance;
 
+/* Map of a function index to the element ith in
+   the export functions array */
+typedef struct ExportFuncMap {
+    uint32 func_idx;
+    uint32 export_idx;
+} ExportFuncMap;
+
 typedef struct AOTModuleInstanceExtra {
     DefPointer(const uint32 *, stack_sizes);
     /*
@@ -120,6 +127,13 @@ typedef struct AOTModuleInstanceExtra {
     MemBound shared_heap_start_off;
 
     WASMModuleInstanceExtraCommon common;
+
+    /**
+     * maps of func indexes to export func indexes, which
+     * is sorted by func index for a quick lookup and is
+     * created only when first time used.
+     */
+    ExportFuncMap *export_func_maps;
     AOTFunctionInstance **functions;
     uint32 function_count;
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -556,6 +570,13 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst);
 AOTFunctionInstance *
 aot_lookup_function(const AOTModuleInstance *module_inst, const char *name);
 
+/**
+ * Lookup an exported function in the AOT module instance with
+ * the function index.
+ */
+AOTFunctionInstance *
+aot_lookup_function_with_idx(AOTModuleInstance *module_inst, uint32 func_idx);
+
 AOTMemoryInstance *
 aot_lookup_memory(AOTModuleInstance *module_inst, char const *name);
 
@@ -563,7 +584,7 @@ AOTMemoryInstance *
 aot_get_default_memory(AOTModuleInstance *module_inst);
 
 AOTMemoryInstance *
-aot_get_memory_with_index(AOTModuleInstance *module_inst, uint32 index);
+aot_get_memory_with_idx(AOTModuleInstance *module_inst, uint32 mem_idx);
 
 /**
  * Get a function in the AOT module instance.
@@ -574,7 +595,7 @@ aot_get_memory_with_index(AOTModuleInstance *module_inst, uint32 index);
  * @return the function instance found
  */
 AOTFunctionInstance *
-aot_get_function_instance(AOTModuleInstance *module_inst, uint32_t func_idx);
+aot_get_function_instance(AOTModuleInstance *module_inst, uint32 func_idx);
 
 /**
  * Call the given AOT function of a AOT module instance with

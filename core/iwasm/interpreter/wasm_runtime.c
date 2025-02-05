@@ -678,6 +678,8 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
            uninitialized elements */
 #endif
 
+        table->is_table64 = import->u.table.table_type.flags & TABLE64_FLAG;
+
 #if WASM_ENABLE_MULTI_MODULE != 0
         *table_linked = table_inst_linked;
         if (table_inst_linked != NULL) {
@@ -736,6 +738,7 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         /* For GC, all elements have already been set to NULL_REF (0) as
            uninitialized elements */
 #endif
+        table->is_table64 = module->tables[i].table_type.flags & TABLE64_FLAG;
         table->elem_type = module->tables[i].table_type.elem_type;
 #if WASM_ENABLE_GC != 0
         table->elem_ref_type.elem_ref_type =
@@ -1205,9 +1208,8 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
 
             /* The linked global instance has been initialized, we
                just need to copy the value. */
-            bh_memcpy_s(&(global->initial_value), sizeof(WASMValue),
-                        &(global_import->import_global_linked->init_expr),
-                        sizeof(WASMValue));
+            global->initial_value =
+                global_import->import_global_linked->init_expr.u;
         }
         else
 #endif
@@ -1364,6 +1366,17 @@ export_functions_deinstantiate(WASMExportFuncInstance *functions)
         wasm_runtime_free(functions);
 }
 
+static int
+cmp_export_func_inst(const void *a, const void *b)
+{
+    const WASMExportFuncInstance *export_func1 =
+        (const WASMExportFuncInstance *)a;
+    const WASMExportFuncInstance *export_func2 =
+        (const WASMExportFuncInstance *)b;
+
+    return strcmp(export_func1->name, export_func2->name);
+}
+
 /**
  * Instantiate export functions in a module.
  */
@@ -1392,6 +1405,9 @@ export_functions_instantiate(const WASMModule *module,
         }
 
     bh_assert((uint32)(export_func - export_funcs) == export_func_count);
+
+    qsort(export_funcs, export_func_count, sizeof(WASMExportFuncInstance),
+          cmp_export_func_inst);
     return export_funcs;
 }
 
@@ -1594,8 +1610,12 @@ execute_post_instantiate_functions(WASMModuleInstance *module_inst,
     if (is_sub_inst) {
         bh_assert(exec_env_main);
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-        bh_assert(exec_env_tls == exec_env_main);
-        (void)exec_env_tls;
+        /* May come from pthread_create_wrapper, thread_spawn_wrapper and
+           wasm_cluster_spawn_exec_env. If it comes from the former two,
+           the exec_env_tls must be not NULL and equal to exec_env_main,
+           else if it comes from the last one, it may be NULL. */
+        if (exec_env_tls)
+            bh_assert(exec_env_tls == exec_env_main);
 #endif
         exec_env = exec_env_main;
 
@@ -2446,7 +2466,8 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
             goto fail;
         }
         for (i = 0; i < module->table_seg_count; i++) {
-            if (wasm_elem_is_active(module->table_segments[i].mode))
+            if (wasm_elem_is_active(module->table_segments[i].mode)
+                || wasm_elem_is_declarative(module->table_segments[i].mode))
                 bh_bitmap_set_bit(module_inst->e->common.elem_dropped, i);
         }
     }
@@ -3413,11 +3434,20 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
 WASMFunctionInstance *
 wasm_lookup_function(const WASMModuleInstance *module_inst, const char *name)
 {
-    uint32 i;
-    for (i = 0; i < module_inst->export_func_count; i++)
-        if (!strcmp(module_inst->export_functions[i].name, name))
-            return module_inst->export_functions[i].function;
-    return NULL;
+    WASMExportFuncInstance key = { .name = (char *)name };
+    WASMExportFuncInstance *export_func_inst;
+
+    if (!module_inst->export_functions)
+        return NULL;
+
+    export_func_inst = bsearch(
+        &key, module_inst->export_functions, module_inst->export_func_count,
+        sizeof(WASMExportFuncInstance), cmp_export_func_inst);
+
+    if (!export_func_inst)
+        return NULL;
+
+    return export_func_inst->function;
 }
 
 WASMMemoryInstance *
@@ -4630,7 +4660,7 @@ llvm_jit_table_init(WASMModuleInstance *module_inst, uint32 tbl_idx,
             if (!(func_obj = wasm_create_func_obj(module_inst,
                                                   init_values[i].u.ref_index,
                                                   true, NULL, 0))) {
-                wasm_set_exception(module_inst, "null function object");
+                wasm_set_exception(module_inst, "null function reference");
                 return;
             }
             table_elems[i] = func_obj;

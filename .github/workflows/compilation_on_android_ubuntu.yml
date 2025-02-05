@@ -70,8 +70,14 @@ env:
   MEMORY64_TEST_OPTIONS: "-s spec -W -b -P"
   MULTI_MEMORY_TEST_OPTIONS: "-s spec -E -b -P"
 
+permissions:
+  contents: read
+
 jobs:
   build_llvm_libraries_on_ubuntu_2204:
+    permissions:
+      contents: read
+      actions: write
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
       os: "ubuntu-22.04"
@@ -150,6 +156,7 @@ jobs:
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
             "-DWAMR_BUILD_MEMORY64=1",
             "-DWAMR_BUILD_MULTI_MEMORY=1",
+            "-DWAMR_BUILD_SHARED=1",
           ]
         os: [ubuntu-22.04]
         platform: [android, linux]
@@ -246,6 +253,9 @@ jobs:
           - make_options_run_mode: $LLVM_LAZY_JIT_BUILD_OPTIONS
             platform: android
           - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
+            platform: android
+          # android does not support WAMR_BUILD_SHARED in its CMakeLists.txt.
+          - make_options_feature: "-DWAMR_BUILD_SHARED=1"
             platform: android
         include:
           - os: ubuntu-22.04
@@ -807,7 +817,7 @@ jobs:
 
       - name: install dependencies
         run: |
-          rustup target add wasm32-wasi
+          rustup target add wasm32-wasip1
           sudo apt update && sudo apt-get install -y lld ninja-build
           npm install
         working-directory: test-tools/wamr-ide/VSCode-Extension
@@ -822,7 +832,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake .. -DWAMR_BUILD_DEBUG_INTERP=1
+          cmake .. -DWAMR_BUILD_DEBUG_INTERP=1 -DWAMR_BUILD_REF_TYPES=1
           make
         working-directory: product-mini/platforms/linux
 

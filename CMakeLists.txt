@@ -8,7 +8,9 @@ if(ESP_PLATFORM)
   return()
 endif()
 
-project (iwasm)
+project (iwasm LANGUAGES C)
+
+set(CMAKE_CXX_STANDARD 17)
 
 set (CMAKE_VERBOSE_MAKEFILE OFF)
 
@@ -113,8 +115,8 @@ if (NOT DEFINED WAMR_BUILD_SIMD)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_REF_TYPES)
-  # Disable reference types by default
-  set (WAMR_BUILD_REF_TYPES 0)
+  # Enable reference types by default
+  set (WAMR_BUILD_REF_TYPES 1)
 endif ()
 
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
@@ -180,7 +182,7 @@ if (WAMR_BUILD_SHARED)
     add_library (iwasm_shared SHARED ${WAMR_RUNTIME_LIB_SOURCE})
     set_target_properties (iwasm_shared PROPERTIES OUTPUT_NAME iwasm)
     target_include_directories(iwasm_shared INTERFACE ${WAMR_ROOT_DIR}/core/iwasm/include)
-    target_link_libraries (iwasm_shared INTERFACE ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl ${CMAKE_THREAD_LIBS_INIT})
+    target_link_libraries (iwasm_shared PUBLIC ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl ${CMAKE_THREAD_LIBS_INIT})
     if (WAMR_BUILD_WASM_CACHE EQUAL 1)
       target_link_libraries(iwasm_shared INTERFACE boringssl_crypto)
     endif ()

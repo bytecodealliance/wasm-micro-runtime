@@ -393,16 +393,22 @@ os_thread_join(korp_tid thread, void **value_ptr)
     os_thread_data *thread_data;
     os_thread_wait_node *node;
 
+    /* Get thread data */
+    thread_data = thread_data_list_lookup(thread);
+
+    if (thread_data == NULL) {
+        os_printf(
+            "Can't join thread %p, probably already exited or does not exist",
+            thread);
+        return BHT_OK;
+    }
+
     /* Create wait node and append it to wait list */
     if (!(node = BH_MALLOC(sizeof(os_thread_wait_node))))
         return BHT_ERROR;
 
     sem_init(&node->sem, 0, 1);
     node->next = NULL;
-
-    /* Get thread data */
-    thread_data = thread_data_list_lookup(thread);
-    bh_assert(thread_data != NULL);
 
     mutex_lock(&thread_data->wait_list_lock, K_FOREVER);
     if (!thread_data->thread_wait_list)
