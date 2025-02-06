@@ -1367,7 +1367,7 @@ wasm_enlarge_memory_internal(WASMModuleInstanceCommon *module,
     if (!(memory_data_new =
               realloc_func(Alloc_For_LinearMemory, full_size_mmaped,
 #if WASM_MEM_ALLOC_WITH_USER_DATA != 0
-                           NULL,
+                           allocator_user_data,
 #endif
                            memory_data_old, total_size_new))) {
         ret = false;
@@ -1680,7 +1680,7 @@ wasm_deallocate_linear_memory(WASMMemoryInstance *memory_inst)
     (void)map_size;
     free_func(Alloc_For_LinearMemory,
 #if WASM_MEM_ALLOC_WITH_USER_DATA != 0
-              NULL,
+              allocator_user_data,
 #endif
               memory_inst->memory_data);
 #else
@@ -1733,7 +1733,7 @@ wasm_allocate_linear_memory(uint8 **data, bool is_shared_memory,
         (void)wasm_mmap_linear_memory;
         if (!(*data = malloc_func(Alloc_For_LinearMemory,
 #if WASM_MEM_ALLOC_WITH_USER_DATA != 0
-                                  NULL,
+                                  allocator_user_data,
 #endif
                                   *memory_data_size))) {
             return BHT_ERROR;
