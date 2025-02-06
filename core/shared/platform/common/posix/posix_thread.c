@@ -524,8 +524,20 @@ static uint32
 touch_pages(uint8 *stack_min_addr, uint32 page_size)
 {
     uint8 sum = 0;
+    bool protect_configured = false;
     while (1) {
         volatile uint8 *touch_addr = (volatile uint8 *)os_alloca(page_size / 2);
+
+        if (!protect_configured) {
+            if (os_mprotect(stack_min_addr,
+                            touch_addr + page_size / 2 - stack_min_addr,
+                            MMAP_PROT_READ | MMAP_PROT_WRITE)
+                != 0) {
+                return 0;
+            }
+            protect_configured = true;
+        }
+
         if (touch_addr < stack_min_addr + page_size) {
             sum += *(stack_min_addr + page_size - 1);
             break;
