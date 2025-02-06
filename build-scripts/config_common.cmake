@@ -134,6 +134,9 @@ endif ()
 # Version
 include (${WAMR_ROOT_DIR}/build-scripts/version.cmake)
 
+# Package
+include (${WAMR_ROOT_DIR}/build-scripts/package.cmake)
+
 # Sanitizers
 
 if (NOT DEFINED WAMR_BUILD_SANITIZER)

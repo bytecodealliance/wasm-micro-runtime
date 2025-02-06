@@ -182,6 +182,9 @@ set_target_properties (vmlib PROPERTIES PUBLIC_HEADER "${WAMR_PUBLIC_HEADERS}")
 set_version_info (vmlib)
 
 install (TARGETS vmlib
+  EXPORT iwasmTargets
   LIBRARY DESTINATION lib
   PUBLIC_HEADER DESTINATION include/iwasm
 )
+
+install_iwasm_package ()

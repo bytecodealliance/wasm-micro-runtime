@@ -192,9 +192,12 @@ set_target_properties (vmlib PROPERTIES
   POSITION_INDEPENDENT_CODE ON
 )
 
+target_link_libraries (vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
+
 install (TARGETS vmlib
+  EXPORT iwasmTargets
   DESTINATION lib
   PUBLIC_HEADER DESTINATION include/iwasm
 )
 
-target_link_libraries (vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
+install_iwasm_package ()
