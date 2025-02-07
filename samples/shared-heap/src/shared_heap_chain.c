@@ -253,7 +253,7 @@ main(int argc, char **argv)
     heap_init_args.size = 65536;
     shared_heap = wasm_runtime_create_shared_heap(&heap_init_args);
     if (!shared_heap) {
-        printf("Create shared heap failed. error: %s\n", error_buf);
+        printf("Create shared heap failed.\n");
         goto fail;
     }
 
@@ -263,13 +263,16 @@ main(int argc, char **argv)
     heap_init_args.size = BUF_SIZE;
     shared_heap2 = wasm_runtime_create_shared_heap(&heap_init_args);
     if (!shared_heap2) {
-        printf("Create preallocated shared heap failed. error: %s\n",
-               error_buf);
+        printf("Create preallocated shared heap failed\n");
         goto fail;
     }
 
     shared_heap_chain =
         wasm_runtime_chain_shared_heaps(shared_heap, shared_heap2);
+    if (!shared_heap_chain) {
+        printf("Create shared heap chain failed\n");
+        goto fail;
+    }
 
     /* attach module instance 1 to the shared heap */
     if (!wasm_runtime_attach_shared_heap(module_inst1, shared_heap_chain)) {

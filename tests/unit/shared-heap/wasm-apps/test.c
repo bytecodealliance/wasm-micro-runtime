@@ -32,3 +32,15 @@ test_malloc_fail()
     shared_heap_free(ptr);
     return 0;
 }
+
+void *
+my_shared_heap_malloc(int size)
+{
+    return shared_heap_malloc(size);
+}
+
+void
+my_shared_heap_free(void *addr)
+{
+    shared_heap_free(addr);
+}
