@@ -44,3 +44,19 @@ my_shared_heap_free(void *addr)
 {
     shared_heap_free(addr);
 }
+
+char
+read_modify_write_8(char *addr, char value)
+{
+    char original_value = *addr;
+    *addr = value;
+    return original_value;
+}
+
+short
+read_modify_write_16(short *addr, short value)
+{
+    short original_value = *addr;
+    *addr = value;
+    return original_value;
+}
