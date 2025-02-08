@@ -298,7 +298,7 @@ wasm_runtime_chain_shared_heaps(WASMSharedHeap *head, WASMSharedHeap *body)
 WASMSharedHeap *
 wasm_runtime_unchain_shared_heaps(WASMSharedHeap *head, bool entire_chain)
 {
-    WASMSharedHeap *cur;
+    WASMSharedHeap *cur, *tmp;
 
     if (!head || !head->chain_next) {
         LOG_WARNING("Invalid shared heap chain to disconnect the head from.");
@@ -313,9 +313,13 @@ wasm_runtime_unchain_shared_heaps(WASMSharedHeap *head, bool entire_chain)
         return NULL;
     }
 
-    for (cur = head; cur && cur->chain_next; cur = cur->chain_next) {
+    cur = head;
+    while (cur && cur->chain_next) {
         cur->start_off_mem64 = UINT64_MAX - cur->size + 1;
         cur->start_off_mem32 = UINT32_MAX - cur->size + 1;
+        tmp = cur;
+        cur = cur->chain_next;
+        tmp->chain_next = NULL;
         if (!entire_chain)
             break;
     }
