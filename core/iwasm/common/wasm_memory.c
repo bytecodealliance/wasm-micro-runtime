@@ -267,9 +267,10 @@ wasm_runtime_chain_shared_heaps(WASMSharedHeap *head, WASMSharedHeap *body)
         return NULL;
     }
     for (cur = shared_heap_list; cur; cur = cur->next) {
-        if (cur->chain_next == body) {
-            LOG_WARNING("To create shared heap chain, the `body` shared heap "
-                        "can't already be in a chain");
+        if (cur->chain_next == body || cur->chain_next == head) {
+            LOG_WARNING(
+                "To create shared heap chain, both the 'head' and 'body' "
+                "shared heap can't already be the 'body' in another a chain");
             os_mutex_unlock(&shared_heap_list_lock);
             return NULL;
         }
@@ -600,12 +601,10 @@ wasm_runtime_shared_heap_malloc(WASMModuleInstanceCommon *module_inst,
         *p_native_addr = native_addr;
     }
 
-    if (memory->is_memory64)
-        return shared_heap->start_off_mem64
-               + ((uint8 *)native_addr - shared_heap->base_addr);
-    else
-        return shared_heap->start_off_mem32
-               + ((uint8 *)native_addr - shared_heap->base_addr);
+    return memory->is_memory64
+               ? shared_heap->start_off_mem64
+               : shared_heap->start_off_mem32
+                     + ((uint8 *)native_addr - shared_heap->base_addr);
 }
 
 void
