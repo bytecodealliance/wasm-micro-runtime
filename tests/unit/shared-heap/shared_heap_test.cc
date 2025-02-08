@@ -111,6 +111,7 @@ static void test_shared_heap(WASMSharedHeap *shared_heap, const char *file, cons
         ADD_FAILURE() << "Failed to attach shared heap\n";
         goto fail1;
     }
+
     func_test = wasm_runtime_lookup_function(tmp_module_env.wasm_module_inst,
                                              func_name);
     if (!func_test) {
@@ -501,7 +502,93 @@ TEST_F(shared_heap_test, test_shared_heap_chain_create_fail)
 
     shared_heap_chain =
         wasm_runtime_chain_shared_heaps(shared_heap, shared_heap2);
+    EXPECT_EQ(shared_heap_chain, nullptr);
+}
 
+TEST_F(shared_heap_test, test_shared_heap_chain_create_fail2)
+{
+    SharedHeapInitArgs args = { 0 };
+    WASMSharedHeap *shared_heap = nullptr, *shared_heap2 = nullptr,
+                   *shared_heap_chain = nullptr;
+    uint32 argv[1] = { 0 }, BUF_SIZE = os_getpagesize();
+    uint8 preallocated_buf[BUF_SIZE];
+    struct ret_env tmp_module_env;
+
+    args.size = 1024;
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+    if (!shared_heap) {
+        FAIL() << "Failed to create shared heap";
+    }
+
+    memset(&args, 0, sizeof(args));
+    args.pre_allocated_addr = preallocated_buf;
+    args.size = BUF_SIZE;
+    shared_heap2 = wasm_runtime_create_shared_heap(&args);
+    if (!shared_heap2) {
+        FAIL() << "Create preallocated shared heap failed.\n";
+    }
+
+    if (!load_wasm((char *)"test.wasm", 0, tmp_module_env)) {
+        FAIL() << "Failed to load wasm file\n";
+    }
+
+    if (!wasm_runtime_attach_shared_heap(tmp_module_env.wasm_module_inst,
+                                         shared_heap)) {
+        FAIL() << "Failed to attach shared heap\n";
+    }
+
+    /* can't create shared heap chain when shared heap is attached to a wasm
+     * app */
+    shared_heap_chain =
+        wasm_runtime_chain_shared_heaps(shared_heap, shared_heap2);
+    EXPECT_EQ(shared_heap_chain, nullptr);
+
+    wasm_runtime_detach_shared_heap(tmp_module_env.wasm_module_inst);
+    destroy_module_env(tmp_module_env);
+}
+
+TEST_F(shared_heap_test, test_shared_heap_chain_create_fail3)
+{
+    SharedHeapInitArgs args = { 0 };
+    WASMSharedHeap *shared_heap = nullptr, *shared_heap2 = nullptr,
+                   *shared_heap3 = nullptr, *shared_heap_chain = nullptr;
+    uint32 argv[1] = { 0 }, BUF_SIZE = os_getpagesize();
+    uint8 preallocated_buf[BUF_SIZE], preallocated_buf2[BUF_SIZE];
+
+    args.size = 1024;
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+    if (!shared_heap) {
+        FAIL() << "Failed to create shared heap";
+    }
+
+    memset(&args, 0, sizeof(args));
+    args.pre_allocated_addr = preallocated_buf;
+    args.size = BUF_SIZE;
+    shared_heap2 = wasm_runtime_create_shared_heap(&args);
+    if (!shared_heap2) {
+        FAIL() << "Create preallocated shared heap failed.\n";
+    }
+
+    shared_heap_chain =
+        wasm_runtime_chain_shared_heaps(shared_heap, shared_heap2);
+    if (!shared_heap_chain) {
+        FAIL() << "Create shared heap chain failed.\n";
+    }
+
+    memset(&args, 0, sizeof(args));
+    args.pre_allocated_addr = preallocated_buf2;
+    args.size = BUF_SIZE;
+    shared_heap3 = wasm_runtime_create_shared_heap(&args);
+    if (!shared_heap3) {
+        FAIL() << "Failed to create shared heap";
+    }
+
+    /* The head and body can't be already in other shared heap chain as body */
+    shared_heap_chain =
+        wasm_runtime_chain_shared_heaps(shared_heap3, shared_heap2);
+    EXPECT_EQ(shared_heap_chain, nullptr);
+    shared_heap_chain =
+        wasm_runtime_chain_shared_heaps(shared_heap2, shared_heap);
     EXPECT_EQ(shared_heap_chain, nullptr);
 }
 
