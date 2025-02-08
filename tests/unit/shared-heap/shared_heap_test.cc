@@ -592,6 +592,58 @@ TEST_F(shared_heap_test, test_shared_heap_chain_create_fail3)
     EXPECT_EQ(shared_heap_chain, nullptr);
 }
 
+TEST_F(shared_heap_test, test_shared_heap_chain_unchain)
+{
+    SharedHeapInitArgs args = { 0 };
+    WASMSharedHeap *shared_heap = nullptr, *shared_heap2 = nullptr,
+                   *shared_heap3 = nullptr, *shared_heap_chain = nullptr;
+    uint32 argv[1] = { 0 }, BUF_SIZE = os_getpagesize();
+    uint8 preallocated_buf[BUF_SIZE], preallocated_buf2[BUF_SIZE];
+
+    args.size = 1024;
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+    if (!shared_heap) {
+        FAIL() << "Failed to create shared heap";
+    }
+
+    memset(&args, 0, sizeof(args));
+    args.pre_allocated_addr = preallocated_buf;
+    args.size = BUF_SIZE;
+    shared_heap2 = wasm_runtime_create_shared_heap(&args);
+    if (!shared_heap2) {
+        FAIL() << "Create preallocated shared heap failed.\n";
+    }
+
+    shared_heap_chain =
+        wasm_runtime_chain_shared_heaps(shared_heap, shared_heap2);
+    if (!shared_heap_chain) {
+        FAIL() << "Create shared heap chain failed.\n";
+    }
+
+    memset(&args, 0, sizeof(args));
+    args.pre_allocated_addr = preallocated_buf2;
+    args.size = BUF_SIZE;
+    shared_heap3 = wasm_runtime_create_shared_heap(&args);
+    if (!shared_heap3) {
+        FAIL() << "Failed to create shared heap";
+    }
+
+    /* unchain shared heap so that the 'body' can be another chain 'body'
+     * again(1->2 to 1->3->2) */
+    EXPECT_EQ(shared_heap2,
+              wasm_runtime_unchain_shared_heaps(shared_heap_chain, false));
+    shared_heap_chain =
+        wasm_runtime_chain_shared_heaps(shared_heap3, shared_heap2);
+    EXPECT_EQ(shared_heap_chain, shared_heap3);
+    shared_heap_chain =
+        wasm_runtime_chain_shared_heaps(shared_heap, shared_heap3);
+    EXPECT_EQ(shared_heap, shared_heap_chain);
+
+    /* break down the entire shared heap chain */
+    EXPECT_EQ(shared_heap2,
+              wasm_runtime_unchain_shared_heaps(shared_heap_chain, true));
+}
+
 TEST_F(shared_heap_test, test_shared_heap_chain_addr_conv)
 {
     SharedHeapInitArgs args = { 0 };
