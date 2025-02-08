@@ -32,7 +32,7 @@ test()
 }
 
 int
-test_preallocated(void* app_addr)
+test_preallocated(void *app_addr)
 {
     int *ptr = (int *)app_addr;
     int *ptr2 = NULL;
