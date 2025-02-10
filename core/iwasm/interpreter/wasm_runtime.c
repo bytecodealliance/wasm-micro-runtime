@@ -2333,6 +2333,25 @@ wasm_set_running_mode(WASMModuleInstance *module_inst, RunningMode running_mode)
     return set_running_mode(module_inst, running_mode, false);
 }
 
+bool
+wasm_runtime_instantiate_run_start_func(wasm_module_inst_t module_inst,
+                                        wasm_module_inst_t parent,
+                                        wasm_exec_env_t exec_env,
+                                        char *error_buf,
+                                        uint32_t error_buf_size)
+{
+    const bool is_sub_inst = parent != NULL;
+    if (!execute_post_instantiate_functions((WASMModuleInstance *)module_inst,
+                                            is_sub_inst, exec_env)) {
+        set_error_buf(error_buf, error_buf_size,
+                      ((WASMModuleInstance *)module_inst)->cur_exception);
+        wasm_runtime_deinstantiate(module_inst);
+        return false;
+    }
+
+    return true;
+}
+
 /**
  * Instantiate module
  */
@@ -2341,6 +2360,41 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                  WASMExecEnv *exec_env_main, uint32 stack_size,
                  uint32 heap_size, uint32 max_memory_pages, char *error_buf,
                  uint32 error_buf_size)
+{
+    WASMModuleInstance *module_inst = wasm_instantiate_without_start_function(
+        module, parent, exec_env_main, stack_size, heap_size, max_memory_pages,
+        error_buf, error_buf_size);
+
+    if (!module_inst) {
+        // wasm_instantiate_without_start_function will deinstantiate on
+        // failure.
+        return NULL;
+    }
+
+    if (!wasm_runtime_instantiate_run_start_func(
+            (WASMModuleInstanceCommon *)module_inst,
+            (WASMModuleInstanceCommon *)parent, exec_env_main, error_buf,
+            error_buf_size)) {
+        // run_start_func will deinstantiate on failure.
+        set_error_buf(error_buf, error_buf_size, module_inst->cur_exception);
+        return NULL;
+    }
+
+#if WASM_ENABLE_MEMORY_TRACING != 0
+    wasm_runtime_dump_module_inst_mem_consumption(
+        (WASMModuleInstanceCommon *)module_inst);
+#endif
+
+    return module_inst;
+}
+
+WASMModuleInstance *
+wasm_instantiate_without_start_function(WASMModule *module,
+                                        WASMModuleInstance *parent,
+                                        WASMExecEnv *exec_env_main,
+                                        uint32 stack_size, uint32 heap_size,
+                                        uint32 max_memory_pages,
+                                        char *error_buf, uint32 error_buf_size)
 {
     WASMModuleInstance *module_inst;
     WASMGlobalInstance *globals = NULL, *global;
@@ -3256,17 +3310,6 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
             module_inst->e->start_function =
                 &module_inst->e->functions[module->start_function];
     }
-
-    if (!execute_post_instantiate_functions(module_inst, is_sub_inst,
-                                            exec_env_main)) {
-        set_error_buf(error_buf, error_buf_size, module_inst->cur_exception);
-        goto fail;
-    }
-
-#if WASM_ENABLE_MEMORY_TRACING != 0
-    wasm_runtime_dump_module_inst_mem_consumption(
-        (WASMModuleInstanceCommon *)module_inst);
-#endif
 
     (void)global_data_end;
     return module_inst;
