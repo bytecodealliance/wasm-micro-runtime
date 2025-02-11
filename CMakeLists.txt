@@ -176,5 +176,4 @@ install (FILES
     ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_c_api.h
     ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_export.h
     ${WAMR_ROOT_DIR}/core/iwasm/include/lib_export.h
-    ${WAMR_ROOT_DIR}/core/version.h
     DESTINATION include)
