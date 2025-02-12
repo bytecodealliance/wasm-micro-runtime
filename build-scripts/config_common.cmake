@@ -214,6 +214,7 @@ endif ()
 
 message ("-- Build Configurations:")
 message ("     Build as target ${WAMR_BUILD_TARGET}")
+message ("     Build for platform ${WAMR_BUILD_PLATFORM}")
 message ("     CMAKE_BUILD_TYPE " ${CMAKE_BUILD_TYPE})
 message ("     BUILD_SHARED_LIBS " ${BUILD_SHARED_LIBS})
 ################## running mode ##################
