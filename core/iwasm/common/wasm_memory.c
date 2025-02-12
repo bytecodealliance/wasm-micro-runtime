@@ -185,7 +185,7 @@ wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args)
 
     if (size > APP_HEAP_SIZE_MAX || size < APP_HEAP_SIZE_MIN) {
         LOG_WARNING("Invalid size of shared heap");
-        goto fail1;
+        goto fail2;
     }
 
     if (init_args->pre_allocated_addr != NULL) {
@@ -194,7 +194,7 @@ wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args)
         if (size != init_args->size) {
             LOG_WARNING("Pre allocated size need to be aligned with system "
                         "page size to create shared heap");
-            goto fail1;
+            goto fail2;
         }
 
         heap->heap_handle = NULL;
@@ -252,12 +252,13 @@ WASMSharedHeap *
 wasm_runtime_chain_shared_heaps(WASMSharedHeap *head, WASMSharedHeap *body)
 {
     WASMSharedHeap *cur;
-    bool heap_handle_exist = head->heap_handle != NULL;
+    bool heap_handle_exist = false;
 
     if (!head || !body) {
         LOG_WARNING("Invalid shared heap to chain.");
         return NULL;
     }
+    heap_handle_exist = head->heap_handle != NULL;
 
     os_mutex_lock(&shared_heap_list_lock);
     if (head->attached_count != 0 || body->attached_count != 0) {
@@ -543,16 +544,16 @@ is_native_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
                               uint8 *addr, uint32 bytes,
                               WASMSharedHeap **target_heap)
 {
-    WASMSharedHeap *cur, *heap_head = get_shared_heap(module_inst);
+    WASMSharedHeap *cur, *heap = get_shared_heap(module_inst);
     uintptr_t base_addr, addr_int, end_addr;
 
-    if (!heap_head) {
+    if (!heap) {
         goto fail;
     }
 
     /* Iterate through shared heap chain to find whether native addr in one of
      * shared heap */
-    for (cur = heap_head; cur != NULL; cur = cur->chain_next) {
+    for (cur = heap; cur != NULL; cur = cur->chain_next) {
         base_addr = (uintptr_t)cur->base_addr;
         addr_int = (uintptr_t)addr;
         if (addr_int < base_addr)

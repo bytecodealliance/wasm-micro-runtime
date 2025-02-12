@@ -37,46 +37,6 @@ typedef float64 CellType_F64;
 #define get_linear_mem_size() GET_LINEAR_MEMORY_SIZE(memory)
 #endif
 
-#if WASM_ENABLE_SHARED_HEAP != 0
-/* TODO: add code for 64 bit version when memory64 is enabled for fast-interp */
-#define get_shared_heap_start_off(shared_heap) (shared_heap->start_off_mem32)
-/* Check whether the app addr in the last visited shared heap, if not, check the
- * shared heap chain to find which(if any) shared heap the app addr in, and
- * update the last visited shared heap info if found. */
-#define app_addr_in_shared_heap(app_addr, bytes)                               \
-    (shared_heap && (app_addr) >= shared_heap_start_off                        \
-     && (app_addr) <= shared_heap_end_off - bytes + 1)                         \
-        || ({                                                                  \
-               bool in_chain = false;                                          \
-               WASMSharedHeap *cur;                                            \
-               uint64 cur_shared_heap_start_off, cur_shared_heap_end_off;      \
-               for (cur = shared_heap; cur; cur = cur->chain_next) {           \
-                   cur_shared_heap_start_off = get_shared_heap_start_off(cur); \
-                   cur_shared_heap_end_off =                                   \
-                       cur_shared_heap_start_off - 1 + cur->size;              \
-                   if ((app_addr) >= cur_shared_heap_start_off                 \
-                       && (app_addr) <= cur_shared_heap_end_off - bytes + 1) { \
-                       shared_heap_start_off = cur_shared_heap_start_off;      \
-                       shared_heap_end_off = cur_shared_heap_end_off;          \
-                       shared_heap_base_addr = cur->base_addr;                 \
-                       in_chain = true;                                        \
-                       break;                                                  \
-                   }                                                           \
-               }                                                               \
-               in_chain;                                                       \
-           })
-
-#define shared_heap_addr_app_to_native(app_addr, native_addr) \
-    native_addr = shared_heap_base_addr + ((app_addr)-shared_heap_start_off)
-
-#define CHECK_SHARED_HEAP_OVERFLOW(app_addr, bytes, native_addr) \
-    if (app_addr_in_shared_heap(app_addr, bytes))                \
-        shared_heap_addr_app_to_native(app_addr, native_addr);   \
-    else
-#else
-#define CHECK_SHARED_HEAP_OVERFLOW(app_addr, bytes, native_addr)
-#endif
-
 #if !defined(OS_ENABLE_HW_BOUND_CHECK) \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
 #define CHECK_MEMORY_OVERFLOW(bytes)                                           \
@@ -1562,6 +1522,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     bool is_return_call = false;
 #endif
 #if WASM_ENABLE_SHARED_HEAP != 0
+    /* TODO: currently flowing two variables are only dummy for shared heap
+     * boundary check, need to be updated when multi-memory or memory64
+     * proposals are to be implemented */
+    bool is_memory64 = false;
+    uint32 memidx = 0;
+
     WASMSharedHeap *shared_heap = module->e ? module->e->shared_heap : NULL;
     uint8 *shared_heap_base_addr = shared_heap ? shared_heap->base_addr : NULL;
     uint64 shared_heap_start_off =

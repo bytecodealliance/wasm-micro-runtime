@@ -2259,11 +2259,11 @@ WASM_RUNTIME_API_EXTERN wasm_shared_heap_t
 wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args);
 
 /**
- * This function links two shared heaps, `head` and `body`, where `head` is a
- * shared heap and `body` can be shared heap chain head, into a single chain.
- * The `head` heap will be the head of the chain, and the `body` heap will be
- * appended to it. At most one shared heap in shared heap chain can be
- * dynamically allocated, the rest have to be the pre-allocated shared heap *
+ * This function links two shared heap(lists), `head` and `body` in to a single
+ * shared heap list, where `head` becomes the new shared heap list head. The
+ * shared heap list remains one continuous shared heap in wasm app's point of
+ * view.  At most one shared heap in shared heap list can be dynamically
+ * allocated, the rest have to be the pre-allocated shared heap. *
  *
  * @param head The head of the shared heap chain.
  * @param body The body of the shared heap chain to be appended.
