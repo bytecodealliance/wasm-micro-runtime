@@ -1150,9 +1150,8 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
                 if (type2 == REF_TYPE_HT_NULLABLE
                     || type2 == REF_TYPE_HT_NON_NULLABLE) {
                     bh_assert(ref_type2);
-                    type2 =
-                        (uint8)(ref_type2->ref_ht_common.heap_type
-                                + REF_TYPE_FUNCREF - HEAP_TYPE_FUNC);
+                    type2 = (uint8)(ref_type2->ref_ht_common.heap_type
+                                    + REF_TYPE_FUNCREF - HEAP_TYPE_FUNC);
                 }
                 if (heap_type == HEAP_TYPE_ANY) {
                     /* (ref any) <: anyref */
@@ -1198,14 +1197,14 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
 #endif
                 else if (heap_type == HEAP_TYPE_NONE) {
                     return wasm_is_reftype_supers_of_none(type2, NULL, types,
-                                              type_count);
+                                                          type_count);
                 }
                 else if (heap_type == HEAP_TYPE_NOEXTERN) {
                     return wasm_is_reftype_supers_of_noextern(type2);
                 }
                 else if (heap_type == HEAP_TYPE_NOFUNC) {
                     return wasm_is_reftype_supers_of_nofunc(type2, NULL, types,
-                                              type_count);
+                                                            type_count);
                 }
                 else {
                     bh_assert(0);
