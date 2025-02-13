@@ -56,7 +56,7 @@ jobs:
       container_image: ghcr.io/no1wudi/nuttx/apache-nuttx-ci-linux@sha256:8c4e00b607d4d6d66ba8f51c4544819a616eac69d3a2ac669e2af2150e2eb0f9
 
   spec_test_on_qemu:
-    runs-on: ubuntu-latest
+    runs-on: "ubuntu-22.04"
     needs: [build_llvm_libraries, build_llvm_libraries_xtensa]
     container:
       image: ghcr.io/no1wudi/nuttx/apache-nuttx-ci-linux@sha256:8c4e00b607d4d6d66ba8f51c4544819a616eac69d3a2ac669e2af2150e2eb0f9
