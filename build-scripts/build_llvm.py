@@ -117,12 +117,6 @@ def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_fl
             LLVM_EXTRA_COMPILE_OPTIONS["arc"]
         )
 
-    if platform != "Xtensa" and "Xtensa" in backends:
-        print(
-            "Currently it's not supported to build Xtensa backend on non-Xtensa platform"
-        )
-        return None
-
     LLVM_PROJECTS_TO_BUILD = [
         '-DLLVM_ENABLE_PROJECTS:STRING="' + ";".join(projects) + '"' if projects else ""
     ]
