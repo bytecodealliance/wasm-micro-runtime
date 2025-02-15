@@ -112,7 +112,7 @@ def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_fl
     ]
 
     # if not on ARC platform, but want to add expeirmental backend ARC as target
-    if platform != "ARC" and "ARC" in backends: 
+    if platform != "ARC" and "ARC" in backends:
         LLVM_TARGETS_TO_BUILD.extend(
             LLVM_EXTRA_COMPILE_OPTIONS["arc"]
         )
@@ -211,11 +211,11 @@ def repackage_llvm_windows(llvm_dir):
     if not packs_path:
         raise Exception("Didn't find any LLVM-* package")
         return
-    
+
     llvm_package_path = f"_CPack_Packages/win64/NSIS/{packs_path[0].name}"
     windows_package_dir = build_dir.joinpath(llvm_package_path).resolve()
 
-    # mv package dir outside of build 
+    # mv package dir outside of build
     shutil.move(str(windows_package_dir), str(llvm_dir))
     # rm -r build
     shutil.rmtree(str(build_dir))
@@ -225,7 +225,7 @@ def repackage_llvm_windows(llvm_dir):
     moved_package_dir = llvm_dir.joinpath(packs_path[0].name)
     for sub_dir in moved_package_dir.iterdir():
         shutil.move(str(sub_dir), str(build_dir))
-    moved_package_dir.rmdir()  
+    moved_package_dir.rmdir()
 
 def main():
     parser = argparse.ArgumentParser(description="build necessary LLVM libraries")
