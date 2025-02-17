@@ -136,8 +136,9 @@ execute_export_functions(wasm_module_t module, wasm_module_inst_t inst)
             return false;
         }
 
-        bool ret = wasm_runtime_call_wasm_a(exec_env, func, result_count,
-                                            results.data(), param_count, args.data());
+        bool ret =
+            wasm_runtime_call_wasm_a(exec_env, func, result_count,
+                                     results.data(), param_count, args.data());
         if (!ret) {
             const char *exception = wasm_runtime_get_exception(inst);
             if (!exception) {
