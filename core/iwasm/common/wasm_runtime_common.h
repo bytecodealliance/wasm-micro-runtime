@@ -287,19 +287,33 @@ STORE_V128(void *addr, V128 value)
     if ((addr_ & (uintptr_t)15) == 0) {
         *(V128 *)addr = value;
     }
+    else if ((addr_ & (uintptr_t)7) == 0) {
+        u.val = value;
+        ((uint64 *)(addr))[0] = u.u64[0];
+        ((uint64 *)(addr))[1] = u.u64[1];
+    }
+    else if ((addr_ & (uintptr_t)3) == 0) {
+        u.val = value;
+        ((uint32 *)addr)[0] = u.u32[0];
+        ((uint32 *)addr)[1] = u.u32[1];
+        ((uint32 *)addr)[2] = u.u32[2];
+        ((uint32 *)addr)[3] = u.u32[3];
+    }
+    else if ((addr_ & (uintptr_t)1) == 0) {
+        u.val = value;
+        ((uint16 *)addr)[0] = u.u16[0];
+        ((uint16 *)addr)[1] = u.u16[1];
+        ((uint16 *)addr)[2] = u.u16[2];
+        ((uint16 *)addr)[3] = u.u16[3];
+        ((uint16 *)addr)[4] = u.u16[4];
+        ((uint16 *)addr)[5] = u.u16[5];
+        ((uint16 *)addr)[6] = u.u16[6];
+        ((uint16 *)addr)[7] = u.u16[7];
+    }
     else {
         u.val = value;
-        if ((addr_ & (uintptr_t)7) == 0) {
-            ((uint64 *)(addr))[0] = u.u64[0];
-            ((uint64 *)(addr))[1] = u.u64[1];
-        }
-        else {
-            bh_assert((addr_ & (uintptr_t)3) == 0);
-            ((uint32 *)addr)[0] = u.u32[0];
-            ((uint32 *)addr)[1] = u.u32[1];
-            ((uint32 *)addr)[2] = u.u32[2];
-            ((uint32 *)addr)[3] = u.u32[3];
-        }
+        for (int i = 0; i < 16; i++)
+            ((uint8 *)addr)[i] = u.u8[i];
     }
 }
 
@@ -322,12 +336,25 @@ LOAD_V128(void *addr)
         u.u64[0] = ((uint64 *)addr)[0];
         u.u64[1] = ((uint64 *)addr)[1];
     }
-    else {
-        bh_assert((addr1 & (uintptr_t)3) == 0);
+    else if ((addr1 & (uintptr_t)3) == 0) {
         u.u32[0] = ((uint32 *)addr)[0];
         u.u32[1] = ((uint32 *)addr)[1];
         u.u32[2] = ((uint32 *)addr)[2];
         u.u32[3] = ((uint32 *)addr)[3];
+    }
+    else if ((addr1 & (uintptr_t)1) == 0) {
+        u.u16[0] = ((uint16 *)addr)[0];
+        u.u16[1] = ((uint16 *)addr)[1];
+        u.u16[2] = ((uint16 *)addr)[2];
+        u.u16[3] = ((uint16 *)addr)[3];
+        u.u16[4] = ((uint16 *)addr)[4];
+        u.u16[5] = ((uint16 *)addr)[5];
+        u.u16[6] = ((uint16 *)addr)[6];
+        u.u16[7] = ((uint16 *)addr)[7];
+    }
+    else {
+        for (int i = 0; i < 16; i++)
+            u.u8[i] = ((uint8 *)addr)[i];
     }
     return u.val;
 }
