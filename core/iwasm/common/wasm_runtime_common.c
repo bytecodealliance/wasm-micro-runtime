@@ -4458,8 +4458,9 @@ wasm_func_type_get_param_valkind(WASMFuncType *const func_type,
             return WASM_V128;
         case VALUE_TYPE_FUNCREF:
             return WASM_FUNCREF;
-
         case VALUE_TYPE_EXTERNREF:
+            return WASM_EXTERNREF;
+
         case VALUE_TYPE_VOID:
         default:
         {

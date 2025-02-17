@@ -119,6 +119,8 @@ endif ()
 # sanitizer may use kHandleSignalExclusive to handle SIGSEGV
 # like `UBSAN_OPTIONS=handle_segv=2:...`
 set (WAMR_DISABLE_HW_BOUND_CHECK 1)
+# Enable aot validator
+set (WAMR_BUILD_AOT_VALIDATOR 1)
 
 set (REPO_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../../..)
 message([ceith]:REPO_ROOT_DIR, ${REPO_ROOT_DIR})
