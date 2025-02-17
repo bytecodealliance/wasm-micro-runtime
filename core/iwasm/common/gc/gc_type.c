@@ -1145,6 +1145,14 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
                 return true;
             else {
                 int32 heap_type = ref_type1->ref_ht_common.heap_type;
+                // We dont care whether type2 is nullable or not. So
+                // we normalize it into its related one-byte type.
+                if (type2 == REF_TYPE_HT_NULLABLE
+                    || type2 == REF_TYPE_HT_NON_NULLABLE) {
+                    bh_assert(ref_type2);
+                    type2 = (uint8)(ref_type2->ref_ht_common.heap_type
+                                    + REF_TYPE_FUNCREF - HEAP_TYPE_FUNC);
+                }
                 if (heap_type == HEAP_TYPE_ANY) {
                     /* (ref any) <: anyref */
                     return type2 == REF_TYPE_ANYREF ? true : false;
@@ -1188,19 +1196,15 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
                 }
 #endif
                 else if (heap_type == HEAP_TYPE_NONE) {
-                    /* (ref none) */
-                    /* TODO */
-                    bh_assert(0);
+                    return wasm_is_reftype_supers_of_none(type2, NULL, types,
+                                                          type_count);
                 }
                 else if (heap_type == HEAP_TYPE_NOEXTERN) {
-                    /* (ref noextern) */
-                    /* TODO */
-                    bh_assert(0);
+                    return wasm_is_reftype_supers_of_noextern(type2);
                 }
                 else if (heap_type == HEAP_TYPE_NOFUNC) {
-                    /* (ref nofunc) */
-                    /* TODO */
-                    bh_assert(0);
+                    return wasm_is_reftype_supers_of_nofunc(type2, NULL, types,
+                                                            type_count);
                 }
                 else {
                     bh_assert(0);

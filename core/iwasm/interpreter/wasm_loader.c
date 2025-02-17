@@ -246,7 +246,7 @@ type2str(uint8 type)
                              "", /* reserved */
                              "arrayref",
                              "structref",
-                             "i32ref",
+                             "i31ref",
                              "eqref",
                              "anyref",
                              "externref",
