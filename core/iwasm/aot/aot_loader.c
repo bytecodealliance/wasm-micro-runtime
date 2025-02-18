@@ -4120,6 +4120,16 @@ create_module(char *name, char *error_buf, uint32 error_buf_size)
     }
 #endif
 
+#if WASM_ENABLE_LIBC_WASI != 0
+    /*
+     * learned from all implementations of `os_get_invalid_handle()`
+     * that invalid handles across all platforms are represented by -1.
+     */
+    module->wasi_args.stdio[0] = -1;
+    module->wasi_args.stdio[1] = -1;
+    module->wasi_args.stdio[2] = -1;
+#endif
+
     return module;
 #if WASM_ENABLE_GC != 0
 fail2:
