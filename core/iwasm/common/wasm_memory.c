@@ -1253,6 +1253,14 @@ wasm_mremap_linear_memory(void *mapped_mem, uint64 old_size, uint64 new_size,
     bh_assert(new_size > 0);
     bh_assert(new_size > old_size);
 
+#if UINTPTR_MAX == UINT32_MAX
+    if (new_size == 4 * (uint64)BH_GB) {
+        LOG_WARNING("On 32 bit platform, linear memory can't reach maximum "
+                    "size of 4GB\n");
+        return NULL;
+    }
+#endif
+
     if (mapped_mem) {
         new_mem = os_mremap(mapped_mem, old_size, new_size);
     }
