@@ -1,9 +1,11 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 2.9)
+cmake_minimum_required (VERSION 3.14)
 
 project (iwasm)
+
+option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
 
 set (WAMR_BUILD_PLATFORM "darwin")
 
@@ -115,9 +117,6 @@ set (CMAKE_MACOSX_RPATH True)
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
-add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
-set_version_info (vmlib)
-
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
 add_executable (iwasm main.c ${UNCOMMON_SHARED_SOURCE})
@@ -126,15 +125,33 @@ set_version_info (iwasm)
 
 install (TARGETS iwasm DESTINATION bin)
 
-target_link_libraries (iwasm vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
+target_link_libraries (iwasm vmlib)
 
-add_library (libiwasm SHARED ${WAMR_RUNTIME_LIB_SOURCE})
+add_library (vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 
-install (TARGETS libiwasm DESTINATION lib)
+set_version_info (vmlib)
 
-set_target_properties (libiwasm PROPERTIES OUTPUT_NAME iwasm)
+target_include_directories(vmlib INTERFACE
+  $<INSTALL_INTERFACE:include/iwasm>
+)
 
-set_version_info (libiwasm)
+set (WAMR_PUBLIC_HEADERS
+  ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_c_api.h
+  ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_export.h
+  ${WAMR_ROOT_DIR}/core/iwasm/include/lib_export.h
+)
 
-target_link_libraries (libiwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
+set_target_properties (vmlib PROPERTIES
+  OUTPUT_NAME iwasm
+  PUBLIC_HEADER "${WAMR_PUBLIC_HEADERS}"
+)
 
+target_link_libraries (vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
+
+install (TARGETS vmlib
+  EXPORT iwasmTargets
+  DESTINATION lib
+  PUBLIC_HEADER DESTINATION include/iwasm
+)
+
+install_iwasm_package ()
