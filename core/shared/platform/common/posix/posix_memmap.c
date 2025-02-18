@@ -270,8 +270,6 @@ os_mprotect(void *addr, size_t size, int prot)
     int map_prot = PROT_NONE;
     uint64 page_size = (uint64)getpagesize();
     uint64 request_size = (size + page_size - 1) & ~(page_size - 1);
-    // printf("mprotect addr: %p, size: %llu, prot: %d\n", addr, request_size,
-    // prot);
 
     if (!addr)
         return 0;
@@ -284,10 +282,6 @@ os_mprotect(void *addr, size_t size, int prot)
 
     if (prot & MMAP_PROT_EXEC)
         map_prot |= PROT_EXEC;
-
-    if (mprotect(addr, request_size, map_prot) == -1) {
-        printf("mprotect failed\n");
-    }
 
     return mprotect(addr, request_size, map_prot);
 }
