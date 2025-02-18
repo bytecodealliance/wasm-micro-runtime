@@ -1500,7 +1500,15 @@ if __name__ == "__main__":
                 name_new =re.split('\"',re.search('\".*\"',form).group(0))[1]
                 if name_new:
                     new_module = os.path.join(tempfile.gettempdir(), name_new + ".wasm")
-                    shutil.copyfile(temp_module_table.get(name_new, wasm_tempfile), new_module)
+                    if not name_new in temp_module_table:
+                        print(f"can not find module name {name_new} from the register")
+
+                    just_generated = temp_module_table.get(name_new, wasm_tempfile)
+                    if not os.path.exists(just_generated):
+                        raise Exception("can not find file %s" % just_generated)
+
+                    print("f{just_generated} is copied to {new_module}")
+                    shutil.copyfile(just_generated, new_module)
 
                     # add new_module copied from the old into temp_file_repo[]
                     temp_file_repo.append(new_module)
@@ -1511,7 +1519,7 @@ if __name__ == "__main__":
                         try:
                             assert_prompt(r, ['Compile success'], opts.start_timeout, True)
                         except:
-                            raise Exception("compile wasm to aot failed")
+                            raise Exception(f"compile wasm to aot failed {r.buf}")
                         # add aot module into temp_file_repo[]
                         temp_file_repo.append(new_module_aot)
                 else:
