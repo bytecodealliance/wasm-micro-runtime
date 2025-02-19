@@ -133,7 +133,7 @@ endif ()
 
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
-add_executable (iwasm main.c ${UNCOMMON_SHARED_SOURCE})
+add_executable (iwasm main.c ${PLATFORM_SHARED_SOURCE} ${UNCOMMON_SHARED_SOURCE} ${UTILS_SHARED_SOURCE})
 
 set_version_info (iwasm)
 
