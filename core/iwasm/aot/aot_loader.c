@@ -1251,6 +1251,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             }
             free_if_fail = true;
             init_values->count = field_count;
+            init_values->type_idx = type_idx;
             expr->u.data = init_values;
 
             if (type_idx >= module->type_count) {
