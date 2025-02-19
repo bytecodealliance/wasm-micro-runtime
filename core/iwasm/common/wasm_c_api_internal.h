@@ -70,7 +70,7 @@ struct wasm_memorytype_t {
 };
 
 struct wasm_externtype_t {
-    uint32 extern_kind;
+    wasm_externkind_t extern_kind;
     /* reserved space */
     uint8 data[1];
 };
@@ -146,7 +146,7 @@ struct wasm_func_t {
      * an index in both functions runtime instance lists
      * of interpreter mode and aot mode
      */
-    uint16 func_idx_rt;
+    uint32 func_idx_rt;
     WASMModuleInstanceCommon *inst_comm_rt;
     WASMFunctionInstanceCommon *func_comm_rt;
 };
@@ -164,7 +164,7 @@ struct wasm_global_t {
      * an index in both global runtime instance lists
      * of interpreter mode and aot mode
      */
-    uint16 global_idx_rt;
+    uint32 global_idx_rt;
     WASMModuleInstanceCommon *inst_comm_rt;
 };
 
@@ -180,7 +180,7 @@ struct wasm_memory_t {
      * an index in both memory runtime instance lists
      * of interpreter mode and aot mode
      */
-    uint16 memory_idx_rt;
+    uint32 memory_idx_rt;
     WASMModuleInstanceCommon *inst_comm_rt;
 };
 
@@ -196,7 +196,7 @@ struct wasm_table_t {
      * an index in both table runtime instance lists
      * of interpreter mode and aot mode
      */
-    uint16 table_idx_rt;
+    uint32 table_idx_rt;
     WASMModuleInstanceCommon *inst_comm_rt;
 };
 
@@ -226,21 +226,43 @@ wasm_foreign_new_internal(wasm_store_t *store, uint32 foreign_idx_rt,
                           WASMModuleInstanceCommon *inst_comm_rt);
 
 wasm_func_t *
-wasm_func_new_internal(wasm_store_t *store, uint16 func_idx_rt,
+wasm_func_new_internal(wasm_store_t *store, uint32 func_idx_rt,
                        WASMModuleInstanceCommon *inst_comm_rt);
 
 wasm_global_t *
-wasm_global_new_internal(wasm_store_t *store, uint16 global_idx_rt,
+wasm_global_new_internal(wasm_store_t *store, uint32 global_idx_rt,
                          WASMModuleInstanceCommon *inst_comm_rt);
 
 wasm_memory_t *
-wasm_memory_new_internal(wasm_store_t *store, uint16 memory_idx_rt,
+wasm_memory_new_internal(wasm_store_t *store, uint32 memory_idx_rt,
                          WASMModuleInstanceCommon *inst_comm_rt);
 
 wasm_table_t *
-wasm_table_new_internal(wasm_store_t *store, uint16 table_idx_rt,
+wasm_table_new_internal(wasm_store_t *store, uint32 table_idx_rt,
                         WASMModuleInstanceCommon *inst_comm_rt);
 
 void
 wasm_frame_vec_clone_internal(Vector *src, Vector *out);
+
+/* type conversions */
+wasm_valkind_t
+val_type_rt_2_valkind(uint8 val_type_rt);
+
+bool
+valkind_to_WASMValueType(wasm_valkind_t src, uint8 *dst);
+
+wasm_import_export_kind_t
+externkind_to_import_export_kind(wasm_externkind_t src);
+
+bool
+globaltype_to_WASMGlobalType(wasm_globaltype_t *src, WASMGlobalType *dst);
+
+bool
+val_to_WASMValue(wasm_val_t *src, WASMValue *dst);
+
+bool
+extern_t_to_WASMExternInstance(const wasm_module_t *module, wasm_extern_t *src,
+                               wasm_importtype_t *type,
+                               WASMExternInstance *dst);
+
 #endif /* _WASM_C_API_INTERNAL_H */

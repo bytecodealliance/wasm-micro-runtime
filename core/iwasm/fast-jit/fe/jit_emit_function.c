@@ -246,7 +246,14 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
 
         /* Call fast_jit_invoke_native in some cases */
         if (!func_import->func_ptr_linked /* import func hasn't been linked */
+#if WASM_ENABLE_MULTI_MODULE != 0
             || func_import->call_conv_wasm_c_api /* linked by wasm_c_api */
+#else
+        /*
+         * TODO: can't decide if it is conv_c_api now
+         * but we didn't setup func_ptr_linked, too
+         */
+#endif
             || func_import->call_conv_raw /* registered as raw mode */
             || func_type->param_count >= 5 /* registered as normal mode, but
                                               jit_emit_callnative only supports

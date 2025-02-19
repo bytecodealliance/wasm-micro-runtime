@@ -22,7 +22,7 @@ check_memory64_flags_consistency(WASMModule *module, char *error_buf,
 #endif
 
 bool
-wasm_memory_check_flags(const uint8 mem_flag, char *error_buf,
+wasm_memory_check_flags(const uint32 mem_flag, char *error_buf,
                         uint32 error_buf_size, bool is_aot);
 
 bool
