@@ -7,6 +7,8 @@ include(CheckPIESupported)
 
 project (iwasm)
 
+option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
+
 set (CMAKE_VERBOSE_MAKEFILE OFF)
 
 set (WAMR_BUILD_PLATFORM "linux")
@@ -126,13 +128,7 @@ endif ()
 # if enable wasi-nn, both wasi-nn-backends and iwasm
 # need to use same WAMR (dynamic) libraries
 if (WAMR_BUILD_WASI_NN EQUAL 1)
-  set (WAMR_BUILD_SHARED 1)
-endif ()
-
-if (NOT DEFINED WAMR_BUILD_SHARED)
-  set (WAMR_BUILD_SHARED 0)
-elseif (WAMR_BUILD_SHARED EQUAL 1)
-  message ("build WAMR as shared libraries")
+  set (BUILD_SHARED_LIBS ON)
 endif ()
 
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
@@ -140,9 +136,6 @@ set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
 check_pie_supported()
-add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
-set_target_properties (vmlib PROPERTIES POSITION_INDEPENDENT_CODE ON)
-set_version_info (vmlib)
 
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
 
@@ -175,23 +168,36 @@ set_version_info (iwasm)
 
 set_target_properties (iwasm PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-target_link_libraries(iwasm
-  $<$<BOOL:${WAMR_BUILD_SHARED}>:libiwasm> $<$<NOT:$<BOOL:${WAMR_BUILD_SHARED}>>:vmlib>
-  ${LLVM_AVAILABLE_LIBS}
-  ${UV_A_LIBS}
-  -lm
-  -ldl
-  -lpthread
-)
+target_link_libraries(iwasm vmlib)
 
 install (TARGETS iwasm DESTINATION bin)
 
-add_library (libiwasm SHARED ${WAMR_RUNTIME_LIB_SOURCE})
+add_library (vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 
-set_version_info (libiwasm)
+set_version_info (vmlib)
 
-install (TARGETS libiwasm DESTINATION lib)
+target_include_directories(vmlib INTERFACE
+  $<INSTALL_INTERFACE:include/iwasm>
+)
 
-set_target_properties (libiwasm PROPERTIES OUTPUT_NAME iwasm)
+set (WAMR_PUBLIC_HEADERS
+  ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_c_api.h
+  ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_export.h
+  ${WAMR_ROOT_DIR}/core/iwasm/include/lib_export.h
+)
 
-target_link_libraries (libiwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
+set_target_properties (vmlib PROPERTIES
+  OUTPUT_NAME iwasm
+  PUBLIC_HEADER "${WAMR_PUBLIC_HEADERS}"
+  POSITION_INDEPENDENT_CODE ON
+)
+
+target_link_libraries (vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
+
+install (TARGETS vmlib
+  EXPORT iwasmTargets
+  DESTINATION lib
+  PUBLIC_HEADER DESTINATION include/iwasm
+)
+
+install_iwasm_package ()
