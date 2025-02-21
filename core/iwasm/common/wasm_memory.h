@@ -45,6 +45,12 @@ SET_LINEAR_MEMORY_SIZE(WASMMemoryInstance *memory, uint64 size)
 WASMSharedHeap *
 wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args);
 
+WASMSharedHeap *
+wasm_runtime_chain_shared_heaps(WASMSharedHeap *head, WASMSharedHeap *body);
+
+WASMSharedHeap *
+wasm_runtime_unchain_shared_heaps(WASMSharedHeap *head, bool entire_chain);
+
 bool
 wasm_runtime_attach_shared_heap(WASMModuleInstanceCommon *module_inst,
                                 WASMSharedHeap *shared_heap);
