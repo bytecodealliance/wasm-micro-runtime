@@ -7,7 +7,19 @@ add_definitions (-DWASM_ENABLE_AOT=1)
 
 include_directories (${IWASM_AOT_DIR})
 
-file (GLOB c_source_all ${IWASM_AOT_DIR}/*.c)
+list (APPEND c_source_all
+  ${IWASM_AOT_DIR}/aot_intrinsic.c
+  ${IWASM_AOT_DIR}/aot_loader.c
+  ${IWASM_AOT_DIR}/aot_runtime.c
+)
+
+if (WAMR_BUILD_LINUX_PERF EQUAL 1)
+  list (APPEND c_source_all ${IWASM_AOT_DIR}/aot_perf_map.c)
+endif ()
+
+if (WAMR_BUILD_AOT_VALIDATOR EQUAL 1)
+  list (APPEND c_source_all ${IWASM_AOT_DIR}/aot_validator.c)
+endif ()
 
 if (WAMR_BUILD_TARGET STREQUAL "X86_64" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
   set (arch_source ${IWASM_AOT_DIR}/arch/aot_reloc_x86_64.c)

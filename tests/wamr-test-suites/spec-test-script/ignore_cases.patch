@@ -1,136 +1,66 @@
-diff --git a/test/core/data.wast b/test/core/data.wast
-index b1e1239..a0f6967 100644
---- a/test/core/data.wast
-+++ b/test/core/data.wast
-@@ -312,7 +312,8 @@
-     "\02\01\41\00\0b"                       ;; active data segment 0 for memory 1
-     "\00"                                   ;; empty vec(byte)
-   )
--  "unknown memory 1"
-+  ;; TODO: restore after supporting multi memory"
-+  "unknown memory"
- )
- 
- ;; Data segment with memory index 0 (no memory section)
-@@ -334,7 +335,8 @@
-     "\02\01\41\00\0b"                       ;; active data segment 0 for memory 1
-     "\00"                                   ;; empty vec(byte)
-   )
--  "unknown memory 1"
-+  ;; TODO: restore after supporting multi memory"
-+  "unknown memory"
- )
- 
- ;; Data segment with memory index 1 and vec(byte) as above,
-@@ -354,7 +356,8 @@
-     "\20\21\22\23\24\25\26\27\28\29\2a\2b\2c\2d\2e\2f"
-     "\30\31\32\33\34\35\36\37\38\39\3a\3b\3c\3d"
-   )
--  "unknown memory 1"
-+  ;; TODO: restore after supporting multi memory"
-+  "unknown memory"
- )
- 
- ;; Data segment with memory index 1 and specially crafted vec(byte) after.
-@@ -374,7 +377,8 @@
-     "\20\21\22\23\24\25\26\27\28\29\2a\2b\2c\2d\2e\2f"
-     "\30\31\32\33\34\35\36\37\38\39\3a\3b\3c\3d"
-   )
--  "unknown memory 1"
-+  ;; TODO: restore after supporting multi memory"
-+  "unknown memory"
- )
- 
- 
 diff --git a/test/core/elem.wast b/test/core/elem.wast
-index 33b3f67..a4c1a2d 100644
+index 68a244b..a42cbd4 100644
 --- a/test/core/elem.wast
 +++ b/test/core/elem.wast
-@@ -586,6 +586,7 @@
- (assert_return (invoke $module1 "call-8") (i32.const 65))
- (assert_return (invoke $module1 "call-9") (i32.const 66))
+@@ -560,6 +560,9 @@
+ )
+ (assert_return (invoke "call-overwritten-element") (i32.const 66))
  
-+(;
- (module $module2
-   (type $out-i32 (func (result i32)))
-   (import "module1" "shared-table" (table 10 funcref))
-@@ -598,7 +599,9 @@
- (assert_return (invoke $module1 "call-7") (i32.const 67))
- (assert_return (invoke $module1 "call-8") (i32.const 68))
- (assert_return (invoke $module1 "call-9") (i32.const 66))
-+;)
++(;; FIXME: enable the following cases after supporting the import of tables
++ ;;
++
+ ;; Element sections across multiple modules change the same table
  
-+(;
- (module $module3
-   (type $out-i32 (func (result i32)))
-   (import "module1" "shared-table" (table 10 funcref))
-@@ -611,6 +614,7 @@
- (assert_return (invoke $module1 "call-7") (i32.const 67))
- (assert_return (invoke $module1 "call-8") (i32.const 69))
- (assert_return (invoke $module1 "call-9") (i32.const 70))
-+;)
- 
- ;; Element segments must match element type of table
- 
-@@ -643,6 +647,7 @@
- 
- ;; Initializing a table with an externref-type element segment
- 
-+(;
- (module $m
- 	(table $t (export "table") 2 externref)
- 	(func (export "get") (param $i i32) (result externref)
-@@ -667,9 +672,11 @@
- 
- (assert_return (invoke $m "get" (i32.const 0)) (ref.null extern))
- (assert_return (invoke $m "get" (i32.const 1)) (ref.extern 137))
-+;)
- 
- ;; Initializing a table with imported funcref global
- 
-+(;
- (module $module4
-   (func (result i32)
-     i32.const 42
-@@ -690,3 +697,4 @@
+ (module $module1
+@@ -690,3 +693,5 @@
  )
  
  (assert_return (invoke "call_imported_elem") (i32.const 42))
-+;)
-diff --git a/test/core/if.wast b/test/core/if.wast
-index 2ea45f6..6f07304 100644
---- a/test/core/if.wast
-+++ b/test/core/if.wast
-@@ -530,7 +530,10 @@
-   (func (export "atypical-condition")
-     i32.const 0
-     (if (then) (else))
--    (if (i32.const 1) (i32.eqz) (then) (else))
-+    ;; restore after wabt(> 1.34.0) supports it
-+    (i32.const 1)
-+    (i32.eqz)
-+    (if (then) (else))
-   )
- )
++;;
++;;)
+diff --git a/test/core/memory_grow.wast b/test/core/memory_grow.wast
+index 882e4b5..d17a509 100644
+--- a/test/core/memory_grow.wast
++++ b/test/core/memory_grow.wast
+@@ -308,7 +308,8 @@
  
+ (assert_return (invoke "as-memory.grow-size") (i32.const 1))
+ 
+-
++(;; FIXME: enable the following cases after supporting the import of memories
++ ;;
+ (module $Mgm
+   (memory (export "memory") 1) ;; initial size is 1
+   (func (export "grow") (result i32) (memory.grow (i32.const 1)))
+@@ -328,7 +329,8 @@
+   (func (export "size") (result i32) (memory.size))
+ )
+ (assert_return (invoke $Mgim2 "size") (i32.const 3))
+-
++;;
++;;)
+ 
+ (assert_invalid
+   (module
 diff --git a/test/core/ref_func.wast b/test/core/ref_func.wast
-index adb5cb7..6396013 100644
+index adb5cb7..98e02cd 100644
 --- a/test/core/ref_func.wast
 +++ b/test/core/ref_func.wast
-@@ -4,7 +4,7 @@
+@@ -4,7 +4,8 @@
  (register "M")
  
  (module
 -  (func $f (import "M" "f") (param i32) (result i32))
++  (;;FIXME: change it back after supporting the import by default ;;)
 +  (func $f (param $x i32) (result i32) (local.get $x))
    (func $g (param $x i32) (result i32)
      (i32.add (local.get $x) (i32.const 1))
    )
 diff --git a/test/core/table_copy.wast b/test/core/table_copy.wast
-index 380e84e..59230cf 100644
+index 380e84e..2ac9fdc 100644
 --- a/test/core/table_copy.wast
 +++ b/test/core/table_copy.wast
-@@ -14,11 +14,11 @@
+@@ -14,11 +14,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -139,6 +69,7 @@ index 380e84e..59230cf 100644
 -  (import "a" "ef2" (func (result i32)))
 -  (import "a" "ef3" (func (result i32)))
 -  (import "a" "ef4" (func (result i32)))    ;; index 4
++  (;;FIXME: change it back after supporting the import of tables ;;)
 +  (func (result i32) (i32.const 0))    ;; index 0
 +  (func (result i32) (i32.const 1))
 +  (func (result i32) (i32.const 2))
@@ -147,7 +78,7 @@ index 380e84e..59230cf 100644
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
    (elem (table $t0) (i32.const 2) func 3 1 4 1)
-@@ -106,11 +106,11 @@
+@@ -106,11 +107,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -156,6 +87,7 @@ index 380e84e..59230cf 100644
 -  (import "a" "ef2" (func (result i32)))
 -  (import "a" "ef3" (func (result i32)))
 -  (import "a" "ef4" (func (result i32)))    ;; index 4
++  (;;FIXME: change it back after supporting the import of tables ;;)
 +  (func (result i32) (i32.const 0))    ;; index 0
 +  (func (result i32) (i32.const 1))
 +  (func (result i32) (i32.const 2))
@@ -164,7 +96,7 @@ index 380e84e..59230cf 100644
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
    (elem (table $t0) (i32.const 2) func 3 1 4 1)
-@@ -198,11 +198,11 @@
+@@ -198,11 +200,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -173,6 +105,7 @@ index 380e84e..59230cf 100644
 -  (import "a" "ef2" (func (result i32)))
 -  (import "a" "ef3" (func (result i32)))
 -  (import "a" "ef4" (func (result i32)))    ;; index 4
++  (;;FIXME: change it back after supporting the import of tables ;;)
 +  (func (result i32) (i32.const 0))    ;; index 0
 +  (func (result i32) (i32.const 1))
 +  (func (result i32) (i32.const 2))
@@ -181,7 +114,7 @@ index 380e84e..59230cf 100644
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
    (elem (table $t0) (i32.const 2) func 3 1 4 1)
-@@ -290,11 +290,11 @@
+@@ -290,11 +293,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -190,6 +123,7 @@ index 380e84e..59230cf 100644
 -  (import "a" "ef2" (func (result i32)))
 -  (import "a" "ef3" (func (result i32)))
 -  (import "a" "ef4" (func (result i32)))    ;; index 4
++  (;;FIXME: change it back after supporting the import of tables ;;)
 +  (func (result i32) (i32.const 0))    ;; index 0
 +  (func (result i32) (i32.const 1))
 +  (func (result i32) (i32.const 2))
@@ -198,7 +132,7 @@ index 380e84e..59230cf 100644
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
    (elem (table $t0) (i32.const 2) func 3 1 4 1)
-@@ -382,11 +382,11 @@
+@@ -382,11 +386,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -207,6 +141,7 @@ index 380e84e..59230cf 100644
 -  (import "a" "ef2" (func (result i32)))
 -  (import "a" "ef3" (func (result i32)))
 -  (import "a" "ef4" (func (result i32)))    ;; index 4
++  (;;FIXME: change it back after supporting the import of tables ;;)
 +  (func (result i32) (i32.const 0))    ;; index 0
 +  (func (result i32) (i32.const 1))
 +  (func (result i32) (i32.const 2))
@@ -215,7 +150,7 @@ index 380e84e..59230cf 100644
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
    (elem (table $t0) (i32.const 2) func 3 1 4 1)
-@@ -474,11 +474,11 @@
+@@ -474,11 +479,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -224,6 +159,7 @@ index 380e84e..59230cf 100644
 -  (import "a" "ef2" (func (result i32)))
 -  (import "a" "ef3" (func (result i32)))
 -  (import "a" "ef4" (func (result i32)))    ;; index 4
++  (;;FIXME: change it back after supporting the import of tables ;;)
 +  (func (result i32) (i32.const 0))    ;; index 0
 +  (func (result i32) (i32.const 1))
 +  (func (result i32) (i32.const 2))
@@ -232,7 +168,7 @@ index 380e84e..59230cf 100644
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
    (elem (table $t0) (i32.const 2) func 3 1 4 1)
-@@ -566,11 +566,11 @@
+@@ -566,11 +572,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -241,6 +177,7 @@ index 380e84e..59230cf 100644
 -  (import "a" "ef2" (func (result i32)))
 -  (import "a" "ef3" (func (result i32)))
 -  (import "a" "ef4" (func (result i32)))    ;; index 4
++  (;;FIXME: change it back after supporting the import of tables ;;)
 +  (func (result i32) (i32.const 0))    ;; index 0
 +  (func (result i32) (i32.const 1))
 +  (func (result i32) (i32.const 2))
@@ -249,7 +186,7 @@ index 380e84e..59230cf 100644
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
    (elem (table $t0) (i32.const 2) func 3 1 4 1)
-@@ -658,11 +658,11 @@
+@@ -658,11 +665,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -258,6 +195,7 @@ index 380e84e..59230cf 100644
 -  (import "a" "ef2" (func (result i32)))
 -  (import "a" "ef3" (func (result i32)))
 -  (import "a" "ef4" (func (result i32)))    ;; index 4
++  (;;FIXME: change it back after supporting the import of tables ;;)
 +  (func (result i32) (i32.const 0))    ;; index 0
 +  (func (result i32) (i32.const 1))
 +  (func (result i32) (i32.const 2))
@@ -266,7 +204,7 @@ index 380e84e..59230cf 100644
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
    (elem (table $t0) (i32.const 2) func 3 1 4 1)
-@@ -750,11 +750,11 @@
+@@ -750,11 +758,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -275,6 +213,7 @@ index 380e84e..59230cf 100644
 -  (import "a" "ef2" (func (result i32)))
 -  (import "a" "ef3" (func (result i32)))
 -  (import "a" "ef4" (func (result i32)))    ;; index 4
++  (;;FIXME: change it back after supporting the import of tables ;;)
 +  (func (result i32) (i32.const 0))    ;; index 0
 +  (func (result i32) (i32.const 1))
 +  (func (result i32) (i32.const 2))
@@ -283,7 +222,7 @@ index 380e84e..59230cf 100644
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
    (elem (table $t0) (i32.const 2) func 3 1 4 1)
-@@ -842,11 +842,11 @@
+@@ -842,11 +851,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -292,6 +231,7 @@ index 380e84e..59230cf 100644
 -  (import "a" "ef2" (func (result i32)))
 -  (import "a" "ef3" (func (result i32)))
 -  (import "a" "ef4" (func (result i32)))    ;; index 4
++  (;;FIXME: change it back after supporting the import of tables ;;)
 +  (func (result i32) (i32.const 0))    ;; index 0
 +  (func (result i32) (i32.const 1))
 +  (func (result i32) (i32.const 2))
@@ -300,7 +240,7 @@ index 380e84e..59230cf 100644
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
    (elem (table $t1) (i32.const 2) func 3 1 4 1)
-@@ -934,11 +934,11 @@
+@@ -934,11 +944,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -309,6 +249,7 @@ index 380e84e..59230cf 100644
 -  (import "a" "ef2" (func (result i32)))
 -  (import "a" "ef3" (func (result i32)))
 -  (import "a" "ef4" (func (result i32)))    ;; index 4
++  (;;FIXME: change it back after supporting the import of tables ;;)
 +  (func (result i32) (i32.const 0))    ;; index 0
 +  (func (result i32) (i32.const 1))
 +  (func (result i32) (i32.const 2))
@@ -317,7 +258,7 @@ index 380e84e..59230cf 100644
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
    (elem (table $t1) (i32.const 2) func 3 1 4 1)
-@@ -1026,11 +1026,11 @@
+@@ -1026,11 +1037,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -326,6 +267,7 @@ index 380e84e..59230cf 100644
 -  (import "a" "ef2" (func (result i32)))
 -  (import "a" "ef3" (func (result i32)))
 -  (import "a" "ef4" (func (result i32)))    ;; index 4
++  (;;FIXME: change it back after supporting the import of tables ;;)
 +  (func (result i32) (i32.const 0))    ;; index 0
 +  (func (result i32) (i32.const 1))
 +  (func (result i32) (i32.const 2))
@@ -334,7 +276,7 @@ index 380e84e..59230cf 100644
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
    (elem (table $t1) (i32.const 2) func 3 1 4 1)
-@@ -1118,11 +1118,11 @@
+@@ -1118,11 +1130,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -343,6 +285,7 @@ index 380e84e..59230cf 100644
 -  (import "a" "ef2" (func (result i32)))
 -  (import "a" "ef3" (func (result i32)))
 -  (import "a" "ef4" (func (result i32)))    ;; index 4
++  (;;FIXME: change it back after supporting the import of tables ;;)
 +  (func (result i32) (i32.const 0))    ;; index 0
 +  (func (result i32) (i32.const 1))
 +  (func (result i32) (i32.const 2))
@@ -351,7 +294,7 @@ index 380e84e..59230cf 100644
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
    (elem (table $t1) (i32.const 2) func 3 1 4 1)
-@@ -1210,11 +1210,11 @@
+@@ -1210,11 +1223,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -360,6 +303,7 @@ index 380e84e..59230cf 100644
 -  (import "a" "ef2" (func (result i32)))
 -  (import "a" "ef3" (func (result i32)))
 -  (import "a" "ef4" (func (result i32)))    ;; index 4
++  (;;FIXME: change it back after supporting the import of tables ;;)
 +  (func (result i32) (i32.const 0))    ;; index 0
 +  (func (result i32) (i32.const 1))
 +  (func (result i32) (i32.const 2))
@@ -368,7 +312,7 @@ index 380e84e..59230cf 100644
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
    (elem (table $t1) (i32.const 2) func 3 1 4 1)
-@@ -1302,11 +1302,11 @@
+@@ -1302,11 +1316,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -377,6 +321,7 @@ index 380e84e..59230cf 100644
 -  (import "a" "ef2" (func (result i32)))
 -  (import "a" "ef3" (func (result i32)))
 -  (import "a" "ef4" (func (result i32)))    ;; index 4
++  (;;FIXME: change it back after supporting the import of tables ;;)
 +  (func (result i32) (i32.const 0))    ;; index 0
 +  (func (result i32) (i32.const 1))
 +  (func (result i32) (i32.const 2))
@@ -385,7 +330,7 @@ index 380e84e..59230cf 100644
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
    (elem (table $t1) (i32.const 2) func 3 1 4 1)
-@@ -1394,11 +1394,11 @@
+@@ -1394,11 +1409,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -394,6 +339,7 @@ index 380e84e..59230cf 100644
 -  (import "a" "ef2" (func (result i32)))
 -  (import "a" "ef3" (func (result i32)))
 -  (import "a" "ef4" (func (result i32)))    ;; index 4
++  (;;FIXME: change it back after supporting the import of tables ;;)
 +  (func (result i32) (i32.const 0))    ;; index 0
 +  (func (result i32) (i32.const 1))
 +  (func (result i32) (i32.const 2))
@@ -402,7 +348,7 @@ index 380e84e..59230cf 100644
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
    (elem (table $t1) (i32.const 2) func 3 1 4 1)
-@@ -1486,11 +1486,11 @@
+@@ -1486,11 +1502,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -411,6 +357,7 @@ index 380e84e..59230cf 100644
 -  (import "a" "ef2" (func (result i32)))
 -  (import "a" "ef3" (func (result i32)))
 -  (import "a" "ef4" (func (result i32)))    ;; index 4
++  (;;FIXME: change it back after supporting the import of tables ;;)
 +  (func (result i32) (i32.const 0))    ;; index 0
 +  (func (result i32) (i32.const 1))
 +  (func (result i32) (i32.const 2))
@@ -419,7 +366,7 @@ index 380e84e..59230cf 100644
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
    (elem (table $t1) (i32.const 2) func 3 1 4 1)
-@@ -1578,11 +1578,11 @@
+@@ -1578,11 +1595,12 @@
  
  (module
    (type (func (result i32)))  ;; type #0
@@ -428,6 +375,7 @@ index 380e84e..59230cf 100644
 -  (import "a" "ef2" (func (result i32)))
 -  (import "a" "ef3" (func (result i32)))
 -  (import "a" "ef4" (func (result i32)))    ;; index 4
++  (;;FIXME: change it back after supporting the import of tables ;;)
 +  (func (result i32) (i32.const 0))    ;; index 0
 +  (func (result i32) (i32.const 1))
 +  (func (result i32) (i32.const 2))
@@ -436,6 +384,29 @@ index 380e84e..59230cf 100644
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
    (elem (table $t1) (i32.const 2) func 3 1 4 1)
+diff --git a/test/core/table_grow.wast b/test/core/table_grow.wast
+index 5345a80..0636f67 100644
+--- a/test/core/table_grow.wast
++++ b/test/core/table_grow.wast
+@@ -108,6 +108,8 @@
+ (assert_return (invoke "check-table-null" (i32.const 0) (i32.const 19)) (ref.null func))
+ 
+ 
++(;; FIXME: enable the following cases after supporting the import of tables
++ ;;
+ (module $Tgt
+   (table (export "table") 1 funcref) ;; initial size is 1
+   (func (export "grow") (result i32) (table.grow (ref.null func) (i32.const 1)))
+@@ -127,7 +129,8 @@
+   (func (export "size") (result i32) (table.size))
+ )
+ (assert_return (invoke $Tgit2 "size") (i32.const 3))
+-
++;;
++;;)
+ 
+ ;; Type errors
+ 
 diff --git a/test/core/table_init.wast b/test/core/table_init.wast
 index 0b2d26f..3c595e5 100644
 --- a/test/core/table_init.wast
