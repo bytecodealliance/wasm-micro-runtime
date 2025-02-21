@@ -373,8 +373,6 @@ typedef struct WASMModuleInstanceExtra {
 #endif
 
 #if WASM_ENABLE_SHARED_HEAP != 0
-    WASMSharedHeap *shared_heap;
-#if WASM_ENABLE_JIT != 0
     /*
      * Adjusted shared heap based addr to simple the calculation
      * in the aot code. The value is:
@@ -382,7 +380,8 @@ typedef struct WASMModuleInstanceExtra {
      */
     uint8 *shared_heap_base_addr_adj;
     MemBound shared_heap_start_off;
-#endif
+    MemBound shared_heap_end_off;
+    WASMSharedHeap *shared_heap;
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0                         \

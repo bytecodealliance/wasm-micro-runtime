@@ -328,6 +328,132 @@ wasm_runtime_unchain_shared_heaps(WASMSharedHeap *head, bool entire_chain)
     return cur;
 }
 
+static uint8 *
+get_last_used_shared_heap_base_addr_adj(WASMModuleInstanceCommon *module_inst)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        WASMModuleInstanceExtra *e =
+            (WASMModuleInstanceExtra *)((WASMModuleInstance *)module_inst)->e;
+        return e->shared_heap_base_addr_adj;
+    }
+#endif /* end of WASM_ENABLE_INTERP != 0 */
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        AOTModuleInstanceExtra *e =
+            (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e;
+        return e->shared_heap_base_addr_adj;
+    }
+#endif /* end of WASM_ENABLE_AOT != 0 */
+    return 0;
+}
+
+static uintptr_t
+get_last_used_shared_heap_start_offset(WASMModuleInstanceCommon *module_inst)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        WASMModuleInstanceExtra *e =
+            (WASMModuleInstanceExtra *)((WASMModuleInstance *)module_inst)->e;
+#if UINTPTR_MAX == UINT64_MAX
+        return e->shared_heap_start_off.u64;
+#else
+        return e->shared_heap_start_off.u32[0];
+#endif
+    }
+#endif /* end of WASM_ENABLE_INTERP != 0 */
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        AOTModuleInstanceExtra *e =
+            (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e;
+#if UINTPTR_MAX == UINT64_MAX
+        return e->shared_heap_start_off.u64;
+#else
+        return e->shared_heap_start_off.u32[0];
+#endif
+    }
+#endif /* end of WASM_ENABLE_AOT != 0 */
+    return 0;
+}
+
+static uintptr_t
+get_last_used_shared_heap_end_offset(WASMModuleInstanceCommon *module_inst)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        WASMModuleInstanceExtra *e =
+            (WASMModuleInstanceExtra *)((WASMModuleInstance *)module_inst)->e;
+#if UINTPTR_MAX == UINT64_MAX
+        return e->shared_heap_end_off.u64;
+#else
+        return e->shared_heap_end_off.u32[0];
+#endif
+    }
+#endif /* end of WASM_ENABLE_INTERP != 0 */
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        AOTModuleInstanceExtra *e =
+            (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e;
+#if UINTPTR_MAX == UINT64_MAX
+        return e->shared_heap_end_off.u64;
+#else
+        return e->shared_heap_end_off.u32[0];
+#endif
+    }
+#endif /* end of WASM_ENABLE_AOT != 0 */
+    return 0;
+}
+
+static void
+update_last_used_shared_heap(WASMModuleInstanceCommon *module_inst,
+                             WASMSharedHeap *shared_heap, bool is_memory64)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        WASMModuleInstanceExtra *e =
+            (WASMModuleInstanceExtra *)((WASMModuleInstance *)module_inst)->e;
+#if UINTPTR_MAX == UINT64_MAX
+        if (is_memory64)
+            e->shared_heap_start_off.u64 = shared_heap->start_off_mem64;
+        else
+            e->shared_heap_start_off.u64 = shared_heap->start_off_mem32;
+        e->shared_heap_end_off.u64 =
+            e->shared_heap_start_off.u64 - 1 + shared_heap->size;
+        e->shared_heap_base_addr_adj =
+            shared_heap->base_addr - e->shared_heap_start_off.u64;
+#else
+        e->shared_heap_start_off.u32[0] = (uint32)shared_heap->start_off_mem32;
+        e->shared_heap_end_off.u32[0] =
+            e->shared_heap_start_off.u32[0] - 1 + shared_heap->size;
+        e->shared_heap_base_addr_adj =
+            shared_heap->base_addr - e->shared_heap_start_off.u32[0];
+#endif
+    }
+#endif /* end of WASM_ENABLE_INTERP != 0 */
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        AOTModuleInstanceExtra *e =
+            (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e;
+#if UINTPTR_MAX == UINT64_MAX
+        if (is_memory64)
+            e->shared_heap_start_off.u64 = shared_heap->start_off_mem64;
+        else
+            e->shared_heap_start_off.u64 = shared_heap->start_off_mem32;
+        e->shared_heap_end_off.u64 =
+            e->shared_heap_start_off.u64 - 1 + shared_heap->size;
+        e->shared_heap_base_addr_adj =
+            shared_heap->base_addr - e->shared_heap_start_off.u64;
+#else
+        e->shared_heap_start_off.u32[0] = (uint32)shared_heap->start_off_mem32;
+        e->shared_heap_end_off.u32[0] =
+            e->shared_heap_start_off.u32[0] - 1 + shared_heap->size;
+        e->shared_heap_base_addr_adj =
+            shared_heap->base_addr - e->shared_heap_start_off.u32[0];
+#endif
+    }
+#endif /* end of WASM_ENABLE_AOT != 0 */
+}
+
 bool
 wasm_runtime_attach_shared_heap_internal(WASMModuleInstanceCommon *module_inst,
                                          WASMSharedHeap *shared_heap)
@@ -358,20 +484,6 @@ wasm_runtime_attach_shared_heap_internal(WASMModuleInstanceCommon *module_inst,
             return false;
         }
         e->shared_heap = shared_heap;
-#if WASM_ENABLE_JIT != 0
-#if UINTPTR_MAX == UINT64_MAX
-        if (memory->is_memory64)
-            e->shared_heap_start_off.u64 = shared_heap->start_off_mem64;
-        else
-            e->shared_heap_start_off.u64 = shared_heap->start_off_mem32;
-        e->shared_heap_base_addr_adj =
-            shared_heap->base_addr - e->shared_heap_start_off.u64;
-#else
-        e->shared_heap_start_off.u32[0] = (uint32)shared_heap->start_off_mem32;
-        e->shared_heap_base_addr_adj =
-            shared_heap->base_addr - e->shared_heap_start_off.u32[0];
-#endif
-#endif /* end of WASM_ENABLE_JIT != 0 */
     }
 #endif /* end of WASM_ENABLE_INTERP != 0 */
 #if WASM_ENABLE_AOT != 0
@@ -383,20 +495,9 @@ wasm_runtime_attach_shared_heap_internal(WASMModuleInstanceCommon *module_inst,
             return false;
         }
         e->shared_heap = shared_heap;
-#if UINTPTR_MAX == UINT64_MAX
-        if (memory->is_memory64)
-            e->shared_heap_start_off.u64 = shared_heap->start_off_mem64;
-        else
-            e->shared_heap_start_off.u64 = shared_heap->start_off_mem32;
-        e->shared_heap_base_addr_adj =
-            shared_heap->base_addr - e->shared_heap_start_off.u64;
-#else
-        e->shared_heap_start_off.u32[0] = (uint32)shared_heap->start_off_mem32;
-        e->shared_heap_base_addr_adj =
-            shared_heap->base_addr - e->shared_heap_start_off.u32[0];
-#endif
     }
 #endif /* end of WASM_ENABLE_AOT != 0 */
+    update_last_used_shared_heap(module_inst, shared_heap, memory->is_memory64);
 
     os_mutex_lock(&shared_heap_list_lock);
     shared_heap->attached_count++;
@@ -428,14 +529,14 @@ wasm_runtime_detach_shared_heap_internal(WASMModuleInstanceCommon *module_inst)
             os_mutex_unlock(&shared_heap_list_lock);
         }
         e->shared_heap = NULL;
-#if WASM_ENABLE_JIT != 0
 #if UINTPTR_MAX == UINT64_MAX
         e->shared_heap_start_off.u64 = UINT64_MAX;
+        e->shared_heap_end_off.u64 = UINT64_MAX - 1;
 #else
         e->shared_heap_start_off.u32[0] = UINT32_MAX;
+        e->shared_heap_end_off.u32[0] = UINT32_MAX - 1;
 #endif
         e->shared_heap_base_addr_adj = NULL;
-#endif
     }
 #endif /* end of WASM_ENABLE_INTERP != 0 */
 #if WASM_ENABLE_AOT != 0
@@ -450,8 +551,10 @@ wasm_runtime_detach_shared_heap_internal(WASMModuleInstanceCommon *module_inst)
         e->shared_heap = NULL;
 #if UINTPTR_MAX == UINT64_MAX
         e->shared_heap_start_off.u64 = UINT64_MAX;
+        e->shared_heap_end_off.u64 = UINT64_MAX - 1;
 #else
         e->shared_heap_start_off.u32[0] = UINT32_MAX;
+        e->shared_heap_end_off.u32[0] = UINT32_MAX - 1;
 #endif
         e->shared_heap_base_addr_adj = NULL;
     }
@@ -495,8 +598,7 @@ wasm_runtime_get_shared_heap(WASMModuleInstanceCommon *module_inst_comm)
 
 static bool
 is_app_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
-                           bool is_memory64, uint64 app_offset, uint32 bytes,
-                           WASMSharedHeap **target_heap)
+                           bool is_memory64, uint64 app_offset, uint32 bytes)
 {
     WASMSharedHeap *heap = get_shared_heap(module_inst), *cur;
     uint64 shared_heap_start, shared_heap_end;
@@ -509,6 +611,14 @@ is_app_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
         bytes = 1;
     }
 
+    shared_heap_start =
+        (uint64)get_last_used_shared_heap_start_offset(module_inst);
+    shared_heap_end = (uint64)get_last_used_shared_heap_end_offset(module_inst);
+    if (app_offset >= shared_heap_start
+        && app_offset <= shared_heap_end - bytes + 1) {
+        return true;
+    }
+
     /* Early stop for app start address not in the shared heap(chain) at all */
     shared_heap_start =
         is_memory64 ? heap->start_off_mem64 : heap->start_off_mem32;
@@ -518,31 +628,27 @@ is_app_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
         goto fail;
     }
 
-    /* Find the exact shared heap that app addr is in */
-    if (target_heap) {
-        for (cur = heap; cur; cur = cur->chain_next) {
-            shared_heap_start =
-                is_memory64 ? cur->start_off_mem64 : cur->start_off_mem32;
-            shared_heap_end = shared_heap_start - 1 + cur->size;
-            if (app_offset >= shared_heap_start
-                && app_offset <= shared_heap_end - bytes + 1) {
-                *target_heap = cur;
-                return true;
-            }
+    /* Find the exact shared heap that app addr is in, and update last used
+     * shared heap info in module inst extra */
+    for (cur = heap; cur; cur = cur->chain_next) {
+        shared_heap_start =
+            is_memory64 ? cur->start_off_mem64 : cur->start_off_mem32;
+        shared_heap_end = shared_heap_start - 1 + cur->size;
+        if (app_offset >= shared_heap_start
+            && app_offset <= shared_heap_end - bytes + 1) {
+            update_last_used_shared_heap(module_inst, cur, is_memory64);
+            return true;
         }
     }
 
     return true;
 fail:
-    if (target_heap)
-        *target_heap = NULL;
     return false;
 }
 
 static bool
 is_native_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
-                              uint8 *addr, uint32 bytes,
-                              WASMSharedHeap **target_heap)
+                              bool is_memory64, uint8 *addr, uint32 bytes)
 {
     WASMSharedHeap *cur, *heap = get_shared_heap(module_inst);
     uintptr_t base_addr, addr_int, end_addr;
@@ -567,14 +673,11 @@ is_native_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
         if (end_addr > base_addr + cur->size)
             continue;
 
-        if (target_heap)
-            *target_heap = cur;
+        update_last_used_shared_heap(module_inst, cur, is_memory64);
         return true;
     }
 
 fail:
-    if (target_heap)
-        *target_heap = NULL;
     return false;
 }
 
@@ -908,7 +1011,7 @@ wasm_runtime_validate_app_addr(WASMModuleInstanceCommon *module_inst_comm,
 
 #if WASM_ENABLE_SHARED_HEAP != 0
     if (is_app_addr_in_shared_heap(module_inst_comm, memory_inst->is_memory64,
-                                   app_offset, size, NULL)) {
+                                   app_offset, size)) {
         return true;
     }
 #endif
@@ -945,6 +1048,10 @@ wasm_runtime_validate_app_str_addr(WASMModuleInstanceCommon *module_inst_comm,
     WASMMemoryInstance *memory_inst;
     uint64 app_end_offset, max_linear_memory_size = MAX_LINEAR_MEMORY_SIZE;
     char *str, *str_end;
+#if WASM_ENABLE_SHARED_HEAP != 0
+    uintptr_t shared_heap_end_off;
+    char *shared_heap_base_addr_adj;
+#endif
 
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
@@ -959,14 +1066,14 @@ wasm_runtime_validate_app_str_addr(WASMModuleInstanceCommon *module_inst_comm,
     }
 
 #if WASM_ENABLE_SHARED_HEAP != 0
-    WASMSharedHeap *shared_heap;
     if (is_app_addr_in_shared_heap(module_inst_comm, memory_inst->is_memory64,
-                                   app_str_offset, 1, &shared_heap)) {
-        str = (char *)shared_heap->base_addr
-              + (memory_inst->is_memory64
-                     ? (app_str_offset - shared_heap->start_off_mem64)
-                     : (app_str_offset - shared_heap->start_off_mem32));
-        str_end = (char *)shared_heap->base_addr + shared_heap->size;
+                                   app_str_offset, 1)) {
+        shared_heap_end_off =
+            get_last_used_shared_heap_end_offset(module_inst_comm);
+        shared_heap_base_addr_adj =
+            (char *)get_last_used_shared_heap_base_addr_adj(module_inst_comm);
+        str = shared_heap_base_addr_adj + app_str_offset;
+        str_end = shared_heap_base_addr_adj + shared_heap_end_off;
     }
     else
 #endif
@@ -1031,8 +1138,8 @@ wasm_runtime_validate_native_addr(WASMModuleInstanceCommon *module_inst_comm,
     }
 
 #if WASM_ENABLE_SHARED_HEAP != 0
-    if (is_native_addr_in_shared_heap(module_inst_comm, native_ptr, size,
-                                      NULL)) {
+    if (is_native_addr_in_shared_heap(
+            module_inst_comm, memory_inst->is_memory64, native_ptr, size)) {
         return true;
     }
 #endif
@@ -1060,9 +1167,6 @@ wasm_runtime_addr_app_to_native(WASMModuleInstanceCommon *module_inst_comm,
     WASMMemoryInstance *memory_inst;
     uint8 *addr;
     bool bounds_checks;
-#if WASM_ENABLE_SHARED_HEAP != 0
-    WASMSharedHeap *shared_heap;
-#endif
 
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
@@ -1076,17 +1180,9 @@ wasm_runtime_addr_app_to_native(WASMModuleInstanceCommon *module_inst_comm,
 
 #if WASM_ENABLE_SHARED_HEAP != 0
     if (is_app_addr_in_shared_heap(module_inst_comm, memory_inst->is_memory64,
-                                   app_offset, 1, &shared_heap)) {
-        uint64 shared_heap_start = 0;
-
-        if (memory_inst && !memory_inst->is_memory64) {
-            shared_heap_start = shared_heap->start_off_mem32;
-        }
-        else if (memory_inst && memory_inst->is_memory64) {
-            shared_heap_start = shared_heap->start_off_mem64;
-        }
-
-        return shared_heap->base_addr + app_offset - shared_heap_start;
+                                   app_offset, 1)) {
+        return get_last_used_shared_heap_base_addr_adj(module_inst_comm)
+               + app_offset;
     }
 #endif
 
@@ -1135,19 +1231,9 @@ wasm_runtime_addr_native_to_app(WASMModuleInstanceCommon *module_inst_comm,
     }
 
 #if WASM_ENABLE_SHARED_HEAP != 0
-    WASMSharedHeap *shared_heap;
-    if (is_native_addr_in_shared_heap(module_inst_comm, addr, 1,
-                                      &shared_heap)) {
-        uint64 shared_heap_start = 0;
-
-        if (memory_inst && !memory_inst->is_memory64) {
-            shared_heap_start = shared_heap->start_off_mem32;
-        }
-        else if (memory_inst && memory_inst->is_memory64) {
-            shared_heap_start = shared_heap->start_off_mem64;
-        }
-
-        return shared_heap_start + (addr - shared_heap->base_addr);
+    if (is_native_addr_in_shared_heap(module_inst_comm,
+                                      memory_inst->is_memory64, addr, 1)) {
+        return addr - get_last_used_shared_heap_base_addr_adj(module_inst_comm);
     }
 #endif
 
@@ -1249,8 +1335,8 @@ wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
     uint8 *native_addr;
     bool bounds_checks;
 #if WASM_ENABLE_SHARED_HEAP != 0
-    WASMSharedHeap *shared_heap;
-    bool is_in_shared_heap = false;
+    uint8 *shared_heap_base_addr_adj = NULL;
+    uintptr_t shared_heap_end_off = 0;
 #endif
 
     bh_assert(app_buf_addr <= UINTPTR_MAX && app_buf_size <= UINTPTR_MAX);
@@ -1263,12 +1349,12 @@ wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
 #if WASM_ENABLE_SHARED_HEAP != 0
     if (is_app_addr_in_shared_heap((WASMModuleInstanceCommon *)module_inst,
                                    memory_inst->is_memory64, app_buf_addr,
-                                   app_buf_size, &shared_heap)) {
-        native_addr = shared_heap->base_addr
-                      + (memory_inst->is_memory64
-                             ? (app_buf_addr - shared_heap->start_off_mem64)
-                             : (app_buf_addr - shared_heap->start_off_mem32));
-        is_in_shared_heap = true;
+                                   app_buf_size)) {
+        shared_heap_base_addr_adj = get_last_used_shared_heap_base_addr_adj(
+            (WASMModuleInstanceCommon *)module_inst);
+        shared_heap_end_off = get_last_used_shared_heap_end_offset(
+            (WASMModuleInstanceCommon *)module_inst);
+        native_addr = shared_heap_base_addr_adj + app_buf_addr;
     }
     else
 #endif
@@ -1287,12 +1373,12 @@ wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
     }
 
 #if WASM_ENABLE_SHARED_HEAP != 0
-    if (is_in_shared_heap) {
+    if (shared_heap_base_addr_adj) {
         const char *str, *str_end;
 
         /* The whole string must be in the linear memory */
         str = (const char *)native_addr;
-        str_end = (const char *)shared_heap->base_addr + shared_heap->size;
+        str_end = (const char *)shared_heap_base_addr_adj + shared_heap_end_off;
         while (str < str_end && *str != '\0')
             str++;
         if (str == str_end) {

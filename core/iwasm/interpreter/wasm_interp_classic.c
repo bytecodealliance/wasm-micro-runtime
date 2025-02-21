@@ -1623,14 +1623,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         is_memory64 = memory->is_memory64;
 #endif
 #if WASM_ENABLE_SHARED_HEAP != 0
-    WASMSharedHeap *shared_heap = module->e->shared_heap;
-    uint8 *shared_heap_base_addr = shared_heap ? shared_heap->base_addr : NULL;
-    uint64 shared_heap_start_off =
-        shared_heap ? get_shared_heap_start_off(shared_heap) : 0;
-    uint64 shared_heap_end_off =
-        shared_heap
-            ? (get_shared_heap_start_off(shared_heap) - 1 + shared_heap->size)
-            : 0;
+    WASMModuleInstanceExtra *e = module->e;
 #endif /* end of WASM_ENABLE_SHARED_HEAP != 0 */
 #if WASM_ENABLE_MULTI_MEMORY != 0
     uint32 memidx = 0;
@@ -5780,13 +5773,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         CHECK_BULK_MEMORY_OVERFLOW(dst, len, mdst);
 #if WASM_ENABLE_SHARED_HEAP != 0
                         if (app_addr_in_shared_heap((uint64)dst, len))
-                            dlen = shared_heap_end_off - dst + 1;
+                            dlen =
+                                get_last_used_shared_heap_end_off() - dst + 1;
 #endif
 #else /* else of OS_ENABLE_HW_BOUND_CHECK */
 #if WASM_ENABLE_SHARED_HEAP != 0
                         if (app_addr_in_shared_heap((uint64)dst, len)) {
                             shared_heap_addr_app_to_native((uint64)dst, mdst);
-                            dlen = shared_heap_end_off - dst + 1;
+                            dlen =
+                                get_last_used_shared_heap_end_off() - dst + 1;
                         }
                         else
 #endif
