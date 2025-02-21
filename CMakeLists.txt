@@ -3,6 +3,8 @@
 
 cmake_minimum_required (VERSION 3.0)
 
+option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
+
 if(ESP_PLATFORM)
   include (${COMPONENT_DIR}/build-scripts/esp-idf/wamr/CMakeLists.txt)
   return()
@@ -16,13 +18,6 @@ set (CMAKE_VERBOSE_MAKEFILE OFF)
 
 if (NOT DEFINED WAMR_BUILD_PLATFORM)
   string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
-endif ()
-
-if (NOT DEFINED WAMR_BUILD_STATIC)
-  set (WAMR_BUILD_STATIC 1)
-endif ()
-if (NOT DEFINED WAMR_BUILD_SHARED)
-  set (WAMR_BUILD_SHARED 1)
 endif ()
 
 # Reset default linker flags
@@ -156,55 +151,40 @@ if (MSVC)
   add_definitions(-DCOMPILING_WASM_RUNTIME_API=1)
 endif ()
 
-# STATIC LIBRARY
-if (WAMR_BUILD_STATIC)
-    add_library(iwasm_static STATIC ${WAMR_RUNTIME_LIB_SOURCE})
-    set_target_properties (iwasm_static PROPERTIES OUTPUT_NAME vmlib)
-    target_include_directories(iwasm_static INTERFACE ${WAMR_ROOT_DIR}/core/iwasm/include)
-    target_link_libraries (iwasm_static INTERFACE ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl ${CMAKE_THREAD_LIBS_INIT})
-    if (WAMR_BUILD_WASM_CACHE EQUAL 1)
-      target_link_libraries(iwasm_static INTERFACE boringssl_crypto)
-    endif ()
+add_library (vmlib ${WAMR_RUNTIME_LIB_SOURCE})
+set_target_properties (vmlib PROPERTIES OUTPUT_NAME iwasm)
+target_include_directories(vmlib INTERFACE
+  $<BUILD_INTERFACE:${WAMR_ROOT_DIR}/core/iwasm/include>
+  $<INSTALL_INTERFACE:include/iwasm>
+)
 
-    if (MINGW)
-      target_link_libraries (iwasm_static PRIVATE ws2_32)
-    endif ()
-
-    if (WIN32)
-      target_link_libraries(iwasm_static PRIVATE ntdll)
-    endif()
-
-    set_version_info (iwasm_static)
-    install (TARGETS iwasm_static ARCHIVE DESTINATION lib)
+target_link_libraries (vmlib PUBLIC ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl ${CMAKE_THREAD_LIBS_INIT})
+if (WAMR_BUILD_WASM_CACHE EQUAL 1)
+  target_link_libraries(vmlib INTERFACE boringssl_crypto)
 endif ()
 
-# SHARED LIBRARY
-if (WAMR_BUILD_SHARED)
-    add_library (iwasm_shared SHARED ${WAMR_RUNTIME_LIB_SOURCE})
-    set_target_properties (iwasm_shared PROPERTIES OUTPUT_NAME iwasm)
-    target_include_directories(iwasm_shared INTERFACE ${WAMR_ROOT_DIR}/core/iwasm/include)
-    target_link_libraries (iwasm_shared PUBLIC ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl ${CMAKE_THREAD_LIBS_INIT})
-    if (WAMR_BUILD_WASM_CACHE EQUAL 1)
-      target_link_libraries(iwasm_shared INTERFACE boringssl_crypto)
-    endif ()
-
-    if (MINGW)
-      target_link_libraries(iwasm_shared INTERFACE -lWs2_32 -lwsock32)
-      target_link_libraries(iwasm_shared PRIVATE ws2_32)
-    endif ()
-
-    if (WIN32)
-      target_link_libraries(iwasm_shared PRIVATE ntdll)
-    endif()
-
-    set_version_info (iwasm_shared)
-    install (TARGETS iwasm_shared LIBRARY DESTINATION lib)
+if (MINGW)
+  target_link_libraries(vmlib INTERFACE -lWs2_32 -lwsock32)
+  target_link_libraries(vmlib PRIVATE ws2_32)
 endif ()
 
-# HEADERS
-install (FILES
-    ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_c_api.h
-    ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_export.h
-    ${WAMR_ROOT_DIR}/core/iwasm/include/lib_export.h
-    ${WAMR_ROOT_DIR}/core/version.h
-    DESTINATION include)
+if (WIN32)
+  target_link_libraries(vmlib PRIVATE ntdll)
+endif()
+
+set (WAMR_PUBLIC_HEADERS
+  ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_c_api.h
+  ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_export.h
+  ${WAMR_ROOT_DIR}/core/iwasm/include/lib_export.h
+)
+set_target_properties (vmlib PROPERTIES PUBLIC_HEADER "${WAMR_PUBLIC_HEADERS}")
+
+set_version_info (vmlib)
+
+install (TARGETS vmlib
+  EXPORT iwasmTargets
+  LIBRARY DESTINATION lib
+  PUBLIC_HEADER DESTINATION include/iwasm
+)
+
+install_iwasm_package ()
