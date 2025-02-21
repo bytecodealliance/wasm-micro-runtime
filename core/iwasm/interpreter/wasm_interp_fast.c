@@ -5079,7 +5079,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         CHECK_BULK_MEMORY_OVERFLOW(dst, len, mdst);
 #if WASM_ENABLE_SHARED_HEAP != 0
                         if (app_addr_in_shared_heap((uint64)dst, len))
-                            dlen =  (uint64)get_last_used_shared_heap_end_off() - dst + 1;
+                            dlen = (uint64)get_last_used_shared_heap_end_off()
+                                   - dst + 1;
 #endif
 #else /* else of OS_ENABLE_HW_BOUND_CHECK */
 #if WASM_ENABLE_SHARED_HEAP != 0
