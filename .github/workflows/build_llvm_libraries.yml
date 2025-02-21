@@ -65,6 +65,7 @@ jobs:
         shell: bash
         run: |
           echo "last_commit=$(GH_TOKEN=${{ secrets.GITHUB_TOKEN }} /usr/bin/env python3 ./build_llvm.py ${{ inputs.extra_build_llvm_options }} --llvm-ver)" >> $GITHUB_OUTPUT
+        working-directory: build-scripts
 
       # Bump the prefix number to evict all previous caches and
       # enforce a clean build, in the unlikely case that some

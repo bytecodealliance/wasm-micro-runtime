@@ -1758,7 +1758,7 @@ os_closedir(os_dir_stream dir_stream)
     if (!success) {
         DWORD win_error = GetLastError();
 
-        if (win_error = ERROR_INVALID_HANDLE)
+        if (win_error == ERROR_INVALID_HANDLE)
             BH_FREE(dir_stream);
         return convert_windows_error_code(win_error);
     }

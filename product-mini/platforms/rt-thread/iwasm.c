@@ -192,6 +192,21 @@ my_read_file_to_buffer(char *filename, rt_uint32_t *size)
 {
     struct stat f_stat;
 
+    if (!filename || !size) {
+        rt_set_errno(-EINVAL);
+        return RT_NULL;
+    }
+
+    if (stat(filename, &f_stat) != 0) {
+        rt_set_errno(errno);
+        return RT_NULL;
+    }
+
+    if (f_stat.st_size <= 0) {
+        rt_set_errno(-EINVAL);
+        return RT_NULL;
+    }
+
     rt_uint8_t *buff = rt_malloc(f_stat.st_size);
     *size = 0;
     if (!buff) {
