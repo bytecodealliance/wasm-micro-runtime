@@ -1073,23 +1073,24 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                             }
 
                             if (opcode1 == WASM_OP_ARRAY_NEW) {
-                                WASMValue len_val;
-
-                                if (!(array_init_values = loader_malloc(
-                                          sizeof(WASMArrayNewInitValues),
-                                          error_buf, error_buf_size))) {
-                                    goto fail;
-                                }
-                                array_init_values->type_idx = type_idx;
+                                WASMValue len_val = { 0 };
+                                uint64 size = 0;
 
                                 if (!pop_const_expr_stack(
                                         &const_expr_ctx, NULL, VALUE_TYPE_I32,
                                         NULL, NULL, &len_val, error_buf,
                                         error_buf_size)) {
-                                    destroy_init_expr_data_recursive(
-                                        module, array_init_values);
                                     goto fail;
                                 }
+
+                                size = sizeof(WASMArrayNewInitValues)
+                                       + sizeof(WASMValue) * len_val.i32;
+                                if (!(array_init_values = loader_malloc(
+                                          size, error_buf, error_buf_size))) {
+                                    goto fail;
+                                }
+
+                                array_init_values->type_idx = type_idx;
                                 array_init_values->length = len_val.i32;
 
                                 if (!pop_const_expr_stack(
