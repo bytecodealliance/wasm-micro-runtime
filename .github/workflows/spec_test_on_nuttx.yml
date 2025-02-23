@@ -127,7 +127,8 @@ jobs:
         wamr_feature_option:
           # Empty option for default
           - { option: "", mode: "" }
-          - { option: "CONFIG_INTERPRETERS_WAMR_GC CONFIG_INTERPRETERS_WAMR_AOT_STACK_FRAME", mode: "-G" }
+          # need to install menhir
+          # - { option: "CONFIG_INTERPRETERS_WAMR_GC CONFIG_INTERPRETERS_WAMR_AOT_STACK_FRAME", mode: "-G" }
 
         exclude:
           # XIP is not fully supported yet on RISCV64, some relocations can not be resolved
@@ -208,7 +209,7 @@ jobs:
         if: contains(matrix.wamr_test_option.mode, 'aot')
         working-directory: apps/interpreters/wamr/wamr/wamr-compiler
         run: |
-          cmake -Bbuild .
+          cmake -B build -DWAMR_BUILD_SHRUNK_MEMORY=0 -S .
           cmake --build build
 
       # the nuttx version we use for xtensa requires esptool.py newer than
@@ -350,7 +351,7 @@ jobs:
 
       - name: upload the log
         if: always()
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4.6.0
         with:
           name: spec-test-log-${{ github.run_id }}-${{ strategy.job-index }}-${{ matrix.target_config.target }}
           path: log

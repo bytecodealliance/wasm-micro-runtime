@@ -1103,7 +1103,8 @@ def compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
     elif opts.multi_memory:
         cmd = [opts.wast2wasm, "--enable-multi-memory", "--no-check", wast_tempfile, "-o", wasm_tempfile ]
     else:
-        cmd = [opts.wast2wasm, "--enable-threads", "--no-check",
+        # `--enable-multi-memory` for a case in memory.wast but doesn't require runtime support
+        cmd = [opts.wast2wasm, "--enable-multi-memory", "--enable-threads", "--no-check",
                wast_tempfile, "-o", wasm_tempfile ]
 
     # remove reference-type and bulk-memory enabling options since a WABT

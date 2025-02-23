@@ -712,6 +712,13 @@ os_thread_signal_init(os_signal_handler handler)
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
     sigalt_stack_base_addr = map_addr;
 #endif
+
+#if defined(os_thread_local_attribute)
+    // calculate and cache the new stack boundary.
+    // see https://github.com/bytecodealliance/wasm-micro-runtime/issues/3966
+    (void)os_thread_get_stack_boundary();
+#endif
+
     signal_handler = handler;
     thread_signal_inited = true;
     return 0;

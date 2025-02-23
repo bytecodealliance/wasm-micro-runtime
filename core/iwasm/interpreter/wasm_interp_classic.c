@@ -593,8 +593,8 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
 #endif
 
 #if WASM_ENABLE_MEMORY64 != 0
-#define POP_MEM_OFFSET() (is_memory64 ? POP_I64() : POP_I32())
-#define POP_TBL_ELEM_IDX() (is_table64 ? POP_I64() : POP_I32())
+#define POP_MEM_OFFSET() (is_memory64 ? POP_I64() : (uint32)POP_I32())
+#define POP_TBL_ELEM_IDX() (is_table64 ? POP_I64() : (uint32)POP_I32())
 #else
 #define POP_MEM_OFFSET() POP_I32()
 #define POP_TBL_ELEM_IDX() POP_I32()
@@ -2644,7 +2644,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 read_leb_uint32(frame_ip, frame_ip_end, type_index);
                 func_obj = POP_REF();
                 if (!func_obj) {
-                    wasm_set_exception(module, "null function object");
+                    wasm_set_exception(module, "null function reference");
                     goto got_exception;
                 }
 
@@ -2661,7 +2661,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 read_leb_uint32(frame_ip, frame_ip_end, type_index);
                 func_obj = POP_REF();
                 if (!func_obj) {
-                    wasm_set_exception(module, "null function object");
+                    wasm_set_exception(module, "null function reference");
                     goto got_exception;
                 }
 
@@ -2808,7 +2808,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         struct_obj = POP_REF();
 
                         if (!struct_obj) {
-                            wasm_set_exception(module, "null structure object");
+                            wasm_set_exception(module,
+                                               "null structure reference");
                             goto got_exception;
                         }
 
@@ -2864,7 +2865,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                         struct_obj = POP_REF();
                         if (!struct_obj) {
-                            wasm_set_exception(module, "null structure object");
+                            wasm_set_exception(module,
+                                               "null structure reference");
                             goto got_exception;
                         }
 
