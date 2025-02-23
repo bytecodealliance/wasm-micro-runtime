@@ -39,9 +39,10 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
     page_size = os_getpagesize();
     request_size = (size + page_size - 1) & ~(page_size - 1);
 
-    if (request_size < size)
-        /* integer overflow */
+    if (request_size < size) {
+        printf("mmap failed: request size overflow due to paging\n");
         return NULL;
+    }
 
 #if WASM_ENABLE_JIT != 0
     /**
