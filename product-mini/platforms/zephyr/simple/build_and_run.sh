@@ -38,7 +38,7 @@ TARGET=$1
 
 case $TARGET in
         $X86_TARGET)
-                west build -b qemu_x86_nommu \
+                west build -b qemu_x86_tiny \
                            . -p always -- \
                            -DWAMR_BUILD_TARGET=X86_32
                 west build -t run

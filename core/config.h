@@ -699,4 +699,12 @@
 #define WASM_ENABLE_SHARED_HEAP 0
 #endif
 
+#ifndef WASM_ENABLE_SHRUNK_MEMORY
+#define WASM_ENABLE_SHRUNK_MEMORY 1
+#endif
+
+#ifndef WASM_ENABLE_AOT_VALIDATOR
+#define WASM_ENABLE_AOT_VALIDATOR 0
+#endif
+
 #endif /* end of _CONFIG_H_ */

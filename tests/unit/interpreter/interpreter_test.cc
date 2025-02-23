@@ -45,6 +45,6 @@ TEST_F(InterpreterTest, wasm_runtime_is_built_in_module)
     bool ret = wasm_runtime_is_built_in_module("env");
     ASSERT_TRUE(ret);
 
-    ret = ret = wasm_runtime_is_built_in_module("env1");
+    ret = wasm_runtime_is_built_in_module("env1");
     ASSERT_FALSE(ret);
 }

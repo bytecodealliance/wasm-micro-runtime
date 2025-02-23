@@ -3037,9 +3037,9 @@ static const char *exception_msgs[] = {
     "wasm operand stack overflow",    /* EXCE_OPERAND_STACK_OVERFLOW */
     "failed to compile fast jit function", /* EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC */
     /* GC related exceptions */
-    "null function object",           /* EXCE_NULL_FUNC_OBJ */
-    "null structure object",          /* EXCE_NULL_STRUCT_OBJ */
-    "null array reference",              /* EXCE_NULL_ARRAY_OBJ */
+    "null function reference",        /* EXCE_NULL_FUNC_OBJ */
+    "null structure reference",       /* EXCE_NULL_STRUCT_OBJ */
+    "null array reference",           /* EXCE_NULL_ARRAY_OBJ */
     "null i31 reference",             /* EXCE_NULL_I31_OBJ */
     "null reference",                 /* EXCE_NULL_REFERENCE */
     "create rtt type failed",         /* EXCE_FAILED_TO_CREATE_RTT_TYPE */
@@ -3047,7 +3047,7 @@ static const char *exception_msgs[] = {
     "create array object failed",     /* EXCE_FAILED_TO_CREATE_ARRAY_OBJ */
     "create externref object failed", /* EXCE_FAILED_TO_CREATE_EXTERNREF_OBJ */
     "cast failure",                   /* EXCE_CAST_FAILURE */
-    "out of bounds array access",      /* EXCE_ARRAY_IDX_OOB */
+    "out of bounds array access",     /* EXCE_ARRAY_IDX_OOB */
     /* stringref related exceptions */
     "create string object failed",    /* EXCE_FAILED_TO_CREATE_STRING */
     "create stringref failed",        /* EXCE_FAILED_TO_CREATE_STRINGREF */
@@ -3654,8 +3654,14 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
 
         bh_memcpy_s(mapping_copy, max_len, map_dir_list[i],
                     (uint32)(strlen(map_dir_list[i]) + 1));
-        map_mapped = strtok(mapping_copy, "::");
-        map_host = strtok(NULL, "::");
+
+        const char *delim = "::";
+        char *delim_pos = strstr(mapping_copy, delim);
+        if (delim_pos) {
+            *delim_pos = '\0';
+            map_mapped = mapping_copy;
+            map_host = delim_pos + strlen(delim);
+        }
 
         if (!map_mapped || !map_host) {
             if (error_buf)
@@ -4460,8 +4466,9 @@ wasm_func_type_get_param_valkind(WASMFuncType *const func_type,
             return WASM_V128;
         case VALUE_TYPE_FUNCREF:
             return WASM_FUNCREF;
-
         case VALUE_TYPE_EXTERNREF:
+            return WASM_EXTERNREF;
+
         case VALUE_TYPE_VOID:
         default:
         {

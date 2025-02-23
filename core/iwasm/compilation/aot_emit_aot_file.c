@@ -1900,7 +1900,9 @@ aot_emit_memory_init_data_list(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                                 &init_datas[i]->offset))
             return false;
         EMIT_U32(init_datas[i]->byte_count);
-        EMIT_BUF(init_datas[i]->bytes, init_datas[i]->byte_count);
+        if (init_datas[i]->byte_count) {
+            EMIT_BUF(init_datas[i]->bytes, init_datas[i]->byte_count);
+        }
     }
 
     if (offset - *p_offset

@@ -10,6 +10,9 @@
 #include "../common/wasm_native.h"
 #include "../common/wasm_loader_common.h"
 #include "../compilation/aot.h"
+#if WASM_ENABLE_AOT_VALIDATOR != 0
+#include "aot_validator.h"
+#endif
 
 #if WASM_ENABLE_DEBUG_AOT != 0
 #include "debug/elf_parser.h"
@@ -975,13 +978,29 @@ destroy_import_memories(AOTImportMemory *import_memories)
     wasm_runtime_free(import_memories);
 }
 
+/**
+ * Free memory initialization data segments.
+ *
+ * @param module the AOT module containing the data
+ * @param data_list array of memory initialization data segments to free
+ * @param count number of segments in the data_list array
+ */
+
 static void
-destroy_mem_init_data_list(AOTMemInitData **data_list, uint32 count)
+destroy_mem_init_data_list(AOTModule *module, AOTMemInitData **data_list,
+                           uint32 count)
 {
     uint32 i;
+    /* Free each memory initialization data segment */
     for (i = 0; i < count; i++)
-        if (data_list[i])
+        if (data_list[i]) {
+            /* If the module owns the binary data, free the bytes buffer */
+            if (module->is_binary_freeable && data_list[i]->bytes)
+                wasm_runtime_free(data_list[i]->bytes);
+            /* Free the data segment structure itself */
             wasm_runtime_free(data_list[i]);
+        }
+    /* Free the array of data segment pointers */
     wasm_runtime_free(data_list);
 }
 
@@ -989,6 +1008,22 @@ static bool
 load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                InitializerExpression *expr, char *error_buf,
                uint32 error_buf_size);
+
+/**
+ * Load memory initialization data segments from the AOT module.
+ *
+ * This function reads memory initialization data segments from the buffer and
+ * creates AOTMemInitData structures for each segment. The data can either be
+ * cloned into new memory or referenced directly from the buffer.
+ *
+ * @param p_buf pointer to buffer containing memory init data
+ * @param buf_end end of buffer
+ * @param module the AOT module being loaded
+ * @param error_buf buffer for error messages
+ * @param error_buf_size size of error buffer
+ *
+ * @return true if successful, false if error occurred
+ */
 
 static bool
 load_mem_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
@@ -1020,8 +1055,8 @@ load_mem_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
             return false;
         }
         read_uint32(buf, buf_end, byte_count);
-        size = offsetof(AOTMemInitData, bytes) + (uint64)byte_count;
-        if (!(data_list[i] = loader_malloc(size, error_buf, error_buf_size))) {
+        if (!(data_list[i] = loader_malloc(sizeof(AOTMemInitData), error_buf,
+                                           error_buf_size))) {
             return false;
         }
 
@@ -1033,8 +1068,22 @@ load_mem_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
         data_list[i]->offset.init_expr_type = init_value.init_expr_type;
         data_list[i]->offset.u = init_value.u;
         data_list[i]->byte_count = byte_count;
-        read_byte_array(buf, buf_end, data_list[i]->bytes,
-                        data_list[i]->byte_count);
+        data_list[i]->bytes = NULL;
+        /* If the module owns the binary data, clone the bytes buffer */
+        if (module->is_binary_freeable) {
+            if (byte_count > 0) {
+                if (!(data_list[i]->bytes = loader_malloc(byte_count, error_buf,
+                                                          error_buf_size))) {
+                    return false;
+                }
+                read_byte_array(buf, buf_end, data_list[i]->bytes,
+                                data_list[i]->byte_count);
+            }
+        }
+        else {
+            data_list[i]->bytes = (uint8 *)buf;
+            buf += byte_count;
+        }
     }
 
     *p_buf = buf;
@@ -1042,6 +1091,21 @@ load_mem_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
 fail:
     return false;
 }
+
+/**
+ * Load memory information from the AOT module.
+ *
+ * This function reads memory-related data including import memory count,
+ * memory count, memory flags, page sizes, and memory initialization data.
+ *
+ * @param p_buf pointer to buffer containing memory info
+ * @param buf_end end of buffer
+ * @param module the AOT module being loaded
+ * @param error_buf buffer for error messages
+ * @param error_buf_size size of error buffer
+ *
+ * @return true if successful, false if error occurred
+ */
 
 static bool
 load_import_memory_list(const uint8 **p_buf, const uint8 *buf_end,
@@ -1256,6 +1320,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             }
             free_if_fail = true;
             init_values->count = field_count;
+            init_values->type_idx = type_idx;
             expr->u.data = init_values;
 
             if (type_idx >= module->type_count) {
@@ -1562,7 +1627,7 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
         else
 #endif
         {
-            /* Skip 8 byte for ref type info */
+            /* Skip 8 byte(2+2+4) for ref type info */
             buf += 8;
         }
 
@@ -4422,6 +4487,13 @@ aot_load_from_aot_file(const uint8 *buf, uint32 size, const LoadArgs *args,
     os_thread_jit_write_protect_np(true); /* Make memory executable */
     os_icache_flush(module->code, module->code_size);
 
+#if WASM_ENABLE_AOT_VALIDATOR != 0
+    if (!aot_module_validate(module, error_buf, error_buf_size)) {
+        aot_unload(module);
+        return NULL;
+    }
+#endif /* WASM_ENABLE_AOT_VALIDATOR != 0 */
+
     LOG_VERBOSE("Load module success.\n");
     return module;
 }
@@ -4436,7 +4508,7 @@ aot_unload(AOTModule *module)
         wasm_runtime_free(module->memories);
 
     if (module->mem_init_data_list)
-        destroy_mem_init_data_list(module->mem_init_data_list,
+        destroy_mem_init_data_list(module, module->mem_init_data_list,
                                    module->mem_init_data_count);
 
     if (module->native_symbol_list)

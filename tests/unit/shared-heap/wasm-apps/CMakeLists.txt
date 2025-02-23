@@ -5,6 +5,7 @@ cmake_minimum_required(VERSION 3.14)
 project(wasm-apps)
 
 set(WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../..)
+set(WAMRC_ROOT_DIR ${WAMR_ROOT_DIR}/wamr-compiler/build)
 
 set(CMAKE_SYSTEM_PROCESSOR wasm32)
 set(CMAKE_SYSROOT ${WAMR_ROOT_DIR}/wamr-sdk/app/libc-builtin-sysroot)
@@ -36,4 +37,36 @@ add_custom_command(TARGET test.wasm POST_BUILD
         ${CMAKE_CURRENT_BINARY_DIR}/test.wasm
         ${CMAKE_CURRENT_BINARY_DIR}/../
         COMMENT "Copy test.wasm to the same directory of google test"
+        )
+
+add_custom_command(TARGET test.wasm POST_BUILD
+        COMMAND ${WAMRC_ROOT_DIR}/wamrc --opt-level=0 --enable-shared-heap --bounds-checks=1
+        -o
+        test.aot
+        test.wasm
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_CURRENT_BINARY_DIR}/test.aot
+        ${CMAKE_CURRENT_BINARY_DIR}/../
+        COMMENT "Copy test.aot to the same directory of google test"
+        )
+
+add_executable(test_addr_conv.wasm test_addr_conv.c)
+target_link_libraries(test.wasm)
+
+add_custom_command(TARGET test_addr_conv.wasm POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_CURRENT_BINARY_DIR}/test_addr_conv.wasm
+        ${CMAKE_CURRENT_BINARY_DIR}/../
+        COMMENT "Copy test_addr_conv.wasm to the same directory of google test"
+        )
+
+add_custom_command(TARGET test_addr_conv.wasm POST_BUILD
+        COMMAND ${WAMRC_ROOT_DIR}/wamrc --opt-level=0 --enable-shared-heap --bounds-checks=1
+        -o
+        test_addr_conv.aot
+        test_addr_conv.wasm
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_CURRENT_BINARY_DIR}/test_addr_conv.aot
+        ${CMAKE_CURRENT_BINARY_DIR}/../
+        COMMENT "Copy test_addr_conv.aot to the same directory of google test"
         )

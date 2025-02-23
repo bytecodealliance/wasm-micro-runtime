@@ -46,7 +46,7 @@ extern "C" {
 // Auxiliaries
 
 // Machine types
-#if (__STDC_VERSION__) > 199901L
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__) > 199901L
 inline void assertions(void) {
   static_assert(sizeof(float) == sizeof(uint32_t), "incompatible float type");
   static_assert(sizeof(double) == sizeof(uint64_t), "incompatible double type");
