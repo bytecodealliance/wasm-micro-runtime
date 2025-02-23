@@ -544,6 +544,14 @@ wasm_resolve_import_func(const WASMModule *module,
                          WASMFunctionImport *function);
 
 WASMModuleInstance *
+wasm_instantiate_without_start_function(WASMModule *module,
+                                        WASMModuleInstance *parent,
+                                        WASMExecEnv *exec_env_main,
+                                        uint32 stack_size, uint32 heap_size,
+                                        uint32 max_memory_pages,
+                                        char *error_buf, uint32 error_buf_size);
+
+WASMModuleInstance *
 wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                  WASMExecEnv *exec_env_main, uint32 stack_size,
                  uint32 heap_size, uint32 max_memory_pages, char *error_buf,
