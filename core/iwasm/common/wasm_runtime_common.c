@@ -2232,6 +2232,12 @@ wasm_runtime_set_native_stack_boundary(WASMExecEnv *exec_env,
     exec_env->user_native_stack_boundary = native_stack_boundary;
 }
 
+void
+wasm_runtime_disable_native_stack_boundary_check(WASMExecEnv *exec_env)
+{
+    wasm_runtime_set_native_stack_boundary(exec_env, (void *)UINTPTR_MAX);
+}
+
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 void
 wasm_runtime_access_exce_check_guard_page()
