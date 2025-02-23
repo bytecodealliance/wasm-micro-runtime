@@ -513,14 +513,15 @@ destroy_init_expr_data_recursive(WASMModule *module, void *data)
 
     if (wasm_type->type_flag == WASM_TYPE_STRUCT) {
         WASMStructType *struct_type = (WASMStructType *)wasm_type;
-        WASMRefTypeMap *ref_type_map = struct_type->ref_type_maps;
         WASMRefType *ref_type;
         uint8 field_type;
 
+        uint16 ref_type_map_index = 0;
         for (i = 0; i < struct_init_values->count; i++) {
             field_type = struct_type->fields[i].field_type;
             if (wasm_is_type_multi_byte_type(field_type))
-                ref_type = ref_type_map->ref_type;
+                ref_type =
+                    struct_type->ref_type_maps[ref_type_map_index++].ref_type;
             else
                 ref_type = NULL;
             if (wasm_reftype_is_subtype_of(field_type, ref_type,
