@@ -126,8 +126,23 @@ typedef WASMFunctionInstanceCommon *wasm_function_inst_t;
 struct WASMMemoryInstance;
 typedef struct WASMMemoryInstance *wasm_memory_inst_t;
 
-struct wasm_frame_t;
+
+typedef struct wasm_frame_t {
+    /*  wasm_instance_t */
+    void *instance;
+    uint32_t module_offset;
+    uint32_t func_index;
+    uint32_t func_offset;
+    const char *func_name_wp;
+
+    uint32_t *sp;
+    uint8_t *frame_ref;
+    uint32_t *lp;
+} WASMCApiFrame;
+
+// #if WAMR_ENABLE_COPY_CALLSTACK != 0
 typedef struct wasm_frame_t *wasm_frame_ptr_t;
+// #endif // WAMR_ENABLE_COPY_CALLSTACK
 
 /* WASM section */
 typedef struct wasm_section_t {
@@ -867,16 +882,10 @@ wasm_runtime_create_exec_env(wasm_module_inst_t module_inst,
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_exec_env(wasm_exec_env_t exec_env);
 
-/**
- * Callback to be called on wasm_frame_t*.
- * It accepts void* as a context that can be used for closures.
- * It returns bool so the iterating can stop when the callback returns false.
- * E.g. callback that returns false after processing 100 frames
- */
-typedef bool (*wasm_frame_callback)(void *, wasm_frame_ptr_t);
 
+// #if WAMR_ENABLE_COPY_CALLSTACK != 0
 /**
- * @brief Iterate over callstack frames and execute callback on it.
+ * @brief Copy callstack frames.
  *
  * Caution: This is not a thread-safe function. Ensure the exec_env
  * is suspended before calling it from another thread.
@@ -892,12 +901,16 @@ typedef bool (*wasm_frame_callback)(void *, wasm_frame_ptr_t);
  * - exec_env->module_inst->module
  *
  * @param exec_env the execution environment that containes frames
- * @param callback the callback function provided by the user
- * @param user_data context for callback provided by the user
+ * @param buffer the buffer of size equal length * sizeof(frame) to copy frames to
+ * @param length the number of frames to copy
+ * @param skip_n the number of frames to skip from the top of the stack
+ *
+ * @return number of copied frames
  */
-WASM_RUNTIME_API_EXTERN void
-wasm_iterate_callstack(const wasm_exec_env_t exec_env,
-                       const wasm_frame_callback callback, void *user_data);
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_copy_callstack(const wasm_exec_env_t exec_env, wasm_frame_ptr_t buffer,
+                       const uint32_t length, const uint32_t skip_n);
+// #endif
 
 /**
  * Get the singleton execution environment for the instance.

@@ -6,6 +6,7 @@
 #include "wasm_runtime.h"
 #include "wasm.h"
 #include "wasm_exec_env.h"
+#include "wasm_export.h"
 #include "wasm_loader.h"
 #include "wasm_interp.h"
 #include "bh_common.h"
@@ -4196,31 +4197,39 @@ wasm_get_module_inst_mem_consumption(const WASMModuleInstance *module_inst,
 #endif /* end of (WASM_ENABLE_MEMORY_PROFILING != 0) \
                  || (WASM_ENABLE_MEMORY_TRACING != 0) */
 
-#if WASM_ENABLE_DUMP_CALL_STACK != 0
-void
-wasm_interp_iterate_callstack(WASMExecEnv *exec_env,
-                              const wasm_frame_callback frame_handler,
-                              void *user_data)
+
+#if WAMR_ENABLE_COPY_CALLSTACK != 0
+uint32
+wasm_interp_copy_callstack(WASMExecEnv *exec_env, wasm_frame_ptr_t buffer,
+                            uint32 length, uint32 skip_n)
 {
     /*
-     * Note for devs: please refrain from such modifications inside of
-     * wasm_interp_iterate_callstack
-     * - any allocations/freeing memory
-     * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
-     * exec_env->module_inst->module, pointers between stack's bottom and
-     * top_boundary For more details check wasm_iterate_callstack in
-     * wasm_export.h
-     */
+    * Note for devs: please refrain from such modifications inside of
+    * wasm_interp_copy_callstack
+    * - any allocations/freeing memory
+    * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
+    * exec_env->module_inst->module, pointers between stack's bottom and
+    * top_boundary For more details check wasm_copy_callstack in
+    * wasm_export.h
+    */
     WASMModuleInstance *module_inst =
         (WASMModuleInstance *)wasm_exec_env_get_module_inst(exec_env);
     WASMInterpFrame *cur_frame = wasm_exec_env_get_cur_frame(exec_env);
     uint8 *top_boundary = exec_env->wasm_stack.top_boundary;
     uint8 *bottom = exec_env->wasm_stack.bottom;
 
+    uint32 count = 0;
+
     WASMCApiFrame record_frame;
     while (cur_frame && (uint8_t *)cur_frame >= bottom
-           && (uint8_t *)cur_frame + sizeof(WASMInterpFrame) <= top_boundary) {
+        && (uint8_t *)cur_frame + sizeof(WASMInterpFrame) <= top_boundary
+        && count < (skip_n + length)) {
         if (!cur_frame->function) {
+            cur_frame = cur_frame->prev_frame;
+            continue;
+        }
+        if (count < skip_n) {
+            ++count;
             cur_frame = cur_frame->prev_frame;
             continue;
         }
@@ -4230,12 +4239,15 @@ wasm_interp_iterate_callstack(WASMExecEnv *exec_env,
         // once in wasm_instantiate
         record_frame.func_index =
             (uint32)(cur_frame->function - module_inst->e->functions);
-        if (!frame_handler(user_data, &record_frame)) {
-            break;
-        }
+        buffer[count - skip_n] = record_frame;
         cur_frame = cur_frame->prev_frame;
+        ++count;
     }
+    return count;
 }
+#endif // WAMR_ENABLE_COPY_CALLSTACK
+
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
 
 bool
 wasm_interp_create_call_stack(struct WASMExecEnv *exec_env)

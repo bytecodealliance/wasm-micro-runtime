@@ -4103,11 +4103,11 @@ aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame)
 }
 #endif /* end of WASM_ENABLE_AOT_STACK_FRAME != 0 */
 
-#if WASM_ENABLE_DUMP_CALL_STACK != 0
-void
-aot_iterate_callstack_tiny_frame(WASMExecEnv *exec_env,
-                                 const wasm_frame_callback frame_handler,
-                                 void *user_data)
+#if WAMR_ENABLE_COPY_CALLSTACK != 0
+uint32
+aot_copy_callstack_tiny_frame(WASMExecEnv *exec_env, wasm_frame_ptr_t buffer,
+    const uint32 length,
+    const uint32 skip_n)
 {
     /*
      * Note for devs: please refrain from such modifications inside of
@@ -4122,35 +4122,43 @@ aot_iterate_callstack_tiny_frame(WASMExecEnv *exec_env,
     uint8 *top = exec_env->wasm_stack.top;
     uint8 *bottom = exec_env->wasm_stack.bottom;
 
+    uint32 count = 0;
+
     bool is_top_index_in_range =
         top_boundary >= top && top >= (bottom + sizeof(AOTTinyFrame));
     if (!is_top_index_in_range) {
-        return;
+        return count;
     }
     bool is_top_aligned_with_bottom =
         (unsigned long)(top - bottom) % sizeof(AOTTinyFrame) == 0;
     if (!is_top_aligned_with_bottom) {
-        return;
+        return count;
     }
 
     AOTTinyFrame *frame = (AOTTinyFrame *)(top - sizeof(AOTTinyFrame));
     WASMCApiFrame record_frame;
-    while (frame && (uint8_t *)frame >= bottom) {
+    while (frame && (uint8_t *)frame >= bottom
+            && count < (skip_n + length)) {
+        if (count < skip_n) {
+            ++count;
+            frame -= 1;
+            continue;
+        }
         record_frame.instance = exec_env->module_inst;
         record_frame.module_offset = 0;
         record_frame.func_index = frame->func_index;
         record_frame.func_offset = frame->ip_offset;
-        if (!frame_handler(user_data, &record_frame)) {
-            break;
-        }
+        buffer[count - skip_n] = record_frame;
         frame -= 1;
+        ++count;
     }
+    return count;
 }
 
-void
-aot_iterate_callstack_standard_frame(WASMExecEnv *exec_env,
-                                     const wasm_frame_callback frame_handler,
-                                     void *user_data)
+uint32
+aot_copy_callstack_standard_frame(WASMExecEnv *exec_env, wasm_frame_ptr_t buffer,
+    const uint32 length,
+    const uint32 skip_n)
 {
     /*
      * Note for devs: please refrain from such modifications inside of
@@ -4169,17 +4177,24 @@ aot_iterate_callstack_standard_frame(WASMExecEnv *exec_env,
     uint8 *bottom = exec_env->wasm_stack.bottom;
     uint32 frame_size = (uint32)offsetof(AOTFrame, lp);
 
+    uint32 count = 0;
+
     WASMCApiFrame record_frame;
     while (cur_frame && (uint8_t *)cur_frame >= bottom
-           && (uint8_t *)cur_frame + frame_size <= top_boundary) {
+           && (uint8_t *)cur_frame + frame_size <= top_boundary
+           && count < (skip_n + length)) {
+        if (count < skip_n) {
+            ++count;
+            cur_frame = cur_frame->prev_frame;
+            continue;
+        }
         record_frame.instance = module_inst;
         record_frame.module_offset = 0;
         record_frame.func_index = (uint32)cur_frame->func_index;
         record_frame.func_offset = (uint32)cur_frame->ip_offset;
-        if (!frame_handler(user_data, &record_frame)) {
-            break;
-        }
+        buffer[count - skip_n] = record_frame;
         cur_frame = cur_frame->prev_frame;
+        ++count;
     }
 #else
 /*
@@ -4189,9 +4204,11 @@ aot_iterate_callstack_standard_frame(WASMExecEnv *exec_env,
 #endif
 }
 
-void
-aot_iterate_callstack(WASMExecEnv *exec_env,
-                      const wasm_frame_callback frame_handler, void *user_data)
+
+uint32
+aot_copy_callstack(WASMExecEnv *exec_env, wasm_frame_ptr_t buffer,
+    const uint32 length,
+    const uint32 skip_n)
 {
     /*
      * Note for devs: please refrain from such modifications inside of
@@ -4203,14 +4220,15 @@ aot_iterate_callstack(WASMExecEnv *exec_env,
      * wasm_export.h
      */
     if (!is_tiny_frame(exec_env)) {
-        aot_iterate_callstack_standard_frame(exec_env, frame_handler,
-                                             user_data);
+        return aot_copy_callstack_standard_frame(exec_env, buffer, length, skip_n);
     }
     else {
-        aot_iterate_callstack_tiny_frame(exec_env, frame_handler, user_data);
+        return aot_copy_callstack_tiny_frame(exec_env, buffer, length, skip_n);
     }
 }
+#endif // WAMR_ENABLE_COPY_CALLSTACK
 
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
 bool
 aot_create_call_stack(struct WASMExecEnv *exec_env)
 {
@@ -4391,7 +4409,7 @@ aot_dump_call_stack(WASMExecEnv *exec_env, bool print, char *buf, uint32 len)
 
     return total_len + 1;
 }
-#endif /* end of WASM_ENABLE_DUMP_CALL_STACK != 0 */
+#endif /* end of WASM_ENABLE_DUMP_CALL_STACK != 0 && WASM_ENABLE_AOT_STACK_FRAME != 0 */
 
 #if WASM_ENABLE_PERF_PROFILING != 0
 void
