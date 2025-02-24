@@ -8,6 +8,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct {
     /* Enables or disables bounds checks for stack frames. When enabled, the AOT
      * compiler generates code to check if the stack pointer is within the
@@ -88,4 +92,8 @@ typedef struct AOTCompOption {
     const char *builtin_intrinsics;
 } AOTCompOption, *aot_comp_option_t;
 
+#ifdef __cplusplus
+}
 #endif
+
+#endif /* end of __AOT_COMP_OPTION_H__ */
