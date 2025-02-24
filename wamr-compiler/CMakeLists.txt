@@ -132,23 +132,11 @@ endif ()
 
 message ("-- Build as target ${WAMR_BUILD_TARGET}")
 
-if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-    if (WAMR_BUILD_TARGET STREQUAL "X86_64" OR WAMR_BUILD_TARGET STREQUAL "AMD_64"
-        OR WAMR_BUILD_TARGET MATCHES "AARCH64.*" OR WAMR_BUILD_TARGET MATCHES "RISCV64.*")
-    if (NOT WAMR_BUILD_PLATFORM STREQUAL "windows")
-      # Add -fPIC flag if build as 64-bit
-      set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
-      set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-      set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "${CMAKE_SHARED_LIBRARY_LINK_C_FLAGS} -fPIC")
-      set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "${CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS} -fPIC")
-    endif ()
-  else ()
-    # Add -m32 flag if compiling on 64-bit system for 32-bit x86 target
-    if (WAMR_BUILD_TARGET STREQUAL "X86_32")
-      add_definitions (-m32)
-      set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -m32")
-      set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -m32")
-    endif ()
+# Add -m32 flag if compiling on 64-bit system for 32-bit x86 target
+if (CMAKE_SIZEOF_VOID_P EQUAL 8 AND WAMR_BUILD_TARGET STREQUAL "X86_32")
+  add_definitions (-m32)
+  set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -m32")
+  set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -m32")
 endif ()
 
 if (NOT CMAKE_BUILD_TYPE)
@@ -378,7 +366,7 @@ add_library (aotclib ${IWASM_COMPL_SOURCE})
 
 add_executable (wamrc main.c)
 check_pie_supported()
-set_target_properties (wamrc PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties (wamrc vmlib aotclib PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_version_info (wamrc)
 
 if (LLVM_LINK_LLVM_DYLIB)
