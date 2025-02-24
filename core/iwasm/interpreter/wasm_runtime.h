@@ -12,6 +12,7 @@
 #include "bh_hashmap.h"
 #include "../common/wasm_runtime_common.h"
 #include "../common/wasm_exec_env.h"
+#include "wasm_export.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -731,10 +732,11 @@ wasm_get_table_inst(const WASMModuleInstance *module_inst, uint32 tbl_idx)
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
 
-void
-wasm_interp_iterate_callstack(WASMExecEnv *exec_env,
-                              const wasm_frame_callback frame_handler,
-                              void *user_data);
+#if WAMR_ENABLE_COPY_CALLSTACK != 0
+uint32
+wasm_interp_copy_callstack(WASMExecEnv *exec_env, wasm_frame_ptr_t buffer,
+                              uint32 length, uint32 skip_n);
+#endif // WAMR_ENABLE_COPY_CALLSTACK
 
 bool
 wasm_interp_create_call_stack(struct WASMExecEnv *exec_env);

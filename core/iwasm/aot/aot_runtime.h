@@ -10,6 +10,7 @@
 #include "../common/wasm_runtime_common.h"
 #include "../interpreter/wasm_runtime.h"
 #include "../compilation/aot.h"
+#include "platform_common.h"
 #if WASM_ENABLE_GC != 0
 #include "gc_export.h"
 #endif
@@ -777,9 +778,12 @@ aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame);
 bool
 aot_create_call_stack(struct WASMExecEnv *exec_env);
 
-void
-aot_iterate_callstack(WASMExecEnv *exec_env,
-                      const wasm_frame_callback frame_handler, void *user_data);
+#if WAMR_ENABLE_COPY_CALLSTACK != 0
+uint32
+aot_copy_callstack(WASMExecEnv *exec_env, wasm_frame_ptr_t buffer,
+    const uint32 length,
+    const uint32 skip_n);
+#endif // WAMR_ENABLE_COPY_CALLSTACK
 
 /**
  * @brief Dump wasm call stack or get the size
