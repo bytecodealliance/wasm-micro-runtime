@@ -53,7 +53,7 @@ bh_static_assert(offsetof(AOTModuleInstance, c_api_func_imports)
 bh_static_assert(offsetof(AOTModuleInstance, global_table_data)
                  == 13 * sizeof(uint64) + 128 + 14 * sizeof(uint64));
 
-bh_static_assert(sizeof(AOTMemoryInstance) == 120);
+bh_static_assert(sizeof(AOTMemoryInstance) == 128);
 bh_static_assert(offsetof(AOTTableInstance, elems) == 24);
 
 bh_static_assert(offsetof(AOTModuleInstanceExtra, stack_sizes) == 0);
@@ -1016,6 +1016,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
 
     memory_inst->module_type = Wasm_Module_AoT;
     memory_inst->num_bytes_per_page = num_bytes_per_page;
+    memory_inst->init_page_count = init_page_count;
     memory_inst->cur_page_count = init_page_count;
     memory_inst->max_page_count = max_page_count;
     memory_inst->memory_data_size = memory_data_size;

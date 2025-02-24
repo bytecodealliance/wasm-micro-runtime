@@ -997,6 +997,16 @@ WASM_RUNTIME_API_EXTERN wasm_memory_inst_t
 wasm_runtime_get_memory(const wasm_module_inst_t module_inst, uint32_t index);
 
 /**
+ * @brief Get the init number of pages for a memory instance
+ *
+ * @param memory_inst The memory instance
+ *
+ * @return The init number of pages
+ */
+WASM_RUNTIME_API_EXTERN uint64_t
+wasm_memory_get_init_page_count(const wasm_memory_inst_t memory_inst);
+
+/**
  * @brief Get the current number of pages for a memory instance
  *
  * @param memory_inst The memory instance

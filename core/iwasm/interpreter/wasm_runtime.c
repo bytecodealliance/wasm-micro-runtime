@@ -445,6 +445,7 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
 
     memory->module_type = Wasm_Module_Bytecode;
     memory->num_bytes_per_page = num_bytes_per_page;
+    memory->init_page_count = init_page_count;
     memory->cur_page_count = init_page_count;
     memory->max_page_count = max_page_count;
     memory->memory_data_size = memory_data_size;
