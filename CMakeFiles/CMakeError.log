@@ -1,0 +1,316 @@
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: ;-D_GNU_SOURCE;-D_GNU_SOURCE
+Id flags:  
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: ;-D_GNU_SOURCE;-D_GNU_SOURCE
+Id flags: -c 
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: ;-D_GNU_SOURCE;-D_GNU_SOURCE
+Id flags: -Aa 
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: ;-D_GNU_SOURCE;-D_GNU_SOURCE
+Id flags: -D__CLASSIC_C__ 
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: ;-D_GNU_SOURCE;-D_GNU_SOURCE
+Id flags: --target=arm-arm-none-eabi;-mcpu=cortex-m3 
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: 
+Id flags:  
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: 
+Id flags: -c 
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: 
+Id flags: -Aa 
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: 
+Id flags: -D__CLASSIC_C__ 
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: 
+Id flags: --target=arm-arm-none-eabi;-mcpu=cortex-m3 
+
+The output was:
+No such file or directory
+
+
+Checking whether the C compiler is IAR using "" did not match "IAR .+ Compiler":
+Checking whether the C compiler is IAR using "" did not match "IAR .+ Compiler":
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: ;-D_GNU_SOURCE
+Id flags:  
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: ;-D_GNU_SOURCE
+Id flags: -c 
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: ;-D_GNU_SOURCE
+Id flags: -Aa 
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: ;-D_GNU_SOURCE
+Id flags: -D__CLASSIC_C__ 
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: ;-D_GNU_SOURCE
+Id flags: --target=arm-arm-none-eabi;-mcpu=cortex-m3 
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: 
+Id flags:  
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: 
+Id flags: -c 
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: 
+Id flags: -Aa 
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: 
+Id flags: -D__CLASSIC_C__ 
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: 
+Id flags: --target=arm-arm-none-eabi;-mcpu=cortex-m3 
+
+The output was:
+No such file or directory
+
+
+Checking whether the C compiler is IAR using "" did not match "IAR .+ Compiler":
+Checking whether the C compiler is IAR using "" did not match "IAR .+ Compiler":
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: ;-D_GNU_SOURCE
+Id flags:  
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: ;-D_GNU_SOURCE
+Id flags: -c 
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: ;-D_GNU_SOURCE
+Id flags: -Aa 
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: ;-D_GNU_SOURCE
+Id flags: -D__CLASSIC_C__ 
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: ;-D_GNU_SOURCE
+Id flags: --target=arm-arm-none-eabi;-mcpu=cortex-m3 
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: 
+Id flags:  
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: 
+Id flags: -c 
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: 
+Id flags: -Aa 
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: 
+Id flags: -D__CLASSIC_C__ 
+
+The output was:
+No such file or directory
+
+
+Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+Compiler: arm-linux-gnueabihf-gcc 
+Build flags: 
+Id flags: --target=arm-arm-none-eabi;-mcpu=cortex-m3 
+
+The output was:
+No such file or directory
+
+
+Checking whether the C compiler is IAR using "" did not match "IAR .+ Compiler":
+Checking whether the C compiler is IAR using "" did not match "IAR .+ Compiler":
+Performing C SOURCE FILE Test CMAKE_HAVE_LIBC_PTHREAD failed with the following output:
+Change Dir: /wamr/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/make cmTC_47709/fast && /usr/bin/make -f CMakeFiles/cmTC_47709.dir/build.make CMakeFiles/cmTC_47709.dir/build
+make[1]: Entering directory '/wamr/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_47709.dir/src.c.o
+/usr/bin/arm-linux-gnueabihf-gcc   -D_GNU_SOURCE -std=gnu99 -ffunction-sections -fdata-sections -Wall -Wno-unused-parameter -Wno-pedantic -marm -Wall -Wextra -Wformat -Wformat-security -ffunction-sections -fdata-sections -Wno-unused-parameter -Wno-pedantic -fvisibility=hidden -DCMAKE_HAVE_LIBC_PTHREAD   -o CMakeFiles/cmTC_47709.dir/src.c.o   -c /wamr/CMakeFiles/CMakeTmp/src.c
+Linking C executable cmTC_47709
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_47709.dir/link.txt --verbose=1
+/usr/bin/arm-linux-gnueabihf-gcc  -D_GNU_SOURCE -std=gnu99 -ffunction-sections -fdata-sections -Wall -Wno-unused-parameter -Wno-pedantic -marm -Wall -Wextra -Wformat -Wformat-security -ffunction-sections -fdata-sections -Wno-unused-parameter -Wno-pedantic -fvisibility=hidden -DCMAKE_HAVE_LIBC_PTHREAD    -rdynamic CMakeFiles/cmTC_47709.dir/src.c.o  -o cmTC_47709 
+/usr/lib/gcc-cross/arm-linux-gnueabihf/9/../../../../arm-linux-gnueabihf/bin/ld: CMakeFiles/cmTC_47709.dir/src.c.o: in function `main':
+src.c:(.text.main+0x3c): undefined reference to `pthread_create'
+/usr/lib/gcc-cross/arm-linux-gnueabihf/9/../../../../arm-linux-gnueabihf/bin/ld: src.c:(.text.main+0x48): undefined reference to `pthread_detach'
+/usr/lib/gcc-cross/arm-linux-gnueabihf/9/../../../../arm-linux-gnueabihf/bin/ld: src.c:(.text.main+0x58): undefined reference to `pthread_join'
+collect2: error: ld returned 1 exit status
+make[1]: *** [CMakeFiles/cmTC_47709.dir/build.make:87: cmTC_47709] Error 1
+make[1]: Leaving directory '/wamr/CMakeFiles/CMakeTmp'
+make: *** [Makefile:121: cmTC_47709/fast] Error 2
+
+
+Source file was:
+#include <pthread.h>
+
+void* test_func(void* data)
+{
+  return data;
+}
+
+int main(void)
+{
+  pthread_t thread;
+  pthread_create(&thread, NULL, test_func, NULL);
+  pthread_detach(thread);
+  pthread_join(thread, NULL);
+  pthread_atfork(NULL, NULL, NULL);
+  pthread_exit(NULL);
+
+  return 0;
+}
+

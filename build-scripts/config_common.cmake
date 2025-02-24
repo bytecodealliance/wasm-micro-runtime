@@ -75,7 +75,7 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 8)
 endif ()
 
 if (WAMR_BUILD_TARGET MATCHES "ARM.*")
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -marm")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -marm")
 elseif (WAMR_BUILD_TARGET MATCHES "THUMB.*")
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mthumb")
   set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -Wa,-mthumb")

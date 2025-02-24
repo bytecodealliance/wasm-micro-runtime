@@ -4,7 +4,7 @@
 WAMR_DIR=${PWD}/../../..
 
 echo "Build wasm app .."
-/opt/wasi-sdk/bin/clang -O3 \
+clang -O3 \
         -z stack-size=4096 -Wl,--initial-memory=65536 \
         -o test.wasm main.c \
         -Wl,--export=main -Wl,--export=__main_argc_argv \
