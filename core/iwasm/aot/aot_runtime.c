@@ -4111,11 +4111,11 @@ aot_copy_callstack_tiny_frame(WASMExecEnv *exec_env, wasm_frame_ptr_t buffer,
 {
     /*
      * Note for devs: please refrain from such modifications inside of
-     * aot_iterate_callstack_tiny_frame
+     * aot_copy_callstack_tiny_frame
      * - any allocations/freeing memory
      * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
      * exec_env->module_inst->module, pointers between stack's bottom and
-     * top_boundary For more details check wasm_iterate_callstack in
+     * top_boundary For more details check wasm_copy_callstack in
      * wasm_export.h
      */
     uint8 *top_boundary = exec_env->wasm_stack.top_boundary;
@@ -4409,7 +4409,7 @@ aot_dump_call_stack(WASMExecEnv *exec_env, bool print, char *buf, uint32 len)
 
     return total_len + 1;
 }
-#endif /* end of WASM_ENABLE_DUMP_CALL_STACK != 0 && WASM_ENABLE_AOT_STACK_FRAME != 0 */
+#endif /* end of WASM_ENABLE_DUMP_CALL_STACK != 0 */
 
 #if WASM_ENABLE_PERF_PROFILING != 0
 void

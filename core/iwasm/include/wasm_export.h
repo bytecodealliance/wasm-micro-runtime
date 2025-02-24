@@ -140,9 +140,7 @@ typedef struct wasm_frame_t {
     uint32_t *lp;
 } WASMCApiFrame;
 
-// #if WAMR_ENABLE_COPY_CALLSTACK != 0
 typedef struct wasm_frame_t *wasm_frame_ptr_t;
-// #endif // WAMR_ENABLE_COPY_CALLSTACK
 
 /* WASM section */
 typedef struct wasm_section_t {
@@ -883,7 +881,6 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_exec_env(wasm_exec_env_t exec_env);
 
 
-// #if WAMR_ENABLE_COPY_CALLSTACK != 0
 /**
  * @brief Copy callstack frames.
  *
@@ -910,7 +907,6 @@ wasm_runtime_destroy_exec_env(wasm_exec_env_t exec_env);
 WASM_RUNTIME_API_EXTERN uint32_t
 wasm_copy_callstack(const wasm_exec_env_t exec_env, wasm_frame_ptr_t buffer,
                        const uint32_t length, const uint32_t skip_n);
-// #endif
 
 /**
  * Get the singleton execution environment for the instance.

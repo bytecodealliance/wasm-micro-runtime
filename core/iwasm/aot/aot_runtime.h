@@ -10,7 +10,6 @@
 #include "../common/wasm_runtime_common.h"
 #include "../interpreter/wasm_runtime.h"
 #include "../compilation/aot.h"
-#include "platform_common.h"
 #if WASM_ENABLE_GC != 0
 #include "gc_export.h"
 #endif

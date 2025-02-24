@@ -321,10 +321,10 @@ endif()
 
 if (WAMR_ENABLE_COPY_CALLSTACK EQUAL 1)
   add_definitions (-DWAMR_ENABLE_COPY_CALLSTACK=1)
-  message("      Copy callstack enabled")
+  message("     Copy callstack enabled")
 else ()
   add_definitions (-DWAMR_ENABLE_COPY_CALLSTACK=0)
-  message("      Copy callstack disabled")
+  message("     Copy callstack disabled")
 endif()
 
 if (WAMR_BUILD_MEMORY64 EQUAL 1)
