@@ -192,3 +192,9 @@ posix_fallocate(int __fd, off_t __offset, off_t __length)
     errno = ENOSYS;
     return -1;
 }
+
+os_raw_file_handle
+os_invalid_raw_handle(void)
+{
+    return -1;
+}

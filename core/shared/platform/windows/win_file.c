@@ -1810,3 +1810,9 @@ os_realpath(const char *path, char *resolved_path)
 
     return resolved_path;
 }
+
+os_raw_file_handle
+os_invalid_raw_handle(void)
+{
+    return INVALID_HANDLE_VALUE;
+}
