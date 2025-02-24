@@ -265,6 +265,8 @@ else ()
   message ("-- Lib wasi-threads disabled")
 endif ()
 
+set (WAMR_BUILD_WAMR_COMPILER 1)
+
 include (${SHARED_DIR}/platform/${WAMR_BUILD_PLATFORM}/shared_platform.cmake)
 include (${SHARED_DIR}/mem-alloc/mem_alloc.cmake)
 include (${SHARED_DIR}/utils/shared_utils.cmake)
