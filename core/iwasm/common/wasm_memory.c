@@ -1586,6 +1586,12 @@ wasm_runtime_get_default_memory(WASMModuleInstanceCommon *module_inst)
     return NULL;
 }
 
+uint64
+wasm_memory_get_init_page_count(WASMMemoryInstance *memory)
+{
+    return memory->init_page_count;
+}
+
 WASMMemoryInstance *
 wasm_runtime_get_memory(WASMModuleInstanceCommon *module_inst, uint32 index)
 {
