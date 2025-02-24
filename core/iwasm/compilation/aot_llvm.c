@@ -3334,6 +3334,11 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
     if (comp_ctx->builder)
         LLVMDisposeBuilder(comp_ctx->builder);
 
+#if WASM_ENABLE_DEBUG_AOT != 0
+    if (comp_ctx->debug_builder)
+        LLVMDisposeDIBuilder(comp_ctx->debug_builder);
+#endif
+
     if (comp_ctx->orc_thread_safe_context)
         LLVMOrcDisposeThreadSafeContext(comp_ctx->orc_thread_safe_context);
 
