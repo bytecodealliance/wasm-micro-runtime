@@ -185,7 +185,7 @@ TEST_F(LibcBuiltinTest, printf)
         va_list.add(20);        //%zd
         va_list.add(20);        //%ld
 
-        va_list.add(20L);        //%jd
+        va_list.add(intmax_t(20));        //%jd
 
         testing::internal::CaptureStdout();
 
@@ -323,7 +323,7 @@ TEST_F(LibcBuiltinTest, printf)
 
 TEST_F(LibcBuiltinTest, sprintf)
 {
-    const char *buf;
+    char buf[200] = {0};
     const char *str = "Hello Wrold";
     const char *str_sig = "c";
     const char *str_f = "20, 3.140000, Hello World";
@@ -508,7 +508,7 @@ TEST_F(LibcBuiltinTest, memcmp)
 TEST_F(LibcBuiltinTest, memcpy)
 {
     const char *src = "Hell World";
-    char *dest;
+    char dest[sizeof(src)] = {0};
 
     AppData src_app{ dummy_exec_env.get(), src };
     AppData dest_app{ dummy_exec_env.get(), dest };
@@ -535,7 +535,7 @@ TEST_F(LibcBuiltinTest, memcpy)
 TEST_F(LibcBuiltinTest, memmove)
 {
     const char *src = "Hell World";
-    char *dest;
+    char dest[sizeof(src)] = {0};
 
     AppData src_app{ dummy_exec_env.get(), src };
     AppData dest_app{ dummy_exec_env.get(), dest };
@@ -673,7 +673,7 @@ TEST_F(LibcBuiltinTest, strncmp)
 TEST_F(LibcBuiltinTest, strcpy)
 {
     char *src = (char *)"Hello World!";
-    char *dest;
+    char dest[sizeof(src)] = {0};
 
     AppData src_app{ dummy_exec_env.get(), src };
     AppData dest_app{ dummy_exec_env.get(), dest };
@@ -696,7 +696,7 @@ TEST_F(LibcBuiltinTest, strcpy)
 TEST_F(LibcBuiltinTest, strncpy)
 {
     char *src = (char *)"Hello World!";
-    char *dest;
+    char dest[sizeof(src)] = {0};
 
     AppData src_app{ dummy_exec_env.get(), src };
     AppData dest_app{ dummy_exec_env.get(), dest };
@@ -1295,7 +1295,7 @@ TEST_F(LibcBuiltinTest, isalnum)
 TEST_F(LibcBuiltinTest, emscripten_memcpy_big)
 {
     const char *src = "Hell World";
-    char *dest;
+    char dest[sizeof(src)] = {0};
 
     AppData src_app{ dummy_exec_env.get(), src };
     AppData dest_app{ dummy_exec_env.get(), dest };

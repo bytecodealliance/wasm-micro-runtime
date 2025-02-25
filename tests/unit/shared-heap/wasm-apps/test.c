@@ -13,10 +13,22 @@ shared_heap_free(void *offset);
 int
 test()
 {
-    int *ptr = (int *)shared_heap_malloc(10);
+    int *ptr = (int *)shared_heap_malloc(4);
 
     *ptr = 10;
     int a = *ptr;
     shared_heap_free(ptr);
     return a;
+}
+
+int
+test_malloc_fail()
+{
+    int *ptr = (int *)shared_heap_malloc(8192);
+
+    if (ptr == NULL) {
+        return 1;
+    }
+    shared_heap_free(ptr);
+    return 0;
 }

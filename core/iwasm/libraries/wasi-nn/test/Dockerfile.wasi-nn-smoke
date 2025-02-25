@@ -13,7 +13,7 @@ RUN apt-get update \
   && apt-get upgrade -y \
   && apt-get install -y --no-install-recommends cmake
 
-RUN rustup target add wasm32-wasi
+RUN rustup target add wasm32-wasip1
 
 #
 # Openvino
@@ -37,10 +37,10 @@ WORKDIR /workspaces/wasi-nn
 RUN git clone --depth 1 https://github.com/bytecodealliance/wasi-nn.git .
 
 WORKDIR /workspaces/wasi-nn/rust/examples/classification-example/
-RUN cargo build --target=wasm32-wasi
+RUN cargo build --target=wasm32-wasip1
 
 WORKDIR /workspaces/wasi-nn/rust/examples/classification-example/build
-RUN cp ../target/wasm32-wasi/debug/wasi-nn-example.wasm . \
+RUN cp ../target/wasm32-wasip1/debug/wasi-nn-example.wasm . \
   && wget -q --no-clobber https://github.com/intel/openvino-rs/raw/main/crates/openvino/tests/fixtures/mobilenet/mobilenet.xml \
   && wget -q --no-clobber https://github.com/intel/openvino-rs/raw/main/crates/openvino/tests/fixtures/mobilenet/mobilenet.bin
 # There are model files(mobilenet*) and wasm files(wasi-nn-example.wasm) in the directory,
@@ -67,30 +67,30 @@ RUN git apply ./bump_wasi_nn_to_0_6_0.patch
 # recompile with wasi-nn 0.6.0
 WORKDIR /workspaces/wasmedge-wasinn-examples/openvino-mobilenet-image/
 RUN pushd rust \
-  && cargo build --target=wasm32-wasi \
+  && cargo build --target=wasm32-wasip1 \
   && popd \
   && ./download_mobilenet.sh . \
   && ls -l mobilenet.xml mobilenet.bin
 
 WORKDIR /workspaces/wasmedge-wasinn-examples/openvino-mobilenet-raw/
 RUN pushd rust \
-  && cargo build --target=wasm32-wasi \
+  && cargo build --target=wasm32-wasip1 \
   && popd \
   && ./download_mobilenet.sh . \
   && ls -l mobilenet.xml mobilenet.bin tensor-1x224x224x3-f32.bgr
 
 WORKDIR /workspaces/wasmedge-wasinn-examples/openvino-road-segmentation-adas/
 RUN pushd openvino-road-seg-adas \
-  && cargo build --target=wasm32-wasi
+  && cargo build --target=wasm32-wasip1
 
 WORKDIR /workspaces/wasmedge-wasinn-examples/tflite-birds_v1-image/
 RUN pushd rust \
-  && cargo build --target=wasm32-wasi
+  && cargo build --target=wasm32-wasip1
 
 # mount models when running
 WORKDIR /workspaces/wasmedge-wasinn-examples/wasmedge-ggml/qwen
 RUN wget --progress=dot:giga https://www.modelscope.cn/models/qwen/Qwen1.5-0.5B-Chat-GGUF/resolve/master/qwen1_5-0_5b-chat-q2_k.gguf
-RUN cargo build --target=wasm32-wasi
+RUN cargo build --target=wasm32-wasip1
 
 #
 # iwasm. build from source
@@ -107,7 +107,7 @@ RUN OpenVINO_DIR=/usr/lib/openvino-2023.2.0 \
     -DWAMR_BUILD_WASI_NN_LLAMACPP=1 \
   && cmake --build build \
   && cmake --install build
- 
+
 ENV LD_LIBRARY_PATH=/usr/local/lib
 
 # add smoke test script

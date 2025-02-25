@@ -103,7 +103,7 @@ typedef struct AOTMemInitData {
     /* Byte count */
     uint32 byte_count;
     /* Byte array */
-    uint8 bytes[1];
+    uint8 *bytes;
 } AOTMemInitData;
 
 /**

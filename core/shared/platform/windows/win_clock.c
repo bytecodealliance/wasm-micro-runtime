@@ -11,9 +11,19 @@
 #define NANOSECONDS_PER_TICK 100
 
 #if WINAPI_PARTITION_DESKTOP
-extern NTSTATUS
-NtQueryTimerResolution(PULONG MinimumResolution, PULONG MaximumResolution,
-                       PULONG CurrentResolution);
+#ifndef __kernel_entry
+#define __kernel_entry
+#endif
+#ifndef NTAPI
+#define NTAPI
+#endif
+#ifndef _Out_
+#define _Out_
+#endif
+extern __kernel_entry NTSTATUS NTAPI
+NtQueryTimerResolution(_Out_ PULONG MinimumResolution,
+                       _Out_ PULONG MaximumResolution,
+                       _Out_ PULONG CurrentResolution);
 #endif
 
 static __wasi_errno_t

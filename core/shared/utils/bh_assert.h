@@ -26,7 +26,7 @@ bh_assert_internal(int64 v, const char *file_name, int line_number,
 #define __has_extension(a) 0
 #endif
 
-#if __STDC_VERSION__ >= 201112L                                          \
+#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L)           \
     || (defined(__GNUC__) && __GNUC__ * 0x100 + __GNUC_MINOR__ >= 0x406) \
     || __has_extension(c_static_assert)
 
