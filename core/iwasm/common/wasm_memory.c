@@ -596,7 +596,7 @@ wasm_runtime_get_shared_heap(WASMModuleInstanceCommon *module_inst_comm)
     return get_shared_heap(module_inst_comm);
 }
 
-static bool
+bool
 is_app_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
                            bool is_memory64, uint64 app_offset, uint32 bytes)
 {
@@ -641,7 +641,6 @@ is_app_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
         }
     }
 
-    return true;
 fail:
     return false;
 }
@@ -1220,11 +1219,6 @@ wasm_runtime_addr_native_to_app(WASMModuleInstanceCommon *module_inst_comm,
 
     bounds_checks = is_bounds_checks_enabled(module_inst_comm);
 
-#if WASM_ENABLE_SHARED_HEAP != 0
-    /* If shared heap is enabled, bounds check is always needed */
-    bounds_checks = true;
-#endif
-
     memory_inst = wasm_get_default_memory(module_inst);
     if (!memory_inst) {
         return 0;
@@ -1350,33 +1344,14 @@ wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
     if (is_app_addr_in_shared_heap((WASMModuleInstanceCommon *)module_inst,
                                    memory_inst->is_memory64, app_buf_addr,
                                    app_buf_size)) {
+        const char *str, *str_end;
         shared_heap_base_addr_adj = get_last_used_shared_heap_base_addr_adj(
             (WASMModuleInstanceCommon *)module_inst);
         shared_heap_end_off = get_last_used_shared_heap_end_offset(
             (WASMModuleInstanceCommon *)module_inst);
         native_addr = shared_heap_base_addr_adj + app_buf_addr;
-    }
-    else
-#endif
-    {
-        native_addr = memory_inst->memory_data + (uintptr_t)app_buf_addr;
-    }
 
-    bounds_checks =
-        is_bounds_checks_enabled((WASMModuleInstanceCommon *)module_inst);
-
-    if (!bounds_checks) {
-        if (app_buf_addr == 0) {
-            native_addr = NULL;
-        }
-        goto success;
-    }
-
-#if WASM_ENABLE_SHARED_HEAP != 0
-    if (shared_heap_base_addr_adj) {
-        const char *str, *str_end;
-
-        /* The whole string must be in the linear memory */
+        /* The whole string must be in the shared heap */
         str = (const char *)native_addr;
         str_end = (const char *)shared_heap_base_addr_adj + shared_heap_end_off;
         while (str < str_end && *str != '\0')
@@ -1389,6 +1364,17 @@ wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
             goto success;
     }
 #endif
+
+    native_addr = memory_inst->memory_data + (uintptr_t)app_buf_addr;
+    bounds_checks =
+        is_bounds_checks_enabled((WASMModuleInstanceCommon *)module_inst);
+
+    if (!bounds_checks) {
+        if (app_buf_addr == 0) {
+            native_addr = NULL;
+        }
+        goto success;
+    }
 
     /* No need to check the app_offset and buf_size if memory access
        boundary check with hardware trap is enabled */
