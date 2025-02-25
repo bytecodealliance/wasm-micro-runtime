@@ -7,7 +7,6 @@
 #include "bh_common.h"
 #include "bh_assert.h"
 #include "bh_log.h"
-#include "wasm_export.h"
 #include "wasm_native.h"
 #include "wasm_runtime_common.h"
 #include "wasm_memory.h"
