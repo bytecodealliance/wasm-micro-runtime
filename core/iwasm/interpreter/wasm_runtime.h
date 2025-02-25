@@ -12,7 +12,6 @@
 #include "bh_hashmap.h"
 #include "../common/wasm_runtime_common.h"
 #include "../common/wasm_exec_env.h"
-#include "wasm_export.h"
 
 #ifdef __cplusplus
 extern "C" {

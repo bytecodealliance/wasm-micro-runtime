@@ -6,7 +6,6 @@
 #include "wasm_runtime.h"
 #include "wasm.h"
 #include "wasm_exec_env.h"
-#include "wasm_export.h"
 #include "wasm_loader.h"
 #include "wasm_interp.h"
 #include "bh_common.h"
