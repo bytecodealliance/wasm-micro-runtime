@@ -4196,21 +4196,20 @@ wasm_get_module_inst_mem_consumption(const WASMModuleInstance *module_inst,
 #endif /* end of (WASM_ENABLE_MEMORY_PROFILING != 0) \
                  || (WASM_ENABLE_MEMORY_TRACING != 0) */
 
-
 #if WAMR_ENABLE_COPY_CALLSTACK != 0
 uint32
 wasm_interp_copy_callstack(WASMExecEnv *exec_env, wasm_frame_ptr_t buffer,
-                            uint32 length, uint32 skip_n)
+                           uint32 length, uint32 skip_n)
 {
     /*
-    * Note for devs: please refrain from such modifications inside of
-    * wasm_interp_copy_callstack
-    * - any allocations/freeing memory
-    * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
-    * exec_env->module_inst->module, pointers between stack's bottom and
-    * top_boundary For more details check wasm_copy_callstack in
-    * wasm_export.h
-    */
+     * Note for devs: please refrain from such modifications inside of
+     * wasm_interp_copy_callstack
+     * - any allocations/freeing memory
+     * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
+     * exec_env->module_inst->module, pointers between stack's bottom and
+     * top_boundary For more details check wasm_copy_callstack in
+     * wasm_export.h
+     */
     WASMModuleInstance *module_inst =
         (WASMModuleInstance *)wasm_exec_env_get_module_inst(exec_env);
     WASMInterpFrame *cur_frame = wasm_exec_env_get_cur_frame(exec_env);
@@ -4221,8 +4220,8 @@ wasm_interp_copy_callstack(WASMExecEnv *exec_env, wasm_frame_ptr_t buffer,
 
     WASMCApiFrame record_frame;
     while (cur_frame && (uint8_t *)cur_frame >= bottom
-        && (uint8_t *)cur_frame + sizeof(WASMInterpFrame) <= top_boundary
-        && count < (skip_n + length)) {
+           && (uint8_t *)cur_frame + sizeof(WASMInterpFrame) <= top_boundary
+           && count < (skip_n + length)) {
         if (!cur_frame->function) {
             cur_frame = cur_frame->prev_frame;
             continue;
