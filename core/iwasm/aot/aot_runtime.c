@@ -60,6 +60,8 @@ bh_static_assert(offsetof(AOTModuleInstanceExtra, stack_sizes) == 0);
 bh_static_assert(offsetof(AOTModuleInstanceExtra, shared_heap_base_addr_adj)
                  == 8);
 bh_static_assert(offsetof(AOTModuleInstanceExtra, shared_heap_start_off) == 16);
+bh_static_assert(offsetof(AOTModuleInstanceExtra, shared_heap_end_off) == 24);
+bh_static_assert(offsetof(AOTModuleInstanceExtra, shared_heap) == 32);
 
 bh_static_assert(sizeof(CApiFuncImport) == sizeof(uintptr_t) * 3);
 
