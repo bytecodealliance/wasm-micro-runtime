@@ -95,7 +95,9 @@ destroy_module_env(struct ret_env module_env)
     }
 }
 
-static void test_shared_heap(WASMSharedHeap *shared_heap, const char *file, const char *func_name, uint32 argc, uint32 argv[])
+static void
+test_shared_heap(WASMSharedHeap *shared_heap, const char *file,
+                 const char *func_name, uint32 argc, uint32 argv[])
 {
     struct ret_env tmp_module_env;
     WASMFunctionInstanceCommon *func_test = nullptr;
@@ -138,7 +140,7 @@ fail0:
 
 TEST_F(shared_heap_test, test_shared_heap_basic)
 {
-    SharedHeapInitArgs args;
+    SharedHeapInitArgs args = { 0 };
     WASMSharedHeap *shared_heap = nullptr;
     uint32 argv[1] = { 0 };
 
@@ -154,12 +156,11 @@ TEST_F(shared_heap_test, test_shared_heap_basic)
 
     test_shared_heap(shared_heap, "test.aot", "test", 0, argv);
     EXPECT_EQ(10, argv[0]);
-
 }
 
 TEST_F(shared_heap_test, test_shared_heap_malloc_fail)
 {
-    SharedHeapInitArgs args;
+    SharedHeapInitArgs args = { 0 };
     WASMSharedHeap *shared_heap = nullptr;
     uint32 argv[1] = { 0 };
 
@@ -327,13 +328,16 @@ TEST_F(shared_heap_test, test_shared_heap_chain_rmw_oob)
 }
 
 #ifndef native_function
+/* clang-format off */
 #define native_function(func_name, signature) \
     { #func_name, (void *)glue_##func_name, signature, NULL }
+/* clang-format on */
 #endif
 #ifndef nitems
 #define nitems(_a) (sizeof(_a) / sizeof(0 [(_a)]))
 #endif /* nitems */
-uintptr_t glue_test_addr_conv(wasm_exec_env_t env, uintptr_t addr)
+uintptr_t
+glue_test_addr_conv(wasm_exec_env_t env, uintptr_t addr)
 {
     wasm_module_inst_t module_inst = get_module_inst(env);
     void *native_addr = (void *)addr;
@@ -347,14 +351,13 @@ uintptr_t glue_test_addr_conv(wasm_exec_env_t env, uintptr_t addr)
     return app_addr;
 }
 
-static NativeSymbol g_test_native_symbols[] =
-{
-  native_function(test_addr_conv,"(*)i"),
+static NativeSymbol g_test_native_symbols[] = {
+    native_function(test_addr_conv, "(*)i"),
 };
 
 TEST_F(shared_heap_test, test_addr_conv)
 {
-    SharedHeapInitArgs args;
+    SharedHeapInitArgs args = { 0 };
     WASMSharedHeap *shared_heap = nullptr;
     uint32 argv[1] = { 0 };
     bool ret = false;

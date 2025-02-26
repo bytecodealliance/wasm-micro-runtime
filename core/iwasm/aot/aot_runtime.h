@@ -125,6 +125,8 @@ typedef struct AOTModuleInstanceExtra {
      */
     DefPointer(uint8 *, shared_heap_base_addr_adj);
     MemBound shared_heap_start_off;
+    MemBound shared_heap_end_off;
+    DefPointer(WASMSharedHeap *, shared_heap);
 
     WASMModuleInstanceExtraCommon common;
 
@@ -142,9 +144,6 @@ typedef struct AOTModuleInstanceExtra {
     WASMModuleInstanceCommon **import_func_module_insts;
 #endif
 
-#if WASM_ENABLE_SHARED_HEAP != 0
-    WASMSharedHeap *shared_heap;
-#endif
 } AOTModuleInstanceExtra;
 
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
