@@ -513,14 +513,15 @@ destroy_init_expr_data_recursive(WASMModule *module, void *data)
 
     if (wasm_type->type_flag == WASM_TYPE_STRUCT) {
         WASMStructType *struct_type = (WASMStructType *)wasm_type;
-        WASMRefTypeMap *ref_type_map = struct_type->ref_type_maps;
         WASMRefType *ref_type;
         uint8 field_type;
 
+        uint16 ref_type_map_index = 0;
         for (i = 0; i < struct_init_values->count; i++) {
             field_type = struct_type->fields[i].field_type;
             if (wasm_is_type_multi_byte_type(field_type))
-                ref_type = ref_type_map->ref_type;
+                ref_type =
+                    struct_type->ref_type_maps[ref_type_map_index++].ref_type;
             else
                 ref_type = NULL;
             if (wasm_reftype_is_subtype_of(field_type, ref_type,
@@ -1073,23 +1074,25 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                             }
 
                             if (opcode1 == WASM_OP_ARRAY_NEW) {
-                                WASMValue len_val;
-
-                                if (!(array_init_values = loader_malloc(
-                                          sizeof(WASMArrayNewInitValues),
-                                          error_buf, error_buf_size))) {
-                                    goto fail;
-                                }
-                                array_init_values->type_idx = type_idx;
+                                WASMValue len_val = { 0 };
+                                uint64 size = 0;
 
                                 if (!pop_const_expr_stack(
                                         &const_expr_ctx, NULL, VALUE_TYPE_I32,
                                         NULL, NULL, &len_val, error_buf,
                                         error_buf_size)) {
-                                    destroy_init_expr_data_recursive(
-                                        module, array_init_values);
                                     goto fail;
                                 }
+
+                                size =
+                                    sizeof(WASMArrayNewInitValues)
+                                    + sizeof(WASMValue) * (uint64)len_val.i32;
+                                if (!(array_init_values = loader_malloc(
+                                          size, error_buf, error_buf_size))) {
+                                    goto fail;
+                                }
+
+                                array_init_values->type_idx = type_idx;
                                 array_init_values->length = len_val.i32;
 
                                 if (!pop_const_expr_stack(
