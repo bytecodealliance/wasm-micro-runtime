@@ -4106,8 +4106,7 @@ aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame)
 #if WAMR_ENABLE_COPY_CALLSTACK != 0
 uint32
 aot_copy_callstack_tiny_frame(WASMExecEnv *exec_env, wasm_frame_ptr_t buffer,
-    const uint32 length,
-    const uint32 skip_n)
+                              const uint32 length, const uint32 skip_n)
 {
     /*
      * Note for devs: please refrain from such modifications inside of
@@ -4137,8 +4136,7 @@ aot_copy_callstack_tiny_frame(WASMExecEnv *exec_env, wasm_frame_ptr_t buffer,
 
     AOTTinyFrame *frame = (AOTTinyFrame *)(top - sizeof(AOTTinyFrame));
     WASMCApiFrame record_frame;
-    while (frame && (uint8_t *)frame >= bottom
-            && count < (skip_n + length)) {
+    while (frame && (uint8_t *)frame >= bottom && count < (skip_n + length)) {
         if (count < skip_n) {
             ++count;
             frame -= 1;
@@ -4156,9 +4154,9 @@ aot_copy_callstack_tiny_frame(WASMExecEnv *exec_env, wasm_frame_ptr_t buffer,
 }
 
 uint32
-aot_copy_callstack_standard_frame(WASMExecEnv *exec_env, wasm_frame_ptr_t buffer,
-    const uint32 length,
-    const uint32 skip_n)
+aot_copy_callstack_standard_frame(WASMExecEnv *exec_env,
+                                  wasm_frame_ptr_t buffer, const uint32 length,
+                                  const uint32 skip_n)
 {
     /*
      * Note for devs: please refrain from such modifications inside of
@@ -4204,11 +4202,9 @@ aot_copy_callstack_standard_frame(WASMExecEnv *exec_env, wasm_frame_ptr_t buffer
 #endif
 }
 
-
 uint32
 aot_copy_callstack(WASMExecEnv *exec_env, wasm_frame_ptr_t buffer,
-    const uint32 length,
-    const uint32 skip_n)
+                   const uint32 length, const uint32 skip_n)
 {
     /*
      * Note for devs: please refrain from such modifications inside of
@@ -4220,7 +4216,8 @@ aot_copy_callstack(WASMExecEnv *exec_env, wasm_frame_ptr_t buffer,
      * wasm_export.h
      */
     if (!is_tiny_frame(exec_env)) {
-        return aot_copy_callstack_standard_frame(exec_env, buffer, length, skip_n);
+        return aot_copy_callstack_standard_frame(exec_env, buffer, length,
+                                                 skip_n);
     }
     else {
         return aot_copy_callstack_tiny_frame(exec_env, buffer, length, skip_n);
