@@ -464,19 +464,6 @@ typedef struct WASMRegisteredModule {
 typedef package_type_t PackageType;
 typedef wasm_section_t WASMSection, AOTSection;
 
-typedef struct wasm_frame_t {
-    /*  wasm_instance_t */
-    void *instance;
-    uint32 module_offset;
-    uint32 func_index;
-    uint32 func_offset;
-    const char *func_name_wp;
-
-    uint32 *sp;
-    uint8 *frame_ref;
-    uint32 *lp;
-} WASMCApiFrame;
-
 #if WASM_ENABLE_JIT != 0
 typedef struct LLVMJITOptions {
     uint32 opt_level;
@@ -651,6 +638,16 @@ wasm_runtime_create_exec_env(WASMModuleInstanceCommon *module_inst,
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_exec_env(WASMExecEnv *exec_env);
+
+#ifndef WAMR_ENABLE_COPY_CALLSTACK
+#define WAMR_ENABLE_COPY_CALLSTACK 0
+#endif
+
+#if WAMR_ENABLE_COPY_CALLSTACK != 0
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_copy_callstack(const wasm_exec_env_t exec_env, wasm_frame_ptr_t buffer,
+                    const uint32 length, const uint32 skip_n);
+#endif // WAMR_ENABLE_COPY_CALLSTACK
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN WASMModuleInstanceCommon *
