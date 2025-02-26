@@ -162,9 +162,17 @@ endif ()
 include(${REPO_ROOT_DIR}/core/shared/utils/uncommon/shared_uncommon.cmake)
 include(${REPO_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
-add_library(vmlib
-    ${WAMR_RUNTIME_LIB_SOURCE}
-)
+add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 
 add_executable(wasm_mutator_fuzz wasm_mutator_fuzz.cc)
 target_link_libraries(wasm_mutator_fuzz vmlib -lm)
+
+find_package(LLVM REQUIRED CONFIG)
+
+message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
+message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+
+include(${REPO_ROOT_DIR}/core/iwasm/compilation/iwasm_compl.cmake)
+add_library(aotclib ${IWASM_COMPL_SOURCE})
+target_compile_definitions(aotclib PUBLIC -DWASM_ENABLE_WAMR_COMPILER=1 ${LLVM_DEFINITIONS})
+target_include_directories(aotclib PUBLIC ${LLVM_INCLUDE_DIRS})
