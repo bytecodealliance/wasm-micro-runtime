@@ -385,32 +385,6 @@ TEST_F(shared_heap_test, test_addr_conv_pre_allocated_oob)
 {
     SharedHeapInitArgs args = { 0 };
     WASMSharedHeap *shared_heap = nullptr;
-    uint32 argv[1] = { 0 };
-    bool ret = false;
-
-    ret = wasm_native_register_natives("env", g_test_native_symbols,
-                                       nitems(g_test_native_symbols));
-    if (!ret) {
-        FAIL() << "Failed to register natives";
-    }
-
-    args.size = 1024;
-    shared_heap = wasm_runtime_create_shared_heap(&args);
-    if (!shared_heap) {
-        FAIL() << "Failed to create shared heap";
-    }
-
-    test_shared_heap(shared_heap, "test_addr_conv.wasm", "test", 0, argv);
-    EXPECT_EQ(1, argv[0]);
-
-    test_shared_heap(shared_heap, "test_addr_conv.aot", "test", 0, argv);
-    EXPECT_EQ(1, argv[0]);
-}
-
-TEST_F(shared_heap_test, test_addr_conv_pre_allocated_oob)
-{
-    SharedHeapInitArgs args = { 0 };
-    WASMSharedHeap *shared_heap = nullptr;
     uint32 argv[1] = { 0 }, BUF_SIZE = os_getpagesize(),
            app_addr = 0xFFFFFFFF - BUF_SIZE;
     uint8 preallocated_buf[BUF_SIZE];
