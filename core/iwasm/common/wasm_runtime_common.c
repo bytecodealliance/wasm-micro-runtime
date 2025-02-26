@@ -1743,8 +1743,7 @@ wasm_runtime_destroy_exec_env(WASMExecEnv *exec_env)
 #if WAMR_ENABLE_COPY_CALLSTACK != 0
 uint32
 wasm_copy_callstack(const wasm_exec_env_t exec_env, wasm_frame_ptr_t buffer,
-                       const uint32 length,
-                       const uint32 skip_n)
+                    const uint32 length, const uint32 skip_n)
 {
     /*
      * Note for devs: please refrain from such modifications inside of

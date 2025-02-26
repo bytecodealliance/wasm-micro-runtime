@@ -780,8 +780,7 @@ aot_create_call_stack(struct WASMExecEnv *exec_env);
 #if WAMR_ENABLE_COPY_CALLSTACK != 0
 uint32
 aot_copy_callstack(WASMExecEnv *exec_env, wasm_frame_ptr_t buffer,
-    const uint32 length,
-    const uint32 skip_n);
+                   const uint32 length, const uint32 skip_n);
 #endif // WAMR_ENABLE_COPY_CALLSTACK
 
 /**
