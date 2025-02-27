@@ -12,7 +12,7 @@ IF %ERRORLEVEL% GTR 0 (
 
 call docker images>nul 2>nul
 IF %ERRORLEVEL% GTR 0 (
-    echo "Docker is not ready, please lanuch docker desktop firstly."
+    echo "Docker is not ready, please launch docker desktop firstly."
     echo
     exit /b 2
 )

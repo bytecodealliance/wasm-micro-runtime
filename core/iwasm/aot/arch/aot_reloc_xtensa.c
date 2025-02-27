@@ -154,7 +154,7 @@ check_reloc_offset(uint32 target_section_size, uint64 reloc_offset,
  * CPU like esp32 can read and write data through the instruction bus, but only
  * in a word aligned manner; non-word-aligned access will cause a CPU exception.
  * This function uses a world aligned manner to write 16bit value to instruction
- * addreess.
+ * address.
  */
 static void
 put_imm16_to_addr(int16 imm16, int16 *addr)

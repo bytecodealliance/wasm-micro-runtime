@@ -7,7 +7,7 @@
 
 #if BH_DEBUG != 0
 /**
- * Test whehter a pointer value has exist in given list.
+ * Test whether a pointer value has exist in given list.
  *
  * @param list    pointer to list.
  * @param elem    pointer to elem that will be inserted into list.

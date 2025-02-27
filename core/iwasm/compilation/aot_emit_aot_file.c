@@ -3846,7 +3846,7 @@ aot_resolve_object_relocation_group(AOTObjectData *obj_data,
         }
     }
 
-    /* pares each relocation */
+    /* parse each relocation */
     if (!(rel_itr = LLVMGetRelocations(rel_sec))) {
         aot_set_last_error("llvm get relocations failed.");
         return false;

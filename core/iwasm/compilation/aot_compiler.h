@@ -790,7 +790,7 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
         }                                                                   \
         else {                                                              \
             char *func_name = #name;                                        \
-            /* AOT mode, delcare the function */                            \
+            /* AOT mode, declare the function */                            \
             if (!(func = LLVMGetNamedFunction(func_ctx->module, func_name)) \
                 && !(func = LLVMAddFunction(func_ctx->module, func_name,    \
                                             func_type))) {                  \
