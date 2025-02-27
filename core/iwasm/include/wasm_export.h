@@ -2249,6 +2249,17 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_underlying_binary_freeable(const wasm_module_t module);
 
 /**
+ * Get function name from its index
+ *
+ * @param module the target module
+ * @param func_index the function's index
+ *
+ * @return the function name, NULL if failed
+ */
+WASM_RUNTIME_API_EXTERN const char *
+wasm_runtime_get_func_name_from_index(const wasm_module_t module, uint32 func_index);
+
+/**
  * Create a shared heap
  *
  * @param init_args the initialization arguments
