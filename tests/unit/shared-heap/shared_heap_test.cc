@@ -35,8 +35,7 @@ static bool
 load_wasm(char *wasm_file_tested, unsigned int app_heap_size,
           ret_env &ret_module_env)
 {
-    std::string wasm_mem_page = wasm_file_tested;
-    const char *wasm_file = strdup(wasm_mem_page.c_str());
+    const char *wasm_file = strdup(wasm_file_tested);
     unsigned int wasm_file_size = 0;
     unsigned int stack_size = 16 * 1024, heap_size = app_heap_size;
     char error_buf[128] = { 0 };
@@ -330,7 +329,7 @@ TEST_F(shared_heap_test, test_shared_heap_chain_rmw_oob)
 #ifndef native_function
 /* clang-format off */
 #define native_function(func_name, signature) \
-    { #func_name, (void *)glue_##func_name, signature, NULL }
+    { #func_name, (void *)glue_## func_name, signature, NULL }
 /* clang-format on */
 #endif
 #ifndef nitems
