@@ -4106,8 +4106,9 @@ aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame)
 
 #if WAMR_ENABLE_COPY_CALLSTACK != 0
 uint32
-aot_copy_callstack_tiny_frame(WASMExecEnv *exec_env, wasm_frame_t* buffer,
-                              const uint32 length, const uint32 skip_n, char *error_buf, uint32 error_buf_size)
+aot_copy_callstack_tiny_frame(WASMExecEnv *exec_env, wasm_frame_t *buffer,
+                              const uint32 length, const uint32 skip_n,
+                              char *error_buf, uint32 error_buf_size)
 {
     /*
      * Note for devs: please refrain from such modifications inside of
@@ -4127,14 +4128,15 @@ aot_copy_callstack_tiny_frame(WASMExecEnv *exec_env, wasm_frame_t* buffer,
     bool is_top_index_in_range =
         top_boundary >= top && top >= (bottom + sizeof(AOTTinyFrame));
     if (!is_top_index_in_range) {
-        char* err_msg = "Top of the stack pointer is outside of the stack boundaries";
+        char *err_msg =
+            "Top of the stack pointer is outside of the stack boundaries";
         strncpy(error_buf, err_msg, error_buf_size);
         return 0;
     }
     bool is_top_aligned_with_bottom =
         (unsigned long)(top - bottom) % sizeof(AOTTinyFrame) == 0;
     if (!is_top_aligned_with_bottom) {
-        char* err_msg = "Top of the stack is not aligned with the bottom";
+        char *err_msg = "Top of the stack is not aligned with the bottom";
         strncpy(error_buf, err_msg, error_buf_size);
         return 0;
     }
@@ -4159,9 +4161,9 @@ aot_copy_callstack_tiny_frame(WASMExecEnv *exec_env, wasm_frame_t* buffer,
 }
 
 uint32
-aot_copy_callstack_standard_frame(WASMExecEnv *exec_env,
-                                  wasm_frame_t* buffer, const uint32 length,
-                                  const uint32 skip_n, char *error_buf, uint32_t error_buf_size)
+aot_copy_callstack_standard_frame(WASMExecEnv *exec_env, wasm_frame_t *buffer,
+                                  const uint32 length, const uint32 skip_n,
+                                  char *error_buf, uint32_t error_buf_size)
 {
     /*
      * Note for devs: please refrain from such modifications inside of
@@ -4208,8 +4210,9 @@ aot_copy_callstack_standard_frame(WASMExecEnv *exec_env,
 }
 
 uint32
-aot_copy_callstack(WASMExecEnv *exec_env, wasm_frame_t* buffer,
-                   const uint32 length, const uint32 skip_n, char *error_buf, uint32_t error_buf_size)
+aot_copy_callstack(WASMExecEnv *exec_env, wasm_frame_t *buffer,
+                   const uint32 length, const uint32 skip_n, char *error_buf,
+                   uint32_t error_buf_size)
 {
     /*
      * Note for devs: please refrain from such modifications inside of
@@ -4221,11 +4224,12 @@ aot_copy_callstack(WASMExecEnv *exec_env, wasm_frame_t* buffer,
      * wasm_export.h
      */
     if (!is_tiny_frame(exec_env)) {
-        return aot_copy_callstack_standard_frame(exec_env, buffer, length,
-                                                 skip_n, error_buf, error_buf_size);
+        return aot_copy_callstack_standard_frame(
+            exec_env, buffer, length, skip_n, error_buf, error_buf_size);
     }
     else {
-        return aot_copy_callstack_tiny_frame(exec_env, buffer, length, skip_n, error_buf, error_buf_size);
+        return aot_copy_callstack_tiny_frame(exec_env, buffer, length, skip_n,
+                                             error_buf, error_buf_size);
     }
 }
 #endif // WAMR_ENABLE_COPY_CALLSTACK
