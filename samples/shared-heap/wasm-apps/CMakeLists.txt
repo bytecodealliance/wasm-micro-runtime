@@ -30,9 +30,7 @@ set (CMAKE_EXE_LINKER_FLAGS
       -Wl,--no-entry,--strip-all,                  \
       -Wl,--export=__heap_base,--export=__data_end \
       -Wl,--export=__wasm_call_ctors               \
-      -Wl,--export=my_shared_heap_malloc           \
-      -Wl,--export=my_shared_heap_free             \
-      -Wl,--export=print_buf                       \
+      -Wl,--export-all                             \
       -Wl,--allow-undefined"
 )
 
