@@ -5,6 +5,7 @@
 
 #include "wasm_runtime.h"
 #include "wasm.h"
+#include "wasm_c_api.h"
 #include "wasm_exec_env.h"
 #include "wasm_loader.h"
 #include "wasm_interp.h"
@@ -4198,8 +4199,9 @@ wasm_get_module_inst_mem_consumption(const WASMModuleInstance *module_inst,
 
 #if WAMR_ENABLE_COPY_CALLSTACK != 0
 uint32
-wasm_interp_copy_callstack(WASMExecEnv *exec_env, wasm_frame_ptr_t buffer,
-                           uint32 length, uint32 skip_n)
+wasm_interp_copy_callstack(WASMExecEnv *exec_env, wasm_frame_t *buffer,
+                           uint32 length, uint32 skip_n, char *error_buf,
+                           uint32_t error_buf_size)
 {
     /*
      * Note for devs: please refrain from such modifications inside of

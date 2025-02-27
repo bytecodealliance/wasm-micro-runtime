@@ -139,7 +139,7 @@ typedef struct wasm_frame_t {
     uint32_t *lp;
 } WASMCApiFrame;
 
-typedef struct wasm_frame_t *wasm_frame_ptr_t;
+typedef WASMCApiFrame wasm_frame_t;
 
 /* WASM section */
 typedef struct wasm_section_t {
@@ -896,16 +896,17 @@ wasm_runtime_destroy_exec_env(wasm_exec_env_t exec_env);
  * - exec_env->module_inst->module
  *
  * @param exec_env the execution environment that containes frames
- * @param buffer the buffer of size equal length * sizeof(frame) to copy frames
- * to
+ * @param buffer the buffer of size equal length * sizeof(wasm_frame_t) to copy
+ * frames to
  * @param length the number of frames to copy
  * @param skip_n the number of frames to skip from the top of the stack
  *
  * @return number of copied frames
  */
 WASM_RUNTIME_API_EXTERN uint32_t
-wasm_copy_callstack(const wasm_exec_env_t exec_env, wasm_frame_ptr_t buffer,
-                    const uint32_t length, const uint32_t skip_n);
+wasm_copy_callstack(const wasm_exec_env_t exec_env, wasm_frame_t *buffer,
+                    const uint32_t length, const uint32_t skip_n,
+                    char *error_buf, uint32_t error_buf_size);
 
 /**
  * Get the singleton execution environment for the instance.
