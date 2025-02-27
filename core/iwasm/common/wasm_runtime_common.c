@@ -1742,8 +1742,9 @@ wasm_runtime_destroy_exec_env(WASMExecEnv *exec_env)
 
 #if WAMR_ENABLE_COPY_CALLSTACK != 0
 uint32
-wasm_copy_callstack(const wasm_exec_env_t exec_env, wasm_frame_ptr_t buffer,
-                    const uint32 length, const uint32 skip_n)
+wasm_copy_callstack(const wasm_exec_env_t exec_env, wasm_frame_t *buffer,
+                    const uint32 length, const uint32 skip_n, char *error_buf,
+                    uint32_t error_buf_size)
 {
     /*
      * Note for devs: please refrain from such modifications inside of
@@ -1760,13 +1761,15 @@ wasm_copy_callstack(const wasm_exec_env_t exec_env, wasm_frame_ptr_t buffer,
 
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
-        return wasm_interp_copy_callstack(exec_env, buffer, length, skip_n);
+        return wasm_interp_copy_callstack(exec_env, buffer, length, skip_n,
+                                          error_buf, error_buf_size);
     }
 #endif
 
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
-        return aot_copy_callstack(exec_env, buffer, length, skip_n);
+        return aot_copy_callstack(exec_env, buffer, length, skip_n, error_buf,
+                                  error_buf_size);
     }
 #endif
 #endif
