@@ -70,7 +70,7 @@ gdbserver hostip:port ./iwasm test.aot
 #### Local remote debugging
 
 ```bash
-expport OBJ_PATH=~/aot_debug
+export OBJ_PATH=~/aot_debug
 cd ~/aot_debug   # This directory contains iwasm, test.c, test obj file and dynamic_aot_debug.py
 gdb ./iwasm
 (gdb) target remote hostip:port

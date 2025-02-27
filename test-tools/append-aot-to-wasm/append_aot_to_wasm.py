@@ -104,7 +104,7 @@ def create_custom_section_aligned(
     full_content_bin = b""
     pos = start_pos
 
-    # custome section id 0
+    # custom section id 0
     pos, full_content_bin = build_content(full_content_bin, pos, b"\x00")
 
     # custom section length

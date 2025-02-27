@@ -14,7 +14,7 @@ extern char const *LLAMA_COMMIT;
 extern char const *LLAMA_COMPILER;
 extern char const *LLAMA_BUILD_TARGET;
 
-// compatable with WasmEdge
+// compatible with WasmEdge
 // https://github.com/second-state/WasmEdge-WASINN-examples/blob/master/wasmedge-ggml/README.md#parameters
 // https://github.com/WasmEdge/WasmEdge/blob/master/plugins/wasi_nn/ggml.cpp
 struct wasi_nn_llama_config {

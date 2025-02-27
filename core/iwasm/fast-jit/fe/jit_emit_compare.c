@@ -14,7 +14,7 @@ jit_compile_op_compare_integer(JitCompContext *cc, IntCond cond, bool is64Bit)
     JitReg lhs, rhs, res, const_zero, const_one;
 
     if (cond < INT_EQZ || cond > INT_GE_U) {
-        jit_set_last_error(cc, "unsupported comparation operation");
+        jit_set_last_error(cc, "unsupported comparison operation");
         goto fail;
     }
 

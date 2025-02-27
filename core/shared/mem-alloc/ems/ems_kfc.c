@@ -232,7 +232,7 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
     heap_max_size = (uint32)(pool_buf_end - base_addr_new) & (uint32)~7;
 
     if (pool_buf_end < base_addr_new || heap_max_size < heap->current_size) {
-        LOG_ERROR("[GC_ERROR]heap migrate invlaid pool buf size\n");
+        LOG_ERROR("[GC_ERROR]heap migrate invalid pool buf size\n");
         return GC_ERROR;
     }
 
