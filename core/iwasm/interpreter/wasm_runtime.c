@@ -4248,7 +4248,6 @@ wasm_interp_copy_callstack(WASMExecEnv *exec_env, wasm_frame_t *buffer,
 #endif // WAMR_ENABLE_COPY_CALLSTACK
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
-
 bool
 wasm_interp_create_call_stack(struct WASMExecEnv *exec_env)
 {
