@@ -30,7 +30,7 @@ $ ./FlameGraph/stackcollapse-perf.pl out.perf > out.folded
 $ ./FlameGraph/flamegraph.pl out.folded > perf.svg
 ```
 
-In this result, you'll see two modules's profiling result and all wasm functions are named as "aot_func#N" which is a little hard to distinguish.
+In this result, you'll see two modules' profiling result and all wasm functions are named as "aot_func#N" which is a little hard to distinguish.
 
 ![perf.png](./pics/perf.png)
 

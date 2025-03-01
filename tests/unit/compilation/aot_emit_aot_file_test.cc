@@ -44,7 +44,7 @@ class aot_emit_aot_file_test_suite : public testing::Test
     // accessed from sub-classes.
 
     // virtual void SetUp() will be called before each test is run.  You
-    // should define it if you need to initialize the varaibles.
+    // should define it if you need to initialize the variables.
     // Otherwise, this can be skipped.
     virtual void SetUp() {}
 

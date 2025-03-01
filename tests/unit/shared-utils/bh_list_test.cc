@@ -15,7 +15,7 @@ class bh_list_test_suite : public testing::Test
     // accessed from sub-classes.
 
     // virtual void SetUp() will be called before each test is run.  You
-    // should define it if you need to initialize the varaibles.
+    // should define it if you need to initialize the variables.
     // Otherwise, this can be skipped.
     virtual void SetUp() {}
 
@@ -70,7 +70,7 @@ TEST_F(bh_list_test_suite, bh_list_remove)
     bh_list_insert(&list_test, &elem_insert_4);
     EXPECT_EQ(BH_LIST_SUCCESS, bh_list_remove(&list_test, &elem_insert_1));
 
-    // The elem specified by prameter is not in the list.
+    // The elem specified by parameter is not in the list.
     EXPECT_EQ(BH_LIST_ERROR, bh_list_remove(&list_test, &elem_insert_1));
 
     // Illegal parameters.

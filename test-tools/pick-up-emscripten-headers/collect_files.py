@@ -40,7 +40,7 @@ external_repos = {
     }
 }
 
-# TOOD: can we use headers from wasi-libc and clang directly ?
+# TODO: can we use headers from wasi-libc and clang directly ?
 emscripten_headers_src_dst = [
     ("include/compat/emmintrin.h", "sse/emmintrin.h"),
     ("include/compat/immintrin.h", "sse/immintrin.h"),
@@ -159,7 +159,7 @@ def download_repo(name, root):
     download_flag.touch()
 
     # leave download files in /tmp
-    logger.info(f"Has downloaed and stored in {store_dir.relative_to(root)}")
+    logger.info(f"Has downloaded and stored in {store_dir.relative_to(root)}")
     return True
 
 

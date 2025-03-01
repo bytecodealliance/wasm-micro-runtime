@@ -75,7 +75,7 @@ main(int argc, char *argv[])
 
     if (ret > 0) {
         buffer[ret] = '\0';
-        printf("[Client] Buffer recieved: %s\n", buffer);
+        printf("[Client] Buffer received: %s\n", buffer);
     }
 
     close(socket_fd);

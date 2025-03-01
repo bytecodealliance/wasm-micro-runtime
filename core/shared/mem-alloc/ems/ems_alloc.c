@@ -40,7 +40,7 @@ hmu_is_in_heap(void *hmu, gc_uint8 *heap_base_addr, gc_uint8 *heap_end_addr)
  *        the node will be removed from the tree, and the left, right and
  *        parent pointers of the node @p will be set to be NULL. Other fields
  *        won't be touched. The tree will be re-organized so that the order
- *        conditions are still satisified.
+ *        conditions are still satisfied.
  */
 static bool
 remove_tree_node(gc_heap_t *heap, hmu_tree_node_t *p)
@@ -648,7 +648,7 @@ gc_realloc_vo_internal(void *vheap, void *ptr, gc_size_t size, const char *file,
         hmu_old = obj_to_hmu(obj_old);
         tot_size_old = hmu_get_size(hmu_old);
         if (tot_size <= tot_size_old)
-            /* current node alreay meets requirement */
+            /* current node already meets requirement */
             return obj_old;
     }
 

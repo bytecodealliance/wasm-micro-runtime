@@ -2283,7 +2283,7 @@ wasm_runtime_detach_shared_heap(wasm_module_inst_t module_inst);
  * @param size required memory size
  * @param p_native_addr native address of allocated memory
  *
- * @return return the allocated memory address, which re-uses part of the wasm
+ * @return return the allocated memory address, which reuses part of the wasm
  * address space and is in the range of [UINT32 - shared_heap_size + 1, UINT32]
  * (when the wasm memory is 32-bit) or [UINT64 - shared_heap_size + 1, UINT64]
  * (when the wasm memory is 64-bit). Note that it is not an absolute address.

@@ -37,7 +37,7 @@ run(void *arg)
         }
     }
 
-    printf("[Server] Shuting down the new connection #%u ..\n", new_socket);
+    printf("[Server] Shutting down the new connection #%u ..\n", new_socket);
     shutdown(new_socket, SHUT_RDWR);
 
     return NULL;
@@ -137,14 +137,14 @@ main(int argc, char *argv[])
         pthread_join(workers[i], NULL);
     }
 
-    printf("[Server] Shuting down ..\n");
+    printf("[Server] Shutting down ..\n");
     shutdown(socket_fd, SHUT_RDWR);
     sleep(3);
     printf("[Server] BYE \n");
     return EXIT_SUCCESS;
 
 fail:
-    printf("[Server] Shuting down ..\n");
+    printf("[Server] Shutting down ..\n");
     if (socket_fd >= 0)
         close(socket_fd);
     sleep(3);
