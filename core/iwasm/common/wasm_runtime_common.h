@@ -1215,6 +1215,11 @@ void
 wasm_runtime_set_linux_perf(bool flag);
 #endif
 
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+WASM_RUNTIME_API_EXTERN const char *
+wasm_runtime_get_func_name_from_index(WASMModuleCommon *module, uint32 func_index);
+#endif
+
 #ifdef __cplusplus
 }
 #endif
