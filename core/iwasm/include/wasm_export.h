@@ -273,6 +273,8 @@ typedef struct InstantiationArgs {
     uint32_t default_stack_size;
     uint32_t host_managed_heap_size;
     uint32_t max_memory_pages;
+
+    bool run_start_function;
 } InstantiationArgs;
 #endif /* INSTANTIATION_ARGS_OPTION_DEFINED */
 
@@ -718,6 +720,17 @@ WASM_RUNTIME_API_EXTERN wasm_module_inst_t
 wasm_runtime_instantiate_ex(const wasm_module_t module,
                             const InstantiationArgs *args, char *error_buf,
                             uint32_t error_buf_size);
+
+/**
+ * Run the start function of an otherwise instantiated module. See
+ * InstantiationArgs.run_start_function.
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_instantiate_run_start_func(wasm_module_inst_t module,
+                                        wasm_module_inst_t parent,
+                                        wasm_exec_env_t exec_env,
+                                        char *error_buf,
+                                        uint32_t error_buf_size);
 
 /**
  * Set the running mode of a WASM module instance, override the
