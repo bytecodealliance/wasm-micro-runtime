@@ -3,10 +3,13 @@
 
 cmake_minimum_required(VERSION 3.14)
 
-project(wasm_fuzzing LANGUAGES C CXX)
+project(wamr_fuzzing LANGUAGES ASM C CXX)
+
+include(CMakePrintHelpers)
 
 # Ensure Clang is used as the compiler
-if(NOT CMAKE_C_COMPILER_ID STREQUAL "Clang" OR NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if(NOT CMAKE_C_COMPILER_ID STREQUAL "Clang"
+    OR NOT CMAKE_ASM_COMPILER_ID STREQUAL "Clang")
   message(FATAL_ERROR "Please use Clang as the C compiler for libFuzzer compatibility.")
 endif()
 
@@ -46,14 +49,32 @@ set(WAMR_BUILD_AOT_VALIDATOR 1)
 set(REPO_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../../..)
 message(STATUS "REPO_ROOT_DIR: ${REPO_ROOT_DIR}")
 
-set(LLVM_SRC_ROOT ${REPO_ROOT_DIR}/core/deps/llvm)
-set(LLVM_BUILD_ROOT ${LLVM_SRC_ROOT}/build)
-set(LLVM_DIR ${LLVM_BUILD_ROOT}/lib/cmake/llvm)
+# Use LLVM_DIR from command line if defined
+# LLVM_DIR should be something like /path/to/llvm/build/lib/cmake/llvm
+if(DEFINED LLVM_DIR)
+  set(LLVM_DIR $ENV{LLVM_DIR})
+else()
+  set(LLVM_SRC_ROOT ${REPO_ROOT_DIR}/core/deps/llvm)
+  set(LLVM_BUILD_ROOT ${LLVM_SRC_ROOT}/build)
+  set(LLVM_DIR ${LLVM_BUILD_ROOT}/lib/cmake/llvm)
+endif()
+
+# if LLVM_DIR is an existing directory, use it
+if(NOT EXISTS ${LLVM_DIR})
+  message(FATAL_ERROR "LLVM_DIR not found: ${LLVM_DIR}")
+endif()
 
 find_package(LLVM REQUIRED CONFIG)
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+
+include_directories(${LLVM_INCLUDE_DIRS})
+separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
+add_definitions(${LLVM_DEFINITIONS_LIST})
+
+set(SHARED_DIR ${REPO_ROOT_DIR}/core/shared)
+set(IWASM_DIR ${REPO_ROOT_DIR}/core/iwasm)
 
 # Enable fuzzer
 add_definitions(-DWASM_ENABLE_FUZZ_TEST=1)
@@ -75,5 +96,5 @@ if(IN_OSS_FUZZ EQUAL -1)
   add_link_options(-fsanitize=address -fprofile-instr-generate)
 endif()
 
-add_subdirectory(wasm_mutator)
-add_subdirectory(aot_compiler)
+add_subdirectory(aot-compiler)
+add_subdirectory(wasm-mutator)

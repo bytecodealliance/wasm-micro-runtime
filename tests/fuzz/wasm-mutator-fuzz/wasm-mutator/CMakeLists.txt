@@ -1,8 +1,6 @@
 # Copyright (C) 2019 Intel Corporation. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-project(wasm_mutator_fuzzing LANGUAGES ASM C CXX)
-
 if(CUSTOM_MUTATOR EQUAL 1)
   add_compile_definitions(CUSTOM_MUTATOR)
 endif()
@@ -57,12 +55,3 @@ target_link_directories(vmlib PUBLIC ${RUNTIME_LIB_LINK_LIST})
 
 add_executable(wasm_mutator_fuzz wasm_mutator_fuzz.cc)
 target_link_libraries(wasm_mutator_fuzz PRIVATE vmlib m)
-
-# Copyright (C) 2019 Intel Corporation. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-
-project(wasm_mutator_fuzzing LANGUAGES ASM C CXX)
-
-if(CUSTOM_MUTATOR EQUAL 1)
-  add_compile_definitions(CUSTOM_MUTATOR)
-endif()
