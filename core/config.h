@@ -710,4 +710,8 @@
 #define WASM_ENABLE_AOT_VALIDATOR 0
 #endif
 
+#ifndef WASM_INSTRUCTION_METERING 
+#define WASM_INSTRUCTION_METERING 1
+#endif
+
 #endif /* end of _CONFIG_H_ */
