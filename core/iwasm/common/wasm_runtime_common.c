@@ -2287,7 +2287,7 @@ wasm_runtime_access_exce_check_guard_page()
 
 #ifdef WASM_INSTRUCTION_METERING
 void
-wasm_runtime_set_instructions_to_execute(WASMExecEnv *exec_env,
+wasm_runtime_set_instruction_count_limit(WASMExecEnv *exec_env,
                                          int instructions_to_execute)
 {
     exec_env->instructions_to_execute = instructions_to_execute;

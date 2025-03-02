@@ -675,15 +675,15 @@ wasm_runtime_set_native_stack_boundary(WASMExecEnv *exec_env,
 #if WASM_INSTRUCTION_METERING != 0
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN void
-wasm_runtime_set_exception_with_id(WASMModuleInstanceCommon *module,
-                                   uint32 exception_id);
+wasm_runtime_set_instruction_count_limit(WASMExecEnv *exec_env,
+                                         int instructions_to_execute)
 #endif
 
 #if WASM_CONFIGURABLE_BOUNDS_CHECKS != 0
-/* See wasm_export.h for description */
-WASM_RUNTIME_API_EXTERN void
-wasm_runtime_set_bounds_checks(WASMModuleInstanceCommon *module_inst,
-                               bool enable);
+    /* See wasm_export.h for description */
+    WASM_RUNTIME_API_EXTERN
+    void wasm_runtime_set_bounds_checks(WASMModuleInstanceCommon *module_inst,
+                                        bool enable);
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool
