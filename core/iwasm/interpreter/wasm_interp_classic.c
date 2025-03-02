@@ -1548,9 +1548,9 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
     CHECK_INSTRUCTION_LIMIT();                                            \
     continue;
 #else
-#define HANDLE_OP_END()
-CHECK_INSTRUCTION_LIMIT();
-continue;
+#define HANDLE_OP_END()        \
+    CHECK_INSTRUCTION_LIMIT(); \
+    continue;
 #endif
 
 #endif /* end of WASM_ENABLE_LABELS_AS_VALUES */
