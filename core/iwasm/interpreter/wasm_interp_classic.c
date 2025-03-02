@@ -1516,13 +1516,13 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
             }                                                                 \
             os_mutex_unlock(&exec_env->wait_lock);                            \
         }                                                                     \
-        CHECK_INSTRUCTION_LIMIT();                                           \                                                                \
-        goto *handle_table[*frame_ip++];                                      \
+        CHECK_INSTRUCTION_LIMIT();                                            \
+        \ goto *handle_table[*frame_ip++];                                    \
     } while (0)
 #else
-#define HANDLE_OP_END()                                                   \
-    CHECK_INSTRUCTION_LIMIT();                                           \
-    FETCH_OPCODE_AND_DISPATCH()                                           
+#define HANDLE_OP_END()        \
+    CHECK_INSTRUCTION_LIMIT(); \
+    FETCH_OPCODE_AND_DISPATCH()
 #endif
 
 #else /* else of WASM_ENABLE_LABELS_AS_VALUES */
@@ -1545,12 +1545,12 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
         }                                                                 \
         os_mutex_unlock(&exec_env->wait_lock);                            \
     }                                                                     \
-    CHECK_INSTRUCTION_LIMIT();                                           \
+    CHECK_INSTRUCTION_LIMIT();                                            \
     continue;
 #else
-#define HANDLE_OP_END()                                 
-    CHECK_INSTRUCTION_LIMIT();                                           \
-    continue;
+#define HANDLE_OP_END()
+CHECK_INSTRUCTION_LIMIT();
+continue;
 #endif
 
 #endif /* end of WASM_ENABLE_LABELS_AS_VALUES */
@@ -1569,11 +1569,11 @@ get_global_addr(uint8 *global_data, WASMGlobalInstance *global)
 }
 
 #if WASM_INSTRUCTION_METERING != 0
-#define CHECK_INSTRUCTION_LIMIT()                                    \
-    if (instructions_left == 0) {                                     \
-        goto return_func;                                             \
-    }                                                                 \
-    instructions_left--;                                               
+#define CHECK_INSTRUCTION_LIMIT() \
+    if (instructions_left == 0) { \
+        goto return_func;         \
+    }                             \
+    instructions_left--;
 #else
 #define CHECK_INSTRUCTION_LIMIT() (void)0
 #endif
@@ -1621,7 +1621,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint32 local_idx, local_offset, global_idx;
     uint8 local_type, *global_addr;
     uint32 cache_index, type_index, param_cell_num, cell_num;
-   
+
 #if WASM_INSTRUCTION_METERING != 0
     int instructions_left = exec_env->instructions_to_execute;
 #endif
@@ -1718,7 +1718,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 goto got_exception;
             }
 
-            HANDLE_OP(WASM_OP_NOP) { HANDLE_OP_END(); }
+            HANDLE_OP(WASM_OP_NOP)
+            {
+                HANDLE_OP_END();
+            }
 
 #if WASM_ENABLE_EXCE_HANDLING != 0
             HANDLE_OP(WASM_OP_RETHROW)
@@ -2455,7 +2458,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 else
                     cur_func_type = cur_func->u.func->func_type;
 
-                /* clang-format off */
+                    /* clang-format off */
 #if WASM_ENABLE_GC == 0
                 if (cur_type != cur_func_type) {
                     wasm_set_exception(module, "indirect call type mismatch");
@@ -5655,7 +5658,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_I32_REINTERPRET_F32)
             HANDLE_OP(WASM_OP_I64_REINTERPRET_F64)
             HANDLE_OP(WASM_OP_F32_REINTERPRET_I32)
-            HANDLE_OP(WASM_OP_F64_REINTERPRET_I64) { HANDLE_OP_END(); }
+            HANDLE_OP(WASM_OP_F64_REINTERPRET_I64)
+            {
+                HANDLE_OP_END();
+            }
 
             HANDLE_OP(WASM_OP_I32_EXTEND8_S)
             {
