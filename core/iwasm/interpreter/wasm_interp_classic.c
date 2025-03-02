@@ -1517,7 +1517,7 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
             os_mutex_unlock(&exec_env->wait_lock);                            \
         }                                                                     \
         CHECK_INSTRUCTION_LIMIT();                                            \
-        \ goto *handle_table[*frame_ip++];                                    \
+        goto *handle_table[*frame_ip++];                                      \
     } while (0)
 #else
 #define HANDLE_OP_END()        \
