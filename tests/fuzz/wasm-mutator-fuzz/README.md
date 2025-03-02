@@ -1,6 +1,6 @@
 # WAMR fuzz test framework
 
-## install wasm-tools
+## Install wasm-tools
 
 ```bash
 1.git clone https://github.com/bytecodealliance/wasm-tools
@@ -13,32 +13,44 @@ $ wasm-tools --version
 $ wasm-tools help
 ```
 
+## Install clang Toolchain
+
+Refer to: https://apt.llvm.org/ and Make sure you have clang installed.
+
+```bash
+$ which clang
+
+$ which clang++
+
+```
+
 ## Build
 
 ```bash
-mkdir build && cd build
 # Without custom mutator (libfuzzer modify the buffer randomly)
-cmake ..
-# TODO: TBC. `wasm-tools mutate` is not supported yet
-# With custom mutator (wasm-tools mutate)
-cmake .. -DCUSTOM_MUTATOR=1
-make -j$(nproc)
+$ cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=./clang_toolchain.cmake
+
+# TBC: if `wasm-tools mutate` is supported or not
+# Or With custom mutator (wasm-tools mutate)
+$ cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=./clang_toolchain.cmake -DCUSTOM_MUTATOR=1
+
+$ cmake --build build
 ```
 
 ## Manually generate wasm file in build
 
-```bash
+````bash
 # wasm-tools smith generate some valid wasm file
 # The generated wasm file is in corpus_dir under build
 # N - Number of files to be generated
-./smith_wasm.sh N 
+$ ./smith_wasm.sh N
 
 # running
 ``` bash
-cd build
-./wasm-mutate-fuzz CORPUS_DIR
- 
-```
+$ ./build/wasm-mutator/wasm_mutator_fuzz ./build/CORPUS_DIR
+
+$ ./build/aot-compiler/aot_compiler_fuzz ./build/CORPUS_DIR
+````
 
 ## Fuzzing Server
 
@@ -49,20 +61,20 @@ $ pip install -r requirements.txt
 
 2. Database Migration
 $ python3 app/manager.py db init
-$ python3 app/manager.py db migrate  
-$ python3 app/manager.py db upgrade  
+$ python3 app/manager.py db migrate
+$ python3 app/manager.py db upgrade
 
 3. Change localhost to your machine's IP address
-$ cd ../portal 
+$ cd ../portal
 $ vim .env   # Change localhost to your machine's IP address  # http://<ip>:16667
 
 4. Run Server and Portal
 $ cd ..   # Switch to the original directory
 If you want to customize the front-end deployment port:  # defaut 9999
-    $ vim .env # Please change the portal_port to the port you want to use 
+    $ vim .env # Please change the portal_port to the port you want to use
 
 The server is deployed on port 16667 by default, If you want to change the server deployment port:
-    $ vim .env # Please change the server_port to the port you want to use 
+    $ vim .env # Please change the server_port to the port you want to use
     $ vim portal/.env # Please change the VITE_SERVER_URL to the port you want to use  # http://ip:<port>
 
 
