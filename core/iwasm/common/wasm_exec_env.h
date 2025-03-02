@@ -166,6 +166,11 @@ typedef struct WASMExecEnv {
         /* The WASM stack. */
         uint8 bottom[1];
     } wasm_stack_u;
+
+#if WASM_INSTRUCTION_METERING != 0
+    /* instructions to execute */
+    int instructions_to_execute;
+#endif
 } WASMExecEnv;
 
 #if WASM_ENABLE_MEMORY_PROFILING != 0
