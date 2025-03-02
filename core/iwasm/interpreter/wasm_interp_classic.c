@@ -1623,7 +1623,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint32 cache_index, type_index, param_cell_num, cell_num;
 
 #if WASM_INSTRUCTION_METERING != 0
-    int instructions_left = exec_env->instructions_to_execute;
+    int instructions_left = -1;
+    if (exec_env) {
+        instructions_left = exec_env->instructions_to_execute;
+    }
 #endif
 
 #if WASM_ENABLE_EXCE_HANDLING != 0

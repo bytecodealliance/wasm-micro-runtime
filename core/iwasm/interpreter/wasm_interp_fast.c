@@ -1524,7 +1524,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint8 opcode = 0, local_type, *global_addr;
 
 #if WASM_INSTRUCTION_METERING != 0
-    int instructions_left = exec_env->instructions_to_execute;
+    int instructions_left = -1;
+    if (exec_env) {
+        instructions_left = exec_env->instructions_to_execute;
+    }
 #endif
 #if !defined(OS_ENABLE_HW_BOUND_CHECK) \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
