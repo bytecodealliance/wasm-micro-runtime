@@ -4121,7 +4121,6 @@ aot_copy_callstack_tiny_frame(WASMExecEnv *exec_env, wasm_frame_t *buffer,
     uint8 *top_boundary = exec_env->wasm_stack.top_boundary;
     uint8 *top = exec_env->wasm_stack.top;
     uint8 *bottom = exec_env->wasm_stack.bottom;
-
     uint32 count = 0;
 
     bool is_top_index_in_range =
@@ -4180,7 +4179,6 @@ aot_copy_callstack_standard_frame(WASMExecEnv *exec_env, wasm_frame_t *buffer,
     uint8 *top_boundary = exec_env->wasm_stack.top_boundary;
     uint8 *bottom = exec_env->wasm_stack.bottom;
     uint32 frame_size = (uint32)offsetof(AOTFrame, lp);
-
     uint32 count = 0;
 
     WASMCApiFrame record_frame;
