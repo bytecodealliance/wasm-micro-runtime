@@ -1773,8 +1773,7 @@ wasm_copy_callstack(const wasm_exec_env_t exec_env, wasm_frame_t *buffer,
     }
 #endif
 #endif
-    char *err_msg =
-            "No copy_callstack API was actually executed";
+    char *err_msg = "No copy_callstack API was actually executed";
     strncpy(error_buf, err_msg, error_buf_size);
     return 0;
 }
