@@ -4217,7 +4217,6 @@ wasm_interp_copy_callstack(WASMExecEnv *exec_env, wasm_frame_t *buffer,
     WASMInterpFrame *cur_frame = wasm_exec_env_get_cur_frame(exec_env);
     uint8 *top_boundary = exec_env->wasm_stack.top_boundary;
     uint8 *bottom = exec_env->wasm_stack.bottom;
-
     uint32 count = 0;
 
     WASMCApiFrame record_frame;
