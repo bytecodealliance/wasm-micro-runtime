@@ -2346,7 +2346,9 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
             goto fail;
         }
         for (i = 0; i < module->table_init_data_count; i++) {
-            if (wasm_elem_is_active(module->table_init_data_list[i]->mode))
+            if (wasm_elem_is_active(module->table_init_data_list[i]->mode)
+                || wasm_elem_is_declarative(
+                    module->table_init_data_list[i]->mode))
                 bh_bitmap_set_bit(common->elem_dropped, i);
         }
     }
@@ -3088,7 +3090,7 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         ret = invoke_native_internal(exec_env, func_ptr, func_type, NULL,
                                      attachment, argv, argc, argv);
 
-        if (aot_copy_exception(module_inst, NULL)) {
+        if (!ret) {
 #ifdef AOT_STACK_FRAME_DEBUG
             if (aot_stack_frame_callback) {
                 aot_stack_frame_callback(exec_env);
@@ -3109,7 +3111,7 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
             aot_free_frame(exec_env);
 #endif
 
-        return ret && !aot_copy_exception(module_inst, NULL) ? true : false;
+        return ret;
     }
 }
 

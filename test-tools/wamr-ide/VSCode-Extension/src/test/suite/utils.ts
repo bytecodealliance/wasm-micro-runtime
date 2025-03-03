@@ -39,7 +39,7 @@ export function setBpAtMarker(file: string, bpMarker: string): void {
 export function compileRustToWasm(): void {
     const testResourceFolder = `${EXTENSION_PATH}/resource/test`;
     // compile with debug symbols and no optimization
-    const cmd = `rustc --target wasm32-wasi ${testResourceFolder}/test.rs -g -C opt-level=0 -o ${testResourceFolder}/test.wasm`;
+    const cmd = `rustc --target wasm32-wasip1 ${testResourceFolder}/test.rs -g -C opt-level=0 -o ${testResourceFolder}/test.wasm`;
 
     try {
         cp.execSync(cmd, { stdio: [null, null, process.stderr] });

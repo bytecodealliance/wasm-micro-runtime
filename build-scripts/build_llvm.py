@@ -30,25 +30,25 @@ def clone_llvm(dst_dir, llvm_repo, llvm_branch):
 
 
 def query_llvm_version(llvm_info):
-    github_token = os.environ['GH_TOKEN']
-    owner_project = llvm_info['repo'].replace("https://github.com/", "").replace(".git", "")
+    github_token = os.environ["GH_TOKEN"]
+    owner_project = (
+        llvm_info["repo"].replace("https://github.com/", "").replace(".git", "")
+    )
     url = f"https://api.github.com/repos/{owner_project}/commits/{llvm_info['branch']}"
-    headers = {
-        'Authorization': f"Bearer {github_token}"
-    }
+    headers = {"Authorization": f"Bearer {github_token}"}
 
     try:
         response = requests.request("GET", url, headers=headers, data={})
         response.raise_for_status()
     except requests.exceptions.HTTPError as error:
-        print (error) # for debugging purpose
+        print(error)  # for debugging purpose
         return None
 
     response = response.json()
-    return response['sha']
+    return response["sha"]
 
 
-def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_flags=''):
+def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_flags=""):
     LLVM_COMPILE_OPTIONS = [
         '-DCMAKE_BUILD_TYPE:STRING="Release"',
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
@@ -106,16 +106,16 @@ def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_fl
     normal_backends = [s for s in backends if s not in experimental_backends]
 
     LLVM_TARGETS_TO_BUILD = [
-        '-DLLVM_TARGETS_TO_BUILD:STRING="' + ";".join(normal_backends) + '"'
-        if normal_backends
-        else '-DLLVM_TARGETS_TO_BUILD:STRING="AArch64;ARM;Mips;RISCV;X86"'
+        (
+            '-DLLVM_TARGETS_TO_BUILD:STRING="' + ";".join(normal_backends) + '"'
+            if normal_backends
+            else '-DLLVM_TARGETS_TO_BUILD:STRING="AArch64;ARM;Mips;RISCV;X86"'
+        )
     ]
 
     # if not on ARC platform, but want to add expeirmental backend ARC as target
-    if platform != "ARC" and "ARC" in backends: 
-        LLVM_TARGETS_TO_BUILD.extend(
-            LLVM_EXTRA_COMPILE_OPTIONS["arc"]
-        )
+    if platform != "ARC" and "ARC" in backends:
+        LLVM_TARGETS_TO_BUILD.extend(LLVM_EXTRA_COMPILE_OPTIONS["arc"])
 
     if platform != "Xtensa" and "Xtensa" in backends:
         print(
@@ -207,21 +207,24 @@ def repackage_llvm(llvm_dir):
     # rm ./LLVM-1*.gz
     os.remove(llvm_dir.joinpath(llvm_package).resolve())
 
+
 def repackage_llvm_windows(llvm_dir):
     build_dir = llvm_dir.joinpath("./build").resolve()
 
-    packs_path = [f for f in build_dir.glob("./_CPack_Packages/win64/NSIS/LLVM-*-win64")]
+    packs_path = [
+        f for f in build_dir.glob("./_CPack_Packages/win64/NSIS/LLVM-*-win64")
+    ]
     if len(packs_path) > 1:
         raise Exception("Find more than one LLVM-* package")
 
     if not packs_path:
         raise Exception("Didn't find any LLVM-* package")
         return
-    
+
     llvm_package_path = f"_CPack_Packages/win64/NSIS/{packs_path[0].name}"
     windows_package_dir = build_dir.joinpath(llvm_package_path).resolve()
 
-    # mv package dir outside of build 
+    # mv package dir outside of build
     shutil.move(str(windows_package_dir), str(llvm_dir))
     # rm -r build
     shutil.rmtree(str(build_dir))
@@ -231,7 +234,8 @@ def repackage_llvm_windows(llvm_dir):
     moved_package_dir = llvm_dir.joinpath(packs_path[0].name)
     for sub_dir in moved_package_dir.iterdir():
         shutil.move(str(sub_dir), str(build_dir))
-    moved_package_dir.rmdir()  
+    moved_package_dir.rmdir()
+
 
 def main():
     parser = argparse.ArgumentParser(description="build necessary LLVM libraries")
@@ -331,7 +335,7 @@ def main():
             return commit_hash is not None
 
         repo_addr = llvm_info["repo"]
-        if os.environ.get('USE_GIT_SSH') == "true":
+        if os.environ.get("USE_GIT_SSH") == "true":
             repo_addr = llvm_info["repo_ssh"]
         else:
             print("To use ssh for git clone, run: export USE_GIT_SSH=true")
@@ -339,8 +343,12 @@ def main():
         llvm_dir = clone_llvm(deps_dir, repo_addr, llvm_info["branch"])
         if (
             build_llvm(
-                llvm_dir, platform, options.arch, options.project, options.use_clang,
-                options.extra_cmake_flags
+                llvm_dir,
+                platform,
+                options.arch,
+                options.project,
+                options.use_clang,
+                options.extra_cmake_flags,
             )
             is not None
         ):

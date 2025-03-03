@@ -53,7 +53,7 @@ def execute_openvino_road_segmentation_adas_once(
     """
 
     wasm_file = (
-        "./openvino-road-seg-adas/target/wasm32-wasi/debug/openvino-road-seg-adas.wasm"
+        "./openvino-road-seg-adas/target/wasm32-wasip1/debug/openvino-road-seg-adas.wasm"
     )
     wasm_args = [
         "./model/road-segmentation-adas-0001.xml",
@@ -70,7 +70,7 @@ def execute_openvino_mobilenet_raw_once(
     execute openvino-mobilenet-image with iwasm and wasmedge
     """
 
-    wasm_file = "./rust/target/wasm32-wasi/debug/wasmedge-wasinn-example-mobilenet.wasm"
+    wasm_file = "./rust/target/wasm32-wasip1/debug/wasmedge-wasinn-example-mobilenet.wasm"
     wasm_args = [
         "mobilenet.xml",
         "mobilenet.bin",
@@ -87,7 +87,7 @@ def execute_openvino_mobilenet_image_once(
     """
 
     wasm_file = (
-        "./rust/target/wasm32-wasi/debug/wasmedge-wasinn-example-mobilenet-image.wasm"
+        "./rust/target/wasm32-wasip1/debug/wasmedge-wasinn-example-mobilenet-image.wasm"
     )
     wasm_args = [
         "mobilenet.xml",
@@ -105,7 +105,7 @@ def execute_tflite_birds_v1_image_once(
     """
 
     wasm_file = (
-        "rust/target/wasm32-wasi/debug/wasmedge-wasinn-example-tflite-bird-image.wasm"
+        "rust/target/wasm32-wasip1/debug/wasmedge-wasinn-example-tflite-bird-image.wasm"
     )
     wasm_args = ["lite-model_aiy_vision_classifier_birds_V1_3.tflite", "bird.jpg"]
     return execute_once(runtime_bin, runtime_args, wasm_file, wasm_args, cwd)
@@ -262,7 +262,7 @@ def execute_openvino_road_segmentation_adas(
 
 def execute_wasmedge_ggml_qwen(iwasm_bin: str, wasmedge_bin: str, cwd: Path):
     iwasm_args = ["--dir=."]
-    wasm_file = ["./target/wasm32-wasi/debug/wasmedge-ggml-qwen.wasm"]
+    wasm_file = ["./target/wasm32-wasip1/debug/wasmedge-ggml-qwen.wasm"]
     wasm_args = ["./qwen1_5-0_5b-chat-q2_k.gguf"]
 
     cmd = [iwasm_bin]
