@@ -420,13 +420,31 @@ is_native_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
                               uint8 *addr, uint32 bytes)
 {
     WASMSharedHeap *heap = get_shared_heap(module_inst);
+    uintptr_t base_addr;
+    uintptr_t addr_int;
+    uintptr_t end_addr;
 
-    if (heap && addr >= heap->base_addr
-        && addr + bytes <= heap->base_addr + heap->size
-        && addr + bytes > addr) {
-        return true;
+    if (!heap) {
+        return false;
     }
-    return false;
+
+    base_addr = (uintptr_t)heap->base_addr;
+    addr_int = (uintptr_t)addr;
+    if (addr_int < base_addr) {
+        return false;
+    }
+
+    end_addr = addr_int + bytes;
+    /* Check for overflow */
+    if (end_addr <= addr_int) {
+        return false;
+    }
+
+    if (end_addr > base_addr + heap->size) {
+        return false;
+    }
+
+    return true;
 }
 
 uint64
@@ -1235,6 +1253,14 @@ wasm_mremap_linear_memory(void *mapped_mem, uint64 old_size, uint64 new_size,
     bh_assert(new_size > 0);
     bh_assert(new_size > old_size);
 
+#if UINTPTR_MAX == UINT32_MAX
+    if (new_size == 4 * (uint64)BH_GB) {
+        LOG_WARNING("On 32 bit platform, linear memory can't reach maximum "
+                    "size of 4GB\n");
+        return NULL;
+    }
+#endif
+
     if (mapped_mem) {
         new_mem = os_mremap(mapped_mem, old_size, new_size);
     }
@@ -1349,7 +1375,7 @@ wasm_enlarge_memory_internal(WASMModuleInstanceCommon *module,
     if (!(memory_data_new =
               realloc_func(Alloc_For_LinearMemory, full_size_mmaped,
 #if WASM_MEM_ALLOC_WITH_USER_DATA != 0
-                           NULL,
+                           allocator_user_data,
 #endif
                            memory_data_old, total_size_new))) {
         ret = false;
@@ -1371,7 +1397,7 @@ wasm_enlarge_memory_internal(WASMModuleInstanceCommon *module,
     if (full_size_mmaped) {
 #ifdef BH_PLATFORM_WINDOWS
         if (!os_mem_commit(memory->memory_data_end,
-                           (mem_offset_t)(total_size_new - total_size_old),
+                           total_size_new - total_size_old,
                            MMAP_PROT_READ | MMAP_PROT_WRITE)) {
             ret = false;
             goto return_func;
@@ -1379,12 +1405,12 @@ wasm_enlarge_memory_internal(WASMModuleInstanceCommon *module,
 #endif
 
         if (os_mprotect(memory->memory_data_end,
-                        (mem_offset_t)(total_size_new - total_size_old),
+                        total_size_new - total_size_old,
                         MMAP_PROT_READ | MMAP_PROT_WRITE)
             != 0) {
 #ifdef BH_PLATFORM_WINDOWS
             os_mem_decommit(memory->memory_data_end,
-                            (mem_offset_t)(total_size_new - total_size_old));
+                            total_size_new - total_size_old);
 #endif
             ret = false;
             goto return_func;
@@ -1579,8 +1605,7 @@ wasm_runtime_get_memory(WASMModuleInstanceCommon *module_inst, uint32 index)
 
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT)
-        return aot_get_memory_with_index((AOTModuleInstance *)module_inst,
-                                         index);
+        return aot_get_memory_with_idx((AOTModuleInstance *)module_inst, index);
 #endif
 
     return NULL;
@@ -1663,7 +1688,7 @@ wasm_deallocate_linear_memory(WASMMemoryInstance *memory_inst)
     (void)map_size;
     free_func(Alloc_For_LinearMemory,
 #if WASM_MEM_ALLOC_WITH_USER_DATA != 0
-              NULL,
+              allocator_user_data,
 #endif
               memory_inst->memory_data);
 #else
@@ -1716,7 +1741,7 @@ wasm_allocate_linear_memory(uint8 **data, bool is_shared_memory,
         (void)wasm_mmap_linear_memory;
         if (!(*data = malloc_func(Alloc_For_LinearMemory,
 #if WASM_MEM_ALLOC_WITH_USER_DATA != 0
-                                  NULL,
+                                  allocator_user_data,
 #endif
                                   *memory_data_size))) {
             return BHT_ERROR;

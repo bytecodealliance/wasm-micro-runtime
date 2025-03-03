@@ -65,7 +65,7 @@ class WasmVMTest : public testing::Test
 
 TEST_F(WasmVMTest, Test_app1)
 {
-    unsigned argv[10];
+    uint32 argv[10];
 
     ASSERT_TRUE(app1_wasm != NULL);
 
@@ -151,7 +151,7 @@ TEST_F(WasmVMTest, Test_app1)
 
 TEST_F(WasmVMTest, Test_app2)
 {
-    unsigned argv[10];
+    uint32 argv[10];
 
     /* Load module */
     module = wasm_runtime_load(app2_wasm, sizeof(app2_wasm), error_buf,
@@ -416,7 +416,7 @@ TEST_F(WasmVMTest, Test_app2)
 
 TEST_F(WasmVMTest, Test_app3)
 {
-    unsigned argv[10];
+    uint32 argv[10];
 
     /* Load module */
     module = wasm_runtime_load(app3_wasm, sizeof(app3_wasm), error_buf,
@@ -465,7 +465,6 @@ TEST_F(WasmVMTest, Test_app3)
     ASSERT_TRUE(buf != NULL);
 
     ASSERT_EQ(wasm_runtime_addr_native_to_app(module_inst, buf), argv[0]);
-    int32 buf_offset = argv[0];
 
     /* call my_malloc */
     func_inst = wasm_runtime_lookup_function(module_inst, "my_malloc");
@@ -482,7 +481,6 @@ TEST_F(WasmVMTest, Test_app3)
     ASSERT_TRUE(buf1 != NULL);
 
     ASSERT_EQ(wasm_runtime_addr_native_to_app(module_inst, buf1), argv[0]);
-    int32 buf_offset1 = argv[0];
 
     wasm_runtime_deinstantiate(module_inst);
     wasm_runtime_unload(module);
@@ -526,7 +524,7 @@ TEST_F(WasmVMTest, Test_app4_single)
     uint8 *buffer = NULL;
     uint32 buffer_size = 0;
     bool ret = false;
-    unsigned argv[10];
+    uint32 argv[10];
 
     wasm_runtime_set_module_reader(&module_reader_callback,
                                    &module_destroyer_callback);
@@ -584,7 +582,7 @@ TEST_F(WasmVMTest, Test_app4_plus_one)
     uint8 *buffer = NULL;
     uint32 buffer_size = 0;
     bool ret = false;
-    uint32_t argv[10] = { 0 };
+    uint32 argv[10] = { 0 };
 
     wasm_runtime_set_module_reader(&module_reader_callback,
                                    &module_destroyer_callback);

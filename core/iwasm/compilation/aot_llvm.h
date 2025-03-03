@@ -37,6 +37,18 @@
 #include "aot_orc_extra.h"
 #include "aot_comp_option.h"
 
+#if defined(_WIN32) || defined(_WIN32_)
+#include <io.h>
+#define access _access
+/* On windows there is no X_OK flag to check for executablity, only check for
+ * existence */
+#ifdef X_OK
+#undef X_OK
+#endif
+#define X_OK 00
+#define unlink _unlink
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

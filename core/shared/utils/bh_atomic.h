@@ -114,7 +114,8 @@ typedef uint16 bh_atomic_16_t;
 #endif
 
 /* On some 32-bit platform, disable 64-bit atomic operations, otherwise
- * undefined reference to `__atomic_load_8' */
+ * undefined reference to `__atomic_load_8', if on Zephyr, can add board related
+ * macro in autoconf.h to control */
 #ifndef WASM_UINT64_IS_ATOMIC
 #if !defined(__linux__) && !defined(__FreeBSD__) && !defined(__NetBSD__) \
     && !defined(__OpenBSD__) && (defined(__riscv) || defined(__arm__))   \

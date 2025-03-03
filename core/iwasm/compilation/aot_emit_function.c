@@ -1832,6 +1832,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 aot_set_last_error("llvm build load failed.");
                 goto fail;
             }
+            LLVMSetAlignment(ext_ret, 4);
             PUSH(ext_ret, ext_ret_types[i]);
         }
     }
@@ -2068,6 +2069,7 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             aot_set_last_error("llvm build load failed.");
             return false;
         }
+        LLVMSetAlignment(value_rets[i], 4);
         cell_num += wasm_value_type_cell_num_internal(wasm_ret_types[i],
                                                       comp_ctx->pointer_size);
     }
@@ -2699,6 +2701,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 aot_set_last_error("llvm build load failed.");
                 goto fail;
             }
+            LLVMSetAlignment(ext_ret, 4);
             LLVMAddIncoming(result_phis[i], &ext_ret, &block_curr, 1);
         }
     }
@@ -3130,6 +3133,7 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 aot_set_last_error("llvm build load failed.");
                 goto fail;
             }
+            LLVMSetAlignment(ext_ret, 4);
             LLVMAddIncoming(result_phis[i], &ext_ret, &block_curr, 1);
         }
     }
@@ -3205,6 +3209,7 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 aot_set_last_error("llvm build load failed.");
                 goto fail;
             }
+            LLVMSetAlignment(ext_ret, 4);
             LLVMAddIncoming(result_phis[i], &ext_ret, &block_curr, 1);
         }
     }

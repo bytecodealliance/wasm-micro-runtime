@@ -10,9 +10,21 @@
 #define NANOSECONDS_PER_SECOND 1000000000ULL
 #define NANOSECONDS_PER_TICK 100
 
-extern NTSTATUS
-NtQueryTimerResolution(PULONG MinimumResolution, PULONG MaximumResolution,
-                       PULONG CurrentResolution);
+#if WINAPI_PARTITION_DESKTOP
+#ifndef __kernel_entry
+#define __kernel_entry
+#endif
+#ifndef NTAPI
+#define NTAPI
+#endif
+#ifndef _Out_
+#define _Out_
+#endif
+extern __kernel_entry NTSTATUS NTAPI
+NtQueryTimerResolution(_Out_ PULONG MinimumResolution,
+                       _Out_ PULONG MaximumResolution,
+                       _Out_ PULONG CurrentResolution);
+#endif
 
 static __wasi_errno_t
 calculate_monotonic_clock_frequency(uint64 *out_frequency)

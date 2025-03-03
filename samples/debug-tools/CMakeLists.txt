@@ -72,7 +72,7 @@ add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 include(ExternalProject)
 
 # wasm32-wasi
-ExternalProject_Add(wasm33-wasi
+ExternalProject_Add(wasm32-wasi
   SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps"
   CONFIGURE_COMMAND ${CMAKE_COMMAND} -S ${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps -B build
                       -DWASI_SDK_PREFIX=${WASISDK_HOME}

@@ -16,24 +16,24 @@ For [AssemblyScript](https://github.com/AssemblyScript/assemblyscript), please r
 
 For Rust, please refer to [Install Rust and Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) to install *cargo*, *rustc* and *rustup*. By default they are under ~/.cargo/bin.
 
-And then run such a command to install `wasm32-wasi` target.
+And then run such a command to install `wasm32-wasip1` target.
 
 ``` bash
-$ rustup target add wasm32-wasi
+$ rustup target add wasm32-wasip1
 ```
 
 To build WASM applications, run
 
 ``` bash
-$ cargo build --target wasm32-wasi
+$ cargo build --target wasm32-wasip1
 ```
 
-The output files are under `target/wasm32-wasi`.
+The output files are under `target/wasm32-wasip1`.
 
 To build a release version
 
 ``` bash
-$ cargo build --release --target wasm32-wasi
+$ cargo build --release --target wasm32-wasip1
 ```
 
 
@@ -377,14 +377,22 @@ Examples: wamrc -o test.aot test.wasm
 When making major ABI changes for AoT-compiled modules, we bump
 `AOT_CURRENT_VERSION` constant in `core/config.h` header.
 The runtime rejects to load a module AoT-compiled with wamrc with
-a different `AOT_CURRENT_VERSION`.
+a non-compatible`AOT_CURRENT_VERSION`.
 
 We try our best to maintain our runtime ABI for AoT-compiled modules
-compatible among WAMR versions with the same `AOT_CURRENT_VERSION`
+compatible among WAMR versions with compatible `AOT_CURRENT_VERSION`
 so that combinations of older wamrc and newer runtime usually work.
 However, there might be minor incompatibilities time to time.
-For productions, we recommend to use the exactly same version of
+For productions, we recommend to use compatible versions of
 wamrc and the runtime.
+
+| WAMR version | AOT_CURRENT_VERSION | Compatible AOT version |
+| ------------ | ------------------- | ---------------------- |
+| 1.x          | 3                   | 3                      |
+| 2.0.0        | 3                   | 3                      |
+| 2.1.x        | 3                   | 3                      |
+| 2.2.0        | 3                   | 3                      |
+| next         | 4                   | 3,4                    |
 
 ## AoT compilation with 3rd-party toolchains
 

@@ -1790,7 +1790,9 @@ aot_emit_mem_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                                 &init_datas[i]->offset))
             return false;
         EMIT_U32(init_datas[i]->byte_count);
-        EMIT_BUF(init_datas[i]->bytes, init_datas[i]->byte_count);
+        if (init_datas[i]->byte_count) {
+            EMIT_BUF(init_datas[i]->bytes, init_datas[i]->byte_count);
+        }
     }
 
     if (offset - *p_offset != get_mem_info_size(comp_ctx, comp_data)) {
@@ -4292,10 +4294,6 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
 
     bh_print_time("Begin to emit object file");
     if (comp_ctx->external_llc_compiler || comp_ctx->external_asm_compiler) {
-#if defined(_WIN32) || defined(_WIN32_)
-        aot_set_last_error("external toolchain not supported on Windows");
-        goto fail;
-#else
         /* Generate a temp file name */
         int ret;
         char obj_file_name[64];
@@ -4323,26 +4321,17 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
             aot_set_last_error("create mem buffer with file failed.");
             goto fail;
         }
-#endif /* end of defined(_WIN32) || defined(_WIN32_) */
     }
     else if (!strncmp(LLVMGetTargetName(target), "arc", 3)) {
-#if defined(_WIN32) || defined(_WIN32_)
-        aot_set_last_error("emit object file on Windows is unsupported.");
-        goto fail;
-#else
         /* Emit to assembly file instead for arc target
            as it cannot emit to object file */
         char file_name[] = "wasm-XXXXXX", buf[128];
-        int fd, ret;
+        int ret;
 
-        if ((fd = mkstemp(file_name)) <= 0) {
+        if (!bh_mkstemp(file_name, sizeof(file_name))) {
             aot_set_last_error("make temp file failed.");
             goto fail;
         }
-
-        /* close and remove temp file */
-        close(fd);
-        unlink(file_name);
 
         snprintf(buf, sizeof(buf), "%s%s", file_name, ".s");
         if (LLVMTargetMachineEmitToFile(comp_ctx->target_machine,
@@ -4364,7 +4353,7 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
                  "/opt/zephyr-sdk/arc-zephyr-elf/bin/arc-zephyr-elf-gcc ",
                  "-mcpu=arcem -o ", file_name, ".o -c ", file_name, ".s");
         /* TODO: use try..catch to handle possible exceptions */
-        ret = system(buf);
+        ret = bh_system(buf);
         /* remove temp assembly file */
         snprintf(buf, sizeof(buf), "%s%s", file_name, ".s");
         unlink(buf);
@@ -4391,7 +4380,6 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
             aot_set_last_error("create mem buffer with file failed.");
             goto fail;
         }
-#endif /* end of defined(_WIN32) || defined(_WIN32_) */
     }
     else {
         if (LLVMTargetMachineEmitToMemoryBuffer(

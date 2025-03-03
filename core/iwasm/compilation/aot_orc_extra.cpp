@@ -177,7 +177,7 @@ LLVMOrcLLLazyJITBuilderSetJITTargetMachineBuilder(
     LLVMOrcDisposeJITTargetMachineBuilder(JTMP);
 }
 
-static Optional<CompileOnDemandLayer::GlobalValueSet>
+static Optional<GlobalValueSet>
 PartitionFunction(GlobalValueSet Requested)
 {
     std::vector<const GlobalValue *> GVsToAdd;

@@ -84,7 +84,7 @@
 #endif
 
 #define AOT_MAGIC_NUMBER 0x746f6100
-#define AOT_CURRENT_VERSION 3
+#define AOT_CURRENT_VERSION 4
 
 #ifndef WASM_ENABLE_JIT
 #define WASM_ENABLE_JIT 0
@@ -696,6 +696,14 @@
 
 #ifndef WASM_ENABLE_SHARED_HEAP
 #define WASM_ENABLE_SHARED_HEAP 0
+#endif
+
+#ifndef WASM_ENABLE_SHRUNK_MEMORY
+#define WASM_ENABLE_SHRUNK_MEMORY 1
+#endif
+
+#ifndef WASM_ENABLE_AOT_VALIDATOR
+#define WASM_ENABLE_AOT_VALIDATOR 0
 #endif
 
 #endif /* end of _CONFIG_H_ */

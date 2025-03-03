@@ -3,8 +3,6 @@
 
 cmake_minimum_required (VERSION 3.21)
 
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard")
-
 project (iwasm)
 
 set (WAMR_BUILD_PLATFORM "darwin")
@@ -141,6 +139,7 @@ endif()
 
 set (distribution_DIR ${CMAKE_BINARY_DIR}/distribution)
 set_target_properties (iwasm PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${distribution_DIR}/wasm/lib")
+set_version_info (iwasm)
 
 add_custom_command (TARGET iwasm POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E copy_directory "${WAMR_ROOT_DIR}/core/iwasm/include" "${distribution_DIR}/wasm/include/"

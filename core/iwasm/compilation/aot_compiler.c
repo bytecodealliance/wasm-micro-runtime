@@ -4093,39 +4093,6 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
     return true;
 }
 
-#if !(defined(_WIN32) || defined(_WIN32_))
-char *
-aot_generate_tempfile_name(const char *prefix, const char *extension,
-                           char *buffer, uint32 len)
-{
-    int fd, name_len;
-
-    name_len = snprintf(buffer, len, "%s-XXXXXX", prefix);
-
-    if ((fd = mkstemp(buffer)) <= 0) {
-        aot_set_last_error("make temp file failed.");
-        return NULL;
-    }
-
-    /* close and remove temp file */
-    close(fd);
-    unlink(buffer);
-
-    /* Check if buffer length is enough */
-    /* name_len + '.' + extension + '\0' */
-    if (name_len + 1 + strlen(extension) + 1 > len) {
-        aot_set_last_error("temp file name too long.");
-        return NULL;
-    }
-
-    snprintf(buffer + name_len, len - name_len, ".%s", extension);
-    return buffer;
-}
-#else
-
-errno_t
-_mktemp_s(char *nameTemplate, size_t sizeInChars);
-
 char *
 aot_generate_tempfile_name(const char *prefix, const char *extension,
                            char *buffer, uint32 len)
@@ -4134,7 +4101,8 @@ aot_generate_tempfile_name(const char *prefix, const char *extension,
 
     name_len = snprintf(buffer, len, "%s-XXXXXX", prefix);
 
-    if (_mktemp_s(buffer, name_len + 1) != 0) {
+    if (!bh_mkstemp(buffer, name_len + 1)) {
+        aot_set_last_error("make temp file failed.");
         return NULL;
     }
 
@@ -4148,7 +4116,6 @@ aot_generate_tempfile_name(const char *prefix, const char *extension,
     snprintf(buffer + name_len, len - name_len, ".%s", extension);
     return buffer;
 }
-#endif /* end of !(defined(_WIN32) || defined(_WIN32_)) */
 
 bool
 aot_emit_llvm_file(AOTCompContext *comp_ctx, const char *file_name)
@@ -4227,7 +4194,6 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
 
     bh_print_time("Begin to emit object file");
 
-#if !(defined(_WIN32) || defined(_WIN32_))
     if (comp_ctx->external_llc_compiler || comp_ctx->external_asm_compiler) {
         char cmd[1024];
         int ret;
@@ -4270,7 +4236,7 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
                      file_name, bc_file_name);
             LOG_VERBOSE("invoking external LLC compiler:\n\t%s", cmd);
 
-            ret = system(cmd);
+            ret = bh_system(cmd);
             /* remove temp bitcode file */
             unlink(bc_file_name);
 
@@ -4323,7 +4289,7 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
                      file_name, asm_file_name);
             LOG_VERBOSE("invoking external ASM compiler:\n\t%s", cmd);
 
-            ret = system(cmd);
+            ret = bh_system(cmd);
             /* remove temp assembly file */
             unlink(asm_file_name);
 
@@ -4336,7 +4302,6 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
 
         return true;
     }
-#endif /* end of !(defined(_WIN32) || defined(_WIN32_)) */
 
     if (!strncmp(LLVMGetTargetName(target), "arc", 3))
         /* Emit to assembly file instead for arc target
