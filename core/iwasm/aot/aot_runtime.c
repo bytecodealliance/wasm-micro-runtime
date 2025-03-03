@@ -10,7 +10,6 @@
 #include "../common/wasm_runtime_common.h"
 #include "../common/wasm_memory.h"
 #include "../interpreter/wasm_runtime.h"
-#include <string.h>
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
 #endif
@@ -4201,6 +4200,7 @@ aot_copy_callstack_standard_frame(WASMExecEnv *exec_env, wasm_frame_t *buffer,
         cur_frame = cur_frame->prev_frame;
         ++count;
     }
+    return count;
 #else
 /*
  * TODO: add support for standard frames when GC is enabled
