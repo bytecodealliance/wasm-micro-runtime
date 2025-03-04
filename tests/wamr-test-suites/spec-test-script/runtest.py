@@ -1511,7 +1511,7 @@ if __name__ == "__main__":
                 # - There exists a module in the form of (module $name).
                 # - The nearest module in the form of (module), without $name, is the candidate for registration.
                 if not name_new in temp_module_table:
-                    print(f"Module {name_new} is not found in temp_module_table. use the nearest module")
+                    print(f"Module {name_new} is not found in temp_module_table. use the nearest module {wasm_tempfile}")
 
                 for_registration = temp_module_table.get(name_new, wasm_tempfile)
                 assert os.path.exists(for_registration), f"module {for_registration} is not found"
@@ -1554,7 +1554,7 @@ if __name__ == "__main__":
         ret_code = 0
     finally:
         if not opts.no_cleanup:
-            log("Removing tempfiles")
+            log(f"Removing tempfiles {wast_tempfile} and {wasm_tempfile}")
             os.remove(wast_tempfile)
             os.remove(wasm_tempfile)
             if test_aot:
@@ -1564,6 +1564,7 @@ if __name__ == "__main__":
             if temp_file_repo:
                 for t in temp_file_repo:
                     if(len(str(t))!=0 and os.path.exists(t)):
+                        log(f"Removing others {t}")
                         os.remove(t)
 
             log("### End testing %s" % opts.test_file.name)
