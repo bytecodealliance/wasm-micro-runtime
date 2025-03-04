@@ -392,8 +392,8 @@ wasm_engine_new_internal(wasm_config_t *config)
 
     WASM_C_DUMP_PROC_MEM();
 
-    /* wasm_config_t->MemAllocOption -> RuntimeInitArgs->MemAllocOption */
     init_args.gc_heap_size = GC_HEAP_SIZE_DEFAULT;
+    /* wasm_config_t->MemAllocOption -> RuntimeInitArgs->MemAllocOption */
     init_args.mem_alloc_type = config->mem_alloc_type;
     memcpy(&init_args.mem_alloc_option, &config->mem_alloc_option,
            sizeof(MemAllocOption));
