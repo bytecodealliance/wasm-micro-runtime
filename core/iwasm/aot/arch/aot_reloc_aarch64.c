@@ -63,7 +63,7 @@ get_current_target(char *target_buf, uint32 target_buf_size)
     /* Set to "aarch64v8" by default if sub version isn't specified */
     if (strcmp(s, "AARCH64") == 0) {
         s = "aarch64v8";
-        s_size = 9; /* strlen("aarch64v8"); */
+        s_size = 10; /* sizeof("aarch64v8"); */
     }
     if (target_buf_size < s_size) {
         s_size = target_buf_size;
