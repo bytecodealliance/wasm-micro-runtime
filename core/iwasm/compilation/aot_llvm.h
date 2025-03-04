@@ -215,13 +215,21 @@ typedef struct AOTCheckedAddr {
 
 typedef struct AOTMemInfo {
     LLVMValueRef mem_base_addr;
+    LLVMValueRef mem_base_addr_addr;
+    LLVMValueRef mem_data_size;
     LLVMValueRef mem_data_size_addr;
+    LLVMValueRef mem_cur_page_count;
     LLVMValueRef mem_cur_page_count_addr;
     LLVMValueRef mem_bound_check_1byte;
+    LLVMValueRef mem_bound_check_1byte_addr;
     LLVMValueRef mem_bound_check_2bytes;
+    LLVMValueRef mem_bound_check_2bytes_addr;
     LLVMValueRef mem_bound_check_4bytes;
+    LLVMValueRef mem_bound_check_4bytes_addr;
     LLVMValueRef mem_bound_check_8bytes;
+    LLVMValueRef mem_bound_check_8bytes_addr;
     LLVMValueRef mem_bound_check_16bytes;
+    LLVMValueRef mem_bound_check_16bytes_addr;
 } AOTMemInfo;
 
 typedef struct AOTFuncContext {
@@ -251,7 +259,6 @@ typedef struct AOTFuncContext {
     LLVMValueRef wasm_stack_top_bound;
     LLVMValueRef wasm_stack_top_ptr;
 
-    bool mem_space_unchanged;
     AOTCheckedAddrList checked_addr_list;
 
     LLVMValueRef shared_heap_base_addr_adj;
@@ -652,6 +659,9 @@ aot_target_precheck_can_use_musttail(const AOTCompContext *comp_ctx);
 unsigned int
 aot_estimate_stack_usage_for_function_call(const AOTCompContext *comp_ctx,
                                            const AOTFuncType *callee_func_type);
+
+bool
+restore_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 
 #ifdef __cplusplus
 } /* end of extern "C" */
