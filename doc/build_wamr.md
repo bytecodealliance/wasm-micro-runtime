@@ -141,6 +141,8 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 ### **Enable Garbage Collection**
 - **WAMR_BUILD_GC**=1/0, default to disable if not set
+
+### **Set the Garbage Collection heap size**
 - **WAMR_BUILD_GC_HEAP_SIZE_DEFAULT**=n, default to 128 kB (131072) if not set
 
 ### **Configure Debug**
