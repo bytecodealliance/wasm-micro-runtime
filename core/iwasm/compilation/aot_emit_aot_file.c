@@ -255,22 +255,15 @@ get_init_expr_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data,
 
             bh_assert(struct_new_init_values->type_idx < module->type_count);
 
+            WASMStructType *struct_type = (WASMStructType *)module->types[struct_new_init_values->type_idx];
+            bh_assert(struct_type);
+            bh_assert(struct_type->field_count == struct_new_init_values->count);
+
             for (i = 0; i < struct_new_init_values->count; i++) {
-                WASMStructType *struct_type =
-                    (WASMStructType *)
-                        module->types[struct_new_init_values->type_idx];
-                uint32 field_size;
-
-                bh_assert(struct_type);
-                bh_assert(struct_type->field_count
-                          == struct_new_init_values->count);
-
-                field_size = wasm_value_type_size_internal(
-                    struct_type->fields[i].field_type, comp_ctx->pointer_size);
-                if (field_size < sizeof(uint32))
-                    field_size = sizeof(uint32);
-                size += field_size;
+                uint32 field_size = wasm_value_type_size_internal(struct_type->fields[i].field_type, comp_ctx->pointer_size);
+                size += (field_size < sizeof(uint32)) ? sizeof(uint32) : field_size;
             }
+
             break;
         }
         case INIT_EXPR_TYPE_STRUCT_NEW_DEFAULT:
