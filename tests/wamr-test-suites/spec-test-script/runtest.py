@@ -7,6 +7,7 @@ import array
 import atexit
 import math
 import os
+import pathlib
 import re
 import shutil
 import struct
@@ -81,9 +82,8 @@ def log(data, end='\n'):
     print(data, end=end)
     sys.stdout.flush()
 
-def create_tmp_file(suffix: str) -> str:
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:
-        return tmp_file.name
+def create_tmp_file(prefix: str, suffix: str) -> str:
+    return tempfile.NamedTemporaryFile(prefix=prefix, suffix=suffix, delete=False).name
 
 # TODO: do we need to support '\n' too
 import platform
@@ -1241,10 +1241,10 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
 def create_tmpfiles(wast_name):
     tempfiles = []
 
-    tempfiles.append(create_tmp_file(".wast"))
-    tempfiles.append(create_tmp_file(".wasm"))
+    tempfiles.append(create_tmp_file(wast_name, ".wast"))
+    tempfiles.append(create_tmp_file(wast_name, ".wasm"))
     if test_aot:
-        tempfiles.append(create_tmp_file(".aot"))
+        tempfiles.append(create_tmp_file(wast_name, ".aot"))
 
     # add these temp file to temporal repo, will be deleted when finishing the test
     temp_file_repo.extend(tempfiles)
@@ -1314,10 +1314,15 @@ if __name__ == "__main__":
     else:
         SKIP_TESTS = C_SKIP_TESTS
 
-    wast_tempfile = create_tmp_file(".wast")
-    wasm_tempfile = create_tmp_file(".wasm")
+    case_file = pathlib.Path(opts.test_file.name)
+    assert(case_file.exists()), f"Test file {case_file} doesn't exist"
+
+    case_name = case_file.stem + "_"
+    wast_tempfile = create_tmp_file(case_name, ".wast")
+    wasm_tempfile = create_tmp_file(case_name, ".wasm")
+
     if test_aot:
-        aot_tempfile = create_tmp_file(".aot")
+        aot_tempfile = create_tmp_file(case_name, ".aot")
         # could be potientially compiled to aot
         # with the future following call test_assert_xxx,
         # add them to temp_file_repo now even if no actual following file,
@@ -1498,35 +1503,35 @@ if __name__ == "__main__":
             elif re.match("^\(register\\b.*", form):
                 # get module's new name from the register cmd
                 name_new =re.split('\"',re.search('\".*\"',form).group(0))[1]
-                if name_new:
-                    if not name_new in temp_module_table:
-                        print(f"can not find module name {name_new} from the register, use {wasm_tempfile} instead")
-
-                    just_generated = temp_module_table.get(name_new, wasm_tempfile)
-                    if not os.path.exists(just_generated):
-                        raise Exception("can not find file %s" % just_generated)
-
-                    print("f{just_generated} is copied to {new_module}")
-
-                    # copy the just generated module into a file with specific name
-                    new_module = os.path.join(tempfile.gettempdir(), name_new + ".wasm")
-                    shutil.copyfile(just_generated, new_module)
-
-                    # add new_module copied from the old into temp_file_repo[]
-                    temp_file_repo.append(new_module)
-
-                    if test_aot:
-                        new_module_aot = os.path.join(tempfile.gettempdir(), name_new + ".aot")
-                        r = compile_wasm_to_aot(new_module, new_module_aot, True, opts, r)
-                        try:
-                            assert_prompt(r, ['Compile success'], opts.start_timeout, True)
-                        except:
-                            raise Exception(f"compile wasm to aot failed {r.buf}")
-                        # add aot module into temp_file_repo[]
-                        temp_file_repo.append(new_module_aot)
-                else:
+                if not name_new:
                     # there is no name defined in register cmd
-                    raise Exception("can not find module name from the register")
+                    raise Exception(f"Not following register cmd pattern {form}")
+
+                # assumption
+                # - There exists a module in the form of (module $name).
+                # - The nearest module in the form of (module), without $name, is the candidate for registration.
+                if not name_new in temp_module_table:
+                    print(f"Module {name_new} is not found in temp_module_table. use the nearest module")
+
+                for_registration = temp_module_table.get(name_new, wasm_tempfile)
+                assert os.path.exists(for_registration), f"module {for_registration} is not found"
+
+                new_module = os.path.join(tempfile.gettempdir(), name_new + ".wasm")
+                # for_registration(tmpfile) --copy-> name_new.wasm
+                shutil.copyfile(for_registration, new_module)
+
+                # add new_module copied from the old into temp_file_repo[]
+                temp_file_repo.append(new_module)
+
+                if test_aot:
+                    new_module_aot = os.path.join(tempfile.gettempdir(), name_new + ".aot")
+                    r = compile_wasm_to_aot(new_module, new_module_aot, True, opts, r)
+                    try:
+                        assert_prompt(r, ['Compile success'], opts.start_timeout, True)
+                    except:
+                        raise Exception("compile wasm to aot failed")
+                    # add aot module into temp_file_repo[]
+                    temp_file_repo.append(new_module_aot)
             else:
                 raise Exception("unrecognized form '%s...'" % form[0:40])
     except Exception as e:
