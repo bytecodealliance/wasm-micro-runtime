@@ -317,9 +317,12 @@ loader_mmap(uint32 size, bool prot_exec, char *error_buf, uint32 error_buf_size)
     map_flags = MMAP_MAP_32BIT;
     if ((mem = os_mmap(NULL, size, map_prot, map_flags,
                        os_get_invalid_handle()))) {
-        /* The mmapped memory must be in the first 2 Gigabytes of the
+        /* Test whether the mmapped memory in the first 2 Gigabytes of the
            process address space */
-        bh_assert((uintptr_t)mem < INT32_MAX);
+        if ((uintptr_t)mem >= INT32_MAX)
+            LOG_WARNING(
+                "Warning: loader mmap memory address is not in the first 2 "
+                "Gigabytes of the process address space.");
         return mem;
     }
 #endif
@@ -587,7 +590,8 @@ load_target_info_section(const uint8 *buf, const uint8 *buf_end,
     }
 
     /* for backwards compatibility with previous wamrc aot files */
-    if (!strcmp(target_info.arch, "arm64"))
+    if (!strcmp(target_info.arch, "arm64")
+        || !strcmp(target_info.arch, "aarch64"))
         bh_strcpy_s(target_info.arch, sizeof(target_info.arch), "aarch64v8");
 
     /* Check machine info */
