@@ -15,7 +15,7 @@ read_file_to_buffer(const char *filename, int *ret_size)
     FILE *file;
     int file_size, read_size;
 
-    if (!(file = fopen(filename, "r")))
+    if (!(file = fopen(filename, "rb")))
         return NULL;
 
     fseek(file, 0, SEEK_END);
