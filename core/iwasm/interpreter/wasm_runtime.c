@@ -4240,7 +4240,7 @@ wasm_interp_copy_callstack(WASMExecEnv *exec_env, wasm_frame_t *buffer,
         cur_frame = cur_frame->prev_frame;
         ++count;
     }
-    return count;
+    return count >= skip_n ? count - skip_n : 0;
 }
 #endif // WAMR_ENABLE_COPY_CALLSTACK
 

@@ -4155,7 +4155,7 @@ aot_copy_callstack_tiny_frame(WASMExecEnv *exec_env, wasm_frame_t *buffer,
         frame -= 1;
         ++count;
     }
-    return count;
+    return count >= skip_n ? count - skip_n : 0;
 }
 
 uint32
@@ -4205,7 +4205,7 @@ aot_copy_callstack_standard_frame(WASMExecEnv *exec_env, wasm_frame_t *buffer,
  * now it poses a risk due to variable size of the frame
  */
 #endif
-    return count;
+    return count >= skip_n ? count - skip_n : 0;
 }
 
 uint32
