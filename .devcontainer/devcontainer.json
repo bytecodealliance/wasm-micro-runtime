@@ -9,7 +9,7 @@
     // Update 'VARIANT' to pick an Debian / Ubuntu OS version: debian-12, debian-11, debian-10, debian-9, ubuntu-21.04, ubuntu-20.04, ubuntu-18.04
     // Use Debian 12, Debian 11, Debian 9, Ubuntu 18.04 or Ubuntu 21.04 on local arm64/Apple Silicon
     "args": {
-      "BINARYEN_VER": "114",
+      "BINARYEN_VER": "122",
       "BAZELISK_VER": "1.17.0",
       "CMAKE_VER": "3.27.0",
       "EMSDK_VER": "3.1.43",
