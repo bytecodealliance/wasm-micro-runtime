@@ -4172,6 +4172,7 @@ aot_copy_callstack_standard_frame(WASMExecEnv *exec_env, wasm_frame_t *buffer,
      * top_boundary For more details check wasm_iterate_callstack in
      * wasm_export.h
      */
+
     uint32 count = 0;
 #if WASM_ENABLE_GC == 0
     WASMModuleInstance *module_inst =
