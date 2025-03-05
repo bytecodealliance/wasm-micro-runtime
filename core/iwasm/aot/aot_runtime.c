@@ -4172,6 +4172,7 @@ aot_copy_callstack_standard_frame(WASMExecEnv *exec_env, wasm_frame_t *buffer,
      * top_boundary For more details check wasm_iterate_callstack in
      * wasm_export.h
      */
+    uint32 count = 0;
 #if WASM_ENABLE_GC == 0
     WASMModuleInstance *module_inst =
         (WASMModuleInstance *)wasm_exec_env_get_module_inst(exec_env);
@@ -4179,7 +4180,6 @@ aot_copy_callstack_standard_frame(WASMExecEnv *exec_env, wasm_frame_t *buffer,
     uint8 *top_boundary = exec_env->wasm_stack.top_boundary;
     uint8 *bottom = exec_env->wasm_stack.bottom;
     uint32 frame_size = (uint32)offsetof(AOTFrame, lp);
-    uint32 count = 0;
 
     WASMCApiFrame record_frame;
     while (cur_frame && (uint8_t *)cur_frame >= bottom
@@ -4198,13 +4198,13 @@ aot_copy_callstack_standard_frame(WASMExecEnv *exec_env, wasm_frame_t *buffer,
         cur_frame = cur_frame->prev_frame;
         ++count;
     }
-    return count;
 #else
 /*
  * TODO: add support for standard frames when GC is enabled
  * now it poses a risk due to variable size of the frame
  */
 #endif
+    return count;
 }
 
 uint32
