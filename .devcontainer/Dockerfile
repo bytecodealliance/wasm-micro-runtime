@@ -3,39 +3,39 @@
 
 # See here for image contents: https://github.com/microsoft/vscode-dev-containers/tree/v0.245.2/containers/cpp/.devcontainer/base.Dockerfile
 # [Choice] Debian / Ubuntu version (use Debian 12/11/9, Ubuntu 18.04/21.04 on local arm64/Apple Silicon): debian-12, debian-11, debian-10, debian-9, ubuntu-21.04, ubuntu-20.04, ubuntu-18.04
-ARG VARIANT=ubuntu-20.04
-FROM mcr.microsoft.com/vscode/devcontainers/cpp:${VARIANT}-arm64
+ARG VARIANT=ubuntu-24.04
+# FROM mcr.microsoft.com/devcontainers/cpp:ubuntu-22.04
+FROM debian:bookworm
 
 ARG DEBIAN_FRONTEND=noninteractive
-ENV TZ=Asian/Shanghai
+ENV TZ=Asia/Shanghai
 
 # hadolint ignore=DL3008
 RUN apt-get update \
   && apt-get upgrade -y \
   && apt-get install -y apt-transport-https apt-utils build-essential \
-  ca-certificates ccache cmake curl g++-multilib git gnupg \
-  libgcc-12-dev lib32gcc-12-dev lsb-release \
+  ca-certificates ccache cmake curl git gnupg \
+  libgcc-12-dev  lsb-release \
   ninja-build ocaml ocamlbuild \
   software-properties-common tree tzdata \
   unzip valgrind vim wget zip --no-install-recommends \
   && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/*
-
 #
 # binaryen
-ARG BINARYEN_VER=114
+ARG BINARYEN_VER=122
 WORKDIR /opt
-RUN wget -c --progress=dot:giga https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VER}/binaryen-version_${BINARYEN_VER}-x86_64-linux.tar.gz \
-  && tar xf binaryen-version_${BINARYEN_VER}-x86_64-linux.tar.gz \
+RUN wget -c --progress=dot:giga https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VER}/binaryen-version_${BINARYEN_VER}-aarch64-linux.tar.gz \
+  && tar xf binaryen-version_${BINARYEN_VER}-aarch64-linux.tar.gz \
   && ln -sf /opt/binaryen-version_${BINARYEN_VER} /opt/binaryen \
-  && rm binaryen-version_${BINARYEN_VER}-x86_64-linux.tar.gz
+  && rm binaryen-version_${BINARYEN_VER}-aarch64-linux.tar.gz
 
 #
 # CMAKE (https://apt.kitware.com/)
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # hadolint ignore=DL3008
 ARG CMAKE_VER=3.27.0
-RUN wget https://github.com/Kitware/CMake/releases/download/v${CMAKE_VER}/cmake-${CMAKE_VER}-Linux-x86_64.sh \
+RUN wget https://github.com/Kitware/CMake/releases/download/v${CMAKE_VER}/cmake-${CMAKE_VER}-Linux-aarch64.sh \
       -q -O /tmp/cmake-install.sh \
       && chmod u+x /tmp/cmake-install.sh \
       && mkdir /opt/cmake-${CMAKE_VER} \
@@ -82,7 +82,8 @@ RUN mkdir /opt/bazelisk \
 #
 # install clang+llvm
 ARG LLVM_VER=16
-RUN apt-get purge -y clang-14 llvm-14 && apt-get autoremove -y
+RUN apt-get purge -y clang-14 llvm-14 && apt-get autoremove -y || true
+RUN apt update && apt install -y software-properties-common
 WORKDIR /etc/apt/apt.conf.d
 RUN touch 99verfiy-peer.conf \
   && echo "Acquire { https::Verify-Peer false }" > 99verfiy-peer.conf
