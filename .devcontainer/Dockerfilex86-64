@@ -3,8 +3,8 @@
 
 # See here for image contents: https://github.com/microsoft/vscode-dev-containers/tree/v0.245.2/containers/cpp/.devcontainer/base.Dockerfile
 # [Choice] Debian / Ubuntu version (use Debian 12/11/9, Ubuntu 18.04/21.04 on local arm64/Apple Silicon): debian-12, debian-11, debian-10, debian-9, ubuntu-21.04, ubuntu-20.04, ubuntu-18.04
-ARG VARIANT=ubuntu-20.04
-FROM mcr.microsoft.com/vscode/devcontainers/cpp:${VARIANT}-arm64
+ARG VARIANT=debian-12
+FROM mcr.microsoft.com/vscode/devcontainers/cpp:${VARIANT}
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asian/Shanghai
@@ -75,9 +75,9 @@ RUN wget -c --progress=dot:giga https://github.com/WebAssembly/wabt/releases/dow
 # install bazelisk
 ARG BAZELISK_VER=1.17.0
 RUN mkdir /opt/bazelisk \
-  && wget -c --progress=dot:giga https://github.com/bazelbuild/bazelisk/releases/download/v${BAZELISK_VER}/bazelisk-linux-arm64 -P /opt/bazelisk \
-  && chmod a+x /opt/bazelisk/bazelisk-linux-arm64 \
-  && ln -fs /opt/bazelisk/bazelisk-linux-arm64 /opt/bazelisk/bazel
+  && wget -c --progress=dot:giga https://github.com/bazelbuild/bazelisk/releases/download/v${BAZELISK_VER}/bazelisk-linux-amd64 -P /opt/bazelisk \
+  && chmod a+x /opt/bazelisk/bazelisk-linux-amd64 \
+  && ln -fs /opt/bazelisk/bazelisk-linux-amd64 /opt/bazelisk/bazel
 
 #
 # install clang+llvm
@@ -127,8 +127,8 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages --upgrade pip 
 # Install github-cli. It doens't work as a feature of devcontainer.json
 ARG GH_CLI_VER=2.32.0
 WORKDIR /tmp
-RUN wget -q https://github.com/cli/cli/releases/download/v${GH_CLI_VER}/gh_${GH_CLI_VER}_linux_arm64.deb \
-  && dpkg -i gh_${GH_CLI_VER}_linux_arm64.deb
+RUN wget -q https://github.com/cli/cli/releases/download/v${GH_CLI_VER}/gh_${GH_CLI_VER}_linux_amd64.deb \
+  && dpkg -i gh_${GH_CLI_VER}_linux_amd64.deb
 
 #
 # Install NodeJS
