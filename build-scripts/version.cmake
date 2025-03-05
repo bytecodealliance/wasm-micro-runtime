@@ -3,7 +3,7 @@
 
 if(NOT WAMR_ROOT_DIR)
   # if from wamr-compiler
-  set(WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/..)
+  set(WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/..)
 endif()
 
 set(WAMR_VERSION_MAJOR 2)
