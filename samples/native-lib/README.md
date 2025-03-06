@@ -2,7 +2,7 @@
 
 This sample demonstrates how to write required interfaces in native library, build it into a shared library and register the shared library to iwasm.
 
-The native library should provide `get_native_lib` API for iwasm to return the native library info, including the module name, the native symbol list and the native symbol count, so that iwasm can use them to regiter the native library, for example:
+The native library should provide `get_native_lib` API for iwasm to return the native library info, including the module name, the native symbol list and the native symbol count, so that iwasm can use them to register the native library, for example:
 
 ```C
 static int

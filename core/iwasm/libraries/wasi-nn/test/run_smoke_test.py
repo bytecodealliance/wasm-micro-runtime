@@ -286,7 +286,7 @@ def execute_wasmedge_ggml_qwen(iwasm_bin: str, wasmedge_bin: str, cwd: Path):
 
         p.stdin.write(b"hi\n")
         p.stdin.flush()
-        # ASSITANT
+        # ASSISTANT
         p.stdout.readline()
         # xxx
         p.stdout.readline()
@@ -296,7 +296,7 @@ def execute_wasmedge_ggml_qwen(iwasm_bin: str, wasmedge_bin: str, cwd: Path):
         p.stdin.write(prompt.encode())
         p.stdin.write(b"\n")
         p.stdin.flush()
-        # ASSITANT
+        # ASSISTANT
         p.stdout.readline()
         # xxx
         answer = p.stdout.readline().decode("utf-8")

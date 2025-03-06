@@ -26,7 +26,7 @@ typedef __wasi_dircookie_t wasi_dircookie_t;
 // result are not guaranteed to be zero'ed by us so the result essentially
 // contains garbage from the WASM app perspective. To prevent this, we return
 // uint32 directly instead so as not to be reliant on the correct behaviour of
-// any current/future WASI SDK implemenations.
+// any current/future WASI SDK implementations.
 typedef uint32_t wasi_errno_t;
 typedef __wasi_event_t wasi_event_t;
 typedef __wasi_exitcode_t wasi_exitcode_t;

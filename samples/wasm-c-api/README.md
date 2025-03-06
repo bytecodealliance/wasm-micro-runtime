@@ -1,6 +1,6 @@
 WAMR supports *wasm-c-api* in both *interpreter* mode and *aot* mode.
 
-Before staring, we need to download and intall [WABT](https://github.com/WebAssembly/wabt/releases/latest).
+Before staring, we need to download and install [WABT](https://github.com/WebAssembly/wabt/releases/latest).
 
 ``` shell
 $ cd /opt

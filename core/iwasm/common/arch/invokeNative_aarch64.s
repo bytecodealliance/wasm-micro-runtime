@@ -45,7 +45,7 @@ _invokeNative:
 
         /* Now x20 points to stack args */
 
-        /* Directly call the fucntion if no args in stack */
+        /* Directly call the function if no args in stack */
         cmp     x21, #0
         beq     call_func
 
@@ -69,7 +69,7 @@ loop_stack_args:                 /* copy stack arguments to stack */
 call_func:
         mov     x20, x30         /* save x30(lr) */
         blr     x19
-        mov     sp, x22          /* restore sp which is saved before calling fuction*/
+        mov     sp, x22          /* restore sp which is saved before calling function*/
 
 return:
         mov     x30,  x20              /* restore x30(lr) */

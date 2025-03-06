@@ -2457,7 +2457,7 @@ orcjit_thread_callback(void *arg)
                     i + j * group_stride + module->import_function_count,
                     (void *)func_addr);
 
-                /* Try to switch to call this llvm jit funtion instead of
+                /* Try to switch to call this llvm jit function instead of
                    fast jit function from fast jit jitted code */
                 jit_compiler_set_call_to_llvm_jit(
                     module,

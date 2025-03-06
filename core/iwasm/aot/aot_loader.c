@@ -1715,7 +1715,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         read_uint16(buf, buf_end, type_flag);
 
         read_uint8(buf, buf_end, is_equivalence_type);
-        /* If there is an equivalence type, re-use it */
+        /* If there is an equivalence type, reuse it */
         if (is_equivalence_type) {
             uint8 u8;
             /* padding */

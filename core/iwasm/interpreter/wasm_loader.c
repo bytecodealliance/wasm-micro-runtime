@@ -399,7 +399,7 @@ check_array_type(const WASMModule *module, uint32 type_index, char *error_buf,
         return false;
     }
     if (module->types[type_index]->type_flag != WASM_TYPE_ARRAY) {
-        set_error_buf(error_buf, error_buf_size, "unkown array type");
+        set_error_buf(error_buf, error_buf_size, "unknown array type");
         return false;
     }
 
@@ -954,7 +954,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                         if (struct_type->base_type.type_flag
                             != WASM_TYPE_STRUCT) {
                             set_error_buf(error_buf, error_buf_size,
-                                          "unkown struct type");
+                                          "unknown struct type");
                             goto fail;
                         }
                         field_count = struct_type->field_count;
@@ -1020,7 +1020,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                         if (module->types[type_idx]->type_flag
                             != WASM_TYPE_STRUCT) {
                             set_error_buf(error_buf, error_buf_size,
-                                          "unkown struct type");
+                                          "unknown struct type");
                             goto fail;
                         }
 
@@ -1059,7 +1059,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                         if (array_type->base_type.type_flag
                             != WASM_TYPE_ARRAY) {
                             set_error_buf(error_buf, error_buf_size,
-                                          "unkown array type");
+                                          "unknown array type");
                             goto fail;
                         }
 
@@ -11420,7 +11420,7 @@ re_scan:
                                 if (!check_offset_push(loader_ctx, error_buf,
                                                        error_buf_size))
                                     goto fail;
-                                /* for following dummy value assignemnt */
+                                /* for following dummy value assignment */
                                 loader_ctx->frame_offset -= cell_num;
                             }
 
@@ -11732,7 +11732,7 @@ re_scan:
                  */
                 cur_block->label_type = LABEL_TYPE_CATCH;
 
-                /* RESET_STACK removes the values pushed in TRY or pervious
+                /* RESET_STACK removes the values pushed in TRY or previous
                  * CATCH Blocks */
                 RESET_STACK();
 
@@ -11774,7 +11774,7 @@ re_scan:
                 /* replace frame_csp by LABEL_TYPE_CATCH_ALL */
                 cur_block->label_type = LABEL_TYPE_CATCH_ALL;
 
-                /* RESET_STACK removes the values pushed in TRY or pervious
+                /* RESET_STACK removes the values pushed in TRY or previous
                  * CATCH Blocks */
                 RESET_STACK();
 
@@ -12128,7 +12128,7 @@ re_scan:
                     }
                     if (module->types[type_idx1]->type_flag != WASM_TYPE_FUNC) {
                         set_error_buf(error_buf, error_buf_size,
-                                      "unkown function type");
+                                      "unknown function type");
                         goto fail;
                     }
                     if (!wasm_loader_pop_nullable_typeidx(loader_ctx, &type,
@@ -12145,7 +12145,7 @@ re_scan:
                     }
                     if (module->types[type_idx]->type_flag != WASM_TYPE_FUNC) {
                         set_error_buf(error_buf, error_buf_size,
-                                      "unkown function type");
+                                      "unknown function type");
                         goto fail;
                     }
                     if (!wasm_func_type_is_super_of(
@@ -13911,7 +13911,7 @@ re_scan:
                         if (module->types[type_idx]->type_flag
                             != WASM_TYPE_STRUCT) {
                             set_error_buf(error_buf, error_buf_size,
-                                          "unkown struct type");
+                                          "unknown struct type");
                             goto fail;
                         }
 
