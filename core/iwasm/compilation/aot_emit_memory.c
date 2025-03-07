@@ -139,6 +139,7 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     is_target_64bit = (comp_ctx->pointer_size == sizeof(uint64)) ? true : false;
 
+#if !defined(BUILD_TARGET_XTENSA)    
     if (comp_ctx->is_indirect_mode
         && aot_intrinsic_check_capability(
             comp_ctx, MEMORY64_COND_VALUE("i64.const", "i32.const"))) {
@@ -159,7 +160,9 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return NULL;
         }
     }
-    else {
+    else 
+#endif   
+    {
         CHECK_LLVM_CONST(offset_const);
     }
 
