@@ -1720,7 +1720,7 @@ aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
          * This value is a placeholder, which will be replaced
          * after the corresponding functions are compiled.
          *
-         * Don't use zeros becasue LLVM can optimize them to
+         * Don't use zeros because LLVM can optimize them to
          * zeroinitializer.
          */
         values[i] = I32_NEG_ONE;
@@ -2354,7 +2354,7 @@ create_target_machine_detect_host(AOTCompContext *comp_ctx)
     }
 
     if (!LLVMTargetHasJIT(target)) {
-        aot_set_last_error("unspported JIT on this platform.");
+        aot_set_last_error("unsupported JIT on this platform.");
         goto fail;
     }
 
@@ -3412,7 +3412,7 @@ aot_get_native_symbol_index(AOTCompContext *comp_ctx, const char *symbol)
 
     sym = bh_list_first_elem(&comp_ctx->native_symbols);
 
-    /* Lookup an existing symobl record */
+    /* Lookup an existing symbol record */
 
     while (sym) {
         if (strcmp(sym->symbol, symbol) == 0) {

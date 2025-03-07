@@ -9,7 +9,7 @@
 
 /**
  * Set default value to prefix and suffix
- * @param hmu should not be NULL and should have been correctly initilized
+ * @param hmu should not be NULL and should have been correctly initialized
  *        (except prefix and suffix part)
  * @param tot_size is offered here because hmu_get_size can not be used
  *        till now. tot_size should not be smaller than OBJ_EXTRA_SIZE.

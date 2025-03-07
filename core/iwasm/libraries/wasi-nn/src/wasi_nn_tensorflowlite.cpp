@@ -56,7 +56,7 @@ initialize_g(TFLiteContext *tfl_ctx, graph *g)
     os_mutex_lock(&tfl_ctx->g_lock);
     if (tfl_ctx->current_models == MAX_GRAPHS_PER_INST) {
         os_mutex_unlock(&tfl_ctx->g_lock);
-        NN_ERR_PRINTF("Excedded max graphs per WASM instance");
+        NN_ERR_PRINTF("Exceeded max graphs per WASM instance");
         return runtime_error;
     }
     *g = tfl_ctx->current_models++;
@@ -70,7 +70,7 @@ initialize_graph_ctx(TFLiteContext *tfl_ctx, graph g,
     os_mutex_lock(&tfl_ctx->g_lock);
     if (tfl_ctx->current_interpreters == MAX_GRAPH_EXEC_CONTEXTS_PER_INST) {
         os_mutex_unlock(&tfl_ctx->g_lock);
-        NN_ERR_PRINTF("Excedded max graph execution context per WASM instance");
+        NN_ERR_PRINTF("Exceeded max graph execution context per WASM instance");
         return runtime_error;
     }
     *ctx = tfl_ctx->current_interpreters++;
@@ -325,7 +325,7 @@ set_input(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
         int size = model_tensor_size * sizeof(float);
         bh_memcpy_s(it, size, input_tensor->data, size);
     }
-    else { // TODO: Assumming uint8 quantized networks.
+    else { // TODO: Assuming uint8 quantized networks.
         TfLiteAffineQuantization *quant_info =
             (TfLiteAffineQuantization *)tensor->quantization.params;
         if (quant_info->scale->size != 1 || quant_info->zero_point->size != 1) {
@@ -406,7 +406,7 @@ get_output(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
         int size = model_tensor_size * sizeof(float);
         bh_memcpy_s(output_tensor, size, ot, size);
     }
-    else { // TODO: Assumming uint8 quantized networks.
+    else { // TODO: Assuming uint8 quantized networks.
         TfLiteAffineQuantization *quant_info =
             (TfLiteAffineQuantization *)tensor->quantization.params;
         if (quant_info->scale->size != 1 || quant_info->zero_point->size != 1) {

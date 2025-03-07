@@ -54,7 +54,7 @@ The output of client is like:
 [Client] Connect socket
 [Client] Client receive
 [Client] 115 bytes received:
-Buffer recieved:
+Buffer received:
 Say Hi from the Server
 Say Hi from the Server
 Say Hi from the Server
@@ -117,7 +117,7 @@ The output is:
 ```bash
 Wait for client to connect
 Client connected, sleeping for 10s
-Shuting down
+Shutting down
 ```
 
 ```bash
@@ -195,7 +195,7 @@ The output of client is like:
 [Client] Create socket
 [Client] Client send
 [Client] Client receive
-[Client] Buffer recieved: Hello from server
+[Client] Buffer received: Hello from server
 [Client] BYE
 ```
 

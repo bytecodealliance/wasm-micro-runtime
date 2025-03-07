@@ -90,7 +90,7 @@ There are some useful options that are used to compile C/C++ to Wasm (for a full
 
 - **-Wl,--max-memory=\<value\>** Maximum size of the linear memory, which must be a multiple of 65536
 
-- **-z stack-size=\<vlaue\>** The auxiliary stack size, which is an area of linear memory, must be smaller than the initial memory size.
+- **-z stack-size=\<value\>** The auxiliary stack size, which is an area of linear memory, must be smaller than the initial memory size.
 
 - **-Wl,--strip-all** Strip all symbols
 
@@ -343,7 +343,7 @@ Usage: wamrc [options] -o output_file wasm_file
                             Use --cpu-features=+help to list all the features supported
   --opt-level=n             Set the optimization level (0 to 3, default is 3)
   --size-level=n            Set the code size level (0 to 3, default is 3)
-  -sgx                      Generate code for SGX platform (Intel Software Guard Extention)
+  -sgx                      Generate code for SGX platform (Intel Software Guard Extension)
   --bounds-checks=1/0       Enable or disable the bounds checks for memory access:
                               by default it is disabled in all 64-bit platforms except SGX and
                               in these platforms runtime does bounds checks with hardware trap,

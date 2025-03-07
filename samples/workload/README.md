@@ -1,4 +1,4 @@
-All workloads have similar requirment of software dependencies, including **emsdk** and **binaryen**
+All workloads have similar requirement of software dependencies, including **emsdk** and **binaryen**
 
 > There might be slight differences when using MacOS and other Linux distro than Ubuntu. This document targets
 Ubuntu 20.04 as an example.

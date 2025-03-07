@@ -32,7 +32,7 @@ class LibcBuiltinTest : public testing::Test
     // accessed from sub-classes.
 
     // virtual void SetUp() will be called before each test is run.  You
-    // should define it if you need to initialize the varaibles.
+    // should define it if you need to initialize the variables.
     // Otherwise, this can be skipped.
     virtual void SetUp()
     {
@@ -88,8 +88,8 @@ TEST_F(LibcBuiltinTest, puts)
 
     /* Capture the stdout */
     testing::internal::CaptureStdout();
-    EXPECT_EQ(CALL_FUNC(puts, "Hello Wrold"), strlen("Hello Wrold\n"));
-    EXPECT_EQ(testing::internal::GetCapturedStdout(), "Hello Wrold\n");
+    EXPECT_EQ(CALL_FUNC(puts, "Hello World"), strlen("Hello World\n"));
+    EXPECT_EQ(testing::internal::GetCapturedStdout(), "Hello World\n");
 
     testing::internal::CaptureStdout();
     EXPECT_EQ(CALL_FUNC(puts, "c"), strlen("c\n"));
@@ -113,9 +113,9 @@ TEST_F(LibcBuiltinTest, printf)
 
     /* Capture the stdout */
     testing::internal::CaptureStdout();
-    EXPECT_EQ(CALL_FUNC(printf, "Hello Wrold", empty_va_list.get()),
-              strlen("Hello Wrold"));
-    EXPECT_EQ(testing::internal::GetCapturedStdout(), "Hello Wrold");
+    EXPECT_EQ(CALL_FUNC(printf, "Hello World", empty_va_list.get()),
+              strlen("Hello World"));
+    EXPECT_EQ(testing::internal::GetCapturedStdout(), "Hello World");
 
     testing::internal::CaptureStdout();
     EXPECT_EQ(CALL_FUNC(printf, "c", empty_va_list.get()), strlen("c"));
@@ -290,7 +290,7 @@ TEST_F(LibcBuiltinTest, printf)
         va_list.add(0x7FFFFFFF); //%ld 2147483647 - sing long
         va_list.add(0xFFFFFFFF); //%lu 4294967295 -unsigned long
         va_list.add(0x7FFFFFFFFFFFFFFF); //%lld 9223372036854775807 sing long long
-        va_list.add(0xFFFFFFFFFFFFFFFF);//%llu 18446744073709551615 unsiged long long
+        va_list.add(0xFFFFFFFFFFFFFFFF);//%llu 18446744073709551615 unsigned long long
 
         testing::internal::CaptureStdout();
 
@@ -300,17 +300,17 @@ TEST_F(LibcBuiltinTest, printf)
         /* clang-format on */
     }
 
-    EXPECT_EQ(CALL_FUNC(printf, "Hello Wrold", 0), 0);
+    EXPECT_EQ(CALL_FUNC(printf, "Hello World", 0), 0);
     EXPECT_STREQ(dummy_exec_env.get_exception(),
                  "Exception: out of bounds memory access");
     dummy_exec_env.clear_exception();
 
-    EXPECT_EQ(CALL_FUNC(printf, "Hello Wrold", NULL), 0);
+    EXPECT_EQ(CALL_FUNC(printf, "Hello World", NULL), 0);
     EXPECT_STREQ(dummy_exec_env.get_exception(),
                  "Exception: out of bounds memory access");
     dummy_exec_env.clear_exception();
 
-    EXPECT_EQ(CALL_FUNC(printf, "Hello Wrold", (char *)-1), 0);
+    EXPECT_EQ(CALL_FUNC(printf, "Hello World", (char *)-1), 0);
     EXPECT_STREQ(dummy_exec_env.get_exception(),
                  "Exception: out of bounds memory access");
     dummy_exec_env.clear_exception();
@@ -324,7 +324,7 @@ TEST_F(LibcBuiltinTest, printf)
 TEST_F(LibcBuiltinTest, sprintf)
 {
     char buf[200] = {0};
-    const char *str = "Hello Wrold";
+    const char *str = "Hello World";
     const char *str_sig = "c";
     const char *str_f = "20, 3.140000, Hello World";
     const char *str_long = "eqwewerwerqwer34were"; // test ok
@@ -399,19 +399,19 @@ TEST_F(LibcBuiltinTest, snprintf)
 
     WAMRVaList empty_va_list(dummy_exec_env.get());
 
-    EXPECT_EQ(CALL_FUNC(snprintf, buf, strlen("Hello Wrold"), "Hello Wrold", 0),
+    EXPECT_EQ(CALL_FUNC(snprintf, buf, strlen("Hello World"), "Hello World", 0),
               0);
     EXPECT_EQ(
-        CALL_FUNC(snprintf, buf, strlen("Hello Wrold"), "Hello Wrold", NULL),
+        CALL_FUNC(snprintf, buf, strlen("Hello World"), "Hello World", NULL),
         0);
-    EXPECT_EQ(CALL_FUNC(snprintf, buf, strlen("Hello Wrold"), "Hello Wrold",
+    EXPECT_EQ(CALL_FUNC(snprintf, buf, strlen("Hello World"), "Hello World",
                         (char *)-1),
               0);
 
-    EXPECT_EQ(CALL_FUNC(snprintf, buf, strlen("Hello Wrold"), "Hello Wrold",
+    EXPECT_EQ(CALL_FUNC(snprintf, buf, strlen("Hello World"), "Hello World",
                         empty_va_list.get()),
-              strlen("Hello Wrold"));
-    EXPECT_EQ(CALL_FUNC(memcmp, buf, "Hello Wrold", strlen("Hello Wrold")), 0);
+              strlen("Hello World"));
+    EXPECT_EQ(CALL_FUNC(memcmp, buf, "Hello World", strlen("Hello World")), 0);
 
     EXPECT_EQ(CALL_FUNC(snprintf, buf, strlen(very_long_string),
                         very_long_string, empty_va_list.get()),

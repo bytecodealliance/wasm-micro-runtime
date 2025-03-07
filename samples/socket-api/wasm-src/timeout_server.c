@@ -56,7 +56,7 @@ main(int argc, char *argv[])
     printf("Client connected, sleeping for 10s\n");
     sleep(10);
 
-    printf("Shuting down\n");
+    printf("Shutting down\n");
     shutdown(client_socket_fd, SHUT_RDWR);
     close(client_socket_fd);
     shutdown(socket_fd, SHUT_RDWR);

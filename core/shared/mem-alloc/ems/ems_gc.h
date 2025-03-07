@@ -115,7 +115,7 @@ gc_init_with_struct_and_pool(char *struct_buf, gc_size_t struct_buf_size,
                              char *pool_buf, gc_size_t pool_buf_size);
 
 /**
- * Destroy heap which is initilized from a buffer
+ * Destroy heap which is initialized from a buffer
  *
  * @param handle handle to heap needed destroy
  *
