@@ -200,7 +200,7 @@ set(WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../../..)
 # enable WAMR build system
 include(${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
-# NuttX wamr lib complie required: `WAMR_SOURCES` `WAMR_CFLAGS` `WAMR_INCDIRS`
+# NuttX wamr lib compile required: `WAMR_SOURCES` `WAMR_CFLAGS` `WAMR_INCDIRS`
 # `WAMR_DEFINITIONS`
 set(WAMR_SOURCES ${WAMR_RUNTIME_LIB_SOURCE})
 set(WAMR_CFLAGS -Wno-shadow -Wno-unused-variable

@@ -94,7 +94,7 @@ typedef uint32 JitReg;
 /*
  * Constant index flag of non-constant-value (constant value flag is
  * not set in register no. field) integer, floating point and vector
- * regisers. If this flag is set, the rest bits of the register
+ * registers. If this flag is set, the rest bits of the register
  * no. represent an index to the constant value table of the
  * corresponding type of the register and the register is read-only.
  */
@@ -1084,7 +1084,7 @@ typedef struct JitCompContext {
         /* Capacity of register annotations of each kind. */
         uint32 _capacity[JIT_REG_KIND_L32];
 
-        /* Constant vallues of each kind. */
+        /* Constant values of each kind. */
         uint8 *_value[JIT_REG_KIND_L32];
 
         /* Next element on the list of values with the same hash code. */
@@ -1145,7 +1145,7 @@ typedef struct JitCompContext {
         JitInsn **_table;
     } _insn_hash_table;
 
-    /* indicate if the last comparision is about floating-point numbers or not
+    /* indicate if the last comparison is about floating-point numbers or not
      */
     bool last_cmp_on_fp;
 } JitCompContext;
@@ -1203,7 +1203,7 @@ typedef struct JitCompContext {
  * Annotation disabling functions jit_annl_disable_NAME,
  * jit_anni_disable_NAME and jit_annr_disable_NAME, which release
  * memory of the annotations.  Before calling these functions,
- * resources owned by the annotations must be explictely released.
+ * resources owned by the annotations must be explicitly released.
  */
 #define ANN_LABEL(TYPE, NAME) void jit_annl_disable_##NAME(JitCompContext *cc);
 #define ANN_INSN(TYPE, NAME) void jit_anni_disable_##NAME(JitCompContext *cc);
@@ -1559,7 +1559,7 @@ _jit_cc_new_insn_norm(JitCompContext *cc, JitReg *result, JitInsn *insn);
  *
  * @param cc the compilationo context
  * @param result returned result of the instruction. If the value is
- * non-zero, it is the result of the constant-folding or an exsiting
+ * non-zero, it is the result of the constant-folding or an existing
  * equivalent instruction, in which case no instruction is added into
  * the compilation context. Otherwise, a new normalized instruction
  * has been added into the compilation context.

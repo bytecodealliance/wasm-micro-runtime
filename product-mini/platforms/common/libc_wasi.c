@@ -47,7 +47,7 @@ libc_wasi_print_help(void)
            "--map-dir=<guest-path2::host-path2>\n");
     printf("  --addr-pool=<addrs>      Grant wasi access to the given network "
            "addresses in\n");
-    printf("                           CIDR notation to the program, seperated "
+    printf("                           CIDR notation to the program, separated "
            "with ',',\n");
     printf("                           for example:\n");
     printf("                             --addr-pool=1.2.3.4/15,2.3.4.5/16\n");

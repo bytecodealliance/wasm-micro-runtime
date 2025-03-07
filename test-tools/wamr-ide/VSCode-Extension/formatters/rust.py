@@ -170,9 +170,9 @@ def obj_summary(valobj, unavailable='{...}'):
     return unavailable
 
 
-def sequence_summary(childern, maxsize=32):
+def sequence_summary(children, maxsize=32):
     s = ''
-    for child in childern:
+    for child in children:
         if len(s) > 0:
             s += ', '
         s += obj_summary(child)

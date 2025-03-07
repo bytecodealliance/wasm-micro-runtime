@@ -47,9 +47,9 @@ to setup for local development.
 ## Building for a Specific Board
 
 With an environment setup either locally or in a Docker container, you can build
-for a Zephyr suppported board using
+for a Zephyr supported board using
 [`west`](https://docs.zephyrproject.org/latest/develop/west/index.html). There
-are already [configuaration files](./boards) for a few boards in this sample.
+are already [configuration files](./boards) for a few boards in this sample.
 However, if you are using a new board, you will need to add your own file for
 the board, or define configuration in the [`prj.conf](./prj.conf). After doing
 so, use the following command with your board identifier to build the sample

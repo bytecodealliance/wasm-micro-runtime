@@ -32,7 +32,7 @@ simd_integer_arith(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             result = LLVMBuildMul(comp_ctx->builder, lhs, rhs, "product");
             break;
         default:
-            HANDLE_FAILURE("Unsupport arith_op");
+            HANDLE_FAILURE("Unsupported arith_op");
             break;
     }
 

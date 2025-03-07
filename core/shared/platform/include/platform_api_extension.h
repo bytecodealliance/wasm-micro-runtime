@@ -209,7 +209,7 @@ int
 os_cond_wait(korp_cond *cond, korp_mutex *mutex);
 
 /**
- * Wait a condition varible or return if time specified passes.
+ * Wait a condition variable or return if time specified passes.
  *
  * @param cond pointer to condition variable
  * @param mutex pointer to mutex to protect the condition variable
@@ -766,7 +766,7 @@ int
 os_socket_get_recv_timeout(bh_socket_t socket, uint64 *timeout_us);
 
 /**
- * Enable re-use of local addresses
+ * Enable reuse of local addresses
  *
  * @param socket the socket to set
  * @param is_enabled 1 to enable or 0 to disable
@@ -777,7 +777,7 @@ int
 os_socket_set_reuse_addr(bh_socket_t socket, bool is_enabled);
 
 /**
- * Get whether re-use of local addresses is enabled
+ * Get whether reuse of local addresses is enabled
  *
  * @param socket the socket to set
  * @param is_enabled 1 for enabled or 0 for disabled
@@ -788,7 +788,7 @@ int
 os_socket_get_reuse_addr(bh_socket_t socket, bool *is_enabled);
 
 /**
- * Enable re-use of local ports
+ * Enable reuse of local ports
  *
  * @param socket the socket to set
  * @param is_enabled 1 to enable or 0 to disable
@@ -799,7 +799,7 @@ int
 os_socket_set_reuse_port(bh_socket_t socket, bool is_enabled);
 
 /**
- * Get whether re-use of local ports is enabled
+ * Get whether reuse of local ports is enabled
  *
  * @param socket the socket to set
  * @param is_enabled 1 for enabled or 0 for disabled
@@ -1120,7 +1120,7 @@ os_dumps_proc_mem_info(char *out, unsigned int size);
 
 /**
  * NOTES:
- * Fileystem APIs are required for WASI libc support. If you don't need to
+ * Filesystem APIs are required for WASI libc support. If you don't need to
  * support WASI libc, there is no need to implement these APIs. With a
  * few exceptions, each filesystem function has been named after the equivalent
  * POSIX filesystem function with an os_ prefix.
@@ -1134,12 +1134,12 @@ os_dumps_proc_mem_info(char *out, unsigned int size);
  * os_file_handle: the file handle type used in the WASI libc fd
  * table. Filesystem implementations can use it as a means to store any
  * necessary platform-specific information which may not be directly available
- * through the raw OS file handle. Similiar to POSIX file descriptors, file
+ * through the raw OS file handle. Similar to POSIX file descriptors, file
  * handles may also refer to sockets, directories, symbolic links or character
  * devices and any of the filesystem operations which make sense for these
  * resource types should be supported as far as possible.
  *
- * os_dir_stream: a directory stream type in which fileystem implementations
+ * os_dir_stream: a directory stream type in which filesystem implementations
  * can store any necessary state to iterate over the entries in a directory.
  */
 
@@ -1166,7 +1166,7 @@ os_fstatat(os_file_handle handle, const char *path,
            struct __wasi_filestat_t *buf, __wasi_lookupflags_t lookup_flags);
 
 /**
- * Obtain the file status flags for the provided handle. This is similiar to the
+ * Obtain the file status flags for the provided handle. This is similar to the
  * POSIX function fcntl called with the F_GETFL command.
  *
  * @param handle the handle for which to obtain the file status flags
@@ -1176,7 +1176,7 @@ __wasi_errno_t
 os_file_get_fdflags(os_file_handle handle, __wasi_fdflags_t *flags);
 
 /**
- * Set the file status flags for the provided handle. This is similiar to the
+ * Set the file status flags for the provided handle. This is similar to the
  * POSIX function fcntl called with the F_SETFL command.
  *
  * @param handle the handle for which to set the file status flags
@@ -1235,7 +1235,7 @@ os_openat(os_file_handle handle, const char *path, __wasi_oflags_t oflags,
           wasi_libc_file_access_mode access_mode, os_file_handle *out);
 
 /**
- * Obtain the file access mode for the provided handle. This is similiar to the
+ * Obtain the file access mode for the provided handle. This is similar to the
  * POSIX function fcntl called with the F_GETFL command combined with the
  * O_ACCMODE mask.
  *
@@ -1480,9 +1480,9 @@ os_file_handle
 os_convert_stdin_handle(os_raw_file_handle raw_stdin);
 
 /**
- * Converts a raw file handle to STDOUT to a correponding file handle to STDOUT.
- * If the provided raw file handle is invalid, the platform-default raw handle
- * for STDOUT will be used.
+ * Converts a raw file handle to STDOUT to a corresponding file handle to
+ * STDOUT. If the provided raw file handle is invalid, the platform-default raw
+ * handle for STDOUT will be used.
  *
  * @param raw_stdout a raw file handle to STDOUT
  *
@@ -1492,9 +1492,9 @@ os_file_handle
 os_convert_stdout_handle(os_raw_file_handle raw_stdout);
 
 /**
- * Converts a raw file handle to STDERR to a correponding file handle to STDERR.
- * If the provided raw file handle is invalid, the platform-default raw handle
- * for STDERR will be used.
+ * Converts a raw file handle to STDERR to a corresponding file handle to
+ * STDERR. If the provided raw file handle is invalid, the platform-default raw
+ * handle for STDERR will be used.
  *
  * @param raw_stderr a raw file handle to STDERR
  *

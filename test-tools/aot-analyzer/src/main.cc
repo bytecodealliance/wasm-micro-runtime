@@ -163,12 +163,12 @@ DumpInfo(AoTFile *aot)
     printf("Binary type: %s\n",
            aot->GetBinTypeName(target_info.bin_type).c_str());
     printf("ABI type: %d\n", target_info.abi_type);
-    printf("Exectuion type: %s\n",
+    printf("Execution type: %s\n",
            aot->GetExectuionTypeName(target_info.e_type).c_str());
-    printf("Exectuion machine: %s\n",
+    printf("Execution machine: %s\n",
            aot->GetExectuionMachineName(target_info.e_machine).c_str());
-    printf("Exectuion version: %u\n", target_info.e_version);
-    printf("Exectuion flags: %u\n", target_info.e_flags);
+    printf("Execution version: %u\n", target_info.e_version);
+    printf("Execution flags: %u\n", target_info.e_flags);
     printf("Feature flags: %" PRId64 "\n", target_info.feature_flags);
     printf("Reserved: %" PRId64 "\n", target_info.reserved);
     printf("Arch: %s\n", target_info.arch);
@@ -546,7 +546,7 @@ ProgramMain(int argc, char **argv)
             reader = new WasmFile(filename);
         }
         else {
-            printf("unkown file extension: %s\n", dot);
+            printf("unknown file extension: %s\n", dot);
             continue;
         }
 

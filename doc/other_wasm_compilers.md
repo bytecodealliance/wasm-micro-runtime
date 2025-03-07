@@ -62,7 +62,7 @@ You will get ```test.wasm``` which is the WASM app binary.
 
 ## Using Docker
 
-Another method availble is using [Docker](https://www.docker.com/). We assume you've already configured Docker (see Platform section above) and have a running interactive shell. Currently the Dockerfile only supports compiling apps with clang, with Emscripten planned for the future.
+Another method available is using [Docker](https://www.docker.com/). We assume you've already configured Docker (see Platform section above) and have a running interactive shell. Currently the Dockerfile only supports compiling apps with clang, with Emscripten planned for the future.
 
 Use the clang-8 command below to build the WASM C source code into the WASM binary.
 

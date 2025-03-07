@@ -93,14 +93,14 @@ also not economical to code for those functions.
 Using module names as a filter seems to be a simple way. But some private
 additional c/c++ libraries are supported in WAMR. Those supporting will bring
 more import items that don't use `wasi_snapshot_preview1` as module names but are still
-covered by the WASM runtime. Like `env.pthread_`. Plus, [the native lib registeration](https://github.com/bytecodealliance/wasm-micro-runtime/blob/main/doc/export_native_api.md)
+covered by the WASM runtime. Like `env.pthread_`. Plus, [the native lib registration](https://github.com/bytecodealliance/wasm-micro-runtime/blob/main/doc/export_native_api.md)
 provides another possible way to fill in the requirement of _the import section_.
 
 Let's take summarize. A proper `wasm_extern_vec_t *imports` should include:
 
 1. provides all necessary host implementations for items in _the import section_
 2. should not override runtime provided implementation or covered by native
-   registrations. functinal or econmical.
+   registrations. functional or econmical.
 3. keep them in a right order
 
 ## A recommendation
