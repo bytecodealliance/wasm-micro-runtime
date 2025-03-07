@@ -7828,3 +7828,108 @@ wasm_runtime_is_underlying_binary_freeable(WASMModuleCommon *const module)
 
     return true;
 }
+
+#if WASM_ENABLE_AOT != 0
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+static const char *
+aot_lookup_func_name(const char **func_names, uint32 *func_indexes,
+                 uint32 func_index_count, uint32 func_index)
+{
+    int64 low = 0, mid;
+    int64 high = func_index_count - 1;
+
+    if (!func_names || !func_indexes || func_index_count == 0)
+        return NULL;
+
+    while (low <= high) {
+        mid = (low + high) / 2;
+        if (func_index == func_indexes[mid]) {
+            return func_names[mid];
+        }
+        else if (func_index < func_indexes[mid])
+            high = mid - 1;
+        else
+            low = mid + 1;
+    }
+
+    return NULL;
+}
+#endif /* WASM_ENABLE_CUSTOM_NAME_SECTION != 0 */
+
+static const char *
+aot_get_func_name_from_index(const AOTModule *module, uint32 func_index)
+{
+    const char *func_name = NULL;
+
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+    if ((func_name = aot_lookup_func_name(
+                          module->aux_func_names, module->aux_func_indexes,
+                          module->aux_func_name_count, func_index))) {
+        return func_name;
+    }
+#endif
+
+    if (func_index < module->import_func_count) {
+        func_name = module->import_funcs[func_index].func_name;
+    }
+    else {
+        uint32 i;
+        for (i = 0; i < module->export_count; i++) {
+            AOTExport export = module->exports[i];
+            if (export.index == func_index && export.kind == EXPORT_KIND_FUNC) {
+                func_name = export.name;
+                break;
+            }
+        }
+    }
+
+    return func_name;
+}
+#endif
+
+#if WASM_ENABLE_INTERP != 0
+static const char *
+wasm_get_func_name_from_index(const WASMModule *module, uint32 func_index)
+{
+    char *func_name = NULL;
+
+    if (func_index < module->import_function_count) {
+        func_name = module->import_functions[func_index].u.function.field_name;
+    }
+    else {
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+        uint32 idx = func_index - module->import_function_count;
+        if (idx < module->function_count)
+            func_name = module->functions[idx]->field_name;
+#endif
+        /* if custom name section is not generated,
+           search symbols from export table */
+        if (!func_name) {
+            uint32 i;
+            for (i = 0; i < module->export_count; i++) {
+                WASMExport export = module->exports[i];
+                if (export.index == func_index && export.kind == EXPORT_KIND_FUNC) {
+                    func_name = export.name;
+                    break;
+                }
+            }
+        }
+    }
+
+    return func_name;
+}
+#endif
+
+const char *
+wasm_runtime_get_func_name_from_index(WASMModuleCommon *module, uint32 func_index)
+{
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT)
+        return aot_get_func_name_from_index((const AOTModule *)module, func_index);
+#endif
+#if WASM_ENABLE_INTERP != 0
+    else if (module->module_type == Wasm_Module_Bytecode)
+        return wasm_get_func_name_from_index((const WASMModule *)module, func_index);
+#endif
+    return NULL;
+}
