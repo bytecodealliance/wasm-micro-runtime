@@ -278,6 +278,15 @@ typedef enum WASMOpcode {
     DEBUG_OP_BREAK = 0xdc, /* debug break point */
 #endif
 
+#if WASM_ENABLE_JIT != 0 \
+    || WASM_ENABLE_FAST_INTERP != 0 && WASM_ENABLE_SIMD != 0
+    EXT_OP_SET_LOCAL_FAST_V128 = 0xdd,
+    EXT_OP_TEE_LOCAL_FAST_V128 = 0xde,
+    EXT_OP_COPY_STACK_TOP_V128 = 0xdf,
+    WASM_OP_GET_GLOBAL_V128 = 0xe0,
+    WASM_OP_SET_GLOBAL_V128 = 0xe1,
+#endif
+
     /* Post-MVP extend op prefix */
     WASM_OP_GC_PREFIX = 0xfb,
     WASM_OP_MISC_PREFIX = 0xfc,
@@ -779,16 +788,27 @@ typedef enum WASMAtomicEXTOpcode {
 #else
 #define DEF_DEBUG_BREAK_HANDLE()
 #endif
-
 #define SET_GOTO_TABLE_ELEM(opcode) [opcode] = HANDLE_OPCODE(opcode)
 
-#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_SIMD != 0
+#if (WASM_ENABLE_JIT != 0 || WASM_ENABLE_FAST_INTERP != 0) \
+    && WASM_ENABLE_SIMD != 0
 #define SET_GOTO_TABLE_SIMD_PREFIX_ELEM() \
     SET_GOTO_TABLE_ELEM(WASM_OP_SIMD_PREFIX),
 #else
 #define SET_GOTO_TABLE_SIMD_PREFIX_ELEM()
 #endif
 
+#if (WASM_ENABLE_FAST_INTERP != 0) && WASM_ENABLE_SIMD != 0
+#define DEF_EXT_V128_HANDLE()                                       \
+    SET_GOTO_TABLE_ELEM(EXT_OP_SET_LOCAL_FAST_V128),     /* 0xdd */ \
+        SET_GOTO_TABLE_ELEM(EXT_OP_TEE_LOCAL_FAST_V128), /* 0xde */ \
+        SET_GOTO_TABLE_ELEM(EXT_OP_COPY_STACK_TOP_V128), /* 0xdf */ \
+        SET_GOTO_TABLE_ELEM(WASM_OP_GET_GLOBAL_V128),    /* 0xe0 */ \
+        SET_GOTO_TABLE_ELEM(WASM_OP_SET_GLOBAL_V128),    /* 0xe1 */
+
+#else
+#define DEF_EXT_V128_HANDLE()
+#endif
 /*
  * Macro used to generate computed goto tables for the C interpreter.
  */
@@ -1020,7 +1040,7 @@ typedef enum WASMAtomicEXTOpcode {
         SET_GOTO_TABLE_ELEM(WASM_OP_MISC_PREFIX),    /* 0xfc */ \
         SET_GOTO_TABLE_SIMD_PREFIX_ELEM()            /* 0xfd */ \
         SET_GOTO_TABLE_ELEM(WASM_OP_ATOMIC_PREFIX),  /* 0xfe */ \
-        DEF_DEBUG_BREAK_HANDLE()                                \
+        DEF_DEBUG_BREAK_HANDLE() DEF_EXT_V128_HANDLE()          \
     };
 
 #ifdef __cplusplus

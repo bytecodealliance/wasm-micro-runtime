@@ -158,6 +158,7 @@ jobs:
             "-DWAMR_BUILD_PERF_PROFILING=1",
             "-DWAMR_BUILD_REF_TYPES=1",
             "-DWAMR_BUILD_SIMD=1",
+            "-DWAMR_BUILD_LIB_SIMDE=1",
             "-DWAMR_BUILD_TAIL_CALL=1",
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
             "-DWAMR_BUILD_MEMORY64=1",
@@ -178,10 +179,8 @@ jobs:
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
           - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
-          # SIMD only on JIT/AOT mode
+          # SIMD only on JIT/AOT/fast interpreter mode
           - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_SIMD=1"
-          - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_SIMD=1"
           # DEBUG_INTERP only on CLASSIC INTERP mode
           - make_options_run_mode: $AOT_BUILD_OPTIONS
@@ -649,10 +648,8 @@ jobs:
             test_option: $WAMR_COMPILER_TEST_OPTIONS
         exclude:
           # incompatible modes and features
-          # classic-interp and fast-interp don't support simd
+          # classic-interp doesn't support simd
           - running_mode: "classic-interp"
-            test_option: $SIMD_TEST_OPTIONS
-          - running_mode: "fast-interp"
             test_option: $SIMD_TEST_OPTIONS
           # llvm jit doesn't support multi module
           - running_mode: "jit"
