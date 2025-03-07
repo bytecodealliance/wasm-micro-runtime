@@ -70,14 +70,15 @@
 #define EM_SH 42          /* SuperH */
 #define EM_SPARCV9 43     /* SPARC v9 64-bit */
 #define EM_H8_300 46
-#define EM_IA_64 50  /* HP/Intel IA-64 */
-#define EM_X86_64 62 /* AMD x86-64 */
-#define EM_S390 22   /* IBM S/390 */
-#define EM_CRIS 76   /* Axis Communications 32-bit embedded processor */
-#define EM_V850 87   /* NEC v850 */
-#define EM_M32R 88   /* Renesas M32R */
-#define EM_XTENSA 94 /* Tensilica Xtensa */
-#define EM_RISCV 243 /* RISC-V */
+#define EM_IA_64 50      /* HP/Intel IA-64 */
+#define EM_X86_64 62     /* AMD x86-64 */
+#define EM_S390 22       /* IBM S/390 */
+#define EM_CRIS 76       /* Axis Communications 32-bit embedded processor */
+#define EM_V850 87       /* NEC v850 */
+#define EM_M32R 88       /* Renesas M32R */
+#define EM_XTENSA 94     /* Tensilica Xtensa */
+#define EM_RISCV 243     /* RISC-V */
+#define EM_LOONGARCH 258 /* LoongArch */
 #define EM_ALPHA 0x9026
 #define EM_CYGNUS_V850 0x9080
 #define EM_CYGNUS_M32R 0x9041

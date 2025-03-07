@@ -31,11 +31,14 @@ endif ()
 # Set WAMR_BUILD_TARGET, currently values supported:
 # "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]",
 # "MIPS", "XTENSA", "RISCV64[sub]", "RISCV32[sub]"
+# "LOONGARCH64[sub]"
 if (NOT DEFINED WAMR_BUILD_TARGET)
     if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)")
         set (WAMR_BUILD_TARGET "AARCH64")
     elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
         set (WAMR_BUILD_TARGET "RISCV64")
+    elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "loongarch64")
+        set (WAMR_BUILD_TARGET "LOONGARCH64")
     elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
         # Build as X86_64 by default in 64-bit platform
         set (WAMR_BUILD_TARGET "X86_64")

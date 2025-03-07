@@ -92,7 +92,9 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
     if (flags & MMAP_MAP_FIXED)
         map_flags |= MAP_FIXED;
 
-#if defined(BUILD_TARGET_RISCV64_LP64D) || defined(BUILD_TARGET_RISCV64_LP64)
+#if defined(BUILD_TARGET_RISCV64_LP64D) || defined(BUILD_TARGET_RISCV64_LP64) \
+    || defined(BUILD_TARGET_LOONGARCH64_LP64D)                                \
+    || defined(BUILD_TARGET_LOONGARCH64_LP64)
     /* As AOT relocation in RISCV64 may require that the code/data mapped
      * is in range 0 to 2GB, we try to map the memory with hint address
      * (mmap's first argument) to meet the requirement.
@@ -136,7 +138,9 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
             hint_addr += BH_MB;
         }
     }
-#endif /* end of BUILD_TARGET_RISCV64_LP64D || BUILD_TARGET_RISCV64_LP64 */
+#endif /* end of BUILD_TARGET_RISCV64_LP64D || BUILD_TARGET_RISCV64_LP64 \
+                 || BUILD_TARGET_LOONGARCH64_LP64D                       \
+                 || BUILD_TARGET_LOONGARCH64_LP64 */
 
     /* memory hasn't been mapped or was mapped failed previously */
     if (addr == MAP_FAILED) {
