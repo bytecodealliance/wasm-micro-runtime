@@ -1740,6 +1740,45 @@ wasm_runtime_destroy_exec_env(WASMExecEnv *exec_env)
     wasm_exec_env_destroy(exec_env);
 }
 
+#if WAMR_ENABLE_COPY_CALLSTACK != 0
+uint32
+wasm_copy_callstack(const wasm_exec_env_t exec_env, wasm_frame_t *buffer,
+                    const uint32 length, const uint32 skip_n, char *error_buf,
+                    uint32_t error_buf_size)
+{
+    /*
+     * Note for devs: please refrain from such modifications inside of
+     * wasm_copy_callstack to preserve async-signal-safety
+     * - any allocations/freeing memory
+     * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
+     * exec_env->module_inst->module, pointers between stack's bottom and
+     * top_boundary For more details check wasm_copy_callstack in
+     * wasm_export.h
+     */
+#if WASM_ENABLE_DUMP_CALL_STACK
+    WASMModuleInstance *module_inst =
+        (WASMModuleInstance *)get_module_inst(exec_env);
+
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        return wasm_interp_copy_callstack(exec_env, buffer, length, skip_n,
+                                          error_buf, error_buf_size);
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return aot_copy_callstack(exec_env, buffer, length, skip_n, error_buf,
+                                  error_buf_size);
+    }
+#endif
+#endif
+    char *err_msg = "No copy_callstack API was actually executed";
+    strncpy(error_buf, err_msg, error_buf_size);
+    return 0;
+}
+#endif // WAMR_ENABLE_COPY_CALLSTACK
+
 bool
 wasm_runtime_init_thread_env(void)
 {
