@@ -5,6 +5,8 @@
 
 #include <stdio.h>
 
+#include "bh_platform.h"
+
 void
 wasm_proposal_print_status(void)
 {
