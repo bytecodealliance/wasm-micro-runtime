@@ -757,7 +757,10 @@ wasm_runtime_full_init_internal(RuntimeInitArgs *init_args)
 #endif
 
 #if WASM_ENABLE_GC != 0
-    gc_heap_size_default = init_args->gc_heap_size;
+    uint32 gc_heap_size = init_args->gc_heap_size;
+    if (gc_heap_size > 0) {
+        gc_heap_size_default = gc_heap_size;
+    }
 #endif
 
 #if WASM_ENABLE_JIT != 0
