@@ -21,7 +21,10 @@ if (WAMR_BUILD_AOT_VALIDATOR EQUAL 1)
   list (APPEND c_source_all ${IWASM_AOT_DIR}/aot_validator.c)
 endif ()
 
-if (WAMR_BUILD_TARGET STREQUAL "X86_64" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
+if (WAMR_BUILD_WAMR_COMPILER EQUAL 1)
+  # AOT reloc functions are not used during AOT compilation
+  set (arch_source ${IWASM_AOT_DIR}/arch/aot_reloc_dummy.c)
+elseif (WAMR_BUILD_TARGET STREQUAL "X86_64" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
   set (arch_source ${IWASM_AOT_DIR}/arch/aot_reloc_x86_64.c)
 elseif (WAMR_BUILD_TARGET STREQUAL "X86_32")
   set (arch_source ${IWASM_AOT_DIR}/arch/aot_reloc_x86_32.c)
