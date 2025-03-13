@@ -206,7 +206,7 @@ def get_line_info_from_function_addr_sourcemapping(
         if not line:
             continue
 
-        m = re.match("(.*):(\d+):(\d+)", line)
+        m = re.match(r"(.*):(\d+):(\d+)", line)
         if m:
             function_file, function_line, function_column = m.groups()
             continue
