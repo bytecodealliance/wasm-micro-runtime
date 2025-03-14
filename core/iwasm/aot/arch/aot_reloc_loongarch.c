@@ -5,6 +5,7 @@
 
 #include "aot_reloc.h"
 
+#define R_LARCH_64 2
 #define R_LARCH_B26 66
 #define R_LARCH_PCALA_HI20 71
 #define R_LARCH_PCALA_LO12 72
@@ -93,9 +94,8 @@ typedef struct RelocTypeStrMap {
     }
 
 static RelocTypeStrMap reloc_type_str_maps[] = {
-    RELOC_TYPE_MAP(R_LARCH_B26),
-    RELOC_TYPE_MAP(R_LARCH_PCALA_HI20),
-    RELOC_TYPE_MAP(R_LARCH_PCALA_LO12),
+    RELOC_TYPE_MAP(R_LARCH_64),         RELOC_TYPE_MAP(R_LARCH_B26),
+    RELOC_TYPE_MAP(R_LARCH_PCALA_HI20), RELOC_TYPE_MAP(R_LARCH_PCALA_LO12),
     RELOC_TYPE_MAP(R_LARCH_CALL36),
 };
 
@@ -202,6 +202,18 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
     int64 X;
 
     switch (reloc_type) {
+        case R_LARCH_64: /* S + A */
+        {
+            int64 val_64 = (int64)((intptr_t)S + (intptr_t)A);
+
+            CHECK_RELOC_OFFSET(sizeof(int64));
+            if (val_64 != ((intptr_t)S + (intptr_t)A)) {
+                goto fail_addr_out_of_range;
+            }
+
+            bh_memcpy_s(P, sizeof(int64_t), &val_64, sizeof(int64_t));
+            break;
+        }
         case R_LARCH_B26:
         case R_LARCH_CALL36: /* S + A - P */
         {
