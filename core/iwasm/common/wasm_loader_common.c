@@ -151,7 +151,8 @@ is_valid_value_type(uint8 type)
 bool
 is_valid_value_type_for_interpreter(uint8 value_type)
 {
-#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
+#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0) \
+    && (WASM_ENABLE_FAST_INTERP == 0)
     /*
      * Note: regardless of WASM_ENABLE_SIMD, our interpreters don't have
      * SIMD implemented. It's safer to reject v128, especially for the

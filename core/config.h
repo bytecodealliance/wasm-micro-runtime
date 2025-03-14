@@ -322,6 +322,12 @@
 #define WASM_ENABLE_SIMD 0
 #endif
 
+/* Disable SIMDe (used in the fast interpreter for SIMD opcodes)
+unless used elsewhere */
+#ifndef WASM_ENABLE_SIMDE
+#define WASM_ENABLE_SIMDE 0
+#endif
+
 /* GC performance profiling */
 #ifndef WASM_ENABLE_GC_PERF_PROFILING
 #define WASM_ENABLE_GC_PERF_PROFILING 0
