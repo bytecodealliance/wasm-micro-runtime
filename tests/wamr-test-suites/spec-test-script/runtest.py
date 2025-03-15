@@ -7,6 +7,7 @@ import array
 import atexit
 import math
 import os
+import pathlib
 import re
 import shutil
 import struct
@@ -81,9 +82,8 @@ def log(data, end='\n'):
     print(data, end=end)
     sys.stdout.flush()
 
-def create_tmp_file(suffix: str) -> str:
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:
-        return tmp_file.name
+def create_tmp_file(prefix: str, suffix: str) -> str:
+    return tempfile.NamedTemporaryFile(prefix=prefix, suffix=suffix, delete=False).name
 
 # TODO: do we need to support '\n' too
 import platform
@@ -551,7 +551,7 @@ def parse_assertion_value(val):
     if not val:
         return None, ""
 
-    splitted = re.split('\s+', val)
+    splitted = re.split(r'\s+', val)
     splitted = [s for s in splitted if s]
     type = splitted[0].split(".")[0]
     lane_type = splitted[1] if len(splitted) > 2 else ""
@@ -790,8 +790,8 @@ def test_assert(r, opts, mode, cmd, expected):
             return True
 
     ## 0x9:i32,-0x1:i32 -> ['0x9:i32', '-0x1:i32']
-    expected_list = re.split(',', expected)
-    out_list = re.split(',', out)
+    expected_list = re.split(r',', expected)
+    out_list = re.split(r',', out)
     if len(expected_list) != len(out_list):
         raise Exception("Failed:\n Results count incorrect:\n expected: '%s'\n  got: '%s'" % (expected, out))
     for i in range(len(expected_list)):
@@ -806,34 +806,34 @@ def test_assert_return(r, opts, form):
     n. to search a pattern like (assert_return (invoke $module_name function_name ... ) ...)
     """
     # params, return
-    m = re.search('^\(assert_return\s+\(invoke\s+"((?:[^"]|\\\")*)"\s+(\(.*\))\s*\)\s*(\(.*\))\s*\)\s*$', form, re.S)
+    m = re.search(r'^\(assert_return\s+\(invoke\s+"((?:[^"]|\\\")*)"\s+(\(.*\))\s*\)\s*(\(.*\))\s*\)\s*$', form, re.S)
     # judge if assert_return cmd includes the module name
-    n = re.search('^\(assert_return\s+\(invoke\s+\$((?:[^\s])*)\s+"((?:[^"]|\\\")*)"\s+(\(.*\))\s*\)\s*(\(.*\))\s*\)\s*$', form, re.S)
+    n = re.search(r'^\(assert_return\s+\(invoke\s+\$((?:[^\s])*)\s+"((?:[^"]|\\\")*)"\s+(\(.*\))\s*\)\s*(\(.*\))\s*\)\s*$', form, re.S)
 
     # print("assert_return with {}".format(form))
 
     if not m:
         # no params, return
-        m = re.search('^\(assert_return\s+\(invoke\s+"((?:[^"]|\\\")*)"\s*\)\s+()(\(.*\))\s*\)\s*$', form, re.S)
+        m = re.search(r'^\(assert_return\s+\(invoke\s+"((?:[^"]|\\\")*)"\s*\)\s+()(\(.*\))\s*\)\s*$', form, re.S)
     if not m:
         # params, no return
-        m = re.search('^\(assert_return\s+\(invoke\s+"([^"]*)"\s+(\(.*\))()\s*\)\s*\)\s*$', form, re.S)
+        m = re.search(r'^\(assert_return\s+\(invoke\s+"([^"]*)"\s+(\(.*\))()\s*\)\s*\)\s*$', form, re.S)
     if not m:
         # no params, no return
-        m = re.search('^\(assert_return\s+\(invoke\s+"([^"]*)"\s*()()\)\s*\)\s*$', form, re.S)
+        m = re.search(r'^\(assert_return\s+\(invoke\s+"([^"]*)"\s*()()\)\s*\)\s*$', form, re.S)
     if not m:
         # params, return
         if not n:
             # no params, return
-            n = re.search('^\(assert_return\s+\(invoke\s+\$((?:[^\s])*)\s+"((?:[^"]|\\\")*)"\s*\)\s+()(\(.*\))\s*\)\s*$', form, re.S)
+            n = re.search(r'^\(assert_return\s+\(invoke\s+\$((?:[^\s])*)\s+"((?:[^"]|\\\")*)"\s*\)\s+()(\(.*\))\s*\)\s*$', form, re.S)
         if not n:
             # params, no return
-            n = re.search('^\(assert_return\s+\(invoke\s+\$((?:[^\s])*)\s+"([^"]*)"\s+(\(.*\))()\s*\)\s*\)\s*$', form, re.S)
+            n = re.search(r'^\(assert_return\s+\(invoke\s+\$((?:[^\s])*)\s+"([^"]*)"\s+(\(.*\))()\s*\)\s*\)\s*$', form, re.S)
         if not n:
             # no params, no return
-            n = re.search('^\(assert_return\s+\(invoke\s+\$((?:[^\s])*)\s+"([^"]*)"*()()\)\s*\)\s*$', form, re.S)
+            n = re.search(r'^\(assert_return\s+\(invoke\s+\$((?:[^\s])*)\s+"([^"]*)"*()()\)\s*\)\s*$', form, re.S)
     if not m and not n:
-        if re.search('^\(assert_return\s+\(get.*\).*\)$', form, re.S):
+        if re.search(r'^\(assert_return\s+\(get.*\).*\)$', form, re.S):
             log("ignoring assert_return get")
             return
         else:
@@ -852,7 +852,7 @@ def test_assert_return(r, opts, form):
         if m.group(2) == '':
             args = []
         else:
-            #args = [re.split(' +', v)[1].replace('_', "") for v in re.split("\)\s*\(", m.group(2)[1:-1])]
+            #args = [re.split(r' +', v)[1].replace('_', "") for v in re.split(r"\)\s*\(", m.group(2)[1:-1])]
             # split arguments with ')spaces(', remove leading and tailing ) and (
             args_type_and_value = re.split(r'\)\s+\(', m.group(2)[1:-1])
             args_type_and_value = [s.replace('_', '') for s in args_type_and_value]
@@ -863,7 +863,7 @@ def test_assert_return(r, opts, form):
             for arg in args_type_and_value:
                 # remove leading and tailing spaces, it might confuse following assertions
                 arg = arg.strip()
-                splitted = re.split('\s+', arg)
+                splitted = re.split(r'\s+', arg)
                 splitted = [s for s in splitted if s]
 
                 if splitted[0] in ["i32.const", "i64.const"]:
@@ -896,7 +896,7 @@ def test_assert_return(r, opts, form):
         if m.group(3) == '':
             returns= []
         else:
-            returns = re.split("\)\s*\(", m.group(3)[1:-1])
+            returns = re.split(r"\)\s*\(", m.group(3)[1:-1])
         # processed numbers in strings
         if len(returns) == 1 and returns[0] in ["ref.array", "ref.struct", "ref.i31",
                                                 "ref.eq", "ref.any", "ref.extern",
@@ -941,23 +941,23 @@ def test_assert_return(r, opts, form):
             # convert (ref.null extern/func) into (ref.null null)
             n1 = n.group(3).replace("(ref.null extern)", "(ref.null null)")
             n1 = n1.replace("ref.null func)", "(ref.null null)")
-            args = [re.split(' +', v)[1] for v in re.split("\)\s*\(", n1[1:-1])]
+            args = [re.split(r' +', v)[1] for v in re.split(r"\)\s*\(", n1[1:-1])]
 
         _, expected = parse_assertion_value(n.group(4)[1:-1])
         test_assert(r, opts, "return", "%s %s" % (func, " ".join(args)), expected)
 
 def test_assert_trap(r, opts, form):
     # params
-    m = re.search('^\(assert_trap\s+\(invoke\s+"([^"]*)"\s+(\(.*\))\s*\)\s*"([^"]+)"\s*\)\s*$', form)
+    m = re.search(r'^\(assert_trap\s+\(invoke\s+"([^"]*)"\s+(\(.*\))\s*\)\s*"([^"]+)"\s*\)\s*$', form)
     # judge if assert_return cmd includes the module name
-    n = re.search('^\(assert_trap\s+\(invoke\s+\$((?:[^\s])*)\s+"([^"]*)"\s+(\(.*\))\s*\)\s*"([^"]+)"\s*\)\s*$', form, re.S)
+    n = re.search(r'^\(assert_trap\s+\(invoke\s+\$((?:[^\s])*)\s+"([^"]*)"\s+(\(.*\))\s*\)\s*"([^"]+)"\s*\)\s*$', form, re.S)
     if not m:
         # no params
-        m = re.search('^\(assert_trap\s+\(invoke\s+"([^"]*)"\s*()\)\s*"([^"]+)"\s*\)\s*$', form)
+        m = re.search(r'^\(assert_trap\s+\(invoke\s+"([^"]*)"\s*()\)\s*"([^"]+)"\s*\)\s*$', form)
     if not m:
         if not n:
             # no params
-            n = re.search('^\(assert_trap\s+\(invoke\s+\$((?:[^\s])*)\s+"([^"]*)"\s*()\)\s*"([^"]+)"\s*\)\s*$', form, re.S)
+            n = re.search(r'^\(assert_trap\s+\(invoke\s+\$((?:[^\s])*)\s+"([^"]*)"\s*()\)\s*"([^"]+)"\s*\)\s*$', form, re.S)
     if not m and not n:
         raise Exception("unparsed assert_trap: '%s'" % form)
 
@@ -969,7 +969,7 @@ def test_assert_trap(r, opts, form):
             # convert (ref.null extern/func) into (ref.null null)
             m1 = m.group(2).replace("(ref.null extern)", "(ref.null null)")
             m1 = m1.replace("ref.null func)", "(ref.null null)")
-            args = [re.split(' +', v)[1] for v in re.split("\)\s*\(", m1[1:-1])]
+            args = [re.split(r' +', v)[1] for v in re.split(r"\)\s*\(", m1[1:-1])]
 
         expected = "Exception: %s" % m.group(3)
         test_assert(r, opts, "trap", "%s %s" % (func, " ".join(args)), expected)
@@ -1002,23 +1002,23 @@ def test_assert_trap(r, opts, form):
         if n.group(3) == '':
             args = []
         else:
-            args = [re.split(' +', v)[1] for v in re.split("\)\s*\(", n.group(3)[1:-1])]
+            args = [re.split(r' +', v)[1] for v in re.split(r"\)\s*\(", n.group(3)[1:-1])]
         expected = "Exception: %s" % n.group(4)
         test_assert(r, opts, "trap", "%s %s" % (func, " ".join(args)), expected)
 
 def test_assert_exhaustion(r,opts,form):
     # params
-    m = re.search('^\(assert_exhaustion\s+\(invoke\s+"([^"]*)"\s+(\(.*\))\s*\)\s*"([^"]+)"\s*\)\s*$', form)
+    m = re.search(r'^\(assert_exhaustion\s+\(invoke\s+"([^"]*)"\s+(\(.*\))\s*\)\s*"([^"]+)"\s*\)\s*$', form)
     if not m:
         # no params
-        m = re.search('^\(assert_exhaustion\s+\(invoke\s+"([^"]*)"\s*()\)\s*"([^"]+)"\s*\)\s*$', form)
+        m = re.search(r'^\(assert_exhaustion\s+\(invoke\s+"([^"]*)"\s*()\)\s*"([^"]+)"\s*\)\s*$', form)
     if not m:
         raise Exception("unparsed assert_exhaustion: '%s'" % form)
     func = m.group(1)
     if m.group(2) == '':
         args = []
     else:
-        args = [re.split(' +', v)[1] for v in re.split("\)\s*\(", m.group(2)[1:-1])]
+        args = [re.split(r' +', v)[1] for v in re.split(r"\)\s*\(", m.group(2)[1:-1])]
     expected = "Exception: %s\n" % m.group(3)
     test_assert(r, opts, "exhaustion", "%s %s" % (func, " ".join(args)), expected)
 
@@ -1035,7 +1035,7 @@ def test_assert_wasmexception(r,opts,form):
     #         \)\s*
     #     \)\s*
     # $
-    m = re.search('^\(assert_exception\s+\(invoke\s+"([^"]+)"\s+(\(.*\))\s*\)\s*\)\s*$', form)
+    m = re.search(r'^\(assert_exception\s+\(invoke\s+"([^"]+)"\s+(\(.*\))\s*\)\s*\)\s*$', form)
     if not m:
         # no params
 
@@ -1046,24 +1046,24 @@ def test_assert_wasmexception(r,opts,form):
         #           \)\s*
         #       \)\s*
         # $
-        m = re.search('^\(assert_exception\s+\(invoke\s+"([^"]+)"\s*()\)\s*\)\s*$', form)
+        m = re.search(r'^\(assert_exception\s+\(invoke\s+"([^"]+)"\s*()\)\s*\)\s*$', form)
     if not m:
         raise Exception("unparsed assert_exception: '%s'" % form)
     func = m.group(1) # function name
     if m.group(2) == '': # arguments
         args = []
     else:
-        args = [re.split(' +', v)[1] for v in re.split("\)\s*\(", m.group(2)[1:-1])]
+        args = [re.split(r' +', v)[1] for v in re.split(r"\)\s*\(", m.group(2)[1:-1])]
 
     expected = "Exception: uncaught wasm exception\n"
     test_assert(r, opts, "wasmexception", "%s %s" % (func, " ".join(args)), expected)
 
 def do_invoke(r, opts, form):
     # params
-    m = re.search('^\(invoke\s+"([^"]+)"\s+(\(.*\))\s*\)\s*$', form)
+    m = re.search(r'^\(invoke\s+"([^"]+)"\s+(\(.*\))\s*\)\s*$', form)
     if not m:
         # no params
-        m = re.search('^\(invoke\s+"([^"]+)"\s*()\)\s*$', form)
+        m = re.search(r'^\(invoke\s+"([^"]+)"\s*()\)\s*$', form)
     if not m:
         raise Exception("unparsed invoke: '%s'" % form)
     func = m.group(1)
@@ -1074,7 +1074,7 @@ def do_invoke(r, opts, form):
     if m.group(2) == '':
         args = []
     else:
-        args = [re.split(' +', v)[1] for v in re.split("\)\s*\(", m.group(2)[1:-1])]
+        args = [re.split(r' +', v)[1] for v in re.split(r"\)\s*\(", m.group(2)[1:-1])]
 
     log("Invoking %s(%s)" % (
         func, ", ".join([str(a) for a in args])))
@@ -1241,10 +1241,10 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
 def create_tmpfiles(wast_name):
     tempfiles = []
 
-    tempfiles.append(create_tmp_file(".wast"))
-    tempfiles.append(create_tmp_file(".wasm"))
+    tempfiles.append(create_tmp_file(wast_name, ".wast"))
+    tempfiles.append(create_tmp_file(wast_name, ".wasm"))
     if test_aot:
-        tempfiles.append(create_tmp_file(".aot"))
+        tempfiles.append(create_tmp_file(wast_name, ".aot"))
 
     # add these temp file to temporal repo, will be deleted when finishing the test
     temp_file_repo.extend(tempfiles)
@@ -1314,10 +1314,15 @@ if __name__ == "__main__":
     else:
         SKIP_TESTS = C_SKIP_TESTS
 
-    wast_tempfile = create_tmp_file(".wast")
-    wasm_tempfile = create_tmp_file(".wasm")
+    case_file = pathlib.Path(opts.test_file.name)
+    assert(case_file.exists()), f"Test file {case_file} doesn't exist"
+
+    case_name = case_file.stem + "_"
+    wast_tempfile = create_tmp_file(case_name, ".wast")
+    wasm_tempfile = create_tmp_file(case_name, ".wasm")
+
     if test_aot:
-        aot_tempfile = create_tmp_file(".aot")
+        aot_tempfile = create_tmp_file(case_name, ".aot")
         # could be potientially compiled to aot
         # with the future following call test_assert_xxx,
         # add them to temp_file_repo now even if no actual following file,
@@ -1339,18 +1344,18 @@ if __name__ == "__main__":
                 log(form)
             elif skip_test(form, SKIP_TESTS):
                 log("Skipping test: %s" % form[0:60])
-            elif re.match("^\(assert_trap\s+\(module", form):
+            elif re.match(r"^\(assert_trap\s+\(module", form):
                 test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
-            elif re.match("^\(assert_exhaustion\\b.*", form):
+            elif re.match(r"^\(assert_exhaustion\\b.*", form):
                 test_assert_exhaustion(r, opts, form)
-            elif re.match("^\(assert_exception\\b.*", form):
+            elif re.match(r"^\(assert_exception\\b.*", form):
                 test_assert_wasmexception(r, opts, form)
-            elif re.match("^\(assert_unlinkable\\b.*", form):
+            elif re.match(r"^\(assert_unlinkable\\b.*", form):
                 test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile if test_aot else None, opts, r, False)
-            elif re.match("^\(assert_malformed\\b.*", form):
+            elif re.match(r"^\(assert_malformed\\b.*", form):
                 # remove comments in wast
                 form,n = re.subn(";;.*\n", "", form)
-                m = re.match("^\(assert_malformed\s*\(module binary\s*(\".*\").*\)\s*\"(.*)\"\s*\)$", form, re.DOTALL)
+                m = re.match(r"^\(assert_malformed\s*\(module binary\s*(\".*\").*\)\s*\"(.*)\"\s*\)$", form, re.DOTALL)
 
                 if m:
                     # workaround: spec test changes error message to "malformed" while iwasm still use "invalid"
@@ -1359,7 +1364,7 @@ if __name__ == "__main__":
                     with open(wasm_tempfile, 'wb') as f:
                         s = m.group(1)
                         while s:
-                            res = re.match("[^\"]*\"([^\"]*)\"(.*)", s, re.DOTALL)
+                            res = re.match(r"[^\"]*\"([^\"]*)\"(.*)", s, re.DOTALL)
                             if IS_PY_3:
                                 context = res.group(1).replace("\\", "\\x").encode("latin1").decode("unicode-escape").encode("latin1")
                                 f.write(context)
@@ -1419,25 +1424,25 @@ if __name__ == "__main__":
 
                     r = run_wasm_with_repl(wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
 
-                elif re.match("^\(assert_malformed\s*\(module quote", form):
+                elif re.match(r"^\(assert_malformed\s*\(module quote", form):
                     log("ignoring assert_malformed module quote")
                 else:
                     log("unrecognized assert_malformed")
-            elif re.match("^\(assert_return[_a-z]*_nan\\b.*", form):
+            elif re.match(r"^\(assert_return[_a-z]*_nan\\b.*", form):
                 log("ignoring assert_return_.*_nan")
                 pass
-            elif re.match(".*\(invoke\s+\$\\b.*", form):
+            elif re.match(r".*\(invoke\s+\$\\b.*", form):
                 # invoke a particular named module's function
                 if form.startswith("(assert_return"):
                     test_assert_return(r,opts,form)
                 elif form.startswith("(assert_trap"):
                     test_assert_trap(r,opts,form)
-            elif re.match("^\(module\\b.*", form):
+            elif re.match(r"^\(module\\b.*", form):
                 # if the module includes the particular name startswith $
-                m = re.search("^\(module\s+\$.\S+", form)
+                m = re.search(r"^\(module\s+\$.\S+", form)
                 if m:
                     # get module name
-                    module_name = re.split('\$', m.group(0).strip())[1]
+                    module_name = re.split(r'\$', m.group(0).strip())[1]
                     if module_name:
                         # create temporal files
                         temp_files = create_tmpfiles(module_name)
@@ -1485,38 +1490,48 @@ if __name__ == "__main__":
                     raise Exception("Failed:\n  expected: '%s'\n  got: '%s'" % \
                                     (repr(exc), r.buf))
 
-            elif re.match("^\(assert_return\\b.*", form):
+            elif re.match(r"^\(assert_return\\b.*", form):
                 assert(r), "iwasm repl runtime should be not null"
                 test_assert_return(r, opts, form)
-            elif re.match("^\(assert_trap\\b.*", form):
+            elif re.match(r"^\(assert_trap\\b.*", form):
                 test_assert_trap(r, opts, form)
-            elif re.match("^\(invoke\\b.*", form):
+            elif re.match(r"^\(invoke\\b.*", form):
                 assert(r), "iwasm repl runtime should be not null"
                 do_invoke(r, opts, form)
-            elif re.match("^\(assert_invalid\\b.*", form):
+            elif re.match(r"^\(assert_invalid\\b.*", form):
                 test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
-            elif re.match("^\(register\\b.*", form):
+            elif re.match(r"^\(register\\b.*", form):
                 # get module's new name from the register cmd
-                name_new =re.split('\"',re.search('\".*\"',form).group(0))[1]
-                if name_new:
-                    new_module = os.path.join(tempfile.gettempdir(), name_new + ".wasm")
-                    shutil.copyfile(temp_module_table.get(name_new, wasm_tempfile), new_module)
-
-                    # add new_module copied from the old into temp_file_repo[]
-                    temp_file_repo.append(new_module)
-
-                    if test_aot:
-                        new_module_aot = os.path.join(tempfile.gettempdir(), name_new + ".aot")
-                        r = compile_wasm_to_aot(new_module, new_module_aot, True, opts, r)
-                        try:
-                            assert_prompt(r, ['Compile success'], opts.start_timeout, True)
-                        except:
-                            raise Exception("compile wasm to aot failed")
-                        # add aot module into temp_file_repo[]
-                        temp_file_repo.append(new_module_aot)
-                else:
+                name_new =re.split(r'\"',re.search(r'\".*\"',form).group(0))[1]
+                if not name_new:
                     # there is no name defined in register cmd
-                    raise Exception("can not find module name from the register")
+                    raise Exception(f"Not following register cmd pattern {form}")
+
+                # assumption
+                # - There exists a module in the form of (module $name).
+                # - The nearest module in the form of (module), without $name, is the candidate for registration.
+                if not name_new in temp_module_table:
+                    print(f"Module {name_new} is not found in temp_module_table. use the nearest module {wasm_tempfile}")
+
+                for_registration = temp_module_table.get(name_new, wasm_tempfile)
+                assert os.path.exists(for_registration), f"module {for_registration} is not found"
+
+                new_module = os.path.join(tempfile.gettempdir(), name_new + ".wasm")
+                # for_registration(tmpfile) --copy-> name_new.wasm
+                shutil.copyfile(for_registration, new_module)
+
+                # add new_module copied from the old into temp_file_repo[]
+                temp_file_repo.append(new_module)
+
+                if test_aot:
+                    new_module_aot = os.path.join(tempfile.gettempdir(), name_new + ".aot")
+                    r = compile_wasm_to_aot(new_module, new_module_aot, True, opts, r)
+                    try:
+                        assert_prompt(r, ['Compile success'], opts.start_timeout, True)
+                    except:
+                        raise Exception("compile wasm to aot failed")
+                    # add aot module into temp_file_repo[]
+                    temp_file_repo.append(new_module_aot)
             else:
                 raise Exception("unrecognized form '%s...'" % form[0:40])
     except Exception as e:
@@ -1539,7 +1554,7 @@ if __name__ == "__main__":
         ret_code = 0
     finally:
         if not opts.no_cleanup:
-            log("Removing tempfiles")
+            log(f"Removing tempfiles {wast_tempfile} and {wasm_tempfile}")
             os.remove(wast_tempfile)
             os.remove(wasm_tempfile)
             if test_aot:
@@ -1549,6 +1564,7 @@ if __name__ == "__main__":
             if temp_file_repo:
                 for t in temp_file_repo:
                     if(len(str(t))!=0 and os.path.exists(t)):
+                        log(f"Removing others {t}")
                         os.remove(t)
 
             log("### End testing %s" % opts.test_file.name)
