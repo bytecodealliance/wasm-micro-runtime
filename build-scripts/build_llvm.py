@@ -238,7 +238,7 @@ def main():
     parser.add_argument(
         "--platform",
         type=str,
-        choices=["android", "arc", "darwin", "linux", "windows", "xtensa"],
+        choices=["android", "arc", "darwin", "linux", "windows", "xtensa", "loongarch"],
         help="identify current platform",
     )
     parser.add_argument(
@@ -254,6 +254,7 @@ def main():
             "WebAssembly",
             "X86",
             "Xtensa",
+            "LoongArch",
         ],
         default=[],
         help="identify LLVM supported backends, separate by space, like '--arch ARM Mips X86'",
