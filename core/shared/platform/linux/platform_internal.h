@@ -83,7 +83,9 @@ typedef sem_t korp_sem;
 #if WASM_DISABLE_HW_BOUND_CHECK == 0
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)            \
     || defined(BUILD_TARGET_AARCH64) || defined(BUILD_TARGET_RISCV64_LP64D) \
-    || defined(BUILD_TARGET_RISCV64_LP64)
+    || defined(BUILD_TARGET_RISCV64_LP64)                                   \
+    || defined(BUILD_TARGET_LOONGARCH64_LP64D)                              \
+    || defined(BUILD_TARGET_LOONGARCH64_LP64)
 
 #include <setjmp.h>
 
@@ -111,7 +113,7 @@ os_signal_unmask();
 
 void
 os_sigreturn();
-#endif /* end of BUILD_TARGET_X86_64/AMD_64/AARCH64/RISCV64 */
+#endif /* end of BUILD_TARGET_X86_64/AMD_64/AARCH64/RISCV64/LOONGARCH64 */
 #endif /* end of WASM_DISABLE_HW_BOUND_CHECK */
 
 #define os_getpagesize getpagesize
