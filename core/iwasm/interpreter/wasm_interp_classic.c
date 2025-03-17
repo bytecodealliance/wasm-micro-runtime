@@ -1575,7 +1575,7 @@ get_global_addr(uint8 *global_data, WASMGlobalInstance *global)
         goto got_exception;                                       \
     }                                                             \
     else if (instructions_left > 0)                               \
-        instructions_left--;                                      \
+        instructions_left--;
 #else
 #define CHECK_INSTRUCTION_LIMIT() (void)0
 #endif
