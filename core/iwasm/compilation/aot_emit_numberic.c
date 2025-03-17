@@ -876,6 +876,12 @@ is_target_riscv(AOTCompContext *comp_ctx)
 }
 
 static bool
+is_target_loongarch(AOTCompContext *comp_ctx)
+{
+    return !strncmp(comp_ctx->target_arch, "loongarch", 9);
+}
+
+static bool
 is_targeting_soft_float(AOTCompContext *comp_ctx, bool is_f32)
 {
     bool ret = false;
@@ -909,7 +915,7 @@ is_targeting_soft_float(AOTCompContext *comp_ctx, bool is_f32)
         else
             ret = (!is_f32 || strstr(feature_string, "-fp")) ? true : false;
     }
-    else if (is_target_riscv(comp_ctx)) {
+    else if (is_target_riscv(comp_ctx) || is_target_loongarch(comp_ctx)) {
         /*
          * Note: Use builtin intrinsics since hardware float operation
          * will cause rodata relocation, this will try to use hardware

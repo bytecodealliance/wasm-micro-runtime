@@ -108,7 +108,7 @@ def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_fl
     LLVM_TARGETS_TO_BUILD = [
         '-DLLVM_TARGETS_TO_BUILD:STRING="' + ";".join(normal_backends) + '"'
         if normal_backends
-        else '-DLLVM_TARGETS_TO_BUILD:STRING="AArch64;ARM;Mips;RISCV;X86"'
+        else '-DLLVM_TARGETS_TO_BUILD:STRING="AArch64;ARM;Mips;RISCV;LoongArch;X86"'
     ]
 
     # if not on ARC platform, but want to add expeirmental backend ARC as target
@@ -232,7 +232,7 @@ def main():
     parser.add_argument(
         "--platform",
         type=str,
-        choices=["android", "arc", "darwin", "linux", "windows", "xtensa"],
+        choices=["android", "arc", "darwin", "linux", "windows", "xtensa", "loongarch"],
         help="identify current platform",
     )
     parser.add_argument(
@@ -248,6 +248,7 @@ def main():
             "WebAssembly",
             "X86",
             "Xtensa",
+            "LoongArch",
         ],
         default=[],
         help="identify LLVM supported backends, separate by space, like '--arch ARM Mips X86'",
@@ -300,6 +301,11 @@ def main():
             "repo": "https://github.com/espressif/llvm-project.git",
             "repo_ssh": "git@github.com:espressif/llvm-project.git",
             "branch": "xtensa_release_17.0.1",
+        },
+        "loongarch": {
+            "repo": "https://github.com/llvm/llvm-project.git",
+            "repo_ssh": "git@github.com:llvm/llvm-project.git",
+            "branch": "release/19.x",
         },
         "default": {
             "repo": "https://github.com/llvm/llvm-project.git",

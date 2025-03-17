@@ -190,6 +190,13 @@ aot_target_precheck_can_use_musttail(const AOTCompContext *comp_ctx)
          */
         return false;
     }
+    if (strstr(comp_ctx->target_arch, "loongarch")) {
+        /*
+         * cf.
+         * https://github.com/bytecodealliance/wasm-micro-runtime/issues/2412
+         */
+        return false;
+    }
     /*
      * x86-64/i386: true
      *
@@ -2205,7 +2212,8 @@ static ArchItem valid_archs[] = {
     { "thumbv8.1m.main", true },
     { "riscv32", true },
     { "riscv64", true },
-    { "arc", true }
+    { "arc", true },
+    { "loongarch64", true },
 };
 
 static const char *valid_abis[] = {
@@ -2817,10 +2825,10 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
         }
 
         /* Set default abi for riscv target */
-        if (arch && !strncmp(arch, "riscv", 5) && !abi) {
-            if (!strcmp(arch, "riscv64"))
+        if (arch && !abi) {
+            if (!strcmp(arch, "riscv64") || !strcmp(arch, "loongarch64"))
                 abi = "lp64d";
-            else
+            else if (!strcmp(arch, "riscv32"))
                 abi = "ilp32d";
         }
 
@@ -2991,8 +2999,9 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
             goto fail;
         }
 
-        /* Add module flag and cpu feature for riscv target */
-        if (arch && !strncmp(arch, "riscv", 5)) {
+        /* Add module flag and cpu feature for riscv or loongarch target */
+        if (arch
+            && (!strncmp(arch, "riscv", 5) || !strncmp(arch, "loongarch", 9))) {
             LLVMMetadataRef meta_target_abi;
 
             if (!(meta_target_abi = LLVMMDStringInContext2(comp_ctx->context,

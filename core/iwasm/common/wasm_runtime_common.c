@@ -5076,7 +5076,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                     n_stacks += 2;
                 }
                 break;
-#else  /* BUILD_TARGET_RISCV32_ILP32D */
+#else  /* else of !defined(BUILD_TARGET_RISCV32_ILP32D) */
             case VALUE_TYPE_F32:
             case VALUE_TYPE_F64:
                 if (n_fps < MAX_REG_FLOATS) {
@@ -5102,7 +5102,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                     n_stacks += 2;
                 }
                 break;
-#endif /* BUILD_TARGET_RISCV32_ILP32D */
+#endif /* end of !defined(BUILD_TARGET_RISCV32_ILP32D) */
             default:
                 bh_assert(0);
                 break;
@@ -5297,7 +5297,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 }
                 break;
             }
-#else  /* BUILD_TARGET_RISCV32_ILP32D */
+#else  /* else of !defined(BUILD_TARGET_RISCV32_ILP32D) */
             case VALUE_TYPE_F32:
             case VALUE_TYPE_F64:
             {
@@ -5345,7 +5345,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 }
                 break;
             }
-#endif /* BUILD_TARGET_RISCV32_ILP32D */
+#endif /* end of !defined(BUILD_TARGET_RISCV32_ILP32D) */
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_EXTERNREF:
             {
@@ -5732,7 +5732,9 @@ fail:
 
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)            \
     || defined(BUILD_TARGET_AARCH64) || defined(BUILD_TARGET_RISCV64_LP64D) \
-    || defined(BUILD_TARGET_RISCV64_LP64)
+    || defined(BUILD_TARGET_RISCV64_LP64)                                   \
+    || defined(BUILD_TARGET_LOONGARCH64_LP64D)                              \
+    || defined(BUILD_TARGET_LOONGARCH64_LP64)
 
 #if WASM_ENABLE_SIMD != 0
 #ifdef v128
@@ -5752,7 +5754,9 @@ typedef union __declspec(intrin_type) __declspec(align(8)) v128 {
 } v128;
 #elif defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
     || defined(BUILD_TARGET_RISCV64_LP64D)                         \
-    || defined(BUILD_TARGET_RISCV64_LP64)
+    || defined(BUILD_TARGET_RISCV64_LP64)                          \
+    || defined(BUILD_TARGET_LOONGARCH64_LP64D)                     \
+    || defined(BUILD_TARGET_LOONGARCH64_LP64)
 typedef long long v128
     __attribute__((__vector_size__(16), __may_alias__, __aligned__(1)));
 #elif defined(BUILD_TARGET_AARCH64)
@@ -5797,13 +5801,17 @@ static V128FuncPtr invokeNative_V128 = (V128FuncPtr)(uintptr_t)invokeNative;
 #else /* else of defined(_WIN32) || defined(_WIN32_) */
 #define MAX_REG_FLOATS 8
 #if defined(BUILD_TARGET_AARCH64) || defined(BUILD_TARGET_RISCV64_LP64D) \
-    || defined(BUILD_TARGET_RISCV64_LP64)
+    || defined(BUILD_TARGET_RISCV64_LP64)                                \
+    || defined(BUILD_TARGET_LOONGARCH64_LP64D)                           \
+    || defined(BUILD_TARGET_LOONGARCH64_LP64)
 #define MAX_REG_INTS 8
 #else
 #define MAX_REG_INTS 6
-#endif /* end of defined(BUILD_TARGET_AARCH64)   \
-          || defined(BUILD_TARGET_RISCV64_LP64D) \
-          || defined(BUILD_TARGET_RISCV64_LP64) */
+#endif /* end of defined(BUILD_TARGET_AARCH64)       \
+          || defined(BUILD_TARGET_RISCV64_LP64D)     \
+          || defined(BUILD_TARGET_RISCV64_LP64)      \
+          || defined(BUILD_TARGET_LOONGARCH64_LP64D) \
+          || defined(BUILD_TARGET_LOONGARCH64_LP64) */
 #endif /* end of defined(_WIN32) || defined(_WIN32_) */
 
 /*
@@ -5836,17 +5844,19 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     bool is_aot_func = (NULL == signature);
 #endif
-#ifndef BUILD_TARGET_RISCV64_LP64
+#if !defined(BUILD_TARGET_RISCV64_LP64) \
+    && !defined(BUILD_TARGET_LOONGARCH64_LP64)
 #if WASM_ENABLE_SIMD == 0
     uint64 *fps;
 #else
     v128 *fps;
 #endif
-#else /* else of BUILD_TARGET_RISCV64_LP64 */
+#else /* else of BUILD_TARGET_RISCV64_LP64/BUILD_TARGET_LOONGARCH64_LP64 */
 #define fps ints
-#endif /* end of BUILD_TARGET_RISCV64_LP64 */
+#endif /* end of BUILD_TARGET_RISCV64_LP64/BUILD_TARGET_LOONGARCH64_LP64 */
 
-#if defined(_WIN32) || defined(_WIN32_) || defined(BUILD_TARGET_RISCV64_LP64)
+#if defined(_WIN32) || defined(_WIN32_) || defined(BUILD_TARGET_RISCV64_LP64) \
+    || defined(BUILD_TARGET_LOONGARCH64_LP64)
     /* important difference in calling conventions */
 #define n_fps n_ints
 #else
@@ -5867,7 +5877,8 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
         }
     }
 
-#ifndef BUILD_TARGET_RISCV64_LP64
+#if !defined(BUILD_TARGET_RISCV64_LP64) \
+    && !defined(BUILD_TARGET_LOONGARCH64_LP64)
 #if WASM_ENABLE_SIMD == 0
     fps = argv1;
     ints = fps + MAX_REG_FLOATS;
@@ -5875,9 +5886,9 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     fps = (v128 *)argv1;
     ints = (uint64 *)(fps + MAX_REG_FLOATS);
 #endif
-#else  /* else of BUILD_TARGET_RISCV64_LP64 */
+#else  /* else of BUILD_TARGET_RISCV64_LP64/BUILD_TARGET_LOONGARCH64_LP64 */
     ints = argv1;
-#endif /* end of BUILD_TARGET_RISCV64_LP64 */
+#endif /* end of BUILD_TARGET_RISCV64_LP64/BUILD_TARGET_LOONGARCH64_LP64 */
     stacks = ints + MAX_REG_INTS;
 
     ints[n_ints++] = (uint64)(uintptr_t)exec_env;
@@ -6151,11 +6162,13 @@ fail:
     return ret;
 }
 
-#endif /* end of defined(BUILD_TARGET_X86_64)           \
-                 || defined(BUILD_TARGET_AMD_64)        \
-                 || defined(BUILD_TARGET_AARCH64)       \
-                 || defined(BUILD_TARGET_RISCV64_LP64D) \
-                 || defined(BUILD_TARGET_RISCV64_LP64) */
+#endif /* end of defined(BUILD_TARGET_X86_64)               \
+                 || defined(BUILD_TARGET_AMD_64)            \
+                 || defined(BUILD_TARGET_AARCH64)           \
+                 || defined(BUILD_TARGET_RISCV64_LP64D)     \
+                 || defined(BUILD_TARGET_RISCV64_LP64)      \
+                 || defined(BUILD_TARGET_LOONGARCH64_LP64D) \
+                 || defined(BUILD_TARGET_LOONGARCH64_LP64) */
 
 bool
 wasm_runtime_call_indirect(WASMExecEnv *exec_env, uint32 element_index,
