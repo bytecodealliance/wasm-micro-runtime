@@ -7488,7 +7488,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_LABELS_AS_VALUES == 0
         continue;
 #else
-    FETCH_OPCODE_AND_DISPATCH();
+            FETCH_OPCODE_AND_DISPATCH();
 #endif
 
 #if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0
