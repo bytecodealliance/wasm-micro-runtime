@@ -104,7 +104,7 @@ typedef float64 CellType_F64;
 #if WASM_INSTRUCTION_METERING != 0
 #define CHECK_INSTRUCTION_LIMIT()                                      \
     if (instructions_left == 0) {                                      \
-        wasm_set_exception(module_inst, "instruction limit exceeded"); \
+        wasm_set_exception(module, "instruction limit exceeded");      \
         goto got_exception;                                            \
     }                                                                  \
     else if (instructions_left > 0)                                    \
