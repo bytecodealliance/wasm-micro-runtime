@@ -1574,7 +1574,7 @@ get_global_addr(uint8 *global_data, WASMGlobalInstance *global)
         wasm_set_exception(module, "instruction limit exceeded"); \
         goto got_exception;                                       \
     }                                                             \
-    else if (instructions_left > 0)                               \
+    if (instructions_left > 0)                                    \
         instructions_left--;
 #else
 #define CHECK_INSTRUCTION_LIMIT() (void)0
