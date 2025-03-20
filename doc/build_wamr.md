@@ -132,7 +132,11 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 ### **Enable 128-bit SIMD feature**
 - **WAMR_BUILD_SIMD**=1/0, default to enable if not set
-> Note: only supported in AOT mode x86-64 target.
+> Note: supported in AOT mode, JIT mode, and fast-interpreter mode with SIMDe library.
+
+### **Enable SIMDe library for SIMD in fast interpreter**
+- **WAMR_BUILD_LIB_SIMDE**=1/0, default to disable if not set
+> Note: If enabled, SIMDe (SIMD Everywhere) library will be used to implement SIMD operations in fast interpreter mode.
 
 ### **Enable Exception Handling**
 - **WAMR_BUILD_EXCE_HANDLING**=1/0, default to disable if not set
@@ -335,4 +339,11 @@ Or if we want to enable interpreter, disable AOT and WASI, and build as X86_32, 
 
 ``` Bash
 cmake .. -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_AOT=0 -DWAMR_BUILD_LIBC_WASI=0 -DWAMR_BUILD_TARGET=X86_32
+```
+
+When enabling SIMD for fast interpreter mode, you'll need to enable both SIMD and the SIMDe library:
+
+``` Bash
+
+cmake .. -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=1 -DWAMR_BUILD_SIMD=1 -DWAMR_BUILD_LIB_SIMDE=1
 ```
