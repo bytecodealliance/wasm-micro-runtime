@@ -163,7 +163,7 @@ def execute_tflite_birds_v1_image(iwasm_bin: str, wasmedge_bin: str, cwd: Path):
     iwasm_output = execute_tflite_birds_v1_image_once(
         iwasm_bin,
         [
-            "--map-dir=.:.",
+            "--map-dir=.::.",
         ],
         cwd,
     )
@@ -181,7 +181,7 @@ def execute_openvino_mobilenet_image(iwasm_bin: str, wasmedge_bin: str, cwd: Pat
     iwasm_output = execute_openvino_mobilenet_image_once(
         iwasm_bin,
         [
-            "--map-dir=.:.",
+            "--map-dir=.::.",
         ],
         cwd,
     )
@@ -199,7 +199,7 @@ def execute_openvino_mobilenet_raw(iwasm_bin: str, wasmedge_bin: str, cwd: Path)
     iwasm_output = execute_openvino_mobilenet_raw_once(
         iwasm_bin,
         [
-            "--map-dir=.:.",
+            "--map-dir=.::.",
         ],
         cwd,
     )
@@ -236,7 +236,7 @@ def execute_openvino_road_segmentation_adas(
     iwasm_output = execute_openvino_road_segmentation_adas_once(
         iwasm_bin,
         [
-            "--map-dir=.:.",
+            "--map-dir=.::.",
         ],
         cwd,
     )
