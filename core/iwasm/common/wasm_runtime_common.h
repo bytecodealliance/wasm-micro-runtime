@@ -672,7 +672,7 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_native_stack_boundary(WASMExecEnv *exec_env,
                                        uint8 *native_stack_boundary);
 
-#if WASM_INSTRUCTION_METERING != 0
+#if WASM_ENABLE_INSTRUCTION_METERING != 0
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_instruction_count_limit(WASMExecEnv *exec_env,

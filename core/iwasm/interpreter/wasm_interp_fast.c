@@ -101,7 +101,7 @@ typedef float64 CellType_F64;
             goto unaligned_atomic;                 \
     } while (0)
 
-#if WASM_INSTRUCTION_METERING != 0
+#if WASM_ENABLE_INSTRUCTION_METERING != 0
 #define CHECK_INSTRUCTION_LIMIT()                                 \
     if (instructions_left == 0) {                                 \
         wasm_set_exception(module, "instruction limit exceeded"); \
@@ -1526,7 +1526,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint32 local_idx, local_offset, global_idx;
     uint8 opcode = 0, local_type, *global_addr;
 
-#if WASM_INSTRUCTION_METERING != 0
+#if WASM_ENABLE_INSTRUCTION_METERING != 0
     int instructions_left = -1;
     if (exec_env) {
         instructions_left = exec_env->instructions_to_execute;

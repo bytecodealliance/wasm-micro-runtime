@@ -1568,7 +1568,7 @@ get_global_addr(uint8 *global_data, WASMGlobalInstance *global)
 #endif
 }
 
-#if WASM_INSTRUCTION_METERING != 0
+#if WASM_ENABLE_INSTRUCTION_METERING != 0
 #define CHECK_INSTRUCTION_LIMIT()                                 \
     if (instructions_left == 0) {                                 \
         wasm_set_exception(module, "instruction limit exceeded"); \
@@ -1624,7 +1624,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint8 local_type, *global_addr;
     uint32 cache_index, type_index, param_cell_num, cell_num;
 
-#if WASM_INSTRUCTION_METERING != 0
+#if WASM_ENABLE_INSTRUCTION_METERING != 0
     int instructions_left = -1;
     if (exec_env) {
         instructions_left = exec_env->instructions_to_execute;
