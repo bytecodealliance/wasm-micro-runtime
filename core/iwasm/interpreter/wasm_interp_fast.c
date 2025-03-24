@@ -5816,12 +5816,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 goto call_func_from_entry;
             }
 #if WASM_ENABLE_SIMDE != 0
-#define SIMD_V128_TO_SIMDE_V128(v)                                      \
+#define SIMD_V128_TO_SIMDE_V128(s_v)                                    \
     ({                                                                  \
         bh_assert(sizeof(V128) == sizeof(simde_v128_t));                \
-        simde_v128_t result;                                            \
-        bh_memcpy_s(&result, sizeof(simde_v128_t), &(v), sizeof(V128)); \
-        result;                                                         \
+        simde_v128_t se_v;                                              \
+        bh_memcpy_s(&se_v, sizeof(simde_v128_t), &(s_v), sizeof(V128)); \
+        se_v;                                                           \
     })
 
 #define SIMDE_V128_TO_SIMD_V128(sv, v)                                \
@@ -5995,10 +5995,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     /* Splat */
 #define SIMD_SPLAT_OP(simde_func, pop_func, val_type)  \
     do {                                               \
-        val_type val = pop_func();                     \
+        val_type v = pop_func();                       \
         addr_ret = GET_OFFSET();                       \
                                                        \
-        simde_v128_t simde_result = simde_func(val);   \
+        simde_v128_t simde_result = simde_func(v);     \
                                                        \
         V128 result;                                   \
         SIMDE_V128_TO_SIMD_V128(simde_result, result); \
@@ -6015,7 +6015,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                     case SIMD_i8x16_splat:
                     {
-                        uint32 val = POP_I32();
+                        val = POP_I32();
                         addr_ret = GET_OFFSET();
 
                         simde_v128_t simde_result = simde_wasm_i8x16_splat(val);
@@ -6666,19 +6666,19 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         SIMD_SINGLE_OP(simde_wasm_f32x4_nearest);
                         break;
                     }
-#define SIMD_LANE_SHIFT(simde_func)                         \
-    do {                                                    \
-        int32 count = POP_I32();                            \
-        V128 v1 = POP_V128();                               \
-        addr_ret = GET_OFFSET();                            \
-                                                            \
-        simde_v128_t simde_result =                         \
-            simde_func(SIMD_V128_TO_SIMDE_V128(v1), count); \
-                                                            \
-        V128 result;                                        \
-        SIMDE_V128_TO_SIMD_V128(simde_result, result);      \
-                                                            \
-        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);      \
+#define SIMD_LANE_SHIFT(simde_func)                     \
+    do {                                                \
+        int32 c = POP_I32();                            \
+        V128 v1 = POP_V128();                           \
+        addr_ret = GET_OFFSET();                        \
+                                                        \
+        simde_v128_t simde_result =                     \
+            simde_func(SIMD_V128_TO_SIMDE_V128(v1), c); \
+                                                        \
+        V128 result;                                    \
+        SIMDE_V128_TO_SIMD_V128(simde_result, result);  \
+                                                        \
+        PUT_V128_TO_ADDR(frame_lp + addr_ret, result);  \
     } while (0)
                     case SIMD_i8x16_shl:
                     {
