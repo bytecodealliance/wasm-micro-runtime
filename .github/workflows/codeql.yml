@@ -53,7 +53,7 @@ jobs:
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3.28.11
+      uses: github/codeql-action/init@v3.28.12
       with:
         languages: ${{ matrix.language }}
 
@@ -70,7 +70,7 @@ jobs:
     - run: |
         ./.github/scripts/codeql_buildscript.sh
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3.28.11
+      uses: github/codeql-action/analyze@v3.28.12
       with:
         category: "/language:${{matrix.language}}"
         upload: false
@@ -99,7 +99,7 @@ jobs:
         output: ${{ steps.step1.outputs.sarif-output }}/cpp.sarif
 
     - name: Upload CodeQL results to code scanning
-      uses: github/codeql-action/upload-sarif@v3.28.11
+      uses: github/codeql-action/upload-sarif@v3.28.12
       with:
         sarif_file: ${{ steps.step1.outputs.sarif-output }}
         category: "/language:${{matrix.language}}"
