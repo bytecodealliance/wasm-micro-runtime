@@ -22,8 +22,7 @@ aot_compile_op_i32_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return false;
         }
     }
-    else
-    {
+    else {
         value = I32_CONST((uint32)i32_const);
         CHECK_LLVM_CONST(value);
     }
@@ -51,8 +50,7 @@ aot_compile_op_i64_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return false;
         }
     }
-    else
-    {
+    else {
         value = I64_CONST((uint64)i64_const);
         CHECK_LLVM_CONST(value);
     }

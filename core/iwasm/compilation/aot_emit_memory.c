@@ -147,8 +147,7 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         if (IS_MEMORY64) {
             wasm_value.i64 = offset;
         }
-        else
-        {
+        else {
             wasm_value.i32 = (int32)offset;
         }
         offset_const = aot_load_const_from_table(
