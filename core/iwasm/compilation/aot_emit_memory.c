@@ -147,7 +147,9 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         if (IS_MEMORY64) {
             wasm_value.i64 = offset;
         }
-        else {
+        else
+#endif
+        {
             wasm_value.i32 = (int32)offset;
         }
         offset_const = aot_load_const_from_table(
@@ -157,9 +159,7 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return NULL;
         }
     }
-    else
-#endif
-    {
+    else {
         CHECK_LLVM_CONST(offset_const);
     }
 
