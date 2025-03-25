@@ -4103,6 +4103,136 @@ aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame)
 }
 #endif /* end of WASM_ENABLE_AOT_STACK_FRAME != 0 */
 
+#if WAMR_ENABLE_COPY_CALLSTACK != 0
+uint32
+aot_copy_callstack_tiny_frame(WASMExecEnv *exec_env, wasm_frame_t *buffer,
+                              const uint32 length, const uint32 skip_n,
+                              char *error_buf, uint32 error_buf_size)
+{
+    /*
+     * Note for devs: please refrain from such modifications inside of
+     * aot_copy_callstack_tiny_frame
+     * - any allocations/freeing memory
+     * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
+     * exec_env->module_inst->module, pointers between stack's bottom and
+     * top_boundary For more details check wasm_copy_callstack in
+     * wasm_export.h
+     */
+    uint8 *top_boundary = exec_env->wasm_stack.top_boundary;
+    uint8 *top = exec_env->wasm_stack.top;
+    uint8 *bottom = exec_env->wasm_stack.bottom;
+    uint32 count = 0;
+
+    bool is_top_index_in_range =
+        top_boundary >= top && top >= (bottom + sizeof(AOTTinyFrame));
+    if (!is_top_index_in_range) {
+        char *err_msg =
+            "Top of the stack pointer is outside of the stack boundaries";
+        strncpy(error_buf, err_msg, error_buf_size);
+        return 0;
+    }
+    bool is_top_aligned_with_bottom =
+        (unsigned long)(top - bottom) % sizeof(AOTTinyFrame) == 0;
+    if (!is_top_aligned_with_bottom) {
+        char *err_msg = "Top of the stack is not aligned with the bottom";
+        strncpy(error_buf, err_msg, error_buf_size);
+        return 0;
+    }
+
+    AOTTinyFrame *frame = (AOTTinyFrame *)(top - sizeof(AOTTinyFrame));
+    WASMCApiFrame record_frame;
+    while (frame && (uint8_t *)frame >= bottom && count < (skip_n + length)) {
+        if (count < skip_n) {
+            ++count;
+            frame -= 1;
+            continue;
+        }
+        record_frame.instance = exec_env->module_inst;
+        record_frame.module_offset = 0;
+        record_frame.func_index = frame->func_index;
+        record_frame.func_offset = frame->ip_offset;
+        buffer[count - skip_n] = record_frame;
+        frame -= 1;
+        ++count;
+    }
+    return count >= skip_n ? count - skip_n : 0;
+}
+
+uint32
+aot_copy_callstack_standard_frame(WASMExecEnv *exec_env, wasm_frame_t *buffer,
+                                  const uint32 length, const uint32 skip_n,
+                                  char *error_buf, uint32_t error_buf_size)
+{
+    /*
+     * Note for devs: please refrain from such modifications inside of
+     * aot_iterate_callstack_standard_frame
+     * - any allocations/freeing memory
+     * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
+     * exec_env->module_inst->module, pointers between stack's bottom and
+     * top_boundary For more details check wasm_iterate_callstack in
+     * wasm_export.h
+     */
+
+    uint32 count = 0;
+#if WASM_ENABLE_GC == 0
+    WASMModuleInstance *module_inst =
+        (WASMModuleInstance *)wasm_exec_env_get_module_inst(exec_env);
+    AOTFrame *cur_frame = (AOTFrame *)wasm_exec_env_get_cur_frame(exec_env);
+    uint8 *top_boundary = exec_env->wasm_stack.top_boundary;
+    uint8 *bottom = exec_env->wasm_stack.bottom;
+    uint32 frame_size = (uint32)offsetof(AOTFrame, lp);
+
+    WASMCApiFrame record_frame;
+    while (cur_frame && (uint8_t *)cur_frame >= bottom
+           && (uint8_t *)cur_frame + frame_size <= top_boundary
+           && count < (skip_n + length)) {
+        if (count < skip_n) {
+            ++count;
+            cur_frame = cur_frame->prev_frame;
+            continue;
+        }
+        record_frame.instance = module_inst;
+        record_frame.module_offset = 0;
+        record_frame.func_index = (uint32)cur_frame->func_index;
+        record_frame.func_offset = (uint32)cur_frame->ip_offset;
+        buffer[count - skip_n] = record_frame;
+        cur_frame = cur_frame->prev_frame;
+        ++count;
+    }
+#else
+/*
+ * TODO: add support for standard frames when GC is enabled
+ * now it poses a risk due to variable size of the frame
+ */
+#endif
+    return count >= skip_n ? count - skip_n : 0;
+}
+
+uint32
+aot_copy_callstack(WASMExecEnv *exec_env, wasm_frame_t *buffer,
+                   const uint32 length, const uint32 skip_n, char *error_buf,
+                   uint32_t error_buf_size)
+{
+    /*
+     * Note for devs: please refrain from such modifications inside of
+     * aot_iterate_callstack
+     * - any allocations/freeing memory
+     * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
+     * exec_env->module_inst->module, pointers between stack's bottom and
+     * top_boundary For more details check wasm_iterate_callstack in
+     * wasm_export.h
+     */
+    if (!is_tiny_frame(exec_env)) {
+        return aot_copy_callstack_standard_frame(
+            exec_env, buffer, length, skip_n, error_buf, error_buf_size);
+    }
+    else {
+        return aot_copy_callstack_tiny_frame(exec_env, buffer, length, skip_n,
+                                             error_buf, error_buf_size);
+    }
+}
+#endif // WAMR_ENABLE_COPY_CALLSTACK
+
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
 bool
 aot_create_call_stack(struct WASMExecEnv *exec_env)

@@ -319,7 +319,8 @@ is_byte_a_type(uint8 type)
 }
 
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) \
+    || (WASM_ENABLE_FAST_INTERP != 0)
 static V128
 read_i8x16(uint8 *p_buf, char *error_buf, uint32 error_buf_size)
 {
@@ -332,7 +333,8 @@ read_i8x16(uint8 *p_buf, char *error_buf, uint32 error_buf_size)
 
     return result;
 }
-#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
+#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) || \
+          (WASM_ENABLE_FAST_INTERP != 0) */
 #endif /* end of WASM_ENABLE_SIMD */
 
 static void *
@@ -725,7 +727,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                     goto fail;
                 break;
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) \
+    || (WASM_ENABLE_FAST_INTERP != 0)
             /* v128.const */
             case INIT_EXPR_TYPE_V128_CONST:
             {
@@ -754,7 +757,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 #endif
                 break;
             }
-#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
+#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) || \
+          (WASM_ENABLE_FAST_INTERP != 0) */
 #endif /* end of WASM_ENABLE_SIMD */
 
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
@@ -4174,7 +4178,8 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                         return false;
                     }
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) \
+    || (WASM_ENABLE_FAST_INTERP != 0)
                     /* TODO: check func type, if it has v128 param or result,
                              report error */
 #endif
@@ -7347,6 +7352,10 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             case WASM_OP_SET_GLOBAL:
             case WASM_OP_GET_GLOBAL_64:
             case WASM_OP_SET_GLOBAL_64:
+#if WASM_ENABLE_SIMDE != 0
+            case WASM_OP_GET_GLOBAL_V128:
+            case WASM_OP_SET_GLOBAL_V128:
+#endif
             case WASM_OP_SET_GLOBAL_AUX_STACK:
                 skip_leb_uint32(p, p_end); /* local index */
                 break;
@@ -7723,7 +7732,8 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             }
 
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) \
+    || (WASM_ENABLE_FAST_INTERP != 0)
             case WASM_OP_SIMD_PREFIX:
             {
                 uint32 opcode1;
@@ -7816,7 +7826,8 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                 }
                 break;
             }
-#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
+#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) || \
+          (WASM_ENABLE_FAST_INTERP != 0) */
 #endif /* end of WASM_ENABLE_SIMD */
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -7991,6 +8002,10 @@ typedef struct WASMLoaderContext {
     int32 *i32_consts;
     uint32 i32_const_max_num;
     uint32 i32_const_num;
+    /* const buffer for V128 */
+    V128 *v128_consts;
+    uint32 v128_const_max_num;
+    uint32 v128_const_num;
 
     /* processed code */
     uint8 *p_code_compiled;
@@ -8224,6 +8239,8 @@ wasm_loader_ctx_destroy(WASMLoaderContext *ctx)
             wasm_runtime_free(ctx->i64_consts);
         if (ctx->i32_consts)
             wasm_runtime_free(ctx->i32_consts);
+        if (ctx->v128_consts)
+            wasm_runtime_free(ctx->v128_consts);
 #endif
         wasm_runtime_free(ctx);
     }
@@ -8279,6 +8296,11 @@ wasm_loader_ctx_init(WASMFunction *func, char *error_buf, uint32 error_buf_size)
     loader_ctx->i32_const_max_num = 8;
     if (!(loader_ctx->i32_consts =
               loader_malloc(sizeof(int32) * loader_ctx->i32_const_max_num,
+                            error_buf, error_buf_size)))
+        goto fail;
+    loader_ctx->v128_const_max_num = 8;
+    if (!(loader_ctx->v128_consts =
+              loader_malloc(sizeof(V128) * loader_ctx->v128_const_max_num,
                             error_buf, error_buf_size)))
         goto fail;
 
@@ -9139,6 +9161,7 @@ preserve_referenced_local(WASMLoaderContext *loader_ctx, uint8 opcode,
                           bool *preserved, char *error_buf,
                           uint32 error_buf_size)
 {
+
     uint32 i = 0;
     int16 preserved_offset = (int16)local_index;
 
@@ -9162,6 +9185,13 @@ preserve_referenced_local(WASMLoaderContext *loader_ctx, uint8 opcode,
                         loader_ctx->preserved_local_offset++;
                     emit_label(EXT_OP_COPY_STACK_TOP);
                 }
+#if WASM_ENABLE_SIMDE != 0
+                else if (local_type == VALUE_TYPE_V128) {
+                    if (loader_ctx->p_code_compiled)
+                        loader_ctx->preserved_local_offset += 4;
+                    emit_label(EXT_OP_COPY_STACK_TOP_V128);
+                }
+#endif
                 else {
                     if (loader_ctx->p_code_compiled)
                         loader_ctx->preserved_local_offset += 2;
@@ -9174,10 +9204,15 @@ preserve_referenced_local(WASMLoaderContext *loader_ctx, uint8 opcode,
             loader_ctx->frame_offset_bottom[i] = preserved_offset;
         }
 
-        if (is_32bit_type(cur_type))
+        if (cur_type == VALUE_TYPE_V128) {
+            i += 4;
+        }
+        else if (is_32bit_type(cur_type)) {
             i++;
-        else
+        }
+        else {
             i += 2;
+        }
     }
 
     (void)error_buf;
@@ -9206,7 +9241,10 @@ preserve_local_for_block(WASMLoaderContext *loader_ctx, uint8 opcode,
                 return false;
         }
 
-        if (is_32bit_type(cur_type)) {
+        if (cur_type == VALUE_TYPE_V128) {
+            i += 4;
+        }
+        else if (is_32bit_type(cur_type)) {
             i++;
         }
         else {
@@ -9545,6 +9583,15 @@ cmp_i32_const(const void *p_i32_const1, const void *p_i32_const2)
     return (i32_const1 < i32_const2) ? -1 : (i32_const1 > i32_const2) ? 1 : 0;
 }
 
+static int
+cmp_v128_const(const void *p_v128_const1, const void *p_v128_const2)
+{
+    V128 v128_const1 = *(V128 *)p_v128_const1;
+    V128 v128_const2 = *(V128 *)p_v128_const2;
+
+    return memcmp(&v128_const1, &v128_const2, sizeof(V128));
+}
+
 static bool
 wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
                              int16 *offset, char *error_buf,
@@ -9577,6 +9624,32 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
                 ctx->i64_const_max_num *= 2;
             }
             ctx->i64_consts[ctx->i64_const_num++] = *(int64 *)value;
+        }
+        else if (type == VALUE_TYPE_V128) {
+            /* No slot left, emit const instead */
+            if (ctx->v128_const_num * 4 > INT16_MAX - 2) {
+                *offset = 0;
+                return true;
+            }
+
+            /* Traverse the list if the const num is small */
+            if (ctx->v128_const_num < 10) {
+                for (uint32 i = 0; i < ctx->v128_const_num; i++) {
+                    if (memcmp(&ctx->v128_consts[i], value, sizeof(V128))
+                        == 0) {
+                        *offset = -1;
+                        return true;
+                    }
+                }
+            }
+
+            if (ctx->v128_const_num >= ctx->v128_const_max_num) {
+                MEM_REALLOC(ctx->v128_consts,
+                            sizeof(V128) * ctx->v128_const_max_num,
+                            sizeof(V128) * (ctx->v128_const_max_num * 2));
+                ctx->v128_const_max_num *= 2;
+            }
+            ctx->v128_consts[ctx->v128_const_num++] = *(V128 *)value;
         }
         else {
             /* Treat i32 and f32 as the same by reading i32 value from
@@ -9622,6 +9695,17 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
             }
             *offset = -(uint32)(ctx->i64_const_num * 2 + ctx->i32_const_num)
                       + (uint32)(i64_const - ctx->i64_consts) * 2;
+        }
+        else if (type == VALUE_TYPE_V128) {
+            V128 key = *(V128 *)value, *v128_const;
+            v128_const = bsearch(&key, ctx->v128_consts, ctx->v128_const_num,
+                                 sizeof(V128), cmp_v128_const);
+            if (!v128_const) { /* not found, emit const instead */
+                *offset = 0;
+                return true;
+            }
+            *offset = -(uint32)(ctx->v128_const_num)
+                      + (uint32)(v128_const - ctx->v128_consts);
         }
         else {
             int32 key = *(int32 *)value, *i32_const;
@@ -9819,17 +9903,23 @@ reserve_block_ret(WASMLoaderContext *loader_ctx, uint8 opcode,
         block_type, &return_types, &reftype_maps, &reftype_map_count);
 #endif
 
-    /* If there is only one return value, use EXT_OP_COPY_STACK_TOP/_I64 instead
-     * of EXT_OP_COPY_STACK_VALUES for interpreter performance. */
+    /* If there is only one return value, use EXT_OP_COPY_STACK_TOP/_I64/V128
+     * instead of EXT_OP_COPY_STACK_VALUES for interpreter performance. */
     if (return_count == 1) {
         uint8 cell = (uint8)wasm_value_type_cell_num(return_types[0]);
-        if (cell <= 2 /* V128 isn't supported whose cell num is 4 */
-            && block->dynamic_offset != *(loader_ctx->frame_offset - cell)) {
+        if (block->dynamic_offset != *(loader_ctx->frame_offset - cell)) {
             /* insert op_copy before else opcode */
             if (opcode == WASM_OP_ELSE)
                 skip_label();
-            emit_label(cell == 1 ? EXT_OP_COPY_STACK_TOP
-                                 : EXT_OP_COPY_STACK_TOP_I64);
+#if WASM_ENABLE_SIMDE != 0
+            if (cell == 4) {
+                emit_label(EXT_OP_COPY_STACK_TOP_V128);
+            }
+#endif
+            if (cell <= 2) {
+                emit_label(cell == 1 ? EXT_OP_COPY_STACK_TOP
+                                     : EXT_OP_COPY_STACK_TOP_I64);
+            }
             emit_operand(loader_ctx, *(loader_ctx->frame_offset - cell));
             emit_operand(loader_ctx, block->dynamic_offset);
 
@@ -9864,11 +9954,37 @@ reserve_block_ret(WASMLoaderContext *loader_ctx, uint8 opcode,
     for (i = (int32)return_count - 1; i >= 0; i--) {
         uint8 cells = (uint8)wasm_value_type_cell_num(return_types[i]);
 
-        frame_offset -= cells;
-        dynamic_offset -= cells;
-        if (dynamic_offset != *frame_offset) {
-            value_count++;
-            total_cel_num += cells;
+        if (frame_offset - cells < loader_ctx->frame_offset_bottom) {
+            set_error_buf(error_buf, error_buf_size, "frame offset underflow");
+            goto fail;
+        }
+
+        if (cells == 4) {
+            bool needs_copy = false;
+            int16 v128_dynamic = dynamic_offset - cells;
+
+            for (int j = 0; j < 4; j++) {
+                if (*(frame_offset - j - 1) != (v128_dynamic + j)) {
+                    needs_copy = true;
+                    break;
+                }
+            }
+
+            if (needs_copy) {
+                value_count++;
+                total_cel_num += cells;
+            }
+
+            frame_offset -= cells;
+            dynamic_offset = v128_dynamic;
+        }
+        else {
+            frame_offset -= cells;
+            dynamic_offset -= cells;
+            if (dynamic_offset != *frame_offset) {
+                value_count++;
+                total_cel_num += cells;
+            }
         }
     }
 
@@ -9904,19 +10020,50 @@ reserve_block_ret(WASMLoaderContext *loader_ctx, uint8 opcode,
         dynamic_offset = dynamic_offset_org;
         for (i = (int32)return_count - 1, j = 0; i >= 0; i--) {
             uint8 cell = (uint8)wasm_value_type_cell_num(return_types[i]);
-            frame_offset -= cell;
-            dynamic_offset -= cell;
-            if (dynamic_offset != *frame_offset) {
-                /* cell num */
-                cells[j] = cell;
-                /* src offset */
-                src_offsets[j] = *frame_offset;
-                /* dst offset */
-                dst_offsets[j] = dynamic_offset;
-                j++;
+
+            if (cell == 4) {
+                bool needs_copy = false;
+                int16 v128_dynamic = dynamic_offset - cell;
+
+                for (int k = 0; k < 4; k++) {
+                    if (*(frame_offset - k - 1) != (v128_dynamic + k)) {
+                        needs_copy = true;
+                        break;
+                    }
+                }
+
+                if (needs_copy) {
+                    cells[j] = cell;
+                    src_offsets[j] = *(frame_offset - cell);
+                    dst_offsets[j] = v128_dynamic;
+                    j++;
+                }
+
+                frame_offset -= cell;
+                dynamic_offset = v128_dynamic;
             }
+            else {
+                frame_offset -= cell;
+                dynamic_offset -= cell;
+                if (dynamic_offset != *frame_offset) {
+                    cells[j] = cell;
+                    /* src offset */
+                    src_offsets[j] = *frame_offset;
+                    /* dst offset */
+                    dst_offsets[j] = dynamic_offset;
+                    j++;
+                }
+            }
+
             if (opcode == WASM_OP_ELSE) {
-                *frame_offset = dynamic_offset;
+                if (cell == 4) {
+                    for (int k = 0; k < cell; k++) {
+                        *(frame_offset + k) = dynamic_offset + k;
+                    }
+                }
+                else {
+                    *frame_offset = dynamic_offset;
+                }
             }
             else {
                 loader_ctx->frame_offset = frame_offset;
@@ -10075,7 +10222,8 @@ check_memory_access_align(uint8 opcode, uint32 align, char *error_buf,
 }
 
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) \
+    || (WASM_ENABLE_FAST_INTERP != 0)
 static bool
 check_simd_memory_access_align(uint8 opcode, uint32 align, char *error_buf,
                                uint32 error_buf_size)
@@ -11169,6 +11317,39 @@ re_scan:
                     loader_ctx->i64_const_max_num = k;
                 }
                 loader_ctx->i64_const_num = k;
+            }
+        }
+
+        if (loader_ctx->v128_const_num > 0) {
+            V128 *v128_consts_old = loader_ctx->v128_consts;
+
+            /* Sort the v128 consts */
+            qsort(v128_consts_old, loader_ctx->v128_const_num, sizeof(V128),
+                  cmp_v128_const);
+
+            /* Remove the duplicated v128 consts */
+            uint32 k = 1;
+            for (i = 1; i < loader_ctx->v128_const_num; i++) {
+                if (!(memcmp(&v128_consts_old[i], &v128_consts_old[i - 1],
+                             sizeof(V128))
+                      == 0)) {
+                    v128_consts_old[k++] = v128_consts_old[i];
+                }
+            }
+
+            if (k < loader_ctx->v128_const_num) {
+                V128 *v128_consts_new;
+                /* Try to reallocate memory with a smaller size */
+                if ((v128_consts_new =
+                         wasm_runtime_malloc((uint32)sizeof(V128) * k))) {
+                    bh_memcpy_s(v128_consts_new, (uint32)sizeof(V128) * k,
+                                v128_consts_old, (uint32)sizeof(V128) * k);
+                    /* Free the old memory */
+                    wasm_runtime_free(v128_consts_old);
+                    loader_ctx->v128_consts = v128_consts_new;
+                    loader_ctx->v128_const_max_num = k;
+                }
+                loader_ctx->v128_const_num = k;
             }
         }
 
@@ -12492,10 +12673,20 @@ re_scan:
 #endif
                     }
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) \
+    || (WASM_ENABLE_FAST_INTERP != 0)
                     else if (*(loader_ctx->frame_ref - 1) == VALUE_TYPE_V128) {
                         loader_ctx->frame_ref -= 4;
                         loader_ctx->stack_cell_num -= 4;
+#if WASM_ENABLE_FAST_INTERP != 0
+                        skip_label();
+                        loader_ctx->frame_offset -= 4;
+                        if ((*(loader_ctx->frame_offset)
+                             > loader_ctx->start_dynamic_offset)
+                            && (*(loader_ctx->frame_offset)
+                                < loader_ctx->max_dynamic_offset))
+                            loader_ctx->dynamic_offset -= 4;
+#endif
                     }
 #endif
 #endif
@@ -12582,10 +12773,12 @@ re_scan:
 #endif /* end of WASM_ENABLE_FAST_INTERP */
                             break;
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) \
+    || (WASM_ENABLE_FAST_INTERP != 0)
                         case VALUE_TYPE_V128:
                             break;
-#endif /* (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
+#endif /* (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) || \
+          (WASM_ENABLE_FAST_INTERP != 0) */
 #endif /* WASM_ENABLE_SIMD != 0 */
                         default:
                         {
@@ -12680,8 +12873,9 @@ re_scan:
                     uint8 opcode_tmp = WASM_OP_SELECT;
 
                     if (type == VALUE_TYPE_V128) {
-#if (WASM_ENABLE_SIMD == 0) \
-    || ((WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0))
+#if (WASM_ENABLE_SIMD == 0)                                        \
+    || ((WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0) \
+        && (WASM_ENABLE_FAST_INTERP == 0))
                         set_error_buf(error_buf, error_buf_size,
                                       "SIMD v128 type isn't supported");
                         goto fail;
@@ -13177,9 +13371,20 @@ re_scan:
                             emit_label(EXT_OP_SET_LOCAL_FAST);
                             emit_byte(loader_ctx, (uint8)local_offset);
                         }
-                        else {
+                        else if (is_64bit_type(local_type)) {
                             emit_label(EXT_OP_SET_LOCAL_FAST_I64);
                             emit_byte(loader_ctx, (uint8)local_offset);
+                        }
+#if WASM_ENABLE_SIMDE != 0
+                        else if (local_type == VALUE_TYPE_V128) {
+                            emit_label(EXT_OP_SET_LOCAL_FAST_V128);
+                            emit_byte(loader_ctx, (uint8)local_offset);
+                        }
+#endif
+                        else {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "unknown local type");
+                            goto fail;
                         }
                         POP_OFFSET_TYPE(local_type);
                     }
@@ -13253,6 +13458,12 @@ re_scan:
                         emit_label(EXT_OP_TEE_LOCAL_FAST);
                         emit_byte(loader_ctx, (uint8)local_offset);
                     }
+#if WASM_ENABLE_SIMDE != 0
+                    else if (local_type == VALUE_TYPE_V128) {
+                        emit_label(EXT_OP_TEE_LOCAL_FAST_V128);
+                        emit_byte(loader_ctx, (uint8)local_offset);
+                    }
+#endif
                     else {
                         emit_label(EXT_OP_TEE_LOCAL_FAST_I64);
                         emit_byte(loader_ctx, (uint8)local_offset);
@@ -13341,12 +13552,18 @@ re_scan:
 #endif
                     *p_org = WASM_OP_GET_GLOBAL_64;
                 }
-#else  /* else of WASM_ENABLE_FAST_INTERP */
+#else /* else of WASM_ENABLE_FAST_INTERP */
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {
                     skip_label();
                     emit_label(WASM_OP_GET_GLOBAL_64);
                 }
+#if WASM_ENABLE_SIMDE != 0
+                if (global_type == VALUE_TYPE_V128) {
+                    skip_label();
+                    emit_label(WASM_OP_GET_GLOBAL_V128);
+                }
+#endif /* end of WASM_ENABLE_SIMDE */
                 emit_uint32(loader_ctx, global_idx);
                 PUSH_OFFSET_TYPE(global_type);
 #endif /* end of WASM_ENABLE_FAST_INTERP */
@@ -13430,7 +13647,7 @@ re_scan:
                     func->has_op_set_global_aux_stack = true;
 #endif
                 }
-#else  /* else of WASM_ENABLE_FAST_INTERP */
+#else /* else of WASM_ENABLE_FAST_INTERP */
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {
                     skip_label();
@@ -13441,6 +13658,12 @@ re_scan:
                     skip_label();
                     emit_label(WASM_OP_SET_GLOBAL_AUX_STACK);
                 }
+#if WASM_ENABLE_SIMDE != 0
+                else if (global_type == VALUE_TYPE_V128) {
+                    skip_label();
+                    emit_label(WASM_OP_SET_GLOBAL_V128);
+                }
+#endif /* end of WASM_ENABLE_SIMDE */
                 emit_uint32(loader_ctx, global_idx);
                 POP_OFFSET_TYPE(global_type);
 #endif /* end of WASM_ENABLE_FAST_INTERP */
@@ -15285,7 +15508,8 @@ re_scan:
             }
 
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) \
+    || (WASM_ENABLE_FAST_INTERP != 0)
             case WASM_OP_SIMD_PREFIX:
             {
                 uint32 opcode1;
@@ -15296,6 +15520,10 @@ re_scan:
 #endif
 
                 pb_read_leb_uint32(p, p_end, opcode1);
+
+#if WASM_ENABLE_FAST_INTERP != 0
+                emit_byte(loader_ctx, opcode1);
+#endif
 
                 /* follow the order of enum WASMSimdEXTOpcode in wasm_opcode.h
                  */
@@ -15324,6 +15552,10 @@ re_scan:
                         pb_read_leb_mem_offset(p, p_end,
                                                mem_offset); /* offset */
 
+#if WASM_ENABLE_FAST_INTERP != 0
+                        emit_uint32(loader_ctx, mem_offset);
+#endif
+
                         POP_AND_PUSH(mem_offset_type, VALUE_TYPE_V128);
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
@@ -15344,6 +15576,10 @@ re_scan:
                         pb_read_leb_mem_offset(p, p_end,
                                                mem_offset); /* offset */
 
+#if WASM_ENABLE_FAST_INTERP != 0
+                        emit_uint32(loader_ctx, mem_offset);
+#endif
+
                         POP_V128();
                         POP_MEM_OFFSET();
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
@@ -15355,7 +15591,13 @@ re_scan:
                     /* basic operation */
                     case SIMD_v128_const:
                     {
+                        uint64 high, low;
                         CHECK_BUF1(p, p_end, 16);
+#if WASM_ENABLE_FAST_INTERP != 0
+                        wasm_runtime_read_v128(p, &high, &low);
+                        emit_uint64(loader_ctx, high);
+                        emit_uint64(loader_ctx, low);
+#endif
                         p += 16;
                         PUSH_V128();
                         break;
@@ -15367,12 +15609,17 @@ re_scan:
 
                         CHECK_BUF1(p, p_end, 16);
                         mask = read_i8x16(p, error_buf, error_buf_size);
-                        p += 16;
                         if (!check_simd_shuffle_mask(mask, error_buf,
                                                      error_buf_size)) {
                             goto fail;
                         }
-
+#if WASM_ENABLE_FAST_INTERP != 0
+                        uint64 high, low;
+                        wasm_runtime_read_v128(p, &high, &low);
+                        emit_uint64(loader_ctx, high);
+                        emit_uint64(loader_ctx, low);
+#endif
+                        p += 16;
                         POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
                         break;
                     }
@@ -15443,14 +15690,25 @@ re_scan:
                                                     error_buf_size)) {
                             goto fail;
                         }
-
+#if WASM_ENABLE_FAST_INTERP != 0
+                        emit_byte(loader_ctx, lane);
+#endif
                         if (replace[opcode1 - SIMD_i8x16_extract_lane_s]) {
+#if WASM_ENABLE_FAST_INTERP != 0
+                            if (!(wasm_loader_pop_frame_ref_offset(
+                                    loader_ctx,
+                                    replace[opcode1
+                                            - SIMD_i8x16_extract_lane_s],
+                                    error_buf, error_buf_size)))
+                                goto fail;
+#else
                             if (!(wasm_loader_pop_frame_ref(
                                     loader_ctx,
                                     replace[opcode1
                                             - SIMD_i8x16_extract_lane_s],
                                     error_buf, error_buf_size)))
                                 goto fail;
+#endif /* end of WASM_ENABLE_FAST_INTERP != 0 */
                         }
 
                         POP_AND_PUSH(
@@ -15569,9 +15827,14 @@ re_scan:
                                                     error_buf_size)) {
                             goto fail;
                         }
-
+#if WASM_ENABLE_FAST_INTERP != 0
+                        emit_uint32(loader_ctx, mem_offset);
+#endif
                         POP_V128();
                         POP_MEM_OFFSET();
+#if WASM_ENABLE_FAST_INTERP != 0
+                        emit_byte(loader_ctx, lane);
+#endif
                         if (opcode1 < SIMD_v128_store8_lane) {
                             PUSH_V128();
                         }
@@ -15594,7 +15857,9 @@ re_scan:
 
                         pb_read_leb_mem_offset(p, p_end,
                                                mem_offset); /* offset */
-
+#if WASM_ENABLE_FAST_INTERP != 0
+                        emit_uint32(loader_ctx, mem_offset);
+#endif
                         POP_AND_PUSH(mem_offset_type, VALUE_TYPE_V128);
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
@@ -15943,7 +16208,8 @@ re_scan:
                 }
                 break;
             }
-#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
+#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) || \
+          (WASM_ENABLE_FAST_INTERP != 0) */
 #endif /* end of WASM_ENABLE_SIMD */
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -16123,8 +16389,9 @@ re_scan:
     if (loader_ctx->p_code_compiled == NULL)
         goto re_scan;
 
-    func->const_cell_num =
-        loader_ctx->i64_const_num * 2 + loader_ctx->i32_const_num;
+    func->const_cell_num = loader_ctx->i64_const_num * 2
+                           + loader_ctx->v128_const_num * 4
+                           + loader_ctx->i32_const_num;
     if (func->const_cell_num > 0) {
         if (!(func->consts =
                   loader_malloc((uint64)sizeof(uint32) * func->const_cell_num,
@@ -16142,6 +16409,12 @@ re_scan:
                         (uint32)sizeof(int32) * loader_ctx->i32_const_num,
                         loader_ctx->i32_consts,
                         (uint32)sizeof(int32) * loader_ctx->i32_const_num);
+        }
+        if (loader_ctx->v128_const_num > 0) {
+            bh_memcpy_s(func->consts,
+                        (uint32)sizeof(V128) * loader_ctx->v128_const_num,
+                        loader_ctx->v128_consts,
+                        (uint32)sizeof(V128) * loader_ctx->v128_const_num);
         }
     }
 

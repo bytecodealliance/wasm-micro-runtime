@@ -777,6 +777,13 @@ aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame);
 bool
 aot_create_call_stack(struct WASMExecEnv *exec_env);
 
+#if WAMR_ENABLE_COPY_CALLSTACK != 0
+uint32
+aot_copy_callstack(WASMExecEnv *exec_env, wasm_frame_t *buffer,
+                   const uint32 length, const uint32 skip_n, char *error_buf,
+                   uint32_t error_buf_size);
+#endif // WAMR_ENABLE_COPY_CALLSTACK
+
 /**
  * @brief Dump wasm call stack or get the size
  *

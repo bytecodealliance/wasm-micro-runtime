@@ -126,6 +126,21 @@ typedef WASMFunctionInstanceCommon *wasm_function_inst_t;
 struct WASMMemoryInstance;
 typedef struct WASMMemoryInstance *wasm_memory_inst_t;
 
+typedef struct wasm_frame_t {
+    /*  wasm_instance_t */
+    void *instance;
+    uint32_t module_offset;
+    uint32_t func_index;
+    uint32_t func_offset;
+    const char *func_name_wp;
+
+    uint32_t *sp;
+    uint8_t *frame_ref;
+    uint32_t *lp;
+} WASMCApiFrame;
+
+typedef WASMCApiFrame wasm_frame_t;
+
 /* WASM section */
 typedef struct wasm_section_t {
     struct wasm_section_t *next;
@@ -863,6 +878,35 @@ wasm_runtime_create_exec_env(wasm_module_inst_t module_inst,
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_exec_env(wasm_exec_env_t exec_env);
+
+/**
+ * @brief Copy callstack frames.
+ *
+ * Caution: This is not a thread-safe function. Ensure the exec_env
+ * is suspended before calling it from another thread.
+ *
+ * Usage: In the callback to read frames fields use APIs
+ * for wasm_frame_t from wasm_c_api.h
+ *
+ * Note: The function is async-signal-safe if called with verified arguments.
+ * Meaning it's safe to call it from a signal handler even on a signal
+ * interruption from another thread if next variables hold valid pointers
+ * - exec_env
+ * - exec_env->module_inst
+ * - exec_env->module_inst->module
+ *
+ * @param exec_env the execution environment that containes frames
+ * @param buffer the buffer of size equal length * sizeof(wasm_frame_t) to copy
+ * frames to
+ * @param length the number of frames to copy
+ * @param skip_n the number of frames to skip from the top of the stack
+ *
+ * @return number of copied frames
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_copy_callstack(const wasm_exec_env_t exec_env, wasm_frame_t *buffer,
+                    const uint32_t length, const uint32_t skip_n,
+                    char *error_buf, uint32_t error_buf_size);
 
 /**
  * Get the singleton execution environment for the instance.

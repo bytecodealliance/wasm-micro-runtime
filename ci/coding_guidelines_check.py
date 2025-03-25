@@ -145,7 +145,7 @@ def run_clang_format_diff(root: Path, commits: str) -> bool:
         found = False
         for summary in [x for x in diff_content if x.startswith("diff --git")]:
             # b/path/to/file -> path/to/file
-            with_invalid_format = re.split("\s+", summary)[-1][2:]
+            with_invalid_format = re.split(r"\s+", summary)[-1][2:]
             if not is_excluded(with_invalid_format):
                 print(f"--- {with_invalid_format} failed on code style checking.")
                 found = True

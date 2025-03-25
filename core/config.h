@@ -193,6 +193,10 @@
 #error "Heap aux stack allocation must be enabled for WASI threads"
 #endif
 
+#ifndef WAMR_ENABLE_COPY_CALLSTACK
+#define WAMR_ENABLE_COPY_CALLSTACK 0
+#endif
+
 #ifndef WASM_ENABLE_BASE_LIB
 #define WASM_ENABLE_BASE_LIB 0
 #endif
@@ -316,6 +320,12 @@
 /* Disable SIMD unless it is manually enabled somewhere */
 #ifndef WASM_ENABLE_SIMD
 #define WASM_ENABLE_SIMD 0
+#endif
+
+/* Disable SIMDe (used in the fast interpreter for SIMD opcodes)
+unless used elsewhere */
+#ifndef WASM_ENABLE_SIMDE
+#define WASM_ENABLE_SIMDE 0
 #endif
 
 /* GC performance profiling */
