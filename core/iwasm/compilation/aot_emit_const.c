@@ -12,7 +12,6 @@ aot_compile_op_i32_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef value;
 
-#if !defined(BUILD_TARGET_XTENSA)
     if (comp_ctx->is_indirect_mode
         && aot_intrinsic_check_capability(comp_ctx, "i32.const")) {
         WASMValue wasm_value;
@@ -24,7 +23,6 @@ aot_compile_op_i32_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
     else
-#endif
     {
         value = I32_CONST((uint32)i32_const);
         CHECK_LLVM_CONST(value);
@@ -43,7 +41,6 @@ aot_compile_op_i64_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef value;
 
-#if !defined(BUILD_TARGET_XTENSA)
     if (comp_ctx->is_indirect_mode
         && aot_intrinsic_check_capability(comp_ctx, "i64.const")) {
         WASMValue wasm_value;
@@ -55,7 +52,6 @@ aot_compile_op_i64_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
     else
-#endif
     {
         value = I64_CONST((uint64)i64_const);
         CHECK_LLVM_CONST(value);
@@ -74,7 +70,6 @@ aot_compile_op_f32_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef alloca, value;
 
-#if !defined(BUILD_TARGET_XTENSA)
     if (comp_ctx->is_indirect_mode
         && aot_intrinsic_check_capability(comp_ctx, "f32.const")) {
         WASMValue wasm_value;
@@ -87,9 +82,6 @@ aot_compile_op_f32_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         PUSH_F32(value);
     }
     else if (!isnan(f32_const)) {
-#else
-    if (!isnan(f32_const)) {
-#endif
         value = F32_CONST(f32_const);
         CHECK_LLVM_CONST(value);
         PUSH_F32(value);
@@ -131,7 +123,6 @@ aot_compile_op_f64_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef alloca, value;
 
-#if !defined(BUILD_TARGET_XTENSA)
     if (comp_ctx->is_indirect_mode
         && aot_intrinsic_check_capability(comp_ctx, "f64.const")) {
         WASMValue wasm_value;
@@ -144,9 +135,6 @@ aot_compile_op_f64_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         PUSH_F64(value);
     }
     else if (!isnan(f64_const)) {
-#else
-    if (!isnan(f64_const)) {
-#endif
         value = F64_CONST(f64_const);
         CHECK_LLVM_CONST(value);
         PUSH_F64(value);
