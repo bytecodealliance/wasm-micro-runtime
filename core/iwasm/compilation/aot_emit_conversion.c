@@ -347,20 +347,8 @@ aot_compile_op_i32_trunc_f32(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_F32(value);
 
-#if !defined(BUILD_TARGET_XTENSA)
-    if (!comp_ctx->is_indirect_mode) {
-#endif
-        if (sign) {
-            min_value = F32_CONST(-2147483904.0f);
-            max_value = F32_CONST(2147483648.0f);
-        }
-        else {
-            min_value = F32_CONST(-1.0f);
-            max_value = F32_CONST(4294967296.0f);
-        }
-#if !defined(BUILD_TARGET_XTENSA)
-    }
-    else {
+    if (comp_ctx->is_indirect_mode
+        && aot_intrinsic_check_capability(comp_ctx, "f32.const")) {
         WASMValue wasm_value;
         if (sign) {
             wasm_value.f32 = -2147483904.0f;
@@ -379,7 +367,16 @@ aot_compile_op_i32_trunc_f32(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 comp_ctx, func_ctx->native_symbol, &wasm_value, VALUE_TYPE_F32);
         }
     }
-#endif
+    else {
+        if (sign) {
+            min_value = F32_CONST(-2147483904.0f);
+            max_value = F32_CONST(2147483648.0f);
+        }
+        else {
+            min_value = F32_CONST(-1.0f);
+            max_value = F32_CONST(4294967296.0f);
+        }
+    }
     CHECK_LLVM_CONST(min_value);
     CHECK_LLVM_CONST(max_value);
 
@@ -404,20 +401,8 @@ aot_compile_op_i32_trunc_f64(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_F64(value);
 
-#if !defined(BUILD_TARGET_XTENSA)
-    if (!comp_ctx->is_indirect_mode) {
-#endif
-        if (sign) {
-            min_value = F64_CONST(-2147483649.0);
-            max_value = F64_CONST(2147483648.0);
-        }
-        else {
-            min_value = F64_CONST(-1.0);
-            max_value = F64_CONST(4294967296.0);
-        }
-#if !defined(BUILD_TARGET_XTENSA)
-    }
-    else {
+    if (comp_ctx->is_indirect_mode
+        && aot_intrinsic_check_capability(comp_ctx, "f64.const")) {
         WASMValue wasm_value;
         if (sign) {
             wasm_value.f64 = -2147483649.0;
@@ -436,7 +421,16 @@ aot_compile_op_i32_trunc_f64(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 comp_ctx, func_ctx->native_symbol, &wasm_value, VALUE_TYPE_F64);
         }
     }
-#endif
+    else {
+        if (sign) {
+            min_value = F64_CONST(-2147483649.0);
+            max_value = F64_CONST(2147483648.0);
+        }
+        else {
+            min_value = F64_CONST(-1.0);
+            max_value = F64_CONST(4294967296.0);
+        }
+    }
     CHECK_LLVM_CONST(min_value);
     CHECK_LLVM_CONST(max_value);
 
@@ -562,20 +556,8 @@ aot_compile_op_i64_trunc_f32(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_F32(value);
 
-#if !defined(BUILD_TARGET_XTENSA)
-    if (!comp_ctx->is_indirect_mode) {
-#endif
-        if (sign) {
-            min_value = F32_CONST(-9223373136366403584.0f);
-            max_value = F32_CONST(9223372036854775808.0f);
-        }
-        else {
-            min_value = F32_CONST(-1.0f);
-            max_value = F32_CONST(18446744073709551616.0f);
-        }
-#if !defined(BUILD_TARGET_XTENSA)
-    }
-    else {
+    if (comp_ctx->is_indirect_mode
+        && aot_intrinsic_check_capability(comp_ctx, "f32.const")) {
         WASMValue wasm_value;
         if (sign) {
             wasm_value.f32 = -9223373136366403584.0f;
@@ -594,7 +576,16 @@ aot_compile_op_i64_trunc_f32(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 comp_ctx, func_ctx->native_symbol, &wasm_value, VALUE_TYPE_F32);
         }
     }
-#endif
+    else {
+        if (sign) {
+            min_value = F32_CONST(-9223373136366403584.0f);
+            max_value = F32_CONST(9223372036854775808.0f);
+        }
+        else {
+            min_value = F32_CONST(-1.0f);
+            max_value = F32_CONST(18446744073709551616.0f);
+        }
+    }
     CHECK_LLVM_CONST(min_value);
     CHECK_LLVM_CONST(max_value);
 
@@ -619,20 +610,8 @@ aot_compile_op_i64_trunc_f64(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_F64(value);
 
-#if !defined(BUILD_TARGET_XTENSA)
-    if (!comp_ctx->is_indirect_mode) {
-#endif
-        if (sign) {
-            min_value = F64_CONST(-9223372036854777856.0);
-            max_value = F64_CONST(9223372036854775808.0);
-        }
-        else {
-            min_value = F64_CONST(-1.0);
-            max_value = F64_CONST(18446744073709551616.0);
-        }
-#if !defined(BUILD_TARGET_XTENSA)
-    }
-    else {
+    if (comp_ctx->is_indirect_mode
+        && aot_intrinsic_check_capability(comp_ctx, "f64.const")) {
         WASMValue wasm_value;
         if (sign) {
             wasm_value.f64 = -9223372036854777856.0;
@@ -651,7 +630,16 @@ aot_compile_op_i64_trunc_f64(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 comp_ctx, func_ctx->native_symbol, &wasm_value, VALUE_TYPE_F64);
         }
     }
-#endif
+    else {
+        if (sign) {
+            min_value = F64_CONST(-9223372036854777856.0);
+            max_value = F64_CONST(9223372036854775808.0);
+        }
+        else {
+            min_value = F64_CONST(-1.0);
+            max_value = F64_CONST(18446744073709551616.0);
+        }
+    }
     CHECK_LLVM_CONST(min_value);
     CHECK_LLVM_CONST(max_value);
 
