@@ -11577,6 +11577,14 @@ re_scan:
                         cell_num = wasm_value_type_cell_num(
                             wasm_type->types[wasm_type->param_count - i - 1]);
                         loader_ctx->frame_offset -= cell_num;
+
+                        if (loader_ctx->frame_offset
+                            < loader_ctx->frame_offset_bottom) {
+                            LOG_DEBUG("frame_offset underflow, roll back and "
+                                      "let following stack checker report it\n");
+                            loader_ctx->frame_offset += cell_num;
+                            break;
+                        }
 #endif
                     }
                 }
