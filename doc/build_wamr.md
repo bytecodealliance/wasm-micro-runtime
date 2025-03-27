@@ -347,3 +347,13 @@ When enabling SIMD for fast interpreter mode, you'll need to enable both SIMD an
 
 cmake .. -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=1 -DWAMR_BUILD_SIMD=1 -DWAMR_BUILD_LIB_SIMDE=1
 ```
+
+For Valgrind, begin with the following configurations and add additional ones as needed:
+
+``` Bash
+  #...
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DWAMR_DISABLE_HW_BOUND_CHECK=0 \
+  -DWAMR_DISABLE_WRITE_GS_BASE=0
+  #...
+```
