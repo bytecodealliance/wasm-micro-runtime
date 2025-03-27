@@ -9693,8 +9693,10 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
                 *offset = 0;
                 return true;
             }
-            *offset = -(uint32)(ctx->i64_const_num * 2 + ctx->i32_const_num)
-                      + (uint32)(i64_const - ctx->i64_consts) * 2;
+
+            /* constant index is encoded as negative value */
+            *offset = -(int32)(ctx->i64_const_num * 2 + ctx->i32_const_num)
+                      + (int32)(i64_const - ctx->i64_consts) * 2;
         }
         else if (type == VALUE_TYPE_V128) {
             V128 key = *(V128 *)value, *v128_const;
@@ -9704,9 +9706,12 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
                 *offset = 0;
                 return true;
             }
-            *offset = -(uint32)(ctx->v128_const_num)
-                      + (uint32)(v128_const - ctx->v128_consts);
+
+            /* constant index is encoded as negative value */
+            *offset = -(int32)(ctx->v128_const_num)
+                      + (int32)(v128_const - ctx->v128_consts);
         }
+
         else {
             int32 key = *(int32 *)value, *i32_const;
             i32_const = bsearch(&key, ctx->i32_consts, ctx->i32_const_num,
@@ -9715,8 +9720,10 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
                 *offset = 0;
                 return true;
             }
-            *offset = -(uint32)(ctx->i32_const_num)
-                      + (uint32)(i32_const - ctx->i32_consts);
+
+            /* constant index is encoded as negative value */
+            *offset = -(int32)(ctx->i32_const_num)
+                      + (int32)(i32_const - ctx->i32_consts);
         }
 
         return true;
