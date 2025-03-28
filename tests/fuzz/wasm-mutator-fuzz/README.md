@@ -2,26 +2,22 @@
 
 ## Install wasm-tools
 
+Download the release suitable for your specific platform from https://github.com/bytecodealliance/wasm-tools/releases/latest, unpack it, and add the executable wasm-tools to the `PATH`. Then, you should be able to verify that the installation was successful by using the following command:
+
 ```bash
-1.git clone https://github.com/bytecodealliance/wasm-tools
-$ cd wasm-tools
-2.This project can be installed and compiled from source with this Cargo command:
-$ cargo install wasm-tools
-3.Installation can be confirmed with:
 $ wasm-tools --version
-4.Subcommands can be explored with:
+# Or learn subcommands with
 $ wasm-tools help
 ```
 
 ## Install clang Toolchain
 
-Refer to: https://apt.llvm.org/ and Make sure you have clang installed.
+Refer to: https://apt.llvm.org/ and ensure that you have clang installed.
 
 ```bash
-$ which clang
+$ clang --version
 
-$ which clang++
-
+$ clang++ --version
 ```
 
 ## Build

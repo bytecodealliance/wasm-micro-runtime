@@ -55,3 +55,15 @@ target_link_directories(vmlib PUBLIC ${RUNTIME_LIB_LINK_LIST})
 
 add_executable(wasm_mutator_fuzz wasm_mutator_fuzz.cc)
 target_link_libraries(wasm_mutator_fuzz PRIVATE vmlib m)
+
+if(NOT IN_OSS_FUZZ)
+  message(STATUS "Enable ASan and UBSan in non-oss-fuzz environment")
+  target_compile_options(vmlib PUBLIC 
+    -fprofile-instr-generate -fcoverage-mapping
+    -fno-sanitize-recover=all
+    -fsanitize=address,undefined
+    -fsanitize=float-divide-by-zero,unsigned-integer-overflow,local-bounds,nullability
+    -fno-sanitize=alignment
+  )
+  target_link_options(vmlib PUBLIC -fsanitize=address,undefined -fprofile-instr-generate)
+endif()

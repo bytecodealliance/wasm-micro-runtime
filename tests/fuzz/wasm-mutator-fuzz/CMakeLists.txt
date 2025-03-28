@@ -23,6 +23,12 @@ string(TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
 set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
+# Check if the compiler supports the sanitizer flags
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag("-fsanitize=address"   HAS_ADDRESS_SANITIZER)
+check_cxx_compiler_flag("-fsanitize=memory"    HAS_MEMORY_SANITIZER)
+check_cxx_compiler_flag("-fsanitize=undefined" HAS_UNDEFINED_SANITIZER)
+
 # Determine WAMR_BUILD_TARGET based on system properties
 if(NOT DEFINED WAMR_BUILD_TARGET)
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)")
@@ -76,6 +82,9 @@ add_definitions(${LLVM_DEFINITIONS_LIST})
 set(SHARED_DIR ${REPO_ROOT_DIR}/core/shared)
 set(IWASM_DIR ${REPO_ROOT_DIR}/core/iwasm)
 
+# Global setting
+add_compile_options(-Wno-unused-command-line-argument)
+
 # Enable fuzzer
 add_definitions(-DWASM_ENABLE_FUZZ_TEST=1)
 add_compile_options(-fsanitize=fuzzer)
@@ -84,17 +93,6 @@ add_link_options(-fsanitize=fuzzer)
 # Enable sanitizers if not in oss-fuzz environment
 set(CFLAGS_ENV $ENV{CFLAGS})
 string(FIND "${CFLAGS_ENV}" "-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION" IN_OSS_FUZZ)
-if(IN_OSS_FUZZ EQUAL -1)
-  message(STATUS "Enable ASan and UBSan in non-oss-fuzz environment")
-  add_compile_options(
-    -fprofile-instr-generate -fcoverage-mapping
-    -fno-sanitize-recover=all
-    -fsanitize=address,undefined
-    -fsanitize=float-divide-by-zero,unsigned-integer-overflow,local-bounds,nullability
-    -fno-sanitize=alignment
-  )
-  add_link_options(-fsanitize=address -fprofile-instr-generate)
-endif()
 
 add_subdirectory(aot-compiler)
 add_subdirectory(wasm-mutator)
