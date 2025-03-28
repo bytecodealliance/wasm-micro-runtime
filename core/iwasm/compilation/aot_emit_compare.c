@@ -204,8 +204,7 @@ aot_compile_op_f64_compare(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     POP_F64(lhs);
 
     if (comp_ctx->disable_llvm_intrinsics
-        && aot_intrinsic_check_capability(comp_ctx, "f64_cmp")
-        ) {
+        && aot_intrinsic_check_capability(comp_ctx, "f64_cmp")) {
         LLVMTypeRef param_types[3];
         LLVMValueRef opcond = LLVMConstInt(I32_TYPE, cond, true);
         param_types[0] = I32_TYPE;
