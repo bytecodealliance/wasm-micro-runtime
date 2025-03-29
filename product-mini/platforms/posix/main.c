@@ -945,10 +945,38 @@ main(int argc, char *argv[])
     libc_wasi_init(wasm_module, argc, argv, &wasi_parse_ctx);
 #endif
 
+    InstantiationArgs args = {
+        .default_stack_size = stack_size,
+        .host_managed_heap_size = heap_size,
+        .max_memory_pages = 0,
+        .run_start_function = false,
+    };
+
     /* instantiate the module */
-    if (!(wasm_module_inst =
-              wasm_runtime_instantiate(wasm_module, stack_size, heap_size,
-                                       error_buf, sizeof(error_buf)))) {
+    if (!(wasm_module_inst = wasm_runtime_instantiate_ex(
+              wasm_module, &args, error_buf, sizeof(error_buf)))) {
+        printf("%s\n", error_buf);
+        goto fail3;
+    }
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    struct timeout_arg timeout_arg;
+    korp_tid timeout_tid;
+    if (timeout_ms >= 0) {
+        timeout_arg.timeout_ms = timeout_ms;
+        timeout_arg.inst = wasm_module_inst;
+        timeout_arg.cancel = false;
+        ret = os_thread_create(&timeout_tid, timeout_thread, &timeout_arg,
+                               APP_THREAD_STACK_SIZE_DEFAULT);
+        if (ret != 0) {
+            printf("Failed to start timeout\n");
+            goto fail4;
+        }
+    }
+#endif
+
+    if (!wasm_runtime_instantiate_run_start_func(
+            wasm_module_inst, NULL, NULL, error_buf, sizeof(error_buf))) {
         printf("%s\n", error_buf);
         goto fail3;
     }
@@ -966,27 +994,11 @@ main(int argc, char *argv[])
         uint32_t debug_port;
         if (exec_env == NULL) {
             printf("%s\n", wasm_runtime_get_exception(wasm_module_inst));
-            goto fail4;
+            goto fail5;
         }
         debug_port = wasm_runtime_start_debug_instance(exec_env);
         if (debug_port == 0) {
             printf("Failed to start debug instance\n");
-            goto fail4;
-        }
-    }
-#endif
-
-#if WASM_ENABLE_THREAD_MGR != 0
-    struct timeout_arg timeout_arg;
-    korp_tid timeout_tid;
-    if (timeout_ms >= 0) {
-        timeout_arg.timeout_ms = timeout_ms;
-        timeout_arg.inst = wasm_module_inst;
-        timeout_arg.cancel = false;
-        ret = os_thread_create(&timeout_tid, timeout_thread, &timeout_arg,
-                               APP_THREAD_STACK_SIZE_DEFAULT);
-        if (ret != 0) {
-            printf("Failed to start timeout\n");
             goto fail5;
         }
     }
@@ -1035,10 +1047,10 @@ main(int argc, char *argv[])
     }
 #endif
 
-#if WASM_ENABLE_THREAD_MGR != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
 fail5:
 #endif
-#if WASM_ENABLE_DEBUG_INTERP != 0
+#if WASM_ENABLE_THREAD_MGR != 0
 fail4:
 #endif
     /* destroy the module instance */
