@@ -95,3 +95,9 @@ os_dcache_flush(void)
 void
 os_icache_flush(void *start, size_t len)
 {}
+
+os_raw_file_handle
+os_invalid_raw_handle(void)
+{
+    return -1;
+}

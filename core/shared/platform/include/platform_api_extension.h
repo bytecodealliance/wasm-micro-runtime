@@ -1608,6 +1608,15 @@ os_file_handle
 os_get_invalid_handle(void);
 
 /**
+ * Returns an invalid raw file handle that is guaranteed to cause failure when
+ * called with any filesystem operation.
+ *
+ * @return the invalid raw file handle
+ */
+os_raw_file_handle
+os_invalid_raw_handle(void);
+
+/**
  * Checks whether the given file handle is valid. An invalid handle is
  * guaranteed to cause failure when called with any filesystem operation.
  *
