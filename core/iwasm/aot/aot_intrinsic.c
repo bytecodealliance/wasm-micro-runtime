@@ -485,6 +485,30 @@ aot_intrinsic_i64_bit_and(uint64 l, uint64 r)
     return l & r;
 }
 
+uint64
+aot_intrinsic_i64_mul(uint64 l, uint64 r)
+{
+    return l * r;
+}
+
+uint64
+aot_intrinsic_i64_shl(uint64 l, uint64 r)
+{
+    return l << r;
+}
+
+uint64
+aot_intrinsic_i64_shr_s(uint64 l, uint64 r)
+{
+    return (int64)l >> r;
+}
+
+uint64
+aot_intrinsic_i64_shr_u(uint64 l, uint64 r)
+{
+    return l >> r;
+}
+
 #if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0
 
 typedef struct {
@@ -561,6 +585,10 @@ static const aot_intrinsic g_intrinsic_mapping[] = {
     { "i64.rem_u", "aot_intrinsic_i64_rem_u", AOT_INTRINSIC_FLAG_I64_REM_U},
     { "i64.or", "aot_intrinsic_i64_bit_or", AOT_INTRINSIC_FLAG_I64_BIT_OR},
     { "i64.and", "aot_intrinsic_i64_bit_and", AOT_INTRINSIC_FLAG_I64_BIT_AND},
+    { "i64.mul", "aot_intrinsic_i64_mul", AOT_INTRINSIC_FLAG_I64_MUL},
+    { "i64.shl", "aot_intrinsic_i64_shl", AOT_INTRINSIC_FLAG_I64_SHL},
+    { "i64.shr_s", "aot_intrinsic_i64_shr_s", AOT_INTRINSIC_FLAG_I64_SHR_S},
+    { "i64.shr_u", "aot_intrinsic_i64_shr_u", AOT_INTRINSIC_FLAG_I64_SHR_U},
 };
 /* clang-format on */
 
@@ -601,6 +629,10 @@ add_i64_common_intrinsics(AOTCompContext *comp_ctx)
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_REM_U);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_BIT_OR);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_BIT_AND);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_MUL);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_SHL);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_SHR_S);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_SHR_U);
 }
 
 static void
