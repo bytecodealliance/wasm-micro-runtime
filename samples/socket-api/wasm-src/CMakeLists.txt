@@ -1,7 +1,7 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required(VERSION 2.8...3.18)
+cmake_minimum_required(VERSION 3.14)
 project(socket_api_sample_wasm_app)
 
 message(CHECK_START "Detecting WABT")
