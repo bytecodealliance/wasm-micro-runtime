@@ -275,7 +275,7 @@ You can cross compile your project by using the toolchain provided by WAMR.
 Assume the original `CMakeLists.txt` for `test.c` likes below:
 
 ``` cmake
-cmake_minimum_required (VERSION 3.5)
+cmake_minimum_required (VERSION 3.14)
 project(hello_world)
 add_executable(hello_world test.c)
 ```
