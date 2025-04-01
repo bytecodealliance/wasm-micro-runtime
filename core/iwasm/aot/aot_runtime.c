@@ -442,6 +442,116 @@ assign_table_init_value(AOTModuleInstance *module_inst, AOTModule *module,
 
     return true;
 }
+
+static WASMStructObjectRef
+instantiate_struct_global_recursive(AOTModuleInstance *module_inst,
+                                    AOTModule *module, uint32 type_idx,
+                                    uint8 flag,
+                                    WASMStructNewInitValues *init_values,
+                                    char *error_buf, uint32 error_buf_size)
+{
+    WASMRttType *rtt_type;
+    WASMStructObjectRef struct_obj;
+    WASMStructType *struct_type;
+
+    struct_type = (WASMStructType *)module->types[type_idx];
+
+    if (!(rtt_type = wasm_rtt_type_new((WASMType *)struct_type, type_idx,
+                                       module->rtt_types, module->type_count,
+                                       &module->rtt_type_lock))) {
+        set_error_buf(error_buf, error_buf_size, "create rtt object failed");
+        return NULL;
+    }
+
+    if (!(struct_obj = wasm_struct_obj_new_internal(
+              ((AOTModuleInstanceExtra *)module_inst->e)->common.gc_heap_handle,
+              rtt_type))) {
+        set_error_buf(error_buf, error_buf_size, "create struct object failed");
+        return NULL;
+    }
+
+    if (flag == INIT_EXPR_TYPE_STRUCT_NEW) {
+        uint32 field_idx;
+        WASMRefTypeMap *ref_type_map = struct_type->ref_type_maps;
+
+        bh_assert(init_values->count == struct_type->field_count);
+
+        for (field_idx = 0; field_idx < init_values->count; field_idx++) {
+            uint8 field_type = struct_type->fields[field_idx].field_type;
+            WASMRefType *field_ref_type = NULL;
+            if (wasm_is_type_multi_byte_type(field_type)) {
+                field_ref_type = ref_type_map->ref_type;
+            }
+
+            if (wasm_reftype_is_subtype_of(field_type, field_ref_type,
+                                           REF_TYPE_STRUCTREF, NULL,
+                                           module->types, module->type_count)
+                || wasm_reftype_is_subtype_of(field_type, field_ref_type,
+                                              REF_TYPE_ARRAYREF, NULL,
+                                              module->types, module->type_count)
+                || wasm_reftype_is_subtype_of(
+                    field_type, field_ref_type, REF_TYPE_FUNCREF, NULL,
+                    module->types, module->type_count)) {
+                WASMType *wasm_type;
+                int32 heap_type =
+                    ref_type_map->ref_type->ref_ht_common.heap_type;
+                WASMValue *wasm_value = &init_values->fields[field_idx];
+                WASMValue field_value = { 0 };
+
+                bh_assert(heap_type >= 0);
+                wasm_type = module->types[heap_type];
+
+                bh_assert(wasm_type->type_flag == WASM_TYPE_STRUCT
+                          || wasm_type->type_flag == WASM_TYPE_ARRAY
+                          || wasm_type->type_flag == WASM_TYPE_FUNC);
+
+                if (wasm_type->type_flag == WASM_TYPE_STRUCT) {
+                    WASMStructNewInitValues *init_values1 =
+                        (WASMStructNewInitValues *)wasm_value->data;
+                    WASMStructObjectRef field =
+                        instantiate_struct_global_recursive(
+                            module_inst, module, heap_type,
+                            init_values1 ? INIT_EXPR_TYPE_STRUCT_NEW
+                                         : INIT_EXPR_TYPE_STRUCT_NEW_DEFAULT,
+                            init_values1, error_buf, error_buf_size);
+                    field_value.gc_obj = (WASMObjectRef)field;
+                    wasm_struct_obj_set_field(struct_obj, field_idx,
+                                              &field_value);
+                }
+                else if (wasm_type->type_flag == WASM_TYPE_ARRAY) {
+                    /* struct object's field is an array obj */
+                    set_error_buf(error_buf, error_buf_size,
+                                  "array as a field in struct object is "
+                                  "not supported in constant init expr");
+                    return NULL;
+                }
+                else if (wasm_type->type_flag == WASM_TYPE_FUNC) {
+                    WASMFuncObjectRef func_obj = NULL;
+                    /* UINT32_MAX indicates that it is a null reference */
+                    if (wasm_value->u32 != UINT32_MAX) {
+                        if (!(func_obj = aot_create_func_obj(
+                                  module_inst, wasm_value->u32, false,
+                                  error_buf, error_buf_size))) {
+                            return NULL;
+                        }
+                    }
+                    field_value.gc_obj = (WASMObjectRef)func_obj;
+                    wasm_struct_obj_set_field(struct_obj, field_idx,
+                                              &field_value);
+                }
+            }
+            else {
+                wasm_struct_obj_set_field(struct_obj, field_idx,
+                                          &init_values->fields[field_idx]);
+            }
+            if (wasm_is_type_multi_byte_type(field_type)) {
+                ref_type_map++;
+            }
+        }
+    }
+
+    return struct_obj;
+}
 #endif /* end of WASM_ENABLE_GC != 0 */
 
 static bool
@@ -538,9 +648,7 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
             case INIT_EXPR_TYPE_STRUCT_NEW:
             case INIT_EXPR_TYPE_STRUCT_NEW_DEFAULT:
             {
-                WASMRttType *rtt_type;
                 WASMStructObjectRef struct_obj;
-                WASMStructType *struct_type;
                 WASMStructNewInitValues *init_values = NULL;
                 uint32 type_idx;
 
@@ -552,36 +660,11 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                     type_idx = init_expr->u.type_index;
                 }
 
-                struct_type = (WASMStructType *)module->types[type_idx];
-
-                if (!(rtt_type = wasm_rtt_type_new(
-                          (WASMType *)struct_type, type_idx, module->rtt_types,
-                          module->type_count, &module->rtt_type_lock))) {
-                    set_error_buf(error_buf, error_buf_size,
-                                  "create rtt object failed");
+                struct_obj = instantiate_struct_global_recursive(
+                    module_inst, module, type_idx, flag, init_values, error_buf,
+                    error_buf_size);
+                if (!struct_obj) {
                     return false;
-                }
-
-                if (!(struct_obj = wasm_struct_obj_new_internal(
-                          ((AOTModuleInstanceExtra *)module_inst->e)
-                              ->common.gc_heap_handle,
-                          rtt_type))) {
-                    set_error_buf(error_buf, error_buf_size,
-                                  "create struct object failed");
-                    return false;
-                }
-
-                if (flag == INIT_EXPR_TYPE_STRUCT_NEW) {
-                    uint32 field_idx;
-
-                    bh_assert(init_values->count == struct_type->field_count);
-
-                    for (field_idx = 0; field_idx < init_values->count;
-                         field_idx++) {
-                        wasm_struct_obj_set_field(
-                            struct_obj, field_idx,
-                            &init_values->fields[field_idx]);
-                    }
                 }
 
                 PUT_REF_TO_ADDR(p, struct_obj);

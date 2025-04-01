@@ -207,6 +207,85 @@ get_mem_info_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
                                          comp_data->mem_init_data_count);
 }
 
+#if WASM_ENABLE_GC != 0
+static uint32
+get_struct_init_expr_size_recursive(const AOTCompContext *comp_ctx,
+                                    const AOTCompData *comp_data,
+                                    WASMStructNewInitValues *init_values,
+                                    uint8 flag)
+{
+    uint32 i;
+    uint32 size = 0;
+    WASMModule *module = comp_data->wasm_module;
+    uint32 type_idx = init_values->type_idx;
+    WASMStructType *struct_type =
+        (WASMStructType *)module->types[init_values->type_idx];
+    WASMRefTypeMap *ref_type_map = NULL;
+
+    bh_assert(type_idx < module->type_count);
+    bh_assert(struct_type);
+    bh_assert(struct_type->field_count == init_values->count);
+
+    ref_type_map = struct_type->ref_type_maps;
+
+    /* field_count + fields */
+    size += sizeof(uint32);
+
+    for (i = 0; i < init_values->count; i++) {
+        uint8 field_type = struct_type->fields[i].field_type;
+        WASMRefType *field_ref_type = NULL;
+        if (wasm_is_type_multi_byte_type(field_type)) {
+            field_ref_type = ref_type_map->ref_type;
+        }
+
+        if (wasm_reftype_is_subtype_of(field_type, field_ref_type,
+                                       REF_TYPE_STRUCTREF, NULL, module->types,
+                                       module->type_count)) {
+            if (init_values->fields[i].data) {
+                /* struct.new */
+                WASMStructNewInitValues *init_values1 =
+                    (WASMStructNewInitValues *)init_values->fields[i].data;
+                size += get_struct_init_expr_size_recursive(
+                    comp_ctx, comp_data, init_values1,
+                    init_values1 ? INIT_EXPR_TYPE_STRUCT_NEW
+                                 : INIT_EXPR_TYPE_STRUCT_NEW_DEFAULT);
+            }
+            else {
+                /* 0 */
+                size += sizeof(uint32);
+            }
+        }
+        else if (wasm_reftype_is_subtype_of(
+                     field_type, field_ref_type, REF_TYPE_ARRAYREF, NULL,
+                     module->types, module->type_count)) {
+            /* Not supported */
+            bh_assert(0);
+        }
+        else if (wasm_reftype_is_subtype_of(
+                     field_type, field_ref_type, REF_TYPE_FUNCREF, NULL,
+                     module->types, module->type_count)) {
+            /* ref_index */
+            size += sizeof(uint32);
+        }
+        else {
+            uint32 field_size;
+
+            field_size = wasm_value_type_size_internal(
+                struct_type->fields[i].field_type, comp_ctx->pointer_size);
+            if (field_size < sizeof(uint32))
+                field_size = sizeof(uint32);
+            size += field_size;
+        }
+
+        if (wasm_is_type_multi_byte_type(field_type)) {
+            ref_type_map++;
+        }
+    }
+
+    return size;
+}
+#endif /* end of WASM_ENABLE_GC != 0 */
+
 static uint32
 get_init_expr_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data,
                    InitializerExpression *expr)
@@ -246,35 +325,15 @@ get_init_expr_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data,
             break;
         case INIT_EXPR_TYPE_STRUCT_NEW:
         {
-            uint32 i;
-            WASMStructNewInitValues *struct_new_init_values =
-                (WASMStructNewInitValues *)expr->u.data;
-
-            /* type_index + field_count + fields */
-            size += sizeof(uint32) + sizeof(uint32);
-
-            bh_assert(struct_new_init_values->type_idx < module->type_count);
-
-            for (i = 0; i < struct_new_init_values->count; i++) {
-                WASMStructType *struct_type =
-                    (WASMStructType *)
-                        module->types[struct_new_init_values->type_idx];
-                uint32 field_size;
-
-                bh_assert(struct_type);
-                bh_assert(struct_type->field_count
-                          == struct_new_init_values->count);
-
-                field_size = wasm_value_type_size_internal(
-                    struct_type->fields[i].field_type, comp_ctx->pointer_size);
-                if (field_size < sizeof(uint32))
-                    field_size = sizeof(uint32);
-                size += field_size;
-            }
+            /* type_index */
+            size += sizeof(uint32);
+            size += get_struct_init_expr_size_recursive(
+                comp_ctx, comp_data, (WASMStructNewInitValues *)expr->u.data,
+                INIT_EXPR_TYPE_STRUCT_NEW);
             break;
         }
         case INIT_EXPR_TYPE_STRUCT_NEW_DEFAULT:
-            /* type_index */
+            /* 0 */
             size += sizeof(uint32);
             break;
         case INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT:
@@ -1805,6 +1864,85 @@ aot_emit_mem_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     return true;
 }
 
+#if WASM_ENABLE_GC != 0
+static bool
+aot_emit_struct_init_recursive(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
+                               AOTCompContext *comp_ctx,
+                               WASMStructNewInitValues *init_values)
+{
+    uint32 offset = *p_offset;
+    uint32 i;
+    WASMModule *module = comp_ctx->comp_data->wasm_module;
+    WASMStructType *struct_type = NULL;
+    WASMRefTypeMap *ref_type_map = NULL;
+
+    EMIT_U32(init_values->count);
+
+    bh_assert(init_values->type_idx < module->type_count);
+
+    struct_type = (WASMStructType *)module->types[init_values->type_idx];
+    ref_type_map = struct_type->ref_type_maps;
+
+    bh_assert(struct_type);
+    bh_assert(struct_type->field_count == init_values->count);
+
+    for (i = 0; i < init_values->count; i++) {
+        uint8 field_type = struct_type->fields[i].field_type;
+        WASMRefType *field_ref_type = NULL;
+        if (wasm_is_type_multi_byte_type(field_type)) {
+            field_ref_type = ref_type_map->ref_type;
+        }
+
+        if (wasm_reftype_is_subtype_of(field_type, field_ref_type,
+                                       REF_TYPE_STRUCTREF, NULL, module->types,
+                                       module->type_count)) {
+            if (init_values->fields[i].data) {
+                /* struct.new */
+                if (!aot_emit_struct_init_recursive(
+                        buf, buf_end, &offset, comp_ctx,
+                        (WASMStructNewInitValues *)init_values->fields[i].data))
+                    return false;
+            }
+            else {
+                /* struct.new_default */
+                EMIT_U32(0);
+            }
+        }
+        else if (wasm_reftype_is_subtype_of(
+                     field_type, field_ref_type, REF_TYPE_ARRAYREF, NULL,
+                     module->types, module->type_count)) {
+            bh_assert(0);
+        }
+        else if (wasm_reftype_is_subtype_of(
+                     field_type, field_ref_type, REF_TYPE_FUNCREF, NULL,
+                     module->types, module->type_count)) {
+            EMIT_U32(init_values->fields[i].ref_index);
+        }
+        else {
+            /* Value types */
+            uint32 field_size = wasm_value_type_size_internal(
+                struct_type->fields[i].field_type, comp_ctx->pointer_size);
+            if (field_size <= sizeof(uint32))
+                EMIT_U32(init_values->fields[i].u32);
+            else if (field_size == sizeof(uint64))
+                EMIT_U64(init_values->fields[i].u64);
+            else if (field_size == sizeof(uint64) * 2)
+                EMIT_V128(init_values->fields[i].v128);
+            else {
+                bh_assert(0);
+            }
+        }
+
+        if (wasm_is_type_multi_byte_type(field_type)) {
+            ref_type_map++;
+        }
+    }
+
+    *p_offset = offset;
+    return true;
+}
+#endif /* end of WASM_ENABLE_GC != 0 */
+
 static bool
 aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                    AOTCompContext *comp_ctx, InitializerExpression *expr)
@@ -1844,36 +1982,12 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             break;
         case INIT_EXPR_TYPE_STRUCT_NEW:
         {
-            uint32 i;
-            WASMStructNewInitValues *init_values =
-                (WASMStructNewInitValues *)expr->u.data;
-            WASMStructType *struct_type = NULL;
-
-            EMIT_U32(init_values->type_idx);
-            EMIT_U32(init_values->count);
-
-            bh_assert(init_values->type_idx < module->type_count);
-
-            struct_type =
-                (WASMStructType *)module->types[init_values->type_idx];
-
-            bh_assert(struct_type);
-            bh_assert(struct_type->field_count == init_values->count);
-
-            for (i = 0; i < init_values->count; i++) {
-                uint32 field_size = wasm_value_type_size_internal(
-                    struct_type->fields[i].field_type, comp_ctx->pointer_size);
-                if (field_size <= sizeof(uint32))
-                    EMIT_U32(init_values->fields[i].u32);
-                else if (field_size == sizeof(uint64))
-                    EMIT_U64(init_values->fields[i].u64);
-                else if (field_size == sizeof(uint64) * 2)
-                    EMIT_V128(init_values->fields[i].v128);
-                else {
-                    bh_assert(0);
-                }
+            EMIT_U32(((WASMStructNewInitValues *)expr->u.data)->type_idx);
+            if (!aot_emit_struct_init_recursive(
+                    buf, buf_end, &offset, comp_ctx,
+                    (WASMStructNewInitValues *)expr->u.data)) {
+                return false;
             }
-
             break;
         }
         case INIT_EXPR_TYPE_STRUCT_NEW_DEFAULT:
