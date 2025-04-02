@@ -665,7 +665,7 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
                   const char *table_name, WASMTableImport *table,
                   char *error_buf, uint32 error_buf_size)
 {
-    const uint8 *p = *p_buf, *p_end = buf_end;
+    const uint8 *p = *p_buf, *p_end = buf_end, *p_org;
     uint32 declare_elem_type = 0, table_flag = 0, declare_init_size = 0,
            declare_max_size = 0;
 
@@ -678,7 +678,10 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
 #endif
     );
 
+    p_org = p;
     read_leb_uint32(p, p_end, table_flag);
+    bh_assert(p - p_org <= 1);
+    (void)p_org;
 
     if (!wasm_table_check_flags(table_flag, error_buf, error_buf_size, false)) {
         return false;
@@ -711,7 +714,7 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
                    const char *memory_name, WASMMemoryImport *memory,
                    char *error_buf, uint32 error_buf_size)
 {
-    const uint8 *p = *p_buf, *p_end = buf_end;
+    const uint8 *p = *p_buf, *p_end = buf_end, *p_org;
 #if WASM_ENABLE_APP_FRAMEWORK != 0
     uint32 pool_size = wasm_runtime_memory_pool_size();
     uint32 max_page_count = pool_size * APP_MEMORY_MAX_GLOBAL_HEAP_PERCENT
@@ -724,7 +727,11 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
     uint32 declare_init_page_count = 0;
     uint32 declare_max_page_count = 0;
 
+    p_org = p;
     read_leb_uint32(p, p_end, mem_flag);
+    bh_assert(p - p_org <= 1);
+    (void)p_org;
+
     if (!wasm_memory_check_flags(mem_flag, error_buf, error_buf_size, false)) {
         return false;
     }
