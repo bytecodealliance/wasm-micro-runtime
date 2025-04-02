@@ -87,6 +87,11 @@ typedef struct WASMExecEnv {
         uint8 *bottom;
     } wasm_stack;
 
+#if WASM_ENABLE_INSTRUCTION_METERING != 0
+    /* instructions to execute */
+    int instructions_to_execute;
+#endif
+
 #if WASM_ENABLE_FAST_JIT != 0
     /**
      * Cache for
