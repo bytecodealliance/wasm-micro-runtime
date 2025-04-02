@@ -878,9 +878,6 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
         add_i64_common_intrinsics(comp_ctx);
         add_common_float_integer_conversion(comp_ctx);
         add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_CONST);
-        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_CONST);
-        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_CONST);
-        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_CONST);
     }
     else {
         /*
