@@ -317,7 +317,7 @@ jobs:
         os: [ubuntu-22.04]
         wasi_sdk_release:
           [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz",
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-25/wasi-sdk-25.0-x86_64-linux.tar.gz"
           ]
         wabt_release:
           [
@@ -351,7 +351,7 @@ jobs:
           cd /opt
           sudo wget ${{ matrix.wasi_sdk_release }}
           sudo tar -xzf wasi-sdk-*.tar.gz
-          sudo ln -sf wasi-sdk-20.0 wasi-sdk
+          sudo ln -sf wasi-sdk-25.0-x86_64-linux wasi-sdk
 
       - name: download and install wabt
         run: |
@@ -466,7 +466,7 @@ jobs:
         os: [ubuntu-22.04]
         wasi_sdk_release:
           [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz",
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-25/wasi-sdk-25.0-x86_64-linux.tar.gz"
           ]
         wabt_release:
           [
@@ -484,7 +484,7 @@ jobs:
           cd /opt
           sudo wget ${{ matrix.wasi_sdk_release }}
           sudo tar -xzf wasi-sdk-*.tar.gz
-          sudo ln -sf wasi-sdk-20.0 wasi-sdk
+          sudo ln -sf wasi-sdk-25.0-x86_64-linux wasi-sdk
 
       - name: download and install wabt
         run: |
@@ -636,7 +636,7 @@ jobs:
           ]
         wasi_sdk_release:
           [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz",
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-25/wasi-sdk-25.0-x86_64-linux.tar.gz"
           ]
         include:
           - os: ubuntu-22.04
@@ -710,7 +710,7 @@ jobs:
           cd /opt
           sudo wget ${{ matrix.wasi_sdk_release }}
           sudo tar -xzf wasi-sdk-*.tar.gz
-          sudo mv wasi-sdk-20.0 wasi-sdk
+          sudo ln -sf wasi-sdk-25.0-x86_64-linux wasi-sdk
 
       # It is a temporary solution until new wasi-sdk that includes bug fixes is released
       - name: build wasi-libc from source
