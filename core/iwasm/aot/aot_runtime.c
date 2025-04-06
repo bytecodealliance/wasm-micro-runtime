@@ -3327,8 +3327,25 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
         return true;
     }
     else {
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
+        void *prev_frame = get_top_frame(exec_env);
+        /* Only allocate frame for frame-per-call mode; in the
+           frame-per-function mode the frame is allocated at the
+           beginning of the function. */
+        if (!is_frame_per_function(exec_env)
+            && !aot_alloc_frame(exec_env, table_elem_idx)) {
+            return false;
+        }
+#endif
         ret = invoke_native_internal(exec_env, func_ptr, func_type, signature,
                                      attachment, argv, argc, argv);
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
+        /* Free all frames allocated, note that some frames
+           may be allocated in AOT code and haven't been
+           freed if exception occurred */
+        while (get_top_frame(exec_env) != prev_frame)
+            aot_free_frame(exec_env);
+#endif
         if (!ret)
             goto fail;
 
