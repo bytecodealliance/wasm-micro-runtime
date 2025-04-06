@@ -228,24 +228,14 @@ jobs:
             #$AOT_BUILD_OPTIONS,
           ]
         os: [macos-13]
-        wasi_sdk_release:
-          [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-macos.tar.gz",
-          ]
-        wabt_release:
-          [
-            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-macos-12.tar.gz",
-          ]
     steps:
       - name: checkout
         uses: actions/checkout@v4
 
-      - name: download and install wabt
-        run: |
-          cd /opt
-          sudo wget ${{ matrix.wabt_release }}
-          sudo tar -xzf wabt-1.0.31-*.tar.gz
-          sudo mv wabt-1.0.31 wabt
+      - name: install-wasi-sdk-wabt
+        uses: ./.github/actions/install-wasi-sdk-wabt
+        with:
+          os: ${{ matrix.os }}
 
       - name: Build Sample [wasm-c-api]
         run: |
@@ -260,14 +250,6 @@ jobs:
     strategy:
       matrix:
         os: [macos-13, macos-14]
-        wasi_sdk_release:
-          [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-macos.tar.gz",
-          ]
-        wabt_release:
-          [
-            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-macos-12.tar.gz",
-          ]
         include:
           - os: macos-13
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_intel_macos.outputs.cache_key }}
@@ -277,19 +259,10 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
 
-      - name: download and install wasi-sdk
-        run: |
-          cd /opt
-          sudo wget ${{ matrix.wasi_sdk_release }}
-          sudo tar -xzf wasi-sdk-*.tar.gz
-          sudo ln -sf wasi-sdk-20.0 wasi-sdk
-
-      - name: download and install wabt
-        run: |
-          cd /opt
-          sudo wget ${{ matrix.wabt_release }}
-          sudo tar -xzf wabt-1.0.31-*.tar.gz
-          sudo ln -sf wabt-1.0.31 wabt
+      - name: install-wasi-sdk-wabt
+        uses: ./.github/actions/install-wasi-sdk-wabt
+        with:
+          os: ${{ matrix.os }}
 
       - name: Build Sample [basic]
         run: |
@@ -356,12 +329,13 @@ jobs:
           cmake --build . --config Release --parallel 4
         working-directory: wamr-compiler
 
+      # cmake --build . --config Debug --parallel 4
       - name: Build Sample [wasi-threads]
         run: |
           cd samples/wasi-threads
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Debug --parallel 4
+          cmake --build . --config Debug --verbose
           ./iwasm wasm-apps/no_pthread.wasm
 
           ../../../wamr-compiler/build/wamrc --size-level=0 --enable-multi-thread -o wasm-apps/no_pthread.aot wasm-apps/no_pthread.wasm

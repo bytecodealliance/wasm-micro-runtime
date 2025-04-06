@@ -2,25 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 cmake_minimum_required(VERSION 3.14)
-project(wasm-app)
+project(file_wasm)
 
-set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
+set (CMAKE_BUILD_TYPE Debug)  # Otherwise no debug symbols (addr2line)
 
-if (APPLE)
-    set (HAVE_FLAG_SEARCH_PATHS_FIRST 0)
-    set (CMAKE_C_LINK_FLAGS "")
-    set (CMAKE_CXX_LINK_FLAGS "")
-endif ()
-
-set (CMAKE_SYSTEM_PROCESSOR wasm32)
-
-if (NOT DEFINED WASI_SDK_DIR)
-    set (WASI_SDK_DIR               "/opt/wasi-sdk")
-endif ()
-
-set (CMAKE_C_COMPILER_TARGET        "wasm32-wasi")
-set (CMAKE_C_COMPILER               "${WASI_SDK_DIR}/bin/clang")
-set (CMAKE_C_FLAGS                  "${CMAKE_C_FLAGS} -O3 -Wno-unused-command-line-argument")
-
-add_executable(file.wasm main.c)
-target_link_libraries(file.wasm)
+add_executable(file main.c)
+set_target_properties (file PROPERTIES SUFFIX .wasm)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/file.wasm DESTINATION wasm-app)
