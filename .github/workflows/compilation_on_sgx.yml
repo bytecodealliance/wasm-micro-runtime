@@ -151,14 +151,6 @@ jobs:
             #$LLVM_EAGER_JIT_BUILD_OPTIONS,
           ]
         os: [ubuntu-20.04]
-        wasi_sdk_release:
-          [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz",
-          ]
-        wabt_release:
-          [
-            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
-          ]
         iwasm_make_options_feature: [
             # Features to be tested: IPFS
             "-DWAMR_BUILD_SGX_IPFS=1",
@@ -172,19 +164,10 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
 
-      - name: download and install wasi-sdk
-        run: |
-          cd /opt
-          sudo wget ${{ matrix.wasi_sdk_release }}
-          sudo tar -xzf wasi-sdk-*.tar.gz
-          sudo mv wasi-sdk-19.0 wasi-sdk
-
-      - name: download and install wabt
-        run: |
-          cd /opt
-          sudo wget ${{ matrix.wabt_release }}
-          sudo tar -xzf wabt-1.0.31-*.tar.gz
-          sudo mv wabt-1.0.31 wabt
+      - name: install-wasi-sdk-wabt
+        uses: ./.github/actions/install-wasi-sdk-wabt
+        with:
+          os: ${{ matrix.os }}
 
       - name: build wasi-libc (needed for wasi-threads)
         run: |
