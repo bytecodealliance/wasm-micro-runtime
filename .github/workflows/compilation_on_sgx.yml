@@ -169,21 +169,21 @@ jobs:
         with:
           os: ${{ matrix.os }}
 
-      - name: build wasi-libc (needed for wasi-threads)
-        run: |
-          mkdir wasi-libc
-          cd wasi-libc
-          git init
-          # "Fix a_store operation in atomic.h" commit on main branch
-          git fetch https://github.com/WebAssembly/wasi-libc \
-            1dfe5c302d1c5ab621f7abf04620fae92700fd22
-          git checkout FETCH_HEAD
-          make \
-            AR=/opt/wasi-sdk/bin/llvm-ar \
-            NM=/opt/wasi-sdk/bin/llvm-nm \
-            CC=/opt/wasi-sdk/bin/clang \
-            THREAD_MODEL=posix
-        working-directory: core/deps
+      # - name: build wasi-libc (needed for wasi-threads)
+      #   run: |
+      #     mkdir wasi-libc
+      #     cd wasi-libc
+      #     git init
+      #     # "Fix a_store operation in atomic.h" commit on main branch
+      #     git fetch https://github.com/WebAssembly/wasi-libc \
+      #       1dfe5c302d1c5ab621f7abf04620fae92700fd22
+      #     git checkout FETCH_HEAD
+      #     make \
+      #       AR=/opt/wasi-sdk/bin/llvm-ar \
+      #       NM=/opt/wasi-sdk/bin/llvm-nm \
+      #       CC=/opt/wasi-sdk/bin/clang \
+      #       THREAD_MODEL=posix
+      #   working-directory: core/deps
 
       - name: install SGX SDK and necessary libraries
         run: |
