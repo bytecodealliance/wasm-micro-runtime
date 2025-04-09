@@ -1517,69 +1517,38 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     return true;
 }
 
+#define LOAD_MODULE_EXTRA_FIELD(field, type)                                   \
+    do {                                                                       \
+        get_module_extra_field_offset(field);                                  \
+        offset = I32_CONST(offset_u32);                                        \
+        CHECK_LLVM_CONST(offset);                                              \
+        if (!(field_p = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,    \
+                                              func_ctx->aot_inst, &offset, 1,  \
+                                              #field "_p"))) {                 \
+            aot_set_last_error("llvm build inbounds gep failed");              \
+            return false;                                                      \
+        }                                                                      \
+        if (!(func_ctx->field =                                                \
+                  LLVMBuildLoad2(comp_ctx->builder, type, field_p, #field))) { \
+            aot_set_last_error("llvm build load failed");                      \
+            return false;                                                      \
+        }                                                                      \
+    } while (0)
+
 static bool
 create_shared_heap_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
-    LLVMValueRef offset, base_addr_p, start_off_p, cmp;
+    LLVMValueRef offset, field_p;
     uint32 offset_u32;
 
-    /* Load aot_inst->e->shared_heap_base_addr_adj */
-    offset_u32 = get_module_inst_extra_offset(comp_ctx);
-#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_SHARED_HEAP != 0
-    if (comp_ctx->is_jit_mode)
-        offset_u32 +=
-            offsetof(WASMModuleInstanceExtra, shared_heap_base_addr_adj);
-    else
-#endif
-        offset_u32 +=
-            offsetof(AOTModuleInstanceExtra, shared_heap_base_addr_adj);
-    offset = I32_CONST(offset_u32);
-    CHECK_LLVM_CONST(offset);
-
-    if (!(base_addr_p = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
-                                              func_ctx->aot_inst, &offset, 1,
-                                              "shared_heap_base_addr_adj_p"))) {
-        aot_set_last_error("llvm build inbounds gep failed");
-        return false;
-    }
-    if (!(func_ctx->shared_heap_base_addr_adj =
-              LLVMBuildLoad2(comp_ctx->builder, INT8_PTR_TYPE, base_addr_p,
-                             "shared_heap_base_addr_adj"))) {
-        aot_set_last_error("llvm build load failed");
-        return false;
-    }
-
-    /* Load aot_inst->e->shared_heap_start_off */
-    offset_u32 = get_module_inst_extra_offset(comp_ctx);
-#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_SHARED_HEAP != 0
-    if (comp_ctx->is_jit_mode)
-        offset_u32 += offsetof(WASMModuleInstanceExtra, shared_heap_start_off);
-    else
-#endif
-        offset_u32 += offsetof(AOTModuleInstanceExtra, shared_heap_start_off);
-    offset = I32_CONST(offset_u32);
-    CHECK_LLVM_CONST(offset);
-
-    if (!(start_off_p = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
-                                              func_ctx->aot_inst, &offset, 1,
-                                              "shared_heap_start_off_p"))) {
-        aot_set_last_error("llvm build inbounds gep failed");
-        return false;
-    }
-    if (!(func_ctx->shared_heap_start_off = LLVMBuildLoad2(
-              comp_ctx->builder,
-              comp_ctx->pointer_size == sizeof(uint64) ? I64_TYPE : I32_TYPE,
-              start_off_p, "shared_heap_start_off"))) {
-        aot_set_last_error("llvm build load failed");
-        return false;
-    }
-
-    if (!(cmp = LLVMBuildIsNotNull(comp_ctx->builder,
-                                   func_ctx->shared_heap_base_addr_adj,
-                                   "has_shared_heap"))) {
-        aot_set_last_error("llvm build is not null failed");
-        return false;
-    }
+    LOAD_MODULE_EXTRA_FIELD(shared_heap_base_addr_adj, INT8_PTR_TYPE);
+    LOAD_MODULE_EXTRA_FIELD(
+        shared_heap_start_off,
+        comp_ctx->pointer_size == sizeof(uint64) ? I64_TYPE : I32_TYPE);
+    LOAD_MODULE_EXTRA_FIELD(
+        shared_heap_end_off,
+        comp_ctx->pointer_size == sizeof(uint64) ? I64_TYPE : I32_TYPE);
+    LOAD_MODULE_EXTRA_FIELD(shared_heap, INT8_PTR_TYPE);
 
     return true;
 fail:
@@ -2438,7 +2407,7 @@ jit_stack_size_callback(void *user_data, const char *name, size_t namelen,
     stack_consumption_to_call_wrapped_func =
         musttail ? 0
                  : aot_estimate_stack_usage_for_function_call(
-                     comp_ctx, func_ctx->aot_func->func_type);
+                       comp_ctx, func_ctx->aot_func->func_type);
     LOG_VERBOSE("func %.*s stack %u + %zu + %u", (int)namelen, name,
                 stack_consumption_to_call_wrapped_func, stack_size, call_size);
 
