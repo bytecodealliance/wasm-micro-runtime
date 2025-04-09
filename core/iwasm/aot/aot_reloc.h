@@ -122,6 +122,10 @@ typedef struct {
     REG_SYM(aot_intrinsic_i64_rem_u),     \
     REG_SYM(aot_intrinsic_i64_bit_or),    \
     REG_SYM(aot_intrinsic_i64_bit_and),   \
+    REG_SYM(aot_intrinsic_i64_mul),       \
+    REG_SYM(aot_intrinsic_i64_shl),       \
+    REG_SYM(aot_intrinsic_i64_shr_s),     \
+    REG_SYM(aot_intrinsic_i64_shr_u),     \
     REG_SYM(aot_intrinsic_i32_div_s),     \
     REG_SYM(aot_intrinsic_i32_div_u),     \
     REG_SYM(aot_intrinsic_i32_rem_s),     \
