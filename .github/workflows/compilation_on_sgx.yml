@@ -229,19 +229,20 @@ jobs:
           cp wamrc `pwd`/../../product-mini/platforms/${{ matrix.platform }}/enclave-sample
         working-directory: wamr-compiler
 
+      # cmake --build . --config Debug --parallel 4
       - name: Build Sample [file]
         run: |
           cd samples/file
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Debug --parallel 4
+          cmake --build . --config Debug --verbose
           cp wasm-app/file.wasm `pwd`/../../../product-mini/platforms/${{ matrix.platform }}/enclave-sample
 
       - name: Test Sample [file] in non-aot mode
         if: matrix.iwasm_make_options_run_mode != '$AOT_BUILD_OPTIONS'
         run: |
           source /opt/intel/sgxsdk/environment
-          ./iwasm --dir=. file.wasm
+          ./iwasm -f file.wasm -d .
         working-directory: product-mini/platforms/${{ matrix.platform }}/enclave-sample
 
       - name: Test Sample [file] in aot mode
@@ -249,7 +250,7 @@ jobs:
         run: |
           source /opt/intel/sgxsdk/environment
           ./wamrc -sgx -o file.aot file.wasm
-          ./iwasm --dir=. file.aot
+          ./iwasm -f file.aot -d .
         working-directory: product-mini/platforms/${{ matrix.platform }}/enclave-sample
 
   spec_test_default:

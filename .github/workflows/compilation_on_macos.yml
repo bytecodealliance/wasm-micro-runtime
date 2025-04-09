@@ -329,12 +329,13 @@ jobs:
           cmake --build . --config Release --parallel 4
         working-directory: wamr-compiler
 
+      # cmake --build . --config Debug --parallel 4
       - name: Build Sample [wasi-threads]
         run: |
           cd samples/wasi-threads
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Debug --parallel 4
+          cmake --build . --config Debug --verbose
           ./iwasm wasm-apps/no_pthread.wasm
 
           ../../../wamr-compiler/build/wamrc --size-level=0 --enable-multi-thread -o wasm-apps/no_pthread.aot wasm-apps/no_pthread.wasm
