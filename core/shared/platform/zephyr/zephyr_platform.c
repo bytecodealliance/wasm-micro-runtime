@@ -255,3 +255,9 @@ set_exec_mem_alloc_func(exec_mem_alloc_func_t alloc_func,
     exec_mem_alloc_func = alloc_func;
     exec_mem_free_func = free_func;
 }
+
+os_raw_file_handle
+os_invalid_raw_handle(void)
+{
+    return -1;
+}
