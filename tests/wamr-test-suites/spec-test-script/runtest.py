@@ -1575,7 +1575,8 @@ if __name__ == "__main__":
         try:
             if not opts.no_cleanup:
                 # remove the files under /tempfiles/ and copy of .wasm files
-                log(f"Removing {temp_file_repo}")
+                log(f"Removing tmp*")
+                # log(f"Removing {temp_file_repo}")
 
                 for t in temp_file_repo:
                     # None and empty
@@ -1585,7 +1586,8 @@ if __name__ == "__main__":
                     if os.path.exists(t):
                         os.remove(t)
             else:
-                log(f"Leaving {temp_file_repo}")
+                log(f"Leaving tmp*")
+                # log(f"Leaving {temp_file_repo}")
             
         except Exception as e:
             print("Failed to remove tempfiles: %s" % e)
