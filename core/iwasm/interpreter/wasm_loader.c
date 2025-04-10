@@ -11234,6 +11234,13 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
     bool disable_emit, preserve_local = false, if_condition_available = true;
     float32 f32_const;
     float64 f64_const;
+    /*
+     * It means that the fast interpreter detected an exception while preparing,
+     * typically near the block opcode, but it did not immediately trigger
+     * the exception. The loader should be capable of identifying it near
+     * the end opcode and then raising the exception.
+     */
+    bool pending_exception = false;
 
     LOG_OP("\nProcessing func | [%d] params | [%d] locals | [%d] return\n",
            func->param_cell_num, func->local_cell_num, func->ret_cell_num);
@@ -11584,6 +11591,16 @@ re_scan:
                         cell_num = wasm_value_type_cell_num(
                             wasm_type->types[wasm_type->param_count - i - 1]);
                         loader_ctx->frame_offset -= cell_num;
+
+                        if (loader_ctx->frame_offset
+                            < loader_ctx->frame_offset_bottom) {
+                            LOG_DEBUG(
+                                "frame_offset underflow, roll back and "
+                                "let following stack checker report it\n");
+                            loader_ctx->frame_offset += cell_num;
+                            pending_exception = true;
+                            break;
+                        }
 #endif
                     }
                 }
@@ -12105,6 +12122,15 @@ re_scan:
                         goto fail;
                     }
                 }
+
+#if WASM_ENABLE_FAST_INTERP != 0
+                if (pending_exception) {
+                    set_error_buf(
+                        error_buf, error_buf_size,
+                        "There is a pending exception needs to be handled");
+                    goto fail;
+                }
+#endif
 
                 break;
             }
