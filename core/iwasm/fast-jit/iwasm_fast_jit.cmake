@@ -1,8 +1,14 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-set (IWASM_FAST_JIT_DIR ${CMAKE_CURRENT_LIST_DIR})
+# Yes. To solve the compatibility issue with CMAKE (>= 4.0), we need to update
+# our `cmake_minimum_required()` to 3.5. However, there are CMakeLists.txt
+# from 3rd parties that we should not alter. Therefore, in addition to
+# changing the `cmake_minimum_required()`, we should also add a configuration
+# here that is compatible with earlier versions.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5 FORCE)
 
+set (IWASM_FAST_JIT_DIR ${CMAKE_CURRENT_LIST_DIR})
 add_definitions(-DWASM_ENABLE_FAST_JIT=1)
 if (WAMR_BUILD_FAST_JIT_DUMP EQUAL 1)
     add_definitions(-DWASM_ENABLE_FAST_JIT_DUMP=1)

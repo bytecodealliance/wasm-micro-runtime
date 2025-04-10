@@ -151,14 +151,6 @@ jobs:
             #$LLVM_EAGER_JIT_BUILD_OPTIONS,
           ]
         os: [ubuntu-20.04]
-        wasi_sdk_release:
-          [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz",
-          ]
-        wabt_release:
-          [
-            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
-          ]
         iwasm_make_options_feature: [
             # Features to be tested: IPFS
             "-DWAMR_BUILD_SGX_IPFS=1",
@@ -172,35 +164,26 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
 
-      - name: download and install wasi-sdk
-        run: |
-          cd /opt
-          sudo wget ${{ matrix.wasi_sdk_release }}
-          sudo tar -xzf wasi-sdk-*.tar.gz
-          sudo mv wasi-sdk-19.0 wasi-sdk
+      - name: install-wasi-sdk-wabt
+        uses: ./.github/actions/install-wasi-sdk-wabt
+        with:
+          os: ${{ matrix.os }}
 
-      - name: download and install wabt
-        run: |
-          cd /opt
-          sudo wget ${{ matrix.wabt_release }}
-          sudo tar -xzf wabt-1.0.31-*.tar.gz
-          sudo mv wabt-1.0.31 wabt
-
-      - name: build wasi-libc (needed for wasi-threads)
-        run: |
-          mkdir wasi-libc
-          cd wasi-libc
-          git init
-          # "Fix a_store operation in atomic.h" commit on main branch
-          git fetch https://github.com/WebAssembly/wasi-libc \
-            1dfe5c302d1c5ab621f7abf04620fae92700fd22
-          git checkout FETCH_HEAD
-          make \
-            AR=/opt/wasi-sdk/bin/llvm-ar \
-            NM=/opt/wasi-sdk/bin/llvm-nm \
-            CC=/opt/wasi-sdk/bin/clang \
-            THREAD_MODEL=posix
-        working-directory: core/deps
+      # - name: build wasi-libc (needed for wasi-threads)
+      #   run: |
+      #     mkdir wasi-libc
+      #     cd wasi-libc
+      #     git init
+      #     # "Fix a_store operation in atomic.h" commit on main branch
+      #     git fetch https://github.com/WebAssembly/wasi-libc \
+      #       1dfe5c302d1c5ab621f7abf04620fae92700fd22
+      #     git checkout FETCH_HEAD
+      #     make \
+      #       AR=/opt/wasi-sdk/bin/llvm-ar \
+      #       NM=/opt/wasi-sdk/bin/llvm-nm \
+      #       CC=/opt/wasi-sdk/bin/clang \
+      #       THREAD_MODEL=posix
+      #   working-directory: core/deps
 
       - name: install SGX SDK and necessary libraries
         run: |
@@ -240,33 +223,31 @@ jobs:
       - name: Build wamrc only for testing samples in aot mode
         if: matrix.iwasm_make_options_run_mode == '$AOT_BUILD_OPTIONS'
         run: |
-          mkdir build && cd build
-          cmake ..
-          cmake --build . --config Release --parallel 4
-          cp wamrc `pwd`/../../product-mini/platforms/${{ matrix.platform }}/enclave-sample
+          cmake -S . -B build
+          cmake --build build --config Release --parallel 4
+          cp build/wamrc ../product-mini/platforms/${{ matrix.platform }}/enclave-sample
         working-directory: wamr-compiler
 
       - name: Build Sample [file]
         run: |
-          cd samples/file
-          mkdir build && cd build
-          cmake ..
-          cmake --build . --config Debug --parallel 4
-          cp wasm-app/file.wasm `pwd`/../../../product-mini/platforms/${{ matrix.platform }}/enclave-sample
+          cmake -S . -B build
+          cmake --build build --config Debug --parallel 4
+          cp build/wasm-app/file.wasm ../../product-mini/platforms/${{ matrix.platform }}/enclave-sample
+        working-directory: samples/file
 
       - name: Test Sample [file] in non-aot mode
         if: matrix.iwasm_make_options_run_mode != '$AOT_BUILD_OPTIONS'
         run: |
           source /opt/intel/sgxsdk/environment
-          ./iwasm --dir=. file.wasm
+          ./iwasm --dir=. ./file.wasm
         working-directory: product-mini/platforms/${{ matrix.platform }}/enclave-sample
 
       - name: Test Sample [file] in aot mode
         if: matrix.iwasm_make_options_run_mode == '$AOT_BUILD_OPTIONS'
         run: |
           source /opt/intel/sgxsdk/environment
-          ./wamrc -sgx -o file.aot file.wasm
-          ./iwasm --dir=. file.aot
+          ./wamrc -sgx -o ./file.aot ./file.wasm
+          ./iwasm --dir=. ./file.aot
         working-directory: product-mini/platforms/${{ matrix.platform }}/enclave-sample
 
   spec_test_default:
