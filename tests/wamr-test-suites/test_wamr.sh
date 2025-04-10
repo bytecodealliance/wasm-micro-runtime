@@ -39,7 +39,7 @@ function help()
     echo "-F set the firmware path used by qemu"
     echo "-C enable code coverage collect"
     echo "-j set the platform to test"
-    echo "-T set sanitizer to use in tests(ubsan|tsan|asan)"
+    echo "-T set sanitizer to use in tests(ubsan|tsan|asan|posan)"
     echo "-A use the specified wamrc command instead of building it"
     echo "-r [requirement name] [N [N ...]] specify a requirement name followed by one or more"
     echo "                                  subrequirement IDs, if no subrequirement is specificed,"
@@ -1033,6 +1033,11 @@ function trigger()
     if [[ "$WAMR_BUILD_SANITIZER" == "tsan" ]]; then
         echo "Setting run with tsan"
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SANITIZER=tsan"
+    fi
+
+    if [[ "$WAMR_BUILD_SANITIZER" == "posan" ]]; then
+        echo "Setting run with posan"
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SANITIZER=posan"
     fi
 
     # Make sure we're using the builtin WASI libc implementation
