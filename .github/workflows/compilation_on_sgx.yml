@@ -223,34 +223,31 @@ jobs:
       - name: Build wamrc only for testing samples in aot mode
         if: matrix.iwasm_make_options_run_mode == '$AOT_BUILD_OPTIONS'
         run: |
-          mkdir build && cd build
-          cmake ..
-          cmake --build . --config Release --parallel 4
-          cp wamrc `pwd`/../../product-mini/platforms/${{ matrix.platform }}/enclave-sample
+          cmake -S . -B build
+          cmake --build build --config Release --parallel 4
+          cp build/wamrc ../product-mini/platforms/${{ matrix.platform }}/enclave-sample
         working-directory: wamr-compiler
 
-      # cmake --build . --config Debug --parallel 4
       - name: Build Sample [file]
         run: |
-          cd samples/file
-          mkdir build && cd build
-          cmake ..
-          cmake --build . --config Debug --verbose
-          cp wasm-app/file.wasm `pwd`/../../../product-mini/platforms/${{ matrix.platform }}/enclave-sample
+          cmake -S . -B build
+          cmake --build build --config Debug --parallel 4
+          cp build/wasm-app/file.wasm ../../product-mini/platforms/${{ matrix.platform }}/enclave-sample
+        working-directory: samples/file
 
       - name: Test Sample [file] in non-aot mode
         if: matrix.iwasm_make_options_run_mode != '$AOT_BUILD_OPTIONS'
         run: |
           source /opt/intel/sgxsdk/environment
-          ./iwasm -f file.wasm -d .
+          ./iwasm --dir=. ./file.wasm
         working-directory: product-mini/platforms/${{ matrix.platform }}/enclave-sample
 
       - name: Test Sample [file] in aot mode
         if: matrix.iwasm_make_options_run_mode == '$AOT_BUILD_OPTIONS'
         run: |
           source /opt/intel/sgxsdk/environment
-          ./wamrc -sgx -o file.aot file.wasm
-          ./iwasm -f file.aot -d .
+          ./wamrc -sgx -o ./file.aot ./file.wasm
+          ./iwasm --dir=. ./file.aot
         working-directory: product-mini/platforms/${{ matrix.platform }}/enclave-sample
 
   spec_test_default:
