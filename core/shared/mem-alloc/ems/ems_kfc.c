@@ -208,8 +208,28 @@ gc_get_heap_struct_size()
 static void
 adjust_ptr(uint8 **p_ptr, intptr_t offset)
 {
-    if (*p_ptr)
-        *p_ptr = (uint8 *)((intptr_t)(*p_ptr) + offset);
+    if ((!*p_ptr)) {
+        return;
+    }
+
+    /*
+     * to resolve a possible signed integer overflow issue
+     * when p_ptr is over 0x8000000000000000  by not using
+     * `(intptr_t)`
+     */
+    uintptr_t offset_val = 0;
+#if UINTPTR_MAX == UINT64_MAX
+    offset_val = labs(offset);
+#else
+    offset_val = abs(offset);
+#endif
+
+    if (offset > 0) {
+        *p_ptr = (uint8 *)((uintptr_t)(*p_ptr) + offset_val);
+    }
+    else {
+        *p_ptr = (uint8 *)((uintptr_t)(*p_ptr) - offset_val);
+    }
 }
 
 int
