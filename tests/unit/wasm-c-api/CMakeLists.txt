@@ -1,7 +1,7 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 2.9)
+cmake_minimum_required (VERSION 3.14)
 project (wasm_c_api_test)
 
 ################  runtime settings  ################
@@ -34,6 +34,14 @@ add_library(vmlib STATIC ${WAMR_RUNTIME_LIB_SOURCE})
 ################################################
 
 ################  unit test related  ################
+
+# Yes. To solve the compatibility issue with CMAKE (>= 4.0), we need to update
+# our `cmake_minimum_required()` to 3.5. However, there are CMakeLists.txt
+# from 3rd parties that we should not alter. Therefore, in addition to
+# changing the `cmake_minimum_required()`, we should also add a configuration
+# here that is compatible with earlier versions.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5 FORCE)
+
 # Add googletest directly to our build. This defines
 # the gtest and gtest_main targets.
 

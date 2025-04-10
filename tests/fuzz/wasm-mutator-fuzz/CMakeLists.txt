@@ -1,7 +1,7 @@
 # Copyright (C) 2019 Intel Corporation. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 2.8)
+cmake_minimum_required (VERSION 3.14)
 
 if (NOT DEFINED CMAKE_C_COMPILER)
 set (CMAKE_C_COMPILER "clang")
