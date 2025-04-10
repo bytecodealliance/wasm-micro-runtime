@@ -678,6 +678,8 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
 #endif
     );
 
+    /* the table flag can't exceed one byte, only check in debug build given
+     * the nature of mini-loader */
     p_org = p;
     read_leb_uint32(p, p_end, table_flag);
     bh_assert(p - p_org <= 1);
@@ -727,6 +729,8 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
     uint32 declare_init_page_count = 0;
     uint32 declare_max_page_count = 0;
 
+    /* the memory flag can't exceed one byte, only check in debug build given
+     * the nature of mini-loader */
     p_org = p;
     read_leb_uint32(p, p_end, mem_flag);
     bh_assert(p - p_org <= 1);
@@ -822,6 +826,8 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMTable *table,
 #endif
     );
 
+    /* the table flag can't exceed one byte, only check in debug build given
+     * the nature of mini-loader */
     p_org = p;
     read_leb_uint32(p, p_end, table->table_type.flags);
     bh_assert(p - p_org <= 1);
@@ -861,6 +867,8 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
     bool is_memory64 = false;
 #endif
 
+    /* the memory flag can't exceed one byte, only check in debug build given
+     * the nature of mini-loader */
     p_org = p;
     read_leb_uint32(p, p_end, memory->flags);
     bh_assert(p - p_org <= 1);
