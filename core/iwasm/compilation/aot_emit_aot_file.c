@@ -922,10 +922,6 @@ get_relocations_size(AOTObjectData *obj_data,
            aot_emit_text_section */
 
         const char *name = relocation->symbol_name;
-        if (name && obj_data->target_info.bin_type == AOT_COFF32_BIN_TYPE
-            && *name == '_') {
-            name++;
-        }
         if ((!strcmp(relocation_group->section_name, ".text")
              || !strcmp(relocation_group->section_name, ".ltext"))
             && !strncmp(name, AOT_FUNC_INTERNAL_PREFIX,
@@ -2496,11 +2492,6 @@ aot_emit_text_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                 for (j = 0; j < relocation_count; j++) {
                     /* relocation to aot_func_internal#n */
                     const char *name = relocation->symbol_name;
-                    if (name
-                        && obj_data->target_info.bin_type == AOT_COFF32_BIN_TYPE
-                        && *name == '_') {
-                        name++;
-                    }
                     if (str_starts_with(name, AOT_FUNC_INTERNAL_PREFIX)
                         && ((obj_data->target_info.bin_type
                                  == 6 /* AOT_COFF64_BIN_TYPE */
@@ -3062,6 +3053,27 @@ typedef struct elf64_rela {
 #define SET_TARGET_INFO_FIELD(f, v, type, little) \
     SET_TARGET_INFO_VALUE(f, elf_header->v, type, little)
 
+/* in windows 32, the symbol name may start with '_' */
+static char *
+LLVMGetSymbolNameAndUnDecorate(LLVMSymbolIteratorRef si,
+                               AOTTargetInfo target_info)
+{
+    char *original_name = (char *)LLVMGetSymbolName(si);
+    if (!original_name) {
+        return NULL;
+    }
+
+    if (target_info.bin_type != AOT_COFF32_BIN_TYPE) {
+        return original_name;
+    }
+
+    if (*original_name == '_') {
+        return ++original_name;
+    }
+
+    return original_name;
+}
+
 static bool
 aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
 {
@@ -3536,12 +3548,9 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
     }
 
     while (!LLVMObjectFileIsSymbolIteratorAtEnd(obj_data->binary, sym_itr)) {
-        if ((name = LLVMGetSymbolName(sym_itr))
-            && (!strcmp(name, aot_stack_sizes_alias_name)
-                /* symbol of COFF32 starts with "_" */
-                || (obj_data->target_info.bin_type == AOT_COFF32_BIN_TYPE
-                    && !strncmp(name, "_", 1)
-                    && !strcmp(name + 1, aot_stack_sizes_alias_name)))) {
+        if ((name =
+                 LLVMGetSymbolNameAndUnDecorate(sym_itr, obj_data->target_info))
+            && (!strcmp(name, aot_stack_sizes_alias_name))) {
 #if 0 /* cf. https://github.com/llvm/llvm-project/issues/67765 */
             uint64 sz = LLVMGetSymbolSize(sym_itr);
             if (sz != sizeof(uint32) * obj_data->func_count
@@ -3705,11 +3714,7 @@ aot_resolve_functions(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
     }
 
     while (!LLVMObjectFileIsSymbolIteratorAtEnd(obj_data->binary, sym_itr)) {
-        name = (char *)LLVMGetSymbolName(sym_itr);
-        if (name && obj_data->target_info.bin_type == AOT_COFF32_BIN_TYPE
-            && *name == '_') {
-            name++;
-        }
+        name = LLVMGetSymbolNameAndUnDecorate(sym_itr, obj_data->target_info);
         if (name && str_starts_with(name, prefix)) {
             /* symbol aot_func#n */
             func_index = (uint32)atoi(name + strlen(prefix));
@@ -3896,7 +3901,8 @@ aot_resolve_object_relocation_group(AOTObjectData *obj_data,
 
         /* set relocation fields */
         relocation->relocation_type = (uint32)type;
-        relocation->symbol_name = (char *)LLVMGetSymbolName(rel_sym);
+        relocation->symbol_name =
+            LLVMGetSymbolNameAndUnDecorate(rel_sym, obj_data->target_info);
         relocation->relocation_offset = offset;
         if (!strcmp(group->section_name, ".rela.text.unlikely.")
             || !strcmp(group->section_name, ".rel.text.unlikely.")) {
@@ -3923,12 +3929,7 @@ aot_resolve_object_relocation_group(AOTObjectData *obj_data,
          * Note: aot_stack_sizes_section_name section only contains
          * stack_sizes table.
          */
-        if (!strcmp(relocation->symbol_name, aot_stack_sizes_name)
-            /* in windows 32, the symbol name may start with '_' */
-            || (strlen(relocation->symbol_name) > 0
-                && relocation->symbol_name[0] == '_'
-                && !strcmp(relocation->symbol_name + 1,
-                           aot_stack_sizes_name))) {
+        if (!strcmp(relocation->symbol_name, aot_stack_sizes_name)) {
             /* discard const */
             relocation->symbol_name = (char *)aot_stack_sizes_section_name;
         }
