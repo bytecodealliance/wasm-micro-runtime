@@ -34,7 +34,7 @@ static char *tmpbuf;
 static korp_mutex tmpbuf_lock;
 
 int
-wasm_debug_handler_init()
+wasm_debug_handler_init(void)
 {
     int ret;
     tmpbuf = wasm_runtime_malloc(MAX_PACKET_SIZE);
@@ -51,7 +51,7 @@ wasm_debug_handler_init()
 }
 
 void
-wasm_debug_handler_deinit()
+wasm_debug_handler_deinit(void)
 {
     wasm_runtime_free(tmpbuf);
     tmpbuf = NULL;
