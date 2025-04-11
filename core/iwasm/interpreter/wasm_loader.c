@@ -15624,9 +15624,9 @@ re_scan:
                     /* basic operation */
                     case SIMD_v128_const:
                     {
-                        uint64 high, low;
                         CHECK_BUF1(p, p_end, 16);
 #if WASM_ENABLE_FAST_INTERP != 0
+                        uint64 high, low;
                         wasm_runtime_read_v128(p, &high, &low);
                         emit_uint64(loader_ctx, high);
                         emit_uint64(loader_ctx, low);
