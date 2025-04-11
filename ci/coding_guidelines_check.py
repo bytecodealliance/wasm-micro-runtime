@@ -13,8 +13,8 @@ import subprocess
 import sys
 import unittest
 
-CLANG_FORMAT_CMD = "clang-format-12"
-GIT_CLANG_FORMAT_CMD = "git-clang-format-12"
+CLANG_FORMAT_CMD = "clang-format-14"
+GIT_CLANG_FORMAT_CMD = "git-clang-format-14"
 
 # glob style patterns
 EXCLUDE_PATHS = [
@@ -32,7 +32,7 @@ EXCLUDE_PATHS = [
     "**/tests/wamr-test-suites/workspace/*",
 ]
 
-C_SUFFIXES = [".c", ".cpp", ".h"]
+C_SUFFIXES = [".c", ".cc", ".cpp", ".h"]
 INVALID_DIR_NAME_SEGMENT = r"([a-zA-Z0-9]+\_[a-zA-Z0-9]+)"
 INVALID_FILE_NAME_SEGMENT = r"([a-zA-Z0-9]+\-[a-zA-Z0-9]+)"
 
@@ -93,20 +93,19 @@ def run_clang_format(file_path: Path, root: Path) -> bool:
 
 def run_clang_format_diff(root: Path, commits: str) -> bool:
     """
-    Use `clang-format-12` or `git-clang-format-12` to check code format of
+    Use `clang-format-14` or `git-clang-format-14` to check code format of
     the PR, with a commit range specified. It is required to format the
     code before committing the PR, or it might fail to pass the CI check:
 
-    1. Install clang-format-12.0.0
-    Normally we can install it by `sudo apt-get install clang-format-12`,
-    or download the `clang+llvm-12.0.0-xxx-tar.xz` package from
-      https://github.com/llvm/llvm-project/releases/tag/llvmorg-12.0.0
+    1. Install clang-format-14.0.0
+    Normally we can install it by `sudo apt-get install clang-format-14`,
+    or download the package from https://github.com/llvm/llvm-project/releases
     and install it
 
     2. Format the C/C++ source file
     ``` shell
     cd path/to/wamr/root
-    clang-format-12 --style file -i path/to/file
+    clang-format-14 --style file -i path/to/file
     ```
 
     The code wrapped by `/* clang-format off */` and `/* clang-format on */`

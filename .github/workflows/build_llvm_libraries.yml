@@ -91,14 +91,6 @@ jobs:
 
       - uses: actions/cache@v4
         with:
-          path: ~/.ccache
-          key: 0-ccache-${{ inputs.os }}-${{ steps.get_last_commit.outputs.last_commit }}
-          restore-keys: |
-            0-ccache-${{ inputs.os }}
-        if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true' && inputs.os == 'ubuntu-20.04'
-
-      - uses: actions/cache@v4
-        with:
           path: ~/.cache/ccache
           key: 0-ccache-${{ inputs.os }}-${{ steps.get_last_commit.outputs.last_commit }}
           restore-keys: |

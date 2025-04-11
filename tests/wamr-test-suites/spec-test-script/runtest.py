@@ -1541,11 +1541,10 @@ if __name__ == "__main__":
 
                 if test_aot:
                     new_module_aot = os.path.join(tempfile.gettempdir(), name_new + ".aot")
-                    r = compile_wasm_to_aot(new_module, new_module_aot, True, opts, r)
                     try:
-                        assert_prompt(r, ['Compile success'], opts.start_timeout, True)
-                    except:
-                        raise Exception("compile wasm to aot failed")
+                        compile_wasm_to_aot(new_module, new_module_aot, None, opts, r)
+                    except Exception as e:
+                        raise Exception(f"compile wasm to aot failed. {e}")
                     # add aot module into temp_file_repo[]
                     temp_file_repo.append(new_module_aot)
             else:
