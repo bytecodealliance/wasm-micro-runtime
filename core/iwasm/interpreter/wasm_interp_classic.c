@@ -5784,7 +5784,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     {
                         mem_offset_t dst, src, len;
                         uint8 *mdst, *msrc;
-                        uint64 dlen;
 
                         len = POP_MEM_OFFSET();
                         src = POP_MEM_OFFSET();
@@ -5797,24 +5796,17 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         /* skip dst memidx */
                         frame_ip += 1;
 #endif
+                        // TODO: apply memidx
 #if WASM_ENABLE_THREAD_MGR != 0
                         linear_mem_size = get_linear_mem_size();
 #endif
-
-                        dlen = linear_mem_size - dst;
-
                         /* dst boundary check */
 #ifndef OS_ENABLE_HW_BOUND_CHECK
                         CHECK_BULK_MEMORY_OVERFLOW(dst, len, mdst);
-#if WASM_ENABLE_SHARED_HEAP != 0
-                        if (app_addr_in_shared_heap((uint64)dst, len))
-                            dlen = shared_heap_end_off - dst + 1;
-#endif
 #else /* else of OS_ENABLE_HW_BOUND_CHECK */
 #if WASM_ENABLE_SHARED_HEAP != 0
                         if (app_addr_in_shared_heap((uint64)dst, len)) {
                             shared_heap_addr_app_to_native((uint64)dst, mdst);
-                            dlen = shared_heap_end_off - dst + 1;
                         }
                         else
 #endif
@@ -5832,6 +5824,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         /* skip src memidx */
                         frame_ip += 1;
 #endif
+                        // TODO: apply memidx
 #if WASM_ENABLE_THREAD_MGR != 0
                         linear_mem_size = get_linear_mem_size();
 #endif
@@ -5851,15 +5844,21 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
 #endif
 
-#if WASM_ENABLE_MEMORY64 == 0
-                        /* allowing the destination and source to overlap */
-                        bh_memmove_s(mdst, (uint32)dlen, msrc, (uint32)len);
-#else
-                        /* use memmove when memory64 is enabled since len
-                           may be larger than UINT32_MAX */
-                        memmove(mdst, msrc, len);
-                        (void)dlen;
-#endif
+                        /*
+                         * avoid unnecessary operations
+                         *
+                         * since dst and src both are valid indexes in the
+                         * linear memory, mdst and msrc can't be NULL
+                         *
+                         * The spec. converts memory.copy into i32.load8 and
+                         * i32.store8; the following are runtime-specific
+                         * optimizations.
+                         *
+                         */
+                        if (len && mdst != msrc) {
+                            /* allowing the destination and source to overlap */
+                            memmove(mdst, msrc, len);
+                        }
                         break;
                     }
                     case WASM_OP_MEMORY_FILL:
