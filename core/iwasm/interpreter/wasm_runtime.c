@@ -2813,6 +2813,11 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
     }
 
 #if WASM_ENABLE_JIT != 0 && WASM_ENABLE_SHARED_HEAP != 0
+#if UINTPTR_MAX == UINT64_MAX
+    module_inst->e->shared_heap_start_off.u64 = UINT64_MAX;
+#else
+    module_inst->e->shared_heap_start_off.u32[0] = UINT32_MAX;
+#endif
     module_inst->e->shared_heap = NULL;
 #endif
 

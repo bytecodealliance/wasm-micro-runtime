@@ -1974,8 +1974,24 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     extra->stack_sizes =
         aot_get_data_section_addr(module, AOT_STACK_SIZES_SECTION_NAME, NULL);
 
-    /* To simplify the check in AOT code:  Early stop when no shared heap
-     * attached. */
+    /*
+     * The AOT code checks whether the n bytes to access are in shared heap
+     * by checking whether the beginning address meets:
+     *   addr >= start_off && addr <= end_off - n-bytes + 1
+     * where n is 1/2/4/8/16 and `end_off - n-bytes + 1` is constant, e.g.,
+     *   UINT32_MAX, UINT32_MAX-1, UINT32_MAX-3 for n = 1, 2 or 4 in 32-bit
+     * target. To simplify the check, when shared heap is disabled, we set
+     * the start off to UINT64_MAX in 64-bit target and UINT32_MAX in 32-bit
+     * target, so in the checking, the above formula will be false, we don't
+     * need to check whether the shared heap is enabled or not in the AOT
+     * code.
+     */
+#if UINTPTR_MAX == UINT64_MAX
+    extra->shared_heap_start_off.u64 = UINT64_MAX;
+#else
+    extra->shared_heap_start_off.u32[0] = UINT32_MAX;
+#endif
+    /* After shared heap chain, will early stop if shared heap is NULL */
     extra->shared_heap = NULL;
 
 #if WASM_ENABLE_PERF_PROFILING != 0
@@ -5340,8 +5356,7 @@ aot_const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
 #if WASM_ENABLE_DYNAMIC_AOT_DEBUG != 0
 AOTModule *g_dynamic_aot_module = NULL;
 
-void __attribute__((noinline))
-__enable_dynamic_aot_debug(void)
+void __attribute__((noinline)) __enable_dynamic_aot_debug(void)
 {
     /* empty implementation. */
 }
