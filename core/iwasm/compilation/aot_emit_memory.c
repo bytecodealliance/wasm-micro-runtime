@@ -237,7 +237,7 @@ get_module_inst_extra_offset(AOTCompContext *comp_ctx);
                 is_target_64bit ? I64_CONST(bytes - 1) : I32_CONST(bytes - 1); \
             CHECK_LLVM_CONST(length);                                          \
             BUILD_OP(Add, start_offset, length, max_offset,                    \
-                     "cache_shared_heap_bound");                               \
+                     "max_access_offset");                                     \
         }                                                                      \
     } while (0)
 

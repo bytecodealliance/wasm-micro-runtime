@@ -1517,7 +1517,7 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     return true;
 }
 
-#define LOAD_MODULE_EXTRA_FIELD(field, type)                                   \
+#define LOAD_MODULE_EXTRA_FIELD_AND_ALLOCA(field, type)                        \
     do {                                                                       \
         get_module_extra_field_offset(field);                                  \
         offset = I32_CONST(offset_u32);                                        \
@@ -1544,6 +1544,24 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }                                                                      \
     } while (0)
 
+#define LOAD_MODULE_EXTRA_FIELD(field, type)                                   \
+    do {                                                                       \
+        get_module_extra_field_offset(field);                                  \
+        offset = I32_CONST(offset_u32);                                        \
+        CHECK_LLVM_CONST(offset);                                              \
+        if (!(field_p = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,    \
+                                              func_ctx->aot_inst, &offset, 1,  \
+                                              #field "_p"))) {                 \
+            aot_set_last_error("llvm build inbounds gep failed");              \
+            return false;                                                      \
+        }                                                                      \
+        if (!(func_ctx->field =                                                \
+                  LLVMBuildLoad2(comp_ctx->builder, type, field_p, #field))) { \
+            aot_set_last_error("llvm build load failed");                      \
+            return false;                                                      \
+        }                                                                      \
+    } while (0)
+
 static bool
 create_shared_heap_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
@@ -1552,13 +1570,15 @@ create_shared_heap_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     /* shared_heap_base_addr_adj, shared_heap_start_off, and shared_heap_end_off
      * can be updated later, use local variable to represent them */
-    LOAD_MODULE_EXTRA_FIELD(shared_heap_base_addr_adj, INT8_PTR_TYPE);
-    LOAD_MODULE_EXTRA_FIELD(
+    LOAD_MODULE_EXTRA_FIELD_AND_ALLOCA(shared_heap_base_addr_adj,
+                                       INT8_PTR_TYPE);
+    LOAD_MODULE_EXTRA_FIELD_AND_ALLOCA(
         shared_heap_start_off,
         comp_ctx->pointer_size == sizeof(uint64) ? I64_TYPE : I32_TYPE);
-    LOAD_MODULE_EXTRA_FIELD(
+    LOAD_MODULE_EXTRA_FIELD_AND_ALLOCA(
         shared_heap_end_off,
         comp_ctx->pointer_size == sizeof(uint64) ? I64_TYPE : I32_TYPE);
+    /* Shared Heap won't be updated, no need to alloca */
     LOAD_MODULE_EXTRA_FIELD(shared_heap, INT8_PTR_TYPE);
 
     return true;
@@ -2418,7 +2438,7 @@ jit_stack_size_callback(void *user_data, const char *name, size_t namelen,
     stack_consumption_to_call_wrapped_func =
         musttail ? 0
                  : aot_estimate_stack_usage_for_function_call(
-                       comp_ctx, func_ctx->aot_func->func_type);
+                     comp_ctx, func_ctx->aot_func->func_type);
     LOG_VERBOSE("func %.*s stack %u + %zu + %u", (int)namelen, name,
                 stack_consumption_to_call_wrapped_func, stack_size, call_size);
 
