@@ -1528,8 +1528,17 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             aot_set_last_error("llvm build inbounds gep failed");              \
             return false;                                                      \
         }                                                                      \
-        if (!(func_ctx->field =                                                \
+        if (!(load_val =                                                       \
                   LLVMBuildLoad2(comp_ctx->builder, type, field_p, #field))) { \
+            aot_set_last_error("llvm build load failed");                      \
+            return false;                                                      \
+        }                                                                      \
+        if (!(func_ctx->field =                                                \
+                  LLVMBuildAlloca(comp_ctx->builder, type, #field))) {         \
+            aot_set_last_error("llvm build load failed");                      \
+            return false;                                                      \
+        }                                                                      \
+        if (!LLVMBuildStore(comp_ctx->builder, load_val, func_ctx->field)) {   \
             aot_set_last_error("llvm build load failed");                      \
             return false;                                                      \
         }                                                                      \
@@ -1538,9 +1547,11 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 static bool
 create_shared_heap_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
-    LLVMValueRef offset, field_p;
+    LLVMValueRef offset, field_p, load_val;
     uint32 offset_u32;
 
+    /* shared_heap_base_addr_adj, shared_heap_start_off, and shared_heap_end_off
+     * can be updated later, use local variable to represent them */
     LOAD_MODULE_EXTRA_FIELD(shared_heap_base_addr_adj, INT8_PTR_TYPE);
     LOAD_MODULE_EXTRA_FIELD(
         shared_heap_start_off,
