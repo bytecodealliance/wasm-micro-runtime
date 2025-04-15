@@ -2315,13 +2315,6 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
 #endif
     bool ret;
 
-    /* Check native stack overflow firstly to ensure we have enough
-       native stack to run the following codes before actually calling
-       the aot function in invokeNative function. */
-    if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
-        return false;
-    }
-
     if (!exec_env_tls) {
         if (!os_thread_signal_inited()) {
             aot_set_exception(module_inst, "thread signal env not inited");
@@ -2338,6 +2331,13 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
             aot_set_exception(module_inst, "invalid exec env");
             return false;
         }
+    }
+
+    /* Check native stack overflow firstly to ensure we have enough
+       native stack to run the following codes before actually calling
+       the aot function in invokeNative function. */
+    if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
+        return false;
     }
 
     wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
