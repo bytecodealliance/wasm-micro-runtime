@@ -51,7 +51,7 @@ typedef struct WASMGDBServer {
 } WASMGDBServer;
 
 WASMGDBServer *
-wasm_create_gdbserver(const char *host, int32 *port);
+wasm_create_gdbserver(const char *host, int *port);
 
 bool
 wasm_gdbserver_listen(WASMGDBServer *server);

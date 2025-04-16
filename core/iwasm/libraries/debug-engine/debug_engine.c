@@ -58,7 +58,7 @@ static WASMDebugEngine *g_debug_engine;
 static uint32 current_instance_id = 1;
 
 static uint32
-allocate_instance_id()
+allocate_instance_id(void)
 {
     uint32 id;
 
@@ -302,7 +302,7 @@ wasm_debug_control_thread_destroy(WASMDebugInstance *debug_instance)
 }
 
 static WASMDebugEngine *
-wasm_debug_engine_create()
+wasm_debug_engine_create(void)
 {
     WASMDebugEngine *engine;
 
@@ -326,7 +326,7 @@ wasm_debug_engine_create()
 }
 
 void
-wasm_debug_engine_destroy()
+wasm_debug_engine_destroy(void)
 {
     if (g_debug_engine) {
         wasm_debug_handler_deinit();
