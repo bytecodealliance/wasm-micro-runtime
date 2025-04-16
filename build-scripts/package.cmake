@@ -1,6 +1,8 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+set(_WAMR_BUILD_SCRIPTS_DIR "${CMAKE_CURRENT_LIST_DIR}")
+
 function(install_iwasm_package)
     install (EXPORT iwasmTargets
         FILE iwasmTargets.cmake
@@ -9,7 +11,7 @@ function(install_iwasm_package)
     )
 
     include (CMakePackageConfigHelpers)
-    configure_package_config_file (${CMAKE_CURRENT_FUNCTION_LIST_DIR}/iwasmConfig.cmake.in
+    configure_package_config_file (${_WAMR_BUILD_SCRIPTS_DIR}/iwasmConfig.cmake.in
         "${CMAKE_CURRENT_BINARY_DIR}/iwasmConfig.cmake"
         INSTALL_DESTINATION lib/cmake/iwasm
     )
