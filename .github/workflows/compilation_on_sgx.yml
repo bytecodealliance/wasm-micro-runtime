@@ -297,8 +297,15 @@ jobs:
         with:
           os: ${{ matrix.os }}
 
-      - name: install for wabt compilation
-        run: sudo apt update && sudo apt install -y ninja-build
+      #workaround about a https://github.com/actions/runner-images/issues/6680#issuecomment-2640923706
+      - name: Increase swapfile
+        run: |
+          sudo swapoff -a
+          sudo fallocate -l 15G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          sudo swapon --show
 
       - name: run spec tests
         run: |
