@@ -1,0 +1,46 @@
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+paths:
+  - .github
+  - core/iwasm
+  - core/shared/platform/common/
+  - core/shared/platform/include/
+  - core/shared/platform/linux/
+  - product-mini/platforms/common/
+  - product-mini/platforms/linux/
+  # TODO: add other platforms back if able to do cross-compilation
+  # - product-mini/platforms/
+  # TODO: add samples back after buildscript modification
+  # - need to ignore workloads and wasm-apps
+  # - samples
+  - wamr-compiler/
+paths-ignore:
+  # always ignore build
+  - '**/build/**'
+  - '**/test*/**'
+  - '**/wasm-app*/**'
+  - core/deps/
+  # platform specific
+  - core/iwasm/aot/arch/aot_reloc_aarch64.c
+  - core/iwasm/aot/arch/aot_reloc_arc.c
+  - core/iwasm/aot/arch/aot_reloc_arm.c
+  - core/iwasm/aot/arch/aot_reloc_dummy.c
+  - core/iwasm/aot/arch/aot_reloc_mips.c
+  - core/iwasm/aot/arch/aot_reloc_riscv.c
+  - core/iwasm/aot/arch/aot_reloc_thumb.c
+  - core/iwasm/aot/arch/aot_reloc_xtensa.c
+  - core/iwasm/libraries/lib-rats/
+  - core/iwasm/libraries/lib-socket/
+  - core/iwasm/libraries/lib-wasi-threads/*-test/
+  - core/shared/platform/common/freertos/
+  - core/shared/platform/common/math/
+  #TODO: add me back if lldb libraries installed
+  - core/iwasm/compilation/debug/
+  # spend disk space and slow
+  - core/iwasm/libraries/wasi-nn/src/wasi_nn_tflite*
+  #TODO: add me back if openvino installed
+  - core/iwasm/libraries/wasi-nn/src/wasi_nn_openvino*
+  # for wasm
+  - core/iwasm/libraries/wasi-nn/include/wasi_nn.h
+  # reference
+  - core/iwasm/common/arch/invokeNative_general.c
