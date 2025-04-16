@@ -30,36 +30,39 @@ void __umoddi3();
 #pragma function(floor)
 #pragma function(ceil)
 
-static int64
-__divdi3(int64 a, int64 b)
+static int64 __stdcall __divdi3(int64 a, int64 b)
 {
     return a / b;
 }
 
-static uint64
-__udivdi3(uint64 a, uint64 b)
+static uint64 __stdcall __udivdi3(uint64 a, uint64 b)
 {
     return a / b;
 }
 
-static int64
-__moddi3(int64 a, int64 b)
+static int64 __stdcall __moddi3(int64 a, int64 b)
 {
     return a % b;
 }
 
-static uint64
-__umoddi3(uint64 a, uint64 b)
+static uint64 __stdcall __umoddi3(uint64 a, uint64 b)
 {
     return a % b;
 }
-#endif
 
-static uint64
-__aulldiv(uint64 a, uint64 b)
+static uint64 __stdcall __aulldiv(uint64 a, uint64 b)
 {
     return a / b;
 }
+static int64 __stdcall __alldiv(int64 a, int64 b)
+{
+    return a / b;
+}
+static int64 __stdcall __allrem(int64 a, int64 b)
+{
+    return a % b;
+}
+#endif /* !defined(_WIN32) && !defined(_WIN32_) */
 
 /* clang-format off */
 static SymbolMap target_sym_map[] = {
@@ -69,7 +72,11 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__udivdi3),
     REG_SYM(__moddi3),
     REG_SYM(__umoddi3),
-    REG_SYM(__aulldiv)
+#if defined(_WIN32) || defined(_WIN32_)
+    REG_SYM(__aulldiv),
+    REG_SYM(__alldiv),
+    REG_SYM(__allrem)
+#endif /* defined(_WIN32) || defined(_WIN32_) */
 };
 /* clang-format on */
 
