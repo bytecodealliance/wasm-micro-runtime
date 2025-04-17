@@ -175,15 +175,21 @@ get_module_inst_extra_offset(AOTCompContext *comp_ctx);
         }                                                             \
     } while (0)
 
-#define BUILD_GET_SHARED_HEAP_FIELD(shared_heap_p, field, data_type, res) \
-    do {                                                                  \
-        offset_u32 = offsetof(WASMSharedHeap, field);                     \
-        field_offset = I32_CONST(offset_u32);                             \
-        CHECK_LLVM_CONST(field_offset);                                   \
-                                                                          \
-        BUILD_FIELD_PTR(shared_heap_p, field_offset, field_p,             \
-                        "shared_heap" #field);                            \
-        BUILD_LOAD_PTR(field_p, data_type, res);                          \
+#define BUILD_GET_SHARED_HEAP_FIELD(shared_heap_p, field, data_type, res)     \
+    do {                                                                      \
+        offset_u32 = offsetof(WASMSharedHeap, field);                         \
+        field_offset = I32_CONST(offset_u32);                                 \
+        CHECK_LLVM_CONST(field_offset);                                       \
+                                                                              \
+        BUILD_FIELD_PTR(shared_heap_p, field_offset, field_p,                 \
+                        "shared_heap" #field);                                \
+        if (!(field_p = LLVMBuildBitCast(comp_ctx->builder, field_p,          \
+                                         LLVMPointerType(data_type, 0),       \
+                                         "shared_heap_" #field "_cast_p"))) { \
+            aot_set_last_error("llvm build bit cast failed.");                \
+            goto fail;                                                        \
+        }                                                                     \
+        BUILD_LOAD_PTR(field_p, data_type, res);                              \
     } while (0)
 
 #define BUILD_GET_SHARED_HEAP_START(shared_heap_p, res)                       \
@@ -199,6 +205,13 @@ get_module_inst_extra_offset(AOTCompContext *comp_ctx);
                                                                               \
         BUILD_FIELD_PTR(shared_heap_p, field_offset, field_p,                 \
                         "shared_heap_start_off_p");                           \
+        if (!(field_p = LLVMBuildBitCast(comp_ctx->builder, field_p,          \
+                                         is_target_64bit ? INT64_PTR_TYPE     \
+                                                         : INT32_PTR_TYPE,    \
+                                         "shared_heap_start_cast_p"))) {      \
+            aot_set_last_error("llvm build bit cast failed.");                \
+            goto fail;                                                        \
+        }                                                                     \
         BUILD_LOAD_PTR(field_p, is_target_64bit ? I64_TYPE : I32_TYPE, res);  \
         /* For bulk memory on 32 bits platform , it's always 64 bit and needs \
          * to extend */                                                       \
@@ -241,22 +254,8 @@ get_module_inst_extra_offset(AOTCompContext *comp_ctx);
         }                                                                      \
     } while (0)
 
-#define BUILD_SET_MODULE_EXTRA_FIELD(ptr_type, field, value)                   \
-    do {                                                                       \
-        get_module_extra_field_offset(field);                                  \
-        field_offset = I32_CONST(offset_u32);                                  \
-        CHECK_LLVM_CONST(field_offset);                                        \
-                                                                               \
-        BUILD_FIELD_PTR(shared_heap_p, field_offset, field_p, #field);         \
-        if (!(field_p = LLVMBuildBitCast(comp_ctx->builder, field_p, ptr_type, \
-                                         "module_extra" #field "_p"))) {       \
-            aot_set_last_error("llvm build bit cast failed.");                 \
-            goto fail;                                                         \
-        }                                                                      \
-        BUILD_STORE_PTR(field_p, value);                                       \
-    } while (0)
-
-/* Update last used shared heap info in module_extra and func_ctx
+/* Update last used shared heap info in func_ctx, let runtime api update module
+ * inst shared heap info
  * 1. shared_heap_start_off 2. shared_heap_end_off 3. shared_heap_base_addr_adj
  */
 static bool
@@ -297,13 +296,6 @@ aot_update_last_used_shared_heap(AOTCompContext *comp_ctx,
         goto fail;
     }
 
-    BUILD_SET_MODULE_EXTRA_FIELD(shared_heap_off_ptr_type,
-                                 shared_heap_start_off, shared_heap_start_off);
-    BUILD_SET_MODULE_EXTRA_FIELD(shared_heap_off_ptr_type, shared_heap_end_off,
-                                 shared_heap_end_off);
-    BUILD_SET_MODULE_EXTRA_FIELD(INTPTR_T_PTR_TYPE, shared_heap_base_addr_adj,
-                                 shared_heap_base_addr_adj);
-
     /* Store the local variable */
     BUILD_STORE_PTR(func_ctx->shared_heap_start_off, shared_heap_start_off);
     BUILD_STORE_PTR(func_ctx->shared_heap_end_off, shared_heap_end_off);
@@ -336,12 +328,12 @@ aot_check_shared_heap_memory_overflow_common(
 {
     LLVMBasicBlockRef app_addr_in_shared_heap_chain,
         app_addr_in_cache_shared_heap, app_addr_in_linear_mem, loopEntry,
-        loopCond, loopBody, loopExit, check_valid_shared_heap;
+        loopCond, loopBody, loopExit;
     LLVMValueRef addr = NULL, maddr = NULL, max_offset = NULL, cmp, cmp1, cmp2;
     LLVMValueRef shared_heap_start_off, shared_heap_check_bound,
         shared_heap_size, shared_heap_end_off, shared_heap_base_addr_adj;
     /* The pointer that will traverse the shared heap chain */
-    LLVMValueRef phi_shared_heap = NULL, cur_shared_heap = NULL;
+    LLVMValueRef phi_shared_heap, cur_shared_heap;
     LLVMValueRef field_offset, field_p, length;
     uint32 offset_u32;
 
@@ -490,6 +482,8 @@ aot_check_shared_heap_memory_overflow_common(
      * node.
      *---------------------------------------------------------------------*/
     SET_BUILD_POS(loopCond);
+    /* TODO: for happy path it will always be valid since we checked the address
+     * in shared heap chain */
     BUILD_GET_SHARED_HEAP_FIELD(phi_shared_heap, chain_next, INT8_PTR_TYPE,
                                 cur_shared_heap);
     /* Add the new value from loopBody as an incoming edge to the phi node */
@@ -501,17 +495,6 @@ aot_check_shared_heap_memory_overflow_common(
      * app address is contained in a shared heap; otherwise, it is NULL.
      *---------------------------------------------------------------------*/
     SET_BUILD_POS(loopExit);
-    BUILD_IS_NOT_NULL(phi_shared_heap, cmp, "has_shared_heap");
-
-    ADD_BASIC_BLOCK(check_valid_shared_heap, "check_valid_shared_heap");
-    LLVMMoveBasicBlockAfter(check_valid_shared_heap, loopExit);
-    if (!aot_emit_exception(comp_ctx, func_ctx,
-                            EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS, true, cmp,
-                            check_valid_shared_heap)) {
-        goto fail;
-    }
-    SET_BUILD_POS(check_valid_shared_heap);
-
     /* Update last accessed shared heap, the shared_heap_size and
      * shared_heap_start_off is already prepared in loop body.
      * For bulk memory on 32 bits platform, it extends to i64 before, so it

@@ -1535,11 +1535,11 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }                                                                      \
         if (!(func_ctx->field =                                                \
                   LLVMBuildAlloca(comp_ctx->builder, type, #field))) {         \
-            aot_set_last_error("llvm build load failed");                      \
+            aot_set_last_error("llvm build alloca failed");                    \
             return false;                                                      \
         }                                                                      \
         if (!LLVMBuildStore(comp_ctx->builder, load_val, func_ctx->field)) {   \
-            aot_set_last_error("llvm build load failed");                      \
+            aot_set_last_error("llvm build store failed");                     \
             return false;                                                      \
         }                                                                      \
     } while (0)

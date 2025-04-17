@@ -256,8 +256,6 @@ TEST_F(shared_heap_test, test_shared_heap_chain_rmw)
     EXPECT_EQ(0, argv[0]);
     EXPECT_EQ(preallocated_buf2[0], 129);
 
-    /* TODO: test aot when chain is supported in AOT */
-    /*
     argv[0] = start1;
     argv[1] = 98;
     test_shared_heap(shared_heap_chain, "test.aot", "read_modify_write_8", 2,
@@ -271,7 +269,6 @@ TEST_F(shared_heap_test, test_shared_heap_chain_rmw)
                      argv);
     EXPECT_EQ(0, argv[0]);
     EXPECT_EQ(preallocated_buf2[BUF_SIZE - 1], 81);
-    */
 }
 
 TEST_F(shared_heap_test, test_shared_heap_chain_rmw_oob)
@@ -318,12 +315,11 @@ TEST_F(shared_heap_test, test_shared_heap_chain_rmw_oob)
                                              "read_modify_write_16", 2, argv),
                             "Exception: out of bounds memory access");
 
-    /* TODO: test aot when chain is supported in AOT */
-    /*argv[0] = end1;
+    argv[0] = end1;
     argv[1] = 12025;
     EXPECT_NONFATAL_FAILURE(test_shared_heap(shared_heap_chain, "test.wasm",
                                              "read_modify_write_16", 2, argv),
-                            "Exception: out of bounds memory access");*/
+                            "Exception: out of bounds memory access");
 }
 
 #ifndef native_function
@@ -453,9 +449,8 @@ TEST_F(shared_heap_test, test_shared_heap_chain)
     test_shared_heap(shared_heap_chain, "test_addr_conv.wasm", "test", 0, argv);
     EXPECT_EQ(1, argv[0]);
 
-    /* TODO: test aot when chain is supported in AOT */
-    /*test_shared_heap(shared_heap, "test_addr_conv.aot", "test", 1, argv);
-    EXPECT_EQ(1, argv[0]);*/
+    test_shared_heap(shared_heap, "test_addr_conv.aot", "test", 0, argv);
+    EXPECT_EQ(1, argv[0]);
 }
 
 TEST_F(shared_heap_test, test_shared_heap_chain_create_fail)
@@ -666,14 +661,15 @@ TEST_F(shared_heap_test, test_shared_heap_chain_addr_conv)
                      "test_preallocated", 1, argv);
     EXPECT_EQ(1, argv[0]);
 
-    /* TODO: test aot when chain is supported in AOT */
-    /*argv[0] = 0xFFFFFFFF;
-    test_shared_heap(shared_heap, "test_addr_conv.aot", "test", 1, argv);
+    argv[0] = 0xFFFFFFFF;
+    test_shared_heap(shared_heap, "test_addr_conv.aot", "test_preallocated", 1,
+                     argv);
     EXPECT_EQ(1, argv[0]);
 
     argv[0] = 0xFFFFF000;
-    test_shared_heap(shared_heap, "test_addr_conv.aot", "test", 1, argv);
-    EXPECT_EQ(1, argv[0]); */
+    test_shared_heap(shared_heap, "test_addr_conv.aot", "test_preallocated", 1,
+                     argv);
+    EXPECT_EQ(1, argv[0]);
 }
 
 TEST_F(shared_heap_test, test_shared_heap_chain_addr_conv_oob)
@@ -719,10 +715,10 @@ TEST_F(shared_heap_test, test_shared_heap_chain_addr_conv_oob)
                                              "test_preallocated", 1, argv),
                             "Exception: out of bounds memory access");
 
-    /* TODO: test aot when chain is supported in AOT */
-    /*argv[0] = 0xFFFFFFFF - BUF_SIZE - 4096;
+    /* test aot */
+    argv[0] = 0xFFFFFFFF - BUF_SIZE - 4096;
     EXPECT_NONFATAL_FAILURE(test_shared_heap(shared_heap_chain,
                                              "test_addr_conv.aot",
                                              "test_preallocated", 1, argv),
-                            "Exception: out of bounds memory access");*/
+                            "Exception: out of bounds memory access");
 }
