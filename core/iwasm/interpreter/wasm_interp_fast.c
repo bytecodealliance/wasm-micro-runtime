@@ -5163,7 +5163,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     {
                         uint32 dst, src, len;
                         uint8 *mdst, *msrc;
-                        uint64 dlen;
 
                         len = POP_I32();
                         src = POP_I32();
@@ -5173,15 +5172,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         linear_mem_size = get_linear_mem_size();
 #endif
 
-                        dlen = linear_mem_size - dst;
-
 #ifndef OS_ENABLE_HW_BOUND_CHECK
                         CHECK_BULK_MEMORY_OVERFLOW(src, len, msrc);
                         CHECK_BULK_MEMORY_OVERFLOW(dst, len, mdst);
-#if WASM_ENABLE_SHARED_HEAP != 0
-                        if (app_addr_in_shared_heap((uint64)dst, len))
-                            dlen = shared_heap_end_off - dst + 1;
-#endif
 #else /* else of OS_ENABLE_HW_BOUND_CHECK */
 #if WASM_ENABLE_SHARED_HEAP != 0
                         if (app_addr_in_shared_heap((uint64)src, len))
@@ -5197,7 +5190,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_SHARED_HEAP != 0
                         if (app_addr_in_shared_heap((uint64)dst, len)) {
                             shared_heap_addr_app_to_native((uint64)dst, mdst);
-                            dlen = shared_heap_end_off - dst + 1;
                         }
                         else
 #endif
@@ -5208,8 +5200,21 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
-                        /* allowing the destination and source to overlap */
-                        bh_memmove_s(mdst, (uint32)dlen, msrc, len);
+                        /*
+                         * avoid unnecessary operations
+                         *
+                         * since dst and src both are valid indexes in the
+                         * linear memory, mdst and msrc can't be NULL
+                         *
+                         * The spec. converts memory.copy into i32.load8 and
+                         * i32.store8; the following are runtime-specific
+                         * optimizations.
+                         *
+                         */
+                        if (len && mdst != msrc) {
+                            /* allowing the destination and source to overlap */
+                            memmove(mdst, msrc, len);
+                        }
                         break;
                     }
                     case WASM_OP_MEMORY_FILL:
@@ -7488,7 +7493,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_LABELS_AS_VALUES == 0
         continue;
 #else
-            FETCH_OPCODE_AND_DISPATCH();
+    FETCH_OPCODE_AND_DISPATCH();
 #endif
 
 #if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0
