@@ -53,6 +53,10 @@ env:
   FAST_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=1"
   LLVM_LAZY_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=1"
   LLVM_EAGER_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0"
+  # For Spec Test
+  DEFAULT_TEST_OPTIONS: "-s spec -x -p -b"
+  SIMD_TEST_OPTIONS: "-s spec -x -p -b -S"
+  XIP_TEST_OPTIONS: "-s spec -x -p -b -X"
 
 permissions:
   contents: read
@@ -64,7 +68,7 @@ jobs:
       actions: write
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
-      os: "ubuntu-20.04"
+      os: ubuntu-22.04
       arch: "X86"
 
   build_iwasm:
@@ -102,7 +106,7 @@ jobs:
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
             "-DWAMR_BUILD_SGX_IPFS=1",
           ]
-        os: [ubuntu-20.04]
+        os: [ubuntu-22.04]
         platform: [linux-sgx]
         exclude:
           # incompatible mode and feature
@@ -110,21 +114,13 @@ jobs:
           - make_options_run_mode: $AOT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
     steps:
-      - name: install SGX SDK and necessary libraries
-        run: |
-          mkdir -p /opt/intel
-          cd /opt/intel
-          wget https://download.01.org/intel-sgx/sgx-linux/2.15/distro/ubuntu20.04-server/sgx_linux_x64_sdk_2.15.100.3.bin
-          chmod +x sgx_linux_x64_sdk_2.15.100.3.bin
-          echo 'yes' | ./sgx_linux_x64_sdk_2.15.100.3.bin
-          echo 'deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu focal main' | sudo tee /etc/apt/sources.list.d/intel-sgx.list
-          wget -qO - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add -
-          sudo apt update
-          sudo apt install -y libsgx-launch libsgx-urts
-          source /opt/intel/sgxsdk/environment
-
       - name: checkout
         uses: actions/checkout@v4
+
+      - name: install SGX SDK and necessary libraries
+        uses: ./.github/actions/install-linux-sgx
+        with:
+          os: ${{ matrix.os }}
 
       - name: Build iwasm
         run: |
@@ -150,7 +146,7 @@ jobs:
             #$LLVM_LAZY_JIT_BUILD_OPTIONS,
             #$LLVM_EAGER_JIT_BUILD_OPTIONS,
           ]
-        os: [ubuntu-20.04]
+        os: [ubuntu-22.04]
         wasi_sdk_release:
           [
             "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz",
@@ -165,7 +161,7 @@ jobs:
           ]
         platform: [linux-sgx]
         include:
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries.outputs.cache_key }}
 
     steps:
@@ -186,33 +182,10 @@ jobs:
           sudo tar -xzf wabt-1.0.31-*.tar.gz
           sudo mv wabt-1.0.31 wabt
 
-      - name: build wasi-libc (needed for wasi-threads)
-        run: |
-          mkdir wasi-libc
-          cd wasi-libc
-          git init
-          # "Fix a_store operation in atomic.h" commit on main branch
-          git fetch https://github.com/WebAssembly/wasi-libc \
-            1dfe5c302d1c5ab621f7abf04620fae92700fd22
-          git checkout FETCH_HEAD
-          make \
-            AR=/opt/wasi-sdk/bin/llvm-ar \
-            NM=/opt/wasi-sdk/bin/llvm-nm \
-            CC=/opt/wasi-sdk/bin/clang \
-            THREAD_MODEL=posix
-        working-directory: core/deps
-
       - name: install SGX SDK and necessary libraries
-        run: |
-          mkdir -p /opt/intel
-          cd /opt/intel
-          wget https://download.01.org/intel-sgx/sgx-linux/2.15/distro/ubuntu20.04-server/sgx_linux_x64_sdk_2.15.100.3.bin
-          chmod +x sgx_linux_x64_sdk_2.15.100.3.bin
-          echo 'yes' | ./sgx_linux_x64_sdk_2.15.100.3.bin
-          echo 'deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu focal main' | sudo tee /etc/apt/sources.list.d/intel-sgx.list
-          wget -qO - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add -
-          sudo apt update
-          sudo apt install -y libsgx-launch libsgx-urts
+        uses: ./.github/actions/install-linux-sgx
+        with:
+          os: ${{ matrix.os }}
 
       - name: Build iwasm for testing samples
         run: |
@@ -271,28 +244,32 @@ jobs:
 
   spec_test_default:
     needs: [build_iwasm, build_llvm_libraries]
-    runs-on: ubuntu-20.04
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        running_mode: ["classic-interp", "fast-interp", "aot", "fast-jit"]
-        # FIXME: use binary release(adding -b) instead of building from source after upgrading to 22.04
-        test_option: ["-x -p -s spec -P", "-x -p -s spec -S -P", "-x -p -s spec -X -P"]
-        llvm_cache_key: ["${{ needs.build_llvm_libraries.outputs.cache_key }}"]
+        #(workaround) disable "fast-interp" because of SIMDE
+        running_mode: ["classic-interp", "aot", "fast-jit"]
+        test_option:
+          [$DEFAULT_TEST_OPTIONS, $SIMD_TEST_OPTIONS, $XIP_TEST_OPTIONS]
+        os: [ubuntu-22.04]
         exclude:
           # classic-interp, fast-interp and fast-jit don't support simd
           - running_mode: "classic-interp"
-            test_option: "-x -p -s spec -S -P"
+            test_option: $SIMD_TEST_OPTIONS
           - running_mode: "fast-interp"
-            test_option: "-x -p -s spec -S -P"
+            test_option: $SIMD_TEST_OPTIONS
           - running_mode: "fast-jit"
-            test_option: "-x -p -s spec -S -P"
+            test_option: $SIMD_TEST_OPTIONS
           # classic-interp, fast-interp and fast jit don't support XIP
           - running_mode: "classic-interp"
-            test_option: "-x -p -s spec -X -P"
+            test_option: $XIP_TEST_OPTIONS
           - running_mode: "fast-interp"
-            test_option: "-x -p -s spec -X -P"
+            test_option: $XIP_TEST_OPTIONS
           - running_mode: "fast-jit"
-            test_option: "-x -p -s spec -X -P"
+            test_option: $XIP_TEST_OPTIONS
+        include:
+          - os: ubuntu-22.04
+            llvm_cache_key: ${{ needs.build_llvm_libraries.outputs.cache_key }}
 
     steps:
       - name: checkout
@@ -316,19 +293,19 @@ jobs:
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: install SGX SDK and necessary libraries
-        run: |
-          mkdir -p /opt/intel
-          cd /opt/intel
-          wget https://download.01.org/intel-sgx/sgx-linux/2.15/distro/ubuntu20.04-server/sgx_linux_x64_sdk_2.15.100.3.bin
-          chmod +x sgx_linux_x64_sdk_2.15.100.3.bin
-          echo 'yes' | ./sgx_linux_x64_sdk_2.15.100.3.bin
-          echo 'deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu focal main' | sudo tee /etc/apt/sources.list.d/intel-sgx.list
-          wget -qO - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add -
-          sudo apt update
-          sudo apt install -y libsgx-launch libsgx-urts
+        uses: ./.github/actions/install-linux-sgx
+        with:
+          os: ${{ matrix.os }}
 
-      - name: install for wabt compilation
-        run: sudo apt update && sudo apt install -y ninja-build
+      #workaround about a https://github.com/actions/runner-images/issues/6680#issuecomment-2640923706
+      - name: Increase swapfile
+        run: |
+          sudo swapoff -a
+          sudo fallocate -l 15G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          sudo swapon --show
 
       - name: run spec tests
         run: |
