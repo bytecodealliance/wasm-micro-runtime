@@ -58,16 +58,6 @@ jobs:
 
   #
   # LLVM_LIBRARIES
-  build_llvm_libraries_on_ubuntu_2004:
-    permissions:
-      contents: read
-      actions: write
-    needs: [create_tag, create_release]
-    uses: ./.github/workflows/build_llvm_libraries.yml
-    with:
-      os: "ubuntu-20.04"
-      arch: "AArch64 ARM Mips RISCV X86"
-
   build_llvm_libraries_on_ubuntu_2204:
     permissions:
       contents: read
@@ -100,18 +90,6 @@ jobs:
 
   #
   # WAMRC
-  release_wamrc_on_ubuntu_2004:
-    permissions:
-      contents: write # upload release artifact
-    needs: [create_tag, create_release, build_llvm_libraries_on_ubuntu_2004]
-    uses: ./.github/workflows/build_wamrc.yml
-    with:
-      llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
-      release: true
-      runner: ubuntu-20.04
-      upload_url: ${{ needs.create_release.outputs.upload_url }}
-      ver_num: ${{ needs.create_tag.outputs.new_ver}}
-
   release_wamrc_on_ubuntu_2204:
     permissions:
       contents: write # upload release artifact
@@ -150,18 +128,6 @@ jobs:
 
   #
   # IWASM
-  release_iwasm_on_ubuntu_2004:
-    permissions:
-      contents: write # upload release artifact
-    needs: [create_tag, create_release, build_llvm_libraries_on_ubuntu_2004]
-    uses: ./.github/workflows/build_iwasm_release.yml
-    with:
-      cwd: product-mini/platforms/linux
-      llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
-      runner: ubuntu-20.04
-      upload_url: ${{ needs.create_release.outputs.upload_url }}
-      ver_num: ${{ needs.create_tag.outputs.new_ver}}
-
   release_iwasm_on_ubuntu_2204:
     permissions:
       contents: write # upload release artifact
@@ -200,19 +166,6 @@ jobs:
 
   #
   # WAMR_SDK
-  release_wamr_sdk_on_ubuntu_2004:
-    permissions:
-      contents: write # upload release artifact
-    needs: [create_tag, create_release]
-    uses: ./.github/workflows/build_wamr_sdk.yml
-    with:
-      config_file: wamr_config_ubuntu_release.cmake
-      runner: ubuntu-20.04
-      upload_url: ${{ needs.create_release.outputs.upload_url }}
-      ver_num: ${{ needs.create_tag.outputs.new_ver}}
-      wasi_sdk_url: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz
-      wamr_app_framework_url: https://github.com/bytecodealliance/wamr-app-framework.git
-
   release_wamr_sdk_on_ubuntu_2204:
     permissions:
       contents: write # upload release artifact
@@ -264,16 +217,6 @@ jobs:
 
   #
   # WAMR_LLDB
-  release_wamr_lldb_on_ubuntu_2004:
-    permissions:
-      contents: write # upload release artifact
-    needs: [create_tag, create_release]
-    uses: ./.github/workflows/build_wamr_lldb.yml
-    with:
-      runner: ubuntu-20.04
-      upload_url: ${{ needs.create_release.outputs.upload_url }}
-      ver_num: ${{ needs.create_tag.outputs.new_ver}}
-
   release_wamr_lldb_on_ubuntu_2204:
     permissions:
       contents: write # upload release artifact

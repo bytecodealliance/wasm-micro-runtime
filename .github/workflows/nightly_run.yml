@@ -48,15 +48,7 @@ permissions:
   contents: read
 
 jobs:
-  build_llvm_libraries_on_ubuntu_2004:
-    permissions:
-      contents: read
-      actions: write
-    uses: ./.github/workflows/build_llvm_libraries.yml
-    with:
-      os: "ubuntu-20.04"
-      arch: "X86"
-  build_llvm_libraries_on_ubuntu_2204:
+  build_llvm_libraries_on_ubuntu:
     permissions:
       contents: read
       actions: write
@@ -66,16 +58,13 @@ jobs:
       arch: "X86"
 
   build_wamrc:
-    needs:
-      [
-        build_llvm_libraries_on_ubuntu_2004,
-      ]
+    needs: build_llvm_libraries_on_ubuntu
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          - os: ubuntu-20.04
-            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
+          - os: ubuntu-22.04
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu.outputs.cache_key }}
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -106,10 +95,7 @@ jobs:
         working-directory: wamr-compiler
 
   build_iwasm:
-    needs:
-      [
-        build_llvm_libraries_on_ubuntu_2004,
-      ]
+    needs: build_llvm_libraries_on_ubuntu
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -144,7 +130,7 @@ jobs:
             "-DWAMR_BUILD_MULTI_MEMORY=1",
             "-DWAMR_BUILD_SHARED=1",
           ]
-        os: [ubuntu-20.04]
+        os: [ubuntu-22.04]
         platform: [android, linux]
         exclude:
           # incompatible feature and platform
@@ -241,8 +227,8 @@ jobs:
           - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
             platform: android
         include:
-          - os: ubuntu-20.04
-            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
+          - os: ubuntu-22.04
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu.outputs.cache_key }}
 
     steps:
       - name: checkout
@@ -375,12 +361,7 @@ jobs:
         working-directory: wamr/product-mini/platforms/linux
 
   build_samples_wasm_c_api:
-    needs:
-      [
-        build_iwasm,
-        build_llvm_libraries_on_ubuntu_2004,
-        build_wamrc,
-      ]
+    needs: [build_iwasm, build_llvm_libraries_on_ubuntu, build_wamrc]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -396,7 +377,7 @@ jobs:
             $LLVM_EAGER_JIT_BUILD_OPTIONS,
             $MULTI_TIER_JIT_BUILD_OPTIONS,
           ]
-        os: [ubuntu-20.04]
+        os: [ubuntu-22.04]
         wasi_sdk_release:
           [
             "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz",
@@ -406,8 +387,8 @@ jobs:
             "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
           ]
         include:
-          - os: ubuntu-20.04
-            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
+          - os: ubuntu-22.04
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu.outputs.cache_key }}
         exclude:
           - make_options: $MULTI_TIER_JIT_BUILD_OPTIONS
             sanitizer: asan
@@ -457,16 +438,11 @@ jobs:
         working-directory: samples/wasm-c-api
 
   build_samples_others:
-    needs:
-      [
-        build_iwasm,
-        build_llvm_libraries_on_ubuntu_2004,
-        build_wamrc,
-      ]
+    needs: [build_iwasm, build_llvm_libraries_on_ubuntu, build_wamrc]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04]
+        os: [ubuntu-22.04]
         wasi_sdk_release:
           [
             "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz",
@@ -476,8 +452,8 @@ jobs:
             "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
           ]
         include:
-          - os: ubuntu-20.04
-            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
+          - os: ubuntu-22.04
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu.outputs.cache_key }}
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -613,18 +589,12 @@ jobs:
           ./shared_heap_test --aot
 
   test:
-    needs:
-      [
-        build_iwasm,
-        build_llvm_libraries_on_ubuntu_2004,
-        build_llvm_libraries_on_ubuntu_2204,
-        build_wamrc,
-      ]
+    needs: [build_iwasm, build_llvm_libraries_on_ubuntu, build_wamrc]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04, ubuntu-22.04]
+        os: [ubuntu-22.04]
         sanitizer: ["", "ubsan", "asan", "tsan"]
         running_mode:
           [
@@ -648,17 +618,11 @@ jobs:
             "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz",
           ]
         include:
-          - os: ubuntu-20.04
-            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
-            ubuntu_version: "20.04"
           - os: ubuntu-22.04
-            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu.outputs.cache_key }}
             ubuntu_version: "22.04"
 
         exclude:
-          # incompatible modes and features
-          - os: ubuntu-20.04
-            sanitizer: tsan
           # asan works only for aot now
           - running_mode: "classic-interp"
             sanitizer: asan
