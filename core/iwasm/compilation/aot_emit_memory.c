@@ -321,7 +321,7 @@ static bool
 aot_check_shared_heap_memory_overflow_common(
     AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMBasicBlockRef block_curr, LLVMBasicBlockRef block_maddr_phi,
-    LLVMBasicBlockRef check_succ, LLVMValueRef maddr_phi,
+    LLVMBasicBlockRef check_succ, LLVMValueRef maddr_phi, LLVMValueRef addr,
     LLVMValueRef start_offset, LLVMValueRef max_addr,
     LLVMValueRef mem_base_addr, uint32 bytes, bool is_memory64,
     bool is_target_64bit, bool bulk_memory, bool enable_segue)
@@ -329,7 +329,7 @@ aot_check_shared_heap_memory_overflow_common(
     LLVMBasicBlockRef app_addr_in_shared_heap_chain,
         app_addr_in_cache_shared_heap, app_addr_in_linear_mem, loopEntry,
         loopCond, loopBody, loopExit;
-    LLVMValueRef addr = NULL, maddr = NULL, max_offset = NULL, cmp, cmp1, cmp2;
+    LLVMValueRef maddr = NULL, max_offset = NULL, cmp, cmp1, cmp2;
     LLVMValueRef shared_heap_start_off, shared_heap_check_bound,
         shared_heap_size, shared_heap_end_off, shared_heap_base_addr_adj;
     /* The pointer that will traverse the shared heap chain */
@@ -563,12 +563,12 @@ static bool
 aot_check_shared_heap_memory_overflow(
     AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMBasicBlockRef block_curr, LLVMBasicBlockRef block_maddr_phi,
-    LLVMValueRef maddr_phi, LLVMValueRef start_offset,
+    LLVMValueRef maddr_phi, LLVMValueRef addr, LLVMValueRef start_offset,
     LLVMValueRef mem_base_addr, uint32 bytes, bool is_memory64,
     bool is_target_64bit, bool enable_segue)
 {
     return aot_check_shared_heap_memory_overflow_common(
-        comp_ctx, func_ctx, block_curr, block_maddr_phi, NULL, maddr_phi,
+        comp_ctx, func_ctx, block_curr, block_maddr_phi, NULL, maddr_phi, addr,
         start_offset, NULL, mem_base_addr, bytes, is_memory64, is_target_64bit,
         false, enable_segue);
 }
@@ -582,7 +582,7 @@ aot_check_bulk_memory_shared_heap_memory_overflow(
 {
     return aot_check_shared_heap_memory_overflow_common(
         comp_ctx, func_ctx, block_curr, block_maddr_phi, check_succ, maddr_phi,
-        start_offset, max_addr, NULL, 0, is_memory64,
+        NULL, start_offset, max_addr, NULL, 0, is_memory64,
         comp_ctx->pointer_size == sizeof(uint64), true, false);
 }
 
@@ -790,8 +790,8 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
         if (!aot_check_shared_heap_memory_overflow(
                 comp_ctx, func_ctx, block_curr, block_maddr_phi, maddr_phi,
-                offset1, mem_base_addr, bytes, is_memory64, is_target_64bit,
-                enable_segue)) {
+                addr, offset1, mem_base_addr, bytes, is_memory64,
+                is_target_64bit, enable_segue)) {
             goto fail;
         }
     }
