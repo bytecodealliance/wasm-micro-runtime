@@ -1013,6 +1013,22 @@ fail:
                         SET_FRAME_REF((unsigned)(dst_offsets[0] + 1));     \
                     }                                                      \
                 }                                                          \
+                else if (cells[0] == 4) {                                  \
+                    PUT_V128_TO_ADDR(                                      \
+                        frame_lp + dst_offsets[0],                         \
+                        GET_V128_FROM_ADDR(frame_lp + src_offsets[0]));    \
+                    /* Ignore constants because they are not reference */  \
+                    if (src_offsets[0] >= 0) {                             \
+                        CLEAR_FRAME_REF((unsigned)src_offsets[0]);         \
+                        CLEAR_FRAME_REF((unsigned)(src_offsets[0] + 1));   \
+                        CLEAR_FRAME_REF((unsigned)(src_offsets[0] + 2));   \
+                        CLEAR_FRAME_REF((unsigned)(src_offsets[0] + 3));   \
+                        SET_FRAME_REF((unsigned)dst_offsets[0]);           \
+                        SET_FRAME_REF((unsigned)(dst_offsets[0] + 1));     \
+                        SET_FRAME_REF((unsigned)(dst_offsets[0] + 2));     \
+                        SET_FRAME_REF((unsigned)(dst_offsets[0] + 3));     \
+                    }                                                      \
+                }                                                          \
             }                                                              \
             else {                                                         \
                 if (!copy_stack_values(module, frame_lp, arity, frame_ref, \
@@ -1052,6 +1068,11 @@ fail:
                     PUT_I64_TO_ADDR(                                        \
                         frame_lp + dst_offsets[0],                          \
                         GET_I64_FROM_ADDR(frame_lp + src_offsets[0]));      \
+                }                                                           \
+                else if (cells[0] == 4) {                                   \
+                    PUT_V128_TO_ADDR(                                       \
+                        frame_lp + dst_offsets[0],                          \
+                        GET_V128_FROM_ADDR(frame_lp + src_offsets[0]));     \
                 }                                                           \
             }                                                               \
             else {                                                          \
