@@ -32,6 +32,12 @@ set(CMAKE_EXE_LINKER_FLAGS
 add_executable(test.wasm test.c)
 target_link_libraries(test.wasm)
 
+if (WAMR_BUILD_TARGET STREQUAL "X86_32")
+  set (WAMR_COMPILER_FLAGS --opt-level=0 --bounds-checks=1 --enable-shared-heap --target=i386)
+else ()
+  set (WAMR_COMPILER_FLAGS --opt-level=0 --bounds-checks=1 --enable-shared-heap)
+endif ()
+
 add_custom_command(TARGET test.wasm POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_CURRENT_BINARY_DIR}/test.wasm
@@ -40,7 +46,7 @@ add_custom_command(TARGET test.wasm POST_BUILD
         )
 
 add_custom_command(TARGET test.wasm POST_BUILD
-        COMMAND ${WAMRC_ROOT_DIR}/wamrc --opt-level=0 --enable-shared-heap --bounds-checks=1
+        COMMAND ${WAMRC_ROOT_DIR}/wamrc  ${WAMR_COMPILER_FLAGS}
         -o
         test.aot
         test.wasm
@@ -61,7 +67,7 @@ add_custom_command(TARGET test_addr_conv.wasm POST_BUILD
         )
 
 add_custom_command(TARGET test_addr_conv.wasm POST_BUILD
-        COMMAND ${WAMRC_ROOT_DIR}/wamrc --opt-level=0 --enable-shared-heap --bounds-checks=1
+        COMMAND ${WAMRC_ROOT_DIR}/wamrc ${WAMR_COMPILER_FLAGS}
         -o
         test_addr_conv.aot
         test_addr_conv.wasm

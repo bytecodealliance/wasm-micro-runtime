@@ -63,6 +63,12 @@ bh_static_assert(offsetof(AOTModuleInstanceExtra, shared_heap_start_off) == 16);
 bh_static_assert(offsetof(AOTModuleInstanceExtra, shared_heap_end_off) == 24);
 bh_static_assert(offsetof(AOTModuleInstanceExtra, shared_heap) == 32);
 
+bh_static_assert(offsetof(WASMSharedHeap, chain_next) == 8);
+bh_static_assert(offsetof(WASMSharedHeap, base_addr) == 24);
+bh_static_assert(offsetof(WASMSharedHeap, size) == 32);
+bh_static_assert(offsetof(WASMSharedHeap, start_off_mem64) == 40);
+bh_static_assert(offsetof(WASMSharedHeap, start_off_mem32) == 48);
+
 bh_static_assert(sizeof(CApiFuncImport) == sizeof(uintptr_t) * 3);
 
 bh_static_assert(sizeof(wasm_val_t) == 16);
