@@ -3021,9 +3021,9 @@ fd_table_destroy(struct fd_table *ft)
                 fd_object_release(NULL, ft->entries[i].object);
             }
         }
-        rwlock_destroy(&ft->lock);
         wasm_runtime_free(ft->entries);
     }
+    rwlock_destroy(&ft->lock);
 }
 
 void
@@ -3035,9 +3035,9 @@ fd_prestats_destroy(struct fd_prestats *pt)
                 wasm_runtime_free((void *)pt->prestats[i].dir);
             }
         }
-        rwlock_destroy(&pt->lock);
         wasm_runtime_free(pt->prestats);
     }
+    rwlock_destroy(&pt->lock);
 }
 
 bool
