@@ -171,7 +171,7 @@ Enclave_Edl_Search_Path     =   --search-path ../Enclave \
 								--search-path $(SGX_SDK)/include \
 								--search-path $(WAMR_ROOT)/core/shared/platform/linux-sgx
 ifeq ($(WAMR_BUILD_LIB_RATS), 1)
-	Enclave_Edl_Search_Path	+=	--search-path $(LIB_RATS_INCLUDE_DIR)/librats/edl --search-path $(SGX_SSL)/include
+	Enclave_Edl_Search_Path	+=	--search-path $(LIB_RATS_INCLUDE_DIR)/edl --search-path $(SGX_SSL)/include
 endif
 
 
