@@ -20,8 +20,8 @@ WAMR_BUILD_LIBC_WASI = 1
 
 VMLIB_BUILD_DIR ?= $(CURDIR)/../build
 LIB_RATS_SRC ?= $(VMLIB_BUILD_DIR)/_deps/librats-build
-LIB_RATS_INSTALL_DIR := $(VMLIB_BUILD_DIR)/librats/build
-LIB_RATS_INCLUDE_DIR := $(VMLIB_BUILD_DIR)/librats/include
+LIB_RATS_INSTALL_DIR := $(VMLIB_BUILD_DIR)/_deps/librats-build
+LIB_RATS_INCLUDE_DIR := $(VMLIB_BUILD_DIR)/_deps/librats-src/include
 
 ifeq ($(shell getconf LONG_BIT), 32)
 	SGX_ARCH := x86
