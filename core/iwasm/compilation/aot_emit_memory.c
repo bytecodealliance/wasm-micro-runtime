@@ -301,7 +301,7 @@ aot_check_shared_heap_memory_overflow_common(
     LLVMValueRef mem_base_addr, LLVMValueRef bytes, uint32 bytes_u32,
     bool is_memory64, bool is_target_64bit, bool bulk_memory, bool enable_segue)
 {
-    LLVMBasicBlockRef app_addr_in_shared_heap_chain,
+    LLVMBasicBlockRef check_shared_heap_chain,
         app_addr_in_cache_shared_heap, app_addr_in_linear_mem, loopEntry,
         loopCond, loopBody, loopExit, shared_heap_oob;
     LLVMTypeRef offset_type, offset_ptr_type;
@@ -328,12 +328,13 @@ aot_check_shared_heap_memory_overflow_common(
      *              /                        \
      *       no shared heap          shared heap attached -------in cache------
      *              |                                 |                       |
-     *              |       ------not in chain--------|                       |
-     *              |       |                         |                       |
-     *              v       v                         v                       |
+     *              |                                 |                       |
+     *              |                                 |                       |
+     *              v                                 v                       |
      *  +---------------------+            +-------------------------+        |
-     *  |    in_linear_mem    |            |   in_shared_heap chain  |        |
+     *  |    in_linear_mem    |<----No-----| check shared_heap chain |        |
      *  +---------------------+            +-----------+-------------+        |
+     *              |                                 Yes                     |
      *              |                                  |                      |
      *              |                                  v                      |
      *              |                  +---------------+---------------+      |
@@ -352,15 +353,15 @@ aot_check_shared_heap_memory_overflow_common(
      *         |      maddr_phi      |
      *         +---------------------+
      *---------------------------------------------------------------------*/
-    ADD_BASIC_BLOCK(app_addr_in_shared_heap_chain,
-                    "app_addr_in_shared_heap_chain");
+    ADD_BASIC_BLOCK(check_shared_heap_chain,
+                    "check_shared_heap_chain");
     ADD_BASIC_BLOCK(app_addr_in_cache_shared_heap,
                     "app_addr_in_cache_shared_heap");
     ADD_BASIC_BLOCK(app_addr_in_linear_mem, "app_addr_in_linear_mem");
 
-    LLVMMoveBasicBlockAfter(app_addr_in_shared_heap_chain, block_curr);
+    LLVMMoveBasicBlockAfter(check_shared_heap_chain, block_curr);
     LLVMMoveBasicBlockAfter(app_addr_in_cache_shared_heap,
-                            app_addr_in_shared_heap_chain);
+                            check_shared_heap_chain);
     LLVMMoveBasicBlockAfter(app_addr_in_linear_mem,
                             app_addr_in_cache_shared_heap);
     if (!bulk_memory)
@@ -370,7 +371,7 @@ aot_check_shared_heap_memory_overflow_common(
 
     /* If there is no shared heap attached, branch to linear memory */
     BUILD_IS_NOT_NULL(func_ctx->shared_heap, cmp, "has_shared_heap");
-    BUILD_COND_BR(cmp, app_addr_in_shared_heap_chain, app_addr_in_linear_mem);
+    BUILD_COND_BR(cmp, check_shared_heap_chain, app_addr_in_linear_mem);
 
     /*---------------------------------------------------------------------
      * In the case where a shared heap is attached, we determine if the bytes
@@ -378,14 +379,14 @@ aot_check_shared_heap_memory_overflow_common(
      * traverses the chain by using a phi node to merge two definitions of the
      * pointer (initial and updated).
      *---------------------------------------------------------------------*/
-    SET_BUILD_POS(app_addr_in_shared_heap_chain);
+    SET_BUILD_POS(check_shared_heap_chain);
 
     /* Add loop basic blocks */
     ADD_BASIC_BLOCK(loopEntry, "loop_entry");
     ADD_BASIC_BLOCK(loopBody, "loop_body");
     ADD_BASIC_BLOCK(loopCond, "loop_cond");
     ADD_BASIC_BLOCK(loopExit, "loop_exit");
-    LLVMMoveBasicBlockAfter(loopEntry, app_addr_in_shared_heap_chain);
+    LLVMMoveBasicBlockAfter(loopEntry, check_shared_heap_chain);
     LLVMMoveBasicBlockAfter(loopBody, loopEntry);
     LLVMMoveBasicBlockAfter(loopCond, loopBody);
     LLVMMoveBasicBlockAfter(loopExit, loopCond);
