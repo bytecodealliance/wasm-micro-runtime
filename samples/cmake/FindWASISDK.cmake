@@ -4,9 +4,23 @@
 include(FindPackageHandleStandardArgs)
 
 file(GLOB WASISDK_SEARCH_PATH "/opt/wasi-sdk-*")
+
+function(check_version validator_result_var item)
+  if(WASISDK_FIND_VERSION)
+    if(item MATCHES "${WASISDK_FIND_VERSION}")
+      set(${validator_result_var} TRUE PARENT_SCOPE)
+    else()
+      set(${validator_result_var} FALSE PARENT_SCOPE)
+    endif()
+  else()
+    set(${validator_result_var} TRUE PARENT_SCOPE)
+  endif()
+endfunction()
+
 find_path(WASISDK_HOME
   NAMES share/wasi-sysroot
   PATHS ${WASISDK_SEARCH_PATH}
+  VALIDATOR check_version
   NO_DEFAULT_PATH
   REQUIRED
 )
