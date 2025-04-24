@@ -4778,6 +4778,11 @@ preserve_referenced_local(WASMLoaderContext *loader_ctx, uint8 opcode,
                         loader_ctx->preserved_local_offset += 2;
                     emit_label(EXT_OP_COPY_STACK_TOP_I64);
                 }
+
+                /* overflow */
+                bh_assert(preserved_offset
+                          <= loader_ctx->preserved_local_offset);
+
                 emit_operand(loader_ctx, local_index);
                 emit_operand(loader_ctx, preserved_offset);
                 emit_label(opcode);
