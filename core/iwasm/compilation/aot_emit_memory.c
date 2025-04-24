@@ -1627,7 +1627,7 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* mem_size is always 64-bit, extend max_addr on 32 bits platform */
     if (!is_target_64bit
-        && !(max_addr = LLVMBuildZExt(comp_ctx->builder, bytes, I64_TYPE,
+        && !(max_addr = LLVMBuildZExt(comp_ctx->builder, max_addr, I64_TYPE,
                                       "extend_max_addr"))) {
         aot_set_last_error("llvm build zext failed.");
         goto fail;
