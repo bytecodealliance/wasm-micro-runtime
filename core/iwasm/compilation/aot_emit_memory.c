@@ -301,9 +301,9 @@ aot_check_shared_heap_memory_overflow_common(
     LLVMValueRef mem_base_addr, LLVMValueRef bytes, uint32 bytes_u32,
     bool is_memory64, bool is_target_64bit, bool bulk_memory, bool enable_segue)
 {
-    LLVMBasicBlockRef check_shared_heap_chain,
-        app_addr_in_cache_shared_heap, app_addr_in_linear_mem, loopEntry,
-        loopCond, loopBody, loopExit, shared_heap_oob;
+    LLVMBasicBlockRef check_shared_heap_chain, app_addr_in_cache_shared_heap,
+        app_addr_in_linear_mem, loopEntry, loopCond, loopBody, loopExit,
+        shared_heap_oob;
     LLVMTypeRef offset_type, offset_ptr_type;
     LLVMValueRef maddr = NULL, max_offset = NULL, cmp, cmp1, cmp2;
     LLVMValueRef shared_heap_start_off, shared_heap_check_bound,
@@ -353,8 +353,7 @@ aot_check_shared_heap_memory_overflow_common(
      *         |      maddr_phi      |
      *         +---------------------+
      *---------------------------------------------------------------------*/
-    ADD_BASIC_BLOCK(check_shared_heap_chain,
-                    "check_shared_heap_chain");
+    ADD_BASIC_BLOCK(check_shared_heap_chain, "check_shared_heap_chain");
     ADD_BASIC_BLOCK(app_addr_in_cache_shared_heap,
                     "app_addr_in_cache_shared_heap");
     ADD_BASIC_BLOCK(app_addr_in_linear_mem, "app_addr_in_linear_mem");
@@ -1590,10 +1589,9 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     BUILD_OP(Add, offset, bytes, max_addr, "max_addr");
 
-    /* Check overflow when it's memory64 or it's on 32 bits platform, but for
-     * bulk memory only when sw bounds since the start address is offset */
-    if (comp_ctx->enable_bound_check && (is_memory64 || !is_target_64bit)) {
-        /* Check whether integer overflow occurs in offset + addr */
+    /* Check overflow when it's memory64 or it's on 32 bits platform */
+    if (is_memory64 || !is_target_64bit) {
+        /* Check whether integer overflow occurs in offset + bytes */
         LLVMBasicBlockRef check_integer_overflow_end;
         ADD_BASIC_BLOCK(check_integer_overflow_end,
                         "check_integer_overflow_end");
@@ -1627,21 +1625,19 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
 
-    if (comp_ctx->enable_bound_check) {
-        /* mem_size is always 64-bit, extend max_addr on 32 bits platform */
-        if (!is_target_64bit
-            && !(max_addr = LLVMBuildZExt(comp_ctx->builder, bytes, I64_TYPE,
-                                          "extend_max_addr"))) {
-            aot_set_last_error("llvm build zext failed.");
-            goto fail;
-        }
-        BUILD_ICMP(LLVMIntUGT, max_addr, mem_size, cmp, "cmp_max_mem_addr");
+    /* mem_size is always 64-bit, extend max_addr on 32 bits platform */
+    if (!is_target_64bit
+        && !(max_addr = LLVMBuildZExt(comp_ctx->builder, bytes, I64_TYPE,
+                                      "extend_max_addr"))) {
+        aot_set_last_error("llvm build zext failed.");
+        goto fail;
+    }
+    BUILD_ICMP(LLVMIntUGT, max_addr, mem_size, cmp, "cmp_max_mem_addr");
 
-        if (!aot_emit_exception(comp_ctx, func_ctx,
-                                EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS, true, cmp,
-                                check_succ)) {
-            goto fail;
-        }
+    if (!aot_emit_exception(comp_ctx, func_ctx,
+                            EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS, true, cmp,
+                            check_succ)) {
+        goto fail;
     }
 
     /* maddr = mem_base_addr + offset */
