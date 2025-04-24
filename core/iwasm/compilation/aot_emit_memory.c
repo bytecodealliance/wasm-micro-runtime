@@ -1589,8 +1589,9 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     BUILD_OP(Add, offset, bytes, max_addr, "max_addr");
 
-    /* Check overflow when it's memory64 or it's on 32 bits platform */
-    if (is_memory64 || !is_target_64bit) {
+    /* Check overflow when it's memory64 or it's on 32 bits platform, but for
+     * bulk memory only when sw bounds since the start address is offset */
+    if (comp_ctx->enable_bound_check && (is_memory64 || !is_target_64bit)) {
         /* Check whether integer overflow occurs in offset + addr */
         LLVMBasicBlockRef check_integer_overflow_end;
         ADD_BASIC_BLOCK(check_integer_overflow_end,
