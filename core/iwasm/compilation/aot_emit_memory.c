@@ -232,8 +232,8 @@ get_module_inst_extra_offset(AOTCompContext *comp_ctx);
         CHECK_LLVM_CONST(shared_heap_check_bound);                           \
     } while (0)
 
-/* Update last used shared heap info in func_ctx, let runtime api update module
- * inst shared heap info
+/* Update last used shared heap info in function ctx, let runtime api
+ * update module inst shared heap info
  * 1. shared_heap_start_off 2. shared_heap_end_off 3. shared_heap_base_addr_adj
  */
 static bool
@@ -329,20 +329,28 @@ aot_check_shared_heap_memory_overflow_common(
      *       no shared heap          shared heap attached -------in cache------
      *              |                                 |                       |
      *              |       ------not in chain--------|                       |
+     *              |       |                         |                       |
      *              v       v                         v                       |
      *  +---------------------+            +-------------------------+        |
      *  |    in_linear_mem    |            |   in_shared_heap chain  |        |
      *  +---------------------+            +-----------+-------------+        |
-     *                                                 |                      |
-     *                                                 v                      |
-     *                                 +---------------+---------------+      |
-     *                                 |   Loop: Traverse shared heap  |      |
-     *                                 +---------------+---------------+      |
-     *                                                 |                      |
-     *                                                 v                      |
-     *                                 +---------------+---------------+      |
-     *                                 |  Cache shared heap branch     |  <----
-     *                                 +-------------------------------+
+     *              |                                  |                      |
+     *              |                                  v                      |
+     *              |                  +---------------+---------------+      |
+     *              |                  |   Loop: Traverse shared heap  |      |
+     *              |                  +---------------+---------------+      |
+     *              |                                  |                      |
+     *              |                                  v                      |
+     *              |                  +---------------+---------------+      |
+     *              |                  |  Cache shared heap branch     |  <----
+     *              |                  +-------------------------------+
+     *              |                                  |
+     *              |        ---------------------------
+     *              |        |
+     *              v        v
+     *         +---------------------+
+     *         |      maddr_phi      |
+     *         +---------------------+
      *---------------------------------------------------------------------*/
     ADD_BASIC_BLOCK(app_addr_in_shared_heap_chain,
                     "app_addr_in_shared_heap_chain");
@@ -461,8 +469,9 @@ aot_check_shared_heap_memory_overflow_common(
     /*---------------------------------------------------------------------
      * LoopCond: update the pointer to traverse to the next shared heap in the
      * chain. The updated pointer is then added as an incoming value to the phi
-     * node. If in shared heap chain but not in the shared heap, it means OOB
-     * for a shared heap.
+     * node. If the address in shared heap chain region but not in the shared
+     * heap, it means OOB(access bytes cross shared heaps boundaries) for a
+     * shared heap.
      *---------------------------------------------------------------------*/
     ADD_BASIC_BLOCK(shared_heap_oob, "shared_heap_oob");
     LLVMMoveBasicBlockAfter(shared_heap_oob, loopCond);
@@ -724,6 +733,13 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         *alignp = 1;
     }
 
+    /* The overflow check needs to be done under following conditions:
+     * 1. In 64-bit target, offset and addr will be extended to 64-bit
+     *    1.1 offset + addr can overflow when it's memory64
+     *    1.2 no overflow when it's memory32
+     * 2. In 32-bit target, offset and addr will be 32-bit
+     *    2.1 offset + addr can overflow when it's memory32
+     */
     if (is_target_64bit) {
         if (!(offset_const = LLVMBuildZExt(comp_ctx->builder, offset_const,
                                            I64_TYPE, "offset_i64"))
@@ -734,21 +750,12 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
 
-    /* The overflow check needs to be done under following conditions:
-     * 1. In 64-bit target, offset and addr will be extended to 64-bit
-     *    1.1 offset + addr can overflow when it's memory64
-     *    1.2 no overflow when it's memory32
-     * 2. In 32-bit target, offset and addr will be 32-bit
-     *    2.1 offset + addr can overflow when it's memory32
-     * And the goal is to detect it happens ASAP
-     */
-
     /* offset1 = offset + addr; */
     BUILD_OP(Add, offset_const, addr, offset1, "offset1");
 
-    /* 1.1 offset + addr can overflow when it's memory64 or it's on 32-bit
-     * platform */
-    if (is_memory64 && !is_target_64bit) {
+    /* 1.1 offset + addr can overflow when it's memory64
+     * 2.1 Or when it's on 32-bit platform */
+    if (is_memory64 || !is_target_64bit) {
         /* Check whether integer overflow occurs in offset + addr */
         LLVMBasicBlockRef check_integer_overflow_end;
         ADD_BASIC_BLOCK(check_integer_overflow_end,
@@ -1568,6 +1575,8 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     ADD_BASIC_BLOCK(check_succ, "check_succ");
     LLVMMoveBasicBlockAfter(check_succ, block_curr);
 
+    /* Same logic with aot_check_memory_overflow, offset and bytes are 32/64
+     * bits on 32/64 bits platform */
     if (is_target_64bit) {
         offset =
             LLVMBuildZExt(comp_ctx->builder, offset, I64_TYPE, "extend_offset");
@@ -1580,6 +1589,7 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     BUILD_OP(Add, offset, bytes, max_addr, "max_addr");
 
+    /* Check overflow when it's memory64 or it's on 32 bits platform */
     if (is_memory64 || !is_target_64bit) {
         /* Check whether integer overflow occurs in offset + addr */
         LLVMBasicBlockRef check_integer_overflow_end;
@@ -1615,18 +1625,21 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
 
-    if (!is_target_64bit
-        && !(max_addr = LLVMBuildZExt(comp_ctx->builder, bytes, I64_TYPE,
-                                      "extend_max_addr"))) {
-        aot_set_last_error("llvm build zext failed.");
-        goto fail;
-    }
-    BUILD_ICMP(LLVMIntUGT, max_addr, mem_size, cmp, "cmp_max_mem_addr");
+    if (comp_ctx->enable_bound_check) {
+        /* mem_size is always 64-bit, extend max_addr on 32 bits platform */
+        if (!is_target_64bit
+            && !(max_addr = LLVMBuildZExt(comp_ctx->builder, bytes, I64_TYPE,
+                                          "extend_max_addr"))) {
+            aot_set_last_error("llvm build zext failed.");
+            goto fail;
+        }
+        BUILD_ICMP(LLVMIntUGT, max_addr, mem_size, cmp, "cmp_max_mem_addr");
 
-    if (!aot_emit_exception(comp_ctx, func_ctx,
-                            EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS, true, cmp,
-                            check_succ)) {
-        goto fail;
+        if (!aot_emit_exception(comp_ctx, func_ctx,
+                                EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS, true, cmp,
+                                check_succ)) {
+            goto fail;
+        }
     }
 
     /* maddr = mem_base_addr + offset */
