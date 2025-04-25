@@ -43,4 +43,3 @@
     (drop (ref.cast arrayref (table.get (local.get $i))))
   )
 )
-
