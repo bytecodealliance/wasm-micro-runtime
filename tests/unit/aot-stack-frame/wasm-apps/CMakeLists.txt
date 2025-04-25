@@ -13,7 +13,7 @@ add_custom_target(aot-stack-frame-test-wasm ALL
                   -o ${CMAKE_CURRENT_BINARY_DIR}/test.wasm
                   ${CMAKE_CURRENT_LIST_DIR}/test.wast
             && ${CMAKE_CURRENT_BINARY_DIR}/build-wamrc/wamrc
-                  --enable-dump-call-stack --bounds-checks=1
+                  --enable-dump-call-stack --bounds-checks=1 --enable-gc
                   -o ${CMAKE_CURRENT_BINARY_DIR}/test.aot
                   ${CMAKE_CURRENT_BINARY_DIR}/test.wasm
             && cmake -B ${CMAKE_CURRENT_BINARY_DIR}/build-binarydump
