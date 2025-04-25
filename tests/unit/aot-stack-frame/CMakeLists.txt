@@ -17,6 +17,7 @@ set (WAMR_BUILD_LIBC_BUILTIN 0)
 set (WAMR_BUILD_MULTI_MODULE 0)
 set (WAMR_DISABLE_HW_BOUND_CHECK 1)
 set (WAMR_DISABLE_WRITE_GS_BASE 1)
+set (WAMR_BUILD_GC 1)
 
 include (../unit_common.cmake)
 
@@ -31,15 +32,21 @@ file (GLOB_RECURSE source_all ${CMAKE_CURRENT_SOURCE_DIR}/*.cc)
 set (UNIT_SOURCE ${source_all})
 
 set (unit_test_sources
-     ${UNIT_SOURCE}
-     ${PLATFORM_SHARED_SOURCE}
-     ${UTILS_SHARED_SOURCE}
-     ${MEM_ALLOC_SHARED_SOURCE}
-     ${NATIVE_INTERFACE_SOURCE}
-     ${IWASM_COMMON_SOURCE}
-     ${IWASM_INTERP_SOURCE}
-     ${IWASM_AOT_SOURCE}
-     ${WASM_APP_LIB_SOURCE_ALL}
+        ${UNIT_SOURCE}
+        ${WAMR_RUNTIME_LIB_SOURCE}
+        ${UNCOMMON_SHARED_SOURCE}
+        ${SRC_LIST}
+        ${PLATFORM_SHARED_SOURCE}
+        ${UTILS_SHARED_SOURCE}
+        ${MEM_ALLOC_SHARED_SOURCE}
+        ${LIB_HOST_AGENT_SOURCE}
+        ${NATIVE_INTERFACE_SOURCE}
+        ${LIBC_BUILTIN_SOURCE}
+        ${IWASM_COMMON_SOURCE}
+        ${IWASM_INTERP_SOURCE}
+        ${IWASM_AOT_SOURCE}
+        ${IWASM_COMPL_SOURCE}
+        ${WASM_APP_LIB_SOURCE_ALL}
     )
 
 # Automatically build wasm-apps for this test
