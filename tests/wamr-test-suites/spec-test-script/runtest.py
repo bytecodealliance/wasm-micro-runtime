@@ -46,7 +46,8 @@ temp_module_table = {}
 aot_target_options_map = {
     "i386": ["--target=i386"],
     "x86_32": ["--target=i386"],
-    "x86_64": ["--target=x86_64", "--cpu=skylake"],
+    # cf. https://github.com/bytecodealliance/wasm-micro-runtime/issues/3035
+    "x86_64": ["--target=x86_64", "--cpu=skylake", "--size-level=0"],
     "aarch64": ["--target=aarch64", "--target-abi=eabi", "--cpu=cortex-a53"],
     "aarch64_vfp": ["--target=aarch64", "--target-abi=gnueabihf", "--cpu=cortex-a53"],
     "armv7": ["--target=armv7", "--target-abi=eabi", "--cpu=cortex-a9", "--cpu-features=-neon"],
