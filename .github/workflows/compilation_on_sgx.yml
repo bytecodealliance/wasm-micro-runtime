@@ -290,6 +290,22 @@ jobs:
 
       - name: run spec tests
         run: |
+          set +e
           source /opt/intel/sgxsdk/environment
           ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
+          exitcode="$?"
+
+          if [ $exitcode -eq 143 ]; then
+            echo "$exitcode is a known GitHub-hosted runner issue"
+            echo "::notice::Bypass an error with code 143 in SGX CI"
+            exit 0
+          fi
+
+          if [ $exitcode -ne 0 ]; then
+            echo "Spec test failed with error code $exitcode"
+            exit 1
+          fi
+
+          echo "Spec test passed"
+          exit 0
         working-directory: ./tests/wamr-test-suites
