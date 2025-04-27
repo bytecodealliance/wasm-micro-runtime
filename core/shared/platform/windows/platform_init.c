@@ -72,8 +72,66 @@ os_getpagesize()
 
 void
 os_dcache_flush(void)
-{}
+{
+}
 
 void
 os_icache_flush(void *start, size_t len)
-{}
+{
+}
+
+int
+os_execve(const char *pathname, char *const argv[], int argc)
+{
+    STARTUPINFO si;
+    PROCESS_INFORMATION pi;
+    DWORD exit_code;
+    int ret;
+
+    if (pathname == NULL) {
+        goto fail;
+    }
+
+    if (argc > 0) {
+        if (argv == NULL) {
+            goto fail;
+        }
+
+        /* The `argv[]` must be terminated by a NULL pointer. */
+        if (argv[argc - 1] != NULL) {
+            goto fail;
+        }
+    }
+
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+
+    if (!CreateProcess(pathname, (LPSTR)argv[0],
+                       /* security attributes */
+                       NULL, NULL,
+                       /* not inherited handlers */
+                       FALSE,
+                       /* creation flags */
+                       0,
+                       /* not use parent's environment */
+                       NULL,
+                       /* not use parent's directory */
+                       NULL, &si, &pi)) {
+        printf("CreateProcess failed: %d\n", GetLastError());
+        goto fail;
+    }
+
+    WaitForSingleObject(pi.hProcess, INFINITE);
+
+    if (!GetExitCodeProcess(pi.hProcess, &exit_code)) {
+        printf("GetExitCodeProcess failed: %d\n", GetLastError());
+        goto fail;
+    }
+
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+    return exit_code;
+
+fail:
+    return -1;
+}

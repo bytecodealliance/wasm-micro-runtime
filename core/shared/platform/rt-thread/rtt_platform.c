@@ -210,3 +210,10 @@ os_clock_res_get(__wasi_clockid_t clock_id, __wasi_timestamp_t *resolution)
 {
     return 0;
 }
+
+int
+os_execve(const char *pathname, char *const argv[], int argc)
+{
+    /* not implemented */
+    return -1;
+}

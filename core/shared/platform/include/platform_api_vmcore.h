@@ -185,6 +185,26 @@ os_dcache_flush(void);
 void
 os_icache_flush(void *start, size_t len);
 
+/*
+ * Executes a program referred to by cmd in bash/cmd.exe
+ * Always be sure that argv[argc-1] == NULL
+ *
+ * @param pathname The program to execute. need to be absolute path.
+ * @param argv The command line arguments.
+ * @param argc The number of command line arguments.
+ *
+ * like to execute "ls -l /tmp":
+ *   os_execve("/bin/ls", (char *const []){ "-l", "/tmp", NULL }, 3);
+ *
+ * @return 0 if success
+ *        -1 if can't execute the program or can't get exit code.
+ *           like fork() failed, execve() failed, waitpid() failed
+ *           or the program is not terminated normally(via exit() or main())
+ *           other values indicate exit code.
+ */
+int
+os_execve(const char *pathname, char *const argv[], int argc);
+
 #ifdef __cplusplus
 }
 #endif

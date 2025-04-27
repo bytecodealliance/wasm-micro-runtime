@@ -101,3 +101,10 @@ os_invalid_raw_handle(void)
 {
     return -1;
 }
+
+int
+os_execve(const char *pathname, char *const argv[], int argc)
+{
+    /* not implemented */
+    return -1;
+}

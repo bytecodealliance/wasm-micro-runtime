@@ -27,6 +27,7 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/mman.h>
+#include <sys/wait.h>
 #include <semaphore.h>
 
 #ifdef __cplusplus
