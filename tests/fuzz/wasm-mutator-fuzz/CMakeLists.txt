@@ -1,170 +1,101 @@
 # Copyright (C) 2019 Intel Corporation. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 3.14)
+cmake_minimum_required(VERSION 3.14)
 
-if (NOT DEFINED CMAKE_C_COMPILER)
-set (CMAKE_C_COMPILER "clang")
-endif ()
-if (NOT DEFINED CMAKE_CXX_COMPILER)
-set (CMAKE_CXX_COMPILER "clang++")
-endif ()
+project(wamr_fuzzing LANGUAGES ASM C CXX)
 
-project(wasm_mutator)
+include(CMakePrintHelpers)
 
-set (CMAKE_BUILD_TYPE Debug)
-
-string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
-
-# Reset default linker flags
-set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
-set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
-
-set (CMAKE_C_STANDARD 11)
-set (CMAKE_CXX_STANDARD 17)
-
-# Set WAMR_BUILD_TARGET, currently values supported:
-# "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]",
-# "MIPS", "XTENSA", "RISCV64[sub]", "RISCV32[sub]"
-if (NOT DEFINED WAMR_BUILD_TARGET)
-  if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)")
-    set (WAMR_BUILD_TARGET "AARCH64")
-  elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
-    set (WAMR_BUILD_TARGET "RISCV64")
-  elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
-    # Build as X86_64 by default in 64-bit platform
-    set (WAMR_BUILD_TARGET "X86_64")
-  elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    # Build as X86_32 by default in 32-bit platform
-    set (WAMR_BUILD_TARGET "X86_32")
-  else ()
-    message(SEND_ERROR "Unsupported build target platform!")
-  endif ()
-endif ()
-
-if (APPLE)
-  add_definitions(-DBH_PLATFORM_DARWIN)
-endif ()
-
-if(CUSTOM_MUTATOR EQUAL 1)
-  add_compile_definitions(CUSTOM_MUTATOR)
+# Ensure Clang is used as the compiler
+if(NOT CMAKE_C_COMPILER_ID STREQUAL "Clang"
+    OR NOT CMAKE_ASM_COMPILER_ID STREQUAL "Clang")
+  message(FATAL_ERROR "Please use Clang as the C compiler for libFuzzer compatibility.")
 endif()
 
-if (NOT DEFINED WAMR_BUILD_INTERP)
-  # Enable Interpreter by default
-  set (WAMR_BUILD_INTERP 1)
-endif ()
+#
+# Global settings
+#
+set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
-if (NOT DEFINED WAMR_BUILD_AOT)
-  # Enable AOT by default.
-  set (WAMR_BUILD_AOT 1)
-endif ()
+string(TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
 
-if (NOT DEFINED WAMR_BUILD_JIT)
-  # Disable JIT by default.
-  set (WAMR_BUILD_JIT 0)
-endif ()
+# Reset default linker flags
+set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
+set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
-if (NOT DEFINED WAMR_BUILD_LIBC_BUILTIN)
-  # Disable libc builtin support by default
-  set (WAMR_BUILD_LIBC_BUILTIN 0)
-endif ()
+# Check if the compiler supports the sanitizer flags
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag("-fsanitize=address"   HAS_ADDRESS_SANITIZER)
+check_cxx_compiler_flag("-fsanitize=memory"    HAS_MEMORY_SANITIZER)
+check_cxx_compiler_flag("-fsanitize=undefined" HAS_UNDEFINED_SANITIZER)
 
-if (NOT DEFINED WAMR_BUILD_LIBC_WASI)
-  # Enable libc wasi support by default
-  set (WAMR_BUILD_LIBC_WASI 0)
-endif ()
+# Determine WAMR_BUILD_TARGET based on system properties
+if(NOT DEFINED WAMR_BUILD_TARGET)
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)")
+    set(WAMR_BUILD_TARGET "AARCH64")
+  elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
+    set(WAMR_BUILD_TARGET "RISCV64")
+  elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(WAMR_BUILD_TARGET "X86_64")
+  elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+    set(WAMR_BUILD_TARGET "X86_32")
+  else()
+    message(SEND_ERROR "Unsupported build target platform!")
+  endif()
+endif()
 
-if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
-  # Enable fast interpreter
-  set (WAMR_BUILD_FAST_INTERP 1)
-endif ()
+if(APPLE)
+  add_definitions(-DBH_PLATFORM_DARWIN)
+endif()
 
-if (NOT DEFINED WAMR_BUILD_MULTI_MODULE)
-  # Disable multiple modules
-  set (WAMR_BUILD_MULTI_MODULE 0)
-endif ()
+# Disable hardware bound check and enable AOT validator
+set(WAMR_DISABLE_HW_BOUND_CHECK 1)
+set(WAMR_BUILD_AOT_VALIDATOR 1)
 
-if (NOT DEFINED WAMR_BUILD_LIB_PTHREAD)
-  # Disable pthread library by default
-  set (WAMR_BUILD_LIB_PTHREAD 0)
-endif ()
+set(REPO_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../../..)
+message(STATUS "REPO_ROOT_DIR: ${REPO_ROOT_DIR}")
 
-if (NOT DEFINED WAMR_BUILD_MINI_LOADER)
-  # Disable wasm mini loader by default
-  set (WAMR_BUILD_MINI_LOADER 0)
-endif ()
+# Use LLVM_DIR from command line if defined
+# LLVM_DIR should be something like /path/to/llvm/build/lib/cmake/llvm
+if(DEFINED LLVM_DIR)
+  set(LLVM_DIR $ENV{LLVM_DIR})
+else()
+  set(LLVM_SRC_ROOT ${REPO_ROOT_DIR}/core/deps/llvm)
+  set(LLVM_BUILD_ROOT ${LLVM_SRC_ROOT}/build)
+  set(LLVM_DIR ${LLVM_BUILD_ROOT}/lib/cmake/llvm)
+endif()
 
-if (NOT DEFINED WAMR_BUILD_SIMD)
-  # Enable SIMD by default
-  set (WAMR_BUILD_SIMD 1)
-endif ()
+# if LLVM_DIR is an existing directory, use it
+if(NOT EXISTS ${LLVM_DIR})
+  message(FATAL_ERROR "LLVM_DIR not found: ${LLVM_DIR}")
+endif()
 
-if (NOT DEFINED WAMR_BUILD_REF_TYPES)
-  # Enable reference type by default
-  set (WAMR_BUILD_REF_TYPES 1)
-endif ()
+find_package(LLVM REQUIRED CONFIG)
 
-if (NOT DEFINED WAMR_BUILD_DEBUG_INTERP)
-  # Disable Debug feature by default
-  set (WAMR_BUILD_DEBUG_INTERP 0)
-endif ()
+message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
+message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
-if (WAMR_BUILD_DEBUG_INTERP EQUAL 1)
-  set (WAMR_BUILD_FAST_INTERP 0)
-  set (WAMR_BUILD_MINI_LOADER 0)
-  set (WAMR_BUILD_SIMD 0)
-endif ()
+include_directories(${LLVM_INCLUDE_DIRS})
+separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
+add_definitions(${LLVM_DEFINITIONS_LIST})
 
-# sanitizer may use kHandleSignalExclusive to handle SIGSEGV
-# like `UBSAN_OPTIONS=handle_segv=2:...`
-set (WAMR_DISABLE_HW_BOUND_CHECK 1)
-# Enable aot validator
-set (WAMR_BUILD_AOT_VALIDATOR 1)
+set(SHARED_DIR ${REPO_ROOT_DIR}/core/shared)
+set(IWASM_DIR ${REPO_ROOT_DIR}/core/iwasm)
 
-set (REPO_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../../..)
-message([ceith]:REPO_ROOT_DIR, ${REPO_ROOT_DIR})
-
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-
-add_definitions(-DWAMR_USE_MEM_POOL=0 -DWASM_ENABLE_FUZZ_TEST=1)
+# Global setting
+add_compile_options(-Wno-unused-command-line-argument)
 
 # Enable fuzzer
+add_definitions(-DWASM_ENABLE_FUZZ_TEST=1)
 add_compile_options(-fsanitize=fuzzer)
 add_link_options(-fsanitize=fuzzer)
 
-# if not calling from oss-fuzz helper, enable all support sanitizers
-# oss-fuzz will define FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION in CFLAGS and CXXFLAGS
+# Enable sanitizers if not in oss-fuzz environment
 set(CFLAGS_ENV $ENV{CFLAGS})
 string(FIND "${CFLAGS_ENV}" "-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION" IN_OSS_FUZZ)
-if (IN_OSS_FUZZ EQUAL -1)
-  message("[ceith]:Enable ASan and UBSan in non-oss-fuzz environment")
-  add_compile_options(
-    -fprofile-instr-generate -fcoverage-mapping
-    -fno-sanitize-recover=all
-    -fsanitize=address,undefined
-    # reference: https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html
-    # -fsanitize=undefined: All of the checks listed above other than float-divide-by-zero,
-    #     unsigned-integer-overflow, implicit-conversion, local-bounds and
-    #     the nullability-* group of checks.
-    #
-    # for now, we disable below from UBSan
-    # -alignment
-    # -implicit-conversion
-    #
-    -fsanitize=float-divide-by-zero,unsigned-integer-overflow,local-bounds,nullability
-    -fno-sanitize=alignment
-  )
-  add_link_options(-fsanitize=address -fprofile-instr-generate)
-endif ()
 
-include(${REPO_ROOT_DIR}/core/shared/utils/uncommon/shared_uncommon.cmake)
-include(${REPO_ROOT_DIR}/build-scripts/runtime_lib.cmake)
-
-add_library(vmlib
-    ${WAMR_RUNTIME_LIB_SOURCE}
-)
-
-add_executable(wasm_mutator_fuzz wasm_mutator_fuzz.cc)
-target_link_libraries(wasm_mutator_fuzz vmlib -lm)
+add_subdirectory(aot-compiler)
+add_subdirectory(wasm-mutator)
