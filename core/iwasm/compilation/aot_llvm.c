@@ -2520,7 +2520,8 @@ aot_compiler_init(void)
     LLVMInitializeCore(LLVMGetGlobalPassRegistry());
 #endif
 
-#if WASM_ENABLE_WAMR_COMPILER != 0
+/* fuzzing only use host targets for simple */
+#if WASM_ENABLE_WAMR_COMPILER != 0 && WASM_ENABLE_FUZZ_TEST == 0
     /* Init environment of all targets for AOT compiler */
     LLVMInitializeAllTargetInfos();
     LLVMInitializeAllTargets();
