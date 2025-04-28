@@ -28,31 +28,30 @@ echo "============> test test-module-malloc"
 
 if [[ $1 != "--aot" ]]; then
     rm -fr build && mkdir build && cd build
-    cmake .. -DWAMR_BUILD_TARGET=${TARGET}
+    cmake .. -DWAMR_BUILD_TARGET=${TARGET} -DWAMR_BUILD_REF_TYPES=1
     make -j > /dev/null 2>&1
     ./iwasm --native-lib=./libtest_module_malloc.so wasm-app/test.wasm
     if [ ${TARGET} == "X86_64" ]; then
         echo "============> test test-module-malloc with hw bound check disabled"
         cd .. && rm -fr build && mkdir build && cd build
-        cmake .. -DWAMR_BUILD_TARGET=${TARGET} -DWAMR_DISABLE_HW_BOUND_CHECK=1
+        cmake .. -DWAMR_BUILD_TARGET=${TARGET} -DWAMR_BUILD_REF_TYPES=1 -DWAMR_DISABLE_HW_BOUND_CHECK=1
         make clean
         make -j > /dev/null 2>&1
         ./iwasm --native-lib=./libtest_module_malloc.so wasm-app/test.wasm
     fi
 else
     rm -fr build && mkdir build && cd build
-    cmake .. -DWAMR_BUILD_TARGET=${TARGET}
+    cmake .. -DWAMR_BUILD_TARGET=${TARGET} -DWAMR_BUILD_REF_TYPES=1
     make -j > /dev/null 2>&1
     ${WAMRC_CMD} ${WAMRC_FLAGS} -o wasm-app/test.aot wasm-app/test.wasm
     ./iwasm --native-lib=./libtest_module_malloc.so wasm-app/test.aot
     if [ ${TARGET} == "X86_64" ]; then
         echo "============> test test-module-malloc with hw bound check disabled"
         cd .. && rm -fr build && mkdir build && cd build
-        cmake .. -DWAMR_BUILD_TARGET=${TARGET} -DWAMR_DISABLE_HW_BOUND_CHECK=1
+        cmake .. -DWAMR_BUILD_TARGET=${TARGET} -DWAMR_BUILD_REF_TYPES=1 -DWAMR_DISABLE_HW_BOUND_CHECK=1
         make clean
         make -j > /dev/null 2>&1
         ${WAMRC_CMD} ${WAMRC_FLAGS} --bounds-checks=1 -o wasm-app/test.aot wasm-app/test.wasm
         ./iwasm --native-lib=./libtest_module_malloc.so wasm-app/test.aot
     fi
 fi
-
