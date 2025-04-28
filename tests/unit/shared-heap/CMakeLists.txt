@@ -22,6 +22,10 @@ set(WAMR_BUILD_SHARED_HEAP 1)
 # Compile wasm modules
 add_subdirectory(wasm-apps)
 
+if (WAMR_BUILD_MEMORY64 EQUAL 1)
+   add_subdirectory(wasm-apps/memory64)
+endif ()
+
 # if only load this CMake other than load it as subdirectory
 include(../unit_common.cmake)
 
