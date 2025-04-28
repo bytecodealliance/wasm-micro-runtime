@@ -73,6 +73,7 @@ typedef struct AOTCompOption {
     bool enable_perf_profiling;
     bool enable_memory_profiling;
     bool disable_llvm_intrinsics;
+    bool disable_llvm_jump_tables;
     bool disable_llvm_lto;
     bool enable_llvm_pgo;
     bool enable_stack_estimation;
