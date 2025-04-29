@@ -211,10 +211,6 @@ if (NOT DEFINED WAMR_BUILD_TAIL_CALL)
   set (WAMR_BUILD_TAIL_CALL 0)
 endif ()
 
-if (NOT DEFINED WAMR_BUILD_REF_TYPES)
-  set (WAMR_BUILD_REF_TYPES 1)
-endif ()
-
 ########################################
 # Compilation options to marco
 ########################################
