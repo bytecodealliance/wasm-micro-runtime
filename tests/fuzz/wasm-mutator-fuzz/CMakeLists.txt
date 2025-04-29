@@ -90,8 +90,10 @@ add_compile_options(-Wno-unused-command-line-argument)
 
 # Enable fuzzer
 add_definitions(-DWASM_ENABLE_FUZZ_TEST=1)
-add_compile_options(-fsanitize=fuzzer)
-add_link_options(-fsanitize=fuzzer)
+# '-fsanitize=vptr' not allowed with '-fno-rtti
+# But, LLVM by default, disables the use of `rtti` in the compiler
+add_compile_options(-fsanitize=fuzzer -fno-sanitize=vptr)
+add_link_options(-fsanitize=fuzzer -fno-sanitize=vptr)
 
 # Enable sanitizers if not in oss-fuzz environment
 set(CFLAGS_ENV $ENV{CFLAGS})
