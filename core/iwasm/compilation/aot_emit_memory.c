@@ -1502,7 +1502,7 @@ LLVMValueRef
 check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                            LLVMValueRef offset, LLVMValueRef bytes)
 {
-    LLVMValueRef maddr, max_addr, cmp;
+    LLVMValueRef maddr, max_addr, cmp, cmp1;
     LLVMValueRef mem_base_addr, maddr_phi = NULL;
     LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
     LLVMBasicBlockRef check_succ, block_maddr_phi = NULL;
@@ -1593,17 +1593,17 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Check overflow when it's memory64 or it's on 32 bits platform */
     if (is_memory64 || !is_target_64bit) {
         /* Check whether integer overflow occurs in offset + bytes */
-        LLVMValueRef max_offset;
         LLVMBasicBlockRef check_integer_overflow_end;
         ADD_BASIC_BLOCK(check_integer_overflow_end,
                         "check_integer_overflow_end");
         LLVMMoveBasicBlockAfter(check_integer_overflow_end, block_curr);
 
         /* offset + bytes can overflow yet is valid(for example, 0xffffffff, 1),
-         * check whether offset + bytes - 1 overflow instead */
-        BUILD_OP(Add, max_addr, is_target_64bit ? I64_NEG_ONE : I32_NEG_ONE,
-                 max_offset, "max_offset");
-        BUILD_ICMP(LLVMIntULT, max_offset, bytes, cmp, "cmp");
+         * allow it to be 0(either 0, 0 or overflow and valid) */
+        BUILD_ICMP(LLVMIntULT, max_addr, offset, cmp, "cmp");
+        BUILD_ICMP(LLVMIntNE, max_addr, is_target_64bit ? I64_ZERO : I32_ZERO,
+                   cmp1, "cmp1");
+        BUILD_OP(And, cmp, cmp1, cmp, "overflow");
         if (!aot_emit_exception(comp_ctx, func_ctx,
                                 EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS, true, cmp,
                                 check_integer_overflow_end)) {
