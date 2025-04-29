@@ -52,7 +52,7 @@ include(${REPO_ROOT_DIR}/core/shared/utils/uncommon/shared_uncommon.cmake)
 add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 target_include_directories(vmlib PUBLIC ${RUNTIME_LIB_HEADER_LIST})
 target_link_directories(vmlib PUBLIC ${RUNTIME_LIB_LINK_LIST})
-target_link_libraries(vmlib PUBLIC ${LLVM_AVAILABLE_LIBS})
+target_link_libraries(vmlib PUBLIC ${REQUIRED_LLVM_LIBS})
 
 add_executable(wasm_mutator_fuzz wasm_mutator_fuzz.cc)
 target_link_libraries(wasm_mutator_fuzz PRIVATE vmlib m)
