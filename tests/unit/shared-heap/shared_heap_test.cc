@@ -299,7 +299,6 @@ TEST_F(shared_heap_test, test_shared_heap_chain_rmw_bulk_memory)
     start2 = UINT32_MAX - BUF_SIZE + 1;
     end2 = UINT32_MAX;
 
-    /* shared heap 1 */
     argv[0] = end1;
     argv[1] = 101;
     argv[2] = 1;
@@ -309,14 +308,33 @@ TEST_F(shared_heap_test, test_shared_heap_chain_rmw_bulk_memory)
     EXPECT_EQ(end1, argv[0]);
     EXPECT_EQ(preallocated_buf[BUF_SIZE - 1], 101);
 
+    argv[0] = start1;
+    argv[1] = 14;
+    argv[2] = 1;
+    test_shared_heap(shared_heap_chain, "test_bulk_memory.aot",
+                     "memory_fill_test", 3, argv);
+    /* no modification since no return value */
+    EXPECT_EQ(start1, argv[0]);
+    EXPECT_EQ(preallocated_buf[0], 14);
+
+    /* nothing happen when memory fill 0 byte */
     argv[0] = start2;
-    argv[1] = 98;
-    argv[2] = 2;
+    argv[1] = 68;
+    argv[2] = 0;
     test_shared_heap(shared_heap_chain, "test_bulk_memory.aot",
                      "memory_fill_test", 3, argv);
     /* no modification since no return value */
     EXPECT_EQ(start2, argv[0]);
-    EXPECT_EQ(preallocated_buf2[0], 98);
+    EXPECT_EQ(preallocated_buf2[0], 0);
+
+    argv[0] = end2;
+    argv[1] = 98;
+    argv[2] = 1;
+    test_shared_heap(shared_heap_chain, "test_bulk_memory.aot",
+                     "memory_fill_test", 3, argv);
+    /* no modification since no return value */
+    EXPECT_EQ(end2, argv[0]);
+    EXPECT_EQ(preallocated_buf2[BUF_SIZE - 1], 98);
 }
 
 TEST_F(shared_heap_test, test_shared_heap_chain_rmw_bulk_memory_oob)
@@ -338,7 +356,7 @@ TEST_F(shared_heap_test, test_shared_heap_chain_rmw_bulk_memory_oob)
     end2 = UINT32_MAX;
 
     /* shared heap 1 */
-    argv[0] = end2;
+    argv[0] = end1;
     argv[1] = 101;
     argv[2] = 2;
     EXPECT_NONFATAL_FAILURE(test_shared_heap(shared_heap_chain,
@@ -346,13 +364,64 @@ TEST_F(shared_heap_test, test_shared_heap_chain_rmw_bulk_memory_oob)
                                              "memory_fill_test", 3, argv),
                             "Exception: out of bounds memory access");
 
+    argv[0] = end2;
+    argv[1] = 98;
+    argv[2] = 2;
+    EXPECT_NONFATAL_FAILURE(test_shared_heap(shared_heap_chain,
+                                             "test_bulk_memory.wasm",
+                                             "memory_fill_test", 3, argv),
+                            "Exception: out of bounds memory access");
+
+    argv[0] = start1;
+    argv[1] = 98;
+    argv[2] = BUF_SIZE + 1;
+    EXPECT_NONFATAL_FAILURE(test_shared_heap(shared_heap_chain,
+                                             "test_bulk_memory.wasm",
+                                             "memory_fill_test", 3, argv),
+                            "Exception: out of bounds memory access");
+
+    argv[0] = start2;
+    argv[1] = 98;
+    argv[2] = BUF_SIZE + 1;
+    EXPECT_NONFATAL_FAILURE(test_shared_heap(shared_heap_chain,
+                                             "test_bulk_memory.wasm",
+                                             "memory_fill_test", 3, argv),
+                            "Exception: out of bounds memory access");
+
+
+
     argv[0] = end1;
+    argv[1] = 101;
+    argv[2] = 2;
+    EXPECT_NONFATAL_FAILURE(test_shared_heap(shared_heap_chain,
+                                             "test_bulk_memory.aot",
+                                             "memory_fill_test", 3, argv),
+                            "Exception: out of bounds memory access");
+
+    argv[0] = end2;
     argv[1] = 98;
     argv[2] = 2;
     EXPECT_NONFATAL_FAILURE(test_shared_heap(shared_heap_chain,
                                              "test_bulk_memory.aot",
                                              "memory_fill_test", 3, argv),
                             "Exception: out of bounds memory access");
+
+    argv[0] = start1;
+    argv[1] = 98;
+    argv[2] = BUF_SIZE + 1;
+    EXPECT_NONFATAL_FAILURE(test_shared_heap(shared_heap_chain,
+                                             "test_bulk_memory.aot",
+                                             "memory_fill_test", 3, argv),
+                            "Exception: out of bounds memory access");
+
+    argv[0] = start2;
+    argv[1] = 98;
+    argv[2] = BUF_SIZE + 1;
+    EXPECT_NONFATAL_FAILURE(test_shared_heap(shared_heap_chain,
+                                             "test_bulk_memory.aot",
+                                             "memory_fill_test", 3, argv),
+                            "Exception: out of bounds memory access");
+
 }
 
 TEST_F(shared_heap_test, test_shared_heap_chain_rmw_oob)

@@ -457,6 +457,7 @@ aot_check_shared_heap_memory_overflow_common(
         length = is_target_64bit ? I64_CONST(bytes_u32) : I32_CONST(bytes_u32);
         CHECK_LLVM_CONST(length);
     }
+    /* start_offset + length - 1 <= shared_heap_start_off + size - 1 */
     BUILD_OP(Sub, shared_heap_size, length, shared_heap_check_bound,
              "shared_heap_check_bound1");
     BUILD_OP(Add, shared_heap_start_off, shared_heap_check_bound,
@@ -1592,12 +1593,17 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Check overflow when it's memory64 or it's on 32 bits platform */
     if (is_memory64 || !is_target_64bit) {
         /* Check whether integer overflow occurs in offset + bytes */
+        LLVMValueRef max_offset;
         LLVMBasicBlockRef check_integer_overflow_end;
         ADD_BASIC_BLOCK(check_integer_overflow_end,
                         "check_integer_overflow_end");
         LLVMMoveBasicBlockAfter(check_integer_overflow_end, block_curr);
 
-        BUILD_ICMP(LLVMIntULT, max_addr, offset, cmp, "cmp");
+        /* offset + bytes can overflow yet is valid(for example, 0xffffffff, 1),
+         * check whether offset + bytes - 1 overflow instead */
+        BUILD_OP(Add, max_addr, is_target_64bit ? I64_NEG_ONE : I32_NEG_ONE,
+                 max_offset, "max_offset");
+        BUILD_ICMP(LLVMIntULT, max_offset, bytes, cmp, "cmp");
         if (!aot_emit_exception(comp_ctx, func_ctx,
                                 EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS, true, cmp,
                                 check_integer_overflow_end)) {
