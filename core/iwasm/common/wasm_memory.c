@@ -1227,7 +1227,9 @@ wasm_runtime_addr_native_to_app(WASMModuleInstanceCommon *module_inst_comm,
 #if WASM_ENABLE_SHARED_HEAP != 0
     if (is_native_addr_in_shared_heap(module_inst_comm,
                                       memory_inst->is_memory64, addr, 1)) {
-        return addr - get_last_used_shared_heap_base_addr_adj(module_inst_comm);
+        return (uint64)(uintptr_t)(addr
+                                   - get_last_used_shared_heap_base_addr_adj(
+                                       module_inst_comm));
     }
 #endif
 
@@ -1349,7 +1351,7 @@ wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
             (WASMModuleInstanceCommon *)module_inst);
         shared_heap_end_off = get_last_used_shared_heap_end_offset(
             (WASMModuleInstanceCommon *)module_inst);
-        native_addr = shared_heap_base_addr_adj + app_buf_addr;
+        native_addr = shared_heap_base_addr_adj + (uintptr_t)app_buf_addr;
 
         /* The whole string must be in the shared heap */
         str = (const char *)native_addr;
