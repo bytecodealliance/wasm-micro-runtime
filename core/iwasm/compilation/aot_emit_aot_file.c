@@ -4007,8 +4007,12 @@ aot_resolve_object_relocation_group(AOTObjectData *obj_data,
             && (str_starts_with(relocation->symbol_name, ".LCPI")
                 || str_starts_with(relocation->symbol_name, ".LJTI")
                 || str_starts_with(relocation->symbol_name, ".LBB")
-                || str_starts_with(relocation->symbol_name,
-                                   ".Lswitch.table."))) {
+                || str_starts_with(relocation->symbol_name, ".Lswitch.table.")
+#if LLVM_VERSION_MAJOR >= 16
+                /* cf. https://reviews.llvm.org/D123264 */
+                || str_starts_with(relocation->symbol_name, ".Lpcrel_hi")
+#endif
+                    )) {
             /* change relocation->relocation_addend and
                relocation->symbol_name */
             LLVMSectionIteratorRef contain_section;
