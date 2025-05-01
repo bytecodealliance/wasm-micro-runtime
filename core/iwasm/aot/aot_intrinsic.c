@@ -194,7 +194,7 @@ aot_intrinsic_clz_i32(uint32 type)
     return num;
 }
 
-uint32
+uint64
 aot_intrinsic_clz_i64(uint64 type)
 {
     uint32 num = 0;
@@ -220,7 +220,7 @@ aot_intrinsic_ctz_i32(uint32 type)
     return num;
 }
 
-uint32
+uint64
 aot_intrinsic_ctz_i64(uint64 type)
 {
     uint32 num = 0;
@@ -244,7 +244,7 @@ aot_intrinsic_popcnt_i32(uint32 u)
     return ret;
 }
 
-uint32
+uint64
 aot_intrinsic_popcnt_i64(uint64 u)
 {
     uint32 ret = 0;
