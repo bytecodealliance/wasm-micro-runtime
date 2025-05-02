@@ -3270,8 +3270,17 @@ is_data_section(AOTObjectData *obj_data, LLVMSectionIteratorRef sec_itr,
 
     return (!strcmp(section_name, ".data") || !strcmp(section_name, ".sdata")
             || !strcmp(section_name, ".rodata")
+#if LLVM_VERSION_MAJOR >= 19
+            /* https://github.com/llvm/llvm-project/pull/82214 */
+            || !strcmp(section_name, ".srodata")
+#endif
             /* ".rodata.cst4/8/16/.." */
             || !strncmp(section_name, ".rodata.cst", strlen(".rodata.cst"))
+#if LLVM_VERSION_MAJOR >= 19
+            /* https://github.com/llvm/llvm-project/pull/82214
+             * ".srodata.cst4/8/16/.." */
+            || !strncmp(section_name, ".srodata.cst", strlen(".srodata.cst"))
+#endif
             /* ".rodata.strn.m" */
             || !strncmp(section_name, ".rodata.str", strlen(".rodata.str"))
             || (!strcmp(section_name, ".rdata")
