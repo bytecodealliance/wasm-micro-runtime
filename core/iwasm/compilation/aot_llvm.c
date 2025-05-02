@@ -2617,15 +2617,6 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
         goto fail;
     }
 
-#if LLVM_VERSION_MAJOR >= 9
-    /* Disable small data section as our emitter/loader doesn't support it.
-     * https://reviews.llvm.org/D57493 */
-    LLVMAddModuleFlag(
-        comp_ctx->module, LLVMModuleFlagBehaviorWarning, "SmallDataLimit",
-        strlen("SmallDataLimit"),
-        LLVMValueAsMetadata(LLVMConstInt(LLVMInt32Type(), 0, false)));
-#endif
-
 #if WASM_ENABLE_DEBUG_AOT != 0
     if (!(comp_ctx->debug_builder = LLVMCreateDIBuilder(comp_ctx->module))) {
         aot_set_last_error("create LLVM Debug Infor builder failed.");
