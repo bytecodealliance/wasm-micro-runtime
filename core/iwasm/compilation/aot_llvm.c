@@ -2742,10 +2742,23 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     }
     else {
         /* Create LLVM target machine */
-        arch = option->target_arch;
-        abi = option->target_abi;
-        cpu = option->target_cpu;
-        features = option->cpu_features;
+        if (!option->target_arch || !strstr(option->target_arch, "-")) {
+            /* Retrieve the target triple based on user input */
+            triple = NULL;
+            arch = option->target_arch;
+            abi = option->target_abi;
+            cpu = option->target_cpu;
+            features = option->cpu_features;
+        }
+        else {
+            /* Form a target triple */
+            triple = option->target_arch;
+            arch = NULL;
+            abi = NULL;
+            cpu = NULL;
+            features = NULL;
+        }
+
         opt_level = option->opt_level;
         size_level = option->size_level;
 
@@ -2986,6 +2999,7 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
                 aot_set_last_error(buf);
                 goto fail;
             }
+            LOG_VERBOSE("triple: %s => normailized: %s", triple, triple_norm);
             if (!cpu)
                 cpu = "";
         }

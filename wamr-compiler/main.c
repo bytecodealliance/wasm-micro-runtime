@@ -116,6 +116,9 @@ print_help()
     printf("                              Default is host arch, e.g. x86_64\n");
     printf("                            <sub> = for ex. on arm or thumb: v5, v6m, v7a, v7m, etc.\n");
     printf("                            Use --target=help to list supported targets\n");
+    printf("                            Or, provide a triple in the format of <arch>-<vendor>-<os>-<abi>.\n");
+    printf("                            By doing this, --target-abi, --cpu, and --cpu-features will be ignored.\n");
+    printf("                            The triple will only be normalized without any further verification.\n");
     printf("  --target-abi=<abi>        Set the target ABI, e.g. gnu, eabi, gnueabihf, msvc, etc.\n");
     printf("                              Default is gnu if target isn't riscv64 or riscv32\n");
     printf("                              For target riscv64 and riscv32, default is lp64d and ilp32d\n");
