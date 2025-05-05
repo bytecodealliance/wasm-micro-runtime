@@ -3189,10 +3189,12 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
             symbol_addr = module->code;
         }
         else if (!strcmp(symbol, ".data") || !strcmp(symbol, ".sdata")
-                 || !strcmp(symbol, ".rdata")
-                 || !strcmp(symbol, ".rodata")
+                 || !strcmp(symbol, ".rdata") || !strcmp(symbol, ".rodata")
+                 || !strcmp(symbol, ".srodata")
                  /* ".rodata.cst4/8/16/.." */
                  || !strncmp(symbol, ".rodata.cst", strlen(".rodata.cst"))
+                 /* ".srodata.cst4/8/16/.." */
+                 || !strncmp(symbol, ".srodata.cst", strlen(".srodata.cst"))
                  /* ".rodata.strn.m" */
                  || !strncmp(symbol, ".rodata.str", strlen(".rodata.str"))
                  || !strcmp(symbol, AOT_STACK_SIZES_SECTION_NAME)
