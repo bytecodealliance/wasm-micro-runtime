@@ -205,12 +205,3 @@ foreach(EX ${EXAMPLES})
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
   )
 endforeach()
-
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-  find_program(VALGRIND
-    valgrind
-    REQUIRED
-  )
-
-  # run `ctest -T memcheck -V --test-dir build`
-endif()
