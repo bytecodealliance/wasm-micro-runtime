@@ -5711,6 +5711,7 @@ orcjit_thread_callback(void *arg)
 static void
 orcjit_stop_compile_threads(WASMModule *module)
 {
+#if WASM_ENABLE_LAZY_JIT != 0
     uint32 i, thread_num = (uint32)(sizeof(module->orcjit_thread_args)
                                     / sizeof(OrcJitThreadArg));
 
@@ -5719,6 +5720,7 @@ orcjit_stop_compile_threads(WASMModule *module)
         if (module->orcjit_threads[i])
             os_thread_join(module->orcjit_threads[i], NULL);
     }
+#endif
 }
 
 static bool
