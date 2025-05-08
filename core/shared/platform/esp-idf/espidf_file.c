@@ -1045,3 +1045,9 @@ os_poll(os_poll_file_handle *fds, os_nfds_t nfs, int timeout)
 {
     return BHT_ERROR;
 }
+
+os_raw_file_handle
+os_invalid_raw_handle(void)
+{
+    return -1;
+}

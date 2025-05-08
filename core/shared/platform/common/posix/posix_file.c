@@ -1061,3 +1061,9 @@ os_compare_file_handle(os_file_handle handle1, os_file_handle handle2)
 {
     return handle1 == handle2;
 }
+
+os_raw_file_handle
+os_invalid_raw_handle(void)
+{
+    return -1;
+}
