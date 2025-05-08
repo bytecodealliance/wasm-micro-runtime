@@ -12,7 +12,6 @@ wasm_proposal_print_status(void)
 {
     printf("About Wasm Proposals:\n");
     printf("  Always-on:\n");
-    printf("    - Extended Constant Expressions\n");
     printf("    - Multi-value\n");
     printf("    - Non-trapping float-to-int conversions\n");
     printf("    - Sign-extension operators\n");
@@ -44,6 +43,7 @@ wasm_proposal_print_status(void)
     printf("    - Branch Hinting\n");
     printf("    - Custom Annotation Syntax in the Text Format\n");
     printf("    - Exception handling\n");
+    printf("    - Extended Constant Expressions\n");
     printf("    - Import/Export of Mutable Globals\n");
     printf("    - JS String Builtins\n");
     printf("    - Relaxed SIMD\n");
