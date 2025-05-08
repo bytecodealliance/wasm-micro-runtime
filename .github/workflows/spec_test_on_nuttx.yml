@@ -139,6 +139,11 @@ jobs:
           - target_config: { target: "xtensa" }
             wamr_feature_option: { mode: "-G" }
 
+          # disabled for now:
+          # https://github.com/espressif/llvm-project/issues/112
+          - target_config: { target: "xtensa" }
+            wamr_test_option: { mode: "-t aot -X" }
+
     steps:
       # Note: we use an unreleased version nuttx for xtensa because
       # 12.4 doesn't contain necessary esp32s3 changes.
