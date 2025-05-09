@@ -276,8 +276,6 @@ wasm_exec_env_restore_module_inst(
 void
 wasm_exec_env_set_thread_info(WASMExecEnv *exec_env)
 {
-    uint8 *stack_boundary = os_thread_get_stack_boundary();
-
 #if WASM_ENABLE_THREAD_MGR != 0
     os_mutex_lock(&exec_env->wait_lock);
 #endif
@@ -286,9 +284,11 @@ wasm_exec_env_set_thread_info(WASMExecEnv *exec_env)
         /* WASM_STACK_GUARD_SIZE isn't added for flexibility to developer,
            he must ensure that enough guard bytes are kept. */
         exec_env->native_stack_boundary = exec_env->user_native_stack_boundary;
-    else
+    else {
+        uint8 *stack_boundary = os_thread_get_stack_boundary();
         exec_env->native_stack_boundary =
             stack_boundary ? stack_boundary + WASM_STACK_GUARD_SIZE : NULL;
+    }
     exec_env->native_stack_top_min = (void *)UINTPTR_MAX;
 #if WASM_ENABLE_THREAD_MGR != 0
     os_mutex_unlock(&exec_env->wait_lock);
