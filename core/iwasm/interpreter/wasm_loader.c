@@ -820,7 +820,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 #else
                 cur_value.gc_obj = NULL_REF;
 
-                if (!is_byte_a_type(type1)) {
+                if (!is_byte_a_type(type1)
+                    || wasm_is_type_multi_byte_type(type1)) {
                     p--;
                     read_leb_uint32(p, p_end, type_idx);
                     if (!check_type_index(module, module->type_count, type_idx,
