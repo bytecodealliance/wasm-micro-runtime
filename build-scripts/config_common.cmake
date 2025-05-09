@@ -677,7 +677,6 @@ endif ()
 message (
 "-- About Wasm Proposals:\n"
 "     Always-on:\n"
-"       \"Extended Constant Expressions\"\n"
 "       \"Multi-value\"\n"
 "       \"Non-trapping float-to-int conversions\"\n"
 "       \"Sign-extension operators\"\n"
@@ -698,6 +697,7 @@ message (
 "       \"Branch Hinting\"\n"
 "       \"Custom Annotation Syntax in the Text Format\"\n"
 "       \"Exception handling\"\n"
+"       \"Extended Constant Expressions\"\n"
 "       \"Import/Export of Mutable Globals\"\n"
 "       \"JS String Builtins\"\n"
 "       \"Relaxed SIMD\"\n"
