@@ -294,17 +294,17 @@ def main():
         "arc": {
             "repo": "https://github.com/llvm/llvm-project.git",
             "repo_ssh": "git@github.com:llvm/llvm-project.git",
-            "branch": "release/15.x",
+            "branch": "release/18.x",
         },
         "xtensa": {
             "repo": "https://github.com/espressif/llvm-project.git",
             "repo_ssh": "git@github.com:espressif/llvm-project.git",
-            "branch": "xtensa_release_17.0.1",
+            "branch": "xtensa_release_18.1.2",
         },
         "default": {
             "repo": "https://github.com/llvm/llvm-project.git",
             "repo_ssh": "git@github.com:llvm/llvm-project.git",
-            "branch": "release/15.x",
+            "branch": "release/18.x",
         },
     }
 
