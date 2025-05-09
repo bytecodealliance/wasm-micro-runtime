@@ -3565,7 +3565,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 HANDLE_OP_END();
             }
 
-#if WASM_ENABLE_SIMD != 0
+#if WASM_ENABLE_SIMDE != 0
             HANDLE_OP(EXT_OP_SET_LOCAL_FAST_V128)
             HANDLE_OP(EXT_OP_TEE_LOCAL_FAST_V128)
             {
@@ -3619,7 +3619,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                 GET_I64_FROM_ADDR((uint32 *)global_addr));
                 HANDLE_OP_END();
             }
-#if WASM_ENABLE_SIMD != 0
+#if WASM_ENABLE_SIMDE != 0
             HANDLE_OP(WASM_OP_GET_GLOBAL_V128)
             {
                 global_idx = read_uint32(frame_ip);
@@ -4956,7 +4956,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 HANDLE_OP_END();
             }
-#if WASM_ENABLE_SIMD != 0
+#if WASM_ENABLE_SIMDE != 0
             HANDLE_OP(EXT_OP_COPY_STACK_TOP_V128)
             {
                 addr1 = GET_OFFSET();

@@ -155,16 +155,6 @@ if (WAMR_BUILD_LIB_RATS EQUAL 1)
     include (${IWASM_DIR}/libraries/lib-rats/lib_rats.cmake)
 endif ()
 
-if (WAMR_BUILD_SIMD EQUAL 1 AND WAMR_BUILD_FAST_INTERP EQUAL 1)
-    if (WAMR_BUILD_PLATFORM STREQUAL "windows")
-        message(STATUS "SIMDe doesnt support platform " ${WAMR_BUILD_PLATFORM})
-        set(WAMR_BUILD_SIMDE 0)
-    else()
-        include (${IWASM_DIR}/libraries/simde/simde.cmake)
-        set (WAMR_BUILD_SIMDE 1)
-    endif()
-endif ()
-
 if (WAMR_BUILD_WASM_CACHE EQUAL 1)
     include (${WAMR_ROOT_DIR}/build-scripts/involve_boringssl.cmake)
 endif ()
@@ -177,6 +167,18 @@ endif ()
 
 # include the build config template file
 include (${CMAKE_CURRENT_LIST_DIR}/config_common.cmake)
+
+if (WAMR_BUILD_SIMD EQUAL 1 AND WAMR_BUILD_FAST_INTERP EQUAL 1)
+    if (WAMR_BUILD_PLATFORM STREQUAL "windows")
+        message(STATUS "SIMDe doesnt support platform " ${WAMR_BUILD_PLATFORM})
+        set(WAMR_BUILD_SIMDE 0)
+    else()
+        include (${IWASM_DIR}/libraries/simde/simde.cmake)
+        set (WAMR_BUILD_SIMDE 1)
+    endif()
+else()
+    set(WAMR_BUILD_SIMDE 0)
+endif ()
 
 include_directories (${IWASM_DIR}/include)
 
