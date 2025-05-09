@@ -1222,43 +1222,56 @@ __wasi_errno_t
 readlinkat_dup(os_file_handle handle, const char *path, size_t *p_len,
                char **out_buf)
 {
-    char *buf = NULL;
-    size_t len = 32;
-    size_t len_org = len;
+    __wasi_errno_t error;
+    struct __wasi_filestat_t stat = { 0 };
+    size_t buf_len;
 
+    /*
+     * use fstatat to get a better estimation
+     * If path is a symbolic link, do not dereference it:
+     * instead return information about the link itself,
+     * like lstat().
+     */
+    error = os_fstatat(handle, path, &stat, 0);
+    if (error != __WASI_ESUCCESS) {
+        stat.st_size = 0;
+    }
+
+    /*
+     * Some magic symlinks report `st_size` as zero. In that case, take
+     * 32 as the initial buffer size. Otherwise, use `st_size + 1`.
+     */
+    buf_len = stat.st_size ? stat.st_size + 1 : 32;
     for (;;) {
-        char *newbuf = wasm_runtime_malloc((uint32)len);
+        size_t bytes_read = 0;
+        char *buf;
 
-        if (newbuf == NULL) {
-            if (buf)
-                wasm_runtime_free(buf);
+        buf = wasm_runtime_malloc((uint32)buf_len);
+        if (buf == NULL) {
             *out_buf = NULL;
             return __WASI_ENOMEM;
         }
 
-        if (buf != NULL) {
-            bh_memcpy_s(newbuf, (uint32)len, buf, (uint32)len_org);
-            wasm_runtime_free(buf);
-        }
-
-        buf = newbuf;
-        size_t bytes_read = 0;
-        __wasi_errno_t error =
-            os_readlinkat(handle, path, buf, len, &bytes_read);
+        error = os_readlinkat(handle, path, buf, buf_len, &bytes_read);
         if (error != __WASI_ESUCCESS) {
             wasm_runtime_free(buf);
+            *p_len = 0;
             *out_buf = NULL;
             return error;
         }
-        if ((size_t)bytes_read + 1 < len) {
-            buf[bytes_read] = '\0';
-            *p_len = len;
-            *out_buf = buf;
 
+        /* not truncated */
+        if (bytes_read < buf_len) {
+            buf[bytes_read] = '\0';
+            *p_len = bytes_read + 1;
+            *out_buf = buf;
             return __WASI_ESUCCESS;
         }
-        len_org = len;
-        len *= 2;
+
+        /* truncated, try again with a bigger buf */
+        wasm_runtime_free(buf);
+        buf = NULL;
+        buf_len *= 2;
     }
 }
 
