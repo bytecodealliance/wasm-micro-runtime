@@ -275,8 +275,8 @@ typedef struct AOTFuncContext {
     LLVMValueRef shared_heap_base_addr_adj;
     LLVMValueRef shared_heap_start_off;
     LLVMValueRef shared_heap_end_off;
-    /* The head of shared heap chain, and its start offset */
-    LLVMValueRef shared_heap;
+    /* The start offset of the head of shared heap chain */
+    LLVMValueRef shared_heap_head_start_off;
 
     LLVMBasicBlockRef got_exception_block;
     LLVMBasicBlockRef func_return_block;

@@ -1526,60 +1526,87 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                               func_ctx->aot_inst, &offset, 1,  \
                                               #field "_p"))) {                 \
             aot_set_last_error("llvm build inbounds gep failed");              \
-            return false;                                                      \
+            goto fail;                                                         \
         }                                                                      \
         if (!(load_val =                                                       \
                   LLVMBuildLoad2(comp_ctx->builder, type, field_p, #field))) { \
             aot_set_last_error("llvm build load failed");                      \
-            return false;                                                      \
+            goto fail;                                                         \
         }                                                                      \
         if (!(func_ctx->field =                                                \
                   LLVMBuildAlloca(comp_ctx->builder, type, #field))) {         \
             aot_set_last_error("llvm build alloca failed");                    \
-            return false;                                                      \
+            goto fail;                                                         \
         }                                                                      \
         if (!LLVMBuildStore(comp_ctx->builder, load_val, func_ctx->field)) {   \
             aot_set_last_error("llvm build store failed");                     \
-            return false;                                                      \
-        }                                                                      \
-    } while (0)
-
-#define LOAD_MODULE_EXTRA_FIELD(field, type)                                   \
-    do {                                                                       \
-        get_module_extra_field_offset(field);                                  \
-        offset = I32_CONST(offset_u32);                                        \
-        CHECK_LLVM_CONST(offset);                                              \
-        if (!(field_p = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,    \
-                                              func_ctx->aot_inst, &offset, 1,  \
-                                              #field "_p"))) {                 \
-            aot_set_last_error("llvm build inbounds gep failed");              \
-            return false;                                                      \
-        }                                                                      \
-        if (!(func_ctx->field =                                                \
-                  LLVMBuildLoad2(comp_ctx->builder, type, field_p, #field))) { \
-            aot_set_last_error("llvm build load failed");                      \
-            return false;                                                      \
+            goto fail;                                                         \
         }                                                                      \
     } while (0)
 
 static bool
 create_shared_heap_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
-    LLVMValueRef offset, field_p, load_val;
+    LLVMValueRef offset, field_p, load_val, shared_heap_head_p,
+        shared_heap_head;
+    LLVMTypeRef shared_heap_offset_type;
     uint32 offset_u32;
+#if WASM_ENABLE_MEMORY64 == 0
+    bool is_memory64 = false;
+#else
+    bool is_memory64 = IS_MEMORY64;
+#endif
 
-    /* shared_heap_base_addr_adj, shared_heap_start_off, and shared_heap_end_off
-     * can be updated later, use local variable to represent them */
+    shared_heap_offset_type =
+        comp_ctx->pointer_size == sizeof(uint64) ? I64_TYPE : I32_TYPE;
+
+    /* shared_heap_base_addr_adj, shared_heap_start_off, and
+     * shared_heap_end_off can be updated later, use local variable to
+     * represent them */
     LOAD_MODULE_EXTRA_FIELD_AND_ALLOCA(shared_heap_base_addr_adj,
                                        INT8_PTR_TYPE);
-    LOAD_MODULE_EXTRA_FIELD_AND_ALLOCA(
-        shared_heap_start_off,
-        comp_ctx->pointer_size == sizeof(uint64) ? I64_TYPE : I32_TYPE);
-    LOAD_MODULE_EXTRA_FIELD_AND_ALLOCA(
-        shared_heap_end_off,
-        comp_ctx->pointer_size == sizeof(uint64) ? I64_TYPE : I32_TYPE);
-    /* Shared Heap won't be updated, no need to alloca */
-    LOAD_MODULE_EXTRA_FIELD(shared_heap, INT8_PTR_TYPE);
+    LOAD_MODULE_EXTRA_FIELD_AND_ALLOCA(shared_heap_start_off,
+                                       shared_heap_offset_type);
+    LOAD_MODULE_EXTRA_FIELD_AND_ALLOCA(shared_heap_end_off,
+                                       shared_heap_offset_type);
+
+    /* Shared Heap head start off won't be updated, no need to alloca */
+    get_module_extra_field_offset(shared_heap);
+    offset = I32_CONST(offset_u32);
+    CHECK_LLVM_CONST(offset);
+    if (!(shared_heap_head_p = LLVMBuildInBoundsGEP2(
+              comp_ctx->builder, INT8_TYPE, func_ctx->aot_inst, &offset, 1,
+              "shared_heap_head_p"))) {
+        aot_set_last_error("llvm build inbounds gep failed");
+        goto fail;
+    }
+    if (!(shared_heap_head =
+              LLVMBuildLoad2(comp_ctx->builder, INT8_PTR_TYPE,
+                             shared_heap_head_p, "shared_heap_head"))) {
+        aot_set_last_error("llvm build load failed");
+        goto fail;
+    }
+
+    if (is_memory64) {
+        offset_u32 = offsetof(WASMSharedHeap, start_off_mem64);
+    }
+    else {
+        offset_u32 = offsetof(WASMSharedHeap, start_off_mem32);
+    }
+    offset = I32_CONST(offset_u32);
+    CHECK_LLVM_CONST(offset);
+    if (!(field_p = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
+                                          shared_heap_head, &offset, 1,
+                                          "head_start_off_p"))) {
+        aot_set_last_error("llvm build inbounds gep failed");
+        goto fail;
+    }
+    if (!(func_ctx->shared_heap_head_start_off =
+              LLVMBuildLoad2(comp_ctx->builder, shared_heap_offset_type,
+                             field_p, "shared_heap_head_start_off"))) {
+        aot_set_last_error("llvm build load failed");
+        goto fail;
+    }
 
     return true;
 fail:
@@ -2438,7 +2465,7 @@ jit_stack_size_callback(void *user_data, const char *name, size_t namelen,
     stack_consumption_to_call_wrapped_func =
         musttail ? 0
                  : aot_estimate_stack_usage_for_function_call(
-                     comp_ctx, func_ctx->aot_func->func_type);
+                       comp_ctx, func_ctx->aot_func->func_type);
     LOG_VERBOSE("func %.*s stack %u + %zu + %u", (int)namelen, name,
                 stack_consumption_to_call_wrapped_func, stack_size, call_size);
 
