@@ -1,3 +1,152 @@
+## WAMR-2.3.0
+
+### Breaking changes 
+
+### New features 
+ - Merge dev/simd for fast-interp (#4131)
+ - Merge pull request #4033 from g0djan/godjan/iterate_callstack
+
+### Bug fixes
+ - fix(ios): Remove `float-abi` flag (#3889)
+ - Fix out of bounds issues after memory.grow on non-aot non-threads builds (#3872)
+ - Fix out of bounds issue in is_native_addr_in_shared_heap function (#3886)
+ - Fix mmap flags for AOT loader on non-Linux SGX platforms (#3890)
+ - fix(uwp): Gate NTSTATUS definition behind WINAPI_PARTITION_DESKTOP for UWP builds
+ - Fix linked global initialization in multimodule (#3905)
+ - Correct the table index calculation in aot_instantiation (#3903)
+ - Fix a leak in wasm_loader_emit_br_info (#3900)
+ - Check possible integer overflow in aot memory boundary check (#3920)
+ - Fix CI wamr-ide error (#3913)
+ - Fix WASI Path Mapping Processing (#3923)
+ - Use plain assignment rather than bh_memcpy_s (#3924)
+ - Fix loader small bug (#3928)
+ - don't return an uninitialized trap if argv_to_results fails (#3935)
+ - support WASM_FUNCREF return type in argv_to_results (#3936)
+ - Fix incorrect assignment in win_file.c (#3939)
+ - Fix aot table instantiate (#3946)
+ - set alignment 4 when loading multi return value (#3955)
+ - Only access Zephyr thread stats info when it's available (#3962)
+ - top-level cmakefile: fix macOS build (#3968)
+ - Merge pull request #3987 from no1wudi/fix
+ - Handle a new scenario where an item is both exported and imported. (#3984)
+ - platform/nuttx: Flush icache/dcache properly (#4147)
+ - fix(runtest.py): A workaround to bypass errors that occur when deleting temporary files (#4093)
+ - Fix build issues when compiling WAMRC as a cross-compiler (#4112)
+ - include bh_platform.h (#4135)
+ - Fix iwasm build error when WAMR_BUILD_WASI_NN enabled (#4138)
+ - Merge pull request #4132 from bytecodealliance/dependabot/github_actions/github/codeql-action-3.28.11
+ - avoid Windows perform newline translation (#4128)
+ - fix: correct typos and improve comments across multiple files by codespell (#4116)
+ - fix: fix load aarch64 aot failed (#4114)
+ - wasm_loader allocates more spaces for elements (#4099)
+ - fix: add dispose of the debug information builder when destroying compilation context (#4105)
+ - build(deps): Bump github/codeql-action from 3.28.9 to 3.28.10
+ - build(deps): Bump actions/upload-artifact from 4.6.0 to 4.6.1
+ - prevent data overflow on 32 bit platform for memory.grow
+ - fix: when load aot init expr,no type_idx set. (#4094)
+ - fix(aot_emit_aot_file): prevent buffer emission for zero byte_count (#4095)
+ - fix(build_llvm_libraries.yml): Correct script path for build_llvm.py
+ - fix(unit-test): libc_builtin_test issues (#4073)
+ - [gc] Subtyping fix (#4075)
+ - fix(build_llvm.py): clean up whitespace and formatting in build script
+ - Unit test:type matching issue and code redundancy (#4079)
+ - fix(aot): ensure value_cmp does not exceed br_count in branch table compilation (#4065)
+ - In wasm32, fix potential conversion overflow when enlarging 65536 pages (#4064)
+ - Use wasm32-wasip1 instead of wasm32-wasi target for rust code (#4057)
+ - Update Rust target from 'wasm32-wasi' to 'wasm32-wasip1' in CI (#4050)
+ - Fix wasm loader check data segment count (#4039)
+ - Fix table index calculations in wasm_loader and wasm_mini_loader (#4004)
+ - Ensure __heap_base and __data_end global indices are validated against import count (#3996)
+
+### Enhancements
+ - Refine looking up aot function with index (#3882)
+ - Wasm loader enhancement: check code size in code entry  (#3892)
+ - Refactor AOT loader to support compatible versions (#3891)
+ - GlobalValueSet was moved to IRPartitionLayer recently, but we have a local definition anyway (#3899)
+ - Support external toolchain on Windows for aot compiler (#3911)
+ - Drop declarative elements on module instantiation (#3922)
+ - add testcases for shared heap and fix POP_MEM_OFFSET of memory64 (#3916)
+ - Enable ref types by default (#3894)
+ - Update README.md to clarify Windows toolchain support and ESP-IDF reference (#3917)
+ - add thread cpu time for zephyr (#3937)
+ - Improvements for platform thread APIs on Windows and Zephyr (#3941)
+ - Refactor SConscript and add file checks in iwasm.c (#3945)
+ - Consume the placeholders that were put when emitting table info (#3940)
+ - wasm_export.h: Use "default" visibility for gcc and clang (#3957)
+ - [fuzzing] Enable instantiation (#3958)
+ - use a random secret key (#3971)
+ - CMakeLists.txt: Do not require C++ (#3956)
+ - add reference type support by default for darwin to support WASI-SDK-25 (#3978)
+ - top-level cmake: link llvm libraries to our shared library (#3973)
+ - Set thread information earlier in exec_env creation (#3967)
+ - Break aot_create_comp_data into small functions
+ - Optimize memory initialization handling in AOT loader (#3983)
+ - nuttx: remove the up_x API for kernel build (#4154)
+ - Merge pull request #4124 from swankjesse/WAMR_BUILD_GC_HEAP_SIZE_DEFAULT
+ - Move the default heap size initialization
+ - Expose WAMR_BUILD_GC_HEAP_SIZE_DEFAULT as a CMake option
+ - log warning instaed of assertion (#4119)
+ - feat: use C linkage in aot_comp_option.h for C++ embeding (#4106)
+ - cr suggestions
+ - Copy read only API behind a flag instead of using user defined callback
+ - Cmake improvements (#4076)
+ - feat: add support for EXTERNREF value type and enable AOT validator in fuzz tests (#4083)
+ - build_llvm.py: Allow to build xtensa target on non-xtensa host
+ - Add a conditional check for the macro __STDC_VERSION__ (#4080)
+ - [fuzzing] execute every exported function (#3959)
+ - Update memory allocation functions to use allocator user data (#4043)
+ - Cleanup check_version_h workflow by removing unnecessary outputs and permissions
+ - Add workflow to confirm version.h is in sync and integrate it into Android compilation workflow
+ - Add version.h and update versioning documentation for embedded platforms
+ - Remove deprecated version.h file and update versioning documentation
+ - Refactor versioning documentation and adopt semantic versioning guidelines
+ - Add versioning information for libraries and executables across multiple platforms
+ - Add versioning support and update CMake configuration
+ - initial
+ - Show wasm proposals status during compilation and execution (#3989)
+ - add a validator for aot module (#3995)
+ - Synchronize the GC spec tests to the commit from December 9. 2024. (#4022)
+ - Refine getting const offsets in wasm loader of fast-interp (#4012)
+ - fixes for compiling on windows (#4026)
+ - .github: Add shared lib builds (#3975)
+ - Refine read leb int wasm loader of fast interpreter (#4017)
+ - Enable shrunk memory by default and add related configurations (#4008)
+ - Add documentation regarding security issues and the status of Wasm proposals (#3972)
+ - Improve stack consistency by ensuring sufficient space for dummy offsets (#4011)
+ - Check whether related table has funcref elem in opcode call_indirect (#3999)
+ - [fuzzing] Use software bound-check during fuzzing (#4003)
+ - Add an example of how to embed WAMR in Zephyr user mode  (#3998)
+ - Error message improvement (#4000)
+
+### Others
+- Exclude fuzz test python and npm packages in scoreboard scan (#3871)
+- build(deps): bump github/codeql-action from 3.26.13 to 3.27.0 (#3888)
+- Bump AOT_CURRENT_VERSION for WAMR 2.x (gc, memory64) (#3880)
+- build(deps): bump github/codeql-action from 3.27.0 to 3.27.1 (#3902)
+- build(deps): bump github/codeql-action from 3.27.1 to 3.27.4 (#3912)
+- build(deps): bump github/codeql-action from 3.27.4 to 3.27.5 (#3931)
+- build(deps): bump github/codeql-action from 3.27.5 to 3.27.6
+- build(deps): Bump github/codeql-action from 3.27.6 to 3.27.9 (#3960)
+- Add Tianlong into code owners (#3970)
+- build(deps): Bump actions/upload-artifact from 4.4.3 to 4.5.0 (#3981)
+- build(deps): Bump github/codeql-action from 3.27.9 to 3.28.0 (#3982)
+- docs: Update build instructions suggestions for using Valgrind (#4164)
+- test: temporarily skip 'skip-stack-guard-page' test case until issue is resolved
+- build(deps): Bump actions/upload-artifact from 4.6.1 to 4.6.2 (#4159)
+- build(deps): Bump github/codeql-action from 3.28.11 to 3.28.12 (#4160)
+- Update NuttX and NuttX Apps references to releases/12.9 in workflow f… (#4148)
+- build(deps): Bump esbuild, @vitejs/plugin-react and vite (#4149)
+- build(deps): Bump github/codeql-action from 3.28.10 to 3.28.11
+- Restore the doc heading.
+- build(deps): Bump ossf/scorecard-action from 2.4.0 to 2.4.1
+- build(deps): Bump github/codeql-action from 3.28.8 to 3.28.9 (#4074)
+- build(deps): Bump github/codeql-action from 3.28.5 to 3.28.8
+- build(deps): Bump github/codeql-action from 3.28.1 to 3.28.5
+- build(deps): Bump github/codeql-action from 3.28.0 to 3.28.1 (#4020)
+- build(deps): Bump actions/upload-artifact from 4.5.0 to 4.6.0 (#4021)
+
+---
+
 ## WAMR-2.2.0
 
 ### Breaking changes 
