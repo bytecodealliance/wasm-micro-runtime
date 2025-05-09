@@ -4195,13 +4195,13 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
     bh_print_time("Begin to emit object file");
 
     if (comp_ctx->external_llc_compiler || comp_ctx->external_asm_compiler) {
-        char cmd[1024];
         int ret;
 
         if (comp_ctx->external_llc_compiler) {
-            const char *stack_usage_flag = "";
-            char bc_file_name[64];
-            char su_file_name[65]; /* See the comment below */
+            char *stack_usage_flag = "";
+            char bc_file_name[64] = { 0 };
+            char su_file_name[65] = { 0 };
+            char *argv[10] = { 0 };
 
             if (comp_ctx->stack_usage_file != NULL) {
                 /*
@@ -4229,14 +4229,16 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
                 return false;
             }
 
-            snprintf(cmd, sizeof(cmd), "%s%s %s -o %s %s",
-                     comp_ctx->external_llc_compiler, stack_usage_flag,
-                     comp_ctx->llc_compiler_flags ? comp_ctx->llc_compiler_flags
-                                                  : "-O3 -c",
-                     file_name, bc_file_name);
-            LOG_VERBOSE("invoking external LLC compiler:\n\t%s", cmd);
+            argv[0] = stack_usage_flag;
+            argv[1] = comp_ctx->llc_compiler_flags
+                          ? (char *)comp_ctx->llc_compiler_flags
+                          : "-O3 -c";
+            argv[2] = "-o";
+            argv[3] = file_name;
+            argv[4] = bc_file_name;
+            argv[5] = NULL;
 
-            ret = bh_system(cmd);
+            ret = os_execve(comp_ctx->external_llc_compiler, argv, 6);
             /* remove temp bitcode file */
             unlink(bc_file_name);
 
@@ -4263,7 +4265,8 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
             }
         }
         else if (comp_ctx->external_asm_compiler) {
-            char asm_file_name[64];
+            char asm_file_name[64] = { 0 };
+            char *argv[10] = { 0 };
 
             if (!aot_generate_tempfile_name("wamrc-asm", "s", asm_file_name,
                                             sizeof(asm_file_name))) {
@@ -4282,14 +4285,15 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
                 return false;
             }
 
-            snprintf(cmd, sizeof(cmd), "%s %s -o %s %s",
-                     comp_ctx->external_asm_compiler,
-                     comp_ctx->asm_compiler_flags ? comp_ctx->asm_compiler_flags
-                                                  : "-O3 -c",
-                     file_name, asm_file_name);
-            LOG_VERBOSE("invoking external ASM compiler:\n\t%s", cmd);
+            argv[0] = comp_ctx->asm_compiler_flags
+                          ? (char *)comp_ctx->asm_compiler_flags
+                          : "-O3 -c";
+            argv[1] = "-o";
+            argv[2] = file_name;
+            argv[3] = asm_file_name;
+            argv[4] = NULL;
 
-            ret = bh_system(cmd);
+            ret = os_execve(comp_ctx->external_asm_compiler, argv, 5);
             /* remove temp assembly file */
             unlink(asm_file_name);
 

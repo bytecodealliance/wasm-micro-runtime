@@ -167,20 +167,6 @@ wa_strdup(const char *s)
 }
 
 #if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0
-int
-bh_system(const char *cmd)
-{
-    int ret;
-
-#if !(defined(_WIN32) || defined(_WIN32_))
-    ret = system(cmd);
-#else
-    ret = _spawnlp(_P_WAIT, "cmd.exe", "/c", cmd, NULL);
-#endif
-
-    return ret;
-}
-
 #if defined(_WIN32) || defined(_WIN32_)
 errno_t
 _mktemp_s(char *nameTemplate, size_t sizeInChars);
