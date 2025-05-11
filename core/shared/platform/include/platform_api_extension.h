@@ -403,6 +403,18 @@ os_end_blocking_op(void);
 int
 os_wakeup_blocking_op(korp_tid tid);
 
+int
+os_thread_key_create(korp_key *key, void (*destructor)(void *));
+
+int
+os_thread_key_delete(korp_key key);
+
+void *
+os_thread_getspecific(korp_key key);
+
+int
+os_thread_setspecific(korp_key key, const void *value);
+
 /****************************************************
  *                     Section 2                    *
  *                   Socket support                 *

@@ -781,4 +781,28 @@ os_sigreturn()
 #endif
 #endif
 }
+
+int
+os_thread_key_create(korp_key *key, void (*destructor)(void *))
+{
+    return pthread_key_create(key, destructor);
+}
+
+int
+os_thread_key_delete(korp_key key)
+{
+    return pthread_key_delete(key);
+}
+
+void *
+os_thread_getspecific(korp_key key)
+{
+    return pthread_getspecific(key);
+}
+
+int
+os_thread_setspecific(korp_key key, const void *value)
+{
+    return pthread_setspecific(key, value);
+}
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */

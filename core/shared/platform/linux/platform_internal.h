@@ -57,6 +57,7 @@ typedef pthread_cond_t korp_cond;
 typedef pthread_t korp_thread;
 typedef pthread_rwlock_t korp_rwlock;
 typedef sem_t korp_sem;
+typedef pthread_key_t korp_key;
 
 #define OS_THREAD_MUTEX_INITIALIZER PTHREAD_MUTEX_INITIALIZER
 
