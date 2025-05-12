@@ -14,6 +14,8 @@ set (WAMR_BUILD_PLATFORM "windows")
 set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
+set(CMAKE_CXX_STANDARD 17)
+
 add_definitions(-DCOMPILING_WASM_RUNTIME_API=1)
 
 # Set WAMR_BUILD_TARGET, currently values supported:
