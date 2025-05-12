@@ -7,7 +7,7 @@ if(NOT WAMR_BUILD_INTERP)
 endif()
 
 set(WAMR_BUILD_WAMR_COMPILER 1)
-set(WAMR_BUILD_AOT 1)
+set(WAMR_BUILD_AOT 0)
 set(WAMR_BUILD_INTERP 1)
 set(WAMR_BUILD_JIT 0)
 
@@ -69,7 +69,7 @@ target_link_libraries(aotclib PUBLIC ${REQUIRED_LLVM_LIBS})
 
 if(NOT IN_OSS_FUZZ)
   message(STATUS "Enable ASan and UBSan in non-oss-fuzz environment")
-  target_compile_options(aotclib PUBLIC 
+  target_compile_options(aotclib PUBLIC
     -fprofile-instr-generate -fcoverage-mapping
     -fno-sanitize-recover=all
     -fsanitize=address,undefined
