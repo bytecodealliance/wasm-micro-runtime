@@ -113,7 +113,7 @@ jobs:
       runner: macos-13
       upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver }}
-  
+
   release_wamrc_on_windows:
     permissions:
       contents: write # upload release artifact
@@ -192,28 +192,30 @@ jobs:
       wasi_sdk_url: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-macos.tar.gz
       wamr_app_framework_url: https://github.com/bytecodealliance/wamr-app-framework.git
 
+  # Let's disable it for now and reopen it when the actual requirement arises.
+  # Please ensure all dependencies have been updated before reopening.
   #
-  # vscode extension cross-platform
-  release_wamr_ide_vscode_ext:
-    permissions:
-      contents: write # upload release artifact
-    needs: [create_tag, create_release]
-    uses: ./.github/workflows/build_wamr_vscode_ext.yml
-    secrets: inherit
-    with:
-      upload_url: ${{ needs.create_release.outputs.upload_url }}
-      ver_num: ${{ needs.create_tag.outputs.new_ver }}
+  # # vscode extension cross-platform
+  # release_wamr_ide_vscode_ext:
+  #   permissions:
+  #     contents: write # upload release artifact
+  #   needs: [create_tag, create_release]
+  #   uses: ./.github/workflows/build_wamr_vscode_ext.yml
+  #   secrets: inherit
+  #   with:
+  #     upload_url: ${{ needs.create_release.outputs.upload_url }}
+  #     ver_num: ${{ needs.create_tag.outputs.new_ver }}
 
-  #
-  # vscode extension docker images package
-  release_wamr_ide_docker_images_package:
-    permissions:
-      contents: write # upload release artifact
-    needs: [create_tag, create_release]
-    uses: ./.github/workflows/build_docker_images.yml
-    with:
-      upload_url: ${{ needs.create_release.outputs.upload_url }}
-      ver_num: ${{ needs.create_tag.outputs.new_ver }}
+  # #
+  # # vscode extension docker images package
+  # release_wamr_ide_docker_images_package:
+  #   permissions:
+  #     contents: write # upload release artifact
+  #   needs: [create_tag, create_release]
+  #   uses: ./.github/workflows/build_docker_images.yml
+  #   with:
+  #     upload_url: ${{ needs.create_release.outputs.upload_url }}
+  #     ver_num: ${{ needs.create_tag.outputs.new_ver }}
 
   #
   # WAMR_LLDB
