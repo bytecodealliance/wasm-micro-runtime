@@ -186,19 +186,19 @@ aot_intrinsic_fmax_f64(float64 a, float64 b);
 uint32
 aot_intrinsic_clz_i32(uint32 type);
 
-uint32
+uint64
 aot_intrinsic_clz_i64(uint64 type);
 
 uint32
 aot_intrinsic_ctz_i32(uint32 type);
 
-uint32
+uint64
 aot_intrinsic_ctz_i64(uint64 type);
 
 uint32
 aot_intrinsic_popcnt_i32(uint32 u);
 
-uint32
+uint64
 aot_intrinsic_popcnt_i64(uint64 u);
 
 float32

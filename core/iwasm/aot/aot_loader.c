@@ -3189,10 +3189,12 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
             symbol_addr = module->code;
         }
         else if (!strcmp(symbol, ".data") || !strcmp(symbol, ".sdata")
-                 || !strcmp(symbol, ".rdata")
-                 || !strcmp(symbol, ".rodata")
+                 || !strcmp(symbol, ".rdata") || !strcmp(symbol, ".rodata")
+                 || !strcmp(symbol, ".srodata")
                  /* ".rodata.cst4/8/16/.." */
                  || !strncmp(symbol, ".rodata.cst", strlen(".rodata.cst"))
+                 /* ".srodata.cst4/8/16/.." */
+                 || !strncmp(symbol, ".srodata.cst", strlen(".srodata.cst"))
                  /* ".rodata.strn.m" */
                  || !strncmp(symbol, ".rodata.str", strlen(".rodata.str"))
                  || !strcmp(symbol, AOT_STACK_SIZES_SECTION_NAME)
@@ -4123,6 +4125,12 @@ create_module(char *name, char *error_buf, uint32 error_buf_size)
         set_error_buf(error_buf, error_buf_size, "init rtt type lock failed");
         goto fail2;
     }
+#endif
+
+#if WASM_ENABLE_LIBC_WASI != 0
+    module->wasi_args.stdio[0] = os_invalid_raw_handle();
+    module->wasi_args.stdio[1] = os_invalid_raw_handle();
+    module->wasi_args.stdio[2] = os_invalid_raw_handle();
 #endif
 
     return module;

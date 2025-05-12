@@ -118,7 +118,7 @@ os_dcache_flush()
     up_textheap_data_sync();
 #endif
 #ifndef CONFIG_BUILD_KERNEL
-    up_invalidate_dcache_all();
+    up_flush_dcache_all();
 #endif
 }
 

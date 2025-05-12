@@ -98,9 +98,19 @@ def run_clang_format_diff(root: Path, commits: str) -> bool:
     code before committing the PR, or it might fail to pass the CI check:
 
     1. Install clang-format-14.0.0
-    Normally we can install it by `sudo apt-get install clang-format-14`,
-    or download the package from https://github.com/llvm/llvm-project/releases
-    and install it
+
+    You can download the package from
+    https://github.com/llvm/llvm-project/releases
+    and install it.
+
+    For Debian/Ubuntu, we can probably use
+    `sudo apt-get install clang-format-14`.
+
+    Homebrew has it as a part of llvm@14.
+    ```shell
+    brew install llvm@14
+    /usr/local/opt/llvm@14/bin/clang-format
+    ```
 
     2. Format the C/C++ source file
     ``` shell

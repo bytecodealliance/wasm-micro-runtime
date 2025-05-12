@@ -820,7 +820,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 #else
                 cur_value.gc_obj = NULL_REF;
 
-                if (!is_byte_a_type(type1)) {
+                if (!is_byte_a_type(type1)
+                    || wasm_is_type_multi_byte_type(type1)) {
                     p--;
                     read_leb_uint32(p, p_end, type_idx);
                     if (!check_type_index(module, module->type_count, type_idx,
@@ -5711,6 +5712,7 @@ orcjit_thread_callback(void *arg)
 static void
 orcjit_stop_compile_threads(WASMModule *module)
 {
+#if WASM_ENABLE_LAZY_JIT != 0
     uint32 i, thread_num = (uint32)(sizeof(module->orcjit_thread_args)
                                     / sizeof(OrcJitThreadArg));
 
@@ -5719,6 +5721,7 @@ orcjit_stop_compile_threads(WASMModule *module)
         if (module->orcjit_threads[i])
             os_thread_join(module->orcjit_threads[i], NULL);
     }
+#endif
 }
 
 static bool
@@ -6374,6 +6377,12 @@ create_module(char *name, char *error_buf, uint32 error_buf_size)
                       "init instance list lock failed");
         goto fail3;
     }
+#endif
+
+#if WASM_ENABLE_LIBC_WASI != 0
+    module->wasi_args.stdio[0] = os_invalid_raw_handle();
+    module->wasi_args.stdio[1] = os_invalid_raw_handle();
+    module->wasi_args.stdio[2] = os_invalid_raw_handle();
 #endif
 
     (void)ret;
@@ -9197,6 +9206,15 @@ preserve_referenced_local(WASMLoaderContext *loader_ctx, uint8 opcode,
                         loader_ctx->preserved_local_offset += 2;
                     emit_label(EXT_OP_COPY_STACK_TOP_I64);
                 }
+
+                /* overflow */
+                if (preserved_offset > loader_ctx->preserved_local_offset) {
+                    set_error_buf_v(error_buf, error_buf_size,
+                                    "too much local cells 0x%x",
+                                    loader_ctx->preserved_local_offset);
+                    return false;
+                }
+
                 emit_operand(loader_ctx, local_index);
                 emit_operand(loader_ctx, preserved_offset);
                 emit_label(opcode);

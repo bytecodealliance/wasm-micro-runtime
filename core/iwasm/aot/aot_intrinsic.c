@@ -194,7 +194,7 @@ aot_intrinsic_clz_i32(uint32 type)
     return num;
 }
 
-uint32
+uint64
 aot_intrinsic_clz_i64(uint64 type)
 {
     uint32 num = 0;
@@ -220,7 +220,7 @@ aot_intrinsic_ctz_i32(uint32 type)
     return num;
 }
 
-uint32
+uint64
 aot_intrinsic_ctz_i64(uint64 type)
 {
     uint32 num = 0;
@@ -244,7 +244,7 @@ aot_intrinsic_popcnt_i32(uint32 u)
     return ret;
 }
 
-uint32
+uint64
 aot_intrinsic_popcnt_i64(uint64 u)
 {
     uint32 ret = 0;
@@ -898,6 +898,17 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
         if (!strncmp(comp_ctx->target_arch, "riscv32", 7)) {
             add_i64_common_intrinsics(comp_ctx);
         }
+        /*
+         * LLVM 16 and later expands cttz intrinsic to a table lookup,
+         * which involves some relocations. (unless ZBB is available,
+         * in which case the native instructions are preferred over
+         * the table-based lowering.)
+         * https://reviews.llvm.org/D128911
+         */
+#if LLVM_VERSION_MAJOR >= 16
+        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_CTZ);
+        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_CTZ);
+#endif
     }
     else if (!strncmp(comp_ctx->target_arch, "xtensa", 6)) {
         /*

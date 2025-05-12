@@ -3270,8 +3270,17 @@ is_data_section(AOTObjectData *obj_data, LLVMSectionIteratorRef sec_itr,
 
     return (!strcmp(section_name, ".data") || !strcmp(section_name, ".sdata")
             || !strcmp(section_name, ".rodata")
+#if LLVM_VERSION_MAJOR >= 19
+            /* https://github.com/llvm/llvm-project/pull/82214 */
+            || !strcmp(section_name, ".srodata")
+#endif
             /* ".rodata.cst4/8/16/.." */
             || !strncmp(section_name, ".rodata.cst", strlen(".rodata.cst"))
+#if LLVM_VERSION_MAJOR >= 19
+            /* https://github.com/llvm/llvm-project/pull/82214
+             * ".srodata.cst4/8/16/.." */
+            || !strncmp(section_name, ".srodata.cst", strlen(".srodata.cst"))
+#endif
             /* ".rodata.strn.m" */
             || !strncmp(section_name, ".rodata.str", strlen(".rodata.str"))
             || (!strcmp(section_name, ".rdata")
@@ -3998,8 +4007,21 @@ aot_resolve_object_relocation_group(AOTObjectData *obj_data,
             && (str_starts_with(relocation->symbol_name, ".LCPI")
                 || str_starts_with(relocation->symbol_name, ".LJTI")
                 || str_starts_with(relocation->symbol_name, ".LBB")
-                || str_starts_with(relocation->symbol_name,
-                                   ".Lswitch.table."))) {
+                || str_starts_with(relocation->symbol_name, ".Lswitch.table.")
+#if LLVM_VERSION_MAJOR >= 16
+                /* cf. https://reviews.llvm.org/D123264 */
+                || str_starts_with(relocation->symbol_name, ".Lpcrel_hi")
+#endif
+#if LLVM_VERSION_MAJOR >= 19
+                /* cf.
+                 * https://github.com/llvm/llvm-project/pull/95031
+                 * https://github.com/llvm/llvm-project/pull/89693
+                 *
+                 * note: the trailing space in ".L0 " is intentional. */
+                || !strcmp(relocation->symbol_name, "")
+                || !strcmp(relocation->symbol_name, ".L0 ")
+#endif
+                    )) {
             /* change relocation->relocation_addend and
                relocation->symbol_name */
             LLVMSectionIteratorRef contain_section;
