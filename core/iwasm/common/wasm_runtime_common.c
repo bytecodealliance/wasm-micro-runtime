@@ -91,6 +91,9 @@ wasm_runtime_destroy_registered_module_list(void);
 
 #define E_TYPE_XIP 4
 
+static generic_error_callback_t generic_error_cb;
+static void *generic_error_user_data;
+
 static uint8
 val_type_to_val_kind(uint8 value_type);
 
@@ -3016,6 +3019,8 @@ wasm_set_exception_local(WASMModuleInstance *module_inst, const char *exception)
         module_inst->cur_exception[0] = '\0';
     }
     exception_unlock(module_inst);
+    if (generic_error_cb)
+      generic_error_cb((WASMModuleInstanceCommon *)module_inst, ((AOTModuleInstance *)module_inst)->cur_exec_env, "");
 }
 
 void
@@ -7869,4 +7874,12 @@ wasm_runtime_is_underlying_binary_freeable(WASMModuleCommon *const module)
 #endif /* WASM_ENABLE_AOT != 0 */
 
     return true;
+}
+
+void
+wasm_runtime_set_generic_error_callback(
+  const generic_error_callback_t callback, void *user_data)
+{
+    generic_error_cb = callback;
+    generic_error_user_data = user_data;
 }
