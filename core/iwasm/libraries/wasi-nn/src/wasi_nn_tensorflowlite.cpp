@@ -85,12 +85,9 @@ is_valid_graph(TFLiteContext *tfl_ctx, graph g)
         NN_ERR_PRINTF("Invalid graph: %d >= %d.", g, MAX_GRAPHS_PER_INST);
         return runtime_error;
     }
-    if (tfl_ctx->models[g].model_pointer == NULL) {
+    if (tfl_ctx->models[g].model_pointer == NULL
+        && tfl_ctx->models[g].model == NULL) {
         NN_ERR_PRINTF("Context (model) non-initialized.");
-        return runtime_error;
-    }
-    if (tfl_ctx->models[g].model == NULL) {
-        NN_ERR_PRINTF("Context (tflite model) non-initialized.");
         return runtime_error;
     }
     return success;
