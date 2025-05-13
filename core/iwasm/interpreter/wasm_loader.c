@@ -3833,11 +3833,11 @@ load_table_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             uint8 flag;
             bool has_init = false;
 
-            CHECK_BUF(buf, buf_end, 1);
+            CHECK_BUF(p, p_end, 1);
             flag = read_uint8(p);
 
             if (flag == TABLE_INIT_EXPR_FLAG) {
-                CHECK_BUF(buf, buf_end, 1);
+                CHECK_BUF(p, p_end, 1);
                 flag = read_uint8(p);
 
                 if (flag != 0x00) {
