@@ -72,7 +72,7 @@
 - debug-engine: fix a few type mismatches (#4189)
 - Replace CMAKE_CURRENT_FUNCTION_LIST_DIR (#4200)
 - fix potential memory leak (#4205)
-- Add missing V128 handling in WASM_OP_BR, reported in #4173
+- Add missing V128 handling in WASM_OP_BR (#4203)
 - fix print_help when libc wasi is enabled (#4218)
 - LLVM: don't verify instcombine fixpoint (#4219)
 - LLVMCreateTargetMachineWithOpts: disable large data (#4220)
@@ -117,28 +117,19 @@
 - add reference type support by default for darwin to support WASI-SDK-25 (#3978)
 - top-level cmake: link llvm libraries to our shared library (#3973)
 - Set thread information earlier in exec_env creation (#3967)
-- Break aot_create_comp_data into small functions
+- Break aot_create_comp_data into small functions (#3987)
 - Optimize memory initialization handling in AOT loader (#3983)
 - nuttx: remove the up_x API for kernel build (#4154)
-- Merge pull request #4124 from swankjesse/WAMR_BUILD_GC_HEAP_SIZE_DEFAULT
-- Move the default heap size initialization
-- Expose WAMR_BUILD_GC_HEAP_SIZE_DEFAULT as a CMake option
-- log warning instaed of assertion (#4119)
+- Expose WAMR_BUILD_GC_HEAP_SIZE_DEFAULT as a CMake option (#4124)
+- Use log instead of using assertion in aot loader (#4119)
 - feat: use C linkage in aot_comp_option.h for C++ embeding (#4106)
-- cr suggestions
-- Copy read only API behind a flag instead of using user defined callback
 - Cmake improvements (#4076)
 - feat: add support for EXTERNREF value type and enable AOT validator in fuzz tests (#4083)
-- build_llvm.py: Allow to build xtensa target on non-xtensa host
+- build_llvm.py: Allow to build xtensa target on non-xtensa host (#4086)
 - Add a conditional check for the macro **STDC_VERSION** (#4080)
 - [fuzzing] execute every exported function (#3959)
 - Update memory allocation functions to use allocator user data (#4043)
-- Cleanup check_version_h workflow by removing unnecessary outputs and permissions
-- Add workflow to confirm version.h is in sync and integrate it into Android compilation workflow
-- Add version.h and update versioning documentation for embedded platforms
-- Remove deprecated version.h file and update versioning documentation
-- Refactor versioning documentation and adopt semantic versioning guidelines
-- Add versioning information for libraries and executables across multiple platforms
+- Add versioning support and update CMake configuration (#3933)
 - Show wasm proposals status during compilation and execution (#3989)
 - add a validator for aot module (#3995)
 - Synchronize the GC spec tests to the commit from December 9. 2024. (#4022)
@@ -191,12 +182,12 @@
 - Add Tianlong into code owners (#3970)
 - build(deps): Bump actions/upload-artifact from 4.4.3 to 4.5.0 (#3981)
 - docs: Update build instructions suggestions for using Valgrind (#4164)
-- test: temporarily skip 'skip-stack-guard-page' test case until issue is resolved
+- test: temporarily skip 'skip-stack-guard-page' test case (#4163)
 - build(deps): Bump actions/upload-artifact from 4.6.1 to 4.6.2 (#4159)
-- Update NuttX and NuttX Apps references to releases/12.9 in workflow f… (#4148)
+- Update NuttX and NuttX Apps references to releases/12.9 in workflow files (#4148)
 - build(deps): Bump esbuild, @vitejs/plugin-react and vite (#4149)
-- build(deps): Bump ossf/scorecard-action from 2.4.0 to 2.4.1
-- build(deps): bump github/codeql-action from 3.26.13 to 3.28.1
+- build(deps): Bump ossf/scorecard-action from 2.4.0 to 2.4.1 (#4109)
+- build(deps): bump github/codeql-action from 3.26.13 to 3.28.1 (#3888) (#3902)
 
 ---
 
