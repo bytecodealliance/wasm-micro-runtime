@@ -7304,6 +7304,9 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             case WASM_OP_SELECT:
             case WASM_OP_DROP_64:
             case WASM_OP_SELECT_64:
+#if WASM_ENABLE_FAST_INTERP != 0 && WASM_ENABLE_SIMD != 0
+            case WASM_OP_SELECT_128:
+#endif
                 break;
 
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
@@ -12788,8 +12791,7 @@ re_scan:
                         case VALUE_TYPE_F64:
 #if WASM_ENABLE_FAST_INTERP == 0
                             *(p - 1) = WASM_OP_SELECT_64;
-#endif
-#if WASM_ENABLE_FAST_INTERP != 0
+#else
                             if (loader_ctx->p_code_compiled) {
                                 uint8 opcode_tmp = WASM_OP_SELECT_64;
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
@@ -12797,8 +12799,7 @@ re_scan:
                                 *(void **)(p_code_compiled_tmp
                                            - sizeof(void *)) =
                                     handle_table[opcode_tmp];
-#else
-#if UINTPTR_MAX == UINT64_MAX
+#elif UINTPTR_MAX == UINT64_MAX
                                 /* emit int32 relative offset in 64-bit target
                                  */
                                 int32 offset =
@@ -12811,7 +12812,6 @@ re_scan:
                                 *(uint32 *)(p_code_compiled_tmp
                                             - sizeof(uint32)) =
                                     (uint32)(uintptr_t)handle_table[opcode_tmp];
-#endif
 #endif /* end of WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS */
 #else  /* else of WASM_ENABLE_LABELS_AS_VALUES */
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
@@ -12827,6 +12827,39 @@ re_scan:
 #if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) \
     || (WASM_ENABLE_FAST_INTERP != 0)
                         case VALUE_TYPE_V128:
+#if WASM_ENABLE_FAST_INTERP == 0
+                            *(p - 1) = WASM_OP_SELECT_128;
+#else
+                            if (loader_ctx->p_code_compiled) {
+                                uint8 opcode_tmp = WASM_OP_SELECT_128;
+#if WASM_ENABLE_LABELS_AS_VALUES != 0
+#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
+                                *(void **)(p_code_compiled_tmp
+                                           - sizeof(void *)) =
+                                    handle_table[opcode_tmp];
+#elif UINTPTR_MAX == UINT64_MAX
+                                /* emit int32 relative offset in 64-bit target
+                                 */
+                                int32 offset =
+                                    (int32)((uint8 *)handle_table[opcode_tmp]
+                                            - (uint8 *)handle_table[0]);
+                                *(int32 *)(p_code_compiled_tmp
+                                           - sizeof(int32)) = offset;
+#else
+                                /* emit uint32 label address in 32-bit target */
+                                *(uint32 *)(p_code_compiled_tmp
+                                            - sizeof(uint32)) =
+                                    (uint32)(uintptr_t)handle_table[opcode_tmp];
+#endif /* end of WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS */
+#else  /* else of WASM_ENABLE_LABELS_AS_VALUES */
+#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
+                                *(p_code_compiled_tmp - 1) = opcode_tmp;
+#else
+                                *(p_code_compiled_tmp - 2) = opcode_tmp;
+#endif /* end of WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS */
+#endif /* end of WASM_ENABLE_LABELS_AS_VALUES */
+                            }
+#endif /* end of WASM_ENABLE_FAST_INTERP */
                             break;
 #endif /* (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) || \
           (WASM_ENABLE_FAST_INTERP != 0) */
@@ -12924,12 +12957,12 @@ re_scan:
                     uint8 opcode_tmp = WASM_OP_SELECT;
 
                     if (type == VALUE_TYPE_V128) {
-#if (WASM_ENABLE_SIMD == 0)                                        \
-    || ((WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0) \
-        && (WASM_ENABLE_FAST_INTERP == 0))
+#if WASM_ENABLE_JIT != 0 \
+    || WASM_ENABLE_FAST_INTERP != 0 && WASM_ENABLE_SIMD != 0
+                        opcode_tmp = WASM_OP_SELECT_128;
+#else
                         set_error_buf(error_buf, error_buf_size,
-                                      "SIMD v128 type isn't supported");
-                        goto fail;
+                                      "v128 value type requires simd feature");
 #endif
                     }
                     else {
