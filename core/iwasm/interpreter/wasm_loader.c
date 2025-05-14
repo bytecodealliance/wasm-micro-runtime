@@ -12961,7 +12961,8 @@ re_scan:
     || WASM_ENABLE_FAST_INTERP != 0 && WASM_ENABLE_SIMD != 0
                         opcode_tmp = WASM_OP_SELECT_128;
 #else
-                        set_error_buf(error_buf, error_buf_size, "v128 value type requires simd feature");
+                        set_error_buf(error_buf, error_buf_size,
+                                      "v128 value type requires simd feature");
 #endif
                     }
                     else {
