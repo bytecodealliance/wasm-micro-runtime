@@ -671,6 +671,10 @@ if (WAMR_BUILD_AOT_VALIDATOR EQUAL 1)
   message ("     AOT validator enabled")
   add_definitions (-DWASM_ENABLE_AOT_VALIDATOR=1)
 endif ()
+if (WAMR_BUILD_INSTRUCTION_METERING EQUAL 1)
+  message ("     Instruction metering enabled")
+  add_definitions (-DWASM_ENABLE_INSTRUCTION_METERING=1)
+endif ()
 
 ########################################
 # Show Phase4 Wasm proposals status.
