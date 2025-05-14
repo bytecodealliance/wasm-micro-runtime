@@ -279,7 +279,12 @@ else ()
   message ("     Libc builtin disabled")
 endif ()
 if (WAMR_BUILD_LIBC_UVWASI EQUAL 1)
-  message ("     Libc WASI enabled with uvwasi implementation")
+  message ("     Libc WASI enabled with uvwasi implementation\n"
+           "     WANRING:: uvwasi does not currently provide the comprehensive\n"
+           "     file system security properties provided by some WASI runtimes.\n"
+           "     Full support for secure file system sandboxing may or may not\n"
+           "     be implemented in future. In the mean time, DO NOT RELY ON IT\n"
+           "     TO RUN UNTRUSTED CODE.")
 elseif (WAMR_BUILD_LIBC_WASI EQUAL 1)
   message ("     Libc WASI enabled")
 else ()
