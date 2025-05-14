@@ -1888,6 +1888,27 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 }
                 HANDLE_OP_END();
             }
+#if WASM_ENABLE_SIMD != 0
+            HANDLE_OP(WASM_OP_SELECT_128)
+            {
+                cond = frame_lp[GET_OFFSET()];
+                addr1 = GET_OFFSET();
+                addr2 = GET_OFFSET();
+                addr_ret = GET_OFFSET();
+
+                if (!cond) {
+                    if (addr_ret != addr1)
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret,
+                                         GET_V128_FROM_ADDR(frame_lp + addr1));
+                }
+                else {
+                    if (addr_ret != addr2)
+                        PUT_V128_TO_ADDR(frame_lp + addr_ret,
+                                         GET_V128_FROM_ADDR(frame_lp + addr2));
+                }
+                HANDLE_OP_END();
+            }
+#endif
 
 #if WASM_ENABLE_GC != 0
             HANDLE_OP(WASM_OP_SELECT_T)
