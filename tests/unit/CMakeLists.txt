@@ -32,6 +32,7 @@ include (FetchContent)
 FetchContent_Declare (
     googletest
     URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable (googletest)
 
@@ -46,7 +47,6 @@ add_subdirectory(aot)
 add_subdirectory(wasm-c-api)
 add_subdirectory(libc-builtin)
 add_subdirectory(shared-utils)
-add_subdirectory(running-modes)
 add_subdirectory(runtime-common)
 add_subdirectory(custom-section)
 add_subdirectory(compilation)
@@ -55,6 +55,10 @@ add_subdirectory(linear-memory-aot)
 add_subdirectory(aot-stack-frame)
 add_subdirectory(linux-perf)
 add_subdirectory(gc)
-add_subdirectory(memory64)
 add_subdirectory(tid-allocator)
-add_subdirectory(shared-heap)
+
+if (NOT WAMR_BUILD_TARGET STREQUAL "X86_32")
+  add_subdirectory (running-modes)
+  add_subdirectory (memory64)
+  add_subdirectory (shared-heap)
+endif ()
