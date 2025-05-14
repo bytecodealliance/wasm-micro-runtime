@@ -890,6 +890,24 @@ wasi_path_symlink(wasm_exec_env_t exec_env, const char *old_path,
     if (!uvwasi)
         return (wasi_errno_t)-1;
 
+    /*
+     * check if old_path is valid.
+     * if it is a symlink, follow it.
+     *
+     * this is a workaround for the fact that
+     * uvwasi_path_symlink does not check if the old_path is valid
+     *
+     * the goal is trigger uvwasi__resolve_path() to check
+     */
+    {
+        uvwasi_filestat_t filestat = { 0 };
+        wasi_errno_t err =
+            uvwasi_path_filestat_get(uvwasi, fd, UVWASI_LOOKUP_SYMLINK_FOLLOW,
+                                     old_path, old_path_len, &filestat);
+        if (err)
+            return err;
+    }
+
     return uvwasi_path_symlink(uvwasi, old_path, old_path_len, fd, new_path,
                                new_path_len);
 }

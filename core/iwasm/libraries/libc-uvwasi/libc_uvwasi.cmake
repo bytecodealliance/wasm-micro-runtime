@@ -10,7 +10,7 @@ set(CMAKE_POLICY_VERSION_MINIMUM 3.5 FORCE)
 
 set (LIBC_WASI_DIR ${CMAKE_CURRENT_LIST_DIR})
 
-set (LIBUV_VERSION v1.46.0)
+set (LIBUV_VERSION v1.51.0)
 
 add_definitions (-DWASM_ENABLE_LIBC_WASI=1 -DWASM_ENABLE_UVWASI=1)
 
@@ -29,15 +29,10 @@ else()
         GIT_REPOSITORY https://github.com/libuv/libuv.git
         GIT_TAG ${LIBUV_VERSION}
     )
-    FetchContent_GetProperties(libuv)
-    if (NOT libuv_POPULATED)
-        message("-- Fetching libuv ..")
-        FetchContent_Populate(libuv)
-        include_directories("${libuv_SOURCE_DIR}/include")
-        add_subdirectory(${libuv_SOURCE_DIR} ${libuv_BINARY_DIR} EXCLUDE_FROM_ALL)
-        set (LIBUV_LIBRARIES uv_a)
-        set_target_properties(uv_a PROPERTIES POSITION_INDEPENDENT_CODE 1)
-    endif()
+    FetchContent_MakeAvailable(libuv)
+    include_directories("${libuv_SOURCE_DIR}/include")
+    set (LIBUV_LIBRARIES uv_a)
+    set_target_properties(uv_a PROPERTIES POSITION_INDEPENDENT_CODE 1)
 endif()
 
 ## uvwasi
@@ -48,17 +43,12 @@ else()
     FetchContent_Declare(
         uvwasi
         GIT_REPOSITORY https://github.com/nodejs/uvwasi.git
-        GIT_TAG main
+        GIT_TAG v0.0.21
     )
-    FetchContent_GetProperties(uvwasi)
-    if (NOT uvwasi_POPULATED)
-        message("-- Fetching uvwasi ..")
-        FetchContent_Populate(uvwasi)
-        include_directories("${uvwasi_SOURCE_DIR}/include")
-        add_subdirectory(${uvwasi_SOURCE_DIR} ${uvwasi_BINARY_DIR} EXCLUDE_FROM_ALL)
-        set (UVWASI_LIBRARIES uvwasi_a)
-        set_target_properties(uvwasi_a PROPERTIES POSITION_INDEPENDENT_CODE 1)
-    endif()
+    FetchContent_MakeAvailable(uvwasi)
+    include_directories("${uvwasi_SOURCE_DIR}/include")
+    set (UVWASI_LIBRARIES uvwasi_a)
+    set_target_properties(uvwasi_a PROPERTIES POSITION_INDEPENDENT_CODE 1)
 endif()
 
 set (UV_A_LIBS ${LIBUV_LIBRARIES} ${UVWASI_LIBRARIES})
