@@ -13,7 +13,7 @@
 - Fix out of bounds issues after memory.grow on non-aot non-threads builds (#3872)
 - Fix out of bounds issue in is_native_addr_in_shared_heap function (#3886)
 - Fix mmap flags for AOT loader on non-Linux SGX platforms (#3890)
-- fix(uwp): Gate NTSTATUS definition behind WINAPI_PARTITION_DESKTOP for UWP builds
+- fix(uwp): Gate NTSTATUS definition behind WINAPI_PARTITION_DESKTOP for UWP builds (#3897)
 - Fix linked global initialization in multimodule (#3905)
 - Correct the table index calculation in aot_instantiation (#3903)
 - Fix a leak in wasm_loader_emit_br_info (#3900)
@@ -29,28 +29,24 @@
 - set alignment 4 when loading multi return value (#3955)
 - Only access Zephyr thread stats info when it's available (#3962)
 - top-level cmakefile: fix macOS build (#3968)
-- Merge pull request #3987 from no1wudi/fix
 - Handle a new scenario where an item is both exported and imported. (#3984)
 - platform/nuttx: Flush icache/dcache properly (#4147)
 - fix(runtest.py): A workaround to bypass errors that occur when deleting temporary files (#4093)
 - Fix build issues when compiling WAMRC as a cross-compiler (#4112)
 - include bh_platform.h (#4135)
 - Fix iwasm build error when WAMR_BUILD_WASI_NN enabled (#4138)
-- Merge pull request #4132 from bytecodealliance/dependabot/github_actions/github/codeql-action-3.28.11
 - avoid Windows perform newline translation (#4128)
 - fix: correct typos and improve comments across multiple files by codespell (#4116)
 - fix: fix load aarch64 aot failed (#4114)
 - wasm_loader allocates more spaces for elements (#4099)
 - fix: add dispose of the debug information builder when destroying compilation context (#4105)
-- build(deps): Bump github/codeql-action from 3.28.9 to 3.28.10
-- build(deps): Bump actions/upload-artifact from 4.6.0 to 4.6.1
-- prevent data overflow on 32 bit platform for memory.grow
+- prevent mmap size overflow on 32 bit platform for memory.grow (#4071)
 - fix: when load aot init expr,no type_idx set. (#4094)
 - fix(aot_emit_aot_file): prevent buffer emission for zero byte_count (#4095)
-- fix(build_llvm_libraries.yml): Correct script path for build_llvm.py
+- fix(build_llvm_libraries.yml): Correct script path for build_llvm.py (#4089)
 - fix(unit-test): libc_builtin_test issues (#4073)
 - [gc] Subtyping fix (#4075)
-- fix(build_llvm.py): clean up whitespace and formatting in build script
+- fix(build_llvm.py): clean up whitespace and formatting in build script (#4087)
 - Unit test:type matching issue and code redundancy (#4079)
 - fix(aot): ensure value_cmp does not exceed br_count in branch table compilation (#4065)
 - In wasm32, fix potential conversion overflow when enlarging 65536 pages (#4064)
@@ -188,6 +184,9 @@
 - build(deps): Bump esbuild, @vitejs/plugin-react and vite (#4149)
 - build(deps): Bump ossf/scorecard-action from 2.4.0 to 2.4.1 (#4109)
 - build(deps): bump github/codeql-action from 3.26.13 to 3.28.1 (#3888) (#3902)
+- build(deps): Bump github/codeql-action from 3.28.10 to 3.28.11 (#4132)
+- build(deps): Bump github/codeql-action from 3.28.9 to 3.28.10 (#4108)
+- build(deps): Bump actions/upload-artifact from 4.6.0 to 4.6.1 (#4107)
 
 ---
 
