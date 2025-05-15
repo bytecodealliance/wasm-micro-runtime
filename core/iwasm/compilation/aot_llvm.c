@@ -1517,6 +1517,14 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     return true;
 }
 
+#define BUILD_IS_NOT_NULL(value, res, name)                                \
+    do {                                                                   \
+        if (!(res = LLVMBuildIsNotNull(comp_ctx->builder, value, name))) { \
+            aot_set_last_error("llvm build is not null failed.");          \
+            goto fail;                                                     \
+        }                                                                  \
+    } while (0)
+
 #define LOAD_MODULE_EXTRA_FIELD_AND_ALLOCA(field, type)                        \
     do {                                                                       \
         get_module_extra_field_offset(field);                                  \
@@ -1547,8 +1555,10 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 static bool
 create_shared_heap_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
+#if WASM_ENABLE_SHARED_HEAP != 0
     LLVMValueRef offset, field_p, load_val, shared_heap_head_p,
-        shared_heap_head;
+        shared_heap_head, cmp, field_p_or_default, shared_heap_head_start_off,
+        shared_heap_head_start_off_minus_one;
     LLVMTypeRef shared_heap_offset_type;
     uint32 offset_u32;
 #if WASM_ENABLE_MEMORY64 == 0
@@ -1586,6 +1596,7 @@ create_shared_heap_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         aot_set_last_error("llvm build load failed");
         goto fail;
     }
+    BUILD_IS_NOT_NULL(shared_heap_head, cmp, "has_shared_heap");
 
     if (is_memory64) {
         offset_u32 = offsetof(WASMSharedHeap, start_off_mem64);
@@ -1601,16 +1612,43 @@ create_shared_heap_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         aot_set_last_error("llvm build inbounds gep failed");
         goto fail;
     }
-    if (!(func_ctx->shared_heap_head_start_off =
-              LLVMBuildLoad2(comp_ctx->builder, shared_heap_offset_type,
-                             field_p, "shared_heap_head_start_off"))) {
+
+    /* Select shared heap head ptr or safe alloca
+     * shared_heap_start_off(UINT32_MAX/UINT64_MAX) based on the condition */
+    if (!(field_p_or_default = LLVMBuildSelect(comp_ctx->builder, cmp, field_p,
+                                               func_ctx->shared_heap_start_off,
+                                               "ptr_or_default"))) {
+        aot_set_last_error("llvm build select failed");
+        goto fail;
+    }
+
+    if (!(shared_heap_head_start_off = LLVMBuildLoad2(
+              comp_ctx->builder, shared_heap_offset_type, field_p_or_default,
+              "shared_heap_head_start_off"))) {
+        aot_set_last_error("llvm build load failed");
+        goto fail;
+    }
+    if (!(shared_heap_head_start_off_minus_one = LLVMBuildAdd(
+              comp_ctx->builder, shared_heap_head_start_off,
+              comp_ctx->pointer_size == sizeof(uint64) ? I64_NEG_ONE
+                                                       : I32_NEG_ONE,
+              "head_start_off_minus_one"))) {
         aot_set_last_error("llvm build load failed");
         goto fail;
     }
 
+    if (!(func_ctx->shared_heap_head_start_off = LLVMBuildSelect(
+              comp_ctx->builder, cmp, shared_heap_head_start_off_minus_one,
+              shared_heap_head_start_off, "head_start_off"))) {
+        aot_set_last_error("llvm build select failed");
+        goto fail;
+    }
     return true;
 fail:
     return false;
+#else
+    return true;
+#endif
 }
 
 static bool
@@ -2465,7 +2503,7 @@ jit_stack_size_callback(void *user_data, const char *name, size_t namelen,
     stack_consumption_to_call_wrapped_func =
         musttail ? 0
                  : aot_estimate_stack_usage_for_function_call(
-                       comp_ctx, func_ctx->aot_func->func_type);
+                     comp_ctx, func_ctx->aot_func->func_type);
     LOG_VERBOSE("func %.*s stack %u + %zu + %u", (int)namelen, name,
                 stack_consumption_to_call_wrapped_func, stack_size, call_size);
 
