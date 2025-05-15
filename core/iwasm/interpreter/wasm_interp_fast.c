@@ -6101,8 +6101,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
 #define SIMD_LANE_HANDLE_UNALIGNED_ACCESS()
 #else
-#define SIMD_LANE_HANDLE_UNALIGNED_ACCESS() *frame_ip++;
-#endif
+#define SIMD_LANE_HANDLE_UNALIGNED_ACCESS() (void)*frame_ip++
+#endif /* WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0 */
+
 #define SIMD_EXTRACT_LANE_OP(register, return_type, push_elem) \
     do {                                                       \
         uint8 lane = *frame_ip++;                              \
@@ -6514,17 +6515,17 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         break;
                     }
 
-#define SIMD_LOAD_LANE_COMMON(vec, register, lane, width)  \
-    do {                                                   \
-        addr_ret = GET_OFFSET();                           \
-        CHECK_MEMORY_OVERFLOW(width / 8);                  \
-        if (width == 64) {                                 \
-            vec.register[lane] = GET_I64_FROM_ADDR(maddr); \
-        }                                                  \
-        else {                                             \
-            vec.register[lane] = *(uint##width *)(maddr);  \
-        }                                                  \
-        PUT_V128_TO_ADDR(frame_lp + addr_ret, vec);        \
+#define SIMD_LOAD_LANE_COMMON(vec, register, lane, width)            \
+    do {                                                             \
+        addr_ret = GET_OFFSET();                                     \
+        CHECK_MEMORY_OVERFLOW(width / 8);                            \
+        if (width == 64) {                                           \
+            vec.register[lane] = GET_I64_FROM_ADDR((uint32 *)maddr); \
+        }                                                            \
+        else {                                                       \
+            vec.register[lane] = *(uint##width *)(maddr);            \
+        }                                                            \
+        PUT_V128_TO_ADDR(frame_lp + addr_ret, vec);                  \
     } while (0)
 
 #define SIMD_LOAD_LANE_OP(register, width)                 \
