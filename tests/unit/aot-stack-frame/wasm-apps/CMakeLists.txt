@@ -8,14 +8,15 @@ project(wasm-apps-aot-stack-frame)
 set (WAMRC_OPTION --enable-dump-call-stack --bounds-checks=1 --enable-gc)
 
 if (WAMR_BUILD_TARGET STREQUAL "X86_32")
-  set (WAMRC_OPTION ${WAMRC_OPTION} --target=i386)
+      set (WAMRC_OPTION ${WAMRC_OPTION} --target=i386)
 endif ()
 
 add_custom_target(
       aot-stack-frame-test-wasm ALL
 
       # Step 1: Build wamrc
-      COMMAND cmake -B ${CMAKE_CURRENT_BINARY_DIR}/build-wamrc -S ${WAMR_ROOT_DIR}/wamr-compiler
+      COMMAND cmake -B ${CMAKE_CURRENT_BINARY_DIR}/build-wamrc 
+                  -S ${WAMR_ROOT_DIR}/wamr-compiler
       COMMAND cmake --build ${CMAKE_CURRENT_BINARY_DIR}/build-wamrc
 
       # Step 2: Compile .wast to .wasm
