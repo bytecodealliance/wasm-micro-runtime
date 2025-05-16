@@ -315,6 +315,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-22.04]
+        build_target: [
+          "X86_64",
+          "X86_32",
+        ]
         include:
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
@@ -351,10 +355,16 @@ jobs:
           cmake --build . --config Release --parallel 4
         working-directory: wamr-compiler
 
+      - name: Install dependencies for X86_32
+        if: matrix.build_target == 'X86_32'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-multilib
+
       - name: Build and run unit tests
         run: |
           mkdir build && cd build
-          cmake ..
+          cmake .. -DWAMR_BUILD_TARGET=${{ matrix.build_target }}
           cmake --build . --config Release --parallel 4
           ctest
         working-directory: tests/unit
