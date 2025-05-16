@@ -278,36 +278,47 @@ aot_check_shared_heap_memory_overflow_common(
     /* On 64/32-bit target, the offset is 64/32-bit */
     offset_type = is_target_64bit ? I64_TYPE : I32_TYPE;
 
-    ADD_BASIC_BLOCK(app_addr_in_shared_heap_chain,
-                    "app_addr_in_shared_heap_chain");
     ADD_BASIC_BLOCK(app_addr_in_cache_shared_heap,
                     "app_addr_in_cache_shared_heap");
-    ADD_BASIC_BLOCK(check_shared_heap_chain, "check_shared_heap_chain");
     ADD_BASIC_BLOCK(app_addr_in_linear_mem, "app_addr_in_linear_mem");
 
-    LLVMMoveBasicBlockAfter(app_addr_in_shared_heap_chain, block_curr);
-    LLVMMoveBasicBlockAfter(app_addr_in_cache_shared_heap,
-                            app_addr_in_shared_heap_chain);
-    LLVMMoveBasicBlockAfter(check_shared_heap_chain,
-                            app_addr_in_cache_shared_heap);
-    LLVMMoveBasicBlockAfter(app_addr_in_linear_mem,
-                            app_addr_in_cache_shared_heap);
+    if (comp_ctx->enable_shared_heap) {
+        LLVMMoveBasicBlockAfter(app_addr_in_cache_shared_heap, block_curr);
+        LLVMMoveBasicBlockAfter(app_addr_in_linear_mem,
+                                app_addr_in_cache_shared_heap);
+    }
+    else if (comp_ctx->enable_shared_chain) {
+        ADD_BASIC_BLOCK(app_addr_in_shared_heap_chain,
+                        "app_addr_in_shared_heap_chain");
+        ADD_BASIC_BLOCK(check_shared_heap_chain, "check_shared_heap_chain");
+        LLVMMoveBasicBlockAfter(app_addr_in_shared_heap_chain, block_curr);
+        LLVMMoveBasicBlockAfter(app_addr_in_cache_shared_heap,
+                                app_addr_in_shared_heap_chain);
+        LLVMMoveBasicBlockAfter(check_shared_heap_chain,
+                                app_addr_in_cache_shared_heap);
+        LLVMMoveBasicBlockAfter(app_addr_in_linear_mem,
+                                app_addr_in_cache_shared_heap);
+    }
 
     if (!bulk_memory)
         LLVMMoveBasicBlockAfter(block_maddr_phi, app_addr_in_linear_mem);
     else
         LLVMMoveBasicBlockAfter(block_maddr_phi, check_succ);
 
-    /* Use >= here for func_ctx->shared_heap_head_start_off =
-     * shared_heap_head->start - 1 and use UINT32_MAX/UINT64_MAX value to
-     * indicate invalid value. The shared heap chain oob will be detected in
-     * app_addr_in_shared_heap block or aot_check_shared_heap_chain function */
-    BUILD_ICMP(LLVMIntUGT, start_offset, func_ctx->shared_heap_head_start_off,
-               is_in_shared_heap, "shared_heap_lb_cmp");
-    BUILD_COND_BR(is_in_shared_heap, app_addr_in_shared_heap_chain,
-                  app_addr_in_linear_mem);
+    if (comp_ctx->enable_shared_chain) {
+        /* Use >= here for func_ctx->shared_heap_head_start_off =
+         * shared_heap_head->start - 1 and use UINT32_MAX/UINT64_MAX value to
+         * indicate invalid value. The shared heap chain oob will be detected in
+         * app_addr_in_shared_heap block or aot_check_shared_heap_chain function
+         */
+        BUILD_ICMP(LLVMIntUGT, start_offset,
+                   func_ctx->shared_heap_head_start_off, is_in_shared_heap,
+                   "shared_heap_lb_cmp");
+        BUILD_COND_BR(is_in_shared_heap, app_addr_in_shared_heap_chain,
+                      app_addr_in_linear_mem);
 
-    SET_BUILD_POS(app_addr_in_shared_heap_chain);
+        SET_BUILD_POS(app_addr_in_shared_heap_chain);
+    }
     /* Load the local variable of the function */
     BUILD_LOAD_PTR(func_ctx->shared_heap_start_off, offset_type,
                    shared_heap_start_off);
@@ -334,17 +345,24 @@ aot_check_shared_heap_memory_overflow_common(
                    "cmp_cache_shared_heap_end");
     }
     BUILD_OP(And, cmp, cmp1, cmp2, "is_in_cache_shared_heap");
-    BUILD_COND_BR(cmp2, app_addr_in_cache_shared_heap, check_shared_heap_chain);
-
-    SET_BUILD_POS(check_shared_heap_chain);
-    if (!bulk_memory) {
-        bytes = is_target_64bit ? I64_CONST(bytes_u32) : I32_CONST(bytes_u32);
+    if (comp_ctx->enable_shared_heap) {
+        BUILD_COND_BR(cmp2, app_addr_in_cache_shared_heap,
+                      app_addr_in_linear_mem);
     }
-    if (!aot_check_shared_heap_chain(comp_ctx, func_ctx,
-                                     app_addr_in_cache_shared_heap,
-                                     start_offset, bytes, is_memory64)) {
-        aot_set_last_error("llvm build aot_check_shared_heap_chain failed");
-        goto fail;
+    else if (comp_ctx->enable_shared_chain) {
+        BUILD_COND_BR(cmp2, app_addr_in_cache_shared_heap,
+                      check_shared_heap_chain);
+        SET_BUILD_POS(check_shared_heap_chain);
+        if (!bulk_memory) {
+            bytes =
+                is_target_64bit ? I64_CONST(bytes_u32) : I32_CONST(bytes_u32);
+        }
+        if (!aot_check_shared_heap_chain(comp_ctx, func_ctx,
+                                         app_addr_in_cache_shared_heap,
+                                         start_offset, bytes, is_memory64)) {
+            aot_set_last_error("llvm build aot_check_shared_heap_chain failed");
+            goto fail;
+        }
     }
 
     SET_BUILD_POS(app_addr_in_cache_shared_heap);
@@ -617,7 +635,8 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
 #if WASM_ENABLE_SHARED_HEAP != 0
-    if (comp_ctx->enable_shared_heap /* TODO: && mem_idx == 0 */) {
+    if (comp_ctx->enable_shared_heap
+        || comp_ctx->enable_shared_chain /* TODO: && mem_idx == 0 */) {
         ADD_BASIC_BLOCK(block_maddr_phi, "maddr_phi");
         SET_BUILD_POS(block_maddr_phi);
         if (!(maddr_phi =
@@ -716,7 +735,8 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
 #if WASM_ENABLE_SHARED_HEAP != 0
-    if (comp_ctx->enable_shared_heap /* TODO: && mem_idx == 0 */) {
+    if (comp_ctx->enable_shared_heap
+        || comp_ctx->enable_shared_chain /* TODO: && mem_idx == 0 */) {
         block_curr = LLVMGetInsertBlock(comp_ctx->builder);
         LLVMAddIncoming(maddr_phi, &maddr, &block_curr, 1);
         if (!LLVMBuildBr(comp_ctx->builder, block_maddr_phi)) {
@@ -1465,7 +1485,8 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
 #if WASM_ENABLE_SHARED_HEAP != 0
-    if (comp_ctx->enable_shared_heap /* TODO: && mem_idx == 0 */) {
+    if (comp_ctx->enable_shared_heap
+        || comp_ctx->enable_shared_chain /* TODO: && mem_idx == 0 */) {
         ADD_BASIC_BLOCK(block_maddr_phi, "maddr_phi");
         SET_BUILD_POS(block_maddr_phi);
         if (!(maddr_phi = LLVMBuildPhi(comp_ctx->builder, INT8_PTR_TYPE,
@@ -1507,7 +1528,8 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
 #if WASM_ENABLE_SHARED_HEAP != 0
-    if (comp_ctx->enable_shared_heap /* TODO: && mem_idx == 0 */) {
+    if (comp_ctx->enable_shared_heap
+        || comp_ctx->enable_shared_chain /* TODO: && mem_idx == 0 */) {
         block_curr = LLVMGetInsertBlock(comp_ctx->builder);
         LLVMAddIncoming(maddr_phi, &maddr, &block_curr, 1);
         if (!LLVMBuildBr(comp_ctx->builder, block_maddr_phi)) {

@@ -1613,8 +1613,8 @@ create_shared_heap_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         goto fail;
     }
 
-    /* Select shared heap head ptr or safe alloca
-     * shared_heap_start_off(UINT32_MAX/UINT64_MAX) based on the condition */
+    /* Select a valid shared heap head ptr or safe alloca ptr stores
+     * shared_heap_start_off(UINT32_MAX/UINT64_MAX) */
     if (!(field_p_or_default = LLVMBuildSelect(comp_ctx->builder, cmp, field_p,
                                                func_ctx->shared_heap_start_off,
                                                "ptr_or_default"))) {
@@ -1637,6 +1637,8 @@ create_shared_heap_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         goto fail;
     }
 
+    /* if there is attached shared heap(s), the value will be valid start_off-1,
+     * otherwise it will be UINT32_MAX/UINT64_MAX */
     if (!(func_ctx->shared_heap_head_start_off = LLVMBuildSelect(
               comp_ctx->builder, cmp, shared_heap_head_start_off_minus_one,
               shared_heap_head_start_off, "head_start_off"))) {
@@ -1942,7 +1944,7 @@ aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
     }
 
     /* Load shared heap, shared heap start off mem32 or mem64 */
-    if (comp_ctx->enable_shared_heap
+    if ((comp_ctx->enable_shared_heap || comp_ctx->enable_shared_chain)
         && !create_shared_heap_info(comp_ctx, func_ctx)) {
         goto fail;
     }
@@ -2767,6 +2769,9 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
 
     if (option->enable_shared_heap)
         comp_ctx->enable_shared_heap = true;
+
+    if (option->enable_shared_chain)
+        comp_ctx->enable_shared_chain = true;
 
     comp_ctx->opt_level = option->opt_level;
     comp_ctx->size_level = option->size_level;

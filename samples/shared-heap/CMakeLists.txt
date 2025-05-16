@@ -122,8 +122,10 @@ if (WAMR_BUILD_AOT EQUAL 1)
 
   if (WAMR_BUILD_TARGET STREQUAL "X86_32")
     set (WAMR_COMPILER_FLAGS --enable-shared-heap --target=i386)
+    set (WAMR_COMPILER_CHAIN_FLAGS --enable-shared-chain --target=i386)
   else ()
     set (WAMR_COMPILER_FLAGS --enable-shared-heap)
+    set (WAMR_COMPILER_CHAIN_FLAGS --enable-shared-chain)
   endif ()
 
   add_custom_target(
@@ -132,6 +134,8 @@ if (WAMR_BUILD_AOT EQUAL 1)
     DEPENDS wasm-apps/test1.wasm wasm-apps/test2.wasm ${WAMR_COMPILER}
     COMMAND ${WAMR_COMPILER} ${WAMR_COMPILER_FLAGS} -o wasm-apps/test1.aot wasm-apps/test1.wasm
     COMMAND ${WAMR_COMPILER} ${WAMR_COMPILER_FLAGS} -o wasm-apps/test2.aot wasm-apps/test2.wasm
+    COMMAND ${WAMR_COMPILER} ${WAMR_COMPILER_CHAIN_FLAGS} -o wasm-apps/test1_chain.aot wasm-apps/test1.wasm
+    COMMAND ${WAMR_COMPILER} ${WAMR_COMPILER_CHAIN_FLAGS} -o wasm-apps/test2_chain.aot wasm-apps/test2.wasm
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   )
 endif()

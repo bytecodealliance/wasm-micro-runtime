@@ -198,7 +198,7 @@ main(int argc, char **argv)
     if (!aot_mode)
         wasm_file1 = "./wasm-apps/test1.wasm";
     else
-        wasm_file1 = "./wasm-apps/test1.aot";
+        wasm_file1 = "./wasm-apps/test1_chain.aot";
     if (!(wasm_file1_buf =
               bh_read_file_to_buffer(wasm_file1, &wasm_file1_size))) {
         printf("Open wasm file %s failed.\n", wasm_file1);
@@ -225,7 +225,7 @@ main(int argc, char **argv)
     if (!aot_mode)
         wasm_file2 = "./wasm-apps/test2.wasm";
     else
-        wasm_file2 = "./wasm-apps/test2.aot";
+        wasm_file2 = "./wasm-apps/test2_chain.aot";
     if (!(wasm_file2_buf =
               bh_read_file_to_buffer(wasm_file2, &wasm_file2_size))) {
         printf("Open wasm file %s failed.\n", wasm_file1);

@@ -29,11 +29,8 @@ set(CMAKE_EXE_LINKER_FLAGS
       -Wl,--allow-undefined"
         )
 
-if (WAMR_BUILD_TARGET STREQUAL "X86_32")
-  set (WAMR_COMPILER_FLAGS --opt-level=0 --bounds-checks=1 --enable-shared-heap --target=i386)
-else ()
-  set (WAMR_COMPILER_FLAGS --opt-level=0 --bounds-checks=1 --enable-shared-heap)
-endif ()
+set (WAMR_COMPILER_FLAGS --opt-level=3 --bounds-checks=1 --enable-shared-heap)
+set (WAMR_COMPILER_CHAIN_FLAGS --opt-level=3 --bounds-checks=1 --enable-shared-chain)
 
 function(copy_wasm TARGET_NAME)
     add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
@@ -46,6 +43,7 @@ endfunction()
 
 function(compile_and_copy_aot_from TARGET_NAME)
     string(REPLACE ".wasm" ".aot" AOT_TARGET ${TARGET_NAME})
+    string(REPLACE ".wasm" "_chain.aot" AOT_CHAIN_TARGET ${TARGET_NAME})
 
     add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
         COMMAND ${WAMRC_ROOT_DIR}/wamrc ${WAMR_COMPILER_FLAGS}
@@ -54,11 +52,16 @@ function(compile_and_copy_aot_from TARGET_NAME)
         COMMAND ${CMAKE_COMMAND} -E copy
                 ${CMAKE_CURRENT_BINARY_DIR}/${AOT_TARGET}
                 ${CMAKE_CURRENT_BINARY_DIR}/../../
-        COMMENT "Compile and copy ${AOT_TARGET} to the same directory of google test"
+        COMMAND ${WAMRC_ROOT_DIR}/wamrc ${WAMR_COMPILER_CHAIN_FLAGS}
+                -o ${AOT_CHAIN_TARGET}
+                ${TARGET_NAME}
+        COMMAND ${CMAKE_COMMAND} -E copy
+                ${CMAKE_CURRENT_BINARY_DIR}/${AOT_CHAIN_TARGET}
+                ${CMAKE_CURRENT_BINARY_DIR}/../../
+        COMMENT "Compile and copy ${AOT_TARGET} ${AOT_CHAIN_TARGET} to the same directory of google test"
     )
 endfunction()
 
-# Example targets
 add_executable(test64.wasm ../test.c)
 target_link_libraries(test64.wasm)
 copy_wasm(test64.wasm)
