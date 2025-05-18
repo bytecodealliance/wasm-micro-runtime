@@ -70,12 +70,34 @@ wasm_runtime_shared_heap_free(WASMModuleInstanceCommon *module_inst,
                               uint64 ptr);
 #endif
 
+// TODO: remove this when all the code is migrated to use the new API
 bool
 wasm_runtime_memory_init(mem_alloc_type_t mem_alloc_type,
                          const MemAllocOption *alloc_option);
 
 void
 wasm_runtime_memory_destroy(void);
+
+typedef struct WASMRuntimeAllocator {
+    uint8 memory_mode;
+    // TODO: maybe, we can use a unionto save space
+
+    void *pool_allocator;
+    unsigned int pool_size;
+
+    // TODO: maybe, we can just save the malloc/realloc/free function pointers
+    void *(*malloc_func)(unsigned int size);
+    void *(*realloc_func)(void *ptr, unsigned int size);
+    void (*free_func)(void *ptr);
+} WASMRuntimeAllocator;
+
+bool
+wasm_runtime_memory_init2(mem_alloc_type_t mem_alloc_type,
+                          const MemAllocOption *alloc_option,
+                          WASMRuntimeAllocator *allocator);
+
+void
+wasm_runtime_memory_destroy2(WASMRuntimeAllocator *allocator);
 
 unsigned
 wasm_runtime_memory_pool_size(void);

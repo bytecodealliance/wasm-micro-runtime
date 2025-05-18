@@ -30,6 +30,7 @@ static mem_allocator_t pool_allocator = NULL;
 
 #if WASM_ENABLE_SHARED_HEAP != 0
 static WASMSharedHeap *shared_heap_list = NULL;
+// TODO: remove this when runtime-instance-feature is ready
 static korp_mutex shared_heap_list_lock;
 #endif
 
@@ -78,14 +79,15 @@ align_as_and_cast(uint64 size, uint64 alignment)
 }
 
 static bool
-wasm_memory_init_with_pool(void *mem, unsigned int bytes)
+wasm_memory_init_with_pool(void *mem, unsigned int bytes,
+                           WASMRuntimeAllocator *allocator)
 {
-    mem_allocator_t allocator = mem_allocator_create(mem, bytes);
+    mem_allocator_t mem_allocator = mem_allocator_create(mem, bytes);
 
-    if (allocator) {
-        memory_mode = MEMORY_MODE_POOL;
-        pool_allocator = allocator;
-        global_pool_size = bytes;
+    if (mem_allocator) {
+        allocator->memory_mode = MEMORY_MODE_POOL;
+        allocator->pool_allocator = mem_allocator;
+        allocator->pool_size = bytes;
         return true;
     }
     LOG_ERROR("Init memory with pool (%p, %u) failed.\n", mem, bytes);
@@ -112,13 +114,14 @@ wasm_memory_init_with_allocator(void *_user_data, void *_malloc_func,
 #else
 static bool
 wasm_memory_init_with_allocator(void *malloc_func_ptr, void *realloc_func_ptr,
-                                void *free_func_ptr)
+                                void *free_func_ptr,
+                                WASMRuntimeAllocator *allocator)
 {
     if (malloc_func_ptr && free_func_ptr && malloc_func_ptr != free_func_ptr) {
-        memory_mode = MEMORY_MODE_ALLOCATOR;
-        malloc_func = malloc_func_ptr;
-        realloc_func = realloc_func_ptr;
-        free_func = free_func_ptr;
+        allocator->memory_mode = MEMORY_MODE_ALLOCATOR;
+        allocator->malloc_func = malloc_func_ptr;
+        allocator->realloc_func = realloc_func_ptr;
+        allocator->free_func = free_func_ptr;
         return true;
     }
     LOG_ERROR("Init memory with allocator (%p, %p, %p) failed.\n",
@@ -510,6 +513,15 @@ bool
 wasm_runtime_memory_init(mem_alloc_type_t mem_alloc_type,
                          const MemAllocOption *alloc_option)
 {
+    DEPRECATED_API(wasm_runtime_memory_init, wasm_runtime_memory_init2);
+    return false;
+}
+
+bool
+wasm_runtime_memory_init2(mem_alloc_type_t mem_alloc_type,
+                          const MemAllocOption *alloc_option,
+                          WASMRuntimeAllocator *allocator)
+{
     bool ret = false;
 
 #if WASM_ENABLE_SHARED_HEAP != 0
@@ -519,8 +531,9 @@ wasm_runtime_memory_init(mem_alloc_type_t mem_alloc_type,
 #endif
 
     if (mem_alloc_type == Alloc_With_Pool) {
-        ret = wasm_memory_init_with_pool(alloc_option->pool.heap_buf,
-                                         alloc_option->pool.heap_size);
+        ret =
+            wasm_memory_init_with_pool(alloc_option->pool.heap_buf,
+                                       alloc_option->pool.heap_size, allocator);
     }
     else if (mem_alloc_type == Alloc_With_Allocator) {
         ret = wasm_memory_init_with_allocator(
@@ -529,10 +542,10 @@ wasm_runtime_memory_init(mem_alloc_type_t mem_alloc_type,
 #endif
             alloc_option->allocator.malloc_func,
             alloc_option->allocator.realloc_func,
-            alloc_option->allocator.free_func);
+            alloc_option->allocator.free_func, allocator);
     }
     else if (mem_alloc_type == Alloc_With_System_Allocator) {
-        memory_mode = MEMORY_MODE_SYSTEM_ALLOCATOR;
+        allocator->memory_mode = MEMORY_MODE_SYSTEM_ALLOCATOR;
         ret = true;
     }
     else {
@@ -581,22 +594,28 @@ destroy_shared_heaps()
 void
 wasm_runtime_memory_destroy(void)
 {
+    DEPRECATED_API(wasm_runtime_memory_destroy, wasm_runtime_memory_destroy2);
+}
+
+void
+wasm_runtime_memory_destroy2(WASMRuntimeAllocator *allocator)
+{
 #if WASM_ENABLE_SHARED_HEAP != 0
     destroy_shared_heaps();
 #endif
 
-    if (memory_mode == MEMORY_MODE_POOL) {
+    if (allocator->memory_mode == MEMORY_MODE_POOL) {
 #if BH_ENABLE_GC_VERIFY == 0
-        (void)mem_allocator_destroy(pool_allocator);
+        (void)mem_allocator_destroy(allocator->pool_allocator);
 #else
-        int ret = mem_allocator_destroy(pool_allocator);
+        int ret = mem_allocator_destroy(allocator->pool_allocator);
         if (ret != 0) {
             /* Memory leak detected */
             exit(-1);
         }
 #endif
     }
-    memory_mode = MEMORY_MODE_UNKNOWN;
+    allocator->memory_mode = MEMORY_MODE_UNKNOWN;
 }
 
 unsigned
@@ -609,18 +628,21 @@ wasm_runtime_memory_pool_size(void)
 }
 
 static inline void *
-wasm_runtime_malloc_internal(unsigned int size)
+wasm_runtime_malloc_internal(WASMRuntimeAllocator *allocator, int size)
 {
-    if (memory_mode == MEMORY_MODE_UNKNOWN) {
+    if (allocator->memory_mode == MEMORY_MODE_UNKNOWN) {
         LOG_WARNING(
             "wasm_runtime_malloc failed: memory hasn't been initialized.\n");
         return NULL;
     }
-    else if (memory_mode == MEMORY_MODE_POOL) {
-        return mem_allocator_malloc(pool_allocator, size);
+
+    // TODO: use allocator->malloc_func() when we assign variant malloc_func for
+    // various memory mode
+    if (allocator->memory_mode == MEMORY_MODE_POOL) {
+        return mem_allocator_malloc(allocator->pool_allocator, size);
     }
-    else if (memory_mode == MEMORY_MODE_ALLOCATOR) {
-        return malloc_func(
+    else if (allocator->memory_mode == MEMORY_MODE_ALLOCATOR) {
+        return allocator->malloc_func(
 #if WASM_MEM_ALLOC_WITH_USAGE != 0
             Alloc_For_Runtime,
 #endif
@@ -664,7 +686,7 @@ wasm_runtime_realloc_internal(void *ptr, unsigned int size)
 }
 
 static inline void
-wasm_runtime_free_internal(void *ptr)
+wasm_runtime_free_internal(WASMRuntimeAllocator *allocator, void *ptr)
 {
     if (!ptr) {
         LOG_WARNING("warning: wasm_runtime_free with NULL pointer\n");
@@ -674,15 +696,15 @@ wasm_runtime_free_internal(void *ptr)
         return;
     }
 
-    if (memory_mode == MEMORY_MODE_UNKNOWN) {
+    if (allocator->memory_mode == MEMORY_MODE_UNKNOWN) {
         LOG_WARNING("warning: wasm_runtime_free failed: "
                     "memory hasn't been initialize.\n");
     }
-    else if (memory_mode == MEMORY_MODE_POOL) {
-        mem_allocator_free(pool_allocator, ptr);
+    else if (allocator->memory_mode == MEMORY_MODE_POOL) {
+        mem_allocator_free(allocator->pool_allocator, ptr);
     }
     else if (memory_mode == MEMORY_MODE_ALLOCATOR) {
-        free_func(
+        allocator->free_func(
 #if WASM_MEM_ALLOC_WITH_USAGE != 0
             Alloc_For_Runtime,
 #endif
@@ -699,15 +721,27 @@ wasm_runtime_free_internal(void *ptr)
 void *
 wasm_runtime_malloc(unsigned int size)
 {
+    WASMRuntimeAllocator *allocator;
+
+    allocator = wasm_runtime_get_local_allocator();
+    return wasm_runtime_malloc2(allocator, size);
+}
+
+void *
+wasm_runtime_malloc2(WASMRuntimeAllocator *allocator, unsigned int size)
+{
+    CHECK_NULL_AND_RETURN(allocator, NULL);
+
     if (size == 0) {
-        LOG_WARNING("warning: wasm_runtime_malloc with size zero\n");
-        /* At lease alloc 1 byte to avoid malloc failed */
+        LOG_WARNING("warning: wasm_runtime_malloc failed: "
+                    "size is zero.\n");
         size = 1;
 #if BH_ENABLE_GC_VERIFY != 0
         exit(-1);
 #endif
     }
 
+    // TODO: move this to wasm_runtime_malloc_internal() if possible
 #if WASM_ENABLE_FUZZ_TEST != 0
     if (size >= WASM_MEM_ALLOC_MAX_SIZE) {
         LOG_WARNING("warning: wasm_runtime_malloc with too large size\n");
@@ -715,7 +749,7 @@ wasm_runtime_malloc(unsigned int size)
     }
 #endif
 
-    return wasm_runtime_malloc_internal(size);
+    return wasm_runtime_malloc_internal(allocator, size);
 }
 
 void *
@@ -727,7 +761,18 @@ wasm_runtime_realloc(void *ptr, unsigned int size)
 void
 wasm_runtime_free(void *ptr)
 {
-    wasm_runtime_free_internal(ptr);
+    WASMRuntimeAllocator *allocator;
+
+    allocator = wasm_runtime_get_local_allocator();
+    return wasm_runtime_free2(allocator, ptr);
+}
+
+void
+wasm_runtime_free2(WASMRuntimeAllocator *allocator, void *ptr)
+{
+    CHECK_NULL_AND_RETURN_VOID(allocator);
+
+    wasm_runtime_free_internal(allocator, ptr);
 }
 
 bool

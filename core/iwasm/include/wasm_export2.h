@@ -6,15 +6,16 @@
 #ifndef _WASM_EXPORT_2_H
 #define _WASM_EXPORT_2_H
 
-#include "wasm_export.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* Runtime structure */
+/* Forward Declarations  */
 struct WASMRuntime;
 typedef struct WASMRuntime WASMRuntime;
+
+struct WASMRuntimeAllocator;
+typedef struct WASMRuntimeAllocator WASMRuntimeAllocator;
 
 /**
  * Initialize the WASM runtime environment, and also initialize
@@ -24,8 +25,8 @@ typedef struct WASMRuntime WASMRuntime;
  * @param runtime the runtime context
  * @return true if success, false otherwise
  */
-WASM_RUNTIME_API_EXTERN bool
-wasm_runtime_init2(WASMRuntime *runtime);
+WASM_RUNTIME_API_EXTERN WASMRuntime *
+wasm_runtime_init2(void);
 
 /**
  * Initialize the WASM runtime environment, WASM running mode,
@@ -37,8 +38,8 @@ wasm_runtime_init2(WASMRuntime *runtime);
  *
  * @return return true if success, false otherwise
  */
-WASM_RUNTIME_API_EXTERN bool
-wasm_runtime_full_init2(WASMRuntime *runtime, RuntimeInitArgs *init_args);
+WASM_RUNTIME_API_EXTERN WASMRuntime *
+wasm_runtime_full_init2(RuntimeInitArgs *init_args);
 
 /**
  * Set the log level. To be called after the runtime is initialized.
@@ -81,7 +82,7 @@ wasm_runtime_set_default_running_mode2(WASMRuntime *runtime,
  * @param runtime the runtime context
  */
 WASM_RUNTIME_API_EXTERN void
-wasm_runtime_destroy2(WASMRuntime *runtime);
+wasm_runtime_destroy2(void *runtime);
 
 /**
  * Allocate memory from runtime memory environment.
@@ -92,7 +93,7 @@ wasm_runtime_destroy2(WASMRuntime *runtime);
  * @return the pointer to memory allocated
  */
 WASM_RUNTIME_API_EXTERN void *
-wasm_runtime_malloc2(WASMRuntime *runtime, unsigned int size);
+wasm_runtime_malloc2(WASMRuntimeAllocator *allocator, unsigned int size);
 
 /**
  * Reallocate memory from runtime memory environment
@@ -113,7 +114,7 @@ wasm_runtime_realloc2(WASMRuntime *runtime, void *ptr, unsigned int size);
  * @param ptr the pointer to memory
  */
 WASM_RUNTIME_API_EXTERN void
-wasm_runtime_free2(WASMRuntime *runtime, void *ptr);
+wasm_runtime_free2(WASMRuntimeAllocator *allocator, void *ptr);
 
 /**
  * Get memory info, only pool mode is supported now.

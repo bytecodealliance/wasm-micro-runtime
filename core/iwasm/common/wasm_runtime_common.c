@@ -454,7 +454,7 @@ wasm_runtime_get_exec_env_tls()
 }
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
-static bool
+bool
 wasm_runtime_env_init(void)
 {
     if (bh_platform_init() != 0)
@@ -600,45 +600,21 @@ static korp_mutex runtime_lock = OS_THREAD_MUTEX_INITIALIZER;
 #endif
 static int32 runtime_ref_count = 0;
 
-static bool
-wasm_runtime_init_internal(void)
-{
-    if (!wasm_runtime_memory_init(Alloc_With_System_Allocator, NULL))
-        return false;
-
-    if (!wasm_runtime_env_init()) {
-        wasm_runtime_memory_destroy();
-        return false;
-    }
-
-    return true;
-}
-
 bool
 wasm_runtime_init()
 {
-    bool ret = true;
+    WASMRuntime *runtime;
 
-#if defined(OS_THREAD_MUTEX_INITIALIZER)
-    os_mutex_lock(&runtime_lock);
-#endif
-
-    bh_assert(runtime_ref_count >= 0);
-    if (runtime_ref_count == 0) {
-        ret = wasm_runtime_init_internal();
-    }
-    if (ret) {
-        runtime_ref_count++;
+    runtime = wasm_runtime_get_local_runtime();
+    if (runtime != NULL) {
+        return true;
     }
 
-#if defined(OS_THREAD_MUTEX_INITIALIZER)
-    os_mutex_unlock(&runtime_lock);
-#endif
-
-    return ret;
+    runtime = wasm_runtime_init2();
+    return runtime != NULL;
 }
 
-static void
+void
 wasm_runtime_destroy_internal(void)
 {
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
@@ -697,25 +673,18 @@ wasm_runtime_destroy_internal(void)
     wasm_native_destroy();
     bh_platform_destroy();
 
-    wasm_runtime_memory_destroy();
+    // TODO: always make sure you will call wasm_runtime_memory_destroyX() after
+    //  wasm_runtime_destroy() to avoid memory leak
+    //  wasm_runtime_memory_destroy();
 }
 
 void
 wasm_runtime_destroy()
 {
-#if defined(OS_THREAD_MUTEX_INITIALIZER)
-    os_mutex_lock(&runtime_lock);
-#endif
+    WASMRuntime *runtime;
 
-    bh_assert(runtime_ref_count > 0);
-    runtime_ref_count--;
-    if (runtime_ref_count == 0) {
-        wasm_runtime_destroy_internal();
-    }
-
-#if defined(OS_THREAD_MUTEX_INITIALIZER)
-    os_mutex_unlock(&runtime_lock);
-#endif
+    runtime = wasm_runtime_get_local_runtime();
+    wasm_runtime_destroy2(runtime);
 }
 
 RunningMode
@@ -740,13 +709,9 @@ wasm_runtime_get_gc_heap_size_default(void)
 }
 #endif
 
-static bool
+bool
 wasm_runtime_full_init_internal(RuntimeInitArgs *init_args)
 {
-    if (!wasm_runtime_memory_init(init_args->mem_alloc_type,
-                                  &init_args->mem_alloc_option))
-        return false;
-
     if (!wasm_runtime_set_default_running_mode(init_args->running_mode)) {
         wasm_runtime_memory_destroy();
         return false;
@@ -809,25 +774,17 @@ wasm_runtime_full_init_internal(RuntimeInitArgs *init_args)
 bool
 wasm_runtime_full_init(RuntimeInitArgs *init_args)
 {
-    bool ret = true;
+    WASMRuntime *runtime;
 
-#if defined(OS_THREAD_MUTEX_INITIALIZER)
-    os_mutex_lock(&runtime_lock);
-#endif
+    CHECK_NULL_AND_RETURN(init_args, false);
 
-    bh_assert(runtime_ref_count >= 0);
-    if (runtime_ref_count == 0) {
-        ret = wasm_runtime_full_init_internal(init_args);
-    }
-    if (ret) {
-        runtime_ref_count++;
+    runtime = wasm_runtime_get_local_runtime();
+    if (runtime != NULL) {
+        return true;
     }
 
-#if defined(OS_THREAD_MUTEX_INITIALIZER)
-    os_mutex_unlock(&runtime_lock);
-#endif
-
-    return ret;
+    runtime = wasm_runtime_full_init2(init_args);
+    return runtime != NULL;
 }
 
 void

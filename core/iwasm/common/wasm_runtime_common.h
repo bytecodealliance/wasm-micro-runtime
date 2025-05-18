@@ -11,6 +11,7 @@
 #include "wasm_exec_env.h"
 #include "wasm_native.h"
 #include "../include/wasm_export.h"
+#include "../include/wasm_export2.h"
 #include "../interpreter/wasm.h"
 #if WASM_ENABLE_GC != 0
 #include "gc/gc_object.h"
@@ -23,6 +24,10 @@
 #include "uvwasi.h"
 #endif
 #endif
+
+#ifndef WASM_RUNTIME_API_INTERN
+#define WASM_RUNTIME_API_INTERN
+#endif /* WASM_RUNTIME_API_INTERN*/
 
 #ifdef __cplusplus
 extern "C" {
@@ -483,6 +488,8 @@ LOAD_I16(void *addr)
 
 #define CLAMP_U64_TO_U32(value) \
     ((value) > UINT32_MAX ? UINT32_MAX : (uint32)(value))
+
+typedef struct WASMRuntime WASMRuntime;
 
 typedef struct WASMModuleCommon {
     /* Module type, for module loaded from WASM bytecode binary,
@@ -1327,6 +1334,54 @@ wasm_runtime_get_linux_perf(void);
 void
 wasm_runtime_set_linux_perf(bool flag);
 #endif
+
+/* ============================================================ */
+
+// TODO: need to be rearranged after the new runtime API is ready
+
+#define DEPRECATED_API(old, new)                                    \
+    do {                                                            \
+        bh_assert(false                                             \
+                  && "Warning:" #old                                \
+                     "is deprecated, please use " #new " instead"); \
+    } while (0)
+
+#define CHECK_AND_RETURN_VOID(cond) \
+    do {                            \
+        if (!(cond)) {              \
+            return;                 \
+        }                           \
+    } while (0)
+
+#define CHECK_AND_RETURN(cond, ret) \
+    do {                            \
+        if (!(cond)) {              \
+            return (ret);           \
+        }                           \
+    } while (0)
+
+#define CHECK_NULL_AND_RETURN_VOID(var) CHECK_AND_RETURN_VOID((var) != NULL)
+#define CHECK_NULL_AND_RETURN(var, ret) CHECK_AND_RETURN((var) != NULL, ret)
+
+typedef struct WASMRuntimeAllocator WASMRuntimeAllocator;
+
+WASM_RUNTIME_API_INTERN WASMRuntime *
+wasm_runtime_get_local_runtime(void);
+
+WASM_RUNTIME_API_INTERN
+bool
+wasm_runtime_env_init(void);
+
+WASM_RUNTIME_API_INTERN void
+wasm_runtime_destroy_internal(void);
+
+WASM_RUNTIME_API_INTERN
+bool
+wasm_runtime_full_init_internal(RuntimeInitArgs *init_args);
+
+WASM_RUNTIME_API_INTERN
+WASMRuntimeAllocator *
+wasm_runtime_get_local_allocator();
 
 #ifdef __cplusplus
 }
