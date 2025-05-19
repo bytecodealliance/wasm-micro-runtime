@@ -116,7 +116,6 @@ RUN rm -rf build \
     -DWAMR_BUILD_WASI_NN=1 \
     -DWAMR_BUILD_WASI_NN_TFLITE=1\
     -DWAMR_BUILD_WASI_NN_ENABLE_EXT=1 \
-    -DWAMR_BUILD_WASI_NN_ENABLE_GPU=1 \
     -DWASI_NN_EXT_DELEGATE_PATH="/usr/lib/libvx_delegate.so" \
   && cmake --build build -j "$(grep -c ^processor /proc/cpuinfo)"
 
