@@ -9,7 +9,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#define USE_WASM_LOAD_BY_NAME 1
 
 wasi_nn_error
 wasm_load(char *model_name, graph *g, execution_target target)
@@ -110,7 +109,7 @@ run_inference(execution_target target, float *input, uint32_t *input_size,
 {
     graph graph;
 
-#if USE_WASM_LOAD_BY_NAME == 0
+#if WASM_ENABLE_WASI_EPHEMERAL_NN == 0
     if (wasm_load(model_name, &graph, target) != success) {
 #else
     if (wasm_load_by_name(model_name, &graph) != success) {
