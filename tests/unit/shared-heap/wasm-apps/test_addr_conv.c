@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include <stdio.h>
+#define NULL 0
 
 extern void *
 shared_heap_malloc(int size);
