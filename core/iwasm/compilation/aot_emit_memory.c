@@ -167,32 +167,6 @@ get_module_inst_extra_offset(AOTCompContext *comp_ctx);
         }                                                             \
     } while (0)
 
-#define BUILD_STORE_PTR(ptr, value)                                   \
-    do {                                                              \
-        LLVMValueRef res;                                             \
-        if (!(res = LLVMBuildStore(comp_ctx->builder, value, ptr))) { \
-            aot_set_last_error("llvm build store failed.");           \
-            goto fail;                                                \
-        }                                                             \
-    } while (0)
-
-#define BUILD_GET_SHARED_HEAP_FIELD(shared_heap_p, field, data_type, res)     \
-    do {                                                                      \
-        offset_u32 = offsetof(WASMSharedHeap, field);                         \
-        field_offset = I32_CONST(offset_u32);                                 \
-        CHECK_LLVM_CONST(field_offset);                                       \
-                                                                              \
-        BUILD_FIELD_PTR(shared_heap_p, field_offset, field_p,                 \
-                        "shared_heap" #field);                                \
-        if (!(field_p = LLVMBuildBitCast(comp_ctx->builder, field_p,          \
-                                         LLVMPointerType(data_type, 0),       \
-                                         "shared_heap_" #field "_cast_p"))) { \
-            aot_set_last_error("llvm build bit cast failed.");                \
-            goto fail;                                                        \
-        }                                                                     \
-        BUILD_LOAD_PTR(field_p, data_type, res);                              \
-    } while (0)
-
 /* Update last used shared heap info(alloc ptr) in function ctx:
  * 1. shared_heap_start_off 2. shared_heap_end_off 3. shared_heap_base_addr_adj
  */
