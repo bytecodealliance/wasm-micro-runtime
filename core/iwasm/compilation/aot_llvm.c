@@ -1648,9 +1648,9 @@ create_shared_heap_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     return true;
 fail:
     return false;
-#else
+#else /* else of WASM_ENABLE_SHARED_HEAP != 0 */ 
     return true;
-#endif
+#endif /* end of WASM_ENABLE_SHARED_HEAP != 0 */ 
 }
 
 static bool
