@@ -58,7 +58,7 @@ wasm_load(char *model_name, graph *g, execution_target target)
 wasi_nn_error
 wasm_load_by_name(const char *model_name, graph *g)
 {
-    wasi_nn_error res = load_by_name(model_name, g);
+    wasi_nn_error res = load_by_name(model_name, strlen(model_name), g);
     return res;
 }
 
@@ -108,7 +108,12 @@ run_inference(execution_target target, float *input, uint32_t *input_size,
               uint32_t num_output_tensors)
 {
     graph graph;
+
+#if WASM_ENABLE_WASI_EPHEMERAL_NN == 0
     if (wasm_load(model_name, &graph, target) != success) {
+#else
+    if (wasm_load_by_name(model_name, &graph) != success) {
+#endif
         NN_ERR_PRINTF("Error when loading model.");
         exit(1);
     }
