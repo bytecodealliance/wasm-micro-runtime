@@ -46,7 +46,7 @@
 
 // We will take the maximum number of open files
 // from the Zephyr POSIX configuration
-#define CONFIG_WASI_MAX_OPEN_FILES CONFIG_POSIX_MAX_FDS
+#define CONFIG_WASI_MAX_OPEN_FILES CONFIG_ZVFS_OPEN_MAX
 
 // Macro to retrieve a file system descriptor and check it's validity.
 #define GET_FILE_SYSTEM_DESCRIPTOR(fd, ptr)         \
@@ -598,43 +598,49 @@ __wasi_errno_t
 os_writev(os_file_handle handle, const struct __wasi_ciovec_t *iov, int iovcnt,
           size_t *nwritten)
 {
-    struct zephyr_fs_desc *ptr = NULL;
     ssize_t total_written = 0;
-    char buffer[256];
 
-    GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
+    // If the fd is stdout or stderr, we call fwrite
+    if ((handle->fd == STDOUT_FILENO) || (handle->fd == STDERR_FILENO)) {
+        FILE *fd = stdout;
+        if (handle->fd == STDERR_FILENO) {
+            fd = stderr;
+        }
 
-    if (strncmp(ptr->path, "std", 3) == 0) {
-        // for std[in/out/err] we don't write because they are not real opened
-        // files. Instead we emulate a write operation to make it work with
-        // printf.
         for (int i = 0; i < iovcnt; i++) {
-            if (iov[i].buf_len == 0)
-                continue;
-            memset(buffer, 0, sizeof(buffer));
-            memcpy(buffer, iov[i].buf, iov[i].buf_len);
-            os_printf("%s", buffer);
-            total_written += iov[i].buf_len;
+            ssize_t bytes_written =
+                fwrite(iov[i].buf, 1, iov[i].buf_len, fd);
 
+            if (bytes_written < 0) {
+                return convert_errno(-bytes_written);
+            }
+
+            total_written += bytes_written;
+
+            // If we wrote less than we asked for, stop writing
+            if (bytes_written < iov[i].buf_len) {
+                break;
+            }
         }
-        *nwritten = total_written;
-
-        return __WASI_ESUCCESS;
     }
+    else {
+        struct zephyr_fs_desc *ptr = NULL;
+        GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
 
-    // Write data from each buffer
-    for (int i = 0; i < iovcnt; i++) {
-        ssize_t bytes_written =
-            fs_write(&ptr->file, iov[i].buf, iov[i].buf_len);
-        if (bytes_written < 0) {
-            return convert_errno(-bytes_written);
-        }
+        // Write data from each buffer
+        for (int i = 0; i < iovcnt; i++) {
+            ssize_t bytes_written =
+                fs_write(&ptr->file, iov[i].buf, iov[i].buf_len);
+            if (bytes_written < 0) {
+                return convert_errno(-bytes_written);
+            }
 
-        total_written += bytes_written;
+            total_written += bytes_written;
 
-        // If we wrote less than we asked for, stop writing
-        if (bytes_written < iov[i].buf_len) {
-            break;
+            // If we wrote less than we asked for, stop writing
+            if (bytes_written < iov[i].buf_len) {
+                break;
+            }
         }
     }
 
@@ -787,7 +793,7 @@ os_unlinkat(os_file_handle handle, const char *path, bool is_dir)
     if (!build_absolute_path(abs_path, sizeof(abs_path), path)) {
         return __WASI_ENOMEM;
     }
-    
+
     if (is_dir) {
         return __WASI_ENOTDIR;
     }
