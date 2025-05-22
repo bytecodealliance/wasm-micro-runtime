@@ -16,8 +16,6 @@ set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_definitions(-DCOMPILING_WASM_RUNTIME_API=1)
-
 # Set WAMR_BUILD_TARGET, currently values supported:
 # "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]", "MIPS", "XTENSA"
 if (NOT DEFINED WAMR_BUILD_TARGET)
