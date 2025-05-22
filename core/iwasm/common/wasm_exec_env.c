@@ -85,6 +85,10 @@ wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
     wasm_runtime_dump_exec_env_mem_consumption(exec_env);
 #endif
 
+#if WASM_ENABLE_INSTRUCTION_METERING != 0
+    exec_env->instructions_to_execute = -1;
+#endif
+
     return exec_env;
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
