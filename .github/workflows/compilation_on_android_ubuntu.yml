@@ -437,6 +437,11 @@ jobs:
           ctest --test-dir build --output-on-failure
         working-directory: samples/wasm-c-api
 
+      - name: Build Sample [printversion]
+        run: |
+          ./test.sh
+        working-directory: samples/printversion
+
   build_samples_others:
     needs:
       [
