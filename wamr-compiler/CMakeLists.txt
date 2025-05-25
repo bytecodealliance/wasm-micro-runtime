@@ -315,6 +315,7 @@ if (WAMR_BUILD_LIB_WASI_THREADS EQUAL 1)
   include (${IWASM_DIR}/libraries/lib-wasi-threads/lib_wasi_threads.cmake)
 endif ()
 
+#TODO: sync up WAMR_BUILD_SANITIZER in config_common.cmake
 # set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion -Wsign-conversion")
 if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
   if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang" OR MSVC))
