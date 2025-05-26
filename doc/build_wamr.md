@@ -327,6 +327,10 @@ And the wasm app can calls below APIs to allocate/free memory from/to the shared
 - **WAMR_BUILD_SHRUNK_MEMORY**=1/0, default to enable if not set
 > Note: When enabled, this feature will reduce memory usage by decreasing the size of the linear memory, particularly when the `memory.grow` opcode is not used and memory usage is somewhat predictable.
 
+## **Instruction metering**
+- **WAMR_BUILD_INSTRUCTION_METERING**=1/0, default to disable if not set
+> Note: Enabling this feature allows limiting the number of instructions a wasm module instance can execute. Use the `wasm_runtime_set_instruction_count_limit(...)` API before calling `wasm_runtime_call_*(...)` APIs to enforce this limit.
+
 ## **Combination of configurations:**
 
 We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:

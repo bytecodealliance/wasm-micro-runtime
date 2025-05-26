@@ -1516,10 +1516,13 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
             }                                                                 \
             os_mutex_unlock(&exec_env->wait_lock);                            \
         }                                                                     \
+        CHECK_INSTRUCTION_LIMIT();                                            \
         goto *handle_table[*frame_ip++];                                      \
     } while (0)
 #else
-#define HANDLE_OP_END() FETCH_OPCODE_AND_DISPATCH()
+#define HANDLE_OP_END()        \
+    CHECK_INSTRUCTION_LIMIT(); \
+    FETCH_OPCODE_AND_DISPATCH()
 #endif
 
 #else /* else of WASM_ENABLE_LABELS_AS_VALUES */
@@ -1542,9 +1545,12 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
         }                                                                 \
         os_mutex_unlock(&exec_env->wait_lock);                            \
     }                                                                     \
+    CHECK_INSTRUCTION_LIMIT();                                            \
     continue;
 #else
-#define HANDLE_OP_END() continue
+#define HANDLE_OP_END()        \
+    CHECK_INSTRUCTION_LIMIT(); \
+    continue;
 #endif
 
 #endif /* end of WASM_ENABLE_LABELS_AS_VALUES */
@@ -1561,6 +1567,18 @@ get_global_addr(uint8 *global_data, WASMGlobalInstance *global)
                : global_data + global->data_offset;
 #endif
 }
+
+#if WASM_ENABLE_INSTRUCTION_METERING != 0
+#define CHECK_INSTRUCTION_LIMIT()                                 \
+    if (instructions_left == 0) {                                 \
+        wasm_set_exception(module, "instruction limit exceeded"); \
+        goto got_exception;                                       \
+    }                                                             \
+    else if (instructions_left > 0)                               \
+        instructions_left--;
+#else
+#define CHECK_INSTRUCTION_LIMIT() (void)0
+#endif
 
 static void
 wasm_interp_call_func_bytecode(WASMModuleInstance *module,
@@ -1605,6 +1623,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint32 local_idx, local_offset, global_idx;
     uint8 local_type, *global_addr;
     uint32 cache_index, type_index, param_cell_num, cell_num;
+
+#if WASM_ENABLE_INSTRUCTION_METERING != 0
+    int instructions_left = -1;
+    if (exec_env) {
+        instructions_left = exec_env->instructions_to_execute;
+    }
+#endif
+
 #if WASM_ENABLE_EXCE_HANDLING != 0
     int32_t exception_tag_index;
 #endif
