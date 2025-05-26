@@ -1822,6 +1822,20 @@ wasm_runtime_set_native_stack_boundary(wasm_exec_env_t exec_env,
                                        uint8_t *native_stack_boundary);
 
 /**
+ * Set the instruction count limit to the execution environment.
+ * By default the instruction count limit is -1, which means no limit.
+ * However, if the instruction count limit is set to a positive value,
+ * the execution will be terminated when the instruction count reaches
+ * the limit.
+ *
+ * @param exec_env the execution environment
+ * @param instruction_count the instruction count limit
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_instruction_count_limit(wasm_exec_env_t exec_env,
+                                         int instruction_count);
+
+/**
  * Dump runtime memory consumption, including:
  *     Exec env memory consumption
  *     WASM module memory consumption
