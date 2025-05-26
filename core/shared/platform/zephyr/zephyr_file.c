@@ -600,16 +600,20 @@ os_writev(os_file_handle handle, const struct __wasi_ciovec_t *iov, int iovcnt,
 {
     ssize_t total_written = 0;
 
+    struct zephyr_fs_desc *ptr = NULL;
+    GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
+
     // If the fd is stdout or stderr, we call fwrite
-    if ((handle->fd == STDOUT_FILENO) || (handle->fd == STDERR_FILENO)) {
+    if (strncmp(ptr->path, "std", 3) == 0) {
+        // SRB -- FIX  if ((handle->fd == STDOUT_FILENO) || (handle->fd ==
+        // STDERR_FILENO)) {
         FILE *fd = stdout;
         if (handle->fd == STDERR_FILENO) {
             fd = stderr;
         }
 
         for (int i = 0; i < iovcnt; i++) {
-            ssize_t bytes_written =
-                fwrite(iov[i].buf, 1, iov[i].buf_len, fd);
+            ssize_t bytes_written = fwrite(iov[i].buf, 1, iov[i].buf_len, fd);
 
             if (bytes_written < 0) {
                 return convert_errno(-bytes_written);
@@ -624,8 +628,8 @@ os_writev(os_file_handle handle, const struct __wasi_ciovec_t *iov, int iovcnt,
         }
     }
     else {
-        struct zephyr_fs_desc *ptr = NULL;
-        GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
+        // SRB struct zephyr_fs_desc *ptr = NULL;
+        // SRB GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
 
         // Write data from each buffer
         for (int i = 0; i < iovcnt; i++) {
