@@ -15,6 +15,44 @@
 #include <stdint.h>
 #include "wasi_nn_types.h"
 
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+wasi_nn_error
+load(graph_builder *builder, uint32_t builder_wasm_size,
+     graph_encoding encoding, execution_target target, graph *g)
+    __attribute__((import_module("wasi_ephemeral_nn")));
+
+wasi_nn_error
+load_by_name(char *name, uint32_t name_len, graph *g)
+    __attribute__((import_module("wasi_ephemeral_nn")));
+
+wasi_nn_error
+load_by_name_with_config(const char *name, uint32_t name_len, void *config,
+                         uint32_t config_len, graph *g)
+    __attribute__((import_module("wasi_ephemeral_nn")));
+/**
+ * INFERENCE
+ *
+ */
+
+wasi_nn_error
+init_execution_context(graph g, graph_execution_context *exec_ctx)
+    __attribute__((import_module("wasi_ephemeral_nn")));
+
+wasi_nn_error
+set_input(graph_execution_context ctx, uint32_t index, tensor *tensor)
+    __attribute__((import_module("wasi_ephemeral_nn")));
+
+wasi_nn_error
+compute(graph_execution_context ctx)
+    __attribute__((import_module("wasi_ephemeral_nn")));
+
+wasi_nn_error
+get_output(graph_execution_context ctx, uint32_t index,
+           tensor_data output_tensor, uint32_t output_tensor_len,
+           uint32_t *output_tensor_size)
+    __attribute__((import_module("wasi_ephemeral_nn")));
+#else
+
 /**
  * @brief Load an opaque sequence of bytes to use for inference.
  *
@@ -86,5 +124,5 @@ wasi_nn_error
 get_output(graph_execution_context ctx, uint32_t index,
            tensor_data output_tensor, uint32_t *output_tensor_size)
     __attribute__((import_module("wasi_nn")));
-
+#endif
 #endif

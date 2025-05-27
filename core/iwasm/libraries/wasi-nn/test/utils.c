@@ -99,7 +99,11 @@ wasi_nn_error
 wasm_get_output(graph_execution_context ctx, uint32_t index, float *out_tensor,
                 uint32_t *out_size)
 {
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+    return get_output(ctx, index, (uint8_t *)out_tensor, *out_size, out_size);
+#else
     return get_output(ctx, index, (uint8_t *)out_tensor, out_size);
+#endif
 }
 
 float *
