@@ -1504,7 +1504,7 @@ wasm_runtime_load_ex(uint8 *buf, uint32 size, const LoadArgs *args,
                                           error_buf_size);
 }
 
-WASM_RUNTIME_API_EXTERN bool
+bool
 wasm_runtime_resolve_symbols(WASMModuleCommon *module)
 {
 #if WASM_ENABLE_INTERP != 0
@@ -7845,7 +7845,7 @@ wasm_runtime_detect_native_stack_overflow_size(WASMExecEnv *exec_env,
     return true;
 }
 
-WASM_RUNTIME_API_EXTERN bool
+bool
 wasm_runtime_is_underlying_binary_freeable(WASMModuleCommon *const module)
 {
 #if WASM_ENABLE_INTERP != 0
