@@ -62,6 +62,10 @@ my_shared_heap_free(void *ptr)
 void *
 produce_str(char *addr, uint32_t index)
 {
+    char c;
     snprintf(addr, 512, "Data: %u stores to pre-allocated shared heap", index);
+    /* Actually access it in wasm */
+    c = addr[0];
+    printf("In WASM: the first char is %c\n", c);
     return addr;
 }

@@ -77,6 +77,23 @@ extern "C" {
 #undef DUMP_MODULE
 #endif
 
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_SHARED_HEAP != 0
+#define get_module_extra_field_offset(field)                        \
+    do {                                                            \
+        offset_u32 = get_module_inst_extra_offset(comp_ctx);        \
+        if (comp_ctx->is_jit_mode)                                  \
+            offset_u32 += offsetof(WASMModuleInstanceExtra, field); \
+        else                                                        \
+            offset_u32 += offsetof(AOTModuleInstanceExtra, field);  \
+    } while (0)
+#else
+#define get_module_extra_field_offset(field)                   \
+    do {                                                       \
+        offset_u32 = get_module_inst_extra_offset(comp_ctx);   \
+        offset_u32 += offsetof(AOTModuleInstanceExtra, field); \
+    } while (0)
+#endif
+
 struct AOTValueSlot;
 
 /**
@@ -254,8 +271,12 @@ typedef struct AOTFuncContext {
     bool mem_space_unchanged;
     AOTCheckedAddrList checked_addr_list;
 
+    /* The last accessed shared heap info */
     LLVMValueRef shared_heap_base_addr_adj;
     LLVMValueRef shared_heap_start_off;
+    LLVMValueRef shared_heap_end_off;
+    /* The start offset of the head of shared heap chain */
+    LLVMValueRef shared_heap_head_start_off;
 
     LLVMBasicBlockRef got_exception_block;
     LLVMBasicBlockRef func_return_block;
@@ -483,6 +504,7 @@ typedef struct AOTCompContext {
     bool enable_gc;
 
     bool enable_shared_heap;
+    bool enable_shared_chain;
 
     uint32 opt_level;
     uint32 size_level;
