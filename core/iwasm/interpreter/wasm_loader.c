@@ -379,7 +379,6 @@ memory_realloc(void *mem_old, uint32 size_old, uint32 size_new, char *error_buf,
         mem = mem_new;                                                     \
     } while (0)
 
-#if WASM_ENABLE_GC != 0
 static bool
 check_type_index(const WASMModule *module, uint32 type_count, uint32 type_index,
                  char *error_buf, uint32 error_buf_size)
@@ -392,6 +391,7 @@ check_type_index(const WASMModule *module, uint32 type_count, uint32 type_index,
     return true;
 }
 
+#if WASM_ENABLE_GC != 0
 static bool
 check_array_type(const WASMModule *module, uint32 type_index, char *error_buf,
                  uint32 error_buf_size)
@@ -408,6 +408,29 @@ check_array_type(const WASMModule *module, uint32 type_index, char *error_buf,
     return true;
 }
 #endif
+
+/*
+ * if no GC is enabled, an valid type is always a function type.
+ * but if GC is enabled, we need to check the type flag
+ */
+static bool
+check_function_type(const WASMModule *module, uint32 type_index,
+                    char *error_buf, uint32 error_buf_size)
+{
+    if (!check_type_index(module, module->type_count, type_index, error_buf,
+                          error_buf_size)) {
+        return false;
+    }
+
+#if WASM_ENABLE_GC != 0
+    if (module->types[type_index]->type_flag != WASM_TYPE_FUNC) {
+        set_error_buf(error_buf, error_buf_size, "unknown function type");
+        return false;
+    }
+#endif
+
+    return true;
+}
 
 static bool
 check_function_index(const WASMModule *module, uint32 function_index,
@@ -2479,8 +2502,8 @@ load_function_import(const uint8 **p_buf, const uint8 *buf_end,
     read_leb_uint32(p, p_end, declare_type_index);
     *p_buf = p;
 
-    if (declare_type_index >= parent_module->type_count) {
-        set_error_buf(error_buf, error_buf_size, "unknown type");
+    if (!check_function_type(parent_module, declare_type_index, error_buf,
+                             error_buf_size)) {
         return false;
     }
 
@@ -2893,8 +2916,8 @@ load_tag_import(const uint8 **p_buf, const uint8 *buf_end,
     /* get type */
     read_leb_uint32(p, p_end, declare_type_index);
     /* compare against module->types */
-    if (declare_type_index >= parent_module->type_count) {
-        set_error_buf(error_buf, error_buf_size, "unknown tag type");
+    if (!check_function_type(parent_module, declare_type_index, error_buf,
+                             error_buf_size)) {
         goto fail;
     }
 
@@ -3563,8 +3586,9 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
         for (i = 0; i < func_count; i++) {
             /* Resolve function type */
             read_leb_uint32(p, p_end, type_index);
-            if (type_index >= module->type_count) {
-                set_error_buf(error_buf, error_buf_size, "unknown type");
+
+            if (!check_function_type(module, type_index, error_buf,
+                                     error_buf_size)) {
                 return false;
             }
 
@@ -4970,8 +4994,8 @@ load_tag_section(const uint8 *buf, const uint8 *buf_end, const uint8 *buf_code,
             /* get type */
             read_leb_uint32(p, p_end, tag_type);
             /* compare against module->types */
-            if (tag_type >= module->type_count) {
-                set_error_buf(error_buf, error_buf_size, "unknown type");
+            if (!check_function_type(module, tag_type, error_buf,
+                                     error_buf_size)) {
                 return false;
             }
 
@@ -10477,7 +10501,7 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth, uint8 opcode,
      * match block type. */
     if (cur_block->is_stack_polymorphic) {
 #if WASM_ENABLE_GC != 0
-        int32 j = reftype_map_count - 1;
+        int32 j = (int32)reftype_map_count - 1;
 #endif
         for (i = (int32)arity - 1; i >= 0; i--) {
 #if WASM_ENABLE_GC != 0
@@ -10780,7 +10804,7 @@ check_block_stack(WASMLoaderContext *loader_ctx, BranchBlock *block,
      * match block type. */
     if (block->is_stack_polymorphic) {
 #if WASM_ENABLE_GC != 0
-        int32 j = return_reftype_map_count - 1;
+        int32 j = (int32)return_reftype_map_count - 1;
 #endif
         for (i = (int32)return_count - 1; i >= 0; i--) {
 #if WASM_ENABLE_GC != 0
@@ -11549,15 +11573,17 @@ re_scan:
                 }
                 else {
                     int32 type_index;
+
                     /* Resolve the leb128 encoded type index as block type */
                     p--;
                     p_org = p - 1;
                     pb_read_leb_int32(p, p_end, type_index);
-                    if ((uint32)type_index >= module->type_count) {
-                        set_error_buf(error_buf, error_buf_size,
-                                      "unknown type");
+
+                    if (!check_function_type(module, type_index, error_buf,
+                                             error_buf_size)) {
                         goto fail;
                     }
+
                     block_type.is_value_type = false;
                     block_type.u.type =
                         (WASMFuncType *)module->types[type_index];
@@ -12607,8 +12633,8 @@ re_scan:
                 /* skip elem idx */
                 POP_TBL_ELEM_IDX();
 
-                if (type_idx >= module->type_count) {
-                    set_error_buf(error_buf, error_buf_size, "unknown type");
+                if (!check_function_type(module, type_idx, error_buf,
+                                         error_buf_size)) {
                     goto fail;
                 }
 
