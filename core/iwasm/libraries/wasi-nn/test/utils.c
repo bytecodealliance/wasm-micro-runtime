@@ -109,11 +109,7 @@ run_inference(execution_target target, float *input, uint32_t *input_size,
 {
     graph graph;
 
-#if WASM_ENABLE_WASI_EPHEMERAL_NN == 0
-    if (wasm_load(model_name, &graph, target) != success) {
-#else
     if (wasm_load_by_name(model_name, &graph) != success) {
-#endif
         NN_ERR_PRINTF("Error when loading model.");
         exit(1);
     }
