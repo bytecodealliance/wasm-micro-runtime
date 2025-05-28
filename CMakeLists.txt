@@ -152,10 +152,6 @@ include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 set (THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
-if (MSVC)
-  add_definitions(-DCOMPILING_WASM_RUNTIME_API=1)
-endif ()
-
 add_library (vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 set_target_properties (vmlib PROPERTIES OUTPUT_NAME iwasm)
 target_include_directories(vmlib INTERFACE
