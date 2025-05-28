@@ -132,7 +132,7 @@ add_library (vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 set_version_info (vmlib)
 
 target_include_directories(vmlib INTERFACE
-  $<INSTALL_INTERFACE:include/iwasm>
+  $<INSTALL_INTERFACE:include>
 )
 
 set (WAMR_PUBLIC_HEADERS
@@ -151,7 +151,7 @@ target_link_libraries (vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthr
 install (TARGETS vmlib
   EXPORT iwasmTargets
   DESTINATION lib
-  PUBLIC_HEADER DESTINATION include/iwasm
+  PUBLIC_HEADER DESTINATION include
 )
 
 install_iwasm_package ()
