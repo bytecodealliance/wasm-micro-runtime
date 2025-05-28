@@ -58,7 +58,7 @@ add_executable(wasm_mutator_fuzz wasm_mutator_fuzz.cc)
 target_link_libraries(wasm_mutator_fuzz PRIVATE vmlib m)
 
 if(NOT IN_OSS_FUZZ)
-  message(STATUS "Enable ASan and UBSan in non-oss-fuzz environment")
+  message(STATUS "Enable ASan and UBSan in non-oss-fuzz environment for vmlib")
   target_compile_options(vmlib PUBLIC
     -fprofile-instr-generate -fcoverage-mapping
     -fno-sanitize-recover=all

@@ -181,7 +181,12 @@ add_link_options(-fsanitize=fuzzer -fno-sanitize=vptr)
 
 # Enable sanitizers if not in oss-fuzz environment
 set(CFLAGS_ENV $ENV{CFLAGS})
-string(FIND "${CFLAGS_ENV}" "-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION" IN_OSS_FUZZ)
+string(FIND "${CFLAGS_ENV}" "-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION" FUZZ_POS)
+if (FUZZ_POS GREATER -1)
+  set(IN_OSS_FUZZ 1)
+else()
+  set(IN_OSS_FUZZ 0)
+endif()
 
 add_subdirectory(aot-compiler)
 add_subdirectory(wasm-mutator)
