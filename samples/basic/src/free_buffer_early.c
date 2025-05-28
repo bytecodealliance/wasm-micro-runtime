@@ -5,6 +5,7 @@
 
 #include "wasm_export.h"
 #include "bh_read_file.h"
+#include "bh_getopt.h"
 
 void
 my_log(uint32 log_level, const char *file, int line, const char *fmt, ...)
