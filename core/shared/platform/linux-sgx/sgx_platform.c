@@ -221,3 +221,10 @@ os_dcache_flush(void)
 void
 os_icache_flush(void *start, size_t len)
 {}
+
+int
+os_execve(const char *pathname, char *const argv[], int argc)
+{
+    /* not implemented */
+    return -1;
+}

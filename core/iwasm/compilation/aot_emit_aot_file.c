@@ -4361,18 +4361,23 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
     else if (!strncmp(LLVMGetTargetName(target), "arc", 3)) {
         /* Emit to assembly file instead for arc target
            as it cannot emit to object file */
-        char file_name[] = "wasm-XXXXXX", buf[128];
+        char file_name[] = "wasm-XXXXXX";
+        char assembly_file_name[64] = { 0 };
+        char object_file_name[64] = { 0 };
         int ret;
+        char *argv[] = { "-mcpu=arcem",      "-o", object_file_name, "-c",
+                         assembly_file_name, NULL };
 
         if (!bh_mkstemp(file_name, sizeof(file_name))) {
             aot_set_last_error("make temp file failed.");
             goto fail;
         }
 
-        snprintf(buf, sizeof(buf), "%s%s", file_name, ".s");
+        snprintf(assembly_file_name, sizeof(assembly_file_name) - 1, "%s.s",
+                 file_name);
         if (LLVMTargetMachineEmitToFile(comp_ctx->target_machine,
-                                        comp_ctx->module, buf, LLVMAssemblyFile,
-                                        &err)
+                                        comp_ctx->module, assembly_file_name,
+                                        LLVMAssemblyFile, &err)
             != 0) {
             if (err) {
                 LLVMDisposeMessage(err);
@@ -4385,14 +4390,14 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
         /* call arc gcc to compile assembly file to object file */
         /* TODO: get arc gcc from environment variable firstly
                  and check whether the toolchain exists actually */
-        snprintf(buf, sizeof(buf), "%s%s%s%s%s%s",
-                 "/opt/zephyr-sdk/arc-zephyr-elf/bin/arc-zephyr-elf-gcc ",
-                 "-mcpu=arcem -o ", file_name, ".o -c ", file_name, ".s");
+        snprintf(object_file_name, sizeof(object_file_name) - 1, "%s.o",
+                 file_name);
         /* TODO: use try..catch to handle possible exceptions */
-        ret = bh_system(buf);
+        /* TODO: use ZEPHYR_SDK_INSTALL_DIR to construct the path */
+        ret = os_execve("/opt/zephyr-sdk/arc-zephyr-elf/bin/arc-zephyr-elf-gcc",
+                        argv, 6);
         /* remove temp assembly file */
-        snprintf(buf, sizeof(buf), "%s%s", file_name, ".s");
-        unlink(buf);
+        unlink(assembly_file_name);
 
         if (ret != 0) {
             aot_set_last_error("failed to compile asm file to obj file "
@@ -4401,12 +4406,10 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
         }
 
         /* create memory buffer from object file */
-        snprintf(buf, sizeof(buf), "%s%s", file_name, ".o");
-        ret = LLVMCreateMemoryBufferWithContentsOfFile(buf, &obj_data->mem_buf,
-                                                       &err);
+        ret = LLVMCreateMemoryBufferWithContentsOfFile(
+            object_file_name, &obj_data->mem_buf, &err);
         /* remove temp object file */
-        snprintf(buf, sizeof(buf), "%s%s", file_name, ".o");
-        unlink(buf);
+        unlink(object_file_name);
 
         if (ret != 0) {
             if (err) {
