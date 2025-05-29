@@ -3886,11 +3886,15 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     init_options.allocator = &uvwasi_allocator;
     init_options.argc = argc;
     init_options.argv = (const char **)argv;
-    init_options.in = (stdinfd != -1) ? (uvwasi_fd_t)stdinfd : init_options.in;
-    init_options.out =
-        (stdoutfd != -1) ? (uvwasi_fd_t)stdoutfd : init_options.out;
-    init_options.err =
-        (stderrfd != -1) ? (uvwasi_fd_t)stderrfd : init_options.err;
+    init_options.in = (stdinfd != os_get_invalid_handle())
+                          ? (uvwasi_fd_t)stdinfd
+                          : init_options.in;
+    init_options.out = (stdoutfd != os_get_invalid_handle())
+                           ? (uvwasi_fd_t)stdoutfd
+                           : init_options.out;
+    init_options.err = (stderrfd != os_get_invalid_handle())
+                           ? (uvwasi_fd_t)stderrfd
+                           : init_options.err;
 
     if (dir_count > 0) {
         init_options.preopenc = dir_count;
