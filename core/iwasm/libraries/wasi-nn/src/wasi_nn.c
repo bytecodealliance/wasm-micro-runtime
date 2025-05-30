@@ -21,9 +21,14 @@
 #include "wasm_export.h"
 
 #define HASHMAP_INITIAL_SIZE 20
-#define TFLITE_BACKEND_LIB "libwasi_nn_tflite.so"
-#define OPENVINO_BACKEND_LIB "libwasi_nn_openvino.so"
-#define LLAMACPP_BACKEND_LIB "libwasi_nn_llamacpp.so"
+#if defined(__APPLE__)
+#define LIB_EXTENTION ".dylib"
+#else
+#define LIB_EXTENTION ".so"
+#endif
+#define TFLITE_BACKEND_LIB "libwasi_nn_tflite" LIB_EXTENTION
+#define OPENVINO_BACKEND_LIB "libwasi_nn_openvino" LIB_EXTENTION
+#define LLAMACPP_BACKEND_LIB "libwasi_nn_llamacpp" LIB_EXTENTION
 
 /* Global variables */
 struct backends_api_functions {
