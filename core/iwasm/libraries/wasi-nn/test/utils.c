@@ -3,62 +3,90 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "utils.h"
-#include "logger.h"
-#include "wasi_nn.h"
-
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+
+#include "wasi_nn.h"
+#include "utils.h"
+
+#define NN_ERR_PRINTF(...)                                                    \
+    do {                                                                       \
+        printf("Error: ");                                                     \
+        printf(__VA_ARGS__);                                                   \
+        printf("\n");                                                          \
+    } while (0)
+
+#define NN_WARN_PRINTF(...)                                                   \
+    do {                                                                       \
+        printf("Warning: ");                                                   \
+        printf(__VA_ARGS__);                                                   \
+        printf("\n");                                                          \
+    } while (0)
+
+#define NN_INFO_PRINTF(...)                                                   \
+    do {                                                                       \
+        printf("Info: ");                                                      \
+        printf(__VA_ARGS__);                                                   \
+        printf("\n");                                                          \
+    } while (0)
 
 wasi_nn_error
 wasm_load(char *model_name, graph *g, execution_target target)
 {
-    FILE *pFile = fopen(model_name, "r");
-    if (pFile == NULL)
+    FILE *pFile = fopen(model_name, "rb");
+    if (pFile == NULL) {
+        NN_ERR_PRINTF("Error opening file %s", model_name);
         return invalid_argument;
+    }
 
-    uint8_t *buffer;
-    size_t result;
+    fseek(pFile, 0, SEEK_END);
+    long lSize = ftell(pFile);
+    rewind(pFile);
 
-    // allocate memory to contain the whole file:
-    buffer = (uint8_t *)malloc(sizeof(uint8_t) * MAX_MODEL_SIZE);
-    if (buffer == NULL) {
+    if (lSize > MAX_MODEL_SIZE) {
+        NN_ERR_PRINTF("Model size too large: %ld", lSize);
         fclose(pFile);
         return too_large;
     }
 
-    result = fread(buffer, 1, MAX_MODEL_SIZE, pFile);
-    if (result <= 0) {
+    uint8_t *buffer = (uint8_t *)malloc(lSize);
+    if (buffer == NULL) {
+        NN_ERR_PRINTF("Memory allocation error");
+        fclose(pFile);
+        return runtime_error;
+    }
+
+    size_t result = fread(buffer, 1, lSize, pFile);
+    if (result != lSize) {
+        NN_ERR_PRINTF("Error reading file");
         fclose(pFile);
         free(buffer);
-        return too_large;
+        return runtime_error;
     }
+
+    graph_builder builder;
+    builder.buf = buffer;
+    builder.size = result;
 
     graph_builder_array arr;
-
     arr.size = 1;
-    arr.buf = (graph_builder *)malloc(sizeof(graph_builder));
-    if (arr.buf == NULL) {
-        fclose(pFile);
-        free(buffer);
-        return too_large;
+    arr.buf = &builder;
+
+    graph_encoding encoding = tensorflowlite;
+    const char *ext = strrchr(model_name, '.');
+    if (ext && strcmp(ext, ".onnx") == 0) {
+        encoding = onnx;
+    } else if (ext && strcmp(ext, ".tflite") == 0) {
+        encoding = tensorflowlite;
     }
 
-    arr.buf[0].size = result;
-    arr.buf[0].buf = buffer;
-
-    wasi_nn_error res = load(&arr, tensorflowlite, target, g);
+    wasi_nn_error res = load(&arr, encoding, target, g);
 
     fclose(pFile);
     free(buffer);
-    free(arr.buf);
-    return res;
-}
 
-wasi_nn_error
-wasm_load_by_name(const char *model_name, graph *g)
-{
-    wasi_nn_error res = load_by_name(model_name, g);
     return res;
 }
 
@@ -73,20 +101,14 @@ wasm_set_input(graph_execution_context ctx, float *input_tensor, uint32_t *dim)
 {
     tensor_dimensions dims;
     dims.size = INPUT_TENSOR_DIMS;
-    dims.buf = (uint32_t *)malloc(dims.size * sizeof(uint32_t));
-    if (dims.buf == NULL)
-        return too_large;
+    dims.buf = dim;
 
-    tensor tensor;
-    tensor.dimensions = &dims;
-    for (int i = 0; i < tensor.dimensions->size; ++i)
-        tensor.dimensions->buf[i] = dim[i];
-    tensor.type = fp32;
-    tensor.data = (uint8_t *)input_tensor;
-    wasi_nn_error err = set_input(ctx, 0, &tensor);
+    tensor input;
+    input.dimensions = &dims;
+    input.type = fp32;
+    input.data = (uint8_t *)input_tensor;
 
-    free(dims.buf);
-    return err;
+    return set_input(ctx, 0, &input);
 }
 
 wasi_nn_error
@@ -107,44 +129,48 @@ run_inference(execution_target target, float *input, uint32_t *input_size,
               uint32_t *output_size, char *model_name,
               uint32_t num_output_tensors)
 {
-    graph graph;
-    if (wasm_load(model_name, &graph, target) != success) {
-        NN_ERR_PRINTF("Error when loading model.");
-        exit(1);
+    graph g;
+    wasi_nn_error err = wasm_load(model_name, &g, target);
+    if (err != success) {
+        NN_ERR_PRINTF("Error when loading model: %d.", err);
+        return NULL;
     }
 
     graph_execution_context ctx;
-    if (wasm_init_execution_context(graph, &ctx) != success) {
-        NN_ERR_PRINTF("Error when initialixing execution context.");
-        exit(1);
+    err = wasm_init_execution_context(g, &ctx);
+    if (err != success) {
+        NN_ERR_PRINTF("Error when initializing execution context: %d.", err);
+        return NULL;
     }
 
-    if (wasm_set_input(ctx, input, input_size) != success) {
-        NN_ERR_PRINTF("Error when setting input tensor.");
-        exit(1);
+    err = wasm_set_input(ctx, input, input_size);
+    if (err != success) {
+        NN_ERR_PRINTF("Error when setting input tensor: %d.", err);
+        return NULL;
     }
 
-    if (wasm_compute(ctx) != success) {
-        NN_ERR_PRINTF("Error when running inference.");
-        exit(1);
+    err = wasm_compute(ctx);
+    if (err != success) {
+        NN_ERR_PRINTF("Error when computing: %d.", err);
+        return NULL;
     }
 
-    float *out_tensor = (float *)malloc(sizeof(float) * MAX_OUTPUT_TENSOR_SIZE);
+    float *out_tensor = (float *)malloc(MAX_OUTPUT_TENSOR_SIZE);
     if (out_tensor == NULL) {
-        NN_ERR_PRINTF("Error when allocating memory for output tensor.");
-        exit(1);
+        NN_ERR_PRINTF("Memory allocation error");
+        return NULL;
     }
 
     uint32_t offset = 0;
     for (int i = 0; i < num_output_tensors; ++i) {
-        *output_size = MAX_OUTPUT_TENSOR_SIZE - *output_size;
-        if (wasm_get_output(ctx, i, &out_tensor[offset], output_size)
+        uint32_t remaining_size = MAX_OUTPUT_TENSOR_SIZE - (offset * sizeof(float));
+        if (wasm_get_output(ctx, i, &out_tensor[offset], &remaining_size)
             != success) {
             NN_ERR_PRINTF("Error when getting index %d.", i);
             break;
         }
 
-        offset += *output_size;
+        offset += remaining_size / sizeof(float);
     }
     *output_size = offset;
     return out_tensor;
@@ -153,18 +179,18 @@ run_inference(execution_target target, float *input, uint32_t *input_size,
 input_info
 create_input(int *dims)
 {
-    input_info input = { .dim = NULL, .input_tensor = NULL, .elements = 1 };
+    input_info info;
+    uint32_t elements = 1;
+    for (int i = 0; i < INPUT_TENSOR_DIMS; ++i) {
+        elements *= dims[i];
+    }
 
-    input.dim = malloc(INPUT_TENSOR_DIMS * sizeof(uint32_t));
-    if (input.dim)
-        for (int i = 0; i < INPUT_TENSOR_DIMS; ++i) {
-            input.dim[i] = dims[i];
-            input.elements *= dims[i];
-        }
+    info.input_tensor = (float *)malloc(elements * sizeof(float));
+    info.dim = (uint32_t *)malloc(INPUT_TENSOR_DIMS * sizeof(uint32_t));
+    for (int i = 0; i < INPUT_TENSOR_DIMS; ++i) {
+        info.dim[i] = dims[i];
+    }
+    info.elements = elements;
 
-    input.input_tensor = malloc(input.elements * sizeof(float));
-    for (int i = 0; i < input.elements; ++i)
-        input.input_tensor[i] = i;
-
-    return input;
+    return info;
 }

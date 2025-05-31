@@ -511,7 +511,8 @@ if (WAMR_BUILD_WASI_NN EQUAL 1)
   # Variant backends
   if (NOT WAMR_BUILD_WASI_NN_TFLITE EQUAL 1 AND
       NOT WAMR_BUILD_WASI_NN_OPENVINO EQUAL 1 AND
-      NOT WAMR_BUILD_WASI_NN_LLAMACPP EQUAL 1)
+      NOT WAMR_BUILD_WASI_NN_LLAMACPP EQUAL 1 AND
+      NOT WAMR_BUILD_WASI_NN_ONNXRUNTIME EQUAL 1)
     message (FATAL_ERROR "   Need to select a backend for WASI-NN")
   endif ()
 
@@ -526,6 +527,10 @@ if (WAMR_BUILD_WASI_NN EQUAL 1)
   if (WAMR_BUILD_WASI_NN_LLAMACPP EQUAL 1)
     message ("     WASI-NN: backend llamacpp enabled")
     add_definitions (-DWASM_ENABLE_WASI_NN_LLAMACPP)
+  endif ()
+  if (WAMR_BUILD_WASI_NN_ONNXRUNTIME EQUAL 1)
+    message ("     WASI-NN: backend onnxruntime enabled")
+    add_definitions (-DWASM_ENABLE_WASI_NN_ONNXRUNTIME)
   endif ()
   # Variant devices
   if (WAMR_BUILD_WASI_NN_ENABLE_GPU EQUAL 1)
