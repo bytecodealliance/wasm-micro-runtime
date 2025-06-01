@@ -19,30 +19,19 @@ extern "C" {
  */
 
 // sync up with
-// https://github.com/WebAssembly/wasi-nn/blob/main/wit/wasi-nn.wit#L136 Error
-// codes returned by functions in this API.
+// https://github.com/WebAssembly/wasi-nn/blob/71320d95b8c6d43f9af7f44e18b1839db85d89b4/wasi-nn.witx#L5-L17
+// Error codes returned by functions in this API.
 typedef enum {
-    // No error occurred.
     success = 0,
-    // Caller module passed an invalid argument.
     invalid_argument,
-    // Invalid encoding.
     invalid_encoding,
-    // The operation timed out.
-    timeout,
-    // Runtime Error.
+    missing_memory,
+    busy,
     runtime_error,
-    // Unsupported operation.
     unsupported_operation,
-    // Graph is too large.
     too_large,
-    // Graph not found.
     not_found,
-    // The operation is insecure or has insufficient privilege to be performed.
-    // e.g., cannot access a hardware feature requested
-    security,
-    // The operation failed for an unspecified reason.
-    unknown,
+
     // for WasmEdge-wasi-nn
     end_of_sequence = 100,  // End of Sequence Found.
     context_full = 101,     // Context Full.
@@ -66,9 +55,9 @@ typedef struct {
 
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
 // sync up with
-// https://github.com/WebAssembly/wasi-nn/blob/main/wit/wasi-nn.wit#L27
+// https://github.com/WebAssembly/wasi-nn/blob/71320d95b8c6d43f9af7f44e18b1839db85d89b4/wasi-nn.witx#L19-L28
 // The type of the elements in a tensor.
-typedef enum { fp16 = 0, fp32, fp64, bf16, u8, i32, i64 } tensor_type;
+typedef enum { fp16 = 0, fp32, fp64, u8, i32, i64 } tensor_type;
 #else
 typedef enum { fp16 = 0, fp32, up8, ip32 } tensor_type;
 #endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */

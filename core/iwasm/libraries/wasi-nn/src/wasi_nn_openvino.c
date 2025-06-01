@@ -161,8 +161,6 @@ wasi_nn_tensor_type_to_openvino_element_type(tensor_type wasi_nn_type)
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
         case fp64:
             return F64;
-        case bf16:
-            return BF16;
         case i64:
             return I64;
         case u8:
