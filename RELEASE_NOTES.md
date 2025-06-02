@@ -1,3 +1,35 @@
+## WAMR-2.3.1
+
+### Breaking Changes
+
+- Revert the location to install public headers (#4295). This restores compatibility (of installed headers) with WAMR-2.2.0 and earlier.
+
+### New Features
+
+- feat: Add instruction metering for interpreter (#4122)
+
+### Bug Fixes
+
+- updating WASI stdio handle initialization and build options for UVWASI (#4260)
+- Fix SIMD load lane to avoid incompatible pointer types (#4278)
+- Fixed unit tests on X86_32 (#4279)
+- Improve Embedding WAMR guideline (#4284)
+- Fix Compiler Error C2491 (#4286)
+- Enhance type checking for function types in loader and improve error handling (#4294)
+- Dockerfile.vx-delegate build error fix (#4273)
+- Enable runtime API exposure for MSVC builds (#4287)
+
+### Enhancements
+
+- feat(yml): Add ESP32-P4 and ESP32-C5 support (#4270)
+- add a sample to use cmake package (#4291)
+
+### Others
+
+- build(deps): Bump github/codeql-action from 3.28.17 to 3.28.18 (#4285)
+
+---
+
 ## WAMR-2.3.0
 
 ### Breaking changes
