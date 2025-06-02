@@ -697,6 +697,7 @@ static NativeSymbol native_symbols_wasi_nn[] = {
     REG_NATIVE_FUNC(get_output, "(ii*i*)i"),
 #else  /* WASM_ENABLE_WASI_EPHEMERAL_NN == 0 */
     REG_NATIVE_FUNC(load, "(*ii*)i"),
+    REG_NATIVE_FUNC(load_by_name, "(*i*)i"),
     REG_NATIVE_FUNC(init_execution_context, "(i*)i"),
     REG_NATIVE_FUNC(set_input, "(ii*)i"),
     REG_NATIVE_FUNC(compute, "(i)i"),

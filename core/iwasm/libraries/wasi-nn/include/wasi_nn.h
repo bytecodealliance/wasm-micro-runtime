@@ -30,7 +30,7 @@ load(graph_builder_array *builder, graph_encoding encoding,
     __attribute__((import_module("wasi_nn")));
 
 wasi_nn_error
-load_by_name(const char *name, graph *g)
+load_by_name(const char *name, uint32_t name_len, graph *g)
     __attribute__((import_module("wasi_nn")));
 
 /**
