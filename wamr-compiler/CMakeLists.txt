@@ -18,6 +18,7 @@ if (NOT WAMR_BUILD_PLATFORM STREQUAL "windows")
 else()
   project (aot-compiler C ASM CXX)
   enable_language (ASM_MASM)
+  add_definitions(-DCOMPILING_WASM_RUNTIME_API=1)
 endif()
 
 set (CMAKE_CXX_STANDARD 17)
