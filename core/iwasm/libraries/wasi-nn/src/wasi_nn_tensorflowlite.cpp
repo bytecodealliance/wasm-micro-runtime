@@ -85,12 +85,8 @@ is_valid_graph(TFLiteContext *tfl_ctx, graph g)
         NN_ERR_PRINTF("Invalid graph: %d >= %d.", g, MAX_GRAPHS_PER_INST);
         return runtime_error;
     }
-    if (tfl_ctx->models[g].model_pointer == NULL) {
-        NN_ERR_PRINTF("Context (model) non-initialized.");
-        return runtime_error;
-    }
     if (tfl_ctx->models[g].model == NULL) {
-        NN_ERR_PRINTF("Context (tflite model) non-initialized.");
+        NN_ERR_PRINTF("Context (model) non-initialized.");
         return runtime_error;
     }
     return success;
@@ -472,32 +468,31 @@ deinit_backend(void *tflite_ctx)
     NN_DBG_PRINTF("Freeing memory.");
     for (int i = 0; i < MAX_GRAPHS_PER_INST; ++i) {
         tfl_ctx->models[i].model.reset();
-        if (tfl_ctx->models[i].model_pointer) {
-            if (tfl_ctx->delegate) {
-                switch (tfl_ctx->models[i].target) {
-                    case gpu:
-                    {
+        if (tfl_ctx->delegate) {
+            switch (tfl_ctx->models[i].target) {
+                case gpu:
+                {
 #if WASM_ENABLE_WASI_NN_GPU != 0
-                        TfLiteGpuDelegateV2Delete(tfl_ctx->delegate);
+                    TfLiteGpuDelegateV2Delete(tfl_ctx->delegate);
 #else
-                        NN_ERR_PRINTF("GPU delegate delete but not enabled.");
+                    NN_ERR_PRINTF("GPU delegate delete but not enabled.");
 #endif
-                        break;
-                    }
-                    case tpu:
-                    {
-#if WASM_ENABLE_WASI_NN_EXTERNAL_DELEGATE != 0
-                        TfLiteExternalDelegateDelete(tfl_ctx->delegate);
-#else
-                        NN_ERR_PRINTF(
-                            "External delegate delete but not enabled.");
-#endif
-                        break;
-                    }
-                    default:
-                        break;
+                    break;
                 }
+                case tpu:
+                {
+#if WASM_ENABLE_WASI_NN_EXTERNAL_DELEGATE != 0
+                    TfLiteExternalDelegateDelete(tfl_ctx->delegate);
+#else
+                    NN_ERR_PRINTF("External delegate delete but not enabled.");
+#endif
+                    break;
+                }
+                default:
+                    break;
             }
+        }
+        if (tfl_ctx->models[i].model_pointer) {
             wasm_runtime_free(tfl_ctx->models[i].model_pointer);
         }
         tfl_ctx->models[i].model_pointer = NULL;
