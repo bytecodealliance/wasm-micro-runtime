@@ -342,7 +342,6 @@ graph_encoding_to_backend_lib_name(graph_encoding encoding)
 
 static bool
 detect_and_load_backend(graph_encoding backend_hint,
-                        struct backends_api_functions *backends,
                         graph_encoding *loaded_backend)
 {
     if (backend_hint > autodetect)
@@ -365,7 +364,7 @@ detect_and_load_backend(graph_encoding backend_hint,
     if (!backend_lib_name)
         return false;
 
-    return prepare_backend(backend_lib_name, backends + backend_hint);
+    return prepare_backend(backend_lib_name, lookup + backend_hint);
 }
 
 /* WASI-NN implementation */
@@ -410,7 +409,7 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
     }
 
     graph_encoding loaded_backend = autodetect;
-    if (!detect_and_load_backend(encoding, lookup, &loaded_backend)) {
+    if (!detect_and_load_backend(encoding, &loaded_backend)) {
         res = invalid_encoding;
         NN_ERR_PRINTF("load backend failed");
         goto fail;
@@ -468,7 +467,7 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
     NN_DBG_PRINTF("[WASI NN] LOAD_BY_NAME %s...", name);
 
     graph_encoding loaded_backend = autodetect;
-    if (!detect_and_load_backend(autodetect, lookup, &loaded_backend)) {
+    if (!detect_and_load_backend(autodetect, &loaded_backend)) {
         NN_ERR_PRINTF("load backend failed");
         return invalid_encoding;
     }
@@ -527,7 +526,7 @@ wasi_nn_load_by_name_with_config(wasm_exec_env_t exec_env, char *name,
     NN_DBG_PRINTF("[WASI NN] LOAD_BY_NAME_WITH_CONFIG %s %s...", name, config);
 
     graph_encoding loaded_backend = autodetect;
-    if (!detect_and_load_backend(autodetect, lookup, &loaded_backend)) {
+    if (!detect_and_load_backend(autodetect, &loaded_backend)) {
         NN_ERR_PRINTF("load backend failed");
         return invalid_encoding;
     }
