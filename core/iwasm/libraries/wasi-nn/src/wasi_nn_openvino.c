@@ -509,7 +509,7 @@ init_backend(void **ctx)
     *ctx = (void *)ov_ctx;
     return success;
 fail:
-    openvino_destroy((void *)ov_ctx);
+    os_free(ov_ctx);
     return ret;
 }
 
