@@ -3282,6 +3282,13 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     CHECK_BUF(p, p_end, 1);
                     /* 0x70 */
                     u8 = read_uint8(p);
+#if WASM_ENABLE_GC != 0
+                    if (wasm_is_reftype_htref_nullable(u8)) {
+                        int32 heap_type;
+                        read_leb_int32(p, p_end, heap_type);
+                        (void)heap_type;
+                    }
+#endif
                     read_leb_uint32(p, p_end, flags);
                     read_leb_uint32(p, p_end, u32);
                     if (flags & 1)
@@ -3329,7 +3336,7 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     /* valtype */
                     CHECK_BUF(p, p_end, 1);
                     global_type = read_uint8(p);
-                    if (wasm_is_type_multi_byte_type(global_type)) {
+                    if (wasm_is_reftype_htref_nullable(global_type)) {
                         int32 heap_type;
                         read_leb_int32(p, p_end, heap_type);
                         (void)heap_type;
