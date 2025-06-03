@@ -43,7 +43,7 @@ else()
     FetchContent_Declare(
         uvwasi
         GIT_REPOSITORY https://github.com/nodejs/uvwasi.git
-        GIT_TAG v0.0.21
+        GIT_TAG 392e1f1c1c8a2d2102c9f2e0b9f35959a149d133
     )
     FetchContent_MakeAvailable(uvwasi)
     include_directories("${uvwasi_SOURCE_DIR}/include")
