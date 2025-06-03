@@ -58,7 +58,7 @@ dump_ov_shape_t(const ov_shape_t *shape, int32_t output_len, char *output)
 {
     int ret = 0;
 
-    ret = snprintf(output, output_len, "%ld,[", shape->rank);
+    ret = snprintf(output, output_len, "%" PRId64 ",[", shape->rank);
     if (!ret)
         return;
 
@@ -66,7 +66,7 @@ dump_ov_shape_t(const ov_shape_t *shape, int32_t output_len, char *output)
     output += ret;
 
     for (unsigned i = 0; i < shape->rank && output_len; i++) {
-        ret = snprintf(output, output_len, " %ld", shape->dims[i]);
+        ret = snprintf(output, output_len, " %" PRId64, shape->dims[i]);
         if (!ret)
             return;
 
