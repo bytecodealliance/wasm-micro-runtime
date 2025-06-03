@@ -135,6 +135,12 @@ typedef void *table_elem_type_t;
 #define INIT_EXPR_TYPE_F64_CONST 0x44
 #define INIT_EXPR_TYPE_V128_CONST 0xFD
 #define INIT_EXPR_TYPE_GET_GLOBAL 0x23
+#define INIT_EXPR_TYPE_I32_ADD 0x6A
+#define INIT_EXPR_TYPE_I32_SUB 0x6B
+#define INIT_EXPR_TYPE_I32_MUL 0x6C
+#define INIT_EXPR_TYPE_I64_ADD 0x7C
+#define INIT_EXPR_TYPE_I64_SUB 0x7D
+#define INIT_EXPR_TYPE_I64_MUL 0x7E
 #define INIT_EXPR_TYPE_REFNULL_CONST 0xD0
 #define INIT_EXPR_TYPE_FUNCREF_CONST 0xD2
 #define INIT_EXPR_TYPE_STRUCT_NEW 0xD3
@@ -278,7 +284,27 @@ typedef struct InitializerExpression {
        constant expression */
     uint8 init_expr_type;
     WASMValue u;
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+    struct InitializerExpression *l_expr;
+    struct InitializerExpression *r_expr;
+#endif
 } InitializerExpression;
+
+static inline bool
+is_expr_binary_op(uint8 flag)
+{
+    return flag == INIT_EXPR_TYPE_I32_ADD || flag == INIT_EXPR_TYPE_I32_SUB
+           || flag == INIT_EXPR_TYPE_I32_MUL || flag == INIT_EXPR_TYPE_I64_ADD
+           || flag == INIT_EXPR_TYPE_I64_SUB || flag == INIT_EXPR_TYPE_I64_MUL;
+}
+
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+void
+destroy_init_expr_recursive(InitializerExpression *expr);
+
+void
+destroy_sub_init_expr(InitializerExpression *expr);
+#endif
 
 #if WASM_ENABLE_GC != 0
 /**
