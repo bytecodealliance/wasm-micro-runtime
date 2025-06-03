@@ -37,7 +37,7 @@ There is a big difference between the two sets of functions, `tensor_type`.
 
 ```c
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-typedef enum { fp16 = 0, fp32, fp64, bf16, u8, i32, i64 } tensor_type;
+typedef enum { fp16 = 0, fp32, fp64, u8, i32, i64 } tensor_type;
 #else
 typedef enum { fp16 = 0, fp32, up8, ip32 } tensor_type;
 #endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
