@@ -453,6 +453,9 @@ typedef struct InitValue {
     WASMRefType ref_type;
 #endif
     WASMValue value;
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+    InitializerExpression *expr;
+#endif
 } InitValue;
 
 typedef struct ConstExprContext {
@@ -477,7 +480,11 @@ push_const_expr_stack(ConstExprContext *ctx, uint8 flag, uint8 type,
 #if WASM_ENABLE_GC != 0
                       WASMRefType *ref_type, uint8 gc_opcode,
 #endif
-                      WASMValue *value, char *error_buf, uint32 error_buf_size)
+                      WASMValue *value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                      InitializerExpression *expr,
+#endif
+                      char *error_buf, uint32 error_buf_size)
 {
     InitValue *cur_value;
 
@@ -502,6 +509,10 @@ push_const_expr_stack(ConstExprContext *ctx, uint8 flag, uint8 type,
     cur_value->type = type;
     cur_value->flag = flag;
     cur_value->value = *value;
+
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+    cur_value->expr = expr;
+#endif
 
 #if WASM_ENABLE_GC != 0
     cur_value->gc_opcode = gc_opcode;
@@ -587,7 +598,11 @@ pop_const_expr_stack(ConstExprContext *ctx, uint8 *p_flag, uint8 type,
 #if WASM_ENABLE_GC != 0
                      WASMRefType *ref_type, uint8 *p_gc_opcode,
 #endif
-                     WASMValue *p_value, char *error_buf, uint32 error_buf_size)
+                     WASMValue *p_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                     InitializerExpression **p_expr,
+#endif
+                     char *error_buf, uint32 error_buf_size)
 {
     InitValue *cur_value;
 
@@ -623,7 +638,10 @@ pop_const_expr_stack(ConstExprContext *ctx, uint8 *p_flag, uint8 type,
     if (p_gc_opcode)
         *p_gc_opcode = cur_value->gc_opcode;
 #endif
-
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+    if (p_expr)
+        *p_expr = cur_value->expr;
+#endif
     return true;
 
 #if WASM_ENABLE_GC != 0
@@ -639,7 +657,7 @@ fail:
 }
 
 static void
-destroy_const_expr_stack(ConstExprContext *ctx)
+destroy_const_expr_stack(ConstExprContext *ctx, bool free_exprs)
 {
 #if WASM_ENABLE_GC != 0
     uint32 i;
@@ -651,6 +669,16 @@ destroy_const_expr_stack(ConstExprContext *ctx)
                 || ctx->stack[i].gc_opcode == WASM_OP_ARRAY_NEW_FIXED)) {
             destroy_init_expr_data_recursive(ctx->module,
                                              ctx->stack[i].value.data);
+        }
+    }
+#endif
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+    if (free_exprs) {
+        for (uint32 j = 0; j < ctx->sp; j++) {
+            if (is_expr_binary_op(ctx->stack[j].expr->init_expr_type)) {
+                destroy_init_expr_recursive(ctx->stack[j].expr);
+                ctx->stack[j].expr = NULL;
+            }
         }
     }
 #endif
@@ -687,6 +715,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
     uint8 opcode;
     WASMRefType cur_ref_type = { 0 };
 #endif
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+    InitializerExpression *cur_expr = NULL;
+#endif
 
     init_const_expr_stack(&const_expr_ctx, module);
 
@@ -699,24 +730,32 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
             case INIT_EXPR_TYPE_I32_CONST:
                 read_leb_int32(p, p_end, cur_value.i32);
 
-                if (!push_const_expr_stack(
-                        &const_expr_ctx, flag, VALUE_TYPE_I32,
+                if (!push_const_expr_stack(&const_expr_ctx, flag,
+                                           VALUE_TYPE_I32,
 #if WASM_ENABLE_GC != 0
-                        NULL, 0,
+                                           NULL, 0,
 #endif
-                        &cur_value, error_buf, error_buf_size))
+                                           &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                           NULL,
+#endif
+                                           error_buf, error_buf_size))
                     goto fail;
                 break;
             /* i64.const */
             case INIT_EXPR_TYPE_I64_CONST:
                 read_leb_int64(p, p_end, cur_value.i64);
 
-                if (!push_const_expr_stack(
-                        &const_expr_ctx, flag, VALUE_TYPE_I64,
+                if (!push_const_expr_stack(&const_expr_ctx, flag,
+                                           VALUE_TYPE_I64,
 #if WASM_ENABLE_GC != 0
-                        NULL, 0,
+                                           NULL, 0,
 #endif
-                        &cur_value, error_buf, error_buf_size))
+                                           &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                           NULL,
+#endif
+                                           error_buf, error_buf_size))
                     goto fail;
                 break;
             /* f32.const */
@@ -726,12 +765,16 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                 for (i = 0; i < sizeof(float32); i++)
                     *p_float++ = *p++;
 
-                if (!push_const_expr_stack(
-                        &const_expr_ctx, flag, VALUE_TYPE_F32,
+                if (!push_const_expr_stack(&const_expr_ctx, flag,
+                                           VALUE_TYPE_F32,
 #if WASM_ENABLE_GC != 0
-                        NULL, 0,
+                                           NULL, 0,
 #endif
-                        &cur_value, error_buf, error_buf_size))
+                                           &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                           NULL,
+#endif
+                                           error_buf, error_buf_size))
                     goto fail;
                 break;
             /* f64.const */
@@ -741,12 +784,16 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                 for (i = 0; i < sizeof(float64); i++)
                     *p_float++ = *p++;
 
-                if (!push_const_expr_stack(
-                        &const_expr_ctx, flag, VALUE_TYPE_F64,
+                if (!push_const_expr_stack(&const_expr_ctx, flag,
+                                           VALUE_TYPE_F64,
 #if WASM_ENABLE_GC != 0
-                        NULL, 0,
+                                           NULL, 0,
 #endif
-                        &cur_value, error_buf, error_buf_size))
+                                           &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                           NULL,
+#endif
+                                           error_buf, error_buf_size))
                     goto fail;
                 break;
 #if WASM_ENABLE_SIMD != 0
@@ -767,12 +814,16 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                 cur_value.v128.i64x2[0] = high;
                 cur_value.v128.i64x2[1] = low;
 
-                if (!push_const_expr_stack(
-                        &const_expr_ctx, flag, VALUE_TYPE_V128,
+                if (!push_const_expr_stack(&const_expr_ctx, flag,
+                                           VALUE_TYPE_V128,
 #if WASM_ENABLE_GC != 0
-                        NULL, 0,
+                                           NULL, 0,
 #endif
-                        &cur_value, error_buf, error_buf_size))
+                                           &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                           NULL,
+#endif
+                                           error_buf, error_buf_size))
                     goto fail;
 #if WASM_ENABLE_WAMR_COMPILER != 0
                 /* If any init_expr is v128.const, mark SIMD used */
@@ -783,7 +834,94 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 #endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) || \
           (WASM_ENABLE_FAST_INTERP != 0) */
 #endif /* end of WASM_ENABLE_SIMD */
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+            case INIT_EXPR_TYPE_I32_ADD:
+            case INIT_EXPR_TYPE_I32_SUB:
+            case INIT_EXPR_TYPE_I32_MUL:
+            case INIT_EXPR_TYPE_I64_ADD:
+            case INIT_EXPR_TYPE_I64_SUB:
+            case INIT_EXPR_TYPE_I64_MUL:
+            {
 
+                InitializerExpression *l_expr, *r_expr;
+                WASMValue l_value, r_value;
+                uint8 l_flag, r_flag;
+                uint8 value_type;
+
+                if (flag == INIT_EXPR_TYPE_I32_ADD
+                    || flag == INIT_EXPR_TYPE_I32_SUB
+                    || flag == INIT_EXPR_TYPE_I32_MUL) {
+                    value_type = VALUE_TYPE_I32;
+                }
+                else {
+                    value_type = VALUE_TYPE_I64;
+                }
+
+                if (!(pop_const_expr_stack(&const_expr_ctx, &r_flag, value_type,
+#if WASM_ENABLE_GC != 0
+                                           NULL, NULL,
+#endif
+                                           &r_value, &r_expr, error_buf,
+                                           error_buf_size))) {
+                    goto fail;
+                }
+                if (!is_expr_binary_op(r_flag)) {
+                    if (!(r_expr = loader_malloc(sizeof(InitializerExpression),
+                                                 error_buf, error_buf_size))) {
+                        goto fail;
+                    }
+                    r_expr->init_expr_type = r_flag;
+                    r_expr->u = r_value;
+                    r_expr->l_expr = r_expr->r_expr = NULL;
+                }
+
+                if (!(pop_const_expr_stack(&const_expr_ctx, &l_flag, value_type,
+#if WASM_ENABLE_GC != 0
+                                           NULL, NULL,
+#endif
+                                           &l_value, &l_expr, error_buf,
+                                           error_buf_size))) {
+                    destroy_init_expr_recursive(r_expr);
+                    goto fail;
+                }
+                if (!is_expr_binary_op(l_flag)) {
+                    if (!(l_expr = loader_malloc(sizeof(InitializerExpression),
+                                                 error_buf, error_buf_size))) {
+                        destroy_init_expr_recursive(r_expr);
+                        goto fail;
+                    }
+                    l_expr->init_expr_type = l_flag;
+                    l_expr->u = l_value;
+                    l_expr->l_expr = l_expr->r_expr = NULL;
+                }
+
+                if (!(cur_expr = loader_malloc(sizeof(InitializerExpression),
+                                               error_buf, error_buf_size))) {
+                    destroy_init_expr_recursive(l_expr);
+                    destroy_init_expr_recursive(r_expr);
+                    goto fail;
+                }
+                cur_expr->init_expr_type = flag;
+                cur_expr->u = cur_value;
+                cur_expr->l_expr = l_expr;
+                cur_expr->r_expr = r_expr;
+
+                if (!push_const_expr_stack(&const_expr_ctx, flag, value_type,
+#if WASM_ENABLE_GC != 0
+                                           NULL, 0,
+#endif
+                                           &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                           cur_expr,
+#endif
+                                           error_buf, error_buf_size)) {
+                    destroy_init_expr_recursive(cur_expr);
+                    goto fail;
+                }
+
+                break;
+            }
+#endif /* end of WASM_ENABLE_EXTENDED_CONST_EXPR */
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
             /* ref.func */
             case INIT_EXPR_TYPE_FUNCREF_CONST:
@@ -799,6 +937,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 #if WASM_ENABLE_GC == 0
                 if (!push_const_expr_stack(&const_expr_ctx, flag,
                                            VALUE_TYPE_FUNCREF, &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                           NULL,
+#endif
                                            error_buf, error_buf_size))
                     goto fail;
 #else
@@ -816,8 +957,11 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                              false, type_idx);
                 if (!push_const_expr_stack(&const_expr_ctx, flag,
                                            cur_ref_type.ref_type, &cur_ref_type,
-                                           0, &cur_value, error_buf,
-                                           error_buf_size))
+                                           0, &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                           NULL,
+#endif
+                                           error_buf, error_buf_size))
                     goto fail;
 #endif
 #if WASM_ENABLE_WAMR_COMPILER != 0
@@ -837,8 +981,11 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 #if WASM_ENABLE_GC == 0
                 cur_value.ref_index = NULL_REF;
                 if (!push_const_expr_stack(&const_expr_ctx, flag, type1,
-                                           &cur_value, error_buf,
-                                           error_buf_size))
+                                           &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                           NULL,
+#endif
+                                           error_buf, error_buf_size))
                     goto fail;
 #else
                 cur_value.gc_obj = NULL_REF;
@@ -856,13 +1003,19 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                     if (!push_const_expr_stack(&const_expr_ctx, flag,
                                                cur_ref_type.ref_type,
                                                &cur_ref_type, 0, &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                               NULL,
+#endif
                                                error_buf, error_buf_size))
                         goto fail;
                 }
                 else {
                     if (!push_const_expr_stack(&const_expr_ctx, flag, type1,
-                                               NULL, 0, &cur_value, error_buf,
-                                               error_buf_size))
+                                               NULL, 0, &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                               NULL,
+#endif
+                                               error_buf, error_buf_size))
                         goto fail;
                 }
 #endif
@@ -951,8 +1104,11 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 #if WASM_ENABLE_GC != 0
                                            &cur_ref_type, 0,
 #endif
-                                           &cur_value, error_buf,
-                                           error_buf_size))
+                                           &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                           NULL,
+#endif
+                                           error_buf, error_buf_size))
                     goto fail;
 
                 break;
@@ -1015,6 +1171,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                     &const_expr_ctx, NULL, field_type,
                                     field_ref_type, NULL,
                                     &struct_init_values->fields[field_idx],
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                    NULL,
+#endif
                                     error_buf, error_buf_size)) {
                                 destroy_init_expr_data_recursive(
                                     module, struct_init_values);
@@ -1028,6 +1187,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                         if (!push_const_expr_stack(
                                 &const_expr_ctx, flag, cur_ref_type.ref_type,
                                 &cur_ref_type, (uint8)opcode1, &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                NULL,
+#endif
                                 error_buf, error_buf_size)) {
                             destroy_init_expr_data_recursive(
                                 module, struct_init_values);
@@ -1059,6 +1221,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                         if (!push_const_expr_stack(
                                 &const_expr_ctx, flag, cur_ref_type.ref_type,
                                 &cur_ref_type, (uint8)opcode1, &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                NULL,
+#endif
                                 error_buf, error_buf_size)) {
                             goto fail;
                         }
@@ -1107,8 +1272,11 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 
                                 if (!pop_const_expr_stack(
                                         &const_expr_ctx, NULL, VALUE_TYPE_I32,
-                                        NULL, NULL, &len_val, error_buf,
-                                        error_buf_size)) {
+                                        NULL, NULL, &len_val,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                        NULL,
+#endif
+                                        error_buf, error_buf_size)) {
                                     goto fail;
                                 }
 
@@ -1127,6 +1295,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                         &const_expr_ctx, NULL, elem_type,
                                         elem_ref_type, NULL,
                                         &array_init_values->elem_data[0],
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                        NULL,
+#endif
                                         error_buf, error_buf_size)) {
                                     destroy_init_expr_data_recursive(
                                         module, array_init_values);
@@ -1159,6 +1330,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                             elem_ref_type, NULL,
                                             &array_init_values
                                                  ->elem_data[i - 1],
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                            NULL,
+#endif
                                             error_buf, error_buf_size)) {
                                         destroy_init_expr_data_recursive(
                                             module, array_init_values);
@@ -1175,10 +1349,13 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                             uint32 len;
 
                             /* POP(i32) */
-                            if (!pop_const_expr_stack(&const_expr_ctx, NULL,
-                                                      VALUE_TYPE_I32, NULL,
-                                                      NULL, &len_val, error_buf,
-                                                      error_buf_size)) {
+                            if (!pop_const_expr_stack(
+                                    &const_expr_ctx, NULL, VALUE_TYPE_I32, NULL,
+                                    NULL, &len_val,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                    NULL,
+#endif
+                                    error_buf, error_buf_size)) {
                                 goto fail;
                             }
                             len = len_val.i32;
@@ -1192,6 +1369,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                         if (!push_const_expr_stack(
                                 &const_expr_ctx, flag, cur_ref_type.ref_type,
                                 &cur_ref_type, (uint8)opcode1, &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                NULL,
+#endif
                                 error_buf, error_buf_size)) {
                             if (array_init_values) {
                                 destroy_init_expr_data_recursive(
@@ -1218,9 +1398,13 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                     case WASM_OP_REF_I31:
                     {
                         /* POP(i32) */
-                        if (!pop_const_expr_stack(
-                                &const_expr_ctx, NULL, VALUE_TYPE_I32, NULL,
-                                NULL, &cur_value, error_buf, error_buf_size)) {
+                        if (!pop_const_expr_stack(&const_expr_ctx, NULL,
+                                                  VALUE_TYPE_I32, NULL, NULL,
+                                                  &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                                  NULL,
+#endif
+                                                  error_buf, error_buf_size)) {
                             goto fail;
                         }
 
@@ -1229,6 +1413,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                         if (!push_const_expr_stack(
                                 &const_expr_ctx, flag, cur_ref_type.ref_type,
                                 &cur_ref_type, (uint8)opcode1, &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                NULL,
+#endif
                                 error_buf, error_buf_size)) {
                             goto fail;
                         }
@@ -1263,7 +1450,11 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 #if WASM_ENABLE_GC != 0
                               ref_type, &opcode,
 #endif
-                              &cur_value, error_buf, error_buf_size)) {
+                              &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                              &cur_expr,
+#endif
+                              error_buf, error_buf_size)) {
         goto fail;
     }
 
@@ -1273,8 +1464,21 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
         goto fail;
     }
 
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+    if (cur_expr != NULL) {
+        bh_memcpy_s(init_expr, sizeof(InitializerExpression), cur_expr,
+                    sizeof(InitializerExpression));
+        wasm_runtime_free(cur_expr);
+    }
+    else {
+        init_expr->init_expr_type = flag;
+        init_expr->u = cur_value;
+    }
+
+#else
     init_expr->init_expr_type = flag;
     init_expr->u = cur_value;
+#endif /* end of WASM_ENABLE_EXTENDED_CONST_EXPR != 0 */
 
 #if WASM_ENABLE_GC != 0
     if (init_expr->init_expr_type == WASM_OP_GC_PREFIX) {
@@ -1305,11 +1509,11 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 #endif /* end of WASM_ENABLE_GC != 0 */
 
     *p_buf = p;
-    destroy_const_expr_stack(&const_expr_ctx);
+    destroy_const_expr_stack(&const_expr_ctx, false);
     return true;
 
 fail:
-    destroy_const_expr_stack(&const_expr_ctx);
+    destroy_const_expr_stack(&const_expr_ctx, true);
     return false;
 }
 
@@ -4887,6 +5091,9 @@ load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
 
             if (!(dataseg = module->data_segments[i] = loader_malloc(
                       sizeof(WASMDataSeg), error_buf, error_buf_size))) {
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                destroy_sub_init_expr(&init_expr);
+#endif
                 return false;
             }
 
@@ -6935,6 +7142,14 @@ wasm_loader_unload(WASMModule *module)
             destroy_init_expr(module, &module->globals[i].init_expr);
         }
 #endif
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+        for (i = 0; i < module->global_count; i++) {
+            if (is_expr_binary_op(
+                    module->globals[i].init_expr.init_expr_type)) {
+                destroy_sub_init_expr(&module->globals[i].init_expr);
+            }
+        }
+#endif
         wasm_runtime_free(module->globals);
     }
 
@@ -6963,6 +7178,12 @@ wasm_loader_unload(WASMModule *module)
 #endif
                 wasm_runtime_free(module->table_segments[i].init_values);
             }
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+            if (is_expr_binary_op(
+                    module->table_segments[i].base_offset.init_expr_type)) {
+                destroy_sub_init_expr(&module->table_segments[i].base_offset);
+            }
+#endif
         }
         wasm_runtime_free(module->table_segments);
     }
@@ -6972,6 +7193,13 @@ wasm_loader_unload(WASMModule *module)
             if (module->data_segments[i]) {
                 if (module->data_segments[i]->is_data_cloned)
                     wasm_runtime_free(module->data_segments[i]->data);
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                if (is_expr_binary_op(
+                        module->data_segments[i]->base_offset.init_expr_type)) {
+                    destroy_sub_init_expr(
+                        &(module->data_segments[i]->base_offset));
+                }
+#endif
                 wasm_runtime_free(module->data_segments[i]);
             }
         }

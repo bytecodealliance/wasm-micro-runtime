@@ -211,6 +211,10 @@ if (NOT DEFINED WAMR_BUILD_TAIL_CALL)
   set (WAMR_BUILD_TAIL_CALL 0)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_EXTENDED_CONST_EXPR)
+  set (WAMR_BUILD_EXTENDED_CONST_EXPR 0)
+endif ()
+
 ########################################
 # Compilation options to marco
 ########################################
@@ -675,7 +679,13 @@ if (WAMR_BUILD_INSTRUCTION_METERING EQUAL 1)
   message ("     Instruction metering enabled")
   add_definitions (-DWASM_ENABLE_INSTRUCTION_METERING=1)
 endif ()
-
+if (WAMR_BUILD_EXTENDED_CONST_EXPR EQUAL 1)
+  message ("     Extended constant expression enabled")
+  add_definitions(-DWASM_ENABLE_EXTENDED_CONST_EXPR=1)
+else()
+  message ("     Extended constant expression disabled")
+  add_definitions(-DWASM_ENABLE_EXTENDED_CONST_EXPR=0)
+endif ()
 ########################################
 # Show Phase4 Wasm proposals status.
 ########################################
@@ -699,11 +709,11 @@ message (
 "       \"Tail call\" via WAMR_BUILD_TAIL_CALL: ${WAMR_BUILD_TAIL_CALL}\n"
 "       \"Threads\" via WAMR_BUILD_SHARED_MEMORY: ${WAMR_BUILD_SHARED_MEMORY}\n"
 "       \"Typed Function References\" via WAMR_BUILD_GC: ${WAMR_BUILD_GC}\n"
+"       \"Extended Constant Expressions\" via WAMR_BUILD_EXTENDED_CONST_EXPR: ${WAMR_BUILD_EXTENDED_CONST_EXPR}\n"
 "     Unsupported (>= Phase4):\n"
 "       \"Branch Hinting\"\n"
 "       \"Custom Annotation Syntax in the Text Format\"\n"
 "       \"Exception handling\"\n"
-"       \"Extended Constant Expressions\"\n"
 "       \"Import/Export of Mutable Globals\"\n"
 "       \"JS String Builtins\"\n"
 "       \"Relaxed SIMD\"\n"

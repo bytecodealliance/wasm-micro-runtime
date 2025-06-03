@@ -225,3 +225,32 @@ read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
             return false;
     }
 }
+
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+void
+destroy_init_expr_recursive(InitializerExpression *expr)
+{
+    if (expr == NULL) {
+        return;
+    }
+    if (expr->l_expr) {
+        destroy_init_expr_recursive(expr->l_expr);
+    }
+    if (expr->r_expr) {
+        destroy_init_expr_recursive(expr->r_expr);
+    }
+    wasm_runtime_free(expr);
+}
+
+void
+destroy_sub_init_expr(InitializerExpression *expr)
+{
+    if (expr->l_expr) {
+        destroy_init_expr_recursive(expr->l_expr);
+    }
+    if (expr->r_expr) {
+        destroy_init_expr_recursive(expr->r_expr);
+    }
+    expr->l_expr = expr->r_expr = NULL;
+}
+#endif /* end of WASM_ENABLE_EXTENDED_CONST_EXPR != 0 */
