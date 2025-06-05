@@ -79,7 +79,8 @@ typedef struct {
     // dimensions.
     tensor_dimensions *dimensions;
     // Describe the type of element in the tensor (e.g., f32).
-    tensor_type type;
+    uint8_t type;
+    uint8_t _pad[3];
     // Contains the tensor data.
     tensor_data data;
 } tensor;
