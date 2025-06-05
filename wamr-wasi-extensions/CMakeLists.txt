@@ -6,3 +6,4 @@ cmake_minimum_required (VERSION 3.14)
 project(wamr-wasi-extensions LANGUAGES C)
 
 add_subdirectory(nn)
+add_subdirectory(socket)
