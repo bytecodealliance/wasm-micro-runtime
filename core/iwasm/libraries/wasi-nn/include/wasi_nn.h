@@ -15,6 +15,9 @@
 #include <stdint.h>
 #include "wasi_nn_types.h"
 
+#define WASI_NN_IMPORT(name) \
+    __attribute__((import_module("wasi_nn"), import_name(name)))
+
 /**
  * @brief Load an opaque sequence of bytes to use for inference.
  *
@@ -26,12 +29,11 @@
  */
 wasi_nn_error
 load(graph_builder_array *builder, graph_encoding encoding,
-     execution_target target, graph *g)
-    __attribute__((import_module("wasi_nn")));
+     execution_target target, graph *g) WASI_NN_IMPORT("load");
 
 wasi_nn_error
 load_by_name(const char *name, uint32_t name_len, graph *g)
-    __attribute__((import_module("wasi_nn")));
+    WASI_NN_IMPORT("load_by_name");
 
 /**
  * INFERENCE
@@ -47,7 +49,7 @@ load_by_name(const char *name, uint32_t name_len, graph *g)
  */
 wasi_nn_error
 init_execution_context(graph g, graph_execution_context *ctx)
-    __attribute__((import_module("wasi_nn")));
+    WASI_NN_IMPORT("init_execution_context");
 
 /**
  * @brief Define the inputs to use for inference.
@@ -59,7 +61,7 @@ init_execution_context(graph g, graph_execution_context *ctx)
  */
 wasi_nn_error
 set_input(graph_execution_context ctx, uint32_t index, tensor *tensor)
-    __attribute__((import_module("wasi_nn")));
+    WASI_NN_IMPORT("set_input");
 
 /**
  * @brief Compute the inference on the given inputs.
@@ -68,7 +70,7 @@ set_input(graph_execution_context ctx, uint32_t index, tensor *tensor)
  * @return wasi_nn_error    Execution status.
  */
 wasi_nn_error
-compute(graph_execution_context ctx) __attribute__((import_module("wasi_nn")));
+compute(graph_execution_context ctx) WASI_NN_IMPORT("compute");
 
 /**
  * @brief Extract the outputs after inference.
@@ -85,6 +87,6 @@ compute(graph_execution_context ctx) __attribute__((import_module("wasi_nn")));
 wasi_nn_error
 get_output(graph_execution_context ctx, uint32_t index,
            tensor_data output_tensor, uint32_t *output_tensor_size)
-    __attribute__((import_module("wasi_nn")));
+    WASI_NN_IMPORT("get_output");
 
 #endif
