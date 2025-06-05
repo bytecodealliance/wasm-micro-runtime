@@ -57,23 +57,33 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  build_llvm_libraries_on_windows:
+    permissions:
+      contents: read
+      actions: write
+    uses: ./.github/workflows/build_llvm_libraries.yml
+    with:
+      os: "windows-latest"
+      arch: "AArch64 ARM Mips RISCV X86"
+
+  build_iwasm:
     runs-on: windows-latest
     strategy:
       matrix:
-        build_options: [
-          "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_INTERP=0",
-          "-DWAMR_BUILD_AOT=0",
-          "-DWAMR_BUILD_TAIL_CALL=1",
-          "-DWAMR_BUILD_CUSTOM_NAME_SECTION=1",
-          "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
-          "-DWAMR_BUILD_REF_TYPES=1",
-          "-DWAMR_BUILD_SIMD=1",
-          "-DWAMR_BUILD_DEBUG_INTERP=1",
-          "-DWAMR_BUILD_LIB_PTHREAD=1",
-          "-DWAMR_BUILD_LIB_WASI_THREADS=1",
-          "-DWAMR_BUILD_LIBC_UVWASI=0 -DWAMR_BUILD_LIBC_WASI=1"
-        ]
+        build_options:
+          [
+            "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_INTERP=0",
+            "-DWAMR_BUILD_AOT=0",
+            "-DWAMR_BUILD_TAIL_CALL=1",
+            "-DWAMR_BUILD_CUSTOM_NAME_SECTION=1",
+            "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
+            "-DWAMR_BUILD_REF_TYPES=1",
+            "-DWAMR_BUILD_SIMD=1",
+            "-DWAMR_BUILD_DEBUG_INTERP=1",
+            "-DWAMR_BUILD_LIB_PTHREAD=1",
+            "-DWAMR_BUILD_LIB_WASI_THREADS=1",
+            "-DWAMR_BUILD_LIBC_UVWASI=0 -DWAMR_BUILD_LIBC_WASI=1",
+          ]
     steps:
       - uses: actions/checkout@v4
 
@@ -89,17 +99,49 @@ jobs:
           cmake .. ${{ matrix.build_options }}
           cmake --build . --config Release --parallel 4
 
+  build_wamrc:
+    needs: [build_llvm_libraries_on_windows]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_windows.outputs.cache_key }}
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      # since jobs.id can't contain the dot character
+      # it is hard to use `format` to assemble the cache key
+      - name: Get LLVM libraries
+        id: retrieve_llvm_libs
+        uses: actions/cache@v4
+        with:
+          path: |
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
+          key: ${{ matrix.llvm_cache_key }}
+
+      - name: Quit if cache miss
+        if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true'
+        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
+
+      - name: Build wamrc
+        run: |
+          cmake -S . -B build
+          cmake --build build --config Release --parallel 4
+        working-directory: wamr-compiler
+
   test:
     runs-on: windows-latest
-    needs: [build]
+    needs: [build_iwasm, build_wamrc]
     strategy:
       fail-fast: false
       matrix:
-        running_mode:
-          [
-            "classic-interp",
-            "fast-interp",
-          ]
+        running_mode: ["classic-interp", "fast-interp"]
         test_option:
           [
             $DEFAULT_TEST_OPTIONS,
