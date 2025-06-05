@@ -405,7 +405,7 @@ def __compare_wasm_val_t(self, other):
     elif WASM_F32 == self.kind:
         return self.of.f32 == other.of.f32
     elif WASM_F64 == self.kind:
-        return self.of.f64 == other.of.f63
+        return self.of.f64 == other.of.f64
     elif WASM_EXTERNREF == self.kind:
         raise RuntimeError("FIXME")
     else:
