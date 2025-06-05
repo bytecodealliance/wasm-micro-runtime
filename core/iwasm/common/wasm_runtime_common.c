@@ -7907,7 +7907,8 @@ wasm_runtime_update_last_used_shared_heap(WASMModuleInstanceCommon *module_inst,
             is_memory64 ? cur->start_off_mem64 : cur->start_off_mem32;
         shared_heap_end = shared_heap_start - 1 + cur->size;
         if (app_offset >= shared_heap_start
-            && app_offset <= shared_heap_end - bytes + 1) {
+            && app_offset <= shared_heap_end - bytes + 1
+            && bytes - 1 <= shared_heap_end) {
             *shared_heap_start_off_p = (uintptr_t)shared_heap_start;
             *shared_heap_end_off_p = (uintptr_t)shared_heap_end;
             *shared_heap_base_addr_adj_p =

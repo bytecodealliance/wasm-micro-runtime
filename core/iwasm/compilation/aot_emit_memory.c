@@ -149,15 +149,6 @@ get_memory_curr_page_count(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 uint32
 get_module_inst_extra_offset(AOTCompContext *comp_ctx);
 
-#define BUILD_FIELD_PTR(ptr, offset, field, name)                           \
-    do {                                                                    \
-        if (!(field_p = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, \
-                                              ptr, &offset, 1, name))) {    \
-            aot_set_last_error("llvm build inbounds gep failed");           \
-            goto fail;                                                      \
-        }                                                                   \
-    } while (0)
-
 #define BUILD_LOAD_PTR(ptr, data_type, res)                           \
     do {                                                              \
         if (!(res = LLVMBuildLoad2(comp_ctx->builder, data_type, ptr, \
@@ -178,8 +169,6 @@ aot_check_shared_heap_chain(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef param_values[7], ret_value, func, value, cmp;
     LLVMTypeRef param_types[7], ret_type, func_type, func_ptr_type;
-    LLVMAttributeRef coldAttr;
-    unsigned kind;
 
     param_types[0] = INT8_PTR_TYPE;
     param_types[1] = INTPTR_T_TYPE;
@@ -191,10 +180,6 @@ aot_check_shared_heap_chain(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     ret_type = INT8_TYPE;
 
     GET_AOT_FUNCTION(wasm_runtime_update_last_used_shared_heap, 7);
-
-    kind = LLVMGetEnumAttributeKindForName("cold", 4);
-    coldAttr = LLVMCreateEnumAttribute(comp_ctx->context, kind, 0);
-    LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex, coldAttr);
 
     /* Call function */
     param_values[0] = func_ctx->aot_inst;
@@ -224,75 +209,208 @@ fail:
     return false;
 }
 
-/* The difference between bulk memory overflow check and normal memory
- * overflow check:
- * 1. In bulk memory overflow check, no segue will be used
- * 2. In bulk memory overflow check: the offset(start addr), bytes and max_addr
- *                                   (start + bytes) is used in memory check
- *    In normal memory check: the offset1(start addr) and bytes_u32 is used
+/*
+ * Setup the basic blocks for shared heap and shared chain memory checks.
+ *
+ * Arguments:
+ *   block_curr: The current basic block.
+ *   app_addr_in_cache_shared_heap: Output, block for cache shared heap.
+ *   app_addr_in_linear_mem: Output, block for linear memory.
+ *   app_addr_in_shared_heap_chain: Output, block for shared heap chain
+ *                                  (only for shared heap chain).
+ *   check_shared_heap_chain: Output, block for checking shared heap chain
+ *                            (only for shared heap chain).
+ *
+ * Topology:
+ *   If enable_shared_heap:
+ *     block_curr -> app_addr_in_cache_shared_heap
+ *                -> app_addr_in_linear_mem
+ *   If enable_shared_chain:
+ *     block_curr -> app_addr_in_shared_heap_chain
+ *                   -> app_addr_in_cache_shared_heap
+ *                   -> check_shared_heap_chain
+ *                 -> app_addr_in_linear_mem
  */
 static bool
-aot_check_shared_heap_memory_overflow_common(
-    AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-    LLVMBasicBlockRef block_curr, LLVMBasicBlockRef block_maddr_phi,
-    LLVMBasicBlockRef check_succ, LLVMValueRef maddr_phi,
-    LLVMValueRef start_offset, LLVMValueRef max_addr,
-    LLVMValueRef mem_base_addr, LLVMValueRef bytes, uint32 bytes_u32,
-    bool is_memory64, bool is_target_64bit, bool bulk_memory, bool enable_segue)
+setup_shared_heap_blocks(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                         LLVMBasicBlockRef block_curr,
+                         LLVMBasicBlockRef *app_addr_in_cache_shared_heap,
+                         LLVMBasicBlockRef *app_addr_in_linear_mem,
+                         LLVMBasicBlockRef *app_addr_in_shared_heap_chain,
+                         LLVMBasicBlockRef *check_shared_heap_chain)
 {
-    LLVMBasicBlockRef app_addr_in_shared_heap_chain,
-        app_addr_in_cache_shared_heap, check_shared_heap_chain,
-        app_addr_in_linear_mem;
-    LLVMValueRef length, max_offset, maddr = NULL, cmp, cmp1, cmp2,
-                                     is_in_shared_heap;
-    LLVMValueRef shared_heap_start_off, shared_heap_end_off,
-        shared_heap_base_addr_adj, shared_heap_check_bound;
-
-    LLVMTypeRef offset_type;
-    /* On 64/32-bit target, the offset is 64/32-bit */
-    offset_type = is_target_64bit ? I64_TYPE : I32_TYPE;
-
-    ADD_BASIC_BLOCK(app_addr_in_cache_shared_heap,
+    ADD_BASIC_BLOCK(*app_addr_in_cache_shared_heap,
                     "app_addr_in_cache_shared_heap");
-    ADD_BASIC_BLOCK(app_addr_in_linear_mem, "app_addr_in_linear_mem");
+    ADD_BASIC_BLOCK(*app_addr_in_linear_mem, "app_addr_in_linear_mem");
 
     if (comp_ctx->enable_shared_heap) {
-        LLVMMoveBasicBlockAfter(app_addr_in_cache_shared_heap, block_curr);
-        LLVMMoveBasicBlockAfter(app_addr_in_linear_mem,
-                                app_addr_in_cache_shared_heap);
+        LLVMMoveBasicBlockAfter(*app_addr_in_cache_shared_heap, block_curr);
+        LLVMMoveBasicBlockAfter(*app_addr_in_linear_mem,
+                                *app_addr_in_cache_shared_heap);
     }
     else if (comp_ctx->enable_shared_chain) {
-        ADD_BASIC_BLOCK(app_addr_in_shared_heap_chain,
+        ADD_BASIC_BLOCK(*app_addr_in_shared_heap_chain,
                         "app_addr_in_shared_heap_chain");
-        ADD_BASIC_BLOCK(check_shared_heap_chain, "check_shared_heap_chain");
-        LLVMMoveBasicBlockAfter(app_addr_in_shared_heap_chain, block_curr);
-        LLVMMoveBasicBlockAfter(app_addr_in_cache_shared_heap,
-                                app_addr_in_shared_heap_chain);
-        LLVMMoveBasicBlockAfter(check_shared_heap_chain,
-                                app_addr_in_cache_shared_heap);
-        LLVMMoveBasicBlockAfter(app_addr_in_linear_mem,
-                                app_addr_in_cache_shared_heap);
+        ADD_BASIC_BLOCK(*check_shared_heap_chain, "check_shared_heap_chain");
+        LLVMMoveBasicBlockAfter(*app_addr_in_shared_heap_chain, block_curr);
+        LLVMMoveBasicBlockAfter(*app_addr_in_cache_shared_heap,
+                                *app_addr_in_shared_heap_chain);
+        LLVMMoveBasicBlockAfter(*check_shared_heap_chain,
+                                *app_addr_in_cache_shared_heap);
+        LLVMMoveBasicBlockAfter(*app_addr_in_linear_mem,
+                                *app_addr_in_cache_shared_heap);
     }
 
-    if (!bulk_memory)
-        LLVMMoveBasicBlockAfter(block_maddr_phi, app_addr_in_linear_mem);
-    else
-        LLVMMoveBasicBlockAfter(block_maddr_phi, check_succ);
+    return true;
+fail:
+    return false;
+}
 
-    if (comp_ctx->enable_shared_chain) {
-        /* Use >= here for func_ctx->shared_heap_head_start_off =
-         * shared_heap_head->start - 1 and use UINT32_MAX/UINT64_MAX value to
-         * indicate invalid value. The shared heap chain oob will be detected in
-         * app_addr_in_shared_heap block or aot_check_shared_heap_chain function
-         */
-        BUILD_ICMP(LLVMIntUGT, start_offset,
-                   func_ctx->shared_heap_head_start_off, is_in_shared_heap,
-                   "shared_heap_lb_cmp");
-        BUILD_COND_BR(is_in_shared_heap, app_addr_in_shared_heap_chain,
+/*
+ * Build a branch to check if start_offset is in the shared heap chain region.
+ *
+ * Arguments:
+ *   start_offset: The offset to check.
+ *   app_addr_in_shared_heap_chain: Block to branch if in shared heap chain.
+ *   app_addr_in_linear_mem: Block to branch if not in shared heap chain.
+ */
+static bool
+build_check_app_addr_in_shared_heap_chain(
+    AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+    LLVMValueRef start_offset, LLVMBasicBlockRef app_addr_in_shared_heap_chain,
+    LLVMBasicBlockRef app_addr_in_linear_mem)
+{
+    LLVMValueRef is_in_shared_heap = NULL;
+
+    /* Use start_offset > func_ctx->shared_heap_head_start_off to test
+     * start_off falls in shared heap chain memory region. The shared heap
+     * chain oob will be detected in app_addr_in_shared_heap block or
+     * aot_check_shared_heap_chain function
+     */
+    BUILD_ICMP(LLVMIntUGT, start_offset, func_ctx->shared_heap_head_start_off,
+               is_in_shared_heap, "shared_heap_lb_cmp");
+    BUILD_COND_BR(is_in_shared_heap, app_addr_in_shared_heap_chain,
+                  app_addr_in_linear_mem);
+
+    SET_BUILD_POS(app_addr_in_shared_heap_chain);
+
+    return true;
+fail:
+    return false;
+}
+
+/*
+ * Build the conditional branch for cache shared heap or shared heap chain.
+ *
+ * Arguments:
+ *   cmp: The condition for being in cache shared heap.
+ *   app_addr_in_cache_shared_heap: Block for cache shared heap.
+ *   app_addr_in_linear_mem: Block for linear memory.
+ *   check_shared_heap_chain: Block for checking shared heap chain.
+ *   bytes: The access size in bytes.
+ *   start_offset: The offset to check.
+ *   is_memory64: Whether memory is 64-bit.
+ */
+static bool
+build_shared_heap_conditional_branching(
+    AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, LLVMValueRef cmp,
+    LLVMBasicBlockRef app_addr_in_cache_shared_heap,
+    LLVMBasicBlockRef app_addr_in_linear_mem,
+    LLVMBasicBlockRef check_shared_heap_chain, LLVMValueRef bytes,
+    LLVMValueRef start_offset, bool is_memory64)
+{
+    if (comp_ctx->enable_shared_heap) {
+        BUILD_COND_BR(cmp, app_addr_in_cache_shared_heap,
                       app_addr_in_linear_mem);
-
-        SET_BUILD_POS(app_addr_in_shared_heap_chain);
     }
+    else if (comp_ctx->enable_shared_chain) {
+        BUILD_COND_BR(cmp, app_addr_in_cache_shared_heap,
+                      check_shared_heap_chain);
+        SET_BUILD_POS(check_shared_heap_chain);
+        if (!aot_check_shared_heap_chain(comp_ctx, func_ctx,
+                                         app_addr_in_cache_shared_heap,
+                                         start_offset, bytes, is_memory64))
+            goto fail;
+    }
+    return true;
+fail:
+    return false;
+}
+
+/*
+ * Get the native address in the cache shared heap.
+ *
+ * Arguments:
+ *   start_offset: The offset to use for address calculation.
+ *   maddr: Output, the native address that in the cache shared heap.
+ */
+static bool
+build_get_maddr_in_cache_shared_heap(AOTCompContext *comp_ctx,
+                                     AOTFuncContext *func_ctx,
+                                     LLVMValueRef start_offset,
+                                     LLVMValueRef *maddr)
+{
+    LLVMValueRef shared_heap_base_addr_adj;
+    /* load the local variable */
+    BUILD_LOAD_PTR(func_ctx->shared_heap_base_addr_adj, INT8_PTR_TYPE,
+                   shared_heap_base_addr_adj);
+    if (!(*maddr = LLVMBuildInBoundsGEP2(
+              comp_ctx->builder, INT8_TYPE, shared_heap_base_addr_adj,
+              &start_offset, 1, "maddr_cache_shared_heap"))) {
+        aot_set_last_error("llvm build inbounds gep failed");
+        goto fail;
+    }
+
+    return true;
+fail:
+    return false;
+}
+
+/*
+ * Check for memory overflow in shared heap for normal memory access.
+ *
+ * Arguments:
+ *   block_curr: The current basic block.
+ *   block_maddr_phi: The phi block for memory address.
+ *   maddr_phi: The phi node for memory address.
+ *   start_offset: The first offset to check.
+ *   mem_base_addr: The base address of memory. Only used with segue.
+ *   bytes_u32: The access size in bytes.
+ *   is_memory64: Whether memory is wasm64 memory.
+ *   is_target_64bit: Whether target is 64-bit.
+ *   enable_segue: Whether to use segment register addressing.
+ */
+static bool
+aot_check_shared_heap_memory_overflow(
+    AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+    LLVMBasicBlockRef block_curr, LLVMBasicBlockRef block_maddr_phi,
+    LLVMValueRef maddr_phi, LLVMValueRef start_offset,
+    LLVMValueRef mem_base_addr, uint32 bytes_u32, bool is_memory64,
+    bool is_target_64bit, bool enable_segue)
+{
+    LLVMBasicBlockRef app_addr_in_cache_shared_heap, app_addr_in_linear_mem;
+    LLVMBasicBlockRef app_addr_in_shared_heap_chain = NULL,
+                      check_shared_heap_chain = NULL;
+    LLVMValueRef cmp, cmp1, cmp2, shared_heap_start_off, shared_heap_end_off,
+        shared_heap_check_bound, maddr = NULL;
+    /* On 64/32-bit target, the offset is 64/32-bit */
+    LLVMTypeRef offset_type = is_target_64bit ? I64_TYPE : I32_TYPE;
+    LLVMValueRef length, bytes;
+
+    if (!setup_shared_heap_blocks(
+            comp_ctx, func_ctx, block_curr, &app_addr_in_cache_shared_heap,
+            &app_addr_in_linear_mem, &app_addr_in_shared_heap_chain,
+            &check_shared_heap_chain))
+        goto fail;
+    LLVMMoveBasicBlockAfter(block_maddr_phi, app_addr_in_linear_mem);
+
+    /* Early branching when it's not in shared heap chain at all */
+    if (comp_ctx->enable_shared_chain
+        && !build_check_app_addr_in_shared_heap_chain(
+            comp_ctx, func_ctx, start_offset, app_addr_in_shared_heap_chain,
+            app_addr_in_linear_mem))
+        goto fail;
+
     /* Load the local variable of the function */
     BUILD_LOAD_PTR(func_ctx->shared_heap_start_off, offset_type,
                    shared_heap_start_off);
@@ -303,56 +421,29 @@ aot_check_shared_heap_memory_overflow_common(
      */
     BUILD_ICMP(LLVMIntUGE, start_offset, shared_heap_start_off, cmp,
                "cmp_cache_shared_heap_start");
-    if (bulk_memory) {
-        BUILD_OP(Add, max_addr, is_target_64bit ? I64_NEG_ONE : I32_NEG_ONE,
-                 max_offset, "max_offset");
-        BUILD_ICMP(LLVMIntULE, max_offset, shared_heap_end_off, cmp1,
-                   "cmp_cache_shared_heap_end");
-    }
-    else {
-        length = is_target_64bit ? I64_CONST(bytes_u32 - 1)
-                                 : I32_CONST(bytes_u32 - 1);
-        CHECK_LLVM_CONST(length);
-        BUILD_OP(Sub, shared_heap_end_off, length, shared_heap_check_bound,
-                 "cache_shared_heap_end_bound");
-        BUILD_ICMP(LLVMIntULE, start_offset, shared_heap_check_bound, cmp1,
-                   "cmp_cache_shared_heap_end");
-    }
+    length =
+        is_target_64bit ? I64_CONST(bytes_u32 - 1) : I32_CONST(bytes_u32 - 1);
+    CHECK_LLVM_CONST(length);
+    BUILD_OP(Sub, shared_heap_end_off, length, shared_heap_check_bound,
+             "cache_shared_heap_end_bound");
+    BUILD_ICMP(LLVMIntULE, start_offset, shared_heap_check_bound, cmp1,
+               "cmp_cache_shared_heap_end");
     BUILD_OP(And, cmp, cmp1, cmp2, "is_in_cache_shared_heap");
-    if (comp_ctx->enable_shared_heap) {
-        BUILD_COND_BR(cmp2, app_addr_in_cache_shared_heap,
-                      app_addr_in_linear_mem);
-    }
-    else if (comp_ctx->enable_shared_chain) {
-        BUILD_COND_BR(cmp2, app_addr_in_cache_shared_heap,
-                      check_shared_heap_chain);
-        SET_BUILD_POS(check_shared_heap_chain);
-        if (!bulk_memory) {
-            bytes =
-                is_target_64bit ? I64_CONST(bytes_u32) : I32_CONST(bytes_u32);
-        }
-        if (!aot_check_shared_heap_chain(comp_ctx, func_ctx,
-                                         app_addr_in_cache_shared_heap,
-                                         start_offset, bytes, is_memory64)) {
-            aot_set_last_error("llvm build aot_check_shared_heap_chain failed");
-            goto fail;
-        }
-    }
+    /* Conditional branching based on whether in cached shared heap */
+    bytes = is_target_64bit ? I64_CONST(bytes_u32) : I32_CONST(bytes_u32);
+    if (!build_shared_heap_conditional_branching(
+            comp_ctx, func_ctx, cmp2, app_addr_in_cache_shared_heap,
+            app_addr_in_linear_mem, check_shared_heap_chain, bytes,
+            start_offset, is_memory64))
+        goto fail;
 
     SET_BUILD_POS(app_addr_in_cache_shared_heap);
-    /* load the local variable */
-    BUILD_LOAD_PTR(func_ctx->shared_heap_base_addr_adj, INT8_PTR_TYPE,
-                   shared_heap_base_addr_adj);
-    if (!(maddr = LLVMBuildInBoundsGEP2(
-              comp_ctx->builder, INT8_TYPE, shared_heap_base_addr_adj,
-              &start_offset, 1, "maddr_cache_shared_heap"))) {
-        aot_set_last_error("llvm build inbounds gep failed");
+    if (!build_get_maddr_in_cache_shared_heap(comp_ctx, func_ctx, start_offset,
+                                              &maddr))
         goto fail;
-    }
 
     if (enable_segue) {
         LLVMValueRef mem_base_addr_u64, maddr_u64, offset_to_mem_base;
-
         if (!(maddr_u64 = LLVMBuildPtrToInt(comp_ctx->builder, maddr, I64_TYPE,
                                             "maddr_u64"))
             || !(mem_base_addr_u64 =
@@ -378,27 +469,26 @@ aot_check_shared_heap_memory_overflow_common(
     LLVMAddIncoming(maddr_phi, &maddr, &app_addr_in_cache_shared_heap, 1);
     BUILD_BR(block_maddr_phi);
     SET_BUILD_POS(app_addr_in_linear_mem);
-    block_curr = LLVMGetInsertBlock(comp_ctx->builder);
 
     return true;
 fail:
     return false;
 }
 
-static bool
-aot_check_shared_heap_memory_overflow(
-    AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-    LLVMBasicBlockRef block_curr, LLVMBasicBlockRef block_maddr_phi,
-    LLVMValueRef maddr_phi, LLVMValueRef start_offset,
-    LLVMValueRef mem_base_addr, uint32 bytes_u32, bool is_memory64,
-    bool is_target_64bit, bool enable_segue)
-{
-    return aot_check_shared_heap_memory_overflow_common(
-        comp_ctx, func_ctx, block_curr, block_maddr_phi, NULL, maddr_phi,
-        start_offset, NULL, mem_base_addr, NULL, bytes_u32, is_memory64,
-        is_target_64bit, false, enable_segue);
-}
-
+/*
+ * Check for memory overflow in shared heap for bulk memory access.
+ *
+ * Arguments:
+ *   block_curr: The current basic block.
+ *   block_maddr_phi: The phi block for memory address.
+ *   check_succ: The block to branch to on success.
+ *   maddr_phi: The phi node for memory address.
+ *   start_offset: The offset to check.
+ *   max_addr: The maximum address to check.
+ *   bytes: The access size in bytes (LLVMValueRef).
+ *   is_memory64: Whether memory is wasm64 memory.
+ *   is_target_64bit: Whether target is 64-bit.
+ */
 static bool
 aot_check_bulk_memory_shared_heap_memory_overflow(
     AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
@@ -407,10 +497,62 @@ aot_check_bulk_memory_shared_heap_memory_overflow(
     LLVMValueRef start_offset, LLVMValueRef max_addr, LLVMValueRef bytes,
     bool is_memory64, bool is_target_64bit)
 {
-    return aot_check_shared_heap_memory_overflow_common(
-        comp_ctx, func_ctx, block_curr, block_maddr_phi, check_succ, maddr_phi,
-        start_offset, max_addr, NULL, bytes, 0, is_memory64, is_target_64bit,
-        true, false);
+    LLVMBasicBlockRef app_addr_in_cache_shared_heap, app_addr_in_linear_mem;
+    LLVMBasicBlockRef app_addr_in_shared_heap_chain = NULL,
+                      check_shared_heap_chain = NULL;
+    LLVMValueRef cmp, cmp1, cmp2, shared_heap_start_off, shared_heap_end_off,
+        maddr = NULL, max_offset;
+    /* On 64/32-bit target, the offset is 64/32-bit */
+    LLVMTypeRef offset_type = is_target_64bit ? I64_TYPE : I32_TYPE;
+
+    if (!setup_shared_heap_blocks(
+            comp_ctx, func_ctx, block_curr, &app_addr_in_cache_shared_heap,
+            &app_addr_in_linear_mem, &app_addr_in_shared_heap_chain,
+            &check_shared_heap_chain))
+        goto fail;
+    LLVMMoveBasicBlockAfter(block_maddr_phi, check_succ);
+
+    /* Early branching when it's not in shared heap chain at all */
+    if (comp_ctx->enable_shared_chain
+        && !build_check_app_addr_in_shared_heap_chain(
+            comp_ctx, func_ctx, start_offset, app_addr_in_shared_heap_chain,
+            app_addr_in_linear_mem))
+        goto fail;
+
+    /* Load the local variable of the function */
+    BUILD_LOAD_PTR(func_ctx->shared_heap_start_off, offset_type,
+                   shared_heap_start_off);
+    BUILD_LOAD_PTR(func_ctx->shared_heap_end_off, offset_type,
+                   shared_heap_end_off);
+    /* Check if the app address is in the cache shared heap range.
+     * If yes, branch to the cache branch; if not, check the shared heap chain
+     */
+    BUILD_ICMP(LLVMIntUGE, start_offset, shared_heap_start_off, cmp,
+               "cmp_cache_shared_heap_start");
+    BUILD_OP(Add, max_addr, is_target_64bit ? I64_NEG_ONE : I32_NEG_ONE,
+             max_offset, "max_offset");
+    BUILD_ICMP(LLVMIntULE, max_offset, shared_heap_end_off, cmp1,
+               "cmp_cache_shared_heap_end");
+    BUILD_OP(And, cmp, cmp1, cmp2, "is_in_cache_shared_heap");
+    /* Conditional branching based on whether in cached shared heap */
+    if (!build_shared_heap_conditional_branching(
+            comp_ctx, func_ctx, cmp2, app_addr_in_cache_shared_heap,
+            app_addr_in_linear_mem, check_shared_heap_chain, bytes,
+            start_offset, is_memory64))
+        goto fail;
+
+    SET_BUILD_POS(app_addr_in_cache_shared_heap);
+    if (!build_get_maddr_in_cache_shared_heap(comp_ctx, func_ctx, start_offset,
+                                              &maddr))
+        goto fail;
+
+    LLVMAddIncoming(maddr_phi, &maddr, &app_addr_in_cache_shared_heap, 1);
+    BUILD_BR(block_maddr_phi);
+    SET_BUILD_POS(app_addr_in_linear_mem);
+
+    return true;
+fail:
+    return false;
 }
 #endif
 

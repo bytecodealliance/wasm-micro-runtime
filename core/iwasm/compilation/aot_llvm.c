@@ -1525,6 +1525,15 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }                                                                  \
     } while (0)
 
+#define get_module_extra_field_offset(field)                        \
+    do {                                                            \
+        offset_u32 = get_module_inst_extra_offset(comp_ctx);        \
+        if (comp_ctx->is_jit_mode)                                  \
+            offset_u32 += offsetof(WASMModuleInstanceExtra, field); \
+        else                                                        \
+            offset_u32 += offsetof(AOTModuleInstanceExtra, field);  \
+    } while (0)
+
 #define LOAD_MODULE_EXTRA_FIELD_AND_ALLOCA(field, type)                        \
     do {                                                                       \
         get_module_extra_field_offset(field);                                  \
@@ -1638,7 +1647,11 @@ create_shared_heap_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     }
 
     /* if there is attached shared heap(s), the value will be valid start_off-1,
-     * otherwise it will be UINT32_MAX/UINT64_MAX */
+     * otherwise it will be UINT32_MAX/UINT64_MAX, so during the bounds checks,
+     * when has attached shared heap: offset > start_off - 1 => offset >= offset
+     * when no attached shared heap: offset > UINT32_MAX/UINT64_MAX is always
+     * false
+     * */
     if (!(func_ctx->shared_heap_head_start_off = LLVMBuildSelect(
               comp_ctx->builder, cmp, shared_heap_head_start_off_minus_one,
               shared_heap_head_start_off, "head_start_off"))) {
