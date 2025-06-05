@@ -615,7 +615,8 @@ is_app_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
         (uint64)get_last_used_shared_heap_start_offset(module_inst);
     shared_heap_end = (uint64)get_last_used_shared_heap_end_offset(module_inst);
     if (app_offset >= shared_heap_start
-        && app_offset <= shared_heap_end - bytes + 1) {
+        && app_offset <= shared_heap_end - bytes + 1
+        && bytes - 1 <= shared_heap_end) {
         return true;
     }
 
@@ -624,7 +625,8 @@ is_app_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
         is_memory64 ? heap->start_off_mem64 : heap->start_off_mem32;
     shared_heap_end = is_memory64 ? UINT64_MAX : UINT32_MAX;
     if (app_offset < shared_heap_start
-        || app_offset > shared_heap_end - bytes + 1) {
+        || app_offset > shared_heap_end - bytes + 1
+        || bytes - 1 > shared_heap_end) {
         goto fail;
     }
 
@@ -635,7 +637,8 @@ is_app_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
             is_memory64 ? cur->start_off_mem64 : cur->start_off_mem32;
         shared_heap_end = shared_heap_start - 1 + cur->size;
         if (app_offset >= shared_heap_start
-            && app_offset <= shared_heap_end - bytes + 1) {
+            && app_offset <= shared_heap_end - bytes + 1
+            && bytes - 1 <= shared_heap_end) {
             update_last_used_shared_heap(module_inst, cur, is_memory64);
             return true;
         }
