@@ -21,7 +21,7 @@ WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (Wasm) 
 
 ### Key features
 - Full compliant to the W3C Wasm MVP
-- Small runtime binary size (core vmlib on cortex-m4f with tail-call/bulk memroy/shared memroy support, text size from bloaty)
+- Small runtime binary size (core vmlib on cortex-m4f with tail-call/bulk memory/shared memory support, text size from bloaty)
   * ~58.9K for fast interpreter
   * ~56.3K for classic interpreter
   * ~29.4K for aot runtime
