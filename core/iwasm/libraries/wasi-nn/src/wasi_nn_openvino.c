@@ -308,17 +308,6 @@ set_input(void *ctx, graph_execution_context exec_ctx, uint32_t index,
         if (ret != success)
             goto fail;
 
-        /* NCHW -> NHWC */
-        if (wasi_nn_tensor->dimensions->size == 4 || ov_dims[1] == 3) {
-            /* N */
-            /* H */
-            ov_dims[1] = ov_dims[2];
-            /* W */
-            ov_dims[2] = ov_dims[3];
-            /* C */
-            ov_dims[3] = 3;
-        }
-
         CHECK_OV_STATUS(ov_shape_create(wasi_nn_tensor->dimensions->size,
                                         ov_dims, &input_shape),
                         ret);
@@ -353,11 +342,6 @@ set_input(void *ctx, graph_execution_context exec_ctx, uint32_t index,
                         ret);
         CHECK_OV_STATUS(ov_preprocess_input_tensor_info_set_from(
                             input_tensor_info, ov_ctx->input_tensor),
-                        ret);
-        /* ! HAS TO BE NHWC. Match previous layout conversion */
-        CHECK_OV_STATUS(ov_layout_create("NHWC", &input_layout), ret);
-        CHECK_OV_STATUS(ov_preprocess_input_tensor_info_set_layout(
-                            input_tensor_info, input_layout),
                         ret);
 
         /* add RESIZE */
