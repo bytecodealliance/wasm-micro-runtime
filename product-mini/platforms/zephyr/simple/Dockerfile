@@ -3,6 +3,9 @@
 
 # Refer to https://docs.zephyrproject.org/3.7.0/develop/getting_started/index.html
 # for more information on how to set up the Zephyr development environment.
+
+# If you modify this file, you may need to sync the modifications to the
+# .github/actions/setup-zephyr/action.yml
 FROM ubuntu:22.04
 
 ARG DEBIAN_FRONTEND=noninteractive
