@@ -111,21 +111,31 @@ if (WAMR_BUILD_AOT EQUAL 1)
   )
   if (WAMR_COMPILER)
     message (CHECK_PASS "found")
-  else()
+  else ()
     message (CHECK_FAIL "not found")
-  endif()
+  endif ()
   if (NOT EXISTS ${WAMR_COMPILER})
     message (FATAL_ERROR "Please build wamrc under ${WAMR_ROOT_DIR}/wamr-compiler")
-  else()
+  else ()
     message (STATUS "WAMR_COMPILER is ${WAMR_COMPILER}")
-  endif()
+  endif ()
+
+  if (WAMR_BUILD_TARGET STREQUAL "X86_32")
+    set (WAMR_COMPILER_FLAGS --enable-shared-heap --target=i386)
+    set (WAMR_COMPILER_CHAIN_FLAGS --enable-shared-chain --target=i386)
+  else ()
+    set (WAMR_COMPILER_FLAGS --enable-shared-heap)
+    set (WAMR_COMPILER_CHAIN_FLAGS --enable-shared-chain)
+  endif ()
 
   add_custom_target(
     wasm_to_aot
     ALL
     DEPENDS wasm-apps/test1.wasm wasm-apps/test2.wasm ${WAMR_COMPILER}
-    COMMAND ${WAMR_COMPILER} --enable-shared-heap -o wasm-apps/test1.aot wasm-apps/test1.wasm
-    COMMAND ${WAMR_COMPILER} --enable-shared-heap -o wasm-apps/test2.aot wasm-apps/test2.wasm
+    COMMAND ${WAMR_COMPILER} ${WAMR_COMPILER_FLAGS} -o wasm-apps/test1.aot wasm-apps/test1.wasm
+    COMMAND ${WAMR_COMPILER} ${WAMR_COMPILER_FLAGS} -o wasm-apps/test2.aot wasm-apps/test2.wasm
+    COMMAND ${WAMR_COMPILER} ${WAMR_COMPILER_CHAIN_FLAGS} -o wasm-apps/test1_chain.aot wasm-apps/test1.wasm
+    COMMAND ${WAMR_COMPILER} ${WAMR_COMPILER_CHAIN_FLAGS} -o wasm-apps/test2_chain.aot wasm-apps/test2.wasm
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   )
 endif()

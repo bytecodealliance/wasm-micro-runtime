@@ -95,13 +95,13 @@ typedef union {
 typedef struct WASMSharedHeap {
     /* The global shared heap list maintained in runtime, used for runtime
      * destroy */
-    struct WASMSharedHeap *next;
+    DefPointer(struct WASMSharedHeap *, next);
     /* The logical shared heap chain the shared heap in */
-    struct WASMSharedHeap *chain_next;
+    DefPointer(struct WASMSharedHeap *, chain_next);
     /* Will be null if shared heap is created from pre allocated memory chunk
      * and don't need to dynamic malloc and free */
-    void *heap_handle;
-    uint8 *base_addr;
+    DefPointer(void *, heap_handle);
+    DefPointer(uint8 *, base_addr);
     uint64 size;
     uint64 start_off_mem64;
     uint64 start_off_mem32;
