@@ -77,7 +77,11 @@ typedef struct {
     // Describe the size of the tensor (e.g., 2x2x2x2 -> [2, 2, 2, 2]). To
     // represent a tensor containing a single value, use `[1]` for the tensor
     // dimensions.
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0 && defined(__wasm__)
+    tensor_dimensions dimensions;
+#else
     tensor_dimensions *dimensions;
+#endif
     // Describe the type of element in the tensor (e.g., f32).
     uint8_t type;
     uint8_t _pad[3];
