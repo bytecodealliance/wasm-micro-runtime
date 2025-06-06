@@ -517,7 +517,6 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
     if (res != success)
         return res;
 
-    wasi_nn_ctx->backend = loaded_backend;
     wasi_nn_ctx->is_model_loaded = true;
     return success;
 }
@@ -577,7 +576,6 @@ wasi_nn_load_by_name_with_config(wasm_exec_env_t exec_env, char *name,
     if (res != success)
         return res;
 
-    wasi_nn_ctx->backend = loaded_backend;
     wasi_nn_ctx->is_model_loaded = true;
     return success;
 }
