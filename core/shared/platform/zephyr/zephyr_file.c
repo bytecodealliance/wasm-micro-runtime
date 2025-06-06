@@ -170,7 +170,28 @@ os_fstat(os_file_handle handle, struct __wasi_filestat_t *buf)
             return __WASI_ESUCCESS;
         }
 
-        return os_fstatat(handle, ptr->path, buf, 0);
+        // Get file information using Zephyr's fs_stat function
+        struct fs_dirent entry;
+        rc = fs_stat(ptr->path, &entry);
+        if (rc < 0) {
+            return convert_errno(-rc);
+        }
+
+        // Fill in the __wasi_filestat_t structure
+        buf->st_dev = 0; // Zephyr's fs_stat doesn't provide a device ID
+        buf->st_ino = 0; // Zephyr's fs_stat doesn't provide an inode number
+        buf->st_filetype = entry.type == FS_DIR_ENTRY_DIR
+                            ? __WASI_FILETYPE_DIRECTORY
+                            : __WASI_FILETYPE_REGULAR_FILE;
+        buf->st_nlink = 1; // Zephyr's fs_stat doesn't provide a link count
+        buf->st_size = entry.size;
+        buf->st_atim = 0; // Zephyr's fs_stat doesn't provide timestamps
+        buf->st_mtim = 0;
+        buf->st_ctim = 0;
+
+        return __WASI_ESUCCESS;
+
+        // return os_fstatat(handle, ptr->path, buf, 0);
     }
     else {
         // socklen_t socktypelen = sizeof(socktype);
@@ -214,8 +235,18 @@ os_fstatat(os_file_handle handle, const char *path,
         return __WASI_EBADF;
     }
 
+    char abs_path[MAX_FILE_NAME + 1];
+
+    if (handle == NULL) {
+        return __WASI_EINVAL; // Or another appropriate error code
+    }
+
+    if (!build_absolute_path(abs_path, sizeof(abs_path), path)) {
+        return __WASI_ENOMEM;
+    }
+
     // Get file information using Zephyr's fs_stat function
-    rc = fs_stat(path, &entry);
+    rc = fs_stat(abs_path, &entry);
     if (rc < 0) {
         return convert_errno(-rc);
     }
@@ -798,11 +829,7 @@ os_unlinkat(os_file_handle handle, const char *path, bool is_dir)
         return __WASI_ENOMEM;
     }
 
-    if (is_dir) {
-        return __WASI_ENOTDIR;
-    }
-
-    int rc = fs_unlink(path);
+    int rc = fs_unlink(abs_path);
     if (rc < 0) {
         return convert_errno(-rc);
     }
