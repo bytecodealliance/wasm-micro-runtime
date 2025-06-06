@@ -445,6 +445,92 @@ assign_table_init_value(AOTModuleInstance *module_inst, AOTModule *module,
 #endif /* end of WASM_ENABLE_GC != 0 */
 
 static bool
+get_init_expr_recursive(AOTModuleInstance *module_inst, AOTModule *module,
+                        InitializerExpression *expr, WASMValue *value,
+                        char *error_buf, uint32 error_buf_size)
+{
+    uint8 flag = expr->init_expr_type;
+    switch (flag) {
+        case INIT_EXPR_TYPE_GET_GLOBAL:
+        {
+            if (!check_global_init_expr(module, expr->u.global_index, error_buf,
+                                        error_buf_size)) {
+                return false;
+            }
+#if WASM_ENABLE_GC == 0
+            *value =
+                module->import_globals[expr->u.global_index].global_data_linked;
+#else
+            if (expr->u.global_index < module->import_global_count) {
+                bh_memcpy_s(value, sizeof(WASMValue),
+                            &module->import_globals[expr->u.global_index]
+                                 .global_data_linked,
+                            sizeof(WASMValue));
+            }
+            else {
+                bh_memcpy_s(value, sizeof(WASMValue),
+                            &module
+                                 ->globals[expr->u.global_index
+                                           - module->import_global_count]
+                                 .init_expr.u,
+                            sizeof(WASMValue));
+            }
+#endif
+            break;
+        }
+        case INIT_EXPR_TYPE_I32_CONST:
+        case INIT_EXPR_TYPE_I64_CONST:
+        {
+            bh_memcpy_s(value, sizeof(WASMValue), &expr->u, sizeof(WASMValue));
+            break;
+        }
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+        case INIT_EXPR_TYPE_I32_ADD:
+        case INIT_EXPR_TYPE_I32_SUB:
+        case INIT_EXPR_TYPE_I32_MUL:
+        case INIT_EXPR_TYPE_I64_ADD:
+        case INIT_EXPR_TYPE_I64_SUB:
+        case INIT_EXPR_TYPE_I64_MUL:
+        {
+            WASMValue l_value, r_value;
+            if (!get_init_expr_recursive(module_inst, module, expr->l_expr,
+                                         &l_value, error_buf, error_buf_size)) {
+                return false;
+            }
+            if (!get_init_expr_recursive(module_inst, module, expr->r_expr,
+                                         &r_value, error_buf, error_buf_size)) {
+                return false;
+            }
+
+            if (flag == INIT_EXPR_TYPE_I32_ADD) {
+                value->i32 = l_value.i32 + r_value.i32;
+            }
+            else if (flag == INIT_EXPR_TYPE_I32_SUB) {
+                value->i32 = l_value.i32 - r_value.i32;
+            }
+            else if (flag == INIT_EXPR_TYPE_I32_MUL) {
+                value->i32 = l_value.i32 * r_value.i32;
+            }
+            else if (flag == INIT_EXPR_TYPE_I64_ADD) {
+                value->i64 = l_value.i64 + r_value.i64;
+            }
+            else if (flag == INIT_EXPR_TYPE_I64_SUB) {
+                value->i64 = l_value.i64 - r_value.i64;
+            }
+            else if (flag == INIT_EXPR_TYPE_I64_MUL) {
+                value->i64 = l_value.i64 * r_value.i64;
+            }
+            break;
+        }
+#endif
+        default:
+            return false;
+    }
+
+    return true;
+}
+
+static bool
 global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                    char *error_buf, uint32 error_buf_size)
 {
@@ -472,30 +558,23 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         flag = init_expr->init_expr_type;
         switch (flag) {
             case INIT_EXPR_TYPE_GET_GLOBAL:
+            case INIT_EXPR_TYPE_I32_CONST:
+            case INIT_EXPR_TYPE_I64_CONST:
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+            case INIT_EXPR_TYPE_I32_ADD:
+            case INIT_EXPR_TYPE_I32_SUB:
+            case INIT_EXPR_TYPE_I32_MUL:
+            case INIT_EXPR_TYPE_I64_ADD:
+            case INIT_EXPR_TYPE_I64_SUB:
+            case INIT_EXPR_TYPE_I64_MUL:
+#endif
             {
-                if (!check_global_init_expr(module, init_expr->u.global_index,
-                                            error_buf, error_buf_size)) {
+                if (!get_init_expr_recursive(module_inst, module, init_expr,
+                                             &init_expr->u, error_buf,
+                                             error_buf_size)) {
                     return false;
                 }
-#if WASM_ENABLE_GC == 0
-                init_global_data(
-                    p, global->type.val_type,
-                    &module->import_globals[init_expr->u.global_index]
-                         .global_data_linked);
-#else
-                if (init_expr->u.global_index < module->import_global_count) {
-                    init_global_data(
-                        p, global->type.val_type,
-                        &module->import_globals[init_expr->u.global_index]
-                             .global_data_linked);
-                }
-                else {
-                    uint32 global_idx =
-                        init_expr->u.global_index - module->import_global_count;
-                    init_global_data(p, global->type.val_type,
-                                     &module->globals[global_idx].init_expr.u);
-                }
-#endif
+                init_global_data(p, global->type.val_type, &init_expr->u);
                 break;
             }
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
@@ -671,6 +750,7 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     uint64 total_size;
     AOTTableInitData *table_seg;
     AOTTableInstance *tbl_inst = first_tbl_inst;
+    uint8 offset_flag;
 
     total_size = (uint64)sizeof(AOTTableInstance *) * module_inst->table_count;
     if (total_size > 0
@@ -743,27 +823,38 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         tbl_inst = module_inst->tables[table_seg->table_index];
         bh_assert(tbl_inst);
 
+        offset_flag = table_seg->offset.init_expr_type;
+
 #if WASM_ENABLE_REF_TYPES != 0
-        bh_assert(
-            table_seg->offset.init_expr_type
-                == (tbl_inst->is_table64 ? INIT_EXPR_TYPE_I64_CONST
-                                         : INIT_EXPR_TYPE_I32_CONST)
-            || table_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL
-            || table_seg->offset.init_expr_type == INIT_EXPR_TYPE_FUNCREF_CONST
-            || table_seg->offset.init_expr_type
-                   == INIT_EXPR_TYPE_REFNULL_CONST);
+        bh_assert(offset_flag == INIT_EXPR_TYPE_GET_GLOBAL
+                  || offset_flag == INIT_EXPR_TYPE_FUNCREF_CONST
+                  || offset_flag == INIT_EXPR_TYPE_REFNULL_CONST
+                  || (tbl_inst->is_table64
+                          ? (offset_flag == INIT_EXPR_TYPE_I64_CONST
+                             || offset_flag == INIT_EXPR_TYPE_I64_ADD
+                             || offset_flag == INIT_EXPR_TYPE_I64_SUB
+                             || offset_flag == INIT_EXPR_TYPE_I64_MUL)
+                          : (offset_flag == INIT_EXPR_TYPE_I32_CONST
+                             || offset_flag == INIT_EXPR_TYPE_I32_ADD
+                             || offset_flag == INIT_EXPR_TYPE_I32_SUB
+                             || offset_flag == INIT_EXPR_TYPE_I32_MUL)));
 #else
-        bh_assert(table_seg->offset.init_expr_type
-                      == (tbl_inst->is_table64 ? INIT_EXPR_TYPE_I64_CONST
-                                               : INIT_EXPR_TYPE_I32_CONST)
-                  || table_seg->offset.init_expr_type
-                         == INIT_EXPR_TYPE_GET_GLOBAL);
+        bh_assert(offset_flag == INIT_EXPR_TYPE_GET_GLOBAL
+                  || (tbl_inst->is_table64
+                          ? (offset_flag == INIT_EXPR_TYPE_I64_CONST
+                             || offset_flag == INIT_EXPR_TYPE_I64_ADD
+                             || offset_flag == INIT_EXPR_TYPE_I64_SUB
+                             || offset_flag == INIT_EXPR_TYPE_I64_MUL)
+                          : (offset_flag == INIT_EXPR_TYPE_I32_CONST
+                             || offset_flag == INIT_EXPR_TYPE_I32_ADD
+                             || offset_flag == INIT_EXPR_TYPE_I32_SUB
+                             || offset_flag == INIT_EXPR_TYPE_I32_MUL)));
 #endif
 
         /* Resolve table data base offset */
         /* TODO: The table64 current implementation assumes table max size
          * UINT32_MAX, so the offset conversion here is safe */
-        if (table_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
+        if (offset_flag == INIT_EXPR_TYPE_GET_GLOBAL) {
             global_index = table_seg->offset.u.global_index;
 
             if (!check_global_init_expr(module, global_index, error_buf,
@@ -782,8 +873,14 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
             base_offset =
                 *(uint32 *)(module_inst->global_data + global_data_offset);
         }
-        else
+        else {
+            if (!get_init_expr_recursive(
+                    module_inst, module, &table_seg->offset,
+                    &table_seg->offset.u, error_buf, error_buf_size)) {
+                return false;
+            }
             base_offset = (uint32)table_seg->offset.u.i32;
+        }
 
         /* Copy table data */
         /* base_offset only since length might negative */
@@ -1118,6 +1215,7 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     AOTMemInitData *data_seg;
     uint64 total_size;
     mem_offset_t base_offset;
+    uint8 offset_flag;
 
     module_inst->memory_count = memory_count;
     total_size = sizeof(AOTMemoryInstance *) * (uint64)memory_count;
@@ -1156,14 +1254,20 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
                initialized */
             continue;
 
-        bh_assert(data_seg->offset.init_expr_type
-                      == (memory_inst->is_memory64 ? INIT_EXPR_TYPE_I64_CONST
-                                                   : INIT_EXPR_TYPE_I32_CONST)
-                  || data_seg->offset.init_expr_type
-                         == INIT_EXPR_TYPE_GET_GLOBAL);
+        offset_flag = data_seg->offset.init_expr_type;
+        bh_assert(offset_flag == INIT_EXPR_TYPE_GET_GLOBAL
+                  || (memory_inst->is_memory64
+                          ? (offset_flag == INIT_EXPR_TYPE_I64_CONST
+                             || offset_flag == INIT_EXPR_TYPE_I64_ADD
+                             || offset_flag == INIT_EXPR_TYPE_I64_SUB
+                             || offset_flag == INIT_EXPR_TYPE_I64_MUL)
+                          : (offset_flag == INIT_EXPR_TYPE_I32_CONST
+                             || offset_flag == INIT_EXPR_TYPE_I32_ADD
+                             || offset_flag == INIT_EXPR_TYPE_I32_SUB
+                             || offset_flag == INIT_EXPR_TYPE_I32_MUL)));
 
         /* Resolve memory data base offset */
-        if (data_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
+        if (offset_flag == INIT_EXPR_TYPE_GET_GLOBAL) {
             global_index = data_seg->offset.u.global_index;
 
             if (!check_global_init_expr(module, global_index, error_buf,
@@ -1192,6 +1296,11 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
             }
         }
         else {
+            if (!get_init_expr_recursive(module_inst, module, &data_seg->offset,
+                                         &data_seg->offset.u, error_buf,
+                                         error_buf_size)) {
+                return false;
+            }
 #if WASM_ENABLE_MEMORY64 != 0
             if (memory_inst->is_memory64) {
                 base_offset = data_seg->offset.u.i64;
@@ -2074,19 +2183,17 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         if (!wasm_elem_is_active(table_init_data->mode)) {
             continue;
         }
-
-        bh_assert(table_init_data->offset.init_expr_type
-                      == INIT_EXPR_TYPE_I32_CONST
-                  || table_init_data->offset.init_expr_type
-                         == INIT_EXPR_TYPE_GET_GLOBAL
-                  || table_init_data->offset.init_expr_type
-                         == INIT_EXPR_TYPE_FUNCREF_CONST
-                  || table_init_data->offset.init_expr_type
-                         == INIT_EXPR_TYPE_REFNULL_CONST);
+        uint8 offset_flag = table_init_data->offset.init_expr_type;
+        bh_assert(offset_flag == INIT_EXPR_TYPE_GET_GLOBAL
+                  || offset_flag == INIT_EXPR_TYPE_FUNCREF_CONST
+                  || offset_flag == INIT_EXPR_TYPE_REFNULL_CONST
+                  || offset_flag == INIT_EXPR_TYPE_I32_CONST
+                  || offset_flag == INIT_EXPR_TYPE_I32_ADD
+                  || offset_flag == INIT_EXPR_TYPE_I32_SUB
+                  || offset_flag == INIT_EXPR_TYPE_I32_MUL);
 
         /* init vec(funcidx) or vec(expr) */
-        if (table_init_data->offset.init_expr_type
-            == INIT_EXPR_TYPE_GET_GLOBAL) {
+        if (offset_flag == INIT_EXPR_TYPE_GET_GLOBAL) {
             uint32 data_offset;
             if (!check_global_init_expr(module,
                                         table_init_data->offset.u.global_index,
@@ -2108,9 +2215,15 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
                                   - module->import_global_count]
                         .data_offset;
             }
-
             table_init_data->offset.u.i32 =
                 *(uint32 *)(module_inst->global_data + data_offset);
+        }
+        else {
+            if (!get_init_expr_recursive(
+                    module_inst, module, &table_init_data->offset,
+                    &table_init_data->offset.u, error_buf, error_buf_size)) {
+                goto fail;
+            }
         }
 
         /* check offset since length might negative */

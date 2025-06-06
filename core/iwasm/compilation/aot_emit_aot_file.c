@@ -216,7 +216,7 @@ get_init_expr_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data,
 #if WASM_ENABLE_GC != 0
     WASMModule *module = comp_data->wasm_module;
 #endif
-
+    bh_assert(expr != NULL);
     /* + init value size */
     switch (expr->init_expr_type) {
         case INIT_EXPR_NONE:
@@ -308,6 +308,19 @@ get_init_expr_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data,
             break;
         }
 #endif /* end of WASM_ENABLE_GC != 0 */
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+        case INIT_EXPR_TYPE_I32_ADD:
+        case INIT_EXPR_TYPE_I32_SUB:
+        case INIT_EXPR_TYPE_I32_MUL:
+        case INIT_EXPR_TYPE_I64_ADD:
+        case INIT_EXPR_TYPE_I64_SUB:
+        case INIT_EXPR_TYPE_I64_MUL:
+        {
+            size += get_init_expr_size(comp_ctx, comp_data, expr->l_expr);
+            size += get_init_expr_size(comp_ctx, comp_data, expr->r_expr);
+            break;
+        }
+#endif
         default:
             bh_assert(0);
     }
@@ -324,14 +337,15 @@ get_table_init_data_size(AOTCompContext *comp_ctx,
     /*
      * mode (4 bytes), elem_type (4 bytes)
      *
-     * table_index(4 bytes) + init expr type (4 bytes) + init expr value (8
-     * bytes)
+     * table_index(4 bytes)
      */
-    size = (uint32)(sizeof(uint32) * 2 + sizeof(uint32) + sizeof(uint32)
-                    + sizeof(uint64))
+    size = (uint32)(sizeof(uint32) * 2 + sizeof(uint32))
            /* Size of WasmRefType - inner padding (ref type + nullable +
               heap_type) */
            + 8;
+
+    size += get_init_expr_size(comp_ctx, comp_ctx->comp_data,
+                               &table_init_data->offset);
 
     /* + value count/func index count (4 bytes) + init_values */
     size += sizeof(uint32);
@@ -1811,6 +1825,10 @@ static bool
 aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                    AOTCompContext *comp_ctx, InitializerExpression *expr)
 {
+    if (expr == NULL) {
+        aot_set_last_error("invalid init expr.");
+        return false;
+    }
     uint32 offset = *p_offset;
 #if WASM_ENABLE_GC != 0
     WASMModule *module = comp_ctx->comp_data->wasm_module;
@@ -1933,6 +1951,23 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             break;
         }
 #endif /* end of WASM_ENABLE_GC != 0 */
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+        case INIT_EXPR_TYPE_I32_ADD:
+        case INIT_EXPR_TYPE_I32_SUB:
+        case INIT_EXPR_TYPE_I32_MUL:
+        case INIT_EXPR_TYPE_I64_ADD:
+        case INIT_EXPR_TYPE_I64_SUB:
+        case INIT_EXPR_TYPE_I64_MUL:
+            if (!aot_emit_init_expr(buf, buf_end, &offset, comp_ctx,
+                                    expr->l_expr)) {
+                return false;
+            }
+            if (!aot_emit_init_expr(buf, buf_end, &offset, comp_ctx,
+                                    expr->r_expr)) {
+                return false;
+            }
+            break;
+#endif
         default:
             aot_set_last_error("invalid init expr type.");
             return false;
@@ -2034,8 +2069,10 @@ aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         EMIT_U32(init_datas[i]->mode);
         EMIT_U32(init_datas[i]->elem_type);
         EMIT_U32(init_datas[i]->table_index);
-        EMIT_U32(init_datas[i]->offset.init_expr_type);
-        EMIT_U64(init_datas[i]->offset.u.i64);
+        if (!aot_emit_init_expr(buf, buf_end, &offset, comp_ctx,
+                                &init_datas[i]->offset))
+            return false;
+
 #if WASM_ENABLE_GC != 0
         if (comp_ctx->enable_gc && init_datas[i]->elem_ref_type) {
             EMIT_U16(init_datas[i]->elem_ref_type->ref_ht_common.ref_type);

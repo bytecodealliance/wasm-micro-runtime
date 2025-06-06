@@ -716,4 +716,8 @@ unless used elsewhere */
 #define WASM_ENABLE_AOT_VALIDATOR 0
 #endif
 
+#ifndef WASM_ENABLE_EXTENDED_CONST_EXPR
+#define WASM_ENABLE_EXTENDED_CONST_EXPR 0
+#endif
+
 #endif /* end of _CONFIG_H_ */

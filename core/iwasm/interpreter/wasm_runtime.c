@@ -1165,6 +1165,83 @@ instantiate_array_global_recursive(WASMModule *module,
 }
 #endif
 
+static bool
+get_init_value_recursive(WASMModule *module, InitializerExpression *expr,
+                         WASMGlobalInstance *globals, WASMValue *value,
+                         char *error_buf, uint32 error_buf_size)
+{
+    uint8 flag = expr->init_expr_type;
+    switch (flag) {
+        case INIT_EXPR_TYPE_GET_GLOBAL:
+        {
+            if (!check_global_init_expr(module, expr->u.global_index, error_buf,
+                                        error_buf_size)) {
+                goto fail;
+            }
+
+            bh_memcpy_s(value, sizeof(WASMValue),
+                        &(globals[expr->u.global_index].initial_value),
+                        sizeof(globals[expr->u.global_index].initial_value));
+            break;
+        }
+        case INIT_EXPR_TYPE_I32_CONST:
+        case INIT_EXPR_TYPE_I64_CONST:
+        {
+            bh_memcpy_s(value, sizeof(WASMValue), &(expr->u), sizeof(expr->u));
+            break;
+        }
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+        case INIT_EXPR_TYPE_I32_ADD:
+        case INIT_EXPR_TYPE_I32_SUB:
+        case INIT_EXPR_TYPE_I32_MUL:
+        case INIT_EXPR_TYPE_I64_ADD:
+        case INIT_EXPR_TYPE_I64_SUB:
+        case INIT_EXPR_TYPE_I64_MUL:
+        {
+            WASMValue l_value, r_value;
+            if (!expr->l_expr || !expr->r_expr) {
+                goto fail;
+            }
+            if (!get_init_value_recursive(module, expr->l_expr, globals,
+                                          &l_value, error_buf,
+                                          error_buf_size)) {
+                goto fail;
+            }
+            if (!get_init_value_recursive(module, expr->r_expr, globals,
+                                          &r_value, error_buf,
+                                          error_buf_size)) {
+                goto fail;
+            }
+
+            if (flag == INIT_EXPR_TYPE_I32_ADD) {
+                value->i32 = l_value.i32 + r_value.i32;
+            }
+            else if (flag == INIT_EXPR_TYPE_I32_SUB) {
+                value->i32 = l_value.i32 - r_value.i32;
+            }
+            else if (flag == INIT_EXPR_TYPE_I32_MUL) {
+                value->i32 = l_value.i32 * r_value.i32;
+            }
+            else if (flag == INIT_EXPR_TYPE_I64_ADD) {
+                value->i64 = l_value.i64 + r_value.i64;
+            }
+            else if (flag == INIT_EXPR_TYPE_I64_SUB) {
+                value->i64 = l_value.i64 - r_value.i64;
+            }
+            else if (flag == INIT_EXPR_TYPE_I64_MUL) {
+                value->i64 = l_value.i64 * r_value.i64;
+            }
+            break;
+        }
+#endif /* end of WASM_ENABLE_EXTENDED_CONST_EXPR != 0 */
+        default:
+            goto fail;
+    }
+    return true;
+fail:
+    return false;
+}
+
 /**
  * Instantiate globals in a module.
  */
@@ -1245,17 +1322,23 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
 #endif
 
         switch (flag) {
+            case INIT_EXPR_TYPE_I32_CONST:
+            case INIT_EXPR_TYPE_I64_CONST:
             case INIT_EXPR_TYPE_GET_GLOBAL:
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+            case INIT_EXPR_TYPE_I32_ADD:
+            case INIT_EXPR_TYPE_I32_SUB:
+            case INIT_EXPR_TYPE_I32_MUL:
+            case INIT_EXPR_TYPE_I64_ADD:
+            case INIT_EXPR_TYPE_I64_SUB:
+            case INIT_EXPR_TYPE_I64_MUL:
+#endif
             {
-                if (!check_global_init_expr(module, init_expr->u.global_index,
-                                            error_buf, error_buf_size)) {
+                if (!get_init_value_recursive(module, init_expr, globals,
+                                              &global->initial_value, error_buf,
+                                              error_buf_size)) {
                     goto fail;
                 }
-
-                bh_memcpy_s(
-                    &(global->initial_value), sizeof(WASMValue),
-                    &(globals[init_expr->u.global_index].initial_value),
-                    sizeof(globals[init_expr->u.global_index].initial_value));
                 break;
             }
 #if WASM_ENABLE_GC != 0
@@ -2717,19 +2800,19 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
             (uint64)memory->num_bytes_per_page * memory->cur_page_count;
         bh_assert(memory_data || memory_size == 0);
 
-        bh_assert(data_seg->base_offset.init_expr_type
-                      == INIT_EXPR_TYPE_GET_GLOBAL
-                  || data_seg->base_offset.init_expr_type
-                         == (memory->is_memory64 ? INIT_EXPR_TYPE_I64_CONST
-                                                 : INIT_EXPR_TYPE_I32_CONST));
+        uint8 offset_flag = data_seg->base_offset.init_expr_type;
+        bh_assert(offset_flag == INIT_EXPR_TYPE_GET_GLOBAL
+                  || (memory->is_memory64
+                          ? (offset_flag == INIT_EXPR_TYPE_I64_CONST
+                             || offset_flag == INIT_EXPR_TYPE_I64_ADD
+                             || offset_flag == INIT_EXPR_TYPE_I64_SUB
+                             || offset_flag == INIT_EXPR_TYPE_I64_MUL)
+                          : (offset_flag == INIT_EXPR_TYPE_I32_CONST
+                             || offset_flag == INIT_EXPR_TYPE_I32_ADD
+                             || offset_flag == INIT_EXPR_TYPE_I32_SUB
+                             || offset_flag == INIT_EXPR_TYPE_I32_MUL)));
 
-        if (data_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
-            if (!check_global_init_expr(module,
-                                        data_seg->base_offset.u.global_index,
-                                        error_buf, error_buf_size)) {
-                goto fail;
-            }
-
+        if (offset_flag == INIT_EXPR_TYPE_GET_GLOBAL) {
             if (!globals
                 || globals[data_seg->base_offset.u.global_index].type
                        != (memory->is_memory64 ? VALUE_TYPE_I64
@@ -2738,33 +2821,23 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                               "data segment does not fit");
                 goto fail;
             }
-
-#if WASM_ENABLE_MEMORY64 != 0
-            if (memory->is_memory64) {
-                base_offset =
-                    (uint64)globals[data_seg->base_offset.u.global_index]
-                        .initial_value.i64;
-            }
-            else
-#endif
-            {
-                base_offset =
-                    (uint32)globals[data_seg->base_offset.u.global_index]
-                        .initial_value.i32;
-            }
-        }
-        else {
-#if WASM_ENABLE_MEMORY64 != 0
-            if (memory->is_memory64) {
-                base_offset = (uint64)data_seg->base_offset.u.i64;
-            }
-            else
-#endif
-            {
-                base_offset = (uint32)data_seg->base_offset.u.i32;
-            }
         }
 
+        if (!get_init_value_recursive(module, &data_seg->base_offset, globals,
+                                      &(data_seg->base_offset.u), error_buf,
+                                      error_buf_size)) {
+            goto fail;
+        }
+
+#if WASM_ENABLE_MEMORY64 != 0
+        if (memory->is_memory64) {
+            base_offset = (uint64)data_seg->base_offset.u.i64;
+        }
+        else
+#endif
+        {
+            base_offset = (uint32)data_seg->base_offset.u.i32;
+        }
         /* check offset */
         if (base_offset > memory_size) {
 #if WASM_ENABLE_MEMORY64 != 0
@@ -2940,31 +3013,24 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
             continue;
 #endif
 
+        uint8 offset_flag = table_seg->base_offset.init_expr_type;
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
-        bh_assert(table_seg->base_offset.init_expr_type
-                      == INIT_EXPR_TYPE_I32_CONST
-                  || table_seg->base_offset.init_expr_type
-                         == INIT_EXPR_TYPE_GET_GLOBAL
-                  || table_seg->base_offset.init_expr_type
-                         == INIT_EXPR_TYPE_FUNCREF_CONST
-                  || table_seg->base_offset.init_expr_type
-                         == INIT_EXPR_TYPE_REFNULL_CONST);
+        bh_assert(offset_flag == INIT_EXPR_TYPE_I32_CONST
+                  || offset_flag == INIT_EXPR_TYPE_GET_GLOBAL
+                  || offset_flag == INIT_EXPR_TYPE_FUNCREF_CONST
+                  || offset_flag == INIT_EXPR_TYPE_REFNULL_CONST
+                  || offset_flag == INIT_EXPR_TYPE_I32_ADD
+                  || offset_flag == INIT_EXPR_TYPE_I32_SUB
+                  || offset_flag == INIT_EXPR_TYPE_I32_MUL);
 #else
-        bh_assert(table_seg->base_offset.init_expr_type
-                      == INIT_EXPR_TYPE_I32_CONST
-                  || table_seg->base_offset.init_expr_type
-                         == INIT_EXPR_TYPE_GET_GLOBAL);
+        bh_assert(offset_flag == INIT_EXPR_TYPE_I32_CONST
+                  || offset_flag == INIT_EXPR_TYPE_GET_GLOBAL
+                  || offset_flag == INIT_EXPR_TYPE_I32_ADD
+                  || offset_flag == INIT_EXPR_TYPE_I32_SUB
+                  || offset_flag == INIT_EXPR_TYPE_I32_MUL);
 #endif
 
-        /* init vec(funcidx) or vec(expr) */
-        if (table_seg->base_offset.init_expr_type
-            == INIT_EXPR_TYPE_GET_GLOBAL) {
-            if (!check_global_init_expr(module,
-                                        table_seg->base_offset.u.global_index,
-                                        error_buf, error_buf_size)) {
-                goto fail;
-            }
-
+        if (offset_flag == INIT_EXPR_TYPE_GET_GLOBAL) {
             if (!globals
                 || globals[table_seg->base_offset.u.global_index].type
                        != VALUE_TYPE_I32) {
@@ -2972,10 +3038,12 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                               "type mismatch: elements segment does not fit");
                 goto fail;
             }
+        }
 
-            table_seg->base_offset.u.i32 =
-                globals[table_seg->base_offset.u.global_index]
-                    .initial_value.i32;
+        if (!get_init_value_recursive(module, &table_seg->base_offset, globals,
+                                      &(table_seg->base_offset.u), error_buf,
+                                      error_buf_size)) {
+            goto fail;
         }
 
         /* check offset since length might negative */
