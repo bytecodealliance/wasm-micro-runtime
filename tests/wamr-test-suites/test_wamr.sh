@@ -850,6 +850,7 @@ function build_wamrc()
         && cmake .. \
              -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE} \
              -DWAMR_BUILD_SHRUNK_MEMORY=0 \
+             -DWAMR_BUILD_EXTENDED_CONST_EXPR=${ENABLE_EXTENDED_CONST_EXPR} \
         && make -j 4
 }
 

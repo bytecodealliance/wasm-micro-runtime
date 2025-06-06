@@ -993,6 +993,11 @@ destroy_mem_init_data_list(AOTModule *module, AOTMemInitData **data_list,
             /* If the module owns the binary data, free the bytes buffer */
             if (module->is_binary_freeable && data_list[i]->bytes)
                 wasm_runtime_free(data_list[i]->bytes);
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+            if (is_expr_binary_op(data_list[i]->offset.init_expr_type)) {
+                destroy_sub_init_expr(&data_list[i]->offset);
+            }
+#endif
             /* Free the data segment structure itself */
             wasm_runtime_free(data_list[i]);
         }
@@ -1043,11 +1048,11 @@ load_mem_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
         uint32 byte_count;
         uint32 is_passive;
         uint32 memory_index;
-        InitializerExpression init_value;
+        InitializerExpression offset_expr;
 
         read_uint32(buf, buf_end, is_passive);
         read_uint32(buf, buf_end, memory_index);
-        if (!load_init_expr(&buf, buf_end, module, &init_value, error_buf,
+        if (!load_init_expr(&buf, buf_end, module, &offset_expr, error_buf,
                             error_buf_size)) {
             return false;
         }
@@ -1062,8 +1067,8 @@ load_mem_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
         data_list[i]->is_passive = (bool)is_passive;
         data_list[i]->memory_index = memory_index;
 #endif
-        data_list[i]->offset.init_expr_type = init_value.init_expr_type;
-        data_list[i]->offset.u = init_value.u;
+        bh_memcpy_s(&data_list[i]->offset, sizeof(InitializerExpression),
+                    &offset_expr, sizeof(InitializerExpression));
         data_list[i]->byte_count = byte_count;
         data_list[i]->bytes = NULL;
         /* If the module owns the binary data, clone the bytes buffer */
@@ -1182,6 +1187,11 @@ destroy_table_init_data_list(AOTTableInitData **data_list, uint32 count)
             uint32 j;
             for (j = 0; j < data_list[i]->value_count; j++) {
                 destroy_init_expr(&data_list[i]->init_values[j]);
+            }
+#endif
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+            if (is_expr_binary_op(data_list[i]->offset.init_expr_type)) {
+                destroy_sub_init_expr(&data_list[i]->offset);
             }
 #endif
             wasm_runtime_free(data_list[i]);
@@ -1350,6 +1360,32 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             break;
         }
 #endif /* end of WASM_ENABLE_GC != 0 */
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+        case INIT_EXPR_TYPE_I32_ADD:
+        case INIT_EXPR_TYPE_I32_SUB:
+        case INIT_EXPR_TYPE_I32_MUL:
+        case INIT_EXPR_TYPE_I64_ADD:
+        case INIT_EXPR_TYPE_I64_SUB:
+        case INIT_EXPR_TYPE_I64_MUL:
+        {
+            expr->l_expr = expr->r_expr = NULL;
+            if (!(expr->l_expr = loader_malloc(sizeof(InitializerExpression),
+                                               error_buf, error_buf_size))) {
+                goto fail;
+            }
+            if (!load_init_expr(&buf, buf_end, module, expr->l_expr, error_buf,
+                                error_buf_size))
+                goto fail;
+            if (!(expr->r_expr = loader_malloc(sizeof(InitializerExpression),
+                                               error_buf, error_buf_size))) {
+                goto fail;
+            }
+            if (!load_init_expr(&buf, buf_end, module, expr->r_expr, error_buf,
+                                error_buf_size))
+                goto fail;
+            break;
+        }
+#endif /* end of WASM_ENABLE_EXTENDED_CONST_EXPR != 0 */
         default:
             set_error_buf(error_buf, error_buf_size, "invalid init expr type.");
             return false;
@@ -1366,6 +1402,9 @@ fail:
     }
 #else
     (void)free_if_fail;
+#endif
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+    destroy_sub_init_expr(expr);
 #endif
     return false;
 }
@@ -1528,14 +1567,16 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
     /* Create each table data segment */
     for (i = 0; i < module->table_init_data_count; i++) {
         uint32 mode, elem_type;
-        uint32 table_index, init_expr_type, value_count;
-        uint64 init_expr_value, size1;
+        uint32 table_index, value_count;
+        uint64 size1;
+        InitializerExpression offset_expr;
 
         read_uint32(buf, buf_end, mode);
         read_uint32(buf, buf_end, elem_type);
         read_uint32(buf, buf_end, table_index);
-        read_uint32(buf, buf_end, init_expr_type);
-        read_uint64(buf, buf_end, init_expr_value);
+        if (!load_init_expr(&buf, buf_end, module, &offset_expr, error_buf,
+                            error_buf_size))
+            return false;
 #if WASM_ENABLE_GC != 0
         if (wasm_is_type_multi_byte_type(elem_type)) {
             uint16 ref_type, nullable;
@@ -1581,8 +1622,8 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
             }
         }
 #endif
-        data_list[i]->offset.init_expr_type = (uint8)init_expr_type;
-        data_list[i]->offset.u.i64 = (int64)init_expr_value;
+        bh_memcpy_s(&data_list[i]->offset, sizeof(InitializerExpression),
+                    &offset_expr, sizeof(InitializerExpression));
         data_list[i]->value_count = value_count;
         for (j = 0; j < data_list[i]->value_count; j++) {
             if (!load_init_expr(&buf, buf_end, module,
@@ -4477,6 +4518,15 @@ aot_unload(AOTModule *module)
         uint32 i;
         for (i = 0; i < module->global_count; i++) {
             destroy_init_expr(&module->globals[i].init_expr);
+        }
+#endif
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+        uint32 j;
+        for (j = 0; j < module->global_count; j++) {
+            if (is_expr_binary_op(
+                    module->globals[j].init_expr.init_expr_type)) {
+                destroy_sub_init_expr(&module->globals[j].init_expr);
+            }
         }
 #endif
         destroy_globals(module->globals);
