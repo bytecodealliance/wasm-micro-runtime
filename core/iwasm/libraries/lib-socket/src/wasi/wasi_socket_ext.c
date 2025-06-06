@@ -12,6 +12,26 @@
 #include <wasi/api.h>
 #include <wasi_socket_ext.h>
 
+/*
+ * Avoid direct TLS access to allow a single library to be
+ * linked to both of threaded and non-threaded applications.
+ *
+ * wasi-libc's errno is a TLS variable, exposed directly via
+ * errno.h. if we use it here, LLVM may lower it differently,
+ * depending on enabled features like atomcs and bulk-memory.
+ * we tweak the way to access errno here in order to make us
+ * compatible with both of threaded and non-threaded applications.
+ * __errno_location() should be reasonably stable because
+ * it was introduced as an alternative ABI for non-C software.
+ * https://github.com/WebAssembly/wasi-libc/pull/347
+ */
+#if defined(errno)
+#undef errno
+#endif
+int *
+__errno_location(void);
+#define errno (*__errno_location())
+
 #define HANDLE_ERROR(error)              \
     if (error != __WASI_ERRNO_SUCCESS) { \
         errno = error;                   \
