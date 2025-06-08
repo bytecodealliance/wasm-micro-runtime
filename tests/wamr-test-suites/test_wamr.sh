@@ -478,9 +478,9 @@ function spec_test()
         fi
 
         # As of version 1.0.36, wabt is still unable to correctly handle the GC proposal.
-        # 
+        #
         # $ $ /opt/wabt-1.0.36/bin/wast2json --enable-all ../spec/test/core/br_if.wast
-        # 
+        #
         # ../spec/test/core/br_if.wast:670:26: error: unexpected token "null", expected a numeric index or a name (e.g. 12 or $foo).
         #     (func $f (param (ref null $t)) (result funcref) (local.get 0))
         #
@@ -877,51 +877,12 @@ function do_execute_in_running_mode()
 {
     local RUNNING_MODE="$1"
 
-    if [[ ${ENABLE_MULTI_MEMORY} -eq 1 ]]; then
-        if [[ "${RUNNING_MODE}" != "classic-interp" \
-                && "${RUNNING_MODE}" != "aot" ]]; then
-            echo "support multi-memory in classic-interp mode and aot mode"
-            return 0
-        fi
-    fi
+    # filter out uncompatible running mode based on targeting proposal features
+    # keep alpha order
 
-    if [[ ${ENABLE_MEMORY64} -eq 1 ]]; then
-        if [[ "${RUNNING_MODE}" != "classic-interp" \
-                && "${RUNNING_MODE}" != "aot" ]]; then
-            echo "support memory64(wasm64) in classic-interp mode and aot mode"
-            return 0
-        fi
-    fi
-
-    if [[ ${ENABLE_MULTI_MODULE} -eq 1 ]]; then
-        if [[ "${RUNNING_MODE}" != "classic-interp" \
-                && "${RUNNING_MODE}" != "fast-interp" \
-                && "${RUNNING_MODE}" != "aot" ]]; then
-            echo "support multi-module in both interp modes"
-            return 0
-        fi
-    fi
-
-    if [[ ${SGX_OPT} == "--sgx" ]]; then
-        if [[ "${RUNNING_MODE}" != "classic-interp" \
-                && "${RUNNING_MODE}" != "fast-interp" \
-                && "${RUNNING_MODE}" != "aot" \
-                && "${RUNNING_MODE}" != "fast-jit" ]]; then
-            echo "support sgx in both interp modes, fast-jit mode and aot mode"
-            return 0
-        fi
-    fi
-
-    if [[ ${ENABLE_SIMD} -eq 1 ]]; then
-        if [[ "${RUNNING_MODE}" != "jit" && "${RUNNING_MODE}" != "aot" && "${RUNNING_MODE}" != "fast-interp" ]]; then
-            echo "support simd in llvm-jit, aot and fast-interp mode"
-            return 0;
-        fi
-    fi
-
-    if [[ ${TARGET} == "X86_32" ]]; then
-        if [[ "${RUNNING_MODE}" == "jit" || "${RUNNING_MODE}" == "fast-jit" ]]; then
-            echo "both llvm-jit mode and fast-jit mode do not support X86_32 target"
+    if [[ ${ENABLE_EH} -eq 1 ]]; then
+        if [[ "${RUNNING_MODE}" != "classic-interp" ]]; then
+            echo "support exception handling in classic-interp"
             return 0;
         fi
     fi
@@ -936,9 +897,67 @@ function do_execute_in_running_mode()
         fi
     fi
 
-    if [[ ${ENABLE_EH} -eq 1 ]]; then
+    if [[ ${ENABLE_MEMORY64} -eq 1 ]]; then
+        if [[ "${RUNNING_MODE}" != "classic-interp" \
+                && "${RUNNING_MODE}" != "aot" ]]; then
+            echo "support memory64(wasm64) in classic-interp mode and aot mode"
+            return 0
+        fi
+    fi
+
+    if [[ ${ENABLE_MULTI_MEMORY} -eq 1 ]]; then
         if [[ "${RUNNING_MODE}" != "classic-interp" ]]; then
-            echo "support exception handling in classic-interp"
+            echo "support multi-memory in classic-interp mode mode"
+            return 0
+        fi
+    fi
+
+    if [[ ${ENABLE_MULTI_MODULE} -eq 1 ]]; then
+        if [[ "${RUNNING_MODE}" != "classic-interp" \
+                && "${RUNNING_MODE}" != "fast-interp" \
+                && "${RUNNING_MODE}" != "aot" ]]; then
+            echo "support multi-module in both interp modes"
+            return 0
+        fi
+    fi
+
+    if [[ ${ENABLE_SIMD} -eq 1 ]]; then
+        if [[ "${RUNNING_MODE}" != "jit" && "${RUNNING_MODE}" != "aot" && "${RUNNING_MODE}" != "fast-interp" ]]; then
+            echo "support simd in llvm-jit, aot and fast-interp mode"
+            return 0;
+        fi
+    fi
+
+    # filter out uncompatible running mode based on SGX support
+    if [[ ${SGX_OPT} == "--sgx" ]]; then
+        if [[ "${RUNNING_MODE}" != "classic-interp" \
+                && "${RUNNING_MODE}" != "fast-interp" \
+                && "${RUNNING_MODE}" != "aot" \
+                && "${RUNNING_MODE}" != "fast-jit" ]]; then
+            echo "support sgx in both interp modes, fast-jit mode and aot mode"
+            return 0
+        fi
+    fi
+
+    # filter out uncompatible running mode based on architecture
+    if [[ ${TARGET} == "X86_32" ]]; then
+        if [[ "${RUNNING_MODE}" == "jit" || "${RUNNING_MODE}" == "fast-jit" || "${RUNNING_MODE}" == "multi-tier-jit" ]]; then
+            echo "both llvm-jit, fast-jit and multi-tier-jit mode do not support X86_32 target"
+            return 0;
+        fi
+
+        if [[ ${ENABLE_MEMORY64} -eq 1 ]]; then
+            echo "memory64 does not support X86_32 target"
+            return 0;
+        fi
+
+        if [[ ${ENABLE_MULTI_MEMORY} -eq 1 ]]; then
+            echo "multi-memory does not support X86_32 target"
+            return 0;
+        fi
+
+        if [[ ${ENABLE_SIMD} -eq 1 ]]; then
+            echo "simd does not support X86_32 target"
             return 0;
         fi
     fi

@@ -617,24 +617,11 @@ jobs:
             sanitizer: tsan
           - running_mode: "multi-tier-jit"
             sanitizer: tsan
-          # classic-interp and fast-interp don't support simd
-          - running_mode: "classic-interp"
-            test_option: $SIMD_TEST_OPTIONS
+          # simd128.h brings ubsan errors
+          # like: negation of XXXcannot be represented in type 'long int';
+          #       cast to an unsigned type to negate this value to itself
           - running_mode: "fast-interp"
-            test_option: $SIMD_TEST_OPTIONS
-          # llvm jit doesn't support multi module
-          - running_mode: "jit"
-            test_option: $MULTI_MODULES_TEST_OPTIONS
-          # fast-jit doesn't support multi module, simd
-          - running_mode: "fast-jit"
-            test_option: $MULTI_MODULES_TEST_OPTIONS
-          - running_mode: "fast-jit"
-            test_option: $SIMD_TEST_OPTIONS
-          # multi-tier-jit doesn't support multi module, simd
-          - running_mode: "multi-tier-jit"
-            test_option: $MULTI_MODULES_TEST_OPTIONS
-          - running_mode: "multi-tier-jit"
-            test_option: $SIMD_TEST_OPTIONS
+            sanitizer: ubsan
     steps:
       - name: checkout
         uses: actions/checkout@v4
