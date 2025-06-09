@@ -893,3 +893,49 @@ jobs:
         timeout-minutes: 5
         run: xvfb-run npm run test
         working-directory: test-tools/wamr-ide/VSCode-Extension
+
+  run_coremark_pgo:
+    needs: [build_wamrc, build_llvm_libraries_on_ubuntu]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: install-wasi-sdk-wabt
+        uses: ./.github/actions/install-wasi-sdk-wabt
+        with:
+          os: ubuntu-22.04
+
+      - name: Get LLVM libraries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
+          key: ${{ needs.build_llvm_libraries_on_ubuntu.outputs.cache_key }}
+          fail-on-cache-miss: true
+
+      - name: Build wamrc
+        run: |
+          mkdir build && cd build
+          cmake ..
+          cmake --build . --config Release --parallel 4
+        working-directory: wamr-compiler
+
+      - name: Build iwasm with static PGO
+        run: |
+          mkdir build && cd build
+          cmake .. -DWAMR_BUILD_STATIC_PGO=1
+          cmake --build . --config Release --parallel 4
+        working-directory: product-mini/platforms/linux
+
+      - name: Build CoreMark benchmark
+        run: ./build.sh
+        working-directory: tests/benchmarks/coremark
+
+      - name: Run CoreMark PGO test
+        run: ./test_pgo.sh
+        working-directory: tests/benchmarks/coremark
