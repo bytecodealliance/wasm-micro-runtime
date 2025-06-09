@@ -904,6 +904,15 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
 
+      - name: Install llvm-profdata-18
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget gnupg software-properties-common
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 18
+          sudo ln -sf /usr/bin/llvm-profdata-18 /usr/local/bin/llvm-profdata
+
       - name: install-wasi-sdk-wabt
         uses: ./.github/actions/install-wasi-sdk-wabt
         with:
