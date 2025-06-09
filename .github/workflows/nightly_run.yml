@@ -640,18 +640,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: install-wasi-sdk-wabt
+        if: matrix.test_option == '$WASI_TEST_OPTIONS'
         uses: ./.github/actions/install-wasi-sdk-wabt
         with:
           os: ${{ matrix.os }}
-
-      # It is a temporary solution until new wasi-sdk that includes bug fixes is released
-      - name: build wasi-libc from source
-        if: matrix.test_option == '$WASI_TEST_OPTIONS'
-        run: |
-          git clone https://github.com/WebAssembly/wasi-libc
-          cd wasi-libc
-          make -j AR=/opt/wasi-sdk/bin/llvm-ar NM=/opt/wasi-sdk/bin/llvm-nm CC=/opt/wasi-sdk/bin/clang THREAD_MODEL=posix
-          echo "SYSROOT_PATH=$PWD/sysroot" >> $GITHUB_ENV
 
       - name: set env variable(if llvm are used)
         if: matrix.running_mode == 'aot' || matrix.running_mode == 'jit' || matrix.running_mode == 'multi-tier-jit'
@@ -697,12 +689,12 @@ jobs:
 
       - name: Build WASI thread tests
         if: matrix.test_option == '$WASI_TEST_OPTIONS'
-        run: bash build.sh --sysroot "$SYSROOT_PATH"
+        run: bash build.sh
         working-directory: ./core/iwasm/libraries/lib-wasi-threads/test/
 
       - name: Build WASI thread stress tests
         if: matrix.test_option == '$WASI_TEST_OPTIONS'
-        run: bash build.sh --sysroot "$SYSROOT_PATH"
+        run: bash build.sh
         working-directory: ./core/iwasm/libraries/lib-wasi-threads/stress-test/
 
       - name: build socket api tests
