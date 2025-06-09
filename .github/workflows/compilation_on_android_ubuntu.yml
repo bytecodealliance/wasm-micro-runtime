@@ -897,6 +897,7 @@ jobs:
   run_coremark_pgo:
     needs:
       [
+        build_wamrc,
         build_llvm_libraries_on_ubuntu_2204,
       ]
     runs-on: ubuntu-22.04
