@@ -895,7 +895,10 @@ jobs:
         working-directory: test-tools/wamr-ide/VSCode-Extension
 
   run_coremark_pgo:
-    needs: [build_wamrc, build_llvm_libraries_on_ubuntu]
+    needs:
+      [
+        build_llvm_libraries_on_ubuntu_2204,
+      ]
     runs-on: ubuntu-22.04
     steps:
       - name: checkout
@@ -915,7 +918,7 @@ jobs:
             ./core/deps/llvm/build/lib
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
-          key: ${{ needs.build_llvm_libraries_on_ubuntu.outputs.cache_key }}
+          key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
           fail-on-cache-miss: true
 
       - name: Build wamrc
