@@ -496,7 +496,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
     bh_assert(const_expr_ctx.sp == 0);
 
     init_expr->init_expr_type = flag;
-    init_expr->u = cur_value;
+    init_expr->u.unary.v = cur_value;
 
     *p_buf = p;
     destroy_const_expr_stack(&const_expr_ctx);
@@ -1385,13 +1385,14 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                  * global.get instructions are
                  * only allowed to refer to imported globals.
                  */
-                uint32 target_global_index = global->init_expr.u.global_index;
+                uint32 target_global_index =
+                    global->init_expr.u.unary.v.global_index;
                 bh_assert(target_global_index < module->import_global_count);
                 (void)target_global_index;
             }
             else if (INIT_EXPR_TYPE_FUNCREF_CONST
                      == global->init_expr.init_expr_type) {
-                bh_assert(global->init_expr.u.ref_index
+                bh_assert(global->init_expr.u.unary.v.ref_index
                           < module->import_function_count
                                 + module->function_count);
             }
@@ -1575,7 +1576,7 @@ load_func_index_vec(const uint8 **p_buf, const uint8 *buf_end,
         }
 
         init_expr->init_expr_type = INIT_EXPR_TYPE_FUNCREF_CONST;
-        init_expr->u.ref_index = function_index;
+        init_expr->u.unary.v.ref_index = function_index;
     }
 
     *p_buf = p;
@@ -2778,7 +2779,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     && global->init_expr.init_expr_type
                            == INIT_EXPR_TYPE_I32_CONST) {
                     aux_heap_base_global = global;
-                    aux_heap_base = (uint64)(uint32)global->init_expr.u.i32;
+                    aux_heap_base =
+                        (uint64)(uint32)global->init_expr.u.unary.v.i32;
                     aux_heap_base_global_index = export->index;
                     LOG_VERBOSE("Found aux __heap_base global, value: %" PRIu64,
                                 aux_heap_base);
@@ -2798,7 +2800,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     && global->init_expr.init_expr_type
                            == INIT_EXPR_TYPE_I32_CONST) {
                     aux_data_end_global = global;
-                    aux_data_end = (uint64)(uint32)global->init_expr.u.i32;
+                    aux_data_end =
+                        (uint64)(uint32)global->init_expr.u.unary.v.i32;
                     aux_data_end_global_index = export->index;
                     LOG_VERBOSE("Found aux __data_end global, value: %" PRIu64,
                                 aux_data_end);
@@ -2838,10 +2841,11 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                         && global->type.val_type == VALUE_TYPE_I32
                         && global->init_expr.init_expr_type
                                == INIT_EXPR_TYPE_I32_CONST
-                        && (uint64)(uint32)global->init_expr.u.i32
+                        && (uint64)(uint32)global->init_expr.u.unary.v.i32
                                <= aux_heap_base) {
                         aux_stack_top_global = global;
-                        aux_stack_top = (uint64)(uint32)global->init_expr.u.i32;
+                        aux_stack_top =
+                            (uint64)(uint32)global->init_expr.u.unary.v.i32;
                         module->aux_stack_top_global_index =
                             module->import_global_count + global_index;
                         module->aux_stack_bottom = aux_stack_top;
@@ -7320,7 +7324,8 @@ re_scan:
                                 == VALUE_TYPE_FUNCREF
                             && module->globals[i].init_expr.init_expr_type
                                    == INIT_EXPR_TYPE_FUNCREF_CONST
-                            && module->globals[i].init_expr.u.u32 == func_idx) {
+                            && module->globals[i].init_expr.u.unary.v.ref_index
+                                   == func_idx) {
                             func_declared = true;
                             break;
                         }
@@ -7334,7 +7339,8 @@ re_scan:
                              i++, table_seg++) {
                             if (table_seg->elem_type == VALUE_TYPE_FUNCREF) {
                                 for (j = 0; j < table_seg->value_count; j++) {
-                                    if (table_seg->init_values[j].u.ref_index
+                                    if (table_seg->init_values[j]
+                                            .u.unary.v.ref_index
                                         == func_idx) {
                                         func_declared = true;
                                         break;

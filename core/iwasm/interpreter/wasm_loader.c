@@ -695,7 +695,7 @@ destroy_init_expr(WASMModule *module, InitializerExpression *expr)
     if (expr->init_expr_type == INIT_EXPR_TYPE_STRUCT_NEW
         || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW
         || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_FIXED) {
-        destroy_init_expr_data_recursive(module, expr->u.data);
+        destroy_init_expr_data_recursive(module, expr->u.unary.v.data);
     }
 }
 #endif /* end of WASM_ENABLE_GC != 0 */
@@ -871,8 +871,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                         goto fail;
                     }
                     r_expr->init_expr_type = r_flag;
-                    r_expr->u = r_value;
-                    r_expr->l_expr = r_expr->r_expr = NULL;
+                    r_expr->u.unary.v = r_value;
                 }
 
                 if (!(pop_const_expr_stack(&const_expr_ctx, &l_flag, value_type,
@@ -891,8 +890,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                         goto fail;
                     }
                     l_expr->init_expr_type = l_flag;
-                    l_expr->u = l_value;
-                    l_expr->l_expr = l_expr->r_expr = NULL;
+                    l_expr->u.unary.v = l_value;
                 }
 
                 if (!(cur_expr = loader_malloc(sizeof(InitializerExpression),
@@ -902,9 +900,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                     goto fail;
                 }
                 cur_expr->init_expr_type = flag;
-                cur_expr->u = cur_value;
-                cur_expr->l_expr = l_expr;
-                cur_expr->r_expr = r_expr;
+                cur_expr->u.binary.l_expr = l_expr;
+                cur_expr->u.binary.r_expr = r_expr;
 
                 if (!push_const_expr_stack(&const_expr_ctx, flag, value_type,
 #if WASM_ENABLE_GC != 0
@@ -1472,12 +1469,12 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
     }
     else {
         init_expr->init_expr_type = flag;
-        init_expr->u = cur_value;
+        init_expr->u.unary.v = cur_value;
     }
 
 #else
     init_expr->init_expr_type = flag;
-    init_expr->u = cur_value;
+    init_expr->u.unary.v = cur_value;
 #endif /* end of WASM_ENABLE_EXTENDED_CONST_EXPR != 0 */
 
 #if WASM_ENABLE_GC != 0
@@ -4259,9 +4256,9 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             if (global->init_expr.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
                 uint8 global_type;
                 WASMRefType *global_ref_type;
-                uint32 global_idx = global->init_expr.u.global_index;
+                uint32 global_idx = global->init_expr.u.unary.v.global_index;
 
-                if (global->init_expr.u.global_index
+                if (global->init_expr.u.unary.v.global_index
                     >= module->import_global_count + i) {
                     set_error_buf(error_buf, error_buf_size, "unknown global");
                     return false;
@@ -4658,7 +4655,7 @@ load_func_index_vec(const uint8 **p_buf, const uint8 *buf_end,
         }
 
         init_expr->init_expr_type = INIT_EXPR_TYPE_FUNCREF_CONST;
-        init_expr->u.ref_index = function_index;
+        init_expr->u.unary.v.ref_index = function_index;
     }
 
     *p_buf = p;
@@ -4931,7 +4928,7 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
 
 #if WASM_ENABLE_MEMORY64 != 0
             if (table_elem_idx_type == VALUE_TYPE_I64
-                && table_segment->base_offset.u.u64 > UINT32_MAX) {
+                && table_segment->base_offset.u.unary.v.u64 > UINT32_MAX) {
                 set_error_buf(error_buf, error_buf_size,
                               "In table64, table base offset can't be "
                               "larger than UINT32_MAX");
@@ -6221,7 +6218,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     && global->init_expr.init_expr_type
                            == INIT_EXPR_TYPE_I32_CONST) {
                     aux_heap_base_global = global;
-                    aux_heap_base = (uint64)(uint32)global->init_expr.u.i32;
+                    aux_heap_base =
+                        (uint64)(uint32)global->init_expr.u.unary.v.i32;
                     aux_heap_base_global_index = export->index;
                     LOG_VERBOSE("Found aux __heap_base global, value: %" PRIu64,
                                 aux_heap_base);
@@ -6242,7 +6240,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     && global->init_expr.init_expr_type
                            == INIT_EXPR_TYPE_I32_CONST) {
                     aux_data_end_global = global;
-                    aux_data_end = (uint64)(uint32)global->init_expr.u.i32;
+                    aux_data_end =
+                        (uint64)(uint32)global->init_expr.u.unary.v.i32;
                     aux_data_end_global_index = export->index;
                     LOG_VERBOSE("Found aux __data_end global, value: %" PRIu64,
                                 aux_data_end);
@@ -6283,10 +6282,11 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                         && global->type.val_type == VALUE_TYPE_I32
                         && global->init_expr.init_expr_type
                                == INIT_EXPR_TYPE_I32_CONST
-                        && (uint64)(uint32)global->init_expr.u.i32
+                        && (uint64)(uint32)global->init_expr.u.unary.v.i32
                                <= aux_heap_base) {
                         aux_stack_top_global = global;
-                        aux_stack_top = (uint64)(uint32)global->init_expr.u.i32;
+                        aux_stack_top =
+                            (uint64)(uint32)global->init_expr.u.unary.v.i32;
                         module->aux_stack_top_global_index =
                             module->import_global_count + global_index;
                         module->aux_stack_bottom = aux_stack_top;
@@ -13471,7 +13471,8 @@ re_scan:
                                 == VALUE_TYPE_FUNCREF
                             && module->globals[i].init_expr.init_expr_type
                                    == INIT_EXPR_TYPE_FUNCREF_CONST
-                            && module->globals[i].init_expr.u.u32 == func_idx) {
+                            && module->globals[i].init_expr.u.unary.v.u32
+                                   == func_idx) {
                             func_declared = true;
                             break;
                         }
@@ -13500,7 +13501,8 @@ re_scan:
 #endif
                             ) {
                                 for (j = 0; j < table_seg->value_count; j++) {
-                                    if (table_seg->init_values[j].u.ref_index
+                                    if (table_seg->init_values[j]
+                                            .u.unary.v.ref_index
                                         == func_idx) {
                                         func_declared = true;
                                         break;

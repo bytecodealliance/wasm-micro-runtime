@@ -283,11 +283,15 @@ typedef struct InitializerExpression {
     /* type of INIT_EXPR_TYPE_XXX, which is an instruction of
        constant expression */
     uint8 init_expr_type;
-    WASMValue u;
-#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
-    struct InitializerExpression *l_expr;
-    struct InitializerExpression *r_expr;
-#endif
+    union {
+        struct {
+            WASMValue v;
+        } unary;
+        struct {
+            struct InitializerExpression *l_expr;
+            struct InitializerExpression *r_expr;
+        } binary;
+    } u;
 } InitializerExpression;
 
 static inline bool

@@ -248,7 +248,7 @@ get_init_expr_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data,
         {
             uint32 i;
             WASMStructNewInitValues *struct_new_init_values =
-                (WASMStructNewInitValues *)expr->u.data;
+                (WASMStructNewInitValues *)expr->u.unary.v.data;
 
             /* type_index + field_count + fields */
             size += sizeof(uint32) + sizeof(uint32);
@@ -285,7 +285,7 @@ get_init_expr_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data,
         case INIT_EXPR_TYPE_ARRAY_NEW_FIXED:
         {
             WASMArrayNewInitValues *array_new_init_values =
-                (WASMArrayNewInitValues *)expr->u.data;
+                (WASMArrayNewInitValues *)expr->u.unary.v.data;
             WASMArrayType *array_type = NULL;
             uint32 value_count;
 
@@ -316,8 +316,10 @@ get_init_expr_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data,
         case INIT_EXPR_TYPE_I64_SUB:
         case INIT_EXPR_TYPE_I64_MUL:
         {
-            size += get_init_expr_size(comp_ctx, comp_data, expr->l_expr);
-            size += get_init_expr_size(comp_ctx, comp_data, expr->r_expr);
+            size +=
+                get_init_expr_size(comp_ctx, comp_data, expr->u.binary.l_expr);
+            size +=
+                get_init_expr_size(comp_ctx, comp_data, expr->u.binary.r_expr);
             break;
         }
 #endif
@@ -1842,31 +1844,31 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             break;
         case INIT_EXPR_TYPE_I32_CONST:
         case INIT_EXPR_TYPE_F32_CONST:
-            EMIT_U32(expr->u.i32);
+            EMIT_U32(expr->u.unary.v.i32);
             break;
         case INIT_EXPR_TYPE_I64_CONST:
         case INIT_EXPR_TYPE_F64_CONST:
-            EMIT_U64(expr->u.i64);
+            EMIT_U64(expr->u.unary.v.i64);
             break;
         case INIT_EXPR_TYPE_V128_CONST:
-            EMIT_V128(expr->u.v128);
+            EMIT_V128(expr->u.unary.v.v128);
             break;
         case INIT_EXPR_TYPE_GET_GLOBAL:
-            EMIT_U32(expr->u.global_index);
+            EMIT_U32(expr->u.unary.v.global_index);
             break;
         case INIT_EXPR_TYPE_FUNCREF_CONST:
         case INIT_EXPR_TYPE_REFNULL_CONST:
-            EMIT_U32(expr->u.ref_index);
+            EMIT_U32(expr->u.unary.v.ref_index);
             break;
 #if WASM_ENABLE_GC != 0
         case INIT_EXPR_TYPE_I31_NEW:
-            EMIT_U32(expr->u.i32);
+            EMIT_U32(expr->u.unary.v.i32);
             break;
         case INIT_EXPR_TYPE_STRUCT_NEW:
         {
             uint32 i;
             WASMStructNewInitValues *init_values =
-                (WASMStructNewInitValues *)expr->u.data;
+                (WASMStructNewInitValues *)expr->u.unary.v.data;
             WASMStructType *struct_type = NULL;
 
             EMIT_U32(init_values->type_idx);
@@ -1897,7 +1899,7 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             break;
         }
         case INIT_EXPR_TYPE_STRUCT_NEW_DEFAULT:
-            EMIT_U32(expr->u.type_index);
+            EMIT_U32(expr->u.unary.v.type_index);
             break;
         case INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT:
         {
@@ -1907,11 +1909,11 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                       < module->type_count);
             array_type =
                 (WASMArrayType *)
-                    module->types[expr->u.array_new_default.type_index];
+                    module->types[expr->u.unary.v.array_new_default.type_index];
 
             EMIT_U32(array_type->elem_type);
-            EMIT_U32(expr->u.array_new_default.type_index);
-            EMIT_U32(expr->u.array_new_default.length);
+            EMIT_U32(expr->u.unary.v.array_new_default.type_index);
+            EMIT_U32(expr->u.unary.v.array_new_default.length);
             break;
         }
         case INIT_EXPR_TYPE_ARRAY_NEW:
@@ -1919,7 +1921,7 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         {
             uint32 value_count, i, field_size;
             WASMArrayNewInitValues *init_values =
-                (WASMArrayNewInitValues *)expr->u.data;
+                (WASMArrayNewInitValues *)expr->u.unary.v.data;
             WASMArrayType *array_type = NULL;
 
             bh_assert(init_values->type_idx < module->type_count);
@@ -1959,11 +1961,11 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         case INIT_EXPR_TYPE_I64_SUB:
         case INIT_EXPR_TYPE_I64_MUL:
             if (!aot_emit_init_expr(buf, buf_end, &offset, comp_ctx,
-                                    expr->l_expr)) {
+                                    expr->u.binary.l_expr)) {
                 return false;
             }
             if (!aot_emit_init_expr(buf, buf_end, &offset, comp_ctx,
-                                    expr->r_expr)) {
+                                    expr->u.binary.r_expr)) {
                 return false;
             }
             break;

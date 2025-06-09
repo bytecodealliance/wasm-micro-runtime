@@ -1160,7 +1160,7 @@ destroy_init_expr(InitializerExpression *expr)
     if (expr->init_expr_type == INIT_EXPR_TYPE_STRUCT_NEW
         || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW
         || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_FIXED) {
-        wasm_runtime_free(expr->u.data);
+        wasm_runtime_free(expr->u.unary.v.data);
     }
 }
 #endif /* end of WASM_ENABLE_GC != 0 */
@@ -1218,34 +1218,34 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             break;
         case INIT_EXPR_TYPE_I32_CONST:
         case INIT_EXPR_TYPE_F32_CONST:
-            read_uint32(buf, buf_end, expr->u.i32);
+            read_uint32(buf, buf_end, expr->u.unary.v.i32);
             break;
         case INIT_EXPR_TYPE_I64_CONST:
         case INIT_EXPR_TYPE_F64_CONST:
-            read_uint64(buf, buf_end, expr->u.i64);
+            read_uint64(buf, buf_end, expr->u.unary.v.i64);
             break;
         case INIT_EXPR_TYPE_V128_CONST:
-            i64x2 = (uint64 *)expr->u.v128.i64x2;
+            i64x2 = (uint64 *)expr->u.unary.v.v128.i64x2;
             CHECK_BUF(buf, buf_end, sizeof(uint64) * 2);
             wasm_runtime_read_v128(buf, &i64x2[0], &i64x2[1]);
             buf += sizeof(uint64) * 2;
             break;
         case INIT_EXPR_TYPE_GET_GLOBAL:
-            read_uint32(buf, buf_end, expr->u.global_index);
+            read_uint32(buf, buf_end, expr->u.unary.v.global_index);
             break;
         /* INIT_EXPR_TYPE_FUNCREF_CONST can be used when
            both reference types and GC are disabled */
         case INIT_EXPR_TYPE_FUNCREF_CONST:
-            read_uint32(buf, buf_end, expr->u.ref_index);
+            read_uint32(buf, buf_end, expr->u.unary.v.ref_index);
             break;
 #if WASM_ENABLE_GC != 0 || WASM_ENABLE_REF_TYPES != 0
         case INIT_EXPR_TYPE_REFNULL_CONST:
-            read_uint32(buf, buf_end, expr->u.ref_index);
+            read_uint32(buf, buf_end, expr->u.unary.v.ref_index);
             break;
 #endif /* end of WASM_ENABLE_GC != 0 || WASM_ENABLE_REF_TYPES != 0 */
 #if WASM_ENABLE_GC != 0
         case INIT_EXPR_TYPE_I31_NEW:
-            read_uint32(buf, buf_end, expr->u.i32);
+            read_uint32(buf, buf_end, expr->u.unary.v.i32);
             break;
         case INIT_EXPR_TYPE_STRUCT_NEW:
         {
@@ -1266,7 +1266,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             free_if_fail = true;
             init_values->count = field_count;
             init_values->type_idx = type_idx;
-            expr->u.data = init_values;
+            expr->u.unary.v.data = init_values;
 
             if (type_idx >= module->type_count) {
                 set_error_buf(error_buf, error_buf_size,
@@ -1304,7 +1304,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             break;
         }
         case INIT_EXPR_TYPE_STRUCT_NEW_DEFAULT:
-            read_uint32(buf, buf_end, expr->u.type_index);
+            read_uint32(buf, buf_end, expr->u.unary.v.type_index);
             break;
         case INIT_EXPR_TYPE_ARRAY_NEW:
         case INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT:
@@ -1320,8 +1320,8 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             read_uint32(buf, buf_end, length);
 
             if (init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT) {
-                expr->u.array_new_default.type_index = type_idx;
-                expr->u.array_new_default.length = length;
+                expr->u.unary.v.array_new_default.type_index = type_idx;
+                expr->u.unary.v.array_new_default.length = length;
             }
             else {
                 uint32 i, elem_size, elem_data_count;
@@ -1332,7 +1332,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                     return false;
                 }
                 free_if_fail = true;
-                expr->u.data = init_values;
+                expr->u.unary.v.data = init_values;
 
                 init_values->type_idx = type_idx;
                 init_values->length = length;
@@ -1368,20 +1368,22 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         case INIT_EXPR_TYPE_I64_SUB:
         case INIT_EXPR_TYPE_I64_MUL:
         {
-            expr->l_expr = expr->r_expr = NULL;
-            if (!(expr->l_expr = loader_malloc(sizeof(InitializerExpression),
-                                               error_buf, error_buf_size))) {
+            expr->u.binary.l_expr = expr->u.binary.r_expr = NULL;
+            if (!(expr->u.binary.l_expr =
+                      loader_malloc(sizeof(InitializerExpression), error_buf,
+                                    error_buf_size))) {
                 goto fail;
             }
-            if (!load_init_expr(&buf, buf_end, module, expr->l_expr, error_buf,
-                                error_buf_size))
+            if (!load_init_expr(&buf, buf_end, module, expr->u.binary.l_expr,
+                                error_buf, error_buf_size))
                 goto fail;
-            if (!(expr->r_expr = loader_malloc(sizeof(InitializerExpression),
-                                               error_buf, error_buf_size))) {
+            if (!(expr->u.binary.r_expr =
+                      loader_malloc(sizeof(InitializerExpression), error_buf,
+                                    error_buf_size))) {
                 goto fail;
             }
-            if (!load_init_expr(&buf, buf_end, module, expr->r_expr, error_buf,
-                                error_buf_size))
+            if (!load_init_expr(&buf, buf_end, module, expr->u.binary.r_expr,
+                                error_buf, error_buf_size))
                 goto fail;
             break;
         }
@@ -1398,7 +1400,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 fail:
 #if WASM_ENABLE_GC != 0
     if (free_if_fail) {
-        wasm_runtime_free(expr->u.data);
+        wasm_runtime_free(expr->u.unary.v.data);
     }
 #else
     (void)free_if_fail;
