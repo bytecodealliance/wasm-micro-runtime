@@ -2809,15 +2809,8 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
         uint8 offset_flag = data_seg->base_offset.init_expr_type;
         bh_assert(offset_flag == INIT_EXPR_TYPE_GET_GLOBAL
-                  || (memory->is_memory64
-                          ? (offset_flag == INIT_EXPR_TYPE_I64_CONST
-                             || offset_flag == INIT_EXPR_TYPE_I64_ADD
-                             || offset_flag == INIT_EXPR_TYPE_I64_SUB
-                             || offset_flag == INIT_EXPR_TYPE_I64_MUL)
-                          : (offset_flag == INIT_EXPR_TYPE_I32_CONST
-                             || offset_flag == INIT_EXPR_TYPE_I32_ADD
-                             || offset_flag == INIT_EXPR_TYPE_I32_SUB
-                             || offset_flag == INIT_EXPR_TYPE_I32_MUL)));
+                  || (memory->is_memory64 ? is_valid_i64_offset(offset_flag)
+                                          : is_valid_i32_offset(offset_flag)));
 
         if (offset_flag == INIT_EXPR_TYPE_GET_GLOBAL) {
             if (!globals
