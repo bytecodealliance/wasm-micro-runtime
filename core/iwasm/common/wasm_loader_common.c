@@ -239,19 +239,4 @@ destroy_init_expr_recursive(InitializerExpression *expr)
     }
     wasm_runtime_free(expr);
 }
-
-void
-destroy_sub_init_expr(InitializerExpression *expr)
-{
-    if (is_expr_binary_op(expr->init_expr_type)) {
-        return;
-    }
-    if (expr->u.binary.l_expr) {
-        destroy_init_expr_recursive(expr->u.binary.l_expr);
-    }
-    if (expr->u.binary.r_expr) {
-        destroy_init_expr_recursive(expr->u.binary.r_expr);
-    }
-    expr->u.binary.l_expr = expr->u.binary.r_expr = NULL;
-}
 #endif /* end of WASM_ENABLE_EXTENDED_CONST_EXPR != 0 */

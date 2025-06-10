@@ -451,9 +451,9 @@ assign_table_init_value(AOTModuleInstance *module_inst, AOTModule *module,
 #endif /* end of WASM_ENABLE_GC != 0 */
 
 static bool
-get_init_expr_recursive(AOTModuleInstance *module_inst, AOTModule *module,
-                        InitializerExpression *expr, WASMValue *value,
-                        char *error_buf, uint32 error_buf_size)
+get_init_value_recursive(AOTModuleInstance *module_inst, AOTModule *module,
+                         InitializerExpression *expr, WASMValue *value,
+                         char *error_buf, uint32 error_buf_size)
 {
     uint8 flag = expr->init_expr_type;
     switch (flag) {
@@ -468,19 +468,14 @@ get_init_expr_recursive(AOTModuleInstance *module_inst, AOTModule *module,
                          .global_data_linked;
 #else
             if (expr->u.unary.v.global_index < module->import_global_count) {
-                bh_memcpy_s(
-                    value, sizeof(WASMValue),
-                    &module->import_globals[expr->u.unary.v.global_index]
-                         .global_data_linked,
-                    sizeof(WASMValue));
+                *value = module->import_globals[expr->u.unary.v.global_index]
+                             .global_data_linked;
             }
             else {
-                bh_memcpy_s(value, sizeof(WASMValue),
-                            &module
-                                 ->globals[expr->u.unary.v.global_index
-                                           - module->import_global_count]
-                                 .init_expr.u.unary.v,
-                            sizeof(WASMValue));
+                *value = module
+                             ->globals[expr->u.unary.v.global_index
+                                       - module->import_global_count]
+                             .init_expr.u.unary.v;
             }
 #endif
             break;
@@ -488,8 +483,7 @@ get_init_expr_recursive(AOTModuleInstance *module_inst, AOTModule *module,
         case INIT_EXPR_TYPE_I32_CONST:
         case INIT_EXPR_TYPE_I64_CONST:
         {
-            bh_memcpy_s(value, sizeof(WASMValue), &expr->u.unary.v,
-                        sizeof(WASMValue));
+            *value = expr->u.unary.v;
             break;
         }
 #if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
@@ -501,14 +495,14 @@ get_init_expr_recursive(AOTModuleInstance *module_inst, AOTModule *module,
         case INIT_EXPR_TYPE_I64_MUL:
         {
             WASMValue l_value, r_value;
-            if (!get_init_expr_recursive(module_inst, module,
-                                         expr->u.binary.l_expr, &l_value,
-                                         error_buf, error_buf_size)) {
+            if (!get_init_value_recursive(module_inst, module,
+                                          expr->u.binary.l_expr, &l_value,
+                                          error_buf, error_buf_size)) {
                 return false;
             }
-            if (!get_init_expr_recursive(module_inst, module,
-                                         expr->u.binary.r_expr, &r_value,
-                                         error_buf, error_buf_size)) {
+            if (!get_init_value_recursive(module_inst, module,
+                                          expr->u.binary.r_expr, &r_value,
+                                          error_buf, error_buf_size)) {
                 return false;
             }
 
@@ -580,9 +574,9 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 #endif
             {
                 WASMValue value;
-                if (!get_init_expr_recursive(module_inst, module, init_expr,
-                                             &value, error_buf,
-                                             error_buf_size)) {
+                if (!get_init_value_recursive(module_inst, module, init_expr,
+                                              &value, error_buf,
+                                              error_buf_size)) {
                     return false;
                 }
                 init_global_data(p, global->type.val_type, &value);
@@ -845,26 +839,12 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         bh_assert(offset_flag == INIT_EXPR_TYPE_GET_GLOBAL
                   || offset_flag == INIT_EXPR_TYPE_FUNCREF_CONST
                   || offset_flag == INIT_EXPR_TYPE_REFNULL_CONST
-                  || (tbl_inst->is_table64
-                          ? (offset_flag == INIT_EXPR_TYPE_I64_CONST
-                             || offset_flag == INIT_EXPR_TYPE_I64_ADD
-                             || offset_flag == INIT_EXPR_TYPE_I64_SUB
-                             || offset_flag == INIT_EXPR_TYPE_I64_MUL)
-                          : (offset_flag == INIT_EXPR_TYPE_I32_CONST
-                             || offset_flag == INIT_EXPR_TYPE_I32_ADD
-                             || offset_flag == INIT_EXPR_TYPE_I32_SUB
-                             || offset_flag == INIT_EXPR_TYPE_I32_MUL)));
+                  || (tbl_inst->is_table64 ? is_valid_i64_offset(offset_flag)
+                                           : is_valid_i32_offset(offset_flag)));
 #else
         bh_assert(offset_flag == INIT_EXPR_TYPE_GET_GLOBAL
-                  || (tbl_inst->is_table64
-                          ? (offset_flag == INIT_EXPR_TYPE_I64_CONST
-                             || offset_flag == INIT_EXPR_TYPE_I64_ADD
-                             || offset_flag == INIT_EXPR_TYPE_I64_SUB
-                             || offset_flag == INIT_EXPR_TYPE_I64_MUL)
-                          : (offset_flag == INIT_EXPR_TYPE_I32_CONST
-                             || offset_flag == INIT_EXPR_TYPE_I32_ADD
-                             || offset_flag == INIT_EXPR_TYPE_I32_SUB
-                             || offset_flag == INIT_EXPR_TYPE_I32_MUL)));
+                  || (tbl_inst->is_table64 ? is_valid_i64_offset(offset_flag)
+                                           : is_valid_i32_offset(offset_flag)));
 #endif
 
         /* Resolve table data base offset */
@@ -891,9 +871,9 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         }
         else {
             WASMValue offset_value;
-            if (!get_init_expr_recursive(module_inst, module,
-                                         &table_seg->offset, &offset_value,
-                                         error_buf, error_buf_size)) {
+            if (!get_init_value_recursive(module_inst, module,
+                                          &table_seg->offset, &offset_value,
+                                          error_buf, error_buf_size)) {
                 return false;
             }
             base_offset = (uint32)offset_value.i32;
@@ -1274,14 +1254,8 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         offset_flag = data_seg->offset.init_expr_type;
         bh_assert(offset_flag == INIT_EXPR_TYPE_GET_GLOBAL
                   || (memory_inst->is_memory64
-                          ? (offset_flag == INIT_EXPR_TYPE_I64_CONST
-                             || offset_flag == INIT_EXPR_TYPE_I64_ADD
-                             || offset_flag == INIT_EXPR_TYPE_I64_SUB
-                             || offset_flag == INIT_EXPR_TYPE_I64_MUL)
-                          : (offset_flag == INIT_EXPR_TYPE_I32_CONST
-                             || offset_flag == INIT_EXPR_TYPE_I32_ADD
-                             || offset_flag == INIT_EXPR_TYPE_I32_SUB
-                             || offset_flag == INIT_EXPR_TYPE_I32_MUL)));
+                          ? is_valid_i64_offset(offset_flag)
+                          : is_valid_i32_offset(offset_flag)));
 
         /* Resolve memory data base offset */
         if (offset_flag == INIT_EXPR_TYPE_GET_GLOBAL) {
@@ -1314,9 +1288,9 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         }
         else {
             WASMValue offset_value;
-            if (!get_init_expr_recursive(module_inst, module, &data_seg->offset,
-                                         &offset_value, error_buf,
-                                         error_buf_size)) {
+            if (!get_init_value_recursive(module_inst, module,
+                                          &data_seg->offset, &offset_value,
+                                          error_buf, error_buf_size)) {
                 return false;
             }
 #if WASM_ENABLE_MEMORY64 != 0
@@ -2238,7 +2212,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
                 *(uint32 *)(module_inst->global_data + data_offset);
         }
         else {
-            if (!get_init_expr_recursive(
+            if (!get_init_value_recursive(
                     module_inst, module, &table_init_data->offset,
                     &offset_value, error_buf, error_buf_size)) {
                 goto fail;

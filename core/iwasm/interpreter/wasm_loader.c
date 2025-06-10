@@ -688,18 +688,46 @@ destroy_const_expr_stack(ConstExprContext *ctx, bool free_exprs)
     }
 }
 
-#if WASM_ENABLE_GC != 0
+#if WASM_ENABLE_GC != 0 || WASM_ENABLE_EXTENDED_CONST_EXPR != 0
 static void
 destroy_init_expr(WASMModule *module, InitializerExpression *expr)
 {
+#if WASM_ENABLE_GC != 0
     if (expr->init_expr_type == INIT_EXPR_TYPE_STRUCT_NEW
         || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW
         || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_FIXED) {
         destroy_init_expr_data_recursive(module, expr->u.unary.v.data);
     }
-}
-#endif /* end of WASM_ENABLE_GC != 0 */
+#endif
 
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+    // free left expr and right exprs for binary oprand
+    if (!is_expr_binary_op(expr->init_expr_type)) {
+        return;
+    }
+    if (expr->u.binary.l_expr) {
+        destroy_init_expr_recursive(expr->u.binary.l_expr);
+    }
+    if (expr->u.binary.r_expr) {
+        destroy_init_expr_recursive(expr->u.binary.r_expr);
+    }
+    expr->u.binary.l_expr = expr->u.binary.r_expr = NULL;
+#endif
+}
+#endif
+
+/* for init expr
+ *    (data (i32.add (i32.const 0) (i32.sub (i32.const 1) (i32.const 2)))),
+ *   the binary format is
+ *       0x11: 41 00 ; i32.const 0
+ *       0x13: 41 01 ; i32.const 1
+ *       0x15: 41 02 ; i32.const 2
+ *       0x17: 6b    ; i32.sub
+ *       0x18: 6a    ; i32.add
+ *   for traversal: read opcodes and push them onto the stack. When encountering
+ *   a binary opcode, pop two values from the stack which become the left and
+ *  right child nodes of this binary operation node.
+ */
 static bool
 load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                InitializerExpression *init_expr, uint8 type, void *ref_type,
@@ -857,6 +885,10 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                     value_type = VALUE_TYPE_I64;
                 }
 
+                /* If right flag indicates a binary operation, right expr will
+                 * be popped from stack. Otherwise, allocate a new expr for
+                 * right expr. Same for left expr.
+                 */
                 if (!(pop_const_expr_stack(&const_expr_ctx, &r_flag, value_type,
 #if WASM_ENABLE_GC != 0
                                            NULL, NULL,
@@ -907,11 +939,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 #if WASM_ENABLE_GC != 0
                                            NULL, 0,
 #endif
-                                           &cur_value,
-#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
-                                           cur_expr,
-#endif
-                                           error_buf, error_buf_size)) {
+                                           &cur_value, cur_expr, error_buf,
+                                           error_buf_size)) {
                     destroy_init_expr_recursive(cur_expr);
                     goto fail;
                 }
@@ -5089,7 +5118,7 @@ load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
             if (!(dataseg = module->data_segments[i] = loader_malloc(
                       sizeof(WASMDataSeg), error_buf, error_buf_size))) {
 #if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
-                destroy_sub_init_expr(&init_expr);
+                destroy_init_expr(module, &init_expr);
 #endif
                 return false;
             }
@@ -7137,17 +7166,9 @@ wasm_loader_unload(WASMModule *module)
         wasm_runtime_free(module->memories);
 
     if (module->globals) {
-#if WASM_ENABLE_GC != 0
+#if WASM_ENABLE_GC != 0 || WASM_ENABLE_EXTENDED_CONST_EXPR != 0
         for (i = 0; i < module->global_count; i++) {
             destroy_init_expr(module, &module->globals[i].init_expr);
-        }
-#endif
-#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
-        for (i = 0; i < module->global_count; i++) {
-            if (is_expr_binary_op(
-                    module->globals[i].init_expr.init_expr_type)) {
-                destroy_sub_init_expr(&module->globals[i].init_expr);
-            }
         }
 #endif
         wasm_runtime_free(module->globals);
@@ -7179,10 +7200,7 @@ wasm_loader_unload(WASMModule *module)
                 wasm_runtime_free(module->table_segments[i].init_values);
             }
 #if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
-            if (is_expr_binary_op(
-                    module->table_segments[i].base_offset.init_expr_type)) {
-                destroy_sub_init_expr(&module->table_segments[i].base_offset);
-            }
+            destroy_init_expr(module, &module->table_segments[i].base_offset);
 #endif
         }
         wasm_runtime_free(module->table_segments);
@@ -7194,11 +7212,8 @@ wasm_loader_unload(WASMModule *module)
                 if (module->data_segments[i]->is_data_cloned)
                     wasm_runtime_free(module->data_segments[i]->data);
 #if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
-                if (is_expr_binary_op(
-                        module->data_segments[i]->base_offset.init_expr_type)) {
-                    destroy_sub_init_expr(
-                        &(module->data_segments[i]->base_offset));
-                }
+                destroy_init_expr(module,
+                                  &(module->data_segments[i]->base_offset));
 #endif
                 wasm_runtime_free(module->data_segments[i]);
             }

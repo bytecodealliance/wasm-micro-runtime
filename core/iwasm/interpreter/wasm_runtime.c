@@ -1179,17 +1179,13 @@ get_init_value_recursive(WASMModule *module, InitializerExpression *expr,
                 goto fail;
             }
 
-            bh_memcpy_s(
-                value, sizeof(WASMValue),
-                &(globals[expr->u.unary.v.global_index].initial_value),
-                sizeof(globals[expr->u.unary.v.global_index].initial_value));
+            *value = globals[expr->u.unary.v.global_index].initial_value;
             break;
         }
         case INIT_EXPR_TYPE_I32_CONST:
         case INIT_EXPR_TYPE_I64_CONST:
         {
-            bh_memcpy_s(value, sizeof(WASMValue), &(expr->u.unary.v),
-                        sizeof(expr->u.unary.v));
+            *value = expr->u.unary.v;
             break;
         }
 #if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
@@ -1411,9 +1407,7 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
             }
 #endif /* end of WASM_ENABLE_GC != 0 */
             default:
-                bh_memcpy_s(&(global->initial_value), sizeof(WASMValue),
-                            &(init_expr->u.unary.v),
-                            sizeof(init_expr->u.unary.v));
+                global->initial_value = init_expr->u.unary.v;
                 break;
         }
 
@@ -2809,15 +2803,14 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
         uint8 offset_flag = data_seg->base_offset.init_expr_type;
         bh_assert(offset_flag == INIT_EXPR_TYPE_GET_GLOBAL
-                  || (memory->is_memory64
-                          ? (offset_flag == INIT_EXPR_TYPE_I64_CONST
-                             || offset_flag == INIT_EXPR_TYPE_I64_ADD
-                             || offset_flag == INIT_EXPR_TYPE_I64_SUB
-                             || offset_flag == INIT_EXPR_TYPE_I64_MUL)
-                          : (offset_flag == INIT_EXPR_TYPE_I32_CONST
-                             || offset_flag == INIT_EXPR_TYPE_I32_ADD
-                             || offset_flag == INIT_EXPR_TYPE_I32_SUB
-                             || offset_flag == INIT_EXPR_TYPE_I32_MUL)));
+                  || (memory->is_memory64 ? is_valid_i64_offset(offset_flag)
+                                          : is_valid_i32_offset(offset_flag)));
+
+        if (!get_init_value_recursive(module, &data_seg->base_offset, globals,
+                                      &offset_value, error_buf,
+                                      error_buf_size)) {
+            goto fail;
+        }
 
         if (offset_flag == INIT_EXPR_TYPE_GET_GLOBAL) {
             if (!globals
@@ -2828,12 +2821,6 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                               "data segment does not fit");
                 goto fail;
             }
-        }
-
-        if (!get_init_value_recursive(module, &data_seg->base_offset, globals,
-                                      &offset_value, error_buf,
-                                      error_buf_size)) {
-            goto fail;
         }
 
 #if WASM_ENABLE_MEMORY64 != 0
@@ -3026,20 +3013,20 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
         uint8 offset_flag = table_seg->base_offset.init_expr_type;
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
-        bh_assert(offset_flag == INIT_EXPR_TYPE_I32_CONST
-                  || offset_flag == INIT_EXPR_TYPE_GET_GLOBAL
+        bh_assert(offset_flag == INIT_EXPR_TYPE_GET_GLOBAL
                   || offset_flag == INIT_EXPR_TYPE_FUNCREF_CONST
                   || offset_flag == INIT_EXPR_TYPE_REFNULL_CONST
-                  || offset_flag == INIT_EXPR_TYPE_I32_ADD
-                  || offset_flag == INIT_EXPR_TYPE_I32_SUB
-                  || offset_flag == INIT_EXPR_TYPE_I32_MUL);
+                  || is_valid_i32_offset(offset_flag));
 #else
-        bh_assert(offset_flag == INIT_EXPR_TYPE_I32_CONST
-                  || offset_flag == INIT_EXPR_TYPE_GET_GLOBAL
-                  || offset_flag == INIT_EXPR_TYPE_I32_ADD
-                  || offset_flag == INIT_EXPR_TYPE_I32_SUB
-                  || offset_flag == INIT_EXPR_TYPE_I32_MUL);
+        bh_assert(offset_flag == INIT_EXPR_TYPE_GET_GLOBAL
+                  || is_valid_i32_offset(offset_flag));
 #endif
+
+        if (!get_init_value_recursive(module, &table_seg->base_offset, globals,
+                                      &offset_value, error_buf,
+                                      error_buf_size)) {
+            goto fail;
+        }
 
         if (offset_flag == INIT_EXPR_TYPE_GET_GLOBAL) {
             if (!globals
@@ -3049,12 +3036,6 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                               "type mismatch: elements segment does not fit");
                 goto fail;
             }
-        }
-
-        if (!get_init_value_recursive(module, &table_seg->base_offset, globals,
-                                      &offset_value, error_buf,
-                                      error_buf_size)) {
-            goto fail;
         }
 
         /* check offset since length might negative */

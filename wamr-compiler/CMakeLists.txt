@@ -38,10 +38,10 @@ else()
   add_definitions(-DWASM_ENABLE_SIMD=1)
 endif()
 
-if (WAMR_BUILD_EXTENDED_CONST_EXPR EQUAL 1)
-  add_definitions(-DWASM_ENABLE_EXTENDED_CONST_EXPR=1)
-else()
+if (WAMR_BUILD_EXTENDED_CONST_EXPR EQUAL 0)
   add_definitions(-DWASM_ENABLE_EXTENDED_CONST_EXPR=0)
+else()
+  add_definitions(-DWASM_ENABLE_EXTENDED_CONST_EXPR=1)
 endif()
 
 add_definitions(-DWASM_ENABLE_INTERP=1)

@@ -302,13 +302,21 @@ is_expr_binary_op(uint8 flag)
            || flag == INIT_EXPR_TYPE_I64_SUB || flag == INIT_EXPR_TYPE_I64_MUL;
 }
 
-#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
-void
-destroy_init_expr_recursive(InitializerExpression *expr);
+/* check if table or data offset is valid for i32 offset */
+static inline bool
+is_valid_i32_offset(uint8 flag)
+{
+    return flag == INIT_EXPR_TYPE_I32_CONST || flag == INIT_EXPR_TYPE_I32_ADD
+           || flag == INIT_EXPR_TYPE_I32_SUB || flag == INIT_EXPR_TYPE_I32_MUL;
+}
 
-void
-destroy_sub_init_expr(InitializerExpression *expr);
-#endif
+/* check if table or data offset is valid for i64 offset */
+static inline bool
+is_valid_i64_offset(uint8 flag)
+{
+    return flag == INIT_EXPR_TYPE_I64_CONST || flag == INIT_EXPR_TYPE_I64_ADD
+           || flag == INIT_EXPR_TYPE_I64_SUB || flag == INIT_EXPR_TYPE_I64_MUL;
+}
 
 #if WASM_ENABLE_GC != 0
 /**

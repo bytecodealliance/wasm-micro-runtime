@@ -968,6 +968,35 @@ fail:
     return false;
 }
 
+#if WASM_ENABLE_GC != 0 || WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+static void
+destroy_init_expr(InitializerExpression *expr)
+{
+#if WASM_ENABLE_GC != 0
+    if (expr->init_expr_type == INIT_EXPR_TYPE_STRUCT_NEW
+        || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW
+        || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_FIXED) {
+        wasm_runtime_free(expr->u.unary.v.data);
+    }
+#endif
+
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+    // free left expr and right expr for binary oprand
+    if (!is_expr_binary_op(expr->init_expr_type)) {
+        return;
+    }
+    if (expr->u.binary.l_expr) {
+        destroy_init_expr_recursive(expr->u.binary.l_expr);
+    }
+    if (expr->u.binary.r_expr) {
+        destroy_init_expr_recursive(expr->u.binary.r_expr);
+    }
+    expr->u.binary.l_expr = expr->u.binary.r_expr = NULL;
+#endif
+}
+#endif /* end of WASM_ENABLE_GC != 0 || WASM_ENABLE_EXTENDED_CONST_EXPR != 0 \
+        */
+
 static void
 destroy_import_memories(AOTImportMemory *import_memories)
 {
@@ -993,10 +1022,9 @@ destroy_mem_init_data_list(AOTModule *module, AOTMemInitData **data_list,
             /* If the module owns the binary data, free the bytes buffer */
             if (module->is_binary_freeable && data_list[i]->bytes)
                 wasm_runtime_free(data_list[i]->bytes);
+
 #if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
-            if (is_expr_binary_op(data_list[i]->offset.init_expr_type)) {
-                destroy_sub_init_expr(&data_list[i]->offset);
-            }
+            destroy_init_expr(&data_list[i]->offset);
 #endif
             /* Free the data segment structure itself */
             wasm_runtime_free(data_list[i]);
@@ -1067,8 +1095,7 @@ load_mem_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
         data_list[i]->is_passive = (bool)is_passive;
         data_list[i]->memory_index = memory_index;
 #endif
-        bh_memcpy_s(&data_list[i]->offset, sizeof(InitializerExpression),
-                    &offset_expr, sizeof(InitializerExpression));
+        data_list[i]->offset = offset_expr;
         data_list[i]->byte_count = byte_count;
         data_list[i]->bytes = NULL;
         /* If the module owns the binary data, clone the bytes buffer */
@@ -1153,18 +1180,6 @@ fail:
     return false;
 }
 
-#if WASM_ENABLE_GC != 0
-static void
-destroy_init_expr(InitializerExpression *expr)
-{
-    if (expr->init_expr_type == INIT_EXPR_TYPE_STRUCT_NEW
-        || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW
-        || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_FIXED) {
-        wasm_runtime_free(expr->u.unary.v.data);
-    }
-}
-#endif /* end of WASM_ENABLE_GC != 0 */
-
 static void
 destroy_import_tables(AOTImportTable *import_tables)
 {
@@ -1190,9 +1205,7 @@ destroy_table_init_data_list(AOTTableInitData **data_list, uint32 count)
             }
 #endif
 #if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
-            if (is_expr_binary_op(data_list[i]->offset.init_expr_type)) {
-                destroy_sub_init_expr(&data_list[i]->offset);
-            }
+            destroy_init_expr(&data_list[i]->offset);
 #endif
             wasm_runtime_free(data_list[i]);
         }
@@ -1406,7 +1419,7 @@ fail:
     (void)free_if_fail;
 #endif
 #if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
-    destroy_sub_init_expr(expr);
+    destroy_init_expr(expr);
 #endif
     return false;
 }
@@ -1624,8 +1637,7 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
             }
         }
 #endif
-        bh_memcpy_s(&data_list[i]->offset, sizeof(InitializerExpression),
-                    &offset_expr, sizeof(InitializerExpression));
+        data_list[i]->offset = offset_expr;
         data_list[i]->value_count = value_count;
         for (j = 0; j < data_list[i]->value_count; j++) {
             if (!load_init_expr(&buf, buf_end, module,
@@ -4516,19 +4528,10 @@ aot_unload(AOTModule *module)
         destroy_import_globals(module->import_globals);
 
     if (module->globals) {
-#if WASM_ENABLE_GC != 0
+#if WASM_ENABLE_GC != 0 || WASM_ENABLE_EXTENDED_CONST_EXPR != 0
         uint32 i;
         for (i = 0; i < module->global_count; i++) {
             destroy_init_expr(&module->globals[i].init_expr);
-        }
-#endif
-#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
-        uint32 j;
-        for (j = 0; j < module->global_count; j++) {
-            if (is_expr_binary_op(
-                    module->globals[j].init_expr.init_expr_type)) {
-                destroy_sub_init_expr(&module->globals[j].init_expr);
-            }
         }
 #endif
         destroy_globals(module->globals);
