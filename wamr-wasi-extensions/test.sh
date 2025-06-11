@@ -3,6 +3,8 @@
 # Copyright (C) 2025 Midokura Japan KK.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+set -e
+
 PREFIX=/tmp/wamr
 WASI_SDK=${WASI_SDK:-/opt/wasi-sdk}
 
