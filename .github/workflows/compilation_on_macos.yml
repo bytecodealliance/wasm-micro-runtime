@@ -142,6 +142,7 @@ jobs:
             "-DWAMR_BUILD_SIMD=1",
             "-DWAMR_BUILD_TAIL_CALL=1",
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
+            "-DWAMR_BUILD_EXTENDED_CONST_EXPR=1",
           ]
         os: [macos-13]
         platform: [darwin]
