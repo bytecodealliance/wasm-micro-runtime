@@ -194,7 +194,7 @@ aot_intrinsic_clz_i32(uint32 type)
     return num;
 }
 
-uint32
+uint64
 aot_intrinsic_clz_i64(uint64 type)
 {
     uint32 num = 0;
@@ -220,7 +220,7 @@ aot_intrinsic_ctz_i32(uint32 type)
     return num;
 }
 
-uint32
+uint64
 aot_intrinsic_ctz_i64(uint64 type)
 {
     uint32 num = 0;
@@ -244,7 +244,7 @@ aot_intrinsic_popcnt_i32(uint32 u)
     return ret;
 }
 
-uint32
+uint64
 aot_intrinsic_popcnt_i64(uint64 u)
 {
     uint32 ret = 0;
@@ -485,6 +485,30 @@ aot_intrinsic_i64_bit_and(uint64 l, uint64 r)
     return l & r;
 }
 
+uint64
+aot_intrinsic_i64_mul(uint64 l, uint64 r)
+{
+    return l * r;
+}
+
+uint64
+aot_intrinsic_i64_shl(uint64 l, uint64 r)
+{
+    return l << r;
+}
+
+uint64
+aot_intrinsic_i64_shr_s(uint64 l, uint64 r)
+{
+    return (int64)l >> r;
+}
+
+uint64
+aot_intrinsic_i64_shr_u(uint64 l, uint64 r)
+{
+    return l >> r;
+}
+
 #if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0
 
 typedef struct {
@@ -561,6 +585,10 @@ static const aot_intrinsic g_intrinsic_mapping[] = {
     { "i64.rem_u", "aot_intrinsic_i64_rem_u", AOT_INTRINSIC_FLAG_I64_REM_U},
     { "i64.or", "aot_intrinsic_i64_bit_or", AOT_INTRINSIC_FLAG_I64_BIT_OR},
     { "i64.and", "aot_intrinsic_i64_bit_and", AOT_INTRINSIC_FLAG_I64_BIT_AND},
+    { "i64.mul", "aot_intrinsic_i64_mul", AOT_INTRINSIC_FLAG_I64_MUL},
+    { "i64.shl", "aot_intrinsic_i64_shl", AOT_INTRINSIC_FLAG_I64_SHL},
+    { "i64.shr_s", "aot_intrinsic_i64_shr_s", AOT_INTRINSIC_FLAG_I64_SHR_S},
+    { "i64.shr_u", "aot_intrinsic_i64_shr_u", AOT_INTRINSIC_FLAG_I64_SHR_U},
 };
 /* clang-format on */
 
@@ -601,6 +629,10 @@ add_i64_common_intrinsics(AOTCompContext *comp_ctx)
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_REM_U);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_BIT_OR);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_BIT_AND);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_MUL);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_SHL);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_SHR_S);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_SHR_U);
 }
 
 static void
@@ -866,6 +898,17 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
         if (!strncmp(comp_ctx->target_arch, "riscv32", 7)) {
             add_i64_common_intrinsics(comp_ctx);
         }
+        /*
+         * LLVM 16 and later expands cttz intrinsic to a table lookup,
+         * which involves some relocations. (unless ZBB is available,
+         * in which case the native instructions are preferred over
+         * the table-based lowering.)
+         * https://reviews.llvm.org/D128911
+         */
+#if LLVM_VERSION_MAJOR >= 16
+        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_CTZ);
+        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_CTZ);
+#endif
     }
     else if (!strncmp(comp_ctx->target_arch, "xtensa", 6)) {
         /*
@@ -878,9 +921,6 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
         add_i64_common_intrinsics(comp_ctx);
         add_common_float_integer_conversion(comp_ctx);
         add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_CONST);
-        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_CONST);
-        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_CONST);
-        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_CONST);
     }
     else {
         /*

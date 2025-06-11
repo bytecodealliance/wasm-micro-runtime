@@ -74,6 +74,12 @@ permissions:
   contents: read
 
 jobs:
+  check_version_h:
+    permissions:
+      contents: read
+      actions: write
+    uses: ./.github/workflows/check_version_h.yml
+
   build_llvm_libraries_on_ubuntu_2204:
     permissions:
       contents: read
@@ -152,6 +158,7 @@ jobs:
             "-DWAMR_BUILD_PERF_PROFILING=1",
             "-DWAMR_BUILD_REF_TYPES=1",
             "-DWAMR_BUILD_SIMD=1",
+            "-DWAMR_BUILD_LIB_SIMDE=1",
             "-DWAMR_BUILD_TAIL_CALL=1",
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
             "-DWAMR_BUILD_MEMORY64=1",
@@ -172,10 +179,8 @@ jobs:
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
           - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
-          # SIMD only on JIT/AOT mode
+          # SIMD only on JIT/AOT/fast interpreter mode
           - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_SIMD=1"
-          - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_SIMD=1"
           # DEBUG_INTERP only on CLASSIC INTERP mode
           - make_options_run_mode: $AOT_BUILD_OPTIONS
@@ -310,17 +315,14 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-22.04]
-        wasi_sdk_release:
-          [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz",
-          ]
-        wabt_release:
-          [
-            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
-          ]
+        build_target: [
+          "X86_64",
+          "X86_32",
+        ]
         include:
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
+
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -341,19 +343,10 @@ jobs:
         if: (steps.retrieve_llvm_libs.outputs.cache-hit != 'true')
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
-      - name: download and install wasi-sdk
-        run: |
-          cd /opt
-          sudo wget ${{ matrix.wasi_sdk_release }}
-          sudo tar -xzf wasi-sdk-*.tar.gz
-          sudo ln -sf wasi-sdk-20.0 wasi-sdk
-
-      - name: download and install wabt
-        run: |
-          cd /opt
-          sudo wget ${{ matrix.wabt_release }}
-          sudo tar -xzf wabt-1.0.31-*.tar.gz
-          sudo mv wabt-1.0.31 wabt
+      - name: install-wasi-sdk-wabt
+        uses: ./.github/actions/install-wasi-sdk-wabt
+        with:
+          os: ${{ matrix.os }}
 
       - name: Build wamrc
         run: |
@@ -362,10 +355,16 @@ jobs:
           cmake --build . --config Release --parallel 4
         working-directory: wamr-compiler
 
+      - name: Install dependencies for X86_32
+        if: matrix.build_target == 'X86_32'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-multilib
+
       - name: Build and run unit tests
         run: |
           mkdir build && cd build
-          cmake ..
+          cmake .. -DWAMR_BUILD_TARGET=${{ matrix.build_target }}
           cmake --build . --config Release --parallel 4
           ctest
         working-directory: tests/unit
@@ -392,14 +391,6 @@ jobs:
             $MULTI_TIER_JIT_BUILD_OPTIONS,
           ]
         os: [ubuntu-22.04]
-        wasi_sdk_release:
-          [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz",
-          ]
-        wabt_release:
-          [
-            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
-          ]
         include:
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
@@ -425,12 +416,10 @@ jobs:
         if: (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS')) && (steps.retrieve_llvm_libs.outputs.cache-hit != 'true')
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
-      - name: download and install wabt
-        run: |
-          cd /opt
-          sudo wget ${{ matrix.wabt_release }}
-          sudo tar -xzf wabt-1.0.31-*.tar.gz
-          sudo mv wabt-1.0.31 wabt
+      - name: install-wasi-sdk-wabt
+        uses: ./.github/actions/install-wasi-sdk-wabt
+        with:
+          os: ${{ matrix.os }}
 
       - name: Build wamrc
         if: (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS'))
@@ -448,6 +437,11 @@ jobs:
           ctest --test-dir build --output-on-failure
         working-directory: samples/wasm-c-api
 
+      - name: Build Sample [printversion]
+        run: |
+          ./test.sh
+        working-directory: samples/printversion
+
   build_samples_others:
     needs:
       [
@@ -459,34 +453,14 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-22.04]
-        wasi_sdk_release:
-          [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz",
-          ]
-        wabt_release:
-          [
-            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
-          ]
         include:
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
+
     steps:
       - name: checkout
         uses: actions/checkout@v4
 
-      - name: download and install wasi-sdk
-        run: |
-          cd /opt
-          sudo wget ${{ matrix.wasi_sdk_release }}
-          sudo tar -xzf wasi-sdk-*.tar.gz
-          sudo ln -sf wasi-sdk-20.0 wasi-sdk
-
-      - name: download and install wabt
-        run: |
-          cd /opt
-          sudo wget ${{ matrix.wabt_release }}
-          sudo tar -xzf wabt-1.0.31-*.tar.gz
-          sudo ln -sf wabt-1.0.31 wabt
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
         uses: actions/cache@v4
@@ -498,12 +472,19 @@ jobs:
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
           key: ${{ matrix.llvm_cache_key }}
+
+      - name: install-wasi-sdk-wabt
+        uses: ./.github/actions/install-wasi-sdk-wabt
+        with:
+          os: ${{ matrix.os }}
+
       - name: Build wamrc
         run: |
           mkdir build && cd build
           cmake ..
           cmake --build . --config Release --parallel 4
         working-directory: wamr-compiler
+
       - name: Build Sample [basic]
         run: |
           cd samples/basic
@@ -629,10 +610,6 @@ jobs:
             $MEMORY64_TEST_OPTIONS,
             $MULTI_MEMORY_TEST_OPTIONS,
           ]
-        wasi_sdk_release:
-          [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz",
-          ]
         include:
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
@@ -643,10 +620,8 @@ jobs:
             test_option: $WAMR_COMPILER_TEST_OPTIONS
         exclude:
           # incompatible modes and features
-          # classic-interp and fast-interp don't support simd
+          # classic-interp doesn't support simd
           - running_mode: "classic-interp"
-            test_option: $SIMD_TEST_OPTIONS
-          - running_mode: "fast-interp"
             test_option: $SIMD_TEST_OPTIONS
           # llvm jit doesn't support multi module
           - running_mode: "jit"
@@ -675,7 +650,7 @@ jobs:
             test_option: $MEMORY64_TEST_OPTIONS
           - running_mode: "multi-tier-jit"
             test_option: $MEMORY64_TEST_OPTIONS
-          # aot, fast-interp, fast-jit, llvm-jit, multi-tier-jit don't support Multi Memory 
+          # aot, fast-interp, fast-jit, llvm-jit, multi-tier-jit don't support Multi Memory
           - running_mode: "aot"
             test_option: $MULTI_MEMORY_TEST_OPTIONS
           - running_mode: "fast-interp"
@@ -703,20 +678,9 @@ jobs:
 
       - name: download and install wasi-sdk
         if: matrix.test_option == '$WASI_TEST_OPTIONS'
-        run: |
-          cd /opt
-          sudo wget ${{ matrix.wasi_sdk_release }}
-          sudo tar -xzf wasi-sdk-*.tar.gz
-          sudo mv wasi-sdk-20.0 wasi-sdk
-
-      # It is a temporary solution until new wasi-sdk that includes bug fixes is released
-      - name: build wasi-libc from source
-        if: matrix.test_option == '$WASI_TEST_OPTIONS'
-        run: |
-          git clone https://github.com/WebAssembly/wasi-libc
-          cd wasi-libc
-          make -j AR=/opt/wasi-sdk/bin/llvm-ar NM=/opt/wasi-sdk/bin/llvm-nm CC=/opt/wasi-sdk/bin/clang THREAD_MODEL=posix
-          echo "SYSROOT_PATH=$PWD/sysroot" >> $GITHUB_ENV
+        uses: ./.github/actions/install-wasi-sdk-wabt
+        with:
+          os: ${{ matrix.os }}
 
       - name: set env variable(if llvm are used)
         if: matrix.running_mode == 'aot' || matrix.running_mode == 'jit' || matrix.running_mode == 'multi-tier-jit'
@@ -754,7 +718,7 @@ jobs:
 
       - name: Build WASI thread tests
         if: matrix.test_option == '$WASI_TEST_OPTIONS'
-        run: bash build.sh --sysroot "$SYSROOT_PATH"
+        run: bash build.sh
         working-directory: ./core/iwasm/libraries/lib-wasi-threads/test/
 
       - name: build socket api tests

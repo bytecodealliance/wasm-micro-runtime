@@ -1,15 +1,37 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+# Yes. To solve the compatibility issue with CMAKE (>= 4.0), we need to update
+# our `cmake_minimum_required()` to 3.5. However, there are CMakeLists.txt
+# from 3rd parties that we should not alter. Therefore, in addition to
+# changing the `cmake_minimum_required()`, we should also add a configuration
+# here that is compatible with earlier versions.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5 FORCE)
+
 set (IWASM_AOT_DIR ${CMAKE_CURRENT_LIST_DIR})
 
 add_definitions (-DWASM_ENABLE_AOT=1)
 
 include_directories (${IWASM_AOT_DIR})
 
-file (GLOB c_source_all ${IWASM_AOT_DIR}/*.c)
+list (APPEND c_source_all
+  ${IWASM_AOT_DIR}/aot_intrinsic.c
+  ${IWASM_AOT_DIR}/aot_loader.c
+  ${IWASM_AOT_DIR}/aot_runtime.c
+)
 
-if (WAMR_BUILD_TARGET STREQUAL "X86_64" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
+if (WAMR_BUILD_LINUX_PERF EQUAL 1)
+  list (APPEND c_source_all ${IWASM_AOT_DIR}/aot_perf_map.c)
+endif ()
+
+if (WAMR_BUILD_AOT_VALIDATOR EQUAL 1)
+  list (APPEND c_source_all ${IWASM_AOT_DIR}/aot_validator.c)
+endif ()
+
+if (WAMR_BUILD_WAMR_COMPILER EQUAL 1)
+  # AOT reloc functions are not used during AOT compilation
+  set (arch_source ${IWASM_AOT_DIR}/arch/aot_reloc_dummy.c)
+elseif (WAMR_BUILD_TARGET STREQUAL "X86_64" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
   set (arch_source ${IWASM_AOT_DIR}/arch/aot_reloc_x86_64.c)
 elseif (WAMR_BUILD_TARGET STREQUAL "X86_32")
   set (arch_source ${IWASM_AOT_DIR}/arch/aot_reloc_x86_32.c)

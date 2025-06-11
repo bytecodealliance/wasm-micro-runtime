@@ -26,10 +26,10 @@
     (local (ref null struct))
 
     local.get 0
-    ref.test null array
+    ref.test (ref array)
     drop
     local.get 1
-    ref.cast i31
+    ref.cast (ref i31)
     drop
   )
 )

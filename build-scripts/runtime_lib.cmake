@@ -14,7 +14,7 @@ if (NOT DEFINED DEPS_DIR)
     set (DEPS_DIR ${WAMR_ROOT_DIR}/core/deps)
 endif ()
 if (NOT DEFINED SHARED_PLATFORM_CONFIG)
-    # CMake file for platform configuration. The PLATFORM_SHARED_SOURCE varable
+    # CMake file for platform configuration. The PLATFORM_SHARED_SOURCE variable
     # should point to a list of platform-specfic source files to compile.
     set (SHARED_PLATFORM_CONFIG ${SHARED_DIR}/platform/${WAMR_BUILD_PLATFORM}/shared_platform.cmake)
 endif ()
@@ -168,6 +168,18 @@ endif ()
 # include the build config template file
 include (${CMAKE_CURRENT_LIST_DIR}/config_common.cmake)
 
+if (WAMR_BUILD_SIMD EQUAL 1 AND WAMR_BUILD_FAST_INTERP EQUAL 1)
+    if (WAMR_BUILD_PLATFORM STREQUAL "windows")
+        message(STATUS "SIMDe doesnt support platform " ${WAMR_BUILD_PLATFORM})
+        set(WAMR_BUILD_SIMDE 0)
+    else()
+        include (${IWASM_DIR}/libraries/simde/simde.cmake)
+        set (WAMR_BUILD_SIMDE 1)
+    endif()
+else()
+    set(WAMR_BUILD_SIMDE 0)
+endif ()
+
 include_directories (${IWASM_DIR}/include)
 
 file (GLOB header
@@ -180,6 +192,13 @@ if (WAMR_BUILD_PLATFORM STREQUAL "windows")
 else()
     enable_language (ASM)
 endif()
+
+# it will expose the runtime APIs.
+# you'll use the following command to check the exported APIs
+# dumpbin.exe /EXPORTS xxx
+if (MSVC)
+    add_compile_definitions(COMPILING_WASM_RUNTIME_API=1)
+endif ()
 
 include (${SHARED_PLATFORM_CONFIG})
 include (${SHARED_DIR}/mem-alloc/mem_alloc.cmake)

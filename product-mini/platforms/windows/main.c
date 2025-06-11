@@ -44,7 +44,11 @@ print_help()
     printf("  --multi-tier-jit       Run the wasm app with multi-tier jit mode\n");
 #endif
     printf("  --stack-size=n         Set maximum stack size in bytes, default is 64 KB\n");
-    printf("  --heap-size=n          Set maximum heap size in bytes, default is 16 KB\n");
+#if WASM_ENABLE_LIBC_WASI !=0
+    printf("  --heap-size=n            Set maximum heap size in bytes, default is 0 KB when libc wasi is enabled\n");
+#else
+    printf("  --heap-size=n            Set maximum heap size in bytes, default is 16 KB when libc wasi is diabled\n");
+#endif
 #if WASM_ENABLE_GC != 0
     printf("  --gc-heap-size=n         Set maximum gc heap size in bytes,\n");
     printf("                           default is %u KB\n", GC_HEAP_SIZE_DEFAULT / 1024);

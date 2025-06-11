@@ -159,6 +159,17 @@ LLVMCreateTargetMachineWithOpts(LLVMTargetRef ctarget, const char *triple,
     auto cm = convert(code_model, &jit);
     auto targetmachine = target->createTargetMachine(triple, cpu, features,
                                                      opts, rm, cm, ol, jit);
+#if LLVM_VERSION_MAJOR >= 18
+    // always place data in normal data section.
+    //
+    // note that:
+    // - our aot file emitter/loader doesn't support x86-64 large data
+    //   sections. (eg .lrodata)
+    // - for our purposes, "data" is usually something the compiler
+    //   generated. (eg. jump tables) we probably never benefit from
+    //   large data sections.
+    targetmachine->setLargeDataThreshold(UINT64_MAX);
+#endif
     return reinterpret_cast<LLVMTargetMachineRef>(targetmachine);
 }
 

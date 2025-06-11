@@ -10,6 +10,9 @@
 #include "../common/wasm_native.h"
 #include "../common/wasm_loader_common.h"
 #include "../compilation/aot.h"
+#if WASM_ENABLE_AOT_VALIDATOR != 0
+#include "aot_validator.h"
+#endif
 
 #if WASM_ENABLE_DEBUG_AOT != 0
 #include "debug/elf_parser.h"
@@ -314,9 +317,12 @@ loader_mmap(uint32 size, bool prot_exec, char *error_buf, uint32 error_buf_size)
     map_flags = MMAP_MAP_32BIT;
     if ((mem = os_mmap(NULL, size, map_prot, map_flags,
                        os_get_invalid_handle()))) {
-        /* The mmapped memory must be in the first 2 Gigabytes of the
+        /* Test whether the mmapped memory in the first 2 Gigabytes of the
            process address space */
-        bh_assert((uintptr_t)mem < INT32_MAX);
+        if ((uintptr_t)mem >= INT32_MAX)
+            LOG_WARNING(
+                "Warning: loader mmap memory address is not in the first 2 "
+                "Gigabytes of the process address space.");
         return mem;
     }
 #endif
@@ -584,7 +590,8 @@ load_target_info_section(const uint8 *buf, const uint8 *buf_end,
     }
 
     /* for backwards compatibility with previous wamrc aot files */
-    if (!strcmp(target_info.arch, "arm64"))
+    if (!strcmp(target_info.arch, "arm64")
+        || !strcmp(target_info.arch, "aarch64"))
         bh_strcpy_s(target_info.arch, sizeof(target_info.arch), "aarch64v8");
 
     /* Check machine info */
@@ -1106,9 +1113,6 @@ load_memory_info(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
     const uint8 *buf = *p_buf;
 
     read_uint32(buf, buf_end, module->import_memory_count);
-    /* We don't support import_memory_count > 0 currently */
-    if (module->import_memory_count > 0)
-        return false;
 
     read_uint32(buf, buf_end, module->memory_count);
     total_size = sizeof(AOTMemory) * (uint64)module->memory_count;
@@ -1251,6 +1255,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             }
             free_if_fail = true;
             init_values->count = field_count;
+            init_values->type_idx = type_idx;
             expr->u.data = init_values;
 
             if (type_idx >= module->type_count) {
@@ -1710,7 +1715,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         read_uint16(buf, buf_end, type_flag);
 
         read_uint8(buf, buf_end, is_equivalence_type);
-        /* If there is an equivalence type, re-use it */
+        /* If there is an equivalence type, reuse it */
         if (is_equivalence_type) {
             uint8 u8;
             /* padding */
@@ -3184,10 +3189,12 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
             symbol_addr = module->code;
         }
         else if (!strcmp(symbol, ".data") || !strcmp(symbol, ".sdata")
-                 || !strcmp(symbol, ".rdata")
-                 || !strcmp(symbol, ".rodata")
+                 || !strcmp(symbol, ".rdata") || !strcmp(symbol, ".rodata")
+                 || !strcmp(symbol, ".srodata")
                  /* ".rodata.cst4/8/16/.." */
                  || !strncmp(symbol, ".rodata.cst", strlen(".rodata.cst"))
+                 /* ".srodata.cst4/8/16/.." */
+                 || !strncmp(symbol, ".srodata.cst", strlen(".srodata.cst"))
                  /* ".rodata.strn.m" */
                  || !strncmp(symbol, ".rodata.str", strlen(".rodata.str"))
                  || !strcmp(symbol, AOT_STACK_SIZES_SECTION_NAME)
@@ -4120,6 +4127,18 @@ create_module(char *name, char *error_buf, uint32 error_buf_size)
     }
 #endif
 
+#if WASM_ENABLE_LIBC_WASI != 0
+#if WASM_ENABLE_UVWASI == 0
+    module->wasi_args.stdio[0] = os_invalid_raw_handle();
+    module->wasi_args.stdio[1] = os_invalid_raw_handle();
+    module->wasi_args.stdio[2] = os_invalid_raw_handle();
+#else
+    module->wasi_args.stdio[0] = os_get_invalid_handle();
+    module->wasi_args.stdio[1] = os_get_invalid_handle();
+    module->wasi_args.stdio[2] = os_get_invalid_handle();
+#endif /* WASM_ENABLE_UVWASI == 0 */
+#endif /* WASM_ENABLE_LIBC_WASI != 0 */
+
     return module;
 #if WASM_ENABLE_GC != 0
 fail2:
@@ -4402,6 +4421,13 @@ aot_load_from_aot_file(const uint8 *buf, uint32 size, const LoadArgs *args,
     }
     os_thread_jit_write_protect_np(true); /* Make memory executable */
     os_icache_flush(module->code, module->code_size);
+
+#if WASM_ENABLE_AOT_VALIDATOR != 0
+    if (!aot_module_validate(module, error_buf, error_buf_size)) {
+        aot_unload(module);
+        return NULL;
+    }
+#endif /* WASM_ENABLE_AOT_VALIDATOR != 0 */
 
     LOG_VERBOSE("Load module success.\n");
     return module;

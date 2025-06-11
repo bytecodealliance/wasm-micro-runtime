@@ -1,7 +1,7 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 2.9)
+cmake_minimum_required (VERSION 3.14)
 
 project (iwasm)
 
@@ -98,6 +98,11 @@ if (NOT DEFINED WAMR_BUILD_STATIC_PGO)
   set (WAMR_BUILD_STATIC_PGO 0)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_REF_TYPES)
+  # Enable reference types by default
+  set (WAMR_BUILD_REF_TYPES 1)
+endif ()
+
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu11 -ffunction-sections -fdata-sections \
                                      -Wall -Wno-unused-parameter -Wno-pedantic \
@@ -107,6 +112,7 @@ set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
+set_version_info (vmlib)
 
 add_custom_command (
              OUTPUT libvmlib_untrusted.a

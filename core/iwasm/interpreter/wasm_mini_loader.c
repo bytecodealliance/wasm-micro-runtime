@@ -665,7 +665,7 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
                   const char *table_name, WASMTableImport *table,
                   char *error_buf, uint32 error_buf_size)
 {
-    const uint8 *p = *p_buf, *p_end = buf_end;
+    const uint8 *p = *p_buf, *p_end = buf_end, *p_org;
     uint32 declare_elem_type = 0, table_flag = 0, declare_init_size = 0,
            declare_max_size = 0;
 
@@ -678,7 +678,12 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
 #endif
     );
 
+    /* the table flag can't exceed one byte, only check in debug build given
+     * the nature of mini-loader */
+    p_org = p;
     read_leb_uint32(p, p_end, table_flag);
+    bh_assert(p - p_org <= 1);
+    (void)p_org;
 
     if (!wasm_table_check_flags(table_flag, error_buf, error_buf_size, false)) {
         return false;
@@ -711,7 +716,7 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
                    const char *memory_name, WASMMemoryImport *memory,
                    char *error_buf, uint32 error_buf_size)
 {
-    const uint8 *p = *p_buf, *p_end = buf_end;
+    const uint8 *p = *p_buf, *p_end = buf_end, *p_org;
 #if WASM_ENABLE_APP_FRAMEWORK != 0
     uint32 pool_size = wasm_runtime_memory_pool_size();
     uint32 max_page_count = pool_size * APP_MEMORY_MAX_GLOBAL_HEAP_PERCENT
@@ -724,7 +729,13 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
     uint32 declare_init_page_count = 0;
     uint32 declare_max_page_count = 0;
 
+    /* the memory flag can't exceed one byte, only check in debug build given
+     * the nature of mini-loader */
+    p_org = p;
     read_leb_uint32(p, p_end, mem_flag);
+    bh_assert(p - p_org <= 1);
+    (void)p_org;
+
     if (!wasm_memory_check_flags(mem_flag, error_buf, error_buf_size, false)) {
         return false;
     }
@@ -815,6 +826,8 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMTable *table,
 #endif
     );
 
+    /* the table flag can't exceed one byte, only check in debug build given
+     * the nature of mini-loader */
     p_org = p;
     read_leb_uint32(p, p_end, table->table_type.flags);
     bh_assert(p - p_org <= 1);
@@ -854,6 +867,8 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
     bool is_memory64 = false;
 #endif
 
+    /* the memory flag can't exceed one byte, only check in debug build given
+     * the nature of mini-loader */
     p_org = p;
     read_leb_uint32(p, p_end, memory->flags);
     bh_assert(p - p_org <= 1);
@@ -2457,7 +2472,7 @@ orcjit_thread_callback(void *arg)
                     i + j * group_stride + module->import_function_count,
                     (void *)func_addr);
 
-                /* Try to switch to call this llvm jit funtion instead of
+                /* Try to switch to call this llvm jit function instead of
                    fast jit function from fast jit jitted code */
                 jit_compiler_set_call_to_llvm_jit(
                     module,
@@ -2478,6 +2493,7 @@ orcjit_thread_callback(void *arg)
 static void
 orcjit_stop_compile_threads(WASMModule *module)
 {
+#if WASM_ENABLE_LAZY_JIT != 0
     uint32 i, thread_num = (uint32)(sizeof(module->orcjit_thread_args)
                                     / sizeof(OrcJitThreadArg));
 
@@ -2486,6 +2502,7 @@ orcjit_stop_compile_threads(WASMModule *module)
         if (module->orcjit_threads[i])
             os_thread_join(module->orcjit_threads[i], NULL);
     }
+#endif
 }
 
 static bool
@@ -3121,6 +3138,18 @@ create_module(char *name, char *error_buf, uint32 error_buf_size)
         return NULL;
     }
 #endif
+
+#if WASM_ENABLE_LIBC_WASI != 0
+#if WASM_ENABLE_LIBC_UVWASI == 0
+    module->wasi_args.stdio[0] = os_invalid_raw_handle();
+    module->wasi_args.stdio[1] = os_invalid_raw_handle();
+    module->wasi_args.stdio[2] = os_invalid_raw_handle();
+#else
+    module->wasi_args.stdio[0] = os_get_invalid_handle();
+    module->wasi_args.stdio[1] = os_get_invalid_handle();
+    module->wasi_args.stdio[2] = os_get_invalid_handle();
+#endif /* WASM_ENABLE_UVWASI == 0 */
+#endif /* WASM_ENABLE_LIBC_WASI != 0 */
 
     (void)ret;
     return module;
@@ -4763,6 +4792,11 @@ preserve_referenced_local(WASMLoaderContext *loader_ctx, uint8 opcode,
                         loader_ctx->preserved_local_offset += 2;
                     emit_label(EXT_OP_COPY_STACK_TOP_I64);
                 }
+
+                /* overflow */
+                bh_assert(preserved_offset
+                          <= loader_ctx->preserved_local_offset);
+
                 emit_operand(loader_ctx, local_index);
                 emit_operand(loader_ctx, preserved_offset);
                 emit_label(opcode);

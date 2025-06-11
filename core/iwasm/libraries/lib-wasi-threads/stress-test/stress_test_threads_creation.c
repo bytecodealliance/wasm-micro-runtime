@@ -65,7 +65,7 @@ test(int iter_num, int max_threads_num, int retry_num, int retry_time_us)
     }
 
     while ((__atomic_load_n(&threads_in_use, __ATOMIC_SEQ_CST) != 0)) {
-        // Casting to int* to supress compiler warning
+        // Casting to int* to suppress compiler warning
         __builtin_wasm_memory_atomic_wait32((int *)(&threads_in_use), 0,
                                             second_us);
     }

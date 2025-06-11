@@ -15,7 +15,6 @@ Users can turn those features on or off by using compilation options. If a relev
 | Proposal                              | >= Phase 4 | Compilation Option       |
 | ------------------------------------- | ---------- | ------------------------ |
 | Bulk memory operations                | Yes        | `WAMR_BUILD_BULK_MEMORY` |
-| Extended Constant Expressions         | Yes        | N/A                      |
 | Fixed-width SIMD[^1]                  | Yes        | `WAMR_BUILD_SIMD`        |
 | Multi-value                           | Yes        | N/A                      |
 | Non-trapping float-to-int conversions | Yes        | N/A                      |
@@ -35,7 +34,7 @@ Users can turn those features on or off by using compilation options. If a relev
 | Multiple memories[^3]         | Yes        | `WAMR_BUILD_MULTI_MEMORY`  |
 | Reference-Typed Strings       | No         | `WAMR_BUILD_STRINGREF`     |
 | Tail call                     | Yes        | `WAMR_BUILD_TAIL_CALL`     |
-| Thread[^4]                    | Yes        | `WAMR_BUILD_SHARED_MEMORY` |
+| Threads[^4]                   | Yes        | `WAMR_BUILD_SHARED_MEMORY` |
 | Typed Function References     | Yes        | `WAMR_BUILD_GC`            |
 
 [^2]:
@@ -54,6 +53,7 @@ Users can turn those features on or off by using compilation options. If a relev
 | Branch Hinting                              | Yes        |
 | Custom Annotation Syntax in the Text Format | Yes        |
 | Exception handling[^5]                      | Yes        |
+| Extended Constant Expressions               | Yes        |
 | Import/Export of Mutable Globals            | Yes        |
 | JS String Builtins                          | Yes        |
 | Relaxed SIMD                                | Yes        |

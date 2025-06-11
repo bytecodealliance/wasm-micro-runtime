@@ -137,7 +137,8 @@ jobs:
       - name: compress the binary on non-Windows
         if: inputs.runner != 'windows-latest'
         run: |
-          tar czf iwasm${{ matrix.suffix }}-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz iwasm
+          # Follow the symlink to the actual binary file
+          tar --dereference -czf iwasm${{ matrix.suffix }}-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz iwasm
           zip iwasm${{ matrix.suffix }}-${{ inputs.ver_num }}-${{ inputs.runner }}.zip iwasm
         working-directory: ${{ inputs.cwd }}/build
 

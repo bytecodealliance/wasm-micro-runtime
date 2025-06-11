@@ -37,7 +37,10 @@ RUN wget https://github.com/Kitware/CMake/releases/download/v${CMAKE_VER}/cmake-
 WORKDIR /tmp
 RUN git clone https://github.com/VeriSilicon/TIM-VX.git tim-vx \
     && git clone https://github.com/VeriSilicon/tflite-vx-delegate.git \
-    && git clone https://github.com/tensorflow/tensorflow.git
+    && git clone https://github.com/tensorflow/tensorflow.git --branch v2.12.0 
+
+WORKDIR /tmp/tensorflow
+RUN git cherry-pick -n 5115fa96d7c5b41451674892317be43e30b7c389
 
 
 # Build TIM-VX
@@ -99,28 +102,24 @@ RUN cp --parents \
 ENV VIVANTE_SDK_DIR=/tmp/tim-vx/prebuilt-sdk/x86_64_linux/
 ENV VSIMULATOR_CONFIG=czl
 
-ENV LD_LIBRARY_PATH=/tmp/tim-vx/prebuilt-sdk/x86_64_linux/lib:/usr/local/lib:/lib/x86_64-linux-gnu/:/lib64/:/usr/lib:$LD_LIBRARY_PATH 
-
 # Build WASI-NN
 WORKDIR /home/wamr
 
 COPY . .
 
-WORKDIR /home/wamr/core/iwasm/libraries/wasi-nn/test/build
+WORKDIR /home/wamr/product-mini/platforms/linux
 
-# hadolint ignore=SC2086
-RUN cmake \
-    -DCMAKE_LIBRARY_PATH=${CMAKE_LIBRARY_PATH}:/usr/local/lib/ \
-    -DCMAKE_INCLUDE_PATH=${CMAKE_INCLUDE_PATH}:/usr/local/include/ \
+RUN rm -rf build \
+  && cmake -S . -B build\
+    -DCMAKE_LIBRARY_PATH="/usr/local/lib/" \
+    -DCMAKE_INCLUDE_PATH="/usr/local/include/" \
     -DWAMR_BUILD_WASI_NN=1 \
     -DWAMR_BUILD_WASI_NN_TFLITE=1\
     -DWAMR_BUILD_WASI_NN_ENABLE_EXT=1 \
     -DWASI_NN_EXT_DELEGATE_PATH="/usr/lib/libvx_delegate.so" \
-    ..
+  && cmake --build build -j "$(grep -c ^processor /proc/cpuinfo)"
 
-RUN make -j "$(grep -c ^processor /proc/cpuinfo)"
-
-RUN cp /home/wamr/core/iwasm/libraries/wasi-nn/test/build/iwasm /run/iwasm \
+RUN cp /home/wamr/product-mini/platforms/linux/build/iwasm /run/iwasm \
   && cp /home/wamr/product-mini/platforms/linux/build/lib*.so /usr/lib
 
 ENTRYPOINT [ "/run/iwasm" ]

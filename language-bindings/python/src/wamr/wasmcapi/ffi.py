@@ -112,12 +112,12 @@ def wasm_vec_to_list(vec):
         wasm_frame_vec_t,
         wasm_extern_vec_t,
     ]
-    known_vec_pointer_type = [POINTER(type) for type in known_vec_type]
+    known_vec_pointer_type = [POINTER(vec_type) for vec_type in known_vec_type]
 
-    if any([isinstance(vec, type) for type in known_vec_pointer_type]):
+    if any([isinstance(vec, pointer_type) for pointer_type in known_vec_pointer_type]):
         vec = dereference(vec)
         return [vec.data[i] for i in range(vec.num_elems)]
-    elif any([isinstance(vec, type) for type in known_vec_type]):
+    elif any([isinstance(vec, vec_type) for vec_type in known_vec_type]):
         return [vec.data[i] for i in range(vec.num_elems)]
     else:
         raise RuntimeError("not a known vector type")
@@ -405,7 +405,7 @@ def __compare_wasm_val_t(self, other):
     elif WASM_F32 == self.kind:
         return self.of.f32 == other.of.f32
     elif WASM_F64 == self.kind:
-        return self.of.f64 == other.of.f63
+        return self.of.f64 == other.of.f64
     elif WASM_EXTERNREF == self.kind:
         raise RuntimeError("FIXME")
     else:

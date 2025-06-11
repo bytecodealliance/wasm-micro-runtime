@@ -4,7 +4,7 @@
 cmake_minimum_required(VERSION 3.14)
 project(wasm-apps)
 
-set(WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../wamr)
+set(WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../..)
 
 if (APPLE)
     set (HAVE_FLAG_SEARCH_PATHS_FIRST 0)

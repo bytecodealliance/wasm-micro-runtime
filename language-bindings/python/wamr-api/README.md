@@ -1,14 +1,17 @@
-# WARM API
+# WAMR API
 
-* **Notice**: The python package `wamr.wamrapi.wamr` need python >= `3.10`.
+* **Notice**: The python package `wamr.wamrapi.wamr` requires a python version >= `3.10`.
 
 ## Setup
 
 ### Pre-requisites
+#### Install requirements
+Before proceeding it is necessary to make sure your Python environment is correctly configured. To do ths open a terminal session in this directory and perfom the following:
 
-Install requirements,
 
 ```shell
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 

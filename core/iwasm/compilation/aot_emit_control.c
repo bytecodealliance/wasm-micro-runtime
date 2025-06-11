@@ -1218,6 +1218,28 @@ aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return aot_handle_next_reachable_block(comp_ctx, func_ctx, p_frame_ip);
     }
 
+    /*
+     * if (value_cmp > br_count)
+     *   value_cmp = br_count;
+     */
+    LLVMValueRef br_count_value = I32_CONST(br_count);
+    CHECK_LLVM_CONST(br_count_value);
+
+    LLVMValueRef clap_value_cmp_cond =
+        LLVMBuildICmp(comp_ctx->builder, LLVMIntUGT, value_cmp, br_count_value,
+                      "cmp_w_br_count");
+    if (!clap_value_cmp_cond) {
+        aot_set_last_error("llvm build icmp failed.");
+        return false;
+    }
+
+    value_cmp = LLVMBuildSelect(comp_ctx->builder, clap_value_cmp_cond,
+                                br_count_value, value_cmp, "clap_value_cmp");
+    if (!value_cmp) {
+        aot_set_last_error("llvm build select failed.");
+        return false;
+    }
+
     if (!LLVMIsEfficientConstInt(value_cmp)) {
         if (comp_ctx->aot_frame) {
             if (comp_ctx->enable_gc

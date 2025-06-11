@@ -22,7 +22,12 @@ set (WAMR_ROOT_DIR path/to/wamr/root)
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 
-target_link_libraries (your_project vmlib)
+# include bh_read_file.h
+include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
+
+add_executable (your_project main.c ${UNCOMMON_SHARED_SOURCE})
+
+target_link_libraries (your_project vmlib -lm)
 ```
 Examples can be found in [CMakeLists.txt of linux platform](../product-mini/platforms/linux/CMakeLists.txt) and [other platforms](../product-mini/platforms). The available features to configure can be found in [Build WAMR vmcore](./build_wamr.md#wamr-vmcore-cmake-building-configurations).
 
@@ -31,6 +36,10 @@ Developer can also use Makefile to embed WAMR, by defining macros and including 
 ## The runtime initialization
 
 ``` C
+  #include "bh_platform.h"
+  #include "bh_read_file.h"
+  #include "wasm_export.h"
+
   char *buffer, error_buf[128];
   wasm_module_t module;
   wasm_module_inst_t module_inst;
@@ -42,7 +51,7 @@ Developer can also use Makefile to embed WAMR, by defining macros and including 
   wasm_runtime_init();
 
   /* read WASM file into a memory buffer */
-  buffer = read_wasm_binary_to_buffer(…, &size);
+  buffer = bh_read_file_to_buffer(…, &size);
 
   /* add line below if we want to export native functions to WASM app */
   wasm_runtime_register_natives(...);

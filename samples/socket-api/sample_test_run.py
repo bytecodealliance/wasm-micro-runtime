@@ -121,7 +121,6 @@ def main():
         print("\n================================")
         print("Test address resolving")
         cmd = "./iwasm --allow-resolve=*.com addr_resolve.wasm github.com"
-        cmd = "./multicast_server FF02:113D:6FDD:2C17:A643:FFE2:1BD1:3CD2"
         run_cmd(cmd, args.working_directory)
 
         # wait for a second

@@ -18,7 +18,7 @@
 #define WORLD_OFFSET 7
 #define NAME_REPLACMENT "James"
 #define NAME_REPLACMENT_LEN (sizeof(NAME_REPLACMENT) - 1)
-#define ADDITIONAL_SPACE 1 * 1024 * 1024
+#define ADDITIONAL_SPACE 16 * 1024
 
 int
 main(int argc, char **argv)

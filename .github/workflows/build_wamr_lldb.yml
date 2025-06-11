@@ -172,6 +172,12 @@ jobs:
           python3 ci/validate_lldb.py --port 1239 --lldb core/deps/wamr-lldb/bin/lldb --wamr wamr-debug/iwasm --verbose
         working-directory: .
 
+      # Define CMAKE_OSX_SYSROOT to avoid the error:
+      #   no such file or directory: 'llvm-project/build/tools/lldb/tools/debugserver/source/mach_excServer.c'
+      #   no such file or directory: 'llvm-project/build/tools/lldb/tools/debugserver/source/mach_excUser.c'
+      #
+      # This workaround should be removed when the issue is fixed in llvm-project:
+      #   - https://github.com/llvm/llvm-project/pull/138020/
       - name: build lldb macos
         if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'macos')
         run: |
@@ -179,6 +185,7 @@ jobs:
           mkdir -p wamr-lldb
           cmake -S ./llvm -B build \
             -G Ninja \
+            -DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path) \
             -DCMAKE_INSTALL_PREFIX=../wamr-lldb \
             -DCMAKE_BUILD_TYPE:STRING="Release" \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \

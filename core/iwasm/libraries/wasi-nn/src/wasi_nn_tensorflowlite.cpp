@@ -56,7 +56,7 @@ initialize_g(TFLiteContext *tfl_ctx, graph *g)
     os_mutex_lock(&tfl_ctx->g_lock);
     if (tfl_ctx->current_models == MAX_GRAPHS_PER_INST) {
         os_mutex_unlock(&tfl_ctx->g_lock);
-        NN_ERR_PRINTF("Excedded max graphs per WASM instance");
+        NN_ERR_PRINTF("Exceeded max graphs per WASM instance");
         return runtime_error;
     }
     *g = tfl_ctx->current_models++;
@@ -70,7 +70,7 @@ initialize_graph_ctx(TFLiteContext *tfl_ctx, graph g,
     os_mutex_lock(&tfl_ctx->g_lock);
     if (tfl_ctx->current_interpreters == MAX_GRAPH_EXEC_CONTEXTS_PER_INST) {
         os_mutex_unlock(&tfl_ctx->g_lock);
-        NN_ERR_PRINTF("Excedded max graph execution context per WASM instance");
+        NN_ERR_PRINTF("Exceeded max graph execution context per WASM instance");
         return runtime_error;
     }
     *ctx = tfl_ctx->current_interpreters++;
@@ -85,12 +85,8 @@ is_valid_graph(TFLiteContext *tfl_ctx, graph g)
         NN_ERR_PRINTF("Invalid graph: %d >= %d.", g, MAX_GRAPHS_PER_INST);
         return runtime_error;
     }
-    if (tfl_ctx->models[g].model_pointer == NULL) {
-        NN_ERR_PRINTF("Context (model) non-initialized.");
-        return runtime_error;
-    }
     if (tfl_ctx->models[g].model == NULL) {
-        NN_ERR_PRINTF("Context (tflite model) non-initialized.");
+        NN_ERR_PRINTF("Context (model) non-initialized.");
         return runtime_error;
     }
     return success;
@@ -325,7 +321,7 @@ set_input(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
         int size = model_tensor_size * sizeof(float);
         bh_memcpy_s(it, size, input_tensor->data, size);
     }
-    else { // TODO: Assumming uint8 quantized networks.
+    else { // TODO: Assuming uint8 quantized networks.
         TfLiteAffineQuantization *quant_info =
             (TfLiteAffineQuantization *)tensor->quantization.params;
         if (quant_info->scale->size != 1 || quant_info->zero_point->size != 1) {
@@ -406,7 +402,7 @@ get_output(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
         int size = model_tensor_size * sizeof(float);
         bh_memcpy_s(output_tensor, size, ot, size);
     }
-    else { // TODO: Assumming uint8 quantized networks.
+    else { // TODO: Assuming uint8 quantized networks.
         TfLiteAffineQuantization *quant_info =
             (TfLiteAffineQuantization *)tensor->quantization.params;
         if (quant_info->scale->size != 1 || quant_info->zero_point->size != 1) {
@@ -472,32 +468,31 @@ deinit_backend(void *tflite_ctx)
     NN_DBG_PRINTF("Freeing memory.");
     for (int i = 0; i < MAX_GRAPHS_PER_INST; ++i) {
         tfl_ctx->models[i].model.reset();
-        if (tfl_ctx->models[i].model_pointer) {
-            if (tfl_ctx->delegate) {
-                switch (tfl_ctx->models[i].target) {
-                    case gpu:
-                    {
+        if (tfl_ctx->delegate) {
+            switch (tfl_ctx->models[i].target) {
+                case gpu:
+                {
 #if WASM_ENABLE_WASI_NN_GPU != 0
-                        TfLiteGpuDelegateV2Delete(tfl_ctx->delegate);
+                    TfLiteGpuDelegateV2Delete(tfl_ctx->delegate);
 #else
-                        NN_ERR_PRINTF("GPU delegate delete but not enabled.");
+                    NN_ERR_PRINTF("GPU delegate delete but not enabled.");
 #endif
-                        break;
-                    }
-                    case tpu:
-                    {
-#if WASM_ENABLE_WASI_NN_EXTERNAL_DELEGATE != 0
-                        TfLiteExternalDelegateDelete(tfl_ctx->delegate);
-#else
-                        NN_ERR_PRINTF(
-                            "External delegate delete but not enabled.");
-#endif
-                        break;
-                    }
-                    default:
-                        break;
+                    break;
                 }
+                case tpu:
+                {
+#if WASM_ENABLE_WASI_NN_EXTERNAL_DELEGATE != 0
+                    TfLiteExternalDelegateDelete(tfl_ctx->delegate);
+#else
+                    NN_ERR_PRINTF("External delegate delete but not enabled.");
+#endif
+                    break;
+                }
+                default:
+                    break;
             }
+        }
+        if (tfl_ctx->models[i].model_pointer) {
             wasm_runtime_free(tfl_ctx->models[i].model_pointer);
         }
         tfl_ctx->models[i].model_pointer = NULL;

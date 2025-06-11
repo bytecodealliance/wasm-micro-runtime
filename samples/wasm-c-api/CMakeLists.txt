@@ -129,7 +129,7 @@ if (${WAT2WASM_VERSION} VERSION_LESS 1.0.26)
   set(WAT2WASM_FLAGS "--enable-reference-types")
 endif ()
 
-if(${WAMR_BUILD_AOT} EQUAL 1)
+if(${WAMR_BUILD_AOT} EQUAL 1 AND ${WAMR_BUILD_INTERP} EQUAL 0)
   ## locate wamrc
   find_program(WAMRC
     wamrc
@@ -205,12 +205,3 @@ foreach(EX ${EXAMPLES})
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
   )
 endforeach()
-
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-  find_program(VALGRIND
-    valgrind
-    REQUIRED
-  )
-
-  # run `ctest -T memcheck -V --test-dir build`
-endif()

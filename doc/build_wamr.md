@@ -132,7 +132,11 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 ### **Enable 128-bit SIMD feature**
 - **WAMR_BUILD_SIMD**=1/0, default to enable if not set
-> Note: only supported in AOT mode x86-64 target.
+> Note: supported in AOT mode, JIT mode, and fast-interpreter mode with SIMDe library.
+
+### **Enable SIMDe library for SIMD in fast interpreter**
+- **WAMR_BUILD_LIB_SIMDE**=1/0, default to disable if not set
+> Note: If enabled, SIMDe (SIMD Everywhere) library will be used to implement SIMD operations in fast interpreter mode.
 
 ### **Enable Exception Handling**
 - **WAMR_BUILD_EXCE_HANDLING**=1/0, default to disable if not set
@@ -141,6 +145,9 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 ### **Enable Garbage Collection**
 - **WAMR_BUILD_GC**=1/0, default to disable if not set
+
+### **Set the Garbage Collection heap size**
+- **WAMR_BUILD_GC_HEAP_SIZE_DEFAULT**=n, default to 128 kB (131072) if not set
 
 ### **Configure Debug**
 
@@ -320,6 +327,10 @@ And the wasm app can calls below APIs to allocate/free memory from/to the shared
 - **WAMR_BUILD_SHRUNK_MEMORY**=1/0, default to enable if not set
 > Note: When enabled, this feature will reduce memory usage by decreasing the size of the linear memory, particularly when the `memory.grow` opcode is not used and memory usage is somewhat predictable.
 
+## **Instruction metering**
+- **WAMR_BUILD_INSTRUCTION_METERING**=1/0, default to disable if not set
+> Note: Enabling this feature allows limiting the number of instructions a wasm module instance can execute. Use the `wasm_runtime_set_instruction_count_limit(...)` API before calling `wasm_runtime_call_*(...)` APIs to enforce this limit.
+
 ## **Combination of configurations:**
 
 We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:
@@ -332,4 +343,21 @@ Or if we want to enable interpreter, disable AOT and WASI, and build as X86_32, 
 
 ``` Bash
 cmake .. -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_AOT=0 -DWAMR_BUILD_LIBC_WASI=0 -DWAMR_BUILD_TARGET=X86_32
+```
+
+When enabling SIMD for fast interpreter mode, you'll need to enable both SIMD and the SIMDe library:
+
+``` Bash
+
+cmake .. -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=1 -DWAMR_BUILD_SIMD=1 -DWAMR_BUILD_LIB_SIMDE=1
+```
+
+For Valgrind, begin with the following configurations and add additional ones as needed:
+
+``` Bash
+  #...
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DWAMR_DISABLE_HW_BOUND_CHECK=0 \
+  -DWAMR_DISABLE_WRITE_GS_BASE=0
+  #...
 ```

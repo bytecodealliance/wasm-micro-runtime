@@ -7,7 +7,19 @@ set(WAMR_BUILD_PLATFORM nuttx)
 if(CONFIG_ARCH_ARMV6M)
   set(WAMR_BUILD_TARGET THUMBV6M)
 elseif(CONFIG_ARCH_ARMV7A)
-  set(WAMR_BUILD_TARGET THUMBV7)
+  if(CONFIG_ARM_THUMB)
+    if(CONFIG_ARCH_FPU)
+      set(WAMR_BUILD_TARGET THUMBV7_VFP)
+    else()
+      set(WAMR_BUILD_TARGET THUMBV7)
+    endif()
+  else()
+    if(CONFIG_ARCH_FPU)
+      set(WAMR_BUILD_TARGET ARMV7_VFP)
+    else()
+      set(WAMR_BUILD_TARGET ARMV7)
+    endif()
+  endif()
 elseif(CONFIG_ARCH_ARMV7M)
   set(WAMR_BUILD_TARGET THUMBV7EM)
 elseif(CONFIG_ARCH_ARMV8M)
@@ -200,7 +212,7 @@ set(WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../../..)
 # enable WAMR build system
 include(${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
-# NuttX wamr lib complie required: `WAMR_SOURCES` `WAMR_CFLAGS` `WAMR_INCDIRS`
+# NuttX wamr lib compile required: `WAMR_SOURCES` `WAMR_CFLAGS` `WAMR_INCDIRS`
 # `WAMR_DEFINITIONS`
 set(WAMR_SOURCES ${WAMR_RUNTIME_LIB_SOURCE})
 set(WAMR_CFLAGS -Wno-shadow -Wno-unused-variable

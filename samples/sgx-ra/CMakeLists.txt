@@ -2,7 +2,7 @@
 # Copyright (c) 2020-2021 Alibaba Cloud
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required(VERSION 3.1.4)
+cmake_minimum_required(VERSION 3.14)
 project(sgx-ra)
 
 ################ runtime settings  ##############
