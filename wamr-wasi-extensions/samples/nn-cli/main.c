@@ -266,7 +266,8 @@ set_input(char *options)
     wasi_ephemeral_nn_error nnret;
     wasi_ephemeral_nn_graph_execution_context c =
         map_get(&contexts, context_id);
-    tensor.data = buf;
+    tensor.data.buf = buf;
+    tensor.data.size = sz;
     nnret = wasi_ephemeral_nn_set_input(c, idx, &tensor);
     unmap_file(buf, sz);
     if (nnret != wasi_ephemeral_nn_error_success) {
