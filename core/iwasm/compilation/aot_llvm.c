@@ -3206,7 +3206,7 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     WASMModule *wasm_module = (WASMModule *)comp_data->wasm_module;
     bool is_memory64 = false;
 
-    /* TODO: multi-memories for now assuming the memory idx type is
+    /* TODO: multi-memories for now assuming the memory64 flag of a memory is
      * consistent across multi-memories */
     if (wasm_module->import_memory_count > 0)
         is_memory64 = !!(wasm_module->import_memories[0].u.memory.mem_type.flags

@@ -137,10 +137,12 @@ print_help()
     printf("                              3 - Small code model\n");
     printf("  -sgx                      Generate code for SGX platform (Intel Software Guard Extensions)\n");
     printf("  --bounds-checks=1/0       Enable or disable the bounds checks for memory access:\n");
-    printf("                              By default, it is disabled on all 64-bit platforms except SGX or when\n");
-    printf("                              memory64 is enabled. In these platform and feature combinations,\n");
-    printf("                              the runtime performs bounds checks with a hardware trap;\n");
-    printf("                              By default, it is enabled on all 32-bit platforms or when using memory64.\n");
+    printf("                              This flag controls bounds checking with a software check. \n"); 
+    printf("                              On 64-bit platforms, it is disabled by default, using a hardware \n"); 
+    printf("                              trap if supported, except when SGX or memory64 is enabled,\n"); 
+    printf("                              which defaults to a software check.\n"); 
+    printf("                              On 32-bit platforms, the flag is enabled by default, using a software check\n");
+    printf("                              due to the lack of hardware support.\n"); 
     printf("                            CAVEAT: --bounds-checks=0 enables some optimizations\n");
     printf("                              which make the compiled AOT module incompatible\n");
     printf("                              with a runtime without the hardware bounds checks.\n");
