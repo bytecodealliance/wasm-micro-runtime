@@ -147,7 +147,8 @@ main(int argc, char **argv)
     wasi_ephemeral_nn_tensor tensor = {
         .dimensions = { .buf = (uint32_t[]){1, 3, 224, 224,}, .size = 4, },
         .type = wasi_ephemeral_nn_type_fp32,
-        .data = tensordata,
+        .data.buf = tensordata,
+        .data.size = tensordatasz,
     };
     nnret = wasi_ephemeral_nn_set_input(ctx, 0, &tensor);
     unmap_file(tensordata, tensordatasz);
