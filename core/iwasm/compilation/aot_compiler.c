@@ -1316,6 +1316,13 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     return false;
                 break;
 
+#if WASM_ENABLE_SIMD != 0
+            case WASM_OP_SELECT_128:
+                if (!aot_compile_op_select(comp_ctx, func_ctx, true))
+                    return false;
+                break;
+#endif
+
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
             case WASM_OP_SELECT_T:
             {

@@ -73,7 +73,8 @@ jobs:
       - name: compress the binary on non-Windows
         if: inputs.runner != 'windows-latest' && inputs.release
         run: |
-          tar czf wamrc-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz wamrc
+          # Follow the symlink to the actual binary file
+          tar --dereference -czf wamrc-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz wamrc
           zip wamrc-${{ inputs.ver_num }}-${{ inputs.runner }}.zip wamrc
         working-directory: wamr-compiler/build
 

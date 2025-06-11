@@ -318,10 +318,15 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
     ModulePassManager MPM;
 
     if (comp_ctx->is_jit_mode) {
+#if LLVM_VERSION_MAJOR >= 18
+#define INSTCOMBINE "instcombine<no-verify-fixpoint>"
+#else
+#define INSTCOMBINE "instcombine"
+#endif
         const char *Passes =
             "loop-vectorize,slp-vectorizer,"
             "load-store-vectorizer,vector-combine,"
-            "mem2reg,instcombine,simplifycfg,jump-threading,indvars";
+            "mem2reg," INSTCOMBINE ",simplifycfg,jump-threading,indvars";
         ExitOnErr(PB.parsePassPipeline(MPM, Passes));
     }
     else {

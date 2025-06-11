@@ -1,28 +1,10 @@
 # Copyright (C) 2022 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-if (APPLE)
-    set (HAVE_FLAG_SEARCH_PATHS_FIRST 0)
-    set (CMAKE_C_LINK_FLAGS "")
-    set (CMAKE_CXX_LINK_FLAGS "")
-endif ()
+cmake_minimum_required (VERSION 3.14)
+project (wasi_threads_wasm)
 
-if (NOT DEFINED WASI_SDK_DIR)
-  set (WASI_SDK_DIR               "/opt/wasi-sdk")
-endif ()
-
-if (DEFINED WASI_SYSROOT)
-  set (CMAKE_SYSROOT                "${WASI_SYSROOT}")
-endif ()
-
-set (CMAKE_C_COMPILER               "${WASI_SDK_DIR}/bin/clang")
-set (CMAKE_ASM_COMPILER               "${WASI_SDK_DIR}/bin/clang")
-set (CMAKE_EXE_LINKER_FLAGS         "-target wasm32-wasi-threads")
-
-if ("$ENV{COLLECT_CODE_COVERAGE}" STREQUAL "1" OR COLLECT_CODE_COVERAGE EQUAL 1)
-  set (CMAKE_C_FLAGS "")
-  set (CMAKE_CXX_FLAGS "")
-endif ()
+set (CMAKE_BUILD_TYPE Debug)  # Otherwise no debug symbols (addr2line)
 
 function (compile_sample SOURCE_FILE)
   get_filename_component (FILE_NAME ${SOURCE_FILE} NAME_WLE)
@@ -41,6 +23,8 @@ function (compile_sample SOURCE_FILE)
     LINKER:--export=malloc
     LINKER:--export=free
   )
+
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${WASM_MODULE} DESTINATION wasm-apps)
 endfunction ()
 
 compile_sample(no_pthread.c wasi_thread_start.S)

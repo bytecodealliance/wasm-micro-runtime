@@ -1,10 +1,12 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 2.9)
+cmake_minimum_required (VERSION 3.14)
 
 project (iwasm C ASM CXX)
 # set (CMAKE_VERBOSE_MAKEFILE 1)
+
+option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
 
 set (WAMR_BUILD_PLATFORM "windows")
 
@@ -12,7 +14,7 @@ set (WAMR_BUILD_PLATFORM "windows")
 set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
-add_definitions(-DCOMPILING_WASM_RUNTIME_API=1)
+set(CMAKE_CXX_STANDARD 17)
 
 # Set WAMR_BUILD_TARGET, currently values supported:
 # "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]", "MIPS", "XTENSA"
@@ -105,7 +107,6 @@ endif()
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
-add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 
 #set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DWIN32_LEAN_AND_MEAN")
 if (NOT MINGW)
@@ -132,30 +133,46 @@ endif ()
 
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
-add_executable (iwasm main.c ${UNCOMMON_SHARED_SOURCE})
+add_executable (iwasm main.c ${PLATFORM_SHARED_SOURCE} ${UNCOMMON_SHARED_SOURCE} ${UTILS_SHARED_SOURCE})
+
+set_version_info (iwasm)
 
 install (TARGETS iwasm DESTINATION bin)
 
-target_link_libraries (iwasm vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS})
+target_link_libraries (iwasm vmlib)
 
+add_library (vmlib ${WAMR_RUNTIME_LIB_SOURCE})
+set_version_info (vmlib)
+
+target_include_directories(vmlib INTERFACE
+  $<INSTALL_INTERFACE:include>
+)
+
+set (WAMR_PUBLIC_HEADERS
+  ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_c_api.h
+  ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_export.h
+  ${WAMR_ROOT_DIR}/core/iwasm/include/lib_export.h
+)
+
+set_target_properties (vmlib PROPERTIES
+  OUTPUT_NAME libiwasm
+  PUBLIC_HEADER "${WAMR_PUBLIC_HEADERS}"
+  POSITION_INDEPENDENT_CODE ON
+)
+
+target_link_libraries (vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS})
 if (MINGW)
-  target_link_libraries (iwasm ws2_32)
-endif ()
-
-add_library (libiwasm SHARED ${WAMR_RUNTIME_LIB_SOURCE})
-
-install (TARGETS libiwasm DESTINATION lib)
-
-set_target_properties (libiwasm PROPERTIES OUTPUT_NAME libiwasm)
-
-target_link_libraries (libiwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS})
-
-if (MINGW)
-  target_link_libraries (libiwasm ws2_32)
+  target_link_libraries (vmlib ws2_32)
 endif ()
 
 if (WIN32)
-  target_link_libraries(libiwasm ntdll)
-
-  target_link_libraries(iwasm ntdll)  
+  target_link_libraries(vmlib ntdll)
 endif()
+
+install (TARGETS vmlib
+  EXPORT iwasmTargets
+  DESTINATION lib
+  PUBLIC_HEADER DESTINATION include
+)
+
+install_iwasm_package ()

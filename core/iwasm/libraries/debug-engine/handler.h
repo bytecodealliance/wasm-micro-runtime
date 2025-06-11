@@ -9,10 +9,10 @@
 #include "gdbserver.h"
 
 int
-wasm_debug_handler_init();
+wasm_debug_handler_init(void);
 
 void
-wasm_debug_handler_deinit();
+wasm_debug_handler_deinit(void);
 
 void
 handle_interrupt(WASMGDBServer *server);

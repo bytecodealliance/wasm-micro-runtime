@@ -6,7 +6,7 @@
  */
 
 /**
- * The defitions of type, macro and structure in this file should be
+ * The definitions of type, macro and structure in this file should be
  * consistent with those in wasi-libc:
  * https://github.com/WebAssembly/wasi-libc/blob/main/libc-bottom-half/headers/public/wasi/api.h
  */

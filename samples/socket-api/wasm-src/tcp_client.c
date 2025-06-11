@@ -97,7 +97,7 @@ main(int argc, char *argv[])
 
     printf("[Client] %d bytes received:\n", total_size);
     if (total_size > 0) {
-        printf("Buffer recieved:\n%s\n", buffer);
+        printf("Buffer received:\n%s\n", buffer);
     }
 
     close(socket_fd);

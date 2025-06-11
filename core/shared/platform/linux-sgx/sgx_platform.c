@@ -149,8 +149,10 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
     page_size = getpagesize();
     aligned_size = (size + page_size - 1) & ~(page_size - 1);
 
-    if (aligned_size >= UINT32_MAX)
+    if (aligned_size >= UINT32_MAX) {
+        os_printf("mmap failed: request size overflow due to paging\n");
         return NULL;
+    }
 
     ret = sgx_alloc_rsrv_mem(aligned_size);
     if (ret == NULL) {

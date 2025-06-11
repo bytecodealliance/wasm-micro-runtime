@@ -21,11 +21,24 @@
 #include "wasm_export.h"
 
 #define HASHMAP_INITIAL_SIZE 20
-#define TFLITE_BACKEND_LIB "libwasi_nn_tflite.so"
-#define OPENVINO_BACKEND_LIB "libwasi_nn_openvino.so"
-#define LLAMACPP_BACKEND_LIB "libwasi_nn_llamacpp.so"
+#if defined(__APPLE__)
+#define LIB_EXTENTION ".dylib"
+#else
+#define LIB_EXTENTION ".so"
+#endif
+#define TFLITE_BACKEND_LIB "libwasi_nn_tflite" LIB_EXTENTION
+#define OPENVINO_BACKEND_LIB "libwasi_nn_openvino" LIB_EXTENTION
+#define LLAMACPP_BACKEND_LIB "libwasi_nn_llamacpp" LIB_EXTENTION
 
 /* Global variables */
+static korp_mutex wasi_nn_lock;
+/*
+ * the "lookup" table is protected by wasi_nn_lock.
+ *
+ * an exception: during wasm_runtime_destroy, wasi_nn_destroy tears down
+ * the table without acquiring the lock. it's ok because there should be
+ * no other threads using the runtime at this point.
+ */
 struct backends_api_functions {
     void *backend_handle;
     api_function functions;
@@ -104,12 +117,18 @@ wasi_nn_initialize()
 {
     NN_DBG_PRINTF("[WASI NN General] Initializing wasi-nn");
 
+    if (os_mutex_init(&wasi_nn_lock)) {
+        NN_ERR_PRINTF("Error while initializing global lock");
+        return false;
+    }
+
     // hashmap { instance: wasi_nn_ctx }
     hashmap = bh_hash_map_create(HASHMAP_INITIAL_SIZE, true, hash_func,
                                  key_equal_func, key_destroy_func,
                                  value_destroy_func);
     if (hashmap == NULL) {
         NN_ERR_PRINTF("Error while initializing hashmap");
+        os_mutex_destroy(&wasi_nn_lock);
         return false;
     }
 
@@ -170,6 +189,8 @@ wasi_nn_destroy()
 
         memset(&lookup[i].functions, 0, sizeof(api_function));
     }
+
+    os_mutex_destroy(&wasi_nn_lock);
 }
 
 /* Utils */
@@ -342,9 +363,10 @@ graph_encoding_to_backend_lib_name(graph_encoding encoding)
 
 static bool
 detect_and_load_backend(graph_encoding backend_hint,
-                        struct backends_api_functions *backends,
                         graph_encoding *loaded_backend)
 {
+    bool ret;
+
     if (backend_hint > autodetect)
         return false;
 
@@ -356,16 +378,23 @@ detect_and_load_backend(graph_encoding backend_hint,
 
     *loaded_backend = backend_hint;
 
+    os_mutex_lock(&wasi_nn_lock);
     /* if already loaded */
-    if (lookup[backend_hint].backend_handle)
+    if (lookup[backend_hint].backend_handle) {
+        os_mutex_unlock(&wasi_nn_lock);
         return true;
+    }
 
     const char *backend_lib_name =
         graph_encoding_to_backend_lib_name(backend_hint);
-    if (!backend_lib_name)
+    if (!backend_lib_name) {
+        os_mutex_unlock(&wasi_nn_lock);
         return false;
+    }
 
-    return prepare_backend(backend_lib_name, backends + backend_hint);
+    ret = prepare_backend(backend_lib_name, lookup + backend_hint);
+    os_mutex_unlock(&wasi_nn_lock);
+    return ret;
 }
 
 /* WASI-NN implementation */
@@ -410,7 +439,7 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
     }
 
     graph_encoding loaded_backend = autodetect;
-    if (!detect_and_load_backend(encoding, lookup, &loaded_backend)) {
+    if (!detect_and_load_backend(encoding, &loaded_backend)) {
         res = invalid_encoding;
         NN_ERR_PRINTF("load backend failed");
         goto fail;
@@ -468,7 +497,7 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
     NN_DBG_PRINTF("[WASI NN] LOAD_BY_NAME %s...", name);
 
     graph_encoding loaded_backend = autodetect;
-    if (!detect_and_load_backend(autodetect, lookup, &loaded_backend)) {
+    if (!detect_and_load_backend(autodetect, &loaded_backend)) {
         NN_ERR_PRINTF("load backend failed");
         return invalid_encoding;
     }
@@ -488,7 +517,6 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
     if (res != success)
         return res;
 
-    wasi_nn_ctx->backend = loaded_backend;
     wasi_nn_ctx->is_model_loaded = true;
     return success;
 }
@@ -527,7 +555,7 @@ wasi_nn_load_by_name_with_config(wasm_exec_env_t exec_env, char *name,
     NN_DBG_PRINTF("[WASI NN] LOAD_BY_NAME_WITH_CONFIG %s %s...", name, config);
 
     graph_encoding loaded_backend = autodetect;
-    if (!detect_and_load_backend(autodetect, lookup, &loaded_backend)) {
+    if (!detect_and_load_backend(autodetect, &loaded_backend)) {
         NN_ERR_PRINTF("load backend failed");
         return invalid_encoding;
     }
@@ -548,7 +576,6 @@ wasi_nn_load_by_name_with_config(wasm_exec_env_t exec_env, char *name,
     if (res != success)
         return res;
 
-    wasi_nn_ctx->backend = loaded_backend;
     wasi_nn_ctx->is_model_loaded = true;
     return success;
 }
@@ -697,6 +724,7 @@ static NativeSymbol native_symbols_wasi_nn[] = {
     REG_NATIVE_FUNC(get_output, "(ii*i*)i"),
 #else  /* WASM_ENABLE_WASI_EPHEMERAL_NN == 0 */
     REG_NATIVE_FUNC(load, "(*ii*)i"),
+    REG_NATIVE_FUNC(load_by_name, "(*i*)i"),
     REG_NATIVE_FUNC(init_execution_context, "(i*)i"),
     REG_NATIVE_FUNC(set_input, "(ii*)i"),
     REG_NATIVE_FUNC(compute, "(i)i"),

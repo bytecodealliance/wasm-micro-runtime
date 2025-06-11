@@ -1230,7 +1230,7 @@ jit_compile_op_br_table(JitCompContext *cc, uint32 *br_depths, uint32 br_count,
         copy_arities = check_copy_arities(block_dst, cc->jit_frame);
 
         if (!copy_arities) {
-            /* No need to create new basic block, direclty jump to
+            /* No need to create new basic block, directly jump to
                the existing basic block when no need to copy arities */
             if (i == br_count) {
                 if (block_dst->label_type == LABEL_TYPE_LOOP) {
