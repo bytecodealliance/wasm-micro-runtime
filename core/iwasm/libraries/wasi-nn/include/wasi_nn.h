@@ -34,17 +34,22 @@
  * @return wasi_nn_error    Execution status.
  */
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-wasi_nn_error
-load(graph_builder *builder, uint32_t builder_len, graph_encoding encoding,
-     execution_target target, graph *g) WASI_NN_IMPORT("load");
+WASI_NN_ERROR_TYPE
+WASI_NN_NAME(load)
+(WASI_NN_NAME(graph_builder) * builder, uint32_t builder_len,
+ WASI_NN_NAME(graph_encoding) encoding, WASI_NN_NAME(execution_target) target,
+ WASI_NN_NAME(graph) * g) WASI_NN_IMPORT("load");
 #else
-wasi_nn_error
-load(graph_builder_array *builder, graph_encoding encoding,
-     execution_target target, graph *g) WASI_NN_IMPORT("load");
+WASI_NN_ERROR_TYPE
+WASI_NN_NAME(load)
+(WASI_NN_NAME(graph_builder_array) * builder,
+ WASI_NN_NAME(graph_encoding) encoding, WASI_NN_NAME(execution_target) target,
+ WASI_NN_NAME(graph) * g) WASI_NN_IMPORT("load");
 #endif
 
-wasi_nn_error
-load_by_name(const char *name, uint32_t name_len, graph *g)
+WASI_NN_ERROR_TYPE
+WASI_NN_NAME(load_by_name)
+(const char *name, uint32_t name_len, WASI_NN_NAME(graph) * g)
     WASI_NN_IMPORT("load_by_name");
 
 /**
@@ -59,8 +64,9 @@ load_by_name(const char *name, uint32_t name_len, graph *g)
  * @param ctx       Execution context.
  * @return wasi_nn_error    Execution status.
  */
-wasi_nn_error
-init_execution_context(graph g, graph_execution_context *ctx)
+WASI_NN_ERROR_TYPE
+WASI_NN_NAME(init_execution_context)
+(WASI_NN_NAME(graph) g, WASI_NN_NAME(graph_execution_context) * ctx)
     WASI_NN_IMPORT("init_execution_context");
 
 /**
@@ -71,9 +77,10 @@ init_execution_context(graph g, graph_execution_context *ctx)
  * @param tensor    Input tensor.
  * @return wasi_nn_error    Execution status.
  */
-wasi_nn_error
-set_input(graph_execution_context ctx, uint32_t index, tensor *tensor)
-    WASI_NN_IMPORT("set_input");
+WASI_NN_ERROR_TYPE
+WASI_NN_NAME(set_input)
+(WASI_NN_NAME(graph_execution_context) ctx, uint32_t index,
+ WASI_NN_NAME(tensor) * tensor) WASI_NN_IMPORT("set_input");
 
 /**
  * @brief Compute the inference on the given inputs.
@@ -81,8 +88,9 @@ set_input(graph_execution_context ctx, uint32_t index, tensor *tensor)
  * @param ctx       Execution context.
  * @return wasi_nn_error    Execution status.
  */
-wasi_nn_error
-compute(graph_execution_context ctx) WASI_NN_IMPORT("compute");
+WASI_NN_ERROR_TYPE
+WASI_NN_NAME(compute)
+(WASI_NN_NAME(graph_execution_context) ctx) WASI_NN_IMPORT("compute");
 
 /**
  * @brief Extract the outputs after inference.
@@ -97,14 +105,16 @@ compute(graph_execution_context ctx) WASI_NN_IMPORT("compute");
  * @return wasi_nn_error                Execution status.
  */
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-wasi_nn_error
-get_output(graph_execution_context ctx, uint32_t index,
-           tensor_data output_tensor, uint32_t output_tensor_max_size,
-           uint32_t *output_tensor_size) WASI_NN_IMPORT("get_output");
+WASI_NN_ERROR_TYPE
+WASI_NN_NAME(get_output)
+(WASI_NN_NAME(graph_execution_context) ctx, uint32_t index,
+ WASI_NN_NAME(tensor_data) output_tensor, uint32_t output_tensor_max_size,
+ uint32_t *output_tensor_size) WASI_NN_IMPORT("get_output");
 #else
-wasi_nn_error
-get_output(graph_execution_context ctx, uint32_t index,
-           tensor_data output_tensor, uint32_t *output_tensor_size)
+WASI_NN_ERROR_TYPE
+WASI_NN_NAME(get_output)
+(graph_execution_context ctx, uint32_t index,
+ WASI_NN_NAME(tensor_data) output_tensor, uint32_t *output_tensor_size)
     WASI_NN_IMPORT("get_output");
 #endif
 

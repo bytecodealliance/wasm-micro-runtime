@@ -93,7 +93,7 @@ print_result(const float *result, size_t sz)
 int
 main(int argc, char **argv)
 {
-    wasi_nn_error nnret;
+    wasi_ephemeral_nn_error nnret;
     int ret;
     void *xml;
     size_t xmlsz;
@@ -112,25 +112,27 @@ main(int argc, char **argv)
         exit(1);
     }
     /* note: openvino takes two buffers, namely IR and weights */
-    graph_builder builders[2] = { {
-                                      .buf = xml,
-                                      .size = xmlsz,
-                                  },
-                                  {
-                                      .buf = weights,
-                                      .size = weightssz,
-                                  } };
-    graph g;
-    nnret = load(builders, 2, openvino, cpu, &g);
+    wasi_ephemeral_nn_graph_builder builders[2] = { {
+                                                        .buf = xml,
+                                                        .size = xmlsz,
+                                                    },
+                                                    {
+                                                        .buf = weights,
+                                                        .size = weightssz,
+                                                    } };
+    wasi_ephemeral_nn_graph g;
+    nnret =
+        wasi_ephemeral_nn_load(builders, 2, wasi_ephemeral_nn_encoding_openvino,
+                               wasi_ephemeral_nn_target_cpu, &g);
     unmap_file(xml, xmlsz);
     unmap_file(weights, weightssz);
-    if (nnret != success) {
+    if (nnret != wasi_ephemeral_nn_error_success) {
         fprintf(stderr, "load failed with %d\n", (int)nnret);
         exit(1);
     }
-    graph_execution_context ctx;
-    nnret = init_execution_context(g, &ctx);
-    if (nnret != success) {
+    wasi_ephemeral_nn_graph_execution_context ctx;
+    nnret = wasi_ephemeral_nn_init_execution_context(g, &ctx);
+    if (nnret != wasi_ephemeral_nn_error_success) {
         fprintf(stderr, "init_execution_context failed with %d\n", (int)nnret);
         exit(1);
     }
@@ -142,26 +144,27 @@ main(int argc, char **argv)
                 strerror(ret));
         exit(1);
     }
-    tensor tensor = {
+    wasi_ephemeral_nn_tensor tensor = {
         .dimensions = { .buf = (uint32_t[]){1, 3, 224, 224,}, .size = 4, },
-        .type = fp32,
+        .type = wasi_ephemeral_nn_type_fp32,
         .data = tensordata,
     };
-    nnret = set_input(ctx, 0, &tensor);
+    nnret = wasi_ephemeral_nn_set_input(ctx, 0, &tensor);
     unmap_file(tensordata, tensordatasz);
-    if (nnret != success) {
+    if (nnret != wasi_ephemeral_nn_error_success) {
         fprintf(stderr, "set_input failed with %d\n", (int)nnret);
         exit(1);
     }
-    nnret = compute(ctx);
-    if (nnret != success) {
+    nnret = wasi_ephemeral_nn_compute(ctx);
+    if (nnret != wasi_ephemeral_nn_error_success) {
         fprintf(stderr, "compute failed with %d\n", (int)nnret);
         exit(1);
     }
     float result[1001];
     uint32_t resultsz;
-    nnret = get_output(ctx, 0, (void *)result, sizeof(result), &resultsz);
-    if (nnret != success) {
+    nnret = wasi_ephemeral_nn_get_output(ctx, 0, (void *)result, sizeof(result),
+                                         &resultsz);
+    if (nnret != wasi_ephemeral_nn_error_success) {
         fprintf(stderr, "get_output failed with %d\n", (int)nnret);
         exit(1);
     }
