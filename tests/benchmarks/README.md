@@ -8,6 +8,8 @@ Refer to the `README.md` under each folder for how to build and run the benchmar
 
 ## Install `llvm-profdata`
 
+> PS: the `llvm-profdata` vesion needs to be the same major version with llvm libraries used to build wamrc.
+
 The tool `llvm-profdata` is used when running the `test_pgo.sh` script under the benchmark folder. There are two ways to install it:
 
 1. Refer to https://apt.llvm.org/, e.g. in Ubuntu 20.04, add lines below to /etc/apt/source.list
@@ -18,19 +20,22 @@ deb-src http://apt.llvm.org/focal/ llvm-toolchain-focal main
 # 15
 deb http://apt.llvm.org/focal/ llvm-toolchain-focal-15 main
 deb-src http://apt.llvm.org/focal/ llvm-toolchain-focal-15 main
+# 18
+deb http://apt.llvm.org/focal/ llvm-toolchain-focal-18 main
+deb-src http://apt.llvm.org/focal/ llvm-toolchain-focal-18 main
 ```
 
 Then run `sudo apt update`, `sudo apt install llvm`. And after installing:
 
 ```bash
 cd /usr/bin
-sudo ln -s llvm-profdata-15 llvm-profdata
+sudo ln -s llvm-profdata-18 llvm-profdata
 ```
 
 2. Build manually
 
 ```bash
-git clone --depth 1 --branch release/15.x https://github.com/llvm/llvm-project.git
+git clone --depth 1 --branch release/18.x https://github.com/llvm/llvm-project.git
 cd llvm-project
 mkdir build && cd build
 cmake ../llvm \

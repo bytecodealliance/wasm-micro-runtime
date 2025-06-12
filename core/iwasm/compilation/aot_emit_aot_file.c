@@ -3378,6 +3378,12 @@ aot_resolve_object_data_sections(AOTObjectData *obj_data)
                     bh_memcpy_s(data_section->name, size, buf, size);
                     data_section->is_name_allocated = true;
                 }
+                else if (obj_data->comp_ctx->enable_llvm_pgo
+                         && !strcmp(name, "__llvm_prf_bits")) {
+                    LOG_WARNING("__llvm_prf_bits section is not supported and "
+                                "shouldn't be used in PGO.");
+                    return false;
+                }
 
                 if (obj_data->comp_ctx->enable_llvm_pgo
                     && !strcmp(name, "__llvm_prf_names")) {

@@ -437,6 +437,9 @@ typedef struct AOTFrame {
 } AOTFrame;
 
 #if WASM_ENABLE_STATIC_PGO != 0
+/* The bitmaps fields in LLVMProfileRawHeader, LLVMProfileData,
+ * LLVMProfileData_64 all dummy fields, it's used in MC/DC code coverage
+ * instead of PGO. See https://llvm.org/docs/InstrProfileFormat.html#bitmap */
 typedef struct LLVMProfileRawHeader {
     uint64 magic;
     uint64 version;
@@ -445,8 +448,11 @@ typedef struct LLVMProfileRawHeader {
     uint64 padding_bytes_before_counters;
     uint64 num_prof_counters;
     uint64 padding_bytes_after_counters;
+    uint64 num_prof_bitmaps;
+    uint64 padding_bytes_after_bitmaps;
     uint64 names_size;
     uint64 counters_delta;
+    uint64 bitmap_delta;
     uint64 names_delta;
     uint64 value_kind_last;
 } LLVMProfileRawHeader;
@@ -464,10 +470,12 @@ typedef struct LLVMProfileData {
     uint64 func_md5;
     uint64 func_hash;
     uint64 offset_counters;
+    uint64 offset_bitmaps;
     uintptr_t func_ptr;
     ValueProfNode **values;
     uint32 num_counters;
     uint16 num_value_sites[2];
+    uint32 num_bitmaps;
 } LLVMProfileData;
 
 /* The profiling data for writing to the output file, the width of
@@ -477,10 +485,12 @@ typedef struct LLVMProfileData_64 {
     uint64 func_md5;
     uint64 func_hash;
     uint64 offset_counters;
+    uint64 offset_bitmaps;
     uint64 func_ptr;
     uint64 values;
     uint32 num_counters;
     uint16 num_value_sites[2];
+    uint32 num_bitmaps;
 } LLVMProfileData_64;
 #endif /* end of WASM_ENABLE_STATIC_PGO != 0 */
 

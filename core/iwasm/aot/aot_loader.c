@@ -3323,7 +3323,7 @@ do_data_relocation(AOTModule *module, AOTRelocationGroup *group,
     uint8 *data_addr;
     uint32 data_size = 0, i;
     AOTRelocation *relocation = group->relocations;
-    void *symbol_addr;
+    void *symbol_addr = NULL;
     char *symbol, *data_section_name;
 
     if (!strncmp(group->section_name, ".rela.", 6)) {
