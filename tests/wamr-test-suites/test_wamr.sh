@@ -361,7 +361,7 @@ function sightglass_test()
 
 function setup_wabt()
 {
-    WABT_VERSION=1.0.37
+    # please sync with .github/actions/install-wasi-sdk-wabt/action.yml
     if [ ${WABT_BINARY_RELEASE} == "YES" ]; then
         echo "download a binary release and install"
         local WAT2WASM=${WORK_DIR}/wabt/out/gcc/Release/wat2wasm
@@ -370,30 +370,30 @@ function setup_wabt()
                 cosmopolitan)
                     ;;
                 linux)
-                    WABT_PLATFORM=ubuntu-20.04
+                    WABT_URL=https://github.com/WebAssembly/wabt/releases/download/1.0.37/wabt-1.0.37-ubuntu-20.04.tar.gz
+                    WABT_VERSION=1.0.37
                     ;;
                 darwin)
-                    WABT_PLATFORM=macos-12
+                    WABT_URL=https://github.com/WebAssembly/wabt/releases/download/1.0.36/wabt-1.0.36-macos-12.tar.gz
+                    WABT_VERSION=1.0.36
                     ;;
                 windows)
-                    WABT_PLATFORM=windows
+                    WABT_URL=https://github.com/WebAssembly/wabt/releases/download/1.0.37/wabt-1.0.37-windows.tar.gz
+                    WABT_VERSION=1.0.37
                     ;;
                 *)
                     echo "wabt platform for ${PLATFORM} in unknown"
                     exit 1
                     ;;
             esac
-            if [ ! -f /tmp/wabt-${WABT_VERSION}-${WABT_PLATFORM}.tar.gz ]; then
-                curl -L \
-                    https://github.com/WebAssembly/wabt/releases/download/${WABT_VERSION}/wabt-${WABT_VERSION}-${WABT_PLATFORM}.tar.gz \
-                    -o /tmp/wabt-${WABT_VERSION}-${WABT_PLATFORM}.tar.gz
-            fi
 
-            cd /tmp \
-            && tar zxf wabt-${WABT_VERSION}-${WABT_PLATFORM}.tar.gz \
-            && mkdir -p ${WORK_DIR}/wabt/out/gcc/Release/ \
-            && install wabt-${WABT_VERSION}/bin/* ${WORK_DIR}/wabt/out/gcc/Release/ \
-            && cd -
+            pushd /tmp
+            wget -O wabt-tar.gz --progress=dot:giga ${WABT_URL}
+            tar xf wabt-tar.gz
+            popd
+
+            mkdir -p ${WORK_DIR}/wabt/out/gcc/Release/
+            cp /tmp/wabt-${WABT_VERSION}/bin/* ${WORK_DIR}/wabt/out/gcc/Release/
         fi
     else
         echo "download source code and compile and install"
@@ -536,6 +536,9 @@ function spec_test()
     popd
     echo $(pwd)
 
+    #TODO: remove it when we can assume wabt is installed
+    # especially for CI Or there is installation script in the project
+    # that we can rely on
     setup_wabt
 
     ln -sf ${WORK_DIR}/../spec-test-script/all.py .
@@ -622,8 +625,8 @@ function spec_test()
 function wamr_compiler_test()
 {
     if [[ $1 != "aot" ]]; then
-        echo "WAMR compiler tests only support AOT mode"
-        exit 1
+        echo "WAMR compiler tests only support AOT mode, skip $1"
+        return 0
     fi
 
     echo  "Now start WAMR compiler tests"
