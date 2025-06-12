@@ -831,19 +831,24 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
             {
                 uint8 type1;
 
+#if WASM_ENABLE_GC == 0
                 CHECK_BUF(p, p_end, 1);
                 type1 = read_uint8(p);
 
-#if WASM_ENABLE_GC == 0
                 cur_value.ref_index = NULL_REF;
                 if (!push_const_expr_stack(&const_expr_ctx, flag, type1,
                                            &cur_value, error_buf,
                                            error_buf_size))
                     goto fail;
 #else
+                int32 heap_type;
+                read_leb_int32(p, p_end, heap_type);
+                type1 = (uint8)((int32)0x80 + heap_type);
+
                 cur_value.gc_obj = NULL_REF;
 
                 if (!is_byte_a_type(type1)
+                    || !wasm_is_valid_heap_type(heap_type)
                     || wasm_is_type_multi_byte_type(type1)) {
                     p--;
                     read_leb_uint32(p, p_end, type_idx);
