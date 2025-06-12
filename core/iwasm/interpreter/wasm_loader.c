@@ -2588,7 +2588,8 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
                             error_buf_size)) {
         return false;
     }
-    if (wasm_is_reftype_htref_non_nullable(ref_type.ref_type)) {
+    if (!wasm_is_type_reftype(ref_type.ref_type)
+        || wasm_is_reftype_htref_non_nullable(ref_type.ref_type)) {
         set_error_buf(error_buf, error_buf_size, "type mismatch");
         return false;
     }
@@ -3112,6 +3113,15 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
     if (!resolve_value_type(&p, p_end, module, module->type_count,
                             &need_ref_type_map, &ref_type, false, error_buf,
                             error_buf_size)) {
+        return false;
+    }
+    /*
+     * TODO: add this validator
+     *   `wasm_is_reftype_htref_non_nullable(ref_type.ref_type)`
+     * after sync up with the latest GC spec
+     */
+    if (!wasm_is_type_reftype(ref_type.ref_type)) {
+        set_error_buf(error_buf, error_buf_size, "type mismatch");
         return false;
     }
     table->table_type.elem_type = ref_type.ref_type;
