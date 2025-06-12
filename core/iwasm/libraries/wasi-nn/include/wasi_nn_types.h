@@ -134,8 +134,6 @@ typedef enum execution_target { cpu = 0, gpu, tpu } execution_target;
 // Bind a `graph` to the input and output tensors for an inference.
 typedef uint32_t graph_execution_context;
 
-/* Definition of 'wasi_nn.h' structs in WASM app format (using offset) */
-
 #ifdef __cplusplus
 }
 #endif
