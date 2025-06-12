@@ -618,49 +618,6 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
             running_mode: aot
             test_option: $WAMR_COMPILER_TEST_OPTIONS
-        exclude:
-          # incompatible modes and features
-          # classic-interp doesn't support simd
-          - running_mode: "classic-interp"
-            test_option: $SIMD_TEST_OPTIONS
-          # llvm jit doesn't support multi module
-          - running_mode: "jit"
-            test_option: $MULTI_MODULES_TEST_OPTIONS
-          # fast-jit doesn't support multi module, simd
-          - running_mode: "fast-jit"
-            test_option: $MULTI_MODULES_TEST_OPTIONS
-          - running_mode: "fast-jit"
-            test_option: $SIMD_TEST_OPTIONS
-          # multi-tier-jit doesn't support multi module, simd
-          - running_mode: "multi-tier-jit"
-            test_option: $MULTI_MODULES_TEST_OPTIONS
-          - running_mode: "multi-tier-jit"
-            test_option: $SIMD_TEST_OPTIONS
-          # fast-jit and multi-tier-jit don't support GC
-          - running_mode: "fast-jit"
-            test_option: $GC_TEST_OPTIONS
-          - running_mode: "multi-tier-jit"
-            test_option: $GC_TEST_OPTIONS
-          # fast-interp, fast-jit, llvm-jit, multi-tier-jit don't support Memory64
-          - running_mode: "fast-interp"
-            test_option: $MEMORY64_TEST_OPTIONS
-          - running_mode: "fast-jit"
-            test_option: $MEMORY64_TEST_OPTIONS
-          - running_mode: "jit"
-            test_option: $MEMORY64_TEST_OPTIONS
-          - running_mode: "multi-tier-jit"
-            test_option: $MEMORY64_TEST_OPTIONS
-          # aot, fast-interp, fast-jit, llvm-jit, multi-tier-jit don't support Multi Memory
-          - running_mode: "aot"
-            test_option: $MULTI_MEMORY_TEST_OPTIONS
-          - running_mode: "fast-interp"
-            test_option: $MULTI_MEMORY_TEST_OPTIONS
-          - running_mode: "fast-jit"
-            test_option: $MULTI_MEMORY_TEST_OPTIONS
-          - running_mode: "jit"
-            test_option: $MULTI_MEMORY_TEST_OPTIONS
-          - running_mode: "multi-tier-jit"
-            test_option: $MULTI_MEMORY_TEST_OPTIONS
 
     steps:
       - name: checkout
