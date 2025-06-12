@@ -3380,7 +3380,8 @@ aot_resolve_object_data_sections(AOTObjectData *obj_data)
                 }
                 else if (obj_data->comp_ctx->enable_llvm_pgo
                          && !strcmp(name, "__llvm_prf_bits")) {
-                    LOG_WARNING("__llvm_prf_bits section is not supported yet");
+                    LOG_WARNING("__llvm_prf_bits section is not supported and "
+                                "shouldn't be used in PGO.");
                     return false;
                 }
 

@@ -437,9 +437,9 @@ typedef struct AOTFrame {
 } AOTFrame;
 
 #if WASM_ENABLE_STATIC_PGO != 0
-/* TODO: bitmaps fields in LLVMProfileRawHeader, LLVMProfileData,
- * LLVMProfileData_64 all dummy fields, remove this comment when __llvm_prf_bits
- * are actual supported */
+/* The bitmaps fields in LLVMProfileRawHeader, LLVMProfileData,
+ * LLVMProfileData_64 all dummy fields, it's used in MC/DC code coverage
+ * instead of PGO. See https://llvm.org/docs/InstrProfileFormat.html#bitmap */
 typedef struct LLVMProfileRawHeader {
     uint64 magic;
     uint64 version;

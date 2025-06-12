@@ -4887,7 +4887,7 @@ aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
     prof_header.num_prof_counters = num_prof_counters;
     prof_header.names_size = prof_names_size;
     prof_header.value_kind_last = 1;
-    /* TODO: add __llvm_prf_bits support in the future */
+    /* __llvm_prf_bits won't be used in PGO, set dummy value here */
     prof_header.num_prof_bitmaps = 0;
     prof_header.bitmap_delta = 0;
 
@@ -4921,7 +4921,7 @@ aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
             prof_data_64->func_ptr = prof_data->func_ptr;
             prof_data_64->values = (uint64)(uintptr_t)prof_data->values;
             prof_data_64->num_counters = prof_data->num_counters;
-            /* TODO: add __llvm_prf_bits support in the future */
+            /* __llvm_prf_bits won't be used in PGO, set dummy value here */
             prof_data_64->num_bitmaps = 0;
             prof_data_64->num_value_sites[0] = prof_data->num_value_sites[0];
             prof_data_64->num_value_sites[1] = prof_data->num_value_sites[1];
