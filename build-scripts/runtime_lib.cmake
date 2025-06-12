@@ -193,6 +193,13 @@ else()
     enable_language (ASM)
 endif()
 
+# it will expose the runtime APIs.
+# you'll use the following command to check the exported APIs
+# dumpbin.exe /EXPORTS xxx
+if (MSVC)
+    add_compile_definitions(COMPILING_WASM_RUNTIME_API=1)
+endif ()
+
 include (${SHARED_PLATFORM_CONFIG})
 include (${SHARED_DIR}/mem-alloc/mem_alloc.cmake)
 include (${IWASM_DIR}/common/iwasm_common.cmake)

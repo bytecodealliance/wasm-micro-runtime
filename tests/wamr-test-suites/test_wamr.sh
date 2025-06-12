@@ -361,7 +361,7 @@ function sightglass_test()
 
 function setup_wabt()
 {
-    WABT_VERSION=1.0.37
+    # please sync with .github/actions/install-wasi-sdk-wabt/action.yml
     if [ ${WABT_BINARY_RELEASE} == "YES" ]; then
         echo "download a binary release and install"
         local WAT2WASM=${WORK_DIR}/wabt/out/gcc/Release/wat2wasm
@@ -370,30 +370,30 @@ function setup_wabt()
                 cosmopolitan)
                     ;;
                 linux)
-                    WABT_PLATFORM=ubuntu-20.04
+                    WABT_URL=https://github.com/WebAssembly/wabt/releases/download/1.0.37/wabt-1.0.37-ubuntu-20.04.tar.gz
+                    WABT_VERSION=1.0.37
                     ;;
                 darwin)
-                    WABT_PLATFORM=macos-12
+                    WABT_URL=https://github.com/WebAssembly/wabt/releases/download/1.0.36/wabt-1.0.36-macos-12.tar.gz
+                    WABT_VERSION=1.0.36
                     ;;
                 windows)
-                    WABT_PLATFORM=windows
+                    WABT_URL=https://github.com/WebAssembly/wabt/releases/download/1.0.37/wabt-1.0.37-windows.tar.gz
+                    WABT_VERSION=1.0.37
                     ;;
                 *)
                     echo "wabt platform for ${PLATFORM} in unknown"
                     exit 1
                     ;;
             esac
-            if [ ! -f /tmp/wabt-${WABT_VERSION}-${WABT_PLATFORM}.tar.gz ]; then
-                curl -L \
-                    https://github.com/WebAssembly/wabt/releases/download/${WABT_VERSION}/wabt-${WABT_VERSION}-${WABT_PLATFORM}.tar.gz \
-                    -o /tmp/wabt-${WABT_VERSION}-${WABT_PLATFORM}.tar.gz
-            fi
 
-            cd /tmp \
-            && tar zxf wabt-${WABT_VERSION}-${WABT_PLATFORM}.tar.gz \
-            && mkdir -p ${WORK_DIR}/wabt/out/gcc/Release/ \
-            && install wabt-${WABT_VERSION}/bin/* ${WORK_DIR}/wabt/out/gcc/Release/ \
-            && cd -
+            pushd /tmp
+            wget -O wabt-tar.gz --progress=dot:giga ${WABT_URL}
+            tar xf wabt-tar.gz
+            popd
+
+            mkdir -p ${WORK_DIR}/wabt/out/gcc/Release/
+            cp /tmp/wabt-${WABT_VERSION}/bin/* ${WORK_DIR}/wabt/out/gcc/Release/
         fi
     else
         echo "download source code and compile and install"
@@ -478,9 +478,9 @@ function spec_test()
         fi
 
         # As of version 1.0.36, wabt is still unable to correctly handle the GC proposal.
-        # 
+        #
         # $ $ /opt/wabt-1.0.36/bin/wast2json --enable-all ../spec/test/core/br_if.wast
-        # 
+        #
         # ../spec/test/core/br_if.wast:670:26: error: unexpected token "null", expected a numeric index or a name (e.g. 12 or $foo).
         #     (func $f (param (ref null $t)) (result funcref) (local.get 0))
         #
@@ -536,6 +536,9 @@ function spec_test()
     popd
     echo $(pwd)
 
+    #TODO: remove it when we can assume wabt is installed
+    # especially for CI Or there is installation script in the project
+    # that we can rely on
     setup_wabt
 
     ln -sf ${WORK_DIR}/../spec-test-script/all.py .
@@ -622,8 +625,8 @@ function spec_test()
 function wamr_compiler_test()
 {
     if [[ $1 != "aot" ]]; then
-        echo "WAMR compiler tests only support AOT mode"
-        exit 1
+        echo "WAMR compiler tests only support AOT mode, skip $1"
+        return 0
     fi
 
     echo  "Now start WAMR compiler tests"
@@ -877,51 +880,12 @@ function do_execute_in_running_mode()
 {
     local RUNNING_MODE="$1"
 
-    if [[ ${ENABLE_MULTI_MEMORY} -eq 1 ]]; then
-        if [[ "${RUNNING_MODE}" != "classic-interp" \
-                && "${RUNNING_MODE}" != "aot" ]]; then
-            echo "support multi-memory in classic-interp mode and aot mode"
-            return 0
-        fi
-    fi
+    # filter out uncompatible running mode based on targeting proposal features
+    # keep alpha order
 
-    if [[ ${ENABLE_MEMORY64} -eq 1 ]]; then
-        if [[ "${RUNNING_MODE}" != "classic-interp" \
-                && "${RUNNING_MODE}" != "aot" ]]; then
-            echo "support memory64(wasm64) in classic-interp mode and aot mode"
-            return 0
-        fi
-    fi
-
-    if [[ ${ENABLE_MULTI_MODULE} -eq 1 ]]; then
-        if [[ "${RUNNING_MODE}" != "classic-interp" \
-                && "${RUNNING_MODE}" != "fast-interp" \
-                && "${RUNNING_MODE}" != "aot" ]]; then
-            echo "support multi-module in both interp modes"
-            return 0
-        fi
-    fi
-
-    if [[ ${SGX_OPT} == "--sgx" ]]; then
-        if [[ "${RUNNING_MODE}" != "classic-interp" \
-                && "${RUNNING_MODE}" != "fast-interp" \
-                && "${RUNNING_MODE}" != "aot" \
-                && "${RUNNING_MODE}" != "fast-jit" ]]; then
-            echo "support sgx in both interp modes, fast-jit mode and aot mode"
-            return 0
-        fi
-    fi
-
-    if [[ ${ENABLE_SIMD} -eq 1 ]]; then
-        if [[ "${RUNNING_MODE}" != "jit" && "${RUNNING_MODE}" != "aot" && "${RUNNING_MODE}" != "fast-interp" ]]; then
-            echo "support simd in llvm-jit, aot and fast-interp mode"
-            return 0;
-        fi
-    fi
-
-    if [[ ${TARGET} == "X86_32" ]]; then
-        if [[ "${RUNNING_MODE}" == "jit" || "${RUNNING_MODE}" == "fast-jit" ]]; then
-            echo "both llvm-jit mode and fast-jit mode do not support X86_32 target"
+    if [[ ${ENABLE_EH} -eq 1 ]]; then
+        if [[ "${RUNNING_MODE}" != "classic-interp" ]]; then
+            echo "support exception handling in classic-interp"
             return 0;
         fi
     fi
@@ -936,9 +900,67 @@ function do_execute_in_running_mode()
         fi
     fi
 
-    if [[ ${ENABLE_EH} -eq 1 ]]; then
+    if [[ ${ENABLE_MEMORY64} -eq 1 ]]; then
+        if [[ "${RUNNING_MODE}" != "classic-interp" \
+                && "${RUNNING_MODE}" != "aot" ]]; then
+            echo "support memory64(wasm64) in classic-interp mode and aot mode"
+            return 0
+        fi
+    fi
+
+    if [[ ${ENABLE_MULTI_MEMORY} -eq 1 ]]; then
         if [[ "${RUNNING_MODE}" != "classic-interp" ]]; then
-            echo "support exception handling in classic-interp"
+            echo "support multi-memory in classic-interp mode mode"
+            return 0
+        fi
+    fi
+
+    if [[ ${ENABLE_MULTI_MODULE} -eq 1 ]]; then
+        if [[ "${RUNNING_MODE}" != "classic-interp" \
+                && "${RUNNING_MODE}" != "fast-interp" \
+                && "${RUNNING_MODE}" != "aot" ]]; then
+            echo "support multi-module in both interp modes"
+            return 0
+        fi
+    fi
+
+    if [[ ${ENABLE_SIMD} -eq 1 ]]; then
+        if [[ "${RUNNING_MODE}" != "jit" && "${RUNNING_MODE}" != "aot" && "${RUNNING_MODE}" != "fast-interp" ]]; then
+            echo "support simd in llvm-jit, aot and fast-interp mode"
+            return 0;
+        fi
+    fi
+
+    # filter out uncompatible running mode based on SGX support
+    if [[ ${SGX_OPT} == "--sgx" ]]; then
+        if [[ "${RUNNING_MODE}" != "classic-interp" \
+                && "${RUNNING_MODE}" != "fast-interp" \
+                && "${RUNNING_MODE}" != "aot" \
+                && "${RUNNING_MODE}" != "fast-jit" ]]; then
+            echo "support sgx in both interp modes, fast-jit mode and aot mode"
+            return 0
+        fi
+    fi
+
+    # filter out uncompatible running mode based on architecture
+    if [[ ${TARGET} == "X86_32" ]]; then
+        if [[ "${RUNNING_MODE}" == "jit" || "${RUNNING_MODE}" == "fast-jit" || "${RUNNING_MODE}" == "multi-tier-jit" ]]; then
+            echo "both llvm-jit, fast-jit and multi-tier-jit mode do not support X86_32 target"
+            return 0;
+        fi
+
+        if [[ ${ENABLE_MEMORY64} -eq 1 ]]; then
+            echo "memory64 does not support X86_32 target"
+            return 0;
+        fi
+
+        if [[ ${ENABLE_MULTI_MEMORY} -eq 1 ]]; then
+            echo "multi-memory does not support X86_32 target"
+            return 0;
+        fi
+
+        if [[ ${ENABLE_SIMD} -eq 1 ]]; then
+            echo "simd does not support X86_32 target"
             return 0;
         fi
     fi

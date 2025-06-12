@@ -58,7 +58,7 @@ dump_ov_shape_t(const ov_shape_t *shape, int32_t output_len, char *output)
 {
     int ret = 0;
 
-    ret = snprintf(output, output_len, "%ld,[", shape->rank);
+    ret = snprintf(output, output_len, "%" PRId64 ",[", shape->rank);
     if (!ret)
         return;
 
@@ -66,7 +66,7 @@ dump_ov_shape_t(const ov_shape_t *shape, int32_t output_len, char *output)
     output += ret;
 
     for (unsigned i = 0; i < shape->rank && output_len; i++) {
-        ret = snprintf(output, output_len, " %ld", shape->dims[i]);
+        ret = snprintf(output, output_len, " %" PRId64, shape->dims[i]);
         if (!ret)
             return;
 
@@ -161,8 +161,6 @@ wasi_nn_tensor_type_to_openvino_element_type(tensor_type wasi_nn_type)
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
         case fp64:
             return F64;
-        case bf16:
-            return BF16;
         case i64:
             return I64;
         case u8:
@@ -310,17 +308,6 @@ set_input(void *ctx, graph_execution_context exec_ctx, uint32_t index,
         if (ret != success)
             goto fail;
 
-        /* NCHW -> NHWC */
-        if (wasi_nn_tensor->dimensions->size == 4 || ov_dims[1] == 3) {
-            /* N */
-            /* H */
-            ov_dims[1] = ov_dims[2];
-            /* W */
-            ov_dims[2] = ov_dims[3];
-            /* C */
-            ov_dims[3] = 3;
-        }
-
         CHECK_OV_STATUS(ov_shape_create(wasi_nn_tensor->dimensions->size,
                                         ov_dims, &input_shape),
                         ret);
@@ -355,11 +342,6 @@ set_input(void *ctx, graph_execution_context exec_ctx, uint32_t index,
                         ret);
         CHECK_OV_STATUS(ov_preprocess_input_tensor_info_set_from(
                             input_tensor_info, ov_ctx->input_tensor),
-                        ret);
-        /* ! HAS TO BE NHWC. Match previous layout conversion */
-        CHECK_OV_STATUS(ov_layout_create("NHWC", &input_layout), ret);
-        CHECK_OV_STATUS(ov_preprocess_input_tensor_info_set_layout(
-                            input_tensor_info, input_layout),
                         ret);
 
         /* add RESIZE */
@@ -511,7 +493,7 @@ init_backend(void **ctx)
     *ctx = (void *)ov_ctx;
     return success;
 fail:
-    openvino_destroy((void *)ov_ctx);
+    os_free(ov_ctx);
     return ret;
 }
 
