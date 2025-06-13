@@ -26,15 +26,25 @@
  * from 4. to 6. is the Inference Loop
  */
 
+/* these limits are arbitrary. */
+#define MAX_GRAPHS 4
+#define MAX_EXECUTION_CONTEXTS 4
+
 typedef struct {
     ov_core_t *core;
     /* keep input model files */
-    void *weight_data;
-    ov_tensor_t *weights_tensor;
-    ov_model_t *model;
-    ov_compiled_model_t *compiled_model;
-    ov_infer_request_t *infer_request;
-    ov_tensor_t *input_tensor;
+    struct OpenVINOGraph {
+        void *weight_data;
+        ov_tensor_t *weights_tensor;
+        ov_model_t *model;
+        ov_compiled_model_t *compiled_model;
+    } graphs[MAX_GRAPHS];
+    struct OpenVINOExecutionContext {
+        struct OpenVINOGraph *graph;
+        ov_infer_request_t *infer_request;
+    } execution_contexts[MAX_EXECUTION_CONTEXTS];
+    unsigned int n_graphs;
+    unsigned int n_execution_contexts;
 } OpenVINOContext;
 
 /*
@@ -179,6 +189,29 @@ wasi_nn_tensor_type_to_openvino_element_type(tensor_type wasi_nn_type)
     return UNDEFINED;
 }
 
+static void
+free_graph(struct OpenVINOGraph *graph)
+{
+    if (graph->weight_data)
+        os_free(graph->weight_data);
+
+    if (graph->weights_tensor)
+        ov_tensor_free(graph->weights_tensor);
+
+    if (graph->model)
+        ov_model_free(graph->model);
+
+    if (graph->compiled_model)
+        ov_compiled_model_free(graph->compiled_model);
+}
+
+static void
+free_execution_context(struct OpenVINOExecutionContext *c)
+{
+    if (c->infer_request)
+        ov_infer_request_free(c->infer_request);
+}
+
 static wasi_nn_error
 uint32_array_to_int64_array(uint32_t array_size, uint32_t *src, int64_t **dst)
 {
@@ -198,6 +231,8 @@ load(void *ctx, graph_builder_array *builder, graph_encoding encoding,
      execution_target target, graph *g)
 {
     OpenVINOContext *ov_ctx = (OpenVINOContext *)ctx;
+    struct OpenVINOGraph *graph;
+    unsigned int graph_idx;
     wasi_nn_error ret = unsupported_operation;
 
     if (encoding != openvino) {
@@ -223,33 +258,47 @@ load(void *ctx, graph_builder_array *builder, graph_encoding encoding,
     graph_builder xml = builder->buf[0];
     graph_builder weight = builder->buf[1];
 
+    graph_idx = ov_ctx->n_graphs;
+    if (graph_idx >= MAX_GRAPHS) {
+        return runtime_error;
+    }
+    graph = &ov_ctx->graphs[graph_idx];
+    memset(graph, 0, sizeof(*graph));
+
     /* transfer weight to an ov tensor */
     {
-        ov_ctx->weight_data = os_malloc(weight.size);
-        if (!ov_ctx->weight_data)
+        graph->weight_data = os_malloc(weight.size);
+        if (!graph->weight_data)
             goto fail;
-        memcpy(ov_ctx->weight_data, weight.buf, weight.size);
+        memcpy(graph->weight_data, weight.buf, weight.size);
 
         ov_element_type_e type = U8;
         int64_t dims[1] = { weight.size };
         ov_shape_t shape = { 1, dims };
         CHECK_OV_STATUS(ov_tensor_create_from_host_ptr(type, shape,
-                                                       ov_ctx->weight_data,
-                                                       &ov_ctx->weights_tensor),
+                                                       graph->weight_data,
+                                                       &graph->weights_tensor),
                         ret);
     }
 
     /* load model from buffer */
     CHECK_OV_STATUS(ov_core_read_model_from_memory_buffer(
                         ov_ctx->core, (char *)xml.buf, xml.size,
-                        ov_ctx->weights_tensor, &ov_ctx->model),
+                        graph->weights_tensor, &graph->model),
                     ret);
 #ifndef NDEBUG
     print_model_input_output_info(ov_ctx->model);
 #endif
 
-    ret = success;
+    CHECK_OV_STATUS(ov_core_compile_model(ov_ctx->core, graph->model, "CPU", 0,
+                                          &graph->compiled_model),
+                    ret);
+
+    *g = graph_idx;
+    ov_ctx->n_graphs++;
+    return success;
 fail:
+    free_graph(graph);
     return ret;
 }
 
@@ -257,20 +306,62 @@ __attribute__((visibility("default"))) wasi_nn_error
 load_by_name(void *ctx, const char *filename, uint32_t filename_len, graph *g)
 {
     OpenVINOContext *ov_ctx = (OpenVINOContext *)ctx;
+    struct OpenVINOGraph *graph;
+    unsigned int graph_idx;
     wasi_nn_error ret = unsupported_operation;
 
-    CHECK_OV_STATUS(
-        ov_core_read_model(ov_ctx->core, filename, NULL, &ov_ctx->model), ret);
+    graph_idx = ov_ctx->n_graphs;
+    if (graph_idx >= MAX_GRAPHS) {
+        return runtime_error;
+    }
+    graph = &ov_ctx->graphs[graph_idx];
 
-    ret = success;
+    memset(graph, 0, sizeof(*graph));
+    CHECK_OV_STATUS(
+        ov_core_read_model(ov_ctx->core, filename, NULL, &graph->model), ret);
+
+    CHECK_OV_STATUS(ov_core_compile_model(ov_ctx->core, graph->model, "CPU", 0,
+                                          &graph->compiled_model),
+                    ret);
+
+    *g = graph_idx;
+    ov_ctx->n_graphs++;
+    return success;
 fail:
+    free_graph(graph);
     return ret;
 }
 
 __attribute__((visibility("default"))) wasi_nn_error
 init_execution_context(void *ctx, graph g, graph_execution_context *exec_ctx)
 {
+    OpenVINOContext *ov_ctx = (OpenVINOContext *)ctx;
+    struct OpenVINOGraph *graph;
+    struct OpenVINOExecutionContext *exec;
+    unsigned int exec_idx;
+    wasi_nn_error ret;
+
+    if (g >= ov_ctx->n_graphs)
+        return runtime_error;
+    graph = &ov_ctx->graphs[g];
+
+    exec_idx = ov_ctx->n_execution_contexts;
+    if (exec_idx >= MAX_EXECUTION_CONTEXTS)
+        return runtime_error;
+    exec = &ov_ctx->execution_contexts[exec_idx];
+
+    memset(exec, 0, sizeof(*exec));
+    exec->graph = graph;
+
+    CHECK_OV_STATUS(ov_compiled_model_create_infer_request(
+                        graph->compiled_model, &exec->infer_request),
+                    ret);
+
+    *exec_ctx = exec_idx;
+    ov_ctx->n_execution_contexts++;
     return success;
+fail:
+    return ret;
 }
 
 __attribute__((visibility("default"))) wasi_nn_error
@@ -278,9 +369,15 @@ set_input(void *ctx, graph_execution_context exec_ctx, uint32_t index,
           tensor *wasi_nn_tensor)
 {
     OpenVINOContext *ov_ctx = (OpenVINOContext *)ctx;
+    struct OpenVINOExecutionContext *exec;
     wasi_nn_error ret = unsupported_operation;
     ov_shape_t input_shape = { 0 };
+    ov_tensor_t *input_tensor = NULL;
     int64_t *ov_dims = NULL;
+
+    if (exec_ctx >= ov_ctx->n_execution_contexts)
+        return runtime_error;
+    exec = &ov_ctx->execution_contexts[exec_ctx];
 
     /* wasi_nn_tensor -> ov_tensor */
     {
@@ -306,27 +403,20 @@ set_input(void *ctx, graph_execution_context exec_ctx, uint32_t index,
 
         CHECK_OV_STATUS(ov_tensor_create_from_host_ptr(input_type, input_shape,
                                                        wasi_nn_tensor->data,
-                                                       &ov_ctx->input_tensor),
+                                                       &input_tensor),
                         ret);
     }
 
-    CHECK_OV_STATUS(ov_core_compile_model(ov_ctx->core, ov_ctx->model, "CPU", 0,
-                                          &ov_ctx->compiled_model),
-                    ret);
-
-    CHECK_OV_STATUS(ov_compiled_model_create_infer_request(
-                        ov_ctx->compiled_model, &ov_ctx->infer_request),
-                    ret);
-
     /* install ov_tensor -> infer_request */
     CHECK_OV_STATUS(ov_infer_request_set_input_tensor_by_index(
-                        ov_ctx->infer_request, index, ov_ctx->input_tensor),
+                        exec->infer_request, index, input_tensor),
                     ret);
     ret = success;
-
 fail:
     if (ov_dims)
         os_free(ov_dims);
+    if (input_tensor)
+        ov_tensor_free(input_tensor);
     ov_shape_free(&input_shape);
 
     return ret;
@@ -336,9 +426,14 @@ __attribute__((visibility("default"))) wasi_nn_error
 compute(void *ctx, graph_execution_context exec_ctx)
 {
     OpenVINOContext *ov_ctx = (OpenVINOContext *)ctx;
+    struct OpenVINOExecutionContext *exec;
     wasi_nn_error ret = unsupported_operation;
 
-    CHECK_OV_STATUS(ov_infer_request_infer(ov_ctx->infer_request), ret);
+    if (exec_ctx >= ov_ctx->n_execution_contexts)
+        return runtime_error;
+    exec = &ov_ctx->execution_contexts[exec_ctx];
+
+    CHECK_OV_STATUS(ov_infer_request_infer(exec->infer_request), ret);
     ret = success;
 fail:
     return ret;
@@ -349,13 +444,18 @@ get_output(void *ctx, graph_execution_context exec_ctx, uint32_t index,
            tensor_data output_tensor, uint32_t *output_tensor_size)
 {
     OpenVINOContext *ov_ctx = (OpenVINOContext *)ctx;
+    struct OpenVINOExecutionContext *exec;
     wasi_nn_error ret = unsupported_operation;
     ov_tensor_t *ov_tensor = NULL;
     void *data = NULL;
     size_t byte_size = 0;
 
+    if (exec_ctx >= ov_ctx->n_execution_contexts)
+        return runtime_error;
+    exec = &ov_ctx->execution_contexts[exec_ctx];
+
     CHECK_OV_STATUS(ov_infer_request_get_output_tensor_by_index(
-                        ov_ctx->infer_request, index, &ov_tensor),
+                        exec->infer_request, index, &ov_tensor),
                     ret);
 
     CHECK_OV_STATUS(ov_tensor_get_byte_size(ov_tensor, &byte_size), ret);
@@ -421,27 +521,16 @@ __attribute__((visibility("default"))) wasi_nn_error
 deinit_backend(void *ctx)
 {
     OpenVINOContext *ov_ctx = (OpenVINOContext *)ctx;
+    unsigned int i;
 
     if (!ov_ctx)
         return invalid_argument;
 
-    if (ov_ctx->weight_data)
-        os_free(ov_ctx->weight_data);
+    for (i = 0; i < ov_ctx->n_execution_contexts; i++)
+        free_execution_context(&ov_ctx->execution_contexts[i]);
 
-    if (ov_ctx->weights_tensor)
-        ov_tensor_free(ov_ctx->weights_tensor);
-
-    if (ov_ctx->input_tensor)
-        ov_tensor_free(ov_ctx->input_tensor);
-
-    if (ov_ctx->infer_request)
-        ov_infer_request_free(ov_ctx->infer_request);
-
-    if (ov_ctx->compiled_model)
-        ov_compiled_model_free(ov_ctx->compiled_model);
-
-    if (ov_ctx->model)
-        ov_model_free(ov_ctx->model);
+    for (i = 0; i < ov_ctx->n_graphs; i++)
+        free_graph(&ov_ctx->graphs[i]);
 
     if (ov_ctx->core)
         ov_core_free(ov_ctx->core);
