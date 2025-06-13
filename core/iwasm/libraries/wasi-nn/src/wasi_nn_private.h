@@ -10,6 +10,7 @@
 #include "wasm_export.h"
 
 typedef struct {
+    bool is_backend_ctx_initialized;
     bool is_model_loaded;
     graph_encoding backend;
     void *backend_ctx;
