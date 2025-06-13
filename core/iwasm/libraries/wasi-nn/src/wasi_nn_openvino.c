@@ -225,12 +225,6 @@ load(void *ctx, graph_builder_array *builder, graph_encoding encoding,
     graph_builder xml = builder->buf[0];
     graph_builder weight = builder->buf[1];
 
-    /* if xml is a String with a model in IR */
-    if (!(xml.buf[xml.size] == '\0' && xml.buf[xml.size - 1] != '\0')) {
-        NN_ERR_PRINTF("Invalid xml string.");
-        return invalid_argument;
-    }
-
     /* transfer weight to an ov tensor */
     {
         ov_ctx->weight_data = os_malloc(weight.size);
