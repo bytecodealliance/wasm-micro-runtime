@@ -99,9 +99,11 @@ wasi_nn_ctx_destroy(WASINNContext *wasi_nn_ctx)
     NN_DBG_PRINTF("-> current_encoding: %d", wasi_nn_ctx->backend);
 
     /* deinit() the backend */
-    wasi_nn_error res;
-    call_wasi_nn_func(wasi_nn_ctx->backend, deinit, res,
-                      wasi_nn_ctx->backend_ctx);
+    if (wasi_nn_ctx->is_backend_ctx_initialized) {
+        wasi_nn_error res;
+        call_wasi_nn_func(wasi_nn_ctx->backend, deinit, res,
+                          wasi_nn_ctx->backend_ctx);
+    }
 
     wasm_runtime_free(wasi_nn_ctx);
 }
