@@ -497,7 +497,7 @@
 - wasm loader: Fix handling if block without op else (#3404)
 - ref-types: Correct default value for function local variables (#3397)
 - aot compiler: Fix the length type passed to aot_memmove/aot_memset (#3378)
-- Fix loader and mini-loader select potiential error (#3374)
+- Fix loader and mini-loader select potential error (#3374)
 - Fix aot debugger compilation error on windows (#3370)
 - A few native stack detection fixes for macOS/arm64 (#3368)
 - Fix ESP32-S3 compiling error (#3359)
