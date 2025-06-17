@@ -114,6 +114,12 @@ set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
 
 set (CMAKE_MACOSX_RPATH True)
 
+# if enable wasi-nn, both wasi-nn-backends and iwasm
+# need to use same WAMR (dynamic) libraries
+if (WAMR_BUILD_WASI_NN EQUAL 1)
+  set (BUILD_SHARED_LIBS ON)
+endif ()
+
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
