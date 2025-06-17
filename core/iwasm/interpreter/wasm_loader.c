@@ -844,13 +844,14 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                 int32 heap_type;
                 read_leb_int32(p, p_end, heap_type);
 
-                /* Validate heap_type before computing type1 to prevent
-                 * potential overflow. */
                 if (heap_type >= 0) {
                     if (!check_type_index(module, module->type_count, heap_type,
                                           error_buf, error_buf_size)) {
                         goto fail;
                     }
+                    wasm_set_refheaptype_typeidx(&cur_ref_type.ref_ht_typeidx,
+                                                 true, heap_type);
+                    type1 = cur_ref_type.ref_type;
                 }
                 else {
                     if (!wasm_is_valid_heap_type(heap_type)) {
@@ -858,9 +859,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                         "unknown type %d", heap_type);
                         goto fail;
                     }
+                    type1 = (uint8)((int32)0x80 + heap_type);
                 }
-
-                type1 = (uint8)((int32)0x80 + heap_type);
 
                 cur_value.gc_obj = NULL_REF;
 
