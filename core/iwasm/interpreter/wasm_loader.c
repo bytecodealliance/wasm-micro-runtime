@@ -3712,7 +3712,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
              * we shall make a copy of code body [p_code, p_code + code_size]
              * when we are worrying about inappropriate releasing behaviour.
              * all code bodies are actually in a buffer which user allocates in
-             * his embedding environment and we don't have power on them.
+             * their embedding environment and we don't have power over them.
              * it will be like:
              * code_body_cp = malloc(code_size);
              * memcpy(code_body_cp, p_code, code_size);

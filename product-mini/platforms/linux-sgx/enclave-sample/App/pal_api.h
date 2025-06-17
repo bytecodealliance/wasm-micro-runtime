@@ -79,7 +79,7 @@ struct wamr_pal_create_process_args {
     // Untrusted environment variable array pass to new process.
     //
     // The untrusted env vars to the command. And the last element of the array
-    // must be NULL to indicate the length of array.
+    // must be NULL to indicate the end of the array.
     //
     // Optional field.
     const char **env;

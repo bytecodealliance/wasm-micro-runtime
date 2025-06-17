@@ -60,7 +60,7 @@ class memory64_atomic_test_suite : public testing::TestWithParam<RunningMode>
         return false;
     }
 
-    void destory_exec_env()
+    void destroy_exec_env()
     {
         wasm_runtime_destroy_exec_env(exec_env);
         wasm_runtime_deinstantiate(module_inst);
@@ -109,7 +109,7 @@ class memory64_atomic_test_suite : public testing::TestWithParam<RunningMode>
     virtual void TearDown()
     {
         if (cleanup) {
-            destory_exec_env();
+            destroy_exec_env();
             wasm_runtime_destroy();
             cleanup = false;
         }
@@ -339,8 +339,8 @@ TEST_P(memory64_atomic_test_suite, atomic_opcodes_i64_rmw_cmpxchg)
     PUT_I64_TO_ADDR(wasm_argv + 2, 0x100F0E0D0C0B0A09);
     // new
     PUT_I64_TO_ADDR(wasm_argv + 4, 0xdeadcafebeefdead);
-    ASSERT_TRUE(wasm_runtime_call_wasm(exec_env, func_map["i64_atomic_rmw_cmpxchg"],
-                                       6, wasm_argv));
+    ASSERT_TRUE(wasm_runtime_call_wasm(
+        exec_env, func_map["i64_atomic_rmw_cmpxchg"], 6, wasm_argv));
     i64 = 0x100F0E0D0C0B0A09;
     ASSERT_EQ(i64, GET_U64_FROM_ADDR(wasm_argv));
 
