@@ -32,8 +32,6 @@ typedef struct {
     void *weight_data;
     ov_tensor_t *weights_tensor;
     ov_model_t *model;
-    /* add prepostprocess */
-    ov_model_t *new_model;
     ov_compiled_model_t *compiled_model;
     ov_infer_request_t *infer_request;
     ov_tensor_t *input_tensor;
@@ -284,16 +282,6 @@ set_input(void *ctx, graph_execution_context exec_ctx, uint32_t index,
     ov_shape_t input_shape = { 0 };
     int64_t *ov_dims = NULL;
 
-    ov_preprocess_prepostprocessor_t *ppp = NULL;
-    ov_preprocess_input_info_t *input_info = NULL;
-    ov_preprocess_input_tensor_info_t *input_tensor_info = NULL;
-    ov_layout_t *input_layout = NULL;
-    ov_preprocess_preprocess_steps_t *input_process = NULL;
-    ov_preprocess_input_model_info_t *p_input_model = NULL;
-    ov_layout_t *model_layout = NULL;
-    ov_preprocess_output_info_t *output_info = NULL;
-    ov_preprocess_output_tensor_info_t *output_tensor_info = NULL;
-
     /* wasi_nn_tensor -> ov_tensor */
     {
         ret = uint32_array_to_int64_array(wasi_nn_tensor->dimensions->size,
@@ -322,57 +310,8 @@ set_input(void *ctx, graph_execution_context exec_ctx, uint32_t index,
                         ret);
     }
 
-    /* set preprocess based on wasi_nn_tensor */
-    {
-        CHECK_OV_STATUS(
-            ov_preprocess_prepostprocessor_create(ov_ctx->model, &ppp), ret);
-
-        /* reuse user' created tensor's info */
-        CHECK_OV_STATUS(ov_preprocess_prepostprocessor_get_input_info_by_index(
-                            ppp, index, &input_info),
-                        ret);
-        CHECK_OV_STATUS(ov_preprocess_input_info_get_tensor_info(
-                            input_info, &input_tensor_info),
-                        ret);
-        CHECK_OV_STATUS(ov_preprocess_input_tensor_info_set_from(
-                            input_tensor_info, ov_ctx->input_tensor),
-                        ret);
-
-        /* add RESIZE */
-        CHECK_OV_STATUS(ov_preprocess_input_info_get_preprocess_steps(
-                            input_info, &input_process),
-                        ret);
-        CHECK_OV_STATUS(
-            ov_preprocess_preprocess_steps_resize(input_process, RESIZE_LINEAR),
-            ret);
-
-        /* input model */
-        CHECK_OV_STATUS(
-            ov_preprocess_input_info_get_model_info(input_info, &p_input_model),
-            ret);
-        // TODO: what if not?
-        CHECK_OV_STATUS(ov_layout_create("NCHW", &model_layout), ret);
-        CHECK_OV_STATUS(ov_preprocess_input_model_info_set_layout(p_input_model,
-                                                                  model_layout),
-                        ret);
-
-        /* output -> F32(possibility) */
-        CHECK_OV_STATUS(ov_preprocess_prepostprocessor_get_output_info_by_index(
-                            ppp, index, &output_info),
-                        ret);
-        CHECK_OV_STATUS(ov_preprocess_output_info_get_tensor_info(
-                            output_info, &output_tensor_info),
-                        ret);
-        CHECK_OV_STATUS(
-            ov_preprocess_output_set_element_type(output_tensor_info, F32),
-            ret);
-
-        CHECK_OV_STATUS(
-            ov_preprocess_prepostprocessor_build(ppp, &ov_ctx->new_model), ret);
-    }
-
-    CHECK_OV_STATUS(ov_core_compile_model(ov_ctx->core, ov_ctx->new_model,
-                                          "CPU", 0, &ov_ctx->compiled_model),
+    CHECK_OV_STATUS(ov_core_compile_model(ov_ctx->core, ov_ctx->model, "CPU", 0,
+                                          &ov_ctx->compiled_model),
                     ret);
 
     CHECK_OV_STATUS(ov_compiled_model_create_infer_request(
@@ -389,24 +328,6 @@ fail:
     if (ov_dims)
         os_free(ov_dims);
     ov_shape_free(&input_shape);
-    if (ppp)
-        ov_preprocess_prepostprocessor_free(ppp);
-    if (input_info)
-        ov_preprocess_input_info_free(input_info);
-    if (input_tensor_info)
-        ov_preprocess_input_tensor_info_free(input_tensor_info);
-    if (input_layout)
-        ov_layout_free(input_layout);
-    if (input_process)
-        ov_preprocess_preprocess_steps_free(input_process);
-    if (p_input_model)
-        ov_preprocess_input_model_info_free(p_input_model);
-    if (model_layout)
-        ov_layout_free(model_layout);
-    if (output_info)
-        ov_preprocess_output_info_free(output_info);
-    if (output_tensor_info)
-        ov_preprocess_output_tensor_info_free(output_tensor_info);
 
     return ret;
 }
