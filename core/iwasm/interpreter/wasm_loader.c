@@ -854,8 +854,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                 }
                 else {
                     if (!wasm_is_valid_heap_type(heap_type)) {
-                        set_error_buf(error_buf, error_buf_size,
-                                      "unknown type");
+                        set_error_buf_v(error_buf, error_buf_size,
+                                        "unknown type %d", heap_type);
                         goto fail;
                     }
                 }
