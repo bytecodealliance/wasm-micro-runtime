@@ -439,6 +439,11 @@ get_output(void *ctx, graph_execution_context exec_ctx, uint32_t index,
 
     CHECK_OV_STATUS(ov_tensor_get_byte_size(ov_tensor, &byte_size), ret);
 
+    if (byte_size > *output_tensor_size) {
+        ret = too_large;
+        goto fail;
+    }
+
     CHECK_OV_STATUS(ov_tensor_data(ov_tensor, &data), ret);
 
     memcpy(output_tensor, data, byte_size);
