@@ -1145,7 +1145,7 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
                 return true;
             else {
                 int32 heap_type = ref_type1->ref_ht_common.heap_type;
-                // We dont care whether type2 is nullable or not. So
+                // We don't care whether type2 is nullable or not. So
                 // we normalize it into its related one-byte type.
                 if (type2 == REF_TYPE_HT_NULLABLE
                     || type2 == REF_TYPE_HT_NON_NULLABLE) {

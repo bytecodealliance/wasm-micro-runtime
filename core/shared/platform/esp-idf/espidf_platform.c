@@ -201,10 +201,20 @@ openat(int fd, const char *pathname, int flags, ...)
     int ret;
     char dir_path[DIR_PATH_LEN];
     char *full_path;
+    mode_t mode = 0;
+    bool has_mode = false;
+
+    if (flags & O_CREAT) {
+        va_list ap;
+        va_start(ap, flags);
+        mode = (mode_t)va_arg(ap, int);
+        va_end(ap);
+        has_mode = true;
+    }
 
     ret = fcntl(fd, F_GETPATH, dir_path);
     if (ret != 0) {
-        errno = -EINVAL;
+        errno = EINVAL;
         return -1;
     }
 
@@ -214,7 +224,7 @@ openat(int fd, const char *pathname, int flags, ...)
         return -1;
     }
 
-    new_fd = open(full_path, flags);
+    new_fd = has_mode ? open(full_path, flags, mode) : open(full_path, flags);
     free(full_path);
 
     return new_fd;
