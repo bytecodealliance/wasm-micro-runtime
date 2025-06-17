@@ -843,12 +843,28 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 #else
                 int32 heap_type;
                 read_leb_int32(p, p_end, heap_type);
+
+                /* Validate heap_type before computing type1 to prevent
+                 * potential overflow. */
+                if (heap_type >= 0) {
+                    if (!check_type_index(module, module->type_count, heap_type,
+                                          error_buf, error_buf_size)) {
+                        goto fail;
+                    }
+                }
+                else {
+                    if (!wasm_is_valid_heap_type(heap_type)) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "unknown type");
+                        goto fail;
+                    }
+                }
+
                 type1 = (uint8)((int32)0x80 + heap_type);
 
                 cur_value.gc_obj = NULL_REF;
 
                 if (!is_byte_a_type(type1)
-                    || !wasm_is_valid_heap_type(heap_type)
                     || wasm_is_type_multi_byte_type(type1)) {
                     p--;
                     read_leb_uint32(p, p_end, type_idx);
