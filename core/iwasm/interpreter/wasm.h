@@ -1243,7 +1243,7 @@ wasm_value_type_size_internal(uint8 value_type, uint8 pointer_size)
         return sizeof(int16);
 #endif
     else {
-        bh_assert(0);
+        bh_assert(0 && "Unknown value type. It should be handled ahead.");
     }
 #if WASM_ENABLE_GC == 0
     (void)pointer_size;

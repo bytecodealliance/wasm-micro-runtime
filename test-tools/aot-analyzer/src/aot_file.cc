@@ -48,22 +48,22 @@ AoTFile::ParseTargetInfo()
     CHECK_RESULT(ReadT(&abi_type, this, "uint16_t"));
     target_info_.abi_type = abi_type;
 
-    // exectuion type
+    // execution type
     uint16_t e_type = 0;
     CHECK_RESULT(ReadT(&e_type, this, "uint16_t"));
     target_info_.e_type = e_type;
 
-    // exectuion machine
+    // execution machine
     uint16_t e_machine = 0;
     CHECK_RESULT(ReadT(&e_machine, this, "uint16_t"));
     target_info_.e_machine = e_machine;
 
-    // exectuion version
+    // execution version
     uint32_t e_version = 0;
     CHECK_RESULT(ReadT(&e_version, this, "uint32_t"));
     target_info_.e_version = e_version;
 
-    // exectuion flags
+    // execution flags
     uint32_t e_flags = 0;
     CHECK_RESULT(ReadT(&e_flags, this, "uint32_t"));
     target_info_.e_flags = e_flags;
@@ -165,7 +165,7 @@ AoTFile::GetExectuionTypeName(uint16_t e_type)
             break;
         }
         default:
-            name = "bad exectuion type";
+            name = "bad execution type";
     }
     return name;
 }
@@ -251,7 +251,7 @@ AoTFile::GetExectuionMachineName(uint16_t e_machine)
             break;
         }
         default:
-            machine = "bad exectuion machine type";
+            machine = "bad execution machine type";
     }
     return machine;
 }

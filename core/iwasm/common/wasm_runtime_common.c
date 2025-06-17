@@ -757,7 +757,10 @@ wasm_runtime_full_init_internal(RuntimeInitArgs *init_args)
 #endif
 
 #if WASM_ENABLE_GC != 0
-    gc_heap_size_default = init_args->gc_heap_size;
+    uint32 gc_heap_size = init_args->gc_heap_size;
+    if (gc_heap_size > 0) {
+        gc_heap_size_default = gc_heap_size;
+    }
 #endif
 
 #if WASM_ENABLE_JIT != 0
@@ -1501,7 +1504,7 @@ wasm_runtime_load_ex(uint8 *buf, uint32 size, const LoadArgs *args,
                                           error_buf_size);
 }
 
-WASM_RUNTIME_API_EXTERN bool
+bool
 wasm_runtime_resolve_symbols(WASMModuleCommon *module)
 {
 #if WASM_ENABLE_INTERP != 0
@@ -1739,6 +1742,45 @@ wasm_runtime_destroy_exec_env(WASMExecEnv *exec_env)
 {
     wasm_exec_env_destroy(exec_env);
 }
+
+#if WAMR_ENABLE_COPY_CALLSTACK != 0
+uint32
+wasm_copy_callstack(const wasm_exec_env_t exec_env, wasm_frame_t *buffer,
+                    const uint32 length, const uint32 skip_n, char *error_buf,
+                    uint32_t error_buf_size)
+{
+    /*
+     * Note for devs: please refrain from such modifications inside of
+     * wasm_copy_callstack to preserve async-signal-safety
+     * - any allocations/freeing memory
+     * - dereferencing any pointers other than: exec_env, exec_env->module_inst,
+     * exec_env->module_inst->module, pointers between stack's bottom and
+     * top_boundary For more details check wasm_copy_callstack in
+     * wasm_export.h
+     */
+#if WASM_ENABLE_DUMP_CALL_STACK
+    WASMModuleInstance *module_inst =
+        (WASMModuleInstance *)get_module_inst(exec_env);
+
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        return wasm_interp_copy_callstack(exec_env, buffer, length, skip_n,
+                                          error_buf, error_buf_size);
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return aot_copy_callstack(exec_env, buffer, length, skip_n, error_buf,
+                                  error_buf_size);
+    }
+#endif
+#endif
+    char *err_msg = "No copy_callstack API was actually executed";
+    strncpy(error_buf, err_msg, error_buf_size);
+    return 0;
+}
+#endif // WAMR_ENABLE_COPY_CALLSTACK
 
 bool
 wasm_runtime_init_thread_env(void)
@@ -2240,6 +2282,15 @@ wasm_runtime_access_exce_check_guard_page()
         uint32 page_size = os_getpagesize();
         memset(exec_env_tls->exce_check_guard_page, 0, page_size);
     }
+}
+#endif
+
+#if WASM_ENABLE_INSTRUCTION_METERING != 0
+void
+wasm_runtime_set_instruction_count_limit(WASMExecEnv *exec_env,
+                                         int instructions_to_execute)
+{
+    exec_env->instructions_to_execute = instructions_to_execute;
 }
 #endif
 
@@ -3835,11 +3886,15 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     init_options.allocator = &uvwasi_allocator;
     init_options.argc = argc;
     init_options.argv = (const char **)argv;
-    init_options.in = (stdinfd != -1) ? (uvwasi_fd_t)stdinfd : init_options.in;
-    init_options.out =
-        (stdoutfd != -1) ? (uvwasi_fd_t)stdoutfd : init_options.out;
-    init_options.err =
-        (stderrfd != -1) ? (uvwasi_fd_t)stderrfd : init_options.err;
+    init_options.in = (stdinfd != os_get_invalid_handle())
+                          ? (uvwasi_fd_t)stdinfd
+                          : init_options.in;
+    init_options.out = (stdoutfd != os_get_invalid_handle())
+                           ? (uvwasi_fd_t)stdoutfd
+                           : init_options.out;
+    init_options.err = (stderrfd != os_get_invalid_handle())
+                           ? (uvwasi_fd_t)stderrfd
+                           : init_options.err;
 
     if (dir_count > 0) {
         init_options.preopenc = dir_count;
@@ -4458,8 +4513,9 @@ wasm_func_type_get_param_valkind(WASMFuncType *const func_type,
             return WASM_V128;
         case VALUE_TYPE_FUNCREF:
             return WASM_FUNCREF;
-
         case VALUE_TYPE_EXTERNREF:
+            return WASM_EXTERNREF;
+
         case VALUE_TYPE_VOID:
         default:
         {
@@ -7793,7 +7849,7 @@ wasm_runtime_detect_native_stack_overflow_size(WASMExecEnv *exec_env,
     return true;
 }
 
-WASM_RUNTIME_API_EXTERN bool
+bool
 wasm_runtime_is_underlying_binary_freeable(WASMModuleCommon *const module)
 {
 #if WASM_ENABLE_INTERP != 0

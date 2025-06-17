@@ -58,7 +58,7 @@ dump_ov_shape_t(const ov_shape_t *shape, int32_t output_len, char *output)
 {
     int ret = 0;
 
-    ret = snprintf(output, output_len, "%ld,[", shape->rank);
+    ret = snprintf(output, output_len, "%" PRId64 ",[", shape->rank);
     if (!ret)
         return;
 
@@ -66,7 +66,7 @@ dump_ov_shape_t(const ov_shape_t *shape, int32_t output_len, char *output)
     output += ret;
 
     for (unsigned i = 0; i < shape->rank && output_len; i++) {
-        ret = snprintf(output, output_len, " %ld", shape->dims[i]);
+        ret = snprintf(output, output_len, " %" PRId64, shape->dims[i]);
         if (!ret)
             return;
 
@@ -161,8 +161,6 @@ wasi_nn_tensor_type_to_openvino_element_type(tensor_type wasi_nn_type)
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
         case fp64:
             return F64;
-        case bf16:
-            return BF16;
         case i64:
             return I64;
         case u8:
@@ -511,7 +509,7 @@ init_backend(void **ctx)
     *ctx = (void *)ov_ctx;
     return success;
 fail:
-    openvino_destroy((void *)ov_ctx);
+    os_free(ov_ctx);
     return ret;
 }
 

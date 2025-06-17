@@ -39,7 +39,7 @@ function help()
     echo "-F set the firmware path used by qemu"
     echo "-C enable code coverage collect"
     echo "-j set the platform to test"
-    echo "-T set sanitizer to use in tests(ubsan|tsan|asan)"
+    echo "-T set sanitizer to use in tests(ubsan|tsan|asan|posan)"
     echo "-A use the specified wamrc command instead of building it"
     echo "-r [requirement name] [N [N ...]] specify a requirement name followed by one or more"
     echo "                                  subrequirement IDs, if no subrequirement is specificed,"
@@ -361,7 +361,7 @@ function sightglass_test()
 
 function setup_wabt()
 {
-    WABT_VERSION=1.0.36
+    WABT_VERSION=1.0.37
     if [ ${WABT_BINARY_RELEASE} == "YES" ]; then
         echo "download a binary release and install"
         local WAT2WASM=${WORK_DIR}/wabt/out/gcc/Release/wat2wasm
@@ -448,9 +448,9 @@ function spec_test()
 
         # May 31, 2012 [interpreter] implement atomic.wait and atomic.notify (#194)
         git reset --hard 09f2831349bf409187abb6f7868482a8079f2264
-        git apply ../../spec-test-script/thread_proposal_ignore_cases.patch || exit 1
-        git apply ../../spec-test-script/thread_proposal_fix_atomic_case.patch || exit 1
-        git apply ../../spec-test-script/thread_proposal_remove_memory64_flag_case.patch
+        git apply --ignore-whitespace ../../spec-test-script/thread_proposal_ignore_cases.patch || exit 1
+        git apply --ignore-whitespace ../../spec-test-script/thread_proposal_fix_atomic_case.patch || exit 1
+        git apply --ignore-whitespace ../../spec-test-script/thread_proposal_remove_memory64_flag_case.patch
     elif [ ${ENABLE_EH} == 1 ]; then
         echo "checkout exception-handling test cases"
 
@@ -459,7 +459,7 @@ function spec_test()
 
         # Jun 6, 2023 Merge branch 'upstream' into merge-upstream
         git reset --hard 51c721661b671bb7dc4b3a3acb9e079b49778d36
-        git apply ../../spec-test-script/exception_handling.patch || exit 1
+        git apply --ignore-whitespace ../../spec-test-script/exception_handling.patch || exit 1
     elif [[ ${ENABLE_GC} == 1 ]]; then
         echo "checkout spec for GC proposal"
 
@@ -469,12 +469,12 @@ function spec_test()
 
         #  Dec 9, 2024. Merge branch 'funcref'
         git reset --hard 756060f5816c7e2159f4817fbdee76cf52f9c923
-        git apply ../../spec-test-script/gc_ignore_cases.patch || exit 1
+        git apply --ignore-whitespace ../../spec-test-script/gc_ignore_cases.patch || exit 1
 
         if [[ ${ENABLE_QEMU} == 1 ]]; then
             # Decrease the recursive count for tail call cases as nuttx qemu's
             # native stack size is much smaller
-            git apply ../../spec-test-script/gc_nuttx_tail_call.patch || exit 1
+            git apply --ignore-whitespace ../../spec-test-script/gc_nuttx_tail_call.patch || exit 1
         fi
 
         # As of version 1.0.36, wabt is still unable to correctly handle the GC proposal.
@@ -497,7 +497,7 @@ function spec_test()
         git checkout 044d0d2e77bdcbe891f7e0b9dd2ac01d56435f0b -- test/core/elem.wast test/core/data.wast
         # Patch table64 extension
         git checkout 940398cd4823522a9b36bec4984be4b153dedb81 -- test/core/call_indirect.wast test/core/table.wast test/core/table_copy.wast test/core/table_copy_mixed.wast test/core/table_fill.wast test/core/table_get.wast test/core/table_grow.wast test/core/table_init.wast test/core/table_set.wast test/core/table_size.wast
-        git apply ../../spec-test-script/memory64_ignore_cases.patch || exit 1
+        git apply --ignore-whitespace ../../spec-test-script/memory64_ignore_cases.patch || exit 1
     elif [[ ${ENABLE_MULTI_MEMORY} == 1 ]]; then
         echo "checkout spec for multi memory proposal"
 
@@ -508,9 +508,9 @@ function spec_test()
         # Reset to commit: "Merge pull request #48 from backes/specify-memcpy-immediate-order"
         git reset --hard fbc99efd7a788db300aec3dd62a14577ec404f1b
         git checkout 044d0d2e77bdcbe891f7e0b9dd2ac01d56435f0b -- test/core/elem.wast
-        git apply ../../spec-test-script/multi_memory_ignore_cases.patch || exit 1
+        git apply --ignore-whitespace ../../spec-test-script/multi_memory_ignore_cases.patch || exit 1
         if [[ ${RUNNING_MODE} == "aot" ]]; then
-            git apply ../../spec-test-script/multi_module_aot_ignore_cases.patch || exit 1
+            git apply --ignore-whitespace ../../spec-test-script/multi_module_aot_ignore_cases.patch || exit 1
         fi
     else
         echo "checkout spec for default proposal"
@@ -520,15 +520,15 @@ function spec_test()
 
         # Dec 20, 2024. Use WPT version of test harness for HTML core test conversion (#1859)
         git reset --hard f3a0e06235d2d84bb0f3b5014da4370613886965
-        git apply ../../spec-test-script/ignore_cases.patch || exit 1
+        git apply --ignore-whitespace ../../spec-test-script/ignore_cases.patch || exit 1
         if [[ ${ENABLE_SIMD} == 1 ]]; then
-            git apply ../../spec-test-script/simd_ignore_cases.patch || exit 1
+            git apply --ignore-whitespace ../../spec-test-script/simd_ignore_cases.patch || exit 1
         fi
         if [[ ${ENABLE_MULTI_MODULE} == 1 ]]; then
-            git apply ../../spec-test-script/multi_module_ignore_cases.patch || exit 1
+            git apply --ignore-whitespace ../../spec-test-script/multi_module_ignore_cases.patch || exit 1
 
             if [[ ${RUNNING_MODE} == "aot" ]]; then
-                git apply ../../spec-test-script/multi_module_aot_ignore_cases.patch || exit 1
+                git apply --ignore-whitespace ../../spec-test-script/multi_module_aot_ignore_cases.patch || exit 1
             fi
         fi
     fi
@@ -913,8 +913,8 @@ function do_execute_in_running_mode()
     fi
 
     if [[ ${ENABLE_SIMD} -eq 1 ]]; then
-        if [[ "${RUNNING_MODE}" != "jit" && "${RUNNING_MODE}" != "aot" ]]; then
-            echo "support simd in llvm-jit mode and aot mode"
+        if [[ "${RUNNING_MODE}" != "jit" && "${RUNNING_MODE}" != "aot" && "${RUNNING_MODE}" != "fast-interp" ]]; then
+            echo "support simd in llvm-jit, aot and fast-interp mode"
             return 0;
         fi
     fi
@@ -1033,6 +1033,11 @@ function trigger()
     if [[ "$WAMR_BUILD_SANITIZER" == "tsan" ]]; then
         echo "Setting run with tsan"
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SANITIZER=tsan"
+    fi
+
+    if [[ "$WAMR_BUILD_SANITIZER" == "posan" ]]; then
+        echo "Setting run with posan"
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SANITIZER=posan"
     fi
 
     # Make sure we're using the builtin WASI libc implementation

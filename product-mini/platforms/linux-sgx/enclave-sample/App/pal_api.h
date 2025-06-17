@@ -67,7 +67,7 @@ struct wamr_pal_create_process_args {
     // Mandatory field. Must not be NULL.
     const char *path;
 
-    // Argments array pass to new process.
+    // Arguments array pass to new process.
     //
     // The arguments to the command. By convention, the argv[0] should be the
     // program name. And the last element of the array must be NULL to indicate

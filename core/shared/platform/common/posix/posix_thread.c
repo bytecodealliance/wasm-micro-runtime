@@ -495,7 +495,7 @@ os_thread_jit_write_protect_np(bool enabled)
 #define SIG_ALT_STACK_SIZE (32 * 1024)
 
 /**
- * Whether thread signal enviornment is initialized:
+ * Whether thread signal environment is initialized:
  *   the signal handler is registered, the stack pages are touched,
  *   the stack guard pages are set and signal alternate stack are set.
  */
@@ -696,7 +696,7 @@ os_thread_signal_init(os_signal_handler handler)
     memset(&prev_sig_act_SIGSEGV, 0, sizeof(struct sigaction));
     memset(&prev_sig_act_SIGBUS, 0, sizeof(struct sigaction));
 
-    /* Install signal hanlder */
+    /* Install signal handler */
     sig_act.sa_sigaction = signal_callback;
     sig_act.sa_flags = SA_SIGINFO | SA_NODEFER;
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0

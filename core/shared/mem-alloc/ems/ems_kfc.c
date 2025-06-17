@@ -208,8 +208,28 @@ gc_get_heap_struct_size()
 static void
 adjust_ptr(uint8 **p_ptr, intptr_t offset)
 {
-    if (*p_ptr)
-        *p_ptr = (uint8 *)((intptr_t)(*p_ptr) + offset);
+    if ((!*p_ptr)) {
+        return;
+    }
+
+    /*
+     * to resolve a possible signed integer overflow issue
+     * when p_ptr is over 0x8000000000000000  by not using
+     * `(intptr_t)`
+     */
+    uintptr_t offset_val = 0;
+#if UINTPTR_MAX == UINT64_MAX
+    offset_val = labs(offset);
+#else
+    offset_val = abs(offset);
+#endif
+
+    if (offset > 0) {
+        *p_ptr = (uint8 *)((uintptr_t)(*p_ptr) + offset_val);
+    }
+    else {
+        *p_ptr = (uint8 *)((uintptr_t)(*p_ptr) - offset_val);
+    }
 }
 
 int
@@ -232,7 +252,7 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
     heap_max_size = (uint32)(pool_buf_end - base_addr_new) & (uint32)~7;
 
     if (pool_buf_end < base_addr_new || heap_max_size < heap->current_size) {
-        LOG_ERROR("[GC_ERROR]heap migrate invlaid pool buf size\n");
+        LOG_ERROR("[GC_ERROR]heap migrate invalid pool buf size\n");
         return GC_ERROR;
     }
 

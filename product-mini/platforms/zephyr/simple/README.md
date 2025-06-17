@@ -47,9 +47,9 @@ to setup for local development.
 ## Building for a Specific Board
 
 With an environment setup either locally or in a Docker container, you can build
-for a Zephyr suppported board using
+for a Zephyr supported board using
 [`west`](https://docs.zephyrproject.org/latest/develop/west/index.html). There
-are already [configuaration files](./boards) for a few boards in this sample.
+are already [configuration files](./boards) for a few boards in this sample.
 However, if you are using a new board, you will need to add your own file for
 the board, or define configuration in the [`prj.conf](./prj.conf). After doing
 so, use the following command with your board identifier to build the sample
@@ -87,6 +87,12 @@ is a 64-bit ARM target for emulating the Cortex-A53 platform.
 west build . -b qemu_cortex_a53 -p always -- -DWAMR_BUILD_TARGET=AARCH64 
 ```
 
+[ARC QEMU](https://docs.zephyrproject.org/latest/boards/qemu/arc/doc/index.html)
+is a 32-bit ARC target for emulating the ARC platform.
+
+```shell
+west build . -b qemu_arc/qemu_arc_em  -p always -- -DWAMR_BUILD_TARGET=ARC
+```
 
 ## Flashing or Running Image
 

@@ -133,7 +133,7 @@ bool
 wasm_debug_engine_init(char *ip_addr, int32 process_port);
 
 void
-wasm_debug_engine_destroy();
+wasm_debug_engine_destroy(void);
 
 WASMExecEnv *
 wasm_debug_instance_get_current_env(WASMDebugInstance *instance);
