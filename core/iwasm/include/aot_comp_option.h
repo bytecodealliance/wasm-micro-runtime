@@ -66,6 +66,7 @@ typedef struct AOTCompOption {
     bool enable_tail_call;
     bool enable_simd;
     bool enable_ref_types;
+    bool enable_branch_hints;
     bool enable_gc;
     bool enable_aux_stack_check;
     bool enable_extended_const;

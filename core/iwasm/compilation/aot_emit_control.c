@@ -87,6 +87,16 @@ format_block_name(char *name, uint32 name_size, uint32 block_index,
         }                                                             \
     } while (0)
 
+#define BUILD_COND_BR_V(value_if, block_then, block_else, instr)             \
+    do {                                                                     \
+        if (instr = LLVMBuildCondBr(comp_ctx->builder, value_if, block_then, \
+                                    block_else),                             \
+            !instr) {                                                        \
+            aot_set_last_error("llvm build cond br failed.");                \
+            goto fail;                                                       \
+        }                                                                    \
+    } while (0)
+
 #define SET_BUILDER_POS(llvm_block) \
     LLVMPositionBuilderAtEnd(comp_ctx->builder, llvm_block)
 
@@ -254,6 +264,40 @@ restore_frame_sp_for_op_end(AOTBlock *block, AOTCompFrame *aot_frame)
     bh_assert(aot_frame->sp >= block->frame_sp_begin);
     aot_frame->sp = block->frame_sp_begin;
 }
+
+#if WASM_ENABLE_BRANCH_HINTS != 0
+static void
+aot_emit_branch_hint(LLVMContextRef ctxt, AOTFuncContext *func_ctx,
+                     uint32 offset, LLVMValueRef br_if_instr)
+{
+    struct WASMCompilationHintBranchHint *hint =
+        (struct WASMCompilationHintBranchHint *)func_ctx->function_hints;
+    while (hint != NULL) {
+        if (hint->type == WASM_COMPILATION_BRANCH_HINT
+            && hint->offset == offset) {
+            break;
+        }
+        hint = hint->next;
+    }
+    if (hint != NULL) {
+        LLVMMetadataRef header = LLVMMDStringInContext2(
+            ctxt, "branch_weights", 14 /* strlen("branch_hint") */);
+        // same weight llvm MDBuilder::createLikelyBranchWeights assigns
+        const uint32_t likely_weight = (1U << 20) - 1;
+        const uint32_t unlikely_weight = 1;
+        LLVMMetadataRef true_w = LLVMValueAsMetadata(LLVMConstInt(
+            LLVMInt32TypeInContext(ctxt),
+            hint->is_likely ? likely_weight : unlikely_weight, false));
+        LLVMMetadataRef false_w = LLVMValueAsMetadata(LLVMConstInt(
+            LLVMInt32TypeInContext(ctxt),
+            hint->is_likely ? unlikely_weight : likely_weight, false));
+        LLVMMetadataRef mds[] = { header, true_w, false_w };
+        LLVMMetadataRef md = LLVMMDNodeInContext2(ctxt, mds, 3);
+        LLVMValueRef md_val = LLVMMetadataAsValue(ctxt, md);
+        LLVMSetMetadata(br_if_instr, LLVMGetMDKindID("prof", 4), md_val);
+    }
+}
+#endif
 
 static bool
 handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
@@ -673,13 +717,33 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 MOVE_BLOCK_AFTER(block->llvm_else_block,
                                  block->llvm_entry_block);
                 /* Create condition br IR */
+#if WASM_ENABLE_BRANCH_HINTS != 0
+                LLVMValueRef br_if_val = NULL;
+                BUILD_COND_BR_V(value, block->llvm_entry_block,
+                                block->llvm_else_block, br_if_val);
+                const uint32 off =
+                    *p_frame_ip - func_ctx->aot_func->code_body_begin;
+                aot_emit_branch_hint(comp_ctx->context, func_ctx, off,
+                                     br_if_val);
+#else
                 BUILD_COND_BR(value, block->llvm_entry_block,
                               block->llvm_else_block);
+#endif
             }
             else {
                 /* Create condition br IR */
+#if WASM_ENABLE_BRANCH_HINTS != 0
+                LLVMValueRef br_if_val = NULL;
+                BUILD_COND_BR_V(value, block->llvm_entry_block,
+                                block->llvm_end_block, br_if_val);
+                const uint32 off =
+                    *p_frame_ip - func_ctx->aot_func->code_body_begin;
+                aot_emit_branch_hint(comp_ctx->context, func_ctx, off,
+                                     br_if_val);
+#else
                 BUILD_COND_BR(value, block->llvm_entry_block,
                               block->llvm_end_block);
+#endif
                 block->is_reachable = true;
             }
             if (!push_aot_block_to_stack_and_pass_params(comp_ctx, func_ctx,
@@ -1027,7 +1091,7 @@ fail:
 static bool
 aot_compile_conditional_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                            uint32 br_depth, LLVMValueRef value_cmp,
-                           uint8 **p_frame_ip)
+                           uint8 **p_frame_ip, uint32 off)
 {
     AOTBlock *block_dst;
     LLVMValueRef value, *values = NULL;
@@ -1108,8 +1172,15 @@ aot_compile_conditional_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 values = NULL;
             }
 
+#if WASM_ENABLE_BRANCH_HINTS != 0
+            LLVMValueRef br_if_val = NULL;
+            BUILD_COND_BR_V(value_cmp, block_dst->llvm_entry_block,
+                            llvm_else_block, br_if_val);
+            aot_emit_branch_hint(comp_ctx->context, func_ctx, off, br_if_val);
+#else
             BUILD_COND_BR(value_cmp, block_dst->llvm_entry_block,
                           llvm_else_block);
+#endif
 
             /* Move builder to else block */
             SET_BUILDER_POS(llvm_else_block);
@@ -1152,9 +1223,15 @@ aot_compile_conditional_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             }
 
             /* Condition jump to end block */
+#if WASM_ENABLE_BRANCH_HINTS != 0
+            LLVMValueRef br_if_val = NULL;
+            BUILD_COND_BR_V(value_cmp, block_dst->llvm_end_block,
+                            llvm_else_block, br_if_val);
+            aot_emit_branch_hint(comp_ctx->context, func_ctx, off, br_if_val);
+#else
             BUILD_COND_BR(value_cmp, block_dst->llvm_end_block,
                           llvm_else_block);
-
+#endif
             /* Move builder to else block */
             SET_BUILDER_POS(llvm_else_block);
         }
@@ -1178,14 +1255,14 @@ fail:
 
 bool
 aot_compile_op_br_if(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                     uint32 br_depth, uint8 **p_frame_ip)
+                     uint32 br_depth, uint8 **p_frame_ip, uint32 off)
 {
     LLVMValueRef value_cmp;
 
     POP_COND(value_cmp);
 
     return aot_compile_conditional_br(comp_ctx, func_ctx, br_depth, value_cmp,
-                                      p_frame_ip);
+                                      p_frame_ip, off);
 fail:
     return false;
 }

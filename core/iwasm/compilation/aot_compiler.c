@@ -1158,9 +1158,16 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
             case WASM_OP_BR_IF:
             {
+                // ip is advanced by one byte for the opcode
+#if WASM_ENABLE_BRANCH_HINTS != 0
+                uint32 instr_offset =
+                    (frame_ip - 0x1) - (func_ctx->aot_func->code_body_begin);
+#else
+                uint32 instr_offset = 0;
+#endif
                 read_leb_uint32(frame_ip, frame_ip_end, br_depth);
                 if (!aot_compile_op_br_if(comp_ctx, func_ctx, br_depth,
-                                          &frame_ip))
+                                          &frame_ip, instr_offset))
                     return false;
                 break;
             }

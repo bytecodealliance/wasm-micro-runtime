@@ -207,6 +207,7 @@ typedef struct AOTImportFunc {
 typedef struct AOTFunc {
     AOTFuncType *func_type;
     uint32 func_type_index;
+    uint32 func_index;
     uint32 local_count;
     uint8 *local_types_wp;
     uint16 param_cell_num;
@@ -217,6 +218,9 @@ typedef struct AOTFunc {
     /* offset of each local, including function parameters
        and local variables */
     uint16 *local_offsets;
+#if WASM_ENABLE_BRANCH_HINTS != 0
+    uint8 *code_body_begin;
+#endif
 } AOTFunc;
 
 typedef struct AOTCompData {
@@ -295,6 +299,10 @@ typedef struct AOTCompData {
     WASMModule *wasm_module;
 #if WASM_ENABLE_DEBUG_AOT != 0
     dwarf_extractor_handle_t extractor;
+#endif
+
+#if WASM_ENABLE_BRANCH_HINTS != 0
+    struct WASMCompilationHint **function_hints;
 #endif
 } AOTCompData;
 

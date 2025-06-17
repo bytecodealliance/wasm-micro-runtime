@@ -215,6 +215,10 @@ if (NOT DEFINED WAMR_BUILD_EXTENDED_CONST_EXPR)
   set (WAMR_BUILD_EXTENDED_CONST_EXPR 0)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_BRANCH_HINTS)
+  set (WAMR_BUILD_BRANCH_HINTS 1)
+endif ()
+
 ########################################
 # Compilation options to marco
 ########################################
@@ -418,6 +422,12 @@ if (WAMR_BUILD_TAIL_CALL EQUAL 1)
 endif ()
 if (WAMR_BUILD_REF_TYPES EQUAL 1)
   add_definitions (-DWASM_ENABLE_REF_TYPES=1)
+endif ()
+if (WAMR_BUILD_BRANCH_HINTS EQUAL 1)
+  add_definitions (-DWASM_ENABLE_BRANCH_HINTS=1)
+  message ("     branch hints enabled")
+else ()
+  message ("     branch hints disabled")
 endif ()
 if (WAMR_BUILD_GC EQUAL 1)
   if (WAMR_TEST_GC EQUAL 1)
@@ -708,8 +718,8 @@ message (
 "       \"Tail call\" via WAMR_BUILD_TAIL_CALL: ${WAMR_BUILD_TAIL_CALL}\n"
 "       \"Threads\" via WAMR_BUILD_SHARED_MEMORY: ${WAMR_BUILD_SHARED_MEMORY}\n"
 "       \"Typed Function References\" via WAMR_BUILD_GC: ${WAMR_BUILD_GC}\n"
+"       \"Branch Hinting\" via WAMR_BUILD_BRANCH_HINTS: ${WAMR_BUILD_BRANCH_HINTS}\n"
 "     Unsupported (>= Phase4):\n"
-"       \"Branch Hinting\"\n"
 "       \"Custom Annotation Syntax in the Text Format\"\n"
 "       \"Exception handling\"\n"
 "       \"Import/Export of Mutable Globals\"\n"

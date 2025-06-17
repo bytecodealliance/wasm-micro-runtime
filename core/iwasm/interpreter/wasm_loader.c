@@ -3865,6 +3865,9 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
 
             /* Resolve local set count */
             p_code_end = p_code + code_size;
+#if WASM_ENABLE_BRANCH_HINTS != 0
+            uint8 *p_body_start = (uint8 *)p_code;
+#endif
             local_count = 0;
             read_leb_uint32(p_code, buf_code_end, local_set_count);
             p_code_save = p_code;
@@ -3940,6 +3943,9 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
             if (local_count > 0)
                 func->local_types = (uint8 *)func + sizeof(WASMFunction);
             func->code_size = code_size;
+#if WASM_ENABLE_BRANCH_HINTS != 0
+            func->code_body_begin = p_body_start;
+#endif
             /*
              * we shall make a copy of code body [p_code, p_code + code_size]
              * when we are worrying about inappropriate releasing behaviour.
@@ -5512,6 +5518,87 @@ fail:
 }
 #endif
 
+#if WASM_ENABLE_BRANCH_HINTS != 0
+static bool
+handle_branch_hint_section(const uint8 *buf, const uint8 *buf_end,
+                           WASMModule *module, char *error_buf,
+                           uint32 error_buf_size)
+{
+    if (module->function_hints == NULL) {
+        module->function_hints = loader_malloc(
+            sizeof(struct WASMCompilationHint) * module->function_count,
+            error_buf, error_buf_size);
+    }
+    uint32 numFunctionHints = 0;
+    read_leb_uint32(buf, buf_end, numFunctionHints);
+    for (uint32 i = 0; i < numFunctionHints; ++i) {
+        uint32 func_idx;
+        read_leb_uint32(buf, buf_end, func_idx);
+        if (!check_function_index(module, func_idx, error_buf,
+                                  error_buf_size)) {
+            goto fail;
+        }
+        if (func_idx < module->import_function_count) {
+            set_error_buf(error_buf, error_buf_size,
+                          "branch hint for imported function is not allowed");
+            goto fail;
+        }
+
+        struct WASMCompilationHintBranchHint *current_hint =
+            (struct WASMCompilationHintBranchHint *)&module
+                ->function_hints[func_idx - module->import_function_count];
+        while (current_hint->next != NULL) {
+            current_hint = current_hint->next;
+        }
+
+        uint32 num_hints;
+        read_leb_uint32(buf, buf_end, num_hints);
+        for (uint32 j = 0; j < num_hints; ++j) {
+            struct WASMCompilationHintBranchHint *new_hint =
+                loader_malloc(sizeof(struct WASMCompilationHintBranchHint),
+                              error_buf, error_buf_size);
+            new_hint->next = NULL;
+            new_hint->type = WASM_COMPILATION_BRANCH_HINT;
+            read_leb_uint32(buf, buf_end, new_hint->offset);
+
+            uint32 size;
+            read_leb_uint32(buf, buf_end, size);
+            if (size != 1) {
+                set_error_buf_v(error_buf, error_buf_size,
+                                "invalid branch hint size, expected 1, got %d.",
+                                size);
+                wasm_runtime_free(new_hint);
+                goto fail;
+            }
+
+            uint8 data = *buf++;
+            if (data == 0x00)
+                new_hint->is_likely = false;
+            else if (data == 0x01)
+                new_hint->is_likely = true;
+            else {
+                set_error_buf_v(error_buf, error_buf_size,
+                                "invalid branch hint, expected 0 or 1, got %d",
+                                data);
+                wasm_runtime_free(new_hint);
+                goto fail;
+            }
+
+            current_hint->next = new_hint;
+            current_hint = new_hint;
+        }
+    }
+    if (buf != buf_end) {
+        set_error_buf(error_buf, error_buf_size,
+                      "invalid branch hint section, not filled until end");
+        goto fail;
+    }
+    return true;
+fail:
+    return false;
+}
+#endif
+
 static bool
 load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                   bool is_load_from_file_buf, char *error_buf,
@@ -5558,6 +5645,17 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             return false;
         }
         LOG_VERBOSE("Load custom name section success.");
+    }
+#endif
+
+#if WASM_ENABLE_BRANCH_HINTS != 0
+    if (name_len == 25 && memcmp(p, "metadata.code.branch_hint", 25) == 0) {
+        p += name_len;
+        if (!handle_branch_hint_section(p, p_end, module, error_buf,
+                                        error_buf_size)) {
+            return false;
+        }
+        LOG_VERBOSE("Load branch hint section success.");
     }
 #endif
 
