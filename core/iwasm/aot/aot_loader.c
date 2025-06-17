@@ -1309,6 +1309,13 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             read_uint32(buf, buf_end, type_idx);
             read_uint32(buf, buf_end, length);
 
+            if (type_idx >= module->type_count
+                || !wasm_type_is_array_type(module->types[type_idx])) {
+                set_error_buf(error_buf, error_buf_size,
+                              "invalid or non-array type index.");
+                goto fail;
+            }
+
             if (init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT) {
                 expr->u.array_new_default.type_index = type_idx;
                 expr->u.array_new_default.length = length;
