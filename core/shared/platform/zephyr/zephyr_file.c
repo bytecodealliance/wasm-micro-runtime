@@ -439,17 +439,24 @@ os_openat(os_file_handle handle, const char *path, __wasi_oflags_t oflags,
         return __WASI_ENOMEM;
     }
 
-    int zmode =
-        wasi_flags_to_zephyr(oflags, fd_flags, lookup_flags, access_mode);
-
-    ptr = zephyr_fs_alloc_obj(false, abs_path, &index);
+    ptr = zephyr_fs_alloc_obj(oflags & __WASI_O_DIRECTORY, abs_path, &index);
     if (!ptr && (index < 0)) {
         BH_FREE(*out);
         return __WASI_EMFILE;
     }
 
-    fs_file_t_init(&ptr->file);
-    rc = fs_open(&ptr->file, abs_path, zmode);
+    if (oflags & __WASI_O_DIRECTORY) {
+        // Is a directory
+        fs_dir_t_init(&ptr->dir);
+        rc = fs_opendir(&ptr->dir, abs_path);
+    } 
+    else {  
+        // Is a file
+        int zmode = wasi_flags_to_zephyr(oflags, fd_flags, lookup_flags, access_mode);
+        fs_file_t_init(&ptr->file);
+        rc = fs_open(&ptr->file, abs_path, zmode);
+    }
+
     if (rc < 0) {
         zephyr_fs_free_obj(ptr);
         BH_FREE(*out);
@@ -474,8 +481,14 @@ os_file_get_access_mode(os_file_handle handle,
         *access_mode = WASI_LIBC_ACCESS_MODE_READ_WRITE;
         return __WASI_ESUCCESS;
     }
-
+    
     GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
+
+    if (ptr->is_dir) {
+        // DSK: is this actually the correct mode for a dir?
+        *access_mode = WASI_LIBC_ACCESS_MODE_READ_WRITE;
+        return __WASI_ESUCCESS;
+    }
 
     if ((ptr->file.flags & FS_O_RDWR) != 0) {
         *access_mode = WASI_LIBC_ACCESS_MODE_READ_WRITE;
