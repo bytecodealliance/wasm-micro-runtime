@@ -20,6 +20,10 @@
 #include "wasi_nn_types.h"
 #include "wasm_export.h"
 
+#if WASM_ENABLE_WASI_EPHEMERAL_NN == 0
+#warning You are using "wasi_nn", which is a legacy WAMR-specific ABI. It's deperecated and will likely be removed in future versions of WAMR. Please use "wasi_ephemeral_nn" instead. (For a WASM module, use the wasi_ephemeral_nn.h header instead. For the runtime configurations, enable WASM_ENABLE_WASI_EPHEMERAL_NN/WAMR_BUILD_WASI_EPHEMERAL_NN.)
+#endif
+
 #define HASHMAP_INITIAL_SIZE 20
 #if defined(__APPLE__)
 #define LIB_EXTENTION ".dylib"
