@@ -9,7 +9,11 @@
 #include "wasi_nn_types.h"
 #include "wasm_export.h"
 
+#include "bh_platform.h"
+
 typedef struct {
+    korp_mutex lock;
+    bool busy;
     bool is_backend_ctx_initialized;
     bool is_model_loaded;
     graph_encoding backend;
