@@ -287,7 +287,7 @@ typedef struct gc_heap_struct {
        additional memory fails.  When the fast mode fails, the
        marking process can still be done in the slow mode, which
        doesn't need additional memory (by walking through all
-       blocks and marking sucessors of marked nodes until no new
+       blocks and marking successors of marked nodes until no new
        node is marked).  TODO: slow mode is not implemented.  */
     unsigned is_fast_marking_failed : 1;
 
@@ -319,7 +319,7 @@ typedef struct gc_heap_struct {
      * the nodes, a new space will be allocated from heap */
     extra_info_node_t *extra_info_normal_nodes[EXTRA_INFO_NORMAL_NODE_CNT];
     /* Used to store extra information such as finalizer for specified nodes, we
-     * introduce a seperate space to store these information so only nodes who
+     * introduce a separate space to store these information so only nodes who
      * really require extra information will occupy additional memory spaces. */
     extra_info_node_t **extra_info_nodes;
     gc_size_t extra_info_node_cnt;

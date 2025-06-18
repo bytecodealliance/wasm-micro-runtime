@@ -6,7 +6,9 @@
 #include "ems_gc.h"
 #include "ems_gc_internal.h"
 
+#ifndef GB // Some platforms define already, causing build warnings.
 #define GB (1 << 30UL)
+#endif
 
 #define MARK_NODE_OBJ_CNT 256
 

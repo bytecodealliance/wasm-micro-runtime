@@ -180,6 +180,7 @@ print_help()
     printf("                            Available flags: all, i32.common, i64.common, f32.common, f64.common,\n");
     printf("                              i32.clz, i32.ctz, etc, refer to doc/xip.md for full list\n");
     printf("                            Use comma to separate, please refer to doc/xip.md for full list.\n");
+    printf("  --disable-llvm-jump-tables Disable the LLVM jump tables similarly to clang's -fno-jump-tables\n");
     printf("  --disable-llvm-lto        Disable the LLVM link time optimization\n");
     printf("  --enable-llvm-pgo         Enable LLVM PGO (Profile-Guided Optimization)\n");
     printf("  --enable-llvm-passes=<passes>\n");
@@ -569,6 +570,9 @@ main(int argc, char *argv[])
             if (argv[0][28] == '\0')
                 PRINT_HELP_AND_EXIT();
             option.builtin_intrinsics = argv[0] + 28;
+        }
+        else if (!strcmp(argv[0], "--disable-llvm-jump-tables")) {
+            option.disable_llvm_jump_tables = true;
         }
         else if (!strcmp(argv[0], "--disable-llvm-lto")) {
             option.disable_llvm_lto = true;

@@ -39,7 +39,7 @@ function help()
     echo "-F set the firmware path used by qemu"
     echo "-C enable code coverage collect"
     echo "-j set the platform to test"
-    echo "-T set sanitizer to use in tests(ubsan|tsan|asan)"
+    echo "-T set sanitizer to use in tests(ubsan|tsan|asan|posan)"
     echo "-A use the specified wamrc command instead of building it"
     echo "-r [requirement name] [N [N ...]] specify a requirement name followed by one or more"
     echo "                                  subrequirement IDs, if no subrequirement is specificed,"
@@ -269,16 +269,12 @@ readonly WAMRC_CMD_DEFAULT="${WAMR_DIR}/wamr-compiler/build/wamrc"
 readonly CLASSIC_INTERP_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=0 \
-    -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0"
 
 readonly FAST_INTERP_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=1 \
-    -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0"
 
 # jit: report linking error if set COLLECT_CODE_COVERAGE,
 #      now we don't collect code coverage of jit type
@@ -286,39 +282,29 @@ readonly ORC_EAGER_JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_AOT=1 \
-    -DWAMR_BUILD_LAZY_JIT=0 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    -DWAMR_BUILD_LAZY_JIT=0"
 
 readonly ORC_LAZY_JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_AOT=1 \
-    -DWAMR_BUILD_LAZY_JIT=1 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    -DWAMR_BUILD_LAZY_JIT=1"
 
 readonly AOT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
-    -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=1 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=1"
 
 readonly FAST_JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0 \
-    -DWAMR_BUILD_FAST_JIT=1 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    -DWAMR_BUILD_FAST_JIT=1"
 
 readonly MULTI_TIER_JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=0 \
-    -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1"
 
 readonly COMPILE_FLAGS=(
         "${CLASSIC_INTERP_COMPILE_FLAGS}"
@@ -375,7 +361,7 @@ function sightglass_test()
 
 function setup_wabt()
 {
-    WABT_VERSION=1.0.36
+    WABT_VERSION=1.0.37
     if [ ${WABT_BINARY_RELEASE} == "YES" ]; then
         echo "download a binary release and install"
         local WAT2WASM=${WORK_DIR}/wabt/out/gcc/Release/wat2wasm
@@ -462,9 +448,9 @@ function spec_test()
 
         # May 31, 2012 [interpreter] implement atomic.wait and atomic.notify (#194)
         git reset --hard 09f2831349bf409187abb6f7868482a8079f2264
-        git apply ../../spec-test-script/thread_proposal_ignore_cases.patch || exit 1
-        git apply ../../spec-test-script/thread_proposal_fix_atomic_case.patch || exit 1
-        git apply ../../spec-test-script/thread_proposal_remove_memory64_flag_case.patch
+        git apply --ignore-whitespace ../../spec-test-script/thread_proposal_ignore_cases.patch || exit 1
+        git apply --ignore-whitespace ../../spec-test-script/thread_proposal_fix_atomic_case.patch || exit 1
+        git apply --ignore-whitespace ../../spec-test-script/thread_proposal_remove_memory64_flag_case.patch
     elif [ ${ENABLE_EH} == 1 ]; then
         echo "checkout exception-handling test cases"
 
@@ -473,7 +459,7 @@ function spec_test()
 
         # Jun 6, 2023 Merge branch 'upstream' into merge-upstream
         git reset --hard 51c721661b671bb7dc4b3a3acb9e079b49778d36
-        git apply ../../spec-test-script/exception_handling.patch || exit 1
+        git apply --ignore-whitespace ../../spec-test-script/exception_handling.patch || exit 1
     elif [[ ${ENABLE_GC} == 1 ]]; then
         echo "checkout spec for GC proposal"
 
@@ -481,16 +467,23 @@ function spec_test()
         git clone -b main --single-branch https://github.com/WebAssembly/gc.git spec
         pushd spec
 
-        # Reset to commit: "[test] Unify the error message."
-        git reset --hard 0caaadc65b5e1910512d8ae228502edcf9d60390
-        git apply ../../spec-test-script/gc_ignore_cases.patch || exit 1
+        #  Dec 9, 2024. Merge branch 'funcref'
+        git reset --hard 756060f5816c7e2159f4817fbdee76cf52f9c923
+        git apply --ignore-whitespace ../../spec-test-script/gc_ignore_cases.patch || exit 1
 
         if [[ ${ENABLE_QEMU} == 1 ]]; then
             # Decrease the recursive count for tail call cases as nuttx qemu's
             # native stack size is much smaller
-            git apply ../../spec-test-script/gc_nuttx_tail_call.patch || exit 1
+            git apply --ignore-whitespace ../../spec-test-script/gc_nuttx_tail_call.patch || exit 1
         fi
 
+        # As of version 1.0.36, wabt is still unable to correctly handle the GC proposal.
+        # 
+        # $ $ /opt/wabt-1.0.36/bin/wast2json --enable-all ../spec/test/core/br_if.wast
+        # 
+        # ../spec/test/core/br_if.wast:670:26: error: unexpected token "null", expected a numeric index or a name (e.g. 12 or $foo).
+        #     (func $f (param (ref null $t)) (result funcref) (local.get 0))
+        #
         compile_reference_interpreter
     elif [[ ${ENABLE_MEMORY64} == 1 ]]; then
         echo "checkout spec for memory64 proposal"
@@ -504,7 +497,7 @@ function spec_test()
         git checkout 044d0d2e77bdcbe891f7e0b9dd2ac01d56435f0b -- test/core/elem.wast test/core/data.wast
         # Patch table64 extension
         git checkout 940398cd4823522a9b36bec4984be4b153dedb81 -- test/core/call_indirect.wast test/core/table.wast test/core/table_copy.wast test/core/table_copy_mixed.wast test/core/table_fill.wast test/core/table_get.wast test/core/table_grow.wast test/core/table_init.wast test/core/table_set.wast test/core/table_size.wast
-        git apply ../../spec-test-script/memory64_ignore_cases.patch || exit 1
+        git apply --ignore-whitespace ../../spec-test-script/memory64_ignore_cases.patch || exit 1
     elif [[ ${ENABLE_MULTI_MEMORY} == 1 ]]; then
         echo "checkout spec for multi memory proposal"
 
@@ -515,9 +508,9 @@ function spec_test()
         # Reset to commit: "Merge pull request #48 from backes/specify-memcpy-immediate-order"
         git reset --hard fbc99efd7a788db300aec3dd62a14577ec404f1b
         git checkout 044d0d2e77bdcbe891f7e0b9dd2ac01d56435f0b -- test/core/elem.wast
-        git apply ../../spec-test-script/multi_memory_ignore_cases.patch || exit 1
+        git apply --ignore-whitespace ../../spec-test-script/multi_memory_ignore_cases.patch || exit 1
         if [[ ${RUNNING_MODE} == "aot" ]]; then
-            git apply ../../spec-test-script/multi_module_aot_ignore_cases.patch || exit 1
+            git apply --ignore-whitespace ../../spec-test-script/multi_module_aot_ignore_cases.patch || exit 1
         fi
     else
         echo "checkout spec for default proposal"
@@ -525,17 +518,17 @@ function spec_test()
         git clone -b main --single-branch https://github.com/WebAssembly/spec
         pushd spec
 
-        # Apr 3, 2024 [js-api] Integrate with the ResizableArrayBuffer proposal (#1300)
-        git reset --hard bc76fd79cfe61033d7f4ad4a7e8fc4f996dc5ba8
-        git apply ../../spec-test-script/ignore_cases.patch || exit 1
+        # Dec 20, 2024. Use WPT version of test harness for HTML core test conversion (#1859)
+        git reset --hard f3a0e06235d2d84bb0f3b5014da4370613886965
+        git apply --ignore-whitespace ../../spec-test-script/ignore_cases.patch || exit 1
         if [[ ${ENABLE_SIMD} == 1 ]]; then
-            git apply ../../spec-test-script/simd_ignore_cases.patch || exit 1
+            git apply --ignore-whitespace ../../spec-test-script/simd_ignore_cases.patch || exit 1
         fi
         if [[ ${ENABLE_MULTI_MODULE} == 1 ]]; then
-            git apply ../../spec-test-script/multi_module_ignore_cases.patch || exit 1
+            git apply --ignore-whitespace ../../spec-test-script/multi_module_ignore_cases.patch || exit 1
 
             if [[ ${RUNNING_MODE} == "aot" ]]; then
-                git apply ../../spec-test-script/multi_module_aot_ignore_cases.patch || exit 1
+                git apply --ignore-whitespace ../../spec-test-script/multi_module_aot_ignore_cases.patch || exit 1
             fi
         fi
     fi
@@ -833,7 +826,9 @@ function build_wamrc()
         && ./${BUILD_LLVM_SH} \
         && if [ -d build ]; then rm -r build/*; else mkdir build; fi \
         && cd build \
-        && cmake .. -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE} \
+        && cmake .. \
+             -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE} \
+             -DWAMR_BUILD_SHRUNK_MEMORY=0 \
         && make -j 4
 }
 
@@ -918,8 +913,8 @@ function do_execute_in_running_mode()
     fi
 
     if [[ ${ENABLE_SIMD} -eq 1 ]]; then
-        if [[ "${RUNNING_MODE}" != "jit" && "${RUNNING_MODE}" != "aot" ]]; then
-            echo "support simd in llvm-jit mode and aot mode"
+        if [[ "${RUNNING_MODE}" != "jit" && "${RUNNING_MODE}" != "aot" && "${RUNNING_MODE}" != "fast-interp" ]]; then
+            echo "support simd in llvm-jit, aot and fast-interp mode"
             return 0;
         fi
     fi
@@ -962,6 +957,11 @@ function trigger()
     fi
 
     local EXTRA_COMPILE_FLAGS=""
+    # for spec test
+    EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SPEC_TEST=1"
+    EXTRA_COMPILE_FLAGS+=" -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SHRUNK_MEMORY=0"
+
     # default enabled features
     EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_BULK_MEMORY=1"
     EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=1"
@@ -1033,6 +1033,11 @@ function trigger()
     if [[ "$WAMR_BUILD_SANITIZER" == "tsan" ]]; then
         echo "Setting run with tsan"
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SANITIZER=tsan"
+    fi
+
+    if [[ "$WAMR_BUILD_SANITIZER" == "posan" ]]; then
+        echo "Setting run with posan"
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SANITIZER=posan"
     fi
 
     # Make sure we're using the builtin WASI libc implementation

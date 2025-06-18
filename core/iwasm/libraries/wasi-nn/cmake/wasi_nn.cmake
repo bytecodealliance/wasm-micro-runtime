@@ -22,6 +22,7 @@ add_compile_definitions(
 # - tflite
 if(WAMR_BUILD_WASI_NN_TFLITE EQUAL 1)
   find_package(tensorflow_lite REQUIRED)
+  enable_language(CXX)
 
   add_library(
     wasi_nn_tflite
@@ -38,7 +39,7 @@ if(WAMR_BUILD_WASI_NN_TFLITE EQUAL 1)
   target_link_libraries(
     wasi_nn_tflite
     PUBLIC
-      libiwasm
+      vmlib
       tensorflow-lite
   )
 
@@ -70,7 +71,7 @@ if(WAMR_BUILD_WASI_NN_OPENVINO EQUAL 1)
   target_link_libraries(
     wasi_nn_openvino
     PUBLIC
-      libiwasm
+      vmlib
       openvino::runtime
       openvino::runtime::c
   )
@@ -99,7 +100,7 @@ if(WAMR_BUILD_WASI_NN_LLAMACPP EQUAL 1)
   target_link_libraries(
     wasi_nn_llamacpp
     PUBLIC
-      libiwasm
+      vmlib
       cjson
       common
       ggml

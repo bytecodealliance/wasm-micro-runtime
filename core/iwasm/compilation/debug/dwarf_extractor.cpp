@@ -311,14 +311,18 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
         case eLanguageTypeC:
         case eLanguageTypeC99:
         case eLanguageTypeC11:
+#if LLVM_VERSION_MAJOR >= 17
         case eLanguageTypeC17:
+#endif
             break;
         case eLanguageTypeC_plus_plus:
         case eLanguageTypeC_plus_plus_03:
         case eLanguageTypeC_plus_plus_11:
         case eLanguageTypeC_plus_plus_14:
+#if LLVM_VERSION_MAJOR >= 17
         case eLanguageTypeC_plus_plus_17:
         case eLanguageTypeC_plus_plus_20:
+#endif
             cplusplus = true;
             break;
         default:

@@ -14,7 +14,7 @@ if (NOT DEFINED DEPS_DIR)
     set (DEPS_DIR ${WAMR_ROOT_DIR}/core/deps)
 endif ()
 if (NOT DEFINED SHARED_PLATFORM_CONFIG)
-    # CMake file for platform configuration. The PLATFORM_SHARED_SOURCE varable
+    # CMake file for platform configuration. The PLATFORM_SHARED_SOURCE variable
     # should point to a list of platform-specfic source files to compile.
     set (SHARED_PLATFORM_CONFIG ${SHARED_DIR}/platform/${WAMR_BUILD_PLATFORM}/shared_platform.cmake)
 endif ()
@@ -153,6 +153,16 @@ endif ()
 
 if (WAMR_BUILD_LIB_RATS EQUAL 1)
     include (${IWASM_DIR}/libraries/lib-rats/lib_rats.cmake)
+endif ()
+
+if (WAMR_BUILD_SIMD EQUAL 1 AND WAMR_BUILD_FAST_INTERP EQUAL 1)
+    if (WAMR_BUILD_PLATFORM STREQUAL "windows")
+        message(STATUS "SIMDe doesnt support platform " ${WAMR_BUILD_PLATFORM})
+        set(WAMR_BUILD_SIMDE 0)
+    else()
+        include (${IWASM_DIR}/libraries/simde/simde.cmake)
+        set (WAMR_BUILD_SIMDE 1)
+    endif()
 endif ()
 
 if (WAMR_BUILD_WASM_CACHE EQUAL 1)

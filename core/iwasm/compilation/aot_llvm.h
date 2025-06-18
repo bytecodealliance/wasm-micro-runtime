@@ -448,6 +448,9 @@ typedef struct AOTCompContext {
     /* Disable LLVM built-in intrinsics */
     bool disable_llvm_intrinsics;
 
+    /* Disable LLVM jump tables */
+    bool disable_llvm_jump_tables;
+
     /* Disable LLVM link time optimization */
     bool disable_llvm_lto;
 

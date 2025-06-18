@@ -1,6 +1,13 @@
 # Copyright (C) 2019 Intel Corporation. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+# Yes. To solve the compatibility issue with CMAKE (>= 4.0), we need to update
+# our `cmake_minimum_required()` to 3.5. However, there are CMakeLists.txt
+# from 3rd parties that we should not alter. Therefore, in addition to
+# changing the `cmake_minimum_required()`, we should also add a configuration
+# here that is compatible with earlier versions.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5 FORCE)
+
 include(FetchContent)
 
 set(CJSON_SOURCE_DIR "${WAMR_ROOT_DIR}/core/deps/cjson")

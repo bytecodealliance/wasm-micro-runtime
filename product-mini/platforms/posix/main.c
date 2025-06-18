@@ -18,6 +18,8 @@
 #include "../common/libc_wasi.c"
 #endif
 
+#include "../common/wasm_proposal.c"
+
 #if BH_HAS_DLFCN
 #include <dlfcn.h>
 #endif
@@ -50,7 +52,11 @@ print_help(void)
     printf("  --multi-tier-jit         Run the wasm app with multi-tier jit mode\n");
 #endif
     printf("  --stack-size=n           Set maximum stack size in bytes, default is 64 KB\n");
-    printf("  --heap-size=n            Set maximum heap size in bytes, default is 16 KB\n");
+#if WASM_ENABLE_LIBC_WASI !=0
+    printf("  --heap-size=n            Set maximum heap size in bytes, default is 0 KB when libc wasi is enabled\n");
+#else
+    printf("  --heap-size=n            Set maximum heap size in bytes, default is 16 KB when libc wasi is diabled\n");
+#endif
 #if WASM_ENABLE_FAST_JIT != 0
     printf("  --jit-codecache-size=n   Set fast jit maximum code cache size in bytes,\n");
     printf("                           default is %u KB\n", FAST_JIT_DEFAULT_CODE_CACHE_SIZE / 1024);
@@ -798,6 +804,8 @@ main(int argc, char *argv[])
             wasm_runtime_get_version(&major, &minor, &patch);
             printf("iwasm %" PRIu32 ".%" PRIu32 ".%" PRIu32 "\n", major, minor,
                    patch);
+            printf("\n");
+            wasm_proposal_print_status();
             return 0;
         }
         else {

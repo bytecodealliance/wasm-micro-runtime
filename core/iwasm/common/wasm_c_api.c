@@ -2257,7 +2257,7 @@ wasm_module_new_ex(wasm_store_t *store, wasm_byte_vec_t *binary, LoadArgs *args)
     if (!store || !binary || binary->size == 0 || binary->size > UINT32_MAX)
         goto quit;
 
-    /* whether the combination of compilation flags are compatable with the
+    /* whether the combination of compilation flags are compatible with the
      * package type */
     {
         PackageType pkg_type;

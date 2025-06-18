@@ -7,7 +7,7 @@
 #include "wasm_export.h"
 #include "math.h"
 
-// The first parameter is not exec_env because it is invoked by native funtions
+// The first parameter is not exec_env because it is invoked by native functions
 void
 reverse(char *str, int len)
 {

@@ -11,7 +11,7 @@ You can build an ESP-IDF project with wasm-micro-runtime as a component:
 - In the newly created project folder edit the `CMakeList.txt`:
 
   ```
-  cmake_minimum_required(VERSION 3.5)
+  cmake_minimum_required(VERSION 3.14)
 
   include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 

@@ -53,7 +53,7 @@ convert_sgx_errno(int error)
              * continue (only used when no EXXX is returned)  */
             case SGX_ERROR_FILE_CANT_WRITE_RECOVERY_FILE:
                 return EIO;
-            /* When openeing the file, recovery is needed, but the recovery
+            /* When opening the file, recovery is needed, but the recovery
              * process failed */
             case SGX_ERROR_FILE_RECOVERY_NEEDED:
                 return EIO;

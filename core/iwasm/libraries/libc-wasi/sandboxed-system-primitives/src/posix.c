@@ -1891,10 +1891,10 @@ convert_timestamp(__wasi_timestamp_t in, os_timespec *out)
 #else
     out->tv_nsec = (long)(in % 1000000000);
 #endif
-    in /= 1000000000;
+    __wasi_timestamp_t temp = in / 1000000000;
 
     // Clamp to the maximum in case it would overflow our system's time_t.
-    out->tv_sec = (time_t)in < BH_TIME_T_MAX ? (time_t)in : BH_TIME_T_MAX;
+    out->tv_sec = (time_t)temp < BH_TIME_T_MAX ? (time_t)temp : BH_TIME_T_MAX;
 }
 
 __wasi_errno_t
@@ -2081,7 +2081,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
                          size_t nsubscriptions,
                          size_t *nevents) NO_LOCK_ANALYSIS
 {
-#if defined(BH_PLATFORM_WINDOWS) || defined(BH_PLATFORM_ZEPHYR)
+#if defined(BH_PLATFORM_WINDOWS)
     return __WASI_ENOSYS;
 #else
     // Sleeping.
@@ -2199,7 +2199,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
                 if (error == 0) {
                     // Proper file descriptor on which we can poll().
                     pfds[i] = (os_poll_file_handle){
-                        .fd = fos[i]->file_handle,
+                        .fd = fos[i]->file_handle->fd,
                         .events = s->u.type == __WASI_EVENTTYPE_FD_READ
                                       ? POLLIN
                                       : POLLOUT,
@@ -2832,7 +2832,7 @@ wasmtime_ssp_sock_recv_from(wasm_exec_env_t exec_env, struct fd_table *curfds,
 {
     struct fd_object *fo;
     __wasi_errno_t error;
-    bh_sockaddr_t sockaddr;
+    bh_sockaddr_t sockaddr, *sockaddr_ptr = NULL;
     int ret;
 
     error = fd_object_get(curfds, &fo, sock, __WASI_RIGHT_FD_READ, 0);
@@ -2840,17 +2840,29 @@ wasmtime_ssp_sock_recv_from(wasm_exec_env_t exec_env, struct fd_table *curfds,
         return error;
     }
 
-    wasi_addr_to_bh_sockaddr(src_addr, &sockaddr);
+    // If the source address is not NULL, the caller is requesting the source
+    // address to be returned if the protocol supports it.  As such, we convert
+    // the format of the structure pass in prior to the call to the OS
+    // implementation.  If the value is NULL, the POSIX standard states that
+    // the address is not returned.
+    if (src_addr != NULL) {
+        sockaddr_ptr = &sockaddr;
+        wasi_addr_to_bh_sockaddr(src_addr, &sockaddr);
+    }
 
     /* Consume bh_sockaddr_t instead of __wasi_addr_t */
     ret = blocking_op_socket_recv_from(exec_env, fo->file_handle, buf, buf_len,
-                                       0, &sockaddr);
+                                       0, sockaddr_ptr);
     fd_object_release(exec_env, fo);
     if (-1 == ret) {
         return convert_errno(errno);
     }
 
-    bh_sockaddr_to_wasi_addr(&sockaddr, src_addr);
+    // If the source address is not NULL, we need to convert the sockaddr
+    // back to __wasi_addr_t format.
+    if (src_addr != NULL) {
+        bh_sockaddr_to_wasi_addr(sockaddr_ptr, src_addr);
+    }
 
     *recv_len = (size_t)ret;
     return __WASI_ESUCCESS;
@@ -3033,9 +3045,9 @@ fd_table_destroy(struct fd_table *ft)
                 fd_object_release(NULL, ft->entries[i].object);
             }
         }
-        rwlock_destroy(&ft->lock);
         wasm_runtime_free(ft->entries);
     }
+    rwlock_destroy(&ft->lock);
 }
 
 void
@@ -3047,9 +3059,9 @@ fd_prestats_destroy(struct fd_prestats *pt)
                 wasm_runtime_free((void *)pt->prestats[i].dir);
             }
         }
-        rwlock_destroy(&pt->lock);
         wasm_runtime_free(pt->prestats);
     }
+    rwlock_destroy(&pt->lock);
 }
 
 bool

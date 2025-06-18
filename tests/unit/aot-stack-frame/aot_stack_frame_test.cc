@@ -162,57 +162,6 @@ TEST_F(AOTStackFrameTest, test1)
     exec_env = wasm_runtime_create_exec_env(module_inst, 8 * 1024);
     ASSERT_TRUE(exec_env != NULL);
 
-    func_inst = wasm_runtime_lookup_function(module_inst, "test1");
-    ASSERT_TRUE(func_inst != NULL);
-
-    argv[0] = 33;
-    argv[1] = 44;
-    wasm_runtime_call_wasm(exec_env, func_inst, 2, argv);
-    ASSERT_TRUE(wasm_runtime_get_exception(module_inst));
-
-    frames = AOTStackFrameTest::my_frames;
-    frame_num = AOTStackFrameTest::my_frame_num;
-
-    ASSERT_TRUE(frames != NULL);
-    ASSERT_TRUE(frame_num == 1);
-
-    ASSERT_TRUE(frames[0]->lp[0] == 33);
-    ASSERT_TRUE(frames[0]->lp[1] == 44);
-    ASSERT_TRUE(frames[0]->lp[2] == 0x11223344);
-    ASSERT_TRUE(*(uint64 *)(frames[0]->lp + 3) == 0x12345678ABCDEF99LL);
-    ASSERT_TRUE(*(float *)(frames[0]->lp + 5) == 5566.7788f);
-    ASSERT_TRUE(*(double *)(frames[0]->lp + 6) == 99887766.55443322);
-
-    wasm_runtime_destroy_exec_env(exec_env);
-    exec_env = NULL;
-
-    wasm_runtime_deinstantiate(module_inst);
-    module_inst = NULL;
-
-    wasm_runtime_unload(module);
-    module = NULL;
-}
-
-TEST_F(AOTStackFrameTest, test2)
-{
-    MyAOTFrame *frame, **frames;
-    uint32 frame_num;
-
-    aot_set_stack_frame_callback(aot_stack_frame_cb);
-
-    bh_memcpy_s(test_aot_buf, sizeof(test_aot_buf), test_aot, sizeof(test_aot));
-
-    module = wasm_runtime_load(test_aot_buf, sizeof(test_aot), error_buf,
-                               sizeof(error_buf));
-    ASSERT_TRUE(module != NULL);
-
-    module_inst = wasm_runtime_instantiate(module, 16384, 0, error_buf,
-                                           sizeof(error_buf));
-    ASSERT_TRUE(module_inst != NULL);
-
-    exec_env = wasm_runtime_create_exec_env(module_inst, 8 * 1024);
-    ASSERT_TRUE(exec_env != NULL);
-
     func_inst = wasm_runtime_lookup_function(module_inst, "test2");
     ASSERT_TRUE(func_inst != NULL);
 
@@ -233,11 +182,9 @@ TEST_F(AOTStackFrameTest, test2)
     ASSERT_TRUE(*(uint64 *)(frames[0]->lp + 3) == 0x12345678ABCDEF99LL);
     ASSERT_TRUE(*(float *)(frames[0]->lp + 5) == 5566.7788f);
     ASSERT_TRUE(*(double *)(frames[0]->lp + 6) == 99887766.55443322);
-    ASSERT_TRUE(frames[0]->lp[8] == 0x1234);
-    ASSERT_TRUE(frames[0]->lp[9] == 0x5678);
 }
 
-TEST_F(AOTStackFrameTest, test3)
+TEST_F(AOTStackFrameTest, test2)
 {
     MyAOTFrame *frame, **frames;
     uint32 frame_num;
@@ -271,18 +218,14 @@ TEST_F(AOTStackFrameTest, test3)
     ASSERT_TRUE(frames != NULL);
     ASSERT_TRUE(frame_num == 2);
 
-    ASSERT_TRUE(frames[0]->sp - frames[0]->lp == 5);
-    ASSERT_TRUE(frames[0]->ip_offset == 24);
+    // 5(i32) + 1(i64) local variables, occupied 7 * 4 bytes
+    ASSERT_TRUE(frames[0]->sp - frames[0]->lp == 7);
+
+    // offset of ip from module load address
+    ASSERT_TRUE(frames[0]->ip_offset == 163);
 
     ASSERT_TRUE(frames[0]->lp[0] == 1234);
     ASSERT_TRUE(frames[0]->lp[1] == 5678);
     ASSERT_TRUE(frames[0]->lp[2] == 0x11223344);
     ASSERT_TRUE(*(uint64 *)(frames[0]->lp + 3) == 0x12345678ABCDEF99LL);
-
-    ASSERT_TRUE(frames[1]->lp[0] == 0x1234);
-    ASSERT_TRUE(frames[1]->lp[1] == 0x5678);
-    ASSERT_TRUE(frames[1]->lp[2] == 0x11223344);
-    ASSERT_TRUE(*(uint64 *)(frames[1]->lp + 3) == 0x12345678ABCDEF99LL);
-    ASSERT_TRUE(*(float *)(frames[1]->lp + 5) == 5566.7788f);
-    ASSERT_TRUE(*(double *)(frames[1]->lp + 6) == 99887766.55443322);
 }

@@ -60,6 +60,17 @@ static DWORD thread_data_key;
 static void(WINAPI *GetCurrentThreadStackLimits_Kernel32)(PULONG_PTR,
                                                           PULONG_PTR) = NULL;
 
+int
+os_sem_init(korp_sem *sem);
+int
+os_sem_destroy(korp_sem *sem);
+int
+os_sem_wait(korp_sem *sem);
+int
+os_sem_reltimed_wait(korp_sem *sem, uint64 useconds);
+int
+os_sem_signal(korp_sem *sem);
+
 static void
 thread_data_list_add(os_thread_data *thread_data)
 {
@@ -116,17 +127,6 @@ thread_data_list_lookup(korp_tid tid)
     os_mutex_unlock(&thread_data_list_lock);
     return NULL;
 }
-
-int
-os_sem_init(korp_sem *sem);
-int
-os_sem_destroy(korp_sem *sem);
-int
-os_sem_wait(korp_sem *sem);
-int
-os_sem_reltimed_wait(korp_sem *sem, uint64 useconds);
-int
-os_sem_signal(korp_sem *sem);
 
 int
 os_thread_sys_init()

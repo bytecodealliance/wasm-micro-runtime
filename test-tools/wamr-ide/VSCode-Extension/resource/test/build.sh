@@ -1,2 +1,2 @@
 # compile with debug symbols and no optimization
-rustc --target wasm32-wasi ./test.rs -g -C opt-level=0
+rustc --target wasm32-wasip1 ./test.rs -g -C opt-level=0

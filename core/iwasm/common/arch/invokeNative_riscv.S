@@ -4,7 +4,7 @@
  */
 
 /*
- * The float abi macros used bellow are from risc-v c api:
+ * The float abi macros used below are from risc-v c api:
  * https://github.com/riscv/riscv-c-api-doc/blob/master/riscv-c-api.md
  *
  */
@@ -130,7 +130,7 @@ _invokeNative:
 loop_stack_args:
         beq              t2, x0, call_func
         RV_OP_LOADREG    t5, 0(t1)                  /* load stack argument, t5 = argv[i] */
-        RV_OP_STOREREG   t5, 0(t4)                  /* store t5 to reseved stack, sp[j] = t5 */
+        RV_OP_STOREREG   t5, 0(t4)                  /* store t5 to reserved stack, sp[j] = t5 */
         addi             t1, t1, RV_REG_SIZE        /* move to next stack argument */
         addi             t4, t4, RV_REG_SIZE        /* move to next stack pointer */
         addi             t2, t2, -1                 /* decrease t2 every loop, nstacks = nstacks -1 */
@@ -142,7 +142,7 @@ call_func:
         /* restore registers pushed in stack or saved in another register */
 return:
         mv               sp, fp                     /* restore sp saved in fp before function call */
-        RV_OP_LOADREG    fp, 0 * RV_REG_SIZE(sp)    /* load previous frame poniter to fp register */
+        RV_OP_LOADREG    fp, 0 * RV_REG_SIZE(sp)    /* load previous frame pointer to fp register */
         RV_OP_LOADREG    ra, 1 * RV_REG_SIZE(sp)    /* load previous return address to ra register */
         addi             sp, sp, 2 * RV_REG_SIZE    /* pop frame, restore sp */
         jr               ra

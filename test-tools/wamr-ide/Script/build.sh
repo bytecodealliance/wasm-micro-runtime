@@ -26,7 +26,7 @@ else
     exit 1
 fi
 
-# setup docker command exectuion without sudo permission
+# setup docker command execution without sudo permission
 sudo groupadd docker
 sudo gpasswd -a ${USER} docker
 sudo service docker restart

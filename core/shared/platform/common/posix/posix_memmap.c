@@ -61,14 +61,16 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
         request_size += HUGE_PAGE_SIZE;
 #endif
 
-    if ((size_t)request_size < size)
-        /* integer overflow */
+    if ((size_t)request_size < size) {
+        os_printf("mmap failed: request size overflow due to paging\n");
         return NULL;
+    }
 
 #if WASM_ENABLE_MEMORY64 == 0
-    if (request_size > 16 * (uint64)UINT32_MAX)
-        /* at most 64 G is allowed */
+    if (request_size > 16 * (uint64)UINT32_MAX) {
+        os_printf("mmap failed: for memory64 at most 64G is allowed\n");
         return NULL;
+    }
 #endif
 
     if (prot & MMAP_PROT_READ)
@@ -155,7 +157,7 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
 
     if (addr == MAP_FAILED) {
         os_printf("mmap failed with errno: %d, hint: %p, size: %" PRIu64
-                  ", prot: %d, flags: %d",
+                  ", prot: %d, flags: %d\n",
                   errno, hint, request_size, map_prot, map_flags);
         return NULL;
     }
