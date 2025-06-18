@@ -362,31 +362,31 @@ function sightglass_test()
 function setup_wabt()
 {
     # please sync with .github/actions/install-wasi-sdk-wabt/action.yml
+    case ${PLATFORM} in
+        cosmopolitan)
+            ;;
+        linux)
+            WABT_URL=https://github.com/WebAssembly/wabt/releases/download/1.0.37/wabt-1.0.37-ubuntu-20.04.tar.gz
+            WABT_VERSION=1.0.37
+            ;;
+        darwin)
+            WABT_URL=https://github.com/WebAssembly/wabt/releases/download/1.0.36/wabt-1.0.36-macos-12.tar.gz
+            WABT_VERSION=1.0.36
+            ;;
+        windows)
+            WABT_URL=https://github.com/WebAssembly/wabt/releases/download/1.0.37/wabt-1.0.37-windows.tar.gz
+            WABT_VERSION=1.0.37
+            ;;
+        *)
+            echo "wabt platform for ${PLATFORM} in unknown"
+            exit 1
+            ;;
+    esac
+
     if [ ${WABT_BINARY_RELEASE} == "YES" ]; then
         echo "download a binary release and install"
         local WAT2WASM=${WORK_DIR}/wabt/out/gcc/Release/wat2wasm
         if [ ! -f ${WAT2WASM} ]; then
-            case ${PLATFORM} in
-                cosmopolitan)
-                    ;;
-                linux)
-                    WABT_URL=https://github.com/WebAssembly/wabt/releases/download/1.0.37/wabt-1.0.37-ubuntu-20.04.tar.gz
-                    WABT_VERSION=1.0.37
-                    ;;
-                darwin)
-                    WABT_URL=https://github.com/WebAssembly/wabt/releases/download/1.0.36/wabt-1.0.36-macos-12.tar.gz
-                    WABT_VERSION=1.0.36
-                    ;;
-                windows)
-                    WABT_URL=https://github.com/WebAssembly/wabt/releases/download/1.0.37/wabt-1.0.37-windows.tar.gz
-                    WABT_VERSION=1.0.37
-                    ;;
-                *)
-                    echo "wabt platform for ${PLATFORM} in unknown"
-                    exit 1
-                    ;;
-            esac
-
             pushd /tmp
             wget -O wabt-tar.gz --progress=dot:giga ${WABT_URL}
             tar xf wabt-tar.gz
