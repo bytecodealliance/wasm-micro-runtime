@@ -866,14 +866,6 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 
                 if (!is_byte_a_type(type1)
                     || wasm_is_type_multi_byte_type(type1)) {
-                    p--;
-                    read_leb_uint32(p, p_end, type_idx);
-                    if (!check_type_index(module, module->type_count, type_idx,
-                                          error_buf, error_buf_size))
-                        goto fail;
-
-                    wasm_set_refheaptype_typeidx(&cur_ref_type.ref_ht_typeidx,
-                                                 true, type_idx);
                     if (!push_const_expr_stack(&const_expr_ctx, flag,
                                                cur_ref_type.ref_type,
                                                &cur_ref_type, 0, &cur_value,
