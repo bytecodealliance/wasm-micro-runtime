@@ -56,72 +56,48 @@ permissions:
 
 jobs:
   smoke_test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    container:
+      # For Zephyr 3.7 LTS, use the v0.26-branch or the latest v0.26.x release Docker image.
+      # ci require a larger runner to avoid "no space left on device"
+      image: ghcr.io/zephyrproject-rtos/ci-base:v0.26-branch
+      options: --user root
+
     steps:
+      # https://docs.zephyrproject.org/latest/develop/application/index.html#zephyr-workspace-application
+      # zephyrproject/       --> CI ROOT
+      # ├─── .west/
+      # │    └─── config
+      # ├─── bootloader/
+      # ├─── zephyr/         --> Zephyr source code
+      # ├─── zephyr-sdk/
+      # ├─── modules/
+      # │    |─── wasm-micro-runtime   --> WAMR source code
+      # ├─── tools/
+      # ├─── vendor/
+      # └─── application/    --> DUMMY. keep west_lite.yml here
+
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          path: modules/wasm-micro-runtime
 
-      - name: Install dependencies for Zephyr
+      - name: Prepare Zephyr environment
         shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends git cmake ninja-build gperf \
-            ccache dfu-util device-tree-compiler wget \
-            python3-dev python3-pip python3-setuptools python3-tk python3-wheel xz-utils file \
-            make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1
-          sudo apt-get clean -y
+          mkdir -p application
+          cp modules/wasm-micro-runtime/product-mini/platforms/zephyr/simple/west_lite.yml application/west_lite.yml
 
-      - name: Download Zephyr SDK
-        shell: bash
-        run: |
-          cd /opt
-          sudo wget --progress=dot:giga https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${{ env.ZEPHYR_SDK_VERSION }}/zephyr-sdk-${{ env.ZEPHYR_SDK_VERSION }}_linux-x86_64.tar.xz
-          sudo wget --progress=dot:giga -O - https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${{ env.ZEPHYR_SDK_VERSION }}/sha256.sum | shasum --check --ignore-missing
-          sudo tar xf zephyr-sdk-${{ env.ZEPHYR_SDK_VERSION }}_linux-x86_64.tar.xz
-        working-directory: /opt
-
-      - name: Install Zephyr SDK. host tools and Zephyr SDK CMake package
-        shell: bash
-        run: |
-          sudo ./setup.sh -h -c
-        working-directory: /opt/zephyr-sdk-${{ env.ZEPHYR_SDK_VERSION }}
-
-      - name: Setup Zephyr
-        shell: bash
-        run: |
-          pip3 install west
-
-      - name: Generate a minimum Zephyr project
-        shell: bash
-        run: |
-          mkdir -p ./zephyrproject/modules/zephyr
-          mkdir -p ./zephyrproject/smoke-test
-          cp product-mini/platforms/zephyr/simple/west_lite.yml ./zephyrproject/smoke-test/west.yml
-
-      - name: Initialize west
-        shell: bash
-        run: |
-          west init -l .
-        working-directory: ./zephyrproject/smoke-test
-
-      - name: Update west to fetch the Zephyr project
-        shell: bash
-        run: west update --stats
-        working-directory: ./zephyrproject
-
-      - name: Export Zephyr environment
-        shell: bash
-        run: |
-          west zephyr-export
-          pip3 install -r ./scripts/requirements.txt
-        working-directory: ./zephyrproject/modules/zephyr
-
-      - name: Set Environment Variables
-        shell: bash
-        run: |
-          echo "ZEPHYR_BASE=$(realpath ./zephyrproject/modules/zephyr)" >> $GITHUB_ENV
+      - name: Setup Zephyr project
+        uses: zephyrproject-rtos/action-zephyr-setup@v1
+        with:
+          app-path: application
+          manifest-file-name: west_lite.yml
+          sdk-version: ${{ env.ZEPHYR_SDK_VERSION }}
+          toolchains: arc-zephyr-elf:arc64-zephyr-elf
 
       - name: Build a sample application(simple)
+        shell: bash
         run: |
           pushd product-mini/platforms/zephyr/simple
           west build . -b qemu_arc/qemu_arc_hs  -p always -- -DWAMR_BUILD_TARGET=ARC
@@ -130,12 +106,14 @@ jobs:
           # west build -t run will fork several processes, which will cause the job to hang.
           # run in the background and kill it after 5 seconds
           .github/scripts/run_qemu_arc.sh \
-            /opt/zephyr-sdk-${{ env.ZEPHYR_SDK_VERSION }} \
+            ../../zephyr-sdk \
             product-mini/platforms/zephyr/simple/build/zephyr/zephyr.elf &
           sleep 5
           pkill qemu-system-arc
+        working-directory: modules/wasm-micro-runtime
 
       - name: Build a sample application(user-mode)
+        shell: bash
         run: |
           pushd product-mini/platforms/zephyr/user-mode
           west build . -b qemu_arc/qemu_arc_hs -p always -- -DWAMR_BUILD_TARGET=ARC
@@ -144,7 +122,8 @@ jobs:
           # west build -t run will fork several processes, which will cause the job to hang.
           # run in the background and kill it after 5 seconds
           .github/scripts/run_qemu_arc.sh \
-            /opt/zephyr-sdk-${{ env.ZEPHYR_SDK_VERSION }} \
+            ../../zephyr-sdk \
             product-mini/platforms/zephyr/user-mode/build/zephyr/zephyr.elf &
           sleep 5
           pkill qemu-system-arc
+        working-directory: modules/wasm-micro-runtime
