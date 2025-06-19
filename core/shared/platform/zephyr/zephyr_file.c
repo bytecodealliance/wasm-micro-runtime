@@ -125,6 +125,7 @@ zephyr_fs_alloc_obj(bool is_dir, const char *path, int *index)
             ptr->used = true;
             ptr->is_dir = is_dir;
             ptr->path = duplicate_string(path);
+            ptr->dir_index = 0; 
             if (ptr->path == NULL) {
                 ptr->used = false;
                 k_mutex_unlock(&desc_array_mutex);
@@ -253,7 +254,9 @@ os_fstatat(os_file_handle handle, const char *path,
 
     // Fill in the __wasi_filestat_t structure
     buf->st_dev = 0; // Zephyr's fs_stat doesn't provide a device ID
-    buf->st_ino = 0; // Zephyr's fs_stat doesn't provide an inode number
+    // DSK: setting this to 0, in addition to d_ino = 1 causes failures with readdir()
+    // So, here's a hack to to avoid this.
+    buf->st_ino = 1; // Zephyr's fs_stat doesn't provide an inode number.
     buf->st_filetype = entry.type == FS_DIR_ENTRY_DIR
                            ? __WASI_FILETYPE_DIRECTORY
                            : __WASI_FILETYPE_REGULAR_FILE;
@@ -439,29 +442,31 @@ os_openat(os_file_handle handle, const char *path, __wasi_oflags_t oflags,
         return __WASI_ENOMEM;
     }
 
-    ptr = zephyr_fs_alloc_obj(oflags & __WASI_O_DIRECTORY, abs_path, &index);
+    // Treat directories as a special case
+    bool is_dir = oflags & __WASI_O_DIRECTORY;
+
+    ptr = zephyr_fs_alloc_obj(is_dir, abs_path, &index);
     if (!ptr && (index < 0)) {
         BH_FREE(*out);
         return __WASI_EMFILE;
     }
 
-    if (oflags & __WASI_O_DIRECTORY) {
-        // Is a directory
+    if (is_dir) {
         fs_dir_t_init(&ptr->dir);
-        rc = fs_opendir(&ptr->dir, abs_path);
-    }
-    else {
+        // fs_opendir() is called in libc later - don't call here
+    } 
+    else {  
         // Is a file
         int zmode =
             wasi_flags_to_zephyr(oflags, fd_flags, lookup_flags, access_mode);
         fs_file_t_init(&ptr->file);
         rc = fs_open(&ptr->file, abs_path, zmode);
-    }
 
-    if (rc < 0) {
-        zephyr_fs_free_obj(ptr);
-        BH_FREE(*out);
-        return convert_errno(-rc);
+        if (rc < 0) {
+            zephyr_fs_free_obj(ptr);
+            BH_FREE(*out);
+            return convert_errno(-rc);
+        }
     }
 
     (*out)->fd = index;
@@ -977,16 +982,57 @@ os_fdopendir(os_file_handle handle, os_dir_stream *dir_stream)
     return __WASI_ESUCCESS;
 }
 
-__wasi_errno_t
-os_rewinddir(os_dir_stream dir_stream)
-{
-    return __WASI_ENOSYS;
+// DSK: simple open and close to rewind index.
+__wasi_errno_t 
+os_rewinddir(os_dir_stream dir_stream) {
+    struct zephyr_fs_desc *ptr = NULL;
+    GET_FILE_SYSTEM_DESCRIPTOR(dir_stream, ptr);
+
+    if (!ptr->is_dir)
+        return __WASI_ENOTDIR;
+
+    int rc = fs_closedir(&ptr->dir);  // Close current stream
+    if (rc < 0)
+        return convert_errno(-rc);
+
+    rc = fs_opendir(&ptr->dir, ptr->path);  // Reopen from start
+    if (rc < 0)
+        return convert_errno(-rc);
+
+    ptr->dir_index = 0;  // Reset virtual position tracker
+    return __WASI_ESUCCESS;
 }
 
-__wasi_errno_t
-os_seekdir(os_dir_stream dir_stream, __wasi_dircookie_t position)
-{
-    return __WASI_ENOSYS;
+// DSK: start from 0 and linear seek since there's no cookies in the zephyr fs
+// TODO: duplicated code with rewinddir
+__wasi_errno_t 
+os_seekdir(os_dir_stream dir_stream, __wasi_dircookie_t position) {
+    struct zephyr_fs_desc *ptr = NULL;
+    GET_FILE_SYSTEM_DESCRIPTOR(dir_stream, ptr);
+
+    if (!ptr->is_dir)
+        return __WASI_ENOTDIR;
+
+    int rc = fs_closedir(&ptr->dir);
+    if (rc < 0)
+        return convert_errno(-rc);
+
+    rc = fs_opendir(&ptr->dir, ptr->path);
+    if (rc < 0)
+        return convert_errno(-rc);
+
+    // Emulate seek by re-reading entries up to 'position'
+    struct fs_dirent tmp;
+    for (__wasi_dircookie_t i = 0; i < position; i++) {
+        rc = fs_readdir(&ptr->dir, &tmp);
+        if (rc < 0)
+            return convert_errno(-rc);
+        if (tmp.name[0] == '\0')
+            break;  // End of directory
+    }
+
+    ptr->dir_index = position;
+    return __WASI_ESUCCESS;
 }
 
 __wasi_errno_t
@@ -995,7 +1041,6 @@ os_readdir(os_dir_stream dir_stream, __wasi_dirent_t *entry,
 {
     struct fs_dirent fs_entry;
     struct zephyr_fs_desc *ptr = NULL;
-
     GET_FILE_SYSTEM_DESCRIPTOR(dir_stream, ptr);
     if (!ptr->is_dir) {
         return __WASI_ENOTDIR;
@@ -1006,12 +1051,30 @@ os_readdir(os_dir_stream dir_stream, __wasi_dirent_t *entry,
         return convert_errno(-rc);
     }
 
-    entry->d_next = 0; // default value to start of the directory.
-    entry->d_ino = 0;  // no inode in zephyr
+    if (fs_entry.name[0] == '\0') {
+        // DSK: the caller expects the name buffer to be null
+        // when we've reached the end of the directory.
+        *d_name = NULL;
+        return __WASI_ESUCCESS;
+    }
+
+    // DSK: emulated increasing value for rewinddir and seekdir
+    entry->d_next = ++ptr->dir_index;
+    
+    // DSK: A hack to get readdir working. This needs to be non-zero along with st_ino
+    // for the libc side of readdir to work correctly.
+    entry->d_ino = 1 + ptr->dir_index;  
+
     entry->d_namlen = strlen(fs_entry.name);
     entry->d_type = fs_entry.type == FS_DIR_ENTRY_DIR
                         ? __WASI_FILETYPE_DIRECTORY
                         : __WASI_FILETYPE_REGULAR_FILE;
+
+    // DSK: name exists in fs_entry and we need to return it
+    static char name_buf[MAX_FILE_NAME + 1];
+    strncpy(name_buf, fs_entry.name, MAX_FILE_NAME);
+    name_buf[MAX_FILE_NAME] = '\0';
+    *d_name = name_buf;
 
     return __WASI_ESUCCESS;
 }
@@ -1044,6 +1107,7 @@ os_get_invalid_dir_stream()
 bool
 os_is_dir_stream_valid(os_dir_stream *dir_stream)
 {
+    // DSK: this probably needs a check...
     return false;
 }
 
