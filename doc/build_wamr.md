@@ -102,6 +102,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 ### **Enable lib wasi-nn**
 - **WAMR_BUILD_WASI_NN**=1/0, default to disable if not set
+> Note: WAMR_BUILD_WASI_NN without WAMR_BUILD_WASI_EPHEMERAL_NN is deprecated and will likely be removed in future versions of WAMR. Please consider to enable WAMR_BUILD_WASI_EPHEMERAL_NN as well.
 > Note: See [WASI-NN](../core/iwasm/libraries/wasi-nn) for more details.
 
 ### **Enable lib wasi-nn GPU mode**
