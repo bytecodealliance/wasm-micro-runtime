@@ -2840,8 +2840,6 @@ wasmtime_ssp_sock_recv_from(wasm_exec_env_t exec_env, struct fd_table *curfds,
         return error;
     }
 
-    wasi_addr_to_bh_sockaddr(src_addr, &sockaddr);
-
     /* Consume bh_sockaddr_t instead of __wasi_addr_t */
     ret = blocking_op_socket_recv_from(exec_env, fo->file_handle, buf, buf_len,
                                        0, &sockaddr);
