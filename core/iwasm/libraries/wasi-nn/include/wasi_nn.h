@@ -108,14 +108,13 @@ WASI_NN_NAME(compute)
 WASI_NN_ERROR_TYPE
 WASI_NN_NAME(get_output)
 (WASI_NN_NAME(graph_execution_context) ctx, uint32_t index,
- WASI_NN_NAME(tensor_data) output_tensor, uint32_t output_tensor_max_size,
+ uint8_t *output_tensor, uint32_t output_tensor_max_size,
  uint32_t *output_tensor_size) WASI_NN_IMPORT("get_output");
 #else
 WASI_NN_ERROR_TYPE
 WASI_NN_NAME(get_output)
-(graph_execution_context ctx, uint32_t index,
- WASI_NN_NAME(tensor_data) output_tensor, uint32_t *output_tensor_size)
-    WASI_NN_IMPORT("get_output");
+(graph_execution_context ctx, uint32_t index, uint8_t *output_tensor,
+ uint32_t *output_tensor_size) WASI_NN_IMPORT("get_output");
 #endif
 
 #endif
