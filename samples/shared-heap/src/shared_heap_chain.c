@@ -34,7 +34,7 @@ produce_data(wasm_module_inst_t module_inst, wasm_exec_env_t exec_env,
 
     /* Passes wasm address directly between wasm apps since memory in shared
      * heap chain is viewed as single address space in wasm's perspective */
-    buf = (uint8 *)(uint64)argv[0];
+    buf = (uint8 *)(uintptr_t)argv[0];
     if (!bh_post_msg(queue, 1, buf, buf_size)) {
         printf("Failed to post message to queue\n");
         if (free_on_fail)
@@ -130,7 +130,7 @@ wasm_consumer(wasm_module_inst_t module_inst, bh_queue *queue)
         buf = bh_message_payload(msg);
 
         /* call wasm function */
-        argv[0] = (uint32)(uint64)buf;
+        argv[0] = (uint32)(uintptr_t)buf;
         if (i < 8)
             wasm_runtime_call_wasm(exec_env, print_buf_func, 1, argv);
         else
@@ -198,7 +198,7 @@ main(int argc, char **argv)
     if (!aot_mode)
         wasm_file1 = "./wasm-apps/test1.wasm";
     else
-        wasm_file1 = "./wasm-apps/test1.aot";
+        wasm_file1 = "./wasm-apps/test1_chain.aot";
     if (!(wasm_file1_buf =
               bh_read_file_to_buffer(wasm_file1, &wasm_file1_size))) {
         printf("Open wasm file %s failed.\n", wasm_file1);
@@ -225,7 +225,7 @@ main(int argc, char **argv)
     if (!aot_mode)
         wasm_file2 = "./wasm-apps/test2.wasm";
     else
-        wasm_file2 = "./wasm-apps/test2.aot";
+        wasm_file2 = "./wasm-apps/test2_chain.aot";
     if (!(wasm_file2_buf =
               bh_read_file_to_buffer(wasm_file2, &wasm_file2_size))) {
         printf("Open wasm file %s failed.\n", wasm_file1);
