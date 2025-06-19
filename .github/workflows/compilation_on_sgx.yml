@@ -288,30 +288,24 @@ jobs:
           sudo swapon /swapfile
           sudo swapon --show
 
-      - name: run spec tests
-        run: |
-          set +e
-          source /opt/intel/sgxsdk/environment
-          attempts=0
-          max_attempts=3
-
-          while [ $attempts -lt $max_attempts ]; do
+      - name: run spec tests with retry
+        id: run_spec_tests
+        uses: nick-fields/retry@v3
+        with:
+          command: |
+            cd ./tests/wamr-test-suites
+            source /opt/intel/sgxsdk/environment
             ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
-            exitcode="$?"
+          max_attempts: 3
+          retry_on: error
+          shell: bash
+          timeout_minutes: 10
 
-            if [ $exitcode -eq 0 ]; then
-              echo "Spec test passed"
-              exit 0
-            elif [ $exitcode -ne 143 ]; then
-              echo "Spec test failed with error code $exitcode"
-              exit 1
-            fi
-
-            echo "$exitcode is a known GitHub-hosted runner issue"
-            echo "::notice::Re-running the spec test due to error code 143"
-            attempts=$((attempts + 1))
-          done
-
-          echo "::notice::Report an error with code 143 in SGX CI after $max_attempts attempts"
-          exit 143
-        working-directory: ./tests/wamr-test-suites
+      - name: print test results
+        run: |
+          echo "Test results:"
+          echo "${{ steps.run_spec_tests.outputs.stdout }}"
+          echo "${{ steps.run_spec_tests.outputs.stderr }}"
+          echo "Exit code: ${{ steps.run_spec_tests.outputs.exit_code }}"
+          echo "Exit error: ${{ steps.run_spec_tests.outputs.exit_error }}"
+        shell: bash
