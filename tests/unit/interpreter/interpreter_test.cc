@@ -16,7 +16,7 @@ class InterpreterTest : public testing::Test
     // accessed from sub-classes.
 
     // virtual void SetUp() will be called before each test is run.  You
-    // should define it if you need to initialize the varaibles.
+    // should define it if you need to initialize the variables.
     // Otherwise, this can be skipped.
     virtual void SetUp()
     {
@@ -45,6 +45,6 @@ TEST_F(InterpreterTest, wasm_runtime_is_built_in_module)
     bool ret = wasm_runtime_is_built_in_module("env");
     ASSERT_TRUE(ret);
 
-    ret = ret = wasm_runtime_is_built_in_module("env1");
+    ret = wasm_runtime_is_built_in_module("env1");
     ASSERT_FALSE(ret);
 }

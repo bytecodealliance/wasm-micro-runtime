@@ -51,7 +51,7 @@ extern "C" {
 #define TCP_DEFER_ACCEPT 9          /* Wake up listener only when data arrive */
 #define TCP_WINDOW_CLAMP 10         /* Bound advertised window */
 #define TCP_INFO 11                 /* Information about this connection. */
-#define TCP_QUICKACK 12             /* Bock/reenable quick ACKs.  */
+#define TCP_QUICKACK 12             /* Bock/re-enable quick ACKs.  */
 #define TCP_CONGESTION 13           /* Congestion control algorithm.  */
 #define TCP_MD5SIG 14               /* TCP MD5 Signature (RFC2385) */
 #define TCP_COOKIE_TRANSACTIONS 15  /* TCP Cookie Transactions */

@@ -221,7 +221,7 @@ get_reg_stride(JitReg reg)
  * @param rc the regalloc context
  * @param vreg the virtual register
  *
- * @return the spill slot encoded in a consant register
+ * @return the spill slot encoded in a constant register
  */
 static JitReg
 rc_alloc_spill_slot(RegallocContext *rc, JitReg vreg)
@@ -478,7 +478,7 @@ reload_vreg(RegallocContext *rc, JitReg vreg, JitInsn *cur_insn)
         JitReg fp_reg = rc->cc->fp_reg, offset;
 
         if (!vr->slot && !(vr->slot = rc_alloc_spill_slot(rc, vreg)))
-            /* Cannot allocte spill slot (due to OOM or frame size limit).  */
+            /* Cannot allocate spill slot (due to OOM or frame size limit).  */
             return NULL;
 
         offset = offset_of_spill_slot(rc->cc, vr->slot);
@@ -579,7 +579,7 @@ spill_vreg(RegallocContext *rc, JitReg vreg, JitInsn *cur_insn)
 
 /**
  * Allocate a hard register for the virtual register.  Necessary
- * reloade instruction will be inserted after the given instruction.
+ * reload instruction will be inserted after the given instruction.
  *
  * @param rc the regalloc context
  * @param vreg the virtual register
@@ -665,7 +665,7 @@ allocate_hreg(RegallocContext *rc, JitReg vreg, JitInsn *insn, int distance)
 
 /**
  * Allocate a hard register for the virtual register if not allocated
- * yet.  Necessary spill and reloade instructions will be inserted
+ * yet.  Necessary spill and reload instructions will be inserted
  * before/after and after the given instruction.  This operation will
  * convert the virtual register's state from 1 or 3 to 2.
  *

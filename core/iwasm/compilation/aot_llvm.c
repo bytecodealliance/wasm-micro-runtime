@@ -711,8 +711,7 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
                                     prefix)))
         goto fail;
 
-    if (comp_ctx->is_indirect_mode) {
-        /* avoid LUT relocations ("switch-table") */
+    if (comp_ctx->disable_llvm_jump_tables) {
         LLVMAttributeRef attr_no_jump_tables = LLVMCreateStringAttribute(
             comp_ctx->context, "no-jump-tables",
             (uint32)strlen("no-jump-tables"), "true", (uint32)strlen("true"));
@@ -1720,7 +1719,7 @@ aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
          * This value is a placeholder, which will be replaced
          * after the corresponding functions are compiled.
          *
-         * Don't use zeros becasue LLVM can optimize them to
+         * Don't use zeros because LLVM can optimize them to
          * zeroinitializer.
          */
         values[i] = I32_NEG_ONE;
@@ -2354,7 +2353,7 @@ create_target_machine_detect_host(AOTCompContext *comp_ctx)
     }
 
     if (!LLVMTargetHasJIT(target)) {
-        aot_set_last_error("unspported JIT on this platform.");
+        aot_set_last_error("unsupported JIT on this platform.");
         goto fail;
     }
 
@@ -2521,7 +2520,8 @@ aot_compiler_init(void)
     LLVMInitializeCore(LLVMGetGlobalPassRegistry());
 #endif
 
-#if WASM_ENABLE_WAMR_COMPILER != 0
+/* fuzzing only use host targets for simple */
+#if WASM_ENABLE_WAMR_COMPILER != 0 && WASM_ENABLE_FUZZ_TEST == 0
     /* Init environment of all targets for AOT compiler */
     LLVMInitializeAllTargetInfos();
     LLVMInitializeAllTargets();
@@ -2664,11 +2664,17 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     if (option->enable_aux_stack_check)
         comp_ctx->enable_aux_stack_check = true;
 
-    if (option->is_indirect_mode)
+    if (option->is_indirect_mode) {
         comp_ctx->is_indirect_mode = true;
+        /* avoid LUT relocations ("switch-table") */
+        comp_ctx->disable_llvm_jump_tables = true;
+    }
 
     if (option->disable_llvm_intrinsics)
         comp_ctx->disable_llvm_intrinsics = true;
+
+    if (option->disable_llvm_jump_tables)
+        comp_ctx->disable_llvm_jump_tables = true;
 
     if (option->disable_llvm_lto)
         comp_ctx->disable_llvm_lto = true;
@@ -2736,10 +2742,23 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     }
     else {
         /* Create LLVM target machine */
-        arch = option->target_arch;
-        abi = option->target_abi;
-        cpu = option->target_cpu;
-        features = option->cpu_features;
+        if (!option->target_arch || !strstr(option->target_arch, "-")) {
+            /* Retrieve the target triple based on user input */
+            triple = NULL;
+            arch = option->target_arch;
+            abi = option->target_abi;
+            cpu = option->target_cpu;
+            features = option->cpu_features;
+        }
+        else {
+            /* Form a target triple */
+            triple = option->target_arch;
+            arch = NULL;
+            abi = NULL;
+            cpu = NULL;
+            features = NULL;
+        }
+
         opt_level = option->opt_level;
         size_level = option->size_level;
 
@@ -2980,6 +2999,7 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
                 aot_set_last_error(buf);
                 goto fail;
             }
+            LOG_VERBOSE("triple: %s => normailized: %s", triple, triple_norm);
             if (!cpu)
                 cpu = "";
         }
@@ -3184,6 +3204,21 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
 
 #if WASM_ENABLE_WAMR_COMPILER != 0
     WASMModule *wasm_module = (WASMModule *)comp_data->wasm_module;
+    bool is_memory64 = false;
+
+    /* TODO: multi-memories for now assuming the memory64 flag of a memory is
+     * consistent across multi-memories */
+    if (wasm_module->import_memory_count > 0)
+        is_memory64 = !!(wasm_module->import_memories[0].u.memory.mem_type.flags
+                         & MEMORY64_FLAG);
+    else if (wasm_module->memory_count > 0)
+        is_memory64 = !!(wasm_module->memories[0].flags & MEMORY64_FLAG);
+
+    if (!(option->bounds_checks == 1 || option->bounds_checks == 0)
+        && is_memory64) {
+        /* For memory64, the boundary check default value is true */
+        comp_ctx->enable_bound_check = true;
+    }
 
     /* Return error if SIMD is disabled by command line but SIMD instructions
      * are used */
@@ -3334,6 +3369,11 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
     if (comp_ctx->builder)
         LLVMDisposeBuilder(comp_ctx->builder);
 
+#if WASM_ENABLE_DEBUG_AOT != 0
+    if (comp_ctx->debug_builder)
+        LLVMDisposeDIBuilder(comp_ctx->debug_builder);
+#endif
+
     if (comp_ctx->orc_thread_safe_context)
         LLVMOrcDisposeThreadSafeContext(comp_ctx->orc_thread_safe_context);
 
@@ -3407,7 +3447,7 @@ aot_get_native_symbol_index(AOTCompContext *comp_ctx, const char *symbol)
 
     sym = bh_list_first_elem(&comp_ctx->native_symbols);
 
-    /* Lookup an existing symobl record */
+    /* Lookup an existing symbol record */
 
     while (sym) {
         if (strcmp(sym->symbol, symbol) == 0) {

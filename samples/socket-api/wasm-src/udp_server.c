@@ -106,7 +106,7 @@ main(int argc, char *argv[])
         printf("[Server] Achieve maximum amount of connections\n");
     }
 
-    printf("[Server] Shuting down ..\n");
+    printf("[Server] Shutting down ..\n");
     shutdown(socket_fd, SHUT_RDWR);
     close(socket_fd);
     sleep(3);
@@ -114,7 +114,7 @@ main(int argc, char *argv[])
     return EXIT_SUCCESS;
 
 fail:
-    printf("[Server] Shuting down ..\n");
+    printf("[Server] Shutting down ..\n");
     if (socket_fd >= 0)
         close(socket_fd);
     sleep(3);

@@ -116,6 +116,9 @@ print_help()
     printf("                              Default is host arch, e.g. x86_64\n");
     printf("                            <sub> = for ex. on arm or thumb: v5, v6m, v7a, v7m, etc.\n");
     printf("                            Use --target=help to list supported targets\n");
+    printf("                            Or, provide a triple in the format of <arch>-<vendor>-<os>-<abi>.\n");
+    printf("                            By doing this, --target-abi, --cpu, and --cpu-features will be ignored.\n");
+    printf("                            The triple will only be normalized without any further verification.\n");
     printf("  --target-abi=<abi>        Set the target ABI, e.g. gnu, eabi, gnueabihf, msvc, etc.\n");
     printf("                              Default is gnu if target isn't riscv64 or riscv32\n");
     printf("                              For target riscv64 and riscv32, default is lp64d and ilp32d\n");
@@ -134,9 +137,12 @@ print_help()
     printf("                              3 - Small code model\n");
     printf("  -sgx                      Generate code for SGX platform (Intel Software Guard Extensions)\n");
     printf("  --bounds-checks=1/0       Enable or disable the bounds checks for memory access:\n");
-    printf("                              by default it is disabled in all 64-bit platforms except SGX and\n");
-    printf("                              in these platforms runtime does bounds checks with hardware trap,\n");
-    printf("                              and by default it is enabled in all 32-bit platforms\n");
+    printf("                              This flag controls bounds checking with a software check. \n"); 
+    printf("                              On 64-bit platforms, it is disabled by default, using a hardware \n"); 
+    printf("                              trap if supported, except when SGX or memory64 is enabled,\n"); 
+    printf("                              which defaults to a software check.\n"); 
+    printf("                              On 32-bit platforms, the flag is enabled by default, using a software check\n");
+    printf("                              due to the lack of hardware support.\n"); 
     printf("                            CAVEAT: --bounds-checks=0 enables some optimizations\n");
     printf("                              which make the compiled AOT module incompatible\n");
     printf("                              with a runtime without the hardware bounds checks.\n");
@@ -180,6 +186,7 @@ print_help()
     printf("                            Available flags: all, i32.common, i64.common, f32.common, f64.common,\n");
     printf("                              i32.clz, i32.ctz, etc, refer to doc/xip.md for full list\n");
     printf("                            Use comma to separate, please refer to doc/xip.md for full list.\n");
+    printf("  --disable-llvm-jump-tables Disable the LLVM jump tables similarly to clang's -fno-jump-tables\n");
     printf("  --disable-llvm-lto        Disable the LLVM link time optimization\n");
     printf("  --enable-llvm-pgo         Enable LLVM PGO (Profile-Guided Optimization)\n");
     printf("  --enable-llvm-passes=<passes>\n");
@@ -570,6 +577,9 @@ main(int argc, char *argv[])
                 PRINT_HELP_AND_EXIT();
             option.builtin_intrinsics = argv[0] + 28;
         }
+        else if (!strcmp(argv[0], "--disable-llvm-jump-tables")) {
+            option.disable_llvm_jump_tables = true;
+        }
         else if (!strcmp(argv[0], "--disable-llvm-lto")) {
             option.disable_llvm_lto = true;
         }
@@ -705,7 +715,7 @@ main(int argc, char *argv[])
     }
 
     if (sgx_mode) {
-        option.size_level = 1;
+        option.size_level = 0;
         option.is_sgx_platform = true;
     }
 

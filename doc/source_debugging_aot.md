@@ -90,7 +90,7 @@ wamrc -o test.aot test.wasm
        function of the AOT-compiled wasm module.
 
    * WAMR AOT debugging uses the GDB JIT loader mechanism to load
-     the debug info of the debugee module.
+     the debug info of the debuggee module.
      On some platforms including macOS, you need to enable it explicitly.
      (`settings set plugin.jit-loader.gdb.enable on`)
 

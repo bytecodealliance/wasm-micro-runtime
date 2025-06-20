@@ -65,6 +65,7 @@ jobs:
         shell: bash
         run: |
           echo "last_commit=$(GH_TOKEN=${{ secrets.GITHUB_TOKEN }} /usr/bin/env python3 ./build_llvm.py ${{ inputs.extra_build_llvm_options }} --llvm-ver)" >> $GITHUB_OUTPUT
+        working-directory: build-scripts
 
       # Bump the prefix number to evict all previous caches and
       # enforce a clean build, in the unlikely case that some
@@ -87,14 +88,6 @@ jobs:
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
           key: ${{ steps.create_lib_cache_key.outputs.key}}
-
-      - uses: actions/cache@v4
-        with:
-          path: ~/.ccache
-          key: 0-ccache-${{ inputs.os }}-${{ steps.get_last_commit.outputs.last_commit }}
-          restore-keys: |
-            0-ccache-${{ inputs.os }}
-        if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true' && inputs.os == 'ubuntu-20.04'
 
       - uses: actions/cache@v4
         with:

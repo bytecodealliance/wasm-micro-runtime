@@ -12,7 +12,7 @@ $ make
 $ # It will build multi_module runtime and 
 $ # wasm file under the ./build .
 $ # If you have built wamrc,
-$ # aot file will also genrate.
+$ # aot file will also generate.
 $ ./multi_module mC.wasm
 $ ...
 $ ./multi_module mC.aot

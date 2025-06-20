@@ -55,4 +55,3 @@ else
         ./iwasm --native-lib=./libtest_module_malloc.so wasm-app/test.aot
     fi
 fi
-

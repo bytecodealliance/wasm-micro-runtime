@@ -1516,10 +1516,13 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
             }                                                                 \
             os_mutex_unlock(&exec_env->wait_lock);                            \
         }                                                                     \
+        CHECK_INSTRUCTION_LIMIT();                                            \
         goto *handle_table[*frame_ip++];                                      \
     } while (0)
 #else
-#define HANDLE_OP_END() FETCH_OPCODE_AND_DISPATCH()
+#define HANDLE_OP_END()        \
+    CHECK_INSTRUCTION_LIMIT(); \
+    FETCH_OPCODE_AND_DISPATCH()
 #endif
 
 #else /* else of WASM_ENABLE_LABELS_AS_VALUES */
@@ -1542,9 +1545,12 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
         }                                                                 \
         os_mutex_unlock(&exec_env->wait_lock);                            \
     }                                                                     \
+    CHECK_INSTRUCTION_LIMIT();                                            \
     continue;
 #else
-#define HANDLE_OP_END() continue
+#define HANDLE_OP_END()        \
+    CHECK_INSTRUCTION_LIMIT(); \
+    continue;
 #endif
 
 #endif /* end of WASM_ENABLE_LABELS_AS_VALUES */
@@ -1561,6 +1567,18 @@ get_global_addr(uint8 *global_data, WASMGlobalInstance *global)
                : global_data + global->data_offset;
 #endif
 }
+
+#if WASM_ENABLE_INSTRUCTION_METERING != 0
+#define CHECK_INSTRUCTION_LIMIT()                                 \
+    if (instructions_left == 0) {                                 \
+        wasm_set_exception(module, "instruction limit exceeded"); \
+        goto got_exception;                                       \
+    }                                                             \
+    else if (instructions_left > 0)                               \
+        instructions_left--;
+#else
+#define CHECK_INSTRUCTION_LIMIT() (void)0
+#endif
 
 static void
 wasm_interp_call_func_bytecode(WASMModuleInstance *module,
@@ -1605,6 +1623,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint32 local_idx, local_offset, global_idx;
     uint8 local_type, *global_addr;
     uint32 cache_index, type_index, param_cell_num, cell_num;
+
+#if WASM_ENABLE_INSTRUCTION_METERING != 0
+    int instructions_left = -1;
+    if (exec_env) {
+        instructions_left = exec_env->instructions_to_execute;
+    }
+#endif
+
 #if WASM_ENABLE_EXCE_HANDLING != 0
     int32_t exception_tag_index;
 #endif
@@ -1934,7 +1960,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             UNWIND_CSP(relative_depth, LABEL_TYPE_FUNCTION);
                             /* push exception values for catch
                              * The values are copied to the CALLER FRAME
-                             * (prev_frame->sp) same behvior ad WASM_OP_RETURN
+                             * (prev_frame->sp) same behavior ad WASM_OP_RETURN
                              */
                             if (cell_num_to_copy > 0) {
                                 word_copy(prev_frame->sp,
@@ -2649,7 +2675,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 read_leb_uint32(frame_ip, frame_ip_end, type_index);
                 func_obj = POP_REF();
                 if (!func_obj) {
-                    wasm_set_exception(module, "null function object");
+                    wasm_set_exception(module, "null function reference");
                     goto got_exception;
                 }
 
@@ -2666,7 +2692,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 read_leb_uint32(frame_ip, frame_ip_end, type_index);
                 func_obj = POP_REF();
                 if (!func_obj) {
-                    wasm_set_exception(module, "null function object");
+                    wasm_set_exception(module, "null function reference");
                     goto got_exception;
                 }
 
@@ -2813,7 +2839,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         struct_obj = POP_REF();
 
                         if (!struct_obj) {
-                            wasm_set_exception(module, "null structure object");
+                            wasm_set_exception(module,
+                                               "null structure reference");
                             goto got_exception;
                         }
 
@@ -2869,7 +2896,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                         struct_obj = POP_REF();
                         if (!struct_obj) {
-                            wasm_set_exception(module, "null structure object");
+                            wasm_set_exception(module,
+                                               "null structure reference");
                             goto got_exception;
                         }
 
@@ -4961,7 +4989,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 HANDLE_OP_END();
             }
 
-            /* numberic instructions of i32 */
+            /* numeric instructions of i32 */
             HANDLE_OP(WASM_OP_I32_CLZ)
             {
                 DEF_OP_BIT_COUNT(uint32, I32, clz32);
@@ -5118,7 +5146,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 HANDLE_OP_END();
             }
 
-            /* numberic instructions of i64 */
+            /* numeric instructions of i64 */
             HANDLE_OP(WASM_OP_I64_CLZ)
             {
                 DEF_OP_BIT_COUNT(uint64, I64, clz64);
@@ -5275,7 +5303,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 HANDLE_OP_END();
             }
 
-            /* numberic instructions of f32 */
+            /* numeric instructions of f32 */
             HANDLE_OP(WASM_OP_F32_ABS)
             {
                 DEF_OP_MATH(float32, F32, fabsf);
@@ -5379,7 +5407,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 HANDLE_OP_END();
             }
 
-            /* numberic instructions of f64 */
+            /* numeric instructions of f64 */
             HANDLE_OP(WASM_OP_F64_ABS)
             {
                 DEF_OP_MATH(float64, F64, fabs);
@@ -5782,7 +5810,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     {
                         mem_offset_t dst, src, len;
                         uint8 *mdst, *msrc;
-                        uint64 dlen;
 
                         len = POP_MEM_OFFSET();
                         src = POP_MEM_OFFSET();
@@ -5795,24 +5822,17 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         /* skip dst memidx */
                         frame_ip += 1;
 #endif
+                        // TODO: apply memidx
 #if WASM_ENABLE_THREAD_MGR != 0
                         linear_mem_size = get_linear_mem_size();
 #endif
-
-                        dlen = linear_mem_size - dst;
-
                         /* dst boundary check */
 #ifndef OS_ENABLE_HW_BOUND_CHECK
                         CHECK_BULK_MEMORY_OVERFLOW(dst, len, mdst);
-#if WASM_ENABLE_SHARED_HEAP != 0
-                        if (app_addr_in_shared_heap((uint64)dst, len))
-                            dlen = shared_heap_end_off - dst + 1;
-#endif
 #else /* else of OS_ENABLE_HW_BOUND_CHECK */
 #if WASM_ENABLE_SHARED_HEAP != 0
                         if (app_addr_in_shared_heap((uint64)dst, len)) {
                             shared_heap_addr_app_to_native((uint64)dst, mdst);
-                            dlen = shared_heap_end_off - dst + 1;
                         }
                         else
 #endif
@@ -5830,6 +5850,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         /* skip src memidx */
                         frame_ip += 1;
 #endif
+                        // TODO: apply memidx
 #if WASM_ENABLE_THREAD_MGR != 0
                         linear_mem_size = get_linear_mem_size();
 #endif
@@ -5849,15 +5870,21 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
 #endif
 
-#if WASM_ENABLE_MEMORY64 == 0
-                        /* allowing the destination and source to overlap */
-                        bh_memmove_s(mdst, (uint32)dlen, msrc, (uint32)len);
-#else
-                        /* use memmove when memory64 is enabled since len
-                           may be larger than UINT32_MAX */
-                        memmove(mdst, msrc, len);
-                        (void)dlen;
-#endif
+                        /*
+                         * avoid unnecessary operations
+                         *
+                         * since dst and src both are valid indexes in the
+                         * linear memory, mdst and msrc can't be NULL
+                         *
+                         * The spec. converts memory.copy into i32.load8 and
+                         * i32.store8; the following are runtime-specific
+                         * optimizations.
+                         *
+                         */
+                        if (len && mdst != msrc) {
+                            /* allowing the destination and source to overlap */
+                            memmove(mdst, msrc, len);
+                        }
                         break;
                     }
                     case WASM_OP_MEMORY_FILL:
@@ -6678,7 +6705,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                          tag++, t++) {
 
                         /* compare the module and the external index with the
-                         * imort tag data */
+                         * import tag data */
                         if ((cur_func->u.func_import->import_module
                              == tag->u.tag_import->import_module)
                             && (ext_exception

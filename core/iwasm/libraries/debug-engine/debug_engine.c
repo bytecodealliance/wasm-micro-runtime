@@ -58,7 +58,7 @@ static WASMDebugEngine *g_debug_engine;
 static uint32 current_instance_id = 1;
 
 static uint32
-allocate_instance_id()
+allocate_instance_id(void)
 {
     uint32 id;
 
@@ -302,7 +302,7 @@ wasm_debug_control_thread_destroy(WASMDebugInstance *debug_instance)
 }
 
 static WASMDebugEngine *
-wasm_debug_engine_create()
+wasm_debug_engine_create(void)
 {
     WASMDebugEngine *engine;
 
@@ -326,7 +326,7 @@ wasm_debug_engine_create()
 }
 
 void
-wasm_debug_engine_destroy()
+wasm_debug_engine_destroy(void)
 {
     if (g_debug_engine) {
         wasm_debug_handler_deinit();
@@ -743,7 +743,7 @@ wasm_debug_instance_get_obj_mem(WASMDebugInstance *instance, uint64 offset,
     module_inst = (WASMModuleInstance *)exec_env->module_inst;
 
     if (offset + *size > module_inst->module->load_size) {
-        LOG_VERBOSE("wasm_debug_instance_get_data_mem size over flow!\n");
+        LOG_VERBOSE("wasm_debug_instance_get_data_mem size overflow!\n");
         *size = module_inst->module->load_size >= offset
                     ? module_inst->module->load_size - offset
                     : 0;
@@ -797,7 +797,7 @@ wasm_debug_instance_get_linear_mem(WASMDebugInstance *instance, uint64 offset,
         num_bytes_per_page = memory->num_bytes_per_page;
         linear_mem_size = num_bytes_per_page * memory->cur_page_count;
         if (offset + *size > linear_mem_size) {
-            LOG_VERBOSE("wasm_debug_instance_get_linear_mem size over flow!\n");
+            LOG_VERBOSE("wasm_debug_instance_get_linear_mem size overflow!\n");
             *size = linear_mem_size >= offset ? linear_mem_size - offset : 0;
         }
         bh_memcpy_s(buf, (uint32)*size, memory->memory_data + offset,
@@ -830,7 +830,7 @@ wasm_debug_instance_set_linear_mem(WASMDebugInstance *instance, uint64 offset,
         num_bytes_per_page = memory->num_bytes_per_page;
         linear_mem_size = num_bytes_per_page * memory->cur_page_count;
         if (offset + *size > linear_mem_size) {
-            LOG_VERBOSE("wasm_debug_instance_get_linear_mem size over flow!\n");
+            LOG_VERBOSE("wasm_debug_instance_get_linear_mem size overflow!\n");
             *size = linear_mem_size >= offset ? linear_mem_size - offset : 0;
         }
         bh_memcpy_s(memory->memory_data + offset, (uint32)*size, buf,

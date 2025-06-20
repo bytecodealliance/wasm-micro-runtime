@@ -34,7 +34,7 @@ static char *tmpbuf;
 static korp_mutex tmpbuf_lock;
 
 int
-wasm_debug_handler_init()
+wasm_debug_handler_init(void)
 {
     int ret;
     tmpbuf = wasm_runtime_malloc(MAX_PACKET_SIZE);
@@ -51,7 +51,7 @@ wasm_debug_handler_init()
 }
 
 void
-wasm_debug_handler_deinit()
+wasm_debug_handler_deinit(void)
 {
     wasm_runtime_free(tmpbuf);
     tmpbuf = NULL;
@@ -175,6 +175,19 @@ process_wasm_global(WASMGDBServer *server, char *args)
     os_mutex_unlock(&tmpbuf_lock);
 }
 
+/* TODO: let server send an empty/error reply.
+   Original issue: 4265
+   Not tested yet, but it should work.
+ */
+static void
+send_reply(WASMGDBServer *server, const char *err)
+{
+    if (!err || !*err)
+        write_packet(server, "");
+    else
+        write_packet(server, err);
+}
+
 void
 handle_general_query(WASMGDBServer *server, char *payload)
 {
@@ -204,8 +217,7 @@ handle_general_query(WASMGDBServer *server, char *payload)
     if (!strcmp(name, "Supported")) {
         os_mutex_lock(&tmpbuf_lock);
         snprintf(tmpbuf, MAX_PACKET_SIZE,
-                 "qXfer:libraries:read+;PacketSize=%" PRIx32 ";",
-                 MAX_PACKET_SIZE);
+                 "qXfer:libraries:read+;PacketSize=%x;", MAX_PACKET_SIZE);
         write_packet(server, tmpbuf);
         os_mutex_unlock(&tmpbuf_lock);
     }
@@ -215,6 +227,7 @@ handle_general_query(WASMGDBServer *server, char *payload)
 
         if (!args) {
             LOG_ERROR("payload parse error during handle_general_query");
+            send_reply(server, "");
             return;
         }
 
@@ -384,8 +397,8 @@ send_thread_stop_status(WASMGDBServer *server, uint32 status, korp_tid tid)
 
     if (status == 0) {
         os_mutex_lock(&tmpbuf_lock);
-        snprintf(tmpbuf, MAX_PACKET_SIZE, "W%02x", status);
-        write_packet(server, tmpbuf);
+        (void)snprintf(tmpbuf, MAX_PACKET_SIZE, "W%02" PRIx32, status);
+        send_reply(server, tmpbuf);
         os_mutex_unlock(&tmpbuf_lock);
         return;
     }
@@ -400,17 +413,41 @@ send_thread_stop_status(WASMGDBServer *server, uint32 status, korp_tid tid)
 
     os_mutex_lock(&tmpbuf_lock);
     // TODO: how name a wasm thread?
-    len += snprintf(tmpbuf, MAX_PACKET_SIZE, "T%02xthread:%" PRIx64 ";name:%s;",
-                    gdb_status, (uint64)(uintptr_t)tid, "nobody");
+    len = snprintf(tmpbuf, MAX_PACKET_SIZE,
+                   "T%02" PRIx32 "thread:%" PRIx64 ";name:%s;", gdb_status,
+                   (uint64)(uintptr_t)tid, "nobody");
+    if (len < 0 || len >= MAX_PACKET_SIZE) {
+        send_reply(server, "E01");
+        os_mutex_unlock(&tmpbuf_lock);
+        return;
+    }
+
     if (tids_count > 0) {
-        len += snprintf(tmpbuf + len, MAX_PACKET_SIZE - len, "threads:");
+        int n = snprintf(tmpbuf + len, MAX_PACKET_SIZE - len, "threads:");
+        if (n < 0 || n >= MAX_PACKET_SIZE - len) {
+            send_reply(server, "E01");
+            os_mutex_unlock(&tmpbuf_lock);
+            return;
+        }
+
+        len += n;
         while (i < tids_count) {
-            if (i == tids_count - 1)
-                len += snprintf(tmpbuf + len, MAX_PACKET_SIZE - len,
-                                "%" PRIx64 ";", (uint64)(uintptr_t)tids[i]);
-            else
-                len += snprintf(tmpbuf + len, MAX_PACKET_SIZE - len,
-                                "%" PRIx64 ",", (uint64)(uintptr_t)tids[i]);
+            if (i == tids_count - 1) {
+                n = snprintf(tmpbuf + len, MAX_PACKET_SIZE - len,
+                             "%" PRIx64 ";", (uint64)(uintptr_t)tids[i]);
+            }
+            else {
+                n = snprintf(tmpbuf + len, MAX_PACKET_SIZE - len,
+                             "%" PRIx64 ",", (uint64)(uintptr_t)tids[i]);
+            }
+
+            if (n < 0 || n >= MAX_PACKET_SIZE - len) {
+                send_reply(server, "E01");
+                os_mutex_unlock(&tmpbuf_lock);
+                return;
+            }
+
+            len += n;
             i++;
         }
     }
@@ -427,32 +464,47 @@ send_thread_stop_status(WASMGDBServer *server, uint32 status, korp_tid tid)
         /* When exception occurs, use reason:exception so the description can be
          * correctly processed by LLDB */
         uint32 exception_len = strlen(exception);
-        len +=
+        int n =
             snprintf(tmpbuf + len, MAX_PACKET_SIZE - len,
                      "thread-pcs:%" PRIx64 ";00:%s;reason:%s;description:", pc,
                      pc_string, "exception");
+        if (n < 0 || n >= MAX_PACKET_SIZE - len) {
+            send_reply(server, "E01");
+            os_mutex_unlock(&tmpbuf_lock);
+            return;
+        }
+
+        len += n;
         /* The description should be encoded as HEX */
         for (i = 0; i < exception_len; i++) {
-            len += snprintf(tmpbuf + len, MAX_PACKET_SIZE - len, "%02x",
-                            exception[i]);
+            n = snprintf(tmpbuf + len, MAX_PACKET_SIZE - len, "%02x",
+                         exception[i]);
+            if (n < 0 || n >= MAX_PACKET_SIZE - len) {
+                send_reply(server, "E01");
+                os_mutex_unlock(&tmpbuf_lock);
+                return;
+            }
+
+            len += n;
         }
-        len += snprintf(tmpbuf + len, MAX_PACKET_SIZE - len, ";");
+
+        (void)snprintf(tmpbuf + len, MAX_PACKET_SIZE - len, ";");
     }
     else {
         if (status == WAMR_SIG_TRAP) {
-            len += snprintf(tmpbuf + len, MAX_PACKET_SIZE - len,
-                            "thread-pcs:%" PRIx64 ";00:%s;reason:%s;", pc,
-                            pc_string, "breakpoint");
+            (void)snprintf(tmpbuf + len, MAX_PACKET_SIZE - len,
+                           "thread-pcs:%" PRIx64 ";00:%s;reason:%s;", pc,
+                           pc_string, "breakpoint");
         }
         else if (status == WAMR_SIG_SINGSTEP) {
-            len += snprintf(tmpbuf + len, MAX_PACKET_SIZE - len,
-                            "thread-pcs:%" PRIx64 ";00:%s;reason:%s;", pc,
-                            pc_string, "trace");
+            (void)snprintf(tmpbuf + len, MAX_PACKET_SIZE - len,
+                           "thread-pcs:%" PRIx64 ";00:%s;reason:%s;", pc,
+                           pc_string, "trace");
         }
         else { /* status > 0 (== 0 is checked at the function beginning) */
-            len += snprintf(tmpbuf + len, MAX_PACKET_SIZE - len,
-                            "thread-pcs:%" PRIx64 ";00:%s;reason:%s;", pc,
-                            pc_string, "signal");
+            (void)snprintf(tmpbuf + len, MAX_PACKET_SIZE - len,
+                           "thread-pcs:%" PRIx64 ";00:%s;reason:%s;", pc,
+                           pc_string, "signal");
         }
     }
     write_packet(server, tmpbuf);
@@ -559,7 +611,7 @@ handle_get_register(WASMGDBServer *server, char *payload)
     int32 i = strtol(payload, NULL, 16);
 
     if (i != 0) {
-        write_packet(server, "E01");
+        send_reply(server, "E01");
         return;
     }
     regdata = wasm_debug_instance_get_pc(
@@ -624,7 +676,8 @@ void
 handle_get_write_memory(WASMGDBServer *server, char *payload)
 {
     size_t hex_len;
-    int32 offset, act_len;
+    int offset;
+    int32 act_len;
     uint64 maddr, mlen;
     char *buff;
     bool ret;
@@ -714,7 +767,7 @@ handle_add_break(WASMGDBServer *server, char *payload)
     if ((arg_c = sscanf(payload, "%zx,%" SCNx64 ",%zx", &type, &addr, &length))
         != 3) {
         LOG_ERROR("Unsupported number of add break arguments %d", arg_c);
-        write_packet(server, "");
+        send_reply(server, "");
         return;
     }
 
@@ -749,7 +802,7 @@ handle_remove_break(WASMGDBServer *server, char *payload)
     if ((arg_c = sscanf(payload, "%zx,%" SCNx64 ",%zx", &type, &addr, &length))
         != 3) {
         LOG_ERROR("Unsupported number of remove break arguments %d", arg_c);
-        write_packet(server, "");
+        send_reply(server, "");
         return;
     }
 
@@ -801,6 +854,7 @@ handle_malloc(WASMGDBServer *server, char *payload)
     }
     else {
         LOG_ERROR("Payload parse error during handle malloc");
+        send_reply(server, "");
         return;
     }
 

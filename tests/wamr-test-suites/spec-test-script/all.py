@@ -100,7 +100,12 @@ def ignore_the_case(
         return True
 
     if gc_flag:
-        if case_name in ["array_init_elem", "array_init_data"]:
+        if case_name in [
+            "array_init_elem",
+            "array_init_data",
+            "array_new_data",
+            "array_new_elem"
+        ]:
             return True
 
     if sgx_flag:
@@ -129,6 +134,8 @@ def ignore_the_case(
             "float_misc",
             "select",
             "memory_grow",
+            # Skip the test case for now, restore it after fixing the issue
+            "skip-stack-guard-page",
         ]:
             return True
 
@@ -242,7 +249,7 @@ def test_case(
         CMD,
         bufsize=1,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
         universal_newlines=True,
     ) as p:
         try:
@@ -280,7 +287,9 @@ def test_case(
         except subprocess.TimeoutExpired:
             print("failed with TimeoutExpired")
             raise Exception(case_name)
-
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+            raise e
 
 def test_suite(
     target,

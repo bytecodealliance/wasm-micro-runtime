@@ -23,6 +23,8 @@
 #else
 #define WASM_RUNTIME_API_EXTERN __declspec(dllimport)
 #endif
+#elif defined(__GNUC__) || defined(__clang__)
+#define WASM_RUNTIME_API_EXTERN __attribute__((visibility("default")))
 #else
 #define WASM_RUNTIME_API_EXTERN
 #endif
@@ -123,6 +125,21 @@ typedef WASMFunctionInstanceCommon *wasm_function_inst_t;
 /* Memory instance */
 struct WASMMemoryInstance;
 typedef struct WASMMemoryInstance *wasm_memory_inst_t;
+
+typedef struct wasm_frame_t {
+    /*  wasm_instance_t */
+    void *instance;
+    uint32_t module_offset;
+    uint32_t func_index;
+    uint32_t func_offset;
+    const char *func_name_wp;
+
+    uint32_t *sp;
+    uint8_t *frame_ref;
+    uint32_t *lp;
+} WASMCApiFrame;
+
+typedef WASMCApiFrame wasm_frame_t;
 
 /* WASM section */
 typedef struct wasm_section_t {
@@ -861,6 +878,35 @@ wasm_runtime_create_exec_env(wasm_module_inst_t module_inst,
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_exec_env(wasm_exec_env_t exec_env);
+
+/**
+ * @brief Copy callstack frames.
+ *
+ * Caution: This is not a thread-safe function. Ensure the exec_env
+ * is suspended before calling it from another thread.
+ *
+ * Usage: In the callback to read frames fields use APIs
+ * for wasm_frame_t from wasm_c_api.h
+ *
+ * Note: The function is async-signal-safe if called with verified arguments.
+ * Meaning it's safe to call it from a signal handler even on a signal
+ * interruption from another thread if next variables hold valid pointers
+ * - exec_env
+ * - exec_env->module_inst
+ * - exec_env->module_inst->module
+ *
+ * @param exec_env the execution environment that containes frames
+ * @param buffer the buffer of size equal length * sizeof(wasm_frame_t) to copy
+ * frames to
+ * @param length the number of frames to copy
+ * @param skip_n the number of frames to skip from the top of the stack
+ *
+ * @return number of copied frames
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_copy_callstack(const wasm_exec_env_t exec_env, wasm_frame_t *buffer,
+                    const uint32_t length, const uint32_t skip_n,
+                    char *error_buf, uint32_t error_buf_size);
 
 /**
  * Get the singleton execution environment for the instance.
@@ -1776,6 +1822,20 @@ wasm_runtime_set_native_stack_boundary(wasm_exec_env_t exec_env,
                                        uint8_t *native_stack_boundary);
 
 /**
+ * Set the instruction count limit to the execution environment.
+ * By default the instruction count limit is -1, which means no limit.
+ * However, if the instruction count limit is set to a positive value,
+ * the execution will be terminated when the instruction count reaches
+ * the limit.
+ *
+ * @param exec_env the execution environment
+ * @param instruction_count the instruction count limit
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_instruction_count_limit(wasm_exec_env_t exec_env,
+                                         int instruction_count);
+
+/**
  * Dump runtime memory consumption, including:
  *     Exec env memory consumption
  *     WASM module memory consumption
@@ -2281,7 +2341,7 @@ wasm_runtime_detach_shared_heap(wasm_module_inst_t module_inst);
  * @param size required memory size
  * @param p_native_addr native address of allocated memory
  *
- * @return return the allocated memory address, which re-uses part of the wasm
+ * @return return the allocated memory address, which reuses part of the wasm
  * address space and is in the range of [UINT32 - shared_heap_size + 1, UINT32]
  * (when the wasm memory is 32-bit) or [UINT64 - shared_heap_size + 1, UINT64]
  * (when the wasm memory is 64-bit). Note that it is not an absolute address.

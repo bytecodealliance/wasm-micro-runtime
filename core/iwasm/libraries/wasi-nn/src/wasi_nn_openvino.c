@@ -32,8 +32,6 @@ typedef struct {
     void *weight_data;
     ov_tensor_t *weights_tensor;
     ov_model_t *model;
-    /* add prepostprocess */
-    ov_model_t *new_model;
     ov_compiled_model_t *compiled_model;
     ov_infer_request_t *infer_request;
     ov_tensor_t *input_tensor;
@@ -58,7 +56,7 @@ dump_ov_shape_t(const ov_shape_t *shape, int32_t output_len, char *output)
 {
     int ret = 0;
 
-    ret = snprintf(output, output_len, "%ld,[", shape->rank);
+    ret = snprintf(output, output_len, "%" PRId64 ",[", shape->rank);
     if (!ret)
         return;
 
@@ -66,7 +64,7 @@ dump_ov_shape_t(const ov_shape_t *shape, int32_t output_len, char *output)
     output += ret;
 
     for (unsigned i = 0; i < shape->rank && output_len; i++) {
-        ret = snprintf(output, output_len, " %ld", shape->dims[i]);
+        ret = snprintf(output, output_len, " %" PRId64, shape->dims[i]);
         if (!ret)
             return;
 
@@ -161,8 +159,6 @@ wasi_nn_tensor_type_to_openvino_element_type(tensor_type wasi_nn_type)
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
         case fp64:
             return F64;
-        case bf16:
-            return BF16;
         case i64:
             return I64;
         case u8:
@@ -227,12 +223,6 @@ load(void *ctx, graph_builder_array *builder, graph_encoding encoding,
     graph_builder xml = builder->buf[0];
     graph_builder weight = builder->buf[1];
 
-    /* if xml is a String with a model in IR */
-    if (!(xml.buf[xml.size] == '\0' && xml.buf[xml.size - 1] != '\0')) {
-        NN_ERR_PRINTF("Invalid xml string.");
-        return invalid_argument;
-    }
-
     /* transfer weight to an ov tensor */
     {
         ov_ctx->weight_data = os_malloc(weight.size);
@@ -292,16 +282,6 @@ set_input(void *ctx, graph_execution_context exec_ctx, uint32_t index,
     ov_shape_t input_shape = { 0 };
     int64_t *ov_dims = NULL;
 
-    ov_preprocess_prepostprocessor_t *ppp = NULL;
-    ov_preprocess_input_info_t *input_info = NULL;
-    ov_preprocess_input_tensor_info_t *input_tensor_info = NULL;
-    ov_layout_t *input_layout = NULL;
-    ov_preprocess_preprocess_steps_t *input_process = NULL;
-    ov_preprocess_input_model_info_t *p_input_model = NULL;
-    ov_layout_t *model_layout = NULL;
-    ov_preprocess_output_info_t *output_info = NULL;
-    ov_preprocess_output_tensor_info_t *output_tensor_info = NULL;
-
     /* wasi_nn_tensor -> ov_tensor */
     {
         ret = uint32_array_to_int64_array(wasi_nn_tensor->dimensions->size,
@@ -309,17 +289,6 @@ set_input(void *ctx, graph_execution_context exec_ctx, uint32_t index,
                                           &ov_dims);
         if (ret != success)
             goto fail;
-
-        /* NCHW -> NHWC */
-        if (wasi_nn_tensor->dimensions->size == 4 || ov_dims[1] == 3) {
-            /* N */
-            /* H */
-            ov_dims[1] = ov_dims[2];
-            /* W */
-            ov_dims[2] = ov_dims[3];
-            /* C */
-            ov_dims[3] = 3;
-        }
 
         CHECK_OV_STATUS(ov_shape_create(wasi_nn_tensor->dimensions->size,
                                         ov_dims, &input_shape),
@@ -341,62 +310,8 @@ set_input(void *ctx, graph_execution_context exec_ctx, uint32_t index,
                         ret);
     }
 
-    /* set preprocess based on wasi_nn_tensor */
-    {
-        CHECK_OV_STATUS(
-            ov_preprocess_prepostprocessor_create(ov_ctx->model, &ppp), ret);
-
-        /* reuse user' created tensor's info */
-        CHECK_OV_STATUS(ov_preprocess_prepostprocessor_get_input_info_by_index(
-                            ppp, index, &input_info),
-                        ret);
-        CHECK_OV_STATUS(ov_preprocess_input_info_get_tensor_info(
-                            input_info, &input_tensor_info),
-                        ret);
-        CHECK_OV_STATUS(ov_preprocess_input_tensor_info_set_from(
-                            input_tensor_info, ov_ctx->input_tensor),
-                        ret);
-        /* ! HAS TO BE NHWC. Match previous layout conversion */
-        CHECK_OV_STATUS(ov_layout_create("NHWC", &input_layout), ret);
-        CHECK_OV_STATUS(ov_preprocess_input_tensor_info_set_layout(
-                            input_tensor_info, input_layout),
-                        ret);
-
-        /* add RESIZE */
-        CHECK_OV_STATUS(ov_preprocess_input_info_get_preprocess_steps(
-                            input_info, &input_process),
-                        ret);
-        CHECK_OV_STATUS(
-            ov_preprocess_preprocess_steps_resize(input_process, RESIZE_LINEAR),
-            ret);
-
-        /* input model */
-        CHECK_OV_STATUS(
-            ov_preprocess_input_info_get_model_info(input_info, &p_input_model),
-            ret);
-        // TODO: what if not?
-        CHECK_OV_STATUS(ov_layout_create("NCHW", &model_layout), ret);
-        CHECK_OV_STATUS(ov_preprocess_input_model_info_set_layout(p_input_model,
-                                                                  model_layout),
-                        ret);
-
-        /* output -> F32(possibility) */
-        CHECK_OV_STATUS(ov_preprocess_prepostprocessor_get_output_info_by_index(
-                            ppp, index, &output_info),
-                        ret);
-        CHECK_OV_STATUS(ov_preprocess_output_info_get_tensor_info(
-                            output_info, &output_tensor_info),
-                        ret);
-        CHECK_OV_STATUS(
-            ov_preprocess_output_set_element_type(output_tensor_info, F32),
-            ret);
-
-        CHECK_OV_STATUS(
-            ov_preprocess_prepostprocessor_build(ppp, &ov_ctx->new_model), ret);
-    }
-
-    CHECK_OV_STATUS(ov_core_compile_model(ov_ctx->core, ov_ctx->new_model,
-                                          "CPU", 0, &ov_ctx->compiled_model),
+    CHECK_OV_STATUS(ov_core_compile_model(ov_ctx->core, ov_ctx->model, "CPU", 0,
+                                          &ov_ctx->compiled_model),
                     ret);
 
     CHECK_OV_STATUS(ov_compiled_model_create_infer_request(
@@ -413,24 +328,6 @@ fail:
     if (ov_dims)
         os_free(ov_dims);
     ov_shape_free(&input_shape);
-    if (ppp)
-        ov_preprocess_prepostprocessor_free(ppp);
-    if (input_info)
-        ov_preprocess_input_info_free(input_info);
-    if (input_tensor_info)
-        ov_preprocess_input_tensor_info_free(input_tensor_info);
-    if (input_layout)
-        ov_layout_free(input_layout);
-    if (input_process)
-        ov_preprocess_preprocess_steps_free(input_process);
-    if (p_input_model)
-        ov_preprocess_input_model_info_free(p_input_model);
-    if (model_layout)
-        ov_layout_free(model_layout);
-    if (output_info)
-        ov_preprocess_output_info_free(output_info);
-    if (output_tensor_info)
-        ov_preprocess_output_tensor_info_free(output_tensor_info);
 
     return ret;
 }
@@ -462,6 +359,11 @@ get_output(void *ctx, graph_execution_context exec_ctx, uint32_t index,
                     ret);
 
     CHECK_OV_STATUS(ov_tensor_get_byte_size(ov_tensor, &byte_size), ret);
+
+    if (byte_size > *output_tensor_size) {
+        ret = too_large;
+        goto fail;
+    }
 
     CHECK_OV_STATUS(ov_tensor_data(ov_tensor, &data), ret);
 
@@ -511,7 +413,7 @@ init_backend(void **ctx)
     *ctx = (void *)ov_ctx;
     return success;
 fail:
-    openvino_destroy((void *)ov_ctx);
+    os_free(ov_ctx);
     return ret;
 }
 

@@ -87,8 +87,8 @@ make
 ```
 
 Note:
-By default, the LLVM Orc JIT with Lazy compilation is enabled to speedup the lanuching process and reduce
-the JIT compilation time by creating backend threads to compile the WASM functions parallely, and for the
+By default, the LLVM Orc JIT with Lazy compilation is enabled to speedup the launching process and reduce
+the JIT compilation time by creating backend threads to compile the WASM functions parallelly, and for the
 main thread, the functions in the module will not be compiled until they are firstly called and haven't been
 compiled by the compilation threads.
 
@@ -114,7 +114,7 @@ mkdir build && cd build
 cmake .. -DWAMR_BUILD_FAST_JTI=1 -DWAMR_BUILD_JIT=1
 make
 ```
-The Multi-tier JIT is a two level JIT tier-up engine, which launchs Fast JIT to run the wasm module as soon as possible and creates backend threads to compile the LLVM JIT functions at the same time, and when the LLVM JIT functions are compiled, the runtime will switch the extecution from the Fast JIT jitted code to LLVM JIT jitted code gradually, so as to gain the best performance.
+The Multi-tier JIT is a two level JIT tier-up engine, which launches Fast JIT to run the wasm module as soon as possible and creates backend threads to compile the LLVM JIT functions at the same time, and when the LLVM JIT functions are compiled, the runtime will switch the extecution from the Fast JIT jitted code to LLVM JIT jitted code gradually, so as to gain the best performance.
 
 ## Linux SGX (Intel Software Guard Extension)
 
@@ -335,7 +335,7 @@ $ cd build
 $ cmake ..
 $ make
 $ # check output in distribution/wasm
-$ # include/ includes all necesary head files
+$ # include/ includes all necessary head files
 $ # lib includes libiwasm.so
 ```
 
@@ -350,7 +350,7 @@ $ cmake .. -DWAMR_BUILD_TARGET=AARCH64 -DANDROID_ABI=arm64-v8a    # 64-bit ARM C
 
 ## NuttX
 
-WAMR is intergrated with NuttX, just enable the WAMR in Kconfig option (Application Configuration/Interpreters).
+WAMR is integrated with NuttX, just enable the WAMR in Kconfig option (Application Configuration/Interpreters).
 
 ## ESP-IDF
 

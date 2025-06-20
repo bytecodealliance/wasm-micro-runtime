@@ -991,7 +991,7 @@ __wasi_sock_get_ipv6_only(__wasi_fd_t fd, bool *option)
 /**
  * TODO: modify recv() and send()
  * since don't want to re-compile the wasi-libc,
- * we tend to keep original implentations of recv() and send().
+ * we tend to keep original implementations of recv() and send().
  */
 
 #ifdef __cplusplus

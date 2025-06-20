@@ -653,15 +653,22 @@ compile_int_sub(AOTCompContext *comp_ctx, LLVMValueRef left, LLVMValueRef right,
 }
 
 static LLVMValueRef
-compile_int_mul(AOTCompContext *comp_ctx, LLVMValueRef left, LLVMValueRef right,
-                bool is_i32)
+compile_int_mul(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                LLVMValueRef left, LLVMValueRef right, bool is_i32)
 {
     /* If one of the operands is 0, just return constant 0 */
     if (IS_CONST_ZERO(left) || IS_CONST_ZERO(right))
         return is_i32 ? I32_ZERO : I64_ZERO;
 
     /* Build mul */
-    return LLVMBuildMul(comp_ctx->builder, left, right, "mul");
+    LLVMTypeRef param_types[2];
+    param_types[1] = param_types[0] = is_i32 ? I32_TYPE : I64_TYPE;
+
+    LLVMValueRef res;
+    LLVM_BUILD_OP_OR_INTRINSIC(Mul, left, right, res,
+                               is_i32 ? "i32.mul" : "i64.mul", "mul", false);
+
+    return res;
 }
 
 static bool
@@ -679,8 +686,9 @@ compile_op_int_arithmetic(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                               "compile int sub fail.");
             return true;
         case INT_MUL:
-            DEF_INT_BINARY_OP(compile_int_mul(comp_ctx, left, right, is_i32),
-                              "compile int mul fail.");
+            DEF_INT_BINARY_OP(
+                compile_int_mul(comp_ctx, func_ctx, left, right, is_i32),
+                "compile int mul fail.");
             return true;
         case INT_DIV_S:
         case INT_DIV_U:
@@ -726,43 +734,57 @@ fail:
 }
 
 static LLVMValueRef
-compile_int_shl(AOTCompContext *comp_ctx, LLVMValueRef left, LLVMValueRef right,
-                bool is_i32)
+compile_int_shl(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                LLVMValueRef left, LLVMValueRef right, bool is_i32)
 {
     LLVMValueRef res;
 
     SHIFT_COUNT_MASK;
 
     /* Build shl */
-    LLVM_BUILD_OP(Shl, left, right, res, "shl", NULL);
+    LLVMTypeRef param_types[2];
+    param_types[1] = param_types[0] = is_i32 ? I32_TYPE : I64_TYPE;
+
+    LLVM_BUILD_OP_OR_INTRINSIC(Shl, left, right, res,
+                               is_i32 ? "i32.shl" : "i64.shl", "shl", false);
 
     return res;
 }
 
 static LLVMValueRef
-compile_int_shr_s(AOTCompContext *comp_ctx, LLVMValueRef left,
-                  LLVMValueRef right, bool is_i32)
+compile_int_shr_s(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                  LLVMValueRef left, LLVMValueRef right, bool is_i32)
 {
     LLVMValueRef res;
 
     SHIFT_COUNT_MASK;
 
     /* Build shl */
-    LLVM_BUILD_OP(AShr, left, right, res, "shr_s", NULL);
+    LLVMTypeRef param_types[2];
+    param_types[1] = param_types[0] = is_i32 ? I32_TYPE : I64_TYPE;
+
+    LLVM_BUILD_OP_OR_INTRINSIC(AShr, left, right, res,
+                               is_i32 ? "i32.shr_s" : "i64.shr_s", "shr_s",
+                               false);
 
     return res;
 }
 
 static LLVMValueRef
-compile_int_shr_u(AOTCompContext *comp_ctx, LLVMValueRef left,
-                  LLVMValueRef right, bool is_i32)
+compile_int_shr_u(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                  LLVMValueRef left, LLVMValueRef right, bool is_i32)
 {
     LLVMValueRef res;
 
     SHIFT_COUNT_MASK;
 
     /* Build shl */
-    LLVM_BUILD_OP(LShr, left, right, res, "shr_u", NULL);
+    LLVMTypeRef param_types[2];
+    param_types[1] = param_types[0] = is_i32 ? I32_TYPE : I64_TYPE;
+
+    LLVM_BUILD_OP_OR_INTRINSIC(LShr, left, right, res,
+                               is_i32 ? "i32.shr_u" : "i64.shr_u", "shr_u",
+                               false);
 
     return res;
 }
@@ -814,16 +836,18 @@ compile_op_int_shift(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     switch (shift_op) {
         case INT_SHL:
-            DEF_INT_BINARY_OP(compile_int_shl(comp_ctx, left, right, is_i32),
-                              NULL);
+            DEF_INT_BINARY_OP(
+                compile_int_shl(comp_ctx, func_ctx, left, right, is_i32), NULL);
             return true;
         case INT_SHR_S:
-            DEF_INT_BINARY_OP(compile_int_shr_s(comp_ctx, left, right, is_i32),
-                              NULL);
+            DEF_INT_BINARY_OP(
+                compile_int_shr_s(comp_ctx, func_ctx, left, right, is_i32),
+                NULL);
             return true;
         case INT_SHR_U:
-            DEF_INT_BINARY_OP(compile_int_shr_u(comp_ctx, left, right, is_i32),
-                              NULL);
+            DEF_INT_BINARY_OP(
+                compile_int_shr_u(comp_ctx, func_ctx, left, right, is_i32),
+                NULL);
             return true;
         case INT_ROTL:
             DEF_INT_BINARY_OP(

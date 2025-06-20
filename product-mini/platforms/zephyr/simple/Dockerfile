@@ -1,9 +1,15 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+# Refer to https://docs.zephyrproject.org/3.7.0/develop/getting_started/index.html
+# for more information on how to set up the Zephyr development environment.
 FROM ubuntu:22.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asian/Shanghai
+ARG ZEPHYR_SDK_VERSION=0.16.9
+# In west_lite.yml, the Zephyr version is set to v3.7.0
+#ARG ZEPHYR_VERSION=3.7.0
 
 # Install dependencies for Zephyr
 # hadolint ignore=DL3008
@@ -16,28 +22,34 @@ RUN apt-get update && apt-get install -y --no-install-recommends git cmake ninja
 # Install the Zephyr Software Development Kit (SDK)
 WORKDIR /opt
 # hadolint ignore=DL4006
-RUN wget --progress=dot:giga https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.3/zephyr-sdk-0.16.3_linux-x86_64.tar.xz \
-    && wget --progress=dot:giga -O - https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.3/sha256.sum | shasum --check --ignore-missing \
-    && tar xvf zephyr-sdk-0.16.3_linux-x86_64.tar.xz && rm zephyr-sdk-0.16.3_linux-x86_64.tar.xz
+RUN wget --progress=dot:giga https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64.tar.xz \
+    && wget --progress=dot:giga -O - https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/sha256.sum | shasum --check --ignore-missing \
+    && tar xf zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64.tar.xz && rm zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64.tar.xz
 
-WORKDIR /opt/zephyr-sdk-0.16.3
+WORKDIR /opt/zephyr-sdk-${ZEPHYR_SDK_VERSION}
 # hadolint ignore=DL4006
-RUN yes | ./setup.sh
+# Install host tools and Register Zephyr SDK CMake package
+RUN ./setup.sh -h -c
 
 # Get Zephyr 
+WORKDIR /root/zephyrproject/smoke-test
+
 # hadolint ignore=DL3013
-RUN pip3 install --no-cache-dir west && west init -m https://github.com/zephyrproject-rtos/zephyr --mr v3.5.0 /root/zephyrproject
+RUN pip3 install --no-cache-dir west
+COPY ./west_lite.yml ./west.yml
+
+# init the west workspace with a minimal manifest
+RUN west init -l
 
 WORKDIR /root/zephyrproject
-RUN west update 
+RUN west update --stats
 
-WORKDIR /root/zephyrproject/zephyr
-RUN west zephyr-export && pip install --no-cache-dir -r ~/zephyrproject/zephyr/scripts/requirements.txt
+WORKDIR /root/zephyrproject/modules/zephyr
+RUN west zephyr-export && pip install --no-cache-dir -r ./scripts/requirements.txt
+
+ENV ZEPHYR_BASE="/root/zephyrproject/modules/zephyr"
 
 # Git clone wamr
-WORKDIR /root
-RUN git clone https://github.com/bytecodealliance/wasm-micro-runtime.git
-
-WORKDIR /root/wasm-micro-runtime/product-mini/platforms/zephyr/simple
-
-ENV ZEPHYR_BASE="/root/zephyrproject/zephyr"
+WORKDIR /root/zephyrproject/modules/
+RUN git clone https://github.com/bytecodealliance/wasm-micro-runtime.git wasm-micro-runtime
+WORKDIR /root/zephyrproject/modules/wasm-micro-runtime/product-mini/platforms/zephyr
