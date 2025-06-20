@@ -81,6 +81,31 @@ elseif (WAMR_BUILD_TARGET MATCHES "THUMB.*")
   set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -Wa,-mthumb")
 endif ()
 
+# global additional warnings
+if (MSVC)
+  # warning level 4
+  add_compile_options(/W4)
+else ()
+  # refer to https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html
+  add_compile_options(-Wall -Wextra -Wformat -Wformat-security -Wshadow)
+  # -pedantic causes warnings like "ISO C forbids initialization between function pointer and ‘void *’" which
+  #   requires by NativeSymbol
+  #
+  # -fpermissive causes warnings like "-fpermissive is valid for C++/ObjC++ but not for C"
+  #
+  # _Static_assert and _Alignof requires c11 or later
+  #
+  add_compile_options(
+    -Wimplicit-function-declaration
+    -Wincompatible-pointer-types
+  )
+  # waivers
+  add_compile_options(
+    -Wno-unused
+    -Wno-unused-parameter
+  )
+endif ()
+
 if (NOT WAMR_BUILD_INTERP EQUAL 1)
 if (NOT WAMR_BUILD_AOT EQUAL 1)
   message (FATAL_ERROR "-- WAMR Interpreter and AOT must be enabled at least one")
