@@ -198,12 +198,32 @@ if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*
 endif()
 
 if (NOT MSVC)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security \
-                                       -ffunction-sections -fdata-sections \
-                                       -Wno-unused-parameter -Wno-pedantic")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections")
   # Remove the extra spaces for better make log
   string (REGEX REPLACE "  *" " " CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
 endif()
+
+# global additional warnings. Keep those options consistent with config_common.cmake.
+if (MSVC)
+  # warning level 4
+  add_compile_options(/W4)
+else ()
+  # refer to https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html
+  add_compile_options(-Wall -Wextra -Wformat -Wformat-security -Wshadow)
+  # -pedantic causes warnings like "ISO C forbids initialization between function pointer and ‘void *’" which
+  #   requires by NativeSymbol
+  #
+  # -fpermissive causes warnings like "-fpermissive is valid for C++/ObjC++ but not for C"
+  #
+  # _Static_assert and _Alignof requires c11 or later
+  #
+  add_compile_options(
+    -Wimplicit-function-declaration
+    -Wincompatible-pointer-types
+  )
+  # waivers
+  add_compile_options(-Wno-unused)
+endif ()
 
 set (SHARED_DIR ../core/shared)
 set (IWASM_DIR ../core/iwasm)

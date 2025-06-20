@@ -15023,8 +15023,6 @@ re_scan:
                     case WASM_OP_STRING_NEW_LOSSY_UTF8:
                     case WASM_OP_STRING_NEW_WTF8:
                     {
-                        uint32 memidx;
-
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
 #endif
@@ -15036,7 +15034,6 @@ re_scan:
                         POP_I32();
                         POP_I32();
                         PUSH_REF(REF_TYPE_STRINGREF);
-                        (void)memidx;
                         break;
                     }
                     case WASM_OP_STRING_CONST:
@@ -15064,8 +15061,6 @@ re_scan:
                     case WASM_OP_STRING_ENCODE_LOSSY_UTF8:
                     case WASM_OP_STRING_ENCODE_WTF8:
                     {
-                        uint32 memidx;
-
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
 #endif
@@ -15077,7 +15072,6 @@ re_scan:
                         POP_I32();
                         POP_STRINGREF();
                         PUSH_I32();
-                        (void)memidx;
                         break;
                     }
                     case WASM_OP_STRING_CONCAT:
@@ -15118,8 +15112,6 @@ re_scan:
                     case WASM_OP_STRINGVIEW_WTF8_ENCODE_LOSSY_UTF8:
                     case WASM_OP_STRINGVIEW_WTF8_ENCODE_WTF8:
                     {
-                        uint32 memidx;
-
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
 #endif
@@ -15134,7 +15126,6 @@ re_scan:
                         POP_REF(REF_TYPE_STRINGVIEWWTF8);
                         PUSH_I32();
                         PUSH_I32();
-                        (void)memidx;
                         break;
                     }
                     case WASM_OP_STRINGVIEW_WTF8_SLICE:
@@ -15166,8 +15157,6 @@ re_scan:
                     }
                     case WASM_OP_STRINGVIEW_WTF16_ENCODE:
                     {
-                        uint32 memidx;
-
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
 #endif
@@ -15181,7 +15170,6 @@ re_scan:
                         POP_I32();
                         POP_REF(REF_TYPE_STRINGVIEWWTF16);
                         PUSH_I32();
-                        (void)memidx;
                         break;
                     }
                     case WASM_OP_STRINGVIEW_WTF16_SLICE:
