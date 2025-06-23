@@ -720,12 +720,12 @@ fail:
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
 wasi_nn_error
 wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
-                   uint32_t index, tensor_data output_tensor,
+                   uint32_t index, void *output_tensor,
                    uint32_t output_tensor_len, uint32_t *output_tensor_size)
 #else  /* WASM_ENABLE_WASI_EPHEMERAL_NN == 0 */
 wasi_nn_error
 wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
-                   uint32_t index, tensor_data output_tensor,
+                   uint32_t index, void *output_tensor,
                    uint32_t *output_tensor_size)
 #endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
 {
@@ -753,16 +753,17 @@ wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
         goto fail;
     }
 
+    tensor_data tensor = {
+        .buf = output_tensor,
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+        .size = output_tensor_len,
+#else
+        .size = *output_tensor_size,
+#endif
+    };
     call_wasi_nn_func(wasi_nn_ctx->backend, get_output, res,
-                      wasi_nn_ctx->backend_ctx, ctx, index, output_tensor,
-                      &output_tensor_len);
-    *output_tensor_size = output_tensor_len;
-#else  /* WASM_ENABLE_WASI_EPHEMERAL_NN == 0 */
-    call_wasi_nn_func(wasi_nn_ctx->backend, get_output, res,
-                      wasi_nn_ctx->backend_ctx, ctx, index, output_tensor,
+                      wasi_nn_ctx->backend_ctx, ctx, index, &tensor,
                       output_tensor_size);
-#endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
 fail:
     unlock_ctx(wasi_nn_ctx);
     return res;

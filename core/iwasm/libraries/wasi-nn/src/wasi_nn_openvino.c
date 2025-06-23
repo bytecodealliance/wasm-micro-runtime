@@ -402,7 +402,7 @@ set_input(void *ctx, graph_execution_context exec_ctx, uint32_t index,
                       shape_info);
 
         CHECK_OV_STATUS(ov_tensor_create_from_host_ptr(input_type, input_shape,
-                                                       wasi_nn_tensor->data,
+                                                       wasi_nn_tensor->data.buf,
                                                        &input_tensor),
                         ret);
     }
@@ -441,7 +441,7 @@ fail:
 
 __attribute__((visibility("default"))) wasi_nn_error
 get_output(void *ctx, graph_execution_context exec_ctx, uint32_t index,
-           tensor_data output_tensor, uint32_t *output_tensor_size)
+           tensor_data *output_tensor, uint32_t *output_tensor_size)
 {
     OpenVINOContext *ov_ctx = (OpenVINOContext *)ctx;
     struct OpenVINOExecutionContext *exec;
@@ -460,14 +460,14 @@ get_output(void *ctx, graph_execution_context exec_ctx, uint32_t index,
 
     CHECK_OV_STATUS(ov_tensor_get_byte_size(ov_tensor, &byte_size), ret);
 
-    if (byte_size > *output_tensor_size) {
+    if (byte_size > output_tensor->size) {
         ret = too_large;
         goto fail;
     }
 
     CHECK_OV_STATUS(ov_tensor_data(ov_tensor, &data), ret);
 
-    memcpy(output_tensor, data, byte_size);
+    memcpy(output_tensor->buf, data, byte_size);
 
     *output_tensor_size = (uint32_t)byte_size;
 

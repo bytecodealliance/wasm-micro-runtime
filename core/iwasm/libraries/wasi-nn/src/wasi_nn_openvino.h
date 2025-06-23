@@ -24,7 +24,7 @@ compute(void *ctx, graph_execution_context exec_ctx);
 
 __attribute__((visibility("default"))) wasi_nn_error
 get_output(void *ctx, graph_execution_context exec_ctx, uint32_t index,
-           tensor_data output_tensor, uint32_t *output_tensor_size);
+           tensor_data *output_tensor, uint32_t *output_tensor_size);
 
 __attribute__((visibility("default"))) wasi_nn_error
 init_backend(void **ctx);
