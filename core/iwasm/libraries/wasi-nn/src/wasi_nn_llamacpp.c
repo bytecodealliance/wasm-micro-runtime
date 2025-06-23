@@ -2,6 +2,9 @@
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
+
+#include <stdlib.h>
+
 #include "wasi_nn_types.h"
 #include "utils/logger.h"
 #include "llama.h"
@@ -286,7 +289,7 @@ deinit_backend(void *ctx)
 
     llama_backend_free();
 
-    os_free(backend_ctx);
+    free(backend_ctx);
     return success;
 }
 
