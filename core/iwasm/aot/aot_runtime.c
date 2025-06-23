@@ -4137,9 +4137,9 @@ aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame)
 }
 #endif /* end of WASM_ENABLE_AOT_STACK_FRAME != 0 */
 
-#if WAMR_ENABLE_COPY_CALLSTACK != 0
+#if WASM_ENABLE_COPY_CALL_STACK != 0
 uint32
-aot_copy_callstack_tiny_frame(WASMExecEnv *exec_env, wasm_frame_t *buffer,
+aot_copy_callstack_tiny_frame(WASMExecEnv *exec_env, WASMCApiFrame *buffer,
                               const uint32 length, const uint32 skip_n,
                               char *error_buf, uint32 error_buf_size)
 {
@@ -4193,7 +4193,7 @@ aot_copy_callstack_tiny_frame(WASMExecEnv *exec_env, wasm_frame_t *buffer,
 }
 
 uint32
-aot_copy_callstack_standard_frame(WASMExecEnv *exec_env, wasm_frame_t *buffer,
+aot_copy_callstack_standard_frame(WASMExecEnv *exec_env, WASMCApiFrame *buffer,
                                   const uint32 length, const uint32 skip_n,
                                   char *error_buf, uint32_t error_buf_size)
 {
@@ -4243,7 +4243,7 @@ aot_copy_callstack_standard_frame(WASMExecEnv *exec_env, wasm_frame_t *buffer,
 }
 
 uint32
-aot_copy_callstack(WASMExecEnv *exec_env, wasm_frame_t *buffer,
+aot_copy_callstack(WASMExecEnv *exec_env, WASMCApiFrame *buffer,
                    const uint32 length, const uint32 skip_n, char *error_buf,
                    uint32_t error_buf_size)
 {
@@ -4265,7 +4265,7 @@ aot_copy_callstack(WASMExecEnv *exec_env, wasm_frame_t *buffer,
                                              error_buf, error_buf_size);
     }
 }
-#endif // WAMR_ENABLE_COPY_CALLSTACK
+#endif // WASM_ENABLE_COPY_CALL_STACK
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
 bool

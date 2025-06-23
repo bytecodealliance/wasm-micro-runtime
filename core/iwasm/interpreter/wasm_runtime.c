@@ -4195,9 +4195,9 @@ wasm_get_module_inst_mem_consumption(const WASMModuleInstance *module_inst,
 #endif /* end of (WASM_ENABLE_MEMORY_PROFILING != 0) \
                  || (WASM_ENABLE_MEMORY_TRACING != 0) */
 
-#if WAMR_ENABLE_COPY_CALLSTACK != 0
+#if WASM_ENABLE_COPY_CALL_STACK != 0
 uint32
-wasm_interp_copy_callstack(WASMExecEnv *exec_env, wasm_frame_t *buffer,
+wasm_interp_copy_callstack(WASMExecEnv *exec_env, WASMCApiFrame *buffer,
                            uint32 length, uint32 skip_n, char *error_buf,
                            uint32_t error_buf_size)
 {
@@ -4242,7 +4242,7 @@ wasm_interp_copy_callstack(WASMExecEnv *exec_env, wasm_frame_t *buffer,
     }
     return count >= skip_n ? count - skip_n : 0;
 }
-#endif // WAMR_ENABLE_COPY_CALLSTACK
+#endif // WASM_ENABLE_COPY_CALL_STACK
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
 bool
