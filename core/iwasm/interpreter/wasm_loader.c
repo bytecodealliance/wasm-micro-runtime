@@ -3351,7 +3351,8 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     /* valtype */
                     CHECK_BUF(p, p_end, 1);
                     global_type = read_uint8(p);
-                    if (wasm_is_reftype_htref_nullable(global_type)) {
+                    if (wasm_is_reftype_htref_nullable(global_type)
+                        || wasm_is_reftype_htref_non_nullable(global_type)) {
                         int32 heap_type;
                         read_leb_int32(p, p_end, heap_type);
                         (void)heap_type;
