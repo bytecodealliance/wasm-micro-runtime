@@ -42,6 +42,7 @@ env:
   THREADS_TEST_OPTIONS: "-s spec -b -P -p"
   X86_32_TARGET_TEST_OPTIONS: "-m x86_32"
   WASI_TEST_OPTIONS: "-s wasi_certification -w"
+  EXTENDED_CONST_EXPR_TEST_OPTIONS: "-s spec -N -P"
 
 permissions:
   contents: read
@@ -128,6 +129,7 @@ jobs:
             "-DWAMR_BUILD_MEMORY64=1",
             "-DWAMR_BUILD_MULTI_MEMORY=1",
             "-DWAMR_BUILD_SHARED=1",
+            "-DWAMR_BUILD_EXTENDED_CONST_EXPR=1",
           ]
         os: [ubuntu-22.04]
         platform: [android, linux]
@@ -588,6 +590,7 @@ jobs:
             $DEFAULT_TEST_OPTIONS,
             $MULTI_MODULES_TEST_OPTIONS,
             $SIMD_TEST_OPTIONS,
+            $EXTENDED_CONST_EXPR_TEST_OPTIONS,
             $THREADS_TEST_OPTIONS,
             $WASI_TEST_OPTIONS,
           ]

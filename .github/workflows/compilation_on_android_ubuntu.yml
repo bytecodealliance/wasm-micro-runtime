@@ -69,6 +69,7 @@ env:
   GC_TEST_OPTIONS: "-s spec -G -b -P"
   MEMORY64_TEST_OPTIONS: "-s spec -W -b -P"
   MULTI_MEMORY_TEST_OPTIONS: "-s spec -E -b -P"
+  EXTENDED_CONST_EXPR_TEST_OPTIONS: "-s spec -N -b -P"
 
 permissions:
   contents: read
@@ -164,6 +165,7 @@ jobs:
             "-DWAMR_BUILD_MEMORY64=1",
             "-DWAMR_BUILD_MULTI_MEMORY=1",
             "-DWAMR_BUILD_SHARED=1",
+            "-DWAMR_BUILD_EXTENDED_CONST_EXPR=1",
           ]
         os: [ubuntu-22.04]
         platform: [android, linux]
@@ -609,6 +611,7 @@ jobs:
             $GC_TEST_OPTIONS,
             $MEMORY64_TEST_OPTIONS,
             $MULTI_MEMORY_TEST_OPTIONS,
+            $EXTENDED_CONST_EXPR_TEST_OPTIONS,
           ]
         include:
           - os: ubuntu-22.04

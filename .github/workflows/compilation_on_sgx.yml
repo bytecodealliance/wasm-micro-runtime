@@ -100,6 +100,7 @@ jobs:
             "-DWAMR_BUILD_MULTI_MODULE=1",
             "-DWAMR_BUILD_PERF_PROFILING=1",
             "-DWAMR_BUILD_REF_TYPES=1",
+            "-DWAMR_BUILD_EXTENDED_CONST_EXPR=1",
             # doesn't support
             "-DWAMR_BUILD_SIMD=0",
             "-DWAMR_BUILD_TAIL_CALL=1",
