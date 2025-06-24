@@ -334,15 +334,10 @@ if (WAMR_BUILD_SHARED_HEAP EQUAL 1)
   add_definitions (-DWASM_ENABLE_SHARED_HEAP=1)
   message ("     Shared heap enabled")
 endif()
-
-if (WAMR_ENABLE_COPY_CALLSTACK EQUAL 1)
-  add_definitions (-DWAMR_ENABLE_COPY_CALLSTACK=1)
+if (WAMR_BUILD_COPY_CALL_STACK EQUAL 1)
+  add_definitions (-DWASM_ENABLE_COPY_CALL_STACK=1)
   message("     Copy callstack enabled")
-else ()
-  add_definitions (-DWAMR_ENABLE_COPY_CALLSTACK=0)
-  message("     Copy callstack disabled")
 endif()
-
 if (WAMR_BUILD_MEMORY64 EQUAL 1)
   # if native is 32-bit or cross-compiled to 32-bit
   if (NOT WAMR_BUILD_TARGET MATCHES ".*64.*")
