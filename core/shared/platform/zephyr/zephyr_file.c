@@ -48,16 +48,35 @@
 // from the Zephyr POSIX configuration
 #define CONFIG_WASI_MAX_OPEN_FILES CONFIG_ZVFS_OPEN_MAX
 
+static inline bool os_is_virtual_fd(int fd) {
+    switch(fd) {
+        case STDIN_FILENO:
+        case STDOUT_FILENO:
+        case STDERR_FILENO:
+            return true;
+        default:
+            return false;
+    };
+}
+
 // Macro to retrieve a file system descriptor and check it's validity.
-#define GET_FILE_SYSTEM_DESCRIPTOR(fd, ptr)         \
-    do {                                            \
-        k_mutex_lock(&desc_array_mutex, K_FOREVER); \
-        ptr = &desc_array[(int)fd];                 \
-        if (!ptr) {                                 \
-            k_mutex_unlock(&desc_array_mutex);      \
-            return __WASI_EBADF;                    \
-        }                                           \
-        k_mutex_unlock(&desc_array_mutex);          \
+// fd's 0-2 are reserved for standard streams, hence the by-3 offsets.
+#define GET_FILE_SYSTEM_DESCRIPTOR(fd, ptr)                   \
+    do {                                                      \
+        if (os_is_virtual_fd(fd)) {                           \
+            ptr = NULL;                                       \
+            break;                                            \
+        }                                                     \
+        if (fd < 3 || fd >= CONFIG_WASI_MAX_OPEN_FILES + 3) { \
+            return __WASI_EBADF;                              \
+        }                                                     \
+        k_mutex_lock(&desc_array_mutex, K_FOREVER);           \
+        ptr = &desc_array[(int)fd - 3];                       \
+        if (!ptr->used) {                                     \
+            k_mutex_unlock(&desc_array_mutex);                \
+            return __WASI_EBADF;                              \
+        }                                                     \
+        k_mutex_unlock(&desc_array_mutex);                    \
     } while (0)
 
 // Array to keep track of file system descriptors.
@@ -131,12 +150,20 @@ zephyr_fs_alloc_obj(bool is_dir, const char *path, int *index)
                 k_mutex_unlock(&desc_array_mutex);
                 return NULL;
             }
-            *index = i;
+            *index = i + 3;
             break;
         }
     }
 
     k_mutex_unlock(&desc_array_mutex);
+
+    if (ptr == NULL) {
+        printk("Error: all file descriptor slots are in use (max = %d)\n", CONFIG_WASI_MAX_OPEN_FILES);
+    }
+    // else {
+    //     printk("Allocated fd %d for path \"%s\" (dir = %s)\n", *index, ptr->path,
+    //            is_dir ? "true" : "false");
+    // }
 
     return ptr;
 }
@@ -157,12 +184,8 @@ os_fstat(os_file_handle handle, struct __wasi_filestat_t *buf)
     int socktype, rc;
 
     if (!handle->is_sock) {
-        GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
 
-        /* We treat the case of std[in/out/err] */
-        if (ptr->path != NULL
-            && (!strcmp(ptr->path, "stdin") || !strcmp(ptr->path, "stdout")
-                || !strcmp(ptr->path, "stderr"))) {
+        if (os_is_virtual_fd(handle->fd)) {
             buf->st_filetype = __WASI_FILETYPE_CHARACTER_DEVICE;
             buf->st_size = 0;
             buf->st_atim = 0;
@@ -170,6 +193,8 @@ os_fstat(os_file_handle handle, struct __wasi_filestat_t *buf)
             buf->st_ctim = 0;
             return __WASI_ESUCCESS;
         }
+
+        GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
 
         // Get file information using Zephyr's fs_stat function
         struct fs_dirent entry;
@@ -274,6 +299,11 @@ os_file_get_fdflags(os_file_handle handle, __wasi_fdflags_t *flags)
 {
     struct zephyr_fs_desc *ptr = NULL;
 
+    if (os_is_virtual_fd(handle->fd)) {
+        *flags = 0;
+        return __WASI_ESUCCESS;
+    }
+
     GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
 
     if ((ptr->file.flags & FS_O_APPEND) != 0) {
@@ -292,6 +322,10 @@ os_file_get_fdflags(os_file_handle handle, __wasi_fdflags_t *flags)
 __wasi_errno_t
 os_file_set_fdflags(os_file_handle handle, __wasi_fdflags_t flags)
 {
+    if (os_is_virtual_fd(handle->fd)) {
+        return __WASI_ESUCCESS;
+    }
+
     struct zephyr_fs_desc *ptr = NULL;
 
     GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
@@ -312,6 +346,10 @@ os_fdatasync(os_file_handle handle)
 __wasi_errno_t
 os_fsync(os_file_handle handle)
 {
+    if (os_is_virtual_fd(handle->fd)) {
+        return __WASI_ESUCCESS;
+    }
+
     struct zephyr_fs_desc *ptr = NULL;
     int rc = 0;
 
@@ -479,6 +517,15 @@ __wasi_errno_t
 os_file_get_access_mode(os_file_handle handle,
                         wasi_libc_file_access_mode *access_mode)
 {
+
+    if (handle->fd == STDIN_FILENO) {
+        *access_mode = WASI_LIBC_ACCESS_MODE_READ_ONLY;
+        return __WASI_ESUCCESS;
+    } else if (handle->fd == STDOUT_FILENO || handle->fd == STDERR_FILENO) {
+        *access_mode = WASI_LIBC_ACCESS_MODE_WRITE_ONLY;
+        return __WASI_ESUCCESS;
+    }
+
     struct zephyr_fs_desc *ptr = NULL;
 
     if (handle->is_sock) {
@@ -544,6 +591,10 @@ __wasi_errno_t
 os_preadv(os_file_handle handle, const struct __wasi_iovec_t *iov, int iovcnt,
           __wasi_filesize_t offset, size_t *nread)
 {
+    if (handle->fd == STDIN_FILENO) {
+        return __WASI_ENOSYS;
+    }
+    
     struct zephyr_fs_desc *ptr = NULL;
     int rc;
     ssize_t total_read = 0;
@@ -644,54 +695,41 @@ os_readv(os_file_handle handle, const struct __wasi_iovec_t *iov, int iovcnt,
 
 /* With wasi-libc we need to redirect write on stdout/err to printf */
 // TODO: handle write on stdin
-__wasi_errno_t
+    __wasi_errno_t
 os_writev(os_file_handle handle, const struct __wasi_ciovec_t *iov, int iovcnt,
           size_t *nwritten)
 {
     ssize_t total_written = 0;
 
+    if (os_is_virtual_fd(handle->fd)) {
+        FILE *fd = (handle->fd == STDERR_FILENO) ? stderr : stdout;
+        for (int i = 0; i < iovcnt; i++) {
+            ssize_t bytes_written = fwrite(iov[i].buf, 1, iov[i].buf_len, fd);
+            if (bytes_written < 0)
+                return convert_errno(-bytes_written);
+            total_written += bytes_written;
+        }
+
+        *nwritten = total_written;
+        return __WASI_ESUCCESS;
+    }
+
     struct zephyr_fs_desc *ptr = NULL;
     GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
 
-    // If the fd is stdout or stderr, we call fwrite
-    if (strncmp(ptr->path, "std", 3) == 0) {
-        // TODO -- FIX:  if ((handle->fd == STDOUT_FILENO) || (handle->fd ==
-        // STDERR_FILENO)) {
-        FILE *fd = stdout;
-        if (handle->fd == STDERR_FILENO) {
-            fd = stderr;
+    // Write data from each buffer
+    for (int i = 0; i < iovcnt; i++) {
+        ssize_t bytes_written =
+            fs_write(&ptr->file, iov[i].buf, iov[i].buf_len);
+        if (bytes_written < 0) {
+            return convert_errno(-bytes_written);
         }
 
-        for (int i = 0; i < iovcnt; i++) {
-            ssize_t bytes_written = fwrite(iov[i].buf, 1, iov[i].buf_len, fd);
+        total_written += bytes_written;
 
-            if (bytes_written < 0) {
-                return convert_errno(-bytes_written);
-            }
-
-            total_written += bytes_written;
-
-            // If we wrote less than we asked for, stop writing
-            if (bytes_written < iov[i].buf_len) {
-                break;
-            }
-        }
-    }
-    else {
-        // Write data from each buffer
-        for (int i = 0; i < iovcnt; i++) {
-            ssize_t bytes_written =
-                fs_write(&ptr->file, iov[i].buf, iov[i].buf_len);
-            if (bytes_written < 0) {
-                return convert_errno(-bytes_written);
-            }
-
-            total_written += bytes_written;
-
-            // If we wrote less than we asked for, stop writing
-            if (bytes_written < iov[i].buf_len) {
-                break;
-            }
+        // If we wrote less than we asked for, stop writing
+        if (bytes_written < iov[i].buf_len) {
+            break;
         }
     }
 
@@ -710,8 +748,12 @@ os_fallocate(os_file_handle handle, __wasi_filesize_t offset,
 __wasi_errno_t
 os_ftruncate(os_file_handle handle, __wasi_filesize_t size)
 {
-    struct zephyr_fs_desc *ptr = NULL;
 
+    if (os_is_virtual_fd(handle->fd)) {
+        return __WASI_EINVAL;
+    }
+
+    struct zephyr_fs_desc *ptr = NULL;
     GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
 
     int rc = fs_truncate(&ptr->file, (off_t)size);
@@ -792,26 +834,26 @@ os_mkdirat(os_file_handle handle, const char *path)
     return __WASI_ESUCCESS;
 }
 
+// DSK: Somewhere along the WASI libc implementation path, the knowledge 
+// was lost that `old_handle` and `new_handle` refer to directories that 
+// contain the files to be renamed, rather than the file fds themselves:
+// 
+// __wasilibc_nocwd_renameat(old_dirfd, old_relative_path,
+//                           new_dirfd, new_relative_path);
+//
+// Therefore we won't mess with the supplied fd's, and work only off
+// of the supplied paths. Note: this will change when more than one
+// pre-opened dir is supported in the future.
 __wasi_errno_t
 os_renameat(os_file_handle old_handle, const char *old_path,
             os_file_handle new_handle, const char *new_path)
 {
-    /* `old_handle` need to be the the fd of the file to rename.
-     * `new_handle` will not be used.
-     * paths need to be absolute, no relative path will be accepted.
-     */
-    struct zephyr_fs_desc *ptr = NULL;
+    // directories, safe to ignore
+    (void)old_handle;
     (void)new_handle;
 
     char abs_old_path[MAX_FILE_NAME + 1];
     char abs_new_path[MAX_FILE_NAME + 1];
-
-    GET_FILE_SYSTEM_DESCRIPTOR(old_handle->fd, ptr);
-
-    char *path = duplicate_string(new_path);
-    if (path == NULL) {
-        return __WASI_ENOMEM;
-    }
 
     if (!build_absolute_path(abs_old_path, sizeof(abs_old_path), old_path)) {
         return __WASI_ENOMEM;
@@ -821,25 +863,42 @@ os_renameat(os_file_handle old_handle, const char *old_path,
         return __WASI_ENOMEM;
     }
 
+    // Attempt to perform the rename
     int rc = fs_rename(abs_old_path, abs_new_path);
     if (rc < 0) {
-        free(path);
         return convert_errno(-rc);
     }
 
-    free(ptr->path);
-    ptr->path = path;
+    // If there is an allocated fd in our table, update the descriptor table entry
+    // DSK: better approach here?
+    k_mutex_lock(&desc_array_mutex, K_FOREVER);
+    for (int i = 0; i < CONFIG_WASI_MAX_OPEN_FILES; i++) {
+        struct zephyr_fs_desc *ptr = &desc_array[i];
+        if (ptr->used && ptr->path && strcmp(ptr->path, abs_old_path) == 0) {
+            char *new_path_copy = duplicate_string(new_path);
+            if (new_path_copy != NULL) {
+                free(ptr->path);
+                ptr->path = new_path_copy;
+            }
+            break;  // Only one descriptor should match
+        }
+    }
+    k_mutex_unlock(&desc_array_mutex);
+
     return __WASI_ESUCCESS;
 }
 
+// DSK: Same thing as renameat: `handle` refers to the containing directory,
+// not the file handle to unlink. We ignore the handle and use the path
+// exclusively.
+//
+// TODO: is there anything we need to do in case is_dir=true?
 __wasi_errno_t
 os_unlinkat(os_file_handle handle, const char *path, bool is_dir)
 {
-    /* `old_handle` need to be the the fd of the file to unlink.
-     * `path` need to be absolute, relative path will not be resolved.
-     */
+    (void)handle;
+
     char abs_path[MAX_FILE_NAME + 1];
-    struct zephyr_fs_desc *ptr = NULL;
 
     if (!build_absolute_path(abs_path, sizeof(abs_path), path)) {
         return __WASI_ENOMEM;
@@ -850,9 +909,16 @@ os_unlinkat(os_file_handle handle, const char *path, bool is_dir)
         return convert_errno(-rc);
     }
 
-    GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
-
-    zephyr_fs_free_obj(ptr);
+    // Search for any active descriptor referencing this path and free it.
+    k_mutex_lock(&desc_array_mutex, K_FOREVER);
+    for (int i = 0; i < CONFIG_WASI_MAX_OPEN_FILES; i++) {
+        struct zephyr_fs_desc *ptr = &desc_array[i];
+        if (ptr->used && ptr->path && strcmp(ptr->path, abs_path) == 0) {
+            zephyr_fs_free_obj(ptr);
+            break;
+        }
+    }
+    k_mutex_unlock(&desc_array_mutex);
 
     return __WASI_ESUCCESS;
 }
@@ -861,6 +927,11 @@ __wasi_errno_t
 os_lseek(os_file_handle handle, __wasi_filedelta_t offset,
          __wasi_whence_t whence, __wasi_filesize_t *new_offset)
 {
+
+    if (os_is_virtual_fd(handle->fd)) {
+        return __WASI_ESPIPE; // Seeking not supported on character streams
+    }
+
     struct zephyr_fs_desc *ptr = NULL;
     int zwhence;
 
@@ -901,23 +972,21 @@ os_fadvise(os_file_handle handle, __wasi_filesize_t offset,
 __wasi_errno_t
 os_isatty(os_file_handle handle)
 {
-    return __WASI_ENOSYS;
+    if (os_is_virtual_fd(handle->fd)) {
+        return __WASI_ESUCCESS;
+    }
+
+    return __WASI_ENOTTY;
 }
 
 os_file_handle
 os_convert_stdin_handle(os_raw_file_handle raw_stdin)
 {
     os_file_handle handle = BH_MALLOC(sizeof(struct zephyr_handle));
-    if (handle == NULL) {
+    if (!handle)
         return NULL;
-    }
 
-    /* We allocate a fake stdin reference */
-    if (zephyr_fs_alloc_obj(false, "stdin", &handle->fd) == NULL) {
-        BH_FREE(handle);
-        return NULL;
-    }
-
+    handle->fd = STDIN_FILENO;
     handle->is_sock = false;
     return handle;
 }
@@ -926,16 +995,10 @@ os_file_handle
 os_convert_stdout_handle(os_raw_file_handle raw_stdout)
 {
     os_file_handle handle = BH_MALLOC(sizeof(struct zephyr_handle));
-    if (handle == NULL) {
+    if (!handle)
         return NULL;
-    }
 
-    /* We allocate a fake stdin reference */
-    if (zephyr_fs_alloc_obj(false, "stdout", &handle->fd) == NULL) {
-        BH_FREE(handle);
-        return NULL;
-    }
-
+    handle->fd = STDOUT_FILENO;
     handle->is_sock = false;
     return handle;
 }
@@ -944,16 +1007,10 @@ os_file_handle
 os_convert_stderr_handle(os_raw_file_handle raw_stderr)
 {
     os_file_handle handle = BH_MALLOC(sizeof(struct zephyr_handle));
-    if (handle == NULL) {
+    if (!handle)
         return NULL;
-    }
 
-    /* We allocate a fake stdin reference */
-    if (zephyr_fs_alloc_obj(false, "stderr", &handle->fd) == NULL) {
-        BH_FREE(handle);
-        return NULL;
-    }
-
+    handle->fd = STDERR_FILENO;
     handle->is_sock = false;
     return handle;
 }
