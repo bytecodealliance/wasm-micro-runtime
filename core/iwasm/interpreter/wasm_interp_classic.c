@@ -4088,7 +4088,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_STRING_ENCODE_LOSSY_UTF8_ARRAY:
                     case WASM_OP_STRING_ENCODE_WTF8_ARRAY:
                     {
-                        uint32 start, array_len, count;
+                        uint32 start, array_len;
                         int32 bytes_written;
                         EncodingFlag flag = WTF8;
                         WASMArrayType *array_type;
