@@ -414,7 +414,7 @@ function setup_wabt()
 
 function compile_reference_interpreter()
 {
-    echo "compile the reference intepreter"
+    echo "compile the reference interpreter"
     pushd interpreter
     make
     if [ $? -ne 0 ]
