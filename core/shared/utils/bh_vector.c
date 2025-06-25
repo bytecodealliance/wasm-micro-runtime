@@ -35,8 +35,8 @@ extend_vector(Vector *vector, size_t length)
     if (length <= vector->max_elems)
         return true;
 
-    if (length < vector->size_elem * 3 / 2)
-        length = vector->size_elem * 3 / 2;
+    if (length < vector->max_elems * 3 / 2)
+        length = vector->max_elems * 3 / 2;
 
     if (!(data = alloc_vector_data(length, vector->size_elem))) {
         return false;
