@@ -3999,7 +3999,7 @@ aot_get_func_from_table(const AOTCompContext *comp_ctx, LLVMValueRef base,
 
     if (!(func =
               LLVMBuildBitCast(comp_ctx->builder, func, func_type, "func"))) {
-        aot_set_last_error("cast function fialed.");
+        aot_set_last_error("cast function failed.");
         goto fail;
     }
 
@@ -4068,7 +4068,7 @@ aot_load_const_from_table(AOTCompContext *comp_ctx, LLVMValueRef base,
 
     if (!(const_addr = LLVMBuildBitCast(comp_ctx->builder, const_addr,
                                         const_ptr_type, "const_addr"))) {
-        aot_set_last_error("cast const fialed.");
+        aot_set_last_error("cast const failed.");
         return NULL;
     }
 
