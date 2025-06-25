@@ -384,18 +384,18 @@ set_input(void *ctx, graph_execution_context exec_ctx, uint32_t index,
           tensor *wasi_nn_tensor)
 {
     struct LlamaContext *backend_ctx = (struct LlamaContext *)ctx;
-    // tensor->data is the prompt string. ends with \0
+    // tensor->data is the prompt string.
     char *prompt_text = (char *)wasi_nn_tensor->data.buf;
+    uint32_t prompt_text_len = wasi_nn_tensor->data.size;
 
 #ifndef NDEBUG
     NN_DBG_PRINTF("--------------------------------------------------");
-    NN_DBG_PRINTF("prompt_text: %s", prompt_text);
+    NN_DBG_PRINTF("prompt_text: %.*s", (int)prompt_text_len, prompt_text);
     NN_DBG_PRINTF("--------------------------------------------------");
 #endif
 
     // tokenize the prompt
     uint32_t n_token_max = llama_n_ctx(backend_ctx->ctx);
-    uint32_t prompt_text_len = strlen(prompt_text);
 
     if (backend_ctx->prompt == NULL) {
         backend_ctx->prompt = calloc(n_token_max, sizeof(llama_token));
