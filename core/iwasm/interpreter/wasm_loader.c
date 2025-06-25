@@ -854,20 +854,17 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                                  true, heap_type);
                     type1 = cur_ref_type.ref_type;
 
-                    if (!is_byte_a_type(type1)
-                        || wasm_is_type_multi_byte_type(type1)) {
-                        if (!push_const_expr_stack(&const_expr_ctx, flag,
-                                                   cur_ref_type.ref_type,
-                                                   &cur_ref_type, 0, &cur_value,
-                                                   error_buf, error_buf_size))
-                            goto fail;
-                    }
-                    else {
-                        if (!push_const_expr_stack(&const_expr_ctx, flag, type1,
-                                                   NULL, 0, &cur_value,
-                                                   error_buf, error_buf_size))
-                            goto fail;
-                    }
+                    /*
+                     * Since wasm_set_refheaptype_typeidx(...) always sets type1
+                     * to REF_TYPE_HT_NULLABLE, the condition (!is_byte_a_type
+                     * || wasm_is_type_multi_byte_byte()) is always true. Thus,
+                     * this validation is no longer necessary and has been
+                     * removed.
+                     */
+                    if (!push_const_expr_stack(&const_expr_ctx, flag, type1,
+                                               &cur_ref_type, 0, &cur_value,
+                                               error_buf, error_buf_size))
+                        goto fail;
                 }
                 else {
                     if (!wasm_is_valid_heap_type(heap_type)) {
@@ -876,13 +873,13 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                         goto fail;
                     }
                     /*
-                     * When heap_type < 0 and wasm_is_valid_heap_type(heap_type)
-                     * is true, under the current implementation, the condition
+                     * When heap_type < 0, there is no need to call
+                     * check_type_index, and the condition
                      * (!is_byte_a_type(type1) ||
-                     * wasm_is_type_multi_byte_type(type1)) will always be
-                     * false, so there is no need to check_type_index here. If
-                     * the implementation changes in the future, this check may
-                     * be needed.
+                     * wasm_is_type_multi_byte_type(type1)) is always false.
+                     * Therefore, for both reasons, check_type_index is
+                     * unnecessary here. If the implementation changes in the
+                     * future, this check may be needed.
                      */
                     type1 = (uint8)((int32)0x80 + heap_type);
 
