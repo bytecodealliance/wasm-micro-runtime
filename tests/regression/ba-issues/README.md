@@ -2,15 +2,10 @@
 
 For how to add a new test case, you should refer to following steps:
 
-- [BA Issues](#ba-issues)
-  - [helper shell script](#helper-shell-script)
-  - [`warmc` and `iwasm` build script](#warmc-and-iwasm-build-script)
-  - [Add a new configuration for how to run your issue test case](#add-a-new-configuration-for-how-to-run-your-issue-test-case)
-    - [Here is a simply running configuration that only uses `iwasm`](#here-is-a-simply-running-configuration-that-only-uses-iwasm)
-    - [Here is a simply running configuration that uses only `wamrc`](#here-is-a-simply-running-configuration-that-uses-only-wamrc)
-    - [Here is a simply running configuration that uses both `wamrc` and `iwasm`](#here-is-a-simply-running-configuration-that-uses-both-wamrc-and-iwasm)
-    - [For deprecated issue test cases](#for-deprecated-issue-test-cases)
-  - [Running test cases and getting results](#running-test-cases-and-getting-results)
+1. [Creating directories for new issue test cases](#helper-shell-script)
+2. If the new issue test cases require new CMake build config of `warmc`/`iwasm` rather than existing ones, modify [build script](#warmc-and-iwasm-build-script) for new build config
+3. Add [running configuration](#add-a-new-configuration-for-how-to-run-your-issue-test-case) for the new issue test cases
+4. [Running tests and check test results](#running-test-cases-and-getting-results)
 
 ## helper shell script
 
