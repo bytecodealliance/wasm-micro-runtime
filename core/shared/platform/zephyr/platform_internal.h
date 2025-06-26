@@ -80,6 +80,24 @@
 #define BH_PLATFORM_ZEPHYR
 #endif
 
+#include <limits.h>
+
+#ifndef PATH_MAX
+#define PATH_MAX 256
+#endif
+
+#ifndef STDIN_FILENO
+#define STDIN_FILENO 0
+#endif
+
+#ifndef STDOUT_FILENO
+#define STDOUT_FILENO 1
+#endif
+
+#ifndef STDERR_FILENO
+#define STDERR_FILENO 2
+#endif
+
 /* Synchronization primitives for usermode.
  * The macros are prefixed with 'z' because when building
  * with WAMR_BUILD_LIBC_WASI the same functions are defined,
@@ -222,6 +240,8 @@ set_exec_mem_alloc_func(exec_mem_alloc_func_t alloc_func,
 typedef int os_dir_stream;
 typedef int os_raw_file_handle;
 
+#define OS_DIR_STREAM_INVALID 0
+
 // handle for file system descriptor
 typedef struct zephyr_fs_desc {
     char *path;
@@ -259,20 +279,20 @@ typedef unsigned int os_nfds_t;
 
 #define FIONREAD ZFD_IOCTL_FIONREAD
 
-typedef struct {
-    time_t tv_sec;
-    long tv_nsec;
-} os_timespec;
+typedef struct timespec os_timespec;
 
+#ifndef CLOCK_REALTIME
 #define CLOCK_REALTIME 1
+#endif
+
 #define CLOCK_MONOTONIC 4
 
-// TODO: use it in sandboxed posix.c.
-// int os_sched_yield(void)
-// {
-//     k_yield();
-//     return 0;
-// }
+static inline int
+os_sched_yield(void)
+{
+    k_yield();
+    return 0;
+}
 
 static inline os_file_handle
 os_get_invalid_handle(void)
