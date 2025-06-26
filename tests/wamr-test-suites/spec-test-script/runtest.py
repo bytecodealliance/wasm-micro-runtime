@@ -1160,6 +1160,9 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
         cmd.append("--enable-gc")
         cmd.append("--enable-tail-call")
 
+    if opts.extended_const:
+        cmd.append("--enable-extended-const")
+
     if output == 'object':
         cmd.append("--format=object")
     elif output == 'ir':
