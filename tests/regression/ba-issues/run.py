@@ -254,17 +254,26 @@ def process_and_run_test_cases(
     total = len(passed_ids) + len(failed_ids)
     passed = len(passed_ids)
     failed = len(failed_ids)
-    issue_ids_should_test = (
-        issue_ids_should_test if issue_ids_should_test else "no more"
+
+    format_issue_ids_should_test = (
+        " ".join("#" + str(x) for x in issue_ids_should_test)
+        if issue_ids_should_test
+        else "no more"
     )
-    json_only_ids = json_only_ids if json_only_ids else "no more"
+    format_json_only_ids = (
+        " ".join("#" + str(x) for x in json_only_ids) if json_only_ids else "no more"
+    )
+
     print(f"####################################")
     print(f"==== Test results ====")
     print(f"  Total:  {total}")
     print(f"  Passed: {passed}")
     print(f"  Failed: {failed}")
-    print(f"  Left issues in folder: {issue_ids_should_test}")
-    print(f"  Cases in JSON but not found in folder: {json_only_ids}")
+    if not selected_ids:
+        print(f"  Left issues in folder: {format_issue_ids_should_test}")
+        print(f"  Cases in JSON but not found in folder: {format_json_only_ids}")
+    else:
+        print(f"  Issues not found in folder: {format_issue_ids_should_test}")
 
 
 def main():

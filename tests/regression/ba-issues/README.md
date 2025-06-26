@@ -244,7 +244,7 @@ If you add the test case under directory `issues` but forget to add the running 
   Passed: 21
   Failed: 0
   missed: 0
-  Left issues in folder: {3022}
+  Left issues in folder: #3022
   Cases in JSON but not found in folder: no more
 ```
 
@@ -256,8 +256,8 @@ If you add the test case in `running_config.json` but used the wrong id or forge
   Passed: 21
   Failed: 0
   missed: 0
-  Left issues in folder: {2855}
-  Cases in JSON but not found in folder: {100000}
+  Left issues in folder: #2855
+  Cases in JSON but not found in folder: #12345
 ```
 
 If some test case are failing, then it will be something like
