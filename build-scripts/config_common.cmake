@@ -680,10 +680,8 @@ endif ()
 if (WAMR_BUILD_EXTENDED_CONST_EXPR EQUAL 1)
   message ("     Extended constant expression enabled")
   add_definitions(-DWASM_ENABLE_EXTENDED_CONST_EXPR=1)
-else()
-  message ("     Extended constant expression disabled")
-  add_definitions(-DWASM_ENABLE_EXTENDED_CONST_EXPR=0)
 endif ()
+
 ########################################
 # Show Phase4 Wasm proposals status.
 ########################################
