@@ -67,3 +67,6 @@ call_func:
     j_s     [blink]             /* ret */
     nop_s
 
+#if defined(__linux__) && defined(__ELF__)
+.section .note.GNU-stack,"",%progbits
+#endif
