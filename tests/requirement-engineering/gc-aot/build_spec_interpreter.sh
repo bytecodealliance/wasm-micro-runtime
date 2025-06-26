@@ -17,7 +17,7 @@ git apply ../../../wamr-test-suites/spec-test-script/gc_ignore_cases.patch
 # Set OCaml compiler environment
 eval $(opam config env)
 
-echo "compile the reference intepreter"
+echo "compile the reference interpreter"
 pushd interpreter
 make
 popd

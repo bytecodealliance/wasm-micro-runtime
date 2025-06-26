@@ -194,12 +194,12 @@ bh_vector_append(Vector *vector, const void *elem_buf)
         goto just_return;
     }
 
-    /* make sure one more slot is used by the thread who allocas it */
+    /* make sure one more slot is used by the thread who allocates it */
     if (vector->lock)
         os_mutex_lock(vector->lock);
 
     if (!extend_vector(vector, vector->num_elems + 1)) {
-        LOG_ERROR("Append ector elem failed: extend vector failed.\n");
+        LOG_ERROR("Append vector elem failed: extend vector failed.\n");
         goto unlock_return;
     }
 

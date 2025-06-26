@@ -2668,7 +2668,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                         }
                         STORE_PTR((void **)global_data, func_obj);
                         global_data += sizeof(void *);
-                        /* Also update the inital_value since other globals may
+                        /* Also update the initial_value since other globals may
                          * refer to this */
                         global->initial_value.gc_obj = (wasm_obj_t)func_obj;
                         break;
