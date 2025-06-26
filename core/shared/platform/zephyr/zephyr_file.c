@@ -181,8 +181,8 @@ os_fstat(os_file_handle handle, struct __wasi_filestat_t *buf)
         buf->st_dev = 0; // Zephyr's fs_stat doesn't provide a device ID
         buf->st_ino = 0; // Zephyr's fs_stat doesn't provide an inode number
         buf->st_filetype = entry.type == FS_DIR_ENTRY_DIR
-                            ? __WASI_FILETYPE_DIRECTORY
-                            : __WASI_FILETYPE_REGULAR_FILE;
+                               ? __WASI_FILETYPE_DIRECTORY
+                               : __WASI_FILETYPE_REGULAR_FILE;
         buf->st_nlink = 1; // Zephyr's fs_stat doesn't provide a link count
         buf->st_size = entry.size;
         buf->st_atim = 0; // Zephyr's fs_stat doesn't provide timestamps
@@ -449,10 +449,11 @@ os_openat(os_file_handle handle, const char *path, __wasi_oflags_t oflags,
         // Is a directory
         fs_dir_t_init(&ptr->dir);
         rc = fs_opendir(&ptr->dir, abs_path);
-    } 
-    else {  
+    }
+    else {
         // Is a file
-        int zmode = wasi_flags_to_zephyr(oflags, fd_flags, lookup_flags, access_mode);
+        int zmode =
+            wasi_flags_to_zephyr(oflags, fd_flags, lookup_flags, access_mode);
         fs_file_t_init(&ptr->file);
         rc = fs_open(&ptr->file, abs_path, zmode);
     }
@@ -481,7 +482,7 @@ os_file_get_access_mode(os_file_handle handle,
         *access_mode = WASI_LIBC_ACCESS_MODE_READ_WRITE;
         return __WASI_ESUCCESS;
     }
-    
+
     GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
 
     if (ptr->is_dir) {

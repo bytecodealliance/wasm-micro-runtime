@@ -87,7 +87,7 @@
 #endif
 
 #ifndef STDIN_FILENO
-#define STDIN_FILENO  0
+#define STDIN_FILENO 0
 #endif
 
 #ifndef STDOUT_FILENO
@@ -97,7 +97,6 @@
 #ifndef STDERR_FILENO
 #define STDERR_FILENO 2
 #endif
-
 
 /* Synchronization primitives for usermode.
  * The macros are prefixed with 'z' because when building
@@ -241,7 +240,7 @@ set_exec_mem_alloc_func(exec_mem_alloc_func_t alloc_func,
 typedef int os_dir_stream;
 typedef int os_raw_file_handle;
 
-#define OS_DIR_STREAM_INVALID 0 
+#define OS_DIR_STREAM_INVALID 0
 
 // handle for file system descriptor
 typedef struct zephyr_fs_desc {
@@ -288,7 +287,8 @@ typedef struct timespec os_timespec;
 
 #define CLOCK_MONOTONIC 4
 
-static inline int os_sched_yield(void)
+static inline int
+os_sched_yield(void)
 {
     k_yield();
     return 0;
