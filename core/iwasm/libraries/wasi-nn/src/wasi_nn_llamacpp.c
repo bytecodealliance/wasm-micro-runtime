@@ -385,7 +385,7 @@ set_input(void *ctx, graph_execution_context exec_ctx, uint32_t index,
 {
     struct LlamaContext *backend_ctx = (struct LlamaContext *)ctx;
     // tensor->data is the prompt string. ends with \0
-    char *prompt_text = (char *)wasi_nn_tensor->data;
+    char *prompt_text = (char *)wasi_nn_tensor->data.buf;
 
 #ifndef NDEBUG
     NN_DBG_PRINTF("--------------------------------------------------");
@@ -552,7 +552,7 @@ fail:
 
 __attribute__((visibility("default"))) wasi_nn_error
 get_output(void *ctx, graph_execution_context exec_ctx, uint32_t index,
-           tensor_data output_tensor, uint32_t *output_tensor_size)
+           tensor_data *output_tensor, uint32_t *output_tensor_size)
 {
     struct LlamaContext *backend_ctx = (struct LlamaContext *)ctx;
 
@@ -571,7 +571,7 @@ get_output(void *ctx, graph_execution_context exec_ctx, uint32_t index,
             printf("%s\n", output_metadata);
         }
 
-        memcpy(output_tensor, output_metadata, strlen(output_metadata));
+        memcpy(output_tensor->buf, output_metadata, strlen(output_metadata));
         *output_tensor_size = strlen(output_metadata);
         return success;
     }
@@ -591,7 +591,7 @@ get_output(void *ctx, graph_execution_context exec_ctx, uint32_t index,
             printf("%s", buf);
         }
 
-        memcpy(output_tensor + end_pos, buf, strlen(buf));
+        memcpy(output_tensor->buf + end_pos, buf, strlen(buf));
         end_pos += strlen(buf);
     }
 

@@ -99,7 +99,7 @@ typedef enum {
 // 4-byte f32 elements would have a data array of length 16). Naturally, this
 // representation requires some knowledge of how to lay out data in
 // memory--e.g., using row-major ordering--and could perhaps be improved.
-#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0 && defined(__wasm__)
+#if !defined(__wasm__) || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
 typedef struct {
     uint8_t *buf;
     uint32_t size;

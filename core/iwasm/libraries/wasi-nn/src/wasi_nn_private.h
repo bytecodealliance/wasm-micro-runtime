@@ -32,7 +32,7 @@ typedef wasi_nn_error (*SET_INPUT)(void *, graph_execution_context, uint32_t,
                                    tensor *);
 typedef wasi_nn_error (*COMPUTE)(void *, graph_execution_context);
 typedef wasi_nn_error (*GET_OUTPUT)(void *, graph_execution_context, uint32_t,
-                                    tensor_data, uint32_t *);
+                                    tensor_data *, uint32_t *);
 /* wasi-nn general APIs */
 typedef wasi_nn_error (*BACKEND_INITIALIZE)(void **);
 typedef wasi_nn_error (*BACKEND_DEINITIALIZE)(void *);

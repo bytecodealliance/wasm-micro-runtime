@@ -324,7 +324,7 @@ set_input(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
                 index);
 
         int size = model_tensor_size * sizeof(float);
-        bh_memcpy_s(it, size, input_tensor->data, size);
+        bh_memcpy_s(it, size, input_tensor->data.buf, size);
     }
     else { // TODO: Assuming uint8 quantized networks.
         TfLiteAffineQuantization *quant_info =
@@ -342,7 +342,7 @@ set_input(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
         NN_DBG_PRINTF("input tensor: (scale, offset) = (%f, %f)", scale,
                       zero_point);
 
-        float *input_tensor_f = (float *)input_tensor->data;
+        float *input_tensor_f = (float *)input_tensor->data.buf;
         for (uint32_t i = 0; i < model_tensor_size; ++i) {
             it[i] = (uint8_t)(input_tensor_f[i] / scale + zero_point);
         }
@@ -366,7 +366,7 @@ compute(void *tflite_ctx, graph_execution_context ctx)
 
 __attribute__((visibility("default"))) wasi_nn_error
 get_output(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
-           tensor_data output_tensor, uint32_t *output_tensor_size)
+           tensor_data *output_tensor, uint32_t *output_tensor_size)
 {
     TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
 
@@ -392,7 +392,7 @@ get_output(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
     if (tensor->quantization.type == kTfLiteNoQuantization) {
         NN_DBG_PRINTF("No quantization information");
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-        if (*output_tensor_size < tensor->bytes) {
+        if (output_tensor->size < tensor->bytes) {
             NN_ERR_PRINTF("Insufficient memory to copy tensor %d", index);
             return too_large;
         }
@@ -401,12 +401,12 @@ get_output(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
          * for now, maintain the bug-to-bug compatibility with the old abi,
          * where the size here is the number of fp32, not bytes.
          */
-        if (*output_tensor_size < tensor->bytes / sizeof(float)) {
+        if (output_tensor->size < tensor->bytes / sizeof(float)) {
             NN_ERR_PRINTF("Insufficient memory to copy tensor %d", index);
             return too_large;
         }
 #endif
-        bh_memcpy_s(output_tensor, *output_tensor_size, tensor->data.data,
+        bh_memcpy_s(output_tensor->buf, output_tensor->size, tensor->data.data,
                     tensor->bytes);
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
         *output_tensor_size = tensor->bytes;
@@ -431,7 +431,7 @@ get_output(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
             model_tensor_size *= (uint32_t)tensor->dims->data[i];
 
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-        if (*output_tensor_size / sizeof(float) < model_tensor_size) {
+        if (output_tensor->size / sizeof(float) < model_tensor_size) {
             NN_ERR_PRINTF("Insufficient memory to copy tensor %d", index);
             return too_large;
         }
@@ -440,7 +440,7 @@ get_output(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
          * for now, maintain the bug-to-bug compatibility with the old abi,
          * where the size here is the number of fp32, not bytes.
          */
-        if (*output_tensor_size < model_tensor_size) {
+        if (output_tensor->size < model_tensor_size) {
             NN_ERR_PRINTF("Insufficient memory to copy tensor %d", index);
             return too_large;
         }
@@ -454,7 +454,7 @@ get_output(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
         NN_DBG_PRINTF("output tensor: (scale, offset) = (%f, %f)", scale,
                       zero_point);
 
-        float *output_tensor_f = (float *)output_tensor;
+        float *output_tensor_f = (float *)output_tensor->buf;
         for (uint32_t i = 0; i < model_tensor_size; ++i) {
             output_tensor_f[i] = (ot[i] - zero_point) * scale;
         }
