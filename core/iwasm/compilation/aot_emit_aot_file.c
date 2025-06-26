@@ -1960,13 +1960,15 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         case INIT_EXPR_TYPE_I64_ADD:
         case INIT_EXPR_TYPE_I64_SUB:
         case INIT_EXPR_TYPE_I64_MUL:
-            if (!aot_emit_init_expr(buf, buf_end, &offset, comp_ctx,
-                                    expr->u.binary.l_expr)) {
-                return false;
-            }
-            if (!aot_emit_init_expr(buf, buf_end, &offset, comp_ctx,
-                                    expr->u.binary.r_expr)) {
-                return false;
+            if (comp_ctx->enable_extended_const) {
+                if (!aot_emit_init_expr(buf, buf_end, &offset, comp_ctx,
+                                        expr->u.binary.l_expr)) {
+                    return false;
+                }
+                if (!aot_emit_init_expr(buf, buf_end, &offset, comp_ctx,
+                                        expr->u.binary.r_expr)) {
+                    return false;
+                }
             }
             break;
 #endif
