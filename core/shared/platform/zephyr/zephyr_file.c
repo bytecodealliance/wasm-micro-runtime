@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
 #include "libc_errno.h"
 
@@ -45,7 +46,7 @@
 
 // We will take the maximum number of open files
 // from the Zephyr POSIX configuration
-#define CONFIG_WASI_MAX_OPEN_FILES CONFIG_POSIX_MAX_FDS
+#define CONFIG_WASI_MAX_OPEN_FILES CONFIG_ZVFS_OPEN_MAX
 
 // Macro to retrieve a file system descriptor and check it's validity.
 #define GET_FILE_SYSTEM_DESCRIPTOR(fd, ptr)         \
@@ -67,20 +68,63 @@ K_MUTEX_DEFINE(desc_array_mutex);
 
 static char prestat_dir[MAX_FILE_NAME + 1];
 
+/**
+ * Duplicates a string by allocating memory and copying the source string.
+ * Provided here because Zephyr does not have `strdup` enabled by default .
+ * @param s The source string to duplicate.
+ * @return A pointer to the duplicated string, or NULL if allocation fails.
+ *         The caller is responsible for freeing the memory.
+ */
+char *
+duplicate_string(const char *s)
+{
+    if (s == NULL) {
+        return NULL;
+    }
+
+    size_t len = strlen(s) + 1; // Include null terminator
+    char *dup = malloc(len);
+    if (dup == NULL) {
+        return NULL; // Allocation failed
+    }
+
+    memcpy(dup, s, len); // Copy string including null terminator
+    return dup;
+}
+
+bool
+build_absolute_path(char *abs_path, size_t abs_path_len, const char *path)
+{
+    if (!path) {
+        abs_path[0] = '\0';
+        return false;
+    }
+
+    size_t len1 = strlen(prestat_dir);
+    size_t len2 = strlen(path);
+
+    if (len1 + 1 + len2 + 1 > abs_path_len) {
+        abs_path[0] = '\0'; // Empty string on error
+        return false;       // Truncation would occur
+    }
+
+    snprintf(abs_path, abs_path_len, "%s/%s", prestat_dir, path);
+    return true;
+}
+
 static struct zephyr_fs_desc *
 zephyr_fs_alloc_obj(bool is_dir, const char *path, int *index)
 {
-    int i;
     struct zephyr_fs_desc *ptr = NULL;
     *index = -1; // give a default value to index in case table is full
 
     k_mutex_lock(&desc_array_mutex, K_FOREVER);
-    for (i = 0; i < CONFIG_WASI_MAX_OPEN_FILES; i++) {
+    for (int i = 0; i < CONFIG_WASI_MAX_OPEN_FILES; i++) {
         if (desc_array[i].used == false) {
             ptr = &desc_array[i];
             ptr->used = true;
             ptr->is_dir = is_dir;
-            ptr->path = strdup(path);
+            ptr->path = duplicate_string(path);
             if (ptr->path == NULL) {
                 ptr->used = false;
                 k_mutex_unlock(&desc_array_mutex);
@@ -104,26 +148,6 @@ zephyr_fs_free_obj(struct zephyr_fs_desc *ptr)
     ptr->used = false;
 }
 
-void
-debug_zephyr_fs_desc(const zephyr_fs_desc *desc)
-{
-    if (desc == NULL) {
-        os_printf("Descriptor is NULL\n");
-        return;
-    }
-    os_printf("Descriptor found at %p\n", desc);
-    os_printf("    Path: %s\n", desc->path ? desc->path : "NULL");
-    os_printf("    Is Directory: %s\n", desc->is_dir ? "Yes" : "No");
-    os_printf("    Used: %s\n", desc->used ? "Yes" : "No");
-
-    if (desc->is_dir) {
-        os_printf("    Directory: %p\n", desc->dir);
-    }
-    else {
-        os_printf("    File: %p\n", desc->file);
-    }
-}
-
 /* /!\ Needed for socket to work */
 __wasi_errno_t
 os_fstat(os_file_handle handle, struct __wasi_filestat_t *buf)
@@ -133,7 +157,6 @@ os_fstat(os_file_handle handle, struct __wasi_filestat_t *buf)
 
     if (!handle->is_sock) {
         GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
-        // debug_zephyr_fs_desc(ptr);
 
         /* We treat the case of std[in/out/err] */
         if (ptr->path != NULL
@@ -147,7 +170,28 @@ os_fstat(os_file_handle handle, struct __wasi_filestat_t *buf)
             return __WASI_ESUCCESS;
         }
 
-        return os_fstatat(handle, ptr->path, buf, 0);
+        // Get file information using Zephyr's fs_stat function
+        struct fs_dirent entry;
+        rc = fs_stat(ptr->path, &entry);
+        if (rc < 0) {
+            return convert_errno(-rc);
+        }
+
+        // Fill in the __wasi_filestat_t structure
+        buf->st_dev = 0; // Zephyr's fs_stat doesn't provide a device ID
+        buf->st_ino = 0; // Zephyr's fs_stat doesn't provide an inode number
+        buf->st_filetype = entry.type == FS_DIR_ENTRY_DIR
+                               ? __WASI_FILETYPE_DIRECTORY
+                               : __WASI_FILETYPE_REGULAR_FILE;
+        buf->st_nlink = 1; // Zephyr's fs_stat doesn't provide a link count
+        buf->st_size = entry.size;
+        buf->st_atim = 0; // Zephyr's fs_stat doesn't provide timestamps
+        buf->st_mtim = 0;
+        buf->st_ctim = 0;
+
+        return __WASI_ESUCCESS;
+
+        // return os_fstatat(handle, ptr->path, buf, 0);
     }
     else {
         // socklen_t socktypelen = sizeof(socktype);
@@ -191,8 +235,18 @@ os_fstatat(os_file_handle handle, const char *path,
         return __WASI_EBADF;
     }
 
+    char abs_path[MAX_FILE_NAME + 1];
+
+    if (handle == NULL) {
+        return __WASI_EINVAL; // Or another appropriate error code
+    }
+
+    if (!build_absolute_path(abs_path, sizeof(abs_path), path)) {
+        return __WASI_ENOMEM;
+    }
+
     // Get file information using Zephyr's fs_stat function
-    rc = fs_stat(path, &entry);
+    rc = fs_stat(abs_path, &entry);
     if (rc < 0) {
         return convert_errno(-rc);
     }
@@ -381,18 +435,29 @@ os_openat(os_file_handle handle, const char *path, __wasi_oflags_t oflags,
         return __WASI_ENOMEM;
     }
 
-    snprintf(abs_path, MAX_FILE_NAME, "%s/%s", prestat_dir, path);
-    int zmode =
-        wasi_flags_to_zephyr(oflags, fd_flags, lookup_flags, access_mode);
+    if (!build_absolute_path(abs_path, sizeof(abs_path), path)) {
+        return __WASI_ENOMEM;
+    }
 
-    ptr = zephyr_fs_alloc_obj(false, abs_path, &index);
+    ptr = zephyr_fs_alloc_obj(oflags & __WASI_O_DIRECTORY, abs_path, &index);
     if (!ptr && (index < 0)) {
         BH_FREE(*out);
         return __WASI_EMFILE;
     }
 
-    fs_file_t_init(&ptr->file);
-    rc = fs_open(&ptr->file, abs_path, zmode);
+    if (oflags & __WASI_O_DIRECTORY) {
+        // Is a directory
+        fs_dir_t_init(&ptr->dir);
+        rc = fs_opendir(&ptr->dir, abs_path);
+    }
+    else {
+        // Is a file
+        int zmode =
+            wasi_flags_to_zephyr(oflags, fd_flags, lookup_flags, access_mode);
+        fs_file_t_init(&ptr->file);
+        rc = fs_open(&ptr->file, abs_path, zmode);
+    }
+
     if (rc < 0) {
         zephyr_fs_free_obj(ptr);
         BH_FREE(*out);
@@ -420,6 +485,12 @@ os_file_get_access_mode(os_file_handle handle,
 
     GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
 
+    if (ptr->is_dir) {
+        // DSK: is this actually the correct mode for a dir?
+        *access_mode = WASI_LIBC_ACCESS_MODE_READ_WRITE;
+        return __WASI_ESUCCESS;
+    }
+
     if ((ptr->file.flags & FS_O_RDWR) != 0) {
         *access_mode = WASI_LIBC_ACCESS_MODE_READ_WRITE;
     }
@@ -445,10 +516,17 @@ os_close(os_file_handle handle, bool is_stdio)
     if (is_stdio)
         return __WASI_ESUCCESS;
 
-    GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
+    if (handle->is_sock) {
+        rc = zsock_close(handle->fd);
+    }
+    // Handle is assumed to be a file descriptor
+    else {
+        GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
 
-    rc = ptr->is_dir ? fs_closedir(&ptr->dir) : fs_close(&ptr->file);
-    zephyr_fs_free_obj(ptr); // free in any case.
+        rc = ptr->is_dir ? fs_closedir(&ptr->dir) : fs_close(&ptr->file);
+        zephyr_fs_free_obj(ptr); // free in any case.
+    }
+
     BH_FREE(handle);
     if (rc < 0) {
         return convert_errno(-rc);
@@ -565,42 +643,50 @@ __wasi_errno_t
 os_writev(os_file_handle handle, const struct __wasi_ciovec_t *iov, int iovcnt,
           size_t *nwritten)
 {
-    struct zephyr_fs_desc *ptr = NULL;
     ssize_t total_written = 0;
 
+    struct zephyr_fs_desc *ptr = NULL;
     GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
 
+    // If the fd is stdout or stderr, we call fwrite
     if (strncmp(ptr->path, "std", 3) == 0) {
-        // for std[in/out/err] we don't write because they are not real opened
-        // files. Instead we emulate a write operation to make it work with
-        // printf.
+        // TODO -- FIX:  if ((handle->fd == STDOUT_FILENO) || (handle->fd ==
+        // STDERR_FILENO)) {
+        FILE *fd = stdout;
+        if (handle->fd == STDERR_FILENO) {
+            fd = stderr;
+        }
+
         for (int i = 0; i < iovcnt; i++) {
-            if (iov[i].buf_len == 0)
-                continue;
-            os_printf("%s", (char *)iov[i].buf);
-            total_written += iov[i].buf_len;
+            ssize_t bytes_written = fwrite(iov[i].buf, 1, iov[i].buf_len, fd);
 
-            // Clear the buffer after printing
-            memset(iov[i].buf, 0, iov[i].buf_len);
+            if (bytes_written < 0) {
+                return convert_errno(-bytes_written);
+            }
+
+            total_written += bytes_written;
+
+            // If we wrote less than we asked for, stop writing
+            if (bytes_written < iov[i].buf_len) {
+                break;
+            }
         }
-        *nwritten = total_written;
-
-        return __WASI_ESUCCESS;
     }
+    else {
+        // Write data from each buffer
+        for (int i = 0; i < iovcnt; i++) {
+            ssize_t bytes_written =
+                fs_write(&ptr->file, iov[i].buf, iov[i].buf_len);
+            if (bytes_written < 0) {
+                return convert_errno(-bytes_written);
+            }
 
-    // Write data from each buffer
-    for (int i = 0; i < iovcnt; i++) {
-        ssize_t bytes_written =
-            fs_write(&ptr->file, iov[i].buf, iov[i].buf_len);
-        if (bytes_written < 0) {
-            return convert_errno(-bytes_written);
-        }
+            total_written += bytes_written;
 
-        total_written += bytes_written;
-
-        // If we wrote less than we asked for, stop writing
-        if (bytes_written < iov[i].buf_len) {
-            break;
+            // If we wrote less than we asked for, stop writing
+            if (bytes_written < iov[i].buf_len) {
+                break;
+            }
         }
     }
 
@@ -679,7 +765,9 @@ os_mkdirat(os_file_handle handle, const char *path)
         return __WASI_EINVAL; // Or another appropriate error code
     }
 
-    snprintf(abs_path, MAX_FILE_NAME, "%s/%s", prestat_dir, path);
+    if (!build_absolute_path(abs_path, sizeof(abs_path), path)) {
+        return __WASI_ENOMEM;
+    }
 
     rc = fs_mkdir(abs_path);
     if (rc < 0) {
@@ -715,13 +803,18 @@ os_renameat(os_file_handle old_handle, const char *old_path,
 
     GET_FILE_SYSTEM_DESCRIPTOR(old_handle->fd, ptr);
 
-    char *path = strdup(new_path);
+    char *path = duplicate_string(new_path);
     if (path == NULL) {
         return __WASI_ENOMEM;
     }
 
-    snprintf(abs_old_path, MAX_FILE_NAME, "%s/%s", prestat_dir, old_path);
-    snprintf(abs_new_path, MAX_FILE_NAME, "%s/%s", prestat_dir, new_path);
+    if (!build_absolute_path(abs_old_path, sizeof(abs_old_path), old_path)) {
+        return __WASI_ENOMEM;
+    }
+
+    if (!build_absolute_path(abs_new_path, sizeof(abs_new_path), new_path)) {
+        return __WASI_ENOMEM;
+    }
 
     int rc = fs_rename(abs_old_path, abs_new_path);
     if (rc < 0) {
@@ -743,13 +836,11 @@ os_unlinkat(os_file_handle handle, const char *path, bool is_dir)
     char abs_path[MAX_FILE_NAME + 1];
     struct zephyr_fs_desc *ptr = NULL;
 
-    snprintf(abs_path, MAX_FILE_NAME, "%s/%s", prestat_dir, path);
-
-    if (is_dir) {
-        return __WASI_ENOTDIR;
+    if (!build_absolute_path(abs_path, sizeof(abs_path), path)) {
+        return __WASI_ENOMEM;
     }
 
-    int rc = fs_unlink(path);
+    int rc = fs_unlink(abs_path);
     if (rc < 0) {
         return convert_errno(-rc);
     }
@@ -947,7 +1038,7 @@ os_closedir(os_dir_stream dir_stream)
 os_dir_stream
 os_get_invalid_dir_stream()
 {
-    return NULL;
+    return OS_DIR_STREAM_INVALID;
 }
 
 bool
@@ -976,11 +1067,12 @@ os_realpath(const char *path, char *resolved_path)
      *            * (fs_file_t) file.mp->mnt_point
      * But we will just use absolute path for now.
      */
-    if (!path) {
-        // Log error
+    if ((!path) || (strlen(path) > PATH_MAX)) {
+        // Invalid input, path has to be valid and less than PATH_MAX
         return NULL;
     }
-    return (const char *)path;
+
+    return strncpy(resolved_path, path, PATH_MAX);
 }
 
 bool
@@ -990,19 +1082,19 @@ os_compare_file_handle(os_file_handle handle1, os_file_handle handle2)
 }
 
 bool
-os_is_stdin_handle(os_file_handle fd)
+os_is_stdin_handle(os_file_handle handle)
 {
-    return fd == stdin;
+    return (handle == (os_file_handle)stdin);
 }
 
 bool
-os_is_stdout_handle(os_file_handle fd)
+os_is_stdout_handle(os_file_handle handle)
 {
-    return fd == stdout;
+    return (handle == (os_file_handle)stdout);
 }
 
 bool
-os_is_stderr_handle(os_file_handle fd)
+os_is_stderr_handle(os_file_handle handle)
 {
-    return fd == stderr;
+    return (handle == (os_file_handle)stderr);
 }
