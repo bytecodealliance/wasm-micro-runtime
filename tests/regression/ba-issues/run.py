@@ -205,7 +205,7 @@ def process_and_run_test_cases(
 
     passed_ids = set()
     failed_ids = set()
-    missed_ids = set()
+    json_only_ids = set()
 
     # Iterate through each test case in the json data
     for test_case in data.get("test cases", []):
@@ -220,7 +220,7 @@ def process_and_run_test_cases(
 
         for issue_id in issue_ids:
             if issue_id not in issue_ids_should_test:
-                missed_ids.add(issue_id)
+                json_only_ids.add(issue_id)
                 continue
 
             # cross out the this issue_id in the should test set
@@ -254,17 +254,17 @@ def process_and_run_test_cases(
     total = len(passed_ids) + len(failed_ids)
     passed = len(passed_ids)
     failed = len(failed_ids)
-    missed = len(missed_ids)
     issue_ids_should_test = (
         issue_ids_should_test if issue_ids_should_test else "no more"
     )
+    json_only_ids = json_only_ids if json_only_ids else "no more"
     print(f"####################################")
     print(f"==== Test results ====")
     print(f"  Total:  {total}")
     print(f"  Passed: {passed}")
     print(f"  Failed: {failed}")
-    print(f"  missed: {missed}")
-    print(f"  Left Issues: {issue_ids_should_test}")
+    print(f"  Left issues in folder: {issue_ids_should_test}")
+    print(f"  Cases in JSON but not found in folder: {json_only_ids}")
 
 
 def main():

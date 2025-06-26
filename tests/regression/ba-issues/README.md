@@ -2,10 +2,15 @@
 
 For how to add a new test case, you should refer to following steps:
 
-1. [Creating directories for new issue test cases](#helper-shell-script)
-2. If the new issue test cases require new CMake build config of `warmc`/`iwasm` rather than existing ones, modify [build script](#warmc-and-iwasm-build-script) for new build config
-3. Add [running configuration](#add-a-new-configuration-for-how-to-run-your-issue-test-case) for the new issue test cases
-4. [Running tests and check test results](#running-test-cases-and-getting-results)
+- [BA Issues](#ba-issues)
+  - [helper shell script](#helper-shell-script)
+  - [`warmc` and `iwasm` build script](#warmc-and-iwasm-build-script)
+  - [Add a new configuration for how to run your issue test case](#add-a-new-configuration-for-how-to-run-your-issue-test-case)
+    - [Here is a simply running configuration that only uses `iwasm`](#here-is-a-simply-running-configuration-that-only-uses-iwasm)
+    - [Here is a simply running configuration that uses only `wamrc`](#here-is-a-simply-running-configuration-that-uses-only-wamrc)
+    - [Here is a simply running configuration that uses both `wamrc` and `iwasm`](#here-is-a-simply-running-configuration-that-uses-both-wamrc-and-iwasm)
+    - [For deprecated issue test cases](#for-deprecated-issue-test-cases)
+  - [Running test cases and getting results](#running-test-cases-and-getting-results)
 
 ## helper shell script
 
@@ -218,22 +223,57 @@ simply run `run.py`
 ./run.py
 ```
 
+Specify a specific issue with option `--issues`/`-i`
+
+```shell
+./run.py --issues 2833         # test 1 issue #2833
+./run.py -i 2833,2834,2835     # test 3 issues #2833 #2834 #2835
+```
+
 If everything went well, you should see similarly output in your command line output
 
 ```shell
-Finish testing, 22/22 of test cases passed, no more issues should further test
+==== Test results ====
+  Total:  22
+  Passed: 22
+  Failed: 0
+  Left issues in folder: no more
+  Cases in JSON but not found in folder: no more
 ```
 
 If you add the test case under directory `issues` but forget to add the running config in json file, the output can be something like
 
 ```shell
-Finish testing, 21/21 of test cases passed, {2945} issue(s) should further test
+==== Test results ====
+  Total:  21
+  Passed: 21
+  Failed: 0
+  missed: 0
+  Left issues in folder: {3022}
+  Cases in JSON but not found in folder: no more
+```
+
+If you add the test case in `running_config.json` but used the wrong id or forget to add the test case under directory `issues`, the output can be someting like
+
+```shell
+==== Test results ====
+  Total:  21
+  Passed: 21
+  Failed: 0
+  missed: 0
+  Left issues in folder: {2855}
+  Cases in JSON but not found in folder: {100000}
 ```
 
 If some test case are failing, then it will be something like
 
 ```shell
-Finish testing, 21/22 of test cases passed, no more issue(s) should further test
+==== Test results ====
+  Total:  22
+  Passed: 21
+  Failed: 1
+  Left issues in folder: no more
+  Cases in JSON but not found in folder: no more
 ```
 
 And a log file named `issues_tests.log` will be generated and inside it will display the details of the failing cases, for example:
