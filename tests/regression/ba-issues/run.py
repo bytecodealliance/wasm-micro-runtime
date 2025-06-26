@@ -12,7 +12,7 @@ import glob
 import re
 import argparse
 
-from typing import Dict, Optional, List, Any
+from typing import Dict, Optional, List
 
 WORK_DIR = os.getcwd()
 TEST_WASM_COMMAND = (
@@ -127,7 +127,7 @@ def run_and_compare_results(
         return False
 
 
-def run_issue_test_wamrc(issue_id, compile_options, stdout_only_cmp_last_line=False):
+def run_issue_test_wamrc(issue_id, compile_options):
     compiler = get_and_check(compile_options, "compiler")
     in_file = get_and_check(compile_options, "in file")
     out_file = get_and_check(compile_options, "out file")
