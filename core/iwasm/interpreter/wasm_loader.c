@@ -847,6 +847,11 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 #else
                 cur_value.gc_obj = NULL_REF;
 
+                /*
+                 * According to the current GC SPEC rules, the heap_type must be
+                 * validated when ref.null is used. It can be an absheaptype,
+                 * or the type C.types[typeidx] must be defined in the context.
+                 */
                 if (heap_type >= 0) {
                     if (!check_type_index(module, module->type_count, heap_type,
                                           error_buf, error_buf_size)) {
