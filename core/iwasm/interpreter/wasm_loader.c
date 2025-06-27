@@ -830,19 +830,21 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
             case INIT_EXPR_TYPE_REFNULL_CONST:
             {
                 uint8 type1;
-
-#if WASM_ENABLE_GC == 0
+#if WASM_ENABLE_GC != 0
+                const uint8 *p_copy = p;
+                int32 heap_type;
+                read_leb_int32(p_copy, p_end, heap_type);
+#endif
                 CHECK_BUF(p, p_end, 1);
                 type1 = read_uint8(p);
 
+#if WASM_ENABLE_GC == 0
                 cur_value.ref_index = NULL_REF;
                 if (!push_const_expr_stack(&const_expr_ctx, flag, type1,
                                            &cur_value, error_buf,
                                            error_buf_size))
                     goto fail;
 #else
-                int32 heap_type;
-                read_leb_int32(p, p_end, heap_type);
                 cur_value.gc_obj = NULL_REF;
 
                 if (heap_type >= 0) {
@@ -850,21 +852,6 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                           error_buf, error_buf_size)) {
                         goto fail;
                     }
-                    wasm_set_refheaptype_typeidx(&cur_ref_type.ref_ht_typeidx,
-                                                 true, heap_type);
-                    type1 = cur_ref_type.ref_type;
-
-                    /*
-                     * Since wasm_set_refheaptype_typeidx(...) always sets type1
-                     * to REF_TYPE_HT_NULLABLE, the condition (!is_byte_a_type
-                     * || wasm_is_type_multi_byte_byte()) is always true. Thus,
-                     * this validation is no longer necessary and has been
-                     * removed.
-                     */
-                    if (!push_const_expr_stack(&const_expr_ctx, flag, type1,
-                                               &cur_ref_type, 0, &cur_value,
-                                               error_buf, error_buf_size))
-                        goto fail;
                 }
                 else {
                     if (!wasm_is_valid_heap_type(heap_type)) {
@@ -872,17 +859,24 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                         "unknown type %d", heap_type);
                         goto fail;
                     }
-                    /*
-                     * When heap_type < 0, there is no need to call
-                     * check_type_index, and the condition
-                     * (!is_byte_a_type(type1) ||
-                     * wasm_is_type_multi_byte_type(type1)) is always false.
-                     * Therefore, for both reasons, check_type_index is
-                     * unnecessary here. If the implementation changes in the
-                     * future, this check may be needed.
-                     */
-                    type1 = (uint8)((int32)0x80 + heap_type);
+                }
 
+                if (!is_byte_a_type(type1)
+                    || wasm_is_type_multi_byte_type(type1)) {
+                    p--;
+                    read_leb_uint32(p, p_end, type_idx);
+                    if (!check_type_index(module, module->type_count, type_idx,
+                                          error_buf, error_buf_size))
+                        goto fail;
+                    wasm_set_refheaptype_typeidx(&cur_ref_type.ref_ht_typeidx,
+                                                 true, type_idx);
+                    if (!push_const_expr_stack(&const_expr_ctx, flag,
+                                               cur_ref_type.ref_type,
+                                               &cur_ref_type, 0, &cur_value,
+                                               error_buf, error_buf_size))
+                        goto fail;
+                }
+                else {
                     if (!push_const_expr_stack(&const_expr_ctx, flag, type1,
                                                NULL, 0, &cur_value, error_buf,
                                                error_buf_size))
