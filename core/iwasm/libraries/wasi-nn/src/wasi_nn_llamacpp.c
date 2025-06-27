@@ -480,7 +480,6 @@ compute(void *ctx, graph_execution_context exec_ctx)
 
     // main loop
     int32_t n_cur = batch.n_tokens;
-    int n_decode = 0;
     int32_t n_vocab = llama_n_vocab(backend_ctx->model);
     llama_token_data *candidates = NULL;
 
@@ -531,7 +530,6 @@ compute(void *ctx, graph_execution_context exec_ctx)
         // push this new token for next evaluation
         llama_batch_add(&batch, new_token_id, n_cur, seq_ids,
                         sizeof(seq_ids) / sizeof(seq_ids[0]), true);
-        n_decode++;
         n_cur++;
 
         if (llama_decode(backend_ctx->ctx, batch) != 0) {
