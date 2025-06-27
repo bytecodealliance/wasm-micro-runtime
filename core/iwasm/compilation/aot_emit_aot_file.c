@@ -48,7 +48,7 @@ typedef struct AOTSymbolList {
 } AOTSymbolList;
 
 /* AOT object data */
-typedef struct AOTObjectData {
+struct AOTObjectData {
     AOTCompContext *comp_ctx;
 
     LLVMMemoryBufferRef mem_buf;
@@ -82,7 +82,7 @@ typedef struct AOTObjectData {
     const char *stack_sizes_section_name;
     uint32 stack_sizes_offset;
     uint32 *stack_sizes;
-} AOTObjectData;
+};
 
 #if 0
 static void dump_buf(uint8 *buf, uint32 size, char *title)
