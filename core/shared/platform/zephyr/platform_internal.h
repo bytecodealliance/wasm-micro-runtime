@@ -251,6 +251,7 @@ typedef struct zephyr_fs_desc {
     };
     bool is_dir;
     bool used;
+    uint32_t dir_index; // DSK: supprt for rewind and seek
 } zephyr_fs_desc;
 
 // definition of zephyr_handle
