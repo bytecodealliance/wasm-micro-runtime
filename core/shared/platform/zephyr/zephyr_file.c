@@ -104,7 +104,7 @@ duplicate_string(const char *s)
     }
 
     size_t len = strlen(s) + 1; // Include null terminator
-    char *dup = malloc(len);
+    char *dup = BH_MALLOC(len);
     if (dup == NULL) {
         return NULL; // Allocation failed
     }

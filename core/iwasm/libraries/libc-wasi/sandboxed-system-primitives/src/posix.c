@@ -2854,13 +2854,10 @@ wasmtime_ssp_sock_recv_from(wasm_exec_env_t exec_env, struct fd_table *curfds,
     }
 
     // If the source address is not NULL, the caller is requesting the source
-    // address to be returned if the protocol supports it.  As such, we convert
-    // the format of the structure pass in prior to the call to the OS
-    // implementation.  If the value is NULL, the POSIX standard states that
-    // the address is not returned.
+    // address to be returned if the protocol supports it.  If the value is NULL, 
+    // the POSIX standard states that the address is not returned.
     if (src_addr != NULL) {
         sockaddr_ptr = &sockaddr;
-        wasi_addr_to_bh_sockaddr(src_addr, &sockaddr);
     }
 
     /* Consume bh_sockaddr_t instead of __wasi_addr_t */
