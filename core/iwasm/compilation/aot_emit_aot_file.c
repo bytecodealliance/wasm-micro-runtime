@@ -302,8 +302,8 @@ get_init_expr_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data,
 
             /* array_elem_type + type_index + len + elems */
             size += sizeof(uint32) * 3
-                    + wasm_value_type_size_internal(array_type->elem_type,
-                                                    comp_ctx->pointer_size)
+                    + (uint64)wasm_value_type_size_internal(
+                          array_type->elem_type, comp_ctx->pointer_size)
                           * value_count;
             break;
         }

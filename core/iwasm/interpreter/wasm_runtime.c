@@ -4161,7 +4161,7 @@ wasm_get_module_inst_mem_consumption(const WASMModuleInstance *module_inst,
         sizeof(WASMMemoryInstance *) * module_inst->memory_count;
     for (i = 0; i < module_inst->memory_count; i++) {
         WASMMemoryInstance *memory = module_inst->memories[i];
-        size = memory->num_bytes_per_page * memory->cur_page_count;
+        size = (uint64)memory->num_bytes_per_page * memory->cur_page_count;
         mem_conspn->memories_size += size;
         mem_conspn->app_heap_size += memory->heap_data_end - memory->heap_data;
         /* size of app heap structure */
