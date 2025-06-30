@@ -287,7 +287,7 @@ load(void *ctx, graph_builder_array *builder, graph_encoding encoding,
                         graph->weights_tensor, &graph->model),
                     ret);
 #ifndef NDEBUG
-    print_model_input_output_info(ov_ctx->model);
+    print_model_input_output_info(graph->model);
 #endif
 
     CHECK_OV_STATUS(ov_core_compile_model(ov_ctx->core, graph->model, "CPU", 0,
