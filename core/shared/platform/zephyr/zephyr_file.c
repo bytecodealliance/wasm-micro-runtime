@@ -175,7 +175,7 @@ zephyr_fs_alloc_obj(bool is_dir, const char *path, int *index)
 static inline void
 zephyr_fs_free_obj(struct zephyr_fs_desc *ptr)
 {
-    free(ptr->path);
+    BH_FREE(ptr->path);
     ptr->path = NULL;
     ptr->used = false;
 }
@@ -882,7 +882,7 @@ os_renameat(os_file_handle old_handle, const char *old_path,
         if (ptr->used && ptr->path && strcmp(ptr->path, abs_old_path) == 0) {
             char *new_path_copy = duplicate_string(new_path);
             if (new_path_copy != NULL) {
-                free(ptr->path);
+                BH_FREE(ptr->path);
                 ptr->path = new_path_copy;
             }
             break; // Only one descriptor should match
