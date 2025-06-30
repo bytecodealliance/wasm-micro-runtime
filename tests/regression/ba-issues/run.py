@@ -10,7 +10,9 @@ import os
 import subprocess
 import glob
 import re
-from typing import Dict
+import argparse
+
+from typing import Dict, Optional, List
 
 WORK_DIR = os.getcwd()
 TEST_WASM_COMMAND = (
@@ -45,7 +47,12 @@ def dump_error_log(failing_issue_id, command_lists, exit_code_cmp, stdout_cmp):
         )
 
 
-def get_issue_ids_should_test():
+def get_issue_ids_should_test(selected_ids: Optional[List[int]] = None):
+    """Find all issue IDs that should be tested in folder issues."""
+    # If specific issue IDs are provided, return them as a set
+    if selected_ids:
+        return set(selected_ids)
+
     # Define the path pattern
     path_pattern = "issues/issue-*"
 
@@ -60,8 +67,8 @@ def get_issue_ids_should_test():
         # Extract the issue number using regular expression
         match = re.search(pattern, dir_path)
         if match:
-            issue_number = match.group(1)
-            issue_numbers.add(int(issue_number))
+            issue_number = int(match.group(1))
+            issue_numbers.add(issue_number)
 
     # Print the set of issue numbers
     return issue_numbers
@@ -77,10 +84,10 @@ def get_and_check(d, key, default=None, nullable=False):
 
 
 def run_and_compare_results(
-    passed_ids, failed_ids, issue_id, cmd, description, ret_code, stdout_content
-):
+    issue_id, cmd, description, ret_code, stdout_content
+) -> bool:
     print(f"####################################")
-    print(f"test BA issue #{issue_id} `{description}`: {cmd}")
+    print(f"test BA issue #{issue_id} `{description}`...")
     command_list = cmd.split()
     result = subprocess.run(
         command_list,
@@ -95,19 +102,21 @@ def run_and_compare_results(
 
     exit_code_cmp = f"exit code (actual, expected) : {actual_exit_code, ret_code}"
     stdout_cmp = f"stdout (actual, expected) : {actual_output, stdout_content}"
-    print(exit_code_cmp)
-    print(stdout_cmp)
 
     if actual_exit_code == ret_code and (
         actual_output == stdout_content
-        or (stdout_content == "Compile success"
-            and actual_output.find(stdout_content) != -1)
+        or (
+            stdout_content == "Compile success"
+            and actual_output.find(stdout_content) != -1
+        )
         or (len(stdout_content) > 30 and actual_output.find(stdout_content) != -1)
     ):
-        passed_ids.add(issue_id)
         print("== PASS ==")
+        return True
     else:
-        failed_ids.add(issue_id)
+        print(cmd)
+        print(exit_code_cmp)
+        print(stdout_cmp)
         print(f"== FAILED: {issue_id} ==")
         dump_error_log(
             issue_id,
@@ -115,15 +124,11 @@ def run_and_compare_results(
             exit_code_cmp,
             stdout_cmp,
         )
+        return False
 
-    print("")
 
-
-def run_issue_test_wamrc(
-    passed_ids, failed_ids, issue_id, compile_options, stdout_only_cmp_last_line=False
-):
+def run_issue_test_wamrc(issue_id, compile_options):
     compiler = get_and_check(compile_options, "compiler")
-    only_compile = get_and_check(compile_options, "only compile")
     in_file = get_and_check(compile_options, "in file")
     out_file = get_and_check(compile_options, "out file")
     options = get_and_check(compile_options, "options")
@@ -145,14 +150,10 @@ def run_issue_test_wamrc(
         compiler=compiler, options=options, out_file=out_file_path, in_file=in_file_path
     )
 
-    run_and_compare_results(
-        passed_ids, failed_ids, issue_id, cmd, description, ret_code, stdout_content
-    )
-
-    return only_compile
+    return run_and_compare_results(issue_id, cmd, description, ret_code, stdout_content)
 
 
-def run_issue_test_iwasm(passed_ids, failed_ids, issue_id, test_case):
+def run_issue_test_iwasm(issue_id, test_case) -> bool:
     runtime = get_and_check(test_case, "runtime")
     mode = get_and_check(test_case, "mode")
     file = get_and_check(test_case, "file")
@@ -194,17 +195,19 @@ def run_issue_test_iwasm(passed_ids, failed_ids, issue_id, test_case):
             argument=argument,
         )
 
-    run_and_compare_results(
-        passed_ids, failed_ids, issue_id, cmd, description, ret_code, stdout_content
-    )
+    return run_and_compare_results(issue_id, cmd, description, ret_code, stdout_content)
 
 
-def process_and_run_test_cases(data: Dict[str, Dict]):
-    issue_ids_should_test = get_issue_ids_should_test()
+def process_and_run_test_cases(
+    data: Dict[str, Dict], selected_ids: Optional[List[int]] = None
+):
+    issue_ids_should_test = get_issue_ids_should_test(selected_ids)
 
     passed_ids = set()
     failed_ids = set()
+    json_only_ids = set()
 
+    # Iterate through each test case in the json data
     for test_case in data.get("test cases", []):
         is_deprecated = get_and_check(test_case, "deprecated")
         issue_ids = get_and_check(test_case, "ids", default=[])
@@ -214,33 +217,79 @@ def process_and_run_test_cases(data: Dict[str, Dict]):
             continue
 
         compile_options = get_and_check(test_case, "compile_options", nullable=True)
-        for issue_id in issue_ids:
-            only_compile = False
-            # if this issue needs to test wamrc to compile the test case first
-            if compile_options:
-                only_compile = compile_options["only compile"]
-                run_issue_test_wamrc(passed_ids, failed_ids, issue_id, compile_options)
 
-            # if this issue requires to test iwasm to run the test case
-            if not only_compile:
-                run_issue_test_iwasm(passed_ids, failed_ids, issue_id, test_case)
+        for issue_id in issue_ids:
+            if issue_id not in issue_ids_should_test:
+                json_only_ids.add(issue_id)
+                continue
 
             # cross out the this issue_id in the should test set
             issue_ids_should_test.remove(issue_id)
 
+            only_compile = False
+
+            # if this issue needs to test wamrc to compile the test case first
+            if compile_options:
+                only_compile = compile_options["only compile"]
+                compile_res = run_issue_test_wamrc(issue_id, compile_options)
+                if only_compile:
+                    if compile_res:
+                        passed_ids.add(issue_id)
+                    else:
+                        failed_ids.add(issue_id)
+                    continue
+                else:
+                    # if compile success, then continue to test iwasm
+                    if not compile_res:
+                        failed_ids.add(issue_id)
+                        continue
+
+            # if this issue requires to test iwasm to run the test case
+            if not only_compile:
+                if run_issue_test_iwasm(issue_id, test_case):
+                    passed_ids.add(issue_id)
+                else:
+                    failed_ids.add(issue_id)
+
     total = len(passed_ids) + len(failed_ids)
     passed = len(passed_ids)
     failed = len(failed_ids)
-    issue_ids_should_test = (
-        issue_ids_should_test if issue_ids_should_test else "no more"
+
+    format_issue_ids_should_test = (
+        " ".join(f"#{x}" for x in issue_ids_should_test)
+        if issue_ids_should_test
+        else "no more"
     )
+    format_json_only_ids = (
+        " ".join(f"#{x}" for x in json_only_ids) if json_only_ids else "no more"
+    )
+
+    print(f"####################################")
     print(f"==== Test results ====")
-    print(f"  Total: {total}")
+    print(f"   Total: {total}")
     print(f"  Passed: {passed}")
     print(f"  Failed: {failed}")
+    if not selected_ids:
+        print(f"  Left issues in folder: {format_issue_ids_should_test}")
+        print(f"  Cases in JSON but not found in folder: {format_json_only_ids}")
+    else:
+        print(f"  Issues not found in folder: {format_issue_ids_should_test}")
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Run BA issue tests.")
+    parser.add_argument(
+        "-i",
+        "--issues",
+        type=str,
+        help="Comma separated list of issue ids to run, e.g. 1,2,3. Default: all.",
+    )
+    args = parser.parse_args()
+
+    selected_ids = None
+    if args.issues:
+        selected_ids = [int(x) for x in args.issues.split(",") if x.strip().isdigit()]
+
     # Path to the JSON file
     file_path = "running_config.json"
 
@@ -256,7 +305,7 @@ def main():
         os.remove(LOG_FILE)
 
     # Process the data
-    process_and_run_test_cases(data)
+    process_and_run_test_cases(data, selected_ids)
 
 
 if __name__ == "__main__":

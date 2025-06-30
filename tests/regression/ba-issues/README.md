@@ -218,22 +218,57 @@ simply run `run.py`
 ./run.py
 ```
 
+Specify a specific issue with option `--issues`/`-i`
+
+```shell
+./run.py --issues 2833         # test 1 issue #2833
+./run.py -i 2833,2834,2835     # test 3 issues #2833 #2834 #2835
+```
+
 If everything went well, you should see similarly output in your command line output
 
 ```shell
-Finish testing, 22/22 of test cases passed, no more issues should further test
+==== Test results ====
+   Total: 22
+  Passed: 22
+  Failed: 0
+  Left issues in folder: no more
+  Cases in JSON but not found in folder: no more
 ```
 
 If you add the test case under directory `issues` but forget to add the running config in json file, the output can be something like
 
 ```shell
-Finish testing, 21/21 of test cases passed, {2945} issue(s) should further test
+==== Test results ====
+   Total: 21
+  Passed: 21
+  Failed: 0
+  missed: 0
+  Left issues in folder: #3022
+  Cases in JSON but not found in folder: no more
+```
+
+If you add the test case in `running_config.json` but used the wrong id or forget to add the test case under directory `issues`, the output can be someting like
+
+```shell
+==== Test results ====
+   Total: 21
+  Passed: 21
+  Failed: 0
+  missed: 0
+  Left issues in folder: #2855
+  Cases in JSON but not found in folder: #12345
 ```
 
 If some test case are failing, then it will be something like
 
 ```shell
-Finish testing, 21/22 of test cases passed, no more issue(s) should further test
+==== Test results ====
+   Total: 22
+  Passed: 21
+  Failed: 1
+  Left issues in folder: no more
+  Cases in JSON but not found in folder: no more
 ```
 
 And a log file named `issues_tests.log` will be generated and inside it will display the details of the failing cases, for example:
