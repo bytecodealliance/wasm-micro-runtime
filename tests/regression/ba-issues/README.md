@@ -229,7 +229,7 @@ If everything went well, you should see similarly output in your command line ou
 
 ```shell
 ==== Test results ====
-  Total:  22
+   Total: 22
   Passed: 22
   Failed: 0
   Left issues in folder: no more
@@ -240,7 +240,7 @@ If you add the test case under directory `issues` but forget to add the running 
 
 ```shell
 ==== Test results ====
-  Total:  21
+   Total: 21
   Passed: 21
   Failed: 0
   missed: 0
@@ -252,7 +252,7 @@ If you add the test case in `running_config.json` but used the wrong id or forge
 
 ```shell
 ==== Test results ====
-  Total:  21
+   Total: 21
   Passed: 21
   Failed: 0
   missed: 0
@@ -264,7 +264,7 @@ If some test case are failing, then it will be something like
 
 ```shell
 ==== Test results ====
-  Total:  22
+   Total: 22
   Passed: 21
   Failed: 1
   Left issues in folder: no more
