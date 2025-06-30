@@ -288,24 +288,8 @@ jobs:
           sudo swapon /swapfile
           sudo swapon --show
 
-      - name: run spec tests with retry
-        id: run_spec_tests
-        uses: nick-fields/retry@v3
-        with:
-          command: |
-            cd ./tests/wamr-test-suites
-            source /opt/intel/sgxsdk/environment
-            ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
-          max_attempts: 3
-          retry_on: error
-          shell: bash
-          timeout_minutes: 10
-
-      - name: print test results
+      - name: run spec tests
         run: |
-          echo "Test results:"
-          echo "${{ steps.run_spec_tests.outputs.stdout }}"
-          echo "${{ steps.run_spec_tests.outputs.stderr }}"
-          echo "Exit code: ${{ steps.run_spec_tests.outputs.exit_code }}"
-          echo "Exit error: ${{ steps.run_spec_tests.outputs.exit_error }}"
-        shell: bash
+          source /opt/intel/sgxsdk/environment
+          ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
+        working-directory: ./tests/wamr-test-suites
