@@ -19,8 +19,15 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
 
 if(WAMR_BUILD_TARGET STREQUAL "X86_32")
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32")
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
+  # 1) Force -m32
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32" CACHE STRING "" FORCE)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32" CACHE STRING "" FORCE)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -m32" CACHE STRING "" FORCE)
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -m32" CACHE STRING "" FORCE)
+
+  # 2) Make CMake prefer i386 libraries
+  set(CMAKE_SYSTEM_PROCESSOR i386 CACHE STRING "" FORCE)
+  set(CMAKE_LIBRARY_ARCHITECTURE "i386-linux-gnu" CACHE STRING "" FORCE)
 endif()
 
 # Prevent overriding the parent project's compiler/linker
@@ -29,12 +36,21 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
 # Fetch Google test
 include (FetchContent)
-FetchContent_Declare (
+
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.24")
+  FetchContent_Declare (
     googletest
     URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-)
-FetchContent_MakeAvailable (googletest)
+    DOWNLOAD_EXTRACT_TIMESTAMP ON
+  )
+else()
+  FetchContent_Declare (
+    googletest
+    URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+  )
+endif()
+
+FetchContent_MakeAvailable(googletest)
 
 SET(GOOGLETEST_INCLUDED 1)
 

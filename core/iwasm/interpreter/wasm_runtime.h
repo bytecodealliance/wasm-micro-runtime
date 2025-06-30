@@ -93,12 +93,21 @@ typedef union {
 } MemBound;
 
 typedef struct WASMSharedHeap {
-    struct WASMSharedHeap *next;
-    void *heap_handle;
-    uint8 *base_addr;
+    /* The global shared heap list maintained in runtime, used for runtime
+     * destroy */
+    DefPointer(struct WASMSharedHeap *, next);
+    /* The logical shared heap chain the shared heap in */
+    DefPointer(struct WASMSharedHeap *, chain_next);
+    /* Will be null if shared heap is created from pre allocated memory chunk
+     * and don't need to dynamic malloc and free */
+    DefPointer(void *, heap_handle);
+    DefPointer(uint8 *, base_addr);
     uint64 size;
     uint64 start_off_mem64;
     uint64 start_off_mem32;
+    /* The number of wasm apps it attached to, for a shared heap chain, only the
+     * list head need to maintain the valid attached_count */
+    uint8 attached_count;
 } WASMSharedHeap;
 
 struct WASMMemoryInstance {
@@ -364,8 +373,6 @@ typedef struct WASMModuleInstanceExtra {
 #endif
 
 #if WASM_ENABLE_SHARED_HEAP != 0
-    WASMSharedHeap *shared_heap;
-#if WASM_ENABLE_JIT != 0
     /*
      * Adjusted shared heap based addr to simple the calculation
      * in the aot code. The value is:
@@ -373,7 +380,8 @@ typedef struct WASMModuleInstanceExtra {
      */
     uint8 *shared_heap_base_addr_adj;
     MemBound shared_heap_start_off;
-#endif
+    MemBound shared_heap_end_off;
+    WASMSharedHeap *shared_heap;
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0                         \

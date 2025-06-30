@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include <stdio.h>
+#define NULL 0
 
 extern void *
 shared_heap_malloc(int size);
@@ -28,5 +28,19 @@ test()
         return 0;
     }
     shared_heap_free(ptr);
+    return 1;
+}
+
+int
+test_preallocated(void *app_addr)
+{
+    int *ptr = (int *)app_addr;
+    int *ptr2 = NULL;
+
+    ptr2 = test_addr_conv(ptr);
+    if (ptr2 != ptr) {
+        return 0;
+    }
+
     return 1;
 }

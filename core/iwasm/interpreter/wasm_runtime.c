@@ -2818,6 +2818,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 #else
     module_inst->e->shared_heap_start_off.u32[0] = UINT32_MAX;
 #endif
+    module_inst->e->shared_heap = NULL;
 #endif
 
 #if WASM_ENABLE_GC != 0
