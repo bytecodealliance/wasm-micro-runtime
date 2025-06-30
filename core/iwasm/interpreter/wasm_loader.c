@@ -2042,9 +2042,9 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                                       "recursive type count too large");
                         return false;
                     }
-                    module->type_count += rec_count - 1;
                     new_total_size =
-                        sizeof(WASMFuncType *) * (uint64)module->type_count;
+                        sizeof(WASMFuncType *)
+                        * (uint64)(module->type_count + rec_count - 1);
                     if (new_total_size > UINT32_MAX) {
                         set_error_buf(error_buf, error_buf_size,
                                       "allocate memory failed");
@@ -2052,6 +2052,7 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     }
                     MEM_REALLOC(module->types, (uint32)total_size,
                                 (uint32)new_total_size);
+                    module->type_count += rec_count - 1;
                     total_size = new_total_size;
                 }
 
