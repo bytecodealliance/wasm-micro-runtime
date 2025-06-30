@@ -5,7 +5,7 @@
 
 #include <stdlib.h>
 
-#include "wasi_nn_types.h"
+#include "wasi_nn_backend.h"
 #include "utils/logger.h"
 #include "llama.h"
 #include "ggml.h"
