@@ -256,17 +256,17 @@ def process_and_run_test_cases(
     failed = len(failed_ids)
 
     format_issue_ids_should_test = (
-        " ".join("#" + str(x) for x in issue_ids_should_test)
+        " ".join(f"#{x}" for x in issue_ids_should_test)
         if issue_ids_should_test
         else "no more"
     )
     format_json_only_ids = (
-        " ".join("#" + str(x) for x in json_only_ids) if json_only_ids else "no more"
+        " ".join(f"#{x}" for x in json_only_ids) if json_only_ids else "no more"
     )
 
     print(f"####################################")
     print(f"==== Test results ====")
-    print(f"  Total:  {total}")
+    print(f"   Total: {total}")
     print(f"  Passed: {passed}")
     print(f"  Failed: {failed}")
     if not selected_ids:
