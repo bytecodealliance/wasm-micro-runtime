@@ -3,11 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "wasi_nn_tensorflowlite.hpp"
 #include "utils/logger.h"
 
 #include "bh_platform.h"
-#include "wasi_nn_types.h"
+#include "wasi_nn_backend.h"
 #include "wasm_export.h"
 
 #include <tensorflow/lite/interpreter.h>

@@ -3,8 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "wasi_nn_types.h"
-#include "wasi_nn_openvino.h"
+#include "wasi_nn_backend.h"
 #include "utils/logger.h"
 #include "bh_platform.h"
 
