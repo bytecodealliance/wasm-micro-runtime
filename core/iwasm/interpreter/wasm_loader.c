@@ -2033,28 +2033,32 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             if (flag == DEFINED_TYPE_REC) {
                 read_leb_uint32(p, p_end, rec_count);
 
-                if (rec_count > 1) {
-                    uint64 new_total_size;
-
-                    /* integer overflow */
-                    if (rec_count - 1 > UINT32_MAX - module->type_count) {
-                        set_error_buf(error_buf, error_buf_size,
-                                      "recursive type count too large");
-                        return false;
-                    }
-                    new_total_size =
-                        sizeof(WASMFuncType *)
-                        * (uint64)(module->type_count + rec_count - 1);
-                    if (new_total_size > UINT32_MAX) {
-                        set_error_buf(error_buf, error_buf_size,
-                                      "allocate memory failed");
-                        return false;
-                    }
-                    MEM_REALLOC(module->types, (uint32)total_size,
-                                (uint32)new_total_size);
-                    module->type_count += rec_count - 1;
-                    total_size = new_total_size;
+                if (rec_count <= 1) {
+                    set_error_buf(
+                        error_buf, error_buf_size,
+                        "recursive type count should be greater than 1");
+                    return false;
                 }
+
+                uint64 new_total_size;
+
+                /* integer overflow */
+                if (rec_count - 1 > UINT32_MAX - module->type_count) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "recursive type count too large");
+                    return false;
+                }
+                new_total_size = sizeof(WASMFuncType *)
+                                 * (uint64)(module->type_count + rec_count - 1);
+                if (new_total_size > UINT32_MAX) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "allocate memory failed");
+                    return false;
+                }
+                MEM_REALLOC(module->types, (uint32)total_size,
+                            (uint32)new_total_size);
+                module->type_count += rec_count - 1;
+                total_size = new_total_size;
 
                 LOG_VERBOSE("Processing rec group [%d-%d]",
                             processed_type_count,
