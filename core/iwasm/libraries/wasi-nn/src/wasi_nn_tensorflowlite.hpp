@@ -32,7 +32,7 @@ compute(void *tflite_ctx, graph_execution_context ctx);
 
 __attribute__((visibility("default"))) wasi_nn_error
 get_output(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
-           tensor_data output_tensor, uint32_t *output_tensor_size);
+           tensor_data *output_tensor, uint32_t *output_tensor_size);
 
 __attribute__((visibility("default"))) wasi_nn_error
 init_backend(void **tflite_ctx);

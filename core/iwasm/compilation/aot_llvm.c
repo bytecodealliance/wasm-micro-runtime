@@ -3207,6 +3207,21 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
 
 #if WASM_ENABLE_WAMR_COMPILER != 0
     WASMModule *wasm_module = (WASMModule *)comp_data->wasm_module;
+    bool is_memory64 = false;
+
+    /* TODO: multi-memories for now assuming the memory64 flag of a memory is
+     * consistent across multi-memories */
+    if (wasm_module->import_memory_count > 0)
+        is_memory64 = !!(wasm_module->import_memories[0].u.memory.mem_type.flags
+                         & MEMORY64_FLAG);
+    else if (wasm_module->memory_count > 0)
+        is_memory64 = !!(wasm_module->memories[0].flags & MEMORY64_FLAG);
+
+    if (!(option->bounds_checks == 1 || option->bounds_checks == 0)
+        && is_memory64) {
+        /* For memory64, the boundary check default value is true */
+        comp_ctx->enable_bound_check = true;
+    }
 
     /* Return error if SIMD is disabled by command line but SIMD instructions
      * are used */
@@ -3987,7 +4002,7 @@ aot_get_func_from_table(const AOTCompContext *comp_ctx, LLVMValueRef base,
 
     if (!(func =
               LLVMBuildBitCast(comp_ctx->builder, func, func_type, "func"))) {
-        aot_set_last_error("cast function fialed.");
+        aot_set_last_error("cast function failed.");
         goto fail;
     }
 
@@ -4056,7 +4071,7 @@ aot_load_const_from_table(AOTCompContext *comp_ctx, LLVMValueRef base,
 
     if (!(const_addr = LLVMBuildBitCast(comp_ctx->builder, const_addr,
                                         const_ptr_type, "const_addr"))) {
-        aot_set_last_error("cast const fialed.");
+        aot_set_last_error("cast const failed.");
         return NULL;
     }
 

@@ -175,6 +175,19 @@ process_wasm_global(WASMGDBServer *server, char *args)
     os_mutex_unlock(&tmpbuf_lock);
 }
 
+/* TODO: let server send an empty/error reply.
+   Original issue: 4265
+   Not tested yet, but it should work.
+ */
+static void
+send_reply(WASMGDBServer *server, const char *err)
+{
+    if (!err || !*err)
+        write_packet(server, "");
+    else
+        write_packet(server, err);
+}
+
 void
 handle_general_query(WASMGDBServer *server, char *payload)
 {
@@ -214,6 +227,7 @@ handle_general_query(WASMGDBServer *server, char *payload)
 
         if (!args) {
             LOG_ERROR("payload parse error during handle_general_query");
+            send_reply(server, "");
             return;
         }
 
@@ -384,7 +398,7 @@ send_thread_stop_status(WASMGDBServer *server, uint32 status, korp_tid tid)
     if (status == 0) {
         os_mutex_lock(&tmpbuf_lock);
         (void)snprintf(tmpbuf, MAX_PACKET_SIZE, "W%02" PRIx32, status);
-        write_packet(server, tmpbuf);
+        send_reply(server, tmpbuf);
         os_mutex_unlock(&tmpbuf_lock);
         return;
     }
@@ -403,6 +417,7 @@ send_thread_stop_status(WASMGDBServer *server, uint32 status, korp_tid tid)
                    "T%02" PRIx32 "thread:%" PRIx64 ";name:%s;", gdb_status,
                    (uint64)(uintptr_t)tid, "nobody");
     if (len < 0 || len >= MAX_PACKET_SIZE) {
+        send_reply(server, "E01");
         os_mutex_unlock(&tmpbuf_lock);
         return;
     }
@@ -410,6 +425,7 @@ send_thread_stop_status(WASMGDBServer *server, uint32 status, korp_tid tid)
     if (tids_count > 0) {
         int n = snprintf(tmpbuf + len, MAX_PACKET_SIZE - len, "threads:");
         if (n < 0 || n >= MAX_PACKET_SIZE - len) {
+            send_reply(server, "E01");
             os_mutex_unlock(&tmpbuf_lock);
             return;
         }
@@ -426,6 +442,7 @@ send_thread_stop_status(WASMGDBServer *server, uint32 status, korp_tid tid)
             }
 
             if (n < 0 || n >= MAX_PACKET_SIZE - len) {
+                send_reply(server, "E01");
                 os_mutex_unlock(&tmpbuf_lock);
                 return;
             }
@@ -452,6 +469,7 @@ send_thread_stop_status(WASMGDBServer *server, uint32 status, korp_tid tid)
                      "thread-pcs:%" PRIx64 ";00:%s;reason:%s;description:", pc,
                      pc_string, "exception");
         if (n < 0 || n >= MAX_PACKET_SIZE - len) {
+            send_reply(server, "E01");
             os_mutex_unlock(&tmpbuf_lock);
             return;
         }
@@ -462,6 +480,7 @@ send_thread_stop_status(WASMGDBServer *server, uint32 status, korp_tid tid)
             n = snprintf(tmpbuf + len, MAX_PACKET_SIZE - len, "%02x",
                          exception[i]);
             if (n < 0 || n >= MAX_PACKET_SIZE - len) {
+                send_reply(server, "E01");
                 os_mutex_unlock(&tmpbuf_lock);
                 return;
             }
@@ -592,7 +611,7 @@ handle_get_register(WASMGDBServer *server, char *payload)
     int32 i = strtol(payload, NULL, 16);
 
     if (i != 0) {
-        write_packet(server, "E01");
+        send_reply(server, "E01");
         return;
     }
     regdata = wasm_debug_instance_get_pc(
@@ -748,7 +767,7 @@ handle_add_break(WASMGDBServer *server, char *payload)
     if ((arg_c = sscanf(payload, "%zx,%" SCNx64 ",%zx", &type, &addr, &length))
         != 3) {
         LOG_ERROR("Unsupported number of add break arguments %d", arg_c);
-        write_packet(server, "");
+        send_reply(server, "");
         return;
     }
 
@@ -783,7 +802,7 @@ handle_remove_break(WASMGDBServer *server, char *payload)
     if ((arg_c = sscanf(payload, "%zx,%" SCNx64 ",%zx", &type, &addr, &length))
         != 3) {
         LOG_ERROR("Unsupported number of remove break arguments %d", arg_c);
-        write_packet(server, "");
+        send_reply(server, "");
         return;
     }
 
@@ -835,6 +854,7 @@ handle_malloc(WASMGDBServer *server, char *payload)
     }
     else {
         LOG_ERROR("Payload parse error during handle malloc");
+        send_reply(server, "");
         return;
     }
 

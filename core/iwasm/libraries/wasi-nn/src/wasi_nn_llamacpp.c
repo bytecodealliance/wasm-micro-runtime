@@ -2,6 +2,9 @@
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
+
+#include <stdlib.h>
+
 #include "wasi_nn_types.h"
 #include "utils/logger.h"
 #include "llama.h"
@@ -286,7 +289,7 @@ deinit_backend(void *ctx)
 
     llama_backend_free();
 
-    os_free(backend_ctx);
+    free(backend_ctx);
     return success;
 }
 
@@ -381,18 +384,18 @@ set_input(void *ctx, graph_execution_context exec_ctx, uint32_t index,
           tensor *wasi_nn_tensor)
 {
     struct LlamaContext *backend_ctx = (struct LlamaContext *)ctx;
-    // tensor->data is the prompt string. ends with \0
-    char *prompt_text = (char *)wasi_nn_tensor->data;
+    // tensor->data is the prompt string.
+    char *prompt_text = (char *)wasi_nn_tensor->data.buf;
+    uint32_t prompt_text_len = wasi_nn_tensor->data.size;
 
 #ifndef NDEBUG
     NN_DBG_PRINTF("--------------------------------------------------");
-    NN_DBG_PRINTF("prompt_text: %s", prompt_text);
+    NN_DBG_PRINTF("prompt_text: %.*s", (int)prompt_text_len, prompt_text);
     NN_DBG_PRINTF("--------------------------------------------------");
 #endif
 
     // tokenize the prompt
     uint32_t n_token_max = llama_n_ctx(backend_ctx->ctx);
-    uint32_t prompt_text_len = strlen(prompt_text);
 
     if (backend_ctx->prompt == NULL) {
         backend_ctx->prompt = calloc(n_token_max, sizeof(llama_token));
@@ -477,7 +480,6 @@ compute(void *ctx, graph_execution_context exec_ctx)
 
     // main loop
     int32_t n_cur = batch.n_tokens;
-    int n_decode = 0;
     int32_t n_vocab = llama_n_vocab(backend_ctx->model);
     llama_token_data *candidates = NULL;
 
@@ -528,7 +530,6 @@ compute(void *ctx, graph_execution_context exec_ctx)
         // push this new token for next evaluation
         llama_batch_add(&batch, new_token_id, n_cur, seq_ids,
                         sizeof(seq_ids) / sizeof(seq_ids[0]), true);
-        n_decode++;
         n_cur++;
 
         if (llama_decode(backend_ctx->ctx, batch) != 0) {
@@ -549,7 +550,7 @@ fail:
 
 __attribute__((visibility("default"))) wasi_nn_error
 get_output(void *ctx, graph_execution_context exec_ctx, uint32_t index,
-           tensor_data output_tensor, uint32_t *output_tensor_size)
+           tensor_data *output_tensor, uint32_t *output_tensor_size)
 {
     struct LlamaContext *backend_ctx = (struct LlamaContext *)ctx;
 
@@ -568,7 +569,7 @@ get_output(void *ctx, graph_execution_context exec_ctx, uint32_t index,
             printf("%s\n", output_metadata);
         }
 
-        memcpy(output_tensor, output_metadata, strlen(output_metadata));
+        memcpy(output_tensor->buf, output_metadata, strlen(output_metadata));
         *output_tensor_size = strlen(output_metadata);
         return success;
     }
@@ -588,7 +589,7 @@ get_output(void *ctx, graph_execution_context exec_ctx, uint32_t index,
             printf("%s", buf);
         }
 
-        memcpy(output_tensor + end_pos, buf, strlen(buf));
+        memcpy(output_tensor->buf + end_pos, buf, strlen(buf));
         end_pos += strlen(buf);
     }
 

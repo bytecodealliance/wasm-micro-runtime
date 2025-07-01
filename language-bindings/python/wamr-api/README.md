@@ -6,7 +6,7 @@
 
 ### Pre-requisites
 #### Install requirements
-Before proceeding it is necessary to make sure your Python environment is correctly configured. To do ths open a terminal session in this directory and perfom the following:
+Before proceeding it is necessary to make sure your Python environment is correctly configured. To do this open a terminal session in this directory and perform the following:
 
 
 ```shell
