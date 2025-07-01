@@ -143,7 +143,7 @@ print_model_input_output_info(ov_model_t *model)
         output_port = NULL;
     }
 
-    ov_error = ov_error;
+    (void)ov_error;
 fail:
     if (friendly_name)
         ov_free(friendly_name);
