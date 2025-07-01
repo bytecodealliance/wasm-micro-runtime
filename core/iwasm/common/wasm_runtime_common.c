@@ -7886,12 +7886,10 @@ wasm_runtime_is_underlying_binary_freeable(WASMModuleCommon *const module)
 
 #if WASM_ENABLE_SHARED_HEAP != 0
 bool
-wasm_runtime_update_last_used_shared_heap(WASMModuleInstanceCommon *module_inst,
-                                          uintptr_t app_offset, size_t bytes,
-                                          uintptr_t *shared_heap_start_off_p,
-                                          uintptr_t *shared_heap_end_off_p,
-                                          uint8 **shared_heap_base_addr_adj_p,
-                                          bool is_memory64)
+wasm_runtime_check_and_update_last_used_shared_heap(
+    WASMModuleInstanceCommon *module_inst, uintptr_t app_offset, size_t bytes,
+    uintptr_t *shared_heap_start_off_p, uintptr_t *shared_heap_end_off_p,
+    uint8 **shared_heap_base_addr_adj_p, bool is_memory64)
 {
     WASMSharedHeap *heap = wasm_runtime_get_shared_heap(module_inst), *cur;
     uint64 shared_heap_start, shared_heap_end;
@@ -7906,9 +7904,8 @@ wasm_runtime_update_last_used_shared_heap(WASMModuleInstanceCommon *module_inst,
         shared_heap_start =
             is_memory64 ? cur->start_off_mem64 : cur->start_off_mem32;
         shared_heap_end = shared_heap_start - 1 + cur->size;
-        if (app_offset >= shared_heap_start
-            && app_offset <= shared_heap_end - bytes + 1
-            && bytes - 1 <= shared_heap_end) {
+        if (bytes - 1 <= shared_heap_end && app_offset >= shared_heap_start
+            && app_offset <= shared_heap_end - bytes + 1) {
             *shared_heap_start_off_p = (uintptr_t)shared_heap_start;
             *shared_heap_end_off_p = (uintptr_t)shared_heap_end;
             *shared_heap_base_addr_adj_p =

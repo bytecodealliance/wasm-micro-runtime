@@ -24,7 +24,7 @@ produce_data(wasm_module_inst_t module_inst, wasm_exec_env_t exec_env,
                wasm_runtime_get_exception(module_inst));
         return false;
     }
-    if (free_on_fail && argv[0] == 0) {
+    if (argv[0] == 0) {
         printf("Failed to allocate memory from shared heap\n");
         return false;
     }
