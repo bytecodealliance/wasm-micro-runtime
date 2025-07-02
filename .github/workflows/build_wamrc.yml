@@ -23,7 +23,7 @@ on:
         type: string
         required: true
       upload_url:
-        description: upload binary assets to the URL of release
+        description: a semantic version number. it is required when `release` is true.
         type: string
         required: false
       ver_num:
