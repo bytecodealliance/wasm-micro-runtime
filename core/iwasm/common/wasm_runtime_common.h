@@ -612,6 +612,10 @@ WASMExecEnv *
 wasm_runtime_get_exec_env_tls(void);
 #endif
 
+struct InstantiationArgs2 {
+    InstantiationArgs v1;
+};
+
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_init(void);
@@ -699,6 +703,40 @@ WASM_RUNTIME_API_EXTERN WASMModuleInstanceCommon *
 wasm_runtime_instantiate_ex(WASMModuleCommon *module,
                             const InstantiationArgs *args, char *error_buf,
                             uint32 error_buf_size);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN
+bool
+wasm_runtime_instantiation_args_create(struct InstantiationArgs2 **p);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN
+void
+wasm_runtime_instantiation_args_destroy(struct InstantiationArgs2 *p);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN
+void
+wasm_runtime_instantiation_args_set_default_stack_size(
+    struct InstantiationArgs2 *p, uint32 v);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN
+void
+wasm_runtime_instantiation_args_set_host_managed_heap_size(
+    struct InstantiationArgs2 *p, uint32 v);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN
+void
+wasm_runtime_instantiation_args_set_max_memory_pages(
+    struct InstantiationArgs2 *p, uint32 v);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN WASMModuleInstanceCommon *
+wasm_runtime_instantiate_ex2(WASMModuleCommon *module,
+                             const struct InstantiationArgs2 *args,
+                             char *error_buf, uint32 error_buf_size);
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool
