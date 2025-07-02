@@ -99,7 +99,8 @@ graph_builder_array_app_native(wasm_module_inst_t instance,
 
 static wasi_nn_error
 tensor_data_app_native(wasm_module_inst_t instance, uint32_t total_elements,
-                       tensor_wasm *input_tensor_wasm, tensor_data *data)
+                       tensor_wasm *input_tensor_wasm, void **data,
+                       uint32_t *size)
 {
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
 #define data_size input_tensor_wasm->data_size
@@ -113,8 +114,9 @@ tensor_data_app_native(wasm_module_inst_t instance, uint32_t total_elements,
         NN_ERR_PRINTF("input_tensor_wasm->data_offset is invalid");
         return invalid_argument;
     }
-    *data = (tensor_data)wasm_runtime_addr_app_to_native(
+    *data = wasm_runtime_addr_app_to_native(
         instance, (uint64)input_tensor_wasm->data_offset);
+    *size = data_size;
     return success;
 #undef data_size
 }
@@ -188,16 +190,19 @@ tensor_app_native(wasm_module_inst_t instance, tensor_wasm *input_tensor_wasm,
     NN_DBG_PRINTF("Tensor type: %d", input_tensor_wasm->type);
     NN_DBG_PRINTF("Total number of elements: %d", total_elements);
 
-    tensor_data data = NULL;
+    void *data = NULL;
+    uint32_t datasize;
     if (success
-        != (res = tensor_data_app_native(instance, total_elements,
-                                         input_tensor_wasm, &data))) {
+        != (res =
+                tensor_data_app_native(instance, total_elements,
+                                       input_tensor_wasm, &data, &datasize))) {
         wasm_runtime_free(dimensions);
         return res;
     }
 
     input_tensor->type = input_tensor_wasm->type;
     input_tensor->dimensions = dimensions;
-    input_tensor->data = data;
+    input_tensor->data.buf = data;
+    input_tensor->data.size = datasize;
     return success;
 }

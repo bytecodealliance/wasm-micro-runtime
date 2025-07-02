@@ -48,7 +48,7 @@ typedef struct AOTSymbolList {
 } AOTSymbolList;
 
 /* AOT object data */
-typedef struct AOTObjectData {
+struct AOTObjectData {
     AOTCompContext *comp_ctx;
 
     LLVMMemoryBufferRef mem_buf;
@@ -82,7 +82,7 @@ typedef struct AOTObjectData {
     const char *stack_sizes_section_name;
     uint32 stack_sizes_offset;
     uint32 *stack_sizes;
-} AOTObjectData;
+};
 
 #if 0
 static void dump_buf(uint8 *buf, uint32 size, char *title)
@@ -302,8 +302,8 @@ get_init_expr_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data,
 
             /* array_elem_type + type_index + len + elems */
             size += sizeof(uint32) * 3
-                    + wasm_value_type_size_internal(array_type->elem_type,
-                                                    comp_ctx->pointer_size)
+                    + (uint64)wasm_value_type_size_internal(
+                          array_type->elem_type, comp_ctx->pointer_size)
                           * value_count;
             break;
         }
@@ -3418,6 +3418,12 @@ aot_resolve_object_data_sections(AOTObjectData *obj_data)
                     }
                     bh_memcpy_s(data_section->name, size, buf, size);
                     data_section->is_name_allocated = true;
+                }
+                else if (obj_data->comp_ctx->enable_llvm_pgo
+                         && !strcmp(name, "__llvm_prf_bits")) {
+                    LOG_WARNING("__llvm_prf_bits section is not supported and "
+                                "shouldn't be used in PGO.");
+                    return false;
                 }
 
                 if (obj_data->comp_ctx->enable_llvm_pgo

@@ -139,8 +139,6 @@ typedef struct wasm_frame_t {
     uint32_t *lp;
 } WASMCApiFrame;
 
-typedef WASMCApiFrame wasm_frame_t;
-
 /* WASM section */
 typedef struct wasm_section_t {
     struct wasm_section_t *next;
@@ -904,7 +902,7 @@ wasm_runtime_destroy_exec_env(wasm_exec_env_t exec_env);
  * @return number of copied frames
  */
 WASM_RUNTIME_API_EXTERN uint32_t
-wasm_copy_callstack(const wasm_exec_env_t exec_env, wasm_frame_t *buffer,
+wasm_copy_callstack(const wasm_exec_env_t exec_env, WASMCApiFrame *buffer,
                     const uint32_t length, const uint32_t skip_n,
                     char *error_buf, uint32_t error_buf_size);
 

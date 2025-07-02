@@ -353,12 +353,12 @@ writable and needs to be copied into a ctype array.
 
 #### variable arguments
 
-A function with _variable arugments_ makes it hard to specify the required
+A function with _variable arguments_ makes it hard to specify the required
 argument types for the function prototype. It leaves us one way to call it
 directly without any arguments type checking.
 
 ```python
-libc.printf(b"Hello, an int %d, a float %f, a string %s\n", c_int(1), c_doulbe(3.14), "World!")
+libc.printf(b"Hello, an int %d, a float %f, a string %s\n", c_int(1), c_double(3.14), "World!")
 ```
 
 #### Use `c_bool` to represent `wasm_mutability_t `
@@ -373,7 +373,7 @@ libc.printf(b"Hello, an int %d, a float %f, a string %s\n", c_int(1), c_doulbe(3
 
 ### bindgen.py
 
-`bindge.py` is a tool to create WAMR python binding automatically. `binding.py`
+`bindgen.py` is a tool to create WAMR python binding automatically. `binding.py`
 is generated. We should avoid modification on it. Additional helpers should go
 to `ffi.py`.
 

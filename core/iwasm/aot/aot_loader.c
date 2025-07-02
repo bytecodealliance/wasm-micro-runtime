@@ -1332,6 +1332,13 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             read_uint32(buf, buf_end, type_idx);
             read_uint32(buf, buf_end, length);
 
+            if (type_idx >= module->type_count
+                || !wasm_type_is_array_type(module->types[type_idx])) {
+                set_error_buf(error_buf, error_buf_size,
+                              "invalid or non-array type index.");
+                goto fail;
+            }
+
             if (init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT) {
                 expr->u.unary.v.array_new_default.type_index = type_idx;
                 expr->u.unary.v.array_new_default.length = length;
@@ -1778,6 +1785,12 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             (void)u8;
 
             read_uint32(buf, buf_end, j);
+#if WASM_ENABLE_AOT_VALIDATOR != 0
+            if (j >= module->type_count) {
+                set_error_buf(error_buf, error_buf_size, "invalid type index");
+                goto fail;
+            }
+#endif
             if (module->types[j]->ref_count == UINT16_MAX) {
                 set_error_buf(error_buf, error_buf_size,
                               "wasm type's ref count too large");
@@ -2041,6 +2054,13 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                 AOTType *cur_type = module->types[j];
                 parent_type_idx = cur_type->parent_type_idx;
                 if (parent_type_idx != (uint32)-1) { /* has parent */
+#if WASM_ENABLE_AOT_VALIDATOR != 0
+                    if (parent_type_idx >= module->type_count) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "invalid parent type index");
+                        goto fail;
+                    }
+#endif
                     AOTType *parent_type = module->types[parent_type_idx];
 
                     module->types[j]->parent_type = parent_type;
@@ -2064,6 +2084,13 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                 AOTType *cur_type = module->types[j];
                 parent_type_idx = cur_type->parent_type_idx;
                 if (parent_type_idx != (uint32)-1) { /* has parent */
+#if WASM_ENABLE_AOT_VALIDATOR != 0
+                    if (parent_type_idx >= module->type_count) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "invalid parent type index");
+                        goto fail;
+                    }
+#endif
                     AOTType *parent_type = module->types[parent_type_idx];
                     /* subtyping has been checked during compilation */
                     bh_assert(wasm_type_is_subtype_of(
@@ -3378,7 +3405,7 @@ do_data_relocation(AOTModule *module, AOTRelocationGroup *group,
     uint8 *data_addr;
     uint32 data_size = 0, i;
     AOTRelocation *relocation = group->relocations;
-    void *symbol_addr;
+    void *symbol_addr = NULL;
     char *symbol, *data_section_name;
 
     if (!strncmp(group->section_name, ".rela.", 6)) {

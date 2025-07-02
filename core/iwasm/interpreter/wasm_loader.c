@@ -1001,10 +1001,10 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
             {
                 uint8 type1;
 
+#if WASM_ENABLE_GC == 0
                 CHECK_BUF(p, p_end, 1);
                 type1 = read_uint8(p);
 
-#if WASM_ENABLE_GC == 0
                 cur_value.ref_index = NULL_REF;
                 if (!push_const_expr_stack(&const_expr_ctx, flag, type1,
                                            &cur_value,
@@ -1014,9 +1014,14 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                            error_buf, error_buf_size))
                     goto fail;
 #else
+                int32 heap_type;
+                read_leb_int32(p, p_end, heap_type);
+                type1 = (uint8)((int32)0x80 + heap_type);
+
                 cur_value.gc_obj = NULL_REF;
 
                 if (!is_byte_a_type(type1)
+                    || !wasm_is_valid_heap_type(heap_type)
                     || wasm_is_type_multi_byte_type(type1)) {
                     p--;
                     read_leb_uint32(p, p_end, type_idx);
@@ -2267,9 +2272,9 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                                       "recursive type count too large");
                         return false;
                     }
-                    module->type_count += rec_count - 1;
                     new_total_size =
-                        sizeof(WASMFuncType *) * (uint64)module->type_count;
+                        sizeof(WASMFuncType *)
+                        * (uint64)(module->type_count + rec_count - 1);
                     if (new_total_size > UINT32_MAX) {
                         set_error_buf(error_buf, error_buf_size,
                                       "allocate memory failed");
@@ -2277,6 +2282,7 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     }
                     MEM_REALLOC(module->types, (uint32)total_size,
                                 (uint32)new_total_size);
+                    module->type_count += rec_count - 1;
                     total_size = new_total_size;
                 }
 
@@ -2813,7 +2819,8 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
                             error_buf_size)) {
         return false;
     }
-    if (wasm_is_reftype_htref_non_nullable(ref_type.ref_type)) {
+    if (!wasm_is_type_reftype(ref_type.ref_type)
+        || wasm_is_reftype_htref_non_nullable(ref_type.ref_type)) {
         set_error_buf(error_buf, error_buf_size, "type mismatch");
         return false;
     }
@@ -3339,6 +3346,15 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
                             error_buf_size)) {
         return false;
     }
+    /*
+     * TODO: add this validator
+     *   `wasm_is_reftype_htref_non_nullable(ref_type.ref_type)`
+     * after sync up with the latest GC spec
+     */
+    if (!wasm_is_type_reftype(ref_type.ref_type)) {
+        set_error_buf(error_buf, error_buf_size, "type mismatch");
+        return false;
+    }
     table->table_type.elem_type = ref_type.ref_type;
     if (need_ref_type_map) {
         if (!(table->table_type.elem_ref_type =
@@ -3566,7 +3582,8 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     /* valtype */
                     CHECK_BUF(p, p_end, 1);
                     global_type = read_uint8(p);
-                    if (wasm_is_reftype_htref_nullable(global_type)) {
+                    if (wasm_is_reftype_htref_nullable(global_type)
+                        || wasm_is_reftype_htref_non_nullable(global_type)) {
                         int32 heap_type;
                         read_leb_int32(p, p_end, heap_type);
                         (void)heap_type;
@@ -3927,7 +3944,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
              * we shall make a copy of code body [p_code, p_code + code_size]
              * when we are worrying about inappropriate releasing behaviour.
              * all code bodies are actually in a buffer which user allocates in
-             * his embedding environment and we don't have power on them.
+             * their embedding environment and we don't have power over them.
              * it will be like:
              * code_body_cp = malloc(code_size);
              * memcpy(code_body_cp, p_code, code_size);
@@ -15253,8 +15270,6 @@ re_scan:
                     case WASM_OP_STRING_NEW_LOSSY_UTF8:
                     case WASM_OP_STRING_NEW_WTF8:
                     {
-                        uint32 memidx;
-
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
 #endif
@@ -15266,7 +15281,6 @@ re_scan:
                         POP_I32();
                         POP_I32();
                         PUSH_REF(REF_TYPE_STRINGREF);
-                        (void)memidx;
                         break;
                     }
                     case WASM_OP_STRING_CONST:
@@ -15294,8 +15308,6 @@ re_scan:
                     case WASM_OP_STRING_ENCODE_LOSSY_UTF8:
                     case WASM_OP_STRING_ENCODE_WTF8:
                     {
-                        uint32 memidx;
-
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
 #endif
@@ -15307,7 +15319,6 @@ re_scan:
                         POP_I32();
                         POP_STRINGREF();
                         PUSH_I32();
-                        (void)memidx;
                         break;
                     }
                     case WASM_OP_STRING_CONCAT:
@@ -15348,8 +15359,6 @@ re_scan:
                     case WASM_OP_STRINGVIEW_WTF8_ENCODE_LOSSY_UTF8:
                     case WASM_OP_STRINGVIEW_WTF8_ENCODE_WTF8:
                     {
-                        uint32 memidx;
-
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
 #endif
@@ -15364,7 +15373,6 @@ re_scan:
                         POP_REF(REF_TYPE_STRINGVIEWWTF8);
                         PUSH_I32();
                         PUSH_I32();
-                        (void)memidx;
                         break;
                     }
                     case WASM_OP_STRINGVIEW_WTF8_SLICE:
@@ -15396,8 +15404,6 @@ re_scan:
                     }
                     case WASM_OP_STRINGVIEW_WTF16_ENCODE:
                     {
-                        uint32 memidx;
-
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
 #endif
@@ -15411,7 +15417,6 @@ re_scan:
                         POP_I32();
                         POP_REF(REF_TYPE_STRINGVIEWWTF16);
                         PUSH_I32();
-                        (void)memidx;
                         break;
                     }
                     case WASM_OP_STRINGVIEW_WTF16_SLICE:

@@ -9,7 +9,12 @@
 #include "wasi_nn_types.h"
 #include "wasm_export.h"
 
+#include "bh_platform.h"
+
 typedef struct {
+    korp_mutex lock;
+    bool busy;
+    bool is_backend_ctx_initialized;
     bool is_model_loaded;
     graph_encoding backend;
     void *backend_ctx;
@@ -27,7 +32,7 @@ typedef wasi_nn_error (*SET_INPUT)(void *, graph_execution_context, uint32_t,
                                    tensor *);
 typedef wasi_nn_error (*COMPUTE)(void *, graph_execution_context);
 typedef wasi_nn_error (*GET_OUTPUT)(void *, graph_execution_context, uint32_t,
-                                    tensor_data, uint32_t *);
+                                    tensor_data *, uint32_t *);
 /* wasi-nn general APIs */
 typedef wasi_nn_error (*BACKEND_INITIALIZE)(void **);
 typedef wasi_nn_error (*BACKEND_DEINITIALIZE)(void *);
