@@ -1366,7 +1366,8 @@ wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
 
         /* The whole string must be in the shared heap */
         str = (const char *)native_addr;
-        str_end = (const char *)shared_heap_base_addr_adj + shared_heap_end_off + 1;
+        str_end =
+            (const char *)shared_heap_base_addr_adj + shared_heap_end_off + 1;
         while (str < str_end && *str != '\0')
             str++;
         if (str == str_end) {
