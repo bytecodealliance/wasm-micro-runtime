@@ -4243,9 +4243,9 @@ aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame)
 }
 #endif /* end of WASM_ENABLE_AOT_STACK_FRAME != 0 */
 
-#if WASM_ENABLE_COPY_CALL_STACK != 0
+#if WAMR_ENABLE_COPY_CALLSTACK != 0
 uint32
-aot_copy_callstack_tiny_frame(WASMExecEnv *exec_env, WASMCApiFrame *buffer,
+aot_copy_callstack_tiny_frame(WASMExecEnv *exec_env, wasm_frame_t *buffer,
                               const uint32 length, const uint32 skip_n,
                               char *error_buf, uint32 error_buf_size)
 {
@@ -4299,7 +4299,7 @@ aot_copy_callstack_tiny_frame(WASMExecEnv *exec_env, WASMCApiFrame *buffer,
 }
 
 uint32
-aot_copy_callstack_standard_frame(WASMExecEnv *exec_env, WASMCApiFrame *buffer,
+aot_copy_callstack_standard_frame(WASMExecEnv *exec_env, wasm_frame_t *buffer,
                                   const uint32 length, const uint32 skip_n,
                                   char *error_buf, uint32_t error_buf_size)
 {
@@ -4349,7 +4349,7 @@ aot_copy_callstack_standard_frame(WASMExecEnv *exec_env, WASMCApiFrame *buffer,
 }
 
 uint32
-aot_copy_callstack(WASMExecEnv *exec_env, WASMCApiFrame *buffer,
+aot_copy_callstack(WASMExecEnv *exec_env, wasm_frame_t *buffer,
                    const uint32 length, const uint32 skip_n, char *error_buf,
                    uint32_t error_buf_size)
 {
@@ -4371,7 +4371,7 @@ aot_copy_callstack(WASMExecEnv *exec_env, WASMCApiFrame *buffer,
                                              error_buf, error_buf_size);
     }
 }
-#endif // WASM_ENABLE_COPY_CALL_STACK
+#endif // WAMR_ENABLE_COPY_CALLSTACK
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
 bool
@@ -4983,8 +4983,8 @@ aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
     }
 
     prof_header.magic = 0xFF6C70726F667281LL;
-    /* Version 9 */
-    prof_header.version = 0x0000000000000009LL;
+    /* Version 8 */
+    prof_header.version = 0x0000000000000008LL;
     /* with VARIANT_MASK_IR_PROF (IR Instrumentation) */
     prof_header.version |= 0x1ULL << 56;
     /* with VARIANT_MASK_MEMPROF (Memory Profile) */
@@ -4993,19 +4993,14 @@ aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
     prof_header.num_prof_counters = num_prof_counters;
     prof_header.names_size = prof_names_size;
     prof_header.value_kind_last = 1;
-    /* __llvm_prf_bits won't be used in PGO, set dummy value here */
-    prof_header.num_prof_bitmaps = 0;
-    prof_header.bitmap_delta = 0;
 
     if (!is_little_endian()) {
         aot_exchange_uint64((uint8 *)&prof_header.magic);
         aot_exchange_uint64((uint8 *)&prof_header.version);
         aot_exchange_uint64((uint8 *)&prof_header.num_prof_data);
         aot_exchange_uint64((uint8 *)&prof_header.num_prof_counters);
-        aot_exchange_uint64((uint8 *)&prof_header.num_prof_bitmaps);
         aot_exchange_uint64((uint8 *)&prof_header.names_size);
         aot_exchange_uint64((uint8 *)&prof_header.counters_delta);
-        aot_exchange_uint64((uint8 *)&prof_header.bitmap_delta);
         aot_exchange_uint64((uint8 *)&prof_header.value_kind_last);
     }
 
@@ -5023,23 +5018,19 @@ aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
             prof_data_64->func_md5 = prof_data->func_md5;
             prof_data_64->func_hash = prof_data->func_hash;
             prof_data_64->offset_counters = prof_data->offset_counters;
-            prof_data_64->offset_bitmaps = prof_data->offset_bitmaps;
             prof_data_64->func_ptr = prof_data->func_ptr;
             prof_data_64->values = (uint64)(uintptr_t)prof_data->values;
             prof_data_64->num_counters = prof_data->num_counters;
-            /* __llvm_prf_bits won't be used in PGO, set dummy value here */
-            prof_data_64->num_bitmaps = 0;
             prof_data_64->num_value_sites[0] = prof_data->num_value_sites[0];
             prof_data_64->num_value_sites[1] = prof_data->num_value_sites[1];
 
             if (!is_little_endian()) {
                 aot_exchange_uint64((uint8 *)&prof_data_64->func_hash);
                 aot_exchange_uint64((uint8 *)&prof_data_64->offset_counters);
-                aot_exchange_uint64((uint8 *)&prof_data_64->offset_bitmaps);
+                aot_exchange_uint64((uint8 *)&prof_data_64->offset_counters);
                 aot_exchange_uint64((uint8 *)&prof_data_64->func_ptr);
                 aot_exchange_uint64((uint8 *)&prof_data_64->values);
                 aot_exchange_uint32((uint8 *)&prof_data_64->num_counters);
-                aot_exchange_uint32((uint8 *)&prof_data_64->num_bitmaps);
                 aot_exchange_uint16((uint8 *)&prof_data_64->num_value_sites[0]);
                 aot_exchange_uint16((uint8 *)&prof_data_64->num_value_sites[1]);
             }

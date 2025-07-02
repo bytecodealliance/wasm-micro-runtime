@@ -35,8 +35,8 @@ extend_vector(Vector *vector, size_t length)
     if (length <= vector->max_elems)
         return true;
 
-    if (length < vector->max_elems * 3 / 2)
-        length = vector->max_elems * 3 / 2;
+    if (length < vector->size_elem * 3 / 2)
+        length = vector->size_elem * 3 / 2;
 
     if (!(data = alloc_vector_data(length, vector->size_elem))) {
         return false;
@@ -194,12 +194,12 @@ bh_vector_append(Vector *vector, const void *elem_buf)
         goto just_return;
     }
 
-    /* make sure one more slot is used by the thread who allocates it */
+    /* make sure one more slot is used by the thread who allocas it */
     if (vector->lock)
         os_mutex_lock(vector->lock);
 
     if (!extend_vector(vector, vector->num_elems + 1)) {
-        LOG_ERROR("Append vector elem failed: extend vector failed.\n");
+        LOG_ERROR("Append ector elem failed: extend vector failed.\n");
         goto unlock_return;
     }
 

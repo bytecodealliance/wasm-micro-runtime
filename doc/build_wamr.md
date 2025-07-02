@@ -102,7 +102,6 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 ### **Enable lib wasi-nn**
 - **WAMR_BUILD_WASI_NN**=1/0, default to disable if not set
-> Note: WAMR_BUILD_WASI_NN without WAMR_BUILD_WASI_EPHEMERAL_NN is deprecated and will likely be removed in future versions of WAMR. Please consider to enable WAMR_BUILD_WASI_EPHEMERAL_NN as well.
 > Note: See [WASI-NN](../core/iwasm/libraries/wasi-nn) for more details.
 
 ### **Enable lib wasi-nn GPU mode**
@@ -114,7 +113,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 - **WAMR_BUILD_WASI_NN_EXTERNAL_DELEGATE_PATH**=Path to the external delegate shared library (e.g. `libedgetpu.so.1.0` for Coral USB)
 
 ### **Enable lib wasi-nn with `wasi_ephemeral_nn` module support**
-- **WAMR_BUILD_WASI_EPHEMERAL_NN**=1/0, default to enable if not set
+- **WAMR_BUILD_WASI_EPHEMERAL_NN**=1/0, default to disable if not set
 
 ### **Disable boundary check with hardware trap**
 - **WAMR_DISABLE_HW_BOUND_CHECK**=1/0, default to enable if not set and supported by platform

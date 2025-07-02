@@ -758,12 +758,12 @@ wasm_runtime_create_exec_env(WASMModuleInstanceCommon *module_inst,
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_exec_env(WASMExecEnv *exec_env);
 
-#if WASM_ENABLE_COPY_CALL_STACK != 0
+#if WAMR_ENABLE_COPY_CALLSTACK != 0
 WASM_RUNTIME_API_EXTERN uint32_t
-wasm_copy_callstack(const wasm_exec_env_t exec_env, WASMCApiFrame *buffer,
+wasm_copy_callstack(const wasm_exec_env_t exec_env, wasm_frame_t *buffer,
                     const uint32 length, const uint32 skip_n, char *error_buf,
                     uint32 error_buf_size);
-#endif // WASM_ENABLE_COPY_CALL_STACK
+#endif // WAMR_ENABLE_COPY_CALLSTACK
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN WASMModuleInstanceCommon *

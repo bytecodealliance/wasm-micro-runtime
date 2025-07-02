@@ -1743,9 +1743,9 @@ wasm_runtime_destroy_exec_env(WASMExecEnv *exec_env)
     wasm_exec_env_destroy(exec_env);
 }
 
-#if WASM_ENABLE_COPY_CALL_STACK != 0
+#if WAMR_ENABLE_COPY_CALLSTACK != 0
 uint32
-wasm_copy_callstack(const wasm_exec_env_t exec_env, WASMCApiFrame *buffer,
+wasm_copy_callstack(const wasm_exec_env_t exec_env, wasm_frame_t *buffer,
                     const uint32 length, const uint32 skip_n, char *error_buf,
                     uint32_t error_buf_size)
 {
@@ -1780,7 +1780,7 @@ wasm_copy_callstack(const wasm_exec_env_t exec_env, WASMCApiFrame *buffer,
     strncpy(error_buf, err_msg, error_buf_size);
     return 0;
 }
-#endif // WASM_ENABLE_COPY_CALL_STACK
+#endif // WAMR_ENABLE_COPY_CALLSTACK
 
 bool
 wasm_runtime_init_thread_env(void)
