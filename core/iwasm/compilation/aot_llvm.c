@@ -1648,9 +1648,10 @@ create_shared_heap_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     /* if there is attached shared heap(s), the value will be valid start_off-1,
      * otherwise it will be UINT32_MAX/UINT64_MAX, so during the bounds checks,
-     * when has attached shared heap: offset > start_off - 1 => offset >= offset
-     * when no attached shared heap: offset > UINT32_MAX/UINT64_MAX is always
-     * false
+     * when has attached shared heap:
+     *   offset > start_off - 1 => offset >= start_off
+     * when no attached shared heap:
+     *   offset > UINT32_MAX/UINT64_MAX is always false
      * */
     if (!(func_ctx->shared_heap_head_start_off = LLVMBuildSelect(
               comp_ctx->builder, cmp, shared_heap_head_start_off_minus_one,

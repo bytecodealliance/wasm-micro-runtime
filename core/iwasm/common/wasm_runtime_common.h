@@ -1338,12 +1338,10 @@ wasm_runtime_set_linux_perf(bool flag);
 
 #if WASM_ENABLE_SHARED_HEAP != 0
 bool
-wasm_runtime_update_last_used_shared_heap(WASMModuleInstanceCommon *module_inst,
-                                          uintptr_t app_offset, size_t bytes,
-                                          uintptr_t *shared_heap_start_off_p,
-                                          uintptr_t *shared_heap_end_off_p,
-                                          uint8 **shared_heap_base_addr_adj_p,
-                                          bool is_memory64);
+wasm_runtime_check_and_update_last_used_shared_heap(
+    WASMModuleInstanceCommon *module_inst, uintptr_t app_offset, size_t bytes,
+    uintptr_t *shared_heap_start_off_p, uintptr_t *shared_heap_end_off_p,
+    uint8 **shared_heap_base_addr_adj_p, bool is_memory64);
 #endif
 
 #ifdef __cplusplus

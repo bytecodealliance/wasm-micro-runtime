@@ -162,10 +162,11 @@ get_module_inst_extra_offset(AOTCompContext *comp_ctx);
  * 1. shared_heap_start_off 2. shared_heap_end_off 3. shared_heap_base_addr_adj
  */
 bool
-aot_check_shared_heap_chain(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                            LLVMBasicBlockRef check_succ,
-                            LLVMValueRef start_offset, LLVMValueRef bytes,
-                            bool is_memory64)
+aot_check_shared_heap_chain_and_update(AOTCompContext *comp_ctx,
+                                       AOTFuncContext *func_ctx,
+                                       LLVMBasicBlockRef check_succ,
+                                       LLVMValueRef start_offset,
+                                       LLVMValueRef bytes, bool is_memory64)
 {
     LLVMValueRef param_values[7], ret_value, func, value, cmp;
     LLVMTypeRef param_types[7], ret_type, func_type, func_ptr_type;
@@ -179,7 +180,7 @@ aot_check_shared_heap_chain(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[6] = INT8_TYPE;
     ret_type = INT8_TYPE;
 
-    GET_AOT_FUNCTION(wasm_runtime_update_last_used_shared_heap, 7);
+    GET_AOT_FUNCTION(wasm_runtime_check_and_update_last_used_shared_heap, 7);
 
     /* Call function */
     param_values[0] = func_ctx->aot_inst;
@@ -285,7 +286,7 @@ build_check_app_addr_in_shared_heap_chain(
     /* Use start_offset > func_ctx->shared_heap_head_start_off to test
      * start_off falls in shared heap chain memory region. The shared heap
      * chain oob will be detected in app_addr_in_shared_heap block or
-     * aot_check_shared_heap_chain function
+     * aot_check_shared_heap_chain_and_update function
      */
     BUILD_ICMP(LLVMIntUGT, start_offset, func_ctx->shared_heap_head_start_off,
                is_in_shared_heap, "shared_heap_lb_cmp");
@@ -327,9 +328,9 @@ build_shared_heap_conditional_branching(
         BUILD_COND_BR(cmp, app_addr_in_cache_shared_heap,
                       check_shared_heap_chain);
         SET_BUILD_POS(check_shared_heap_chain);
-        if (!aot_check_shared_heap_chain(comp_ctx, func_ctx,
-                                         app_addr_in_cache_shared_heap,
-                                         start_offset, bytes, is_memory64))
+        if (!aot_check_shared_heap_chain_and_update(
+                comp_ctx, func_ctx, app_addr_in_cache_shared_heap, start_offset,
+                bytes, is_memory64))
             goto fail;
     }
     return true;

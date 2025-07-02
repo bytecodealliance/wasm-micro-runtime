@@ -35,7 +35,7 @@ static bool
 load_wasm(char *wasm_file_tested, unsigned int app_heap_size,
           ret_env &ret_module_env)
 {
-    const char *wasm_file = strdup(wasm_file_tested);
+    char *wasm_file = strdup(wasm_file_tested);
     unsigned int wasm_file_size = 0;
     unsigned int stack_size = 16 * 1024, heap_size = app_heap_size;
     char error_buf[128] = { 0 };
@@ -68,8 +68,10 @@ load_wasm(char *wasm_file_tested, unsigned int app_heap_size,
         goto fail;
     }
 
+    free(wasm_file);
     return true;
 fail:
+    free(wasm_file);
     destroy_module_env(ret_module_env);
     return false;
 }
