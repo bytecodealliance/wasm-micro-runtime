@@ -68,6 +68,7 @@ typedef struct AOTCompOption {
     bool enable_ref_types;
     bool enable_gc;
     bool enable_aux_stack_check;
+    bool enable_extended_const;
     AOTStackFrameType aux_stack_frame_type;
     AOTCallStackFeatures call_stack_features;
     bool enable_perf_profiling;

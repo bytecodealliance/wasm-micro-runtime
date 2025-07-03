@@ -53,6 +53,7 @@ add_definitions(-DWASM_ENABLE_PERF_PROFILING=1)
 add_definitions(-DWASM_ENABLE_LOAD_CUSTOM_SECTION=1)
 add_definitions(-DWASM_ENABLE_MODULE_INST_CONTEXT=1)
 add_definitions(-DWASM_ENABLE_MEMORY64=1)
+add_definitions(-DWASM_ENABLE_EXTENDED_CONST_EXPR=1)
 
 add_definitions(-DWASM_ENABLE_GC=1)
 
