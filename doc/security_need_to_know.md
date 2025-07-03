@@ -30,4 +30,4 @@ Before reporting an issue, particularly one related to crashing, consult [the ch
 
 Upon receiving an issue, thoroughly review [the cheat sheet](https://github.com/bytecodealliance/rfcs/blob/main/accepted/what-is-considered-a-security-bug.md#cheat-sheet-is-this-bug-considered-a-security-vulnerability) to assess and _Report a security vulnerability_ if the issue is indeed a security vulnerability.
 
-Once a security issue is confirmed, please refer to [the runbook](https://github.com/bytecodealliance/rfcs/blob/main/accepted/vulnerability-response-runbook.md) for the subsequent steps to take.
+Once a security issue is confirmed, please refer to [the runbook](./security_issue_runbook.md) for the subsequent steps to take.
