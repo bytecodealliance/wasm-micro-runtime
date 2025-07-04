@@ -1517,73 +1517,154 @@ create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     return true;
 }
 
+#define BUILD_IS_NOT_NULL(value, res, name)                                \
+    do {                                                                   \
+        if (!(res = LLVMBuildIsNotNull(comp_ctx->builder, value, name))) { \
+            aot_set_last_error("llvm build is not null failed.");          \
+            goto fail;                                                     \
+        }                                                                  \
+    } while (0)
+
+#define get_module_extra_field_offset(field)                        \
+    do {                                                            \
+        offset_u32 = get_module_inst_extra_offset(comp_ctx);        \
+        if (comp_ctx->is_jit_mode)                                  \
+            offset_u32 += offsetof(WASMModuleInstanceExtra, field); \
+        else                                                        \
+            offset_u32 += offsetof(AOTModuleInstanceExtra, field);  \
+    } while (0)
+
+#define LOAD_MODULE_EXTRA_FIELD_AND_ALLOCA(field, type)                        \
+    do {                                                                       \
+        get_module_extra_field_offset(field);                                  \
+        offset = I32_CONST(offset_u32);                                        \
+        CHECK_LLVM_CONST(offset);                                              \
+        if (!(field_p = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,    \
+                                              func_ctx->aot_inst, &offset, 1,  \
+                                              #field "_p"))) {                 \
+            aot_set_last_error("llvm build inbounds gep failed");              \
+            goto fail;                                                         \
+        }                                                                      \
+        if (!(load_val =                                                       \
+                  LLVMBuildLoad2(comp_ctx->builder, type, field_p, #field))) { \
+            aot_set_last_error("llvm build load failed");                      \
+            goto fail;                                                         \
+        }                                                                      \
+        if (!(func_ctx->field =                                                \
+                  LLVMBuildAlloca(comp_ctx->builder, type, #field))) {         \
+            aot_set_last_error("llvm build alloca failed");                    \
+            goto fail;                                                         \
+        }                                                                      \
+        if (!LLVMBuildStore(comp_ctx->builder, load_val, func_ctx->field)) {   \
+            aot_set_last_error("llvm build store failed");                     \
+            goto fail;                                                         \
+        }                                                                      \
+    } while (0)
+
 static bool
 create_shared_heap_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
-    LLVMValueRef offset, base_addr_p, start_off_p, cmp;
+#if WASM_ENABLE_SHARED_HEAP != 0
+    LLVMValueRef offset, field_p, load_val, shared_heap_head_p,
+        shared_heap_head, cmp, field_p_or_default, shared_heap_head_start_off,
+        shared_heap_head_start_off_minus_one;
+    LLVMTypeRef shared_heap_offset_type;
     uint32 offset_u32;
-
-    /* Load aot_inst->e->shared_heap_base_addr_adj */
-    offset_u32 = get_module_inst_extra_offset(comp_ctx);
-#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_SHARED_HEAP != 0
-    if (comp_ctx->is_jit_mode)
-        offset_u32 +=
-            offsetof(WASMModuleInstanceExtra, shared_heap_base_addr_adj);
-    else
+#if WASM_ENABLE_MEMORY64 == 0
+    bool is_memory64 = false;
+#else
+    bool is_memory64 = IS_MEMORY64;
 #endif
-        offset_u32 +=
-            offsetof(AOTModuleInstanceExtra, shared_heap_base_addr_adj);
+
+    shared_heap_offset_type =
+        comp_ctx->pointer_size == sizeof(uint64) ? I64_TYPE : I32_TYPE;
+
+    /* shared_heap_base_addr_adj, shared_heap_start_off, and
+     * shared_heap_end_off can be updated later, use local variable to
+     * represent them */
+    LOAD_MODULE_EXTRA_FIELD_AND_ALLOCA(shared_heap_base_addr_adj,
+                                       INT8_PTR_TYPE);
+    LOAD_MODULE_EXTRA_FIELD_AND_ALLOCA(shared_heap_start_off,
+                                       shared_heap_offset_type);
+    LOAD_MODULE_EXTRA_FIELD_AND_ALLOCA(shared_heap_end_off,
+                                       shared_heap_offset_type);
+
+    /* Shared Heap head start off won't be updated, no need to alloca */
+    get_module_extra_field_offset(shared_heap);
     offset = I32_CONST(offset_u32);
     CHECK_LLVM_CONST(offset);
-
-    if (!(base_addr_p = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
-                                              func_ctx->aot_inst, &offset, 1,
-                                              "shared_heap_base_addr_adj_p"))) {
+    if (!(shared_heap_head_p = LLVMBuildInBoundsGEP2(
+              comp_ctx->builder, INT8_TYPE, func_ctx->aot_inst, &offset, 1,
+              "shared_heap_head_p"))) {
         aot_set_last_error("llvm build inbounds gep failed");
-        return false;
+        goto fail;
     }
-    if (!(func_ctx->shared_heap_base_addr_adj =
-              LLVMBuildLoad2(comp_ctx->builder, INT8_PTR_TYPE, base_addr_p,
-                             "shared_heap_base_addr_adj"))) {
+    if (!(shared_heap_head =
+              LLVMBuildLoad2(comp_ctx->builder, INT8_PTR_TYPE,
+                             shared_heap_head_p, "shared_heap_head"))) {
         aot_set_last_error("llvm build load failed");
-        return false;
+        goto fail;
     }
+    BUILD_IS_NOT_NULL(shared_heap_head, cmp, "has_shared_heap");
 
-    /* Load aot_inst->e->shared_heap_start_off */
-    offset_u32 = get_module_inst_extra_offset(comp_ctx);
-#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_SHARED_HEAP != 0
-    if (comp_ctx->is_jit_mode)
-        offset_u32 += offsetof(WASMModuleInstanceExtra, shared_heap_start_off);
-    else
-#endif
-        offset_u32 += offsetof(AOTModuleInstanceExtra, shared_heap_start_off);
+    if (is_memory64) {
+        offset_u32 = offsetof(WASMSharedHeap, start_off_mem64);
+    }
+    else {
+        offset_u32 = offsetof(WASMSharedHeap, start_off_mem32);
+    }
     offset = I32_CONST(offset_u32);
     CHECK_LLVM_CONST(offset);
-
-    if (!(start_off_p = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
-                                              func_ctx->aot_inst, &offset, 1,
-                                              "shared_heap_start_off_p"))) {
+    if (!(field_p = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
+                                          shared_heap_head, &offset, 1,
+                                          "head_start_off_p"))) {
         aot_set_last_error("llvm build inbounds gep failed");
-        return false;
+        goto fail;
     }
-    if (!(func_ctx->shared_heap_start_off = LLVMBuildLoad2(
-              comp_ctx->builder,
-              comp_ctx->pointer_size == sizeof(uint64) ? I64_TYPE : I32_TYPE,
-              start_off_p, "shared_heap_start_off"))) {
+
+    /* Select a valid shared heap head ptr or safe alloca ptr stores
+     * shared_heap_start_off(UINT32_MAX/UINT64_MAX) */
+    if (!(field_p_or_default = LLVMBuildSelect(comp_ctx->builder, cmp, field_p,
+                                               func_ctx->shared_heap_start_off,
+                                               "ptr_or_default"))) {
+        aot_set_last_error("llvm build select failed");
+        goto fail;
+    }
+
+    if (!(shared_heap_head_start_off = LLVMBuildLoad2(
+              comp_ctx->builder, shared_heap_offset_type, field_p_or_default,
+              "shared_heap_head_start_off"))) {
         aot_set_last_error("llvm build load failed");
-        return false;
+        goto fail;
+    }
+    if (!(shared_heap_head_start_off_minus_one = LLVMBuildAdd(
+              comp_ctx->builder, shared_heap_head_start_off,
+              comp_ctx->pointer_size == sizeof(uint64) ? I64_NEG_ONE
+                                                       : I32_NEG_ONE,
+              "head_start_off_minus_one"))) {
+        aot_set_last_error("llvm build load failed");
+        goto fail;
     }
 
-    if (!(cmp = LLVMBuildIsNotNull(comp_ctx->builder,
-                                   func_ctx->shared_heap_base_addr_adj,
-                                   "has_shared_heap"))) {
-        aot_set_last_error("llvm build is not null failed");
-        return false;
+    /* if there is attached shared heap(s), the value will be valid start_off-1,
+     * otherwise it will be UINT32_MAX/UINT64_MAX, so during the bounds checks,
+     * when has attached shared heap:
+     *   offset > start_off - 1 => offset >= start_off
+     * when no attached shared heap:
+     *   offset > UINT32_MAX/UINT64_MAX is always false
+     * */
+    if (!(func_ctx->shared_heap_head_start_off = LLVMBuildSelect(
+              comp_ctx->builder, cmp, shared_heap_head_start_off_minus_one,
+              shared_heap_head_start_off, "head_start_off"))) {
+        aot_set_last_error("llvm build select failed");
+        goto fail;
     }
-
     return true;
 fail:
     return false;
+#else  /* else of WASM_ENABLE_SHARED_HEAP != 0 */
+    return true;
+#endif /* end of WASM_ENABLE_SHARED_HEAP != 0 */
 }
 
 static bool
@@ -1877,7 +1958,7 @@ aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
     }
 
     /* Load shared heap, shared heap start off mem32 or mem64 */
-    if (comp_ctx->enable_shared_heap
+    if ((comp_ctx->enable_shared_heap || comp_ctx->enable_shared_chain)
         && !create_shared_heap_info(comp_ctx, func_ctx)) {
         goto fail;
     }
@@ -2702,6 +2783,9 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
 
     if (option->enable_shared_heap)
         comp_ctx->enable_shared_heap = true;
+
+    if (option->enable_shared_chain)
+        comp_ctx->enable_shared_chain = true;
 
     comp_ctx->opt_level = option->opt_level;
     comp_ctx->size_level = option->size_level;

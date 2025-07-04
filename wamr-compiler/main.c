@@ -213,7 +213,9 @@ print_help()
     printf("  --enable-linux-perf       Enable linux perf support\n");
 #endif
     printf("  --mllvm=<option>          Add the LLVM command line option\n");
-    printf("  --enable-shared-heap      Enable shared heap feature\n");
+    printf("  --enable-shared-heap      Enable shared heap feature, assuming only one shared heap will be attached\n");
+    printf("  --enable-shared-chain     Enable shared heap chain feature, works for more than one shared heap\n");
+    printf("                            WARNING: enable this feature will largely increase code size\n");
     printf("  -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log\n");
     printf("  --version                 Show version information\n");
     printf("Examples: wamrc -o test.aot test.wasm\n");
@@ -661,6 +663,9 @@ main(int argc, char *argv[])
         else if (!strcmp(argv[0], "--enable-shared-heap")) {
             option.enable_shared_heap = true;
         }
+        else if (!strcmp(argv[0], "--enable-shared-chain")) {
+            option.enable_shared_chain = true;
+        }
         else if (!strcmp(argv[0], "--version")) {
             uint32 major, minor, patch;
             wasm_runtime_get_version(&major, &minor, &patch);
@@ -721,6 +726,13 @@ main(int argc, char *argv[])
 
     if (option.enable_gc) {
         option.enable_ref_types = false;
+    }
+
+    if (option.enable_shared_chain) {
+        LOG_VERBOSE("Enable shared chain will overwrite shared heap and sw "
+                    "bounds control");
+        option.enable_shared_heap = false;
+        option.bounds_checks = true;
     }
 
     if (!use_dummy_wasm) {
