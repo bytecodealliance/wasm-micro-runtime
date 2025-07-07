@@ -46,28 +46,6 @@ typedef float64 CellType_F64;
 #define get_linear_mem_size() GET_LINEAR_MEMORY_SIZE(memory)
 #endif
 
-#if WASM_ENABLE_SHARED_HEAP != 0
-#if WASM_ENABLE_MULTI_MEMORY != 0
-/* Only enable shared heap for the default memory */
-#define is_default_memory (memidx == 0)
-#else
-#define is_default_memory true
-#endif
-#define app_addr_in_shared_heap(app_addr, bytes)                             \
-    (shared_heap && is_default_memory && (app_addr) >= shared_heap_start_off \
-     && (app_addr) <= shared_heap_end_off - bytes + 1)
-
-#define shared_heap_addr_app_to_native(app_addr, native_addr) \
-    native_addr = shared_heap_base_addr + ((app_addr)-shared_heap_start_off)
-
-#define CHECK_SHARED_HEAP_OVERFLOW(app_addr, bytes, native_addr) \
-    if (app_addr_in_shared_heap(app_addr, bytes))                \
-        shared_heap_addr_app_to_native(app_addr, native_addr);   \
-    else
-#else
-#define CHECK_SHARED_HEAP_OVERFLOW(app_addr, bytes, native_addr)
-#endif
-
 #if WASM_ENABLE_MEMORY64 == 0
 
 #if (!defined(OS_ENABLE_HW_BOUND_CHECK) \
@@ -1670,22 +1648,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     if (memory)
         is_memory64 = memory->is_memory64;
 #endif
-#if WASM_ENABLE_SHARED_HEAP != 0
-    WASMSharedHeap *shared_heap = module->e->shared_heap;
-    uint8 *shared_heap_base_addr = shared_heap ? shared_heap->base_addr : NULL;
-#if WASM_ENABLE_MEMORY64 != 0
-    uint64 shared_heap_start_off =
-        shared_heap ? (is_memory64 ? shared_heap->start_off_mem64
-                                   : shared_heap->start_off_mem32)
-                    : 0;
-    uint64 shared_heap_end_off =
-        shared_heap ? (is_memory64 ? UINT64_MAX : UINT32_MAX) : 0;
-#else
-    uint64 shared_heap_start_off =
-        shared_heap ? shared_heap->start_off_mem32 : 0;
-    uint64 shared_heap_end_off = shared_heap ? UINT32_MAX : 0;
-#endif
-#endif /* end of WASM_ENABLE_SHARED_HEAP != 0 */
 #if WASM_ENABLE_MULTI_MEMORY != 0
     uint32 memidx = 0;
     uint32 memidx_cached = (uint32)-1;
