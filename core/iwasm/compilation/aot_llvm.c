@@ -2783,7 +2783,7 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
 
     if (option->enable_shared_heap)
         comp_ctx->enable_shared_heap = true;
-  
+
     if (option->enable_shared_chain)
         comp_ctx->enable_shared_chain = true;
 
