@@ -21,7 +21,8 @@
 #include "wasm_export.h"
 
 #if WASM_ENABLE_WASI_EPHEMERAL_NN == 0
-#warning You are using "wasi_nn", which is a legacy WAMR-specific ABI. It's deperecated and will likely be removed in future versions of WAMR. Please use "wasi_ephemeral_nn" instead. (For a WASM module, use the wasi_ephemeral_nn.h header instead. For the runtime configurations, enable WASM_ENABLE_WASI_EPHEMERAL_NN/WAMR_BUILD_WASI_EPHEMERAL_NN.)
+#warning \
+    "You are using \"wasi_nn\", which is a legacy WAMR-specific ABI. It's deprecated and will likely be removed in future versions of WAMR. Please use \"wasi_ephemeral_nn\" instead. (For a WASM module, use the wasi_ephemeral_nn.h header instead. For the runtime configurations, enable WASM_ENABLE_WASI_EPHEMERAL_NN/WAMR_BUILD_WASI_EPHEMERAL_NN.)"
 #endif
 
 #define HASHMAP_INITIAL_SIZE 20
@@ -33,6 +34,7 @@
 #define TFLITE_BACKEND_LIB "libwasi_nn_tflite" LIB_EXTENTION
 #define OPENVINO_BACKEND_LIB "libwasi_nn_openvino" LIB_EXTENTION
 #define LLAMACPP_BACKEND_LIB "libwasi_nn_llamacpp" LIB_EXTENTION
+#define ONNX_BACKEND_LIB "libwasi_nn_onnx" LIB_EXTENTION
 
 /* Global variables */
 static korp_mutex wasi_nn_lock;
@@ -244,6 +246,17 @@ choose_a_backend()
     NN_WARN_PRINTF("%s", dlerror());
 #endif
 
+    handle = dlopen(ONNX_BACKEND_LIB, RTLD_LAZY);
+    if (handle) {
+        NN_INFO_PRINTF("Using onnx backend");
+        dlclose(handle);
+        return onnx;
+    }
+
+#ifndef NDEBUG
+    NN_WARN_PRINTF("%s", dlerror());
+#endif
+
     handle = dlopen(TFLITE_BACKEND_LIB, RTLD_LAZY);
     if (handle) {
         NN_INFO_PRINTF("Using tflite backend");
@@ -363,6 +376,8 @@ graph_encoding_to_backend_lib_name(graph_encoding encoding)
             return TFLITE_BACKEND_LIB;
         case ggml:
             return LLAMACPP_BACKEND_LIB;
+        case onnx:
+            return ONNX_BACKEND_LIB;
         default:
             return NULL;
     }
