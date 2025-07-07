@@ -461,6 +461,9 @@ typedef struct AOTCompContext {
     /* Enable LLVM PGO (Profile-Guided Optimization) */
     bool enable_llvm_pgo;
 
+    /* Enable extended constant expression */
+    bool enable_extended_const;
+
     /* Treat unknown import function as wasm-c-api import function
        and allow to directly invoke it from AOT/JIT code */
     bool quick_invoke_c_api_import;

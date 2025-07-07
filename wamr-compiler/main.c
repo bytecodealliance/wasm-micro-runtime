@@ -423,6 +423,7 @@ main(int argc, char *argv[])
     option.enable_bulk_memory = true;
     option.enable_ref_types = true;
     option.enable_gc = false;
+    option.enable_extended_const = false;
     aot_call_stack_features_init_default(&option.call_stack_features);
 
     /* Process options */
@@ -535,6 +536,9 @@ main(int argc, char *argv[])
         }
         else if (!strcmp(argv[0], "--disable-aux-stack-check")) {
             option.enable_aux_stack_check = false;
+        }
+        else if (!strcmp(argv[0], "--enable-extended-const")) {
+            option.enable_extended_const = true;
         }
         else if (!strcmp(argv[0], "--enable-dump-call-stack")) {
             option.aux_stack_frame_type = AOT_STACK_FRAME_TYPE_STANDARD;

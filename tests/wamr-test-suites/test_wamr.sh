@@ -41,6 +41,7 @@ function help()
     echo "-j set the platform to test"
     echo "-T set sanitizer to use in tests(ubsan|tsan|asan|posan)"
     echo "-A use the specified wamrc command instead of building it"
+    echo "-N enable extended const expression feature"
     echo "-r [requirement name] [N [N ...]] specify a requirement name followed by one or more"
     echo "                                  subrequirement IDs, if no subrequirement is specificed,"
     echo "                                  it will run all subrequirements. When this optin is used,"
@@ -59,6 +60,7 @@ ENABLE_MULTI_THREAD=0
 COLLECT_CODE_COVERAGE=0
 ENABLE_SIMD=0
 ENABLE_GC=0
+ENABLE_EXTENDED_CONST_EXPR=0
 ENABLE_MEMORY64=0
 ENABLE_MULTI_MEMORY=0
 ENABLE_XIP=0
@@ -87,7 +89,7 @@ REQUIREMENT_NAME=""
 # Initialize an empty array for subrequirement IDs
 SUBREQUIREMENT_IDS=()
 
-while getopts ":s:cabgvt:m:MCpSXexwWEPGQF:j:T:r:A:" opt
+while getopts ":s:cabgvt:m:MCpSXexwWEPGQF:j:T:r:A:N" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -190,6 +192,10 @@ do
         G)
         echo "enable GC feature"
         ENABLE_GC=1
+        ;;
+        N)
+        echo "enable extended const expression feature"
+        ENABLE_EXTENDED_CONST_EXPR=1
         ;;
         P)
         PARALLELISM=1
@@ -485,6 +491,17 @@ function spec_test()
         #     (func $f (param (ref null $t)) (result funcref) (local.get 0))
         #
         compile_reference_interpreter
+    elif [[ ${ENABLE_EXTENDED_CONST_EXPR} == 1 ]]; then
+        echo "checkout spec for extended const expression proposal"
+
+        git clone -b main --single-branch https://github.com/WebAssembly/extended-const.git spec
+        pushd spec
+
+        # Jan 14, 2025. README.md: Add note that this proposal is done (#20)
+        git reset --hard 8d4f6aa2b00a8e7c0174410028625c6a176db8a1
+        # ignore import table cases
+        git apply --ignore-whitespace ../../spec-test-script/extended_const.patch || exit 1
+        
     elif [[ ${ENABLE_MEMORY64} == 1 ]]; then
         echo "checkout spec for memory64 proposal"
 
@@ -585,6 +602,10 @@ function spec_test()
 
     if [[ ${ENABLE_GC} == 1 ]]; then
         ARGS_FOR_SPEC_TEST+="--gc "
+    fi
+
+    if [[ ${ENABLE_EXTENDED_CONST_EXPR} == 1 ]]; then
+        ARGS_FOR_SPEC_TEST+="--enable-extended-const "
     fi
 
     if [[ 1 == ${ENABLE_MEMORY64} ]]; then
@@ -832,6 +853,7 @@ function build_wamrc()
         && cmake .. \
              -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE} \
              -DWAMR_BUILD_SHRUNK_MEMORY=0 \
+             -DWAMR_BUILD_EXTENDED_CONST_EXPR=${ENABLE_EXTENDED_CONST_EXPR} \
         && make -j 4
 }
 
@@ -1021,6 +1043,10 @@ function trigger()
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_GC=1"
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_BULK_MEMORY=1"
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_TAIL_CALL=1"
+    fi
+
+    if [[ ${ENABLE_EXTENDED_CONST_EXPR} == 1 ]]; then
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_EXTENDED_CONST_EXPR=1"
     fi
 
     if [[ ${ENABLE_DEBUG_VERSION} == 1 ]]; then
