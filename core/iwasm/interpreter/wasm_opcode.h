@@ -285,6 +285,9 @@ typedef enum WASMOpcode {
     EXT_OP_COPY_STACK_TOP_V128 = 0xdf,
     WASM_OP_GET_GLOBAL_V128 = 0xe0,
     WASM_OP_SET_GLOBAL_V128 = 0xe1,
+#endif
+
+#if WASM_ENABLE_SIMD != 0
     WASM_OP_SELECT_128 = 0xe2,
 #endif
 
