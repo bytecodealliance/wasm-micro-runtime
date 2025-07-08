@@ -373,8 +373,8 @@ is_addrinfo_supported(struct addrinfo *info)
         (info->ai_family == AF_INET || info->ai_family == AF_INET6)
         // Allow only UDP and TCP
         && (info->ai_socktype == SOCK_DGRAM || info->ai_socktype == SOCK_STREAM)
-        && (info->ai_protocol == IPPROTO_TCP
-            || info->ai_protocol == IPPROTO_UDP);
+        && (info->ai_protocol == IPPROTO_TCP || info->ai_protocol == IPPROTO_UDP
+            || info->ai_protocol == 0);
 }
 
 int
