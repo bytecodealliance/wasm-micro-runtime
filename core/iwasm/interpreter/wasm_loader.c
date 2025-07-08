@@ -7601,7 +7601,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             case WASM_OP_SELECT:
             case WASM_OP_DROP_64:
             case WASM_OP_SELECT_64:
-#if WASM_ENABLE_FAST_INTERP != 0 && WASM_ENABLE_SIMD != 0
+#if WASM_ENABLE_SIMD != 0
             case WASM_OP_SELECT_128:
 #endif
                 break;
