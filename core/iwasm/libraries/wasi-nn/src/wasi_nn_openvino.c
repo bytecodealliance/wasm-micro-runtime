@@ -9,6 +9,10 @@
 
 #include "openvino/c/openvino.h"
 
+#if WASM_ENABLE_WASI_EPHEMERAL_NN == 0
+#error This backend doesn't support legacy "wasi_nn" abi. Please enable WASM_ENABLE_WASI_EPHEMERAL_NN.
+#endif
+
 /*
  * refer to
  * https://docs.openvino.ai/2024/openvino-workflow/running-inference/integrate-openvino-with-your-application.html

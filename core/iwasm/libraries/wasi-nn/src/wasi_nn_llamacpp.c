@@ -17,6 +17,10 @@ extern char const *LLAMA_COMMIT;
 extern char const *LLAMA_COMPILER;
 extern char const *LLAMA_BUILD_TARGET;
 
+#if WASM_ENABLE_WASI_EPHEMERAL_NN == 0
+#error This backend doesn't support legacy "wasi_nn" abi. Please enable WASM_ENABLE_WASI_EPHEMERAL_NN.
+#endif
+
 // compatible with WasmEdge
 // https://github.com/second-state/WasmEdge-WASINN-examples/blob/master/wasmedge-ggml/README.md#parameters
 // https://github.com/WasmEdge/WasmEdge/blob/master/plugins/wasi_nn/ggml.cpp
