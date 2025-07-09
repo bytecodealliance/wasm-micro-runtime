@@ -1057,11 +1057,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                     }
                     cur_ref_type.ref_ht_common.ref_type =
                         (uint8)((int32)0x80 + heap_type);
-                    if (!push_const_expr_stack(
-                            &const_expr_ctx, flag, cur_ref_type.ref_type, NULL,
-                            0, &cur_value, error_buf, error_buf_size))
-                    if (!push_const_expr_stack(&const_expr_ctx, flag, type1,
-                                               NULL, 0, &cur_value,
+                    if (!push_const_expr_stack(&const_expr_ctx, flag,
+                                               cur_ref_type.ref_type, NULL, 0,
+                                               &cur_value,
 #if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
                                                NULL,
 #endif
