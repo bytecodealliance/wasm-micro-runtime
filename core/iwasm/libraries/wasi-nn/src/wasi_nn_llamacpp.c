@@ -407,6 +407,11 @@ set_input(void *ctx, graph_execution_context exec_ctx, uint32_t index,
         return runtime_error;
     }
 
+    if (index != 0) {
+        NN_ERR_PRINTF("Invalid input index %d", index);
+        return invalid_argument;
+    }
+
     // tensor->data is the prompt string.
     char *prompt_text = (char *)wasi_nn_tensor->data.buf;
     uint32_t prompt_text_len = wasi_nn_tensor->data.size;
