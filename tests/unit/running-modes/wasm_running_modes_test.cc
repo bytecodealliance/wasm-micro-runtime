@@ -21,7 +21,7 @@ std::string TEST_WASM1 = "/hello.wasm";
 std::string TEST_WASM2 = "/mytest.wasm";
 char *WASM_FILE_1;
 char *WASM_FILE_2;
-std::vector<RunningMode> running_mode_supportted = { Mode_Interp,
+std::vector<RunningMode> running_mode_supported = { Mode_Interp,
 #if WASM_ENABLE_FAST_JIT != 0
                                                      Mode_Fast_JIT,
 #endif
@@ -76,7 +76,7 @@ class wasm_running_modes_test_suite : public testing::TestWithParam<RunningMode>
         return true;
 
     fail:
-        if (!module)
+        if (module)
             wasm_runtime_unload(module);
 
         return false;
@@ -101,11 +101,13 @@ class wasm_running_modes_test_suite : public testing::TestWithParam<RunningMode>
         if (exec_env)
             wasm_runtime_destroy_exec_env(exec_env);
         if (module_inst)
+            wasm_runtime_deinstantiate(module_inst);
+        if (module)
             wasm_runtime_unload(module);
         return false;
     }
 
-    void destory_exec_env()
+    void destroy_exec_env()
     {
         wasm_runtime_destroy_exec_env(exec_env);
         wasm_runtime_deinstantiate(module_inst);
@@ -139,7 +141,7 @@ class wasm_running_modes_test_suite : public testing::TestWithParam<RunningMode>
         ASSERT_TRUE(ret);
         ASSERT_EQ(10, wasm_argv[0]);
 
-        destory_exec_env();
+        destroy_exec_env();
     }
 
     void run_wasm_complex(char *filename1, char *filename2,
@@ -168,7 +170,7 @@ class wasm_running_modes_test_suite : public testing::TestWithParam<RunningMode>
         ASSERT_TRUE(ret);
         ASSERT_EQ(10, wasm_argv[0]);
 
-        destory_exec_env();
+        destroy_exec_env();
 
         /* run wasm file 2 in running_mode */
         ret = load_wasm_file(filename2);
@@ -184,7 +186,7 @@ class wasm_running_modes_test_suite : public testing::TestWithParam<RunningMode>
         ret = wasm_runtime_call_wasm(exec_env, main, 2, wasm_argv);
         ASSERT_TRUE(ret);
 
-        destory_exec_env();
+        destroy_exec_env();
     }
 
   public:
@@ -246,7 +248,7 @@ TEST_F(wasm_running_modes_test_suite, wasm_runtime_is_running_mode_supported)
     // normal situation
     ASSERT_EQ(true, wasm_runtime_is_running_mode_supported(
                         static_cast<RunningMode>(Mode_Default)));
-    for (auto running_mode : running_mode_supportted) {
+    for (auto running_mode : running_mode_supported) {
         ASSERT_EQ(true, wasm_runtime_is_running_mode_supported(running_mode));
     }
 
@@ -264,7 +266,7 @@ TEST_F(wasm_running_modes_test_suite, wasm_runtime_set_default_running_mode)
     // normal situation: only set up
     ASSERT_EQ(true, wasm_runtime_set_default_running_mode(
                         static_cast<RunningMode>(Mode_Default)));
-    for (auto running_mode : running_mode_supportted) {
+    for (auto running_mode : running_mode_supported) {
         ASSERT_EQ(true, wasm_runtime_set_default_running_mode(running_mode));
     }
 
@@ -296,13 +298,13 @@ TEST_P(wasm_running_modes_test_suite,
        wasm_runtime_set_and_get_running_mode_complex)
 {
     RunningMode default_running_mode = GetParam();
-    for (auto running_mode : running_mode_supportted) {
+    for (auto running_mode : running_mode_supported) {
         run_wasm_complex(WASM_FILE_1, WASM_FILE_2, default_running_mode,
                          running_mode);
     }
 }
 
 INSTANTIATE_TEST_CASE_P(RunningMode, wasm_running_modes_test_suite,
-                        testing::ValuesIn(running_mode_supportted));
+                        testing::ValuesIn(running_mode_supported));
 
 }

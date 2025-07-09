@@ -100,6 +100,7 @@ jobs:
             "-DWAMR_BUILD_MULTI_MODULE=1",
             "-DWAMR_BUILD_PERF_PROFILING=1",
             "-DWAMR_BUILD_REF_TYPES=1",
+            "-DWAMR_BUILD_EXTENDED_CONST_EXPR=1",
             # doesn't support
             "-DWAMR_BUILD_SIMD=0",
             "-DWAMR_BUILD_TAIL_CALL=1",
@@ -290,28 +291,6 @@ jobs:
 
       - name: run spec tests
         run: |
-          set +e
           source /opt/intel/sgxsdk/environment
-          attempts=0
-          max_attempts=3
-
-          while [ $attempts -lt $max_attempts ]; do
-            ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
-            exitcode="$?"
-
-            if [ $exitcode -eq 0 ]; then
-              echo "Spec test passed"
-              exit 0
-            elif [ $exitcode -ne 143 ]; then
-              echo "Spec test failed with error code $exitcode"
-              exit 1
-            fi
-
-            echo "$exitcode is a known GitHub-hosted runner issue"
-            echo "::notice::Re-running the spec test due to error code 143"
-            attempts=$((attempts + 1))
-          done
-
-          echo "::notice::Report an error with code 143 in SGX CI after $max_attempts attempts"
-          exit 143
+          ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites

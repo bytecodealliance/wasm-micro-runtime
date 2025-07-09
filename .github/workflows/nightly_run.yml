@@ -36,12 +36,12 @@ env:
   LLVM_EAGER_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_JIT=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0"
   MULTI_TIER_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=1"
   # For Spec Test
-  # FIXME: use binary release(adding -b) instead of building from source after upgrading to 22.04
-  DEFAULT_TEST_OPTIONS: "-s spec -P"
-  MULTI_MODULES_TEST_OPTIONS: "-s spec -M -P"
-  SIMD_TEST_OPTIONS: "-s spec -S -P"
-  THREADS_TEST_OPTIONS: "-s spec -p -P"
-  X86_32_TARGET_TEST_OPTIONS: "-m x86_32 -P"
+  DEFAULT_TEST_OPTIONS: "-s spec -b -P"
+  EXTENDED_CONST_EXPR_TEST_OPTIONS: "-s spec -b -P -N"
+  MULTI_MODULES_TEST_OPTIONS: "-s spec -b -P -M"
+  SIMD_TEST_OPTIONS: "-s spec -b -P -S"
+  THREADS_TEST_OPTIONS: "-s spec -b -P -p"
+  X86_32_TARGET_TEST_OPTIONS: "-m x86_32"
   WASI_TEST_OPTIONS: "-s wasi_certification -w"
 
 permissions:
@@ -129,6 +129,7 @@ jobs:
             "-DWAMR_BUILD_MEMORY64=1",
             "-DWAMR_BUILD_MULTI_MEMORY=1",
             "-DWAMR_BUILD_SHARED=1",
+            "-DWAMR_BUILD_EXTENDED_CONST_EXPR=1",
           ]
         os: [ubuntu-22.04]
         platform: [android, linux]
@@ -589,6 +590,7 @@ jobs:
             $DEFAULT_TEST_OPTIONS,
             $MULTI_MODULES_TEST_OPTIONS,
             $SIMD_TEST_OPTIONS,
+            $EXTENDED_CONST_EXPR_TEST_OPTIONS,
             $THREADS_TEST_OPTIONS,
             $WASI_TEST_OPTIONS,
           ]

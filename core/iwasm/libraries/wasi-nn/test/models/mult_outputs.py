@@ -3,7 +3,7 @@
 
 import tensorflow as tf
 import numpy as np
-from keras.layers import AveragePooling2D, Conv2D
+from tensorflow.keras.layers import AveragePooling2D, Conv2D
 
 from tensorflow.keras import Input, Model
 

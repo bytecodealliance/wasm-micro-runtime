@@ -121,7 +121,8 @@ wasm_init_table(WASMModuleInstance *inst, uint32 tbl_idx, uint32 seg_idx,
                               + dst_offset * sizeof(table_elem_type_t));
     init_values = tbl_seg_init_values + src_offset;
     for (i = 0; i < len; i++) {
-        addr[i] = (table_elem_type_t)(uintptr_t)init_values[+i].u.ref_index;
+        addr[i] =
+            (table_elem_type_t)(uintptr_t)init_values[+i].u.unary.v.ref_index;
     }
 
     return 0;

@@ -41,22 +41,6 @@ typedef float64 CellType_F64;
 #define get_linear_mem_size() GET_LINEAR_MEMORY_SIZE(memory)
 #endif
 
-#if WASM_ENABLE_SHARED_HEAP != 0
-#define app_addr_in_shared_heap(app_addr, bytes)        \
-    (shared_heap && (app_addr) >= shared_heap_start_off \
-     && (app_addr) <= shared_heap_end_off - bytes + 1)
-
-#define shared_heap_addr_app_to_native(app_addr, native_addr) \
-    native_addr = shared_heap_base_addr + ((app_addr)-shared_heap_start_off)
-
-#define CHECK_SHARED_HEAP_OVERFLOW(app_addr, bytes, native_addr) \
-    if (app_addr_in_shared_heap(app_addr, bytes))                \
-        shared_heap_addr_app_to_native(app_addr, native_addr);   \
-    else
-#else
-#define CHECK_SHARED_HEAP_OVERFLOW(app_addr, bytes, native_addr)
-#endif
-
 #if !defined(OS_ENABLE_HW_BOUND_CHECK) \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
 #define CHECK_MEMORY_OVERFLOW(bytes)                                           \
@@ -1590,21 +1574,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     bool is_return_call = false;
 #endif
 #if WASM_ENABLE_SHARED_HEAP != 0
-    WASMSharedHeap *shared_heap = module->e ? module->e->shared_heap : NULL;
-    uint8 *shared_heap_base_addr = shared_heap ? shared_heap->base_addr : NULL;
-    /*
-#if WASM_ENABLE_MEMORY64 != 0
-    uint64 shared_heap_start_off =
-        shared_heap ? (is_memory64 ? shared_heap->start_off_mem64
-                                   : shared_heap->start_off_mem32)
-                    : 0;
-    uint64 shared_heap_end_off =
-        shared_heap ? (is_memory64 ? UINT64_MAX : UINT32_MAX) : 0;
-#else
-    */ /* TODO: uncomment the code when memory64 is enabled for fast-interp */
-    uint64 shared_heap_start_off =
-        shared_heap ? shared_heap->start_off_mem32 : 0;
-    uint64 shared_heap_end_off = shared_heap ? UINT32_MAX : 0;
+    /* TODO: currently flowing two variables are only dummy for shared heap
+     * boundary check, need to be updated when multi-memory or memory64
+     * proposals are to be implemented */
+    bool is_memory64 = false;
+    uint32 memidx = 0;
+    (void)is_memory64;
+    (void)memidx;
 /* #endif */
 #endif /* end of WASM_ENABLE_SHARED_HEAP != 0 */
 
@@ -5374,12 +5350,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                       || init_values[i].init_expr_type
                                              == INIT_EXPR_TYPE_FUNCREF_CONST);
 #if WASM_ENABLE_GC == 0
-                            table_elems[i] =
-                                (table_elem_type_t)init_values[i].u.ref_index;
+                            table_elems[i] = (table_elem_type_t)init_values[i]
+                                                 .u.unary.v.ref_index;
 #else
-                            if (init_values[i].u.ref_index != UINT32_MAX) {
+                            if (init_values[i].u.unary.v.ref_index
+                                != UINT32_MAX) {
                                 if (!(func_obj = wasm_create_func_obj(
-                                          module, init_values[i].u.ref_index,
+                                          module,
+                                          init_values[i].u.unary.v.ref_index,
                                           true, NULL, 0))) {
                                     goto got_exception;
                                 }
