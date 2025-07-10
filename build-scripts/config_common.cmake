@@ -709,7 +709,6 @@ message (
 "       \"Threads\" via WAMR_BUILD_SHARED_MEMORY: ${WAMR_BUILD_SHARED_MEMORY}\n"
 "       \"Typed Function References\" via WAMR_BUILD_GC: ${WAMR_BUILD_GC}\n"
 "     Unsupported (>= Phase4):\n"
-"       \"Branch Hinting\"\n"
 "       \"Custom Annotation Syntax in the Text Format\"\n"
 "       \"Exception handling\"\n"
 "       \"Import/Export of Mutable Globals\"\n"
