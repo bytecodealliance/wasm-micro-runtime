@@ -999,12 +999,10 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
             /* ref.null */
             case INIT_EXPR_TYPE_REFNULL_CONST:
             {
-                uint8 type1;
-
 #if WASM_ENABLE_GC == 0
+                uint8 type1;
                 CHECK_BUF(p, p_end, 1);
                 type1 = read_uint8(p);
-
                 cur_value.ref_index = NULL_REF;
                 if (!push_const_expr_stack(&const_expr_ctx, flag, type1,
                                            &cur_value,
@@ -1014,23 +1012,34 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                            error_buf, error_buf_size))
                     goto fail;
 #else
+                /*
+                 * According to the current GC SPEC rules, the heap_type must be
+                 * validated when ref.null is used. It can be an absheaptype,
+                 * or the type C.types[type_idx] must be defined in the context.
+                 */
                 int32 heap_type;
                 read_leb_int32(p, p_end, heap_type);
-                type1 = (uint8)((int32)0x80 + heap_type);
-
                 cur_value.gc_obj = NULL_REF;
 
-                if (!is_byte_a_type(type1)
-                    || !wasm_is_valid_heap_type(heap_type)
-                    || wasm_is_type_multi_byte_type(type1)) {
-                    p--;
-                    read_leb_uint32(p, p_end, type_idx);
-                    if (!check_type_index(module, module->type_count, type_idx,
-                                          error_buf, error_buf_size))
-                        goto fail;
+                /*
+                 * The current check of heap_type can deterministically infer
+                 * the result of the previous condition
+                 * `(!is_byte_a_type(type1) ||
+                 * wasm_is_type_multi_byte_type(type1))`. Therefore, the
+                 * original condition is redundant and has been removed.
+                 *
+                 * This logic is consistent with the implementation of the
+                 * `WASM_OP_REF_NULL` case in the `wasm_loader_prepare_bytecode`
+                 * function.
+                 */
 
+                if (heap_type >= 0) {
+                    if (!check_type_index(module, module->type_count, heap_type,
+                                          error_buf, error_buf_size)) {
+                        goto fail;
+                    }
                     wasm_set_refheaptype_typeidx(&cur_ref_type.ref_ht_typeidx,
-                                                 true, type_idx);
+                                                 true, heap_type);
                     if (!push_const_expr_stack(&const_expr_ctx, flag,
                                                cur_ref_type.ref_type,
                                                &cur_ref_type, 0, &cur_value,
@@ -1041,8 +1050,16 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                         goto fail;
                 }
                 else {
-                    if (!push_const_expr_stack(&const_expr_ctx, flag, type1,
-                                               NULL, 0, &cur_value,
+                    if (!wasm_is_valid_heap_type(heap_type)) {
+                        set_error_buf_v(error_buf, error_buf_size,
+                                        "unknown type %d", heap_type);
+                        goto fail;
+                    }
+                    cur_ref_type.ref_ht_common.ref_type =
+                        (uint8)((int32)0x80 + heap_type);
+                    if (!push_const_expr_stack(&const_expr_ctx, flag,
+                                               cur_ref_type.ref_type, NULL, 0,
+                                               &cur_value,
 #if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
                                                NULL,
 #endif
