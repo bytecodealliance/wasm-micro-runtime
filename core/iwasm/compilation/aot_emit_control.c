@@ -92,9 +92,9 @@ format_block_name(char *name, uint32 name_size, uint32 block_index,
     do {                                                                       \
         if (!(instr = LLVMBuildCondBr(comp_ctx->builder, value_if, block_then, \
                                       block_else))) {                          \
-            aot_set_last_error("llvm build cond br failed.");                \
-            goto fail;                                                       \
-        }                                                                    \
+            aot_set_last_error("llvm build cond br failed.");                  \
+            goto fail;                                                         \
+        }                                                                      \
     } while (0)
 
 #define SET_BUILDER_POS(llvm_block) \
