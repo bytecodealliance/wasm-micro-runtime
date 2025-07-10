@@ -15,7 +15,7 @@ extern "C" {
 uint64
 bh_get_tick_ms(void);
 uint32
-bh_get_elpased_ms(uint32 *last_system_clock);
+bh_get_elapsed_ms(uint32 *last_system_clock);
 
 struct _timer_ctx;
 typedef struct _timer_ctx *timer_ctx_t;
