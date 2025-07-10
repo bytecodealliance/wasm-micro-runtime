@@ -1905,7 +1905,7 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         {
             WASMArrayType *array_type = NULL;
 
-            bh_assert(expr->u.array_new_default.type_index
+            bh_assert(expr->u.unary.v.array_new_default.type_index
                       < module->type_count);
             array_type =
                 (WASMArrayType *)
