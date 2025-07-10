@@ -541,10 +541,10 @@ getaddrinfo(const char *node, const char *service, const struct addrinfo *hints,
         }
     } while (max_info_size > addr_info_size);
 
+    addr_info_size = max_info_size;
     if (addr_info_size == 0) {
         free(addr_info);
-        *res = NULL;
-        return __WASI_ERRNO_SUCCESS;
+        HANDLE_ERROR(__WASI_ERRNO_NOENT)
     }
 
     aibuf_res =
@@ -555,10 +555,6 @@ getaddrinfo(const char *node, const char *service, const struct addrinfo *hints,
     }
 
     *res = &aibuf_res[0].ai;
-
-    if (addr_info_size) {
-        addr_info_size = max_info_size;
-    }
 
     for (i = 0; i < addr_info_size; i++) {
         struct addrinfo *ai = &aibuf_res[i].ai;
