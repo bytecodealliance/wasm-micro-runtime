@@ -13126,7 +13126,7 @@ re_scan:
 #if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) \
     || (WASM_ENABLE_FAST_INTERP != 0)
                         case VALUE_TYPE_V128:
-#if WASM_ENABLE_FAST_INTERP != 0
+#if WASM_ENABLE_SIMDE != 0
                             if (loader_ctx->p_code_compiled) {
                                 uint8 opcode_tmp = WASM_OP_SELECT_128;
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
