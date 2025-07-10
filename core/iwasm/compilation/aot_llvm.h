@@ -452,9 +452,6 @@ typedef struct AOTCompContext {
     /* Reference Types */
     bool enable_ref_types;
 
-    /* Branch Hinting */
-    bool enable_branch_hints;
-
     /* Disable LLVM built-in intrinsics */
     bool disable_llvm_intrinsics;
 

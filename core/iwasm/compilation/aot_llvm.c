@@ -2740,9 +2740,6 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     if (option->enable_ref_types)
         comp_ctx->enable_ref_types = true;
 
-    if (option->enable_branch_hints)
-        comp_ctx->enable_branch_hints = true;
-
     comp_ctx->aux_stack_frame_type = option->aux_stack_frame_type;
     comp_ctx->call_stack_features = option->call_stack_features;
 
