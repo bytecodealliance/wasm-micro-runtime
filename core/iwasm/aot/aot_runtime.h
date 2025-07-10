@@ -58,7 +58,6 @@ typedef enum AOTCustomSectionType {
     AOT_CUSTOM_SECTION_ACCESS_CONTROL = 2,
     AOT_CUSTOM_SECTION_NAME = 3,
     AOT_CUSTOM_SECTION_STRING_LITERAL = 4,
-    AOT_CUSTOM_SECTION_CODE_METADATA = 5,
 } AOTCustomSectionType;
 
 typedef struct AOTObjectDataSection {

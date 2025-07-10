@@ -505,13 +505,6 @@ check_feature_flags(char *error_buf, uint32 error_buf_size,
     }
 #endif
 
-#if WASM_ENABLE_BRANCH_HINTS == 0
-    if (feature_flags & WASM_ENABLE_BRANCH_HINTS) {
-        LOG_WARNING(
-            "branch hints not enabled, but wasm file contains branch hints");
-    }
-#endif
-
 #if WASM_ENABLE_GC == 0
     if (feature_flags & WASM_FEATURE_GARBAGE_COLLECTION) {
         set_error_buf(error_buf, error_buf_size,

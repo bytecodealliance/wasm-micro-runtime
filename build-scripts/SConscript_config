@@ -128,10 +128,6 @@ if GetDepend(['WAMR_BUILD_REF_TYPES']):
     CPPDEFINES += ['WASM_ENABLE_REF_TYPES=1']
     print('[WAMR] enable ref types')
 
-if GetDepend(['WAMR_BUILD_BRANCH_HINTS']):
-    CPPDEFINES += ['WASM_ENABLE_BRANCH_HINTS=1']
-    print('[WAMR] enable branch hints')
-
 CPPDEFINES += ['BH_MALLOC=wasm_runtime_malloc']
 CPPDEFINES += ['BH_FREE=wasm_runtime_free']
 

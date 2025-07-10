@@ -119,11 +119,6 @@ if (NOT DEFINED WAMR_BUILD_REF_TYPES)
   set (WAMR_BUILD_REF_TYPES 1)
 endif ()
 
-if (NOT DEFINED WAMR_BUILD_BRANCH_HINTS)
-  # Enable branch hints by default
-  set (WAMR_BUILD_BRANCH_HINTS 1)
-endif ()
-
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)

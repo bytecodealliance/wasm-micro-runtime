@@ -775,7 +775,7 @@ struct WASMCompilationHint {
     enum WASMCompilationHintType type;
 };
 struct WASMCompilationHintBranchHint {
-    void *next;
+    struct WASMCompilationHint *next;
     enum WASMCompilationHintType type;
     uint32 offset;
     bool is_likely;

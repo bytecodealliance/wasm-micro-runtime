@@ -392,7 +392,6 @@ aot_create_funcs(const WASMModule *module, uint32 pointer_size)
         memset(aot_func, 0, sizeof(AOTFunc));
 
         func_type = aot_func->func_type = func->func_type;
-        aot_func->func_index = i + module->import_function_count;
 
         /* Resolve function type index */
         for (j = 0; j < module->type_count; j++) {

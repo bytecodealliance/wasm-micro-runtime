@@ -5544,8 +5544,8 @@ handle_branch_hint_section(const uint8 *buf, const uint8 *buf_end,
             goto fail;
         }
 
-        struct WASMCompilationHintBranchHint *current_hint =
-            (struct WASMCompilationHintBranchHint *)&module
+        struct WASMCompilationHint *current_hint =
+            (struct WASMCompilationHint *)&module
                 ->function_hints[func_idx - module->import_function_count];
         while (current_hint->next != NULL) {
             current_hint = current_hint->next;
@@ -5553,10 +5553,11 @@ handle_branch_hint_section(const uint8 *buf, const uint8 *buf_end,
 
         uint32 num_hints;
         read_leb_uint32(buf, buf_end, num_hints);
+        struct WASMCompilationHintBranchHint *new_hints = loader_malloc(
+            sizeof(struct WASMCompilationHintBranchHint) * num_hints, error_buf,
+            error_buf_size);
         for (uint32 j = 0; j < num_hints; ++j) {
-            struct WASMCompilationHintBranchHint *new_hint =
-                loader_malloc(sizeof(struct WASMCompilationHintBranchHint),
-                              error_buf, error_buf_size);
+            struct WASMCompilationHintBranchHint *new_hint = &new_hints[j];
             new_hint->next = NULL;
             new_hint->type = WASM_COMPILATION_BRANCH_HINT;
             read_leb_uint32(buf, buf_end, new_hint->offset);
@@ -5584,8 +5585,8 @@ handle_branch_hint_section(const uint8 *buf, const uint8 *buf_end,
                 goto fail;
             }
 
-            current_hint->next = new_hint;
-            current_hint = new_hint;
+            current_hint->next = (struct WASMCompilationHint *)new_hint;
+            current_hint = (struct WASMCompilationHint *)new_hint;
         }
     }
     if (buf != buf_end) {
@@ -5649,13 +5650,20 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 #endif
 
 #if WASM_ENABLE_BRANCH_HINTS != 0
-    if (name_len == 25 && memcmp(p, "metadata.code.branch_hint", 25) == 0) {
+    if (name_len == 25
+        && strncmp((const char *)p, "metadata.code.branch_hint", 25) == 0) {
         p += name_len;
         if (!handle_branch_hint_section(p, p_end, module, error_buf,
                                         error_buf_size)) {
             return false;
         }
         LOG_VERBOSE("Load branch hint section success.");
+    }
+#else
+    if (name_len == 25
+        && strncmp((const char *)p, "metadata.code.branch_hint", 25) == 0) {
+        LOG_VERBOSE("Found branch hint section, but branch hints are disabled "
+                    "in this build, skipping.");
     }
 #endif
 
@@ -7446,7 +7454,15 @@ wasm_loader_unload(WASMModule *module)
     }
 #endif
 #endif
-
+#if WASM_ENABLE_BRANCH_HINTS != 0
+    for (size_t i = 0; i < module->function_count; i++) {
+        // be carefull when adding more hints. This only works as long as
+        // the hint structs have been allocated all at once as an array.
+        // With only branch-hints at the moment, this is the case.
+        wasm_runtime_free(module->function_hints[i]);
+    }
+    wasm_runtime_free(module->function_hints);
+#endif
     wasm_runtime_free(module);
 }
 

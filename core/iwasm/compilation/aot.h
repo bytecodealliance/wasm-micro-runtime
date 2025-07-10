@@ -207,7 +207,6 @@ typedef struct AOTImportFunc {
 typedef struct AOTFunc {
     AOTFuncType *func_type;
     uint32 func_type_index;
-    uint32 func_index;
     uint32 local_count;
     uint8 *local_types_wp;
     uint16 param_cell_num;
