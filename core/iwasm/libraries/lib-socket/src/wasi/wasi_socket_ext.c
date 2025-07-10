@@ -610,6 +610,7 @@ get_sol_socket_option(int sockfd, int optname, void *__restrict optval,
     uint64_t timeout_us;
     bool is_linger_enabled;
     int linger_s;
+    __wasi_fdstat_t sb;
 
     switch (optname) {
         case SO_RCVTIMEO:
@@ -662,6 +663,22 @@ get_sol_socket_option(int sockfd, int optname, void *__restrict optval,
             error = __wasi_sock_get_broadcast(sockfd, (bool *)optval);
             HANDLE_ERROR(error);
             return error;
+        case SO_TYPE:
+            assert(*optlen == sizeof(int));
+            error = __wasi_fd_fdstat_get(sockfd, &sb);
+            HANDLE_ERROR(error);
+            switch (sb.fs_filetype) {
+                case __WASI_FILETYPE_SOCKET_DGRAM:
+                    *(int *)optval = SOCK_DGRAM;
+                    break;
+                case __WASI_FILETYPE_SOCKET_STREAM:
+                    *(int *)optval = SOCK_STREAM;
+                    break;
+                default:
+                    errno = __WASI_ERRNO_NOTSOCK;
+                    return -1;
+            }
+            return 0;
         default:
             error = __WASI_ERRNO_NOTSUP;
             HANDLE_ERROR(error);
