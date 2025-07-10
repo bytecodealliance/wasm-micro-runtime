@@ -53,6 +53,7 @@ add_definitions(-DWASM_ENABLE_PERF_PROFILING=1)
 add_definitions(-DWASM_ENABLE_LOAD_CUSTOM_SECTION=1)
 add_definitions(-DWASM_ENABLE_MODULE_INST_CONTEXT=1)
 add_definitions(-DWASM_ENABLE_MEMORY64=1)
+add_definitions(-DWASM_ENABLE_EXTENDED_CONST_EXPR=1)
 
 add_definitions(-DWASM_ENABLE_GC=1)
 
@@ -284,6 +285,7 @@ include (${IWASM_DIR}/interpreter/iwasm_interp.cmake)
 include (${IWASM_DIR}/aot/iwasm_aot.cmake)
 include (${IWASM_DIR}/compilation/iwasm_compl.cmake)
 include (${PROJECT_SOURCE_DIR}/../build-scripts/version.cmake)
+include (${IWASM_DIR}/libraries/shared-heap/shared_heap.cmake)
 
 if (WAMR_BUILD_LIBC_BUILTIN EQUAL 1)
   include (${IWASM_DIR}/libraries/libc-builtin/libc_builtin.cmake)
@@ -366,6 +368,7 @@ add_library (vmlib
              ${LIBC_WASI_SOURCE}
              ${LIB_PTHREAD_SOURCE}
              ${LIB_WASI_THREADS_SOURCE}
+             ${LIB_SHARED_HEAP_SOURCE}
              ${IWASM_COMMON_SOURCE}
              ${IWASM_INTERP_SOURCE}
              ${IWASM_AOT_SOURCE}

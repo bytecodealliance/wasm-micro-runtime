@@ -375,6 +375,9 @@ wasi_fd_pread(wasm_exec_env_t exec_env, wasi_fd_t fd, iovec_app_t *iovec_app,
         return (wasi_errno_t)-1;
 
     total_size = sizeof(wasi_iovec_t) * (uint64)iovs_len;
+    if (total_size == 0) {
+        total_size = 1; /* avoid user-triggered 0-sized allocation */
+    }
     if (total_size >= UINT32_MAX
         || !(iovec_begin = wasm_runtime_malloc((uint32)total_size)))
         return (wasi_errno_t)-1;
@@ -430,6 +433,9 @@ wasi_fd_pwrite(wasm_exec_env_t exec_env, wasi_fd_t fd,
         return (wasi_errno_t)-1;
 
     total_size = sizeof(wasi_ciovec_t) * (uint64)iovs_len;
+    if (total_size == 0) {
+        total_size = 1; /* avoid user-triggered 0-sized allocation */
+    }
     if (total_size >= UINT32_MAX
         || !(ciovec_begin = wasm_runtime_malloc((uint32)total_size)))
         return (wasi_errno_t)-1;
@@ -484,6 +490,9 @@ wasi_fd_read(wasm_exec_env_t exec_env, wasi_fd_t fd,
         return (wasi_errno_t)-1;
 
     total_size = sizeof(wasi_iovec_t) * (uint64)iovs_len;
+    if (total_size == 0) {
+        total_size = 1; /* avoid user-triggered 0-sized allocation */
+    }
     if (total_size >= UINT32_MAX
         || !(iovec_begin = wasm_runtime_malloc((uint32)total_size)))
         return (wasi_errno_t)-1;
@@ -654,6 +663,9 @@ wasi_fd_write(wasm_exec_env_t exec_env, wasi_fd_t fd,
         return (wasi_errno_t)-1;
 
     total_size = sizeof(wasi_ciovec_t) * (uint64)iovs_len;
+    if (total_size == 0) {
+        total_size = 1; /* avoid user-triggered 0-sized allocation */
+    }
     if (total_size >= UINT32_MAX
         || !(ciovec_begin = wasm_runtime_malloc((uint32)total_size)))
         return (wasi_errno_t)-1;

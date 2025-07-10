@@ -349,6 +349,7 @@ typedef enum {
 
 typedef struct SharedHeapInitArgs {
     uint32_t size;
+    void *pre_allocated_addr;
 } SharedHeapInitArgs;
 
 /**
@@ -2314,7 +2315,37 @@ WASM_RUNTIME_API_EXTERN wasm_shared_heap_t
 wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args);
 
 /**
- * Attach a shared heap to a module instance
+ * This function links two shared heap(lists), `head` and `body` in to a single
+ * shared heap list, where `head` becomes the new shared heap list head. The
+ * shared heap list remains one continuous shared heap in wasm app's point of
+ * view.  At most one shared heap in shared heap list can be dynamically
+ * allocated, the rest have to be the pre-allocated shared heap. *
+ *
+ * @param head The head of the shared heap chain.
+ * @param body The body of the shared heap chain to be appended.
+ * @return The new head of the shared heap chain. NULL if failed.
+ */
+WASM_RUNTIME_API_EXTERN wasm_shared_heap_t
+wasm_runtime_chain_shared_heaps(wasm_shared_heap_t head,
+                                wasm_shared_heap_t body);
+
+/**
+ * This function unchains the shared heaps from the given head. If
+ * `entire_chain` is true, it will unchain the entire chain of shared heaps.
+ * Otherwise, it will unchain only the first shared heap in the chain.
+ *
+ * @param head The head of the shared heap chain.
+ * @param entire_chain A boolean flag indicating whether to unchain the entire
+ * chain.
+ * @return The new head of the shared heap chain. Or the last shared heap in the
+ * chain if `entire_chain` is true.
+ */
+wasm_shared_heap_t
+wasm_runtime_unchain_shared_heaps(wasm_shared_heap_t head, bool entire_chain);
+
+/**
+ * Attach a shared heap, it can be the head of shared heap chain, in that case,
+ * attach the shared heap chain, to a module instance
  *
  * @param module_inst the module instance
  * @param shared_heap the shared heap
@@ -2333,7 +2364,8 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_detach_shared_heap(wasm_module_inst_t module_inst);
 
 /**
- * Allocate memory from a shared heap
+ * Allocate memory from a shared heap, or the non-preallocated shared heap from
+ * the shared heap chain
  *
  * @param module_inst the module instance
  * @param size required memory size
@@ -2350,7 +2382,8 @@ wasm_runtime_shared_heap_malloc(wasm_module_inst_t module_inst, uint64_t size,
                                 void **p_native_addr);
 
 /**
- * Free the memory allocated from shared heap
+ * Free the memory allocated from shared heap, or the non-preallocated shared
+ * heap from the shared heap chain
  *
  * @param module_inst the module instance
  * @param ptr the offset in wasm app

@@ -254,8 +254,12 @@ typedef struct AOTFuncContext {
     bool mem_space_unchanged;
     AOTCheckedAddrList checked_addr_list;
 
+    /* The last accessed shared heap info */
     LLVMValueRef shared_heap_base_addr_adj;
     LLVMValueRef shared_heap_start_off;
+    LLVMValueRef shared_heap_end_off;
+    /* The start offset of the head of shared heap chain */
+    LLVMValueRef shared_heap_head_start_off;
 
     LLVMBasicBlockRef got_exception_block;
     LLVMBasicBlockRef func_return_block;
@@ -457,6 +461,9 @@ typedef struct AOTCompContext {
     /* Enable LLVM PGO (Profile-Guided Optimization) */
     bool enable_llvm_pgo;
 
+    /* Enable extended constant expression */
+    bool enable_extended_const;
+
     /* Treat unknown import function as wasm-c-api import function
        and allow to directly invoke it from AOT/JIT code */
     bool quick_invoke_c_api_import;
@@ -486,6 +493,7 @@ typedef struct AOTCompContext {
     bool enable_gc;
 
     bool enable_shared_heap;
+    bool enable_shared_chain;
 
     uint32 opt_level;
     uint32 size_level;

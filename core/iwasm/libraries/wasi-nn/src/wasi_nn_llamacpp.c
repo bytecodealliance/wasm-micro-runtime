@@ -17,6 +17,10 @@ extern char const *LLAMA_COMMIT;
 extern char const *LLAMA_COMPILER;
 extern char const *LLAMA_BUILD_TARGET;
 
+#if WASM_ENABLE_WASI_EPHEMERAL_NN == 0
+#error This backend doesn't support legacy "wasi_nn" abi. Please enable WASM_ENABLE_WASI_EPHEMERAL_NN.
+#endif
+
 // compatible with WasmEdge
 // https://github.com/second-state/WasmEdge-WASINN-examples/blob/master/wasmedge-ggml/README.md#parameters
 // https://github.com/WasmEdge/WasmEdge/blob/master/plugins/wasi_nn/ggml.cpp
@@ -405,6 +409,11 @@ set_input(void *ctx, graph_execution_context exec_ctx, uint32_t index,
     if (exec_ctx != 0 || backend_ctx->ctx == NULL) {
         // we only implement a single context
         return runtime_error;
+    }
+
+    if (index != 0) {
+        NN_ERR_PRINTF("Invalid input index %d", index);
+        return invalid_argument;
     }
 
     // tensor->data is the prompt string.

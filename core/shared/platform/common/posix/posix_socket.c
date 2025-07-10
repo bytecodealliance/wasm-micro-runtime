@@ -406,12 +406,11 @@ os_socket_addr_resolve(const char *host, const char *service,
 
     res = result;
     while (res) {
+        if (!is_addrinfo_supported(res)) {
+            res = res->ai_next;
+            continue;
+        }
         if (addr_info_size > pos) {
-            if (!is_addrinfo_supported(res)) {
-                res = res->ai_next;
-                continue;
-            }
-
             ret =
                 sockaddr_to_bh_sockaddr(res->ai_addr, &addr_info[pos].sockaddr);
 
