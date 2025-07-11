@@ -42,11 +42,11 @@ bh_get_tick_ms()
 }
 
 uint32
-bh_get_elapsed_ms(uint32 *last_system_clock)
+bh_get_elpased_ms(uint32 *last_system_clock)
 {
     uint32 elapsed_ms;
     /* attention: the bh_get_tick_ms() returns a 64-bit integer, but
-       bh_get_elapsed_ms() is designed to use a 32-bit clock count */
+       bh_get_elpased_ms() is designed to use a 32-bit clock count */
     uint32 now = (uint32)bh_get_tick_ms();
 
     /* system clock overrun */
