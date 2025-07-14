@@ -780,6 +780,12 @@ static NativeSymbol native_symbols_wasi_nn[] = {
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
     REG_NATIVE_FUNC(load, "(*iii*)i"),
     REG_NATIVE_FUNC(load_by_name, "(*i*)i"),
+
+    /* load_by_name_with_config is intented to be compatible with
+     * a wasmedge extension.
+     * https://github.com/second-state/wasmedge-wasi-nn/pull/2
+     * https://github.com/WasmEdge/WasmEdge/blob/5553924e8cdccdc2cbd2a6a6d0ed9b11250c353e/plugins/wasi_nn/wasinnmodule.cpp#L13-L14
+     */
     REG_NATIVE_FUNC(load_by_name_with_config, "(*i*i*)i"),
     REG_NATIVE_FUNC(init_execution_context, "(i*)i"),
     REG_NATIVE_FUNC(set_input, "(ii*)i"),
