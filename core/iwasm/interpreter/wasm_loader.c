@@ -7459,10 +7459,11 @@ wasm_loader_unload(WASMModule *module)
         // be carefull when adding more hints. This only works as long as
         // the hint structs have been allocated all at once as an array.
         // With only branch-hints at the moment, this is the case.
-        if (module->function_hints[i] != NULL)
+        if (module->function_hints != NULL && module->function_hints[i] != NULL)
             wasm_runtime_free(module->function_hints[i]);
     }
-    wasm_runtime_free(module->function_hints);
+    if (module->function_hints != NULL)
+        wasm_runtime_free(module->function_hints);
 #endif
     wasm_runtime_free(module);
 }
