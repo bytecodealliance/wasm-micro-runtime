@@ -13254,7 +13254,7 @@ re_scan:
                     uint8 opcode_tmp = WASM_OP_SELECT;
 
                     if (type == VALUE_TYPE_V128) {
-#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_SIMDE != 0
+#if WASM_ENABLE_SIMDE != 0
                         opcode_tmp = WASM_OP_SELECT_128;
 #else
                         set_error_buf(error_buf, error_buf_size,
