@@ -135,6 +135,28 @@ typedef struct __wasi_addr_info_hints_t {
 #define IPV6_LEAVE_GROUP 21
 #define IPV6_V6ONLY 26
 
+/* getaddrinfo error codes.
+ *
+ * we use values compatible with wasi-libc/musl netdb.h.
+ * https://github.com/WebAssembly/wasi-libc/blob/4ea6fdfa288e15a57c02fe31dda78e5ddc87c3c7/libc-top-half/musl/include/netdb.h#L43-L53
+ *
+ * for now, non-posix error codes are excluded:
+ * EAI_PROTOCOL and EAI_BADHINTS (BSDs)
+ * EAI_ADDRFAMILY, EAI_NODATA
+ * https://github.com/WebAssembly/wasi-libc/blob/4ea6fdfa288e15a57c02fe31dda78e5ddc87c3c7/libc-top-half/musl/include/netdb.h#L145-L152
+ */
+
+#define EAI_AGAIN -3
+#define EAI_BADFLAGS -1
+#define EAI_FAIL -4
+#define EAI_FAMILY -6
+#define EAI_MEMORY -10
+#define EAI_NONAME -2
+#define EAI_OVERFLOW -12
+#define EAI_SERVICE -8
+#define EAI_SOCKTYPE -7
+#define EAI_SYSTEM -11
+
 struct addrinfo {
     int ai_flags;             /* Input flags.  */
     int ai_family;            /* Protocol family for socket.  */
