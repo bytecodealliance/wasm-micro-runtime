@@ -159,6 +159,11 @@ if (WAMR_BUILD_DEBUG_AOT EQUAL 1)
 endif()
 
 # Enable LLVM
+# In Debug mode, force using LLVM Release runtime library on Windows platform
+if (WAMR_BUILD_PLATFORM STREQUAL "windows" AND MSVC)
+  add_compile_options($<$<CONFIG:Debug>:/MD>)
+endif()
+
 if (NOT WAMR_BUILD_WITH_CUSTOM_LLVM)
   set (LLVM_SRC_ROOT "${PROJECT_SOURCE_DIR}/../core/deps/llvm")
   if (NOT EXISTS "${LLVM_SRC_ROOT}/build")
