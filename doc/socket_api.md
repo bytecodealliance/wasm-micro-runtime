@@ -87,3 +87,38 @@ $ iwasm --addr-pool=1.2.3.4/15,2.3.4.6/16 socket_example.wasm
 ```
 
 Refer to [socket api sample](../samples/socket-api) for the compilation of the Wasm applications and [_iwasm_ for Intel SGX](../product-mini/platforms/linux-sgx) for the Wasm runtime.
+
+## The background and compatibility notes
+
+### WASIp1
+
+The WASIp1 provides a subset of the socket API.
+Namely,
+
+* send()
+* recv()
+* shutdown()
+* accept()
+
+Functionalities like connect() and listen() are intentionally omitted
+there to maintain the capability-based security model, inherited from
+cloudabi. The common practice for applications is to make the host code
+pass already connected/listening sockets to wasm module.
+
+### WAMR extensions
+
+WAMR extends the WASIp1 with the rest of socket API functionalities
+for convenience.
+
+* socket()
+* connect()
+* bind()
+* listen()
+* some of getsockopt/setsockopt options
+* name resolution (a subset of getaddrinfo)
+
+### Compatibilities
+
+Many of runtimes (eg. Wasmer and WasmEdge) provide similar extensions.
+Unfortunately, they are all incompatible. Thus, portable applications
+should not rely on these extensions.
