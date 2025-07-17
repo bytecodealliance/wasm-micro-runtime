@@ -102,91 +102,81 @@ convert_ort_error_to_wasi_nn_error(OrtStatus *status)
     return err;
 }
 
-static tensor_type
-convert_ort_type_to_wasi_nn_type(ONNXTensorElementDataType ort_type)
+static bool
+convert_ort_type_to_wasi_nn_type(ONNXTensorElementDataType ort_type, tensor_type *tensor_type)
 {
     switch (ort_type) {
         case ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
-            return fp32;
+            *tensor_type = fp32;
+            break;
         case ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16:
-            return fp16;
+            *tensor_type = fp16;
+            break;
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
         case ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE:
-            return fp64;
+            *tensor_type = fp64;
+            break;
         case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
-            return u8;
+            *tensor_type = u8;
+            break;
         case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
-            return i32;
+            *tensor_type = i32;
+            break;
         case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
-            return i64;
+            *tensor_type = i64;
+            break;
 #else
         case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
-            return up8;
+            *tensor_type = up8;
+            break;
         case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
-            return ip32;
+            *tensor_type = ip32;
+            break;
 #endif
         default:
             NN_WARN_PRINTF("Unsupported ONNX tensor type: %d", ort_type);
-            return fp32; // Default to fp32
+            return false;
     }
+
+    return true;
 }
 
-static ONNXTensorElementDataType
-convert_wasi_nn_type_to_ort_type(tensor_type type)
+static bool
+convert_wasi_nn_type_to_ort_type(tensor_type type, ONNXTensorElementDataType *ort_type)
 {
     switch (type) {
         case fp32:
-            return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
+            *ort_type = ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
+            break;
         case fp16:
-            return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16;
+            *ort_type = ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16;
+            break;
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
         case fp64:
-            return ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE;
+            *ort_type = ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE;
+            break;
         case u8:
-            return ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;
+            *ort_type = ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;
+            break;
         case i32:
-            return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32;
+            *ort_type = ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32;
+            break;
         case i64:
-            return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+            *ort_type = ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
+            break;
 #else
         case up8:
-            return ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;
+            *ort_type = ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;
+            break;
         case ip32:
-            return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32;
+            *ort_type = ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32;
+            break;
 #endif
         default:
             NN_WARN_PRINTF("Unsupported wasi-nn tensor type: %d", type);
-            return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT; // Default to float
+            return false; // Default to float
     }
-}
-
-static size_t
-get_tensor_element_size(tensor_type type)
-{
-    switch (type) {
-        case fp32:
-            return 4;
-        case fp16:
-            return 2;
-#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-        case fp64:
-            return 8;
-        case u8:
-            return 1;
-        case i32:
-            return 4;
-        case i64:
-            return 8;
-#else
-        case up8:
-            return 1;
-        case ip32:
-            return 4;
-#endif
-        default:
-            NN_WARN_PRINTF("Unsupported tensor type: %d", type);
-            return 4; // Default to 4 bytes (float)
-    }
+    return true;
 }
 
 /* Backend API implementation */
@@ -579,8 +569,12 @@ set_input(void *onnx_ctx, graph_execution_context ctx, uint32_t index,
         ort_dims[i] = input_tensor->dimensions->buf[i];
     }
 
-    ONNXTensorElementDataType ort_type = convert_wasi_nn_type_to_ort_type(
-        static_cast<tensor_type>(input_tensor->type));
+    ONNXTensorElementDataType ort_type;
+    if (!convert_wasi_nn_type_to_ort_type(
+            static_cast<tensor_type>(input_tensor->type), &ort_type)) {
+        NN_ERR_PRINTF("Failed to convert tensor type");
+        return runtime_error;
+    }
 
     OrtValue *input_value = nullptr;
     size_t total_elements = 1;
@@ -589,9 +583,7 @@ set_input(void *onnx_ctx, graph_execution_context ctx, uint32_t index,
     }
 
     status = ort_ctx->ort_api->CreateTensorWithDataAsOrtValue(
-        exec_ctx->memory_info, input_tensor->data.buf,
-        get_tensor_element_size(static_cast<tensor_type>(input_tensor->type))
-            * total_elements,
+        exec_ctx->memory_info, input_tensor->data.buf,input_tensor->data.size,
         ort_dims, num_dims, ort_type, &input_value);
 
     free(ort_dims);
@@ -793,18 +785,16 @@ get_output(void *onnx_ctx, graph_execution_context ctx, uint32_t index,
     }
 
     size_t output_size_bytes = tensor_size * element_size;
-
+    if (out_buffer->size < output_size_bytes) {
+        NN_ERR_PRINTF(
+            "Output buffer too small: %u bytes provided, %zu bytes needed",
+            out_buffer->size, output_size_bytes);
+        *out_buffer_size = output_size_bytes;
+        return too_large;
+    }
     NN_INFO_PRINTF("Output tensor size: %zu elements, element size: %zu bytes, "
                    "total: %zu bytes",
                    tensor_size, element_size, output_size_bytes);
-
-    if (*out_buffer_size < output_size_bytes) {
-        NN_ERR_PRINTF(
-            "Output buffer too small: %u bytes provided, %zu bytes needed",
-            *out_buffer_size, output_size_bytes);
-        *out_buffer_size = output_size_bytes;
-        return invalid_argument;
-    }
 
     if (tensor_data == nullptr) {
         NN_ERR_PRINTF("Tensor data is null");
