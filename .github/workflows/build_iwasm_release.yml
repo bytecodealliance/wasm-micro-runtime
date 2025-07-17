@@ -32,60 +32,60 @@ on:
         required: false
 
 env:
-  DEFAULT_BUILD_OPTIONS: 
+  DEFAULT_BUILD_OPTIONS:
     "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1 \
-     -DWAMR_BUILD_CUSTOM_NAME_SECTION=0 \
-     -DWAMR_BUILD_DEBUG_INTERP=0 \
-     -DWAMR_BUILD_DEBUG_AOT=0 \
-     -DWAMR_BUILD_DUMP_CALL_STACK=0 \
-     -DWAMR_BUILD_LIBC_UVWASI=0 \
-     -DWAMR_BUILD_LIBC_EMCC=0 \
-     -DWAMR_BUILD_LIB_RATS=0 \
-     -DWAMR_BUILD_LOAD_CUSTOM_SECTION=0 \
-     -DWAMR_BUILD_MEMORY_PROFILING=0 \
-     -DWAMR_BUILD_MINI_LOADER=0 \
-     -DWAMR_BUILD_MULTI_MODULE=0 \
-     -DWAMR_BUILD_PERF_PROFILING=0 \
-     -DWAMR_BUILD_SPEC_TEST=0 \
-     -DWAMR_BUILD_BULK_MEMORY=1 \
-     -DWAMR_BUILD_LIB_PTHREAD=1 \
-     -DWAMR_BUILD_LIB_PTHREAD_SEMAPHORE=1 \
-     -DWAMR_BUILD_LIB_WASI_THREADS=1 \
-     -DWAMR_BUILD_LIBC_BUILTIN=1 \
-     -DWAMR_BUILD_LIBC_WASI=1 \
-     -DWAMR_BUILD_REF_TYPES=1 \
-     -DWAMR_BUILD_SIMD=1 \
-     -DWAMR_BUILD_SHARED_MEMORY=1 \
-     -DWAMR_BUILD_TAIL_CALL=1 \
-     -DWAMR_BUILD_THREAD_MGR=1"
+    -DWAMR_BUILD_CUSTOM_NAME_SECTION=0 \
+    -DWAMR_BUILD_DEBUG_INTERP=0 \
+    -DWAMR_BUILD_DEBUG_AOT=0 \
+    -DWAMR_BUILD_DUMP_CALL_STACK=0 \
+    -DWAMR_BUILD_LIBC_UVWASI=0 \
+    -DWAMR_BUILD_LIBC_EMCC=0 \
+    -DWAMR_BUILD_LIB_RATS=0 \
+    -DWAMR_BUILD_LOAD_CUSTOM_SECTION=0 \
+    -DWAMR_BUILD_MEMORY_PROFILING=0 \
+    -DWAMR_BUILD_MINI_LOADER=0 \
+    -DWAMR_BUILD_MULTI_MODULE=0 \
+    -DWAMR_BUILD_PERF_PROFILING=0 \
+    -DWAMR_BUILD_SPEC_TEST=0 \
+    -DWAMR_BUILD_BULK_MEMORY=1 \
+    -DWAMR_BUILD_LIB_PTHREAD=1 \
+    -DWAMR_BUILD_LIB_PTHREAD_SEMAPHORE=1 \
+    -DWAMR_BUILD_LIB_WASI_THREADS=1 \
+    -DWAMR_BUILD_LIBC_BUILTIN=1 \
+    -DWAMR_BUILD_LIBC_WASI=1 \
+    -DWAMR_BUILD_REF_TYPES=1 \
+    -DWAMR_BUILD_SIMD=1 \
+    -DWAMR_BUILD_SHARED_MEMORY=1 \
+    -DWAMR_BUILD_TAIL_CALL=1 \
+    -DWAMR_BUILD_THREAD_MGR=1"
   GC_EH_BUILD_OPTIONS:
     "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_FAST_JIT=0 -DWAMR_BUILD_JIT=0 \
-     -DWAMR_BUILD_CUSTOM_NAME_SECTION=0 \
-     -DWAMR_BUILD_DEBUG_INTERP=0 \
-     -DWAMR_BUILD_DEBUG_AOT=0 \
-     -DWAMR_BUILD_DUMP_CALL_STACK=0 \
-     -DWAMR_BUILD_LIBC_UVWASI=0 \
-     -DWAMR_BUILD_LIBC_EMCC=0 \
-     -DWAMR_BUILD_LIB_RATS=0 \
-     -DWAMR_BUILD_LOAD_CUSTOM_SECTION=0 \
-     -DWAMR_BUILD_MEMORY_PROFILING=0 \
-     -DWAMR_BUILD_MINI_LOADER=0 \
-     -DWAMR_BUILD_MULTI_MODULE=0 \
-     -DWAMR_BUILD_PERF_PROFILING=0 \
-     -DWAMR_BUILD_SPEC_TEST=0 \
-     -DWAMR_BUILD_BULK_MEMORY=1 \
-     -DWAMR_BUILD_LIB_PTHREAD=1 \
-     -DWAMR_BUILD_LIB_PTHREAD_SEMAPHORE=1 \
-     -DWAMR_BUILD_LIB_WASI_THREADS=1 \
-     -DWAMR_BUILD_LIBC_BUILTIN=1 \
-     -DWAMR_BUILD_LIBC_WASI=1 \
-     -DWAMR_BUILD_REF_TYPES=1 \
-     -DWAMR_BUILD_SIMD=1 \
-     -DWAMR_BUILD_SHARED_MEMORY=1 \
-     -DWAMR_BUILD_TAIL_CALL=1 \
-     -DWAMR_BUILD_THREAD_MGR=1 \
-     -DWAMR_BUILD_EXCE_HANDLING=1 \
-     -DWAMR_BUILD_GC=1"
+    -DWAMR_BUILD_CUSTOM_NAME_SECTION=0 \
+    -DWAMR_BUILD_DEBUG_INTERP=0 \
+    -DWAMR_BUILD_DEBUG_AOT=0 \
+    -DWAMR_BUILD_DUMP_CALL_STACK=0 \
+    -DWAMR_BUILD_LIBC_UVWASI=0 \
+    -DWAMR_BUILD_LIBC_EMCC=0 \
+    -DWAMR_BUILD_LIB_RATS=0 \
+    -DWAMR_BUILD_LOAD_CUSTOM_SECTION=0 \
+    -DWAMR_BUILD_MEMORY_PROFILING=0 \
+    -DWAMR_BUILD_MINI_LOADER=0 \
+    -DWAMR_BUILD_MULTI_MODULE=0 \
+    -DWAMR_BUILD_PERF_PROFILING=0 \
+    -DWAMR_BUILD_SPEC_TEST=0 \
+    -DWAMR_BUILD_BULK_MEMORY=1 \
+    -DWAMR_BUILD_LIB_PTHREAD=1 \
+    -DWAMR_BUILD_LIB_PTHREAD_SEMAPHORE=1 \
+    -DWAMR_BUILD_LIB_WASI_THREADS=1 \
+    -DWAMR_BUILD_LIBC_BUILTIN=1 \
+    -DWAMR_BUILD_LIBC_WASI=1 \
+    -DWAMR_BUILD_REF_TYPES=1 \
+    -DWAMR_BUILD_SIMD=1 \
+    -DWAMR_BUILD_SHARED_MEMORY=1 \
+    -DWAMR_BUILD_TAIL_CALL=1 \
+    -DWAMR_BUILD_THREAD_MGR=1 \
+    -DWAMR_BUILD_EXCE_HANDLING=1 \
+    -DWAMR_BUILD_GC=1"
 
 permissions:
   contents: read
@@ -97,9 +97,9 @@ jobs:
       matrix:
         include:
           - build_options: $DEFAULT_BUILD_OPTIONS
-            suffix: ''
+            suffix: ""
           - build_options: $GC_EH_BUILD_OPTIONS
-            suffix: '-gc-eh'
+            suffix: "-gc-eh"
     permissions:
       contents: write # for uploading release artifacts
 
@@ -124,6 +124,30 @@ jobs:
         run: |
           cmake -S . -B build ${{ matrix.build_options }}
           cmake --build build --config Release --parallel 4
+        working-directory: ${{ inputs.cwd }}
+
+      - name: smoke test on non-Windows
+        if: ${{ !startsWith(inputs.runner, 'windows') }}
+        shell: bash
+        run: |
+          if [[ ! -f build/iwasm ]]; then
+            echo "iwasm binary is not found in the expected location."
+            exit 1
+          fi
+
+          build/iwasm --version
+        working-directory: ${{ inputs.cwd }}
+
+      - name: smoke test on Windows
+        if: ${{ startsWith(inputs.runner, 'windows') }}
+        shell: bash
+        run: |
+          if [[ ! -f build/Release/iwasm ]]; then
+            echo "iwasm binary is not found in the expected location."
+            exit 1
+          fi
+
+          build/Release/iwasm --version
         working-directory: ${{ inputs.cwd }}
 
       - name: Compress the binary on Windows
