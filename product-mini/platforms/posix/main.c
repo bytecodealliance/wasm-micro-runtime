@@ -596,6 +596,7 @@ main(int argc, char *argv[])
     wasm_module_inst_t wasm_module_inst = NULL;
     RunningMode running_mode = 0;
     RuntimeInitArgs init_args;
+    struct InstantiationArgs2 *inst_args;
     char error_buf[128] = { 0 };
 #if WASM_ENABLE_LOG != 0
     int log_verbose_level = 2;
@@ -949,10 +950,20 @@ main(int argc, char *argv[])
     libc_wasi_init(wasm_module, argc, argv, &wasi_parse_ctx);
 #endif
 
+    if (!wasm_runtime_instantiation_args_create(&inst_args)) {
+        printf("failed to create instantiate args\n");
+        goto fail3;
+    }
+    wasm_runtime_instantiation_args_set_default_stack_size(inst_args,
+                                                           stack_size);
+    wasm_runtime_instantiation_args_set_host_managed_heap_size(inst_args,
+                                                               heap_size);
+
     /* instantiate the module */
-    if (!(wasm_module_inst =
-              wasm_runtime_instantiate(wasm_module, stack_size, heap_size,
-                                       error_buf, sizeof(error_buf)))) {
+    wasm_module_inst = wasm_runtime_instantiate_ex2(
+        wasm_module, inst_args, error_buf, sizeof(error_buf));
+    wasm_runtime_instantiation_args_destroy(inst_args);
+    if (!wasm_module_inst) {
         printf("%s\n", error_buf);
         goto fail3;
     }

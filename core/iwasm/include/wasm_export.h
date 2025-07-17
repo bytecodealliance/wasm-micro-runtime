@@ -289,6 +289,8 @@ typedef struct InstantiationArgs {
 } InstantiationArgs;
 #endif /* INSTANTIATION_ARGS_OPTION_DEFINED */
 
+struct InstantiationArgs2;
+
 #ifndef WASM_VALKIND_T_DEFINED
 #define WASM_VALKIND_T_DEFINED
 typedef uint8_t wasm_valkind_t;
@@ -732,6 +734,46 @@ WASM_RUNTIME_API_EXTERN wasm_module_inst_t
 wasm_runtime_instantiate_ex(const wasm_module_t module,
                             const InstantiationArgs *args, char *error_buf,
                             uint32_t error_buf_size);
+
+/**
+ * Create an InstantiationArgs2 object with default parameters.
+ *
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_instantiation_args_create(struct InstantiationArgs2 **p);
+
+/**
+ * Dispose an InstantiationArgs2 object.
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_instantiation_args_destroy(struct InstantiationArgs2 *p);
+
+/**
+ * Setter functions for the InstantiationArgs2 object.
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_instantiation_args_set_default_stack_size(
+    struct InstantiationArgs2 *p, uint32_t v);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_instantiation_args_set_host_managed_heap_size(
+    struct InstantiationArgs2 *p, uint32_t v);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_instantiation_args_set_max_memory_pages(
+    struct InstantiationArgs2 *p, uint32_t v);
+
+/**
+ * Instantiate a WASM module, with specified instantiation arguments
+ *
+ * Same as wasm_runtime_instantiate_ex, but this version takes
+ * InstantiationArgs2, which can be extended without breaking the ABI.
+ */
+WASM_RUNTIME_API_EXTERN wasm_module_inst_t
+wasm_runtime_instantiate_ex2(const wasm_module_t module,
+                             const struct InstantiationArgs2 *args,
+                             char *error_buf, uint32_t error_buf_size);
 
 /**
  * Set the running mode of a WASM module instance, override the

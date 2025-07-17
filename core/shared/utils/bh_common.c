@@ -59,7 +59,7 @@ b_memcpy_wa(void *s1, unsigned int s1max, const void *s2, unsigned int n)
                 *dest++ = *p_byte_read++;
             }
         }
-        /* read meaning word(s) */
+        /* read remaining word(s) */
         else {
             if ((char *)p + 4 >= src + n) {
                 for (ps = (char *)p; ps < src + n; ps++) {

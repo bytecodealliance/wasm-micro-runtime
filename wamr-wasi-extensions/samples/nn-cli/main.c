@@ -31,18 +31,18 @@ load_graph(char *options)
     const char *id = "default";
     wasi_ephemeral_nn_graph_builder *builders = NULL;
     size_t nbuilders = 0;
+    const char *name = NULL;
     enum {
         opt_id,
         opt_file,
+        opt_name,
         opt_encoding,
         opt_target,
     };
     static char *const keylistp[] = {
-        [opt_id] = "id",
-        [opt_file] = "file",
-        [opt_encoding] = "encoding",
-        [opt_target] = "target",
-        NULL,
+        [opt_id] = "id",         [opt_file] = "file",
+        [opt_name] = "name",     [opt_encoding] = "encoding",
+        [opt_target] = "target", NULL,
     };
     while (*options) {
         extern char *suboptarg;
@@ -74,6 +74,13 @@ load_graph(char *options)
                     exit(1);
                 }
                 break;
+            case opt_name:
+                if (value == NULL) {
+                    fprintf(stderr, "no value for %s\n", saved);
+                    exit(2);
+                }
+                name = value;
+                break;
             case opt_encoding:
                 if (value == NULL) {
                     fprintf(stderr, "no value for %s\n", saved);
@@ -94,13 +101,25 @@ load_graph(char *options)
         }
     }
 
+    if (name != NULL && nbuilders != 0) {
+        fprintf(stderr, "name and file are exclusive\n");
+        exit(1);
+    }
+
     wasi_ephemeral_nn_error nnret;
     wasi_ephemeral_nn_graph g;
-    nnret = wasi_ephemeral_nn_load(builders, nbuilders, encoding, target, &g);
-    size_t i;
-    for (i = 0; i < nbuilders; i++) {
-        wasi_ephemeral_nn_graph_builder *b = &builders[i];
-        unmap_file(b->buf, b->size);
+    if (name != NULL) {
+        /* we ignore encoding and target */
+        nnret = wasi_ephemeral_nn_load_by_name(name, strlen(name), &g);
+    }
+    else {
+        nnret =
+            wasi_ephemeral_nn_load(builders, nbuilders, encoding, target, &g);
+        size_t i;
+        for (i = 0; i < nbuilders; i++) {
+            wasi_ephemeral_nn_graph_builder *b = &builders[i];
+            unmap_file(b->buf, b->size);
+        }
     }
     if (nnret != wasi_ephemeral_nn_error_success) {
         fprintf(stderr, "load failed with %d\n", (int)nnret);

@@ -96,7 +96,7 @@
             "argument": "",
             "expected return": {
                 "ret code": 255,
-                "stdout content": "WASM module load failed: END opcode expected",
+                "stdout content": "WASM module load failed: unexpected end opcodes from unbalanced control flow structures",
                 "description": "no sanitizer 'Heap Buffer Overflow'"
             }
         },
@@ -979,7 +979,7 @@
             "argument": "",
             "expected return": {
                 "ret code": 255,
-                "stdout content": "WASM module load failed: unexpected end of section or function",
+                "stdout content": "WASM module load failed: section size mismatch: function body END opcode expected",
                 "description": "no 'Heap out of bound read of size 1 in wasm_loader_prepare_bytecode function'"
             }
         },

@@ -4711,7 +4711,7 @@ aot_unload(AOTModule *module)
 }
 
 uint32
-aot_get_plt_table_size()
+aot_get_plt_table_size(void)
 {
     return get_plt_table_size();
 }

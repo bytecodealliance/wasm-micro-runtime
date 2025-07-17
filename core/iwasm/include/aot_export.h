@@ -98,10 +98,10 @@ void
 aot_destroy_aot_file(uint8_t *aot_file);
 
 char *
-aot_get_last_error();
+aot_get_last_error(void);
 
 uint32_t
-aot_get_plt_table_size();
+aot_get_plt_table_size(void);
 
 #ifdef __cplusplus
 }
