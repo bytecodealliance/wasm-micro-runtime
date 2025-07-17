@@ -220,12 +220,17 @@ int
 os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr,
                  unsigned int *addrlen)
 {
-    *sock = accept(server_sock, addr, addrlen);
-
+    if (addr == NULL) {
+        *sock = accept(server_sock, NULL, NULL);
+    }
+    else {
+        socklen_t len = *addrlen;
+        *sock = accept(server_sock, addr, &len);
+        *addrlen = len;
+    }
     if (*sock < 0) {
         return BHT_ERROR;
     }
-
     return BHT_OK;
 }
 
