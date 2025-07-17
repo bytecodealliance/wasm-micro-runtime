@@ -695,6 +695,7 @@ message (
 "       \"Non-trapping float-to-int conversions\"\n"
 "       \"Sign-extension operators\"\n"
 "       \"WebAssembly C and C++ API\"\n"
+"       \"Branch Hinting\"\n"
 "     Configurable. 0 is OFF. 1 is ON:\n"
 "       \"Bulk Memory Operation\" via WAMR_BUILD_BULK_MEMORY: ${WAMR_BUILD_BULK_MEMORY}\n"
 "       \"Extended Constant Expressions\" via WAMR_BUILD_EXTENDED_CONST_EXPR: ${WAMR_BUILD_EXTENDED_CONST_EXPR}\n"
