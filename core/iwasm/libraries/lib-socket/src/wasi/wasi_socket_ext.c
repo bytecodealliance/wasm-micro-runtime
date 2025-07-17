@@ -38,6 +38,13 @@ __errno_location(void);
         return -1;                       \
     }
 
+/* REVISIT: in many cases, EAI_SYSTEM may not be an ideal error code */
+#define GAI_HANDLE_ERROR(error)          \
+    if (error != __WASI_ERRNO_SUCCESS) { \
+        errno = error;                   \
+        return EAI_SYSTEM;               \
+    }
+
 static void
 ipv4_addr_to_wasi_ip4_addr(uint32_t addr_num, __wasi_addr_ip4_t *out)
 {
@@ -518,7 +525,7 @@ getaddrinfo(const char *node, const char *service, const struct addrinfo *hints,
     struct aibuf *aibuf_res;
 
     error = addrinfo_hints_to_wasi_hints(hints, &wasi_hints);
-    HANDLE_ERROR(error)
+    GAI_HANDLE_ERROR(error)
 
     do {
         if (addr_info)
@@ -529,7 +536,7 @@ getaddrinfo(const char *node, const char *service, const struct addrinfo *hints,
                                                  * sizeof(__wasi_addr_info_t));
 
         if (!addr_info) {
-            HANDLE_ERROR(__WASI_ERRNO_NOMEM)
+            return EAI_MEMORY;
         }
 
         error = __wasi_sock_addr_resolve(node, service == NULL ? "" : service,
@@ -537,21 +544,21 @@ getaddrinfo(const char *node, const char *service, const struct addrinfo *hints,
                                          &max_info_size);
         if (error != __WASI_ERRNO_SUCCESS) {
             free(addr_info);
-            HANDLE_ERROR(error);
+            GAI_HANDLE_ERROR(error);
         }
     } while (max_info_size > addr_info_size);
 
     addr_info_size = max_info_size;
     if (addr_info_size == 0) {
         free(addr_info);
-        HANDLE_ERROR(__WASI_ERRNO_NOENT)
+        return EAI_NONAME;
     }
 
     aibuf_res =
         (struct aibuf *)calloc(1, addr_info_size * sizeof(struct aibuf));
     if (!aibuf_res) {
         free(addr_info);
-        HANDLE_ERROR(__WASI_ERRNO_NOMEM)
+        return EAI_MEMORY;
     }
 
     *res = &aibuf_res[0].ai;
@@ -564,14 +571,14 @@ getaddrinfo(const char *node, const char *service, const struct addrinfo *hints,
         if (error != __WASI_ERRNO_SUCCESS) {
             free(addr_info);
             free(aibuf_res);
-            HANDLE_ERROR(error)
+            GAI_HANDLE_ERROR(error)
         }
         ai->ai_next = i == addr_info_size - 1 ? NULL : &aibuf_res[i + 1].ai;
     }
 
     free(addr_info);
 
-    return __WASI_ERRNO_SUCCESS;
+    return 0;
 }
 
 void
