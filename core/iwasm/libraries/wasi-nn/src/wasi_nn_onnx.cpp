@@ -103,7 +103,8 @@ convert_ort_error_to_wasi_nn_error(OrtStatus *status)
 }
 
 static bool
-convert_ort_type_to_wasi_nn_type(ONNXTensorElementDataType ort_type, tensor_type *tensor_type)
+convert_ort_type_to_wasi_nn_type(ONNXTensorElementDataType ort_type,
+                                 tensor_type *tensor_type)
 {
     switch (ort_type) {
         case ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
@@ -142,7 +143,8 @@ convert_ort_type_to_wasi_nn_type(ONNXTensorElementDataType ort_type, tensor_type
 }
 
 static bool
-convert_wasi_nn_type_to_ort_type(tensor_type type, ONNXTensorElementDataType *ort_type)
+convert_wasi_nn_type_to_ort_type(tensor_type type,
+                                 ONNXTensorElementDataType *ort_type)
 {
     switch (type) {
         case fp32:
@@ -583,7 +585,7 @@ set_input(void *onnx_ctx, graph_execution_context ctx, uint32_t index,
     }
 
     status = ort_ctx->ort_api->CreateTensorWithDataAsOrtValue(
-        exec_ctx->memory_info, input_tensor->data.buf,input_tensor->data.size,
+        exec_ctx->memory_info, input_tensor->data.buf, input_tensor->data.size,
         ort_dims, num_dims, ort_type, &input_value);
 
     free(ort_dims);
