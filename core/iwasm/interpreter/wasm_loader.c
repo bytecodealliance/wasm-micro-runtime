@@ -7626,7 +7626,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             case WASM_OP_SELECT:
             case WASM_OP_DROP_64:
             case WASM_OP_SELECT_64:
-#if WASM_ENABLE_FAST_INTERP != 0 && WASM_ENABLE_SIMD != 0
+#if WASM_ENABLE_SIMDE != 0
             case WASM_OP_SELECT_128:
 #endif
                 break;
@@ -13155,9 +13155,7 @@ re_scan:
 #if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) \
     || (WASM_ENABLE_FAST_INTERP != 0)
                         case VALUE_TYPE_V128:
-#if WASM_ENABLE_FAST_INTERP == 0
-                            *(p - 1) = WASM_OP_SELECT_128;
-#else
+#if WASM_ENABLE_SIMDE != 0
                             if (loader_ctx->p_code_compiled) {
                                 uint8 opcode_tmp = WASM_OP_SELECT_128;
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
@@ -13285,8 +13283,7 @@ re_scan:
                     uint8 opcode_tmp = WASM_OP_SELECT;
 
                     if (type == VALUE_TYPE_V128) {
-#if WASM_ENABLE_JIT != 0 \
-    || WASM_ENABLE_FAST_INTERP != 0 && WASM_ENABLE_SIMD != 0
+#if WASM_ENABLE_SIMDE != 0
                         opcode_tmp = WASM_OP_SELECT_128;
 #else
                         set_error_buf(error_buf, error_buf_size,

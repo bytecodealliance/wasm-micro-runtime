@@ -1887,7 +1887,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 }
                 HANDLE_OP_END();
             }
-#if WASM_ENABLE_SIMD != 0
+#if WASM_ENABLE_SIMDE != 0
             HANDLE_OP(WASM_OP_SELECT_128)
             {
                 cond = frame_lp[GET_OFFSET()];
