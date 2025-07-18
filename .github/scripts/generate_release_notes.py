@@ -2,9 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 # get the last release tag from git, and use it to find all merged PRs since
-# that tag. extract their titles, labels and PR numbers and classify them into
-# break changes, new # features, enhancements, bug fixes, and others based on
-# their labels.
+# that tag. Since their titles might not following the same format, we use
+# gh cli to search merged PR by commit SHA.
+#
+# Once having those PRs' information, extract their titles, labels and PR
+# numbers and classify them into break changes, new features, enhancements,
+# bug fixes, and others based on their labels.
 #
 # The release version is generated based on the last release tag.  The tag
 # should be in the format of "WAMR-major.minor.patch", where major, minor,
@@ -56,25 +59,25 @@ def get_last_release_tag():
 
 def get_merged_prs_since(tag):
     # Get commits  since the last release tag
-    log_cmd = f'git log {tag}..HEAD --pretty=format:"%s"'
+    log_cmd = f'git log {tag}..HEAD --pretty=format:"%s %H"'
     logs = run_cmd(log_cmd).splitlines()
 
     print(f"Found {len(logs)} merge commits since last tag '{tag}'.")
 
     pr_numbers = []
     for line in logs:
-        # assume the commit message ends with "(#PR_NUMBER)"
-        if not line.endswith(")"):
-            continue
+        _, sha = line.rsplit(" ", 1)
+        # Use SHA to find merged PRs
+        pr_cmd = f"gh pr list --search {sha} --state merged --json number,title"
+        pr_json = run_cmd(pr_cmd)
+        pr_data = json.loads(pr_json)
 
-        # Extract PR number
-        parts = line.split("(#")
-        if len(parts) < 2:
-            continue
+        for pr in pr_data:
+            pr_number = pr.get("number")
+            print(f"Found PR #{pr_number} {pr['title']}")
+            if pr_number and pr_number not in pr_numbers:
+                pr_numbers.append(f"{pr_number}")
 
-        # PR_NUMBER) -> PR_NUMBER
-        pr_num = parts[1][:-1]
-        pr_numbers.append(pr_num)
     return pr_numbers
 
 
@@ -145,7 +148,7 @@ def format_release_notes(version, sections):
         else:
             notes.append("")
         notes.append("")
-    return "\n".join(notes)
+    return "\n".join(notes) + "\n"
 
 
 def insert_release_notes(notes, RELEASE_NOTES_FILE):
