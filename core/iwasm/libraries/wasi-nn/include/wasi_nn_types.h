@@ -27,7 +27,7 @@ extern "C" {
 #define WASI_NN_TYPE_NAME(name) WASI_NN_NAME(type_##name)
 #define WASI_NN_ENCODING_NAME(name) WASI_NN_NAME(encoding_##name)
 #define WASI_NN_TARGET_NAME(name) WASI_NN_NAME(target_##name)
-#define WASI_NN_ERROR_TYPE WASI_NN_NAME(error);
+#define WASI_NN_ERROR_TYPE WASI_NN_NAME(error)
 #endif
 
 /**
