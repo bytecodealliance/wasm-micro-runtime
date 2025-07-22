@@ -219,6 +219,9 @@ getaddrinfo(const char *node, const char *service, const struct addrinfo *hints,
 
 void
 freeaddrinfo(struct addrinfo *res);
+
+const char *
+gai_strerror(int code);
 #endif
 
 /**
