@@ -199,6 +199,8 @@ wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args)
 
         heap->heap_handle = NULL;
         heap->base_addr = init_args->pre_allocated_addr;
+        LOG_VERBOSE("Create preallocated shared heap %p with size %u",
+                    heap->base_addr, size);
     }
     else {
         if (!(heap->heap_handle =
@@ -225,6 +227,8 @@ wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args)
             LOG_WARNING("init share heap failed");
             goto fail4;
         }
+        LOG_VERBOSE("Create pool shared heap %p with size %u", heap->base_addr,
+                    size);
     }
 
     os_mutex_lock(&shared_heap_list_lock);
@@ -509,6 +513,8 @@ wasm_runtime_attach_shared_heap_internal(WASMModuleInstanceCommon *module_inst,
     os_mutex_lock(&shared_heap_list_lock);
     shared_heap->attached_count++;
     os_mutex_unlock(&shared_heap_list_lock);
+    LOG_VERBOSE("Shared heap %p is attached to module instance %p", shared_heap,
+                module_inst);
     return true;
 }
 
@@ -570,6 +576,7 @@ wasm_runtime_detach_shared_heap_internal(WASMModuleInstanceCommon *module_inst)
         e->shared_heap_base_addr_adj = NULL;
     }
 #endif /* end of WASM_ENABLE_AOT != 0 */
+    LOG_VERBOSE("Shared heap is detached from module instance %p", module_inst);
 }
 
 void
