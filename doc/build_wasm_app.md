@@ -386,13 +386,20 @@ However, there might be minor incompatibilities time to time.
 For productions, we recommend to use compatible versions of
 wamrc and the runtime.
 
-| WAMR version | AOT_CURRENT_VERSION | Compatible AOT version |
-| ------------ | ------------------- | ---------------------- |
-| 1.x          | 3                   | 3                      |
-| 2.0.0        | 3                   | 3                      |
-| 2.1.x        | 3                   | 3                      |
-| 2.2.0        | 3                   | 3                      |
-| next         | 4                   | 3,4                    |
+| WAMR version | AOT_CURRENT_VERSION | Compatible AOT version |                        |
+| ------------ | ------------------- | ---------------------- | ---------------------- |
+| 1.x          | 3                   | 3                      |                        |
+| 2.0.0        | 3                   | 3                      |                        |
+| 2.1.x        | 3                   | 3                      |                        |
+| 2.2.0        | 3                   | 3                      |                        |
+| 2.3.0        | 4                   | 3,4                    |                        |
+| 2.4.0        | 4                   | 3,4                    | See the following note |
+| 2.4.1        | 5                   | 5                      |                        |
+
+Note: 2.4.0 had a broken AoT versioning. See [issue 4504] for details.
+We recommend all 2.4.0 users to migrate to 2.4.1.
+
+[issue 4504]: https://github.com/bytecodealliance/wasm-micro-runtime/issues/4504
 
 ## AoT compilation with 3rd-party toolchains
 
