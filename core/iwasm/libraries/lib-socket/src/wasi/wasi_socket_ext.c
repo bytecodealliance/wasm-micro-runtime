@@ -38,6 +38,13 @@ __errno_location(void);
         return -1;                       \
     }
 
+/* REVISIT: in many cases, EAI_SYSTEM may not be an ideal error code */
+#define GAI_HANDLE_ERROR(error)          \
+    if (error != __WASI_ERRNO_SUCCESS) { \
+        errno = error;                   \
+        return EAI_SYSTEM;               \
+    }
+
 static void
 ipv4_addr_to_wasi_ip4_addr(uint32_t addr_num, __wasi_addr_ip4_t *out)
 {
@@ -191,7 +198,7 @@ bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
     error = __wasi_sock_bind(sockfd, &wasi_addr);
     HANDLE_ERROR(error)
 
-    return __WASI_ERRNO_SUCCESS;
+    return 0;
 }
 
 int
@@ -212,7 +219,7 @@ connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
     error = __wasi_sock_connect(sockfd, &wasi_addr);
     HANDLE_ERROR(error)
 
-    return __WASI_ERRNO_SUCCESS;
+    return 0;
 }
 
 int
@@ -220,7 +227,7 @@ listen(int sockfd, int backlog)
 {
     __wasi_errno_t error = __wasi_sock_listen(sockfd, backlog);
     HANDLE_ERROR(error)
-    return __WASI_ERRNO_SUCCESS;
+    return 0;
 }
 
 ssize_t
@@ -375,7 +382,7 @@ socket(int domain, int type, int protocol)
         af = INET6;
     }
     else {
-        return __WASI_ERRNO_NOPROTOOPT;
+        HANDLE_ERROR(__WASI_ERRNO_NOPROTOOPT)
     }
 
     if (SOCK_DGRAM == type) {
@@ -385,7 +392,7 @@ socket(int domain, int type, int protocol)
         socktype = SOCKET_STREAM;
     }
     else {
-        return __WASI_ERRNO_NOPROTOOPT;
+        HANDLE_ERROR(__WASI_ERRNO_NOPROTOOPT)
     }
 
     error = __wasi_sock_open(poolfd, af, socktype, &sockfd);
@@ -408,7 +415,7 @@ getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
     error = wasi_addr_to_sockaddr(&wasi_addr, addr, addrlen);
     HANDLE_ERROR(error)
 
-    return __WASI_ERRNO_SUCCESS;
+    return 0;
 }
 
 int
@@ -425,7 +432,7 @@ getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
     error = wasi_addr_to_sockaddr(&wasi_addr, addr, addrlen);
     HANDLE_ERROR(error)
 
-    return __WASI_ERRNO_SUCCESS;
+    return 0;
 }
 
 struct aibuf {
@@ -518,7 +525,7 @@ getaddrinfo(const char *node, const char *service, const struct addrinfo *hints,
     struct aibuf *aibuf_res;
 
     error = addrinfo_hints_to_wasi_hints(hints, &wasi_hints);
-    HANDLE_ERROR(error)
+    GAI_HANDLE_ERROR(error)
 
     do {
         if (addr_info)
@@ -529,7 +536,7 @@ getaddrinfo(const char *node, const char *service, const struct addrinfo *hints,
                                                  * sizeof(__wasi_addr_info_t));
 
         if (!addr_info) {
-            HANDLE_ERROR(__WASI_ERRNO_NOMEM)
+            return EAI_MEMORY;
         }
 
         error = __wasi_sock_addr_resolve(node, service == NULL ? "" : service,
@@ -537,28 +544,24 @@ getaddrinfo(const char *node, const char *service, const struct addrinfo *hints,
                                          &max_info_size);
         if (error != __WASI_ERRNO_SUCCESS) {
             free(addr_info);
-            HANDLE_ERROR(error);
+            GAI_HANDLE_ERROR(error);
         }
     } while (max_info_size > addr_info_size);
 
+    addr_info_size = max_info_size;
     if (addr_info_size == 0) {
         free(addr_info);
-        *res = NULL;
-        return __WASI_ERRNO_SUCCESS;
+        return EAI_NONAME;
     }
 
     aibuf_res =
         (struct aibuf *)calloc(1, addr_info_size * sizeof(struct aibuf));
     if (!aibuf_res) {
         free(addr_info);
-        HANDLE_ERROR(__WASI_ERRNO_NOMEM)
+        return EAI_MEMORY;
     }
 
     *res = &aibuf_res[0].ai;
-
-    if (addr_info_size) {
-        addr_info_size = max_info_size;
-    }
 
     for (i = 0; i < addr_info_size; i++) {
         struct addrinfo *ai = &aibuf_res[i].ai;
@@ -568,14 +571,14 @@ getaddrinfo(const char *node, const char *service, const struct addrinfo *hints,
         if (error != __WASI_ERRNO_SUCCESS) {
             free(addr_info);
             free(aibuf_res);
-            HANDLE_ERROR(error)
+            GAI_HANDLE_ERROR(error)
         }
         ai->ai_next = i == addr_info_size - 1 ? NULL : &aibuf_res[i + 1].ai;
     }
 
     free(addr_info);
 
-    return __WASI_ERRNO_SUCCESS;
+    return 0;
 }
 
 void
@@ -610,6 +613,7 @@ get_sol_socket_option(int sockfd, int optname, void *__restrict optval,
     uint64_t timeout_us;
     bool is_linger_enabled;
     int linger_s;
+    __wasi_fdstat_t sb;
 
     switch (optname) {
         case SO_RCVTIMEO:
@@ -617,38 +621,38 @@ get_sol_socket_option(int sockfd, int optname, void *__restrict optval,
             error = __wasi_sock_get_recv_timeout(sockfd, &timeout_us);
             HANDLE_ERROR(error);
             *(struct timeval *)optval = time_us_to_timeval(timeout_us);
-            return error;
+            return 0;
         case SO_SNDTIMEO:
             assert(*optlen == sizeof(struct timeval));
             error = __wasi_sock_get_send_timeout(sockfd, &timeout_us);
             HANDLE_ERROR(error);
             *(struct timeval *)optval = time_us_to_timeval(timeout_us);
-            return error;
+            return 0;
         case SO_SNDBUF:
             assert(*optlen == sizeof(int));
             error = __wasi_sock_get_send_buf_size(sockfd, (size_t *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case SO_RCVBUF:
             assert(*optlen == sizeof(int));
             error = __wasi_sock_get_recv_buf_size(sockfd, (size_t *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case SO_KEEPALIVE:
             assert(*optlen == sizeof(int));
             error = __wasi_sock_get_keep_alive(sockfd, (bool *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case SO_REUSEADDR:
             assert(*optlen == sizeof(int));
             error = __wasi_sock_get_reuse_addr(sockfd, (bool *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case SO_REUSEPORT:
             assert(*optlen == sizeof(int));
             error = __wasi_sock_get_reuse_port(sockfd, (bool *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case SO_LINGER:
             assert(*optlen == sizeof(struct linger));
             error =
@@ -656,16 +660,32 @@ get_sol_socket_option(int sockfd, int optname, void *__restrict optval,
             HANDLE_ERROR(error);
             ((struct linger *)optval)->l_onoff = (int)is_linger_enabled;
             ((struct linger *)optval)->l_linger = linger_s;
-            return error;
+            return 0;
         case SO_BROADCAST:
             assert(*optlen == sizeof(int));
             error = __wasi_sock_get_broadcast(sockfd, (bool *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
+        case SO_TYPE:
+            assert(*optlen == sizeof(int));
+            error = __wasi_fd_fdstat_get(sockfd, &sb);
+            HANDLE_ERROR(error);
+            switch (sb.fs_filetype) {
+                case __WASI_FILETYPE_SOCKET_DGRAM:
+                    *(int *)optval = SOCK_DGRAM;
+                    break;
+                case __WASI_FILETYPE_SOCKET_STREAM:
+                    *(int *)optval = SOCK_STREAM;
+                    break;
+                default:
+                    errno = __WASI_ERRNO_NOTSOCK;
+                    return -1;
+            }
+            return 0;
         default:
             error = __WASI_ERRNO_NOTSUP;
             HANDLE_ERROR(error);
-            return error;
+            return 0;
     }
 }
 
@@ -679,32 +699,32 @@ get_ipproto_tcp_option(int sockfd, int optname, void *__restrict optval,
             assert(*optlen == sizeof(uint32_t));
             error = __wasi_sock_get_tcp_keep_idle(sockfd, (uint32_t *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case TCP_KEEPINTVL:
             assert(*optlen == sizeof(uint32_t));
             error = __wasi_sock_get_tcp_keep_intvl(sockfd, (uint32_t *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case TCP_FASTOPEN_CONNECT:
             assert(*optlen == sizeof(int));
             error =
                 __wasi_sock_get_tcp_fastopen_connect(sockfd, (bool *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case TCP_NODELAY:
             assert(*optlen == sizeof(int));
             error = __wasi_sock_get_tcp_no_delay(sockfd, (bool *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case TCP_QUICKACK:
             assert(*optlen == sizeof(int));
             error = __wasi_sock_get_tcp_quick_ack(sockfd, (bool *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         default:
             error = __WASI_ERRNO_NOTSUP;
             HANDLE_ERROR(error);
-            return error;
+            return 0;
     }
 }
 
@@ -720,21 +740,21 @@ get_ipproto_ip_option(int sockfd, int optname, void *__restrict optval,
             error = __wasi_sock_get_ip_multicast_loop(sockfd, false,
                                                       (bool *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case IP_TTL:
             assert(*optlen == sizeof(int));
             error = __wasi_sock_get_ip_ttl(sockfd, (uint8_t *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case IP_MULTICAST_TTL:
             assert(*optlen == sizeof(int));
             error = __wasi_sock_get_ip_multicast_ttl(sockfd, (uint8_t *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         default:
             error = __WASI_ERRNO_NOTSUP;
             HANDLE_ERROR(error);
-            return error;
+            return 0;
     }
 }
 
@@ -749,17 +769,17 @@ get_ipproto_ipv6_option(int sockfd, int optname, void *__restrict optval,
             assert(*optlen == sizeof(int));
             error = __wasi_sock_get_ipv6_only(sockfd, (bool *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case IPV6_MULTICAST_LOOP:
             assert(*optlen == sizeof(int));
             error =
                 __wasi_sock_get_ip_multicast_loop(sockfd, true, (bool *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         default:
             error = __WASI_ERRNO_NOTSUP;
             HANDLE_ERROR(error);
-            return error;
+            return 0;
     }
 }
 
@@ -781,7 +801,7 @@ getsockopt(int sockfd, int level, int optname, void *__restrict optval,
         default:
             error = __WASI_ERRNO_NOTSUP;
             HANDLE_ERROR(error);
-            return error;
+            return 0;
     }
 }
 
@@ -799,7 +819,7 @@ set_sol_socket_option(int sockfd, int optname, const void *optval,
             timeout_us = timeval_to_time_us(*(struct timeval *)optval);
             error = __wasi_sock_set_recv_timeout(sockfd, timeout_us);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         }
         case SO_SNDTIMEO:
         {
@@ -807,42 +827,42 @@ set_sol_socket_option(int sockfd, int optname, const void *optval,
             timeout_us = timeval_to_time_us(*(struct timeval *)optval);
             error = __wasi_sock_set_send_timeout(sockfd, timeout_us);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         }
         case SO_SNDBUF:
         {
             assert(optlen == sizeof(int));
             error = __wasi_sock_set_send_buf_size(sockfd, *(size_t *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         }
         case SO_RCVBUF:
         {
             assert(optlen == sizeof(int));
             error = __wasi_sock_set_recv_buf_size(sockfd, *(size_t *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         }
         case SO_KEEPALIVE:
         {
             assert(optlen == sizeof(int));
             error = __wasi_sock_set_keep_alive(sockfd, *(bool *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         }
         case SO_REUSEADDR:
         {
             assert(optlen == sizeof(int));
             error = __wasi_sock_set_reuse_addr(sockfd, *(bool *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         }
         case SO_REUSEPORT:
         {
             assert(optlen == sizeof(int));
             error = __wasi_sock_set_reuse_port(sockfd, *(bool *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         }
         case SO_LINGER:
         {
@@ -851,20 +871,20 @@ set_sol_socket_option(int sockfd, int optname, const void *optval,
             error = __wasi_sock_set_linger(sockfd, (bool)linger_opt->l_onoff,
                                            linger_opt->l_linger);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         }
         case SO_BROADCAST:
         {
             assert(optlen == sizeof(int));
             error = __wasi_sock_set_broadcast(sockfd, *(bool *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         }
         default:
         {
             error = __WASI_ERRNO_NOTSUP;
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         }
     }
 }
@@ -880,32 +900,32 @@ set_ipproto_tcp_option(int sockfd, int optname, const void *optval,
             assert(optlen == sizeof(int));
             error = __wasi_sock_set_tcp_no_delay(sockfd, *(bool *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case TCP_KEEPIDLE:
             assert(optlen == sizeof(uint32_t));
             error = __wasi_sock_set_tcp_keep_idle(sockfd, *(uint32_t *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case TCP_KEEPINTVL:
             assert(optlen == sizeof(uint32_t));
             error = __wasi_sock_set_tcp_keep_intvl(sockfd, *(uint32_t *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case TCP_FASTOPEN_CONNECT:
             assert(optlen == sizeof(int));
             error =
                 __wasi_sock_set_tcp_fastopen_connect(sockfd, *(bool *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case TCP_QUICKACK:
             assert(optlen == sizeof(int));
             error = __wasi_sock_set_tcp_quick_ack(sockfd, *(bool *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         default:
             error = __WASI_ERRNO_NOTSUP;
             HANDLE_ERROR(error);
-            return error;
+            return 0;
     }
 }
 
@@ -923,7 +943,7 @@ set_ipproto_ip_option(int sockfd, int optname, const void *optval,
             error = __wasi_sock_set_ip_multicast_loop(sockfd, false,
                                                       *(bool *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case IP_ADD_MEMBERSHIP:
             assert(optlen == sizeof(struct ip_mreq));
             ip_mreq_opt = (struct ip_mreq *)optval;
@@ -933,7 +953,7 @@ set_ipproto_ip_option(int sockfd, int optname, const void *optval,
             error = __wasi_sock_set_ip_add_membership(
                 sockfd, &imr_multiaddr, ip_mreq_opt->imr_interface.s_addr);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case IP_DROP_MEMBERSHIP:
             assert(optlen == sizeof(struct ip_mreq));
             ip_mreq_opt = (struct ip_mreq *)optval;
@@ -943,22 +963,22 @@ set_ipproto_ip_option(int sockfd, int optname, const void *optval,
             error = __wasi_sock_set_ip_drop_membership(
                 sockfd, &imr_multiaddr, ip_mreq_opt->imr_interface.s_addr);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case IP_TTL:
             assert(optlen == sizeof(int));
             error = __wasi_sock_set_ip_ttl(sockfd, *(uint8_t *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case IP_MULTICAST_TTL:
             assert(optlen == sizeof(int));
             error =
                 __wasi_sock_set_ip_multicast_ttl(sockfd, *(uint8_t *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         default:
             error = __WASI_ERRNO_NOTSUP;
             HANDLE_ERROR(error);
-            return error;
+            return 0;
     }
 }
 
@@ -975,13 +995,13 @@ set_ipproto_ipv6_option(int sockfd, int optname, const void *optval,
             assert(optlen == sizeof(int));
             error = __wasi_sock_set_ipv6_only(sockfd, *(bool *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case IPV6_MULTICAST_LOOP:
             assert(optlen == sizeof(int));
             error = __wasi_sock_set_ip_multicast_loop(sockfd, true,
                                                       *(bool *)optval);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case IPV6_JOIN_GROUP:
             assert(optlen == sizeof(struct ipv6_mreq));
             ipv6_mreq_opt = (struct ipv6_mreq *)optval;
@@ -992,7 +1012,7 @@ set_ipproto_ipv6_option(int sockfd, int optname, const void *optval,
             error = __wasi_sock_set_ip_add_membership(
                 sockfd, &imr_multiaddr, ipv6_mreq_opt->ipv6mr_interface);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         case IPV6_LEAVE_GROUP:
             assert(optlen == sizeof(struct ipv6_mreq));
             ipv6_mreq_opt = (struct ipv6_mreq *)optval;
@@ -1003,11 +1023,11 @@ set_ipproto_ipv6_option(int sockfd, int optname, const void *optval,
             error = __wasi_sock_set_ip_drop_membership(
                 sockfd, &imr_multiaddr, ipv6_mreq_opt->ipv6mr_interface);
             HANDLE_ERROR(error);
-            return error;
+            return 0;
         default:
             error = __WASI_ERRNO_NOTSUP;
             HANDLE_ERROR(error);
-            return error;
+            return 0;
     }
 }
 
@@ -1029,6 +1049,6 @@ setsockopt(int sockfd, int level, int optname, const void *optval,
         default:
             error = __WASI_ERRNO_NOTSUP;
             HANDLE_ERROR(error);
-            return error;
+            return 0;
     }
 }

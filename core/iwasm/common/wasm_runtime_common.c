@@ -1654,14 +1654,70 @@ wasm_runtime_instantiate(WASMModuleCommon *module, uint32 stack_size,
                                              error_buf_size);
 }
 
+static void
+instantiation_args_set_defaults(struct InstantiationArgs2 *args)
+{
+    memset(args, 0, sizeof(*args));
+}
+
 WASMModuleInstanceCommon *
 wasm_runtime_instantiate_ex(WASMModuleCommon *module,
                             const InstantiationArgs *args, char *error_buf,
                             uint32 error_buf_size)
 {
+    struct InstantiationArgs2 v2;
+    instantiation_args_set_defaults(&v2);
+    v2.v1 = *args;
+    return wasm_runtime_instantiate_ex2(module, &v2, error_buf, error_buf_size);
+}
+
+bool
+wasm_runtime_instantiation_args_create(struct InstantiationArgs2 **p)
+{
+    struct InstantiationArgs2 *args = wasm_runtime_malloc(sizeof(*args));
+    if (args == NULL) {
+        return false;
+    }
+    instantiation_args_set_defaults(args);
+    *p = args;
+    return true;
+}
+
+void
+wasm_runtime_instantiation_args_destroy(struct InstantiationArgs2 *p)
+{
+    wasm_runtime_free(p);
+}
+
+void
+wasm_runtime_instantiation_args_set_default_stack_size(
+    struct InstantiationArgs2 *p, uint32 v)
+{
+    p->v1.default_stack_size = v;
+}
+
+void
+wasm_runtime_instantiation_args_set_host_managed_heap_size(
+    struct InstantiationArgs2 *p, uint32 v)
+{
+    p->v1.host_managed_heap_size = v;
+}
+
+void
+wasm_runtime_instantiation_args_set_max_memory_pages(
+    struct InstantiationArgs2 *p, uint32 v)
+{
+    p->v1.max_memory_pages = v;
+}
+
+WASMModuleInstanceCommon *
+wasm_runtime_instantiate_ex2(WASMModuleCommon *module,
+                             const struct InstantiationArgs2 *args,
+                             char *error_buf, uint32 error_buf_size)
+{
     return wasm_runtime_instantiate_internal(
-        module, NULL, NULL, args->default_stack_size,
-        args->host_managed_heap_size, args->max_memory_pages, error_buf,
+        module, NULL, NULL, args->v1.default_stack_size,
+        args->v1.host_managed_heap_size, args->v1.max_memory_pages, error_buf,
         error_buf_size);
 }
 
