@@ -15,7 +15,7 @@
 #define WASM_CURRENT_VERSION 1
 
 #define AOT_MAGIC_NUMBER 0x746f6100
-#define AOT_CURRENT_VERSION 4
+#define AOT_CURRENT_VERSION 5
 
 /* Legal values for bin_type */
 #define BIN_TYPE_ELF32L 0 /* 32-bit little endian */
