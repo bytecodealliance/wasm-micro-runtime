@@ -278,6 +278,7 @@ def process_and_run_test_cases(
 
     if failed > 0:
         # Exit with error code if there are failed test for CI
+        print("Some tests failed, see log file for details.")
         sys.exit(1)
 
 
