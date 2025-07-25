@@ -1,0 +1,66 @@
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+# It includes:
+#   - add new content into the RELEASE_NOTES.md
+#   - update the version in build-scripts/version.cmake and core/version.h
+#
+# The new content is added to the beginning of the RELEASE_NOTES.md file.
+# It includes all merged PR titles since the last release(tag).
+# Based on every PR's label, it will be categorized into different sections.
+#
+# The version number is updated to the next version.
+# Based on new content in the RELEASE_NOTES.md, it will be determined
+# 1. if there is breaking change or new features, the next version will be a minor version
+# 2. if there is no breaking change and new features, the next version will be a patch version
+#
+# At the end, file a PR to update the files.
+
+name: preparation for a release.
+
+on:
+  workflow_dispatch:
+
+# Cancel any in-flight jobs for the same PR/branch so there's only one active
+# at a time
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prepare_release:
+    permissions:
+      contents: write # update files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: prepare the release note
+        id: generate_release_notes
+        run: |
+          python3 ./.github/scripts/generate_release_notes.py ./RELEASE_NOTES.md"
+
+      - name: extract next version from previous step's output
+        id: extract_version
+        run: |
+          echo "next_version=${{ steps.generate_release_notes.outputs.next_version }}" >> $GITHUB_ENV
+
+      - name: update version files
+        run: |
+          python3 ./.github/scripts/update_version_files.py ${{ env.next_version }}
+
+      - name: file a PR
+        id: file_pr
+        uses: peter-evans/create-pull-request@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: "Prepare for the next release"
+          body: |
+            This PR prepares for the next release.
+            It updates the version files and adds new content to the RELEASE_NOTES.md.
+          commit-message: "prepare for the next release"
+          branch: prepare-release-${{ github.run_id }}
+          paths: |
+            RELEASE_NOTES.md
+            build-scripts/version.cmake
+            core/version.h
