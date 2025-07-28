@@ -1,3 +1,38 @@
+## WAMR-2.4.1
+
+### Breaking Changes
+
+- wasi_socket_ext.c: fix error reporting (#4476)
+- lib-socket: make getaddrinfo return EAI\_ values (#4498)
+- bump AOT_CURRENT_VERSION for extended-const (#4511)
+
+### New Features
+
+### Bug Fixes
+
+- modify macro related to simde when WASM_OP_SELECT_128 (#4461)
+- posix os_socket_accept: stop assuming socklen_t is unsigned int (#4488)
+- wasi_socket_ext.c: fix the number of getaddrinfo results (#4466)
+- Fix typos (#4472)
+- fix regression running_config.json (#4477)
+- posix os_socket_addr_resolve: relax compatibility check (#4469)
+- Add validation for recursive type count in loader (#4440)
+
+### Enhancements
+
+- Add CI on Zephyr (#4336)
+- introduce wasm_runtime_instantiate_ex2 (#4444)
+- Add a CLI option to specify shared heap size on Windows platform (#4503)
+- wasi-nn: add a comment on load_by_name_with_config (#4492)
+- nn-cli: add an option to use load_by_name (#4490)
+- wamr-wasi-extensions: document (#4493)
+- doc/socket_api.md: some historical notes (#4494)
+- lib-socket: implement getsockopt(SOL_SOCKET,SO_TYPE) (#4458)
+
+### Others
+
+- build(deps): Bump github/codeql-action from 3.29.2 to 3.29.3 (#4507)
+
 ## WAMR-2.4.0
 
 ### Breaking Changes
