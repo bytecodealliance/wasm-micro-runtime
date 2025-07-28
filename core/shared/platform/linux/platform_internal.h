@@ -22,10 +22,10 @@
 #include <limits.h>
 #include <dirent.h>
 #include <fcntl.h>
-#include <unistd.h>
 #include <poll.h>
 #include <sched.h>
 #include <errno.h>
+#include <unistd.h>
 #include <netinet/in.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -36,6 +36,7 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/resource.h>
+#include <sys/wait.h>
 
 #ifdef __cplusplus
 extern "C" {

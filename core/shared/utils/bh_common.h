@@ -67,10 +67,6 @@ char *
 wa_strdup(const char *s);
 
 #if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0
-/* Executes a system command in bash/cmd.exe */
-int
-bh_system(const char *cmd);
-
 /* Tests whether can create a temporary file with the given name */
 bool
 bh_mkstemp(char *filename, size_t name_len);
