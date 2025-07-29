@@ -1786,7 +1786,8 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
             read_uint32(buf, buf_end, j);
 #if WASM_ENABLE_AOT_VALIDATOR != 0
-            if (j >= module->type_count) {
+            /* an equivalence type should be before the type it refers to */
+            if (j > i) {
                 set_error_buf(error_buf, error_buf_size, "invalid type index");
                 goto fail;
             }
