@@ -15,18 +15,8 @@
 #include "onnxruntime_c_api.h"
 
 /* Maximum number of graphs and execution contexts */
-#define MAX_GRAPHS 10
-#define MAX_CONTEXTS 10
-
-/* ONNX Runtime context structure */
-typedef struct {
-    OrtEnv *env;
-    OrtSessionOptions *session_options;
-    OrtAllocator *allocator;
-    const OrtApi *ort_api;
-    std::mutex mutex;
-    bool is_initialized;
-} OnnxRuntimeContext;
+#define MAX_GRAPHS 4
+#define MAX_CONTEXTS 4
 
 /* Graph structure */
 typedef struct {
@@ -45,32 +35,40 @@ typedef struct {
     bool is_initialized;
 } OnnxRuntimeExecCtx;
 
-/* Global variables */
-static OnnxRuntimeContext g_ort_ctx;
-static OnnxRuntimeGraph g_graphs[MAX_GRAPHS];
-static OnnxRuntimeExecCtx g_exec_ctxs[MAX_CONTEXTS];
+/* ONNX Runtime context structure */
+typedef struct {
+    OrtEnv *env;
+    OrtSessionOptions *session_options;
+    OrtAllocator *allocator;
+    const OrtApi *ort_api;
+    std::mutex mutex;
+    bool is_initialized;
+    OnnxRuntimeGraph graphs[MAX_GRAPHS];
+    OnnxRuntimeExecCtx exec_ctxs[MAX_CONTEXTS];
+} OnnxRuntimeContext;
 
 /* Helper functions */
 static void
-check_status_and_log(OrtStatus *status)
+check_status_and_log(const OnnxRuntimeContext *ctx, OrtStatus *status)
 {
     if (status != nullptr) {
-        const char *msg = g_ort_ctx.ort_api->GetErrorMessage(status);
+        const char *msg = ctx->ort_api->GetErrorMessage(status);
         NN_ERR_PRINTF("ONNX Runtime error: %s", msg);
-        g_ort_ctx.ort_api->ReleaseStatus(status);
+        ctx->ort_api->ReleaseStatus(status);
     }
 }
 
 static wasi_nn_error
-convert_ort_error_to_wasi_nn_error(OrtStatus *status)
+convert_ort_error_to_wasi_nn_error(const OnnxRuntimeContext *ctx,
+                                   OrtStatus *status)
 {
     if (status == nullptr) {
         return success;
     }
 
     wasi_nn_error err;
-    OrtErrorCode code = g_ort_ctx.ort_api->GetErrorCode(status);
-    const char *msg = g_ort_ctx.ort_api->GetErrorMessage(status);
+    OrtErrorCode code = ctx->ort_api->GetErrorCode(status);
+    const char *msg = ctx->ort_api->GetErrorMessage(status);
 
     NN_ERR_PRINTF("ONNX Runtime error: %s", msg);
 
@@ -98,7 +96,7 @@ convert_ort_error_to_wasi_nn_error(OrtStatus *status)
             break;
     }
 
-    g_ort_ctx.ort_api->ReleaseStatus(status);
+    ctx->ort_api->ReleaseStatus(status);
     return err;
 }
 
@@ -188,81 +186,81 @@ extern "C" {
 __attribute__((visibility("default"))) wasi_nn_error
 init_backend(void **onnx_ctx)
 {
-    std::lock_guard<std::mutex> lock(g_ort_ctx.mutex);
-
-    if (g_ort_ctx.is_initialized) {
-        *onnx_ctx = &g_ort_ctx;
-        return success;
-    }
-
-    g_ort_ctx.ort_api = OrtGetApiBase()->GetApi(ORT_API_VERSION);
-    if (!g_ort_ctx.ort_api) {
+    wasi_nn_error err = success;
+    OrtStatus *status = nullptr;
+    OnnxRuntimeContext *ctx = nullptr;
+    ctx = new OnnxRuntimeContext();
+    ctx->ort_api = OrtGetApiBase()->GetApi(ORT_API_VERSION);
+    if (!ctx->ort_api) {
         NN_ERR_PRINTF("Failed to get ONNX Runtime API");
-        return runtime_error;
+        err = runtime_error;
+        goto fail;
     }
 
     NN_INFO_PRINTF("Creating ONNX Runtime environment...");
-    OrtStatus *status = g_ort_ctx.ort_api->CreateEnv(ORT_LOGGING_LEVEL_VERBOSE,
-                                                     "wasi-nn", &g_ort_ctx.env);
+    status = ctx->ort_api->CreateEnv(ORT_LOGGING_LEVEL_VERBOSE, "wasi-nn",
+                                     &ctx->env);
     if (status != nullptr) {
-        const char *error_message = g_ort_ctx.ort_api->GetErrorMessage(status);
-        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(status);
+        const char *error_message = ctx->ort_api->GetErrorMessage(status);
+        err = convert_ort_error_to_wasi_nn_error(ctx, status);
         NN_ERR_PRINTF("Failed to create ONNX Runtime environment: %s",
                       error_message);
-        g_ort_ctx.ort_api->ReleaseStatus(status);
-        return err;
+        ctx->ort_api->ReleaseStatus(status);
+        goto fail;
     }
     NN_INFO_PRINTF("ONNX Runtime environment created successfully");
 
-    status =
-        g_ort_ctx.ort_api->CreateSessionOptions(&g_ort_ctx.session_options);
+    status = ctx->ort_api->CreateSessionOptions(&ctx->session_options);
     if (status != nullptr) {
-        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(status);
-        g_ort_ctx.ort_api->ReleaseEnv(g_ort_ctx.env);
+        err = convert_ort_error_to_wasi_nn_error(ctx, status);
+        ctx->ort_api->ReleaseEnv(ctx->env);
         NN_ERR_PRINTF("Failed to create ONNX Runtime session options");
-        return err;
+        goto fail;
     }
 
-    status = g_ort_ctx.ort_api->SetSessionGraphOptimizationLevel(
-        g_ort_ctx.session_options, ORT_ENABLE_BASIC);
+    status = ctx->ort_api->SetSessionGraphOptimizationLevel(
+        ctx->session_options, ORT_ENABLE_BASIC);
     if (status != nullptr) {
-        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(status);
-        g_ort_ctx.ort_api->ReleaseSessionOptions(g_ort_ctx.session_options);
-        g_ort_ctx.ort_api->ReleaseEnv(g_ort_ctx.env);
+        err = convert_ort_error_to_wasi_nn_error(ctx, status);
+        ctx->ort_api->ReleaseSessionOptions(ctx->session_options);
+        ctx->ort_api->ReleaseEnv(ctx->env);
         NN_ERR_PRINTF("Failed to set graph optimization level");
-        return err;
+        goto fail;
     }
 
-    status =
-        g_ort_ctx.ort_api->GetAllocatorWithDefaultOptions(&g_ort_ctx.allocator);
+    status = ctx->ort_api->GetAllocatorWithDefaultOptions(&ctx->allocator);
     if (status != nullptr) {
-        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(status);
-        g_ort_ctx.ort_api->ReleaseSessionOptions(g_ort_ctx.session_options);
-        g_ort_ctx.ort_api->ReleaseEnv(g_ort_ctx.env);
+        err = convert_ort_error_to_wasi_nn_error(ctx, status);
+        ctx->ort_api->ReleaseSessionOptions(ctx->session_options);
+        ctx->ort_api->ReleaseEnv(ctx->env);
         NN_ERR_PRINTF("Failed to get default allocator");
-        return err;
+        goto fail;
     }
 
     for (int i = 0; i < MAX_GRAPHS; i++) {
-        g_graphs[i].is_initialized = false;
-        g_graphs[i].session = nullptr;
+        ctx->graphs[i].is_initialized = false;
+        ctx->graphs[i].session = nullptr;
     }
 
     for (int i = 0; i < MAX_CONTEXTS; i++) {
-        g_exec_ctxs[i].is_initialized = false;
-        g_exec_ctxs[i].memory_info = nullptr;
-        g_exec_ctxs[i].graph = nullptr;
-        g_exec_ctxs[i].input_names.clear();
-        g_exec_ctxs[i].output_names.clear();
-        g_exec_ctxs[i].inputs.clear();
-        g_exec_ctxs[i].outputs.clear();
+        ctx->exec_ctxs[i].is_initialized = false;
+        ctx->exec_ctxs[i].memory_info = nullptr;
+        ctx->exec_ctxs[i].graph = nullptr;
+        ctx->exec_ctxs[i].input_names.clear();
+        ctx->exec_ctxs[i].output_names.clear();
+        ctx->exec_ctxs[i].inputs.clear();
+        ctx->exec_ctxs[i].outputs.clear();
     }
 
-    g_ort_ctx.is_initialized = true;
-    *onnx_ctx = &g_ort_ctx;
+    ctx->is_initialized = true;
+    *onnx_ctx = ctx;
 
     NN_INFO_PRINTF("ONNX Runtime backend initialized");
     return success;
+
+fail:
+    delete (ctx);
+    return err;
 }
 
 __attribute__((visibility("default"))) wasi_nn_error
@@ -276,28 +274,30 @@ deinit_backend(void *onnx_ctx)
     }
 
     for (int i = 0; i < MAX_GRAPHS; i++) {
-        if (g_graphs[i].is_initialized) {
-            ctx->ort_api->ReleaseSession(g_graphs[i].session);
-            g_graphs[i].is_initialized = false;
+        if (ctx->graphs[i].is_initialized) {
+            ctx->ort_api->ReleaseSession(ctx->graphs[i].session);
+            ctx->graphs[i].is_initialized = false;
         }
     }
 
     for (int i = 0; i < MAX_CONTEXTS; i++) {
-        if (g_exec_ctxs[i].is_initialized) {
-            for (auto &input : g_exec_ctxs[i].inputs) {
+        if (ctx->exec_ctxs[i].is_initialized) {
+            for (auto &input : ctx->exec_ctxs[i].inputs) {
                 ctx->ort_api->ReleaseValue(input.second);
             }
-            for (auto &output : g_exec_ctxs[i].outputs) {
+            for (auto &output : ctx->exec_ctxs[i].outputs) {
                 ctx->ort_api->ReleaseValue(output.second);
             }
-            ctx->ort_api->ReleaseMemoryInfo(g_exec_ctxs[i].memory_info);
-            g_exec_ctxs[i].is_initialized = false;
+            ctx->ort_api->ReleaseMemoryInfo(ctx->exec_ctxs[i].memory_info);
+            ctx->exec_ctxs[i].is_initialized = false;
         }
     }
 
     ctx->ort_api->ReleaseSessionOptions(ctx->session_options);
     ctx->ort_api->ReleaseEnv(ctx->env);
     ctx->is_initialized = false;
+
+    delete (ctx);
 
     NN_INFO_PRINTF("ONNX Runtime backend deinitialized");
     return success;
@@ -322,7 +322,7 @@ load(void *onnx_ctx, graph_builder_array *builder, graph_encoding encoding,
 
     int graph_index = -1;
     for (int i = 0; i < MAX_GRAPHS; i++) {
-        if (!g_graphs[i].is_initialized) {
+        if (!ctx->graphs[i].is_initialized) {
             graph_index = i;
             break;
         }
@@ -356,11 +356,11 @@ load(void *onnx_ctx, graph_builder_array *builder, graph_encoding encoding,
 
     OrtStatus *status = ctx->ort_api->CreateSessionFromArray(
         ctx->env, builder->buf[0].buf, builder->buf[0].size,
-        ctx->session_options, &g_graphs[graph_index].session);
+        ctx->session_options, &ctx->graphs[graph_index].session);
 
     if (status != nullptr) {
         const char *error_message = ctx->ort_api->GetErrorMessage(status);
-        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(status);
+        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(ctx, status);
         NN_ERR_PRINTF("Failed to create ONNX Runtime session: %s",
                       error_message);
         ctx->ort_api->ReleaseStatus(status);
@@ -369,7 +369,7 @@ load(void *onnx_ctx, graph_builder_array *builder, graph_encoding encoding,
 
     NN_INFO_PRINTF("ONNX Runtime session created successfully");
 
-    g_graphs[graph_index].is_initialized = true;
+    ctx->graphs[graph_index].is_initialized = true;
     *g = graph_index;
 
     NN_INFO_PRINTF("ONNX model loaded as graph %d", graph_index);
@@ -384,7 +384,7 @@ load_by_name(void *onnx_ctx, const char *name, uint32_t filename_len, graph *g)
 
     int graph_index = -1;
     for (int i = 0; i < MAX_GRAPHS; i++) {
-        if (!g_graphs[i].is_initialized) {
+        if (!ctx->graphs[i].is_initialized) {
             graph_index = i;
             break;
         }
@@ -395,17 +395,18 @@ load_by_name(void *onnx_ctx, const char *name, uint32_t filename_len, graph *g)
         return runtime_error;
     }
 
-    OrtStatus *status = ctx->ort_api->CreateSession(
-        ctx->env, name, ctx->session_options, &g_graphs[graph_index].session);
+    OrtStatus *status =
+        ctx->ort_api->CreateSession(ctx->env, name, ctx->session_options,
+                                    &ctx->graphs[graph_index].session);
 
     if (status != nullptr) {
-        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(status);
+        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(ctx, status);
         NN_ERR_PRINTF("Failed to create ONNX Runtime session from file: %s",
                       name);
         return err;
     }
 
-    g_graphs[graph_index].is_initialized = true;
+    ctx->graphs[graph_index].is_initialized = true;
     *g = graph_index;
 
     NN_INFO_PRINTF("ONNX model loaded from file %s as graph %d", name,
@@ -416,17 +417,17 @@ load_by_name(void *onnx_ctx, const char *name, uint32_t filename_len, graph *g)
 __attribute__((visibility("default"))) wasi_nn_error
 init_execution_context(void *onnx_ctx, graph g, graph_execution_context *ctx)
 {
-    if (g >= MAX_GRAPHS || !g_graphs[g].is_initialized) {
+    OnnxRuntimeContext *ort_ctx = (OnnxRuntimeContext *)onnx_ctx;
+
+    if (g >= MAX_GRAPHS || !ort_ctx->graphs[g].is_initialized) {
         NN_ERR_PRINTF("Invalid graph handle: %d", g);
         return invalid_argument;
     }
 
-    OnnxRuntimeContext *ort_ctx = (OnnxRuntimeContext *)onnx_ctx;
     std::lock_guard<std::mutex> lock(ort_ctx->mutex);
-
     int ctx_index = -1;
     for (int i = 0; i < MAX_CONTEXTS; i++) {
-        if (!g_exec_ctxs[i].is_initialized) {
+        if (!ort_ctx->exec_ctxs[i].is_initialized) {
             ctx_index = i;
             break;
         }
@@ -437,13 +438,13 @@ init_execution_context(void *onnx_ctx, graph g, graph_execution_context *ctx)
         return runtime_error;
     }
 
-    OnnxRuntimeExecCtx *exec_ctx = &g_exec_ctxs[ctx_index];
-    exec_ctx->graph = &g_graphs[g];
+    OnnxRuntimeExecCtx *exec_ctx = &ort_ctx->exec_ctxs[ctx_index];
+    exec_ctx->graph = &ort_ctx->graphs[g];
 
     OrtStatus *status = ort_ctx->ort_api->CreateCpuMemoryInfo(
         OrtArenaAllocator, OrtMemTypeDefault, &exec_ctx->memory_info);
     if (status != nullptr) {
-        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(status);
+        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(ort_ctx, status);
         NN_ERR_PRINTF("Failed to create CPU memory info");
         return err;
     }
@@ -452,7 +453,7 @@ init_execution_context(void *onnx_ctx, graph g, graph_execution_context *ctx)
     status = ort_ctx->ort_api->SessionGetInputCount(exec_ctx->graph->session,
                                                     &num_input_nodes);
     if (status != nullptr) {
-        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(status);
+        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(ort_ctx, status);
         ort_ctx->ort_api->ReleaseMemoryInfo(exec_ctx->memory_info);
         NN_ERR_PRINTF("Failed to get input count");
         return err;
@@ -463,7 +464,8 @@ init_execution_context(void *onnx_ctx, graph g, graph_execution_context *ctx)
         status = ort_ctx->ort_api->SessionGetInputName(
             exec_ctx->graph->session, i, ort_ctx->allocator, &input_name);
         if (status != nullptr) {
-            wasi_nn_error err = convert_ort_error_to_wasi_nn_error(status);
+            wasi_nn_error err =
+                convert_ort_error_to_wasi_nn_error(ort_ctx, status);
             ort_ctx->ort_api->ReleaseMemoryInfo(exec_ctx->memory_info);
             NN_ERR_PRINTF("Failed to get input name");
             return err;
@@ -475,7 +477,7 @@ init_execution_context(void *onnx_ctx, graph g, graph_execution_context *ctx)
     status = ort_ctx->ort_api->SessionGetOutputCount(exec_ctx->graph->session,
                                                      &num_output_nodes);
     if (status != nullptr) {
-        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(status);
+        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(ort_ctx, status);
         ort_ctx->ort_api->ReleaseMemoryInfo(exec_ctx->memory_info);
         for (const char *name : exec_ctx->input_names) {
             ort_ctx->allocator->Free(ort_ctx->allocator, (void *)name);
@@ -489,7 +491,8 @@ init_execution_context(void *onnx_ctx, graph g, graph_execution_context *ctx)
         status = ort_ctx->ort_api->SessionGetOutputName(
             exec_ctx->graph->session, i, ort_ctx->allocator, &output_name);
         if (status != nullptr) {
-            wasi_nn_error err = convert_ort_error_to_wasi_nn_error(status);
+            wasi_nn_error err =
+                convert_ort_error_to_wasi_nn_error(ort_ctx, status);
             ort_ctx->ort_api->ReleaseMemoryInfo(exec_ctx->memory_info);
             for (const char *name : exec_ctx->input_names) {
                 ort_ctx->allocator->Free(ort_ctx->allocator, (void *)name);
@@ -512,20 +515,21 @@ __attribute__((visibility("default"))) wasi_nn_error
 set_input(void *onnx_ctx, graph_execution_context ctx, uint32_t index,
           tensor *input_tensor)
 {
-    if (ctx >= MAX_CONTEXTS || !g_exec_ctxs[ctx].is_initialized) {
+    OnnxRuntimeContext *ort_ctx = (OnnxRuntimeContext *)onnx_ctx;
+
+    if (ctx >= MAX_CONTEXTS || !ort_ctx->exec_ctxs[ctx].is_initialized) {
         NN_ERR_PRINTF("Invalid execution context handle: %d", ctx);
         return invalid_argument;
     }
 
-    if (index >= g_exec_ctxs[ctx].input_names.size()) {
+    if (index >= ort_ctx->exec_ctxs[ctx].input_names.size()) {
         NN_ERR_PRINTF("Invalid input index: %d (max: %zu)", index,
-                      g_exec_ctxs[ctx].input_names.size() - 1);
+                      ort_ctx->exec_ctxs[ctx].input_names.size() - 1);
         return invalid_argument;
     }
 
-    OnnxRuntimeContext *ort_ctx = (OnnxRuntimeContext *)onnx_ctx;
     std::lock_guard<std::mutex> lock(ort_ctx->mutex);
-    OnnxRuntimeExecCtx *exec_ctx = &g_exec_ctxs[ctx];
+    OnnxRuntimeExecCtx *exec_ctx = &ort_ctx->exec_ctxs[ctx];
 
     OrtTypeInfo *type_info = nullptr;
     OrtStatus *status = ort_ctx->ort_api->SessionGetInputTypeInfo(
@@ -548,14 +552,6 @@ set_input(void *onnx_ctx, graph_execution_context ctx, uint32_t index,
     std::vector<int64_t> model_dims(num_model_dims);
     status = ort_ctx->ort_api->GetDimensions(tensor_info, model_dims.data(),
                                              num_model_dims);
-
-    size_t model_tensor_size = 1;
-    for (size_t i = 0; i < num_model_dims; ++i)
-        model_tensor_size *= model_dims[i];
-
-    size_t input_tensor_size = 1;
-    for (size_t i = 0; i < input_tensor->dimensions->size; ++i)
-        input_tensor_size *= input_tensor->dimensions->buf[i];
 
     void *input_tensor_data = input_tensor->data.buf;
     void *input_tensor_scaled_data = NULL;
@@ -591,7 +587,7 @@ set_input(void *onnx_ctx, graph_execution_context ctx, uint32_t index,
     free(ort_dims);
 
     if (status != nullptr) {
-        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(status);
+        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(ort_ctx, status);
         NN_ERR_PRINTF("Failed to create input tensor");
         return err;
     }
@@ -608,14 +604,15 @@ set_input(void *onnx_ctx, graph_execution_context ctx, uint32_t index,
 __attribute__((visibility("default"))) wasi_nn_error
 compute(void *onnx_ctx, graph_execution_context ctx)
 {
-    if (ctx >= MAX_CONTEXTS || !g_exec_ctxs[ctx].is_initialized) {
+    OnnxRuntimeContext *ort_ctx = (OnnxRuntimeContext *)onnx_ctx;
+
+    if (ctx >= MAX_CONTEXTS || !ort_ctx->exec_ctxs[ctx].is_initialized) {
         NN_ERR_PRINTF("Invalid execution context handle: %d", ctx);
         return invalid_argument;
     }
 
-    OnnxRuntimeContext *ort_ctx = (OnnxRuntimeContext *)onnx_ctx;
     std::lock_guard<std::mutex> lock(ort_ctx->mutex);
-    OnnxRuntimeExecCtx *exec_ctx = &g_exec_ctxs[ctx];
+    OnnxRuntimeExecCtx *exec_ctx = &ort_ctx->exec_ctxs[ctx];
 
     std::vector<OrtValue *> input_values;
     std::vector<const char *> input_names;
@@ -646,7 +643,7 @@ compute(void *onnx_ctx, graph_execution_context ctx)
     }
 
     if (status != nullptr) {
-        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(status);
+        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(ort_ctx, status);
         NN_ERR_PRINTF("Failed to run inference");
         return err;
     }
@@ -659,20 +656,21 @@ __attribute__((visibility("default"))) wasi_nn_error
 get_output(void *onnx_ctx, graph_execution_context ctx, uint32_t index,
            tensor_data *out_buffer, uint32_t *out_buffer_size)
 {
-    if (ctx >= MAX_CONTEXTS || !g_exec_ctxs[ctx].is_initialized) {
+    OnnxRuntimeContext *ort_ctx = (OnnxRuntimeContext *)onnx_ctx;
+
+    if (ctx >= MAX_CONTEXTS || !ort_ctx->exec_ctxs[ctx].is_initialized) {
         NN_ERR_PRINTF("Invalid execution context handle: %d", ctx);
         return invalid_argument;
     }
 
-    if (index >= g_exec_ctxs[ctx].output_names.size()) {
+    if (index >= ort_ctx->exec_ctxs[ctx].output_names.size()) {
         NN_ERR_PRINTF("Invalid output index: %d (max: %zu)", index,
-                      g_exec_ctxs[ctx].output_names.size() - 1);
+                      ort_ctx->exec_ctxs[ctx].output_names.size() - 1);
         return invalid_argument;
     }
 
-    OnnxRuntimeContext *ort_ctx = (OnnxRuntimeContext *)onnx_ctx;
     std::lock_guard<std::mutex> lock(ort_ctx->mutex);
-    OnnxRuntimeExecCtx *exec_ctx = &g_exec_ctxs[ctx];
+    OnnxRuntimeExecCtx *exec_ctx = &ort_ctx->exec_ctxs[ctx];
 
     OrtValue *output_value = exec_ctx->outputs[index];
     if (!output_value) {
@@ -684,7 +682,7 @@ get_output(void *onnx_ctx, graph_execution_context ctx, uint32_t index,
     OrtStatus *status =
         ort_ctx->ort_api->GetTensorTypeAndShape(output_value, &tensor_info);
     if (status != nullptr) {
-        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(status);
+        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(ort_ctx, status);
         NN_ERR_PRINTF("Failed to get tensor type and shape");
         return err;
     }
@@ -692,7 +690,7 @@ get_output(void *onnx_ctx, graph_execution_context ctx, uint32_t index,
     ONNXTensorElementDataType element_type;
     status = ort_ctx->ort_api->GetTensorElementType(tensor_info, &element_type);
     if (status != nullptr) {
-        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(status);
+        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(ort_ctx, status);
         ort_ctx->ort_api->ReleaseTensorTypeAndShapeInfo(tensor_info);
         NN_ERR_PRINTF("Failed to get tensor element type");
         return err;
@@ -701,7 +699,7 @@ get_output(void *onnx_ctx, graph_execution_context ctx, uint32_t index,
     size_t num_dims;
     status = ort_ctx->ort_api->GetDimensionsCount(tensor_info, &num_dims);
     if (status != nullptr) {
-        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(status);
+        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(ort_ctx, status);
         ort_ctx->ort_api->ReleaseTensorTypeAndShapeInfo(tensor_info);
         NN_ERR_PRINTF("Failed to get tensor dimensions count");
         return err;
@@ -716,7 +714,7 @@ get_output(void *onnx_ctx, graph_execution_context ctx, uint32_t index,
 
     status = ort_ctx->ort_api->GetDimensions(tensor_info, dims, num_dims);
     if (status != nullptr) {
-        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(status);
+        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(ort_ctx, status);
         free(dims);
         ort_ctx->ort_api->ReleaseTensorTypeAndShapeInfo(tensor_info);
         NN_ERR_PRINTF("Failed to get tensor dimensions");
@@ -727,7 +725,7 @@ get_output(void *onnx_ctx, graph_execution_context ctx, uint32_t index,
     status =
         ort_ctx->ort_api->GetTensorShapeElementCount(tensor_info, &tensor_size);
     if (status != nullptr) {
-        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(status);
+        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(ort_ctx, status);
         free(dims);
         ort_ctx->ort_api->ReleaseTensorTypeAndShapeInfo(tensor_info);
         NN_ERR_PRINTF("Failed to get tensor element count");
@@ -751,7 +749,7 @@ get_output(void *onnx_ctx, graph_execution_context ctx, uint32_t index,
     void *tensor_data = nullptr;
     status = ort_ctx->ort_api->GetTensorMutableData(output_value, &tensor_data);
     if (status != nullptr) {
-        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(status);
+        wasi_nn_error err = convert_ort_error_to_wasi_nn_error(ort_ctx, status);
         NN_ERR_PRINTF("Failed to get tensor data");
         return err;
     }
