@@ -590,6 +590,28 @@ freeaddrinfo(struct addrinfo *res)
     free(res);
 }
 
+const char *
+gai_strerror(int code)
+{
+    switch (code) {
+#define ERR(a) \
+    case a:    \
+        return #a
+        ERR(EAI_AGAIN);
+        ERR(EAI_BADFLAGS);
+        ERR(EAI_FAIL);
+        ERR(EAI_FAMILY);
+        ERR(EAI_MEMORY);
+        ERR(EAI_NONAME);
+        ERR(EAI_OVERFLOW);
+        ERR(EAI_SERVICE);
+        ERR(EAI_SOCKTYPE);
+        ERR(EAI_SYSTEM);
+#undef ERR
+    }
+    return "Unknown error";
+}
+
 static struct timeval
 time_us_to_timeval(uint64_t time_us)
 {
