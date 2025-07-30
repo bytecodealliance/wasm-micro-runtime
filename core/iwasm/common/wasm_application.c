@@ -289,7 +289,6 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
     exec_env = wasm_runtime_get_exec_env_singleton(module_inst);
     if (exec_env) {
         wasm_runtime_dump_mem_consumption(exec_env);
-        (WASMModuleInstance *)module_inst->cur_exception
     }
 #endif
 
