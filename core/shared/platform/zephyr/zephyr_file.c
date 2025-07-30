@@ -28,7 +28,6 @@
  * reference.
  *
  * We also fake the stdin, stdout and stderr file descriptors.
- * We redirect the write operation on stdin, stdout and stderr to `os_printf`.
  * We do not handle write on stdin and read on stdin, stdout and stderr.
  */
 
@@ -89,30 +88,6 @@ K_MUTEX_DEFINE(desc_array_mutex);
 
 static char prestat_dir[MAX_FILE_NAME + 1];
 
-/**
- * Duplicates a string by allocating memory and copying the source string.
- * Provided here because Zephyr does not have `strdup` enabled by default .
- * @param s The source string to duplicate.
- * @return A pointer to the duplicated string, or NULL if allocation fails.
- *         The caller is responsible for freeing the memory.
- */
-char *
-duplicate_string(const char *s)
-{
-    if (s == NULL) {
-        return NULL;
-    }
-
-    size_t len = strlen(s) + 1; // Include null terminator
-    char *dup = BH_MALLOC(len);
-    if (dup == NULL) {
-        return NULL; // Allocation failed
-    }
-
-    memcpy(dup, s, len); // Copy string including null terminator
-    return dup;
-}
-
 bool
 build_absolute_path(char *abs_path, size_t abs_path_len, const char *path)
 {
@@ -145,7 +120,7 @@ zephyr_fs_alloc_obj(bool is_dir, const char *path, int *index)
             ptr = &desc_array[i];
             ptr->used = true;
             ptr->is_dir = is_dir;
-            ptr->path = duplicate_string(path);
+            ptr->path = bh_strdup(path);
             ptr->dir_index = 0;
             if (ptr->path == NULL) {
                 ptr->used = false;
@@ -880,7 +855,7 @@ os_renameat(os_file_handle old_handle, const char *old_path,
     for (int i = 0; i < CONFIG_WASI_MAX_OPEN_FILES; i++) {
         struct zephyr_fs_desc *ptr = &desc_array[i];
         if (ptr->used && ptr->path && strcmp(ptr->path, abs_old_path) == 0) {
-            char *new_path_copy = duplicate_string(new_path);
+            char *new_path_copy = bh_strdup(new_path);
             if (new_path_copy != NULL) {
                 BH_FREE(ptr->path);
                 ptr->path = new_path_copy;
