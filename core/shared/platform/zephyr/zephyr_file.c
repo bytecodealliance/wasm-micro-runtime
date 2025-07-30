@@ -138,11 +138,6 @@ zephyr_fs_alloc_obj(bool is_dir, const char *path, int *index)
         printk("Error: all file descriptor slots are in use (max = %d)\n",
                CONFIG_WASI_MAX_OPEN_FILES);
     }
-    // else {
-    //     printk("Allocated fd %d for path \"%s\" (dir = %s)\n", *index,
-    //     ptr->path,
-    //            is_dir ? "true" : "false");
-    // }
 
     return ptr;
 }

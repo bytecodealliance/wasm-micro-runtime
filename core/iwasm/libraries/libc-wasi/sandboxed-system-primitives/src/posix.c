@@ -2213,7 +2213,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
 
 // Temporary workaround (see PR#4377)
 #ifdef BH_PLATFORM_ZEPHYR
-                    os_file_handle tfd = fos[i]->file_handle->fds;
+                    os_file_handle tfd = fos[i]->file_handle->fd;
 #else
                     os_file_handle tfd = fos[i]->file_handle;
 #endif
