@@ -11,6 +11,7 @@ import subprocess
 import glob
 import re
 import argparse
+import sys
 
 from typing import Dict, Optional, List
 
@@ -274,6 +275,11 @@ def process_and_run_test_cases(
         print(f"  Cases in JSON but not found in folder: {format_json_only_ids}")
     else:
         print(f"  Issues not found in folder: {format_issue_ids_should_test}")
+
+    if failed > 0:
+        # Exit with error code if there are failed test for CI
+        print("Some tests failed, see log file for details.")
+        sys.exit(1)
 
 
 def main():
