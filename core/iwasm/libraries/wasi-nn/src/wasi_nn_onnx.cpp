@@ -174,7 +174,7 @@ convert_wasi_nn_type_to_ort_type(tensor_type type,
 #endif
         default:
             NN_WARN_PRINTF("Unsupported wasi-nn tensor type: %d", type);
-            return false; // Default to float
+            return false;
     }
     return true;
 }
@@ -418,13 +418,17 @@ __attribute__((visibility("default"))) wasi_nn_error
 init_execution_context(void *onnx_ctx, graph g, graph_execution_context *ctx)
 {
     OnnxRuntimeContext *ort_ctx = (OnnxRuntimeContext *)onnx_ctx;
+    if (!onnx_ctx) {
+        return runtime_error;
+    }
+
+    std::lock_guard<std::mutex> lock(ort_ctx->mutex);
 
     if (g >= MAX_GRAPHS || !ort_ctx->graphs[g].is_initialized) {
         NN_ERR_PRINTF("Invalid graph handle: %d", g);
         return invalid_argument;
     }
 
-    std::lock_guard<std::mutex> lock(ort_ctx->mutex);
     int ctx_index = -1;
     for (int i = 0; i < MAX_CONTEXTS; i++) {
         if (!ort_ctx->exec_ctxs[i].is_initialized) {
@@ -516,6 +520,11 @@ set_input(void *onnx_ctx, graph_execution_context ctx, uint32_t index,
           tensor *input_tensor)
 {
     OnnxRuntimeContext *ort_ctx = (OnnxRuntimeContext *)onnx_ctx;
+    if (!onnx_ctx) {
+        return runtime_error;
+    }
+
+    std::lock_guard<std::mutex> lock(ort_ctx->mutex);
 
     if (ctx >= MAX_CONTEXTS || !ort_ctx->exec_ctxs[ctx].is_initialized) {
         NN_ERR_PRINTF("Invalid execution context handle: %d", ctx);
@@ -528,7 +537,6 @@ set_input(void *onnx_ctx, graph_execution_context ctx, uint32_t index,
         return invalid_argument;
     }
 
-    std::lock_guard<std::mutex> lock(ort_ctx->mutex);
     OnnxRuntimeExecCtx *exec_ctx = &ort_ctx->exec_ctxs[ctx];
 
     OrtTypeInfo *type_info = nullptr;
@@ -605,13 +613,17 @@ __attribute__((visibility("default"))) wasi_nn_error
 compute(void *onnx_ctx, graph_execution_context ctx)
 {
     OnnxRuntimeContext *ort_ctx = (OnnxRuntimeContext *)onnx_ctx;
+    if (!onnx_ctx) {
+        return runtime_error;
+    }
+
+    std::lock_guard<std::mutex> lock(ort_ctx->mutex);
 
     if (ctx >= MAX_CONTEXTS || !ort_ctx->exec_ctxs[ctx].is_initialized) {
         NN_ERR_PRINTF("Invalid execution context handle: %d", ctx);
         return invalid_argument;
     }
 
-    std::lock_guard<std::mutex> lock(ort_ctx->mutex);
     OnnxRuntimeExecCtx *exec_ctx = &ort_ctx->exec_ctxs[ctx];
 
     std::vector<OrtValue *> input_values;
@@ -657,6 +669,11 @@ get_output(void *onnx_ctx, graph_execution_context ctx, uint32_t index,
            tensor_data *out_buffer, uint32_t *out_buffer_size)
 {
     OnnxRuntimeContext *ort_ctx = (OnnxRuntimeContext *)onnx_ctx;
+    if (!onnx_ctx) {
+        return runtime_error;
+    }
+
+    std::lock_guard<std::mutex> lock(ort_ctx->mutex);
 
     if (ctx >= MAX_CONTEXTS || !ort_ctx->exec_ctxs[ctx].is_initialized) {
         NN_ERR_PRINTF("Invalid execution context handle: %d", ctx);
@@ -669,7 +686,6 @@ get_output(void *onnx_ctx, graph_execution_context ctx, uint32_t index,
         return invalid_argument;
     }
 
-    std::lock_guard<std::mutex> lock(ort_ctx->mutex);
     OnnxRuntimeExecCtx *exec_ctx = &ort_ctx->exec_ctxs[ctx];
 
     OrtValue *output_value = exec_ctx->outputs[index];
