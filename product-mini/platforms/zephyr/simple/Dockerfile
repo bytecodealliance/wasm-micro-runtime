@@ -27,15 +27,16 @@ ARG ZEPHYR_SDK_VERSION=0.16.9
 # In west_lite.yml, the Zephyr version is set to v3.7.0
 #ARG ZEPHYR_VERSION=3.7.0
 
-# Install the Zephyr Software Development Kit (SDK)
+# Install the Zephyr Software Development Kit (SDK) minimal version
 WORKDIR /root/zephyrproject/zephyr-sdk
 # hadolint ignore=DL4006
-RUN wget --progress=dot:giga https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64.tar.xz \
+RUN wget --progress=dot:giga https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64_minimal.tar.xz \
     && wget --progress=dot:giga -O - https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/sha256.sum | shasum --check --ignore-missing \
-    && tar --strip-components=1 -xf zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64.tar.xz && rm zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64.tar.xz
+    && tar --strip-components=1 -xf zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64_minimal.tar.xz && rm zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64_minimal.tar.xz
 # hadolint ignore=DL4006
-# Install host tools and Register Zephyr SDK CMake package
-RUN ./setup.sh -h -c
+# Install arc tools, host tools and Register Zephyr SDK CMake package
+# If you want to use other toolchains, please change the -t option
+RUN ./setup.sh -t arc-zephyr-elf -h -c
 
 # Install west
 # hadolint ignore=DL3013,DL3059
