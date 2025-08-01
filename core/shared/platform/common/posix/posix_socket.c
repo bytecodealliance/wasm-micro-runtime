@@ -220,12 +220,17 @@ int
 os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr,
                  unsigned int *addrlen)
 {
-    *sock = accept(server_sock, addr, addrlen);
-
+    if (addr == NULL) {
+        *sock = accept(server_sock, NULL, NULL);
+    }
+    else {
+        socklen_t len = *addrlen;
+        *sock = accept(server_sock, addr, &len);
+        *addrlen = len;
+    }
     if (*sock < 0) {
         return BHT_ERROR;
     }
-
     return BHT_OK;
 }
 
@@ -373,8 +378,8 @@ is_addrinfo_supported(struct addrinfo *info)
         (info->ai_family == AF_INET || info->ai_family == AF_INET6)
         // Allow only UDP and TCP
         && (info->ai_socktype == SOCK_DGRAM || info->ai_socktype == SOCK_STREAM)
-        && (info->ai_protocol == IPPROTO_TCP
-            || info->ai_protocol == IPPROTO_UDP);
+        && (info->ai_protocol == IPPROTO_TCP || info->ai_protocol == IPPROTO_UDP
+            || info->ai_protocol == 0);
 }
 
 int
@@ -406,12 +411,11 @@ os_socket_addr_resolve(const char *host, const char *service,
 
     res = result;
     while (res) {
+        if (!is_addrinfo_supported(res)) {
+            res = res->ai_next;
+            continue;
+        }
         if (addr_info_size > pos) {
-            if (!is_addrinfo_supported(res)) {
-                res = res->ai_next;
-                continue;
-            }
-
             ret =
                 sockaddr_to_bh_sockaddr(res->ai_addr, &addr_info[pos].sockaddr);
 

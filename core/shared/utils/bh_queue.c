@@ -170,7 +170,7 @@ bh_free_msg(bh_queue_node *msg)
         return;
     }
 
-    // note: sometime we just use the payload pointer for a integer value
+    // note: sometimes we just use the payload pointer for an integer value
     //       len!=0 is the only indicator about the body is an allocated buffer.
     if (msg->body && msg->len)
         bh_queue_free(msg->body);

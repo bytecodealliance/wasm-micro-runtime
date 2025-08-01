@@ -89,3 +89,6 @@ return:
         pop     {r4, r5, r6, r7}
         mov     lr, r3
         bx      lr
+#if defined(__linux__) && defined(__ELF__)
+.section .note.GNU-stack,"",%progbits
+#endif

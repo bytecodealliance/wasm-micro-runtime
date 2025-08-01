@@ -58,6 +58,7 @@ LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size)
     option.enable_simd = true;
     option.enable_ref_types = true;
     option.enable_gc = true;
+    option.aux_stack_frame_type = AOT_STACK_FRAME_TYPE_STANDARD;
 
     comp_data =
         aot_create_comp_data(module, option.target_arch, option.enable_gc);

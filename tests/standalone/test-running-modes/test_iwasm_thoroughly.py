@@ -29,7 +29,7 @@ def main():
     ]
 
     # Python 3.7+: Dictionary iteration order is guaranteed to be in order of insertion.
-    # just to be safe, using orderreddict
+    # just to be safe, using OrderedDict
     # key: value -> compile mode, {"compile_flag": CMake compile flag, "iwasm_cli_args": array of CLI args tested}
     test_options = OrderedDict({
         "INTERP": {"compile_flag": COMPILE_FLAGS[0], "iwasm_cli_args": IWASM_CLI_ARGS[:1]},

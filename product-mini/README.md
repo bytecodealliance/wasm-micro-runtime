@@ -111,7 +111,7 @@ The Fast JIT is a lightweight JIT engine with quick startup, small footprint and
 (6) To enable the `Multi-tier JIT` mode:
 ``` Bash
 mkdir build && cd build
-cmake .. -DWAMR_BUILD_FAST_JTI=1 -DWAMR_BUILD_JIT=1
+cmake .. -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1
 make
 ```
 The Multi-tier JIT is a two level JIT tier-up engine, which launches Fast JIT to run the wasm module as soon as possible and creates backend threads to compile the LLVM JIT functions at the same time, and when the LLVM JIT functions are compiled, the runtime will switch the extecution from the Fast JIT jitted code to LLVM JIT jitted code gradually, so as to gain the best performance.
