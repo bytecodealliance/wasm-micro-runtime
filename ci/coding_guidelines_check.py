@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
 import argparse
-import re
 from pathlib import Path
 import re
 import shlex
@@ -39,7 +38,7 @@ INVALID_FILE_NAME_SEGMENT = r"([a-zA-Z0-9]+\-[a-zA-Z0-9]+)"
 
 def locate_command(command: str) -> bool:
     if not shutil.which(command):
-        print(f"Command '{command}'' not found")
+        print(f"Command '{command}' not found")
         return False
 
     return True

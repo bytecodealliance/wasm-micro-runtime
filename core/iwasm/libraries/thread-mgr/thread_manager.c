@@ -301,7 +301,8 @@ wasm_cluster_create(WASMExecEnv *exec_env)
         aux_stack_start -= cluster->stack_size;
 
         for (i = 0; i < cluster_max_thread_num; i++) {
-            cluster->stack_tops[i] = aux_stack_start - cluster->stack_size * i;
+            cluster->stack_tops[i] =
+                aux_stack_start - (uint64)cluster->stack_size * i;
         }
     }
 #endif

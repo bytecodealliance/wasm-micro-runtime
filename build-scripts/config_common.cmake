@@ -211,6 +211,10 @@ if (NOT DEFINED WAMR_BUILD_TAIL_CALL)
   set (WAMR_BUILD_TAIL_CALL 0)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_EXTENDED_CONST_EXPR)
+  set (WAMR_BUILD_EXTENDED_CONST_EXPR 0)
+endif ()
+
 ########################################
 # Compilation options to marco
 ########################################
@@ -334,15 +338,10 @@ if (WAMR_BUILD_SHARED_HEAP EQUAL 1)
   add_definitions (-DWASM_ENABLE_SHARED_HEAP=1)
   message ("     Shared heap enabled")
 endif()
-
-if (WAMR_ENABLE_COPY_CALLSTACK EQUAL 1)
-  add_definitions (-DWAMR_ENABLE_COPY_CALLSTACK=1)
+if (WAMR_BUILD_COPY_CALL_STACK EQUAL 1)
+  add_definitions (-DWASM_ENABLE_COPY_CALL_STACK=1)
   message("     Copy callstack enabled")
-else ()
-  add_definitions (-DWAMR_ENABLE_COPY_CALLSTACK=0)
-  message("     Copy callstack disabled")
 endif()
-
 if (WAMR_BUILD_MEMORY64 EQUAL 1)
   # if native is 32-bit or cross-compiled to 32-bit
   if (NOT WAMR_BUILD_TARGET MATCHES ".*64.*")
@@ -539,6 +538,9 @@ if (WAMR_BUILD_WASI_NN EQUAL 1)
   if (DEFINED WAMR_BUILD_WASI_NN_EXTERNAL_DELEGATE_PATH)
       add_definitions (-DWASM_WASI_NN_EXTERNAL_DELEGATE_PATH="${WAMR_BUILD_WASI_NN_EXTERNAL_DELEGATE_PATH}")
   endif ()
+  if (NOT DEFINED WAMR_BUILD_WASI_EPHEMERAL_NN)
+      set(WAMR_BUILD_WASI_EPHEMERAL_NN 1)
+  endif()
   if (WAMR_BUILD_WASI_EPHEMERAL_NN EQUAL 1)
       message ("     WASI-NN: use 'wasi_ephemeral_nn' instead of 'wasi-nn'")
       add_definitions (-DWASM_ENABLE_WASI_EPHEMERAL_NN=1)
@@ -675,7 +677,13 @@ if (WAMR_BUILD_INSTRUCTION_METERING EQUAL 1)
   message ("     Instruction metering enabled")
   add_definitions (-DWASM_ENABLE_INSTRUCTION_METERING=1)
 endif ()
-
+if (WAMR_BUILD_EXTENDED_CONST_EXPR EQUAL 1)
+  message ("     Extended constant expression enabled")
+  add_definitions(-DWASM_ENABLE_EXTENDED_CONST_EXPR=1)
+else()
+  message ("     Extended constant expression disabled")
+  add_definitions(-DWASM_ENABLE_EXTENDED_CONST_EXPR=0)
+endif ()
 ########################################
 # Show Phase4 Wasm proposals status.
 ########################################
@@ -689,6 +697,7 @@ message (
 "       \"WebAssembly C and C++ API\"\n"
 "     Configurable. 0 is OFF. 1 is ON:\n"
 "       \"Bulk Memory Operation\" via WAMR_BUILD_BULK_MEMORY: ${WAMR_BUILD_BULK_MEMORY}\n"
+"       \"Extended Constant Expressions\" via WAMR_BUILD_EXTENDED_CONST_EXPR: ${WAMR_BUILD_EXTENDED_CONST_EXPR}\n"
 "       \"Fixed-width SIMD\" via WAMR_BUILD_SIMD: ${WAMR_BUILD_SIMD}\n"
 "       \"Garbage collection\" via WAMR_BUILD_GC: ${WAMR_BUILD_GC}\n"
 "       \"Legacy Exception handling\" via WAMR_BUILD_EXCE_HANDLING: ${WAMR_BUILD_EXCE_HANDLING}\n"
@@ -703,7 +712,6 @@ message (
 "       \"Branch Hinting\"\n"
 "       \"Custom Annotation Syntax in the Text Format\"\n"
 "       \"Exception handling\"\n"
-"       \"Extended Constant Expressions\"\n"
 "       \"Import/Export of Mutable Globals\"\n"
 "       \"JS String Builtins\"\n"
 "       \"Relaxed SIMD\"\n"

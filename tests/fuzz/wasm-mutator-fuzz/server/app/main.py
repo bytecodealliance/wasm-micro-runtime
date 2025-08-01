@@ -72,7 +72,7 @@ def to_json(inst, cls):
 
 
 class Fuzzing(db.Model):
-    __tablename__ = 'fazzing_task'
+    __tablename__ = 'fuzzing_task'
     id = db.Column(db.Integer, autoincrement=True,
                    primary_key=True, nullable=False)
     repo = db.Column(db.String(200), nullable=False, default='')
@@ -96,7 +96,7 @@ class TaskError(db.Model):
     __tablename__ = 'task_error'
     id = db.Column(db.Integer, autoincrement=True,
                    primary_key=True, nullable=False)
-    fazzing_id = db.Column(db.Integer, db.ForeignKey("fazzing_task.id"))
+    fuzzing_id = db.Column(db.Integer, db.ForeignKey("fuzzing_task.id"))
     name = db.Column(db.String(200), nullable=False, default='')
     std_out = db.Column(db.Text, default='')
     data = db.Column(db.JSON)
@@ -119,9 +119,9 @@ def to_data(data):
 
 def error_count(data):
     error = len(TaskError.query.filter(
-        TaskError.fazzing_id == data.get('id'), TaskError.status.in_([1, 2])).all())
+        TaskError.fuzzing_id == data.get('id'), TaskError.status.in_([1, 2])).all())
     end_error = len(TaskError.query.filter(
-        TaskError.fazzing_id == data.get('id'), TaskError.status == 0).all())
+        TaskError.fuzzing_id == data.get('id'), TaskError.status == 0).all())
     data['error'] = error
     data['end_error'] = end_error
     return data
@@ -159,11 +159,11 @@ def show_fuzz_list():
     id = data.get('id')
     if id:
         all_error = TaskError.query.filter(
-            TaskError.fazzing_id == id).with_entities(TaskError.id, TaskError.fazzing_id,
+            TaskError.fuzzing_id == id).with_entities(TaskError.id, TaskError.fuzzing_id,
                                                       TaskError.create_time, TaskError.data,
                                                       TaskError.name, TaskError.status,
                                                       TaskError.update_time, TaskError.comment).order_by(TaskError.status.desc(), TaskError.update_time.desc(), TaskError.id.desc()).all()
-        data_message = [{'id': error['id'], "fuzzing_id": error['fazzing_id'],
+        data_message = [{'id': error['id'], "fuzzing_id": error['fuzzing_id'],
                          "name": error['name'], "data": error['data'],
                          'create_time': error['create_time'].strftime('%Y-%m-%d %H:%M:%S'),
                          'update_time': error['update_time'].strftime('%Y-%m-%d %H:%M:%S'),
@@ -204,7 +204,7 @@ def New_fuzzing():
         # curd.set_error_status_to(list(map(lambda x: x.id, error_list)), db)
         # Fuzzing.query.filter_by(id=fuzz.id).delete()
         fuzz.data = {'error': "Clone repo Error"}
-        db.commit()
+        db.session.commit()
         return jsonify({"status": 0, "result": "", "msg": "Clone repo Error"})
 
     wamr_path_parent = fuzz_dir.parent.parent
@@ -277,7 +277,7 @@ def scheduler_run_task():
 
     for fuzz in fuzz_query:
         all_error = TaskError.query.filter(
-            TaskError.fazzing_id == fuzz.id).with_entities(TaskError.name).all()
+            TaskError.fuzzing_id == fuzz.id).with_entities(TaskError.name).all()
         fuzz_cmd = wasm_mutator_dir / \
             'workspace' / f'build_{fuzz.id}'
         dir_list = filter(lambda x: x.startswith(
@@ -287,7 +287,7 @@ def scheduler_run_task():
         for dir in dir_list:
             cmd = f'cd {fuzz_cmd} && ./wasm_mutator_fuzz {dir}'
             status, resp = getstatusoutput(cmd)
-            task_error = TaskError(name=dir, std_out=resp, fazzing_id=fuzz.id,
+            task_error = TaskError(name=dir, std_out=resp, fuzzing_id=fuzz.id,
                                    create_time=datetime.utcnow() + timedelta(hours=8))
             db.session.add(task_error)
             db.session.commit()
@@ -312,7 +312,7 @@ def get_error_txt():
         return jsonify({"status": 0, "results": [], 'msg': "Error"})
     error = TaskError.query.get(id)
     fuzz_cmd = wasm_mutator_dir / \
-        'workspace' / f'build_{error.fazzing_id}'
+        'workspace' / f'build_{error.fuzzing_id}'
     file_cmd = fuzz_cmd / error.name
 
     response = send_file(file_cmd, as_attachment=True,
@@ -351,7 +351,7 @@ def get_cases_zip():
     with ZipFile(memory_file, "w", ZIP_DEFLATED) as zf:
         for task_error in task_query:
             fuzz_cmd = wasm_mutator_dir / \
-                'workspace' / f'build_{task_error.fazzing_id}'
+                'workspace' / f'build_{task_error.fuzzing_id}'
             file_cmd = fuzz_cmd / task_error.name
             zf.write(str(file_cmd), arcname=task_error.name)
     memory_file.seek(0)
@@ -399,7 +399,7 @@ def error_restart():
     if run_status:
         return jsonify({"status": 0, "results": [], 'msg': "There are already tasks in progress"})
     task_query = TaskError.query.filter(TaskError.id.in_(id_list)).all()
-    fuzzing_id = task_query[0].fazzing_id
+    fuzzing_id = task_query[0].fuzzing_id
     fuzz_cmd = wasm_mutator_dir / \
         'workspace' / f'build_{fuzzing_id}'
     restart_cmd = wasm_mutator_dir / \
@@ -412,7 +412,7 @@ def error_restart():
     if not Path(restart_cmd / 'wamr').exists():
         print('------ error: clone repo not folder exists ------')
         # fuzz.data = {'error': "Clone repo Error"}
-        db.commit()
+        db.session.commit()
         return jsonify({"status": 0, "result": "", "msg": "Clone repo Error"})
     wamr_path_parent = fuzz_dir.parent.parent
     wamr_path = wamr_path_parent / 'wamr'

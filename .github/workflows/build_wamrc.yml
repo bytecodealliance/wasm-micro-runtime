@@ -23,7 +23,7 @@ on:
         type: string
         required: true
       upload_url:
-        description: a semantic version number. it is required when `release` is true.
+        description: upload binary assets to the URL of release
         type: string
         required: false
       ver_num:
@@ -60,6 +60,30 @@ jobs:
         run: |
           cmake -S . -B build
           cmake --build build --config Release --parallel 4
+        working-directory: wamr-compiler
+
+      - name: smoke test on non-windows
+        if: ${{ !startsWith(inputs.runner, 'windows') }}
+        shell: bash
+        run: |
+          if [[ ! -f build/wamrc ]]; then
+            echo "wamrc binary is not found in the expected location."
+            exit 1
+          fi
+
+          build/wamrc --version
+        working-directory: wamr-compiler
+
+      - name: smoke test on Windows
+        if: ${{ startsWith(inputs.runner, 'windows') }}
+        shell: bash
+        run: |
+          if [[ ! -f build/Release/wamrc ]]; then
+            echo "wamrc binary is not found in the expected location."
+            exit 1
+          fi
+
+          build/Release/wamrc --version
         working-directory: wamr-compiler
 
       - name: Compress the binary on Windows

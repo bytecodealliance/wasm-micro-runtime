@@ -68,6 +68,7 @@ typedef struct AOTCompOption {
     bool enable_ref_types;
     bool enable_gc;
     bool enable_aux_stack_check;
+    bool enable_extended_const;
     AOTStackFrameType aux_stack_frame_type;
     AOTCallStackFeatures call_stack_features;
     bool enable_perf_profiling;
@@ -79,6 +80,7 @@ typedef struct AOTCompOption {
     bool enable_stack_estimation;
     bool quick_invoke_c_api_import;
     bool enable_shared_heap;
+    bool enable_shared_chain;
     char *use_prof_file;
     uint32_t opt_level;
     uint32_t size_level;

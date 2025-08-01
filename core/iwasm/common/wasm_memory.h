@@ -41,9 +41,59 @@ SET_LINEAR_MEMORY_SIZE(WASMMemoryInstance *memory, uint64 size)
 #define SET_LINEAR_MEMORY_SIZE(memory, size) memory->memory_data_size = size
 #endif
 
+#if WASM_ENABLE_INTERP != 0
 #if WASM_ENABLE_SHARED_HEAP != 0
+
+#if WASM_ENABLE_MULTI_MEMORY != 0
+/* Only enable shared heap for the default memory */
+#define is_default_memory (memidx == 0)
+#else
+#define is_default_memory true
+#endif
+
+#if UINTPTR_MAX == UINT64_MAX
+#define get_shared_heap_end_off() module->e->shared_heap_end_off.u64
+#else
+#define get_shared_heap_end_off() \
+    (uint64)(module->e->shared_heap_end_off.u32[0])
+#endif
+
+#if WASM_ENABLE_MEMORY64 != 0
+#define shared_heap_is_memory64 is_memory64
+#else
+#define shared_heap_is_memory64 false
+#endif
+
+#define app_addr_in_shared_heap(app_addr, bytes)                              \
+    (is_default_memory                                                        \
+     && is_app_addr_in_shared_heap((WASMModuleInstanceCommon *)module,        \
+                                   shared_heap_is_memory64, (uint64)app_addr, \
+                                   bytes))
+#define shared_heap_addr_app_to_native(app_addr, native_addr) \
+    native_addr = module->e->shared_heap_base_addr_adj + app_addr
+#define CHECK_SHARED_HEAP_OVERFLOW(app_addr, bytes, native_addr) \
+    if (app_addr_in_shared_heap(app_addr, bytes))                \
+        shared_heap_addr_app_to_native(app_addr, native_addr);   \
+    else
+
+#else /* else of WASM_ENABLE_SHARED_HEAP != 0 */
+#define CHECK_SHARED_HEAP_OVERFLOW(app_addr, bytes, native_addr)
+#endif /* end of WASM_ENABLE_SHARED_HEAP != 0 */
+#endif /* end of WASM_ENABLE_INTERP != 0 */
+
+#if WASM_ENABLE_SHARED_HEAP != 0
+bool
+is_app_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
+                           bool is_memory64, uint64 app_offset, uint32 bytes);
+
 WASMSharedHeap *
 wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args);
+
+WASMSharedHeap *
+wasm_runtime_chain_shared_heaps(WASMSharedHeap *head, WASMSharedHeap *body);
+
+WASMSharedHeap *
+wasm_runtime_unchain_shared_heaps(WASMSharedHeap *head, bool entire_chain);
 
 bool
 wasm_runtime_attach_shared_heap(WASMModuleInstanceCommon *module_inst,
@@ -68,7 +118,7 @@ wasm_runtime_shared_heap_malloc(WASMModuleInstanceCommon *module_inst,
 void
 wasm_runtime_shared_heap_free(WASMModuleInstanceCommon *module_inst,
                               uint64 ptr);
-#endif
+#endif /* end of WASM_ENABLE_SHARED_HEAP != 0 */
 
 bool
 wasm_runtime_memory_init(mem_alloc_type_t mem_alloc_type,

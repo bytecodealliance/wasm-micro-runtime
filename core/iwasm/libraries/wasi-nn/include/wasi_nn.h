@@ -21,6 +21,7 @@
 #else
 #define WASI_NN_IMPORT(name) \
     __attribute__((import_module("wasi_nn"), import_name(name)))
+#warning You are using "wasi_nn", which is a legacy WAMR-specific ABI. It's deperecated and will likely be removed in future versions of WAMR. Please use "wasi_ephemeral_nn" instead. (For a WASM module, use the wasi_ephemeral_nn.h header instead. For the runtime configurations, enable WASM_ENABLE_WASI_EPHEMERAL_NN/WAMR_BUILD_WASI_EPHEMERAL_NN.)
 #endif
 
 /**
@@ -108,14 +109,13 @@ WASI_NN_NAME(compute)
 WASI_NN_ERROR_TYPE
 WASI_NN_NAME(get_output)
 (WASI_NN_NAME(graph_execution_context) ctx, uint32_t index,
- WASI_NN_NAME(tensor_data) output_tensor, uint32_t output_tensor_max_size,
+ uint8_t *output_tensor, uint32_t output_tensor_max_size,
  uint32_t *output_tensor_size) WASI_NN_IMPORT("get_output");
 #else
 WASI_NN_ERROR_TYPE
 WASI_NN_NAME(get_output)
-(graph_execution_context ctx, uint32_t index,
- WASI_NN_NAME(tensor_data) output_tensor, uint32_t *output_tensor_size)
-    WASI_NN_IMPORT("get_output");
+(graph_execution_context ctx, uint32_t index, uint8_t *output_tensor,
+ uint32_t *output_tensor_size) WASI_NN_IMPORT("get_output");
 #endif
 
 #endif

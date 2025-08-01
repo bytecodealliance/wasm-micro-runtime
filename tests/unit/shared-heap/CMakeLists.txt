@@ -12,11 +12,19 @@ set(WAMR_BUILD_AOT 1)
 set(WAMR_BUILD_INTERP 1)
 set(WAMR_BUILD_FAST_INTERP 1)
 set(WAMR_BUILD_JIT 0)
-set(WAMR_BUILD_MEMORY64 1)
+if(WAMR_BUILD_TARGET STREQUAL "X86_32")
+    set(WAMR_BUILD_MEMORY64 0)
+else()
+    set(WAMR_BUILD_MEMORY64 1)
+endif()
 set(WAMR_BUILD_SHARED_HEAP 1)
 
 # Compile wasm modules
 add_subdirectory(wasm-apps)
+
+if (WAMR_BUILD_MEMORY64 EQUAL 1)
+   add_subdirectory(wasm-apps/memory64)
+endif ()
 
 # if only load this CMake other than load it as subdirectory
 include(../unit_common.cmake)
