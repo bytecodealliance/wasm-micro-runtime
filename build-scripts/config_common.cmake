@@ -99,6 +99,12 @@ if (WAMR_BUILD_JIT EQUAL 1)
     # Enable Lazy JIT by default
     set (WAMR_BUILD_LAZY_JIT 1)
   endif ()
+
+  # In Debug mode, always use release builds of pre-built dependency libraries
+  if (WAMR_BUILD_PLATFORM STREQUAL "windows" AND MSVC)
+    add_compile_options($<$<CONFIG:Debug>:/MD>)
+  endif()
+
   if (NOT DEFINED LLVM_DIR)
     set (LLVM_SRC_ROOT "${WAMR_ROOT_DIR}/core/deps/llvm")
     set (LLVM_BUILD_ROOT "${LLVM_SRC_ROOT}/build")
