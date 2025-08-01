@@ -28,7 +28,6 @@
  * reference.
  *
  * We also fake the stdin, stdout and stderr file descriptors.
- * We redirect the write operation on stdin, stdout and stderr to `os_printf`.
  * We do not handle write on stdin and read on stdin, stdout and stderr.
  */
 
@@ -48,16 +47,37 @@
 // from the Zephyr POSIX configuration
 #define CONFIG_WASI_MAX_OPEN_FILES CONFIG_ZVFS_OPEN_MAX
 
+static inline bool
+os_is_virtual_fd(int fd)
+{
+    switch (fd) {
+        case STDIN_FILENO:
+        case STDOUT_FILENO:
+        case STDERR_FILENO:
+            return true;
+        default:
+            return false;
+    };
+}
+
 // Macro to retrieve a file system descriptor and check it's validity.
-#define GET_FILE_SYSTEM_DESCRIPTOR(fd, ptr)         \
-    do {                                            \
-        k_mutex_lock(&desc_array_mutex, K_FOREVER); \
-        ptr = &desc_array[(int)fd];                 \
-        if (!ptr) {                                 \
-            k_mutex_unlock(&desc_array_mutex);      \
-            return __WASI_EBADF;                    \
-        }                                           \
-        k_mutex_unlock(&desc_array_mutex);          \
+// fd's 0-2 are reserved for standard streams, hence the by-3 offsets.
+#define GET_FILE_SYSTEM_DESCRIPTOR(fd, ptr)                   \
+    do {                                                      \
+        if (os_is_virtual_fd(fd)) {                           \
+            ptr = NULL;                                       \
+            break;                                            \
+        }                                                     \
+        if (fd < 3 || fd >= CONFIG_WASI_MAX_OPEN_FILES + 3) { \
+            return __WASI_EBADF;                              \
+        }                                                     \
+        k_mutex_lock(&desc_array_mutex, K_FOREVER);           \
+        ptr = &desc_array[(int)fd - 3];                       \
+        if (!ptr->used) {                                     \
+            k_mutex_unlock(&desc_array_mutex);                \
+            return __WASI_EBADF;                              \
+        }                                                     \
+        k_mutex_unlock(&desc_array_mutex);                    \
     } while (0)
 
 // Array to keep track of file system descriptors.
@@ -67,30 +87,6 @@ static struct zephyr_fs_desc desc_array[CONFIG_WASI_MAX_OPEN_FILES];
 K_MUTEX_DEFINE(desc_array_mutex);
 
 static char prestat_dir[MAX_FILE_NAME + 1];
-
-/**
- * Duplicates a string by allocating memory and copying the source string.
- * Provided here because Zephyr does not have `strdup` enabled by default .
- * @param s The source string to duplicate.
- * @return A pointer to the duplicated string, or NULL if allocation fails.
- *         The caller is responsible for freeing the memory.
- */
-char *
-duplicate_string(const char *s)
-{
-    if (s == NULL) {
-        return NULL;
-    }
-
-    size_t len = strlen(s) + 1; // Include null terminator
-    char *dup = malloc(len);
-    if (dup == NULL) {
-        return NULL; // Allocation failed
-    }
-
-    memcpy(dup, s, len); // Copy string including null terminator
-    return dup;
-}
 
 bool
 build_absolute_path(char *abs_path, size_t abs_path_len, const char *path)
@@ -124,18 +120,24 @@ zephyr_fs_alloc_obj(bool is_dir, const char *path, int *index)
             ptr = &desc_array[i];
             ptr->used = true;
             ptr->is_dir = is_dir;
-            ptr->path = duplicate_string(path);
+            ptr->path = bh_strdup(path);
+            ptr->dir_index = 0;
             if (ptr->path == NULL) {
                 ptr->used = false;
                 k_mutex_unlock(&desc_array_mutex);
                 return NULL;
             }
-            *index = i;
+            *index = i + 3;
             break;
         }
     }
 
     k_mutex_unlock(&desc_array_mutex);
+
+    if (ptr == NULL) {
+        printk("Error: all file descriptor slots are in use (max = %d)\n",
+               CONFIG_WASI_MAX_OPEN_FILES);
+    }
 
     return ptr;
 }
@@ -143,7 +145,7 @@ zephyr_fs_alloc_obj(bool is_dir, const char *path, int *index)
 static inline void
 zephyr_fs_free_obj(struct zephyr_fs_desc *ptr)
 {
-    free(ptr->path);
+    BH_FREE(ptr->path);
     ptr->path = NULL;
     ptr->used = false;
 }
@@ -156,12 +158,8 @@ os_fstat(os_file_handle handle, struct __wasi_filestat_t *buf)
     int socktype, rc;
 
     if (!handle->is_sock) {
-        GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
 
-        /* We treat the case of std[in/out/err] */
-        if (ptr->path != NULL
-            && (!strcmp(ptr->path, "stdin") || !strcmp(ptr->path, "stdout")
-                || !strcmp(ptr->path, "stderr"))) {
+        if (os_is_virtual_fd(handle->fd)) {
             buf->st_filetype = __WASI_FILETYPE_CHARACTER_DEVICE;
             buf->st_size = 0;
             buf->st_atim = 0;
@@ -169,6 +167,8 @@ os_fstat(os_file_handle handle, struct __wasi_filestat_t *buf)
             buf->st_ctim = 0;
             return __WASI_ESUCCESS;
         }
+
+        GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
 
         // Get file information using Zephyr's fs_stat function
         struct fs_dirent entry;
@@ -253,7 +253,9 @@ os_fstatat(os_file_handle handle, const char *path,
 
     // Fill in the __wasi_filestat_t structure
     buf->st_dev = 0; // Zephyr's fs_stat doesn't provide a device ID
-    buf->st_ino = 0; // Zephyr's fs_stat doesn't provide an inode number
+    // DSK: setting this to 0, in addition to d_ino = 1 causes failures with
+    // readdir() So, here's a hack to to avoid this.
+    buf->st_ino = 1; // Zephyr's fs_stat doesn't provide an inode number.
     buf->st_filetype = entry.type == FS_DIR_ENTRY_DIR
                            ? __WASI_FILETYPE_DIRECTORY
                            : __WASI_FILETYPE_REGULAR_FILE;
@@ -270,6 +272,11 @@ __wasi_errno_t
 os_file_get_fdflags(os_file_handle handle, __wasi_fdflags_t *flags)
 {
     struct zephyr_fs_desc *ptr = NULL;
+
+    if (os_is_virtual_fd(handle->fd)) {
+        *flags = 0;
+        return __WASI_ESUCCESS;
+    }
 
     GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
 
@@ -289,6 +296,10 @@ os_file_get_fdflags(os_file_handle handle, __wasi_fdflags_t *flags)
 __wasi_errno_t
 os_file_set_fdflags(os_file_handle handle, __wasi_fdflags_t flags)
 {
+    if (os_is_virtual_fd(handle->fd)) {
+        return __WASI_ESUCCESS;
+    }
+
     struct zephyr_fs_desc *ptr = NULL;
 
     GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
@@ -309,6 +320,10 @@ os_fdatasync(os_file_handle handle)
 __wasi_errno_t
 os_fsync(os_file_handle handle)
 {
+    if (os_is_virtual_fd(handle->fd)) {
+        return __WASI_ESUCCESS;
+    }
+
     struct zephyr_fs_desc *ptr = NULL;
     int rc = 0;
 
@@ -439,16 +454,18 @@ os_openat(os_file_handle handle, const char *path, __wasi_oflags_t oflags,
         return __WASI_ENOMEM;
     }
 
-    ptr = zephyr_fs_alloc_obj(oflags & __WASI_O_DIRECTORY, abs_path, &index);
+    // Treat directories as a special case
+    bool is_dir = oflags & __WASI_O_DIRECTORY;
+
+    ptr = zephyr_fs_alloc_obj(is_dir, abs_path, &index);
     if (!ptr && (index < 0)) {
         BH_FREE(*out);
         return __WASI_EMFILE;
     }
 
-    if (oflags & __WASI_O_DIRECTORY) {
-        // Is a directory
+    if (is_dir) {
         fs_dir_t_init(&ptr->dir);
-        rc = fs_opendir(&ptr->dir, abs_path);
+        // fs_opendir() is called in libc later - don't call here
     }
     else {
         // Is a file
@@ -456,12 +473,12 @@ os_openat(os_file_handle handle, const char *path, __wasi_oflags_t oflags,
             wasi_flags_to_zephyr(oflags, fd_flags, lookup_flags, access_mode);
         fs_file_t_init(&ptr->file);
         rc = fs_open(&ptr->file, abs_path, zmode);
-    }
 
-    if (rc < 0) {
-        zephyr_fs_free_obj(ptr);
-        BH_FREE(*out);
-        return convert_errno(-rc);
+        if (rc < 0) {
+            zephyr_fs_free_obj(ptr);
+            BH_FREE(*out);
+            return convert_errno(-rc);
+        }
     }
 
     (*out)->fd = index;
@@ -474,6 +491,16 @@ __wasi_errno_t
 os_file_get_access_mode(os_file_handle handle,
                         wasi_libc_file_access_mode *access_mode)
 {
+
+    if (handle->fd == STDIN_FILENO) {
+        *access_mode = WASI_LIBC_ACCESS_MODE_READ_ONLY;
+        return __WASI_ESUCCESS;
+    }
+    else if (handle->fd == STDOUT_FILENO || handle->fd == STDERR_FILENO) {
+        *access_mode = WASI_LIBC_ACCESS_MODE_WRITE_ONLY;
+        return __WASI_ESUCCESS;
+    }
+
     struct zephyr_fs_desc *ptr = NULL;
 
     if (handle->is_sock) {
@@ -539,6 +566,10 @@ __wasi_errno_t
 os_preadv(os_file_handle handle, const struct __wasi_iovec_t *iov, int iovcnt,
           __wasi_filesize_t offset, size_t *nread)
 {
+    if (handle->fd == STDIN_FILENO) {
+        return __WASI_ENOSYS;
+    }
+
     struct zephyr_fs_desc *ptr = NULL;
     int rc;
     ssize_t total_read = 0;
@@ -645,48 +676,35 @@ os_writev(os_file_handle handle, const struct __wasi_ciovec_t *iov, int iovcnt,
 {
     ssize_t total_written = 0;
 
+    if (os_is_virtual_fd(handle->fd)) {
+        FILE *fd = (handle->fd == STDERR_FILENO) ? stderr : stdout;
+        for (int i = 0; i < iovcnt; i++) {
+            ssize_t bytes_written = fwrite(iov[i].buf, 1, iov[i].buf_len, fd);
+            if (bytes_written < 0)
+                return convert_errno(-bytes_written);
+            total_written += bytes_written;
+        }
+
+        *nwritten = total_written;
+        return __WASI_ESUCCESS;
+    }
+
     struct zephyr_fs_desc *ptr = NULL;
     GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
 
-    // If the fd is stdout or stderr, we call fwrite
-    if (strncmp(ptr->path, "std", 3) == 0) {
-        // TODO -- FIX:  if ((handle->fd == STDOUT_FILENO) || (handle->fd ==
-        // STDERR_FILENO)) {
-        FILE *fd = stdout;
-        if (handle->fd == STDERR_FILENO) {
-            fd = stderr;
+    // Write data from each buffer
+    for (int i = 0; i < iovcnt; i++) {
+        ssize_t bytes_written =
+            fs_write(&ptr->file, iov[i].buf, iov[i].buf_len);
+        if (bytes_written < 0) {
+            return convert_errno(-bytes_written);
         }
 
-        for (int i = 0; i < iovcnt; i++) {
-            ssize_t bytes_written = fwrite(iov[i].buf, 1, iov[i].buf_len, fd);
+        total_written += bytes_written;
 
-            if (bytes_written < 0) {
-                return convert_errno(-bytes_written);
-            }
-
-            total_written += bytes_written;
-
-            // If we wrote less than we asked for, stop writing
-            if (bytes_written < iov[i].buf_len) {
-                break;
-            }
-        }
-    }
-    else {
-        // Write data from each buffer
-        for (int i = 0; i < iovcnt; i++) {
-            ssize_t bytes_written =
-                fs_write(&ptr->file, iov[i].buf, iov[i].buf_len);
-            if (bytes_written < 0) {
-                return convert_errno(-bytes_written);
-            }
-
-            total_written += bytes_written;
-
-            // If we wrote less than we asked for, stop writing
-            if (bytes_written < iov[i].buf_len) {
-                break;
-            }
+        // If we wrote less than we asked for, stop writing
+        if (bytes_written < iov[i].buf_len) {
+            break;
         }
     }
 
@@ -705,8 +723,12 @@ os_fallocate(os_file_handle handle, __wasi_filesize_t offset,
 __wasi_errno_t
 os_ftruncate(os_file_handle handle, __wasi_filesize_t size)
 {
-    struct zephyr_fs_desc *ptr = NULL;
 
+    if (os_is_virtual_fd(handle->fd)) {
+        return __WASI_EINVAL;
+    }
+
+    struct zephyr_fs_desc *ptr = NULL;
     GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
 
     int rc = fs_truncate(&ptr->file, (off_t)size);
@@ -787,26 +809,26 @@ os_mkdirat(os_file_handle handle, const char *path)
     return __WASI_ESUCCESS;
 }
 
+// DSK: Somewhere along the WASI libc implementation path, the knowledge
+// was lost that `old_handle` and `new_handle` refer to directories that
+// contain the files to be renamed, rather than the file fds themselves:
+//
+// __wasilibc_nocwd_renameat(old_dirfd, old_relative_path,
+//                           new_dirfd, new_relative_path);
+//
+// Therefore we won't mess with the supplied fd's, and work only off
+// of the supplied paths. Note: this will change when more than one
+// pre-opened dir is supported in the future.
 __wasi_errno_t
 os_renameat(os_file_handle old_handle, const char *old_path,
             os_file_handle new_handle, const char *new_path)
 {
-    /* `old_handle` need to be the the fd of the file to rename.
-     * `new_handle` will not be used.
-     * paths need to be absolute, no relative path will be accepted.
-     */
-    struct zephyr_fs_desc *ptr = NULL;
+    // directories, safe to ignore
+    (void)old_handle;
     (void)new_handle;
 
     char abs_old_path[MAX_FILE_NAME + 1];
     char abs_new_path[MAX_FILE_NAME + 1];
-
-    GET_FILE_SYSTEM_DESCRIPTOR(old_handle->fd, ptr);
-
-    char *path = duplicate_string(new_path);
-    if (path == NULL) {
-        return __WASI_ENOMEM;
-    }
 
     if (!build_absolute_path(abs_old_path, sizeof(abs_old_path), old_path)) {
         return __WASI_ENOMEM;
@@ -816,25 +838,42 @@ os_renameat(os_file_handle old_handle, const char *old_path,
         return __WASI_ENOMEM;
     }
 
+    // Attempt to perform the rename
     int rc = fs_rename(abs_old_path, abs_new_path);
     if (rc < 0) {
-        free(path);
         return convert_errno(-rc);
     }
 
-    free(ptr->path);
-    ptr->path = path;
+    // If there is an allocated fd in our table, update the descriptor table
+    // entry DSK: better approach here?
+    k_mutex_lock(&desc_array_mutex, K_FOREVER);
+    for (int i = 0; i < CONFIG_WASI_MAX_OPEN_FILES; i++) {
+        struct zephyr_fs_desc *ptr = &desc_array[i];
+        if (ptr->used && ptr->path && strcmp(ptr->path, abs_old_path) == 0) {
+            char *new_path_copy = bh_strdup(new_path);
+            if (new_path_copy != NULL) {
+                BH_FREE(ptr->path);
+                ptr->path = new_path_copy;
+            }
+            break; // Only one descriptor should match
+        }
+    }
+    k_mutex_unlock(&desc_array_mutex);
+
     return __WASI_ESUCCESS;
 }
 
+// DSK: Same thing as renameat: `handle` refers to the containing directory,
+// not the file handle to unlink. We ignore the handle and use the path
+// exclusively.
+//
+// TODO: is there anything we need to do in case is_dir=true?
 __wasi_errno_t
 os_unlinkat(os_file_handle handle, const char *path, bool is_dir)
 {
-    /* `old_handle` need to be the the fd of the file to unlink.
-     * `path` need to be absolute, relative path will not be resolved.
-     */
+    (void)handle;
+
     char abs_path[MAX_FILE_NAME + 1];
-    struct zephyr_fs_desc *ptr = NULL;
 
     if (!build_absolute_path(abs_path, sizeof(abs_path), path)) {
         return __WASI_ENOMEM;
@@ -845,9 +884,16 @@ os_unlinkat(os_file_handle handle, const char *path, bool is_dir)
         return convert_errno(-rc);
     }
 
-    GET_FILE_SYSTEM_DESCRIPTOR(handle->fd, ptr);
-
-    zephyr_fs_free_obj(ptr);
+    // Search for any active descriptor referencing this path and free it.
+    k_mutex_lock(&desc_array_mutex, K_FOREVER);
+    for (int i = 0; i < CONFIG_WASI_MAX_OPEN_FILES; i++) {
+        struct zephyr_fs_desc *ptr = &desc_array[i];
+        if (ptr->used && ptr->path && strcmp(ptr->path, abs_path) == 0) {
+            zephyr_fs_free_obj(ptr);
+            break;
+        }
+    }
+    k_mutex_unlock(&desc_array_mutex);
 
     return __WASI_ESUCCESS;
 }
@@ -856,6 +902,11 @@ __wasi_errno_t
 os_lseek(os_file_handle handle, __wasi_filedelta_t offset,
          __wasi_whence_t whence, __wasi_filesize_t *new_offset)
 {
+
+    if (os_is_virtual_fd(handle->fd)) {
+        return __WASI_ESPIPE; // Seeking not supported on character streams
+    }
+
     struct zephyr_fs_desc *ptr = NULL;
     int zwhence;
 
@@ -896,23 +947,21 @@ os_fadvise(os_file_handle handle, __wasi_filesize_t offset,
 __wasi_errno_t
 os_isatty(os_file_handle handle)
 {
-    return __WASI_ENOSYS;
+    if (os_is_virtual_fd(handle->fd)) {
+        return __WASI_ESUCCESS;
+    }
+
+    return __WASI_ENOTTY;
 }
 
 os_file_handle
 os_convert_stdin_handle(os_raw_file_handle raw_stdin)
 {
     os_file_handle handle = BH_MALLOC(sizeof(struct zephyr_handle));
-    if (handle == NULL) {
+    if (!handle)
         return NULL;
-    }
 
-    /* We allocate a fake stdin reference */
-    if (zephyr_fs_alloc_obj(false, "stdin", &handle->fd) == NULL) {
-        BH_FREE(handle);
-        return NULL;
-    }
-
+    handle->fd = STDIN_FILENO;
     handle->is_sock = false;
     return handle;
 }
@@ -921,16 +970,10 @@ os_file_handle
 os_convert_stdout_handle(os_raw_file_handle raw_stdout)
 {
     os_file_handle handle = BH_MALLOC(sizeof(struct zephyr_handle));
-    if (handle == NULL) {
+    if (!handle)
         return NULL;
-    }
 
-    /* We allocate a fake stdin reference */
-    if (zephyr_fs_alloc_obj(false, "stdout", &handle->fd) == NULL) {
-        BH_FREE(handle);
-        return NULL;
-    }
-
+    handle->fd = STDOUT_FILENO;
     handle->is_sock = false;
     return handle;
 }
@@ -939,16 +982,10 @@ os_file_handle
 os_convert_stderr_handle(os_raw_file_handle raw_stderr)
 {
     os_file_handle handle = BH_MALLOC(sizeof(struct zephyr_handle));
-    if (handle == NULL) {
+    if (!handle)
         return NULL;
-    }
 
-    /* We allocate a fake stdin reference */
-    if (zephyr_fs_alloc_obj(false, "stderr", &handle->fd) == NULL) {
-        BH_FREE(handle);
-        return NULL;
-    }
-
+    handle->fd = STDERR_FILENO;
     handle->is_sock = false;
     return handle;
 }
@@ -977,16 +1014,59 @@ os_fdopendir(os_file_handle handle, os_dir_stream *dir_stream)
     return __WASI_ESUCCESS;
 }
 
+// DSK: simple open and close to rewind index.
 __wasi_errno_t
 os_rewinddir(os_dir_stream dir_stream)
 {
-    return __WASI_ENOSYS;
+    struct zephyr_fs_desc *ptr = NULL;
+    GET_FILE_SYSTEM_DESCRIPTOR(dir_stream, ptr);
+
+    if (!ptr->is_dir)
+        return __WASI_ENOTDIR;
+
+    int rc = fs_closedir(&ptr->dir); // Close current stream
+    if (rc < 0)
+        return convert_errno(-rc);
+
+    rc = fs_opendir(&ptr->dir, ptr->path); // Reopen from start
+    if (rc < 0)
+        return convert_errno(-rc);
+
+    ptr->dir_index = 0; // Reset virtual position tracker
+    return __WASI_ESUCCESS;
 }
 
+// DSK: start from 0 and linear seek since there's no cookies in the zephyr fs
+// TODO: duplicated code with rewinddir
 __wasi_errno_t
 os_seekdir(os_dir_stream dir_stream, __wasi_dircookie_t position)
 {
-    return __WASI_ENOSYS;
+    struct zephyr_fs_desc *ptr = NULL;
+    GET_FILE_SYSTEM_DESCRIPTOR(dir_stream, ptr);
+
+    if (!ptr->is_dir)
+        return __WASI_ENOTDIR;
+
+    int rc = fs_closedir(&ptr->dir);
+    if (rc < 0)
+        return convert_errno(-rc);
+
+    rc = fs_opendir(&ptr->dir, ptr->path);
+    if (rc < 0)
+        return convert_errno(-rc);
+
+    // Emulate seek by re-reading entries up to 'position'
+    struct fs_dirent tmp;
+    for (__wasi_dircookie_t i = 0; i < position; i++) {
+        rc = fs_readdir(&ptr->dir, &tmp);
+        if (rc < 0)
+            return convert_errno(-rc);
+        if (tmp.name[0] == '\0')
+            break; // End of directory
+    }
+
+    ptr->dir_index = position;
+    return __WASI_ESUCCESS;
 }
 
 __wasi_errno_t
@@ -995,7 +1075,6 @@ os_readdir(os_dir_stream dir_stream, __wasi_dirent_t *entry,
 {
     struct fs_dirent fs_entry;
     struct zephyr_fs_desc *ptr = NULL;
-
     GET_FILE_SYSTEM_DESCRIPTOR(dir_stream, ptr);
     if (!ptr->is_dir) {
         return __WASI_ENOTDIR;
@@ -1006,12 +1085,30 @@ os_readdir(os_dir_stream dir_stream, __wasi_dirent_t *entry,
         return convert_errno(-rc);
     }
 
-    entry->d_next = 0; // default value to start of the directory.
-    entry->d_ino = 0;  // no inode in zephyr
+    if (fs_entry.name[0] == '\0') {
+        // DSK: the caller expects the name buffer to be null
+        // when we've reached the end of the directory.
+        *d_name = NULL;
+        return __WASI_ESUCCESS;
+    }
+
+    // DSK: emulated increasing value for rewinddir and seekdir
+    entry->d_next = ++ptr->dir_index;
+
+    // DSK: A hack to get readdir working. This needs to be non-zero along with
+    // st_ino for the libc side of readdir to work correctly.
+    entry->d_ino = 1 + ptr->dir_index;
+
     entry->d_namlen = strlen(fs_entry.name);
     entry->d_type = fs_entry.type == FS_DIR_ENTRY_DIR
                         ? __WASI_FILETYPE_DIRECTORY
                         : __WASI_FILETYPE_REGULAR_FILE;
+
+    // DSK: name exists in fs_entry and we need to return it
+    static char name_buf[MAX_FILE_NAME + 1];
+    strncpy(name_buf, fs_entry.name, MAX_FILE_NAME);
+    name_buf[MAX_FILE_NAME] = '\0';
+    *d_name = name_buf;
 
     return __WASI_ESUCCESS;
 }
@@ -1044,6 +1141,7 @@ os_get_invalid_dir_stream()
 bool
 os_is_dir_stream_valid(os_dir_stream *dir_stream)
 {
+    // DSK: this probably needs a check...
     return false;
 }
 
