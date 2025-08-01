@@ -141,7 +141,7 @@ libc_wasi_parse(char *arg, libc_wasi_parse_context_t *ctx)
             }
 
             ctx->addr_pool[ctx->addr_pool_size++] = token;
-            token = strtok(NULL, ";");
+            token = strtok(NULL, ",");
         }
     }
     else if (!strncmp(arg, "--allow-resolve=", 16)) {
