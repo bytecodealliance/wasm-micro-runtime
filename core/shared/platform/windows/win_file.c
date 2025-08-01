@@ -1817,12 +1817,6 @@ os_invalid_raw_handle(void)
     return INVALID_HANDLE_VALUE;
 }
 
-os_raw_file_handle
-os_invalid_raw_handle(void)
-{
-    return INVALID_HANDLE_VALUE;
-}
-
 bool
 os_compare_file_handle(os_file_handle handle1, os_file_handle handle2)
 {

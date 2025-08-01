@@ -2210,9 +2210,16 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
                     fd_object_get_locked(&fos[i], ft, s->u.u.fd_readwrite.fd,
                                          __WASI_RIGHT_POLL_FD_READWRITE, 0);
                 if (error == 0) {
+
+// Temporary workaround (see PR#4377)
+#ifdef BH_PLATFORM_ZEPHYR
+                    os_file_handle tfd = fos[i]->file_handle->fd;
+#else
+                    os_file_handle tfd = fos[i]->file_handle;
+#endif
                     // Proper file descriptor on which we can poll().
                     pfds[i] = (os_poll_file_handle){
-                        .fd = fos[i]->file_handle->fd,
+                        .fd = tfd,
                         .events = s->u.type == __WASI_EVENTTYPE_FD_READ
                                       ? POLLIN
                                       : POLLOUT,
@@ -2854,13 +2861,10 @@ wasmtime_ssp_sock_recv_from(wasm_exec_env_t exec_env, struct fd_table *curfds,
     }
 
     // If the source address is not NULL, the caller is requesting the source
-    // address to be returned if the protocol supports it.  As such, we convert
-    // the format of the structure pass in prior to the call to the OS
-    // implementation.  If the value is NULL, the POSIX standard states that
-    // the address is not returned.
+    // address to be returned if the protocol supports it.  If the value is
+    // NULL, the POSIX standard states that the address is not returned.
     if (src_addr != NULL) {
         sockaddr_ptr = &sockaddr;
-        wasi_addr_to_bh_sockaddr(src_addr, &sockaddr);
     }
 
     /* Consume bh_sockaddr_t instead of __wasi_addr_t */
