@@ -25,6 +25,16 @@ For information on what types of issues are considered security vulnerabilities 
 - Request CVE: Use the Big Green Button on the advisory to request a CVE number from GitHub staff.
 - Advanced Disclosure Email: Decide on a disclosure date, typically within a week, and send an email to sec-announce@bytecodealliance.org about the upcoming security release. Other ways are also available to communicate the disclosure date.
 
+``` markdown
+> A template for the advanced disclosure email
+
+The Wamr project would like to announce a forthcoming security release.
+
+The release will be made available on approximately YYYY-MM-DD. Additionally, an advisory will be made available on the same date at https://github.com/advisories.
+
+The highest severity issue fixed in this release is classified as XXX based on the CVSS classification scheme.
+```
+
 ## Step 5: Preparing and Testing Patch Releases
 
 - Prepare PRs for Patch Releases: Create pull requests in the private fork for each version being patched. Ensure each PR is ready to apply cleanly and includes release notes for each release branch.
@@ -37,6 +47,16 @@ For information on what types of issues are considered security vulnerabilities 
 - Merge and Trigger Releases: Merge the version bump PRs and trigger the release process.
 - Publish GitHub Advisories: Delete the private forks and use the Big Green Button to publish the advisory.
 - Send Security Release Email: Send a follow-up email to sec-announce@bytecodealliance.org describing the security release. Other communication channels can also be used to inform users about the security release.
+
+```markdown
+> A template for the security release email
+
+[Updated YYYY-MM-DD] Security release available.
+
+WAMR release version X.Y.Z is now available. The binary release can be found on GitHub at https://github.com/bytecodealliance/wasm-micro-runtime/releases/tag/WAMR-Y.Y.Z. This release addresses the following security issues rated XXX: https://the link of the advisory
+
+We’ll be conducting a full review of our security practices to ensure ample notification is provided for future security releases.
+```
 
 By following these steps, you can effectively manage and resolve security issues for your open source project, ensuring timely communication and collaboration while maintaining the integrity and security of your software.
 
