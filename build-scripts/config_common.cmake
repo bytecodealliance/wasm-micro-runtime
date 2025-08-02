@@ -81,6 +81,8 @@ elseif (WAMR_BUILD_TARGET MATCHES "THUMB.*")
   set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -Wa,-mthumb")
 endif ()
 
+include (${CMAKE_CURRENT_LIST_DIR}/warnings.cmake)
+
 if (NOT WAMR_BUILD_INTERP EQUAL 1)
 if (NOT WAMR_BUILD_AOT EQUAL 1)
   message (FATAL_ERROR "-- WAMR Interpreter and AOT must be enabled at least one")
