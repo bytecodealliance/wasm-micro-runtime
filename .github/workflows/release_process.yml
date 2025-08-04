@@ -11,6 +11,26 @@ on:
         type: boolean
         required: false
         default: false
+      release_wamr_sdk:
+        description: "If the WAMR SDK in the release"
+        type: boolean
+        required: false
+        default: false
+      release_wamr_lldb:
+        description: "If the WAMR LLDB in the release"
+        type: boolean
+        required: false
+        default: false
+      release_wamr_ide_vscode_ext:
+        description: "If the WAMR VSCode extension in the release"
+        type: boolean
+        required: false
+        default: false
+      release_wamr_wasi_ext:
+        description: "If the WAMR WASI extensions in the release"
+        type: boolean
+        required: false
+        default: true
 
 # Cancel any in-flight jobs for the same PR/branch so there's only one active
 # at a time
@@ -93,7 +113,7 @@ jobs:
   release_wamrc_on_ubuntu_2204:
     permissions:
       contents: write # upload release artifact
-    needs: [create_tag, create_release, build_llvm_libraries_on_ubuntu_2204 ]
+    needs: [create_tag, create_release, build_llvm_libraries_on_ubuntu_2204]
     uses: ./.github/workflows/build_wamrc.yml
     with:
       llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
@@ -170,6 +190,7 @@ jobs:
     permissions:
       contents: write # upload release artifact
     needs: [create_tag, create_release]
+    if: ${{ inputs.release_wamr_sdk }}
     uses: ./.github/workflows/build_wamr_sdk.yml
     with:
       config_file: wamr_config_ubuntu_release.cmake
@@ -183,6 +204,7 @@ jobs:
     permissions:
       contents: write # upload release artifact
     needs: [create_tag, create_release]
+    if: ${{ inputs.release_wamr_sdk }}
     uses: ./.github/workflows/build_wamr_sdk.yml
     with:
       config_file: wamr_config_macos_release.cmake
@@ -192,30 +214,29 @@ jobs:
       wasi_sdk_url: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-macos.tar.gz
       wamr_app_framework_url: https://github.com/bytecodealliance/wamr-app-framework.git
 
-  # Let's disable it for now and reopen it when the actual requirement arises.
-  # Please ensure all dependencies have been updated before reopening.
-  #
-  # # vscode extension cross-platform
-  # release_wamr_ide_vscode_ext:
-  #   permissions:
-  #     contents: write # upload release artifact
-  #   needs: [create_tag, create_release]
-  #   uses: ./.github/workflows/build_wamr_vscode_ext.yml
-  #   secrets: inherit
-  #   with:
-  #     upload_url: ${{ needs.create_release.outputs.upload_url }}
-  #     ver_num: ${{ needs.create_tag.outputs.new_ver }}
+  # vscode extension cross-platform
+  release_wamr_ide_vscode_ext:
+    permissions:
+      contents: write # upload release artifact
+    needs: [create_tag, create_release]
+    if: ${{ inputs.release_wamr_ide_vscode_ext}}
+    uses: ./.github/workflows/build_wamr_vscode_ext.yml
+    secrets: inherit
+    with:
+      upload_url: ${{ needs.create_release.outputs.upload_url }}
+      ver_num: ${{ needs.create_tag.outputs.new_ver }}
 
-  # #
-  # # vscode extension docker images package
-  # release_wamr_ide_docker_images_package:
-  #   permissions:
-  #     contents: write # upload release artifact
-  #   needs: [create_tag, create_release]
-  #   uses: ./.github/workflows/build_docker_images.yml
-  #   with:
-  #     upload_url: ${{ needs.create_release.outputs.upload_url }}
-  #     ver_num: ${{ needs.create_tag.outputs.new_ver }}
+  #
+  # vscode extension docker images package
+  release_wamr_ide_docker_images_package:
+    permissions:
+      contents: write # upload release artifact
+    needs: [create_tag, create_release]
+    if: ${{ inputs.release_wamr_ide_vscode_ext}}
+    uses: ./.github/workflows/build_docker_images.yml
+    with:
+      upload_url: ${{ needs.create_release.outputs.upload_url }}
+      ver_num: ${{ needs.create_tag.outputs.new_ver }}
 
   #
   # WAMR_LLDB
@@ -223,6 +244,7 @@ jobs:
     permissions:
       contents: write # upload release artifact
     needs: [create_tag, create_release]
+    if: ${{ inputs.release_wamr_lldb }}
     uses: ./.github/workflows/build_wamr_lldb.yml
     with:
       runner: ubuntu-22.04
@@ -233,6 +255,7 @@ jobs:
     permissions:
       contents: write # upload release artifact
     needs: [create_tag, create_release]
+    if: ${{ inputs.release_wamr_lldb }}
     uses: ./.github/workflows/build_wamr_lldb.yml
     with:
       runner: macos-13
@@ -244,6 +267,7 @@ jobs:
     permissions:
       contents: write # upload release artifact
     needs: [create_tag, create_release]
+    if: ${{ inputs.release_wamr_wasi_ext }}
     uses: ./.github/workflows/build_wamr_wasi_extensions.yml
     with:
       upload_url: ${{ needs.create_release.outputs.upload_url }}
