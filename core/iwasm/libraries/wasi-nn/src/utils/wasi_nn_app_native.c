@@ -108,9 +108,18 @@ tensor_data_app_native(wasm_module_inst_t instance, uint32_t total_elements,
 #define data_size total_elements
 #endif
 
+    uint64 data_size_in_bytes = data_size;
+#if WASM_ENABLE_WASI_EPHEMERAL_NN == 0
+    data_size_in_bytes *= sizeof(float);
+    if (data_size_in_bytes / sizeof(float) != data_size) {
+        /* overflow */
+        return invalid_argument;
+    }
+#endif
+
     if (!wasm_runtime_validate_app_addr(instance,
                                         (uint64)input_tensor_wasm->data_offset,
-                                        (uint64)data_size)) {
+                                        data_size_in_bytes)) {
         NN_ERR_PRINTF("input_tensor_wasm->data_offset is invalid");
         return invalid_argument;
     }
