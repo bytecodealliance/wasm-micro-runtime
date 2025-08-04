@@ -13,6 +13,7 @@ sudo apt-get install git build-essential cmake g++-multilib libgcc-9-dev lib32gc
 
 ```shell
 cd wamr-compiler
+# or explicitly with bash: bash ./build_llvm.sh
 ./build_llvm.sh (or "./build_llvm_xtensa.sh" to support xtensa target)
 mkdir build && cd build
 cmake .. (or "cmake .. -DWAMR_BUILD_PLATFORM=darwin" for MacOS)

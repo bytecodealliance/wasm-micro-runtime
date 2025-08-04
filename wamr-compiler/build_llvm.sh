@@ -1,7 +1,9 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 # Copyright (C) 2020 Intel Corporation. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+set -e
 
 TEMP_DIR=$(mktemp -d)
 
