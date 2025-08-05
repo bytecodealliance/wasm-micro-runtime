@@ -14,6 +14,10 @@
 #include "utils/logger.h"
 #include "onnxruntime_c_api.h"
 
+#if WASM_ENABLE_WASI_EPHEMERAL_NN == 0
+#error This backend doesn't support legacy "wasi_nn" abi. Please enable WASM_ENABLE_WASI_EPHEMERAL_NN.
+#endif
+
 /* Maximum number of graphs and execution contexts */
 #define MAX_GRAPHS 4
 #define MAX_CONTEXTS 4
