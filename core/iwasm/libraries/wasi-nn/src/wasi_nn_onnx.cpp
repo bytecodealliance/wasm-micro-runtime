@@ -115,7 +115,6 @@ convert_ort_type_to_wasi_nn_type(ONNXTensorElementDataType ort_type,
         case ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16:
             *tensor_type = fp16;
             break;
-#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
         case ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE:
             *tensor_type = fp64;
             break;
@@ -128,14 +127,6 @@ convert_ort_type_to_wasi_nn_type(ONNXTensorElementDataType ort_type,
         case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
             *tensor_type = i64;
             break;
-#else
-        case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
-            *tensor_type = up8;
-            break;
-        case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
-            *tensor_type = ip32;
-            break;
-#endif
         default:
             NN_WARN_PRINTF("Unsupported ONNX tensor type: %d", ort_type);
             return false;
@@ -155,7 +146,6 @@ convert_wasi_nn_type_to_ort_type(tensor_type type,
         case fp16:
             *ort_type = ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16;
             break;
-#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
         case fp64:
             *ort_type = ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE;
             break;
@@ -168,14 +158,6 @@ convert_wasi_nn_type_to_ort_type(tensor_type type,
         case i64:
             *ort_type = ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
             break;
-#else
-        case up8:
-            *ort_type = ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;
-            break;
-        case ip32:
-            *ort_type = ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32;
-            break;
-#endif
         default:
             NN_WARN_PRINTF("Unsupported wasi-nn tensor type: %d", type);
             return false;
