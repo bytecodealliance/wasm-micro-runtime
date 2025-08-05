@@ -406,7 +406,7 @@ retry:
         exit(1);
     }
     nnret =
-        wasi_ephemeral_nn_get_output(c, 0, resultbuf, resultbufsz, &resultsz);
+        wasi_ephemeral_nn_get_output(c, idx, resultbuf, resultbufsz, &resultsz);
     if (nnret == wasi_ephemeral_nn_error_too_large) {
         resultbufsz *= 2;
         goto retry;
