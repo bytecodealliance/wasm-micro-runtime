@@ -179,6 +179,20 @@ is_valid_func_type(const WASMFuncType *func_type)
     return true;
 }
 
+bool
+is_valid_packed_type(uint8 packed_type)
+{
+    return packed_type == PACKED_TYPE_I8 || packed_type == PACKED_TYPE_I16;
+}
+
+bool
+is_valid_field_type(uint8 field_type)
+{
+    if (is_valid_value_type(field_type) || is_valid_packed_type(field_type))
+        return true;
+    return false;
+}
+
 /*
  * Indices are represented as a u32.
  */

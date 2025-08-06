@@ -1961,6 +1961,10 @@ resolve_struct_type(const uint8 **p_buf, const uint8 *buf_end,
                                 error_buf_size)) {
             goto fail;
         }
+        if (!is_valid_field_type(ref_type.ref_type)) {
+            set_error_buf(error_buf, error_buf_size, "invalid field type");
+            goto fail;
+        }
         type->fields[i].field_type = ref_type.ref_type;
         if (need_ref_type_map) {
             type->ref_type_maps[j].index = i;
