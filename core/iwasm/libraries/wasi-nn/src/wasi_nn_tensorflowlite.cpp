@@ -297,11 +297,6 @@ set_input(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
             return runtime_error;
     }
 
-    if (input_tensor->type != fp32) {
-        NN_ERR_PRINTF("unsupported input tensor type %u", input_tensor->type);
-        return runtime_error;
-    }
-
     wasi_nn_error res;
     if (success != (res = is_valid_graph_execution_context(tfl_ctx, ctx)))
         return res;

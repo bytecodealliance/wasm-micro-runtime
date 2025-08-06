@@ -4,6 +4,7 @@
  */
 
 #include <assert.h>
+#include <errno.h>
 #include <string.h>
 #include <stdio.h>
 #include <pthread.h>
@@ -28,6 +29,15 @@ test_nslookup(int af)
     hints.ai_family = af;
     hints.ai_socktype = SOCK_STREAM;
     int ret = getaddrinfo(url, 0, &hints, &res);
+    if (ret != 0) {
+        if (ret == EAI_SYSTEM) {
+            fprintf(stderr, "getaddrinfo failed: %s (%s)\n", gai_strerror(ret),
+                    strerror(errno));
+        }
+        else {
+            fprintf(stderr, "getaddrinfo failed: %s\n", gai_strerror(ret));
+        }
+    }
     assert(ret == 0);
     struct addrinfo *address = res;
     while (address) {
