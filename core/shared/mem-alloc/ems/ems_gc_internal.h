@@ -338,8 +338,18 @@ typedef struct gc_heap_struct {
 static inline void
 gc_update_threshold(gc_heap_t *heap)
 {
-    heap->gc_threshold =
-        heap->total_free_size * heap->gc_threshold_factor / 1000;
+    uint64_t result = (uint64_t)heap->total_free_size
+                      * (uint64_t)heap->gc_threshold_factor / 1000;
+    if (result > UINT32_MAX) {
+        /* Threshold factor can be greater than 1000 (100%), which means
+         *  GC will never be triggered. So heap->gc_threshold >
+         * APP_HEAP_SIZE_MAX is allowed
+         */
+        heap->gc_threshold = UINT32_MAX;
+    }
+    else {
+        heap->gc_threshold = (uint32_t)result;
+    }
 }
 
 #define gct_vm_mutex_init os_mutex_init
