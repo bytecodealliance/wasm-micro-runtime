@@ -9,6 +9,7 @@
 #include "wasm_export.h"
 #include "aot_export.h"
 
+#include <llvm-c/Core.h>
 #include <llvm-c/Support.h>
 
 #if BH_HAS_DLFCN
@@ -218,6 +219,7 @@ print_help()
     printf("                            WARNING: enable this feature will largely increase code size\n");
     printf("  -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log\n");
     printf("  --version                 Show version information\n");
+    printf("  --llvm-version            Show LLVM version information\n");
     printf("Examples: wamrc -o test.aot test.wasm\n");
     printf("          wamrc --target=i386 -o test.aot test.wasm\n");
     printf("          wamrc --target=i386 --format=object -o test.o test.wasm\n");
@@ -674,6 +676,12 @@ main(int argc, char *argv[])
             uint32 major, minor, patch;
             wasm_runtime_get_version(&major, &minor, &patch);
             printf("wamrc %u.%u.%u\n", major, minor, patch);
+            return 0;
+        }
+        else if (!strcmp(argv[0], "--llvm-version")) {
+            unsigned major, minor, patch;
+            LLVMGetVersion(&major, &minor, &patch);
+            printf("LLVM %u.%u.%u\n", major, minor, patch);
             return 0;
         }
         else
