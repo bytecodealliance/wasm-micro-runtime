@@ -204,12 +204,12 @@ if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*
 endif()
 
 if (NOT MSVC)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security \
-                                       -ffunction-sections -fdata-sections \
-                                       -Wno-unused-parameter -Wno-pedantic")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections")
   # Remove the extra spaces for better make log
   string (REGEX REPLACE "  *" " " CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
 endif()
+
+include (${PROJECT_SOURCE_DIR}/../build-scripts/warnings.cmake)
 
 set (SHARED_DIR ../core/shared)
 set (IWASM_DIR ../core/iwasm)
