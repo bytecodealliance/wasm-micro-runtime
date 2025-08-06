@@ -1073,6 +1073,11 @@ function trigger()
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SANITIZER=$WAMR_BUILD_SANITIZER"
     fi
 
+    if [[ "$WAMR_BUILD_SANITIZER" == "posan" ]]; then
+        echo "Setting run with posan"
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SANITIZER=posan"
+    fi
+
     # Make sure we're using the builtin WASI libc implementation
     # if we're running the wasi certification tests.
     if [[ $TEST_CASE_ARR ]]; then

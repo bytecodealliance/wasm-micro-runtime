@@ -712,7 +712,10 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
             }
             case VALUE_TYPE_F32:
             {
-                os_printf("%.7g:f32", *(float32 *)(argv1 + k));
+                // Explicit cast to double to avoid warning.
+                // Float arguments are promoted to double in variadic
+                // functions per section 6.5.2.2 of the C99 standard.
+                os_printf("%.7g:f32", (double)*(float32 *)(argv1 + k));
                 k++;
                 break;
             }
