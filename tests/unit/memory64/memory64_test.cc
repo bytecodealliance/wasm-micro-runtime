@@ -31,7 +31,7 @@ class memory64_test_suite : public testing::TestWithParam<RunningMode>
         return true;
 
     fail:
-        if (!module)
+        if (module)
             wasm_runtime_unload(module);
 
         return false;
@@ -56,11 +56,13 @@ class memory64_test_suite : public testing::TestWithParam<RunningMode>
         if (exec_env)
             wasm_runtime_destroy_exec_env(exec_env);
         if (module_inst)
+            wasm_runtime_deinstantiate(module_inst);
+        if (module)
             wasm_runtime_unload(module);
         return false;
     }
 
-    void destory_exec_env()
+    void destroy_exec_env()
     {
         wasm_runtime_destroy_exec_env(exec_env);
         wasm_runtime_deinstantiate(module_inst);
@@ -201,7 +203,7 @@ TEST_P(memory64_test_suite, memory_8GB)
     i64 = 0xbeefdead;
     ASSERT_EQ(i64, GET_U64_FROM_ADDR(wasm_argv));
 
-    destory_exec_env();
+    destroy_exec_env();
 }
 
 TEST_P(memory64_test_suite, mem64_from_clang)
@@ -228,7 +230,7 @@ TEST_P(memory64_test_suite, mem64_from_clang)
     i32 = 0x109;
     ASSERT_EQ(i32, wasm_argv[0]);
 
-    destory_exec_env();
+    destroy_exec_env();
 }
 
 INSTANTIATE_TEST_CASE_P(RunningMode, memory64_test_suite,

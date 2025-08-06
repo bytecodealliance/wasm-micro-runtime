@@ -79,7 +79,7 @@ Client is running...
 Start receiving.
 Start sending.
 Send 106 bytes successfully!
-Receive 106 bytes successlly!
+Receive 106 bytes successfully!
 Data:
   The stars shine down
   It brings us light

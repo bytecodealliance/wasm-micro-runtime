@@ -185,6 +185,13 @@ typedef struct {
 #define REG_STRINGREF_SYM()
 #endif
 
+#if WASM_ENABLE_SHARED_HEAP != 0
+#define REG_SHARED_HEAP_SYM()                 \
+    REG_SYM(wasm_runtime_check_and_update_last_used_shared_heap),
+#else
+#define REG_SHARED_HEAP_SYM()
+#endif
+
 #define REG_COMMON_SYMBOLS                \
     REG_SYM(aot_set_exception_with_id),   \
     REG_SYM(aot_invoke_native),           \
@@ -218,6 +225,7 @@ typedef struct {
     REG_LLVM_PGO_SYM()                    \
     REG_GC_SYM()                          \
     REG_STRINGREF_SYM()                   \
+    REG_SHARED_HEAP_SYM()                 \
 
 #define CHECK_RELOC_OFFSET(data_size) do {              \
     if (!check_reloc_offset(target_section_size,        \

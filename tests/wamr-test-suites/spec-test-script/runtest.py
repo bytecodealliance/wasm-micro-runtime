@@ -336,6 +336,9 @@ parser.add_argument('--multi-thread', default=False, action='store_true',
 parser.add_argument('--gc', default=False, action='store_true',
         help='Test with GC')
 
+parser.add_argument('--extended-const', action='store_true',
+                       help='Enable extended const expression feature')
+
 parser.add_argument('--memory64', default=False, action='store_true',
         help='Test with Memory64')
 
@@ -1112,6 +1115,8 @@ def compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
         cmd = [opts.wast2wasm, "--enable-memory64", "--no-check", wast_tempfile, "-o", wasm_tempfile ]
     elif opts.multi_memory:
         cmd = [opts.wast2wasm, "--enable-multi-memory", "--no-check", wast_tempfile, "-o", wasm_tempfile ]
+    elif opts.extended_const:
+        cmd = [opts.wast2wasm, "--enable-extended-const", "--no-check", wast_tempfile, "-o", wasm_tempfile ]
     else:
         # `--enable-multi-memory` for a case in memory.wast but doesn't require runtime support
         cmd = [opts.wast2wasm, "--enable-multi-memory", "--enable-threads", "--no-check",
@@ -1154,6 +1159,9 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
     if opts.gc:
         cmd.append("--enable-gc")
         cmd.append("--enable-tail-call")
+
+    if opts.extended_const:
+        cmd.append("--enable-extended-const")
 
     if output == 'object':
         cmd.append("--format=object")

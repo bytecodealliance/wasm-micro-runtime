@@ -8,7 +8,7 @@
 static char aot_error[128];
 
 char *
-aot_get_last_error()
+aot_get_last_error(void)
 {
     return aot_error[0] == '\0' ? "" : aot_error;
 }

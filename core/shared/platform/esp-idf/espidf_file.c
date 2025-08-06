@@ -1034,6 +1034,12 @@ os_realpath(const char *path, char *resolved_path)
     return realpath(path, resolved_path);
 }
 
+os_raw_file_handle
+os_invalid_raw_handle(void)
+{
+    return -1;
+}
+
 int
 os_ioctl(os_file_handle handle, int request, ...)
 {
@@ -1044,10 +1050,4 @@ int
 os_poll(os_poll_file_handle *fds, os_nfds_t nfs, int timeout)
 {
     return BHT_ERROR;
-}
-
-os_raw_file_handle
-os_invalid_raw_handle(void)
-{
-    return -1;
 }

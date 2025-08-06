@@ -239,3 +239,12 @@ jobs:
       arch: universal
       upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver}}
+
+  release_wamr_wasi_extensions:
+    permissions:
+      contents: write # upload release artifact
+    needs: [create_tag, create_release]
+    uses: ./.github/workflows/build_wamr_wasi_extensions.yml
+    with:
+      upload_url: ${{ needs.create_release.outputs.upload_url }}
+      ver_num: ${{ needs.create_tag.outputs.new_ver }}

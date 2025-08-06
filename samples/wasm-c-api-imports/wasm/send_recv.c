@@ -50,6 +50,7 @@ local_printf(const char *formatter, ...)
 void *
 run_as_server(void *arg)
 {
+    (void)arg;
     int sock = -1, on = 1;
     struct sockaddr_in addr = { 0 };
     int addrlen = 0;
@@ -134,7 +135,7 @@ run_as_server(void *arg)
 fail2:
     close(new_sock);
 fail1:
-    shutdown(sock, SHUT_RD);
+    shutdown(sock, SHUT_RDWR);
     close(sock);
     return NULL;
 }
@@ -142,6 +143,7 @@ fail1:
 void *
 run_as_client(void *arg)
 {
+    (void)arg;
     int sock = -1;
     struct sockaddr_in addr = { 0 };
     /* buf of server is 106 bytes */
@@ -184,7 +186,7 @@ run_as_client(void *arg)
         goto fail;
     }
 
-    local_printf("Receive %ld bytes successlly!\n", recv_len);
+    local_printf("Receive %ld bytes successfully!\n", recv_len);
     assert(recv_len == 106);
 
     local_printf("Data:\n");
@@ -195,7 +197,7 @@ run_as_client(void *arg)
     }
 
 fail:
-    shutdown(sock, SHUT_RD);
+    shutdown(sock, SHUT_RDWR);
     close(sock);
     return NULL;
 }
@@ -203,6 +205,8 @@ fail:
 int
 main(int argc, char *argv[])
 {
+    (void)argc;
+    (void)argv;
     pthread_t cs[2] = { 0 };
     uint8_t i = 0;
     int ret = EXIT_SUCCESS;

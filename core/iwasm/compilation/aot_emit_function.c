@@ -347,7 +347,8 @@ call_aot_invoke_c_api_native(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* Get &c_api_func_imports[func_idx], note size of CApiFuncImport
        is pointer_size * 3 */
-    offset = I32_CONST((comp_ctx->pointer_size * 3) * import_func_idx);
+    offset = I32_CONST((unsigned long long)comp_ctx->pointer_size * 3
+                       * import_func_idx);
     CHECK_LLVM_CONST(offset);
     c_api_func_import =
         LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, c_api_func_imports,

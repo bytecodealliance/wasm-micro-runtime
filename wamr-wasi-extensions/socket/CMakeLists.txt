@@ -13,6 +13,12 @@ target_include_directories(wamr-wasi-socket
                            $<BUILD_INTERFACE:${wasi_socket_header_dir}>
                            $<INSTALL_INTERFACE:include>)
 
+# as this is a library, be extra conservative about wasm features
+# to improve compatibilities. as this particular library is just a
+# simple static stub, extra wasm features won't benefit us much anyway.
+# note that LLVM-19 enables reference-types by default.
+target_compile_options(wamr-wasi-socket PRIVATE -mno-reference-types)
+
 install(TARGETS wamr-wasi-socket
         EXPORT wamr-wasi-socket-config
         PUBLIC_HEADER DESTINATION include)

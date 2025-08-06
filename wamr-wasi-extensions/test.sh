@@ -5,35 +5,7 @@
 
 set -e
 
-PREFIX=/tmp/wamr
-WASI_SDK=${WASI_SDK:-/opt/wasi-sdk}
+PREFIX=${1:-/tmp/wamr}
 
-cmake -B build-lib \
--DCMAKE_TOOLCHAIN_FILE=${WASI_SDK}/share/cmake/wasi-sdk.cmake \
--DCMAKE_INSTALL_PREFIX=${PREFIX} \
-.
-cmake --build build-lib -t install
-
-cmake -B build-app-nn \
--DCMAKE_TOOLCHAIN_FILE=${WASI_SDK}/share/cmake/wasi-sdk.cmake \
--DCMAKE_PREFIX_PATH=${PREFIX} \
-samples/nn
-cmake --build build-app-nn
-
-cmake -B build-app-nn-cli \
--DCMAKE_TOOLCHAIN_FILE=${WASI_SDK}/share/cmake/wasi-sdk.cmake \
--DCMAKE_PREFIX_PATH=${PREFIX} \
-samples/nn-cli
-cmake --build build-app-nn-cli
-
-cmake -B build-app-socket-nslookup \
--DCMAKE_TOOLCHAIN_FILE=${WASI_SDK}/share/cmake/wasi-sdk-pthread.cmake \
--DCMAKE_PREFIX_PATH=${PREFIX} \
-samples/socket-nslookup
-cmake --build build-app-socket-nslookup
-
-cmake -B build-app-socket-tcp-udp \
--DCMAKE_TOOLCHAIN_FILE=${WASI_SDK}/share/cmake/wasi-sdk-pthread.cmake \
--DCMAKE_PREFIX_PATH=${PREFIX} \
-samples/socket-tcp-udp
-cmake --build build-app-socket-tcp-udp
+./build_libs.sh ${PREFIX}
+./build_samples.sh ${PREFIX}

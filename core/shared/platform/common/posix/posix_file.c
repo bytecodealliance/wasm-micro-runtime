@@ -1034,6 +1034,12 @@ os_realpath(const char *path, char *resolved_path)
     return realpath(path, resolved_path);
 }
 
+os_raw_file_handle
+os_invalid_raw_handle(void)
+{
+    return -1;
+}
+
 // Better to define the function here, as Linux-SGX will
 // use this file to implement the `_os` functions.
 // So we don't need to define them in the Linux-SGX platform.
@@ -1060,10 +1066,4 @@ bool
 os_compare_file_handle(os_file_handle handle1, os_file_handle handle2)
 {
     return handle1 == handle2;
-}
-
-os_raw_file_handle
-os_invalid_raw_handle(void)
-{
-    return -1;
 }

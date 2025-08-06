@@ -278,8 +278,7 @@ typedef enum WASMOpcode {
     DEBUG_OP_BREAK = 0xdc, /* debug break point */
 #endif
 
-#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_FAST_INTERP != 0 \
-    || WASM_ENABLE_WAMR_COMPILER != 0 && WASM_ENABLE_SIMD != 0
+#if WASM_ENABLE_SIMDE != 0
     EXT_OP_SET_LOCAL_FAST_V128 = 0xdd,
     EXT_OP_TEE_LOCAL_FAST_V128 = 0xde,
     EXT_OP_COPY_STACK_TOP_V128 = 0xdf,
@@ -798,7 +797,7 @@ typedef enum WASMAtomicEXTOpcode {
 #define SET_GOTO_TABLE_SIMD_PREFIX_ELEM()
 #endif
 
-#if WASM_ENABLE_SIMD != 0 && WASM_ENABLE_SIMDE != 0
+#if WASM_ENABLE_SIMDE != 0
 #define DEF_EXT_V128_HANDLE()                                       \
     SET_GOTO_TABLE_ELEM(EXT_OP_SET_LOCAL_FAST_V128),     /* 0xdd */ \
         SET_GOTO_TABLE_ELEM(EXT_OP_TEE_LOCAL_FAST_V128), /* 0xde */ \

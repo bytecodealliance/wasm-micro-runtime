@@ -31,7 +31,7 @@ class memory64_atomic_test_suite : public testing::TestWithParam<RunningMode>
         return true;
 
     fail:
-        if (!module)
+        if (module)
             wasm_runtime_unload(module);
 
         return false;
@@ -56,6 +56,8 @@ class memory64_atomic_test_suite : public testing::TestWithParam<RunningMode>
         if (exec_env)
             wasm_runtime_destroy_exec_env(exec_env);
         if (module_inst)
+            wasm_runtime_deinstantiate(module_inst);
+        if (module)
             wasm_runtime_unload(module);
         return false;
     }

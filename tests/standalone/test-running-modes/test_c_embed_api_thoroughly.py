@@ -9,7 +9,7 @@ import os
 from collections import OrderedDict
 
 
-def CLI_ARGS_GENREATOR(running_modes_supported: list[str]) -> list[str]:
+def CLI_ARGS_GENERATOR(running_modes_supported: list[str]) -> list[str]:
     res = []
     list_2d = [["--default-running-mode={} --module-running-mode={}".format(i, j)
                 for i in running_modes_supported] for j in running_modes_supported]
@@ -35,16 +35,16 @@ def main():
     ]
 
     # Python 3.7+: Dictionary iteration order is guaranteed to be in order of insertion.
-    # just to be safe, using orderreddict
+    # just to be safe, using OrderedDict
     # key: value -> compile mode, {"compile_flag": CMake compile flag, "iwasm_cli_args": array of CLI args tested}
     test_options = OrderedDict({
-        "INTERP": {"compile_flag": COMPILE_FLAGS[0], "cli_args": CLI_ARGS_GENREATOR(RUNNING_MODES[:1])},
-        "FAST_JIT": {"compile_flag": COMPILE_FLAGS[1], "cli_args": CLI_ARGS_GENREATOR(RUNNING_MODES[:2])},
+        "INTERP": {"compile_flag": COMPILE_FLAGS[0], "cli_args": CLI_ARGS_GENERATOR(RUNNING_MODES[:1])},
+        "FAST_JIT": {"compile_flag": COMPILE_FLAGS[1], "cli_args": CLI_ARGS_GENERATOR(RUNNING_MODES[:2])},
         "LLVM_JIT": {"compile_flag": COMPILE_FLAGS[2],
-                     "cli_args": CLI_ARGS_GENREATOR([RUNNING_MODES[0], RUNNING_MODES[2]])},
-        "MULTI_TIER_JIT": {"compile_flag": COMPILE_FLAGS[3], "cli_args": CLI_ARGS_GENREATOR(RUNNING_MODES)},
+                     "cli_args": CLI_ARGS_GENERATOR([RUNNING_MODES[0], RUNNING_MODES[2]])},
+        "MULTI_TIER_JIT": {"compile_flag": COMPILE_FLAGS[3], "cli_args": CLI_ARGS_GENERATOR(RUNNING_MODES)},
         "EAGER_JIT_WITH_BOTH_JIT": {"compile_flag": COMPILE_FLAGS[4],
-                                    "cli_args": CLI_ARGS_GENREATOR(RUNNING_MODES[:3])}
+                                    "cli_args": CLI_ARGS_GENERATOR(RUNNING_MODES[:3])}
     })
 
     build_cmd = "./build_c_embed.sh \"{build_flag}\""

@@ -44,22 +44,22 @@ bh_get_tick_ms()
 uint32
 bh_get_elpased_ms(uint32 *last_system_clock)
 {
-    uint32 elpased_ms;
-    /* attention: the bh_get_tick_ms() return 64 bits integer, but
-       the bh_get_elpased_ms() is designed to use 32 bits clock count */
+    uint32 elapsed_ms;
+    /* attention: the bh_get_tick_ms() returns a 64-bit integer, but
+       bh_get_elpased_ms() is designed to use a 32-bit clock count */
     uint32 now = (uint32)bh_get_tick_ms();
 
     /* system clock overrun */
     if (now < *last_system_clock) {
         PRINT("system clock overrun!\n");
-        elpased_ms = now + (UINT32_MAX - *last_system_clock) + 1;
+        elapsed_ms = now + (UINT32_MAX - *last_system_clock) + 1;
     }
     else {
-        elpased_ms = now - *last_system_clock;
+        elapsed_ms = now - *last_system_clock;
     }
 
     *last_system_clock = now;
-    return elpased_ms;
+    return elapsed_ms;
 }
 
 static app_timer_t *
@@ -162,7 +162,7 @@ reschedule_timer(timer_ctx_t ctx, app_timer_t *timer)
               prev->id);
     }
     else {
-        /* insert at the begin */
+        /* insert at the beginning */
         bh_assert(ctx->app_timers == NULL);
         ctx->app_timers = timer;
         PRINT("rescheduled timer [%d] as first\n", timer->id);
@@ -213,7 +213,7 @@ release_timer_list(app_timer_t **p_list)
 
 timer_ctx_t
 create_timer_ctx(timer_callback_f timer_handler,
-                 check_timer_expiry_f expiery_checker, int prealloc_num,
+                 check_timer_expiry_f expiry_checker, int prealloc_num,
                  unsigned int owner)
 {
     timer_ctx_t ctx = (timer_ctx_t)BH_MALLOC(sizeof(struct _timer_ctx));
@@ -225,7 +225,7 @@ create_timer_ctx(timer_callback_f timer_handler,
 
     ctx->timer_callback = timer_handler;
     ctx->pre_allocated = prealloc_num;
-    ctx->refresh_checker = expiery_checker;
+    ctx->refresh_checker = expiry_checker;
     ctx->owner = owner;
 
     while (prealloc_num > 0) {
