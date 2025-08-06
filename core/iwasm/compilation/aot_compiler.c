@@ -3953,15 +3953,7 @@ unsupport_simd:
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
 unsupport_ref_types:
     aot_set_last_error("reference type instruction was found, "
-                       "try removing --disable-ref-types option "
-                       "or adding --enable-gc option");
-    return false;
-#endif
-
-#if WASM_ENABLE_GC != 0
-unsupport_gc:
-    aot_set_last_error("GC instruction was found, "
-                       "try adding --enable-gc option");
+                       "try removing --disable-ref-types option ");
     return false;
 #endif
 
@@ -3969,7 +3961,7 @@ unsupport_gc:
 unsupport_gc_and_ref_types:
     aot_set_last_error(
         "reference type or gc instruction was found, try removing "
-        "--disable-ref-types option or adding --enable-gc option");
+        "--disable-ref-types option");
     return false;
 #endif
 

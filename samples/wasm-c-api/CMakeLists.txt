@@ -62,6 +62,9 @@ if(NOT DEFINED WAMR_BUILD_AOT)
   set(WAMR_BUILD_AOT 0)
 endif()
 
+include(CMakePrintHelpers)
+cmake_print_variables(WAMR_BUILD_INTERP WAMR_BUILD_AOT)
+
 if(NOT DEFINED WAMR_BUILD_JIT)
   set(WAMR_BUILD_JIT 0)
 endif()
@@ -71,11 +74,7 @@ set(WAMR_BUILD_LIBC_WASI 0)
 set(WAMR_BUILD_MULTI_MODULE 1)
 set(WAMR_BUILD_DUMP_CALL_STACK 1)
 set(WAMR_BUILD_REF_TYPES 1)
-
-# If not defined WAMR_BUILD_GC, set it to 0
-if(NOT DEFINED WAMRC_BUILD_WITH_GC)
-  set(WAMRC_BUILD_WITH_GC 0)
-endif()
+set(WAMR_BUILD_GC 0)
 
 if(NOT DEFINED WAMR_BUILD_FAST_INTERP)
   set(WAMR_BUILD_FAST_INTERP 1)
@@ -130,17 +129,16 @@ if (${WAT2WASM_VERSION} VERSION_LESS 1.0.26)
 endif ()
 
 if(${WAMR_BUILD_AOT} EQUAL 1 AND ${WAMR_BUILD_INTERP} EQUAL 0)
-  ## locate wamrc
-  find_program(WAMRC
-    wamrc
-    PATHS ${WAMR_ROOT_DIR}/wamr-compiler/build/
+  include(ExternalProject)
+  ExternalProject_Add(wamrc_local
+    SOURCE_DIR   ${WAMR_ROOT_DIR}/wamr-compiler
+    BUILD_ALWAYS TRUE
+    UPDATE_COMMAND ""
+    PATCH_COMMAND ""
+    CONFIGURE_COMMAND ${CMAKE_COMMAND} -S ${WAMR_ROOT_DIR}/wamr-compiler -B build --install-prefix ${CMAKE_CURRENT_BINARY_DIR}
+    BUILD_COMMAND     ${CMAKE_COMMAND} --build build
+    INSTALL_COMMAND   ${CMAKE_COMMAND} --install build
   )
-
-  if(NOT WAMRC)
-    message(SEND_ERROR "can not find wamrc.  refer to \
-        https://github.com/bytecodealliance/wasm-micro-runtime#build-wamrc-aot-compiler"
-    )
-  endif()
 endif()
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
@@ -182,16 +180,11 @@ foreach(EX ${EXAMPLES})
   add_dependencies(${EX} ${EX}_WASM)
 
   # generate .aot file
-  if(${WAMR_BUILD_AOT} EQUAL 1)
-    if(${WAMRC_BUILD_WITH_GC} EQUAL 1)
-      set(WAMRC_GC_FLAGS "--enable-gc")
-    else()
-      set(WAMRC_GC_FLAGS "")
-    endif()
+  if(${WAMR_BUILD_AOT} EQUAL 1 AND ${WAMR_BUILD_INTERP} EQUAL 0)
     add_custom_target(${EX}_AOT
-      COMMAND ${WAMRC} ${WAMRC_GC_FLAGS} -o ${PROJECT_BINARY_DIR}/${EX}.aot
+      COMMAND ${CMAKE_CURRENT_BINARY_DIR}/bin/wamrc -o ${PROJECT_BINARY_DIR}/${EX}.aot
         ${PROJECT_BINARY_DIR}/${EX}.wasm
-      DEPENDS ${EX}_WASM
+      DEPENDS ${EX}_WASM wamrc_local
       BYPRODUCTS ${PROJECT_BINARY_DIR}/${EX}.aot
       VERBATIM
       COMMENT "generate a aot file ${PROJECT_BINARY_DIR}/${EX}.aot"

@@ -1,20 +1,23 @@
 # WAMR MULTI-MODUEL SAMPLE
-**WAMR supports *multi-module* in both *interpreter* mode and *aot* mode.**
+
+**WAMR supports _multi-module_ in both _interpreter_ mode and _aot_ mode.**
 
 Multi-modules will determine the running mode based on the type of the main module.
 
+## Interpreter mode
 
-``` shell
-$ mkdir build
+```bash
+$ cmake -S . -B build
+$ cmake --build
 $ cd build
-$ cmake ..
-$ make
-$ # It will build multi_module runtime and 
-$ # wasm file under the ./build .
-$ # If you have built wamrc,
-$ # aot file will also generate.
 $ ./multi_module mC.wasm
-$ ...
-$ ./multi_module mC.aot
-$ ...
+```
 
+## Aot mode
+
+```bash
+$ cmake -S . -B build -DWAMR_BUILD_AOT=1
+$ cmake --build
+$ cd build
+$ ./multi_module mC.aot
+```

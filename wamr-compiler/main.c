@@ -179,7 +179,6 @@ print_help()
     printf("  --enable-memory-profiling Enable memory usage profiling\n");
     printf("  --xip                     A shorthand of --enable-indirect-mode --disable-llvm-intrinsics\n");
     printf("  --enable-indirect-mode    Enable call function through symbol table but not direct call\n");
-    printf("  --enable-gc               Enable GC (Garbage Collection) feature\n");
     printf("  --disable-llvm-intrinsics Disable the LLVM built-in intrinsics\n");
     printf("  --enable-builtin-intrinsics=<flags>\n");
     printf("                            Enable the specified built-in intrinsics, it will override the default\n");
@@ -424,7 +423,13 @@ main(int argc, char *argv[])
     option.enable_aux_stack_check = true;
     option.enable_bulk_memory = true;
     option.enable_ref_types = true;
+#if WASM_ENABLE_GC != 0
+    /* gc depends on AOT_STACK_FRAME */
+    option.enable_gc = true;
+    option.aux_stack_frame_type = AOT_STACK_FRAME_TYPE_STANDARD;
+#else
     option.enable_gc = false;
+#endif
     option.enable_extended_const = false;
     aot_call_stack_features_init_default(&option.call_stack_features);
 
@@ -572,10 +577,6 @@ main(int argc, char *argv[])
         }
         else if (!strcmp(argv[0], "--enable-indirect-mode")) {
             option.is_indirect_mode = true;
-        }
-        else if (!strcmp(argv[0], "--enable-gc")) {
-            option.aux_stack_frame_type = AOT_STACK_FRAME_TYPE_STANDARD;
-            option.enable_gc = true;
         }
         else if (!strcmp(argv[0], "--disable-llvm-intrinsics")) {
             option.disable_llvm_intrinsics = true;
