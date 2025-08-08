@@ -1026,14 +1026,14 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         /* If only one page and at most one page, we just append
            the app heap to the end of linear memory, enlarge the
            num_bytes_per_page, and don't change the page count */
-        heap_offset = num_bytes_per_page;
-        num_bytes_per_page += heap_size;
-        if (num_bytes_per_page < heap_size) {
+        if (heap_size > UINT32_MAX - num_bytes_per_page) {
             set_error_buf(error_buf, error_buf_size,
                           "failed to insert app heap into linear memory, "
                           "try using `--heap-size=0` option");
             return NULL;
         }
+        heap_offset = num_bytes_per_page;
+        num_bytes_per_page += heap_size;
     }
     else if (heap_size > 0) {
         if (init_page_count == max_page_count && init_page_count == 0) {
