@@ -33,6 +33,7 @@
 #define TFLITE_BACKEND_LIB "libwasi_nn_tflite" LIB_EXTENTION
 #define OPENVINO_BACKEND_LIB "libwasi_nn_openvino" LIB_EXTENTION
 #define LLAMACPP_BACKEND_LIB "libwasi_nn_llamacpp" LIB_EXTENTION
+#define ONNX_BACKEND_LIB "libwasi_nn_onnx" LIB_EXTENTION
 
 /* Global variables */
 static korp_mutex wasi_nn_lock;
@@ -244,6 +245,17 @@ choose_a_backend()
     NN_WARN_PRINTF("%s", dlerror());
 #endif
 
+    handle = dlopen(ONNX_BACKEND_LIB, RTLD_LAZY);
+    if (handle) {
+        NN_INFO_PRINTF("Using onnx backend");
+        dlclose(handle);
+        return onnx;
+    }
+
+#ifndef NDEBUG
+    NN_WARN_PRINTF("%s", dlerror());
+#endif
+
     handle = dlopen(TFLITE_BACKEND_LIB, RTLD_LAZY);
     if (handle) {
         NN_INFO_PRINTF("Using tflite backend");
@@ -363,6 +375,8 @@ graph_encoding_to_backend_lib_name(graph_encoding encoding)
             return TFLITE_BACKEND_LIB;
         case ggml:
             return LLAMACPP_BACKEND_LIB;
+        case onnx:
+            return ONNX_BACKEND_LIB;
         default:
             return NULL;
     }

@@ -26,6 +26,7 @@ $ cmake -DWAMR_BUILD_WASI_NN=1 <other options> ...
 - `WAMR_BUILD_WASI_NN_TFLITE`. This option designates TensorFlow Lite as the backend.
 - `WAMR_BUILD_WASI_NN_OPENVINO`. This option designates OpenVINO as the backend.
 - `WAMR_BUILD_WASI_NN_LLAMACPP`. This option designates Llama.cpp as the backend.
+- `WAMR_BUILD_WASI_NN_ONNX`. This option designates ONNX Runtime as the backend.
 
 ### Wasm
 
@@ -151,7 +152,7 @@ docker run \
 
 Supported:
 
-- Graph encoding: `tensorflowlite`, `openvino` and `ggml`
+- Graph encoding: `tensorflowlite`, `openvino`, `ggml` and `onnx`
 - Execution target: `cpu` for all. `gpu` and `tpu` for `tensorflowlite`.
 - Tensor type: `fp32`.
 

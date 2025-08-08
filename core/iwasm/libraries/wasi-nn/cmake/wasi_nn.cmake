@@ -109,3 +109,24 @@ if(WAMR_BUILD_WASI_NN_LLAMACPP EQUAL 1)
 
   install(TARGETS wasi_nn_llamacpp DESTINATION lib)
 endif()
+
+# - onnx
+if(WAMR_BUILD_WASI_NN_ONNX EQUAL 1)
+  find_package(onnxruntime REQUIRED)
+  enable_language(CXX)
+
+  add_library(
+    wasi_nn_onnx
+    SHARED
+      ${WASI_NN_ROOT}/src/wasi_nn_onnx.cpp
+  )
+
+  target_link_libraries(
+    wasi_nn_onnx
+    PUBLIC
+      vmlib
+      onnxruntime::onnxruntime
+  )
+
+  install(TARGETS wasi_nn_onnx DESTINATION lib)
+endif()
