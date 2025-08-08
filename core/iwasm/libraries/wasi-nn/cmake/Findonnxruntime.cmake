@@ -22,6 +22,15 @@
 #   endif()
 
 # First try to find ONNX Runtime using the CMake config file
+# FIXME: This is a temporary workaround for ONNX Runtime's broken CMake config on Linux.
+# See https://github.com/microsoft/onnxruntime/issues/25279
+# Once the upstream issue is fixed, this conditional can be safely removed.
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  find_package(onnxruntime CONFIG QUIET)
+  if(onnxruntime_FOUND)
+    return()
+  endif()
+endif()
 
 # If not found via CMake config, try to find manually
 find_path(onnxruntime_INCLUDE_DIR

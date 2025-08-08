@@ -123,9 +123,7 @@ if(WAMR_BUILD_WASI_NN_ONNX EQUAL 1)
 
   target_include_directories(
     wasi_nn_onnx
-    PUBLIC
-      ${onnxruntime_INCLUDE_DIR}/onnx
-      ${onnxruntime_INCLUDE_DIR}
+    PUBLIC ${INTERFACE_INCLUDE_DIRECTORIES}
   )
 
   target_link_libraries(
