@@ -121,16 +121,11 @@ if(WAMR_BUILD_WASI_NN_ONNX EQUAL 1)
       ${WASI_NN_ROOT}/src/wasi_nn_onnx.cpp
   )
 
-  target_include_directories(
-    wasi_nn_onnx
-    PUBLIC ${INTERFACE_INCLUDE_DIRECTORIES}
-  )
-
   target_link_libraries(
     wasi_nn_onnx
     PUBLIC
       vmlib
-      onnxruntime
+      onnxruntime::onnxruntime
   )
 
   install(TARGETS wasi_nn_onnx DESTINATION lib)
