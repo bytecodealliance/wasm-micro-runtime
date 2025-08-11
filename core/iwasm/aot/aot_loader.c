@@ -3173,7 +3173,9 @@ str2uint64(const char *buf, uint64 *p_res)
     return true;
 }
 
-#define R_X86_64_GOTPCREL 9 /* 32 bit signed PC relative offset to GOT */
+#define R_X86_64_GOTPCREL 9       /* 32 bit signed PC relative offset to GOT */
+#define R_X86_64_GOTPCRELX 41     /* relaxable GOTPCREL */
+#define R_X86_64_REX_GOTPCRELX 42 /* relaxable GOTPCREL with REX prefix */
 
 static bool
 is_text_section(const char *section_name)
@@ -3236,7 +3238,9 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
             }
 #if (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)) \
     && !defined(BH_PLATFORM_WINDOWS)
-            if (relocation->relocation_type == R_X86_64_GOTPCREL) {
+            if (relocation->relocation_type == R_X86_64_GOTPCREL
+                || relocation->relocation_type == R_X86_64_GOTPCRELX
+                || relocation->relocation_type == R_X86_64_REX_GOTPCRELX) {
                 GOTItem *got_item = module->got_item_list;
                 uint32 got_item_idx = 0;
 
@@ -3743,7 +3747,9 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
             bh_memcpy_s(symbol_name_buf, (uint32)sizeof(symbol_name_buf),
                         symbol_name, symbol_name_len);
 
-            if (relocation.relocation_type == R_X86_64_GOTPCREL
+            if ((relocation.relocation_type == R_X86_64_GOTPCREL
+                 || relocation.relocation_type == R_X86_64_GOTPCRELX
+                 || relocation.relocation_type == R_X86_64_REX_GOTPCRELX)
                 && !strncmp(symbol_name_buf, AOT_FUNC_PREFIX,
                             strlen(AOT_FUNC_PREFIX))) {
                 uint32 func_idx =
