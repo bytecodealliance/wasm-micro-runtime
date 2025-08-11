@@ -14,6 +14,6 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 /usr/bin/env python3 -m venv --clear "$TEMP_DIR"
-source "$TEMP_DIR/bin/activate"
+. "$TEMP_DIR/bin/activate"
 /usr/bin/env python3 -m pip install -r ../build-scripts/requirements.txt
 /usr/bin/env python3 ../build-scripts/build_llvm.py "$@"
