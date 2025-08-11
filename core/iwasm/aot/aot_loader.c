@@ -1811,6 +1811,12 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             set_error_buf(error_buf, error_buf_size, "invalid rec_idx");
             goto fail;
         }
+        if (parent_type_idx >= i) {
+            set_error_buf(
+                error_buf, error_buf_size,
+                "parent type index must be smaller than current type index");
+            goto fail;
+        }
 #endif
         if (type_flag == WASM_TYPE_FUNC) {
             AOTFuncType *func_type;
