@@ -51,17 +51,6 @@ typedef struct {
     OnnxRuntimeExecCtx exec_ctxs[MAX_CONTEXTS];
 } OnnxRuntimeContext;
 
-/* Helper functions */
-static void
-check_status_and_log(const OnnxRuntimeContext *ctx, OrtStatus *status)
-{
-    if (status != nullptr) {
-        const char *msg = ctx->ort_api->GetErrorMessage(status);
-        NN_ERR_PRINTF("ONNX Runtime error: %s", msg);
-        ctx->ort_api->ReleaseStatus(status);
-    }
-}
-
 static wasi_nn_error
 convert_ort_error_to_wasi_nn_error(const OnnxRuntimeContext *ctx,
                                    OrtStatus *status)
@@ -102,37 +91,6 @@ convert_ort_error_to_wasi_nn_error(const OnnxRuntimeContext *ctx,
 
     ctx->ort_api->ReleaseStatus(status);
     return err;
-}
-
-static bool
-convert_ort_type_to_wasi_nn_type(ONNXTensorElementDataType ort_type,
-                                 tensor_type *tensor_type)
-{
-    switch (ort_type) {
-        case ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
-            *tensor_type = fp32;
-            break;
-        case ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16:
-            *tensor_type = fp16;
-            break;
-        case ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE:
-            *tensor_type = fp64;
-            break;
-        case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
-            *tensor_type = u8;
-            break;
-        case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
-            *tensor_type = i32;
-            break;
-        case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
-            *tensor_type = i64;
-            break;
-        default:
-            NN_WARN_PRINTF("Unsupported ONNX tensor type: %d", ort_type);
-            return false;
-    }
-
-    return true;
 }
 
 static bool
@@ -191,7 +149,6 @@ init_backend(void **onnx_ctx)
         err = convert_ort_error_to_wasi_nn_error(ctx, status);
         NN_ERR_PRINTF("Failed to create ONNX Runtime environment: %s",
                       error_message);
-        ctx->ort_api->ReleaseStatus(status);
         goto fail;
     }
     NN_INFO_PRINTF("ONNX Runtime environment created successfully");
@@ -274,6 +231,17 @@ deinit_backend(void *onnx_ctx)
             for (auto &output : ctx->exec_ctxs[i].outputs) {
                 ctx->ort_api->ReleaseValue(output.second);
             }
+
+            for (auto name : ctx->exec_ctxs[i].input_names) {
+                free((void *)name);
+            }
+            ctx->exec_ctxs[i].input_names.clear();
+
+            for (auto name : ctx->exec_ctxs[i].output_names) {
+                free((void *)name);
+            }
+            ctx->exec_ctxs[i].output_names.clear();
+
             ctx->ort_api->ReleaseMemoryInfo(ctx->exec_ctxs[i].memory_info);
             ctx->exec_ctxs[i].is_initialized = false;
         }
@@ -293,6 +261,10 @@ __attribute__((visibility("default"))) wasi_nn_error
 load(void *onnx_ctx, graph_builder_array *builder, graph_encoding encoding,
      execution_target target, graph *g)
 {
+    if (!onnx_ctx) {
+        return runtime_error;
+    }
+
     if (encoding != onnx) {
         NN_ERR_PRINTF("Unsupported encoding: %d", encoding);
         return invalid_encoding;
@@ -349,7 +321,6 @@ load(void *onnx_ctx, graph_builder_array *builder, graph_encoding encoding,
         wasi_nn_error err = convert_ort_error_to_wasi_nn_error(ctx, status);
         NN_ERR_PRINTF("Failed to create ONNX Runtime session: %s",
                       error_message);
-        ctx->ort_api->ReleaseStatus(status);
         return err;
     }
 
@@ -365,6 +336,10 @@ load(void *onnx_ctx, graph_builder_array *builder, graph_encoding encoding,
 __attribute__((visibility("default"))) wasi_nn_error
 load_by_name(void *onnx_ctx, const char *name, uint32_t filename_len, graph *g)
 {
+    if (!onnx_ctx) {
+        return runtime_error;
+    }
+
     OnnxRuntimeContext *ctx = (OnnxRuntimeContext *)onnx_ctx;
     std::lock_guard<std::mutex> lock(ctx->mutex);
 
