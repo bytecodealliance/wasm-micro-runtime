@@ -18,7 +18,7 @@
  *
  * wasi-libc's errno is a TLS variable, exposed directly via
  * errno.h. if we use it here, LLVM may lower it differently,
- * depending on enabled features like atomcs and bulk-memory.
+ * depending on enabled features like atomics and bulk-memory.
  * we tweak the way to access errno here in order to make us
  * compatible with both of threaded and non-threaded applications.
  * __errno_location() should be reasonably stable because
