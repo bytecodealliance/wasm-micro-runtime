@@ -34,22 +34,22 @@
 static K_THREAD_STACK_ARRAY_DEFINE(mpu_stacks, BH_ZEPHYR_MPU_STACK_COUNT,
                                    BH_ZEPHYR_MPU_STACK_SIZE);
 static bool mpu_stack_allocated[BH_ZEPHYR_MPU_STACK_COUNT];
-static mutex_t mpu_stack_lock;
+static zmutex_t mpu_stack_lock;
 
 static char *
 mpu_stack_alloc()
 {
     int i;
 
-    mutex_lock(&mpu_stack_lock, K_FOREVER);
+    zmutex_lock(&mpu_stack_lock, K_FOREVER);
     for (i = 0; i < BH_ZEPHYR_MPU_STACK_COUNT; i++) {
         if (!mpu_stack_allocated[i]) {
             mpu_stack_allocated[i] = true;
-            mutex_unlock(&mpu_stack_lock);
+            zmutex_unlock(&mpu_stack_lock);
             return (char *)mpu_stacks[i];
         }
     }
-    mutex_unlock(&mpu_stack_lock);
+    zmutex_unlock(&mpu_stack_lock);
     return NULL;
 }
 
@@ -58,17 +58,17 @@ mpu_stack_free(char *stack)
 {
     int i;
 
-    mutex_lock(&mpu_stack_lock, K_FOREVER);
+    zmutex_lock(&mpu_stack_lock, K_FOREVER);
     for (i = 0; i < BH_ZEPHYR_MPU_STACK_COUNT; i++) {
         if ((char *)mpu_stacks[i] == stack)
             mpu_stack_allocated[i] = false;
     }
-    mutex_unlock(&mpu_stack_lock);
+    zmutex_unlock(&mpu_stack_lock);
 }
 #endif
 
 typedef struct os_thread_wait_node {
-    sem_t sem;
+    zsem_t sem;
     os_thread_wait_list next;
 } os_thread_wait_node;
 
@@ -80,7 +80,7 @@ typedef struct os_thread_data {
     /* Jeff thread local root */
     void *tlr;
     /* Lock for waiting list */
-    mutex_t wait_list_lock;
+    zmutex_t wait_list_lock;
     /* Waiting list of other threads who are joining this thread */
     os_thread_wait_list thread_wait_list;
     /* Thread stack size */
@@ -107,13 +107,13 @@ static bool is_thread_sys_inited = false;
 static os_thread_data supervisor_thread_data;
 
 /* Lock for thread data list */
-static mutex_t thread_data_lock;
+static zmutex_t thread_data_lock;
 
 /* Thread data list */
 static os_thread_data *thread_data_list = NULL;
 
 /* Lock for thread object list */
-static mutex_t thread_obj_lock;
+static zmutex_t thread_obj_lock;
 
 /* Thread object list */
 static os_thread_obj *thread_obj_list = NULL;
@@ -121,7 +121,7 @@ static os_thread_obj *thread_obj_list = NULL;
 static void
 thread_data_list_add(os_thread_data *thread_data)
 {
-    mutex_lock(&thread_data_lock, K_FOREVER);
+    zmutex_lock(&thread_data_lock, K_FOREVER);
     if (!thread_data_list)
         thread_data_list = thread_data;
     else {
@@ -129,7 +129,7 @@ thread_data_list_add(os_thread_data *thread_data)
         os_thread_data *p = thread_data_list;
         while (p) {
             if (p == thread_data) {
-                mutex_unlock(&thread_data_lock);
+                zmutex_unlock(&thread_data_lock);
                 return;
             }
             p = p->next;
@@ -139,13 +139,13 @@ thread_data_list_add(os_thread_data *thread_data)
         thread_data->next = thread_data_list;
         thread_data_list = thread_data;
     }
-    mutex_unlock(&thread_data_lock);
+    zmutex_unlock(&thread_data_lock);
 }
 
 static void
 thread_data_list_remove(os_thread_data *thread_data)
 {
-    mutex_lock(&thread_data_lock, K_FOREVER);
+    zmutex_lock(&thread_data_lock, K_FOREVER);
     if (thread_data_list) {
         if (thread_data_list == thread_data)
             thread_data_list = thread_data_list->next;
@@ -158,32 +158,32 @@ thread_data_list_remove(os_thread_data *thread_data)
                 p->next = p->next->next;
         }
     }
-    mutex_unlock(&thread_data_lock);
+    zmutex_unlock(&thread_data_lock);
 }
 
 static os_thread_data *
 thread_data_list_lookup(k_tid_t tid)
 {
-    mutex_lock(&thread_data_lock, K_FOREVER);
+    zmutex_lock(&thread_data_lock, K_FOREVER);
     if (thread_data_list) {
         os_thread_data *p = thread_data_list;
         while (p) {
             if (p->tid == tid) {
                 /* Found */
-                mutex_unlock(&thread_data_lock);
+                zmutex_unlock(&thread_data_lock);
                 return p;
             }
             p = p->next;
         }
     }
-    mutex_unlock(&thread_data_lock);
+    zmutex_unlock(&thread_data_lock);
     return NULL;
 }
 
 static void
 thread_obj_list_add(os_thread_obj *thread_obj)
 {
-    mutex_lock(&thread_obj_lock, K_FOREVER);
+    zmutex_lock(&thread_obj_lock, K_FOREVER);
     if (!thread_obj_list)
         thread_obj_list = thread_obj;
     else {
@@ -191,14 +191,14 @@ thread_obj_list_add(os_thread_obj *thread_obj)
         thread_obj->next = thread_obj_list;
         thread_obj_list = thread_obj;
     }
-    mutex_unlock(&thread_obj_lock);
+    zmutex_unlock(&thread_obj_lock);
 }
 
 static void
 thread_obj_list_reclaim()
 {
     os_thread_obj *p, *p_prev;
-    mutex_lock(&thread_obj_lock, K_FOREVER);
+    zmutex_lock(&thread_obj_lock, K_FOREVER);
     p_prev = NULL;
     p = thread_obj_list;
     while (p) {
@@ -219,7 +219,7 @@ thread_obj_list_reclaim()
             p = p->next;
         }
     }
-    mutex_unlock(&thread_obj_lock);
+    zmutex_unlock(&thread_obj_lock);
 }
 
 int
@@ -229,10 +229,10 @@ os_thread_sys_init()
         return BHT_OK;
 
 #if BH_ENABLE_ZEPHYR_MPU_STACK != 0
-    mutex_init(&mpu_stack_lock);
+    zmutex_init(&mpu_stack_lock);
 #endif
-    mutex_init(&thread_data_lock);
-    mutex_init(&thread_obj_lock);
+    zmutex_init(&thread_data_lock);
+    zmutex_init(&thread_obj_lock);
 
     /* Initialize supervisor thread data */
     memset(&supervisor_thread_data, 0, sizeof(supervisor_thread_data));
@@ -265,19 +265,19 @@ os_thread_cleanup(void)
     os_thread_data *thread_data = thread_data_current();
 
     bh_assert(thread_data != NULL);
-    mutex_lock(&thread_data->wait_list_lock, K_FOREVER);
+    zmutex_lock(&thread_data->wait_list_lock, K_FOREVER);
     if (thread_data->thread_wait_list) {
         /* Signal each joining thread */
         os_thread_wait_list head = thread_data->thread_wait_list;
         while (head) {
             os_thread_wait_list next = head->next;
-            sem_give(&head->sem);
+            zsem_give(&head->sem);
             /* head will be freed by joining thread */
             head = next;
         }
         thread_data->thread_wait_list = NULL;
     }
-    mutex_unlock(&thread_data->wait_list_lock);
+    zmutex_unlock(&thread_data->wait_list_lock);
 
     thread_data_list_remove(thread_data);
     /* Set flag to true for the next thread creating to
@@ -342,7 +342,7 @@ os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
     }
 
     memset(thread_data, 0, thread_data_size);
-    mutex_init(&thread_data->wait_list_lock);
+    zmutex_init(&thread_data->wait_list_lock);
     thread_data->stack_size = stack_size;
     thread_data->tid = tid;
 
@@ -407,10 +407,10 @@ os_thread_join(korp_tid thread, void **value_ptr)
     if (!(node = BH_MALLOC(sizeof(os_thread_wait_node))))
         return BHT_ERROR;
 
-    sem_init(&node->sem, 0, 1);
+    zsem_init(&node->sem, 0, 1);
     node->next = NULL;
 
-    mutex_lock(&thread_data->wait_list_lock, K_FOREVER);
+    zmutex_lock(&thread_data->wait_list_lock, K_FOREVER);
     if (!thread_data->thread_wait_list)
         thread_data->thread_wait_list = node;
     else {
@@ -420,10 +420,10 @@ os_thread_join(korp_tid thread, void **value_ptr)
             p = p->next;
         p->next = node;
     }
-    mutex_unlock(&thread_data->wait_list_lock);
+    zmutex_unlock(&thread_data->wait_list_lock);
 
     /* Wait the sem */
-    sem_take(&node->sem, K_FOREVER);
+    zsem_take(&node->sem, K_FOREVER);
 
     /* Wait some time for the thread to be actually terminated */
     k_sleep(Z_TIMEOUT_MS(100));
@@ -436,14 +436,14 @@ os_thread_join(korp_tid thread, void **value_ptr)
 int
 os_mutex_init(korp_mutex *mutex)
 {
-    mutex_init(mutex);
+    zmutex_init(mutex);
     return BHT_OK;
 }
 
 int
 os_recursive_mutex_init(korp_mutex *mutex)
 {
-    mutex_init(mutex);
+    zmutex_init(mutex);
     return BHT_OK;
 }
 
@@ -457,16 +457,16 @@ os_mutex_destroy(korp_mutex *mutex)
 int
 os_mutex_lock(korp_mutex *mutex)
 {
-    return mutex_lock(mutex, K_FOREVER);
+    return zmutex_lock(mutex, K_FOREVER);
 }
 
 int
 os_mutex_unlock(korp_mutex *mutex)
 {
 #if KERNEL_VERSION_NUMBER >= 0x020200 /* version 2.2.0 */
-    return mutex_unlock(mutex);
+    return zmutex_unlock(mutex);
 #else
-    mutex_unlock(mutex);
+    zmutex_unlock(mutex);
     return 0;
 #endif
 }
@@ -474,7 +474,7 @@ os_mutex_unlock(korp_mutex *mutex)
 int
 os_cond_init(korp_cond *cond)
 {
-    mutex_init(&cond->wait_list_lock);
+    zmutex_init(&cond->wait_list_lock);
     cond->thread_wait_list = NULL;
     return BHT_OK;
 }
@@ -495,10 +495,10 @@ os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex, bool timed, int mills)
     if (!(node = BH_MALLOC(sizeof(os_thread_wait_node))))
         return BHT_ERROR;
 
-    sem_init(&node->sem, 0, 1);
+    zsem_init(&node->sem, 0, 1);
     node->next = NULL;
 
-    mutex_lock(&cond->wait_list_lock, K_FOREVER);
+    zmutex_lock(&cond->wait_list_lock, K_FOREVER);
     if (!cond->thread_wait_list)
         cond->thread_wait_list = node;
     else {
@@ -508,15 +508,15 @@ os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex, bool timed, int mills)
             p = p->next;
         p->next = node;
     }
-    mutex_unlock(&cond->wait_list_lock);
+    zmutex_unlock(&cond->wait_list_lock);
 
     /* Unlock mutex, wait sem and lock mutex again */
-    mutex_unlock(mutex);
-    sem_take(&node->sem, timed ? Z_TIMEOUT_MS(mills) : K_FOREVER);
-    mutex_lock(mutex, K_FOREVER);
+    zmutex_unlock(mutex);
+    zsem_take(&node->sem, timed ? Z_TIMEOUT_MS(mills) : K_FOREVER);
+    zmutex_lock(mutex, K_FOREVER);
 
     /* Remove wait node from wait list */
-    mutex_lock(&cond->wait_list_lock, K_FOREVER);
+    zmutex_lock(&cond->wait_list_lock, K_FOREVER);
     if (cond->thread_wait_list == node)
         cond->thread_wait_list = node->next;
     else {
@@ -527,7 +527,7 @@ os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex, bool timed, int mills)
         p->next = node->next;
     }
     BH_FREE(node);
-    mutex_unlock(&cond->wait_list_lock);
+    zmutex_unlock(&cond->wait_list_lock);
 
     return BHT_OK;
 }
@@ -565,10 +565,10 @@ int
 os_cond_signal(korp_cond *cond)
 {
     /* Signal the head wait node of wait list */
-    mutex_lock(&cond->wait_list_lock, K_FOREVER);
+    zmutex_lock(&cond->wait_list_lock, K_FOREVER);
     if (cond->thread_wait_list)
-        sem_give(&cond->thread_wait_list->sem);
-    mutex_unlock(&cond->wait_list_lock);
+        zsem_give(&cond->thread_wait_list->sem);
+    zmutex_unlock(&cond->wait_list_lock);
 
     return BHT_OK;
 }
@@ -589,6 +589,67 @@ os_thread_jit_write_protect_np(bool enabled)
 {}
 
 int
+os_rwlock_init(korp_rwlock *lock)
+{
+    if (!lock) {
+        return BHT_ERROR;
+    }
+
+    k_mutex_init(&lock->mtx);
+    k_sem_init(&lock->sem, 0, K_SEM_MAX_LIMIT);
+    lock->read_count = 0;
+
+    return BHT_OK;
+}
+
+int
+os_rwlock_rdlock(korp_rwlock *lock)
+{
+    /* Not implemented */
+    return BHT_ERROR;
+}
+
+int
+os_rwlock_wrlock(korp_rwlock *lock)
+{
+    // Acquire the mutex to ensure exclusive access
+    if (k_mutex_lock(&lock->mtx, K_FOREVER) != 0) {
+        return BHT_ERROR;
+    }
+
+    // Wait until there are no readers
+    while (lock->read_count > 0) {
+        // Release the mutex while we're waiting
+        k_mutex_unlock(&lock->mtx);
+
+        // Wait for a short time
+        k_sleep(K_MSEC(1));
+
+        // Re-acquire the mutex
+        if (k_mutex_lock(&lock->mtx, K_FOREVER) != 0) {
+            return BHT_ERROR;
+        }
+    }
+    // At this point, we hold the mutex and there are no readers, so we have the
+    // write lock
+    return BHT_OK;
+}
+
+int
+os_rwlock_unlock(korp_rwlock *lock)
+{
+    k_mutex_unlock(&lock->mtx);
+    return BHT_OK;
+}
+
+int
+os_rwlock_destroy(korp_rwlock *lock)
+{
+    /* Not implemented */
+    return BHT_ERROR;
+}
+
+int
 os_thread_detach(korp_tid thread)
 {
     (void)thread;
@@ -607,13 +668,88 @@ int
 os_cond_broadcast(korp_cond *cond)
 {
     os_thread_wait_node *node;
-    mutex_lock(&cond->wait_list_lock, K_FOREVER);
+    zmutex_lock(&cond->wait_list_lock, K_FOREVER);
     node = cond->thread_wait_list;
     while (node) {
         os_thread_wait_node *next = node->next;
-        sem_give(&node->sem);
+        zsem_give(&node->sem);
         node = next;
     }
-    mutex_unlock(&cond->wait_list_lock);
+    zmutex_unlock(&cond->wait_list_lock);
     return BHT_OK;
+}
+
+korp_sem *
+os_sem_open(const char *name, int oflags, int mode, int val)
+{
+    /* Not implemented */
+    return NULL;
+}
+
+int
+os_sem_close(korp_sem *sem)
+{
+    /* Not implemented */
+    return BHT_ERROR;
+}
+
+int
+os_sem_wait(korp_sem *sem)
+{
+    /* Not implemented */
+    return BHT_ERROR;
+}
+
+int
+os_sem_trywait(korp_sem *sem)
+{
+    /* Not implemented */
+    return BHT_ERROR;
+}
+
+int
+os_sem_post(korp_sem *sem)
+{
+    /* Not implemented */
+    return BHT_ERROR;
+}
+
+int
+os_sem_getvalue(korp_sem *sem, int *sval)
+{
+    /* Not implemented */
+    return BHT_ERROR;
+}
+
+int
+os_sem_unlink(const char *name)
+{
+    /* Not implemented */
+    return BHT_ERROR;
+}
+
+int
+os_blocking_op_init()
+{
+    /* Not implemented */
+    return BHT_ERROR;
+}
+
+void
+os_begin_blocking_op()
+{
+    /* Not implemented */
+}
+
+void
+os_end_blocking_op()
+{
+    /* Not implemented */
+}
+
+int
+os_wakeup_blocking_op(korp_tid tid)
+{
+    /* Not implemented */
+    return BHT_ERROR;
 }

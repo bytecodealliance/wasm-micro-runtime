@@ -50,6 +50,7 @@
 #include <zephyr/net/net_ip.h>
 #include <zephyr/net/net_core.h>
 #include <zephyr/net/net_context.h>
+#include <zephyr/net/socket.h>
 #endif /* end of KERNEL_VERSION_NUMBER < 0x030200 */
 
 #ifdef CONFIG_USERSPACE
@@ -79,29 +80,51 @@
 #define BH_PLATFORM_ZEPHYR
 #endif
 
-// Synchronization primitives for usermode
+#include <limits.h>
+
+#ifndef PATH_MAX
+#define PATH_MAX 256
+#endif
+
+#ifndef STDIN_FILENO
+#define STDIN_FILENO 0
+#endif
+
+#ifndef STDOUT_FILENO
+#define STDOUT_FILENO 1
+#endif
+
+#ifndef STDERR_FILENO
+#define STDERR_FILENO 2
+#endif
+
+/* Synchronization primitives for usermode.
+ * The macros are prefixed with 'z' because when building
+ * with WAMR_BUILD_LIBC_WASI the same functions are defined,
+ * and used in the sandboxed-system-primitives (see locking.h)
+ */
 #ifdef CONFIG_USERSPACE
-#define mutex_t struct sys_mutex
-#define mutex_init(mtx) sys_mutex_init(mtx)
-#define mutex_lock(mtx, timeout) sys_mutex_lock(mtx, timeout)
-#define mutex_unlock(mtx) sys_mutex_unlock(mtx)
+#define zmutex_t struct sys_mutex
+#define zmutex_init(mtx) sys_mutex_init(mtx)
+#define zmutex_lock(mtx, timeout) sys_mutex_lock(mtx, timeout)
+#define zmutex_unlock(mtx) sys_mutex_unlock(mtx)
 
-#define sem_t struct sys_sem
-#define sem_init(sem, init_count, limit) sys_sem_init(sem, init_count, limit)
-#define sem_give(sem) sys_sem_give(sem)
-#define sem_take(sem, timeout) sys_sem_take(sem, timeout)
-#define sem_count_get(sem) sys_sem_count_get(sem)
+#define zsem_t struct sys_sem
+#define zsem_init(sem, init_count, limit) sys_sem_init(sem, init_count, limit)
+#define zsem_give(sem) sys_sem_give(sem)
+#define zsem_take(sem, timeout) sys_sem_take(sem, timeout)
+#define zsem_count_get(sem) sys_sem_count_get(sem)
 #else /* else of CONFIG_USERSPACE */
-#define mutex_t struct k_mutex
-#define mutex_init(mtx) k_mutex_init(mtx)
-#define mutex_lock(mtx, timeout) k_mutex_lock(mtx, timeout)
-#define mutex_unlock(mtx) k_mutex_unlock(mtx)
+#define zmutex_t struct k_mutex
+#define zmutex_init(mtx) k_mutex_init(mtx)
+#define zmutex_lock(mtx, timeout) k_mutex_lock(mtx, timeout)
+#define zmutex_unlock(mtx) k_mutex_unlock(mtx)
 
-#define sem_t struct k_sem
-#define sem_init(sem, init_count, limit) k_sem_init(sem, init_count, limit)
-#define sem_give(sem) k_sem_give(sem)
-#define sem_take(sem, timeout) k_sem_take(sem, timeout)
-#define sem_count_get(sem) k_sem_count_get(sem)
+#define zsem_t struct k_sem
+#define zsem_init(sem, init_count, limit) k_sem_init(sem, init_count, limit)
+#define zsem_give(sem) k_sem_give(sem)
+#define zsem_take(sem, timeout) k_sem_take(sem, timeout)
+#define zsem_count_get(sem) k_sem_count_get(sem)
 #endif /* end of CONFIG_USERSPACE */
 
 #define BH_APPLET_PRESERVED_STACK_SIZE (2 * BH_KB)
@@ -111,21 +134,31 @@
 
 typedef struct k_thread korp_thread;
 typedef korp_thread *korp_tid;
-typedef mutex_t korp_mutex;
+typedef zmutex_t korp_mutex;
 typedef unsigned int korp_sem;
 
 /* korp_rwlock is used in platform_api_extension.h,
    we just define the type to make the compiler happy */
-typedef struct {
-    int dummy;
-} korp_rwlock;
-
 struct os_thread_wait_node;
 typedef struct os_thread_wait_node *os_thread_wait_list;
 typedef struct korp_cond {
-    mutex_t wait_list_lock;
+    zmutex_t wait_list_lock;
     os_thread_wait_list thread_wait_list;
 } korp_cond;
+
+typedef struct {
+    struct k_mutex mtx; // Mutex for exclusive access
+    struct k_sem sem;   // Semaphore for shared access
+    int read_count;     // Number of readers
+} korp_rwlock;
+
+// TODO: Conform to Zephyr POSIX definition of rwlock:
+// struct posix_rwlock {
+// 	struct k_sem rd_sem;
+// 	struct k_sem wr_sem;
+// 	struct k_sem reader_active; /* blocks WR till reader has acquired lock */
+// 	k_tid_t wr_owner;
+// };
 
 #ifndef Z_TIMEOUT_MS
 #define Z_TIMEOUT_MS(ms) ms
@@ -204,14 +237,68 @@ set_exec_mem_alloc_func(exec_mem_alloc_func_t alloc_func,
 
 /* The below types are used in platform_api_extension.h,
    we just define them to make the compiler happy */
-typedef int os_file_handle;
-typedef void *os_dir_stream;
+typedef int os_dir_stream;
 typedef int os_raw_file_handle;
+
+#define OS_DIR_STREAM_INVALID 0
+
+// handle for file system descriptor
+typedef struct zephyr_fs_desc {
+    char *path;
+    union {
+        struct fs_file_t file;
+        struct fs_dir_t dir;
+    };
+    bool is_dir;
+    bool used;
+    uint32_t dir_index; // DSK: supprt for rewind and seek
+} zephyr_fs_desc;
+
+// definition of zephyr_handle
+typedef struct zephyr_handle {
+    int fd;
+    bool is_sock;
+} zephyr_handle;
+
+typedef struct zephyr_handle *os_file_handle;
+#define bh_socket_t zephyr_handle *
+
+typedef struct zsock_pollfd os_poll_file_handle;
+typedef unsigned int os_nfds_t;
+
+// Some of these definitions will throw warning for macros
+// redefinition if CONFIG_POSIX_API=y, but it's fine.
+// Warning: the CONFIG_POSIX_API will surely be deprecated and
+// split into more macros, so we may use some ifdefs to avoid
+// the warning in the future.
+#define POLLIN ZSOCK_POLLIN
+#define POLLPRI ZSOCK_POLLPRI
+#define POLLOUT ZSOCK_POLLOUT
+#define POLLERR ZSOCK_POLLERR
+#define POLLHUP ZSOCK_POLLHUP
+#define POLLNVAL ZSOCK_POLLNVAL
+
+#define FIONREAD ZFD_IOCTL_FIONREAD
+
+typedef struct timespec os_timespec;
+
+#ifndef CLOCK_REALTIME
+#define CLOCK_REALTIME 1
+#endif
+
+#define CLOCK_MONOTONIC 4
+
+static inline int
+os_sched_yield(void)
+{
+    k_yield();
+    return 0;
+}
 
 static inline os_file_handle
 os_get_invalid_handle(void)
 {
-    return -1;
+    return NULL;
 }
 
 static inline int

@@ -186,6 +186,12 @@ typedef uint32_t os_raw_file_handle;
 
 #define bh_socket_t windows_handle *
 
+/* The below types are used in platform_api_extension.h,
+   we just define them to make the compiler happy */
+typedef int os_poll_file_handle;
+typedef unsigned int os_nfds_t;
+typedef struct timespec os_timespec;
+
 // UWP apps do not have stdout/stderr handles so provide a default
 // implementation of vprintf on debug builds so output from WASI libc is sent to
 // the debugger and not lost completely.
