@@ -114,6 +114,11 @@ set_error_buf_v(char *error_buf, uint32 error_buf_size, const char *format, ...)
     }
 }
 
+static void
+aot_unlinked_import_func_trap(void) {
+    printf("Unlinked import function called, this should not happen!\n");
+}
+
 static void *
 runtime_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
 {
@@ -1387,6 +1392,7 @@ init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
             const char *field_name = module->import_funcs[i].func_name;
             LOG_WARNING("warning: failed to link import function (%s, %s)",
                         module_name, field_name);
+            *func_ptrs = (void*)aot_unlinked_import_func_trap;
         }
     }
 
