@@ -338,8 +338,13 @@ typedef struct gc_heap_struct {
 static inline void
 gc_update_threshold(gc_heap_t *heap)
 {
-    heap->gc_threshold =
-        heap->total_free_size * heap->gc_threshold_factor / 1000;
+    uint64_t result = (uint64_t)heap->total_free_size
+                      * (uint64_t)heap->gc_threshold_factor / 1000;
+    /* heap->total_free_size * heap->gc_threshold_factor won't exceed
+     * 6^32(GC_HEAP_SIZE_MAX * GC_DEFAULT_THRESHOLD_FACTOR), so casting result
+     * to uint32_t is safe
+     */
+    heap->gc_threshold = (uint32_t)result;
 }
 
 #define gct_vm_mutex_init os_mutex_init
