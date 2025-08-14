@@ -8426,6 +8426,14 @@ check_offset_pop(WASMLoaderContext *ctx, uint32 cells)
     return true;
 }
 
+static bool
+check_dynamic_offset_pop(WASMLoaderContext *ctx, uint32 cells)
+{
+    if (ctx->dynamic_offset < cells)
+        return false;
+    return true;
+}
+
 static void
 free_label_patch_list(BranchBlock *frame_csp)
 {
@@ -9860,8 +9868,10 @@ wasm_loader_pop_frame_offset(WASMLoaderContext *ctx, uint8 type,
        stack will not go underflow. But we don't thrown error
        and return true here, because the error msg should be
        given in wasm_loader_pop_frame_ref */
-    if (!check_offset_pop(ctx, cell_num_to_pop))
+    if (!check_offset_pop(ctx, cell_num_to_pop)
+        || !check_dynamic_offset_pop(ctx, cell_num_to_pop)) {
         return true;
+    }
 
     ctx->frame_offset -= cell_num_to_pop;
     if ((*(ctx->frame_offset) > ctx->start_dynamic_offset)
