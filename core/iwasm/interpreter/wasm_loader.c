@@ -8430,7 +8430,7 @@ static bool
 check_dynamic_offset_pop(WASMLoaderContext *ctx, uint32 cells)
 {
     if (ctx->dynamic_offset < 0
-        || ((uint32)ctx->dynamic_offset < cells && ctx->dynamic_offset > 0))
+        || (ctx->dynamic_offset > 0 && (uint32)ctx->dynamic_offset < cells))
         return false;
     return true;
 }
