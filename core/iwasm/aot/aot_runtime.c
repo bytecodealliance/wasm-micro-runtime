@@ -1385,6 +1385,16 @@ init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
         if (!*func_ptrs) {
             const char *module_name = module->import_funcs[i].module_name;
             const char *field_name = module->import_funcs[i].func_name;
+
+            /* AOT mode: If linking an imported function fails, we only issue
+             * a warning here instead of throwing an error. However, during the
+             * subsequent `invoke_native` stage, calling this unresolved import
+             * will likely crash.
+             *
+             * See:
+             * https://github.com/bytecodealliance/wasm-micro-runtime/issues/4539
+             *
+             * Debugging: Check if the import is resolved at link time */
             LOG_WARNING("warning: failed to link import function (%s, %s)",
                         module_name, field_name);
         }
@@ -2459,6 +2469,14 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     }
 
     wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
+
+    /* In AOT mode, this is primarily a design choice for performance reasons.
+     * Before invoke_native, we do not check whether every imported caller is
+     * NULL, unlike wasm_interp_call_func_import() and
+     * wasm_interp_call_func_native().
+     *
+     * See: https://github.com/bytecodealliance/wasm-micro-runtime/issues/4539
+     */
 
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
 #if WASM_ENABLE_QUICK_AOT_ENTRY != 0
