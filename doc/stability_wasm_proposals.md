@@ -14,37 +14,41 @@ Users can turn those features on or off by using compilation options. If a relev
 
 | Proposal                              | >= Phase 4 | Compilation Option       |
 | ------------------------------------- | ---------- | ------------------------ |
-| Bulk memory operations                | Yes        | `WAMR_BUILD_BULK_MEMORY` |
+| Bulk Memory Operations                | Yes        | `WAMR_BUILD_BULK_MEMORY` |
 | Fixed-width SIMD[^1]                  | Yes        | `WAMR_BUILD_SIMD`        |
+| Import/Export of Mutable Globals[^2]  | Yes        | N/A                      |
 | Multi-value                           | Yes        | N/A                      |
-| Non-trapping float-to-int conversions | Yes        | N/A                      |
+| Non-trapping float-to-int Conversions | Yes        | N/A                      |
 | Reference Types                       | Yes        | `WAMR_BUILD_REF_TYPES`   |
-| Sign-extension operators              | Yes        | N/A                      |
+| Sign-extension Operators              | Yes        | N/A                      |
 | WebAssembly C and C++ API             | No         | N/A                      |
 
 [^1]: llvm-jit and aot only.
 
+[^2]: in WAMR's implementation, if a mutable global shared by several wasm instances, each instance maintains its own copy of the global rather than sharing it.
+
 ## Off-by-default Wasm Proposals
 
-| Proposal                      | >= Phase 4 | Compilation Option         |
-| ----------------------------- | ---------- | -------------------------- |
-| Garbage collection            | Yes        | `WAMR_BUILD_GC`            |
-| Legacy Exception handling[^2] | No         | `WAMR_BUILD_EXCE_HANDLING` |
-| Memory64                      | Yes        | `WAMR_BUILD_MEMORY64`      |
-| Multiple memories[^3]         | Yes        | `WAMR_BUILD_MULTI_MEMORY`  |
-| Reference-Typed Strings       | No         | `WAMR_BUILD_STRINGREF`     |
-| Tail call                     | Yes        | `WAMR_BUILD_TAIL_CALL`     |
-| Threads[^4]                   | Yes        | `WAMR_BUILD_SHARED_MEMORY` |
-| Typed Function References     | Yes        | `WAMR_BUILD_GC`            |
+| Proposal                      | >= Phase 4 | Compilation Option               |
+| ----------------------------- | ---------- | ---------------------------------|
+| Extended Constant Expressions | Yes        | `WAMR_BUILD_EXTENDED_CONST_EXPR` |
+| Garbage Collection            | Yes        | `WAMR_BUILD_GC`                  |
+| Legacy Exception Handling[^3] | No         | `WAMR_BUILD_EXCE_HANDLING`       |
+| Memory64                      | Yes        | `WAMR_BUILD_MEMORY64`            |
+| Multiple Memories[^4]         | Yes        | `WAMR_BUILD_MULTI_MEMORY`        |
+| Reference-Typed Strings       | No         | `WAMR_BUILD_STRINGREF`           |
+| Tail Call                     | Yes        | `WAMR_BUILD_TAIL_CALL`           |
+| Threads[^5]                   | Yes        | `WAMR_BUILD_SHARED_MEMORY`       |
+| Typed Function References     | Yes        | `WAMR_BUILD_GC`                  |
 
-[^2]:
+[^3]:
     interpreter only. [a legacy version](https://github.com/WebAssembly/exception-handling/blob/main/proposals/exception-handling/legacy/Exceptions.md).
     This proposal is currently also known as the "legacy proposal" and still
     supported in the web, but can be deprecated in future and the use of
     this proposal is discouraged.
 
-[^3]: interpreter only
-[^4]: `WAMR_BUILD_LIB_PTHREAD` can also be used to enable
+[^4]: interpreter only
+[^5]: `WAMR_BUILD_LIB_PTHREAD` can also be used to enable
 
 ## Unimplemented Wasm Proposals
 
@@ -52,13 +56,11 @@ Users can turn those features on or off by using compilation options. If a relev
 | ------------------------------------------- | ---------- |
 | Branch Hinting                              | Yes        |
 | Custom Annotation Syntax in the Text Format | Yes        |
-| Exception handling[^5]                      | Yes        |
-| Extended Constant Expressions               | Yes        |
-| Import/Export of Mutable Globals            | Yes        |
+| Exception Handling[^6]                      | Yes        |
 | JS String Builtins                          | Yes        |
 | Relaxed SIMD                                | Yes        |
 
-[^5]: [up-to-date version](https://github.com/WebAssembly/exception-handling/blob/main/proposals/exception-handling/Exceptions.md)
+[^6]: [up-to-date version](https://github.com/WebAssembly/exception-handling/blob/main/proposals/exception-handling/Exceptions.md)
 
 ## On-by-default WASI Proposals
 
