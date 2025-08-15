@@ -9869,13 +9869,12 @@ wasm_loader_pop_frame_offset(WASMLoaderContext *ctx, uint8 type,
        stack will not go underflow. But we don't thrown error
        and return true here, because the error msg should be
        given in wasm_loader_pop_frame_ref */
-    if (!check_offset_pop(ctx, cell_num_to_pop)
-        || !check_dynamic_offset_pop(ctx, cell_num_to_pop)) {
+    if (!check_offset_pop(ctx, cell_num_to_pop))
         return true;
-    }
 
     ctx->frame_offset -= cell_num_to_pop;
-    if ((*(ctx->frame_offset) > ctx->start_dynamic_offset)
+    if (check_dynamic_offset_pop(ctx, cell_num_to_pop)
+        && (*(ctx->frame_offset) > ctx->start_dynamic_offset)
         && (*(ctx->frame_offset) < ctx->max_dynamic_offset))
         ctx->dynamic_offset -= cell_num_to_pop;
 
