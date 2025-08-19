@@ -166,6 +166,7 @@ jobs:
             "-DWAMR_BUILD_MULTI_MEMORY=1",
             "-DWAMR_BUILD_SHARED=1",
             "-DWAMR_BUILD_EXTENDED_CONST_EXPR=1",
+            "-DWAMR_BUILD_LIME1=1 -DWAMR_BUILD_BULK_MEMORY=0 -DWAMR_BUILD_REF_TYPES=0 -DWAMR_BUILD_SIMD=0",
           ]
         os: [ubuntu-22.04]
         platform: [android, linux]

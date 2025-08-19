@@ -713,7 +713,9 @@ jit_compile_op_data_drop(JitCompContext *cc, uint32 seg_idx)
     return jit_emit_callnative(cc, wasm_data_drop, 0, args,
                                sizeof(args) / sizeof(args[0]));
 }
+#endif
 
+#if WASM_ENABLE_BULK_MEMORY_OPT != 0
 static int
 wasm_copy_memory(WASMModuleInstance *inst, uint32 src_mem_idx,
                  uint32 dst_mem_idx, uint32 len, uint32 src_offset,

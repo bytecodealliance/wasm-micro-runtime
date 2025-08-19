@@ -1627,7 +1627,7 @@ jit_compile_func(JitCompContext *cc)
 
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_CALL_INDIRECT_OVERLONG != 0
                 read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
 #else
                 frame_ip++;
@@ -2336,6 +2336,8 @@ jit_compile_func(JitCompContext *cc)
                             return false;
                         break;
                     }
+#endif /* WASM_ENABLE_BULK_MEMORY */
+#if WASM_ENABLE_BULK_MEMORY_OPT != 0
                     case WASM_OP_MEMORY_COPY:
                     {
                         uint32 src_mem_idx, dst_mem_idx;
@@ -2353,7 +2355,7 @@ jit_compile_func(JitCompContext *cc)
                             return false;
                         break;
                     }
-#endif /* WASM_ENABLE_BULK_MEMORY */
+#endif /* WASM_ENABLE_BULK_MEMORY_OPT */
 #if WASM_ENABLE_REF_TYPES != 0
                     case WASM_OP_TABLE_INIT:
                     {

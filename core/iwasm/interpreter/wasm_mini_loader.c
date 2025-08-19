@@ -2388,6 +2388,9 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
 #if WASM_ENABLE_BULK_MEMORY != 0
     option.enable_bulk_memory = true;
 #endif
+#if WASM_ENABLE_BULK_MEMORY_OPT != 0
+    option.enable_bulk_memory_opt = true;
+#endif
 #if WASM_ENABLE_THREAD_MGR != 0
     option.enable_thread_mgr = true;
 #endif
@@ -2399,6 +2402,9 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
 #endif
 #if WASM_ENABLE_REF_TYPES != 0
     option.enable_ref_types = true;
+#endif
+#if WASM_ENABLE_CALL_INDIRECT_OVERLONG != 0
+    option.enable_call_indirect_overlong = true;
 #endif
     option.enable_aux_stack_check = true;
 #if WASM_ENABLE_PERF_PROFILING != 0 || WASM_ENABLE_DUMP_CALL_STACK != 0 \
@@ -3849,7 +3855,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             case WASM_OP_RETURN_CALL_INDIRECT:
 #endif
                 skip_leb_uint32(p, p_end); /* typeidx */
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_CALL_INDIRECT_OVERLONG != 0
                 skip_leb_uint32(p, p_end); /* tableidx */
 #else
                 u8 = read_uint8(p); /* 0x00 */
@@ -4111,6 +4117,8 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                     case WASM_OP_DATA_DROP:
                         skip_leb_uint32(p, p_end);
                         break;
+#endif
+#if WASM_ENABLE_BULK_MEMORY_OPT != 0
                     case WASM_OP_MEMORY_COPY:
                         skip_leb_memidx(p, p_end);
                         skip_leb_memidx(p, p_end);
@@ -4118,7 +4126,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                     case WASM_OP_MEMORY_FILL:
                         skip_leb_memidx(p, p_end);
                         break;
-#endif
+#endif /* WASM_ENABLE_BULK_MEMORY_OPT */
 #if WASM_ENABLE_REF_TYPES != 0
                     case WASM_OP_TABLE_INIT:
                     case WASM_OP_TABLE_COPY:
@@ -7069,7 +7077,7 @@ re_scan:
 
                 pb_read_leb_uint32(p, p_end, type_idx);
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_CALL_INDIRECT_OVERLONG != 0
                 pb_read_leb_uint32(p, p_end, table_idx);
 #else
                 CHECK_BUF(p, p_end, 1);
@@ -8274,6 +8282,8 @@ re_scan:
 #endif
                         break;
                     }
+#endif /* WASM_ENABLE_BULK_MEMORY */
+#if WASM_ENABLE_BULK_MEMORY_OPT != 0
                     case WASM_OP_MEMORY_COPY:
                     {
                         CHECK_MEMORY();
@@ -8306,7 +8316,7 @@ re_scan:
 #endif
                         break;
                     }
-#endif /* WASM_ENABLE_BULK_MEMORY */
+#endif /* WASM_ENABLE_BULK_MEMORY_OPT */
 #if WASM_ENABLE_REF_TYPES != 0
                     case WASM_OP_TABLE_INIT:
                     {
