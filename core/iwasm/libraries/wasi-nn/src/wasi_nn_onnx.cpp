@@ -296,7 +296,7 @@ load(void *onnx_ctx, graph_builder_array *builder, graph_encoding encoding,
         return invalid_argument;
     }
 
-    NN_INFO_PRINTF("[ONNX Runtime] Loading model of size %zu bytes...",
+    NN_INFO_PRINTF("[ONNX Runtime] Loading model of size %" PRIu32 " bytes...",
                    builder->buf[0].size);
 
     if (builder->buf[0].size > 16) {
