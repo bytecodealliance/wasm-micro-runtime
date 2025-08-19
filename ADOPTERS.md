@@ -26,6 +26,7 @@ _The list is in alphabetical order._
 | Project                                                      | Reference                                                    |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | [Apache Teaclave](https://github.com/apache/incubator-teaclave) | https://github.com/apache/incubator-teaclave/blob/master/docs/executing-wasm.md |
+| [Edge Virtualization Platform](https://github.com/SonySemiconductorSolutions/edge-virtualization-platform) | https://github.com/SonySemiconductorSolutions/edge-virtualization-platform |
 | [Envoy](https://github.com/envoyproxy/envoy)                 | https://github.com/envoyproxy/envoy/blob/main/docs/root/configuration/other_features/wasm.rst |
 | [faasm](https://github.com/faasm/faasm)                      | https://github.com/faasm/faasm/blob/main/docs/source/wamr.md |
 | [fluent-bit](https://github.com/fluent/fluent-bit)           | https://github.com/fluent/fluent-bit/tree/master/lib/wasm-micro-runtime-WAMR-1.3.0 |
