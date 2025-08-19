@@ -2077,13 +2077,6 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                 AOTType *cur_type = module->types[j];
                 parent_type_idx = cur_type->parent_type_idx;
                 if (parent_type_idx != (uint32)-1) { /* has parent */
-#if WASM_ENABLE_AOT_VALIDATOR != 0
-                    if (parent_type_idx >= module->type_count) {
-                        set_error_buf(error_buf, error_buf_size,
-                                      "invalid parent type index");
-                        goto fail;
-                    }
-#endif
                     AOTType *parent_type = module->types[parent_type_idx];
 
                     module->types[j]->parent_type = parent_type;
@@ -2107,13 +2100,6 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                 AOTType *cur_type = module->types[j];
                 parent_type_idx = cur_type->parent_type_idx;
                 if (parent_type_idx != (uint32)-1) { /* has parent */
-#if WASM_ENABLE_AOT_VALIDATOR != 0
-                    if (parent_type_idx >= module->type_count) {
-                        set_error_buf(error_buf, error_buf_size,
-                                      "invalid parent type index");
-                        goto fail;
-                    }
-#endif
                     AOTType *parent_type = module->types[parent_type_idx];
                     /* subtyping has been checked during compilation */
                     bh_assert(wasm_type_is_subtype_of(
