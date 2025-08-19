@@ -1807,8 +1807,12 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         read_uint16(buf, buf_end, rec_count);
         read_uint16(buf, buf_end, rec_idx);
 #if WASM_ENABLE_AOT_VALIDATOR != 0
-        if (rec_idx > i) {
-            set_error_buf(error_buf, error_buf_size, "invalid rec_idx");
+        if (rec_count > module->type_count) {
+            set_error_buf(error_buf, error_buf_size, "invalid rec count");
+            goto fail;
+        }
+        if (rec_idx > i || rec_idx >= rec_count) {
+            set_error_buf(error_buf, error_buf_size, "invalid rec idx");
             goto fail;
         }
         if (parent_type_idx >= i) {
