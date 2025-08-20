@@ -78,7 +78,7 @@ jobs:
       # └─── application/    --> DUMMY. keep west_lite.yml here
 
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
         with:
           path: modules/wasm-micro-runtime
 
