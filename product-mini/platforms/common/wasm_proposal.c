@@ -12,14 +12,15 @@ wasm_proposal_print_status(void)
 {
     printf("About Wasm Proposals:\n");
     printf("  Always-on:\n");
+    printf("    - Import/Export of Mutable Globals\n");
     printf("    - Multi-value\n");
-    printf("    - Non-trapping float-to-int conversions\n");
-    printf("    - Sign-extension operators\n");
+    printf("    - Non-trapping float-to-int Conversions\n");
+    printf("    - Sign-extension Operators\n");
     printf("    - WebAssembly C and C++ API\n");
     printf("  Compilation Configurable. 0 is OFF. 1 is ON:\n");
     printf("    - Bulk Memory Operation via WASM_ENABLE_BULK_MEMORY: %u\n",
            WASM_ENABLE_BULK_MEMORY);
-    printf("    - Fixed-Width SIMD via WASM_ENABLE_SIMD: %u\n",
+    printf("    - Fixed-width SIMD via WASM_ENABLE_SIMD: %u\n",
            WASM_ENABLE_SIMD);
     printf("    - Garbage Collection via WASM_ENABLE_GC: %u\n", WASM_ENABLE_GC);
     printf(
@@ -27,7 +28,7 @@ wasm_proposal_print_status(void)
         WASM_ENABLE_EXCE_HANDLING);
     printf("    - Memory64 via WASM_ENABLE_MEMORY64: %u\n",
            WASM_ENABLE_MEMORY64);
-    printf("    - Multiple Memory via WASM_ENABLE_MULTI_MEMORY: %u\n",
+    printf("    - Multiple Memories via WASM_ENABLE_MULTI_MEMORY: %u\n",
            WASM_ENABLE_MULTI_MEMORY);
     printf("    - Reference Types via WASM_ENABLE_REF_TYPES: %u\n",
            WASM_ENABLE_REF_TYPES);
@@ -42,9 +43,7 @@ wasm_proposal_print_status(void)
     printf("  Unsupported (>= Phase4):\n");
     printf("    - Branch Hinting\n");
     printf("    - Custom Annotation Syntax in the Text Format\n");
-    printf("    - Exception handling\n");
-    printf("    - Extended Constant Expressions\n");
-    printf("    - Import/Export of Mutable Globals\n");
+    printf("    - Exception Handling\n");
     printf("    - JS String Builtins\n");
     printf("    - Relaxed SIMD\n");
 }
