@@ -1963,7 +1963,7 @@ aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
         goto fail;
     }
 
-#if WASM_ENABLE_BRANCH_HINTS != 0
+#if WASM_ENABLE_BRANCH_HINTS != 0 || WASM_ENABLE_COMPILATION_HINTS != 0
     func_ctx->function_hints =
         comp_ctx->comp_data->function_hints
             ? comp_ctx->comp_data->function_hints[func_index]

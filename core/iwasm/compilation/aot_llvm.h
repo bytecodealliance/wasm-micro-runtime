@@ -270,7 +270,7 @@ typedef struct AOTFuncContext {
 #if WASM_ENABLE_DEBUG_AOT != 0
     LLVMMetadataRef debug_func;
 #endif
-#if WASM_ENABLE_BRANCH_HINTS != 0
+#if WASM_ENABLE_BRANCH_HINTS != 0 || WASM_ENABLE_COMPILATION_HINTS != 0
     struct WASMCompilationHint *function_hints;
 #endif
 
@@ -673,6 +673,9 @@ aot_target_precheck_can_use_musttail(const AOTCompContext *comp_ctx);
 unsigned int
 aot_estimate_stack_usage_for_function_call(const AOTCompContext *comp_ctx,
                                            const AOTFuncType *callee_func_type);
+
+uint64_t
+aot_func_name_hash(const char *name);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

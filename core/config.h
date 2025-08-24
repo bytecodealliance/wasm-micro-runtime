@@ -591,6 +591,10 @@ unless used elsewhere */
 #define WASM_ENABLE_BRANCH_HINTS 0
 #endif
 
+#ifndef WASM_ENABLE_COMPILATION_HINTS
+#define WASM_ENABLE_COMPILATION_HINTS 0
+#endif
+
 #ifndef WASM_ENABLE_GC
 #define WASM_ENABLE_GC 0
 #endif

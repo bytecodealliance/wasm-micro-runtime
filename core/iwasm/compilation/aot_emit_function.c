@@ -112,6 +112,57 @@ check_exception_thrown(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     return true;
 }
 
+#if WASM_ENABLE_COMPILATION_HINTS != 0
+static void
+aot_emit_call_target_hint(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                          uint32 offset, LLVMValueRef call_instr)
+{
+    struct WASMCompilationHint *hint = func_ctx->function_hints;
+    while (hint != NULL) {
+        if (hint->type == WASM_COMPILATION_HINT_CALL_TARGETS
+            && ((struct WASMCompilationHintCallTargets *)hint)->offset
+                   == offset) {
+            break;
+        }
+        hint = hint->next;
+    }
+    if (hint != NULL) {
+        hint->used = true;
+        struct WASMCompilationHintCallTargets *ct_hint =
+            (struct WASMCompilationHintCallTargets *)hint;
+        unsigned md_node_cnt = ct_hint->target_count * 2 + 3;
+        LLVMMetadataRef md_nodes[md_node_cnt];
+        md_nodes[0] =
+            LLVMMDStringInContext2(comp_ctx->context, "VP", strlen("VP"));
+        md_nodes[1] = LLVMValueAsMetadata(I32_CONST(0));
+        // since wasm encodes a call frequency in full percent, we forward this
+        // to llvm as 100 calls to match the percentages
+        // (could be enhanced with the instruction frequency hints)
+        md_nodes[2] = LLVMValueAsMetadata(I64_CONST(100));
+
+        for (size_t i = 0; i < ct_hint->target_count; ++i) {
+            struct WASMCompilationHintCallTargetsHint *target =
+                &ct_hint->hints[i];
+            char target_func_name[48];
+            snprintf(target_func_name, sizeof(target_func_name), "%s%d",
+                     AOT_FUNC_PREFIX,
+                     target->func_idx - comp_ctx->comp_data->import_func_count);
+            const uint64_t func_name_hash =
+                aot_func_name_hash(target_func_name);
+            md_nodes[i * 2 + 3] =
+                LLVMValueAsMetadata(I64_CONST(func_name_hash));
+            md_nodes[i * 2 + 3 + 1] =
+                LLVMValueAsMetadata(I64_CONST(target->call_frequency));
+        }
+        LLVMMetadataRef meta_data =
+            LLVMMDNodeInContext2(comp_ctx->context, md_nodes, md_node_cnt);
+        LLVMValueRef meta_data_as_value =
+            LLVMMetadataAsValue(comp_ctx->context, meta_data);
+        LLVMSetMetadata(call_instr, 2, meta_data_as_value);
+    }
+}
+#endif
+
 /* Check whether there was exception thrown, if yes, return directly */
 static bool
 check_call_return(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
@@ -1929,7 +1980,7 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             LLVMValueRef *param_values, uint32 param_count,
                             uint32 param_cell_num, uint32 result_count,
                             uint8 *wasm_ret_types, LLVMValueRef *value_rets,
-                            LLVMValueRef *p_res)
+                            LLVMValueRef *p_res, uint32 instr_offset)
 {
     LLVMTypeRef func_type, func_ptr_type, func_param_types[6];
     LLVMTypeRef ret_type, ret_ptr_type, elem_ptr_type;
@@ -2074,14 +2125,14 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         cell_num += wasm_value_type_cell_num_internal(wasm_ret_types[i],
                                                       comp_ctx->pointer_size);
     }
-
     *p_res = res;
     return true;
 }
 
 bool
 aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                             uint32 type_idx, uint32 tbl_idx)
+                             uint32 type_idx, uint32 tbl_idx,
+                             uint32 instr_offset)
 {
     AOTFuncType *func_type;
     LLVMValueRef tbl_idx_value, elem_idx, func_idx;
@@ -2620,7 +2671,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (!call_aot_call_indirect_func(
             comp_ctx, func_ctx, func_type, ftype_idx, tbl_idx_value, elem_idx,
             param_types + 1, param_values + 1, func_param_count, param_cell_num,
-            func_result_count, wasm_ret_types, value_rets, &res))
+            func_result_count, wasm_ret_types, value_rets, &res, instr_offset))
         goto fail;
 
     /* Check whether exception was thrown when executing the function */
@@ -2680,6 +2731,10 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         aot_set_last_error("llvm build call failed.");
         goto fail;
     }
+
+#if WASM_ENABLE_COMPILATION_HINTS != 0
+    aot_emit_call_target_hint(comp_ctx, func_ctx, instr_offset, value_ret);
+#endif
 
     /* Check whether exception was thrown when executing the function */
     if ((comp_ctx->enable_bound_check || is_win_platform(comp_ctx))

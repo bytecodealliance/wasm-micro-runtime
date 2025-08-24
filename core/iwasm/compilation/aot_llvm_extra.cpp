@@ -433,3 +433,9 @@ aot_compress_aot_func_names(AOTCompContext *comp_ctx, uint32 *p_size)
     *p_size = compressed_str_len;
     return compressed_str;
 }
+
+uint64_t
+aot_func_name_hash(const char *name)
+{
+    return MD5Hash(StringRef(name));
+}
