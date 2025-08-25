@@ -25,7 +25,6 @@ set(WAMR_BUILD_FAST_INTERP 0)
 
 # compiling and linking flags
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections -pie -fPIE")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security -mindirect-branch-register")
 
 # build out vmlib
 # hard code path here
