@@ -219,6 +219,14 @@ if (NOT DEFINED WAMR_BUILD_BULK_MEMORY)
   set (WAMR_BUILD_BULK_MEMORY 1)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_BULK_MEMORY_OPT)
+  set (WAMR_BUILD_BULK_MEMORY_OPT 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_CALL_INDIRECT_OVERLONG)
+  set (WAMR_BUILD_CALL_INDIRECT_OVERLONG 0)
+endif ()
+
 if (NOT DEFINED WAMR_BUILD_EXCE_HANDLING)
   set (WAMR_BUILD_EXCE_HANDLING 0)
 endif ()
@@ -251,9 +259,29 @@ if (NOT DEFINED WAMR_BUILD_EXTENDED_CONST_EXPR)
   set (WAMR_BUILD_EXTENDED_CONST_EXPR 0)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_LIME1)
+  set (WAMR_BUILD_LIME1 0)
+endif ()
+
 ########################################
 # Compilation options to marco
 ########################################
+
+if (WAMR_BUILD_LIME1 EQUAL 1)
+  set (WAMR_BUILD_BULK_MEMORY 0)
+  set (WAMR_BUILD_BULK_MEMORY_OPT 1)
+  set (WAMR_BUILD_REF_TYPES 0)
+  set (WAMR_BUILD_CALL_INDIRECT_OVERLONG 1)
+  set (WAMR_BUILD_EXTENDED_CONST_EXPR 1)
+  set (WAMR_BUILD_SIMD 0)
+endif ()
+
+if (WAMR_BUILD_BULK_MEMORY EQUAL 1)
+  set (WAMR_BUILD_BULK_MEMORY_OPT 1)
+endif ()
+if (WAMR_BUILD_REF_TYPES EQUAL 1)
+  set (WAMR_BUILD_CALL_INDIRECT_OVERLONG 1)
+endif ()
 
 message ("-- Build Configurations:")
 message ("     Build as target ${WAMR_BUILD_TARGET}")
@@ -364,6 +392,11 @@ if (WAMR_BUILD_BULK_MEMORY EQUAL 1)
 else ()
   add_definitions (-DWASM_ENABLE_BULK_MEMORY=0)
 endif ()
+if (WAMR_BUILD_BULK_MEMORY_OPT EQUAL 1)
+  add_definitions (-DWASM_ENABLE_BULK_MEMORY_OPT=1)
+else()
+  add_definitions (-DWASM_ENABLE_BULK_MEMORY_OPT=0)
+endif ()
 if (WAMR_BUILD_SHARED_MEMORY EQUAL 1)
   add_definitions (-DWASM_ENABLE_SHARED_MEMORY=1)
   message ("     Shared memory enabled")
@@ -454,6 +487,11 @@ if (WAMR_BUILD_TAIL_CALL EQUAL 1)
 endif ()
 if (WAMR_BUILD_REF_TYPES EQUAL 1)
   add_definitions (-DWASM_ENABLE_REF_TYPES=1)
+endif ()
+if (WAMR_BUILD_CALL_INDIRECT_OVERLONG EQUAL 1)
+  add_definitions (-DWASM_ENABLE_CALL_INDIRECT_OVERLONG=1)
+else ()
+  add_definitions(-DWASM_ENABLE_CALL_INDIRECT_OVERLONG=0)
 endif ()
 if (WAMR_BUILD_GC EQUAL 1)
   if (WAMR_TEST_GC EQUAL 1)
@@ -725,6 +763,9 @@ else()
   message ("     Extended constant expression disabled")
   add_definitions(-DWASM_ENABLE_EXTENDED_CONST_EXPR=0)
 endif ()
+if (WAMR_BUILD_LIME1 EQUAL 1)
+  message ("     Lime1 enabled")
+endif ()
 ########################################
 # Show Phase4 Wasm proposals status.
 ########################################
@@ -739,6 +780,8 @@ message (
 "       \"WebAssembly C and C++ API\"\n"
 "     Configurable. 0 is OFF. 1 is ON:\n"
 "       \"Bulk Memory Operation\" via WAMR_BUILD_BULK_MEMORY: ${WAMR_BUILD_BULK_MEMORY}\n"
+"       \"Bulk-memory-opt\" via WAMR_BUILD_BULK_MEMORY_OPT: ${WAMR_BUILD_BULK_MEMORY_OPT}\n"
+"       \"Call-indirect-overlong\" via WAMR_BUILD_CALL_INDIRECT_OVERLONG: ${WAMR_BUILD_CALL_INDIRECT_OVERLONG}\n"
 "       \"Extended Constant Expressions\" via WAMR_BUILD_EXTENDED_CONST_EXPR: ${WAMR_BUILD_EXTENDED_CONST_EXPR}\n"
 "       \"Fixed-width SIMD\" via WAMR_BUILD_SIMD: ${WAMR_BUILD_SIMD}\n"
 "       \"Garbage Collection\" via WAMR_BUILD_GC: ${WAMR_BUILD_GC}\n"

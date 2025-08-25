@@ -413,6 +413,9 @@ typedef struct AOTCompContext {
     /* Bulk memory feature */
     bool enable_bulk_memory;
 
+    /* Bulk memory opt feature */
+    bool enable_bulk_memory_opt;
+
     /* Boundary Check */
     bool enable_bound_check;
 
@@ -449,6 +452,9 @@ typedef struct AOTCompContext {
     /* Reference Types */
     bool enable_ref_types;
 
+    /* Call Indirect Overlong */
+    bool enable_call_indirect_overlong;
+
     /* Disable LLVM built-in intrinsics */
     bool disable_llvm_intrinsics;
 
@@ -463,6 +469,9 @@ typedef struct AOTCompContext {
 
     /* Enable extended constant expression */
     bool enable_extended_const;
+
+    /* Enable Lime1 */
+    bool enable_lime1;
 
     /* Treat unknown import function as wasm-c-api import function
        and allow to directly invoke it from AOT/JIT code */

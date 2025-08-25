@@ -2724,6 +2724,9 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     if (option->enable_bulk_memory)
         comp_ctx->enable_bulk_memory = true;
 
+    if (option->enable_bulk_memory_opt)
+        comp_ctx->enable_bulk_memory_opt = true;
+
     if (option->enable_thread_mgr)
         comp_ctx->enable_thread_mgr = true;
 
@@ -2732,6 +2735,9 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
 
     if (option->enable_ref_types)
         comp_ctx->enable_ref_types = true;
+
+    if (option->enable_call_indirect_overlong)
+        comp_ctx->enable_call_indirect_overlong = true;
 
     comp_ctx->aux_stack_frame_type = option->aux_stack_frame_type;
     comp_ctx->call_stack_features = option->call_stack_features;
@@ -3318,6 +3324,7 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     /* Return error if ref-types and GC are disabled by command line but
        ref-types instructions are used */
     if (!option->enable_ref_types && !option->enable_gc
+        && !option->enable_call_indirect_overlong
         && wasm_module->is_ref_types_used) {
         aot_set_last_error("ref-types instruction was found, "
                            "try removing --disable-ref-types option "
@@ -3331,9 +3338,13 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     }
     if (!wasm_module->is_ref_types_used) {
         option->enable_ref_types = comp_ctx->enable_ref_types = false;
+        option->enable_call_indirect_overlong =
+            comp_ctx->enable_call_indirect_overlong = false;
     }
     if (!wasm_module->is_bulk_memory_used) {
         option->enable_bulk_memory = comp_ctx->enable_bulk_memory = false;
+        option->enable_bulk_memory_opt = comp_ctx->enable_bulk_memory_opt =
+            false;
     }
 #endif
 
