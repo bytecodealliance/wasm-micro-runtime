@@ -36,6 +36,7 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/resource.h>
+#include <sys/wait.h>
 
 #ifdef __cplusplus
 extern "C" {
