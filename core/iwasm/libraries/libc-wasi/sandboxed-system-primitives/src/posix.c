@@ -285,7 +285,7 @@ fd_prestats_get_entry(struct fd_prestats *pt, __wasi_fd_t fd,
                       struct fd_prestat **ret) REQUIRES_SHARED(pt->lock)
 {
     // Test for file descriptor existence.
-    if (fd >= pt->size)
+    if ((size_t)fd >= pt->size)
         return __WASI_EBADF;
     struct fd_prestat *prestat = &pt->prestats[fd];
     if (prestat->dir == NULL)
@@ -301,7 +301,7 @@ static __wasi_errno_t
 fd_prestats_remove_entry(struct fd_prestats *pt, __wasi_fd_t fd)
 {
     // Test for file descriptor existence.
-    if (fd >= pt->size)
+    if ((size_t)fd >= pt->size)
         return __WASI_EBADF;
     struct fd_prestat *prestat = &pt->prestats[fd];
 
@@ -356,7 +356,7 @@ fd_table_get_entry(struct fd_table *ft, __wasi_fd_t fd,
     REQUIRES_SHARED(ft->lock)
 {
     // Test for file descriptor existence.
-    if (fd >= ft->size) {
+    if ((size_t)fd >= ft->size) {
         return __WASI_EBADF;
     }
 
