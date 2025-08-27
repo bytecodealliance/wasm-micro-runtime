@@ -57,7 +57,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 - **WAMR_BUILD_LIBC_UVWASI**=1/0 (Experiment), build the [WASI](https://github.com/WebAssembly/WASI) libc subset for WASM app based on [uvwasi](https://github.com/nodejs/uvwasi) implementation, default to disable if not set
 
-> Note: for platform which doesn't support **WAMR_BUILD_LIBC_WASI**, e.g. Windows, developer can try using **WAMR_BUILD_LIBC_UVWASI**.
+> Note: WAMR doesn't support a safe sandbox on all platforms. For platforms that do not support **WAMR_BUILD_LIBC_WASI**, e.g. Windows, developers can try using an unsafe uvwasi-based WASI implementation by using **WAMR_BUILD_LIBC_UVWASI**.
 
 ### **Enable Multi-Module feature**
 
