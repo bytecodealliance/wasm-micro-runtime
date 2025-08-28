@@ -30,7 +30,7 @@ jobs:
         os: [ubuntu-22.04, macos-13, macos-14]
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: install-wasi-sdk-wabt
         uses: ./.github/actions/install-wasi-sdk-wabt

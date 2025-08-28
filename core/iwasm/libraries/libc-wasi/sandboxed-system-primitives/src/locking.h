@@ -196,8 +196,12 @@ static inline bool
 cond_timedwait(struct cond *cond, struct mutex *lock, uint64_t timeout,
                bool abstime) REQUIRES_EXCLUSIVE(*lock) NO_LOCK_ANALYSIS
 {
+#if defined(BH_PLATFORM_ZEPHYR)
+    // TODO: Implement this for Zephyr
+    return false;
+#else
     int ret;
-    struct timespec ts = {
+    os_timespec ts = {
         .tv_sec = (time_t)(timeout / 1000000000),
         .tv_nsec = (long)(timeout % 1000000000),
     };
@@ -210,8 +214,8 @@ cond_timedwait(struct cond *cond, struct mutex *lock, uint64_t timeout,
          * realtime clock.
          */
         if (cond->clock != CLOCK_REALTIME) {
-            struct timespec ts_monotonic;
-            struct timespec ts_realtime;
+            os_timespec ts_monotonic;
+            os_timespec ts_realtime;
 
             clock_gettime(cond->clock, &ts_monotonic);
             ts.tv_sec -= ts_monotonic.tv_sec;
@@ -229,7 +233,7 @@ cond_timedwait(struct cond *cond, struct mutex *lock, uint64_t timeout,
                 ++ts.tv_sec;
             }
         }
-#endif
+#endif /* !CONFIG_HAS_PTHREAD_CONDATTR_SETCLOCK */
     }
     else {
 #if CONFIG_HAS_PTHREAD_COND_TIMEDWAIT_RELATIVE_NP
@@ -241,7 +245,7 @@ cond_timedwait(struct cond *cond, struct mutex *lock, uint64_t timeout,
         return ret == ETIMEDOUT;
 #else
         /* Convert to absolute timeout. */
-        struct timespec ts_now;
+        os_timespec ts_now;
 #if CONFIG_HAS_PTHREAD_CONDATTR_SETCLOCK
         clock_gettime(cond->clock, &ts_now);
 #else
@@ -253,13 +257,14 @@ cond_timedwait(struct cond *cond, struct mutex *lock, uint64_t timeout,
             ts.tv_nsec -= 1000000000;
             ++ts.tv_sec;
         }
-#endif
+#endif /* CONFIG_HAS_PTHREAD_COND_TIMEDWAIT_RELATIVE_NP */
     }
 
     ret = pthread_cond_timedwait(&cond->object, &lock->object, &ts);
     bh_assert((ret == 0 || ret == ETIMEDOUT)
               && "pthread_cond_timedwait() failed");
     return ret == ETIMEDOUT;
+#endif /* BH_PLATFORM_ZEPHYR */
 }
 #endif
 

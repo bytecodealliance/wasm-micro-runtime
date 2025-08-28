@@ -45,7 +45,7 @@ libc_wasi_print_help(void)
            "path, for example:\n");
     printf("                             --map-dir=<guest-path1::host-path1> "
            "--map-dir=<guest-path2::host-path2>\n");
-    printf("  --addr-pool=<addrs>      Grant wasi access to the given network "
+    printf("  --addr-pool=<addr/mask>  Grant wasi access to the given network "
            "addresses in\n");
     printf("                           CIDR notation to the program, separated "
            "with ',',\n");
@@ -141,7 +141,7 @@ libc_wasi_parse(char *arg, libc_wasi_parse_context_t *ctx)
             }
 
             ctx->addr_pool[ctx->addr_pool_size++] = token;
-            token = strtok(NULL, ";");
+            token = strtok(NULL, ",");
         }
     }
     else if (!strncmp(arg, "--allow-resolve=", 16)) {

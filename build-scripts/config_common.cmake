@@ -99,6 +99,12 @@ if (WAMR_BUILD_JIT EQUAL 1)
     # Enable Lazy JIT by default
     set (WAMR_BUILD_LAZY_JIT 1)
   endif ()
+
+  # In Debug mode, always use release builds of pre-built dependency libraries
+  if (WAMR_BUILD_PLATFORM STREQUAL "windows" AND MSVC)
+    add_compile_options($<$<CONFIG:Debug>:/MD>)
+  endif()
+
   if (NOT DEFINED LLVM_DIR)
     set (LLVM_SRC_ROOT "${WAMR_ROOT_DIR}/core/deps/llvm")
     set (LLVM_BUILD_ROOT "${LLVM_SRC_ROOT}/build")
@@ -140,29 +146,59 @@ include (${WAMR_ROOT_DIR}/build-scripts/package.cmake)
 # Sanitizers
 
 if (NOT DEFINED WAMR_BUILD_SANITIZER)
-  set(WAMR_BUILD_SANITIZER $ENV{WAMR_BUILD_SANITIZER})
-endif ()
-
-if (NOT DEFINED WAMR_BUILD_SANITIZER)
-  set(WAMR_BUILD_SANITIZER "")
-elseif (WAMR_BUILD_SANITIZER STREQUAL "ubsan")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -fno-omit-frame-pointer -fsanitize=undefined -fno-sanitize-recover=all -fno-sanitize=alignment" )
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=undefined")
-elseif (WAMR_BUILD_SANITIZER STREQUAL "asan")
-  if (NOT WAMR_BUILD_JIT EQUAL 1)
-    set (ASAN_OPTIONS "verbosity=2 debug=true ")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -fno-omit-frame-pointer -fsanitize=address -fno-sanitize-recover=all" )
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
-  endif()
-elseif (WAMR_BUILD_SANITIZER STREQUAL "tsan")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -fno-omit-frame-pointer -fsanitize=thread -fno-sanitize-recover=all" )
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=thread")
-elseif (WAMR_BUILD_SANITIZER STREQUAL "posan")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -fno-omit-frame-pointer -fsanitize=pointer-overflow -fno-sanitize-recover=all" )
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=pointer-overflow")
-elseif (NOT (WAMR_BUILD_SANITIZER STREQUAL "") )
-  message(SEND_ERROR "Unsupported sanitizer: ${WAMR_BUILD_SANITIZER}")
+  set(WAMR_BUILD_SANITIZER "$ENV{WAMR_BUILD_SANITIZER}")
 endif()
+
+if (NOT WAMR_BUILD_SANITIZER STREQUAL "")
+  set(SUPPORTED_SANITIZERS "ubsan;asan;tsan;posan")
+  string(REPLACE "," ";" SANITIZER_LIST "${WAMR_BUILD_SANITIZER}")
+
+  # Check uncompabile sanitizers
+  if("tsan" IN_LIST SANITIZER_LIST AND "asan" IN_LIST SANITIZER_LIST)
+    message(FATAL_ERROR "ThreadSanitizer (tsan) and AddressSanitizer (asan) cannot be used together!")
+  endif()
+
+  # Check every sanitizer in the list
+  set(INVALID_SANITIZERS "")
+  list(REMOVE_DUPLICATES SANITIZER_LIST)
+  set(SANITIZER_FLAGS)
+  set(NO_SANITIZER_FLAGS)
+  foreach(sanitizer ${SANITIZER_LIST})
+    string(STRIP "${sanitizer}" sanitizer)
+    if(NOT sanitizer IN_LIST SUPPORTED_SANITIZERS)
+      list(APPEND INVALID_SANITIZERS "${sanitizer}")
+    elseif(sanitizer STREQUAL "ubsan")
+      list(APPEND SANITIZER_FLAGS "undefined")
+      list(APPEND NO_SANITIZER_FLAGS "alignment")
+    elseif(sanitizer STREQUAL "asan")
+      if (NOT WAMR_BUILD_JIT EQUAL 1)
+        set(ENV{ASAN_OPTIONS} "verbosity=2 debug=true")
+        list(APPEND SANITIZER_FLAGS "address")
+      else()
+        message(WARNING "AddressSanitizer is not supported in LLVM JIT mode, skip it")
+      endif()
+    elseif(sanitizer STREQUAL "tsan")
+      list(APPEND SANITIZER_FLAGS "thread")
+    elseif(sanitizer STREQUAL "posan")
+      list(APPEND SANITIZER_FLAGS "pointer-overflow")
+    endif()
+  endforeach()
+
+  if(INVALID_SANITIZERS)
+    message(FATAL_ERROR "Unsupported sanitizers: ${INVALID_SANITIZERS}")
+  endif()
+  # common flags for all sanitizers
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -fno-omit-frame-pointer -fno-sanitize-recover=all")
+  if(SANITIZER_FLAGS)
+    string(REPLACE ";" "," SANITIZER_FLAGS_STR "${SANITIZER_FLAGS}")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=${SANITIZER_FLAGS_STR}")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=${SANITIZER_FLAGS_STR}")
+  endif()
+  if(NO_SANITIZER_FLAGS)
+    string(REPLACE ";" "," NO_SANITIZER_FLAGS_STR "${NO_SANITIZER_FLAGS}")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-sanitize=${NO_SANITIZER_FLAGS_STR}")
+  endif()
+endif ()
 
 if (WAMR_BUILD_LINUX_PERF EQUAL 1)
   if (NOT WAMR_BUILD_JIT AND NOT WAMR_BUILD_AOT)
@@ -510,7 +546,8 @@ if (WAMR_BUILD_WASI_NN EQUAL 1)
   # Variant backends
   if (NOT WAMR_BUILD_WASI_NN_TFLITE EQUAL 1 AND
       NOT WAMR_BUILD_WASI_NN_OPENVINO EQUAL 1 AND
-      NOT WAMR_BUILD_WASI_NN_LLAMACPP EQUAL 1)
+      NOT WAMR_BUILD_WASI_NN_LLAMACPP EQUAL 1 AND
+      NOT WAMR_BUILD_WASI_NN_ONNX EQUAL 1)
     message (FATAL_ERROR "   Need to select a backend for WASI-NN")
   endif ()
 
@@ -525,6 +562,10 @@ if (WAMR_BUILD_WASI_NN EQUAL 1)
   if (WAMR_BUILD_WASI_NN_LLAMACPP EQUAL 1)
     message ("     WASI-NN: backend llamacpp enabled")
     add_definitions (-DWASM_ENABLE_WASI_NN_LLAMACPP)
+  endif ()
+  if (WAMR_BUILD_WASI_NN_ONNX EQUAL 1)
+    message ("     WASI-NN: backend onnx enabled")
+    add_definitions (-DWASM_ENABLE_WASI_NN_ONNX)
   endif ()
   # Variant devices
   if (WAMR_BUILD_WASI_NN_ENABLE_GPU EQUAL 1)
@@ -691,28 +732,28 @@ endif ()
 message (
 "-- About Wasm Proposals:\n"
 "     Always-on:\n"
+"       \"Import/Export of Mutable Globals\"\n"
 "       \"Multi-value\"\n"
-"       \"Non-trapping float-to-int conversions\"\n"
-"       \"Sign-extension operators\"\n"
+"       \"Non-trapping float-to-int Conversions\"\n"
+"       \"Sign-extension Operators\"\n"
 "       \"WebAssembly C and C++ API\"\n"
 "       \"Branch Hinting\"\n"
 "     Configurable. 0 is OFF. 1 is ON:\n"
 "       \"Bulk Memory Operation\" via WAMR_BUILD_BULK_MEMORY: ${WAMR_BUILD_BULK_MEMORY}\n"
 "       \"Extended Constant Expressions\" via WAMR_BUILD_EXTENDED_CONST_EXPR: ${WAMR_BUILD_EXTENDED_CONST_EXPR}\n"
 "       \"Fixed-width SIMD\" via WAMR_BUILD_SIMD: ${WAMR_BUILD_SIMD}\n"
-"       \"Garbage collection\" via WAMR_BUILD_GC: ${WAMR_BUILD_GC}\n"
-"       \"Legacy Exception handling\" via WAMR_BUILD_EXCE_HANDLING: ${WAMR_BUILD_EXCE_HANDLING}\n"
+"       \"Garbage Collection\" via WAMR_BUILD_GC: ${WAMR_BUILD_GC}\n"
+"       \"Legacy Exception Handling\" via WAMR_BUILD_EXCE_HANDLING: ${WAMR_BUILD_EXCE_HANDLING}\n"
 "       \"Memory64\" via WAMR_BUILD_MEMORY64: ${WAMR_BUILD_MEMORY64}\n"
-"       \"Multiple memories\" via WAMR_BUILD_MULTI_MEMORY: ${WAMR_BUILD_MULTI_MEMORY}\n"
+"       \"Multiple Memories\" via WAMR_BUILD_MULTI_MEMORY: ${WAMR_BUILD_MULTI_MEMORY}\n"
 "       \"Reference Types\" via WAMR_BUILD_REF_TYPES: ${WAMR_BUILD_REF_TYPES}\n"
 "       \"Reference-Typed Strings\" via WAMR_BUILD_STRINGREF: ${WAMR_BUILD_STRINGREF}\n"
-"       \"Tail call\" via WAMR_BUILD_TAIL_CALL: ${WAMR_BUILD_TAIL_CALL}\n"
+"       \"Tail Call\" via WAMR_BUILD_TAIL_CALL: ${WAMR_BUILD_TAIL_CALL}\n"
 "       \"Threads\" via WAMR_BUILD_SHARED_MEMORY: ${WAMR_BUILD_SHARED_MEMORY}\n"
 "       \"Typed Function References\" via WAMR_BUILD_GC: ${WAMR_BUILD_GC}\n"
 "     Unsupported (>= Phase4):\n"
 "       \"Custom Annotation Syntax in the Text Format\"\n"
-"       \"Exception handling\"\n"
-"       \"Import/Export of Mutable Globals\"\n"
+"       \"Exception Handling\"\n"
 "       \"JS String Builtins\"\n"
 "       \"Relaxed SIMD\"\n"
 )

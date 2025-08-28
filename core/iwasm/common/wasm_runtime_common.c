@@ -3810,7 +3810,15 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         address = strtok(cp, "/");
         mask = strtok(NULL, "/");
 
-        ret = addr_pool_insert(apool, address, (uint8)(mask ? atoi(mask) : 0));
+        if (!mask) {
+            snprintf(error_buf, error_buf_size,
+                     "Invalid address pool entry: %s, must be in the format of "
+                     "ADDRESS/MASK",
+                     addr_pool[i]);
+            goto fail;
+        }
+
+        ret = addr_pool_insert(apool, address, (uint8)atoi(mask));
         wasm_runtime_free(cp);
         if (!ret) {
             set_error_buf(error_buf, error_buf_size,

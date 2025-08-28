@@ -101,7 +101,7 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # since jobs.id can't contain the dot character
       # it is hard to use `format` to assemble the cache key
@@ -269,7 +269,7 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # only download llvm cache when needed
       - name: Get LLVM libraries
@@ -327,7 +327,7 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
@@ -371,6 +371,47 @@ jobs:
           ctest
         working-directory: tests/unit
 
+  build_regression_tests:
+    needs:
+      [build_llvm_libraries_on_ubuntu_2204]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-22.04]
+        include:
+          - os: ubuntu-22.04
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
+    
+    steps:
+      - name: checkout
+        uses: actions/checkout@v5
+
+      - name: Get LLVM libraries
+        id: retrieve_llvm_libs
+        uses: actions/cache@v4
+        with:
+          path: |
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
+          key: ${{ matrix.llvm_cache_key }}
+
+      - name: Quit if cache miss
+        if: (steps.retrieve_llvm_libs.outputs.cache-hit != 'true')
+        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
+      
+      - name: Build wamrc and iwasm
+        run: |
+          ./build_wamr.sh
+        working-directory: tests/regression/ba-issues
+      
+      - name: Run regression tests
+        run: |
+          python run.py
+        working-directory: tests/regression/ba-issues
+
   build_samples_wasm_c_api:
     needs:
       [
@@ -399,7 +440,7 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
@@ -461,7 +502,7 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
@@ -624,7 +665,7 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set-up OCaml
         uses: ocaml/setup-ocaml@v3

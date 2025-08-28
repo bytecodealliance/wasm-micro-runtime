@@ -66,6 +66,20 @@ random_buf(void *buf, size_t len)
     return ret ? __WASI_EINVAL : __WASI_ESUCCESS;
 }
 
+#elif defined(BH_PLATFORM_ZEPHYR)
+#include <zephyr/random/random.h>
+// Maybe having an OS abstraction api would be a good idea
+// because every platform is implementing this function.
+// we could have a function like `os_random_buf`
+// and call `os_random_buf.` in the SSP wrapper `random_buf`.
+
+__wasi_errno_t
+random_buf(void *buf, size_t len)
+{
+    sys_rand_get(buf, len);
+    return __WASI_ESUCCESS;
+}
+
 #else
 
 static int urandom = -1;

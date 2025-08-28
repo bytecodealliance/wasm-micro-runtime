@@ -57,6 +57,10 @@ print_help(void)
 #else
     printf("  --heap-size=n            Set maximum heap size in bytes, default is 16 KB when libc wasi is diabled\n");
 #endif
+#if WASM_ENABLE_SHARED_HEAP != 0
+    printf("  --shared-heap-size=n     Create shared heap of n bytes and attach to the wasm app.\n");
+    printf("                           The size n will be adjusted to a minumum number aligned to page size\n");
+#endif
 #if WASM_ENABLE_FAST_JIT != 0
     printf("  --jit-codecache-size=n   Set fast jit maximum code cache size in bytes,\n");
     printf("                           default is %u KB\n", FAST_JIT_DEFAULT_CODE_CACHE_SIZE / 1024);
@@ -578,6 +582,11 @@ main(int argc, char *argv[])
 #else
     uint32 heap_size = 16 * 1024;
 #endif
+#if WASM_ENABLE_SHARED_HEAP != 0
+    SharedHeapInitArgs heap_init_args;
+    uint32 shared_heap_size = 0;
+    void *shared_heap = NULL;
+#endif
 #if WASM_ENABLE_FAST_JIT != 0
     uint32 jit_code_cache_size = FAST_JIT_DEFAULT_CODE_CACHE_SIZE;
 #endif
@@ -685,6 +694,13 @@ main(int argc, char *argv[])
                 return print_help();
             heap_size = atoi(argv[0] + 12);
         }
+#if WASM_ENABLE_SHARED_HEAP != 0
+        else if (!strncmp(argv[0], "--shared-heap-size=", 19)) {
+            if (argv[0][19] == '\0')
+                return print_help();
+            shared_heap_size = atoi(argv[0] + 19);
+        }
+#endif
 #if WASM_ENABLE_FAST_JIT != 0
         else if (!strncmp(argv[0], "--jit-codecache-size=", 21)) {
             if (argv[0][21] == '\0')
@@ -1007,6 +1023,24 @@ main(int argc, char *argv[])
     }
 #endif
 
+#if WASM_ENABLE_SHARED_HEAP != 0
+    if (shared_heap_size > 0) {
+        memset(&heap_init_args, 0, sizeof(heap_init_args));
+        heap_init_args.size = shared_heap_size;
+        shared_heap = wasm_runtime_create_shared_heap(&heap_init_args);
+        if (!shared_heap) {
+            printf("Create preallocated shared heap failed\n");
+            goto fail6;
+        }
+
+        /* attach module instance 2 to the shared heap */
+        if (!wasm_runtime_attach_shared_heap(wasm_module_inst, shared_heap)) {
+            printf("Attach shared heap failed.\n");
+            goto fail6;
+        }
+    }
+#endif
+
     ret = 0;
     const char *exception = NULL;
     if (is_repl_mode) {
@@ -1050,6 +1084,9 @@ main(int argc, char *argv[])
     }
 #endif
 
+#if WASM_ENABLE_SHARED_HEAP != 0
+fail6:
+#endif
 #if WASM_ENABLE_THREAD_MGR != 0
 fail5:
 #endif

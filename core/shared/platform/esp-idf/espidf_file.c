@@ -1039,3 +1039,15 @@ os_invalid_raw_handle(void)
 {
     return -1;
 }
+
+int
+os_ioctl(os_file_handle handle, int request, ...)
+{
+    return BHT_ERROR;
+}
+
+int
+os_poll(os_poll_file_handle *fds, os_nfds_t nfs, int timeout)
+{
+    return BHT_ERROR;
+}

@@ -1786,7 +1786,8 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
             read_uint32(buf, buf_end, j);
 #if WASM_ENABLE_AOT_VALIDATOR != 0
-            if (j >= module->type_count) {
+            /* an equivalence type should be before the type it refers to */
+            if (j >= i) {
                 set_error_buf(error_buf, error_buf_size, "invalid type index");
                 goto fail;
             }
@@ -1805,7 +1806,22 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         read_uint32(buf, buf_end, parent_type_idx);
         read_uint16(buf, buf_end, rec_count);
         read_uint16(buf, buf_end, rec_idx);
-
+#if WASM_ENABLE_AOT_VALIDATOR != 0
+        if (rec_count > module->type_count) {
+            set_error_buf(error_buf, error_buf_size, "invalid rec count");
+            goto fail;
+        }
+        if (rec_idx > i || rec_idx >= rec_count) {
+            set_error_buf(error_buf, error_buf_size, "invalid rec idx");
+            goto fail;
+        }
+        if (parent_type_idx >= i) {
+            set_error_buf(
+                error_buf, error_buf_size,
+                "parent type index must be smaller than current type index");
+            goto fail;
+        }
+#endif
         if (type_flag == WASM_TYPE_FUNC) {
             AOTFuncType *func_type;
 
@@ -1958,6 +1974,13 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
                 read_uint8(buf, buf_end, struct_type->fields[j].field_flags);
                 read_uint8(buf, buf_end, field_type);
+#if WASM_ENABLE_AOT_VALIDATOR != 0
+                if (!is_valid_field_type(field_type)) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "invalid field type");
+                    goto fail;
+                }
+#endif
                 struct_type->fields[j].field_type = field_type;
                 struct_type->fields[j].field_size = field_size =
                     (uint8)wasm_reftype_size(field_type);
@@ -2054,13 +2077,6 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                 AOTType *cur_type = module->types[j];
                 parent_type_idx = cur_type->parent_type_idx;
                 if (parent_type_idx != (uint32)-1) { /* has parent */
-#if WASM_ENABLE_AOT_VALIDATOR != 0
-                    if (parent_type_idx >= module->type_count) {
-                        set_error_buf(error_buf, error_buf_size,
-                                      "invalid parent type index");
-                        goto fail;
-                    }
-#endif
                     AOTType *parent_type = module->types[parent_type_idx];
 
                     module->types[j]->parent_type = parent_type;
@@ -2084,13 +2100,6 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                 AOTType *cur_type = module->types[j];
                 parent_type_idx = cur_type->parent_type_idx;
                 if (parent_type_idx != (uint32)-1) { /* has parent */
-#if WASM_ENABLE_AOT_VALIDATOR != 0
-                    if (parent_type_idx >= module->type_count) {
-                        set_error_buf(error_buf, error_buf_size,
-                                      "invalid parent type index");
-                        goto fail;
-                    }
-#endif
                     AOTType *parent_type = module->types[parent_type_idx];
                     /* subtyping has been checked during compilation */
                     bh_assert(wasm_type_is_subtype_of(
@@ -3160,7 +3169,9 @@ str2uint64(const char *buf, uint64 *p_res)
     return true;
 }
 
-#define R_X86_64_GOTPCREL 9 /* 32 bit signed PC relative offset to GOT */
+#define R_X86_64_GOTPCREL 9       /* 32 bit signed PC relative offset to GOT */
+#define R_X86_64_GOTPCRELX 41     /* relaxable GOTPCREL */
+#define R_X86_64_REX_GOTPCRELX 42 /* relaxable GOTPCREL with REX prefix */
 
 static bool
 is_text_section(const char *section_name)
@@ -3223,7 +3234,9 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
             }
 #if (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)) \
     && !defined(BH_PLATFORM_WINDOWS)
-            if (relocation->relocation_type == R_X86_64_GOTPCREL) {
+            if (relocation->relocation_type == R_X86_64_GOTPCREL
+                || relocation->relocation_type == R_X86_64_GOTPCRELX
+                || relocation->relocation_type == R_X86_64_REX_GOTPCRELX) {
                 GOTItem *got_item = module->got_item_list;
                 uint32 got_item_idx = 0;
 
@@ -3730,7 +3743,9 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
             bh_memcpy_s(symbol_name_buf, (uint32)sizeof(symbol_name_buf),
                         symbol_name, symbol_name_len);
 
-            if (relocation.relocation_type == R_X86_64_GOTPCREL
+            if ((relocation.relocation_type == R_X86_64_GOTPCREL
+                 || relocation.relocation_type == R_X86_64_GOTPCRELX
+                 || relocation.relocation_type == R_X86_64_REX_GOTPCRELX)
                 && !strncmp(symbol_name_buf, AOT_FUNC_PREFIX,
                             strlen(AOT_FUNC_PREFIX))) {
                 uint32 func_idx =
@@ -3884,8 +3899,9 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
             || !strcmp(group->section_name, ".text")
 #endif
         ) {
-#if !defined(BH_PLATFORM_LINUX) && !defined(BH_PLATFORM_LINUX_SGX) \
-    && !defined(BH_PLATFORM_DARWIN) && !defined(BH_PLATFORM_WINDOWS)
+#if !defined(BH_PLATFORM_LINUX) && !defined(BH_PLATFORM_LINUX_SGX)   \
+    && !defined(BH_PLATFORM_DARWIN) && !defined(BH_PLATFORM_WINDOWS) \
+    && !defined(BH_PLATFORM_ANDROID)
             if (module->is_indirect_mode) {
                 set_error_buf(error_buf, error_buf_size,
                               "cannot apply relocation to text section "
@@ -4415,7 +4431,7 @@ aot_compatible_version(uint32 version)
      * refer to "AoT-compiled module compatibility among WAMR versions" in
      * ./doc/biuld_wasm_app.md
      */
-    return version == 4 || version == 3;
+    return version == AOT_CURRENT_VERSION;
 }
 
 static bool

@@ -400,8 +400,7 @@ check_array_type(const WASMModule *module, uint32 type_index, char *error_buf,
                           error_buf_size)) {
         return false;
     }
-    if (module->types[type_index] == NULL
-        || module->types[type_index]->type_flag != WASM_TYPE_ARRAY) {
+    if (module->types[type_index]->type_flag != WASM_TYPE_ARRAY) {
         set_error_buf(error_buf, error_buf_size, "unknown array type");
         return false;
     }
@@ -424,8 +423,7 @@ check_function_type(const WASMModule *module, uint32 type_index,
     }
 
 #if WASM_ENABLE_GC != 0
-    if (module->types[type_index] == NULL
-        || module->types[type_index]->type_flag != WASM_TYPE_FUNC) {
+    if (module->types[type_index]->type_flag != WASM_TYPE_FUNC) {
         set_error_buf(error_buf, error_buf_size, "unknown function type");
         return false;
     }
@@ -1257,9 +1255,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                               error_buf_size)) {
                             goto fail;
                         }
-                        if (module->types[type_idx] == NULL
-                            || module->types[type_idx]->type_flag
-                                   != WASM_TYPE_STRUCT) {
+                        if (module->types[type_idx]->type_flag
+                            != WASM_TYPE_STRUCT) {
                             set_error_buf(error_buf, error_buf_size,
                                           "unknown struct type");
                             goto fail;
@@ -1802,6 +1799,11 @@ resolve_func_type(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
         return false;
     }
     if (ref_type_map_count > 0) {
+        if (ref_type_map_count > UINT16_MAX) {
+            set_error_buf(error_buf, error_buf_size,
+                          "ref type count too large");
+            return false;
+        }
         total_size = sizeof(WASMRefTypeMap) * (uint64)ref_type_map_count;
         if (!(type->ref_type_maps =
                   loader_malloc(total_size, error_buf, error_buf_size))) {
@@ -1941,6 +1943,11 @@ resolve_struct_type(const uint8 **p_buf, const uint8 *buf_end,
         return false;
     }
     if (ref_type_map_count > 0) {
+        if (ref_type_map_count > UINT16_MAX) {
+            set_error_buf(error_buf, error_buf_size,
+                          "ref type count too large");
+            return false;
+        }
         total_size = sizeof(WASMRefTypeMap) * (uint64)ref_type_map_count;
         if (!(type->ref_type_maps =
                   loader_malloc(total_size, error_buf, error_buf_size))) {
@@ -1962,6 +1969,10 @@ resolve_struct_type(const uint8 **p_buf, const uint8 *buf_end,
         if (!resolve_value_type(&p, p_end, module, type_count,
                                 &need_ref_type_map, &ref_type, true, error_buf,
                                 error_buf_size)) {
+            goto fail;
+        }
+        if (!is_valid_field_type(ref_type.ref_type)) {
+            set_error_buf(error_buf, error_buf_size, "invalid field type");
             goto fail;
         }
         type->fields[i].field_type = ref_type.ref_type;
@@ -2497,6 +2508,13 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             return false;
         }
 #endif /* end of WASM_ENABLE_GC == 0 */
+    }
+
+    for (i = 0; i < module->type_count; i++) {
+        if (module->types[i] == NULL) {
+            set_error_buf_v(error_buf, error_buf_size, "unknown type %d", i);
+            return false;
+        }
     }
 
     if (p != p_end) {
@@ -3952,6 +3970,11 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
             }
 #if WASM_ENABLE_GC != 0
             if (ref_type_map_count > 0) {
+                if (ref_type_map_count > UINT16_MAX) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "ref type count too large");
+                    return false;
+                }
                 total_size =
                     sizeof(WASMRefTypeMap) * (uint64)ref_type_map_count;
                 if (!(func->local_ref_type_maps = loader_malloc(
@@ -12801,9 +12824,7 @@ re_scan:
                                           error_buf, error_buf_size)) {
                         goto fail;
                     }
-                    if (module->types[type_idx1] == NULL
-                        || module->types[type_idx1]->type_flag
-                               != WASM_TYPE_FUNC) {
+                    if (module->types[type_idx1]->type_flag != WASM_TYPE_FUNC) {
                         set_error_buf(error_buf, error_buf_size,
                                       "unknown function type");
                         goto fail;
@@ -12820,9 +12841,7 @@ re_scan:
                                           error_buf, error_buf_size)) {
                         goto fail;
                     }
-                    if (module->types[type_idx] == NULL
-                        || module->types[type_idx]->type_flag
-                               != WASM_TYPE_FUNC) {
+                    if (module->types[type_idx]->type_flag != WASM_TYPE_FUNC) {
                         set_error_buf(error_buf, error_buf_size,
                                       "unknown function type");
                         goto fail;
@@ -14658,9 +14677,8 @@ re_scan:
                                               error_buf_size)) {
                             goto fail;
                         }
-                        if (module->types[type_idx] == NULL
-                            || module->types[type_idx]->type_flag
-                                   != WASM_TYPE_STRUCT) {
+                        if (module->types[type_idx]->type_flag
+                            != WASM_TYPE_STRUCT) {
                             set_error_buf(error_buf, error_buf_size,
                                           "unknown struct type");
                             goto fail;
@@ -14746,9 +14764,8 @@ re_scan:
                                               error_buf_size)) {
                             goto fail;
                         }
-                        if (module->types[type_idx] == NULL
-                            || module->types[type_idx]->type_flag
-                                   != WASM_TYPE_STRUCT) {
+                        if (module->types[type_idx]->type_flag
+                            != WASM_TYPE_STRUCT) {
                             set_error_buf(error_buf, error_buf_size,
                                           "unknown struct type");
                             goto fail;
