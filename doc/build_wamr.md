@@ -341,7 +341,7 @@ And the wasm app can calls below APIs to allocate/free memory from/to the shared
 We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:
 
 ``` Bash
-cmake .. -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_LIBC_WASI=0 -DWAMR_BUILD_PLATFORM=linux
+cmake .. -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_LIBC_WASI=1 -DWAMR_BUILD_PLATFORM=linux
 ```
 
 Or if we want to enable interpreter, disable AOT and WASI, and build as X86_32, we can run command:
