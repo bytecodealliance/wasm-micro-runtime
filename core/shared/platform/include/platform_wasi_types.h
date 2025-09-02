@@ -20,20 +20,19 @@
 /* clang-format off */
 
 #ifdef __cplusplus
-extern "C" {
-#endif
-
 #ifndef _Static_assert
 #define _Static_assert static_assert
 #endif /* _Static_assert */
 
 #ifndef _Alignof
-#if defined(_MSC_VER) && !_CRT_HAS_C11
-#define _Alignof __alignof
-#else
 #define _Alignof alignof
-#endif
 #endif /* _Alignof */
+
+extern "C" {
+#elif defined(_MSC_VER) && !_CRT_HAS_C11
+#define _Static_assert static_assert
+#define _Alignof __alignof
+#endif
 
 /* There is no need to check the WASI layout if we're using uvwasi or libc-wasi
  * is not enabled at all. */
