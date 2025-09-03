@@ -161,6 +161,8 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
         return NULL;
     }
 
+    memset(ret, 0, aligned_size);
+
     if (prot & MMAP_PROT_READ)
         mprot |= SGX_PROT_READ;
     if (prot & MMAP_PROT_WRITE)
