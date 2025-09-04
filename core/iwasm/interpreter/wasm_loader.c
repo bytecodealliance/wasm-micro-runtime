@@ -6712,15 +6712,7 @@ create_module(char *name, char *error_buf, uint32 error_buf_size)
 #endif
 
 #if WASM_ENABLE_LIBC_WASI != 0
-#if WASM_ENABLE_UVWASI == 0
-    module->wasi_args.stdio[0] = os_invalid_raw_handle();
-    module->wasi_args.stdio[1] = os_invalid_raw_handle();
-    module->wasi_args.stdio[2] = os_invalid_raw_handle();
-#else
-    module->wasi_args.stdio[0] = os_get_invalid_handle();
-    module->wasi_args.stdio[1] = os_get_invalid_handle();
-    module->wasi_args.stdio[2] = os_get_invalid_handle();
-#endif /* WASM_ENABLE_UVWASI == 0 */
+    wasi_args_set_defaults(&module->wasi_args);
 #endif /* WASM_ENABLE_LIBC_WASI != 0 */
 
     (void)ret;

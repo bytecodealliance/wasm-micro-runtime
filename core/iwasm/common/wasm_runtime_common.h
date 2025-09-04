@@ -1118,6 +1118,9 @@ wasm_runtime_lookup_wasi_start_function(WASMModuleInstanceCommon *module_inst);
 WASM_RUNTIME_API_EXTERN uint32_t
 wasm_runtime_get_wasi_exit_code(WASMModuleInstanceCommon *module_inst);
 
+void
+wasi_args_set_defaults(WASIArguments *args);
+
 bool
 wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                        const char *dir_list[], uint32 dir_count,
