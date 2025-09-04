@@ -162,20 +162,6 @@ libc_wasi_parse(char *arg, libc_wasi_parse_context_t *ctx)
     return LIBC_WASI_PARSE_RESULT_OK;
 }
 
-void
-libc_wasi_init(wasm_module_t wasm_module, int argc, char **argv,
-               libc_wasi_parse_context_t *ctx)
-{
-    wasm_runtime_set_wasi_args(wasm_module, ctx->dir_list, ctx->dir_list_size,
-                               ctx->map_dir_list, ctx->map_dir_list_size,
-                               ctx->env_list, ctx->env_list_size, argv, argc);
-
-    wasm_runtime_set_wasi_addr_pool(wasm_module, ctx->addr_pool,
-                                    ctx->addr_pool_size);
-    wasm_runtime_set_wasi_ns_lookup_pool(wasm_module, ctx->ns_lookup_pool,
-                                         ctx->ns_lookup_pool_size);
-}
-
 static void
 libc_wasi_set_init_args(struct InstantiationArgs2 *args, int argc, char **argv,
                         libc_wasi_parse_context_t *ctx)
