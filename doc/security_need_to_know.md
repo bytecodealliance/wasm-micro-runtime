@@ -29,9 +29,9 @@ Only bugs that affect [tier A platforms or features](./tired_support.md) should 
 
 Actions that differ from Wasm rules (like calculating wrong values) are not seen as security issues as long as they stay within the sandbox.
 
-As embedded code, trusts inputs from the guest. By default, APIs and CLIs are following the principle of **caller guarantee**. If the caller provides incorrect parameters, it is not a security issue. For example, if a user passes an invalid file descriptor to `fd_read`, it is not a security issue.
+By default, APIs and CLIs are following the principle of **caller guarantee**. If the caller provides incorrect parameters or users input malformed options, it is not a security issue. For example, if a user passes an invalid file descriptor to `fd_read`, it is not a security issue.
 
-While .aot files are trusted, .wasm files are not. Any unexpected behavior caused by a .wasm file is not a security issue. For example, if a .wasm file causes a runtime crash or hang, it is a security issue. However, if the same .wasm file causes a crash or hang when converted to an .aot file, it is not a security issue.
+.wasm are not trusted. Malformed .wasm files should be handled gracefully. If a .wasm file causes a runtime crash or hang, it is a security issue. On the other hand, it's expected that aot runtime alone doesn't provide the same guarantee. So user-crafted aot modules can cause anything, including crashes or hangs. They are not considered security issues.
 
 A denial-of-service (DoS) attack is a cyberattack that aims to make a computer or network resource unavailable to its users. If the service (runtime in this case) can recover and start another module or run another function within the same instance, it is not considered unavailable, and thus not a Denial of Service (DoS).
 

@@ -18,8 +18,8 @@
 | RISCV32      | B     |
 | RISCV64      | B     |
 | THUMB        | B     |
+| XTENSA       | B     |
 | MIPS         | C     |
-| XTENSA       | C     |
 
 [^1]: will upgrade to **A** after further testing and validation.
 
