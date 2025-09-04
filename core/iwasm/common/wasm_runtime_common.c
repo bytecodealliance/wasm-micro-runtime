@@ -3438,6 +3438,21 @@ wasm_runtime_module_dup_data(WASMModuleInstanceCommon *module_inst,
 
 #if WASM_ENABLE_LIBC_WASI != 0
 
+void
+wasi_args_set_defaults(WASIArguments *args)
+{
+    memset(args, 0, sizeof(*args));
+#if WASM_ENABLE_UVWASI == 0
+    args->stdio[0] = os_invalid_raw_handle();
+    args->stdio[1] = os_invalid_raw_handle();
+    args->stdio[2] = os_invalid_raw_handle();
+#else
+    args->stdio[0] = os_get_invalid_handle();
+    args->stdio[1] = os_get_invalid_handle();
+    args->stdio[2] = os_get_invalid_handle();
+#endif /* WASM_ENABLE_UVWASI == 0 */
+}
+
 static WASIArguments *
 get_wasi_args_from_module(wasm_module_t module)
 {
