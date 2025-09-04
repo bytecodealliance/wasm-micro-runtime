@@ -3494,6 +3494,7 @@ wasm_runtime_set_wasi_args_ex(WASMModuleCommon *module, const char *dir_list[],
     wasi_args->stdio[0] = (os_raw_file_handle)stdinfd;
     wasi_args->stdio[1] = (os_raw_file_handle)stdoutfd;
     wasi_args->stdio[2] = (os_raw_file_handle)stderrfd;
+    wasi_args->set_by_user = true;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
 #if WASM_ENABLE_INTERP != 0
@@ -3524,6 +3525,7 @@ wasm_runtime_set_wasi_addr_pool(wasm_module_t module, const char *addr_pool[],
     if (wasi_args) {
         wasi_args->addr_pool = addr_pool;
         wasi_args->addr_count = addr_pool_size;
+        wasi_args->set_by_user = true;
     }
 }
 
@@ -3537,6 +3539,7 @@ wasm_runtime_set_wasi_ns_lookup_pool(wasm_module_t module,
     if (wasi_args) {
         wasi_args->ns_lookup_pool = ns_lookup_pool;
         wasi_args->ns_lookup_count = ns_lookup_pool_size;
+        wasi_args->set_by_user = true;
     }
 }
 
