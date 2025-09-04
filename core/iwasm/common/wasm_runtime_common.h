@@ -614,6 +614,7 @@ wasm_runtime_get_exec_env_tls(void);
 
 struct InstantiationArgs2 {
     InstantiationArgs v1;
+    WASIArguments wasi;
 };
 
 void

@@ -1648,6 +1648,7 @@ void
 wasm_runtime_instantiation_args_set_defaults(struct InstantiationArgs2 *args)
 {
     memset(args, 0, sizeof(*args));
+    wasi_args_set_defaults(&args->wasi);
 }
 
 WASMModuleInstanceCommon *
