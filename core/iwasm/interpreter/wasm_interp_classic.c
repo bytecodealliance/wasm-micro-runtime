@@ -5697,7 +5697,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                              true);
                         break;
                     case WASM_OP_I64_TRUNC_SAT_U_F64:
-                        DEF_OP_TRUNC_SAT_F64(-1.0f, 18446744073709551616.0,
+                        DEF_OP_TRUNC_SAT_F64(-1.0, 18446744073709551616.0,
                                              false, false);
                         break;
 #if WASM_ENABLE_BULK_MEMORY != 0
