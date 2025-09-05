@@ -87,7 +87,9 @@ float rintf(float x);
 float fabsf(float x);
 float truncf(float x);
 int signbit(double x);
+int signbitf(float x);
 int isnan(double x);
+int isnanf(float x);
 /* clang-format on */
 #endif
 

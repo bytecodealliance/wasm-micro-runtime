@@ -200,10 +200,10 @@ rotr64(uint64 n, uint64 c)
 static inline float32
 f32_min(float32 a, float32 b)
 {
-    if (isnan(a) || isnan(b))
+    if (isnanf(a) || isnanf(b))
         return NAN;
     else if (a == 0 && a == b)
-        return signbit(a) ? a : b;
+        return signbitf(a) ? a : b;
     else
         return a > b ? b : a;
 }
@@ -211,10 +211,10 @@ f32_min(float32 a, float32 b)
 static inline float32
 f32_max(float32 a, float32 b)
 {
-    if (isnan(a) || isnan(b))
+    if (isnanf(a) || isnanf(b))
         return NAN;
     else if (a == 0 && a == b)
-        return signbit(a) ? b : a;
+        return signbitf(a) ? b : a;
     else
         return a > b ? a : b;
 }
@@ -861,31 +861,31 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
         PUSH_##src_op_type(method(src_val));       \
     } while (0)
 
-#define TRUNC_FUNCTION(func_name, src_type, dst_type, signed_type)  \
-    static dst_type func_name(src_type src_value, src_type src_min, \
-                              src_type src_max, dst_type dst_min,   \
-                              dst_type dst_max, bool is_sign)       \
-    {                                                               \
-        dst_type dst_value = 0;                                     \
-        if (!isnan(src_value)) {                                    \
-            if (src_value <= src_min)                               \
-                dst_value = dst_min;                                \
-            else if (src_value >= src_max)                          \
-                dst_value = dst_max;                                \
-            else {                                                  \
-                if (is_sign)                                        \
-                    dst_value = (dst_type)(signed_type)src_value;   \
-                else                                                \
-                    dst_value = (dst_type)src_value;                \
-            }                                                       \
-        }                                                           \
-        return dst_value;                                           \
+#define TRUNC_FUNCTION(func_name, src_type, dst_type, signed_type, isnan_op) \
+    static dst_type func_name(src_type src_value, src_type src_min,         \
+                              src_type src_max, dst_type dst_min,           \
+                              dst_type dst_max, bool is_sign)               \
+    {                                                                       \
+        dst_type dst_value = 0;                                             \
+        if (!isnan_op(src_value)) {                                         \
+            if (src_value <= src_min)                                       \
+                dst_value = dst_min;                                        \
+            else if (src_value >= src_max)                                  \
+                dst_value = dst_max;                                        \
+            else {                                                          \
+                if (is_sign)                                                \
+                    dst_value = (dst_type)(signed_type)src_value;           \
+                else                                                        \
+                    dst_value = (dst_type)src_value;                        \
+            }                                                               \
+        }                                                                   \
+        return dst_value;                                                   \
     }
 
-TRUNC_FUNCTION(trunc_f32_to_i32, float32, uint32, int32)
-TRUNC_FUNCTION(trunc_f32_to_i64, float32, uint64, int64)
-TRUNC_FUNCTION(trunc_f64_to_i32, float64, uint32, int32)
-TRUNC_FUNCTION(trunc_f64_to_i64, float64, uint64, int64)
+TRUNC_FUNCTION(trunc_f32_to_i32, float32, uint32, int32, isnanf)
+TRUNC_FUNCTION(trunc_f32_to_i64, float32, uint64, int64, isnanf)
+TRUNC_FUNCTION(trunc_f64_to_i32, float64, uint32, int32, isnan)
+TRUNC_FUNCTION(trunc_f64_to_i64, float64, uint64, int64, isnan)
 
 static bool
 trunc_f32_to_int(WASMModuleInstance *module, uint32 *frame_sp, float32 src_min,
@@ -896,7 +896,7 @@ trunc_f32_to_int(WASMModuleInstance *module, uint32 *frame_sp, float32 src_min,
     uint32 dst_value_i32;
 
     if (!saturating) {
-        if (isnan(src_value)) {
+        if (isnanf(src_value)) {
             wasm_set_exception(module, "invalid conversion to integer");
             return false;
         }

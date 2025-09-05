@@ -79,7 +79,7 @@ aot_compile_op_f32_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
         PUSH_F32(value);
     }
-    else if (!isnan(f32_const)) {
+    else if (!isnanf(f32_const)) {
         value = F32_CONST(f32_const);
         CHECK_LLVM_CONST(value);
         PUSH_F32(value);

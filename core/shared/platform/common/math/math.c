@@ -1005,6 +1005,21 @@ freebsd_isnan(double d)
     }
 }
 
+static int
+freebsd_isnanf(float f)
+{
+    if (is_little_endian()) {
+        IEEEf2bits_L u;
+        u.f = f;
+        return (u.bits.exp == 0xff && u.bits.man != 0);
+    }
+    else {
+        IEEEf2bits_B u;
+        u.f = f;
+        return (u.bits.exp == 0xff && u.bits.man != 0);
+    }
+}
+
 static float
 freebsd_fabsf(float x)
 {
@@ -1601,6 +1616,12 @@ fabs(double x)
 }
 
 int
+isnanf(float x)
+{
+    return freebsd_isnanf(x);
+}
+
+int
 isnan(double x)
 {
     return freebsd_isnan(x);
@@ -1616,6 +1637,14 @@ int
 signbit(double x)
 {
     return ((__HI(x) & 0x80000000) >> 31);
+}
+
+int
+signbitf(float x)
+{
+    unsigned int i;
+    GET_FLOAT_WORD(i, x);
+    return (int)(i >> 31);
 }
 
 float

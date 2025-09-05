@@ -45,7 +45,7 @@ local_isnan(double x)
 static int
 local_isnanf(float x)
 {
-    return isnan(x);
+    return isnanf(x);
 }
 
 #define RETURN_IF_NANF(fp)  \
@@ -198,7 +198,7 @@ jit_compile_check_value_range(JitCompContext *cc, JitReg value, JitReg min_fp,
         float min_fp_f32_const = jit_cc_get_const_F32(cc, min_fp);
         float max_fp_f32_const = jit_cc_get_const_F32(cc, max_fp);
 
-        if (isnan(value_f32_const)) {
+        if (isnanf(value_f32_const)) {
             /* throw exception if value is nan */
             if (!jit_emit_exception(cc, EXCE_INVALID_CONVERSION_TO_INTEGER,
                                     JIT_OP_JMP, 0, NULL))

@@ -128,7 +128,7 @@ aot_intrinsic_sqrt_f64(float64 a)
 float32
 aot_intrinsic_copysign_f32(float32 a, float32 b)
 {
-    return signbit(b) ? -fabsf(a) : fabsf(a);
+    return signbitf(b) ? -fabsf(a) : fabsf(a);
 }
 
 float64
@@ -140,10 +140,10 @@ aot_intrinsic_copysign_f64(float64 a, float64 b)
 float32
 aot_intrinsic_fmin_f32(float32 a, float32 b)
 {
-    if (isnan(a) || isnan(b))
+    if (isnanf(a) || isnanf(b))
         return NAN;
     else if (a == 0 && a == b)
-        return signbit(a) ? a : b;
+        return signbitf(a) ? a : b;
     else
         return a > b ? b : a;
 }
@@ -162,10 +162,10 @@ aot_intrinsic_fmin_f64(float64 a, float64 b)
 float32
 aot_intrinsic_fmax_f32(float32 a, float32 b)
 {
-    if (isnan(a) || isnan(b))
+    if (isnanf(a) || isnanf(b))
         return NAN;
     else if (a == 0 && a == b)
-        return signbit(a) ? b : a;
+        return signbitf(a) ? b : a;
     else
         return a > b ? a : b;
 }
@@ -383,10 +383,10 @@ aot_intrinsic_f32_cmp(AOTFloatCond cond, float32 lhs, float32 rhs)
             return lhs >= rhs ? 1 : 0;
 
         case FLOAT_NE:
-            return (isnan(lhs) || isnan(rhs) || lhs != rhs) ? 1 : 0;
+            return (isnanf(lhs) || isnanf(rhs) || lhs != rhs) ? 1 : 0;
 
         case FLOAT_UNO:
-            return (isnan(lhs) || isnan(rhs)) ? 1 : 0;
+            return (isnanf(lhs) || isnanf(rhs)) ? 1 : 0;
 
         default:
             break;

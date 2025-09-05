@@ -190,11 +190,13 @@ float rintf(float x);
 float fabsf(float x);
 float truncf(float x);
 int isnan(double x);
+int isnanf(float x);
 double pow(double x, double y);
 double scalbn(double x, int n);
 
 #ifndef BH_HAS_SIGNBIT
 int signbit(double x);
+int signbitf(float x);
 #endif
 
 unsigned long long int strtoull(const char *nptr, char **endptr, int base);
