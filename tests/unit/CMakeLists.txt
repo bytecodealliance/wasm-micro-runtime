@@ -76,9 +76,9 @@ if (NOT WAMR_BUILD_TARGET STREQUAL "X86_32")
   add_subdirectory (compilation)
 
   # Fast-JIT or mem64 is not supported on X86_32
-  add_subdirectory (running-modes)
+  # add_subdirectory (running-modes)
   add_subdirectory (memory64)
-  add_subdirectory (shared-heap)
+  # add_subdirectory (shared-heap)
 
   # HW_BOUND_CHECK is not supported on X86_32
   add_subdirectory (runtime-common)
