@@ -22,17 +22,6 @@ set (WAMR_BUILD_LOAD_CUSTOM_SECTION 1)
 
 include (../unit_common.cmake)
 
-set (LLVM_SRC_ROOT "${WAMR_ROOT_DIR}/core/deps/llvm")
-if (NOT EXISTS "${LLVM_SRC_ROOT}/build")
-  message (FATAL_ERROR "Cannot find LLVM dir: ${LLVM_SRC_ROOT}/build")
-endif ()
-set (CMAKE_PREFIX_PATH "${LLVM_SRC_ROOT}/build;${CMAKE_PREFIX_PATH}")
-find_package(LLVM REQUIRED CONFIG)
-include_directories(${LLVM_INCLUDE_DIRS})
-add_definitions(${LLVM_DEFINITIONS})
-message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
-message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
-
 include (${IWASM_DIR}/compilation/iwasm_compl.cmake)
 
 include_directories (${CMAKE_CURRENT_SOURCE_DIR})
@@ -42,17 +31,10 @@ file (GLOB_RECURSE source_all ${CMAKE_CURRENT_SOURCE_DIR}/*.cc)
 set (UNIT_SOURCE ${source_all})
 
 set (unit_test_sources
-     ${UNIT_SOURCE}
-     ${PLATFORM_SHARED_SOURCE}
-     ${UTILS_SHARED_SOURCE}
-     ${MEM_ALLOC_SHARED_SOURCE}
-     ${NATIVE_INTERFACE_SOURCE}
-     ${IWASM_COMMON_SOURCE}
-     ${IWASM_INTERP_SOURCE}
-     ${IWASM_AOT_SOURCE}
-     ${IWASM_COMPL_SOURCE}
-     ${WASM_APP_LIB_SOURCE_ALL}
-    )
+  ${UNIT_SOURCE}
+  ${WAMR_RUNTIME_LIB_SOURCE}
+  ${IWASM_COMPL_SOURCE}
+)
 
 # Automatically build wasm-apps for this test
 add_subdirectory(wasm-apps)

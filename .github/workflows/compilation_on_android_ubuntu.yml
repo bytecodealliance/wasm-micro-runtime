@@ -350,6 +350,9 @@ jobs:
         uses: ./.github/actions/install-wasi-sdk-wabt
         with:
           os: ${{ matrix.os }}
+      
+      - name: install llvm dependencies
+        run: sudo apt update && sudo apt install -y libzstd-dev zlib1g-dev
 
       - name: Build wamrc
         run: |

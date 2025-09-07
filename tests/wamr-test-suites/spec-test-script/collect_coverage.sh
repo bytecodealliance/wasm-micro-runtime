@@ -28,10 +28,12 @@ echo "Start to collect code coverage of ${SRC_COV_DIR} .."
 pushd ${SRC_COV_DIR} > /dev/null 2>&1
 
 # collect all code coverage data
-lcov -q -o ${SRC_TEMP_COV_FILE} -c -d . --rc lcov_branch_coverage=1
+# for lcov 2.x: ignore-errors mismatch,negative
+lcov -q -o ${SRC_TEMP_COV_FILE} -c -d . --rc lcov_branch_coverage=1 --rc geninfo_unexecuted_blocks=1
 # extract code coverage data of WAMR source files
+# for lcov 2.x: ignore-errors unused
 lcov -q -r ${SRC_TEMP_COV_FILE} -o ${SRC_TEMP_COV_FILE} \
-     -rc lcov_branch_coverage=1 \
+     -rc lcov_branch_coverage=1\
      "*/usr/*" "*/_deps/*" "*/deps/*" "*/tests/unit/*" \
      "*/llvm/include/*" "*/include/llvm/*" "*/samples/*" \
     "*/test-tools/*" "*/tests/standalone/*" "*/tests/*"

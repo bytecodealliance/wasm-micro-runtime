@@ -19,8 +19,8 @@ file (GLOB_RECURSE source_all ${CMAKE_CURRENT_SOURCE_DIR}/*.cc)
 set (UNIT_SOURCE ${source_all})
 
 set (unit_test_sources
-    ${UNIT_SOURCE}
-    ${WAMR_RUNTIME_LIB_SOURCE}
+  ${UNIT_SOURCE}
+  ${WAMR_RUNTIME_LIB_SOURCE}
 )
 
 add_executable (shared_utils_test ${unit_test_sources})

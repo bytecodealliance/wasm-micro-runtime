@@ -12,32 +12,16 @@ set(WAMR_BUILD_APP_FRAMEWORK 0)
 
 include(../unit_common.cmake)
 
-set(LLVM_SRC_ROOT "${WAMR_ROOT_DIR}/core/deps/llvm")
-
-if(NOT EXISTS "${LLVM_SRC_ROOT}/build")
-  message(FATAL_ERROR "Cannot find LLVM dir: ${LLVM_SRC_ROOT}/build")
-endif()
-
-set(CMAKE_PREFIX_PATH "${LLVM_SRC_ROOT}/build;${CMAKE_PREFIX_PATH}")
-find_package(LLVM REQUIRED CONFIG)
-include_directories(${LLVM_INCLUDE_DIRS})
-add_definitions(${LLVM_DEFINITIONS})
-message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
-message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
-
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 file(GLOB_RECURSE source_all ${CMAKE_CURRENT_SOURCE_DIR}/*.cc)
 
 set(UNIT_SOURCE ${source_all})
 
-aux_source_directory(. SRC_LIST)
-
 set(unit_test_sources
   ${UNIT_SOURCE}
   ${WAMR_RUNTIME_LIB_SOURCE}
   ${UNCOMMON_SHARED_SOURCE}
-  ${SRC_LIST}
 )
 
 add_executable(runtime_common_test ${unit_test_sources})
