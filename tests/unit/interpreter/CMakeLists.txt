@@ -24,15 +24,9 @@ file (GLOB_RECURSE source_all ${CMAKE_CURRENT_SOURCE_DIR}/*.cc)
 set (UNIT_SOURCE ${source_all})
 
 set (unit_test_sources
-     ${UNIT_SOURCE}
-     ${PLATFORM_SHARED_SOURCE}
-     ${UTILS_SHARED_SOURCE}
-     ${MEM_ALLOC_SHARED_SOURCE}
-     ${NATIVE_INTERFACE_SOURCE}
-     ${LIBC_BUILTIN_SOURCE}
-     ${IWASM_COMMON_SOURCE}
-     ${IWASM_INTERP_SOURCE}
-    )
+  ${UNIT_SOURCE}
+  ${WAMR_RUNTIME_LIB_SOURCE}
+)
 
 # Now simply link against gtest or gtest_main as needed. Eg
 add_executable (interpreter_test ${unit_test_sources})
