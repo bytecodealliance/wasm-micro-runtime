@@ -9,7 +9,8 @@ add_definitions (-DRUN_ON_LINUX)
 
 set (WAMR_BUILD_LIBC_WASI 0)
 set (WAMR_BUILD_LIBC_BUILTIN 0)
-set (WAMR_BUILD_JIT 0)
+# to involve LLVM
+set (WAMR_BUILD_JIT 1)
 set (WAMR_BUILD_LAZY_JIT 0)
 set (WAMR_BUILD_AOT 1)
 set (WAMR_BUILD_MULTI_MODULE 0)
@@ -26,7 +27,7 @@ include (${IWASM_DIR}/compilation/iwasm_compl.cmake)
 
 add_executable (linux_perf_test test_sort_func_ptrs.cc)
 target_compile_options(linux_perf_test PUBLIC -fpermissive)
-target_link_libraries(linux_perf_test gtest_main )
+target_link_libraries(linux_perf_test ${LLVM_AVAILABLE_LIBS} gtest_main )
 target_link_options(linux_perf_test
   PUBLIC
     LINKER:--unresolved-symbols=ignore-all

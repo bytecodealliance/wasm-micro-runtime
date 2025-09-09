@@ -9,7 +9,8 @@ add_definitions (-DRUN_ON_LINUX)
 
 set (WAMR_BUILD_AOT 1)
 set (WAMR_BUILD_INTERP 0)
-set (WAMR_BUILD_JIT 0)
+# to involve LLVM
+set (WAMR_BUILD_JIT 1)
 set (WAMR_BUILD_SIMD 1)
 set (WAMR_BUILD_REF_TYPES 1)
 set (WAMR_BUILD_LIBC_WASI 0)
