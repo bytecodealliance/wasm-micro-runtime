@@ -5,8 +5,20 @@ cmake_minimum_required(VERSION 3.14)
 
 project(test-running-modes)
 
-# Compile wasm modules
-add_subdirectory(wasm-apps)
+set(WASI_SDK_DIR "/opt/wasi-sdk")
+set(WASISDK_TOOLCHAIN "${WASI_SDK_DIR}/share/cmake/wasi-sdk.cmake")
+
+include(ExternalProject)
+ExternalProject_Add(
+  test-running-modes-wasm-apps
+  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps
+  BUILD_ALWAYS YES
+  CONFIGURE_COMMAND ${CMAKE_COMMAND} -S ${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps -B build
+                      -DWASI_SDK_PREFIX=${WASI_SDK_DIR}
+                      -DCMAKE_TOOLCHAIN_FILE=${WASISDK_TOOLCHAIN}
+  BUILD_COMMAND     ${CMAKE_COMMAND} --build build
+  INSTALL_COMMAND   ${CMAKE_COMMAND} --install build --prefix ${CMAKE_CURRENT_BINARY_DIR}
+)
 
 add_definitions(-DRUN_ON_LINUX)
 
@@ -32,7 +44,7 @@ set(unit_test_sources
 
 # Now simply link against gtest or gtest_main as needed. Eg
 add_executable(wasm_running_modes_test ${unit_test_sources})
-
 target_link_libraries(wasm_running_modes_test ${LLVM_AVAILABLE_LIBS} gtest_main)
+add_dependencies(wasm_running_modes_test test-running-modes-wasm-apps)
 
 gtest_discover_tests(wasm_running_modes_test)

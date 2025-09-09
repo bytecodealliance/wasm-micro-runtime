@@ -4,32 +4,19 @@
 cmake_minimum_required(VERSION 3.14)
 project(wasm-apps)
 
-set(WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../..)
-
-set(CMAKE_SYSTEM_PROCESSOR wasm32)
-set(CMAKE_SYSROOT ${WAMR_ROOT_DIR}/wamr-sdk/app/libc-builtin-sysroot)
-
-if (NOT DEFINED WASI_SDK_DIR)
-    set(WASI_SDK_DIR "/opt/wasi-sdk")
-endif ()
-
-set(CMAKE_C_FLAGS "-nostdlib -pthread -Qunused-arguments")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -z stack-size=8192 -nostdlib")
-set(CMAKE_C_COMPILER_TARGET "wasm32")
-set(CMAKE_C_COMPILER "${WASI_SDK_DIR}/bin/clang")
-
-set(DEFINED_SYMBOLS
-        "${WAMR_ROOT_DIR}/wamr-sdk/app/libc-builtin-sysroot/share/defined-symbols.txt")
-
-set(CMAKE_EXE_LINKER_FLAGS
-        "-Wl,--no-entry           \
-      -Wl,--initial-memory=65536  \
-      -Wl,--export-all            \
-      -Wl,--allow-undefined"
-        )
+# set(CMAKE_C_FLAGS "-nostdlib -pthread -Qunused-arguments")
+# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -z stack-size=8192 -nostdlib")
 
 add_executable(mytest.wasm mytest.c)
 target_link_libraries(mytest.wasm)
+target_compile_options(mytest.wasm PRIVATE
+  -pthread
+)
+target_link_options(mytest.wasm PRIVATE
+  LINKER:--allow-undefined
+  LINKER:--export-all
+  LINKER:--no-entry
+)
 
 add_executable(hello.wasm hello.c)
 target_link_libraries(hello.wasm)

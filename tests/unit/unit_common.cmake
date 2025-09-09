@@ -5,11 +5,10 @@ if (NOT DEFINED WAMR_BUILD_PLATFORM)
   set (WAMR_BUILD_PLATFORM "linux")
 endif ()
 
-set (UNIT_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR})
-
-include_directories(${UNIT_ROOT_DIR})
-
 enable_language (ASM)
+
+# Usually, test cases should identify their unique
+# complation flags to implement their test plan
 
 # Set WAMR_BUILD_TARGET, currently values supported:
 # "X86_64", "AMD_64", "X86_32", "ARM_32", "MIPS_32", "XTENSA_32"
@@ -23,47 +22,6 @@ if (NOT DEFINED WAMR_BUILD_TARGET)
   endif ()
 endif ()
 
-if (NOT CMAKE_BUILD_TYPE)
-  set (CMAKE_BUILD_TYPE Debug)
-endif ()
-
-if (NOT DEFINED WAMR_BUILD_INTERP)
-  # Enable Interpreter by default
-  set (WAMR_BUILD_INTERP 1)
-endif ()
-
-if (NOT DEFINED WAMR_BUILD_AOT)
-  # Enable AOT by default.
-  set (WAMR_BUILD_AOT 1)
-endif ()
-
-if (NOT DEFINED WAMR_BUILD_JIT)
-  # Disable JIT by default.
-  set (WAMR_BUILD_JIT 0)
-endif ()
-
-if (NOT DEFINED WAMR_BUILD_LIBC_BUILTIN)
-  # Enable libc builtin support by default
-  set (WAMR_BUILD_LIBC_BUILTIN 1)
-endif ()
-
-if (NOT DEFINED WAMR_BUILD_LIBC_WASI)
-  # Enable libc wasi support by default
-  set (WAMR_BUILD_LIBC_WASI 1)
-endif ()
-
-if (NOT DEFINED WAMR_BUILD_MULTI_MODULE)
-  set (WAMR_BUILD_MULTI_MODULE 1)
-endif()
-
-if (NOT DEFINED WAMR_BUILD_APP_FRAMEWORK)
-  set (WAMR_BUILD_APP_FRAMEWORK 1)
-endif ()
-
-set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -ffunction-sections -fdata-sections \
-                                     -Wall -Wno-unused-parameter -Wno-pedantic")
-
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
 
 # include the build config template file
@@ -76,18 +34,5 @@ include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
 # Add helper classes
 include_directories(${CMAKE_CURRENT_LIST_DIR}/common)
-
-# Involve LLVM for AOT and JIT
-set(LLVM_SRC_ROOT "${WAMR_ROOT_DIR}/core/deps/llvm")
-if (NOT EXISTS "${LLVM_SRC_ROOT}/build")
-    message(FATAL_ERROR "Cannot find LLVM dir: ${LLVM_SRC_ROOT}/build")
-endif ()
-set (LLVM_DIR ${LLVM_SRC_ROOT}/build/lib/cmake/llvm)
-
-find_package(LLVM REQUIRED CONFIG)
-include_directories(${LLVM_INCLUDE_DIRS})
-add_definitions(${LLVM_DEFINITIONS})
-message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
-message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
 message(STATUS "unit_common.cmake included")

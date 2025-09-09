@@ -7,6 +7,11 @@ project (test-libc-builtin)
 
 add_definitions (-DRUN_ON_LINUX)
 
+set (WAMR_BUILD_AOT 0)
+set (WAMR_BUILD_FAST_INTERP 0)
+set (WAMR_BUILD_INTERP 1)
+set (WAMR_BUILD_JIT 0)
+set (WAMR_BUILD_LIBC_BUILTIN 1)
 set (WAMR_BUILD_LIBC_WASI 0)
 set (WAMR_BUILD_APP_FRAMEWORK 0)
 
