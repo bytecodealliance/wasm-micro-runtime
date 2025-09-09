@@ -862,24 +862,24 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
     } while (0)
 
 #define TRUNC_FUNCTION(func_name, src_type, dst_type, signed_type, isnan_op) \
-    static dst_type func_name(src_type src_value, src_type src_min,         \
-                              src_type src_max, dst_type dst_min,           \
-                              dst_type dst_max, bool is_sign)               \
-    {                                                                       \
-        dst_type dst_value = 0;                                             \
-        if (!isnan_op(src_value)) {                                         \
-            if (src_value <= src_min)                                       \
-                dst_value = dst_min;                                        \
-            else if (src_value >= src_max)                                  \
-                dst_value = dst_max;                                        \
-            else {                                                          \
-                if (is_sign)                                                \
-                    dst_value = (dst_type)(signed_type)src_value;           \
-                else                                                        \
-                    dst_value = (dst_type)src_value;                        \
-            }                                                               \
-        }                                                                   \
-        return dst_value;                                                   \
+    static dst_type func_name(src_type src_value, src_type src_min,          \
+                              src_type src_max, dst_type dst_min,            \
+                              dst_type dst_max, bool is_sign)                \
+    {                                                                        \
+        dst_type dst_value = 0;                                              \
+        if (!isnan_op(src_value)) {                                          \
+            if (src_value <= src_min)                                        \
+                dst_value = dst_min;                                         \
+            else if (src_value >= src_max)                                   \
+                dst_value = dst_max;                                         \
+            else {                                                           \
+                if (is_sign)                                                 \
+                    dst_value = (dst_type)(signed_type)src_value;            \
+                else                                                         \
+                    dst_value = (dst_type)src_value;                         \
+            }                                                                \
+        }                                                                    \
+        return dst_value;                                                    \
     }
 
 TRUNC_FUNCTION(trunc_f32_to_i32, float32, uint32, int32, isnanf)
