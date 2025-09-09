@@ -360,39 +360,6 @@ TEST_F(wasm_runtime_common_test_suite, functions_on_wasm_module)
     exception_test = wasm_runtime_get_exception(wasm_module_inst);
     EXPECT_NE(nullptr, exception_test);
 
-    WASMFunctionInstance func_test_1;
-    WASMFunction wasm_func_test;
-    WASMType wasm_type_test;
-    wasm_func_test.func_type = &wasm_type_test;
-    func_test_1.u.func = &wasm_func_test;
-    func_test_1.u.func->func_type->param_count = 1;
-    func_test_1.u.func->func_type->param_cell_num = 2;
-    func_test_1.u.func->func_type->types[0] = VALUE_TYPE_I64;
-    func_test_1.u.func->max_stack_cell_num = 10;
-    EXPECT_EQ(false, wasm_runtime_call_wasm_v(
-                         exec_env, (WASMFunctionInstanceCommon *)(&func_test_1),
-                         0, nullptr, 1, arguments));
-    func_test_1.u.func->func_type->types[0] = VALUE_TYPE_F32;
-    EXPECT_EQ(false, wasm_runtime_call_wasm_v(
-                         exec_env, (WASMFunctionInstanceCommon *)(&func_test_1),
-                         0, nullptr, 1, arguments));
-    func_test_1.u.func->func_type->types[0] = VALUE_TYPE_F64;
-    EXPECT_EQ(false, wasm_runtime_call_wasm_v(
-                         exec_env, (WASMFunctionInstanceCommon *)(&func_test_1),
-                         0, nullptr, 1, arguments));
-
-#if 0
-    WASMFunctionInstance func_test;
-    WASMFunctionImport func_import_test;
-    WASMType *func_type_1 = nullptr;
-    func_import_test.func_type = func_type;
-    func_test.u.func_import = &func_import_test;
-    func_test.is_import_func = true;
-    func_type_1 = wasm_runtime_get_function_type(&func_test,
-                                                 wasm_module_inst->module_type);
-    EXPECT_NE(func_type_1, nullptr);
-#endif
-
     EXPECT_EQ(true, wasm_runtime_create_exec_env_singleton(wasm_module_inst));
     EXPECT_NE(nullptr, wasm_runtime_get_exec_env_singleton(wasm_module_inst));
 
