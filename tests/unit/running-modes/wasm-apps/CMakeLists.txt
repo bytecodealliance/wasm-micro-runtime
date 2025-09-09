@@ -4,33 +4,30 @@
 cmake_minimum_required(VERSION 3.14)
 project(wasm-apps)
 
-# set(CMAKE_C_FLAGS "-nostdlib -pthread -Qunused-arguments")
-# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -z stack-size=8192 -nostdlib")
-
 add_executable(mytest.wasm mytest.c)
-target_link_libraries(mytest.wasm)
-target_compile_options(mytest.wasm PRIVATE
-  -pthread
-)
+target_compile_options(mytest.wasm PUBLIC -nostdlib)
 target_link_options(mytest.wasm PRIVATE
+  -nostdlib
   LINKER:--allow-undefined
   LINKER:--export-all
+  LINKER:--initial-memory=131072
   LINKER:--no-entry
 )
 
 add_executable(hello.wasm hello.c)
-target_link_libraries(hello.wasm)
+target_compile_options(hello.wasm PUBLIC -nostdlib)
+target_link_options(hello.wasm PRIVATE
+  -nostdlib
+  LINKER:--allow-undefined
+  LINKER:--export-all
+  LINKER:--initial-memory=131072
+  LINKER:--no-entry
+)
 
-add_custom_command(TARGET hello.wasm POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy
-        ${CMAKE_CURRENT_BINARY_DIR}/hello.wasm
-        ${CMAKE_CURRENT_BINARY_DIR}/../
-        COMMENT "Copy hello.wasm to the same directory of google test"
-        )
-
-add_custom_command(TARGET mytest.wasm POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy
-        ${CMAKE_CURRENT_BINARY_DIR}/mytest.wasm
-        ${CMAKE_CURRENT_BINARY_DIR}/../
-        COMMENT "Copy mytest.wasm to the same directory of google test"
-        )
+# install .wasm
+set(
+  WASM_FILES
+  ${CMAKE_CURRENT_BINARY_DIR}/hello.wasm
+  ${CMAKE_CURRENT_BINARY_DIR}/mytest.wasm
+)
+install(FILES ${WASM_FILES} DESTINATION .)
