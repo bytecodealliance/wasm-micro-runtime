@@ -20,6 +20,9 @@ else ()
     $<$<COMPILE_LANGUAGE:C>:-Wincompatible-pointer-types>
     $<$<COMPILE_LANGUAGE:C>:-Wimplicit-function-declaration>
   )
+  add_compile_options (
+    -Wdouble-promotion
+  )
   # waivers
   add_compile_options (
     -Wno-unused
