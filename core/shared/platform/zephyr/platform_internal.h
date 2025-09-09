@@ -67,6 +67,7 @@
 #include <zephyr/net/net_core.h>
 #include <zephyr/net/net_context.h>
 #include <zephyr/net/socket.h>
+#include <zephyr/fs/fs.h>
 #endif /* end of KERNEL_VERSION_NUMBER < 0x030200 */
 
 #ifdef CONFIG_USERSPACE
