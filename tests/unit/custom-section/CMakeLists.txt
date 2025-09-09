@@ -2,8 +2,22 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 cmake_minimum_required(VERSION 3.14)
-
 project (test-custom-section)
+
+set(WASI_SDK_DIR "/opt/wasi-sdk")
+set(WASISDK_TOOLCHAIN "${WASI_SDK_DIR}/share/cmake/wasi-sdk.cmake")
+
+include(ExternalProject)
+ExternalProject_Add(
+  custom-section-test-wasm-apps
+  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps
+  BUILD_ALWAYS YES
+  CONFIGURE_COMMAND ${CMAKE_COMMAND} -S ${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps -B build
+                      -DWASI_SDK_PREFIX=${WASI_SDK_DIR}
+                      -DCMAKE_TOOLCHAIN_FILE=${WASISDK_TOOLCHAIN}
+  BUILD_COMMAND     ${CMAKE_COMMAND} --build build --verbose
+  INSTALL_COMMAND   ${CMAKE_COMMAND} --install build --prefix ${CMAKE_CURRENT_BINARY_DIR}/wasm-apps
+)
 
 add_definitions (-DRUN_ON_LINUX)
 
@@ -36,9 +50,6 @@ set (unit_test_sources
   ${WAMR_RUNTIME_LIB_SOURCE}
   ${IWASM_COMPL_SOURCE}
 )
-
-# Automatically build wasm-apps for this test
-add_subdirectory(wasm-apps)
 
 # Now simply link against gtest or gtest_main as needed. Eg
 add_executable (custom_section_test ${unit_test_sources})
