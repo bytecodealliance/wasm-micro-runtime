@@ -197,6 +197,15 @@ typedef void *(*thread_start_routine_t)(void *);
 #define NAN (0.0 / 0.0)
 #endif
 
+/* add isnanf and signbitf macros, map them to existing double version when
+ * float versions are absent */
+#ifndef signbitf
+#define signbitf signbit
+#endif
+#ifndef isnanf
+#define isnanf isnan
+#endif
+
 #ifdef __cplusplus
 }
 #endif
