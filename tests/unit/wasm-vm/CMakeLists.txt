@@ -11,6 +11,7 @@ set(WAMR_BUILD_AOT 0)
 set(WAMR_BUILD_FAST_INTERP 0)
 set(WAMR_BUILD_INTERP 1)
 set(WAMR_BUILD_JIT 0)
+set(WAMR_BUILD_LIBC_BUILTIN 1)
 
 add_definitions (-Dattr_container_malloc=malloc)
 add_definitions (-Dattr_container_free=free)
