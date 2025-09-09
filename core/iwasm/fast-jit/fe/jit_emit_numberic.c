@@ -1541,10 +1541,10 @@ jit_compile_op_f64_math(JitCompContext *cc, FloatMath math_op)
 static float32
 f32_min(float32 a, float32 b)
 {
-    if (isnanf(a) || isnanf(b))
+    if (isnan(a) || isnan(b))
         return NAN;
     else if (a == 0 && a == b)
-        return signbitf(a) ? a : b;
+        return signbit(a) ? a : b;
     else
         return a > b ? b : a;
 }
@@ -1552,10 +1552,10 @@ f32_min(float32 a, float32 b)
 static float32
 f32_max(float32 a, float32 b)
 {
-    if (isnanf(a) || isnanf(b))
+    if (isnan(a) || isnan(b))
         return NAN;
     else if (a == 0 && a == b)
-        return signbitf(a) ? b : a;
+        return signbit(a) ? b : a;
     else
         return a > b ? a : b;
 }

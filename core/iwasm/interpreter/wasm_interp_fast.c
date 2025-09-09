@@ -141,10 +141,10 @@ rotr64(uint64 n, uint64 c)
 static inline float32
 f32_min(float32 a, float32 b)
 {
-    if (isnanf(a) || isnanf(b))
+    if (isnan(a) || isnan(b))
         return NAN;
     else if (a == 0 && a == b)
-        return signbitf(a) ? a : b;
+        return signbit(a) ? a : b;
     else
         return a > b ? b : a;
 }
@@ -152,10 +152,10 @@ f32_min(float32 a, float32 b)
 static inline float32
 f32_max(float32 a, float32 b)
 {
-    if (isnanf(a) || isnanf(b))
+    if (isnan(a) || isnan(b))
         return NAN;
     else if (a == 0 && a == b)
-        return signbitf(a) ? b : a;
+        return signbit(a) ? b : a;
     else
         return a > b ? a : b;
 }
@@ -740,8 +740,8 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
         return dst_value;                                                    \
     }
 
-TRUNC_FUNCTION(trunc_f32_to_i32, float32, uint32, int32, isnanf)
-TRUNC_FUNCTION(trunc_f32_to_i64, float32, uint64, int64, isnanf)
+TRUNC_FUNCTION(trunc_f32_to_i32, float32, uint32, int32, isnan)
+TRUNC_FUNCTION(trunc_f32_to_i64, float32, uint64, int64, isnan)
 TRUNC_FUNCTION(trunc_f64_to_i32, float64, uint32, int32, isnan)
 TRUNC_FUNCTION(trunc_f64_to_i64, float64, uint64, int64, isnan)
 
@@ -755,7 +755,7 @@ trunc_f32_to_int(WASMModuleInstance *module, uint8 *frame_ip, uint32 *frame_lp,
     uint32 dst_value_i32;
 
     if (!saturating) {
-        if (isnanf(src_value)) {
+        if (isnan(src_value)) {
             wasm_set_exception(module, "invalid conversion to integer");
             return false;
         }

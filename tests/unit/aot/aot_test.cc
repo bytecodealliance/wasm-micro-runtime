@@ -1014,10 +1014,10 @@ TEST_F(AOTTest, aot_intrinsic_f32_cmp)
                 res = (lhs >= rhs ? 1 : 0);
                 break;
             case FLOAT_NE: // 1
-                res = (isnanf(lhs) || isnanf(rhs) || lhs != rhs) ? 1 : 0;
+                res = (isnan(lhs) || isnan(rhs) || lhs != rhs) ? 1 : 0;
                 break;
             case FLOAT_UNO: // 6
-                res = (isnanf(lhs) || isnanf(rhs)) ? 1 : 0;
+                res = (isnan(lhs) || isnan(rhs)) ? 1 : 0;
                 break;
 
             default:

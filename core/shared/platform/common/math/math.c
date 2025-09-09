@@ -330,6 +330,11 @@ typedef union {
     } while (0)
 #endif
 
+#define isnan(x) \
+    (sizeof(x) == sizeof(double) ? isnan_double((double)x) : isnan_float(x))
+#define signbit(x) \
+    (sizeof(x) == sizeof(double) ? signbit_double((double)x) : signbit_float(x))
+
 #ifdef __FDLIBM_STDC__
 static const double huge = 1.0e300;
 #else
@@ -1616,13 +1621,13 @@ fabs(double x)
 }
 
 int
-isnanf(float x)
+isnan_float(float x)
 {
     return freebsd_isnanf(x);
 }
 
 int
-isnan(double x)
+isnan_double(double x)
 {
     return freebsd_isnan(x);
 }
@@ -1634,17 +1639,17 @@ trunc(double x)
 }
 
 int
-signbit(double x)
-{
-    return ((__HI(x) & 0x80000000) >> 31);
-}
-
-int
-signbitf(float x)
+signbit_float(float x)
 {
     unsigned int i;
     GET_FLOAT_WORD(i, x);
     return (int)(i >> 31);
+}
+
+int
+signbit_double(double x)
+{
+    return ((__HI(x) & 0x80000000) >> 31);
 }
 
 float

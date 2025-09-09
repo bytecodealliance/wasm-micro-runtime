@@ -454,7 +454,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
             case VALUE_TYPE_F32:
             {
                 float32 f32 = strtof(argv[i], &endptr);
-                if (isnanf(f32)) {
+                if (isnan(f32)) {
 #ifdef _MSC_VER
                     /*
                      * Spec tests require the binary representation of NaN to be

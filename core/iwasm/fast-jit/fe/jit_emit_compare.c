@@ -117,7 +117,7 @@ jit_compile_op_i64_compare(JitCompContext *cc, IntCond cond)
 static int32
 float_cmp_eq(float f1, float f2)
 {
-    if (isnanf(f1) || isnanf(f2))
+    if (isnan(f1) || isnan(f2))
         return 0;
 
     return f1 == f2;
@@ -126,7 +126,7 @@ float_cmp_eq(float f1, float f2)
 static int32
 float_cmp_ne(float f1, float f2)
 {
-    if (isnanf(f1) || isnanf(f2))
+    if (isnan(f1) || isnan(f2))
         return 1;
 
     return f1 != f2;
