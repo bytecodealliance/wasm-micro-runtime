@@ -30,13 +30,8 @@ if(WAMR_BUILD_TARGET STREQUAL "X86_32")
   set(CMAKE_LIBRARY_ARCHITECTURE "i386-linux-gnu" CACHE STRING "" FORCE)
 endif()
 
-# Prevent overriding the parent project's compiler/linker
-# settings on Windows
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-
 # Fetch Google test
 include (FetchContent)
-
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.24")
   FetchContent_Declare (
     googletest
@@ -50,9 +45,10 @@ else()
   )
 endif()
 
+# Prevent overriding the parent project's compiler/linker
+# settings on Windows
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
-
-SET(GOOGLETEST_INCLUDED 1)
 
 include(GoogleTest)
 enable_testing()
@@ -76,7 +72,7 @@ if (NOT WAMR_BUILD_TARGET STREQUAL "X86_32")
   add_subdirectory (compilation)
 
   # Fast-JIT or mem64 is not supported on X86_32
-  # add_subdirectory (running-modes)
+  add_subdirectory (running-modes)
   add_subdirectory (memory64)
   # add_subdirectory (shared-heap)
 

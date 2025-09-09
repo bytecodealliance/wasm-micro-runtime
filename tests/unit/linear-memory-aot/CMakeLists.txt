@@ -12,6 +12,9 @@ set (WAMR_BUILD_APP_FRAMEWORK 0)
 set (WAMR_BUILD_MEMORY_PROFILING 1)
 set (WAMR_BUILD_INTERP 0)
 set (WAMR_BUILD_AOT 1)
+set (WAMR_BUILD_FAST_INTERP 0)
+# to involve LLVM
+set (WAMR_BUILD_JIT 1)
 
 include (../unit_common.cmake)
 
@@ -26,12 +29,11 @@ set (unit_test_sources
   ${WAMR_RUNTIME_LIB_SOURCE}
   ${UNCOMMON_SHARED_SOURCE}
   ${IWASM_COMPL_SOURCE}
-  ${WASM_APP_LIB_SOURCE_ALL}
 )
 
 # Test case: .aot file with hardware bound check.
 add_executable (linear_memory_test_aot ${unit_test_sources})
-target_link_libraries (linear_memory_test_aot gtest_main)
+target_link_libraries (linear_memory_test_aot ${LLVM_AVAILABLE_LIBS} gtest_main)
 gtest_discover_tests(linear_memory_test_aot)
 target_compile_definitions(linear_memory_test_aot PRIVATE WAMR_DISABLE_HW_BOUND_CHECK=0)
 
@@ -63,6 +65,6 @@ add_custom_command(TARGET linear_memory_test_aot POST_BUILD
 
 # Test case: .aot file with no hardware bound check.
 add_executable (linear_memory_test_aot_no_hw_bound ${unit_test_sources})
-target_link_libraries (linear_memory_test_aot_no_hw_bound gtest_main)
+target_link_libraries (linear_memory_test_aot_no_hw_bound ${LLVM_AVAILABLE_LIBS} gtest_main)
 gtest_discover_tests(linear_memory_test_aot_no_hw_bound)
 target_compile_definitions(linear_memory_test_aot_no_hw_bound PRIVATE WAMR_DISABLE_HW_BOUND_CHECK=1)
