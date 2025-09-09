@@ -351,9 +351,6 @@ jobs:
         with:
           os: ${{ matrix.os }}
       
-      - name: install llvm dependencies
-        run: sudo apt update && sudo apt install -y libzstd-dev zlib1g-dev
-
       - name: Build wamrc
         run: |
           mkdir build && cd build
@@ -364,8 +361,9 @@ jobs:
       - name: Install dependencies for X86_32
         if: matrix.build_target == 'X86_32'
         run: |
+          sudo dpkg --add-architecture i386
           sudo apt-get update
-          sudo apt-get install -y g++-multilib
+          sudo apt-get install -y g++-multilib libzstd-dev:i386 zlib1g-dev:i386
 
       - name: Build and run unit tests
         run: |
