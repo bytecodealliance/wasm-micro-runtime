@@ -369,8 +369,8 @@ jobs:
         run: |
           mkdir build && cd build
           cmake .. -DWAMR_BUILD_TARGET=${{ matrix.build_target }}
-          cmake --build . --config Release --parallel 4
-          ctest
+          cmake --build . --parallel 4
+          ctest --output-on-failure
         working-directory: tests/unit
 
   build_regression_tests:

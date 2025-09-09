@@ -14,6 +14,8 @@ set (WAMR_BUILD_JIT 0)
 set (WAMR_BUILD_LIBC_BUILTIN 1)
 set (WAMR_BUILD_LIBC_WASI 0)
 set (WAMR_BUILD_APP_FRAMEWORK 0)
+# FIXME: if removed, LibcBuiltinTest.calloc will be failed
+set (WAMR_BUILD_MULTI_MODULE 1)
 
 include (../unit_common.cmake)
 

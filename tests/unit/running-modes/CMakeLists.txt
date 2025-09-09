@@ -16,16 +16,19 @@ ExternalProject_Add(
   CONFIGURE_COMMAND ${CMAKE_COMMAND} -S ${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps -B build
                       -DWASI_SDK_PREFIX=${WASI_SDK_DIR}
                       -DCMAKE_TOOLCHAIN_FILE=${WASISDK_TOOLCHAIN}
-  BUILD_COMMAND     ${CMAKE_COMMAND} --build build
+  BUILD_COMMAND     ${CMAKE_COMMAND} --build build --verbose
   INSTALL_COMMAND   ${CMAKE_COMMAND} --install build --prefix ${CMAKE_CURRENT_BINARY_DIR}
 )
 
 add_definitions(-DRUN_ON_LINUX)
 
-set(WAMR_BUILD_LIBC_WASI 1)
+set(WAMR_BUILD_LIBC_BUILTIN 1)
+set(WAMR_BUILD_MULTI_MODULE 0)
+set(WAMR_BUILD_LIBC_WASI 0)
 set(WAMR_BUILD_APP_FRAMEWORK 0)
 set(WAMR_BUILD_JIT 1)
 set(WAMR_BUILD_FAST_JIT 1)
+set(WAMR_BUILD_REF_TYPES 1)
 
 # if only load this CMake other than load it as subdirectory
 include(../unit_common.cmake)
