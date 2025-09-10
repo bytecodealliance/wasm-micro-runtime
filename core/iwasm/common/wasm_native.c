@@ -347,7 +347,8 @@ static dtor_t g_context_dtors[WASM_MAX_INSTANCE_CONTEXTS];
 
 static void
 dtor_noop(WASMModuleInstanceCommon *inst, void *ctx)
-{}
+{
+}
 
 void *
 wasm_native_create_context_key(void (*dtor)(WASMModuleInstanceCommon *inst,
@@ -485,7 +486,8 @@ wasm_native_init()
     || WASM_ENABLE_LIB_RATS != 0 || WASM_ENABLE_WASI_NN != 0             \
     || WASM_ENABLE_APP_FRAMEWORK != 0 || WASM_ENABLE_LIBC_WASI != 0      \
     || WASM_ENABLE_LIB_PTHREAD != 0 || WASM_ENABLE_LIB_WASI_THREADS != 0 \
-    || WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+    || WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0    \
+    || WASM_ENABLE_SHARED_HEAP != 0
     NativeSymbol *native_symbols;
     uint32 n_native_symbols;
 #endif
@@ -602,7 +604,8 @@ wasm_native_init()
     || WASM_ENABLE_LIB_RATS != 0 || WASM_ENABLE_WASI_NN != 0             \
     || WASM_ENABLE_APP_FRAMEWORK != 0 || WASM_ENABLE_LIBC_WASI != 0      \
     || WASM_ENABLE_LIB_PTHREAD != 0 || WASM_ENABLE_LIB_WASI_THREADS != 0 \
-    || WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+    || WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0    \
+    || WASM_ENABLE_SHARED_HEAP != 0
         goto fail;
 #else
         return false;
@@ -616,7 +619,8 @@ wasm_native_init()
     || WASM_ENABLE_LIB_RATS != 0 || WASM_ENABLE_WASI_NN != 0             \
     || WASM_ENABLE_APP_FRAMEWORK != 0 || WASM_ENABLE_LIBC_WASI != 0      \
     || WASM_ENABLE_LIB_PTHREAD != 0 || WASM_ENABLE_LIB_WASI_THREADS != 0 \
-    || WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+    || WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0    \
+    || WASM_ENABLE_SHARED_HEAP != 0
 fail:
     wasm_native_destroy();
     return false;
