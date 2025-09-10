@@ -330,11 +330,6 @@ typedef union {
     } while (0)
 #endif
 
-#define isnan(x) \
-    (sizeof(x) == sizeof(double) ? isnan_double((double)x) : isnan_float(x))
-#define signbit(x) \
-    (sizeof(x) == sizeof(double) ? signbit_double((double)x) : signbit_float(x))
-
 #ifdef __FDLIBM_STDC__
 static const double huge = 1.0e300;
 #else

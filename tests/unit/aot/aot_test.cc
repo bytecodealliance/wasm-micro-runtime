@@ -4,7 +4,6 @@
  */
 
 #include <limits.h>
-#include <math.h>
 #include "gtest/gtest.h"
 #include "wasm_export.h"
 #include "bh_platform.h"
