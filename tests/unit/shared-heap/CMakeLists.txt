@@ -11,8 +11,7 @@ set(WAMR_BUILD_APP_FRAMEWORK 0)
 set(WAMR_BUILD_AOT 1)
 set(WAMR_BUILD_INTERP 1)
 set(WAMR_BUILD_FAST_INTERP 1)
-# to involve LLVM
-set(WAMR_BUILD_JIT 1)
+set(WAMR_BUILD_JIT 0)
 if(WAMR_BUILD_TARGET STREQUAL "X86_32")
     set(WAMR_BUILD_MEMORY64 0)
 else()
@@ -47,6 +46,6 @@ set(unit_test_sources
 # Now simply link against gtest or gtest_main as needed. Eg
 add_executable(shared_heap_test ${unit_test_sources})
 
-target_link_libraries(shared_heap_test ${LLVM_AVAILABLE_LIBS} gtest_main)
+target_link_libraries(shared_heap_test gtest_main)
 
 gtest_discover_tests(shared_heap_test)

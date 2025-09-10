@@ -60,12 +60,13 @@ add_subdirectory(libc-builtin)
 add_subdirectory(shared-utils)
 add_subdirectory(linear-memory-wasm)
 add_subdirectory(linear-memory-aot)
-add_subdirectory(aot-stack-frame)
 add_subdirectory(linux-perf)
 add_subdirectory(gc)
 add_subdirectory(tid-allocator)
 
 if (NOT WAMR_BUILD_TARGET STREQUAL "X86_32")
+  add_subdirectory(aot-stack-frame)
+
   # should enable 32-bit llvm when X86_32
   add_subdirectory (aot)
   add_subdirectory (custom-section)
@@ -74,7 +75,7 @@ if (NOT WAMR_BUILD_TARGET STREQUAL "X86_32")
   # Fast-JIT or mem64 is not supported on X86_32
   add_subdirectory (running-modes)
   add_subdirectory (memory64)
-  # add_subdirectory (shared-heap)
+  add_subdirectory (shared-heap)
 
   # HW_BOUND_CHECK is not supported on X86_32
   add_subdirectory (runtime-common)

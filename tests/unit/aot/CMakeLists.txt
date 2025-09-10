@@ -16,10 +16,9 @@ add_definitions (-DWASM_ENABLE_AOT_STACK_FRAME=1)
 set (WAMR_BUILD_AOT 1)
 set (WAMR_BUILD_FAST_INTERP 0)
 set (WAMR_BUILD_INTERP 0)
-# to involve LLVM
 set (WAMR_BUILD_JIT 1)
 set (WAMR_BUILD_LIBC_WASI 0)
-set (WAMR_BUILD_APP_FRAMEWORK 1)
+set (WAMR_BUILD_APP_FRAMEWORK 0)
 
 include (../unit_common.cmake)
 
