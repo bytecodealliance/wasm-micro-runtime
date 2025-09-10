@@ -13,21 +13,14 @@ add_definitions (-DWASM_ENABLE_WAMR_COMPILER=1)
 add_definitions (-DWASM_ENABLE_DUMP_CALL_STACK=1)
 add_definitions (-DWASM_ENABLE_AOT_STACK_FRAME=1)
 
+set (WAMR_BUILD_AOT 1)
+set (WAMR_BUILD_FAST_INTERP 0)
+set (WAMR_BUILD_INTERP 0)
+set (WAMR_BUILD_JIT 1)
 set (WAMR_BUILD_LIBC_WASI 0)
-set (WAMR_BUILD_APP_FRAMEWORK 1)
+set (WAMR_BUILD_APP_FRAMEWORK 0)
 
 include (../unit_common.cmake)
-
-set (LLVM_SRC_ROOT "${WAMR_ROOT_DIR}/core/deps/llvm")
-if (NOT EXISTS "${LLVM_SRC_ROOT}/build")
-  message (FATAL_ERROR "Cannot find LLVM dir: ${LLVM_SRC_ROOT}/build")
-endif ()
-set (CMAKE_PREFIX_PATH "${LLVM_SRC_ROOT}/build;${CMAKE_PREFIX_PATH}")
-find_package(LLVM REQUIRED CONFIG)
-include_directories(${LLVM_INCLUDE_DIRS})
-add_definitions(${LLVM_DEFINITIONS})
-message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
-message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
 include (${IWASM_DIR}/compilation/iwasm_compl.cmake)
 
