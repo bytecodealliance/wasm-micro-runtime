@@ -36,11 +36,8 @@ add_executable(runtime_common_test ${unit_test_sources})
 target_link_libraries(runtime_common_test ${LLVM_AVAILABLE_LIBS} gtest_main)
 
 # Ensure that aot compiled is completed before linear_memory_test_aot is built
-set(dummy_output "${CMAKE_CURRENT_BINARY_DIR}/dummy_output")
-
-add_custom_command(OUTPUT ${dummy_output}
+add_custom_command(OUTPUT ${CMAKE_CURRENT_LIST_DIR}/wasm-apps/main.aot
   COMMAND ./build_aot.sh
-  COMMAND ${CMAKE_COMMAND} -E touch ${dummy_output}
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/build_aot.sh
   COMMENT "Executing script to compile aot files"
@@ -49,15 +46,15 @@ add_custom_command(OUTPUT ${dummy_output}
 
 add_custom_target(
   BuildAot ALL
-  DEPENDS ${dummy_output}
+  DEPENDS ${CMAKE_CURRENT_LIST_DIR}/wasm-apps/main.aot
 )
 
 add_dependencies(runtime_common_test BuildAot)
 
 add_custom_command(TARGET runtime_common_test POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy
-  ${CMAKE_CURRENT_LIST_DIR}/wasm-apps/main.wasm ${CMAKE_CURRENT_LIST_DIR}/wasm-apps/main.aot
-  ${CMAKE_CURRENT_BINARY_DIR}
+    ${CMAKE_CURRENT_LIST_DIR}/wasm-apps/main.wasm ${CMAKE_CURRENT_LIST_DIR}/wasm-apps/main.aot
+    ${CMAKE_CURRENT_BINARY_DIR}
   COMMENT "Copy main.wasm and main.aot to the directory: build/runtime-common."
 )
 
