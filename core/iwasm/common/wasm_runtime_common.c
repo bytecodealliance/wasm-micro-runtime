@@ -3812,7 +3812,8 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
 
     /* addr_pool(textual) -> apool */
     for (i = 0; i < addr_pool_size; i++) {
-        char *cp, *address, *mask;
+        char *cp, *address, *mask, *endptr;
+        long mask_val;
         bool ret = false;
 
         cp = bh_strdup(addr_pool[i]);
@@ -3833,7 +3834,15 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
             goto fail;
         }
 
-        ret = addr_pool_insert(apool, address, (uint8)atoi(mask));
+        mask_val = strtol(mask, &endptr, 10);
+
+        if (*endptr != '\0') {
+            snprintf(error_buf, error_buf_size,
+                     "Invalid address pool entry: mask must be a number");
+            goto fail;
+        }
+
+        ret = addr_pool_insert(apool, address, (uint8)mask_val);
         wasm_runtime_free(cp);
         if (!ret) {
             set_error_buf(error_buf, error_buf_size,
