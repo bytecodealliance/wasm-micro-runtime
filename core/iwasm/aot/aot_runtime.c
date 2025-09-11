@@ -4651,7 +4651,7 @@ aot_get_wasm_func_exec_time(const AOTModuleInstance *inst,
             AOTFuncPerfProfInfo *perf_prof =
                 (AOTFuncPerfProfInfo *)inst->func_perf_profilings + i;
             return (perf_prof->total_exec_time - perf_prof->children_exec_time)
-                   / 1000.0f;
+                   / 1000.0;
         }
     }
 

@@ -3780,7 +3780,7 @@ wasm_get_wasm_func_exec_time(const WASMModuleInstance *inst,
         char *name_in_wasm = get_func_name_from_index(inst, i);
         if (name_in_wasm && strcmp(name_in_wasm, func_name) == 0) {
             WASMFunctionInstance *func = inst->e->functions + i;
-            return (func->total_exec_time - func->children_exec_time) / 1000.0f;
+            return (func->total_exec_time - func->children_exec_time) / 1000.0;
         }
     }
 
