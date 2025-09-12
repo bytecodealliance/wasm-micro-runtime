@@ -416,6 +416,9 @@ aot_create_funcs(const WASMModule *module, uint32 pointer_size)
         aot_func->local_types_wp = func->local_types;
         aot_func->code = func->code;
         aot_func->code_size = func->code_size;
+#if WASM_ENABLE_BRANCH_HINTS != 0
+        aot_func->code_body_begin = func->code_body_begin;
+#endif
 
         /* Resolve local offsets */
         for (j = 0; j < func_type->param_count; j++) {
@@ -870,6 +873,10 @@ aot_create_comp_data(WASMModule *module, const char *target_arch,
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
     comp_data->name_section_buf = module->name_section_buf;
     comp_data->name_section_buf_end = module->name_section_buf_end;
+#endif
+
+#if WASM_ENABLE_BRANCH_HINTS != 0
+    comp_data->function_hints = module->function_hints;
 #endif
 
     aot_init_aux_data(comp_data, module);

@@ -1158,9 +1158,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
             case WASM_OP_BR_IF:
             {
-                read_leb_uint32(frame_ip, frame_ip_end, br_depth);
-                if (!aot_compile_op_br_if(comp_ctx, func_ctx, br_depth,
-                                          &frame_ip))
+                if (!aot_compile_op_br_if(comp_ctx, func_ctx, &frame_ip))
                     return false;
                 break;
             }
