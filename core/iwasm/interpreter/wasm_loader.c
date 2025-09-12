@@ -7495,7 +7495,7 @@ wasm_loader_unload(WASMModule *module)
 #endif
 #endif
 #if WASM_ENABLE_BRANCH_HINTS != 0
-    for (size_t i = 0; i < module->function_count; i++) {
+    for (i = 0; i < module->function_count; i++) {
         // be carefull when adding more hints. This only works as long as
         // the hint structs have been allocated all at once as an array.
         // With only branch-hints at the moment, this is the case.
