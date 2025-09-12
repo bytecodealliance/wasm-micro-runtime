@@ -137,7 +137,7 @@ simd_build_splat_const_float_vector(const AOTCompContext *comp_ctx,
         return NULL;
     }
 
-    if (!(element = LLVMConstReal(element_type, element_value))) {
+    if (!(element = LLVMConstReal(element_type, (double)element_value))) {
         HANDLE_FAILURE("LLVMConstReal");
         goto fail;
     }

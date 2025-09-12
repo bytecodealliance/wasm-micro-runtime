@@ -40,7 +40,7 @@ jit_dump_reg(JitCompContext *cc, JitReg reg)
 
         case JIT_REG_KIND_F32:
             if (jit_reg_is_const(reg))
-                os_printf("%f", jit_cc_get_const_F32(cc, reg));
+                os_printf("%f", (double)jit_cc_get_const_F32(cc, reg));
             else
                 os_printf("f%d", no);
             break;

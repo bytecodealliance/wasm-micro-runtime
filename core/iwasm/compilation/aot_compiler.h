@@ -668,7 +668,7 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
 
 #define I32_CONST(v) LLVMConstInt(I32_TYPE, v, true)
 #define I64_CONST(v) LLVMConstInt(I64_TYPE, v, true)
-#define F32_CONST(v) LLVMConstReal(F32_TYPE, v)
+#define F32_CONST(v) LLVMConstReal(F32_TYPE, (double)(v))
 #define F64_CONST(v) LLVMConstReal(F64_TYPE, v)
 #define I8_CONST(v) LLVMConstInt(INT8_TYPE, v, true)
 

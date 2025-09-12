@@ -751,6 +751,10 @@ struct WASMFunction {
     void *call_to_fast_jit_from_llvm_jit;
 #endif
 #endif
+
+#if WASM_ENABLE_BRANCH_HINTS != 0
+    uint8 *code_body_begin;
+#endif
 };
 
 #if WASM_ENABLE_TAGS != 0
@@ -758,6 +762,23 @@ struct WASMTag {
     uint8 attribute; /* the attribute property of the tag (expected to be 0) */
     uint32 type; /* the type of the tag (expected valid inden in type table) */
     WASMFuncType *tag_type;
+};
+#endif
+
+#if WASM_ENABLE_BRANCH_HINTS != 0
+enum WASMCompilationHintType {
+    DUMMY = 0,
+    WASM_COMPILATION_BRANCH_HINT = 0,
+};
+struct WASMCompilationHint {
+    struct WASMCompilationHint *next;
+    enum WASMCompilationHintType type;
+};
+struct WASMCompilationHintBranchHint {
+    struct WASMCompilationHint *next;
+    enum WASMCompilationHintType type;
+    uint32 offset;
+    bool is_likely;
 };
 #endif
 
@@ -1047,6 +1068,10 @@ struct WASMModule {
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
     const uint8 *name_section_buf;
     const uint8 *name_section_buf_end;
+#endif
+
+#if WASM_ENABLE_BRANCH_HINTS != 0
+    struct WASMCompilationHint **function_hints;
 #endif
 
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0

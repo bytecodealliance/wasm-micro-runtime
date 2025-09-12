@@ -66,8 +66,12 @@ float fmaxf(float x, float y);
 float rintf(float x);
 float fabsf(float x);
 float truncf(float x);
-int signbit(double x);
-int isnan(double x);
+int isnan_double(double x);
+int isnan_float(float x);
+int signbit_double(double x);
+int signbit_float(float x);
+#define isnan(x) (sizeof(x) == sizeof(double) ? isnan_double((double)x) : isnan_float(x))
+#define signbit(x) (sizeof(x) == sizeof(double) ? signbit_double((double)x) : signbit_float(x))
 /* clang-format on */
 
 /* The below types are used in platform_api_extension.h,

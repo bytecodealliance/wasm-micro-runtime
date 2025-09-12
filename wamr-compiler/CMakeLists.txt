@@ -46,6 +46,7 @@ add_definitions(-DWASM_ENABLE_SHARED_MEMORY=1)
 add_definitions(-DWASM_ENABLE_THREAD_MGR=1)
 add_definitions(-DWASM_ENABLE_TAIL_CALL=1)
 add_definitions(-DWASM_ENABLE_REF_TYPES=1)
+add_definitions(-DWASM_ENABLE_BRANCH_HINTS=1)
 add_definitions(-DWASM_ENABLE_CUSTOM_NAME_SECTION=1)
 add_definitions(-DWASM_ENABLE_AOT_STACK_FRAME=1)
 add_definitions(-DWASM_ENABLE_DUMP_CALL_STACK=1)
@@ -204,12 +205,12 @@ if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*
 endif()
 
 if (NOT MSVC)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security \
-                                       -ffunction-sections -fdata-sections \
-                                       -Wno-unused-parameter -Wno-pedantic")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections")
   # Remove the extra spaces for better make log
   string (REGEX REPLACE "  *" " " CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
 endif()
+
+include (${PROJECT_SOURCE_DIR}/../build-scripts/warnings.cmake)
 
 set (SHARED_DIR ../core/shared)
 set (IWASM_DIR ../core/iwasm)

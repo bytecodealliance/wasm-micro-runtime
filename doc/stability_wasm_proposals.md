@@ -12,16 +12,17 @@ Users can turn those features on or off by using compilation options. If a relev
 
 ## On-by-default Wasm Proposals
 
-| Proposal                              | >= Phase 4 | Compilation Option       |
-| ------------------------------------- | ---------- | ------------------------ |
-| Bulk Memory Operations                | Yes        | `WAMR_BUILD_BULK_MEMORY` |
-| Fixed-width SIMD[^1]                  | Yes        | `WAMR_BUILD_SIMD`        |
-| Import/Export of Mutable Globals[^2]  | Yes        | N/A                      |
-| Multi-value                           | Yes        | N/A                      |
-| Non-trapping float-to-int Conversions | Yes        | N/A                      |
-| Reference Types                       | Yes        | `WAMR_BUILD_REF_TYPES`   |
-| Sign-extension Operators              | Yes        | N/A                      |
-| WebAssembly C and C++ API             | No         | N/A                      |
+| Proposal                              | >= Phase 4 | Compilation Option         |
+| ------------------------------------- | ---------- |----------------------------|
+| Bulk Memory Operations                | Yes        | `WAMR_BUILD_BULK_MEMORY`   |
+| Fixed-width SIMD[^1]                  | Yes        | `WAMR_BUILD_SIMD`          |
+| Import/Export of Mutable Globals[^2]  | Yes        | N/A                        |
+| Multi-value                           | Yes        | N/A                        |
+| Non-trapping float-to-int Conversions | Yes        | N/A                        |
+| Reference Types                       | Yes        | `WAMR_BUILD_REF_TYPES`     |
+| Sign-extension Operators              | Yes        | N/A                        |
+| WebAssembly C and C++ API             | No         | N/A                        |
+| Branch Hinting                        | Yes        | `WASM_ENABLE_BRANCH_HINTS` |
 
 [^1]: llvm-jit and aot only.
 
@@ -54,7 +55,6 @@ Users can turn those features on or off by using compilation options. If a relev
 
 | Proposal                                    | >= Phase 4 |
 | ------------------------------------------- | ---------- |
-| Branch Hinting                              | Yes        |
 | Custom Annotation Syntax in the Text Format | Yes        |
 | Exception Handling[^6]                      | Yes        |
 | JS String Builtins                          | Yes        |

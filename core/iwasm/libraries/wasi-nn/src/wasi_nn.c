@@ -795,6 +795,22 @@ wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
     if (success != (res = is_model_initialized(wasi_nn_ctx)))
         goto fail;
 
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+    if (!wasm_runtime_validate_native_addr(instance, output_tensor,
+                                           output_tensor_len)) {
+        NN_ERR_PRINTF("output_tensor is invalid");
+        res = invalid_argument;
+        goto fail;
+    }
+#else
+    if (!wasm_runtime_validate_native_addr(instance, output_tensor,
+                                           *output_tensor_size)) {
+        NN_ERR_PRINTF("output_tensor is invalid");
+        res = invalid_argument;
+        goto fail;
+    }
+#endif
+
     if (!wasm_runtime_validate_native_addr(instance, output_tensor_size,
                                            (uint64)sizeof(uint32_t))) {
         NN_ERR_PRINTF("output_tensor_size is invalid");

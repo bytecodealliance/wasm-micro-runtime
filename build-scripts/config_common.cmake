@@ -81,6 +81,8 @@ elseif (WAMR_BUILD_TARGET MATCHES "THUMB.*")
   set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -Wa,-mthumb")
 endif ()
 
+include (${CMAKE_CURRENT_LIST_DIR}/warnings.cmake)
+
 if (NOT WAMR_BUILD_INTERP EQUAL 1)
 if (NOT WAMR_BUILD_AOT EQUAL 1)
   message (FATAL_ERROR "-- WAMR Interpreter and AOT must be enabled at least one")
@@ -737,6 +739,7 @@ message (
 "       \"Non-trapping float-to-int Conversions\"\n"
 "       \"Sign-extension Operators\"\n"
 "       \"WebAssembly C and C++ API\"\n"
+"       \"Branch Hinting\"\n"
 "     Configurable. 0 is OFF. 1 is ON:\n"
 "       \"Bulk Memory Operation\" via WAMR_BUILD_BULK_MEMORY: ${WAMR_BUILD_BULK_MEMORY}\n"
 "       \"Extended Constant Expressions\" via WAMR_BUILD_EXTENDED_CONST_EXPR: ${WAMR_BUILD_EXTENDED_CONST_EXPR}\n"
@@ -751,7 +754,6 @@ message (
 "       \"Threads\" via WAMR_BUILD_SHARED_MEMORY: ${WAMR_BUILD_SHARED_MEMORY}\n"
 "       \"Typed Function References\" via WAMR_BUILD_GC: ${WAMR_BUILD_GC}\n"
 "     Unsupported (>= Phase4):\n"
-"       \"Branch Hinting\"\n"
 "       \"Custom Annotation Syntax in the Text Format\"\n"
 "       \"Exception Handling\"\n"
 "       \"JS String Builtins\"\n"
