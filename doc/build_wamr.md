@@ -297,6 +297,18 @@ Currently we only profile the memory consumption of module, module_instance and 
 - **WAMR_BUILD_EXTENDED_CONST_EXPR**=1/0, default to disable if not set.
 > Note: See [Extended Constant Expressions](https://github.com/WebAssembly/extended-const/blob/main/proposals/extended-const/Overview.md) for more details.
 
+### **Enable bulk-memory-opt**
+- **WAMR_BUILD_BULK_MEMORY_OPT**=1/0, default to disable if not set.
+> Note: See [bulk-memory-opt](https://github.com/WebAssembly/tool-conventions/blob/main/Lime.md#bulk-memory-opt) for more details.
+
+### **Enable call-indirect-overlong**
+- **WAMR_BUILD_CALL_INDIRECT_OVERLONG**=1/0, default to disable if not set.
+> Note: See [call-indirect-overlong](https://github.com/WebAssembly/tool-conventions/blob/main/Lime.md#call-indirect-overlong) for more details.
+
+### **Enable Lime1 target**
+- **WAMR_BUILD_LIME1**=1/0, default to disable if not set.
+> Note: See [Lime1](https://github.com/WebAssembly/tool-conventions/blob/main/Lime.md#lime1) for more details.
+
 ### **Configurable memory access boundary check**
 - **WAMR_CONFIGURABLE_BOUNDS_CHECKS**=1/0, default to disable if not set
 > Note: If it is enabled, allow to run `iwasm --disable-bounds-checks` to disable the memory access boundary checks for interpreter mode.
@@ -365,4 +377,11 @@ For Valgrind, begin with the following configurations and add additional ones as
   -DWAMR_DISABLE_HW_BOUND_CHECK=0 \
   -DWAMR_DISABLE_WRITE_GS_BASE=0
   #...
+```
+
+To enable the minimal Lime1 feature set, we need to disable some features that are on by default, such as 
+bulk memory and reference types:
+
+```Bash
+cmake .. -DWAMR_BUILD_LIME1=1 -DWAMR_BUILD_BULK_MEMORY=0 -DWAMR_BUILD_REF_TYPES=0 -DDWAMR_BUILD_SIMD=0
 ```

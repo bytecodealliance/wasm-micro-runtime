@@ -416,6 +416,10 @@ typedef struct AOTCompContext {
     /* Bulk memory feature */
     bool enable_bulk_memory;
 
+    /*  Bulk memory opt feature. will be enabled alongside the
+     * enable_bulk_memory */
+    bool enable_bulk_memory_opt;
+
     /* Boundary Check */
     bool enable_bound_check;
 
@@ -451,6 +455,9 @@ typedef struct AOTCompContext {
 
     /* Reference Types */
     bool enable_ref_types;
+
+    /* Call Indirect Overlong. will be enabled alongside the enable_ref_types */
+    bool enable_call_indirect_overlong;
 
     /* Disable LLVM built-in intrinsics */
     bool disable_llvm_intrinsics;

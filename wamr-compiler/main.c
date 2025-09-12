@@ -159,6 +159,8 @@ print_help()
     printf("                              llvmir-unopt   Unoptimized LLVM IR\n");
     printf("                              llvmir-opt     Optimized LLVM IR\n");
     printf("  --disable-bulk-memory     Disable the MVP bulk memory feature\n");
+    printf("  --enable-bulk-memory-opt  Enable bulk memory opt feature\n");
+    printf("  --enable-extended-const   Enable extended const expr feature\n");
     printf("  --enable-multi-thread     Enable multi-thread feature, the dependent features bulk-memory and\n");
     printf("                            thread-mgr will be enabled automatically\n");
     printf("  --enable-tail-call        Enable the post-MVP tail call feature\n");
@@ -167,6 +169,9 @@ print_help()
     printf("                              and by default it is enabled in them and disabled in other targets\n");
     printf("  --disable-ref-types       Disable the MVP reference types feature, it will be disabled forcibly if\n");
     printf("                              GC is enabled\n");
+    printf("  --enable-call-indirect-overlong\n");
+    printf("                            Enable call indirect overlong feature\n");
+    printf("  --enable-lime1            Enable Lime1\n");
     printf("  --disable-aux-stack-check Disable auxiliary stack overflow/underflow check\n");
     printf("  --enable-dump-call-stack  Enable stack trace feature\n");
     printf("  --call-stack-features=<features>\n");
@@ -423,9 +428,12 @@ main(int argc, char *argv[])
     option.enable_simd = true;
     option.enable_aux_stack_check = true;
     option.enable_bulk_memory = true;
+    option.enable_bulk_memory_opt = false;
     option.enable_ref_types = true;
+    option.enable_call_indirect_overlong = false;
     option.enable_gc = false;
     option.enable_extended_const = false;
+    option.enable_lime1 = false;
     aot_call_stack_features_init_default(&option.call_stack_features);
 
     /* Process options */
@@ -519,6 +527,9 @@ main(int argc, char *argv[])
         else if (!strcmp(argv[0], "--disable-bulk-memory")) {
             option.enable_bulk_memory = false;
         }
+        else if (!strcmp(argv[0], "--enable-bulk-memory-opt")) {
+            option.enable_bulk_memory_opt = true;
+        }
         else if (!strcmp(argv[0], "--enable-multi-thread")) {
             option.enable_bulk_memory = true;
             option.enable_thread_mgr = true;
@@ -536,11 +547,17 @@ main(int argc, char *argv[])
         else if (!strcmp(argv[0], "--disable-ref-types")) {
             option.enable_ref_types = false;
         }
+        else if (!strcmp(argv[0], "--enable-call-indirect-overlong")) {
+            option.enable_call_indirect_overlong = true;
+        }
         else if (!strcmp(argv[0], "--disable-aux-stack-check")) {
             option.enable_aux_stack_check = false;
         }
         else if (!strcmp(argv[0], "--enable-extended-const")) {
             option.enable_extended_const = true;
+        }
+        else if (!strcmp(argv[0], "--enable-lime1")) {
+            option.enable_lime1 = true;
         }
         else if (!strcmp(argv[0], "--enable-dump-call-stack")) {
             option.aux_stack_frame_type = AOT_STACK_FRAME_TYPE_STANDARD;
@@ -745,6 +762,20 @@ main(int argc, char *argv[])
                     "bounds control");
         option.enable_shared_heap = false;
         option.bounds_checks = true;
+    }
+
+    if (option.enable_bulk_memory) {
+        option.enable_bulk_memory_opt = true;
+    }
+
+    if (option.enable_ref_types) {
+        option.enable_call_indirect_overlong = true;
+    }
+
+    if (option.enable_lime1) {
+        option.enable_call_indirect_overlong = true;
+        option.enable_bulk_memory_opt = true;
+        option.enable_extended_const = true;
     }
 
     if (!use_dummy_wasm) {
