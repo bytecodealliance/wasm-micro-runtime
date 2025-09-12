@@ -417,7 +417,6 @@ jobs:
       [
         build_iwasm,
         build_llvm_libraries_on_ubuntu_2204,
-        build_wamrc,
       ]
     runs-on: ${{ matrix.os }}
     strategy:
@@ -463,14 +462,6 @@ jobs:
         uses: ./.github/actions/install-wasi-sdk-wabt
         with:
           os: ${{ matrix.os }}
-
-      - name: Build wamrc
-        if: (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS'))
-        run: |
-          mkdir build && cd build
-          cmake ..
-          cmake --build . --config Release --parallel 4
-        working-directory: wamr-compiler
 
       - name: Build Sample [wasm-c-api]
         run: |

@@ -835,7 +835,7 @@ function build_iwasm_with_cfg()
     fi
 }
 
-function build_wamrc()
+function build_wamrc_with_cfg()
 {
     if [[ "${TARGET_LIST[*]}" =~ "${TARGET}" ]]; then
         echo "suppose wamrc is already built"
@@ -852,10 +852,7 @@ function build_wamrc()
         && ./${BUILD_LLVM_SH} \
         && if [ -d build ]; then rm -r build/*; else mkdir build; fi \
         && cd build \
-        && cmake .. \
-             -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE} \
-             -DWAMR_BUILD_SHRUNK_MEMORY=0 \
-             -DWAMR_BUILD_EXTENDED_CONST_EXPR=${ENABLE_EXTENDED_CONST_EXPR} \
+        && cmake $* .. \
         && make -j 4
 }
 
@@ -1073,6 +1070,18 @@ function trigger()
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SANITIZER=$WAMR_BUILD_SANITIZER"
     fi
 
+    local WAMRC_BUILD_FLAGS=""
+    WAMRC_BUILD_FLAGS+=" -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
+    WAMRC_BUILD_FLAGS+=" -DWAMR_BUILD_SHRUNK_MEMORY=0"
+
+    if [[ ${ENABLE_GC} == 1 ]]; then
+        WAMRC_BUILD_FLAGS+=" -DWAMR_BUILD_GC=1"
+    fi
+
+    if [[ ${ENABLE_EXTENDED_CONST_EXPR} == 1 ]]; then
+        WAMRC_BUILD_FLAGS+=" -DWAMR_BUILD_EXTENDED_CONST_EXPR=1"
+    fi
+
     # Make sure we're using the builtin WASI libc implementation
     # if we're running the wasi certification tests.
     if [[ $TEST_CASE_ARR ]]; then
@@ -1148,7 +1157,7 @@ function trigger()
                     build_iwasm_with_cfg $BUILD_FLAGS
                 fi
                 if [ -z "${WAMRC_CMD}" ]; then
-                   build_wamrc
+                   build_wamrc_with_cfg $WAMRC_BUILD_FLAGS
                    WAMRC_CMD=${WAMRC_CMD_DEFAULT}
                 fi
                 for suite in "${TEST_CASE_ARR[@]}"; do

@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.14)
 
 project(wasm-apps-aot-stack-frame)
 
-set (WAMRC_OPTION --enable-dump-call-stack --bounds-checks=1 --enable-gc)
+set (WAMRC_OPTION --enable-dump-call-stack --bounds-checks=1)
 
 if (WAMR_BUILD_TARGET STREQUAL "X86_32")
       set (WAMRC_OPTION ${WAMRC_OPTION} --target=i386)

@@ -1157,7 +1157,6 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
         cmd.append("--enable-multi-thread")
 
     if opts.gc:
-        cmd.append("--enable-gc")
         cmd.append("--enable-tail-call")
 
     if opts.extended_const:
