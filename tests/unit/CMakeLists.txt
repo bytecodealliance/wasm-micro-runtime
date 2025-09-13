@@ -68,6 +68,7 @@ add_subdirectory(aot-stack-frame)
 add_subdirectory(linux-perf)
 add_subdirectory(gc)
 add_subdirectory(tid-allocator)
+add_subdirectory(posix)
 
 if (NOT WAMR_BUILD_TARGET STREQUAL "X86_32")
   # should enable 32-bit llvm when X86_32
