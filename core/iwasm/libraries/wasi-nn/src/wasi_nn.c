@@ -66,7 +66,6 @@ wasi_nn_ctx_destroy(WASINNContext *wasi_nn_ctx)
     }
     NN_DBG_PRINTF("[WASI NN] DEINIT...");
     NN_DBG_PRINTF("Freeing wasi-nn");
-    NN_DBG_PRINTF("-> is_model_loaded: %d", wasi_nn_ctx->is_model_loaded);
     NN_DBG_PRINTF("-> current_encoding: %d", wasi_nn_ctx->backend);
 
     bh_assert(!wasi_nn_ctx->busy);
@@ -202,15 +201,6 @@ wasi_nn_destroy()
 }
 
 /* Utils */
-static wasi_nn_error
-is_model_initialized(WASINNContext *wasi_nn_ctx)
-{
-    if (!wasi_nn_ctx->is_model_loaded) {
-        NN_ERR_PRINTF("Model not initialized.");
-        return runtime_error;
-    }
-    return success;
-}
 
 /*
  *TODO: choose a proper backend based on
@@ -510,8 +500,6 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
     if (res != success)
         goto fail;
 
-    wasi_nn_ctx->is_model_loaded = true;
-
 fail:
     // XXX: Free intermediate structure pointers
     if (builder_native.buf)
@@ -587,7 +575,6 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
     if (res != success)
         goto fail;
 
-    wasi_nn_ctx->is_model_loaded = true;
     res = success;
 fail:
     if (nul_terminated_name != NULL) {
@@ -651,7 +638,6 @@ wasi_nn_load_by_name_with_config(wasm_exec_env_t exec_env, char *name,
     if (res != success)
         goto fail;
 
-    wasi_nn_ctx->is_model_loaded = true;
     res = success;
 fail:
     if (nul_terminated_name != NULL) {
@@ -684,9 +670,6 @@ wasi_nn_init_execution_context(wasm_exec_env_t exec_env, graph g,
         goto fail;
     }
 
-    if (success != (res = is_model_initialized(wasi_nn_ctx)))
-        goto fail;
-
     if (!wasm_runtime_validate_native_addr(
             instance, ctx, (uint64)sizeof(graph_execution_context))) {
         NN_ERR_PRINTF("ctx is invalid");
@@ -718,9 +701,6 @@ wasi_nn_set_input(wasm_exec_env_t exec_env, graph_execution_context ctx,
         res = busy;
         goto fail;
     }
-
-    if (success != (res = is_model_initialized(wasi_nn_ctx)))
-        goto fail;
 
     tensor input_tensor_native = { 0 };
     if (success
@@ -756,9 +736,6 @@ wasi_nn_compute(wasm_exec_env_t exec_env, graph_execution_context ctx)
         goto fail;
     }
 
-    if (success != (res = is_model_initialized(wasi_nn_ctx)))
-        goto fail;
-
     call_wasi_nn_func(wasi_nn_ctx->backend, compute, res,
                       wasi_nn_ctx->backend_ctx, ctx);
 fail:
@@ -791,9 +768,6 @@ wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
         res = busy;
         goto fail;
     }
-
-    if (success != (res = is_model_initialized(wasi_nn_ctx)))
-        goto fail;
 
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
     if (!wasm_runtime_validate_native_addr(instance, output_tensor,
