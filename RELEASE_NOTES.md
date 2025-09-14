@@ -1,3 +1,19 @@
+## WAMR-2.4.2
+
+### Breaking Changes
+
+### New Features
+
+### Bug Fixes
+
+- CVE-2025-58749. Fix a potential hang issue in LLVMJIT mode
+
+### Enhancements
+
+### Others
+
+---
+
 ## WAMR-2.4.1
 
 ### Breaking Changes
