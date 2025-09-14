@@ -1567,7 +1567,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     WASMMemoryInstance *memory = wasm_get_default_memory(module);
 #if !defined(OS_ENABLE_HW_BOUND_CHECK)              \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
-    || WASM_ENABLE_BULK_MEMORY != 0
+    || WASM_ENABLE_BULK_MEMORY_OPT != 0
     uint64 linear_mem_size = 0;
     if (memory)
 #if WASM_ENABLE_THREAD_MGR == 0
@@ -2370,7 +2370,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 cur_type = wasm_types[tidx];
 
                 /* clang-format off */
-#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
+#if WASM_ENABLE_CALL_INDIRECT_OVERLONG != 0 || WASM_ENABLE_GC != 0
                 read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
 #else
                 frame_ip++;
@@ -5774,6 +5774,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                           segment);
                         break;
                     }
+#endif /* WASM_ENABLE_BULK_MEMORY */
+#if WASM_ENABLE_BULK_MEMORY_OPT != 0
                     case WASM_OP_MEMORY_COPY:
                     {
                         mem_offset_t dst, src, len;
@@ -5894,7 +5896,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         memset(mdst, fill_val, len);
                         break;
                     }
-#endif /* WASM_ENABLE_BULK_MEMORY */
+#endif /* WASM_ENABLE_BULK_MEMORY_OPT */
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
                     case WASM_OP_TABLE_INIT:
                     {
@@ -6879,7 +6881,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
 #if !defined(OS_ENABLE_HW_BOUND_CHECK)              \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
-    || WASM_ENABLE_BULK_MEMORY != 0
+    || WASM_ENABLE_BULK_MEMORY_OPT != 0
     out_of_bounds:
         wasm_set_exception(module, "out of bounds memory access");
 #endif

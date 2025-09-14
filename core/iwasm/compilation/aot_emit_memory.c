@@ -1481,7 +1481,7 @@ fail:
     return false;
 }
 
-#if WASM_ENABLE_BULK_MEMORY != 0 || WASM_ENABLE_STRINGREF != 0
+#if WASM_ENABLE_BULK_MEMORY_OPT != 0 || WASM_ENABLE_STRINGREF != 0
 LLVMValueRef
 check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                            LLVMValueRef offset, LLVMValueRef bytes)
@@ -1769,7 +1769,9 @@ aot_compile_op_data_drop(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 fail:
     return false;
 }
+#endif /* end of WASM_ENABLE_BULK_MEMORY */
 
+#if WASM_ENABLE_BULK_MEMORY_OPT != 0
 bool
 aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
@@ -1931,7 +1933,7 @@ aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 fail:
     return false;
 }
-#endif /* end of WASM_ENABLE_BULK_MEMORY */
+#endif /* end of WASM_ENABLE_BULK_MEMORY_OPT */
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
 bool
