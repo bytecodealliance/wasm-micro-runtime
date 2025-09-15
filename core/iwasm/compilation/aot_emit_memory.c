@@ -1481,12 +1481,12 @@ fail:
     return false;
 }
 
-#if WASM_ENABLE_BULK_MEMORY != 0 || WASM_ENABLE_STRINGREF != 0
+#if WASM_ENABLE_BULK_MEMORY_OPT != 0 || WASM_ENABLE_STRINGREF != 0
 LLVMValueRef
 check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                            LLVMValueRef offset, LLVMValueRef bytes)
 {
-    LLVMValueRef maddr, max_addr, cmp, cmp1;
+    LLVMValueRef maddr, max_addr, cmp, cmp1, offset1;
     LLVMValueRef mem_base_addr;
     LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
     LLVMBasicBlockRef check_succ;
@@ -1539,8 +1539,18 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         if (mem_data_size > 0 && mem_offset + mem_len <= mem_data_size) {
             /* inside memory space */
             /* maddr = mem_base_addr + moffset */
+            /* Perform zero extension in advance to avoid LLVMBuildInBoundsGEP2
+             * interpreting a negative address due to sign extension when
+             * mem_offset >= 2GiB */
+            if (comp_ctx->pointer_size == sizeof(uint64)) {
+                offset1 = I64_CONST(mem_offset);
+            }
+            else {
+                offset1 = I32_CONST((uint32)mem_offset);
+            }
+            CHECK_LLVM_CONST(offset1);
             if (!(maddr = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
-                                                mem_base_addr, &offset, 1,
+                                                mem_base_addr, &offset1, 1,
                                                 "maddr"))) {
                 aot_set_last_error("llvm build add failed.");
                 goto fail;
@@ -1769,7 +1779,9 @@ aot_compile_op_data_drop(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 fail:
     return false;
 }
+#endif /* end of WASM_ENABLE_BULK_MEMORY */
 
+#if WASM_ENABLE_BULK_MEMORY_OPT != 0
 bool
 aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
@@ -1931,7 +1943,7 @@ aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 fail:
     return false;
 }
-#endif /* end of WASM_ENABLE_BULK_MEMORY */
+#endif /* end of WASM_ENABLE_BULK_MEMORY_OPT */
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
 bool

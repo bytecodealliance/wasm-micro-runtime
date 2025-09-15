@@ -5869,6 +5869,9 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
 #if WASM_ENABLE_BULK_MEMORY != 0
     option.enable_bulk_memory = true;
 #endif
+#if WASM_ENABLE_BULK_MEMORY_OPT != 0
+    option.enable_bulk_memory_opt = true;
+#endif
 #if WASM_ENABLE_THREAD_MGR != 0
     option.enable_thread_mgr = true;
 #endif
@@ -5882,6 +5885,9 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
     option.enable_ref_types = true;
 #elif WASM_ENABLE_GC != 0
     option.enable_gc = true;
+#endif
+#if WASM_ENABLE_CALL_INDIRECT_OVERLONG != 0
+    option.enable_call_indirect_overlong = true;
 #endif
     option.enable_aux_stack_check = true;
 #if WASM_ENABLE_PERF_PROFILING != 0 || WASM_ENABLE_DUMP_CALL_STACK != 0 \
@@ -7739,7 +7745,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             case WASM_OP_RETURN_CALL_INDIRECT:
 #endif
                 skip_leb_uint32(p, p_end); /* typeidx */
-#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
+#if WASM_ENABLE_CALL_INDIRECT_OVERLONG != 0 || WASM_ENABLE_GC != 0
                 skip_leb_uint32(p, p_end); /* tableidx */
 #else
                 u8 = read_uint8(p); /* 0x00 */
@@ -8164,6 +8170,8 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                     case WASM_OP_DATA_DROP:
                         skip_leb_uint32(p, p_end);
                         break;
+#endif /* WASM_ENABLE_BULK_MEMORY */
+#if WASM_ENABLE_BULK_MEMORY_OPT != 0
                     case WASM_OP_MEMORY_COPY:
                         skip_leb_memidx(p, p_end);
                         skip_leb_memidx(p, p_end);
@@ -8171,7 +8179,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                     case WASM_OP_MEMORY_FILL:
                         skip_leb_memidx(p, p_end);
                         break;
-#endif /* WASM_ENABLE_BULK_MEMORY */
+#endif /* WASM_ENABLE_BULK_MEMORY_OPT */
 #if WASM_ENABLE_REF_TYPES != 0
                     case WASM_OP_TABLE_INIT:
                     case WASM_OP_TABLE_COPY:
@@ -12987,7 +12995,7 @@ re_scan:
 #endif
 
                 pb_read_leb_uint32(p, p_end, type_idx);
-#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
+#if WASM_ENABLE_CALL_INDIRECT_OVERLONG != 0 || WASM_ENABLE_GC != 0
 #if WASM_ENABLE_WAMR_COMPILER != 0
                 if (p + 1 < p_end && *p != 0x00) {
                     /*
@@ -15673,8 +15681,11 @@ re_scan:
                         emit_uint32(loader_ctx, data_seg_idx);
 #endif
                         if (module->import_memory_count == 0
-                            && module->memory_count == 0)
-                            goto fail_unknown_memory;
+                            && module->memory_count == 0) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "unknown memory 0");
+                            goto fail;
+                        }
 
                         pb_read_leb_uint32(p, p_end, memidx);
                         check_memidx(module, memidx);
@@ -15723,6 +15734,12 @@ re_scan:
 #endif
                         break;
                     }
+                    fail_data_cnt_sec_require:
+                        set_error_buf(error_buf, error_buf_size,
+                                      "data count section required");
+                        goto fail;
+#endif /* WASM_ENABLE_BULK_MEMORY */
+#if WASM_ENABLE_BULK_MEMORY_OPT != 0
                     case WASM_OP_MEMORY_COPY:
                     {
                         CHECK_BUF(p, p_end, sizeof(int16));
@@ -15733,8 +15750,11 @@ re_scan:
                         check_memidx(module, memidx);
 
                         if (module->import_memory_count == 0
-                            && module->memory_count == 0)
-                            goto fail_unknown_memory;
+                            && module->memory_count == 0) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "unknown memory 0");
+                            goto fail;
+                        }
 
                         POP_MEM_OFFSET();
                         POP_MEM_OFFSET();
@@ -15753,7 +15773,9 @@ re_scan:
                         check_memidx(module, memidx);
                         if (module->import_memory_count == 0
                             && module->memory_count == 0) {
-                            goto fail_unknown_memory;
+                            set_error_buf(error_buf, error_buf_size,
+                                          "unknown memory 0");
+                            goto fail;
                         }
                         POP_MEM_OFFSET();
                         POP_I32();
@@ -15766,16 +15788,7 @@ re_scan:
 #endif
                         break;
                     }
-
-                    fail_unknown_memory:
-                        set_error_buf(error_buf, error_buf_size,
-                                      "unknown memory 0");
-                        goto fail;
-                    fail_data_cnt_sec_require:
-                        set_error_buf(error_buf, error_buf_size,
-                                      "data count section required");
-                        goto fail;
-#endif /* WASM_ENABLE_BULK_MEMORY */
+#endif /* WASM_ENABLE_BULK_MEMORY_OPT */
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
                     case WASM_OP_TABLE_INIT:
                     {

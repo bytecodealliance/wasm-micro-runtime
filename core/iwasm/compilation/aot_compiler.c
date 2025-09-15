@@ -1236,8 +1236,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 uint32 tbl_idx;
 
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
-
-                if (comp_ctx->enable_gc || comp_ctx->enable_ref_types) {
+                if (comp_ctx->enable_gc
+                    || comp_ctx->enable_call_indirect_overlong) {
                     read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
                 }
                 else {
@@ -2462,6 +2462,14 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                    UINT8_MAX */
                 opcode = (uint8)opcode1;
 
+#if WASM_ENABLE_BULK_MEMORY_OPT != 0
+                if (WASM_OP_MEMORY_COPY <= opcode
+                    && opcode <= WASM_OP_MEMORY_FILL
+                    && !comp_ctx->enable_bulk_memory_opt) {
+                    goto unsupport_bulk_memory_opt;
+                }
+#endif
+
 #if WASM_ENABLE_BULK_MEMORY != 0
                 if (WASM_OP_MEMORY_INIT <= opcode
                     && opcode <= WASM_OP_MEMORY_FILL
@@ -2530,6 +2538,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                             return false;
                         break;
                     }
+#endif /* WASM_ENABLE_BULK_MEMORY */
+#if WASM_ENABLE_BULK_MEMORY_OPT != 0
                     case WASM_OP_MEMORY_COPY:
                     {
                         frame_ip += 2;
@@ -2544,7 +2554,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                             return false;
                         break;
                     }
-#endif /* WASM_ENABLE_BULK_MEMORY */
+#endif /* WASM_ENABLE_BULK_MEMORY_OPT */
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
                     case WASM_OP_TABLE_INIT:
                     {
@@ -3968,6 +3978,13 @@ unsupport_gc_and_ref_types:
     aot_set_last_error(
         "reference type or gc instruction was found, try removing "
         "--disable-ref-types option or adding --enable-gc option");
+    return false;
+#endif
+
+#if WASM_ENABLE_BULK_MEMORY_OPT != 0
+unsupport_bulk_memory_opt:
+    aot_set_last_error("bulk memory opt instruction was found, "
+                       "try enabling bulk-memory-opt or bulk-memory option");
     return false;
 #endif
 
