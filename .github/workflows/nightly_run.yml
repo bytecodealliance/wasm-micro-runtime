@@ -67,7 +67,7 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # since jobs.id can't contain the dot character
       # it is hard to use `format` to assemble the cache key
@@ -233,7 +233,7 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # only download llvm cache when needed
       - name: Get LLVM libraries
@@ -387,7 +387,7 @@ jobs:
             sanitizer: asan
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
@@ -440,7 +440,7 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: install-wasi-sdk-wabt
         uses: ./.github/actions/install-wasi-sdk-wabt
@@ -626,7 +626,7 @@ jobs:
             sanitizer: ubsan
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: install-wasi-sdk-wabt
         if: matrix.test_option == '$WASI_TEST_OPTIONS'

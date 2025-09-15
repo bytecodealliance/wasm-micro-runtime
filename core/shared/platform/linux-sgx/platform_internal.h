@@ -73,6 +73,16 @@ typedef int os_file_handle;
 typedef DIR *os_dir_stream;
 typedef int os_raw_file_handle;
 
+struct _pollfd {
+    int fd;
+    short events;
+    short revents;
+};
+
+typedef struct _pollfd os_poll_file_handle;
+typedef unsigned long os_nfds_t;
+typedef struct timespec os_timespec;
+
 static inline os_file_handle
 os_get_invalid_handle(void)
 {

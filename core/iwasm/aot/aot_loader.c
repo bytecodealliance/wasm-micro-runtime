@@ -1807,8 +1807,12 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         read_uint16(buf, buf_end, rec_count);
         read_uint16(buf, buf_end, rec_idx);
 #if WASM_ENABLE_AOT_VALIDATOR != 0
-        if (rec_idx > i) {
-            set_error_buf(error_buf, error_buf_size, "invalid rec_idx");
+        if (rec_count > module->type_count) {
+            set_error_buf(error_buf, error_buf_size, "invalid rec count");
+            goto fail;
+        }
+        if (rec_idx > i || rec_idx >= rec_count) {
+            set_error_buf(error_buf, error_buf_size, "invalid rec idx");
             goto fail;
         }
         if (parent_type_idx >= i) {
@@ -2073,13 +2077,6 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                 AOTType *cur_type = module->types[j];
                 parent_type_idx = cur_type->parent_type_idx;
                 if (parent_type_idx != (uint32)-1) { /* has parent */
-#if WASM_ENABLE_AOT_VALIDATOR != 0
-                    if (parent_type_idx >= module->type_count) {
-                        set_error_buf(error_buf, error_buf_size,
-                                      "invalid parent type index");
-                        goto fail;
-                    }
-#endif
                     AOTType *parent_type = module->types[parent_type_idx];
 
                     module->types[j]->parent_type = parent_type;
@@ -2103,13 +2100,6 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                 AOTType *cur_type = module->types[j];
                 parent_type_idx = cur_type->parent_type_idx;
                 if (parent_type_idx != (uint32)-1) { /* has parent */
-#if WASM_ENABLE_AOT_VALIDATOR != 0
-                    if (parent_type_idx >= module->type_count) {
-                        set_error_buf(error_buf, error_buf_size,
-                                      "invalid parent type index");
-                        goto fail;
-                    }
-#endif
                     AOTType *parent_type = module->types[parent_type_idx];
                     /* subtyping has been checked during compilation */
                     bh_assert(wasm_type_is_subtype_of(
@@ -3909,8 +3899,9 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
             || !strcmp(group->section_name, ".text")
 #endif
         ) {
-#if !defined(BH_PLATFORM_LINUX) && !defined(BH_PLATFORM_LINUX_SGX) \
-    && !defined(BH_PLATFORM_DARWIN) && !defined(BH_PLATFORM_WINDOWS)
+#if !defined(BH_PLATFORM_LINUX) && !defined(BH_PLATFORM_LINUX_SGX)   \
+    && !defined(BH_PLATFORM_DARWIN) && !defined(BH_PLATFORM_WINDOWS) \
+    && !defined(BH_PLATFORM_ANDROID)
             if (module->is_indirect_mode) {
                 set_error_buf(error_buf, error_buf_size,
                               "cannot apply relocation to text section "
@@ -4235,15 +4226,7 @@ create_module(char *name, char *error_buf, uint32 error_buf_size)
 #endif
 
 #if WASM_ENABLE_LIBC_WASI != 0
-#if WASM_ENABLE_UVWASI == 0
-    module->wasi_args.stdio[0] = os_invalid_raw_handle();
-    module->wasi_args.stdio[1] = os_invalid_raw_handle();
-    module->wasi_args.stdio[2] = os_invalid_raw_handle();
-#else
-    module->wasi_args.stdio[0] = os_get_invalid_handle();
-    module->wasi_args.stdio[1] = os_get_invalid_handle();
-    module->wasi_args.stdio[2] = os_get_invalid_handle();
-#endif /* WASM_ENABLE_UVWASI == 0 */
+    wasi_args_set_defaults(&module->wasi_args);
 #endif /* WASM_ENABLE_LIBC_WASI != 0 */
 
     return module;

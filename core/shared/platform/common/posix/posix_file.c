@@ -1039,3 +1039,31 @@ os_invalid_raw_handle(void)
 {
     return -1;
 }
+
+// Better to define the function here, as Linux-SGX will
+// use this file to implement the `_os` functions.
+// So we don't need to define them in the Linux-SGX platform.
+int
+os_ioctl(os_file_handle handle, int request, ...)
+{
+    int ret = -1;
+    va_list args;
+
+    va_start(args, request);
+    ret = ioctl(handle, request, args);
+    va_end(args);
+
+    return ret;
+}
+
+int
+os_poll(os_poll_file_handle *fds, os_nfds_t nfs, int timeout)
+{
+    return poll(fds, nfs, timeout);
+}
+
+bool
+os_compare_file_handle(os_file_handle handle1, os_file_handle handle2)
+{
+    return handle1 == handle2;
+}

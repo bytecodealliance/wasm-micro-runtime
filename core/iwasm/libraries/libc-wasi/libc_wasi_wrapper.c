@@ -1016,12 +1016,10 @@ update_clock_subscription_data(wasi_subscription_t *in, uint32 nsubscriptions,
 }
 
 static wasi_errno_t
-execute_interruptible_poll_oneoff(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    const __wasi_subscription_t *in, __wasi_event_t *out, size_t nsubscriptions,
-    size_t *nevents, wasm_exec_env_t exec_env)
+execute_interruptible_poll_oneoff(struct fd_table *curfds,
+                                  const __wasi_subscription_t *in,
+                                  __wasi_event_t *out, size_t nsubscriptions,
+                                  size_t *nevents, wasm_exec_env_t exec_env)
 {
     if (nsubscriptions == 0) {
         *nevents = 0;
@@ -2118,15 +2116,16 @@ wasi_sock_recv(wasm_exec_env_t exec_env, wasi_fd_t sock, iovec_app_t *ri_data,
                wasi_roflags_t *ro_flags)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    __wasi_addr_t src_addr;
     wasi_errno_t error;
 
     if (!validate_native_addr(ro_flags, (uint64)sizeof(wasi_roflags_t)))
         return __WASI_EINVAL;
 
+    // We call `recvfrom` with NULL source address as `recv` doesn't
+    // return the source address and this parameter is not used.
+    *ro_data_len = 0;
     error = wasi_sock_recv_from(exec_env, sock, ri_data, ri_data_len, ri_flags,
-                                &src_addr, ro_data_len);
-    *ro_flags = ri_flags;
+                                NULL, ro_data_len);
 
     return error;
 }
