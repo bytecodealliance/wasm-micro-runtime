@@ -30,22 +30,32 @@
  * Note: this assumes `CONFIG_POSIX_API=n` in the Zephyr application.
  */
 
-#ifdef CONFIG_TIMEOUT_64BIT
-static int64_t timespec_to_ticks(const os_timespec *ts);
-#else
-static uint32_t timespec_to_ticks(const os_timespec *ts);
-#endif
+static k_ticks_t timespec_to_ticks(const os_timespec *ts);
+static void ticks_to_timespec(k_ticks_t ticks, os_timespec *ts);
 
 __wasi_errno_t
 os_nanosleep(const os_timespec *req, os_timespec *rem)
 {
     k_timeout_t timeout;
+    k_ticks_t rem_ticks;
 
     if (req == NULL){
         return __WASI_EINVAL;
     }
 
-    timeout.ticks = (k_ticks_t) timespec_to_ticks(req);
+    if (req->tv_sec < 0 || req->tv_nsec < 0 || req->tv_nsec >= 1000000000) {
+        return __WASI_EINVAL;
+    }
+
+    if (req->tv_sec == 0 && req->tv_nsec == 0) {
+        if (rem != NULL) {
+            rem->tv_sec = 0;
+            rem->tv_nsec = 0;
+        }
+        return __WASI_ESUCCESS;
+    }
+
+    timeout.ticks = timespec_to_ticks(req);
 
     /*
      * The function `int32_t k_sleep(k_timeout_t timeout)` return either:
@@ -53,62 +63,58 @@ os_nanosleep(const os_timespec *req, os_timespec *rem)
      *     * >0    remaining time in ms (due to k_wakeup).
      */
     int32_t rc = k_sleep(timeout);
-    if (rem != NULL && 0 < rc){
-        rem->tv_sec  = rc / 1000;
-        rem->tv_nsec = ( rc % 1000 ) * 1000000;
+    if (rem != NULL) {
+        if (rc > 0) {
+
+#ifdef CONFIG_TIMEOUT_64BIT
+            rem_ticks = (k_ticks_t)((uint64_t)rc * CONFIG_SYS_CLOCK_TICKS_PER_SEC / 1000);
+#else  /* CONFIG_TIMEOUT_32BIT */
+            uint64_t temp_ticks = (uint64_t)rc * CONFIG_SYS_CLOCK_TICKS_PER_SEC / 1000;
+            rem_ticks = (k_ticks_t)(temp_ticks > UINT32_MAX ? UINT32_MAX : temp_ticks);
+#endif
+            ticks_to_timespec(rem_ticks, rem);
+        } else {
+            rem->tv_sec  = 0;
+            rem->tv_nsec = 0;
+        }
     }
 
     return __WASI_ESUCCESS;
 }
 
 
-#ifdef CONFIG_TIMEOUT_64BIT
-
-static int64_t timespec_to_ticks(const os_timespec *ts)
+static k_ticks_t timespec_to_ticks(const os_timespec *ts)
 {
     const uint64_t ticks_per_sec = CONFIG_SYS_CLOCK_TICKS_PER_SEC;
-    uint64_t ticks = 0;
+    uint64_t total_ns, ticks;
 
-    if (ts->tv_sec > UINT64_MAX / ticks_per_sec) {
-        return UINT64_MAX;
+    total_ns = (uint64_t)ts->tv_sec * 1000000000ULL + (uint64_t)ts->tv_nsec;
+    ticks    = total_ns * ticks_per_sec / 1000000000ULL;
+
+#ifdef CONFIG_TIMEOUT_64BIT
+    if (ticks > INT64_MAX) {
+        return INT64_MAX;
     }
-
-    ticks = (uint64_t)ts->tv_sec * ticks_per_sec;
-
-    if (ts->tv_nsec > 0) {
-        uint64_t add = (uint64_t)ts->tv_nsec * ticks_per_sec / 1000000000ULL;
-        if (ticks > UINT64_MAX - add) {
-            return UINT64_MAX; 
-        }
-        ticks += add;
-    }
-
-    return ticks;
-}
-
-#else /* CONFIG_TIMEOUT_32BIT */
-
-static uint32_t timespec_to_ticks(const os_timespec *ts)
-{
-    const uint32_t ticks_per_sec = CONFIG_SYS_CLOCK_TICKS_PER_SEC;
-    uint32_t ticks = 0;
-
-    if (ts->tv_sec > UINT32_MAX / ticks_per_sec) {
+#else  /* CONFIG_TIMEOUT_32BIT */
+    if (ticks > UINT32_MAX) {
         return UINT32_MAX;
     }
+#endif
 
-    ticks = (uint32_t)ts->tv_sec * ticks_per_sec;
-
-    if (ts->tv_nsec > 0) {
-        uint64_t add64 = (uint64_t)ts->tv_nsec * ticks_per_sec;
-        uint32_t add = (uint32_t)(add64 / 1000000000ULL);
-        if (ticks > UINT32_MAX - add) {
-            return UINT32_MAX; 
-        }
-        ticks += add;
-    }
-
-    return ticks;
+    return (k_ticks_t)ticks;
 }
 
-#endif /* CONFIG_TIMEOUT_64BIT */
+static void ticks_to_timespec(k_ticks_t ticks, os_timespec *ts)
+{
+    const uint64_t ticks_per_sec = CONFIG_SYS_CLOCK_TICKS_PER_SEC;
+    uint64_t total_ns;
+
+    if (ts == NULL) {
+        return;
+    }
+
+    total_ns = ((uint64_t)ticks * 1000000000ULL) / ticks_per_sec;
+
+    ts->tv_sec  = (long)(total_ns / 1000000000ULL);
+    ts->tv_nsec = (long)(total_ns % 1000000000ULL);
+}
