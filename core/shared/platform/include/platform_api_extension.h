@@ -1770,7 +1770,7 @@ os_compare_file_handle(os_file_handle handle1, os_file_handle handle2);
  *     __WASI_EINVAL   The req input is badly formed.
  */
 __wasi_errno_t
-os_nanosleep(os_timespec *req, os_timespec *rem);
+os_nanosleep(const os_timespec *req, os_timespec *rem);
 
 
 #ifdef __cplusplus

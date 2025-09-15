@@ -2,105 +2,113 @@
  * Copyright (C) 2024 Grenoble INP - ESISAR.  All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
-
 #include "platform_api_extension.h"
 
-// #include <zephyr/kernel.h>   
-
 /*
- * Assuming CONFIG_POSIX_API=n
- * Inspired zephyr/lib/posix/options/clock.c
+ * In Zephyr v3.7, there is no simple way to get a `nanosleep` implementation.
+ * But in the later version the Zephyr community introduced some clock APIs
+ * and their POSIX compatibility layer. 
+ *
+ * Relevant Zephyr sources:
+ *     - zephyr/include/zephyr/sys/clock.h 
+ *     - Zephyr/lib/os/clock.c
+ * POSIX layer:
+ *     - zephyr/lib/posix/options/clock.c
+ *
+ * Instead of re-implementing the full Clock APIs, this file provides a naive
+ * `nanosleep` implementation based on the Zephyr thread API (`k_sleep`).
+ * 
+ * Limitations:
+ *     Maximum sleep duration is limited by UINT32_MAX or UINT64_MAX ticks
+ *     (≈ 4,294,967,295 and 18,446,744,073,709,551,615 respectively).
+ *
+ * Example at a "slow" clock rate of 50 kHz:
+ *     - UINT32_MAX: ~85 899s (~23 hours)
+ *     - UINT64_MAX: ~368 934 881 474 191s (~11.7 millions years)
+ * Clearly, `nanosleep` should not be used for such long durations.
+ *
+ * Note: this assumes `CONFIG_POSIX_API=n` in the Zephyr application.
  */
 
+#ifdef CONFIG_TIMEOUT_64BIT
+static int64_t timespec_to_ticks(const os_timespec *ts);
+#else
+static uint32_t timespec_to_ticks(const os_timespec *ts);
+#endif
+
 __wasi_errno_t
-os_nanosleep(os_timespec *req, os_timespec *rem)
+os_nanosleep(const os_timespec *req, os_timespec *rem)
 {
-    // __wasi_errno_t ret;
+    k_timeout_t timeout;
 
-    // if (req == NULL){
-    //     return __WASI_EINVAL;
-    // }
+    if (req == NULL){
+        return __WASI_EINVAL;
+    }
 
-    // /*
-    //  * os_timespec is typedef'ed to struct timespec so it's one to one.
-    //  * Also sys_clock_nanosleep return either: 
-    //  *     * 0       on sucess
-    //  *     * -EINVAL on failure 
-    //  */
-    // int rc = sys_clock_nanosleep(SYS_CLOCK_REALTIME, 0, req, rem);
-    // if (0 > rc){
-    //     return __WASI_EINVAL;
-    // }
+    timeout.ticks = (k_ticks_t) timespec_to_ticks(req);
+
+    /*
+     * The function `int32_t k_sleep(k_timeout_t timeout)` return either:
+     *     * 0     requested time elaspsed.
+     *     * >0    remaining time in ms (due to k_wakeup).
+     */
+    int32_t rc = k_sleep(timeout);
+    if (rem != NULL && 0 < rc){
+        rem->tv_sec  = rc / 1000;
+        rem->tv_nsec = ( rc % 1000 ) * 1000000;
+    }
 
     return __WASI_ESUCCESS;
 }
 
-/*
- * Don't exist in v3.7
- *
- * Inspired zephyr/lib/posix/options/clock.c on main  
- */
 
-// int sys_clock_nanosleep(int clock_id, int flags, const struct timespec *rqtp,
-// 			       struct timespec *rmtp)
-// {
-// 	k_timepoint_t end;
-// 	k_timeout_t timeout;
-// 	struct timespec duration;
-// 	const bool update_rmtp = rmtp != NULL;
-// 	const bool abstime = (flags & SYS_TIMER_ABSTIME) != 0;
+#ifdef CONFIG_TIMEOUT_64BIT
 
+static int64_t timespec_to_ticks(const os_timespec *ts)
+{
+    const uint64_t ticks_per_sec = CONFIG_SYS_CLOCK_TICKS_PER_SEC;
+    uint64_t ticks = 0;
 
-//     /*
-//      * Arguments checks
-//      */
-//     if((clock_id != SYS_CLOCK_MONOTONIC) &&
-// 	   (clock_id != SYS_CLOCK_REALTIME)){
-//         return __WASI_EINVAL;
-//     }
+    if (ts->tv_sec > UINT64_MAX / ticks_per_sec) {
+        return UINT64_MAX;
+    }
 
-//     if((rqtp->tv_sec < 0)  ||
-//        (rqtp->tv_nsec < 0) ||
-//        (rqtp->tv_nsec >= (long)NSEC_PER_SEC)){
-//         return __WASI_EINVAL;
-//     }
-    
+    ticks = (uint64_t)ts->tv_sec * ticks_per_sec;
 
-// 	if (abstime) {
-// 		/* convert absolute time to relative time duration */
-// 		(void)sys_clock_gettime(clock_id, &duration);
-// 		(void)timespec_negate(&duration);
-// 		(void)timespec_add(&duration, rqtp);
-// 	} else {
-// 		duration = *rqtp;
-// 	}
+    if (ts->tv_nsec > 0) {
+        uint64_t add = (uint64_t)ts->tv_nsec * ticks_per_sec / 1000000000ULL;
+        if (ticks > UINT64_MAX - add) {
+            return UINT64_MAX; 
+        }
+        ticks += add;
+    }
 
-// 	/* sleep for relative time duration */
-// 	if ((sizeof(rqtp->tv_sec) == sizeof(int64_t)) &&
-// 	    unlikely(rqtp->tv_sec >= (time_t)(UINT64_MAX / NSEC_PER_SEC))) {
-// 		uint64_t ns = (uint64_t)k_sleep(K_SECONDS(duration.tv_sec - 1)) * NSEC_PER_MSEC;
-// 		struct timespec rem = {
-// 			.tv_sec = (time_t)(ns / NSEC_PER_SEC),
-// 			.tv_nsec = ns % NSEC_PER_MSEC,
-// 		};
+    return ticks;
+}
 
-// 		duration.tv_sec = 1;
-// 		(void)timespec_add(&duration, &rem);
-// 	}
+#else /* CONFIG_TIMEOUT_32BIT */
 
-// 	timeout = timespec_to_timeout(&duration, NULL);
-// 	end = sys_timepoint_calc(timeout);
-// 	do {
-// 		(void)k_sleep(timeout);
-// 		timeout = sys_timepoint_timeout(end);
-// 	} while (!K_TIMEOUT_EQ(timeout, K_NO_WAIT));
+static uint32_t timespec_to_ticks(const os_timespec *ts)
+{
+    const uint32_t ticks_per_sec = CONFIG_SYS_CLOCK_TICKS_PER_SEC;
+    uint32_t ticks = 0;
 
-// 	if (update_rmtp) {
-// 		*rmtp = (struct timespec){
-// 			.tv_sec = 0,
-// 			.tv_nsec = 0,
-// 		};
-// 	}
+    if (ts->tv_sec > UINT32_MAX / ticks_per_sec) {
+        return UINT32_MAX;
+    }
 
-// 	return 0;
-// }
+    ticks = (uint32_t)ts->tv_sec * ticks_per_sec;
+
+    if (ts->tv_nsec > 0) {
+        uint64_t add64 = (uint64_t)ts->tv_nsec * ticks_per_sec;
+        uint32_t add = (uint32_t)(add64 / 1000000000ULL);
+        if (ticks > UINT32_MAX - add) {
+            return UINT32_MAX; 
+        }
+        ticks += add;
+    }
+
+    return ticks;
+}
+
+#endif /* CONFIG_TIMEOUT_64BIT */

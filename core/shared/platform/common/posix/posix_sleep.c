@@ -21,7 +21,7 @@ os_usleep(uint32 usec)
 }
 
 __wasi_errno_t
-os_nanosleep(os_timespec *req, os_timespec *rem)
+os_nanosleep(const os_timespec *req, os_timespec *rem)
 {
     int ret;
 
