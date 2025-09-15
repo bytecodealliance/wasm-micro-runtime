@@ -115,7 +115,8 @@ set_error_buf_v(char *error_buf, uint32 error_buf_size, const char *format, ...)
 }
 
 static void
-aot_unlinked_import_func_trap(void) {
+aot_unlinked_import_func_trap(void)
+{
     printf("Unlinked import function called\n");
 }
 
@@ -1402,7 +1403,7 @@ init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
              * Debugging: Check if the import is resolved at link time */
             LOG_WARNING("warning: failed to link import function (%s, %s)",
                         module_name, field_name);
-            *func_ptrs = (void*)aot_unlinked_import_func_trap;
+            *func_ptrs = (void *)aot_unlinked_import_func_trap;
         }
     }
 
