@@ -43,7 +43,7 @@ os_nanosleep(const os_timespec *req, os_timespec *rem)
         return __WASI_EINVAL;
     }
 
-    if (req->tv_sec < 0 || req->tv_nsec < 0 || req->tv_nsec >= 1000000000) {
+    if (req->tv_sec < 0 || req->tv_nsec < 0 || req->tv_nsec >= NSEC_PER_SEC) {
         return __WASI_EINVAL;
     }
 
@@ -67,9 +67,9 @@ os_nanosleep(const os_timespec *req, os_timespec *rem)
         if (rc > 0) {
 
 #ifdef CONFIG_TIMEOUT_64BIT
-            rem_ticks = (k_ticks_t)((uint64_t)rc * CONFIG_SYS_CLOCK_TICKS_PER_SEC / 1000);
+            rem_ticks = (k_ticks_t)((uint64_t)rc * CONFIG_SYS_CLOCK_TICKS_PER_SEC / MSEC_PER_SEC);
 #else  /* CONFIG_TIMEOUT_32BIT */
-            uint64_t temp_ticks = (uint64_t)rc * CONFIG_SYS_CLOCK_TICKS_PER_SEC / 1000;
+            uint64_t temp_ticks = (uint64_t)rc * CONFIG_SYS_CLOCK_TICKS_PER_SEC / MSEC_PER_SEC;
             rem_ticks = (k_ticks_t)(temp_ticks > UINT32_MAX ? UINT32_MAX : temp_ticks);
 #endif
             ticks_to_timespec(rem_ticks, rem);
@@ -88,8 +88,8 @@ static k_ticks_t timespec_to_ticks(const os_timespec *ts)
     const uint64_t ticks_per_sec = CONFIG_SYS_CLOCK_TICKS_PER_SEC;
     uint64_t total_ns, ticks;
 
-    total_ns = (uint64_t)ts->tv_sec * 1000000000ULL + (uint64_t)ts->tv_nsec;
-    ticks    = total_ns * ticks_per_sec / 1000000000ULL;
+    total_ns = (uint64_t)ts->tv_sec * NSEC_PER_SEC + (uint64_t)ts->tv_nsec;
+    ticks    = total_ns * ticks_per_sec / NSEC_PER_SEC;
 
 #ifdef CONFIG_TIMEOUT_64BIT
     if (ticks > INT64_MAX) {
@@ -113,8 +113,8 @@ static void ticks_to_timespec(k_ticks_t ticks, os_timespec *ts)
         return;
     }
 
-    total_ns = ((uint64_t)ticks * 1000000000ULL) / ticks_per_sec;
+    total_ns = ((uint64_t)ticks * NSEC_PER_SEC) / ticks_per_sec;
 
-    ts->tv_sec  = (long)(total_ns / 1000000000ULL);
-    ts->tv_nsec = (long)(total_ns % 1000000000ULL);
+    ts->tv_sec  = (long)(total_ns / NSEC_PER_SEC);
+    ts->tv_nsec = (long)(total_ns % NSEC_PER_SEC);
 }
