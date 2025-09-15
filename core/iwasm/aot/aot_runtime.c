@@ -116,7 +116,7 @@ set_error_buf_v(char *error_buf, uint32 error_buf_size, const char *format, ...)
 
 static void
 aot_unlinked_import_func_trap(void) {
-    printf("Unlinked import function called, this should not happen!\n");
+    printf("Unlinked import function called\n");
 }
 
 static void *
