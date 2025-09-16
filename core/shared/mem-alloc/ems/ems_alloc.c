@@ -66,13 +66,13 @@ remove_tree_node(gc_heap_t *heap, hmu_tree_node_t *p)
     /* get the slot which holds pointer to node p */
     if (p == p->parent->right) {
         /* Don't use `slot = &p->parent->right` to avoid compiler warning */
-        slot = (hmu_tree_node_t **)((uint8 *)p->parent
+        slot = (hmu_tree_node_t **)((uintptr_t)p->parent
                                     + offsetof(hmu_tree_node_t, right));
     }
     else if (p == p->parent->left) {
         /* p should be a child of its parent */
         /* Don't use `slot = &p->parent->left` to avoid compiler warning */
-        slot = (hmu_tree_node_t **)((uint8 *)p->parent
+        slot = (hmu_tree_node_t **)((uintptr_t)p->parent
                                     + offsetof(hmu_tree_node_t, left));
     }
     else {
@@ -237,7 +237,7 @@ hmu_set_free_size(hmu_t *hmu)
     bh_assert(hmu && hmu_get_ut(hmu) == HMU_FC);
 
     size = hmu_get_size(hmu);
-    *((uint32 *)((char *)hmu + size) - 1) = size;
+    *((uint32 *)((uintptr_t)hmu + size) - 1) = size;
 }
 
 /**
@@ -398,7 +398,7 @@ alloc_hmu(gc_heap_t *heap, gc_size_t size)
             if ((gc_size_t)node_idx != (uint32)init_node_idx
                 /* with bigger size*/
                 && ((gc_size_t)node_idx << 3) >= size + GC_SMALLEST_SIZE) {
-                rest = (hmu_t *)(((char *)p) + size);
+                rest = (hmu_t *)(((uintptr_t)p) + size);
                 if (!gci_add_fc(heap, rest, (node_idx << 3) - size)) {
                     return NULL;
                 }
@@ -406,7 +406,7 @@ alloc_hmu(gc_heap_t *heap, gc_size_t size)
             }
             else {
                 size = node_idx << 3;
-                next = (hmu_t *)((char *)p + size);
+                next = (hmu_t *)((uintptr_t)p + size);
                 if (hmu_is_in_heap(next, base_addr, end_addr))
                     hmu_mark_pinuse(next);
             }
@@ -456,14 +456,14 @@ alloc_hmu(gc_heap_t *heap, gc_size_t size)
             return NULL;
 
         if (last_tp->size >= size + GC_SMALLEST_SIZE) {
-            rest = (hmu_t *)((char *)last_tp + size);
+            rest = (hmu_t *)((uintptr_t)last_tp + size);
             if (!gci_add_fc(heap, rest, last_tp->size - size))
                 return NULL;
             hmu_mark_pinuse(rest);
         }
         else {
             size = last_tp->size;
-            next = (hmu_t *)((char *)last_tp + size);
+            next = (hmu_t *)((uintptr_t)last_tp + size);
             if (hmu_is_in_heap(next, base_addr, end_addr))
                 hmu_mark_pinuse(next);
         }
@@ -658,7 +658,7 @@ gc_realloc_vo_internal(void *vheap, void *ptr, gc_size_t size, const char *file,
     LOCK_HEAP(heap);
 
     if (hmu_old) {
-        hmu_next = (hmu_t *)((char *)hmu_old + tot_size_old);
+        hmu_next = (hmu_t *)((uintptr_t)hmu_old + tot_size_old);
         if (hmu_is_in_heap(hmu_next, base_addr, end_addr)) {
             ut = hmu_get_ut(hmu_next);
             tot_size_next = hmu_get_size(hmu_next);
@@ -675,7 +675,7 @@ gc_realloc_vo_internal(void *vheap, void *ptr, gc_size_t size, const char *file,
                 hmu_init_prefix_and_suffix(hmu_old, tot_size, file, line);
 #endif
                 if (tot_size < tot_size_old + tot_size_next) {
-                    hmu_next = (hmu_t *)((char *)hmu_old + tot_size);
+                    hmu_next = (hmu_t *)((uintptr_t)hmu_old + tot_size);
                     tot_size_next = tot_size_old + tot_size_next - tot_size;
                     if (!gci_add_fc(heap, hmu_next, tot_size_next)) {
                         UNLOCK_HEAP(heap);
@@ -889,7 +889,7 @@ gc_free_vo_internal(void *vheap, gc_object_t obj, const char *file, int line)
 #endif
 
             if (!hmu_get_pinuse(hmu)) {
-                prev = (hmu_t *)((char *)hmu - *((int *)hmu - 1));
+                prev = (hmu_t *)((uintptr_t)hmu - *((int *)hmu - 1));
 
                 if (hmu_is_in_heap(prev, base_addr, end_addr)
                     && hmu_get_ut(prev) == HMU_FC) {
@@ -902,7 +902,7 @@ gc_free_vo_internal(void *vheap, gc_object_t obj, const char *file, int line)
                 }
             }
 
-            next = (hmu_t *)((char *)hmu + size);
+            next = (hmu_t *)((uintptr_t)hmu + size);
             if (hmu_is_in_heap(next, base_addr, end_addr)) {
                 if (hmu_get_ut(next) == HMU_FC) {
                     size += hmu_get_size(next);
@@ -910,7 +910,7 @@ gc_free_vo_internal(void *vheap, gc_object_t obj, const char *file, int line)
                         ret = GC_ERROR;
                         goto out;
                     }
-                    next = (hmu_t *)((char *)hmu + size);
+                    next = (hmu_t *)((uintptr_t)hmu + size);
                 }
             }
 
@@ -966,8 +966,8 @@ gci_dump(gc_heap_t *heap)
     int i = 0, p, mark;
     char inuse = 'U';
 
-    cur = (hmu_t *)heap->base_addr;
-    end = (hmu_t *)((char *)heap->base_addr + heap->current_size);
+    cur = (void *)heap->base_addr;
+    end = (hmu_t *)((uintptr_t)heap->base_addr + heap->current_size);
 
     while (cur < end) {
         ut = hmu_get_ut(cur);
@@ -1001,7 +1001,7 @@ gci_dump(gc_heap_t *heap)
         }
 #endif
 
-        cur = (hmu_t *)((char *)cur + size);
+        cur = (hmu_t *)((uintptr_t)cur + size);
         i++;
     }
 

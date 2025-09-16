@@ -114,7 +114,7 @@ hmu_verify(void *vheap, hmu_t *hmu);
 #define HMU_SIZE (sizeof(hmu_t))
 
 #define hmu_to_obj(hmu) (gc_object_t)(SKIP_OBJ_PREFIX((hmu_t *)(hmu) + 1))
-#define obj_to_hmu(obj) ((hmu_t *)((gc_uint8 *)(obj)-OBJ_PREFIX_SIZE) - 1)
+#define obj_to_hmu(obj) ((hmu_t *)((uintptr_t)(obj)-OBJ_PREFIX_SIZE) - 1)
 
 #define HMU_UT_SIZE 2
 #define HMU_UT_OFFSET 30
@@ -188,7 +188,7 @@ static inline hmu_normal_node_t *
 get_hmu_normal_node_next(hmu_normal_node_t *node)
 {
     return node->next_offset
-               ? (hmu_normal_node_t *)((uint8 *)node + node->next_offset)
+               ? (hmu_normal_node_t *)((uintptr_t)node + node->next_offset)
                : NULL;
 }
 
