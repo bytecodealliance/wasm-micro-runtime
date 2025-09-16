@@ -23,9 +23,9 @@ For information on what types of issues are considered security vulnerabilities 
 
 - Finalize Details: Once a fix is developed and the vulnerability is fully understood, finalize the advisory details and prepare for public release. Ensure the security issues are resolved in the private fork.
 - Request CVE: Use the Big Green Button on the advisory to request a CVE number from GitHub staff.
-- Advanced Disclosure Email: Decide on a disclosure date, typically within a week, and send an email to sec-announce@bytecodealliance.org about the upcoming security release. Other ways are also available to communicate the disclosure date.
+- Advanced Disclosure Email: Decide on a disclosure date, typically within a week, and send an email to sec-announce@bytecodealliance.org about the upcoming security release. It is recommended to accomplish this by posting on https://groups.google.com/a/bytecodealliance.org/g/sec-announce. Other ways are also available to communicate the disclosure date.
 
-``` markdown
+```markdown
 > A template for the advanced disclosure email
 
 The Wamr project would like to announce a forthcoming security release.
@@ -46,7 +46,7 @@ The highest severity issue fixed in this release is classified as XXX based on t
 - Manually Make PRs from Private Fork: Transfer the necessary pull requests from the private fork to the public repository.
 - Merge and Trigger Releases: Merge the version bump PRs and trigger the release process.
 - Publish GitHub Advisories: Delete the private forks and use the Big Green Button to publish the advisory.
-- Send Security Release Email: Send a follow-up email to sec-announce@bytecodealliance.org describing the security release. Other communication channels can also be used to inform users about the security release.
+- Send Security Release Email: Send a follow-up email to sec-announce@bytecodealliance.org describing the security release. It is recommended to accomplish this by posting on https://groups.google.com/a/bytecodealliance.org/g/sec-announce. Other methods are also available to communicate the disclosure date.
 
 ```markdown
 > A template for the security release email
