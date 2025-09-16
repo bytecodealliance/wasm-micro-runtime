@@ -422,3 +422,11 @@ jobs:
           cmake --build . --config Debug --parallel 4
           ./shared_heap_test
           ./shared_heap_test --aot
+
+      - name: Build Sample [import-func-callback]
+        run: |
+          cd samples/import-func-callback
+          mkdir build && cd build
+          cmake ..
+          cmake --build . --config Release --parallel 4
+          ./import-func-callback
