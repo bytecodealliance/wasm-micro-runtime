@@ -36,6 +36,7 @@ else ()
   # options benefit embedded system.
   add_compile_options (
     -Wdouble-promotion
+    -Wcast-align=strict
   )
 
   # waivers
