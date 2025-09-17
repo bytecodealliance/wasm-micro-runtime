@@ -115,9 +115,10 @@ set_error_buf_v(char *error_buf, uint32 error_buf_size, const char *format, ...)
 }
 
 static void
-aot_unlinked_import_func_trap(void)
+aot_unlinked_import_func_trap(WASMExecEnv *exec_env)
 {
-    printf("Unlinked import function called\n");
+    AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
+    aot_set_exception_with_id(module_inst, EXCE_CALL_UNLINKED_IMPORT_FUNC);
 }
 
 static void *
