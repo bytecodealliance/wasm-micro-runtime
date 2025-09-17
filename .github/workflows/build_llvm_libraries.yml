@@ -118,11 +118,11 @@ jobs:
           key: 0-ccache-${{ inputs.os }}-${{ steps.get_last_commit.outputs.last_commit }}
           restore-keys: |
             0-ccache-${{ inputs.os }}
-        if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true' && inputs.os == 'windows-latest'
+        if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true' && inputs.os == 'windows-2022'
 
       # Install tools on Windows
       - run: choco install -y ccache ninja
-        if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true' && inputs.os == 'windows-latest'
+        if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true' && inputs.os == 'windows-2022'
 
       - name: Build LLVM libraries
         if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true'
