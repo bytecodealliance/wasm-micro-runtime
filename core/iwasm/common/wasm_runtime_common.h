@@ -616,6 +616,9 @@ struct InstantiationArgs2 {
     InstantiationArgs v1;
 };
 
+void
+wasm_runtime_instantiation_args_set_defaults(struct InstantiationArgs2 *args);
+
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_init(void);
@@ -683,8 +686,8 @@ wasm_runtime_get_max_mem(uint32 max_memory_pages, uint32 module_init_page_count,
 WASMModuleInstanceCommon *
 wasm_runtime_instantiate_internal(WASMModuleCommon *module,
                                   WASMModuleInstanceCommon *parent,
-                                  WASMExecEnv *exec_env_main, uint32 stack_size,
-                                  uint32 heap_size, uint32 max_memory_pages,
+                                  WASMExecEnv *exec_env_main,
+                                  const struct InstantiationArgs2 *args,
                                   char *error_buf, uint32 error_buf_size);
 
 /* Internal API */
@@ -1064,9 +1067,8 @@ wasm_runtime_load_depended_module(const WASMModuleCommon *parent_module,
 bool
 wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
                                     WASMModuleInstanceCommon *module_inst,
-                                    uint32 stack_size, uint32 heap_size,
-                                    uint32 max_memory_pages, char *error_buf,
-                                    uint32 error_buf_size);
+                                    const struct InstantiationArgs2 *args,
+                                    char *error_buf, uint32 error_buf_size);
 void
 wasm_runtime_sub_module_deinstantiate(WASMModuleInstanceCommon *module_inst);
 #endif
