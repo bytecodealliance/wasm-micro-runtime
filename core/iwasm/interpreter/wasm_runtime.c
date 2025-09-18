@@ -3744,16 +3744,16 @@ wasm_dump_perf_profiling(const WASMModuleInstance *module_inst)
             os_printf(
                 "  func %s, execution time: %.3f ms, execution count: %" PRIu32
                 " times, children execution time: %.3f ms\n",
-                func_name, func_inst->total_exec_time / 1000.0f,
+                func_name, func_inst->total_exec_time / 1000.0,
                 func_inst->total_exec_cnt,
-                func_inst->children_exec_time / 1000.0f);
+                func_inst->children_exec_time / 1000.0);
         else
             os_printf("  func %" PRIu32
                       ", execution time: %.3f ms, execution count: %" PRIu32
                       " times, children execution time: %.3f ms\n",
-                      i, func_inst->total_exec_time / 1000.0f,
+                      i, func_inst->total_exec_time / 1000.0,
                       func_inst->total_exec_cnt,
-                      func_inst->children_exec_time / 1000.0f);
+                      func_inst->children_exec_time / 1000.0);
     }
 }
 
@@ -3765,7 +3765,7 @@ wasm_summarize_wasm_execute_time(const WASMModuleInstance *inst)
     unsigned i;
     for (i = 0; i < inst->e->function_count; i++) {
         WASMFunctionInstance *func = inst->e->functions + i;
-        ret += (func->total_exec_time - func->children_exec_time) / 1000.0f;
+        ret += (func->total_exec_time - func->children_exec_time) / 1000.0;
     }
 
     return ret;
@@ -3780,7 +3780,7 @@ wasm_get_wasm_func_exec_time(const WASMModuleInstance *inst,
         char *name_in_wasm = get_func_name_from_index(inst, i);
         if (name_in_wasm && strcmp(name_in_wasm, func_name) == 0) {
             WASMFunctionInstance *func = inst->e->functions + i;
-            return (func->total_exec_time - func->children_exec_time) / 1000.0f;
+            return (func->total_exec_time - func->children_exec_time) / 1000.0;
         }
     }
 

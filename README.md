@@ -47,7 +47,7 @@ WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (Wasm) 
 - [128-bit SIMD](https://github.com/WebAssembly/simd), ref to [samples/workload](samples/workload)
 - [Reference Types](https://github.com/WebAssembly/reference-types), ref to [document](doc/ref_types.md) and [sample](samples/ref-types)
 - [Bulk memory operations](https://github.com/WebAssembly/bulk-memory-operations), [Shared memory](https://github.com/WebAssembly/threads/blob/main/proposals/threads/Overview.md#shared-linear-memory), [Memory64](https://github.com/WebAssembly/memory64)
-- [Tail-call](https://github.com/WebAssembly/tail-call), [Garbage Collection](https://github.com/WebAssembly/gc), [Exception Handling](https://github.com/WebAssembly/exception-handling)
+- [Tail-call](https://github.com/WebAssembly/tail-call), [Garbage Collection](https://github.com/WebAssembly/gc), [Exception Handling](https://github.com/WebAssembly/exception-handling), [Branch Hinting](https://github.com/WebAssembly/branch-hinting)
 - [Extended Constant Expressions](https://github.com/WebAssembly/extended-const)
 
 ### Supported architectures and platforms
@@ -117,4 +117,3 @@ Any contributions you make will be under the same license.
 - [WAMR Blogs](https://bytecodealliance.github.io/wamr.dev/blog/)
 - [Community news and events](https://bytecodealliance.github.io/wamr.dev/events/)
 - [WAMR TSC meetings](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/TSC-meeting-notes)
-

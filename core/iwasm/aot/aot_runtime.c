@@ -4615,16 +4615,16 @@ aot_dump_perf_profiling(const AOTModuleInstance *module_inst)
             os_printf(
                 "  func %s, execution time: %.3f ms, execution count: %" PRIu32
                 " times, children execution time: %.3f ms\n",
-                func_name, perf_prof->total_exec_time / 1000.0f,
+                func_name, perf_prof->total_exec_time / 1000.0,
                 perf_prof->total_exec_cnt,
-                perf_prof->children_exec_time / 1000.0f);
+                perf_prof->children_exec_time / 1000.0);
         else
             os_printf("  func %" PRIu32
                       ", execution time: %.3f ms, execution count: %" PRIu32
                       " times, children execution time: %.3f ms\n",
-                      i, perf_prof->total_exec_time / 1000.0f,
+                      i, perf_prof->total_exec_time / 1000.0,
                       perf_prof->total_exec_cnt,
-                      perf_prof->children_exec_time / 1000.0f);
+                      perf_prof->children_exec_time / 1000.0);
     }
 }
 
@@ -4640,7 +4640,7 @@ aot_summarize_wasm_execute_time(const AOTModuleInstance *inst)
         AOTFuncPerfProfInfo *perf_prof =
             (AOTFuncPerfProfInfo *)inst->func_perf_profilings + i;
         ret += (perf_prof->total_exec_time - perf_prof->children_exec_time)
-               / 1000.0f;
+               / 1000.0;
     }
 
     return ret;
@@ -4659,7 +4659,7 @@ aot_get_wasm_func_exec_time(const AOTModuleInstance *inst,
             AOTFuncPerfProfInfo *perf_prof =
                 (AOTFuncPerfProfInfo *)inst->func_perf_profilings + i;
             return (perf_prof->total_exec_time - perf_prof->children_exec_time)
-                   / 1000.0f;
+                   / 1000.0;
         }
     }
 

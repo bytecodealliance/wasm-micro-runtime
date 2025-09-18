@@ -32,7 +32,7 @@ aot_compile_op_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
 bool
 aot_compile_op_br_if(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                     uint32 br_depth, uint8 **p_frame_ip);
+                     uint8 **p_frame_ip);
 
 bool
 aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,

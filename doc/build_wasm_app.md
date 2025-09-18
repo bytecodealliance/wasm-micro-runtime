@@ -355,6 +355,8 @@ Usage: wamrc [options] -o output_file wasm_file
                               llvmir-unopt   Unoptimized LLVM IR
                               llvmir-opt     Optimized LLVM IR
   --disable-bulk-memory     Disable the MVP bulk memory feature
+  --enable-bulk-memory-opt  Enable bulk memory opt feature
+  --enable-extended-const   Enable extended const expr feature
   --enable-multi-thread     Enable multi-thread feature, the dependent features bulk-memory and
                             thread-mgr will be enabled automatically
   --enable-tail-call        Enable the post-MVP tail call feature
@@ -363,6 +365,9 @@ Usage: wamrc [options] -o output_file wasm_file
                               and by default it is enabled in x86-64 target and disabled
                               in other targets
   --disable-ref-types       Disable the MVP reference types feature
+  --enable-call-indirect-overlong
+                            Enable call indirect overlong feature
+  --enable-lime1            Enable Lime1
   --disable-aux-stack-check Disable auxiliary stack overflow/underflow check
   --enable-dump-call-stack  Enable stack trace feature
   --enable-perf-profiling   Enable function performance profiling

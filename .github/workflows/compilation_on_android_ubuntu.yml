@@ -124,7 +124,7 @@ jobs:
       - name: Build wamrc
         run: |
           mkdir build && cd build
-          cmake ..
+          cmake .. -DCMAKE_C_FLAGS="-Werror"
           cmake --build . --config Release --parallel 4
         working-directory: wamr-compiler
 
@@ -166,6 +166,7 @@ jobs:
             "-DWAMR_BUILD_MULTI_MEMORY=1",
             "-DWAMR_BUILD_SHARED=1",
             "-DWAMR_BUILD_EXTENDED_CONST_EXPR=1",
+            "-DWAMR_BUILD_LIME1=1 -DWAMR_BUILD_BULK_MEMORY=0 -DWAMR_BUILD_REF_TYPES=0 -DWAMR_BUILD_SIMD=0",
           ]
         os: [ubuntu-22.04]
         platform: [android, linux]
@@ -293,7 +294,7 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           mkdir build && cd build
-          cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }}
+          cmake .. -DCMAKE_C_FLAGS="-Werror" ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }}
           cmake --build . --config Release --parallel 4
         working-directory: product-mini/platforms/${{ matrix.platform }}
 
@@ -301,7 +302,7 @@ jobs:
         if: matrix.platform == 'android'
         run: |
           mkdir build && cd build
-          cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }} \
+          cmake .. -DCMAKE_C_FLAGS="-Werror" ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }} \
                 -DWAMR_BUILD_TARGET=X86_64
           cmake --build . --config Release --parallel 4
         working-directory: product-mini/platforms/${{ matrix.platform }}
