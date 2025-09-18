@@ -32,13 +32,13 @@ gc_init_internal(gc_heap_t *heap, char *base_addr, gc_size_t heap_max_size)
     gc_update_threshold(heap);
 #endif
 
-    root = heap->kfc_tree_root = (hmu_tree_node_t *)heap->kfc_tree_root_buf;
+    root = heap->kfc_tree_root = (void *)(heap->kfc_tree_root_buf);
     memset(root, 0, sizeof *root);
     root->size = sizeof *root;
     hmu_set_ut(&root->hmu_header, HMU_FC);
     hmu_set_size(&root->hmu_header, sizeof *root);
 
-    q = (hmu_tree_node_t *)heap->base_addr;
+    q = (void *)base_addr;
     memset(q, 0, sizeof *q);
     hmu_set_ut(&q->hmu_header, HMU_FC);
     hmu_set_size(&q->hmu_header, heap->current_size);
@@ -60,8 +60,8 @@ gc_handle_t
 gc_init_with_pool(char *buf, gc_size_t buf_size)
 {
     char *buf_end = buf + buf_size;
-    char *buf_aligned = (char *)(((uintptr_t)buf + 7) & (uintptr_t)~7);
-    char *base_addr = buf_aligned + sizeof(gc_heap_t);
+    uintptr_t buf_aligned = ((uintptr_t)buf + 7) & (uintptr_t)~7;
+    char *base_addr = (char *)(buf_aligned + sizeof(gc_heap_t));
     gc_heap_t *heap = (gc_heap_t *)buf_aligned;
     gc_size_t heap_max_size;
 
@@ -89,7 +89,9 @@ gc_handle_t
 gc_init_with_struct_and_pool(char *struct_buf, gc_size_t struct_buf_size,
                              char *pool_buf, gc_size_t pool_buf_size)
 {
-    gc_heap_t *heap = (gc_heap_t *)struct_buf;
+    /*struct_buf is allocated with the size of gc_heap_t via
+     * gc_get_heap_struct_size() */
+    gc_heap_t *heap = (void *)struct_buf;
     char *base_addr = pool_buf + GC_HEAD_PADDING;
     char *pool_buf_end = pool_buf + pool_buf_size;
     gc_size_t heap_max_size;
@@ -270,18 +272,18 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
 
     ASSERT_TREE_NODE_ALIGNED_ACCESS(heap->kfc_tree_root);
 
-    p_left = (uint8 **)((uint8 *)heap->kfc_tree_root
+    p_left = (uint8 **)((uintptr_t)heap->kfc_tree_root
                         + offsetof(hmu_tree_node_t, left));
-    p_right = (uint8 **)((uint8 *)heap->kfc_tree_root
+    p_right = (uint8 **)((uintptr_t)heap->kfc_tree_root
                          + offsetof(hmu_tree_node_t, right));
-    p_parent = (uint8 **)((uint8 *)heap->kfc_tree_root
+    p_parent = (uint8 **)((uintptr_t)heap->kfc_tree_root
                           + offsetof(hmu_tree_node_t, parent));
     adjust_ptr(p_left, offset);
     adjust_ptr(p_right, offset);
     adjust_ptr(p_parent, offset);
 
-    cur = (hmu_t *)heap->base_addr;
-    end = (hmu_t *)((char *)heap->base_addr + heap->current_size);
+    cur = (void *)heap->base_addr;
+    end = (hmu_t *)((uintptr_t)heap->base_addr + heap->current_size);
 
     while (cur < end) {
         size = hmu_get_size(cur);
@@ -299,11 +301,11 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
 
             ASSERT_TREE_NODE_ALIGNED_ACCESS(tree_node);
 
-            p_left = (uint8 **)((uint8 *)tree_node
+            p_left = (uint8 **)((uintptr_t)tree_node
                                 + offsetof(hmu_tree_node_t, left));
-            p_right = (uint8 **)((uint8 *)tree_node
+            p_right = (uint8 **)((uintptr_t)tree_node
                                  + offsetof(hmu_tree_node_t, right));
-            p_parent = (uint8 **)((uint8 *)tree_node
+            p_parent = (uint8 **)((uintptr_t)tree_node
                                   + offsetof(hmu_tree_node_t, parent));
             adjust_ptr(p_left, offset);
             adjust_ptr(p_right, offset);
@@ -312,7 +314,7 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
                    it is fixed part and isn't changed. */
                 adjust_ptr(p_parent, offset);
         }
-        cur = (hmu_t *)((char *)cur + size);
+        cur = (hmu_t *)((uintptr_t)cur + size);
     }
 
 #if BH_ENABLE_GC_CORRUPTION_CHECK != 0
@@ -366,8 +368,8 @@ gc_heap_stat(void *heap_ptr, gc_stat_t *stat)
     gc_heap_t *heap = (gc_heap_t *)heap_ptr;
 
     memset(stat, 0, sizeof(gc_stat_t));
-    cur = (hmu_t *)heap->base_addr;
-    end = (hmu_t *)((char *)heap->base_addr + heap->current_size);
+    cur = (void *)heap->base_addr;
+    end = (hmu_t *)((uintptr_t)heap->base_addr + heap->current_size);
 
     while (cur < end) {
         ut = hmu_get_ut(cur);
@@ -401,7 +403,7 @@ gc_heap_stat(void *heap_ptr, gc_stat_t *stat)
                 stat->usage_sizes[GC_HEAP_STAT_SIZE - 1] += 1;
         }
 
-        cur = (hmu_t *)((char *)cur + size);
+        cur = (hmu_t *)((uintptr_t)cur + size);
     }
 }
 

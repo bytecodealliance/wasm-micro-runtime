@@ -77,9 +77,9 @@ exchange_uint64(uint8 *p_data)
 {
     uint32 value;
 
-    value = *(uint32 *)p_data;
-    *(uint32 *)p_data = *(uint32 *)(p_data + 4);
-    *(uint32 *)(p_data + 4) = value;
+    value = *(uint32 *)(void *)p_data;
+    *(uint32 *)(void *)p_data = *(uint32 *)(void *)(p_data + 4);
+    *(uint32 *)(void *)(p_data + 4) = value;
     exchange_uint32(p_data);
     exchange_uint32(p_data + 4);
 }
@@ -204,21 +204,21 @@ GET_U16_FROM_ADDR(const uint8 *p)
 
 #else /* else of (WASM_ENABLE_WORD_ALIGN_READ != 0) */
 
-#define TEMPLATE_READ(p, p_end, res, type)              \
-    do {                                                \
-        if (sizeof(type) != sizeof(uint64))             \
-            p = (uint8 *)align_ptr(p, sizeof(type));    \
-        else                                            \
-            /* align 4 bytes if type is uint64 */       \
-            p = (uint8 *)align_ptr(p, sizeof(uint32));  \
-        CHECK_BUF(p, p_end, sizeof(type));              \
-        if (sizeof(type) != sizeof(uint64))             \
-            res = *(type *)p;                           \
-        else                                            \
-            res = (type)GET_U64_FROM_ADDR((uint32 *)p); \
-        if (!is_little_endian())                        \
-            exchange_##type((uint8 *)&res);             \
-        p += sizeof(type);                              \
+#define TEMPLATE_READ(p, p_end, res, type)                      \
+    do {                                                        \
+        if (sizeof(type) != sizeof(uint64))                     \
+            p = (uint8 *)align_ptr(p, sizeof(type));            \
+        else                                                    \
+            /* align 4 bytes if type is uint64 */               \
+            p = (uint8 *)align_ptr(p, sizeof(uint32));          \
+        CHECK_BUF(p, p_end, sizeof(type));                      \
+        if (sizeof(type) != sizeof(uint64))                     \
+            res = *(type *)(void *)p;                           \
+        else                                                    \
+            res = (type)GET_U64_FROM_ADDR((uint32 *)(void *)p); \
+        if (!is_little_endian())                                \
+            exchange_##type((uint8 *)&res);                     \
+        p += sizeof(type);                                      \
     } while (0)
 
 /* NOLINTBEGIN, disable lint for this region with clang-tidy */
@@ -3557,7 +3557,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 
     read_uint32(buf, buf_end, symbol_count);
 
-    symbol_offsets = (uint32 *)buf;
+    symbol_offsets = (uint32 *)(void *)buf;
     for (i = 0; i < symbol_count; i++) {
         CHECK_BUF(buf, buf_end, sizeof(uint32));
         buf += sizeof(uint32);
@@ -3709,7 +3709,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
         }
 
         group_name = symbol_buf + symbol_offsets[name_index];
-        group_name_len = *(uint16 *)group_name;
+        group_name_len = *(uint16 *)(void *)group_name;
         group_name += sizeof(uint16);
 
         read_uint32(buf, buf_end, relocation_count);
@@ -3735,7 +3735,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
             }
 
             symbol_name = symbol_buf + symbol_offsets[symbol_index];
-            symbol_name_len = *(uint16 *)symbol_name;
+            symbol_name_len = *(uint16 *)(void *)symbol_name;
             symbol_name += sizeof(uint16);
 
             bh_memcpy_s(group_name_buf, (uint32)sizeof(group_name_buf),
