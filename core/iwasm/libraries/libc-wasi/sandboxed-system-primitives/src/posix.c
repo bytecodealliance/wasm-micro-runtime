@@ -3116,10 +3116,18 @@ addr_pool_insert(struct addr_pool *addr_pool, const char *addr, uint8 mask)
         next->type = IPv6;
         bh_memcpy_s(next->addr.ip6, sizeof(next->addr.ip6), target.ipv6,
                     sizeof(target.ipv6));
+        if (mask > 128) {
+            wasm_runtime_free(next);
+            return false;
+        }
     }
     else {
         next->type = IPv4;
         next->addr.ip4 = target.ipv4;
+        if (mask > 32) {
+            wasm_runtime_free(next);
+            return false;
+        }
     }
 
     /* attach with */
