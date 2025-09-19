@@ -17,6 +17,7 @@ set (WAMR_BUILD_LIBC_WASI 0)
 set (WAMR_BUILD_APP_FRAMEWORK 0)
 set (WAMR_BUILD_THREAD_MGR 1)
 set (WAMR_BUILD_AOT 1)
+set (WAMR_BUILD_SIMD 1)
 
 include (../../unit_common.cmake)
 
@@ -66,7 +67,13 @@ add_custom_command(TARGET enhanced_compilation_test POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy
   ${CMAKE_CURRENT_LIST_DIR}/wasm-apps/main.wasm
   ${CMAKE_CURRENT_BINARY_DIR}
-  COMMENT "Copy main.wasm to the directory: build/enhanced_compilation."
+  COMMAND ${CMAKE_COMMAND} -E copy
+  ${CMAKE_CURRENT_LIST_DIR}/wasm-apps/simd_test.wasm
+  ${CMAKE_CURRENT_BINARY_DIR}
+  COMMAND ${CMAKE_COMMAND} -E copy
+  ${CMAKE_CURRENT_LIST_DIR}/wasm-apps/llvm_test.wasm
+  ${CMAKE_CURRENT_BINARY_DIR}
+  COMMENT "Copy WASM test files to the directory: build/enhanced_compilation."
 )
 
 include(GoogleTest)

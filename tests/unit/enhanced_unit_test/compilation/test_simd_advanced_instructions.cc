@@ -22,6 +22,10 @@ get_binary_path()
     memset(cwd, 0, 1024);
 
     if (readlink("/proc/self/exe", cwd, 1024) <= 0) {
+        // Fallback to current working directory
+        if (getcwd(cwd, 1024) == NULL) {
+            return std::string(".");
+        }
     }
 
     char *path_end = strrchr(cwd, '/');
@@ -37,10 +41,15 @@ class SIMDAdvancedInstructionsTest : public testing::Test
 protected:
     void SetUp() override
     {
-        // Initialize WAMR runtime
+        // Initialize WAMR runtime with SIMD support
         RuntimeInitArgs init_args;
         memset(&init_args, 0, sizeof(RuntimeInitArgs));
         init_args.mem_alloc_type = Alloc_With_System_Allocator;
+        
+        // Enable SIMD support in runtime
+        #if WASM_ENABLE_SIMD != 0
+        init_args.max_thread_num = 4;
+        #endif
         
         if (!wasm_runtime_full_init(&init_args)) {
             FAIL() << "Failed to initialize WAMR runtime";
@@ -112,11 +121,20 @@ protected:
     {
         wasm_file_buf = (unsigned char *)bh_read_file_to_buffer(WASM_FILE, &wasm_file_size);
         if (!wasm_file_buf) {
-            return false;
+            // Try alternative paths if primary path fails
+            std::string alt_path = "./simd_test.wasm";
+            wasm_file_buf = (unsigned char *)bh_read_file_to_buffer(alt_path.c_str(), &wasm_file_size);
+            if (!wasm_file_buf) {
+                printf("Failed to load WASM file from both %s and %s\n", WASM_FILE, alt_path.c_str());
+                return false;
+            }
         }
 
         char error_buf[128];
         wasm_module = wasm_runtime_load(wasm_file_buf, wasm_file_size, error_buf, sizeof(error_buf));
+        if (!wasm_module) {
+            printf("Failed to load WASM module: %s\n", error_buf);
+        }
         return wasm_module != nullptr;
     }
 
@@ -152,22 +170,19 @@ TEST_F(SIMDAdvancedInstructionsTest, test_simd_access_lanes_compilation)
     // Test SIMD lane access compilation functionality
     option.enable_simd = true;
     
-    // Create minimal WASM module with SIMD lane access
-    if (LoadWasmModule()) {
-        ASSERT_TRUE(InitializeCompilationContext());
-        ASSERT_NE(comp_ctx, nullptr);
-        
-        // Test compilation with SIMD lane access operations
-        char error_buf[128];
-        bool result = aot_compile_wasm(comp_ctx);
-        if (!result) {
-            // SIMD may not be available on all platforms
-            GTEST_SKIP() << "SIMD compilation not supported on this platform";
-        } else {
-            ASSERT_TRUE(result);
-        }
-    } else {
-        GTEST_SKIP() << "SIMD test module not available";
+    // Load WASM module with SIMD lane access operations
+    ASSERT_TRUE(LoadWasmModule()) << "Failed to load SIMD test module";
+    ASSERT_TRUE(InitializeCompilationContext()) << "Failed to initialize compilation context";
+    ASSERT_NE(comp_ctx, nullptr) << "Compilation context should not be null";
+    
+    // Test compilation with SIMD lane access operations
+    bool result = aot_compile_wasm(comp_ctx);
+    ASSERT_TRUE(result) << "SIMD lane access compilation should succeed";
+    
+    // Verify compilation data is generated
+    if (result) {
+        ASSERT_NE(comp_data, nullptr) << "Compilation data should be generated";
+        ASSERT_NE(comp_ctx, nullptr) << "Compilation context should remain valid";
     }
 }
 
@@ -177,18 +192,17 @@ TEST_F(SIMDAdvancedInstructionsTest, test_simd_bitmask_extracts_compilation)
     option.enable_simd = true;
     option.opt_level = 2;
     
-    if (LoadWasmModule()) {
-        ASSERT_TRUE(InitializeCompilationContext());
-        
-        // Test bitmask operations compilation
-        bool result = aot_compile_wasm(comp_ctx);
-        if (result) {
-            ASSERT_TRUE(result);
-        } else {
-            GTEST_SKIP() << "SIMD bitmask operations not supported";
-        }
-    } else {
-        GTEST_SKIP() << "SIMD test module not available";
+    ASSERT_TRUE(LoadWasmModule()) << "Failed to load SIMD test module";
+    ASSERT_TRUE(InitializeCompilationContext()) << "Failed to initialize compilation context";
+    
+    // Test bitmask operations compilation
+    bool result = aot_compile_wasm(comp_ctx);
+    ASSERT_TRUE(result) << "SIMD bitmask extraction compilation should succeed";
+    
+    // Verify compilation results
+    if (result) {
+        EXPECT_NE(comp_data, nullptr) << "Compilation data should be generated";
+        EXPECT_NE(comp_ctx, nullptr) << "Compilation context should remain valid";
     }
 }
 
@@ -198,18 +212,17 @@ TEST_F(SIMDAdvancedInstructionsTest, test_simd_bit_shifts_compilation)
     option.enable_simd = true;
     option.enable_bulk_memory = true;
     
-    if (LoadWasmModule()) {
-        ASSERT_TRUE(InitializeCompilationContext());
-        
-        // Test bit shift compilation
-        bool result = aot_compile_wasm(comp_ctx);
-        if (result) {
-            ASSERT_TRUE(result);
-        } else {
-            GTEST_SKIP() << "SIMD bit shift operations not supported";
-        }
-    } else {
-        GTEST_SKIP() << "SIMD test module not available";
+    ASSERT_TRUE(LoadWasmModule()) << "Failed to load SIMD test module";
+    ASSERT_TRUE(InitializeCompilationContext()) << "Failed to initialize compilation context";
+    
+    // Test bit shift compilation
+    bool result = aot_compile_wasm(comp_ctx);
+    ASSERT_TRUE(result) << "SIMD bit shift operations compilation should succeed";
+    
+    // Verify compilation results
+    if (result) {
+        EXPECT_NE(comp_data, nullptr) << "Compilation data should be generated";
+        EXPECT_NE(comp_ctx, nullptr) << "Compilation context should remain valid";
     }
 }
 
@@ -219,17 +232,16 @@ TEST_F(SIMDAdvancedInstructionsTest, test_simd_bitwise_operations_compilation)
     option.enable_simd = true;
     option.bounds_checks = 1;
     
-    if (LoadWasmModule()) {
-        ASSERT_TRUE(InitializeCompilationContext());
-        
-        bool result = aot_compile_wasm(comp_ctx);
-        if (result) {
-            ASSERT_TRUE(result);
-        } else {
-            GTEST_SKIP() << "SIMD bitwise operations compilation not supported";
-        }
-    } else {
-        GTEST_SKIP() << "SIMD test module not available";
+    ASSERT_TRUE(LoadWasmModule()) << "Failed to load SIMD test module";
+    ASSERT_TRUE(InitializeCompilationContext()) << "Failed to initialize compilation context";
+    
+    bool result = aot_compile_wasm(comp_ctx);
+    ASSERT_TRUE(result) << "SIMD bitwise operations compilation should succeed";
+    
+    // Verify compilation results
+    if (result) {
+        EXPECT_NE(comp_data, nullptr) << "Compilation data should be generated";
+        EXPECT_NE(comp_ctx, nullptr) << "Compilation context should remain valid";
     }
 }
 
@@ -239,17 +251,16 @@ TEST_F(SIMDAdvancedInstructionsTest, test_simd_boolean_reductions_compilation)
     option.enable_simd = true;
     option.enable_aux_stack_check = true;
     
-    if (LoadWasmModule()) {
-        ASSERT_TRUE(InitializeCompilationContext());
-        
-        bool result = aot_compile_wasm(comp_ctx);
-        if (result) {
-            ASSERT_TRUE(result);
-        } else {
-            GTEST_SKIP() << "SIMD boolean reductions not supported";
-        }
-    } else {
-        GTEST_SKIP() << "SIMD test module not available";
+    ASSERT_TRUE(LoadWasmModule()) << "Failed to load SIMD test module";
+    ASSERT_TRUE(InitializeCompilationContext()) << "Failed to initialize compilation context";
+    
+    bool result = aot_compile_wasm(comp_ctx);
+    ASSERT_TRUE(result) << "SIMD boolean reductions compilation should succeed";
+    
+    // Verify compilation results
+    if (result) {
+        EXPECT_NE(comp_data, nullptr) << "Compilation data should be generated";
+        EXPECT_NE(comp_ctx, nullptr) << "Compilation context should remain valid";
     }
 }
 
@@ -259,17 +270,16 @@ TEST_F(SIMDAdvancedInstructionsTest, test_simd_comparisons_compilation)
     option.enable_simd = true;
     option.size_level = 1;
     
-    if (LoadWasmModule()) {
-        ASSERT_TRUE(InitializeCompilationContext());
-        
-        bool result = aot_compile_wasm(comp_ctx);
-        if (result) {
-            ASSERT_TRUE(result);
-        } else {
-            GTEST_SKIP() << "SIMD comparisons compilation not supported";
-        }
-    } else {
-        GTEST_SKIP() << "SIMD test module not available";
+    ASSERT_TRUE(LoadWasmModule()) << "Failed to load SIMD test module";
+    ASSERT_TRUE(InitializeCompilationContext()) << "Failed to initialize compilation context";
+    
+    bool result = aot_compile_wasm(comp_ctx);
+    ASSERT_TRUE(result) << "SIMD comparisons compilation should succeed";
+    
+    // Verify compilation results
+    if (result) {
+        EXPECT_NE(comp_data, nullptr) << "Compilation data should be generated";
+        EXPECT_NE(comp_ctx, nullptr) << "Compilation context should remain valid";
     }
 }
 
@@ -279,17 +289,16 @@ TEST_F(SIMDAdvancedInstructionsTest, test_simd_conversions_compilation)
     option.enable_simd = true;
     option.enable_ref_types = true;
     
-    if (LoadWasmModule()) {
-        ASSERT_TRUE(InitializeCompilationContext());
-        
-        bool result = aot_compile_wasm(comp_ctx);
-        if (result) {
-            ASSERT_TRUE(result);
-        } else {
-            GTEST_SKIP() << "SIMD conversions with ref types not supported";
-        }
-    } else {
-        GTEST_SKIP() << "SIMD test module not available";
+    ASSERT_TRUE(LoadWasmModule()) << "Failed to load SIMD test module";
+    ASSERT_TRUE(InitializeCompilationContext()) << "Failed to initialize compilation context";
+    
+    bool result = aot_compile_wasm(comp_ctx);
+    ASSERT_TRUE(result) << "SIMD conversions compilation should succeed";
+    
+    // Verify compilation results
+    if (result) {
+        EXPECT_NE(comp_data, nullptr) << "Compilation data should be generated";
+        EXPECT_NE(comp_ctx, nullptr) << "Compilation context should remain valid";
     }
 }
 
@@ -300,17 +309,16 @@ TEST_F(SIMDAdvancedInstructionsTest, test_simd_construct_values_compilation)
     option.opt_level = 3;
     option.size_level = 0;
     
-    if (LoadWasmModule()) {
-        ASSERT_TRUE(InitializeCompilationContext());
-        
-        bool result = aot_compile_wasm(comp_ctx);
-        if (result) {
-            ASSERT_TRUE(result);
-        } else {
-            GTEST_SKIP() << "SIMD value construction not supported";
-        }
-    } else {
-        GTEST_SKIP() << "SIMD test module not available";
+    ASSERT_TRUE(LoadWasmModule()) << "Failed to load SIMD test module";
+    ASSERT_TRUE(InitializeCompilationContext()) << "Failed to initialize compilation context";
+    
+    bool result = aot_compile_wasm(comp_ctx);
+    ASSERT_TRUE(result) << "SIMD value construction compilation should succeed";
+    
+    // Verify compilation results
+    if (result) {
+        EXPECT_NE(comp_data, nullptr) << "Compilation data should be generated";
+        EXPECT_NE(comp_ctx, nullptr) << "Compilation context should remain valid";
     }
 }
 
@@ -321,17 +329,16 @@ TEST_F(SIMDAdvancedInstructionsTest, test_simd_floating_point_compilation)
     option.enable_bulk_memory = true;
     option.bounds_checks = 2;
     
-    if (LoadWasmModule()) {
-        ASSERT_TRUE(InitializeCompilationContext());
-        
-        bool result = aot_compile_wasm(comp_ctx);
-        if (result) {
-            ASSERT_TRUE(result);
-        } else {
-            GTEST_SKIP() << "SIMD floating-point operations not supported";
-        }
-    } else {
-        GTEST_SKIP() << "SIMD test module not available";
+    ASSERT_TRUE(LoadWasmModule()) << "Failed to load SIMD test module";
+    ASSERT_TRUE(InitializeCompilationContext()) << "Failed to initialize compilation context";
+    
+    bool result = aot_compile_wasm(comp_ctx);
+    ASSERT_TRUE(result) << "SIMD floating-point operations compilation should succeed";
+    
+    // Verify compilation results
+    if (result) {
+        EXPECT_NE(comp_data, nullptr) << "Compilation data should be generated";
+        EXPECT_NE(comp_ctx, nullptr) << "Compilation context should remain valid";
     }
 }
 
@@ -341,17 +348,16 @@ TEST_F(SIMDAdvancedInstructionsTest, test_simd_integer_arithmetic_compilation)
     option.enable_simd = true;
     option.output_format = AOT_FORMAT_FILE;
     
-    if (LoadWasmModule()) {
-        ASSERT_TRUE(InitializeCompilationContext());
-        
-        bool result = aot_compile_wasm(comp_ctx);
-        if (result) {
-            ASSERT_TRUE(result);
-        } else {
-            GTEST_SKIP() << "SIMD integer arithmetic not supported";
-        }
-    } else {
-        GTEST_SKIP() << "SIMD test module not available";
+    ASSERT_TRUE(LoadWasmModule()) << "Failed to load SIMD test module";
+    ASSERT_TRUE(InitializeCompilationContext()) << "Failed to initialize compilation context";
+    
+    bool result = aot_compile_wasm(comp_ctx);
+    ASSERT_TRUE(result) << "SIMD integer arithmetic compilation should succeed";
+    
+    // Verify compilation results
+    if (result) {
+        EXPECT_NE(comp_data, nullptr) << "Compilation data should be generated";
+        EXPECT_NE(comp_ctx, nullptr) << "Compilation context should remain valid";
     }
 }
 
@@ -362,17 +368,16 @@ TEST_F(SIMDAdvancedInstructionsTest, test_simd_load_store_compilation)
     option.enable_aux_stack_check = true;
     option.bounds_checks = 1;
     
-    if (LoadWasmModule()) {
-        ASSERT_TRUE(InitializeCompilationContext());
-        
-        bool result = aot_compile_wasm(comp_ctx);
-        if (result) {
-            ASSERT_TRUE(result);
-        } else {
-            GTEST_SKIP() << "SIMD load/store operations not supported";
-        }
-    } else {
-        GTEST_SKIP() << "SIMD test module not available";
+    ASSERT_TRUE(LoadWasmModule()) << "Failed to load SIMD test module";
+    ASSERT_TRUE(InitializeCompilationContext()) << "Failed to initialize compilation context";
+    
+    bool result = aot_compile_wasm(comp_ctx);
+    ASSERT_TRUE(result) << "SIMD load/store operations compilation should succeed";
+    
+    // Verify compilation results
+    if (result) {
+        EXPECT_NE(comp_data, nullptr) << "Compilation data should be generated";
+        EXPECT_NE(comp_ctx, nullptr) << "Compilation context should remain valid";
     }
 }
 
@@ -383,17 +388,16 @@ TEST_F(SIMDAdvancedInstructionsTest, test_simd_saturated_arithmetic_compilation)
     option.opt_level = 2;
     option.size_level = 2;
     
-    if (LoadWasmModule()) {
-        ASSERT_TRUE(InitializeCompilationContext());
-        
-        bool result = aot_compile_wasm(comp_ctx);
-        if (result) {
-            ASSERT_TRUE(result);
-        } else {
-            GTEST_SKIP() << "SIMD saturated arithmetic not supported";
-        }
-    } else {
-        GTEST_SKIP() << "SIMD test module not available";
+    ASSERT_TRUE(LoadWasmModule()) << "Failed to load SIMD test module";
+    ASSERT_TRUE(InitializeCompilationContext()) << "Failed to initialize compilation context";
+    
+    bool result = aot_compile_wasm(comp_ctx);
+    ASSERT_TRUE(result) << "SIMD saturated arithmetic compilation should succeed";
+    
+    // Verify compilation results
+    if (result) {
+        EXPECT_NE(comp_data, nullptr) << "Compilation data should be generated";
+        EXPECT_NE(comp_ctx, nullptr) << "Compilation context should remain valid";
     }
 }
 
@@ -404,17 +408,16 @@ TEST_F(SIMDAdvancedInstructionsTest, test_aot_emit_const_advanced_operations)
     option.enable_ref_types = true;
     option.enable_bulk_memory = true;
     
-    if (LoadWasmModule()) {
-        ASSERT_TRUE(InitializeCompilationContext());
-        
-        bool result = aot_compile_wasm(comp_ctx);
-        if (result) {
-            ASSERT_TRUE(result);
-        } else {
-            GTEST_SKIP() << "Advanced constant operations not supported";
-        }
-    } else {
-        GTEST_SKIP() << "Advanced const test module not available";
+    ASSERT_TRUE(LoadWasmModule()) << "Failed to load SIMD test module";
+    ASSERT_TRUE(InitializeCompilationContext()) << "Failed to initialize compilation context";
+    
+    bool result = aot_compile_wasm(comp_ctx);
+    ASSERT_TRUE(result) << "Advanced constant operations compilation should succeed";
+    
+    // Verify compilation results
+    if (result) {
+        EXPECT_NE(comp_data, nullptr) << "Compilation data should be generated";
+        EXPECT_NE(comp_ctx, nullptr) << "Compilation context should remain valid";
     }
 }
 
@@ -425,17 +428,16 @@ TEST_F(SIMDAdvancedInstructionsTest, test_aot_emit_conversion_comprehensive_type
     option.bounds_checks = 2;
     option.opt_level = 1;
     
-    if (LoadWasmModule()) {
-        ASSERT_TRUE(InitializeCompilationContext());
-        
-        bool result = aot_compile_wasm(comp_ctx);
-        if (result) {
-            ASSERT_TRUE(result);
-        } else {
-            GTEST_SKIP() << "Comprehensive type conversions not supported";
-        }
-    } else {
-        GTEST_SKIP() << "Type conversion test module not available";
+    ASSERT_TRUE(LoadWasmModule()) << "Failed to load SIMD test module";
+    ASSERT_TRUE(InitializeCompilationContext()) << "Failed to initialize compilation context";
+    
+    bool result = aot_compile_wasm(comp_ctx);
+    ASSERT_TRUE(result) << "Comprehensive type conversions compilation should succeed";
+    
+    // Verify compilation results
+    if (result) {
+        EXPECT_NE(comp_data, nullptr) << "Compilation data should be generated";
+        EXPECT_NE(comp_ctx, nullptr) << "Compilation context should remain valid";
     }
 }
 
@@ -446,17 +448,16 @@ TEST_F(SIMDAdvancedInstructionsTest, test_aot_emit_exception_handling_compilatio
     option.enable_aux_stack_check = true;
     option.bounds_checks = 2;
     
-    if (LoadWasmModule()) {
-        ASSERT_TRUE(InitializeCompilationContext());
-        
-        bool result = aot_compile_wasm(comp_ctx);
-        if (result) {
-            ASSERT_TRUE(result);
-        } else {
-            GTEST_SKIP() << "Exception handling compilation not supported";
-        }
-    } else {
-        GTEST_SKIP() << "Exception handling test module not available";
+    ASSERT_TRUE(LoadWasmModule()) << "Failed to load SIMD test module";
+    ASSERT_TRUE(InitializeCompilationContext()) << "Failed to initialize compilation context";
+    
+    bool result = aot_compile_wasm(comp_ctx);
+    ASSERT_TRUE(result) << "Exception handling compilation should succeed";
+    
+    // Verify compilation results
+    if (result) {
+        EXPECT_NE(comp_data, nullptr) << "Compilation data should be generated";
+        EXPECT_NE(comp_ctx, nullptr) << "Compilation context should remain valid";
     }
 }
 
@@ -467,17 +468,16 @@ TEST_F(SIMDAdvancedInstructionsTest, test_aot_emit_gc_operations_compilation)
     option.enable_ref_types = true;
     option.opt_level = 0;  // Disable optimization for GC testing
     
-    if (LoadWasmModule()) {
-        ASSERT_TRUE(InitializeCompilationContext());
-        
-        bool result = aot_compile_wasm(comp_ctx);
-        if (result) {
-            ASSERT_TRUE(result);
-        } else {
-            GTEST_SKIP() << "GC operations compilation not supported";
-        }
-    } else {
-        GTEST_SKIP() << "GC operations test module not available";
+    ASSERT_TRUE(LoadWasmModule()) << "Failed to load SIMD test module";
+    ASSERT_TRUE(InitializeCompilationContext()) << "Failed to initialize compilation context";
+    
+    bool result = aot_compile_wasm(comp_ctx);
+    ASSERT_TRUE(result) << "GC operations compilation should succeed";
+    
+    // Verify compilation results
+    if (result) {
+        EXPECT_NE(comp_data, nullptr) << "Compilation data should be generated";
+        EXPECT_NE(comp_ctx, nullptr) << "Compilation context should remain valid";
     }
 }
 
@@ -489,17 +489,16 @@ TEST_F(SIMDAdvancedInstructionsTest, test_aot_emit_stringref_operations_compilat
     option.enable_bulk_memory = true;
     option.size_level = 0;
     
-    if (LoadWasmModule()) {
-        ASSERT_TRUE(InitializeCompilationContext());
-        
-        bool result = aot_compile_wasm(comp_ctx);
-        if (result) {
-            ASSERT_TRUE(result);
-        } else {
-            GTEST_SKIP() << "Stringref operations compilation not supported";
-        }
-    } else {
-        GTEST_SKIP() << "Stringref operations test module not available";
+    ASSERT_TRUE(LoadWasmModule()) << "Failed to load SIMD test module";
+    ASSERT_TRUE(InitializeCompilationContext()) << "Failed to initialize compilation context";
+    
+    bool result = aot_compile_wasm(comp_ctx);
+    ASSERT_TRUE(result) << "Stringref operations compilation should succeed";
+    
+    // Verify compilation results
+    if (result) {
+        EXPECT_NE(comp_data, nullptr) << "Compilation data should be generated";
+        EXPECT_NE(comp_ctx, nullptr) << "Compilation context should remain valid";
     }
 }
 
@@ -511,17 +510,16 @@ TEST_F(SIMDAdvancedInstructionsTest, test_aot_stack_frame_compilation_optimizati
     option.opt_level = 3;
     option.size_level = 1;
     
-    if (LoadWasmModule()) {
-        ASSERT_TRUE(InitializeCompilationContext());
-        
-        bool result = aot_compile_wasm(comp_ctx);
-        if (result) {
-            ASSERT_TRUE(result);
-        } else {
-            GTEST_SKIP() << "Stack frame optimization not supported";
-        }
-    } else {
-        GTEST_SKIP() << "Stack frame test module not available";
+    ASSERT_TRUE(LoadWasmModule()) << "Failed to load SIMD test module";
+    ASSERT_TRUE(InitializeCompilationContext()) << "Failed to initialize compilation context";
+    
+    bool result = aot_compile_wasm(comp_ctx);
+    ASSERT_TRUE(result) << "Stack frame optimization compilation should succeed";
+    
+    // Verify compilation results
+    if (result) {
+        EXPECT_NE(comp_data, nullptr) << "Compilation data should be generated";
+        EXPECT_NE(comp_ctx, nullptr) << "Compilation context should remain valid";
     }
 }
 
@@ -533,17 +531,16 @@ TEST_F(SIMDAdvancedInstructionsTest, test_advanced_control_flow_compilation)
     option.enable_ref_types = true;
     option.bounds_checks = 1;
     
-    if (LoadWasmModule()) {
-        ASSERT_TRUE(InitializeCompilationContext());
-        
-        bool result = aot_compile_wasm(comp_ctx);
-        if (result) {
-            ASSERT_TRUE(result);
-        } else {
-            GTEST_SKIP() << "Advanced control flow compilation not supported";
-        }
-    } else {
-        GTEST_SKIP() << "Advanced control flow test module not available";
+    ASSERT_TRUE(LoadWasmModule()) << "Failed to load SIMD test module";
+    ASSERT_TRUE(InitializeCompilationContext()) << "Failed to initialize compilation context";
+    
+    bool result = aot_compile_wasm(comp_ctx);
+    ASSERT_TRUE(result) << "Advanced control flow compilation should succeed";
+    
+    // Verify compilation results
+    if (result) {
+        EXPECT_NE(comp_data, nullptr) << "Compilation data should be generated";
+        EXPECT_NE(comp_ctx, nullptr) << "Compilation context should remain valid";
     }
 }
 
@@ -556,16 +553,15 @@ TEST_F(SIMDAdvancedInstructionsTest, test_complex_memory_operations_compilation)
     option.bounds_checks = 2;
     option.opt_level = 2;
     
-    if (LoadWasmModule()) {
-        ASSERT_TRUE(InitializeCompilationContext());
-        
-        bool result = aot_compile_wasm(comp_ctx);
-        if (result) {
-            ASSERT_TRUE(result);
-        } else {
-            GTEST_SKIP() << "Complex memory operations compilation not supported";
-        }
-    } else {
-        GTEST_SKIP() << "Complex memory operations test module not available";
+    ASSERT_TRUE(LoadWasmModule()) << "Failed to load SIMD test module";
+    ASSERT_TRUE(InitializeCompilationContext()) << "Failed to initialize compilation context";
+    
+    bool result = aot_compile_wasm(comp_ctx);
+    ASSERT_TRUE(result) << "Complex memory operations compilation should succeed";
+    
+    // Verify compilation results
+    if (result) {
+        EXPECT_NE(comp_data, nullptr) << "Compilation data should be generated";
+        EXPECT_NE(comp_ctx, nullptr) << "Compilation context should remain valid";
     }
 }
