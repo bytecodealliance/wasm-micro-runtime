@@ -39,6 +39,16 @@ class IntegrationPerformanceTest : public testing::Test
 protected:
     void SetUp() override
     {
+        // Initialize WAMR runtime first
+        RuntimeInitArgs init_args;
+        memset(&init_args, 0, sizeof(RuntimeInitArgs));
+        init_args.mem_alloc_type = Alloc_With_System_Allocator;
+        
+        ASSERT_TRUE(wasm_runtime_full_init(&init_args)) << "Failed to initialize WAMR runtime";
+        
+        // Initialize AOT compiler
+        ASSERT_TRUE(aot_compiler_init()) << "Failed to initialize AOT compiler";
+        
         // Initialize test environment
         memset(&option, 0, sizeof(AOTCompOption));
         
@@ -81,9 +91,15 @@ protected:
             wasm_module = nullptr;
         }
         if (wasm_file_buf) {
-            wasm_runtime_free(wasm_file_buf);
+            BH_FREE(wasm_file_buf);
             wasm_file_buf = nullptr;
         }
+        
+        // Destroy AOT compiler
+        aot_compiler_destroy();
+        
+        // Destroy WAMR runtime
+        wasm_runtime_destroy();
     }
 
     static void SetUpTestCase()

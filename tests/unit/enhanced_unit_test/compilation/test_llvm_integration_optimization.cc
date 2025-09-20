@@ -114,21 +114,34 @@ protected:
         // The WASM files are copied to the build directory, so use just the filename
         wasm_file_buf = (unsigned char *)bh_read_file_to_buffer(file_name, &wasm_file_size);
         if (!wasm_file_buf || wasm_file_size == 0) {
+            printf("Failed to read WASM file: %s\n", file_name);
             return false;
         }
         
         wasm_module = wasm_runtime_load(wasm_file_buf, wasm_file_size, error_buf, sizeof(error_buf));
+        if (!wasm_module) {
+            printf("Failed to load WASM module: %s\n", error_buf);
+        }
         return wasm_module != nullptr;
     }
     
     bool create_compilation_context(AOTCompOption *test_option)
     {
-        if (!wasm_module) return false;
+        if (!wasm_module) {
+            printf("No WASM module loaded\n");
+            return false;
+        }
         
         comp_data = aot_create_comp_data(wasm_module, nullptr, false);
-        if (!comp_data) return false;
+        if (!comp_data) {
+            printf("Failed to create compilation data: %s\n", aot_get_last_error());
+            return false;
+        }
         
         comp_ctx = aot_create_comp_context(comp_data, test_option);
+        if (!comp_ctx) {
+            printf("Failed to create compilation context: %s\n", aot_get_last_error());
+        }
         return comp_ctx != nullptr;
     }
     
@@ -201,6 +214,7 @@ TEST_F(LLVMIntegrationOptimizationTest, test_llvm_target_machine_setup)
     AOTCompOption test_option = option;
     test_option.target_arch = const_cast<char*>("x86_64");
     test_option.target_abi = const_cast<char*>("gnu");
+    test_option.target_cpu = const_cast<char*>("x86-64");
     test_option.cpu_features = const_cast<char*>("+sse2,+sse3,+ssse3,+sse4.1,+sse4.2");
     
     ASSERT_TRUE(create_compilation_context(&test_option));

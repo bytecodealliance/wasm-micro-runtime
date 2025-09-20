@@ -55,6 +55,11 @@ protected:
             FAIL() << "Failed to initialize WAMR runtime";
         }
         
+        // Initialize AOT compiler
+        if (!aot_compiler_init()) {
+            FAIL() << "Failed to initialize AOT compiler";
+        }
+        
         // Initialize test environment
         memset(&option, 0, sizeof(AOTCompOption));
         
@@ -95,9 +100,12 @@ protected:
             wasm_module = nullptr;
         }
         if (wasm_file_buf) {
-            wasm_runtime_free(wasm_file_buf);
+            BH_FREE(wasm_file_buf);
             wasm_file_buf = nullptr;
         }
+        
+        // Destroy AOT compiler
+        aot_compiler_destroy();
         
         // Destroy WAMR runtime
         wasm_runtime_destroy();
@@ -119,15 +127,12 @@ protected:
 
     bool LoadWasmModule()
     {
-        wasm_file_buf = (unsigned char *)bh_read_file_to_buffer(WASM_FILE, &wasm_file_size);
+        // Use just the filename since files are copied to build directory
+        const char* wasm_file = "simd_test.wasm";
+        wasm_file_buf = (unsigned char *)bh_read_file_to_buffer(wasm_file, &wasm_file_size);
         if (!wasm_file_buf) {
-            // Try alternative paths if primary path fails
-            std::string alt_path = "./simd_test.wasm";
-            wasm_file_buf = (unsigned char *)bh_read_file_to_buffer(alt_path.c_str(), &wasm_file_size);
-            if (!wasm_file_buf) {
-                printf("Failed to load WASM file from both %s and %s\n", WASM_FILE, alt_path.c_str());
-                return false;
-            }
+            printf("Failed to load WASM file: %s\n", wasm_file);
+            return false;
         }
 
         char error_buf[128];
@@ -141,16 +146,20 @@ protected:
     bool InitializeCompilationContext()
     {
         if (!wasm_module) {
+            printf("No WASM module loaded\n");
             return false;
         }
 
-        char error_buf[128];
         comp_data = aot_create_comp_data(wasm_module, nullptr, false);
         if (!comp_data) {
+            printf("Failed to create compilation data: %s\n", aot_get_last_error());
             return false;
         }
 
         comp_ctx = aot_create_comp_context(comp_data, &option);
+        if (!comp_ctx) {
+            printf("Failed to create compilation context: %s\n", aot_get_last_error());
+        }
         return comp_ctx != nullptr;
     }
 
@@ -443,12 +452,20 @@ TEST_F(SIMDAdvancedInstructionsTest, test_aot_emit_conversion_comprehensive_type
 
 TEST_F(SIMDAdvancedInstructionsTest, test_aot_emit_exception_handling_compilation)
 {
-    // Test exception handling compilation
+    // Test exception handling compilation - use main.wasm which doesn't have SIMD
     option.enable_simd = false;  // Test without SIMD for exception focus
     option.enable_aux_stack_check = true;
     option.bounds_checks = 2;
     
-    ASSERT_TRUE(LoadWasmModule()) << "Failed to load SIMD test module";
+    // Load a non-SIMD WASM file for exception handling test
+    const char* wasm_file = "main.wasm";
+    wasm_file_buf = (unsigned char *)bh_read_file_to_buffer(wasm_file, &wasm_file_size);
+    ASSERT_TRUE(wasm_file_buf != nullptr) << "Failed to load main.wasm";
+    
+    char error_buf[128];
+    wasm_module = wasm_runtime_load(wasm_file_buf, wasm_file_size, error_buf, sizeof(error_buf));
+    ASSERT_TRUE(wasm_module != nullptr) << "Failed to load WASM module: " << error_buf;
+    
     ASSERT_TRUE(InitializeCompilationContext()) << "Failed to initialize compilation context";
     
     bool result = aot_compile_wasm(comp_ctx);
