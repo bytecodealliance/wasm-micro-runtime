@@ -5057,6 +5057,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     PUT_I64_TO_ADDR((uint32 *)(frame_lp + local_offset),
                                     GET_I64_FROM_ADDR(frame_lp + addr1));
                 }
+                else if (local_type == VALUE_TYPE_V128) {
+                    PUT_V128_TO_ADDR((frame_lp + local_offset),
+                                     GET_V128_FROM_ADDR(frame_lp + addr1));
+                }
 #if WASM_ENABLE_GC != 0
                 else if (wasm_is_type_reftype(local_type)) {
                     PUT_REF_TO_ADDR((uint32 *)(frame_lp + local_offset),

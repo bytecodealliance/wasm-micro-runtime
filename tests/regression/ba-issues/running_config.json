@@ -1754,6 +1754,22 @@
                 "stdout content": "",
                 "description": "no sanitizer 'heap-buffer-overflow'"
             }
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                4643
+            ],
+            "runtime": "iwasm-default-wasi-disabled",
+            "file": "test.wasm",
+            "mode": "fast-interp",
+            "options": "-f _start",
+            "argument": "",
+            "expected return": {
+                "ret code": 0,
+                "stdout content": "",
+                "description": "no 'invalid local type'"
+            }
         }
     ]
 }
