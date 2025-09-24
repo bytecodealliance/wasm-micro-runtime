@@ -16,10 +16,11 @@ set(WAMR_BUILD_LIBC_BUILTIN 1)
 add_definitions (-Dattr_container_malloc=malloc)
 add_definitions (-Dattr_container_free=free)
 
-set (WAMR_BUILD_APP_FRAMEWORK 1)
-set (CMAKE_BUILD_TYPE Release)
-
 include (../unit_common.cmake)
+
+find_package(LLVM REQUIRED CONFIG)
+include_directories(${LLVM_INCLUDE_DIRS})
+add_definitions(${LLVM_DEFINITIONS})
 
 include_directories (${CMAKE_CURRENT_SOURCE_DIR})
 

@@ -33,7 +33,9 @@ set(WAMR_BUILD_REF_TYPES 1)
 # if only load this CMake other than load it as subdirectory
 include(../unit_common.cmake)
 
-include(${IWASM_DIR}/compilation/iwasm_compl.cmake)
+find_package(LLVM REQUIRED CONFIG)
+include_directories(${LLVM_INCLUDE_DIRS})
+add_definitions(${LLVM_DEFINITIONS})
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
