@@ -1770,6 +1770,22 @@
                 "stdout content": "",
                 "description": "no 'invalid local type'"
             }
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                4646
+            ],
+            "runtime": "iwasm-default-gc-enabled",
+            "file": "test.wasm",
+            "mode": "classic-interp",
+            "options": "-f _start",
+            "argument": "",
+            "expected return": {
+                "ret code": 0,
+                "stdout content": "",
+                "description": "load successfully"
+            }
         }
     ]
 }

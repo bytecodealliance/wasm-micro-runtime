@@ -12050,9 +12050,25 @@ re_scan:
                     WASMFuncType *wasm_type = block_type.u.type;
 
                     BranchBlock *cur_block = loader_ctx->frame_csp - 1;
+#if WASM_ENABLE_GC != 0
+                    WASMRefType *ref_type;
+                    uint32 j = 0;
+#endif
 #if WASM_ENABLE_FAST_INTERP != 0
                     uint32 cell_num;
                     available_params = block_type.u.type->param_count;
+#endif
+#if WASM_ENABLE_GC != 0
+                    /* find the index of the last param
+                     * in wasm_type->ref_type_maps as j */
+                    for (i = 0; i < block_type.u.type->param_count; i++) {
+                        if (wasm_is_type_multi_byte_type(wasm_type->types[i])) {
+                            j += 1;
+                        }
+                    }
+                    if (j > 0) {
+                        j -= 1;
+                    }
 #endif
                     for (i = 0; i < block_type.u.type->param_count; i++) {
 
@@ -12066,6 +12082,16 @@ re_scan:
 #endif
                             break;
                         }
+#if WASM_ENABLE_GC != 0
+                        if (wasm_is_type_multi_byte_type(wasm_type->types[wasm_type->param_count - i - 1])) {
+                            bh_assert(wasm_type->ref_type_maps[j].index == wasm_type->param_count - i - 1);
+                            ref_type = wasm_type->ref_type_maps[j].ref_type;
+                            bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
+                                        ref_type,
+                                        wasm_reftype_struct_size(ref_type));
+                            j--;
+                        }
+#endif
 
                         POP_TYPE(
                             wasm_type->types[wasm_type->param_count - i - 1]);
