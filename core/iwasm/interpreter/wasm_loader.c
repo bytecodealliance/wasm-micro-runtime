@@ -12083,8 +12083,11 @@ re_scan:
                             break;
                         }
 #if WASM_ENABLE_GC != 0
-                        if (wasm_is_type_multi_byte_type(wasm_type->types[wasm_type->param_count - i - 1])) {
-                            bh_assert(wasm_type->ref_type_maps[j].index == wasm_type->param_count - i - 1);
+                        if (wasm_is_type_multi_byte_type(
+                                wasm_type
+                                    ->types[wasm_type->param_count - i - 1])) {
+                            bh_assert(wasm_type->ref_type_maps[j].index
+                                      == wasm_type->param_count - i - 1);
                             ref_type = wasm_type->ref_type_maps[j].ref_type;
                             bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
                                         ref_type,
