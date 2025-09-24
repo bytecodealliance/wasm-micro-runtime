@@ -9,10 +9,10 @@ add_definitions (-DRUN_ON_LINUX)
 
 set (WAMR_BUILD_LIBC_WASI 0)
 set (WAMR_BUILD_LIBC_BUILTIN 0)
-# to involve LLVM
-set (WAMR_BUILD_JIT 1)
-set (WAMR_BUILD_LAZY_JIT 0)
+set (WAMR_BUILD_JIT 0)
 set (WAMR_BUILD_AOT 1)
+set (WAMR_BUILD_FAST_INTERP 0)
+set (WAMR_BUILD_INTERP 1)
 set (WAMR_BUILD_MULTI_MODULE 0)
 set (WAMR_BUILD_LINUX_PERF 1)
 
@@ -22,6 +22,10 @@ add_definitions(-DWASM_ENABLE_WAMR_COMPILER=1)
 set (WAMR_BUILD_DUMP_CALL_STACK 1)
 
 include (../unit_common.cmake)
+
+find_package(LLVM REQUIRED CONFIG)
+include_directories(${LLVM_INCLUDE_DIRS})
+add_definitions(${LLVM_DEFINITIONS})
 
 include (${IWASM_DIR}/compilation/iwasm_compl.cmake)
 

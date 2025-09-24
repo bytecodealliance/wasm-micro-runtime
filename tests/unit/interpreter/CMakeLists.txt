@@ -34,6 +34,6 @@ set (unit_test_sources
 # Now simply link against gtest or gtest_main as needed. Eg
 add_executable (interpreter_test ${unit_test_sources})
 
-target_link_libraries (interpreter_test ${LLVM_AVAILABLE_LIBS} gtest_main )
+target_link_libraries (interpreter_test gtest_main )
 
 gtest_discover_tests(interpreter_test)
