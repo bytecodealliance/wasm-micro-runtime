@@ -1,22 +1,22 @@
-;; 定义数组类型 - i32数组
+;; define array type - i32 array
 (type $i32_array (array (mut i32)))
 
-;; main函数
+;; main function
 (func $main
   (local $arr (ref $i32_array))
 
-  ;; 创建一个大小为10的i32数组，初始值为0
+  ;; create an i32 array of size 10 with initial value 0
   (array.new $i32_array
-    (i32.const 0)    ;; 初始值
-    (i32.const 10))  ;; 数组大小
+    (i32.const 0)    ;; initial value
+    (i32.const 10))  ;; array size
   (local.set $arr)
 
-  ;; 使用 array.fill 填充数组
+  ;; fill array using array.fill
   (array.fill $i32_array
-    (local.get $arr)  ;; 数组引用
-    (i32.const 0)     ;; 起始索引
-    (i32.const 42)    ;; 填充值
-    (i32.const 10))   ;; 填充长度 - 填满整个数组
+    (local.get $arr)  ;; array reference
+    (i32.const 0)     ;; start index
+    (i32.const 42)    ;; fill value
+    (i32.const 10))   ;; fill length - fill entire array
 )
 
 (memory 1)
