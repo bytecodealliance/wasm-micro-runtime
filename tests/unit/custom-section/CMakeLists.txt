@@ -15,7 +15,7 @@ ExternalProject_Add(
   CONFIGURE_COMMAND ${CMAKE_COMMAND} -S ${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps -B build
                       -DWASI_SDK_PREFIX=${WASI_SDK_DIR}
                       -DCMAKE_TOOLCHAIN_FILE=${WASISDK_TOOLCHAIN}
-  BUILD_COMMAND     ${CMAKE_COMMAND} --build build --verbose
+  BUILD_COMMAND     ${CMAKE_COMMAND} --build build
   INSTALL_COMMAND   ${CMAKE_COMMAND} --install build --prefix ${CMAKE_CURRENT_BINARY_DIR}/wasm-apps
 )
 
