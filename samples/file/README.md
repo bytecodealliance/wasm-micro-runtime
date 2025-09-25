@@ -1,3 +1,6 @@
+---
+description: "The related code/working directory of this example resides in directory {WAMR_DIR}/samples/file"
+---
 # "file" sample introduction
 
 This sample demonstrates the supported file interaction API of WASI.

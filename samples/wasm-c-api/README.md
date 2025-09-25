@@ -1,3 +1,6 @@
+---
+description: "The related code/working directory of this example resides in directory {WAMR_DIR}/samples/wasm-c-api"
+---
 WAMR supports *wasm-c-api* in both *interpreter* mode and *aot* mode.
 
 Before staring, we need to download and install [WABT](https://github.com/WebAssembly/wabt/releases/latest).
