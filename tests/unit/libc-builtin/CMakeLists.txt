@@ -7,10 +7,15 @@ project (test-libc-builtin)
 
 add_definitions (-DRUN_ON_LINUX)
 
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-
+set (WAMR_BUILD_AOT 0)
+set (WAMR_BUILD_FAST_INTERP 0)
+set (WAMR_BUILD_INTERP 1)
+set (WAMR_BUILD_JIT 0)
+set (WAMR_BUILD_LIBC_BUILTIN 1)
 set (WAMR_BUILD_LIBC_WASI 0)
 set (WAMR_BUILD_APP_FRAMEWORK 0)
+# FIXME: if removed, LibcBuiltinTest.calloc will be failed
+set (WAMR_BUILD_MULTI_MODULE 1)
 
 include (../unit_common.cmake)
 
@@ -21,9 +26,9 @@ file (GLOB_RECURSE source_all ${CMAKE_CURRENT_SOURCE_DIR}/*.cc)
 set (UNIT_SOURCE ${source_all})
 
 set (unit_test_sources
-     ${UNIT_SOURCE}
-     ${WAMR_RUNTIME_LIB_SOURCE}
-    )
+  ${UNIT_SOURCE}
+  ${WAMR_RUNTIME_LIB_SOURCE}
+)
 
 add_executable (libc_builtin_test ${unit_test_sources})
 
