@@ -11,6 +11,7 @@ on:
       - synchronize
     paths:
       - ".github/**"
+      - "!.github/ISSUE_TEMPLATE/**"
       - "build-scripts/**"
       - "core/**"
       - "!core/deps/**"
@@ -27,6 +28,7 @@ on:
       - "dev/**"
     paths:
       - ".github/**"
+      - "!.github/ISSUE_TEMPLATE/**"
       - "build-scripts/**"
       - "core/**"
       - "!core/deps/**"
