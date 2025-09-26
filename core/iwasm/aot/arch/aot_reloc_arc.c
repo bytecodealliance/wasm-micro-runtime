@@ -310,6 +310,75 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                  int32 symbol_index, char *error_buf, uint32 error_buf_size)
 {
     switch (reloc_type) {
+        case R_ARC_S21H_PCREL:
+        {
+            uint32 insn = LOAD_I32(target_section_addr + reloc_offset);
+            int32 addend, value;
+            uintptr_t S, P;
+            intptr_t A;
+
+            CHECK_RELOC_OFFSET(sizeof(void *));
+
+            /* Convert from middle endian */
+            insn = middle_endian_convert(insn);
+            
+            /**/
+            addend = (insn << 16) >> 22;
+            addend = addend << 10;
+            addend |= ((insn << 5) >> 22);
+            addend = addend << 1;
+
+            /* (S + A) - P */
+            S = (uintptr_t)(uint8 *)symbol_addr;
+            A = (intptr_t)reloc_addend;
+            P = (uintptr_t)(target_section_addr + reloc_offset);
+            P &= (uintptr_t)~1;
+            value = (int32)(S + A + addend - P);
+
+            insn = insn & 0xf801003f;
+            insn |= ((((value >> 1) & 0x3ff) << 17)
+                     | (((value >> 1) & 0xffc00) >> 4));
+            
+            /* Convert to middle endian */
+            insn = middle_endian_convert(insn);
+
+            STORE_U32(target_section_addr + reloc_offset, insn);
+            break;
+        }
+        case R_ARC_S21W_PCREL:
+        {
+            uint32 insn = LOAD_I32(target_section_addr + reloc_offset);
+            int32 addend, value;
+            uintptr_t S, P;
+            intptr_t A;
+
+            CHECK_RELOC_OFFSET(sizeof(void *));
+
+            /* Convert from middle endian */
+            insn = middle_endian_convert(insn);
+
+            addend = (insn << 16) >> 22;
+            addend = addend << 9;
+            addend |= ((insn << 5) >> 23);
+            addend = addend << 2;
+
+            /* (S + A) - P */
+            S = (uintptr_t)(uint8 *)symbol_addr;
+            A = (intptr_t)reloc_addend;
+            P = (uintptr_t)(target_section_addr + reloc_offset);
+            P &= (uintptr_t)~3;
+            value = (int32)(S + A + addend - P);
+            
+            insn = insn & 0xf803003f;
+            insn |= ((((value >> 2) & 0x1ff) << 18)
+                     | (((value >> 2) & 0x7fe00) >> 3));
+
+            /* Convert to middle endian */
+            insn = middle_endian_convert(insn);
+
+            STORE_U32(target_section_addr + reloc_offset, insn);
+            break;
+        }
         case R_ARC_S25H_PCREL:
         {
             uint32 insn = LOAD_I32(target_section_addr + reloc_offset);
@@ -340,8 +409,8 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
 
             insn = insn & 0xf8010030;
             insn |= ((((value >> 1) & 0x3ff) << 17)
-                     | (((value >> 1) & 0xffc00) >> 3)
-                     | (((value >> 1) & 0xf00000) >> 19));
+                     | (((value >> 1) & 0xffc00) >> 4)
+                     | (((value >> 1) & 0xf00000) >> 20));
 
             /* Convert to middle endian */
             insn = middle_endian_convert(insn);
