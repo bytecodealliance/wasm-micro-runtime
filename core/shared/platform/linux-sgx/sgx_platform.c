@@ -132,7 +132,8 @@ os_is_handle_valid(os_file_handle *handle)
 #endif
 
 static void *
-os_mmap_internal(void *hint, size_t size, int prot, int flags, os_file_handle file, bool clear)
+os_mmap_internal(void *hint, size_t size, int prot, int flags,
+                 os_file_handle file, bool clear)
 {
     int mprot = 0;
     uint64 aligned_size, page_size;
@@ -192,8 +193,9 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
 void *
 os_mremap(void *old_addr, size_t old_size, size_t new_size)
 {
-    void *new_memory = os_mmap_internal(NULL, new_size, MMAP_PROT_WRITE | MMAP_PROT_READ,
-                               0, os_get_invalid_handle(), false);
+    void *new_memory =
+        os_mmap_internal(NULL, new_size, MMAP_PROT_WRITE | MMAP_PROT_READ, 0,
+                         os_get_invalid_handle(), false);
     if (!new_memory) {
         return NULL;
     }
@@ -243,8 +245,10 @@ os_mprotect(void *addr, size_t size, int prot)
 
 void
 os_dcache_flush(void)
-{}
+{
+}
 
 void
 os_icache_flush(void *start, size_t len)
-{}
+{
+}
