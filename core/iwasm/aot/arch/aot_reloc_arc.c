@@ -321,11 +321,13 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
 
             /* Convert from middle endian */
             insn = middle_endian_convert(insn);
-            
-            /**/
+
+            /* Extract the first 10 bits from Position 6 to 15 in insn */
             addend = (insn << 16) >> 22;
             addend = addend << 10;
+            /* Extract the remaining 10 bits from Position 17 to 26 in insn */
             addend |= ((insn << 5) >> 22);
+            /* Fill in 1 bits to get the 21 bit Offset Value */
             addend = addend << 1;
 
             /* (S + A) - P */
@@ -338,7 +340,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             insn = insn & 0xf801003f;
             insn |= ((((value >> 1) & 0x3ff) << 17)
                      | (((value >> 1) & 0xffc00) >> 4));
-            
+
             /* Convert to middle endian */
             insn = middle_endian_convert(insn);
 
@@ -357,9 +359,12 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             /* Convert from middle endian */
             insn = middle_endian_convert(insn);
 
+            /* Extract the first 10 bits from Position 6 to 15 in insn */
             addend = (insn << 16) >> 22;
             addend = addend << 9;
+            /* Extract the remaining 9 bits from Position 18 to 26 in insn */
             addend |= ((insn << 5) >> 23);
+            /* Fill in 2 bits to get the 21 bit Offset Value */
             addend = addend << 2;
 
             /* (S + A) - P */
@@ -368,7 +373,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             P = (uintptr_t)(target_section_addr + reloc_offset);
             P &= (uintptr_t)~3;
             value = (int32)(S + A + addend - P);
-            
+
             insn = insn & 0xf803003f;
             insn |= ((((value >> 2) & 0x1ff) << 18)
                      | (((value >> 2) & 0x7fe00) >> 3));
