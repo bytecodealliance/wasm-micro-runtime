@@ -38,6 +38,7 @@
 
 #if KERNEL_VERSION_NUMBER < 0x030200 /* version 3.2.0 */
 #include <zephyr.h>
+#include <fs/fs_interface.h>
 #include <net/net_pkt.h>
 #include <net/net_if.h>
 #include <net/net_ip.h>
@@ -45,6 +46,7 @@
 #include <net/net_context.h>
 #else /* else of KERNEL_VERSION_NUMBER < 0x030200 */
 #include <zephyr/kernel.h>
+#include <zephyr/fs/fs_interface.h>
 #include <zephyr/net/net_pkt.h>
 #include <zephyr/net/net_if.h>
 #include <zephyr/net/net_ip.h>
