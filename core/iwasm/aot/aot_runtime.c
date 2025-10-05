@@ -4495,7 +4495,7 @@ aot_create_call_stack(struct WASMExecEnv *exec_env)
             frame.frame_ref = (uint8 *)frame.lp + (frame_ref - (uint8 *)lp);
             /* copy local ref flags from AOT module */
             bh_memcpy_s(frame.frame_ref, local_ref_flags_cell_num,
-                        local_ref_flags, lp_size);
+                        local_ref_flags, local_ref_flags_cell_num);
 #endif
         }
 
