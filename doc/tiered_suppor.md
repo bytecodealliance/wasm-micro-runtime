@@ -6,6 +6,8 @@
 - **B — Almost Production Ready:** partially tested; close to production.
 - **C — Experimental / Not Production Ready:** unfinished or volatile.
 
+The condition _tested_ mentioned above specifically refers to whether there are enough tests in CI.
+
 ## Architecture Support
 
 | Architecture | Tier  |
@@ -13,15 +15,13 @@
 | **x86-64**   | **A** |
 | **x86-32**   | **A** |
 | AArch64      | B     |
-| ARC          | B[^1] |
+| ARC          | B     |
 | ARM          | B     |
 | RISCV32      | B     |
 | RISCV64      | B     |
 | THUMB        | B     |
 | XTENSA       | B     |
 | MIPS         | C     |
-
-[^1]: will upgrade to **A** after further testing and validation.
 
 ## OS / Platform Support
 
@@ -32,7 +32,7 @@
 | Android            | B     |
 | macOS              | B     |
 | Windows            | B     |
-| Zephyr             | B[^2] |
+| Zephyr             | B     |
 | AliOS-Things       | C     |
 | Cosmopolitan       | C     |
 | ESP-IDF (FreeRTOS) | C     |
@@ -42,64 +42,62 @@
 | RIOT               | C     |
 | VxWorks            | C     |
 
-[^2]: will upgrade to **A** after further testing and validation.
-
 ## WebAssembly Proposal Support
 
-> Defaults below reflect the sample build configuration you provided (e.g., `WAMR_BUILD_*` values), not necessarily the release bundle. “Always-on” items are part of WAMR’s baseline.
+> During configuration, It is able to disable or enable the following features by setting the corresponding flags (see Appendix). It is also possible to check features status in the configuration output.
 
-| WASM Proposal / Extension              | Tier        | Default |
-| -------------------------------------- | ----------- | ------- |
-| **Bulk Memory**                        | A           | **On**  |
-| **Extended Constant Expressions**      | A           | Off     |
-| **Import/Export of Mutable Globals**   | A           | **On**  |
-| **Memory64**                           | A           | Off     |
-| **Multi-value**                        | A           | **On**  |
-| **Non-trapping float-to-int**          | A           | **On**  |
-| **Reference Types**                    | A           | **On**  |
-| **Shared Memory (Threads)**            | A           | Off     |
-| **SIMD (128-bit)**                     | A           | **On**  |
-| **Sign-extension Operators**           | A           | **On**  |
-| GC (Garbage Collection)                | B           | Off     |
-| Stringref                              | B           | Off     |
-| Tail Calls                             | B           | Off     |
-| Multi-memory                           | C           | Off     |
-| Legacy Exception Handling              | C           | Off     |
-| Branch Hinting                         | Unsupported |         |
-| Custom Annotation Syntax (text format) | Unsupported |         |
-| Exception Handling (new spec)          | Unsupported |         |
-| JS String Builtins                     | Unsupported |         |
-| Relaxed SIMD                           | Unsupported |         |
+| WASM Proposal / Extension              | Tier        |
+| -------------------------------------- | ----------- |
+| **Bulk Memory**                        | A           |
+| **Extended Constant Expressions**      | A           |
+| **Import/Export of Mutable Globals**   | A           |
+| **Memory64**                           | A           |
+| **Multi-value**                        | A           |
+| **Non-trapping float-to-int**          | A           |
+| **Reference Types**                    | A           |
+| **Shared Memory (Threads)**            | A           |
+| **SIMD (128-bit)**                     | A           |
+| **Sign-extension Operators**           | A           |
+| GC (Garbage Collection)                | B           |
+| Stringref                              | B           |
+| Tail Calls                             | B           |
+| Multi-memory                           | C           |
+| Legacy Exception Handling              | C           |
+| Branch Hinting                         | Unsupported |
+| Custom Annotation Syntax (text format) | Unsupported |
+| Exception Handling (new spec)          | Unsupported |
+| JS String Builtins                     | Unsupported |
+| Relaxed SIMD                           | Unsupported |
 
 # WAMR-Specific Feature Support
 
-> Defaults below mirror your sample build output (e.g., “enabled/disabled” lines) and common WAMR options.
+> During configuration, It is able to disable or enable the following features by setting the corresponding flags (see Appendix). It is also possible to check features status in the configuration output.
 
-| WAMR Feature                      | Tier | Default |
-| --------------------------------- | ---- | ------- |
-| **AoT (wamrc)**                   | A    | **On**  |
-| **AOT intrinsics**                | A    | **On**  |
-| **Fast Interpreter**              | A    | **Off** |
-| **Interpreter (classic)**         | A    | **On**  |
-| **Libc builtin**                  | A    | **On**  |
-| **Libc WASI**                     | A    | **On**  |
-| **Quick AOT/JIT entries**         | A    | **On**  |
-| **Shrunk memory**                 | A    | **On**  |
-| **Wakeup of blocking operations** | A    | **On**  |
-| **WASM C API**                    | A    | **On**  |
-| Fast JIT                          | B    | Off     |
-| LLVM ORC JIT                      | B    | Off     |
-| Memory profiling                  | B    | Off     |
-| Module instance context[^7]       | B    | On      |
-| Multi-module                      | B    | Off     |
-| Perf profiling                    | B    | Off     |
-| Pthread                           | B    | Off     |
-| Shared heap                       | B    | Off     |
-| WASI threads                      | B    | Off     |
-| WASI-NN (neural network APIs)     | B    | Off     |
-| Debug Interpreter                 | B    | Off     |
-| Debug AOT                         | C    | Off     |
-| Tier-up (Fast JIT → LLVM JIT)     | C    | Off     |
+| WAMR Feature                      | Tier |
+| --------------------------------- | ---- |
+| **AoT (wamrc)**                   | A    |
+| **AOT intrinsics**                | A    |
+| **Fast Interpreter**              | A    |
+| **Interpreter (classic)**         | A    |
+| **Libc builtin**                  | A    |
+| **Libc WASI**                     | A    |
+| **Quick AOT/JIT entries**         | A    |
+| **Shrunk memory**                 | A    |
+| **Wakeup of blocking operations** | A    |
+| **WASM C API**                    | A    |
+| Fast JIT                          | B    |
+| LLVM ORC JIT                      | B    |
+| Memory profiling                  | B    |
+| Module instance context[^7]       | B    |
+| Multi-module                      | B    |
+| Perf profiling                    | B    |
+| Pthread                           | B    |
+| Shared heap                       | B    |
+| WASI threads                      | B    |
+| WASI-NN (neural network APIs)     | B    |
+| Debug Interpreter                 | B    |
+| Debug AOT                         | C    |
+| Tier-up (Fast JIT → LLVM JIT)     | C    |
 
 ---
 
@@ -107,13 +105,13 @@
 
 | Compilation flags                           | Tiered | Default | on Ubuntu |
 | ------------------------------------------- | ------ | ------- | --------- |
-| WAMR_APP_THREAD_STACK_SIZE_MAX              | B      | ND[^3]  |           |
+| WAMR_APP_THREAD_STACK_SIZE_MAX              | B      | ND[^1]  |           |
 | WAMR_BH_LOG                                 | B      | ND      |           |
 | WAMR_BH_VPRINTF                             | B      | ND      |           |
 | WAMR_BUILD_ALLOC_WITH_USAGE                 | B      | ND      |           |
 | WAMR_BUILD_ALLOC_WITH_USER_DATA             | B      | ND      |           |
 | WAMR_BUILD_AOT                              | A      | ND      | 1         |
-| WAMR_BUILD_AOT_INTRINSICS                   | A      | 1[^4]   |           |
+| WAMR_BUILD_AOT_INTRINSICS                   | A      | 1[^2]   |           |
 | WAMR_BUILD_AOT_STACK_FRAME                  | A      | ND      |           |
 | WAMR_BUILD_AOT_VALIDATOR                    | B      | ND      |           |
 | WAMR_BUILD_BULK_MEMORY                      | A      | 1       |           |
@@ -136,7 +134,7 @@
 | WAMR_BUILD_INTERP                           | A      | ND      | 1         |
 | WAMR_BUILD_INVOKE_NATIVE_GENERAL            | B      | ND      |           |
 | WAMR_BUILD_JIT                              | B      | ND      |           |
-| WAMR_BUILD_LAZY_JIT                         | B      | 1[^5]   |           |
+| WAMR_BUILD_LAZY_JIT                         | B      | 1[^3]   |           |
 | WAMR_BUILD_LIBC_BUILTIN                     | A      | ND      | 1         |
 | WAMR_BUILD_LIBC_EMCC                        | C      | ND      |           |
 | WAMR_BUILD_LIBC_UVWASI                      | C      | ND      |           |
@@ -146,6 +144,7 @@
 | WAMR_BUILD_LIB_RATS                         | C      | ND      |           |
 | WAMR_BUILD_LIB_WASI_THREADS                 | B      | ND      |           |
 | WAMR_BUILD_LINUX_PERF                       | B      | ND      |           |
+| WAMR_BUILD_LIME1                            | A      | NO      |           |
 | WAMR_BUILD_LOAD_CUSTOM_SECTION              | A      | ND      |           |
 | WAMR_BUILD_MEMORY64                         | A      | 0       |           |
 | WAMR_BUILD_MEMORY_PROFILING                 | B      | ND      |           |
@@ -155,7 +154,7 @@
 | WAMR_BUILD_MULTI_MODULE                     | B      | ND      |           |
 | WAMR_BUILD_PERF_PROFILING                   | B      | ND      |           |
 | WAMR_BUILD_PLATFORM                         | -      | ND      | linux     |
-| WAMR_BUILD_QUICK_AOT_ENTRY                  | A      | 1[^6]   |           |
+| WAMR_BUILD_QUICK_AOT_ENTRY                  | A      | 1[^4]   |           |
 | WAMR_BUILD_REF_TYPES                        | A      | ND      | 1         |
 | WAMR_BUILD_SANITIZER                        | B      | ND      |           |
 | WAMR_BUILD_SGX_IPFS                         | C      | ND      |           |
@@ -191,8 +190,7 @@
 | WAMR_DISABLE_WRITE_GS_BASE                  | B      | ND      |           |
 | WAMR_TEST_GC                                | B      | ND      |           |
 
-[^3]: _ND_ represents _not defined_
-[^4]: active if `WAMR_BUILD_AOT` is 1
-[^5]: active if `WAMR_BUILD_FAST_JIT` or `WAMR_BUILD_JIT1` is 1
-[^6]: active if `WAMR_BUILD_AOT` or `WAMR_BUILD_JIT` is 1
-[^7]: required by Libc WASI
+[^1]: _ND_ represents _not defined_
+[^2]: active if `WAMR_BUILD_AOT` is 1
+[^3]: active if `WAMR_BUILD_FAST_JIT` or `WAMR_BUILD_JIT1` is 1
+[^4]: active if `WAMR_BUILD_AOT` or `WAMR_BUILD_JIT` is 1

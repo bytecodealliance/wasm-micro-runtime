@@ -17,28 +17,29 @@ Given that WASI is a set of Capability-based APIs, all unauthorized actions are 
 
 ### Is this bug considered a security vulnerability?
 
-For someone who finds a problem, if a bug **results in crash or hang**, please treat it as a security problem and report it to a security advisor. The maintainer will look into it and change its category if needed. It is better safe than sorry.
+#### For someone who finds a problem
+
+if a bug **results in crash or hang**, please treat it as a security problem and report it to a security advisor. The maintainer will look into it and change its category if needed. It is better safe than sorry.
 
 If the author of an issue(results in crash or hang) can go through the following checklist and answer all questions with "No", it is fine to mark it as a regular bug. If not, please report it as a security issue.
 
 ---
 
-For those maintainers, please use the following guidelines to determine if a bug or advisory is a security issue:
+#### For those maintainers
+
+please use the following guidelines to determine if a bug or advisory is a security issue:
 
 Only bugs that affect [tier A platforms or features](./tired_support.md) should be considered.
 
 Actions that differ from Wasm rules (like calculating wrong values) are not seen as security issues as long as they stay within the sandbox.
 
-By default, APIs and CLIs are following the principle of **caller guarantee**. If the caller provides incorrect parameters or users input malformed options, it is not a security issue. For example, if a user passes an invalid file descriptor to `fd_read`, it is not a security issue.
+By default, native APIs and CLIs are following the principle of **caller guarantee**. If the caller provides incorrect parameters or users input malformed options, it is not a security issue. For example, if a user passes an invalid file descriptor to `fd_read`, it is not a security issue.
 
-.wasm are not trusted. Malformed .wasm files should be handled gracefully. If a .wasm file causes a runtime crash or hang, it is a security issue. On the other hand, it's expected that aot runtime alone doesn't provide the same guarantee. So user-crafted aot modules can cause anything, including crashes or hangs. They are not considered security issues.
+.wasm are not trusted. Malformed .wasm files should be handled gracefully. If a .wasm file causes a runtime crash or hang, it is a security issue. On the other hand, it's expected that aot runtime alone doesn't provide the same guarantee. So user-crafted .aot can cause anything, including crashes or hangs. They are not considered security issues.
 
 A denial-of-service (DoS) attack is a cyberattack that aims to make a computer or network resource unavailable to its users. If the service (runtime in this case) can recover and start another module or run another function within the same instance, it is not considered unavailable, and thus not a Denial of Service (DoS).
 
 Another type of execution problem we usually do not classify as a security one is if it is caused by an infinite loop or incorrect recursive function call chain.
-
-> [!NOTE]
-> need a diagram or a cheat sheet for quick reference eventually.
 
 ### When a maintainer identify a problem that should be classified as a security vulnerability
 
