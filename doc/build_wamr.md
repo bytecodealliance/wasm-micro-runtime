@@ -20,6 +20,8 @@ add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 
 The script `runtime_lib.cmake` defines a number of variables for configuring the WAMR runtime features. You can set these variables in your CMakeList.txt or pass the configurations from cmake command line.
 
+Please refer to [a full list of configuration options](./tired_support.md#appendix-all-compilation-flags).
+
 ### **Configure platform and architecture**
 
 - **WAMR_BUILD_PLATFORM**:  set the target platform. It can be set to any platform name (folder name) under folder [core/shared/platform](../core/shared/platform).
