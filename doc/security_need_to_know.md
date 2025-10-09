@@ -29,7 +29,7 @@ If the author of an issue(results in crash or hang) can go through the following
 
 please use the following guidelines to determine if a bug or advisory is a security issue:
 
-Only bugs that affect [tier A platforms or features](./tired_support.md) should be considered.
+Only bugs that affect [tier A platforms or features](./tiered_support.md) should be considered.
 
 Actions that differ from Wasm rules (like calculating wrong values) are not seen as security issues as long as they stay within the sandbox.
 
