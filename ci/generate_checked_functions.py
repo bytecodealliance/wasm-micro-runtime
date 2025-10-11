@@ -150,6 +150,12 @@ def process_header():
     with open(output_header, "w") as f:
         f.write("#ifndef WASM_EXPORT_CHECKED_H\n#define WASM_EXPORT_CHECKED_H\n\n")
 
+        # necessary headers
+        f.write("#include <stdbool.h>\n")
+        f.write("#include <stdint.h>\n")
+        f.write("#include <stdlib.h>\n")
+        f.write('#include "wasm_export.h"\n\n')
+
         # Write the updated Result struct
         f.write(RESULT_STRUCT + "\n")
 
