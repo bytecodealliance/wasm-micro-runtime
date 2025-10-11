@@ -14,10 +14,6 @@ typedef struct {
 } Result;
 """
 
-# Input and output file paths
-INPUT_HEADER = "core/iwasm/include/wasm_export.h"
-OUTPUT_HEADER = "core/iwasm/include/wasm_export_checked.h"
-
 
 # Helper function to determine if a parameter is a pointer
 def is_pointer(param):
@@ -99,9 +95,7 @@ def generate_checked_function(func):
         elif return_type == "uint32_t":
             new_func.append(f"        res.value.int_value = original_result;")
         else:
-            new_func.append(
-                f"        res.value.{return_type}_value = original_result;"
-            )
+            new_func.append(f"        res.value.{return_type}_value = original_result;")
         new_func.append(f"    }} else {{")
         new_func.append(f"        res.error_code = -2;")
         new_func.append(f"    }}")
@@ -114,12 +108,19 @@ def generate_checked_function(func):
 
 # Updated process_header to scan all return types and create a proper Result type
 
+
 def process_header():
     global RESULT_STRUCT  # Access the global Result definition
 
+    # Based on current file location, adjust the path to the header file
+    input_header = os.path.join(
+        os.path.dirname(__file__), "../core/iwasm/include/wasm_export.h"
+    )
+    output_header = input_header.replace("wasm_export.h", "wasm_export_checked.h")
+
     # Parse the header file with preprocessing
     ast = parse_file(
-        INPUT_HEADER,
+        input_header,
         use_cpp=True,
         cpp_path="gcc",
         cpp_args=[
@@ -162,7 +163,7 @@ def process_header():
             )
 
     # Generate the new header file
-    with open(OUTPUT_HEADER, "w") as f:
+    with open(output_header, "w") as f:
         f.write("#ifndef WASM_EXPORT_CHECKED_H\n#define WASM_EXPORT_CHECKED_H\n\n")
 
         # Write the updated Result struct
