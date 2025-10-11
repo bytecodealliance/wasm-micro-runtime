@@ -1,19 +1,6 @@
 from pycparser import c_parser, c_ast, parse_file
 import os
 
-# Define the Result struct as a string
-RESULT_STRUCT = """
-typedef struct {
-    int error_code; // Error code (0 for success, non-zero for errors)
-    union {
-        bool bool_value;
-        void *ptr_value;
-        int int_value;
-        // Add other types as needed
-    } value;
-} Result;
-"""
-
 
 # Helper function to determine if a parameter is a pointer
 def is_pointer(param):
@@ -24,8 +11,6 @@ def is_pointer(param):
 
 
 def generate_checked_function(func):
-    global RESULT_STRUCT  # Access the global Result definition
-
     func_name = func.name  # Access the name directly from Decl
     new_func_name = f"{func_name}_checked"
 
@@ -36,14 +21,6 @@ def generate_checked_function(func):
     return_type = "void"  # Default to void if no return type is specified
     if isinstance(func.type.type, c_ast.TypeDecl):
         return_type = " ".join(func.type.type.type.names)
-
-    # Check if the return type is already in Result, if not, add it
-    if return_type not in ["bool", "void*", "int", "uint32_t"]:
-        # Add a new field to the Result struct dynamically
-        RESULT_STRUCT = RESULT_STRUCT.replace(
-            "// Add other types as needed",
-            f"    {return_type} {return_type}_value;\n        // Add other types as needed",
-        )
 
     # Start building the new function
     new_func = [f"Result {new_func_name}("]
@@ -110,7 +87,15 @@ def generate_checked_function(func):
 
 
 def process_header():
-    global RESULT_STRUCT  # Access the global Result definition
+    # Define the Result struct as a string
+    RESULT_STRUCT = """
+    typedef struct {
+        int error_code; // Error code (0 for success, non-zero for errors)
+        union {
+            // Add other types as needed
+        } value;
+    } Result;
+    """
 
     # Based on current file location, adjust the path to the header file
     input_header = os.path.join(
@@ -156,11 +141,10 @@ def process_header():
 
     # Update the Result struct with all return types
     for return_type in return_types:
-        if return_type not in ["bool", "void*", "int", "uint32_t"]:
-            RESULT_STRUCT = RESULT_STRUCT.replace(
-                "// Add other types as needed",
-                f"    {return_type} {return_type}_value;\n        // Add other types as needed",
-            )
+        RESULT_STRUCT = RESULT_STRUCT.replace(
+            "// Add other types as needed",
+            f"    {return_type} {return_type}_value;\n        // Add other types as needed",
+        )
 
     # Generate the new header file
     with open(output_header, "w") as f:
