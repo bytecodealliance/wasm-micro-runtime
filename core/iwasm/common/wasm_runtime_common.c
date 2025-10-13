@@ -3842,7 +3842,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                      "Invalid address pool entry: mask must be a number");
             goto fail;
         }
-        if (errno != 0 || mask_val < 0 || mask_val > 128) {
+        if (errno != 0 || mask_val < 0) {
             snprintf(error_buf, error_buf_size,
                      "Init wasi environment failed: invalid mask number");
             goto fail;
