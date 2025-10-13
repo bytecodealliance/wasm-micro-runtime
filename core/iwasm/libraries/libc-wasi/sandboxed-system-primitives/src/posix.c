@@ -2854,7 +2854,11 @@ wasmtime_ssp_sock_recv_from(wasm_exec_env_t exec_env, struct fd_table *curfds,
         return convert_errno(errno);
     }
 
-    bh_sockaddr_to_wasi_addr(&sockaddr, src_addr);
+    // If the source address is not NULL, we need to convert the sockaddr
+    // back to __wasi_addr_t format.
+    if (src_addr != NULL) {
+        bh_sockaddr_to_wasi_addr(&sockaddr, src_addr);
+    }
 
     *recv_len = (size_t)ret;
     return __WASI_ESUCCESS;
