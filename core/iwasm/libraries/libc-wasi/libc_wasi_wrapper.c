@@ -1161,6 +1161,9 @@ wasi_sock_accept(wasm_exec_env_t exec_env, wasi_fd_t fd, wasi_fdflags_t flags,
     if (!wasi_ctx)
         return __WASI_EACCES;
 
+    if (!validate_native_addr(fd_new, sizeof(*fd_new)))
+        return __WASI_EINVAL;
+
     curfds = wasi_ctx_get_curfds(wasi_ctx);
 
     return wasi_ssp_sock_accept(exec_env, curfds, fd, flags, fd_new);
@@ -1219,6 +1222,19 @@ wasi_sock_addr_resolve(wasm_exec_env_t exec_env, const char *host,
     if (!wasi_ctx)
         return __WASI_EACCES;
 
+    if (!validate_native_addr(hints, sizeof(*hints)))
+        return __WASI_EINVAL;
+
+    uint64_t addr_info_byte_size = sizeof(*addr_info) * addr_info_size;
+    if (addr_info_byte_size / addr_info_size != sizeof(*addr_info))
+        return __WASI_EINVAL;
+
+    if (!validate_native_addr(addr_info, addr_info_byte_size))
+        return __WASI_EINVAL;
+
+    if (!validate_native_addr(max_info_size, sizeof(*max_info_size)))
+        return __WASI_EINVAL;
+
     curfds = wasi_ctx_get_curfds(wasi_ctx);
     ns_lookup_list = wasi_ctx_get_ns_lookup_list(wasi_ctx);
 
@@ -1237,6 +1253,9 @@ wasi_sock_bind(wasm_exec_env_t exec_env, wasi_fd_t fd, wasi_addr_t *addr)
 
     if (!wasi_ctx)
         return __WASI_EACCES;
+
+    if (!validate_native_addr(addr, sizeof(*addr)))
+        return __WASI_EINVAL;
 
     curfds = wasi_ctx_get_curfds(wasi_ctx);
     addr_pool = wasi_ctx_get_addr_pool(wasi_ctx);
@@ -1263,6 +1282,9 @@ wasi_sock_connect(wasm_exec_env_t exec_env, wasi_fd_t fd, wasi_addr_t *addr)
 
     if (!wasi_ctx)
         return __WASI_EACCES;
+
+    if (!validate_native_addr(addr, sizeof(*addr)))
+        return __WASI_EINVAL;
 
     curfds = wasi_ctx_get_curfds(wasi_ctx);
     addr_pool = wasi_ctx_get_addr_pool(wasi_ctx);
@@ -1642,6 +1664,9 @@ wasi_sock_open(wasm_exec_env_t exec_env, wasi_fd_t poolfd,
 
     if (!wasi_ctx)
         return __WASI_EACCES;
+
+    if (!validate_native_addr(sockfd, sizeof(*sockfd)))
+        return __WASI_EINVAL;
 
     curfds = wasi_ctx_get_curfds(wasi_ctx);
 
@@ -2082,6 +2107,10 @@ wasi_sock_recv_from(wasm_exec_env_t exec_env, wasi_fd_t sock,
         return __WASI_EINVAL;
     }
 
+    /* note: src_addr is NULL when called by wasi_sock_recv */
+    if (src_addr != NULL && !validate_native_addr(src_addr, sizeof(*src_addr)))
+        return __WASI_EINVAL;
+
     if (!validate_native_addr(ro_data_len, (uint64)sizeof(uint32)))
         return __WASI_EINVAL;
 
@@ -2118,16 +2147,19 @@ wasi_sock_recv(wasm_exec_env_t exec_env, wasi_fd_t sock, iovec_app_t *ri_data,
                wasi_roflags_t *ro_flags)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    __wasi_addr_t src_addr;
     wasi_errno_t error;
+
+    if (!validate_native_addr(ro_data_len, sizeof(*ro_data_len)))
+        return __WASI_EINVAL;
 
     if (!validate_native_addr(ro_flags, (uint64)sizeof(wasi_roflags_t)))
         return __WASI_EINVAL;
 
+    // We call `recvfrom` with NULL source address as `recv` doesn't
+    // return the source address and this parameter is not used.
+    *ro_data_len = 0;
     error = wasi_sock_recv_from(exec_env, sock, ri_data, ri_data_len, ri_flags,
-                                &src_addr, ro_data_len);
-    *ro_flags = ri_flags;
-
+                                NULL, ro_data_len);
     return error;
 }
 
@@ -2227,6 +2259,9 @@ wasi_sock_send_to(wasm_exec_env_t exec_env, wasi_fd_t sock,
     if (!wasi_ctx) {
         return __WASI_EINVAL;
     }
+
+    if (!validate_native_addr((void *)dest_addr, sizeof(*dest_addr)))
+        return __WASI_EINVAL;
 
     if (!validate_native_addr(so_data_len, (uint64)sizeof(uint32)))
         return __WASI_EINVAL;
