@@ -34,7 +34,7 @@ endif()
 
 message(CHECK_START "Detecting WASI_TOOLCHAIN_FILE at ${WASI_SDK_DIR}")
 find_file(WASI_TOOLCHAIN_FILE
-  wasi-sdk.cmake
+  wasi-sdk-pthread.cmake
   PATHS "${WASI_SDK_DIR}/share/cmake"
   NO_DEFAULT_PATH
   NO_CMAKE_FIND_ROOT_PATH
@@ -46,7 +46,7 @@ else()
 endif()
 
 if(WASI_TOOLCHAIN_FILE-NOTFOUND)
-  message(FATAL_ERROR "Can not find wasi-sdk.cmake under ${WASI_SDK_DIR}")
+  message(FATAL_ERROR "Can not find wasi-sdk-pthread.cmake under ${WASI_SDK_DIR}")
 endif()
 
 message(CHECK_START "Detecting WASI_SYS_ROOT at ${WASI_SDK_DIR}")
@@ -80,10 +80,7 @@ ExternalProject_Add(wasm-app
   SOURCE_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src
   UPDATE_COMMAND    ""
   PATCH_COMMAND     ""
-  CONFIGURE_COMMAND ${CMAKE_COMMAND} -E copy
-                      ${CMAKE_CURRENT_SOURCE_DIR}/../../wamr-sdk/app/libc-builtin-sysroot/include/pthread.h
-                      ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/inc
-                    && ${CMAKE_COMMAND}
+  CONFIGURE_COMMAND ${CMAKE_COMMAND}
                       -DWASI_SDK_PREFIX=${WASI_SDK_DIR}
                       -DCMAKE_TOOLCHAIN_FILE=${WASI_TOOLCHAIN_FILE}
                       -DCMAKE_SYSROOT=${WASI_SYS_ROOT}
@@ -170,8 +167,8 @@ set(WAMR_BUILD_AOT 1)
 set(WAMR_BUILD_JIT 0)
 set(WAMR_BUILD_LIBC_BUILTIN 1)
 set(WAMR_BUILD_LIBC_WASI 1)
-set(WAMR_BUILD_LIB_PTHREAD 1)
 set(WAMR_BUILD_REF_TYPES 1)
+set(WAMR_BUILD_LIB_WASI_THREADS 1)
 
 # compiling and linking flags
 if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
