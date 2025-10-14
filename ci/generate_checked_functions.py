@@ -65,14 +65,8 @@ def generate_checked_function(func):
         new_func.append(f"    Result res;")
         new_func.append(f"    if (original_result == 0) {{")
         new_func.append(f"        res.error_code = 0;")
-        if return_type == "bool":
-            new_func.append(f"        res.value.bool_value = original_result;")
-        elif return_type == "void*":
-            new_func.append(f"        res.value.ptr_value = original_result;")
-        elif return_type == "uint32_t":
-            new_func.append(f"        res.value.int_value = original_result;")
-        else:
-            new_func.append(f"        res.value.{return_type}_value = original_result;")
+
+        new_func.append(f"        res.value.{return_type}_value = original_result;")
         new_func.append(f"    }} else {{")
         new_func.append(f"        res.error_code = -2;")
         new_func.append(f"    }}")
@@ -141,6 +135,9 @@ def process_header():
 
     # Update the Result struct with all return types
     for return_type in return_types:
+        if return_type == "void":
+            continue  # No need to add void type
+
         RESULT_STRUCT = RESULT_STRUCT.replace(
             "// Add other types as needed",
             f"    {return_type} {return_type}_value;\n        // Add other types as needed",
