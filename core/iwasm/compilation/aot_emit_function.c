@@ -130,8 +130,15 @@ aot_emit_call_target_hint(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         hint->used = true;
         struct WASMCompilationHintCallTargets *ct_hint =
             (struct WASMCompilationHintCallTargets *)hint;
-        unsigned md_node_cnt = ct_hint->target_count * 2 + 3;
-        LLVMMetadataRef md_nodes[md_node_cnt];
+
+        const unsigned md_node_cnt = ct_hint->target_count * 2 + 3;
+        LLVMMetadataRef *md_nodes =
+            wasm_runtime_malloc(md_node_cnt * sizeof(LLVMMetadataRef));
+        if (!md_nodes) {
+            aot_set_last_error("allocate memory failed.");
+            return;
+        }
+
         md_nodes[0] =
             LLVMMDStringInContext2(comp_ctx->context, "VP", strlen("VP"));
         md_nodes[1] = LLVMValueAsMetadata(I32_CONST(0));
@@ -159,6 +166,7 @@ aot_emit_call_target_hint(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         LLVMValueRef meta_data_as_value =
             LLVMMetadataAsValue(comp_ctx->context, meta_data);
         LLVMSetMetadata(call_instr, 2, meta_data_as_value);
+        wasm_runtime_free(md_nodes);
     }
 }
 #endif
