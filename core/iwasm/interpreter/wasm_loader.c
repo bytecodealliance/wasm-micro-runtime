@@ -5604,8 +5604,8 @@ read_code_metadata_section(const uint8 *buf, const uint8 *buf_end,
 
         uint32 num_hints;
         read_leb_uint32(buf, buf_end, num_hints);
-        void *new_hints = loader_malloc(hint_struct_size * num_hints, error_buf,
-                                        error_buf_size);
+        struct WASMCompilationHint *new_hints = loader_malloc(
+            hint_struct_size * num_hints, error_buf, error_buf_size);
         for (uint32 j = 0; j < num_hints; ++j) {
             struct WASMCompilationHint *new_hint =
                 new_hints + j * hint_struct_size;
