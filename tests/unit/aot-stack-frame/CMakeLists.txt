@@ -8,7 +8,7 @@ project (test-aot-stack-frame)
 add_definitions (-DRUN_ON_LINUX)
 
 set (WAMR_BUILD_AOT 1)
-set (WAMR_BUILD_INTERP 0)
+set (WAMR_BUILD_INTERP 1)
 set (WAMR_BUILD_JIT 0)
 set (WAMR_BUILD_SIMD 1)
 set (WAMR_BUILD_REF_TYPES 1)
@@ -21,6 +21,10 @@ set (WAMR_BUILD_GC 1)
 
 include (../unit_common.cmake)
 
+find_package(LLVM REQUIRED CONFIG)
+include_directories(${LLVM_INCLUDE_DIRS})
+add_definitions(${LLVM_DEFINITIONS})
+
 include_directories (${CMAKE_CURRENT_SOURCE_DIR})
 
 add_definitions (-DWASM_ENABLE_AOT_STACK_FRAME=1)
@@ -32,22 +36,10 @@ file (GLOB_RECURSE source_all ${CMAKE_CURRENT_SOURCE_DIR}/*.cc)
 set (UNIT_SOURCE ${source_all})
 
 set (unit_test_sources
-        ${UNIT_SOURCE}
-        ${WAMR_RUNTIME_LIB_SOURCE}
-        ${UNCOMMON_SHARED_SOURCE}
-        ${SRC_LIST}
-        ${PLATFORM_SHARED_SOURCE}
-        ${UTILS_SHARED_SOURCE}
-        ${MEM_ALLOC_SHARED_SOURCE}
-        ${LIB_HOST_AGENT_SOURCE}
-        ${NATIVE_INTERFACE_SOURCE}
-        ${LIBC_BUILTIN_SOURCE}
-        ${IWASM_COMMON_SOURCE}
-        ${IWASM_INTERP_SOURCE}
-        ${IWASM_AOT_SOURCE}
-        ${IWASM_COMPL_SOURCE}
-        ${WASM_APP_LIB_SOURCE_ALL}
-    )
+  ${UNIT_SOURCE}
+  ${WAMR_RUNTIME_LIB_SOURCE}
+  ${IWASM_COMPL_SOURCE}
+)
 
 # Automatically build wasm-apps for this test
 add_subdirectory(wasm-apps)
@@ -59,4 +51,4 @@ add_dependencies (aot_stack_frame_test aot-stack-frame-test-wasm)
 
 target_link_libraries (aot_stack_frame_test ${LLVM_AVAILABLE_LIBS} gtest_main )
 
-#gtest_discover_tests(aot_stack_frame_test)
+gtest_discover_tests(aot_stack_frame_test)

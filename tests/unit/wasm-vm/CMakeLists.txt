@@ -7,13 +7,20 @@ project (test-wasm-vm)
 
 add_definitions (-DRUN_ON_LINUX)
 
+set(WAMR_BUILD_AOT 0)
+set(WAMR_BUILD_FAST_INTERP 0)
+set(WAMR_BUILD_INTERP 1)
+set(WAMR_BUILD_JIT 0)
+set(WAMR_BUILD_LIBC_BUILTIN 1)
+
 add_definitions (-Dattr_container_malloc=malloc)
 add_definitions (-Dattr_container_free=free)
 
-set (WAMR_BUILD_APP_FRAMEWORK 1)
-set (CMAKE_BUILD_TYPE Release)
-
 include (../unit_common.cmake)
+
+find_package(LLVM REQUIRED CONFIG)
+include_directories(${LLVM_INCLUDE_DIRS})
+add_definitions(${LLVM_DEFINITIONS})
 
 include_directories (${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -22,21 +29,10 @@ file (GLOB_RECURSE source_all ${CMAKE_CURRENT_SOURCE_DIR}/*.cc)
 set (UNIT_SOURCE ${source_all})
 
 set (unit_test_sources
-     ${UNIT_SOURCE}
-     ${PLATFORM_SHARED_SOURCE}
-     ${UTILS_SHARED_SOURCE}
-     ${MEM_ALLOC_SHARED_SOURCE}
-     ${LIB_HOST_AGENT_SOURCE}
-     ${NATIVE_INTERFACE_SOURCE}
-     ${LIBC_BUILTIN_SOURCE}
-     ${LIBC_WASI_SOURCE}
-     ${IWASM_COMMON_SOURCE}
-     ${IWASM_INTERP_SOURCE}
-     ${IWASM_AOT_SOURCE}
-     ${IWASM_COMPL_SOURCE}
-     ${WASM_APP_LIB_SOURCE_ALL}
-     ${UNCOMMON_SHARED_SOURCE}
-    )
+  ${UNIT_SOURCE}
+  ${WAMR_RUNTIME_LIB_SOURCE}
+  ${UNCOMMON_SHARED_SOURCE}
+)
 
 # Now simply link against gtest or gtest_main as needed. Eg
 add_executable(wasm_vm_test ${unit_test_sources})
