@@ -2,11 +2,6 @@ from pycparser import c_parser, c_ast, parse_file
 import os
 
 
-# Helper function to determine if a parameter is a pointer
-def is_pointer(param):
-    return isinstance(param.type, c_ast.PtrDecl)
-
-
 # Updated generate_checked_function to dynamically update Result definition for new return types
 
 
@@ -45,10 +40,13 @@ def generate_checked_function(func):
     new_func.append(") {")
 
     # Add null checks for pointer parameters
+    has_variadic = False
     for param in params:
         if isinstance(param, c_ast.EllipsisParam):
-            continue  # Skip variadic arguments
-        if is_pointer(param):
+            # Restructure to use va_list
+            new_func.append("    va_list args;")
+            has_variadic = True
+        elif isinstance(param.type, c_ast.PtrDecl):
             new_func.append(f"    if ({param.name} == NULL) {{")
             new_func.append(f"        Result res = {{ .error_code = -1 }};")
             new_func.append(f"        return res;")
@@ -58,6 +56,19 @@ def generate_checked_function(func):
     if return_type == "void":
         new_func.append(f"    {func_name}({', '.join(param_list)});")
         new_func.append(f"    Result res = {{ .error_code = 0 }};")
+    elif has_variadic:
+        new_func.append("    va_start(args, " + param_list[-2] + ");")
+        new_func.append(
+            f"    {return_type} original_result = {func_name}({', '.join(param_list[:-1])}, args);"
+        )
+        new_func.append("    va_end(args);")
+        new_func.append(f"    Result res;")
+        new_func.append(f"    if (original_result == 0) {{")
+        new_func.append(f"        res.error_code = 0;")
+        new_func.append(f"        res.value.{return_type}_value = original_result;")
+        new_func.append(f"    }} else {{")
+        new_func.append(f"        res.error_code = -2;")
+        new_func.append(f"    }}")
     else:
         new_func.append(
             f"    {return_type} original_result = {func_name}({', '.join(param_list)});"
@@ -151,7 +162,10 @@ def process_header():
         f.write("#include <stdbool.h>\n")
         f.write("#include <stdint.h>\n")
         f.write("#include <stdlib.h>\n")
-        f.write('#include "wasm_export.h"\n\n')
+        f.write("\n")
+        f.write('#include "wasm_export.h"\n')
+        f.write('#include "lib_export.h"\n')
+        f.write("\n")
 
         # Write the updated Result struct
         f.write(RESULT_STRUCT + "\n")
