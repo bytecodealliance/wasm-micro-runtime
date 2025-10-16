@@ -31,7 +31,7 @@ def run_cmd(cmd, cwd):
         shlex.split(cmd), cwd=cwd, check=False, capture_output=True
     )
     if (qry_prc.returncode != 0):
-        print("Run {} failed, return {}".format(cmd), qry_prc.returncode)
+        print("Run {} failed, return {}".format(cmd, qry_prc.returncode))
         return
     print("return code: {}, output:\n{}".format(qry_prc.returncode,
                                                  qry_prc.stdout.decode()))
