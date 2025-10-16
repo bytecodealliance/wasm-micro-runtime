@@ -6,6 +6,7 @@
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
 #include "libc_errno.h"
+#include "bh_common.h"
 
 #include <string.h>
 #include <stdlib.h>
