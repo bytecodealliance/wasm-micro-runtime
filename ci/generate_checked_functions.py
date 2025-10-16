@@ -18,7 +18,7 @@ def generate_checked_function(func):
         return_type = " ".join(func.type.type.type.names)
 
     # Start building the new function
-    new_func = [f"Result {new_func_name}("]
+    new_func = [f"static inline Result {new_func_name}("]
     param_list = []
     for param in params:
         if isinstance(param, c_ast.EllipsisParam):
