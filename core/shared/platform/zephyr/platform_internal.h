@@ -14,16 +14,16 @@
  * which we're trying to include. Must use feature detection instead.
  */
 #ifdef __has_include
-    #if __has_include(<zephyr/autoconf.h>)
-        #include <zephyr/autoconf.h>
-        #include <zephyr/version.h>
-    #else
-        #include <autoconf.h>
-        #include <version.h>
-    #endif
+#if __has_include(<zephyr/autoconf.h>)
+#include <zephyr/autoconf.h>
+#include <zephyr/version.h>
 #else
-    #include <autoconf.h>
-    #include <version.h>
+#include <autoconf.h>
+#include <version.h>
+#endif
+#else
+#include <autoconf.h>
+#include <version.h>
 #endif
 
 #if KERNEL_VERSION_NUMBER < 0x030200 /* version 3.2.0 */
