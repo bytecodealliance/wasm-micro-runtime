@@ -13,9 +13,13 @@ def generate_checked_function(func):
     params = func.type.args.params if func.type.args else []
 
     # Determine the return type
+    return_pointer = False
     return_type = "void"  # Default to void if no return type is specified
     if isinstance(func.type.type, c_ast.TypeDecl):
         return_type = " ".join(func.type.type.type.names)
+        # TODO: figure out a better way to detect typedef from pointer
+        if isinstance(func.type.type, c_ast.PtrDecl):
+            return_pointer = True
 
     # Start building the new function
     new_func = [f"static inline Result {new_func_name}("]
@@ -55,36 +59,41 @@ def generate_checked_function(func):
     # Call the original function
     if return_type == "void":
         new_func.append(f"    {func_name}({', '.join(param_list)});")
-        new_func.append(f"    Result res = {{ .error_code = 0 }};")
     elif has_variadic:
         new_func.append("    va_start(args, " + param_list[-2] + ");")
         new_func.append(
             f"    {return_type} original_result = {func_name}({', '.join(param_list[:-1])}, args);"
         )
         new_func.append("    va_end(args);")
-        new_func.append(f"    Result res;")
-        new_func.append(f"    if (original_result == 0) {{")
+    else:
+        new_func.append(
+            f"    {return_type} original_result = {func_name}({', '.join(param_list)});"
+        )
+
+    # Handle returned values
+    new_func.append(f"    Result res;")
+    if return_type == "void":
+        new_func.append(f"    res = {{ .error_code = 0 }};")
+    elif return_type == "_Bool":
+        new_func.append(f"    res.error_code = 0 ? original_result : -2;")
+        new_func.append(f"    res.value._Bool_value = original_result;")
+    # if return type is a pointer or typedef from pointer
+    elif return_pointer:
+        new_func.append(f"    if (original_result != NULL) {{")
         new_func.append(f"        res.error_code = 0;")
         new_func.append(f"        res.value.{return_type}_value = original_result;")
         new_func.append(f"    }} else {{")
         new_func.append(f"        res.error_code = -2;")
         new_func.append(f"    }}")
     else:
-        new_func.append(
-            f"    {return_type} original_result = {func_name}({', '.join(param_list)});"
-        )
-        new_func.append(f"    Result res;")
         new_func.append(f"    if (original_result == 0) {{")
         new_func.append(f"        res.error_code = 0;")
-
-        new_func.append(f"        res.value.{return_type}_value = original_result;")
+        new_func.append(f"        res.value._Bool_value = original_result;")
         new_func.append(f"    }} else {{")
         new_func.append(f"        res.error_code = -2;")
         new_func.append(f"    }}")
 
     new_func.append(f"    return res;")
-    new_func.append("}")
-
     return "\n".join(new_func)
 
 
