@@ -1,3 +1,19 @@
+## WAMR-2.4.3
+
+### Breaking Changes
+
+### New Features
+
+### Bug Fixes
+
+- libc-wasi: add missing pointer validations to socket functions (#4611) (#4665)
+
+### Enhancements
+
+### Others
+
+---
+
 ## WAMR-2.4.2
 
 ### Breaking Changes
