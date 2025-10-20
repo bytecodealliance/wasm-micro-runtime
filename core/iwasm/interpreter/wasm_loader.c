@@ -8542,6 +8542,24 @@ check_offset_pop(WASMLoaderContext *ctx, uint32 cells)
     return true;
 }
 
+static bool
+ensure_frame_offset_capacity(WASMLoaderContext *ctx, uint32 min_cells,
+                             char *error_buf, uint32 error_buf_size)
+{
+    uint32 cell_num = (uint32)(ctx->frame_offset - ctx->frame_offset_bottom);
+    while (ctx->frame_offset_bottom + min_cells > ctx->frame_offset_boundary) {
+        MEM_REALLOC(ctx->frame_offset_bottom, ctx->frame_offset_size,
+                    ctx->frame_offset_size + 16);
+        ctx->frame_offset_size += 16;
+        ctx->frame_offset_boundary =
+            ctx->frame_offset_bottom + ctx->frame_offset_size / sizeof(int16);
+        ctx->frame_offset = ctx->frame_offset_bottom + cell_num;
+    }
+    return true;
+fail:
+    return false;
+}
+
 static void
 free_label_patch_list(BranchBlock *frame_csp)
 {
@@ -8843,6 +8861,11 @@ wasm_loader_push_frame_ref(WASMLoaderContext *ctx, uint8 type, char *error_buf,
 
     if (!check_stack_push(ctx, type, error_buf, error_buf_size))
         return false;
+#if WASM_ENABLE_FAST_INTERP != 0
+    if (!ensure_frame_offset_capacity(ctx, ctx->stack_cell_num + type_cell_num,
+                                      error_buf, error_buf_size))
+        return false;
+#endif
 
 #if WASM_ENABLE_GC != 0
     if (wasm_is_type_multi_byte_type(type)) {
@@ -9708,6 +9731,11 @@ preserve_local_for_block(WASMLoaderContext *loader_ctx, uint8 opcode,
 {
     uint32 i = 0;
     bool preserve_local;
+#if WASM_ENABLE_FAST_INTERP != 0
+    if (!ensure_frame_offset_capacity(loader_ctx, loader_ctx->stack_cell_num,
+                                      error_buf, error_buf_size))
+        return false;
+#endif
 
     /* preserve locals before blocks to ensure that "tee/set_local" inside
         blocks will not influence the value of these locals */
@@ -11060,6 +11088,9 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth, uint8 opcode,
 #if WASM_ENABLE_FAST_INTERP != 0
             loader_ctx->frame_offset =
                 loader_ctx->frame_offset_bottom + stack_cell_num_old;
+            if (!ensure_frame_offset_capacity(loader_ctx, stack_cell_num_old,
+                                              error_buf, error_buf_size))
+                goto cleanup_and_return;
             total_size =
                 (uint32)(sizeof(int16)
                          * (frame_offset_old - frame_offset_after_popped));
