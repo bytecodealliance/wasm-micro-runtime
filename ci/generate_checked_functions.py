@@ -1,11 +1,42 @@
 from pycparser import c_parser, c_ast, parse_file
 import os
+from pprint import pprint
 
 
 # Updated generate_checked_function to dynamically update Result definition for new return types
 
 
-def generate_checked_function(func):
+def collect_typedefs(ast):
+    typedefs = {}
+    for node in ast.ext:
+        if isinstance(node, c_ast.Typedef):
+            typedefs[node.name] = node.type
+    return typedefs
+
+def resolve_typedef(typedefs, type_name):
+    resolved_type = typedefs.get(type_name)
+
+    # Return the original type name if not a typedef
+    if not resolved_type:
+        return type_name
+
+    print(f"Resolving typedef for {type_name}: {resolved_type}\n")
+
+    if isinstance(resolved_type, c_ast.TypeDecl):
+        # Base case: Return the type name
+        return " ".join(resolved_type.declname)
+    elif isinstance(resolved_type, c_ast.PtrDecl):
+        # Handle pointer typedefs
+        resolved_type.show()
+        base_type = " ".join(resolved_type.type.type.name)
+        return f"{base_type} *"
+    elif isinstance(resolved_type, c_ast.ArrayDecl):
+        # Handle array typedefs
+        base_type = resolve_typedef(resolved_type.type.declname, typedefs)
+        return f"{base_type} *"
+
+
+def generate_checked_function(func, typedefs):
     func_name = func.name  # Access the name directly from Decl
     new_func_name = f"{func_name}_checked"
 
@@ -16,6 +47,8 @@ def generate_checked_function(func):
     return_type = "void"  # Default to void if no return type is specified
     if isinstance(func.type.type, c_ast.TypeDecl):
         return_type = " ".join(func.type.type.type.names)
+        resolved_type = resolve_typedef(typedefs, return_type)
+        return_type = resolved_type
 
     # Start building the new function
     new_func = [f"static inline Result {new_func_name}("]
@@ -55,32 +88,41 @@ def generate_checked_function(func):
     # Call the original function
     if return_type == "void":
         new_func.append(f"    {func_name}({', '.join(param_list)});")
-        new_func.append(f"    Result res = {{ .error_code = 0 }};")
     elif has_variadic:
         new_func.append("    va_start(args, " + param_list[-2] + ");")
         new_func.append(
             f"    {return_type} original_result = {func_name}({', '.join(param_list[:-1])}, args);"
         )
         new_func.append("    va_end(args);")
-        new_func.append(f"    Result res;")
-        new_func.append(f"    if (original_result == 0) {{")
-        new_func.append(f"        res.error_code = 0;")
-        new_func.append(f"        res.value.{return_type}_value = original_result;")
-        new_func.append(f"    }} else {{")
-        new_func.append(f"        res.error_code = -2;")
-        new_func.append(f"    }}")
     else:
         new_func.append(
             f"    {return_type} original_result = {func_name}({', '.join(param_list)});"
         )
-        new_func.append(f"    Result res;")
-        new_func.append(f"    if (original_result == 0) {{")
-        new_func.append(f"        res.error_code = 0;")
 
-        new_func.append(f"        res.value.{return_type}_value = original_result;")
+    # Handle result return from the original function
+    new_func.append(f"    Result res;")
+    # if it is bool type
+    if return_type == "_Bool":
+        new_func.append(f"    if (original_result == 1) {{")
+        new_func.append(f"        res.error_code = 0;")
+        new_func.append(f"        res.value._Bool_value = original_result;")
         new_func.append(f"    }} else {{")
-        new_func.append(f"        res.error_code = -2;")
+        new_func.append(f"        res.error_code = -1;")
         new_func.append(f"    }}")
+    # if it is void type
+    elif return_type == "void":
+        new_func.append(f"    res.error_code = 0;")
+    else:
+        if isinstance(func.type.type, c_ast.PtrDecl):
+            new_func.append(f"    if (original_result != NULL) {{")
+            new_func.append(f"        res.error_code = 0;")
+            new_func.append(f"        res.value.{return_type}_value = original_result;")
+            new_func.append(f"    }} else {{")
+            new_func.append(f"        res.error_code = -1;")
+            new_func.append(f"    }}")
+        else:
+            new_func.append(f"    res.error_code = 0;")
+            new_func.append(f"    res.value.{return_type}_value = original_result;")
 
     new_func.append(f"    return res;")
     new_func.append("}")
@@ -130,6 +172,10 @@ def process_header():
         ],
     )
 
+    # Collect typedefs
+    typedefs = collect_typedefs(ast)
+    # pprint(typedefs)
+
     # Collect all function declarations
     functions = [
         node
@@ -142,7 +188,8 @@ def process_header():
     for func in functions:
         if isinstance(func.type.type, c_ast.TypeDecl):
             return_type = " ".join(func.type.type.type.names)
-            return_types.add(return_type)
+            resolved_type = resolve_typedef(typedefs, return_type)
+            return_types.add(resolved_type)
 
     # Update the Result struct with all return types
     for return_type in return_types:
@@ -171,7 +218,7 @@ def process_header():
         f.write(RESULT_STRUCT + "\n")
 
         for func in functions:
-            new_func = generate_checked_function(func)
+            new_func = generate_checked_function(func, typedefs)
             f.write(new_func + "\n\n")
 
         f.write("#endif // WASM_EXPORT_CHECKED_H\n")
