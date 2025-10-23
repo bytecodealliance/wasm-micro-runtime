@@ -8542,6 +8542,15 @@ check_offset_pop(WASMLoaderContext *ctx, uint32 cells)
     return true;
 }
 
+static bool
+check_dynamic_offset_pop(WASMLoaderContext *ctx, uint32 cells)
+{
+    if (ctx->dynamic_offset < 0
+        || (ctx->dynamic_offset > 0 && (uint32)ctx->dynamic_offset < cells))
+        return false;
+    return true;
+}
+
 static void
 free_label_patch_list(BranchBlock *frame_csp)
 {
@@ -9980,7 +9989,8 @@ wasm_loader_pop_frame_offset(WASMLoaderContext *ctx, uint8 type,
         return true;
 
     ctx->frame_offset -= cell_num_to_pop;
-    if ((*(ctx->frame_offset) > ctx->start_dynamic_offset)
+    if (check_dynamic_offset_pop(ctx, cell_num_to_pop)
+        && (*(ctx->frame_offset) > ctx->start_dynamic_offset)
         && (*(ctx->frame_offset) < ctx->max_dynamic_offset))
         ctx->dynamic_offset -= cell_num_to_pop;
 
