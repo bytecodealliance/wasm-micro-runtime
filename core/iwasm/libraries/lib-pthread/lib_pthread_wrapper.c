@@ -561,6 +561,7 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     uint32 aux_stack_size;
     uint64 aux_stack_start = 0;
     int32 ret = -1;
+    struct InstantiationArgs2 args;
 
     bh_assert(module);
     bh_assert(module_inst);
@@ -579,8 +580,10 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     }
 #endif
 
+    wasm_runtime_instantiation_args_set_defaults(&args);
+    wasm_runtime_instantiation_args_set_default_stack_size(&args, stack_size);
     if (!(new_module_inst = wasm_runtime_instantiate_internal(
-              module, module_inst, exec_env, stack_size, 0, 0, NULL, 0)))
+              module, module_inst, exec_env, &args, NULL, 0)))
         return -1;
 
     /* Set custom_data to new module instance */
