@@ -65,6 +65,8 @@ enable_testing()
 
 add_executable(wasm_c_api_test
   basic.cc
+  enhanced_gen_wasm_c_api_test.cc
+  enhanced_gen_wasm_memory_new_internal_test.cc
 )
 
 target_link_libraries(wasm_c_api_test vmlib gtest_main)
