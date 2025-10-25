@@ -3812,7 +3812,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
 
     /* addr_pool(textual) -> apool */
     for (i = 0; i < addr_pool_size; i++) {
-        char *cp, *address, *mask, *endptr;
+        char *cp, *address, *mask, *nextptr, *endptr;
         long mask_val;
         bool ret = false;
 
@@ -3823,14 +3823,20 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
             goto fail;
         }
 
-        address = strtok(cp, "/");
-        mask = strtok(NULL, "/");
+#ifdef BH_PLATFORM_WINDOWS
+        address = strtok_s(cp, "/", &nextptr);
+        mask = strtok_s(NULL, "/", &nextptr);
+#else
+        address = strtok_r(cp, "/", &nextptr);
+        mask = strtok_r(NULL, "/", &nextptr);
+#endif
 
         if (!mask) {
             snprintf(error_buf, error_buf_size,
                      "Invalid address pool entry: %s, must be in the format of "
                      "ADDRESS/MASK",
                      addr_pool[i]);
+            wasm_runtime_free(cp);
             goto fail;
         }
 
@@ -3840,11 +3846,13 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         if (mask == endptr || *endptr != '\0') {
             snprintf(error_buf, error_buf_size,
                      "Invalid address pool entry: mask must be a number");
+            wasm_runtime_free(cp);
             goto fail;
         }
         if (errno != 0 || mask_val < 0) {
             snprintf(error_buf, error_buf_size,
                      "Init wasi environment failed: invalid mask number");
+            wasm_runtime_free(cp);
             goto fail;
         }
 
