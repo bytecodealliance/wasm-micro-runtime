@@ -495,15 +495,17 @@ push_aot_block_to_stack_and_pass_params(AOTCompContext *comp_ctx,
 
         /* Create param phis */
         for (i = 0; i < block->param_count; i++) {
-            SET_BUILDER_POS(block->llvm_entry_block);
-            snprintf(name, sizeof(name), "%s%d_phi%d",
-                     block_name_prefix[block->label_type], block->block_index,
-                     i);
-            if (!(block->param_phis[i] = LLVMBuildPhi(
-                      comp_ctx->builder, TO_LLVM_TYPE(block->param_types[i]),
-                      name))) {
-                aot_set_last_error("llvm build phi failed.");
-                goto fail;
+            if (block->llvm_entry_block) {
+                SET_BUILDER_POS(block->llvm_entry_block);
+                snprintf(name, sizeof(name), "%s%d_phi%d",
+                         block_name_prefix[block->label_type],
+                         block->block_index, i);
+                if (!(block->param_phis[i] = LLVMBuildPhi(
+                          comp_ctx->builder,
+                          TO_LLVM_TYPE(block->param_types[i]), name))) {
+                    aot_set_last_error("llvm build phi failed.");
+                    goto fail;
+                }
             }
 
             if (block->label_type == LABEL_TYPE_IF

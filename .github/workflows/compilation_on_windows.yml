@@ -1,7 +1,7 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-name: compilation on windows-latest
+name: compilation on windows-2022
 
 on:
   # will be triggered on PR events
@@ -63,11 +63,11 @@ jobs:
       actions: write
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
-      os: "windows-latest"
+      os: "windows-2022"
       arch: "AArch64 ARM Mips RISCV X86"
 
   build_iwasm:
-    runs-on: windows-latest
+    runs-on: windows-2022
     strategy:
       matrix:
         build_options:
@@ -105,7 +105,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: windows-latest
+          - os: windows-2022
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_windows.outputs.cache_key }}
     steps:
       - name: checkout
@@ -136,7 +136,7 @@ jobs:
         working-directory: wamr-compiler
 
   test:
-    runs-on: windows-latest
+    runs-on: windows-2022
     needs: [build_iwasm, build_wamrc]
     strategy:
       fail-fast: false

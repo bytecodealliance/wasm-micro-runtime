@@ -851,7 +851,7 @@ freebsd_floor(double x)
                     i0 += 1;
                 else {
                     j = i1 + (1 << (52 - j0));
-                    if (j < i1)
+                    if (j < (u_int32_t)i1)
                         i0 += 1; /* got a carry */
                     i1 = j;
                 }
@@ -913,7 +913,7 @@ freebsd_ceil(double x)
                     i0 += 1;
                 else {
                     j = i1 + (1 << (52 - j0));
-                    if (j < i1)
+                    if (j < (u_int32_t)i1)
                         i0 += 1; /* got a carry */
                     i1 = j;
                 }
@@ -1345,7 +1345,7 @@ freebsd_pow(double x, double y)
             k = (iy >> 20) - 0x3ff; /* exponent */
             if (k > 20) {
                 j = ly >> (52 - k);
-                if ((j << (52 - k)) == ly)
+                if (((u_int32_t)(j << (52 - k))) == ly)
                     yisint = 2 - (j & 1);
             }
             else if (ly == 0) {

@@ -262,6 +262,7 @@ iwasm(int argc, char **argv)
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
     RuntimeInitArgs init_args;
+    struct InstantiationArgs2 *inst_args;
     static char error_buf[128] = { 0 };
     /* avoid stack overflow */
 #if WASM_ENABLE_LIBC_WASI != 0
@@ -369,13 +370,23 @@ iwasm(int argc, char **argv)
         rt_kprintf("%s\n", error_buf);
         goto fail2;
     }
+
+    if (!wasm_runtime_instantiation_args_create(&inst_args)) {
+        rt_kprintf("failed to create instantiate args\n");
+        goto fail3;
+    }
+    wasm_runtime_instantiation_args_set_default_stack_size(inst_args,
+                                                           stack_size);
+    wasm_runtime_instantiation_args_set_host_managed_heap_size(inst_args,
+                                                               heap_size);
 #if WASM_ENABLE_LIBC_WASI != 0
     libc_wasi_init(wasm_module, argc, argv, &wasi_parse_ctx);
 #endif
 
     rt_memset(error_buf, 0x00, sizeof(error_buf));
-    wasm_module_inst = wasm_runtime_instantiate(
-        wasm_module, stack_size, heap_size, error_buf, sizeof(error_buf));
+    wasm_module_inst = wasm_runtime_instantiate_ex2(
+        wasm_module, inst_args, error_buf, sizeof(error_buf));
+    wasm_runtime_instantiation_args_destroy(inst_args);
     if (!wasm_module_inst) {
         rt_kprintf("%s\n", error_buf);
         goto fail3;

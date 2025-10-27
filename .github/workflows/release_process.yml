@@ -105,7 +105,7 @@ jobs:
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
-      os: "windows-latest"
+      os: "windows-2022"
       arch: "AArch64 ARM Mips RISCV X86"
 
   #
@@ -142,7 +142,7 @@ jobs:
     with:
       llvm_cache_key: ${{ needs.build_llvm_libraries_on_windows.outputs.cache_key }}
       release: true
-      runner: windows-latest
+      runner: windows-2022
       upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver }}
 
@@ -180,7 +180,7 @@ jobs:
     with:
       cwd: product-mini/platforms/windows
       llvm_cache_key: ${{ needs.build_llvm_libraries_on_windows.outputs.cache_key }}
-      runner: windows-latest
+      runner: windows-2022
       upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver}}
 

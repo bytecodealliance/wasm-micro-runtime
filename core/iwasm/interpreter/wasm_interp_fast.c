@@ -2562,7 +2562,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                         if (len > 0) {
                             if ((uint64)start_offset + len
-                                >= wasm_array_obj_length(array_obj)) {
+                                > wasm_array_obj_length(array_obj)) {
                                 wasm_set_exception(
                                     module, "out of bounds array access");
                                 goto got_exception;
@@ -5056,6 +5056,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                          || local_type == VALUE_TYPE_F64) {
                     PUT_I64_TO_ADDR((uint32 *)(frame_lp + local_offset),
                                     GET_I64_FROM_ADDR(frame_lp + addr1));
+                }
+                else if (local_type == VALUE_TYPE_V128) {
+                    PUT_V128_TO_ADDR((frame_lp + local_offset),
+                                     GET_V128_FROM_ADDR(frame_lp + addr1));
                 }
 #if WASM_ENABLE_GC != 0
                 else if (wasm_is_type_reftype(local_type)) {

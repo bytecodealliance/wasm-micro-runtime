@@ -87,7 +87,7 @@ jobs:
         working-directory: wamr-compiler
 
       - name: Compress the binary on Windows
-        if: inputs.runner == 'windows-latest' && inputs.release
+        if: inputs.runner == 'windows-2022' && inputs.release
         run: |
           tar -czf wamrc-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz wamrc.exe
           Compress-Archive -Path wamrc.exe -DestinationPath wamrc-${{ inputs.ver_num }}-${{ inputs.runner }}.zip
@@ -95,7 +95,7 @@ jobs:
         working-directory: wamr-compiler/build/Release
 
       - name: compress the binary on non-Windows
-        if: inputs.runner != 'windows-latest' && inputs.release
+        if: inputs.runner != 'windows-2022' && inputs.release
         run: |
           # Follow the symlink to the actual binary file
           tar --dereference -czf wamrc-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz wamrc

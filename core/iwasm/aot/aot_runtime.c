@@ -114,6 +114,13 @@ set_error_buf_v(char *error_buf, uint32 error_buf_size, const char *format, ...)
     }
 }
 
+static void
+aot_unlinked_import_func_trap(WASMExecEnv *exec_env)
+{
+    AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
+    aot_set_exception_with_id(module_inst, EXCE_CALL_UNLINKED_IMPORT_FUNC);
+}
+
 static void *
 runtime_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
 {
@@ -1397,6 +1404,7 @@ init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
              * Debugging: Check if the import is resolved at link time */
             LOG_WARNING("warning: failed to link import function (%s, %s)",
                         module_name, field_name);
+            *func_ptrs = (void *)aot_unlinked_import_func_trap;
         }
     }
 
@@ -1889,8 +1897,9 @@ check_linked_symbol(AOTModule *module, char *error_buf, uint32 error_buf_size)
 
 AOTModuleInstance *
 aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
-                WASMExecEnv *exec_env_main, uint32 stack_size, uint32 heap_size,
-                uint32 max_memory_pages, char *error_buf, uint32 error_buf_size)
+                WASMExecEnv *exec_env_main,
+                const struct InstantiationArgs2 *args, char *error_buf,
+                uint32 error_buf_size)
 {
     AOTModuleInstance *module_inst;
 #if WASM_ENABLE_BULK_MEMORY != 0 || WASM_ENABLE_REF_TYPES != 0
@@ -1908,6 +1917,9 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
 #if WASM_ENABLE_MULTI_MODULE != 0
     bool ret = false;
 #endif
+    uint32 stack_size = args->v1.default_stack_size;
+    uint32 heap_size = args->v1.host_managed_heap_size;
+    uint32 max_memory_pages = args->v1.max_memory_pages;
 
     /* Align and validate heap size */
     heap_size = align_uint(heap_size, 8);
@@ -1989,7 +2001,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
 
     ret = wasm_runtime_sub_module_instantiate(
         (WASMModuleCommon *)module, (WASMModuleInstanceCommon *)module_inst,
-        stack_size, heap_size, max_memory_pages, error_buf, error_buf_size);
+        args, error_buf, error_buf_size);
     if (!ret) {
         LOG_DEBUG("build a sub module list failed");
         goto fail;
@@ -4495,7 +4507,7 @@ aot_create_call_stack(struct WASMExecEnv *exec_env)
             frame.frame_ref = (uint8 *)frame.lp + (frame_ref - (uint8 *)lp);
             /* copy local ref flags from AOT module */
             bh_memcpy_s(frame.frame_ref, local_ref_flags_cell_num,
-                        local_ref_flags, lp_size);
+                        local_ref_flags, local_ref_flags_cell_num);
 #endif
         }
 

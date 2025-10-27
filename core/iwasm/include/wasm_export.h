@@ -1526,6 +1526,14 @@ wasm_runtime_get_native_addr_range(wasm_module_inst_t module_inst,
 /**
  * Get the number of import items for a WASM module
  *
+ * Typical usage scenario:
+ * Combine this function with wasm_runtime_get_import_count() to traverse
+ * all import items in a module. Use import_type.kind to filter and identify
+ * different types of import items.
+ *
+ * Example usage (as wasm_runtime_for_each_import_func() in
+ * samples/import-func-callback)
+ *
  * @param module the WASM module
  *
  * @return the number of imports (zero for none), or -1 for failure
@@ -1535,6 +1543,14 @@ wasm_runtime_get_import_count(const wasm_module_t module);
 
 /**
  * Get information about a specific WASM module import
+ *
+ * Typical usage scenario:
+ * Combine this function with wasm_runtime_get_import_count() to traverse
+ * all import items in a module. Use import_type.kind to filter and identify
+ * different types of import items.
+ *
+ * Example usage (as wasm_runtime_for_each_import_func() in
+ * samples/import-func-callback)
  *
  * @param module the WASM module
  * @param import_index the desired import index

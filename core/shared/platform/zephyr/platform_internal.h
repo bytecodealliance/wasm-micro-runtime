@@ -308,7 +308,9 @@ typedef struct {
 #define CLOCK_REALTIME 1
 #endif
 
+#ifndef CLOCK_MONOTONIC
 #define CLOCK_MONOTONIC 4
+#endif
 
 static inline int
 os_sched_yield(void)

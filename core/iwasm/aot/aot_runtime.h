@@ -544,10 +544,7 @@ aot_resolve_import_func(AOTModule *module, AOTImportFunc *import_func);
  *
  * @param module the AOT module to instantiate
  * @param parent the parent module instance
- * @param heap_size the default heap size of the module instance, a heap will
- *        be created besides the app memory space. Both wasm app and native
- *        function can allocate memory from the heap. If heap_size is 0, the
- *        default heap size will be used.
+ * @param args   the instantiation parameters
  * @param error_buf buffer to output the error info if failed
  * @param error_buf_size the size of the error buffer
  *
@@ -555,8 +552,8 @@ aot_resolve_import_func(AOTModule *module, AOTImportFunc *import_func);
  */
 AOTModuleInstance *
 aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
-                WASMExecEnv *exec_env_main, uint32 stack_size, uint32 heap_size,
-                uint32 max_memory_pages, char *error_buf,
+                WASMExecEnv *exec_env_main,
+                const struct InstantiationArgs2 *args, char *error_buf,
                 uint32 error_buf_size);
 
 /**

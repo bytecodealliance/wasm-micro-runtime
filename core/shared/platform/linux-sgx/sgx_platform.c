@@ -131,8 +131,9 @@ os_is_handle_valid(os_file_handle *handle)
 /* implemented in posix_file.c */
 #endif
 
-void *
-os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
+static void *
+os_mmap_internal(void *hint, size_t size, int prot, int flags,
+                 os_file_handle file, bool clear)
 {
     int mprot = 0;
     uint64 aligned_size, page_size;
@@ -161,6 +162,10 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
         return NULL;
     }
 
+    if (clear) {
+        memset(ret, 0, aligned_size);
+    }
+
     if (prot & MMAP_PROT_READ)
         mprot |= SGX_PROT_READ;
     if (prot & MMAP_PROT_WRITE)
@@ -177,6 +182,30 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
     }
 
     return ret;
+}
+
+void *
+os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
+{
+    return os_mmap_internal(hint, size, prot, flags, file, true);
+}
+
+void *
+os_mremap(void *old_addr, size_t old_size, size_t new_size)
+{
+    void *new_memory =
+        os_mmap_internal(NULL, new_size, MMAP_PROT_WRITE | MMAP_PROT_READ, 0,
+                         os_get_invalid_handle(), false);
+    if (!new_memory) {
+        return NULL;
+    }
+    size_t copy_size = new_size < old_size ? new_size : old_size;
+    memcpy(new_memory, old_addr, copy_size);
+    if (new_size > copy_size) {
+        memset((char *)new_memory + copy_size, 0, new_size - copy_size);
+    }
+    os_munmap(old_addr, old_size);
+    return new_memory;
 }
 
 void
@@ -216,8 +245,10 @@ os_mprotect(void *addr, size_t size, int prot)
 
 void
 os_dcache_flush(void)
-{}
+{
+}
 
 void
 os_icache_flush(void *start, size_t len)
-{}
+{
+}
