@@ -1746,7 +1746,9 @@ wasm_table_type_get_max_size(const wasm_table_type_t table_type);
  *          '~': the parameter is the pointer's length with i32 type, and must
  *               follow after '*'
  *          '$': the parameter is a string (i32 in WASM), and runtime will
- *               auto check its boundary before calling the native function
+ *               auto check its boundary before calling the native function.
+ *               Like '*', the runtime will also convert the app pointer to a
+ *               native pointer.
  * @param n_native_symbols specifies the number of native symbols in the array
  *
  * @return true if success, false otherwise
