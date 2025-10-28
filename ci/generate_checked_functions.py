@@ -149,7 +149,7 @@ def generate_checked_function(func, typedefs):
     if return_type == "void":
         new_func.append(f"    res.error_code = 0;")
     elif return_type == "_Bool":
-        new_func.append(f"    res.error_code = 0 ? original_result : -2;")
+        new_func.append(f"    res.error_code = original_result ? 0 : -2;")
         new_func.append(f"    res.value._Bool_value = original_result;")
     # if return type is a pointer or typedef from pointer
     elif return_pointer:
