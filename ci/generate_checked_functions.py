@@ -1,5 +1,6 @@
 from pycparser import c_parser, c_ast, parse_file
 import os
+import argparse
 
 
 def collect_typedefs(ast):
@@ -172,10 +173,23 @@ def generate_checked_function(func, typedefs):
     return "\n".join(new_func)
 
 
+def parse_arguments():
+    parser = argparse.ArgumentParser(
+        description="Generate checked functions from header files."
+    )
+    parser.add_argument(
+        "--headers",
+        nargs="+",
+        required=True,
+        help="List of header file paths to process.",
+    )
+    return parser.parse_args()
+
+
 # Updated process_header to scan all return types and create a proper Result type
 
 
-def process_header():
+def process_headers(header_paths):
     # Define the Result struct as a string
     RESULT_STRUCT = """
     typedef struct {
@@ -186,84 +200,82 @@ def process_header():
     } Result;
     """
 
-    # Based on current file location, adjust the path to the header file
-    input_header = os.path.join(
-        os.path.dirname(__file__), "../core/iwasm/include/wasm_export.h"
-    )
-    output_header = input_header.replace("wasm_export.h", "wasm_export_checked.h")
+    for input_header in header_paths:
+        output_header = input_header.replace(".h", "_checked.h")
 
-    # Parse the header file with preprocessing
-    ast = parse_file(
-        input_header,
-        use_cpp=True,
-        cpp_path="gcc",
-        cpp_args=[
-            "-E",
-            "-D__attribute__(x)=",
-            "-D__asm__(x)=",
-            "-D__asm(x)=",
-            "-D__builtin_va_list=int",
-            "-D__extension__=",
-            "-D__inline__=",
-            "-D__restrict=",
-            "-D__restrict__=",
-            "-D_Static_assert(x, y)=",
-            "-D__signed=",
-            "-D__volatile__(x)=",
-            "-Dstatic_assert(x, y)=",
-        ],
-    )
-
-    # Collect all typedefs
-    typedefs = collect_typedefs(ast)
-
-    # Collect all function declarations
-    functions = [
-        node
-        for node in ast.ext
-        if isinstance(node, c_ast.Decl) and isinstance(node.type, c_ast.FuncDecl)
-    ]
-
-    # Scan all return types and update Result struct
-    return_types = set()
-    for func in functions:
-        if isinstance(func.type.type, c_ast.TypeDecl):
-            return_type = " ".join(func.type.type.type.names)
-            # resolved_type = resolve_typedef(typedefs, return_type)
-            return_types.add(return_type)
-
-    # Update the Result struct with all return types
-    for return_type in return_types:
-        if return_type == "void":
-            continue  # No need to add void type
-
-        RESULT_STRUCT = RESULT_STRUCT.replace(
-            "// Add other types as needed",
-            f"    {return_type} {return_type}_value;\n        // Add other types as needed",
+        # Parse the header file with preprocessing
+        ast = parse_file(
+            input_header,
+            use_cpp=True,
+            cpp_path="gcc",
+            cpp_args=[
+                "-E",
+                "-D__attribute__(x)=",
+                "-D__asm__(x)=",
+                "-D__asm(x)=",
+                "-D__builtin_va_list=int",
+                "-D__extension__=",
+                "-D__inline__=",
+                "-D__restrict=",
+                "-D__restrict__=",
+                "-D_Static_assert(x, y)=",
+                "-D__signed=",
+                "-D__volatile__(x)=",
+                "-Dstatic_assert(x, y)=",
+            ],
         )
 
-    # Generate the new header file
-    with open(output_header, "w") as f:
-        f.write("#ifndef WASM_EXPORT_CHECKED_H\n#define WASM_EXPORT_CHECKED_H\n\n")
+        # Collect all typedefs
+        typedefs = collect_typedefs(ast)
 
-        # necessary headers
-        f.write("#include <stdbool.h>\n")
-        f.write("#include <stdint.h>\n")
-        f.write("#include <stdlib.h>\n")
-        f.write("\n")
-        f.write('#include "wasm_export.h"\n')
-        f.write('#include "lib_export.h"\n')
-        f.write("\n")
+        # Collect all function declarations
+        functions = [
+            node
+            for node in ast.ext
+            if isinstance(node, c_ast.Decl) and isinstance(node.type, c_ast.FuncDecl)
+        ]
 
-        # Write the updated Result struct
-        f.write(RESULT_STRUCT + "\n")
-
+        # Scan all return types and update Result struct
+        return_types = set()
         for func in functions:
-            new_func = generate_checked_function(func, typedefs)
-            f.write(new_func + "\n\n")
+            if isinstance(func.type.type, c_ast.TypeDecl):
+                return_type = " ".join(func.type.type.type.names)
+                # resolved_type = resolve_typedef(typedefs, return_type)
+                return_types.add(return_type)
 
-        f.write("#endif // WASM_EXPORT_CHECKED_H\n")
+        # Update the Result struct with all return types
+        for return_type in return_types:
+            if return_type == "void":
+                continue  # No need to add void type
+
+            RESULT_STRUCT = RESULT_STRUCT.replace(
+                "// Add other types as needed",
+                f"    {return_type} {return_type}_value;\n        // Add other types as needed",
+            )
+
+        # Generate the new header file
+        with open(output_header, "w") as f:
+            f.write("#ifndef WASM_EXPORT_CHECKED_H\n#define WASM_EXPORT_CHECKED_H\n\n")
+
+            # necessary headers
+            f.write("#include <stdbool.h>\n")
+            f.write("#include <stdint.h>\n")
+            f.write("#include <stdlib.h>\n")
+            f.write("\n")
+            f.write('#include "wasm_export.h"\n')
+            f.write('#include "lib_export.h"\n')
+            f.write("\n")
+
+            # Write the updated Result struct
+            f.write(RESULT_STRUCT + "\n")
+
+            for func in functions:
+                new_func = generate_checked_function(func, typedefs)
+                f.write(new_func + "\n\n")
+
+            f.write("#endif // WASM_EXPORT_CHECKED_H\n")
 
 
 if __name__ == "__main__":
-    process_header()
+    args = parse_arguments()
+    process_headers(args.headers)
