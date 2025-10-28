@@ -9,9 +9,13 @@ def collect_typedefs(ast):
         if not isinstance(node, c_ast.Typedef):
             continue
 
+        if node.name in typedefs:
+            raise Exception(f"Duplicate typedef found: {node.name}")
+
         typedef_name = node.name
         typedef_type = node.type
         typedefs[typedef_name] = typedef_type
+
     return typedefs
 
 
@@ -23,31 +27,30 @@ def resolve_typedef(typedefs, type_name):
         cur_type = ptr_decl
         pointer_type_name = ""
 
-        while isinstance(cur_type, c_ast.PtrDecl) or isinstance(
-            cur_type, c_ast.TypeDecl
-        ):
-            if isinstance(cur_type, c_ast.PtrDecl):
-                cur_type = cur_type.type
-                pointer_type_name += "*"
-            elif isinstance(cur_type, c_ast.TypeDecl):
-                if isinstance(cur_type.type, c_ast.IdentifierType):
-                    base_type_name = " ".join(cur_type.type.names)
-                    pointer_type_name = base_type_name + pointer_type_name
-                    return pointer_type_name
-                else:
-                    pointer_type_name = "".join(cur_type.type.name) + pointer_type_name
-                    return pointer_type_name
-        return None
+        while isinstance(cur_type, c_ast.PtrDecl):
+            cur_type = cur_type.type
+            pointer_type_name += "*"
+
+        assert isinstance(cur_type, c_ast.TypeDecl)
+        if isinstance(cur_type.type, c_ast.IdentifierType):
+            base_type_name = " ".join(cur_type.type.names)
+            pointer_type_name = base_type_name + pointer_type_name
+        else:
+            pointer_type_name = "".join(cur_type.type.name) + pointer_type_name
+
+        return pointer_type_name
 
     resolved_type = typedefs.get(type_name)
 
     if resolved_type is None:
         return type_name
 
+    print(f"\n\nResolving typedef {type_name}:")
+
     if isinstance(resolved_type, c_ast.TypeDecl):
         if isinstance(resolved_type.type, c_ast.Enum):
             print(f"Resolved enum typedef {type_name}")
-            return type_name 
+            return type_name
 
         if isinstance(resolved_type.type, c_ast.Struct):
             print(f"Resolved struct typedef {type_name}")
@@ -60,9 +63,8 @@ def resolve_typedef(typedefs, type_name):
         if isinstance(resolved_type.type, c_ast.IdentifierType):
             base_type_name = " ".join(resolved_type.type.names)
             print(f"Resolved base typedef {type_name} to {base_type_name}")
-            return type_name 
+            return type_name
 
-        resolved_type.show()
         raise Exception(f"Unhandled TypeDecl typedef {type_name}")
     elif isinstance(resolved_type, c_ast.PtrDecl):
         pointer_type_name = resolve_base_type(resolved_type)
@@ -113,6 +115,7 @@ def generate_checked_function(func, typedefs):
     new_func.append(") {")
 
     # Add null checks for pointer parameters
+    new_func.append(f"    Result res;")
     has_variadic = False
     for param in params:
         if isinstance(param, c_ast.EllipsisParam):
@@ -120,12 +123,14 @@ def generate_checked_function(func, typedefs):
             new_func.append("    va_list args;")
             has_variadic = True
         elif isinstance(param.type, c_ast.PtrDecl):
+            new_func.append(f"    // Check for null pointer parameter: {param.name}")
             new_func.append(f"    if ({param.name} == NULL) {{")
-            new_func.append(f"        Result res = {{ .error_code = -1 }};")
+            new_func.append(f"        res.error_code = -1;")
             new_func.append(f"        return res;")
             new_func.append(f"    }}")
 
     # Call the original function
+    new_func.append(f"    // Execute the original function")
     if return_type == "void":
         new_func.append(f"    {func_name}({', '.join(param_list)});")
     elif has_variadic:
@@ -140,9 +145,9 @@ def generate_checked_function(func, typedefs):
         )
 
     # Handle returned values
-    new_func.append(f"    Result res;")
+    new_func.append(f"    // Assign return value and error code")
     if return_type == "void":
-        new_func.append(f"    res = {{ .error_code = 0 }};")
+        new_func.append(f"    res.error_code = 0;")
     elif return_type == "_Bool":
         new_func.append(f"    res.error_code = 0 ? original_result : -2;")
         new_func.append(f"    res.value._Bool_value = original_result;")
@@ -224,8 +229,8 @@ def process_header():
     for func in functions:
         if isinstance(func.type.type, c_ast.TypeDecl):
             return_type = " ".join(func.type.type.type.names)
-            resolved_type = resolve_typedef(typedefs, return_type)
-            return_types.add(resolved_type)
+            # resolved_type = resolve_typedef(typedefs, return_type)
+            return_types.add(return_type)
 
     # Update the Result struct with all return types
     for return_type in return_types:
