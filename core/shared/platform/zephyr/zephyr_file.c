@@ -859,6 +859,10 @@ os_renameat(os_file_handle old_handle, const char *old_path,
                 BH_FREE(ptr->path);
                 ptr->path = new_path_copy;
             }
+            else {
+                k_mutex_unlock(&desc_array_mutex);
+                return __WASI_ENOMEM;
+            }
             break; // Only one descriptor should match
         }
     }
