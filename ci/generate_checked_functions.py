@@ -1,5 +1,33 @@
-from pycparser import c_parser, c_ast, parse_file
-import os
+"""
+This script generates "checked" versions of functions from the specified header files.
+
+Usage:
+    python3 generate_checked_functions.py --headers <header1.h> <header2.h> ...
+
+Arguments:
+    --headers: A list of header file paths to process. Each header file will be parsed, and a corresponding
+               "_checked.h" file will be generated with additional null pointer checks and error handling.
+
+Example:
+    python3 generate_checked_functions.py --headers core/iwasm/include/wasm_export.h
+
+Description:
+    The script parses the provided header files using `pycparser` to extract function declarations and typedefs.
+    For each function, it generates a "checked" version that includes:
+      - Null pointer checks for pointer parameters.
+      - Error handling using a `Result` struct.
+
+    The generated "_checked.h" files include the original header file and define the `Result` struct, which
+    encapsulates the return value and error codes.
+
+Dependencies:
+    - pycparser: Install it using `pip install pycparser`.
+
+Output:
+    For each input header file, a corresponding "_checked.h" file is created in the same directory.
+"""
+
+from pycparser import c_ast, parse_file
 import argparse
 
 
@@ -46,30 +74,22 @@ def resolve_typedef(typedefs, type_name):
     if resolved_type is None:
         return type_name
 
-    print(f"\n\nResolving typedef {type_name}:")
-
     if isinstance(resolved_type, c_ast.TypeDecl):
         if isinstance(resolved_type.type, c_ast.Enum):
-            print(f"Resolved enum typedef {type_name}")
             return type_name
 
         if isinstance(resolved_type.type, c_ast.Struct):
-            print(f"Resolved struct typedef {type_name}")
             return type_name
 
         if isinstance(resolved_type.type, c_ast.Union):
-            print(f"Resolved union typedef {type_name}")
             return type_name
 
         if isinstance(resolved_type.type, c_ast.IdentifierType):
-            base_type_name = " ".join(resolved_type.type.names)
-            print(f"Resolved base typedef {type_name} to {base_type_name}")
             return type_name
 
         raise Exception(f"Unhandled TypeDecl typedef {type_name}")
     elif isinstance(resolved_type, c_ast.PtrDecl):
         pointer_type_name = resolve_base_type(resolved_type)
-        print(f"Resolved pointer typedef {type_name} to {pointer_type_name}")
         return pointer_type_name
     else:
         resolved_type.show()
@@ -215,35 +235,6 @@ def process_headers(header_paths):
                 "-D__asm(x)=",
                 "-D__builtin_va_list=int",
                 "-D__extension__=",
-                "-D__inline__=",
-                "-D__restrict=",
-                "-D__restrict__=",
-                "-D_Static_assert(x, y)=",
-                "-D__signed=",
-                "-D__volatile__(x)=",
-                "-Dstatic_assert(x, y)=",
-            ],
-        )
-
-        # Collect all typedefs
-        typedefs = collect_typedefs(ast)
-
-        # Collect all function declarations
-        functions = [
-            node
-            for node in ast.ext
-            if isinstance(node, c_ast.Decl) and isinstance(node.type, c_ast.FuncDecl)
-        ]
-
-        # Scan all return types and update Result struct
-        return_types = set()
-        for func in functions:
-            if isinstance(func.type.type, c_ast.TypeDecl):
-                return_type = " ".join(func.type.type.type.names)
-                # resolved_type = resolve_typedef(typedefs, return_type)
-                return_types.add(return_type)
-
-        # Update the Result struct with all return types
         for return_type in return_types:
             if return_type == "void":
                 continue  # No need to add void type
