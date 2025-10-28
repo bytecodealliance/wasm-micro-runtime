@@ -57,6 +57,13 @@ RESULT_STRUCT_TEMPLATE = """
     } Result;
 """
 
+COPYRIGHT = """
+/*
+ * Copyright (C) 2025 Intel Corporation.  All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+ """
+
 INCLUDE_HEADERS = ["<stdbool.h>", "<stdint.h>", "<stdlib.h>"]
 
 
@@ -69,24 +76,39 @@ def generate_result_struct(return_types):
     """Generate the Result struct based on return types."""
     result_struct = RESULT_STRUCT_TEMPLATE
     for return_type in return_types:
-        if return_type != "void":
-            result_struct = result_struct.replace(
-                "// Add other types as needed",
-                f"    {return_type} {return_type}_value;\n        // Add other types as needed",
-            )
+        if return_type == "void":
+            continue
+
+        result_struct = result_struct.replace(
+            "// Add other types as needed",
+            f"    {return_type} {return_type}_value;\n        // Add other types as needed",
+        )
     return result_struct
 
 
 def write_checked_header(output_path, result_struct, functions, typedefs):
     """Write the checked header file."""
+
     with open(output_path, "w") as f:
-        f.write("#ifndef WASM_EXPORT_CHECKED_H\n#define WASM_EXPORT_CHECKED_H\n\n")
+        # copyright
+        f.write(COPYRIGHT)
+        f.write("\n")
+
+        f.write("/*\n")
+        f.write(" * THIS FILE IS GENERATED AUTOMATICALLY, DO NOT EDIT!\n")
+        f.write(" */\n")
+
+        # include guard
+        f.write(
+            f"#ifndef {output_path.stem.upper()}_H\n#define {output_path.stem.upper()}_H\n\n"
+        )
 
         for header in INCLUDE_HEADERS:
             f.write(f"#include {header}\n")
         f.write("\n")
-        f.write('#include "wasm_export.h"\n')
-        f.write('#include "lib_export.h"\n')
+        # include original header
+        original_header = output_path.stem.replace("_checked", "") + ".h"
+        f.write(f'#include "{original_header}"\n')
         f.write("\n")
 
         f.write(result_struct + "\n")
@@ -95,7 +117,7 @@ def write_checked_header(output_path, result_struct, functions, typedefs):
             new_func = generate_checked_function(func, typedefs)
             f.write(new_func + "\n\n")
 
-        f.write("#endif // WASM_EXPORT_CHECKED_H\n")
+        f.write(f"#endif // {output_path.stem.upper()}_H\n")
 
 
 def resolve_typedef(typedefs, type_name):
