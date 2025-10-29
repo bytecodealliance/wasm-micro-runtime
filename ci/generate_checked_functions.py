@@ -120,54 +120,6 @@ def write_checked_header(output_path, result_struct, functions, typedefs):
         f.write(f"#endif // {output_path.stem.upper()}_H\n")
 
 
-def resolve_typedef(typedefs, type_name):
-    """Resolve a typedef to its underlying type."""
-
-    def resolve_base_type(ptr_decl):
-        # handle cases like: typedef int******* ptr;
-        cur_type = ptr_decl
-        pointer_type_name = ""
-
-        while isinstance(cur_type, c_ast.PtrDecl):
-            cur_type = cur_type.type
-            pointer_type_name += "*"
-
-        assert isinstance(cur_type, c_ast.TypeDecl)
-        if isinstance(cur_type.type, c_ast.IdentifierType):
-            base_type_name = " ".join(cur_type.type.names)
-            pointer_type_name = base_type_name + pointer_type_name
-        else:
-            pointer_type_name = "".join(cur_type.type.name) + pointer_type_name
-
-        return pointer_type_name
-
-    resolved_type = typedefs.get(type_name)
-
-    if resolved_type is None:
-        return type_name
-
-    if isinstance(resolved_type, c_ast.TypeDecl):
-        if isinstance(resolved_type.type, c_ast.Enum):
-            return type_name
-
-        if isinstance(resolved_type.type, c_ast.Struct):
-            return type_name
-
-        if isinstance(resolved_type.type, c_ast.Union):
-            return type_name
-
-        if isinstance(resolved_type.type, c_ast.IdentifierType):
-            return type_name
-
-        raise Exception(f"Unhandled TypeDecl typedef {type_name}")
-    elif isinstance(resolved_type, c_ast.PtrDecl):
-        pointer_type_name = resolve_base_type(resolved_type)
-        return pointer_type_name
-    else:
-        resolved_type.show()
-        raise Exception(f"Unhandled typedef {type_name}")
-
-
 def generate_checked_function(func, typedefs):
     """Generate a checked version of the given function."""
     func_name = func.name  # Access the name directly from Decl
@@ -182,8 +134,8 @@ def generate_checked_function(func, typedefs):
     if isinstance(func.type.type, c_ast.TypeDecl):
         return_type = " ".join(func.type.type.type.names)
 
-        resolved_type = resolve_typedef(typedefs, return_type)
-        if resolved_type.endswith("*"):
+        resolved_type = typedefs.get(return_type, return_type)
+        if isinstance(resolved_type, c_ast.PtrDecl):
             return_pointer = True
 
     # Start building the new function
