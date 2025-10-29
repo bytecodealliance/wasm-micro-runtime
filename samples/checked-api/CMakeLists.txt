@@ -5,9 +5,8 @@ cmake_minimum_required (VERSION 3.14)
 
 project(checked_api_sample)
 
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
-endif()
+# assertion required
+set(CMAKE_BUILD_TYPE Debug)
 
 set(CMAKE_C_STANDARD 23)
 
@@ -53,4 +52,10 @@ ExternalProject_Add(wasm
                       -DCMAKE_TOOLCHAIN_FILE=${WASISDK_TOOLCHAIN}
   BUILD_COMMAND     ${CMAKE_COMMAND} --build build
   INSTALL_COMMAND   ${CMAKE_COMMAND} --install build --prefix ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+enable_testing()
+add_test(NAME checked_api_sample_test
+  COMMAND ${PROJECT_NAME}
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
