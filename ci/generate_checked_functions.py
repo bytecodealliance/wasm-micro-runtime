@@ -52,7 +52,7 @@ RESULT_STRUCT_TEMPLATE = """
     typedef struct {
         int error_code; // Error code (0 for success, non-zero for errors)
         union {
-            // Add other types as needed
+        // Add other types as needed
         } value;
     } Result;
 """
