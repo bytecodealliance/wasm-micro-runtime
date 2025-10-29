@@ -268,12 +268,14 @@ def generate_checked_headers(header_paths):
             for node in ast.ext
             if isinstance(node, c_ast.Decl) and isinstance(node.type, c_ast.FuncDecl)
         ]
+        functions = sorted(functions, key=lambda f: f.name)
 
         return_types = {
             " ".join(func.type.type.type.names)
             for func in functions
             if isinstance(func.type.type, c_ast.TypeDecl)
         }
+        return_types = sorted(return_types)
 
         result_struct = generate_result_struct(return_types)
         write_checked_header(output_path, result_struct, functions, typedefs)
