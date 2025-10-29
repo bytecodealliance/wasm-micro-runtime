@@ -80,8 +80,18 @@ main(int argc, char *argv_main[])
                                                   arguments);
     VERIFY_API_RESULT(wasm_runtime_call_wasm_a_checked, api_result,
                       release_runtime);
-    printf("Native finished calling wasm function: fib, returned: %d\n",
-           result[0].of.i32);
+    printf("Native finished calling wasm function: fib(%d), returned: %d\n",
+           arguments[0].of.i32, result[0].of.i32);
+    bh_assert(result[0].of.i32 == 8);
+
+    arguments[0].of.i32 = 2;
+    api_result = wasm_runtime_call_wasm_a_checked(exec_env, func, 1, result, 1,
+                                                  arguments);
+    VERIFY_API_RESULT(wasm_runtime_call_wasm_a_checked, api_result,
+                      release_runtime);
+    printf("Native finished calling wasm function: fib(%d), returned: %d\n",
+           arguments[0].of.i32, result[0].of.i32);
+    bh_assert(result[0].of.i32 == 1);
 
     ret = EXIT_SUCCESS;
 

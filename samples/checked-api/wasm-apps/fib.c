@@ -17,7 +17,6 @@ __attribute__((export_name("fib"))) int
 fib(int n)
 {
     int result = fibonacci(n);
-    printf("fibonacci(%d)=%d\n", n, result);
     return result;
 }
 
