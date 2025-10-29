@@ -7,8 +7,11 @@ Usage:
 Arguments:
     --headers: A list of header file paths to process. Each header file will be parsed, and a corresponding
                "_checked.h" file will be generated with additional null pointer checks and error handling.
+               If not provided, a default list of headers under "core/iwasm/include/" will be used.
 
 Example:
+    python3 generate_checked_functions.py
+    # OR
     python3 generate_checked_functions.py --headers core/iwasm/include/wasm_export.h
 
 Description:
@@ -16,20 +19,25 @@ Description:
     For each function, it generates a "checked" version that includes:
       - Null pointer checks for pointer parameters.
       - Error handling using a `Result` struct.
+      - Support for variadic arguments (e.g., ...).
 
     The generated "_checked.h" files include the original header file and define the `Result` struct, which
-    encapsulates the return value and error codes.
+    encapsulates the return value and error codes. The `Result` struct is dynamically generated based on the
+    return types of the functions in the header file.
 
 Dependencies:
     - pycparser: Install it using `pip install pycparser`.
+    - clang-format-14: Ensure it is installed for formatting the generated files.
 
 Output:
     For each input header file, a corresponding "_checked.h" file is created in the same directory.
+    The generated files are automatically formatted using clang-format-14.
 """
 
-from pycparser import c_ast, parse_file
 import argparse
 from pathlib import Path
+from pycparser import c_ast, parse_file
+import subprocess
 
 # Constants for repeated strings
 CPP_ARGS = [
@@ -226,14 +234,23 @@ def parse_arguments():
     parser.add_argument(
         "--headers",
         nargs="+",
-        required=True,
-        help="List of header file paths to process.",
+        required=False,
+        help="List of header file paths to process. Relative to the project root.",
+        default=[
+            "core/iwasm/include/aot_comp_option.h",
+            "core/iwasm/include/aot_export.h",
+            "core/iwasm/include/gc_export.h",
+            "core/iwasm/include/lib_export.h",
+            "core/iwasm/include/wasm_c_api.h",
+            "core/iwasm/include/wasm_export.h",
+        ],
     )
     return parser.parse_args()
 
 
 def generate_checked_headers(header_paths):
     """Process each header file and generate checked versions."""
+    output_header = []
     for input_header in header_paths:
         input_path = Path(input_header)
         output_path = input_path.with_name(input_path.stem + "_checked.h")
@@ -260,11 +277,18 @@ def generate_checked_headers(header_paths):
 
         result_struct = generate_result_struct(return_types)
         write_checked_header(output_path, result_struct, functions, typedefs)
+        output_header.append(output_path)
+
+    return output_header
 
 
 def main():
     args = parse_arguments()
-    generate_checked_headers(args.headers)
+    generated_headers = generate_checked_headers(args.headers)
+
+    # format the generated files using clang-format-14
+    for header in generated_headers:
+        subprocess.run(["clang-format-14", "--style=file", "-i", str(header)])
 
 
 if __name__ == "__main__":
