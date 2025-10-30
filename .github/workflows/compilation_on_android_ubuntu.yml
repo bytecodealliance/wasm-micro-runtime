@@ -376,9 +376,9 @@ jobs:
           cmake --build build --config Release --parallel 4
           ctest --test-dir build --output-on-failure
 
-          lcov --capture --directory build --output-file coverage.all.info
-          lcov --extract coverage.all.info "*/core/iwasm/*" "*/core/shared/*" --output-file coverage.info
-          lcov --summary coverage.info
+          lcov --quiet --capture --directory build --output-file coverage.all.info
+          lcov --quiet --extract coverage.all.info "*/core/iwasm/*" "*/core/shared/*" --output-file coverage.info
+          lcov --summary coverage.info >> $GITHUB_STEP_SUMMARY
         working-directory: tests/unit
 
   build_regression_tests:
