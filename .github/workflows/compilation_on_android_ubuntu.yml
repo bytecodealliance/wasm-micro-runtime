@@ -366,10 +366,14 @@ jobs:
 
       - name: Build and run unit tests
         run: |
-          mkdir build && cd build
-          cmake .. -DWAMR_BUILD_TARGET=${{ matrix.build_target }}
-          cmake --build . --config Release --parallel 4
-          ctest
+          rm -rf build
+          cmake -S . -B build -DWAMR_BUILD_TARGET=${{ matrix.build_target }} -DCOLLECT_CODE_COVERAGE=1
+          cmake --build build --config Release --parallel 4
+          ctest --test-dir build --output-on-failure
+
+          lcov --capture --directory build --output-file coverage.all.info
+          lcov --extract coverage.all.info "*/core/iwasm/*" "*/core/shared/*" --output-file coverage.info
+          lcov --summary coverage.info
         working-directory: tests/unit
 
   build_regression_tests:
