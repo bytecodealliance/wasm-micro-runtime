@@ -451,10 +451,10 @@ function spec_test()
         echo "checkout spec from threads proposal"
 
         # check spec test cases for threads
-        git clone -b main --single-branch https://github.com/WebAssembly/threads.git spec
+        git clone -b main-legacy --single-branch https://github.com/WebAssembly/threads.git spec
         pushd spec
 
-        # May 31, 2012 [interpreter] implement atomic.wait and atomic.notify (#194)
+        # May 31, 2023 [interpreter] implement atomic.wait and atomic.notify (#194)
         git reset --hard 09f2831349bf409187abb6f7868482a8079f2264
         git apply --ignore-whitespace ../../spec-test-script/thread_proposal_ignore_cases.patch || exit 1
         git apply --ignore-whitespace ../../spec-test-script/thread_proposal_fix_atomic_case.patch || exit 1
