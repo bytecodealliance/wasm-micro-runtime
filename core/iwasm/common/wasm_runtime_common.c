@@ -582,7 +582,7 @@ fail1:
 static bool
 wasm_runtime_exec_env_check(WASMExecEnv *exec_env)
 {
-    return exec_env && exec_env->module_inst && exec_env->wasm_stack_size > 0
+    return exec_env && exec_env->module_inst
            && exec_env->wasm_stack.top_boundary
                   == exec_env->wasm_stack.bottom + exec_env->wasm_stack_size
            && exec_env->wasm_stack.top <= exec_env->wasm_stack.top_boundary;
