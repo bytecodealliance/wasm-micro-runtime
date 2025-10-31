@@ -370,6 +370,15 @@ jobs:
           sudo apt-get install -y lcov
 
       - name: Build and run unit tests
+        if: matrix.build_target == 'X86_32'
+        run: |
+          rm -rf build
+          cmake -S . -B build -DWAMR_BUILD_TARGET=${{ matrix.build_target }}
+          cmake --build build --config Release --parallel 4
+          ctest --test-dir build --output-on-failure
+
+      - name: Build and run unit tests and collect coverage-data
+        if: matrix.build_target == 'X86_64'
         run: |
           rm -rf build
           cmake -S . -B build -DWAMR_BUILD_TARGET=${{ matrix.build_target }} -DCOLLECT_CODE_COVERAGE=1
@@ -377,6 +386,7 @@ jobs:
           ctest --test-dir build --output-on-failure
 
           lcov --quiet --capture --directory build --output-file coverage.all.info
+          # only keep coverage data for platform independent code
           lcov --quiet --extract coverage.all.info "*/core/iwasm/*" "*/core/shared/*" --output-file coverage.info
           lcov --summary coverage.info >> $GITHUB_STEP_SUMMARY
         working-directory: tests/unit
