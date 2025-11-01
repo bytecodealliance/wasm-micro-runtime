@@ -1,0 +1,59 @@
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+name: Verify core/iwasm/include checked APIs to see if they are up to date
+
+on:
+  # will be triggered on PR events
+  pull_request:
+    types:
+      - opened
+      - synchronize
+    paths:
+      - "core/iwasm/include/**"
+      - ".github/workflows/verify_checked_apis.yml"
+      - "ci/generate_checked_functions.py"
+  push:
+    paths:
+      - "core/iwasm/include/**"
+      - ".github/workflows/verify_checked_apis.yml"
+      - "ci/generate_checked_functions.py"
+
+# Cancel any in-flight jobs for the same PR/branch so there's only one active
+# at a time
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify_checked_apis:
+    name: Verify checked APIs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: |
+          pip install pycparser
+          sudo apt-get update
+          sudo apt-get install -y clang-format-14
+
+      - name: Generate checked APIs
+        id: generate_checked_apis
+        run: |
+          python3 ci/generate_checked_functions.py
+
+      - name: Check for differences
+        run: |
+          #it exits with 1 if there were differences and 0 means no differences
+          git diff --exit-code
