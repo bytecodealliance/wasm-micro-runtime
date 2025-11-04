@@ -350,7 +350,7 @@ jobs:
         uses: ./.github/actions/install-wasi-sdk-wabt
         with:
           os: ${{ matrix.os }}
-
+      
       - name: Build wamrc
         run: |
           mkdir build && cd build
@@ -361,15 +361,16 @@ jobs:
       - name: Install dependencies for X86_32
         if: matrix.build_target == 'X86_32'
         run: |
+          sudo dpkg --add-architecture i386
           sudo apt-get update
-          sudo apt-get install -y g++-multilib
+          sudo apt-get install -y g++-multilib libzstd-dev:i386 zlib1g-dev:i386
 
       - name: Build and run unit tests
         run: |
           mkdir build && cd build
           cmake .. -DWAMR_BUILD_TARGET=${{ matrix.build_target }}
-          cmake --build . --config Release --parallel 4
-          ctest
+          cmake --build . --parallel 4
+          ctest --output-on-failure
         working-directory: tests/unit
 
   build_regression_tests:

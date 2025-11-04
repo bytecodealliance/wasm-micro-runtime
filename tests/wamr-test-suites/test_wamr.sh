@@ -39,8 +39,8 @@ function help()
     echo "-F set the firmware path used by qemu"
     echo "-C enable code coverage collect"
     echo "-j set the platform to test"
-    echo "-T set the sanitizer(s) used during testing. It can be either a comma-separated list 
-                                            (e.g., ubsan, asan) or a single option 
+    echo "-T set the sanitizer(s) used during testing. It can be either a comma-separated list
+                                            (e.g., ubsan, asan) or a single option
                                             (e.g., ubsan, tsan, asan, posan)."
     echo "-A use the specified wamrc command instead of building it"
     echo "-N enable extended const expression feature"
@@ -329,14 +329,14 @@ function unit_test()
     echo "Now start unit tests"
 
     cd ${WORK_DIR}
-    rm -fr unittest-build && mkdir unittest-build
-    cd unittest-build
+    rm -fr unittest-build
 
     echo "Build unit test"
     touch ${REPORT_DIR}/unit_test_report.txt
-    cmake ${WORK_DIR}/../../unit -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}
-    make -j
-    make test | tee -a ${REPORT_DIR}/unit_test_report.txt
+    cmake -S ${WORK_DIR}/../../unit -B unittest-build \
+      -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}
+    cmake --build unittest-build
+    ctest --test-dir unittest-build --output-on-failure | tee -a ${REPORT_DIR}/unit_test_report.txt
 
     echo "Finish unit tests"
 }
@@ -504,7 +504,7 @@ function spec_test()
         git reset --hard 8d4f6aa2b00a8e7c0174410028625c6a176db8a1
         # ignore import table cases
         git apply --ignore-whitespace ../../spec-test-script/extended_const.patch || exit 1
-        
+
     elif [[ ${ENABLE_MEMORY64} == 1 ]]; then
         echo "checkout spec for memory64 proposal"
 
@@ -1188,7 +1188,15 @@ function trigger()
 }
 
 # if collect code coverage, ignore -s, test all test cases.
-if [[ $TEST_CASE_ARR ]];then
+if [[ $TEST_CASE_ARR == "unit" ]];then
+    # unit test cases are designed with specific compilation flags
+    # and run under specific modes.
+    # There is no need to loop through all running modes in this script.
+    unit_test || (echo "TEST FAILED"; exit 1)
+    collect_coverage unit
+    echo "JUST SKIP UNIT TEST NOW"
+elif [[ $TEST_CASE_ARR == "spec" ]];then
+    # loop through all running modes
     trigger || (echo "TEST FAILED"; exit 1)
 else
     # test all suite, ignore polybench and libsodium because of long time cost
@@ -1201,6 +1209,7 @@ else
         TEST_CASE_ARR+=("libsodium")
     fi
     '
+    # loop through all running modes
     trigger || (echo "TEST FAILED"; exit 1)
     # Add more suites here
 fi

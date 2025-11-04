@@ -2,13 +2,20 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 cmake_minimum_required(VERSION 3.14)
+project(wasm-apps)
 
-project(wasm-apps-custom-section)
-
-# Add -g option so there will be debugger related custom sections
-add_custom_target(app.wasm ALL
-    COMMAND /opt/wasi-sdk/bin/clang -g -nostdlib
-            -Wl,--no-entry,--export-all
-            -o ${CMAKE_CURRENT_BINARY_DIR}/app.wasm
-            ${CMAKE_CURRENT_LIST_DIR}/app.c
+add_executable(app.wasm app.c)
+target_compile_options(app.wasm PUBLIC -g -nostdlib)
+target_link_options(app.wasm PRIVATE
+  -nostdlib
+  LINKER:--allow-undefined
+  LINKER:--export-all
+  LINKER:--no-entry
 )
+
+# install .wasm
+set(
+  WASM_FILES
+  ${CMAKE_CURRENT_BINARY_DIR}/app.wasm
+)
+install(FILES ${WASM_FILES} DESTINATION .)
