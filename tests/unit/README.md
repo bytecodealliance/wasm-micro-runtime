@@ -11,6 +11,7 @@ This guide provides instructions for contributors on how to create a test suite 
 
   - Reuse existing test cases and patch them when possible to avoid redundancy.
   - Name the directory in lowercase with words separated by hyphens (e.g., `new-feature`).
+  - Name the test source file in lowercase with words separated by underscore (e.g., `new_test.cc`).
 
 - **Avoid Committing `.wasm` Files**:
   Do not commit precompiled `.wasm` files. Instead:
