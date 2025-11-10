@@ -265,9 +265,15 @@ jobs:
           # android does not support WAMR_BUILD_SHARED in its CMakeLists.txt.
           - make_options_feature: "-DWAMR_BUILD_SHARED=1"
             platform: android
+          # classic interp mode doesn't support SIMD
+          - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_SIMD=1"
         include:
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
+          # classic interp mode doesn't support SIMD
+          - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_SIMD=0"
     steps:
       - name: checkout
         uses: actions/checkout@v5
