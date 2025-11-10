@@ -70,7 +70,7 @@ if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_MULTI_MODULE)
-  # Enable multiple modules
+  # Disable multiple modules
   set (WAMR_BUILD_MULTI_MODULE 0)
 endif ()
 

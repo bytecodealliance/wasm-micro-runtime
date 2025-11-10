@@ -114,6 +114,13 @@ jobs:
           # MINI_LOADER only on INTERP mode
           - make_options_run_mode: $AOT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
+          # FAST_JIT doesn't support MULTI_MODULE
+          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
+        include:
+          # classic interp mode doesn't support SIMD
+          - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_SIMD=0"
     steps:
       - name: checkout
         uses: actions/checkout@v5
