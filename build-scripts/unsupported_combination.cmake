@@ -1,6 +1,8 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+include(CMakePrintHelpers)
+
 # Define a function to check for unsupported combinations
 function(check_aot_mode_error error_message)
   if(WAMR_BUILD_AOT EQUAL 1)
@@ -10,13 +12,33 @@ endfunction()
 
 # Define a function to check for unsupported combinations with CLASSIC_INTERP
 function(check_classic_interp_error error_message)
-  if(WAMR_BUILD_INTERP EQUAL 1 AND WAMR_BUILD_FAST_INTERP EQUAL 0 AND WAMR_BUILD_JIT EQUAL 0)
+  # Usually, Enable INTERP to enable wasm loader for JIT
+  # WAMR_BUILD_JIT might be undefined, so check it first
+  if(WAMR_BUILD_JIT EQUAL 1)
+    return()
+  endif()
+
+  if(WAMR_BUILD_FAST_JIT EQUAL 1)
+    return()
+  endif()
+
+  if(WAMR_BUILD_INTERP EQUAL 1 AND WAMR_BUILD_FAST_INTERP EQUAL 0)
     message(FATAL_ERROR "${error_message}")
   endif()
 endfunction()
 
 # Define a function to check for unsupported combinations with FAST_INTERP
 function(check_fast_interp_error error_message)
+  # Usually, Enable INTERP to enable wasm loader for JIT
+  # WAMR_BUILD_JIT might be undefined, so check it first
+  if(WAMR_BUILD_JIT EQUAL 1)
+    return()
+  endif()
+
+  if(WAMR_BUILD_FAST_JIT EQUAL 1)
+    return()
+  endif()
+
   if(WAMR_BUILD_INTERP EQUAL 1 AND WAMR_BUILD_FAST_INTERP EQUAL 1)
     message(FATAL_ERROR "${error_message}")
   endif()
@@ -39,6 +61,8 @@ endfunction()
 # Below are the unsupported combinations checks
 # Please keep this list in sync with tests/unit/unsupported-features/CMakeLists.txt
 # and tests/wamr-test-suites/test_wamr.sh
+#cmake_print_variables(WAMR_BUILD_INTERP WAMR_BUILD_FAST_INTERP WAMR_BUILD_JIT)
+
 if(WAMR_BUILD_EXCE_HANDLING EQUAL 1)
   check_aot_mode_error("Unsupported build configuration: EXCE_HANDLING + AOT")
   check_fast_interp_error("Unsupported build configuration: EXCE_HANDLING + FAST_INTERP")

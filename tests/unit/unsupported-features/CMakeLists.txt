@@ -8,7 +8,16 @@ project(unsupported_features_tests)
 include(CMakePrintHelpers)
 
 # fake target
+if(NOT DEFINED WAMR_BUILD_AOT)
+  set(WAMR_BUILD_AOT 0)
+endif()
 set(WAMR_BUILD_INTERP 1)
+if(NOT DEFINED WAMR_BUILD_JIT)
+  set(WAMR_BUILD_JIT 0)
+endif()
+if(NOT DEFINED WAMR_BUILD_FAST_JIT)
+  set(WAMR_BUILD_FAST_JIT 0)
+endif()
 include(../unit_common.cmake)
 add_library(unsupported_features_tests ${WAMR_RUNTIME_LIB_SOURCE})
 
@@ -16,13 +25,12 @@ enable_testing()
 
 # Define a function to add tests with unsupported features
 function(add_unsupported_feature_test test_name flags)
-  cmake_print_variables(test_name flags)
   add_test(
-    NAME verify_${test_name}
+    NAME ${PROJECT_NAME}.verify_${test_name}
     COMMAND ${CMAKE_COMMAND} -S ${CMAKE_CURRENT_LIST_DIR} -B build_${test_name} ${flags} --fresh
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
   )
-  set_tests_properties(verify_${test_name} PROPERTIES WILL_FAIL TRUE)
+  set_tests_properties(${PROJECT_NAME}.verify_${test_name} PROPERTIES WILL_FAIL TRUE)
 endfunction()
 
 # List of unsupported feature tests

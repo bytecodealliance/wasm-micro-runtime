@@ -49,7 +49,7 @@ build_iwasm "-DWAMR_BUILD_GC=1 -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=1 -DW
 build_iwasm "-DWAMR_BUILD_REF_TYPES=1 -DWAMR_BUILD_JIT=1" "llvm-jit"
 
 # build multi-tier-jit iwasm for testing classic-interp, fast-jit, llvm-jit and multi-tier-jit
-build_iwasm "-DWAMR_BUILD_REF_TYPES=1 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1" "multi-tier-jit"
+build_iwasm "-DWAMR_BUILD_REF_TYPES=1 -DWAMR_BUILD_SIMD=0 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1" "multi-tier-jit"
 
 # build default iwasm for testing fast-interp and AOT with libc-wasi disabled
 build_iwasm "-DWAMR_BUILD_REF_TYPES=1 -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=1 -DWAMR_BUILD_LIBC_WASI=0" "default-wasi-disabled"
@@ -58,6 +58,6 @@ build_iwasm "-DWAMR_BUILD_REF_TYPES=1 -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTER
 build_iwasm "-DWAMR_BUILD_REF_TYPES=1 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LIBC_WASI=0" "llvm-jit-wasi-disabled"
 
 # build multi-tier-jit iwasm for testing classic-interp, fast-jit, llvm-jit and multi-tier-jit with libc-wasi disabled
-build_iwasm "-DWAMR_BUILD_REF_TYPES=1 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LIBC_WASI=0" "multi-tier-jit-wasi-disabled"
+build_iwasm "-DWAMR_BUILD_REF_TYPES=1 -DWAMR_BUILD_SIMD=0-DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LIBC_WASI=0" "multi-tier-jit-wasi-disabled"
 
 # TODO: add more version of iwasm, for example, sgx version
