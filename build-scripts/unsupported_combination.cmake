@@ -10,7 +10,7 @@ endfunction()
 
 # Define a function to check for unsupported combinations with CLASSIC_INTERP
 function(check_classic_interp_error error_message)
-  if(WAMR_BUILD_INTERP EQUAL 1 AND WAMR_BUILD_FAST_INTERP EQUAL 0)
+  if(WAMR_BUILD_INTERP EQUAL 1 AND WAMR_BUILD_FAST_INTERP EQUAL 0 AND WAMR_BUILD_JIT EQUAL 0)
     message(FATAL_ERROR "${error_message}")
   endif()
 endfunction()
