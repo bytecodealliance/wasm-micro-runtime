@@ -476,6 +476,9 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 >    void shared_heap_free(void *ptr);
 > ```
 
+> [!WARNING]
+> Currently, the shared-heap feature is not supported in fast-jit mode.
+
 ### **Shrunk the memory usage**
 
 - **WAMR_BUILD_SHRUNK_MEMORY**=1/0, default to enable if not set
