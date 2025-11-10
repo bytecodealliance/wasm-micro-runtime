@@ -268,6 +268,27 @@ def generate_checked_headers(header_paths):
             for node in ast.ext
             if isinstance(node, c_ast.Decl) and isinstance(node.type, c_ast.FuncDecl)
         ]
+        # remove std headers functions
+        functions = [
+            f
+            for f in functions
+            if f.name
+            not in (
+                "__mempcpy",
+                "__stpcpy",
+                "memmem",
+                "memmove",
+                "mempcpy",
+                "memset",
+                "strcasestr",
+                "strcat",
+                "strchrnul",
+                "strcmp",
+                "strlcat",
+                "strlcpy",
+                "strlen",
+            )
+        ]
         functions = sorted(functions, key=lambda f: f.name)
 
         return_types = {

@@ -131,27 +131,6 @@ __memcmpeq_checked(void *__s1, void *__s2, size_t __n)
 }
 
 static inline Result
-__stpcpy_checked(void *__dest, void *__src)
-{
-    Result res;
-    // Check for null pointer parameter: __dest
-    if (__dest == NULL) {
-        res.error_code = -1;
-        return res;
-    }
-    // Check for null pointer parameter: __src
-    if (__src == NULL) {
-        res.error_code = -1;
-        return res;
-    }
-    // Execute the original function
-    __stpcpy(__dest, __src);
-    // Assign return value and error code
-    res.error_code = 0;
-    return res;
-}
-
-static inline Result
 __stpncpy_checked(void *__dest, void *__src, size_t __n)
 {
     Result res;
@@ -431,43 +410,6 @@ memcpy_checked(void *__dest, void *__src, size_t __n)
 }
 
 static inline Result
-memmove_checked(void *__dest, void *__src, size_t __n)
-{
-    Result res;
-    // Check for null pointer parameter: __dest
-    if (__dest == NULL) {
-        res.error_code = -1;
-        return res;
-    }
-    // Check for null pointer parameter: __src
-    if (__src == NULL) {
-        res.error_code = -1;
-        return res;
-    }
-    // Execute the original function
-    memmove(__dest, __src, __n);
-    // Assign return value and error code
-    res.error_code = 0;
-    return res;
-}
-
-static inline Result
-memset_checked(void *__s, int __c, size_t __n)
-{
-    Result res;
-    // Check for null pointer parameter: __s
-    if (__s == NULL) {
-        res.error_code = -1;
-        return res;
-    }
-    // Execute the original function
-    memset(__s, __c, __n);
-    // Assign return value and error code
-    res.error_code = 0;
-    return res;
-}
-
-static inline Result
 rindex_checked(void *__s, int __c)
 {
     Result res;
@@ -580,27 +522,6 @@ strcasecmp_l_checked(void *__s1, void *__s2, locale_t __loc)
 }
 
 static inline Result
-strcat_checked(void *__dest, void *__src)
-{
-    Result res;
-    // Check for null pointer parameter: __dest
-    if (__dest == NULL) {
-        res.error_code = -1;
-        return res;
-    }
-    // Check for null pointer parameter: __src
-    if (__src == NULL) {
-        res.error_code = -1;
-        return res;
-    }
-    // Execute the original function
-    strcat(__dest, __src);
-    // Assign return value and error code
-    res.error_code = 0;
-    return res;
-}
-
-static inline Result
 strchr_checked(void *__s, int __c)
 {
     Result res;
@@ -613,33 +534,6 @@ strchr_checked(void *__s, int __c)
     strchr(__s, __c);
     // Assign return value and error code
     res.error_code = 0;
-    return res;
-}
-
-static inline Result
-strcmp_checked(void *__s1, void *__s2)
-{
-    Result res;
-    // Check for null pointer parameter: __s1
-    if (__s1 == NULL) {
-        res.error_code = -1;
-        return res;
-    }
-    // Check for null pointer parameter: __s2
-    if (__s2 == NULL) {
-        res.error_code = -1;
-        return res;
-    }
-    // Execute the original function
-    int original_result = strcmp(__s1, __s2);
-    // Assign return value and error code
-    if (original_result == 0) {
-        res.error_code = 0;
-        res.value.int_value = original_result;
-    }
-    else {
-        res.error_code = -2;
-    }
     return res;
 }
 
@@ -798,28 +692,6 @@ strerror_r_checked(int __errnum, void *__buf, size_t __buflen)
     if (original_result == 0) {
         res.error_code = 0;
         res.value.int_value = original_result;
-    }
-    else {
-        res.error_code = -2;
-    }
-    return res;
-}
-
-static inline Result
-strlen_checked(void *__s)
-{
-    Result res;
-    // Check for null pointer parameter: __s
-    if (__s == NULL) {
-        res.error_code = -1;
-        return res;
-    }
-    // Execute the original function
-    size_t original_result = strlen(__s);
-    // Assign return value and error code
-    if (original_result == 0) {
-        res.error_code = 0;
-        res.value.size_t_value = original_result;
     }
     else {
         res.error_code = -2;
