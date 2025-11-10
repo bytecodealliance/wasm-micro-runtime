@@ -8,8 +8,9 @@ project(unsupported_features_tests)
 include(CMakePrintHelpers)
 
 # fake target
+set(WAMR_BUILD_INTERP 1)
 include(../unit_common.cmake)
-add_library(unsupported_features_tests EXCLUDE_FROM_ALL ${WAMR_RUNTIME_LIB_SOURCE})
+add_library(unsupported_features_tests ${WAMR_RUNTIME_LIB_SOURCE})
 
 enable_testing()
 
