@@ -185,6 +185,10 @@ jobs:
           # SIMD only on JIT/AOT/fast interpreter mode
           - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_SIMD=1"
+          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_SIMD=1"
+          - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_SIMD=1"
           # DEBUG_INTERP only on CLASSIC INTERP mode
           - make_options_run_mode: $AOT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
@@ -265,14 +269,15 @@ jobs:
           # android does not support WAMR_BUILD_SHARED in its CMakeLists.txt.
           - make_options_feature: "-DWAMR_BUILD_SHARED=1"
             platform: android
-          # classic interp mode doesn't support SIMD
-          - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_SIMD=1"
         include:
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
           # classic interp mode doesn't support SIMD
           - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_SIMD=0"
+          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_SIMD=0"
+          - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_SIMD=0"
     steps:
       - name: checkout
@@ -445,6 +450,18 @@ jobs:
         include:
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
+          # classic interp and fast jit mode doesn't support SIMD
+          - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_SIMD=0"
+          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_SIMD=0 -DWAMR_BUILD_MULTI_MODULE=0"
+          - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_SIMD=0 -DWAMR_BUILD_MULTI_MODULE=0"
+          # MULTI_MODULE only on INTERP mode and AOT mode
+          - make_options_run_mode: $LLVM_LAZY_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=0"
+          - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=0"
 
     steps:
       - name: checkout
