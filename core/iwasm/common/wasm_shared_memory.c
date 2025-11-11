@@ -249,9 +249,13 @@ map_try_release_wait_info(HashMap *wait_hash_map, AtomicWaitInfo *wait_info,
 #if WASM_ENABLE_SHARED_HEAP != 0
 static bool
 is_native_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
-                              uint8 *addr, uint32 bytes)
+                              uint8 *addr, uint64 bytes)
 {
     WASMSharedHeap *shared_heap = NULL;
+
+    if (bytes > APP_HEAP_SIZE_MAX) {
+        return false;
+    }
 
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
