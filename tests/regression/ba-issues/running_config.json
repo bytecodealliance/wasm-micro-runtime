@@ -105,7 +105,7 @@
             "ids": [
                 2965
             ],
-            "runtime": "iwasm-multi-tier-jit-wasi-disabled",
+            "runtime": "iwasm-fast-jit-wasi-disabled",
             "file": "i64.shl_75.wasm",
             "mode": "fast-jit",
             "options": "--heap-size=0 -f to_test",
@@ -124,7 +124,7 @@
                 2963,
                 2962
             ],
-            "runtime": "iwasm-multi-tier-jit-wasi-disabled",
+            "runtime": "iwasm-fast-jit-wasi-disabled",
             "file": "*.wasm",
             "mode": "fast-jit",
             "options": "--heap-size=0 -f to_test",
@@ -143,7 +143,7 @@
                 2959,
                 2958
             ],
-            "runtime": "iwasm-multi-tier-jit-wasi-disabled",
+            "runtime": "iwasm-fast-jit-wasi-disabled",
             "file": "*.wasm",
             "mode": "fast-jit",
             "options": "--heap-size=0 -f to_test",
@@ -191,7 +191,7 @@
             "ids": [
                 2954
             ],
-            "runtime": "iwasm-multi-tier-jit-wasi-disabled",
+            "runtime": "iwasm-llvm-jit-wasi-disabled",
             "file": "iwasm_jit_unexpected_exception_stack_underflow.wasm",
             "mode": "llvm-jit",
             "options": "--heap-size=0 -f to_test",
@@ -240,7 +240,7 @@
             "ids": [
                 2950
             ],
-            "runtime": "iwasm-multi-tier-jit-wasi-disabled",
+            "runtime": "iwasm-fast-jit-wasi-disabled",
             "file": "iwasm_fast_jit_unexpected_moob.wasm",
             "mode": "fast-jit",
             "options": "--heap-size=0 -f to_test",
@@ -257,7 +257,7 @@
                 2949,
                 2944
             ],
-            "runtime": "iwasm-multi-tier-jit-wasi-disabled",
+            "runtime": "iwasm-fast-jit-wasi-disabled",
             "file": "*.wasm",
             "mode": "fast-jit",
             "options": "--heap-size=0 -f to_test",
@@ -322,7 +322,7 @@
             "ids": [
                 3020
             ],
-            "runtime": "iwasm-multi-tier-jit-wasi-disabled",
+            "runtime": "iwasm-fast-jit-wasi-disabled",
             "file": "all_wamr_memory.init_no_exception2.wasm",
             "mode": "fast-jit",
             "options": "--heap-size=0 -f to_test",
@@ -338,7 +338,7 @@
             "ids": [
                 3021
             ],
-            "runtime": "iwasm-multi-tier-jit-wasi-disabled",
+            "runtime": "iwasm-fast-jit-wasi-disabled",
             "file": "all_wamr_table.init_no_exception.wasm",
             "mode": "fast-jit",
             "options": "--heap-size=0 -f to_test",
@@ -354,7 +354,7 @@
             "ids": [
                 3023
             ],
-            "runtime": "iwasm-multi-tier-jit-wasi-disabled",
+            "runtime": "iwasm-fast-jit-wasi-disabled",
             "file": "all_wamr_table.init_no_exception2.wasm",
             "mode": "fast-jit",
             "options": "--heap-size=0 -f to_test",
@@ -594,7 +594,7 @@
             "ids": [
                 2943
             ],
-            "runtime": "iwasm-multi-tier-jit-wasi-disabled",
+            "runtime": "iwasm-llvm-jit-wasi-disabled",
             "file": "iwasm_jit_timeout.wasm",
             "mode": "llvm-jit",
             "options": " --heap-size=0 -f to_test",
@@ -610,7 +610,7 @@
             "ids": [
                 2942
             ],
-            "runtime": "iwasm-multi-tier-jit-wasi-disabled",
+            "runtime": "iwasm-llvm-jit-wasi-disabled",
             "file": "iwasm_jit_without_exception.wasm",
             "mode": "llvm-jit",
             "options": " --heap-size=0 -f to_test",
@@ -626,7 +626,7 @@
             "ids": [
                 2931
             ],
-            "runtime": "iwasm-multi-tier-jit",
+            "runtime": "iwasm-fast-jit",
             "file": "case.wasm",
             "mode": "fast-jit",
             "options": "",
@@ -642,7 +642,7 @@
             "ids": [
                 2897
             ],
-            "runtime": "iwasm-multi-tier-jit",
+            "runtime": "iwasm-llvm-jit",
             "file": "test.wasm",
             "mode": "llvm-jit",
             "options": "",
@@ -940,7 +940,7 @@
             "ids": [
                 2759
             ],
-            "runtime": "iwasm-multi-tier-jit",
+            "runtime": "iwasm-fast-jit",
             "file": "case.wasm",
             "mode": "fast-jit",
             "options": "",
@@ -956,7 +956,7 @@
             "ids": [
                 2732
             ],
-            "runtime": "iwasm-multi-tier-jit",
+            "runtime": "iwasm-llvm-jit",
             "file": "filea9.wasm",
             "mode": "llvm-jit",
             "options": "--heap-size=0 -f main",
@@ -1144,7 +1144,7 @@
             "ids": [
                 2710
             ],
-            "runtime": "iwasm-multi-tier-jit",
+            "runtime": "iwasm-fast-jit",
             "file": "t.wasm",
             "mode": "fast-jit",
             "options": "",
