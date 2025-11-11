@@ -167,8 +167,7 @@ jobs:
         os: [ubuntu-22.04]
         platform: [android, linux]
         exclude:
-          # incompatible feature and platform
-          # incompatible mode and feature
+          # incompatible feature and platform and mode
           # MULTI_MODULE only on INTERP mode and AOT mode
           - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
@@ -261,13 +260,15 @@ jobs:
         include:
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
-          # classic interp , fast-jit, multi-tier-jit mode doesn't support SIMD
+          # classic interp doesn't support SIMD
           - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_SIMD=0"
+            extra_options: "-DWAMR_BUILD_SIMD=0"
+          # fast jit doesn't support SIMD
           - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_SIMD=0"
+            extra_options: "-DWAMR_BUILD_SIMD=0"
+          # multi-tier jit doesn't support SIMD
           - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_SIMD=0"
+            extra_options: "-DWAMR_BUILD_SIMD=0"
     steps:
       - name: checkout
         uses: actions/checkout@v5
@@ -294,7 +295,7 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           mkdir build && cd build
-          cmake .. -DCMAKE_C_FLAGS="-Werror" ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }}
+          cmake .. -DCMAKE_C_FLAGS="-Werror" ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }} ${{ matrix.extra_options}}
           cmake --build . --config Release --parallel 4
         working-directory: product-mini/platforms/${{ matrix.platform }}
 
@@ -426,18 +427,20 @@ jobs:
         include:
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
-          # classic interp and fast jit mode doesn't support SIMD
-          - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_SIMD=0"
-          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_SIMD=0 -DWAMR_BUILD_MULTI_MODULE=0"
-          - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_SIMD=0 -DWAMR_BUILD_MULTI_MODULE=0"
-          # MULTI_MODULE only on INTERP mode and AOT mode
-          - make_options_run_mode: $LLVM_LAZY_JIT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=0"
-          - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=0"
+          # classic interp doesn't support SIMD
+          - make_options: $CLASSIC_INTERP_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_SIMD=0"
+          # fast jit doesn't support Multi-module and SIMD
+          - make_options: $FAST_JIT_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_SIMD=0 -DWAMR_BUILD_MULTI_MODULE=0"
+          # multi-tier jit doesn't support Multi-module and SIMD
+          - make_options: $MULTI_TIER_JIT_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_SIMD=0 -DWAMR_BUILD_MULTI_MODULE=0"
+          # LLVM JIT doesn't support Multi-module
+          - make_options: $LLVM_LAZY_JIT_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_MULTI_MODULE=0"
+          - make_options: $LLVM_EAGER_JIT_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_MULTI_MODULE=0"
 
     steps:
       - name: checkout
@@ -476,7 +479,7 @@ jobs:
       - name: Build Sample [wasm-c-api]
         run: |
           VERBOSE=1
-          cmake -S . -B build ${{ matrix.make_options }}
+          cmake -S . -B build ${{ matrix.make_options }} ${{ matrix.extra_options }}
           cmake --build build --config Debug --parallel 4
           ctest --test-dir build --output-on-failure
         working-directory: samples/wasm-c-api

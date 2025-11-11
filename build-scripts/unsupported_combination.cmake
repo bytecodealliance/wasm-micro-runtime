@@ -70,14 +70,14 @@ if(WAMR_BUILD_EXCE_HANDLING EQUAL 1)
   check_llvm_jit_error("Unsupported build configuration: EXCE_HANDLING + JIT")
 endif()
 
+if(WAMR_BUILD_GC EQUAL 1)
+  check_fast_jit_error("Unsupported build configuration: GC + FAST_JIT")
+endif()
+
 if(WAMR_BUILD_MEMORY64 EQUAL 1)
   check_fast_interp_error("Unsupported build configuration: MEMORY64 + FAST_INTERP")
   check_fast_jit_error("Unsupported build configuration: MEMORY64 + FAST_JIT")
   check_llvm_jit_error("Unsupported build configuration: MEMORY64 + JIT")
-endif()
-
-if(WAMR_BUILD_GC EQUAL 1)
-  check_fast_jit_error("Unsupported build configuration: GC + FAST_JIT")
 endif()
 
 if(WAMR_BUILD_MULTI_MEMORY EQUAL 1)
@@ -92,11 +92,11 @@ if(WAMR_BUILD_MULTI_MODULE EQUAL 1)
   check_llvm_jit_error("Unsupported build configuration: MULTI_MODULE + JIT")
 endif()
 
+if(WAMR_BUILD_SHARED_HEAP EQUAL 1)
+  check_fast_jit_error("Unsupported build configuration: SHARED_HEAP + FAST_JIT")
+endif()
+
 if(WAMR_BUILD_SIMD EQUAL 1)
   check_classic_interp_error("Unsupported build configuration: SIMD + CLASSIC_INTERP")
   check_fast_jit_error("Unsupported build configuration: SIMD + FAST_JIT")
-endif()
-
-if(WAMR_BUILD_SHARED_HEAP EQUAL 1)
-  check_fast_jit_error("Unsupported build configuration: SHARED_HEAP + FAST_JIT")
 endif()
