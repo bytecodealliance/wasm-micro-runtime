@@ -37,6 +37,19 @@ jobs:
     permissions:
       contents: read
       actions: write
+    uses: jlumbroso/free-disk-space@v1.3.1
+    with:
+      # Deletes Android, Haskell, and .NET runtimes from the runner, freeing
+      # about 15 GB.  
+      android: true
+      dotnet: true
+      haskell: true
+      # Keeps the tool cache, some large packages, docker images, and swap.
+      # Some of these could also be removed if more space is needed.
+      tool-cache: false
+      large-packages: false
+      docker-images: false
+      swap-storage: false
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
       os: "ubuntu-22.04"
