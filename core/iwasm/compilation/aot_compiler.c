@@ -1233,6 +1233,12 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
             case WASM_OP_CALL_INDIRECT:
             {
+#if WASM_ENABLE_COMPILATION_HINTS != 0
+                const uint32 instr_offset =
+                    (frame_ip - 0x1) - (func_ctx->aot_func->code_body_begin);
+#else
+                const uint32 instr_offset = 0;
+#endif
                 uint32 tbl_idx;
 
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
@@ -1246,7 +1252,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 }
 
                 if (!aot_compile_op_call_indirect(comp_ctx, func_ctx, type_idx,
-                                                  tbl_idx))
+                                                  tbl_idx, instr_offset))
                     return false;
                 break;
             }
@@ -1269,6 +1275,12 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
             case WASM_OP_RETURN_CALL_INDIRECT:
             {
+#if WASM_ENABLE_COMPILATION_HINTS != 0
+                const uint32 instr_offset =
+                    (frame_ip - 0x1) - (func_ctx->aot_func->code_body_begin);
+#else
+                const uint32 instr_offset = 0;
+#endif
                 uint32 tbl_idx;
 
                 if (!comp_ctx->enable_tail_call) {
@@ -1286,7 +1298,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 }
 
                 if (!aot_compile_op_call_indirect(comp_ctx, func_ctx, type_idx,
-                                                  tbl_idx))
+                                                  tbl_idx, instr_offset))
                     return false;
                 if (!aot_compile_op_return(comp_ctx, func_ctx, &frame_ip))
                     return false;

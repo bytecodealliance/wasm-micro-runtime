@@ -31,7 +31,7 @@ Users can turn those features on or off by using compilation options. If a relev
 ## Off-by-default Wasm Proposals
 
 | Proposal                      | >= Phase 4 | Compilation Option               |
-| ----------------------------- | ---------- | ---------------------------------|
+| ----------------------------- | ---------- |----------------------------------|
 | Extended Constant Expressions | Yes        | `WAMR_BUILD_EXTENDED_CONST_EXPR` |
 | Garbage Collection            | Yes        | `WAMR_BUILD_GC`                  |
 | Legacy Exception Handling[^3] | No         | `WAMR_BUILD_EXCE_HANDLING`       |
@@ -41,6 +41,7 @@ Users can turn those features on or off by using compilation options. If a relev
 | Tail Call                     | Yes        | `WAMR_BUILD_TAIL_CALL`           |
 | Threads[^5]                   | Yes        | `WAMR_BUILD_SHARED_MEMORY`       |
 | Typed Function References     | Yes        | `WAMR_BUILD_GC`                  |
+| Compilation Hints             | No         | `WASM_ENABLE_COMPILATION_HINTS`  |
 
 [^3]:
     interpreter only. [a legacy version](https://github.com/WebAssembly/exception-handling/blob/main/proposals/exception-handling/legacy/Exceptions.md).
