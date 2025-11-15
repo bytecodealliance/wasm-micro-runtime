@@ -7884,6 +7884,24 @@ wasm_runtime_get_module_name(wasm_module_t module)
 bool
 wasm_runtime_detect_native_stack_overflow(WASMExecEnv *exec_env)
 {
+#if defined(__has_feature)
+#if __has_feature(address_sanitizer)
+// ASAN build with clang++
+#define BUILD_ASAN 1
+#endif
+#endif
+
+#ifdef __SANITIZE_ADDRESS__
+// ASAN build with g++
+#define BUILD_ASAN 1
+#endif
+
+#ifdef BUILD_ASAN
+    // ASAN uses fake stack for local variables storage, so we can not
+    // properly detect stack overflow with it.
+    return true;
+#undef BUILD_ASAN
+#endif
     uint8 *boundary = exec_env->native_stack_boundary;
     RECORD_STACK_USAGE(exec_env, (uint8 *)&boundary);
     if (boundary == NULL) {
