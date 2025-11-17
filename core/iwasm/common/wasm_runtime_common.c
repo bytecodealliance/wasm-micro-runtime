@@ -1648,7 +1648,9 @@ void
 wasm_runtime_instantiation_args_set_defaults(struct InstantiationArgs2 *args)
 {
     memset(args, 0, sizeof(*args));
+#if WASM_ENABLE_LIBC_WASI != 0
     wasi_args_set_defaults(&args->wasi);
+#endif
 }
 
 WASMModuleInstanceCommon *
@@ -1715,6 +1717,7 @@ wasm_runtime_instantiation_args_set_max_memory_pages(
     p->v1.max_memory_pages = v;
 }
 
+#if WASM_ENABLE_LIBC_WASI != 0
 void
 wasm_runtime_instantiation_args_set_wasi_arg(struct InstantiationArgs2 *p,
                                              char *argv[], int argc)
@@ -1790,6 +1793,7 @@ wasm_runtime_instantiation_args_set_wasi_ns_lookup_pool(
     wasi_args->ns_lookup_count = ns_lookup_pool_size;
     wasi_args->set_by_user = true;
 }
+#endif /* WASM_ENABLE_LIBC_WASI != 0 */
 
 WASMModuleInstanceCommon *
 wasm_runtime_instantiate_ex2(WASMModuleCommon *module,
