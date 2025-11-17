@@ -1187,16 +1187,24 @@ function trigger()
     done
 }
 
-# if collect code coverage, ignore -s, test all test cases.
-if [[ $TEST_CASE_ARR == "unit" ]];then
-    # unit test cases are designed with specific compilation flags
-    # and run under specific modes.
-    # There is no need to loop through all running modes in this script.
-    unit_test || (echo "TEST FAILED"; exit 1)
-    collect_coverage unit
-    echo "JUST SKIP UNIT TEST NOW"
-elif [[ $TEST_CASE_ARR == "spec" ]];then
-    # loop through all running modes
+if [[ $TEST_CASE_ARR ]];then
+    # Check if 'unit' is in TEST_CASE_ARR
+    if [[ " ${TEST_CASE_ARR[@]} " =~ " unit " ]]; then
+        # unit test cases are designed with specific compilation flags
+        # and run under specific modes.
+        # There is no need to loop through all running modes in this script.
+        unit_test || (echo "TEST FAILED"; exit 1)
+        if [[ ${COLLECT_CODE_COVERAGE} == 1 ]]; then
+             collect_coverage unit
+        fi
+
+        # remove 'unit' from TEST_CASE_ARR
+        TEST_CASE_ARR=("${TEST_CASE_ARR[@]/unit}")
+        # remove empty elements from TEST_CASE_ARR
+        TEST_CASE_ARR=("${TEST_CASE_ARR[@]:-}")
+    fi
+
+    # loop others through all running modes
     trigger || (echo "TEST FAILED"; exit 1)
 else
     # test all suite, ignore polybench and libsodium because of long time cost
