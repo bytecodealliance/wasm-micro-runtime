@@ -18,8 +18,12 @@ Code changes
 ===================
 We Use Github Flow, So All Code Changes Happen Through Pull Requests. Pull requests are the best way to propose changes to the codebase. We actively welcome your pull requests:
 
-- If you've added code that should be tested, add tests. Ensure the test suite passes.
-- Avoid use macros for different platforms. Use separate folder of source files to host different platform logic.
+ - If you've added / modified code:
+   - Please provide tests to the test suite to validate the operation of your code, or point to existing test cases which do the same. 
+   - Ensure that your new tests pass. This way we ensure that your contribution continues to work as you expected as future contributions are made by other contributors.
+   - Ensure all the existing tests in the test suite pass. This way we can verify that your contribution doesn’t accidentally impact other contributions.
+   - If your contribution is minor and you feel it does not need an additional test case, i.e. updating comments, formatting, simple refactoring, etc. then provide an explanation in your PR comment, i.e. “this is a minor change *explain the change*, and as such [ “is covered by” *list existing test cases* | “is except from addition test contribution”].
+- Avoid using macros for different platforms. Use separate folders for source files to collect together different host platform logic.
 - Put macro definitions inside share_lib/include/config.h if you have to use macro.
 - Make sure your code lints and compliant to our coding style.
 - Extend the application library is highly welcome.
