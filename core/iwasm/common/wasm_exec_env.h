@@ -30,6 +30,10 @@ typedef struct WASMCurrentEnvStatus WASMCurrentEnvStatus;
 typedef struct WASMJmpBuf {
     struct WASMJmpBuf *prev;
     korp_jmpbuf jmpbuf;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    /* The owner module instance associated with the current jmpbuf. Used in multi-module to propagate the exception */
+    struct WASMModuleInstanceCommon *module_inst;
+#endif 
 } WASMJmpBuf;
 #endif
 

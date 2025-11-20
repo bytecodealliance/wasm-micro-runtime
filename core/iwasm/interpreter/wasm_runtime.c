@@ -104,6 +104,29 @@ wasm_resolve_symbols(WASMModule *module)
 }
 
 #if WASM_ENABLE_MULTI_MODULE != 0
+void
+wasm_runtime_propagate_exception_from_import(WASMModuleInstance *parent,
+                                             WASMModuleInstance *sub_module)
+{
+    static const char exception_prefix[] = "Exception: ";
+    const char *message = NULL;
+
+    if (!parent || !sub_module)
+        return;
+
+    message = wasm_get_exception(sub_module);
+    if (message && message[0] != '\0') {
+        if (!strncmp(message, exception_prefix, sizeof(exception_prefix) - 1)) {
+            message += sizeof(exception_prefix) - 1;
+        }
+
+        wasm_set_exception(parent, message);
+        wasm_set_exception(sub_module, NULL);
+    }
+}
+#endif
+
+#if WASM_ENABLE_MULTI_MODULE != 0
 static WASMFunction *
 wasm_resolve_function(const char *module_name, const char *function_name,
                       const WASMFuncType *expected_function_type,
@@ -3620,6 +3643,10 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
     if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
         return;
     }
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+    jmpbuf_node.module_inst = (WASMModuleInstanceCommon *)module_inst;
+#endif
 
     wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
 

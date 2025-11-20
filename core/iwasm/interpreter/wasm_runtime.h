@@ -593,6 +593,10 @@ wasm_lookup_tag(const WASMModuleInstance *module_inst, const char *name,
                 const char *signature);
 #endif
 
+void
+wasm_runtime_propagate_exception_from_import(WASMModuleInstance *parent,
+                                             WASMModuleInstance *sub_module);
+
 #endif
 
 bool
