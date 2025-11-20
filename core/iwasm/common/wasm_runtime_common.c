@@ -248,6 +248,15 @@ runtime_signal_handler(void *sig_addr)
 
         if (is_sig_addr_in_guard_pages(sig_addr, module_inst)) {
             wasm_set_exception(module_inst, "out of bounds memory access");
+#if WASM_ENABLE_MULTI_MODULE != 0
+            if (jmpbuf_node->module_inst
+                && jmpbuf_node->module_inst
+                       != (WASMModuleInstanceCommon *)module_inst) {
+                wasm_runtime_propagate_exception_from_import(
+                    (WASMModuleInstance *)jmpbuf_node->module_inst,
+                    module_inst);
+            }
+#endif
             os_longjmp(jmpbuf_node->jmpbuf, 1);
         }
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
@@ -375,6 +384,15 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                    the wasm func returns, the caller will check whether the
                    exception is thrown and return to runtime. */
                 wasm_set_exception(module_inst, "out of bounds memory access");
+#if WASM_ENABLE_MULTI_MODULE != 0
+                if (jmpbuf_node->module_inst
+                    && jmpbuf_node->module_inst
+                           != (WASMModuleInstanceCommon *)module_inst) {
+                    wasm_runtime_propagate_exception_from_import(
+                        (WASMModuleInstance *)jmpbuf_node->module_inst,
+                        module_inst);
+                }
+#endif
                 ret = next_action(module_inst, exce_info);
                 if (ret == EXCEPTION_CONTINUE_SEARCH
                     || ret == EXCEPTION_CONTINUE_EXECUTION)
