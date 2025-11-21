@@ -36,4 +36,12 @@ add_executable (interpreter_test ${unit_test_sources})
 
 target_link_libraries (interpreter_test gtest_main )
 
+# Copy WASM files to build directory
+add_custom_command(TARGET interpreter_test POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+    ${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps/*.wasm
+    ${CMAKE_CURRENT_BINARY_DIR}/
+    COMMENT "Copy test wasm files to the directory of google test"
+)
+
 gtest_discover_tests(interpreter_test)
