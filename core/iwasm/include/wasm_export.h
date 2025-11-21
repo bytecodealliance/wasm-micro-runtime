@@ -764,6 +764,38 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_instantiation_args_set_max_memory_pages(
     struct InstantiationArgs2 *p, uint32_t v);
 
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_instantiation_args_set_wasi_arg(struct InstantiationArgs2 *p,
+                                             char *argv[], int argc);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_instantiation_args_set_wasi_env(struct InstantiationArgs2 *p,
+                                             const char *env[],
+                                             uint32_t env_count);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_instantiation_args_set_wasi_dir(struct InstantiationArgs2 *p,
+                                             const char *dir_list[],
+                                             uint32_t dir_count,
+                                             const char *map_dir_list[],
+                                             uint32_t map_dir_count);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_instantiation_args_set_wasi_stdio(struct InstantiationArgs2 *p,
+                                               int64_t stdinfd,
+                                               int64_t stdoutfd,
+                                               int64_t stderrfd);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_instantiation_args_set_wasi_addr_pool(struct InstantiationArgs2 *p,
+                                                   const char *addr_pool[],
+                                                   uint32_t addr_pool_size);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_instantiation_args_set_wasi_ns_lookup_pool(
+    struct InstantiationArgs2 *p, const char *ns_lookup_pool[],
+    uint32_t ns_lookup_pool_size);
+
 /**
  * Instantiate a WASM module, with specified instantiation arguments
  *

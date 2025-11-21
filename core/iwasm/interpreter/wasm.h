@@ -848,6 +848,7 @@ typedef struct WASIArguments {
     char **argv;
     uint32 argc;
     os_raw_file_handle stdio[3];
+    bool set_by_user;
 } WASIArguments;
 #endif
 

@@ -380,7 +380,7 @@ iwasm(int argc, char **argv)
     wasm_runtime_instantiation_args_set_host_managed_heap_size(inst_args,
                                                                heap_size);
 #if WASM_ENABLE_LIBC_WASI != 0
-    libc_wasi_init(wasm_module, argc, argv, &wasi_parse_ctx);
+    libc_wasi_set_init_args(wasm_module, argc, argv, &wasi_parse_ctx);
 #endif
 
     rt_memset(error_buf, 0x00, sizeof(error_buf));

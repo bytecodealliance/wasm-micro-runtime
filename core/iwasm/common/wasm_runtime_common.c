@@ -1648,6 +1648,9 @@ void
 wasm_runtime_instantiation_args_set_defaults(struct InstantiationArgs2 *args)
 {
     memset(args, 0, sizeof(*args));
+#if WASM_ENABLE_LIBC_WASI != 0
+    wasi_args_set_defaults(&args->wasi);
+#endif
 }
 
 WASMModuleInstanceCommon *
@@ -1713,6 +1716,84 @@ wasm_runtime_instantiation_args_set_max_memory_pages(
 {
     p->v1.max_memory_pages = v;
 }
+
+#if WASM_ENABLE_LIBC_WASI != 0
+void
+wasm_runtime_instantiation_args_set_wasi_arg(struct InstantiationArgs2 *p,
+                                             char *argv[], int argc)
+{
+    WASIArguments *wasi_args = &p->wasi;
+
+    wasi_args->argv = argv;
+    wasi_args->argc = (uint32)argc;
+    wasi_args->set_by_user = true;
+}
+
+void
+wasm_runtime_instantiation_args_set_wasi_env(struct InstantiationArgs2 *p,
+                                             const char *env[],
+                                             uint32 env_count)
+{
+    WASIArguments *wasi_args = &p->wasi;
+
+    wasi_args->env = env;
+    wasi_args->env_count = env_count;
+    wasi_args->set_by_user = true;
+}
+
+void
+wasm_runtime_instantiation_args_set_wasi_dir(struct InstantiationArgs2 *p,
+                                             const char *dir_list[],
+                                             uint32 dir_count,
+                                             const char *map_dir_list[],
+                                             uint32 map_dir_count)
+{
+    WASIArguments *wasi_args = &p->wasi;
+
+    wasi_args->dir_list = dir_list;
+    wasi_args->dir_count = dir_count;
+    wasi_args->map_dir_list = map_dir_list;
+    wasi_args->map_dir_count = map_dir_count;
+    wasi_args->set_by_user = true;
+}
+
+void
+wasm_runtime_instantiation_args_set_wasi_stdio(struct InstantiationArgs2 *p,
+                                               int64 stdinfd, int64 stdoutfd,
+                                               int64 stderrfd)
+{
+    WASIArguments *wasi_args = &p->wasi;
+
+    wasi_args->stdio[0] = (os_raw_file_handle)stdinfd;
+    wasi_args->stdio[1] = (os_raw_file_handle)stdoutfd;
+    wasi_args->stdio[2] = (os_raw_file_handle)stderrfd;
+    wasi_args->set_by_user = true;
+}
+
+void
+wasm_runtime_instantiation_args_set_wasi_addr_pool(struct InstantiationArgs2 *p,
+                                                   const char *addr_pool[],
+                                                   uint32 addr_pool_size)
+{
+    WASIArguments *wasi_args = &p->wasi;
+
+    wasi_args->addr_pool = addr_pool;
+    wasi_args->addr_count = addr_pool_size;
+    wasi_args->set_by_user = true;
+}
+
+void
+wasm_runtime_instantiation_args_set_wasi_ns_lookup_pool(
+    struct InstantiationArgs2 *p, const char *ns_lookup_pool[],
+    uint32 ns_lookup_pool_size)
+{
+    WASIArguments *wasi_args = &p->wasi;
+
+    wasi_args->ns_lookup_pool = ns_lookup_pool;
+    wasi_args->ns_lookup_count = ns_lookup_pool_size;
+    wasi_args->set_by_user = true;
+}
+#endif /* WASM_ENABLE_LIBC_WASI != 0 */
 
 WASMModuleInstanceCommon *
 wasm_runtime_instantiate_ex2(WASMModuleCommon *module,
@@ -3494,6 +3575,7 @@ wasm_runtime_set_wasi_args_ex(WASMModuleCommon *module, const char *dir_list[],
     wasi_args->stdio[0] = (os_raw_file_handle)stdinfd;
     wasi_args->stdio[1] = (os_raw_file_handle)stdoutfd;
     wasi_args->stdio[2] = (os_raw_file_handle)stderrfd;
+    wasi_args->set_by_user = true;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
 #if WASM_ENABLE_INTERP != 0
@@ -3524,6 +3606,7 @@ wasm_runtime_set_wasi_addr_pool(wasm_module_t module, const char *addr_pool[],
     if (wasi_args) {
         wasi_args->addr_pool = addr_pool;
         wasi_args->addr_count = addr_pool_size;
+        wasi_args->set_by_user = true;
     }
 }
 
@@ -3537,6 +3620,7 @@ wasm_runtime_set_wasi_ns_lookup_pool(wasm_module_t module,
     if (wasi_args) {
         wasi_args->ns_lookup_pool = ns_lookup_pool;
         wasi_args->ns_lookup_count = ns_lookup_pool_size;
+        wasi_args->set_by_user = true;
     }
 }
 
