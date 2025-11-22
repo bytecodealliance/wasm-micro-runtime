@@ -217,7 +217,7 @@ typedef struct AOTFunc {
     /* offset of each local, including function parameters
        and local variables */
     uint16 *local_offsets;
-#if WASM_ENABLE_BRANCH_HINTS != 0
+#if WASM_ENABLE_BRANCH_HINTS != 0 || WASM_ENABLE_COMPILATION_HINTS != 0
     uint8 *code_body_begin;
 #endif
 } AOTFunc;
@@ -300,7 +300,7 @@ typedef struct AOTCompData {
     dwarf_extractor_handle_t extractor;
 #endif
 
-#if WASM_ENABLE_BRANCH_HINTS != 0
+#if WASM_ENABLE_BRANCH_HINTS != 0 || WASM_ENABLE_COMPILATION_HINTS != 0
     struct WASMCompilationHint **function_hints;
 #endif
 } AOTCompData;

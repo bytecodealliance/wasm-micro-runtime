@@ -17,6 +17,8 @@ wasm_proposal_print_status(void)
     printf("    - Non-trapping float-to-int Conversions\n");
     printf("    - Sign-extension Operators\n");
     printf("    - WebAssembly C and C++ API\n");
+    printf("    - Branch Hinting\n");
+    printf("    - Compilation Hints\n");
     printf("  Compilation Configurable. 0 is OFF. 1 is ON:\n");
     printf("    - Bulk Memory Operation via WASM_ENABLE_BULK_MEMORY: %u\n",
            WASM_ENABLE_BULK_MEMORY);
@@ -41,7 +43,6 @@ wasm_proposal_print_status(void)
     printf("    - Typed Function References via WASM_ENABLE_GC: %u\n",
            WASM_ENABLE_GC);
     printf("  Unsupported (>= Phase4):\n");
-    printf("    - Branch Hinting\n");
     printf("    - Custom Annotation Syntax in the Text Format\n");
     printf("    - Exception Handling\n");
     printf("    - JS String Builtins\n");
