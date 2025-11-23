@@ -9,6 +9,7 @@
 #include "wasm_export.h"
 #include "aot_export.h"
 
+#include <llvm-c/Core.h>
 #include <llvm-c/Support.h>
 
 #if BH_HAS_DLFCN
@@ -158,6 +159,8 @@ print_help()
     printf("                              llvmir-unopt   Unoptimized LLVM IR\n");
     printf("                              llvmir-opt     Optimized LLVM IR\n");
     printf("  --disable-bulk-memory     Disable the MVP bulk memory feature\n");
+    printf("  --enable-bulk-memory-opt  Enable bulk memory opt feature\n");
+    printf("  --enable-extended-const   Enable extended const expr feature\n");
     printf("  --enable-multi-thread     Enable multi-thread feature, the dependent features bulk-memory and\n");
     printf("                            thread-mgr will be enabled automatically\n");
     printf("  --enable-tail-call        Enable the post-MVP tail call feature\n");
@@ -166,6 +169,9 @@ print_help()
     printf("                              and by default it is enabled in them and disabled in other targets\n");
     printf("  --disable-ref-types       Disable the MVP reference types feature, it will be disabled forcibly if\n");
     printf("                              GC is enabled\n");
+    printf("  --enable-call-indirect-overlong\n");
+    printf("                            Enable call indirect overlong feature\n");
+    printf("  --enable-lime1            Enable Lime1\n");
     printf("  --disable-aux-stack-check Disable auxiliary stack overflow/underflow check\n");
     printf("  --enable-dump-call-stack  Enable stack trace feature\n");
     printf("  --call-stack-features=<features>\n");
@@ -213,9 +219,12 @@ print_help()
     printf("  --enable-linux-perf       Enable linux perf support\n");
 #endif
     printf("  --mllvm=<option>          Add the LLVM command line option\n");
-    printf("  --enable-shared-heap      Enable shared heap feature\n");
+    printf("  --enable-shared-heap      Enable shared heap feature, assuming only one shared heap will be attached\n");
+    printf("  --enable-shared-chain     Enable shared heap chain feature, works for more than one shared heap\n");
+    printf("                            WARNING: enable this feature will largely increase code size\n");
     printf("  -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log\n");
     printf("  --version                 Show version information\n");
+    printf("  --llvm-version            Show LLVM version information\n");
     printf("Examples: wamrc -o test.aot test.wasm\n");
     printf("          wamrc --target=i386 -o test.aot test.wasm\n");
     printf("          wamrc --target=i386 --format=object -o test.o test.wasm\n");
@@ -419,8 +428,12 @@ main(int argc, char *argv[])
     option.enable_simd = true;
     option.enable_aux_stack_check = true;
     option.enable_bulk_memory = true;
+    option.enable_bulk_memory_opt = false;
     option.enable_ref_types = true;
+    option.enable_call_indirect_overlong = false;
     option.enable_gc = false;
+    option.enable_extended_const = false;
+    option.enable_lime1 = false;
     aot_call_stack_features_init_default(&option.call_stack_features);
 
     /* Process options */
@@ -514,6 +527,9 @@ main(int argc, char *argv[])
         else if (!strcmp(argv[0], "--disable-bulk-memory")) {
             option.enable_bulk_memory = false;
         }
+        else if (!strcmp(argv[0], "--enable-bulk-memory-opt")) {
+            option.enable_bulk_memory_opt = true;
+        }
         else if (!strcmp(argv[0], "--enable-multi-thread")) {
             option.enable_bulk_memory = true;
             option.enable_thread_mgr = true;
@@ -531,8 +547,17 @@ main(int argc, char *argv[])
         else if (!strcmp(argv[0], "--disable-ref-types")) {
             option.enable_ref_types = false;
         }
+        else if (!strcmp(argv[0], "--enable-call-indirect-overlong")) {
+            option.enable_call_indirect_overlong = true;
+        }
         else if (!strcmp(argv[0], "--disable-aux-stack-check")) {
             option.enable_aux_stack_check = false;
+        }
+        else if (!strcmp(argv[0], "--enable-extended-const")) {
+            option.enable_extended_const = true;
+        }
+        else if (!strcmp(argv[0], "--enable-lime1")) {
+            option.enable_lime1 = true;
         }
         else if (!strcmp(argv[0], "--enable-dump-call-stack")) {
             option.aux_stack_frame_type = AOT_STACK_FRAME_TYPE_STANDARD;
@@ -661,10 +686,19 @@ main(int argc, char *argv[])
         else if (!strcmp(argv[0], "--enable-shared-heap")) {
             option.enable_shared_heap = true;
         }
+        else if (!strcmp(argv[0], "--enable-shared-chain")) {
+            option.enable_shared_chain = true;
+        }
         else if (!strcmp(argv[0], "--version")) {
             uint32 major, minor, patch;
             wasm_runtime_get_version(&major, &minor, &patch);
             printf("wamrc %u.%u.%u\n", major, minor, patch);
+            return 0;
+        }
+        else if (!strcmp(argv[0], "--llvm-version")) {
+            unsigned major, minor, patch;
+            LLVMGetVersion(&major, &minor, &patch);
+            printf("LLVM %u.%u.%u\n", major, minor, patch);
             return 0;
         }
         else
@@ -721,6 +755,27 @@ main(int argc, char *argv[])
 
     if (option.enable_gc) {
         option.enable_ref_types = false;
+    }
+
+    if (option.enable_shared_chain) {
+        LOG_VERBOSE("Enable shared chain will overwrite shared heap and sw "
+                    "bounds control");
+        option.enable_shared_heap = false;
+        option.bounds_checks = true;
+    }
+
+    if (option.enable_bulk_memory) {
+        option.enable_bulk_memory_opt = true;
+    }
+
+    if (option.enable_ref_types) {
+        option.enable_call_indirect_overlong = true;
+    }
+
+    if (option.enable_lime1) {
+        option.enable_call_indirect_overlong = true;
+        option.enable_bulk_memory_opt = true;
+        option.enable_extended_const = true;
     }
 
     if (!use_dummy_wasm) {

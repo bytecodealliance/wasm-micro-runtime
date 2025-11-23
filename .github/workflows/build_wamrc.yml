@@ -23,7 +23,7 @@ on:
         type: string
         required: true
       upload_url:
-        description: a semantic version number. it is required when `release` is true.
+        description: upload binary assets to the URL of release
         type: string
         required: false
       ver_num:
@@ -41,7 +41,7 @@ jobs:
       contents: write # for uploading release artifacts
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: get cached LLVM libraries
         id: retrieve_llvm_libs
@@ -62,8 +62,32 @@ jobs:
           cmake --build build --config Release --parallel 4
         working-directory: wamr-compiler
 
+      - name: smoke test on non-windows
+        if: ${{ !startsWith(inputs.runner, 'windows') }}
+        shell: bash
+        run: |
+          if [[ ! -f build/wamrc ]]; then
+            echo "wamrc binary is not found in the expected location."
+            exit 1
+          fi
+
+          build/wamrc --version
+        working-directory: wamr-compiler
+
+      - name: smoke test on Windows
+        if: ${{ startsWith(inputs.runner, 'windows') }}
+        shell: bash
+        run: |
+          if [[ ! -f build/Release/wamrc ]]; then
+            echo "wamrc binary is not found in the expected location."
+            exit 1
+          fi
+
+          build/Release/wamrc --version
+        working-directory: wamr-compiler
+
       - name: Compress the binary on Windows
-        if: inputs.runner == 'windows-latest' && inputs.release
+        if: inputs.runner == 'windows-2022' && inputs.release
         run: |
           tar -czf wamrc-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz wamrc.exe
           Compress-Archive -Path wamrc.exe -DestinationPath wamrc-${{ inputs.ver_num }}-${{ inputs.runner }}.zip
@@ -71,7 +95,7 @@ jobs:
         working-directory: wamr-compiler/build/Release
 
       - name: compress the binary on non-Windows
-        if: inputs.runner != 'windows-latest' && inputs.release
+        if: inputs.runner != 'windows-2022' && inputs.release
         run: |
           # Follow the symlink to the actual binary file
           tar --dereference -czf wamrc-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz wamrc

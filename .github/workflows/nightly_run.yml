@@ -37,6 +37,7 @@ env:
   MULTI_TIER_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=1"
   # For Spec Test
   DEFAULT_TEST_OPTIONS: "-s spec -b -P"
+  EXTENDED_CONST_EXPR_TEST_OPTIONS: "-s spec -b -P -N"
   MULTI_MODULES_TEST_OPTIONS: "-s spec -b -P -M"
   SIMD_TEST_OPTIONS: "-s spec -b -P -S"
   THREADS_TEST_OPTIONS: "-s spec -b -P -p"
@@ -66,7 +67,7 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # since jobs.id can't contain the dot character
       # it is hard to use `format` to assemble the cache key
@@ -128,6 +129,7 @@ jobs:
             "-DWAMR_BUILD_MEMORY64=1",
             "-DWAMR_BUILD_MULTI_MEMORY=1",
             "-DWAMR_BUILD_SHARED=1",
+            "-DWAMR_BUILD_EXTENDED_CONST_EXPR=1",
           ]
         os: [ubuntu-22.04]
         platform: [android, linux]
@@ -231,7 +233,7 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # only download llvm cache when needed
       - name: Get LLVM libraries
@@ -385,7 +387,7 @@ jobs:
             sanitizer: asan
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
@@ -438,7 +440,7 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: install-wasi-sdk-wabt
         uses: ./.github/actions/install-wasi-sdk-wabt
@@ -566,6 +568,14 @@ jobs:
           ./shared_heap_test
           ./shared_heap_test --aot
 
+      - name: Build Sample [import-func-callback]
+        run: |
+          cd samples/import-func-callback
+          mkdir build && cd build
+          cmake ..
+          cmake --build . --config Release --parallel 4
+          ./import-func-callback
+
   test:
     needs: [build_iwasm, build_llvm_libraries_on_ubuntu, build_wamrc]
     runs-on: ${{ matrix.os }}
@@ -588,6 +598,7 @@ jobs:
             $DEFAULT_TEST_OPTIONS,
             $MULTI_MODULES_TEST_OPTIONS,
             $SIMD_TEST_OPTIONS,
+            $EXTENDED_CONST_EXPR_TEST_OPTIONS,
             $THREADS_TEST_OPTIONS,
             $WASI_TEST_OPTIONS,
           ]
@@ -623,7 +634,7 @@ jobs:
             sanitizer: ubsan
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: install-wasi-sdk-wabt
         if: matrix.test_option == '$WASI_TEST_OPTIONS'

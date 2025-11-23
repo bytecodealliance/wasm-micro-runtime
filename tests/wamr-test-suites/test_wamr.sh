@@ -39,8 +39,11 @@ function help()
     echo "-F set the firmware path used by qemu"
     echo "-C enable code coverage collect"
     echo "-j set the platform to test"
-    echo "-T set sanitizer to use in tests(ubsan|tsan|asan|posan)"
+    echo "-T set the sanitizer(s) used during testing. It can be either a comma-separated list
+                                            (e.g., ubsan, asan) or a single option
+                                            (e.g., ubsan, tsan, asan, posan)."
     echo "-A use the specified wamrc command instead of building it"
+    echo "-N enable extended const expression feature"
     echo "-r [requirement name] [N [N ...]] specify a requirement name followed by one or more"
     echo "                                  subrequirement IDs, if no subrequirement is specificed,"
     echo "                                  it will run all subrequirements. When this optin is used,"
@@ -59,6 +62,7 @@ ENABLE_MULTI_THREAD=0
 COLLECT_CODE_COVERAGE=0
 ENABLE_SIMD=0
 ENABLE_GC=0
+ENABLE_EXTENDED_CONST_EXPR=0
 ENABLE_MEMORY64=0
 ENABLE_MULTI_MEMORY=0
 ENABLE_XIP=0
@@ -87,7 +91,7 @@ REQUIREMENT_NAME=""
 # Initialize an empty array for subrequirement IDs
 SUBREQUIREMENT_IDS=()
 
-while getopts ":s:cabgvt:m:MCpSXexwWEPGQF:j:T:r:A:" opt
+while getopts ":s:cabgvt:m:MCpSXexwWEPGQF:j:T:r:A:N" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -190,6 +194,10 @@ do
         G)
         echo "enable GC feature"
         ENABLE_GC=1
+        ;;
+        N)
+        echo "enable extended const expression feature"
+        ENABLE_EXTENDED_CONST_EXPR=1
         ;;
         P)
         PARALLELISM=1
@@ -321,14 +329,14 @@ function unit_test()
     echo "Now start unit tests"
 
     cd ${WORK_DIR}
-    rm -fr unittest-build && mkdir unittest-build
-    cd unittest-build
+    rm -fr unittest-build
 
     echo "Build unit test"
     touch ${REPORT_DIR}/unit_test_report.txt
-    cmake ${WORK_DIR}/../../unit -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}
-    make -j
-    make test | tee -a ${REPORT_DIR}/unit_test_report.txt
+    cmake -S ${WORK_DIR}/../../unit -B unittest-build \
+      -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}
+    cmake --build unittest-build
+    ctest --test-dir unittest-build --output-on-failure | tee -a ${REPORT_DIR}/unit_test_report.txt
 
     echo "Finish unit tests"
 }
@@ -414,7 +422,7 @@ function setup_wabt()
 
 function compile_reference_interpreter()
 {
-    echo "compile the reference intepreter"
+    echo "compile the reference interpreter"
     pushd interpreter
     make
     if [ $? -ne 0 ]
@@ -443,10 +451,10 @@ function spec_test()
         echo "checkout spec from threads proposal"
 
         # check spec test cases for threads
-        git clone -b main --single-branch https://github.com/WebAssembly/threads.git spec
+        git clone -b main-legacy --single-branch https://github.com/WebAssembly/threads.git spec
         pushd spec
 
-        # May 31, 2012 [interpreter] implement atomic.wait and atomic.notify (#194)
+        # May 31, 2023 [interpreter] implement atomic.wait and atomic.notify (#194)
         git reset --hard 09f2831349bf409187abb6f7868482a8079f2264
         git apply --ignore-whitespace ../../spec-test-script/thread_proposal_ignore_cases.patch || exit 1
         git apply --ignore-whitespace ../../spec-test-script/thread_proposal_fix_atomic_case.patch || exit 1
@@ -470,6 +478,7 @@ function spec_test()
         #  Dec 9, 2024. Merge branch 'funcref'
         git reset --hard 756060f5816c7e2159f4817fbdee76cf52f9c923
         git apply --ignore-whitespace ../../spec-test-script/gc_ignore_cases.patch || exit 1
+        git apply --ignore-whitespace ../../spec-test-script/gc_array_fill_cases.patch || exit 1
 
         if [[ ${ENABLE_QEMU} == 1 ]]; then
             # Decrease the recursive count for tail call cases as nuttx qemu's
@@ -485,6 +494,17 @@ function spec_test()
         #     (func $f (param (ref null $t)) (result funcref) (local.get 0))
         #
         compile_reference_interpreter
+    elif [[ ${ENABLE_EXTENDED_CONST_EXPR} == 1 ]]; then
+        echo "checkout spec for extended const expression proposal"
+
+        git clone -b main --single-branch https://github.com/WebAssembly/extended-const.git spec
+        pushd spec
+
+        # Jan 14, 2025. README.md: Add note that this proposal is done (#20)
+        git reset --hard 8d4f6aa2b00a8e7c0174410028625c6a176db8a1
+        # ignore import table cases
+        git apply --ignore-whitespace ../../spec-test-script/extended_const.patch || exit 1
+
     elif [[ ${ENABLE_MEMORY64} == 1 ]]; then
         echo "checkout spec for memory64 proposal"
 
@@ -585,6 +605,10 @@ function spec_test()
 
     if [[ ${ENABLE_GC} == 1 ]]; then
         ARGS_FOR_SPEC_TEST+="--gc "
+    fi
+
+    if [[ ${ENABLE_EXTENDED_CONST_EXPR} == 1 ]]; then
+        ARGS_FOR_SPEC_TEST+="--enable-extended-const "
     fi
 
     if [[ 1 == ${ENABLE_MEMORY64} ]]; then
@@ -832,6 +856,7 @@ function build_wamrc()
         && cmake .. \
              -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE} \
              -DWAMR_BUILD_SHRUNK_MEMORY=0 \
+             -DWAMR_BUILD_EXTENDED_CONST_EXPR=${ENABLE_EXTENDED_CONST_EXPR} \
         && make -j 4
 }
 
@@ -1023,6 +1048,10 @@ function trigger()
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_TAIL_CALL=1"
     fi
 
+    if [[ ${ENABLE_EXTENDED_CONST_EXPR} == 1 ]]; then
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_EXTENDED_CONST_EXPR=1"
+    fi
+
     if [[ ${ENABLE_DEBUG_VERSION} == 1 ]]; then
         EXTRA_COMPILE_FLAGS+=" -DCMAKE_BUILD_TYPE=Debug"
     fi
@@ -1040,26 +1069,9 @@ function trigger()
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_TAIL_CALL=1"
     fi
 
-    echo "SANITIZER IS" $WAMR_BUILD_SANITIZER
-
-    if [[ "$WAMR_BUILD_SANITIZER" == "ubsan" ]]; then
-        echo "Setting run with ubsan"
-        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SANITIZER=ubsan"
-    fi
-
-    if [[ "$WAMR_BUILD_SANITIZER" == "asan" ]]; then
-        echo "Setting run with asan"
-        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SANITIZER=asan"
-    fi
-
-    if [[ "$WAMR_BUILD_SANITIZER" == "tsan" ]]; then
-        echo "Setting run with tsan"
-        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SANITIZER=tsan"
-    fi
-
-    if [[ "$WAMR_BUILD_SANITIZER" == "posan" ]]; then
-        echo "Setting run with posan"
-        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SANITIZER=posan"
+    if [[ -n "$WAMR_BUILD_SANITIZER" ]]; then
+        echo "Setting run with sanitizer(s): $WAMR_BUILD_SANITIZER"
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SANITIZER=$WAMR_BUILD_SANITIZER"
     fi
 
     # Make sure we're using the builtin WASI libc implementation
@@ -1175,8 +1187,24 @@ function trigger()
     done
 }
 
-# if collect code coverage, ignore -s, test all test cases.
 if [[ $TEST_CASE_ARR ]];then
+    # Check if 'unit' is in TEST_CASE_ARR
+    if [[ " ${TEST_CASE_ARR[@]} " =~ " unit " ]]; then
+        # unit test cases are designed with specific compilation flags
+        # and run under specific modes.
+        # There is no need to loop through all running modes in this script.
+        unit_test || (echo "TEST FAILED"; exit 1)
+        if [[ ${COLLECT_CODE_COVERAGE} == 1 ]]; then
+             collect_coverage unit
+        fi
+
+        # remove 'unit' from TEST_CASE_ARR
+        TEST_CASE_ARR=("${TEST_CASE_ARR[@]/unit}")
+        # remove empty elements from TEST_CASE_ARR
+        TEST_CASE_ARR=("${TEST_CASE_ARR[@]:-}")
+    fi
+
+    # loop others through all running modes
     trigger || (echo "TEST FAILED"; exit 1)
 else
     # test all suite, ignore polybench and libsodium because of long time cost
@@ -1189,6 +1217,7 @@ else
         TEST_CASE_ARR+=("libsodium")
     fi
     '
+    # loop through all running modes
     trigger || (echo "TEST FAILED"; exit 1)
     # Add more suites here
 fi

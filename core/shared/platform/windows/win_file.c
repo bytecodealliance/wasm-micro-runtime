@@ -1816,3 +1816,39 @@ os_invalid_raw_handle(void)
 {
     return INVALID_HANDLE_VALUE;
 }
+
+bool
+os_compare_file_handle(os_file_handle handle1, os_file_handle handle2)
+{
+    if (handle1->type != handle2->type) {
+        return false;
+    }
+
+    if (handle1->fdflags != handle2->fdflags
+        || handle1->access_mode != handle2->access_mode) {
+        return false;
+    }
+
+    switch (handle1->type) {
+        case windows_handle_type_file:
+            return handle1->raw.handle == handle2->raw.handle;
+        case windows_handle_type_socket:
+            return handle1->raw.socket == handle2->raw.socket;
+        default:
+            // Unknown handle type
+            return false;
+    }
+}
+
+int
+os_ioctl(os_file_handle handle, int request, ...)
+{
+    return BHT_ERROR;
+}
+
+// Should not be called because locked by ifdef.
+int
+os_poll(os_poll_file_handle *fds, os_nfds_t nfs, int timeout)
+{
+    return BHT_ERROR;
+}

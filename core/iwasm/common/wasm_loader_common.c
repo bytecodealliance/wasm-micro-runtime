@@ -179,6 +179,20 @@ is_valid_func_type(const WASMFuncType *func_type)
     return true;
 }
 
+bool
+is_valid_packed_type(uint8 packed_type)
+{
+    return packed_type == PACKED_TYPE_I8 || packed_type == PACKED_TYPE_I16;
+}
+
+bool
+is_valid_field_type(uint8 field_type)
+{
+    if (is_valid_value_type(field_type) || is_valid_packed_type(field_type))
+        return true;
+    return false;
+}
+
 /*
  * Indices are represented as a u32.
  */
@@ -225,3 +239,18 @@ read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
             return false;
     }
 }
+
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+void
+destroy_init_expr_recursive(InitializerExpression *expr)
+{
+    if (expr == NULL) {
+        return;
+    }
+    if (is_expr_binary_op(expr->init_expr_type)) {
+        destroy_init_expr_recursive(expr->u.binary.l_expr);
+        destroy_init_expr_recursive(expr->u.binary.r_expr);
+    }
+    wasm_runtime_free(expr);
+}
+#endif /* end of WASM_ENABLE_EXTENDED_CONST_EXPR != 0 */

@@ -19,24 +19,36 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
 
 if(WAMR_BUILD_TARGET STREQUAL "X86_32")
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32")
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
+  # 1) Force -m32
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32" CACHE STRING "" FORCE)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32" CACHE STRING "" FORCE)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -m32" CACHE STRING "" FORCE)
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -m32" CACHE STRING "" FORCE)
+
+  # 2) Make CMake prefer i386 libraries
+  set(CMAKE_SYSTEM_PROCESSOR i386 CACHE STRING "" FORCE)
+  set(CMAKE_LIBRARY_ARCHITECTURE "i386-linux-gnu" CACHE STRING "" FORCE)
+endif()
+
+# Fetch Google test
+include (FetchContent)
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.24")
+  FetchContent_Declare (
+    googletest
+    URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+    DOWNLOAD_EXTRACT_TIMESTAMP ON
+  )
+else()
+  FetchContent_Declare (
+    googletest
+    URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+  )
 endif()
 
 # Prevent overriding the parent project's compiler/linker
 # settings on Windows
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-
-# Fetch Google test
-include (FetchContent)
-FetchContent_Declare (
-    googletest
-    URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-)
-FetchContent_MakeAvailable (googletest)
-
-SET(GOOGLETEST_INCLUDED 1)
+FetchContent_MakeAvailable(googletest)
 
 include(GoogleTest)
 enable_testing()
@@ -48,12 +60,13 @@ add_subdirectory(libc-builtin)
 add_subdirectory(shared-utils)
 add_subdirectory(linear-memory-wasm)
 add_subdirectory(linear-memory-aot)
-add_subdirectory(aot-stack-frame)
 add_subdirectory(linux-perf)
 add_subdirectory(gc)
 add_subdirectory(tid-allocator)
 
 if (NOT WAMR_BUILD_TARGET STREQUAL "X86_32")
+  add_subdirectory(aot-stack-frame)
+
   # should enable 32-bit llvm when X86_32
   add_subdirectory (aot)
   add_subdirectory (custom-section)

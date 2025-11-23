@@ -78,7 +78,9 @@ aot_compile_op_memory_init(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 bool
 aot_compile_op_data_drop(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 seg_index);
+#endif
 
+#if WASM_ENABLE_BULK_MEMORY_OPT != 0
 bool
 aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 

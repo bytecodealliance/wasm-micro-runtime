@@ -453,6 +453,9 @@ typedef struct InitValue {
     WASMRefType ref_type;
 #endif
     WASMValue value;
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+    InitializerExpression *expr;
+#endif
 } InitValue;
 
 typedef struct ConstExprContext {
@@ -477,7 +480,11 @@ push_const_expr_stack(ConstExprContext *ctx, uint8 flag, uint8 type,
 #if WASM_ENABLE_GC != 0
                       WASMRefType *ref_type, uint8 gc_opcode,
 #endif
-                      WASMValue *value, char *error_buf, uint32 error_buf_size)
+                      WASMValue *value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                      InitializerExpression *expr,
+#endif
+                      char *error_buf, uint32 error_buf_size)
 {
     InitValue *cur_value;
 
@@ -502,6 +509,10 @@ push_const_expr_stack(ConstExprContext *ctx, uint8 flag, uint8 type,
     cur_value->type = type;
     cur_value->flag = flag;
     cur_value->value = *value;
+
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+    cur_value->expr = expr;
+#endif
 
 #if WASM_ENABLE_GC != 0
     cur_value->gc_opcode = gc_opcode;
@@ -587,7 +598,11 @@ pop_const_expr_stack(ConstExprContext *ctx, uint8 *p_flag, uint8 type,
 #if WASM_ENABLE_GC != 0
                      WASMRefType *ref_type, uint8 *p_gc_opcode,
 #endif
-                     WASMValue *p_value, char *error_buf, uint32 error_buf_size)
+                     WASMValue *p_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                     InitializerExpression **p_expr,
+#endif
+                     char *error_buf, uint32 error_buf_size)
 {
     InitValue *cur_value;
 
@@ -623,7 +638,10 @@ pop_const_expr_stack(ConstExprContext *ctx, uint8 *p_flag, uint8 type,
     if (p_gc_opcode)
         *p_gc_opcode = cur_value->gc_opcode;
 #endif
-
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+    if (p_expr)
+        *p_expr = cur_value->expr;
+#endif
     return true;
 
 #if WASM_ENABLE_GC != 0
@@ -639,7 +657,7 @@ fail:
 }
 
 static void
-destroy_const_expr_stack(ConstExprContext *ctx)
+destroy_const_expr_stack(ConstExprContext *ctx, bool free_exprs)
 {
 #if WASM_ENABLE_GC != 0
     uint32 i;
@@ -654,24 +672,62 @@ destroy_const_expr_stack(ConstExprContext *ctx)
         }
     }
 #endif
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+    if (free_exprs) {
+        for (uint32 j = 0; j < ctx->sp; j++) {
+            if (is_expr_binary_op(ctx->stack[j].expr->init_expr_type)) {
+                destroy_init_expr_recursive(ctx->stack[j].expr);
+                ctx->stack[j].expr = NULL;
+            }
+        }
+    }
+#endif
 
     if (ctx->stack != ctx->data) {
         wasm_runtime_free(ctx->stack);
     }
 }
 
-#if WASM_ENABLE_GC != 0
+#if WASM_ENABLE_GC != 0 || WASM_ENABLE_EXTENDED_CONST_EXPR != 0
 static void
 destroy_init_expr(WASMModule *module, InitializerExpression *expr)
 {
+#if WASM_ENABLE_GC != 0
     if (expr->init_expr_type == INIT_EXPR_TYPE_STRUCT_NEW
         || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW
         || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_FIXED) {
-        destroy_init_expr_data_recursive(module, expr->u.data);
+        destroy_init_expr_data_recursive(module, expr->u.unary.v.data);
     }
-}
-#endif /* end of WASM_ENABLE_GC != 0 */
+#endif
 
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+    // free left expr and right exprs for binary oprand
+    if (!is_expr_binary_op(expr->init_expr_type)) {
+        return;
+    }
+    if (expr->u.binary.l_expr) {
+        destroy_init_expr_recursive(expr->u.binary.l_expr);
+    }
+    if (expr->u.binary.r_expr) {
+        destroy_init_expr_recursive(expr->u.binary.r_expr);
+    }
+    expr->u.binary.l_expr = expr->u.binary.r_expr = NULL;
+#endif
+}
+#endif
+
+/* for init expr
+ *    (data (i32.add (i32.const 0) (i32.sub (i32.const 1) (i32.const 2)))),
+ *   the binary format is
+ *       0x11: 41 00 ; i32.const 0
+ *       0x13: 41 01 ; i32.const 1
+ *       0x15: 41 02 ; i32.const 2
+ *       0x17: 6b    ; i32.sub
+ *       0x18: 6a    ; i32.add
+ *   for traversal: read opcodes and push them onto the stack. When encountering
+ *   a binary opcode, pop two values from the stack which become the left and
+ *  right child nodes of this binary operation node.
+ */
 static bool
 load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                InitializerExpression *init_expr, uint8 type, void *ref_type,
@@ -687,6 +743,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
     uint8 opcode;
     WASMRefType cur_ref_type = { 0 };
 #endif
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+    InitializerExpression *cur_expr = NULL;
+#endif
 
     init_const_expr_stack(&const_expr_ctx, module);
 
@@ -699,24 +758,32 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
             case INIT_EXPR_TYPE_I32_CONST:
                 read_leb_int32(p, p_end, cur_value.i32);
 
-                if (!push_const_expr_stack(
-                        &const_expr_ctx, flag, VALUE_TYPE_I32,
+                if (!push_const_expr_stack(&const_expr_ctx, flag,
+                                           VALUE_TYPE_I32,
 #if WASM_ENABLE_GC != 0
-                        NULL, 0,
+                                           NULL, 0,
 #endif
-                        &cur_value, error_buf, error_buf_size))
+                                           &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                           NULL,
+#endif
+                                           error_buf, error_buf_size))
                     goto fail;
                 break;
             /* i64.const */
             case INIT_EXPR_TYPE_I64_CONST:
                 read_leb_int64(p, p_end, cur_value.i64);
 
-                if (!push_const_expr_stack(
-                        &const_expr_ctx, flag, VALUE_TYPE_I64,
+                if (!push_const_expr_stack(&const_expr_ctx, flag,
+                                           VALUE_TYPE_I64,
 #if WASM_ENABLE_GC != 0
-                        NULL, 0,
+                                           NULL, 0,
 #endif
-                        &cur_value, error_buf, error_buf_size))
+                                           &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                           NULL,
+#endif
+                                           error_buf, error_buf_size))
                     goto fail;
                 break;
             /* f32.const */
@@ -726,12 +793,16 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                 for (i = 0; i < sizeof(float32); i++)
                     *p_float++ = *p++;
 
-                if (!push_const_expr_stack(
-                        &const_expr_ctx, flag, VALUE_TYPE_F32,
+                if (!push_const_expr_stack(&const_expr_ctx, flag,
+                                           VALUE_TYPE_F32,
 #if WASM_ENABLE_GC != 0
-                        NULL, 0,
+                                           NULL, 0,
 #endif
-                        &cur_value, error_buf, error_buf_size))
+                                           &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                           NULL,
+#endif
+                                           error_buf, error_buf_size))
                     goto fail;
                 break;
             /* f64.const */
@@ -741,12 +812,16 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                 for (i = 0; i < sizeof(float64); i++)
                     *p_float++ = *p++;
 
-                if (!push_const_expr_stack(
-                        &const_expr_ctx, flag, VALUE_TYPE_F64,
+                if (!push_const_expr_stack(&const_expr_ctx, flag,
+                                           VALUE_TYPE_F64,
 #if WASM_ENABLE_GC != 0
-                        NULL, 0,
+                                           NULL, 0,
 #endif
-                        &cur_value, error_buf, error_buf_size))
+                                           &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                           NULL,
+#endif
+                                           error_buf, error_buf_size))
                     goto fail;
                 break;
 #if WASM_ENABLE_SIMD != 0
@@ -767,12 +842,16 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                 cur_value.v128.i64x2[0] = high;
                 cur_value.v128.i64x2[1] = low;
 
-                if (!push_const_expr_stack(
-                        &const_expr_ctx, flag, VALUE_TYPE_V128,
+                if (!push_const_expr_stack(&const_expr_ctx, flag,
+                                           VALUE_TYPE_V128,
 #if WASM_ENABLE_GC != 0
-                        NULL, 0,
+                                           NULL, 0,
 #endif
-                        &cur_value, error_buf, error_buf_size))
+                                           &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                           NULL,
+#endif
+                                           error_buf, error_buf_size))
                     goto fail;
 #if WASM_ENABLE_WAMR_COMPILER != 0
                 /* If any init_expr is v128.const, mark SIMD used */
@@ -783,7 +862,92 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 #endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) || \
           (WASM_ENABLE_FAST_INTERP != 0) */
 #endif /* end of WASM_ENABLE_SIMD */
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+            case INIT_EXPR_TYPE_I32_ADD:
+            case INIT_EXPR_TYPE_I32_SUB:
+            case INIT_EXPR_TYPE_I32_MUL:
+            case INIT_EXPR_TYPE_I64_ADD:
+            case INIT_EXPR_TYPE_I64_SUB:
+            case INIT_EXPR_TYPE_I64_MUL:
+            {
 
+                InitializerExpression *l_expr, *r_expr;
+                WASMValue l_value, r_value;
+                uint8 l_flag, r_flag;
+                uint8 value_type;
+
+                if (flag == INIT_EXPR_TYPE_I32_ADD
+                    || flag == INIT_EXPR_TYPE_I32_SUB
+                    || flag == INIT_EXPR_TYPE_I32_MUL) {
+                    value_type = VALUE_TYPE_I32;
+                }
+                else {
+                    value_type = VALUE_TYPE_I64;
+                }
+
+                /* If right flag indicates a binary operation, right expr will
+                 * be popped from stack. Otherwise, allocate a new expr for
+                 * right expr. Same for left expr.
+                 */
+                if (!(pop_const_expr_stack(&const_expr_ctx, &r_flag, value_type,
+#if WASM_ENABLE_GC != 0
+                                           NULL, NULL,
+#endif
+                                           &r_value, &r_expr, error_buf,
+                                           error_buf_size))) {
+                    goto fail;
+                }
+                if (!is_expr_binary_op(r_flag)) {
+                    if (!(r_expr = loader_malloc(sizeof(InitializerExpression),
+                                                 error_buf, error_buf_size))) {
+                        goto fail;
+                    }
+                    r_expr->init_expr_type = r_flag;
+                    r_expr->u.unary.v = r_value;
+                }
+
+                if (!(pop_const_expr_stack(&const_expr_ctx, &l_flag, value_type,
+#if WASM_ENABLE_GC != 0
+                                           NULL, NULL,
+#endif
+                                           &l_value, &l_expr, error_buf,
+                                           error_buf_size))) {
+                    destroy_init_expr_recursive(r_expr);
+                    goto fail;
+                }
+                if (!is_expr_binary_op(l_flag)) {
+                    if (!(l_expr = loader_malloc(sizeof(InitializerExpression),
+                                                 error_buf, error_buf_size))) {
+                        destroy_init_expr_recursive(r_expr);
+                        goto fail;
+                    }
+                    l_expr->init_expr_type = l_flag;
+                    l_expr->u.unary.v = l_value;
+                }
+
+                if (!(cur_expr = loader_malloc(sizeof(InitializerExpression),
+                                               error_buf, error_buf_size))) {
+                    destroy_init_expr_recursive(l_expr);
+                    destroy_init_expr_recursive(r_expr);
+                    goto fail;
+                }
+                cur_expr->init_expr_type = flag;
+                cur_expr->u.binary.l_expr = l_expr;
+                cur_expr->u.binary.r_expr = r_expr;
+
+                if (!push_const_expr_stack(&const_expr_ctx, flag, value_type,
+#if WASM_ENABLE_GC != 0
+                                           NULL, 0,
+#endif
+                                           &cur_value, cur_expr, error_buf,
+                                           error_buf_size)) {
+                    destroy_init_expr_recursive(cur_expr);
+                    goto fail;
+                }
+
+                break;
+            }
+#endif /* end of WASM_ENABLE_EXTENDED_CONST_EXPR */
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
             /* ref.func */
             case INIT_EXPR_TYPE_FUNCREF_CONST:
@@ -799,6 +963,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 #if WASM_ENABLE_GC == 0
                 if (!push_const_expr_stack(&const_expr_ctx, flag,
                                            VALUE_TYPE_FUNCREF, &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                           NULL,
+#endif
                                            error_buf, error_buf_size))
                     goto fail;
 #else
@@ -816,8 +983,11 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                              false, type_idx);
                 if (!push_const_expr_stack(&const_expr_ctx, flag,
                                            cur_ref_type.ref_type, &cur_ref_type,
-                                           0, &cur_value, error_buf,
-                                           error_buf_size))
+                                           0, &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                           NULL,
+#endif
+                                           error_buf, error_buf_size))
                     goto fail;
 #endif
 #if WASM_ENABLE_WAMR_COMPILER != 0
@@ -829,45 +999,71 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
             /* ref.null */
             case INIT_EXPR_TYPE_REFNULL_CONST:
             {
-                uint8 type1;
-
 #if WASM_ENABLE_GC == 0
+                uint8 type1;
                 CHECK_BUF(p, p_end, 1);
                 type1 = read_uint8(p);
-
                 cur_value.ref_index = NULL_REF;
                 if (!push_const_expr_stack(&const_expr_ctx, flag, type1,
-                                           &cur_value, error_buf,
-                                           error_buf_size))
+                                           &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                           NULL,
+#endif
+                                           error_buf, error_buf_size))
                     goto fail;
 #else
+                /*
+                 * According to the current GC SPEC rules, the heap_type must be
+                 * validated when ref.null is used. It can be an absheaptype,
+                 * or the type C.types[type_idx] must be defined in the context.
+                 */
                 int32 heap_type;
                 read_leb_int32(p, p_end, heap_type);
-                type1 = (uint8)((int32)0x80 + heap_type);
-
                 cur_value.gc_obj = NULL_REF;
 
-                if (!is_byte_a_type(type1)
-                    || !wasm_is_valid_heap_type(heap_type)
-                    || wasm_is_type_multi_byte_type(type1)) {
-                    p--;
-                    read_leb_uint32(p, p_end, type_idx);
-                    if (!check_type_index(module, module->type_count, type_idx,
-                                          error_buf, error_buf_size))
-                        goto fail;
+                /*
+                 * The current check of heap_type can deterministically infer
+                 * the result of the previous condition
+                 * `(!is_byte_a_type(type1) ||
+                 * wasm_is_type_multi_byte_type(type1))`. Therefore, the
+                 * original condition is redundant and has been removed.
+                 *
+                 * This logic is consistent with the implementation of the
+                 * `WASM_OP_REF_NULL` case in the `wasm_loader_prepare_bytecode`
+                 * function.
+                 */
 
+                if (heap_type >= 0) {
+                    if (!check_type_index(module, module->type_count, heap_type,
+                                          error_buf, error_buf_size)) {
+                        goto fail;
+                    }
                     wasm_set_refheaptype_typeidx(&cur_ref_type.ref_ht_typeidx,
-                                                 true, type_idx);
+                                                 true, heap_type);
                     if (!push_const_expr_stack(&const_expr_ctx, flag,
                                                cur_ref_type.ref_type,
                                                &cur_ref_type, 0, &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                               NULL,
+#endif
                                                error_buf, error_buf_size))
                         goto fail;
                 }
                 else {
-                    if (!push_const_expr_stack(&const_expr_ctx, flag, type1,
-                                               NULL, 0, &cur_value, error_buf,
-                                               error_buf_size))
+                    if (!wasm_is_valid_heap_type(heap_type)) {
+                        set_error_buf_v(error_buf, error_buf_size,
+                                        "unknown type %d", heap_type);
+                        goto fail;
+                    }
+                    cur_ref_type.ref_ht_common.ref_type =
+                        (uint8)((int32)0x80 + heap_type);
+                    if (!push_const_expr_stack(&const_expr_ctx, flag,
+                                               cur_ref_type.ref_type, NULL, 0,
+                                               &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                               NULL,
+#endif
+                                               error_buf, error_buf_size))
                         goto fail;
                 }
 #endif
@@ -956,8 +1152,11 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 #if WASM_ENABLE_GC != 0
                                            &cur_ref_type, 0,
 #endif
-                                           &cur_value, error_buf,
-                                           error_buf_size))
+                                           &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                           NULL,
+#endif
+                                           error_buf, error_buf_size))
                     goto fail;
 
                 break;
@@ -1020,6 +1219,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                     &const_expr_ctx, NULL, field_type,
                                     field_ref_type, NULL,
                                     &struct_init_values->fields[field_idx],
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                    NULL,
+#endif
                                     error_buf, error_buf_size)) {
                                 destroy_init_expr_data_recursive(
                                     module, struct_init_values);
@@ -1033,6 +1235,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                         if (!push_const_expr_stack(
                                 &const_expr_ctx, flag, cur_ref_type.ref_type,
                                 &cur_ref_type, (uint8)opcode1, &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                NULL,
+#endif
                                 error_buf, error_buf_size)) {
                             destroy_init_expr_data_recursive(
                                 module, struct_init_values);
@@ -1064,6 +1269,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                         if (!push_const_expr_stack(
                                 &const_expr_ctx, flag, cur_ref_type.ref_type,
                                 &cur_ref_type, (uint8)opcode1, &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                NULL,
+#endif
                                 error_buf, error_buf_size)) {
                             goto fail;
                         }
@@ -1112,8 +1320,11 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 
                                 if (!pop_const_expr_stack(
                                         &const_expr_ctx, NULL, VALUE_TYPE_I32,
-                                        NULL, NULL, &len_val, error_buf,
-                                        error_buf_size)) {
+                                        NULL, NULL, &len_val,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                        NULL,
+#endif
+                                        error_buf, error_buf_size)) {
                                     goto fail;
                                 }
 
@@ -1132,6 +1343,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                         &const_expr_ctx, NULL, elem_type,
                                         elem_ref_type, NULL,
                                         &array_init_values->elem_data[0],
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                        NULL,
+#endif
                                         error_buf, error_buf_size)) {
                                     destroy_init_expr_data_recursive(
                                         module, array_init_values);
@@ -1164,6 +1378,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                             elem_ref_type, NULL,
                                             &array_init_values
                                                  ->elem_data[i - 1],
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                            NULL,
+#endif
                                             error_buf, error_buf_size)) {
                                         destroy_init_expr_data_recursive(
                                             module, array_init_values);
@@ -1180,10 +1397,13 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                             uint32 len;
 
                             /* POP(i32) */
-                            if (!pop_const_expr_stack(&const_expr_ctx, NULL,
-                                                      VALUE_TYPE_I32, NULL,
-                                                      NULL, &len_val, error_buf,
-                                                      error_buf_size)) {
+                            if (!pop_const_expr_stack(
+                                    &const_expr_ctx, NULL, VALUE_TYPE_I32, NULL,
+                                    NULL, &len_val,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                    NULL,
+#endif
+                                    error_buf, error_buf_size)) {
                                 goto fail;
                             }
                             len = len_val.i32;
@@ -1197,6 +1417,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                         if (!push_const_expr_stack(
                                 &const_expr_ctx, flag, cur_ref_type.ref_type,
                                 &cur_ref_type, (uint8)opcode1, &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                NULL,
+#endif
                                 error_buf, error_buf_size)) {
                             if (array_init_values) {
                                 destroy_init_expr_data_recursive(
@@ -1223,9 +1446,13 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                     case WASM_OP_REF_I31:
                     {
                         /* POP(i32) */
-                        if (!pop_const_expr_stack(
-                                &const_expr_ctx, NULL, VALUE_TYPE_I32, NULL,
-                                NULL, &cur_value, error_buf, error_buf_size)) {
+                        if (!pop_const_expr_stack(&const_expr_ctx, NULL,
+                                                  VALUE_TYPE_I32, NULL, NULL,
+                                                  &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                                  NULL,
+#endif
+                                                  error_buf, error_buf_size)) {
                             goto fail;
                         }
 
@@ -1234,6 +1461,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                         if (!push_const_expr_stack(
                                 &const_expr_ctx, flag, cur_ref_type.ref_type,
                                 &cur_ref_type, (uint8)opcode1, &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                                NULL,
+#endif
                                 error_buf, error_buf_size)) {
                             goto fail;
                         }
@@ -1268,7 +1498,11 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 #if WASM_ENABLE_GC != 0
                               ref_type, &opcode,
 #endif
-                              &cur_value, error_buf, error_buf_size)) {
+                              &cur_value,
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                              &cur_expr,
+#endif
+                              error_buf, error_buf_size)) {
         goto fail;
     }
 
@@ -1278,8 +1512,21 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
         goto fail;
     }
 
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+    if (cur_expr != NULL) {
+        bh_memcpy_s(init_expr, sizeof(InitializerExpression), cur_expr,
+                    sizeof(InitializerExpression));
+        wasm_runtime_free(cur_expr);
+    }
+    else {
+        init_expr->init_expr_type = flag;
+        init_expr->u.unary.v = cur_value;
+    }
+
+#else
     init_expr->init_expr_type = flag;
-    init_expr->u = cur_value;
+    init_expr->u.unary.v = cur_value;
+#endif /* end of WASM_ENABLE_EXTENDED_CONST_EXPR != 0 */
 
 #if WASM_ENABLE_GC != 0
     if (init_expr->init_expr_type == WASM_OP_GC_PREFIX) {
@@ -1310,11 +1557,11 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 #endif /* end of WASM_ENABLE_GC != 0 */
 
     *p_buf = p;
-    destroy_const_expr_stack(&const_expr_ctx);
+    destroy_const_expr_stack(&const_expr_ctx, false);
     return true;
 
 fail:
-    destroy_const_expr_stack(&const_expr_ctx);
+    destroy_const_expr_stack(&const_expr_ctx, true);
     return false;
 }
 
@@ -1552,6 +1799,11 @@ resolve_func_type(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
         return false;
     }
     if (ref_type_map_count > 0) {
+        if (ref_type_map_count > UINT16_MAX) {
+            set_error_buf(error_buf, error_buf_size,
+                          "ref type count too large");
+            return false;
+        }
         total_size = sizeof(WASMRefTypeMap) * (uint64)ref_type_map_count;
         if (!(type->ref_type_maps =
                   loader_malloc(total_size, error_buf, error_buf_size))) {
@@ -1691,6 +1943,11 @@ resolve_struct_type(const uint8 **p_buf, const uint8 *buf_end,
         return false;
     }
     if (ref_type_map_count > 0) {
+        if (ref_type_map_count > UINT16_MAX) {
+            set_error_buf(error_buf, error_buf_size,
+                          "ref type count too large");
+            return false;
+        }
         total_size = sizeof(WASMRefTypeMap) * (uint64)ref_type_map_count;
         if (!(type->ref_type_maps =
                   loader_malloc(total_size, error_buf, error_buf_size))) {
@@ -1712,6 +1969,10 @@ resolve_struct_type(const uint8 **p_buf, const uint8 *buf_end,
         if (!resolve_value_type(&p, p_end, module, type_count,
                                 &need_ref_type_map, &ref_type, true, error_buf,
                                 error_buf_size)) {
+            goto fail;
+        }
+        if (!is_valid_field_type(ref_type.ref_type)) {
+            set_error_buf(error_buf, error_buf_size, "invalid field type");
             goto fail;
         }
         type->fields[i].field_type = ref_type.ref_type;
@@ -2042,9 +2303,9 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                                       "recursive type count too large");
                         return false;
                     }
-                    module->type_count += rec_count - 1;
                     new_total_size =
-                        sizeof(WASMFuncType *) * (uint64)module->type_count;
+                        sizeof(WASMFuncType *)
+                        * (uint64)(module->type_count + rec_count - 1);
                     if (new_total_size > UINT32_MAX) {
                         set_error_buf(error_buf, error_buf_size,
                                       "allocate memory failed");
@@ -2052,12 +2313,18 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     }
                     MEM_REALLOC(module->types, (uint32)total_size,
                                 (uint32)new_total_size);
+                    module->type_count += rec_count - 1;
                     total_size = new_total_size;
                 }
 
-                LOG_VERBOSE("Processing rec group [%d-%d]",
-                            processed_type_count,
-                            processed_type_count + rec_count - 1);
+                if (rec_count < 1) {
+                    LOG_VERBOSE("Processing 0-entry rec group");
+                }
+                else {
+                    LOG_VERBOSE("Processing rec group [%d-%d]",
+                                processed_type_count,
+                                processed_type_count + rec_count - 1);
+                }
             }
             else {
                 p--;
@@ -2241,6 +2508,13 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             return false;
         }
 #endif /* end of WASM_ENABLE_GC == 0 */
+    }
+
+    for (i = 0; i < module->type_count; i++) {
+        if (module->types[i] == NULL) {
+            set_error_buf_v(error_buf, error_buf_size, "unknown type %d", i);
+            return false;
+        }
     }
 
     if (p != p_end) {
@@ -3351,7 +3625,8 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     /* valtype */
                     CHECK_BUF(p, p_end, 1);
                     global_type = read_uint8(p);
-                    if (wasm_is_reftype_htref_nullable(global_type)) {
+                    if (wasm_is_reftype_htref_nullable(global_type)
+                        || wasm_is_reftype_htref_non_nullable(global_type)) {
                         int32 heap_type;
                         read_leb_int32(p, p_end, heap_type);
                         (void)heap_type;
@@ -3633,6 +3908,9 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
 
             /* Resolve local set count */
             p_code_end = p_code + code_size;
+#if WASM_ENABLE_BRANCH_HINTS != 0
+            uint8 *p_body_start = (uint8 *)p_code;
+#endif
             local_count = 0;
             read_leb_uint32(p_code, buf_code_end, local_set_count);
             p_code_save = p_code;
@@ -3692,6 +3970,11 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
             }
 #if WASM_ENABLE_GC != 0
             if (ref_type_map_count > 0) {
+                if (ref_type_map_count > UINT16_MAX) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "ref type count too large");
+                    return false;
+                }
                 total_size =
                     sizeof(WASMRefTypeMap) * (uint64)ref_type_map_count;
                 if (!(func->local_ref_type_maps = loader_malloc(
@@ -3708,6 +3991,9 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
             if (local_count > 0)
                 func->local_types = (uint8 *)func + sizeof(WASMFunction);
             func->code_size = code_size;
+#if WASM_ENABLE_BRANCH_HINTS != 0
+            func->code_body_begin = p_body_start;
+#endif
             /*
              * we shall make a copy of code body [p_code, p_code + code_size]
              * when we are worrying about inappropriate releasing behaviour.
@@ -4070,9 +4356,9 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             if (global->init_expr.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
                 uint8 global_type;
                 WASMRefType *global_ref_type;
-                uint32 global_idx = global->init_expr.u.global_index;
+                uint32 global_idx = global->init_expr.u.unary.v.global_index;
 
-                if (global->init_expr.u.global_index
+                if (global->init_expr.u.unary.v.global_index
                     >= module->import_global_count + i) {
                     set_error_buf(error_buf, error_buf_size, "unknown global");
                     return false;
@@ -4469,7 +4755,7 @@ load_func_index_vec(const uint8 **p_buf, const uint8 *buf_end,
         }
 
         init_expr->init_expr_type = INIT_EXPR_TYPE_FUNCREF_CONST;
-        init_expr->u.ref_index = function_index;
+        init_expr->u.unary.v.ref_index = function_index;
     }
 
     *p_buf = p;
@@ -4742,7 +5028,7 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
 
 #if WASM_ENABLE_MEMORY64 != 0
             if (table_elem_idx_type == VALUE_TYPE_I64
-                && table_segment->base_offset.u.u64 > UINT32_MAX) {
+                && table_segment->base_offset.u.unary.v.u64 > UINT32_MAX) {
                 set_error_buf(error_buf, error_buf_size,
                               "In table64, table base offset can't be "
                               "larger than UINT32_MAX");
@@ -4902,6 +5188,9 @@ load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
 
             if (!(dataseg = module->data_segments[i] = loader_malloc(
                       sizeof(WASMDataSeg), error_buf, error_buf_size))) {
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                destroy_init_expr(module, &init_expr);
+#endif
                 return false;
             }
 
@@ -5277,6 +5566,88 @@ fail:
 }
 #endif
 
+#if WASM_ENABLE_BRANCH_HINTS != 0
+static bool
+handle_branch_hint_section(const uint8 *buf, const uint8 *buf_end,
+                           WASMModule *module, char *error_buf,
+                           uint32 error_buf_size)
+{
+    if (module->function_hints == NULL) {
+        module->function_hints = loader_malloc(
+            sizeof(struct WASMCompilationHint) * module->function_count,
+            error_buf, error_buf_size);
+    }
+    uint32 numFunctionHints = 0;
+    read_leb_uint32(buf, buf_end, numFunctionHints);
+    for (uint32 i = 0; i < numFunctionHints; ++i) {
+        uint32 func_idx;
+        read_leb_uint32(buf, buf_end, func_idx);
+        if (!check_function_index(module, func_idx, error_buf,
+                                  error_buf_size)) {
+            goto fail;
+        }
+        if (func_idx < module->import_function_count) {
+            set_error_buf(error_buf, error_buf_size,
+                          "branch hint for imported function is not allowed");
+            goto fail;
+        }
+
+        struct WASMCompilationHint *current_hint =
+            (struct WASMCompilationHint *)&module
+                ->function_hints[func_idx - module->import_function_count];
+        while (current_hint->next != NULL) {
+            current_hint = current_hint->next;
+        }
+
+        uint32 num_hints;
+        read_leb_uint32(buf, buf_end, num_hints);
+        struct WASMCompilationHintBranchHint *new_hints = loader_malloc(
+            sizeof(struct WASMCompilationHintBranchHint) * num_hints, error_buf,
+            error_buf_size);
+        for (uint32 j = 0; j < num_hints; ++j) {
+            struct WASMCompilationHintBranchHint *new_hint = &new_hints[j];
+            new_hint->next = NULL;
+            new_hint->type = WASM_COMPILATION_BRANCH_HINT;
+            read_leb_uint32(buf, buf_end, new_hint->offset);
+
+            uint32 size;
+            read_leb_uint32(buf, buf_end, size);
+            if (size != 1) {
+                set_error_buf_v(error_buf, error_buf_size,
+                                "invalid branch hint size, expected 1, got %d.",
+                                size);
+                wasm_runtime_free(new_hint);
+                goto fail;
+            }
+
+            uint8 data = *buf++;
+            if (data == 0x00)
+                new_hint->is_likely = false;
+            else if (data == 0x01)
+                new_hint->is_likely = true;
+            else {
+                set_error_buf_v(error_buf, error_buf_size,
+                                "invalid branch hint, expected 0 or 1, got %d",
+                                data);
+                wasm_runtime_free(new_hint);
+                goto fail;
+            }
+
+            current_hint->next = (struct WASMCompilationHint *)new_hint;
+            current_hint = (struct WASMCompilationHint *)new_hint;
+        }
+    }
+    if (buf != buf_end) {
+        set_error_buf(error_buf, error_buf_size,
+                      "invalid branch hint section, not filled until end");
+        goto fail;
+    }
+    return true;
+fail:
+    return false;
+}
+#endif
+
 static bool
 load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                   bool is_load_from_file_buf, char *error_buf,
@@ -5323,6 +5694,24 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             return false;
         }
         LOG_VERBOSE("Load custom name section success.");
+    }
+#endif
+
+#if WASM_ENABLE_BRANCH_HINTS != 0
+    if (name_len == 25
+        && memcmp((const char *)p, "metadata.code.branch_hint", 25) == 0) {
+        p += name_len;
+        if (!handle_branch_hint_section(p, p_end, module, error_buf,
+                                        error_buf_size)) {
+            return false;
+        }
+        LOG_VERBOSE("Load branch hint section success.");
+    }
+#else
+    if (name_len == 25
+        && memcmp((const char *)p, "metadata.code.branch_hint", 25) == 0) {
+        LOG_VERBOSE("Found branch hint section, but branch hints are disabled "
+                    "in this build, skipping.");
     }
 #endif
 
@@ -5480,6 +5869,9 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
 #if WASM_ENABLE_BULK_MEMORY != 0
     option.enable_bulk_memory = true;
 #endif
+#if WASM_ENABLE_BULK_MEMORY_OPT != 0
+    option.enable_bulk_memory_opt = true;
+#endif
 #if WASM_ENABLE_THREAD_MGR != 0
     option.enable_thread_mgr = true;
 #endif
@@ -5493,6 +5885,9 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
     option.enable_ref_types = true;
 #elif WASM_ENABLE_GC != 0
     option.enable_gc = true;
+#endif
+#if WASM_ENABLE_CALL_INDIRECT_OVERLONG != 0
+    option.enable_call_indirect_overlong = true;
 #endif
     option.enable_aux_stack_check = true;
 #if WASM_ENABLE_PERF_PROFILING != 0 || WASM_ENABLE_DUMP_CALL_STACK != 0 \
@@ -6029,7 +6424,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     && global->init_expr.init_expr_type
                            == INIT_EXPR_TYPE_I32_CONST) {
                     aux_heap_base_global = global;
-                    aux_heap_base = (uint64)(uint32)global->init_expr.u.i32;
+                    aux_heap_base =
+                        (uint64)(uint32)global->init_expr.u.unary.v.i32;
                     aux_heap_base_global_index = export->index;
                     LOG_VERBOSE("Found aux __heap_base global, value: %" PRIu64,
                                 aux_heap_base);
@@ -6050,7 +6446,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     && global->init_expr.init_expr_type
                            == INIT_EXPR_TYPE_I32_CONST) {
                     aux_data_end_global = global;
-                    aux_data_end = (uint64)(uint32)global->init_expr.u.i32;
+                    aux_data_end =
+                        (uint64)(uint32)global->init_expr.u.unary.v.i32;
                     aux_data_end_global_index = export->index;
                     LOG_VERBOSE("Found aux __data_end global, value: %" PRIu64,
                                 aux_data_end);
@@ -6091,10 +6488,11 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                         && global->type.val_type == VALUE_TYPE_I32
                         && global->init_expr.init_expr_type
                                == INIT_EXPR_TYPE_I32_CONST
-                        && (uint64)(uint32)global->init_expr.u.i32
+                        && (uint64)(uint32)global->init_expr.u.unary.v.i32
                                <= aux_heap_base) {
                         aux_stack_top_global = global;
-                        aux_stack_top = (uint64)(uint32)global->init_expr.u.i32;
+                        aux_stack_top =
+                            (uint64)(uint32)global->init_expr.u.unary.v.i32;
                         module->aux_stack_top_global_index =
                             module->import_global_count + global_index;
                         module->aux_stack_bottom = aux_stack_top;
@@ -6426,15 +6824,7 @@ create_module(char *name, char *error_buf, uint32 error_buf_size)
 #endif
 
 #if WASM_ENABLE_LIBC_WASI != 0
-#if WASM_ENABLE_UVWASI == 0
-    module->wasi_args.stdio[0] = os_invalid_raw_handle();
-    module->wasi_args.stdio[1] = os_invalid_raw_handle();
-    module->wasi_args.stdio[2] = os_invalid_raw_handle();
-#else
-    module->wasi_args.stdio[0] = os_get_invalid_handle();
-    module->wasi_args.stdio[1] = os_get_invalid_handle();
-    module->wasi_args.stdio[2] = os_get_invalid_handle();
-#endif /* WASM_ENABLE_UVWASI == 0 */
+    wasi_args_set_defaults(&module->wasi_args);
 #endif /* WASM_ENABLE_LIBC_WASI != 0 */
 
     (void)ret;
@@ -6945,7 +7335,7 @@ wasm_loader_unload(WASMModule *module)
         wasm_runtime_free(module->memories);
 
     if (module->globals) {
-#if WASM_ENABLE_GC != 0
+#if WASM_ENABLE_GC != 0 || WASM_ENABLE_EXTENDED_CONST_EXPR != 0
         for (i = 0; i < module->global_count; i++) {
             destroy_init_expr(module, &module->globals[i].init_expr);
         }
@@ -6978,6 +7368,9 @@ wasm_loader_unload(WASMModule *module)
 #endif
                 wasm_runtime_free(module->table_segments[i].init_values);
             }
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+            destroy_init_expr(module, &module->table_segments[i].base_offset);
+#endif
         }
         wasm_runtime_free(module->table_segments);
     }
@@ -6987,6 +7380,10 @@ wasm_loader_unload(WASMModule *module)
             if (module->data_segments[i]) {
                 if (module->data_segments[i]->is_data_cloned)
                     wasm_runtime_free(module->data_segments[i]->data);
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+                destroy_init_expr(module,
+                                  &(module->data_segments[i]->base_offset));
+#endif
                 wasm_runtime_free(module->data_segments[i]);
             }
         }
@@ -7103,7 +7500,17 @@ wasm_loader_unload(WASMModule *module)
     }
 #endif
 #endif
-
+#if WASM_ENABLE_BRANCH_HINTS != 0
+    for (i = 0; i < module->function_count; i++) {
+        // be carefull when adding more hints. This only works as long as
+        // the hint structs have been allocated all at once as an array.
+        // With only branch-hints at the moment, this is the case.
+        if (module->function_hints != NULL && module->function_hints[i] != NULL)
+            wasm_runtime_free(module->function_hints[i]);
+    }
+    if (module->function_hints != NULL)
+        wasm_runtime_free(module->function_hints);
+#endif
     wasm_runtime_free(module);
 }
 
@@ -7338,7 +7745,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             case WASM_OP_RETURN_CALL_INDIRECT:
 #endif
                 skip_leb_uint32(p, p_end); /* typeidx */
-#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
+#if WASM_ENABLE_CALL_INDIRECT_OVERLONG != 0 || WASM_ENABLE_GC != 0
                 skip_leb_uint32(p, p_end); /* tableidx */
 #else
                 u8 = read_uint8(p); /* 0x00 */
@@ -7356,7 +7763,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             case WASM_OP_SELECT:
             case WASM_OP_DROP_64:
             case WASM_OP_SELECT_64:
-#if WASM_ENABLE_FAST_INTERP != 0 && WASM_ENABLE_SIMD != 0
+#if WASM_ENABLE_SIMDE != 0
             case WASM_OP_SELECT_128:
 #endif
                 break;
@@ -7763,6 +8170,8 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                     case WASM_OP_DATA_DROP:
                         skip_leb_uint32(p, p_end);
                         break;
+#endif /* WASM_ENABLE_BULK_MEMORY */
+#if WASM_ENABLE_BULK_MEMORY_OPT != 0
                     case WASM_OP_MEMORY_COPY:
                         skip_leb_memidx(p, p_end);
                         skip_leb_memidx(p, p_end);
@@ -7770,7 +8179,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                     case WASM_OP_MEMORY_FILL:
                         skip_leb_memidx(p, p_end);
                         break;
-#endif /* WASM_ENABLE_BULK_MEMORY */
+#endif /* WASM_ENABLE_BULK_MEMORY_OPT */
 #if WASM_ENABLE_REF_TYPES != 0
                     case WASM_OP_TABLE_INIT:
                     case WASM_OP_TABLE_COPY:
@@ -8129,6 +8538,15 @@ static bool
 check_offset_pop(WASMLoaderContext *ctx, uint32 cells)
 {
     if (ctx->frame_offset - cells < ctx->frame_offset_bottom)
+        return false;
+    return true;
+}
+
+static bool
+check_dynamic_offset_pop(WASMLoaderContext *ctx, uint32 cells)
+{
+    if (ctx->dynamic_offset < 0
+        || (ctx->dynamic_offset > 0 && (uint32)ctx->dynamic_offset < cells))
         return false;
     return true;
 }
@@ -9571,7 +9989,8 @@ wasm_loader_pop_frame_offset(WASMLoaderContext *ctx, uint8 type,
         return true;
 
     ctx->frame_offset -= cell_num_to_pop;
-    if ((*(ctx->frame_offset) > ctx->start_dynamic_offset)
+    if (check_dynamic_offset_pop(ctx, cell_num_to_pop)
+        && (*(ctx->frame_offset) > ctx->start_dynamic_offset)
         && (*(ctx->frame_offset) < ctx->max_dynamic_offset))
         ctx->dynamic_offset -= cell_num_to_pop;
 
@@ -11641,9 +12060,25 @@ re_scan:
                     WASMFuncType *wasm_type = block_type.u.type;
 
                     BranchBlock *cur_block = loader_ctx->frame_csp - 1;
+#if WASM_ENABLE_GC != 0
+                    WASMRefType *ref_type;
+                    uint32 j = 0;
+#endif
 #if WASM_ENABLE_FAST_INTERP != 0
                     uint32 cell_num;
                     available_params = block_type.u.type->param_count;
+#endif
+#if WASM_ENABLE_GC != 0
+                    /* find the index of the last param
+                     * in wasm_type->ref_type_maps as j */
+                    for (i = 0; i < block_type.u.type->param_count; i++) {
+                        if (wasm_is_type_multi_byte_type(wasm_type->types[i])) {
+                            j += 1;
+                        }
+                    }
+                    if (j > 0) {
+                        j -= 1;
+                    }
 #endif
                     for (i = 0; i < block_type.u.type->param_count; i++) {
 
@@ -11657,6 +12092,19 @@ re_scan:
 #endif
                             break;
                         }
+#if WASM_ENABLE_GC != 0
+                        if (wasm_is_type_multi_byte_type(
+                                wasm_type
+                                    ->types[wasm_type->param_count - i - 1])) {
+                            bh_assert(wasm_type->ref_type_maps[j].index
+                                      == wasm_type->param_count - i - 1);
+                            ref_type = wasm_type->ref_type_maps[j].ref_type;
+                            bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
+                                        ref_type,
+                                        wasm_reftype_struct_size(ref_type));
+                            j--;
+                        }
+#endif
 
                         POP_TYPE(
                             wasm_type->types[wasm_type->param_count - i - 1]);
@@ -12586,7 +13034,7 @@ re_scan:
 #endif
 
                 pb_read_leb_uint32(p, p_end, type_idx);
-#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
+#if WASM_ENABLE_CALL_INDIRECT_OVERLONG != 0 || WASM_ENABLE_GC != 0
 #if WASM_ENABLE_WAMR_COMPILER != 0
                 if (p + 1 < p_end && *p != 0x00) {
                     /*
@@ -12881,9 +13329,7 @@ re_scan:
 #if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) \
     || (WASM_ENABLE_FAST_INTERP != 0)
                         case VALUE_TYPE_V128:
-#if WASM_ENABLE_FAST_INTERP == 0
-                            *(p - 1) = WASM_OP_SELECT_128;
-#else
+#if WASM_ENABLE_SIMDE != 0
                             if (loader_ctx->p_code_compiled) {
                                 uint8 opcode_tmp = WASM_OP_SELECT_128;
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
@@ -13011,8 +13457,7 @@ re_scan:
                     uint8 opcode_tmp = WASM_OP_SELECT;
 
                     if (type == VALUE_TYPE_V128) {
-#if WASM_ENABLE_JIT != 0 \
-    || WASM_ENABLE_FAST_INTERP != 0 && WASM_ENABLE_SIMD != 0
+#if WASM_ENABLE_SIMDE != 0
                         opcode_tmp = WASM_OP_SELECT_128;
 #else
                         set_error_buf(error_buf, error_buf_size,
@@ -13258,7 +13703,8 @@ re_scan:
                                 == VALUE_TYPE_FUNCREF
                             && module->globals[i].init_expr.init_expr_type
                                    == INIT_EXPR_TYPE_FUNCREF_CONST
-                            && module->globals[i].init_expr.u.u32 == func_idx) {
+                            && module->globals[i].init_expr.u.unary.v.u32
+                                   == func_idx) {
                             func_declared = true;
                             break;
                         }
@@ -13287,7 +13733,8 @@ re_scan:
 #endif
                             ) {
                                 for (j = 0; j < table_seg->value_count; j++) {
-                                    if (table_seg->init_values[j].u.ref_index
+                                    if (table_seg->init_values[j]
+                                            .u.unary.v.ref_index
                                         == func_idx) {
                                         func_declared = true;
                                         break;
@@ -15023,8 +15470,6 @@ re_scan:
                     case WASM_OP_STRING_NEW_LOSSY_UTF8:
                     case WASM_OP_STRING_NEW_WTF8:
                     {
-                        uint32 memidx;
-
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
 #endif
@@ -15036,7 +15481,6 @@ re_scan:
                         POP_I32();
                         POP_I32();
                         PUSH_REF(REF_TYPE_STRINGREF);
-                        (void)memidx;
                         break;
                     }
                     case WASM_OP_STRING_CONST:
@@ -15064,8 +15508,6 @@ re_scan:
                     case WASM_OP_STRING_ENCODE_LOSSY_UTF8:
                     case WASM_OP_STRING_ENCODE_WTF8:
                     {
-                        uint32 memidx;
-
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
 #endif
@@ -15077,7 +15519,6 @@ re_scan:
                         POP_I32();
                         POP_STRINGREF();
                         PUSH_I32();
-                        (void)memidx;
                         break;
                     }
                     case WASM_OP_STRING_CONCAT:
@@ -15118,8 +15559,6 @@ re_scan:
                     case WASM_OP_STRINGVIEW_WTF8_ENCODE_LOSSY_UTF8:
                     case WASM_OP_STRINGVIEW_WTF8_ENCODE_WTF8:
                     {
-                        uint32 memidx;
-
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
 #endif
@@ -15134,7 +15573,6 @@ re_scan:
                         POP_REF(REF_TYPE_STRINGVIEWWTF8);
                         PUSH_I32();
                         PUSH_I32();
-                        (void)memidx;
                         break;
                     }
                     case WASM_OP_STRINGVIEW_WTF8_SLICE:
@@ -15166,8 +15604,6 @@ re_scan:
                     }
                     case WASM_OP_STRINGVIEW_WTF16_ENCODE:
                     {
-                        uint32 memidx;
-
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                         func->has_memory_operations = true;
 #endif
@@ -15181,7 +15617,6 @@ re_scan:
                         POP_I32();
                         POP_REF(REF_TYPE_STRINGVIEWWTF16);
                         PUSH_I32();
-                        (void)memidx;
                         break;
                     }
                     case WASM_OP_STRINGVIEW_WTF16_SLICE:
@@ -15285,8 +15720,11 @@ re_scan:
                         emit_uint32(loader_ctx, data_seg_idx);
 #endif
                         if (module->import_memory_count == 0
-                            && module->memory_count == 0)
-                            goto fail_unknown_memory;
+                            && module->memory_count == 0) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "unknown memory 0");
+                            goto fail;
+                        }
 
                         pb_read_leb_uint32(p, p_end, memidx);
                         check_memidx(module, memidx);
@@ -15335,6 +15773,12 @@ re_scan:
 #endif
                         break;
                     }
+                    fail_data_cnt_sec_require:
+                        set_error_buf(error_buf, error_buf_size,
+                                      "data count section required");
+                        goto fail;
+#endif /* WASM_ENABLE_BULK_MEMORY */
+#if WASM_ENABLE_BULK_MEMORY_OPT != 0
                     case WASM_OP_MEMORY_COPY:
                     {
                         CHECK_BUF(p, p_end, sizeof(int16));
@@ -15345,8 +15789,11 @@ re_scan:
                         check_memidx(module, memidx);
 
                         if (module->import_memory_count == 0
-                            && module->memory_count == 0)
-                            goto fail_unknown_memory;
+                            && module->memory_count == 0) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "unknown memory 0");
+                            goto fail;
+                        }
 
                         POP_MEM_OFFSET();
                         POP_MEM_OFFSET();
@@ -15365,7 +15812,9 @@ re_scan:
                         check_memidx(module, memidx);
                         if (module->import_memory_count == 0
                             && module->memory_count == 0) {
-                            goto fail_unknown_memory;
+                            set_error_buf(error_buf, error_buf_size,
+                                          "unknown memory 0");
+                            goto fail;
                         }
                         POP_MEM_OFFSET();
                         POP_I32();
@@ -15378,16 +15827,7 @@ re_scan:
 #endif
                         break;
                     }
-
-                    fail_unknown_memory:
-                        set_error_buf(error_buf, error_buf_size,
-                                      "unknown memory 0");
-                        goto fail;
-                    fail_data_cnt_sec_require:
-                        set_error_buf(error_buf, error_buf_size,
-                                      "data count section required");
-                        goto fail;
-#endif /* WASM_ENABLE_BULK_MEMORY */
+#endif /* WASM_ENABLE_BULK_MEMORY_OPT */
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
                     case WASM_OP_TABLE_INIT:
                     {

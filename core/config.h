@@ -84,7 +84,7 @@
 #endif
 
 #define AOT_MAGIC_NUMBER 0x746f6100
-#define AOT_CURRENT_VERSION 4
+#define AOT_CURRENT_VERSION 5
 
 #ifndef WASM_ENABLE_JIT
 #define WASM_ENABLE_JIT 0
@@ -193,8 +193,8 @@
 #error "Heap aux stack allocation must be enabled for WASI threads"
 #endif
 
-#ifndef WAMR_ENABLE_COPY_CALLSTACK
-#define WAMR_ENABLE_COPY_CALLSTACK 0
+#ifndef WASM_ENABLE_COPY_CALL_STACK
+#define WASM_ENABLE_COPY_CALL_STACK 0
 #endif
 
 #ifndef WASM_ENABLE_BASE_LIB
@@ -212,6 +212,10 @@
 /* Bulk memory operation */
 #ifndef WASM_ENABLE_BULK_MEMORY
 #define WASM_ENABLE_BULK_MEMORY 0
+#endif
+
+#ifndef WASM_ENABLE_BULK_MEMORY_OPT
+#define WASM_ENABLE_BULK_MEMORY_OPT 0
 #endif
 
 /* Shared memory */
@@ -579,6 +583,14 @@ unless used elsewhere */
 #define WASM_ENABLE_REF_TYPES 0
 #endif
 
+#ifndef WASM_ENABLE_CALL_INDIRECT_OVERLONG
+#define WASM_ENABLE_CALL_INDIRECT_OVERLONG 0
+#endif
+
+#ifndef WASM_ENABLE_BRANCH_HINTS
+#define WASM_ENABLE_BRANCH_HINTS 0
+#endif
+
 #ifndef WASM_ENABLE_GC
 #define WASM_ENABLE_GC 0
 #endif
@@ -718,6 +730,10 @@ unless used elsewhere */
 
 #ifndef WASM_ENABLE_INSTRUCTION_METERING
 #define WASM_ENABLE_INSTRUCTION_METERING 0
+#endif
+
+#ifndef WASM_ENABLE_EXTENDED_CONST_EXPR
+#define WASM_ENABLE_EXTENDED_CONST_EXPR 0
 #endif
 
 #endif /* end of _CONFIG_H_ */

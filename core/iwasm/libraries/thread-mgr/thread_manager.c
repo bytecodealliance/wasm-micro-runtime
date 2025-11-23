@@ -301,7 +301,8 @@ wasm_cluster_create(WASMExecEnv *exec_env)
         aux_stack_start -= cluster->stack_size;
 
         for (i = 0; i < cluster_max_thread_num; i++) {
-            cluster->stack_tops[i] = aux_stack_start - cluster->stack_size * i;
+            cluster->stack_tops[i] =
+                aux_stack_start - (uint64)cluster->stack_size * i;
         }
     }
 #endif
@@ -500,13 +501,16 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
     uint32 aux_stack_size;
     uint64 aux_stack_start;
     uint32 stack_size = 8192;
+    struct InstantiationArgs2 args;
 
     if (!module_inst || !(module = wasm_exec_env_get_module(exec_env))) {
         return NULL;
     }
 
+    wasm_runtime_instantiation_args_set_defaults(&args);
+    wasm_runtime_instantiation_args_set_default_stack_size(&args, stack_size);
     if (!(new_module_inst = wasm_runtime_instantiate_internal(
-              module, module_inst, exec_env, stack_size, 0, 0, NULL, 0))) {
+              module, module_inst, exec_env, &args, NULL, 0))) {
         return NULL;
     }
 

@@ -46,28 +46,6 @@ typedef float64 CellType_F64;
 #define get_linear_mem_size() GET_LINEAR_MEMORY_SIZE(memory)
 #endif
 
-#if WASM_ENABLE_SHARED_HEAP != 0
-#if WASM_ENABLE_MULTI_MEMORY != 0
-/* Only enable shared heap for the default memory */
-#define is_default_memory (memidx == 0)
-#else
-#define is_default_memory true
-#endif
-#define app_addr_in_shared_heap(app_addr, bytes)                             \
-    (shared_heap && is_default_memory && (app_addr) >= shared_heap_start_off \
-     && (app_addr) <= shared_heap_end_off - bytes + 1)
-
-#define shared_heap_addr_app_to_native(app_addr, native_addr) \
-    native_addr = shared_heap_base_addr + ((app_addr)-shared_heap_start_off)
-
-#define CHECK_SHARED_HEAP_OVERFLOW(app_addr, bytes, native_addr) \
-    if (app_addr_in_shared_heap(app_addr, bytes))                \
-        shared_heap_addr_app_to_native(app_addr, native_addr);   \
-    else
-#else
-#define CHECK_SHARED_HEAP_OVERFLOW(app_addr, bytes, native_addr)
-#endif
-
 #if WASM_ENABLE_MEMORY64 == 0
 
 #if (!defined(OS_ENABLE_HW_BOUND_CHECK) \
@@ -245,7 +223,7 @@ static inline float64
 f64_min(float64 a, float64 b)
 {
     if (isnan(a) || isnan(b))
-        return NAN;
+        return (float64)NAN;
     else if (a == 0 && a == b)
         return signbit(a) ? a : b;
     else
@@ -256,7 +234,7 @@ static inline float64
 f64_max(float64 a, float64 b)
 {
     if (isnan(a) || isnan(b))
-        return NAN;
+        return (float64)NAN;
     else if (a == 0 && a == b)
         return signbit(a) ? b : a;
     else
@@ -1589,7 +1567,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     WASMMemoryInstance *memory = wasm_get_default_memory(module);
 #if !defined(OS_ENABLE_HW_BOUND_CHECK)              \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
-    || WASM_ENABLE_BULK_MEMORY != 0
+    || WASM_ENABLE_BULK_MEMORY_OPT != 0
     uint64 linear_mem_size = 0;
     if (memory)
 #if WASM_ENABLE_THREAD_MGR == 0
@@ -1670,22 +1648,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     if (memory)
         is_memory64 = memory->is_memory64;
 #endif
-#if WASM_ENABLE_SHARED_HEAP != 0
-    WASMSharedHeap *shared_heap = module->e->shared_heap;
-    uint8 *shared_heap_base_addr = shared_heap ? shared_heap->base_addr : NULL;
-#if WASM_ENABLE_MEMORY64 != 0
-    uint64 shared_heap_start_off =
-        shared_heap ? (is_memory64 ? shared_heap->start_off_mem64
-                                   : shared_heap->start_off_mem32)
-                    : 0;
-    uint64 shared_heap_end_off =
-        shared_heap ? (is_memory64 ? UINT64_MAX : UINT32_MAX) : 0;
-#else
-    uint64 shared_heap_start_off =
-        shared_heap ? shared_heap->start_off_mem32 : 0;
-    uint64 shared_heap_end_off = shared_heap ? UINT32_MAX : 0;
-#endif
-#endif /* end of WASM_ENABLE_SHARED_HEAP != 0 */
 #if WASM_ENABLE_MULTI_MEMORY != 0
     uint32 memidx = 0;
     uint32 memidx_cached = (uint32)-1;
@@ -1723,7 +1685,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 goto got_exception;
             }
 
-            HANDLE_OP(WASM_OP_NOP) { HANDLE_OP_END(); }
+            HANDLE_OP(WASM_OP_NOP)
+            {
+                HANDLE_OP_END();
+            }
 
 #if WASM_ENABLE_EXCE_HANDLING != 0
             HANDLE_OP(WASM_OP_RETHROW)
@@ -2405,7 +2370,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 cur_type = wasm_types[tidx];
 
                 /* clang-format off */
-#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
+#if WASM_ENABLE_CALL_INDIRECT_OVERLONG != 0 || WASM_ENABLE_GC != 0
                 read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
 #else
                 frame_ip++;
@@ -3200,7 +3165,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                         if (len > 0) {
                             if ((uint64)start_offset + len
-                                >= wasm_array_obj_length(array_obj)) {
+                                > wasm_array_obj_length(array_obj)) {
                                 wasm_set_exception(
                                     module, "out of bounds array access");
                                 goto got_exception;
@@ -4088,7 +4053,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_STRING_ENCODE_LOSSY_UTF8_ARRAY:
                     case WASM_OP_STRING_ENCODE_WTF8_ARRAY:
                     {
-                        uint32 start, array_len, count;
+                        uint32 start, array_len;
                         int32 bytes_written;
                         EncodingFlag flag = WTF8;
                         WASMArrayType *array_type;
@@ -5660,7 +5625,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_I32_REINTERPRET_F32)
             HANDLE_OP(WASM_OP_I64_REINTERPRET_F64)
             HANDLE_OP(WASM_OP_F32_REINTERPRET_I32)
-            HANDLE_OP(WASM_OP_F64_REINTERPRET_I64) { HANDLE_OP_END(); }
+            HANDLE_OP(WASM_OP_F64_REINTERPRET_I64)
+            {
+                HANDLE_OP_END();
+            }
 
             HANDLE_OP(WASM_OP_I32_EXTEND8_S)
             {
@@ -5735,7 +5703,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                              true);
                         break;
                     case WASM_OP_I64_TRUNC_SAT_U_F64:
-                        DEF_OP_TRUNC_SAT_F64(-1.0f, 18446744073709551616.0,
+                        DEF_OP_TRUNC_SAT_F64(-1.0, 18446744073709551616.0,
                                              false, false);
                         break;
 #if WASM_ENABLE_BULK_MEMORY != 0
@@ -5806,6 +5774,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                           segment);
                         break;
                     }
+#endif /* WASM_ENABLE_BULK_MEMORY */
+#if WASM_ENABLE_BULK_MEMORY_OPT != 0
                     case WASM_OP_MEMORY_COPY:
                     {
                         mem_offset_t dst, src, len;
@@ -5926,7 +5896,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         memset(mdst, fill_val, len);
                         break;
                     }
-#endif /* WASM_ENABLE_BULK_MEMORY */
+#endif /* WASM_ENABLE_BULK_MEMORY_OPT */
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
                     case WASM_OP_TABLE_INIT:
                     {
@@ -5996,12 +5966,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                       || init_values[i].init_expr_type
                                              == INIT_EXPR_TYPE_FUNCREF_CONST);
 #if WASM_ENABLE_GC == 0
-                            table_elems[i] =
-                                (table_elem_type_t)init_values[i].u.ref_index;
+                            table_elems[i] = (table_elem_type_t)init_values[i]
+                                                 .u.unary.v.ref_index;
 #else
-                            if (init_values[i].u.ref_index != UINT32_MAX) {
+                            if (init_values[i].u.unary.v.ref_index
+                                != UINT32_MAX) {
                                 if (!(func_obj = wasm_create_func_obj(
-                                          module, init_values[i].u.ref_index,
+                                          module,
+                                          init_values[i].u.unary.v.ref_index,
                                           true, NULL, 0))) {
                                     goto got_exception;
                                 }
@@ -6909,7 +6881,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
 #if !defined(OS_ENABLE_HW_BOUND_CHECK)              \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
-    || WASM_ENABLE_BULK_MEMORY != 0
+    || WASM_ENABLE_BULK_MEMORY_OPT != 0
     out_of_bounds:
         wasm_set_exception(module, "out of bounds memory access");
 #endif

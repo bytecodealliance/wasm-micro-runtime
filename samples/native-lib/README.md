@@ -1,3 +1,6 @@
+---
+description: "The related code/working directory of this example resides in directory {WAMR_DIR}/samples/native-lib"
+---
 # "native-lib" sample introduction
 
 This sample demonstrates how to write required interfaces in native library, build it into a shared library and register the shared library to iwasm.

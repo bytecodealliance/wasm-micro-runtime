@@ -14,6 +14,8 @@
 #   https://github.com/tensorflow/tensorflow/releases/tag/v2.16.1
 #   https://blog.tensorflow.org/2024/03/whats-new-in-tensorflow-216.html
 
+set -e
+
 CURR_PATH=$(cd $(dirname $0) && pwd -P)
 
 # WASM application that uses WASI-NN

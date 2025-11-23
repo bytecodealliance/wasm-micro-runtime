@@ -12,7 +12,7 @@ invokeNative:
         .globl _invokeNative
 _invokeNative:
 #endif /* end of BH_PLATFORM_DARWIN */
-
+        .cfi_startproc
 /*
  * Arguments passed in:
  *
@@ -24,10 +24,17 @@ _invokeNative:
         push    {r4, r5, r6, r7}
         push    {lr}
         sub     sp, sp, #4      /* make sp 8 byte aligned */
+        .cfi_def_cfa_offset 24
+        .cfi_offset lr, -20
+        .cfi_offset r4, -16
+        .cfi_offset r5, -12
+        .cfi_offset r6, -8
+        .cfi_offset r7, -4
         mov     ip, r0          /* ip = function ptr */
         mov     r4, r1          /* r4 = argv */
         mov     r5, r2          /* r5 = nstacks */
         mov     r7, sp
+        .cfi_def_cfa r7, 24
 
         /* Fill all int args */
         ldr     r0, [r4, #0]    /* r0 = *(int*)&argv[0] = exec_env */
@@ -57,7 +64,7 @@ _invokeNative:
         vldr    s15, [r4, #60]
         /* Directly call the function if no args in stack */
         cmp     r5, #0
-        beq     call_func
+        beq     .Lcall_func
 
         mov     lr, r2          /* save r2 */
 
@@ -73,28 +80,32 @@ _invokeNative:
         mov     r7, sp
         mov     sp, r6
 
-loop_stack_args:                /* copy stack arguments to stack */
+.Lloop_stack_args:                /* copy stack arguments to stack */
         cmp     r5, #0
-        beq     call_func1
+        beq     .Lcall_func1
         ldr     r2, [r4]         /* Note: caller should insure int64 and */
         add     r4, r4, #4       /* double are placed in 8 bytes aligned address */
         str     r2, [r6]
         add     r6, r6, #4
 
         sub     r5, r5, #1
-        b       loop_stack_args
+        b       .Lloop_stack_args
 
-call_func1:
+.Lcall_func1:
         mov     r2, lr          /* restore r2 */
 
-call_func:
+.Lcall_func:
         blx     ip
         mov     sp, r7          /* restore sp */
 
-return:
+.Lreturn:
         add     sp, sp, #4      /* make sp 8 byte aligned */
         pop     {r3}
         pop     {r4, r5, r6, r7}
         mov     lr, r3
         bx      lr
+        .cfi_endproc
 
+#if defined(__linux__) && defined(__ELF__)
+.section .note.GNU-stack,"",%progbits
+#endif

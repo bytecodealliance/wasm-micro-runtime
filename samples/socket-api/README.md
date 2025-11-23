@@ -1,3 +1,6 @@
+---
+description: "The related code/working directory of this example resides in directory {WAMR_DIR}/samples/socket-api"
+---
 # "socket-api" sample introduction
 
 This sample demonstrates how to use WAMR socket-api to develop wasm network applications.
@@ -79,7 +82,7 @@ Client is running...
 Start receiving.
 Start sending.
 Send 106 bytes successfully!
-Receive 106 bytes successlly!
+Receive 106 bytes successfully!
 Data:
   The stars shine down
   It brings us light

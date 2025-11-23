@@ -69,6 +69,7 @@ env:
   GC_TEST_OPTIONS: "-s spec -G -b -P"
   MEMORY64_TEST_OPTIONS: "-s spec -W -b -P"
   MULTI_MEMORY_TEST_OPTIONS: "-s spec -E -b -P"
+  EXTENDED_CONST_EXPR_TEST_OPTIONS: "-s spec -N -b -P"
 
 permissions:
   contents: read
@@ -100,7 +101,7 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # since jobs.id can't contain the dot character
       # it is hard to use `format` to assemble the cache key
@@ -123,7 +124,7 @@ jobs:
       - name: Build wamrc
         run: |
           mkdir build && cd build
-          cmake ..
+          cmake .. -DCMAKE_C_FLAGS="-Werror"
           cmake --build . --config Release --parallel 4
         working-directory: wamr-compiler
 
@@ -164,6 +165,8 @@ jobs:
             "-DWAMR_BUILD_MEMORY64=1",
             "-DWAMR_BUILD_MULTI_MEMORY=1",
             "-DWAMR_BUILD_SHARED=1",
+            "-DWAMR_BUILD_EXTENDED_CONST_EXPR=1",
+            "-DWAMR_BUILD_LIME1=1 -DWAMR_BUILD_BULK_MEMORY=0 -DWAMR_BUILD_REF_TYPES=0 -DWAMR_BUILD_SIMD=0",
           ]
         os: [ubuntu-22.04]
         platform: [android, linux]
@@ -267,7 +270,7 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # only download llvm cache when needed
       - name: Get LLVM libraries
@@ -291,7 +294,7 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           mkdir build && cd build
-          cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }}
+          cmake .. -DCMAKE_C_FLAGS="-Werror" ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }}
           cmake --build . --config Release --parallel 4
         working-directory: product-mini/platforms/${{ matrix.platform }}
 
@@ -299,7 +302,7 @@ jobs:
         if: matrix.platform == 'android'
         run: |
           mkdir build && cd build
-          cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }} \
+          cmake .. -DCMAKE_C_FLAGS="-Werror" ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }} \
                 -DWAMR_BUILD_TARGET=X86_64
           cmake --build . --config Release --parallel 4
         working-directory: product-mini/platforms/${{ matrix.platform }}
@@ -325,7 +328,7 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
@@ -347,7 +350,7 @@ jobs:
         uses: ./.github/actions/install-wasi-sdk-wabt
         with:
           os: ${{ matrix.os }}
-
+      
       - name: Build wamrc
         run: |
           mkdir build && cd build
@@ -358,16 +361,58 @@ jobs:
       - name: Install dependencies for X86_32
         if: matrix.build_target == 'X86_32'
         run: |
+          sudo dpkg --add-architecture i386
           sudo apt-get update
-          sudo apt-get install -y g++-multilib
+          sudo apt-get install -y g++-multilib libzstd-dev:i386 zlib1g-dev:i386
 
       - name: Build and run unit tests
         run: |
           mkdir build && cd build
           cmake .. -DWAMR_BUILD_TARGET=${{ matrix.build_target }}
-          cmake --build . --config Release --parallel 4
-          ctest
+          cmake --build . --parallel 4
+          ctest --output-on-failure
         working-directory: tests/unit
+
+  build_regression_tests:
+    needs:
+      [build_llvm_libraries_on_ubuntu_2204]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-22.04]
+        include:
+          - os: ubuntu-22.04
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
+    
+    steps:
+      - name: checkout
+        uses: actions/checkout@v5
+
+      - name: Get LLVM libraries
+        id: retrieve_llvm_libs
+        uses: actions/cache@v4
+        with:
+          path: |
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
+          key: ${{ matrix.llvm_cache_key }}
+
+      - name: Quit if cache miss
+        if: (steps.retrieve_llvm_libs.outputs.cache-hit != 'true')
+        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
+      
+      - name: Build wamrc and iwasm
+        run: |
+          ./build_wamr.sh
+        working-directory: tests/regression/ba-issues
+      
+      - name: Run regression tests
+        run: |
+          python run.py
+        working-directory: tests/regression/ba-issues
 
   build_samples_wasm_c_api:
     needs:
@@ -397,7 +442,7 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
@@ -459,7 +504,7 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
@@ -578,6 +623,14 @@ jobs:
           ./shared_heap_test
           ./shared_heap_test --aot
 
+      - name: Build Sample [import-func-callback]
+        run: |
+          cd samples/import-func-callback
+          mkdir build && cd build
+          cmake ..
+          cmake --build . --config Release --parallel 4
+          ./import-func-callback
+
   test:
     needs:
       [
@@ -609,6 +662,7 @@ jobs:
             $GC_TEST_OPTIONS,
             $MEMORY64_TEST_OPTIONS,
             $MULTI_MEMORY_TEST_OPTIONS,
+            $EXTENDED_CONST_EXPR_TEST_OPTIONS,
           ]
         include:
           - os: ubuntu-22.04
@@ -621,7 +675,7 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set-up OCaml
         uses: ocaml/setup-ocaml@v3

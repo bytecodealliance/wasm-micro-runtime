@@ -3,6 +3,6 @@
  
 set (PLATFORM_COMMON_MATH_DIR ${CMAKE_CURRENT_LIST_DIR})
 
-file (GLOB_RECURSE source_all ${PLATFORM_COMMON_MATH_DIR}/*.c)
+file (GLOB_RECURSE math_source_all ${PLATFORM_COMMON_MATH_DIR}/*.c)
 
-set (PLATFORM_COMMON_MATH_SOURCE ${source_all} )
+set (PLATFORM_COMMON_MATH_SOURCE ${math_source_all} )

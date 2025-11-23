@@ -254,8 +254,12 @@ typedef struct AOTFuncContext {
     bool mem_space_unchanged;
     AOTCheckedAddrList checked_addr_list;
 
+    /* The last accessed shared heap info */
     LLVMValueRef shared_heap_base_addr_adj;
     LLVMValueRef shared_heap_start_off;
+    LLVMValueRef shared_heap_end_off;
+    /* The start offset of the head of shared heap chain */
+    LLVMValueRef shared_heap_head_start_off;
 
     LLVMBasicBlockRef got_exception_block;
     LLVMBasicBlockRef func_return_block;
@@ -265,6 +269,9 @@ typedef struct AOTFuncContext {
     LLVMValueRef func_type_indexes;
 #if WASM_ENABLE_DEBUG_AOT != 0
     LLVMMetadataRef debug_func;
+#endif
+#if WASM_ENABLE_BRANCH_HINTS != 0
+    struct WASMCompilationHint *function_hints;
 #endif
 
     unsigned int stack_consumption_for_func_call;
@@ -409,6 +416,10 @@ typedef struct AOTCompContext {
     /* Bulk memory feature */
     bool enable_bulk_memory;
 
+    /*  Bulk memory opt feature. will be enabled alongside the
+     * enable_bulk_memory */
+    bool enable_bulk_memory_opt;
+
     /* Boundary Check */
     bool enable_bound_check;
 
@@ -445,6 +456,9 @@ typedef struct AOTCompContext {
     /* Reference Types */
     bool enable_ref_types;
 
+    /* Call Indirect Overlong. will be enabled alongside the enable_ref_types */
+    bool enable_call_indirect_overlong;
+
     /* Disable LLVM built-in intrinsics */
     bool disable_llvm_intrinsics;
 
@@ -456,6 +470,9 @@ typedef struct AOTCompContext {
 
     /* Enable LLVM PGO (Profile-Guided Optimization) */
     bool enable_llvm_pgo;
+
+    /* Enable extended constant expression */
+    bool enable_extended_const;
 
     /* Treat unknown import function as wasm-c-api import function
        and allow to directly invoke it from AOT/JIT code */
@@ -486,6 +503,7 @@ typedef struct AOTCompContext {
     bool enable_gc;
 
     bool enable_shared_heap;
+    bool enable_shared_chain;
 
     uint32 opt_level;
     uint32 size_level;

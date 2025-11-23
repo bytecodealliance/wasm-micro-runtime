@@ -1,26 +1,14 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-# Yes. To solve the compatibility issue with CMAKE (>= 4.0), we need to update
-# our `cmake_minimum_required()` to 3.5. However, there are CMakeLists.txt
-# from 3rd parties that we should not alter. Therefore, in addition to
-# changing the `cmake_minimum_required()`, we should also add a configuration
-# here that is compatible with earlier versions.
-set(CMAKE_POLICY_VERSION_MINIMUM 3.5 FORCE)
-
 if (NOT DEFINED WAMR_BUILD_PLATFORM)
   set (WAMR_BUILD_PLATFORM "linux")
 endif ()
 
-set (UNIT_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR})
-
-include_directories(${UNIT_ROOT_DIR})
-
 enable_language (ASM)
 
-# Reset default linker flags
-set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
-set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
+# Usually, test cases should identify their unique
+# complation flags to implement their test plan
 
 # Set WAMR_BUILD_TARGET, currently values supported:
 # "X86_64", "AMD_64", "X86_32", "ARM_32", "MIPS_32", "XTENSA_32"
@@ -34,52 +22,6 @@ if (NOT DEFINED WAMR_BUILD_TARGET)
   endif ()
 endif ()
 
-if (NOT CMAKE_BUILD_TYPE)
-  set (CMAKE_BUILD_TYPE Debug)
-endif ()
-
-if (NOT DEFINED WAMR_BUILD_INTERP)
-  # Enable Interpreter by default
-  set (WAMR_BUILD_INTERP 1)
-endif ()
-
-if (NOT DEFINED WAMR_BUILD_AOT)
-  # Enable AOT by default.
-  set (WAMR_BUILD_AOT 1)
-endif ()
-
-if (NOT DEFINED WAMR_BUILD_JIT)
-  # Disable JIT by default.
-  set (WAMR_BUILD_JIT 0)
-endif ()
-
-if (NOT DEFINED WAMR_BUILD_LIBC_BUILTIN)
-  # Enable libc builtin support by default
-  set (WAMR_BUILD_LIBC_BUILTIN 1)
-endif ()
-
-if (NOT DEFINED WAMR_BUILD_LIBC_WASI)
-  # Enable libc wasi support by default
-  set (WAMR_BUILD_LIBC_WASI 1)
-endif ()
-
-if (NOT DEFINED WAMR_BUILD_MULTI_MODULE)
-  set (WAMR_BUILD_MULTI_MODULE 1)
-endif()
-
-if (NOT DEFINED WAMR_BUILD_APP_FRAMEWORK)
-  set (WAMR_BUILD_APP_FRAMEWORK 1)
-endif ()
-
-if (COLLECT_CODE_COVERAGE EQUAL 1)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
-endif ()
-
-set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -ffunction-sections -fdata-sections \
-                                     -Wall -Wno-unused-parameter -Wno-pedantic")
-
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
 
 # include the build config template file
@@ -90,23 +32,20 @@ include_directories (${SHARED_DIR}/include
 
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
-if (NOT (GOOGLETEST_INCLUDED EQUAL 1))
-# Prevent overriding the parent project's compiler/linker
-# settings on Windows
-set (gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-
-# Fetch Google test
-include (FetchContent)
-FetchContent_Declare (
-    googletest
-    URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
-)
-FetchContent_MakeAvailable (googletest)
-
-endif()
-
 # Add helper classes
 include_directories(${CMAKE_CURRENT_LIST_DIR}/common)
 
-message ("unit_common.cmake included")
+# config_common.cmake only sets up the llvm environment when
+# JIT is enabled. but in unit tests, we need llvm environment
+# for aot compilation.
+if (NOT DEFINED LLVM_DIR)
+  set (LLVM_SRC_ROOT "${WAMR_ROOT_DIR}/core/deps/llvm")
+  set (LLVM_BUILD_ROOT "${LLVM_SRC_ROOT}/build")
+  if (NOT EXISTS "${LLVM_BUILD_ROOT}")
+      message (FATAL_ERROR "Cannot find LLVM dir: ${LLVM_BUILD_ROOT}")
+  endif ()
+  set (CMAKE_PREFIX_PATH "${LLVM_BUILD_ROOT};${CMAKE_PREFIX_PATH}")
+  set (LLVM_DIR ${LLVM_BUILD_ROOT}/lib/cmake/llvm)
+endif ()
 
+message(STATUS "unit_common.cmake included")

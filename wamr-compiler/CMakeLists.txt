@@ -41,11 +41,14 @@ endif()
 add_definitions(-DWASM_ENABLE_INTERP=1)
 add_definitions(-DWASM_ENABLE_WAMR_COMPILER=1)
 add_definitions(-DWASM_ENABLE_BULK_MEMORY=1)
+add_definitions(-DWASM_ENABLE_BULK_MEMORY_OPT=1)
 add_definitions(-DWASM_DISABLE_HW_BOUND_CHECK=1)
 add_definitions(-DWASM_ENABLE_SHARED_MEMORY=1)
 add_definitions(-DWASM_ENABLE_THREAD_MGR=1)
 add_definitions(-DWASM_ENABLE_TAIL_CALL=1)
 add_definitions(-DWASM_ENABLE_REF_TYPES=1)
+add_definitions(-DWASM_ENABLE_CALL_INDIRECT_OVERLONG=1)
+add_definitions(-DWASM_ENABLE_BRANCH_HINTS=1)
 add_definitions(-DWASM_ENABLE_CUSTOM_NAME_SECTION=1)
 add_definitions(-DWASM_ENABLE_AOT_STACK_FRAME=1)
 add_definitions(-DWASM_ENABLE_DUMP_CALL_STACK=1)
@@ -53,6 +56,7 @@ add_definitions(-DWASM_ENABLE_PERF_PROFILING=1)
 add_definitions(-DWASM_ENABLE_LOAD_CUSTOM_SECTION=1)
 add_definitions(-DWASM_ENABLE_MODULE_INST_CONTEXT=1)
 add_definitions(-DWASM_ENABLE_MEMORY64=1)
+add_definitions(-DWASM_ENABLE_EXTENDED_CONST_EXPR=1)
 
 add_definitions(-DWASM_ENABLE_GC=1)
 
@@ -158,6 +162,11 @@ if (WAMR_BUILD_DEBUG_AOT EQUAL 1)
 endif()
 
 # Enable LLVM
+# In Debug mode, always use release builds of pre-built dependency libraries
+if (WAMR_BUILD_PLATFORM STREQUAL "windows" AND MSVC)
+  add_compile_options($<$<CONFIG:Debug>:/MD>)
+endif()
+
 if (NOT WAMR_BUILD_WITH_CUSTOM_LLVM)
   set (LLVM_SRC_ROOT "${PROJECT_SOURCE_DIR}/../core/deps/llvm")
   if (NOT EXISTS "${LLVM_SRC_ROOT}/build")
@@ -198,12 +207,12 @@ if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*
 endif()
 
 if (NOT MSVC)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security \
-                                       -ffunction-sections -fdata-sections \
-                                       -Wno-unused-parameter -Wno-pedantic")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections")
   # Remove the extra spaces for better make log
   string (REGEX REPLACE "  *" " " CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
 endif()
+
+include (${PROJECT_SOURCE_DIR}/../build-scripts/warnings.cmake)
 
 set (SHARED_DIR ../core/shared)
 set (IWASM_DIR ../core/iwasm)
@@ -284,6 +293,7 @@ include (${IWASM_DIR}/interpreter/iwasm_interp.cmake)
 include (${IWASM_DIR}/aot/iwasm_aot.cmake)
 include (${IWASM_DIR}/compilation/iwasm_compl.cmake)
 include (${PROJECT_SOURCE_DIR}/../build-scripts/version.cmake)
+include (${IWASM_DIR}/libraries/shared-heap/shared_heap.cmake)
 
 if (WAMR_BUILD_LIBC_BUILTIN EQUAL 1)
   include (${IWASM_DIR}/libraries/libc-builtin/libc_builtin.cmake)
@@ -366,6 +376,7 @@ add_library (vmlib
              ${LIBC_WASI_SOURCE}
              ${LIB_PTHREAD_SOURCE}
              ${LIB_WASI_THREADS_SOURCE}
+             ${LIB_SHARED_HEAP_SOURCE}
              ${IWASM_COMMON_SOURCE}
              ${IWASM_INTERP_SOURCE}
              ${IWASM_AOT_SOURCE}

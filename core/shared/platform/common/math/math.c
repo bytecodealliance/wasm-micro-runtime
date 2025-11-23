@@ -851,7 +851,7 @@ freebsd_floor(double x)
                     i0 += 1;
                 else {
                     j = i1 + (1 << (52 - j0));
-                    if (j < i1)
+                    if (j < (u_int32_t)i1)
                         i0 += 1; /* got a carry */
                     i1 = j;
                 }
@@ -913,7 +913,7 @@ freebsd_ceil(double x)
                     i0 += 1;
                 else {
                     j = i1 + (1 << (52 - j0));
-                    if (j < i1)
+                    if (j < (u_int32_t)i1)
                         i0 += 1; /* got a carry */
                     i1 = j;
                 }
@@ -1002,6 +1002,21 @@ freebsd_isnan(double d)
         IEEEd2bits_B u;
         u.d = d;
         return (u.bits.exp == 2047 && (u.bits.manl != 0 || u.bits.manh != 0));
+    }
+}
+
+static int
+freebsd_isnanf(float f)
+{
+    if (is_little_endian()) {
+        IEEEf2bits_L u;
+        u.f = f;
+        return (u.bits.exp == 0xff && u.bits.man != 0);
+    }
+    else {
+        IEEEf2bits_B u;
+        u.f = f;
+        return (u.bits.exp == 0xff && u.bits.man != 0);
     }
 }
 
@@ -1330,7 +1345,7 @@ freebsd_pow(double x, double y)
             k = (iy >> 20) - 0x3ff; /* exponent */
             if (k > 20) {
                 j = ly >> (52 - k);
-                if ((j << (52 - k)) == ly)
+                if (((u_int32_t)(j << (52 - k))) == ly)
                     yisint = 2 - (j & 1);
             }
             else if (ly == 0) {
@@ -1601,7 +1616,13 @@ fabs(double x)
 }
 
 int
-isnan(double x)
+isnan_float(float x)
+{
+    return freebsd_isnanf(x);
+}
+
+int
+isnan_double(double x)
 {
     return freebsd_isnan(x);
 }
@@ -1613,7 +1634,15 @@ trunc(double x)
 }
 
 int
-signbit(double x)
+signbit_float(float x)
+{
+    unsigned int i;
+    GET_FLOAT_WORD(i, x);
+    return (int)(i >> 31);
+}
+
+int
+signbit_double(double x)
 {
     return ((__HI(x) & 0x80000000) >> 31);
 }

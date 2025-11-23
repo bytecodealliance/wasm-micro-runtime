@@ -381,18 +381,6 @@ TEST_F(wasm_runtime_common_test_suite, functions_on_wasm_module)
                          exec_env, (WASMFunctionInstanceCommon *)(&func_test_1),
                          0, nullptr, 1, arguments));
 
-#if 0
-    WASMFunctionInstance func_test;
-    WASMFunctionImport func_import_test;
-    WASMType *func_type_1 = nullptr;
-    func_import_test.func_type = func_type;
-    func_test.u.func_import = &func_import_test;
-    func_test.is_import_func = true;
-    func_type_1 = wasm_runtime_get_function_type(&func_test,
-                                                 wasm_module_inst->module_type);
-    EXPECT_NE(func_type_1, nullptr);
-#endif
-
     EXPECT_EQ(true, wasm_runtime_create_exec_env_singleton(wasm_module_inst));
     EXPECT_NE(nullptr, wasm_runtime_get_exec_env_singleton(wasm_module_inst));
 

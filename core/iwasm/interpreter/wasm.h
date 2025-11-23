@@ -135,6 +135,12 @@ typedef void *table_elem_type_t;
 #define INIT_EXPR_TYPE_F64_CONST 0x44
 #define INIT_EXPR_TYPE_V128_CONST 0xFD
 #define INIT_EXPR_TYPE_GET_GLOBAL 0x23
+#define INIT_EXPR_TYPE_I32_ADD 0x6A
+#define INIT_EXPR_TYPE_I32_SUB 0x6B
+#define INIT_EXPR_TYPE_I32_MUL 0x6C
+#define INIT_EXPR_TYPE_I64_ADD 0x7C
+#define INIT_EXPR_TYPE_I64_SUB 0x7D
+#define INIT_EXPR_TYPE_I64_MUL 0x7E
 #define INIT_EXPR_TYPE_REFNULL_CONST 0xD0
 #define INIT_EXPR_TYPE_FUNCREF_CONST 0xD2
 #define INIT_EXPR_TYPE_STRUCT_NEW 0xD3
@@ -277,8 +283,40 @@ typedef struct InitializerExpression {
     /* type of INIT_EXPR_TYPE_XXX, which is an instruction of
        constant expression */
     uint8 init_expr_type;
-    WASMValue u;
+    union {
+        struct {
+            WASMValue v;
+        } unary;
+        struct {
+            struct InitializerExpression *l_expr;
+            struct InitializerExpression *r_expr;
+        } binary;
+    } u;
 } InitializerExpression;
+
+static inline bool
+is_expr_binary_op(uint8 flag)
+{
+    return flag == INIT_EXPR_TYPE_I32_ADD || flag == INIT_EXPR_TYPE_I32_SUB
+           || flag == INIT_EXPR_TYPE_I32_MUL || flag == INIT_EXPR_TYPE_I64_ADD
+           || flag == INIT_EXPR_TYPE_I64_SUB || flag == INIT_EXPR_TYPE_I64_MUL;
+}
+
+/* check if table or data offset is valid for i32 offset */
+static inline bool
+is_valid_i32_offset(uint8 flag)
+{
+    return flag == INIT_EXPR_TYPE_I32_CONST || flag == INIT_EXPR_TYPE_I32_ADD
+           || flag == INIT_EXPR_TYPE_I32_SUB || flag == INIT_EXPR_TYPE_I32_MUL;
+}
+
+/* check if table or data offset is valid for i64 offset */
+static inline bool
+is_valid_i64_offset(uint8 flag)
+{
+    return flag == INIT_EXPR_TYPE_I64_CONST || flag == INIT_EXPR_TYPE_I64_ADD
+           || flag == INIT_EXPR_TYPE_I64_SUB || flag == INIT_EXPR_TYPE_I64_MUL;
+}
 
 #if WASM_ENABLE_GC != 0
 /**
@@ -713,6 +751,10 @@ struct WASMFunction {
     void *call_to_fast_jit_from_llvm_jit;
 #endif
 #endif
+
+#if WASM_ENABLE_BRANCH_HINTS != 0
+    uint8 *code_body_begin;
+#endif
 };
 
 #if WASM_ENABLE_TAGS != 0
@@ -720,6 +762,23 @@ struct WASMTag {
     uint8 attribute; /* the attribute property of the tag (expected to be 0) */
     uint32 type; /* the type of the tag (expected valid inden in type table) */
     WASMFuncType *tag_type;
+};
+#endif
+
+#if WASM_ENABLE_BRANCH_HINTS != 0
+enum WASMCompilationHintType {
+    DUMMY = 0,
+    WASM_COMPILATION_BRANCH_HINT = 0,
+};
+struct WASMCompilationHint {
+    struct WASMCompilationHint *next;
+    enum WASMCompilationHintType type;
+};
+struct WASMCompilationHintBranchHint {
+    struct WASMCompilationHint *next;
+    enum WASMCompilationHintType type;
+    uint32 offset;
+    bool is_likely;
 };
 #endif
 
@@ -1009,6 +1068,10 @@ struct WASMModule {
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
     const uint8 *name_section_buf;
     const uint8 *name_section_buf_end;
+#endif
+
+#if WASM_ENABLE_BRANCH_HINTS != 0
+    struct WASMCompilationHint **function_hints;
 #endif
 
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0

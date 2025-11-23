@@ -20,6 +20,8 @@ add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 
 The script `runtime_lib.cmake` defines a number of variables for configuring the WAMR runtime features. You can set these variables in your CMakeList.txt or pass the configurations from cmake command line.
 
+Please refer to [a full list of configuration options](./tired_support.md#appendix-all-compilation-flags).
+
 ### **Configure platform and architecture**
 
 - **WAMR_BUILD_PLATFORM**:  set the target platform. It can be set to any platform name (folder name) under folder [core/shared/platform](../core/shared/platform).
@@ -57,7 +59,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 - **WAMR_BUILD_LIBC_UVWASI**=1/0 (Experiment), build the [WASI](https://github.com/WebAssembly/WASI) libc subset for WASM app based on [uvwasi](https://github.com/nodejs/uvwasi) implementation, default to disable if not set
 
-> Note: for platform which doesn't support **WAMR_BUILD_LIBC_WASI**, e.g. Windows, developer can try using **WAMR_BUILD_LIBC_UVWASI**.
+> Note: WAMR doesn't support a safe sandbox on all platforms. For platforms that do not support **WAMR_BUILD_LIBC_WASI**, e.g. Windows, developers can try using an unsafe uvwasi-based WASI implementation by using **WAMR_BUILD_LIBC_UVWASI**.
 
 ### **Enable Multi-Module feature**
 
@@ -293,6 +295,22 @@ Currently we only profile the memory consumption of module, module_instance and 
 - **WAMR_BUILD_AOT_INTRINSICS**=1/0, enable the AOT intrinsic functions, default to enable if not set. These functions can be called from the AOT code when `--disable-llvm-intrinsics` flag or `--enable-builtin-intrinsics=<intr1,intr2,...>` flag is used by wamrc to generate the AOT file.
 > Note: See [Tuning the XIP intrinsic functions](./xip.md#tuning-the-xip-intrinsic-functions) for more details.
 
+### **Enable extended constant expression**
+- **WAMR_BUILD_EXTENDED_CONST_EXPR**=1/0, default to disable if not set.
+> Note: See [Extended Constant Expressions](https://github.com/WebAssembly/extended-const/blob/main/proposals/extended-const/Overview.md) for more details.
+
+### **Enable bulk-memory-opt**
+- **WAMR_BUILD_BULK_MEMORY_OPT**=1/0, default to disable if not set.
+> Note: See [bulk-memory-opt](https://github.com/WebAssembly/tool-conventions/blob/main/Lime.md#bulk-memory-opt) for more details.
+
+### **Enable call-indirect-overlong**
+- **WAMR_BUILD_CALL_INDIRECT_OVERLONG**=1/0, default to disable if not set.
+> Note: See [call-indirect-overlong](https://github.com/WebAssembly/tool-conventions/blob/main/Lime.md#call-indirect-overlong) for more details.
+
+### **Enable Lime1 target**
+- **WAMR_BUILD_LIME1**=1/0, default to disable if not set.
+> Note: See [Lime1](https://github.com/WebAssembly/tool-conventions/blob/main/Lime.md#lime1) for more details.
+
 ### **Configurable memory access boundary check**
 - **WAMR_CONFIGURABLE_BOUNDS_CHECKS**=1/0, default to disable if not set
 > Note: If it is enabled, allow to run `iwasm --disable-bounds-checks` to disable the memory access boundary checks for interpreter mode.
@@ -337,7 +355,7 @@ And the wasm app can calls below APIs to allocate/free memory from/to the shared
 We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:
 
 ``` Bash
-cmake .. -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_LIBC_WASI=0 -DWAMR_BUILD_PLATFORM=linux
+cmake .. -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_LIBC_WASI=1 -DWAMR_BUILD_PLATFORM=linux
 ```
 
 Or if we want to enable interpreter, disable AOT and WASI, and build as X86_32, we can run command:
@@ -361,4 +379,11 @@ For Valgrind, begin with the following configurations and add additional ones as
   -DWAMR_DISABLE_HW_BOUND_CHECK=0 \
   -DWAMR_DISABLE_WRITE_GS_BASE=0
   #...
+```
+
+To enable the minimal Lime1 feature set, we need to disable some features that are on by default, such as 
+bulk memory and reference types:
+
+```Bash
+cmake .. -DWAMR_BUILD_LIME1=1 -DWAMR_BUILD_BULK_MEMORY=0 -DWAMR_BUILD_REF_TYPES=0 -DDWAMR_BUILD_SIMD=0
 ```

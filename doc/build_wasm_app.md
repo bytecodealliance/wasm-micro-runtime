@@ -355,6 +355,8 @@ Usage: wamrc [options] -o output_file wasm_file
                               llvmir-unopt   Unoptimized LLVM IR
                               llvmir-opt     Optimized LLVM IR
   --disable-bulk-memory     Disable the MVP bulk memory feature
+  --enable-bulk-memory-opt  Enable bulk memory opt feature
+  --enable-extended-const   Enable extended const expr feature
   --enable-multi-thread     Enable multi-thread feature, the dependent features bulk-memory and
                             thread-mgr will be enabled automatically
   --enable-tail-call        Enable the post-MVP tail call feature
@@ -363,6 +365,9 @@ Usage: wamrc [options] -o output_file wasm_file
                               and by default it is enabled in x86-64 target and disabled
                               in other targets
   --disable-ref-types       Disable the MVP reference types feature
+  --enable-call-indirect-overlong
+                            Enable call indirect overlong feature
+  --enable-lime1            Enable Lime1
   --disable-aux-stack-check Disable auxiliary stack overflow/underflow check
   --enable-dump-call-stack  Enable stack trace feature
   --enable-perf-profiling   Enable function performance profiling
@@ -382,17 +387,26 @@ a non-compatible`AOT_CURRENT_VERSION`.
 We try our best to maintain our runtime ABI for AoT-compiled modules
 compatible among WAMR versions with compatible `AOT_CURRENT_VERSION`
 so that combinations of older wamrc and newer runtime usually work.
-However, there might be minor incompatibilities time to time.
-For productions, we recommend to use compatible versions of
-wamrc and the runtime.
 
-| WAMR version | AOT_CURRENT_VERSION | Compatible AOT version |
-| ------------ | ------------------- | ---------------------- |
-| 1.x          | 3                   | 3                      |
-| 2.0.0        | 3                   | 3                      |
-| 2.1.x        | 3                   | 3                      |
-| 2.2.0        | 3                   | 3                      |
-| next         | 4                   | 3,4                    |
+However, there might be minor incompatibilities from time to time. For
+example, we usually avoid bumping the version when making a change which
+affects only a small fraction of users. For productions, we recommend
+using exactly same versions of wamrc and the runtime.
+
+| WAMR version | AOT_CURRENT_VERSION | Compatible AOT version |                        |
+| ------------ | ------------------- | ---------------------- | ---------------------- |
+| 1.x          | 3                   | 3                      |                        |
+| 2.0.0        | 3                   | 3                      |                        |
+| 2.1.x        | 3                   | 3                      |                        |
+| 2.2.0        | 3                   | 3                      |                        |
+| 2.3.0        | 4                   | 3,4                    |                        |
+| 2.4.0        | 4                   | 3,4                    | See the following note |
+| 2.4.1        | 5                   | 5                      |                        |
+
+Note: 2.4.0 had a broken AoT versioning. See [issue 4504] for details.
+We recommend all 2.4.0 users to migrate to 2.4.1.
+
+[issue 4504]: https://github.com/bytecodealliance/wasm-micro-runtime/issues/4504
 
 ## AoT compilation with 3rd-party toolchains
 

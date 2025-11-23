@@ -39,6 +39,12 @@ bool
 is_valid_func_type(const WASMFuncType *func_type);
 
 bool
+is_valid_packed_type(uint8 packed_type);
+
+bool
+is_valid_field_type(uint8 field_type);
+
+bool
 is_indices_overflow(uint32 import, uint32 other, char *error_buf,
                     uint32 error_buf_size);
 
@@ -49,6 +55,11 @@ read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
 void
 wasm_loader_set_error_buf(char *error_buf, uint32 error_buf_size,
                           const char *string, bool is_aot);
+
+#if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
+void
+destroy_init_expr_recursive(InitializerExpression *expr);
+#endif
 
 #ifdef __cplusplus
 }

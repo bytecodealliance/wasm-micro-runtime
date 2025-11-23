@@ -106,6 +106,7 @@ endif ()
 
 if (WAMR_BUILD_WASI_NN EQUAL 1)
     include (${IWASM_DIR}/libraries/wasi-nn/cmake/wasi_nn.cmake)
+    set (WAMR_BUILD_MODULE_INST_CONTEXT 1)
 endif ()
 
 if (WAMR_BUILD_LIB_PTHREAD EQUAL 1)
@@ -161,8 +162,7 @@ endif ()
 
 ####################### Common sources #######################
 if (NOT MSVC)
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -ffunction-sections -fdata-sections \
-                                         -Wall -Wno-unused-parameter -Wno-pedantic")
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -ffunction-sections -fdata-sections")
 endif ()
 
 # include the build config template file

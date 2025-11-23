@@ -612,6 +612,13 @@ WASMExecEnv *
 wasm_runtime_get_exec_env_tls(void);
 #endif
 
+struct InstantiationArgs2 {
+    InstantiationArgs v1;
+};
+
+void
+wasm_runtime_instantiation_args_set_defaults(struct InstantiationArgs2 *args);
+
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_init(void);
@@ -679,8 +686,8 @@ wasm_runtime_get_max_mem(uint32 max_memory_pages, uint32 module_init_page_count,
 WASMModuleInstanceCommon *
 wasm_runtime_instantiate_internal(WASMModuleCommon *module,
                                   WASMModuleInstanceCommon *parent,
-                                  WASMExecEnv *exec_env_main, uint32 stack_size,
-                                  uint32 heap_size, uint32 max_memory_pages,
+                                  WASMExecEnv *exec_env_main,
+                                  const struct InstantiationArgs2 *args,
                                   char *error_buf, uint32 error_buf_size);
 
 /* Internal API */
@@ -699,6 +706,40 @@ WASM_RUNTIME_API_EXTERN WASMModuleInstanceCommon *
 wasm_runtime_instantiate_ex(WASMModuleCommon *module,
                             const InstantiationArgs *args, char *error_buf,
                             uint32 error_buf_size);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN
+bool
+wasm_runtime_instantiation_args_create(struct InstantiationArgs2 **p);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN
+void
+wasm_runtime_instantiation_args_destroy(struct InstantiationArgs2 *p);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN
+void
+wasm_runtime_instantiation_args_set_default_stack_size(
+    struct InstantiationArgs2 *p, uint32 v);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN
+void
+wasm_runtime_instantiation_args_set_host_managed_heap_size(
+    struct InstantiationArgs2 *p, uint32 v);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN
+void
+wasm_runtime_instantiation_args_set_max_memory_pages(
+    struct InstantiationArgs2 *p, uint32 v);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN WASMModuleInstanceCommon *
+wasm_runtime_instantiate_ex2(WASMModuleCommon *module,
+                             const struct InstantiationArgs2 *args,
+                             char *error_buf, uint32 error_buf_size);
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool
@@ -758,12 +799,12 @@ wasm_runtime_create_exec_env(WASMModuleInstanceCommon *module_inst,
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_exec_env(WASMExecEnv *exec_env);
 
-#if WAMR_ENABLE_COPY_CALLSTACK != 0
+#if WASM_ENABLE_COPY_CALL_STACK != 0
 WASM_RUNTIME_API_EXTERN uint32_t
-wasm_copy_callstack(const wasm_exec_env_t exec_env, wasm_frame_t *buffer,
+wasm_copy_callstack(const wasm_exec_env_t exec_env, WASMCApiFrame *buffer,
                     const uint32 length, const uint32 skip_n, char *error_buf,
                     uint32 error_buf_size);
-#endif // WAMR_ENABLE_COPY_CALLSTACK
+#endif // WASM_ENABLE_COPY_CALL_STACK
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN WASMModuleInstanceCommon *
@@ -1026,9 +1067,8 @@ wasm_runtime_load_depended_module(const WASMModuleCommon *parent_module,
 bool
 wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
                                     WASMModuleInstanceCommon *module_inst,
-                                    uint32 stack_size, uint32 heap_size,
-                                    uint32 max_memory_pages, char *error_buf,
-                                    uint32 error_buf_size);
+                                    const struct InstantiationArgs2 *args,
+                                    char *error_buf, uint32 error_buf_size);
 void
 wasm_runtime_sub_module_deinstantiate(WASMModuleInstanceCommon *module_inst);
 #endif
@@ -1079,6 +1119,9 @@ wasm_runtime_lookup_wasi_start_function(WASMModuleInstanceCommon *module_inst);
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN uint32_t
 wasm_runtime_get_wasi_exit_code(WASMModuleInstanceCommon *module_inst);
+
+void
+wasi_args_set_defaults(WASIArguments *args);
 
 bool
 wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
@@ -1334,6 +1377,14 @@ wasm_runtime_get_linux_perf(void);
 
 void
 wasm_runtime_set_linux_perf(bool flag);
+#endif
+
+#if WASM_ENABLE_SHARED_HEAP != 0
+bool
+wasm_runtime_check_and_update_last_used_shared_heap(
+    WASMModuleInstanceCommon *module_inst, uintptr_t app_offset, size_t bytes,
+    uintptr_t *shared_heap_start_off_p, uintptr_t *shared_heap_end_off_p,
+    uint8 **shared_heap_base_addr_adj_p, bool is_memory64);
 #endif
 
 #ifdef __cplusplus
