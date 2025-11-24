@@ -2440,17 +2440,19 @@ wasm_runtime_unchain_shared_heaps(wasm_shared_heap_t head, bool entire_chain);
 /**
  * Destroy a shared heap or shared heap chain starting from the given head.
  * If `entire_chain` is true, destroy the whole chain; otherwise, destroy only
- * the head and return the new head of the chain. The shared heap chain must be
- * detached before destruction, and only the chain head registered with the
- * runtime can be destroyed.
+ * the head and return the new head of the chain through `new_head`. The shared
+ * heap chain must be detached before destruction, and only the chain head
+ * registered with the runtime can be destroyed.
  *
  * @param head The head of the shared heap chain to be destroyed.
  * @param entire_chain Whether to destroy the entire chain.
- * @return The new head of the shared heap chain when `entire_chain` is false;
- * NULL otherwise.
+ * @param new_head The new head of the shared heap chain when `entire_chain` is
+ * false; NULL otherwise.
+ * @return True if destruction succeeds; false otherwise.
  */
-WASM_RUNTIME_API_EXTERN wasm_shared_heap_t
-wasm_runtime_destroy_shared_heap(wasm_shared_heap_t head, bool entire_chain);
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_destroy_shared_heap(wasm_shared_heap_t head, bool entire_chain,
+                                 wasm_shared_heap_t *new_head);
 
 /**
  * Attach a shared heap, it can be the head of shared heap chain, in that case,

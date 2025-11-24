@@ -358,24 +358,27 @@ wasm_runtime_unchain_shared_heaps(WASMSharedHeap *head, bool entire_chain)
     return cur;
 }
 
-/* Destroy and recycle a shared heap(or head of shared heap chain), return next
- * node in the shared heap chain  */
-static WASMSharedHeap *
-wasm_runtime_destroy_shared_heap_head(WASMSharedHeap *head)
+/* Destroy and recycle a shared heap(or head of shared heap chain), return
+ * next node in the shared heap chain through new_head */
+static bool
+wasm_runtime_destroy_shared_heap_head(WASMSharedHeap *head,
+                                      WASMSharedHeap **new_head)
 {
-    WASMSharedHeap *cur = NULL, *prev = NULL, *new_head = NULL;
+    WASMSharedHeap *cur = NULL, *prev = NULL, *next_head = NULL;
     bool head_found = false, is_chain_head = true;
 
     if (!head) {
         LOG_WARNING("Invalid shared heap to destroy.");
-        return NULL;
+        return false;
     }
+
+    *new_head = NULL;
 
     os_mutex_lock(&shared_heap_list_lock);
     if (head->attached_count != 0) {
         LOG_WARNING("To destroy shared heap, it needs to be detached first.");
         os_mutex_unlock(&shared_heap_list_lock);
-        return NULL;
+        return false;
     }
 
     for (cur = shared_heap_list; cur; cur = cur->next) {
@@ -387,16 +390,16 @@ wasm_runtime_destroy_shared_heap_head(WASMSharedHeap *head)
     if (!head_found) {
         LOG_WARNING("Shared heap %p isn't tracked by runtime.", head);
         os_mutex_unlock(&shared_heap_list_lock);
-        return NULL;
+        return false;
     }
     if (!is_chain_head) {
         LOG_WARNING("Shared heap %p isn't the head of a shared heap chain.",
                     head);
         os_mutex_unlock(&shared_heap_list_lock);
-        return NULL;
+        return false;
     }
 
-    new_head = head->chain_next;
+    next_head = head->chain_next;
     if (head == shared_heap_list) {
         shared_heap_list = head->next;
         destroy_shared_heap_node(head);
@@ -419,18 +422,29 @@ wasm_runtime_destroy_shared_heap_head(WASMSharedHeap *head)
 
     LOG_VERBOSE("Destroyed shared heap %p", head);
 
-    return new_head;
+    *new_head = next_head;
+
+    return true;
 }
 
-WASMSharedHeap *
-wasm_runtime_destroy_shared_heap(WASMSharedHeap *head, bool entire_chain)
+bool
+wasm_runtime_destroy_shared_heap(WASMSharedHeap *head, bool entire_chain,
+                                 WASMSharedHeap **new_head)
 {
-    WASMSharedHeap *new_head = NULL;
-    do {
-        new_head = wasm_runtime_destroy_shared_heap_head(head);
-    } while (entire_chain && new_head);
+    WASMSharedHeap *next_head = NULL;
 
-    return new_head;
+    do {
+        if (!wasm_runtime_destroy_shared_heap_head(head, &next_head)) {
+            return false;
+        }
+        head = next_head;
+    } while (entire_chain && head);
+
+    if (new_head) {
+        *new_head = next_head;
+    }
+
+    return true;
 }
 
 static uint8 *

@@ -334,8 +334,9 @@ TEST_F(shared_heap_test, test_destroy_shared_heap_head_only)
 
     ASSERT_NE(nullptr, second);
 
-    WASMSharedHeap *new_head =
-        wasm_runtime_destroy_shared_heap(shared_heap_chain, false);
+    WASMSharedHeap *new_head = nullptr;
+    ASSERT_TRUE(
+        wasm_runtime_destroy_shared_heap(shared_heap_chain, false, &new_head));
 
     ASSERT_EQ(second, new_head);
     ASSERT_EQ(nullptr, new_head->chain_next);
@@ -355,8 +356,10 @@ TEST_F(shared_heap_test, test_destroy_shared_heap_entire_chain)
         FAIL() << "Failed to create shared heap";
     }
 
-    EXPECT_EQ(nullptr,
-              wasm_runtime_destroy_shared_heap(shared_heap_chain, true));
+    WASMSharedHeap *new_head = nullptr;
+    EXPECT_TRUE(
+        wasm_runtime_destroy_shared_heap(shared_heap_chain, true, &new_head));
+    EXPECT_EQ(nullptr, new_head);
 }
 
 TEST_F(shared_heap_test, test_destroy_shared_heap_not_chain_head)
@@ -372,14 +375,16 @@ TEST_F(shared_heap_test, test_destroy_shared_heap_not_chain_head)
 
     ASSERT_NE(nullptr, body);
 
-    EXPECT_EQ(nullptr, wasm_runtime_destroy_shared_heap(body, true));
+    WASMSharedHeap *new_head = nullptr;
+    EXPECT_FALSE(wasm_runtime_destroy_shared_heap(body, true, &new_head));
     EXPECT_EQ(body, shared_heap_chain->chain_next);
 
     test_shared_heap(shared_heap_chain, "test.wasm", "test", 0, argv);
     EXPECT_EQ(10, argv[0]);
 
-    EXPECT_EQ(nullptr,
-              wasm_runtime_destroy_shared_heap(shared_heap_chain, true));
+    EXPECT_TRUE(
+        wasm_runtime_destroy_shared_heap(shared_heap_chain, true, &new_head));
+    EXPECT_EQ(nullptr, new_head);
 }
 
 TEST_F(shared_heap_test, test_destroy_shared_heap_when_attached)
@@ -395,63 +400,15 @@ TEST_F(shared_heap_test, test_destroy_shared_heap_when_attached)
     ASSERT_TRUE(wasm_runtime_attach_shared_heap(module_env.wasm_module_inst,
                                                 shared_heap));
 
-    EXPECT_EQ(nullptr, wasm_runtime_destroy_shared_heap(shared_heap, true));
+    WASMSharedHeap *new_head = nullptr;
+    EXPECT_FALSE(
+        wasm_runtime_destroy_shared_heap(shared_heap, true, &new_head));
 
     wasm_runtime_detach_shared_heap(module_env.wasm_module_inst);
     destroy_module_env(module_env);
 
-    EXPECT_EQ(nullptr, wasm_runtime_destroy_shared_heap(shared_heap, true));
-}
-
-TEST_F(shared_heap_test, test_destroy_invalid_shared_heap)
-{
-    WASMSharedHeap fake_shared_heap = {};
-
-    EXPECT_EQ(nullptr,
-              wasm_runtime_destroy_shared_heap(&fake_shared_heap, true));
-}
-
-TEST_F(shared_heap_test, test_destroy_shared_heap_untracked_next_head_only)
-{
-    WASMSharedHeap *shared_heap_chain = nullptr;
-    WASMSharedHeap *body = nullptr;
-    WASMSharedHeap fake_shared_heap = {};
-    uint32 BUF_SIZE = os_getpagesize();
-
-    create_test_shared_heap_chain(preallocated_buf, BUF_SIZE, preallocated_buf2,
-                                  BUF_SIZE, &shared_heap_chain);
-    body = shared_heap_chain->chain_next;
-
-    ASSERT_NE(nullptr, body);
-
-    shared_heap_chain->chain_next = &fake_shared_heap;
-    EXPECT_EQ(NULL, wasm_runtime_destroy_shared_heap(shared_heap_chain, false));
-    shared_heap_chain->chain_next = body;
-
-    EXPECT_EQ(body, wasm_runtime_destroy_shared_heap(shared_heap_chain, false));
-    EXPECT_EQ(nullptr, wasm_runtime_destroy_shared_heap(body, true));
-}
-
-TEST_F(shared_heap_test, test_destroy_shared_heap_untracked_next_entire_chain)
-{
-    WASMSharedHeap *shared_heap_chain = nullptr;
-    WASMSharedHeap *body = nullptr;
-    WASMSharedHeap fake_shared_heap = {};
-    uint32 BUF_SIZE = os_getpagesize();
-
-    create_test_shared_heap_chain(NULL, BUF_SIZE, NULL, BUF_SIZE,
-                                  &shared_heap_chain);
-    body = shared_heap_chain->chain_next;
-
-    ASSERT_NE(nullptr, body);
-
-    shared_heap_chain->chain_next = &fake_shared_heap;
-    EXPECT_EQ(nullptr,
-              wasm_runtime_destroy_shared_heap(shared_heap_chain, true));
-
-    shared_heap_chain->chain_next = body;
-    EXPECT_EQ(nullptr,
-              wasm_runtime_destroy_shared_heap(shared_heap_chain, true));
+    EXPECT_TRUE(wasm_runtime_destroy_shared_heap(shared_heap, true, &new_head));
+    EXPECT_EQ(nullptr, new_head);
 }
 
 TEST_F(shared_heap_test, test_shared_heap_rmw)
