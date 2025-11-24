@@ -64,6 +64,8 @@ jobs:
           "boards/arm/rp2040/raspberrypi-pico/configs/nsh",
           # cortex-m7
           "boards/arm/stm32h7/nucleo-h743zi/configs/nsh",
+          # cortex-m33
+          "boards/arm/rp23xx/raspberrypi-pico-2/configs/nsh",
           # riscv32gc
           "boards/risc-v/qemu-rv/rv-virt/configs/nsh",
           # riscv64gc
