@@ -90,20 +90,77 @@ void
 wasm_runtime_propagate_exception_from_import(
     WASMModuleInstanceCommon *parent, WASMModuleInstanceCommon *sub_module)
 {
-    static const char exception_prefix[] = "Exception: ";
+    static const uint32 exception_prefix_len = sizeof("Exception: ") - 1;
+    static const char memory_oob_exception[] = "out of bounds memory access";
+    char exception_buf[EXCEPTION_BUF_LEN] = { 0 };
     const char *message = NULL;
+    bool has_exception = false;
 
     if (!parent || !sub_module)
         return;
 
-    message = wasm_get_exception(sub_module);
-    if (message && message[0] != '\0') {
-        if (!strncmp(message, exception_prefix, sizeof(exception_prefix) - 1)) {
-            message += sizeof(exception_prefix) - 1;
+    switch (sub_module->module_type) {
+#if WASM_ENABLE_INTERP != 0
+        case Wasm_Module_Bytecode:
+            has_exception = wasm_copy_exception(
+                (WASMModuleInstance *)sub_module, exception_buf);
+            break;
+#endif
+#if WASM_ENABLE_AOT != 0
+        case Wasm_Module_AoT:
+            has_exception = aot_copy_exception((AOTModuleInstance *)sub_module,
+                                               exception_buf);
+            break;
+#endif
+        default:
+            return;
+    }
+
+    if (has_exception) {
+        message = exception_buf;
+        if (strlen(message) >= exception_prefix_len) {
+            message += exception_prefix_len;
+        }
+        else {
+            LOG_WARNING("sub-module exception format unexpected: %s", message);
+            return;
         }
 
-        wasm_set_exception(parent, message);
-        wasm_set_exception(sub_module, NULL);
+        if (strcmp(message, memory_oob_exception) != 0) {
+            LOG_WARNING("skip propagating non-memory-OOB exception: %s",
+                        message);
+            return;
+        }
+
+        switch (parent->module_type) {
+#if WASM_ENABLE_INTERP != 0
+            case Wasm_Module_Bytecode:
+                wasm_set_exception((WASMModuleInstance *)parent, message);
+                break;
+#endif
+#if WASM_ENABLE_AOT != 0
+            case Wasm_Module_AoT:
+                aot_set_exception((AOTModuleInstance *)parent, message);
+                break;
+#endif
+            default:
+                break;
+        }
+
+        switch (sub_module->module_type) {
+#if WASM_ENABLE_INTERP != 0
+            case Wasm_Module_Bytecode:
+                wasm_set_exception((WASMModuleInstance *)sub_module, NULL);
+                break;
+#endif
+#if WASM_ENABLE_AOT != 0
+            case Wasm_Module_AoT:
+                aot_set_exception((AOTModuleInstance *)sub_module, NULL);
+                break;
+#endif
+            default:
+                break;
+        }
     }
 }
 
@@ -275,8 +332,8 @@ runtime_signal_handler(void *sig_addr)
                 && jmpbuf_node->module_inst
                        != (WASMModuleInstanceCommon *)module_inst) {
                 wasm_runtime_propagate_exception_from_import(
-                    (WASMModuleInstance *)jmpbuf_node->module_inst,
-                    module_inst);
+                    (WASMModuleInstanceCommon *)jmpbuf_node->module_inst,
+                    (WASMModuleInstanceCommon *)module_inst);
             }
 #endif
             os_longjmp(jmpbuf_node->jmpbuf, 1);
