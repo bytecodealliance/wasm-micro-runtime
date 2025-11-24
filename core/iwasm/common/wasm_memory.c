@@ -148,6 +148,25 @@ static void
 wasm_munmap_linear_memory(void *mapped_mem, uint64 commit_size,
                           uint64 map_size);
 
+static void
+destroy_shared_heap_node(WASMSharedHeap *heap)
+{
+    uint64 map_size;
+
+    if (heap->heap_handle) {
+        mem_allocator_destroy(heap->heap_handle);
+        wasm_runtime_free(heap->heap_handle);
+#ifndef OS_ENABLE_HW_BOUND_CHECK
+        map_size = heap->size;
+#else
+        map_size = 8 * (uint64)BH_GB;
+#endif
+        wasm_munmap_linear_memory(heap->base_addr, heap->size, map_size);
+    }
+
+    wasm_runtime_free(heap);
+}
+
 static void *
 runtime_malloc(uint64 size)
 {
@@ -337,6 +356,81 @@ wasm_runtime_unchain_shared_heaps(WASMSharedHeap *head, bool entire_chain)
     }
     os_mutex_unlock(&shared_heap_list_lock);
     return cur;
+}
+
+/* Destroy and recycle a shared heap(or head of shared heap chain), return next
+ * node in the shared heap chain  */
+static WASMSharedHeap *
+wasm_runtime_destroy_shared_heap_head(WASMSharedHeap *head)
+{
+    WASMSharedHeap *cur = NULL, *prev = NULL, *new_head = NULL;
+    bool head_found = false, is_chain_head = true;
+
+    if (!head) {
+        LOG_WARNING("Invalid shared heap to destroy.");
+        return NULL;
+    }
+
+    os_mutex_lock(&shared_heap_list_lock);
+    if (head->attached_count != 0) {
+        LOG_WARNING("To destroy shared heap, it needs to be detached first.");
+        os_mutex_unlock(&shared_heap_list_lock);
+        return NULL;
+    }
+
+    for (cur = shared_heap_list; cur; cur = cur->next) {
+        if (cur == head)
+            head_found = true;
+        if (cur->chain_next == head)
+            is_chain_head = false;
+    }
+    if (!head_found) {
+        LOG_WARNING("Shared heap %p isn't tracked by runtime.", head);
+        os_mutex_unlock(&shared_heap_list_lock);
+        return NULL;
+    }
+    if (!is_chain_head) {
+        LOG_WARNING("Shared heap %p isn't the head of a shared heap chain.",
+                    head);
+        os_mutex_unlock(&shared_heap_list_lock);
+        return NULL;
+    }
+
+    new_head = head->chain_next;
+    if (head == shared_heap_list) {
+        shared_heap_list = head->next;
+        destroy_shared_heap_node(head);
+    }
+    else {
+        prev = shared_heap_list;
+        cur = shared_heap_list->next;
+        while (prev) {
+            if (head == cur) {
+                prev->next = head->next;
+                destroy_shared_heap_node(cur);
+                break;
+            }
+            prev = prev->next;
+            cur = cur->next;
+        }
+    }
+
+    os_mutex_unlock(&shared_heap_list_lock);
+
+    LOG_VERBOSE("Destroyed shared heap %p", head);
+
+    return new_head;
+}
+
+WASMSharedHeap *
+wasm_runtime_destroy_shared_heap(WASMSharedHeap *head, bool entire_chain)
+{
+    WASMSharedHeap *new_head = NULL;
+    do {
+        new_head = wasm_runtime_destroy_shared_heap_head(head);
+    } while (entire_chain && new_head);
+
+    return new_head;
 }
 
 static uint8 *
@@ -819,7 +913,6 @@ destroy_shared_heaps()
 {
     WASMSharedHeap *heap;
     WASMSharedHeap *cur;
-    uint64 map_size;
 
     os_mutex_lock(&shared_heap_list_lock);
     heap = shared_heap_list;
@@ -829,17 +922,7 @@ destroy_shared_heaps()
     while (heap) {
         cur = heap;
         heap = heap->next;
-        if (cur->heap_handle) {
-            mem_allocator_destroy(cur->heap_handle);
-            wasm_runtime_free(cur->heap_handle);
-#ifndef OS_ENABLE_HW_BOUND_CHECK
-            map_size = cur->size;
-#else
-            map_size = 8 * (uint64)BH_GB;
-#endif
-            wasm_munmap_linear_memory(cur->base_addr, cur->size, map_size);
-        }
-        wasm_runtime_free(cur);
+        destroy_shared_heap_node(cur);
     }
     os_mutex_destroy(&shared_heap_list_lock);
 }
