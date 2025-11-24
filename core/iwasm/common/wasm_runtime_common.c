@@ -85,6 +85,28 @@ static korp_mutex loading_module_list_lock;
 static bh_list registered_module_list_head;
 static bh_list *const registered_module_list = &registered_module_list_head;
 static korp_mutex registered_module_list_lock;
+
+void
+wasm_runtime_propagate_exception_from_import(
+    WASMModuleInstanceCommon *parent, WASMModuleInstanceCommon *sub_module)
+{
+    static const char exception_prefix[] = "Exception: ";
+    const char *message = NULL;
+
+    if (!parent || !sub_module)
+        return;
+
+    message = wasm_get_exception(sub_module);
+    if (message && message[0] != '\0') {
+        if (!strncmp(message, exception_prefix, sizeof(exception_prefix) - 1)) {
+            message += sizeof(exception_prefix) - 1;
+        }
+
+        wasm_set_exception(parent, message);
+        wasm_set_exception(sub_module, NULL);
+    }
+}
+
 static void
 wasm_runtime_destroy_registered_module_list(void);
 #endif /* WASM_ENABLE_MULTI_MODULE */

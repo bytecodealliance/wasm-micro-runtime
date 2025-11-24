@@ -104,29 +104,6 @@ wasm_resolve_symbols(WASMModule *module)
 }
 
 #if WASM_ENABLE_MULTI_MODULE != 0
-void
-wasm_runtime_propagate_exception_from_import(WASMModuleInstance *parent,
-                                             WASMModuleInstance *sub_module)
-{
-    static const char exception_prefix[] = "Exception: ";
-    const char *message = NULL;
-
-    if (!parent || !sub_module)
-        return;
-
-    message = wasm_get_exception(sub_module);
-    if (message && message[0] != '\0') {
-        if (!strncmp(message, exception_prefix, sizeof(exception_prefix) - 1)) {
-            message += sizeof(exception_prefix) - 1;
-        }
-
-        wasm_set_exception(parent, message);
-        wasm_set_exception(sub_module, NULL);
-    }
-}
-#endif
-
-#if WASM_ENABLE_MULTI_MODULE != 0
 static WASMFunction *
 wasm_resolve_function(const char *module_name, const char *function_name,
                       const WASMFuncType *expected_function_type,
