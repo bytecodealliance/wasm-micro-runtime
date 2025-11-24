@@ -1,3 +1,24 @@
+## WAMR-2.4.4
+
+### Breaking Changes
+
+### New Features
+
+### Bug Fixes
+
+- CVE-2025-64704. Allow the classic interpreter to exit gracefully when encountering SIMD opcodes due to the per-instance running mode.
+- CVE-2025-64713. Fix an unbalanced stack operation when validating special opcode combinations for fast interpretation.
+- fix: update git clone branch for threads spec to main-legacy (#4687) (#4725)
+- Fast-interp should report unsupported opcode when meeting simd opcode on non-posix platforms (#4723) (#4725)
+
+### Enhancements
+
+- Add inputs for optional WAMR releases in the release process workflow (#4486) (#4715)
+
+### Others
+
+---
+
 ## WAMR-2.4.3
 
 ### Breaking Changes
