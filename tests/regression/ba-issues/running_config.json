@@ -1786,6 +1786,22 @@
                 "stdout content": "",
                 "description": "load successfully"
             }
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                980000
+            ],
+            "runtime": "iwasm-default",
+            "file": "frame_offset_overflow.wasm",
+            "mode": "fast-interp",
+            "options": "-f test",
+            "argument": "",
+            "expected return": {
+                "ret code": 1,
+                "stdout content": "Exception: unreachable",
+                "description": "no 'frame offset overflow'"
+            }
         }
     ]
 }
