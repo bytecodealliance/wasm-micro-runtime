@@ -1802,6 +1802,22 @@
                 "stdout content": "Exception: unreachable",
                 "description": "no 'frame offset overflow'"
             }
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                980001
+            ],
+            "runtime": "iwasm-llvm-jit",
+            "file": "v128.wasm",
+            "mode": "classic-interp",
+            "options": "-f main",
+            "argument": "",
+            "expected return": {
+                "ret code": 1,
+                "stdout content": "Exception: unsupported opcode",
+                "description": "classic-interp will exit gracefully when meeting simd opcodes"
+            }
         }
     ]
 }
