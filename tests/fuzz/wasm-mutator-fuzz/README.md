@@ -48,36 +48,3 @@ $ ./build/wasm-mutator/wasm_mutator_fuzz ./build/CORPUS_DIR
 
 $ ./build/aot-compiler/aot_compiler_fuzz ./build/CORPUS_DIR
 ````
-
-## Fuzzing Server
-
-```shell
-1. Installation Dependent Environment
-$ cd server
-$ pip install -r requirements.txt
-
-2. Database Migration
-$ python3 app/manager.py db init
-$ python3 app/manager.py db migrate
-$ python3 app/manager.py db upgrade
-
-3. Change localhost to your machine's IP address
-$ cd ../portal
-$ vim .env   # Change localhost to your machine's IP address  # http://<ip>:16667
-
-4. Run Server and Portal
-$ cd ..   # Switch to the original directory
-If you want to customize the front-end deployment port:  # defaut 9999
-    $ vim .env # Please change the portal_port to the port you want to use
-
-The server is deployed on port 16667 by default, If you want to change the server deployment port:
-    $ vim .env # Please change the server_port to the port you want to use
-    $ vim portal/.env # Please change the VITE_SERVER_URL to the port you want to use  # http://ip:<port>
-
-
-If your network needs to set up a proxy
-    $ vim .env # Change proxy to your proxy address
-
-$ docker-compose up --build -d
-Wait for completion, Access the port set by env
-```
