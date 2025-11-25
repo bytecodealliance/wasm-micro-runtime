@@ -87,21 +87,21 @@ jobs:
 
     steps:
       - name: Checkout NuttX
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: apache/nuttx
           ref: releases/12.11
           path: nuttx
 
       - name: Checkout NuttX Apps
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: apache/nuttx-apps
           ref: releases/12.11
           path: apps
 
       - name: Checkout WAMR
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: ${{ github.repository }}
           path: apps/interpreters/wamr/wamr
@@ -125,7 +125,7 @@ jobs:
         run: make -j$(nproc) EXTRAFLAGS=-Werror
 
       - name: Checkout Bloaty
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: google/bloaty
           submodules: recursive
