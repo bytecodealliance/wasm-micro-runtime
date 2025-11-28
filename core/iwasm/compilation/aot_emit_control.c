@@ -279,7 +279,7 @@ aot_emit_branch_hint(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         hint = hint->next;
     }
     if (hint != NULL) {
-        ((struct WASMCompilationHintBranchHint *)hint)->used = true;
+        hint->used = true;
         // same weight llvm MDBuilder::createLikelyBranchWeights assigns
         const uint32_t likely_weight = (1U << 20) - 1;
         const uint32_t unlikely_weight = 1;

@@ -120,8 +120,7 @@ aot_emit_call_target_hint(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     struct WASMCompilationHint *hint = func_ctx->function_hints;
     while (hint != NULL) {
         if (hint->type == WASM_COMPILATION_HINT_CALL_TARGETS
-            && ((struct WASMCompilationHintCallTargets *)hint)->offset
-                   == offset) {
+            && hint->offset == offset) {
             break;
         }
         hint = hint->next;

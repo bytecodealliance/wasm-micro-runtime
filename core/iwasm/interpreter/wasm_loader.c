@@ -5648,7 +5648,7 @@ handle_compilation_hint_branch_hint_processor(const uint8 *buf,
 {
     (void)module;
     struct WASMCompilationHintBranchHint *hint = hint_store;
-    hint->type = WASM_COMPILATION_HINT_BRANCH;
+    hint->common.type = WASM_COMPILATION_HINT_BRANCH;
     if (hint_size != 1) {
         set_error_buf_v(error_buf, error_buf_size,
                         "invalid branch hint size, expected 1, got %d.",
@@ -5671,6 +5671,7 @@ handle_compilation_hint_branch_hint_processor(const uint8 *buf,
 fail:
     return false;
 }
+
 static bool
 handle_branch_hint_section(const uint8 *buf, const uint8 *buf_end,
                            WASMModule *module, char *error_buf,
@@ -5691,7 +5692,7 @@ handle_compilation_hint_call_targets_processor(
     WASMModule *module)
 {
     struct WASMCompilationHintCallTargets *hint = hint_store;
-    hint->type = WASM_COMPILATION_HINT_CALL_TARGETS;
+    hint->common.type = WASM_COMPILATION_HINT_CALL_TARGETS;
     CHECK_BUF(buf, buf_end, hint_size);
     hint->target_count = 0;
 
@@ -7634,8 +7635,8 @@ wasm_loader_unload(WASMModule *module)
             struct WASMCompilationHint *last_chain_start = curr;
             while (curr != NULL) {
                 if (!curr->used) {
-                    printf("Unused hint for function %u, offset: %x\n",
-                           i + module->import_count, curr->offset);
+                    LOG_WARNING("Unused hint for function %u, offset: %x\n",
+                                i + module->import_count, curr->offset);
                 }
                 if (curr->type != last_chain_start->type) {
                     // we switched chains -> deallocate previous chain and reset

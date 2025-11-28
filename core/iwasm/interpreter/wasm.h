@@ -778,12 +778,7 @@ struct WASMCompilationHint {
     bool used;
 };
 struct WASMCompilationHintBranchHint {
-    struct WASMCompilationHint *next;
-    enum WASMCompilationHintType type;
-    uint32 offset;
-    bool used;
-
-    // custom field
+    struct WASMCompilationHint common;
     bool is_likely;
 };
 struct WASMCompilationHintCallTargetsHint {
@@ -791,12 +786,7 @@ struct WASMCompilationHintCallTargetsHint {
     uint32 call_frequency;
 };
 struct WASMCompilationHintCallTargets {
-    struct WASMCompilationHint *next;
-    enum WASMCompilationHintType type;
-    uint32 offset;
-    bool used;
-
-    // custom fields
+    struct WASMCompilationHint common;
     size_t target_count;
     struct WASMCompilationHintCallTargetsHint *hints;
 };
