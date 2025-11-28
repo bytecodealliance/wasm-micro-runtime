@@ -578,6 +578,12 @@ typedef struct WASMRegisteredModule {
     uint8 *orig_file_buf;
     uint32 orig_file_buf_size;
 } WASMRegisteredModule;
+
+/* Propagate callee's memory OOB exception to caller module in hardware memory
+ * exception handler */
+void
+wasm_runtime_propagate_exception_from_import(
+    WASMModuleInstanceCommon *parent, WASMModuleInstanceCommon *sub_module);
 #endif
 
 typedef package_type_t PackageType;
