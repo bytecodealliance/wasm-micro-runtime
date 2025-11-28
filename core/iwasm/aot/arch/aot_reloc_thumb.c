@@ -52,6 +52,10 @@ void __aeabi_idivmod(void);
 void __aeabi_l2d(void);
 void __aeabi_l2f(void);
 void __aeabi_ldivmod(void);
+void __aeabi_memclr(void);
+void __aeabi_memcpy(void);
+void __aeabi_memmove(void);
+void __aeabi_memset(void);
 void __aeabi_llsl(void);
 void __aeabi_llsr(void);
 void __aeabi_lmul(void);
@@ -171,6 +175,10 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__aeabi_l2d),
     REG_SYM(__aeabi_l2f),
     REG_SYM(__aeabi_ldivmod),
+    REG_SYM(__aeabi_memclr),
+    REG_SYM(__aeabi_memcpy),
+    REG_SYM(__aeabi_memmove),
+    REG_SYM(__aeabi_memset),
     REG_SYM(__aeabi_llsl),
     REG_SYM(__aeabi_llsr),
     REG_SYM(__aeabi_lmul),
