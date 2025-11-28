@@ -292,6 +292,37 @@ create_test_shared_heap(uint8 *preallocated_buf, size_t size,
     }
 }
 
+static WASMSharedHeap *
+create_preallocated_shared_heap(size_t size, uint8 *buffer)
+{
+    SharedHeapInitArgs args = {};
+    WASMSharedHeap *shared_heap = NULL;
+
+    memset(buffer, 0, size);
+    args.pre_allocated_addr = buffer;
+    args.size = size;
+
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+    if (!shared_heap) {
+        ADD_FAILURE() << "Create preallocated shared heap failed.\n";
+        return NULL;
+    }
+
+    return shared_heap;
+}
+
+static WASMSharedHeap *
+chain_shared_heaps(WASMSharedHeap *head, WASMSharedHeap *next)
+{
+    WASMSharedHeap *chain = wasm_runtime_chain_shared_heaps(head, next);
+    if (!chain) {
+        ADD_FAILURE() << "Create shared heap chain failed.\n";
+        return NULL;
+    }
+
+    return chain;
+}
+
 static void
 create_test_shared_heap_chain(uint8 *preallocated_buf, size_t size,
                               uint8 *preallocated_buf2, size_t size2,
@@ -408,6 +439,102 @@ TEST_F(shared_heap_test, test_destroy_shared_heap_when_attached)
     destroy_module_env(module_env);
 
     EXPECT_TRUE(wasm_runtime_destroy_shared_heap(shared_heap, true, &new_head));
+    EXPECT_EQ(nullptr, new_head);
+}
+
+TEST_F(shared_heap_test, test_destroy_shared_heap_three_nodes_chain)
+{
+    const uint32 BUF_SIZE = os_getpagesize();
+    uint8 head_buf[BUF_SIZE], body_buf[BUF_SIZE], tail_buf[BUF_SIZE];
+    WASMSharedHeap *head = nullptr;
+    WASMSharedHeap *body = nullptr;
+    WASMSharedHeap *tail = nullptr;
+    WASMSharedHeap *new_head = nullptr;
+    WASMSharedHeap *chain = nullptr;
+
+    head = create_preallocated_shared_heap(BUF_SIZE, head_buf);
+    body = create_preallocated_shared_heap(BUF_SIZE, body_buf);
+    tail = create_preallocated_shared_heap(BUF_SIZE, tail_buf);
+
+    ASSERT_NE(nullptr, head);
+    ASSERT_NE(nullptr, body);
+    ASSERT_NE(nullptr, tail);
+
+    chain = chain_shared_heaps(body, tail);
+    ASSERT_NE(nullptr, chain);
+
+    chain = chain_shared_heaps(head, chain);
+    ASSERT_NE(nullptr, chain);
+
+    EXPECT_TRUE(wasm_runtime_destroy_shared_heap(chain, true, &new_head));
+    EXPECT_EQ(nullptr, new_head);
+}
+
+TEST_F(shared_heap_test, test_destroy_shared_heap_cross_chains)
+{
+    const uint32 BUF_SIZE = os_getpagesize();
+    uint8 chain1_bufs[3][BUF_SIZE];
+    uint8 chain2_bufs[3][BUF_SIZE];
+    WASMSharedHeap *chain1_nodes[3];
+    WASMSharedHeap *chain2_nodes[3];
+    WASMSharedHeap *new_head = nullptr;
+
+    chain1_nodes[0] = create_preallocated_shared_heap(BUF_SIZE, chain1_bufs[0]);
+    chain2_nodes[0] = create_preallocated_shared_heap(BUF_SIZE, chain2_bufs[0]);
+    chain1_nodes[1] = create_preallocated_shared_heap(BUF_SIZE, chain1_bufs[1]);
+    chain2_nodes[1] = create_preallocated_shared_heap(BUF_SIZE, chain2_bufs[1]);
+    chain1_nodes[2] = create_preallocated_shared_heap(BUF_SIZE, chain1_bufs[2]);
+    chain2_nodes[2] = create_preallocated_shared_heap(BUF_SIZE, chain2_bufs[2]);
+
+    ASSERT_NE(nullptr, chain1_nodes[0]);
+    ASSERT_NE(nullptr, chain2_nodes[0]);
+    ASSERT_NE(nullptr, chain1_nodes[1]);
+    ASSERT_NE(nullptr, chain2_nodes[1]);
+    ASSERT_NE(nullptr, chain1_nodes[2]);
+    ASSERT_NE(nullptr, chain2_nodes[2]);
+
+    WASMSharedHeap *shared_heap_chain1 =
+        chain_shared_heaps(chain1_nodes[1], chain1_nodes[2]);
+    ASSERT_NE(nullptr, shared_heap_chain1);
+
+    shared_heap_chain1 =
+        chain_shared_heaps(chain1_nodes[0], shared_heap_chain1);
+    ASSERT_NE(nullptr, shared_heap_chain1);
+
+    WASMSharedHeap *shared_heap_chain2 =
+        chain_shared_heaps(chain2_nodes[1], chain2_nodes[2]);
+    ASSERT_NE(nullptr, shared_heap_chain2);
+
+    shared_heap_chain2 =
+        chain_shared_heaps(chain2_nodes[0], shared_heap_chain2);
+    ASSERT_NE(nullptr, shared_heap_chain2);
+
+    EXPECT_TRUE(
+        wasm_runtime_destroy_shared_heap(shared_heap_chain1, false, &new_head));
+    ASSERT_EQ(chain1_nodes[1], new_head);
+    shared_heap_chain1 = new_head;
+
+    EXPECT_TRUE(
+        wasm_runtime_destroy_shared_heap(shared_heap_chain2, false, &new_head));
+    ASSERT_EQ(chain2_nodes[1], new_head);
+    shared_heap_chain2 = new_head;
+
+    EXPECT_TRUE(
+        wasm_runtime_destroy_shared_heap(shared_heap_chain1, false, &new_head));
+    ASSERT_EQ(chain1_nodes[2], new_head);
+    shared_heap_chain1 = new_head;
+
+    EXPECT_TRUE(
+        wasm_runtime_destroy_shared_heap(shared_heap_chain2, false, &new_head));
+    ASSERT_EQ(chain2_nodes[2], new_head);
+    shared_heap_chain2 = new_head;
+
+    EXPECT_TRUE(
+        wasm_runtime_destroy_shared_heap(shared_heap_chain1, false, &new_head));
+    EXPECT_EQ(nullptr, new_head);
+
+    EXPECT_TRUE(
+        wasm_runtime_destroy_shared_heap(shared_heap_chain2, false, &new_head));
     EXPECT_EQ(nullptr, new_head);
 }
 
