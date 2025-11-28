@@ -111,6 +111,7 @@ jobs:
         run: |
           tools/configure.sh ${{ matrix.nuttx_board_config }}
           kconfig-tweak --disable CONFIG_RP2040_UF2_BINARY
+          kconfig-tweak --disable CONFIG_RP23XX_UF2_BINARY
           kconfig-tweak --enable CONFIG_PSEUDOFS_SOFTLINKS
           kconfig-tweak --enable CONFIG_INTERPRETERS_WAMR
           kconfig-tweak --enable CONFIG_INTERPRETERS_IWASM_TASK
