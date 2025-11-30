@@ -63,6 +63,7 @@ add_subdirectory(linear-memory-aot)
 add_subdirectory(linux-perf)
 add_subdirectory(gc)
 add_subdirectory(tid-allocator)
+add_subdirectory(unsupported-features)
 
 if (NOT WAMR_BUILD_TARGET STREQUAL "X86_32")
   add_subdirectory(aot-stack-frame)
