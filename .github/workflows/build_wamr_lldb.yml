@@ -55,7 +55,7 @@ jobs:
       contents: write # for uploading release artifacts
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.0
 
       - name: download and install wasi-sdk
         run: |
