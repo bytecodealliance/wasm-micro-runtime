@@ -67,7 +67,7 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       # since jobs.id can't contain the dot character
       # it is hard to use `format` to assemble the cache key
@@ -122,8 +122,6 @@ jobs:
             "-DWAMR_BUILD_MEMORY_PROFILING=1",
             "-DWAMR_BUILD_MULTI_MODULE=1",
             "-DWAMR_BUILD_PERF_PROFILING=1",
-            "-DWAMR_BUILD_REF_TYPES=1",
-            "-DWAMR_BUILD_SIMD=1",
             "-DWAMR_BUILD_TAIL_CALL=1",
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
             "-DWAMR_BUILD_MEMORY64=1",
@@ -145,11 +143,6 @@ jobs:
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
           - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
-          # SIMD only on JIT/AOT mode
-          - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_SIMD=1"
-          - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_SIMD=1"
           # DEBUG_INTERP only on CLASSIC INTERP mode
           - make_options_run_mode: $AOT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
@@ -230,10 +223,19 @@ jobs:
         include:
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu.outputs.cache_key }}
+          # classic interp doesn't support SIMD
+          - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_SIMD=0"
+          # fast jit doesn't support SIMD
+          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_SIMD=0"
+          # multi-tier jit doesn't support SIMD
+          - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_SIMD=0"
 
     steps:
       - name: checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       # only download llvm cache when needed
       - name: Get LLVM libraries
@@ -257,7 +259,7 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           mkdir build && cd build
-          cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }}
+          cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }} ${{ matrix.extra_options }}
           cmake --build . --config Release --parallel 4
         working-directory: product-mini/platforms/${{ matrix.platform }}
 
@@ -265,7 +267,7 @@ jobs:
         if: matrix.platform == 'android'
         run: |
           mkdir build && cd build
-          cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }} \
+          cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }} ${{ matrix.extra_options }} \
                 -DWAMR_BUILD_TARGET=X86_64
           cmake --build . --config Release --parallel 4
         working-directory: product-mini/platforms/${{ matrix.platform }}
@@ -295,8 +297,6 @@ jobs:
             "-DWAMR_BUILD_MEMORY_PROFILING=1",
             "-DWAMR_BUILD_MULTI_MODULE=1",
             "-DWAMR_BUILD_PERF_PROFILING=1",
-            "-DWAMR_BUILD_REF_TYPES=1",
-            "-DWAMR_BUILD_SIMD=1",
             "-DWAMR_BUILD_TAIL_CALL=1",
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
             "-DWAMR_BUILD_MEMORY64=1",
@@ -339,6 +339,16 @@ jobs:
             make_options_feature: "-DWAMR_BUILD_MULTI_MEMORY=1"
           - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MEMORY=1"
+        include:
+          # classic interp doesn't support SIMD
+          - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_SIMD=0"
+          # fast jit doesn't support SIMD
+          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_SIMD=0"
+          # multi-tier jit doesn't support SIMD
+          - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_SIMD=0"
     steps:
       - name: Install dependencies
         run: |
@@ -357,7 +367,7 @@ jobs:
       - name: Build iwasm
         run: |
           mkdir build && cd build
-          cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }} -DCMAKE_C_COMPILER=gcc-4.8 -DCMAKE_CXX_COMPILER=g++-4.8
+          cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }} ${{ matrix.extra_options }} -DCMAKE_C_COMPILER=gcc-4.8 -DCMAKE_CXX_COMPILER=g++-4.8
           cmake --build . --config Release --parallel 4
         working-directory: wamr/product-mini/platforms/linux
 
@@ -385,9 +395,25 @@ jobs:
         exclude:
           - make_options: $MULTI_TIER_JIT_BUILD_OPTIONS
             sanitizer: asan
+        include:
+          # classic interp doesn't support SIMD
+          - make_options: $CLASSIC_INTERP_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_SIMD=0"
+          # fast jit doesn't support Multi-module and SIMD
+          - make_options: $FAST_JIT_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_SIMD=0 -DWAMR_BUILD_MULTI_MODULE=0"
+          # multi-tier jit doesn't support Multi-module and SIMD
+          - make_options: $MULTI_TIER_JIT_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_SIMD=0 -DWAMR_BUILD_MULTI_MODULE=0"
+          # LLVM JIT doesn't support Multi-module
+          - make_options: $LLVM_LAZY_JIT_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_MULTI_MODULE=0"
+          - make_options: $LLVM_EAGER_JIT_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_MULTI_MODULE=0"
+
     steps:
       - name: checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
@@ -422,7 +448,7 @@ jobs:
       - name: Build Sample [wasm-c-api]
         run: |
           VERBOSE=1
-          cmake -S . -B build ${{ matrix.make_options }} \
+          cmake -S . -B build ${{ matrix.make_options }} ${{ matrix.extra_options }} \
                 -D WAMR_BUILD_SANITIZER="${{matrix.sanitizer}}" \
                 -D WAMR_BUILD_QUICK_AOT_ENTRY=0
           cmake --build build --config Release --parallel 4
@@ -440,7 +466,7 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: install-wasi-sdk-wabt
         uses: ./.github/actions/install-wasi-sdk-wabt
@@ -634,7 +660,7 @@ jobs:
             sanitizer: ubsan
     steps:
       - name: checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: install-wasi-sdk-wabt
         if: matrix.test_option == '$WASI_TEST_OPTIONS'

@@ -86,7 +86,7 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_intel_macos.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
@@ -138,8 +138,6 @@ jobs:
             "-DWAMR_BUILD_MEMORY_PROFILING=1",
             "-DWAMR_BUILD_MULTI_MODULE=1",
             "-DWAMR_BUILD_PERF_PROFILING=1",
-            "-DWAMR_BUILD_REF_TYPES=1",
-            "-DWAMR_BUILD_SIMD=1",
             "-DWAMR_BUILD_TAIL_CALL=1",
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
             "-DWAMR_BUILD_EXTENDED_CONST_EXPR=1",
@@ -154,11 +152,6 @@ jobs:
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
           - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
-          # SIMD only on JIT/AOT mode
-          - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_SIMD=1"
-          - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_SIMD=1"
           # DEBUG_INTERP only on CLASSIC INTERP mode
           - make_options_run_mode: $AOT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
@@ -188,9 +181,12 @@ jobs:
         include:
           - os: macos-13
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_intel_macos.outputs.cache_key }}
+          # classic interp doesn't support SIMD
+          - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_SIMD=0"
     steps:
       - name: checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       # only download llvm cache when needed
       - name: Get LLVM libraries
@@ -213,7 +209,7 @@ jobs:
       - name: Build iwasm
         run: |
           mkdir build && cd build
-          cmake .. -DCMAKE_C_FLAGS="-Werror" ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }}
+          cmake .. -DCMAKE_C_FLAGS="-Werror" ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }} ${{ matrix.extra_options }}
           cmake --build . --config Release --parallel 4
         working-directory: product-mini/platforms/${{ matrix.platform }}
 
@@ -240,10 +236,24 @@ jobs:
         include:
           - os: macos-13
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_intel_macos.outputs.cache_key }}
+          # classic interp doesn't support SIMD
+          - make_options: $CLASSIC_INTERP_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_SIMD=0"
+          # fast jit doesn't support Multi-module and SIMD
+          - make_options: $FAST_JIT_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_SIMD=0 -DWAMR_BUILD_MULTI_MODULE=0"
+          # multi-tier jit doesn't support Multi-module and SIMD
+          - make_options: $MULTI_TIER_JIT_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_SIMD=0 -DWAMR_BUILD_MULTI_MODULE=0"
+          # LLVM JIT doesn't support Multi-module
+          - make_options: $LLVM_LAZY_JIT_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_MULTI_MODULE=0"
+          - make_options: $LLVM_EAGER_JIT_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_MULTI_MODULE=0"
 
     steps:
       - name: checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
@@ -278,7 +288,7 @@ jobs:
       - name: Build Sample [wasm-c-api]
         run: |
           VERBOSE=1
-          cmake -S . -B build ${{ matrix.make_options }}
+          cmake -S . -B build ${{ matrix.make_options }} ${{ matrix.extra_options }}
           cmake --build build --config Debug --parallel 4
           ctest --test-dir build --output-on-failure
         working-directory: samples/wasm-c-api
@@ -301,7 +311,7 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_arm_macos.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: install-wasi-sdk-wabt
         uses: ./.github/actions/install-wasi-sdk-wabt

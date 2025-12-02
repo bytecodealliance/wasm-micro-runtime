@@ -91,8 +91,7 @@ jobs:
       arch: "X86"
 
   build_wamrc:
-    needs:
-      [build_llvm_libraries_on_ubuntu_2204]
+    needs: [build_llvm_libraries_on_ubuntu_2204]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -101,7 +100,7 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       # since jobs.id can't contain the dot character
       # it is hard to use `format` to assemble the cache key
@@ -129,8 +128,7 @@ jobs:
         working-directory: wamr-compiler
 
   build_iwasm:
-    needs:
-      [build_llvm_libraries_on_ubuntu_2204]
+    needs: [build_llvm_libraries_on_ubuntu_2204]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -157,8 +155,6 @@ jobs:
             "-DWAMR_BUILD_MEMORY_PROFILING=1",
             "-DWAMR_BUILD_MULTI_MODULE=1",
             "-DWAMR_BUILD_PERF_PROFILING=1",
-            "-DWAMR_BUILD_REF_TYPES=1",
-            "-DWAMR_BUILD_SIMD=1",
             "-DWAMR_BUILD_LIB_SIMDE=1",
             "-DWAMR_BUILD_TAIL_CALL=1",
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
@@ -171,8 +167,7 @@ jobs:
         os: [ubuntu-22.04]
         platform: [android, linux]
         exclude:
-          # incompatible feature and platform
-          # incompatible mode and feature
+          # incompatible feature and platform and mode
           # MULTI_MODULE only on INTERP mode and AOT mode
           - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
@@ -182,9 +177,6 @@ jobs:
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
           - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
-          # SIMD only on JIT/AOT/fast interpreter mode
-          - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_SIMD=1"
           # DEBUG_INTERP only on CLASSIC INTERP mode
           - make_options_run_mode: $AOT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
@@ -268,9 +260,18 @@ jobs:
         include:
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
+          # classic interp doesn't support SIMD
+          - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_SIMD=0"
+          # fast jit doesn't support SIMD
+          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_SIMD=0"
+          # multi-tier jit doesn't support SIMD
+          - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_SIMD=0"
     steps:
       - name: checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       # only download llvm cache when needed
       - name: Get LLVM libraries
@@ -294,7 +295,7 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           mkdir build && cd build
-          cmake .. -DCMAKE_C_FLAGS="-Werror" ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }}
+          cmake .. -DCMAKE_C_FLAGS="-Werror" ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }} ${{ matrix.extra_options}}
           cmake --build . --config Release --parallel 4
         working-directory: product-mini/platforms/${{ matrix.platform }}
 
@@ -308,27 +309,20 @@ jobs:
         working-directory: product-mini/platforms/${{ matrix.platform }}
 
   build_unit_tests:
-    needs:
-      [
-        build_llvm_libraries_on_ubuntu_2204,
-        build_wamrc
-      ]
+    needs: [build_llvm_libraries_on_ubuntu_2204, build_wamrc]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-22.04]
-        build_target: [
-          "X86_64",
-          "X86_32",
-        ]
+        build_target: ["X86_64", "X86_32"]
         include:
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
 
     steps:
       - name: checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
@@ -350,7 +344,7 @@ jobs:
         uses: ./.github/actions/install-wasi-sdk-wabt
         with:
           os: ${{ matrix.os }}
-      
+
       - name: Build wamrc
         run: |
           mkdir build && cd build
@@ -374,8 +368,7 @@ jobs:
         working-directory: tests/unit
 
   build_regression_tests:
-    needs:
-      [build_llvm_libraries_on_ubuntu_2204]
+    needs: [build_llvm_libraries_on_ubuntu_2204]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -383,10 +376,10 @@ jobs:
         include:
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
-    
+
     steps:
       - name: checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
@@ -403,24 +396,19 @@ jobs:
       - name: Quit if cache miss
         if: (steps.retrieve_llvm_libs.outputs.cache-hit != 'true')
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
-      
+
       - name: Build wamrc and iwasm
         run: |
           ./build_wamr.sh
         working-directory: tests/regression/ba-issues
-      
+
       - name: Run regression tests
         run: |
           python run.py
         working-directory: tests/regression/ba-issues
 
   build_samples_wasm_c_api:
-    needs:
-      [
-        build_iwasm,
-        build_llvm_libraries_on_ubuntu_2204,
-        build_wamrc,
-      ]
+    needs: [build_iwasm, build_llvm_libraries_on_ubuntu_2204, build_wamrc]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -439,10 +427,24 @@ jobs:
         include:
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
+          # classic interp doesn't support SIMD
+          - make_options: $CLASSIC_INTERP_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_SIMD=0"
+          # fast jit doesn't support Multi-module and SIMD
+          - make_options: $FAST_JIT_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_SIMD=0 -DWAMR_BUILD_MULTI_MODULE=0"
+          # multi-tier jit doesn't support Multi-module and SIMD
+          - make_options: $MULTI_TIER_JIT_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_SIMD=0 -DWAMR_BUILD_MULTI_MODULE=0"
+          # LLVM JIT doesn't support Multi-module
+          - make_options: $LLVM_LAZY_JIT_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_MULTI_MODULE=0"
+          - make_options: $LLVM_EAGER_JIT_BUILD_OPTIONS
+            extra_options: "-DWAMR_BUILD_MULTI_MODULE=0"
 
     steps:
       - name: checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
@@ -477,7 +479,7 @@ jobs:
       - name: Build Sample [wasm-c-api]
         run: |
           VERBOSE=1
-          cmake -S . -B build ${{ matrix.make_options }}
+          cmake -S . -B build ${{ matrix.make_options }} ${{ matrix.extra_options }}
           cmake --build build --config Debug --parallel 4
           ctest --test-dir build --output-on-failure
         working-directory: samples/wasm-c-api
@@ -488,12 +490,7 @@ jobs:
         working-directory: samples/printversion
 
   build_samples_others:
-    needs:
-      [
-        build_iwasm,
-        build_llvm_libraries_on_ubuntu_2204,
-        build_wamrc,
-      ]
+    needs: [build_iwasm, build_llvm_libraries_on_ubuntu_2204, build_wamrc]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -504,7 +501,7 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
@@ -632,12 +629,7 @@ jobs:
           ./import-func-callback
 
   test:
-    needs:
-      [
-        build_iwasm,
-        build_llvm_libraries_on_ubuntu_2204,
-        build_wamrc,
-      ]
+    needs: [build_iwasm, build_llvm_libraries_on_ubuntu_2204, build_wamrc]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -675,7 +667,7 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set-up OCaml
         uses: ocaml/setup-ocaml@v3

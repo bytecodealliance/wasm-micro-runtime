@@ -791,13 +791,6 @@ typedef enum WASMAtomicEXTOpcode {
 #define SET_GOTO_TABLE_ELEM(opcode) [opcode] = HANDLE_OPCODE(opcode)
 
 #if WASM_ENABLE_SIMDE != 0
-#define SET_GOTO_TABLE_SIMD_PREFIX_ELEM() \
-    SET_GOTO_TABLE_ELEM(WASM_OP_SIMD_PREFIX),
-#else
-#define SET_GOTO_TABLE_SIMD_PREFIX_ELEM()
-#endif
-
-#if WASM_ENABLE_SIMDE != 0
 #define DEF_EXT_V128_HANDLE()                                       \
     SET_GOTO_TABLE_ELEM(EXT_OP_SET_LOCAL_FAST_V128),     /* 0xdd */ \
         SET_GOTO_TABLE_ELEM(EXT_OP_TEE_LOCAL_FAST_V128), /* 0xde */ \
@@ -1038,7 +1031,7 @@ typedef enum WASMAtomicEXTOpcode {
         HANDLE_OPCODE(EXT_OP_TRY),                   /* 0xdb */ \
         SET_GOTO_TABLE_ELEM(WASM_OP_GC_PREFIX),      /* 0xfb */ \
         SET_GOTO_TABLE_ELEM(WASM_OP_MISC_PREFIX),    /* 0xfc */ \
-        SET_GOTO_TABLE_SIMD_PREFIX_ELEM()            /* 0xfd */ \
+        SET_GOTO_TABLE_ELEM(WASM_OP_SIMD_PREFIX),    /* 0xfd */ \
         SET_GOTO_TABLE_ELEM(WASM_OP_ATOMIC_PREFIX),  /* 0xfe */ \
         DEF_DEBUG_BREAK_HANDLE() DEF_EXT_V128_HANDLE()          \
     };

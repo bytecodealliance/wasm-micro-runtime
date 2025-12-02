@@ -962,10 +962,6 @@ main(int argc, char *argv[])
     }
 #endif
 
-#if WASM_ENABLE_LIBC_WASI != 0
-    libc_wasi_init(wasm_module, argc, argv, &wasi_parse_ctx);
-#endif
-
     if (!wasm_runtime_instantiation_args_create(&inst_args)) {
         printf("failed to create instantiate args\n");
         goto fail3;
@@ -974,6 +970,9 @@ main(int argc, char *argv[])
                                                            stack_size);
     wasm_runtime_instantiation_args_set_host_managed_heap_size(inst_args,
                                                                heap_size);
+#if WASM_ENABLE_LIBC_WASI != 0
+    libc_wasi_set_init_args(inst_args, argc, argv, &wasi_parse_ctx);
+#endif
 
     /* instantiate the module */
     wasm_module_inst = wasm_runtime_instantiate_ex2(

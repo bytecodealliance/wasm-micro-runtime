@@ -45,7 +45,7 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: install dependencies for non macos-14
         if: inputs.os != 'macos-14'

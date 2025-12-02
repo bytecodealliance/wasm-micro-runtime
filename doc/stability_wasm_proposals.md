@@ -2,7 +2,7 @@
 
 This document is intended to describe the current status of WebAssembly proposals and WASI proposals in WAMR.
 
-Only track proposals that are followed in the [WebAssembly proposals](https://github.com/WebAssembly/proposals) and [WASI proposals](https://github.com/WebAssembly/WASI/blob/main/Proposals.md).
+Only track proposals that are followed in the [WebAssembly proposals](https://github.com/WebAssembly/proposals) and [WASI proposals](https://github.com/WebAssembly/WASI/blob/main/docs/Proposals.md).
 
 Normally, the document tracks proposals that are in phase 4. However, if a proposal in an earlier phase receives support, it will be added to the list below.
 

@@ -217,6 +217,62 @@ TEST_F(shared_heap_test, test_preallocated_shared_heap_malloc_fail)
     EXPECT_EQ(0, argv[0]);
 }
 
+TEST_F(shared_heap_test, test_preallocated_shared_runtime_api)
+{
+    struct ret_env tmp_module_env;
+    SharedHeapInitArgs args = { 0 };
+    WASMSharedHeap *shared_heap = nullptr;
+    uint32 argv[1] = { 0 };
+    void *native_ptr;
+    uint64 offset, size;
+    bool ret;
+
+    args.size = 0x4000;
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+
+    if (!shared_heap) {
+        FAIL() << "Failed to create shared heap";
+    }
+
+    if (!load_wasm("test.wasm", 0, tmp_module_env)) {
+        FAIL() << "Failed to load wasm file\n";
+    }
+
+    if (!wasm_runtime_attach_shared_heap(tmp_module_env.wasm_module_inst,
+                                         shared_heap)) {
+        ADD_FAILURE() << "Failed to attach shared heap\n";
+        goto fail1;
+    }
+
+    offset = wasm_runtime_shared_heap_malloc(tmp_module_env.wasm_module_inst,
+                                             32, &native_ptr);
+    if (!offset) {
+        ADD_FAILURE() << "Failed to attach shared heap\n";
+        goto fail2;
+    }
+
+    size = (uint64_t)UINT32_MAX + 0x2000;
+    printf("offset %lx size: %lx\n", offset, size);
+    ASSERT_EQ(false, wasm_runtime_validate_app_addr(
+                         tmp_module_env.wasm_module_inst, offset, size));
+
+    ASSERT_EQ(NULL, wasm_runtime_addr_app_to_native(
+                        tmp_module_env.wasm_module_inst, offset + size));
+
+    size = (uint64_t)10;
+    ASSERT_EQ(true, wasm_runtime_validate_app_addr(
+                        tmp_module_env.wasm_module_inst, offset, size));
+
+    ASSERT_EQ(native_ptr + size,
+              wasm_runtime_addr_app_to_native(tmp_module_env.wasm_module_inst,
+                                              offset + size));
+
+fail2:
+    wasm_runtime_detach_shared_heap(tmp_module_env.wasm_module_inst);
+fail1:
+    destroy_module_env(tmp_module_env);
+}
+
 static void
 create_test_shared_heap(uint8 *preallocated_buf, size_t size,
                         WASMSharedHeap **shared_heap_res)

@@ -616,12 +616,12 @@ wasm_runtime_get_shared_heap(WASMModuleInstanceCommon *module_inst_comm)
 
 bool
 is_app_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
-                           bool is_memory64, uint64 app_offset, uint32 bytes)
+                           bool is_memory64, uint64 app_offset, uint64 bytes)
 {
     WASMSharedHeap *heap = get_shared_heap(module_inst), *cur;
     uint64 shared_heap_start, shared_heap_end;
 
-    if (!heap) {
+    if (!heap || bytes > APP_HEAP_SIZE_MAX) {
         goto fail;
     }
 
@@ -665,12 +665,12 @@ fail:
 
 static bool
 is_native_addr_in_shared_heap(WASMModuleInstanceCommon *module_inst,
-                              bool is_memory64, uint8 *addr, uint32 bytes)
+                              bool is_memory64, uint8 *addr, uint64 bytes)
 {
     WASMSharedHeap *cur, *heap = get_shared_heap(module_inst);
     uintptr_t base_addr, addr_int, end_addr;
 
-    if (!heap) {
+    if (!heap || bytes > APP_HEAP_SIZE_MAX) {
         goto fail;
     }
 

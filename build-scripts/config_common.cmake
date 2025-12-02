@@ -282,6 +282,8 @@ if (WAMR_BUILD_REF_TYPES EQUAL 1)
   set (WAMR_BUILD_CALL_INDIRECT_OVERLONG 1)
 endif ()
 
+include(${CMAKE_CURRENT_LIST_DIR}/unsupported_combination.cmake)
+
 message ("-- Build Configurations:")
 message ("     Build as target ${WAMR_BUILD_TARGET}")
 message ("     Build for platform ${WAMR_BUILD_PLATFORM}")

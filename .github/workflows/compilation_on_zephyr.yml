@@ -10,8 +10,7 @@ on:
       - opened
       - synchronize
     paths:
-      - ".github/**"
-      - "!.github/ISSUE_TEMPLATE/**"
+      - ".github/workflows/compilation_on_zephyr.yml"
       - "build-scripts/**"
       - "core/**"
       - "!core/deps/**"
@@ -27,8 +26,7 @@ on:
       - main
       - "dev/**"
     paths:
-      - ".github/**"
-      - "!.github/ISSUE_TEMPLATE/**"
+      - ".github/workflows/compilation_on_zephyr.yml"
       - "build-scripts/**"
       - "core/**"
       - "!core/deps/**"
@@ -80,7 +78,7 @@ jobs:
       # └─── application/    --> DUMMY. keep west_lite.yml here
 
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: modules/wasm-micro-runtime
 

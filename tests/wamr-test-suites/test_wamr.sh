@@ -5,10 +5,12 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
 
+# Run script like DEBUG=1 ./test_wamr.sh ... to enable debug mode
 function DEBUG() {
-  [[ -n $(env | grep "\<DEBUG\>") ]] && $@
+  env | grep -q "\<DEBUG\>" && "$@"
 }
-DEBUG set -exv pipefail
+DEBUG set -exv
+DEBUG set -o pipefail
 
 function help()
 {
@@ -996,6 +998,18 @@ function do_execute_in_running_mode()
 
 function trigger()
 {
+    # return if TEST_CASE_ARR is empty
+    if [[ -z "${TEST_CASE_ARR[@]}" ]]; then
+        echo "TEST_CASE_ARR is empty, NO test case to run"
+        return
+    fi
+
+    # Print all the test cases to be executed
+    echo "Following test cases to be executed: "
+    for suite in "${TEST_CASE_ARR[@]}"; do
+        echo "  - " $suite"_test"
+    done
+
     # Check if REQUIREMENT_NAME is set, if set, only calling requirement test and early return
     if [[ -n $REQUIREMENT_NAME ]]; then
         python ${REQUIREMENT_SCRIPT_DIR}/run_requirement.py -o ${REPORT_DIR}/ -r "$REQUIREMENT_NAME" "${SUBREQUIREMENT_IDS[@]}"
@@ -1187,16 +1201,35 @@ function trigger()
     done
 }
 
-# if collect code coverage, ignore -s, test all test cases.
-if [[ $TEST_CASE_ARR == "unit" ]];then
-    # unit test cases are designed with specific compilation flags
-    # and run under specific modes.
-    # There is no need to loop through all running modes in this script.
-    unit_test || (echo "TEST FAILED"; exit 1)
-    collect_coverage unit
-    echo "JUST SKIP UNIT TEST NOW"
-elif [[ $TEST_CASE_ARR == "spec" ]];then
-    # loop through all running modes
+function remove_empty_elements()
+{
+    # Remove empty elements from the array
+    local arr=("$@")
+    local new_arr=()
+    for element in "${arr[@]}"; do
+        if [[ -n "$element" ]]; then
+            new_arr+=("$element")
+        fi
+    done
+    echo "${new_arr[@]}"
+}
+
+if [[ $TEST_CASE_ARR ]];then
+    # Check if 'unit' is in TEST_CASE_ARR
+    if [[ " ${TEST_CASE_ARR[@]} " =~ " unit " ]]; then
+        # unit test cases are designed with specific compilation flags
+        # and run under specific modes.
+        # There is no need to loop through all running modes in this script.
+        unit_test || (echo "TEST FAILED"; exit 1)
+        collect_coverage unit
+
+        # remove 'unit' from TEST_CASE_ARR
+        TEST_CASE_ARR=("${TEST_CASE_ARR[@]/unit}")
+        # remove empty elements from TEST_CASE_ARR
+        TEST_CASE_ARR=($(remove_empty_elements "${TEST_CASE_ARR[@]}"))
+    fi
+
+    # loop others through all running modes
     trigger || (echo "TEST FAILED"; exit 1)
 else
     # test all suite, ignore polybench and libsodium because of long time cost
@@ -1215,6 +1248,7 @@ else
 fi
 
 echo -e "Test finish. Reports are under ${REPORT_DIR}"
-DEBUG set +exv pipefail
+DEBUG set +exv
+DEBUG set +o pipefail
 echo "TEST SUCCESSFUL"
 exit 0

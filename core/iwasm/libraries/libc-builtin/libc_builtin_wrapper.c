@@ -1014,7 +1014,8 @@ print_i64_wrapper(wasm_exec_env_t exec_env, int64 i64)
 static void
 print_i32_f32_wrapper(wasm_exec_env_t exec_env, int32 i32, float f32)
 {
-    os_printf("in specttest.print_i32_f32(%" PRId32 ", %f)\n", i32, f32);
+    os_printf("in specttest.print_i32_f32(%" PRId32 ", %f)\n", i32,
+              (double)f32);
 }
 
 static void
@@ -1026,7 +1027,7 @@ print_f64_f64_wrapper(wasm_exec_env_t exec_env, double f64_1, double f64_2)
 static void
 print_f32_wrapper(wasm_exec_env_t exec_env, float f32)
 {
-    os_printf("in specttest.print_f32(%f)\n", f32);
+    os_printf("in specttest.print_f32(%f)\n", (double)f32);
 }
 
 static void
