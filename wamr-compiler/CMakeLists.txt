@@ -32,11 +32,17 @@ set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
 # Turn on SIMD by default, can be turned off by setting WAMR_BUILD_SIMD to 0
+if (NOT WAMR_BUILD_SIMD)
+  set (WAMR_BUILD_SIMD 1)
+endif ()
+
 if (WAMR_BUILD_SIMD EQUAL 0)
   add_definitions(-DWASM_ENABLE_SIMD=0)
 else()
   add_definitions(-DWASM_ENABLE_SIMD=1)
 endif()
+
+set(WAMR_BUILD_JIT 0)
 
 add_definitions(-DWASM_ENABLE_INTERP=1)
 add_definitions(-DWASM_ENABLE_WAMR_COMPILER=1)
