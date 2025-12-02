@@ -136,6 +136,16 @@ load(void *tflite_ctx, graph_builder_array *builder, graph_encoding encoding,
 
     uint32_t size = builder->buf[0].size;
 
+    if (size < 8) {
+        NN_ERR_PRINTF("Model too small to be a valid TFLite file.");
+        return invalid_argument;
+    }
+    if (memcmp(tfl_ctx->models[*g].model_pointer + 4, "TFL3", 4) != 0) {
+        NN_ERR_PRINTF(
+            "Model file is not a TFLite FlatBuffer (missing TFL3 identifier).");
+        return invalid_argument;
+    }
+
     // Save model
     tfl_ctx->models[*g].model_pointer = (char *)wasm_runtime_malloc(size);
     if (tfl_ctx->models[*g].model_pointer == NULL) {
