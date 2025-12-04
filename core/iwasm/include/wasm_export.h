@@ -2438,6 +2438,17 @@ wasm_shared_heap_t
 wasm_runtime_unchain_shared_heaps(wasm_shared_heap_t head, bool entire_chain);
 
 /**
+ * Reset shared heap chain. For each shared heap in the chain, if it is a
+ * pre-allocated shared heap, its memory region will be zeroed. For a
+ * WAMR-managed shared heap, it will be destroyed and reinitialized.
+ *
+ * @param shared_heap The head of the shared heap chain.
+ * @return true if success, false otherwise.
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_reset_shared_heap_chain(wasm_shared_heap_t shared_heap);
+
+/**
  * Attach a shared heap, it can be the head of shared heap chain, in that case,
  * attach the shared heap chain, to a module instance
  *
