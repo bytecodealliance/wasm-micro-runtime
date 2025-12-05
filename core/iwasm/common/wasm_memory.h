@@ -96,6 +96,9 @@ WASMSharedHeap *
 wasm_runtime_unchain_shared_heaps(WASMSharedHeap *head, bool entire_chain);
 
 bool
+wasm_runtime_reset_shared_heap_chain(WASMSharedHeap *shared_heap);
+
+bool
 wasm_runtime_attach_shared_heap(WASMModuleInstanceCommon *module_inst,
                                 WASMSharedHeap *shared_heap);
 bool
