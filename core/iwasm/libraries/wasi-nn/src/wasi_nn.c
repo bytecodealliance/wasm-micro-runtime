@@ -56,6 +56,12 @@ struct backends_api_functions {
             NN_ERR_PRINTF("Error %s() -> %d", #func, wasi_error);          \
     } while (0)
 
+static graph_encoding auto_detect_encoding_order[] = {
+    tensorflowlite, onnx, openvino,   tensorflow,
+    pytorch,        ggml, autodetect, unknown_backend
+};
+static int auto_detect_encoding_num =
+    sizeof(auto_detect_encoding_order) / sizeof(graph_encoding);
 static void *wasi_nn_key;
 
 static void
@@ -492,21 +498,22 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
     }
 
     if (encoding == autodetect) {
-        for (graph_encoding e = openvino; e <= unknown_backend; e++) {
+        for (int i = 0; i < auto_detect_encoding_num; i++) {
             if (wasi_nn_ctx->is_backend_ctx_initialized) {
                 call_wasi_nn_func(wasi_nn_ctx->backend, deinit, res,
                                   wasi_nn_ctx->backend_ctx);
             }
 
-            res = ensure_backend(instance, e, wasi_nn_ctx);
+            res = ensure_backend(instance, auto_detect_encoding_order[i],
+                                 wasi_nn_ctx);
             if (res != success) {
                 NN_ERR_PRINTF("continue trying the next");
                 continue;
             }
 
             call_wasi_nn_func(wasi_nn_ctx->backend, load, res,
-                              wasi_nn_ctx->backend_ctx, &builder_native, e,
-                              target, g);
+                              wasi_nn_ctx->backend_ctx, &builder_native,
+                              auto_detect_encoding_order[i], target, g);
             if (res != success) {
                 NN_ERR_PRINTF("continue trying the next");
                 continue;
@@ -595,13 +602,14 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
         goto fail;
     }
 
-    for (graph_encoding e = openvino; e <= unknown_backend; e++) {
+    for (int i = 0; i < auto_detect_encoding_num; i++) {
         if (wasi_nn_ctx->is_backend_ctx_initialized) {
             call_wasi_nn_func(wasi_nn_ctx->backend, deinit, res,
                               wasi_nn_ctx->backend_ctx);
         }
 
-        res = ensure_backend(instance, e, wasi_nn_ctx);
+        res = ensure_backend(instance, auto_detect_encoding_order[i],
+                             wasi_nn_ctx);
         if (res != success) {
             NN_ERR_PRINTF("continue trying the next");
             continue;
@@ -669,13 +677,14 @@ wasi_nn_load_by_name_with_config(wasm_exec_env_t exec_env, char *name,
         goto fail;
     }
 
-    for (graph_encoding e = openvino; e <= unknown_backend; e++) {
+    for (int i = 0; i < auto_detect_encoding_num; i++) {
         if (wasi_nn_ctx->is_backend_ctx_initialized) {
             call_wasi_nn_func(wasi_nn_ctx->backend, deinit, res,
                               wasi_nn_ctx->backend_ctx);
         }
 
-        res = ensure_backend(instance, e, wasi_nn_ctx);
+        res = ensure_backend(instance, auto_detect_encoding_order[i],
+                             wasi_nn_ctx);
         if (res != success) {
             NN_ERR_PRINTF("continue trying the next");
             continue;
