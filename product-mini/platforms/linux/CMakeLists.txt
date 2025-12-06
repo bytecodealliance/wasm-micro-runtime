@@ -167,7 +167,7 @@ target_link_libraries(iwasm vmlib)
 
 install (TARGETS iwasm DESTINATION bin)
 
-add_library (vmlib ${WAMR_RUNTIME_LIB_SOURCE})
+add_library (vmlib SHARED ${WAMR_RUNTIME_LIB_SOURCE})
 
 set_version_info (vmlib)
 
