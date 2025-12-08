@@ -1,103 +1,108 @@
-# Tiered Supported
+# Tiered Support
 
-**Tier definitions**
+Tier Definitions
 
-- **A — Production Ready:** fully tested and stable.
-- **B — Almost Production Ready:** partially tested; close to production.
-- **C — Experimental / Not Production Ready:** unfinished or volatile.
+## Tier A
 
-The condition _tested_ mentioned above specifically refers to whether there are enough tests in CI.
+This tier is the highest level of support. Features and targets in this tier are fully supported, actively maintained, and regularly tested. Users can expect prompt assistance and comprehensive documentation for any issues or questions related to these features. Users can rely on Tier A features for production environments. Targets in this tier usually have been landed in products.
 
-## Architecture Support
+## Tier B
 
-| Architecture | Tier  |
-| ------------ | ----- |
-| **x86-64**   | **A** |
-| **x86-32**   | **A** |
-| AArch64      | B     |
-| ARC          | B     |
-| ARM          | B     |
-| RISCV32      | B     |
-| RISCV64      | B     |
-| THUMB        | B     |
-| XTENSA       | B     |
-| MIPS         | C     |
+This tier represents a moderate level of support. Features and targets in this tier are generally supported and maintained, but may not receive the same level of attention as Tier A. While efforts are made to ensure stability, users may encounter occasional issues that are not immediately addressed. Documentation may be less comprehensive compared to Tier A. Users are encouraged to report any issues they encounter, but response times may vary.
 
-## OS / Platform Support
+## Tier C
 
-| Platform           | Tier  |
-| ------------------ | ----- |
-| **NuttX**          | **A** |
-| **Ubuntu**         | **A** |
-| Android            | B     |
-| macOS              | B     |
-| Windows            | B     |
-| Zephyr             | B     |
-| AliOS-Things       | C     |
-| Cosmopolitan       | C     |
-| ESP-IDF (FreeRTOS) | C     |
-| FreeBSD            | C     |
-| iOS                | C     |
-| RT-Thread          | C     |
-| RIOT               | C     |
-| VxWorks            | C     |
+This tier indicates a basic level of support. Features and targets in this tier are considered experimental or less stable. They may not be actively maintained, and users should be prepared for potential issues or limitations. Documentation may be minimal or outdated. Users opting to use Tier C features do so at their own risk and should be prepared to troubleshoot issues independently. These features are typically not recommended for production use.
 
-## WebAssembly Proposal Support
+- _tested_ mentioned above specifically refers to whether there are enough tests in CI.
+- _actively maintained_ means that the code is regularly updated to fix bugs, improve performance, and ensure compatibility with other components.
+- _fully supported_ means that users can expect timely assistance, comprehensive documentation, and regular updates for any issues or questions related to these features.
 
-> During configuration, It is able to disable or enable the following features by setting the corresponding flags (see Appendix). It is also possible to check features status in the configuration output.
+There are some
 
-| WASM Proposal / Extension              | Tier        |
-| -------------------------------------- | ----------- |
-| **Bulk Memory**                        | A           |
-| **Extended Constant Expressions**      | A           |
-| **Import/Export of Mutable Globals**   | A           |
-| **Memory64**                           | A           |
-| **Multi-value**                        | A           |
-| **Non-trapping float-to-int**          | A           |
-| **Reference Types**                    | A           |
-| **Shared Memory (Threads)**            | A           |
-| **SIMD (128-bit)**                     | A           |
-| **Sign-extension Operators**           | A           |
-| GC (Garbage Collection)                | B           |
-| Stringref                              | B           |
-| Tail Calls                             | B           |
-| Multi-memory                           | C           |
-| Legacy Exception Handling              | C           |
-| Branch Hinting                         | Unsupported |
-| Custom Annotation Syntax (text format) | Unsupported |
-| Exception Handling (new spec)          | Unsupported |
-| JS String Builtins                     | Unsupported |
-| Relaxed SIMD                           | Unsupported |
+# Tiered Features and Targets
 
-# WAMR-Specific Feature Support
+_Runtime Extensions_ are features that extend the runtime capabilities of the system beyond the core WebAssembly specification. These extensions may include optimizations, additional APIs, or other enhancements that improve performance, usability, or functionality.
 
-> During configuration, It is able to disable or enable the following features by setting the corresponding flags (see Appendix). It is also possible to check features status in the configuration output.
+_Privileged Features_ are features that require users' awareness of potential security implications. But brings significant benefits on performance, functionality, or other aspects. These features may introduce risks or challenges that users should consider before enabling them in their applications. The use of privileged features requires additional configuration, testing, or monitoring to ensure safe and effective operation.
 
-| WAMR Feature                      | Tier |
-| --------------------------------- | ---- |
-| **AoT (wamrc)**                   | A    |
-| **AOT intrinsics**                | A    |
-| **Fast Interpreter**              | A    |
-| **Interpreter (classic)**         | A    |
-| **Libc builtin**                  | A    |
-| **Libc WASI**                     | A    |
-| **Quick AOT/JIT entries**         | A    |
-| **Shrunk memory**                 | A    |
-| **Wakeup of blocking operations** | A    |
-| **WASM C API**                    | A    |
-| Fast JIT                          | B    |
-| LLVM ORC JIT                      | B    |
-| Memory profiling                  | B    |
-| Module instance context[^7]       | B    |
-| Multi-module                      | B    |
-| Perf profiling                    | B    |
-| Pthread                           | B    |
-| Shared heap                       | B    |
-| WASI threads                      | B    |
-| WASI-NN (neural network APIs)     | B    |
-| Debug Interpreter                 | B    |
-| Debug AOT                         | C    |
-| Tier-up (Fast JIT → LLVM JIT)     | C    |
+## Privileged Features
+
+## TierA
+
+| Description                      | Compilation Flags              | Labels             |
+| -------------------------------- | ------------------------------ | ------------------ |
+| x86_64-pc-linux-gnu              | N/A                            | Target             |
+| i386-pc-linux-gnu                | N/A                            | Target             |
+| aarch64-none-?                   | N/A                            | Target             |
+| x86_64-none-linux-gnu            | N/A                            | Target             |
+| Bulk Memory                      | [WAMR_BUILD_BULK_MEMORY](./build_wamr.md#enable-bulk-memory-feature)         | Wasm Proposal      |
+| Extended Constant Expressions    | WAMR_BUILD_EXTENDED_CONST_EXPR | Wasm Proposal      |
+| Import/Export of Mutable Globals | ALWAYS ON                      | Wasm Proposal      |
+| Memory64                         | WAMR_BUILD_MEMORY64            | Wasm Proposal      |
+| Multi-value                      | ALWAYS ON                      | Wasm Proposal      |
+| Non-trapping float-to-int        | ALWAYS ON                      | Wasm Proposal      |
+| Reference Types                  | WAMR_BUILD_REF_TYPES           | Wasm Proposal      |
+| Shared Memory (Threads)          | WAMR_BUILD_SHARED_MEMORY       | Wasm Proposal      |
+| SIMD (128-bit)                   | WAMR_BUILD_SIMD                | Wasm Proposal      |
+| Sign-extension Operators         | ALWAYS ON                      | Wasm Proposal      |
+| Wasm C API                       | ALWAYS ON                      | Wasm Proposal      |
+| WASI Libc                        | WAMR_BUILD_LIBC_WASI           | Wasm Proposal      |
+| AoT (wamrc)                      | WAMR_BUILD_AOT                 | Runtime Extensions |
+| AOT intrinsics                   | WAMR_BUILD_AOT_INTRINSICS      | Runtime Extensions |
+| Fast Interpreter                 | WAMR_BUILD_FAST_INTERP         | Runtime Extensions |
+| Interpreter (classic)            | WAMR_BUILD_INTERP              | Runtime Extensions |
+| Libc builtin                     | WAMR_BUILD_LIBC_BUILTIN        | Runtime Extensions |
+| Quick AOT/JIT entries            | WAMR_BUILD_QUICK_AOT_ENTRY     | Runtime Extensions |
+| Shrunk memory                    | WAMR_BUILD_SHRUNK_MEMORY       | Runtime Extensions |
+| Wakeup of blocking operations    | N/A                            | Runtime Extensions |
+
+## TierB
+
+| Description                   | Compilation Flags              | Labels             |
+| ----------------------------- | ------------------------------ | ------------------ |
+| ARC                           | N/A                            | Target             |
+| ARM                           | N/A                            | Target             |
+| RISCV32                       | N/A                            | Target             |
+| RISCV64                       | N/A                            | Target             |
+| THUMB                         | N/A                            | Target             |
+| XTENSA                        | N/A                            | Target             |
+| Android                       | N/A                            | OS                 |
+| macOS                         | N/A                            | OS                 |
+| Windows                       | N/A                            | OS                 |
+| Zephyr                        | N/A                            | OS                 |
+| GC (Garbage Collection)       | WAMR_BUILD_GC                  | Wasm Proposal      |
+| Stringref                     | WAMR_BUILD_STRINGREF           | Wasm Proposal      |
+| Tail Calls                    | WAMR_BUILD_TAIL_CALL           | Wasm Proposal      |
+| Fast JIT                      | WAMR_BUILD_FAST_JIT            | Runtime Extensions |
+| LLVM JIT                      | WAMR_BUILD_JIT                 | Runtime Extensions |
+| Memory profiling              | WAMR_BUILD_MEMORY_PROFILING    | Runtime Extensions |
+| Module instance context       | WAMR_BUILD_MODULE_INST_CONTEXT | Runtime Extensions |
+| Multi-module                  | WAMR_BUILD_MULTI_MODULE        | Runtime Extensions |
+| Perf profiling                | WAMR_BUILD_PERF_PROFILING      | Runtime Extensions |
+| Pthread                       | WAMR_BUILD_LIB_PTHREAD         | Runtime Extensions |
+| Shared heap                   | WAMR_BUILD_SHARED_HEAP         | Runtime Extensions |
+| WASI threads                  | WAMR_BUILD_LIB_WASI_THREADS    | Runtime Extensions |
+| WASI-NN (neural network APIs) | WAMR_BUILD_WASI_NN             | Runtime Extensions |
+| Debug Interpreter             | WAMR_BUILD_DEBUG_INTERP        | Runtime Extensions |
+
+## TierC
+
+| Description                   | Compilation Flags            | Labels             |
+| ----------------------------- | ---------------------------- | ------------------ |
+| MIPS                          | N/A                          | Target             |
+| AliOS-Things                  | N/A                          | OS                 |
+| Cosmopolitan                  | N/A                          | OS                 |
+| ESP-IDF (FreeRTOS)            | N/A                          | OS                 |
+| FreeBSD                       | N/A                          | OS                 |
+| iOS                           | N/A                          | OS                 |
+| RT-Thread                     | N/A                          | OS                 |
+| RIOT                          | N/A                          | OS                 |
+| VxWorks                       | N/A                          | OS                 |
+| Multi-memory                  | WAMR_BUILD_MULTI_MEMORY      | Wasm Proposal      |
+| Legacy Exception Handling     | WAMR_BUILD_EXCE_HANDLING     | Wasm Proposal      |
+| Debug AOT                     | WAMR_BUILD_DEBUG_AOT         | Runtime Extensions |
+| Tier-up (Fast JIT → LLVM JIT) | WAMR_BUILD_DYNAMIC_AOT_DEBUG | Runtime Extensions |
 
 ---
 
