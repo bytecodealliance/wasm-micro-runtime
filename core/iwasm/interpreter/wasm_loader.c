@@ -3908,7 +3908,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
 
             /* Resolve local set count */
             p_code_end = p_code + code_size;
-#if WASM_ENABLE_BRANCH_HINTS != 0
+#if WASM_ENABLE_BRANCH_HINTS != 0 || WASM_ENABLE_COMPILATION_HINTS != 0
             uint8 *p_body_start = (uint8 *)p_code;
 #endif
             local_count = 0;
@@ -3991,7 +3991,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
             if (local_count > 0)
                 func->local_types = (uint8 *)func + sizeof(WASMFunction);
             func->code_size = code_size;
-#if WASM_ENABLE_BRANCH_HINTS != 0
+#if WASM_ENABLE_BRANCH_HINTS != 0 || WASM_ENABLE_COMPILATION_HINTS != 0
             func->code_body_begin = p_body_start;
 #endif
             /*
@@ -5566,11 +5566,14 @@ fail:
 }
 #endif
 
-#if WASM_ENABLE_BRANCH_HINTS != 0
+#if WASM_ENABLE_BRANCH_HINTS != 0 || WASM_ENABLE_COMPILATION_HINTS != 0
+typedef bool (*CompileHintSig)(const uint8 *, const uint8 *, uint32, void *,
+                               char *, uint32, WASMModule *);
 static bool
-handle_branch_hint_section(const uint8 *buf, const uint8 *buf_end,
+read_code_metadata_section(const uint8 *buf, const uint8 *buf_end,
                            WASMModule *module, char *error_buf,
-                           uint32 error_buf_size)
+                           uint32 error_buf_size, size_t hint_struct_size,
+                           const CompileHintSig hint_processor)
 {
     if (module->function_hints == NULL) {
         module->function_hints = loader_malloc(
@@ -5601,50 +5604,147 @@ handle_branch_hint_section(const uint8 *buf, const uint8 *buf_end,
 
         uint32 num_hints;
         read_leb_uint32(buf, buf_end, num_hints);
-        struct WASMCompilationHintBranchHint *new_hints = loader_malloc(
-            sizeof(struct WASMCompilationHintBranchHint) * num_hints, error_buf,
-            error_buf_size);
+        struct WASMCompilationHint *new_hints = loader_malloc(
+            hint_struct_size * num_hints, error_buf, error_buf_size);
         for (uint32 j = 0; j < num_hints; ++j) {
-            struct WASMCompilationHintBranchHint *new_hint = &new_hints[j];
+            struct WASMCompilationHint *new_hint =
+                new_hints + j * hint_struct_size;
             new_hint->next = NULL;
-            new_hint->type = WASM_COMPILATION_BRANCH_HINT;
+            new_hint->used = false;
             read_leb_uint32(buf, buf_end, new_hint->offset);
 
             uint32 size;
             read_leb_uint32(buf, buf_end, size);
-            if (size != 1) {
-                set_error_buf_v(error_buf, error_buf_size,
-                                "invalid branch hint size, expected 1, got %d.",
-                                size);
-                wasm_runtime_free(new_hint);
+
+            if (!hint_processor(buf, buf_end, size, (void *)new_hint, error_buf,
+                                error_buf_size, module)) {
+                wasm_runtime_free(new_hints);
                 goto fail;
             }
-
-            uint8 data = *buf++;
-            if (data == 0x00)
-                new_hint->is_likely = false;
-            else if (data == 0x01)
-                new_hint->is_likely = true;
-            else {
-                set_error_buf_v(error_buf, error_buf_size,
-                                "invalid branch hint, expected 0 or 1, got %d",
-                                data);
-                wasm_runtime_free(new_hint);
-                goto fail;
-            }
-
-            current_hint->next = (struct WASMCompilationHint *)new_hint;
-            current_hint = (struct WASMCompilationHint *)new_hint;
+            buf += size;
+            current_hint->next = new_hint;
+            current_hint = new_hint;
         }
     }
     if (buf != buf_end) {
         set_error_buf(error_buf, error_buf_size,
-                      "invalid branch hint section, not filled until end");
+                      "invalid compilation hint section, not filled until end");
         goto fail;
     }
     return true;
 fail:
     return false;
+}
+#endif
+
+#if WASM_ENABLE_BRANCH_HINTS != 0
+bool
+handle_compilation_hint_branch_hint_processor(const uint8 *buf,
+                                              const uint8 *buf_end,
+                                              const uint32 hint_size,
+                                              void *hint_store, char *error_buf,
+                                              uint32 error_buf_size,
+                                              WASMModule *module)
+{
+    (void)module;
+    struct WASMCompilationHintBranchHint *hint = hint_store;
+    hint->common.type = WASM_COMPILATION_HINT_BRANCH;
+    if (hint_size != 1) {
+        set_error_buf_v(error_buf, error_buf_size,
+                        "invalid branch hint size, expected 1, got %d.",
+                        hint_size);
+        return false;
+    }
+    CHECK_BUF(buf, buf_end, 1);
+    const uint8 data = read_uint8(buf);
+    if (data == 0x00)
+        hint->is_likely = false;
+    else if (data == 0x01)
+        hint->is_likely = true;
+    else {
+        set_error_buf_v(error_buf, error_buf_size,
+                        "invalid branch hint value, expected 0 or 1, got %d",
+                        data);
+        goto fail;
+    }
+    return true;
+fail:
+    return false;
+}
+
+static bool
+handle_branch_hint_section(const uint8 *buf, const uint8 *buf_end,
+                           WASMModule *module, char *error_buf,
+                           uint32 error_buf_size)
+{
+    return read_code_metadata_section(
+        buf, buf_end, module, error_buf, error_buf_size,
+        sizeof(struct WASMCompilationHintCallTargets),
+        handle_compilation_hint_branch_hint_processor);
+}
+#endif
+
+#if WASM_ENABLE_COMPILATION_HINTS != 0
+bool
+handle_compilation_hint_call_targets_processor(
+    const uint8 *buf, const uint8 *buf_end, const uint32 hint_size,
+    void *hint_store, char *error_buf, uint32 error_buf_size,
+    WASMModule *module)
+{
+    struct WASMCompilationHintCallTargets *hint = hint_store;
+    hint->common.type = WASM_COMPILATION_HINT_CALL_TARGETS;
+    CHECK_BUF(buf, buf_end, hint_size);
+    hint->target_count = 0;
+
+    const uint8 *orig_buf = buf;
+    const uint8 *hint_end = buf + hint_size;
+    // first pass: count hints
+    while (buf < hint_end) {
+        uint32 func_idx;
+        read_leb_uint32(buf, buf_end, func_idx);
+        check_function_index(module, func_idx, error_buf, error_buf_size);
+        uint32 call_frequency;
+        read_leb_uint32(buf, buf_end, call_frequency);
+        (void)call_frequency;
+        hint->target_count += 1;
+    }
+    if (buf != hint_end) {
+        set_error_buf_v(error_buf, error_buf_size,
+                        "incomplete call targets hint");
+        goto fail;
+    }
+
+    hint->hints = (struct WASMCompilationHintCallTargetsHint *)loader_malloc(
+        sizeof(struct WASMCompilationHintCallTargetsHint) * hint->target_count,
+        error_buf, error_buf_size);
+    if (!hint->hints) {
+        return false;
+    }
+
+    // second pass: store hint information
+    buf = orig_buf;
+    for (size_t i = 0; i < hint->target_count; ++i) {
+        struct WASMCompilationHintCallTargetsHint *target_hint =
+            &hint->hints[i];
+        read_leb_uint32(buf, buf_end, target_hint->func_idx);
+        read_leb_uint32(buf, buf_end, target_hint->call_frequency);
+    }
+    return true;
+fail:
+    return false;
+}
+
+static bool
+handle_compilation_hint_call_targets_section(const uint8 *buf,
+                                             const uint8 *buf_end,
+                                             WASMModule *module,
+                                             char *error_buf,
+                                             uint32 error_buf_size)
+{
+    return read_code_metadata_section(
+        buf, buf_end, module, error_buf, error_buf_size,
+        sizeof(struct WASMCompilationHintCallTargets),
+        handle_compilation_hint_call_targets_processor);
 }
 #endif
 
@@ -5706,12 +5806,34 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             return false;
         }
         LOG_VERBOSE("Load branch hint section success.");
+        return true;
     }
 #else
     if (name_len == 25
         && memcmp((const char *)p, "metadata.code.branch_hint", 25) == 0) {
         LOG_VERBOSE("Found branch hint section, but branch hints are disabled "
                     "in this build, skipping.");
+        return true;
+    }
+#endif
+
+#if WASM_ENABLE_COMPILATION_HINTS != 0
+    if (name_len == 26
+        && memcmp((const char *)p, "metadata.code.call_targets", 26) == 0) {
+        p += name_len;
+        if (!handle_compilation_hint_call_targets_section(
+                p, p_end, module, error_buf, error_buf_size)) {
+            return false;
+        }
+        LOG_VERBOSE("Load call target compilation hint section success.");
+        return true;
+    }
+#else
+    if (name_len == 26
+        && memcmp((const char *)p, "metadata.code.call_targets", 26) == 0) {
+        LOG_VERBOSE("Found compilation hints call targets section, but "
+                    "compilation hints are disabled in this build, skipping.");
+        return true;
     }
 #endif
 
@@ -7500,13 +7622,35 @@ wasm_loader_unload(WASMModule *module)
     }
 #endif
 #endif
-#if WASM_ENABLE_BRANCH_HINTS != 0
+#if WASM_ENABLE_BRANCH_HINTS != 0 || WASM_ENABLE_COMPILATION_HINTS != 0
     for (i = 0; i < module->function_count; i++) {
-        // be carefull when adding more hints. This only works as long as
-        // the hint structs have been allocated all at once as an array.
-        // With only branch-hints at the moment, this is the case.
-        if (module->function_hints != NULL && module->function_hints[i] != NULL)
-            wasm_runtime_free(module->function_hints[i]);
+        if (module->function_hints != NULL
+            && module->function_hints[i] != NULL) {
+            // properly free all additionally allocated data:
+            // each code metadata section parsed adds a chain of hints to the
+            // function hints. That chain of WASMCompilationHint specializations
+            // is allocated as an array. We need to find the starts of the
+            // separate arrays to free them all properly.
+            struct WASMCompilationHint *curr = module->function_hints[i];
+            struct WASMCompilationHint *last_chain_start = curr;
+            while (curr != NULL) {
+                if (!curr->used) {
+                    LOG_WARNING("Unused hint for function %u, offset: %x\n",
+                                i + module->import_count, curr->offset);
+                }
+                if (curr->type != last_chain_start->type) {
+                    // we switched chains -> deallocate previous chain and reset
+                    wasm_runtime_free(last_chain_start);
+                    last_chain_start = curr;
+                }
+                if (curr->type == WASM_COMPILATION_HINT_CALL_TARGETS) {
+                    wasm_runtime_free(
+                        ((struct WASMCompilationHintCallTargets *)curr)->hints);
+                }
+                curr = curr->next;
+            }
+            wasm_runtime_free(last_chain_start);
+        }
     }
     if (module->function_hints != NULL)
         wasm_runtime_free(module->function_hints);
