@@ -108,92 +108,91 @@ _Privileged Features_ are features that require users' awareness of potential se
 
 # Appendix: All compilation flags
 
-| Compilation flags                           | Tiered | Default | on Ubuntu |
-| ------------------------------------------- | ------ | ------- | --------- |
-| WAMR_APP_THREAD_STACK_SIZE_MAX              | B      | ND[^1]  |           |
-| WAMR_BH_LOG                                 | B      | ND      |           |
-| WAMR_BH_VPRINTF                             | B      | ND      |           |
-| WAMR_BUILD_ALLOC_WITH_USAGE                 | B      | ND      |           |
-| WAMR_BUILD_ALLOC_WITH_USER_DATA             | B      | ND      |           |
-| WAMR_BUILD_AOT                              | A      | ND      | 1         |
-| WAMR_BUILD_AOT_INTRINSICS                   | A      | 1[^2]   |           |
-| WAMR_BUILD_AOT_STACK_FRAME                  | A      | ND      |           |
-| WAMR_BUILD_AOT_VALIDATOR                    | B      | ND      |           |
-| WAMR_BUILD_BULK_MEMORY                      | A      | 1       |           |
-| WAMR_BUILD_COPY_CALL_STACK                  | B      | ND      |           |
-| WAMR_BUILD_CUSTOM_NAME_SECTION              | B      | ND      |           |
-| WAMR_BUILD_DEBUG_AOT                        | C      | ND      |           |
-| WAMR_BUILD_DEBUG_INTERP                     | B      | ND      |           |
-| WAMR_BUILD_DUMP_CALL_STACK                  | B      | ND      |           |
-| WAMR_BUILD_DYNAMIC_AOT_DEBUG                | C      | ND      |           |
-| WAMR_BUILD_EXCE_HANDLING                    | C      | 0       |           |
-| WAMR_BUILD_EXTENDED_CONST_EXPR              | A      | 0       |           |
-| WAMR_BUILD_FAST_INTERP                      | A      | ND      | 1         |
-| WAMR_BUILD_FAST_JIT                         | B      | ND      |           |
-| WAMR_BUILD_FAST_JIT_DUMP                    | B      | ND      |           |
-| WAMR_BUILD_GC                               | B      | 0       |           |
-| WAMR_BUILD_GC_HEAP_VERIFY                   | B      | ND      |           |
-| WAMR_BUILD_GLOBAL_HEAP_POOL                 | A      | ND      |           |
-| WAMR_BUILD_GLOBAL_HEAP_SIZE                 | A      | ND      |           |
-| WAMR_BUILD_INSTRUCTION_METERING             | C      | ND      |           |
-| WAMR_BUILD_INTERP                           | A      | ND      | 1         |
-| WAMR_BUILD_INVOKE_NATIVE_GENERAL            | B      | ND      |           |
-| WAMR_BUILD_JIT                              | B      | ND      |           |
-| WAMR_BUILD_LAZY_JIT                         | B      | 1[^3]   |           |
-| WAMR_BUILD_LIBC_BUILTIN                     | A      | ND      | 1         |
-| WAMR_BUILD_LIBC_EMCC                        | C      | ND      |           |
-| WAMR_BUILD_LIBC_UVWASI                      | C      | ND      |           |
-| WAMR_BUILD_LIBC_WASI                        | A      | ND      | 1         |
-| WAMR_BUILD_LIB_PTHREAD                      | B      | ND      |           |
-| WAMR_BUILD_LIB_PTHREAD_SEMAPHORE            | B      | ND      |           |
-| WAMR_BUILD_LIB_RATS                         | C      | ND      |           |
-| WAMR_BUILD_LIB_WASI_THREADS                 | B      | ND      |           |
-| WAMR_BUILD_LINUX_PERF                       | B      | ND      |           |
-| WAMR_BUILD_LIME1                            | A      | NO      |           |
-| WAMR_BUILD_LOAD_CUSTOM_SECTION              | A      | ND      |           |
-| WAMR_BUILD_MEMORY64                         | A      | 0       |           |
-| WAMR_BUILD_MEMORY_PROFILING                 | B      | ND      |           |
-| WAMR_BUILD_MINI_LOADER                      | B      | ND      |           |
-| WAMR_BUILD_MODULE_INST_CONTEXT              | B      | ND      | 1         |
-| WAMR_BUILD_MULTI_MEMORY                     | C      | 0       |           |
-| WAMR_BUILD_MULTI_MODULE                     | B      | ND      |           |
-| WAMR_BUILD_PERF_PROFILING                   | B      | ND      |           |
-| WAMR_BUILD_PLATFORM                         | -      | ND      | linux     |
-| WAMR_BUILD_QUICK_AOT_ENTRY                  | A      | 1[^4]   |           |
-| WAMR_BUILD_REF_TYPES                        | A      | ND      | 1         |
-| WAMR_BUILD_SANITIZER                        | B      | ND      |           |
-| WAMR_BUILD_SGX_IPFS                         | C      | ND      |           |
-| WAMR_BUILD_SHARED_HEAP                      | A      | ND      |           |
-| WAMR_BUILD_SHARED_MEMORY                    | A      | 0       | 1         |
-| WAMR_BUILD_SHRUNK_MEMORY                    | A      | ND      | 1         |
-| WAMR_BUILD_SIMD                             | A      | ND      | 1         |
-| WAMR_BUILD_SIMDE                            | A      | ND      | 1         |
-| WAMR_BUILD_SPEC_TEST                        | A      | ND      |           |
-| WAMR_BUILD_STACK_GUARD_SIZE                 | B      | ND      |           |
-| WAMR_BUILD_STATIC_PGO                       | B      | ND      |           |
-| WAMR_BUILD_STRINGREF                        | B      | 0       |           |
-| WAMR_BUILD_TAIL_CALL                        | A      | 0       | 1         |
-| WAMR_BUILD_TARGET                           | -      | ND      | X86-64    |
-| WAMR_BUILD_THREAD_MGR                       | A      | ND      |           |
-| WAMR_BUILD_WAMR_COMPILER                    | A      | ND      |           |
-| WAMR_BUILD_WASI_EPHEMERAL_NN                | B      | ND      |           |
-| WAMR_BUILD_WASI_NN                          | B      | ND      |           |
-| WAMR_BUILD_WASI_NN_ENABLE_EXTERNAL_DELEGATE | B      | ND      |           |
-| WAMR_BUILD_WASI_NN_ENABLE_GPU               | B      | ND      |           |
-| WAMR_BUILD_WASI_NN_EXTERNAL_DELEGATE_PATH   | B      | ND      |           |
-| WAMR_BUILD_WASI_NN_LLAMACPP                 | B      | ND      |           |
-| WAMR_BUILD_WASI_NN_ONNX                     | B      | ND      |           |
-| WAMR_BUILD_WASI_NN_OPENVINO                 | B      | ND      |           |
-| WAMR_BUILD_WASI_NN_TFLITE                   | B      | ND      |           |
-| WAMR_BUILD_WASI_TEST                        | B      | ND      |           |
-| WAMR_BUILD_WASM_CACHE                       | B      | ND      |           |
-| WAMR_CONFIGURABLE_BOUNDS_CHECKS             | C      | ND      |           |
-| WAMR_DISABLE_APP_ENTRY                      | A      | ND      |           |
-| WAMR_DISABLE_HW_BOUND_CHECK                 | A      | ND      |           |
-| WAMR_DISABLE_STACK_HW_BOUND_CHECK           | A      | ND      |           |
-| WAMR_DISABLE_WAKEUP_BLOCKING_OP             | B      | ND      |           |
-| WAMR_DISABLE_WRITE_GS_BASE                  | B      | ND      |           |
-| WAMR_TEST_GC                                | B      | ND      |           |
+| Description                          | Compilation flags                           | Tiered | Default | on Ubuntu |
+| ------------------------------------ | ------------------------------------------- | ------ | ------- | --------- |
+| Maximum stack size for app threads   | WAMR_APP_THREAD_STACK_SIZE_MAX              | B      | ND[^1]  |           |
+| Host defined logging                 | WAMR_BH_LOG                                 | B      | ND      |           |
+| Host defined vprintf                 | WAMR_BH_VPRINTF                             | B      | ND      |           |
+| Allocation with usage tracking       | WAMR_BUILD_ALLOC_WITH_USAGE                 | B      | ND      |           |
+| Allocation with user data            | WAMR_BUILD_ALLOC_WITH_USER_DATA             | B      | ND      |           |
+| AoT compilation                      | WAMR_BUILD_AOT                              | A      | ND      | 1         |
+| AoT intrinsics                       | WAMR_BUILD_AOT_INTRINSICS                   | A      | 1[^2]   |           |
+| AoT stack frame                      | WAMR_BUILD_AOT_STACK_FRAME                  | A      | ND      |           |
+| AoT validator                        | WAMR_BUILD_AOT_VALIDATOR                    | B      | ND      |           |
+| bulk memory                          | WAMR_BUILD_BULK_MEMORY                      | A      | 1       |           |
+| copy call stack                      | WAMR_BUILD_COPY_CALL_STACK                  | B      | ND      |           |
+| custom name section                  | WAMR_BUILD_CUSTOM_NAME_SECTION              | B      | ND      |           |
+| debug AoT                            | WAMR_BUILD_DEBUG_AOT                        | C      | ND      |           |
+| debug interpreter                    | WAMR_BUILD_DEBUG_INTERP                     | B      | ND      |           |
+| dump call stack                      | WAMR_BUILD_DUMP_CALL_STACK                  | B      | ND      |           |
+| dynamic AoT debugging                | WAMR_BUILD_DYNAMIC_AOT_DEBUG                | C      | ND      |           |
+| exception handling                   | WAMR_BUILD_EXCE_HANDLING                    | C      | 0       |           |
+| extended constant expressions        | WAMR_BUILD_EXTENDED_CONST_EXPR              | A      | 0       |           |
+| fast interpreter                     | WAMR_BUILD_FAST_INTERP                      | A      | ND      | 1         |
+| fast JIT                             | WAMR_BUILD_FAST_JIT                         | B      | ND      |           |
+| fast JIT dump                        | WAMR_BUILD_FAST_JIT_DUMP                    | B      | ND      |           |
+| garbage collection                   | WAMR_BUILD_GC                               | B      | 0       |           |
+| garbage collection heap verification | WAMR_BUILD_GC_HEAP_VERIFY                   | B      | ND      |           |
+| global heap pool                     | WAMR_BUILD_GLOBAL_HEAP_POOL                 | A      | ND      |           |
+| global heap size                     | WAMR_BUILD_GLOBAL_HEAP_SIZE                 | A      | ND      |           |
+| instruction metering                 | WAMR_BUILD_INSTRUCTION_METERING             | C      | ND      |           |
+| interpreter                          | WAMR_BUILD_INTERP                           | A      | ND      | 1         |
+| native general invocation            | WAMR_BUILD_INVOKE_NATIVE_GENERAL            | B      | ND      |           |
+| JIT compilation                      | WAMR_BUILD_JIT                              | B      | ND      |           |
+| lazy JIT compilation                 | WAMR_BUILD_LAZY_JIT                         | B      | 1[^3]   |           |
+| libc builtin functions               | WAMR_BUILD_LIBC_BUILTIN                     | A      | ND      | 1         |
+| libc emcc compatibility              | WAMR_BUILD_LIBC_EMCC                        | C      | ND      |           |
+| libc uvwasi compatibility            | WAMR_BUILD_LIBC_UVWASI                      | C      | ND      |           |
+| wasi libc                            | WAMR_BUILD_LIBC_WASI                        | A      | ND      | 1         |
+| pthread library                      | WAMR_BUILD_LIB_PTHREAD                      | B      | ND      |           |
+| pthread semaphore support            | WAMR_BUILD_LIB_PTHREAD_SEMAPHORE            | B      | ND      |           |
+| RATS library                         | WAMR_BUILD_LIB_RATS                         | C      | ND      |           |
+| wasi threads                         | WAMR_BUILD_LIB_WASI_THREADS                 | B      | ND      |           |
+| Linux performance counters           | WAMR_BUILD_LINUX_PERF                       | B      | ND      |           |
+| LIME1 runtime                        | WAMR_BUILD_LIME1                            | A      | NO      |           |
+| loading custom sections              | WAMR_BUILD_LOAD_CUSTOM_SECTION              | A      | ND      |           |
+| memory64 support                     | WAMR_BUILD_MEMORY64                         | A      | 0       |           |
+| memory profiling                     | WAMR_BUILD_MEMORY_PROFILING                 | B      | ND      |           |
+| mini loader                          | WAMR_BUILD_MINI_LOADER                      | B      | ND      |           |
+| module instance context              | WAMR_BUILD_MODULE_INST_CONTEXT              | B      | ND      | 1         |
+| multi-memory support                 | WAMR_BUILD_MULTI_MEMORY                     | C      | 0       |           |
+| multi-module support                 | WAMR_BUILD_MULTI_MODULE                     | B      | ND      |           |
+| performance profiling                | WAMR_BUILD_PERF_PROFILING                   | B      | ND      |           |
+| Default platform                     | WAMR_BUILD_PLATFORM                         | -      | ND      | linux     |
+| quick AOT entry                      | WAMR_BUILD_QUICK_AOT_ENTRY                  | A      | 1[^4]   |           |
+| reference types                      | WAMR_BUILD_REF_TYPES                        | A      | ND      | 1         |
+| sanitizer                            | WAMR_BUILD_SANITIZER                        | B      | ND      |           |
+| SGX IPFS support                     | WAMR_BUILD_SGX_IPFS                         | C      | ND      |           |
+| shared heap                          | WAMR_BUILD_SHARED_HEAP                      | A      | ND      |           |
+| shared memory                        | WAMR_BUILD_SHARED_MEMORY                    | A      | 0       | 1         |
+| shrunk memory                        | WAMR_BUILD_SHRUNK_MEMORY                    | A      | ND      | 1         |
+| SIMD support                         | WAMR_BUILD_SIMD                             | A      | ND      | 1         |
+| SIMD E extensions                    | WAMR_BUILD_SIMDE                            | A      | ND      | 1         |
+| spec test                            | WAMR_BUILD_SPEC_TEST                        | A      | ND      |           |
+| Stack guard size                     | WAMR_BUILD_STACK_GUARD_SIZE                 | B      | ND      |           |
+| Static PGO                           | WAMR_BUILD_STATIC_PGO                       | B      | ND      |           |
+| String reference support             | WAMR_BUILD_STRINGREF                        | B      | 0       |           |
+| Tail call optimization               | WAMR_BUILD_TAIL_CALL                        | A      | 0       | 1         |
+| Default target architecture          | WAMR_BUILD_TARGET                           | -      | ND      | X86-64    |
+| Thread manager                       | WAMR_BUILD_THREAD_MGR                       | A      | ND      |           |
+| WAMR compiler                        | WAMR_BUILD_WAMR_COMPILER                    | A      | ND      |           |
+| WASI ephemeral NN                    | WAMR_BUILD_WASI_EPHEMERAL_NN                | B      | ND      |           |
+| WASI NN                              | WAMR_BUILD_WASI_NN                          | B      | ND      |           |
+| external delegate for WASI NN        | WAMR_BUILD_WASI_NN_ENABLE_EXTERNAL_DELEGATE | B      | ND      |           |
+| GPU support for WASI NN              | WAMR_BUILD_WASI_NN_ENABLE_GPU               | B      | ND      |           |
+| External delegate path for WASI NN   | WAMR_BUILD_WASI_NN_EXTERNAL_DELEGATE_PATH   | B      | ND      |           |
+| LLAMA CPP for WASI NN                | WAMR_BUILD_WASI_NN_LLAMACPP                 | B      | ND      |           |
+| ONNX for WASI NN                     | WAMR_BUILD_WASI_NN_ONNX                     | B      | ND      |           |
+| OpenVINO for WASI NN                 | WAMR_BUILD_WASI_NN_OPENVINO                 | B      | ND      |           |
+| TFLite for WASI NN                   | WAMR_BUILD_WASI_NN_TFLITE                   | B      | ND      |           |
+| WASM cache                           | WAMR_BUILD_WASM_CACHE                       | B      | ND      |           |
+| Configurable bounds checks           | WAMR_CONFIGURABLE_BOUNDS_CHECKS             | C      | ND      |           |
+| Disable app entry                    | WAMR_DISABLE_APP_ENTRY                      | A      | ND      |           |
+| Disable hardware bound check         | WAMR_DISABLE_HW_BOUND_CHECK                 | A      | ND      |           |
+| Disable stack hardware bound check   | WAMR_DISABLE_STACK_HW_BOUND_CHECK           | A      | ND      |           |
+| Disable wakeup blocking operation    | WAMR_DISABLE_WAKEUP_BLOCKING_OP             | B      | ND      |           |
+| Disable write GS base                | WAMR_DISABLE_WRITE_GS_BASE                  | B      | ND      |           |
+| Test garbage collection              | WAMR_TEST_GC                                | B      | ND      |           |
 
 [^1]: _ND_ represents _not defined_
 [^2]: active if `WAMR_BUILD_AOT` is 1
