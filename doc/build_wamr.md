@@ -7,7 +7,7 @@ References:
 - [how to build iwasm](../product-mini/README.md): building different target platforms such as Linux, Windows, Mac etc
 - [Blog: Introduction to WAMR running modes](https://bytecodealliance.github.io/wamr.dev/blog/introduction-to-wamr-running-modes/)
 
-## WAMR vmcore cmake building configurations
+## building configurations
 
 By including the script `runtime_lib.cmake` under folder [build-scripts](../build-scripts) in CMakeList.txt, it is easy to use vmcore to build host software with cmake.
 
@@ -19,7 +19,93 @@ add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 
 The script `runtime_lib.cmake` defines a number of variables for configuring the WAMR runtime features. You can set these variables in your CMakeList.txt or pass the configurations from cmake command line.
 
-Please refer to [a full list of configuration options](./tired_support.md#appendix-all-compilation-flags).
+### All compilation flags
+
+| Description                          | Compilation flags                                                                                        | Tiered | Default | on Ubuntu |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------- | ------ | ------- | --------- |
+| Maximum stack size for app threads   | [WAMR_APP_THREAD_STACK_SIZE_MAX](#set-maximum-app-thread-stack-size)                                     | B      | ND[^1]  |           |
+| Host defined logging                 | [WAMR_BH_LOG](#wamr_bh_log)                                                                              | B      | ND      |           |
+| Host defined vprintf                 | [WAMR_BH_VPRINTF](#set-vprintf-callback)                                                                 | B      | ND      |           |
+| Allocation with usage tracking       | [WAMR_BUILD_ALLOC_WITH_USAGE](#user-defined-linear-memory-allocator)                                     | B      | ND      |           |
+| Allocation with user data            | [WAMR_BUILD_ALLOC_WITH_USER_DATA](#user-defined-linear-memory-allocator)                                 | B      | ND      |           |
+| AoT compilation                      | [WAMR_BUILD_AOT](#configure-aot)                                                                         | A      | ND      | 1         |
+| AoT intrinsics                       | [WAMR_BUILD_AOT_INTRINSICS](#enable-aot-intrinsics)                                                      | A      | 1[^2]   |           |
+| AoT stack frame                      | [WAMR_BUILD_AOT_STACK_FRAME](#enable-aot-stack-frame-feature)                                            | A      | ND      |           |
+| AoT validator                        | [WAMR_BUILD_AOT_VALIDATOR]()                                                                             | B      | ND      |           |
+| bulk memory                          | [WAMR_BUILD_BULK_MEMORY](#enable-bulk-memory-feature)                                                    | A      | 1       |           |
+| copy call stack                      | WAMR_BUILD_COPY_CALL_STACK                                                                               | B      | ND      |           |
+| custom name section                  | [WAMR_BUILD_CUSTOM_NAME_SECTION](#configure-debug)                                                       | B      | ND      |           |
+| debug AoT                            | WAMR_BUILD_DEBUG_AOT                                                                                     | C      | ND      |           |
+| debug interpreter                    | [WAMR_BUILD_DEBUG_INTERP](#enable-source-debugging-features)                                             | B      | ND      |           |
+| dump call stack                      | [WAMR_BUILD_DUMP_CALL_STACK](#enable-dump-call-stack-feature)                                            | B      | ND      |           |
+| dynamic AoT debugging                | WAMR_BUILD_DYNAMIC_AOT_DEBUG                                                                             | C      | ND      |           |
+| exception handling                   | [WAMR_BUILD_EXCE_HANDLING](#enable-exception-handling)                                                   | C      | 0       |           |
+| extended constant expressions        | [WAMR_BUILD_EXTENDED_CONST_EXPR](#enable-extended-constant-expression)                                   | A      | 0       |           |
+| fast interpreter                     | [WAMR_BUILD_FAST_INTERP](#configure-interpreters)                                                        | A      | ND      | 1         |
+| fast JIT                             | [WAMR_BUILD_FAST_JIT](#configure-fast-jit)                                                               | B      | ND      |           |
+| fast JIT dump                        | WAMR_BUILD_FAST_JIT_DUMP                                                                                 | B      | ND      |           |
+| garbage collection                   | [WAMR_BUILD_GC](#enable-garbage-collection)                                                              | B      | 0       |           |
+| garbage collection heap verification | WAMR_BUILD_GC_HEAP_VERIFY                                                                                | B      | ND      |           |
+| global heap pool                     | [WAMR_BUILD_GLOBAL_HEAP_POOL](#enable-the-global-heap)                                                   | A      | ND      |           |
+| global heap size                     | [WAMR_BUILD_GLOBAL_HEAP_SIZE](#set-the-global-heap-size)                                                 | A      | ND      |           |
+| instruction metering                 | [WAMR_BUILD_INSTRUCTION_METERING](#instruction-metering)                                                 | C      | ND      |           |
+| interpreter                          | [WAMR_BUILD_INTERP](#configure-interpreters)                                                             | A      | ND      | 1         |
+| native general invocation            | WAMR_BUILD_INVOKE_NATIVE_GENERAL                                                                         | B      | ND      |           |
+| JIT compilation                      | [WAMR_BUILD_JIT](#configure-llvm-jit)                                                                    | B      | ND      |           |
+| lazy JIT compilation                 | WAMR_BUILD_LAZY_JIT                                                                                      | B      | 1[^3]   |           |
+| libc builtin functions               | [WAMR_BUILD_LIBC_BUILTIN](#configure-libc)                                                               | A      | ND      | 1         |
+| libc emcc compatibility              | WAMR_BUILD_LIBC_EMCC                                                                                     | C      | ND      |           |
+| libc uvwasi compatibility            | [WAMR_BUILD_LIBC_UVWASI](#configure-libc)                                                                | C      | ND      |           |
+| wasi libc                            | [WAMR_BUILD_LIBC_WASI](#configure-libc)                                                                  | A      | ND      | 1         |
+| pthread library                      | [WAMR_BUILD_LIB_PTHREAD](#enable-lib-pthread)                                                            | B      | ND      |           |
+| pthread semaphore support            | [WAMR_BUILD_LIB_PTHREAD_SEMAPHORE](#enable-lib-pthread-semaphore)                                        | B      | ND      |           |
+| RATS library                         | WAMR_BUILD_LIB_RATS                                                                                      | C      | ND      |           |
+| wasi threads                         | [WAMR_BUILD_LIB_WASI_THREADS](#enable-lib-wasi-threads)                                                  | B      | ND      |           |
+| Linux performance counters           | [WAMR_BUILD_LINUX_PERF](#enable-linux-perf-support)                                                      | B      | ND      |           |
+| LIME1 runtime                        | [WAMR_BUILD_LIME1](#enable-lime1-target)                                                                 | A      | NO      |           |
+| loading custom sections              | [WAMR_BUILD_LOAD_CUSTOM_SECTION](#enable-load-wasm-custom-sections)                                      | A      | ND      |           |
+| memory64 support                     | [WAMR_BUILD_MEMORY64](#enable-memory64-feature)                                                          | A      | 0       |           |
+| memory profiling                     | [WAMR_BUILD_MEMORY_PROFILING](#enable-memory-profiling-experiment)                                       | B      | ND      |           |
+| mini loader                          | [WAMR_BUILD_MINI_LOADER](#enable-wasm-mini-loader)                                                       | B      | ND      |           |
+| module instance context              | [WAMR_BUILD_MODULE_INST_CONTEXT](#module-instance-context-apis)                                          | B      | ND      | 1         |
+| multi-memory support                 | [WAMR_BUILD_MULTI_MEMORY](#enable-multi-memory)                                                          | C      | 0       |           |
+| multi-module support                 | [WAMR_BUILD_MULTI_MODULE](#enable-multi-module-feature)                                                  | B      | ND      |           |
+| performance profiling                | [WAMR_BUILD_PERF_PROFILING](#enable-performance-profiling-experiment)                                    | B      | ND      |           |
+| Default platform                     | [WAMR_BUILD_PLATFORM](#configure-platform-and-architecture)                                              | -      | ND      | linux     |
+| quick AOT entry                      | [WAMR_BUILD_QUICK_AOT_ENTRY](#enable-quick-aotjti-entries)                                               | A      | 1[^4]   |           |
+| reference types                      | [WAMR_BUILD_REF_TYPES](#enable-reference-types-feature)                                                  | A      | ND      | 1         |
+| sanitizer                            | WAMR_BUILD_SANITIZER                                                                                     | B      | ND      |           |
+| SGX IPFS support                     | WAMR_BUILD_SGX_IPFS                                                                                      | C      | ND      |           |
+| shared heap                          | [WAMR_BUILD_SHARED_HEAP](#shared-heap-among-wasm-apps-and-host-native)                                   | A      | ND      |           |
+| shared memory                        | [WAMR_BUILD_SHARED_MEMORY](#enable-shared-memory-feature)                                                | A      | 0       | 1         |
+| shrunk memory                        | [WAMR_BUILD_SHRUNK_MEMORY](#shrunk-the-memory-usage)                                                     | A      | ND      | 1         |
+| SIMD support                         | [WAMR_BUILD_SIMD](#enable-128-bit-simd-feature)                                                          | A      | ND      | 1         |
+| SIMD E extensions                    | WAMR_BUILD_SIMDE                                                                                         | A      | ND      | 1         |
+| spec test                            | WAMR_BUILD_SPEC_TEST                                                                                     | A      | ND      |           |
+| Stack guard size                     | [WAMR_BUILD_STACK_GUARD_SIZE](#stack-guard-size)                                                         | B      | ND      |           |
+| Static PGO                           | [WAMR_BUILD_STATIC_PGO](#enable-running-pgoprofile-guided-optimization-instrumented-aot-file)            | B      | ND      |           |
+| String reference support             | [WAMR_BUILD_STRINGREF](#configure-debug)                                                                 | B      | 0       |           |
+| Tail call optimization               | [WAMR_BUILD_TAIL_CALL](#enable-tail-call-feature)                                                        | A      | 0       | 1         |
+| Default target architecture          | [WAMR_BUILD_TARGET](#configure-platform-and-architecture)                                                | -      | ND      | X86-64    |
+| Thread manager                       | [WAMR_BUILD_THREAD_MGR](#enable-thread-manager)                                                          | A      | ND      |           |
+| WAMR compiler                        | WAMR_BUILD_WAMR_COMPILER                                                                                 | A      | ND      |           |
+| WASI ephemeral NN                    | [WAMR_BUILD_WASI_EPHEMERAL_NN](#enable-lib-wasi-nn-with-wasi_ephemeral_nn-module-support)                | B      | ND      |           |
+| WASI NN                              | [WAMR_BUILD_WASI_NN](#enable-lib-wasi-nn)                                                                | B      | ND      |           |
+| external delegate for WASI NN        | [WAMR_BUILD_WASI_NN_ENABLE_EXTERNAL_DELEGATE](#enable-lib-wasi-nn-external-delegate-mode)                | B      | ND      |           |
+| GPU support for WASI NN              | [WAMR_BUILD_WASI_NN_ENABLE_GPU](#enable-lib-wasi-nn-gpu-mode)                                            | B      | ND      |           |
+| External delegate path for WASI NN   | [WAMR_BUILD_WASI_NN_EXTERNAL_DELEGATE_PATH](#enable-lib-wasi-nn-external-delegate-mode)                  | B      | ND      |           |
+| LLAMA CPP for WASI NN                | WAMR_BUILD_WASI_NN_LLAMACPP                                                                              | B      | ND      |           |
+| ONNX for WASI NN                     | WAMR_BUILD_WASI_NN_ONNX                                                                                  | B      | ND      |           |
+| OpenVINO for WASI NN                 | WAMR_BUILD_WASI_NN_OPENVINO                                                                              | B      | ND      |           |
+| TFLite for WASI NN                   | WAMR_BUILD_WASI_NN_TFLITE                                                                                | B      | ND      |           |
+| WASM cache                           | WAMR_BUILD_WASM_CACHE                                                                                    | B      | ND      |           |
+| Configurable bounds checks           | [WAMR_CONFIGURABLE_BOUNDS_CHECKS](#configurable-memory-access-boundary-check)                            | C      | ND      |           |
+| Disable app entry                    | [WAMR_DISABLE_APP_ENTRY](#exclude-wamr-application-entry-functions)                                      | A      | ND      |           |
+| Disable hardware bound check         | [WAMR_DISABLE_HW_BOUND_CHECK](#disable-boundary-check-with-hardware-trap)                                | A      | ND      |           |
+| Disable stack hardware bound check   | [WAMR_DISABLE_STACK_HW_BOUND_CHECK](#disable-native-stack-boundary-check-with-hardware-trap)             | A      | ND      |           |
+| Disable wakeup blocking operation    | [WAMR_DISABLE_WAKEUP_BLOCKING_OP](#disable-async-wakeup-of-blocking-operation)                           | B      | ND      |           |
+| Disable write GS base                | [WAMR_DISABLE_WRITE_GS_BASE](#disable-writing-the-linear-memory-base-address-to-x86-gs-segment-register) | B      | ND      |           |
+| Test garbage collection              | WAMR_TEST_GC                                                                                             | B      | ND      |           |
 
 ### **Configure platform and architecture**
 
@@ -44,12 +130,23 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 > [!NOTE]
 > the fast interpreter runs ~2X faster than classic interpreter, but consumes about 2X memory to hold the pre-compiled code.
 
-### **Configure AOT and JITs**
+### **Configure AOT**
 
 - **WAMR_BUILD_AOT**=1/0, enable AOT or not, default to enable if not set
+
+### **Configure LLVM JIT**
+
 - **WAMR_BUILD_JIT**=1/0, enable LLVM JIT or not, default to disable if not set
+
+### **Configure Fast JIT**
+
+the fast JIT is a lightweight JIT compiler which generates machine code quickly with optimizations for hot functions. Only covers few architectures (x86_64) currently.
+
 - **WAMR_BUILD_FAST_JIT**=1/0, enable Fast JIT or not, default to disable if not set
-- **WAMR_BUILD_FAST_JIT**=1 and **WAMR_BUILD_JIT**=1, enable Multi-tier JIT, default to disable if not set
+
+> [!NOTE]
+>
+> - **WAMR_BUILD_FAST_JIT**=1 and **WAMR_BUILD_JIT**=1, enable Multi-tier JIT, default to disable if not set
 
 ### **Configure LIBC**
 
@@ -251,16 +348,14 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 - **WAMR_BUILD_GLOBAL_HEAP_POOL**=1/0, default to disable if not set for all _iwasm_ applications, except for the platforms Alios and Zephyr.
 
-> [!NOTE]
-> **WAMR_BUILD_GLOBAL_HEAP_POOL** is used in the _iwasm_ applications provided in the directory `product-mini`. When writing your own host application using WAMR, if you want to use a global heap and allocate memory from it, you must set the initialization argument `mem_alloc_type` to `Alloc_With_Pool`.
+> [!NOTE] > **WAMR_BUILD_GLOBAL_HEAP_POOL** is used in the _iwasm_ applications provided in the directory `product-mini`. When writing your own host application using WAMR, if you want to use a global heap and allocate memory from it, you must set the initialization argument `mem_alloc_type` to `Alloc_With_Pool`.
 > The global heap is defined in the documentation [Memory model and memory usage tunning](memory_tune.md).
 
 ### **Set the global heap size**
 
 - **WAMR_BUILD_GLOBAL_HEAP_SIZE**=n, default to 10 MB (10485760) if not set for all _iwasm_ applications, except for the platforms Alios (256 kB), Riot (256 kB) and Zephyr (128 kB).
 
-> [!NOTE]
-> **WAMR_BUILD_GLOBAL_HEAP_SIZE** is used in the _iwasm_ applications provided in the directory `product-mini`. When writing your own host application using WAMR, if you want to set the amount of memory dedicated to the global heap pool, you must set the initialization argument `mem_alloc_option.pool` with the appropriate values.
+> [!NOTE] > **WAMR_BUILD_GLOBAL_HEAP_SIZE** is used in the _iwasm_ applications provided in the directory `product-mini`. When writing your own host application using WAMR, if you want to set the amount of memory dedicated to the global heap pool, you must set the initialization argument `mem_alloc_option.pool` with the appropriate values.
 > The global heap is defined in the documentation [Memory model and memory usage tunning](memory_tune.md).
 
 ### **Set maximum app thread stack size**
@@ -357,6 +452,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 ### **User defined linear memory allocator**
 
 - **WAMR_BUILD_ALLOC_WITH_USAGE**=1/0, default to disable if not set
+- **WAMR_BUILD_ALLOC_WITH_USER_DATA**=1/0, default to disable if not set
 
 > [!NOTE]
 > by default, the linear memory is allocated by system. when it's set to 1 and Alloc_With_Allocator is selected, it will be allocated by customer.
