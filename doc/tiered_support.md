@@ -66,13 +66,6 @@ This tier indicates a basic level of support. Features and targets in this tier 
 
 ## TierB
 
-> [!TODO]
->
-> - [ ] targets on nuttx
-> - [ ] targets on arm, riscv
-> - [ ] targets on esp32
-> - [ ] targets on zephyr
-
 | Description                        | Compilation Flags                                                                                                       | Labels             |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------ |
 | arc-unknown-none-elf               | N/A                                                                                                                     | Target             |
