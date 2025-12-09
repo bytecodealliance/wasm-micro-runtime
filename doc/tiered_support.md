@@ -30,79 +30,79 @@ _Privileged Features_ are features that require users' awareness of potential se
 
 ## TierA
 
-| Description                      | Compilation Flags              | Labels             |
-| -------------------------------- | ------------------------------ | ------------------ |
-| x86_64-pc-linux-gnu              | N/A                            | Target             |
-| i386-pc-linux-gnu                | N/A                            | Target             |
-| aarch64-none-?                   | N/A                            | Target             |
-| x86_64-none-linux-gnu            | N/A                            | Target             |
-| Bulk Memory                      | [WAMR_BUILD_BULK_MEMORY](./build_wamr.md#enable-bulk-memory-feature)         | Wasm Proposal      |
-| Extended Constant Expressions    | WAMR_BUILD_EXTENDED_CONST_EXPR | Wasm Proposal      |
-| Import/Export of Mutable Globals | ALWAYS ON                      | Wasm Proposal      |
-| Memory64                         | WAMR_BUILD_MEMORY64            | Wasm Proposal      |
-| Multi-value                      | ALWAYS ON                      | Wasm Proposal      |
-| Non-trapping float-to-int        | ALWAYS ON                      | Wasm Proposal      |
-| Reference Types                  | WAMR_BUILD_REF_TYPES           | Wasm Proposal      |
-| Shared Memory (Threads)          | WAMR_BUILD_SHARED_MEMORY       | Wasm Proposal      |
-| SIMD (128-bit)                   | WAMR_BUILD_SIMD                | Wasm Proposal      |
-| Sign-extension Operators         | ALWAYS ON                      | Wasm Proposal      |
-| Wasm C API                       | ALWAYS ON                      | Wasm Proposal      |
-| WASI Libc                        | WAMR_BUILD_LIBC_WASI           | Wasm Proposal      |
-| AoT (wamrc)                      | WAMR_BUILD_AOT                 | Runtime Extensions |
-| AOT intrinsics                   | WAMR_BUILD_AOT_INTRINSICS      | Runtime Extensions |
-| Fast Interpreter                 | WAMR_BUILD_FAST_INTERP         | Runtime Extensions |
-| Interpreter (classic)            | WAMR_BUILD_INTERP              | Runtime Extensions |
-| Libc builtin                     | WAMR_BUILD_LIBC_BUILTIN        | Runtime Extensions |
-| Quick AOT/JIT entries            | WAMR_BUILD_QUICK_AOT_ENTRY     | Runtime Extensions |
-| Shrunk memory                    | WAMR_BUILD_SHRUNK_MEMORY       | Runtime Extensions |
-| Wakeup of blocking operations    | N/A                            | Runtime Extensions |
+| Description                      | Compilation Flags                                                        | Labels             |
+| -------------------------------- | ------------------------------------------------------------------------ | ------------------ |
+| x86_64-pc-linux-gnu              | N/A                                                                      | Target             |
+| i386-pc-linux-gnu                | N/A                                                                      | Target             |
+| aarch64-none-?                   | N/A                                                                      | Target             |
+| x86_64-none-linux-gnu            | N/A                                                                      | Target             |
+| Bulk Memory                      | [WAMR_BUILD_BULK_MEMORY](./build_wamr.md#enable-bulk-memory-feature)     | Wasm Proposal      |
+| Extended Constant Expressions    | [WAMR_BUILD_EXTENDED_CONST_EXPR](./build_wamr.md#configure-interpreters) | Wasm Proposal      |
+| Import/Export of Mutable Globals | ALWAYS ON                                                                | Wasm Proposal      |
+| Memory64                         | [WAMR_BUILD_MEMORY64](./build_wamr.md#enable-memory64-feature)           | Wasm Proposal      |
+| Multi-value                      | ALWAYS ON                                                                | Wasm Proposal      |
+| Non-trapping float-to-int        | ALWAYS ON                                                                | Wasm Proposal      |
+| Reference Types                  | [WAMR_BUILD_REF_TYPES](./build_wamr.md#configure-interpreters)           | Wasm Proposal      |
+| Shared Memory (Threads)          | [WAMR_BUILD_SHARED_MEMORY](./build_wamr.md#enable-shared-memory-feature) | Wasm Proposal      |
+| SIMD (128-bit)                   | [WAMR_BUILD_SIMD](./build_wamr.md#enable-128-bit-simd-feature)           | Wasm Proposal      |
+| Sign-extension Operators         | ALWAYS ON                                                                | Wasm Proposal      |
+| Wasm C API                       | ALWAYS ON                                                                | Wasm Proposal      |
+| WASI Libc                        | [WAMR_BUILD_LIBC_WASI](./build_wamr.md#configure-libc)                   | Wasm Proposal      |
+| AoT (wamrc)                      | [WAMR_BUILD_AOT](./build_wamr.md#configure-aot-and-jits)                 | Runtime Extensions |
+| AOT intrinsics                   | [WAMR_BUILD_AOT_INTRINSICS](./build_wamr.md#configure-aot-and-jits)      | Runtime Extensions |
+| Fast Interpreter                 | [WAMR_BUILD_FAST_INTERP](./build_wamr.md#configure-interpreters)         | Runtime Extensions |
+| Interpreter (classic)            | [WAMR_BUILD_INTERP](./build_wamr.md#configure-interpreters)              | Runtime Extensions |
+| Libc builtin                     | [WAMR_BUILD_LIBC_BUILTIN](./build_wamr.md#configure-libc)                | Runtime Extensions |
+| Quick AOT/JIT entries            | [WAMR_BUILD_QUICK_AOT_ENTRY](./build_wamr.md#configure-aot-and-jits)     | Runtime Extensions |
+| Shrunk memory                    | [WAMR_BUILD_SHRUNK_MEMORY](./build_wamr.md#enable-shared-memory-feature) | Runtime Extensions |
+| Wakeup of blocking operations    | N/A                                                                      | Runtime Extensions |
 
 ## TierB
 
-| Description                   | Compilation Flags              | Labels             |
-| ----------------------------- | ------------------------------ | ------------------ |
-| ARC                           | N/A                            | Target             |
-| ARM                           | N/A                            | Target             |
-| RISCV32                       | N/A                            | Target             |
-| RISCV64                       | N/A                            | Target             |
-| THUMB                         | N/A                            | Target             |
-| XTENSA                        | N/A                            | Target             |
-| Android                       | N/A                            | OS                 |
-| macOS                         | N/A                            | OS                 |
-| Windows                       | N/A                            | OS                 |
-| Zephyr                        | N/A                            | OS                 |
-| GC (Garbage Collection)       | WAMR_BUILD_GC                  | Wasm Proposal      |
-| Stringref                     | WAMR_BUILD_STRINGREF           | Wasm Proposal      |
-| Tail Calls                    | WAMR_BUILD_TAIL_CALL           | Wasm Proposal      |
-| Fast JIT                      | WAMR_BUILD_FAST_JIT            | Runtime Extensions |
-| LLVM JIT                      | WAMR_BUILD_JIT                 | Runtime Extensions |
-| Memory profiling              | WAMR_BUILD_MEMORY_PROFILING    | Runtime Extensions |
-| Module instance context       | WAMR_BUILD_MODULE_INST_CONTEXT | Runtime Extensions |
-| Multi-module                  | WAMR_BUILD_MULTI_MODULE        | Runtime Extensions |
-| Perf profiling                | WAMR_BUILD_PERF_PROFILING      | Runtime Extensions |
-| Pthread                       | WAMR_BUILD_LIB_PTHREAD         | Runtime Extensions |
-| Shared heap                   | WAMR_BUILD_SHARED_HEAP         | Runtime Extensions |
-| WASI threads                  | WAMR_BUILD_LIB_WASI_THREADS    | Runtime Extensions |
-| WASI-NN (neural network APIs) | WAMR_BUILD_WASI_NN             | Runtime Extensions |
-| Debug Interpreter             | WAMR_BUILD_DEBUG_INTERP        | Runtime Extensions |
+| Description                   | Compilation Flags                                                                    | Labels             |
+| ----------------------------- | ------------------------------------------------------------------------------------ | ------------------ |
+| ARC                           | N/A                                                                                  | Target             |
+| ARM                           | N/A                                                                                  | Target             |
+| RISCV32                       | N/A                                                                                  | Target             |
+| RISCV64                       | N/A                                                                                  | Target             |
+| THUMB                         | N/A                                                                                  | Target             |
+| XTENSA                        | N/A                                                                                  | Target             |
+| Android                       | N/A                                                                                  | OS                 |
+| macOS                         | N/A                                                                                  | OS                 |
+| Windows                       | N/A                                                                                  | OS                 |
+| Zephyr                        | N/A                                                                                  | OS                 |
+| GC (Garbage Collection)       | [WAMR_BUILD_GC](./build_wamr.md#enable-garbage-collection)                           | Wasm Proposal      |
+| Stringref                     | [WAMR_BUILD_STRINGREF](./build_wamr.md#configure-debug)                              | Wasm Proposal      |
+| Tail Calls                    | [WAMR_BUILD_TAIL_CALL](./build_wamr.md#enable-tail-call-feature)                     | Wasm Proposal      |
+| Fast JIT                      | [WAMR_BUILD_FAST_JIT](./build_wamr.md#configure-aot-and-jits)                        | Runtime Extensions |
+| LLVM JIT                      | [WAMR_BUILD_JIT](./build_wamr.md#configure-aot-and-jits)                             | Runtime Extensions |
+| Memory profiling              | [WAMR_BUILD_MEMORY_PROFILING](./build_wamr.md#enable-memory-profiling-experiment)    | Runtime Extensions |
+| Module instance context       | [WAMR_BUILD_MODULE_INST_CONTEXT](./build_wamr.md#enable-multi-module-feature)        | Runtime Extensions |
+| Multi-module                  | [WAMR_BUILD_MULTI_MODULE](./build_wamr.md#enable-multi-module-feature)               | Runtime Extensions |
+| Perf profiling                | [WAMR_BUILD_PERF_PROFILING](./build_wamr.md#enable-performance-profiling-experiment) | Runtime Extensions |
+| Pthread                       | [WAMR_BUILD_LIB_PTHREAD](./build_wamr.md#enable-lib-pthread)                         | Runtime Extensions |
+| Shared heap                   | [WAMR_BUILD_SHARED_HEAP](./build_wamr.md#enable-shared-memory-feature)               | Runtime Extensions |
+| WASI threads                  | [WAMR_BUILD_LIB_WASI_THREADS](./build_wamr.md#enable-lib-wasi-threads)               | Runtime Extensions |
+| WASI-NN (neural network APIs) | [WAMR_BUILD_WASI_NN](./build_wamr.md#enable-lib-wasi-nn)                             | Runtime Extensions |
+| Debug Interpreter             | [WAMR_BUILD_DEBUG_INTERP](./build_wamr.md#configure-debug)                           | Runtime Extensions |
 
 ## TierC
 
-| Description                   | Compilation Flags            | Labels             |
-| ----------------------------- | ---------------------------- | ------------------ |
-| MIPS                          | N/A                          | Target             |
-| AliOS-Things                  | N/A                          | OS                 |
-| Cosmopolitan                  | N/A                          | OS                 |
-| ESP-IDF (FreeRTOS)            | N/A                          | OS                 |
-| FreeBSD                       | N/A                          | OS                 |
-| iOS                           | N/A                          | OS                 |
-| RT-Thread                     | N/A                          | OS                 |
-| RIOT                          | N/A                          | OS                 |
-| VxWorks                       | N/A                          | OS                 |
-| Multi-memory                  | WAMR_BUILD_MULTI_MEMORY      | Wasm Proposal      |
-| Legacy Exception Handling     | WAMR_BUILD_EXCE_HANDLING     | Wasm Proposal      |
-| Debug AOT                     | WAMR_BUILD_DEBUG_AOT         | Runtime Extensions |
-| Tier-up (Fast JIT → LLVM JIT) | WAMR_BUILD_DYNAMIC_AOT_DEBUG | Runtime Extensions |
+| Description                   | Compilation Flags                                                     | Labels             |
+| ----------------------------- | --------------------------------------------------------------------- | ------------------ |
+| MIPS                          | N/A                                                                   | Target             |
+| AliOS-Things                  | N/A                                                                   | OS                 |
+| Cosmopolitan                  | N/A                                                                   | OS                 |
+| ESP-IDF (FreeRTOS)            | N/A                                                                   | OS                 |
+| FreeBSD                       | N/A                                                                   | OS                 |
+| iOS                           | N/A                                                                   | OS                 |
+| RT-Thread                     | N/A                                                                   | OS                 |
+| RIOT                          | N/A                                                                   | OS                 |
+| VxWorks                       | N/A                                                                   | OS                 |
+| Multi-memory                  | [WAMR_BUILD_MULTI_MEMORY](./build_wamr.md#enable-multi-memory)        | Wasm Proposal      |
+| Legacy Exception Handling     | [WAMR_BUILD_EXCE_HANDLING](./build_wamr.md#enable-exception-handling) | Wasm Proposal      |
+| Debug AOT                     | [WAMR_BUILD_DEBUG_AOT](./build_wamr.md#configure-debug)               | Runtime Extensions |
+| Tier-up (Fast JIT → LLVM JIT) | [WAMR_BUILD_DYNAMIC_AOT_DEBUG](./build_wamr.md#configure-debug)       | Runtime Extensions |
 
 ---
 
