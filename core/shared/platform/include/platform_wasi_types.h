@@ -530,12 +530,6 @@ assert_wasi_layout(offsetof(__wasi_subscription_t, userdata) == 0, "witx calcula
 assert_wasi_layout(offsetof(__wasi_subscription_t, u) == 8, "witx calculated offset");
 
 /* keep syncing with wasi_socket_ext.h */
-typedef enum {
-    /* Used only for sock_addr_resolve hints */
-    SOCKET_ANY = -1,
-    SOCKET_DGRAM = 0,
-    SOCKET_STREAM,
-} __wasi_sock_type_t;
 
 typedef uint16_t __wasi_ip_port_t;
 
@@ -589,19 +583,35 @@ typedef struct __wasi_addr_t {
     } addr;
 } __wasi_addr_t;
 
-typedef enum { INET4 = 0, INET6, INET_UNSPEC } __wasi_address_family_t;
+/* Force 32-bit wire width for cross-boundary fields */
+typedef int32_t __wasi_sock_type_t;
+enum { SOCKET_ANY = -1, SOCKET_DGRAM = 0, SOCKET_STREAM = 1 };
+
+typedef int32_t __wasi_address_family_t;
+enum { INET4 = 0, INET6 = 1, INET_UNSPEC = 2 };
 
 typedef struct __wasi_addr_info_t {
-    __wasi_addr_t addr;
+    __wasi_addr_t      addr;
     __wasi_sock_type_t type;
 } __wasi_addr_info_t;
 
 typedef struct __wasi_addr_info_hints_t {
-   __wasi_sock_type_t type;
-   __wasi_address_family_t family;
-   // this is to workaround lack of optional parameters
-   uint8_t hints_enabled;
+    __wasi_sock_type_t        type;          // 4 bytes
+    __wasi_address_family_t   family;        // 4 bytes
+    uint8_t                   hints_enabled; // 1 byte
+    uint8_t                   _pad[3];       // enforce layout
 } __wasi_addr_info_hints_t;
+
+assert_wasi_layout(sizeof(__wasi_sock_type_t) == 4, "sock_type must be 4 bytes");
+assert_wasi_layout(sizeof(__wasi_address_family_t) == 4, "addr_family must be 4 bytes");
+
+assert_wasi_layout(sizeof(__wasi_addr_info_hints_t) == 12, "hints_t must be 12 bytes");
+assert_wasi_layout(offsetof(__wasi_addr_info_hints_t, type) == 0, "hints.type@0");
+assert_wasi_layout(offsetof(__wasi_addr_info_hints_t, family) == 4, "hints.family@4");
+assert_wasi_layout(offsetof(__wasi_addr_info_hints_t, hints_enabled) == 8, "hints.enabled@8");
+
+assert_wasi_layout(offsetof(__wasi_addr_info_t, type) == sizeof(__wasi_addr_t),
+                   "addr_info.type follows addr");
 
 #undef assert_wasi_layout
 
