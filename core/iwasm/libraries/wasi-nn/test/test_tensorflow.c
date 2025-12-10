@@ -13,16 +13,16 @@
 #include "logger.h"
 
 void
-test_sum(execution_target target)
+test_sum()
 {
     int dims[] = { 1, 5, 5, 1 };
     input_info input = create_input(dims);
 
     uint32_t output_size = 0;
-    float *output = run_inference(target, input.input_tensor, input.dim,
-                                  &output_size, "./models/sum.tflite", 1);
+    float *output = run_inference(input.input_tensor, input.dim,
+                                  &output_size, "sum", 1);
 
-    assert(output_size == 1);
+    assert((output_size / sizeof(float)) == 1);
     assert(fabs(output[0] - 300.0) < EPSILON);
 
     free(input.dim);
@@ -31,16 +31,16 @@ test_sum(execution_target target)
 }
 
 void
-test_max(execution_target target)
+test_max()
 {
     int dims[] = { 1, 5, 5, 1 };
     input_info input = create_input(dims);
 
     uint32_t output_size = 0;
-    float *output = run_inference(target, input.input_tensor, input.dim,
-                                  &output_size, "./models/max.tflite", 1);
+    float *output = run_inference(input.input_tensor, input.dim,
+                                  &output_size, "max", 1);
 
-    assert(output_size == 1);
+    assert((output_size / sizeof(float)) == 1);
     assert(fabs(output[0] - 24.0) < EPSILON);
     NN_INFO_PRINTF("Result: max is %f", output[0]);
 
@@ -50,16 +50,16 @@ test_max(execution_target target)
 }
 
 void
-test_average(execution_target target)
+test_average()
 {
     int dims[] = { 1, 5, 5, 1 };
     input_info input = create_input(dims);
 
     uint32_t output_size = 0;
-    float *output = run_inference(target, input.input_tensor, input.dim,
-                                  &output_size, "./models/average.tflite", 1);
+    float *output = run_inference(input.input_tensor, input.dim,
+                                  &output_size, "average", 1);
 
-    assert(output_size == 1);
+    assert((output_size / sizeof(float)) == 1);
     assert(fabs(output[0] - 12.0) < EPSILON);
     NN_INFO_PRINTF("Result: average is %f", output[0]);
 
@@ -69,16 +69,16 @@ test_average(execution_target target)
 }
 
 void
-test_mult_dimensions(execution_target target)
+test_mult_dimensions()
 {
     int dims[] = { 1, 3, 3, 1 };
     input_info input = create_input(dims);
 
     uint32_t output_size = 0;
-    float *output = run_inference(target, input.input_tensor, input.dim,
-                                  &output_size, "./models/mult_dim.tflite", 1);
+    float *output = run_inference(input.input_tensor, input.dim,
+                                  &output_size, "mult_dim", 1);
 
-    assert(output_size == 9);
+    assert((output_size / sizeof(float)) == 9);
     for (int i = 0; i < 9; i++)
         assert(fabs(output[i] - i) < EPSILON);
 
@@ -88,16 +88,16 @@ test_mult_dimensions(execution_target target)
 }
 
 void
-test_mult_outputs(execution_target target)
+test_mult_outputs()
 {
     int dims[] = { 1, 4, 4, 1 };
     input_info input = create_input(dims);
 
     uint32_t output_size = 0;
-    float *output = run_inference(target, input.input_tensor, input.dim,
-                                  &output_size, "./models/mult_out.tflite", 2);
+    float *output = run_inference(input.input_tensor, input.dim,
+                                  &output_size, "mult_out", 2);
 
-    assert(output_size == 8);
+    assert((output_size / sizeof(float)) == 8);
     // first tensor check
     for (int i = 0; i < 4; i++)
         assert(fabs(output[i] - (i * 4 + 24)) < EPSILON);
@@ -113,30 +113,18 @@ test_mult_outputs(execution_target target)
 int
 main()
 {
-    char *env = getenv("TARGET");
-    if (env == NULL) {
-        NN_INFO_PRINTF("Usage:\n--env=\"TARGET=[cpu|gpu]\"");
-        return 1;
-    }
-    execution_target target;
-    if (strcmp(env, "cpu") == 0)
-        target = cpu;
-    else if (strcmp(env, "gpu") == 0)
-        target = gpu;
-    else {
-        NN_ERR_PRINTF("Wrong target!");
-        return 1;
-    }
+    NN_INFO_PRINTF("Usage:\niwasm --native-lib=./libwasi_nn_tflite.so --wasi-nn-graph=encoding:target:model_path1:model_path2:...:model_pathn test_tensorflow.wasm\"");
+
     NN_INFO_PRINTF("################### Testing sum...");
-    test_sum(target);
+    test_sum();
     NN_INFO_PRINTF("################### Testing max...");
-    test_max(target);
+    test_max();
     NN_INFO_PRINTF("################### Testing average...");
-    test_average(target);
+    test_average();
     NN_INFO_PRINTF("################### Testing multiple dimensions...");
-    test_mult_dimensions(target);
+    test_mult_dimensions();
     NN_INFO_PRINTF("################### Testing multiple outputs...");
-    test_mult_outputs(target);
+    test_mult_outputs();
 
     NN_INFO_PRINTF("Tests: passed!");
     return 0;

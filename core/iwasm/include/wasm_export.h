@@ -290,6 +290,8 @@ typedef struct InstantiationArgs {
 #endif /* INSTANTIATION_ARGS_OPTION_DEFINED */
 
 struct InstantiationArgs2;
+struct WASINNGlobalContext;
+typedef struct WASINNGlobalContext *wasi_nn_global_context; 
 
 #ifndef WASM_VALKIND_T_DEFINED
 #define WASM_VALKIND_T_DEFINED
@@ -795,6 +797,55 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_instantiation_args_set_wasi_ns_lookup_pool(
     struct InstantiationArgs2 *p, const char *ns_lookup_pool[],
     uint32_t ns_lookup_pool_size);
+
+// WASM_RUNTIME_API_EXTERN int
+// wasi_nn_graph_registry_create(struct wasi_nn_graph_registry **registryp);
+
+// WASM_RUNTIME_API_EXTERN void
+// wasi_nn_graph_registry_destroy(struct wasi_nn_graph_registry *registry);
+
+// WASM_RUNTIME_API_EXTERN void
+// wasm_runtime_instantiation_args_set_wasi_nn_graph_registry(
+//     struct InstantiationArgs2 *p, struct wasi_nn_graph_registry *registry);
+
+// WASM_RUNTIME_API_EXTERN bool
+// wasi_nn_graph_registry_set_args(struct wasi_nn_graph_registry *registry, const char* encoding,
+//                                 const char* target, uint32_t n_graphs,
+//                                 const char** graph_paths);
+
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_init_wasi_nn_global_ctx(wasm_module_inst_t module_inst,
+                       const char* encoding, const char* target,
+                       const uint32_t n_graphs, char* graph_paths[],
+                       char *error_buf, uint32_t error_buf_size);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_destroy_wasi_nn_global_ctx(wasm_module_inst_t module_inst);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_wasi_nn_global_ctx(wasm_module_inst_t module_inst,
+                          wasi_nn_global_context wasi_ctx);
+
+WASM_RUNTIME_API_EXTERN wasi_nn_global_context
+wasm_runtime_get_wasi_nn_global_ctx(const wasm_module_inst_t module_inst);
+
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_get_wasi_nn_global_ctx_ngraphs(wasi_nn_global_context wasi_nn_global_ctx);
+
+WASM_RUNTIME_API_EXTERN char *
+wasm_runtime_get_wasi_nn_global_ctx_graph_paths_i(wasi_nn_global_context wasi_nn_global_ctx, uint32_t idx);
+
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_get_wasi_nn_global_ctx_loaded_i(wasi_nn_global_context wasi_nn_global_ctx, uint32_t idx);
+
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_set_wasi_nn_global_ctx_loaded_i(wasi_nn_global_context wasi_nn_global_ctx, uint32_t idx, uint32_t value);
+
+WASM_RUNTIME_API_EXTERN char*
+wasm_runtime_get_wasi_nn_global_ctx_encoding(wasi_nn_global_context wasi_nn_global_ctx);
+
+WASM_RUNTIME_API_EXTERN char*
+wasm_runtime_get_wasi_nn_global_ctx_target(wasi_nn_global_context wasi_nn_global_ctx);
 
 /**
  * Instantiate a WASM module, with specified instantiation arguments

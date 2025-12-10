@@ -21,7 +21,7 @@
 #include "wasm_export.h"
 
 #if WASM_ENABLE_WASI_EPHEMERAL_NN == 0
-#warning You are using "wasi_nn", which is a legacy WAMR-specific ABI. It's deperecated and will likely be removed in future versions of WAMR. Please use "wasi_ephemeral_nn" instead. (For a WASM module, use the wasi_ephemeral_nn.h header instead. For the runtime configurations, enable WASM_ENABLE_WASI_EPHEMERAL_NN/WAMR_BUILD_WASI_EPHEMERAL_NN.)
+#warning You are using "wasi_nn", which is a legacy WAMR-specific ABI. It is deperecated and will likely be removed in future versions of WAMR. Please use "wasi_ephemeral_nn" instead. (For a WASM module, use the wasi_ephemeral_nn.h header instead. For the runtime configurations, enable WASM_ENABLE_WASI_EPHEMERAL_NN/WAMR_BUILD_WASI_EPHEMERAL_NN.)
 #endif
 
 #define HASHMAP_INITIAL_SIZE 20
@@ -34,6 +34,8 @@
 #define OPENVINO_BACKEND_LIB "libwasi_nn_openvino" LIB_EXTENTION
 #define LLAMACPP_BACKEND_LIB "libwasi_nn_llamacpp" LIB_EXTENTION
 #define ONNX_BACKEND_LIB "libwasi_nn_onnx" LIB_EXTENTION
+
+#define MAX_GLOBAL_GRAPHS_PER_INST 4 // ONNX only allows 4 graphs per instances
 
 /* Global variables */
 static korp_mutex wasi_nn_lock;
@@ -208,6 +210,44 @@ wasi_nn_destroy()
  * - model file format
  * - on device ML framework
  */
+static graph_encoding str2encoding(char* str_encoding)
+{
+    if (!str_encoding) {
+        NN_ERR_PRINTF("Got empty string encoding");
+        return -1;
+    }
+
+    if (!strcmp(str_encoding, "openvino"))
+        return openvino;
+    else if (!strcmp(str_encoding, "tensorflowlite"))
+        return tensorflowlite;
+    else if (!strcmp(str_encoding, "ggml"))
+        return ggml;
+    else if (!strcmp(str_encoding, "onnx"))
+        return onnx;
+    else
+        return unknown_backend;
+        // return autodetect;
+}
+
+static execution_target str2target(char* str_target)
+{
+    if (!str_target) {
+        NN_ERR_PRINTF("Got empty string target");
+        return -1;
+    }
+
+    if (!strcmp(str_target, "cpu"))
+        return cpu;
+    else if (!strcmp(str_target, "gpu"))
+        return gpu;
+    else if (!strcmp(str_target, "tpu"))
+        return tpu;
+    else
+        return unsupported_target;
+        // return autodetect;
+}
+
 static graph_encoding
 choose_a_backend()
 {
@@ -565,17 +605,82 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
         goto fail;
     }
 
-    res = ensure_backend(instance, autodetect, wasi_nn_ctx);
+    wasi_nn_global_context wasi_nn_global_ctx = wasm_runtime_get_wasi_nn_global_ctx(instance);
+    if (!wasi_nn_global_ctx) {
+        NN_ERR_PRINTF("global context is invalid");
+        res = not_found;
+        goto fail;
+    }
+    graph_encoding encoding = str2encoding(wasm_runtime_get_wasi_nn_global_ctx_encoding(wasi_nn_global_ctx));
+    execution_target target = str2target(wasm_runtime_get_wasi_nn_global_ctx_target(wasi_nn_global_ctx));
+
+    // res = ensure_backend(instance, autodetect, wasi_nn_ctx);
+    res = ensure_backend(instance, encoding, wasi_nn_ctx);
     if (res != success)
         goto fail;
+    
+    bool is_loaded = false;
+    uint32 model_idx = 0;
+    char *global_model_path_i;
+    // Assume filename got from user wasm app : max; sum; average; ...
+    // Assume file path got from user cmd opt: /your/path1/max.tflite; /your/path2/sum.tflite; ......
+    for (model_idx = 0; model_idx < wasm_runtime_get_wasi_nn_global_ctx_ngraphs(wasi_nn_global_ctx); model_idx++)
+    {
+        // Extract filename from file path
+        global_model_path_i = wasm_runtime_get_wasi_nn_global_ctx_graph_paths_i(wasi_nn_global_ctx, model_idx);
+        char *model_file_name;
+        const char *slash = strrchr(global_model_path_i, '/'); 
+        if (slash != NULL) {
+            model_file_name = (char*)(slash + 1);
+        }
+        else
+            model_file_name = global_model_path_i;
 
-    call_wasi_nn_func(wasi_nn_ctx->backend, load_by_name, res,
-                      wasi_nn_ctx->backend_ctx, nul_terminated_name, name_len,
-                      g);
-    if (res != success)
+        // Extract modelname from filename
+        char* model_name = NULL;
+        size_t model_name_len = 0;
+        char* dot = strrchr(model_file_name, '.');
+        if (dot)
+        {
+            model_name_len = dot - model_file_name;
+            model_name = malloc(model_name_len + 1);
+            strncpy(model_name, model_file_name, model_name_len);
+            model_name[model_name_len] = '\0';
+        }
+ 
+        if (model_name && strcmp(nul_terminated_name, model_name) == 0) {
+            is_loaded = wasm_runtime_get_wasi_nn_global_ctx_loaded_i(wasi_nn_global_ctx, model_idx);
+            break;
+        }
+    }
+
+    if (!is_loaded && (model_idx < MAX_GLOBAL_GRAPHS_PER_INST))
+    {
+        NN_DBG_PRINTF("Model is not yet loaded, will add to global context");
+        call_wasi_nn_func(wasi_nn_ctx->backend, load_by_name, res,
+                      wasi_nn_ctx->backend_ctx, global_model_path_i, strlen(global_model_path_i),
+                      encoding, target, g);
+        if (res != success)
+            goto fail;
+        
+        wasm_runtime_set_wasi_nn_global_ctx_loaded_i(wasi_nn_global_ctx, model_idx, 1);
+        res = success;
+    }
+    else
+    {
+        if (is_loaded)
+        {
+            NN_DBG_PRINTF("Model is already loaded");
+            res = success;
+        }
+        else if (model_idx >= MAX_GLOBAL_GRAPHS_PER_INST)
+        {
+            // No enlarge for now
+            NN_ERR_PRINTF("No enough space for new model");
+            res = too_large;
+        }
         goto fail;
-
-    res = success;
+    }
 fail:
     if (nul_terminated_name != NULL) {
         wasm_runtime_free(nul_terminated_name);

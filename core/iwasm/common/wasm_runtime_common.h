@@ -545,6 +545,17 @@ typedef struct WASMModuleInstMemConsumption {
     uint32 exports_size;
 } WASMModuleInstMemConsumption;
 
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+typedef struct WASINNGlobalContext {
+    char* encoding;
+    char* target;
+
+    uint32_t n_graphs;
+    uint32_t *loaded;
+    char** graph_paths;
+} WASINNGlobalContext;
+#endif
+
 #if WASM_ENABLE_LIBC_WASI != 0
 #if WASM_ENABLE_UVWASI == 0
 typedef struct WASIContext {
@@ -612,10 +623,29 @@ WASMExecEnv *
 wasm_runtime_get_exec_env_tls(void);
 #endif
 
+#if (WASM_ENABLE_WASI_EPHEMERAL_NN != 0)
+struct wasi_nn_graph_registry {
+    char* encoding;
+    char* target;
+
+    char** graph_paths;
+    uint32_t n_graphs;
+};
+
+WASM_RUNTIME_API_EXTERN int
+wasi_nn_graph_registry_create(struct wasi_nn_graph_registry **registryp);
+
+WASM_RUNTIME_API_EXTERN void
+wasi_nn_graph_registry_destroy(struct wasi_nn_graph_registry *registry);
+#endif
+
 struct InstantiationArgs2 {
     InstantiationArgs v1;
 #if WASM_ENABLE_LIBC_WASI != 0
     WASIArguments wasi;
+#endif
+#if (WASM_ENABLE_WASI_EPHEMERAL_NN != 0)
+    struct wasi_nn_graph_registry nn_registry;
 #endif
 };
 
@@ -774,6 +804,17 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_instantiation_args_set_wasi_ns_lookup_pool(
     struct InstantiationArgs2 *p, const char *ns_lookup_pool[],
     uint32 ns_lookup_pool_size);
+
+#if (WASM_ENABLE_WASI_EPHEMERAL_NN != 0)
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_instantiation_args_set_wasi_nn_graph_registry(
+    struct InstantiationArgs2 *p, struct wasi_nn_graph_registry *registry);
+
+WASM_RUNTIME_API_EXTERN bool
+wasi_nn_graph_registry_set_args(struct wasi_nn_graph_registry *registry, const char* encoding,
+                                const char* target, uint32_t n_graphs,
+                                const char** graph_paths);
+#endif
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN WASMModuleInstanceCommon *
@@ -1425,6 +1466,39 @@ wasm_runtime_check_and_update_last_used_shared_heap(
     WASMModuleInstanceCommon *module_inst, uintptr_t app_offset, size_t bytes,
     uintptr_t *shared_heap_start_off_p, uintptr_t *shared_heap_end_off_p,
     uint8 **shared_heap_base_addr_adj_p, bool is_memory64);
+#endif
+
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_init_wasi_nn_global_ctx(WASMModuleInstanceCommon *module_inst,
+                       const char* encoding, const char* target,
+                       const uint32_t n_graphs, char* graph_paths[],
+                       char *error_buf, uint32_t error_buf_size);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_destroy_wasi_nn_global_ctx(WASMModuleInstanceCommon *module_inst);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_wasi_nn_global_ctx(WASMModuleInstanceCommon *module_inst,
+                          WASINNGlobalContext *wasi_ctx);
+
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_get_wasi_nn_global_ctx_ngraphs(WASINNGlobalContext *wasi_nn_global_ctx);
+
+WASM_RUNTIME_API_EXTERN char *
+wasm_runtime_get_wasi_nn_global_ctx_graph_paths_i(WASINNGlobalContext *wasi_nn_global_ctx, uint32_t idx);
+
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_get_wasi_nn_global_ctx_loaded_i(WASINNGlobalContext *wasi_nn_global_ctx, uint32_t idx);
+
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_set_wasi_nn_global_ctx_loaded_i(WASINNGlobalContext *wasi_nn_global_ctx, uint32_t idx, uint32_t value);
+
+WASM_RUNTIME_API_EXTERN char*
+wasm_runtime_get_wasi_nn_global_ctx_encoding(WASINNGlobalContext *wasi_nn_global_ctx);
+
+WASM_RUNTIME_API_EXTERN char*
+wasm_runtime_get_wasi_nn_global_ctx_target(WASINNGlobalContext *wasi_nn_global_ctx);
 #endif
 
 #ifdef __cplusplus

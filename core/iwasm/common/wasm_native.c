@@ -25,6 +25,10 @@ static NativeSymbolsList g_native_symbols_list = NULL;
 static void *g_wasi_context_key;
 #endif /* WASM_ENABLE_LIBC_WASI */
 
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+static void *g_wasi_nn_context_key;
+#endif
+
 uint32
 get_libc_builtin_export_apis(NativeSymbol **p_libc_builtin_apis);
 
@@ -473,6 +477,31 @@ wasi_context_dtor(WASMModuleInstanceCommon *inst, void *ctx)
 }
 #endif /* end of WASM_ENABLE_LIBC_WASI */
 
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+WASINNGlobalContext *
+wasm_runtime_get_wasi_nn_global_ctx(WASMModuleInstanceCommon *module_inst_comm)
+{
+    return wasm_native_get_context(module_inst_comm, g_wasi_nn_context_key);
+}
+
+void
+wasm_runtime_set_wasi_nn_global_ctx(WASMModuleInstanceCommon *module_inst_comm,
+                          WASINNGlobalContext *wasi_nn_ctx)
+{
+    wasm_native_set_context(module_inst_comm, g_wasi_nn_context_key, wasi_nn_ctx);
+}
+
+static void
+wasi_nn_context_dtor(WASMModuleInstanceCommon *inst, void *ctx)
+{
+    if (ctx == NULL) {
+        return;
+    }
+
+    wasm_runtime_destroy_wasi_nn_global_ctx(inst);
+}
+#endif
+
 #if WASM_ENABLE_QUICK_AOT_ENTRY != 0
 static bool
 quick_aot_entry_init(void);
@@ -582,6 +611,11 @@ wasm_native_init()
 #endif /* WASM_ENABLE_LIB_RATS */
 
 #if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+    g_wasi_nn_context_key = wasm_native_create_context_key(wasi_nn_context_dtor);
+    if (g_wasi_nn_context_key == NULL) {
+        goto fail;
+    }
+
     if (!wasi_nn_initialize())
         goto fail;
 
@@ -648,6 +682,10 @@ wasm_native_destroy()
 #endif
 
 #if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+    if (g_wasi_nn_context_key != NULL) {
+        wasm_native_destroy_context_key(g_wasi_nn_context_key);
+        g_wasi_nn_context_key = NULL;
+    }
     wasi_nn_destroy();
 #endif
 

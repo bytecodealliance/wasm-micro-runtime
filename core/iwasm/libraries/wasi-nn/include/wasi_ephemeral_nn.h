@@ -8,5 +8,5 @@
 
 #include "wasi_nn.h"
 
-#undef WASM_ENABLE_WASI_EPHEMERAL_NN
-#undef WASI_NN_NAME
+// #undef WASM_ENABLE_WASI_EPHEMERAL_NN
+// #undef WASI_NN_NAME

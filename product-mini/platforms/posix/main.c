@@ -18,6 +18,10 @@
 #include "../common/libc_wasi.c"
 #endif
 
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+#include "wasi_ephemeral_nn.h"
+#endif
+
 #include "../common/wasm_proposal.c"
 
 #if BH_HAS_DLFCN
@@ -115,6 +119,12 @@ print_help(void)
 #endif
 #if WASM_ENABLE_STATIC_PGO != 0
     printf("  --gen-prof-file=<path>   Generate LLVM PGO (Profile-Guided Optimization) profile file\n");
+#endif
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+    printf("  --wasi-nn-graph=encoding:target:<model_path1>:<model_path2>:...:<model_pathn>\n");
+    printf("                           Set encoding, target and model_paths for wasi-nn. target can be\n");
+    printf("                           cpu|gpu|tpu, encoding can be tensorflowlite|openvino|llama|onnx|\n");
+    printf("                           tensorflow|pytorch|ggml|autodetect\n");
 #endif
     printf("  --version                Show version information\n");
     return 1;
@@ -635,6 +645,13 @@ main(int argc, char *argv[])
     int timeout_ms = -1;
 #endif
 
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+    struct wasi_nn_graph_registry *nn_registry;
+    char *encoding, *target;
+    uint32_t n_models = 0;
+    char **model_paths;
+#endif
+
 #if WASM_ENABLE_LIBC_WASI != 0
     memset(&wasi_parse_ctx, 0, sizeof(wasi_parse_ctx));
 #endif
@@ -825,6 +842,37 @@ main(int argc, char *argv[])
             wasm_proposal_print_status();
             return 0;
         }
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+        else if (!strncmp(argv[0], "--wasi-nn-graph=", 16)) {
+            char *token;
+            char *saveptr = NULL;
+            int token_count = 0;
+            char *tokens[12] = {0};
+
+	    // encoding:tensorflowlite|openvino|llama  target:cpu|gpu|tpu
+            // --wasi-nn-graph=encoding:target:model_file_path1:model_file_path2:model_file_path3:......
+            token = strtok_r(argv[0] + 16, ":", &saveptr);
+            while (token) {
+                tokens[token_count] = token;
+                token_count++;
+                token = strtok_r(NULL, ":", &saveptr);
+            }
+
+            if (token_count < 2) {
+                return print_help();
+            }
+
+            n_models = token_count - 2;
+            encoding = strdup(tokens[0]);
+            target = strdup(tokens[1]);
+            model_paths = malloc(n_models * sizeof(void*));
+            for (int i = 0; i < n_models; i++) {
+                model_paths[i] = strdup(tokens[i + 2]);
+            }
+	    if (token)
+                free(token);
+        }
+#endif
         else {
 #if WASM_ENABLE_LIBC_WASI != 0
             libc_wasi_parse_result_t result =
@@ -974,6 +1022,11 @@ main(int argc, char *argv[])
     libc_wasi_set_init_args(inst_args, argc, argv, &wasi_parse_ctx);
 #endif
 
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+    wasi_nn_graph_registry_create(&nn_registry);
+    wasi_nn_graph_registry_set_args(nn_registry, encoding, target, n_models, model_paths);
+    wasm_runtime_instantiation_args_set_wasi_nn_graph_registry(inst_args, nn_registry);
+#endif
     /* instantiate the module */
     wasm_module_inst = wasm_runtime_instantiate_ex2(
         wasm_module, inst_args, error_buf, sizeof(error_buf));
@@ -1092,6 +1145,15 @@ fail5:
 #endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
 fail4:
+#endif
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+    wasi_nn_graph_registry_destroy(nn_registry);
+    for (uint32_t i = 0; i < n_models; i++)
+	if (model_paths[i])
+            free(model_paths[i]);
+    free(model_paths);
+    free(encoding);
+    free(target);
 #endif
     /* destroy the module instance */
     wasm_runtime_deinstantiate(wasm_module_inst);
