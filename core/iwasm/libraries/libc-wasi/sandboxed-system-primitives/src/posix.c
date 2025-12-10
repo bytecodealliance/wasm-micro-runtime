@@ -3105,7 +3105,6 @@ addr_pool_insert(struct addr_pool *addr_pool, const char *addr, uint8 mask)
     }
 
     next->next = NULL;
-    next->mask = mask;
 
     if (os_socket_inet_network(true, addr, &target) != BHT_OK) {
         // If parsing IPv4 fails, try IPv6
@@ -3116,10 +3115,20 @@ addr_pool_insert(struct addr_pool *addr_pool, const char *addr, uint8 mask)
         next->type = IPv6;
         bh_memcpy_s(next->addr.ip6, sizeof(next->addr.ip6), target.ipv6,
                     sizeof(target.ipv6));
+        if (mask > 128) {
+            wasm_runtime_free(next);
+            return false;
+        }
+        next->mask = mask;
     }
     else {
         next->type = IPv4;
         next->addr.ip4 = target.ipv4;
+        if (mask > 32) {
+            wasm_runtime_free(next);
+            return false;
+        }
+        next->mask = mask;
     }
 
     /* attach with */
