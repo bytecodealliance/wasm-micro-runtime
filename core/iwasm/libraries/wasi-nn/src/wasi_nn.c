@@ -622,9 +622,10 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
     bool is_loaded = false;
     uint32 model_idx = 0;
     char *global_model_path_i;
+    uint32_t global_n_graphs = wasm_runtime_get_wasi_nn_global_ctx_ngraphs(wasi_nn_global_ctx);
     // Assume filename got from user wasm app : max; sum; average; ...
     // Assume file path got from user cmd opt: /your/path1/max.tflite; /your/path2/sum.tflite; ......
-    for (model_idx = 0; model_idx < wasm_runtime_get_wasi_nn_global_ctx_ngraphs(wasi_nn_global_ctx); model_idx++)
+    for (model_idx = 0; model_idx < global_n_graphs; model_idx++)
     {
         // Extract filename from file path
         global_model_path_i = wasm_runtime_get_wasi_nn_global_ctx_graph_paths_i(wasi_nn_global_ctx, model_idx);
@@ -654,7 +655,9 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
         }
     }
 
-    if (!is_loaded && (model_idx < MAX_GLOBAL_GRAPHS_PER_INST))
+    if (!is_loaded && \
+        (model_idx < MAX_GLOBAL_GRAPHS_PER_INST) && \
+        (model_idx < global_n_graphs))
     {
         NN_DBG_PRINTF("Model is not yet loaded, will add to global context");
         call_wasi_nn_func(wasi_nn_ctx->backend, load_by_name, res,
@@ -678,6 +681,12 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
             // No enlarge for now
             NN_ERR_PRINTF("No enough space for new model");
             res = too_large;
+        }
+        else if (model_idx >= global_n_graphs)
+        {
+            NN_ERR_PRINTF("Cannot find model %s, you should pass its path through --wasi-nn-graph", 
+                            nul_terminated_name);
+            res = not_found;
         }
         goto fail;
     }
