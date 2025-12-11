@@ -15,54 +15,50 @@ This tier represents a moderate level of support. Features and targets in this t
 This tier indicates a basic level of support. Features and targets in this tier are considered experimental or less stable. They may not be actively maintained, and users should be prepared for potential issues or limitations. Documentation may be minimal or outdated. Users opting to use Tier C features do so at their own risk and should be prepared to troubleshoot issues independently. These features are typically not recommended for production use.
 
 > [!NOTE]
->
-> - _tested_ mentioned above specifically refers to whether there are enough tests in CI.
->
-> - _actively maintained_ means that the code is regularly updated to fix bugs, improve performance, and ensure compatibility with other components.
->
-> - _fully supported_ means that users can expect timely assistance, comprehensive documentation, and regular updates for any issues or questions related to these features.
->
-> _Runtime Extensions_ are features that extend the runtime capabilities of the system beyond the core WebAssembly specification. These extensions may include optimizations, additional APIs, or other enhancements that improve performance, usability, or functionality.
+> **tested** mentioned above specifically refers to whether there are enough tests in CI.
+> **actively** maintained* means that the code is regularly updated to fix bugs, improve performance, and ensure compatibility with other components.
+> **fully** supported* means that users can expect timely assistance, comprehensive documentation, and regular updates for any issues or questions related to these features.
+> **Runtime Extensions** are features that extend the runtime capabilities of the system beyond the core WebAssembly specification. These extensions may include optimizations, additional APIs, or other enhancements that improve performance, usability, or functionality.
 
 ## TierA
 
-| Description                        | Compilation Flags                                                                                           | Labels             |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------ |
-| x86_64-pc-linux-gnu                | N/A                                                                                                         | Target             |
-| x86_64-apple-darwin                | N/A                                                                                                         | Target             |
-| x86_64-none-linux-gnu              | N/A                                                                                                         | Target             |
-| i386-pc-linux-gnu                  | N/A                                                                                                         | Target             |
-| aarch64-unknown-nuttx-eabi         | N/A                                                                                                         | Target             |
-| Linux Compatibility                | N/A                                                                                                         | Runtime Extensions |
-| Bulk Memory                        | [WAMR_BUILD_BULK_MEMORY](./build_wamr.md#enable-bulk-memory-feature)                                        | Wasm Proposal      |
-| Custom sections                    | [WAMR_BUILD_LOAD_CUSTOM_SECTION](./build_wamr.md#enable-load-wasm-custom-sections)                          | Wasm Proposal      |
-| Extended Constant Expressions      | [WAMR_BUILD_EXTENDED_CONST_EXPR](./build_wamr.md#configure-interpreters)                                    | Wasm Proposal      |
-| Import/Export of Mutable Globals   | ALWAYS ON. Can not be disabled                                                                              | Wasm Proposal      |
-| Memory64                           | [WAMR_BUILD_MEMORY64](./build_wamr.md#enable-memory64-feature)                                              | Wasm Proposal      |
-| Multi-value                        | ALWAYS ON. Can not be disabled                                                                              | Wasm Proposal      |
-| Name section                       | WAMR_BUILD_CUSTOM_NAME_SECTION                                                                              | Wasm Proposal      |
-| Non-trapping float-to-int          | ALWAYS ON . Can not be disabled                                                                             | Wasm Proposal      |
-| Reference Types                    | [WAMR_BUILD_REF_TYPES](./build_wamr.md#configure-interpreters)                                              | Wasm Proposal      |
-| Threads                            | [WAMR_BUILD_SHARED_MEMORY](./build_wamr.md#enable-shared-memory-feature)                                    | Wasm Proposal      |
-| SIMD (128-bit)                     | [WAMR_BUILD_SIMD](./build_wamr.md#enable-128-bit-simd-feature)                                              | Wasm Proposal      |
-| WASI LIBC                          | [WAMR_BUILD_LIBC_WASI](./build_wamr.md#configure-libc)                                                      | Wasm Proposal      |
-| AoT compilation (wamrc)            | [WAMR_BUILD_WAMR_COMPILER](./build_wamr.md#configure-aot-and-jits)                                          | Runtime Extensions |
-| AoT runtime                        | [WAMR_BUILD_AOT](./build_wamr.md#configure-aot)                                                             | Runtime Extensions |
-| AOT intrinsics                     | [WAMR_BUILD_AOT_INTRINSICS](./build_wamr.md#configure-aot-and-jits)                                         | Runtime Extensions |
-| AoT stack frame                    | [WAMR_BUILD_AOT_STACK_FRAME](./build_wamr.md#enable-aot-stack-frame-feature)                                | Runtime Extensions |
-| Fast Interpreter                   | [WAMR_BUILD_FAST_INTERP](./build_wamr.md#configure-interpreters)                                            | Runtime Extensions |
-| Interpreter (classic)              | [WAMR_BUILD_INTERP](./build_wamr.md#configure-interpreters)                                                 | Runtime Extensions |
-| Libc builtin                       | [WAMR_BUILD_LIBC_BUILTIN](./build_wamr.md#configure-libc)                                                   | Runtime Extensions |
-| Quick AOT/JIT entries              | [WAMR_BUILD_QUICK_AOT_ENTRY](./build_wamr.md#configure-aot-and-jits)                                        | Runtime Extensions |
-| Shrunk memory                      | [WAMR_BUILD_SHRUNK_MEMORY](./build_wamr.md#enable-shared-memory-feature)                                    | Runtime Extensions |
-| Wakeup blocking operation          | [WAMR_DISABLE_WAKEUP_BLOCKING_OP](./build_wamr.md#disable-async-wakeup-of-blocking-operation)               | Runtime Extensions |
-| Disable app entry                  | [WAMR_DISABLE_APP_ENTRY](./build_wamr.md#exclude-wamr-application-entry-functions)                          | Runtime Extensions |
-| Disable hardware bound check       | [WAMR_DISABLE_HW_BOUND_CHECK](./build_wamr.md#disable-boundary-check-with-hardware-trap)                    | Runtime Extensions |
-| Disable stack hardware bound check | [WAMR_DISABLE_STACK_HW_BOUND_CHECK](./build_wamr.md#disable-native-stack-boundary-check-with-hardware-trap) | Runtime Extensions |
-| Global heap pool                   | [WAMR_BUILD_GLOBAL_HEAP_POOL](./build_wamr.md#enable-the-global-heap)                                       | Runtime Extensions |
-| Global heap size                   | [WAMR_BUILD_GLOBAL_HEAP_SIZE](./build_wamr.md#set-the-global-heap-size)                                     | Runtime Extensions |
-| Thread manager                     | [WAMR_BUILD_THREAD_MGR](./build_wamr.md#enable-thread-manager)                                              | Runtime Extensions |
-| WASI threads                       | [WAMR_BUILD_LIB_WASI_THREADS](./build_wamr.md#enable-lib-wasi-threads)                                      | Runtime Extensions |
+| Description                      | Compilation Flags                                                                                           | Labels             |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------ |
+| x86_64-pc-linux-gnu              | N/A                                                                                                         | Target             |
+| x86_64-apple-darwin              | N/A                                                                                                         | Target             |
+| x86_64-none-linux-gnu            | N/A                                                                                                         | Target             |
+| i386-pc-linux-gnu                | N/A                                                                                                         | Target             |
+| aarch64-unknown-nuttx-eabi       | N/A                                                                                                         | Target             |
+| AoT compilation (wamrc)          | [WAMR_BUILD_WAMR_COMPILER](./build_wamr.md#configure-aot-and-jits)                                          | Compiler           |
+| Linux Compatibility              | N/A                                                                                                         | Portability        |
+| AoT runtime                      | [WAMR_BUILD_AOT](./build_wamr.md#configure-aot)                                                             | Running mode       |
+| Fast Interpreter                 | [WAMR_BUILD_FAST_INTERP](./build_wamr.md#configure-interpreters)                                            | Running mode       |
+| Classic Interpreter              | [WAMR_BUILD_INTERP](./build_wamr.md#configure-interpreters)                                                 | Running mode       |
+| Bulk Memory                      | [WAMR_BUILD_BULK_MEMORY](./build_wamr.md#enable-bulk-memory-feature)                                        | Wasm Proposal      |
+| Custom sections                  | [WAMR_BUILD_LOAD_CUSTOM_SECTION](./build_wamr.md#enable-load-wasm-custom-sections)                          | Wasm Proposal      |
+| Extended Constant Expressions    | [WAMR_BUILD_EXTENDED_CONST_EXPR](./build_wamr.md#configure-interpreters)                                    | Wasm Proposal      |
+| Import/Export of Mutable Globals | ALWAYS ON. Can not be disabled                                                                              | Wasm Proposal      |
+| Memory64                         | [WAMR_BUILD_MEMORY64](./build_wamr.md#enable-memory64-feature)                                              | Wasm Proposal      |
+| Multi-value                      | ALWAYS ON. Can not be disabled                                                                              | Wasm Proposal      |
+| Name section                     | WAMR_BUILD_CUSTOM_NAME_SECTION                                                                              | Wasm Proposal      |
+| Non-trapping float-to-int        | ALWAYS ON . Can not be disabled                                                                             | Wasm Proposal      |
+| Reference Types                  | [WAMR_BUILD_REF_TYPES](./build_wamr.md#configure-interpreters)                                              | Wasm Proposal      |
+| Threads                          | [WAMR_BUILD_SHARED_MEMORY](./build_wamr.md#enable-shared-memory-feature)                                    | Wasm Proposal      |
+| SIMD (128-bit)                   | [WAMR_BUILD_SIMD](./build_wamr.md#enable-128-bit-simd-feature)                                              | Wasm Proposal      |
+| WASI LIBC                        | [WAMR_BUILD_LIBC_WASI](./build_wamr.md#configure-libc)                                                      | Wasm Proposal      |
+| WASI threads                     | [WAMR_BUILD_LIB_WASI_THREADS](./build_wamr.md#enable-lib-wasi-threads)                                      | Wasm Proposal      |
+| AOT intrinsics                   | [WAMR_BUILD_AOT_INTRINSICS](./build_wamr.md#configure-aot-and-jits)                                         | Runtime Extensions |
+| AoT stack frame                  | [WAMR_BUILD_AOT_STACK_FRAME](./build_wamr.md#enable-aot-stack-frame-feature)                                | Runtime Extensions |
+| Libc builtin                     | [WAMR_BUILD_LIBC_BUILTIN](./build_wamr.md#configure-libc)                                                   | Runtime Extensions |
+| Quick AOT/JIT entries            | [WAMR_BUILD_QUICK_AOT_ENTRY](./build_wamr.md#configure-aot-and-jits)                                        | Runtime Extensions |
+| Shrunk memory                    | [WAMR_BUILD_SHRUNK_MEMORY](./build_wamr.md#enable-shared-memory-feature)                                    | Runtime Extensions |
+| Wakeup blocking operation        | [WAMR_DISABLE_WAKEUP_BLOCKING_OP](./build_wamr.md#disable-async-wakeup-of-blocking-operation)               | Runtime Extensions |
+| App entry                        | [WAMR_DISABLE_APP_ENTRY](./build_wamr.md#exclude-wamr-application-entry-functions)                          | Runtime Extensions |
+| hardware bound check             | [WAMR_DISABLE_HW_BOUND_CHECK](./build_wamr.md#disable-boundary-check-with-hardware-trap)                    | Runtime Extensions |
+| stack hardware bound check       | [WAMR_DISABLE_STACK_HW_BOUND_CHECK](./build_wamr.md#disable-native-stack-boundary-check-with-hardware-trap) | Runtime Extensions |
+| Global heap pool                 | [WAMR_BUILD_GLOBAL_HEAP_POOL](./build_wamr.md#enable-the-global-heap)                                       | Runtime Extensions |
+| Global heap size                 | [WAMR_BUILD_GLOBAL_HEAP_SIZE](./build_wamr.md#set-the-global-heap-size)                                     | Runtime Extensions |
+| Thread manager                   | [WAMR_BUILD_THREAD_MGR](./build_wamr.md#enable-thread-manager)                                              | Runtime Extensions |
 
 ## TierB
 
@@ -72,11 +68,11 @@ This tier indicates a basic level of support. Features and targets in this tier 
 | x86_64-pc-windows-msvc             | N/A                                                                                                                     | Target             |
 | mips-unknown-elf                   | N/A                                                                                                                     | Target             |
 | mips64-unknown-elf                 | N/A                                                                                                                     | Target             |
-| Darwin Compatibility               | N/A                                                                                                                     | Runtime Extensions |
-| ESP-IDF Compatibility              | N/A                                                                                                                     | Runtime Extensions |
-| Nuttx Compatibility                | N/A                                                                                                                     | Runtime Extensions |
-| SGX Compatibility                  | N/A                                                                                                                     | Runtime Extensions |
-| Zephyr Compatibility               | N/A                                                                                                                     | Runtime Extensions |
+| Darwin Compatibility               | N/A                                                                                                                     | Portability        |
+| ESP-IDF Compatibility              | N/A                                                                                                                     | Portability        |
+| Nuttx Compatibility                | N/A                                                                                                                     | Portability        |
+| SGX Compatibility                  | N/A                                                                                                                     | Portability        |
+| Zephyr Compatibility               | N/A                                                                                                                     | Portability        |
 | GC (Garbage Collection)            | [WAMR_BUILD_GC](./build_wamr.md#enable-garbage-collection)                                                              | Wasm Proposal      |
 | Stringref                          | [WAMR_BUILD_STRINGREF](./build_wamr.md#configure-debug)                                                                 | Wasm Proposal      |
 | Tail Calls                         | [WAMR_BUILD_TAIL_CALL](./build_wamr.md#enable-tail-call-feature)                                                        | Wasm Proposal      |
@@ -134,15 +130,15 @@ This tier indicates a basic level of support. Features and targets in this tier 
 | i386-unknown-elf              | N/A                                                                                                          | Target             |
 | x86_64-wrs-vxworks            | N/A                                                                                                          | Target             |
 | i386-wrs-vxworks              | N/A                                                                                                          | Target             |
-| AliOS compatibility           | N/A                                                                                                          | Runtime Extensions |
-| Android Compatibility         | N/A                                                                                                          | Runtime Extensions |
-| Cosmo Compatibility           | N/A                                                                                                          | Runtime Extensions |
-| FreeBSD Compatibility         | N/A                                                                                                          | Runtime Extensions |
-| iOS Compatibility             | N/A                                                                                                          | Runtime Extensions |
-| RIOT OS Compatibility         | N/A                                                                                                          | Runtime Extensions |
-| RT-Thread Compatibility       | N/A                                                                                                          | Runtime Extensions |
-| VxWorks Compatibility         | N/A                                                                                                          | Runtime Extensions |
-| Windows Compatibility         | N/A                                                                                                          | Runtime Extensions |
+| AliOS compatibility           | N/A                                                                                                          | Portability        |
+| Android Compatibility         | N/A                                                                                                          | Portability        |
+| Cosmo Compatibility           | N/A                                                                                                          | Portability        |
+| FreeBSD Compatibility         | N/A                                                                                                          | Portability        |
+| iOS Compatibility             | N/A                                                                                                          | Portability        |
+| RIOT OS Compatibility         | N/A                                                                                                          | Portability        |
+| RT-Thread Compatibility       | N/A                                                                                                          | Portability        |
+| VxWorks Compatibility         | N/A                                                                                                          | Portability        |
+| Windows Compatibility         | N/A                                                                                                          | Portability        |
 | Legacy Exception Handling     | [WAMR_BUILD_EXCE_HANDLING](./build_wamr.md#enable-exception-handling)                                        | Wasm Proposal      |
 | Multi-memory                  | [WAMR_BUILD_MULTI_MEMORY](./build_wamr.md#enable-multi-memory)                                               | Wasm Proposal      |
 | Extended constant expressions | [WAMR_BUILD_EXTENDED_CONST_EXPR](./build_wamr.md#enable-extended-constant-expression)                        | Wasm Proposal      |

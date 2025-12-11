@@ -1,23 +1,34 @@
 # Build WAMR vmcore
 
-WAMR vmcore is a set of runtime libraries for loading and running Wasm modules. This document introduces how to build the WAMR vmcore.
+WAMR vmcore is the runtime library set that loads and runs Wasm modules. This guide walks you through building the WAMR vmcore.
 
 References:
 
-- [how to build iwasm](../product-mini/README.md): building different target platforms such as Linux, Windows, Mac etc
+- [how to build iwasm](../product-mini/README.md): build for Linux, Windows, macOS, and more
 - [Blog: Introduction to WAMR running modes](https://bytecodealliance.github.io/wamr.dev/blog/introduction-to-wamr-running-modes/)
 
 ## building configurations
 
-By including the script `runtime_lib.cmake` under folder [build-scripts](../build-scripts) in CMakeList.txt, it is easy to use vmcore to build host software with cmake.
+Drop the script `runtime_lib.cmake` from [build-scripts](../build-scripts) into your CMakeLists.txt to pull vmcore into your build.
 
 ```cmake
-# add this into your CMakeList.txt
+# add this into your CMakeLists.txt
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 ```
 
-The script `runtime_lib.cmake` defines a number of variables for configuring the WAMR runtime features. You can set these variables in your CMakeList.txt or pass the configurations from cmake command line.
+The `runtime_lib.cmake` script exposes variables that control WAMR runtime features. Set them in CMakeLists.txt or pass them on the cmake command line.
+
+```cmake
+# Set flags in CMakeLists.txt
+set(WAMR_BUILD_AOT 1)
+set(WAMR_BUILD_JIT 0)
+set(WAMR_BUILD_LIBC_BUILTIN 1)
+set(WAMR_BUILD_LIBC_WASI 1)
+# Include the runtime lib script
+include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
+add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
+```
 
 ### All compilation flags
 
@@ -109,17 +120,17 @@ The script `runtime_lib.cmake` defines a number of variables for configuring the
 
 ### **Privileged Features**
 
-_Privileged Features_ are features that require users' awareness of potential security implications. But brings significant benefits on performance, functionality, or other aspects. These features may introduce risks or challenges that users should consider before enabling them in their applications. The use of privileged features requires additional configuration, testing, or monitoring to ensure safe and effective operation.
+_Privileged Features_ are powerful options that can affect security. They can boost performance or add capabilities but lower security by compromising isolation. Use them with care and test thoroughly.
 
 ### **Configure platform and architecture**
 
-- **WAMR_BUILD_PLATFORM**: set the target platform. It can be set to any platform name (folder name) under folder [core/shared/platform](../core/shared/platform).
+- **WAMR_BUILD_PLATFORM**: set the target platform. Match the platform folder name under [core/shared/platform](../core/shared/platform).
 
-- **WAMR_BUILD_TARGET**: set the target CPU architecture. Current supported targets are: X86_64, X86_32, AARCH64, ARM, THUMB, XTENSA, ARC, RISCV32, RISCV64 and MIPS.
-  - For ARM and THUMB, the format is \<arch>\[\<sub-arch>]\[\_VFP], where \<sub-arch> is the ARM sub-architecture and the "\_VFP" suffix means using VFP coprocessor registers s0-s15 (d0-d7) for passing arguments or returning results in standard procedure-call. Both \<sub-arch> and "\_VFP" are optional, e.g. ARMV7, ARMV7_VFP, THUMBV7, THUMBV7_VFP and so on.
-  - For AARCH64, the format is\<arch>[\<sub-arch>], VFP is enabled by default. \<sub-arch> is optional, e.g. AARCH64, AARCH64V8, AARCH64V8.1 and so on.
-  - For RISCV64, the format is \<arch\>[_abi], where "\_abi" is optional, currently the supported formats are RISCV64, RISCV64_LP64D and RISCV64_LP64: RISCV64 and RISCV64_LP64D are identical, using [LP64D](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc#named-abis) as abi (LP64 with hardware floating-point calling convention for FLEN=64). And RISCV64_LP64 uses [LP64](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc#named-abis) as abi (Integer calling-convention only, and hardware floating-point calling convention is not used).
-  - For RISCV32, the format is \<arch\>[_abi], where "\_abi" is optional, currently the supported formats are RISCV32, RISCV32_ILP32D, RISCV32_ILP32F and RISCV32_ILP32: RISCV32 and RISCV32_ILP32D are identical, using [ILP32D](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc#named-abis) as abi (ILP32 with hardware floating-point calling convention for FLEN=64). RISCV32_ILP32F uses [ILP32F](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc#named-abis) as abi (ILP32 with hardware floating-point calling convention for FLEN=32). And RISCV32_ILP32 uses [ILP32](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc#named-abis) as abi (Integer calling-convention only, and hardware floating-point calling convention is not used).
+- **WAMR_BUILD_TARGET**: set the target CPU architecture. Supported targets: X86_64, X86_32, AARCH64, ARM, THUMB, XTENSA, ARC, RISCV32, RISCV64, and MIPS.
+  - For ARM and THUMB, use `<arch>[<sub-arch>][_VFP]`. `<sub-arch>` is the ARM sub-architecture. `_VFP` means arguments and returns use VFP coprocessor registers s0-s15 (d0-d7). Both are optional, for example ARMV7, ARMV7_VFP, THUMBV7, or THUMBV7_VFP.
+  - For AARCH64, use `<arch>[<sub-arch>]`. VFP is on by default. `<sub-arch>` is optional, for example AARCH64, AARCH64V8, or AARCH64V8.1.
+  - For RISCV64, use `<arch>[_abi]`. `_abi` is optional. Supported: RISCV64, RISCV64_LP64D, and RISCV64_LP64. RISCV64 and RISCV64_LP64D both use [LP64D](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc#named-abis) (LP64 with hardware floating-point for FLEN=64). RISCV64_LP64 uses [LP64](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc#named-abis) (integer calling convention only; no hardware floating-point calling convention).
+  - For RISCV32, use `<arch>[_abi]`. `_abi` is optional. Supported: RISCV32, RISCV32_ILP32D, RISCV32_ILP32F, and RISCV32_ILP32. RISCV32 and RISCV32_ILP32D both use [ILP32D](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc#named-abis) (ILP32 with hardware floating-point for FLEN=64). RISCV32_ILP32F uses [ILP32F](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc#named-abis) (ILP32 with hardware floating-point for FLEN=32). RISCV32_ILP32 uses [ILP32](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc#named-abis) (integer calling convention only).
 
 ```bash
 cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
@@ -127,254 +138,254 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 ### **Configure interpreters**
 
-- **WAMR_BUILD_INTERP**=1/0: enable or disable WASM interpreter
+- **WAMR_BUILD_INTERP**=1/0: turn the WASM interpreter on or off.
 
-- **WAMR_BUILD_FAST_INTERP**=1/0: build fast (default) or classic WASM interpreter.
+- **WAMR_BUILD_FAST_INTERP**=1/0: pick fast (default) or classic interpreter.
 
 > [!NOTE]
-> the fast interpreter runs ~2X faster than classic interpreter, but consumes about 2X memory to hold the pre-compiled code.
+> The fast interpreter runs about twice as fast as the classic one, and uses about twice the memory for the precompiled code.
 
 ### **Configure AOT**
 
-- **WAMR_BUILD_AOT**=1/0, enable AOT or not, default to enable if not set
+- **WAMR_BUILD_AOT**=1/0: turn AOT on or off. Defaults to on.
 
 ### **Configure LLVM JIT**
 
-- **WAMR_BUILD_JIT**=1/0, enable LLVM JIT or not, default to disable if not set
+Comparing with fast JIT, LLVM JIT covers more architectures and produces better optimized code, but takes longer on cold start.
+
+- **WAMR_BUILD_JIT**=1/0: turn LLVM JIT on or off. Defaults to off.
 
 ### **Configure Fast JIT**
 
-the fast JIT is a lightweight JIT compiler which generates machine code quickly with optimizations for hot functions. Only covers few architectures (x86_64) currently.
+The fast JIT is a lightweight JIT that emits code quickly and tunes hot functions.
 
-- **WAMR_BUILD_FAST_JIT**=1/0, enable Fast JIT or not, default to disable if not set
+- **WAMR_BUILD_FAST_JIT**=1/0: turn Fast JIT on or off. Defaults to off.
 
-> [!NOTE]
->
-> - **WAMR_BUILD_FAST_JIT**=1 and **WAMR_BUILD_JIT**=1, enable Multi-tier JIT, default to disable if not set
+> [!WARNING]
+> It currently covers only a few architectures (x86_64).
+
+### **Configure Multi-tier JIT**
+
+Use fast jit as the first tier and LLVM JIT as the second tier.
+
+- With **WAMR_BUILD_FAST_JIT**=1 and **WAMR_BUILD_JIT**=1, you get multi-tier JIT. Defaults to off.
+
+> [!WARNING]
+> It currently covers only a few architectures (x86_64).
 
 ### **Configure LIBC**
 
-- **WAMR_BUILD_LIBC_BUILTIN**=1/0, build the built-in libc subset for WASM app, default to enable if not set
+- **WAMR_BUILD_LIBC_BUILTIN**=1/0: build the built-in libc subset for WASM apps. Defaults to on.
 
-- **WAMR_BUILD_LIBC_WASI**=1/0, build the [WASI](https://github.com/WebAssembly/WASI) libc subset for WASM app, default to enable if not set
+- **WAMR_BUILD_LIBC_WASI**=1/0: build the [WASI](https://github.com/WebAssembly/WASI) libc subset for WASM apps. Defaults to on.
 
-- **WAMR_BUILD_LIBC_UVWASI**=1/0 (Experiment), build the [WASI](https://github.com/WebAssembly/WASI) libc subset for WASM app based on [uvwasi](https://github.com/nodejs/uvwasi) implementation, default to disable if not set
+- **WAMR_BUILD_LIBC_UVWASI**=1/0 (Experiment): build the WASI libc subset for WASM apps using [uvwasi](https://github.com/nodejs/uvwasi). Defaults to off.
 
 > [!WARNING]
-> WAMR doesn't support a safe sandbox on all platforms. For platforms that do not support **WAMR_BUILD_LIBC_WASI**, e.g. Windows, developers can try using an unsafe uvwasi-based WASI implementation by using **WAMR_BUILD_LIBC_UVWASI**.
+> WAMR is not a secure sandbox on every platform. On platforms where **WAMR_BUILD_LIBC_WASI** is unsupported (for example Windows), you can try the uvwasi-based WASI via **WAMR_BUILD_LIBC_UVWASI**, but it is unsafe.
 
 ### **Enable Multi-Module feature**
 
-- **WAMR_BUILD_MULTI_MODULE**=1/0, default to disable if not set
+- **WAMR_BUILD_MULTI_MODULE**=1/0, default to off.
 
 > [!NOTE]
-> See [Multiple Modules as Dependencies](./multi_module.md) for more details.
+> See [Multiple Modules as Dependencies](./multi_module.md) for details.
 
 > [!WARNING]
-> Currently, the multi-module feature is not supported in fast-jit and llvm-jit modes.
+> The multi-module feature is not supported in fast-jit or llvm-jit modes.
 
 ### **Enable WASM mini loader**
 
-- **WAMR_BUILD_MINI_LOADER**=1/0, default to disable if not set
+- **WAMR_BUILD_MINI_LOADER**=1/0, default to off.
 
 > [!NOTE]
-> the mini loader doesn't check the integrity of the WASM binary file, developer must ensure that the WASM file is well-formed.
+> The mini loader skips integrity checks on the WASM binary. Make sure the file is valid yourself.
 
 ### **Enable shared memory feature**
 
-- **WAMR_BUILD_SHARED_MEMORY**=1/0, default to disable if not set
+- **WAMR_BUILD_SHARED_MEMORY**=1/0, default to off.
 
 ### **Enable bulk memory feature**
 
-- **WAMR_BUILD_BULK_MEMORY**=1/0, default to disable if not set
+- **WAMR_BUILD_BULK_MEMORY**=1/0, default to off.
 
 ### **Enable memory64 feature**
 
-- **WAMR_BUILD_MEMORY64**=1/0, default to disable if not set
+- **WAMR_BUILD_MEMORY64**=1/0, default to off.
 
 > [!WARNING]
-> Currently, the memory64 feature is only supported in classic interpreter running mode and AOT mode.
+> Supported only in classic interpreter mode and AOT mode.
 
 ### **Enable thread manager**
 
-- **WAMR_BUILD_THREAD_MGR**=1/0, default to disable if not set
+- **WAMR_BUILD_THREAD_MGR**=1/0, default to off.
 
 ### **Enable lib-pthread**
 
-- **WAMR_BUILD_LIB_PTHREAD**=1/0, default to disable if not set
+- **WAMR_BUILD_LIB_PTHREAD**=1/0, default to off.
 
 > [!NOTE]
-> The dependent feature of lib pthread such as the `shared memory` and `thread manager` will be enabled automatically.
-> See [WAMR pthread library](./pthread_library.md) for more details.
+> When you enable lib pthread, required features such as `shared memory` and `thread manager` are enabled automatically. See [WAMR pthread library](./pthread_library.md) for details.
 
 ### **Enable lib-pthread-semaphore**
 
-- **WAMR_BUILD_LIB_PTHREAD_SEMAPHORE**=1/0, default to disable if not set
+- **WAMR_BUILD_LIB_PTHREAD_SEMAPHORE**=1/0, default to off.
 
 > [!NOTE]
-> This feature depends on `lib-pthread`, it will be enabled automatically if this feature is enabled.
+> This depends on `lib-pthread` and turns it on automatically.
 
 ### **Enable lib wasi-threads**
 
-- **WAMR_BUILD_LIB_WASI_THREADS**=1/0, default to disable if not set
+- **WAMR_BUILD_LIB_WASI_THREADS**=1/0, default to off.
 
 > [!NOTE]
-> The dependent feature of lib wasi-threads such as the `shared memory` and `thread manager` will be enabled automatically.
-> See [wasi-threads](./pthread_impls.md#wasi-threads-new) and [Introduction to WAMR WASI threads](https://bytecodealliance.github.io/wamr.dev/blog/introduction-to-wamr-wasi-threads) for more details.
+> Enabling lib wasi-threads also enables its dependencies `shared memory` and `thread manager`. See [wasi-threads](./pthread_impls.md#wasi-threads-new) and [Introduction to WAMR WASI threads](https://bytecodealliance.github.io/wamr.dev/blog/introduction-to-wamr-wasi-threads) for details.
 
 ### **Enable lib wasi-nn**
 
-- **WAMR_BUILD_WASI_NN**=1/0, default to disable if not set
+- **WAMR_BUILD_WASI_NN**=1/0, default to off.
 
 > [!NOTE]
-> WAMR_BUILD_WASI_NN without WAMR_BUILD_WASI_EPHEMERAL_NN is deprecated and will likely be removed in future versions of WAMR. Please consider to enable WAMR_BUILD_WASI_EPHEMERAL_NN as well.
-> See [WASI-NN](../core/iwasm/libraries/wasi-nn) for more details.
+> Using WAMR_BUILD_WASI_NN without WAMR_BUILD_WASI_EPHEMERAL_NN is deprecated and may be removed later. Please enable WAMR_BUILD_WASI_EPHEMERAL_NN too. See [WASI-NN](../core/iwasm/libraries/wasi-nn) for details.
 
 ### **Enable lib wasi-nn GPU mode**
 
-- **WAMR_BUILD_WASI_NN_ENABLE_GPU**=1/0, default to disable if not set
+- **WAMR_BUILD_WASI_NN_ENABLE_GPU**=1/0, default to off.
 
 ### **Enable lib wasi-nn external delegate mode**
 
-- **WAMR_BUILD_WASI_NN_ENABLE_EXTERNAL_DELEGATE**=1/0, default to disable if not set
+- **WAMR_BUILD_WASI_NN_ENABLE_EXTERNAL_DELEGATE**=1/0, default to off.
 
-- **WAMR_BUILD_WASI_NN_EXTERNAL_DELEGATE_PATH**=Path to the external delegate shared library (e.g. `libedgetpu.so.1.0` for Coral USB)
+- **WAMR_BUILD_WASI_NN_EXTERNAL_DELEGATE_PATH**=Path to the external delegate shared library (for example `libedgetpu.so.1.0` for Coral USB).
 
 ### **Enable lib wasi-nn with `wasi_ephemeral_nn` module support**
 
-- **WAMR_BUILD_WASI_EPHEMERAL_NN**=1/0, default to enable if not set
+- **WAMR_BUILD_WASI_EPHEMERAL_NN**=1/0, default to on.
 
 ### **Disable boundary check with hardware trap**
 
-- **WAMR_DISABLE_HW_BOUND_CHECK**=1/0, default to enable if not set and supported by platform
+- **WAMR_DISABLE_HW_BOUND_CHECK**=1/0, default to on if the platform supports it.
 
 > [!NOTE]
-> by default only platform [linux/darwin/android/windows/vxworks 64-bit](https://github.com/bytecodealliance/wasm-micro-runtime/blob/5fb5119239220b0803e7045ca49b0a29fe65e70e/core/shared/platform/linux/platform_internal.h#L81) will enable the boundary check with hardware trap feature, for 32-bit platforms it's automatically disabled even when the flag is set to 0, and the wamrc tool will generate AOT code without boundary check instructions in all 64-bit targets except SGX to improve performance. The boundary check includes linear memory access boundary and native stack access boundary, if `WAMR_DISABLE_STACK_HW_BOUND_CHECK` below isn't set.
+> By default only [linux/darwin/android/windows/vxworks 64-bit](https://github.com/bytecodealliance/wasm-micro-runtime/blob/5fb5119239220b0803e7045ca49b0a29fe65e70e/core/shared/platform/linux/platform_internal.h#L81) platforms enable this hardware trap boundary check. On 32-bit platforms it is off even if the flag is 0. The wamrc tool omits boundary check instructions in AOT code for all 64-bit targets except SGX to improve speed. The boundary check covers linear memory access and native stack access unless `WAMR_DISABLE_STACK_HW_BOUND_CHECK` is set.
 
 ### **Disable native stack boundary check with hardware trap**
 
-- **WAMR_DISABLE_STACK_HW_BOUND_CHECK**=1/0, default to enable if not set and supported by platform, same as `WAMR_DISABLE_HW_BOUND_CHECK`.
+- **WAMR_DISABLE_STACK_HW_BOUND_CHECK**=1/0, default to on if the platform supports it; same rule as `WAMR_DISABLE_HW_BOUND_CHECK`.
 
 > [!NOTE]
-> When boundary check with hardware trap is disabled, or `WAMR_DISABLE_HW_BOUND_CHECK` is set to 1, the native stack boundary check with hardware trap will be disabled too, no matter what value is set to `WAMR_DISABLE_STACK_HW_BOUND_CHECK`. And when boundary check with hardware trap is enabled, the status of this feature is set according to the value of `WAMR_DISABLE_STACK_HW_BOUND_CHECK`.
+> If hardware trap boundary checks are off (or `WAMR_DISABLE_HW_BOUND_CHECK` is 1), native stack boundary checks are also off regardless of `WAMR_DISABLE_STACK_HW_BOUND_CHECK`. If hardware trap boundary checks are on, this setting decides whether the native stack check is on.
 
 ### **Disable async wakeup of blocking operation**
 
-- **WAMR_DISABLE_WAKEUP_BLOCKING_OP**=1/0, default to enable if supported by the platform
+- **WAMR_DISABLE_WAKEUP_BLOCKING_OP**=1/0, default to on when the platform supports it.
 
 > [!NOTE]
-> The feature helps async termination of blocking threads. If you disable it, the runtime can wait for termination of blocking threads possibly forever.
+> This feature lets blocking threads terminate asynchronously. If you disable it, blocking threads may never finish when asked to exit.
 
 ### **Enable tail call feature**
 
-- **WAMR_BUILD_TAIL_CALL**=1/0, default to disable if not set
+- **WAMR_BUILD_TAIL_CALL**=1/0, default to off.
 
 ### **Enable 128-bit SIMD feature**
 
-- **WAMR_BUILD_SIMD**=1/0, default to enable if not set
+- **WAMR_BUILD_SIMD**=1/0, default to on.
 
 > [!WARNING]
-> supported in AOT mode, JIT mode, and fast-interpreter mode with SIMDe library.
+> Supported in AOT, JIT, and fast-interpreter modes with the SIMDe library.
 
 ### **Enable SIMDe library for SIMD in fast interpreter**
 
-- **WAMR_BUILD_LIB_SIMDE**=1/0, default to disable if not set
+- **WAMR_BUILD_LIB_SIMDE**=1/0, default to off.
 
 > [!NOTE]
-> If enabled, SIMDe (SIMD Everywhere) library will be used to implement SIMD operations in fast interpreter mode.
+> When enabled, SIMDe (SIMD Everywhere) implements SIMD operations in fast interpreter mode.
 
 ### **Enable Exception Handling**
 
-- **WAMR_BUILD_EXCE_HANDLING**=1/0, default to disable if not set
+- **WAMR_BUILD_EXCE_HANDLING**=1/0, default to off.
 
 > [!WARNING]
-> Currently, the exception handling feature is only supported in classic interpreter running mode.
+> Exception handling currently works only in classic interpreter mode.
 
 ### **Enable Garbage Collection**
 
-- **WAMR_BUILD_GC**=1/0, default to disable if not set
+- **WAMR_BUILD_GC**=1/0, default to off.
 
 > [!WARNING]
-> Currently, the exception handling feature is not supported in fast-jit running mode.
+> Garbage collection is not supported in fast-jit mode.
 
 ### **Set the Garbage Collection heap size**
 
-- **WAMR_BUILD_GC_HEAP_SIZE_DEFAULT**=n, default to 128 kB (131072) if not set
+- **WAMR_BUILD_GC_HEAP_SIZE_DEFAULT**=n, default to 128 kB (131072).
 
 ### **Enable Multi Memory**
 
-- **WAMR_BUIL_MULTI_MEMORY**=1/0, default to disable if not set
+- **WAMR_BUIL_MULTI_MEMORY**=1/0, default to off.
 
 > [!WARNING]
-> Currently, the multi memory feature is only supported in classic interpreter running mode.
+> Multi memory is supported only in classic interpreter mode.
 
 ### **Configure Debug**
 
-- **WAMR_BUILD_CUSTOM_NAME_SECTION**=1/0, load the function name from custom name section, default to disable if not set
+- **WAMR_BUILD_CUSTOM_NAME_SECTION**=1/0: load function names from the custom name section. Default is off.
 
 ### **Enable AOT stack frame feature**
 
-- **WAMR_BUILD_AOT_STACK_FRAME**=1/0, default to disable if not set
+- **WAMR_BUILD_AOT_STACK_FRAME**=1/0, default to off.
 
 > [!NOTE]
-> if it is enabled, the AOT or JIT stack frames (like stack frame of classic interpreter but only necessary data is committed) will be created for AOT or JIT mode in function calls. And please add `--enable-dump-call-stack` option to wamrc during compiling AOT module.
+> When enabled, AOT or JIT stack frames (similar to classic interpreter frames but storing only what is needed) are built during calls. Add `--enable-dump-call-stack` to wamrc when compiling AOT modules.
 
 ### **Enable dump call stack feature**
 
-- **WAMR_BUILD_DUMP_CALL_STACK**=1/0, default to disable if not set
+- **WAMR_BUILD_DUMP_CALL_STACK**=1/0, default to off.
 
 > [!NOTE]
-> if it is enabled, the call stack will be dumped when exception occurs.
+> When enabled, the runtime dumps the call stack on exceptions.
 >
-> - For interpreter mode, the function names are firstly extracted from _custom name section_, if this section doesn't exist or the feature is not enabled, then the name will be extracted from the import/export sections
-> - For AOT/JIT mode, the function names are extracted from import/export section, please export as many functions as possible (for `wasi-sdk` you can use `-Wl,--export-all`) when compiling wasm module, and add `--enable-dump-call-stack --emit-custom-sections=name` option to wamrc during compiling AOT module.
+> - In interpreter mode, names come first from the custom name section. If that section is absent or disabled, names come from import/export sections.
+> - In AOT/JIT mode, names come from the import/export section. Export as many functions as possible (for `wasi-sdk` you can use `-Wl,--export-all`) when compiling the wasm module, and add `--enable-dump-call-stack --emit-custom-sections=name` to wamrc when compiling the AOT module.
 
 ### **Enable memory profiling (Experiment)**
 
-- **WAMR_BUILD_MEMORY_PROFILING**=1/0, default to disable if not set
+- **WAMR_BUILD_MEMORY_PROFILING**=1/0, default to off.
 
 > [!NOTE]
-> if it is enabled, developer can use API `void wasm_runtime_dump_mem_consumption(wasm_exec_env_t exec_env)` to dump the memory consumption info.
-> Currently we only profile the memory consumption of module, module_instance and exec_env, the memory consumed by other components such as `wasi-ctx`, `multi-module` and `thread-manager` are not included.
->
-> Also refer to [Memory usage estimation for a module](./memory_usage.md).
+> When enabled, call `void wasm_runtime_dump_mem_consumption(wasm_exec_env_t exec_env)` to dump memory usage. Currently only module, module_instance, and exec_env memory are measured; other components such as `wasi-ctx`, `multi-module`, and `thread-manager` are not included. See [Memory usage estimation for a module](./memory_usage.md).
 
 ### **Enable performance profiling (Experiment)**
 
-- **WAMR_BUILD_PERF_PROFILING**=1/0, default to disable if not set
+- **WAMR_BUILD_PERF_PROFILING**=1/0, default to off.
 
 > [!NOTE]
-> if it is enabled, developer can use API `void wasm_runtime_dump_perf_profiling(wasm_module_inst_t module_inst)` to dump the performance consumption info. Currently we only profile the performance consumption of each WASM function.
-> The function name searching sequence is the same with dump call stack feature.
-> Also refer to [Tune the performance of running wasm/aot file](./perf_tune.md).
+> When enabled, call `void wasm_runtime_dump_perf_profiling(wasm_module_inst_t module_inst)` to dump per-function performance. Function name lookup follows the same order as the dump call stack feature. See [Tune the performance of running wasm/aot file](./perf_tune.md).
 
 ### **Enable the global heap**
 
-- **WAMR_BUILD_GLOBAL_HEAP_POOL**=1/0, default to disable if not set for all _iwasm_ applications, except for the platforms Alios and Zephyr.
+- **WAMR_BUILD_GLOBAL_HEAP_POOL**=1/0, default to off for _iwasm_ apps except on Alios and Zephyr.
 
-> [!NOTE] > **WAMR_BUILD_GLOBAL_HEAP_POOL** is used in the _iwasm_ applications provided in the directory `product-mini`. When writing your own host application using WAMR, if you want to use a global heap and allocate memory from it, you must set the initialization argument `mem_alloc_type` to `Alloc_With_Pool`.
-> The global heap is defined in the documentation [Memory model and memory usage tunning](memory_tune.md).
+> [!NOTE] > **WAMR_BUILD_GLOBAL_HEAP_POOL** applies to _iwasm_ apps in `product-mini`. For your own host app, set `mem_alloc_type` to `Alloc_With_Pool` if you want to use a global heap. The global heap is described in [Memory model and memory usage tunning](memory_tune.md).
 
 ### **Set the global heap size**
 
-- **WAMR_BUILD_GLOBAL_HEAP_SIZE**=n, default to 10 MB (10485760) if not set for all _iwasm_ applications, except for the platforms Alios (256 kB), Riot (256 kB) and Zephyr (128 kB).
+- **WAMR_BUILD_GLOBAL_HEAP_SIZE**=n, default to 10 MB (10485760) for _iwasm_ apps, except Alios (256 kB), Riot (256 kB), and Zephyr (128 kB).
 
-> [!NOTE] > **WAMR_BUILD_GLOBAL_HEAP_SIZE** is used in the _iwasm_ applications provided in the directory `product-mini`. When writing your own host application using WAMR, if you want to set the amount of memory dedicated to the global heap pool, you must set the initialization argument `mem_alloc_option.pool` with the appropriate values.
-> The global heap is defined in the documentation [Memory model and memory usage tunning](memory_tune.md).
+> [!NOTE] > **WAMR_BUILD_GLOBAL_HEAP_SIZE** applies to _iwasm_ apps in `product-mini`. For your host app, set `mem_alloc_option.pool` with the size you want for the global heap. The global heap is described in [Memory model and memory usage tunning](memory_tune.md).
 
 ### **Set maximum app thread stack size**
 
-- **WAMR_APP_THREAD_STACK_SIZE_MAX**=n, default to 8 MB (8388608) if not set
+- **WAMR_APP_THREAD_STACK_SIZE_MAX**=n, default to 8 MB (8388608).
 
 > [!NOTE]
-> the AOT boundary check with hardware trap mechanism might consume large stack since the OS may lazily grow the stack mapping as a guard page is hit, we may use this configuration to reduce the total stack usage, e.g. -DWAMR_APP_THREAD_STACK_SIZE_MAX=131072 (128 KB).
+> AOT boundary checks with hardware traps may use large stacks because the OS can grow stacks lazily when a guard page is hit. Use this setting to cap total stack use, for example `-DWAMR_APP_THREAD_STACK_SIZE_MAX=131072` (128 KB).
 
 ### **Set vprintf callback**
 
-- **WAMR_BH_VPRINTF**=<vprintf_callback>, default to disable if not set
+- **WAMR_BH_VPRINTF**=<vprintf_callback>, default to off.
 
 > [!NOTE]
-> if the vprintf_callback function is provided by developer, the os_printf() and os_vprintf() in Linux, Darwin, Windows, VxWorks, Android and esp-idf platforms, besides WASI Libc output will call the callback function instead of libc vprintf() function to redirect the stdout output. For example, developer can define the callback function like below outside runtime lib:
+> If you provide `vprintf_callback`, `os_printf()` and `os_vprintf()` on Linux, Darwin, Windows, VxWorks, Android, and esp-idf, plus WASI libc output, call your callback instead of libc `vprintf()`. Example outside the runtime lib:
 >
 > ```C
 > int my_vprintf(const char *format, va_list ap)
@@ -392,12 +403,12 @@ the fast JIT is a lightweight JIT compiler which generates machine code quickly 
 > }
 > ```
 >
-> and then use `cmake -DWAMR_BH_VPRINTF=my_vprintf ..` to pass the callback function, or add `BH_VPRINTF=my_vprintf` macro for the compiler, e.g. add line `add_definitions(-DBH_VPRINTF=my_vprintf)` in CMakeLists.txt. See [basic sample](../samples/basic/src/main.c) for a usage example.
+> Then run `cmake -DWAMR_BH_VPRINTF=my_vprintf ..`, or add the compiler macro `BH_VPRINTF=my_vprintf` (for example `add_definitions(-DBH_VPRINTF=my_vprintf)` in CMakeLists.txt). See [basic sample](../samples/basic/src/main.c) for an example.
 
-### **WAMR_BH_LOG**=<log_callback>, default to disable if not set
+### **WAMR_BH_LOG**=<log_callback>, default to off.
 
 > [!NOTE]
-> if the log_callback function is provided by the developer, WAMR logs are redirected to such callback. For example:
+> If you provide `log_callback`, WAMR logs go there. Example:
 >
 > ```C
 > void my_log(uint32 log_level, const char *file, int line, const char *fmt, ...)
@@ -406,78 +417,74 @@ the fast JIT is a lightweight JIT compiler which generates machine code quickly 
 > }
 > ```
 >
-> See [basic sample](../samples/basic/src/main.c) for a usage example.
+> See [basic sample](../samples/basic/src/main.c) for an example.
 
 ### **Enable reference types feature**
 
-- **WAMR_BUILD_REF_TYPES**=1/0, default to enable if not set
+- **WAMR_BUILD_REF_TYPES**=1/0, default to on.
 
 ### **Exclude WAMR application entry functions**
 
-- **WAMR_DISABLE_APP_ENTRY**=1/0, default to disable if not set
+- **WAMR_DISABLE_APP_ENTRY**=1/0, default to off.
 
 > [!NOTE]
-> The WAMR application entry (`core/iwasm/common/wasm_application.c`) encapsulate some common process to instantiate, execute the wasm functions and print the results. Some platform related APIs are used in these functions, so you can enable this flag to exclude this file if your platform doesn't support those APIs.
-> _Don't enable this flag if you are building `product-mini`_
+> The WAMR application entry (`core/iwasm/common/wasm_application.c`) wraps common steps to instantiate and run wasm functions and print results. These use platform APIs. Enable this flag to skip the file if your platform lacks those APIs. _Do not enable this flag when building `product-mini`._
 
 ### **Enable source debugging features**
 
-- **WAMR_BUILD_DEBUG_INTERP**=1/0, default to 0 if not set
+- **WAMR_BUILD_DEBUG_INTERP**=1/0, default to 0.
 
 > [!NOTE]
-> There are some other setup required by source debugging, please refer to [source_debugging.md](./source_debugging.md) and [WAMR source debugging basic](https://bytecodealliance.github.io/wamr.dev/blog/wamr-source-debugging-basic) for more details.
+> Source debugging needs extra setup. See [source_debugging.md](./source_debugging.md) and [WAMR source debugging basic](https://bytecodealliance.github.io/wamr.dev/blog/wamr-source-debugging-basic).
 
 ### **Enable load wasm custom sections**
 
-- **WAMR_BUILD_LOAD_CUSTOM_SECTION**=1/0, default to disable if not set
+- **WAMR_BUILD_LOAD_CUSTOM_SECTION**=1/0, default to off.
 
 > [!NOTE]
-> By default, the custom sections are ignored. If the embedder wants to get custom sections from `wasm_module_t`, then `WAMR_BUILD_LOAD_CUSTOM_SECTION` should be enabled, and then `wasm_runtime_get_custom_section` can be used to get a custom section by name.
->
-> If `WAMR_BUILD_CUSTOM_NAME_SECTION` is enabled, then the `custom name section` will be treated as a special section and consumed by the runtime, not available to the embedder.
-> For AoT file, must use `--emit-custom-sections` to specify which sections need to be emitted into AoT file, otherwise all custom sections will be ignored.
+> By default, custom sections are ignored. Enable `WAMR_BUILD_LOAD_CUSTOM_SECTION` so the embedder can read them via `wasm_runtime_get_custom_section`. If `WAMR_BUILD_CUSTOM_NAME_SECTION` is on, the custom name section is consumed by the runtime and unavailable to the embedder. For AoT files, pass `--emit-custom-sections` to wamrc to keep the sections; otherwise they are dropped.
 
 ### **Stack guard size**
 
-- **WAMR_BUILD_STACK_GUARD_SIZE**=n, default to N/A if not set.
+- **WAMR_BUILD_STACK_GUARD_SIZE**=n, default to N/A when not set.
 
 > [!NOTE]
-> By default, the stack guard size is 1K (1024) or 24K (if uvwasi enabled).
+> By default, stack guard size is 1K (1024) or 24K when uvwasi is enabled.
 
 ### **Disable writing the linear memory base address to x86 GS segment register**
 
-- **WAMR_DISABLE_WRITE_GS_BASE**=1/0, default to enable if not set and supported by platform
+- **WAMR_DISABLE_WRITE_GS_BASE**=1/0, default to on if the platform supports it.
 
 > [!NOTE]
-> by default only platform [linux x86-64](https://github.com/bytecodealliance/wasm-micro-runtime/blob/5fb5119239220b0803e7045ca49b0a29fe65e70e/core/shared/platform/linux/platform_internal.h#L67) will enable this feature, for 32-bit platforms it's automatically disabled even when the flag is set to 0. In linux x86-64, writing the linear memory base address to x86 GS segment register may be used to speedup the linear memory access for LLVM AOT/JIT, when `--enable-segue=[<flags>]` option is added for `wamrc` or `iwasm`.
-
-> See [Enable segue optimization for wamrc when generating the aot file](./perf_tune.md#3-enable-segue-optimization-for-wamrc-when-generating-the-aot-file) for more details.
+> By default only [linux x86-64](https://github.com/bytecodealliance/wasm-micro-runtime/blob/5fb5119239220b0803e7045ca49b0a29fe65e70e/core/shared/platform/linux/platform_internal.h#L67) enables this. On 32-bit platforms it stays off even if set to 0. On linux x86-64, writing the linear memory base to the GS segment can speed up linear memory access for LLVM AOT/JIT when `--enable-segue=[<flags>]` is passed to `wamrc` or `iwasm`.
+>
+> See [Enable segue optimization for wamrc when generating the aot file](./perf_tune.md#3-enable-segue-optimization-for-wamrc-when-generating-the-aot-file) for details.
 
 ### **User defined linear memory allocator**
 
-- **WAMR_BUILD_ALLOC_WITH_USAGE**=1/0, default to disable if not set
-- **WAMR_BUILD_ALLOC_WITH_USER_DATA**=1/0, default to disable if not set
+- **WAMR_BUILD_ALLOC_WITH_USAGE**=1/0, default to off.
+- **WAMR_BUILD_ALLOC_WITH_USER_DATA**=1/0, default to off.
 
 > [!NOTE]
-> by default, the linear memory is allocated by system. when it's set to 1 and Alloc_With_Allocator is selected, it will be allocated by customer.
+> By default, the system allocates linear memory. With this on and `Alloc_With_Allocator` selected, you can provide your own allocator.
 
 ### **Enable running PGO(Profile-Guided Optimization) instrumented AOT file**
 
-- **WAMR_BUILD_STATIC_PGO**=1/0, default to disable if not set
+- **WAMR_BUILD_STATIC_PGO**=1/0, default to off.
 
 > [!NOTE]
-> See [Use the AOT static PGO method](./perf_tune.md#5-use-the-aot-static-pgo-method) for more details.
+> See [Use the AOT static PGO method](./perf_tune.md#5-use-the-aot-static-pgo-method).
 
 ### **Enable linux perf support**
 
-- **WAMR_BUILD_LINUX_PERF**=1/0, enable linux perf support to generate the flamegraph to analyze the performance of a wasm application, default to disable if not set
+- **WAMR_BUILD_LINUX_PERF**=1/0: enable linux perf support to generate flamegraphs for wasm app performance. Default is off.
 
 > [!NOTE]
-> See [Use linux-perf](./perf_tune.md#7-use-linux-perf) for more details.
+> See [Use linux-perf](./perf_tune.md#7-use-linux-perf).
 
 ### **Enable module instance context APIs**
 
-- **WAMR_BUILD_MODULE_INST_CONTEXT**=1/0, enable module instance context APIs which can set one or more contexts created by the embedder for a wasm module instance, default to enable if not set:
+- **WAMR_BUILD_MODULE_INST_CONTEXT**=1/0: enable module instance context APIs so the embedder can set one or more contexts for a wasm module instance. Default is on.
 
 ```C
     wasm_runtime_create_context_key
@@ -488,63 +495,63 @@ the fast JIT is a lightweight JIT compiler which generates machine code quickly 
 ```
 
 > [!NOTE]
-> See [wasm_export.h](../core/iwasm/include/wasm_export.h) for more details.
+> See [wasm_export.h](../core/iwasm/include/wasm_export.h) for details.
 
 ### **Enable quick AOT/JTI entries**
 
-- **WAMR_BUILD_QUICK_AOT_ENTRY**=1/0, enable registering quick call entries to speedup the aot/jit func call process, default to enable if not set
+- **WAMR_BUILD_QUICK_AOT_ENTRY**=1/0: register quick call entries to speed up AOT/JIT function calls. Default is on.
 
 > [!NOTE]
-> See [Refine callings to AOT/JIT functions from host native](./perf_tune.md#83-refine-callings-to-aotjit-functions-from-host-native) for more details.
+> See [Refine callings to AOT/JIT functions from host native](./perf_tune.md#83-refine-callings-to-aotjit-functions-from-host-native).
 
 ### **Enable AOT intrinsics**
 
-- **WAMR_BUILD_AOT_INTRINSICS**=1/0, enable the AOT intrinsic functions, default to enable if not set. These functions can be called from the AOT code when `--disable-llvm-intrinsics` flag or `--enable-builtin-intrinsics=<intr1,intr2,...>` flag is used by wamrc to generate the AOT file.
+- **WAMR_BUILD_AOT_INTRINSICS**=1/0: turn on AOT intrinsic functions. Default is on. AOT code can call these when wamrc uses `--disable-llvm-intrinsics` or `--enable-builtin-intrinsics=<intr1,intr2,...>`.
 
 > [!NOTE]
-> See [Tuning the XIP intrinsic functions](./xip.md#tuning-the-xip-intrinsic-functions) for more details.
+> See [Tuning the XIP intrinsic functions](./xip.md#tuning-the-xip-intrinsic-functions).
 
 ### **Enable extended constant expression**
 
-- **WAMR_BUILD_EXTENDED_CONST_EXPR**=1/0, default to disable if not set.
+- **WAMR_BUILD_EXTENDED_CONST_EXPR**=1/0, default to off.
 
 > [!NOTE]
-> See [Extended Constant Expressions](https://github.com/WebAssembly/extended-const/blob/main/proposals/extended-const/Overview.md) for more details.
+> See [Extended Constant Expressions](https://github.com/WebAssembly/extended-const/blob/main/proposals/extended-const/Overview.md).
 
 ### **Enable bulk-memory-opt**
 
-- **WAMR_BUILD_BULK_MEMORY_OPT**=1/0, default to disable if not set.
+- **WAMR_BUILD_BULK_MEMORY_OPT**=1/0, default to off.
 
 > [!NOTE]
-> See [bulk-memory-opt](https://github.com/WebAssembly/tool-conventions/blob/main/Lime.md#bulk-memory-opt) for more details.
+> See [bulk-memory-opt](https://github.com/WebAssembly/tool-conventions/blob/main/Lime.md#bulk-memory-opt).
 
 ### **Enable call-indirect-overlong**
 
-- **WAMR_BUILD_CALL_INDIRECT_OVERLONG**=1/0, default to disable if not set.
+- **WAMR_BUILD_CALL_INDIRECT_OVERLONG**=1/0, default to off.
 
 > [!NOTE]
-> See [call-indirect-overlong](https://github.com/WebAssembly/tool-conventions/blob/main/Lime.md#call-indirect-overlong) for more details.
+> See [call-indirect-overlong](https://github.com/WebAssembly/tool-conventions/blob/main/Lime.md#call-indirect-overlong).
 
 ### **Enable Lime1 target**
 
-- **WAMR_BUILD_LIME1**=1/0, default to disable if not set.
+- **WAMR_BUILD_LIME1**=1/0, default to off.
 
 > [!NOTE]
-> See [Lime1](https://github.com/WebAssembly/tool-conventions/blob/main/Lime.md#lime1) for more details.
+> See [Lime1](https://github.com/WebAssembly/tool-conventions/blob/main/Lime.md#lime1).
 
 ### **Configurable memory access boundary check**
 
-- **WAMR_CONFIGURABLE_BOUNDS_CHECKS**=1/0, default to disable if not set
+- **WAMR_CONFIGURABLE_BOUNDS_CHECKS**=1/0, default to off.
 
 > [!WARNING]
-> If it is enabled, allow to run `iwasm --disable-bounds-checks` to disable the memory access boundary checks for interpreter mode. It is a [privileged feature](#privileged-features), please use it with caution.
+> When enabled, you can run `iwasm --disable-bounds-checks` to turn off memory access boundary checks in interpreter mode. This is a [privileged feature](#privileged-features); use it carefully.
 
 ### **Module instance context APIs**
 
-- **WAMR_BUILD_MODULE_INST_CONTEXT**=1/0, default to disable if not set
+- **WAMR_BUILD_MODULE_INST_CONTEXT**=1/0, default to off.
 
 > [!NOTE]
-> If it is enabled, allow to set one or more contexts created by embedder for a module instance, the below APIs are provided:
+> When enabled, you can set contexts created by the embedder for a module instance through these APIs:
 >
 > ```C
 >     wasm_runtime_create_context_key
@@ -556,10 +563,10 @@ the fast JIT is a lightweight JIT compiler which generates machine code quickly 
 
 ### **Shared heap among wasm apps and host native**
 
-- **WAMR_BUILD_SHARED_HEAP**=1/0, default to disable if not set
+- **WAMR_BUILD_SHARED_HEAP**=1/0, default to off.
 
 > [!NOTE]
-> If it is enabled, allow to create one or more shared heaps, and attach one to a module instance, the belows APIs ared provided:
+> When enabled, you can create and attach shared heaps, and the following APIs become available:
 >
 > ```C
 >    wasm_runtime_create_shared_heap
@@ -569,7 +576,7 @@ the fast JIT is a lightweight JIT compiler which generates machine code quickly 
 >    wasm_runtime_shared_heap_free
 > ```
 >
-> And the wasm app can calls below APIs to allocate/free memory from/to the shared heap if it is attached to the app's module instance:
+> A wasm app can call these to use the shared heap attached to its module instance:
 >
 > ```C
 >    void *shared_heap_malloc();
@@ -577,44 +584,44 @@ the fast JIT is a lightweight JIT compiler which generates machine code quickly 
 > ```
 
 > [!WARNING]
-> Currently, the shared-heap feature is not supported in fast-jit mode.
+> The shared-heap feature is not supported in fast-jit mode.
 
 ### **Shrunk the memory usage**
 
-- **WAMR_BUILD_SHRUNK_MEMORY**=1/0, default to enable if not set
+- **WAMR_BUILD_SHRUNK_MEMORY**=1/0, default to on.
 
 > [!NOTE]
-> When enabled, this feature will reduce memory usage by decreasing the size of the linear memory, particularly when the `memory.grow` opcode is not used and memory usage is somewhat predictable.
+> When enabled, this reduces memory by shrinking linear memory, especially when `memory.grow` is unused and memory needs are predictable.
 
 ## **Instruction metering**
 
-- **WAMR_BUILD_INSTRUCTION_METERING**=1/0, default to disable if not set
+- **WAMR_BUILD_INSTRUCTION_METERING**=1/0, default to off.
 
 > [!NOTE]
-> Enabling this feature allows limiting the number of instructions a wasm module instance can execute. Use the `wasm_runtime_set_instruction_count_limit(...)` API before calling `wasm_runtime_call_*(...)` APIs to enforce this limit.
+> This limits the number of instructions a wasm module instance can run. Call `wasm_runtime_set_instruction_count_limit(...)` before `wasm_runtime_call_*(...)` to enforce the cap.
 
 ## **Combination of configurations:**
 
-We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:
+You can mix settings. For example, to disable the interpreter, enable AOT and WASI, run:
 
 ```Bash
 cmake .. -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_LIBC_WASI=1 -DWAMR_BUILD_PLATFORM=linux
 ```
 
-Or if we want to enable interpreter, disable AOT and WASI, and build as X86_32, we can run command:
+To enable the interpreter, disable AOT and WASI, and target X86_32, run:
 
 ```Bash
 cmake .. -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_AOT=0 -DWAMR_BUILD_LIBC_WASI=0 -DWAMR_BUILD_TARGET=X86_32
 ```
 
-When enabling SIMD for fast interpreter mode, you'll need to enable both SIMD and the SIMDe library:
+When enabling SIMD for fast interpreter mode, turn on both SIMD and the SIMDe library:
 
 ```Bash
 
 cmake .. -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=1 -DWAMR_BUILD_SIMD=1 -DWAMR_BUILD_LIB_SIMDE=1
 ```
 
-For Valgrind, begin with the following configurations and add additional ones as needed:
+For Valgrind, start with these and add more as needed:
 
 ```Bash
   #...
@@ -624,8 +631,7 @@ For Valgrind, begin with the following configurations and add additional ones as
   #...
 ```
 
-To enable the minimal Lime1 feature set, we need to disable some features that are on by default, such as
-bulk memory and reference types:
+To enable the minimal Lime1 feature set, turn off features that are on by default such as bulk memory and reference types:
 
 ```Bash
 cmake .. -DWAMR_BUILD_LIME1=1 -DWAMR_BUILD_BULK_MEMORY=0 -DWAMR_BUILD_REF_TYPES=0 -DDWAMR_BUILD_SIMD=0
