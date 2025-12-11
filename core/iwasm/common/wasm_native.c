@@ -486,9 +486,10 @@ wasm_runtime_get_wasi_nn_global_ctx(WASMModuleInstanceCommon *module_inst_comm)
 
 void
 wasm_runtime_set_wasi_nn_global_ctx(WASMModuleInstanceCommon *module_inst_comm,
-                          WASINNGlobalContext *wasi_nn_ctx)
+                                    WASINNGlobalContext *wasi_nn_ctx)
 {
-    wasm_native_set_context(module_inst_comm, g_wasi_nn_context_key, wasi_nn_ctx);
+    wasm_native_set_context(module_inst_comm, g_wasi_nn_context_key,
+                            wasi_nn_ctx);
 }
 
 static void
@@ -611,7 +612,8 @@ wasm_native_init()
 #endif /* WASM_ENABLE_LIB_RATS */
 
 #if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-    g_wasi_nn_context_key = wasm_native_create_context_key(wasi_nn_context_dtor);
+    g_wasi_nn_context_key =
+        wasm_native_create_context_key(wasi_nn_context_dtor);
     if (g_wasi_nn_context_key == NULL) {
         goto fail;
     }

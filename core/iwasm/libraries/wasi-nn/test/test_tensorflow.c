@@ -19,8 +19,8 @@ test_sum()
     input_info input = create_input(dims);
 
     uint32_t output_size = 0;
-    float *output = run_inference(input.input_tensor, input.dim,
-                                  &output_size, "sum", 1);
+    float *output =
+        run_inference(input.input_tensor, input.dim, &output_size, "sum", 1);
 
     assert((output_size / sizeof(float)) == 1);
     assert(fabs(output[0] - 300.0) < EPSILON);
@@ -37,8 +37,8 @@ test_max()
     input_info input = create_input(dims);
 
     uint32_t output_size = 0;
-    float *output = run_inference(input.input_tensor, input.dim,
-                                  &output_size, "max", 1);
+    float *output =
+        run_inference(input.input_tensor, input.dim, &output_size, "max", 1);
 
     assert((output_size / sizeof(float)) == 1);
     assert(fabs(output[0] - 24.0) < EPSILON);
@@ -56,8 +56,8 @@ test_average()
     input_info input = create_input(dims);
 
     uint32_t output_size = 0;
-    float *output = run_inference(input.input_tensor, input.dim,
-                                  &output_size, "average", 1);
+    float *output = run_inference(input.input_tensor, input.dim, &output_size,
+                                  "average", 1);
 
     assert((output_size / sizeof(float)) == 1);
     assert(fabs(output[0] - 12.0) < EPSILON);
@@ -75,8 +75,8 @@ test_mult_dimensions()
     input_info input = create_input(dims);
 
     uint32_t output_size = 0;
-    float *output = run_inference(input.input_tensor, input.dim,
-                                  &output_size, "mult_dim", 1);
+    float *output = run_inference(input.input_tensor, input.dim, &output_size,
+                                  "mult_dim", 1);
 
     assert((output_size / sizeof(float)) == 9);
     for (int i = 0; i < 9; i++)
@@ -94,8 +94,8 @@ test_mult_outputs()
     input_info input = create_input(dims);
 
     uint32_t output_size = 0;
-    float *output = run_inference(input.input_tensor, input.dim,
-                                  &output_size, "mult_out", 2);
+    float *output = run_inference(input.input_tensor, input.dim, &output_size,
+                                  "mult_out", 2);
 
     assert((output_size / sizeof(float)) == 8);
     // first tensor check
@@ -113,7 +113,9 @@ test_mult_outputs()
 int
 main()
 {
-    NN_INFO_PRINTF("Usage:\niwasm --native-lib=./libwasi_nn_tflite.so --wasi-nn-graph=encoding:target:model_path1:model_path2:...:model_pathn test_tensorflow.wasm\"");
+    NN_INFO_PRINTF("Usage:\niwasm --native-lib=./libwasi_nn_tflite.so "
+                   "--wasi-nn-graph=encoding:target:model_path1:model_path2:..."
+                   ":model_pathN test_tensorflow.wasm\"");
 
     NN_INFO_PRINTF("################### Testing sum...");
     test_sum();

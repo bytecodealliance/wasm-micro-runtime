@@ -9,7 +9,8 @@
 #include <stdlib.h>
 
 WASI_NN_ERROR_TYPE
-wasm_load(char *model_name, WASI_NN_NAME(graph) *g, WASI_NN_NAME(execution_target) target)
+wasm_load(char *model_name, WASI_NN_NAME(graph) * g,
+          WASI_NN_NAME(execution_target) target)
 {
     FILE *pFile = fopen(model_name, "r");
     if (pFile == NULL)
@@ -38,13 +39,14 @@ wasm_load(char *model_name, WASI_NN_NAME(graph) *g, WASI_NN_NAME(execution_targe
     arr.buf = buffer;
     arr.size = result;
 
-    WASI_NN_ERROR_TYPE res = WASI_NN_NAME(load)(&arr, result, WASI_NN_ENCODING_NAME(tensorflowlite), target, g);
-    // WASI_NN_ERROR_TYPE res = WASI_NN_NAME(load)(&arr, 1, WASI_NN_ENCODING_NAME(tensorflowlite), target, g);
+    WASI_NN_ERROR_TYPE res = WASI_NN_NAME(load)(
+        &arr, result, WASI_NN_ENCODING_NAME(tensorflowlite), target, g);
 #else
     WASI_NN_NAME(graph_builder_array) arr;
 
     arr.size = 1;
-    arr.buf = (WASI_NN_NAME(graph_builder) *)malloc(sizeof(WASI_NN_NAME(graph_builder)));
+    arr.buf = (WASI_NN_NAME(graph_builder) *)malloc(
+        sizeof(WASI_NN_NAME(graph_builder)));
     if (arr.buf == NULL) {
         fclose(pFile);
         free(buffer);
@@ -54,7 +56,8 @@ wasm_load(char *model_name, WASI_NN_NAME(graph) *g, WASI_NN_NAME(execution_targe
     arr.buf[0].size = result;
     arr.buf[0].buf = buffer;
 
-    WASI_NN_ERROR_TYPE res = WASI_NN_NAME(load)(&arr, WASI_NN_ENCODING_NAME(tensorflowlite), target, g);
+    WASI_NN_ERROR_TYPE res = WASI_NN_NAME(load)(
+        &arr, WASI_NN_ENCODING_NAME(tensorflowlite), target, g);
 #endif
 
     fclose(pFile);
@@ -64,20 +67,23 @@ wasm_load(char *model_name, WASI_NN_NAME(graph) *g, WASI_NN_NAME(execution_targe
 }
 
 WASI_NN_ERROR_TYPE
-wasm_load_by_name(const char *model_name, WASI_NN_NAME(graph) *g)
+wasm_load_by_name(const char *model_name, WASI_NN_NAME(graph) * g)
 {
-    WASI_NN_ERROR_TYPE res = WASI_NN_NAME(load_by_name)(model_name, strlen(model_name), g);
+    WASI_NN_ERROR_TYPE res =
+        WASI_NN_NAME(load_by_name)(model_name, strlen(model_name), g);
     return res;
 }
 
 WASI_NN_ERROR_TYPE
-wasm_init_execution_context(WASI_NN_NAME(graph) g, WASI_NN_NAME(graph_execution_context) *ctx)
+wasm_init_execution_context(WASI_NN_NAME(graph) g,
+                            WASI_NN_NAME(graph_execution_context) * ctx)
 {
     return WASI_NN_NAME(init_execution_context)(g, ctx);
 }
 
 WASI_NN_ERROR_TYPE
-wasm_set_input(WASI_NN_NAME(graph_execution_context) ctx, float *input_tensor, uint32_t *dim)
+wasm_set_input(WASI_NN_NAME(graph_execution_context) ctx, float *input_tensor,
+               uint32_t *dim)
 {
     WASI_NN_NAME(tensor_dimensions) dims;
     dims.size = INPUT_TENSOR_DIMS;
@@ -103,7 +109,7 @@ wasm_set_input(WASI_NN_NAME(graph_execution_context) ctx, float *input_tensor, u
     tensor.dimensions = &dims;
     for (int i = 0; i < tensor.dimensions->size; ++i)
         tensor.dimensions->buf[i] = dim[i];
-    tensor.type =  WASI_NN_TYPE_NAME(fp32);
+    tensor.type = WASI_NN_TYPE_NAME(fp32);
     tensor.data = (uint8_t *)input_tensor;
 #endif
 
@@ -120,20 +126,21 @@ wasm_compute(WASI_NN_NAME(graph_execution_context) ctx)
 }
 
 WASI_NN_ERROR_TYPE
-wasm_get_output(WASI_NN_NAME(graph_execution_context) ctx, uint32_t index, float *out_tensor,
-                uint32_t *out_size)
+wasm_get_output(WASI_NN_NAME(graph_execution_context) ctx, uint32_t index,
+                float *out_tensor, uint32_t *out_size)
 {
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-    return WASI_NN_NAME(get_output)(ctx, index, (uint8_t *)out_tensor, MAX_OUTPUT_TENSOR_SIZE, out_size);
+    return WASI_NN_NAME(get_output)(ctx, index, (uint8_t *)out_tensor,
+                                    MAX_OUTPUT_TENSOR_SIZE, out_size);
 #else
-    return WASI_NN_NAME(get_output)(ctx, index, (uint8_t *)out_tensor, out_size);
+    return WASI_NN_NAME(get_output)(ctx, index, (uint8_t *)out_tensor,
+                                    out_size);
 #endif
 }
 
 float *
-run_inference(float *input, uint32_t *input_size,
-              uint32_t *output_size, char *model_name,
-              uint32_t num_output_tensors)
+run_inference(float *input, uint32_t *input_size, uint32_t *output_size,
+              char *model_name, uint32_t num_output_tensors)
 {
     WASI_NN_NAME(graph) graph;
 
@@ -143,7 +150,8 @@ run_inference(float *input, uint32_t *input_size,
     }
 
     WASI_NN_NAME(graph_execution_context) ctx;
-    if (wasm_init_execution_context(graph, &ctx) != WASI_NN_ERROR_NAME(success)) {
+    if (wasm_init_execution_context(graph, &ctx)
+        != WASI_NN_ERROR_NAME(success)) {
         NN_ERR_PRINTF("Error when initialixing execution context.");
         exit(1);
     }

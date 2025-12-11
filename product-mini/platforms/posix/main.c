@@ -847,9 +847,9 @@ main(int argc, char *argv[])
             char *token;
             char *saveptr = NULL;
             int token_count = 0;
-            char *tokens[12] = {0};
+            char *tokens[12] = { 0 };
 
-	    // encoding:tensorflowlite|openvino|llama  target:cpu|gpu|tpu
+            // encoding:tensorflowlite|openvino|llama  target:cpu|gpu|tpu
             // --wasi-nn-graph=encoding:target:model_file_path1:model_file_path2:model_file_path3:......
             token = strtok_r(argv[0] + 16, ":", &saveptr);
             while (token) {
@@ -865,11 +865,11 @@ main(int argc, char *argv[])
             n_models = token_count - 2;
             encoding = strdup(tokens[0]);
             target = strdup(tokens[1]);
-            model_paths = malloc(n_models * sizeof(void*));
+            model_paths = malloc(n_models * sizeof(void *));
             for (int i = 0; i < n_models; i++) {
                 model_paths[i] = strdup(tokens[i + 2]);
             }
-	    if (token)
+            if (token)
                 free(token);
         }
 #endif
@@ -1024,8 +1024,10 @@ main(int argc, char *argv[])
 
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
     wasi_nn_graph_registry_create(&nn_registry);
-    wasi_nn_graph_registry_set_args(nn_registry, encoding, target, n_models, model_paths);
-    wasm_runtime_instantiation_args_set_wasi_nn_graph_registry(inst_args, nn_registry);
+    wasi_nn_graph_registry_set_args(nn_registry, encoding, target, n_models,
+                                    model_paths);
+    wasm_runtime_instantiation_args_set_wasi_nn_graph_registry(inst_args,
+                                                               nn_registry);
 #endif
     /* instantiate the module */
     wasm_module_inst = wasm_runtime_instantiate_ex2(
@@ -1149,7 +1151,7 @@ fail4:
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
     wasi_nn_graph_registry_destroy(nn_registry);
     for (uint32_t i = 0; i < n_models; i++)
-	if (model_paths[i])
+        if (model_paths[i])
             free(model_paths[i]);
     free(model_paths);
     free(encoding);

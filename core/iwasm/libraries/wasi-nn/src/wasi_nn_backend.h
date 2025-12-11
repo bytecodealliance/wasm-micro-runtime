@@ -18,7 +18,7 @@ load(void *ctx, graph_builder_array *builder, graph_encoding encoding,
 
 __attribute__((visibility("default"))) wasi_nn_error
 load_by_name(void *tflite_ctx, const char *name, uint32_t namelen,
-     graph_encoding encoding, execution_target target,  graph *g);
+             graph_encoding encoding, execution_target target, graph *g);
 
 __attribute__((visibility("default"))) wasi_nn_error
 load_by_name_with_config(void *ctx, const char *name, uint32_t namelen,

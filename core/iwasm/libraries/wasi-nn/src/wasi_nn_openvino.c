@@ -307,7 +307,7 @@ fail:
 
 __attribute__((visibility("default"))) wasi_nn_error
 load_by_name(void *ctx, const char *filename, uint32_t filename_len,
-    graph_encoding encoding, execution_target target, graph *g)
+             graph_encoding encoding, execution_target target, graph *g)
 {
     OpenVINOContext *ov_ctx = (OpenVINOContext *)ctx;
     struct OpenVINOGraph *graph;
