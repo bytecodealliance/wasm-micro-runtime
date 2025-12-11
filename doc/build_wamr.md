@@ -569,21 +569,6 @@ SIMDE (SIMD Everywhere) implements SIMD operations in fast interpreter mode.
 > [!WARNING]
 > When enabled, you can run `iwasm --disable-bounds-checks` to turn off memory access boundary checks in interpreter mode. This is a [privileged feature](#privileged-features); use it carefully.
 
-### **Module instance context APIs**
-
-- **WAMR_BUILD_MODULE_INST_CONTEXT**=1/0, default to off.
-
-> [!NOTE]
-> When enabled, you can set contexts created by the embedder for a module instance through these APIs:
->
-> ```C
->     wasm_runtime_create_context_key
->     wasm_runtime_destroy_context_key
->     wasm_runtime_set_context
->     wasm_runtime_set_context_spread
->     wasm_runtime_get_context
-> ```
-
 ### **Shared heap among wasm apps and host native**
 
 - **WAMR_BUILD_SHARED_HEAP**=1/0, default to off.
