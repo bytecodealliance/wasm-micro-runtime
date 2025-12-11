@@ -658,8 +658,10 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
         if (model_name && strcmp(nul_terminated_name, model_name) == 0) {
             is_loaded = wasm_runtime_get_wasi_nn_global_ctx_loaded_i(
                 wasi_nn_global_ctx, model_idx);
+            free(model_name);
             break;
         }
+        free(model_name);
     }
 
     if (!is_loaded && (model_idx < MAX_GLOBAL_GRAPHS_PER_INST)
