@@ -25,8 +25,15 @@ function build_iwasm() {
     cd ${WORK_DIR}/build &&
     if [ -d build-iwasm-$2 ]; then rm -rf build-iwasm-$2; else mkdir build-iwasm-$2; fi &&
     cd build-iwasm-$2 &&
+
+    # default: enable asan, when pass false, disable asan
+    SANITIZER_FLAG="-DWAMR_BUILD_SANITIZER=asan"
+    if [ "$3" = "false" ]; then
+        SANITIZER_FLAG=""
+    fi 
+
     cmake ${WAMR_DIR}/product-mini/platforms/${PLATFORM} $1 \
-          -DCMAKE_BUILD_TYPE=Debug -DWAMR_BUILD_SANITIZER=asan &&
+          -DCMAKE_BUILD_TYPE=Debug ${SANITIZER_FLAG} &&
     make -j 4
     if [ "$?" != 0 ]; then
         echo -e "build iwasm failed"
@@ -59,5 +66,8 @@ build_iwasm "-DWAMR_BUILD_REF_TYPES=1 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LIBC_WASI=
 
 # build fast-jit iwasm for testing fast-jit with libc-wasi disabled
 build_iwasm "-DWAMR_BUILD_REF_TYPES=1 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_SIMD=0 -DWAMR_BUILD_LIBC_WASI=0" "fast-jit-wasi-disabled"
+
+# build default iwasm for testing multi-module
+build_iwasm "-DWAMR_BUILD_MULTI_MODULE=1 -DWAMR_BUILD_MULTI_MEMORY=1 -DWAMR_BUILD_AOT=0 -DWAMR_BUILD_FAST_INTERP=0" "multi-memory-multi-module" "false"
 
 # TODO: add more version of iwasm, for example, sgx version
