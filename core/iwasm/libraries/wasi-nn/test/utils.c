@@ -144,7 +144,15 @@ run_inference(float *input, uint32_t *input_size, uint32_t *output_size,
 {
     WASI_NN_NAME(graph) graph;
 
-    if (wasm_load_by_name(model_name, &graph) != WASI_NN_ERROR_NAME(success)) {
+    WASI_NN_ERROR_TYPE res = wasm_load_by_name(model_name, &graph);
+
+    if (res == WASI_NN_ERROR_NAME(not_loaded)) {
+        NN_INFO_PRINTF("Model %s is not loaded, you should pass its path "
+                       "through --wasi-nn-graph",
+                       model_name);
+        return NULL;
+    }
+    else if (res != WASI_NN_ERROR_NAME(success)) {
         NN_ERR_PRINTF("Error when loading model.");
         exit(1);
     }

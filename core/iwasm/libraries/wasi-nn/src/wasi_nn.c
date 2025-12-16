@@ -688,10 +688,10 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
             res = too_large;
         }
         else if (model_idx >= global_n_graphs) {
-            NN_ERR_PRINTF("Cannot find model %s, you should pass its path "
+            NN_ERR_PRINTF("Model %s is not loaded, you should pass its path "
                           "through --wasi-nn-graph",
                           nul_terminated_name);
-            res = not_found;
+            res = not_loaded;
         }
         goto fail;
     }
