@@ -22,7 +22,7 @@
 # If none of the later patterns match, assign to anyone. This team is the
 # parent of all the other teams and automatically includes everyone on those
 # teams.
-* @lum1n0us @TianlongLiang
+* @lum1n0us @TianlongLiang @yamt
 
 # Some parts of the project require more specialized knowledge. In those areas
 # we designate smaller groups who are more likely to be aware of who's working
@@ -31,8 +31,12 @@
 /core/iwasm/core                    @loganek @lum1n0us @no1wudi @TianlongLiang @yamt
 /core/iwasm/interpreter             @loganek @lum1n0us @no1wudi @TianlongLiang @yamt
 /core/iwasm/libraries/lib-socket    @loganek @srberard 
+/core/iwasm/libraries/wasi-nn       @lum1n0us @yamt
 /core/iwasm                         @lum1n0us @no1wudi @TianlongLiang @yamt 
+
+/docs/                              @loganek @lum1n0us @no1wudi @TianlongLiang @yamt
 
 /product-mini/platforms/darwin/     @yamt
 /product-mini/platforms/nuttx/      @no1wudi
+/product-mini/platforms/windows/    @loganek
 /product-mini/platforms/zephyr/     @srberard
