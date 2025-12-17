@@ -90,7 +90,7 @@ jobs:
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -192,7 +192,7 @@ jobs:
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
         if: endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS')
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -258,7 +258,7 @@ jobs:
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
         if: (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS'))
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -366,7 +366,7 @@ jobs:
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ./core/deps/llvm/build/bin
