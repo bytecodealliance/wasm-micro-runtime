@@ -1725,12 +1725,12 @@ wasi_nn_graph_registry_set_args(struct wasi_nn_graph_registry *registry,
     return true;
 }
 
-int
+static int
 wasi_nn_graph_registry_create(struct wasi_nn_graph_registry **registryp)
 {
     struct wasi_nn_graph_registry *args = wasm_runtime_malloc(sizeof(*args));
     if (args == NULL) {
-        return false;
+        return -1;
     }
     wasm_runtime_wasi_nn_graph_registry_args_set_defaults(args);
     *registryp = args;

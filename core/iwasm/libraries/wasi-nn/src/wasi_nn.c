@@ -35,7 +35,7 @@
 #define LLAMACPP_BACKEND_LIB "libwasi_nn_llamacpp" LIB_EXTENTION
 #define ONNX_BACKEND_LIB "libwasi_nn_onnx" LIB_EXTENTION
 
-#define MAX_GLOBAL_GRAPHS_PER_INST 4 // ONNX only allows 4 graphs per instance
+#define MAX_GLOBAL_GRAPHS_PER_INST 4
 
 /* Global variables */
 static korp_mutex wasi_nn_lock;
