@@ -9,7 +9,7 @@ References:
 
 ## building configurations
 
-Drop the script `runtime_lib.cmake` from [build-scripts](../build-scripts) into your CMakeLists.txt to pull vmcore into your build.
+Include the script `runtime_lib.cmake` from [build-scripts](../build-scripts) into your CMakeLists.txt to pull vmcore into your build.
 
 ```cmake
 # add this into your CMakeLists.txt
@@ -148,7 +148,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 - **WAMR_BUILD_FAST_INTERP**=1/0: pick fast (default) or classic interpreter.
 
 > [!NOTE]
-> The fast interpreter runs about twice as fast as the classic one, and uses about twice the memory for the precompiled code.
+> The fast interpreter runs ~2X faster than classic interpreter, but consumes about 2X memory to hold the pre-compiled code.
 
 ### **Configure AOT**
 
