@@ -54,6 +54,7 @@ This tier indicates a basic level of support. Features and targets in this tier 
 | WASI threads                     | [WAMR_BUILD_LIB_WASI_THREADS](./build_wamr.md#lib-wasi-threads)                                             | Wasm Proposal      |
 | Custom sections                  | [WAMR_BUILD_LOAD_CUSTOM_SECTION](./build_wamr.md#load-wasm-custom-sections)                                 | Wasm Proposal      |
 | Memory64                         | [WAMR_BUILD_MEMORY64](./build_wamr.md#memory64-feature)                                                     | Wasm Proposal      |
+| Module instance context          | [WAMR_BUILD_MODULE_INST_CONTEXT](./build_wamr.md#module-instance-context-apis)                              | Runtime Extensions |
 | Quick AOT/JIT entries            | [WAMR_BUILD_QUICK_AOT_ENTRY](./build_wamr.md#configure-aot)                                                 | Runtime Extensions |
 | Reference Types                  | [WAMR_BUILD_REF_TYPES](./build_wamr.md#reference-types-feature)                                             | Wasm Proposal      |
 | Threads                          | [WAMR_BUILD_SHARED_MEMORY](./build_wamr.md#shared-memory-feature)                                           | Wasm Proposal      |
@@ -81,6 +82,7 @@ This tier indicates a basic level of support. Features and targets in this tier 
 | GC (Garbage Collection)            | [WAMR_BUILD_GC](./build_wamr.md#garbage-collection)                                                                     | Wasm Proposal      |
 | Stringref                          | [WAMR_BUILD_STRINGREF](./build_wamr.md#garbage-collection)                                                              | Wasm Proposal      |
 | Tail Calls                         | [WAMR_BUILD_TAIL_CALL](./build_wamr.md#tail-call-feature)                                                               | Wasm Proposal      |
+| LLVM JIT                           | [WAMR_BUILD_JIT](./build_wamr.md#configure-llvm-jit)                                                                    | Running mode       |
 | Per Instance running mode          | ALWAYS ON. Can not be disabled                                                                                          | Runtime Extensions |
 | Maximum stack size for app threads | [WAMR_APP_THREAD_STACK_SIZE_MAX](./build_wamr.md#set-maximum-app-thread-stack-size)                                     | Runtime Extensions |
 | Host defined logging               | [WAMR_BH_LOG](./build_wamr.md#host-defined-log)                                                                         | Runtime Extensions |
@@ -100,11 +102,11 @@ This tier indicates a basic level of support. Features and targets in this tier 
 | Lime1 runtime                      | [WAMR_BUILD_LIME1](./build_wamr.md#lime1-target)                                                                        | Runtime Extensions |
 | Linux Performance Counters         | [WAMR_BUILD_LINUX_PERF](./build_wamr.md#linux-perf-support)                                                             | Runtime Extensions |
 | Memory profiling                   | [WAMR_BUILD_MEMORY_PROFILING](./build_wamr.md#memory-profiling-experiment)                                              | Runtime Extensions |
-| Module instance context            | [WAMR_BUILD_MODULE_INST_CONTEXT](./build_wamr.md#module-instance-context-apis)                                          | Runtime Extensions |
 | Multi-module                       | [WAMR_BUILD_MULTI_MODULE](./build_wamr.md#multi-module-feature)                                                         | Runtime Extensions |
 | Perf profiling                     | [WAMR_BUILD_PERF_PROFILING](./build_wamr.md#performance-profiling-experiment)                                           | Runtime Extensions |
 | Shared heap                        | [WAMR_BUILD_SHARED_HEAP](./build_wamr.md#shared-heap-among-wasm-apps-and-host-native)                                   | Runtime Extensions |
 | Stack Guard Size                   | [WAMR_BUILD_STACK_GUARD_SIZE](./build_wamr.md#stack-guard-size)                                                         | Runtime Extensions |
+| WASI Ephemeral NN                  | [WAMR_BUILD_WASI_EPHEMERAL_NN](./build_wamr.md#lib-wasi-nn-with-wasi_ephemeral_nn-module-support)                       | Runtime Extensions |
 | WASI-NN (neural network APIs)      | [WAMR_BUILD_WASI_NN](./build_wamr.md#lib-wasi-nn)                                                                       | Runtime Extensions |
 | External Delegate for WASI NN      | [WAMR_BUILD_WASI_NN_ENABLE_EXTERNAL_DELEGATE](./build_wamr.md#lib-wasi-nn-external-delegate-mode)                       | Runtime Extensions |
 | GPU Support for WASI NN            | [WAMR_BUILD_WASI_NN_ENABLE_GPU](./build_wamr.md#lib-wasi-nn-gpu-mode)                                                   | Runtime Extensions |
@@ -143,13 +145,11 @@ This tier indicates a basic level of support. Features and targets in this tier 
 | Windows Compatibility     | N/A                                                                                                   | Portability        |
 | Legacy Exception Handling | [WAMR_BUILD_EXCE_HANDLING](./build_wamr.md#exception-handling)                                        | Wasm Proposal      |
 | Multi-memory              | [WAMR_BUILD_MULTI_MEMORY](./build_wamr.md#multi-memory)                                               | Wasm Proposal      |
-| Multi-tier JIT            | [Combination of flags](./build_wamr.md#configure-multi-tier-jit)                                      | Runtime Extensions |
+| Fast JIT                  | [WAMR_BUILD_FAST_JIT](./build_wamr.md#configure-fast-jit)                                             | Running mode       |
+| Multi-tier JIT            | [Combination of flags](./build_wamr.md#configure-multi-tier-jit)                                      | Running mode       |
 | AoT Validator             | [WAMR_BUILD_AOT_VALIDATOR](./build_wamr.md#aot-validator)                                             | Runtime Extensions |
-| Bulk-memory-opt           | [WAMR_BUILD_BULK_MEMORY_OPT](./build_wamr.md#bulk-memory-opt)                                         | Runtime Extensions |
-| Call-indirect-overlong    | [WAMR_BUILD_CALL_INDIRECT_OVERLONG](./build_wamr.md#call-indirect-overlong)                           | Runtime Extensions |
 | Debug AOT                 | [WAMR_BUILD_DEBUG_AOT](./build_wamr.md#configure-debug)                                               | Runtime Extensions |
 | Dynamic AoT debugging     | [WAMR_BUILD_DYNAMIC_AOT_DEBUG](./build_wamr.md#configure-debug)                                       | Runtime Extensions |
-| Fast JIT                  | [WAMR_BUILD_FAST_JIT](./build_wamr.md#configure-aot-and-jits)                                         | Runtime Extensions |
 | Fast JIT Dump             | [WAMR_BUILD_FAST_JIT_DUMP](./build_wamr.md#configure-fast-jit)                                        | Runtime Extensions |
 | Instruction Metering      | [WAMR_BUILD_INSTRUCTION_METERING](./build_wamr.md#instruction-metering)                               | Runtime Extensions |
 | Libc EMCC Compatibility   | [WAMR_BUILD_LIBC_EMCC](./build_wamr.md#libc-emcc)                                                     | Runtime Extensions |
@@ -158,6 +158,5 @@ This tier indicates a basic level of support. Features and targets in this tier 
 | Mini Loader               | [WAMR_BUILD_MINI_LOADER](./build_wamr.md#wasm-mini-loader)                                            | Runtime Extensions |
 | SGX IPFS Support          | [WAMR_BUILD_SGX_IPFS](./build_wamr.md#intel-protected-file-system)                                    | Runtime Extensions |
 | Static PGO                | [WAMR_BUILD_STATIC_PGO](./build_wamr.md#running-pgoprofile-guided-optimization-instrumented-aot-file) | Runtime Extensions |
-| WASI Ephemeral NN         | [WAMR_BUILD_WASI_EPHEMERAL_NN](./build_wamr.md#lib-wasi-nn-with-wasi_ephemeral_nn-module-support)     | Runtime Extensions |
 | WASM cache                | [WAMR_BUILD_WASM_CACHE](./build_wamr.md#wasm-cache)                                                   | Runtime Extensions |
 | Test garbage collection   | [WAMR_TEST_GC](./build_wamr.md#test-garbage-collection)                                               | Runtime Extensions |
