@@ -27,7 +27,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-22.04, macos-13, macos-14]
+        os: [ubuntu-22.04, macos-15-intel, macos-15]
     steps:
       - name: checkout
         uses: actions/checkout@v6.0.1
@@ -48,8 +48,9 @@ jobs:
           ./build_samples.sh $(pwd)/dist/wamr-wasi-extensions
         working-directory: wamr-wasi-extensions
 
+      #CLARIFY: Require to upload artifact on ARM macOS?
       - name: Upload artifacts
-        if: matrix.os == 'macos-14'
+        if: matrix.os == 'macos-15'
         uses: actions/upload-artifact@v6.0.0
         with:
           name: wamr-wasi-extensions
