@@ -392,10 +392,6 @@ jobs:
         include:
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu.outputs.cache_key }}
-        exclude:
-          - make_options: $MULTI_TIER_JIT_BUILD_OPTIONS
-            sanitizer: asan
-        include:
           # classic interp doesn't support SIMD
           - make_options: $CLASSIC_INTERP_BUILD_OPTIONS
             extra_options: "-DWAMR_BUILD_SIMD=0"
@@ -410,6 +406,9 @@ jobs:
             extra_options: "-DWAMR_BUILD_MULTI_MODULE=0"
           - make_options: $LLVM_EAGER_JIT_BUILD_OPTIONS
             extra_options: "-DWAMR_BUILD_MULTI_MODULE=0"
+        exclude:
+          - make_options: $MULTI_TIER_JIT_BUILD_OPTIONS
+            sanitizer: asan
 
     steps:
       - name: checkout
