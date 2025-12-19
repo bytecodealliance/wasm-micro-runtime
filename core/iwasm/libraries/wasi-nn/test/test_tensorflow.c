@@ -23,7 +23,11 @@ test_sum()
         run_inference(input.input_tensor, input.dim, &output_size, "sum", 1);
 
     if (output) {
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
         assert((output_size / sizeof(float)) == 1);
+#elif WASM_ENABLE_WASI_NN != 0
+        assert(output_size == 1);
+#endif
         assert(fabs(output[0] - 300.0) < EPSILON);
     }
 
@@ -43,7 +47,11 @@ test_max()
         run_inference(input.input_tensor, input.dim, &output_size, "max", 1);
 
     if (output) {
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
         assert((output_size / sizeof(float)) == 1);
+#elif WASM_ENABLE_WASI_NN != 0
+        assert(output_size == 1);
+#endif
         assert(fabs(output[0] - 24.0) < EPSILON);
         NN_INFO_PRINTF("Result: max is %f", output[0]);
     }
@@ -64,7 +72,11 @@ test_average()
                                   "average", 1);
 
     if (output) {
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
         assert((output_size / sizeof(float)) == 1);
+#elif WASM_ENABLE_WASI_NN != 0
+        assert(output_size == 1);
+#endif
         assert(fabs(output[0] - 12.0) < EPSILON);
         NN_INFO_PRINTF("Result: average is %f", output[0]);
     }
@@ -85,7 +97,11 @@ test_mult_dimensions()
                                   "mult_dim", 1);
 
     if (output) {
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
         assert((output_size / sizeof(float)) == 9);
+#elif WASM_ENABLE_WASI_NN != 0
+        assert(output_size == 9);
+#endif
         for (int i = 0; i < 9; i++)
             assert(fabs(output[i] - i) < EPSILON);
     }
@@ -106,7 +122,11 @@ test_mult_outputs()
                                   "mult_out", 2);
 
     if (output) {
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
         assert((output_size / sizeof(float)) == 8);
+#elif WASM_ENABLE_WASI_NN != 0
+        assert(output_size == 8);
+#endif
         // first tensor check
         for (int i = 0; i < 4; i++)
             assert(fabs(output[i] - (i * 4 + 24)) < EPSILON);

@@ -20,6 +20,8 @@
 
 #if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
 #include "wasi_ephemeral_nn.h"
+#elif WASM_ENABLE_WASI_NN != 0
+#include "wasi_nn.h"
 #endif
 
 #include "../common/wasm_proposal.c"
@@ -120,7 +122,7 @@ print_help(void)
 #if WASM_ENABLE_STATIC_PGO != 0
     printf("  --gen-prof-file=<path>   Generate LLVM PGO (Profile-Guided Optimization) profile file\n");
 #endif
-#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
     printf("  --wasi-nn-graph=encoding:target:<model_path1>:<model_path2>:...:<model_pathn>\n");
     printf("                           Set encoding, target and model_paths for wasi-nn. target can be\n");
     printf("                           cpu|gpu|tpu, encoding can be tensorflowlite|openvino|llama|onnx|\n");
@@ -645,8 +647,8 @@ main(int argc, char *argv[])
     int timeout_ms = -1;
 #endif
 
-#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-    struct wasi_nn_graph_registry *nn_registry;
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+    struct WASINNArguments *nn_registry;
     char *encoding, *target;
     uint32_t n_models = 0;
     char **model_paths;
@@ -842,7 +844,7 @@ main(int argc, char *argv[])
             wasm_proposal_print_status();
             return 0;
         }
-#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
         else if (!strncmp(argv[0], "--wasi-nn-graph=", 16)) {
             char *token;
             char *saveptr = NULL;
@@ -1022,7 +1024,7 @@ main(int argc, char *argv[])
     libc_wasi_set_init_args(inst_args, argc, argv, &wasi_parse_ctx);
 #endif
 
-#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
     wasi_nn_graph_registry_create(&nn_registry);
     wasi_nn_graph_registry_set_args(nn_registry, encoding, target, n_models,
                                     model_paths);
@@ -1148,7 +1150,7 @@ fail5:
 #if WASM_ENABLE_DEBUG_INTERP != 0
 fail4:
 #endif
-#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
     wasi_nn_graph_registry_destroy(nn_registry);
     for (uint32_t i = 0; i < n_models; i++)
         if (model_paths[i])

@@ -8,7 +8,11 @@
 
 #include <stdint.h>
 
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
 #include "wasi_ephemeral_nn.h"
+#elif WASM_ENABLE_WASI_NN != 0
+#include "wasi_nn.h"
+#endif
 #include "wasi_nn_types.h"
 
 #define MAX_MODEL_SIZE 85000000

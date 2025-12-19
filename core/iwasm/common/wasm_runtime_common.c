@@ -1696,20 +1696,19 @@ wasm_runtime_instantiation_args_destroy(struct InstantiationArgs2 *p)
     wasm_runtime_free(p);
 }
 
-#if (WASM_ENABLE_WASI_EPHEMERAL_NN != 0)
-struct wasi_nn_graph_registry;
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+WASINNArguments;
 
 void
-wasm_runtime_wasi_nn_graph_registry_args_set_defaults(
-    struct wasi_nn_graph_registry *args)
+wasm_runtime_wasi_nn_graph_registry_args_set_defaults(WASINNArguments *args)
 {
     memset(args, 0, sizeof(*args));
 }
 
 bool
-wasi_nn_graph_registry_set_args(struct wasi_nn_graph_registry *registry,
-                                const char *encoding, const char *target,
-                                uint32_t n_graphs, const char **graph_paths)
+wasi_nn_graph_registry_set_args(WASINNArguments *registry, const char *encoding,
+                                const char *target, uint32_t n_graphs,
+                                const char **graph_paths)
 {
     if (!registry || !encoding || !target || !graph_paths) {
         return false;
@@ -1725,10 +1724,10 @@ wasi_nn_graph_registry_set_args(struct wasi_nn_graph_registry *registry,
     return true;
 }
 
-static int
-wasi_nn_graph_registry_create(struct wasi_nn_graph_registry **registryp)
+int
+wasi_nn_graph_registry_create(WASINNArguments **registryp)
 {
-    struct wasi_nn_graph_registry *args = wasm_runtime_malloc(sizeof(*args));
+    WASINNArguments *args = wasm_runtime_malloc(sizeof(*args));
     if (args == NULL) {
         return -1;
     }
@@ -1738,7 +1737,7 @@ wasi_nn_graph_registry_create(struct wasi_nn_graph_registry **registryp)
 }
 
 void
-wasi_nn_graph_registry_destroy(struct wasi_nn_graph_registry *registry)
+wasi_nn_graph_registry_destroy(WASINNArguments *registry)
 {
     if (registry) {
         for (uint32_t i = 0; i < registry->n_graphs; i++)
@@ -1854,10 +1853,10 @@ wasm_runtime_instantiation_args_set_wasi_ns_lookup_pool(
     wasi_args->set_by_user = true;
 }
 #endif /* WASM_ENABLE_LIBC_WASI != 0 */
-#if (WASM_ENABLE_WASI_EPHEMERAL_NN != 0)
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
 void
 wasm_runtime_instantiation_args_set_wasi_nn_graph_registry(
-    struct InstantiationArgs2 *p, struct wasi_nn_graph_registry *registry)
+    struct InstantiationArgs2 *p, WASINNArguments *registry)
 {
     p->nn_registry = *registry;
 }
@@ -8149,7 +8148,7 @@ wasm_runtime_check_and_update_last_used_shared_heap(
 }
 #endif
 
-#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
 bool
 wasm_runtime_init_wasi_nn_global_ctx(WASMModuleInstanceCommon *module_inst,
                                      const char *encoding, const char *target,

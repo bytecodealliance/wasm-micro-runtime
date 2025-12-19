@@ -798,22 +798,6 @@ wasm_runtime_instantiation_args_set_wasi_ns_lookup_pool(
     struct InstantiationArgs2 *p, const char *ns_lookup_pool[],
     uint32_t ns_lookup_pool_size);
 
-// WASM_RUNTIME_API_EXTERN int
-// wasi_nn_graph_registry_create(struct wasi_nn_graph_registry **registryp);
-
-// WASM_RUNTIME_API_EXTERN void
-// wasi_nn_graph_registry_destroy(struct wasi_nn_graph_registry *registry);
-
-// WASM_RUNTIME_API_EXTERN void
-// wasm_runtime_instantiation_args_set_wasi_nn_graph_registry(
-//     struct InstantiationArgs2 *p, struct wasi_nn_graph_registry *registry);
-
-// WASM_RUNTIME_API_EXTERN bool
-// wasi_nn_graph_registry_set_args(struct wasi_nn_graph_registry *registry,
-// const char* encoding,
-//                                 const char* target, uint32_t n_graphs,
-//                                 const char** graph_paths);
-
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_init_wasi_nn_global_ctx(wasm_module_inst_t module_inst,
                                      const char *encoding, const char *target,

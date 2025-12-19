@@ -25,7 +25,7 @@ static NativeSymbolsList g_native_symbols_list = NULL;
 static void *g_wasi_context_key;
 #endif /* WASM_ENABLE_LIBC_WASI */
 
-#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
 static void *g_wasi_nn_context_key;
 #endif
 
@@ -477,7 +477,7 @@ wasi_context_dtor(WASMModuleInstanceCommon *inst, void *ctx)
 }
 #endif /* end of WASM_ENABLE_LIBC_WASI */
 
-#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
 WASINNGlobalContext *
 wasm_runtime_get_wasi_nn_global_ctx(WASMModuleInstanceCommon *module_inst_comm)
 {
