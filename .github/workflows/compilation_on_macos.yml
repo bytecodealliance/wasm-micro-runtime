@@ -65,7 +65,7 @@ jobs:
       actions: write
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
-      os: "macos-13"
+      os: "macos-15-intel"
       arch: "X86"
   build_llvm_libraries_on_arm_macos:
     permissions:
@@ -73,17 +73,20 @@ jobs:
       actions: write
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
-      os: "macos-14"
+      os: "macos-15"
       arch: "AArch64 ARM"
 
   build_wamrc:
-    needs: [build_llvm_libraries_on_intel_macos]
+    needs: [build_llvm_libraries_on_intel_macos, build_llvm_libraries_on_arm_macos]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        os: [macos-15, macos-15-intel]
         include:
-          - os: macos-13
+          - os: macos-15-intel
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_intel_macos.outputs.cache_key }}
+          - os: macos-15
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_arm_macos.outputs.cache_key }}
     steps:
       - name: checkout
         uses: actions/checkout@v6.0.1
@@ -112,7 +115,7 @@ jobs:
         working-directory: wamr-compiler
 
   build_iwasm:
-    needs: [build_llvm_libraries_on_intel_macos]
+    needs: [build_llvm_libraries_on_intel_macos, build_llvm_libraries_on_arm_macos]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -142,7 +145,7 @@ jobs:
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
             "-DWAMR_BUILD_EXTENDED_CONST_EXPR=1",
           ]
-        os: [macos-13]
+        os: [macos-15, macos-15-intel]
         platform: [darwin]
         exclude:
           # incompatible feature and platform
@@ -179,7 +182,9 @@ jobs:
           - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
         include:
-          - os: macos-13
+          - os: macos-15
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_arm_macos.outputs.cache_key }}
+          - os: macos-15-intel
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_intel_macos.outputs.cache_key }}
           # classic interp doesn't support SIMD
           - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
@@ -218,6 +223,7 @@ jobs:
       [
         build_iwasm,
         build_llvm_libraries_on_intel_macos,
+        build_llvm_libraries_on_arm_macos,
         build_wamrc,
       ]
     runs-on: ${{ matrix.os }}
@@ -227,24 +233,18 @@ jobs:
             $AOT_BUILD_OPTIONS,
             $CLASSIC_INTERP_BUILD_OPTIONS,
             $FAST_INTERP_BUILD_OPTIONS,
-            $FAST_JIT_BUILD_OPTIONS,
             $LLVM_LAZY_JIT_BUILD_OPTIONS,
             $LLVM_EAGER_JIT_BUILD_OPTIONS,
-            $MULTI_TIER_JIT_BUILD_OPTIONS,
           ]
-        os: [macos-13]
+        os: [macos-15, macos-15-intel]
         include:
-          - os: macos-13
+          - os: macos-15
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_arm_macos.outputs.cache_key }}
+          - os: macos-15-intel
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_intel_macos.outputs.cache_key }}
           # classic interp doesn't support SIMD
           - make_options: $CLASSIC_INTERP_BUILD_OPTIONS
             extra_options: "-DWAMR_BUILD_SIMD=0"
-          # fast jit doesn't support Multi-module and SIMD
-          - make_options: $FAST_JIT_BUILD_OPTIONS
-            extra_options: "-DWAMR_BUILD_SIMD=0 -DWAMR_BUILD_MULTI_MODULE=0"
-          # multi-tier jit doesn't support Multi-module and SIMD
-          - make_options: $MULTI_TIER_JIT_BUILD_OPTIONS
-            extra_options: "-DWAMR_BUILD_SIMD=0 -DWAMR_BUILD_MULTI_MODULE=0"
           # LLVM JIT doesn't support Multi-module
           - make_options: $LLVM_LAZY_JIT_BUILD_OPTIONS
             extra_options: "-DWAMR_BUILD_MULTI_MODULE=0"
@@ -303,11 +303,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-13, macos-14]
+        os: [macos-15-intel, macos-15]
         include:
-          - os: macos-13
+          - os: macos-15-intel
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_intel_macos.outputs.cache_key }}
-          - os: macos-14
+          - os: macos-15
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_arm_macos.outputs.cache_key }}
     steps:
       - name: checkout
