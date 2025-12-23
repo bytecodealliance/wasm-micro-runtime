@@ -2512,6 +2512,12 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
     module_inst->module = module;
     module_inst->e =
         (WASMModuleInstanceExtra *)((uint8 *)module_inst + extra_info_offset);
+#if WASM_ENABLE_THREAD_MGR != 0
+    if (os_mutex_init(&module_inst->e->common.exception_lock) != 0) {
+        wasm_runtime_free(module_inst);
+        return NULL;
+    }
+#endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     module_inst->e->sub_module_inst_list =
@@ -3501,6 +3507,9 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     bh_bitmap_delete(module_inst->e->common.elem_dropped);
 #endif
 
+#if WASM_ENABLE_THREAD_MGR != 0
+    os_mutex_destroy(&module_inst->e->common.exception_lock);
+#endif
     wasm_runtime_free(module_inst);
 }
 
