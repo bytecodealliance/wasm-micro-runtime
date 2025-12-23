@@ -88,6 +88,7 @@ jobs:
       os: "ubuntu-22.04"
       arch: "AArch64 ARM Mips RISCV X86"
 
+  #CLARIFY: Require to build LLVM libraries on ARM macOS?
   build_llvm_libraries_on_macos:
     permissions:
       contents: read
@@ -95,7 +96,7 @@ jobs:
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
-      os: "macos-13"
+      os: "macos-15-intel"
       arch: "AArch64 ARM Mips RISCV X86"
 
   build_llvm_libraries_on_windows:
@@ -122,6 +123,7 @@ jobs:
       upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver }}
 
+  #CLARIFY: Require to release wamrc on ARM macOS?
   release_wamrc_on_ubuntu_macos:
     permissions:
       contents: write # upload release artifact
@@ -130,7 +132,7 @@ jobs:
     with:
       llvm_cache_key: ${{ needs.build_llvm_libraries_on_macos.outputs.cache_key }}
       release: true
-      runner: macos-13
+      runner: macos-15-intel
       upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver }}
 
@@ -160,6 +162,7 @@ jobs:
       upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver}}
 
+  #CLARIFY: Require to release iwasm on ARM macOS?
   release_iwasm_on_macos:
     permissions:
       contents: write # upload release artifact
@@ -168,7 +171,7 @@ jobs:
     with:
       cwd: product-mini/platforms/darwin
       llvm_cache_key: ${{ needs.build_llvm_libraries_on_macos.outputs.cache_key }}
-      runner: macos-13
+      runner: macos-15-intel
       upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver}}
 
@@ -200,6 +203,7 @@ jobs:
       wasi_sdk_url: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz
       wamr_app_framework_url: https://github.com/bytecodealliance/wamr-app-framework.git
 
+  #CLARIFY: Require to release WAMR SDK on ARM macOS?
   release_wamr_sdk_on_macos:
     permissions:
       contents: write # upload release artifact
@@ -208,7 +212,7 @@ jobs:
     uses: ./.github/workflows/build_wamr_sdk.yml
     with:
       config_file: wamr_config_macos_release.cmake
-      runner: macos-13
+      runner: macos-15-intel
       upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver}}
       wasi_sdk_url: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-macos.tar.gz
@@ -251,6 +255,7 @@ jobs:
       upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver}}
 
+  #CLARIFY: Require to release WAMR LLDB on ARM macOS?
   release_wamr_lldb_on_macos_universal:
     permissions:
       contents: write # upload release artifact
@@ -258,7 +263,7 @@ jobs:
     if: ${{ inputs.release_wamr_lldb }}
     uses: ./.github/workflows/build_wamr_lldb.yml
     with:
-      runner: macos-13
+      runner: macos-15-intel
       arch: universal
       upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver}}
