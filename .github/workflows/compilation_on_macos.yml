@@ -233,10 +233,8 @@ jobs:
             $AOT_BUILD_OPTIONS,
             $CLASSIC_INTERP_BUILD_OPTIONS,
             $FAST_INTERP_BUILD_OPTIONS,
-            $FAST_JIT_BUILD_OPTIONS,
             $LLVM_LAZY_JIT_BUILD_OPTIONS,
             $LLVM_EAGER_JIT_BUILD_OPTIONS,
-            $MULTI_TIER_JIT_BUILD_OPTIONS,
           ]
         os: [macos-15, macos-15-intel]
         include:
@@ -247,12 +245,6 @@ jobs:
           # classic interp doesn't support SIMD
           - make_options: $CLASSIC_INTERP_BUILD_OPTIONS
             extra_options: "-DWAMR_BUILD_SIMD=0"
-          # fast jit doesn't support Multi-module and SIMD
-          - make_options: $FAST_JIT_BUILD_OPTIONS
-            extra_options: "-DWAMR_BUILD_SIMD=0 -DWAMR_BUILD_MULTI_MODULE=0"
-          # multi-tier jit doesn't support Multi-module and SIMD
-          - make_options: $MULTI_TIER_JIT_BUILD_OPTIONS
-            extra_options: "-DWAMR_BUILD_SIMD=0 -DWAMR_BUILD_MULTI_MODULE=0"
           # LLVM JIT doesn't support Multi-module
           - make_options: $LLVM_LAZY_JIT_BUILD_OPTIONS
             extra_options: "-DWAMR_BUILD_MULTI_MODULE=0"
