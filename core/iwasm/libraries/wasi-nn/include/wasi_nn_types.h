@@ -27,7 +27,7 @@ extern "C" {
 #define WASI_NN_TYPE_NAME(name) WASI_NN_NAME(type_##name)
 #define WASI_NN_ENCODING_NAME(name) WASI_NN_NAME(encoding_##name)
 #define WASI_NN_TARGET_NAME(name) WASI_NN_NAME(target_##name)
-#define WASI_NN_ERROR_TYPE WASI_NN_NAME(error);
+#define WASI_NN_ERROR_TYPE WASI_NN_NAME(error)
 #endif
 
 /**
@@ -48,6 +48,7 @@ typedef enum {
     WASI_NN_ERROR_NAME(unsupported_operation),
     WASI_NN_ERROR_NAME(too_large),
     WASI_NN_ERROR_NAME(not_found),
+    WASI_NN_ERROR_NAME(not_loaded),
 
     // for WasmEdge-wasi-nn
     WASI_NN_ERROR_NAME(end_of_sequence) = 100,  // End of Sequence Found.
@@ -169,6 +170,7 @@ typedef enum WASI_NN_NAME(execution_target) {
     WASI_NN_TARGET_NAME(cpu) = 0,
     WASI_NN_TARGET_NAME(gpu),
     WASI_NN_TARGET_NAME(tpu),
+    WASI_NN_TARGET_NAME(unsupported_target),
 } WASI_NN_NAME(execution_target);
 
 // Bind a `graph` to the input and output tensors for an inference.
