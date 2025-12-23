@@ -58,7 +58,7 @@ jobs:
           config-file: ./.github/codeql/codeql_config.yml
 
       - run: |
-          ./.github/scripts/codeql_buildscript.sh
+          ./.github/scripts/codeql_buildscript.sh || exit 1
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4.31.9
@@ -102,7 +102,7 @@ jobs:
             -**:cpp/unused-local-variable
             -**:cpp/unused-static-function
             -**:cpp/unused-static-variable
-            -**:cpp/use-of-goto 
+            -**:cpp/use-of-goto
             ## Exclude rules 2. Related to special usage of APIs
             -**:cpp/alloca-in-loop
             -**:cpp/command-line-injection
@@ -120,7 +120,6 @@ jobs:
           category: "/language:${{matrix.language}}"
 
       - name: Upload CodeQL results as an artifact
-        if: success() || failure()
         uses: actions/upload-artifact@v6.0.0
         with:
           name: codeql-results

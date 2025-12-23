@@ -61,7 +61,7 @@ endfunction()
 # Below are the unsupported combinations checks
 # Please keep this list in sync with tests/unit/unsupported-features/CMakeLists.txt
 # and tests/wamr-test-suites/test_wamr.sh
-#cmake_print_variables(WAMR_BUILD_INTERP WAMR_BUILD_FAST_INTERP WAMR_BUILD_JIT)
+cmake_print_variables(WAMR_BUILD_INTERP WAMR_BUILD_FAST_INTERP WAMR_BUILD_JIT WAMR_BUILD_EXCE_HANDLING)
 
 if(WAMR_BUILD_EXCE_HANDLING EQUAL 1)
   check_aot_mode_error("Unsupported build configuration: EXCE_HANDLING + AOT")
@@ -81,10 +81,10 @@ if(WAMR_BUILD_MEMORY64 EQUAL 1)
 endif()
 
 if(WAMR_BUILD_MULTI_MEMORY EQUAL 1)
-  check_aot_mode_error("Unsupported build configuration: EXCE_HANDLING + AOT")
-  check_fast_interp_error("Unsupported build configuration: EXCE_HANDLING + FAST_INTERP")
-  check_fast_jit_error("Unsupported build configuration: EXCE_HANDLING + FAST_JIT")
-  check_llvm_jit_error("Unsupported build configuration: EXCE_HANDLING + JIT")
+  check_aot_mode_error("Unsupported build configuration: MULTI_MEMORY + AOT")
+  check_fast_interp_error("Unsupported build configuration: MULTI_MEMORY + FAST_INTERP")
+  check_fast_jit_error("Unsupported build configuration: MULTI_MEMORY + FAST_JIT")
+  check_llvm_jit_error("Unsupported build configuration: MULTI_MEMORY + JIT")
 endif()
 
 if(WAMR_BUILD_MULTI_MODULE EQUAL 1)
