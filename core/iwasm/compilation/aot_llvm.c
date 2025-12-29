@@ -3005,6 +3005,10 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
                 else
                     vendor_sys = "-pc-windows-";
             }
+            else if (!strcmp(abi, "darwin") || !strcmp(abi, "macho")) {
+                /* macOS/Darwin: x18 is reserved by Apple */
+                vendor_sys = "-apple-";
+            }
             else {
                 if (is_baremetal_target(arch, cpu, abi))
                     vendor_sys = "-unknown-none-";
@@ -3049,6 +3053,14 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
                 vendor_sys = "-unknown-none-";
                 if (!abi)
                     abi = "gnu";
+            }
+            else if (strstr(default_triple, "darwin")
+                     || strstr(default_triple, "apple")) {
+                /* macOS/Darwin: x18 is reserved by Apple, must use correct
+                 * triple to prevent LLVM from using it */
+                vendor_sys = "-apple-darwin";
+                if (!abi)
+                    abi = "";
             }
             else {
                 vendor_sys = "-pc-linux-";
@@ -3138,6 +3150,30 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
 
         if (!features)
             features = "";
+
+#if (defined(__APPLE__) || defined(__MACH__)) && defined(BUILD_TARGET_AARCH64)
+        /* On macOS ARM64, x18 is reserved by Apple for TLS. Even though we're
+         * generating ELF (Linux-style) AOT files, we must tell LLVM to not
+         * use x18, otherwise the AOT code will crash when running on macOS. */
+        {
+            bool is_aarch64 = false;
+            if (arch && !strncmp(arch, "aarch64", 7))
+                is_aarch64 = true;
+            else if (triple_norm && strstr(triple_norm, "aarch64"))
+                is_aarch64 = true;
+
+            if (is_aarch64) {
+                if (features[0] != '\0') {
+                    snprintf(features_buf, sizeof(features_buf), "%s,+reserve-x18",
+                             features);
+                    features = features_buf;
+                }
+                else {
+                    features = "+reserve-x18";
+                }
+            }
+        }
+#endif
 
         /* Get target with triple, note that LLVMGetTargetFromTriple()
            return 0 when success, but not true. */
