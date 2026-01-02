@@ -752,7 +752,7 @@ struct WASMFunction {
 #endif
 #endif
 
-#if WASM_ENABLE_BRANCH_HINTS != 0
+#if WASM_ENABLE_BRANCH_HINTS != 0 || WASM_ENABLE_COMPILATION_HINTS != 0
     uint8 *code_body_begin;
 #endif
 };
@@ -765,20 +765,30 @@ struct WASMTag {
 };
 #endif
 
-#if WASM_ENABLE_BRANCH_HINTS != 0
+#if WASM_ENABLE_BRANCH_HINTS != 0 || WASM_ENABLE_COMPILATION_HINTS != 0
 enum WASMCompilationHintType {
     DUMMY = 0,
-    WASM_COMPILATION_BRANCH_HINT = 0,
+    WASM_COMPILATION_HINT_BRANCH = 1,
+    WASM_COMPILATION_HINT_CALL_TARGETS = 2,
 };
 struct WASMCompilationHint {
     struct WASMCompilationHint *next;
     enum WASMCompilationHintType type;
+    uint32 offset;
+    bool used;
 };
 struct WASMCompilationHintBranchHint {
-    struct WASMCompilationHint *next;
-    enum WASMCompilationHintType type;
-    uint32 offset;
+    struct WASMCompilationHint common;
     bool is_likely;
+};
+struct WASMCompilationHintCallTargetsHint {
+    uint32 func_idx;
+    uint32 call_frequency;
+};
+struct WASMCompilationHintCallTargets {
+    struct WASMCompilationHint common;
+    size_t target_count;
+    struct WASMCompilationHintCallTargetsHint *hints;
 };
 #endif
 
@@ -1071,7 +1081,7 @@ struct WASMModule {
     const uint8 *name_section_buf_end;
 #endif
 
-#if WASM_ENABLE_BRANCH_HINTS != 0
+#if WASM_ENABLE_BRANCH_HINTS != 0 || WASM_ENABLE_COMPILATION_HINTS != 0
     struct WASMCompilationHint **function_hints;
 #endif
 

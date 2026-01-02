@@ -778,6 +778,7 @@ message (
 "       \"Sign-extension Operators\"\n"
 "       \"WebAssembly C and C++ API\"\n"
 "       \"Branch Hinting\"\n"
+"       \"Compilation Hints\"\n"
 "     Configurable. 0 is OFF. 1 is ON:\n"
 "       \"Bulk Memory Operation\" via WAMR_BUILD_BULK_MEMORY: ${WAMR_BUILD_BULK_MEMORY}\n"
 "       \"Bulk-memory-opt\" via WAMR_BUILD_BULK_MEMORY_OPT: ${WAMR_BUILD_BULK_MEMORY_OPT}\n"
