@@ -79,7 +79,12 @@ if (WAMR_BUILD_TARGET MATCHES "ARM.*")
 elseif (WAMR_BUILD_TARGET MATCHES "THUMB.*")
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mthumb")
   set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -Wa,-mthumb")
+elseif (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
+    if (CMAKE_C_COMPILER MATCHES ".*gcc.*" OR CMAKE_C_COMPILER_ID MATCHES ".*GNU")
+      set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mindirect-branch-register")
+    endif ()
 endif ()
+
 
 include (${CMAKE_CURRENT_LIST_DIR}/warnings.cmake)
 
