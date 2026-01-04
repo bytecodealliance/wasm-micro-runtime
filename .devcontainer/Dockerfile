@@ -14,7 +14,7 @@ RUN apt-get update \
 
 RUN apt-get install -y apt-transport-https apt-utils build-essential \
   ca-certificates ccache clang-format-14 curl file g++-multilib git gnupg \
-  libgcc-12-dev lib32gcc-12-dev lsb-release \
+  libgcc-12-dev lib32gcc-12-dev libzstd-dev lsb-release \
   ninja-build ocaml ocamlbuild \
   python3-venv python3-pip \
   software-properties-common tree tzdata \
@@ -24,12 +24,12 @@ RUN apt-get install -y apt-transport-https apt-utils build-essential \
 
 WORKDIR /opt
 
-ARG WASI_SDK_VER=20
+ARG WASI_SDK_VER=25
 RUN wget -c --progress=dot:giga https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VER}/wasi-sdk-${WASI_SDK_VER}.0-x86_64-linux.tar.gz -P /tmp \
   && tar xf /tmp/wasi-sdk-${WASI_SDK_VER}.0-x86_64-linux.tar.gz -C /opt \
   && ln -sf /opt/wasi-sdk-${WASI_SDK_VER}.0-x86_64-linux /opt/wasi-sdk
 
-ARG WABT_VER=1.0.33
+ARG WABT_VER=1.0.37
 RUN wget -c --progress=dot:giga https://github.com/WebAssembly/wabt/releases/download/${WABT_VER}/wabt-${WABT_VER}-ubuntu-20.04.tar.gz -P /tmp \
   && tar xf /tmp/wabt-${WABT_VER}-ubuntu-20.04.tar.gz -C /opt \
   && ln -sf /opt/wabt-${WABT_VER} /opt/wabt
