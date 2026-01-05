@@ -26,26 +26,31 @@ handle_aot_recent_error(const char *tag)
 extern "C" int
 LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size)
 {
-    wasm_module_t module = NULL;
+    wasm_module_t wasm_module = NULL;
     char error_buf[128] = { 0 };
     AOTCompOption option = { 0 };
     aot_comp_data_t comp_data = NULL;
     aot_comp_context_t comp_ctx = NULL;
+    uint8 *aot_file_buf = NULL;
+    uint32 aot_file_size = 0;
+    wasm_module_t aot_module = NULL;
+    wasm_module_inst_t aot_inst = NULL;
 
     /* libfuzzer don't allow to modify the given Data, so make a copy here */
     std::vector<uint8_t> myData(Data, Data + Size);
 
     if (Size >= 4
         && get_package_type(myData.data(), Size) != Wasm_Module_Bytecode) {
-        printf("Invalid wasm file: magic header not detected\n");
+        handle_aot_recent_error("[INVALID WASM FILE]");
         return 0;
     }
 
     wasm_runtime_init();
 
-    module = wasm_runtime_load((uint8_t *)myData.data(), Size, error_buf, 120);
-    if (!module) {
-        std::cout << "[LOADING] " << error_buf << std::endl;
+    wasm_module =
+        wasm_runtime_load((uint8_t *)myData.data(), Size, error_buf, 120);
+    if (!wasm_module) {
+        handle_aot_recent_error("[LOADING MODULE]");
         goto DESTROY_RUNTIME;
     }
 
@@ -61,7 +66,7 @@ LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size)
     option.aux_stack_frame_type = AOT_STACK_FRAME_TYPE_STANDARD;
 
     comp_data =
-        aot_create_comp_data(module, option.target_arch, option.enable_gc);
+        aot_create_comp_data(wasm_module, option.target_arch, option.enable_gc);
     if (!comp_data) {
         handle_aot_recent_error("[CREATING comp_data]");
         goto UNLOAD_MODULE;
@@ -78,12 +83,39 @@ LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size)
         goto DESTROY_COMP_CTX;
     }
 
+    aot_file_buf = aot_emit_aot_file_buf(comp_ctx, comp_data, &aot_file_size);
+    if (!aot_file_buf || aot_file_size == 0) {
+        handle_aot_recent_error("[EMITTING AOT FILE]");
+        goto DESTROY_COMP_CTX;
+    }
+
+    aot_module = wasm_runtime_load(aot_file_buf, aot_file_size, error_buf, 120);
+    if (!aot_module) {
+        handle_aot_recent_error("[LOADING AOT MODULE]");
+        goto RELEASE_AOT_FILE;
+    }
+
+    aot_inst = wasm_runtime_instantiate(
+        aot_module, 8 * 1024 * 1024, 16 * 1024 * 1024, error_buf, 120);
+    if (!aot_inst) {
+        handle_aot_recent_error("[INSTANTIATING AOT MODULE]");
+        goto UNLOAD_AOT_MODULE;
+    }
+
+DEINSTANTIATE_AOT_MODULE:
+    wasm_runtime_deinstantiate(aot_inst);
+UNLOAD_AOT_MODULE:
+    wasm_runtime_unload(aot_module);
+RELEASE_AOT_FILE:
+    if (aot_file_buf) {
+        wasm_runtime_free(aot_file_buf);
+    }
 DESTROY_COMP_CTX:
     aot_destroy_comp_context(comp_ctx);
 DESTROY_COMP_DATA:
     aot_destroy_comp_data(comp_data);
 UNLOAD_MODULE:
-    wasm_runtime_unload(module);
+    wasm_runtime_unload(wasm_module);
 DESTROY_RUNTIME:
     wasm_runtime_destroy();
 

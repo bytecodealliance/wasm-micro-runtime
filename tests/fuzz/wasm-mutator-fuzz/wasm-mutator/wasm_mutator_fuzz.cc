@@ -164,6 +164,13 @@ LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size)
      * here */
     std::vector<uint8_t> myData(Data, Data + Size);
 
+    /* only wasm bytecode */
+    if (Size >= 4
+        && get_package_type(myData.data(), Size) != Wasm_Module_Bytecode) {
+        printf("Invalid wasm file: magic header not detected\n");
+        return 0;
+    }
+
     /* init runtime environment */
     wasm_runtime_init();
 
