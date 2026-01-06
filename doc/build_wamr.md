@@ -335,7 +335,7 @@ SIMDE (SIMD Everywhere) implements SIMD operations in fast interpreter mode.
 
 - **WAMR_BUILD_GC**=1/0, default to off.
 - **WAMR_BUILD_GC_HEAP_VERIFY**=1/0, default to off. When enabled, verifies the heap during free.
-- **WAMR_BUILD_STRINGREF**=1/0, default to off.
+- **WAMR_BUILD_STRINGREF**=1/0, default to off. When enabled, need to set WAMR_STRINGREF_IMPL_SOURCE as well
 
 > [!WARNING]
 > Garbage collection is not supported in fast-jit mode and multi-tier-jit mode.
