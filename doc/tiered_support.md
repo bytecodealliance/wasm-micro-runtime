@@ -27,14 +27,21 @@ This tier indicates a basic level of support. Features and targets in this tier 
 
 # TierA
 
+## Targets
+
+| Description                |
+| -------------------------- |
+| aarch64-unknown-nuttx-eabi |
+| i386-pc-linux-gnu          |
+| x86_64-pc-linux-gnu        |
+| x86_64-apple-darwin        |
+| x86_64-none-linux-gnu      |
+
+## Features
+
 | Description                      | Compilation Flags                                                                                           | Labels             |
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------ |
-| aarch64-unknown-nuttx-eabi       | N/A                                                                                                         | Target             |
-| i386-pc-linux-gnu                | N/A                                                                                                         | Target             |
-| x86_64-pc-linux-gnu              | N/A                                                                                                         | Target             |
-| x86_64-apple-darwin              | N/A                                                                                                         | Target             |
-| x86_64-none-linux-gnu            | N/A                                                                                                         | Target             |
-| Linux Compatibility              | N/A                                                                                                         | Portability        |
+| Linux Compatibility              | WAMR_BUILD_PLATFORM=linux                                                                                   | Portability        |
 | AoT runtime                      | [WAMR_BUILD_AOT](./build_wamr.md#configure-aot)                                                             | Running mode       |
 | Fast Interpreter                 | [WAMR_BUILD_FAST_INTERP](./build_wamr.md#configure-interpreters)                                            | Running mode       |
 | Classic Interpreter              | [WAMR_BUILD_INTERP](./build_wamr.md#configure-interpreters)                                                 | Running mode       |
@@ -45,21 +52,21 @@ This tier indicates a basic level of support. Features and targets in this tier 
 | Non-trapping float-to-int        | ALWAYS ON. Can not be disabled                                                                              | Wasm Proposal      |
 | Import/Export of Mutable Globals | ALWAYS ON. Can not be disabled                                                                              | Wasm Proposal      |
 | Multi-value                      | ALWAYS ON. Can not be disabled                                                                              | Wasm Proposal      |
+| WASI LIBC                        | [WAMR_BUILD_LIBC_WASI](./build_wamr.md#configure-libc)                                                      | Wasm Proposal      |
+| WASI threads                     | [WAMR_BUILD_LIB_WASI_THREADS](./build_wamr.md#lib-wasi-threads)                                             | Wasm Proposal      |
+| Custom sections                  | [WAMR_BUILD_LOAD_CUSTOM_SECTION](./build_wamr.md#load-wasm-custom-sections)                                 | Wasm Proposal      |
+| Memory64                         | [WAMR_BUILD_MEMORY64](./build_wamr.md#memory64-feature)                                                     | Wasm Proposal      |
+| Reference Types                  | [WAMR_BUILD_REF_TYPES](./build_wamr.md#reference-types-feature)                                             | Wasm Proposal      |
+| Threads                          | [WAMR_BUILD_SHARED_MEMORY](./build_wamr.md#shared-memory-feature)                                           | Wasm Proposal      |
+| SIMD (128-bit)                   | [WAMR_BUILD_SIMD](./build_wamr.md#128-bit-simd-feature)                                                     | Wasm Proposal      |
 | AOT intrinsics                   | [WAMR_BUILD_AOT_INTRINSICS](./build_wamr.md#aot-intrinsics)                                                 | Runtime Extensions |
 | AoT stack frame                  | [WAMR_BUILD_AOT_STACK_FRAME](./build_wamr.md#aot-stack-frame-feature)                                       | Runtime Extensions |
 | Global heap pool                 | [WAMR_BUILD_GLOBAL_HEAP_POOL](./build_wamr.md#a-pre-allocation-for-runtime-and-wasm-apps)                   | Runtime Extensions |
 | Global heap size                 | [WAMR_BUILD_GLOBAL_HEAP_SIZE](./build_wamr.md#a-pre-allocation-for-runtime-and-wasm-apps)                   | Runtime Extensions |
 | Libc builtin                     | [WAMR_BUILD_LIBC_BUILTIN](./build_wamr.md#configure-libc)                                                   | Runtime Extensions |
-| WASI LIBC                        | [WAMR_BUILD_LIBC_WASI](./build_wamr.md#configure-libc)                                                      | Wasm Proposal      |
-| WASI threads                     | [WAMR_BUILD_LIB_WASI_THREADS](./build_wamr.md#lib-wasi-threads)                                             | Wasm Proposal      |
-| Custom sections                  | [WAMR_BUILD_LOAD_CUSTOM_SECTION](./build_wamr.md#load-wasm-custom-sections)                                 | Wasm Proposal      |
-| Memory64                         | [WAMR_BUILD_MEMORY64](./build_wamr.md#memory64-feature)                                                     | Wasm Proposal      |
 | Module instance context          | [WAMR_BUILD_MODULE_INST_CONTEXT](./build_wamr.md#module-instance-context-apis)                              | Runtime Extensions |
 | Quick AOT/JIT entries            | [WAMR_BUILD_QUICK_AOT_ENTRY](./build_wamr.md#configure-aot)                                                 | Runtime Extensions |
-| Reference Types                  | [WAMR_BUILD_REF_TYPES](./build_wamr.md#reference-types-feature)                                             | Wasm Proposal      |
-| Threads                          | [WAMR_BUILD_SHARED_MEMORY](./build_wamr.md#shared-memory-feature)                                           | Wasm Proposal      |
 | Shrunk memory                    | [WAMR_BUILD_SHRUNK_MEMORY](./build_wamr.md#shrunk-the-memory-usage)                                         | Runtime Extensions |
-| SIMD (128-bit)                   | [WAMR_BUILD_SIMD](./build_wamr.md#128-bit-simd-feature)                                                     | Wasm Proposal      |
 | Thread manager                   | [WAMR_BUILD_THREAD_MGR](./build_wamr.md#thread-manager)                                                     | Runtime Extensions |
 | App entry                        | [WAMR_DISABLE_APP_ENTRY](./build_wamr.md#exclude-wamr-application-entry-functions)                          | Runtime Extensions |
 | hardware bound check             | [WAMR_DISABLE_HW_BOUND_CHECK](./build_wamr.md#disable-boundary-check-with-hardware-trap)                    | Runtime Extensions |
@@ -68,17 +75,24 @@ This tier indicates a basic level of support. Features and targets in this tier 
 
 # TierB
 
+## Targets
+
+| Description            |
+| ---------------------- |
+| arc-unknown-none-elf   |
+| x86_64-pc-windows-msvc |
+| mips-unknown-elf       |
+| mips64-unknown-elf     |
+
+## Features
+
 | Description                        | Compilation Flags                                                                                                       | Labels             |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| arc-unknown-none-elf               | N/A                                                                                                                     | Target             |
-| x86_64-pc-windows-msvc             | N/A                                                                                                                     | Target             |
-| mips-unknown-elf                   | N/A                                                                                                                     | Target             |
-| mips64-unknown-elf                 | N/A                                                                                                                     | Target             |
-| Darwin Compatibility               | N/A                                                                                                                     | Portability        |
-| ESP-IDF Compatibility              | N/A                                                                                                                     | Portability        |
-| Nuttx Compatibility                | N/A                                                                                                                     | Portability        |
-| SGX Compatibility                  | N/A                                                                                                                     | Portability        |
-| Zephyr Compatibility               | N/A                                                                                                                     | Portability        |
+| Darwin Compatibility               | WAMR_BUILD_PLATFORM=darwin                                                                                              | Portability        |
+| ESP-IDF Compatibility              | WAMR_BUILD_PALTFORM=esp-idf                                                                                             | Portability        |
+| Nuttx Compatibility                | WAMR_BUILD_PALTFORM=nuttx                                                                                               | Portability        |
+| SGX Compatibility                  | WAMR_BUILD_PALTFORM=linux-sgx                                                                                           | Portability        |
+| Zephyr Compatibility               | WAMR_BUILD_PALTFORM=zephyr                                                                                              | Portability        |
 | GC (Garbage Collection)            | [WAMR_BUILD_GC](./build_wamr.md#garbage-collection)                                                                     | Wasm Proposal      |
 | Stringref                          | [WAMR_BUILD_STRINGREF](./build_wamr.md#garbage-collection)                                                              | Wasm Proposal      |
 | Tail Calls                         | [WAMR_BUILD_TAIL_CALL](./build_wamr.md#tail-call-feature)                                                               | Wasm Proposal      |
@@ -120,29 +134,36 @@ This tier indicates a basic level of support. Features and targets in this tier 
 
 # TierC
 
+## Targets
+
+| Description            |
+| ---------------------- |
+| aarch64-apple-ios      |
+| arm-none-eabi          |
+| i386-unknown-elf       |
+| i386-wrs-vxworks       |
+| riscv32-esp-elf        |
+| riscv32-unknown-elf    |
+| riscv64-unknown-elf    |
+| x86_64-linux-android   |
+| x86_64-linux-cosmo     |
+| x86_64-unknown-freebsd |
+| x86_64-wrs-vxworks     |
+| xtensa-esp32-elf       |
+
+## Features
+
 | Description               | Compilation Flags                                                                                     | Labels             |
 | ------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------ |
-| aarch64-apple-ios         | N/A                                                                                                   | Target             |
-| arm-none-eabi             | N/A                                                                                                   | Target             |
-| i386-unknown-elf          | N/A                                                                                                   | Target             |
-| i386-wrs-vxworks          | N/A                                                                                                   | Target             |
-| riscv32-esp-elf           | N/A                                                                                                   | Target             |
-| riscv32-unknown-elf       | N/A                                                                                                   | Target             |
-| riscv64-unknown-elf       | N/A                                                                                                   | Target             |
-| x86_64-linux-android      | N/A                                                                                                   | Target             |
-| x86_64-linux-cosmo        | N/A                                                                                                   | Target             |
-| x86_64-unknown-freebsd    | N/A                                                                                                   | Target             |
-| x86_64-wrs-vxworks        | N/A                                                                                                   | Target             |
-| xtensa-esp32-elf          | N/A                                                                                                   | Target             |
-| AliOS compatibility       | N/A                                                                                                   | Portability        |
-| Android Compatibility     | N/A                                                                                                   | Portability        |
-| Cosmo Compatibility       | N/A                                                                                                   | Portability        |
-| FreeBSD Compatibility     | N/A                                                                                                   | Portability        |
-| iOS Compatibility         | N/A                                                                                                   | Portability        |
-| RIOT OS Compatibility     | N/A                                                                                                   | Portability        |
-| RT-Thread Compatibility   | N/A                                                                                                   | Portability        |
-| VxWorks Compatibility     | N/A                                                                                                   | Portability        |
-| Windows Compatibility     | N/A                                                                                                   | Portability        |
+| AliOS compatibility       | WAMR_BUILD_PLATFORM=alios-things                                                                      | Portability        |
+| Android Compatibility     | WAMR_BUILD_PLATFORM=android                                                                           | Portability        |
+| Cosmo Compatibility       | WAMR_BUILD_PLATFORM=cosmopolitan                                                                      | Portability        |
+| FreeBSD Compatibility     | WAMR_BUILD_PLATFORM=freebsd                                                                           | Portability        |
+| iOS Compatibility         | WAMR_BUILD_PLATFORM=darwin                                                                            | Portability        |
+| RIOT OS Compatibility     | WAMR_BUILD_PLATFORM=riot                                                                              | Portability        |
+| RT-Thread Compatibility   | WAMR_BUILD_PLATFORM=rt-thread                                                                         | Portability        |
+| VxWorks Compatibility     | WAMR_BUILD_PLATFORM=vxworks                                                                           | Portability        |
+| Windows Compatibility     | WAMR_BUILD_PLATFORM=windows                                                                           | Portability        |
 | Legacy Exception Handling | [WAMR_BUILD_EXCE_HANDLING](./build_wamr.md#exception-handling)                                        | Wasm Proposal      |
 | Multi-memory              | [WAMR_BUILD_MULTI_MEMORY](./build_wamr.md#multi-memory)                                               | Wasm Proposal      |
 | Fast JIT                  | [WAMR_BUILD_FAST_JIT](./build_wamr.md#configure-fast-jit)                                             | Running mode       |
