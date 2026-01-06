@@ -139,13 +139,6 @@ check_pie_supported()
 
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
 
-if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
-  if (CMAKE_C_COMPILER MATCHES ".*gcc.*" OR CMAKE_C_COMPILER_ID MATCHES ".*GNU")
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mindirect-branch-register")
-    # UNDEFINED BEHAVIOR, refer to https://en.cppreference.com/w/cpp/language/ub
-  endif ()
-endif ()
-
 # The following flags are to enhance security, but it may impact performance,
 # we disable them by default.
 #if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
