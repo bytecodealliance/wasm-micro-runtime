@@ -1,5 +1,5 @@
 {
-  "name": "WAMR Dev",
+  "name": "WAMR-Dev",
   "build": {
     "dockerfile": "Dockerfile",
     "args": {
