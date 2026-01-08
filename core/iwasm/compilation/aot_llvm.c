@@ -3164,8 +3164,8 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
 
             if (is_aarch64) {
                 if (features[0] != '\0') {
-                    snprintf(features_buf, sizeof(features_buf), "%s,+reserve-x18",
-                             features);
+                    snprintf(features_buf, sizeof(features_buf),
+                             "%s,+reserve-x18", features);
                     features = features_buf;
                 }
                 else {
