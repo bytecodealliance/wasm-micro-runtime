@@ -74,14 +74,14 @@ fi
 
 if [[ $1 != "--aot" ]]; then
     echo "============> run stress_registers.wasm (interpreter mode)"
-    echo "Running 100 iterations in interpreter mode..."
-    for i in $(seq 1 100); do
+    echo "Running 1000 iterations in interpreter mode..."
+    for i in $(seq 1 1000); do
         if ! ${IWASM_CMD} stress_registers.wasm 2>&1; then
             echo "FAILED: Crash at iteration $i"
             exit 1
         fi
     done
-    echo "PASSED: 100 iterations completed without crash"
+    echo "PASSED: 1000 iterations completed without crash"
 else
     echo "============> compile stress_registers.wasm to AOT"
 
