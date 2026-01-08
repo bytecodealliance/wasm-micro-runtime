@@ -1,0 +1,4 @@
+black
+nose
+pycparser
+pylint
