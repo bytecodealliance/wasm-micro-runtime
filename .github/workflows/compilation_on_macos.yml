@@ -440,3 +440,13 @@ jobs:
           cmake ..
           cmake --build . --config Release --parallel 4
           ./import-func-callback
+
+      - name: Test x18 register reservation (macOS ARM64 only)
+        if: matrix.os == 'macos-15'
+        run: |
+          cd product-mini/platforms/darwin
+          mkdir -p build && cd build
+          cmake .. -DWAMR_BUILD_AOT=1
+          cmake --build . --config Release --parallel 4
+          cd ../../../../tests/standalone/test-aot-x18-reserve
+          ./run.sh --aot
