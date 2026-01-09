@@ -10,7 +10,7 @@ This tier represents a moderate level of support. Features and targets in this t
 
 ## Tier C
 
-This tier indicates a basic level of support. Features and targets in this tier are considered experimental or less stable. They may not be actively maintained, and users should be prepared for potential issues or limitations. Documentation may be minimal or outdated. Users opting to use Tier C features do so at their own risk and should be prepared to troubleshoot issues independently. These features are typically not recommended for production use.
+This tier indicates experimental features with foundational support levels. These implementations are typically optimized for specific platforms, running modes, or use cases, and may not receive active maintenance. Documentation tends to be minimal or require updates. Production deployment requires specialized expertise and careful evaluation, including establishing appropriate threat models and ensuring comprehensive understanding of the implementation scope. Users should be prepared to troubleshoot issues and handle ongoing maintenance independently, accepting full responsibility for any limitations or challenges that may arise.
 
 > [!NOTE]
 >
