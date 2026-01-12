@@ -2485,6 +2485,7 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
        native stack to run the following codes before actually calling
        the aot function in invokeNative function. */
     if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
+        wasm_runtime_set_exec_env_tls(NULL);
         return false;
     }
 
