@@ -199,20 +199,6 @@ wasm_exec_env_create(struct WASMModuleInstanceCommon *module_inst,
 void
 wasm_exec_env_destroy(WASMExecEnv *exec_env)
 {
-#ifdef OS_ENABLE_HW_BOUND_CHECK
-    /*
-     * Clear exec_env_tls if it points to this exec_env to avoid dangling
-     * pointer after destruction. This is critical for daemon-style execution
-     * where the same thread runs multiple WASM modules sequentially.
-     * Without this, the signal handler may access freed memory on subsequent
-     * executions, causing crashes.
-     */
-    WASMExecEnv *current_tls = wasm_runtime_get_exec_env_tls();
-    if (current_tls == exec_env) {
-        wasm_runtime_set_exec_env_tls(NULL);
-    }
-#endif
-
 #if WASM_ENABLE_THREAD_MGR != 0
     /* Wait for all sub-threads */
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
