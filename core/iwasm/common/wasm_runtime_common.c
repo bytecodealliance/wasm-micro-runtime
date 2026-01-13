@@ -85,6 +85,7 @@ static korp_mutex loading_module_list_lock;
 static bh_list registered_module_list_head;
 static bh_list *const registered_module_list = &registered_module_list_head;
 static korp_mutex registered_module_list_lock;
+
 static void
 wasm_runtime_destroy_registered_module_list(void);
 #endif /* WASM_ENABLE_MULTI_MODULE */
@@ -248,6 +249,15 @@ runtime_signal_handler(void *sig_addr)
 
         if (is_sig_addr_in_guard_pages(sig_addr, module_inst)) {
             wasm_set_exception(module_inst, "out of bounds memory access");
+#if WASM_ENABLE_MULTI_MODULE != 0
+            if (jmpbuf_node->module_inst
+                && jmpbuf_node->module_inst
+                       != (WASMModuleInstanceCommon *)module_inst) {
+                wasm_runtime_propagate_exception_from_import(
+                    (WASMModuleInstanceCommon *)jmpbuf_node->module_inst,
+                    (WASMModuleInstanceCommon *)module_inst);
+            }
+#endif
             os_longjmp(jmpbuf_node->jmpbuf, 1);
         }
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
@@ -375,6 +385,15 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                    the wasm func returns, the caller will check whether the
                    exception is thrown and return to runtime. */
                 wasm_set_exception(module_inst, "out of bounds memory access");
+#if WASM_ENABLE_MULTI_MODULE != 0
+                if (jmpbuf_node->module_inst
+                    && jmpbuf_node->module_inst
+                           != (WASMModuleInstanceCommon *)module_inst) {
+                    wasm_runtime_propagate_exception_from_import(
+                        (WASMModuleInstance *)jmpbuf_node->module_inst,
+                        module_inst);
+                }
+#endif
                 ret = next_action(module_inst, exce_info);
                 if (ret == EXCEPTION_CONTINUE_SEARCH
                     || ret == EXCEPTION_CONTINUE_EXECUTION)
@@ -1351,6 +1370,84 @@ wasm_runtime_destroy_loading_module_list()
     }
 
     os_mutex_unlock(&loading_module_list_lock);
+}
+
+void
+wasm_runtime_propagate_exception_from_import(
+    WASMModuleInstanceCommon *parent, WASMModuleInstanceCommon *sub_module)
+{
+    static const uint32 exception_prefix_len = sizeof("Exception: ") - 1;
+    static const char memory_oob_exception[] = "out of bounds memory access";
+    char exception_buf[EXCEPTION_BUF_LEN] = { 0 };
+    const char *message = NULL;
+    bool has_exception = false;
+
+    if (!parent || !sub_module)
+        return;
+
+    switch (sub_module->module_type) {
+#if WASM_ENABLE_INTERP != 0
+        case Wasm_Module_Bytecode:
+            has_exception = wasm_copy_exception(
+                (WASMModuleInstance *)sub_module, exception_buf);
+            break;
+#endif
+#if WASM_ENABLE_AOT != 0
+        case Wasm_Module_AoT:
+            has_exception = aot_copy_exception((AOTModuleInstance *)sub_module,
+                                               exception_buf);
+            break;
+#endif
+        default:
+            return;
+    }
+
+    if (has_exception) {
+        message = exception_buf;
+        if (strlen(message) >= exception_prefix_len) {
+            message += exception_prefix_len;
+        }
+        else {
+            LOG_WARNING("sub-module exception format unexpected: %s", message);
+            return;
+        }
+
+        if (strcmp(message, memory_oob_exception) != 0) {
+            LOG_WARNING("skip propagating non-memory-OOB exception: %s",
+                        message);
+            return;
+        }
+
+        switch (parent->module_type) {
+#if WASM_ENABLE_INTERP != 0
+            case Wasm_Module_Bytecode:
+                wasm_set_exception((WASMModuleInstance *)parent, message);
+                break;
+#endif
+#if WASM_ENABLE_AOT != 0
+            case Wasm_Module_AoT:
+                aot_set_exception((AOTModuleInstance *)parent, message);
+                break;
+#endif
+            default:
+                break;
+        }
+
+        switch (sub_module->module_type) {
+#if WASM_ENABLE_INTERP != 0
+            case Wasm_Module_Bytecode:
+                wasm_set_exception((WASMModuleInstance *)sub_module, NULL);
+                break;
+#endif
+#if WASM_ENABLE_AOT != 0
+            case Wasm_Module_AoT:
+                aot_set_exception((AOTModuleInstance *)sub_module, NULL);
+                break;
+#endif
+            default:
+                break;
+        }
+    }
 }
 #endif /* WASM_ENABLE_MULTI_MODULE */
 
