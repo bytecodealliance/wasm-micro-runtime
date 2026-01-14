@@ -616,6 +616,15 @@ SIMDE (SIMD Everywhere) implements SIMD operations in fast interpreter mode.
 > [!WARNING]
 > This is only supported in classic interpreter mode.
 
+## **Branch hints**
+
+- **WAMR_BUILD_BRANCH_HINTS**=1/0, default to disable if not set
+
+> [!NOTE]
+> Enabling this feature allows the runtime to utilize branch hints for better performance during aot/jit execution.
+
+## **Combination of configurations:**
+
 ### **Invoke general FFI**
 
 - **WAMR_BUILD_INVOKE_NATIVE_GENERAL**=1/0, default to off.
