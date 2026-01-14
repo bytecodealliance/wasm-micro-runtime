@@ -57,14 +57,4 @@ target_link_libraries(vmlib PUBLIC ${REQUIRED_LLVM_LIBS})
 add_executable(wasm_mutator_fuzz wasm_mutator_fuzz.cc)
 target_link_libraries(wasm_mutator_fuzz PRIVATE vmlib m)
 
-if(NOT IN_OSS_FUZZ)
-  message(STATUS "Enable ASan and UBSan in non-oss-fuzz environment for vmlib")
-  target_compile_options(vmlib PUBLIC
-    -fprofile-instr-generate -fcoverage-mapping
-    -fno-sanitize-recover=all
-    -fsanitize=address,undefined
-    -fsanitize=float-divide-by-zero,unsigned-integer-overflow,local-bounds,nullability
-    -fno-sanitize=alignment
-  )
-  target_link_options(vmlib PUBLIC -fsanitize=address,undefined -fprofile-instr-generate)
-endif()
+include(${CMAKE_CURRENT_LIST_DIR}/../sanitizer_flags.cmake)
