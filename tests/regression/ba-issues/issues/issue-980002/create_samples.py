@@ -41,7 +41,7 @@ payload_invalid_free = b"".join([
 ])
 build_module(payload_invalid_free, "branch_hint_invalid_free.wasm")
 payload_dos = b"".join([
-    b"\x01",            
+    b"\x01",
     b"\x00",
     b"\xff\xff\xff\xff\x0f",
 ])
