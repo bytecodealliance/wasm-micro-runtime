@@ -5633,7 +5633,8 @@ handle_branch_hint_section(const uint8 *buf, const uint8 *buf_end,
         uint32 num_hints;
         read_leb_uint32(buf, buf_end, num_hints);
 
-        /* Ensure that num_hints doesn't exceed the actual number of branch instructions */
+        /* Ensure that num_hints doesn't exceed the actual number of branch
+         * instructions */
         WASMFunction *func =
             module->functions[func_idx - module->import_function_count];
         uint32 max_branch_instructions =
@@ -5660,10 +5661,11 @@ handle_branch_hint_section(const uint8 *buf, const uint8 *buf_end,
 
             /* Validate offset is within the function's code bounds */
             if (new_hint->offset >= func->code_size) {
-                set_error_buf_v(error_buf, error_buf_size,
-                                "invalid branch hint offset: %u exceeds function "
-                                "code size %u",
-                                new_hint->offset, func->code_size);
+                set_error_buf_v(
+                    error_buf, error_buf_size,
+                    "invalid branch hint offset: %u exceeds function "
+                    "code size %u",
+                    new_hint->offset, func->code_size);
                 goto fail;
             }
 
@@ -5771,7 +5773,7 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 #else
     if (name_len == 25
         && memcmp((const char *)p, "metadata.code.branch_hint", 25) == 0) {
-        LOG_VERBOSE("Found branch hint section, but branch hints are disabled "
+        LOG_WARNING("Found branch hint section, but branch hints are disabled "
                     "in this build, skipping.");
     }
 #endif
