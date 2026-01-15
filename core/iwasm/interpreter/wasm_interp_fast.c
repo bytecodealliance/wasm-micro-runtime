@@ -442,7 +442,7 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
         opnd_off = *(int16 *)(frame_ip + off); \
         addr_tmp = frame_lp + opnd_off;        \
         PUT_REF_TO_ADDR(addr_tmp, value);      \
-        SET_FRAME_REF(ond_off);                \
+        SET_FRAME_REF(opnd_off);               \
     } while (0)
 
 #define SET_OPERAND(op_type, off, value) SET_OPERAND_##op_type(off, value)
