@@ -69,5 +69,3 @@ target_link_libraries(aotclib PUBLIC ${REQUIRED_LLVM_LIBS})
 
 add_executable(aot_compiler_fuzz aot_compiler_fuzz.cc)
 target_link_libraries(aot_compiler_fuzz PRIVATE stdc++ aotclib)
-
-include(${CMAKE_CURRENT_LIST_DIR}/../sanitizer_flags.cmake)

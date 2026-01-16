@@ -59,5 +59,3 @@ target_link_libraries(vmlib PUBLIC ${REQUIRED_LLVM_LIBS})
 
 add_executable(wasm_mutator_fuzz wasm_mutator_fuzz.cc)
 target_link_libraries(wasm_mutator_fuzz PRIVATE vmlib m)
-
-include(${CMAKE_CURRENT_LIST_DIR}/../sanitizer_flags.cmake)
