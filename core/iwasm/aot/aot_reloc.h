@@ -160,6 +160,7 @@ typedef struct {
 #endif
 
 #if WASM_ENABLE_STRINGREF != 0
+
 #define REG_STRINGREF_SYM()                 \
     REG_SYM(wasm_stringref_obj_new),        \
     REG_SYM(wasm_stringview_wtf8_obj_new),  \
