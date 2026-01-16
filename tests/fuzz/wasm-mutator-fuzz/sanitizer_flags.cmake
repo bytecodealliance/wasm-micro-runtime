@@ -23,3 +23,8 @@ endif()
 if(CMAKE_C_COMPILER_ID MATCHES ".*Clang")
   add_compile_options(-fno-sanitize=unsigned-integer-overflow)
 endif()
+
+# '-fsanitize=vptr' not allowed with '-fno-rtti
+# But, LLVM by default, disables the use of `rtti` in the compiler
+add_compile_options(-fsanitize=fuzzer -fno-sanitize=vptr)
+add_link_options(-fsanitize=fuzzer -fno-sanitize=vptr)

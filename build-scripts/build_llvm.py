@@ -304,7 +304,7 @@ def main():
         "default": {
             "repo": "https://github.com/llvm/llvm-project.git",
             "repo_ssh": "git@github.com:llvm/llvm-project.git",
-            "branch": "release/18.x",
+            "branch": "llvmorg-18.1.8",
         },
     }
 
