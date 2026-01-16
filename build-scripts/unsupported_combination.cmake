@@ -61,7 +61,6 @@ endfunction()
 # Below are the unsupported combinations checks
 # Please keep this list in sync with tests/unit/unsupported-features/CMakeLists.txt
 # and tests/wamr-test-suites/test_wamr.sh
-cmake_print_variables(WAMR_BUILD_INTERP WAMR_BUILD_FAST_INTERP WAMR_BUILD_JIT WAMR_BUILD_EXCE_HANDLING)
 
 if(WAMR_BUILD_EXCE_HANDLING EQUAL 1)
   check_aot_mode_error("Unsupported build configuration: EXCE_HANDLING + AOT")
