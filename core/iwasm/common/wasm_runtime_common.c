@@ -3909,13 +3909,8 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
             goto fail;
         }
 
-#ifdef BH_PLATFORM_WINDOWS
-        address = strtok_s(cp, "/", &nextptr);
-        mask = strtok_s(NULL, "/", &nextptr);
-#else
-        address = strtok_r(cp, "/", &nextptr);
-        mask = strtok_r(NULL, "/", &nextptr);
-#endif
+        address = bh_strtok_r(cp, "/", &nextptr);
+        mask = bh_strtok_r(NULL, "/", &nextptr);
 
         if (!mask) {
             snprintf(error_buf, error_buf_size,
