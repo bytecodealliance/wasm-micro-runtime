@@ -66,6 +66,9 @@ bh_strdup(const char *s);
 char *
 wa_strdup(const char *s);
 
+char *
+bh_strtok_r(char *str, const char *delim, char **saveptr);
+
 #if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0
 /* Executes a system command in bash/cmd.exe */
 int

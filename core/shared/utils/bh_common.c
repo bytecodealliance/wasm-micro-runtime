@@ -166,6 +166,16 @@ wa_strdup(const char *s)
     return s1;
 }
 
+char *
+bh_strtok_r(char *str, const char *delim, char **saveptr)
+{
+#if !(defined(_WIN32) || defined(_WIN32_))
+    return strtok_r(str, delim, saveptr);
+#else
+    return strtok_s(str, delim, saveptr);
+#endif
+}
+
 #if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0
 int
 bh_system(const char *cmd)
