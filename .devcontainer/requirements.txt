@@ -2,3 +2,4 @@ black
 nose
 pycparser
 pylint
+requests
