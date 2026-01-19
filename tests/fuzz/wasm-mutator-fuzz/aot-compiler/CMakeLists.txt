@@ -1,12 +1,6 @@
 # Copyright (C) 2025 Intel Corporation. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-# Set default build options with the ability to override from the command line
-if(NOT WAMR_BUILD_INTERP)
-  set(WAMR_BUILD_INTERP 1)
-endif()
-
-set(WAMR_BUILD_WAMR_COMPILER 1)
 set(WAMR_BUILD_AOT 0)
 set(WAMR_BUILD_INTERP 1)
 set(WAMR_BUILD_JIT 0)
