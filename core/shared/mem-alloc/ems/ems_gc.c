@@ -308,8 +308,12 @@ reclaim_instance_heap(gc_heap_t *heap)
         return GC_SUCCESS;
     ret = gct_vm_begin_rootset_enumeration(heap->cluster, heap);
 #endif
-    if (!ret)
+    if (!ret) {
+        if (heap->root_set) {
+            rollback_mark(heap);
+        }
         return GC_ERROR;
+    }
 
 #if BH_ENABLE_GC_VERIFY != 0
     /* no matter whether the enumeration is successful or not, the data
