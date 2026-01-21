@@ -3257,6 +3257,10 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     bool ret = false;
     bh_assert(func_idx < aot_module->import_func_count);
 
+#if __has_feature(memory_sanitizer)
+#include <sanitizer/msan_interface.h>
+    __msan_unpoison(argv, (sizeof(uint32) * argc));
+#endif
     import_func = aot_module->import_funcs + func_idx;
     if (import_func->call_conv_wasm_c_api)
         func_ptr =
