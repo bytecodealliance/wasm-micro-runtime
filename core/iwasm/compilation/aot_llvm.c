@@ -2656,6 +2656,25 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     comp_ctx->comp_data = comp_data;
 
     /* Create LLVM context, module and builder */
+#if LLVM_VERSION_MAJOR >= 21
+    /* Construct an LLVMContext directly, note:
+         different from non LAZY JIT mode, no need to dispose this context, if
+         will be disposed when the thread safe context is disposed */
+    comp_ctx->context = LLVMContextCreate();
+    if (!comp_ctx->context) {
+        aot_set_last_error("create LLVM Context failed.");
+        goto fail;
+    }
+
+    /* Wrap the LLVM context in a thread safe context. */
+    comp_ctx->orc_thread_safe_context =
+        LLVMOrcCreateNewThreadSafeContextFromLLVMContext(comp_ctx->context);
+    if (!comp_ctx->orc_thread_safe_context) {
+        aot_set_last_error(
+            "Create LLVM ThreadSafeContext from LLVMContext failed.");
+        goto fail;
+    }
+#else // LLVM_VERSION_MAJOR < 21
     comp_ctx->orc_thread_safe_context = LLVMOrcCreateNewThreadSafeContext();
     if (!comp_ctx->orc_thread_safe_context) {
         aot_set_last_error("create LLVM ThreadSafeContext failed.");
@@ -2670,6 +2689,7 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
         aot_set_last_error("get context from LLVM ThreadSafeContext failed.");
         goto fail;
     }
+#endif
 
     if (!(comp_ctx->builder = LLVMCreateBuilderInContext(comp_ctx->context))) {
         aot_set_last_error("create LLVM builder failed.");
