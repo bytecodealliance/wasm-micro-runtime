@@ -269,18 +269,20 @@ wasm_is_refheaptype_typeidx(const RefHeapType_Common *ref_heap_type)
     return ref_heap_type->heap_type >= 0 ? true : false;
 }
 
-/* Whether a ref heap type is a common type: func/any/eq/i31/data,
-   not (type i) or (rtt n i) or (rtt i) */
+/* Whether a ref heap type is a common type:
+   func/any/eq/i31/data/nofunc/noextern, not (type i) or (rtt n i) or (rtt i) */
 inline static bool
 wasm_is_refheaptype_common(const RefHeapType_Common *ref_heap_type)
 {
     return ((ref_heap_type->heap_type >= (int32)HEAP_TYPE_ARRAY
-             && ref_heap_type->heap_type <= (int32)HEAP_TYPE_NONE)
+             && ref_heap_type->heap_type <= (int32)HEAP_TYPE_NOFUNC)
 #if WASM_ENABLE_STRINGREF != 0
-            || (ref_heap_type->heap_type >= (int32)HEAP_TYPE_STRINGVIEWITER
-                && ref_heap_type->heap_type <= (int32)HEAP_TYPE_I31)
+            || ref_heap_type->heap_type == (int32)HEAP_TYPE_STRINGREF
+            || ref_heap_type->heap_type == (int32)HEAP_TYPE_STRINGVIEWWTF8
+            || ref_heap_type->heap_type == (int32)HEAP_TYPE_STRINGVIEWWTF16
+            || ref_heap_type->heap_type == (int32)HEAP_TYPE_STRINGVIEWITER
 #endif
-                )
+            )
                ? true
                : false;
 }
