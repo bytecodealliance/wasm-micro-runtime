@@ -67,17 +67,5 @@ target_link_directories(aotclib PUBLIC ${LLVM_LIBRARY_DIR})
 
 target_link_libraries(aotclib PUBLIC ${REQUIRED_LLVM_LIBS})
 
-if(NOT IN_OSS_FUZZ)
-  message(STATUS "Enable ASan and UBSan in non-oss-fuzz environment for aotclib")
-  target_compile_options(aotclib PUBLIC
-    -fprofile-instr-generate -fcoverage-mapping
-    -fno-sanitize-recover=all
-    -fsanitize=address,undefined
-    -fsanitize=float-divide-by-zero,unsigned-integer-overflow,local-bounds,nullability
-    -fno-sanitize=alignment
-  )
-  target_link_options(aotclib PUBLIC -fsanitize=address,undefined -fprofile-instr-generate)
-endif()
-
 add_executable(aot_compiler_fuzz aot_compiler_fuzz.cc)
 target_link_libraries(aot_compiler_fuzz PRIVATE stdc++ aotclib)
