@@ -1697,7 +1697,7 @@ wasm_runtime_instantiation_args_destroy(struct InstantiationArgs2 *p)
 }
 
 #if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-WASINNArguments;
+typedef struct WASINNArguments WASINNArguments;
 
 void
 wasm_runtime_wasi_nn_graph_registry_args_set_defaults(WASINNArguments *args)

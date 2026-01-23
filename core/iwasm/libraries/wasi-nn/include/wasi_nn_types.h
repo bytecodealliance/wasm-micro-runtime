@@ -48,7 +48,6 @@ typedef enum {
     WASI_NN_ERROR_NAME(unsupported_operation),
     WASI_NN_ERROR_NAME(too_large),
     WASI_NN_ERROR_NAME(not_found),
-    WASI_NN_ERROR_NAME(not_loaded),
 
     // for WasmEdge-wasi-nn
     WASI_NN_ERROR_NAME(end_of_sequence) = 100,  // End of Sequence Found.

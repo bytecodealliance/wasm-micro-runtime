@@ -1483,6 +1483,13 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_wasi_nn_global_ctx(WASMModuleInstanceCommon *module_inst,
                                     WASINNGlobalContext *wasi_ctx);
 
+WASM_RUNTIME_API_EXTERN WASINNGlobalContext *
+wasm_runtime_get_wasi_nn_global_ctx(WASMModuleInstanceCommon *module_inst_comm);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_wasi_nn_global_ctx(WASMModuleInstanceCommon *module_inst_comm,
+                                    WASINNGlobalContext *wasi_nn_ctx);
+
 WASM_RUNTIME_API_EXTERN uint32_t
 wasm_runtime_get_wasi_nn_global_ctx_ngraphs(
     WASINNGlobalContext *wasi_nn_global_ctx);

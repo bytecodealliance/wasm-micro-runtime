@@ -607,7 +607,7 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
         goto fail;
     }
 
-    wasi_nn_global_context wasi_nn_global_ctx =
+    WASINNGlobalContext *wasi_nn_global_ctx =
         wasm_runtime_get_wasi_nn_global_ctx(instance);
     if (!wasi_nn_global_ctx) {
         NN_ERR_PRINTF("global context is invalid");
@@ -691,7 +691,7 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
             NN_ERR_PRINTF("Model %s is not loaded, you should pass its path "
                           "through --wasi-nn-graph",
                           nul_terminated_name);
-            res = not_loaded;
+            res = not_found;
         }
         goto fail;
     }
