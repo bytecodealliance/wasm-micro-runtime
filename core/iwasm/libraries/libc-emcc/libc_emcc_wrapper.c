@@ -245,14 +245,21 @@ mmap_wrapper(wasm_exec_env_t exec_env, void *addr, int length, int prot,
     if (buf_offset == 0)
         return -1;
 
-    if (fd <= 0)
+    if (fd <= 0) {
+        module_free((uint64)buf_offset);
         return -1;
+    }
 
-    if (lseek(fd, offset, SEEK_SET) == -1)
+    if (lseek(fd, offset, SEEK_SET) == -1) {
+        module_free((uint64)buf_offset);
         return -1;
+    }
 
     size_read = read(fd, buf, length);
-    (void)size_read;
+    if (size_read < 0) {
+        module_free((uint64)buf_offset);
+        return -1;
+    }
     return buf_offset;
 }
 
