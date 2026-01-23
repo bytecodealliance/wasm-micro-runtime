@@ -21,6 +21,13 @@ typedef struct {
     uint32 ns_lookup_pool_size;
 } libc_wasi_parse_context_t;
 
+typedef struct {
+    const char *encoding;
+    const char *target;
+    const char *graph_paths[10];
+    uint32 n_graphs;
+} wasi_nn_parse_context_t;
+
 typedef enum {
     LIBC_WASI_PARSE_RESULT_OK = 0,
     LIBC_WASI_PARSE_RESULT_NEED_HELP,
@@ -177,3 +184,58 @@ libc_wasi_set_init_args(struct InstantiationArgs2 *args, int argc, char **argv,
     wasm_runtime_instantiation_args_set_wasi_ns_lookup_pool(
         args, ctx->ns_lookup_pool, ctx->ns_lookup_pool_size);
 }
+
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+libc_wasi_parse_result_t
+wasi_nn_parse(char **argv, wasi_nn_parse_context_t *ctx)
+{
+    char *token;
+    char *saveptr = NULL;
+    int token_count = 0, ret = 0;
+    char *tokens[12] = { 0 };
+
+    // encoding:tensorflowlite|openvino|llama  target:cpu|gpu|tpu
+    // --wasi-nn-graph=encoding:target:model_file_path1:model_file_path2:model_file_path3:......
+    token = strtok_r(argv[0] + 16, ":", &saveptr);
+    while (token) {
+        tokens[token_count] = token;
+        token_count++;
+        token = strtok_r(NULL, ":", &saveptr);
+    }
+
+    if (token_count < 2) {
+        ret = LIBC_WASI_PARSE_RESULT_NEED_HELP;
+        goto fail;
+    }
+
+    ctx->n_graphs = token_count - 2;
+    ctx->encoding = strdup(tokens[0]);
+    ctx->target = strdup(tokens[1]);
+    for (int i = 0; i < ctx->n_graphs; i++) {
+        ctx->graph_paths[i] = strdup(tokens[i + 2]);
+    }
+    
+fail:
+    if (token)
+        free(token);
+    
+
+    return ret;
+}
+
+static void
+wasi_nn_set_init_args(struct InstantiationArgs2 *args, struct WASINNArguments *nn_registry, wasi_nn_parse_context_t *ctx)
+{
+    wasi_nn_graph_registry_create(&nn_registry);
+    wasi_nn_graph_registry_set_args(nn_registry,  ctx->encoding, ctx->target, ctx->n_graphs,
+                                    ctx->graph_paths);
+    wasm_runtime_instantiation_args_set_wasi_nn_graph_registry(args,
+                                                               nn_registry);
+
+    for (uint32_t i = 0; i < ctx->n_graphs; i++)
+        if (ctx->graph_paths[i])
+            free(ctx->graph_paths[i]);
+    free(ctx->encoding);
+    free(ctx->target);
+}
+#endif

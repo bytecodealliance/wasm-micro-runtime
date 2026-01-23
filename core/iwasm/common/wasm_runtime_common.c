@@ -1696,65 +1696,6 @@ wasm_runtime_instantiation_args_destroy(struct InstantiationArgs2 *p)
     wasm_runtime_free(p);
 }
 
-#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-typedef struct WASINNArguments WASINNArguments;
-
-void
-wasm_runtime_wasi_nn_graph_registry_args_set_defaults(WASINNArguments *args)
-{
-    memset(args, 0, sizeof(*args));
-}
-
-bool
-wasi_nn_graph_registry_set_args(WASINNArguments *registry, const char *encoding,
-                                const char *target, uint32_t n_graphs,
-                                const char **graph_paths)
-{
-    if (!registry || !encoding || !target || !graph_paths) {
-        return false;
-    }
-    registry->encoding = strdup(encoding);
-    registry->target = strdup(target);
-    registry->n_graphs = n_graphs;
-    registry->graph_paths = (uint32_t **)malloc(sizeof(uint32_t *) * n_graphs);
-    memset(registry->graph_paths, 0, sizeof(uint32_t *) * n_graphs);
-    for (uint32_t i = 0; i < registry->n_graphs; i++)
-        registry->graph_paths[i] = strdup(graph_paths[i]);
-
-    return true;
-}
-
-int
-wasi_nn_graph_registry_create(WASINNArguments **registryp)
-{
-    WASINNArguments *args = wasm_runtime_malloc(sizeof(*args));
-    if (args == NULL) {
-        return -1;
-    }
-    wasm_runtime_wasi_nn_graph_registry_args_set_defaults(args);
-    *registryp = args;
-    return 0;
-}
-
-void
-wasi_nn_graph_registry_destroy(WASINNArguments *registry)
-{
-    if (registry) {
-        for (uint32_t i = 0; i < registry->n_graphs; i++)
-            if (registry->graph_paths[i]) {
-                // wasi_nn_graph_registry_unregister_graph(registry,
-                // registry->name[i]);
-                free(registry->graph_paths[i]);
-            }
-        if (registry->encoding)
-            free(registry->encoding);
-        if (registry->target)
-            free(registry->target);
-        free(registry);
-    }
-}
-#endif
-
 void
 wasm_runtime_instantiation_args_set_default_stack_size(
     struct InstantiationArgs2 *p, uint32 v)
@@ -1853,7 +1794,65 @@ wasm_runtime_instantiation_args_set_wasi_ns_lookup_pool(
     wasi_args->set_by_user = true;
 }
 #endif /* WASM_ENABLE_LIBC_WASI != 0 */
+
 #if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+typedef struct WASINNArguments WASINNArguments;
+
+void
+wasm_runtime_wasi_nn_graph_registry_args_set_defaults(WASINNArguments *args)
+{
+    memset(args, 0, sizeof(*args));
+}
+
+bool
+wasi_nn_graph_registry_set_args(WASINNArguments *registry, const char *encoding,
+                                const char *target, uint32_t n_graphs,
+                                const char **graph_paths)
+{
+    if (!registry || !encoding || !target || !graph_paths) {
+        return false;
+    }
+    registry->encoding = strdup(encoding);
+    registry->target = strdup(target);
+    registry->n_graphs = n_graphs;
+    registry->graph_paths = (uint32_t **)malloc(sizeof(uint32_t *) * n_graphs);
+    memset(registry->graph_paths, 0, sizeof(uint32_t *) * n_graphs);
+    for (uint32_t i = 0; i < registry->n_graphs; i++)
+        registry->graph_paths[i] = strdup(graph_paths[i]);
+
+    return true;
+}
+
+int
+wasi_nn_graph_registry_create(WASINNArguments **registryp)
+{
+    WASINNArguments *args = wasm_runtime_malloc(sizeof(*args));
+    if (args == NULL) {
+        return -1;
+    }
+    wasm_runtime_wasi_nn_graph_registry_args_set_defaults(args);
+    *registryp = args;
+    return 0;
+}
+
+void
+wasi_nn_graph_registry_destroy(WASINNArguments *registry)
+{
+    if (registry) {
+        for (uint32_t i = 0; i < registry->n_graphs; i++)
+            if (registry->graph_paths[i]) {
+                // wasi_nn_graph_registry_unregister_graph(registry,
+                // registry->name[i]);
+                free(registry->graph_paths[i]);
+            }
+        if (registry->encoding)
+            free(registry->encoding);
+        if (registry->target)
+            free(registry->target);
+        free(registry);
+    }
+}
+
 void
 wasm_runtime_instantiation_args_set_wasi_nn_graph_registry(
     struct InstantiationArgs2 *p, WASINNArguments *registry)
