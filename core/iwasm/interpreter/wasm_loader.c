@@ -701,7 +701,7 @@ destroy_init_expr(WASMModule *module, InitializerExpression *expr)
 #endif
 
 #if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
-    // free left expr and right exprs for binary oprand
+    /* free left expr and right exprs for binary operand */
     if (!is_expr_binary_op(expr->init_expr_type)) {
         return;
     }
