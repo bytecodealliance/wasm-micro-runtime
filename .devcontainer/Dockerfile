@@ -12,15 +12,14 @@ ENV TZ=Asia/Shanghai
 RUN apt-get update \
   && apt-get upgrade -y
 
-RUN apt-get install -y apt-transport-https apt-utils build-essential \
-  ca-certificates ccache clang-format-14 curl file g++-multilib git gnupg \
-  libgcc-12-dev lib32gcc-12-dev libzstd-dev lsb-release \
-  ninja-build ocaml ocamlbuild \
-  python3-venv python3-pip \
-  software-properties-common tree tzdata \
-  unzip valgrind vim wget zip --no-install-recommends \
-  && apt-get clean -y \
-  && rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+  && apt-get install -y apt-transport-https apt-utils build-essential \
+      ca-certificates ccache clang-format-14 curl file g++-multilib git gnupg \
+      libgcc-12-dev lib32gcc-12-dev libzstd-dev lsb-release \
+      ninja-build ocaml ocamlbuild opam \
+      python3-venv python3-pip \
+      software-properties-common tree tzdata \
+      unzip valgrind vim wget zip --no-install-recommends
 
 WORKDIR /opt
 
