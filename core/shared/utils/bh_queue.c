@@ -132,7 +132,9 @@ bh_post_msg(bh_queue *queue, unsigned short tag, void *body, unsigned int len)
 {
     bh_queue_node *msg = bh_new_msg(tag, body, len, NULL);
     if (msg == NULL) {
+        bh_queue_mutex_lock(&queue->queue_lock);
         queue->drops++;
+        bh_queue_mutex_unlock(&queue->queue_lock);
         if (len != 0 && body)
             BH_FREE(body);
         return false;
