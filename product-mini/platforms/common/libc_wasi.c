@@ -194,7 +194,7 @@ wasi_nn_parse(char **argv, wasi_nn_parse_context_t *ctx)
 
     if (ctx->n_graphs >= sizeof(ctx->graph_paths) / sizeof(char *)) {
         printf("Only allow max graph number %d\n",
-                (int)(sizeof(ctx->graph_paths) / sizeof(char *)));
+               (int)(sizeof(ctx->graph_paths) / sizeof(char *)));
         return LIBC_WASI_PARSE_RESULT_BAD_PARAM;
     }
 
@@ -221,7 +221,7 @@ wasi_nn_parse(char **argv, wasi_nn_parse_context_t *ctx)
     ctx->encoding[ctx->n_graphs] = strdup(tokens[0]);
     ctx->target[ctx->n_graphs] = strdup(tokens[1]);
     ctx->graph_paths[ctx->n_graphs++] = strdup(tokens[2]);
-    
+
 fail:
     if (token)
         free(token);
@@ -230,15 +230,16 @@ fail:
 }
 
 static void
-wasi_nn_set_init_args(struct InstantiationArgs2 *args, struct WASINNArguments *nn_registry, wasi_nn_parse_context_t *ctx)
+wasi_nn_set_init_args(struct InstantiationArgs2 *args,
+                      struct WASINNArguments *nn_registry,
+                      wasi_nn_parse_context_t *ctx)
 {
-    wasi_nn_graph_registry_set_args(nn_registry,  ctx->encoding, ctx->target, ctx->n_graphs,
-                                    ctx->graph_paths);
+    wasi_nn_graph_registry_set_args(nn_registry, ctx->encoding, ctx->target,
+                                    ctx->n_graphs, ctx->graph_paths);
     wasm_runtime_instantiation_args_set_wasi_nn_graph_registry(args,
                                                                nn_registry);
 
-    for (uint32_t i = 0; i < ctx->n_graphs; i++)
-    {
+    for (uint32_t i = 0; i < ctx->n_graphs; i++) {
         if (ctx->graph_paths[i])
             free(ctx->graph_paths[i]);
         if (ctx->encoding[i])

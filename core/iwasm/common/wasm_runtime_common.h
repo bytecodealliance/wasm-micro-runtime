@@ -811,9 +811,9 @@ wasm_runtime_instantiation_args_set_wasi_nn_graph_registry(
     struct InstantiationArgs2 *p, WASINNArguments *registry);
 
 WASM_RUNTIME_API_EXTERN bool
-wasi_nn_graph_registry_set_args(WASINNArguments *registry, const char **encoding,
-                                const char **target, uint32_t n_graphs,
-                                const char **graph_paths);
+wasi_nn_graph_registry_set_args(WASINNArguments *registry,
+                                const char **encoding, const char **target,
+                                uint32_t n_graphs, const char **graph_paths);
 #endif
 
 /* See wasm_export.h for description */

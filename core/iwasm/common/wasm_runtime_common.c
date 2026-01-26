@@ -1805,14 +1805,14 @@ wasm_runtime_wasi_nn_graph_registry_args_set_defaults(WASINNArguments *args)
 }
 
 bool
-wasi_nn_graph_registry_set_args(WASINNArguments *registry, const char **encoding,
-                                const char **target, uint32_t n_graphs,
-                                const char **graph_paths)
+wasi_nn_graph_registry_set_args(WASINNArguments *registry,
+                                const char **encoding, const char **target,
+                                uint32_t n_graphs, const char **graph_paths)
 {
     if (!registry || !encoding || !target || !graph_paths) {
         return false;
     }
-    
+
     registry->n_graphs = n_graphs;
     registry->target = (uint32_t **)malloc(sizeof(uint32_t *) * n_graphs);
     registry->encoding = (uint32_t **)malloc(sizeof(uint32_t *) * n_graphs);
@@ -1821,8 +1821,7 @@ wasi_nn_graph_registry_set_args(WASINNArguments *registry, const char **encoding
     memset(registry->encoding, 0, sizeof(uint32_t *) * n_graphs);
     memset(registry->graph_paths, 0, sizeof(uint32_t *) * n_graphs);
 
-    for (uint32_t i = 0; i < registry->n_graphs; i++)
-    {
+    for (uint32_t i = 0; i < registry->n_graphs; i++) {
         registry->graph_paths[i] = strdup(graph_paths[i]);
         registry->encoding[i] = strdup(encoding[i]);
         registry->target[i] = strdup(target[i]);
@@ -1850,10 +1849,10 @@ wasi_nn_graph_registry_destroy(WASINNArguments *registry)
         for (uint32_t i = 0; i < registry->n_graphs; i++)
             if (registry->graph_paths[i]) {
                 free(registry->graph_paths[i]);
-            if (registry->encoding[i])
-                free(registry->encoding[i]);
-            if (registry->target[i])
-                free(registry->target[i]);
+                if (registry->encoding[i])
+                    free(registry->encoding[i]);
+                if (registry->target[i])
+                    free(registry->target[i]);
             }
         free(registry);
     }

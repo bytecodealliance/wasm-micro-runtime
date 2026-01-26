@@ -651,13 +651,15 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
             continue;
         }
         is_loaded = wasm_runtime_get_wasi_nn_global_ctx_loaded_i(
-                wasi_nn_global_ctx, model_idx);
+            wasi_nn_global_ctx, model_idx);
         free(model_name);
 
-        graph_encoding encoding = str2encoding(
-            wasm_runtime_get_wasi_nn_global_ctx_encoding_i(wasi_nn_global_ctx, model_idx));
-        execution_target target = str2target(
-            wasm_runtime_get_wasi_nn_global_ctx_target_i(wasi_nn_global_ctx, model_idx));
+        graph_encoding encoding =
+            str2encoding(wasm_runtime_get_wasi_nn_global_ctx_encoding_i(
+                wasi_nn_global_ctx, model_idx));
+        execution_target target =
+            str2target(wasm_runtime_get_wasi_nn_global_ctx_target_i(
+                wasi_nn_global_ctx, model_idx));
 
         // res = ensure_backend(instance, autodetect, wasi_nn_ctx);
         res = ensure_backend(instance, encoding, wasi_nn_ctx);
@@ -665,16 +667,17 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
             goto fail;
 
         if (!is_loaded && (model_idx < MAX_GLOBAL_GRAPHS_PER_INST)
-        && (model_idx < global_n_graphs)) {
-            NN_DBG_PRINTF("Model is not yet loaded, will add to global context");
+            && (model_idx < global_n_graphs)) {
+            NN_DBG_PRINTF(
+                "Model is not yet loaded, will add to global context");
             call_wasi_nn_func(wasi_nn_ctx->backend, load_by_name, res,
-                            wasi_nn_ctx->backend_ctx, global_model_path_i,
-                            strlen(global_model_path_i), encoding, target, g);
+                              wasi_nn_ctx->backend_ctx, global_model_path_i,
+                              strlen(global_model_path_i), encoding, target, g);
             if (res != success)
                 goto fail;
 
             wasm_runtime_set_wasi_nn_global_ctx_loaded_i(wasi_nn_global_ctx,
-                                                        model_idx, 1);
+                                                         model_idx, 1);
             res = success;
             break;
         }
@@ -691,8 +694,8 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
     }
     else if (model_idx >= global_n_graphs) {
         NN_ERR_PRINTF("Model %s is not loaded, you should pass its path "
-                    "through --wasi-nn-graph",
-                    nul_terminated_name);
+                      "through --wasi-nn-graph",
+                      nul_terminated_name);
         res = not_found;
     }
 fail:

@@ -845,7 +845,8 @@ main(int argc, char *argv[])
             wasm_proposal_print_status();
             return 0;
         }
-#if WASM_ENABLE_LIBC_WASI != 0 && (WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0)
+#if WASM_ENABLE_LIBC_WASI != 0 \
+    && (WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0)
         else if (!strncmp(argv[0], "--wasi-nn-graph=", 16)) {
             libc_wasi_parse_result_t result =
                 wasi_nn_parse(argv, &wasi_nn_parse_ctx);
