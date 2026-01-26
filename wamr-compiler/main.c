@@ -178,7 +178,7 @@ print_help()
     printf("                            A comma-separated list of features when generating call stacks.\n");
     printf("                            By default, all features are enabled. To disable all features,\n");
     printf("                            provide an empty list (i.e. --call-stack-features=). This flag\n");
-    printf("                            only only takes effect when --enable-dump-call-stack is set.\n");
+    printf("                            only takes effect when --enable-dump-call-stack is set.\n");
     printf("                            Available features: bounds-checks, ip, func-idx, trap-ip, values.\n");
     printf("  --enable-perf-profiling   Enable function performance profiling\n");
     printf("  --enable-memory-profiling Enable memory usage profiling\n");
@@ -246,7 +246,7 @@ print_help()
  * Based on: http://stackoverflow.com/a/11198630/471795
  */
 static char **
-split_string(char *str, int *count, const char *delimer)
+split_string(char *str, int *count, const char *delimiter)
 {
     char **res = NULL, **res1;
     char *p;
@@ -254,7 +254,7 @@ split_string(char *str, int *count, const char *delimer)
 
     /* split string and append tokens to 'res' */
     do {
-        p = strtok(str, delimer);
+        p = strtok(str, delimiter);
         str = NULL;
         res1 = res;
         res = (char **)realloc(res1, sizeof(char *) * (uint32)(idx + 1));
