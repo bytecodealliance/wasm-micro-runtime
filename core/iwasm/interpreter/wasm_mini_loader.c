@@ -375,8 +375,8 @@ destroy_const_expr_stack(ConstExprContext *ctx, bool free_exprs)
 static void
 destroy_init_expr(InitializerExpression *expr)
 {
-    // free left expr and right exprs for binary oprand
-    if (is_expr_binary_op(expr->init_expr_type)) {
+    /* free left expr and right exprs for binary operand */
+    if (!is_expr_binary_op(expr->init_expr_type)) {
         return;
     }
     if (expr->u.binary.l_expr) {
