@@ -22,8 +22,8 @@ typedef struct {
 } libc_wasi_parse_context_t;
 
 typedef struct {
-    const char *encoding;
-    const char *target;
+    const char *encoding[10];
+    const char *target[10];
     const char *graph_paths[10];
     uint32 n_graphs;
 } wasi_nn_parse_context_t;
@@ -189,13 +189,23 @@ libc_wasi_set_init_args(struct InstantiationArgs2 *args, int argc, char **argv,
 libc_wasi_parse_result_t
 wasi_nn_parse(char **argv, wasi_nn_parse_context_t *ctx)
 {
+    if ('\0' == argv[16])
+        return LIBC_WASI_PARSE_RESULT_NEED_HELP;
+
+    if (ctx->n_graphs >= sizeof(ctx->graph_paths) / sizeof(char *)) {
+        printf("Only allow max graph number %d\n",
+                (int)(sizeof(ctx->graph_paths) / sizeof(char *)));
+        return LIBC_WASI_PARSE_RESULT_BAD_PARAM;
+    }
+
     char *token;
     char *saveptr = NULL;
     int token_count = 0, ret = 0;
     char *tokens[12] = { 0 };
 
     // encoding:tensorflowlite|openvino|llama  target:cpu|gpu|tpu
-    // --wasi-nn-graph=encoding:target:model_file_path1:model_file_path2:model_file_path3:......
+    // --wasi-nn-graph=encoding1:target1:model_file_path1
+    // --wasi-nn-graph=encoding2:target2:model_file_path2 ...
     token = strtok_r(argv[0] + 16, ":", &saveptr);
     while (token) {
         tokens[token_count] = token;
@@ -203,22 +213,18 @@ wasi_nn_parse(char **argv, wasi_nn_parse_context_t *ctx)
         token = strtok_r(NULL, ":", &saveptr);
     }
 
-    if (token_count < 2) {
+    if (token_count != 3) {
         ret = LIBC_WASI_PARSE_RESULT_NEED_HELP;
         goto fail;
     }
 
-    ctx->n_graphs = token_count - 2;
-    ctx->encoding = strdup(tokens[0]);
-    ctx->target = strdup(tokens[1]);
-    for (int i = 0; i < ctx->n_graphs; i++) {
-        ctx->graph_paths[i] = strdup(tokens[i + 2]);
-    }
+    ctx->encoding[ctx->n_graphs] = strdup(tokens[0]);
+    ctx->target[ctx->n_graphs] = strdup(tokens[1]);
+    ctx->graph_paths[ctx->n_graphs++] = strdup(tokens[2]);
     
 fail:
     if (token)
         free(token);
-    
 
     return ret;
 }
@@ -226,16 +232,19 @@ fail:
 static void
 wasi_nn_set_init_args(struct InstantiationArgs2 *args, struct WASINNArguments *nn_registry, wasi_nn_parse_context_t *ctx)
 {
-    wasi_nn_graph_registry_create(&nn_registry);
     wasi_nn_graph_registry_set_args(nn_registry,  ctx->encoding, ctx->target, ctx->n_graphs,
                                     ctx->graph_paths);
     wasm_runtime_instantiation_args_set_wasi_nn_graph_registry(args,
                                                                nn_registry);
 
     for (uint32_t i = 0; i < ctx->n_graphs; i++)
+    {
         if (ctx->graph_paths[i])
             free(ctx->graph_paths[i]);
-    free(ctx->encoding);
-    free(ctx->target);
+        if (ctx->encoding[i])
+            free(ctx->encoding[i]);
+        if (ctx->target[i])
+            free(ctx->target[i]);
+    }
 }
 #endif

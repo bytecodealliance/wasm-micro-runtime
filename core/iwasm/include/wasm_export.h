@@ -818,12 +818,12 @@ wasm_runtime_set_wasi_nn_global_ctx_loaded_i(
     WASINNGlobalContext * wasi_nn_global_ctx, uint32_t idx, uint32_t value);
 
 WASM_RUNTIME_API_EXTERN char *
-wasm_runtime_get_wasi_nn_global_ctx_encoding(
-    WASINNGlobalContext * wasi_nn_global_ctx);
+wasm_runtime_get_wasi_nn_global_ctx_encoding_i(
+    WASINNGlobalContext * wasi_nn_global_ctx, uint32_t idx);
 
 WASM_RUNTIME_API_EXTERN char *
-wasm_runtime_get_wasi_nn_global_ctx_target(
-    WASINNGlobalContext * wasi_nn_global_ctx);
+wasm_runtime_get_wasi_nn_global_ctx_target_i(
+    WASINNGlobalContext * wasi_nn_global_ctx, uint32_t idx);
 
 /**
  * Instantiate a WASM module, with specified instantiation arguments

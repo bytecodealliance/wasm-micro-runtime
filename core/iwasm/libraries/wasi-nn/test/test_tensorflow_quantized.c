@@ -39,8 +39,9 @@ int
 main()
 {
     NN_INFO_PRINTF("Usage:\niwasm --native-lib=./libwasi_nn_tflite.so "
-                   "--wasi-nn-graph=encoding:target:model_path1:model_path2:..."
-                   ":model_pathN test_tensorflow.wasm\"");
+                   "--wasi-nn-graph=encodingA:targetA:<modelA_path> "
+                   "--wasi-nn-graph=encodingB:targetB:<modelB_path>..."
+                   " test_tensorflow_quantized.wasm");
 
     NN_INFO_PRINTF("################### Testing quantized model...");
     test_average_quantized();

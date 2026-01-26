@@ -1805,20 +1805,28 @@ wasm_runtime_wasi_nn_graph_registry_args_set_defaults(WASINNArguments *args)
 }
 
 bool
-wasi_nn_graph_registry_set_args(WASINNArguments *registry, const char *encoding,
-                                const char *target, uint32_t n_graphs,
+wasi_nn_graph_registry_set_args(WASINNArguments *registry, const char **encoding,
+                                const char **target, uint32_t n_graphs,
                                 const char **graph_paths)
 {
     if (!registry || !encoding || !target || !graph_paths) {
         return false;
     }
-    registry->encoding = strdup(encoding);
-    registry->target = strdup(target);
+    
     registry->n_graphs = n_graphs;
+    registry->target = (uint32_t **)malloc(sizeof(uint32_t *) * n_graphs);
+    registry->encoding = (uint32_t **)malloc(sizeof(uint32_t *) * n_graphs);
     registry->graph_paths = (uint32_t **)malloc(sizeof(uint32_t *) * n_graphs);
+    memset(registry->target, 0, sizeof(uint32_t *) * n_graphs);
+    memset(registry->encoding, 0, sizeof(uint32_t *) * n_graphs);
     memset(registry->graph_paths, 0, sizeof(uint32_t *) * n_graphs);
+
     for (uint32_t i = 0; i < registry->n_graphs; i++)
+    {
         registry->graph_paths[i] = strdup(graph_paths[i]);
+        registry->encoding[i] = strdup(encoding[i]);
+        registry->target[i] = strdup(target[i]);
+    }
 
     return true;
 }
@@ -1841,14 +1849,12 @@ wasi_nn_graph_registry_destroy(WASINNArguments *registry)
     if (registry) {
         for (uint32_t i = 0; i < registry->n_graphs; i++)
             if (registry->graph_paths[i]) {
-                // wasi_nn_graph_registry_unregister_graph(registry,
-                // registry->name[i]);
                 free(registry->graph_paths[i]);
+            if (registry->encoding[i])
+                free(registry->encoding[i]);
+            if (registry->target[i])
+                free(registry->target[i]);
             }
-        if (registry->encoding)
-            free(registry->encoding);
-        if (registry->target)
-            free(registry->target);
         free(registry);
     }
 }
@@ -8150,7 +8156,7 @@ wasm_runtime_check_and_update_last_used_shared_heap(
 #if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
 bool
 wasm_runtime_init_wasi_nn_global_ctx(WASMModuleInstanceCommon *module_inst,
-                                     const char *encoding, const char *target,
+                                     const char **encoding, const char **target,
                                      const uint32_t n_graphs,
                                      char *graph_paths[], char *error_buf,
                                      uint32_t error_buf_size)
@@ -8162,16 +8168,21 @@ wasm_runtime_init_wasi_nn_global_ctx(WASMModuleInstanceCommon *module_inst,
     if (!ctx)
         return false;
 
-    ctx->encoding = strdup(encoding);
-    ctx->target = strdup(target);
     ctx->n_graphs = n_graphs;
+
+    ctx->encoding = (uint32_t *)malloc(sizeof(uint32_t) * n_graphs);
+    memset(ctx->encoding, 0, sizeof(uint32_t) * n_graphs);
+    ctx->target = (uint32_t *)malloc(sizeof(uint32_t) * n_graphs);
+    memset(ctx->target, 0, sizeof(uint32_t) * n_graphs);
     ctx->loaded = (uint32_t *)malloc(sizeof(uint32_t) * n_graphs);
     memset(ctx->loaded, 0, sizeof(uint32_t) * n_graphs);
-
     ctx->graph_paths = (uint32_t **)malloc(sizeof(uint32_t *) * n_graphs);
     memset(ctx->graph_paths, 0, sizeof(uint32_t *) * n_graphs);
+
     for (uint32_t i = 0; i < n_graphs; i++) {
         ctx->graph_paths[i] = strdup(graph_paths[i]);
+        ctx->target[i] = strdup(target[i]);
+        ctx->encoding[i] = strdup(encoding[i]);
     }
 
     wasm_runtime_set_wasi_nn_global_ctx(module_inst, ctx);
@@ -8191,6 +8202,10 @@ wasm_runtime_destroy_wasi_nn_global_ctx(WASMModuleInstanceCommon *module_inst)
         // All graphs will be unregistered in deinit()
         if (wasi_nn_global_ctx->graph_paths[i])
             free(wasi_nn_global_ctx->graph_paths[i]);
+        if (wasi_nn_global_ctx->encoding[i])
+            free(wasi_nn_global_ctx->encoding[i]);
+        if (wasi_nn_global_ctx->encoding[i])
+            free(wasi_nn_global_ctx->target[i]);
     }
     free(wasi_nn_global_ctx->encoding);
     free(wasi_nn_global_ctx->target);
@@ -8243,21 +8258,21 @@ wasm_runtime_set_wasi_nn_global_ctx_loaded_i(
 }
 
 char *
-wasm_runtime_get_wasi_nn_global_ctx_encoding(
-    WASINNGlobalContext *wasi_nn_global_ctx)
+wasm_runtime_get_wasi_nn_global_ctx_encoding_i(
+    WASINNGlobalContext *wasi_nn_global_ctx, uint32_t idx)
 {
-    if (wasi_nn_global_ctx)
-        return wasi_nn_global_ctx->encoding;
+    if (wasi_nn_global_ctx && (idx < wasi_nn_global_ctx->n_graphs))
+        return wasi_nn_global_ctx->encoding[idx];
 
     return NULL;
 }
 
 char *
-wasm_runtime_get_wasi_nn_global_ctx_target(
-    WASINNGlobalContext *wasi_nn_global_ctx)
+wasm_runtime_get_wasi_nn_global_ctx_target_i(
+    WASINNGlobalContext *wasi_nn_global_ctx, uint32_t idx)
 {
-    if (wasi_nn_global_ctx)
-        return wasi_nn_global_ctx->target;
+    if (wasi_nn_global_ctx && (idx < wasi_nn_global_ctx->n_graphs))
+        return wasi_nn_global_ctx->target[idx];
 
     return NULL;
 }

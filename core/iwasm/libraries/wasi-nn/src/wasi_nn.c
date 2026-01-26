@@ -614,24 +614,15 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
         res = not_found;
         goto fail;
     }
-    graph_encoding encoding = str2encoding(
-        wasm_runtime_get_wasi_nn_global_ctx_encoding(wasi_nn_global_ctx));
-    execution_target target = str2target(
-        wasm_runtime_get_wasi_nn_global_ctx_target(wasi_nn_global_ctx));
-
-    // res = ensure_backend(instance, autodetect, wasi_nn_ctx);
-    res = ensure_backend(instance, encoding, wasi_nn_ctx);
-    if (res != success)
-        goto fail;
 
     bool is_loaded = false;
     uint32 model_idx = 0;
     char *global_model_path_i;
     uint32_t global_n_graphs =
         wasm_runtime_get_wasi_nn_global_ctx_ngraphs(wasi_nn_global_ctx);
-    // Assume filename got from user wasm app : max; sum; average; ...
-    // Assume file path got from user cmd opt: /your/path1/max.tflite;
-    // /your/path2/sum.tflite; ......
+    // Model got from user wasm app : modelA; modelB...
+    // Filelist got from user cmd opt: /path1/modelA.tflite;
+    // /path/modelB.tflite; ......
     for (model_idx = 0; model_idx < global_n_graphs; model_idx++) {
         // Extract filename from file path
         global_model_path_i = wasm_runtime_get_wasi_nn_global_ctx_graph_paths_i(
@@ -655,45 +646,54 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
             model_name[model_name_len] = '\0';
         }
 
-        if (model_name && strcmp(nul_terminated_name, model_name) == 0) {
-            is_loaded = wasm_runtime_get_wasi_nn_global_ctx_loaded_i(
-                wasi_nn_global_ctx, model_idx);
+        if (model_name && strcmp(nul_terminated_name, model_name) != 0) {
             free(model_name);
-            break;
+            continue;
         }
+        is_loaded = wasm_runtime_get_wasi_nn_global_ctx_loaded_i(
+                wasi_nn_global_ctx, model_idx);
         free(model_name);
-    }
 
-    if (!is_loaded && (model_idx < MAX_GLOBAL_GRAPHS_PER_INST)
-        && (model_idx < global_n_graphs)) {
-        NN_DBG_PRINTF("Model is not yet loaded, will add to global context");
-        call_wasi_nn_func(wasi_nn_ctx->backend, load_by_name, res,
-                          wasi_nn_ctx->backend_ctx, global_model_path_i,
-                          strlen(global_model_path_i), encoding, target, g);
+        graph_encoding encoding = str2encoding(
+            wasm_runtime_get_wasi_nn_global_ctx_encoding_i(wasi_nn_global_ctx, model_idx));
+        execution_target target = str2target(
+            wasm_runtime_get_wasi_nn_global_ctx_target_i(wasi_nn_global_ctx, model_idx));
+
+        // res = ensure_backend(instance, autodetect, wasi_nn_ctx);
+        res = ensure_backend(instance, encoding, wasi_nn_ctx);
         if (res != success)
             goto fail;
 
-        wasm_runtime_set_wasi_nn_global_ctx_loaded_i(wasi_nn_global_ctx,
-                                                     model_idx, 1);
+        if (!is_loaded && (model_idx < MAX_GLOBAL_GRAPHS_PER_INST)
+        && (model_idx < global_n_graphs)) {
+            NN_DBG_PRINTF("Model is not yet loaded, will add to global context");
+            call_wasi_nn_func(wasi_nn_ctx->backend, load_by_name, res,
+                            wasi_nn_ctx->backend_ctx, global_model_path_i,
+                            strlen(global_model_path_i), encoding, target, g);
+            if (res != success)
+                goto fail;
+
+            wasm_runtime_set_wasi_nn_global_ctx_loaded_i(wasi_nn_global_ctx,
+                                                        model_idx, 1);
+            res = success;
+            break;
+        }
+    }
+
+    if (is_loaded) {
+        NN_DBG_PRINTF("Model is already loaded");
         res = success;
     }
-    else {
-        if (is_loaded) {
-            NN_DBG_PRINTF("Model is already loaded");
-            res = success;
-        }
-        else if (model_idx >= MAX_GLOBAL_GRAPHS_PER_INST) {
-            // No enlarge for now
-            NN_ERR_PRINTF("No enough space for new model");
-            res = too_large;
-        }
-        else if (model_idx >= global_n_graphs) {
-            NN_ERR_PRINTF("Model %s is not loaded, you should pass its path "
-                          "through --wasi-nn-graph",
-                          nul_terminated_name);
-            res = not_found;
-        }
-        goto fail;
+    else if (model_idx >= MAX_GLOBAL_GRAPHS_PER_INST) {
+        // No enlarge for now
+        NN_ERR_PRINTF("No enough space for new model");
+        res = too_large;
+    }
+    else if (model_idx >= global_n_graphs) {
+        NN_ERR_PRINTF("Model %s is not loaded, you should pass its path "
+                    "through --wasi-nn-graph",
+                    nul_terminated_name);
+        res = not_found;
     }
 fail:
     if (nul_terminated_name != NULL) {

@@ -123,7 +123,8 @@ print_help(void)
     printf("  --gen-prof-file=<path>   Generate LLVM PGO (Profile-Guided Optimization) profile file\n");
 #endif
 #if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-    printf("  --wasi-nn-graph=encoding:target:<model_path1>:<model_path2>:...:<model_pathn>\n");
+    printf("  --wasi-nn-graph=encodingA:targetB:<modelA_path>\n");
+    printf("  --wasi-nn-graph=encodingA:targetB:<modelB_path>...\n");
     printf("                           Set encoding, target and model_paths for wasi-nn. target can be\n");
     printf("                           cpu|gpu|tpu, encoding can be tensorflowlite|openvino|llama|onnx|\n");
     printf("                           tensorflow|pytorch|ggml|autodetect\n");
@@ -1008,6 +1009,7 @@ main(int argc, char *argv[])
 #endif
 
 #if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+    wasi_nn_graph_registry_create(&nn_registry);
     wasi_nn_set_init_args(inst_args, nn_registry, &wasi_nn_parse_ctx);
 #endif
     /* instantiate the module */
@@ -1128,6 +1130,9 @@ fail5:
 #endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
 fail4:
+#endif
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+    wasi_nn_graph_registry_destroy(nn_registry);
 #endif
     /* destroy the module instance */
     wasm_runtime_deinstantiate(wasm_module_inst);
