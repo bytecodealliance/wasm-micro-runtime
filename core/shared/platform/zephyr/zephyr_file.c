@@ -451,6 +451,7 @@ os_openat(os_file_handle handle, const char *path, __wasi_oflags_t oflags,
     }
 
     if (!build_absolute_path(abs_path, sizeof(abs_path), path)) {
+        BH_FREE(*out);
         return __WASI_ENOMEM;
     }
 
