@@ -3305,8 +3305,8 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
      * load_by_name */
     WASINNArguments *nn_registry = &args->nn_registry;
     if (!wasm_runtime_init_wasi_nn_global_ctx(
-            (WASMModuleInstanceCommon *)module_inst, nn_registry->encoding,
-            nn_registry->target, nn_registry->n_graphs,
+            (WASMModuleInstanceCommon *)module_inst, nn_registry->model_names,
+            nn_registry->encoding, nn_registry->target, nn_registry->n_graphs,
             nn_registry->graph_paths, error_buf, error_buf_size)) {
         goto fail;
     }

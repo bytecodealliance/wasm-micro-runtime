@@ -617,42 +617,21 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
 
     bool is_loaded = false;
     uint32 model_idx = 0;
-    char *global_model_path_i;
     uint32_t global_n_graphs =
         wasm_runtime_get_wasi_nn_global_ctx_ngraphs(wasi_nn_global_ctx);
-    // Model got from user wasm app : modelA; modelB...
-    // Filelist got from user cmd opt: /path1/modelA.tflite;
-    // /path/modelB.tflite; ......
     for (model_idx = 0; model_idx < global_n_graphs; model_idx++) {
-        // Extract filename from file path
-        global_model_path_i = wasm_runtime_get_wasi_nn_global_ctx_graph_paths_i(
+        char *model_name = wasm_runtime_get_wasi_nn_global_ctx_model_names_i(
             wasi_nn_global_ctx, model_idx);
-        char *model_file_name;
-        const char *slash = strrchr(global_model_path_i, '/');
-        if (slash != NULL) {
-            model_file_name = (char *)(slash + 1);
-        }
-        else
-            model_file_name = global_model_path_i;
-
-        // Extract modelname from filename
-        char *model_name = NULL;
-        size_t model_name_len = 0;
-        char *dot = strrchr(model_file_name, '.');
-        if (dot) {
-            model_name_len = dot - model_file_name;
-            model_name = malloc(model_name_len + 1);
-            strncpy(model_name, model_file_name, model_name_len);
-            model_name[model_name_len] = '\0';
-        }
 
         if (model_name && strcmp(nul_terminated_name, model_name) != 0) {
-            free(model_name);
             continue;
         }
+
         is_loaded = wasm_runtime_get_wasi_nn_global_ctx_loaded_i(
             wasi_nn_global_ctx, model_idx);
-        free(model_name);
+        char *global_model_path_i =
+            wasm_runtime_get_wasi_nn_global_ctx_graph_paths_i(
+                wasi_nn_global_ctx, model_idx);
 
         graph_encoding encoding =
             str2encoding(wasm_runtime_get_wasi_nn_global_ctx_encoding_i(

@@ -123,8 +123,8 @@ print_help(void)
     printf("  --gen-prof-file=<path>   Generate LLVM PGO (Profile-Guided Optimization) profile file\n");
 #endif
 #if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-    printf("  --wasi-nn-graph=encodingA:targetB:<modelA_path>\n");
-    printf("  --wasi-nn-graph=encodingA:targetB:<modelB_path>...\n");
+    printf("  --wasi-nn-graph=modelA_name:encodingA:targetA:<modelA_path>\n");
+    printf("  --wasi-nn-graph=modelB_name:encodingB:targetB:<modelB_path>...\n");
     printf("                           Set encoding, target and model_paths for wasi-nn. target can be\n");
     printf("                           cpu|gpu|tpu, encoding can be tensorflowlite|openvino|llama|onnx|\n");
     printf("                           tensorflow|pytorch|ggml|autodetect\n");

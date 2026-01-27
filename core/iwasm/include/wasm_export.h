@@ -806,6 +806,10 @@ wasm_runtime_get_wasi_nn_global_ctx_ngraphs(
     WASINNGlobalContext *wasi_nn_global_ctx);
 
 WASM_RUNTIME_API_EXTERN char *
+wasm_runtime_get_wasi_nn_global_ctx_model_names_i(
+    WASINNGlobalContext *wasi_nn_global_ctx, uint32_t idx);
+
+WASM_RUNTIME_API_EXTERN char *
 wasm_runtime_get_wasi_nn_global_ctx_graph_paths_i(
     WASINNGlobalContext *wasi_nn_global_ctx, uint32_t idx);
 

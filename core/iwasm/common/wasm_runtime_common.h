@@ -547,6 +547,7 @@ typedef struct WASMModuleInstMemConsumption {
 
 #if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
 typedef struct WASINNGlobalContext {
+    char **model_names;
     char **encoding;
     char **target;
 
@@ -625,6 +626,7 @@ wasm_runtime_get_exec_env_tls(void);
 
 #if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
 typedef struct WASINNArguments {
+    char **model_names;
     char **encoding;
     char **target;
 
@@ -812,8 +814,9 @@ wasm_runtime_instantiation_args_set_wasi_nn_graph_registry(
 
 WASM_RUNTIME_API_EXTERN bool
 wasi_nn_graph_registry_set_args(WASINNArguments *registry,
-                                const char **encoding, const char **target,
-                                uint32_t n_graphs, const char **graph_paths);
+                                const char **model_names, const char **encoding,
+                                const char **target, uint32_t n_graphs,
+                                const char **graph_paths);
 #endif
 
 /* See wasm_export.h for description */
@@ -1471,6 +1474,7 @@ wasm_runtime_check_and_update_last_used_shared_heap(
 #if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_init_wasi_nn_global_ctx(WASMModuleInstanceCommon *module_inst,
+                                     const char **model_names,
                                      const char **encoding, const char **target,
                                      const uint32_t n_graphs,
                                      char *graph_paths[], char *error_buf,
@@ -1493,6 +1497,10 @@ wasm_runtime_set_wasi_nn_global_ctx(WASMModuleInstanceCommon *module_inst_comm,
 WASM_RUNTIME_API_EXTERN uint32_t
 wasm_runtime_get_wasi_nn_global_ctx_ngraphs(
     WASINNGlobalContext *wasi_nn_global_ctx);
+
+WASM_RUNTIME_API_EXTERN char *
+wasm_runtime_get_wasi_nn_global_ctx_model_names_i(
+    WASINNGlobalContext *wasi_nn_global_ctx, uint32_t idx);
 
 WASM_RUNTIME_API_EXTERN char *
 wasm_runtime_get_wasi_nn_global_ctx_graph_paths_i(

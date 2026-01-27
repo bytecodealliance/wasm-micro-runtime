@@ -22,6 +22,7 @@ typedef struct {
 } libc_wasi_parse_context_t;
 
 typedef struct {
+    const char *model_names[10];
     const char *encoding[10];
     const char *target[10];
     const char *graph_paths[10];
@@ -208,19 +209,23 @@ wasi_nn_parse(char **argv, wasi_nn_parse_context_t *ctx)
     // --wasi-nn-graph=encoding2:target2:model_file_path2 ...
     token = strtok_r(argv[0] + 16, ":", &saveptr);
     while (token) {
-        tokens[token_count] = token;
-        token_count++;
-        token = strtok_r(NULL, ":", &saveptr);
+        if (strlen(token) > 0) {
+            tokens[token_count] = token;
+            token_count++;
+            token = strtok_r(NULL, ":", &saveptr);
+        }
     }
 
-    if (token_count != 3) {
+    if (token_count != 4) {
         ret = LIBC_WASI_PARSE_RESULT_NEED_HELP;
+        printf("4 arguments are needed for wasi-nn.\n");
         goto fail;
     }
 
-    ctx->encoding[ctx->n_graphs] = strdup(tokens[0]);
-    ctx->target[ctx->n_graphs] = strdup(tokens[1]);
-    ctx->graph_paths[ctx->n_graphs++] = strdup(tokens[2]);
+    ctx->model_names[ctx->n_graphs] = strdup(tokens[0]);
+    ctx->encoding[ctx->n_graphs] = strdup(tokens[1]);
+    ctx->target[ctx->n_graphs] = strdup(tokens[2]);
+    ctx->graph_paths[ctx->n_graphs++] = strdup(tokens[3]);
 
 fail:
     if (token)
@@ -234,12 +239,15 @@ wasi_nn_set_init_args(struct InstantiationArgs2 *args,
                       struct WASINNArguments *nn_registry,
                       wasi_nn_parse_context_t *ctx)
 {
-    wasi_nn_graph_registry_set_args(nn_registry, ctx->encoding, ctx->target,
-                                    ctx->n_graphs, ctx->graph_paths);
+    wasi_nn_graph_registry_set_args(nn_registry, ctx->model_names,
+                                    ctx->encoding, ctx->target, ctx->n_graphs,
+                                    ctx->graph_paths);
     wasm_runtime_instantiation_args_set_wasi_nn_graph_registry(args,
                                                                nn_registry);
 
     for (uint32_t i = 0; i < ctx->n_graphs; i++) {
+        if (ctx->model_names[i])
+            free(ctx->model_names[i]);
         if (ctx->graph_paths[i])
             free(ctx->graph_paths[i]);
         if (ctx->encoding[i])
