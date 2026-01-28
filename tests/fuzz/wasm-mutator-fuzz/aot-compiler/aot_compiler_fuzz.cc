@@ -31,6 +31,10 @@ LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size)
     AOTCompOption option = { 0 };
     aot_comp_data_t comp_data = NULL;
     aot_comp_context_t comp_ctx = NULL;
+    uint8 *aot_file_buf = NULL;
+    uint32 aot_file_size = 0;
+    wasm_module_t aot_module = NULL;
+    wasm_module_inst_t inst = NULL;
 
     /* libfuzzer don't allow to modify the given Data, so make a copy here */
     std::vector<uint8_t> myData(Data, Data + Size);
@@ -78,6 +82,31 @@ LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size)
         goto DESTROY_COMP_CTX;
     }
 
+    aot_file_buf = aot_emit_aot_file_buf(comp_ctx, comp_data, &aot_file_size);
+    if (!aot_file_buf) {
+        handle_aot_recent_error("[EMITTING AOT FILE]");
+        goto DESTROY_COMP_CTX;
+    }
+
+    aot_module =
+        wasm_runtime_load(aot_file_buf, aot_file_size, error_buf, 128);
+    if (!aot_module) {
+        std::cout << "[LOADING AOT MODULE] " << error_buf << std::endl;
+        goto RELEASE_AOT_FILE_BUF;
+    }
+
+    inst = wasm_runtime_instantiate(aot_module, 1024*8, 0, error_buf, 128);
+    if (!inst) {
+        std::cout << "[INSTANTIATING AOT MODULE] " << error_buf << std::endl;
+        goto UNLOAD_AOT_MODULE;
+    }
+
+DEINSTANTIZE_AOT_MODULE:
+    wasm_runtime_deinstantiate(inst);
+UNLOAD_AOT_MODULE:
+    wasm_runtime_unload(aot_module);
+RELEASE_AOT_FILE_BUF:
+    wasm_runtime_free(aot_file_buf);
 DESTROY_COMP_CTX:
     aot_destroy_comp_context(comp_ctx);
 DESTROY_COMP_DATA:
