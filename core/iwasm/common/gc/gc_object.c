@@ -103,6 +103,10 @@ wasm_struct_obj_new_internal(void *heap_handle, WASMRttTypeRef rtt_type)
 WASMStructObjectRef
 wasm_struct_obj_new(WASMExecEnv *exec_env, WASMRttTypeRef rtt_type)
 {
+    if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
+        return NULL;
+    }
+
     void *heap_handle = get_gc_heap_handle(exec_env);
     return wasm_struct_obj_new_internal(heap_handle, rtt_type);
 }
@@ -267,6 +271,10 @@ WASMArrayObjectRef
 wasm_array_obj_new(WASMExecEnv *exec_env, WASMRttTypeRef rtt_type,
                    uint32 length, WASMValue *init_value)
 {
+    if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
+        return NULL;
+    }
+
     void *heap_handle = get_gc_heap_handle(exec_env);
     return wasm_array_obj_new_internal(heap_handle, rtt_type, length,
                                        init_value);
