@@ -7974,6 +7974,16 @@ wasm_runtime_get_module_name(wasm_module_t module)
     return "";
 }
 
+#if defined(__GNUC__) || defined(__clang__)
+/* In few places we use addresses of local variables for estimating used stack
+   size. This logic conficts with ASAN, since is uses fake stack for local
+   variables storage.
+*/
+#define NO_SANITIZE_ADDRESS __attribute__((no_sanitize_address))
+#else
+# define NO_SANITIZE_ADDRESS
+#endif
+
 /*
  * wasm_runtime_detect_native_stack_overflow
  *
@@ -7983,6 +7993,7 @@ wasm_runtime_get_module_name(wasm_module_t module)
  *
  * - update native_stack_top_min.
  */
+NO_SANITIZE_ADDRESS
 bool
 wasm_runtime_detect_native_stack_overflow(WASMExecEnv *exec_env)
 {
@@ -8005,6 +8016,7 @@ wasm_runtime_detect_native_stack_overflow(WASMExecEnv *exec_env)
     return true;
 }
 
+NO_SANITIZE_ADDRESS
 bool
 wasm_runtime_detect_native_stack_overflow_size(WASMExecEnv *exec_env,
                                                uint32 requested_size)
