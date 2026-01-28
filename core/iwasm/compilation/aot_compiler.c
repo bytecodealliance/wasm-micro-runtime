@@ -4065,6 +4065,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
     os_printf("\n");
 #endif
 
+#if WAMR_BUILD_JIT != 0
     if (comp_ctx->is_jit_mode) {
         LLVMErrorRef err;
         LLVMOrcJITDylibRef orc_main_dylib;
@@ -4104,7 +4105,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
             comp_ctx->jit_stack_sizes = (uint32 *)addr;
         }
     }
-
+#endif /* WAMR_BUILD_JIT != 0*/
     return true;
 }
 

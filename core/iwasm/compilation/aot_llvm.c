@@ -2416,6 +2416,7 @@ aot_handle_llvm_errmsg(const char *string, LLVMErrorRef err)
     LLVMDisposeErrorMessage(err_msg);
 }
 
+#if WAMR_BUILD_JIT != 0
 static bool
 create_target_machine_detect_host(AOTCompContext *comp_ctx)
 {
@@ -2599,6 +2600,7 @@ fail:
         LLVMOrcDisposeLLLazyJIT(orc_jit);
     return ret;
 }
+#endif /* WAMR_BUILD_JIT != 0*/
 
 bool
 aot_compiler_init(void)
@@ -2809,6 +2811,7 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     comp_ctx->custom_sections_wp = option->custom_sections;
     comp_ctx->custom_sections_count = option->custom_sections_count;
 
+#if WASM_ENABLE_JIT != 0
     if (option->is_jit_mode) {
         comp_ctx->is_jit_mode = true;
 
@@ -2840,7 +2843,9 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
         if (!orc_jit_create(comp_ctx))
             goto fail;
     }
-    else {
+    else 
+#endif /*WASM_ENABLE_JIT != 0*/
+    {
         /* Create LLVM target machine */
         if (!option->target_arch || !strstr(option->target_arch, "-")) {
             /* Retrieve the target triple based on user input */
@@ -3520,9 +3525,11 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
     /* Note: don't dispose comp_ctx->context and comp_ctx->module as
        they are disposed when disposing the thread safe context */
 
+#if WAMR_BUILD_JIT != 0
     /* Has to be the last one */
     if (comp_ctx->orc_jit)
         LLVMOrcDisposeLLLazyJIT(comp_ctx->orc_jit);
+#endif
 
     if (comp_ctx->func_ctxes)
         aot_destroy_func_contexts(comp_ctx, comp_ctx->func_ctxes,
