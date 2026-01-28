@@ -1,16 +1,48 @@
 # refer to https://clang.llvm.org/extra/clang-tidy/checks/list.html
+#
+# Configure clang-tidy for this project.
 
-Checks:  '-*, readability-identifier-naming, clang-analyzer-core.*,'
-WarningsAsErrors:    '-*'
-HeaderFilterRegex:   ''
-FormatStyle:         file
-InheritParentConfig: false
-AnalyzeTemporaryDtors: false
-User:                wamr
+# Here is an explanation for why some of the checks are disabled:
+#
+
+Checks: >
+  -*,
+  bugprone-*,
+  cert-*,
+  clang-analyzer-*,
+  concurrency-*,
+  misc-*,
+  modernize-*,
+  performance-*,
+  portability-*,
+  readability-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-macro-parentheses,
+  -misc-unused-parameters,
+  -readability-braces-around-statements,
+  -readability-else-after-return,
+  -readability-function-cognitive-complexity,
+  -readability-identifier-length,
+  -readability-isolate-declaration,
+  -readability-magic-numbers,
+  -readability-named-parameter,
+  -readability-non-const-parameter,
+  -readability-redundant-preprocessor,
+  -readability-suspicious-call-argument,
+  -readability-uppercase-literal-suffix
+
+
+# Turn all the warnings from the checks above into errors.
+WarningsAsErrors: "*"
+
+# headers in the following directories will be checked:
+#   - core/iwasm/
+#   - core/shared/
+HeaderFilterRegex: '(core/iwasm/|core/shared/).*\\.h$'
+
+# goto .clang-format at root directory to see the format style
+FormatStyle: file
+
 CheckOptions:
-  - key:             readability-identifier-naming.VariableCase
-    value:           lower_case
-  - key:             readability-identifier-naming.ParameterCase
-    value:           lower_case
-  - key:             readability-identifier-naming.MacroDefinitionCase
-    value:           UPPER_CASE
+  - { key: readability-identifier-naming.NamespaceCase, value: lower_case }
+  - { key: readability-function-cognitive-complexity.Threshold, value: 100 }
