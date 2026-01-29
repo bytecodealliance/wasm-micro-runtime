@@ -87,6 +87,8 @@ endif ()
 if (NOT DEFINED WAMR_BUILD_MULTI_MODULE)
   # Disable multiple modules by default
   set (WAMR_BUILD_MULTI_MODULE 0)
+else ()
+  add_definitions(-DWASM_ENABLE_MULTI_MODULE=1)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_LIB_PTHREAD)
