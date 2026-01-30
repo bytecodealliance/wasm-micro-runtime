@@ -1920,6 +1920,11 @@ resolve_struct_type(const uint8 **p_buf, const uint8 *buf_end,
         if (need_ref_type_map)
             ref_type_map_count++;
 
+        if (wasm_is_reftype_anyref(ref_type.ref_type)) {
+            LOG_ERROR("Not support using anyref in struct fields");
+            return false;
+        }
+
         if (wasm_is_type_reftype(ref_type.ref_type))
             ref_field_count++;
 
@@ -2036,6 +2041,11 @@ resolve_array_type(const uint8 **p_buf, const uint8 *buf_end,
 
     if (!resolve_value_type(&p, p_end, module, type_count, &need_ref_type_map,
                             &ref_type, true, error_buf, error_buf_size)) {
+        return false;
+    }
+
+    if (wasm_is_reftype_anyref(ref_type.ref_type)) {
+        LOG_ERROR("Not support using anyref in array element type");
         return false;
     }
 
