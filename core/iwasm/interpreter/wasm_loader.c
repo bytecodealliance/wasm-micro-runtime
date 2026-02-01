@@ -544,48 +544,34 @@ destroy_init_expr_data_recursive(WASMModule *module, void *data)
 
     /* The data can only be type of `WASMStructNewInitValues *`
        or `WASMArrayNewInitValues *` */
-    bh_assert(wasm_type->type_flag == WASM_TYPE_STRUCT
-              || wasm_type->type_flag == WASM_TYPE_ARRAY);
+    if (wasm_type->type_flag != WASM_TYPE_STRUCT
+        && wasm_type->type_flag != WASM_TYPE_ARRAY) {
+            LOG_ERROR("invalid wasm type flag in destroy_init_expr_data_recursive");
+        return;
+    }
 
     if (wasm_type->type_flag == WASM_TYPE_STRUCT) {
-        WASMStructType *struct_type = (WASMStructType *)wasm_type;
-        WASMRefType *ref_type;
-        uint8 field_type;
-
-        uint16 ref_type_map_index = 0;
         for (i = 0; i < struct_init_values->count; i++) {
-            field_type = struct_type->fields[i].field_type;
-            if (wasm_is_type_multi_byte_type(field_type))
-                ref_type =
-                    struct_type->ref_type_maps[ref_type_map_index++].ref_type;
-            else
-                ref_type = NULL;
-            if (wasm_reftype_is_subtype_of(field_type, ref_type,
-                                           REF_TYPE_STRUCTREF, NULL,
-                                           module->types, module->type_count)
-                || wasm_reftype_is_subtype_of(
-                    field_type, ref_type, REF_TYPE_ARRAYREF, NULL,
-                    module->types, module->type_count)) {
-                destroy_init_expr_data_recursive(
-                    module, struct_init_values->fields[i].data);
+            WASMValueWithType *field = &struct_init_values->fields[i];
+
+            if (!wasm_val_is_struct(field, module->types,
+                                    module->type_count)) {
+                continue;
             }
+
+            destroy_init_expr_data_recursive(module, field->value.data);
         }
     }
     else if (wasm_type->type_flag == WASM_TYPE_ARRAY) {
-        WASMArrayType *array_type = (WASMArrayType *)wasm_type;
-        WASMRefType *elem_ref_type = array_type->elem_ref_type;
-        uint8 elem_type = array_type->elem_type;
-
         for (i = 0; i < array_init_values->length; i++) {
-            if (wasm_reftype_is_subtype_of(elem_type, elem_ref_type,
-                                           REF_TYPE_STRUCTREF, NULL,
-                                           module->types, module->type_count)
-                || wasm_reftype_is_subtype_of(
-                    elem_type, elem_ref_type, REF_TYPE_ARRAYREF, NULL,
-                    module->types, module->type_count)) {
-                destroy_init_expr_data_recursive(
-                    module, array_init_values->elem_data[i].data);
+            WASMValueWithType *elem = &array_init_values->elem_data[i];
+
+            if (!wasm_val_is_array(elem, module->types,
+                                    module->type_count)) {
+                continue;
             }
+
+            destroy_init_expr_data_recursive(module, elem->value.data);
         }
     }
 
@@ -593,12 +579,17 @@ destroy_init_expr_data_recursive(WASMModule *module, void *data)
 }
 #endif
 
+/*
+ * Poo top value from const expr stack, and compare its type with the given declared
+ * type. If match, return the value and actual ref type(if applicable).
+ */
 static bool
 pop_const_expr_stack(ConstExprContext *ctx, uint8 *p_flag, uint8 type,
 #if WASM_ENABLE_GC != 0
-                     WASMRefType *ref_type, uint8 *p_gc_opcode,
+                     WASMRefType *declare_ref_type, uint8 *p_gc_opcode,
+                     WASMRefType *p_actual_ref_type,
 #endif
-                     WASMValue *p_value,
+                     WASMValue *p_value, 
 #if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
                      InitializerExpression **p_expr,
 #endif
@@ -621,7 +612,7 @@ pop_const_expr_stack(ConstExprContext *ctx, uint8 *p_flag, uint8 type,
     }
 #else
     if (!wasm_reftype_is_subtype_of(cur_value->type, &cur_value->ref_type, type,
-                                    ref_type, ctx->module->types,
+                                    declare_ref_type, ctx->module->types,
                                     ctx->module->type_count)) {
         set_error_buf_v(error_buf, error_buf_size, "%s%s%s",
                         "type mismatch: expect ", type2str(type),
@@ -634,6 +625,8 @@ pop_const_expr_stack(ConstExprContext *ctx, uint8 *p_flag, uint8 type,
         *p_flag = cur_value->flag;
     if (p_value)
         *p_value = cur_value->value;
+    if (p_actual_ref_type)
+        *p_actual_ref_type = cur_value->ref_type;
 #if WASM_ENABLE_GC != 0
     if (p_gc_opcode)
         *p_gc_opcode = cur_value->gc_opcode;
@@ -891,7 +884,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                  */
                 if (!(pop_const_expr_stack(&const_expr_ctx, &r_flag, value_type,
 #if WASM_ENABLE_GC != 0
-                                           NULL, NULL,
+                                           NULL, NULL, NULL,
 #endif
                                            &r_value, &r_expr, error_buf,
                                            error_buf_size))) {
@@ -908,7 +901,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 
                 if (!(pop_const_expr_stack(&const_expr_ctx, &l_flag, value_type,
 #if WASM_ENABLE_GC != 0
-                                           NULL, NULL,
+                                           NULL, NULL, NULL,
 #endif
                                            &l_value, &l_expr, error_buf,
                                            error_buf_size))) {
@@ -1193,7 +1186,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 
                         if (!(struct_init_values = loader_malloc(
                                   offsetof(WASMStructNewInitValues, fields)
-                                      + (uint64)field_count * sizeof(WASMValue),
+                                      + (uint64)field_count * sizeof(WASMValueWithType),
                                   error_buf, error_buf_size))) {
                             goto fail;
                         }
@@ -1215,10 +1208,11 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                 field_type = VALUE_TYPE_I32;
                             }
 
+                            struct_init_values->fields[field_idx].type = field_type;
                             if (!pop_const_expr_stack(
                                     &const_expr_ctx, NULL, field_type,
-                                    field_ref_type, NULL,
-                                    &struct_init_values->fields[field_idx],
+                                    field_ref_type, NULL, &struct_init_values->fields[field_idx].ref_type,
+                                    &struct_init_values->fields[field_idx].value,
 #if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
                                     NULL,
 #endif
@@ -1320,7 +1314,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 
                                 if (!pop_const_expr_stack(
                                         &const_expr_ctx, NULL, VALUE_TYPE_I32,
-                                        NULL, NULL, &len_val,
+                                        NULL, NULL, NULL, &len_val,
 #if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
                                         NULL,
 #endif
@@ -1342,7 +1336,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                 if (!pop_const_expr_stack(
                                         &const_expr_ctx, NULL, elem_type,
                                         elem_ref_type, NULL,
-                                        &array_init_values->elem_data[0],
+                                        &array_init_values->elem_data[0].ref_type,
+                                        &array_init_values->elem_data[0].value,
 #if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
                                         NULL,
 #endif
@@ -1376,8 +1371,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                     if (!pop_const_expr_stack(
                                             &const_expr_ctx, NULL, elem_type,
                                             elem_ref_type, NULL,
+                                            &array_init_values->elem_data[i - 1].ref_type,
                                             &array_init_values
-                                                 ->elem_data[i - 1],
+                                                 ->elem_data[i - 1].value,
 #if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
                                             NULL,
 #endif
@@ -1399,7 +1395,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                             /* POP(i32) */
                             if (!pop_const_expr_stack(
                                     &const_expr_ctx, NULL, VALUE_TYPE_I32, NULL,
-                                    NULL, &len_val,
+                                    NULL, NULL, &len_val,
 #if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
                                     NULL,
 #endif
@@ -1447,7 +1443,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                     {
                         /* POP(i32) */
                         if (!pop_const_expr_stack(&const_expr_ctx, NULL,
-                                                  VALUE_TYPE_I32, NULL, NULL,
+                                                  VALUE_TYPE_I32, NULL, NULL, NULL,
                                                   &cur_value,
 #if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
                                                   NULL,
@@ -1496,7 +1492,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
     /* There should be only one value left on the init value stack */
     if (!pop_const_expr_stack(&const_expr_ctx, &flag, type,
 #if WASM_ENABLE_GC != 0
-                              ref_type, &opcode,
+                              ref_type, &opcode, NULL,
 #endif
                               &cur_value,
 #if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
@@ -1920,10 +1916,10 @@ resolve_struct_type(const uint8 **p_buf, const uint8 *buf_end,
         if (need_ref_type_map)
             ref_type_map_count++;
 
-        if (wasm_is_reftype_anyref(ref_type.ref_type)) {
-            LOG_ERROR("Not support using anyref in struct fields");
-            return false;
-        }
+        // if (wasm_is_reftype_anyref(ref_type.ref_type)) {
+        //     LOG_ERROR("Not support using anyref in struct fields");
+        //     return false;
+        // }
 
         if (wasm_is_type_reftype(ref_type.ref_type))
             ref_field_count++;
