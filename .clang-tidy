@@ -18,6 +18,7 @@ Checks: >
   readability-*,
   -bugprone-easily-swappable-parameters,
   -bugprone-macro-parentheses,
+  -misc-no-recursion,
   -misc-unused-parameters,
   -readability-braces-around-statements,
   -readability-else-after-return,
