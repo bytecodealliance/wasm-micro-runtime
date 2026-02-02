@@ -4699,7 +4699,7 @@ static bool
 cmpxchg_ptr(void **ptr, void *old_val, void *new_val)
 {
 #if defined(os_atomic_cmpxchg)
-    return os_atomic_cmpxchg(ptr, &old_val, new_val);
+    return os_atomic_cmpxchg((_Atomic(void *) *)ptr, &old_val, new_val);
 #else
     /* TODO: add lock when thread-manager is enabled */
     void *read = *ptr;
