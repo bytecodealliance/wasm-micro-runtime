@@ -267,18 +267,6 @@ typedef union WASMValue {
 } WASMValue;
 #endif /* end of WASM_VALUE_DEFINED */
 
-typedef struct WASMStructNewInitValues {
-    uint32 type_idx;
-    uint32 count;
-    WASMValue fields[1];
-} WASMStructNewInitValues;
-
-typedef struct WASMArrayNewInitValues {
-    uint32 type_idx;
-    uint32 length;
-    WASMValue elem_data[1];
-} WASMArrayNewInitValues;
-
 typedef struct InitializerExpression {
     /* type of INIT_EXPR_TYPE_XXX, which is an instruction of
        constant expression */
@@ -528,6 +516,26 @@ typedef struct WASMArrayType {
 typedef void *WASMString;
 
 #endif /* end of WASM_ENABLE_STRINGREF != 0 */
+
+typedef struct WASMValueWithType {
+    /* VALUE_TYPE_XXX or REF_TYPE_XXX*/
+    uint8 type;
+    WASMRefType ref_type;
+    WASMValue value;
+} WASMValueWithType;
+
+typedef struct WASMStructNewInitValues {
+    uint32 type_idx;
+    uint32 count;
+    WASMValueWithType fields[1];
+} WASMStructNewInitValues;
+
+typedef struct WASMArrayNewInitValues {
+    uint32 type_idx;
+    uint32 length;
+    WASMValueWithType elem_data[1];
+} WASMArrayNewInitValues;
+
 #endif /* end of WASM_ENABLE_GC != 0 */
 
 typedef struct WASMTableType {
