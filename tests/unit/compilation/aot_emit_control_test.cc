@@ -15,23 +15,6 @@ static std::string CWD;
 static std::string MAIN_WASM = "/main.wasm";
 static char *WASM_FILE;
 
-static std::string
-get_binary_path()
-{
-    char cwd[1024];
-    memset(cwd, 0, 1024);
-
-    if (readlink("/proc/self/exe", cwd, 1024) <= 0) {
-    }
-
-    char *path_end = strrchr(cwd, '/');
-    if (path_end != NULL) {
-        *path_end = '\0';
-    }
-
-    return std::string(cwd);
-}
-
 class aot_emit_control_test_suite : public testing::Test
 {
   protected:
@@ -45,7 +28,7 @@ class aot_emit_control_test_suite : public testing::Test
 
     static void SetUpTestCase()
     {
-        CWD = get_binary_path();
+        CWD = get_test_binary_dir();
         WASM_FILE = strdup((CWD + MAIN_WASM).c_str());
     }
 

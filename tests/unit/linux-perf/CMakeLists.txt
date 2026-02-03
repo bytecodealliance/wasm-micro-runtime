@@ -32,9 +32,4 @@ include (${IWASM_DIR}/compilation/iwasm_compl.cmake)
 add_executable (linux_perf_test test_sort_func_ptrs.cc)
 target_compile_options(linux_perf_test PUBLIC -fpermissive)
 target_link_libraries(linux_perf_test ${LLVM_AVAILABLE_LIBS} gtest_main )
-target_link_options(linux_perf_test
-  PUBLIC
-    LINKER:--unresolved-symbols=ignore-all
-)
-
 gtest_discover_tests(linux_perf_test)

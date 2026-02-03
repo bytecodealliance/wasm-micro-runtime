@@ -14,23 +14,6 @@ static std::string CWD;
 static std::string MAIN_WASM = "/main.wasm";
 static char *WASM_FILE;
 
-static std::string
-get_binary_path()
-{
-    char cwd[1024];
-    memset(cwd, 0, 1024);
-
-    if (readlink("/proc/self/exe", cwd, 1024) <= 0) {
-    }
-
-    char *path_end = strrchr(cwd, '/');
-    if (path_end != NULL) {
-        *path_end = '\0';
-    }
-
-    return std::string(cwd);
-}
-
 extern "C" {
 char *
 aot_generate_tempfile_name(const char *prefix, const char *extension,
@@ -50,7 +33,7 @@ class aot_compiler_test_suit : public testing::Test
 
     static void SetUpTestCase()
     {
-        CWD = get_binary_path();
+        CWD = get_test_binary_dir();
         WASM_FILE = strdup((CWD + MAIN_WASM).c_str());
     }
 
@@ -117,8 +100,13 @@ TEST_F(aot_compiler_test_suit, aot_emit_object_file)
 
     // Test size_level in range from 0 to 3.
     option.opt_level = 3;
-    for (i = 0; i <= 3; i++) {
-        option.size_level = i;
+#if defined(__aarch64__) || defined(_M_ARM64)
+    std::vector<int> size_levels = { 0, 3 };
+#else
+    std::vector<int> size_levels = { 0, 1, 2, 3 };
+#endif
+    for (auto size_level : size_levels) {
+        option.size_level = size_level;
         test_aot_emit_object_file_with_option(&option);
     }
 

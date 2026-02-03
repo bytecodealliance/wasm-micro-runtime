@@ -13,10 +13,6 @@ if (NOT DEFINED WAMR_BUILD_INTERP)
   set (WAMR_BUILD_INTERP 1)
 endif ()
 
-if (NOT DEFINED WAMR_BUILD_PLATFORM)
-  string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
-endif ()
-
 include (../unit_common.cmake)
 
 add_library (tid_allocator_vmlib ${WAMR_RUNTIME_LIB_SOURCE})

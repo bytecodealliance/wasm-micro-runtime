@@ -33,7 +33,7 @@ sort_func_ptrs(const AOTModule *module, char *error_buf, uint32 error_buf_size)
     unsigned i;
 
     content_len = (uint64)sizeof(struct func_info) * module->func_count;
-    sorted_func_ptrs = wasm_runtime_malloc(content_len);
+    sorted_func_ptrs = (struct func_info *)wasm_runtime_malloc(content_len);
     if (!sorted_func_ptrs) {
         snprintf(error_buf, error_buf_size,
                  "allocate memory failed when creating perf map");
@@ -63,23 +63,17 @@ wasm_runtime_free(void* ptr)
     return free(ptr);
 }
 
-int
-b_memcpy_s(void *s1, unsigned int s1max, const void *s2, unsigned int n)
-{
-    return memcpy(s1, s2, n);
-}
 }
 
 TEST(TestSortFuncPtrs, qsort)
 {
-    void *p = sort_func_ptrs;
-    ASSERT_NE(p, nullptr);
+    ASSERT_NE(sort_func_ptrs, nullptr);
 
     void *funcs[5] = {
         (void *)0x1024, (void *)0x10, (void *)0x24, (void *)0x102, (void *)0x4,
     };
 
-    AOTModule module = { 0 };
+    AOTModule module = {};
     module.func_count = 5;
     module.func_ptrs = &funcs[0];
 

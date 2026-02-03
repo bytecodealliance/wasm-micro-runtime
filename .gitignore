@@ -41,3 +41,6 @@ samples/workload/include/**
 !samples/workload/include/.gitkeep
 
 # core/iwasm/libraries/wasi-threads
+
+tests/unit/runtime-common/wasm-apps/main.aot
+tests/unit/aot-stack-frame/wasm-apps/test_aot.h
