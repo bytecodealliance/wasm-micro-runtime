@@ -334,6 +334,9 @@ typedef struct WASMModuleInstanceExtraCommon {
     /* The gc heap created */
     void *gc_heap_handle;
 #endif
+#if WASM_ENABLE_THREAD_MGR != 0
+    korp_mutex exception_lock;
+#endif
 } WASMModuleInstanceExtraCommon;
 
 /* Extra info of WASM module instance for interpreter/jit mode */
