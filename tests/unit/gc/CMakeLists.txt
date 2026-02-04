@@ -11,6 +11,7 @@ set (WAMR_BUILD_GC 1)
 set (WAMR_BUILD_INTERP 1)
 set (WAMR_BUILD_AOT 0)
 set (WAMR_BUILD_APP_FRAMEWORK 0)
+set (WAMR_BUILD_SANITIZER "asan")
 
 include (../unit_common.cmake)
 
