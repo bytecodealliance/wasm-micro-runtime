@@ -1812,6 +1812,11 @@ wasm_runtime_wasi_nn_registry_set_args(WASINNRegistry *registry,
         return false;
     }
 
+    if ((sizeof(uint32_t *) * n_graphs) >= UINT32_MAX) {
+        LOG_ERROR("Invalid size for wasm_runtime_malloc.");
+        return NULL;
+    }
+
     registry->n_graphs = n_graphs;
     registry->target = (uint32_t **)wasm_runtime_malloc(sizeof(uint32_t *) * n_graphs);
     registry->encoding = (uint32_t **)wasm_runtime_malloc(sizeof(uint32_t *) * n_graphs);
