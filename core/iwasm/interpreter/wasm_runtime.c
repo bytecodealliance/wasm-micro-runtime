@@ -3300,18 +3300,6 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
     }
 #endif
 
-#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-    /* Store graphs' path into ctx. Graphs will be loaded until user app calls
-     * load_by_name */
-    WASINNArguments *nn_registry = &args->nn_registry;
-    if (!wasm_runtime_init_wasi_nn_global_ctx(
-            (WASMModuleInstanceCommon *)module_inst, nn_registry->model_names,
-            nn_registry->encoding, nn_registry->target, nn_registry->n_graphs,
-            nn_registry->graph_paths, error_buf, error_buf_size)) {
-        goto fail;
-    }
-#endif
-
 #if WASM_ENABLE_DEBUG_INTERP != 0
     if (!is_sub_inst) {
         /* Add module instance into module's instance list */

@@ -290,8 +290,7 @@ typedef struct InstantiationArgs {
 #endif /* INSTANTIATION_ARGS_OPTION_DEFINED */
 
 struct InstantiationArgs2;
-struct WASINNGlobalContext;
-typedef struct WASINNGlobalContext WASINNGlobalContext;
+typedef struct WASINNRegistry WASINNRegistry;
 
 #ifndef WASM_VALKIND_T_DEFINED
 #define WASM_VALKIND_T_DEFINED
@@ -798,36 +797,36 @@ wasm_runtime_instantiation_args_set_wasi_ns_lookup_pool(
     struct InstantiationArgs2 *p, const char *ns_lookup_pool[],
     uint32_t ns_lookup_pool_size);
 
-WASM_RUNTIME_API_EXTERN WASINNGlobalContext *
-wasm_runtime_get_wasi_nn_global_ctx(const wasm_module_inst_t module_inst);
+WASM_RUNTIME_API_EXTERN WASINNRegistry *
+wasm_runtime_get_wasi_nn_registry(const wasm_module_inst_t module_inst);
 
 WASM_RUNTIME_API_EXTERN uint32_t
-wasm_runtime_get_wasi_nn_global_ctx_ngraphs(
-    WASINNGlobalContext *wasi_nn_global_ctx);
+wasm_runtime_get_wasi_nn_registry_ngraphs(
+    WASINNRegistry *wasi_nn_registry);
 
 WASM_RUNTIME_API_EXTERN char *
-wasm_runtime_get_wasi_nn_global_ctx_model_names_i(
-    WASINNGlobalContext *wasi_nn_global_ctx, uint32_t idx);
+wasm_runtime_get_wasi_nn_registry_model_names_i(
+    WASINNRegistry *wasi_nn_registry, uint32_t idx);
 
 WASM_RUNTIME_API_EXTERN char *
-wasm_runtime_get_wasi_nn_global_ctx_graph_paths_i(
-    WASINNGlobalContext *wasi_nn_global_ctx, uint32_t idx);
+wasm_runtime_get_wasi_nn_registry_graph_paths_i(
+    WASINNRegistry *wasi_nn_registry, uint32_t idx);
 
 WASM_RUNTIME_API_EXTERN uint32_t
-wasm_runtime_get_wasi_nn_global_ctx_loaded_i(
-    WASINNGlobalContext *wasi_nn_global_ctx, uint32_t idx);
+wasm_runtime_get_wasi_nn_registry_loaded_i(
+    WASINNRegistry *wasi_nn_registry, uint32_t idx);
 
 WASM_RUNTIME_API_EXTERN uint32_t
-wasm_runtime_set_wasi_nn_global_ctx_loaded_i(
-    WASINNGlobalContext *wasi_nn_global_ctx, uint32_t idx, uint32_t value);
+wasm_runtime_set_wasi_nn_registry_loaded_i(
+    WASINNRegistry *wasi_nn_registry, uint32_t idx, uint32_t value);
 
 WASM_RUNTIME_API_EXTERN char *
-wasm_runtime_get_wasi_nn_global_ctx_encoding_i(
-    WASINNGlobalContext *wasi_nn_global_ctx, uint32_t idx);
+wasm_runtime_get_wasi_nn_registry_encoding_i(
+    WASINNRegistry *wasi_nn_registry, uint32_t idx);
 
 WASM_RUNTIME_API_EXTERN char *
-wasm_runtime_get_wasi_nn_global_ctx_target_i(
-    WASINNGlobalContext *wasi_nn_global_ctx, uint32_t idx);
+wasm_runtime_get_wasi_nn_registry_target_i(
+    WASINNRegistry *wasi_nn_registry, uint32_t idx);
 
 /**
  * Instantiate a WASM module, with specified instantiation arguments

@@ -650,7 +650,7 @@ main(int argc, char *argv[])
 
 #if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
     wasi_nn_parse_context_t wasi_nn_parse_ctx;
-    struct WASINNArguments *nn_registry;
+    struct WASINNRegistry *nn_registry;
 
     memset(&wasi_nn_parse_ctx, 0, sizeof(wasi_nn_parse_ctx));
 #endif
@@ -1009,18 +1009,20 @@ main(int argc, char *argv[])
     libc_wasi_set_init_args(inst_args, argc, argv, &wasi_parse_ctx);
 #endif
 
-#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-    wasi_nn_graph_registry_create(&nn_registry);
-    wasi_nn_set_init_args(inst_args, nn_registry, &wasi_nn_parse_ctx);
-#endif
     /* instantiate the module */
     wasm_module_inst = wasm_runtime_instantiate_ex2(
         wasm_module, inst_args, error_buf, sizeof(error_buf));
-    wasm_runtime_instantiation_args_destroy(inst_args);
     if (!wasm_module_inst) {
         printf("%s\n", error_buf);
         goto fail3;
     }
+
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+    wasm_runtime_wasi_nn_registry_create(&nn_registry);
+    wasi_nn_set_init_args(inst_args, nn_registry, &wasi_nn_parse_ctx);
+    wasm_runtime_set_wasi_nn_registry(wasm_module_inst, nn_registry);
+#endif
+    wasm_runtime_instantiation_args_destroy(inst_args);
 
 #if WASM_CONFIGURABLE_BOUNDS_CHECKS != 0
     if (disable_bounds_checks) {
@@ -1131,9 +1133,6 @@ fail5:
 #endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
 fail4:
-#endif
-#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-    wasi_nn_graph_registry_destroy(nn_registry);
 #endif
     /* destroy the module instance */
     wasm_runtime_deinstantiate(wasm_module_inst);

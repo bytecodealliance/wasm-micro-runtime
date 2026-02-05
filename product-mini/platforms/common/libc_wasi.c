@@ -236,14 +236,13 @@ fail:
 
 static void
 wasi_nn_set_init_args(struct InstantiationArgs2 *args,
-                      struct WASINNArguments *nn_registry,
+                      struct WASINNRegistry *nn_registry,
                       wasi_nn_parse_context_t *ctx)
 {
-    wasi_nn_graph_registry_set_args(nn_registry, ctx->model_names,
+    wasm_runtime_wasi_nn_registry_set_args(nn_registry, ctx->model_names,
                                     ctx->encoding, ctx->target, ctx->n_graphs,
                                     ctx->graph_paths);
-    wasm_runtime_instantiation_args_set_wasi_nn_graph_registry(args,
-                                                               nn_registry);
+    wasm_runtime_instantiation_args_set_wasi_nn_registry(args, nn_registry);
 
     for (uint32_t i = 0; i < ctx->n_graphs; i++) {
         if (ctx->model_names[i])

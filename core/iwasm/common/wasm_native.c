@@ -26,7 +26,7 @@ static void *g_wasi_context_key;
 #endif /* WASM_ENABLE_LIBC_WASI */
 
 #if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-static void *g_wasi_nn_context_key;
+static void *g_wasi_nn_registry_key;
 #endif
 
 uint32
@@ -478,17 +478,17 @@ wasi_context_dtor(WASMModuleInstanceCommon *inst, void *ctx)
 #endif /* end of WASM_ENABLE_LIBC_WASI */
 
 #if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-WASINNGlobalContext *
-wasm_runtime_get_wasi_nn_global_ctx(WASMModuleInstanceCommon *module_inst_comm)
+WASINNRegistry *
+wasm_runtime_get_wasi_nn_registry(WASMModuleInstanceCommon *module_inst_comm)
 {
-    return wasm_native_get_context(module_inst_comm, g_wasi_nn_context_key);
+    return wasm_native_get_context(module_inst_comm, g_wasi_nn_registry_key);
 }
 
 void
-wasm_runtime_set_wasi_nn_global_ctx(WASMModuleInstanceCommon *module_inst_comm,
-                                    WASINNGlobalContext *wasi_nn_ctx)
+wasm_runtime_set_wasi_nn_registry(WASMModuleInstanceCommon *module_inst_comm,
+                                    WASINNRegistry *wasi_nn_ctx)
 {
-    wasm_native_set_context(module_inst_comm, g_wasi_nn_context_key,
+    wasm_native_set_context(module_inst_comm, g_wasi_nn_registry_key,
                             wasi_nn_ctx);
 }
 
@@ -499,7 +499,7 @@ wasi_nn_context_dtor(WASMModuleInstanceCommon *inst, void *ctx)
         return;
     }
 
-    wasm_runtime_destroy_wasi_nn_global_ctx(inst);
+    wasm_runtime_wasi_nn_registry_destroy(ctx);
 }
 #endif
 
@@ -612,9 +612,9 @@ wasm_native_init()
 #endif /* WASM_ENABLE_LIB_RATS */
 
 #if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-    g_wasi_nn_context_key =
+    g_wasi_nn_registry_key =
         wasm_native_create_context_key(wasi_nn_context_dtor);
-    if (g_wasi_nn_context_key == NULL) {
+    if (g_wasi_nn_registry_key == NULL) {
         goto fail;
     }
 
@@ -684,9 +684,9 @@ wasm_native_destroy()
 #endif
 
 #if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-    if (g_wasi_nn_context_key != NULL) {
-        wasm_native_destroy_context_key(g_wasi_nn_context_key);
-        g_wasi_nn_context_key = NULL;
+    if (g_wasi_nn_registry_key != NULL) {
+        wasm_native_destroy_context_key(g_wasi_nn_registry_key);
+        g_wasi_nn_registry_key = NULL;
     }
     wasi_nn_destroy();
 #endif
