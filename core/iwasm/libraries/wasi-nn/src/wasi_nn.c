@@ -651,7 +651,7 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
                 "Model is not yet loaded, will add to global context");
             call_wasi_nn_func(wasi_nn_ctx->backend, load_by_name, res,
                               wasi_nn_ctx->backend_ctx, global_model_path_i,
-                              strlen(global_model_path_i), encoding, target, g);
+                              strlen(global_model_path_i), target, g);
             if (res != success)
                 goto fail;
 

@@ -339,7 +339,7 @@ __load_by_name_with_configuration(void *ctx, const char *filename, graph *g)
 
 __attribute__((visibility("default"))) wasi_nn_error
 load_by_name(void *ctx, const char *filename, uint32_t filename_len,
-             graph_encoding encoding, execution_target target, graph *g)
+             execution_target target, graph *g)
 {
     struct LlamaContext *backend_ctx = (struct LlamaContext *)ctx;
 
