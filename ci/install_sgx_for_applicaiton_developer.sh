@@ -68,10 +68,22 @@ log_info() {
 # Execute command with output redirected to log
 log_exec() {
     log_info "Executing: $*"
-    "$@" >> "${LOG_FILE}" 2>&1
+    "$@" >>"$LOG_FILE" 2>&1
 }
 
-# Idempotency checking functions
+# Print environment sourcing instructions
+print_env_instructions() {
+    log_info "Printing environment setup instructions"
+    
+    echo "========================================================================"
+    echo "  IMPORTANT: Before building or running SGX applications, you must run:"
+    echo "      source /opt/intel/sgxsdk/environment"
+    echo "  in your current shell to activate SGX SDK environment variables."
+    echo "========================================================================"
+    
+    log_info "Environment setup instructions displayed to user"
+}
+
 check_sgx_packages() {
     log_info "Checking for existing SGX packages..."
     
@@ -340,6 +352,7 @@ log_info "Starting idempotency checks..."
 if check_sgx_packages && check_sgx_sdk && check_sgx_repo; then
     log_info "Complete SGX installation detected - no action needed"
     echo "Intel SGX for Application Developer is already installed and configured."
+    print_env_instructions
     exit 0
 fi
 
@@ -374,4 +387,11 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+cleanup
+if [ $? -ne 0 ]; then
+    log_info "Cleanup failed"
+    exit 1
+fi
+
 echo "Intel SGX for Application Developer installation completed."
+print_env_instructions
