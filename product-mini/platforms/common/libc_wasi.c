@@ -222,14 +222,12 @@ wasi_nn_parse(char **argv, wasi_nn_parse_context_t *ctx)
         goto fail;
     }
 
-    ctx->model_names[ctx->n_graphs] = strdup(tokens[0]);
-    ctx->encoding[ctx->n_graphs] = strdup(tokens[1]);
-    ctx->target[ctx->n_graphs] = strdup(tokens[2]);
-    ctx->graph_paths[ctx->n_graphs++] = strdup(tokens[3]);
+    ctx->model_names[ctx->n_graphs] = tokens[0];
+    ctx->encoding[ctx->n_graphs] = tokens[1];
+    ctx->target[ctx->n_graphs] = tokens[2];
+    ctx->graph_paths[ctx->n_graphs++] = tokens[3];
 
 fail:
-    if (token)
-        free(token);
 
     return ret;
 }
@@ -243,16 +241,5 @@ wasi_nn_set_init_args(struct InstantiationArgs2 *args,
                                     ctx->encoding, ctx->target, ctx->n_graphs,
                                     ctx->graph_paths);
     wasm_runtime_instantiation_args_set_wasi_nn_registry(args, nn_registry);
-
-    for (uint32_t i = 0; i < ctx->n_graphs; i++) {
-        if (ctx->model_names[i])
-            free(ctx->model_names[i]);
-        if (ctx->graph_paths[i])
-            free(ctx->graph_paths[i]);
-        if (ctx->encoding[i])
-            free(ctx->encoding[i]);
-        if (ctx->target[i])
-            free(ctx->target[i]);
-    }
 }
 #endif
