@@ -8,7 +8,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-WASI_NN_ERROR_TYPE
+#if WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+typedef wasi_ephemeral_nn_error wasi_nn_error_t;
+#else
+typedef wasi_nn_error wasi_nn_error_t;
+#endif
+
+wasi_nn_error_t
 wasm_load(char *model_name, WASI_NN_NAME(graph) * g,
           WASI_NN_NAME(execution_target) target)
 {
@@ -39,7 +45,7 @@ wasm_load(char *model_name, WASI_NN_NAME(graph) * g,
     arr.buf = buffer;
     arr.size = result;
 
-    WASI_NN_ERROR_TYPE res = WASI_NN_NAME(load)(
+    wasi_nn_error_t res = WASI_NN_NAME(load)(
         &arr, result, WASI_NN_ENCODING_NAME(tensorflowlite), target, g);
 #else
     WASI_NN_NAME(graph_builder_array) arr;
@@ -56,7 +62,7 @@ wasm_load(char *model_name, WASI_NN_NAME(graph) * g,
     arr.buf[0].size = result;
     arr.buf[0].buf = buffer;
 
-    WASI_NN_ERROR_TYPE res = WASI_NN_NAME(load)(
+    wasi_nn_error_t res = WASI_NN_NAME(load)(
         &arr, WASI_NN_ENCODING_NAME(tensorflowlite), target, g);
 #endif
 
@@ -66,22 +72,22 @@ wasm_load(char *model_name, WASI_NN_NAME(graph) * g,
     return res;
 }
 
-WASI_NN_ERROR_TYPE
+wasi_nn_error_t
 wasm_load_by_name(const char *model_name, WASI_NN_NAME(graph) * g)
 {
-    WASI_NN_ERROR_TYPE res =
+    wasi_nn_error_t res =
         WASI_NN_NAME(load_by_name)(model_name, strlen(model_name), g);
     return res;
 }
 
-WASI_NN_ERROR_TYPE
+wasi_nn_error_t
 wasm_init_execution_context(WASI_NN_NAME(graph) g,
                             WASI_NN_NAME(graph_execution_context) * ctx)
 {
     return WASI_NN_NAME(init_execution_context)(g, ctx);
 }
 
-WASI_NN_ERROR_TYPE
+wasi_nn_error_t
 wasm_set_input(WASI_NN_NAME(graph_execution_context) ctx, float *input_tensor,
                uint32_t *dim)
 {
@@ -113,19 +119,19 @@ wasm_set_input(WASI_NN_NAME(graph_execution_context) ctx, float *input_tensor,
     tensor.data = (uint8_t *)input_tensor;
 #endif
 
-    WASI_NN_ERROR_TYPE err = WASI_NN_NAME(set_input)(ctx, 0, &tensor);
+    wasi_nn_error_t err = WASI_NN_NAME(set_input)(ctx, 0, &tensor);
 
     free(dims.buf);
     return err;
 }
 
-WASI_NN_ERROR_TYPE
+wasi_nn_error_t
 wasm_compute(WASI_NN_NAME(graph_execution_context) ctx)
 {
     return WASI_NN_NAME(compute)(ctx);
 }
 
-WASI_NN_ERROR_TYPE
+wasi_nn_error_t
 wasm_get_output(WASI_NN_NAME(graph_execution_context) ctx, uint32_t index,
                 float *out_tensor, uint32_t *out_size)
 {
@@ -144,8 +150,8 @@ run_inference(float *input, uint32_t *input_size, uint32_t *output_size,
 {
     WASI_NN_NAME(graph) graph;
 
-    WASI_NN_ERROR_TYPE res = wasm_load_by_name(model_name, &graph);
-
+    wasi_nn_error_t res = wasm_load_by_name(model_name, &graph);
+    
     if (res == WASI_NN_ERROR_NAME(not_found)) {
         NN_INFO_PRINTF("Model %s is not loaded, you should pass its path "
                        "through --wasi-nn-graph",
