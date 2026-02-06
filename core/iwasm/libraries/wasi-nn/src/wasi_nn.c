@@ -623,7 +623,7 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
     for (model_idx = 0; model_idx < global_n_graphs; model_idx++) {
         char *model_name = wasi_nn_registry->model_names[model_idx];
 
-        if (model_name && strcmp(nul_terminated_name, model_name) != 0) {
+        if (strcmp(nul_terminated_name, model_name) != 0) {
             continue;
         }
 
