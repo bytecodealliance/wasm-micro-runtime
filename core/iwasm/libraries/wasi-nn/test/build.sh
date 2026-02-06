@@ -22,6 +22,8 @@ CURR_PATH=$(cd $(dirname $0) && pwd -P)
 
 /opt/wasi-sdk/bin/clang \
     --target=wasm32-wasi \
+    -DWASM_ENABLE_WASI_NN=1 \
+    -DWASM_ENABLE_WASI_EPHEMERAL_NN=1 \
     -DNN_LOG_LEVEL=1 \
     -Wl,--allow-undefined \
     -I../include -I../src/utils \

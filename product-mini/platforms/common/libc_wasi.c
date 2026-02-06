@@ -27,6 +27,32 @@ typedef enum {
     LIBC_WASI_PARSE_RESULT_BAD_PARAM
 } libc_wasi_parse_result_t;
 
+typedef struct {
+    const char *model_names[10];
+    const uint32_t *encoding[10];
+    const uint32_t *target[10];
+    const char *graph_paths[10];
+    uint32 n_graphs;
+} wasi_nn_parse_context_t;
+
+typedef enum {
+    wasi_nn_openvino = 0,
+    wasi_nn_onnx,
+    wasi_nn_tensorflow,
+    wasi_nn_pytorch,
+    wasi_nn_tensorflowlite,
+    wasi_nn_ggml,
+    wasi_nn_autodetect,
+    wasi_nn_unknown_backend,
+} wasi_nn_encoding;
+
+typedef enum wasi_nn_target {
+    wasi_nn_cpu = 0,
+    wasi_nn_gpu,
+    wasi_nn_tpu,
+    wasi_nn_unsupported_target,
+} wasi_nn_target;
+
 static void
 libc_wasi_print_help(void)
 {
@@ -177,3 +203,110 @@ libc_wasi_set_init_args(struct InstantiationArgs2 *args, int argc, char **argv,
     wasm_runtime_instantiation_args_set_wasi_ns_lookup_pool(
         args, ctx->ns_lookup_pool, ctx->ns_lookup_pool_size);
 }
+
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+static wasi_nn_encoding
+str2encoding(char *str_encoding)
+{
+    if (!str_encoding) {
+        printf("Got empty string encoding");
+        return -1;
+    }
+
+    if (!strcmp(str_encoding, "openvino"))
+        return wasi_nn_openvino;
+    else if (!strcmp(str_encoding, "tensorflowlite"))
+        return wasi_nn_tensorflowlite;
+    else if (!strcmp(str_encoding, "ggml"))
+        return wasi_nn_ggml;
+    else if (!strcmp(str_encoding, "onnx"))
+        return wasi_nn_onnx;
+    else
+        return wasi_nn_unknown_backend;
+    // return autodetect;
+}
+
+static wasi_nn_target
+str2target(char *str_target)
+{
+    if (!str_target) {
+        printf("Got empty string target");
+        return -1;
+    }
+
+    if (!strcmp(str_target, "cpu"))
+        return wasi_nn_cpu;
+    else if (!strcmp(str_target, "gpu"))
+        return wasi_nn_gpu;
+    else if (!strcmp(str_target, "tpu"))
+        return wasi_nn_tpu;
+    else
+        return wasi_nn_unsupported_target;
+    // return autodetect;
+}
+
+libc_wasi_parse_result_t
+wasi_nn_parse(char **argv, wasi_nn_parse_context_t *ctx)
+{
+    if ('\0' == argv[16])
+        return LIBC_WASI_PARSE_RESULT_NEED_HELP;
+
+    if (ctx->n_graphs >= sizeof(ctx->graph_paths) / sizeof(char *)) {
+        printf("Only allow max graph number %d\n",
+               (int)(sizeof(ctx->graph_paths) / sizeof(char *)));
+        return LIBC_WASI_PARSE_RESULT_BAD_PARAM;
+    }
+
+    char *token;
+    char *saveptr = NULL;
+    int token_count = 0, ret = 0;
+    char *tokens[12] = { 0 };
+
+    // encoding:tensorflowlite|openvino|llama  target:cpu|gpu|tpu
+    // --wasi-nn-graph=encoding1:target1:model_file_path1
+    // --wasi-nn-graph=encoding2:target2:model_file_path2 ...
+    token = strtok_r(argv[0] + 16, ":", &saveptr);
+    while (token) {
+        if (strlen(token) > 0) {
+            tokens[token_count] = token;
+            token_count++;
+            token = strtok_r(NULL, ":", &saveptr);
+        }
+    }
+
+    if (token_count != 4) {
+        ret = LIBC_WASI_PARSE_RESULT_NEED_HELP;
+        printf("4 arguments are needed for wasi-nn.\n");
+        goto fail;
+    }
+
+    ctx->model_names[ctx->n_graphs] = tokens[0];
+    ctx->encoding[ctx->n_graphs] = (uint32_t)str2encoding(tokens[1]);
+    ctx->target[ctx->n_graphs] = (uint32_t)str2target(tokens[2]);
+    ctx->graph_paths[ctx->n_graphs] = tokens[3];
+
+    if ((!ctx->model_names[ctx->n_graphs])
+        || (ctx->encoding[ctx->n_graphs] == wasi_nn_unknown_backend)
+        || (ctx->target[ctx->n_graphs] == wasi_nn_unsupported_target)) {
+        ret = LIBC_WASI_PARSE_RESULT_NEED_HELP;
+        printf("Invalid arguments for wasi-nn.\n");
+        goto fail;
+    }
+
+    ctx->n_graphs++;
+fail:
+
+    return ret;
+}
+
+static void
+wasi_nn_set_init_args(struct InstantiationArgs2 *args,
+                      struct WASINNRegistry *nn_registry,
+                      wasi_nn_parse_context_t *ctx)
+{
+    wasm_runtime_wasi_nn_registry_set_args(nn_registry, ctx->model_names,
+                                           ctx->encoding, ctx->target,
+                                           ctx->n_graphs, ctx->graph_paths);
+    wasm_runtime_instantiation_args_set_wasi_nn_registry(args, nn_registry);
+}
+#endif

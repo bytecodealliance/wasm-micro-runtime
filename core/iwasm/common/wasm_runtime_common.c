@@ -1795,6 +1795,109 @@ wasm_runtime_instantiation_args_set_wasi_ns_lookup_pool(
 }
 #endif /* WASM_ENABLE_LIBC_WASI != 0 */
 
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+void
+wasm_runtime_wasi_nn_graph_registry_args_set_defaults(WASINNRegistry *args)
+{
+    memset(args, 0, sizeof(*args));
+}
+
+bool
+wasm_runtime_wasi_nn_registry_set_args(WASINNRegistry *registry,
+                                       const char **model_names,
+                                       const uint32_t **encoding,
+                                       const uint32_t **target,
+                                       uint32_t n_graphs,
+                                       const char **graph_paths)
+{
+    if (!registry || !model_names || !encoding || !target || !graph_paths) {
+        return false;
+    }
+
+    if ((sizeof(uint32_t *) * n_graphs) >= UINT32_MAX) {
+        LOG_ERROR("Invalid size for wasm_runtime_malloc.");
+        return NULL;
+    }
+
+    registry->n_graphs = n_graphs;
+    registry->target =
+        (uint32_t **)wasm_runtime_malloc(sizeof(uint32_t *) * n_graphs);
+    registry->encoding =
+        (uint32_t **)wasm_runtime_malloc(sizeof(uint32_t *) * n_graphs);
+    registry->loaded =
+        (uint32_t **)wasm_runtime_malloc(sizeof(uint32_t *) * n_graphs);
+    registry->model_names =
+        (uint32_t **)wasm_runtime_malloc(sizeof(uint32_t *) * n_graphs);
+    registry->graph_paths =
+        (uint32_t **)wasm_runtime_malloc(sizeof(uint32_t *) * n_graphs);
+    memset(registry->target, 0, sizeof(uint32_t *) * n_graphs);
+    memset(registry->encoding, 0, sizeof(uint32_t *) * n_graphs);
+    memset(registry->loaded, 0, sizeof(uint32_t *) * n_graphs);
+    memset(registry->model_names, 0, sizeof(uint32_t *) * n_graphs);
+    memset(registry->graph_paths, 0, sizeof(uint32_t *) * n_graphs);
+
+    for (uint32_t i = 0; i < registry->n_graphs; i++) {
+        registry->graph_paths[i] = bh_strdup(graph_paths[i]);
+        registry->model_names[i] = bh_strdup(model_names[i]);
+        registry->encoding[i] = encoding[i];
+        registry->target[i] = target[i];
+    }
+
+    return true;
+}
+
+int
+wasm_runtime_wasi_nn_registry_create(WASINNRegistry **registryp)
+{
+    WASINNRegistry *args = wasm_runtime_malloc(sizeof(*args));
+    if (args == NULL) {
+        return -1;
+    }
+    wasm_runtime_wasi_nn_graph_registry_args_set_defaults(args);
+    *registryp = args;
+    return 0;
+}
+
+void
+wasm_runtime_wasi_nn_registry_destroy(WASINNRegistry *registry)
+{
+    if (registry) {
+        for (uint32_t i = 0; i < registry->n_graphs; i++)
+            if (registry->graph_paths[i]) {
+                wasm_runtime_free(registry->graph_paths[i]);
+                if (registry->model_names[i])
+                    wasm_runtime_free(registry->model_names[i]);
+            }
+        if (registry->encoding)
+            wasm_runtime_free(registry->encoding);
+        if (registry->target)
+            wasm_runtime_free(registry->target);
+        if (registry->loaded)
+            wasm_runtime_free(registry->loaded);
+        wasm_runtime_free(registry);
+    }
+}
+
+void
+wasm_runtime_instantiation_args_set_wasi_nn_registry(
+    struct InstantiationArgs2 *p, WASINNRegistry *registry)
+{
+    if (!registry)
+        return;
+    WASINNRegistry *wasi_nn_registry = &p->nn_registry;
+
+    wasi_nn_registry->n_graphs = registry->n_graphs;
+
+    for (uint32_t i = 0; i < registry->n_graphs; i++) {
+        registry->graph_paths[i] = bh_strdup(registry->graph_paths[i]);
+        registry->model_names[i] = bh_strdup(registry->model_names[i]);
+        registry->encoding[i] = registry->encoding[i];
+        registry->target[i] = registry->target[i];
+        wasi_nn_registry->loaded = registry->loaded;
+    }
+}
+#endif
+
 WASMModuleInstanceCommon *
 wasm_runtime_instantiate_ex2(WASMModuleCommon *module,
                              const struct InstantiationArgs2 *args,

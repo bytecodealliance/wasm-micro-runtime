@@ -19,9 +19,10 @@
 #include "bh_platform.h"
 #include "wasi_nn_types.h"
 #include "wasm_export.h"
+#include "wasm_runtime_common.h"
 
 #if WASM_ENABLE_WASI_EPHEMERAL_NN == 0
-#warning You are using "wasi_nn", which is a legacy WAMR-specific ABI. It's deperecated and will likely be removed in future versions of WAMR. Please use "wasi_ephemeral_nn" instead. (For a WASM module, use the wasi_ephemeral_nn.h header instead. For the runtime configurations, enable WASM_ENABLE_WASI_EPHEMERAL_NN/WAMR_BUILD_WASI_EPHEMERAL_NN.)
+#warning You are using "wasi_nn", which is a legacy WAMR-specific ABI. It is deperecated and will likely be removed in future versions of WAMR. Please use "wasi_ephemeral_nn" instead. (For a WASM module, use the wasi_ephemeral_nn.h header instead. For the runtime configurations, enable WASM_ENABLE_WASI_EPHEMERAL_NN/WAMR_BUILD_WASI_EPHEMERAL_NN.)
 #endif
 
 #define HASHMAP_INITIAL_SIZE 20
@@ -34,6 +35,8 @@
 #define OPENVINO_BACKEND_LIB "libwasi_nn_openvino" LIB_EXTENTION
 #define LLAMACPP_BACKEND_LIB "libwasi_nn_llamacpp" LIB_EXTENTION
 #define ONNX_BACKEND_LIB "libwasi_nn_onnx" LIB_EXTENTION
+
+#define MAX_GLOBAL_GRAPHS_PER_INST 4
 
 /* Global variables */
 static korp_mutex wasi_nn_lock;
@@ -532,6 +535,89 @@ copyin_and_nul_terminate(wasm_module_inst_t inst, char *name, uint32_t name_len,
     return success;
 }
 
+static wasi_nn_error
+load_by_name_with_optional_config(WASINNContext *wasi_nn_ctx,
+                                  wasm_module_inst_t instance, bool use_config,
+                                  graph *g, const char *model_name,
+                                  const char *config, int32_t config_len)
+{
+    wasi_nn_error res = success;
+
+    WASINNRegistry *wasi_nn_registry =
+        wasm_runtime_get_wasi_nn_registry(instance);
+    if (!wasi_nn_registry) {
+        NN_ERR_PRINTF("global context is invalid");
+        res = not_found;
+        goto fail;
+    }
+
+    bool is_loaded = false;
+    uint32 model_idx = 0;
+    uint32_t global_n_graphs = wasi_nn_registry->n_graphs;
+    for (model_idx = 0; model_idx < global_n_graphs; model_idx++) {
+        char *model_name_i = wasi_nn_registry->model_names[model_idx];
+
+        if (strcmp(model_name, model_name_i) != 0) {
+            continue;
+        }
+
+        is_loaded = wasi_nn_registry->loaded[model_idx];
+        char *global_model_path_i = wasi_nn_registry->graph_paths[model_idx];
+
+        graph_encoding encoding =
+            (graph_encoding)(wasi_nn_registry->encoding[model_idx]);
+        execution_target target =
+            (execution_target)(wasi_nn_registry->target[model_idx]);
+
+        res = ensure_backend(instance, encoding, wasi_nn_ctx);
+        if (res != success)
+            goto fail;
+
+        if (!is_loaded && (model_idx < MAX_GLOBAL_GRAPHS_PER_INST)
+            && (model_idx < global_n_graphs)) {
+            NN_DBG_PRINTF(
+                "Model is not yet loaded, will add to global context");
+            if (use_config && config && config_len > 0) {
+                call_wasi_nn_func(
+                    wasi_nn_ctx->backend, load_by_name_with_config, res,
+                    wasi_nn_ctx->backend_ctx, global_model_path_i,
+                    strlen(global_model_path_i), config, config_len, g);
+            }
+            else {
+                call_wasi_nn_func(wasi_nn_ctx->backend, load_by_name, res,
+                                  wasi_nn_ctx->backend_ctx, global_model_path_i,
+                                  strlen(global_model_path_i), target, g);
+            }
+            if (res != success)
+                goto fail;
+
+            wasi_nn_registry->loaded[model_idx] = 1;
+            res = success;
+            break;
+        }
+    }
+
+    if (is_loaded) {
+        NN_DBG_PRINTF("Model is already loaded");
+        res = success;
+    }
+    else if (model_idx >= MAX_GLOBAL_GRAPHS_PER_INST) {
+        // No enlarge for now
+        NN_ERR_PRINTF("No enough space for new model");
+        res = too_large;
+    }
+    else if (model_idx >= global_n_graphs) {
+        NN_ERR_PRINTF("Model %s is not loaded, you should pass its path "
+                      "through --wasi-nn-graph",
+                      model_name);
+        res = not_found;
+    }
+
+fail:
+
+    return res;
+}
+
 wasi_nn_error
 wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
                      graph *g)
@@ -565,17 +651,9 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
         goto fail;
     }
 
-    res = ensure_backend(instance, autodetect, wasi_nn_ctx);
-    if (res != success)
-        goto fail;
+    res = load_by_name_with_optional_config(wasi_nn_ctx, instance, false, g,
+                                            nul_terminated_name, NULL, 0);
 
-    call_wasi_nn_func(wasi_nn_ctx->backend, load_by_name, res,
-                      wasi_nn_ctx->backend_ctx, nul_terminated_name, name_len,
-                      g);
-    if (res != success)
-        goto fail;
-
-    res = success;
 fail:
     if (nul_terminated_name != NULL) {
         wasm_runtime_free(nul_terminated_name);
@@ -632,9 +710,9 @@ wasi_nn_load_by_name_with_config(wasm_exec_env_t exec_env, char *name,
         goto fail;
     ;
 
-    call_wasi_nn_func(wasi_nn_ctx->backend, load_by_name_with_config, res,
-                      wasi_nn_ctx->backend_ctx, nul_terminated_name, name_len,
-                      nul_terminated_config, config_len, g);
+    res = load_by_name_with_optional_config(wasi_nn_ctx, instance, true, g,
+                                            nul_terminated_name,
+                                            nul_terminated_config, config_len);
     if (res != success)
         goto fail;
 
