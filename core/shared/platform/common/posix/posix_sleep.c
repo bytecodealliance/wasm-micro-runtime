@@ -28,14 +28,28 @@ __wasi_errno_t
 os_nanosleep(const os_timespec *req, os_timespec *rem)
 {
     int ret = 0;
+    __wasi_errno_t wasi_ret = __WASI_ESUCCESS;
 
     ret = nanosleep(req, rem);
 
     switch(ret)
     {
-        case 14 /* EFAULT */: return __WASI_EFAULT;
-        case  4 /* EINTR  */: return __WASI_EFAULT;
-        case 22 /* EINVAL */: return __WASI_EINVAL;
-        case  0: return __WASI_ESUCCESS;
+        case 14 /* EFAULT */:
+        {
+            wasi_ret = __WASI_EFAULT;
+            break;
+        } 
+        case  4 /* EINTR  */:
+        {
+            wasi_ret = __WASI_EFAULT;
+            break;
+        } 
+        case 22 /* EINVAL */:
+        {
+            wasi_ret = __WASI_EINVAL;
+            break;
+        }
     }
+
+    return wasi_ret;
 }
