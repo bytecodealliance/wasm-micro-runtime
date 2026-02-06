@@ -6,7 +6,6 @@
 #include <time.h>
 
 #include "platform_api_extension.h"
-#include "libc_errno.h"
 
 int
 os_usleep(uint32 usec)
@@ -20,12 +19,23 @@ os_usleep(uint32 usec)
     return ret == 0 ? 0 : -1;
 }
 
+/*
+ * This function relies on a small workaround (hardcoded errno values)
+ * to avoid including <errno.h> or the project-specific `libc_errno.h`,
+ * thus preventing changes to the current CMake configuration.
+ */
 __wasi_errno_t
 os_nanosleep(const os_timespec *req, os_timespec *rem)
 {
-    int ret;
+    int ret = 0;
 
     ret = nanosleep(req, rem);
 
-    return convert_errno(ret);
+    switch(ret)
+    {
+        case 14 /* EFAULT */: return __WASI_EFAULT;
+        case  4 /* EINTR  */: return __WASI_EFAULT;
+        case 22 /* EINVAL */: return __WASI_EINVAL;
+        case  0: return __WASI_ESUCCESS;
+    }
 }
