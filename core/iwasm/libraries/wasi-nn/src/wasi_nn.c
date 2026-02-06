@@ -212,46 +212,6 @@ wasi_nn_destroy()
  * - on device ML framework
  */
 static graph_encoding
-str2encoding(char *str_encoding)
-{
-    if (!str_encoding) {
-        NN_ERR_PRINTF("Got empty string encoding");
-        return -1;
-    }
-
-    if (!strcmp(str_encoding, "openvino"))
-        return openvino;
-    else if (!strcmp(str_encoding, "tensorflowlite"))
-        return tensorflowlite;
-    else if (!strcmp(str_encoding, "ggml"))
-        return ggml;
-    else if (!strcmp(str_encoding, "onnx"))
-        return onnx;
-    else
-        return unknown_backend;
-    // return autodetect;
-}
-
-static execution_target
-str2target(char *str_target)
-{
-    if (!str_target) {
-        NN_ERR_PRINTF("Got empty string target");
-        return -1;
-    }
-
-    if (!strcmp(str_target, "cpu"))
-        return cpu;
-    else if (!strcmp(str_target, "gpu"))
-        return gpu;
-    else if (!strcmp(str_target, "tpu"))
-        return tpu;
-    else
-        return unsupported_target;
-    // return autodetect;
-}
-
-static graph_encoding
 choose_a_backend()
 {
     void *handle;
@@ -630,10 +590,8 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
         is_loaded = wasi_nn_registry->loaded[model_idx];
         char *global_model_path_i = wasi_nn_registry->graph_paths[model_idx];
 
-        graph_encoding encoding =
-            str2encoding(wasi_nn_registry->encoding[model_idx]);
-        execution_target target =
-            str2target(wasi_nn_registry->target[model_idx]);
+        graph_encoding encoding = (graph_encoding)(wasi_nn_registry->encoding[model_idx]);
+        execution_target target = (execution_target)(wasi_nn_registry->target[model_idx]);
 
         // res = ensure_backend(instance, autodetect, wasi_nn_ctx);
         res = ensure_backend(instance, encoding, wasi_nn_ctx);

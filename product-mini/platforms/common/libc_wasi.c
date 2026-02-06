@@ -21,19 +21,77 @@ typedef struct {
     uint32 ns_lookup_pool_size;
 } libc_wasi_parse_context_t;
 
-typedef struct {
-    const char *model_names[10];
-    const char *encoding[10];
-    const char *target[10];
-    const char *graph_paths[10];
-    uint32 n_graphs;
-} wasi_nn_parse_context_t;
-
 typedef enum {
     LIBC_WASI_PARSE_RESULT_OK = 0,
     LIBC_WASI_PARSE_RESULT_NEED_HELP,
     LIBC_WASI_PARSE_RESULT_BAD_PARAM
 } libc_wasi_parse_result_t;
+
+typedef struct {
+    const char *model_names[10];
+    const uint32_t *encoding[10];
+    const uint32_t *target[10];
+    const char *graph_paths[10];
+    uint32 n_graphs;
+} wasi_nn_parse_context_t;
+
+typedef enum {
+    wasi_nn_openvino = 0,
+    wasi_nn_onnx,
+    wasi_nn_tensorflow,
+    wasi_nn_pytorch,
+    wasi_nn_tensorflowlite,
+    wasi_nn_ggml,
+    wasi_nn_autodetect,
+    wasi_nn_unknown_backend,
+} wasi_nn_encoding;
+
+typedef enum wasi_nn_target {
+    wasi_nn_cpu = 0,
+    wasi_nn_gpu,
+    wasi_nn_tpu,
+    wasi_nn_unsupported_target,
+} wasi_nn_target;
+
+static wasi_nn_encoding
+str2encoding(char *str_encoding)
+{
+    if (!str_encoding) {
+        printf("Got empty string encoding");
+        return -1;
+    }
+
+    if (!strcmp(str_encoding, "openvino"))
+        return wasi_nn_openvino;
+    else if (!strcmp(str_encoding, "tensorflowlite"))
+        return wasi_nn_tensorflowlite;
+    else if (!strcmp(str_encoding, "ggml"))
+        return wasi_nn_ggml;
+    else if (!strcmp(str_encoding, "onnx"))
+        return wasi_nn_onnx;
+    else
+        return wasi_nn_unknown_backend;
+    // return autodetect;
+}
+
+static wasi_nn_target
+str2target(char *str_target)
+{
+    if (!str_target) {
+        printf("Got empty string target");
+        return -1;
+    }
+
+    if (!strcmp(str_target, "cpu"))
+        return wasi_nn_cpu;
+    else if (!strcmp(str_target, "gpu"))
+        return wasi_nn_gpu;
+    else if (!strcmp(str_target, "tpu"))
+        return wasi_nn_tpu;
+    else
+        return wasi_nn_unsupported_target;
+    // return autodetect;
+}
 
 static void
 libc_wasi_print_help(void)
@@ -223,10 +281,19 @@ wasi_nn_parse(char **argv, wasi_nn_parse_context_t *ctx)
     }
 
     ctx->model_names[ctx->n_graphs] = tokens[0];
-    ctx->encoding[ctx->n_graphs] = tokens[1];
-    ctx->target[ctx->n_graphs] = tokens[2];
-    ctx->graph_paths[ctx->n_graphs++] = tokens[3];
+    ctx->encoding[ctx->n_graphs] = (uint32_t)str2encoding(tokens[1]);
+    ctx->target[ctx->n_graphs] = (uint32_t)str2target(tokens[2]);
+    ctx->graph_paths[ctx->n_graphs] = tokens[3];
 
+    if ((!ctx->model_names[ctx->n_graphs]) ||
+        (ctx->encoding[ctx->n_graphs] == wasi_nn_unknown_backend) ||
+        (ctx->target[ctx->n_graphs] == wasi_nn_unsupported_target)) {
+            ret = LIBC_WASI_PARSE_RESULT_NEED_HELP;
+            printf("Invalid arguments for wasi-nn.\n");
+            goto fail;
+        }
+
+    ctx->n_graphs++;
 fail:
 
     return ret;

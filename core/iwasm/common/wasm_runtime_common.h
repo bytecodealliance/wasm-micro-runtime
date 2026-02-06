@@ -548,11 +548,11 @@ typedef struct WASMModuleInstMemConsumption {
 #if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
 typedef struct WASINNRegistry {
     char **model_names;
-    char **encoding;
-    char **target;
+    uint32_t **encoding;
+    uint32_t **target;
 
     uint32_t n_graphs;
-    uint32_t *loaded;
+    uint32_t **loaded;
     char **graph_paths;
 } WASINNRegistry;
 #endif
@@ -805,8 +805,8 @@ wasm_runtime_instantiation_args_set_wasi_nn_registry(
 
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_wasi_nn_registry_set_args(WASINNRegistry *registry,
-                                const char **model_names, const char **encoding,
-                                const char **target, uint32_t n_graphs,
+                                const char **model_names, const uint32_t **encoding,
+                                const uint32_t **target, uint32_t n_graphs,
                                 const char **graph_paths);
 #endif
 

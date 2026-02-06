@@ -1804,8 +1804,8 @@ wasm_runtime_wasi_nn_graph_registry_args_set_defaults(WASINNRegistry *args)
 
 bool
 wasm_runtime_wasi_nn_registry_set_args(WASINNRegistry *registry,
-                        const char **model_names, const char **encoding,
-                        const char **target, uint32_t n_graphs,
+                        const char **model_names, const uint32_t **encoding,
+                        const uint32_t **target, uint32_t n_graphs,
                         const char **graph_paths)
 {
     if (!registry || !model_names || !encoding || !target || !graph_paths) {
@@ -1832,8 +1832,8 @@ wasm_runtime_wasi_nn_registry_set_args(WASINNRegistry *registry,
     for (uint32_t i = 0; i < registry->n_graphs; i++) {
         registry->graph_paths[i] = bh_strdup(graph_paths[i]);
         registry->model_names[i] = bh_strdup(model_names[i]);
-        registry->encoding[i] = bh_strdup(encoding[i]);
-        registry->target[i] = bh_strdup(target[i]);
+        registry->encoding[i] = encoding[i];
+        registry->target[i] = target[i];
     }
 
     return true;
@@ -1860,13 +1860,13 @@ wasm_runtime_wasi_nn_registry_destroy(WASINNRegistry *registry)
                 wasm_runtime_free(registry->graph_paths[i]);
             if (registry->model_names[i])
                 wasm_runtime_free(registry->model_names[i]);
-            if (registry->encoding[i])
-                wasm_runtime_free(registry->encoding[i]);
-            if (registry->target[i])
-                wasm_runtime_free(registry->target[i]);
             }
-        if (registry->loaded)
-            wasm_runtime_free(registry->loaded);
+            if (registry->encoding)
+                wasm_runtime_free(registry->encoding);
+            if (registry->target)
+                wasm_runtime_free(registry->target);
+            if (registry->loaded)
+                wasm_runtime_free(registry->loaded);
         wasm_runtime_free(registry);
     }
 }
@@ -1881,16 +1881,13 @@ wasm_runtime_instantiation_args_set_wasi_nn_registry(
 
     wasi_nn_registry->n_graphs = registry->n_graphs;
 
-    if (registry->model_names)
-        wasi_nn_registry->model_names = bh_strdup(registry->model_names);
-    if (registry->encoding)
-        wasi_nn_registry->encoding = bh_strdup(registry->encoding);
-    if (registry->target)
-        wasi_nn_registry->target = bh_strdup(registry->target);
-    if (registry->loaded)
-        wasi_nn_registry->loaded = bh_strdup(registry->loaded);
-    if (registry->graph_paths)
-        wasi_nn_registry->graph_paths = bh_strdup(registry->graph_paths);
+    for (uint32_t i = 0; i < registry->n_graphs; i++) {
+        registry->graph_paths[i] = bh_strdup(registry->graph_paths[i]);
+        registry->model_names[i] = bh_strdup(registry->model_names[i]);
+        registry->encoding[i] = registry->encoding[i];
+        registry->target[i] = registry->target[i];
+        wasi_nn_registry->loaded = registry->loaded;
+    }
 }
 #endif
 
