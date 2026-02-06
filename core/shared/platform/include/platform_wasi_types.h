@@ -29,6 +29,9 @@
 #endif /* _Alignof */
 
 extern "C" {
+#elif defined(_MSC_VER) && !_CRT_HAS_C11
+#define _Static_assert static_assert
+#define _Alignof __alignof
 #endif
 
 /* There is no need to check the WASI layout if we're using uvwasi or libc-wasi
