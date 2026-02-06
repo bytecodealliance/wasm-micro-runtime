@@ -802,7 +802,7 @@ wasm_runtime_get_wasi_nn_registry(const wasm_module_inst_t module_inst);
 
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_wasi_nn_registry(wasm_module_inst_t module_inst,
-                                   struct WASINNRegistry *wasi_ctx);
+                                  struct WASINNRegistry *wasi_ctx);
 
 WASM_RUNTIME_API_EXTERN int
 wasm_runtime_wasi_nn_registry_create(struct WASINNRegistry **registryp);

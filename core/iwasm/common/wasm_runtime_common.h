@@ -805,9 +805,11 @@ wasm_runtime_instantiation_args_set_wasi_nn_registry(
 
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_wasi_nn_registry_set_args(WASINNRegistry *registry,
-                                const char **model_names, const uint32_t **encoding,
-                                const uint32_t **target, uint32_t n_graphs,
-                                const char **graph_paths);
+                                       const char **model_names,
+                                       const uint32_t **encoding,
+                                       const uint32_t **target,
+                                       uint32_t n_graphs,
+                                       const char **graph_paths);
 #endif
 
 /* See wasm_export.h for description */
@@ -1465,14 +1467,14 @@ wasm_runtime_check_and_update_last_used_shared_heap(
 #if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_wasi_nn_registry(WASMModuleInstanceCommon *module_inst,
-                                    WASINNRegistry *wasi_ctx);
+                                  WASINNRegistry *wasi_ctx);
 
 WASM_RUNTIME_API_EXTERN WASINNRegistry *
 wasm_runtime_get_wasi_nn_registry(WASMModuleInstanceCommon *module_inst_comm);
 
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_wasi_nn_registry(WASMModuleInstanceCommon *module_inst_comm,
-                                    WASINNRegistry *wasi_nn_ctx);
+                                  WASINNRegistry *wasi_nn_ctx);
 #endif
 
 #ifdef __cplusplus

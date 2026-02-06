@@ -285,13 +285,13 @@ wasi_nn_parse(char **argv, wasi_nn_parse_context_t *ctx)
     ctx->target[ctx->n_graphs] = (uint32_t)str2target(tokens[2]);
     ctx->graph_paths[ctx->n_graphs] = tokens[3];
 
-    if ((!ctx->model_names[ctx->n_graphs]) ||
-        (ctx->encoding[ctx->n_graphs] == wasi_nn_unknown_backend) ||
-        (ctx->target[ctx->n_graphs] == wasi_nn_unsupported_target)) {
-            ret = LIBC_WASI_PARSE_RESULT_NEED_HELP;
-            printf("Invalid arguments for wasi-nn.\n");
-            goto fail;
-        }
+    if ((!ctx->model_names[ctx->n_graphs])
+        || (ctx->encoding[ctx->n_graphs] == wasi_nn_unknown_backend)
+        || (ctx->target[ctx->n_graphs] == wasi_nn_unsupported_target)) {
+        ret = LIBC_WASI_PARSE_RESULT_NEED_HELP;
+        printf("Invalid arguments for wasi-nn.\n");
+        goto fail;
+    }
 
     ctx->n_graphs++;
 fail:
@@ -305,8 +305,8 @@ wasi_nn_set_init_args(struct InstantiationArgs2 *args,
                       wasi_nn_parse_context_t *ctx)
 {
     wasm_runtime_wasi_nn_registry_set_args(nn_registry, ctx->model_names,
-                                    ctx->encoding, ctx->target, ctx->n_graphs,
-                                    ctx->graph_paths);
+                                           ctx->encoding, ctx->target,
+                                           ctx->n_graphs, ctx->graph_paths);
     wasm_runtime_instantiation_args_set_wasi_nn_registry(args, nn_registry);
 }
 #endif

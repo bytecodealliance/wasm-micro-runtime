@@ -578,8 +578,7 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
 
     bool is_loaded = false;
     uint32 model_idx = 0;
-    uint32_t global_n_graphs =
-        wasi_nn_registry->n_graphs;
+    uint32_t global_n_graphs = wasi_nn_registry->n_graphs;
     for (model_idx = 0; model_idx < global_n_graphs; model_idx++) {
         char *model_name = wasi_nn_registry->model_names[model_idx];
 
@@ -590,8 +589,10 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
         is_loaded = wasi_nn_registry->loaded[model_idx];
         char *global_model_path_i = wasi_nn_registry->graph_paths[model_idx];
 
-        graph_encoding encoding = (graph_encoding)(wasi_nn_registry->encoding[model_idx]);
-        execution_target target = (execution_target)(wasi_nn_registry->target[model_idx]);
+        graph_encoding encoding =
+            (graph_encoding)(wasi_nn_registry->encoding[model_idx]);
+        execution_target target =
+            (execution_target)(wasi_nn_registry->target[model_idx]);
 
         // res = ensure_backend(instance, autodetect, wasi_nn_ctx);
         res = ensure_backend(instance, encoding, wasi_nn_ctx);

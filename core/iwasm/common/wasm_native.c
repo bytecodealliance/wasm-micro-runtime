@@ -486,7 +486,7 @@ wasm_runtime_get_wasi_nn_registry(WASMModuleInstanceCommon *module_inst_comm)
 
 void
 wasm_runtime_set_wasi_nn_registry(WASMModuleInstanceCommon *module_inst_comm,
-                                    WASINNRegistry *wasi_nn_ctx)
+                                  WASINNRegistry *wasi_nn_ctx)
 {
     wasm_native_set_context(module_inst_comm, g_wasi_nn_registry_key,
                             wasi_nn_ctx);

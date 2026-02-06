@@ -35,27 +35,27 @@ typedef wasi_nn_error wasi_nn_error_t;
 /* wasi-nn wrappers */
 
 wasi_nn_error_t
-wasm_load(char *model_name, WASI_NN_NAME(graph) *g, WASI_NN_NAME(execution_target) target);
+wasm_load(char *model_name, WASI_NN_NAME(graph) * g,
+          WASI_NN_NAME(execution_target) target);
+
+wasi_nn_error_t wasm_init_execution_context(
+    WASI_NN_NAME(graph) g, WASI_NN_NAME(graph_execution_context) * ctx);
 
 wasi_nn_error_t
-wasm_init_execution_context(WASI_NN_NAME(graph) g, WASI_NN_NAME(graph_execution_context) *ctx);
+wasm_set_input(WASI_NN_NAME(graph_execution_context) ctx, float *input_tensor,
+               uint32_t *dim);
+
+wasi_nn_error_t wasm_compute(WASI_NN_NAME(graph_execution_context) ctx);
 
 wasi_nn_error_t
-wasm_set_input(WASI_NN_NAME(graph_execution_context) ctx, float *input_tensor, uint32_t *dim);
-
-wasi_nn_error_t
-wasm_compute(WASI_NN_NAME(graph_execution_context) ctx);
-
-wasi_nn_error_t
-wasm_get_output(WASI_NN_NAME(graph_execution_context) ctx, uint32_t index, float *out_tensor,
-                uint32_t *out_size);
+wasm_get_output(WASI_NN_NAME(graph_execution_context) ctx, uint32_t index,
+                float *out_tensor, uint32_t *out_size);
 
 /* Utils */
 
 float *
-run_inference(float *input, uint32_t *input_size,
-              uint32_t *output_size, char *model_name,
-              uint32_t num_output_tensors);
+run_inference(float *input, uint32_t *input_size, uint32_t *output_size,
+              char *model_name, uint32_t num_output_tensors);
 
 input_info
 create_input(int *dims);
