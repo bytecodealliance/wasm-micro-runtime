@@ -797,36 +797,18 @@ wasm_runtime_instantiation_args_set_wasi_ns_lookup_pool(
     struct InstantiationArgs2 *p, const char *ns_lookup_pool[],
     uint32_t ns_lookup_pool_size);
 
-WASM_RUNTIME_API_EXTERN WASINNRegistry *
+WASM_RUNTIME_API_EXTERN struct WASINNRegistry *
 wasm_runtime_get_wasi_nn_registry(const wasm_module_inst_t module_inst);
 
-WASM_RUNTIME_API_EXTERN uint32_t
-wasm_runtime_get_wasi_nn_registry_ngraphs(
-    WASINNRegistry *wasi_nn_registry);
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_wasi_nn_registry(wasm_module_inst_t module_inst,
+                                   struct WASINNRegistry *wasi_ctx);
 
-WASM_RUNTIME_API_EXTERN char *
-wasm_runtime_get_wasi_nn_registry_model_names_i(
-    WASINNRegistry *wasi_nn_registry, uint32_t idx);
+WASM_RUNTIME_API_EXTERN int
+wasm_runtime_wasi_nn_registry_create(struct WASINNRegistry **registryp);
 
-WASM_RUNTIME_API_EXTERN char *
-wasm_runtime_get_wasi_nn_registry_graph_paths_i(
-    WASINNRegistry *wasi_nn_registry, uint32_t idx);
-
-WASM_RUNTIME_API_EXTERN uint32_t
-wasm_runtime_get_wasi_nn_registry_loaded_i(
-    WASINNRegistry *wasi_nn_registry, uint32_t idx);
-
-WASM_RUNTIME_API_EXTERN uint32_t
-wasm_runtime_set_wasi_nn_registry_loaded_i(
-    WASINNRegistry *wasi_nn_registry, uint32_t idx, uint32_t value);
-
-WASM_RUNTIME_API_EXTERN char *
-wasm_runtime_get_wasi_nn_registry_encoding_i(
-    WASINNRegistry *wasi_nn_registry, uint32_t idx);
-
-WASM_RUNTIME_API_EXTERN char *
-wasm_runtime_get_wasi_nn_registry_target_i(
-    WASINNRegistry *wasi_nn_registry, uint32_t idx);
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_wasi_nn_registry_destroy(struct WASINNRegistry *registry);
 
 /**
  * Instantiate a WASM module, with specified instantiation arguments

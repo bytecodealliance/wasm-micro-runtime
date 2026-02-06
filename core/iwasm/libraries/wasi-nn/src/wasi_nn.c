@@ -19,6 +19,7 @@
 #include "bh_platform.h"
 #include "wasi_nn_types.h"
 #include "wasm_export.h"
+#include "wasm_runtime_common.h"
 
 #if WASM_ENABLE_WASI_EPHEMERAL_NN == 0
 #warning You are using "wasi_nn", which is a legacy WAMR-specific ABI. It is deperecated and will likely be removed in future versions of WAMR. Please use "wasi_ephemeral_nn" instead. (For a WASM module, use the wasi_ephemeral_nn.h header instead. For the runtime configurations, enable WASM_ENABLE_WASI_EPHEMERAL_NN/WAMR_BUILD_WASI_EPHEMERAL_NN.)
@@ -618,27 +619,21 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
     bool is_loaded = false;
     uint32 model_idx = 0;
     uint32_t global_n_graphs =
-        wasm_runtime_get_wasi_nn_registry_ngraphs(wasi_nn_registry);
+        wasi_nn_registry->n_graphs;
     for (model_idx = 0; model_idx < global_n_graphs; model_idx++) {
-        char *model_name = wasm_runtime_get_wasi_nn_registry_model_names_i(
-            wasi_nn_registry, model_idx);
+        char *model_name = wasi_nn_registry->model_names[model_idx];
 
         if (model_name && strcmp(nul_terminated_name, model_name) != 0) {
             continue;
         }
 
-        is_loaded = wasm_runtime_get_wasi_nn_registry_loaded_i(
-            wasi_nn_registry, model_idx);
-        char *global_model_path_i =
-            wasm_runtime_get_wasi_nn_registry_graph_paths_i(
-                wasi_nn_registry, model_idx);
+        is_loaded = wasi_nn_registry->loaded[model_idx];
+        char *global_model_path_i = wasi_nn_registry->graph_paths[model_idx];
 
         graph_encoding encoding =
-            str2encoding(wasm_runtime_get_wasi_nn_registry_encoding_i(
-                wasi_nn_registry, model_idx));
+            str2encoding(wasi_nn_registry->encoding[model_idx]);
         execution_target target =
-            str2target(wasm_runtime_get_wasi_nn_registry_target_i(
-                wasi_nn_registry, model_idx));
+            str2target(wasi_nn_registry->target[model_idx]);
 
         // res = ensure_backend(instance, autodetect, wasi_nn_ctx);
         res = ensure_backend(instance, encoding, wasi_nn_ctx);
@@ -655,8 +650,7 @@ wasi_nn_load_by_name(wasm_exec_env_t exec_env, char *name, uint32_t name_len,
             if (res != success)
                 goto fail;
 
-            wasm_runtime_set_wasi_nn_registry_loaded_i(wasi_nn_registry,
-                                                         model_idx, 1);
+            wasi_nn_registry->loaded[model_idx] = 1;
             res = success;
             break;
         }

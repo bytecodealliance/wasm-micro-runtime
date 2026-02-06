@@ -1473,34 +1473,6 @@ wasm_runtime_get_wasi_nn_registry(WASMModuleInstanceCommon *module_inst_comm);
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_wasi_nn_registry(WASMModuleInstanceCommon *module_inst_comm,
                                     WASINNRegistry *wasi_nn_ctx);
-
-WASM_RUNTIME_API_EXTERN uint32_t
-wasm_runtime_get_wasi_nn_registry_ngraphs(
-    WASINNRegistry *wasi_nn_registry);
-
-WASM_RUNTIME_API_EXTERN char *
-wasm_runtime_get_wasi_nn_registry_model_names_i(
-    WASINNRegistry *wasi_nn_registry, uint32_t idx);
-
-WASM_RUNTIME_API_EXTERN char *
-wasm_runtime_get_wasi_nn_registry_graph_paths_i(
-    WASINNRegistry *wasi_nn_registry, uint32_t idx);
-
-WASM_RUNTIME_API_EXTERN uint32_t
-wasm_runtime_get_wasi_nn_registry_loaded_i(
-    WASINNRegistry *wasi_nn_registry, uint32_t idx);
-
-WASM_RUNTIME_API_EXTERN uint32_t
-wasm_runtime_set_wasi_nn_registry_loaded_i(
-    WASINNRegistry *wasi_nn_registry, uint32_t idx, uint32_t value);
-
-WASM_RUNTIME_API_EXTERN char *
-wasm_runtime_get_wasi_nn_registry_encoding_i(
-    WASINNRegistry *wasi_nn_registry, uint32_t idx);
-
-WASM_RUNTIME_API_EXTERN char *
-wasm_runtime_get_wasi_nn_registry_target_i(
-    WASINNRegistry *wasi_nn_registry, uint32_t idx);
 #endif
 
 #ifdef __cplusplus
