@@ -53,46 +53,6 @@ typedef enum wasi_nn_target {
     wasi_nn_unsupported_target,
 } wasi_nn_target;
 
-static wasi_nn_encoding
-str2encoding(char *str_encoding)
-{
-    if (!str_encoding) {
-        printf("Got empty string encoding");
-        return -1;
-    }
-
-    if (!strcmp(str_encoding, "openvino"))
-        return wasi_nn_openvino;
-    else if (!strcmp(str_encoding, "tensorflowlite"))
-        return wasi_nn_tensorflowlite;
-    else if (!strcmp(str_encoding, "ggml"))
-        return wasi_nn_ggml;
-    else if (!strcmp(str_encoding, "onnx"))
-        return wasi_nn_onnx;
-    else
-        return wasi_nn_unknown_backend;
-    // return autodetect;
-}
-
-static wasi_nn_target
-str2target(char *str_target)
-{
-    if (!str_target) {
-        printf("Got empty string target");
-        return -1;
-    }
-
-    if (!strcmp(str_target, "cpu"))
-        return wasi_nn_cpu;
-    else if (!strcmp(str_target, "gpu"))
-        return wasi_nn_gpu;
-    else if (!strcmp(str_target, "tpu"))
-        return wasi_nn_tpu;
-    else
-        return wasi_nn_unsupported_target;
-    // return autodetect;
-}
-
 static void
 libc_wasi_print_help(void)
 {
@@ -245,6 +205,46 @@ libc_wasi_set_init_args(struct InstantiationArgs2 *args, int argc, char **argv,
 }
 
 #if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+static wasi_nn_encoding
+str2encoding(char *str_encoding)
+{
+    if (!str_encoding) {
+        printf("Got empty string encoding");
+        return -1;
+    }
+
+    if (!strcmp(str_encoding, "openvino"))
+        return wasi_nn_openvino;
+    else if (!strcmp(str_encoding, "tensorflowlite"))
+        return wasi_nn_tensorflowlite;
+    else if (!strcmp(str_encoding, "ggml"))
+        return wasi_nn_ggml;
+    else if (!strcmp(str_encoding, "onnx"))
+        return wasi_nn_onnx;
+    else
+        return wasi_nn_unknown_backend;
+    // return autodetect;
+}
+
+static wasi_nn_target
+str2target(char *str_target)
+{
+    if (!str_target) {
+        printf("Got empty string target");
+        return -1;
+    }
+
+    if (!strcmp(str_target, "cpu"))
+        return wasi_nn_cpu;
+    else if (!strcmp(str_target, "gpu"))
+        return wasi_nn_gpu;
+    else if (!strcmp(str_target, "tpu"))
+        return wasi_nn_tpu;
+    else
+        return wasi_nn_unsupported_target;
+    // return autodetect;
+}
+
 libc_wasi_parse_result_t
 wasi_nn_parse(char **argv, wasi_nn_parse_context_t *ctx)
 {
