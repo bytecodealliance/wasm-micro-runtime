@@ -120,13 +120,15 @@ zephyr_fs_alloc_obj(bool is_dir, const char *path, int *index)
             ptr = &desc_array[i];
             ptr->used = true;
             ptr->is_dir = is_dir;
-            ptr->path = bh_strdup(path);
             ptr->dir_index = 0;
+            size_t path_len = strlen(path) + 1;
+            ptr->path = BH_MALLOC(path_len);
             if (ptr->path == NULL) {
                 ptr->used = false;
                 k_mutex_unlock(&desc_array_mutex);
                 return NULL;
             }
+            strcpy(ptr->path, path);
             *index = i + 3;
             break;
         }
@@ -851,10 +853,16 @@ os_renameat(os_file_handle old_handle, const char *old_path,
     for (int i = 0; i < CONFIG_WASI_MAX_OPEN_FILES; i++) {
         struct zephyr_fs_desc *ptr = &desc_array[i];
         if (ptr->used && ptr->path && strcmp(ptr->path, abs_old_path) == 0) {
-            char *new_path_copy = bh_strdup(new_path);
+            size_t new_path_len = strlen(abs_new_path) + 1;
+            char *new_path_copy = BH_MALLOC(new_path_len);
             if (new_path_copy != NULL) {
+                strcpy(new_path_copy, abs_new_path);
                 BH_FREE(ptr->path);
                 ptr->path = new_path_copy;
+            }
+            else {
+                k_mutex_unlock(&desc_array_mutex);
+                return __WASI_ENOMEM;
             }
             break; // Only one descriptor should match
         }
