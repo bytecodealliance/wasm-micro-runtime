@@ -10,6 +10,9 @@
 #include "../common/wasm_native.h"
 #include "../common/wasm_loader_common.h"
 #include "../compilation/aot.h"
+#if WASM_ENABLE_GC != 0
+#include "../common/gc/gc_type.h"
+#endif
 #if WASM_ENABLE_AOT_VALIDATOR != 0
 #include "aot_validator.h"
 #endif
@@ -1474,7 +1477,26 @@ load_import_table_list(const uint8 **p_buf, const uint8 *buf_end,
             read_uint32(buf, buf_end, ref_type.ref_ht_common.heap_type);
 
             ref_type.ref_type = import_table->table_type.elem_type;
-            /* TODO: check ref_type */
+            /* Validate heap_type: must be a valid type index or common heap
+             * type */
+            if (ref_type.ref_ht_common.heap_type >= 0) {
+                /* type index must be less than type_count */
+                if ((uint32)ref_type.ref_ht_common.heap_type
+                    >= module->type_count) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "unknown type: type index out of range");
+                    return false;
+                }
+            }
+            else {
+                /* common heap type must be valid */
+                if (!wasm_is_valid_heap_type(
+                        ref_type.ref_ht_common.heap_type)) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "unknown type: invalid heap type");
+                    return false;
+                }
+            }
             if (!(import_table->table_type.elem_ref_type =
                       wasm_reftype_set_insert(module->ref_type_set,
                                               &ref_type))) {
