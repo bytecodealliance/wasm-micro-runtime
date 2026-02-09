@@ -241,6 +241,11 @@ wasm_runtime_create_shared_heap(SharedHeapInitArgs *init_args)
     }
 
     size = align_uint(size, os_getpagesize());
+    if (size != init_args->size) {
+        LOG_WARNING("Shared heap size aligned from %u to %u", init_args->size,
+                    size);
+    }
+
     if (size > APP_HEAP_SIZE_MAX || size < APP_HEAP_SIZE_MIN) {
         LOG_WARNING("Invalid size of shared heap");
         goto fail2;

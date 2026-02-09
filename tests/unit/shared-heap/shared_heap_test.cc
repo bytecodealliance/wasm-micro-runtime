@@ -8,6 +8,7 @@
 
 #include "bh_read_file.h"
 #include "wasm_runtime_common.h"
+#include "bh_platform.h"
 
 #include <gtest/gtest-spi.h>
 
@@ -145,7 +146,7 @@ TEST_F(shared_heap_test, test_shared_heap_basic)
     WASMSharedHeap *shared_heap = nullptr;
     uint32 argv[1] = {};
 
-    args.size = 1024;
+    args.size = os_getpagesize();
     shared_heap = wasm_runtime_create_shared_heap(&args);
 
     if (!shared_heap) {
@@ -168,20 +169,23 @@ TEST_F(shared_heap_test, test_shared_heap_malloc_fail)
     WASMSharedHeap *shared_heap = nullptr;
     uint32 argv[1] = {};
 
-    args.size = 1024;
+    args.size = os_getpagesize();
     shared_heap = wasm_runtime_create_shared_heap(&args);
 
     if (!shared_heap) {
         FAIL() << "Failed to create shared heap";
     }
 
-    test_shared_heap(shared_heap, "test.wasm", "test_malloc_fail", 0, argv);
+    argv[0] = os_getpagesize();
+    test_shared_heap(shared_heap, "test.wasm", "test_malloc_fail", 1, argv);
     EXPECT_EQ(1, argv[0]);
 
-    test_shared_heap(shared_heap, "test.aot", "test_malloc_fail", 0, argv);
+    argv[0] = os_getpagesize();
+    test_shared_heap(shared_heap, "test.aot", "test_malloc_fail", 1, argv);
     EXPECT_EQ(1, argv[0]);
 
-    test_shared_heap(shared_heap, "test_chain.aot", "test_malloc_fail", 0,
+    argv[0] = os_getpagesize();
+    test_shared_heap(shared_heap, "test_chain.aot", "test_malloc_fail", 1,
                      argv);
     EXPECT_EQ(1, argv[0]);
 }
