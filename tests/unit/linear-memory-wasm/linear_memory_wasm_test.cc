@@ -133,23 +133,25 @@ destroy_module_env(struct ret_env module_env)
 TEST_F(TEST_SUITE_NAME, test_wasm_mem_page_count)
 {
     struct ret_env tmp_module_env;
-    unsigned int num_normal_wasm = 9;
-    unsigned int num_error_wasm = 10;
-    const char *wasm_file_normal[num_normal_wasm] = {
+    const char *wasm_file_normal[9] = {
         "/wasm_mem_page_01.wasm", "/wasm_mem_page_02.wasm",
         "/wasm_mem_page_05.wasm", "/wasm_mem_page_07.wasm",
         "/wasm_mem_page_08.wasm", "/wasm_mem_page_09.wasm",
         "/wasm_mem_page_10.wasm", "/wasm_mem_page_12.wasm",
         "/wasm_mem_page_14.wasm"
     };
+    unsigned int num_normal_wasm =
+        sizeof(wasm_file_normal) / sizeof(wasm_file_normal[0]);
 
-    const char *wasm_file_error[num_error_wasm] = {
+    const char *wasm_file_error[10] = {
         "/wasm_mem_page_03.wasm", "/wasm_mem_page_04.wasm",
         "/wasm_mem_page_06.wasm", "/wasm_mem_page_11.wasm",
         "/wasm_mem_page_13.wasm", "/wasm_mem_page_15.wasm",
         "/wasm_mem_page_16.wasm", "/wasm_mem_page_17.wasm",
         "/wasm_mem_page_18.wasm", "/wasm_mem_page_19.wasm"
     };
+    unsigned int num_error_wasm =
+        sizeof(wasm_file_error) / sizeof(wasm_file_error[0]);
 
     // Test normal wasm file.
     for (int i = 0; i < num_normal_wasm; i++) {
