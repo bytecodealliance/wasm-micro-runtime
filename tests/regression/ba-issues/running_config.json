@@ -1818,6 +1818,22 @@
                 "stdout content": "Exception: unsupported opcode",
                 "description": "classic-interp will exit gracefully when meeting simd opcodes"
             }
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                4703
+            ],
+            "runtime": "iwasm-multi-memory-multi-module",
+            "file": "single_page_memory.wasm",
+            "mode": "classic-interp",
+            "options": "--module-path=./issues/issue-4703",
+            "argument": "",
+            "expected return": {
+                "ret code": 1,
+                "stdout content": "Exception: out of bounds memory access",
+                "description": "when encounter memory OOB in sub-module when hardware bondary check is enabled, report exception correctly instead of silent exit"
+            }
         }
     ]
 }

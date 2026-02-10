@@ -3622,6 +3622,10 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
         return;
     }
 
+#if WASM_ENABLE_MULTI_MODULE != 0
+    jmpbuf_node.module_inst = (WASMModuleInstanceCommon *)module_inst;
+#endif
+
     wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
 
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
