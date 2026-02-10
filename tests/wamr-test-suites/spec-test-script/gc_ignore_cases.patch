@@ -138,10 +138,30 @@ index bc1cc324..14af14ae 100644
  (assert_return (invoke "call_imported_elem") (i32.const 42))
 +;;)
 diff --git a/test/core/gc/array.wast b/test/core/gc/array.wast
-index 6ad95c08..a184435d 100644
+index 6ad95c08..17672d33 100644
 --- a/test/core/gc/array.wast
 +++ b/test/core/gc/array.wast
-@@ -95,7 +95,10 @@
+@@ -7,7 +7,8 @@
+   (type (array i64))
+   (type (array f32))
+   (type (array f64))
+-  (type (array anyref))
++  ;; Disable because `anyref` in fileds of composite types is not supported yet
++  ;; (type (array anyref))
+   (type (array (ref struct)))
+   (type (array (ref 0)))
+   (type (array (ref null 1)))
+@@ -17,7 +18,8 @@
+   (type (array (mut i64)))
+   (type (array (mut i32)))
+   (type (array (mut i64)))
+-  (type (array (mut anyref)))
++  ;; Disable because `anyref` in fileds of composite types is not supported yet
++  ;; (type (array (mut anyref)))
+   (type (array (mut (ref struct))))
+   (type (array (mut (ref 0))))
+   (type (array (mut (ref null i31))))
+@@ -95,7 +97,10 @@
  )
  
  (assert_return (invoke "new") (ref.array))
@@ -153,7 +173,7 @@ index 6ad95c08..a184435d 100644
  (assert_return (invoke "get" (i32.const 0)) (f32.const 0))
  (assert_return (invoke "set_get" (i32.const 1) (f32.const 7)) (f32.const 7))
  (assert_return (invoke "len") (i32.const 3))
-@@ -140,7 +143,10 @@
+@@ -140,7 +145,10 @@
  )
  
  (assert_return (invoke "new") (ref.array))
@@ -165,7 +185,7 @@ index 6ad95c08..a184435d 100644
  (assert_return (invoke "get" (i32.const 0)) (f32.const 1))
  (assert_return (invoke "set_get" (i32.const 1) (f32.const 7)) (f32.const 7))
  (assert_return (invoke "len") (i32.const 2))
-@@ -192,7 +198,10 @@
+@@ -192,7 +200,10 @@
  )
  
  (assert_return (invoke "new") (ref.array))
@@ -177,7 +197,7 @@ index 6ad95c08..a184435d 100644
  (assert_return (invoke "get_u" (i32.const 2)) (i32.const 0xff))
  (assert_return (invoke "get_s" (i32.const 2)) (i32.const -1))
  (assert_return (invoke "set_get" (i32.const 1) (i32.const 7)) (i32.const 7))
-@@ -202,6 +211,7 @@
+@@ -202,6 +213,7 @@
  (assert_trap (invoke "get_s" (i32.const 10)) "out of bounds array access")
  (assert_trap (invoke "set_get" (i32.const 10) (i32.const 7)) "out of bounds array access")
  
@@ -185,7 +205,7 @@ index 6ad95c08..a184435d 100644
  (module
    (type $bvec (array i8))
    (type $vec (array (ref $bvec)))
-@@ -260,6 +270,7 @@
+@@ -260,6 +272,7 @@
  
  (assert_trap (invoke "get" (i32.const 10) (i32.const 0)) "out of bounds array access")
  (assert_trap (invoke "set_get" (i32.const 10) (i32.const 0) (i32.const 0)) "out of bounds array access")
@@ -309,6 +329,100 @@ index 6309e72b..39f35692 100644
  (assert_return (invoke "get" (i32.const 3)) (i32.const 789))
 + ;;
 + ;;)
+diff --git a/test/core/gc/struct.wast b/test/core/gc/struct.wast
+index 6151fe10..d501cd3c 100644
+--- a/test/core/gc/struct.wast
++++ b/test/core/gc/struct.wast
+@@ -6,8 +6,9 @@
+   (type (struct (field i8)))
+   (type (struct (field i8 i8 i8 i8)))
+   (type (struct (field $x1 i32) (field $y1 i32)))
+-  (type (struct (field i8 i16 i32 i64 f32 f64 anyref funcref (ref 0) (ref null 1))))
+-  (type (struct (field i32 i64 i8) (field) (field) (field (ref null i31) anyref)))
++  ;; Disable because `anyref` in fileds of composite types is not supported yet
++  ;; (type (struct (field i8 i16 i32 i64 f32 f64 anyref funcref (ref 0) (ref null 1))))
++  ;; (type (struct (field i32 i64 i8) (field) (field) (field (ref null i31) anyref)))
+   (type (struct (field $x2 i32) (field f32 f64) (field $y2 i32)))
+ )
+ 
+diff --git a/test/core/gc/type-subtyping.wast b/test/core/gc/type-subtyping.wast
+index f2b33d7c..a61560c2 100644
+--- a/test/core/gc/type-subtyping.wast
++++ b/test/core/gc/type-subtyping.wast
+@@ -4,7 +4,8 @@
+   (type $e0 (sub (array i32)))
+   (type $e1 (sub $e0 (array i32)))
+ 
+-  (type $e2 (sub (array anyref)))
++  ;; Disable because `anyref` in fileds of composite types is not supported yet
++  ;; (type $e2 (sub (array anyref)))
+   (type $e3 (sub (array (ref null $e0))))
+   (type $e4 (sub (array (ref $e1))))
+ 
+@@ -32,35 +33,36 @@
+ )
+ 
+ 
++;; Disable because `anyref` in fileds of composite types is not supported yet
+ ;; Recursive definitions
+ 
+-(module
+-  (type $t (sub (struct (field anyref))))
+-  (rec (type $r (sub $t (struct (field (ref $r))))))
+-  (type $t' (sub $r (struct (field (ref $r) i32))))
+-)
+-
+-(module
+-  (rec
+-    (type $r1 (sub (struct (field i32 (ref $r1)))))
+-  )
+-  (rec
+-    (type $r2 (sub $r1 (struct (field i32 (ref $r3)))))
+-    (type $r3 (sub $r1 (struct (field i32 (ref $r2)))))
+-  )
+-)
+-
+-(module
+-  (rec
+-    (type $a1 (sub (struct (field i32 (ref $a2)))))
+-    (type $a2 (sub (struct (field i64 (ref $a1)))))
+-  )
+-  (rec
+-    (type $b1 (sub $a2 (struct (field i64 (ref $a1) i32))))
+-    (type $b2 (sub $a1 (struct (field i32 (ref $a2) i32))))
+-    (type $b3 (sub $a2 (struct (field i64 (ref $b2) i32))))
+-  )
+-)
++;; (module
++;;   (type $t (sub (struct (field anyref))))
++;;   (rec (type $r (sub $t (struct (field (ref $r))))))
++;;   (type $t' (sub $r (struct (field (ref $r) i32))))
++;; )
++
++;; (module
++;;   (rec
++;;     (type $r1 (sub (struct (field i32 (ref $r1)))))
++;;   )
++;;   (rec
++;;     (type $r2 (sub $r1 (struct (field i32 (ref $r3)))))
++;;     (type $r3 (sub $r1 (struct (field i32 (ref $r2)))))
++;;   )
++;; )
++
++;; (module
++;;   (rec
++;;     (type $a1 (sub (struct (field i32 (ref $a2)))))
++;;     (type $a2 (sub (struct (field i64 (ref $a1)))))
++;;   )
++;;   (rec
++;;     (type $b1 (sub $a2 (struct (field i64 (ref $a1) i32))))
++;;     (type $b2 (sub $a1 (struct (field i32 (ref $a2) i32))))
++;;     (type $b3 (sub $a2 (struct (field i64 (ref $b2) i32))))
++;;   )
++;; )
+ 
+ 
+ ;; Subsumption
 diff --git a/test/core/global.wast b/test/core/global.wast
 index 8c47fde2..8d3d8228 100644
 --- a/test/core/global.wast
