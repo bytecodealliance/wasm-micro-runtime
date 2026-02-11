@@ -2742,6 +2742,12 @@ load_text_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
     /* The layout is: literal size + literal + code (with plt table) */
     read_uint32(buf, buf_end, module->literal_size);
 
+    if (module->literal_size > (uint32)(buf_end - buf)) {
+        set_error_buf(error_buf, error_buf_size,
+                      "invalid literal size: too large for section body");
+        return false;
+    }
+
     /* literal data is at beginning of the text section */
     module->literal = (uint8 *)buf;
     module->code = (void *)(buf + module->literal_size);
