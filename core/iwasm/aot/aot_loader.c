@@ -3228,7 +3228,7 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
         if (!strncmp(symbol, AOT_FUNC_PREFIX, strlen(AOT_FUNC_PREFIX))) {
             p = symbol + strlen(AOT_FUNC_PREFIX);
             if (*p == '\0'
-                || (func_index = (uint32)atoi(p)) > module->func_count) {
+                || (func_index = (uint32)atoi(p)) >= module->func_count) {
                 set_error_buf_v(error_buf, error_buf_size,
                                 "invalid import symbol %s", symbol);
                 goto check_symbol_fail;
@@ -3262,7 +3262,7 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                           strlen("_" AOT_FUNC_PREFIX))) {
             p = symbol + strlen("_" AOT_FUNC_PREFIX);
             if (*p == '\0'
-                || (func_index = (uint32)atoi(p)) > module->func_count) {
+                || (func_index = (uint32)atoi(p)) >= module->func_count) {
                 set_error_buf_v(error_buf, error_buf_size, "invalid symbol %s",
                                 symbol);
                 goto check_symbol_fail;
@@ -3273,7 +3273,7 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                           strlen("_" AOT_FUNC_INTERNAL_PREFIX))) {
             p = symbol + strlen("_" AOT_FUNC_INTERNAL_PREFIX);
             if (*p == '\0'
-                || (func_index = (uint32)atoi(p)) > module->func_count) {
+                || (func_index = (uint32)atoi(p)) >= module->func_count) {
                 set_error_buf_v(error_buf, error_buf_size, "invalid symbol %s",
                                 symbol);
                 goto check_symbol_fail;
@@ -3463,7 +3463,7 @@ do_data_relocation(AOTModule *module, AOTRelocationGroup *group,
             char *p = symbol + strlen(AOT_FUNC_PREFIX);
             uint32 func_index;
             if (*p == '\0'
-                || (func_index = (uint32)atoi(p)) > module->func_count) {
+                || (func_index = (uint32)atoi(p)) >= module->func_count) {
                 set_error_buf_v(error_buf, error_buf_size,
                                 "invalid relocation symbol %s", symbol);
                 return false;
