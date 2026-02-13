@@ -29,8 +29,6 @@ static bh_list cluster_list_head;
 static bh_list *const cluster_list = &cluster_list_head;
 static korp_mutex cluster_list_lock;
 
-static korp_mutex _exception_lock;
-
 typedef void (*list_visitor)(void *, void *);
 
 static uint32 cluster_max_thread_num = CLUSTER_MAX_THREAD_NUM;
@@ -51,10 +49,6 @@ thread_manager_init()
         return false;
     if (os_mutex_init(&cluster_list_lock) != 0)
         return false;
-    if (os_mutex_init(&_exception_lock) != 0) {
-        os_mutex_destroy(&cluster_list_lock);
-        return false;
-    }
     return true;
 }
 
@@ -69,7 +63,6 @@ thread_manager_destroy()
         cluster = next;
     }
     wasm_cluster_cancel_all_callbacks();
-    os_mutex_destroy(&_exception_lock);
     os_mutex_destroy(&cluster_list_lock);
 }
 
@@ -1537,22 +1530,31 @@ wasm_cluster_is_thread_terminated(WASMExecEnv *exec_env)
     return is_thread_terminated;
 }
 
+static WASMModuleInstanceExtraCommon *
+GetModuleinstanceCommon(WASMModuleInstance *module_inst)
+{
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return &((AOTModuleInstanceExtra *)module_inst->e)->common;
+    }
+    else {
+        return &module_inst->e->common;
+    }
+#else
+    return &module_inst->e->common;
+#endif
+}
+
 void
 exception_lock(WASMModuleInstance *module_inst)
 {
-    /*
-     * Note: this lock could be per module instance if desirable.
-     * We can revisit on AOT version bump.
-     * It probably doesn't matter though because the exception handling
-     * logic should not be executed too frequently anyway.
-     */
-    os_mutex_lock(&_exception_lock);
+    os_mutex_lock(&GetModuleinstanceCommon(module_inst)->exception_lock);
 }
 
 void
 exception_unlock(WASMModuleInstance *module_inst)
 {
-    os_mutex_unlock(&_exception_lock);
+    os_mutex_unlock(&GetModuleinstanceCommon(module_inst)->exception_lock);
 }
 
 void
