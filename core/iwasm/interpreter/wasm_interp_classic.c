@@ -1715,11 +1715,24 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 exception_tag_index = *((uint32 *)tgtframe_sp);
                 tgtframe_sp++;
 
-                /* get tag type */
-                uint8 tag_type_index =
-                    module->module->tags[exception_tag_index]->type;
-                uint32 cell_num_to_copy =
-                    wasm_types[tag_type_index]->param_cell_num;
+                uint32 cell_num_to_copy = 0;
+
+                if (IS_INVALID_TAGINDEX(exception_tag_index)) {
+                    /*
+                     * Cross-module exception with unknown tag.
+                     * No parameters to copy - just re-throw with
+                     * the invalid tag index so find_a_catch_handler
+                     * routes it to CATCH_ALL.
+                     */
+                    cell_num_to_copy = 0;
+                }
+                else {
+                    /* get tag type */
+                    uint8 tag_type_index =
+                        module->module->tags[exception_tag_index]->type;
+                    cell_num_to_copy =
+                        wasm_types[tag_type_index]->param_cell_num;
+                }
 
                 /* move exception parameters (if there are any) onto top
                  * of stack */
