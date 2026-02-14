@@ -3,6 +3,9 @@
 # Reference:
 #   https://cc-enabling.trustedservices.intel.com/intel-sgx-sw-installation-guide-linux/02/installation_instructions/#intel-sgx-application-developer
 
+#TODO:
+# report error when curl fails to download files, e.g. due to network issues or incorrect URLs
+
 set -euo pipefail
 if [ "${DEBUG:-0}" -eq 1 ]; then
   set -o xtrace
@@ -15,7 +18,7 @@ error_handler() {
     local bash_lineno=${2:-$BASH_LINENO}
     local last_command=${3:-$BASH_COMMAND}
     local function_stack=${4:-${FUNCNAME[*]}}
-    
+
     # Log error context to file
     {
         echo "=== ERROR OCCURRED ==="
@@ -27,17 +30,17 @@ error_handler() {
         echo "Timestamp: $(date '+%Y-%m-%d %H:%M:%S')"
         echo "======================"
     } >> "${LOG_FILE:-/tmp/install_sgx.log}" 2>/dev/null || true
-    
+
     # Print concise error to stderr
     echo "ERROR: Script failed at line $line_number with exit code $exit_code" >&2
     echo "Failed command: $last_command" >&2
     echo "Check log file: ${LOG_FILE:-/tmp/install_sgx.log}" >&2
-    
+
     # Call cleanup function if it exists
     if type cleanup >/dev/null 2>&1; then
         cleanup || true
     fi
-    
+
     exit $exit_code
 }
 
@@ -45,7 +48,7 @@ error_handler() {
 trap 'error_handler $LINENO $BASH_LINENO "$BASH_COMMAND" "${FUNCNAME[*]}"' ERR
 
 # Platform will be detected dynamically by platform_detect() function
-# Supported platforms: Debian12, Debian11, Ubuntu22.04-server, Ubuntu20.04-server  
+# Supported platforms: Debian12, Debian11, Ubuntu22.04-server, Ubuntu20.04-server
 PLATFORM=""
 
 # Logging infrastructure
@@ -74,22 +77,22 @@ log_exec() {
 # Print environment sourcing instructions
 print_env_instructions() {
     log_info "Printing environment setup instructions"
-    
+
     echo "========================================================================"
     echo "  IMPORTANT: Before building or running SGX applications, you must run:"
     echo "      source /opt/intel/sgxsdk/environment"
     echo "  in your current shell to activate SGX SDK environment variables."
     echo "========================================================================"
-    
+
     log_info "Environment setup instructions displayed to user"
 }
 
 check_sgx_packages() {
     log_info "Checking for existing SGX packages..."
-    
+
     local packages=("libsgx-quote-ex" "libsgx-dcap-ql" "libsgx-enclave-common-dev" "libsgx-dcap-ql-dev" "libsgx-dcap-default-qpl-dev" "tee-appraisal-tool")
     local missing_packages=()
-    
+
     for package in "${packages[@]}"; do
         if ! dpkg -l "$package" >> "${LOG_FILE}" 2>&1; then
             missing_packages+=("$package")
@@ -98,7 +101,7 @@ check_sgx_packages() {
             log_info "Package $package already installed"
         fi
     done
-    
+
     if [ ${#missing_packages[@]} -eq 0 ]; then
         log_info "All SGX packages are already installed"
         return 0
@@ -110,10 +113,10 @@ check_sgx_packages() {
 
 check_sgx_sdk() {
     log_info "Checking for existing SGX SDK..."
-    
+
     if [ -d "/opt/intel/sgxsdk" ] && [ -f "/opt/intel/sgxsdk/environment" ]; then
         log_info "SGX SDK already installed at /opt/intel/sgxsdk"
-        
+
         # Validate SDK installation by checking key components
         if [ -f "/opt/intel/sgxsdk/bin/sgx-gdb" ] && [ -d "/opt/intel/sgxsdk/include" ]; then
             log_info "SGX SDK installation appears complete"
@@ -130,7 +133,7 @@ check_sgx_sdk() {
 
 check_sgx_repo() {
     log_info "Checking for existing SGX local repository..."
-    
+
     if [ -d "/opt/intel/sgx_debian_local_repo" ] && [ -f "/etc/apt/sources.list.d/sgx_debian_local_repo.list" ]; then
         log_info "SGX local repository already configured"
         return 0
@@ -145,20 +148,20 @@ check_sgx_repo() {
 # Platform detection and configuration
 platform_detect() {
     log_info "Entering platform_detect() function"
-    
+
     if [ ! -f "/etc/os-release" ]; then
         log_info "ERROR: /etc/os-release not found - cannot detect OS"
         echo "ERROR: Cannot detect operating system. /etc/os-release not found." >&2
         log_info "Exiting platform_detect() function"
         return 1
     fi
-    
+
     # Parse OS information from /etc/os-release
     local os_id=$(grep '^ID=' /etc/os-release | cut -d'=' -f2 | tr -d '"')
     local version_id=$(grep '^VERSION_ID=' /etc/os-release | cut -d'=' -f2 | tr -d '"')
-    
+
     log_info "Raw OS detection: ID=${os_id}, VERSION_ID=${version_id}"
-    
+
     # Determine platform string based on OS and version
     case "${os_id}" in
         "ubuntu")
@@ -200,10 +203,10 @@ platform_detect() {
             return 1
             ;;
     esac
-    
+
     log_info "Successfully detected platform: ${PLATFORM}"
     echo "Detected platform: ${PLATFORM}"
-    
+
     log_info "Exiting platform_detect() function"
     return 0
 }
@@ -211,11 +214,11 @@ platform_detect() {
 # Install SGX packages and SDK
 install_packages() {
     log_info "Entering install_packages() function"
-    
+
     # Skip repo setup if already configured
     if ! check_sgx_repo; then
         log_info "Setting up SGX local repository..."
-        
+
         pushd /tmp >> "${LOG_FILE}" 2>&1
         log_exec curl -fsSLO \
             https://download.01.org/intel-sgx/latest/linux-latest/distro/${PLATFORM}/sgx_debian_local_repo.tgz
@@ -257,7 +260,7 @@ install_packages() {
     # Install Intel SGX SDK only if missing
     if ! check_sgx_sdk; then
         log_info "Installing Intel SGX SDK for Application Developer..."
-        
+
         pushd /opt/intel >> "${LOG_FILE}" 2>&1
         log_exec sudo curl -fsSLo sgx_linux_x64_sdk.bin \
             https://download.01.org/intel-sgx/latest/linux-latest/distro/${PLATFORM}/sgx_linux_x64_sdk_2.27.100.1.bin
@@ -279,7 +282,7 @@ install_packages() {
     # Install Developer packages for Intel SGX only if missing
     if ! check_sgx_packages; then
         log_info "Installing Intel SGX Developer packages..."
-        
+
         log_exec sudo apt-get install -y libsgx-enclave-common-dev \
             libsgx-dcap-ql-dev \
             libsgx-dcap-default-qpl-dev \
@@ -287,7 +290,7 @@ install_packages() {
     else
         log_info "SGX Developer packages already installed, skipping"
     fi
-    
+
     log_info "Exiting install_packages() function"
     return 0
 }
@@ -295,25 +298,25 @@ install_packages() {
 # Validate the installation was successful
 validate_installation() {
     log_info "Entering validate_installation() function"
-    
+
     local validation_failed=0
-    
+
     # Re-check all components after installation
     if ! check_sgx_packages; then
         log_info "VALIDATION FAILED: SGX packages not properly installed"
         validation_failed=1
     fi
-    
+
     if ! check_sgx_sdk; then
         log_info "VALIDATION FAILED: SGX SDK not properly installed"
         validation_failed=1
     fi
-    
+
     if ! check_sgx_repo; then
         log_info "VALIDATION FAILED: SGX repository not properly configured"
         validation_failed=1
     fi
-    
+
     if [ $validation_failed -eq 0 ]; then
         log_info "VALIDATION SUCCESS: All SGX components properly installed"
     else
@@ -321,7 +324,7 @@ validate_installation() {
         log_info "Exiting validate_installation() function"
         return 1
     fi
-    
+
     log_info "Exiting validate_installation() function"
     return 0
 }
@@ -329,16 +332,16 @@ validate_installation() {
 # Clean up temporary files
 cleanup() {
     log_info "Entering cleanup() function"
-    
+
     # Clean up any temporary files in /tmp related to SGX installation
     if [ -f "/tmp/sgx_debian_local_repo.tgz" ]; then
         log_info "Removing temporary SGX repository archive"
         rm -f /tmp/sgx_debian_local_repo.tgz
     fi
-    
+
     # Additional cleanup can be added here as needed
     log_info "Temporary file cleanup completed"
-    
+
     log_info "Exiting cleanup() function"
     return 0
 }
