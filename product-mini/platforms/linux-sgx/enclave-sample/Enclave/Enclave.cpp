@@ -81,7 +81,7 @@ static EnclaveModule *enclave_module_list = NULL;
 static korp_mutex enclave_module_list_lock = OS_THREAD_MUTEX_INITIALIZER;
 #endif
 
-/* SECURITY FIX: Handle table for secure EnclaveModule reference management */
+/* Handle table for secure EnclaveModule reference management */
 #define MAX_MODULES 128
 typedef struct HandleTableEntry {
     uint32 id;
@@ -93,7 +93,7 @@ static HandleTableEntry module_table[MAX_MODULES] = { 0 };
 static uint32 next_module_id = 1;
 static korp_mutex module_table_lock = OS_THREAD_MUTEX_INITIALIZER;
 
-/* SECURITY: Allocate secure handle for EnclaveModule, preventing pointer
+/* : Allocate secure handle for EnclaveModule, preventing pointer
  * exposure */
 static uint32
 allocate_module_handle(EnclaveModule *module)
@@ -124,8 +124,7 @@ allocate_module_handle(EnclaveModule *module)
     return handle_id;
 }
 
-/* SECURITY: Lookup EnclaveModule by handle ID, preventing direct pointer access
- */
+/* Lookup EnclaveModule by handle ID, preventing direct pointer access */
 static EnclaveModule *
 lookup_module_by_handle(uint32 handle_id)
 {
@@ -148,8 +147,24 @@ lookup_module_by_handle(uint32 handle_id)
     return module;
 }
 
-/* SECURITY FIX: Handle table for secure wasm_module_inst_t reference management
- */
+static void
+release_module_handle(uint32 handle_id)
+{
+    os_mutex_lock(&module_table_lock);
+
+    for (uint32 i = 0; i < MAX_MODULES; i++) {
+        if (module_table[i].in_use && module_table[i].id == handle_id) {
+            module_table[i].id = 0;
+            module_table[i].module_ref = NULL;
+            module_table[i].in_use = false;
+            break;
+        }
+    }
+
+    os_mutex_unlock(&module_table_lock);
+}
+
+/* Handle table for secure wasm_module_inst_t reference management */
 #define MAX_INSTANCES 128
 typedef struct InstanceTableEntry {
     uint32 id;
@@ -161,8 +176,7 @@ static InstanceTableEntry instance_table[MAX_INSTANCES] = { 0 };
 static uint32 next_instance_id = 1;
 static korp_mutex instance_table_lock = OS_THREAD_MUTEX_INITIALIZER;
 
-/* SECURITY: Allocate secure handle for wasm_module_inst_t, preventing pointer
- * exposure */
+/*Allocate secure handle for wasm_module_inst_t, preventing pointer exposure */
 static uint32
 allocate_instance_handle(wasm_module_inst_t inst)
 {
@@ -213,6 +227,23 @@ lookup_instance_by_handle(uint32 handle_id)
     os_mutex_unlock(&instance_table_lock);
 
     return inst;
+}
+
+static void
+release_instance_handle(uint32 handle_id)
+{
+    os_mutex_lock(&instance_table_lock);
+
+    for (uint32 i = 0; i < MAX_INSTANCES; i++) {
+        if (instance_table[i].in_use && instance_table[i].id == handle_id) {
+            instance_table[i].id = 0;
+            instance_table[i].inst_ref = NULL;
+            instance_table[i].in_use = false;
+            break;
+        }
+    }
+
+    os_mutex_unlock(&instance_table_lock);
 }
 
 #if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
@@ -411,7 +442,6 @@ handle_cmd_load_module(uint64 *args, uint32 argc)
         return;
     }
 
-    /* SECURITY FIX: Return secure handle ID instead of direct pointer */
     uint32 enclave_module_id = allocate_module_handle(enclave_module);
     if (enclave_module_id == 0) {
         /* Handle table full - cleanup and return error */
@@ -444,7 +474,8 @@ handle_cmd_load_module(uint64 *args, uint32 argc)
 static void
 handle_cmd_unload_module(uint64 *args, uint32 argc)
 {
-    EnclaveModule *enclave_module = *(EnclaveModule **)args++;
+    uint32 module_handle_id = *(uint32 *)args++;
+    EnclaveModule *enclave_module = lookup_module_by_handle(module_handle_id);
 
     bh_assert(argc == 1);
 
@@ -472,6 +503,9 @@ handle_cmd_unload_module(uint64 *args, uint32 argc)
 
     os_mutex_unlock(&enclave_module_list_lock);
 #endif
+
+    /* Release module handle */
+    release_module_handle(module_handle_id);
 
     /* Destroy enclave module resources */
     if (enclave_module->wasi_arg_buf)
@@ -513,8 +547,6 @@ static void
 handle_cmd_instantiate_module(uint64 *args, uint32 argc)
 {
     uint64 *args_org = args;
-    /* SECURITY FIX: Use handle lookup instead of direct pointer from untrusted
-     * host */
     uint32 module_handle_id = *(uint32 *)args++;
     EnclaveModule *enclave_module = lookup_module_by_handle(module_handle_id);
     uint32 stack_size = *(uint32 *)args++;
@@ -537,7 +569,6 @@ handle_cmd_instantiate_module(uint64 *args, uint32 argc)
         return;
     }
 
-    /* SECURITY FIX: Return secure handle ID instead of direct pointer */
     uint32 instance_id = allocate_instance_handle(module_inst);
     if (instance_id == 0) {
         wasm_runtime_deinstantiate(module_inst);
@@ -552,7 +583,9 @@ handle_cmd_instantiate_module(uint64 *args, uint32 argc)
 static void
 handle_cmd_deinstantiate_module(uint64 *args, uint32 argc)
 {
-    wasm_module_inst_t module_inst = *(wasm_module_inst_t *)args++;
+    uint32 instance_handle_id = *(uint32 *)args++;
+    wasm_module_inst_t module_inst =
+        lookup_instance_by_handle(instance_handle_id);
 
     bh_assert(argc == 1);
 
@@ -562,6 +595,8 @@ handle_cmd_deinstantiate_module(uint64 *args, uint32 argc)
 
     wasm_runtime_deinstantiate(module_inst);
 
+    release_instance_handle(instance_handle_id);
+
     LOG_VERBOSE("Deinstantiate module success.\n");
 }
 
@@ -569,7 +604,9 @@ static void
 handle_cmd_get_exception(uint64 *args, uint32 argc)
 {
     uint64 *args_org = args;
-    wasm_module_inst_t module_inst = *(wasm_module_inst_t *)args++;
+    uint32 instance_handle_id = *(uint32 *)args++;
+    wasm_module_inst_t module_inst =
+        lookup_instance_by_handle(instance_handle_id);
     char *exception = *(char **)args++;
     uint32 exception_size = *(uint32 *)args++;
     const char *exception1;
@@ -593,7 +630,9 @@ handle_cmd_get_exception(uint64 *args, uint32 argc)
 static void
 handle_cmd_exec_app_main(uint64 *args, int32 argc)
 {
-    wasm_module_inst_t module_inst = *(wasm_module_inst_t *)args++;
+    uint32 instance_handle_id = *(uint32 *)args++;
+    wasm_module_inst_t module_inst =
+        lookup_instance_by_handle(instance_handle_id);
     uint32 app_argc = *(uint32 *)args++;
     char **app_argv = NULL;
     uint64 total_size;
@@ -626,7 +665,9 @@ handle_cmd_exec_app_main(uint64 *args, int32 argc)
 static void
 handle_cmd_exec_app_func(uint64 *args, int32 argc)
 {
-    wasm_module_inst_t module_inst = *(wasm_module_inst_t *)args++;
+    uint32 instance_handle_id = *(uint32 *)args++;
+    wasm_module_inst_t module_inst =
+        lookup_instance_by_handle(instance_handle_id);
     char *func_name = *(char **)args++;
     uint32 app_argc = *(uint32 *)args++;
     char **app_argv = NULL;
@@ -670,7 +711,6 @@ static void
 handle_cmd_set_wasi_args(uint64 *args, int32 argc)
 {
     uint64 *args_org = args;
-    /* SECURITY FIX: Use handle lookup instead of direct pointer from host */
     uint32 module_handle_id = *(uint32 *)args++;
     EnclaveModule *enclave_module = lookup_module_by_handle(module_handle_id);
     char **dir_list = *(char ***)args++;
@@ -695,7 +735,7 @@ handle_cmd_set_wasi_args(uint64 *args, int32 argc)
         return;
     }
 
-    /* SECURITY FIX: Validate all pointer arrays before use */
+    /* Validate all pointer arrays before use */
     if (dir_list_size > 0
         && (!dir_list
             || !sgx_is_outside_enclave(dir_list,
@@ -893,18 +933,23 @@ void
 ecall_handle_command(unsigned cmd, unsigned char *cmd_buf,
                      unsigned cmd_buf_size)
 {
-    /* SECURITY FIX: Validate buffer before processing */
-    if (!cmd_buf || cmd_buf_size < sizeof(uint64)) {
+    /*
+     * Validate buffer before processing
+     * cmd_buf can be NULL if cmd_buf_size is 0, but if cmd_buf_size is
+     * non-zero, cmd_buf must be valid
+     */
+    if ((!cmd_buf && cmd_buf_size > 0) || (cmd_buf && cmd_buf_size == 0)) {
         int bytes_written = 0;
         ocall_print(&bytes_written,
                     "SECURITY ERROR: Invalid buffer parameters\n");
         return;
     }
 
-    if (!sgx_is_outside_enclave(cmd_buf, cmd_buf_size)) {
+    // Because of [in, out] cmd_buf in edl, it is allocated inside enclave.
+    if (cmd_buf && sgx_is_outside_enclave(cmd_buf, cmd_buf_size)) {
         int bytes_written = 0;
         ocall_print(&bytes_written,
-                    "SECURITY ERROR: Buffer not outside enclave\n");
+                    "SECURITY ERROR: Buffer should be inside enclave\n");
         return;
     }
 
@@ -917,6 +962,8 @@ ecall_handle_command(unsigned cmd, unsigned char *cmd_buf,
 
     uint64 *args = (uint64 *)cmd_buf;
     uint32 argc = cmd_buf_size / sizeof(uint64);
+
+    LOG_VERBOSE("Received command %d with %u arguments.\n", cmd, argc);
 
     switch (cmd) {
         case CMD_INIT_RUNTIME:
