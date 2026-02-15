@@ -290,6 +290,7 @@ typedef struct InstantiationArgs {
 #endif /* INSTANTIATION_ARGS_OPTION_DEFINED */
 
 struct InstantiationArgs2;
+typedef struct WASINNRegistry WASINNRegistry;
 
 #ifndef WASM_VALKIND_T_DEFINED
 #define WASM_VALKIND_T_DEFINED
@@ -795,6 +796,19 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_instantiation_args_set_wasi_ns_lookup_pool(
     struct InstantiationArgs2 *p, const char *ns_lookup_pool[],
     uint32_t ns_lookup_pool_size);
+
+WASM_RUNTIME_API_EXTERN struct WASINNRegistry *
+wasm_runtime_get_wasi_nn_registry(const wasm_module_inst_t module_inst);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_wasi_nn_registry(wasm_module_inst_t module_inst,
+                                  struct WASINNRegistry *wasi_ctx);
+
+WASM_RUNTIME_API_EXTERN int
+wasm_runtime_wasi_nn_registry_create(struct WASINNRegistry **registryp);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_wasi_nn_registry_destroy(struct WASINNRegistry *registry);
 
 /**
  * Instantiate a WASM module, with specified instantiation arguments

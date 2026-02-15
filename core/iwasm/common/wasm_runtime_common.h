@@ -545,6 +545,18 @@ typedef struct WASMModuleInstMemConsumption {
     uint32 exports_size;
 } WASMModuleInstMemConsumption;
 
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+typedef struct WASINNRegistry {
+    char **model_names;
+    uint32_t **encoding;
+    uint32_t **target;
+
+    uint32_t n_graphs;
+    uint32_t **loaded;
+    char **graph_paths;
+} WASINNRegistry;
+#endif
+
 #if WASM_ENABLE_LIBC_WASI != 0
 #if WASM_ENABLE_UVWASI == 0
 typedef struct WASIContext {
@@ -612,10 +624,21 @@ WASMExecEnv *
 wasm_runtime_get_exec_env_tls(void);
 #endif
 
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+WASM_RUNTIME_API_EXTERN int
+wasm_runtime_wasi_nn_registry_create(WASINNRegistry **registryp);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_wasi_nn_registry_destroy(WASINNRegistry *registry);
+#endif
+
 struct InstantiationArgs2 {
     InstantiationArgs v1;
 #if WASM_ENABLE_LIBC_WASI != 0
     WASIArguments wasi;
+#endif
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+    WASINNRegistry nn_registry;
 #endif
 };
 
@@ -774,6 +797,20 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_instantiation_args_set_wasi_ns_lookup_pool(
     struct InstantiationArgs2 *p, const char *ns_lookup_pool[],
     uint32 ns_lookup_pool_size);
+
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_instantiation_args_set_wasi_nn_registry(
+    struct InstantiationArgs2 *p, WASINNRegistry *registry);
+
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_wasi_nn_registry_set_args(WASINNRegistry *registry,
+                                       const char **model_names,
+                                       const uint32_t **encoding,
+                                       const uint32_t **target,
+                                       uint32_t n_graphs,
+                                       const char **graph_paths);
+#endif
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN WASMModuleInstanceCommon *
@@ -1425,6 +1462,19 @@ wasm_runtime_check_and_update_last_used_shared_heap(
     WASMModuleInstanceCommon *module_inst, uintptr_t app_offset, size_t bytes,
     uintptr_t *shared_heap_start_off_p, uintptr_t *shared_heap_end_off_p,
     uint8 **shared_heap_base_addr_adj_p, bool is_memory64);
+#endif
+
+#if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_wasi_nn_registry(WASMModuleInstanceCommon *module_inst,
+                                  WASINNRegistry *wasi_ctx);
+
+WASM_RUNTIME_API_EXTERN WASINNRegistry *
+wasm_runtime_get_wasi_nn_registry(WASMModuleInstanceCommon *module_inst_comm);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_wasi_nn_registry(WASMModuleInstanceCommon *module_inst_comm,
+                                  WASINNRegistry *wasi_nn_ctx);
 #endif
 
 #ifdef __cplusplus

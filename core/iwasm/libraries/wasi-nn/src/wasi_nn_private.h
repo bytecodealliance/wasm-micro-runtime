@@ -21,7 +21,8 @@ typedef struct {
 
 typedef wasi_nn_error (*LOAD)(void *, graph_builder_array *, graph_encoding,
                               execution_target, graph *);
-typedef wasi_nn_error (*LOAD_BY_NAME)(void *, const char *, uint32_t, graph *);
+typedef wasi_nn_error (*LOAD_BY_NAME)(void *, const char *, uint32_t,
+                                      execution_target, graph *);
 typedef wasi_nn_error (*LOAD_BY_NAME_WITH_CONFIG)(void *, const char *,
                                                   uint32_t, void *, uint32_t,
                                                   graph *);

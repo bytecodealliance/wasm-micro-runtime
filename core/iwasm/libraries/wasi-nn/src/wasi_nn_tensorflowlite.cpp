@@ -165,7 +165,7 @@ load(void *tflite_ctx, graph_builder_array *builder, graph_encoding encoding,
 
 __attribute__((visibility("default"))) wasi_nn_error
 load_by_name(void *tflite_ctx, const char *filename, uint32_t filename_len,
-             graph *g)
+             execution_target target, graph *g)
 {
     TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
 
@@ -183,7 +183,7 @@ load_by_name(void *tflite_ctx, const char *filename, uint32_t filename_len,
     }
 
     // Use CPU as default
-    tfl_ctx->models[*g].target = cpu;
+    tfl_ctx->models[*g].target = target;
     return success;
 }
 
