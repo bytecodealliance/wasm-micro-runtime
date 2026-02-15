@@ -8,7 +8,8 @@
   <ReservedMemExecutable>1</ReservedMemExecutable>
   <TCSNum>10</TCSNum>
   <TCSPolicy>1</TCSPolicy>
-  <DisableDebug>0</DisableDebug>
+  <!-- Debug mode disabled for production enclave security -->
+  <DisableDebug>1</DisableDebug>
   <MiscSelect>0</MiscSelect>
   <MiscMask>0xFFFFFFFF</MiscMask>
 </EnclaveConfiguration>
