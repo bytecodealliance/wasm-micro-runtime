@@ -47,7 +47,8 @@ if(NOT DEFINED WAMR_BUILD_SIMD)
 endif()
 
 set(WAMR_BUILD_REF_TYPES 1)
-set(WAMR_BUILD_GC 1)
+# disable it since it is not fully supported
+set(WAMR_BUILD_GC 0)
 
 include(${REPO_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 include(${REPO_ROOT_DIR}/core/shared/utils/uncommon/shared_uncommon.cmake)
