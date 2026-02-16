@@ -58,5 +58,6 @@ target_include_directories(vmlib PUBLIC ${RUNTIME_LIB_HEADER_LIST})
 target_link_directories(vmlib PUBLIC ${RUNTIME_LIB_LINK_LIST})
 target_link_libraries(vmlib PUBLIC ${REQUIRED_LLVM_LIBS})
 
-add_executable(wasm_mutator_fuzz wasm_mutator_fuzz.cc)
+add_executable(wasm_mutator_fuzz wasm_mutator_fuzz.cc ../common/fuzzer_common.cc)
+target_include_directories(wasm_mutator_fuzz PRIVATE ../common)
 target_link_libraries(wasm_mutator_fuzz PRIVATE vmlib m)

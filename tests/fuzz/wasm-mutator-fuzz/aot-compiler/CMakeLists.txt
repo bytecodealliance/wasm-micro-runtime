@@ -61,5 +61,6 @@ target_link_directories(aotclib PUBLIC ${LLVM_LIBRARY_DIR})
 
 target_link_libraries(aotclib PUBLIC ${REQUIRED_LLVM_LIBS})
 
-add_executable(aot_compiler_fuzz aot_compiler_fuzz.cc)
+add_executable(aot_compiler_fuzz aot_compiler_fuzz.cc ../common/fuzzer_common.cc)
+target_include_directories(aot_compiler_fuzz PRIVATE ../common)
 target_link_libraries(aot_compiler_fuzz PRIVATE stdc++ aotclib)
