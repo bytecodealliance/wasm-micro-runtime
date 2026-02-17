@@ -698,21 +698,18 @@ os_socket_get_linger(bh_socket_t socket, bool *is_enabled, int *linger_s)
     return BHT_ERROR;
 }
 
-// TCP_NODELAY Disable TCP buffering (ignored, for compatibility)
 int
 os_socket_set_tcp_no_delay(bh_socket_t socket, bool is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    return os_socket_setbooloption(socket, IPPROTO_TCP, TCP_NODELAY,
+                                   is_enabled);
 }
 
 int
 os_socket_get_tcp_no_delay(bh_socket_t socket, bool *is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    return os_socket_getbooloption(socket, IPPROTO_TCP, TCP_NODELAY,
+                                   is_enabled);
 }
 
 int
@@ -861,17 +858,37 @@ os_socket_get_tcp_fastopen_connect(bh_socket_t socket, bool *is_enabled)
 int
 os_socket_set_ip_multicast_loop(bh_socket_t socket, bool ipv6, bool is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    if (ipv6) {
+#ifdef IPPROTO_IPV6
+        return os_socket_setbooloption(socket, IPPROTO_IPV6,
+                                       IPV6_MULTICAST_LOOP, is_enabled);
+#else
+        errno = EAFNOSUPPORT;
+        return BHT_ERROR;
+#endif
+    }
+    else {
+        return os_socket_setbooloption(socket, IPPROTO_IP, IP_MULTICAST_LOOP,
+                                       is_enabled);
+    }
 }
 
 int
 os_socket_get_ip_multicast_loop(bh_socket_t socket, bool ipv6, bool *is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    if (ipv6) {
+#ifdef IPPROTO_IPV6
+        return os_socket_getbooloption(socket, IPPROTO_IPV6,
+                                       IPV6_MULTICAST_LOOP, is_enabled);
+#else
+        errno = EAFNOSUPPORT;
+        return BHT_ERROR;
+#endif
+    }
+    else {
+        return os_socket_getbooloption(socket, IPPROTO_IP, IP_MULTICAST_LOOP,
+                                       is_enabled);
+    }
 }
 
 int
