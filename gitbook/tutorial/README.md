@@ -1,6 +1,6 @@
 # Tutorial
 
-In this chapter, we want to walk you through the basic development knowledge and skills of WARM you may need so that you are ready to write your wasm application with WARM.
+In this chapter, we want to walk you through the basic development knowledge and skills of WAMR you may need so that you are ready to write your wasm application with WAMR.
 
 For starters, you could learn how to compile different running mode of WAMR and their usage in [this section](build-tutorial/README.md).
 
