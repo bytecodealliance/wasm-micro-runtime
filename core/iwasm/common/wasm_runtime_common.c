@@ -418,9 +418,7 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
 #ifdef BH_PLATFORM_WINDOWS
 static PVOID runtime_exception_handler_handle = NULL;
 static int32 runtime_exception_handler_ref_count = 0;
-#if defined(OS_THREAD_MUTEX_INITIALIZER)
-static korp_mutex runtime_exception_handler_lock = OS_THREAD_MUTEX_INITIALIZER;
-#endif
+static korp_mutex runtime_exception_handler_lock = NULL;
 #endif
 
 static bool
@@ -429,14 +427,10 @@ runtime_signal_init()
 #ifndef BH_PLATFORM_WINDOWS
     return os_thread_signal_init(runtime_signal_handler) == 0 ? true : false;
 #else
-#if defined(OS_THREAD_MUTEX_INITIALIZER)
     os_mutex_lock(&runtime_exception_handler_lock);
-#endif
 
     if (os_thread_signal_init() != 0) {
-#if defined(OS_THREAD_MUTEX_INITIALIZER)
         os_mutex_unlock(&runtime_exception_handler_lock);
-#endif
         return false;
     }
 
@@ -447,17 +441,13 @@ runtime_signal_init()
 
     if (!runtime_exception_handler_handle) {
         os_thread_signal_destroy();
-#if defined(OS_THREAD_MUTEX_INITIALIZER)
         os_mutex_unlock(&runtime_exception_handler_lock);
-#endif
         return false;
     }
 
     runtime_exception_handler_ref_count++;
 
-#if defined(OS_THREAD_MUTEX_INITIALIZER)
     os_mutex_unlock(&runtime_exception_handler_lock);
-#endif
 #endif
     return true;
 }
@@ -466,9 +456,7 @@ static void
 runtime_signal_destroy()
 {
 #ifdef BH_PLATFORM_WINDOWS
-#if defined(OS_THREAD_MUTEX_INITIALIZER)
     os_mutex_lock(&runtime_exception_handler_lock);
-#endif
 
     if (runtime_exception_handler_ref_count > 0) {
         runtime_exception_handler_ref_count--;
@@ -486,9 +474,7 @@ runtime_signal_destroy()
         }
     }
 
-#if defined(OS_THREAD_MUTEX_INITIALIZER)
     os_mutex_unlock(&runtime_exception_handler_lock);
-#endif
 #endif
     os_thread_signal_destroy();
 }
