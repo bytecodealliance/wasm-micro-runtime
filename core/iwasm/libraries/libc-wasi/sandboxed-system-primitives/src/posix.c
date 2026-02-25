@@ -2585,7 +2585,7 @@ wasi_ssp_sock_connect(wasm_exec_env_t exec_env, struct fd_table *curfds,
         return __WASI_EACCES;
     }
 
-    error = fd_object_get(curfds, &fo, fd, __WASI_RIGHT_SOCK_BIND, 0);
+    error = fd_object_get(curfds, &fo, fd, __WASI_RIGHT_SOCK_CONNECT, 0);
     if (error != __WASI_ESUCCESS) {
         return error;
     }
