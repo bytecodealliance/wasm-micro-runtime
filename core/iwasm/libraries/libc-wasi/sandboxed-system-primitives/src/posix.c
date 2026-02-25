@@ -74,6 +74,9 @@ ns_lookup_list_search(char **list, const char *host)
 {
     size_t host_len = strlen(host), suffix_len;
 
+    if (!list)
+        return false;
+
     while (*list) {
         if (*list[0] == '*') {
             suffix_len = strlen(*list) - 1;
