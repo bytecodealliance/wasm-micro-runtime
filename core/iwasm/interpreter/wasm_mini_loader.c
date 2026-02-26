@@ -2030,20 +2030,9 @@ load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
 #endif /* WASM_ENABLE_BULK_MEMORY */
             {
 #if WASM_ENABLE_MEMORY64 != 0
-                /* This memory_flag is from memory instead of data segment */
-                uint8 memory_flag;
-                if (module->import_memory_count > 0) {
-                    memory_flag = module->import_memories[mem_index]
-                                      .u.memory.mem_type.flags;
-                }
-                else {
-                    memory_flag =
-                        module
-                            ->memories[mem_index - module->import_memory_count]
-                            .flags;
-                }
-                mem_offset_type = memory_flag & MEMORY64_FLAG ? VALUE_TYPE_I64
-                                                              : VALUE_TYPE_I32;
+                mem_offset_type = has_module_memory64(module)
+                                      ? VALUE_TYPE_I64
+                                      : VALUE_TYPE_I32;
 #else
                 mem_offset_type = VALUE_TYPE_I32;
 #endif /* WASM_ENABLE_MEMORY64 */
