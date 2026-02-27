@@ -5157,9 +5157,8 @@ load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
 #endif
             {
 #if WASM_ENABLE_MEMORY64 != 0
-                mem_offset_type = has_module_memory64(module)
-                                      ? VALUE_TYPE_I64
-                                      : VALUE_TYPE_I32;
+                mem_offset_type = has_module_memory64(module) ? VALUE_TYPE_I64
+                                                              : VALUE_TYPE_I32;
 #else
                 mem_offset_type = VALUE_TYPE_I32;
 #endif
