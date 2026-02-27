@@ -94,9 +94,7 @@ TEST_F(ExceptionHandlingTest, load_module_with_exception_handling)
     wasm_module_t module = wasm_runtime_load(
         wasm_eh, sizeof(wasm_eh), error_buf, sizeof(error_buf));
 
-    if (!module) {
-        GTEST_SKIP() << "Module load failed: " << error_buf;
-    }
+    ASSERT_NE(module, nullptr) << "Module load failed: " << error_buf;
 
     wasm_module_inst_t inst = wasm_runtime_instantiate(
         module, 8192, 8192, error_buf, sizeof(error_buf));
@@ -111,11 +109,8 @@ TEST_F(ExceptionHandlingTest, load_module_with_exception_handling)
     ASSERT_NE(exec_env, nullptr) << "Failed to create exec env";
 
     bool ok = wasm_runtime_call_wasm(exec_env, func, 0, NULL);
-    if (!ok) {
-        const char *exception = wasm_runtime_get_exception(inst);
-        EXPECT_NE(exception, nullptr)
-            << "Call failed but no exception was set";
-    }
+    ASSERT_TRUE(ok) << "wasm_runtime_call_wasm failed: "
+                    << wasm_runtime_get_exception(inst);
 
     wasm_runtime_destroy_exec_env(exec_env);
     wasm_runtime_deinstantiate(inst);
