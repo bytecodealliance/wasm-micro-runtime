@@ -82,8 +82,8 @@ TEST_F(ExceptionHandlingTest, load_module_with_exception_handling)
         /* Export: "f" = func 0 */
         0x07, 0x05, 0x01, 0x01, 0x66, 0x00, 0x00,
         /* Code section */
-        0x0A, 0x09, 0x01,
-        0x07, 0x00,       /* body size=7, 0 locals */
+        0x0A, 0x08, 0x01,
+        0x06, 0x00,       /* body size=6, 0 locals */
         0x06, 0x40,       /* try (void) */
         0x19,             /* catch_all */
         0x0B,             /* end try */
