@@ -19,6 +19,15 @@ extern "C" {
 
 #define EXCEPTION_BUF_LEN 128
 
+/* Test visibility macro for internal functions */
+#ifndef WASM_RUNTIME_API_INTER
+#ifdef WAMR_BUILD_TEST
+#define WASM_RUNTIME_API_INTER
+#else
+#define WASM_RUNTIME_API_INTER static
+#endif
+#endif
+
 typedef struct WASMModuleInstance WASMModuleInstance;
 typedef struct WASMFunctionInstance WASMFunctionInstance;
 typedef struct WASMMemoryInstance WASMMemoryInstance;

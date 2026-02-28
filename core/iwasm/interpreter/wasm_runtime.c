@@ -31,7 +31,7 @@
 #include "../aot/aot_runtime.h"
 #endif
 
-static void
+WASM_RUNTIME_API_INTER void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
     if (error_buf != NULL) {
@@ -40,7 +40,7 @@ set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
     }
 }
 
-static void
+WASM_RUNTIME_API_INTER void
 set_error_buf_v(char *error_buf, uint32 error_buf_size, const char *format, ...)
 {
     va_list args;
