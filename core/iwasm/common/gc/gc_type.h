@@ -379,6 +379,47 @@ wasm_reftype_set_create(uint32 size);
 WASMRefType *
 wasm_reftype_set_insert(HashMap *ref_type_set, const WASMRefType *ref_type);
 
+static inline bool
+wasm_val_is_struct(WASMValueWithType *value, const WASMTypePtr *types,
+                   uint32 type_count)
+{
+    if (!value) {
+        return false; 
+    }
+
+    if (!wasm_is_type_reftype(value->type)) {
+        return false;
+    }
+
+    /*
+     * WASMStructInitValue and WASMArrayInitValue both use REF_TYPE_HT_NULLABLE
+     * as their type field.
+     * if in future, value->type uses other type, need to check more conditions
+     * here
+     */
+    return wasm_reftype_is_subtype_of(REF_TYPE_HT_NULLABLE, &value->ref_type,
+                                      REF_TYPE_STRUCTREF, NULL, types,
+                                      type_count);
+}
+
+static inline bool
+wasm_val_is_array(WASMValueWithType *value, const WASMTypePtr *types,
+                  uint32 type_count)
+{
+    if (!value) {
+        return false; 
+    }
+    /*
+     * WASMStructInitValue and WASMArrayInitValue both use REF_TYPE_HT_NULLABLE
+     * as their type field.
+     * if in future, value->type uses other type, need to check more conditions
+     * here
+     */
+    return wasm_reftype_is_subtype_of(REF_TYPE_HT_NULLABLE, &value->ref_type,
+                                      REF_TYPE_ARRAYREF, NULL, types,
+                                      type_count);
+}
+
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif

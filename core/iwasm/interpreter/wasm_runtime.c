@@ -1050,7 +1050,7 @@ instantiate_struct_global_recursive(WASMModule *module,
                 WASMType *wasm_type;
                 int32 heap_type =
                     ref_type_map->ref_type->ref_ht_common.heap_type;
-                WASMValue *wasm_value = &init_values->fields[field_idx];
+                WASMValue *wasm_value = &init_values->fields[field_idx].value;
                 WASMValue field_value = { 0 };
 
                 bh_assert(heap_type >= 0);
@@ -1097,7 +1097,7 @@ instantiate_struct_global_recursive(WASMModule *module,
             }
             else {
                 wasm_struct_obj_set_field(struct_obj, field_idx,
-                                          &init_values->fields[field_idx]);
+                                          &init_values->fields[field_idx].value);
             }
             if (wasm_is_type_multi_byte_type(field_type)) {
                 ref_type_map++;
@@ -1157,7 +1157,7 @@ instantiate_array_global_recursive(WASMModule *module,
 
         for (elem_idx = 0; elem_idx < len; elem_idx++) {
             wasm_array_obj_set_elem(array_obj, elem_idx,
-                                    &init_values->elem_data[elem_idx]);
+                                    &init_values->elem_data[elem_idx].value);
         }
     }
 
@@ -3200,7 +3200,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                         len = init_values->length;
 
                         if (flag == INIT_EXPR_TYPE_ARRAY_NEW_FIXED) {
-                            arr_init_val = init_values->elem_data;
+                            arr_init_val = &init_values->elem_data->value;
                         }
                     }
 
