@@ -623,8 +623,15 @@ get_output(void *ctx, graph_execution_context exec_ctx, uint32_t index,
             printf("%s\n", output_metadata);
         }
 
-        memcpy(output_tensor->buf, output_metadata, strlen(output_metadata));
-        *output_tensor_size = strlen(output_metadata);
+        size_t metadata_len = strlen(output_metadata);
+        if (metadata_len > output_tensor->size) {
+            NN_ERR_PRINTF("Output buffer too small for metadata: "
+                          "need %zu, got %zu",
+                          metadata_len, output_tensor->size);
+            return too_large;
+        }
+        memcpy(output_tensor->buf, output_metadata, metadata_len);
+        *output_tensor_size = metadata_len;
         return success;
     }
 
@@ -643,8 +650,15 @@ get_output(void *ctx, graph_execution_context exec_ctx, uint32_t index,
             printf("%s", buf);
         }
 
-        memcpy(output_tensor->buf + end_pos, buf, strlen(buf));
-        end_pos += strlen(buf);
+        size_t piece_len = strlen(buf);
+        if (end_pos + piece_len > output_tensor->size) {
+            NN_ERR_PRINTF("Output buffer too small: need at least %zu,"
+                          " got %zu",
+                          end_pos + piece_len, output_tensor->size);
+            return too_large;
+        }
+        memcpy(output_tensor->buf + end_pos, buf, piece_len);
+        end_pos += piece_len;
     }
 
     if (backend_ctx->config.stream_stdout) {
