@@ -51,7 +51,7 @@ jobs:
       #CLARIFY: Require to upload artifact on ARM macOS?
       - name: Upload artifacts
         if: matrix.os == 'macos-15'
-        uses: actions/upload-artifact@v6.0.0
+        uses: actions/upload-artifact@v7.0.0
         with:
           name: wamr-wasi-extensions
           path: wamr-wasi-extensions/dist
