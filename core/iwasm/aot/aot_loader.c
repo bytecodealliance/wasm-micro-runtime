@@ -3868,12 +3868,11 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
                 read_uint64(buf, buf_end, relocation->relocation_addend);
             }
             else {
-                uint32 offset32;
-                int32 addend32;
+                uint32 offset32, addend32;
                 read_uint32(buf, buf_end, offset32);
                 relocation->relocation_offset = (uint64)offset32;
                 read_uint32(buf, buf_end, addend32);
-                relocation->relocation_addend = (int64)addend32;
+                relocation->relocation_addend = (int64)(int32)addend32;
             }
             read_uint32(buf, buf_end, relocation->relocation_type);
             read_uint32(buf, buf_end, symbol_index);
