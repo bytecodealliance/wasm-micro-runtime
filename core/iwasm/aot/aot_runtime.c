@@ -4176,7 +4176,8 @@ aot_alloc_tiny_frame(WASMExecEnv *exec_env, uint32 func_index)
 {
     AOTTinyFrame *new_frame = (AOTTinyFrame *)exec_env->wasm_stack.top;
 
-    if ((uint8 *)new_frame > exec_env->wasm_stack.top_boundary) {
+    if ((uint8 *)new_frame + sizeof(AOTTinyFrame)
+        > exec_env->wasm_stack.top_boundary) {
         aot_set_exception((WASMModuleInstance *)exec_env->module_inst,
                           "wasm operand stack overflow");
         return false;
