@@ -1465,10 +1465,6 @@ wasm_runtime_check_and_update_last_used_shared_heap(
 #endif
 
 #if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
-WASM_RUNTIME_API_EXTERN void
-wasm_runtime_set_wasi_nn_registry(WASMModuleInstanceCommon *module_inst,
-                                  WASINNRegistry *wasi_ctx);
-
 WASM_RUNTIME_API_EXTERN WASINNRegistry *
 wasm_runtime_get_wasi_nn_registry(WASMModuleInstanceCommon *module_inst_comm);
 

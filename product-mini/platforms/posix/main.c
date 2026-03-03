@@ -1019,7 +1019,7 @@ main(int argc, char *argv[])
 
 #if WASM_ENABLE_WASI_NN != 0 || WASM_ENABLE_WASI_EPHEMERAL_NN != 0
     wasm_runtime_wasi_nn_registry_create(&nn_registry);
-    wasi_nn_set_init_args(inst_args, nn_registry, &wasi_nn_parse_ctx);
+    wasi_nn_set_inst_args(inst_args, nn_registry, &wasi_nn_parse_ctx);
     wasm_runtime_set_wasi_nn_registry(wasm_module_inst, nn_registry);
 #endif
     wasm_runtime_instantiation_args_destroy(inst_args);

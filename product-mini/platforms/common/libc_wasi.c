@@ -300,7 +300,7 @@ fail:
 }
 
 static void
-wasi_nn_set_init_args(struct InstantiationArgs2 *args,
+wasi_nn_set_inst_args(struct InstantiationArgs2 *args,
                       struct WASINNRegistry *nn_registry,
                       wasi_nn_parse_context_t *ctx)
 {
