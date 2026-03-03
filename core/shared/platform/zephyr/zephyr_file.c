@@ -594,8 +594,9 @@ os_preadv(os_file_handle handle, const struct __wasi_iovec_t *iov, int iovcnt,
 
         total_read += bytes_read;
 
-        // If we read less than we asked for, stop reading
-        if (bytes_read < iov[i].buf_len) {
+        /*  If we read less than we asked for, stop reading
+            bytes_read being a non-negative value was already checked */
+        if ((size_t)bytes_read < iov[i].buf_len) {
             break;
         }
     }
@@ -630,8 +631,9 @@ os_pwritev(os_file_handle handle, const struct __wasi_ciovec_t *iov, int iovcnt,
 
         total_written += bytes_written;
 
-        // If we wrote less than we asked for, stop writing
-        if (bytes_written < iov[i].buf_len) {
+        /*  If we wrote less than we asked for, stop writing
+            bytes_read being a non-negative value was already checked */
+        if ((size_t)bytes_written < iov[i].buf_len) {
             break;
         }
     }
@@ -660,8 +662,9 @@ os_readv(os_file_handle handle, const struct __wasi_iovec_t *iov, int iovcnt,
 
         total_read += bytes_read;
 
-        // If we read less than we asked for, stop reading
-        if (bytes_read < iov[i].buf_len) {
+        /*  If we read less than we asked for, stop reading
+            bytes_read being a non-negative value was already checked */
+        if ((size_t)bytes_read < iov[i].buf_len) {
             break;
         }
     }
@@ -705,8 +708,9 @@ os_writev(os_file_handle handle, const struct __wasi_ciovec_t *iov, int iovcnt,
 
         total_written += bytes_written;
 
-        // If we wrote less than we asked for, stop writing
-        if (bytes_written < iov[i].buf_len) {
+        /*  If we wrote less than we asked for, stop writing
+            bytes_read being a non-negative value was already checked */
+        if ((size_t)bytes_written < iov[i].buf_len) {
             break;
         }
     }
