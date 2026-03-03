@@ -262,7 +262,7 @@ TEST_F(shared_heap_test, test_preallocated_shared_runtime_api)
     }
 
     size = (uint64_t)UINT32_MAX + 0x2000;
-    printf("offset %lx size: %lx\n", offset, size);
+    printf("offset %llx size: %llx\n", offset, size);
     ASSERT_EQ(false, wasm_runtime_validate_app_addr(
                          tmp_module_env.wasm_module_inst, offset, size));
 
@@ -1336,7 +1336,7 @@ TEST_F(shared_heap_test, test_shared_heap_chain_addr_conv_oob)
         FAIL() << "Failed to register natives";
     }
 
-    args.size = 4096;
+    args.size = os_getpagesize();
     shared_heap = wasm_runtime_create_shared_heap(&args);
     if (!shared_heap) {
         FAIL() << "Failed to create shared heap";
@@ -1358,14 +1358,14 @@ TEST_F(shared_heap_test, test_shared_heap_chain_addr_conv_oob)
     }
 
     /* test wasm */
-    argv[0] = 0xFFFFFFFF - BUF_SIZE - 4096;
+    argv[0] = 0xFFFFFFFF - BUF_SIZE - os_getpagesize();
     EXPECT_NONFATAL_FAILURE(test_shared_heap(shared_heap_chain,
                                              "test_addr_conv.wasm",
                                              "test_preallocated", 1, argv),
                             "Exception: out of bounds memory access");
 
     /* test aot */
-    argv[0] = 0xFFFFFFFF - BUF_SIZE - 4096;
+    argv[0] = 0xFFFFFFFF - BUF_SIZE - os_getpagesize();
     EXPECT_NONFATAL_FAILURE(test_shared_heap(shared_heap_chain,
                                              "test_addr_conv_chain.aot",
                                              "test_preallocated", 1, argv),
