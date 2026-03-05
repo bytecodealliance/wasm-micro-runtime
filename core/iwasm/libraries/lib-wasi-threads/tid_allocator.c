@@ -8,7 +8,10 @@
 #include "bh_log.h"
 
 bh_static_assert(TID_MIN <= TID_MAX);
+/* Some platforms, like Zephyr, have already defined MIN at this point */
+#ifndef MIN
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#endif
 
 bool
 tid_allocator_init(TidAllocator *tid_allocator)
