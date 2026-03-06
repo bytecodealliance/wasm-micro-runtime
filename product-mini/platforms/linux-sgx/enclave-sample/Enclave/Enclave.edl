@@ -18,6 +18,7 @@ enclave {
     from "sgx_tprotected_fs.edl" import *;
 #endif
 
+    //TODO: replace void with an int as error code
     trusted {
         /* define ECALLs here. */
         public void ecall_handle_command(unsigned cmd,
