@@ -1,9 +1,7 @@
 // Copyright (C) 2019 Intel Corporation. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include "wasm_runtime_common.h"
 #include "wasm_export.h"
-#include "bh_read_file.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
