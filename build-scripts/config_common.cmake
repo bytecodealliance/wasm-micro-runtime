@@ -196,7 +196,8 @@ if (NOT WAMR_BUILD_SANITIZER STREQUAL "")
     message(FATAL_ERROR "Unsupported sanitizers: ${INVALID_SANITIZERS}")
   endif()
   # common flags for all sanitizers
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -fno-omit-frame-pointer -fno-sanitize-recover=all -fno-sanitize=alignment")
+  # clang: warning: the object size sanitizer has no effect at -O0, but is explicitly enabled ... [-Winvalid-command-line-argument]
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O1 -fno-omit-frame-pointer -fno-sanitize-recover=all -fno-sanitize=alignment")
   if(CMAKE_C_COMPILER_ID MATCHES ".*Clang")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-sanitize=unsigned-integer-overflow")
   endif()

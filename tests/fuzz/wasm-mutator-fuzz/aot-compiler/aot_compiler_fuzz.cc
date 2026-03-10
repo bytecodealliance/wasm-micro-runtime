@@ -11,6 +11,7 @@
 #include "aot_export.h"
 #include "wasm_export.h"
 #include "bh_read_file.h"
+#include "../common/fuzzer_common.h"
 
 static void
 handle_aot_recent_error(const char *tag)
@@ -26,32 +27,39 @@ handle_aot_recent_error(const char *tag)
 extern "C" int
 LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size)
 {
+    char kTargetArch[] = "x86_64";
+    char kTargetAbi[] = "gnu";
     wasm_module_t module = NULL;
-    char error_buf[128] = { 0 };
+    char error_buf[ERROR_BUF_SIZE] = { 0 };
     AOTCompOption option = { 0 };
     aot_comp_data_t comp_data = NULL;
     aot_comp_context_t comp_ctx = NULL;
+    uint8 *aot_file_buf = NULL;
+    uint32 aot_file_size = 0;
+    wasm_module_t aot_module = NULL;
+    wasm_module_inst_t inst = NULL;
 
-    /* libfuzzer don't allow to modify the given Data, so make a copy here */
-    std::vector<uint8_t> myData(Data, Data + Size);
-
+    /* libfuzzer don't allow to modify the given Data, but get_package_type and
+     * wasm_runtime_load only read the data, so we can safely use const_cast */
     if (Size >= 4
-        && get_package_type(myData.data(), Size) != Wasm_Module_Bytecode) {
+        && get_package_type(const_cast<uint8_t *>(Data), Size)
+               != Wasm_Module_Bytecode) {
         printf("Invalid wasm file: magic header not detected\n");
         return 0;
     }
 
     wasm_runtime_init();
 
-    module = wasm_runtime_load((uint8_t *)myData.data(), Size, error_buf, 120);
+    module = wasm_runtime_load(const_cast<uint8_t *>(Data), Size, error_buf,
+                               MAX_ERROR_BUF_SIZE);
     if (!module) {
         std::cout << "[LOADING] " << error_buf << std::endl;
         goto DESTROY_RUNTIME;
     }
 
     // TODO: target_arch and other fields
-    option.target_arch = "x86_64";
-    option.target_abi = "gnu";
+    option.target_arch = kTargetArch;
+    option.target_abi = kTargetAbi;
     option.enable_bulk_memory = true;
     option.enable_thread_mgr = true;
     option.enable_tail_call = true;
@@ -78,6 +86,34 @@ LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size)
         goto DESTROY_COMP_CTX;
     }
 
+    aot_file_buf = aot_emit_aot_file_buf(comp_ctx, comp_data, &aot_file_size);
+    if (!aot_file_buf) {
+        handle_aot_recent_error("[EMITTING AOT FILE]");
+        goto DESTROY_COMP_CTX;
+    }
+
+    aot_module = wasm_runtime_load(aot_file_buf, aot_file_size, error_buf,
+                                   ERROR_BUF_SIZE);
+    if (!aot_module) {
+        std::cout << "[LOADING AOT MODULE] " << error_buf << std::endl;
+        goto RELEASE_AOT_FILE_BUF;
+    }
+
+    inst = wasm_runtime_instantiate(aot_module, 1024 * 8, 0, error_buf,
+                                    ERROR_BUF_SIZE);
+    if (!inst) {
+        std::cout << "[INSTANTIATING AOT MODULE] " << error_buf << std::endl;
+        goto UNLOAD_AOT_MODULE;
+    }
+
+    execute_export_functions(module, inst);
+
+DEINSTANTIZE_AOT_MODULE:
+    wasm_runtime_deinstantiate(inst);
+UNLOAD_AOT_MODULE:
+    wasm_runtime_unload(aot_module);
+RELEASE_AOT_FILE_BUF:
+    wasm_runtime_free(aot_file_buf);
 DESTROY_COMP_CTX:
     aot_destroy_comp_context(comp_ctx);
 DESTROY_COMP_DATA:

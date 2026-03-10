@@ -47,7 +47,8 @@ if(NOT DEFINED WAMR_BUILD_SIMD)
 endif()
 
 set(WAMR_BUILD_REF_TYPES 1)
-set(WAMR_BUILD_GC 1)
+# disable it since it is not fully supported
+set(WAMR_BUILD_GC 0)
 
 include(${REPO_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 include(${REPO_ROOT_DIR}/core/shared/utils/uncommon/shared_uncommon.cmake)
@@ -57,5 +58,6 @@ target_include_directories(vmlib PUBLIC ${RUNTIME_LIB_HEADER_LIST})
 target_link_directories(vmlib PUBLIC ${RUNTIME_LIB_LINK_LIST})
 target_link_libraries(vmlib PUBLIC ${REQUIRED_LLVM_LIBS})
 
-add_executable(wasm_mutator_fuzz wasm_mutator_fuzz.cc)
+add_executable(wasm_mutator_fuzz wasm_mutator_fuzz.cc ../common/fuzzer_common.cc)
+target_include_directories(wasm_mutator_fuzz PRIVATE ../common)
 target_link_libraries(wasm_mutator_fuzz PRIVATE vmlib m)

@@ -1,12 +1,6 @@
 # Copyright (C) 2025 Intel Corporation. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-# Set default build options with the ability to override from the command line
-if(NOT WAMR_BUILD_INTERP)
-  set(WAMR_BUILD_INTERP 1)
-endif()
-
-set(WAMR_BUILD_WAMR_COMPILER 1)
 set(WAMR_BUILD_AOT 0)
 set(WAMR_BUILD_INTERP 1)
 set(WAMR_BUILD_JIT 0)
@@ -67,5 +61,6 @@ target_link_directories(aotclib PUBLIC ${LLVM_LIBRARY_DIR})
 
 target_link_libraries(aotclib PUBLIC ${REQUIRED_LLVM_LIBS})
 
-add_executable(aot_compiler_fuzz aot_compiler_fuzz.cc)
+add_executable(aot_compiler_fuzz aot_compiler_fuzz.cc ../common/fuzzer_common.cc)
+target_include_directories(aot_compiler_fuzz PRIVATE ../common)
 target_link_libraries(aot_compiler_fuzz PRIVATE stdc++ aotclib)
