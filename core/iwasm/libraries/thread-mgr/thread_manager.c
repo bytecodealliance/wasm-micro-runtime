@@ -1530,31 +1530,16 @@ wasm_cluster_is_thread_terminated(WASMExecEnv *exec_env)
     return is_thread_terminated;
 }
 
-static WASMModuleInstanceExtraCommon *
-GetModuleinstanceCommon(WASMModuleInstance *module_inst)
-{
-#if WASM_ENABLE_AOT != 0
-    if (module_inst->module_type == Wasm_Module_AoT) {
-        return &((AOTModuleInstanceExtra *)module_inst->e)->common;
-    }
-    else {
-        return &module_inst->e->common;
-    }
-#else
-    return &module_inst->e->common;
-#endif
-}
-
 void
 exception_lock(WASMModuleInstance *module_inst)
 {
-    os_mutex_lock(&GetModuleinstanceCommon(module_inst)->exception_lock);
+    os_mutex_lock(&GetModuleInstanceExtraCommon(module_inst)->exception_lock);
 }
 
 void
 exception_unlock(WASMModuleInstance *module_inst)
 {
-    os_mutex_unlock(&GetModuleinstanceCommon(module_inst)->exception_lock);
+    os_mutex_unlock(&GetModuleInstanceExtraCommon(module_inst)->exception_lock);
 }
 
 void
