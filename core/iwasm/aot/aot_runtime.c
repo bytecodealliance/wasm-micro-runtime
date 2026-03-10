@@ -4333,6 +4333,7 @@ aot_copy_callstack_tiny_frame(WASMExecEnv *exec_env, WASMCApiFrame *buffer,
 
     AOTTinyFrame *frame = (AOTTinyFrame *)(top - sizeof(AOTTinyFrame));
     WASMCApiFrame record_frame;
+    memset(&record_frame, 0, sizeof(WASMCApiFrame));
     while (frame && (uint8_t *)frame >= bottom && count < (skip_n + length)) {
         if (count < skip_n) {
             ++count;
@@ -4375,6 +4376,7 @@ aot_copy_callstack_standard_frame(WASMExecEnv *exec_env, WASMCApiFrame *buffer,
     uint32 frame_size = (uint32)offsetof(AOTFrame, lp);
 
     WASMCApiFrame record_frame;
+    memset(&record_frame, 0, sizeof(WASMCApiFrame));
     while (cur_frame && (uint8_t *)cur_frame >= bottom
            && (uint8_t *)cur_frame + frame_size <= top_boundary
            && count < (skip_n + length)) {
