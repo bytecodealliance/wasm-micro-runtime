@@ -39,22 +39,6 @@ std::vector<RunningMode> running_mode_supported = { Mode_Interp,
 class wasm_running_modes_test_suite : public testing::TestWithParam<RunningMode>
 {
   private:
-    std::string get_binary_path()
-    {
-        char cwd[1024];
-        memset(cwd, 0, 1024);
-
-        if (readlink("/proc/self/exe", cwd, 1024) <= 0) {
-        }
-
-        char *path_end = strrchr(cwd, '/');
-        if (path_end != NULL) {
-            *path_end = '\0';
-        }
-
-        return std::string(cwd);
-    }
-
     bool load_wasm_file(const char *wasm_file)
     {
         const char *file;
@@ -199,7 +183,7 @@ class wasm_running_modes_test_suite : public testing::TestWithParam<RunningMode>
     // Otherwise, this can be skipped.
     virtual void SetUp()
     {
-        CWD = get_binary_path();
+        CWD = get_test_binary_dir();
         WASM_FILE_1 = strdup((CWD + TEST_WASM1).c_str());
         WASM_FILE_2 = strdup((CWD + TEST_WASM2).c_str());
 

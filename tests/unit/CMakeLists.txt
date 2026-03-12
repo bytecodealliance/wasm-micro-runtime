@@ -14,7 +14,30 @@ set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
 SET(CMAKE_BUILD_TYPE Debug)
 
-# add_definitions (-m32)
+set(CMAKE_CXX_STANDARD 17)
+
+#TODO: modularization me
+# Detect Hosting target info
+string(TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
+# Set WAMR_BUILD_TARGET, currently values supported:
+# "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]",
+# "MIPS", "XTENSA", "RISCV64[sub]", "RISCV32[sub]"
+if (NOT DEFINED WAMR_BUILD_TARGET)
+  if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)")
+    set (WAMR_BUILD_TARGET "AARCH64")
+  elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
+    set (WAMR_BUILD_TARGET "RISCV64")
+  elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
+    # Build as X86_64 by default in 64-bit platform
+    set (WAMR_BUILD_TARGET "X86_64")
+  elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
+    # Build as X86_32 by default in 32-bit platform
+    set (WAMR_BUILD_TARGET "X86_32")
+  else ()
+    message(SEND_ERROR "Unsupported build target platform!")
+  endif ()
+endif ()
+
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
 
@@ -66,8 +89,9 @@ add_subdirectory(tid-allocator)
 add_subdirectory(unsupported-features)
 add_subdirectory(smart-tests)
 add_subdirectory(exception-handling)
+add_subdirectory(running-modes)
 
-if (NOT WAMR_BUILD_TARGET STREQUAL "X86_32")
+if(WAMR_BUILD_TARGET STREQUAL "X86_64")
   add_subdirectory(aot-stack-frame)
 
   # should enable 32-bit llvm when X86_32
@@ -75,11 +99,22 @@ if (NOT WAMR_BUILD_TARGET STREQUAL "X86_32")
   add_subdirectory (custom-section)
   add_subdirectory (compilation)
 
-  # Fast-JIT or mem64 is not supported on X86_32
-  add_subdirectory (running-modes)
   add_subdirectory (memory64)
   add_subdirectory (shared-heap)
 
   # HW_BOUND_CHECK is not supported on X86_32
+  add_subdirectory (runtime-common)
+endif()
+
+if(WAMR_BUILD_TARGET STREQUAL "AARCH64")
+  add_subdirectory(aot-stack-frame)
+
+  add_subdirectory (aot)
+  add_subdirectory (custom-section)
+  add_subdirectory (compilation)
+
+  add_subdirectory (memory64)
+  add_subdirectory (shared-heap)
+
   add_subdirectory (runtime-common)
 endif ()
