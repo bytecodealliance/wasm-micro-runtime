@@ -169,7 +169,6 @@ typedef enum WASI_NN_NAME(execution_target) {
     WASI_NN_TARGET_NAME(cpu) = 0,
     WASI_NN_TARGET_NAME(gpu),
     WASI_NN_TARGET_NAME(tpu),
-    WASI_NN_TARGET_NAME(unsupported_target),
 } WASI_NN_NAME(execution_target);
 
 // Bind a `graph` to the input and output tensors for an inference.

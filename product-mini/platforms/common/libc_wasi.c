@@ -50,7 +50,6 @@ typedef enum wasi_nn_target {
     wasi_nn_cpu = 0,
     wasi_nn_gpu,
     wasi_nn_tpu,
-    wasi_nn_unsupported_target,
 } wasi_nn_target;
 
 static void
@@ -241,7 +240,7 @@ str2target(char *str_target)
     else if (!strcmp(str_target, "tpu"))
         return wasi_nn_tpu;
     else
-        return wasi_nn_unsupported_target;
+        return -1;
     // return autodetect;
 }
 
@@ -287,7 +286,7 @@ wasi_nn_parse(char **argv, wasi_nn_parse_context_t *ctx)
 
     if ((!ctx->model_names[ctx->n_graphs])
         || (ctx->encoding[ctx->n_graphs] == wasi_nn_unknown_backend)
-        || (ctx->target[ctx->n_graphs] == wasi_nn_unsupported_target)) {
+        || (ctx->target[ctx->n_graphs] == -1)) {
         ret = LIBC_WASI_PARSE_RESULT_NEED_HELP;
         printf("Invalid arguments for wasi-nn.\n");
         goto fail;
