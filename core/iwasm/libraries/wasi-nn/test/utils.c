@@ -103,9 +103,8 @@ wasm_get_output(graph_execution_context ctx, uint32_t index, float *out_tensor,
 }
 
 float *
-run_inference(float *input, uint32_t *input_size,
-              uint32_t *output_size, char *model_name,
-              uint32_t num_output_tensors)
+run_inference(float *input, uint32_t *input_size, uint32_t *output_size,
+              char *model_name, uint32_t num_output_tensors)
 {
     graph graph;
 
