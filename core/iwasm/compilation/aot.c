@@ -416,7 +416,7 @@ aot_create_funcs(const WASMModule *module, uint32 pointer_size)
         aot_func->local_types_wp = func->local_types;
         aot_func->code = func->code;
         aot_func->code_size = func->code_size;
-#if WASM_ENABLE_BRANCH_HINTS != 0
+#if WASM_ENABLE_BRANCH_HINTS != 0 || WASM_ENABLE_COMPILATION_HINTS != 0
         aot_func->code_body_begin = func->code_body_begin;
 #endif
 
@@ -875,7 +875,7 @@ aot_create_comp_data(WASMModule *module, const char *target_arch,
     comp_data->name_section_buf_end = module->name_section_buf_end;
 #endif
 
-#if WASM_ENABLE_BRANCH_HINTS != 0
+#if WASM_ENABLE_BRANCH_HINTS != 0 || WASM_ENABLE_COMPILATION_HINTS != 0
     comp_data->function_hints = module->function_hints;
 #endif
 
