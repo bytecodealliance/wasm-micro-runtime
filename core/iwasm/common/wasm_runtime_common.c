@@ -8136,3 +8136,18 @@ wasm_runtime_check_and_update_last_used_shared_heap(
     return false;
 }
 #endif
+
+WASMModuleInstanceExtraCommon *
+GetModuleInstanceExtraCommon(WASMModuleInstance *module_inst)
+{
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return &((AOTModuleInstanceExtra *)module_inst->e)->common;
+    }
+    else {
+        return &module_inst->e->common;
+    }
+#else
+    return &module_inst->e->common;
+#endif
+}

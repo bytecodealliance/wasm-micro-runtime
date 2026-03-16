@@ -1427,6 +1427,9 @@ wasm_runtime_check_and_update_last_used_shared_heap(
     uint8 **shared_heap_base_addr_adj_p, bool is_memory64);
 #endif
 
+struct WASMModuleInstanceExtraCommon *
+GetModuleInstanceExtraCommon(struct WASMModuleInstance *module_inst);
+
 #ifdef __cplusplus
 }
 #endif

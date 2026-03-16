@@ -1963,6 +1963,12 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     module_inst->e =
         (WASMModuleInstanceExtra *)((uint8 *)module_inst + extra_info_offset);
     extra = (AOTModuleInstanceExtra *)module_inst->e;
+#if WASM_ENABLE_THREAD_MGR != 0
+    if (os_mutex_init(&extra->common.exception_lock) != 0) {
+        wasm_runtime_free(module_inst);
+        return NULL;
+    }
+#endif
 
 #if WASM_ENABLE_GC != 0
     /* Initialize gc heap first since it may be used when initializing
@@ -2352,6 +2358,10 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
            of current module instance after it is deinstantiated. */
         wasm_exec_env_destroy((WASMExecEnv *)module_inst->exec_env_singleton);
     }
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    os_mutex_destroy(&extra->common.exception_lock);
+#endif
 
 #if WASM_ENABLE_PERF_PROFILING != 0
     if (module_inst->func_perf_profilings)
