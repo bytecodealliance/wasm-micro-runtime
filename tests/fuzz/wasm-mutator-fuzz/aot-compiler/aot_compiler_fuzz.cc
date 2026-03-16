@@ -39,10 +39,12 @@ LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size)
     wasm_module_t aot_module = NULL;
     wasm_module_inst_t inst = NULL;
 
-    /* libfuzzer don't allow to modify the given Data, but get_package_type and
-     * wasm_runtime_load only read the data, so we can safely use const_cast */
+    /* wasm_runtime_load may modify the input buffer in-place,
+     * so we must work on a copy to avoid overwriting libFuzzer's const input */
+    std::vector<uint8_t> data_copy(Data, Data + Size);
+
     if (Size >= 4
-        && get_package_type(const_cast<uint8_t *>(Data), Size)
+        && get_package_type(data_copy.data(), Size)
                != Wasm_Module_Bytecode) {
         printf("Invalid wasm file: magic header not detected\n");
         return 0;
@@ -50,7 +52,7 @@ LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size)
 
     wasm_runtime_init();
 
-    module = wasm_runtime_load(const_cast<uint8_t *>(Data), Size, error_buf,
+    module = wasm_runtime_load(data_copy.data(), Size, error_buf,
                                MAX_ERROR_BUF_SIZE);
     if (!module) {
         std::cout << "[LOADING] " << error_buf << std::endl;

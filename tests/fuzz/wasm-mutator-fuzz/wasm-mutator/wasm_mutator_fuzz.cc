@@ -15,13 +15,15 @@ using namespace std;
 extern "C" int
 LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size)
 {
-    /* libfuzzer don't allow us to modify the given Data, but wasm_runtime_load
-     * only reads the data, so we can safely use const_cast */
+    /* wasm_runtime_load may modify the input buffer in-place, 
+     * so we must work on a copy to  avoid overwriting libFuzzer's const input */
+    std::vector<uint8_t> data_copy(Data, Data + Size);
+
     /* init runtime environment */
     wasm_runtime_init();
 
     char error_buf[ERROR_BUF_SIZE] = { 0 };
-    wasm_module_t module = wasm_runtime_load(const_cast<uint8_t *>(Data), Size,
+    wasm_module_t module = wasm_runtime_load(data_copy.data(), Size,
                                              error_buf, MAX_ERROR_BUF_SIZE);
     if (!module) {
         std::cout << "[LOADING] " << error_buf << std::endl;
