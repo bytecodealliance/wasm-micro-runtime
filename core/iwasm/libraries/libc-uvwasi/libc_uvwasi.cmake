@@ -22,7 +22,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
 ## libuv
 find_package(LIBUV QUIET)
 if (LIBUV_FOUND)
-    include_directories(${LIBUV_INCLUDE_DIR})
+    include_directories(SYSTEM ${LIBUV_INCLUDE_DIR})
 else()
     FetchContent_Declare(
         libuv
@@ -30,7 +30,7 @@ else()
         GIT_TAG ${LIBUV_VERSION}
     )
     FetchContent_MakeAvailable(libuv)
-    include_directories("${libuv_SOURCE_DIR}/include")
+    include_directories(SYSTEM "${libuv_SOURCE_DIR}/include")
     set (LIBUV_LIBRARIES uv_a)
     set_target_properties(uv_a PROPERTIES POSITION_INDEPENDENT_CODE 1)
 endif()
@@ -38,7 +38,7 @@ endif()
 ## uvwasi
 find_package(UVWASI QUIET)
 if (UVWASI_FOUND)
-    include_directories(${UVWASI_INCLUDE_DIR})
+    include_directories(SYSTEM ${UVWASI_INCLUDE_DIR})
 else()
     FetchContent_Declare(
         uvwasi
@@ -46,7 +46,7 @@ else()
         GIT_TAG 392e1f1c1c8a2d2102c9f2e0b9f35959a149d133
     )
     FetchContent_MakeAvailable(uvwasi)
-    include_directories("${uvwasi_SOURCE_DIR}/include")
+    include_directories(SYSTEM "${uvwasi_SOURCE_DIR}/include")
     set (UVWASI_LIBRARIES uvwasi_a)
     set_target_properties(uvwasi_a PROPERTIES POSITION_INDEPENDENT_CODE 1)
 endif()
