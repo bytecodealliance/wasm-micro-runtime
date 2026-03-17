@@ -430,7 +430,9 @@ fd_table_attach(struct fd_table *ft, __wasi_fd_t fd, struct fd_object *fo,
                 __wasi_rights_t rights_base, __wasi_rights_t rights_inheriting)
     REQUIRES_EXCLUSIVE(ft->lock) CONSUMES(fo->refcount)
 {
-    bh_assert(ft->size > (size_t)fd && "File descriptor table too small");
+    bh_assert(ft->size <= INT_MAX
+              && "Unsigned value is out of signed int range");
+    bh_assert((int32_t)ft->size > fd && "File descriptor table too small");
     struct fd_entry *fe = &ft->entries[fd];
     bh_assert(fe->object == NULL
               && "Attempted to overwrite an existing descriptor");
@@ -446,7 +448,9 @@ static void
 fd_table_detach(struct fd_table *ft, __wasi_fd_t fd, struct fd_object **fo)
     REQUIRES_EXCLUSIVE(ft->lock) PRODUCES((*fo)->refcount)
 {
-    bh_assert(ft->size > fd && "File descriptor table too small");
+    bh_assert(ft->size <= INT_MAX
+              && "Unsigned value is out of signed int range");
+    bh_assert((int32_t)ft->size > fd && "File descriptor table too small");
     struct fd_entry *fe = &ft->entries[fd];
     *fo = fe->object;
     bh_assert(*fo != NULL && "Attempted to detach nonexistent descriptor");
