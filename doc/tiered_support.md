@@ -93,7 +93,6 @@ This tier indicates experimental features with foundational support levels. Thes
 | Nuttx Compatibility                | WAMR_BUILD_PALTFORM=nuttx                                                                                               | Portability        |
 | SGX Compatibility                  | WAMR_BUILD_PALTFORM=linux-sgx                                                                                           | Portability        |
 | Zephyr Compatibility               | WAMR_BUILD_PALTFORM=zephyr                                                                                              | Portability        |
-| GC (Garbage Collection)            | [WAMR_BUILD_GC](./build_wamr.md#garbage-collection)                                                                     | Wasm Proposal      |
 | Stringref                          | [WAMR_BUILD_STRINGREF](./build_wamr.md#garbage-collection)                                                              | Wasm Proposal      |
 | Tail Calls                         | [WAMR_BUILD_TAIL_CALL](./build_wamr.md#tail-call-feature)                                                               | Wasm Proposal      |
 | LLVM JIT                           | [WAMR_BUILD_JIT](./build_wamr.md#configure-llvm-jit)                                                                    | Running mode       |
@@ -108,7 +107,6 @@ This tier indicates experimental features with foundational support levels. Thes
 | Copy Call Stack                    | [WAMR_BUILD_COPY_CALL_STACK](./build_wamr.md#copy-call-stack)                                                           | Runtime Extensions |
 | Debug Interpreter                  | [WAMR_BUILD_DEBUG_INTERP](./build_wamr.md#configure-debug)                                                              | Runtime Extensions |
 | Dump call stack                    | [WAMR_BUILD_DUMP_CALL_STACK](./build_wamr.md#dump-call-stack-feature)                                                   | Runtime Extensions |
-| Garbage Collection Heap Verify     | [WAMR_BUILD_GC_HEAP_VERIFY](./build_wamr.md#garbage-collection)                                                         | Runtime Extensions |
 | Native General Invocation          | [WAMR_BUILD_INVOKE_NATIVE_GENERAL](./build_wamr.md#invoke-general-ffi)                                                  | Runtime Extensions |
 | Lazy JIT Compilation               | [WAMR_BUILD_LAZY_JIT](./build_wamr.md#configure-llvm-jit)                                                               | Runtime Extensions |
 | Pthread                            | [WAMR_BUILD_LIB_PTHREAD](./build_wamr.md#lib-pthread)                                                                   | Runtime Extensions |
@@ -153,31 +151,33 @@ This tier indicates experimental features with foundational support levels. Thes
 
 ## Features
 
-| Description               | Compilation Flags                                                                                     | Labels             |
-| ------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------ |
-| AliOS compatibility       | WAMR_BUILD_PLATFORM=alios-things                                                                      | Portability        |
-| Android Compatibility     | WAMR_BUILD_PLATFORM=android                                                                           | Portability        |
-| Cosmo Compatibility       | WAMR_BUILD_PLATFORM=cosmopolitan                                                                      | Portability        |
-| FreeBSD Compatibility     | WAMR_BUILD_PLATFORM=freebsd                                                                           | Portability        |
-| iOS Compatibility         | WAMR_BUILD_PLATFORM=darwin                                                                            | Portability        |
-| RIOT OS Compatibility     | WAMR_BUILD_PLATFORM=riot                                                                              | Portability        |
-| RT-Thread Compatibility   | WAMR_BUILD_PLATFORM=rt-thread                                                                         | Portability        |
-| VxWorks Compatibility     | WAMR_BUILD_PLATFORM=vxworks                                                                           | Portability        |
-| Windows Compatibility     | WAMR_BUILD_PLATFORM=windows                                                                           | Portability        |
-| Legacy Exception Handling | [WAMR_BUILD_EXCE_HANDLING](./build_wamr.md#exception-handling)                                        | Wasm Proposal      |
-| Multi-memory              | [WAMR_BUILD_MULTI_MEMORY](./build_wamr.md#multi-memory)                                               | Wasm Proposal      |
-| Fast JIT                  | [WAMR_BUILD_FAST_JIT](./build_wamr.md#configure-fast-jit)                                             | Running mode       |
-| Multi-tier JIT            | [Combination of flags](./build_wamr.md#configure-multi-tier-jit)                                      | Running mode       |
-| AoT Validator             | [WAMR_BUILD_AOT_VALIDATOR](./build_wamr.md#aot-validator)                                             | Runtime Extensions |
-| Debug AOT                 | [WAMR_BUILD_DEBUG_AOT](./build_wamr.md#configure-debug)                                               | Runtime Extensions |
-| Dynamic AoT debugging     | [WAMR_BUILD_DYNAMIC_AOT_DEBUG](./build_wamr.md#configure-debug)                                       | Runtime Extensions |
-| Fast JIT Dump             | [WAMR_BUILD_FAST_JIT_DUMP](./build_wamr.md#configure-fast-jit)                                        | Runtime Extensions |
-| Instruction Metering      | [WAMR_BUILD_INSTRUCTION_METERING](./build_wamr.md#instruction-metering)                               | Runtime Extensions |
-| Libc EMCC Compatibility   | [WAMR_BUILD_LIBC_EMCC](./build_wamr.md#libc-emcc)                                                     | Runtime Extensions |
-| Libc UVWASI Compatibility | [WAMR_BUILD_LIBC_UVWASI](./build_wamr.md#libc-uvwasi)                                                 | Runtime Extensions |
-| RATS Library              | [WAMR_BUILD_LIB_RATS](./build_wamr.md#librats)                                                        | Runtime Extensions |
-| Mini Loader               | [WAMR_BUILD_MINI_LOADER](./build_wamr.md#wasm-mini-loader)                                            | Runtime Extensions |
-| SGX IPFS Support          | [WAMR_BUILD_SGX_IPFS](./build_wamr.md#intel-protected-file-system)                                    | Runtime Extensions |
-| Static PGO                | [WAMR_BUILD_STATIC_PGO](./build_wamr.md#running-pgoprofile-guided-optimization-instrumented-aot-file) | Runtime Extensions |
-| WASM cache                | [WAMR_BUILD_WASM_CACHE](./build_wamr.md#wasm-cache)                                                   | Runtime Extensions |
-| Test garbage collection   | [WAMR_TEST_GC](./build_wamr.md#test-garbage-collection)                                               | Runtime Extensions |
+| Description                    | Compilation Flags                                                                                     | Labels             |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------- | ------------------ |
+| AliOS compatibility            | WAMR_BUILD_PLATFORM=alios-things                                                                      | Portability        |
+| Android Compatibility          | WAMR_BUILD_PLATFORM=android                                                                           | Portability        |
+| Cosmo Compatibility            | WAMR_BUILD_PLATFORM=cosmopolitan                                                                      | Portability        |
+| FreeBSD Compatibility          | WAMR_BUILD_PLATFORM=freebsd                                                                           | Portability        |
+| iOS Compatibility              | WAMR_BUILD_PLATFORM=darwin                                                                            | Portability        |
+| RIOT OS Compatibility          | WAMR_BUILD_PLATFORM=riot                                                                              | Portability        |
+| RT-Thread Compatibility        | WAMR_BUILD_PLATFORM=rt-thread                                                                         | Portability        |
+| VxWorks Compatibility          | WAMR_BUILD_PLATFORM=vxworks                                                                           | Portability        |
+| Windows Compatibility          | WAMR_BUILD_PLATFORM=windows                                                                           | Portability        |
+| GC (Garbage Collection)        | [WAMR_BUILD_GC](./build_wamr.md#garbage-collection)                                                   | Wasm Proposal      |
+| Legacy Exception Handling      | [WAMR_BUILD_EXCE_HANDLING](./build_wamr.md#exception-handling)                                        | Wasm Proposal      |
+| Multi-memory                   | [WAMR_BUILD_MULTI_MEMORY](./build_wamr.md#multi-memory)                                               | Wasm Proposal      |
+| Fast JIT                       | [WAMR_BUILD_FAST_JIT](./build_wamr.md#configure-fast-jit)                                             | Running mode       |
+| Multi-tier JIT                 | [Combination of flags](./build_wamr.md#configure-multi-tier-jit)                                      | Running mode       |
+| AoT Validator                  | [WAMR_BUILD_AOT_VALIDATOR](./build_wamr.md#aot-validator)                                             | Runtime Extensions |
+| Debug AOT                      | [WAMR_BUILD_DEBUG_AOT](./build_wamr.md#configure-debug)                                               | Runtime Extensions |
+| Dynamic AoT debugging          | [WAMR_BUILD_DYNAMIC_AOT_DEBUG](./build_wamr.md#configure-debug)                                       | Runtime Extensions |
+| Fast JIT Dump                  | [WAMR_BUILD_FAST_JIT_DUMP](./build_wamr.md#configure-fast-jit)                                        | Runtime Extensions |
+| Garbage Collection Heap Verify | [WAMR_BUILD_GC_HEAP_VERIFY](./build_wamr.md#garbage-collection)                                       | Runtime Extensions |
+| Instruction Metering           | [WAMR_BUILD_INSTRUCTION_METERING](./build_wamr.md#instruction-metering)                               | Runtime Extensions |
+| Libc EMCC Compatibility        | [WAMR_BUILD_LIBC_EMCC](./build_wamr.md#libc-emcc)                                                     | Runtime Extensions |
+| Libc UVWASI Compatibility      | [WAMR_BUILD_LIBC_UVWASI](./build_wamr.md#libc-uvwasi)                                                 | Runtime Extensions |
+| RATS Library                   | [WAMR_BUILD_LIB_RATS](./build_wamr.md#librats)                                                        | Runtime Extensions |
+| Mini Loader                    | [WAMR_BUILD_MINI_LOADER](./build_wamr.md#wasm-mini-loader)                                            | Runtime Extensions |
+| SGX IPFS Support               | [WAMR_BUILD_SGX_IPFS](./build_wamr.md#intel-protected-file-system)                                    | Runtime Extensions |
+| Static PGO                     | [WAMR_BUILD_STATIC_PGO](./build_wamr.md#running-pgoprofile-guided-optimization-instrumented-aot-file) | Runtime Extensions |
+| WASM cache                     | [WAMR_BUILD_WASM_CACHE](./build_wamr.md#wasm-cache)                                                   | Runtime Extensions |
+| Test garbage collection        | [WAMR_TEST_GC](./build_wamr.md#test-garbage-collection)                                               | Runtime Extensions |

@@ -338,6 +338,11 @@ SIMDE (SIMD Everywhere) implements SIMD operations in fast interpreter mode.
 - **WAMR_BUILD_STRINGREF**=1/0, default to off. When enabled, need to set WAMR_STRINGREF_IMPL_SOURCE as well
 
 > [!WARNING]
+> Current implentation of Garbage Collection(GC) is not fully compliant with the Wasm GC proposal and Wasm 3.0 specification. There are still few known limitations:
+>
+> - `exn` and `noexn` types are not supported.
+> - nested structs and arrays are not fully supported.
+>
 > Garbage collection is not supported in fast-jit mode and multi-tier-jit mode.
 
 ### **Set the Garbage Collection heap size**
