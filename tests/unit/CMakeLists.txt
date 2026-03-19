@@ -74,6 +74,21 @@ endif()
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
+# Fetch CMocka for C unit tests
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.24")
+  FetchContent_Declare(
+    cmocka
+    URL https://git.cryptomilk.org/projects/cmocka.git/snapshot/cmocka-2.0.1.tar.gz
+    DOWNLOAD_EXTRACT_TIMESTAMP ON
+  )
+else()
+  FetchContent_Declare(
+    cmocka
+    URL https://git.cryptomilk.org/projects/cmocka.git/snapshot/cmocka-2.0.1.tar.gz
+  )
+endif()
+FetchContent_MakeAvailable(cmocka)
+
 include(GoogleTest)
 enable_testing()
 
@@ -90,6 +105,7 @@ add_subdirectory(tid-allocator)
 add_subdirectory(unsupported-features)
 add_subdirectory(exception-handling)
 add_subdirectory(running-modes)
+add_subdirectory(mem-alloc)
 
 if(FULL_TEST)
   message(STATUS "FULL_TEST=ON: include llm-enhanced-test")

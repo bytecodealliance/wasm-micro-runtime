@@ -1030,6 +1030,24 @@ wasm_runtime_free_internal(void *ptr)
     }
 }
 
+static inline void *
+wasm_runtime_aligned_alloc_internal(unsigned int size, unsigned int alignment)
+{
+    if (memory_mode == MEMORY_MODE_UNKNOWN) {
+        LOG_ERROR("wasm_runtime_aligned_alloc failed: memory hasn't been "
+                  "initialized.\n");
+        return NULL;
+    }
+
+    if (memory_mode != MEMORY_MODE_POOL) {
+        LOG_ERROR("wasm_runtime_aligned_alloc failed: only supported in POOL "
+                  "memory mode.\n");
+        return NULL;
+    }
+
+    return mem_allocator_malloc_aligned(pool_allocator, size, alignment);
+}
+
 void *
 wasm_runtime_malloc(unsigned int size)
 {
@@ -1050,6 +1068,35 @@ wasm_runtime_malloc(unsigned int size)
 #endif
 
     return wasm_runtime_malloc_internal(size);
+}
+
+void *
+wasm_runtime_aligned_alloc(unsigned int size, unsigned int alignment)
+{
+    if (alignment == 0) {
+        LOG_WARNING(
+            "warning: wasm_runtime_aligned_alloc with zero alignment\n");
+        return NULL;
+    }
+
+    if (size == 0) {
+        LOG_WARNING("warning: wasm_runtime_aligned_alloc with size zero\n");
+        /* Allocate at least alignment bytes (smallest multiple of alignment) */
+        size = alignment;
+#if BH_ENABLE_GC_VERIFY != 0
+        exit(-1);
+#endif
+    }
+
+#if WASM_ENABLE_FUZZ_TEST != 0
+    if (size >= WASM_MEM_ALLOC_MAX_SIZE) {
+        LOG_WARNING(
+            "warning: wasm_runtime_aligned_alloc with too large size\n");
+        return NULL;
+    }
+#endif
+
+    return wasm_runtime_aligned_alloc_internal(size, alignment);
 }
 
 void *

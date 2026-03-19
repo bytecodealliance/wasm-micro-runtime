@@ -552,6 +552,21 @@ alloc_hmu_ex(gc_heap_t *heap, gc_size_t size)
     return alloc_hmu(heap, size);
 }
 
+/* Convert object pointer to HMU pointer - handles aligned allocations */
+hmu_t *
+obj_to_hmu(gc_object_t obj)
+{
+    /* Check for aligned allocation magic signature */
+    if (gc_is_aligned_allocation(obj)) {
+        /* This is an aligned allocation, read offset */
+        uint32_t *offset_ptr = (uint32_t *)((char *)obj - 8);
+        return (hmu_t *)((char *)obj - *offset_ptr);
+    }
+
+    /* Normal allocation: standard offset */
+    return (hmu_t *)((gc_uint8 *)(obj)-OBJ_PREFIX_SIZE) - 1;
+}
+
 #if BH_ENABLE_GC_VERIFY == 0
 gc_object_t
 gc_alloc_vo(void *vheap, gc_size_t size)
@@ -614,6 +629,124 @@ finish:
 
 #if BH_ENABLE_GC_VERIFY == 0
 gc_object_t
+gc_alloc_vo_aligned(void *vheap, gc_size_t size, gc_size_t alignment)
+#else
+gc_object_t
+gc_alloc_vo_aligned_internal(void *vheap, gc_size_t size, gc_size_t alignment,
+                             const char *file, int line)
+#endif
+{
+    gc_heap_t *heap = (gc_heap_t *)vheap;
+    hmu_t *hmu = NULL;
+    gc_object_t ret = NULL;
+    gc_size_t tot_size, tot_size_unaligned;
+    gc_uint8 *base_obj;
+    uintptr_t aligned_addr;
+    uint32_t offset, alignment_log2;
+    uint32_t max_alignment;
+
+    /* Get system page size for maximum alignment check */
+    max_alignment = (uint32_t)os_getpagesize();
+
+    /* Validation */
+    if (alignment == 0 || (alignment & (alignment - 1)) != 0) {
+        /* Zero or not power of 2 */
+        return NULL;
+    }
+
+    if (alignment < GC_MIN_ALIGNMENT) {
+        alignment = GC_MIN_ALIGNMENT;
+    }
+
+    if (alignment > max_alignment) {
+        /* Exceeds page size */
+        return NULL;
+    }
+
+    if (size % alignment != 0) {
+        /* POSIX requirement: size must be multiple of alignment */
+        return NULL;
+    }
+
+    if (size > SIZE_MAX - alignment - HMU_SIZE - OBJ_PREFIX_SIZE
+                   - OBJ_SUFFIX_SIZE - 8) {
+        /* Would overflow */
+        return NULL;
+    }
+
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
+    if (heap->is_heap_corrupted) {
+        LOG_ERROR("[GC_ERROR]Heap is corrupted, allocate memory failed.\n");
+        return NULL;
+    }
+#endif
+
+    /* Calculate total size needed */
+    tot_size_unaligned =
+        HMU_SIZE + OBJ_PREFIX_SIZE + size + OBJ_SUFFIX_SIZE + alignment - 1 + 8;
+    tot_size = GC_ALIGN_8(tot_size_unaligned);
+
+    if (tot_size < size) {
+        /* Integer overflow */
+        return NULL;
+    }
+
+    LOCK_HEAP(heap);
+
+    hmu = alloc_hmu_ex(heap, tot_size);
+    if (!hmu)
+        goto finish;
+
+    bh_assert(hmu_get_size(hmu) >= tot_size);
+    tot_size = hmu_get_size(hmu);
+
+#if GC_STAT_DATA != 0
+    heap->total_size_allocated += tot_size;
+#endif
+
+    /* Get base object pointer */
+    base_obj = (gc_uint8 *)hmu + HMU_SIZE + OBJ_PREFIX_SIZE;
+
+    /* Find next aligned address, leaving 8 bytes for metadata */
+    aligned_addr = (((uintptr_t)base_obj + 8 + alignment - 1)
+                    & ~(uintptr_t)(alignment - 1));
+    ret = (gc_object_t)aligned_addr;
+
+    /* Verify we have enough space */
+    bh_assert((gc_uint8 *)ret + size + OBJ_SUFFIX_SIZE
+              <= (gc_uint8 *)hmu + tot_size);
+
+    /* Calculate offset from HMU to returned pointer */
+    offset = (uint32_t)((char *)ret - (char *)hmu);
+
+    /* Calculate log2 of alignment for magic value */
+    alignment_log2 = 0;
+    while ((1U << alignment_log2) < alignment) {
+        alignment_log2++;
+    }
+
+    /* Store offset 8 bytes before returned pointer */
+    *((uint32_t *)((char *)ret - 8)) = offset;
+
+    /* Store magic with encoded alignment */
+    *((uint32_t *)((char *)ret - 4)) =
+        ALIGNED_ALLOC_MAGIC_VALUE | alignment_log2;
+
+    /* Initialize HMU */
+    hmu_set_ut(hmu, HMU_VO);
+    hmu_unfree_vo(hmu);
+
+#if BH_ENABLE_GC_VERIFY != 0
+    hmu_init_prefix_and_suffix(hmu, tot_size, file, line);
+#endif
+
+finish:
+    UNLOCK_HEAP(heap);
+    return ret;
+}
+
+#if BH_ENABLE_GC_VERIFY == 0
+gc_object_t
 gc_realloc_vo(void *vheap, void *ptr, gc_size_t size)
 #else
 gc_object_t
@@ -643,6 +776,13 @@ gc_realloc_vo_internal(void *vheap, void *ptr, gc_size_t size, const char *file,
         return NULL;
     }
 #endif
+
+    /* Check if this is an aligned allocation - not supported */
+    if (gc_is_aligned_allocation(obj_old)) {
+        LOG_ERROR("[GC_ERROR]gc_realloc_vo does not support aligned "
+                  "allocations\n");
+        return NULL;
+    }
 
     if (obj_old) {
         hmu_old = obj_to_hmu(obj_old);

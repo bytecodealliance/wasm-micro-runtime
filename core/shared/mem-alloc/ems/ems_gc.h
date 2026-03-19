@@ -193,6 +193,9 @@ gc_alloc_vo(void *heap, gc_size_t size);
 gc_object_t
 gc_realloc_vo(void *heap, void *ptr, gc_size_t size);
 
+gc_object_t
+gc_alloc_vo_aligned(void *heap, gc_size_t size, gc_size_t alignment);
+
 int
 gc_free_vo(void *heap, gc_object_t obj);
 
@@ -213,6 +216,10 @@ gc_object_t
 gc_realloc_vo_internal(void *heap, void *ptr, gc_size_t size, const char *file,
                        int line);
 
+gc_object_t
+gc_alloc_vo_aligned_internal(void *heap, gc_size_t size, gc_size_t alignment,
+                             const char *file, int line);
+
 int
 gc_free_vo_internal(void *heap, gc_object_t obj, const char *file, int line);
 
@@ -230,6 +237,9 @@ gc_free_wo_internal(void *vheap, void *ptr, const char *file, int line);
 
 #define gc_realloc_vo(heap, ptr, size) \
     gc_realloc_vo_internal(heap, ptr, size, __FILE__, __LINE__)
+
+#define gc_alloc_vo_aligned(heap, size, alignment) \
+    gc_alloc_vo_aligned_internal(heap, size, alignment, __FILE__, __LINE__)
 
 #define gc_free_vo(heap, obj) \
     gc_free_vo_internal(heap, obj, __FILE__, __LINE__)

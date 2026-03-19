@@ -81,11 +81,131 @@ hmu_verify(void *vheap, hmu_t *hmu);
 
 #define GC_ALIGN_8(s) (((uint32)(s) + 7) & (uint32)~7)
 
+/* Minimum alignment for allocations */
+#ifndef GC_MIN_ALIGNMENT
+#define GC_MIN_ALIGNMENT 8
+#endif
+
 #define GC_SMALLEST_SIZE \
     GC_ALIGN_8(HMU_SIZE + OBJ_PREFIX_SIZE + OBJ_SUFFIX_SIZE + 8)
 #define GC_GET_REAL_SIZE(x)                                 \
     GC_ALIGN_8(HMU_SIZE + OBJ_PREFIX_SIZE + OBJ_SUFFIX_SIZE \
                + (((x) > 8) ? (x) : 8))
+
+/*
+ * ============================================================================
+ * Aligned Memory Allocation
+ * ============================================================================
+ *
+ * This module implements aligned memory allocation similar to C11
+ * aligned_alloc() and POSIX posix_memalign() for WAMR's garbage collector.
+ *
+ * POSIX aligned_alloc() Specification:
+ * ------------------------------------
+ * From C11 §7.22.3.1 and POSIX.1-2017:
+ *   void *aligned_alloc(size_t alignment, size_t size);
+ *
+ * Requirements:
+ * - alignment: Must be a valid alignment supported by the implementation,
+ *              typically a power of 2
+ * - size: Must be an integral multiple of alignment
+ * - Returns: Pointer aligned to the specified alignment boundary, or NULL
+ * - Memory must be freed with free() (not realloc'd)
+ * - Behavior: If size is 0, may return NULL or unique pointer (impl-defined)
+ *
+ * IMPORTANT: POSIX does not require realloc() to preserve alignment.
+ * Calling realloc() on aligned_alloc() memory has undefined behavior.
+ *
+ * WAMR Implementation Strategy:
+ * -----------------------------
+ * We implement alignment through over-allocation with metadata tracking:
+ *
+ * 1. **Validation Phase**:
+ *    - Check alignment is power-of-2, >= 8 bytes, <= system page size
+ *    - Check size is multiple of alignment
+ *    - Return NULL if validation fails
+ *
+ * 2. **Over-Allocation**:
+ *    - Allocate (size + alignment + metadata_overhead) bytes
+ *    - Extra space allows us to find an aligned boundary within the block
+ *    - Calculate log2(alignment) for efficient offset storage
+ *
+ * 3. **Alignment Adjustment**:
+ *    - Find next aligned address within allocated block
+ *    - Calculate offset from original allocation to aligned address
+ *    - Store offset in metadata for later free() operation
+ *
+ * 4. **Magic Marker Storage**:
+ *    - Store magic marker (0xA11C0000 | offset) in 4 bytes before user pointer
+ *    - Upper 16 bits: 0xA11C identifies aligned allocation
+ *    - Lower 16 bits: offset from HMU to aligned pointer (max 65535 bytes)
+ *    - This marker prevents unsafe realloc() operations
+ *
+ * 5. **Realloc Prevention**:
+ *    - gc_realloc_vo_internal() checks for magic marker
+ *    - Returns NULL if realloc attempted on aligned allocation
+ *    - User must manually allocate new memory and copy data
+ *
+ * Memory Layout Diagram:
+ * ----------------------
+ *
+ *  Low Address                                               High Address
+ *  ┌─────────────┬──────────┬────────────────┬──────────────┬─────────────┐
+ *  │ HMU Header  │ Padding  │ Magic + Offset │ Aligned Data │   Padding   │
+ *  │   (meta)    │ (0-align)│    (4 bytes)   │   (size)     │  (overhead) │
+ *  └─────────────┴──────────┴────────────────┴──────────────┴─────────────┘
+ *                             ▲                ▲
+ *                             │                │
+ *                             magic_ptr        user_ptr (returned, aligned)
+ *
+ * Constraints and Limitations:
+ * ----------------------------
+ * - Minimum alignment: 8 bytes (GC_MIN_ALIGNMENT)
+ * - Maximum alignment: System page size (os_getpagesize(), typically 4KB)
+ * - Maximum offset: 65535 bytes (16-bit storage limit)
+ * - Realloc support: None - returns NULL (prevents alignment loss)
+ * - Free support: Full - use mem_allocator_free() / wasm_runtime_free()
+ * - Thread safety: Protected by LOCK_HEAP/UNLOCK_HEAP
+ *
+ * Usage Example:
+ * --------------
+ * // Allocate 256 bytes aligned to 64-byte boundary (e.g., for SIMD)
+ * void *ptr = wasm_runtime_aligned_alloc(256, 64);
+ * assert((uintptr_t)ptr % 64 == 0);  // Guaranteed aligned
+ *
+ * // Use the memory...
+ *
+ * // Free normally (alignment metadata handled automatically)
+ * wasm_runtime_free(ptr);
+ *
+ * // INVALID: Cannot realloc aligned memory
+ * void *new_ptr = wasm_runtime_realloc(ptr, 512);  // Returns NULL!
+ */
+
+/* Aligned allocation magic markers */
+#define ALIGNED_ALLOC_MAGIC_MASK 0xFFFF0000
+#define ALIGNED_ALLOC_MAGIC_VALUE 0xA11C0000
+
+/**
+ * Check if a gc_object was allocated with alignment requirements.
+ *
+ * Aligned allocations store a magic marker (0xA11C0000) in the 4 bytes
+ * immediately before the object pointer. This marker is used to identify
+ * aligned allocations to prevent unsafe realloc operations.
+ *
+ * @param obj the gc_object to check (user-visible pointer)
+ * @return true if obj is an aligned allocation, false otherwise
+ */
+static inline bool
+gc_is_aligned_allocation(gc_object_t obj)
+{
+    if (!obj)
+        return false;
+
+    uint32_t *magic_ptr = (uint32_t *)((char *)obj - 4);
+    return ((*magic_ptr & ALIGNED_ALLOC_MAGIC_MASK)
+            == ALIGNED_ALLOC_MAGIC_VALUE);
+}
 
 /**
  * hmu bit operation
@@ -105,16 +225,57 @@ hmu_verify(void *vheap, hmu_t *hmu);
     (v) &= ~((((uint32)1 << size) - 1) << offset)
 #define GETBITS(v, offset, size) \
     (((v) & (((((uint32)1 << size) - 1) << offset))) >> offset)
-/* clang-format on */
 
 /**
  * gc object layout definition
+ *
+ * #### Header Bit Layout
+ * 
+ * ```
+ * 31 30 29 28 27                                                    0
+ * ┌──┬──┬──┬──┬───────────────────────────────────────────────────┐
+ * │UT│UT│ P│ *│            Size or Type-Specific Data             │
+ * └──┴──┴──┴──┴───────────────────────────────────────────────────┘
+ * ```
+ *
+ * #### Bit Fields Breakdown
+ *
+ * | Bits      | Field                   | Description                                  |
+ * | --------- | ----------------------- | -------------------------------------------- |
+ * | **31-30** | **UT** (Usage Type)     | 2 bits for chunk type                        |
+ * | **29**    | **P** (Previous In Use) | 1 bit indicating if previous chunk is in use |
+ * | **28**    | **Type-specific**       | Meaning depends on UT field                  |
+ * | **27-0**  | **Type-specific**       | Size or other data depending on UT           |
+ * 
+ * #### Memory Layout in Heap
+ * 
+ * ```
+ * ┌─────────────────────────────────────────────────────────────┐
+ * │  HMU Header (4 bytes)                                       │
+ * ├─────────────────────────────────────────────────────────────┤
+ * │  OBJ_PREFIX (if BH_ENABLE_GC_VERIFY)                        │
+ * │    - file_name pointer                                      │
+ * │    - line_no                                                │
+ * │    - size                                                   │
+ * │    - padding values (for corruption detection)              │
+ * ├─────────────────────────────────────────────────────────────┤
+ * │  User Data (aligned to 8 bytes)                             │
+ * │  ...                                                        │
+ * ├─────────────────────────────────────────────────────────────┤
+ * │  OBJ_SUFFIX (if BH_ENABLE_GC_VERIFY)                        │
+ * │    - padding values (for corruption detection)              │
+ * └─────────────────────────────────────────────────────────────┘
+ * ```
  */
+/* clang-format on */
 
 #define HMU_SIZE (sizeof(hmu_t))
 
 #define hmu_to_obj(hmu) (gc_object_t)(SKIP_OBJ_PREFIX((hmu_t *)(hmu) + 1))
-#define obj_to_hmu(obj) ((hmu_t *)((gc_uint8 *)(obj)-OBJ_PREFIX_SIZE) - 1)
+
+/* obj_to_hmu function - handles both normal and aligned allocations */
+hmu_t *
+obj_to_hmu(gc_object_t obj);
 
 #define HMU_UT_SIZE 2
 #define HMU_UT_OFFSET 30

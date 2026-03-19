@@ -423,6 +423,22 @@ WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_malloc(unsigned int size);
 
 /**
+ * Allocate memory with specified alignment from runtime memory environment.
+ * This function mimics aligned_alloc() behavior in WebAssembly context.
+ *
+ * Note: Only supported in POOL memory mode. Other modes will return NULL.
+ * Note: Allocated memory cannot be reallocated with wasm_runtime_realloc().
+ *
+ * @param size bytes need to allocate (must be multiple of alignment)
+ * @param alignment alignment requirement (must be power of 2, >= 8, <= page
+ * size)
+ *
+ * @return the pointer to aligned memory allocated, or NULL on failure
+ */
+WASM_RUNTIME_API_EXTERN void *
+wasm_runtime_aligned_alloc(unsigned int size, unsigned int alignment);
+
+/**
  * Reallocate memory from runtime memory environment
  *
  * @param ptr the original memory
