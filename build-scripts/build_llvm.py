@@ -271,6 +271,11 @@ def main():
         help="use clang instead of gcc",
     )
     parser.add_argument(
+        "--use-ccache",
+        action="store_true",
+        help="enable ccache for faster incremental LLVM builds (disabled by default to reduce CI storage consumption, recommended for local development)",
+    )
+    parser.add_argument(
         "--extra-cmake-flags",
         type=str,
         default="",
