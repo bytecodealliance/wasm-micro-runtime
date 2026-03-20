@@ -5,64 +5,45 @@ cmake_minimum_required(VERSION 3.14)
 project(wasm-apps-wasm64)
 
 set(WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../..)
-set(WAMRC_ROOT_DIR ${WAMR_ROOT_DIR}/wamr-compiler/build)
 
-set(CMAKE_SYSTEM_PROCESSOR wasm64)
-set(CMAKE_SYSROOT ${WAMR_ROOT_DIR}/wamr-sdk/app/libc-builtin-sysroot)
+# Find WAMRC
+set(WAMRC_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../..)
+find_program(WAMRC_BIN wamrc HINTS ${CMAKE_CURRENT_SOURCE_DIR}/../../../../wamr-compiler/build REQUIRED)
 
-if (NOT DEFINED WASI_SDK_DIR)
-    set(WASI_SDK_DIR "/opt/wasi-sdk")
-endif ()
+# Set WAMRC flags for memory64
+set(WAMRC_SHARED_HEAP_FLAGS --opt-level=3 --bounds-checks=1 --enable-shared-heap)
+set(WAMRC_SHARED_HEAP_CHAIN_FLAGS --opt-level=3 --bounds-checks=1 --enable-shared-chain)
 
-set(CMAKE_C_FLAGS "-nostdlib -pthread -Qunused-arguments")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -z stack-size=8192 -nostdlib -O0 --target=wasm64")
-set(CMAKE_C_COMPILER_TARGET "wasm64")
-set(CMAKE_C_COMPILER "${WASI_SDK_DIR}/bin/clang")
-
-set(DEFINED_SYMBOLS
-        "${WAMR_ROOT_DIR}/wamr-sdk/app/libc-builtin-sysroot/share/defined-symbols.txt")
-
-set(CMAKE_EXE_LINKER_FLAGS
-        "-Wl,--no-entry           \
-      -Wl,--initial-memory=65536  \
-      -Wl,--export-all            \
-      -Wl,--allow-undefined"
-        )
-
-set (WAMR_COMPILER_FLAGS --opt-level=3 --bounds-checks=1 --enable-shared-heap)
-set (WAMR_COMPILER_CHAIN_FLAGS --opt-level=3 --bounds-checks=1 --enable-shared-chain)
-
-function(copy_wasm TARGET_NAME)
-    add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy
-                ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}
-                ${CMAKE_CURRENT_BINARY_DIR}/../../
-        COMMENT "Copy ${TARGET_NAME} to the same directory of google test"
-    )
-endfunction()
-
-function(compile_and_copy_aot_from TARGET_NAME)
-    string(REPLACE ".wasm" ".aot" AOT_TARGET ${TARGET_NAME})
-    string(REPLACE ".wasm" "_chain.aot" AOT_CHAIN_TARGET ${TARGET_NAME})
-
-    add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
-        COMMAND ${WAMRC_ROOT_DIR}/wamrc ${WAMR_COMPILER_FLAGS}
-                -o ${AOT_TARGET}
-                ${TARGET_NAME}
-        COMMAND ${CMAKE_COMMAND} -E copy
-                ${CMAKE_CURRENT_BINARY_DIR}/${AOT_TARGET}
-                ${CMAKE_CURRENT_BINARY_DIR}/../../
-        COMMAND ${WAMRC_ROOT_DIR}/wamrc ${WAMR_COMPILER_CHAIN_FLAGS}
-                -o ${AOT_CHAIN_TARGET}
-                ${TARGET_NAME}
-        COMMAND ${CMAKE_COMMAND} -E copy
-                ${CMAKE_CURRENT_BINARY_DIR}/${AOT_CHAIN_TARGET}
-                ${CMAKE_CURRENT_BINARY_DIR}/../../
-        COMMENT "Compile and copy ${AOT_TARGET} ${AOT_CHAIN_TARGET} to the same directory of google test"
-    )
-endfunction()
-
+#
+# C -> Wasm
+#
 add_executable(test64.wasm ../test.c)
-target_link_libraries(test64.wasm)
-copy_wasm(test64.wasm)
-compile_and_copy_aot_from(test64.wasm)
+target_compile_options(test64.wasm PUBLIC -nostdlib -O0 -pthread --target=wasm64)
+target_link_options(test64.wasm PRIVATE
+  -nostdlib
+  LINKER:--no-entry
+  LINKER:--initial-memory=65536
+  LINKER:--export-all
+  LINKER:--allow-undefined
+)
+
+# Compile AOT files (combined target)
+add_custom_target(compile_aot ALL
+  COMMAND ${WAMRC_BIN} ${WAMRC_SHARED_HEAP_FLAGS} -o test64.aot test64.wasm
+  COMMAND ${WAMRC_BIN} ${WAMRC_SHARED_HEAP_CHAIN_FLAGS} -o test64_chain.aot test64.wasm
+  DEPENDS test64.wasm
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+# Install WASM file
+set(WASM_FILES
+  ${CMAKE_CURRENT_BINARY_DIR}/test64.wasm
+)
+install(FILES ${WASM_FILES} DESTINATION .)
+
+# Install AOT files
+set(AOT_FILES
+  ${CMAKE_CURRENT_BINARY_DIR}/test64.aot
+  ${CMAKE_CURRENT_BINARY_DIR}/test64_chain.aot
+)
+install(FILES ${AOT_FILES} DESTINATION .)

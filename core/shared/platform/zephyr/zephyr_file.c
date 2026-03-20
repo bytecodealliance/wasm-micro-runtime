@@ -120,13 +120,15 @@ zephyr_fs_alloc_obj(bool is_dir, const char *path, int *index)
             ptr = &desc_array[i];
             ptr->used = true;
             ptr->is_dir = is_dir;
-            ptr->path = bh_strdup(path);
             ptr->dir_index = 0;
+            size_t path_len = strlen(path) + 1;
+            ptr->path = BH_MALLOC(path_len);
             if (ptr->path == NULL) {
                 ptr->used = false;
                 k_mutex_unlock(&desc_array_mutex);
                 return NULL;
             }
+            strcpy(ptr->path, path);
             *index = i + 3;
             break;
         }
@@ -451,6 +453,7 @@ os_openat(os_file_handle handle, const char *path, __wasi_oflags_t oflags,
     }
 
     if (!build_absolute_path(abs_path, sizeof(abs_path), path)) {
+        BH_FREE(*out);
         return __WASI_ENOMEM;
     }
 
@@ -591,8 +594,9 @@ os_preadv(os_file_handle handle, const struct __wasi_iovec_t *iov, int iovcnt,
 
         total_read += bytes_read;
 
-        // If we read less than we asked for, stop reading
-        if (bytes_read < iov[i].buf_len) {
+        /*  If we read less than we asked for, stop reading
+            bytes_read being a non-negative value was already checked */
+        if ((size_t)bytes_read < iov[i].buf_len) {
             break;
         }
     }
@@ -627,8 +631,9 @@ os_pwritev(os_file_handle handle, const struct __wasi_ciovec_t *iov, int iovcnt,
 
         total_written += bytes_written;
 
-        // If we wrote less than we asked for, stop writing
-        if (bytes_written < iov[i].buf_len) {
+        /*  If we wrote less than we asked for, stop writing
+            bytes_read being a non-negative value was already checked */
+        if ((size_t)bytes_written < iov[i].buf_len) {
             break;
         }
     }
@@ -657,8 +662,9 @@ os_readv(os_file_handle handle, const struct __wasi_iovec_t *iov, int iovcnt,
 
         total_read += bytes_read;
 
-        // If we read less than we asked for, stop reading
-        if (bytes_read < iov[i].buf_len) {
+        /*  If we read less than we asked for, stop reading
+            bytes_read being a non-negative value was already checked */
+        if ((size_t)bytes_read < iov[i].buf_len) {
             break;
         }
     }
@@ -702,8 +708,9 @@ os_writev(os_file_handle handle, const struct __wasi_ciovec_t *iov, int iovcnt,
 
         total_written += bytes_written;
 
-        // If we wrote less than we asked for, stop writing
-        if (bytes_written < iov[i].buf_len) {
+        /*  If we wrote less than we asked for, stop writing
+            bytes_read being a non-negative value was already checked */
+        if ((size_t)bytes_written < iov[i].buf_len) {
             break;
         }
     }
@@ -850,10 +857,16 @@ os_renameat(os_file_handle old_handle, const char *old_path,
     for (int i = 0; i < CONFIG_WASI_MAX_OPEN_FILES; i++) {
         struct zephyr_fs_desc *ptr = &desc_array[i];
         if (ptr->used && ptr->path && strcmp(ptr->path, abs_old_path) == 0) {
-            char *new_path_copy = bh_strdup(new_path);
+            size_t new_path_len = strlen(abs_new_path) + 1;
+            char *new_path_copy = BH_MALLOC(new_path_len);
             if (new_path_copy != NULL) {
+                strcpy(new_path_copy, abs_new_path);
                 BH_FREE(ptr->path);
                 ptr->path = new_path_copy;
+            }
+            else {
+                k_mutex_unlock(&desc_array_mutex);
+                return __WASI_ENOMEM;
             }
             break; // Only one descriptor should match
         }

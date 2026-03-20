@@ -173,7 +173,7 @@ os_socket_getbooloption(bh_socket_t socket, int level, int optname,
     int optval;
     socklen_t optval_size = sizeof(optval);
 
-    if (zsock_setsockopt(socket->fd, level, optname, &optval, optval_size)
+    if (zsock_getsockopt(socket->fd, level, optname, &optval, &optval_size)
         != 0) {
         return BHT_ERROR;
     }
@@ -190,7 +190,7 @@ os_socket_create(bh_socket_t *sock, bool is_ipv4, bool is_tcp)
 
     *(sock) = BH_MALLOC(sizeof(zephyr_handle));
 
-    if (!sock) {
+    if (!*sock) {
         return BHT_ERROR;
     }
 
@@ -262,8 +262,13 @@ os_socket_settimeout(bh_socket_t socket, uint64 timeout_us)
     timeout.tv_sec = timeout_us / 1000000;
     timeout.tv_usec = timeout_us % 1000000;
 
-    return zsock_setsockopt(socket->fd, SOL_SOCKET, SO_RCVTIMEO, &timeout,
-                            sizeof(timeout));
+    if (zsock_setsockopt(socket->fd, SOL_SOCKET, SO_RCVTIMEO, &timeout,
+                         sizeof(timeout))
+        != 0) {
+        return BHT_ERROR;
+    }
+
+    return BHT_OK;
 }
 
 int
@@ -277,7 +282,7 @@ os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr,
                  unsigned int *addrlen)
 {
     *sock = BH_MALLOC(sizeof(zephyr_handle));
-    if (!sock) {
+    if (!*sock) {
         return BHT_ERROR;
     }
 
@@ -609,7 +614,7 @@ os_socket_get_send_timeout(bh_socket_t socket, uint64 *timeout_us)
     struct timeval tv;
     socklen_t tv_len = sizeof(tv);
 
-    if (zsock_setsockopt(socket->fd, SOL_SOCKET, SO_SNDTIMEO, &tv, tv_len)
+    if (zsock_getsockopt(socket->fd, SOL_SOCKET, SO_SNDTIMEO, &tv, &tv_len)
         != 0) {
         return BHT_ERROR;
     }
@@ -639,7 +644,7 @@ os_socket_get_recv_timeout(bh_socket_t socket, uint64 *timeout_us)
     struct timeval tv;
     socklen_t tv_len = sizeof(tv);
 
-    if (zsock_setsockopt(socket->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, tv_len)
+    if (zsock_getsockopt(socket->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, &tv_len)
         != 0) {
         return BHT_ERROR;
     }
@@ -693,21 +698,18 @@ os_socket_get_linger(bh_socket_t socket, bool *is_enabled, int *linger_s)
     return BHT_ERROR;
 }
 
-// TCP_NODELAY Disable TCP buffering (ignored, for compatibility)
 int
 os_socket_set_tcp_no_delay(bh_socket_t socket, bool is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    return os_socket_setbooloption(socket, IPPROTO_TCP, TCP_NODELAY,
+                                   is_enabled);
 }
 
 int
 os_socket_get_tcp_no_delay(bh_socket_t socket, bool *is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    return os_socket_getbooloption(socket, IPPROTO_TCP, TCP_NODELAY,
+                                   is_enabled);
 }
 
 int
@@ -760,8 +762,8 @@ os_socket_get_tcp_keep_idle(bh_socket_t socket, uint32_t *time_s)
     socklen_t time_s_len = sizeof(time_s_int);
 
 #ifdef TCP_KEEPIDLE
-    if (zsock_setsockopt(socket->fd, IPPROTO_TCP, TCP_KEEPIDLE, &time_s_int,
-                         time_s_len)
+    if (zsock_getsockopt(socket->fd, IPPROTO_TCP, TCP_KEEPIDLE, &time_s_int,
+                         &time_s_len)
         != 0) {
         return BHT_ERROR;
     }
@@ -769,8 +771,8 @@ os_socket_get_tcp_keep_idle(bh_socket_t socket, uint32_t *time_s)
 
     return BHT_OK;
 #elif defined(TCP_KEEPALIVE)
-    if (zsock_setsockopt(socket->fd, IPPROTO_TCP, TCP_KEEPALIVE, &time_s_int,
-                         time_s_len)
+    if (zsock_getsockopt(socket->fd, IPPROTO_TCP, TCP_KEEPALIVE, &time_s_int,
+                         &time_s_len)
         != 0) {
         return BHT_ERROR;
     }
@@ -856,17 +858,37 @@ os_socket_get_tcp_fastopen_connect(bh_socket_t socket, bool *is_enabled)
 int
 os_socket_set_ip_multicast_loop(bh_socket_t socket, bool ipv6, bool is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    if (ipv6) {
+#ifdef IPPROTO_IPV6
+        return os_socket_setbooloption(socket, IPPROTO_IPV6,
+                                       IPV6_MULTICAST_LOOP, is_enabled);
+#else
+        errno = EAFNOSUPPORT;
+        return BHT_ERROR;
+#endif
+    }
+    else {
+        return os_socket_setbooloption(socket, IPPROTO_IP, IP_MULTICAST_LOOP,
+                                       is_enabled);
+    }
 }
 
 int
 os_socket_get_ip_multicast_loop(bh_socket_t socket, bool ipv6, bool *is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    if (ipv6) {
+#ifdef IPPROTO_IPV6
+        return os_socket_getbooloption(socket, IPPROTO_IPV6,
+                                       IPV6_MULTICAST_LOOP, is_enabled);
+#else
+        errno = EAFNOSUPPORT;
+        return BHT_ERROR;
+#endif
+    }
+    else {
+        return os_socket_getbooloption(socket, IPPROTO_IP, IP_MULTICAST_LOOP,
+                                       is_enabled);
+    }
 }
 
 int
@@ -965,13 +987,13 @@ os_socket_set_ip_ttl(bh_socket_t socket, uint8_t ttl_s)
 int
 os_socket_get_ip_ttl(bh_socket_t socket, uint8_t *ttl_s)
 {
-    socklen_t opt_len = sizeof(*ttl_s);
-
-    if (zsock_setsockopt(socket->fd, IPPROTO_IP, IP_MULTICAST_TTL, ttl_s,
-                         opt_len)
-        != 0) {
+    /*  Most socket-level options utilize an int argument for optval */
+    int opt;
+    socklen_t opt_len = sizeof(opt);
+    if (zsock_getsockopt(socket->fd, IPPROTO_IP, IP_TTL, &opt, &opt_len) != 0) {
         return BHT_ERROR;
     }
+    *ttl_s = (uint8_t)opt;
 
     return BHT_OK;
 }
@@ -991,13 +1013,15 @@ os_socket_set_ip_multicast_ttl(bh_socket_t socket, uint8_t ttl_s)
 int
 os_socket_get_ip_multicast_ttl(bh_socket_t socket, uint8_t *ttl_s)
 {
-    socklen_t opt_len = sizeof(*ttl_s);
-
-    if (zsock_setsockopt(socket->fd, IPPROTO_IP, IP_MULTICAST_TTL, ttl_s,
-                         opt_len)
+    /*  Most socket-level options utilize an int argument for optval */
+    int opt;
+    socklen_t opt_len = sizeof(opt);
+    if (zsock_getsockopt(socket->fd, IPPROTO_IP, IP_MULTICAST_TTL, &opt,
+                         &opt_len)
         != 0) {
         return BHT_ERROR;
     }
+    *ttl_s = (uint8_t)opt;
 
     return BHT_OK;
 }

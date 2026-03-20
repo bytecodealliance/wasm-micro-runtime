@@ -21,7 +21,7 @@ cmake ${WAMR_DIR}/product-mini/platforms/${PLATFORM} \
     -DWAMR_BUILD_LIB_PTHREAD=1 -DWAMR_BUILD_DUMP_CALL_STACK=1 \
     -DWAMR_BUILD_MEMORY_PROFILING=1
 make -j ${nproc}
-cp -a libvmlib.a ${WAMR_GO_DIR}/packaged/lib/${PLATFORM}-${ARCH}
+cp -a libiwasm.a ${WAMR_GO_DIR}/packaged/lib/${PLATFORM}-${ARCH}
 
 cd ${WAMR_GO_DIR}
 go test

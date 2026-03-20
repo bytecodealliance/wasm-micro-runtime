@@ -25,4 +25,4 @@ FetchContent_Declare(
 
 message("-- Fetching simde ..")
 FetchContent_MakeAvailable(simde)
-include_directories("${simde_SOURCE_DIR}")
+include_directories(SYSTEM "${simde_SOURCE_DIR}")

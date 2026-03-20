@@ -1963,6 +1963,12 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     module_inst->e =
         (WASMModuleInstanceExtra *)((uint8 *)module_inst + extra_info_offset);
     extra = (AOTModuleInstanceExtra *)module_inst->e;
+#if WASM_ENABLE_THREAD_MGR != 0
+    if (os_mutex_init(&extra->common.exception_lock) != 0) {
+        wasm_runtime_free(module_inst);
+        return NULL;
+    }
+#endif
 
 #if WASM_ENABLE_GC != 0
     /* Initialize gc heap first since it may be used when initializing
@@ -2353,6 +2359,10 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
         wasm_exec_env_destroy((WASMExecEnv *)module_inst->exec_env_singleton);
     }
 
+#if WASM_ENABLE_THREAD_MGR != 0
+    os_mutex_destroy(&extra->common.exception_lock);
+#endif
+
 #if WASM_ENABLE_PERF_PROFILING != 0
     if (module_inst->func_perf_profilings)
         wasm_runtime_free(module_inst->func_perf_profilings);
@@ -2485,6 +2495,7 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
        native stack to run the following codes before actually calling
        the aot function in invokeNative function. */
     if (!wasm_runtime_detect_native_stack_overflow(exec_env)) {
+        wasm_runtime_set_exec_env_tls(NULL);
         return false;
     }
 
@@ -3256,6 +3267,12 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     bool ret = false;
     bh_assert(func_idx < aot_module->import_func_count);
 
+#if defined(__has_feature)
+#if __has_feature(memory_sanitizer)
+#include <sanitizer/msan_interface.h>
+    __msan_unpoison(argv, (sizeof(uint32) * argc));
+#endif
+#endif
     import_func = aot_module->import_funcs + func_idx;
     if (import_func->call_conv_wasm_c_api)
         func_ptr =
@@ -4175,7 +4192,8 @@ aot_alloc_tiny_frame(WASMExecEnv *exec_env, uint32 func_index)
 {
     AOTTinyFrame *new_frame = (AOTTinyFrame *)exec_env->wasm_stack.top;
 
-    if ((uint8 *)new_frame > exec_env->wasm_stack.top_boundary) {
+    if ((uint8 *)new_frame + sizeof(AOTTinyFrame)
+        > exec_env->wasm_stack.top_boundary) {
         aot_set_exception((WASMModuleInstance *)exec_env->module_inst,
                           "wasm operand stack overflow");
         return false;
@@ -4331,6 +4349,7 @@ aot_copy_callstack_tiny_frame(WASMExecEnv *exec_env, WASMCApiFrame *buffer,
 
     AOTTinyFrame *frame = (AOTTinyFrame *)(top - sizeof(AOTTinyFrame));
     WASMCApiFrame record_frame;
+    memset(&record_frame, 0, sizeof(WASMCApiFrame));
     while (frame && (uint8_t *)frame >= bottom && count < (skip_n + length)) {
         if (count < skip_n) {
             ++count;
@@ -4373,6 +4392,7 @@ aot_copy_callstack_standard_frame(WASMExecEnv *exec_env, WASMCApiFrame *buffer,
     uint32 frame_size = (uint32)offsetof(AOTFrame, lp);
 
     WASMCApiFrame record_frame;
+    memset(&record_frame, 0, sizeof(WASMCApiFrame));
     while (cur_frame && (uint8_t *)cur_frame >= bottom
            && (uint8_t *)cur_frame + frame_size <= top_boundary
            && count < (skip_n + length)) {
@@ -4698,7 +4718,7 @@ static bool
 cmpxchg_ptr(void **ptr, void *old_val, void *new_val)
 {
 #if defined(os_atomic_cmpxchg)
-    return os_atomic_cmpxchg(ptr, &old_val, new_val);
+    return os_atomic_cmpxchg((_Atomic(void *) *)ptr, &old_val, new_val);
 #else
     /* TODO: add lock when thread-manager is enabled */
     void *read = *ptr;

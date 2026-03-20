@@ -4,8 +4,6 @@
 cmake_minimum_required (VERSION 3.14)
 project (wasm_c_api_test)
 
-set(WAMR_BUILD_PLATFORM "linux")
-
 # WAMR features switch
 if (NOT DEFINED WAMR_BUILD_TARGET)
   set(WAMR_BUILD_TARGET "X86_64")

@@ -676,7 +676,7 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 *alignp = max_align;
             }
             else {
-                unsigned int align = 1 << (shift - 1);
+                unsigned int align = 1U << (shift - 1);
                 if (align > max_align) {
                     align = max_align;
                 }

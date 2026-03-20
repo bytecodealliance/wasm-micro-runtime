@@ -1472,6 +1472,8 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_wasi_nn_registry(WASMModuleInstanceCommon *module_inst_comm,
                                   WASINNRegistry *wasi_nn_ctx);
 #endif
+struct WASMModuleInstanceExtraCommon *
+GetModuleInstanceExtraCommon(struct WASMModuleInstance *module_inst);
 
 #ifdef __cplusplus
 }

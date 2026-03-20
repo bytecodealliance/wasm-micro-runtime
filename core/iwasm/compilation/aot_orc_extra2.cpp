@@ -85,6 +85,7 @@ MyPassManager::add(llvm::Pass *P)
     // a hack to avoid having a copy of the whole addPassesToEmitMC.
     // we want to add PrintStackSizes before FreeMachineFunctionPass.
     if (P->getPassName() == "Free MachineFunction") {
+        delete P;
         return;
     }
     llvm::legacy::PassManager::add(P);
@@ -123,7 +124,7 @@ MyCompiler::operator()(llvm::Module &M)
         M.getModuleIdentifier() + "-jitted-objectbuffer");
 #endif
 
-    return std::move(ObjBuffer);
+    return ObjBuffer;
 }
 
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(llvm::orc::LLLazyJITBuilder,

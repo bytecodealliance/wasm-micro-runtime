@@ -11,23 +11,6 @@
 
 static std::string CWD;
 
-static std::string
-get_binary_path()
-{
-    char cwd[1024];
-    memset(cwd, 0, 1024);
-
-    if (readlink("/proc/self/exe", cwd, 1024) <= 0) {
-    }
-
-    char *path_end = strrchr(cwd, '/');
-    if (path_end != NULL) {
-        *path_end = '\0';
-    }
-
-    return std::string(cwd);
-}
-
 #if WASM_DISABLE_HW_BOUND_CHECK != 0
 #define TEST_SUITE_NAME linear_memory_test_suite_aot_no_hw_bound
 #else
@@ -45,7 +28,7 @@ class TEST_SUITE_NAME : public testing::Test
     // Otherwise, this can be skipped.
     virtual void SetUp() {}
 
-    static void SetUpTestCase() { CWD = get_binary_path(); }
+    static void SetUpTestCase() { CWD = get_test_binary_dir(); }
 
     // virtual void TearDown() will be called after each test is run.
     // You should define it if there is cleanup work to do.  Otherwise,

@@ -415,19 +415,39 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
 }
 #endif /* end of BH_PLATFORM_WINDOWS */
 
+#ifdef BH_PLATFORM_WINDOWS
+static PVOID runtime_exception_handler_handle = NULL;
+static int32 runtime_exception_handler_ref_count = 0;
+static korp_mutex runtime_exception_handler_lock = NULL;
+#endif
+
 static bool
 runtime_signal_init()
 {
 #ifndef BH_PLATFORM_WINDOWS
     return os_thread_signal_init(runtime_signal_handler) == 0 ? true : false;
 #else
-    if (os_thread_signal_init() != 0)
-        return false;
+    os_mutex_lock(&runtime_exception_handler_lock);
 
-    if (!AddVectoredExceptionHandler(1, runtime_exception_handler)) {
-        os_thread_signal_destroy();
+    if (os_thread_signal_init() != 0) {
+        os_mutex_unlock(&runtime_exception_handler_lock);
         return false;
     }
+
+    if (runtime_exception_handler_ref_count == 0) {
+        runtime_exception_handler_handle =
+            AddVectoredExceptionHandler(1, runtime_exception_handler);
+    }
+
+    if (!runtime_exception_handler_handle) {
+        os_thread_signal_destroy();
+        os_mutex_unlock(&runtime_exception_handler_lock);
+        return false;
+    }
+
+    runtime_exception_handler_ref_count++;
+
+    os_mutex_unlock(&runtime_exception_handler_lock);
 #endif
     return true;
 }
@@ -436,7 +456,25 @@ static void
 runtime_signal_destroy()
 {
 #ifdef BH_PLATFORM_WINDOWS
-    RemoveVectoredExceptionHandler(runtime_exception_handler);
+    os_mutex_lock(&runtime_exception_handler_lock);
+
+    if (runtime_exception_handler_ref_count > 0) {
+        runtime_exception_handler_ref_count--;
+    }
+
+    if (runtime_exception_handler_ref_count == 0
+        && runtime_exception_handler_handle) {
+        if (RemoveVectoredExceptionHandler(runtime_exception_handler_handle)) {
+            runtime_exception_handler_handle = NULL;
+        }
+        else {
+            /* Keep the handle so future init/destroy cycles can retry remove.
+             * Clearing it here may leave a live callback registered forever. */
+            runtime_exception_handler_ref_count = 1;
+        }
+    }
+
+    os_mutex_unlock(&runtime_exception_handler_lock);
 #endif
     os_thread_signal_destroy();
 }
@@ -4001,7 +4039,8 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
 
     /* addr_pool(textual) -> apool */
     for (i = 0; i < addr_pool_size; i++) {
-        char *cp, *address, *mask;
+        char *cp, *address, *mask, *nextptr, *endptr;
+        long mask_val;
         bool ret = false;
 
         cp = bh_strdup(addr_pool[i]);
@@ -4011,18 +4050,35 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
             goto fail;
         }
 
-        address = strtok(cp, "/");
-        mask = strtok(NULL, "/");
+        address = bh_strtok_r(cp, "/", &nextptr);
+        mask = bh_strtok_r(NULL, "/", &nextptr);
 
         if (!mask) {
             snprintf(error_buf, error_buf_size,
                      "Invalid address pool entry: %s, must be in the format of "
                      "ADDRESS/MASK",
                      addr_pool[i]);
+            wasm_runtime_free(cp);
             goto fail;
         }
 
-        ret = addr_pool_insert(apool, address, (uint8)atoi(mask));
+        errno = 0;
+        mask_val = strtol(mask, &endptr, 10);
+
+        if (mask == endptr || *endptr != '\0') {
+            snprintf(error_buf, error_buf_size,
+                     "Invalid address pool entry: mask must be a number");
+            wasm_runtime_free(cp);
+            goto fail;
+        }
+        if (errno != 0 || mask_val < 0) {
+            snprintf(error_buf, error_buf_size,
+                     "Init wasi environment failed: invalid mask number");
+            wasm_runtime_free(cp);
+            goto fail;
+        }
+
+        ret = addr_pool_insert(apool, address, (uint8)mask_val);
         wasm_runtime_free(cp);
         if (!ret) {
             set_error_buf(error_buf, error_buf_size,
@@ -8183,3 +8239,18 @@ wasm_runtime_check_and_update_last_used_shared_heap(
     return false;
 }
 #endif
+
+WASMModuleInstanceExtraCommon *
+GetModuleInstanceExtraCommon(WASMModuleInstance *module_inst)
+{
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return &((AOTModuleInstanceExtra *)module_inst->e)->common;
+    }
+    else {
+        return &module_inst->e->common;
+    }
+#else
+    return &module_inst->e->common;
+#endif
+}

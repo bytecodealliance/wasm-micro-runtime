@@ -78,7 +78,7 @@ find_package(LLVM REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
-include_directories(${LLVM_INCLUDE_DIRS})
+include_directories(SYSTEM ${LLVM_INCLUDE_DIRS})
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 add_definitions(${LLVM_DEFINITIONS_LIST})
 
@@ -172,21 +172,19 @@ set(IWASM_DIR ${REPO_ROOT_DIR}/core/iwasm)
 # Global setting
 add_compile_options(-Wno-unused-command-line-argument)
 
-# Enable fuzzer
-add_definitions(-DWASM_ENABLE_FUZZ_TEST=1)
-# '-fsanitize=vptr' not allowed with '-fno-rtti
-# But, LLVM by default, disables the use of `rtti` in the compiler
-add_compile_options(-fsanitize=fuzzer -fno-sanitize=vptr)
-add_link_options(-fsanitize=fuzzer -fno-sanitize=vptr)
-
 # Enable sanitizers if not in oss-fuzz environment
 set(CFLAGS_ENV $ENV{CFLAGS})
-string(FIND "${CFLAGS_ENV}" "-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION" FUZZ_POS)
+  string(FIND "${CFLAGS_ENV}" "-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION" FUZZ_POS)
 if (FUZZ_POS GREATER -1)
   set(IN_OSS_FUZZ 1)
 else()
   set(IN_OSS_FUZZ 0)
 endif()
+
+# Enable fuzzer
+add_definitions(-DWASM_ENABLE_FUZZ_TEST=1)
+
+include(${CMAKE_CURRENT_LIST_DIR}/sanitizer_flags.cmake)
 
 add_subdirectory(aot-compiler)
 add_subdirectory(wasm-mutator)

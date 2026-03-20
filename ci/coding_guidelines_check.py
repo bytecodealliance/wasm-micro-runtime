@@ -159,7 +159,7 @@ def run_clang_format_diff(root: Path, commits: str) -> bool:
                 found = True
         else:
             return not found
-    except subprocess.subprocess.CalledProcessError:
+    except subprocess.CalledProcessError:
         return False
 
 
@@ -183,12 +183,14 @@ def check_file_name(path: Path) -> bool:
     - docker-compose
     - package-lock
     - vite-env.d
+    - .clang-tidy (standard config file for Clang-Tidy)
     """
     if path.stem in [
         "docker-compose",
         "package-lock",
         "vite-env.d",
         "osv-scanner",
+        ".clang-tidy",
     ]:
         return True
 

@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "test_helper.h"
 #include "gtest/gtest.h"
 #include "bh_platform.h"
 #include "bh_read_file.h"
@@ -10,27 +11,10 @@
 
 class WasmGCTest : public testing::Test
 {
-  private:
-    std::string get_binary_path()
-    {
-        char cwd[1024] = { 0 };
-
-        if (readlink("/proc/self/exe", cwd, 1024) <= 0) {
-            return NULL;
-        }
-
-        char *path_end = strrchr(cwd, '/');
-        if (path_end != NULL) {
-            *path_end = '\0';
-        }
-
-        return std::string(cwd);
-    }
-
   protected:
     void SetUp()
     {
-        CWD = get_binary_path();
+                CWD = get_test_binary_dir();
 
         memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
@@ -53,7 +37,7 @@ class WasmGCTest : public testing::Test
   public:
     bool load_wasm_file(const char *wasm_file)
     {
-        const char *file;
+        char *file;
         unsigned char *wasm_file_buf;
         uint32 wasm_file_size;
 
@@ -61,6 +45,8 @@ class WasmGCTest : public testing::Test
 
         wasm_file_buf =
             (unsigned char *)bh_read_file_to_buffer(file, &wasm_file_size);
+        free(file);
+
         if (!wasm_file_buf)
             return false;
 
@@ -99,4 +85,11 @@ TEST_F(WasmGCTest, Test_app1)
 
     ASSERT_TRUE(load_wasm_file("func1.wasm"));
     ASSERT_TRUE(load_wasm_file("func2.wasm"));
+}
+
+TEST_F(WasmGCTest, Test_nested_struct)
+{
+    //FIXME: Revert the change when anyref support is added
+    ASSERT_FALSE(load_wasm_file("nested_struct_field_any.wasm"));
+    ASSERT_FALSE(load_wasm_file("nested_array_elem_any.wasm"));
 }

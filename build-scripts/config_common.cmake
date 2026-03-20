@@ -79,7 +79,13 @@ if (WAMR_BUILD_TARGET MATCHES "ARM.*")
 elseif (WAMR_BUILD_TARGET MATCHES "THUMB.*")
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mthumb")
   set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -Wa,-mthumb")
+elseif (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
+    if (CMAKE_C_COMPILER_ID MATCHES ".*GNU")
+      set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mindirect-branch-register")
+      set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mindirect-branch-register")
+    endif ()
 endif ()
+
 
 include (${CMAKE_CURRENT_LIST_DIR}/warnings.cmake)
 
@@ -117,7 +123,7 @@ if (WAMR_BUILD_JIT EQUAL 1)
     set (LLVM_DIR ${LLVM_BUILD_ROOT}/lib/cmake/llvm)
   endif ()
   find_package(LLVM REQUIRED CONFIG)
-  include_directories(${LLVM_INCLUDE_DIRS})
+  include_directories(SYSTEM ${LLVM_INCLUDE_DIRS})
   add_definitions(${LLVM_DEFINITIONS})
   message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
   message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
@@ -190,7 +196,11 @@ if (NOT WAMR_BUILD_SANITIZER STREQUAL "")
     message(FATAL_ERROR "Unsupported sanitizers: ${INVALID_SANITIZERS}")
   endif()
   # common flags for all sanitizers
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -fno-omit-frame-pointer -fno-sanitize-recover=all")
+  # clang: warning: the object size sanitizer has no effect at -O0, but is explicitly enabled ... [-Winvalid-command-line-argument]
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O1 -fno-omit-frame-pointer -fno-sanitize-recover=all -fno-sanitize=alignment")
+  if(CMAKE_C_COMPILER_ID MATCHES ".*Clang")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-sanitize=unsigned-integer-overflow")
+  endif()
   if(SANITIZER_FLAGS)
     string(REPLACE ";" "," SANITIZER_FLAGS_STR "${SANITIZER_FLAGS}")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=${SANITIZER_FLAGS_STR}")
@@ -765,6 +775,11 @@ endif ()
 if (WAMR_BUILD_LIME1 EQUAL 1)
   message ("     Lime1 enabled")
 endif ()
+if (WAMR_BUILD_BRANCH_HINTS EQUAL 1)
+  message ("     Branch hints enabled")
+  add_definitions(-DWASM_ENABLE_BRANCH_HINTS=1)
+endif ()
+
 ########################################
 # Show Phase4 Wasm proposals status.
 ########################################
@@ -777,8 +792,8 @@ message (
 "       \"Non-trapping float-to-int Conversions\"\n"
 "       \"Sign-extension Operators\"\n"
 "       \"WebAssembly C and C++ API\"\n"
-"       \"Branch Hinting\"\n"
 "     Configurable. 0 is OFF. 1 is ON:\n"
+"       \"Branch Hinting\" via WAMR_BUILD_BRANCH_HINTS: ${WAMR_BUILD_BRANCH_HINTS}\n"
 "       \"Bulk Memory Operation\" via WAMR_BUILD_BULK_MEMORY: ${WAMR_BUILD_BULK_MEMORY}\n"
 "       \"Bulk-memory-opt\" via WAMR_BUILD_BULK_MEMORY_OPT: ${WAMR_BUILD_BULK_MEMORY_OPT}\n"
 "       \"Call-indirect-overlong\" via WAMR_BUILD_CALL_INDIRECT_OVERLONG: ${WAMR_BUILD_CALL_INDIRECT_OVERLONG}\n"

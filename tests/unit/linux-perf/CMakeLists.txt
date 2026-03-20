@@ -24,7 +24,7 @@ set (WAMR_BUILD_DUMP_CALL_STACK 1)
 include (../unit_common.cmake)
 
 find_package(LLVM REQUIRED CONFIG)
-include_directories(${LLVM_INCLUDE_DIRS})
+include_directories(SYSTEM ${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
 include (${IWASM_DIR}/compilation/iwasm_compl.cmake)
@@ -32,9 +32,4 @@ include (${IWASM_DIR}/compilation/iwasm_compl.cmake)
 add_executable (linux_perf_test test_sort_func_ptrs.cc)
 target_compile_options(linux_perf_test PUBLIC -fpermissive)
 target_link_libraries(linux_perf_test ${LLVM_AVAILABLE_LIBS} gtest_main )
-target_link_options(linux_perf_test
-  PUBLIC
-    LINKER:--unresolved-symbols=ignore-all
-)
-
 gtest_discover_tests(linux_perf_test)

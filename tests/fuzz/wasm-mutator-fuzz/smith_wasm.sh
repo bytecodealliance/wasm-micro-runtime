@@ -45,26 +45,23 @@ WASM_SHAPE=" --ensure-termination \
 --export-everything true \
 --fuel 7 \
 --generate-custom-sections true \
---min-funcs 5 \
+--min-funcs 10 \
 --max-instructions 1024 \
 --min-globals 10"
 
-WASM_MVP_FEATURES=" --bulk-memory-enabled true \
+TIERED_A_FEATURE=" --bulk-memory-enabled true \
+--extended-const-enabled true \
+--memory64-enabled true \
 --multi-value-enabled true \
 --reference-types-enabled true \
 --simd-enabled true \
---tail-call-enabled true"
+--tail-call-enabled true \
+--threads-enabled true"
 
 for i in $(seq 1 $EXPECTED_NUM)
 do
-    # mvp
-    try_generate_wasm "${WASM_SHAPE} ${WASM_MVP_FEATURES}" test_mvp_$i.wasm
-
-    # other proposals
-    try_generate_wasm "${WASM_SHAPE} --exceptions-enabled true" test_exception_$i.wasm
-    try_generate_wasm "${WASM_SHAPE} --gc-enabled true" test_gc_$i.wasm
-    try_generate_wasm "${WASM_SHAPE} --memory64-enabled true" test_memory64_$i.wasm
-    try_generate_wasm "${WASM_SHAPE} --threads-enabled true" test_threads_$i.wasm
+    # tiered A wasm files
+    try_generate_wasm "${WASM_SHAPE} ${TIERED_A_FEATURE}" test_tiered_a_$i.wasm
 done
 
 printf "Done\n"

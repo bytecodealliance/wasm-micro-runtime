@@ -22,9 +22,9 @@ test()
 }
 
 int
-test_malloc_fail()
+test_malloc_fail(int size)
 {
-    int *ptr = (int *)shared_heap_malloc(8192);
+    int *ptr = (int *)shared_heap_malloc(size + 1);
 
     if (ptr == NULL) {
         return 1;

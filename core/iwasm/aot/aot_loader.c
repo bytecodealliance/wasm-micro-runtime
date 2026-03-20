@@ -307,7 +307,8 @@ loader_mmap(uint32 size, bool prot_exec, char *error_buf, uint32 error_buf_size)
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
     || defined(BUILD_TARGET_RISCV64_LP64D)                       \
     || defined(BUILD_TARGET_RISCV64_LP64)
-#if !defined(__APPLE__) && !defined(BH_PLATFORM_LINUX_SGX)
+#if !defined(__APPLE__) && !defined(BH_PLATFORM_LINUX_SGX) \
+    && !defined(BH_PLATFORM_NUTTX)
     /* The mmapped AOT data and code in 64-bit targets had better be in
        range 0 to 2G, or aot loader may fail to apply some relocations,
        e.g., R_X86_64_32/R_X86_64_32S/R_X86_64_PC32/R_RISCV_32.
@@ -981,7 +982,7 @@ destroy_init_expr(InitializerExpression *expr)
 #endif
 
 #if WASM_ENABLE_EXTENDED_CONST_EXPR != 0
-    // free left expr and right expr for binary oprand
+    /* free left expr and right expr for binary operand */
     if (!is_expr_binary_op(expr->init_expr_type)) {
         return;
     }
@@ -3227,7 +3228,7 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
         if (!strncmp(symbol, AOT_FUNC_PREFIX, strlen(AOT_FUNC_PREFIX))) {
             p = symbol + strlen(AOT_FUNC_PREFIX);
             if (*p == '\0'
-                || (func_index = (uint32)atoi(p)) > module->func_count) {
+                || (func_index = (uint32)atoi(p)) >= module->func_count) {
                 set_error_buf_v(error_buf, error_buf_size,
                                 "invalid import symbol %s", symbol);
                 goto check_symbol_fail;
@@ -3261,7 +3262,7 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                           strlen("_" AOT_FUNC_PREFIX))) {
             p = symbol + strlen("_" AOT_FUNC_PREFIX);
             if (*p == '\0'
-                || (func_index = (uint32)atoi(p)) > module->func_count) {
+                || (func_index = (uint32)atoi(p)) >= module->func_count) {
                 set_error_buf_v(error_buf, error_buf_size, "invalid symbol %s",
                                 symbol);
                 goto check_symbol_fail;
@@ -3272,7 +3273,7 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                           strlen("_" AOT_FUNC_INTERNAL_PREFIX))) {
             p = symbol + strlen("_" AOT_FUNC_INTERNAL_PREFIX);
             if (*p == '\0'
-                || (func_index = (uint32)atoi(p)) > module->func_count) {
+                || (func_index = (uint32)atoi(p)) >= module->func_count) {
                 set_error_buf_v(error_buf, error_buf_size, "invalid symbol %s",
                                 symbol);
                 goto check_symbol_fail;
@@ -3462,7 +3463,7 @@ do_data_relocation(AOTModule *module, AOTRelocationGroup *group,
             char *p = symbol + strlen(AOT_FUNC_PREFIX);
             uint32 func_index;
             if (*p == '\0'
-                || (func_index = (uint32)atoi(p)) > module->func_count) {
+                || (func_index = (uint32)atoi(p)) >= module->func_count) {
                 set_error_buf_v(error_buf, error_buf_size,
                                 "invalid relocation symbol %s", symbol);
                 return false;
@@ -3871,7 +3872,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
                 read_uint32(buf, buf_end, offset32);
                 relocation->relocation_offset = (uint64)offset32;
                 read_uint32(buf, buf_end, addend32);
-                relocation->relocation_addend = (uint64)addend32;
+                relocation->relocation_addend = (int64)(int32)addend32;
             }
             read_uint32(buf, buf_end, relocation->relocation_type);
             read_uint32(buf, buf_end, symbol_index);

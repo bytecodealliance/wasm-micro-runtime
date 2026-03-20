@@ -176,7 +176,7 @@ if (NOT WAMR_BUILD_WITH_CUSTOM_LLVM)
 endif ()
 
 find_package(LLVM REQUIRED CONFIG)
-include_directories(${LLVM_INCLUDE_DIRS})
+include_directories(SYSTEM ${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
@@ -184,8 +184,8 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
 if (WAMR_BUILD_DEBUG_AOT EQUAL 1)
   if(LLVM_BUILD_MAIN_SRC_DIR)
-    include_directories(${LLVM_BUILD_MAIN_SRC_DIR}/../lldb/include)
-    include_directories(${LLVM_BUILD_BINARY_DIR}/tools/lldb/include)
+    include_directories(SYSTEM ${LLVM_BUILD_MAIN_SRC_DIR}/../lldb/include)
+    include_directories(SYSTEM ${LLVM_BUILD_BINARY_DIR}/tools/lldb/include)
   endif()
   link_directories(${LLVM_LIBRARY_DIRS})
   find_library(lib_lldb NAMES lldb HINTS ${LLVM_LIBRARY_DIRS} REQUIRED)
@@ -328,7 +328,7 @@ endif ()
 #TODO: sync up WAMR_BUILD_SANITIZER in config_common.cmake
 # set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion -Wsign-conversion")
 if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
-  if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang" OR MSVC))
+  if (CMAKE_C_COMPILER_ID MATCHES ".*GNU")
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mindirect-branch-register")
     # UNDEFINED BEHAVIOR, refer to https://en.cppreference.com/w/cpp/language/ub
     if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WAMR_BUILD_JIT EQUAL 1)

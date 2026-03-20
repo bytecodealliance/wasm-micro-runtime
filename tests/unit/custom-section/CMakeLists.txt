@@ -38,7 +38,7 @@ set (WAMR_BUILD_LOAD_CUSTOM_SECTION 1)
 include (../unit_common.cmake)
 
 find_package(LLVM REQUIRED CONFIG)
-include_directories(${LLVM_INCLUDE_DIRS})
+include_directories(SYSTEM ${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
 include (${IWASM_DIR}/compilation/iwasm_compl.cmake)

@@ -442,7 +442,7 @@ wasm_interp_get_frame_ref(WASMInterpFrame *frame)
         opnd_off = *(int16 *)(frame_ip + off); \
         addr_tmp = frame_lp + opnd_off;        \
         PUT_REF_TO_ADDR(addr_tmp, value);      \
-        SET_FRAME_REF(ond_off);                \
+        SET_FRAME_REF(opnd_off);               \
     } while (0)
 
 #define SET_OPERAND(op_type, off, value) SET_OPERAND_##op_type(off, value)
@@ -999,9 +999,9 @@ fail:
                     }                                                      \
                 }                                                          \
                 else if (cells[0] == 2) {                                  \
-                    PUT_I64_TO_ADDR(                                       \
-                        frame_lp + dst_offsets[0],                         \
-                        GET_I64_FROM_ADDR(frame_lp + src_offsets[0]));     \
+                    int64 tmp_i64 =                                        \
+                        GET_I64_FROM_ADDR(frame_lp + src_offsets[0]);      \
+                    PUT_I64_TO_ADDR(frame_lp + dst_offsets[0], tmp_i64);   \
                     /* Ignore constants because they are not reference */  \
                     if (src_offsets[0] >= 0) {                             \
                         CLEAR_FRAME_REF((unsigned)src_offsets[0]);         \
@@ -1011,9 +1011,9 @@ fail:
                     }                                                      \
                 }                                                          \
                 else if (cells[0] == 4) {                                  \
-                    PUT_V128_TO_ADDR(                                      \
-                        frame_lp + dst_offsets[0],                         \
-                        GET_V128_FROM_ADDR(frame_lp + src_offsets[0]));    \
+                    V128 tmp_v128 =                                        \
+                        GET_V128_FROM_ADDR(frame_lp + src_offsets[0]);     \
+                    PUT_V128_TO_ADDR(frame_lp + dst_offsets[0], tmp_v128); \
                     /* Ignore constants because they are not reference */  \
                     if (src_offsets[0] >= 0) {                             \
                         CLEAR_FRAME_REF((unsigned)src_offsets[0]);         \
@@ -1062,14 +1062,14 @@ fail:
                 if (cells[0] == 1)                                          \
                     frame_lp[dst_offsets[0]] = frame_lp[src_offsets[0]];    \
                 else if (cells[0] == 2) {                                   \
-                    PUT_I64_TO_ADDR(                                        \
-                        frame_lp + dst_offsets[0],                          \
-                        GET_I64_FROM_ADDR(frame_lp + src_offsets[0]));      \
+                    int64 tmp_i64 =                                         \
+                        GET_I64_FROM_ADDR(frame_lp + src_offsets[0]);       \
+                    PUT_I64_TO_ADDR(frame_lp + dst_offsets[0], tmp_i64);    \
                 }                                                           \
                 else if (cells[0] == 4) {                                   \
-                    PUT_V128_TO_ADDR(                                       \
-                        frame_lp + dst_offsets[0],                          \
-                        GET_V128_FROM_ADDR(frame_lp + src_offsets[0]));     \
+                    V128 tmp_v128 =                                         \
+                        GET_V128_FROM_ADDR(frame_lp + src_offsets[0]);      \
+                    PUT_V128_TO_ADDR(frame_lp + dst_offsets[0], tmp_v128);  \
                 }                                                           \
             }                                                               \
             else {                                                          \

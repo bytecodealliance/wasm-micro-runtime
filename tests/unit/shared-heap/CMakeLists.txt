@@ -16,14 +16,34 @@ set(WAMR_BUILD_MEMORY64 0)
 set(WAMR_BUILD_SHARED_HEAP 1)
 
 # Compile wasm modules
-add_subdirectory(wasm-apps)
+set(WASI_SDK_DIR "/opt/wasi-sdk")
+set(WASISDK_TOOLCHAIN "${WASI_SDK_DIR}/share/cmake/wasi-sdk.cmake")
 
-if (WAMR_BUILD_MEMORY64 EQUAL 1)
-   add_subdirectory(wasm-apps/memory64)
-endif ()
+include(ExternalProject)
+ExternalProject_Add(
+  shared_heap_wasm_apps
+  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps
+  BUILD_ALWAYS YES
+  CONFIGURE_COMMAND ${CMAKE_COMMAND} -S ${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps -B build
+                      -DWASI_SDK_PREFIX=${WASI_SDK_DIR}
+                      -DCMAKE_TOOLCHAIN_FILE=${WASISDK_TOOLCHAIN}
+  BUILD_COMMAND     ${CMAKE_COMMAND} --build build
+  INSTALL_COMMAND   ${CMAKE_COMMAND} --install build --prefix ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+ExternalProject_Add(
+  shared_heap_wasm_apps_bulk_memory
+  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps/bulk-memory
+  BUILD_ALWAYS YES
+  CONFIGURE_COMMAND ${CMAKE_COMMAND} -S ${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps/bulk-memory -B build
+                      -DWASI_SDK_PREFIX=${WASI_SDK_DIR}
+                      -DCMAKE_TOOLCHAIN_FILE=${WASISDK_TOOLCHAIN}
+  BUILD_COMMAND     ${CMAKE_COMMAND} --build build
+  INSTALL_COMMAND   ${CMAKE_COMMAND} --install build --prefix ${CMAKE_CURRENT_BINARY_DIR}
+)
 
 # if only load this CMake other than load it as subdirectory
-include(../unit_common.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../unit_common.cmake)
 
 include(${IWASM_DIR}/compilation/iwasm_compl.cmake)
 

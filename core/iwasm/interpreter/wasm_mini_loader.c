@@ -375,8 +375,8 @@ destroy_const_expr_stack(ConstExprContext *ctx, bool free_exprs)
 static void
 destroy_init_expr(InitializerExpression *expr)
 {
-    // free left expr and right exprs for binary oprand
-    if (is_expr_binary_op(expr->init_expr_type)) {
+    /* free left expr and right exprs for binary operand */
+    if (!is_expr_binary_op(expr->init_expr_type)) {
         return;
     }
     if (expr->u.binary.l_expr) {
@@ -4345,8 +4345,7 @@ check_offset_pop(WASMLoaderContext *ctx, uint32 cells)
 static bool
 check_dynamic_offset_pop(WASMLoaderContext *ctx, uint32 cells)
 {
-    if (ctx->dynamic_offset < 0
-        || (ctx->dynamic_offset > 0 && (uint32)ctx->dynamic_offset < cells))
+    if (ctx->dynamic_offset < 0 || (uint32)ctx->dynamic_offset < cells)
         return false;
     return true;
 }

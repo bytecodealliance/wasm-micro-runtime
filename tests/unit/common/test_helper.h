@@ -11,6 +11,20 @@
 #include <iostream>
 #include <memory>
 #include <fstream>
+#include <limits.h>
+#include <string>
+#include <unistd.h>
+
+static inline std::string
+get_test_binary_dir()
+{
+    char cwd[PATH_MAX] = { 0 };
+    if (!getcwd(cwd, sizeof(cwd))) {
+        return std::string();
+    }
+
+    return std::string(cwd);
+}
 
 template<int Size = 512 * 1024>
 class WAMRRuntimeRAII

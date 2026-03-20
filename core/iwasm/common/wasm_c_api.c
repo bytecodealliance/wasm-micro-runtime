@@ -3459,9 +3459,16 @@ failed:
         wasm_runtime_free(argv);
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0 && WASM_ENABLE_THREAD_MGR != 0
-    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
-    cluster_frames = &cluster->exception_frames;
-    wasm_cluster_traverse_lock(exec_env);
+    WASMCluster *cluster = NULL;
+    if (exec_env) {
+        cluster = wasm_exec_env_get_cluster(exec_env);
+    }
+    if (cluster) {
+        cluster_frames = &cluster->exception_frames;
+    }
+    if (cluster_frames) {
+        wasm_cluster_traverse_lock(exec_env);
+    }
 #endif
 
     wasm_trap_t *trap = wasm_trap_new_internal(
@@ -3469,7 +3476,9 @@ failed:
         wasm_runtime_get_exception(func->inst_comm_rt), cluster_frames);
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0 && WASM_ENABLE_THREAD_MGR != 0
-    wasm_cluster_traverse_unlock(exec_env);
+    if (cluster_frames) {
+        wasm_cluster_traverse_unlock(exec_env);
+    }
 #endif
     return trap;
 }
