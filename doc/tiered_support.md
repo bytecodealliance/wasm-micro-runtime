@@ -165,6 +165,7 @@ This tier indicates experimental features with foundational support levels. Thes
 | GC (Garbage Collection)        | [WAMR_BUILD_GC](./build_wamr.md#garbage-collection)                                                   | Wasm Proposal      |
 | Legacy Exception Handling      | [WAMR_BUILD_EXCE_HANDLING](./build_wamr.md#exception-handling)                                        | Wasm Proposal      |
 | Multi-memory                   | [WAMR_BUILD_MULTI_MEMORY](./build_wamr.md#multi-memory)                                               | Wasm Proposal      |
+| Branch Hints                   | [WAMR_BUILD_BRANCH_HINTS](./build_wamr.md#branch-hints-feature)                                       | Wasm Proposal      |
 | Fast JIT                       | [WAMR_BUILD_FAST_JIT](./build_wamr.md#configure-fast-jit)                                             | Running mode       |
 | Multi-tier JIT                 | [Combination of flags](./build_wamr.md#configure-multi-tier-jit)                                      | Running mode       |
 | AoT Validator                  | [WAMR_BUILD_AOT_VALIDATOR](./build_wamr.md#aot-validator)                                             | Runtime Extensions |

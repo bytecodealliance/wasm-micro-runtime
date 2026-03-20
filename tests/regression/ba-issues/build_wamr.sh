@@ -60,4 +60,7 @@ build_iwasm "-DWAMR_BUILD_REF_TYPES=1 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LIBC_WASI=
 # build fast-jit iwasm for testing fast-jit with libc-wasi disabled
 build_iwasm "-DWAMR_BUILD_REF_TYPES=1 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_SIMD=0 -DWAMR_BUILD_LIBC_WASI=0" "fast-jit-wasi-disabled"
 
+# build default iwasm for testing wasm loader with branch hints enabled
+build_iwasm "-DWAMR_BUILD_BRANCH_HINTS=1" "default-branch-hints-enabled"
+
 # TODO: add more version of iwasm, for example, sgx version

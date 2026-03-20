@@ -5577,6 +5577,27 @@ fail:
 #endif
 
 #if WASM_ENABLE_BRANCH_HINTS != 0
+/**
+ * Count the number of branch instructions for the specified function.
+ */
+static uint32
+calculate_num_branch_instructions(const WASMFunction *func)
+{
+    const uint8 *code = func->code;
+    const uint8 *code_end = code + func->code_size;
+    uint32 max_hints = 0;
+
+    while (code < code_end) {
+        uint8 opcode = *code++;
+
+        if (opcode == WASM_OP_IF || opcode == WASM_OP_BR_IF) {
+            max_hints++;
+        }
+    }
+
+    return max_hints;
+}
+
 static bool
 handle_branch_hint_section(const uint8 *buf, const uint8 *buf_end,
                            WASMModule *module, char *error_buf,
@@ -5611,14 +5632,42 @@ handle_branch_hint_section(const uint8 *buf, const uint8 *buf_end,
 
         uint32 num_hints;
         read_leb_uint32(buf, buf_end, num_hints);
+
+        /* Ensure that num_hints doesn't exceed the actual number of branch
+         * instructions */
+        WASMFunction *func =
+            module->functions[func_idx - module->import_function_count];
+        uint32 max_branch_instructions =
+            calculate_num_branch_instructions(func);
+        if (num_hints > max_branch_instructions) {
+            set_error_buf_v(
+                error_buf, error_buf_size,
+                "invalid number of branch hints: expected at most %u, got %u",
+                max_branch_instructions, num_hints);
+            goto fail;
+        }
+
         struct WASMCompilationHintBranchHint *new_hints = loader_malloc(
             sizeof(struct WASMCompilationHintBranchHint) * num_hints, error_buf,
             error_buf_size);
+        if (!new_hints) {
+            goto fail;
+        }
         for (uint32 j = 0; j < num_hints; ++j) {
             struct WASMCompilationHintBranchHint *new_hint = &new_hints[j];
             new_hint->next = NULL;
             new_hint->type = WASM_COMPILATION_BRANCH_HINT;
             read_leb_uint32(buf, buf_end, new_hint->offset);
+
+            /* Validate offset is within the function's code bounds */
+            if (new_hint->offset >= func->code_size) {
+                set_error_buf_v(
+                    error_buf, error_buf_size,
+                    "invalid branch hint offset: %u exceeds function "
+                    "code size %u",
+                    new_hint->offset, func->code_size);
+                goto fail;
+            }
 
             uint32 size;
             read_leb_uint32(buf, buf_end, size);
@@ -5626,7 +5675,9 @@ handle_branch_hint_section(const uint8 *buf, const uint8 *buf_end,
                 set_error_buf_v(error_buf, error_buf_size,
                                 "invalid branch hint size, expected 1, got %d.",
                                 size);
-                wasm_runtime_free(new_hint);
+                /* Do not free new_hints here - any hints already linked into
+                 * the module structure will be freed during module cleanup.
+                 * Freeing here would cause a double-free. */
                 goto fail;
             }
 
@@ -5639,7 +5690,9 @@ handle_branch_hint_section(const uint8 *buf, const uint8 *buf_end,
                 set_error_buf_v(error_buf, error_buf_size,
                                 "invalid branch hint, expected 0 or 1, got %d",
                                 data);
-                wasm_runtime_free(new_hint);
+                /* Do not free new_hints here - any hints already linked into
+                 * the module structure will be freed during module cleanup.
+                 * Freeing here would cause a double-free. */
                 goto fail;
             }
 
@@ -5720,7 +5773,7 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 #else
     if (name_len == 25
         && memcmp((const char *)p, "metadata.code.branch_hint", 25) == 0) {
-        LOG_VERBOSE("Found branch hint section, but branch hints are disabled "
+        LOG_WARNING("Found branch hint section, but branch hints are disabled "
                     "in this build, skipping.");
     }
 #endif
