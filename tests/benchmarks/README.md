@@ -65,3 +65,5 @@ cmake ../llvm \
 ninja -j 8
 # tool `llvm-profdata` is generated under this folder.
 ```
+
+> **Note**: The example above shows `-DLLVM_CCACHE_BUILD:BOOL=ON` for enabling ccache in the cmake configuration. When using the `build_llvm.py` script, ccache is disabled by default to reduce CI storage consumption. To enable it with the script, use: `python3 build_llvm.py --use-ccache --arch X86`
