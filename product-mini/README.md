@@ -79,6 +79,12 @@ cd product-mini/platforms/linux/
 ./build_llvm.sh     (The llvm source code is cloned under <wamr_root_dir>/core/deps/llvm and auto built)
 ```
 
+Note: By default, ccache is disabled to reduce CI storage consumption. For local development with frequent LLVM rebuilds, you can enable ccache for faster incremental builds by using the `--use-ccache` flag:
+``` Bash
+cd <wamr_root_dir>/build-scripts
+python3 build_llvm.py --arch X86 --use-ccache
+```
+
 Then pass argument `-DWAMR_BUILD_JIT=1` to cmake to enable LLVM JIT:
 ``` Bash
 mkdir build && cd build
