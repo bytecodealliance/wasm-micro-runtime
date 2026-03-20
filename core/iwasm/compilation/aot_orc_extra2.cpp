@@ -124,7 +124,7 @@ MyCompiler::operator()(llvm::Module &M)
         M.getModuleIdentifier() + "-jitted-objectbuffer");
 #endif
 
-    return ObjBuffer;
+    return std::move(ObjBuffer);
 }
 
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(llvm::orc::LLLazyJITBuilder,
