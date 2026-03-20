@@ -23,7 +23,7 @@ endif()
 
 add_definitions (-DWASM_ENABLE_LIB_RATS=1)
 
-include_directories(${LIB_RATS_DIR} ${SGX_SSL_DIR}/include)
+include_directories(SYSTEM ${LIB_RATS_DIR} ${SGX_SSL_DIR}/include)
 
 include(FetchContent)
 
@@ -41,7 +41,7 @@ FetchContent_GetProperties(librats)
 if (NOT librats_POPULATED)
     message("-- Fetching librats ..")
     FetchContent_Populate(librats)
-    include_directories("${librats_SOURCE_DIR}/include")
+    include_directories(SYSTEM "${librats_SOURCE_DIR}/include")
     
     # Prevent the propagation of the CMAKE_C_FLAGS of WAMR into librats
     set(SAVED_CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
