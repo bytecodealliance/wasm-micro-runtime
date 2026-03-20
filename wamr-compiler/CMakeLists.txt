@@ -408,5 +408,7 @@ else()
                          ${UV_A_LIBS})
 endif()
 
+target_link_options(wamrc PRIVATE --verbose)
+
 include (GNUInstallDirs)
 install (TARGETS wamrc)
