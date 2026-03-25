@@ -92,6 +92,22 @@ When creating a `CMakeLists.txt` file for your test suite, follow these best pra
 
 ---
 
+## Initializing Submodules
+
+Test suite `llm-enhanced-test` is maintained in separate repository and included as git submodule. You need to initialize it before building.
+
+```bash
+git submodule update --init --recursive
+```
+
+Alternatively, if you haven't cloned the repository yet, use `--recursive` when cloning:
+
+```bash
+git clone --recursive https://github.com/bytecodealliance/wasm-micro-runtime.git
+```
+
+---
+
 ## Compiling and Running Test Cases
 
 To compile and run the test cases, follow these steps:
@@ -100,6 +116,13 @@ To compile and run the test cases, follow these steps:
 
    ```bash
    cmake -S . -B build
+   ```
+
+   By default, all unit tests except `llm-enhanced-test` are built (`-DFULL_TEST=OFF`).  
+   To also include `llm-enhanced-test`, configure with:
+
+   ```bash
+   cmake -S . -B build -DFULL_TEST=ON
    ```
 
 2. **Build the Test Suite**:

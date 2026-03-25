@@ -1,0 +1,4 @@
+[submodule "tests/unit/llm-enhanced-test"]
+	path = tests/unit/llm-enhanced-test
+	url = https://github.com/wasm-micro-runtime/llm-enhanced-test.git
+	branch = main
