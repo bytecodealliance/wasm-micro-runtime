@@ -12,12 +12,17 @@
 #include "wasm_export.h"
 #include <stdio.h>
 
-bool parse_single_alias(const uint8_t **payload, const uint8_t *end, WASMComponentAliasDefinition *out, char *error_buf, uint32_t error_buf_size) {
+bool
+parse_single_alias(const uint8_t **payload, const uint8_t *end,
+                   WASMComponentAliasDefinition *out, char *error_buf,
+                   uint32_t error_buf_size)
+{
     const uint8_t *p = *payload;
 
     out->sort = wasm_runtime_malloc(sizeof(WASMComponentSort));
     if (!out->sort) {
-        set_error_buf_ex(error_buf, error_buf_size, "Failed to allocate memory for alias sort");
+        set_error_buf_ex(error_buf, error_buf_size,
+                         "Failed to allocate memory for alias sort");
         return false;
     }
 
@@ -31,9 +36,11 @@ bool parse_single_alias(const uint8_t **payload, const uint8_t *end, WASMCompone
 
     // Parse alias target using switch
     switch (tag) {
-        case WASM_COMP_ALIAS_TARGET_EXPORT: {
+        case WASM_COMP_ALIAS_TARGET_EXPORT:
+        {
             uint64_t instance_idx = 0;
-            if (!read_leb((uint8_t **)&p, end, 32, false, &instance_idx, error_buf, error_buf_size)) {
+            if (!read_leb((uint8_t **)&p, end, 32, false, &instance_idx,
+                          error_buf, error_buf_size)) {
                 return false;
             }
             WASMComponentCoreName *name = NULL;
@@ -45,27 +52,34 @@ bool parse_single_alias(const uint8_t **payload, const uint8_t *end, WASMCompone
             out->target.exported.name = name;
             break;
         }
-        case WASM_COMP_ALIAS_TARGET_CORE_EXPORT: {
+        case WASM_COMP_ALIAS_TARGET_CORE_EXPORT:
+        {
             uint64_t core_instance_idx = 0;
-            if (!read_leb((uint8_t **)&p, end, 32, false, &core_instance_idx, error_buf, error_buf_size)) {
+            if (!read_leb((uint8_t **)&p, end, 32, false, &core_instance_idx,
+                          error_buf, error_buf_size)) {
                 return false;
             }
             WASMComponentCoreName *core_name = NULL;
-            if (!parse_core_name(&p, end, &core_name, error_buf, error_buf_size)) {
+            if (!parse_core_name(&p, end, &core_name, error_buf,
+                                 error_buf_size)) {
                 return false;
             }
             out->alias_target_type = WASM_COMP_ALIAS_TARGET_CORE_EXPORT;
-            out->target.core_exported.instance_idx = (uint32_t)core_instance_idx;
+            out->target.core_exported.instance_idx =
+                (uint32_t)core_instance_idx;
             out->target.core_exported.name = core_name;
             break;
         }
-        case WASM_COMP_ALIAS_TARGET_OUTER: {
+        case WASM_COMP_ALIAS_TARGET_OUTER:
+        {
             uint64_t outer_ct = 0;
-            if (!read_leb((uint8_t **)&p, end, 32, false, &outer_ct, error_buf, error_buf_size)) {
+            if (!read_leb((uint8_t **)&p, end, 32, false, &outer_ct, error_buf,
+                          error_buf_size)) {
                 return false;
             }
             uint64_t outer_idx = 0;
-            if (!read_leb((uint8_t **)&p, end, 32, false, &outer_idx, error_buf, error_buf_size)) {
+            if (!read_leb((uint8_t **)&p, end, 32, false, &outer_idx, error_buf,
+                          error_buf_size)) {
                 return false;
             }
             out->alias_target_type = WASM_COMP_ALIAS_TARGET_OUTER;
@@ -78,13 +92,16 @@ bool parse_single_alias(const uint8_t **payload, const uint8_t *end, WASMCompone
                 || (out->sort->sort == WASM_COMP_SORT_CORE_SORT
                     && out->sort->core_sort == WASM_COMP_CORE_SORT_MODULE);
             if (!valid_outer_sort) {
-                set_error_buf_ex(error_buf, error_buf_size, "Outer alias sort must be type, component, or core module");
+                set_error_buf_ex(
+                    error_buf, error_buf_size,
+                    "Outer alias sort must be type, component, or core module");
                 return false;
             }
             break;
         }
         default:
-            snprintf(error_buf, error_buf_size, "Unknown alias target type: 0x%02X", tag);
+            snprintf(error_buf, error_buf_size,
+                     "Unknown alias target type: 0x%02X", tag);
             return false;
     }
 
@@ -93,10 +110,18 @@ bool parse_single_alias(const uint8_t **payload, const uint8_t *end, WASMCompone
 }
 
 // Section 6: alias section
-bool wasm_component_parse_alias_section(const uint8_t **payload, uint32_t payload_len, WASMComponentAliasSection *out, char *error_buf, uint32_t error_buf_size, uint32_t *consumed_len) {
+bool
+wasm_component_parse_alias_section(const uint8_t **payload,
+                                   uint32_t payload_len,
+                                   WASMComponentAliasSection *out,
+                                   char *error_buf, uint32_t error_buf_size,
+                                   uint32_t *consumed_len)
+{
     if (!payload || !*payload || payload_len == 0 || !out) {
-        set_error_buf_ex(error_buf, error_buf_size, "Invalid payload or output pointer");
-        if (consumed_len) *consumed_len = 0;
+        set_error_buf_ex(error_buf, error_buf_size,
+                         "Invalid payload or output pointer");
+        if (consumed_len)
+            *consumed_len = 0;
         return false;
     }
 
@@ -106,8 +131,10 @@ bool wasm_component_parse_alias_section(const uint8_t **payload, uint32_t payloa
 
     // Read alias count
     uint64_t alias_count_leb = 0;
-    if (!read_leb((uint8_t **)&p, end, 32, false, &alias_count_leb, error_buf, error_buf_size)) {
-        if (consumed_len) *consumed_len = (uint32_t)(p - *payload);
+    if (!read_leb((uint8_t **)&p, end, 32, false, &alias_count_leb, error_buf,
+                  error_buf_size)) {
+        if (consumed_len)
+            *consumed_len = (uint32_t)(p - *payload);
         return false;
     }
 
@@ -115,45 +142,55 @@ bool wasm_component_parse_alias_section(const uint8_t **payload, uint32_t payloa
 
     out->count = alias_count;
     if (alias_count > 0) {
-        out->aliases = wasm_runtime_malloc(sizeof(WASMComponentAliasDefinition) * alias_count);
+        out->aliases = wasm_runtime_malloc(sizeof(WASMComponentAliasDefinition)
+                                           * alias_count);
         if (!out->aliases) {
-            if (consumed_len) *consumed_len = (uint32_t)(p - *payload);
+            if (consumed_len)
+                *consumed_len = (uint32_t)(p - *payload);
             return false;
         }
         // Zero-initialize the aliases array
-        memset(out->aliases, 0, sizeof(WASMComponentAliasDefinition) * alias_count);
+        memset(out->aliases, 0,
+               sizeof(WASMComponentAliasDefinition) * alias_count);
 
         for (uint32_t i = 0; i < alias_count; ++i) {
             // Allocate memory for the sort field
-            if (!parse_single_alias(&p, end, &out->aliases[i], error_buf, error_buf_size)) {
-                if (consumed_len) *consumed_len = (uint32_t)(p - *payload);
-                set_error_buf_ex(error_buf, error_buf_size, "Failed to parse alias %d", i);
+            if (!parse_single_alias(&p, end, &out->aliases[i], error_buf,
+                                    error_buf_size)) {
+                if (consumed_len)
+                    *consumed_len = (uint32_t)(p - *payload);
+                set_error_buf_ex(error_buf, error_buf_size,
+                                 "Failed to parse alias %d", i);
                 return false;
             }
         }
     }
 
-    if (consumed_len) *consumed_len = (uint32_t)(p - *payload);
+    if (consumed_len)
+        *consumed_len = (uint32_t)(p - *payload);
 
     // If binaries use alias ids, this parser will need to be extended.
     return true;
 }
 
 // Individual section free functions
-void wasm_component_free_alias_section(WASMComponentSection *section) {
-    if (!section || !section->parsed.alias_section) return;
-    
+void
+wasm_component_free_alias_section(WASMComponentSection *section)
+{
+    if (!section || !section->parsed.alias_section)
+        return;
+
     WASMComponentAliasSection *alias_sec = section->parsed.alias_section;
     if (alias_sec->aliases) {
         for (uint32_t j = 0; j < alias_sec->count; ++j) {
             WASMComponentAliasDefinition *alias = &alias_sec->aliases[j];
-            
+
             // Free sort
             if (alias->sort) {
                 wasm_runtime_free(alias->sort);
                 alias->sort = NULL;
             }
-            
+
             // Free target-specific data
             switch (alias->alias_target_type) {
                 case WASM_COMP_ALIAS_TARGET_EXPORT:
@@ -180,4 +217,4 @@ void wasm_component_free_alias_section(WASMComponentSection *section) {
     }
     wasm_runtime_free(alias_sec);
     section->parsed.alias_section = NULL;
-} 
+}

@@ -15,9 +15,9 @@ static std::vector<std::string> component_files = {
     "add.wasm",
     "complex_with_host.wasm",
     "complex.wasm",
-    "logging-service.component.wasm",
+    "logging_service.component.wasm",
     "processor_and_logging_merged_wac_plug.wasm",
-    "processor-service.component.wasm",    
+    "processor_service.component.wasm",
     "sampletypes.wasm"
 };
 
@@ -78,7 +78,7 @@ TEST_F(BinaryParserTest, TestLoadCorruptComponent)
 TEST_F(BinaryParserTest, TestDecodeHeaderValid)
 {
     helper->reset_component();
-    bool ret = helper->read_wasm_file("logging-service.component.wasm");
+    bool ret = helper->read_wasm_file("logging_service.component.wasm");
     ASSERT_TRUE(ret);
     ASSERT_TRUE(helper->component_raw != NULL);
 
@@ -95,7 +95,7 @@ TEST_F(BinaryParserTest, TestDecodeHeaderValid)
 TEST_F(BinaryParserTest, TestDecodeHeaderInvalid)
 {
     helper->reset_component();
-    bool ret = helper->read_wasm_file("logging-service.component.wasm");
+    bool ret = helper->read_wasm_file("logging_service.component.wasm");
     ASSERT_TRUE(ret);
     ASSERT_TRUE(helper->component_raw != NULL);
 

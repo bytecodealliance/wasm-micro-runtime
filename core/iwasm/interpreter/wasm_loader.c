@@ -7108,8 +7108,9 @@ load(const uint8 *buf, uint32 size, WASMModule *module,
     module->package_version = version;
 
     if (!create_sections(buf, size, &section_list, error_buf, error_buf_size)
-        || !load_from_sections(module, section_list, false, wasm_binary_freeable,
-                               no_resolve, error_buf, error_buf_size)) {
+        || !load_from_sections(module, section_list, false,
+                               wasm_binary_freeable, no_resolve, error_buf,
+                               error_buf_size)) {
         destroy_sections(section_list);
         return false;
     }
@@ -7131,9 +7132,9 @@ check_wasi_abi_compatibility(const WASMModule *module,
                              bool main_module,
 #endif
 #if WASM_ENABLE_COMPONENT_MODEL != 0
-                            bool is_component,
+                             bool is_component,
 #endif
-                            char *error_buf, uint32 error_buf_size)
+                             char *error_buf, uint32 error_buf_size)
 {
     /**
      * be careful with:
@@ -7222,8 +7223,8 @@ check_wasi_abi_compatibility(const WASMModule *module,
     /* should have one at least */
     if (module->import_wasi_api && !start && !initialize) {
         if (!is_component)
-        LOG_WARNING("warning: a module with WASI apis should be either "
-                    "a command or a reactor");
+            LOG_WARNING("warning: a module with WASI apis should be either "
+                        "a command or a reactor");
     }
 #endif
     /*
@@ -7301,9 +7302,9 @@ wasm_loader_load(uint8 *buf, uint32 size,
                                       main_module,
 #endif
 #if WASM_ENABLE_COMPONENT_MODEL != 0
-                                    args->is_component,
+                                      args->is_component,
 #endif
-                                    error_buf, error_buf_size)) {
+                                      error_buf, error_buf_size)) {
         goto fail;
     }
 #endif

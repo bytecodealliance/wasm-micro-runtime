@@ -1507,9 +1507,9 @@ export_functions_instantiate(const WASMModule *module,
  */
 static WASMExportTabInstance *
 export_tables_instantiate(const WASMModule *module,
-                             WASMModuleInstance *module_inst,
-                             uint32 export_table_count, char *error_buf,
-                             uint32 error_buf_size)
+                          WASMModuleInstance *module_inst,
+                          uint32 export_table_count, char *error_buf,
+                          uint32 error_buf_size)
 {
     WASMExportTabInstance *export_tables, *export_table;
     WASMExport *export = module->exports;
@@ -1532,7 +1532,6 @@ export_tables_instantiate(const WASMModule *module,
     bh_assert((uint32)(export_table - export_tables) == export_table_count);
     return export_tables;
 }
-
 
 #if WASM_ENABLE_TAGS != 0
 /**

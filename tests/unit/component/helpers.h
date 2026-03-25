@@ -17,15 +17,16 @@
 
 #define HEAP_SIZE (100 * 1024 * 1024) // 100 MB
 
-class ComponentHelper {
-public:
+class ComponentHelper
+{
+  public:
     RuntimeInitArgs init_args;
     unsigned char *component_raw = NULL;
     WASMComponent *component = NULL;
 
     uint32_t wasm_file_size = 0;
     uint32_t stack_size = 16 * 1024; // 16 KB
-    uint32_t heap_size = HEAP_SIZE; // 100 MB
+    uint32_t heap_size = HEAP_SIZE;  // 100 MB
 
     char error_buf[128];
     char global_heap_buf[HEAP_SIZE]; // 100 MB
@@ -49,9 +50,13 @@ public:
     void do_setup();
     void do_teardown();
 
-    std::vector<WASMComponentSection*> get_section(WASMComponentSectionType section_id) const;
+    std::vector<WASMComponentSection *> get_section(
+        WASMComponentSectionType section_id) const;
 
-    void load_memory_offsets(const std::string& filename); // Loading the memory offsets from text file
-    uint32_t get_memory_offsets(const std::string& key);   // Get memory offsets from map
+    void load_memory_offsets(
+        const std::string
+            &filename); // Loading the memory offsets from text file
+    uint32_t get_memory_offsets(
+        const std::string &key); // Get memory offsets from map
 };
 #endif

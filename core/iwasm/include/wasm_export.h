@@ -92,9 +92,9 @@ typedef WASMMemoryType *wasm_memory_type_t;
 
 // WASM Header Structure
 typedef struct WASMHeader {
-    uint32_t magic;    // Magic number (0x6d736100 for both)
-    uint16_t version;  // Version field
-    uint16_t layer;    // Layer field
+    uint32_t magic;   // Magic number (0x6d736100 for both)
+    uint16_t version; // Version field
+    uint16_t layer;   // Layer field
 } WASMHeader;
 
 typedef struct wasm_import_t {
@@ -374,14 +374,16 @@ typedef struct SharedHeapInitArgs {
  *
  * @return true if success, false otherwise
  */
-bool wasm_decode_header(const uint8_t *buf, uint32_t size, WASMHeader *out_header);
+bool
+wasm_decode_header(const uint8_t *buf, uint32_t size, WASMHeader *out_header);
 
 /**
  * Check if header is a WASM Preview 1
  *
  * @return true if success, false otherwise
  */
-bool is_wasm_module(WASMHeader header);
+bool
+is_wasm_module(WASMHeader header);
 
 /**
  * Initialize the WASM runtime environment, and also initialize

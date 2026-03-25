@@ -8,10 +8,14 @@
 
 static bool is_component = false;
 
-bool is_component_runtime() {
+bool
+is_component_runtime()
+{
     return is_component;
 }
 
-void set_component_runtime(bool type) {
+void
+set_component_runtime(bool type)
+{
     is_component = type;
 }

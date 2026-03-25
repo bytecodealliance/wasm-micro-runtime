@@ -17,11 +17,11 @@
 // -----------------------------------------------------------------------------
 // Forward Declarations for Reusing Existing WASM Structures
 // -----------------------------------------------------------------------------
-struct WASMFuncType;         // From wasm.h - for core function types
-struct WASMRefTypeMap;       // From wasm.h - for reference type mapping
-struct WASMStructType;       // From wasm.h - for struct types
-struct WASMArrayType;        // From wasm.h - for array types
-struct WASMStructFieldType;  // From wasm.h - for struct field types
+struct WASMFuncType;        // From wasm.h - for core function types
+struct WASMRefTypeMap;      // From wasm.h - for reference type mapping
+struct WASMStructType;      // From wasm.h - for struct types
+struct WASMArrayType;       // From wasm.h - for array types
+struct WASMStructFieldType; // From wasm.h - for struct field types
 
 // -----------------------------------------------------------------------------
 // Forward Declarations for Component-Specific Structures
@@ -53,8 +53,8 @@ struct WASMComponentInlineExport;
 // -----------------------------------------------------------------------------
 // Constants and Macros
 // -----------------------------------------------------------------------------
-#define INVALID_VALUE             (uint8_t)0xFF
-#define MAX_DEPTH_RECURSION       100
+#define INVALID_VALUE (uint8_t)0xFF
+#define MAX_DEPTH_RECURSION 100
 
 // -----------------------------------------------------------------------------
 // Enums
@@ -62,62 +62,63 @@ struct WASMComponentInlineExport;
 // Core Sort Values
 // -----------------------------------------------------------------------------
 typedef enum WASMComponentCoreSort {
-    WASM_COMP_CORE_SORT_FUNC     = 0x00,  // func
-    WASM_COMP_CORE_SORT_TABLE    = 0x01,  // table
-    WASM_COMP_CORE_SORT_MEMORY   = 0x02,  // memory
-    WASM_COMP_CORE_SORT_GLOBAL   = 0x03,  // global
-    WASM_COMP_CORE_SORT_TYPE     = 0x10,  // type
-    WASM_COMP_CORE_SORT_MODULE   = 0x11,  // module
-    WASM_COMP_CORE_SORT_INSTANCE = 0x12   // instance
+    WASM_COMP_CORE_SORT_FUNC = 0x00,    // func
+    WASM_COMP_CORE_SORT_TABLE = 0x01,   // table
+    WASM_COMP_CORE_SORT_MEMORY = 0x02,  // memory
+    WASM_COMP_CORE_SORT_GLOBAL = 0x03,  // global
+    WASM_COMP_CORE_SORT_TYPE = 0x10,    // type
+    WASM_COMP_CORE_SORT_MODULE = 0x11,  // module
+    WASM_COMP_CORE_SORT_INSTANCE = 0x12 // instance
 } WASMComponentCoreSort;
 
 // Component Sort Values
 // -----------------------------------------------------------------------------
 typedef enum WASMComponentSortValues {
-    WASM_COMP_SORT_CORE_SORT     = 0x00,  // core func
-    WASM_COMP_SORT_FUNC          = 0x01,  // func
-    WASM_COMP_SORT_VALUE         = 0x02,  // value
-    WASM_COMP_SORT_TYPE          = 0x03,  // type
-    WASM_COMP_SORT_COMPONENT     = 0x04,  // component
-    WASM_COMP_SORT_INSTANCE      = 0x05   // instance
+    WASM_COMP_SORT_CORE_SORT = 0x00, // core func
+    WASM_COMP_SORT_FUNC = 0x01,      // func
+    WASM_COMP_SORT_VALUE = 0x02,     // value
+    WASM_COMP_SORT_TYPE = 0x03,      // type
+    WASM_COMP_SORT_COMPONENT = 0x04, // component
+    WASM_COMP_SORT_INSTANCE = 0x05   // instance
 } WASMComponentSortValues;
 
-// Component Model Primitive Value Types - Those are different from Core WebAssembly
+// Component Model Primitive Value Types - Those are different from Core
+// WebAssembly
 // -----------------------------------------------------------------------------
 typedef enum WASMComponentPrimValType {
-    WASM_COMP_PRIMVAL_BOOL          = 0x7f,            // 0x7f => bool
-    WASM_COMP_PRIMVAL_S8            = 0x7e,            // 0x7e => s8
-    WASM_COMP_PRIMVAL_U8            = 0x7d,            // 0x7d => u8
-    WASM_COMP_PRIMVAL_S16           = 0x7c,            // 0x7c => s16
-    WASM_COMP_PRIMVAL_U16           = 0x7b,            // 0x7b => u16
-    WASM_COMP_PRIMVAL_S32           = 0x7a,            // 0x7a => s32
-    WASM_COMP_PRIMVAL_U32           = 0x79,            // 0x79 => u32
-    WASM_COMP_PRIMVAL_S64           = 0x78,            // 0x78 => s64
-    WASM_COMP_PRIMVAL_U64           = 0x77,            // 0x77 => u64
-    WASM_COMP_PRIMVAL_F32           = 0x76,            // 0x76 => f32
-    WASM_COMP_PRIMVAL_F64           = 0x75,            // 0x75 => f64
-    WASM_COMP_PRIMVAL_CHAR          = 0x74,            // 0x74 => char
-    WASM_COMP_PRIMVAL_STRING        = 0x73,            // 0x73 => string
-    WASM_COMP_PRIMVAL_ERROR_CONTEXT = 0x64             // 0x64 => error-context
+    WASM_COMP_PRIMVAL_BOOL = 0x7f,         // 0x7f => bool
+    WASM_COMP_PRIMVAL_S8 = 0x7e,           // 0x7e => s8
+    WASM_COMP_PRIMVAL_U8 = 0x7d,           // 0x7d => u8
+    WASM_COMP_PRIMVAL_S16 = 0x7c,          // 0x7c => s16
+    WASM_COMP_PRIMVAL_U16 = 0x7b,          // 0x7b => u16
+    WASM_COMP_PRIMVAL_S32 = 0x7a,          // 0x7a => s32
+    WASM_COMP_PRIMVAL_U32 = 0x79,          // 0x79 => u32
+    WASM_COMP_PRIMVAL_S64 = 0x78,          // 0x78 => s64
+    WASM_COMP_PRIMVAL_U64 = 0x77,          // 0x77 => u64
+    WASM_COMP_PRIMVAL_F32 = 0x76,          // 0x76 => f32
+    WASM_COMP_PRIMVAL_F64 = 0x75,          // 0x75 => f64
+    WASM_COMP_PRIMVAL_CHAR = 0x74,         // 0x74 => char
+    WASM_COMP_PRIMVAL_STRING = 0x73,       // 0x73 => string
+    WASM_COMP_PRIMVAL_ERROR_CONTEXT = 0x64 // 0x64 => error-context
 } WASMComponentPrimValType;
 
 // -----------------------------------------------------------------------------
 // Section IDs for WASM Component Model
 // -----------------------------------------------------------------------------
 typedef enum WASMComponentSectionType {
-    WASM_COMP_SECTION_CORE_CUSTOM     = 0x00, // section_0(<core:custom>)
-    WASM_COMP_SECTION_CORE_MODULE     = 0x01, // section_1(<core:module>)
-    WASM_COMP_SECTION_CORE_INSTANCE   = 0x02, // section_2(vec(<core:instance>))
-    WASM_COMP_SECTION_CORE_TYPE       = 0x03, // section_3(vec(<core:type>))
-    WASM_COMP_SECTION_COMPONENT       = 0x04, // section_4(<component>)
-    WASM_COMP_SECTION_INSTANCES       = 0x05, // section_5(vec(<instance>))
-    WASM_COMP_SECTION_ALIASES         = 0x06, // section_6(vec(<alias>))
-    WASM_COMP_SECTION_TYPE            = 0x07, // section_7(vec(<type>))
-    WASM_COMP_SECTION_CANONS          = 0x08, // section_8(vec(<canon>))
-    WASM_COMP_SECTION_START           = 0x09, // section_9(<start>)
-    WASM_COMP_SECTION_IMPORTS         = 0x0A, // section_10(vec(<import>))
-    WASM_COMP_SECTION_EXPORTS         = 0x0B, // section_11(vec(<export>))
-    WASM_COMP_SECTION_VALUES          = 0x0C  // section_12(vec(<value>))
+    WASM_COMP_SECTION_CORE_CUSTOM = 0x00,   // section_0(<core:custom>)
+    WASM_COMP_SECTION_CORE_MODULE = 0x01,   // section_1(<core:module>)
+    WASM_COMP_SECTION_CORE_INSTANCE = 0x02, // section_2(vec(<core:instance>))
+    WASM_COMP_SECTION_CORE_TYPE = 0x03,     // section_3(vec(<core:type>))
+    WASM_COMP_SECTION_COMPONENT = 0x04,     // section_4(<component>)
+    WASM_COMP_SECTION_INSTANCES = 0x05,     // section_5(vec(<instance>))
+    WASM_COMP_SECTION_ALIASES = 0x06,       // section_6(vec(<alias>))
+    WASM_COMP_SECTION_TYPE = 0x07,          // section_7(vec(<type>))
+    WASM_COMP_SECTION_CANONS = 0x08,        // section_8(vec(<canon>))
+    WASM_COMP_SECTION_START = 0x09,         // section_9(<start>)
+    WASM_COMP_SECTION_IMPORTS = 0x0A,       // section_10(vec(<import>))
+    WASM_COMP_SECTION_EXPORTS = 0x0B,       // section_11(vec(<export>))
+    WASM_COMP_SECTION_VALUES = 0x0C         // section_12(vec(<value>))
 } WASMComponentSectionType;
 
 // -----------------------------------------------------------------------------
@@ -126,8 +127,8 @@ typedef enum WASMComponentSectionType {
 //              |  0x01 len:<u32> in:<importname> vs:<versionsuffix'> => in vs
 // -----------------------------------------------------------------------------
 typedef enum WASMComponentImportExportTypeTag {
-    WASM_COMP_IMPORTNAME_SIMPLE     = 0x00,      // 0x00 (simple name)
-    WASM_COMP_IMPORTNAME_VERSIONED  = 0x01       // 0x01 (versioned name)
+    WASM_COMP_IMPORTNAME_SIMPLE = 0x00,   // 0x00 (simple name)
+    WASM_COMP_IMPORTNAME_VERSIONED = 0x01 // 0x01 (versioned name)
 } WASMComponentImportExportTypeTag;
 
 // -----------------------------------------------------------------------------
@@ -136,8 +137,8 @@ typedef enum WASMComponentImportExportTypeTag {
 //          | pvt:<primvaltype> => pvt
 // -----------------------------------------------------------------------------
 typedef enum WASMComponentValueTypeTag {
-    WASM_COMP_VAL_TYPE_IDX     = 0x00,      // 0x00 (type index)
-    WASM_COMP_VAL_TYPE_PRIMVAL = 0x01       // 0x01 (primitive value)
+    WASM_COMP_VAL_TYPE_IDX = 0x00,    // 0x00 (type index)
+    WASM_COMP_VAL_TYPE_PRIMVAL = 0x01 // 0x01 (primitive value)
 } WASMComponentValueTypeTag;
 
 // -----------------------------------------------------------------------------
@@ -150,12 +151,12 @@ typedef enum WASMComponentValueTypeTag {
 //             | 0x05 i:<typeidx> => (instance (type i))
 // -----------------------------------------------------------------------------
 typedef enum WASMComponentExternDescType {
-    WASM_COMP_EXTERN_CORE_MODULE = 0x00,     // 0x00 0x11 (core module)
-    WASM_COMP_EXTERN_FUNC        = 0x01,     // 0x01 (func)
-    WASM_COMP_EXTERN_VALUE       = 0x02,     // 0x02 (value)
-    WASM_COMP_EXTERN_TYPE        = 0x03,     // 0x03 (type)
-    WASM_COMP_EXTERN_COMPONENT   = 0x04,     // 0x04 (component)
-    WASM_COMP_EXTERN_INSTANCE    = 0x05      // 0x05 (instance)
+    WASM_COMP_EXTERN_CORE_MODULE = 0x00, // 0x00 0x11 (core module)
+    WASM_COMP_EXTERN_FUNC = 0x01,        // 0x01 (func)
+    WASM_COMP_EXTERN_VALUE = 0x02,       // 0x02 (value)
+    WASM_COMP_EXTERN_TYPE = 0x03,        // 0x03 (type)
+    WASM_COMP_EXTERN_COMPONENT = 0x04,   // 0x04 (component)
+    WASM_COMP_EXTERN_INSTANCE = 0x05     // 0x05 (instance)
 } WASMComponentExternDescType;
 
 // -----------------------------------------------------------------------------
@@ -164,8 +165,8 @@ typedef enum WASMComponentExternDescType {
 //             |  0x01 t:<valtype>  => (eq t)
 // -----------------------------------------------------------------------------
 typedef enum WASMComponentValueBoundTag {
-    WASM_COMP_VALUEBOUND_EQ   = 0x00,        // 0x00 (equality bound)
-    WASM_COMP_VALUEBOUND_TYPE = 0x01         // 0x01 (type bound)
+    WASM_COMP_VALUEBOUND_EQ = 0x00,  // 0x00 (equality bound)
+    WASM_COMP_VALUEBOUND_TYPE = 0x01 // 0x01 (type bound)
 } WASMComponentValueBoundTag;
 
 // -----------------------------------------------------------------------------
@@ -174,8 +175,8 @@ typedef enum WASMComponentValueBoundTag {
 //            |  0x01 t:<typeidx> => (sub t)
 // -----------------------------------------------------------------------------
 typedef enum WASMComponentTypeBoundTag {
-    WASM_COMP_TYPEBOUND_EQ      = 0x00,           // 0x00 (equality bound)
-    WASM_COMP_TYPEBOUND_TYPE    = 0x01            // 0x01 (subtype bound)
+    WASM_COMP_TYPEBOUND_EQ = 0x00,  // 0x00 (equality bound)
+    WASM_COMP_TYPEBOUND_TYPE = 0x01 // 0x01 (subtype bound)
 } WASMComponentTypeBoundTag;
 
 // -----------------------------------------------------------------------------
@@ -185,19 +186,19 @@ typedef enum WASMComponentTypeBoundTag {
 //              | 0x02 ct:<u32> idx:<u32> => outer ct idx
 // -----------------------------------------------------------------------------
 typedef enum WASMComponentAliasTargetType {
-    WASM_COMP_ALIAS_TARGET_EXPORT           = 0x00,         // 0x00 (export alias)
-    WASM_COMP_ALIAS_TARGET_CORE_EXPORT      = 0x01,         // 0x01 (core export alias)
-    WASM_COMP_ALIAS_TARGET_OUTER            = 0x02          // 0x02 (outer alias)
+    WASM_COMP_ALIAS_TARGET_EXPORT = 0x00,      // 0x00 (export alias)
+    WASM_COMP_ALIAS_TARGET_CORE_EXPORT = 0x01, // 0x01 (core export alias)
+    WASM_COMP_ALIAS_TARGET_OUTER = 0x02        // 0x02 (outer alias)
 } WASMComponentAliasTargetType;
 
 // -----------------------------------------------------------------------------
 // Optional Field Tag
-// <T>? ::= 0x00 => 
+// <T>? ::= 0x00 =>
 //      | 0x01 t:<T> => t
 // -----------------------------------------------------------------------------
 typedef enum WASMComponentOptionalField {
-    WASM_COMP_OPTIONAL_FALSE = 0x00,         // 0x00 (absent)
-    WASM_COMP_OPTIONAL_TRUE  = 0x01,         // 0x01 (present)
+    WASM_COMP_OPTIONAL_FALSE = 0x00, // 0x00 (absent)
+    WASM_COMP_OPTIONAL_TRUE = 0x01,  // 0x01 (present)
 } WASMComponentOptionalField;
 
 // -----------------------------------------------------------------------------
@@ -223,18 +224,19 @@ typedef enum WASMComponentOptionalField {
 //       | 0x3e i:<typeidx> => (resource (rep i32) (dtor i) (dtor i))
 // -----------------------------------------------------------------------------
 typedef enum WASMComponentTypesTag {
-    WASM_COMP_DEF_TYPE             = 0x00,         // defvaltype (internal tag)
-    WASM_COMP_FUNC_TYPE            = 0x40,         // functype
-    WASM_COMP_COMPONENT_TYPE       = 0x41,         // componenttype
-    WASM_COMP_INSTANCE_TYPE        = 0x42,         // instancetype
-    WASM_COMP_RESOURCE_TYPE_SYNC   = 0x3f,         // resourcetype (sync)
-    WASM_COMP_RESOURCE_TYPE_ASYNC  = 0x3e,         // resourcetype (async)
-    WASM_COMP_INVALID_TYPE         = 0xFF          // invalid type
+    WASM_COMP_DEF_TYPE = 0x00,            // defvaltype (internal tag)
+    WASM_COMP_FUNC_TYPE = 0x40,           // functype
+    WASM_COMP_COMPONENT_TYPE = 0x41,      // componenttype
+    WASM_COMP_INSTANCE_TYPE = 0x42,       // instancetype
+    WASM_COMP_RESOURCE_TYPE_SYNC = 0x3f,  // resourcetype (sync)
+    WASM_COMP_RESOURCE_TYPE_ASYNC = 0x3e, // resourcetype (async)
+    WASM_COMP_INVALID_TYPE = 0xFF         // invalid type
 } WASMComponentTypesTag;
 
 // -----------------------------------------------------------------------------
 // Instance Expression Tag - Distinguishes with/without args
-// instanceexpr ::= 0x00 c:<componentidx> arg*:vec(<instantiatearg>) => (instantiate c arg*)
+// instanceexpr ::= 0x00 c:<componentidx> arg*:vec(<instantiatearg>) =>
+// (instantiate c arg*)
 //               | 0x01 e*:vec(<inlineexport>) => e*
 // -----------------------------------------------------------------------------
 typedef enum WASMComponentInstExpressionTag {
@@ -244,7 +246,8 @@ typedef enum WASMComponentInstExpressionTag {
 
 // -----------------------------------------------------------------------------
 // Result List Tag - Distinguishes with/without type
-// instanceexpr ::= 0x00 c:<componentidx> arg*:vec(<instantiatearg>) => (instantiate c arg*)
+// instanceexpr ::= 0x00 c:<componentidx> arg*:vec(<instantiatearg>) =>
+// (instantiate c arg*)
 //            | 0x01 e*:vec(<inlineexport>) => e*
 // -----------------------------------------------------------------------------
 typedef enum WASMComponentResultListTag {
@@ -298,45 +301,45 @@ typedef enum WASMComponentInstDeclTag {
 // -----------------------------------------------------------------------------
 typedef enum WASMComponentDefValTypeTag {
     // Primitive value type
-    WASM_COMP_DEF_VAL_PRIMVAL   = 0x63,      // pvt:<primvaltype>
+    WASM_COMP_DEF_VAL_PRIMVAL = 0x63, // pvt:<primvaltype>
     // Record type (labeled fields)
-    WASM_COMP_DEF_VAL_RECORD    = 0x72,      // 0x72 lt*:vec(<labelvaltype>)
+    WASM_COMP_DEF_VAL_RECORD = 0x72, // 0x72 lt*:vec(<labelvaltype>)
     // Variant type (labeled cases)
-    WASM_COMP_DEF_VAL_VARIANT   = 0x71,      // 0x71 case*:vec(<case>)
+    WASM_COMP_DEF_VAL_VARIANT = 0x71, // 0x71 case*:vec(<case>)
     // List types
-    WASM_COMP_DEF_VAL_LIST      = 0x70,      // 0x70 t:<valtype>
-    WASM_COMP_DEF_VAL_LIST_LEN  = 0x67,      // 0x67 t:<valtype> len:<u32>
+    WASM_COMP_DEF_VAL_LIST = 0x70,     // 0x70 t:<valtype>
+    WASM_COMP_DEF_VAL_LIST_LEN = 0x67, // 0x67 t:<valtype> len:<u32>
     // Tuple type
-    WASM_COMP_DEF_VAL_TUPLE     = 0x6f,      // 0x6f t*:vec(<valtype>)
+    WASM_COMP_DEF_VAL_TUPLE = 0x6f, // 0x6f t*:vec(<valtype>)
     // Flags type
-    WASM_COMP_DEF_VAL_FLAGS     = 0x6e,      // 0x6e l*:vec(<label'>)
+    WASM_COMP_DEF_VAL_FLAGS = 0x6e, // 0x6e l*:vec(<label'>)
     // Enum type
-    WASM_COMP_DEF_VAL_ENUM      = 0x6d,      // 0x6d l*:vec(<label'>)
+    WASM_COMP_DEF_VAL_ENUM = 0x6d, // 0x6d l*:vec(<label'>)
     // Option type
-    WASM_COMP_DEF_VAL_OPTION    = 0x6b,      // 0x6b t:<valtype>
+    WASM_COMP_DEF_VAL_OPTION = 0x6b, // 0x6b t:<valtype>
     // Result type
-    WASM_COMP_DEF_VAL_RESULT    = 0x6a,      // 0x6a t?:<valtype>? u?:<valtype>?
+    WASM_COMP_DEF_VAL_RESULT = 0x6a, // 0x6a t?:<valtype>? u?:<valtype>?
     // Handle types
-    WASM_COMP_DEF_VAL_OWN       = 0x69,      // 0x69 i:<typeidx>
-    WASM_COMP_DEF_VAL_BORROW    = 0x68,      // 0x68 i:<typeidx>
+    WASM_COMP_DEF_VAL_OWN = 0x69,    // 0x69 i:<typeidx>
+    WASM_COMP_DEF_VAL_BORROW = 0x68, // 0x68 i:<typeidx>
     // Async types
-    WASM_COMP_DEF_VAL_STREAM    = 0x66,      // 0x66 t?:<valtype>?
-    WASM_COMP_DEF_VAL_FUTURE    = 0x65,      // 0x65 t?:<valtype>?
+    WASM_COMP_DEF_VAL_STREAM = 0x66, // 0x66 t?:<valtype>?
+    WASM_COMP_DEF_VAL_FUTURE = 0x65, // 0x65 t?:<valtype>?
 } WASMComponentDefValTypeTag;
 
 // -----------------------------------------------------------------------------
 // Resource Representation Tag - Always i32
 // -----------------------------------------------------------------------------
 typedef enum WASMComponentResourceRepTag {
-    WASM_COMP_RESOURCE_REP_I32 = 0x7f,  // Always 0x7f for i32 representation
+    WASM_COMP_RESOURCE_REP_I32 = 0x7f, // Always 0x7f for i32 representation
 } WASMComponentResourceRepTag;
 
 // -----------------------------------------------------------------------------
 // Case End Tag - Always 0x00 at end of case
 // -----------------------------------------------------------------------------
 typedef enum WASMComponentCaseEndTag {
-    WASM_COMP_CASE_END = 0x00,  // Always 0x00 at end of case
-} WASMComponentCaseEndTag; 
+    WASM_COMP_CASE_END = 0x00, // Always 0x00 at end of case
+} WASMComponentCaseEndTag;
 
 // -----------------------------------------------------------------------------
 // Simple Structs
@@ -360,8 +363,9 @@ typedef struct WASMComponentCoreName {
 //       | 0x06 => instance
 // -----------------------------------------------------------------------------
 typedef struct WASMComponentSort {
-    uint8_t sort;      // Main sort byte (0x00 for core sorts, 0x01..0x05 for others)
-    uint8_t core_sort; // If sort==0x00, this is the core sort; otherwise is ignored
+    uint8_t sort; // Main sort byte (0x00 for core sorts, 0x01..0x05 for others)
+    uint8_t
+        core_sort; // If sort==0x00, this is the core sort; otherwise is ignored
 } WASMComponentSort;
 
 // -----------------------------------------------------------------------------
@@ -370,7 +374,7 @@ typedef struct WASMComponentSort {
 // -----------------------------------------------------------------------------
 typedef struct WASMComponentSortIdx {
     WASMComponentSort *sort;
-    uint32_t idx; 
+    uint32_t idx;
 } WASMComponentSortIdx;
 
 // -----------------------------------------------------------------------------
@@ -421,12 +425,25 @@ typedef struct WASMComponentTypeBound {
 typedef struct WASMComponentExternDesc {
     WASMComponentExternDescType type;
     union {
-        struct { uint8_t type_specific; uint32_t type_idx; } core_module;
-        struct { uint32_t type_idx; } func;
-        struct { WASMComponentValueBound *value_bound; } value;
-        struct { WASMComponentTypeBound *type_bound; } type;
-        struct { uint32_t type_idx; } component;
-        struct { uint32_t type_idx; } instance;
+        struct {
+            uint8_t type_specific;
+            uint32_t type_idx;
+        } core_module;
+        struct {
+            uint32_t type_idx;
+        } func;
+        struct {
+            WASMComponentValueBound *value_bound;
+        } value;
+        struct {
+            WASMComponentTypeBound *type_bound;
+        } type;
+        struct {
+            uint32_t type_idx;
+        } component;
+        struct {
+            uint32_t type_idx;
+        } instance;
     } extern_desc;
 } WASMComponentExternDesc;
 
@@ -438,8 +455,13 @@ typedef struct WASMComponentExternDesc {
 typedef struct WASMComponentImportName {
     WASMComponentImportExportTypeTag tag;
     union {
-        struct { WASMComponentCoreName *name; } simple;
-        struct { WASMComponentCoreName *name; WASMComponentCoreName *version; } versioned;
+        struct {
+            WASMComponentCoreName *name;
+        } simple;
+        struct {
+            WASMComponentCoreName *name;
+            WASMComponentCoreName *version;
+        } versioned;
     } imported;
 } WASMComponentImportName;
 
@@ -451,20 +473,25 @@ typedef struct WASMComponentImportName {
 typedef struct WASMComponentExportName {
     WASMComponentImportExportTypeTag tag;
     union {
-        struct { WASMComponentCoreName *name; } simple;
-        struct { WASMComponentCoreName *name; WASMComponentCoreName *version; } versioned;
+        struct {
+            WASMComponentCoreName *name;
+        } simple;
+        struct {
+            WASMComponentCoreName *name;
+            WASMComponentCoreName *version;
+        } versioned;
     } exported;
-} WASMComponentExportName; 
+} WASMComponentExportName;
 
 // -----------------------------------------------------------------------------
 // Section 0: Custom Section Structs
 // -----------------------------------------------------------------------------
 // Custom Section Structure - Arbitrary named data sections
 typedef struct WASMComponentCoreCustomSection {
-    char *name;           // Name of the custom section
-    const uint8_t *data;  // Pointer to the custom data
-    uint32_t data_len;    // Length of the custom data
-} WASMComponentCoreCustomSection; 
+    char *name;          // Name of the custom section
+    const uint8_t *data; // Pointer to the custom data
+    uint32_t data_len;   // Length of the custom data
+} WASMComponentCoreCustomSection;
 
 // -----------------------------------------------------------------------------
 // Section 1: Module Section Structs
@@ -472,8 +499,8 @@ typedef struct WASMComponentCoreCustomSection {
 // Module Wrapper Structure - Contains core WebAssembly module
 typedef struct WASMComponentCoreModuleWrapper {
     struct WASMModule *module;
-    void *module_handle; 
-} WASMComponentCoreModuleWrapper; 
+    void *module_handle;
+} WASMComponentCoreModuleWrapper;
 
 // -----------------------------------------------------------------------------
 // Section 2: Core Instance Section Structs
@@ -495,8 +522,15 @@ typedef struct WASMComponentInstArg {
 } WASMComponentInstArg;
 
 typedef union WASMInstExpr {
-    struct { uint32_t idx; uint32_t arg_len; WASMComponentInstArg *args; } with_args;
-    struct { uint32_t inline_expr_len; WASMComponentInlineExport *inline_expr; } without_args;
+    struct {
+        uint32_t idx;
+        uint32_t arg_len;
+        WASMComponentInstArg *args;
+    } with_args;
+    struct {
+        uint32_t inline_expr_len;
+        WASMComponentInlineExport *inline_expr;
+    } without_args;
 } WASMInstExpr;
 
 typedef struct WASMComponentCoreInst {
@@ -517,40 +551,41 @@ typedef struct WASMComponentCoreInstSection {
 // Core Number Types - From WebAssembly Core spec
 // numtype ::= 0x7F => i32 | 0x7E => i64 | 0x7D => f32 | 0x7C => f64
 typedef enum WASMCoreNumTypeTag {
-    WASM_CORE_NUM_TYPE_I32 = 0x7F,       // i32
-    WASM_CORE_NUM_TYPE_I64 = 0x7E,       // i64
-    WASM_CORE_NUM_TYPE_F32 = 0x7D,       // f32
-    WASM_CORE_NUM_TYPE_F64 = 0x7C,       // f64
+    WASM_CORE_NUM_TYPE_I32 = 0x7F, // i32
+    WASM_CORE_NUM_TYPE_I64 = 0x7E, // i64
+    WASM_CORE_NUM_TYPE_F32 = 0x7D, // f32
+    WASM_CORE_NUM_TYPE_F64 = 0x7C, // f64
 } WASMCoreNumTypeTag;
 
 // Core Vector Types - From WebAssembly Core spec
 // vectype ::= 0x7B => v128
 typedef enum WASMCoreVectorTypeTag {
-    WASM_CORE_VECTOR_TYPE_V128 = 0x7B,   // v128
+    WASM_CORE_VECTOR_TYPE_V128 = 0x7B, // v128
 } WASMCoreVectorTypeTag;
 
 // Core Packed Types - From WebAssembly Core spec
 // packedtype ::= 0x78 => i8 | 0x77 => i16
 typedef enum WASMCorePackedTypeTag {
-    WASM_CORE_PACKED_TYPE_I8 = 0x78,     // i8
-    WASM_CORE_PACKED_TYPE_I16 = 0x77,    // i16
+    WASM_CORE_PACKED_TYPE_I8 = 0x78,  // i8
+    WASM_CORE_PACKED_TYPE_I16 = 0x77, // i16
 } WASMCorePackedTypeTag;
 
 // Core Abstract Heap Types - From WebAssembly Core spec
-// absheaptype ::= 0x73 => nofunc | 0x72 => noextern | 0x71 => none | 0x70 => func
+// absheaptype ::= 0x73 => nofunc | 0x72 => noextern | 0x71 => none | 0x70 =>
+// func
 //               | 0x6F => extern | 0x6E => any | 0x6D => eq | 0x6C => i31
 //               | 0x6B => struct | 0x6A => array
 typedef enum WASMCoreAbsHeapTypeTag {
-    WASM_CORE_ABS_HEAP_TYPE_NOFUNC = 0x73,    // nofunc
-    WASM_CORE_ABS_HEAP_TYPE_NOEXTERN = 0x72,  // noextern
-    WASM_CORE_ABS_HEAP_TYPE_NONE = 0x71,      // none
-    WASM_CORE_ABS_HEAP_TYPE_FUNC = 0x70,      // func
-    WASM_CORE_ABS_HEAP_TYPE_EXTERN = 0x6F,    // extern
-    WASM_CORE_ABS_HEAP_TYPE_ANY = 0x6E,       // any
-    WASM_CORE_ABS_HEAP_TYPE_EQ = 0x6D,        // eq
-    WASM_CORE_ABS_HEAP_TYPE_I31 = 0x6C,       // i31
-    WASM_CORE_ABS_HEAP_TYPE_STRUCT = 0x6B,    // struct
-    WASM_CORE_ABS_HEAP_TYPE_ARRAY = 0x6A,     // array
+    WASM_CORE_ABS_HEAP_TYPE_NOFUNC = 0x73,   // nofunc
+    WASM_CORE_ABS_HEAP_TYPE_NOEXTERN = 0x72, // noextern
+    WASM_CORE_ABS_HEAP_TYPE_NONE = 0x71,     // none
+    WASM_CORE_ABS_HEAP_TYPE_FUNC = 0x70,     // func
+    WASM_CORE_ABS_HEAP_TYPE_EXTERN = 0x6F,   // extern
+    WASM_CORE_ABS_HEAP_TYPE_ANY = 0x6E,      // any
+    WASM_CORE_ABS_HEAP_TYPE_EQ = 0x6D,       // eq
+    WASM_CORE_ABS_HEAP_TYPE_I31 = 0x6C,      // i31
+    WASM_CORE_ABS_HEAP_TYPE_STRUCT = 0x6B,   // struct
+    WASM_CORE_ABS_HEAP_TYPE_ARRAY = 0x6A,    // array
 } WASMCoreAbsHeapTypeTag;
 
 // Core Heap Type - Can be abstract heap type or type index
@@ -564,7 +599,7 @@ typedef struct WASMComponentCoreHeapType {
     WASMComponentCoreHeapTypeTag tag;
     union {
         WASMCoreAbsHeapTypeTag abstract_type;
-        uint32_t concrete_index;  // Type index for heap type (s33)
+        uint32_t concrete_index; // Type index for heap type (s33)
     } heap_type;
 } WASMComponentCoreHeapType;
 
@@ -586,7 +621,7 @@ typedef struct WASMComponentCoreValType {
     union {
         WASMCoreNumTypeTag num_type;
         WASMCoreVectorTypeTag vector_type;
-        WASMComponentCoreRefType ref_type;  
+        WASMComponentCoreRefType ref_type;
     } type;
 } WASMComponentCoreValType;
 
@@ -608,7 +643,7 @@ typedef struct WASMComponentCoreStorageType {
 // Core Field Type Structure - Has mutability and storage type
 // fieldtype ::= st:storagetype m:mut => m st
 typedef struct WASMComponentCoreFieldType {
-    bool is_mutable;  // true for var, false for const
+    bool is_mutable; // true for var, false for const
     WASMComponentCoreStorageType storage_type;
 } WASMComponentCoreFieldType;
 
@@ -622,8 +657,8 @@ typedef struct WASMComponentCoreResultType {
 // Core Function Type Structure
 // functype ::= rt1:resulttype rt2:resulttype => rt1 -> rt2
 typedef struct WASMComponentCoreFuncType {
-    WASMComponentCoreResultType params;   // rt1
-    WASMComponentCoreResultType results;  // rt2
+    WASMComponentCoreResultType params;  // rt1
+    WASMComponentCoreResultType results; // rt2
 } WASMComponentCoreFuncType;
 
 // Core Array Type Structure
@@ -660,12 +695,13 @@ typedef struct WASMComponentCoreCompType {
 
 // Core SubType Structure
 // subtype ::= 0x50 x*:vec(typeidx) ct:comptype => sub x* ct
-//          | 0x4F x*:vec(typeidx) ct:comptype => sub final x* ct  
+//          | 0x4F x*:vec(typeidx) ct:comptype => sub final x* ct
 //          | ct:comptype => sub final ε ct
 typedef struct WASMComponentCoreSubType {
     bool is_final;
     uint32_t supertype_count;
-    uint32_t *supertypes;  // Vector of type indices (can be empty for final with no supertypes)
+    uint32_t *supertypes; // Vector of type indices (can be empty for final with
+                          // no supertypes)
     WASMComponentCoreCompType comptype;
 } WASMComponentCoreSubType;
 
@@ -679,20 +715,22 @@ typedef struct WASMComponentCoreRecType {
 
 // Core Module Type Structure
 
-
 // Core Import and Import Description Structures
-// Based on WebAssembly specification: https://webassembly.github.io/gc/core/binary/types.html
-// core:import ::= nm:<core:name> d:<core:importdesc> => (import nm d)
-// core:importdesc ::= 0x00 ft:<core:functype> => (func (type ft))
+// Based on WebAssembly specification:
+// https://webassembly.github.io/gc/core/binary/types.html core:import ::=
+// nm:<core:name> d:<core:importdesc> => (import nm d) core:importdesc ::= 0x00
+// ft:<core:functype> => (func (type ft))
 //                   | 0x01 tt:<core:tabletype> => (table tt)
 //                   | 0x02 mt:<core:memtype> => (memory mt)
 //                   | 0x03 gt:<core:globaltype> => (global gt)
 
 typedef enum WASMComponentCoreImportDescType {
-    WASM_CORE_IMPORTDESC_FUNC = 0x00,    // 0x00 ft:<core:functype> => (func (type ft))
-    WASM_CORE_IMPORTDESC_TABLE = 0x01,   // 0x01 tt:<core:tabletype> => (table tt)
-    WASM_CORE_IMPORTDESC_MEMORY = 0x02,  // 0x02 mt:<core:memtype> => (memory mt)
-    WASM_CORE_IMPORTDESC_GLOBAL = 0x03   // 0x03 gt:<core:globaltype> => (global gt)
+    WASM_CORE_IMPORTDESC_FUNC =
+        0x00, // 0x00 ft:<core:functype> => (func (type ft))
+    WASM_CORE_IMPORTDESC_TABLE = 0x01, // 0x01 tt:<core:tabletype> => (table tt)
+    WASM_CORE_IMPORTDESC_MEMORY = 0x02, // 0x02 mt:<core:memtype> => (memory mt)
+    WASM_CORE_IMPORTDESC_GLOBAL =
+        0x03 // 0x03 gt:<core:globaltype> => (global gt)
 } WASMComponentCoreImportDescType;
 
 typedef enum WASMComponentCoreLimitsTag {
@@ -703,8 +741,13 @@ typedef enum WASMComponentCoreLimitsTag {
 typedef struct WASMComponentCoreLimits {
     WASMComponentCoreLimitsTag tag;
     union {
-        struct { uint32_t min; } limits;
-        struct { uint32_t min; uint32_t max; } limits_max;
+        struct {
+            uint32_t min;
+        } limits;
+        struct {
+            uint32_t min;
+            uint32_t max;
+        } limits_max;
     } lim;
 } WASMComponentCoreLimits;
 
@@ -751,10 +794,14 @@ typedef struct WASMComponentCoreExportDecl {
 //              | 0x03 x:<core:outeridx> n:<core:name> => (alias outer x n)
 
 typedef enum WASMComponentCoreAliasType {
-    WASM_CORE_ALIAS_FUNC = 0x00,     // 0x00 x:<core:outeridx> n:<core:name> => (alias outer x n)
-    WASM_CORE_ALIAS_TABLE = 0x01,    // 0x01 x:<core:outeridx> n:<core:name> => (alias outer x n)
-    WASM_CORE_ALIAS_MEMORY = 0x02,   // 0x02 x:<core:outeridx> n:<core:name> => (alias outer x n)
-    WASM_CORE_ALIAS_GLOBAL = 0x03    // 0x03 x:<core:outeridx> n:<core:name> => (alias outer x n)
+    WASM_CORE_ALIAS_FUNC =
+        0x00, // 0x00 x:<core:outeridx> n:<core:name> => (alias outer x n)
+    WASM_CORE_ALIAS_TABLE =
+        0x01, // 0x01 x:<core:outeridx> n:<core:name> => (alias outer x n)
+    WASM_CORE_ALIAS_MEMORY =
+        0x02, // 0x02 x:<core:outeridx> n:<core:name> => (alias outer x n)
+    WASM_CORE_ALIAS_GLOBAL =
+        0x03 // 0x03 x:<core:outeridx> n:<core:name> => (alias outer x n)
 } WASMComponentCoreAliasType;
 
 typedef struct WASMComponentCoreAliasTarget {
@@ -805,8 +852,8 @@ typedef struct WASMComponentCoreModuleType {
 
 // Core DefType Structure
 // core:deftype ::= rt:<core:rectype> => rt (WebAssembly 3.0)
-//               | 0x00 0x50 x*:vec(<core:typeidx>) ct:<core:comptype> => sub x* ct (WebAssembly 3.0)
-//               | mt:<core:moduletype> => mt
+//               | 0x00 0x50 x*:vec(<core:typeidx>) ct:<core:comptype> => sub x*
+//               ct (WebAssembly 3.0) | mt:<core:moduletype> => mt
 typedef enum WASMComponentCoreDefTypeTag {
     WASM_CORE_DEFTYPE_RECTYPE,
     WASM_CORE_DEFTYPE_SUBTYPE,
@@ -980,8 +1027,8 @@ typedef struct WASMComponentOptionType {
 // Result Type Structure - Success/error result
 // result ::= t?:<valtype>? u?:<valtype>? => (result t? u?)
 typedef struct WASMComponentResultType {
-    WASMComponentValueType *result_type;   // Optional (can be NULL)
-    WASMComponentValueType *error_type;    // Optional (can be NULL)
+    WASMComponentValueType *result_type; // Optional (can be NULL)
+    WASMComponentValueType *error_type;  // Optional (can be NULL)
 } WASMComponentResultType;
 
 // Own Type Structure - Owned handle
@@ -1187,60 +1234,64 @@ typedef struct WASMComponentTypeSection {
 // -----------------------------------------------------------------------------
 // Canonical definitions for lifting/lowering and built-ins
 typedef enum WASMComponentCanonType {
-    WASM_COMP_CANON_LIFT                    = 0x00,  // canon lift
-    WASM_COMP_CANON_LOWER                   = 0x01,  // canon lower
-    WASM_COMP_CANON_RESOURCE_NEW            = 0x02,  // canon resource.new
-    WASM_COMP_CANON_RESOURCE_DROP           = 0x03,  // canon resource.drop
-    WASM_COMP_CANON_RESOURCE_REP            = 0x04,  // canon resource.rep
-    WASM_COMP_CANON_RESOURCE_DROP_ASYNC     = 0x07,  // canon resource.drop async
-    WASM_COMP_CANON_BACKPRESSURE_SET        = 0x08,  // canon backpressure.set
-    WASM_COMP_CANON_TASK_RETURN             = 0x09,  // canon task.return
-    WASM_COMP_CANON_TASK_CANCEL             = 0x05,  // canon task.cancel
-    WASM_COMP_CANON_CONTEXT_GET             = 0x0a,  // canon context.get
-    WASM_COMP_CANON_CONTEXT_SET             = 0x0b,  // canon context.set
-    WASM_COMP_CANON_YIELD                   = 0x0c,  // canon yield
-    WASM_COMP_CANON_SUBTASK_CANCEL          = 0x06,  // canon subtask.cancel
-    WASM_COMP_CANON_SUBTASK_DROP            = 0x0d,  // canon subtask.drop
-    WASM_COMP_CANON_STREAM_NEW              = 0x0e,  // canon stream.new
-    WASM_COMP_CANON_STREAM_READ             = 0x0f,  // canon stream.read
-    WASM_COMP_CANON_STREAM_WRITE            = 0x10,  // canon stream.write
-    WASM_COMP_CANON_STREAM_CANCEL_READ      = 0x11,  // canon stream.cancel-read
-    WASM_COMP_CANON_STREAM_CANCEL_WRITE     = 0x12,  // canon stream.cancel-write
-    WASM_COMP_CANON_STREAM_DROP_READABLE    = 0x13,  // canon stream.drop-readable
-    WASM_COMP_CANON_STREAM_DROP_WRITABLE    = 0x14,  // canon stream.drop-writable
-    WASM_COMP_CANON_FUTURE_NEW              = 0x15,  // canon future.new
-    WASM_COMP_CANON_FUTURE_READ             = 0x16,  // canon future.read
-    WASM_COMP_CANON_FUTURE_WRITE            = 0x17,  // canon future.write
-    WASM_COMP_CANON_FUTURE_CANCEL_READ      = 0x18,  // canon future.cancel-read
-    WASM_COMP_CANON_FUTURE_CANCEL_WRITE     = 0x19,  // canon future.cancel-write
-    WASM_COMP_CANON_FUTURE_DROP_READABLE    = 0x1a,  // canon future.drop-readable
-    WASM_COMP_CANON_FUTURE_DROP_WRITABLE    = 0x1b,  // canon future.drop-writable
-    WASM_COMP_CANON_ERROR_CONTEXT_NEW       = 0x1c,  // canon error-context.new
-    WASM_COMP_CANON_ERROR_CONTEXT_DEBUG     = 0x1d,  // canon error-context.debug-message
-    WASM_COMP_CANON_ERROR_CONTEXT_DROP      = 0x1e,  // canon error-context.drop
-    WASM_COMP_CANON_WAITABLE_SET_NEW        = 0x1f,  // canon waitable-set.new
-    WASM_COMP_CANON_WAITABLE_SET_WAIT       = 0x20,  // canon waitable-set.wait
-    WASM_COMP_CANON_WAITABLE_SET_POLL       = 0x21,  // canon waitable-set.poll
-    WASM_COMP_CANON_WAITABLE_SET_DROP       = 0x22,  // canon waitable-set.drop
-    WASM_COMP_CANON_WAITABLE_JOIN           = 0x23,  // canon waitable.join
-    WASM_COMP_CANON_THREAD_SPAWN_REF        = 0x40,  // canon thread.spawn_ref
-    WASM_COMP_CANON_THREAD_SPAWN_INDIRECT   = 0x41,  // canon thread.spawn_indirect
-    WASM_COMP_CANON_THREAD_AVAILABLE_PAR    = 0x42   // canon thread.available_parallelism
+    WASM_COMP_CANON_LIFT = 0x00,                 // canon lift
+    WASM_COMP_CANON_LOWER = 0x01,                // canon lower
+    WASM_COMP_CANON_RESOURCE_NEW = 0x02,         // canon resource.new
+    WASM_COMP_CANON_RESOURCE_DROP = 0x03,        // canon resource.drop
+    WASM_COMP_CANON_RESOURCE_REP = 0x04,         // canon resource.rep
+    WASM_COMP_CANON_RESOURCE_DROP_ASYNC = 0x07,  // canon resource.drop async
+    WASM_COMP_CANON_BACKPRESSURE_SET = 0x08,     // canon backpressure.set
+    WASM_COMP_CANON_TASK_RETURN = 0x09,          // canon task.return
+    WASM_COMP_CANON_TASK_CANCEL = 0x05,          // canon task.cancel
+    WASM_COMP_CANON_CONTEXT_GET = 0x0a,          // canon context.get
+    WASM_COMP_CANON_CONTEXT_SET = 0x0b,          // canon context.set
+    WASM_COMP_CANON_YIELD = 0x0c,                // canon yield
+    WASM_COMP_CANON_SUBTASK_CANCEL = 0x06,       // canon subtask.cancel
+    WASM_COMP_CANON_SUBTASK_DROP = 0x0d,         // canon subtask.drop
+    WASM_COMP_CANON_STREAM_NEW = 0x0e,           // canon stream.new
+    WASM_COMP_CANON_STREAM_READ = 0x0f,          // canon stream.read
+    WASM_COMP_CANON_STREAM_WRITE = 0x10,         // canon stream.write
+    WASM_COMP_CANON_STREAM_CANCEL_READ = 0x11,   // canon stream.cancel-read
+    WASM_COMP_CANON_STREAM_CANCEL_WRITE = 0x12,  // canon stream.cancel-write
+    WASM_COMP_CANON_STREAM_DROP_READABLE = 0x13, // canon stream.drop-readable
+    WASM_COMP_CANON_STREAM_DROP_WRITABLE = 0x14, // canon stream.drop-writable
+    WASM_COMP_CANON_FUTURE_NEW = 0x15,           // canon future.new
+    WASM_COMP_CANON_FUTURE_READ = 0x16,          // canon future.read
+    WASM_COMP_CANON_FUTURE_WRITE = 0x17,         // canon future.write
+    WASM_COMP_CANON_FUTURE_CANCEL_READ = 0x18,   // canon future.cancel-read
+    WASM_COMP_CANON_FUTURE_CANCEL_WRITE = 0x19,  // canon future.cancel-write
+    WASM_COMP_CANON_FUTURE_DROP_READABLE = 0x1a, // canon future.drop-readable
+    WASM_COMP_CANON_FUTURE_DROP_WRITABLE = 0x1b, // canon future.drop-writable
+    WASM_COMP_CANON_ERROR_CONTEXT_NEW = 0x1c,    // canon error-context.new
+    WASM_COMP_CANON_ERROR_CONTEXT_DEBUG =
+        0x1d, // canon error-context.debug-message
+    WASM_COMP_CANON_ERROR_CONTEXT_DROP = 0x1e,    // canon error-context.drop
+    WASM_COMP_CANON_WAITABLE_SET_NEW = 0x1f,      // canon waitable-set.new
+    WASM_COMP_CANON_WAITABLE_SET_WAIT = 0x20,     // canon waitable-set.wait
+    WASM_COMP_CANON_WAITABLE_SET_POLL = 0x21,     // canon waitable-set.poll
+    WASM_COMP_CANON_WAITABLE_SET_DROP = 0x22,     // canon waitable-set.drop
+    WASM_COMP_CANON_WAITABLE_JOIN = 0x23,         // canon waitable.join
+    WASM_COMP_CANON_THREAD_SPAWN_REF = 0x40,      // canon thread.spawn_ref
+    WASM_COMP_CANON_THREAD_SPAWN_INDIRECT = 0x41, // canon thread.spawn_indirect
+    WASM_COMP_CANON_THREAD_AVAILABLE_PAR =
+        0x42 // canon thread.available_parallelism
 } WASMComponentCanonType;
 
 // Canonical options for lift/lower operations
 typedef enum WASMComponentCanonOptTag {
-    WASM_COMP_CANON_OPT_STRING_UTF8         = 0x00,  // string-encoding=utf8
-    WASM_COMP_CANON_OPT_STRING_UTF16        = 0x01,  // string-encoding=utf16
-    WASM_COMP_CANON_OPT_STRING_LATIN1_UTF16 = 0x02,  // string-encoding=latin1+utf16
-    WASM_COMP_CANON_OPT_MEMORY              = 0x03,  // (memory m)
-    WASM_COMP_CANON_OPT_REALLOC             = 0x04,  // (realloc f)
-    WASM_COMP_CANON_OPT_POST_RETURN         = 0x05,  // (post-return f)
-    WASM_COMP_CANON_OPT_ASYNC               = 0x06,  // async
-    WASM_COMP_CANON_OPT_CALLBACK            = 0x07   // (callback f)
+    WASM_COMP_CANON_OPT_STRING_UTF8 = 0x00,  // string-encoding=utf8
+    WASM_COMP_CANON_OPT_STRING_UTF16 = 0x01, // string-encoding=utf16
+    WASM_COMP_CANON_OPT_STRING_LATIN1_UTF16 =
+        0x02,                               // string-encoding=latin1+utf16
+    WASM_COMP_CANON_OPT_MEMORY = 0x03,      // (memory m)
+    WASM_COMP_CANON_OPT_REALLOC = 0x04,     // (realloc f)
+    WASM_COMP_CANON_OPT_POST_RETURN = 0x05, // (post-return f)
+    WASM_COMP_CANON_OPT_ASYNC = 0x06,       // async
+    WASM_COMP_CANON_OPT_CALLBACK = 0x07     // (callback f)
 } WASMComponentCanonOptTag;
 
-// Canon option with payload, opts := vec<canonopt> where some options carry an immediate:
+// Canon option with payload, opts := vec<canonopt> where some options carry an
+// immediate:
 //  - 0x03 (memory m)       -> core:memidx (u32)
 //  - 0x04 (realloc f)      -> core:funcidx (u32)
 //  - 0x05 (post-return f)  -> core:funcidx (u32)
@@ -1249,14 +1300,26 @@ typedef enum WASMComponentCanonOptTag {
 typedef struct WASMComponentCanonOpt {
     WASMComponentCanonOptTag tag;
     union {
-        struct { /* no payload */ } string_utf8;         /* 0x00 */
-        struct { /* no payload */ } string_utf16;        /* 0x01 */
-        struct { /* no payload */ } string_latin1_utf16; /* 0x02 */
-        struct { uint32_t mem_idx; } memory;             /* 0x03 */
-        struct { uint32_t func_idx; } realloc_opt;       /* 0x04 */
-        struct { uint32_t func_idx; } post_return;       /* 0x05 */
-        struct { /* no payload */ } async;               /* 0x06 */
-        struct { uint32_t func_idx; } callback;          /* 0x07 */
+        struct {               /* no payload */
+        } string_utf8;         /* 0x00 */
+        struct {               /* no payload */
+        } string_utf16;        /* 0x01 */
+        struct {               /* no payload */
+        } string_latin1_utf16; /* 0x02 */
+        struct {
+            uint32_t mem_idx;
+        } memory; /* 0x03 */
+        struct {
+            uint32_t func_idx;
+        } realloc_opt; /* 0x04 */
+        struct {
+            uint32_t func_idx;
+        } post_return; /* 0x05 */
+        struct {       /* no payload */
+        } async;       /* 0x06 */
+        struct {
+            uint32_t func_idx;
+        } callback; /* 0x07 */
     } payload;
 } WASMComponentCanonOpt;
 
@@ -1370,7 +1433,8 @@ typedef struct WASMComponentCanon {
         struct {
             // No parameters
         } waitable_set_new;
-        // 0x20 cancel?:<cancel?> m:<core:memidx> or 0x21 cancel?:<cancel?> m:<core:memidx>
+        // 0x20 cancel?:<cancel?> m:<core:memidx> or 0x21 cancel?:<cancel?>
+        // m:<core:memidx>
         struct {
             bool cancellable;
             uint32_t mem_idx;
@@ -1410,10 +1474,10 @@ typedef struct WASMComponentCanonSection {
 // -----------------------------------------------------------------------------
 // Start definition for component-level start function
 typedef struct WASMComponentStartSection {
-    uint32_t func_idx;           // Function index to call
-    uint32_t value_args_count;   // Number of value arguments
-    uint32_t *value_args;        // Array of value indices for arguments
-    uint32_t result;             // Number of result values to append to value index space
+    uint32_t func_idx;         // Function index to call
+    uint32_t value_args_count; // Number of value arguments
+    uint32_t *value_args;      // Array of value indices for arguments
+    uint32_t result; // Number of result values to append to value index space
 } WASMComponentStartSection;
 
 // -----------------------------------------------------------------------------
@@ -1427,7 +1491,7 @@ typedef struct WASMComponentImport {
 
 // Import Section Structure - Vector of imports
 typedef struct WASMComponentImportSection {
-    uint32_t count;       
+    uint32_t count;
     WASMComponentImport *imports;
 } WASMComponentImportSection;
 
@@ -1436,15 +1500,15 @@ typedef struct WASMComponentImportSection {
 // -----------------------------------------------------------------------------
 // Export Structure - Component export
 typedef struct WASMComponentExport {
-    WASMComponentExportName *export_name; 
+    WASMComponentExportName *export_name;
     WASMComponentSortIdx *sort_idx;
     WASMComponentExternDesc *extern_desc;
 } WASMComponentExport;
 
 // Export Section Structure - Vector of exports
 typedef struct WASMComponentExportSection {
-    uint32_t count;       
-    WASMComponentExport *exports; 
+    uint32_t count;
+    WASMComponentExport *exports;
 } WASMComponentExportSection;
 
 // -----------------------------------------------------------------------------
@@ -1452,9 +1516,9 @@ typedef struct WASMComponentExportSection {
 // -----------------------------------------------------------------------------
 // Value definition for component-level values
 typedef struct WASMComponentValue {
-    WASMComponentValueType *val_type;  // Type of the value
-    uint32_t core_data_len;            // Length of the value data (len:<core:u32>)
-    const uint8_t *core_data;          // Binary data of the value (v:<val(t)>)
+    WASMComponentValueType *val_type; // Type of the value
+    uint32_t core_data_len;   // Length of the value data (len:<core:u32>)
+    const uint8_t *core_data; // Binary data of the value (v:<val(t)>)
 } WASMComponentValue;
 
 // Values section structure
@@ -1506,88 +1570,253 @@ typedef struct WASMComponent {
 #ifdef __cplusplus
 extern "C" {
 #endif
-void set_error_buf_ex(char *error_buf, uint32_t error_buf_size, const char *format, ...);
+void
+set_error_buf_ex(char *error_buf, uint32_t error_buf_size, const char *format,
+                 ...);
 
-bool parse_valtype(const uint8_t **payload, const uint8_t *end, WASMComponentValueType *out, char *error_buf, uint32_t error_buf_size);
-bool parse_labelvaltype(const uint8_t **payload, const uint8_t *end, WASMComponentLabelValType *out, char *error_buf, uint32_t error_buf_size);
-bool parse_case(const uint8_t **payload, const uint8_t *end, WASMComponentCaseValType *out, char *error_buf, uint32_t error_buf_size);
-void free_labelvaltype(WASMComponentLabelValType *labelvaltype);
-void free_case(WASMComponentCaseValType *case_valtype);
-bool parse_sort(const uint8_t **payload, const uint8_t *end, WASMComponentSort *out, char *error_buf, uint32_t error_buf_size, bool is_core);
-bool parse_sort_idx(const uint8_t **payload, const uint8_t *end, WASMComponentSortIdx *out, char *error_buf, uint32_t error_buf_size, bool is_core);
-bool parse_extern_desc(const uint8_t **payload, const uint8_t *end, WASMComponentExternDesc *out, char *error_buf, uint32_t error_buf_size);
-void free_extern_desc(WASMComponentExternDesc *desc);
-bool parse_core_name(const uint8_t **payload, const uint8_t *end, WASMComponentCoreName **out, char *error_buf, uint32_t error_buf_size);
-void free_core_name(WASMComponentCoreName *core_name);
-bool parse_component_import_name(const uint8_t **payload, const uint8_t *end, WASMComponentImportName *out, char *error_buf, uint32_t error_buf_size);
-bool parse_component_export_name(const uint8_t **payload, const uint8_t *end, WASMComponentExportName *out, char *error_buf, uint32_t error_buf_size);
-void free_component_import_name(WASMComponentImportName *name_struct);
-void free_component_export_name(WASMComponentExportName *name_struct);
-bool parse_label_prime(const uint8_t **payload, const uint8_t *end, WASMComponentCoreName **out, char *error_buf, uint32_t error_buf_size);
-bool parse_label_prime_vector(const uint8_t **payload, const uint8_t *end, WASMComponentCoreName **out_labels, uint32_t *out_count, char *error_buf, uint32_t error_buf_size);
-void free_label_prime(WASMComponentCoreName *label);
-void free_label_prime_vector(WASMComponentCoreName *labels, uint32_t count);
+bool
+parse_valtype(const uint8_t **payload, const uint8_t *end,
+              WASMComponentValueType *out, char *error_buf,
+              uint32_t error_buf_size);
+bool
+parse_labelvaltype(const uint8_t **payload, const uint8_t *end,
+                   WASMComponentLabelValType *out, char *error_buf,
+                   uint32_t error_buf_size);
+bool
+parse_case(const uint8_t **payload, const uint8_t *end,
+           WASMComponentCaseValType *out, char *error_buf,
+           uint32_t error_buf_size);
+void
+free_labelvaltype(WASMComponentLabelValType *labelvaltype);
+void
+free_case(WASMComponentCaseValType *case_valtype);
+bool
+parse_sort(const uint8_t **payload, const uint8_t *end, WASMComponentSort *out,
+           char *error_buf, uint32_t error_buf_size, bool is_core);
+bool
+parse_sort_idx(const uint8_t **payload, const uint8_t *end,
+               WASMComponentSortIdx *out, char *error_buf,
+               uint32_t error_buf_size, bool is_core);
+bool
+parse_extern_desc(const uint8_t **payload, const uint8_t *end,
+                  WASMComponentExternDesc *out, char *error_buf,
+                  uint32_t error_buf_size);
+void
+free_extern_desc(WASMComponentExternDesc *desc);
+bool
+parse_core_name(const uint8_t **payload, const uint8_t *end,
+                WASMComponentCoreName **out, char *error_buf,
+                uint32_t error_buf_size);
+void
+free_core_name(WASMComponentCoreName *core_name);
+bool
+parse_component_import_name(const uint8_t **payload, const uint8_t *end,
+                            WASMComponentImportName *out, char *error_buf,
+                            uint32_t error_buf_size);
+bool
+parse_component_export_name(const uint8_t **payload, const uint8_t *end,
+                            WASMComponentExportName *out, char *error_buf,
+                            uint32_t error_buf_size);
+void
+free_component_import_name(WASMComponentImportName *name_struct);
+void
+free_component_export_name(WASMComponentExportName *name_struct);
+bool
+parse_label_prime(const uint8_t **payload, const uint8_t *end,
+                  WASMComponentCoreName **out, char *error_buf,
+                  uint32_t error_buf_size);
+bool
+parse_label_prime_vector(const uint8_t **payload, const uint8_t *end,
+                         WASMComponentCoreName **out_labels,
+                         uint32_t *out_count, char *error_buf,
+                         uint32_t error_buf_size);
+void
+free_label_prime(WASMComponentCoreName *label);
+void
+free_label_prime_vector(WASMComponentCoreName *labels, uint32_t count);
 
 // UTF-8 validation helpers for component values
-// Validates that the given byte slice is well-formed UTF-8 (no overlongs, no surrogates, <= U+10FFFF)
-bool wasm_component_validate_utf8(const uint8_t *bytes, uint32_t len);
+// Validates that the given byte slice is well-formed UTF-8 (no overlongs, no
+// surrogates, <= U+10FFFF)
+bool
+wasm_component_validate_utf8(const uint8_t *bytes, uint32_t len);
 // Validates that the given byte slice encodes exactly one UTF-8 scalar value
-bool wasm_component_validate_single_utf8_scalar(const uint8_t *bytes, uint32_t len);
+bool
+wasm_component_validate_single_utf8_scalar(const uint8_t *bytes, uint32_t len);
 
-bool parse_single_type(const uint8_t **payload, const uint8_t *end, WASMComponentTypes *out, char *error_buf, uint32_t error_buf_size);
-bool parse_single_alias(const uint8_t **payload, const uint8_t *end, WASMComponentAliasDefinition *out, char *error_buf, uint32_t error_buf_size);
-bool parse_single_core_type(const uint8_t **payload, const uint8_t *end, WASMComponentCoreDefType *out, char *error_buf, uint32_t error_buf_size);
-bool parse_alias_target(const uint8_t **payload, const uint8_t *end, WASMComponentCoreAliasTarget *out, char *error_buf, uint32_t error_buf_size);
-bool parse_core_export_decl(const uint8_t **payload, const uint8_t *end, WASMComponentCoreExportDecl *out, char *error_buf, uint32_t error_buf_size);
-bool parse_component_decl(const uint8_t **payload, const uint8_t *end, WASMComponentComponentDecl **out, char *error_buf, uint32_t error_buf_size);
-bool parse_component_type(const uint8_t **payload, const uint8_t *end, WASMComponentComponentType **out, char *error_buf, uint32_t error_buf_size);
-bool parse_result_list(const uint8_t **payload, const uint8_t *end, WASMComponentResultList **out, char *error_buf, uint32_t error_buf_size);
+bool
+parse_single_type(const uint8_t **payload, const uint8_t *end,
+                  WASMComponentTypes *out, char *error_buf,
+                  uint32_t error_buf_size);
+bool
+parse_single_alias(const uint8_t **payload, const uint8_t *end,
+                   WASMComponentAliasDefinition *out, char *error_buf,
+                   uint32_t error_buf_size);
+bool
+parse_single_core_type(const uint8_t **payload, const uint8_t *end,
+                       WASMComponentCoreDefType *out, char *error_buf,
+                       uint32_t error_buf_size);
+bool
+parse_alias_target(const uint8_t **payload, const uint8_t *end,
+                   WASMComponentCoreAliasTarget *out, char *error_buf,
+                   uint32_t error_buf_size);
+bool
+parse_core_export_decl(const uint8_t **payload, const uint8_t *end,
+                       WASMComponentCoreExportDecl *out, char *error_buf,
+                       uint32_t error_buf_size);
+bool
+parse_component_decl(const uint8_t **payload, const uint8_t *end,
+                     WASMComponentComponentDecl **out, char *error_buf,
+                     uint32_t error_buf_size);
+bool
+parse_component_type(const uint8_t **payload, const uint8_t *end,
+                     WASMComponentComponentType **out, char *error_buf,
+                     uint32_t error_buf_size);
+bool
+parse_result_list(const uint8_t **payload, const uint8_t *end,
+                  WASMComponentResultList **out, char *error_buf,
+                  uint32_t error_buf_size);
 
 // Core Type Parsing Functions
-bool parse_core_moduletype(const uint8_t **payload, const uint8_t *end, WASMComponentCoreModuleType *out, char *error_buf, uint32_t error_buf_size);
-bool parse_core_valtype(const uint8_t **payload, const uint8_t *end, WASMComponentCoreValType *out, char *error_buf, uint32_t error_buf_size);
+bool
+parse_core_moduletype(const uint8_t **payload, const uint8_t *end,
+                      WASMComponentCoreModuleType *out, char *error_buf,
+                      uint32_t error_buf_size);
+bool
+parse_core_valtype(const uint8_t **payload, const uint8_t *end,
+                   WASMComponentCoreValType *out, char *error_buf,
+                   uint32_t error_buf_size);
 
-bool is_wasm_component(WASMHeader header);
-bool wasm_component_parse_sections(const uint8_t *buf, uint32_t size, WASMComponent *out_component, LoadArgs *args, unsigned int depth);
-bool wasm_component_parse_core_custom_section(const uint8_t **payload, uint32_t payload_len, WASMComponentCoreCustomSection *out, char *error_buf, uint32_t error_buf_size, uint32_t *consumed_len);
-bool wasm_component_parse_core_module_section(const uint8_t **payload, uint32_t payload_len, WASMComponentCoreModuleWrapper *out, LoadArgs *args, char *error_buf, uint32_t error_buf_size, uint32_t *consumed_len);
-bool wasm_component_parse_core_instance_section(const uint8_t **payload, uint32_t payload_len, WASMComponentCoreInstSection *out, char *error_buf, uint32_t error_buf_size, uint32_t *consumed_len);
-bool wasm_component_parse_core_type_section(const uint8_t **payload, uint32_t payload_len, WASMComponentCoreTypeSection *out, char *error_buf, uint32_t error_buf_size, uint32_t *consumed_len);
-bool wasm_component_parse_component_section(const uint8_t **payload, uint32_t payload_len, WASMComponent *out, char *error_buf, uint32_t error_buf_size, LoadArgs *args, unsigned int depth, uint32_t *consumed_len);
-bool wasm_component_parse_instances_section(const uint8_t **payload, uint32_t payload_len, WASMComponentInstSection *out, char *error_buf, uint32_t error_buf_size, uint32_t *consumed_len);
-bool wasm_component_parse_alias_section(const uint8_t **payload, uint32_t payload_len, WASMComponentAliasSection *out, char *error_buf, uint32_t error_buf_size, uint32_t *consumed_len);
-bool wasm_component_parse_types_section(const uint8_t **payload, uint32_t payload_len, WASMComponentTypeSection *out, char *error_buf, uint32_t error_buf_size, uint32_t *consumed_len);
-bool wasm_component_parse_canons_section(const uint8_t **payload, uint32_t payload_len, WASMComponentCanonSection *out, char *error_buf, uint32_t error_buf_size, uint32_t *consumed_len);
-bool wasm_component_parse_start_section(const uint8_t **payload, uint32_t payload_len, WASMComponentStartSection *out, char *error_buf, uint32_t error_buf_size, uint32_t *consumed_len);
-bool wasm_component_parse_imports_section(const uint8_t **payload, uint32_t payload_len, WASMComponentImportSection *out, char *error_buf, uint32_t error_buf_size, uint32_t *consumed_len);
-bool wasm_component_parse_exports_section(const uint8_t **payload, uint32_t payload_len, WASMComponentExportSection *out, char *error_buf, uint32_t error_buf_size, uint32_t *consumed_len);
-bool wasm_component_parse_values_section(const uint8_t **payload, uint32_t payload_len, WASMComponentValueSection *out, char *error_buf, uint32_t error_buf_size, uint32_t *consumed_len);
+bool
+is_wasm_component(WASMHeader header);
+bool
+wasm_component_parse_sections(const uint8_t *buf, uint32_t size,
+                              WASMComponent *out_component, LoadArgs *args,
+                              unsigned int depth);
+bool
+wasm_component_parse_core_custom_section(const uint8_t **payload,
+                                         uint32_t payload_len,
+                                         WASMComponentCoreCustomSection *out,
+                                         char *error_buf,
+                                         uint32_t error_buf_size,
+                                         uint32_t *consumed_len);
+bool
+wasm_component_parse_core_module_section(const uint8_t **payload,
+                                         uint32_t payload_len,
+                                         WASMComponentCoreModuleWrapper *out,
+                                         LoadArgs *args, char *error_buf,
+                                         uint32_t error_buf_size,
+                                         uint32_t *consumed_len);
+bool
+wasm_component_parse_core_instance_section(const uint8_t **payload,
+                                           uint32_t payload_len,
+                                           WASMComponentCoreInstSection *out,
+                                           char *error_buf,
+                                           uint32_t error_buf_size,
+                                           uint32_t *consumed_len);
+bool
+wasm_component_parse_core_type_section(const uint8_t **payload,
+                                       uint32_t payload_len,
+                                       WASMComponentCoreTypeSection *out,
+                                       char *error_buf, uint32_t error_buf_size,
+                                       uint32_t *consumed_len);
+bool
+wasm_component_parse_component_section(const uint8_t **payload,
+                                       uint32_t payload_len, WASMComponent *out,
+                                       char *error_buf, uint32_t error_buf_size,
+                                       LoadArgs *args, unsigned int depth,
+                                       uint32_t *consumed_len);
+bool
+wasm_component_parse_instances_section(const uint8_t **payload,
+                                       uint32_t payload_len,
+                                       WASMComponentInstSection *out,
+                                       char *error_buf, uint32_t error_buf_size,
+                                       uint32_t *consumed_len);
+bool
+wasm_component_parse_alias_section(const uint8_t **payload,
+                                   uint32_t payload_len,
+                                   WASMComponentAliasSection *out,
+                                   char *error_buf, uint32_t error_buf_size,
+                                   uint32_t *consumed_len);
+bool
+wasm_component_parse_types_section(const uint8_t **payload,
+                                   uint32_t payload_len,
+                                   WASMComponentTypeSection *out,
+                                   char *error_buf, uint32_t error_buf_size,
+                                   uint32_t *consumed_len);
+bool
+wasm_component_parse_canons_section(const uint8_t **payload,
+                                    uint32_t payload_len,
+                                    WASMComponentCanonSection *out,
+                                    char *error_buf, uint32_t error_buf_size,
+                                    uint32_t *consumed_len);
+bool
+wasm_component_parse_start_section(const uint8_t **payload,
+                                   uint32_t payload_len,
+                                   WASMComponentStartSection *out,
+                                   char *error_buf, uint32_t error_buf_size,
+                                   uint32_t *consumed_len);
+bool
+wasm_component_parse_imports_section(const uint8_t **payload,
+                                     uint32_t payload_len,
+                                     WASMComponentImportSection *out,
+                                     char *error_buf, uint32_t error_buf_size,
+                                     uint32_t *consumed_len);
+bool
+wasm_component_parse_exports_section(const uint8_t **payload,
+                                     uint32_t payload_len,
+                                     WASMComponentExportSection *out,
+                                     char *error_buf, uint32_t error_buf_size,
+                                     uint32_t *consumed_len);
+bool
+wasm_component_parse_values_section(const uint8_t **payload,
+                                    uint32_t payload_len,
+                                    WASMComponentValueSection *out,
+                                    char *error_buf, uint32_t error_buf_size,
+                                    uint32_t *consumed_len);
 
 // Free functions for each section
-void wasm_component_free_start_section(WASMComponentSection *section);
-void wasm_component_free_values_section(WASMComponentSection *section);
-void wasm_component_free_core_custom_section(WASMComponentSection *section);
-void wasm_component_free_core_module_section(WASMComponentSection *section);
-void wasm_component_free_core_instance_section(WASMComponentSection *section);
-void wasm_component_free_core_type_section(WASMComponentSection *section);
-void wasm_component_free_component_section(WASMComponentSection *section);
-void wasm_component_free_instances_section(WASMComponentSection *section);
-void wasm_component_free_alias_section(WASMComponentSection *section);
-void wasm_component_free_types_section(WASMComponentSection *section);
-void wasm_component_free_canons_section(WASMComponentSection *section);
-void wasm_component_free_imports_section(WASMComponentSection *section);
-void wasm_component_free_exports_section(WASMComponentSection *section);
+void
+wasm_component_free_start_section(WASMComponentSection *section);
+void
+wasm_component_free_values_section(WASMComponentSection *section);
+void
+wasm_component_free_core_custom_section(WASMComponentSection *section);
+void
+wasm_component_free_core_module_section(WASMComponentSection *section);
+void
+wasm_component_free_core_instance_section(WASMComponentSection *section);
+void
+wasm_component_free_core_type_section(WASMComponentSection *section);
+void
+wasm_component_free_component_section(WASMComponentSection *section);
+void
+wasm_component_free_instances_section(WASMComponentSection *section);
+void
+wasm_component_free_alias_section(WASMComponentSection *section);
+void
+wasm_component_free_types_section(WASMComponentSection *section);
+void
+wasm_component_free_canons_section(WASMComponentSection *section);
+void
+wasm_component_free_imports_section(WASMComponentSection *section);
+void
+wasm_component_free_exports_section(WASMComponentSection *section);
 
-void wasm_component_free(WASMComponent *component);
+void
+wasm_component_free(WASMComponent *component);
 #ifdef __cplusplus
 }
 #endif
 
 // Utility functions
-static inline bool is_primitive_type(uint8_t value) {
+static inline bool
+is_primitive_type(uint8_t value)
+{
     // Component-model primitive value types
     // 0x7f=bool, 0x7e=s8, 0x7d=u8, 0x7c=s16, 0x7b=u16, 0x7a=s32, 0x79=u32,
-    // 0x78=s64, 0x77=u64, 0x76=f32, 0x75=f64, 0x74=char, 0x73=string, 0x64=error-context
+    // 0x78=s64, 0x77=u64, 0x76=f32, 0x75=f64, 0x74=char, 0x73=string,
+    // 0x64=error-context
     switch (value) {
         case WASM_COMP_PRIMVAL_BOOL:
         case WASM_COMP_PRIMVAL_S8:
@@ -1610,51 +1839,70 @@ static inline bool is_primitive_type(uint8_t value) {
 }
 
 // Core type utility functions
-static inline bool is_core_numtype(uint8_t value) {
+static inline bool
+is_core_numtype(uint8_t value)
+{
     // numtype ::= 0x7F => i32 | 0x7E => i64 | 0x7D => f32 | 0x7C => f64
     return (value >= WASM_CORE_NUM_TYPE_F64 && value <= WASM_CORE_NUM_TYPE_I32);
 }
 
-static inline bool is_core_vectype(uint8_t value) {
+static inline bool
+is_core_vectype(uint8_t value)
+{
     // vectype ::= 0x7B => v128
     return (value == WASM_CORE_VECTOR_TYPE_V128);
 }
 
-static inline bool is_core_reftype(uint8_t value) {
-    // reftype ::= 0x63 ht:heaptype => (ref ht) | 0x64 ht:heaptype => (ref null ht)
-    // heaptype ::= ht:absheaptype => ht | x:s33 => x (if x >= 0)
-    // absheaptype ::= 0x73 => nofunc | 0x72 => noextern | 0x71 => none | 0x70 => func
+static inline bool
+is_core_reftype(uint8_t value)
+{
+    // reftype ::= 0x63 ht:heaptype => (ref ht) | 0x64 ht:heaptype => (ref null
+    // ht) heaptype ::= ht:absheaptype => ht | x:s33 => x (if x >= 0)
+    // absheaptype ::= 0x73 => nofunc | 0x72 => noextern | 0x71 => none | 0x70
+    // => func
     //               | 0x6F => extern | 0x6E => any | 0x6D => eq | 0x6C => i31
     //               | 0x6B => struct | 0x6A => array
-    return (value == 0x63 || value == 0x64) || 
-           (value >= WASM_CORE_ABS_HEAP_TYPE_ARRAY && value <= WASM_CORE_ABS_HEAP_TYPE_NOFUNC);
+    return (value == 0x63 || value == 0x64)
+           || (value >= WASM_CORE_ABS_HEAP_TYPE_ARRAY
+               && value <= WASM_CORE_ABS_HEAP_TYPE_NOFUNC);
 }
 
-static inline bool is_core_absheaptype(uint8_t value) {
-    // absheaptype ::= 0x73 => nofunc | 0x72 => noextern | 0x71 => none | 0x70 => func
+static inline bool
+is_core_absheaptype(uint8_t value)
+{
+    // absheaptype ::= 0x73 => nofunc | 0x72 => noextern | 0x71 => none | 0x70
+    // => func
     //               | 0x6F => extern | 0x6E => any | 0x6D => eq | 0x6C => i31
     //               | 0x6B => struct | 0x6A => array
-    return (value >= WASM_CORE_ABS_HEAP_TYPE_ARRAY && value <= WASM_CORE_ABS_HEAP_TYPE_NOFUNC);
+    return (value >= WASM_CORE_ABS_HEAP_TYPE_ARRAY
+            && value <= WASM_CORE_ABS_HEAP_TYPE_NOFUNC);
 }
 
-static inline bool is_core_packedtype(uint8_t value) {
+static inline bool
+is_core_packedtype(uint8_t value)
+{
     // packedtype ::= 0x78 => i8 | 0x77 => i16
-    return (value == WASM_CORE_PACKED_TYPE_I16 || value == WASM_CORE_PACKED_TYPE_I8);
+    return (value == WASM_CORE_PACKED_TYPE_I16
+            || value == WASM_CORE_PACKED_TYPE_I8);
 }
 
-static inline bool is_core_storagetype(uint8_t value) {
+static inline bool
+is_core_storagetype(uint8_t value)
+{
     // storagetype ::= t:valtype => t | t:packedtype => t
-    return is_core_numtype(value) || is_core_vectype(value) || 
-           is_core_reftype(value) || is_core_packedtype(value);
+    return is_core_numtype(value) || is_core_vectype(value)
+           || is_core_reftype(value) || is_core_packedtype(value);
 }
 
-static inline bool is_core_comptype(uint8_t value) {
+static inline bool
+is_core_comptype(uint8_t value)
+{
     // comptype ::= 0x5E at:arraytype => array at
     //           | 0x5F st:structtype => struct st
     //           | 0x60 ft:functype => func ft
-    return (value == WASM_CORE_COMPTYPE_ARRAY || 
-            value == WASM_CORE_COMPTYPE_STRUCT || 
-            value == WASM_CORE_COMPTYPE_FUNC);
+    return (value == WASM_CORE_COMPTYPE_ARRAY
+            || value == WASM_CORE_COMPTYPE_STRUCT
+            || value == WASM_CORE_COMPTYPE_FUNC);
 }
 
 // Core type parsing constants
@@ -1676,51 +1924,79 @@ typedef enum WASMCoreTypeParsingTag {
 } WASMCoreTypeParsingTag;
 
 // Core type parsing helper functions
-static inline bool is_core_subtype_tag(uint8_t value) {
-    return value == WASM_CORE_TYPE_SUBTYPE_FINAL || value == WASM_CORE_TYPE_SUBTYPE_NONFINAL;
+static inline bool
+is_core_subtype_tag(uint8_t value)
+{
+    return value == WASM_CORE_TYPE_SUBTYPE_FINAL
+           || value == WASM_CORE_TYPE_SUBTYPE_NONFINAL;
 }
 
-static inline bool is_core_rectype_tag(uint8_t value) {
+static inline bool
+is_core_rectype_tag(uint8_t value)
+{
     return value == WASM_CORE_TYPE_REC_GROUP;
 }
 
-static inline bool is_core_moduletype_tag(uint8_t value) {
+static inline bool
+is_core_moduletype_tag(uint8_t value)
+{
     return value == WASM_CORE_TYPE_MODULE;
 }
 
 // Core type validation functions
-static inline bool is_valid_core_type_index(uint32_t index, uint32_t max_types) {
+static inline bool
+is_valid_core_type_index(uint32_t index, uint32_t max_types)
+{
     return index < max_types;
 }
 
-static inline bool is_valid_core_heap_type_index(uint64_t index) {
+static inline bool
+is_valid_core_heap_type_index(uint64_t index)
+{
     // s33 validation - check if it's a valid signed 33-bit value
     return index <= 0x1FFFFFFFF; // 2^33 - 1
 }
 
 // Additional utility functions for component model
-bool is_defvaltype_tag(uint8_t byte);
-WASMComponentTypesTag get_type_tag(uint8_t first_byte);
+bool
+is_defvaltype_tag(uint8_t byte);
+WASMComponentTypesTag
+get_type_tag(uint8_t first_byte);
 
 // Additional helper functions for core type validation
 
 // Core type memory management functions
-void free_core_resulttype(WASMComponentCoreResultType *resulttype);
-void free_core_structtype(WASMComponentCoreStructType *structtype);
-void free_core_type(WASMComponentCoreType *type);
-void free_core_type_section(WASMComponentCoreTypeSection *section);
+void
+free_core_resulttype(WASMComponentCoreResultType *resulttype);
+void
+free_core_structtype(WASMComponentCoreStructType *structtype);
+void
+free_core_type(WASMComponentCoreType *type);
+void
+free_core_type_section(WASMComponentCoreTypeSection *section);
 
 // Additional helper functions for freeing core structures
-void free_core_import_desc(WASMComponentCoreImportDesc *import_desc);
-void free_core_import(WASMComponentCoreImport *import);
-void free_core_export_decl(WASMComponentCoreExportDecl *export_decl);
-void free_core_module_decl(WASMComponentCoreModuleDecl *module_decl);
-void free_core_moduletype(WASMComponentCoreModuleType *moduletype);
-void free_core_deftype(WASMComponentCoreDefType *deftype);
-void free_core_functype(WASMComponentCoreFuncType *functype);
-void free_core_rectype(WASMComponentCoreRecType *rectype);
-void free_core_subtype(WASMComponentCoreSubType *subtype);
-void free_core_module_subtype(WASMComponentCoreModuleSubType *module_subtype);
-void free_core_comptype(WASMComponentCoreCompType *comptype);
+void
+free_core_import_desc(WASMComponentCoreImportDesc *import_desc);
+void
+free_core_import(WASMComponentCoreImport *import);
+void
+free_core_export_decl(WASMComponentCoreExportDecl *export_decl);
+void
+free_core_module_decl(WASMComponentCoreModuleDecl *module_decl);
+void
+free_core_moduletype(WASMComponentCoreModuleType *moduletype);
+void
+free_core_deftype(WASMComponentCoreDefType *deftype);
+void
+free_core_functype(WASMComponentCoreFuncType *functype);
+void
+free_core_rectype(WASMComponentCoreRecType *rectype);
+void
+free_core_subtype(WASMComponentCoreSubType *subtype);
+void
+free_core_module_subtype(WASMComponentCoreModuleSubType *module_subtype);
+void
+free_core_comptype(WASMComponentCoreCompType *comptype);
 
 #endif // WASM_COMPONENT_H

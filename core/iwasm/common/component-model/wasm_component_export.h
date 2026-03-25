@@ -8,7 +8,9 @@
 
 #include "stdbool.h"
 
-bool is_component_runtime();
-void set_component_runtime(bool type);
+bool
+is_component_runtime();
+void
+set_component_runtime(bool type);
 
 #endif
