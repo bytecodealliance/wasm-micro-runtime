@@ -652,6 +652,41 @@ wasm_runtime_init_internal(void)
     return true;
 }
 
+bool wasm_decode_header(const uint8_t *buf, uint32_t size, WASMHeader *out_header) {
+    if (!buf || size < 8) {
+        return false;
+    }
+
+    // WASM binary is little-endian
+    uint32_t magic = (uint32_t)buf[0] | ((uint32_t)buf[1] << 8) | ((uint32_t)buf[2] << 16) | ((uint32_t)buf[3] << 24);
+
+    // Decode version and layer fields
+    // For Preview 1 modules: version=0x0001, layer=0x0000 (combined: 0x00000001)
+    // For Preview 2 components: version=0x000d, layer=0x0001
+    uint16_t version = (uint16_t)buf[4] | ((uint16_t)buf[5] << 8);
+    uint16_t layer = (uint16_t)buf[6] | ((uint16_t)buf[7] << 8);
+
+    out_header->magic = magic;
+    out_header->version = version;
+    out_header->layer = layer;
+
+    return true;
+}
+
+bool is_wasm_module(WASMHeader header) {
+    if (header.magic != WASM_MAGIC_NUMBER) {
+        return false;
+    }
+    
+    // For Preview 1 modules, the combined version+layer should equal 0x00000001
+    uint32_t combined_version = ((uint32_t)header.layer << 16) | (uint32_t)header.version;
+    if (combined_version != WASM_CURRENT_VERSION) {
+        return false;
+    }
+
+    return true;
+}
+
 bool
 wasm_runtime_init()
 {
@@ -4511,6 +4546,76 @@ wasm_runtime_get_export_count(WASMModuleCommon *const module)
 
     return -1;
 }
+
+#if WASM_ENABLE_INTERP != 0
+int32
+wasm_runtime_get_function_count(WASMModuleCommon *const module)
+{
+    if (!module) {
+        bh_assert(0);
+        return -1;
+    }
+
+
+    if (module->module_type == Wasm_Module_Bytecode) {
+        const WASMModule *wasm_module = (const WASMModule *)module;
+        return (int32)wasm_module->function_count;
+    }
+
+    return -1;
+}
+
+int32
+wasm_runtime_get_table_count(WASMModuleCommon *const module)
+{
+    if (!module) {
+        bh_assert(0);
+        return -1;
+    }
+
+
+    if (module->module_type == Wasm_Module_Bytecode) {
+        const WASMModule *wasm_module = (const WASMModule *)module;
+        return (int32)wasm_module->table_count;
+    }
+
+    return -1;
+}
+
+int32
+wasm_runtime_get_memories_count(WASMModuleCommon *const module)
+{
+    if (!module) {
+        bh_assert(0);
+        return -1;
+    }
+
+
+    if (module->module_type == Wasm_Module_Bytecode) {
+        const WASMModule *wasm_module = (const WASMModule *)module;
+        return (int32)wasm_module->memory_count;
+    }
+
+    return -1;
+}
+
+int32
+wasm_runtime_get_globals_count(WASMModuleCommon *const module)
+{
+    if (!module) {
+        bh_assert(0);
+        return -1;
+    }
+
+
+    if (module->module_type == Wasm_Module_Bytecode) {
+        const WASMModule *wasm_module = (const WASMModule *)module;
+        return (int32)wasm_module->global_count;
+    }
+
+    return -1;
+}
+#endif
 
 void
 wasm_runtime_get_export_type(WASMModuleCommon *const module, int32 export_index,

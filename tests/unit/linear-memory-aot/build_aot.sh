@@ -14,7 +14,7 @@ file_names=("mem_grow_out_of_bounds_01" "mem_grow_out_of_bounds_02"
 WORKDIR="$PWD"
 WAMRC_ROOT_DIR="${WORKDIR}/../../../wamr-compiler"
 WAMRC="${WAMRC_ROOT_DIR}/build/wamrc"
-WAST2WASM="/opt/wabt/bin/wat2wasm"
+WAST2WASM="$(command -v wat2wasm)" || { echo "wat2wasm not found"; exit 1; }
 
 # build wamrc if not exist
 if [ ! -s "$WAMRC" ]; then

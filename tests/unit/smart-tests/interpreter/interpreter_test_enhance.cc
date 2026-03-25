@@ -71,7 +71,14 @@
          char *current_dir = getcwd(NULL, 0);
          CWD = std::string(current_dir);
          free(current_dir);
-         WASM_FILE = CWD + "/function_invocation_test.wasm";
+         const char *substr = "wasm-micro-runtime";
+         const char *pos = strstr(CWD.c_str(), substr);
+         if (pos) {
+             size_t prefix_len = (pos - CWD.c_str()) + strlen(substr);
+             WASM_FILE = CWD.substr(0, prefix_len) + "/tests/unit/smart-tests/interpreter/wasm-apps/function_invocation_test.wasm";
+         } else {
+             WASM_FILE = CWD + "/function_invocation_test.wasm";
+         }
  
          memset(&init_args, 0, sizeof(RuntimeInitArgs));
          init_args.mem_alloc_type = Alloc_With_System_Allocator;
@@ -452,3 +459,4 @@
      bool success = wasm_runtime_call_wasm(exec_env, func, 2, wasm_argv);
      ASSERT_TRUE(success);
  }
+ 

@@ -28,6 +28,10 @@ typedef struct WASMGlobalInstance WASMGlobalInstance;
 typedef struct WASMTagInstance WASMTagInstance;
 #endif
 
+#if WASM_ENABLE_COMPONENT_MODEL != 0
+#include "../common/component-model/wasm_component.h"
+#endif
+
 /**
  * When LLVM JIT, WAMR compiler or AOT is enabled, we should ensure that
  * some offsets of the same field in the interpreter module instance and
@@ -204,7 +208,7 @@ struct WASMGlobalInstance {
 #if WASM_ENABLE_GC != 0
     WASMRefType *ref_type;
 #endif
-#if WASM_ENABLE_MULTI_MODULE != 0
+#if WASM_ENABLE_MULTI_MODULE != 0 || WASM_ENABLE_COMPONENT_MODEL != 0
     /* just for import, keep the reference here */
     WASMModuleInstance *import_module_inst;
     WASMGlobalInstance *import_global_inst;
@@ -237,7 +241,7 @@ struct WASMFunctionInstance {
         WASMFunctionImport *func_import;
         WASMFunction *func;
     } u;
-#if WASM_ENABLE_MULTI_MODULE != 0
+#if WASM_ENABLE_MULTI_MODULE != 0 || WASM_ENABLE_COMPONENT_MODEL != 0
     WASMModuleInstance *import_module_inst;
     WASMFunctionInstance *import_func_inst;
 #endif
@@ -248,6 +252,12 @@ struct WASMFunctionInstance {
     uint32 total_exec_cnt;
     /* children execution time */
     uint64 children_exec_time;
+#endif
+#if WASM_ENABLE_COMPONENT_MODEL != 0
+    WASMModuleInstance *module_instance;
+    uint32 func_idx;
+    bool is_canon_func;
+    WASMComponentCanonType canon_type;
 #endif
 };
 
@@ -465,6 +475,11 @@ struct WASMModuleInstance {
     /* Default WASM operand stack size */
     uint32 default_wasm_stack_size;
     uint32 reserved[7];
+
+#if WASM_ENABLE_COMPONENT_MODEL != 0
+    WASMComponentInstance *comp_instance;
+    uint32 core_instance_idx;
+#endif
 
     /*
      * +------------------------------+ <-- memories

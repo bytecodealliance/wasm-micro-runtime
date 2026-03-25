@@ -779,7 +779,13 @@ if (WAMR_BUILD_BRANCH_HINTS EQUAL 1)
   message ("     Branch hints enabled")
   add_definitions(-DWASM_ENABLE_BRANCH_HINTS=1)
 endif ()
-
+if (WAMR_BUILD_COMPONENT_MODEL EQUAL 1)
+  message ("     Component Model enabled")
+  add_definitions(-DWASM_ENABLE_COMPONENT_MODEL=1)
+else()
+  message ("     Component Model disabled")
+  add_definitions(-DWASM_ENABLE_COMPONENT_MODEL=0)
+endif ()
 ########################################
 # Show Phase4 Wasm proposals status.
 ########################################

@@ -11,6 +11,10 @@ if (WAMR_BUILD_TARGET STREQUAL "X86_32")
       set (WAMRC_OPTION ${WAMRC_OPTION} --target=i386)
 endif ()
 
+find_program(WAT2WASM wat2wasm
+      PATHS /opt/wabt/bin /usr/local/bin /usr/bin
+      REQUIRED)
+
 add_custom_target(
       aot-stack-frame-test-wasm ALL
 
@@ -20,7 +24,7 @@ add_custom_target(
       COMMAND cmake --build ${CMAKE_CURRENT_BINARY_DIR}/build-wamrc
 
       # Step 2: Compile .wast to .wasm
-      COMMAND /opt/wabt/bin/wat2wasm 
+      COMMAND ${WAT2WASM}
                   -o ${CMAKE_CURRENT_BINARY_DIR}/test.wasm ${CMAKE_CURRENT_LIST_DIR}/test.wast
 
       # Step 3: Compile .wasm to .aot using wamrc
@@ -38,4 +42,3 @@ add_custom_target(
                   -n test_aot
                   ${CMAKE_CURRENT_BINARY_DIR}/test.aot
 )
-

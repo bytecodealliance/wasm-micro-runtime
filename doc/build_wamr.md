@@ -45,6 +45,7 @@ add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 | [WAMR_BUILD_AOT_STACK_FRAME](#aot-stack-frame-feature)                                                   | AoT stack frame                      |
 | [WAMR_BUILD_AOT_VALIDATOR](#aot-validator)                                                               | AoT validator                        |
 | [WAMR_BUILD_BULK_MEMORY](#bulk-memory-feature)                                                           | bulk memory                          |
+| [WAMR_BUILD_COMPONENT_MODEL](#component-model)                                                           | Component Model support              |
 | [WAMR_BUILD_COPY_CALL_STACK](#copy-call-stack)                                                           | copy call stack                      |
 | [WAMR_BUILD_CUSTOM_NAME_SECTION](#name-section)                                                          | name section                         |
 | [WAMR_BUILD_DEBUG_AOT](#source-debugging-features)                                                       | debug AoT                            |
@@ -221,6 +222,16 @@ Use fast jit as the first tier and LLVM JIT as the second tier.
 ### **bulk memory feature**
 
 - **WAMR_BUILD_BULK_MEMORY**=1/0, default to off.
+
+### **Component Model**
+
+- **WAMR_BUILD_COMPONENT_MODEL**=1/0, default to on.
+
+> [!NOTE]
+> When enabled, the runtime can load and parse WebAssembly Component Model binaries according to the [Component Model MVP specification](https://github.com/WebAssembly/component-model/blob/main/design/mvp/Binary.md). This includes parsing all 13 section types (core custom, core module, core instance, core type, component, instances, aliases, types, canonicals, start, imports, exports, and values).
+
+> [!WARNING]
+> Gated features and WebAssembly 3.0 features (eg: rectype, subtype in core type sections) and async/callback canonical options are not yet supported.
 
 ### **memory64 feature**
 
