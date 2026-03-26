@@ -1,8 +1,8 @@
 ---
-description: "The related code/working directory of this example resides in directory {WAMR_DIR}/samples/custom_section"
+description: "The related code/working directory of this example resides in directory {WAMR_DIR}/samples/custom-section"
 ---
 
-# The "custom_section" sample project
+# The "custom-section" sample project
 
 This sample demonstrates how to:
 

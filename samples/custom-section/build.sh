@@ -26,11 +26,11 @@ fi
 rm -rf ${OUT_DIR}
 mkdir -p ${OUT_DIR}/wasm-apps
 
-printf '##################### build custom_section project\n'
+printf '##################### build custom-section project\n'
 mkdir -p build
 cd build
 cmake .. -DCMAKE_BUILD_TYPE=Debug
-make -j ${nproc}
+make -j 4
 cp -a custom_section ${OUT_DIR}
 
 printf '\n##################### build wasm app\n'
