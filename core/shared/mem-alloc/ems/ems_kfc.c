@@ -76,10 +76,10 @@ gc_init_with_pool(char *buf, gc_size_t buf_size)
     heap_max_size = (uint32)(buf_end - base_addr) & (uint32)~7;
 
 #if WASM_ENABLE_MEMORY_TRACING != 0
-    os_printf("Heap created, total size: %u\n", buf_size);
-    os_printf("   heap struct size: %u\n", sizeof(gc_heap_t));
-    os_printf("   actual heap size: %u\n", heap_max_size);
-    os_printf("   padding bytes: %u\n",
+    MEM_PROF_PRINTF("Heap created, total size: %u\n", buf_size);
+    MEM_PROF_PRINTF("   heap struct size: %u\n", sizeof(gc_heap_t));
+    MEM_PROF_PRINTF("   actual heap size: %u\n", heap_max_size);
+    MEM_PROF_PRINTF("   padding bytes: %u\n",
               buf_size - sizeof(gc_heap_t) - heap_max_size);
 #endif
     return gc_init_internal(heap, base_addr, heap_max_size);
@@ -119,11 +119,11 @@ gc_init_with_struct_and_pool(char *struct_buf, gc_size_t struct_buf_size,
     heap_max_size = (uint32)(pool_buf_end - base_addr) & (uint32)~7;
 
 #if WASM_ENABLE_MEMORY_TRACING != 0
-    os_printf("Heap created, total size: %u\n",
-              struct_buf_size + pool_buf_size);
-    os_printf("   heap struct size: %u\n", sizeof(gc_heap_t));
-    os_printf("   actual heap size: %u\n", heap_max_size);
-    os_printf("   padding bytes: %u\n", pool_buf_size - heap_max_size);
+    MEM_PROF_PRINTF("Heap created, total size: %u\n",
+                    struct_buf_size + pool_buf_size);
+    MEM_PROF_PRINTF("   heap struct size: %u\n", sizeof(gc_heap_t));
+    MEM_PROF_PRINTF("   actual heap size: %u\n", heap_max_size);
+    MEM_PROF_PRINTF("   padding bytes: %u\n", pool_buf_size - heap_max_size);
 #endif
     return gc_init_internal(heap, base_addr, heap_max_size);
 }

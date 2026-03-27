@@ -87,6 +87,18 @@ bh_log_proc_mem(const char *function, uint32 line);
 
 #define LOG_PROC_MEM(...) bh_log_proc_mem(__FUNCTION__, __LINE__)
 
+/*
+ * MEM_PROF_PRINTF: output macro for memory profiling/tracing.
+ * When WASM_MEM_PROFILING_USE_LOG is enabled, routes output through
+ * LOG_VERBOSE (respects log level filtering, adds timestamps).
+ * Otherwise, uses os_printf for direct output (original behavior).
+ */
+#if WASM_MEM_PROFILING_USE_LOG != 0
+#define MEM_PROF_PRINTF(...) LOG_VERBOSE(__VA_ARGS__)
+#else
+#define MEM_PROF_PRINTF(...) os_printf(__VA_ARGS__)
+#endif
+
 #ifdef __cplusplus
 }
 #endif

@@ -3781,6 +3781,17 @@ aot_get_module_mem_consumption(const AOTModule *module,
         mem_conspn->aot_code_size += sizeof(uint8) * obj_data->size;
     }
 
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+    {
+        WASMCustomSection *section = module->custom_section_list;
+        while (section) {
+            mem_conspn->custom_sections_size +=
+                sizeof(WASMCustomSection) + section->content_len;
+            section = section->next;
+        }
+    }
+#endif
+
     mem_conspn->total_size += mem_conspn->module_struct_size;
     mem_conspn->total_size += mem_conspn->types_size;
     mem_conspn->total_size += mem_conspn->imports_size;
@@ -3793,6 +3804,9 @@ aot_get_module_mem_consumption(const AOTModule *module,
     mem_conspn->total_size += mem_conspn->data_segs_size;
     mem_conspn->total_size += mem_conspn->const_strs_size;
     mem_conspn->total_size += mem_conspn->aot_code_size;
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+    mem_conspn->total_size += mem_conspn->custom_sections_size;
+#endif
 }
 
 void
