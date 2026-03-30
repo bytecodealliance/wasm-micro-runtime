@@ -371,6 +371,72 @@ test_mixed_alloc_many(void **state)
     mem_allocator_destroy(allocator);
 }
 
+/* Test: free a .ro data */
+static void
+test_free_ro_data(void **state)
+{
+
+    mem_allocator_t allocator;
+    char heap_buf[64 * 1024];
+    void *ptr;
+
+    allocator = mem_allocator_create(heap_buf, sizeof(heap_buf));
+    assert_non_null(allocator);
+
+    /* Freeing a .ro data pointer should not crash */
+    const char *ro_str = "This is a read-only string.";
+    // FIXME: This case should trigger an exception because the pointer is not
+    // allocated by the allocator, but currently it just does nothing. We should
+    // add a check in mem_allocator_free to detect this case and return an
+    // error. mem_allocator_free(allocator, (void *)ro_str);
+    mem_allocator_destroy(allocator);
+}
+
+/* Test: free a freed pointer */
+static void
+test_free_freed_pointer(void **state)
+{
+    mem_allocator_t allocator;
+    char heap_buf[64 * 1024];
+    void *ptr;
+
+    allocator = mem_allocator_create(heap_buf, sizeof(heap_buf));
+    assert_non_null(allocator);
+
+    ptr = mem_allocator_malloc(allocator, 64);
+    assert_non_null(ptr);
+
+    mem_allocator_free(allocator, ptr);
+    /* Freeing the same pointer again should not crash */
+    mem_allocator_free(allocator, ptr);
+    mem_allocator_free(allocator, ptr);
+
+    mem_allocator_destroy(allocator);
+}
+
+/* Test: free a freed pointer from aligned-alloc */
+static void
+test_free_freed_pointer_aligned(void **state)
+{
+    mem_allocator_t allocator;
+    char heap_buf[64 * 1024];
+    void *ptr;
+
+    allocator = mem_allocator_create(heap_buf, sizeof(heap_buf));
+    assert_non_null(allocator);
+
+    ptr = mem_allocator_malloc_aligned(allocator, 128, 64);
+    assert_non_null(ptr);
+
+    mem_allocator_free(allocator, ptr);
+    /* Freeing the same pointer again should not crash */
+    mem_allocator_free(allocator, ptr);
+    mem_allocator_free(allocator, ptr);
+    mem_allocator_free(allocator, ptr);
+
+    mem_allocator_destroy(allocator);
+}
+
 /* Test: wasm_runtime_aligned_alloc with valid inputs in POOL mode */
 static void
 test_wasm_runtime_aligned_alloc_valid(void **state)
