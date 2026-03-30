@@ -79,6 +79,11 @@ if (NOT DEFINED WAMR_BUILD_LIBC_WASI)
   set (WAMR_BUILD_LIBC_WASI 1)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_COMPONENT_MODEL)
+  # Enable Component Model by default
+  set (WAMR_BUILD_COMPONENT_MODEL 1)
+endif ()
+
 if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
   # Enable fast interpreter
   set (WAMR_BUILD_FAST_INTERP 1)

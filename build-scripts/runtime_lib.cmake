@@ -87,6 +87,10 @@ if (WAMR_BUILD_GC EQUAL 1)
     set (WAMR_BUILD_REF_TYPES 1)
 endif ()
 
+if (WAMR_BUILD_COMPONENT_MODEL EQUAL 1)
+    include (${IWASM_DIR}/common/component-model/iwasm_component.cmake)
+endif ()
+
 if (WAMR_BUILD_LIBC_BUILTIN EQUAL 1)
     include (${IWASM_DIR}/libraries/libc-builtin/libc_builtin.cmake)
 endif ()
@@ -219,6 +223,7 @@ set (source_all
     ${IWASM_COMPL_SOURCE}
     ${IWASM_FAST_JIT_SOURCE}
     ${IWASM_GC_SOURCE}
+    ${IWASM_COMPONENT_SOURCE}
     ${LIB_WASI_THREADS_SOURCE}
     ${LIB_PTHREAD_SOURCE}
     ${THREAD_MGR_SOURCE}
