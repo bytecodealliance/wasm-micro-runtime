@@ -8,6 +8,9 @@
 
 #include "bh_platform.h"
 
+// FIXME: Resolve memory leak in bh_queue_test_suite.
+// It includes release created queue and messages.
+
 class bh_queue_test_suite : public testing::Test
 {
   protected:
@@ -87,6 +90,14 @@ enum {
 // If RES_CMP == 1, the function bh_queue_enter_loop_run run error.
 int RES_CMP = 0;
 
+/* Don't touch .ro data in msg body */
+static void
+local_ro_msg_body_cleaner(void *body)
+{
+    (void)body;
+    return;
+}
+
 TEST_F(bh_queue_test_suite, bh_queue_create)
 {
     EXPECT_NE(nullptr, bh_queue_create());
@@ -111,33 +122,44 @@ TEST_F(bh_queue_test_suite, bh_message_payload)
 {
     bh_message_t msg_ptr;
 
-    msg_ptr = bh_new_msg(RESTFUL_REQUEST, (void *)"test_msg_body",
-                         sizeof("test_msg_body"), nullptr);
+    msg_ptr =
+        bh_new_msg(RESTFUL_REQUEST, (void *)"test_msg_body",
+                   sizeof("test_msg_body"), (void *)local_ro_msg_body_cleaner);
     EXPECT_EQ("test_msg_body", bh_message_payload(msg_ptr));
+
+    bh_free_msg(msg_ptr);
 }
 
 TEST_F(bh_queue_test_suite, bh_message_payload_len)
 {
     bh_message_t msg_ptr;
 
-    msg_ptr = bh_new_msg(RESTFUL_REQUEST, (void *)"test_msg_body",
-                         sizeof("test_msg_body"), nullptr);
+    msg_ptr =
+        bh_new_msg(RESTFUL_REQUEST, (void *)"test_msg_body",
+                   sizeof("test_msg_body"), (void *)local_ro_msg_body_cleaner);
     EXPECT_EQ(sizeof("test_msg_body"), bh_message_payload_len(msg_ptr));
+    bh_free_msg(msg_ptr);
 }
 
 TEST_F(bh_queue_test_suite, bh_message_type)
 {
     bh_message_t msg_ptr;
 
-    msg_ptr = bh_new_msg(RESTFUL_REQUEST, (void *)"test_msg_body",
-                         sizeof("test_msg_body"), nullptr);
+    msg_ptr =
+        bh_new_msg(RESTFUL_REQUEST, (void *)"test_msg_body",
+                   sizeof("test_msg_body"), (void *)local_ro_msg_body_cleaner);
     EXPECT_EQ(RESTFUL_REQUEST, bh_message_type(msg_ptr));
+    bh_free_msg(msg_ptr);
 }
 
 TEST_F(bh_queue_test_suite, bh_new_msg)
 {
-    EXPECT_NE(nullptr, bh_new_msg(RESTFUL_REQUEST, (void *)"test_msg_body",
-                                  sizeof("test_msg_body"), nullptr));
+    bh_message_t msg_ptr =
+        bh_new_msg(RESTFUL_REQUEST, (void *)"test_msg_body",
+                   sizeof("test_msg_body"), (void *)local_ro_msg_body_cleaner);
+
+    EXPECT_NE(nullptr, msg_ptr);
+    bh_free_msg(msg_ptr);
 }
 
 void
@@ -215,11 +237,14 @@ TEST_F(bh_queue_test_suite, bh_queue_get_message_count)
     bh_message_t msg_ptr;
     bh_queue *queue_ptr = bh_queue_create();
 
-    // Normally.
-    msg_ptr = bh_new_msg(RESTFUL_REQUEST, (void *)"test_msg_body",
-                         sizeof("test_msg_body"), nullptr);
     for (i = 1; i <= 20; i++) {
-        bh_post_msg2(queue_ptr, msg_ptr);
+        msg_ptr = bh_new_msg(RESTFUL_REQUEST, (void *)"test_msg_body",
+                             sizeof("test_msg_body"),
+                             (void *)local_ro_msg_body_cleaner);
+        EXPECT_NE(nullptr, msg_ptr);
+
+        bool post_result = bh_post_msg2(queue_ptr, msg_ptr);
+        EXPECT_EQ(true, post_result);
     }
     i = i - 1;
     // The count of msg is less than queue_ptr->max.
@@ -227,7 +252,21 @@ TEST_F(bh_queue_test_suite, bh_queue_get_message_count)
 
     // The count of msg is more than queue_ptr->max.
     for (j = 1; j <= 60; j++) {
-        bh_post_msg2(queue_ptr, msg_ptr);
+        msg_ptr = bh_new_msg(RESTFUL_REQUEST, (void *)"test_msg_body",
+                             sizeof("test_msg_body"),
+                             (void *)local_ro_msg_body_cleaner);
+        EXPECT_NE(nullptr, msg_ptr);
+
+        bool post_result = bh_post_msg2(queue_ptr, msg_ptr);
+
+        // The first 30 messages should be posted successfully, and the rest
+        // should be dropped.
+        if (j <= 30) {
+            EXPECT_EQ(true, post_result);
+        }
+        else {
+            EXPECT_EQ(false, post_result);
+        }
     }
     j = j - 1;
     EXPECT_EQ(queue_ptr->max, bh_queue_get_message_count(queue_ptr));
@@ -235,6 +274,8 @@ TEST_F(bh_queue_test_suite, bh_queue_get_message_count)
 
     // Illegal parameters.
     EXPECT_EQ(0, bh_queue_get_message_count(nullptr));
+
+    bh_queue_destroy(queue_ptr);
 }
 
 void
