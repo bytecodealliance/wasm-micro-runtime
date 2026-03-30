@@ -441,6 +441,14 @@ jobs:
           cmake --build . --config Release --parallel 4
           ./import-func-callback
 
+      - name: Build Sample [custom_section]
+        run: |
+          cd samples/custom-section
+          ./build.sh
+          ./run.sh
+          ./build.sh --aot
+          ./run.sh --aot
+
       - name: Test x18 register reservation (macOS ARM64 only)
         if: matrix.os == 'macos-15'
         run: |

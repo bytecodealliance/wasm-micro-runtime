@@ -1,0 +1,5 @@
+This payload lives in a Wasm custom section.
+It is linked by custom_section_payload.s with .incbin.
+
+The payload is read by custom_section.c, which is compiled to a Wasm module and executed by the host embedder.
+It can be arbitrary data, and the host can resolve it with `wasm_runtime_get_custom_section` and print/use it later through a handle-based native API.

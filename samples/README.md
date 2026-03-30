@@ -1,6 +1,7 @@
 # Samples
 
 - [**basic**](./basic): Demonstrating how to use runtime exposed API's to call WASM functions, how to register native functions and call them, and how to call WASM function from native function.
+- [**custom-section**](./custom-section): Demonstrating how to embed a binary payload into a Wasm custom section, resolve it from native code with `wasm_runtime_get_custom_section`, and print it later through a handle-based native API.
 - **[file](./file/README.md)**: Demonstrating the supported file interaction API of WASI. This sample can also demonstrate the SGX IPFS (Intel Protected File System), enabling an enclave to seal and unseal data at rest.
 - **[multi-thread](./multi-thread/)**: Demonstrating how to run wasm application which creates multiple threads to execute wasm functions concurrently, and uses mutex/cond by calling pthread related API's.
 - **[spawn-thread](./spawn-thread)**: Demonstrating how to execute wasm functions of the same wasm application concurrently, in threads created by host embedder or runtime, but not the wasm application itself.
