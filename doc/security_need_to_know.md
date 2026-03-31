@@ -26,13 +26,13 @@ if a bug **results in crash or hang**, please treat it as a security problem and
 
 If the author of an issue(results in crash or hang) can go through the checklist below and answer all questions with "No", it is fine to mark it as a regular bug. If not, please report it as a security issue.
 
-Does the 
-- Exposes sensitive information to unauthorized parties.
-- Allows unauthorized modification of data or system state.
-- Affects the availability of the system or its services.
-- Permits unauthorized access to the system.
-- Enables users to perform actions they should not be able to.
-- Allows users to deny actions they have performed.
+Does the issue:
+- expose sensitive information to unauthorized parties?
+- allow unauthorized modification of data or system state?
+- affect the availability of the system or its services?
+- permit unauthorized access to the system?
+- enable users to perform actions they should not be able to?
+- allow users to deny actions they have performed?
 
 ---
 
