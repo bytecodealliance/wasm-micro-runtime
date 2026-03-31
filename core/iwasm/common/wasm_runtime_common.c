@@ -2030,9 +2030,8 @@ wasm_runtime_dump_module_mem_consumption(const WASMModuleCommon *module)
 #endif
 
     LOG_VERBOSE("WASM module memory consumption, total size: %u",
-                    mem_conspn.total_size);
-    LOG_VERBOSE("    module struct size: %u",
-                    mem_conspn.module_struct_size);
+                mem_conspn.total_size);
+    LOG_VERBOSE("    module struct size: %u", mem_conspn.module_struct_size);
     LOG_VERBOSE("    types size: %u", mem_conspn.types_size);
     LOG_VERBOSE("    imports size: %u", mem_conspn.imports_size);
     LOG_VERBOSE("    funcs size: %u", mem_conspn.functions_size);
@@ -2045,7 +2044,7 @@ wasm_runtime_dump_module_mem_consumption(const WASMModuleCommon *module)
     LOG_VERBOSE("    const strings size: %u", mem_conspn.const_strs_size);
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
     LOG_VERBOSE("    custom sections size: %u",
-                    mem_conspn.custom_sections_size);
+                mem_conspn.custom_sections_size);
 #endif
 #if WASM_ENABLE_AOT != 0
     LOG_VERBOSE("    aot code size: %u", mem_conspn.aot_code_size);
@@ -2072,9 +2071,9 @@ wasm_runtime_dump_module_inst_mem_consumption(
 #endif
 
     LOG_VERBOSE("WASM module inst memory consumption, total size: %lu",
-                    mem_conspn.total_size);
+                mem_conspn.total_size);
     LOG_VERBOSE("    module inst struct size: %u",
-                    mem_conspn.module_inst_struct_size);
+                mem_conspn.module_inst_struct_size);
     LOG_VERBOSE("    memories size: %lu", mem_conspn.memories_size);
     LOG_VERBOSE("        app heap size: %u", mem_conspn.app_heap_size);
     LOG_VERBOSE("    tables size: %u", mem_conspn.tables_size);
@@ -2089,13 +2088,12 @@ wasm_runtime_dump_exec_env_mem_consumption(const WASMExecEnv *exec_env)
     uint32 total_size =
         offsetof(WASMExecEnv, wasm_stack_u.bottom) + exec_env->wasm_stack_size;
 
-    LOG_VERBOSE("Exec env memory consumption, total size: %u",
-                    total_size);
+    LOG_VERBOSE("Exec env memory consumption, total size: %u", total_size);
     LOG_VERBOSE("    exec env struct size: %u",
-                    offsetof(WASMExecEnv, wasm_stack_u.bottom));
+                offsetof(WASMExecEnv, wasm_stack_u.bottom));
 #if WASM_ENABLE_INTERP != 0 && WASM_ENABLE_FAST_INTERP == 0
     LOG_VERBOSE("        block addr cache size: %u",
-                    sizeof(exec_env->block_addr_cache));
+                sizeof(exec_env->block_addr_cache));
 #endif
     LOG_VERBOSE("    stack size: %u", exec_env->wasm_stack_size);
 }
@@ -2163,10 +2161,10 @@ wasm_runtime_dump_mem_consumption(WASMExecEnv *exec_env)
     wasm_runtime_dump_module_inst_mem_consumption(module_inst_common);
     wasm_runtime_dump_exec_env_mem_consumption(exec_env);
     LOG_VERBOSE("Total memory consumption of module, module inst and "
-                    "exec env: %" PRIu64,
-                    total_size);
+                "exec env: %" PRIu64,
+                total_size);
     LOG_VERBOSE("Total interpreter stack used: %u",
-                    exec_env->max_wasm_stack_used);
+                exec_env->max_wasm_stack_used);
 
     if (max_aux_stack_used != (uint32)-1)
         LOG_VERBOSE("Total auxiliary stack used: %u", max_aux_stack_used);
@@ -2184,8 +2182,8 @@ wasm_runtime_dump_mem_consumption(WASMExecEnv *exec_env)
      */
     if (exec_env->native_stack_top_min != (void *)UINTPTR_MAX)
         LOG_VERBOSE("Native stack left: %zd",
-                        exec_env->native_stack_top_min
-                            - exec_env->native_stack_boundary);
+                    exec_env->native_stack_top_min
+                        - exec_env->native_stack_boundary);
     else
         LOG_VERBOSE("Native stack left: no enough info to profile");
 
