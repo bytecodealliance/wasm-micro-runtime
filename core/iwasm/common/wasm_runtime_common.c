@@ -2030,8 +2030,9 @@ wasm_runtime_dump_module_mem_consumption(const WASMModuleCommon *module)
 #endif
 
     MEM_PROF_PRINTF("WASM module memory consumption, total size: %u\n",
-              mem_conspn.total_size);
-    MEM_PROF_PRINTF("    module struct size: %u\n", mem_conspn.module_struct_size);
+                    mem_conspn.total_size);
+    MEM_PROF_PRINTF("    module struct size: %u\n",
+                    mem_conspn.module_struct_size);
     MEM_PROF_PRINTF("    types size: %u\n", mem_conspn.types_size);
     MEM_PROF_PRINTF("    imports size: %u\n", mem_conspn.imports_size);
     MEM_PROF_PRINTF("    funcs size: %u\n", mem_conspn.functions_size);
@@ -2044,7 +2045,7 @@ wasm_runtime_dump_module_mem_consumption(const WASMModuleCommon *module)
     MEM_PROF_PRINTF("    const strings size: %u\n", mem_conspn.const_strs_size);
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
     MEM_PROF_PRINTF("    custom sections size: %u\n",
-              mem_conspn.custom_sections_size);
+                    mem_conspn.custom_sections_size);
 #endif
 #if WASM_ENABLE_AOT != 0
     MEM_PROF_PRINTF("    aot code size: %u\n", mem_conspn.aot_code_size);
@@ -2071,9 +2072,9 @@ wasm_runtime_dump_module_inst_mem_consumption(
 #endif
 
     MEM_PROF_PRINTF("WASM module inst memory consumption, total size: %lu\n",
-              mem_conspn.total_size);
+                    mem_conspn.total_size);
     MEM_PROF_PRINTF("    module inst struct size: %u\n",
-              mem_conspn.module_inst_struct_size);
+                    mem_conspn.module_inst_struct_size);
     MEM_PROF_PRINTF("    memories size: %lu\n", mem_conspn.memories_size);
     MEM_PROF_PRINTF("        app heap size: %u\n", mem_conspn.app_heap_size);
     MEM_PROF_PRINTF("    tables size: %u\n", mem_conspn.tables_size);
@@ -2088,12 +2089,13 @@ wasm_runtime_dump_exec_env_mem_consumption(const WASMExecEnv *exec_env)
     uint32 total_size =
         offsetof(WASMExecEnv, wasm_stack_u.bottom) + exec_env->wasm_stack_size;
 
-    MEM_PROF_PRINTF("Exec env memory consumption, total size: %u\n", total_size);
+    MEM_PROF_PRINTF("Exec env memory consumption, total size: %u\n",
+                    total_size);
     MEM_PROF_PRINTF("    exec env struct size: %u\n",
-              offsetof(WASMExecEnv, wasm_stack_u.bottom));
+                    offsetof(WASMExecEnv, wasm_stack_u.bottom));
 #if WASM_ENABLE_INTERP != 0 && WASM_ENABLE_FAST_INTERP == 0
     MEM_PROF_PRINTF("        block addr cache size: %u\n",
-              sizeof(exec_env->block_addr_cache));
+                    sizeof(exec_env->block_addr_cache));
 #endif
     MEM_PROF_PRINTF("    stack size: %u\n", exec_env->wasm_stack_size);
 }
@@ -2161,10 +2163,10 @@ wasm_runtime_dump_mem_consumption(WASMExecEnv *exec_env)
     wasm_runtime_dump_module_inst_mem_consumption(module_inst_common);
     wasm_runtime_dump_exec_env_mem_consumption(exec_env);
     MEM_PROF_PRINTF("\nTotal memory consumption of module, module inst and "
-              "exec env: %" PRIu64 "\n",
-              total_size);
+                    "exec env: %" PRIu64 "\n",
+                    total_size);
     MEM_PROF_PRINTF("Total interpreter stack used: %u\n",
-              exec_env->max_wasm_stack_used);
+                    exec_env->max_wasm_stack_used);
 
     if (max_aux_stack_used != (uint32)-1)
         MEM_PROF_PRINTF("Total auxiliary stack used: %u\n", max_aux_stack_used);
@@ -2182,8 +2184,8 @@ wasm_runtime_dump_mem_consumption(WASMExecEnv *exec_env)
      */
     if (exec_env->native_stack_top_min != (void *)UINTPTR_MAX)
         MEM_PROF_PRINTF("Native stack left: %zd\n",
-                  exec_env->native_stack_top_min
-                      - exec_env->native_stack_boundary);
+                        exec_env->native_stack_top_min
+                            - exec_env->native_stack_boundary);
     else
         MEM_PROF_PRINTF("Native stack left: no enough info to profile\n");
 

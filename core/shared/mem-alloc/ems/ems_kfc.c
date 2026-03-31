@@ -80,7 +80,7 @@ gc_init_with_pool(char *buf, gc_size_t buf_size)
     MEM_PROF_PRINTF("   heap struct size: %u\n", sizeof(gc_heap_t));
     MEM_PROF_PRINTF("   actual heap size: %u\n", heap_max_size);
     MEM_PROF_PRINTF("   padding bytes: %u\n",
-              buf_size - sizeof(gc_heap_t) - heap_max_size);
+                    buf_size - sizeof(gc_heap_t) - heap_max_size);
 #endif
     return gc_init_internal(heap, base_addr, heap_max_size);
 }
