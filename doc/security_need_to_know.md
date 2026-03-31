@@ -21,18 +21,16 @@ If the AoT compiler and/or related tools emit an AoT binary that breaches the Wa
 ### Is this bug considered a security vulnerability?
 
 #### For someone who finds a problem
+If a bug **causes a crash or hang**, treat it as a possible security issue and report it to a security advisor. A maintainer will review it and change its category if needed. When in doubt, report it as a security issue.
 
-if a bug **results in crash or hang**, please treat it as a security problem and report it to a security advisor. The maintainer will look into it and change its category if needed. It is better safe than sorry.
+If the person reporting the issue can answer "Yes" to any question in the checklist below, report it as a security issue. Otherwise, the issue can be treated as a regular bug.
 
-If the author of an issue(results in crash or hang) can go through the checklist below and answer all questions with "No", it is fine to mark it as a regular bug. If not, please report it as a security issue.
-
-Does the issue:
-- expose sensitive information to unauthorized parties?
-- allow unauthorized modification of data or system state?
-- affect the availability of the system or its services?
-- permit unauthorized access to the system?
-- enable users to perform actions they should not be able to?
-- allow users to deny actions they have performed?
+Does the issue allow an WebAssembly binary to:
+- break out of the Wasm sandbox?
+- read or modify host memory, runtime memory, or another module's data when it should not?
+- use files, sockets, device access, or other host resources without being the granted capabilities?
+- call host functions or native APIs in a way that bypasses intended checks?
+- make the runtime unavailable or put it into an unrecoverable state?
 
 ---
 
