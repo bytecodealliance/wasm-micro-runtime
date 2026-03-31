@@ -79,7 +79,6 @@ add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 | [WAMR_BUILD_LOAD_CUSTOM_SECTION](#load-wasm-custom-sections)                                             | loading custom sections              |
 | [WAMR_BUILD_MEMORY64](#memory64-feature)                                                                 | memory64 support                     |
 | [WAMR_BUILD_MEMORY_PROFILING](#memory-profiling-experiment)                                              | memory profiling                     |
-| [WAMR_BUILD_MEM_PROFILING_USE_LOG](#memory-profiling-structured-logging)                                 | memory profiling structured logging  |
 | [WAMR_BUILD_MEMORY_TRACING](#memory-tracing)                                                             | memory tracing                       |
 | [WAMR_BUILD_MINI_LOADER](#wasm-mini-loader) :warning: :exclamation:                                      | mini loader                          |
 | [WAMR_BUILD_MODULE_INST_CONTEXT](#module-instance-context-apis)                                          | module instance context              |
@@ -385,13 +384,6 @@ SIMDE (SIMD Everywhere) implements SIMD operations in fast interpreter mode.
 
 > [!NOTE]
 > When enabled, call `void wasm_runtime_dump_mem_consumption(wasm_exec_env_t exec_env)` to dump memory usage. Currently only module, module_instance, and exec_env memory are measured; other components such as `wasi-ctx`, `multi-module`, and `thread-manager` are not included. See [Memory usage estimation for a module](./memory_usage.md).
-
-### **memory profiling structured logging**
-
-- **WAMR_BUILD_MEM_PROFILING_USE_LOG**=1/0, default to off.
-
-> [!NOTE]
-> When enabled, memory profiling and tracing output uses structured logging (`LOG_VERBOSE`) instead of `os_printf`. Output then respects the log verbose level set by `bh_log_set_verbose_level()` and includes timestamps.
 
 ### **memory tracing**
 

@@ -347,13 +347,6 @@ unless used elsewhere */
 #define WASM_ENABLE_MEMORY_TRACING 0
 #endif
 
-/* Use structured logging (LOG_VERBOSE) instead of os_printf for memory
-   profiling/tracing output. When enabled, output respects the log verbose
-   level set by bh_log_set_verbose_level(). */
-#ifndef WASM_MEM_PROFILING_USE_LOG
-#define WASM_MEM_PROFILING_USE_LOG 0
-#endif
-
 /* Performance profiling */
 #ifndef WASM_ENABLE_PERF_PROFILING
 #define WASM_ENABLE_PERF_PROFILING 0
