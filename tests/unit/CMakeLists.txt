@@ -4,6 +4,7 @@
 cmake_minimum_required(VERSION 3.14)
 
 project(unit-test)
+option(FULL_TEST "Build all unit tests including llm-enhanced-test" OFF)
 
 # Yes. To solve the compatibility issue with CMAKE (>= 4.0), we need to update
 # our `cmake_minimum_required()` to 3.5. However, there are CMakeLists.txt
@@ -87,9 +88,15 @@ add_subdirectory(linux-perf)
 add_subdirectory(gc)
 add_subdirectory(tid-allocator)
 add_subdirectory(unsupported-features)
-add_subdirectory(smart-tests)
 add_subdirectory(exception-handling)
 add_subdirectory(running-modes)
+
+if(FULL_TEST)
+  message(STATUS "FULL_TEST=ON: include llm-enhanced-test")
+  add_subdirectory(llm-enhanced-test)
+else()
+  message(STATUS "FULL_TEST=OFF: exclude llm-enhanced-test")
+endif()
 
 if(WAMR_BUILD_TARGET STREQUAL "X86_64")
   add_subdirectory(aot-stack-frame)

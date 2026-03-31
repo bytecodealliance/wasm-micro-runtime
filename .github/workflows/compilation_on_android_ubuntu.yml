@@ -323,6 +323,8 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v6.0.2
+        with:
+          submodules: recursive
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
