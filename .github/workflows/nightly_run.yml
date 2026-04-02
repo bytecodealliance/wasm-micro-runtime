@@ -273,7 +273,7 @@ jobs:
         working-directory: product-mini/platforms/${{ matrix.platform }}
 
   build_unit_tests:
-    needs: [build_llvm_libraries_on_ubuntu_2204, build_wamrc]
+    needs: [build_llvm_libraries_on_ubuntu, build_wamrc]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -282,7 +282,7 @@ jobs:
         build_target: ["X86_64", "X86_32"]
         include:
           - os: ubuntu-22.04
-            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu.outputs.cache_key }}
 
     steps:
       - name: checkout
