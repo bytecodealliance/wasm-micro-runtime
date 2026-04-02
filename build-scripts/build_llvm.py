@@ -48,7 +48,7 @@ def query_llvm_version(llvm_info):
     return response['sha']
 
 
-def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_flags=''):
+def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_flags='', use_ccache=False):
     LLVM_COMPILE_OPTIONS = [
         '-DCMAKE_BUILD_TYPE:STRING="Release"',
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
@@ -68,8 +68,8 @@ def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_fl
         "-DLLVM_OPTIMIZED_TABLEGEN:BOOL=ON",
     ]
 
-    # ccache is not available on Windows
-    if not "windows" == platform:
+    # ccache is opt-in via --use-ccache flag
+    if not "windows" == platform and use_ccache:
         LLVM_COMPILE_OPTIONS.append("-DLLVM_CCACHE_BUILD:BOOL=ON")
     # perf support is available on Linux only
     if "linux" == platform:
@@ -271,6 +271,11 @@ def main():
         help="use clang instead of gcc",
     )
     parser.add_argument(
+        "--use-ccache",
+        action="store_true",
+        help="enable ccache for faster incremental LLVM builds (disabled by default to reduce CI storage consumption, recommended for local development)",
+    )
+    parser.add_argument(
         "--extra-cmake-flags",
         type=str,
         default="",
@@ -334,7 +339,7 @@ def main():
         if (
             build_llvm(
                 llvm_dir, platform, options.arch, options.project, options.use_clang,
-                options.extra_cmake_flags
+                options.extra_cmake_flags, options.use_ccache
             )
             is not None
         ):
