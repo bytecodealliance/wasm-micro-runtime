@@ -612,6 +612,12 @@ SIMDE (SIMD Everywhere) implements SIMD operations in fast interpreter mode.
 
 > [!NOTE]
 > This limits the number of instructions a wasm module instance can run. Call `wasm_runtime_set_instruction_count_limit(...)` before `wasm_runtime_call_*(...)` to enforce the cap.
+>
+> In classic and fast interpreter modes, when instruction budget is exhausted,
+> the runtime raises `instruction limit exceeded`. If the host sets a new budget
+> and calls the same function again (optionally after `wasm_runtime_clear_exception(...)`),
+> execution resumes from preserved interpreter state instead of restarting from
+> function entry.
 
 > [!WARNING]
 > This is only supported in classic interpreter mode.
