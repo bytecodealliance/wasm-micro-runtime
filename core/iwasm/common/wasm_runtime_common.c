@@ -2480,15 +2480,15 @@ wasm_runtime_resume_wasm(WASMExecEnv *exec_env)
         return false;
     }
 
-    if (!exec_env->metering_suspended
-        || !exec_env->metering_suspend_function
+    if (!exec_env->metering_suspended || !exec_env->metering_suspend_function
         || !exec_env->metering_suspend_argv) {
         wasm_runtime_set_exception(exec_env->module_inst,
                                    "no metering resume is pending");
         return false;
     }
 
-    function = (WASMFunctionInstanceCommon *)exec_env->metering_suspend_function;
+    function =
+        (WASMFunctionInstanceCommon *)exec_env->metering_suspend_function;
     return wasm_runtime_call_wasm(exec_env, function,
                                   exec_env->metering_suspend_argc,
                                   exec_env->metering_suspend_argv);
