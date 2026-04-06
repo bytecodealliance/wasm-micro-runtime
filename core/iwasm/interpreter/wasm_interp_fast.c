@@ -132,6 +132,18 @@ clear_metering_suspend_state(WASMExecEnv *exec_env)
     exec_env->metering_suspend_argc = 0;
     exec_env->metering_suspend_argv = NULL;
 }
+
+static inline WASMRuntimeFrame *
+find_metering_resume_call_boundary(WASMRuntimeFrame *suspended_frame)
+{
+    WASMRuntimeFrame *frame = suspended_frame;
+
+    while (frame && frame->prev_frame && frame->prev_frame->function) {
+        frame = frame->prev_frame;
+    }
+
+    return frame ? frame->prev_frame : NULL;
+}
 #endif
 
 static inline uint32
@@ -7992,7 +8004,8 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
                                "resume is pending");
             return;
         }
-        if (!suspended_frame->prev_frame) {
+        frame = find_metering_resume_call_boundary(suspended_frame);
+        if (!frame) {
             wasm_set_exception(module_inst,
                                "invalid metering resume frame state");
             clear_metering_suspend_state(exec_env);
@@ -8000,7 +8013,6 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
         }
 
         resume_metering = true;
-        frame = suspended_frame->prev_frame;
         prev_frame = frame->prev_frame;
         wasm_exec_env_set_cur_frame(exec_env, suspended_frame);
     }
