@@ -57,6 +57,13 @@ zephyr_library_sources (
   wamr_lib.c
 )
 
+# Ensure generated headers (e.g. heap_constants.h) are ready before compiling
+# the library. Zephyr adds this dependency for its own libraries automatically,
+# but parallel builds can race when the library is added via add_subdirectory.
+if(TARGET zephyr_generated_headers)
+  add_dependencies(wamr_lib zephyr_generated_headers)
+endif()
+
 # Specify the memory partition where all globals(including the WAMR global heap buffer)
 # in the library should be placed. This partition will be defined in the app source code
 # and added to the use-mode thread that uses the WAMR library.
