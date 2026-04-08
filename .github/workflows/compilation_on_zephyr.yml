@@ -127,3 +127,17 @@ jobs:
           sleep 5
           pkill qemu-system-arc
         working-directory: modules/wasm-micro-runtime
+
+      - name: Build a sample application(user-mode, prebuilt library approach)
+        shell: bash
+        run: |
+          pushd product-mini/platforms/zephyr/user-mode
+          west build . -b qemu_arc/qemu_arc_hs -p always -- -DWAMR_BUILD_TARGET=ARC -DWAMR_USE_PREBUILT_LIB=1
+          popd
+
+          .github/scripts/run_qemu_arc.sh \
+            ../../zephyr-sdk \
+            product-mini/platforms/zephyr/user-mode/build/zephyr/zephyr.elf &
+          sleep 5
+          pkill qemu-system-arc
+        working-directory: modules/wasm-micro-runtime
