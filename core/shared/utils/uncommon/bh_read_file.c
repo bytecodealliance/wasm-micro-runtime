@@ -48,7 +48,7 @@ bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
         return NULL;
     }
 #if WASM_ENABLE_MEMORY_TRACING != 0
-    printf("Read file, total size: %u\n", file_size);
+    LOG_VERBOSE("Read file, total size: %u", file_size);
 #endif
 
     read_size = _read(file, buffer, file_size);
@@ -99,7 +99,7 @@ bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
         return NULL;
     }
 #if WASM_ENABLE_MEMORY_TRACING != 0
-    printf("Read file, total size: %u\n", file_size);
+    LOG_VERBOSE("Read file, total size: %u", file_size);
 #endif
 
     read_size = (uint32)read(file, buffer, file_size);

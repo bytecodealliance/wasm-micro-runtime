@@ -5,6 +5,7 @@
 
 #include "bh_getopt.h"
 #include "bh_read_file.h"
+#include "bh_log.h"
 #include "wasm_export.h"
 
 int32_t
@@ -78,6 +79,8 @@ main(int argc, char *argv_main[])
         printf("Init runtime environment failed.\n");
         return -1;
     }
+
+    bh_log_set_verbose_level(BH_LOG_LEVEL_VERBOSE);
 
     reset_custom_section_handles();
 

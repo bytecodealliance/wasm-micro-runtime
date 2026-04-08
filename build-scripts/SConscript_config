@@ -103,6 +103,10 @@ if GetDepend(['WAMR_BUILD_MEMORY_PROFILING']):
     CPPDEFINES += ['WASM_ENABLE_MEMORY_PROFILING=1']
     print('[WAMR] Memory profiling enabled')
 
+if GetDepend(['WAMR_BUILD_MEMORY_TRACING']):
+    CPPDEFINES += ['WASM_ENABLE_MEMORY_TRACING=1']
+    print('[WAMR] Memory tracing enabled')
+
 if GetDepend(['WAMR_BUILD_CUSTOM_NAME_SECTION']):
     CPPDEFINES += ['WASM_ENABLE_CUSTOM_NAME_SECTION=1']
     print('[WAMR] Custom name section enabled')
