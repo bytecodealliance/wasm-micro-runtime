@@ -87,6 +87,11 @@ wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
 
 #if WASM_ENABLE_INSTRUCTION_METERING != 0
     exec_env->instructions_to_execute = -1;
+    exec_env->metering_suspended = false;
+    exec_env->metering_suspend_frame = NULL;
+    exec_env->metering_suspend_function = NULL;
+    exec_env->metering_suspend_argc = 0;
+    exec_env->metering_suspend_argv = NULL;
 #endif
 
     return exec_env;

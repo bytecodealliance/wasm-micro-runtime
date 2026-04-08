@@ -90,8 +90,21 @@ typedef float64 CellType_F64;
     } while (0)
 
 #if WASM_ENABLE_INSTRUCTION_METERING != 0
+#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
+#define ROLLBACK_IP_AFTER_METERING_CHECK() \
+    do {                                   \
+        frame_ip -= sizeof(void *);        \
+    } while (0)
+#else
+#define ROLLBACK_IP_AFTER_METERING_CHECK() \
+    do {                                   \
+        frame_ip -= sizeof(int32);         \
+    } while (0)
+#endif
+
 #define CHECK_INSTRUCTION_LIMIT()                                 \
     if (instructions_left == 0) {                                 \
+        ROLLBACK_IP_AFTER_METERING_CHECK();                       \
         wasm_set_exception(module, "instruction limit exceeded"); \
         goto got_exception;                                       \
     }                                                             \
@@ -100,6 +113,37 @@ typedef float64 CellType_F64;
 
 #else
 #define CHECK_INSTRUCTION_LIMIT() (void)0
+#endif
+
+#if WASM_ENABLE_INSTRUCTION_METERING != 0
+static inline bool
+is_instruction_metering_exception(WASMModuleInstance *module_inst)
+{
+    const char *exception = wasm_get_exception(module_inst);
+    return exception && strstr(exception, "instruction limit exceeded");
+}
+
+static inline void
+clear_metering_suspend_state(WASMExecEnv *exec_env)
+{
+    exec_env->metering_suspended = false;
+    exec_env->metering_suspend_frame = NULL;
+    exec_env->metering_suspend_function = NULL;
+    exec_env->metering_suspend_argc = 0;
+    exec_env->metering_suspend_argv = NULL;
+}
+
+static inline WASMRuntimeFrame *
+find_metering_resume_call_boundary(WASMRuntimeFrame *suspended_frame)
+{
+    WASMRuntimeFrame *frame = suspended_frame;
+
+    while (frame && frame->prev_frame && frame->prev_frame->function) {
+        frame = frame->prev_frame;
+    }
+
+    return frame ? frame->prev_frame : NULL;
+}
 #endif
 
 static inline uint32
@@ -1591,6 +1635,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     if (exec_env == NULL) {
         global_handle_table = (void **)handle_table;
         return;
+    }
+#endif
+
+#if WASM_ENABLE_INSTRUCTION_METERING != 0
+    if (prev_frame && prev_frame->function == cur_func && prev_frame->ip) {
+        RECOVER_CONTEXT(prev_frame);
+#if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0
+        is_return_call = false;
+#endif
+        goto resume_func;
     }
 #endif
 
@@ -7788,6 +7842,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         HANDLE_OP_END();
     }
 
+#if WASM_ENABLE_INSTRUCTION_METERING != 0
+    resume_func:
+#if WASM_ENABLE_THREAD_MGR != 0
+        CHECK_SUSPEND_FLAGS();
+#endif
+        HANDLE_OP_END();
+#endif
+
     return_func:
     {
         FREE_FRAME(exec_env, frame);
@@ -7888,13 +7950,17 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
                       WASMFunctionInstance *function, uint32 argc,
                       uint32 argv[])
 {
-    WASMRuntimeFrame *prev_frame = wasm_exec_env_get_cur_frame(exec_env);
-    WASMInterpFrame *frame, *outs_area;
+    WASMRuntimeFrame *frame = NULL, *prev_frame, *outs_area;
 
     /* Allocate sufficient cells for all kinds of return values.  */
     unsigned all_cell_num =
                  function->ret_cell_num > 2 ? function->ret_cell_num : 2,
              i;
+    bool alloc_frame = true;
+#if WASM_ENABLE_INSTRUCTION_METERING != 0
+    bool resume_metering = false;
+    WASMRuntimeFrame *suspended_frame = NULL;
+#endif
     /* This frame won't be used by JITed code, so only allocate interp
        frame here.  */
     unsigned frame_size;
@@ -7927,33 +7993,66 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     }
 #endif
 
-    if (!(frame =
-              ALLOC_FRAME(exec_env, frame_size, (WASMInterpFrame *)prev_frame)))
-        return;
+    prev_frame = wasm_exec_env_get_cur_frame(exec_env);
 
-    outs_area = wasm_exec_env_wasm_stack_top(exec_env);
-    frame->function = NULL;
-    frame->ip = NULL;
-    /* There is no local variable. */
-    frame->lp = frame->operand + 0;
-#if WASM_ENABLE_GC != 0
-    frame->frame_ref =
-        (uint8 *)(frame->lp
-                  + (function->ret_cell_num > 2 ? function->ret_cell_num : 2));
-#endif
-    frame->ret_offset = 0;
+#if WASM_ENABLE_INSTRUCTION_METERING != 0
+    if (exec_env->metering_suspended) {
+        suspended_frame = exec_env->metering_suspend_frame;
+        if (!suspended_frame || suspended_frame->function != function) {
+            wasm_set_exception(module_inst,
+                               "cannot call different function while metering "
+                               "resume is pending");
+            return;
+        }
+        frame = find_metering_resume_call_boundary(suspended_frame);
+        if (!frame) {
+            wasm_set_exception(module_inst,
+                               "invalid metering resume frame state");
+            clear_metering_suspend_state(exec_env);
+            return;
+        }
 
-    if ((uint8 *)(outs_area->operand + function->const_cell_num + argc)
-        > exec_env->wasm_stack.top_boundary) {
-        wasm_set_exception((WASMModuleInstance *)exec_env->module_inst,
-                           "wasm operand stack overflow");
-        return;
+        resume_metering = true;
+        prev_frame = frame->prev_frame;
+        wasm_exec_env_set_cur_frame(exec_env, suspended_frame);
     }
+#endif
 
-    if (argc > 0)
-        word_copy(outs_area->operand + function->const_cell_num, argv, argc);
+    if (alloc_frame
+#if WASM_ENABLE_INSTRUCTION_METERING != 0
+        && !resume_metering
+#endif
+    ) {
+        if (!(frame = ALLOC_FRAME(exec_env, frame_size,
+                                  (WASMInterpFrame *)prev_frame)))
+            return;
 
-    wasm_exec_env_set_cur_frame(exec_env, frame);
+        outs_area = wasm_exec_env_wasm_stack_top(exec_env);
+        frame->function = NULL;
+        frame->ip = NULL;
+        /* There is no local variable. */
+        frame->lp = frame->operand + 0;
+#if WASM_ENABLE_GC != 0
+        frame->frame_ref =
+            (uint8 *)(frame->lp
+                      + (function->ret_cell_num > 2 ? function->ret_cell_num
+                                                    : 2));
+#endif
+        frame->ret_offset = 0;
+
+        if ((uint8 *)(outs_area->operand + function->const_cell_num + argc)
+            > exec_env->wasm_stack.top_boundary) {
+            wasm_set_exception((WASMModuleInstance *)exec_env->module_inst,
+                               "wasm operand stack overflow");
+            return;
+        }
+
+        if (argc > 0)
+            word_copy(outs_area->operand + function->const_cell_num, argv,
+                      argc);
+
+        wasm_exec_env_set_cur_frame(exec_env, frame);
+    }
 
 #if defined(os_writegsbase)
     {
@@ -7980,8 +8079,34 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
         }
     }
     else {
-        wasm_interp_call_func_bytecode(module_inst, exec_env, function, frame);
+        wasm_interp_call_func_bytecode(module_inst, exec_env, function,
+#if WASM_ENABLE_INSTRUCTION_METERING != 0
+                                       resume_metering ? suspended_frame : frame
+#else
+                                       frame
+#endif
+        );
     }
+
+#if WASM_ENABLE_INSTRUCTION_METERING != 0
+    if (is_instruction_metering_exception(module_inst)) {
+        exec_env->metering_suspended = true;
+        exec_env->metering_suspend_frame =
+            wasm_exec_env_get_cur_frame(exec_env);
+        if (exec_env->metering_suspend_frame) {
+            exec_env->metering_suspend_function =
+                exec_env->metering_suspend_frame->function;
+            exec_env->metering_suspend_argc = argc;
+            exec_env->metering_suspend_argv = argv;
+        }
+        else {
+            exec_env->metering_suspend_function = NULL;
+            exec_env->metering_suspend_argc = 0;
+            exec_env->metering_suspend_argv = NULL;
+        }
+        return;
+    }
+#endif
 
     /* Output the return value to the caller */
     if (!wasm_copy_exception(module_inst, NULL)) {
@@ -7996,8 +8121,14 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
 #endif
     }
 
-    wasm_exec_env_set_cur_frame(exec_env, prev_frame);
-    FREE_FRAME(exec_env, frame);
+    if (alloc_frame) {
+        wasm_exec_env_set_cur_frame(exec_env, prev_frame);
+        FREE_FRAME(exec_env, frame);
+    }
+
+#if WASM_ENABLE_INSTRUCTION_METERING != 0
+    clear_metering_suspend_state(exec_env);
+#endif
 #if WASM_ENABLE_OPCODE_COUNTER != 0
     wasm_interp_dump_op_count();
 #endif

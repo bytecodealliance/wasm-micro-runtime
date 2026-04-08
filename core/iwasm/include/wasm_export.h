@@ -1929,6 +1929,26 @@ wasm_runtime_set_instruction_count_limit(wasm_exec_env_t exec_env,
                                          int instruction_count);
 
 /**
+ * Resume wasm execution after an instruction metering trap.
+ *
+ * When instruction metering is enabled and execution stops with
+ * `instruction limit exceeded`, the runtime may preserve interpreter frame
+ * state in the exec env. This API resumes from that preserved state without
+ * requiring the host to call a specific exported function again.
+ *
+ * The caller should set a new instruction budget with
+ * `wasm_runtime_set_instruction_count_limit(...)` before resuming.
+ *
+ * @param exec_env the execution environment
+ *
+ * @return true if resumed execution succeeds, false otherwise and exception
+ *   will be thrown, the caller can call wasm_runtime_get_exception to get
+ *   exception info.
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_resume_wasm(wasm_exec_env_t exec_env);
+
+/**
  * Dump runtime memory consumption, including:
  *     Exec env memory consumption
  *     WASM module memory consumption

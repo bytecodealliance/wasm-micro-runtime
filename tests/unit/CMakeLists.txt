@@ -90,6 +90,7 @@ add_subdirectory(tid-allocator)
 add_subdirectory(unsupported-features)
 add_subdirectory(exception-handling)
 add_subdirectory(running-modes)
+add_subdirectory(instruction-metering)
 
 if(FULL_TEST)
   message(STATUS "FULL_TEST=ON: include llm-enhanced-test")

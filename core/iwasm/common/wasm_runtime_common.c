@@ -2473,6 +2473,30 @@ wasm_runtime_set_instruction_count_limit(WASMExecEnv *exec_env,
 {
     exec_env->instructions_to_execute = instructions_to_execute;
 }
+
+bool
+wasm_runtime_resume_wasm(WASMExecEnv *exec_env)
+{
+    WASMFunctionInstanceCommon *function;
+
+    if (!wasm_runtime_exec_env_check(exec_env)) {
+        LOG_ERROR("Invalid exec env stack info.");
+        return false;
+    }
+
+    if (!exec_env->metering_suspended || !exec_env->metering_suspend_function
+        || !exec_env->metering_suspend_argv) {
+        wasm_runtime_set_exception(exec_env->module_inst,
+                                   "no metering resume is pending");
+        return false;
+    }
+
+    function =
+        (WASMFunctionInstanceCommon *)exec_env->metering_suspend_function;
+    return wasm_runtime_call_wasm(exec_env, function,
+                                  exec_env->metering_suspend_argc,
+                                  exec_env->metering_suspend_argv);
+}
 #endif
 
 WASMFuncType *

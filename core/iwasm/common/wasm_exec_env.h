@@ -90,6 +90,21 @@ typedef struct WASMExecEnv {
 #if WASM_ENABLE_INSTRUCTION_METERING != 0
     /* instructions to execute */
     int instructions_to_execute;
+
+    /* true when classic interpreter suspended by instruction metering */
+    bool metering_suspended;
+
+    /* top frame to resume from when metering_suspended is true */
+    struct WASMInterpFrame *metering_suspend_frame;
+
+    /* function associated with metering suspended frame */
+    struct WASMFunctionInstance *metering_suspend_function;
+
+    /* argc captured for metering suspended function */
+    uint32 metering_suspend_argc;
+
+    /* argv captured for metering suspended function */
+    uint32 *metering_suspend_argv;
 #endif
 
 #if WASM_ENABLE_FAST_JIT != 0
