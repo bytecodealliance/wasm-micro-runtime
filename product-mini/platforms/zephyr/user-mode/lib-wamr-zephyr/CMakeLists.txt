@@ -67,4 +67,8 @@ endif()
 # Specify the memory partition where all globals(including the WAMR global heap buffer)
 # in the library should be placed. This partition will be defined in the app source code
 # and added to the use-mode thread that uses the WAMR library.
-zephyr_library_app_memory (wamr_partition)
+# When WAMR_USE_PREBUILT_LIB is set, the parent CMakeLists.txt handles partition
+# registration via set_property() instead, demonstrating the pre-built library approach.
+if (NOT WAMR_USE_PREBUILT_LIB)
+  zephyr_library_app_memory (wamr_partition)
+endif ()
