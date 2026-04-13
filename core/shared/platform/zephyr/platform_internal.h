@@ -59,6 +59,7 @@
 #include <net/net_ip.h>
 #include <net/net_core.h>
 #include <net/net_context.h>
+#include <fs/fs.h>
 #else /* else of KERNEL_VERSION_NUMBER < 0x030200 */
 #include <zephyr/kernel.h>
 #include <zephyr/net/net_pkt.h>
@@ -67,6 +68,7 @@
 #include <zephyr/net/net_core.h>
 #include <zephyr/net/net_context.h>
 #include <zephyr/net/socket.h>
+#include <zephyr/fs/fs.h>
 #endif /* end of KERNEL_VERSION_NUMBER < 0x030200 */
 
 #ifdef CONFIG_USERSPACE
