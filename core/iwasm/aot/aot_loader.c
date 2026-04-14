@@ -4422,7 +4422,7 @@ aot_compatible_version(uint32 version)
 {
     /*
      * refer to "AoT-compiled module compatibility among WAMR versions" in
-     * ./doc/biuld_wasm_app.md
+     * ./doc/build_wasm_app.md
      */
     return version == AOT_CURRENT_VERSION;
 }
