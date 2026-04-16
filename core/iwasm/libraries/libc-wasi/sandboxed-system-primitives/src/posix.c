@@ -2215,15 +2215,15 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
                                          __WASI_RIGHT_POLL_FD_READWRITE, 0);
                 if (error == 0) {
 
-// Temporary workaround (see PR#4377)
-#ifdef BH_PLATFORM_ZEPHYR
-                    os_file_handle tfd = fos[i]->file_handle->fd;
-#else
+                    // Temporary workaround (see PR#4377)
                     os_file_handle tfd = fos[i]->file_handle;
-#endif
                     // Proper file descriptor on which we can poll().
                     pfds[i] = (os_poll_file_handle){
+#ifdef BH_PLATFORM_ZEPHYR
+                        .fd = tfd->fd,
+#else
                         .fd = tfd,
+#endif
                         .events = s->u.type == __WASI_EVENTTYPE_FD_READ
                                       ? POLLIN
                                       : POLLOUT,
