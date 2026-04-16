@@ -19,24 +19,6 @@
 #include "runtime_timer.h"
 
 /**
- * API visibility macros for WAMR internal functions
- *
- * WASM_RUNTIME_API_EXTERN - Public exported APIs (defined in wasm_export.h)
- * WASM_RUNTIME_API_INTERN - Internal APIs visible across WAMR components
- *
- * In test builds (WAMR_BUILD_TEST=1), internal APIs are exposed for unit
- * testing. In production builds, internal APIs are static (file-scoped) for
- * encapsulation.
- */
-#ifndef WASM_RUNTIME_API_INTERN
-#ifdef WAMR_BUILD_TEST
-#define WASM_RUNTIME_API_INTERN
-#else
-#define WASM_RUNTIME_API_INTERN static
-#endif
-#endif
-
-/**
  * WA_MALLOC/WA_FREE need to be redefined for both
  * runtime native and WASM app respectively.
  *
