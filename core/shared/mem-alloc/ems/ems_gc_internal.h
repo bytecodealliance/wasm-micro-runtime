@@ -86,11 +86,11 @@ hmu_verify(void *vheap, hmu_t *hmu);
 #define GC_MIN_ALIGNMENT 8
 #endif
 
-#define GC_SMALLEST_SIZE \
-    GC_ALIGN_8(HMU_SIZE + OBJ_PREFIX_SIZE + OBJ_SUFFIX_SIZE + 8)
-#define GC_GET_REAL_SIZE(x)                                 \
-    GC_ALIGN_8(HMU_SIZE + OBJ_PREFIX_SIZE + OBJ_SUFFIX_SIZE \
-               + (((x) > 8) ? (x) : 8))
+/* Smallest allocation size for normal allocations
+ * The +8 ensures minimum allocation size for tree node structure */
+#define GC_SMALLEST_SIZE GC_ALIGN_8(OBJ_EXTRA_SIZE + 8)
+
+#define GC_GET_REAL_SIZE(x) GC_ALIGN_8(OBJ_EXTRA_SIZE + (((x) > 8) ? (x) : 8))
 
 /*
  * ============================================================================
@@ -150,13 +150,17 @@ hmu_verify(void *vheap, hmu_t *hmu);
  * ----------------------
  *
  *  Low Address                                               High Address
- *  ┌─────────────┬──────────┬────────────────┬──────────────┬─────────────┐
- *  │ HMU Header  │ Padding  │ Magic + Offset │ Aligned Data │   Padding   │
- *  │   (meta)    │ (0-align)│    (4 bytes)   │   (size)     │  (overhead) │
- *  └─────────────┴──────────┴────────────────┴──────────────┴─────────────┘
- *                             ▲                ▲
- *                             │                │
- *                             magic_ptr        user_ptr (returned, aligned)
+ *  ┌─────────────┬──────────┬─────────┬─────────┬──────────────┬─────────────┐
+ *  │ HMU Header  │ Padding  │ Offset  │ Magic   │ Aligned Data │   Padding   │
+ *  │  (4 bytes)  │(variable)│(4 bytes)│(4 bytes)│   (size)     │  (overhead) │
+ *  └─────────────┴──────────┴─────────┴─────────┴──────────────┴─────────────┘
+ *  ▲                         └────8 bytes────┘  ▲
+ *  hmu                                           user_ptr (returned, aligned)
+ *
+ *  Padding is variable-length to satisfy alignment constraint:
+ *     align_up(HMU_SIZE + ALIGNED_ALLOC_METADATA_SIZE, alignment)
+ *  For alignment >= 12: HMU_SIZE + padding + 8 = alignment
+ *  For alignment < 12:  HMU_SIZE + padding + 8 = round_up(12, alignment)
  *
  * Constraints and Limitations:
  * ----------------------------
@@ -182,9 +186,34 @@ hmu_verify(void *vheap, hmu_t *hmu);
  * void *new_ptr = wasm_runtime_realloc(ptr, 512);  // Returns NULL!
  */
 
+/* Aligned allocation constants */
+/* Size of offset field before aligned ptr */
+#define ALIGNED_ALLOC_OFFSET_SIZE 4
+/* Size of magic marker before aligned ptr */
+#define ALIGNED_ALLOC_MAGIC_SIZE 4
+/* Total: 8 bytes  */
+#define ALIGNED_ALLOC_METADATA_SIZE \
+    (ALIGNED_ALLOC_OFFSET_SIZE + ALIGNED_ALLOC_MAGIC_SIZE)
+
 /* Aligned allocation magic markers */
 #define ALIGNED_ALLOC_MAGIC_MASK 0xFFFF0000
 #define ALIGNED_ALLOC_MAGIC_VALUE 0xA11C0000
+
+/* Get magic pointer from aligned object pointer */
+#define ALIGNED_ALLOC_GET_MAGIC_PTR(obj) \
+    ((uint32_t *)((char *)(obj)-ALIGNED_ALLOC_MAGIC_SIZE))
+
+/* Get offset pointer from aligned object pointer */
+#define ALIGNED_ALLOC_GET_OFFSET_PTR(obj) \
+    ((uint32_t *)((char *)(obj)-ALIGNED_ALLOC_METADATA_SIZE))
+
+/* Extra overhead for aligned allocations beyond normal OBJ_EXTRA_SIZE */
+#define ALIGNED_ALLOC_EXTRA_OVERHEAD ALIGNED_ALLOC_METADATA_SIZE
+
+/* Smallest allocation size for aligned allocations */
+#define GC_ALIGNED_SMALLEST_SIZE(alignment)                 \
+    GC_ALIGN_8(OBJ_EXTRA_SIZE + ALIGNED_ALLOC_METADATA_SIZE \
+               + ((alignment) > 8 ? (alignment - 8) : 8))
 
 /**
  * Check if a gc_object was allocated with alignment requirements.
@@ -202,7 +231,7 @@ gc_is_aligned_allocation(gc_object_t obj)
     if (!obj)
         return false;
 
-    uint32_t *magic_ptr = (uint32_t *)((char *)obj - 4);
+    uint32_t *magic_ptr = ALIGNED_ALLOC_GET_MAGIC_PTR(obj);
     return ((*magic_ptr & ALIGNED_ALLOC_MAGIC_MASK)
             == ALIGNED_ALLOC_MAGIC_VALUE);
 }

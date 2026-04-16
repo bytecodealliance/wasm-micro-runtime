@@ -559,7 +559,7 @@ obj_to_hmu(gc_object_t obj)
     /* Check for aligned allocation magic signature */
     if (gc_is_aligned_allocation(obj)) {
         /* This is an aligned allocation, read offset */
-        uint32_t *offset_ptr = (uint32_t *)((char *)obj - 8);
+        uint32_t *offset_ptr = ALIGNED_ALLOC_GET_OFFSET_PTR(obj);
         return (hmu_t *)((char *)obj - *offset_ptr);
     }
 
@@ -581,7 +581,7 @@ gc_alloc_vo_internal(void *vheap, gc_size_t size, const char *file, int line)
     gc_size_t tot_size = 0, tot_size_unaligned;
 
     /* hmu header + prefix + obj + suffix */
-    tot_size_unaligned = HMU_SIZE + OBJ_PREFIX_SIZE + size + OBJ_SUFFIX_SIZE;
+    tot_size_unaligned = size + OBJ_EXTRA_SIZE;
     /* aligned size*/
     tot_size = GC_ALIGN_8(tot_size_unaligned);
     if (tot_size < size)
@@ -668,8 +668,7 @@ gc_alloc_vo_aligned_internal(void *vheap, gc_size_t size, gc_size_t alignment,
         return NULL;
     }
 
-    if (size > SIZE_MAX - alignment - HMU_SIZE - OBJ_PREFIX_SIZE
-                   - OBJ_SUFFIX_SIZE - 8) {
+    if (size > SIZE_MAX - GC_ALIGNED_SMALLEST_SIZE(alignment)) {
         /* Would overflow */
         return NULL;
     }
@@ -682,8 +681,8 @@ gc_alloc_vo_aligned_internal(void *vheap, gc_size_t size, gc_size_t alignment,
 #endif
 
     /* Calculate total size needed */
-    tot_size_unaligned =
-        HMU_SIZE + OBJ_PREFIX_SIZE + size + OBJ_SUFFIX_SIZE + alignment - 1 + 8;
+    tot_size_unaligned = size + OBJ_EXTRA_SIZE + ALIGNED_ALLOC_EXTRA_OVERHEAD
+                         + (alignment > 8 ? (alignment - 8) : 8);
     tot_size = GC_ALIGN_8(tot_size_unaligned);
 
     if (tot_size < size) {
@@ -707,9 +706,10 @@ gc_alloc_vo_aligned_internal(void *vheap, gc_size_t size, gc_size_t alignment,
     /* Get base object pointer */
     base_obj = (gc_uint8 *)hmu + HMU_SIZE + OBJ_PREFIX_SIZE;
 
-    /* Find next aligned address, leaving 8 bytes for metadata */
-    aligned_addr = (((uintptr_t)base_obj + 8 + alignment - 1)
-                    & ~(uintptr_t)(alignment - 1));
+    /* Find next aligned address, reserving space for metadata */
+    aligned_addr =
+        (((uintptr_t)base_obj + ALIGNED_ALLOC_METADATA_SIZE + alignment - 1)
+         & ~(uintptr_t)(alignment - 1));
     ret = (gc_object_t)aligned_addr;
 
     /* Verify we have enough space */
@@ -725,11 +725,11 @@ gc_alloc_vo_aligned_internal(void *vheap, gc_size_t size, gc_size_t alignment,
         alignment_log2++;
     }
 
-    /* Store offset 8 bytes before returned pointer */
-    *((uint32_t *)((char *)ret - 8)) = offset;
+    /* Store offset before returned pointer */
+    *ALIGNED_ALLOC_GET_OFFSET_PTR(ret) = offset;
 
     /* Store magic with encoded alignment */
-    *((uint32_t *)((char *)ret - 4)) =
+    *ALIGNED_ALLOC_GET_MAGIC_PTR(ret) =
         ALIGNED_ALLOC_MAGIC_VALUE | alignment_log2;
 
     /* Initialize HMU */
