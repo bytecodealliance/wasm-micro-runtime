@@ -7576,6 +7576,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             }
         }
         frame->lp = frame->operand + cur_func->const_cell_num;
+        if ((uint8 *)(frame->lp + cur_func->param_cell_num)
+            > exec_env->wasm_stack.top_boundary) {
+            if (lp_base)
+                wasm_runtime_free(lp_base);
+            wasm_set_exception(module, "wasm operand stack overflow");
+            goto got_exception;
+        }
         if (lp - lp_base > 0) {
             word_copy(frame->lp, lp_base, lp - lp_base);
         }

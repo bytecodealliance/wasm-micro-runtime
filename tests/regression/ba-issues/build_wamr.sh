@@ -63,4 +63,7 @@ build_iwasm "-DWAMR_BUILD_REF_TYPES=1 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_SIMD=
 # build default iwasm for testing wasm loader with branch hints enabled
 build_iwasm "-DWAMR_BUILD_BRANCH_HINTS=1" "default-branch-hints-enabled"
 
+# build default iwasm for testing tail call with fast-interp
+build_iwasm "-DWAMR_BUILD_REF_TYPES=1 -DWAMR_BUILD_FAST_INTERP=1 -DWAMR_BUILD_TAIL_CALL=1 -DWAMR_BUILD_LIBC_WASI=0" "default-tail-call-wasi-disabled"
+
 # TODO: add more version of iwasm, for example, sgx version

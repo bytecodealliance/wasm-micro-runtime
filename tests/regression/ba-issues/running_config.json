@@ -1852,6 +1852,22 @@
                 "description": ""
             }
 
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                4916
+            ],
+            "runtime": "iwasm-default-tail-call-wasi-disabled",
+            "file": "tail_call_stack_overflow.wasm",
+            "mode": "fast-interp",
+            "options": "--stack-size=131072 --heap-size=0 -f test",
+            "argument": "",
+            "expected return": {
+                "ret code": 0,
+                "stdout content": "0x2a:i32",
+                "description": "no heap buffer overflow from return_call when callee has a larger const pool than caller"
+            }
         }
     ]
 }
