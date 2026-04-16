@@ -580,3 +580,210 @@ test_wasm_runtime_aligned_alloc_multiple_alignments(void **state)
     wasm_runtime_destroy();
     free(init_args.mem_alloc_option.pool.heap_buf);
 }
+
+/* Test: Normal allocation with huge size (near upper limit) */
+static void
+test_normal_alloc_huge_size(void **state)
+{
+    mem_allocator_t allocator;
+    char heap_buf[1024 * 1024]; /* 1MB heap */
+    void *ptr;
+    size_t huge_size;
+
+    allocator = mem_allocator_create(heap_buf, sizeof(heap_buf));
+    assert_non_null(allocator);
+
+    /* Try to allocate most of the heap */
+    huge_size = sizeof(heap_buf) - 4096; /* Leave some overhead */
+    ptr = mem_allocator_malloc(allocator, huge_size);
+
+    /* May succeed or fail depending on internal fragmentation */
+    if (ptr) {
+        /* If it succeeds, verify it's properly allocated */
+        assert_true(is_aligned(ptr, 8));
+        mem_allocator_free(allocator, ptr);
+    }
+
+    /* Try allocation at exact upper limit - should handle gracefully */
+    huge_size = SIZE_MAX - 1024;
+    ptr = mem_allocator_malloc(allocator, huge_size);
+    assert_null(ptr); /* Should fail gracefully, not crash */
+
+    mem_allocator_destroy(allocator);
+}
+
+/* Test: Aligned allocation with huge size (near upper limit) */
+static void
+test_aligned_alloc_huge_size(void **state)
+{
+    mem_allocator_t allocator;
+    char heap_buf[1024 * 1024]; /* 1MB heap */
+    void *ptr;
+    size_t huge_size;
+
+    allocator = mem_allocator_create(heap_buf, sizeof(heap_buf));
+    assert_non_null(allocator);
+
+    /* Try to allocate most of the heap with alignment */
+    huge_size = 512 * 1024; /* Size must be multiple of alignment */
+    ptr = mem_allocator_malloc_aligned(allocator, huge_size, 512);
+
+    /* May succeed or fail depending on alignment overhead */
+    if (ptr) {
+        assert_true(is_aligned(ptr, 512));
+        mem_allocator_free(allocator, ptr);
+    }
+
+    /* Try allocation at extreme size - should fail gracefully */
+    huge_size = (SIZE_MAX / 2) & ~(size_t)4095; /* Aligned to 4096 */
+    ptr = mem_allocator_malloc_aligned(allocator, huge_size, 4096);
+    assert_null(ptr); /* Should fail gracefully, not crash */
+
+    mem_allocator_destroy(allocator);
+}
+
+/* Test: Normal allocations until OOM */
+static void
+test_normal_alloc_until_oom(void **state)
+{
+    mem_allocator_t allocator;
+    char heap_buf[256 * 1024];
+    void *ptrs[1000];
+    int count = 0;
+
+    allocator = mem_allocator_create(heap_buf, sizeof(heap_buf));
+    assert_non_null(allocator);
+
+    /* Allocate until we run out of memory */
+    for (int i = 0; i < 1000; i++) {
+        ptrs[i] = mem_allocator_malloc(allocator, 1024);
+        if (ptrs[i]) {
+            count++;
+        }
+        else {
+            /* OOM reached - this is expected */
+            break;
+        }
+    }
+
+    /* Should have allocated at least some blocks */
+    assert_true(count > 10);
+    assert_true(count < 1000); /* Should not have allocated all */
+
+    /* Should still be able to free what we allocated */
+    for (int i = 0; i < count; i++) {
+        mem_allocator_free(allocator, ptrs[i]);
+    }
+
+    /* After freeing, should be able to allocate again */
+    void *ptr = mem_allocator_malloc(allocator, 1024);
+    assert_non_null(ptr);
+    mem_allocator_free(allocator, ptr);
+
+    mem_allocator_destroy(allocator);
+}
+
+/* Test: Aligned allocations until OOM */
+static void
+test_aligned_alloc_until_oom(void **state)
+{
+    mem_allocator_t allocator;
+    char heap_buf[512 * 1024];
+    void *ptrs[500];
+    int count = 0;
+
+    allocator = mem_allocator_create(heap_buf, sizeof(heap_buf));
+    assert_non_null(allocator);
+
+    /* Allocate with alignment until we run out of memory */
+    for (int i = 0; i < 500; i++) {
+        /* Alternate between different alignments */
+        int align = (i % 2 == 0) ? 64 : 128;
+        ptrs[i] = mem_allocator_malloc_aligned(allocator, align * 20, align);
+        if (ptrs[i]) {
+            assert_true(is_aligned(ptrs[i], align));
+            count++;
+        }
+        else {
+            /* OOM reached - this is expected */
+            break;
+        }
+    }
+
+    /* Should have allocated at least some blocks */
+    assert_true(count > 5);
+    assert_true(count < 500); /* Should not have allocated all */
+
+    /* Free all allocated blocks */
+    for (int i = 0; i < count; i++) {
+        mem_allocator_free(allocator, ptrs[i]);
+    }
+
+    /* After freeing, should be able to allocate again */
+    void *ptr = mem_allocator_malloc_aligned(allocator, 256, 64);
+    assert_non_null(ptr);
+    mem_allocator_free(allocator, ptr);
+
+    mem_allocator_destroy(allocator);
+}
+
+/* Test: Mixed normal and aligned allocations until OOM */
+static void
+test_mixed_alloc_until_oom(void **state)
+{
+    mem_allocator_t allocator;
+    char heap_buf[128 * 1024];
+    void *ptrs[1000];
+    bool is_aligned_alloc[1000];
+    int count = 0;
+
+    allocator = mem_allocator_create(heap_buf, sizeof(heap_buf));
+    assert_non_null(allocator);
+
+    /* Alternate between normal and aligned allocations until OOM */
+    for (int i = 0; i < 1000; i++) {
+        if (i % 3 == 0) {
+            /* Aligned allocation */
+            ptrs[i] = mem_allocator_malloc_aligned(allocator, 128, 64);
+            is_aligned_alloc[i] = true;
+        }
+        else {
+            /* Normal allocation */
+            ptrs[i] = mem_allocator_malloc(allocator, 512);
+            is_aligned_alloc[i] = false;
+        }
+
+        if (ptrs[i]) {
+            if (is_aligned_alloc[i]) {
+                assert_true(is_aligned(ptrs[i], 64));
+            }
+            count++;
+        }
+        else {
+            /* OOM reached */
+            break;
+        }
+    }
+
+    /* Should have allocated a reasonable number of blocks */
+    assert_true(count > 20);
+    assert_true(count < 1000); /* Should not have allocated all */
+
+    /* Free in random order (every other block first) */
+    for (int i = 0; i < count; i += 2) {
+        mem_allocator_free(allocator, ptrs[i]);
+    }
+    for (int i = 1; i < count; i += 2) {
+        mem_allocator_free(allocator, ptrs[i]);
+    }
+
+    /* Verify allocator still works after OOM and free */
+    void *ptr1 = mem_allocator_malloc(allocator, 1024);
+    void *ptr2 = mem_allocator_malloc_aligned(allocator, 128, 64);
+    assert_non_null(ptr1);
+    assert_non_null(ptr2);
+    mem_allocator_free(allocator, ptr1);
+    mem_allocator_free(allocator, ptr2);
+
+    mem_allocator_destroy(allocator);
+}

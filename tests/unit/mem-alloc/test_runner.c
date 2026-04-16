@@ -32,6 +32,11 @@ main(void)
         cmocka_unit_test(test_wasm_runtime_aligned_alloc_system_mode),
         cmocka_unit_test(test_wasm_runtime_realloc_rejects_aligned),
         cmocka_unit_test(test_wasm_runtime_aligned_alloc_multiple_alignments),
+        cmocka_unit_test(test_normal_alloc_huge_size),
+        cmocka_unit_test(test_aligned_alloc_huge_size),
+        cmocka_unit_test(test_normal_alloc_until_oom),
+        cmocka_unit_test(test_aligned_alloc_until_oom),
+        cmocka_unit_test(test_mixed_alloc_until_oom),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
