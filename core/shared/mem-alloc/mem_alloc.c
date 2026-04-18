@@ -57,6 +57,24 @@ mem_allocator_free(mem_allocator_t allocator, void *ptr)
         gc_free_vo((gc_handle_t)allocator, ptr);
 }
 
+#if BH_ENABLE_GC_VERIFY == 0
+void *
+mem_allocator_malloc_aligned(mem_allocator_t allocator, uint32_t size,
+                             uint32_t alignment)
+{
+    return gc_alloc_vo_aligned((gc_handle_t)allocator, size, alignment);
+}
+#else
+void *
+mem_allocator_malloc_aligned_internal(mem_allocator_t allocator, uint32_t size,
+                                      uint32_t alignment, const char *file,
+                                      int line)
+{
+    return gc_alloc_vo_aligned_internal((gc_handle_t)allocator, size, alignment,
+                                        file, line);
+}
+#endif
+
 #if WASM_ENABLE_GC != 0
 void *
 mem_allocator_malloc_with_gc(mem_allocator_t allocator, uint32_t size)
