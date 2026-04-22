@@ -93,3 +93,8 @@ TEST_F(WasmGCTest, Test_nested_struct)
     ASSERT_FALSE(load_wasm_file("nested_struct_field_any.wasm"));
     ASSERT_FALSE(load_wasm_file("nested_array_elem_any.wasm"));
 }
+
+TEST_F(WasmGCTest, Test_array_new_default_non_defaultable_elem)
+{
+    ASSERT_FALSE(load_wasm_file("array_new_default_non_defaultable_elem.wasm"));
+}
