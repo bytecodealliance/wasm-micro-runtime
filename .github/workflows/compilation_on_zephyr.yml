@@ -94,50 +94,70 @@ jobs:
           app-path: application
           manifest-file-name: west_lite.yml
           sdk-version: ${{ env.ZEPHYR_SDK_VERSION }}
-          toolchains: arc-zephyr-elf:arc64-zephyr-elf
+          toolchains: arc-zephyr-elf:arc64-zephyr-elf:x86_64-zephyr-elf
 
-      - name: Build a sample application(simple)
+      - name: Build and run simple sample (ARC)
         shell: bash
         run: |
           pushd product-mini/platforms/zephyr/simple
-          west build . -b qemu_arc/qemu_arc_hs  -p always -- -DWAMR_BUILD_TARGET=ARC
+          west build . -b qemu_arc/qemu_arc_hs -p always -- -DWAMR_BUILD_TARGET=ARC
           popd
 
-          # west build -t run will fork several processes, which will cause the job to hang.
-          # run in the background and kill it after 5 seconds
-          .github/scripts/run_qemu_arc.sh \
-            ../../zephyr-sdk \
-            product-mini/platforms/zephyr/simple/build/zephyr/zephyr.elf &
-          sleep 5
-          pkill qemu-system-arc
+          .github/scripts/run_qemu_and_verify.sh \
+            product-mini/platforms/zephyr/simple/build 10 "Hello world!" "elapsed:"
         working-directory: modules/wasm-micro-runtime
 
-      - name: Build a sample application(user-mode)
+      - name: Build and run user-mode sample (ARC)
         shell: bash
         run: |
           pushd product-mini/platforms/zephyr/user-mode
           west build . -b qemu_arc/qemu_arc_hs -p always -- -DWAMR_BUILD_TARGET=ARC
           popd
 
-          # west build -t run will fork several processes, which will cause the job to hang.
-          # run in the background and kill it after 5 seconds
-          .github/scripts/run_qemu_arc.sh \
-            ../../zephyr-sdk \
-            product-mini/platforms/zephyr/user-mode/build/zephyr/zephyr.elf &
-          sleep 5
-          pkill qemu-system-arc
+          .github/scripts/run_qemu_and_verify.sh \
+            product-mini/platforms/zephyr/user-mode/build 10 "Hello world!" "elapsed:"
         working-directory: modules/wasm-micro-runtime
 
-      - name: Build a sample application(user-mode, prebuilt library approach)
+      - name: Build and run user-mode sample with prebuilt library (ARC)
         shell: bash
         run: |
           pushd product-mini/platforms/zephyr/user-mode
           west build . -b qemu_arc/qemu_arc_hs -p always -- -DWAMR_BUILD_TARGET=ARC -DWAMR_USE_PREBUILT_LIB=1
           popd
 
-          .github/scripts/run_qemu_arc.sh \
-            ../../zephyr-sdk \
-            product-mini/platforms/zephyr/user-mode/build/zephyr/zephyr.elf &
-          sleep 5
-          pkill qemu-system-arc
+          .github/scripts/run_qemu_and_verify.sh \
+            product-mini/platforms/zephyr/user-mode/build 10 "Hello world!" "elapsed:"
+        working-directory: modules/wasm-micro-runtime
+
+      - name: Build and run simple sample (x86-32)
+        shell: bash
+        run: |
+          pushd product-mini/platforms/zephyr/simple
+          west build . -b qemu_x86 -p always -- -DWAMR_BUILD_TARGET=X86_32
+          popd
+
+          .github/scripts/run_qemu_and_verify.sh \
+            product-mini/platforms/zephyr/simple/build 10 "Hello world!" "elapsed:"
+        working-directory: modules/wasm-micro-runtime
+
+      - name: Build and run user-mode sample (x86-32)
+        shell: bash
+        run: |
+          pushd product-mini/platforms/zephyr/user-mode
+          west build . -b qemu_x86 -p always -- -DWAMR_BUILD_TARGET=X86_32
+          popd
+
+          .github/scripts/run_qemu_and_verify.sh \
+            product-mini/platforms/zephyr/user-mode/build 10 "Hello world!" "elapsed:"
+        working-directory: modules/wasm-micro-runtime
+
+      - name: Build and run user-mode sample with prebuilt library (x86-32)
+        shell: bash
+        run: |
+          pushd product-mini/platforms/zephyr/user-mode
+          west build . -b qemu_x86 -p always -- -DWAMR_BUILD_TARGET=X86_32 -DWAMR_USE_PREBUILT_LIB=1
+          popd
+
+          .github/scripts/run_qemu_and_verify.sh \
+            product-mini/platforms/zephyr/user-mode/build 10 "Hello world!" "elapsed:"
         working-directory: modules/wasm-micro-runtime
