@@ -104,7 +104,7 @@ jobs:
           popd
 
           .github/scripts/run_qemu_and_verify.sh \
-            product-mini/platforms/zephyr/simple/build 10 "Hello world!" "elapsed:"
+            product-mini/platforms/zephyr/simple/build 10 "Hello world!" "elapsed"
         working-directory: modules/wasm-micro-runtime
 
       - name: Build and run user-mode sample (ARC)
@@ -115,7 +115,7 @@ jobs:
           popd
 
           .github/scripts/run_qemu_and_verify.sh \
-            product-mini/platforms/zephyr/user-mode/build 10 "Hello world!" "elapsed:"
+            product-mini/platforms/zephyr/user-mode/build 10 "Hello world!" "elapsed"
         working-directory: modules/wasm-micro-runtime
 
       - name: Build and run user-mode sample with prebuilt library (ARC)
@@ -126,7 +126,7 @@ jobs:
           popd
 
           .github/scripts/run_qemu_and_verify.sh \
-            product-mini/platforms/zephyr/user-mode/build 10 "Hello world!" "elapsed:"
+            product-mini/platforms/zephyr/user-mode/build 10 "Hello world!" "elapsed"
         working-directory: modules/wasm-micro-runtime
 
       - name: Build and run simple sample (x86-32)
@@ -137,7 +137,7 @@ jobs:
           popd
 
           .github/scripts/run_qemu_and_verify.sh \
-            product-mini/platforms/zephyr/simple/build 10 "Hello world!" "elapsed:"
+            product-mini/platforms/zephyr/simple/build 10 "Hello world!" "elapsed"
         working-directory: modules/wasm-micro-runtime
 
       - name: Build and run user-mode sample (x86-32)
@@ -148,7 +148,7 @@ jobs:
           popd
 
           .github/scripts/run_qemu_and_verify.sh \
-            product-mini/platforms/zephyr/user-mode/build 10 "Hello world!" "elapsed:"
+            product-mini/platforms/zephyr/user-mode/build 10 "Hello world!" "elapsed"
         working-directory: modules/wasm-micro-runtime
 
       - name: Build and run user-mode sample with prebuilt library (x86-32)
@@ -159,5 +159,5 @@ jobs:
           popd
 
           .github/scripts/run_qemu_and_verify.sh \
-            product-mini/platforms/zephyr/user-mode/build 10 "Hello world!" "elapsed:"
+            product-mini/platforms/zephyr/user-mode/build 10 "Hello world!" "elapsed"
         working-directory: modules/wasm-micro-runtime
