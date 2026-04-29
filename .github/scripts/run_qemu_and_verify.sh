@@ -55,7 +55,7 @@ trap "rm -f $LOG_FILE" EXIT
 # Zephyr doesn't shut down the emulator. Any other non-zero exit is also fine
 # for some boards (e.g., x86 with isa-debug-exit returns 1).
 set +e
-eval "timeout ${TIMEOUT_SECONDS}s ${QEMU_CMD}" > "$LOG_FILE" 2>&1
+timeout "${TIMEOUT_SECONDS}s" bash -c "${QEMU_CMD}" > "$LOG_FILE" 2>&1
 QEMU_EXIT=$?
 set -e
 
