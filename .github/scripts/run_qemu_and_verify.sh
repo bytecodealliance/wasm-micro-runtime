@@ -35,8 +35,8 @@ trap "rm -f $LOG_FILE" EXIT
 # Zephyr doesn't shut down the emulator. Any other non-zero exit is also fine
 # for some boards (e.g., x86 with isa-debug-exit returns 1).
 set +e
-timeout "${TIMEOUT_SECONDS}s" west build -t run --build-dir "$BUILD_DIR" > "$LOG_FILE" 2>&1
-WEST_EXIT=$?
+timeout "${TIMEOUT_SECONDS}s" west build -t run --build-dir "$BUILD_DIR" 2>&1 | tee "$LOG_FILE"
+WEST_EXIT=${PIPESTATUS[0]}
 set -e
 
 echo "=== west exited with code $WEST_EXIT ==="
