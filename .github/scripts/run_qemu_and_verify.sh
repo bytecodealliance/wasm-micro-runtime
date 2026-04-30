@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 # Unified QEMU runner for Zephyr CI.
-# Extracts the QEMU command from build.ninja, runs it with a timeout,
+# Uses `west build -t run` to launch the emulator with a timeout,
 # and verifies expected strings appear in the output.
 #
 # Usage: run_qemu_and_verify.sh <build_dir> <timeout_seconds> <expected_string> [expected_string ...]
@@ -21,45 +21,25 @@ TIMEOUT_SECONDS="$2"
 shift 2
 EXPECTED_STRINGS=("$@")
 
-NINJA_FILE="$BUILD_DIR/build.ninja"
-if [ ! -f "$NINJA_FILE" ]; then
-    echo "Error: build.ninja not found at $NINJA_FILE"
+if [ ! -d "$BUILD_DIR" ]; then
+    echo "Error: build directory not found at $BUILD_DIR"
     exit 1
 fi
 
-# Extract the QEMU command from build.ninja.
-# The run_qemu target has a COMMAND line like:
-#   COMMAND = cd /path/to/build && /path/to/qemu-system-xxx <flags> -kernel <elf>
-QEMU_CMD=$(awk '
-    /^build zephyr\/CMakeFiles\/run_qemu /{found=1}
-    found && /^  COMMAND = /{
-        sub(/^  COMMAND = /, "")
-        print
-        exit
-    }
-' "$NINJA_FILE")
-
-if [ -z "$QEMU_CMD" ]; then
-    echo "Error: could not extract QEMU command from $NINJA_FILE"
-    exit 1
-fi
-
-echo "=== Extracted QEMU command ==="
-echo "$QEMU_CMD"
-echo "=== Running with ${TIMEOUT_SECONDS}s timeout ==="
+echo "=== Running 'west build -t run' with ${TIMEOUT_SECONDS}s timeout ==="
 
 LOG_FILE=$(mktemp /tmp/qemu_output.XXXXXX)
 trap "rm -f $LOG_FILE" EXIT
 
-# Run QEMU with timeout. Exit code 124 means timeout — that's expected since
+# Run the emulator via west. Exit code 124 means timeout — that's expected since
 # Zephyr doesn't shut down the emulator. Any other non-zero exit is also fine
 # for some boards (e.g., x86 with isa-debug-exit returns 1).
 set +e
-timeout "${TIMEOUT_SECONDS}s" bash -c "${QEMU_CMD}" > "$LOG_FILE" 2>&1
-QEMU_EXIT=$?
+timeout "${TIMEOUT_SECONDS}s" west build -t run --build-dir "$BUILD_DIR" > "$LOG_FILE" 2>&1
+WEST_EXIT=$?
 set -e
 
-echo "=== QEMU exited with code $QEMU_EXIT ==="
+echo "=== west exited with code $WEST_EXIT ==="
 
 # Verify expected strings
 FAILED=0
@@ -74,9 +54,9 @@ done
 
 if [ "$FAILED" -ne 0 ]; then
     echo ""
-    echo "=== Full QEMU output ==="
+    echo "=== Full output ==="
     cat "$LOG_FILE"
-    echo "=== End of QEMU output ==="
+    echo "=== End of output ==="
     exit 1
 fi
 
