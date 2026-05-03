@@ -35,7 +35,15 @@ simd_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, uint32 align,
         return NULL;
     }
 
-    LLVMSetAlignment(data, 1);
+    /* WASM SIMD does not guarantee alignment for v128 loads.
+     * On targets whose SIMD unit handles unaligned access natively,
+     * align 1 is safe and the backend will select the right instruction.
+     * On other targets, use the WASM alignment hint so the backend
+     * can generate wider (aligned) loads instead of byte-by-byte. */
+    if (comp_ctx->target_supports_unaligned_simd)
+        LLVMSetAlignment(data, 1);
+    else
+        LLVMSetAlignment(data, 1 << align);
 
     return data;
 }
@@ -301,7 +309,12 @@ simd_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, uint32 align,
         return false;
     }
 
-    LLVMSetAlignment(result, 1);
+    /* Mirror the alignment logic in simd_load: targets with native
+     * unaligned SIMD support use align 1, others use the WASM hint. */
+    if (comp_ctx->target_supports_unaligned_simd)
+        LLVMSetAlignment(result, 1);
+    else
+        LLVMSetAlignment(result, 1 << align);
 
     return true;
 }
