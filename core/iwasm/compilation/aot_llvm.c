@@ -3413,6 +3413,14 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
         }
     }
 
+    /* Determine whether the target's SIMD/vector unit supports unaligned
+     * memory access.  x86_64 and aarch64 can handle unaligned vector
+     * loads/stores natively.  This informs alignment annotations emitted
+     * for SIMD load/store IR. */
+    comp_ctx->target_supports_unaligned_simd =
+        !strcmp(comp_ctx->target_arch, "x86_64")
+        || !strncmp(comp_ctx->target_arch, "aarch64", 7);
+
     if (!(target_data_ref =
               LLVMCreateTargetDataLayout(comp_ctx->target_machine))) {
         aot_set_last_error("create LLVM target data layout failed.");
