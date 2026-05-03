@@ -200,9 +200,13 @@ def test_case(
     CMD.append("--interpreter")
     if sgx_flag:
         CMD.append(IWASM_SGX_CMD)
-    elif qemu_flag:
+    elif qemu_flag and qemu_firmware:
+        # System-emulation (e.g. NuttX): iwasm is a built-in command inside
+        # the emulated OS, so use the bare name.
         CMD.append(IWASM_QEMU_CMD)
     else:
+        # Host execution or QEMU user-mode: use the host path to the iwasm
+        # binary (which may be a qemu-hexagon wrapper).
         CMD.append(IWASM_CMD)
     if no_pty:
         CMD.append("--no-pty")
@@ -234,9 +238,15 @@ def test_case(
         CMD.append("--eh")
 
     if qemu_flag:
-        CMD.append("--qemu")
-        CMD.append("--qemu-firmware")
-        CMD.append(qemu_firmware)
+        if qemu_firmware:
+            CMD.append("--qemu")
+            CMD.append("--qemu-firmware")
+            CMD.append(qemu_firmware)
+        # Increase timeouts for QEMU emulation (default: 30s start, 20s test)
+        CMD.append("--start-timeout")
+        CMD.append("120")
+        CMD.append("--test-timeout")
+        CMD.append("120")
 
     if not clean_up_flag:
         CMD.append("--no_cleanup")
