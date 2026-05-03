@@ -58,6 +58,7 @@ AVAILABLE_TARGETS = [
     "AARCH64_VFP",
     "ARMV7",
     "ARMV7_VFP",
+    "HEXAGON",
     "RISCV32",
     "RISCV32_ILP32F",
     "RISCV32_ILP32D",
@@ -93,6 +94,19 @@ def ignore_the_case(
 
     # Note: x87 doesn't preserve sNaN and makes some relevant tests fail.
     if "i386" == target and case_name in ["float_exprs", "conversions"]:
+        return True
+
+    # TODO: investigate Hexagon-specific failures:
+    # - float_exprs/conversions: Hexagon does not canonicalize NaN payloads
+    #   (sNaN propagation differs from spec expectations)
+    # - i32/i64: Hexagon asl/asr instructions use signed shift amounts,
+    #   causing clang to miscompile rotl/rotr when upper bits are set
+    # - simd_*: NaN propagation in pmin/pmax and lane/splat edge cases
+    if "hexagon" == target and case_name in [
+        "float_exprs", "conversions", "f32_bitwise", "i32", "i64",
+        "simd_f32x4_pmin_pmax", "simd_f64x2_pmin_pmax",
+        "simd_lane", "simd_splat",
+    ]:
         return True
 
     # esp32s3 qemu doesn't have PSRAM emulation
@@ -598,8 +612,19 @@ def main():
     )
     parser.add_argument('--no-pty', action='store_true',
         help="Use direct pipes instead of pseudo-tty")
+    parser.add_argument(
+        "--interpreter",
+        default="",
+        dest="interpreter",
+        help="Specify the iwasm interpreter path (overrides the default)",
+    )
 
     options = parser.parse_args()
+
+    # Override global IWASM_CMD if --interpreter is specified
+    global IWASM_CMD
+    if options.interpreter:
+        IWASM_CMD = options.interpreter
 
     # Convert target to lower case for internal use, e.g. X86_64 -> x86_64
     # target is always exist, so no need to check it

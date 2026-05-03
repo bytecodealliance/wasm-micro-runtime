@@ -395,8 +395,9 @@ LOAD_I16(void *addr)
  *
  * These are guarded by WASM_CPU_SUPPORTS_UNALIGNED_SIMD_ACCESS rather than
  * WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS because some architectures have
- * different alignment rules for scalar vs vector memory operations,
- * e.g. architectures with dedicated unaligned-load vector instructions.
+ * different alignment rules for scalar vs vector memory operations.
+ * For example, Hexagon scalar loads require natural alignment, but HVX
+ * vector loads support unaligned access (vmemu instruction).
  *
  * PUT_V128_TO_ADDR / GET_V128_FROM_ADDR (frame-local access) remain
  * guarded by the scalar flag above since frame locals are accessed via
@@ -408,10 +409,10 @@ LOAD_I16(void *addr)
 
 #elif WASM_CPU_SUPPORTS_UNALIGNED_SIMD_ACCESS != 0
 
-/* The target's SIMD unit supports unaligned vector access, but scalar loads
- * require natural alignment. Use memcpy which is safe at any alignment and
- * allows the compiler to select the best instruction sequence for the
- * target. */
+/* The target's SIMD unit supports unaligned vector access (e.g. Hexagon HVX
+ * vmemu), but scalar loads require natural alignment. Use memcpy which is
+ * safe at any alignment and allows the compiler to select the best
+ * instruction sequence for the target. */
 static inline V128
 LOAD_V128(void *addr)
 {

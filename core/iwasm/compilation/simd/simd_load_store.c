@@ -37,8 +37,8 @@ simd_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, uint32 align,
 
     /* WASM SIMD does not guarantee alignment for v128 loads.
      * On targets whose SIMD unit handles unaligned access natively
-     * (x86 SSE, aarch64 NEON), align 1 is safe and the backend will
-     * select the right instruction.
+     * (x86 SSE, aarch64 NEON, Hexagon HVX vmemu), align 1 is safe
+     * and the backend will select the right instruction.
      * On other targets, use the WASM alignment hint so the backend
      * can generate wider (aligned) loads instead of byte-by-byte. */
     if (comp_ctx->target_supports_unaligned_simd)
