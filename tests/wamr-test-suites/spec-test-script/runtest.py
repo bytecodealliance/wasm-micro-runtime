@@ -62,6 +62,7 @@ aot_target_options_map = {
     "riscv64_lp64f": ["--target=riscv64", "--target-abi=lp64f", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c,+f", "--size-level=1"],
     "riscv64_lp64d": ["--target=riscv64", "--target-abi=lp64d", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c,+f,+d", "--size-level=1"],
     "xtensa": ["--target=xtensa"],
+    "hexagon": ["--target=hexagon"],
 }
 
 # AOT compilation options mapping for XIP mode
