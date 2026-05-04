@@ -234,9 +234,15 @@ def test_case(
         CMD.append("--eh")
 
     if qemu_flag:
-        CMD.append("--qemu")
-        CMD.append("--qemu-firmware")
-        CMD.append(qemu_firmware)
+        if qemu_firmware:
+            CMD.append("--qemu")
+            CMD.append("--qemu-firmware")
+            CMD.append(qemu_firmware)
+        # Increase timeouts for QEMU emulation (default: 30s start, 20s test)
+        CMD.append("--start-timeout")
+        CMD.append("120")
+        CMD.append("--test-timeout")
+        CMD.append("120")
 
     if not clean_up_flag:
         CMD.append("--no_cleanup")

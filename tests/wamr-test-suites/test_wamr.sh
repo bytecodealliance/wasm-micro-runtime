@@ -632,9 +632,11 @@ function spec_test()
         fi
     fi
 
-    if [[ ${ENABLE_QEMU} == 1 ]] && [[ -n ${QEMU_FIRMWARE} ]]; then
+    if [[ ${ENABLE_QEMU} == 1 ]]; then
         ARGS_FOR_SPEC_TEST+="--qemu "
-        ARGS_FOR_SPEC_TEST+="--qemu-firmware ${QEMU_FIRMWARE} "
+        if [[ -n ${QEMU_FIRMWARE} ]]; then
+            ARGS_FOR_SPEC_TEST+="--qemu-firmware ${QEMU_FIRMWARE} "
+        fi
     fi
 
     if [[ ${PLATFORM} == "windows" ]]; then
