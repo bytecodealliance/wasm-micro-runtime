@@ -5715,7 +5715,7 @@ fail:
 
 #if defined(BUILD_TARGET_X86_32) || defined(BUILD_TARGET_ARM)    \
     || defined(BUILD_TARGET_THUMB) || defined(BUILD_TARGET_MIPS) \
-    || defined(BUILD_TARGET_XTENSA)
+    || defined(BUILD_TARGET_XTENSA) || defined(BUILD_TARGET_HEXAGON)
 typedef void (*GenericFunctionPointer)(void);
 void
 invokeNative(GenericFunctionPointer f, uint32 *args, uint32 sz);
