@@ -1963,6 +1963,8 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     module_inst->e =
         (WASMModuleInstanceExtra *)((uint8 *)module_inst + extra_info_offset);
     extra = (AOTModuleInstanceExtra *)module_inst->e;
+    wasm_runtime_set_custom_data_internal(
+        (WASMModuleInstanceCommon *)module_inst, args->custom_data);
 #if WASM_ENABLE_THREAD_MGR != 0
     if (os_mutex_init(&extra->common.exception_lock) != 0) {
         wasm_runtime_free(module_inst);
