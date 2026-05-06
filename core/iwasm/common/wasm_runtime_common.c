@@ -1755,6 +1755,13 @@ wasm_runtime_instantiation_args_set_max_memory_pages(
     p->v1.max_memory_pages = v;
 }
 
+void
+wasm_runtime_instantiation_args_set_custom_data(struct InstantiationArgs2 *p,
+                                                void *custom_data)
+{
+    p->custom_data = custom_data;
+}
+
 #if WASM_ENABLE_LIBC_WASI != 0
 void
 wasm_runtime_instantiation_args_set_wasi_arg(struct InstantiationArgs2 *p,

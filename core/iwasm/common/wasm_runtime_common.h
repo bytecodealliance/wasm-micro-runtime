@@ -617,6 +617,7 @@ wasm_runtime_get_exec_env_tls(void);
 
 struct InstantiationArgs2 {
     InstantiationArgs v1;
+    void *custom_data;
 #if WASM_ENABLE_LIBC_WASI != 0
     WASIArguments wasi;
 #endif
@@ -740,6 +741,11 @@ WASM_RUNTIME_API_EXTERN
 void
 wasm_runtime_instantiation_args_set_max_memory_pages(
     struct InstantiationArgs2 *p, uint32 v);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_instantiation_args_set_custom_data(struct InstantiationArgs2 *p,
+                                                void *custom_data);
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN void
