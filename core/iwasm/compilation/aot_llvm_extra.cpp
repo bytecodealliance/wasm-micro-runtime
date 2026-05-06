@@ -212,18 +212,23 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
         cl::ParseCommandLineOptions(2, argv);
 #if LLVM_VERSION_MAJOR < 17
         PGO = PGOOptions("", "", "", PGOOptions::IRInstr);
-#else
+#elif LLVM_VERSION_MAJOR < 22
         auto FS = vfs::getRealFileSystem();
         PGO = PGOOptions("", "", "", "", FS, PGOOptions::IRInstr);
+#else
+        PGO = PGOOptions("", "", "", "", PGOOptions::IRInstr);
 #endif
     }
     else if (comp_ctx->use_prof_file) {
 #if LLVM_VERSION_MAJOR < 17
         PGO = PGOOptions(comp_ctx->use_prof_file, "", "", PGOOptions::IRUse);
-#else
+#elif LLVM_VERSION_MAJOR < 22
         auto FS = vfs::getRealFileSystem();
         PGO = PGOOptions(comp_ctx->use_prof_file, "", "", "", FS,
                          PGOOptions::IRUse);
+#else
+        PGO =
+            PGOOptions(comp_ctx->use_prof_file, "", "", "", PGOOptions::IRUse);
 #endif
     }
 
