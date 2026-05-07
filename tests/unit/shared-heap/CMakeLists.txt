@@ -14,7 +14,6 @@ set(WAMR_BUILD_FAST_INTERP 1)
 set(WAMR_BUILD_JIT 0)
 set(WAMR_BUILD_MEMORY64 0)
 set(WAMR_BUILD_SHARED_HEAP 1)
-set(WAMR_BUILD_SHARED_MEMORY 1)
 
 # Compile wasm modules
 set(WASI_SDK_DIR "/opt/wasi-sdk")

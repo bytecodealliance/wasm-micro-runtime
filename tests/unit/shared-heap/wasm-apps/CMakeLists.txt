@@ -14,7 +14,7 @@ if (NOT DEFINED WASI_SDK_DIR)
     set(WASI_SDK_DIR "/opt/wasi-sdk")
 endif ()
 
-set(CMAKE_C_FLAGS "-nostdlib -pthread -Qunused-arguments")
+set(CMAKE_C_FLAGS "-nostdlib -Qunused-arguments")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -z stack-size=8192 -nostdlib -O0")
 set(CMAKE_C_COMPILER_TARGET "wasm32")
 set(CMAKE_C_COMPILER "${WASI_SDK_DIR}/bin/clang")
