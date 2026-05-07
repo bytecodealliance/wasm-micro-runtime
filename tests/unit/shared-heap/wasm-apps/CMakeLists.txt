@@ -110,7 +110,7 @@ add_custom_target(compile_bulk_memory_aot ALL
 
 
 # copy val test
-set(SOURCE_SANDBOX_WASM ${CMAKE_CURRENT_SOURCE_DIR}/nvu_val/test_sandbox.wasm)
+set(SOURCE_SANDBOX_WASM ${CMAKE_CURRENT_SOURCE_DIR}/additional/test_sandbox.wasm)
 set(BUILD_SANDBOX_WASM ${CMAKE_CURRENT_BINARY_DIR}/../test_sandbox.wasm)
 add_custom_command(
     OUTPUT ${BUILD_SANDBOX_WASM}
@@ -125,7 +125,7 @@ add_custom_target(copy_test_sandbox ALL
 )
 
 
-set(SOURCE_RUNTIME_WASM ${CMAKE_CURRENT_SOURCE_DIR}/nvu_val/test_runtime.wasm)
+set(SOURCE_RUNTIME_WASM ${CMAKE_CURRENT_SOURCE_DIR}/additional/test_runtime.wasm)
 set(BUILD_RUNTIME_WASM ${CMAKE_CURRENT_BINARY_DIR}/../test_runtime.wasm)
 add_custom_command(
     OUTPUT ${BUILD_RUNTIME_WASM}
