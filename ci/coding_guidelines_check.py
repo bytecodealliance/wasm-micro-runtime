@@ -219,20 +219,17 @@ def analysis_new_item_name(root: Path, commit: str) -> bool:
 
     For any directory name in the repo,  it is required to use '-' to replace '_'.
     """
-    GIT_SHOW_CMD = f"git show --oneline --name-status --diff-filter A {commit}"
+    GIT_DIFF_CMD = f"git diff --name-status --diff-filter=A {commit}"
     try:
         invalid_items = True
         output = subprocess.check_output(
-            shlex.split(GIT_SHOW_CMD), cwd=root, universal_newlines=True
+            shlex.split(GIT_DIFF_CMD), cwd=root, universal_newlines=True
         )
         if not output:
             return True
 
-        NEW_FILE_PATTERN = "^A\s+(\S+)"
-        for line_no, line in enumerate(output.split("\n")):
-            # bypass the first line, usually it is the commit description
-            if line_no == 0:
-                continue
+        NEW_FILE_PATTERN = r"^A\s+(\S+)"
+        for line in output.split("\n"):
 
             if not line:
                 continue
