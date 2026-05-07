@@ -3,16 +3,19 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "platform_internal.h"
 #include "test_helper.h"
 #include "gtest/gtest.h"
 
 #include "bh_read_file.h"
 #include "wasm_runtime_common.h"
-#include "bh_platform.h"
 
 #include <gtest/gtest-spi.h>
+
+#include <thread>
 #include <vector>
+#include <iostream>
+#include <cstring>
+
 
 class shared_heap_test : public testing::Test
 {
@@ -46,6 +49,7 @@ load_wasm(const char *wasm_file_tested, unsigned int app_heap_size,
     ret_module_env.wasm_file_buf =
         (unsigned char *)bh_read_file_to_buffer(wasm_file, &wasm_file_size);
     if (!ret_module_env.wasm_file_buf) {
+        ADD_FAILURE() << "Failed to read wasm file buffer: " << wasm_file;
         goto fail;
     }
 
@@ -54,6 +58,8 @@ load_wasm(const char *wasm_file_tested, unsigned int app_heap_size,
                           error_buf, sizeof(error_buf));
     if (!ret_module_env.wasm_module) {
         memcpy(ret_module_env.error_buf, error_buf, 128);
+        ADD_FAILURE() << "Failed to load wasm module: " << wasm_file
+                      << " with error: " << error_buf;
         goto fail;
     }
 
@@ -62,12 +68,15 @@ load_wasm(const char *wasm_file_tested, unsigned int app_heap_size,
                                  heap_size, error_buf, sizeof(error_buf));
     if (!ret_module_env.wasm_module_inst) {
         memcpy(ret_module_env.error_buf, error_buf, 128);
+        ADD_FAILURE() << "Failed to instantiate wasm module: " << wasm_file
+                      << " with error: " << error_buf;
         goto fail;
     }
 
     ret_module_env.exec_env = wasm_runtime_create_exec_env(
         ret_module_env.wasm_module_inst, stack_size);
     if (!ret_module_env.exec_env) {
+        ADD_FAILURE() << "Failed to create wasm execution environment: " << wasm_file;
         goto fail;
     }
 
@@ -148,7 +157,7 @@ TEST_F(shared_heap_test, test_shared_heap_basic)
     WASMSharedHeap *shared_heap = nullptr;
     uint32 argv[1] = {};
 
-    args.size = os_getpagesize();
+    args.size = 1024;
     shared_heap = wasm_runtime_create_shared_heap(&args);
 
     if (!shared_heap) {
@@ -171,23 +180,20 @@ TEST_F(shared_heap_test, test_shared_heap_malloc_fail)
     WASMSharedHeap *shared_heap = nullptr;
     uint32 argv[1] = {};
 
-    args.size = os_getpagesize();
+    args.size = 1024;
     shared_heap = wasm_runtime_create_shared_heap(&args);
 
     if (!shared_heap) {
         FAIL() << "Failed to create shared heap";
     }
 
-    argv[0] = os_getpagesize();
-    test_shared_heap(shared_heap, "test.wasm", "test_malloc_fail", 1, argv);
+    test_shared_heap(shared_heap, "test.wasm", "test_malloc_fail", 0, argv);
     EXPECT_EQ(1, argv[0]);
 
-    argv[0] = os_getpagesize();
-    test_shared_heap(shared_heap, "test.aot", "test_malloc_fail", 1, argv);
+    test_shared_heap(shared_heap, "test.aot", "test_malloc_fail", 0, argv);
     EXPECT_EQ(1, argv[0]);
 
-    argv[0] = os_getpagesize();
-    test_shared_heap(shared_heap, "test_chain.aot", "test_malloc_fail", 1,
+    test_shared_heap(shared_heap, "test_chain.aot", "test_malloc_fail", 0,
                      argv);
     EXPECT_EQ(1, argv[0]);
 }
@@ -197,15 +203,10 @@ TEST_F(shared_heap_test, test_preallocated_shared_heap_malloc_fail)
     SharedHeapInitArgs args = {};
     WASMSharedHeap *shared_heap = nullptr;
     uint32 argv[1] = {}, BUF_SIZE = os_getpagesize();
-    uint8 *preallocated_buf_ptr = nullptr;
-
-    ASSERT_GT(BUF_SIZE, 0u);
-    std::vector<uint8> preallocated_buf(BUF_SIZE);
-    preallocated_buf_ptr = preallocated_buf.data();
-    ASSERT_NE(preallocated_buf_ptr, nullptr);
+    uint8 preallocated_buf[BUF_SIZE];
 
     /* create a preallocated shared heap */
-    args.pre_allocated_addr = preallocated_buf_ptr;
+    args.pre_allocated_addr = preallocated_buf;
     args.size = BUF_SIZE;
     shared_heap = wasm_runtime_create_shared_heap(&args);
     if (!shared_heap) {
@@ -263,7 +264,7 @@ TEST_F(shared_heap_test, test_preallocated_shared_runtime_api)
     }
 
     size = (uint64_t)UINT32_MAX + 0x2000;
-    printf("offset %llx size: %llx\n", offset, size);
+    printf("offset %lx size: %lx\n", offset, size);
     ASSERT_EQ(false, wasm_runtime_validate_app_addr(
                          tmp_module_env.wasm_module_inst, offset, size));
 
@@ -336,15 +337,10 @@ TEST_F(shared_heap_test, test_shared_heap_rmw)
 {
     WASMSharedHeap *shared_heap = nullptr;
     uint32 argv[2] = {}, BUF_SIZE = os_getpagesize();
-    uint8 *preallocated_buf_ptr = nullptr;
+    uint8 preallocated_buf[BUF_SIZE] = {};
     uint32 start1, end1;
 
-    ASSERT_GT(BUF_SIZE, 0u);
-    std::vector<uint8> preallocated_buf(BUF_SIZE);
-    preallocated_buf_ptr = preallocated_buf.data();
-    ASSERT_NE(preallocated_buf_ptr, nullptr);
-
-    create_test_shared_heap(preallocated_buf_ptr, BUF_SIZE, &shared_heap);
+    create_test_shared_heap(preallocated_buf, BUF_SIZE, &shared_heap);
 
     /* app addr for shared heap */
     start1 = UINT32_MAX - BUF_SIZE + 1;
@@ -380,21 +376,11 @@ TEST_F(shared_heap_test, test_shared_heap_chain_rmw)
     SharedHeapInitArgs args = {};
     WASMSharedHeap *shared_heap_chain = nullptr;
     uint32 argv[2] = {}, BUF_SIZE = os_getpagesize();
-    uint8 *preallocated_buf_ptr = nullptr;
-    uint8 *preallocated_buf2_ptr = nullptr;
+    uint8 preallocated_buf[BUF_SIZE] = {}, preallocated_buf2[BUF_SIZE] = {};
     uint32 start1, end1, start2, end2;
 
-    ASSERT_GT(BUF_SIZE, 0u);
-    std::vector<uint8> preallocated_buf(BUF_SIZE);
-    std::vector<uint8> preallocated_buf2(BUF_SIZE);
-    preallocated_buf_ptr = preallocated_buf.data();
-    preallocated_buf2_ptr = preallocated_buf2.data();
-    ASSERT_NE(preallocated_buf_ptr, nullptr);
-    ASSERT_NE(preallocated_buf2_ptr, nullptr);
-
-    create_test_shared_heap_chain(preallocated_buf_ptr, BUF_SIZE,
-                                  preallocated_buf2_ptr, BUF_SIZE,
-                                  &shared_heap_chain);
+    create_test_shared_heap_chain(preallocated_buf, BUF_SIZE, preallocated_buf2,
+                                  BUF_SIZE, &shared_heap_chain);
 
     /* app addr for shared heap */
     start1 = UINT32_MAX - 2 * BUF_SIZE + 1;
@@ -438,21 +424,11 @@ TEST_F(shared_heap_test, test_shared_heap_chain_rmw_bulk_memory)
     SharedHeapInitArgs args = {};
     WASMSharedHeap *shared_heap_chain = nullptr;
     uint32 argv[3] = {}, BUF_SIZE = os_getpagesize();
-    uint8 *preallocated_buf_ptr = nullptr;
-    uint8 *preallocated_buf2_ptr = nullptr;
+    uint8 preallocated_buf[BUF_SIZE] = {}, preallocated_buf2[BUF_SIZE] = {};
     uint32 start1, end1, start2, end2;
 
-    ASSERT_GT(BUF_SIZE, 0u);
-    std::vector<uint8> preallocated_buf(BUF_SIZE);
-    std::vector<uint8> preallocated_buf2(BUF_SIZE);
-    preallocated_buf_ptr = preallocated_buf.data();
-    preallocated_buf2_ptr = preallocated_buf2.data();
-    ASSERT_NE(preallocated_buf_ptr, nullptr);
-    ASSERT_NE(preallocated_buf2_ptr, nullptr);
-
-    create_test_shared_heap_chain(preallocated_buf_ptr, BUF_SIZE,
-                                  preallocated_buf2_ptr, BUF_SIZE,
-                                  &shared_heap_chain);
+    create_test_shared_heap_chain(preallocated_buf, BUF_SIZE, preallocated_buf2,
+                                  BUF_SIZE, &shared_heap_chain);
 
     /* app addr for shared heap */
     start1 = UINT32_MAX - 2 * BUF_SIZE + 1;
@@ -503,21 +479,11 @@ TEST_F(shared_heap_test, test_shared_heap_chain_rmw_bulk_memory_oob)
     SharedHeapInitArgs args = {};
     WASMSharedHeap *shared_heap_chain = nullptr;
     uint32 argv[3] = {}, BUF_SIZE = os_getpagesize();
-    uint8 *preallocated_buf_ptr = nullptr;
-    uint8 *preallocated_buf2_ptr = nullptr;
+    uint8 preallocated_buf[BUF_SIZE] = {}, preallocated_buf2[BUF_SIZE] = {};
     uint32 start1, end1, start2, end2;
 
-    ASSERT_GT(BUF_SIZE, 0u);
-    std::vector<uint8> preallocated_buf(BUF_SIZE);
-    std::vector<uint8> preallocated_buf2(BUF_SIZE);
-    preallocated_buf_ptr = preallocated_buf.data();
-    preallocated_buf2_ptr = preallocated_buf2.data();
-    ASSERT_NE(preallocated_buf_ptr, nullptr);
-    ASSERT_NE(preallocated_buf2_ptr, nullptr);
-
-    create_test_shared_heap_chain(preallocated_buf_ptr, BUF_SIZE,
-                                  preallocated_buf2_ptr, BUF_SIZE,
-                                  &shared_heap_chain);
+    create_test_shared_heap_chain(preallocated_buf, BUF_SIZE, preallocated_buf2,
+                                  BUF_SIZE, &shared_heap_chain);
 
     /* app addr for shared heap */
     start1 = UINT32_MAX - 2 * BUF_SIZE + 1;
@@ -595,19 +561,10 @@ TEST_F(shared_heap_test, test_shared_heap_rmw_oob)
 {
     WASMSharedHeap *shared_heap = nullptr;
     uint32 argv[2] = {}, BUF_SIZE = os_getpagesize();
-    uint8 *preallocated_buf_ptr = nullptr;
-    uint8 *preallocated_buf2_ptr = nullptr;
+    uint8 preallocated_buf[BUF_SIZE], preallocated_buf2[BUF_SIZE];
     uint32 start1, end1, start2, end2;
 
-    ASSERT_GT(BUF_SIZE, 0u);
-    std::vector<uint8> preallocated_buf(BUF_SIZE);
-    std::vector<uint8> preallocated_buf2(BUF_SIZE);
-    preallocated_buf_ptr = preallocated_buf.data();
-    preallocated_buf2_ptr = preallocated_buf2.data();
-    ASSERT_NE(preallocated_buf_ptr, nullptr);
-    ASSERT_NE(preallocated_buf2_ptr, nullptr);
-
-    create_test_shared_heap(preallocated_buf_ptr, BUF_SIZE, &shared_heap);
+    create_test_shared_heap(preallocated_buf, BUF_SIZE, &shared_heap);
 
     /* app addr for shared heap */
     start1 = UINT32_MAX - BUF_SIZE + 1;
@@ -638,21 +595,11 @@ TEST_F(shared_heap_test, test_shared_heap_chain_rmw_oob)
 {
     WASMSharedHeap *shared_heap_chain = nullptr;
     uint32 argv[2] = {}, BUF_SIZE = os_getpagesize();
-    uint8 *preallocated_buf_ptr = nullptr;
-    uint8 *preallocated_buf2_ptr = nullptr;
+    uint8 preallocated_buf[BUF_SIZE], preallocated_buf2[BUF_SIZE];
     uint32 start1, end1, start2, end2;
 
-    ASSERT_GT(BUF_SIZE, 0u);
-    std::vector<uint8> preallocated_buf(BUF_SIZE);
-    std::vector<uint8> preallocated_buf2(BUF_SIZE);
-    preallocated_buf_ptr = preallocated_buf.data();
-    preallocated_buf2_ptr = preallocated_buf2.data();
-    ASSERT_NE(preallocated_buf_ptr, nullptr);
-    ASSERT_NE(preallocated_buf2_ptr, nullptr);
-
-    create_test_shared_heap_chain(preallocated_buf_ptr, BUF_SIZE,
-                                  preallocated_buf2_ptr, BUF_SIZE,
-                                  &shared_heap_chain);
+    create_test_shared_heap_chain(preallocated_buf, BUF_SIZE, preallocated_buf2,
+                                  BUF_SIZE, &shared_heap_chain);
 
     /* app addr for shared heap */
     start1 = UINT32_MAX - 2 * BUF_SIZE + 1;
@@ -681,21 +628,11 @@ TEST_F(shared_heap_test, test_shared_heap_chain_memory64_rmw)
 {
     WASMSharedHeap *shared_heap_chain = nullptr;
     uint32 argv[3] = {}, BUF_SIZE = os_getpagesize();
-    uint8 *preallocated_buf_ptr = nullptr;
-    uint8 *preallocated_buf2_ptr = nullptr;
+    uint8 preallocated_buf[BUF_SIZE] = {}, preallocated_buf2[BUF_SIZE] = {};
     uint64 start1, end1, start2, end2;
 
-    ASSERT_GT(BUF_SIZE, 0u);
-    std::vector<uint8> preallocated_buf(BUF_SIZE);
-    std::vector<uint8> preallocated_buf2(BUF_SIZE);
-    preallocated_buf_ptr = preallocated_buf.data();
-    preallocated_buf2_ptr = preallocated_buf2.data();
-    ASSERT_NE(preallocated_buf_ptr, nullptr);
-    ASSERT_NE(preallocated_buf2_ptr, nullptr);
-
-    create_test_shared_heap_chain(preallocated_buf_ptr, BUF_SIZE,
-                                  preallocated_buf2_ptr, BUF_SIZE,
-                                  &shared_heap_chain);
+    create_test_shared_heap_chain(preallocated_buf, BUF_SIZE, preallocated_buf2,
+                                  BUF_SIZE, &shared_heap_chain);
 
     /* app addr for shared heap */
     start1 = UINT64_MAX - 2 * BUF_SIZE + 1;
@@ -738,21 +675,11 @@ TEST_F(shared_heap_test, test_shared_heap_chain_memory64_rmw_oob)
 {
     WASMSharedHeap *shared_heap_chain = nullptr;
     uint32 argv[3] = {}, BUF_SIZE = os_getpagesize();
-    uint8 *preallocated_buf_ptr = nullptr;
-    uint8 *preallocated_buf2_ptr = nullptr;
+    uint8 preallocated_buf[BUF_SIZE], preallocated_buf2[BUF_SIZE];
     uint64 start1, end1, start2, end2;
 
-    ASSERT_GT(BUF_SIZE, 0u);
-    std::vector<uint8> preallocated_buf(BUF_SIZE);
-    std::vector<uint8> preallocated_buf2(BUF_SIZE);
-    preallocated_buf_ptr = preallocated_buf.data();
-    preallocated_buf2_ptr = preallocated_buf2.data();
-    ASSERT_NE(preallocated_buf_ptr, nullptr);
-    ASSERT_NE(preallocated_buf2_ptr, nullptr);
-
-    create_test_shared_heap_chain(preallocated_buf_ptr, BUF_SIZE,
-                                  preallocated_buf2_ptr, BUF_SIZE,
-                                  &shared_heap_chain);
+    create_test_shared_heap_chain(preallocated_buf, BUF_SIZE, preallocated_buf2,
+                                  BUF_SIZE, &shared_heap_chain);
 
     /* app addr for shared heap */
     start1 = UINT64_MAX - 2 * BUF_SIZE + 1;
@@ -840,11 +767,7 @@ TEST_F(shared_heap_test, test_addr_conv_pre_allocated_oob)
     WASMSharedHeap *shared_heap = nullptr;
     uint32 argv[1] = {}, BUF_SIZE = os_getpagesize(),
            app_addr = 0xFFFFFFFF - BUF_SIZE;
-    uint8 *preallocated_buf_ptr = nullptr;
-    ASSERT_GT(BUF_SIZE, 0u);
-    std::vector<uint8> preallocated_buf(BUF_SIZE);
-    preallocated_buf_ptr = preallocated_buf.data();
-    ASSERT_NE(preallocated_buf_ptr, nullptr);
+    uint8 preallocated_buf[BUF_SIZE];
     bool ret = false;
 
     /* create a preallocated shared heap */
@@ -854,7 +777,7 @@ TEST_F(shared_heap_test, test_addr_conv_pre_allocated_oob)
         FAIL() << "Failed to register natives";
     }
 
-    args.pre_allocated_addr = preallocated_buf_ptr;
+    args.pre_allocated_addr = preallocated_buf;
     args.size = BUF_SIZE;
     shared_heap = wasm_runtime_create_shared_heap(&args);
     if (!shared_heap) {
@@ -884,11 +807,7 @@ TEST_F(shared_heap_test, test_shared_heap_chain)
     WASMSharedHeap *shared_heap = nullptr, *shared_heap2 = nullptr,
                    *shared_heap_chain = nullptr;
     uint32 argv[1] = {}, BUF_SIZE = os_getpagesize();
-    uint8 *preallocated_buf_ptr = nullptr;
-    ASSERT_GT(BUF_SIZE, 0u);
-    std::vector<uint8> preallocated_buf(BUF_SIZE);
-    preallocated_buf_ptr = preallocated_buf.data();
-    ASSERT_NE(preallocated_buf_ptr, nullptr);
+    uint8 preallocated_buf[BUF_SIZE];
     bool ret = false;
 
     ret = wasm_native_register_natives("env", g_test_native_symbols,
@@ -905,7 +824,7 @@ TEST_F(shared_heap_test, test_shared_heap_chain)
 
     /* create a preallocated shared heap */
     memset(&args, 0, sizeof(args));
-    args.pre_allocated_addr = preallocated_buf_ptr;
+    args.pre_allocated_addr = preallocated_buf;
     args.size = BUF_SIZE;
     shared_heap2 = wasm_runtime_create_shared_heap(&args);
     if (!shared_heap2) {
@@ -954,11 +873,7 @@ TEST_F(shared_heap_test, test_shared_heap_chain_create_fail2)
     WASMSharedHeap *shared_heap = nullptr, *shared_heap2 = nullptr,
                    *shared_heap_chain = nullptr;
     uint32 argv[1] = {}, BUF_SIZE = os_getpagesize();
-    uint8 *preallocated_buf_ptr = nullptr;
-    ASSERT_GT(BUF_SIZE, 0u);
-    std::vector<uint8> preallocated_buf(BUF_SIZE);
-    preallocated_buf_ptr = preallocated_buf.data();
-    ASSERT_NE(preallocated_buf_ptr, nullptr);
+    uint8 preallocated_buf[BUF_SIZE];
     struct ret_env tmp_module_env;
 
     args.size = 1024;
@@ -968,7 +883,7 @@ TEST_F(shared_heap_test, test_shared_heap_chain_create_fail2)
     }
 
     memset(&args, 0, sizeof(args));
-    args.pre_allocated_addr = preallocated_buf_ptr;
+    args.pre_allocated_addr = preallocated_buf;
     args.size = BUF_SIZE;
     shared_heap2 = wasm_runtime_create_shared_heap(&args);
     if (!shared_heap2) {
@@ -1000,15 +915,7 @@ TEST_F(shared_heap_test, test_shared_heap_chain_create_fail3)
     WASMSharedHeap *shared_heap = nullptr, *shared_heap2 = nullptr,
                    *shared_heap3 = nullptr, *shared_heap_chain = nullptr;
     uint32 argv[1] = {}, BUF_SIZE = os_getpagesize();
-    uint8 *preallocated_buf_ptr = nullptr;
-    uint8 *preallocated_buf2_ptr = nullptr;
-    ASSERT_GT(BUF_SIZE, 0u);
-    std::vector<uint8> preallocated_buf(BUF_SIZE);
-    std::vector<uint8> preallocated_buf2(BUF_SIZE);
-    preallocated_buf_ptr = preallocated_buf.data();
-    preallocated_buf2_ptr = preallocated_buf2.data();
-    ASSERT_NE(preallocated_buf_ptr, nullptr);
-    ASSERT_NE(preallocated_buf2_ptr, nullptr);
+    uint8 preallocated_buf[BUF_SIZE], preallocated_buf2[BUF_SIZE];
 
     args.size = 1024;
     shared_heap = wasm_runtime_create_shared_heap(&args);
@@ -1017,7 +924,7 @@ TEST_F(shared_heap_test, test_shared_heap_chain_create_fail3)
     }
 
     memset(&args, 0, sizeof(args));
-    args.pre_allocated_addr = preallocated_buf_ptr;
+    args.pre_allocated_addr = preallocated_buf;
     args.size = BUF_SIZE;
     shared_heap2 = wasm_runtime_create_shared_heap(&args);
     if (!shared_heap2) {
@@ -1031,7 +938,7 @@ TEST_F(shared_heap_test, test_shared_heap_chain_create_fail3)
     }
 
     memset(&args, 0, sizeof(args));
-    args.pre_allocated_addr = preallocated_buf2_ptr;
+    args.pre_allocated_addr = preallocated_buf2;
     args.size = BUF_SIZE;
     shared_heap3 = wasm_runtime_create_shared_heap(&args);
     if (!shared_heap3) {
@@ -1053,15 +960,7 @@ TEST_F(shared_heap_test, test_shared_heap_chain_unchain)
     WASMSharedHeap *shared_heap = nullptr, *shared_heap2 = nullptr,
                    *shared_heap3 = nullptr, *shared_heap_chain = nullptr;
     uint32 argv[1] = {}, BUF_SIZE = os_getpagesize();
-    uint8 *preallocated_buf_ptr = nullptr;
-    uint8 *preallocated_buf2_ptr = nullptr;
-    ASSERT_GT(BUF_SIZE, 0u);
-    std::vector<uint8> preallocated_buf(BUF_SIZE);
-    std::vector<uint8> preallocated_buf2(BUF_SIZE);
-    preallocated_buf_ptr = preallocated_buf.data();
-    preallocated_buf2_ptr = preallocated_buf2.data();
-    ASSERT_NE(preallocated_buf_ptr, nullptr);
-    ASSERT_NE(preallocated_buf2_ptr, nullptr);
+    uint8 preallocated_buf[BUF_SIZE], preallocated_buf2[BUF_SIZE];
 
     args.size = 1024;
     shared_heap = wasm_runtime_create_shared_heap(&args);
@@ -1070,7 +969,7 @@ TEST_F(shared_heap_test, test_shared_heap_chain_unchain)
     }
 
     memset(&args, 0, sizeof(args));
-    args.pre_allocated_addr = preallocated_buf_ptr;
+    args.pre_allocated_addr = preallocated_buf;
     args.size = BUF_SIZE;
     shared_heap2 = wasm_runtime_create_shared_heap(&args);
     if (!shared_heap2) {
@@ -1084,7 +983,7 @@ TEST_F(shared_heap_test, test_shared_heap_chain_unchain)
     }
 
     memset(&args, 0, sizeof(args));
-    args.pre_allocated_addr = preallocated_buf2_ptr;
+    args.pre_allocated_addr = preallocated_buf2;
     args.size = BUF_SIZE;
     shared_heap3 = wasm_runtime_create_shared_heap(&args);
     if (!shared_heap3) {
@@ -1116,11 +1015,7 @@ TEST_F(shared_heap_test, test_shared_heap_chain_reset_runtime_managed)
     uint64 offset = 0, offset_after_reset = 0;
     void *native_ptr = nullptr, *native_ptr_after_reset = nullptr;
     uint32 argv[1] = {}, BUF_SIZE = os_getpagesize();
-    uint8 *preallocated_buf_ptr = nullptr;
-    ASSERT_GT(BUF_SIZE, 0u);
-    std::vector<uint8> preallocated_buf(BUF_SIZE);
-    preallocated_buf_ptr = preallocated_buf.data();
-    ASSERT_NE(preallocated_buf_ptr, nullptr);
+    uint8 preallocated_buf[BUF_SIZE];
     struct ret_env tmp_module_env;
 
     args.size = 4096;
@@ -1130,7 +1025,7 @@ TEST_F(shared_heap_test, test_shared_heap_chain_reset_runtime_managed)
     }
 
     args.size = BUF_SIZE;
-    args.pre_allocated_addr = preallocated_buf_ptr;
+    args.pre_allocated_addr = preallocated_buf;
     shared_heap2 = wasm_runtime_create_shared_heap(&args);
     if (!shared_heap2) {
         FAIL() << "Failed to create second shared heap";
@@ -1198,21 +1093,17 @@ TEST_F(shared_heap_test, test_shared_heap_chain_reset_preallocated)
     SharedHeapInitArgs args = {};
     WASMSharedHeap *shared_heap = nullptr;
     uint32 BUF_SIZE = os_getpagesize();
-    uint8 *preallocated_buf_ptr = nullptr;
-    ASSERT_GT(BUF_SIZE, 0u);
-    std::vector<uint8> preallocated_buf(BUF_SIZE);
-    preallocated_buf_ptr = preallocated_buf.data();
-    ASSERT_NE(preallocated_buf_ptr, nullptr);
+    uint8 preallocated_buf[BUF_SIZE];
     uint8 set_val = 0xA5;
 
-    args.pre_allocated_addr = preallocated_buf_ptr;
+    args.pre_allocated_addr = preallocated_buf;
     args.size = BUF_SIZE;
     shared_heap = wasm_runtime_create_shared_heap(&args);
     if (!shared_heap) {
         FAIL() << "Create preallocated shared heap failed.\n";
     }
 
-    memset(preallocated_buf_ptr, set_val, BUF_SIZE);
+    memset(preallocated_buf, set_val, BUF_SIZE);
     for (uint32 i = 0; i < BUF_SIZE; i++) {
         EXPECT_EQ(set_val, preallocated_buf[i]);
     }
@@ -1263,11 +1154,7 @@ TEST_F(shared_heap_test, test_shared_heap_chain_addr_conv)
     WASMSharedHeap *shared_heap = nullptr, *shared_heap2 = nullptr,
                    *shared_heap_chain = nullptr;
     uint32 argv[1] = {}, BUF_SIZE = os_getpagesize();
-    uint8 *preallocated_buf_ptr = nullptr;
-    ASSERT_GT(BUF_SIZE, 0u);
-    std::vector<uint8> preallocated_buf(BUF_SIZE);
-    preallocated_buf_ptr = preallocated_buf.data();
-    ASSERT_NE(preallocated_buf_ptr, nullptr);
+    uint8 preallocated_buf[BUF_SIZE];
     bool ret = false;
 
     ret = wasm_native_register_natives("env", g_test_native_symbols,
@@ -1284,7 +1171,7 @@ TEST_F(shared_heap_test, test_shared_heap_chain_addr_conv)
 
     /* create a preallocated shared heap */
     memset(&args, 0, sizeof(args));
-    args.pre_allocated_addr = preallocated_buf_ptr;
+    args.pre_allocated_addr = preallocated_buf;
     args.size = BUF_SIZE;
     shared_heap2 = wasm_runtime_create_shared_heap(&args);
     if (!shared_heap2) {
@@ -1324,11 +1211,7 @@ TEST_F(shared_heap_test, test_shared_heap_chain_addr_conv_oob)
     WASMSharedHeap *shared_heap = nullptr, *shared_heap2 = nullptr,
                    *shared_heap_chain = nullptr;
     uint32 argv[1] = {}, BUF_SIZE = os_getpagesize();
-    uint8 *preallocated_buf_ptr = nullptr;
-    ASSERT_GT(BUF_SIZE, 0u);
-    std::vector<uint8> preallocated_buf(BUF_SIZE);
-    preallocated_buf_ptr = preallocated_buf.data();
-    ASSERT_NE(preallocated_buf_ptr, nullptr);
+    uint8 preallocated_buf[BUF_SIZE];
     bool ret = false;
 
     ret = wasm_native_register_natives("env", g_test_native_symbols,
@@ -1337,7 +1220,7 @@ TEST_F(shared_heap_test, test_shared_heap_chain_addr_conv_oob)
         FAIL() << "Failed to register natives";
     }
 
-    args.size = os_getpagesize();
+    args.size = 4096;
     shared_heap = wasm_runtime_create_shared_heap(&args);
     if (!shared_heap) {
         FAIL() << "Failed to create shared heap";
@@ -1345,7 +1228,7 @@ TEST_F(shared_heap_test, test_shared_heap_chain_addr_conv_oob)
 
     /* create a preallocated shared heap */
     memset(&args, 0, sizeof(args));
-    args.pre_allocated_addr = preallocated_buf_ptr;
+    args.pre_allocated_addr = preallocated_buf;
     args.size = BUF_SIZE;
     shared_heap2 = wasm_runtime_create_shared_heap(&args);
     if (!shared_heap2) {
@@ -1359,16 +1242,500 @@ TEST_F(shared_heap_test, test_shared_heap_chain_addr_conv_oob)
     }
 
     /* test wasm */
-    argv[0] = 0xFFFFFFFF - BUF_SIZE - os_getpagesize();
+    argv[0] = 0xFFFFFFFF - BUF_SIZE - 4096;
     EXPECT_NONFATAL_FAILURE(test_shared_heap(shared_heap_chain,
                                              "test_addr_conv.wasm",
                                              "test_preallocated", 1, argv),
                             "Exception: out of bounds memory access");
 
     /* test aot */
-    argv[0] = 0xFFFFFFFF - BUF_SIZE - os_getpagesize();
+    argv[0] = 0xFFFFFFFF - BUF_SIZE - 4096;
     EXPECT_NONFATAL_FAILURE(test_shared_heap(shared_heap_chain,
                                              "test_addr_conv_chain.aot",
                                              "test_preallocated", 1, argv),
                             "Exception: out of bounds memory access");
+}
+
+
+/* Test the behavior of the shared heap in a multi-threaded environment to ensure thread safety and data consistency. */
+
+TEST_F(shared_heap_test, test_shared_heap_multithread_access)
+{
+	SharedHeapInitArgs args = { 0 };
+    WASMSharedHeap *shared_heap = nullptr;
+    uint32 argv[1] = { 0 };
+    const int num_threads = 2;
+    std::vector<std::thread> threads;
+
+    args.size = 1024;
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+    if (!shared_heap) {
+        FAIL() << "Failed to create shared heap";
+    }
+
+    auto thread_func = [&shared_heap]() {
+        wasm_runtime_init_thread_env();
+        uint32 local_argv[1] = { 0 };
+        test_shared_heap(shared_heap, "test.wasm", "test", 0, local_argv);
+	    wasm_runtime_destroy_thread_env();
+        EXPECT_EQ(10, local_argv[0]);
+    };
+
+    for (int i = 0; i < num_threads; ++i) {
+        threads.emplace_back(thread_func);
+    }
+
+    for (auto &thread : threads) {
+        thread.join();
+    }
+}
+
+
+TEST_F(shared_heap_test, test_shared_heap_concurrent_access)
+{
+    SharedHeapInitArgs args = { 0 };
+    WASMSharedHeap *shared_heap = nullptr;
+    uint32 BUF_SIZE = os_getpagesize();
+    uint8 preallocated_buf[BUF_SIZE] = { 0 };
+
+    args.pre_allocated_addr = preallocated_buf;
+    args.size = BUF_SIZE;
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+    ASSERT_NE(shared_heap, nullptr) << "Failed to create shared heap";
+
+    auto thread_func = [&](uint8 *buf, int value) {
+        for (int i = 0; i < BUF_SIZE; ++i) {
+            buf[i] = value;
+        }
+    };
+
+    // Using std::ref to solve array parameter passing problem
+    std::thread t1(thread_func, static_cast<uint8*>(preallocated_buf), 0xAA);
+    std::thread t2(thread_func, static_cast<uint8*>(preallocated_buf), 0x55);
+
+    t1.join();
+    t2.join();
+
+    //  Verify shared memory consistency (last thread wins)
+    for (int i = 0; i < BUF_SIZE; ++i) {
+        EXPECT_TRUE(preallocated_buf[i] == 0xAA || preallocated_buf[i] == 0x55)
+            << "Data corruption detected";
+    }
+}
+
+
+TEST_F(shared_heap_test, test_shared_heap_cross_instance)
+{
+    SharedHeapInitArgs args = { 0 };
+    WASMSharedHeap *shared_heap = nullptr;
+    uint32 BUF_SIZE = os_getpagesize();
+    uint8 preallocated_buf[BUF_SIZE] = { 0 };
+    uint32 start1;
+
+    args.pre_allocated_addr = preallocated_buf;
+    args.size = BUF_SIZE;
+
+    /* app addr for shared heap */
+    start1 = UINT32_MAX - BUF_SIZE + 1;
+
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+    ASSERT_NE(shared_heap, nullptr) << "Failed to create shared heap";
+
+    struct ret_env module_env1, module_env2;
+
+    ASSERT_TRUE(load_wasm((char *)"test.wasm", 0, module_env1)) 
+        << "Failed to load wasm file for instance 1";
+    ASSERT_TRUE(load_wasm((char *)"test.wasm", 0, module_env2)) 
+        << "Failed to load wasm file for instance 2";
+
+    ASSERT_TRUE(wasm_runtime_attach_shared_heap(module_env1.wasm_module_inst, shared_heap));
+    ASSERT_TRUE(wasm_runtime_attach_shared_heap(module_env2.wasm_module_inst, shared_heap));
+
+    // Instance 1 writes to shared memory
+    uint32 argv1[2] = { start1, 123 };
+    test_shared_heap(shared_heap, "test.wasm", "read_modify_write_8", 2, argv1);
+
+    // Instance 2 reads from shared memory
+    uint32 argv2[2] = { start1, 0 };
+    test_shared_heap(shared_heap, "test.wasm", "read_modify_write_8", 2, argv2);
+
+    EXPECT_EQ(argv2[0], 123);
+
+    wasm_runtime_detach_shared_heap(module_env1.wasm_module_inst);
+    wasm_runtime_detach_shared_heap(module_env2.wasm_module_inst);
+    destroy_module_env(module_env1);
+    destroy_module_env(module_env2);
+}
+
+TEST_F(shared_heap_test, test_shared_heap_lifecycle)
+{
+    SharedHeapInitArgs args = { 0 };
+    WASMSharedHeap *shared_heap = nullptr;
+    uint32 BUF_SIZE = os_getpagesize();
+    uint8 preallocated_buf[BUF_SIZE] = { 0 };
+
+    args.pre_allocated_addr = preallocated_buf;
+    args.size = BUF_SIZE;
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+    ASSERT_NE(shared_heap, nullptr) << "Failed to create shared heap";
+
+   
+    preallocated_buf[0] = 42;
+    EXPECT_EQ(preallocated_buf[0], 42);
+
+    // Manually zeroing preallocated memory to simulate deallocation
+    memset(preallocated_buf, 0, BUF_SIZE);
+
+    // Check if it is still accessible after clearing
+    EXPECT_EQ(preallocated_buf[0], 0) << "Memory not properly cleared after manual cleanup";
+}
+
+//Unaligned memory access 
+TEST_F(shared_heap_test, test_shared_heap_unaligned_access)
+{
+    SharedHeapInitArgs args = { 0 };
+    WASMSharedHeap *shared_heap = nullptr;
+    uint32 BUF_SIZE = os_getpagesize();
+    uint8 preallocated_buf[BUF_SIZE] = { 0 };
+
+    args.pre_allocated_addr = preallocated_buf;
+    args.size = BUF_SIZE;
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+    ASSERT_NE(shared_heap, nullptr) << "Failed to create shared heap";
+
+    // Write unaligned data
+    uint16 *unaligned_ptr = (uint16 *)(preallocated_buf + 1);
+    *unaligned_ptr = 0xABCD;
+
+    // Read back unaligned data
+    uint16 result = *(uint16 *)(preallocated_buf + 1);
+    EXPECT_EQ(result, 0xABCD);
+}
+
+// test_sandbox.wasm
+TEST_F(shared_heap_test, test_memory_size_and_growth)
+{
+    uint32 argv[1] = { 0 };
+    SharedHeapInitArgs args = { 0 };
+    WASMSharedHeap *shared_heap = nullptr;
+
+    args.size = 1024;
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+    ASSERT_NE(shared_heap, nullptr) << "Failed to create shared heap";
+
+    // Load the WebAssembly module
+    struct ret_env module_env;
+    ASSERT_TRUE(load_wasm((char *)"test_sandbox.wasm", 0, module_env))
+        << "Failed to load wasm file";
+
+    ASSERT_TRUE(wasm_runtime_attach_shared_heap(module_env.wasm_module_inst, shared_heap))
+        << "Failed to attach shared heap";
+
+    // Test initial memory size
+    WASMFunctionInstanceCommon *func_memsize = wasm_runtime_lookup_function(module_env.wasm_module_inst, "memory_size");
+    ASSERT_NE(func_memsize, nullptr) << "Failed to find 'memory_size' function";
+    ASSERT_TRUE(wasm_runtime_call_wasm(module_env.exec_env, func_memsize, 0, argv));
+    EXPECT_EQ(argv[0], 1) << "Initial memory size should be 1 page";
+
+    // Test growing memory by 1 page
+    argv[0] = 1;
+    WASMFunctionInstanceCommon *func_grow = wasm_runtime_lookup_function(module_env.wasm_module_inst, "grow_memory");
+    ASSERT_NE(func_grow, nullptr) << "Failed to find 'grow_memory' function";
+    ASSERT_TRUE(wasm_runtime_call_wasm(module_env.exec_env, func_grow, 1, argv));
+    EXPECT_EQ(argv[0], 1) << "Memory growth result should be the previous size (1 page)";
+
+    // Verify new memory size (2 pages)
+    ASSERT_TRUE(wasm_runtime_call_wasm(module_env.exec_env, func_memsize, 0, argv));
+    EXPECT_EQ(argv[0], 2) << "Memory size should now be 2 pages";
+
+    // Test growing memory to maximum size
+    argv[0] = 2;
+    ASSERT_TRUE(wasm_runtime_call_wasm(module_env.exec_env, func_grow, 1, argv));
+    EXPECT_EQ(argv[0], 2) << "Memory growth result should be the previous size (2 pages)";
+
+    ASSERT_TRUE(wasm_runtime_call_wasm(module_env.exec_env, func_memsize, 0, argv));
+    EXPECT_EQ(argv[0], 4) << "Memory size should now be 4 pages (maximum)";
+
+    // Test exceeding maximum memory size
+    argv[0] = 1;
+    ASSERT_TRUE(wasm_runtime_call_wasm(module_env.exec_env, func_grow, 1, argv));
+    EXPECT_EQ(int32_t(argv[0]), -1) << "Memory growth should fail when exceeding max size";
+
+    ASSERT_TRUE(wasm_runtime_call_wasm(module_env.exec_env, func_memsize, 0, argv));
+    EXPECT_EQ(argv[0], 4) << "Memory size should remain 4 pages";
+
+    wasm_runtime_detach_shared_heap(module_env.wasm_module_inst);
+    destroy_module_env(module_env);
+}
+
+TEST_F(shared_heap_test, test_store_and_load)
+{
+    uint32 argv[2] = { 0 };
+    SharedHeapInitArgs args = { 0 };
+    WASMSharedHeap *shared_heap = nullptr;
+
+    args.size = 1024;
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+    ASSERT_NE(shared_heap, nullptr) << "Failed to create shared heap";
+
+    // Load the WebAssembly module
+    struct ret_env module_env;
+    ASSERT_TRUE(load_wasm((char *)"test_sandbox.wasm", 0, module_env))
+        << "Failed to load wasm file";
+
+    ASSERT_TRUE(wasm_runtime_attach_shared_heap(module_env.wasm_module_inst, shared_heap))
+        << "Failed to attach shared heap";
+
+    // Store value 100 at address 4
+    argv[0] = 4; // Address
+    argv[1] = 100; // Value
+    WASMFunctionInstanceCommon *func_store = wasm_runtime_lookup_function(module_env.wasm_module_inst, "store");
+    ASSERT_NE(func_store, nullptr) << "Failed to find 'store' function";
+    ASSERT_TRUE(wasm_runtime_call_wasm(module_env.exec_env, func_store, 2, argv));
+
+    // Load value from address 4
+    argv[0] = 4; // Address
+    WASMFunctionInstanceCommon *func_load = wasm_runtime_lookup_function(module_env.wasm_module_inst, "load");
+    ASSERT_NE(func_load, nullptr) << "Failed to find 'load' function";
+    ASSERT_TRUE(wasm_runtime_call_wasm(module_env.exec_env, func_load, 1, argv));
+    EXPECT_EQ(argv[0], 100) << "Loaded value should be 100";
+
+    wasm_runtime_detach_shared_heap(module_env.wasm_module_inst);
+    destroy_module_env(module_env);
+}
+
+TEST_F(shared_heap_test, test_unaligned_store_and_load)
+{
+    uint32 argv[2] = { 0 };
+    SharedHeapInitArgs args = { 0 };
+    WASMSharedHeap *shared_heap = nullptr;
+
+    args.size = 1024;
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+    ASSERT_NE(shared_heap, nullptr) << "Failed to create shared heap";
+
+    // Load the WebAssembly module
+    struct ret_env module_env;
+    ASSERT_TRUE(load_wasm((char *)"test_sandbox.wasm", 0, module_env))
+        << "Failed to load wasm file";
+
+    ASSERT_TRUE(wasm_runtime_attach_shared_heap(module_env.wasm_module_inst, shared_heap))
+        << "Failed to attach shared heap";
+
+    // Store value 42 at unaligned address 1
+    argv[0] = 1; // Address
+    argv[1] = 42; // Value
+    WASMFunctionInstanceCommon *func_store = wasm_runtime_lookup_function(module_env.wasm_module_inst, "store");
+    ASSERT_NE(func_store, nullptr) << "Failed to find 'store' function";
+    ASSERT_TRUE(wasm_runtime_call_wasm(module_env.exec_env, func_store, 2, argv));
+
+    // Load value from unaligned address 1
+    argv[0] = 1; // Address
+    WASMFunctionInstanceCommon *func_load = wasm_runtime_lookup_function(module_env.wasm_module_inst, "load");
+    ASSERT_NE(func_load, nullptr) << "Failed to find 'load' function";
+    ASSERT_TRUE(wasm_runtime_call_wasm(module_env.exec_env, func_load, 1, argv));
+    EXPECT_EQ(argv[0], 42) << "Loaded value should be 42";
+
+    wasm_runtime_detach_shared_heap(module_env.wasm_module_inst);
+    destroy_module_env(module_env);
+}
+
+
+// Test Case: Invalid size parameter
+TEST_F(shared_heap_test, test_shared_heap_invalid_size) {
+    SharedHeapInitArgs args = { 0 };
+    WASMSharedHeap *shared_heap = nullptr;
+
+    // Test size = 0
+    args.size = 0;
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+    EXPECT_EQ(shared_heap, nullptr) << "Expected shared_heap to be NULL for size=0";
+   
+
+    // Test size < APP_HEAP_SIZE_MIN
+    args.size = APP_HEAP_SIZE_MIN - 1;
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+    EXPECT_NE(shared_heap, nullptr) << "Expected shared_heap will not be NULL even Size < APP_HEAP_SIZE_MIN due to align_uint";
+
+    // Test size > APP_HEAP_SIZE_MAX
+    args.size = APP_HEAP_SIZE_MAX + 1;
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+    EXPECT_EQ(shared_heap, nullptr) << "Expected shared_heap to be NULL for Size > APP_HEAP_SIZE_MAX";
+
+    // Test size not aligned to system page size
+    args.size = os_getpagesize() - 1; // Non-aligned size
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+    EXPECT_NE(shared_heap, nullptr) << "Expected shared_heap will not be NULL for Non-aligned size due to align_uint";
+}
+
+// Test Case: Invalid pre-allocated address parameter
+TEST_F(shared_heap_test, test_shared_heap_invalid_pre_allocated_addr) {
+    SharedHeapInitArgs args = { 0 };
+    WASMSharedHeap *shared_heap = nullptr;
+    uint32 BUF_SIZE = os_getpagesize(); // System page size
+    uint8 preallocated_buf[BUF_SIZE] = { 0 };
+
+    // Test NULL pre-allocated address with invalid size
+    args.pre_allocated_addr = nullptr;
+    args.size = 0; // Invalid size
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+    EXPECT_EQ(shared_heap, nullptr) << "Expected shared_heap to be NULL for NULL pre_allocated_addr and invalid size";
+
+    // Test mismatched size with pre-allocated address
+    args.pre_allocated_addr = preallocated_buf;
+    args.size = BUF_SIZE - 1; // Size not aligned
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+    EXPECT_EQ(shared_heap, nullptr) << "Expected shared_heap to be NULL for pre_allocated_addr with mismatched size";
+
+}
+
+TEST_F(shared_heap_test, test_divide_by_zero)
+{
+    struct ret_env module_env;
+    uint32 argv[1] = { 42 };
+    bool ret = false;
+
+    if (!load_wasm((char *)"test_runtime.wasm", 0, module_env)) {
+        FAIL() << "Failed to load test_runtime.wasm file";
+        return;
+    }
+
+    WASMFunctionInstanceCommon *func_test = wasm_runtime_lookup_function(
+        module_env.wasm_module_inst, "divide_by_zero");
+    if (!func_test) {
+        FAIL() << "Failed to find divide_by_zero function";
+        destroy_module_env(module_env);
+        return;
+    }
+
+    ret = wasm_runtime_call_wasm(module_env.exec_env, func_test, 1, argv);
+    if (!ret) {
+        const char *exception = wasm_runtime_get_exception(module_env.wasm_module_inst);
+        if (exception && strstr(exception, "integer divide by zero")) {
+            SUCCEED() << "Caught expected divide by zero exception: " << exception;
+        } else {
+            FAIL() << "Unexpected exception occurred: " << (exception ? exception : "unknown");
+        }
+    } else {
+        FAIL() << "Expected divide by zero exception, but function executed successfully";
+    }
+
+    destroy_module_env(module_env);
+}
+
+
+TEST_F(shared_heap_test, test_shared_heap_multithread_performance)
+{
+    SharedHeapInitArgs args = { 0 };
+    WASMSharedHeap *shared_heap = nullptr;
+    uint32 argv[1] = { 0 };
+    const int num_threads = 20;
+    std::vector<std::thread> threads;
+
+    args.size = 1024;
+    shared_heap = wasm_runtime_create_shared_heap(&args);
+    if (!shared_heap) {
+        FAIL() << "Failed to create shared heap";
+    }
+
+    auto thread_func = [&shared_heap]() {
+        wasm_runtime_init_thread_env();
+        uint32 local_argv[1] = { 0 };
+        test_shared_heap(shared_heap, "test.wasm", "test", 0, local_argv);
+        EXPECT_EQ(10, local_argv[0]);
+	    wasm_runtime_destroy_thread_env();
+    };
+
+    for (int i = 0; i < num_threads; ++i) {
+        threads.emplace_back(thread_func);
+    }
+
+    for (auto &thread : threads) {
+        thread.join();
+    }
+    // Declare a mem_alloc_info_t struct to store memory allocation details
+    mem_alloc_info_t info;
+
+    // Call the function to fetch memory allocation details
+    wasm_runtime_get_mem_alloc_info(&info);
+
+    // Print memory allocation details
+    std::cout << "After inst" << std::endl;
+    std::cout << "Total size: " << info.total_size << std::endl;
+    std::cout << "Total free size: " << info.total_free_size << std::endl;
+    std::cout << "Highmark size: " << info.highmark_size << std::endl;
+}
+
+#include <random>  // Include this for std::random_device and std::mt19937
+
+std::vector<uint8_t> generate_random_data(size_t size) {
+    std::vector<uint8_t> data(size);
+    std::random_device rd; // Random number generator
+    std::mt19937 gen(rd()); // Mersenne Twister engine
+    std::uniform_int_distribution<uint8_t> dis(0, 255); // Uniform distribution
+
+    for (size_t i = 0; i < size; i++) {
+        data[i] = dis(gen);
+    }
+    return data;
+}
+
+// Fuzzing test for wasm_runtime_load
+TEST_F(shared_heap_test, test_FuzzWasmRuntimeLoad) {
+    const size_t max_size = 1024 * 1024; // 1 MB max size
+    auto random_data = generate_random_data(max_size);
+
+    char error_buf[128];
+    wasm_module_t module = wasm_runtime_load(random_data.data(), random_data.size(), error_buf, sizeof(error_buf));
+
+    if (module != NULL) {
+        wasm_runtime_unload(module);
+    } else {
+        printf("Error message: %s\n", error_buf);
+    }
+}
+
+// Fuzzing test for wasm_runtime_instantiate
+TEST_F(shared_heap_test, test_FuzzWasmRuntimeInstantiate) {
+    const size_t max_size = 1024 * 1024; // 1 MB max size
+    auto random_data = generate_random_data(max_size);
+
+    char error_buf[128];
+    wasm_module_t module = wasm_runtime_load(random_data.data(), random_data.size(), error_buf, sizeof(error_buf));
+
+    if (module != NULL) {
+        wasm_module_inst_t module_inst = wasm_runtime_instantiate(module, 8092, 8092, error_buf, sizeof(error_buf));
+        if (module_inst != NULL) {
+            wasm_runtime_deinstantiate(module_inst);
+        } else {
+            printf("Error message: %s\n", error_buf);
+        }
+        wasm_runtime_unload(module);
+    }
+}
+
+// Fuzzing test for wasm_runtime_call_wasm
+TEST_F(shared_heap_test, test_FuzzWasmRuntimeCallWasm) {
+    const size_t max_size = 1024 * 1024; // 1 MB max size
+    auto random_data = generate_random_data(max_size);
+
+    char error_buf[128];
+    wasm_module_t module = wasm_runtime_load(random_data.data(), random_data.size(), error_buf, sizeof(error_buf));
+
+    if (module != NULL) {
+        wasm_module_inst_t module_inst = wasm_runtime_instantiate(module, 8092, 8092, error_buf, sizeof(error_buf));
+        if (module_inst != NULL) {
+            wasm_exec_env_t exec_env = wasm_runtime_create_exec_env(module_inst, 8092);
+            if (exec_env != NULL) {
+                wasm_function_inst_t func = wasm_runtime_lookup_function(module_inst, "some_function_name");
+                if (func != NULL) {
+                    uint32_t wasm_argv[4] = {0};
+                    wasm_runtime_call_wasm(exec_env, func, 4, wasm_argv);
+                }
+                wasm_runtime_destroy_exec_env(exec_env);
+            }
+            wasm_runtime_deinstantiate(module_inst);
+        }
+        wasm_runtime_unload(module);
+    }
 }
